@@ -1,46 +1,78 @@
-from typing import Protocol, Optional, Dict, Any, List
+from __future__ import annotations
+
+from typing import Protocol, Optional, Dict, Tuple
 from src.images.models import ImageArtifact
-from src.integrations.google_drive.models import RemoteArtifact, UploadSession
+from src.integrations.google_drive.models import (
+    DriveFile,
+    UploadSession,
+    UploadChunkResult,
+    RemoteArtifact
+)
 
 class ArtifactPublisher(Protocol):
-    """Generic contract for publishing a local ImageArtifact to an external storage service."""
-    async def publish(self, artifact: ImageArtifact, local_filepath: str, run_id: Optional[str] = None) -> RemoteArtifact:
+    """Generic contract for publishing a local ImageArtifact to an external target."""
+    async def publish(
+        self,
+        artifact: ImageArtifact,
+        local_filepath: str,
+        destination_id: Optional[str] = None,
+        run_id: Optional[str] = None
+    ) -> RemoteArtifact:
         ...
 
-class GoogleDriveAuth(Protocol):
-    """Protocol for managing and refreshing OAuth2 / Service Account tokens."""
-    async def get_access_token(self) -> str:
-        ...
-
-    async def refresh_token(self) -> str:
+class GoogleDriveFolderResolver(Protocol):
+    """Protocol for resolving folder path tuples into Drive Folder IDs."""
+    async def resolve(self, *, root_folder_id: str, path: Tuple[str, ...]) -> str:
         ...
 
 class GoogleDriveClient(Protocol):
-    """Low-level protocol abstracting direct Google Drive REST API calls."""
-    async def find_file_by_app_properties(self, folder_id: str, app_properties: Dict[str, str]) -> Optional[RemoteArtifact]:
+    """Low-level transport protocol abstracting Drive API calls with typed primitives."""
+    async def find_file(
+        self,
+        *,
+        parent_folder_id: str,
+        app_properties: Dict[str, str],
+    ) -> Optional[DriveFile]:
         ...
 
-    async def create_folder(self, name: str, parent_folder_id: str) -> str:
-        """Returns the folder_id of the existing or newly created folder."""
+    async def get_file(self, file_id: str) -> DriveFile:
+        ...
+
+    async def create_folder(
+        self,
+        *,
+        parent_folder_id: str,
+        name: str,
+    ) -> str:
         ...
 
     async def create_resumable_upload_session(
         self,
+        *,
+        parent_folder_id: str,
         name: str,
         mime_type: str,
-        size_bytes: int,
-        parent_folder_id: str,
-        app_properties: Dict[str, str]
+        total_bytes: int,
+        app_properties: Dict[str, str],
     ) -> UploadSession:
         ...
 
-    async def upload_chunk(self, session: UploadSession, chunk: bytes, start_offset: int) -> UploadSession:
-        """Uploads a single byte chunk to an active resumable upload session."""
+    async def get_upload_session_status(
+        self,
+        *,
+        session_id: str,
+    ) -> UploadSession:
         ...
 
-    async def get_upload_session_status(self, session: UploadSession) -> UploadSession:
-        """Queries Google Drive server for the current byte offset and state of an upload session."""
+    async def upload_chunk(
+        self,
+        *,
+        session_id: str,
+        offset: int,
+        chunk: bytes,
+        total_bytes: int,
+    ) -> UploadChunkResult:
         ...
 
-    async def delete_file(self, drive_file_id: str) -> None:
+    async def delete_file(self, file_id: str) -> None:
         ...

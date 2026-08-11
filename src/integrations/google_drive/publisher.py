@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import asyncio
 import aiofiles
@@ -8,17 +10,22 @@ from src.core.checkpoint import CheckpointManager
 from src.core.retry import RetryPolicy
 from src.core.errors import AgentException
 from src.images.models import ImageArtifact
+from src.integrations.google_drive.auth import GoogleDriveAuth, GoogleDriveAuthenticationError
 from src.integrations.google_drive.models import (
     RemoteArtifact,
     GoogleDriveConfig,
     GoogleDriveUploadPolicy,
-    UploadState,
-    UploadSession
+    UploadSessionState,
+    UploadSession,
+    UploadChunkResult,
+    DriveFile,
+    PublicationIdentity
 )
-from src.integrations.google_drive.protocols import ArtifactPublisher, GoogleDriveClient
+from src.integrations.google_drive.protocols import ArtifactPublisher, GoogleDriveClient, GoogleDriveFolderResolver
 from src.integrations.google_drive.errors import (
-    GoogleDriveNetworkError,
+    GoogleDriveAuthError,
     GoogleDriveUploadStateError,
+    GoogleDriveSessionExpiredError,
     GoogleDriveError
 )
 
@@ -27,20 +34,24 @@ logger = logging.getLogger(__name__)
 class GoogleDrivePublisher(ArtifactPublisher):
     """
     Publisher implementation for Google Drive.
-    Enforces remote idempotency via appProperties and destination folder scope,
-    handles chunked resumable uploads using core RetryPolicy, and implements 
-    bounded UNKNOWN state recovery for network timeouts.
+    Enforces remote idempotency via appProperties and destination scope (PublicationIdentity),
+    handles chunked resumable uploads using core RetryPolicy, bounded 401 auth refresh,
+    and implements UNKNOWN state recovery for network timeouts.
     """
     def __init__(
         self,
         client: GoogleDriveClient,
         config: GoogleDriveConfig,
+        auth: Optional[GoogleDriveAuth] = None,
+        resolver: Optional[GoogleDriveFolderResolver] = None,
         policy: Optional[GoogleDriveUploadPolicy] = None,
         retry_policy: Optional[RetryPolicy] = None,
         checkpoints: Optional[CheckpointManager] = None
     ):
         self.client = client
         self.config = config
+        self.auth = auth
+        self.resolver = resolver
         self.policy = policy or GoogleDriveUploadPolicy()
         self.retry_policy = retry_policy or RetryPolicy(max_attempts=3, base_delay=1.0, jitter=False)
         self.checkpoints = checkpoints
@@ -54,46 +65,59 @@ class GoogleDrivePublisher(ArtifactPublisher):
             except Exception as e:
                 logger.warning(f"Failed to log checkpoint event {event_name}: {e}")
 
-    async def publish(self, artifact: ImageArtifact, local_filepath: str, run_id: Optional[str] = None) -> RemoteArtifact:
-        destination_folder_id = self.config.root_folder_id
-        # Canonical identity scope: (artifact.sha256, destination_folder_id)
-        operation_key = f"drive.publish:{destination_folder_id}:{artifact.sha256}"
+    async def publish(
+        self,
+        artifact: ImageArtifact,
+        local_filepath: str,
+        destination_id: Optional[str] = None,
+        run_id: Optional[str] = None
+    ) -> RemoteArtifact:
+        dest_id = destination_id or self.config.root_folder_id
+        identity = PublicationIdentity(artifact_sha256=artifact.sha256, destination_id=dest_id)
+        operation_key = identity.operation_key
 
         async with self._locks[operation_key]:
             app_properties = {
                 "agent_artifact_id": artifact.artifact_id,
-                "agent_sha256": artifact.sha256
+                "agent_sha256": artifact.sha256,
+                "agent_destination_id": dest_id,
+                "agent_schema_version": "1"
             }
 
-            # 1. Remote Idempotency Check
             self._log_event(run_id, "DRIVE_UPLOAD_CREATED", {
                 "artifact_id": artifact.artifact_id,
                 "sha256": artifact.sha256,
                 "operation_key": operation_key
             })
-            
-            existing = await self.client.find_file_by_app_properties(destination_folder_id, app_properties)
-            if existing:
-                logger.info(f"Artifact {artifact.artifact_id} already exists on Drive in folder {destination_folder_id} (id: {existing.drive_file_id}). Skipping upload.")
+
+            # 1. Remote Idempotency Check via app_properties
+            existing_drive_file = await self._call_with_auth_refresh(
+                lambda: self.client.find_file(parent_folder_id=dest_id, app_properties=app_properties)
+            )
+
+            if existing_drive_file:
+                logger.info(f"Artifact {artifact.artifact_id} already exists on Drive in folder {dest_id} (id: {existing_drive_file.file_id}). Skipping upload.")
+                remote_artifact = self._map_to_remote_artifact(artifact, existing_drive_file, dest_id)
                 self._log_event(run_id, "DRIVE_UPLOAD_COMPLETED", {
                     "artifact_id": artifact.artifact_id,
-                    "drive_file_id": existing.drive_file_id,
+                    "drive_file_id": remote_artifact.drive_file_id,
                     "operation_key": operation_key,
                     "idempotent": True
                 })
-                return existing
+                return remote_artifact
 
             # 2. Create Resumable Upload Session
             filename = f"{artifact.artifact_id}.bin"
-            session = await self.client.create_resumable_upload_session(
-                name=filename,
-                mime_type=artifact.mime_type,
-                size_bytes=artifact.size_bytes,
-                parent_folder_id=destination_folder_id,
-                app_properties=app_properties
+            session: UploadSession = await self._call_with_auth_refresh(
+                lambda: self.client.create_resumable_upload_session(
+                    parent_folder_id=dest_id,
+                    name=filename,
+                    mime_type=artifact.mime_type,
+                    total_bytes=artifact.size_bytes,
+                    app_properties=app_properties
+                )
             )
-            session.state = UploadState.SESSION_CREATED
-            
+
             self._log_event(run_id, "DRIVE_UPLOAD_STARTED", {
                 "artifact_id": artifact.artifact_id,
                 "session_id": session.session_id,
@@ -104,43 +128,64 @@ class GoogleDrivePublisher(ArtifactPublisher):
             # 3. Bounded Iterative Upload & Recovery Loop
             attempts = 0
             max_attempts = self.retry_policy.max_attempts
+            current_session = session
 
             while attempts < max_attempts:
                 attempts += 1
                 try:
-                    session.state = UploadState.UPLOADING
+                    current_session = UploadSession(
+                        session_id=current_session.session_id,
+                        state=UploadSessionState.ACTIVE,
+                        bytes_uploaded=current_session.bytes_uploaded,
+                        total_bytes=current_session.total_bytes,
+                        file_id=current_session.file_id
+                    )
+
                     async with aiofiles.open(local_filepath, "rb") as f:
-                        while session.bytes_uploaded < session.total_bytes:
-                            await f.seek(session.bytes_uploaded)
+                        while current_session.bytes_uploaded < current_session.total_bytes:
+                            await f.seek(current_session.bytes_uploaded)
                             chunk = await f.read(self.policy.chunk_size)
                             if not chunk:
                                 break
 
-                            session = await self.client.upload_chunk(session, chunk, session.bytes_uploaded)
-                            
+                            offset = current_session.bytes_uploaded
+                            chunk_res: UploadChunkResult = await self._call_with_auth_refresh(
+                                lambda: self.client.upload_chunk(
+                                    session_id=current_session.session_id,
+                                    offset=offset,
+                                    chunk=chunk,
+                                    total_bytes=artifact.size_bytes
+                                )
+                            )
+
+                            current_session = UploadSession(
+                                session_id=chunk_res.session_id,
+                                state=chunk_res.state,
+                                bytes_uploaded=chunk_res.bytes_uploaded,
+                                total_bytes=artifact.size_bytes,
+                                file_id=chunk_res.file_id
+                            )
+
                             self._log_event(run_id, "DRIVE_UPLOAD_PROGRESS", {
                                 "artifact_id": artifact.artifact_id,
-                                "session_id": session.session_id,
-                                "bytes_uploaded": session.bytes_uploaded,
-                                "total_bytes": session.total_bytes
+                                "session_id": current_session.session_id,
+                                "bytes_uploaded": current_session.bytes_uploaded,
+                                "total_bytes": current_session.total_bytes
                             })
 
-                    session.state = UploadState.FINALIZING
-                    if not session.drive_file_id:
-                        raise GoogleDriveUploadStateError(session.session_id, "Upload finished but no drive_file_id returned")
+                    if not current_session.file_id:
+                        raise GoogleDriveUploadStateError(current_session.session_id, "Upload finished but no file_id returned")
 
-                    remote_artifact = RemoteArtifact(
-                        artifact_id=artifact.artifact_id,
-                        sha256=artifact.sha256,
-                        drive_file_id=session.drive_file_id,
+                    drive_file = DriveFile(
+                        file_id=current_session.file_id,
                         name=filename,
                         mime_type=artifact.mime_type,
                         size_bytes=artifact.size_bytes,
-                        parent_folder_id=destination_folder_id,
-                        metadata=artifact.metadata
+                        parent_folder_id=dest_id,
+                        app_properties=app_properties
                     )
 
-                    session.state = UploadState.COMPLETED
+                    remote_artifact = self._map_to_remote_artifact(artifact, drive_file, dest_id)
                     self._log_event(run_id, "DRIVE_UPLOAD_COMPLETED", {
                         "artifact_id": artifact.artifact_id,
                         "drive_file_id": remote_artifact.drive_file_id,
@@ -150,42 +195,46 @@ class GoogleDrivePublisher(ArtifactPublisher):
                     return remote_artifact
 
                 except Exception as exc:
-                    session.state = UploadState.UNKNOWN
                     self._log_event(run_id, "DRIVE_UPLOAD_UNKNOWN", {
                         "artifact_id": artifact.artifact_id,
-                        "session_id": session.session_id,
+                        "session_id": current_session.session_id,
                         "attempt": attempts,
                         "error": str(exc)
                     })
 
-                    # If error is explicitly marked non-retryable, abort immediately
+                    # If non-retryable error, fail immediately
                     if getattr(exc, "retryable", False) is False:
-                        session.state = UploadState.FAILED
                         raise exc
 
                     # Bounded Recovery Attempt
-                    recovered = await self._attempt_recovery(session, destination_folder_id, app_properties, run_id)
-                    if recovered:
-                        return recovered
+                    recovered_file = await self._attempt_recovery(current_session, dest_id, app_properties, run_id)
+                    if recovered_file:
+                        remote_artifact = self._map_to_remote_artifact(artifact, recovered_file, dest_id)
+                        return remote_artifact
 
-                    # If recovery couldn't find a completed file, but session status updated `bytes_uploaded`,
-                    # the loop will retry uploading remaining bytes on next attempt.
                     if attempts >= max_attempts:
-                        session.state = UploadState.FAILED
                         self._log_event(run_id, "DRIVE_UPLOAD_REJECTED", {
                             "artifact_id": artifact.artifact_id,
-                            "session_id": session.session_id,
+                            "session_id": current_session.session_id,
                             "reason": "RECOVERY_EXHAUSTED"
                         })
-                        raise GoogleDriveUploadStateError(session.session_id, f"Exhausted {max_attempts} attempts for artifact {artifact.artifact_id}")
+                        raise GoogleDriveUploadStateError(current_session.session_id, f"Exhausted {max_attempts} attempts for artifact {artifact.artifact_id}")
 
-                    # Backoff sleep before next bounded attempt
                     delay = self.retry_policy.get_delay(attempts, exc if isinstance(exc, AgentException) else None)
                     await asyncio.sleep(delay)
 
-            # Fallback if loop exits
-            session.state = UploadState.FAILED
             raise GoogleDriveUploadStateError(session.session_id, f"Failed upload for artifact {artifact.artifact_id}")
+
+    async def _call_with_auth_refresh(self, fn):
+        """Helper to invoke client methods with a single 401 auth refresh retry."""
+        try:
+            return await fn()
+        except GoogleDriveAuthError:
+            if not self.auth:
+                raise
+            logger.info("Encountered 401 Auth error. Refreshing access token once...")
+            await self.auth.refresh_access_token()
+            return await fn()
 
     async def _attempt_recovery(
         self,
@@ -193,33 +242,46 @@ class GoogleDrivePublisher(ArtifactPublisher):
         folder_id: str,
         app_properties: Dict[str, str],
         run_id: Optional[str]
-    ) -> Optional[RemoteArtifact]:
+    ) -> Optional[DriveFile]:
         """Performs a non-recursive recovery attempt."""
         # Check A: Remote lookup in case commit succeeded on Drive server before timeout
-        existing = await self.client.find_file_by_app_properties(folder_id, app_properties)
+        existing = await self._call_with_auth_refresh(
+            lambda: self.client.find_file(parent_folder_id=folder_id, app_properties=app_properties)
+        )
         if existing:
-            logger.info(f"Recovery successful: File {existing.artifact_id} was committed on Drive (id: {existing.drive_file_id}).")
-            session.state = UploadState.COMPLETED
+            logger.info(f"Recovery successful: File {session.artifact_id if hasattr(session, 'artifact_id') else ''} was committed on Drive (id: {existing.file_id}).")
             self._log_event(run_id, "DRIVE_UPLOAD_RECOVERED", {
-                "artifact_id": existing.artifact_id,
-                "drive_file_id": existing.drive_file_id,
+                "drive_file_id": existing.file_id,
                 "mode": "REMOTE_LOOKUP"
             })
             return existing
 
         # Check B: Query upload session status to get updated bytes_uploaded offset
         try:
-            status_session = await self.client.get_upload_session_status(session)
-            if status_session.state != UploadState.FAILED:
-                session.bytes_uploaded = status_session.bytes_uploaded
-                logger.info(f"Recovery updated session {session.session_id} offset to {session.bytes_uploaded}.")
+            status_session = await self._call_with_auth_refresh(
+                lambda: self.client.get_upload_session_status(session_id=session.session_id)
+            )
+            if status_session.state != UploadSessionState.FAILED:
+                logger.info(f"Recovery updated session {session.session_id} offset to {status_session.bytes_uploaded}.")
                 self._log_event(run_id, "DRIVE_UPLOAD_RECOVERED", {
-                    "artifact_id": session.artifact_id,
                     "session_id": session.session_id,
                     "mode": "RESUME_OFFSET",
-                    "offset": session.bytes_uploaded
+                    "offset": status_session.bytes_uploaded
                 })
         except Exception as err:
             logger.warning(f"Failed to query session status during recovery: {err}")
 
         return None
+
+    def _map_to_remote_artifact(self, artifact: ImageArtifact, drive_file: DriveFile, dest_id: str) -> RemoteArtifact:
+        return RemoteArtifact(
+            artifact_id=artifact.artifact_id,
+            sha256=artifact.sha256,
+            drive_file_id=drive_file.file_id,
+            name=drive_file.name,
+            mime_type=artifact.mime_type,
+            size_bytes=artifact.size_bytes,
+            parent_folder_id=dest_id,
+            web_url=drive_file.web_url,
+            metadata=artifact.metadata
+        )

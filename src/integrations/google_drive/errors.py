@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Optional, Dict, Any
 from src.core.errors import AgentException
 
@@ -10,9 +12,9 @@ class GoogleDriveAuthError(GoogleDriveError):
     def __init__(self, message: str = "Google Drive authentication failed"):
         super().__init__(message, code="GDRIVE_AUTH_ERROR", retryable=False)
 
-class GoogleDrivePermissionError(GoogleDriveError):
+class GoogleDriveAuthorizationError(GoogleDriveError):
     def __init__(self, message: str = "Permission denied for Google Drive resource"):
-        super().__init__(message, code="GDRIVE_PERMISSION_DENIED", retryable=False)
+        super().__init__(message, code="GDRIVE_AUTHORIZATION_DENIED", retryable=False)
 
 class GoogleDriveNotFoundError(GoogleDriveError):
     def __init__(self, resource_id: str, message: str = "Google Drive resource not found"):
@@ -29,6 +31,20 @@ class GoogleDriveRateLimitError(GoogleDriveError):
 class GoogleDriveNetworkError(GoogleDriveError):
     def __init__(self, message: str = "Network failure communicating with Google Drive"):
         super().__init__(message, code="GDRIVE_NETWORK_ERROR", retryable=True)
+
+class GoogleDriveUploadError(GoogleDriveError):
+    def __init__(self, message: str = "Google Drive upload failed"):
+        super().__init__(message, code="GDRIVE_UPLOAD_FAILED", retryable=True)
+
+class GoogleDriveSessionExpiredError(GoogleDriveUploadError):
+    def __init__(self, session_id: str):
+        super().__init__(f"Resumable upload session {session_id} has expired")
+        self.code = "GDRIVE_SESSION_EXPIRED"
+        self.retryable = False
+
+class GoogleDriveInvalidResponseError(GoogleDriveError):
+    def __init__(self, message: str = "Google Drive returned an invalid response"):
+        super().__init__(message, code="GDRIVE_INVALID_RESPONSE", retryable=False)
 
 class GoogleDriveUploadStateError(GoogleDriveError):
     def __init__(self, session_id: str, message: str = "Invalid upload session state transition"):

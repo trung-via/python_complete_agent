@@ -4,7 +4,7 @@ from src.integrations.google_drive.models import (
     GoogleDriveConfig,
     GoogleDriveUploadPolicy,
     UploadSession,
-    UploadState
+    UploadSessionState
 )
 
 def test_remote_artifact_validation():
