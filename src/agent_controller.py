@@ -16,9 +16,16 @@ from src.agent.loop import AgentLoop
 from src.providers.gemini import GeminiProvider
 
 # We keep standard tools initialization here for now
-from src.modules.browser_automation import BrowserAutomation
 from src.modules.image_processor import ImageProcessor
 from src.modules.gdrive_integrator import GDriveIntegrator
+
+from src.integrations.playwright.manager import PlaywrightBrowserManager
+from src.tools.browser.navigate import NavigateTool
+from src.tools.browser.click import ClickTool
+from src.tools.browser.type_text import TypeTextTool
+from src.tools.browser.press import PressTool
+from src.tools.browser.screenshot import ScreenshotTool
+from src.tools.browser.inspect import InspectTool
 
 from src.tools.shopee_scrape_tool import ShopeeScrapeTool
 from src.tools.tiktok_scrape_tool import TikTokScrapeTool
@@ -38,7 +45,7 @@ class AgentController:
         self.idempotency_store = IdempotencyStore(db_path=idempotency_path)
         
         # Modules
-        self.browser = BrowserAutomation(headless=True)
+        self.browser_manager = PlaywrightBrowserManager()
         self.image_processor = ImageProcessor()
         self.gdrive = GDriveIntegrator("credentials.json")
         self.gdrive_folder_id = os.environ.get("GDRIVE_FOLDER_ID", "dummy_folder_id")
@@ -50,7 +57,7 @@ class AgentController:
         self.llm_provider = GeminiProvider()
         
         self.tool_context = {
-            'browser': self.browser,
+            'browser_manager': self.browser_manager,
             'image_processor': self.image_processor,
             'gdrive': self.gdrive,
             'gdrive_folder_id': self.gdrive_folder_id
@@ -73,17 +80,25 @@ class AgentController:
         )
 
     def _register_tools(self):
+        # Browser tools
+        self.registry.register_tool(NavigateTool(self.browser_manager))
+        self.registry.register_tool(ClickTool(self.browser_manager))
+        self.registry.register_tool(TypeTextTool(self.browser_manager))
+        self.registry.register_tool(PressTool(self.browser_manager))
+        self.registry.register_tool(ScreenshotTool(self.browser_manager))
+        self.registry.register_tool(InspectTool(self.browser_manager))
+        
+        # Legacy scraper tools
         self.registry.register_tool(ShopeeScrapeTool())
         self.registry.register_tool(TikTokScrapeTool())
 
     async def start(self):
         """Initializes heavy resources."""
-        await self.browser.start()
         self.gdrive.authenticate()
 
     async def stop(self):
         """Cleans up resources."""
-        await self.browser.stop()
+        await self.browser_manager.close_all()
 
     async def run(self, user_prompt: str, run_id: Optional[str] = None) -> Optional[str]:
         """
