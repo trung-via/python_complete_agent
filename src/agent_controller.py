@@ -61,9 +61,14 @@ class AgentController:
         logger.info(f"Processing task context: {task_context}")
         
         tools_schema = self.registry.get_tools_schema()
+        # 1. AI Planning
         try:
-            # AIController now boundary-creates the ToolCall
-            call: ToolCall = self.ai.plan_action(task_context, tools_schema, run_id)
+            logger.info(f"Asking AI to plan for task: {task_context}")
+            call: ToolCall = await self.ai.plan_action(
+                task_context, 
+                tools_schema,
+                run_id
+            )
         except AgentException as e:
             logger.error(f"AI Planning failed: {e.code} - {e.message}")
             return False

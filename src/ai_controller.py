@@ -20,7 +20,7 @@ class AIController:
             self.model = genai.GenerativeModel(model_name)
             logger.info(f"AI Controller initialized with Gemini API using model: {model_name}")
 
-    def plan_action(self, user_prompt: str, tools_schema: list[dict], run_id: str) -> ToolCall:
+    async def plan_action(self, user_prompt: str, tools_schema: list[dict], run_id: str) -> ToolCall:
         """
         Uses Gemini Function Calling to select the appropriate tool and extract arguments.
         Returns a strongly-typed ToolCall object.
@@ -46,7 +46,7 @@ class AIController:
         tools = [{"function_declarations": function_declarations}]
         
         try:
-            response = self.model.generate_content(
+            response = await self.model.generate_content_async(
                 system_instruction + "\n\nUser Request: " + user_prompt,
                 tools=tools
             )
