@@ -60,6 +60,15 @@ class CheckpointManager:
             "error": error_msg
         })
 
+    def log_event(self, run_id: str, event_name: str, payload: dict):
+        """Generic method to log any event with arbitrary payload."""
+        event = {
+            "run_id": run_id,
+            "event": event_name,
+        }
+        event.update(payload)
+        self._write_event(event)
+
     # --- Phase 2 Lifecycle Events ---
 
     def log_run_started(self, run_id: str, system_prompt: str, user_prompt: str):
