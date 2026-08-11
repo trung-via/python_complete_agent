@@ -1,17 +1,15 @@
 import pytest
 import os
-import shutil
 import tempfile
 from typing import Optional, Dict
-from unittest.mock import AsyncMock, MagicMock
 
+from src.core.retry import RetryPolicy
 from src.images.models import ImageArtifact
 from src.integrations.google_drive.models import (
     RemoteArtifact,
     GoogleDriveConfig,
     GoogleDriveUploadPolicy,
-    UploadSession,
-    UploadState
+    UploadSession
 )
 from src.integrations.google_drive.publisher import GoogleDrivePublisher
 from src.integrations.google_drive.errors import GoogleDriveNetworkError, GoogleDriveUploadStateError
@@ -97,7 +95,8 @@ async def test_publisher_successful_chunked_upload():
     client = DummyGoogleDriveClient()
     config = GoogleDriveConfig(root_folder_id="root_folder")
     policy = GoogleDriveUploadPolicy(chunk_size=256 * 1024)
-    publisher = GoogleDrivePublisher(client=client, config=config, policy=policy)
+    retry_policy = RetryPolicy(max_attempts=3, base_delay=0.01, jitter=False)
+    publisher = GoogleDrivePublisher(client=client, config=config, policy=policy, retry_policy=retry_policy)
 
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp.write(b"x" * (512 * 1024)) # 512KB
@@ -124,13 +123,14 @@ async def test_publisher_successful_chunked_upload():
             os.remove(tmp_path)
 
 @pytest.mark.asyncio
-async def test_publisher_unknown_state_recovery():
+async def test_publisher_unknown_state_recovery_bounded_loop():
     client = DummyGoogleDriveClient()
     client.fail_on_chunk = True # Simulates network drop on 1st chunk attempt
 
     config = GoogleDriveConfig(root_folder_id="root_folder")
     policy = GoogleDriveUploadPolicy(chunk_size=256 * 1024)
-    publisher = GoogleDrivePublisher(client=client, config=config, policy=policy)
+    retry_policy = RetryPolicy(max_attempts=3, base_delay=0.01, jitter=False)
+    publisher = GoogleDrivePublisher(client=client, config=config, policy=policy, retry_policy=retry_policy)
 
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp.write(b"y" * (256 * 1024)) # 256KB
@@ -148,10 +148,11 @@ async def test_publisher_unknown_state_recovery():
             storage_key=tmp_path
         )
 
-        # The first attempt on chunk 1 raises NetworkError -> triggers UNKNOWN -> recovers via status/retry -> succeeds
+        # The first attempt on chunk 1 raises NetworkError -> UNKNOWN -> recovers session offset -> 2nd attempt succeeds
         result = await publisher.publish(artifact, local_filepath=tmp_path, run_id="r3")
         assert result.drive_file_id == "drive_file_999"
         assert result.artifact_id == "img_003"
+        assert client.chunk_attempts == 2
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)

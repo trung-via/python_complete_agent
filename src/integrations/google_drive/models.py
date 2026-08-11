@@ -50,9 +50,6 @@ class GoogleDriveConfig:
 class GoogleDriveUploadPolicy:
     chunk_size: int = 2 * 1024 * 1024  # 2MB chunks (Google Drive standard multiple of 256KB)
     request_timeout: float = 30.0
-    max_attempts: int = 3
-    backoff: float = 1.5
-    jitter: bool = True
 
     def __post_init__(self):
         if self.chunk_size <= 0 or self.chunk_size % (256 * 1024) != 0:
