@@ -71,7 +71,7 @@ class TikTokScrapeTool(BaseTool):
                     });
                 }''')
                 await page.wait_for_timeout(1000)
-            except:
+            except Exception:
                 pass
                 
             try:
@@ -122,7 +122,7 @@ class TikTokScrapeTool(BaseTool):
                 title_el = await page.query_selector('title')
                 if title_el:
                     result['product_name'] = (await title_el.inner_text()).split('|')[0].strip()
-            except:
+            except Exception:
                 pass
                 
             result['images'] = list(images)

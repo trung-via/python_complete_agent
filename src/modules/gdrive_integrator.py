@@ -111,7 +111,20 @@ class GDriveIntegrator:
             return file_id
         except Exception as e:
             logger.error(f"Failed to upload file to Google Drive: {e}")
-            return None
+            from googleapiclient.errors import HttpError
+            from src.core.errors import AgentException
+            
+            if isinstance(e, HttpError):
+                if e.resp.status == 429:
+                    retry_after = e.resp.get('Retry-After')
+                    details = {'retry_after': retry_after} if retry_after else None
+                    raise AgentException(f"Google Drive Rate Limit: {e}", retryable=True, code="RATE_LIMIT", details=details)
+                elif e.resp.status in [401, 403]:
+                    raise AgentException(f"Google Drive Auth/Permission Error: {e}", retryable=False, code="AUTH_ERROR")
+                elif e.resp.status >= 500:
+                    raise AgentException(f"Google Drive Server Error: {e}", retryable=True, code="SERVER_ERROR")
+            
+            raise AgentException(f"Google Drive Upload Failed: {e}", retryable=True, code="UPLOAD_FAILED")
 
     def get_or_create_folder(self, folder_name: str, parent_id: str = None) -> str:
         """
@@ -150,4 +163,17 @@ class GDriveIntegrator:
             
         except Exception as e:
             logger.error(f"Error managing folder {folder_name}: {e}")
-            return None
+            from googleapiclient.errors import HttpError
+            from src.core.errors import AgentException
+            
+            if isinstance(e, HttpError):
+                if e.resp.status == 429:
+                    retry_after = e.resp.get('Retry-After')
+                    details = {'retry_after': retry_after} if retry_after else None
+                    raise AgentException(f"Google Drive Rate Limit: {e}", retryable=True, code="RATE_LIMIT", details=details)
+                elif e.resp.status in [401, 403]:
+                    raise AgentException(f"Google Drive Auth/Permission Error: {e}", retryable=False, code="AUTH_ERROR")
+                elif e.resp.status >= 500:
+                    raise AgentException(f"Google Drive Server Error: {e}", retryable=True, code="SERVER_ERROR")
+            
+            raise AgentException(f"Google Drive Folder Error: {e}", retryable=True, code="FOLDER_ERROR")

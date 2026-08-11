@@ -66,7 +66,7 @@ class ShopeeScrapeTool(BaseTool):
             
             try:
                 await page.wait_for_selector('[role="main"], .page-product__briefing, .product-briefing', timeout=25000)
-            except:
+            except Exception:
                 logger.warning("Product main container not found (could be a Captcha or slow loading).")
             
             await page.wait_for_timeout(3000)
@@ -77,7 +77,7 @@ class ShopeeScrapeTool(BaseTool):
                 await page.evaluate("window.scrollBy(0, 1000)")
                 await page.wait_for_timeout(1000)
                 await page.wait_for_timeout(1000)
-            except:
+            except Exception:
                 pass
                 
             try:
@@ -88,7 +88,7 @@ class ShopeeScrapeTool(BaseTool):
                         if btn:
                             await btn.click()
                             await page.wait_for_timeout(300)
-            except:
+            except Exception:
                 pass
                 
             script = r'''() => {
