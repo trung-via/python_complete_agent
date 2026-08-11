@@ -22,13 +22,20 @@ class FakeGoogleDriveAuth:
     def __init__(self):
         self.access_token = AccessToken(value="token_v1")
         self.refresh_count = 0
+        self.active_refreshes = 0
+        self.max_concurrent_refreshes = 0
 
     async def get_access_token(self) -> AccessToken:
         return self.access_token
 
-    async def refresh_access_token(self) -> AccessToken:
+    async def refresh_access_token(self, failed_token: Optional[str] = None) -> AccessToken:
+        import asyncio
+        self.active_refreshes += 1
+        self.max_concurrent_refreshes = max(self.max_concurrent_refreshes, self.active_refreshes)
+        await asyncio.sleep(0.01) # Simulate network delay
         self.refresh_count += 1
         self.access_token = AccessToken(value=f"token_v{self.refresh_count + 1}")
+        self.active_refreshes -= 1
         return self.access_token
 
 class FakeGoogleDriveClient:
@@ -178,25 +185,24 @@ async def test_publisher_successful_chunked_upload():
             os.remove(tmp_path)
 
 @pytest.mark.asyncio
-async def test_publisher_auth_401_refresh_and_single_flight():
-    client = FakeGoogleDriveClient()
-    client.fail_auth_once = True
+async def test_publisher_concurrent_auth_401_single_flight():
+    import asyncio
     raw_auth = FakeGoogleDriveAuth()
     single_flight_auth = SingleFlightGoogleDriveAuth(raw_auth)
 
-    config = GoogleDriveConfig(root_folder_id="root_folder")
-    publisher = GoogleDrivePublisher(client=client, config=config, auth=single_flight_auth)
+    stale_token = "token_v1"
 
-    # Test single-flight skip when token already updated
-    token_before = await single_flight_auth.get_access_token()
-    # Simulate first flight refreshing token from token_v1 to token_v2
-    await single_flight_auth.refresh_access_token(failed_token="token_v1")
+    # Launch 10 concurrent tasks all trying to refresh with the exact same stale token
+    tasks = [
+        single_flight_auth.refresh_access_token(failed_token=stale_token)
+        for _ in range(10)
+    ]
+    results = await asyncio.gather(*tasks)
+
+    # Invariant assertions
     assert raw_auth.refresh_count == 1
-
-    # Concurrent second request using stale token_v1 -> should skip network refresh!
-    token_after = await single_flight_auth.refresh_access_token(failed_token="token_v1")
-    assert raw_auth.refresh_count == 1 # Stays 1, single flight succeeded!
-    assert token_after.value == "token_v2"
+    assert raw_auth.max_concurrent_refreshes == 1
+    assert all(r.value == "token_v2" for r in results)
 
 @pytest.mark.asyncio
 async def test_publisher_same_artifact_different_destinations():
