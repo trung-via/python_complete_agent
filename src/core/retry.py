@@ -9,8 +9,8 @@ class RetryManager:
     """
     Handles robust execution of tools with granular, policy-based retry logic.
     """
-    def __init__(self, max_retries: int = 3, base_delay: float = 2.0):
-        self.max_retries = max_retries
+    def __init__(self, max_attempts: int = 3, base_delay: float = 2.0):
+        self.max_attempts = max_attempts
         self.base_delay = base_delay
         
     async def execute_with_retry(self, operation: Callable, *args, **kwargs) -> Any:
@@ -23,13 +23,13 @@ class RetryManager:
         attempt = 1
         last_result = None
         
-        while attempt <= self.max_retries:
+        while attempt <= self.max_attempts:
             try:
                 result = await operation(*args, **kwargs)
                 
                 if isinstance(result, ToolResult) and result.status == ToolStatus.FAILURE:
                     if result.error and result.error.retryable:
-                        logger.warning(f"Operation failed with retryable error (Attempt {attempt}/{self.max_retries}): {result.error.code} - {result.error.message}")
+                        logger.warning(f"Operation failed with retryable error (Attempt {attempt}/{self.max_attempts}): {result.error.code} - {result.error.message}")
                         last_result = result
                     else:
                         logger.error(f"Operation failed with non-retryable error: {result.error.message if result.error else 'Unknown'}")
@@ -42,12 +42,12 @@ class RetryManager:
                 if not e.retryable:
                     logger.error(f"Operation raised non-retryable AgentException: {e.code} - {e.message}")
                     raise
-                logger.warning(f"Operation raised retryable AgentException (Attempt {attempt}/{self.max_retries}): {e.code} - {e.message}")
+                logger.warning(f"Operation raised retryable AgentException (Attempt {attempt}/{self.max_attempts}): {e.code} - {e.message}")
             except Exception as e:
-                logger.error(f"Operation raised unexpected exception (Attempt {attempt}/{self.max_retries}): {e}")
+                logger.error(f"Operation raised unexpected exception (Attempt {attempt}/{self.max_attempts}): {e}")
                 
-            if attempt == self.max_retries:
-                logger.error("All retries exhausted.")
+            if attempt == self.max_attempts:
+                logger.error("All attempts exhausted.")
                 if last_result:
                     return last_result
                 raise
