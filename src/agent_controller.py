@@ -41,7 +41,8 @@ class AgentController:
         
         # Initialize Checkpoint Manager, Retry Manager, and Idempotency Store
         self.checkpoints = CheckpointManager()
-        self.retry_manager = RetryManager(max_attempts=3)
+        from src.core.retry import RetryPolicy
+        self.retry_manager = RetryManager(default_policy=RetryPolicy(max_attempts=3))
         self.idempotency_store = IdempotencyStore()
 
     async def initialize(self):
