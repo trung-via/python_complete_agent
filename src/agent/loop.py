@@ -31,10 +31,21 @@ class AgentLoop:
         
     async def run(self, run_id: str, system_prompt: str, user_prompt: str) -> Optional[str]:
         """
-        Executes the closed-loop autonomous agent reasoning cycle.
+        Executes the closed-loop autonomous agent reasoning cycle with a hard timeout.
         Returns the final answer text, or None if halted/failed.
         """
-        start_time = time.time()
+        try:
+            return await asyncio.wait_for(
+                self._run_internal(run_id, system_prompt, user_prompt),
+                timeout=self.policy.timeout_seconds
+            )
+        except asyncio.TimeoutError:
+            logger.warning(f"Run {run_id} halted: Hard timeout ({self.policy.timeout_seconds}s) reached.")
+            self.checkpoints.log_run_halted(run_id, "TIMEOUT_REACHED")
+            return None
+
+    async def _run_internal(self, run_id: str, system_prompt: str, user_prompt: str) -> Optional[str]:
+        """Internal run loop without timeout wrapping."""
         iterations = 0
         total_tool_calls = 0
         
@@ -51,11 +62,6 @@ class AgentLoop:
             if iterations >= self.policy.max_iterations:
                 logger.warning(f"Run {run_id} halted: Max iterations ({self.policy.max_iterations}) reached.")
                 self.checkpoints.log_run_halted(run_id, "MAX_ITERATIONS_REACHED")
-                return None
-                
-            if time.time() - start_time > self.policy.timeout_seconds:
-                logger.warning(f"Run {run_id} halted: Timeout ({self.policy.timeout_seconds}s) reached.")
-                self.checkpoints.log_run_halted(run_id, "TIMEOUT_REACHED")
                 return None
                 
             iterations += 1
