@@ -228,15 +228,15 @@ class GoogleDrivePublisher(ArtifactPublisher):
             raise GoogleDriveUploadStateError(session.session_id, f"Failed upload for artifact {artifact.artifact_id}")
 
     async def _call_with_auth_refresh(self, fn):
-        """Helper to invoke client methods with single-flight 401 auth refresh retry."""
+        """Helper to invoke client methods with true single-flight 401 auth refresh retry."""
         try:
             return await fn()
-        except GoogleDriveAuthError:
+        except GoogleDriveAuthError as err:
             if not self.auth:
                 raise
-            async with self._auth_lock:
-                logger.info("Encountered 401 Auth error. Executing single-flight access token refresh...")
-                await self.auth.refresh_access_token()
+            failed_token = getattr(err, "failed_token", None)
+            logger.info("Encountered 401 Auth error. Executing single-flight access token refresh...")
+            await self.auth.refresh_access_token(failed_token=failed_token)
             return await fn()
 
     async def _attempt_recovery(

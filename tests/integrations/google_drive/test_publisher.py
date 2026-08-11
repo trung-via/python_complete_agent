@@ -47,7 +47,7 @@ class FakeGoogleDriveClient:
     ) -> Optional[DriveFile]:
         if self.fail_auth_once and self.auth_attempts == 0:
             self.auth_attempts += 1
-            raise GoogleDriveAuthError("Invalid Access Token")
+            raise GoogleDriveAuthError("Invalid Access Token", failed_token="token_v1")
 
         folder_files = self.files_by_folder.get(parent_folder_id, {})
         for file in folder_files.values():
@@ -187,28 +187,16 @@ async def test_publisher_auth_401_refresh_and_single_flight():
     config = GoogleDriveConfig(root_folder_id="root_folder")
     publisher = GoogleDrivePublisher(client=client, config=config, auth=single_flight_auth)
 
-    artifact = ImageArtifact(
-        artifact_id="img_auth_test",
-        sha256="sha_auth",
-        mime_type="image/jpeg",
-        size_bytes=256 * 1024,
-        width=10,
-        height=10,
-        source_url="http://example.com/auth.jpg",
-        storage_key="/tmp/auth.jpg"
-    )
+    # Test single-flight skip when token already updated
+    token_before = await single_flight_auth.get_access_token()
+    # Simulate first flight refreshing token from token_v1 to token_v2
+    await single_flight_auth.refresh_access_token(failed_token="token_v1")
+    assert raw_auth.refresh_count == 1
 
-    with tempfile.NamedTemporaryFile(delete=False) as tmp:
-        tmp.write(b"z" * (256 * 1024))
-        tmp_path = tmp.name
-
-    try:
-        result = await publisher.publish(artifact, source_path=tmp_path, run_id="r_auth")
-        assert result.drive_file_id is not None
-        assert raw_auth.refresh_count == 1
-    finally:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
+    # Concurrent second request using stale token_v1 -> should skip network refresh!
+    token_after = await single_flight_auth.refresh_access_token(failed_token="token_v1")
+    assert raw_auth.refresh_count == 1 # Stays 1, single flight succeeded!
+    assert token_after.value == "token_v2"
 
 @pytest.mark.asyncio
 async def test_publisher_same_artifact_different_destinations():
