@@ -1,12 +1,18 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 class MessageRole(str, Enum):
     SYSTEM = "system"
     USER = "user"
     ASSISTANT = "assistant"
     TOOL = "tool"
+
+@dataclass
+class AssistantToolCall:
+    call_id: str
+    name: str
+    arguments: Dict[str, Any]
 
 @dataclass
 class LLMMessage:
@@ -19,4 +25,4 @@ class LLMMessage:
     
     # We might also want to store tool calls that the assistant made in this message
     # if role == ASSISTANT
-    tool_calls: list[dict] = field(default_factory=list)
+    tool_calls: List[AssistantToolCall] = field(default_factory=list)

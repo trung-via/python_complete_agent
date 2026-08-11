@@ -11,7 +11,7 @@ class ProviderToolCall:
 @dataclass
 class LLMResponse:
     provider: str
-    provider_response_id: str
+    provider_response_id: Optional[str]
     content: Optional[str]
     tool_calls: List[ProviderToolCall] = field(default_factory=list)
     finish_reason: Optional[str] = None

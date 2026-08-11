@@ -39,8 +39,8 @@ class GeminiProvider(LLMProvider):
                 for tc in msg.tool_calls:
                     parts.append({
                         "function_call": {
-                            "name": tc["name"],
-                            "args": tc["arguments"]
+                            "name": tc.name,
+                            "args": tc.arguments
                         }
                     })
                 contents.append({"role": "model", "parts": parts})
@@ -117,7 +117,7 @@ class GeminiProvider(LLMProvider):
 
         return LLMResponse(
             provider="gemini",
-            provider_response_id=str(uuid.uuid4()),  # Gemini Python SDK doesn't consistently expose a response ID
+            provider_response_id=None,  # Gemini Python SDK doesn't consistently expose a response ID
             content=text_content,
             tool_calls=provider_tool_calls,
             finish_reason=str(response.candidates[0].finish_reason) if response.candidates else None,

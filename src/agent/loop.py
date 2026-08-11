@@ -3,7 +3,7 @@ import asyncio
 import time
 from typing import List, Optional
 
-from src.agent.messages import LLMMessage, MessageRole
+from src.agent.messages import LLMMessage, MessageRole, AssistantToolCall
 from src.agent.policy import RunPolicy
 from src.providers.base import LLMProvider, LLMResponse
 from src.core.tool_executor import ToolExecutor
@@ -65,13 +65,24 @@ class AgentLoop:
             try:
                 response: LLMResponse = await self.llm.generate(messages, tools_schema)
                 self.checkpoints.log_llm_responded(run_id, iterations, response.content, len(response.tool_calls))
+            except SystemStateError as e:
+                logger.critical(f"FATAL: System state error in LLM Provider: {e}")
+                self.checkpoints.log_run_halted(run_id, f"SYSTEM_STATE_ERROR: {e}")
+                raise
+            except AgentException as e:
+                logger.error(f"LLM Provider recoverable failure: {e}")
+                self.checkpoints.log_run_failed(run_id, str(e))
+                return None
             except Exception as e:
-                logger.error(f"LLM Provider failed: {e}")
+                logger.error(f"Unexpected LLM Provider failure: {e}", exc_info=True)
                 self.checkpoints.log_run_failed(run_id, str(e))
                 return None
                 
             # Append ASSISTANT message
-            msg_tool_calls = [{"name": tc.name, "arguments": tc.arguments} for tc in response.tool_calls]
+            msg_tool_calls = [
+                AssistantToolCall(call_id=tc.provider_call_id, name=tc.name, arguments=tc.arguments) 
+                for tc in response.tool_calls
+            ]
             messages.append(LLMMessage(
                 role=MessageRole.ASSISTANT,
                 content=response.content,
