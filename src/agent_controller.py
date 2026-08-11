@@ -12,6 +12,7 @@ from src.core.types import ToolCall, ToolResult
 from src.core.errors import AgentException, RateLimitError
 from src.tools.shopee_scrape_tool import ShopeeScrapeTool
 from src.tools.tiktok_scrape_tool import TikTokScrapeTool
+from src.core.checkpoint import CheckpointManager
 
 logger = logging.getLogger(__name__)
 
@@ -34,32 +35,27 @@ class AgentController:
         self.registry = ToolRegistry()
         self.registry.register_tool(ShopeeScrapeTool())
         self.registry.register_tool(TikTokScrapeTool())
+        
+        self.checkpoints = CheckpointManager()
 
     async def initialize(self):
-        """Initializes async components like the browser."""
+        """Initializes async components like the browser and GDrive."""
         await self.browser.start()
+        # Move GDrive auth to initialization
+        await asyncio.to_thread(self.gdrive.authenticate)
 
     async def shutdown(self):
         """Cleans up resources."""
         await self.browser.stop()
 
-    async def execute_task(self, user_prompt: str) -> bool:
+    async def execute_task(self, task_context: str, run_id: str) -> bool:
         """
-        The main workflow:
-        1. Ask AI Controller to parse the prompt.
-        2. Execute the corresponding sub-module action.
-        3. Process results (e.g., download images).
-        4. Upload to Google Drive.
-        Returns True if successful, False otherwise.
+        Executes a single task with proper schema validation and tool contract.
         """
-        logger.info(f"Received user prompt: {user_prompt}")
+        logger.info(f"Processing task context: {task_context}")
         
-        plan = None
-        
-        # 1. AI Planning
-        if not plan:
-            tools_schema = self.registry.get_tools_schema()
-            plan = self.ai.plan_action(user_prompt, tools_schema)
+        tools_schema = self.registry.get_tools_schema()
+        plan = self.ai.plan_action(task_context, tools_schema)
             
         if "error" in plan:
             logger.error(f"Could not create plan: {plan['error']}")
@@ -72,13 +68,27 @@ class AgentController:
             logger.warning(f"AI determined the request is unknown. Plan: {plan}")
             return False
 
-        # 2. Look up tool in registry
+        # Look up tool in registry
         tool = self.registry.get_tool(action)
         if not tool:
             logger.warning(f"No tool registered for action: {action}")
             return False
             
-        # 3. Execution
+        call = ToolCall(
+            name=action,
+            arguments=arguments,
+            call_id=str(uuid.uuid4())
+        )
+        
+        self.checkpoints.log_tool_call(run_id, call.call_id, call.name, call.arguments)
+        
+        # Strict schema validation
+        try:
+            self.registry.validate_call(call)
+        except ValueError as e:
+            logger.error(f"ToolCall validation failed: {e}")
+            return False
+            
         context = {
             'browser': self.browser,
             'image_processor': self.image_processor,
@@ -86,12 +96,6 @@ class AgentController:
             'ai_controller': self.ai,
             'gdrive_folder_id': self.gdrive_folder_id
         }
-        
-        call = ToolCall(
-            name=action,
-            arguments=arguments,
-            call_id=str(uuid.uuid4())
-        )
         
         try:
             result: ToolResult = await tool.execute(call=call, context=context)
@@ -106,30 +110,26 @@ class AgentController:
                 return False
         except RateLimitError as e:
             logger.error(f"Rate limited by target: {e}")
-            return False # Will trigger retry in autonomous loop
+            raise # Re-raise to trigger retry
         except AgentException as e:
             logger.error(f"Agent error during execution: {e}")
+            if getattr(e, 'retryable', False):
+                raise
             return False
         except Exception as e:
             logger.error(f"Unexpected tool execution failure: {e}", exc_info=True)
             return False
 
-    async def run_autonomous_loop(self, tasks_file: str = "tasks.txt", completed_file: str = "completed.txt"):
-        """Runs the agent autonomously, reading tasks from a file and saving progress."""
+    async def run_autonomous_loop(self, tasks_file: str = "tasks.txt"):
+        """Runs the agent autonomously using CheckpointManager for state."""
         if not os.path.exists(tasks_file):
             logger.info(f"No {tasks_file} found. Creating an empty one.")
             with open(tasks_file, "w", encoding="utf-8") as f:
-                f.write("# Paste URLs here, one per line\n")
+                f.write("# Paste task contexts here, one per line\n")
             return
 
-        # Load completed tasks
-        completed_urls = set()
-        if os.path.exists(completed_file):
-            with open(completed_file, "r", encoding="utf-8") as f:
-                for line in f:
-                    completed_urls.add(line.strip())
+        completed_tasks = self.checkpoints.get_completed_tasks()
 
-        # Read tasks
         with open(tasks_file, "r", encoding="utf-8") as f:
             lines = f.readlines()
 
@@ -138,7 +138,7 @@ class AgentController:
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
-            if line not in completed_urls:
+            if line not in completed_tasks:
                 pending_tasks.append(line)
 
         if not pending_tasks:
@@ -147,29 +147,30 @@ class AgentController:
 
         logger.info(f"Starting autonomous loop with {len(pending_tasks)} pending tasks.")
 
-        for url in pending_tasks:
+        for task_context in pending_tasks:
+            run_id = self.checkpoints.log_task_start(task_context)
             success = False
-            retries = 3
+            max_retries = 3
             
-            for attempt in range(1, retries + 1):
-                logger.info(f"--- Task: {url} (Attempt {attempt}/{retries}) ---")
+            for attempt in range(1, max_retries + 1):
+                logger.info(f"--- Task: {task_context} (Attempt {attempt}/{max_retries}) ---")
                 
-                # Make sure browser context is clean or re-created if necessary.
-                # In our case, Playwright handles new pages fine.
-                
-                success = await self.execute_task(url)
-                if success:
-                    break
-                else:
-                    if attempt < retries:
-                        logger.info("Task failed. Retrying in 5 seconds...")
-                        await asyncio.sleep(5)
+                try:
+                    success = await self.execute_task(task_context, run_id)
+                    if success:
+                        break
+                except Exception as e:
+                    logger.warning(f"Task threw a retryable exception: {e}")
+                    
+                if not success and attempt < max_retries:
+                    logger.info("Task failed. Retrying in 5 seconds...")
+                    await asyncio.sleep(5)
+            
+            self.checkpoints.log_task_end(run_id, success, attempt - 1)
             
             if success:
-                logger.info(f"Successfully processed {url}. Marking as completed.")
-                with open(completed_file, "a", encoding="utf-8") as f:
-                    f.write(f"{url}\n")
+                logger.info(f"Successfully processed {task_context}. Marked as SUCCESS in checkpoint.")
             else:
-                logger.error(f"Failed to process {url} after {retries} attempts. Skipping.")
+                logger.error(f"Failed to process {task_context} after {max_retries} attempts. Marked as FAILED.")
                 
         logger.info("Autonomous loop finished.")

@@ -42,3 +42,21 @@ class ToolRegistry:
                 "parameters": tool.get_schema()
             })
         return schemas
+
+    def validate_call(self, call: 'ToolCall') -> bool:
+        """
+        Validates a ToolCall against the registered tool's schema.
+        Raises ValueError if invalid.
+        """
+        tool = self.get_tool(call.name)
+        if not tool:
+            raise ValueError(f"Tool '{call.name}' not found in registry.")
+            
+        schema = tool.get_schema()
+        required_fields = schema.get("required", [])
+        for field in required_fields:
+            if field not in call.arguments:
+                raise ValueError(f"Missing required argument '{field}' for tool '{call.name}'.")
+                
+        # Additional JSON schema validation could be added here using jsonschema
+        return True

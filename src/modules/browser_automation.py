@@ -36,7 +36,6 @@ class BrowserAutomation:
             
         # 2. Launch Chrome natively using subprocess (this bypasses Playwright automation flags!)
         import subprocess
-        import time
         import socket
         
         # Check if port is already in use (Chrome already running)
@@ -60,10 +59,10 @@ class BrowserAutomation:
                 stderr=subprocess.DEVNULL,
             )
             
-            # Wait for CDP to be available
+            # Wait for CDP to be available (P0 #12 - non-blocking sleep)
             for _ in range(30):
                 if is_port_in_use(port): break
-                time.sleep(0.5)
+                await asyncio.sleep(0.5)
         
         # 3. Connect Playwright over CDP
         self.browser = await self.playwright.chromium.connect_over_cdp(f"http://127.0.0.1:{port}")

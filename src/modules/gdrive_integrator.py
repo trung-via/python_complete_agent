@@ -14,7 +14,7 @@ class GDriveIntegrator:
     def __init__(self, credentials_file: str):
         self.credentials_file = credentials_file
         self.service = None
-        self.authenticate()
+        # Removed self.authenticate() for Lazy Auth (P0 #10)
 
     def authenticate(self):
         """Authenticates using OAuth2 Client ID."""
@@ -49,11 +49,21 @@ class GDriveIntegrator:
         except Exception as e:
             logger.error(f"Failed to authenticate with Google Drive: {e}")
 
+    def _get_idempotency_key(self, file_path: str) -> str:
+        """Generates a stable key (hash) based on filename and contents."""
+        import hashlib
+        hasher = hashlib.md5()
+        hasher.update(os.path.basename(file_path).encode('utf-8'))
+        with open(file_path, 'rb') as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hasher.update(chunk)
+        return hasher.hexdigest()
+
     def upload_file(self, file_path: str, folder_id: str = None) -> str:
         """
         Uploads a file to Google Drive. 
         Returns the ID of the uploaded file, or None if it failed.
-        Implements idempotency by checking if a file with the same name exists in the folder.
+        Implements true idempotency by using appProperties (P0 #11).
         """
         if not self.service:
             logger.error("Google Drive service is not authenticated.")
@@ -64,22 +74,27 @@ class GDriveIntegrator:
             return None
 
         file_name = os.path.basename(file_path)
+        idempotency_key = self._get_idempotency_key(file_path)
         
-        # Idempotency Check: Does it already exist?
+        # Idempotency Check: Does it already exist with this exact content?
         try:
-            query = f"name='{file_name}' and trashed=false"
+            # Query by appProperties
+            query = f"appProperties has {{ key='idempotency_key' and value='{idempotency_key}' }} and trashed=false"
             if folder_id:
                 query += f" and '{folder_id}' in parents"
             response = self.service.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
             files = response.get('files', [])
             if files:
                 file_id = files[0].get('id')
-                logger.info(f"File {file_name} already exists in GDrive (ID: {file_id}). Skipping upload.")
+                logger.info(f"File {file_name} already exists in GDrive with identical content (ID: {file_id}). Skipping upload.")
                 return file_id
         except Exception as e:
             logger.warning(f"Failed to check for existing file {file_name}: {e}")
 
-        file_metadata = {'name': file_name}
+        file_metadata = {
+            'name': file_name,
+            'appProperties': {'idempotency_key': idempotency_key}
+        }
         if folder_id:
             file_metadata['parents'] = [folder_id]
 
