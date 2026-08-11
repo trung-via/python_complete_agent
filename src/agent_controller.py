@@ -120,7 +120,9 @@ class AgentController:
                 )
                 
                 # Save successful result to idempotency store
-                if result.status in (ToolStatus.SUCCESS, ToolStatus.PARTIAL_SUCCESS):
+                # Note: We intentionally do NOT cache PARTIAL_SUCCESS. Because operations like GDrive upload
+                # have item-level idempotency, allowing the tool to run again will resume the remaining items.
+                if result.status == ToolStatus.SUCCESS:
                     self.idempotency_store.save(call.idempotency_key, result)
                     
             except AgentException as e:
