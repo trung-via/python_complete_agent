@@ -9,6 +9,10 @@ class BrowserNotStartedError(BrowserError):
     def __init__(self, message: str = "Browser session is not started or is closed."):
         super().__init__(message, code="BROWSER_NOT_STARTED", retryable=False)
 
+class BrowserSessionUnavailableError(BrowserError):
+    def __init__(self, message: str = "Browser session is unavailable (crashed or closed)."):
+        super().__init__(message, code="BROWSER_SESSION_UNAVAILABLE", retryable=True)
+
 class NavigationError(BrowserError):
     def __init__(self, message: str, url: str):
         super().__init__(message, code="NAVIGATION_ERROR", retryable=True, details={"url": url})

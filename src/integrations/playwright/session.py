@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import uuid
 from typing import Optional, Dict, Any, List
 
 from playwright.async_api import async_playwright, Playwright, Browser, BrowserContext, Page, TimeoutError as PlaywrightTimeoutError, Error as PlaywrightError
@@ -31,6 +32,7 @@ class PlaywrightBrowserSession(BrowserSession):
         self._page: Optional[Page] = None
         
         # Element cache: run_id/page_id/element_index -> locator representation
+        self._page_generation: str = str(uuid.uuid4())
         self._element_cache: Dict[str, LocatorSpec] = {}
         self._element_counter = 0
 
@@ -116,7 +118,8 @@ class PlaywrightBrowserSession(BrowserSession):
         self._state = BrowserState.BUSY
         try:
             await self._page.goto(url, timeout=self._config.timeout_seconds * 1000)
-            # Navigation clears the element cache!
+            # Navigation invalidates the previous page generation
+            self._page_generation = str(uuid.uuid4())
             self._element_cache.clear()
             self._element_counter = 0
         except PlaywrightTimeoutError:
@@ -149,6 +152,13 @@ class PlaywrightBrowserSession(BrowserSession):
             raise ValueError("Must provide either element_id or locator.")
             
         if element_id:
+            # Check for stale element reference (generation mismatch)
+            if self._page_generation not in element_id:
+                raise ElementNotFoundError(
+                    f"Element ID {element_id} is stale. The page has navigated since it was inspected.", 
+                    details={"element_id": element_id, "current_generation": self._page_generation}
+                )
+                
             if element_id not in self._element_cache:
                 raise ElementNotFoundError(f"Element ID {element_id} not found in cache. It may be stale.", details={"element_id": element_id})
             spec = self._element_cache[element_id]
@@ -279,7 +289,7 @@ class PlaywrightBrowserSession(BrowserSession):
             
             for el in dom_elements:
                 self._element_counter += 1
-                el_id = f"{self._run_id}/page/e{self._element_counter}"
+                el_id = f"{self._run_id}/{self._page_generation}/e{self._element_counter}"
                 
                 # Cache the locator spec using CSS
                 self._element_cache[el_id] = LocatorSpec(strategy="css", value=el["css"])
