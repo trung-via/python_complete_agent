@@ -28,3 +28,21 @@ class GoogleDriveAuth(Protocol):
     async def refresh_access_token(self) -> AccessToken:
         """Refresh and return an access token."""
         ...
+
+class SingleFlightGoogleDriveAuth:
+    """
+    Decorator/Wrapper for GoogleDriveAuth that enforces single-flight token refresh.
+    Prevents multiple concurrent 401 requests from firing parallel refresh requests to Google.
+    """
+    def __init__(self, auth: GoogleDriveAuth):
+        self._auth = auth
+        import asyncio
+        self._lock = asyncio.Lock()
+
+    async def get_access_token(self) -> AccessToken:
+        return await self._auth.get_access_token()
+
+    async def refresh_access_token(self) -> AccessToken:
+        async with self._lock:
+            return await self._auth.refresh_access_token()
+

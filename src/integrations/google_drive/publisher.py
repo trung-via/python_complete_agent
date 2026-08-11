@@ -57,6 +57,8 @@ class GoogleDrivePublisher(ArtifactPublisher):
         self.checkpoints = checkpoints
         # Process-level concurrency lock per operation_key
         self._locks = defaultdict(asyncio.Lock)
+        # Single-flight lock for concurrent 401 token refresh attempts
+        self._auth_lock = asyncio.Lock()
 
     def _log_event(self, run_id: Optional[str], event_name: str, payload: dict):
         if self.checkpoints and run_id:
@@ -68,7 +70,7 @@ class GoogleDrivePublisher(ArtifactPublisher):
     async def publish(
         self,
         artifact: ImageArtifact,
-        local_filepath: str,
+        source_path: str,
         destination_id: Optional[str] = None,
         run_id: Optional[str] = None
     ) -> RemoteArtifact:
@@ -141,7 +143,7 @@ class GoogleDrivePublisher(ArtifactPublisher):
                         file_id=current_session.file_id
                     )
 
-                    async with aiofiles.open(local_filepath, "rb") as f:
+                    async with aiofiles.open(source_path, "rb") as f:
                         while current_session.bytes_uploaded < current_session.total_bytes:
                             await f.seek(current_session.bytes_uploaded)
                             chunk = await f.read(self.policy.chunk_size)
@@ -226,14 +228,15 @@ class GoogleDrivePublisher(ArtifactPublisher):
             raise GoogleDriveUploadStateError(session.session_id, f"Failed upload for artifact {artifact.artifact_id}")
 
     async def _call_with_auth_refresh(self, fn):
-        """Helper to invoke client methods with a single 401 auth refresh retry."""
+        """Helper to invoke client methods with single-flight 401 auth refresh retry."""
         try:
             return await fn()
         except GoogleDriveAuthError:
             if not self.auth:
                 raise
-            logger.info("Encountered 401 Auth error. Refreshing access token once...")
-            await self.auth.refresh_access_token()
+            async with self._auth_lock:
+                logger.info("Encountered 401 Auth error. Executing single-flight access token refresh...")
+                await self.auth.refresh_access_token()
             return await fn()
 
     async def _attempt_recovery(

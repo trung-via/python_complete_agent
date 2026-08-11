@@ -10,14 +10,18 @@ from src.integrations.google_drive.models import (
 )
 
 class ArtifactPublisher(Protocol):
-    """Generic contract for publishing a local ImageArtifact to an external target."""
+    """Generic contract for publishing an ImageArtifact to an external target."""
     async def publish(
         self,
         artifact: ImageArtifact,
-        local_filepath: str,
+        source_path: str,
         destination_id: Optional[str] = None,
         run_id: Optional[str] = None
     ) -> RemoteArtifact:
+        """
+        artifact: Metadata and canonical identity (sha256, artifact_id)
+        source_path: Physical byte source location
+        """
         ...
 
 class GoogleDriveFolderResolver(Protocol):

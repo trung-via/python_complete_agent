@@ -5,7 +5,7 @@ from typing import Optional, Dict
 
 from src.core.retry import RetryPolicy
 from src.images.models import ImageArtifact
-from src.integrations.google_drive.auth import AccessToken, GoogleDriveAuth
+from src.integrations.google_drive.auth import AccessToken, GoogleDriveAuth, SingleFlightGoogleDriveAuth
 from src.integrations.google_drive.models import (
     DriveFile,
     GoogleDriveConfig,
@@ -141,18 +141,51 @@ async def test_publisher_remote_idempotency():
         storage_key="/tmp/a.jpg"
     )
 
-    result = await publisher.publish(artifact, local_filepath="dummy_path", run_id="r1")
+    result = await publisher.publish(artifact, source_path="dummy_path", run_id="r1")
     assert result.drive_file_id == "drive_file_001"
     assert result.artifact_id == "img_001"
 
 @pytest.mark.asyncio
-async def test_publisher_auth_401_refresh():
+async def test_publisher_successful_chunked_upload():
+    client = FakeGoogleDriveClient()
+    config = GoogleDriveConfig(root_folder_id="root_folder")
+    policy = GoogleDriveUploadPolicy(chunk_size=256 * 1024)
+    retry_policy = RetryPolicy(max_attempts=3, base_delay=0.01, jitter=False)
+    publisher = GoogleDrivePublisher(client=client, config=config, policy=policy, retry_policy=retry_policy)
+
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp.write(b"x" * (512 * 1024)) # 512KB
+        tmp_path = tmp.name
+
+    try:
+        artifact = ImageArtifact(
+            artifact_id="img_002",
+            sha256="sha_xyz",
+            mime_type="image/png",
+            size_bytes=512 * 1024,
+            width=20,
+            height=20,
+            source_url="http://example.com/b.png",
+            storage_key=tmp_path
+        )
+
+        result = await publisher.publish(artifact, source_path=tmp_path, run_id="r2")
+        assert result.drive_file_id == "drive_file_524288"
+        assert result.sha256 == "sha_xyz"
+        assert client.chunk_attempts == 2 # 256KB * 2 chunks
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+@pytest.mark.asyncio
+async def test_publisher_auth_401_refresh_and_single_flight():
     client = FakeGoogleDriveClient()
     client.fail_auth_once = True
-    auth = FakeGoogleDriveAuth()
+    raw_auth = FakeGoogleDriveAuth()
+    single_flight_auth = SingleFlightGoogleDriveAuth(raw_auth)
 
     config = GoogleDriveConfig(root_folder_id="root_folder")
-    publisher = GoogleDrivePublisher(client=client, config=config, auth=auth)
+    publisher = GoogleDrivePublisher(client=client, config=config, auth=single_flight_auth)
 
     artifact = ImageArtifact(
         artifact_id="img_auth_test",
@@ -170,9 +203,9 @@ async def test_publisher_auth_401_refresh():
         tmp_path = tmp.name
 
     try:
-        result = await publisher.publish(artifact, local_filepath=tmp_path, run_id="r_auth")
+        result = await publisher.publish(artifact, source_path=tmp_path, run_id="r_auth")
         assert result.drive_file_id is not None
-        assert auth.refresh_count == 1
+        assert raw_auth.refresh_count == 1
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
@@ -199,7 +232,7 @@ async def test_publisher_same_artifact_different_destinations():
         tmp_path = tmp.name
 
     try:
-        res1 = await publisher.publish(artifact, local_filepath=tmp_path, destination_id="folder_A", run_id="rA")
+        res1 = await publisher.publish(artifact, source_path=tmp_path, destination_id="folder_A", run_id="rA")
         
         # Add res1 to client's folder_A memory
         client.files_by_folder["folder_A"] = {
@@ -214,7 +247,7 @@ async def test_publisher_same_artifact_different_destinations():
         }
 
         # Publishing same artifact to folder_B must not be short-circuited by folder_A's file
-        res2 = await publisher.publish(artifact, local_filepath=tmp_path, destination_id="folder_B", run_id="rB")
+        res2 = await publisher.publish(artifact, source_path=tmp_path, destination_id="folder_B", run_id="rB")
 
         assert res1.parent_folder_id == "folder_A"
         assert res2.parent_folder_id == "folder_B"
@@ -248,7 +281,7 @@ async def test_publisher_unknown_state_recovery_bounded_loop():
             storage_key=tmp_path
         )
 
-        result = await publisher.publish(artifact, local_filepath=tmp_path, run_id="r3")
+        result = await publisher.publish(artifact, source_path=tmp_path, run_id="r3")
         assert result.drive_file_id == "drive_file_262144"
         assert result.artifact_id == "img_003"
         assert client.chunk_attempts == 2
