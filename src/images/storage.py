@@ -1,6 +1,8 @@
 import os
 import uuid
 import json
+import asyncio
+from collections import defaultdict
 from typing import Protocol, Optional
 import aiofiles
 import aiofiles.os
@@ -30,6 +32,7 @@ class LocalArtifactStore:
         self.images_dir = os.path.join(base_dir, "images")
         self.metadata_dir = os.path.join(base_dir, "metadata")
         self.temp_dir = os.path.join(base_dir, "temp")
+        self._locks = defaultdict(asyncio.Lock)
         
         os.makedirs(self.images_dir, exist_ok=True)
         os.makedirs(self.metadata_dir, exist_ok=True)
@@ -72,14 +75,15 @@ class LocalArtifactStore:
         return await aiofiles.os.path.exists(self._get_metadata_path(artifact_id))
 
     async def put(self, validated_image: ValidatedImage, candidate: ImageCandidate) -> ImageArtifact:
-        # 1. Deduplication check at the storage level
-        existing = await self.get_by_sha256(validated_image.sha256)
-        if existing:
-            return existing
-            
-        artifact_id = f"img_{uuid.uuid4().hex}"
-        temp_path = os.path.join(self.temp_dir, f"temp_{artifact_id}.bin")
-        final_image_path = self._get_image_path(validated_image.sha256)
+        async with self._locks[validated_image.sha256]:
+            # 1. Deduplication check at the storage level inside lock
+            existing = await self.get_by_sha256(validated_image.sha256)
+            if existing:
+                return existing
+                
+            artifact_id = f"img_{uuid.uuid4().hex}"
+            temp_path = os.path.join(self.temp_dir, f"temp_{artifact_id}.bin")
+            final_image_path = self._get_image_path(validated_image.sha256)
         
         try:
             # 2. Atomic write of the image binary
@@ -126,6 +130,10 @@ class LocalArtifactStore:
             except:
                 pass
             raise ArtifactStoreError(f"Failed to store artifact: {e}")
+        finally:
+            # Clean up the lock if nobody is waiting
+            if not self._locks[validated_image.sha256].locked():
+                del self._locks[validated_image.sha256]
 
     async def delete(self, artifact_id: str) -> None:
         artifact = await self.get(artifact_id)
