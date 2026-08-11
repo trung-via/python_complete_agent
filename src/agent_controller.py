@@ -109,8 +109,14 @@ class AgentController:
             # Execute tool via RetryManager
             try:
                 # Pass call and context to tool.execute
+                def _log_attempt(attempt: int, status: str, err: Optional[str]):
+                    self.checkpoints.log_tool_attempt_ended(run_id, call.call_id, attempt, status, err)
+                    
                 result: ToolResult = await self.retry_manager.execute_with_retry(
-                    tool.execute, call=call, context=context
+                    tool.execute, 
+                    call=call, 
+                    context=context,
+                    on_attempt_complete=_log_attempt
                 )
                 
                 # Save successful result to idempotency store
@@ -120,6 +126,9 @@ class AgentController:
             except AgentException as e:
                 logger.error(f"Tool failed after retries: {e.code} - {e.message}")
                 return False
+            except SystemStateError:
+                # System state errors must not be swallowed, propagate to loop halfter
+                raise
             except Exception as e:
                 logger.error(f"Unexpected tool execution failure: {e}", exc_info=True)
                 return False

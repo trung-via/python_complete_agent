@@ -4,7 +4,12 @@ import logging
 from typing import Dict, Any
 from src.core.base_tool import BaseTool
 from src.core.types import ToolCall, ToolResult
-from src.core.errors import DependencyError, BrowserNavigationError, ExtractionError
+from src.core.errors import (
+    AgentException,
+    DependencyError,
+    BrowserNavigationError,
+    ExtractionError,
+)
 
 logger = logging.getLogger(__name__)
 

@@ -50,6 +50,16 @@ class CheckpointManager:
             "call_id": call_id
         })
         
+    def log_tool_attempt_ended(self, run_id: str, call_id: str, attempt: int, status: str, error_msg: str = None):
+        self._write_event({
+            "run_id": run_id,
+            "event": "TOOL_ATTEMPT_ENDED",
+            "call_id": call_id,
+            "attempt": attempt,
+            "status": status,
+            "error": error_msg
+        })
+        
     def log_task_end(self, run_id: str, success: bool, retry_count: int, data: dict = None):
         self._write_event({
             "run_id": run_id,
