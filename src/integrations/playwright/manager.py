@@ -38,9 +38,6 @@ class PlaywrightBrowserManager(BrowserManager):
                 await session.close()
                 del self._sessions[run_id]
                 logger.info(f"Removed session for run {run_id}")
-        # Clean up lock memory if no one is waiting
-        if run_id in self._locks and not self._locks[run_id].locked():
-            del self._locks[run_id]
             
     async def close_all(self) -> None:
         logger.info(f"Closing all {len(self._sessions)} active browser sessions.")

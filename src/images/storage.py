@@ -130,10 +130,6 @@ class LocalArtifactStore:
             except:
                 pass
             raise ArtifactStoreError(f"Failed to store artifact: {e}")
-        finally:
-            # Clean up the lock if nobody is waiting
-            if not self._locks[validated_image.sha256].locked():
-                del self._locks[validated_image.sha256]
 
     async def delete(self, artifact_id: str) -> None:
         artifact = await self.get(artifact_id)
