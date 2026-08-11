@@ -62,5 +62,5 @@ class IdempotencyStore:
             logger.info(f"Saved idempotency key {idempotency_key} to store.")
         except Exception as e:
             logger.critical(f"CRITICAL: Failed to write to IdempotencyStore! Error: {e}")
-            import sys
-            sys.exit(1)
+            from src.core.errors import SystemStateError
+            raise SystemStateError(f"Idempotency store write failed: {e}")

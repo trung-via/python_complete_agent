@@ -154,19 +154,29 @@ class AgentController:
 
         logger.info(f"Starting autonomous loop with {len(pending_tasks)} pending tasks.")
 
+        from src.core.errors import SystemStateError
+        
         for task_context in pending_tasks:
-            run_id = self.checkpoints.log_task_start(task_context)
-            logger.info(f"--- Task: {task_context} (Run ID: {run_id}) ---")
-            
-            # The execution logic (including ToolCall retries) is now handled natively
-            success = await self.execute_task(task_context, run_id)
-            
-            # 0 retries here since RetryManager handles it internally at the Tool level
-            self.checkpoints.log_task_end(run_id, success, 0)
-            
-            if success:
-                logger.info(f"Successfully processed {task_context}. Marked as SUCCESS in checkpoint.")
-            else:
-                logger.error(f"Failed to process {task_context}. Marked as FAILED.")
+            try:
+                run_id = self.checkpoints.log_task_start(task_context)
+                logger.info(f"--- Task: {task_context} (Run ID: {run_id}) ---")
+                
+                # The execution logic (including ToolCall retries) is now handled natively
+                success = await self.execute_task(task_context, run_id)
+                
+                # 0 retries here since RetryManager handles it internally at the Tool level
+                self.checkpoints.log_task_end(run_id, success, 0)
+                
+                if success:
+                    logger.info(f"Successfully processed {task_context}. Marked as SUCCESS in checkpoint.")
+                else:
+                    logger.error(f"Failed to process {task_context}. Marked as FAILED.")
+            except SystemStateError as e:
+                logger.critical(f"FATAL SYSTEM ERROR: {e}")
+                logger.critical("Halting autonomous loop to prevent state corruption.")
+                break
+            except Exception as e:
+                logger.error(f"Unexpected error during autonomous loop for task {task_context}: {e}", exc_info=True)
+                # Continue to next task if it's just a general exception, not a systemic state error
                 
         logger.info("Autonomous loop finished.")
