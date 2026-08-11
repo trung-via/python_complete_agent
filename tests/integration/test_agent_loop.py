@@ -180,3 +180,27 @@ async def test_agent_loop_multi_step_reasoning(components):
     # Verify TOOL messages contain the right call_ids
     assert last_call_messages[3].tool_call_id == "c1"
     assert last_call_messages[5].tool_call_id == "c2"
+
+@pytest.mark.asyncio
+async def test_agent_loop_agent_exception_handled(components):
+    provider, executor, registry, checkpoints = components
+    
+    policy = RunPolicy(max_iterations=5)
+    loop = AgentLoop(provider, executor, registry, checkpoints, policy)
+    
+    # Provider raises AgentException
+    provider.generate.side_effect = AgentException(message="Provider rate limit exceeded", code="RATE_LIMIT")
+    
+    res = await loop.run("r1", "system", "user")
+    
+    assert res is None
+    assert provider.generate.call_count == 1
+    
+    # Checkpoint should log RUN_FAILED
+    events = []
+    with open(checkpoints.db_path, "r", encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                events.append(json.loads(line))
+                
+    assert any(e["event"] == "RUN_FAILED" and "Provider rate limit exceeded" in e["error"] for e in events)

@@ -10,7 +10,7 @@ from src.core.tool_executor import ToolExecutor
 from src.core.tool_registry import ToolRegistry
 from src.core.checkpoint import CheckpointManager
 from src.core.types import ToolCall, ToolResult, ToolStatus
-from src.core.errors import SystemStateError
+from src.core.errors import SystemStateError, AgentException
 
 logger = logging.getLogger(__name__)
 
