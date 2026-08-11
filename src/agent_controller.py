@@ -74,19 +74,21 @@ class AgentController:
             logger.error(f"AI Planning failed: {e.code} - {e.message}")
             return False
             
-        self.checkpoints.log_tool_call(run_id, call.call_id, call.name, call.arguments)
+        self.checkpoints.log_tool_call_created(run_id, call.call_id, call.name, call.arguments)
         
         # Strict JSON Schema validation
         try:
             self.registry.validate_call(call)
         except ValueError as e:
             logger.error(f"ToolCall validation failed: {e}")
+            self.checkpoints.log_tool_call_rejected(run_id, call.call_id, str(e))
             return False
             
         # Look up tool in registry
         tool = self.registry.get_tool(call.name)
         if not tool:
             logger.warning(f"No tool registered for action: {call.name}")
+            self.checkpoints.log_tool_call_rejected(run_id, call.call_id, f"Tool {call.name} not found")
             return False
             
         context = {
@@ -103,6 +105,7 @@ class AgentController:
             logger.info(f"Idempotency hit! Returning cached result for {call.name} (Key: {call.idempotency_key})")
             result = cached_result
         else:
+            self.checkpoints.log_tool_attempt_started(run_id, call.call_id)
             # Execute tool via RetryManager
             try:
                 # Pass call and context to tool.execute

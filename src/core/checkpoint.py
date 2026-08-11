@@ -26,13 +26,28 @@ class CheckpointManager:
         })
         return run_id
         
-    def log_tool_call(self, run_id: str, call_id: str, tool_name: str, arguments: dict):
+    def log_tool_call_created(self, run_id: str, call_id: str, tool_name: str, arguments: dict):
         self._write_event({
             "run_id": run_id,
-            "event": "TOOL_CALL",
+            "event": "TOOL_CALL_CREATED",
             "call_id": call_id,
             "tool_name": tool_name,
             "arguments": arguments
+        })
+        
+    def log_tool_call_rejected(self, run_id: str, call_id: str, reason: str):
+        self._write_event({
+            "run_id": run_id,
+            "event": "TOOL_CALL_REJECTED",
+            "call_id": call_id,
+            "reason": reason
+        })
+        
+    def log_tool_attempt_started(self, run_id: str, call_id: str):
+        self._write_event({
+            "run_id": run_id,
+            "event": "TOOL_ATTEMPT_STARTED",
+            "call_id": call_id
         })
         
     def log_task_end(self, run_id: str, success: bool, retry_count: int, data: dict = None):
