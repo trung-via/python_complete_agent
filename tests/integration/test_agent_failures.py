@@ -1,11 +1,16 @@
 import pytest
 import os
 import tempfile
-from unittest.mock import Mock, AsyncMock, patch
-from src.agent_controller import AgentController
+import json
+from unittest.mock import Mock, AsyncMock
 from src.core.types import ToolCall, ToolResult, ToolStatus
 from src.core.base_tool import BaseTool
-from src.core.errors import SystemStateError
+from src.core.tool_executor import ToolExecutor
+from src.core.checkpoint import CheckpointManager
+from src.core.idempotency import IdempotencyStore
+from src.core.retry import RetryManager
+from src.core.tool_registry import ToolRegistry
+from src.core.errors import AgentException, SystemStateError
 
 class DummyTool(BaseTool):
     name = "dummy"
@@ -20,59 +25,57 @@ class DummyTool(BaseTool):
             call_id=call.call_id,
             run_id=call.run_id,
             tool_name=self.name,
-            status=ToolStatus.SUCCESS,
-            data={"called": True}
+            status=ToolStatus.SUCCESS
         )
 
 @pytest.fixture
-def agent():
+def executor():
     with tempfile.TemporaryDirectory() as tmpdir:
-        ai = Mock()
-        ai.plan_action = AsyncMock()
+        registry = ToolRegistry()
+        registry.register_tool(DummyTool())
         
-        agent = AgentController()
-        agent.ai = ai
-        agent.gdrive_folder_id = "test_folder"
+        checkpoints = CheckpointManager(db_path=os.path.join(tmpdir, "checkpoints.jsonl"))
+        idempotency_store = IdempotencyStore(db_path=os.path.join(tmpdir, "idempotency.jsonl"))
+        retry_manager = RetryManager()
         
-        from src.core.checkpoint import CheckpointManager
-        from src.core.idempotency import IdempotencyStore
-        agent.checkpoints = CheckpointManager(db_path=os.path.join(tmpdir, "checkpoints.jsonl"))
-        agent.idempotency_store = IdempotencyStore(db_path=os.path.join(tmpdir, "idempotency.jsonl"))
-        
-        agent.registry.register_tool(DummyTool())
-        
-        yield agent
+        executor = ToolExecutor(
+            registry=registry,
+            idempotency_store=idempotency_store,
+            retry_manager=retry_manager,
+            checkpoints=checkpoints,
+            context={}
+        )
+        yield executor
 
 @pytest.mark.asyncio
-async def test_system_state_error_propagates(agent):
+async def test_system_state_error_propagates(executor):
     call = ToolCall(name="dummy", arguments={"val": 5}, call_id="1", run_id="r1")
-    agent.ai.plan_action.return_value = call
     
     # Mock idempotency_store.save to raise SystemStateError
-    agent.idempotency_store.save = Mock(side_effect=SystemStateError("Disk is full!"))
+    executor.idempotency_store.save = Mock(side_effect=SystemStateError("Disk is full!"))
     
-    # execute_task should NOT swallow this error; it should raise it to halt the loop
-    with pytest.raises(SystemStateError, match="Disk is full!"):
-        await agent.execute_task(call, "r1")
+    # execute_task should let SystemStateError crash the agent, NOT catch it as False
+    with pytest.raises(SystemStateError):
+        await executor.execute(call)
 
 @pytest.mark.asyncio
-async def test_validation_failure_emits_rejected_event(agent):
+async def test_validation_failure_emits_rejected_event(executor):
     # Invalid call (missing required 'val')
     call = ToolCall(name="dummy", arguments={}, call_id="1", run_id="r1")
-    agent.ai.plan_action.return_value = call
     
-    res = await agent.execute_task(call, "r1")
+    res = await executor.execute(call)
     
-    # Check that it returns False due to validation
-    assert res is False
+    assert res.status == ToolStatus.FAILURE
+    assert res.error.code == "VALIDATION_ERROR"
     
-    # Read checkpoints to verify TOOL_CALL_REJECTED
-    import json
+    # Verify events
     events = []
-    with open(agent.checkpoints.db_path, "r", encoding="utf-8") as f:
+    with open(executor.checkpoints.db_path, "r", encoding="utf-8") as f:
         for line in f:
             if line.strip():
                 events.append(json.loads(line))
                 
-    assert any(e["event"] == "TOOL_CALL_REJECTED" and "required property" in e.get("reason", "") for e in events)
-    assert not any(e["event"] == "TOOL_ATTEMPT_STARTED" for e in events)
+    event_names = [e["event"] for e in events]
+    assert "TOOL_CALL_CREATED" in event_names
+    assert "TOOL_CALL_REJECTED" in event_names
+    assert "TOOL_ATTEMPT_STARTED" not in event_names

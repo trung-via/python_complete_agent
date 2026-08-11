@@ -2,9 +2,14 @@ import pytest
 import os
 import tempfile
 from unittest.mock import Mock, AsyncMock
-from src.agent_controller import AgentController
 from src.core.types import ToolCall, ToolResult, ToolStatus
 from src.core.base_tool import BaseTool
+from src.core.tool_executor import ToolExecutor
+from src.core.checkpoint import CheckpointManager
+from src.core.idempotency import IdempotencyStore
+from src.core.retry import RetryManager
+from src.core.tool_registry import ToolRegistry
+from src.core.errors import AgentException, SystemStateError
 
 class DummyTool(BaseTool):
     name = "dummy"
@@ -49,57 +54,53 @@ class DummyPartialTool(BaseTool):
         )
 
 @pytest.fixture
-def agent():
+def executor():
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Mock dependencies
-        ai = Mock()
-        ai.plan_action = AsyncMock()
+        registry = ToolRegistry()
+        registry.register_tool(DummyTool())
+        registry.register_tool(DummyPartialTool())
         
-        # Configure AgentController
-        agent = AgentController()
-        agent.ai = ai
-        agent.gdrive_folder_id = "test_folder"
+        checkpoints = CheckpointManager(db_path=os.path.join(tmpdir, "checkpoints.jsonl"))
+        idempotency_store = IdempotencyStore(db_path=os.path.join(tmpdir, "idempotency.jsonl"))
+        retry_manager = RetryManager()
         
-        from src.core.checkpoint import CheckpointManager
-        from src.core.idempotency import IdempotencyStore
-        agent.checkpoints = CheckpointManager(db_path=os.path.join(tmpdir, "checkpoints.jsonl"))
-        agent.idempotency_store = IdempotencyStore(db_path=os.path.join(tmpdir, "idempotency.jsonl"))
-        
-        agent.registry.register_tool(DummyTool())
-        agent.registry.register_tool(DummyPartialTool())
-        
-        yield agent
+        executor = ToolExecutor(
+            registry=registry,
+            idempotency_store=idempotency_store,
+            retry_manager=retry_manager,
+            checkpoints=checkpoints,
+            context={}
+        )
+        yield executor
 
 @pytest.mark.asyncio
-async def test_idempotency_cache_hit(agent):
+async def test_idempotency_cache_hit(executor):
     call = ToolCall(name="dummy", arguments={"val": 5}, call_id="1", run_id="r1")
-    agent.ai.plan_action.return_value = call
     
     # First execution (Miss)
-    res1 = await agent.execute_task(call, "r1")
-    assert res1 is True
+    res1 = await executor.execute(call)
+    assert res1.status == ToolStatus.SUCCESS
     
-    tool = agent.registry.get_tool("dummy")
+    tool = executor.registry.get_tool("dummy")
     assert tool.call_count == 1
     
     # Second execution (Hit)
-    res2 = await agent.execute_task(call, "r1")
-    assert res2 is True
+    res2 = await executor.execute(call)
+    assert res2.status == ToolStatus.SUCCESS
     assert tool.call_count == 1  # Did not increment, served from cache!
     
 @pytest.mark.asyncio
-async def test_partial_success_not_cached(agent):
+async def test_partial_success_not_cached(executor):
     call = ToolCall(name="dummy_partial", arguments={"val": 5}, call_id="1", run_id="r1")
-    agent.ai.plan_action.return_value = call
     
     # First execution (Miss)
-    res1 = await agent.execute_task(call, "r1")
-    assert res1 is True
+    res1 = await executor.execute(call)
+    assert res1.status == ToolStatus.PARTIAL_SUCCESS
     
-    tool = agent.registry.get_tool("dummy_partial")
+    tool = executor.registry.get_tool("dummy_partial")
     assert tool.call_count == 1
     
-    # Second execution (Not cached because PARTIAL_SUCCESS)
-    res2 = await agent.execute_task(call, "r1")
-    assert res2 is True
-    assert tool.call_count == 2  # Executed again!
+    # Second execution (Miss again because it was PARTIAL)
+    res2 = await executor.execute(call)
+    assert res2.status == ToolStatus.PARTIAL_SUCCESS
+    assert tool.call_count == 2

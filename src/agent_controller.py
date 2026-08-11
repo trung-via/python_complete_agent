@@ -1,202 +1,106 @@
 import os
-import re
-import asyncio
 import logging
-import uuid
-from typing import Optional
-from src.ai_controller import AIController
-from src.modules.browser_automation import BrowserAutomation
-from src.modules.image_processor import ImageProcessor
-from src.modules.gdrive_integrator import GDriveIntegrator
+from typing import Optional, List, Dict, Any
+
 from src.core.tool_registry import ToolRegistry
-from src.core.types import ToolCall, ToolResult, ToolStatus
-from src.core.errors import AgentException, RateLimitError
-from src.tools.shopee_scrape_tool import ShopeeScrapeTool
-from src.tools.tiktok_scrape_tool import TikTokScrapeTool
 from src.core.checkpoint import CheckpointManager
 from src.core.retry import RetryManager
 from src.core.idempotency import IdempotencyStore
 from src.core.errors import AgentException, SystemStateError
 from src.core.types import ToolCall, ToolResult, ToolStatus
 
+# Phase 2 Components
+from src.core.tool_executor import ToolExecutor
+from src.agent.policy import RunPolicy
+from src.agent.loop import AgentLoop
+from src.providers.gemini import GeminiProvider
+
+# We keep standard tools initialization here for now
+from src.modules.browser_automation import BrowserAutomation
+from src.modules.image_processor import ImageProcessor
+from src.modules.gdrive_integrator import GDriveIntegrator
+
+from src.tools.shopee_scrape_tool import ShopeeScrapeTool
+from src.tools.tiktok_scrape_tool import TikTokScrapeTool
+
 logger = logging.getLogger(__name__)
 
 class AgentController:
-    def __init__(self):
-        self.ai = AIController()
-        
-        # Determine headless mode from env
-        headless = os.environ.get("HEADLESS_BROWSER", "true").lower() == "true"
-        self.browser = BrowserAutomation(headless=headless)
-        
-        self.image_processor = ImageProcessor(output_dir="data/images")
-        
-        gdrive_creds = os.environ.get("GDRIVE_CREDENTIALS_FILE", "credentials.json")
-        self.gdrive = GDriveIntegrator(credentials_file=gdrive_creds)
-        
-        self.gdrive_folder_id = os.environ.get("GDRIVE_TARGET_FOLDER_ID")
-        
-        # Initialize Tool Registry and register tools
+    """
+    Main orchestration class.
+    Phase 2: Wiring the LLM Provider, ToolExecutor, and AgentLoop.
+    """
+    def __init__(self, db_path: str = "data/checkpoints.jsonl", idempotency_path: str = "data/idempotency_store.jsonl"):
+        # Base infrastructure
         self.registry = ToolRegistry()
-        self.registry.register_tool(ShopeeScrapeTool())
-        self.registry.register_tool(TikTokScrapeTool())
+        self.checkpoints = CheckpointManager(db_path=db_path)
+        self.retry_manager = RetryManager()
+        self.idempotency_store = IdempotencyStore(db_path=idempotency_path)
         
-        # Initialize Checkpoint Manager, Retry Manager, and Idempotency Store
-        self.checkpoints = CheckpointManager()
-        from src.core.retry import RetryPolicy
-        self.retry_manager = RetryManager(default_policy=RetryPolicy(max_attempts=3))
-        self.idempotency_store = IdempotencyStore()
-
-    async def initialize(self):
-        """Initializes async components like the browser and GDrive."""
-        await self.browser.start()
-        # Move GDrive auth to initialization
-        await asyncio.to_thread(self.gdrive.authenticate)
-
-    async def shutdown(self):
-        """Cleans up resources."""
-        await self.browser.stop()
-
-    async def execute_task(self, task_context: str, run_id: str) -> bool:
-        """
-        Executes a single task with proper schema validation and tool contract.
-        """
-        logger.info(f"Processing task context: {task_context}")
+        # Modules
+        self.browser = BrowserAutomation(headless=True)
+        self.image_processor = ImageProcessor()
+        self.gdrive = GDriveIntegrator("credentials.json")
+        self.gdrive_folder_id = os.environ.get("GDRIVE_FOLDER_ID", "dummy_folder_id")
         
-        tools_schema = self.registry.get_tools_schema()
-        # 1. AI Planning
-        try:
-            logger.info(f"Asking AI to plan for task: {task_context}")
-            call: ToolCall = await self.ai.plan_action(
-                task_context, 
-                tools_schema,
-                run_id
-            )
-        except AgentException as e:
-            logger.error(f"AI Planning failed: {e.code} - {e.message}")
-            return False
-            
-        self.checkpoints.log_tool_call_created(run_id, call.call_id, call.name, call.arguments)
+        # Register standard tools
+        self._register_tools()
         
-        # Strict JSON Schema validation
-        try:
-            self.registry.validate_call(call)
-        except ValueError as e:
-            logger.error(f"ToolCall validation failed: {e}")
-            self.checkpoints.log_tool_call_rejected(run_id, call.call_id, str(e))
-            return False
-            
-        # Look up tool in registry
-        tool = self.registry.get_tool(call.name)
-        if not tool:
-            logger.warning(f"No tool registered for action: {call.name}")
-            self.checkpoints.log_tool_call_rejected(run_id, call.call_id, f"Tool {call.name} not found")
-            return False
-            
-        context = {
+        # Phase 2 Abstractions
+        self.llm_provider = GeminiProvider()
+        
+        self.tool_context = {
             'browser': self.browser,
             'image_processor': self.image_processor,
             'gdrive': self.gdrive,
-            'ai_controller': self.ai,
             'gdrive_folder_id': self.gdrive_folder_id
         }
         
-        # Check idempotency store before executing
-        cached_result = self.idempotency_store.get(call.idempotency_key)
-        if cached_result:
-            logger.info(f"Idempotency hit! Returning cached result for {call.name} (Key: {call.idempotency_key})")
-            result = cached_result
-        else:
-            self.checkpoints.log_tool_attempt_started(run_id, call.call_id)
-            # Execute tool via RetryManager
-            try:
-                # Pass call and context to tool.execute
-                def _log_attempt(attempt: int, status: str, err: Optional[str]):
-                    self.checkpoints.log_tool_attempt_ended(run_id, call.call_id, attempt, status, err)
-                    
-                result: ToolResult = await self.retry_manager.execute_with_retry(
-                    tool.execute, 
-                    call=call, 
-                    context=context,
-                    on_attempt_complete=_log_attempt
-                )
-                
-                # Save successful result to idempotency store
-                # Note: We intentionally do NOT cache PARTIAL_SUCCESS. Because operations like GDrive upload
-                # have item-level idempotency, allowing the tool to run again will resume the remaining items.
-                if result.status == ToolStatus.SUCCESS:
-                    self.idempotency_store.save(call.idempotency_key, result)
-                    
-            except AgentException as e:
-                logger.error(f"Tool failed after retries: {e.code} - {e.message}")
-                return False
-            except SystemStateError:
-                # System state errors must not be swallowed, propagate to loop halfter
-                raise
-            except Exception as e:
-                logger.error(f"Unexpected tool execution failure: {e}", exc_info=True)
-                return False
-
-        if result.status == ToolStatus.PARTIAL_SUCCESS:
-            logger.warning(f"Tool executed with partial success: {result.error.message if result.error else 'Unknown'}")
-            return True # Treat partial success as completed
-        elif result.status == ToolStatus.SUCCESS:
-            logger.info(f"Tool executed successfully. Data: {result.data}")
-            return True
-        else:
-            logger.error(f"Tool execution failed: {result.error.message if result.error else 'Unknown'}")
-            return False
-
-    async def run_autonomous_loop(self, tasks_file: str = "tasks.txt"):
-        """Runs the agent autonomously using CheckpointManager for state."""
-        if not os.path.exists(tasks_file):
-            logger.info(f"No {tasks_file} found. Creating an empty one.")
-            with open(tasks_file, "w", encoding="utf-8") as f:
-                f.write("# Paste task contexts here, one per line\n")
-            return
-
-        completed_tasks = self.checkpoints.get_completed_tasks()
-
-        with open(tasks_file, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-
-        pending_tasks = []
-        for line in lines:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if line not in completed_tasks:
-                pending_tasks.append(line)
-
-        if not pending_tasks:
-            logger.info("No new tasks found in tasks.txt.")
-            return
-
-        logger.info(f"Starting autonomous loop with {len(pending_tasks)} pending tasks.")
-
-        from src.core.errors import SystemStateError
+        self.tool_executor = ToolExecutor(
+            registry=self.registry,
+            idempotency_store=self.idempotency_store,
+            retry_manager=self.retry_manager,
+            checkpoints=self.checkpoints,
+            context=self.tool_context
+        )
         
-        for task_context in pending_tasks:
-            try:
-                run_id = self.checkpoints.log_task_start(task_context)
-                logger.info(f"--- Task: {task_context} (Run ID: {run_id}) ---")
-                
-                # The execution logic (including ToolCall retries) is now handled natively
-                success = await self.execute_task(task_context, run_id)
-                
-                # 0 retries here since RetryManager handles it internally at the Tool level
-                self.checkpoints.log_task_end(run_id, success, 0)
-                
-                if success:
-                    logger.info(f"Successfully processed {task_context}. Marked as SUCCESS in checkpoint.")
-                else:
-                    logger.error(f"Failed to process {task_context}. Marked as FAILED.")
-            except SystemStateError as e:
-                logger.critical(f"FATAL SYSTEM ERROR: {e}")
-                logger.critical("Halting autonomous loop to prevent state corruption.")
-                break
-            except Exception as e:
-                logger.error(f"Unexpected error during autonomous loop for task {task_context}: {e}", exc_info=True)
-                # Continue to next task if it's just a general exception, not a systemic state error
-                
-        logger.info("Autonomous loop finished.")
+        self.agent_loop = AgentLoop(
+            llm_provider=self.llm_provider,
+            tool_executor=self.tool_executor,
+            tool_registry=self.registry,
+            checkpoints=self.checkpoints,
+            policy=RunPolicy()
+        )
+
+    def _register_tools(self):
+        self.registry.register_tool(ShopeeScrapeTool())
+        self.registry.register_tool(TikTokScrapeTool())
+
+    async def start(self):
+        """Initializes heavy resources."""
+        await self.browser.start()
+        self.gdrive.authenticate()
+
+    async def stop(self):
+        """Cleans up resources."""
+        await self.browser.stop()
+
+    async def run(self, user_prompt: str, run_id: Optional[str] = None) -> Optional[str]:
+        """
+        Executes the full agent loop.
+        """
+        if not run_id:
+            run_id = self.checkpoints.log_task_start(user_prompt)
+            
+        system_prompt = (
+            "You are an autonomous agent designed to scrape products from Shopee and TikTok, "
+            "download their images, watermark them, and upload them to Google Drive. "
+            "You have access to a set of tools to accomplish this. "
+            "Think step-by-step and call tools as needed."
+        )
+        
+        return await self.agent_loop.run(
+            run_id=run_id,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt
+        )

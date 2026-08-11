@@ -59,6 +59,67 @@ class CheckpointManager:
             "status": status,
             "error": error_msg
         })
+
+    # --- Phase 2 Lifecycle Events ---
+
+    def log_run_started(self, run_id: str, system_prompt: str, user_prompt: str):
+        self._write_event({
+            "run_id": run_id,
+            "event": "RUN_STARTED",
+            "system_prompt": system_prompt,
+            "user_prompt": user_prompt
+        })
+
+    def log_llm_requested(self, run_id: str, iteration: int):
+        self._write_event({
+            "run_id": run_id,
+            "event": "LLM_REQUESTED",
+            "iteration": iteration
+        })
+
+    def log_llm_responded(self, run_id: str, iteration: int, content: Optional[str], num_tool_calls: int):
+        self._write_event({
+            "run_id": run_id,
+            "event": "LLM_RESPONDED",
+            "iteration": iteration,
+            "has_content": bool(content),
+            "num_tool_calls": num_tool_calls
+        })
+
+    def log_tool_result_received(self, run_id: str, call_id: str, status: str):
+        self._write_event({
+            "run_id": run_id,
+            "event": "TOOL_RESULT_RECEIVED",
+            "call_id": call_id,
+            "status": status
+        })
+
+    def log_llm_final_response(self, run_id: str, content: Optional[str]):
+        self._write_event({
+            "run_id": run_id,
+            "event": "LLM_FINAL_RESPONSE",
+            "has_content": bool(content)
+        })
+
+    def log_run_completed(self, run_id: str):
+        self._write_event({
+            "run_id": run_id,
+            "event": "RUN_COMPLETED"
+        })
+
+    def log_run_failed(self, run_id: str, error: str):
+        self._write_event({
+            "run_id": run_id,
+            "event": "RUN_FAILED",
+            "error": error
+        })
+
+    def log_run_halted(self, run_id: str, reason: str):
+        self._write_event({
+            "run_id": run_id,
+            "event": "RUN_HALTED",
+            "reason": reason
+        })
         
     def log_task_end(self, run_id: str, success: bool, retry_count: int, data: dict = None):
         self._write_event({
