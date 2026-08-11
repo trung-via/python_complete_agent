@@ -59,10 +59,15 @@ class AIController:
                     args = dict(part.function_call.args)
                     logger.info(f"AI chose tool: {func_name} with args: {args}")
                     
+                    # Try to preserve provider-specific call ID if it exists, fallback to UUID
+                    provider_call_id = getattr(part.function_call, 'id', None)
+                    if not provider_call_id:
+                        provider_call_id = str(uuid.uuid4())
+                        
                     return ToolCall(
                         name=func_name,
                         arguments=args,
-                        call_id=str(uuid.uuid4()),
+                        call_id=provider_call_id,
                         run_id=run_id
                     )
                     
