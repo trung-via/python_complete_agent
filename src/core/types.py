@@ -25,14 +25,20 @@ class ToolCall:
         # Idempotency key is scoped to the specific run to prevent duplicate side effects within one run
         self.idempotency_key = f"{self.run_id}_{self.operation_key}"
         
+from enum import Enum
+
+class ToolStatus(str, Enum):
+    SUCCESS = "success"
+    PARTIAL_SUCCESS = "partial_success"
+    FAILURE = "failure"
+
 @dataclass
 class ToolResult:
     """Represents the standardized output of a tool execution."""
     call_id: str
     run_id: str
     tool_name: str
-    is_success: bool
-    is_partial_success: bool = False
+    status: ToolStatus
     data: Optional[Any] = None
     error: Optional[AgentException] = None
     duration_ms: int = 0

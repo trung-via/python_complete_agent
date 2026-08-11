@@ -95,10 +95,12 @@ class AgentController:
                 tool.execute, call=call, context=context
             )
             
-            if result.is_partial_success:
+            from src.core.types import ToolStatus
+            
+            if result.status == ToolStatus.PARTIAL_SUCCESS:
                 logger.warning(f"Tool executed with partial success: {result.error.message if result.error else 'Unknown'}")
                 return True # Treat partial success as completed
-            elif result.is_success:
+            elif result.status == ToolStatus.SUCCESS:
                 logger.info(f"Tool executed successfully. Data: {result.data}")
                 return True
             else:
