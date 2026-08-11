@@ -11,15 +11,19 @@ class ToolCall:
     arguments: Dict[str, Any]
     call_id: str
     run_id: str
+    operation_key: str = field(init=False)
     idempotency_key: str = field(init=False)
     
     def __post_init__(self):
-        # Generate an idempotency key based on tool name and its arguments
+        # Generate an operation key based on tool name and its arguments
         hasher = hashlib.md5()
         hasher.update(self.name.encode('utf-8'))
         args_str = json.dumps(self.arguments, sort_keys=True)
         hasher.update(args_str.encode('utf-8'))
-        self.idempotency_key = hasher.hexdigest()
+        self.operation_key = hasher.hexdigest()
+        
+        # Idempotency key is scoped to the specific run to prevent duplicate side effects within one run
+        self.idempotency_key = f"{self.run_id}_{self.operation_key}"
         
 @dataclass
 class ToolResult:
