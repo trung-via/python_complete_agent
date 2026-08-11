@@ -51,7 +51,9 @@ class CheckpointManager:
             with open(self.db_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(payload) + "\n")
         except Exception as e:
-            logger.error(f"Failed to write checkpoint: {e}")
+            logger.critical(f"CRITICAL: Failed to write checkpoint! State corruption risk. Halting agent. Error: {e}")
+            import sys
+            sys.exit(1)
 
     def get_completed_tasks(self) -> List[str]:
         """Reads the ledger to find which tasks successfully completed."""

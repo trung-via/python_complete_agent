@@ -32,7 +32,10 @@ class ShopeeScrapeTool(BaseTool):
     async def execute(self, call: ToolCall, context: Dict[str, Any]) -> ToolResult:
         url = call.arguments.get("url")
         if not url:
-            return ToolResult(is_success=False, error_message="Missing 'url' in arguments.")
+            return ToolResult(
+                call_id=call.call_id, run_id=call.run_id, tool_name=self.name,
+                is_success=False, error=AgentException("Missing 'url' in arguments", code="MISSING_ARG_URL")
+            )
             
         logger.info(f"Executing ShopeeScrapeTool for URL: {url}")
         
@@ -189,7 +192,10 @@ class ShopeeScrapeTool(BaseTool):
         shop_name = extracted_data.get('shop_name', 'Unknown Shop')
         
         if not image_urls:
-            return ToolResult(is_success=False, error_message="No images found or extraction failed.")
+            return ToolResult(
+                call_id=call.call_id, run_id=call.run_id, tool_name=self.name,
+                is_success=False, error=AgentException("No images found or extraction failed", code="EXTRACTION_EMPTY", retryable=True)
+            )
 
         downloaded_files = []
         for img_url in image_urls:
@@ -199,7 +205,10 @@ class ShopeeScrapeTool(BaseTool):
                 downloaded_files.append(file_path)
                 
         if not downloaded_files:
-            return ToolResult(is_success=False, error_message="Failed to download any images locally.")
+            return ToolResult(
+                call_id=call.call_id, run_id=call.run_id, tool_name=self.name,
+                is_success=False, error=AgentException("Failed to download any images locally", code="DOWNLOAD_FAILED", retryable=True)
+            )
             
         unique_files = downloaded_files
         
@@ -230,10 +239,14 @@ class ShopeeScrapeTool(BaseTool):
         is_partial = upload_success_count < len(unique_files)
         
         if upload_success_count == 0:
-             return ToolResult(is_success=False, error_message="Failed to upload any images to GDrive.")
+             return ToolResult(
+                call_id=call.call_id, run_id=call.run_id, tool_name=self.name,
+                is_success=False, error=AgentException("Failed to upload any images to GDrive", code="UPLOAD_FAILED", retryable=True)
+            )
              
         logger.info("Shopee Scrape task completed.")
         return ToolResult(
+            call_id=call.call_id, run_id=call.run_id, tool_name=self.name,
             is_success=True, 
             is_partial_success=is_partial, 
             data={"uploaded_count": upload_success_count, "total_found": len(unique_files)}

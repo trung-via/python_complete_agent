@@ -3,6 +3,7 @@ import re
 import asyncio
 import logging
 import uuid
+from typing import Optional
 from src.ai_controller import AIController
 from src.modules.browser_automation import BrowserAutomation
 from src.modules.image_processor import ImageProcessor
@@ -13,6 +14,7 @@ from src.core.errors import AgentException, RateLimitError
 from src.tools.shopee_scrape_tool import ShopeeScrapeTool
 from src.tools.tiktok_scrape_tool import TikTokScrapeTool
 from src.core.checkpoint import CheckpointManager
+from src.core.retry import RetryManager
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,7 @@ class AgentController:
         self.registry.register_tool(TikTokScrapeTool())
         
         self.checkpoints = CheckpointManager()
+        self.retry_manager = RetryManager(max_retries=3)
 
     async def initialize(self):
         """Initializes async components like the browser and GDrive."""
@@ -55,38 +58,26 @@ class AgentController:
         logger.info(f"Processing task context: {task_context}")
         
         tools_schema = self.registry.get_tools_schema()
-        plan = self.ai.plan_action(task_context, tools_schema)
-            
-        if "error" in plan:
-            logger.error(f"Could not create plan: {plan['error']}")
-            return False
-
-        action = plan.get("action")
-        arguments = plan.get("arguments", {})
-
-        if action == "unknown":
-            logger.warning(f"AI determined the request is unknown. Plan: {plan}")
-            return False
-
-        # Look up tool in registry
-        tool = self.registry.get_tool(action)
-        if not tool:
-            logger.warning(f"No tool registered for action: {action}")
+        try:
+            # AIController now boundary-creates the ToolCall
+            call: ToolCall = self.ai.plan_action(task_context, tools_schema, run_id)
+        except AgentException as e:
+            logger.error(f"AI Planning failed: {e.code} - {e.message}")
             return False
             
-        call = ToolCall(
-            name=action,
-            arguments=arguments,
-            call_id=str(uuid.uuid4())
-        )
-        
         self.checkpoints.log_tool_call(run_id, call.call_id, call.name, call.arguments)
         
-        # Strict schema validation
+        # Strict JSON Schema validation
         try:
             self.registry.validate_call(call)
         except ValueError as e:
             logger.error(f"ToolCall validation failed: {e}")
+            return False
+            
+        # Look up tool in registry
+        tool = self.registry.get_tool(call.name)
+        if not tool:
+            logger.warning(f"No tool registered for action: {call.name}")
             return False
             
         context = {
@@ -97,24 +88,25 @@ class AgentController:
             'gdrive_folder_id': self.gdrive_folder_id
         }
         
+        # Execute tool via RetryManager
         try:
-            result: ToolResult = await tool.execute(call=call, context=context)
+            # Pass call and context to tool.execute
+            result: ToolResult = await self.retry_manager.execute_with_retry(
+                tool.execute, call=call, context=context
+            )
+            
             if result.is_success:
-                logger.info(f"Tool executed successfully: {result.data}")
+                logger.info(f"Tool executed successfully. Data: {result.data}")
                 return True
             elif result.is_partial_success:
-                logger.warning(f"Tool executed with partial success: {result.error_message}")
-                return True # Treat partial success as completed so we don't retry endlessly
+                logger.warning(f"Tool executed with partial success: {result.error.message if result.error else 'Unknown'}")
+                return True # Treat partial success as completed
             else:
-                logger.error(f"Tool execution failed: {result.error_message}")
+                logger.error(f"Tool execution failed: {result.error.message if result.error else 'Unknown'}")
                 return False
-        except RateLimitError as e:
-            logger.error(f"Rate limited by target: {e}")
-            raise # Re-raise to trigger retry
+                
         except AgentException as e:
-            logger.error(f"Agent error during execution: {e}")
-            if getattr(e, 'retryable', False):
-                raise
+            logger.error(f"Tool failed after retries: {e.code} - {e.message}")
             return False
         except Exception as e:
             logger.error(f"Unexpected tool execution failure: {e}", exc_info=True)
@@ -149,28 +141,17 @@ class AgentController:
 
         for task_context in pending_tasks:
             run_id = self.checkpoints.log_task_start(task_context)
-            success = False
-            max_retries = 3
+            logger.info(f"--- Task: {task_context} (Run ID: {run_id}) ---")
             
-            for attempt in range(1, max_retries + 1):
-                logger.info(f"--- Task: {task_context} (Attempt {attempt}/{max_retries}) ---")
-                
-                try:
-                    success = await self.execute_task(task_context, run_id)
-                    if success:
-                        break
-                except Exception as e:
-                    logger.warning(f"Task threw a retryable exception: {e}")
-                    
-                if not success and attempt < max_retries:
-                    logger.info("Task failed. Retrying in 5 seconds...")
-                    await asyncio.sleep(5)
+            # The execution logic (including ToolCall retries) is now handled natively
+            success = await self.execute_task(task_context, run_id)
             
-            self.checkpoints.log_task_end(run_id, success, attempt - 1)
+            # 0 retries here since RetryManager handles it internally at the Tool level
+            self.checkpoints.log_task_end(run_id, success, 0)
             
             if success:
                 logger.info(f"Successfully processed {task_context}. Marked as SUCCESS in checkpoint.")
             else:
-                logger.error(f"Failed to process {task_context} after {max_retries} attempts. Marked as FAILED.")
+                logger.error(f"Failed to process {task_context}. Marked as FAILED.")
                 
         logger.info("Autonomous loop finished.")

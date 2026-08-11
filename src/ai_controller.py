@@ -1,7 +1,11 @@
 import os
 import logging
 import json
+import uuid
 import google.generativeai as genai
+from typing import Optional
+from src.core.types import ToolCall
+from src.core.errors import AgentException
 
 logger = logging.getLogger(__name__)
 
@@ -16,16 +20,17 @@ class AIController:
             self.model = genai.GenerativeModel(model_name)
             logger.info(f"AI Controller initialized with Gemini API using model: {model_name}")
 
-    def plan_action(self, user_prompt: str, tools_schema: list[dict] = None) -> dict:
+    def plan_action(self, user_prompt: str, tools_schema: list[dict], run_id: str) -> ToolCall:
         """
         Uses Gemini Function Calling to select the appropriate tool and extract arguments.
+        Returns a strongly-typed ToolCall object.
+        Raises AgentException on failure.
         """
         if not hasattr(self, 'model'):
-            return {"error": "AI model not initialized"}
+            raise AgentException("AI model not initialized", code="AI_INIT_ERROR")
             
         if not tools_schema:
-            logger.warning("No tools schema provided to AI.")
-            return {"error": "No tools available"}
+            raise AgentException("No tools available to schema", code="AI_SCHEMA_ERROR")
 
         system_instruction = "You are the AI Controller. Select the most appropriate tool to handle the user's request."
         
@@ -53,15 +58,20 @@ class AIController:
                     func_name = part.function_call.name
                     args = dict(part.function_call.args)
                     logger.info(f"AI chose tool: {func_name} with args: {args}")
-                    return {
-                        "action": func_name,
-                        "arguments": args
-                    }
+                    
+                    return ToolCall(
+                        name=func_name,
+                        arguments=args,
+                        call_id=str(uuid.uuid4()),
+                        run_id=run_id
+                    )
                     
             logger.warning("AI did not return a function call.")
-            return {"action": "unknown", "arguments": {}}
+            raise AgentException("AI did not return a function call", code="AI_NO_FUNCTION_CALL")
             
+        except AgentException:
+            raise
         except Exception as e:
             logger.error(f"Error during AI function calling: {e}")
-            return {"error": str(e)}
+            raise AgentException(f"AI planning failed: {str(e)}", code="AI_PLANNING_FAILED", retryable=True)
 

@@ -1,6 +1,7 @@
 import asyncio
 import os
 import logging
+import subprocess
 from contextlib import asynccontextmanager
 from playwright.async_api import async_playwright
 
@@ -85,8 +86,12 @@ class BrowserAutomation:
         if hasattr(self, 'chrome_process') and self.chrome_process:
             try:
                 self.chrome_process.terminate()
-            except:
-                pass
+                self.chrome_process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                logger.warning("Chrome process did not terminate gracefully. Forcing kill.")
+                self.chrome_process.kill()
+            except Exception as e:
+                logger.error(f"Failed to kill Chrome process: {e}")
         logger.info("Browser stopped.")
 
     def get_context(self):
