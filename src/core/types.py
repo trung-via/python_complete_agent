@@ -43,3 +43,42 @@ class ToolResult:
     error: Optional[AgentException] = None
     duration_ms: int = 0
     logs: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "call_id": self.call_id,
+            "run_id": self.run_id,
+            "tool_name": self.tool_name,
+            "status": self.status.value,
+            "data": self.data,
+            "error": {
+                "message": self.error.message,
+                "code": self.error.code,
+                "retryable": self.error.retryable,
+                "details": self.error.details
+            } if self.error else None,
+            "duration_ms": self.duration_ms,
+            "logs": self.logs
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'ToolResult':
+        error = None
+        if data.get("error"):
+            e_data = data["error"]
+            error = AgentException(
+                message=e_data.get("message", ""),
+                code=e_data.get("code", "UNKNOWN_ERROR"),
+                retryable=e_data.get("retryable", False),
+                details=e_data.get("details", {})
+            )
+        return cls(
+            call_id=data["call_id"],
+            run_id=data["run_id"],
+            tool_name=data["tool_name"],
+            status=ToolStatus(data["status"]),
+            data=data.get("data"),
+            error=error,
+            duration_ms=data.get("duration_ms", 0),
+            logs=data.get("logs", [])
+        )

@@ -9,12 +9,13 @@ from src.modules.browser_automation import BrowserAutomation
 from src.modules.image_processor import ImageProcessor
 from src.modules.gdrive_integrator import GDriveIntegrator
 from src.core.tool_registry import ToolRegistry
-from src.core.types import ToolCall, ToolResult
+from src.core.types import ToolCall, ToolResult, ToolStatus
 from src.core.errors import AgentException, RateLimitError
 from src.tools.shopee_scrape_tool import ShopeeScrapeTool
 from src.tools.tiktok_scrape_tool import TikTokScrapeTool
 from src.core.checkpoint import CheckpointManager
 from src.core.retry import RetryManager
+from src.core.idempotency import IdempotencyStore
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +39,10 @@ class AgentController:
         self.registry.register_tool(ShopeeScrapeTool())
         self.registry.register_tool(TikTokScrapeTool())
         
+        # Initialize Checkpoint Manager, Retry Manager, and Idempotency Store
         self.checkpoints = CheckpointManager()
         self.retry_manager = RetryManager(max_retries=3)
+        self.idempotency_store = IdempotencyStore()
 
     async def initialize(self):
         """Initializes async components like the browser and GDrive."""
@@ -88,30 +91,40 @@ class AgentController:
             'gdrive_folder_id': self.gdrive_folder_id
         }
         
-        # Execute tool via RetryManager
-        try:
-            # Pass call and context to tool.execute
-            result: ToolResult = await self.retry_manager.execute_with_retry(
-                tool.execute, call=call, context=context
-            )
-            
-            from src.core.types import ToolStatus
-            
-            if result.status == ToolStatus.PARTIAL_SUCCESS:
-                logger.warning(f"Tool executed with partial success: {result.error.message if result.error else 'Unknown'}")
-                return True # Treat partial success as completed
-            elif result.status == ToolStatus.SUCCESS:
-                logger.info(f"Tool executed successfully. Data: {result.data}")
-                return True
-            else:
-                logger.error(f"Tool execution failed: {result.error.message if result.error else 'Unknown'}")
-                return False
+        # Check idempotency store before executing
+        cached_result = self.idempotency_store.get(call.idempotency_key)
+        if cached_result:
+            logger.info(f"Idempotency hit! Returning cached result for {call.name} (Key: {call.idempotency_key})")
+            result = cached_result
+        else:
+            # Execute tool via RetryManager
+            try:
+                # Pass call and context to tool.execute
+                result: ToolResult = await self.retry_manager.execute_with_retry(
+                    tool.execute, call=call, context=context
+                )
                 
-        except AgentException as e:
-            logger.error(f"Tool failed after retries: {e.code} - {e.message}")
-            return False
-        except Exception as e:
-            logger.error(f"Unexpected tool execution failure: {e}", exc_info=True)
+                # Save successful result to idempotency store
+                if result.status in (ToolStatus.SUCCESS, ToolStatus.PARTIAL_SUCCESS):
+                    self.idempotency_store.save(call.idempotency_key, result)
+                    
+            except AgentException as e:
+                logger.error(f"Tool failed after retries: {e.code} - {e.message}")
+                return False
+            except Exception as e:
+                logger.error(f"Unexpected tool execution failure: {e}", exc_info=True)
+                return False
+
+        from src.core.types import ToolStatus
+        
+        if result.status == ToolStatus.PARTIAL_SUCCESS:
+            logger.warning(f"Tool executed with partial success: {result.error.message if result.error else 'Unknown'}")
+            return True # Treat partial success as completed
+        elif result.status == ToolStatus.SUCCESS:
+            logger.info(f"Tool executed successfully. Data: {result.data}")
+            return True
+        else:
+            logger.error(f"Tool execution failed: {result.error.message if result.error else 'Unknown'}")
             return False
 
     async def run_autonomous_loop(self, tasks_file: str = "tasks.txt"):
