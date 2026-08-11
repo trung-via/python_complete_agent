@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict
+from src.core.types import ToolCall, ToolResult
 
 class BaseTool(ABC):
     """
@@ -20,15 +21,23 @@ class BaseTool(ABC):
         pass
 
     @abstractmethod
-    async def execute(self, url: str, context: Dict[str, Any]) -> Dict[str, Any]:
+    def get_schema(self) -> dict:
+        """
+        Returns the JSON schema defining the arguments this tool expects.
+        Used by the AI Controller for Function Calling.
+        """
+        pass
+
+    @abstractmethod
+    async def execute(self, call: ToolCall, context: Dict[str, Any]) -> ToolResult:
         """
         Executes the tool's core logic.
         
         Args:
-            url (str): The target URL to process.
+            call (ToolCall): The requested action and arguments from the AI.
             context (dict): The agent's context (e.g. holding references to gdrive, browser, etc.)
             
         Returns:
-            dict: The result of the execution.
+            ToolResult: The result of the execution.
         """
         pass

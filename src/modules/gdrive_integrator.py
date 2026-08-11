@@ -53,6 +53,7 @@ class GDriveIntegrator:
         """
         Uploads a file to Google Drive. 
         Returns the ID of the uploaded file, or None if it failed.
+        Implements idempotency by checking if a file with the same name exists in the folder.
         """
         if not self.service:
             logger.error("Google Drive service is not authenticated.")
@@ -63,13 +64,27 @@ class GDriveIntegrator:
             return None
 
         file_name = os.path.basename(file_path)
+        
+        # Idempotency Check: Does it already exist?
+        try:
+            query = f"name='{file_name}' and trashed=false"
+            if folder_id:
+                query += f" and '{folder_id}' in parents"
+            response = self.service.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
+            files = response.get('files', [])
+            if files:
+                file_id = files[0].get('id')
+                logger.info(f"File {file_name} already exists in GDrive (ID: {file_id}). Skipping upload.")
+                return file_id
+        except Exception as e:
+            logger.warning(f"Failed to check for existing file {file_name}: {e}")
+
         file_metadata = {'name': file_name}
         if folder_id:
             file_metadata['parents'] = [folder_id]
 
         try:
             media = MediaFileUpload(file_path, resumable=True)
-            # Depending on file type, you might want to specify mimetype in MediaFileUpload
             file = self.service.files().create(
                 body=file_metadata,
                 media_body=media,

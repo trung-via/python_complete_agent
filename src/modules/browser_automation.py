@@ -1,6 +1,7 @@
 import asyncio
 import os
 import logging
+from contextlib import asynccontextmanager
 from playwright.async_api import async_playwright
 
 logger = logging.getLogger(__name__)
@@ -92,3 +93,20 @@ class BrowserAutomation:
     def get_context(self):
         """Returns the current browser context for tools to use."""
         return self.context
+
+    @asynccontextmanager
+    async def new_page(self):
+        """
+        Provides a managed page that is guaranteed to close even if exceptions occur.
+        Usage: async with browser.new_page() as page:
+        """
+        if not self.context:
+            raise RuntimeError("Browser context is not initialized. Call start() first.")
+        page = await self.context.new_page()
+        try:
+            yield page
+        finally:
+            try:
+                await page.close()
+            except Exception as e:
+                logger.warning(f"Failed to close page gracefully: {e}")

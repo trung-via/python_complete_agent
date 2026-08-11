@@ -32,12 +32,13 @@ class ToolRegistry:
     def get_tools_schema(self) -> List[dict]:
         """
         Returns a simplified schema of all tools.
-        Useful for Phase 2: AI Function Calling.
+        Used by the AI Controller to build Function Declarations.
         """
-        return [
-            {
+        schemas = []
+        for tool in self._tools.values():
+            schemas.append({
                 "name": tool.name,
-                "description": tool.description
-            }
-            for tool in self._tools.values()
-        ]
+                "description": tool.description,
+                "parameters": tool.get_schema()
+            })
+        return schemas

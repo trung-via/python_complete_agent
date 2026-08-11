@@ -35,22 +35,12 @@ class AIController:
             function_declarations.append({
                 "name": tool["name"],
                 "description": tool["description"],
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "url": {
-                            "type": "string", 
-                            "description": "The URL extracted from the prompt"
-                        }
-                    },
-                    "required": ["url"]
-                }
+                "parameters": tool.get("parameters", {"type": "object", "properties": {}})
             })
             
         tools = [{"function_declarations": function_declarations}]
         
         try:
-            # We don't use response_mime_type="application/json" anymore
             response = self.model.generate_content(
                 system_instruction + "\n\nUser Request: " + user_prompt,
                 tools=tools
@@ -65,11 +55,11 @@ class AIController:
                     logger.info(f"AI chose tool: {func_name} with args: {args}")
                     return {
                         "action": func_name,
-                        "url": args.get("url")
+                        "arguments": args
                     }
                     
             logger.warning("AI did not return a function call.")
-            return {"action": "unknown", "url": None}
+            return {"action": "unknown", "arguments": {}}
             
         except Exception as e:
             logger.error(f"Error during AI function calling: {e}")

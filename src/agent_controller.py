@@ -2,11 +2,14 @@ import os
 import re
 import asyncio
 import logging
+import uuid
 from src.ai_controller import AIController
 from src.modules.browser_automation import BrowserAutomation
 from src.modules.image_processor import ImageProcessor
 from src.modules.gdrive_integrator import GDriveIntegrator
 from src.core.tool_registry import ToolRegistry
+from src.core.types import ToolCall, ToolResult
+from src.core.errors import AgentException, RateLimitError
 from src.tools.shopee_scrape_tool import ShopeeScrapeTool
 from src.tools.tiktok_scrape_tool import TikTokScrapeTool
 
@@ -51,10 +54,9 @@ class AgentController:
         """
         logger.info(f"Received user prompt: {user_prompt}")
         
-        # 0. We will rely entirely on Gemini Function Calling now (Phase 2)
         plan = None
         
-        # 1. AI Planning (only if fast-path fails)
+        # 1. AI Planning
         if not plan:
             tools_schema = self.registry.get_tools_schema()
             plan = self.ai.plan_action(user_prompt, tools_schema)
@@ -64,10 +66,10 @@ class AgentController:
             return False
 
         action = plan.get("action")
-        url = plan.get("url")
+        arguments = plan.get("arguments", {})
 
-        if action == "unknown" or not url:
-            logger.warning(f"AI determined the request is unknown or missing URL. Plan: {plan}")
+        if action == "unknown":
+            logger.warning(f"AI determined the request is unknown. Plan: {plan}")
             return False
 
         # 2. Look up tool in registry
@@ -85,15 +87,31 @@ class AgentController:
             'gdrive_folder_id': self.gdrive_folder_id
         }
         
+        call = ToolCall(
+            name=action,
+            arguments=arguments,
+            call_id=str(uuid.uuid4())
+        )
+        
         try:
-            result = await tool.execute(url=url, context=context)
-            if result and result.get("status") == "success":
+            result: ToolResult = await tool.execute(call=call, context=context)
+            if result.is_success:
+                logger.info(f"Tool executed successfully: {result.data}")
                 return True
+            elif result.is_partial_success:
+                logger.warning(f"Tool executed with partial success: {result.error_message}")
+                return True # Treat partial success as completed so we don't retry endlessly
             else:
-                logger.error(f"Tool execution reported failure: {result}")
+                logger.error(f"Tool execution failed: {result.error_message}")
                 return False
+        except RateLimitError as e:
+            logger.error(f"Rate limited by target: {e}")
+            return False # Will trigger retry in autonomous loop
+        except AgentException as e:
+            logger.error(f"Agent error during execution: {e}")
+            return False
         except Exception as e:
-            logger.error(f"Tool execution failed: {e}")
+            logger.error(f"Unexpected tool execution failure: {e}", exc_info=True)
             return False
 
     async def run_autonomous_loop(self, tasks_file: str = "tasks.txt", completed_file: str = "completed.txt"):

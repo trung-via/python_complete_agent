@@ -1,20 +1,21 @@
 import os
 import requests
 import imagehash
+import asyncio
 from PIL import Image
 from io import BytesIO
 import logging
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 class ImageProcessor:
-    def __init__(self, output_dir="output_images"):
+    def __init__(self, output_dir="data/images"):
         self.output_dir = output_dir
         self.hash_db = set()
         os.makedirs(self.output_dir, exist_ok=True)
 
-    def download_image(self, url: str) -> Image.Image:
-        """Downloads an image from a URL and returns a PIL Image object."""
+    def _download_image_sync(self, url: str) -> Optional[Image.Image]:
         try:
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -27,44 +28,48 @@ class ImageProcessor:
             logger.error(f"Failed to download image from {url}: {e}")
             return None
 
-    def get_image_hash(self, img: Image.Image) -> str:
+    async def download_image(self, url: str) -> Optional[Image.Image]:
+        """Downloads an image asynchronously to avoid blocking the event loop."""
+        return await asyncio.to_thread(self._download_image_sync, url)
+
+    def get_image_hash(self, img: Image.Image) -> Optional[str]:
         """Calculates the perceptual hash of an image."""
         try:
-            # Using phash (perceptual hash) which is good for finding similar images
             return str(imagehash.phash(img))
         except Exception as e:
             logger.error(f"Failed to calculate hash: {e}")
             return None
 
-    def process_and_save(self, url: str, filename: str) -> bool:
+    async def process_and_save(self, url: str) -> Optional[str]:
         """
-        Downloads the image, checks for duplicates, and saves it if unique.
-        Returns True if saved, False if duplicate or failed.
+        Downloads the image, checks for duplicates, and saves it using its hash.
+        Returns the filename if saved/already exists, None if failed.
         """
-        img = self.download_image(url)
+        img = await self.download_image(url)
         if not img:
-            return False
+            return None
 
         img_hash = self.get_image_hash(img)
         if not img_hash:
-            return False
+            return None
 
-        if img_hash in self.hash_db:
-            logger.info(f"Duplicate image detected: {filename} (hash: {img_hash})")
-            return False
+        filename = f"img_{img_hash}.jpg"
+        save_path = os.path.join(self.output_dir, filename)
 
-        # It's a new image
+        if img_hash in self.hash_db or os.path.exists(save_path):
+            logger.info(f"Duplicate/existing image detected: {filename}")
+            self.hash_db.add(img_hash)
+            return filename # Return filename anyway, it's valid for upload
+
         self.hash_db.add(img_hash)
         
-        # Save image
-        save_path = os.path.join(self.output_dir, filename)
         try:
-            # Convert to RGB if it's RGBA (e.g., PNG to JPEG)
             if img.mode in ("RGBA", "P"):
                 img = img.convert("RGB")
-            img.save(save_path, "JPEG")
+            # Save in a separate thread just in case it's a large image
+            await asyncio.to_thread(img.save, save_path, "JPEG")
             logger.info(f"Saved unique image to {save_path}")
-            return True
+            return filename
         except Exception as e:
             logger.error(f"Failed to save image to {save_path}: {e}")
-            return False
+            return None

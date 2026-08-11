@@ -3,6 +3,8 @@ import re
 import logging
 from typing import Dict, Any
 from src.core.base_tool import BaseTool
+from src.core.types import ToolCall, ToolResult
+from src.core.errors import DependencyError, BrowserNavigationError, ExtractionError
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +17,23 @@ class ShopeeScrapeTool(BaseTool):
     def description(self) -> str:
         return "Scrapes product images from a Shopee URL, processes them, and uploads to Google Drive."
 
-    async def execute(self, url: str, context: Dict[str, Any]) -> Dict[str, Any]:
+    def get_schema(self) -> dict:
+        return {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "The Shopee product URL to scrape"
+                }
+            },
+            "required": ["url"]
+        }
+
+    async def execute(self, call: ToolCall, context: Dict[str, Any]) -> ToolResult:
+        url = call.arguments.get("url")
+        if not url:
+            return ToolResult(is_success=False, error_message="Missing 'url' in arguments.")
+            
         logger.info(f"Executing ShopeeScrapeTool for URL: {url}")
         
         browser = context.get('browser')
@@ -25,19 +43,13 @@ class ShopeeScrapeTool(BaseTool):
         gdrive_folder_id = context.get('gdrive_folder_id')
         
         if not all([browser, image_processor, gdrive, ai_controller]):
-            raise ValueError("Missing required context components for ShopeeScrapeTool")
+            raise DependencyError("Missing required context components for ShopeeScrapeTool")
 
         # 1. Playwright Scraping Logic
-        browser_context = browser.get_context()
-        if not browser_context:
-            logger.error("No active browser context available.")
-            return {"status": "error", "message": "Browser context unavailable."}
-            
         logger.info(f"Navigating to Shopee: {url}")
         api_images = []
-        try:
-            page = await browser_context.new_page()
-            
+        
+        async with browser.new_page() as page:
             try:
                 await page.goto(url, referer="https://google.com/", wait_until="domcontentloaded", timeout=45000)
             except Exception as e:
@@ -170,14 +182,6 @@ class ShopeeScrapeTool(BaseTool):
                 'product_name': extracted_data_js.get('product_name', 'Unknown Product'),
                 'shop_name': extracted_data_js.get('shop_name', 'Unknown Shop')
             }
-        except Exception as e:
-            logger.error(f"Error extracting from Shopee: {e}")
-            extracted_data = {'images': [], 'product_name': 'Unknown', 'shop_name': 'Unknown'}
-        finally:
-            try:
-                await page.close()
-            except:
-                pass
 
         # 2. Process extracted data
         image_urls = extracted_data.get('images', [])
@@ -185,20 +189,17 @@ class ShopeeScrapeTool(BaseTool):
         shop_name = extracted_data.get('shop_name', 'Unknown Shop')
         
         if not image_urls:
-            logger.warning("No images found or extraction failed.")
-            return {"status": "error", "message": "No images found."}
+            return ToolResult(is_success=False, error_message="No images found or extraction failed.")
 
         downloaded_files = []
-        for i, img_url in enumerate(image_urls):
-            filename = f"shopee_img_{i}.jpg"
-            saved = image_processor.process_and_save(img_url, filename)
-            if saved:
+        for img_url in image_urls:
+            filename = await image_processor.process_and_save(img_url)
+            if filename:
                 file_path = os.path.join(image_processor.output_dir, filename)
                 downloaded_files.append(file_path)
                 
         if not downloaded_files:
-            logger.warning("No images could be downloaded locally.")
-            return {"status": "error", "message": "Failed to download images."}
+            return ToolResult(is_success=False, error_message="Failed to download any images locally.")
             
         unique_files = downloaded_files
         
@@ -220,8 +221,20 @@ class ShopeeScrapeTool(BaseTool):
         
         logger.info(f"Uploading metadata and {len(unique_files)} unique images to folder: {safe_product_name}")
         gdrive.upload_file(info_path, folder_id=product_folder_id)
+        
+        upload_success_count = 0
         for file_path in unique_files:
-            gdrive.upload_file(file_path, folder_id=product_folder_id)
+            if gdrive.upload_file(file_path, folder_id=product_folder_id):
+                upload_success_count += 1
             
-        logger.info("Shopee Scrape task completed successfully.")
-        return {"status": "success", "uploaded_count": len(unique_files)}
+        is_partial = upload_success_count < len(unique_files)
+        
+        if upload_success_count == 0:
+             return ToolResult(is_success=False, error_message="Failed to upload any images to GDrive.")
+             
+        logger.info("Shopee Scrape task completed.")
+        return ToolResult(
+            is_success=True, 
+            is_partial_success=is_partial, 
+            data={"uploaded_count": upload_success_count, "total_found": len(unique_files)}
+        )

@@ -3,6 +3,8 @@ import re
 import logging
 from typing import Dict, Any
 from src.core.base_tool import BaseTool
+from src.core.types import ToolCall, ToolResult
+from src.core.errors import DependencyError, BrowserNavigationError, ExtractionError
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +17,23 @@ class TikTokScrapeTool(BaseTool):
     def description(self) -> str:
         return "Scrapes product images from a TikTok Shop URL, processes them, and uploads to Google Drive."
 
-    async def execute(self, url: str, context: Dict[str, Any]) -> Dict[str, Any]:
+    def get_schema(self) -> dict:
+        return {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "The TikTok Shop product URL to scrape"
+                }
+            },
+            "required": ["url"]
+        }
+
+    async def execute(self, call: ToolCall, context: Dict[str, Any]) -> ToolResult:
+        url = call.arguments.get("url")
+        if not url:
+            return ToolResult(is_success=False, error_message="Missing 'url' in arguments.")
+            
         logger.info(f"Executing TikTokScrapeTool for URL: {url}")
         
         browser = context.get('browser')
@@ -25,21 +43,14 @@ class TikTokScrapeTool(BaseTool):
         gdrive_folder_id = context.get('gdrive_folder_id')
         
         if not all([browser, image_processor, gdrive, ai_controller]):
-            raise ValueError("Missing required context components for TikTokScrapeTool")
+            raise DependencyError("Missing required context components for TikTokScrapeTool")
 
         # 1. Playwright Scraping Logic
-        browser_context = browser.get_context()
-        if not browser_context:
-            logger.error("No active browser context available.")
-            return {"status": "error", "message": "Browser context unavailable."}
-            
         logger.info(f"Navigating to TikTok: {url}")
         result = {'images': [], 'product_name': 'TikTok Product', 'shop_name': 'TikTok Shop'}
         images = set()
         
-        try:
-            page = await browser_context.new_page()
-            
+        async with browser.new_page() as page:
             try:
                 await page.goto(url, wait_until="domcontentloaded", timeout=30000)
             except Exception as e:
@@ -112,14 +123,6 @@ class TikTokScrapeTool(BaseTool):
                 
             result['images'] = list(images)
             logger.info(f"TikTok data extracted: {len(result['images'])} images.")
-        except Exception as e:
-            logger.error(f"Error extracting from TikTok: {e}")
-            result['images'] = list(images)
-        finally:
-            try:
-                await page.close()
-            except:
-                pass
                 
         extracted_data = result
 
@@ -129,20 +132,17 @@ class TikTokScrapeTool(BaseTool):
         shop_name = extracted_data.get('shop_name', 'Unknown Shop')
         
         if not image_urls:
-            logger.warning("No images found or TikTok extraction failed.")
-            return {"status": "error", "message": "No images found."}
+            return ToolResult(is_success=False, error_message="No images found or TikTok extraction failed.")
 
         downloaded_files = []
-        for i, img_url in enumerate(image_urls):
-            filename = f"tiktok_img_{i}.jpg"
-            saved = image_processor.process_and_save(img_url, filename)
-            if saved:
+        for img_url in image_urls:
+            filename = await image_processor.process_and_save(img_url)
+            if filename:
                 file_path = os.path.join(image_processor.output_dir, filename)
                 downloaded_files.append(file_path)
                 
         if not downloaded_files:
-            logger.warning("No TikTok images could be downloaded locally.")
-            return {"status": "error", "message": "Failed to download images."}
+            return ToolResult(is_success=False, error_message="Failed to download any images locally.")
             
         unique_files = downloaded_files
         
@@ -165,8 +165,20 @@ class TikTokScrapeTool(BaseTool):
         
         logger.info(f"Uploading metadata and {len(unique_files)} unique images to folder: {safe_product_name}")
         gdrive.upload_file(info_path, folder_id=product_folder_id)
+        
+        upload_success_count = 0
         for file_path in unique_files:
-            gdrive.upload_file(file_path, folder_id=product_folder_id)
+            if gdrive.upload_file(file_path, folder_id=product_folder_id):
+                upload_success_count += 1
             
-        logger.info("TikTok Scrape task completed successfully.")
-        return {"status": "success", "uploaded_count": len(unique_files)}
+        is_partial = upload_success_count < len(unique_files)
+        
+        if upload_success_count == 0:
+             return ToolResult(is_success=False, error_message="Failed to upload any images to GDrive.")
+             
+        logger.info("TikTok Scrape task completed.")
+        return ToolResult(
+            is_success=True, 
+            is_partial_success=is_partial, 
+            data={"uploaded_count": upload_success_count, "total_found": len(unique_files)}
+        )
