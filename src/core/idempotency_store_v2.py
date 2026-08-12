@@ -30,8 +30,20 @@ class InMemoryIdempotencyStore:
     No thread safety, no disk I/O — purely for contract validation in tests.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, ttl_seconds: Optional[float] = 86400) -> None:
+        self._validate_ttl_seconds(ttl_seconds)
+        self.ttl_seconds = ttl_seconds
         self._records: Dict[str, IdempotencyRecord] = {}
+
+    @staticmethod
+    def _validate_ttl_seconds(ttl_seconds: Optional[float]) -> None:
+        if ttl_seconds is not None:
+            if isinstance(ttl_seconds, bool) or not isinstance(ttl_seconds, (int, float)):
+                raise TypeError(
+                    f"ttl_seconds must be a number or None, got {type(ttl_seconds).__name__}"
+                )
+            if ttl_seconds <= 0:
+                raise ValueError("ttl_seconds must be > 0")
 
     def _inject_raw(self, canonical: str, raw: Any) -> None:
         """Backdoor for corruption tests. Bypasses all validation."""
@@ -75,6 +87,25 @@ class InMemoryIdempotencyStore:
         status = existing.status
 
         if status == RecordStatus.IN_PROGRESS:
+            now = time.time()
+            if (
+                self.ttl_seconds is not None
+                and (now - existing.updated_at) > self.ttl_seconds
+            ):
+                record = IdempotencyRecord(
+                    key=key,
+                    status=RecordStatus.IN_PROGRESS,
+                    created_at=existing.created_at,
+                    updated_at=now,
+                    owner_id=owner_id,
+                    attempt=existing.attempt + 1,
+                    data=None,
+                )
+                self._records[canonical] = record
+                return ClaimResult(
+                    status=ClaimStatus.CLAIMED,
+                    record=record,
+                )
             return ClaimResult(
                 status=ClaimStatus.ALREADY_IN_PROGRESS,
                 record=existing,
@@ -201,7 +232,23 @@ class InMemoryIdempotencyStore:
 
     def get(self, key: RecordKey) -> Optional[IdempotencyRecord]:
         """Read-only lookup. Raises on corruption."""
-        return self._get_validated(key.canonical)
+        record = self._get_validated(key.canonical)
+        if (
+            record is not None
+            and record.status == RecordStatus.IN_PROGRESS
+            and self.ttl_seconds is not None
+            and (time.time() - record.updated_at) > self.ttl_seconds
+        ):
+            return IdempotencyRecord(
+                key=record.key,
+                status=RecordStatus.RECOVERABLE,
+                created_at=record.created_at,
+                updated_at=record.updated_at,
+                owner_id=record.owner_id,
+                attempt=record.attempt,
+                data=record.data,
+            )
+        return record
 
     def _get_validated(
         self,
@@ -243,15 +290,28 @@ class JsonlIdempotencyStore:
     def __init__(
         self,
         db_path: str = "data/idempotency_store_v2.jsonl",
+        ttl_seconds: Optional[float] = 86400,
     ) -> None:
+        self._validate_ttl_seconds(ttl_seconds)
         self.db_path = db_path
         self.lock_path = f"{db_path}.lock"
+        self.ttl_seconds = ttl_seconds
         self._records: Dict[str, IdempotencyRecord] = {}
 
         self._ensure_parent_directory()
 
         with self._store_lock():
             self._reload_locked()
+
+    @staticmethod
+    def _validate_ttl_seconds(ttl_seconds: Optional[float]) -> None:
+        if ttl_seconds is not None:
+            if isinstance(ttl_seconds, bool) or not isinstance(ttl_seconds, (int, float)):
+                raise TypeError(
+                    f"ttl_seconds must be a number or None, got {type(ttl_seconds).__name__}"
+                )
+            if ttl_seconds <= 0:
+                raise ValueError("ttl_seconds must be > 0")
 
     # ------------------------------------------------------------------
     # Protocol methods
@@ -292,6 +352,24 @@ class JsonlIdempotencyStore:
             )
 
             if record.status == RecordStatus.IN_PROGRESS:
+                now = time.time()
+                if (
+                    self.ttl_seconds is not None
+                    and (now - record.updated_at) > self.ttl_seconds
+                ):
+                    claimed = self._new_claim(
+                        key,
+                        owner_id,
+                        attempt=record.attempt + 1,
+                        created_at=record.created_at,
+                    )
+                    self._append(claimed)
+                    self._records[canonical] = claimed
+                    return ClaimResult(
+                        status=ClaimStatus.CLAIMED,
+                        record=claimed,
+                    )
+
                 return ClaimResult(
                     status=ClaimStatus.ALREADY_IN_PROGRESS,
                     record=record,
@@ -393,10 +471,27 @@ class JsonlIdempotencyStore:
             if record is None:
                 return None
 
-            return self._validate_record(
+            validated = self._validate_record(
                 key.canonical,
                 record,
             )
+
+            if (
+                validated.status == RecordStatus.IN_PROGRESS
+                and self.ttl_seconds is not None
+                and (time.time() - validated.updated_at) > self.ttl_seconds
+            ):
+                return IdempotencyRecord(
+                    key=validated.key,
+                    status=RecordStatus.RECOVERABLE,
+                    created_at=validated.created_at,
+                    updated_at=validated.updated_at,
+                    owner_id=validated.owner_id,
+                    attempt=validated.attempt,
+                    data=validated.data,
+                )
+
+            return validated
 
     # ------------------------------------------------------------------
     # Atomic transition
