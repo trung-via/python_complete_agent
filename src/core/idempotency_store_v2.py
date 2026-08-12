@@ -250,6 +250,10 @@ class InMemoryIdempotencyStore:
             )
         return record
 
+    def compact(self) -> None:
+        """No-op for in-memory store."""
+        pass
+
     def _get_validated(
         self,
         canonical: str,
@@ -492,6 +496,71 @@ class JsonlIdempotencyStore:
                 )
 
             return validated
+
+    def compact(self) -> None:
+        """
+        Rewrite JSONL file to retain only the latest record per canonical key.
+
+        Executed atomically under _store_lock() using temp file replacement.
+        """
+        with self._store_lock():
+            self._reload_locked()
+            tmp_path = self._write_snapshot_locked(self._records)
+            self._replace_snapshot_locked(tmp_path)
+            self._reload_locked()
+
+    # ------------------------------------------------------------------
+    # Atomic transition & Snapshot helpers
+    # ------------------------------------------------------------------
+
+    def _write_snapshot_locked(
+        self,
+        records: Dict[str, IdempotencyRecord],
+    ) -> str:
+        """
+        Write records to a temporary file sorted deterministically by canonical key.
+
+        Caller must hold _store_lock().
+        """
+        tmp_path = f"{self.db_path}.tmp"
+        sorted_records = sorted(
+            records.values(),
+            key=lambda r: r.key.canonical,
+        )
+
+        try:
+            with open(tmp_path, "w", encoding="utf-8") as handle:
+                for record in sorted_records:
+                    payload = self._record_to_dict(record)
+                    handle.write(
+                        json.dumps(payload, sort_keys=True) + "\n"
+                    )
+                handle.flush()
+                os.fsync(handle.fileno())
+            return tmp_path
+        except Exception as exc:
+            if os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+            raise OSError(f"Failed to write snapshot: {exc}") from exc
+
+    def _replace_snapshot_locked(self, tmp_path: str) -> None:
+        """
+        Atomically replace the db_path data file with tmp_path.
+
+        Caller must hold _store_lock(). Lock file is untouched.
+        """
+        try:
+            os.replace(tmp_path, self.db_path)
+        except Exception as exc:
+            if os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+            raise OSError(f"Failed to replace snapshot: {exc}") from exc
 
     # ------------------------------------------------------------------
     # Atomic transition
