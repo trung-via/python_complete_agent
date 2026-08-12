@@ -254,6 +254,34 @@ class InMemoryIdempotencyStore:
         """No-op for in-memory store."""
         pass
 
+    def prune(self, max_age_seconds: float) -> None:
+        """Prune COMPLETED/FAILED records older than max_age_seconds."""
+        self._validate_max_age_seconds(max_age_seconds)
+        now = time.time()
+        to_remove = [
+            canonical
+            for canonical, record in self._records.items()
+            if record.status in (RecordStatus.COMPLETED, RecordStatus.FAILED)
+            and (now - record.updated_at) > max_age_seconds
+        ]
+        for canonical in to_remove:
+            del self._records[canonical]
+
+    def repair(self) -> bool:
+        """No-op for in-memory store."""
+        return False
+
+    @staticmethod
+    def _validate_max_age_seconds(max_age_seconds: float) -> None:
+        if isinstance(max_age_seconds, bool) or not isinstance(
+            max_age_seconds, (int, float)
+        ):
+            raise TypeError(
+                f"max_age_seconds must be a number, got {type(max_age_seconds).__name__}"
+            )
+        if max_age_seconds <= 0:
+            raise ValueError("max_age_seconds must be > 0")
+
     def _get_validated(
         self,
         canonical: str,
@@ -316,6 +344,17 @@ class JsonlIdempotencyStore:
                 )
             if ttl_seconds <= 0:
                 raise ValueError("ttl_seconds must be > 0")
+
+    @staticmethod
+    def _validate_max_age_seconds(max_age_seconds: float) -> None:
+        if isinstance(max_age_seconds, bool) or not isinstance(
+            max_age_seconds, (int, float)
+        ):
+            raise TypeError(
+                f"max_age_seconds must be a number, got {type(max_age_seconds).__name__}"
+            )
+        if max_age_seconds <= 0:
+            raise ValueError("max_age_seconds must be > 0")
 
     # ------------------------------------------------------------------
     # Protocol methods
@@ -508,6 +547,89 @@ class JsonlIdempotencyStore:
             tmp_path = self._write_snapshot_locked(self._records)
             self._replace_snapshot_locked(tmp_path)
             self._reload_locked()
+
+    def prune(self, max_age_seconds: float) -> None:
+        """
+        Remove COMPLETED and FAILED records older than max_age_seconds.
+
+        IN_PROGRESS, RECOVERABLE, and NEW records are NEVER pruned.
+        Executed atomically under _store_lock().
+        """
+        self._validate_max_age_seconds(max_age_seconds)
+        with self._store_lock():
+            self._reload_locked()
+            now = time.time()
+            filtered_records = {
+                canonical: record
+                for canonical, record in self._records.items()
+                if not (
+                    record.status in (RecordStatus.COMPLETED, RecordStatus.FAILED)
+                    and (now - record.updated_at) > max_age_seconds
+                )
+            }
+            tmp_path = self._write_snapshot_locked(filtered_records)
+            self._replace_snapshot_locked(tmp_path)
+            self._reload_locked()
+
+    def repair(self) -> bool:
+        """
+        Conservative repair for trailing malformed / incomplete line at EOF.
+
+        If corruption exists in the middle of the file, IdempotencyCorruptionError
+        is raised (fatal, non-repairable).
+        Returns True if a trailing corrupt line was truncated, False otherwise.
+        """
+        with self._store_lock():
+            if not os.path.exists(self.db_path):
+                return False
+
+            lines_with_offsets: list[tuple[int, int, str]] = []
+            with open(self.db_path, "rb") as f:
+                offset = 0
+                for raw_line in f:
+                    start_offset = offset
+                    offset += len(raw_line)
+                    text = raw_line.decode("utf-8", errors="replace")
+                    lines_with_offsets.append((start_offset, offset, text))
+
+            if not lines_with_offsets:
+                return False
+
+            corrupt_index: Optional[int] = None
+
+            for index, (_, _, text) in enumerate(lines_with_offsets):
+                stripped = text.strip()
+                if not stripped:
+                    continue
+
+                try:
+                    payload = json.loads(stripped)
+                    self._record_from_dict(payload, index + 1)
+                except Exception:
+                    corrupt_index = index
+                    break
+
+            if corrupt_index is None:
+                return False
+
+            # If corruption is in the middle of the file -> fatal!
+            if corrupt_index < len(lines_with_offsets) - 1:
+                raise IdempotencyCorruptionError(
+                    f"<line:{corrupt_index + 1}>",
+                    "Fatal non-trailing corruption in middle of JSONL store file",
+                )
+
+            # Trailing line corruption -> truncate to start of corrupt line
+            truncate_at = lines_with_offsets[corrupt_index][0]
+
+            with open(self.db_path, "a+b") as handle:
+                handle.seek(truncate_at)
+                handle.truncate()
+                handle.flush()
+                os.fsync(handle.fileno())
+
+            self._reload_locked()
+            return True
 
     # ------------------------------------------------------------------
     # Atomic transition & Snapshot helpers
