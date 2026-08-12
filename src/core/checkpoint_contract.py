@@ -302,9 +302,15 @@ def validate_state_transition(
             return RunState.LLM_WAITING
         if evt_type == CheckpointEventType.LLM_RESPONDED:
             num_tool_calls = event.payload.get("num_tool_calls", 0)
-            if num_tool_calls > 0:
+            has_tools = bool(event.payload.get("tool_calls"))
+            if num_tool_calls > 0 or has_tools:
                 return RunState.TOOL_EXECUTING
             return RunState.LLM_WAITING
+        if evt_type in (
+            CheckpointEventType.TOOL_CALL_CREATED,
+            CheckpointEventType.TOOL_ATTEMPT_STARTED,
+        ):
+            return RunState.TOOL_EXECUTING
         if evt_type == CheckpointEventType.LLM_FINAL_RESPONSE:
             return RunState.LLM_WAITING
         raise CheckpointStateError(event.run_id, current_state, evt_type)
