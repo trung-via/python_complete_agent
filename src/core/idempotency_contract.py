@@ -137,6 +137,40 @@ class IdempotencyRecord:
     attempt: int
     data: Optional[Dict[str, Any]] = None
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Explicit dictionary serialization preserving separate key fields."""
+        return {
+            "operation_key": self.key.operation_key,
+            "idempotency_key": self.key.idempotency_key,
+            "status": self.status.value,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "owner_id": self.owner_id,
+            "attempt": self.attempt,
+            "data": self.data,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> IdempotencyRecord:
+        """Reconstruct IdempotencyRecord from explicit dictionary fields."""
+        try:
+            key = RecordKey(
+                operation_key=data["operation_key"],
+                idempotency_key=data["idempotency_key"],
+            )
+            return cls(
+                key=key,
+                status=RecordStatus(data["status"]),
+                created_at=float(data["created_at"]),
+                updated_at=float(data["updated_at"]),
+                owner_id=str(data["owner_id"]),
+                attempt=int(data["attempt"]),
+                data=data.get("data"),
+            )
+        except (KeyError, ValueError, TypeError) as e:
+            key_repr = f"{data.get('operation_key', '')}::{data.get('idempotency_key', '')}"
+            raise IdempotencyCorruptionError(key_repr, f"Invalid record dict format: {e}")
+
 
 @dataclass(frozen=True, slots=True)
 class ClaimResult:

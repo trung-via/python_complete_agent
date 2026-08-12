@@ -268,3 +268,37 @@ def test_input_validation(store):
     with pytest.raises(TypeError):
         store.claim(key, owner_id=123)  # type: ignore
 
+
+def test_record_serialization_roundtrip():
+    """
+    Bonus #13: IdempotencyRecord.to_dict() and from_dict() preserve separate operation_key and idempotency_key fields.
+    """
+    key = RecordKey(operation_key="op::with::colons", idempotency_key="idem::with::colons")
+    record = IdempotencyRecord(
+        key=key,
+        status=RecordStatus.IN_PROGRESS,
+        created_at=100.0,
+        updated_at=105.0,
+        owner_id="worker_123",
+        attempt=2,
+        data={"res": "ok"},
+    )
+
+    d = record.to_dict()
+    assert d["operation_key"] == "op::with::colons"
+    assert d["idempotency_key"] == "idem::with::colons"
+    assert d["status"] == "IN_PROGRESS"
+    assert d["owner_id"] == "worker_123"
+    assert d["attempt"] == 2
+    assert d["data"] == {"res": "ok"}
+
+    reconstructed = IdempotencyRecord.from_dict(d)
+    assert reconstructed == record
+    assert reconstructed.key.operation_key == "op::with::colons"
+    assert reconstructed.key.idempotency_key == "idem::with::colons"
+
+    # Test invalid dict raises IdempotencyCorruptionError
+    with pytest.raises(IdempotencyCorruptionError):
+        IdempotencyRecord.from_dict({"operation_key": "op"})
+
+
