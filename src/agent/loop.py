@@ -188,9 +188,14 @@ class AgentLoop:
                     return None
 
     async def _resume_internal(self, run_id: str) -> Optional[str]:
-        """Internal resume implementation via ReplayEngine."""
+        """Internal resume implementation via ReplayEngine with explicit failure classification."""
         from src.agent.replay_engine import ReplayEngine
         from src.core.checkpoint_contract import RunState
+        from src.core.errors import RecoveryStateError
+
+        events = ReplayEngine.load_events_for_run(self.checkpoints.db_path, run_id)
+        if not events:
+            raise RecoveryStateError(f"Run ID '{run_id}' not found in checkpoints database.")
 
         session = ReplayEngine.reconstruct_session(
             self.checkpoints.db_path, run_id
@@ -203,7 +208,9 @@ class AgentLoop:
             return None
 
         if session.last_state in (RunState.FAILED, RunState.HALTED):
-            return None
+            raise RecoveryStateError(
+                f"Cannot resume run '{run_id}' in terminal state {session.last_state.value}"
+            )
 
         messages = list(session.messages)
         tools_schema = self.tool_registry.get_tools_schema()

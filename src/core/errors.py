@@ -35,3 +35,13 @@ class DependencyError(AgentException):
     """Raised when a required dependency (e.g., GDrive context) is missing."""
     def __init__(self, message: str, retryable: bool = False, details: dict = None):
         super().__init__(message, code="DEPENDENCY_ERROR", retryable=retryable, details=details)
+
+class RecoveryStateError(AgentException):
+    """Raised when session resumption or recovery fails due to missing or invalid state."""
+    def __init__(self, message: str, retryable: bool = False, details: dict = None):
+        super().__init__(message, code="RECOVERY_STATE_ERROR", retryable=retryable, details=details)
+
+class LLMExecutionError(AgentException):
+    """Raised when the LLM provider fails unrecoverably."""
+    def __init__(self, message: str, retryable: bool = False, details: dict = None):
+        super().__init__(message, code="LLM_EXECUTION_ERROR", retryable=retryable, details=details)
