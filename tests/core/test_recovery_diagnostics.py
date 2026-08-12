@@ -64,7 +64,8 @@ def _setup_loop(tmp_path: Any) -> tuple[AgentLoop, CheckpointManager]:
 @pytest.mark.asyncio
 async def test_resume_non_existent_run_raises_recovery_state_error(tmp_path: Any) -> None:
     loop, _ = _setup_loop(tmp_path)
-    with pytest.raises(RecoveryStateError, match="not found in checkpoints"):
+    # Non-existent run: RecoveryAnalyzer classifies as CORRUPT (fail-closed)
+    with pytest.raises(RecoveryStateError, match="is corrupted"):
         await loop.resume("run-does-not-exist")
 
 
@@ -120,8 +121,8 @@ async def test_resume_corrupt_checkpoint_raises_checkpoint_corruption_error(
 
     loop, _ = _setup_loop(tmp_path)
 
-    # Fail-closed: raises CheckpointCorruptionError
-    with pytest.raises(CheckpointCorruptionError, match="Sequence_id gap"):
+    # Fail-closed: RecoveryAnalyzer detects corruption and raises RecoveryStateError
+    with pytest.raises(RecoveryStateError, match="is corrupted"):
         await loop.resume(run_id)
 
 
@@ -153,24 +154,24 @@ async def test_deterministic_classification_reproducibility(tmp_path: Any) -> No
 
     loop, _ = _setup_loop(tmp_path)
 
-    # Re-run recovery 3 times -> exact same exception and error message
+    # Re-run recovery 3 times -> exact same RecoveryStateError (deterministic classification)
     err_msg1 = ""
     err_msg2 = ""
     err_msg3 = ""
 
     try:
         await loop.resume(run_id)
-    except CheckpointCorruptionError as e:
+    except RecoveryStateError as e:
         err_msg1 = str(e)
 
     try:
         await loop.resume(run_id)
-    except CheckpointCorruptionError as e:
+    except RecoveryStateError as e:
         err_msg2 = str(e)
 
     try:
         await loop.resume(run_id)
-    except CheckpointCorruptionError as e:
+    except RecoveryStateError as e:
         err_msg3 = str(e)
 
     assert err_msg1 != ""

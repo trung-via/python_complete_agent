@@ -8,6 +8,7 @@ from src.agent.messages import AssistantToolCall, LLMMessage, MessageRole
 from src.agent.policy import RunPolicy
 from src.core.checkpoint import CheckpointManager
 from src.core.errors import AgentException, SystemStateError
+from src.core.recovery_diagnostics import RecoveryAnalyzer, RecoveryPotential
 from src.core.tool_executor import ToolExecutor
 from src.core.tool_registry import ToolRegistry
 from src.core.types import ToolCall, ToolResult, ToolStatus
@@ -188,29 +189,58 @@ class AgentLoop:
                     return None
 
     async def _resume_internal(self, run_id: str) -> Optional[str]:
-        """Internal resume implementation via ReplayEngine with explicit failure classification."""
+        """
+        Internal resume implementation with recovery diagnostics.
+
+        Uses RecoveryAnalyzer to classify run state and determine recovery potential.
+        Supports 4 classifications:
+        - COMPLETED: Return cached answer deterministically
+        - RECOVERABLE: Continue execution from current state
+        - NON_RECOVERABLE: Raise explicit RecoveryStateError (terminal state)
+        - CORRUPT: Raise CheckpointCorruptionError (fail-closed, no auto-repair)
+        """
         from src.agent.replay_engine import ReplayEngine
         from src.core.checkpoint_contract import RunState
         from src.core.errors import RecoveryStateError
 
-        events = ReplayEngine.load_events_for_run(self.checkpoints.db_path, run_id)
-        if not events:
-            raise RecoveryStateError(f"Run ID '{run_id}' not found in checkpoints database.")
+        # Use RecoveryAnalyzer for deterministic classification
+        diag = RecoveryAnalyzer.analyze(run_id, self.checkpoints.db_path)
 
-        session = ReplayEngine.reconstruct_session(
-            self.checkpoints.db_path, run_id
+        logger.info(
+            f"Recovery analysis for run '{run_id}': "
+            f"potential={diag.recovery_potential.value}, state={diag.current_state.value}"
         )
 
-        if session.last_state == RunState.COMPLETED:
+        # Handle COMPLETED: return cached answer
+        if diag.recovery_potential == RecoveryPotential.COMPLETED:
+            session = ReplayEngine.reconstruct_session(self.checkpoints.db_path, run_id)
             for msg in reversed(session.messages):
                 if msg.role == MessageRole.ASSISTANT and msg.content:
                     return msg.content
             return None
 
-        if session.last_state in (RunState.FAILED, RunState.HALTED):
+        # Handle NON_RECOVERABLE: fail-closed, cannot continue
+        if diag.recovery_potential == RecoveryPotential.NON_RECOVERABLE:
             raise RecoveryStateError(
-                f"Cannot resume run '{run_id}' in terminal state {session.last_state.value}"
+                f"Cannot resume run '{run_id}' in terminal state {diag.current_state.value}: "
+                f"{diag.error_message}"
             )
+
+        # Handle CORRUPT: fail-closed, no auto-repair
+        if diag.recovery_potential == RecoveryPotential.CORRUPT:
+            raise RecoveryStateError(
+                f"Checkpoint for run '{run_id}' is corrupted, recovery failed: {diag.error_message}"
+            )
+
+        # Handle RECOVERABLE: continue execution
+        if diag.recovery_potential != RecoveryPotential.RECOVERABLE:
+            raise RecoveryStateError(
+                f"Unknown recovery potential for run '{run_id}': {diag.recovery_potential}"
+            )
+
+        session = ReplayEngine.reconstruct_session(
+            self.checkpoints.db_path, run_id
+        )
 
         messages = list(session.messages)
         tools_schema = self.tool_registry.get_tools_schema()
