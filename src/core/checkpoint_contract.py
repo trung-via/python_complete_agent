@@ -288,6 +288,13 @@ def validate_state_transition(
     if current_state == RunState.PENDING:
         if evt_type in (CheckpointEventType.TASK_START, CheckpointEventType.RUN_STARTED):
             return RunState.RUNNING
+        if evt_type in (
+            CheckpointEventType.TOOL_CALL_CREATED,
+            CheckpointEventType.TOOL_ATTEMPT_STARTED,
+        ):
+            # Direct tool execution without a preceding run-start event
+            # (e.g. standalone ToolExecutor usage).
+            return RunState.TOOL_EXECUTING
         raise CheckpointStateError(event.run_id, current_state, evt_type)
 
     if current_state == RunState.RUNNING:
@@ -295,6 +302,12 @@ def validate_state_transition(
             return RunState.RUNNING
         if evt_type == CheckpointEventType.LLM_REQUESTED:
             return RunState.LLM_WAITING
+        if evt_type in (
+            CheckpointEventType.TOOL_CALL_CREATED,
+            CheckpointEventType.TOOL_ATTEMPT_STARTED,
+        ):
+            # Direct tool execution without LLM cycle (e.g. standalone ToolExecutor).
+            return RunState.TOOL_EXECUTING
         raise CheckpointStateError(event.run_id, current_state, evt_type)
 
     if current_state == RunState.LLM_WAITING:
@@ -305,14 +318,16 @@ def validate_state_transition(
             has_tools = bool(event.payload.get("tool_calls"))
             if num_tool_calls > 0 or has_tools:
                 return RunState.TOOL_EXECUTING
-            return RunState.LLM_WAITING
+            # No tool calls → this is the final LLM answer; run is complete.
+            return RunState.COMPLETED
         if evt_type in (
             CheckpointEventType.TOOL_CALL_CREATED,
             CheckpointEventType.TOOL_ATTEMPT_STARTED,
         ):
             return RunState.TOOL_EXECUTING
         if evt_type == CheckpointEventType.LLM_FINAL_RESPONSE:
-            return RunState.LLM_WAITING
+            # Explicit final-response marker also completes the run.
+            return RunState.COMPLETED
         raise CheckpointStateError(event.run_id, current_state, evt_type)
 
     if current_state == RunState.TOOL_EXECUTING:
