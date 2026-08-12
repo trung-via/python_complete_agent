@@ -254,6 +254,14 @@ class InMemoryIdempotencyStore:
         """No-op for in-memory store."""
         pass
 
+    def get_all_records(self) -> Dict[RecordKey, IdempotencyRecord]:
+        """Return a copy of all current idempotency records keyed by RecordKey."""
+        return {
+            rec.key: rec
+            for rec in self._records.values()
+            if isinstance(rec, IdempotencyRecord)
+        }
+
     def prune(self, max_age_seconds: float) -> None:
         """Prune COMPLETED/FAILED records older than max_age_seconds."""
         self._validate_max_age_seconds(max_age_seconds)
@@ -535,6 +543,15 @@ class JsonlIdempotencyStore:
                 )
 
             return validated
+
+    def get_all_records(self) -> Dict[RecordKey, IdempotencyRecord]:
+        """Return a copy of all current idempotency records keyed by RecordKey."""
+        with self._store_lock():
+            self._reload_locked()
+            return {
+                rec.key: rec
+                for rec in self._records.values()
+            }
 
     def compact(self) -> None:
         """
