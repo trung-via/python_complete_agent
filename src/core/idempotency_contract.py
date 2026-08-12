@@ -15,6 +15,7 @@ Key concepts:
 """
 from __future__ import annotations
 
+import json
 import time
 from enum import Enum
 from dataclasses import dataclass, field
@@ -29,11 +30,14 @@ class RecordStatus(str, Enum):
     """
     Lifecycle states for an idempotency record.
 
-    NEW           → just created, not yet executing
+    NEW           → persisted/pre-claim state; not returned by claim() in
+                    normal operation. Exists for persistent recovery and
+                    record reconstruction (P5.3-B).
     IN_PROGRESS   → actively being executed by an owner
     COMPLETED     → finished successfully (terminal)
     FAILED        → finished with permanent failure (terminal)
-    RECOVERABLE   → finished with retryable failure (eligible for re-claim)
+    RECOVERABLE   → finished with retryable failure; claim() will re-claim
+                    this record, transferring ownership and incrementing attempt
     """
     NEW = "NEW"
     IN_PROGRESS = "IN_PROGRESS"
@@ -46,16 +50,15 @@ class ClaimStatus(str, Enum):
     """
     Possible outcomes of a claim() call.
 
-    CLAIMED              → caller now owns this operation
-    ALREADY_IN_PROGRESS  → another owner is executing
-    ALREADY_COMPLETED    → operation already succeeded (replay result)
-    FAILED_RETRYABLE     → previous attempt failed but is retryable
-    FAILED_PERMANENT     → previous attempt failed permanently
+    CLAIMED              → caller now owns this operation (fresh or re-claim
+                           from RECOVERABLE; check record.attempt to distinguish)
+    ALREADY_IN_PROGRESS  → another owner is executing; caller must NOT proceed
+    ALREADY_COMPLETED    → operation already succeeded (replay result from record.data)
+    FAILED_PERMANENT     → previous attempt failed permanently; no auto-retry
     """
     CLAIMED = "CLAIMED"
     ALREADY_IN_PROGRESS = "ALREADY_IN_PROGRESS"
     ALREADY_COMPLETED = "ALREADY_COMPLETED"
-    FAILED_RETRYABLE = "FAILED_RETRYABLE"
     FAILED_PERMANENT = "FAILED_PERMANENT"
 
 
@@ -78,7 +81,10 @@ class RecordKey:
     idempotency_key  = identity of a specific request/attempt
                        (prevents duplicate execution)
 
-    Canonical form: "{operation_key}::{idempotency_key}"
+    Canonical form uses JSON array encoding to guarantee
+    zero ambiguity — no delimiter collision possible:
+        ["op_key", "idem_key"]
+
     Scope guarantee: different operation_keys NEVER collide,
                      even with identical idempotency_keys.
     """
@@ -86,6 +92,10 @@ class RecordKey:
     idempotency_key: str
 
     def __post_init__(self):
+        if not isinstance(self.operation_key, str):
+            raise TypeError(f"operation_key must be str, got {type(self.operation_key).__name__}")
+        if not isinstance(self.idempotency_key, str):
+            raise TypeError(f"idempotency_key must be str, got {type(self.idempotency_key).__name__}")
         if not self.operation_key:
             raise ValueError("operation_key cannot be empty")
         if not self.idempotency_key:
@@ -93,8 +103,12 @@ class RecordKey:
 
     @property
     def canonical(self) -> str:
-        """Unique string for storage lookup / hashing."""
-        return f"{self.operation_key}::{self.idempotency_key}"
+        """Collision-free canonical string for storage lookup / hashing."""
+        return json.dumps(
+            [self.operation_key, self.idempotency_key],
+            separators=(',', ':'),
+            ensure_ascii=False,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -203,12 +217,16 @@ class IdempotencyStoreProtocol(Protocol):
         """
         Atomically attempt to claim an operation.
 
+        Args:
+            key:      composite (operation_key, idempotency_key)
+            owner_id: non-empty str identifying the claiming worker
+
         Returns:
             ClaimResult with appropriate ClaimStatus:
-            - CLAIMED: caller now owns this record (status = IN_PROGRESS)
+            - CLAIMED: caller now owns this record (status = IN_PROGRESS).
+              Includes re-claim from RECOVERABLE (attempt > 1).
             - ALREADY_IN_PROGRESS: another owner holds this record
             - ALREADY_COMPLETED: operation already succeeded
-            - FAILED_RETRYABLE: previous attempt failed, eligible for retry
             - FAILED_PERMANENT: previous attempt failed permanently
         """
         ...

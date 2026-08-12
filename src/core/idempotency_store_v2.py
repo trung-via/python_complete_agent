@@ -60,8 +60,13 @@ class InMemoryIdempotencyStore:
             IN_PROGRESS          → ALREADY_IN_PROGRESS
             COMPLETED            → ALREADY_COMPLETED
             FAILED               → FAILED_PERMANENT
-            RECOVERABLE          → FAILED_RETRYABLE
+            RECOVERABLE          → CLAIMED (re-claim: IN_PROGRESS, owner=owner_id, attempt+1)
         """
+        if not isinstance(owner_id, str):
+            raise TypeError(f"owner_id must be str, got {type(owner_id).__name__}")
+        if not owner_id:
+            raise ValueError("owner_id cannot be empty")
+
         canonical = key.canonical
         existing = self._records.get(canonical)
 
@@ -99,7 +104,19 @@ class InMemoryIdempotencyStore:
             return ClaimResult(status=ClaimStatus.FAILED_PERMANENT, record=existing)
 
         if status == RecordStatus.RECOVERABLE:
-            return ClaimResult(status=ClaimStatus.FAILED_RETRYABLE, record=existing)
+            # Re-claim: transfer ownership, transition to IN_PROGRESS, increment attempt
+            now = time.time()
+            record = IdempotencyRecord(
+                key=key,
+                status=RecordStatus.IN_PROGRESS,
+                created_at=existing.created_at,
+                updated_at=now,
+                owner_id=owner_id,
+                attempt=existing.attempt + 1,
+                data=None,
+            )
+            self._records[canonical] = record
+            return ClaimResult(status=ClaimStatus.CLAIMED, record=record)
 
         # If we get here, status is NEW or something unexpected
         if status == RecordStatus.NEW:

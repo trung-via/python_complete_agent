@@ -138,8 +138,8 @@ def test_permanent_failure_no_auto_retry(store):
 
 def test_retryable_failure_eligible_for_retry(store):
     """
-    DoD #7: retryable failure → eligible according to retry policy.
-    Re-claim returns FAILED_RETRYABLE (caller decides whether to retry).
+    DoD #7: retryable failure → re-claim transfers ownership and increments attempt.
+    Re-claim returns CLAIMED with status IN_PROGRESS, new owner_id, and attempt=2.
     """
     key = RecordKey(operation_key="upload:sha256_abc", idempotency_key="req_001")
     error_data = {"error": "network_timeout", "code": "GDRIVE_NETWORK"}
@@ -147,10 +147,13 @@ def test_retryable_failure_eligible_for_retry(store):
     store.claim(key, owner_id="worker_A")
     store.fail(key, owner_id="worker_A", retryable=True, data=error_data)
 
+    # worker_B re-claims the RECOVERABLE operation
     result = store.claim(key, owner_id="worker_B")
-    assert result.status == ClaimStatus.FAILED_RETRYABLE
-    assert result.record.data == error_data
-    assert result.record.status == RecordStatus.RECOVERABLE
+    assert result.status == ClaimStatus.CLAIMED
+    assert result.record is not None
+    assert result.record.status == RecordStatus.IN_PROGRESS
+    assert result.record.owner_id == "worker_B"
+    assert result.record.attempt == 2
 
 
 def test_corrupt_record_explicit_error(store):
@@ -202,19 +205,19 @@ def test_ownership_enforcement(store):
 
 def test_record_key_canonical_uniqueness(store):
     """
-    Bonus #10: RecordKey("a","b").canonical != RecordKey("b","a").canonical.
-    The composite key is order-dependent.
+    Bonus #10: JSON canonical key prevents delimiter collisions (e.g. "a::b" + "c" vs "a" + "b::c").
     """
-    key_ab = RecordKey(operation_key="a", idempotency_key="b")
-    key_ba = RecordKey(operation_key="b", idempotency_key="a")
+    key_ab_c = RecordKey(operation_key="a::b", idempotency_key="c")
+    key_a_bc = RecordKey(operation_key="a", idempotency_key="b::c")
 
-    assert key_ab.canonical != key_ba.canonical
-    assert key_ab.canonical == "a::b"
-    assert key_ba.canonical == "b::a"
+    # Delimiter collision resistance guarantee
+    assert key_ab_c.canonical != key_a_bc.canonical
+    assert key_ab_c.canonical == '["a::b","c"]'
+    assert key_a_bc.canonical == '["a","b::c"]'
 
-    # Both can be claimed independently
-    r1 = store.claim(key_ab, owner_id="w1")
-    r2 = store.claim(key_ba, owner_id="w2")
+    # Both can be claimed independently without colliding in store
+    r1 = store.claim(key_ab_c, owner_id="w1")
+    r2 = store.claim(key_a_bc, owner_id="w2")
     assert r1.status == ClaimStatus.CLAIMED
     assert r2.status == ClaimStatus.CLAIMED
 
@@ -237,3 +240,31 @@ def test_claim_returns_record_metadata(store):
     assert record.created_at > 0
     assert record.updated_at >= record.created_at
     assert record.data is None
+
+
+def test_input_validation(store):
+    """
+    Bonus #12: Strict type and non-empty checks for operation_key, idempotency_key, owner_id.
+    """
+    # Empty string validation
+    with pytest.raises(ValueError):
+        RecordKey(operation_key="", idempotency_key="k")
+
+    with pytest.raises(ValueError):
+        RecordKey(operation_key="op", idempotency_key="")
+
+    # Non-str validation
+    with pytest.raises(TypeError):
+        RecordKey(operation_key=123, idempotency_key="k")  # type: ignore
+
+    with pytest.raises(TypeError):
+        RecordKey(operation_key="op", idempotency_key=[])  # type: ignore
+
+    # owner_id validation
+    key = RecordKey(operation_key="op", idempotency_key="k")
+    with pytest.raises(ValueError):
+        store.claim(key, owner_id="")
+
+    with pytest.raises(TypeError):
+        store.claim(key, owner_id=123)  # type: ignore
+
