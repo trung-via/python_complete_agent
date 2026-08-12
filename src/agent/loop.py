@@ -14,6 +14,8 @@ from src.core.tool_registry import ToolRegistry
 from src.core.types import ToolCall, ToolResult, ToolStatus
 from src.providers.base import LLMProvider, LLMResponse
 
+from src.core.cancellation import RunCancellationController
+
 logger = logging.getLogger(__name__)
 
 
@@ -25,12 +27,17 @@ class AgentLoop:
         tool_registry: ToolRegistry,
         checkpoints: CheckpointManager,
         policy: RunPolicy = RunPolicy(),
+        cancellation_controller: Optional[RunCancellationController] = None,
     ):
         self.llm = llm_provider
         self.tool_executor = tool_executor
         self.tool_registry = tool_registry
         self.checkpoints = checkpoints
         self.policy = policy
+        self.cancellation_controller = (
+            cancellation_controller or RunCancellationController(checkpoints)
+        )
+
 
     async def run(self, run_id: str, system_prompt: str, user_prompt: str) -> Optional[str]:
         """
@@ -66,6 +73,11 @@ class AgentLoop:
 
     async def _run_internal(self, run_id: str, system_prompt: str, user_prompt: str) -> Optional[str]:
         """Internal run loop without timeout wrapping."""
+        token = self.cancellation_controller.get_token(run_id)
+        if token.is_cancelled:
+            logger.info(f"Run {run_id} is already cancelled before starting.")
+            return None
+
         iterations = 0
         total_tool_calls = 0
 
@@ -77,7 +89,13 @@ class AgentLoop:
         self.checkpoints.log_run_started(run_id, system_prompt, user_prompt)
         tools_schema = self.tool_registry.get_tools_schema()
 
+
         while True:
+            token = self.cancellation_controller.get_token(run_id)
+            if token.is_cancelled:
+                logger.info(f"Run {run_id} cancelled before iteration: {token.reason}")
+                return None
+
             # 1. Check Safety Limits
             if iterations >= self.policy.max_iterations:
                 logger.warning(f"Run {run_id} halted: Max iterations ({self.policy.max_iterations}) reached.")
@@ -85,6 +103,10 @@ class AgentLoop:
                 return None
 
             iterations += 1
+            if token.is_cancelled:
+                logger.info(f"Run {run_id} cancelled before LLM request: {token.reason}")
+                return None
+
             self.checkpoints.log_llm_requested(run_id, iterations)
 
             # 2. Invoke LLM
@@ -139,11 +161,16 @@ class AgentLoop:
 
             # 4. Execute Tools
             for idx, p_call in enumerate(response.tool_calls):
+                if token.is_cancelled:
+                    logger.info(f"Run {run_id} cancelled during tool batch: {token.reason}")
+                    return None
+
                 total_tool_calls += 1
                 if total_tool_calls > self.policy.max_tool_calls:
                     logger.warning(f"Run {run_id} halted: Max tool calls ({self.policy.max_tool_calls}) reached.")
                     self.checkpoints.log_run_halted(run_id, "MAX_TOOL_CALLS_REACHED")
                     return None
+
 
                 call = ToolCall(
                     name=p_call.name,
