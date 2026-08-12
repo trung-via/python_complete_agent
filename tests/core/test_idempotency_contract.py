@@ -4,6 +4,8 @@ Phase 5.3-A — Idempotency Contract Test Suite
 11 tests covering the 8 Definition-of-Done scenarios + 3 structural invariants.
 Tests use the InMemoryIdempotencyStore reference implementation.
 """
+import os
+import tempfile
 import pytest
 
 from src.core.idempotency_contract import (
@@ -16,7 +18,7 @@ from src.core.idempotency_contract import (
     IdempotencyOwnershipError,
     IdempotencyStateError,
 )
-from src.core.idempotency_store_v2 import InMemoryIdempotencyStore
+from src.core.idempotency_store_v2 import InMemoryIdempotencyStore, JsonlIdempotencyStore
 
 
 # ---------------------------------------------------------------------------
@@ -300,5 +302,84 @@ def test_record_serialization_roundtrip():
     # Test invalid dict raises IdempotencyCorruptionError
     with pytest.raises(IdempotencyCorruptionError):
         IdempotencyRecord.from_dict({"operation_key": "op"})
+
+
+# ---------------------------------------------------------------------------
+# JsonlIdempotencyStore Persistent Tests
+# ---------------------------------------------------------------------------
+
+def test_jsonl_store_persistence_and_reload():
+    """
+    JsonlIdempotencyStore persists claims and transitions across process restarts.
+    Multiple lines for the same key update state; latest record is retained.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = os.path.join(tmpdir, "idempotency_v2.jsonl")
+        key = RecordKey(operation_key="op_persist", idempotency_key="idem_001")
+
+        # 1. First process: claim and complete
+        store1 = JsonlIdempotencyStore(db_path=db_path)
+        r1 = store1.claim(key, owner_id="worker_A")
+        assert r1.status == ClaimStatus.CLAIMED
+        store1.complete(key, owner_id="worker_A", data={"uploaded_id": "file_123"})
+
+        # 2. Second process: load existing file
+        store2 = JsonlIdempotencyStore(db_path=db_path)
+        record2 = store2.get(key)
+        assert record2 is not None
+        assert record2.status == RecordStatus.COMPLETED
+        assert record2.data == {"uploaded_id": "file_123"}
+        assert record2.owner_id == "worker_A"
+
+        # Re-claim should return ALREADY_COMPLETED
+        r2 = store2.claim(key, owner_id="worker_B")
+        assert r2.status == ClaimStatus.ALREADY_COMPLETED
+
+
+def test_jsonl_store_corruption_on_invalid_json():
+    """
+    Corrupt JSON line in JSONL file raises IdempotencyCorruptionError on load.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = os.path.join(tmpdir, "corrupt.jsonl")
+        with open(db_path, "w", encoding="utf-8") as f:
+            f.write("NOT_VALID_JSON\n")
+
+        with pytest.raises(IdempotencyCorruptionError) as exc_info:
+            JsonlIdempotencyStore(db_path=db_path)
+
+        assert "Invalid JSON" in str(exc_info.value)
+
+
+def test_jsonl_store_corruption_on_timestamp_regression():
+    """
+    Record update timestamp moving backwards in JSONL raises IdempotencyCorruptionError.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = os.path.join(tmpdir, "regression.jsonl")
+        key = RecordKey(operation_key="op_reg", idempotency_key="idem_reg")
+
+        store = JsonlIdempotencyStore(db_path=db_path)
+        store.claim(key, owner_id="worker_A")
+
+        # Manually append an entry with an earlier updated_at
+        corrupt_entry = {
+            "key": {"operation_key": "op_reg", "idempotency_key": "idem_reg"},
+            "status": "COMPLETED",
+            "created_at": 100.0,
+            "updated_at": 50.0,  # Moved backwards!
+            "owner_id": "worker_A",
+            "attempt": 1,
+            "data": None,
+        }
+        import json
+        with open(db_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(corrupt_entry) + "\n")
+
+        with pytest.raises(IdempotencyCorruptionError) as exc_info:
+            JsonlIdempotencyStore(db_path=db_path)
+
+        assert "moved backwards" in str(exc_info.value)
+
 
 
