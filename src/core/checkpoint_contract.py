@@ -15,6 +15,28 @@ class RunState(str, Enum):
     HALTED = "HALTED"
 
 
+class FailureDomain(str, Enum):
+    USER_APP = "USER_APP"
+    LLM_PROVIDER = "LLM_PROVIDER"
+    TOOL_EXECUTION = "TOOL_EXECUTION"
+    CHECKPOINT_STORE = "CHECKPOINT_STORE"
+    CORRUPTION_INTEGRITY = "CORRUPTION_INTEGRITY"
+    PROCESS_CRASH = "PROCESS_CRASH"
+
+
+@dataclass
+class RunSummary:
+    run_id: str
+    start_timestamp: float
+    end_timestamp: Optional[float] = None
+    final_state: RunState = RunState.PENDING
+    iteration_count: int = 0
+    tool_call_count: int = 0
+    recovery_count: int = 0
+    failure_domain: Optional[FailureDomain] = None
+    error_message: Optional[str] = None
+
+
 class CheckpointEventType(str, Enum):
     TASK_START = "TASK_START"
     RUN_STARTED = "RUN_STARTED"
@@ -225,13 +247,24 @@ def validate_state_transition(
     Validate state transition for a valid event against current_state.
 
     Returns the new RunState after applying event.
-    Raises CheckpointStateError if the transition is illegal.
+    Raises CheckpointStateError if the transition is illegal or attempts
+    to transition out of a terminal state.
     """
     evt_type = event.event_type
 
     # Terminal states reject any further state transitions
     if current_state in (RunState.COMPLETED, RunState.FAILED, RunState.HALTED):
         raise CheckpointStateError(event.run_id, current_state, evt_type)
+
+    if evt_type == CheckpointEventType.RUN_COMPLETED:
+        return RunState.COMPLETED
+    if evt_type == CheckpointEventType.RUN_FAILED:
+        return RunState.FAILED
+    if evt_type == CheckpointEventType.RUN_HALTED:
+        return RunState.HALTED
+    if evt_type == CheckpointEventType.TASK_END:
+        status = event.payload.get("status", "SUCCESS")
+        return RunState.COMPLETED if status == "SUCCESS" else RunState.FAILED
 
     if current_state == RunState.PENDING:
         if evt_type in (CheckpointEventType.TASK_START, CheckpointEventType.RUN_STARTED):
@@ -241,13 +274,11 @@ def validate_state_transition(
     if current_state == RunState.RUNNING:
         if evt_type == CheckpointEventType.LLM_REQUESTED:
             return RunState.LLM_WAITING
-        if evt_type == CheckpointEventType.RUN_FAILED:
-            return RunState.FAILED
-        if evt_type == CheckpointEventType.RUN_HALTED:
-            return RunState.HALTED
         raise CheckpointStateError(event.run_id, current_state, evt_type)
 
     if current_state == RunState.LLM_WAITING:
+        if evt_type == CheckpointEventType.LLM_REQUESTED:
+            return RunState.LLM_WAITING
         if evt_type == CheckpointEventType.LLM_RESPONDED:
             num_tool_calls = event.payload.get("num_tool_calls", 0)
             if num_tool_calls > 0:
@@ -255,10 +286,6 @@ def validate_state_transition(
             return RunState.COMPLETED
         if evt_type == CheckpointEventType.LLM_FINAL_RESPONSE:
             return RunState.COMPLETED
-        if evt_type == CheckpointEventType.RUN_FAILED:
-            return RunState.FAILED
-        if evt_type == CheckpointEventType.RUN_HALTED:
-            return RunState.HALTED
         raise CheckpointStateError(event.run_id, current_state, evt_type)
 
     if current_state == RunState.TOOL_EXECUTING:
@@ -270,17 +297,10 @@ def validate_state_transition(
         ):
             return RunState.TOOL_EXECUTING
         if evt_type == CheckpointEventType.TOOL_RESULT_RECEIVED:
-            # Check if all tools in iteration are complete or transitioning back to LLM_WAITING
             is_iteration_complete = event.payload.get("iteration_complete", True)
             if is_iteration_complete:
                 return RunState.LLM_WAITING
             return RunState.TOOL_EXECUTING
-        if evt_type == CheckpointEventType.RUN_COMPLETED:
-            return RunState.COMPLETED
-        if evt_type == CheckpointEventType.RUN_FAILED:
-            return RunState.FAILED
-        if evt_type == CheckpointEventType.RUN_HALTED:
-            return RunState.HALTED
         raise CheckpointStateError(event.run_id, current_state, evt_type)
 
     raise CheckpointStateError(event.run_id, current_state, evt_type)

@@ -13,6 +13,11 @@ from src.core.checkpoint_contract import (
     CheckpointCorruptionError,
     CheckpointEvent,
     CheckpointEventType,
+    CheckpointStateError,
+    FailureDomain,
+    RunState,
+    RunSummary,
+    validate_state_transition,
 )
 from src.core.errors import SystemStateError
 
@@ -23,8 +28,9 @@ class CheckpointManager:
     """
     Manages state checkpoints for the autonomous agent.
 
-    Uses dedicated cross-process file locking (checkpoints.jsonl.lock) and
-    commit-before-memory-update persistence for strict durability.
+    Uses dedicated cross-process file locking (checkpoints.jsonl.lock),
+    terminal-state immutability validation, and commit-before-memory-update
+    persistence for strict durability.
     """
 
     _LOCAL_LOCKS: Dict[str, threading.RLock] = {}
@@ -35,6 +41,7 @@ class CheckpointManager:
         self.lock_path = f"{db_path}.lock"
         self._last_sequences: Dict[str, int] = {}
         self._last_timestamps: Dict[str, float] = {}
+        self._last_states: Dict[str, RunState] = {}
 
         if os.path.exists(self.db_path):
             with self._store_lock():
@@ -204,17 +211,18 @@ class CheckpointManager:
         """
         Log any checkpoint event under lock using commit-before-memory-update.
 
+        Validates state machine transitions and enforces terminal state immutability.
         Per-run sequence_id is automatically auto-incremented (+1).
         """
         try:
             evt_type = CheckpointEventType(event_name)
         except (TypeError, ValueError):
-            # Fallback for legacy event names
             evt_type = CheckpointEventType.RUN_STARTED
 
         with self._store_lock():
             self._reload_locked()
 
+            current_state = self._last_states.get(run_id, RunState.PENDING)
             seq = self._last_sequences.get(run_id, 0) + 1
             now = time.time()
             last_ts = self._last_timestamps.get(run_id, 0.0)
@@ -228,12 +236,78 @@ class CheckpointManager:
                 payload=payload,
             )
 
+            # Validate state machine transition (raises CheckpointStateError if terminal or invalid)
+            next_state = validate_state_transition(current_state, event)
+
             # Durable append before updating memory
             self._append_locked(event)
 
             # Update memory only after append succeeds
             self._last_sequences[run_id] = seq
             self._last_timestamps[run_id] = ts
+            self._last_states[run_id] = next_state
+
+    def get_run_summary(self, run_id: str) -> Optional[RunSummary]:
+        """Reconstruct metadata summary for run_id from checkpoint events."""
+        with self._store_lock():
+            self._reload_locked()
+
+            if not os.path.exists(self.db_path):
+                return None
+
+            events: List[CheckpointEvent] = []
+            try:
+                with open(self.db_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        stripped = line.strip()
+                        if not stripped:
+                            continue
+                        try:
+                            evt = CheckpointEvent.from_dict(json.loads(stripped))
+                            if evt.run_id == run_id:
+                                events.append(evt)
+                        except Exception:
+                            continue
+            except Exception as exc:
+                logger.error(f"Failed to read checkpoint file for summary: {exc}")
+                return None
+
+            if not events:
+                return None
+
+            start_ts = events[0].timestamp
+            end_ts: Optional[float] = None
+            state = RunState.PENDING
+            iterations = 0
+            tool_calls = 0
+
+            for evt in events:
+                if evt.event_type == CheckpointEventType.LLM_REQUESTED:
+                    iterations += 1
+                elif evt.event_type == CheckpointEventType.LLM_RESPONDED:
+                    tool_calls += evt.payload.get("num_tool_calls", 0)
+
+                if state not in (RunState.COMPLETED, RunState.FAILED, RunState.HALTED):
+                    state = validate_state_transition(state, evt)
+                    if state in (RunState.COMPLETED, RunState.FAILED, RunState.HALTED):
+                        end_ts = evt.timestamp
+                elif evt.event_type in (
+                    CheckpointEventType.RUN_COMPLETED,
+                    CheckpointEventType.RUN_FAILED,
+                    CheckpointEventType.RUN_HALTED,
+                    CheckpointEventType.TASK_END,
+                ):
+                    end_ts = evt.timestamp
+
+            return RunSummary(
+                run_id=run_id,
+                start_timestamp=start_ts,
+                end_timestamp=end_ts,
+                final_state=state,
+                iteration_count=iterations,
+                tool_call_count=tool_calls,
+                recovery_count=0,
+            )
 
     def get_completed_tasks(self) -> List[str]:
         """Reads the ledger to find which tasks successfully completed."""
@@ -279,9 +353,10 @@ class CheckpointManager:
     # ------------------------------------------------------------------
 
     def _reload_locked(self) -> None:
-        """Scan db_path to update per-run last_sequences and last_timestamps."""
+        """Scan db_path to update per-run last_sequences, last_timestamps, and last_states."""
         self._last_sequences.clear()
         self._last_timestamps.clear()
+        self._last_states.clear()
 
         if not os.path.exists(self.db_path):
             return
@@ -306,6 +381,13 @@ class CheckpointManager:
                                 self._last_timestamps[rid] = max(
                                     self._last_timestamps.get(rid, 0.0), float(ts)
                                 )
+                            try:
+                                evt = CheckpointEvent.from_dict(data)
+                                curr_st = self._last_states.get(rid, RunState.PENDING)
+                                if curr_st not in (RunState.COMPLETED, RunState.FAILED, RunState.HALTED):
+                                    self._last_states[rid] = validate_state_transition(curr_st, evt)
+                            except Exception:
+                                pass
                     except Exception:
                         continue
         except OSError as exc:
@@ -328,14 +410,6 @@ class CheckpointManager:
                 f"Checkpoint write failed for run {event.run_id}: {exc}"
             ) from exc
 
-    def _ensure_parent_directory(self) -> None:
-        parent = os.path.dirname(os.path.abspath(self.db_path))
-        if parent and not os.path.exists(parent):
-            try:
-                os.makedirs(parent, exist_ok=True)
-            except OSError:
-                pass
-
     @contextmanager
     def _store_lock(self) -> Iterator[None]:
         """Acquire both in-process RLock and OS-level exclusive file lock."""
@@ -350,7 +424,7 @@ class CheckpointManager:
                     yield
                 finally:
                     self._release_os_lock(handle)
-            except Exception as exc:
+            except OSError as exc:
                 raise SystemStateError(f"Failed to acquire lock: {exc}") from exc
             finally:
                 if handle is not None:
