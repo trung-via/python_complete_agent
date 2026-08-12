@@ -42,6 +42,7 @@ class RetryManager:
         self, 
         operation: Callable, 
         *args, 
+        on_attempt_start: Optional[Callable[[int], None]] = None,
         on_attempt_complete: Optional[Callable[[int, str, Optional[str]], None]] = None,
         on_retry_scheduled: Optional[Callable[[int, int, float, str, str], None]] = None,
         **kwargs
@@ -57,7 +58,10 @@ class RetryManager:
         last_exception = None
         
         while attempt <= self.policy.max_attempts:
+            if on_attempt_start:
+                on_attempt_start(attempt)
             error_to_eval = None
+
             try:
                 result = await operation(*args, **kwargs)
                 

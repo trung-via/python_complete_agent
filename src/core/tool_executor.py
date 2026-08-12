@@ -160,13 +160,9 @@ class ToolExecutor:
         tool: Any,
         key: RecordKey,
     ) -> ToolResult:
-        self.checkpoints.log_tool_attempt_started(
-            call.run_id,
-            call.call_id,
-        )
-
         try:
             result = await self._execute_with_retry(call, tool)
+
 
             if result.status == ToolStatus.SUCCESS:
                 self._complete_v2(key, result)
@@ -269,13 +265,9 @@ class ToolExecutor:
             )
             return cached_result
 
-        self.checkpoints.log_tool_attempt_started(
-            call.run_id,
-            call.call_id,
-        )
-
         try:
             result = await self._execute_with_retry(call, tool)
+
 
             if result.status == ToolStatus.SUCCESS:
                 self.idempotency_store.save(
@@ -320,6 +312,13 @@ class ToolExecutor:
             )
 
     async def _execute_with_retry(self, call: ToolCall, tool: Any) -> ToolResult:
+        def log_start(attempt: int) -> None:
+            self.checkpoints.log_tool_attempt_started(
+                call.run_id,
+                call.call_id,
+                attempt=attempt,
+            )
+
         def log_attempt(
             attempt: int,
             status: str,
@@ -355,6 +354,7 @@ class ToolExecutor:
             tool.execute,
             call=call,
             context=self.context,
+            on_attempt_start=log_start,
             on_attempt_complete=log_attempt,
             on_retry_scheduled=log_retry,
         )

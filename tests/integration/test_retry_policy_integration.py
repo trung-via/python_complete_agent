@@ -100,6 +100,18 @@ async def test_tool_retry_preserves_exact_call_id_and_idempotency_key(tmp_path: 
     assert tool.call_ids_received[0] == "call_retry_100"
     assert len(set(tool.idempotency_keys_received)) == 1
 
+    # Verify attempt persistence in checkpoint log for every single attempt
+    from src.agent.replay_engine import ReplayEngine
+    events = ReplayEngine.load_events_for_run(cp_path, "run_retry_test")
+    attempt_starts = [
+        e.payload.get("attempt")
+        for e in events
+        if e.event_type.value == "TOOL_ATTEMPT_STARTED"
+    ]
+    assert attempt_starts == [1, 2, 3]
+
+
+
 
 def test_retry_policy_engine_corruption_never_retries():
     ctx = RetryContext(

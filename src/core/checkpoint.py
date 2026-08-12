@@ -112,12 +112,15 @@ class CheckpointManager:
             },
         )
 
-    def log_tool_attempt_started(self, run_id: str, call_id: str) -> None:
+    def log_tool_attempt_started(
+        self, run_id: str, call_id: str, attempt: int = 1
+    ) -> None:
         self.log_event(
             run_id,
             CheckpointEventType.TOOL_ATTEMPT_STARTED.value,
-            {"call_id": call_id},
+            {"call_id": call_id, "attempt": attempt},
         )
+
 
     def log_tool_attempt_ended(
         self,

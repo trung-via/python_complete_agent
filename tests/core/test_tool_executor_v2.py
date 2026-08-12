@@ -64,9 +64,13 @@ class FakeRetryManager:
         *,
         call: Any,
         context: Dict[str, Any],
-        on_attempt_complete: Any,
+        on_attempt_start: Any = None,
+        on_attempt_complete: Any = None,
         on_retry_scheduled: Any = None,
     ) -> ToolResult:
+        if on_attempt_start:
+            on_attempt_start(1)
+
         try:
             result = await execute(
                 call=call,
