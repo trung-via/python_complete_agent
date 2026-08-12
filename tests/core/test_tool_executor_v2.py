@@ -410,6 +410,27 @@ async def test_permanent_agent_failure_calls_fail_non_retryable() -> None:
 
 
 @pytest.mark.asyncio
+async def test_non_retryable_tool_result_failure_calls_fail_non_retryable() -> None:
+    call = MockCall()
+    perm_error = AgentException("permanent", code="PERMANENT", retryable=False)
+    failure_result = make_result(call, status=ToolStatus.FAILURE, error=perm_error)
+    tool = FakeTool(result=failure_result)
+    store = FakeV2Store(claim_status=ClaimStatus.CLAIMED)
+
+    executor = make_executor(store, tool)
+
+    result = await executor.execute(call)
+
+    assert result.status == ToolStatus.FAILURE
+    assert tool.execute_count == 1
+    assert len(store.fail_calls) == 1
+
+    _, _, retryable, data = store.fail_calls[0]
+    assert retryable is False
+    assert data is not None
+
+
+@pytest.mark.asyncio
 async def test_claim_persistence_error_becomes_system_state_error() -> None:
     call = MockCall()
     tool = FakeTool(

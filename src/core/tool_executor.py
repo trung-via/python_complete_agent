@@ -43,7 +43,7 @@ class ToolExecutor:
         self.retry_manager = retry_manager
         self.checkpoints = checkpoints
         self.context = context
-        self.owner_id = f"process:{os.getpid()}"
+        self.owner_id = f"process:{os.getpid()}:executor:{id(self)}"
 
     async def execute(self, call: ToolCall) -> ToolResult:
         run_id = call.run_id
@@ -172,9 +172,15 @@ class ToolExecutor:
                 self._complete_v2(key, result)
                 return result
 
+            is_retryable = (
+                result.error.retryable
+                if isinstance(result.error, AgentException)
+                else True
+            )
+
             self._fail_v2(
                 key,
-                retryable=True,
+                retryable=is_retryable,
                 data={
                     "result": result.to_dict(),
                 },
