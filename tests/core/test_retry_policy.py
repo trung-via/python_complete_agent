@@ -164,3 +164,33 @@ def test_decision_immutability_and_determinism():
 
     assert d1 == d2
     assert d1.to_dict() == d2.to_dict()
+
+
+def test_failure_classifier_checkpoint_corruption():
+    from src.core.checkpoint_contract import CheckpointCorruptionError
+    from src.core.retry_policy import FailureClassifier
+
+    domain, transient, code = FailureClassifier.classify(CheckpointCorruptionError("r1", "corrupt"))
+    assert domain == FailureDomain.CORRUPTION_INTEGRITY
+    assert transient is False
+    assert code == "CORRUPTION_INTEGRITY"
+
+
+def test_failure_classifier_system_state_error():
+    from src.core.errors import SystemStateError
+    from src.core.retry_policy import FailureClassifier
+
+    domain, transient, code = FailureClassifier.classify(SystemStateError("checkpoint write failed"))
+    assert domain == FailureDomain.CHECKPOINT_STORE
+    assert transient is False
+    assert code == "CHECKPOINT_STORE_FAILURE"
+
+
+def test_failure_classifier_timeout():
+    from src.core.retry_policy import FailureClassifier
+
+    domain, transient, code = FailureClassifier.classify(TimeoutError("request timeout"), operation=RetryOperation.LLM)
+    assert domain == FailureDomain.LLM_PROVIDER
+    assert transient is True
+    assert code == "TIMEOUT"
+

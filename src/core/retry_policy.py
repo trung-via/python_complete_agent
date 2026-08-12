@@ -178,3 +178,79 @@ class RetryPolicyEngine:
             reason=reason,
             failure_domain=context.failure_domain,
         )
+
+
+class FailureClassifier:
+    """
+    Normalizes raw exceptions, ToolResult errors, and LLM errors into
+    (FailureDomain, transient: bool, error_code: str).
+    """
+
+    @staticmethod
+    def classify(
+        exc_or_error: Any,
+        operation: RetryOperation = RetryOperation.TOOL,
+    ) -> tuple[FailureDomain, bool, str]:
+        if exc_or_error is None:
+            domain = (
+                FailureDomain.LLM_PROVIDER
+                if operation == RetryOperation.LLM
+                else FailureDomain.TOOL_EXECUTION
+            )
+            return (domain, False, "")
+
+        import asyncio
+        from src.core.checkpoint_contract import (
+            CheckpointCorruptionError,
+            CheckpointStateError,
+        )
+        from src.core.errors import AgentException, SystemStateError
+
+        if isinstance(exc_or_error, (CheckpointCorruptionError, CheckpointStateError)):
+            return (FailureDomain.CORRUPTION_INTEGRITY, False, "CORRUPTION_INTEGRITY")
+
+        if isinstance(exc_or_error, SystemStateError):
+            msg = str(exc_or_error).lower()
+            if "checkpoint" in msg or "idempotency" in msg or "persistence" in msg:
+                return (FailureDomain.CHECKPOINT_STORE, False, "CHECKPOINT_STORE_FAILURE")
+            return (FailureDomain.USER_APP, False, "SYSTEM_STATE_ERROR")
+
+        if isinstance(exc_or_error, (TimeoutError, asyncio.TimeoutError)):
+            domain = (
+                FailureDomain.LLM_PROVIDER
+                if operation == RetryOperation.LLM
+                else FailureDomain.TOOL_EXECUTION
+            )
+            return (domain, True, "TIMEOUT")
+
+        if isinstance(exc_or_error, (OSError, PermissionError, FileNotFoundError)):
+            return (FailureDomain.CHECKPOINT_STORE, False, "IO_ERROR")
+
+
+        if isinstance(exc_or_error, AgentException):
+            domain = (
+                FailureDomain.LLM_PROVIDER
+                if operation == RetryOperation.LLM
+                else FailureDomain.TOOL_EXECUTION
+            )
+            return (domain, exc_or_error.retryable, exc_or_error.code or "AGENT_ERROR")
+
+        if hasattr(exc_or_error, "retryable") and hasattr(exc_or_error, "code"):
+            domain = (
+                FailureDomain.LLM_PROVIDER
+                if operation == RetryOperation.LLM
+                else FailureDomain.TOOL_EXECUTION
+            )
+            return (
+                domain,
+                bool(getattr(exc_or_error, "retryable", True)),
+                str(getattr(exc_or_error, "code", "TOOL_ERROR")),
+            )
+
+        domain = (
+            FailureDomain.LLM_PROVIDER
+            if operation == RetryOperation.LLM
+            else FailureDomain.TOOL_EXECUTION
+        )
+        return (domain, False, type(exc_or_error).__name__)
+

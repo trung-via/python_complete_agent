@@ -97,30 +97,27 @@ class RetryManager:
                 if on_attempt_complete:
                     on_attempt_complete(attempt, "UNEXPECTED_EXCEPTION", str(e))
                 
-            from src.core.checkpoint_contract import FailureDomain
             from src.core.retry_policy import (
+                FailureClassifier,
                 RetryContext,
                 RetryOperation,
                 RetryPolicyEngine,
             )
 
-            is_transient = False
-            err_code = ""
-            if error_to_eval:
-                is_transient = getattr(error_to_eval, "retryable", True)
-                err_code = getattr(error_to_eval, "code", "")
-            elif last_exception:
-                is_transient = getattr(last_exception, "retryable", False)
-                err_code = getattr(last_exception, "code", "")
+            target_err = error_to_eval or last_exception
+            failure_domain, is_transient, err_code = FailureClassifier.classify(
+                target_err, operation=RetryOperation.TOOL
+            )
 
             ctx = RetryContext(
                 operation=RetryOperation.TOOL,
                 attempt=attempt,
                 max_attempts=self.policy.max_attempts,
-                failure_domain=FailureDomain.TOOL_EXECUTION,
+                failure_domain=failure_domain,
                 error_code=err_code,
                 transient=is_transient,
             )
+
 
             decision = RetryPolicyEngine.decide(
                 ctx,
