@@ -68,13 +68,19 @@ class CheckpointEvent:
     payload: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        d: Dict[str, Any] = {
             "run_id": self.run_id,
             "sequence_id": self.sequence_id,
             "timestamp": self.timestamp,
             "event_type": self.event_type.value,
+            "event": self.event_type.value,
             "payload": self.payload,
         }
+        if isinstance(self.payload, dict):
+            for k, v in self.payload.items():
+                if k not in d:
+                    d[k] = v
+        return d
 
     @classmethod
     def from_dict(cls, data: Any, line_number: Optional[int] = None) -> CheckpointEvent:
