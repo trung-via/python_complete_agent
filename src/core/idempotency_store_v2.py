@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 import logging
 import os
+import threading
 import time
-from typing import Any, Dict, Optional
+from contextlib import contextmanager
+from typing import Any, Dict, Iterator, Optional
 
 from src.core.idempotency_contract import (
     ClaimResult,
@@ -16,7 +18,6 @@ from src.core.idempotency_contract import (
     RecordKey,
     RecordStatus,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -225,90 +226,112 @@ class JsonlIdempotencyStore:
     """
     Persistent JSONL implementation of IdempotencyStoreProtocol.
 
-    Records are loaded into memory for reads. Every state transition appends
-    the complete current record to the JSONL file.
+    The store uses a dedicated filesystem lock to serialize mutations across
+    processes. Every mutation refreshes the in-memory snapshot while holding
+    that lock before deciding the next state.
 
     Persistence follows a commit-before-memory-update invariant: the in-memory
     record is changed only after the corresponding JSONL append succeeds.
 
-    This implementation does not provide cross-process atomicity. It is
-    intended as the persistent bridge before filesystem locking is introduced.
+    The lock file is separate from the JSONL data file so that readers and
+    writers never need to lock the append-only data file itself.
     """
+
+    _LOCAL_LOCKS: Dict[str, threading.RLock] = {}
+    _LOCAL_LOCKS_GUARD = threading.Lock()
 
     def __init__(
         self,
         db_path: str = "data/idempotency_store_v2.jsonl",
     ) -> None:
         self.db_path = db_path
+        self.lock_path = f"{db_path}.lock"
         self._records: Dict[str, IdempotencyRecord] = {}
 
         self._ensure_parent_directory()
-        self._load()
 
-    def claim(self, key: RecordKey, owner_id: str) -> ClaimResult:
-        """Attempt to claim an idempotency record."""
+        with self._store_lock():
+            self._reload_locked()
+
+    # ------------------------------------------------------------------
+    # Protocol methods
+    # ------------------------------------------------------------------
+
+    def claim(
+        self,
+        key: RecordKey,
+        owner_id: str,
+    ) -> ClaimResult:
+        """Attempt to claim an idempotency record atomically."""
         self._validate_owner_id(owner_id)
 
-        canonical = key.canonical
-        existing = self._records.get(canonical)
+        with self._store_lock():
+            self._reload_locked()
 
-        if existing is None:
-            record = self._new_claim(key, owner_id, attempt=1)
+            canonical = key.canonical
+            existing = self._records.get(canonical)
 
-            # Persistence is the commit point. Do not mutate memory first.
-            self._append(record)
-            self._records[canonical] = record
+            if existing is None:
+                record = self._new_claim(
+                    key,
+                    owner_id,
+                    attempt=1,
+                )
 
-            return ClaimResult(
-                status=ClaimStatus.CLAIMED,
-                record=record,
+                self._append(record)
+                self._records[canonical] = record
+
+                return ClaimResult(
+                    status=ClaimStatus.CLAIMED,
+                    record=record,
+                )
+
+            record = self._validate_record(
+                canonical,
+                existing,
             )
 
-        record = self._validate_record(canonical, existing)
+            if record.status == RecordStatus.IN_PROGRESS:
+                return ClaimResult(
+                    status=ClaimStatus.ALREADY_IN_PROGRESS,
+                    record=record,
+                )
 
-        if record.status == RecordStatus.IN_PROGRESS:
-            return ClaimResult(
-                status=ClaimStatus.ALREADY_IN_PROGRESS,
-                record=record,
+            if record.status == RecordStatus.COMPLETED:
+                return ClaimResult(
+                    status=ClaimStatus.ALREADY_COMPLETED,
+                    record=record,
+                )
+
+            if record.status == RecordStatus.FAILED:
+                return ClaimResult(
+                    status=ClaimStatus.FAILED_PERMANENT,
+                    record=record,
+                )
+
+            if record.status in (
+                RecordStatus.RECOVERABLE,
+                RecordStatus.NEW,
+            ):
+                claimed = self._new_claim(
+                    key,
+                    owner_id,
+                    attempt=record.attempt + 1,
+                    created_at=record.created_at,
+                )
+
+                self._append(claimed)
+                self._records[canonical] = claimed
+
+                return ClaimResult(
+                    status=ClaimStatus.CLAIMED,
+                    record=claimed,
+                )
+
+            raise IdempotencyCorruptionError(
+                canonical,
+                f"Unknown RecordStatus: {record.status!r}",
             )
-
-        if record.status == RecordStatus.COMPLETED:
-            return ClaimResult(
-                status=ClaimStatus.ALREADY_COMPLETED,
-                record=record,
-            )
-
-        if record.status == RecordStatus.FAILED:
-            return ClaimResult(
-                status=ClaimStatus.FAILED_PERMANENT,
-                record=record,
-            )
-
-        if record.status in (
-            RecordStatus.RECOVERABLE,
-            RecordStatus.NEW,
-        ):
-            claimed = self._new_claim(
-                key,
-                owner_id,
-                attempt=record.attempt + 1,
-                created_at=record.created_at,
-            )
-
-            # Persistence is the commit point. Keep the previous memory
-            # state if persistence fails.
-            self._append(claimed)
-            self._records[canonical] = claimed
-
-            return ClaimResult(
-                status=ClaimStatus.CLAIMED,
-                record=claimed,
-            )
-
-        raise IdempotencyCorruptionError(
-            canonical,
-            f"Unknown RecordStatus: {record.status!r}",
-        )
 
     def complete(
         self,
@@ -316,13 +339,16 @@ class JsonlIdempotencyStore:
         owner_id: str,
         data: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Transition IN_PROGRESS to COMPLETED."""
-        self._transition(
-            key=key,
-            owner_id=owner_id,
-            target_status=RecordStatus.COMPLETED,
-            data=data,
-        )
+        """Transition IN_PROGRESS to COMPLETED atomically."""
+        with self._store_lock():
+            self._reload_locked()
+
+            self._transition_locked(
+                key=key,
+                owner_id=owner_id,
+                target_status=RecordStatus.COMPLETED,
+                data=data,
+            )
 
     def fail(
         self,
@@ -332,30 +358,51 @@ class JsonlIdempotencyStore:
         retryable: bool,
         data: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Transition IN_PROGRESS to FAILED or RECOVERABLE."""
+        """Transition IN_PROGRESS to FAILED or RECOVERABLE atomically."""
         target_status = (
             RecordStatus.RECOVERABLE
             if retryable
             else RecordStatus.FAILED
         )
 
-        self._transition(
-            key=key,
-            owner_id=owner_id,
-            target_status=target_status,
-            data=data,
-        )
+        with self._store_lock():
+            self._reload_locked()
 
-    def get(self, key: RecordKey) -> Optional[IdempotencyRecord]:
-        """Return a validated record or None."""
-        record = self._records.get(key.canonical)
+            self._transition_locked(
+                key=key,
+                owner_id=owner_id,
+                target_status=target_status,
+                data=data,
+            )
 
-        if record is None:
-            return None
+    def get(
+        self,
+        key: RecordKey,
+    ) -> Optional[IdempotencyRecord]:
+        """
+        Return the latest validated record.
 
-        return self._validate_record(key.canonical, record)
+        Reads are also refreshed under the process lock so callers do not
+        observe an indefinitely stale snapshot.
+        """
+        with self._store_lock():
+            self._reload_locked()
 
-    def _transition(
+            record = self._records.get(key.canonical)
+
+            if record is None:
+                return None
+
+            return self._validate_record(
+                key.canonical,
+                record,
+            )
+
+    # ------------------------------------------------------------------
+    # Atomic transition
+    # ------------------------------------------------------------------
+
+    def _transition_locked(
         self,
         *,
         key: RecordKey,
@@ -365,7 +412,7 @@ class JsonlIdempotencyStore:
     ) -> None:
         self._validate_owner_id(owner_id)
 
-        record = self.get(key)
+        record = self._records.get(key.canonical)
 
         if record is None:
             raise IdempotencyStateError(
@@ -373,6 +420,11 @@ class JsonlIdempotencyStore:
                 RecordStatus.NEW,
                 target_status,
             )
+
+        record = self._validate_record(
+            key.canonical,
+            record,
+        )
 
         if record.owner_id != owner_id:
             raise IdempotencyOwnershipError(
@@ -398,10 +450,23 @@ class JsonlIdempotencyStore:
             data=data,
         )
 
-        # Persistence is the commit point. If _append() raises, _records
-        # remains IN_PROGRESS and therefore consistent with durable state.
+        # Durable commit happens before the in-memory state transition.
         self._append(updated)
         self._records[key.canonical] = updated
+
+    # ------------------------------------------------------------------
+    # Persistence loading
+    # ------------------------------------------------------------------
+
+    def _reload_locked(self) -> None:
+        """
+        Replace the memory snapshot with the latest durable JSONL state.
+
+        Caller must hold the filesystem lock. Refreshing before each mutation
+        closes the stale-snapshot race between independent store instances.
+        """
+        self._records.clear()
+        self._load()
 
     def _load(self) -> None:
         """Load the latest valid record for every canonical key."""
@@ -409,8 +474,15 @@ class JsonlIdempotencyStore:
             return
 
         try:
-            with open(self.db_path, "r", encoding="utf-8") as handle:
-                for line_number, line in enumerate(handle, start=1):
+            with open(
+                self.db_path,
+                "r",
+                encoding="utf-8",
+            ) as handle:
+                for line_number, line in enumerate(
+                    handle,
+                    start=1,
+                ):
                     stripped = line.strip()
 
                     if not stripped:
@@ -424,7 +496,11 @@ class JsonlIdempotencyStore:
                             f"Invalid JSON: {exc.msg}",
                         ) from exc
 
-                    record = self._record_from_dict(payload, line_number)
+                    record = self._record_from_dict(
+                        payload,
+                        line_number,
+                    )
+
                     canonical = record.key.canonical
 
                     if canonical in self._records:
@@ -434,8 +510,8 @@ class JsonlIdempotencyStore:
                             raise IdempotencyCorruptionError(
                                 canonical,
                                 (
-                                    "Record update timestamp moved backwards "
-                                    f"at line {line_number}"
+                                    "Record update timestamp moved "
+                                    f"backwards at line {line_number}"
                                 ),
                             )
 
@@ -449,24 +525,149 @@ class JsonlIdempotencyStore:
                 f"Failed to read JSONL store: {exc}",
             ) from exc
 
-    def _append(self, record: IdempotencyRecord) -> None:
-        """Append the complete current record to persistent storage."""
+    def _append(
+        self,
+        record: IdempotencyRecord,
+    ) -> None:
+        """
+        Append the complete record and fsync it.
+
+        This method assumes the caller already holds the filesystem lock.
+        """
         payload = self._record_to_dict(record)
 
         try:
-            with open(self.db_path, "a", encoding="utf-8") as handle:
-                handle.write(json.dumps(payload, sort_keys=True) + "\n")
+            with open(
+                self.db_path,
+                "a",
+                encoding="utf-8",
+            ) as handle:
+                handle.write(
+                    json.dumps(
+                        payload,
+                        sort_keys=True,
+                    )
+                    + "\n"
+                )
                 handle.flush()
                 os.fsync(handle.fileno())
+
         except OSError as exc:
             raise OSError(
                 f"Failed to persist idempotency record: {exc}"
             ) from exc
 
+    # ------------------------------------------------------------------
+    # Cross-process filesystem locking
+    # ------------------------------------------------------------------
+
+    @contextmanager
+    def _store_lock(self) -> Iterator[None]:
+        """
+        Acquire both an in-process and OS-level exclusive lock.
+
+        The in-process lock prevents two store instances in the same Python
+        process from entering the OS locking layer concurrently. The OS lock
+        serializes independent processes.
+        """
+        local_lock = self._get_local_lock(self.lock_path)
+
+        with local_lock:
+            handle = None
+
+            try:
+                handle = open(
+                    self.lock_path,
+                    "a+b",
+                )
+
+                self._acquire_os_lock(handle)
+
+                try:
+                    yield
+                finally:
+                    self._release_os_lock(handle)
+
+            except OSError:
+                raise
+            finally:
+                if handle is not None:
+                    handle.close()
+
+    @classmethod
+    def _get_local_lock(
+        cls,
+        lock_path: str,
+    ) -> threading.RLock:
+        """Return the process-local lock associated with a lock path."""
+        normalized = os.path.abspath(lock_path)
+
+        with cls._LOCAL_LOCKS_GUARD:
+            lock = cls._LOCAL_LOCKS.get(normalized)
+
+            if lock is None:
+                lock = threading.RLock()
+                cls._LOCAL_LOCKS[normalized] = lock
+
+            return lock
+
+    @staticmethod
+    def _acquire_os_lock(handle: Any) -> None:
+        """Acquire an exclusive blocking OS-level file lock."""
+        if os.name == "nt":
+            import msvcrt
+
+            handle.seek(0)
+
+            if handle.tell() == 0:
+                handle.write(b"\0")
+                handle.flush()
+
+            handle.seek(0)
+            msvcrt.locking(
+                handle.fileno(),
+                msvcrt.LK_LOCK,
+                1,
+            )
+            return
+
+        import fcntl
+
+        fcntl.flock(
+            handle.fileno(),
+            fcntl.LOCK_EX,
+        )
+
+    @staticmethod
+    def _release_os_lock(handle: Any) -> None:
+        """Release an OS-level file lock."""
+        if os.name == "nt":
+            import msvcrt
+
+            handle.seek(0)
+            msvcrt.locking(
+                handle.fileno(),
+                msvcrt.LK_UNLCK,
+                1,
+            )
+            return
+
+        import fcntl
+
+        fcntl.flock(
+            handle.fileno(),
+            fcntl.LOCK_UN,
+        )
+
+    # ------------------------------------------------------------------
+    # Serialization
+    # ------------------------------------------------------------------
+
     @staticmethod
     def _record_to_dict(
         record: IdempotencyRecord,
     ) -> Dict[str, Any]:
+        """Serialize an IdempotencyRecord into JSON-compatible data."""
         return {
             "key": {
                 "operation_key": record.key.operation_key,
@@ -485,6 +686,7 @@ class JsonlIdempotencyStore:
         payload: Any,
         line_number: int,
     ) -> IdempotencyRecord:
+        """Deserialize and validate one JSONL record."""
         if not isinstance(payload, dict):
             raise IdempotencyCorruptionError(
                 f"<line:{line_number}>",
@@ -600,6 +802,7 @@ class JsonlIdempotencyStore:
         canonical: str,
         raw: Any,
     ) -> IdempotencyRecord:
+        """Validate an in-memory record before returning or mutating it."""
         if not isinstance(raw, IdempotencyRecord):
             raise IdempotencyCorruptionError(
                 canonical,
@@ -647,11 +850,20 @@ class JsonlIdempotencyStore:
 
         return raw
 
-    def _ensure_parent_directory(self) -> None:
-        directory = os.path.dirname(self.db_path)
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
 
-        if directory:
-            os.makedirs(directory, exist_ok=True)
+    def _ensure_parent_directory(self) -> None:
+        """Create the parent directory for the store and lock files."""
+        directory = os.path.dirname(
+            os.path.abspath(self.db_path)
+        )
+
+        os.makedirs(
+            directory,
+            exist_ok=True,
+        )
 
     @staticmethod
     def _new_claim(
@@ -661,12 +873,17 @@ class JsonlIdempotencyStore:
         attempt: int,
         created_at: Optional[float] = None,
     ) -> IdempotencyRecord:
+        """Create a new IN_PROGRESS record."""
         now = time.time()
 
         return IdempotencyRecord(
             key=key,
             status=RecordStatus.IN_PROGRESS,
-            created_at=now if created_at is None else created_at,
+            created_at=(
+                now
+                if created_at is None
+                else created_at
+            ),
             updated_at=now,
             owner_id=owner_id,
             attempt=attempt,
@@ -674,11 +891,16 @@ class JsonlIdempotencyStore:
         )
 
     @staticmethod
-    def _validate_owner_id(owner_id: str) -> None:
+    def _validate_owner_id(
+        owner_id: str,
+    ) -> None:
+        """Validate an idempotency record owner identifier."""
         if not isinstance(owner_id, str):
             raise TypeError(
                 f"owner_id must be str, got {type(owner_id).__name__}"
             )
 
         if not owner_id:
-            raise ValueError("owner_id cannot be empty")
+            raise ValueError(
+                "owner_id cannot be empty"
+            )
