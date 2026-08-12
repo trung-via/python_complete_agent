@@ -1,0 +1,307 @@
+"""
+Phase 5.3-A — Idempotency Contract
+
+Defines the canonical types, enums, protocols, and errors for the
+idempotency subsystem. This module is purely declarative: no I/O,
+no concurrency primitives, no persistence.
+
+Key concepts:
+    RecordKey       = (operation_key, idempotency_key) composite identity
+    RecordStatus    = lifecycle state of a record
+    ClaimStatus     = outcome of a claim() call
+    ClaimResult     = typed return value carrying status + record
+    IdempotencyRecord = full metadata for a claimed operation
+    IdempotencyStoreProtocol = abstract contract for any store impl
+"""
+from __future__ import annotations
+
+import json
+import time
+from enum import Enum
+from dataclasses import dataclass, field
+from typing import Optional, Any, Dict, Protocol
+
+
+# ---------------------------------------------------------------------------
+# Lifecycle & Claim Enums
+# ---------------------------------------------------------------------------
+
+class RecordStatus(str, Enum):
+    """
+    Lifecycle states for an idempotency record.
+
+    NEW           → persisted/pre-claim state; not returned by claim() in
+                    normal operation. Exists for persistent recovery and
+                    record reconstruction (P5.3-B).
+    IN_PROGRESS   → actively being executed by an owner
+    COMPLETED     → finished successfully (terminal)
+    FAILED        → finished with permanent failure (terminal)
+    RECOVERABLE   → finished with retryable failure; claim() will re-claim
+                    this record, transferring ownership and incrementing attempt
+    """
+    NEW = "NEW"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    RECOVERABLE = "RECOVERABLE"
+
+
+class ClaimStatus(str, Enum):
+    """
+    Possible outcomes of a claim() call.
+
+    CLAIMED              → caller now owns this operation (fresh or re-claim
+                           from RECOVERABLE; check record.attempt to distinguish)
+    ALREADY_IN_PROGRESS  → another owner is executing; caller must NOT proceed
+    ALREADY_COMPLETED    → operation already succeeded (replay result from record.data)
+    FAILED_PERMANENT     → previous attempt failed permanently; no auto-retry
+    """
+    CLAIMED = "CLAIMED"
+    ALREADY_IN_PROGRESS = "ALREADY_IN_PROGRESS"
+    ALREADY_COMPLETED = "ALREADY_COMPLETED"
+    FAILED_PERMANENT = "FAILED_PERMANENT"
+
+
+# Terminal statuses: once a record reaches these, the lifecycle is over
+# (unless recovery policy explicitly re-opens RECOVERABLE).
+TERMINAL_STATUSES = frozenset({RecordStatus.COMPLETED, RecordStatus.FAILED})
+
+
+# ---------------------------------------------------------------------------
+# Composite Key
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True, slots=True)
+class RecordKey:
+    """
+    Composite identity for an idempotency record.
+
+    operation_key    = identity of the logical operation
+                       (same operation → same lifecycle)
+    idempotency_key  = identity of a specific request/attempt
+                       (prevents duplicate execution)
+
+    Canonical form uses JSON array encoding to guarantee
+    zero ambiguity — no delimiter collision possible:
+        ["op_key", "idem_key"]
+
+    Scope guarantee: different operation_keys NEVER collide,
+                     even with identical idempotency_keys.
+    """
+    operation_key: str
+    idempotency_key: str
+
+    def __post_init__(self):
+        if not isinstance(self.operation_key, str):
+            raise TypeError(f"operation_key must be str, got {type(self.operation_key).__name__}")
+        if not isinstance(self.idempotency_key, str):
+            raise TypeError(f"idempotency_key must be str, got {type(self.idempotency_key).__name__}")
+        if not self.operation_key:
+            raise ValueError("operation_key cannot be empty")
+        if not self.idempotency_key:
+            raise ValueError("idempotency_key cannot be empty")
+
+    @property
+    def canonical(self) -> str:
+        """Collision-free canonical string for storage lookup / hashing."""
+        return json.dumps(
+            [self.operation_key, self.idempotency_key],
+            separators=(',', ':'),
+            ensure_ascii=False,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Record & Claim Result
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True, slots=True)
+class IdempotencyRecord:
+    """
+    Full metadata for a claimed operation.
+
+    Fields:
+        key         — composite (operation_key, idempotency_key)
+        status      — current lifecycle state
+        created_at  — epoch timestamp of initial claim
+        updated_at  — epoch timestamp of last state transition
+        owner_id    — identity of the owning worker (format TBD in P5.3-C)
+        attempt     — 1-indexed attempt counter
+        data        — arbitrary payload (e.g. serialized ToolResult)
+    """
+    key: RecordKey
+    status: RecordStatus
+    created_at: float
+    updated_at: float
+    owner_id: str
+    attempt: int
+    data: Optional[Dict[str, Any]] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Explicit dictionary serialization preserving separate key fields."""
+        return {
+            "operation_key": self.key.operation_key,
+            "idempotency_key": self.key.idempotency_key,
+            "status": self.status.value,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "owner_id": self.owner_id,
+            "attempt": self.attempt,
+            "data": self.data,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> IdempotencyRecord:
+        """Reconstruct IdempotencyRecord from explicit dictionary fields."""
+        try:
+            key = RecordKey(
+                operation_key=data["operation_key"],
+                idempotency_key=data["idempotency_key"],
+            )
+            return cls(
+                key=key,
+                status=RecordStatus(data["status"]),
+                created_at=float(data["created_at"]),
+                updated_at=float(data["updated_at"]),
+                owner_id=str(data["owner_id"]),
+                attempt=int(data["attempt"]),
+                data=data.get("data"),
+            )
+        except (KeyError, ValueError, TypeError) as e:
+            key_repr = f"{data.get('operation_key', '')}::{data.get('idempotency_key', '')}"
+            raise IdempotencyCorruptionError(key_repr, f"Invalid record dict format: {e}")
+
+
+@dataclass(frozen=True, slots=True)
+class ClaimResult:
+    """
+    Return value of claim().
+
+    status  — one of ClaimStatus indicating what happened
+    record  — the current IdempotencyRecord (present for all statuses
+              except when the store is empty for this key and claim succeeds)
+    """
+    status: ClaimStatus
+    record: Optional[IdempotencyRecord] = None
+
+
+# ---------------------------------------------------------------------------
+# Errors
+# ---------------------------------------------------------------------------
+
+class IdempotencyError(Exception):
+    """Base error for idempotency subsystem."""
+    def __init__(self, message: str):
+        super().__init__(message)
+        self.message = message
+
+
+class IdempotencyOwnershipError(IdempotencyError):
+    """Raised when a non-owner tries to transition a record it doesn't own."""
+    def __init__(self, key: RecordKey, expected_owner: str, actual_owner: str):
+        super().__init__(
+            f"Ownership violation on {key.canonical}: "
+            f"expected owner '{expected_owner}', actual owner '{actual_owner}'"
+        )
+        self.key = key
+        self.expected_owner = expected_owner
+        self.actual_owner = actual_owner
+
+
+class IdempotencyStateError(IdempotencyError):
+    """Raised when an invalid state transition is attempted."""
+    def __init__(self, key: RecordKey, current_status: RecordStatus, target_status: RecordStatus):
+        super().__init__(
+            f"Invalid state transition on {key.canonical}: "
+            f"{current_status.value} → {target_status.value}"
+        )
+        self.key = key
+        self.current_status = current_status
+        self.target_status = target_status
+
+
+class IdempotencyCorruptionError(IdempotencyError):
+    """Raised when a record is malformed or corrupt. Never silently succeed."""
+    def __init__(self, key_canonical: str, reason: str):
+        super().__init__(
+            f"Corrupt idempotency record '{key_canonical}': {reason}"
+        )
+        self.key_canonical = key_canonical
+        self.reason = reason
+
+
+# ---------------------------------------------------------------------------
+# Protocol (Abstract Contract)
+# ---------------------------------------------------------------------------
+
+class IdempotencyStoreProtocol(Protocol):
+    """
+    Abstract contract for any idempotency store implementation.
+
+    Guarantees:
+        1. claim() is an atomic decision — no check-then-act race
+        2. State transitions are validated (no COMPLETED → IN_PROGRESS)
+        3. Ownership is enforced (only the claimer can transition)
+        4. Corrupt records raise IdempotencyCorruptionError explicitly
+
+    Atomicity mechanism is NOT specified here — that's P5.3-B/C.
+    """
+
+    def claim(self, key: RecordKey, owner_id: str) -> ClaimResult:
+        """
+        Atomically attempt to claim an operation.
+
+        Args:
+            key:      composite (operation_key, idempotency_key)
+            owner_id: non-empty str identifying the claiming worker
+
+        Returns:
+            ClaimResult with appropriate ClaimStatus:
+            - CLAIMED: caller now owns this record (status = IN_PROGRESS).
+              Includes re-claim from RECOVERABLE (attempt > 1).
+            - ALREADY_IN_PROGRESS: another owner holds this record
+            - ALREADY_COMPLETED: operation already succeeded
+            - FAILED_PERMANENT: previous attempt failed permanently
+        """
+        ...
+
+    def complete(
+        self, key: RecordKey, owner_id: str, data: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """
+        Transition IN_PROGRESS → COMPLETED.
+
+        Raises:
+            IdempotencyOwnershipError: if owner_id doesn't match
+            IdempotencyStateError: if current status is not IN_PROGRESS
+        """
+        ...
+
+    def fail(
+        self,
+        key: RecordKey,
+        owner_id: str,
+        *,
+        retryable: bool,
+        data: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """
+        Transition IN_PROGRESS → FAILED or RECOVERABLE.
+
+        Args:
+            retryable: True → RECOVERABLE, False → FAILED
+
+        Raises:
+            IdempotencyOwnershipError: if owner_id doesn't match
+            IdempotencyStateError: if current status is not IN_PROGRESS
+        """
+        ...
+
+    def get(self, key: RecordKey) -> Optional[IdempotencyRecord]:
+        """
+        Read-only lookup. Returns None if no record exists.
+
+        Raises:
+            IdempotencyCorruptionError: if the stored data is malformed
+        """
+        ...

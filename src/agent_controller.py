@@ -1,175 +1,136 @@
-import os
-import re
-import asyncio
+from __future__ import annotations
+
 import logging
-import uuid
-from src.ai_controller import AIController
-from src.modules.browser_automation import BrowserAutomation
-from src.modules.image_processor import ImageProcessor
-from src.modules.gdrive_integrator import GDriveIntegrator
+import os
+from typing import Optional
+
+from src.agent.loop import AgentLoop
+from src.agent.policy import RunPolicy
+from src.core.checkpoint import CheckpointManager
+from src.core.idempotency_store_v2 import JsonlIdempotencyStore
+from src.core.retry import RetryManager
+from src.core.tool_executor import ToolExecutor
 from src.core.tool_registry import ToolRegistry
-from src.core.types import ToolCall, ToolResult
-from src.core.errors import AgentException, RateLimitError
+from src.integrations.playwright.manager import PlaywrightBrowserManager
+from src.modules.gdrive_integrator import GDriveIntegrator
+from src.modules.image_processor import ImageProcessor
+from src.providers.gemini import GeminiProvider
+from src.tools.browser.click import ClickTool
+from src.tools.browser.inspect import InspectTool
+from src.tools.browser.navigate import NavigateTool
+from src.tools.browser.press import PressTool
+from src.tools.browser.screenshot import ScreenshotTool
+from src.tools.browser.type_text import TypeTextTool
 from src.tools.shopee_scrape_tool import ShopeeScrapeTool
 from src.tools.tiktok_scrape_tool import TikTokScrapeTool
 
 logger = logging.getLogger(__name__)
 
+
 class AgentController:
-    def __init__(self):
-        self.ai = AIController()
-        
-        # Determine headless mode from env
-        headless = os.environ.get("HEADLESS_BROWSER", "true").lower() == "true"
-        self.browser = BrowserAutomation(headless=headless)
-        
-        self.image_processor = ImageProcessor(output_dir="data/images")
-        
-        gdrive_creds = os.environ.get("GDRIVE_CREDENTIALS_FILE", "credentials.json")
-        self.gdrive = GDriveIntegrator(credentials_file=gdrive_creds)
-        
-        self.gdrive_folder_id = os.environ.get("GDRIVE_TARGET_FOLDER_ID")
-        
-        # Initialize Tool Registry and register tools
+    """
+    Main orchestration class.
+
+    Uses the v2 JSONL idempotency store while keeping the executor API
+    compatible with the existing agent loop.
+    """
+
+    def __init__(
+        self,
+        db_path: str = "data/checkpoints.jsonl",
+        idempotency_path: str = "data/idempotency_store_v2.jsonl",
+    ) -> None:
         self.registry = ToolRegistry()
+        self.checkpoints = CheckpointManager(db_path=db_path)
+        self.retry_manager = RetryManager()
+        self.idempotency_store = JsonlIdempotencyStore(
+            db_path=idempotency_path,
+        )
+
+        self.browser_manager = PlaywrightBrowserManager()
+        self.image_processor = ImageProcessor()
+        self.gdrive = GDriveIntegrator("credentials.json")
+        self.gdrive_folder_id = os.environ.get(
+            "GDRIVE_FOLDER_ID",
+            "dummy_folder_id",
+        )
+
+        self._register_tools()
+
+        self.llm_provider = GeminiProvider()
+
+        self.tool_context = {
+            "browser_manager": self.browser_manager,
+            "image_processor": self.image_processor,
+            "gdrive": self.gdrive,
+            "gdrive_folder_id": self.gdrive_folder_id,
+        }
+
+        self.tool_executor = ToolExecutor(
+            registry=self.registry,
+            idempotency_store=self.idempotency_store,
+            retry_manager=self.retry_manager,
+            checkpoints=self.checkpoints,
+            context=self.tool_context,
+        )
+
+        self.agent_loop = AgentLoop(
+            llm_provider=self.llm_provider,
+            tool_executor=self.tool_executor,
+            tool_registry=self.registry,
+            checkpoints=self.checkpoints,
+            policy=RunPolicy(),
+        )
+
+    def _register_tools(self) -> None:
+        self.registry.register_tool(
+            NavigateTool(self.browser_manager)
+        )
+        self.registry.register_tool(
+            ClickTool(self.browser_manager)
+        )
+        self.registry.register_tool(
+            TypeTextTool(self.browser_manager)
+        )
+        self.registry.register_tool(
+            PressTool(self.browser_manager)
+        )
+        self.registry.register_tool(
+            ScreenshotTool(self.browser_manager)
+        )
+        self.registry.register_tool(
+            InspectTool(self.browser_manager)
+        )
         self.registry.register_tool(ShopeeScrapeTool())
         self.registry.register_tool(TikTokScrapeTool())
 
-    async def initialize(self):
-        """Initializes async components like the browser."""
-        await self.browser.start()
+    async def start(self) -> None:
+        """Initialize heavy resources."""
+        self.gdrive.authenticate()
 
-    async def shutdown(self):
-        """Cleans up resources."""
-        await self.browser.stop()
+    async def stop(self) -> None:
+        """Clean up resources."""
+        await self.browser_manager.close_all()
 
-    async def execute_task(self, user_prompt: str) -> bool:
-        """
-        The main workflow:
-        1. Ask AI Controller to parse the prompt.
-        2. Execute the corresponding sub-module action.
-        3. Process results (e.g., download images).
-        4. Upload to Google Drive.
-        Returns True if successful, False otherwise.
-        """
-        logger.info(f"Received user prompt: {user_prompt}")
-        
-        plan = None
-        
-        # 1. AI Planning
-        if not plan:
-            tools_schema = self.registry.get_tools_schema()
-            plan = self.ai.plan_action(user_prompt, tools_schema)
-            
-        if "error" in plan:
-            logger.error(f"Could not create plan: {plan['error']}")
-            return False
+    async def run(
+        self,
+        user_prompt: str,
+        run_id: Optional[str] = None,
+    ) -> Optional[str]:
+        """Execute the full agent loop."""
+        if not run_id:
+            run_id = self.checkpoints.log_task_start(user_prompt)
 
-        action = plan.get("action")
-        arguments = plan.get("arguments", {})
-
-        if action == "unknown":
-            logger.warning(f"AI determined the request is unknown. Plan: {plan}")
-            return False
-
-        # 2. Look up tool in registry
-        tool = self.registry.get_tool(action)
-        if not tool:
-            logger.warning(f"No tool registered for action: {action}")
-            return False
-            
-        # 3. Execution
-        context = {
-            'browser': self.browser,
-            'image_processor': self.image_processor,
-            'gdrive': self.gdrive,
-            'ai_controller': self.ai,
-            'gdrive_folder_id': self.gdrive_folder_id
-        }
-        
-        call = ToolCall(
-            name=action,
-            arguments=arguments,
-            call_id=str(uuid.uuid4())
+        system_prompt = (
+            "You are an autonomous agent designed to scrape products from "
+            "Shopee and TikTok, download their images, watermark them, and "
+            "upload them to Google Drive. "
+            "You have access to a set of tools to accomplish this. "
+            "Think step-by-step and call tools as needed."
         )
-        
-        try:
-            result: ToolResult = await tool.execute(call=call, context=context)
-            if result.is_success:
-                logger.info(f"Tool executed successfully: {result.data}")
-                return True
-            elif result.is_partial_success:
-                logger.warning(f"Tool executed with partial success: {result.error_message}")
-                return True # Treat partial success as completed so we don't retry endlessly
-            else:
-                logger.error(f"Tool execution failed: {result.error_message}")
-                return False
-        except RateLimitError as e:
-            logger.error(f"Rate limited by target: {e}")
-            return False # Will trigger retry in autonomous loop
-        except AgentException as e:
-            logger.error(f"Agent error during execution: {e}")
-            return False
-        except Exception as e:
-            logger.error(f"Unexpected tool execution failure: {e}", exc_info=True)
-            return False
 
-    async def run_autonomous_loop(self, tasks_file: str = "tasks.txt", completed_file: str = "completed.txt"):
-        """Runs the agent autonomously, reading tasks from a file and saving progress."""
-        if not os.path.exists(tasks_file):
-            logger.info(f"No {tasks_file} found. Creating an empty one.")
-            with open(tasks_file, "w", encoding="utf-8") as f:
-                f.write("# Paste URLs here, one per line\n")
-            return
-
-        # Load completed tasks
-        completed_urls = set()
-        if os.path.exists(completed_file):
-            with open(completed_file, "r", encoding="utf-8") as f:
-                for line in f:
-                    completed_urls.add(line.strip())
-
-        # Read tasks
-        with open(tasks_file, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-
-        pending_tasks = []
-        for line in lines:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if line not in completed_urls:
-                pending_tasks.append(line)
-
-        if not pending_tasks:
-            logger.info("No new tasks found in tasks.txt.")
-            return
-
-        logger.info(f"Starting autonomous loop with {len(pending_tasks)} pending tasks.")
-
-        for url in pending_tasks:
-            success = False
-            retries = 3
-            
-            for attempt in range(1, retries + 1):
-                logger.info(f"--- Task: {url} (Attempt {attempt}/{retries}) ---")
-                
-                # Make sure browser context is clean or re-created if necessary.
-                # In our case, Playwright handles new pages fine.
-                
-                success = await self.execute_task(url)
-                if success:
-                    break
-                else:
-                    if attempt < retries:
-                        logger.info("Task failed. Retrying in 5 seconds...")
-                        await asyncio.sleep(5)
-            
-            if success:
-                logger.info(f"Successfully processed {url}. Marking as completed.")
-                with open(completed_file, "a", encoding="utf-8") as f:
-                    f.write(f"{url}\n")
-            else:
-                logger.error(f"Failed to process {url} after {retries} attempts. Skipping.")
-                
-        logger.info("Autonomous loop finished.")
+        return await self.agent_loop.run(
+            run_id=run_id,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+        )

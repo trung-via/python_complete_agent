@@ -1,6 +1,8 @@
+import jsonschema
 from typing import Dict, List, Optional
 import logging
 from src.core.base_tool import BaseTool
+from src.core.types import ToolCall
 
 logger = logging.getLogger(__name__)
 
@@ -42,3 +44,21 @@ class ToolRegistry:
                 "parameters": tool.get_schema()
             })
         return schemas
+
+    def validate_call(self, call: ToolCall) -> bool:
+        """
+        Validates a ToolCall against the registered tool's schema using jsonschema.
+        Raises ValueError if invalid.
+        """
+        tool = self.get_tool(call.name)
+        if not tool:
+            raise ValueError(f"Tool '{call.name}' not found in registry.")
+            
+        schema = tool.get_schema()
+        
+        try:
+            jsonschema.validate(instance=call.arguments, schema=schema)
+        except jsonschema.exceptions.ValidationError as e:
+            raise ValueError(f"Schema validation failed for tool '{call.name}': {e.message}")
+            
+        return True

@@ -4,7 +4,7 @@ import logging
 from typing import Dict, Any
 from src.core.base_tool import BaseTool
 from src.core.types import ToolCall, ToolResult
-from src.core.errors import DependencyError, BrowserNavigationError, ExtractionError
+from src.core.errors import AgentException, DependencyError, BrowserNavigationError, ExtractionError
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +30,13 @@ class TikTokScrapeTool(BaseTool):
         }
 
     async def execute(self, call: ToolCall, context: Dict[str, Any]) -> ToolResult:
+        from src.core.types import ToolStatus
         url = call.arguments.get("url")
         if not url:
-            return ToolResult(is_success=False, error_message="Missing 'url' in arguments.")
+            return ToolResult(
+                call_id=call.call_id, run_id=call.run_id, tool_name=self.name,
+                status=ToolStatus.FAILURE, error=AgentException("Missing 'url' in arguments", code="MISSING_ARG_URL")
+            )
             
         logger.info(f"Executing TikTokScrapeTool for URL: {url}")
         
@@ -67,7 +71,7 @@ class TikTokScrapeTool(BaseTool):
                     });
                 }''')
                 await page.wait_for_timeout(1000)
-            except:
+            except Exception:
                 pass
                 
             try:
@@ -118,7 +122,7 @@ class TikTokScrapeTool(BaseTool):
                 title_el = await page.query_selector('title')
                 if title_el:
                     result['product_name'] = (await title_el.inner_text()).split('|')[0].strip()
-            except:
+            except Exception:
                 pass
                 
             result['images'] = list(images)
@@ -132,7 +136,10 @@ class TikTokScrapeTool(BaseTool):
         shop_name = extracted_data.get('shop_name', 'Unknown Shop')
         
         if not image_urls:
-            return ToolResult(is_success=False, error_message="No images found or TikTok extraction failed.")
+            return ToolResult(
+                call_id=call.call_id, run_id=call.run_id, tool_name=self.name,
+                status=ToolStatus.FAILURE, error=AgentException("No images found or TikTok extraction failed", code="EXTRACTION_EMPTY", retryable=True)
+            )
 
         downloaded_files = []
         for img_url in image_urls:
@@ -142,7 +149,10 @@ class TikTokScrapeTool(BaseTool):
                 downloaded_files.append(file_path)
                 
         if not downloaded_files:
-            return ToolResult(is_success=False, error_message="Failed to download any images locally.")
+            return ToolResult(
+                call_id=call.call_id, run_id=call.run_id, tool_name=self.name,
+                status=ToolStatus.FAILURE, error=AgentException("Failed to download any images locally", code="DOWNLOAD_FAILED", retryable=True)
+            )
             
         unique_files = downloaded_files
         
@@ -174,11 +184,14 @@ class TikTokScrapeTool(BaseTool):
         is_partial = upload_success_count < len(unique_files)
         
         if upload_success_count == 0:
-             return ToolResult(is_success=False, error_message="Failed to upload any images to GDrive.")
+             return ToolResult(
+                call_id=call.call_id, run_id=call.run_id, tool_name=self.name,
+                status=ToolStatus.FAILURE, error=AgentException("Failed to upload any images to GDrive", code="UPLOAD_FAILED", retryable=True)
+            )
              
         logger.info("TikTok Scrape task completed.")
         return ToolResult(
-            is_success=True, 
-            is_partial_success=is_partial, 
+            call_id=call.call_id, run_id=call.run_id, tool_name=self.name,
+            status=ToolStatus.PARTIAL_SUCCESS if is_partial else ToolStatus.SUCCESS, 
             data={"uploaded_count": upload_success_count, "total_found": len(unique_files)}
         )

@@ -1,0 +1,180 @@
+import json
+import os
+import uuid
+from typing import Dict, Any, List
+import logging
+
+logger = logging.getLogger(__name__)
+
+class CheckpointManager:
+    """
+    Manages state checkpoints for the autonomous agent.
+    Replaces the simple completed.txt task ledger.
+    """
+    def __init__(self, db_path: str = "checkpoints.jsonl"):
+        self.db_path = db_path
+        
+    def log_task_start(self, task_context: str) -> str:
+        """Logs the start of a task and returns a unique run_id."""
+        run_id = str(uuid.uuid4())
+        self._write_event({
+            "run_id": run_id,
+            "event": "TASK_START",
+            "task_context": task_context,
+            "status": "PENDING",
+            "retry_count": 0
+        })
+        return run_id
+        
+    def log_tool_call_created(self, run_id: str, call_id: str, tool_name: str, arguments: dict):
+        self._write_event({
+            "run_id": run_id,
+            "event": "TOOL_CALL_CREATED",
+            "call_id": call_id,
+            "tool_name": tool_name,
+            "arguments": arguments
+        })
+        
+    def log_tool_call_rejected(self, run_id: str, call_id: str, reason: str):
+        self._write_event({
+            "run_id": run_id,
+            "event": "TOOL_CALL_REJECTED",
+            "call_id": call_id,
+            "reason": reason
+        })
+        
+    def log_tool_attempt_started(self, run_id: str, call_id: str):
+        self._write_event({
+            "run_id": run_id,
+            "event": "TOOL_ATTEMPT_STARTED",
+            "call_id": call_id
+        })
+        
+    def log_tool_attempt_ended(self, run_id: str, call_id: str, attempt: int, status: str, error_msg: str = None):
+        self._write_event({
+            "run_id": run_id,
+            "event": "TOOL_ATTEMPT_ENDED",
+            "call_id": call_id,
+            "attempt": attempt,
+            "status": status,
+            "error": error_msg
+        })
+
+    def log_event(self, run_id: str, event_name: str, payload: dict):
+        """Generic method to log any event with arbitrary payload."""
+        event = {
+            "run_id": run_id,
+            "event": event_name,
+        }
+        event.update(payload)
+        self._write_event(event)
+
+    # --- Phase 2 Lifecycle Events ---
+
+    def log_run_started(self, run_id: str, system_prompt: str, user_prompt: str):
+        self._write_event({
+            "run_id": run_id,
+            "event": "RUN_STARTED",
+            "system_prompt": system_prompt,
+            "user_prompt": user_prompt
+        })
+
+    def log_llm_requested(self, run_id: str, iteration: int):
+        self._write_event({
+            "run_id": run_id,
+            "event": "LLM_REQUESTED",
+            "iteration": iteration
+        })
+
+    def log_llm_responded(self, run_id: str, iteration: int, content: Optional[str], num_tool_calls: int):
+        self._write_event({
+            "run_id": run_id,
+            "event": "LLM_RESPONDED",
+            "iteration": iteration,
+            "has_content": bool(content),
+            "num_tool_calls": num_tool_calls
+        })
+
+    def log_tool_result_received(self, run_id: str, call_id: str, status: str):
+        self._write_event({
+            "run_id": run_id,
+            "event": "TOOL_RESULT_RECEIVED",
+            "call_id": call_id,
+            "status": status
+        })
+
+    def log_llm_final_response(self, run_id: str, content: Optional[str]):
+        self._write_event({
+            "run_id": run_id,
+            "event": "LLM_FINAL_RESPONSE",
+            "has_content": bool(content)
+        })
+
+    def log_run_completed(self, run_id: str):
+        self._write_event({
+            "run_id": run_id,
+            "event": "RUN_COMPLETED"
+        })
+
+    def log_run_failed(self, run_id: str, error: str):
+        self._write_event({
+            "run_id": run_id,
+            "event": "RUN_FAILED",
+            "error": error
+        })
+
+    def log_run_halted(self, run_id: str, reason: str):
+        self._write_event({
+            "run_id": run_id,
+            "event": "RUN_HALTED",
+            "reason": reason
+        })
+        
+    def log_task_end(self, run_id: str, success: bool, retry_count: int, data: dict = None):
+        self._write_event({
+            "run_id": run_id,
+            "event": "TASK_END",
+            "status": "SUCCESS" if success else "FAILED",
+            "retry_count": retry_count,
+            "data": data or {}
+        })
+        
+    def _write_event(self, payload: dict):
+        import time
+        payload["timestamp"] = time.time()
+        try:
+            with open(self.db_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(payload) + "\n")
+        except Exception as e:
+            logger.critical(f"CRITICAL: Failed to write checkpoint event! Agent state is compromised. Error: {e}")
+            from src.core.errors import SystemStateError
+            raise SystemStateError(f"Checkpoint write failed: {e}")
+
+    def get_completed_tasks(self) -> List[str]:
+        """Reads the ledger to find which tasks successfully completed."""
+        if not os.path.exists(self.db_path):
+            return []
+            
+        task_starts = {}
+        completed = set()
+        
+        try:
+            with open(self.db_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if not line.strip(): continue
+                    try:
+                        evt = json.loads(line)
+                        run_id = evt.get("run_id")
+                        if evt.get("event") == "TASK_START":
+                            task_starts[run_id] = evt.get("task_context")
+                        elif evt.get("event") == "TASK_END":
+                            if evt.get("status") == "SUCCESS":
+                                task_context = task_starts.get(run_id)
+                                if task_context:
+                                    completed.add(task_context)
+                    except json.JSONDecodeError:
+                        continue
+        except Exception as e:
+            logger.error(f"Failed to read checkpoints: {e}")
+            
+        return list(completed)
