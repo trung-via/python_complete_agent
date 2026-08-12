@@ -47,11 +47,13 @@ class CheckpointEventType(str, Enum):
     TOOL_ATTEMPT_ENDED = "TOOL_ATTEMPT_ENDED"
     TOOL_RESULT_RECEIVED = "TOOL_RESULT_RECEIVED"
     TOOL_CALL_REJECTED = "TOOL_CALL_REJECTED"
+    RETRY_SCHEDULED = "RETRY_SCHEDULED"
     LLM_FINAL_RESPONSE = "LLM_FINAL_RESPONSE"
     RUN_COMPLETED = "RUN_COMPLETED"
     RUN_FAILED = "RUN_FAILED"
     RUN_HALTED = "RUN_HALTED"
     TASK_END = "TASK_END"
+
 
 
 class CheckpointCorruptionError(Exception):
@@ -298,6 +300,8 @@ def validate_state_transition(
         raise CheckpointStateError(event.run_id, current_state, evt_type)
 
     if current_state == RunState.RUNNING:
+        if evt_type == CheckpointEventType.RETRY_SCHEDULED:
+            return RunState.RUNNING
         if evt_type in (CheckpointEventType.TASK_START, CheckpointEventType.RUN_STARTED):
             return RunState.RUNNING
         if evt_type == CheckpointEventType.LLM_REQUESTED:
@@ -311,6 +315,8 @@ def validate_state_transition(
         raise CheckpointStateError(event.run_id, current_state, evt_type)
 
     if current_state == RunState.LLM_WAITING:
+        if evt_type == CheckpointEventType.RETRY_SCHEDULED:
+            return RunState.LLM_WAITING
         if evt_type == CheckpointEventType.LLM_REQUESTED:
             return RunState.LLM_WAITING
         if evt_type == CheckpointEventType.LLM_RESPONDED:
@@ -331,6 +337,8 @@ def validate_state_transition(
         raise CheckpointStateError(event.run_id, current_state, evt_type)
 
     if current_state == RunState.TOOL_EXECUTING:
+        if evt_type == CheckpointEventType.RETRY_SCHEDULED:
+            return RunState.TOOL_EXECUTING
         if evt_type in (
             CheckpointEventType.TOOL_CALL_CREATED,
             CheckpointEventType.TOOL_ATTEMPT_STARTED,
@@ -344,5 +352,6 @@ def validate_state_transition(
                 return RunState.LLM_WAITING
             return RunState.TOOL_EXECUTING
         raise CheckpointStateError(event.run_id, current_state, evt_type)
+
 
     raise CheckpointStateError(event.run_id, current_state, evt_type)

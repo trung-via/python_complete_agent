@@ -166,6 +166,32 @@ class CheckpointManager:
             {"call_id": call_id, "reason": reason},
         )
 
+    def log_retry_scheduled(
+        self,
+        run_id: str,
+        operation: str,
+        attempt: int,
+        next_attempt: int,
+        delay_seconds: float,
+        reason: str,
+        failure_domain: str,
+        call_id: Optional[str] = None,
+    ) -> None:
+        self.log_event(
+            run_id,
+            CheckpointEventType.RETRY_SCHEDULED.value,
+            {
+                "operation": operation,
+                "attempt": attempt,
+                "next_attempt": next_attempt,
+                "delay_seconds": delay_seconds,
+                "reason": reason,
+                "failure_domain": failure_domain,
+                "call_id": call_id,
+            },
+        )
+
+
     def log_llm_final_response(self, run_id: str, content: Optional[str]) -> None:
         self.log_event(
             run_id,

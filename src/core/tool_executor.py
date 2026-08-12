@@ -333,11 +333,30 @@ class ToolExecutor:
                 error,
             )
 
+        def log_retry(
+            attempt: int,
+            next_attempt: int,
+            delay_seconds: float,
+            reason: str,
+            failure_domain: str,
+        ) -> None:
+            self.checkpoints.log_retry_scheduled(
+                run_id=call.run_id,
+                operation="TOOL",
+                attempt=attempt,
+                next_attempt=next_attempt,
+                delay_seconds=delay_seconds,
+                reason=reason,
+                failure_domain=failure_domain,
+                call_id=call.call_id,
+            )
+
         return await self.retry_manager.execute_with_retry(
             tool.execute,
             call=call,
             context=self.context,
             on_attempt_complete=log_attempt,
+            on_retry_scheduled=log_retry,
         )
 
     def _complete_v2(

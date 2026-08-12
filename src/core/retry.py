@@ -43,6 +43,7 @@ class RetryManager:
         operation: Callable, 
         *args, 
         on_attempt_complete: Optional[Callable[[int, str, Optional[str]], None]] = None,
+        on_retry_scheduled: Optional[Callable[[int, int, float, str, str], None]] = None,
         **kwargs
     ) -> Any:
         """
@@ -143,5 +144,14 @@ class RetryManager:
                 f"RetryPolicyEngine decision: RETRY (attempt {attempt} -> {decision.next_attempt}, "
                 f"delay {delay:.2f}s, reason {decision.reason.value})"
             )
+            if on_retry_scheduled:
+                on_retry_scheduled(
+                    attempt,
+                    decision.next_attempt,
+                    delay,
+                    decision.reason.value,
+                    decision.failure_domain.value,
+                )
             await asyncio.sleep(delay)
             attempt = decision.next_attempt
+
