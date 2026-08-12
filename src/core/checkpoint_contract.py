@@ -252,11 +252,30 @@ def validate_state_transition(
     """
     evt_type = event.event_type
 
-    # Terminal states reject any further state transitions
-    if current_state in (RunState.COMPLETED, RunState.FAILED, RunState.HALTED):
+    # Idempotent terminal transitions
+    if current_state == RunState.COMPLETED:
+        if evt_type in (
+            CheckpointEventType.RUN_COMPLETED,
+            CheckpointEventType.LLM_FINAL_RESPONSE,
+            CheckpointEventType.TASK_END,
+        ):
+            return RunState.COMPLETED
         raise CheckpointStateError(event.run_id, current_state, evt_type)
 
-    if evt_type == CheckpointEventType.RUN_COMPLETED:
+    if current_state == RunState.FAILED:
+        if evt_type in (CheckpointEventType.RUN_FAILED, CheckpointEventType.TASK_END):
+            return RunState.FAILED
+        raise CheckpointStateError(event.run_id, current_state, evt_type)
+
+    if current_state == RunState.HALTED:
+        if evt_type == CheckpointEventType.RUN_HALTED:
+            return RunState.HALTED
+        raise CheckpointStateError(event.run_id, current_state, evt_type)
+
+    if evt_type in (
+        CheckpointEventType.RUN_COMPLETED,
+        CheckpointEventType.LLM_FINAL_RESPONSE,
+    ):
         return RunState.COMPLETED
     if evt_type == CheckpointEventType.RUN_FAILED:
         return RunState.FAILED
@@ -272,6 +291,8 @@ def validate_state_transition(
         raise CheckpointStateError(event.run_id, current_state, evt_type)
 
     if current_state == RunState.RUNNING:
+        if evt_type in (CheckpointEventType.TASK_START, CheckpointEventType.RUN_STARTED):
+            return RunState.RUNNING
         if evt_type == CheckpointEventType.LLM_REQUESTED:
             return RunState.LLM_WAITING
         raise CheckpointStateError(event.run_id, current_state, evt_type)
@@ -283,9 +304,9 @@ def validate_state_transition(
             num_tool_calls = event.payload.get("num_tool_calls", 0)
             if num_tool_calls > 0:
                 return RunState.TOOL_EXECUTING
-            return RunState.COMPLETED
+            return RunState.LLM_WAITING
         if evt_type == CheckpointEventType.LLM_FINAL_RESPONSE:
-            return RunState.COMPLETED
+            return RunState.LLM_WAITING
         raise CheckpointStateError(event.run_id, current_state, evt_type)
 
     if current_state == RunState.TOOL_EXECUTING:
