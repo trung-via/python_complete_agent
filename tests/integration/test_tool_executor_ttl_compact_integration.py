@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import multiprocessing
 import os
 import time
 from typing import Any, Dict, Optional
@@ -107,6 +106,12 @@ async def test_executor_crash_ttl_expired_reclaim_and_recovery(
     assert rec.status == RecordStatus.COMPLETED
     assert rec.attempt == 2
 
+    # Verify fresh store instance after restart replays completed result
+    store3 = JsonlIdempotencyStore(db_path=db_path, ttl_seconds=5)
+    rec3 = store3.get(key)
+    assert rec3 is not None
+    assert rec3.status == RecordStatus.COMPLETED
+
 
 @pytest.mark.asyncio
 async def test_executor_compact_during_agent_lifecycle(tmp_path: Any) -> None:
@@ -197,3 +202,33 @@ async def test_executor_repair_after_partial_trailing_write(tmp_path: Any) -> No
     res2 = await executor1.execute(c2)
 
     assert res2.status == ToolStatus.SUCCESS
+
+
+@pytest.mark.asyncio
+async def test_executor_compaction_isolation_with_concurrent_mutation(tmp_path: Any) -> None:
+    db_path = str(tmp_path / "idempotency.jsonl")
+    cp_path = str(tmp_path / "checkpoints.jsonl")
+
+    tool1 = DummyTool()
+    executor1, store1 = make_executor(db_path, tool1, cp_path)
+
+    # Store 1 executes call 1
+    c1 = make_call("c1", "idem-1")
+    await executor1.execute(c1)
+
+    # Store 2 (separate process/store instance) executes call 2 right before store 1 compacts
+    tool2 = DummyTool()
+    executor2, store2 = make_executor(db_path, tool2, cp_path)
+    c2 = make_call("c2", "idem-2")
+    await executor2.execute(c2)
+
+    # Store 1 compacts
+    store1.compact()
+
+    # Verify Store 1 reloaded state under lock and did NOT lose Store 2's record
+    store3 = JsonlIdempotencyStore(db_path=db_path)
+    k1 = RecordKey("tool:test_tool", "idem-1")
+    k2 = RecordKey("tool:test_tool", "idem-2")
+
+    assert store3.get(k1) is not None
+    assert store3.get(k2) is not None
