@@ -21,9 +21,11 @@ from src.core.checkpoint_contract import (
 )
 from src.core.idempotency_contract import (
     IdempotencyCorruptionError,
+    IdempotencyRecord,
     RecordKey,
     RecordStatus,
 )
+from src.core.idempotency_store_v2 import JsonlIdempotencyStore
 from src.core.recovery_diagnostics import RecoveryAnalyzer, RecoveryPotential
 from src.core.retry import RetryPolicy
 from src.core.types import ToolCall
@@ -69,20 +71,29 @@ class ProductionReadinessReport:
 
 def parse_idempotency_store_read_only(
     idempotency_path: Optional[str],
-) -> Tuple[Optional[str], Dict[str, Dict[str, Any]]]:
+) -> Tuple[Optional[str], Dict[str, IdempotencyRecord]]:
     """
     Strictly read-only parser and lifecycle validator for JSONL idempotency stores.
     
     Invariants:
     - Never creates directories, data files, lock files, or temp files.
-    - Validates JSON syntax, schema, timestamp monotonicity, and lifecycle state transitions.
-    - Prevents terminal reopening (e.g. COMPLETED -> IN_PROGRESS).
-    - Returns (None, records_dict) on success, or (error_reason, {}) on failure.
+    - Reuses production JsonlIdempotencyStore._record_from_dict to enforce identical schema/type rules:
+      * created_at and updated_at numeric
+      * updated_at >= created_at
+      * non-empty owner_id
+      * integer attempt >= 1 (bool rejected)
+      * data is dict or None
+    - Validates per-key persisted lifecycle invariants:
+      * timestamp monotonicity (updated_at >= prev.updated_at)
+      * created_at immutability (created_at == prev.created_at)
+      * attempt monotonicity (attempt >= prev.attempt)
+      * no terminal reopening (transitions from COMPLETED/FAILED to any other status rejected)
+      * no invalid intermediate transitions (e.g. RECOVERABLE to RECOVERABLE/COMPLETED without IN_PROGRESS)
     """
     if not idempotency_path or not os.path.exists(idempotency_path):
         return None, {}
 
-    records: Dict[str, Dict[str, Any]] = {}
+    records: Dict[str, IdempotencyRecord] = {}
 
     try:
         with open(idempotency_path, "r", encoding="utf-8") as handle:
@@ -96,63 +107,53 @@ def parse_idempotency_store_read_only(
                 except json.JSONDecodeError as exc:
                     return f"Malformed JSON at line {line_number}: {exc.msg}", {}
 
-                if not isinstance(payload, dict):
-                    return f"Line {line_number}: record payload is not a JSON object", {}
-
-                # Validate required schema fields
-                key_dict = payload.get("key")
-                if (
-                    not isinstance(key_dict, dict)
-                    or "operation_key" not in key_dict
-                    or "idempotency_key" not in key_dict
-                ):
-                    return f"Line {line_number}: missing or invalid key structure in idempotency record", {}
-
-                op_key = key_dict["operation_key"]
-                idem_key = key_dict["idempotency_key"]
-                if not isinstance(op_key, str) or not isinstance(idem_key, str) or not op_key or not idem_key:
-                    return f"Line {line_number}: invalid operation_key or idempotency_key in record", {}
-
-                status_str = payload.get("status")
                 try:
-                    status = RecordStatus(status_str)
-                except (ValueError, TypeError):
-                    return f"Line {line_number}: invalid RecordStatus '{status_str}'", {}
+                    record = JsonlIdempotencyStore._record_from_dict(payload, line_number)
+                except IdempotencyCorruptionError as exc:
+                    return f"Line {line_number}: {exc.message}", {}
 
-                updated_at = payload.get("updated_at")
-                if not isinstance(updated_at, (int, float)):
-                    return f"Line {line_number}: invalid or missing updated_at timestamp", {}
+                if record.updated_at < record.created_at:
+                    return (
+                        f"Line {line_number}: updated_at ({record.updated_at}) is earlier than "
+                        f"created_at ({record.created_at}) for key {record.key.canonical}",
+                        {},
+                    )
 
-                owner_id = payload.get("owner_id")
-                attempt = payload.get("attempt", 1)
+                canonical = record.key.canonical
+                if canonical in records:
+                    prev = records[canonical]
 
-                canonical_key = json.dumps([op_key, idem_key], separators=(",", ":"))
-
-                if canonical_key in records:
-                    prev = records[canonical_key]
-                    prev_status = prev["status"]
-                    prev_updated_at = prev["updated_at"]
-
-                    # 1. Monotonicity check
-                    if updated_at < prev_updated_at:
+                    if record.updated_at < prev.updated_at:
                         return (
-                            f"Line {line_number}: timestamp rollback for key {canonical_key} "
-                            f"(previous: {prev_updated_at}, current: {updated_at})",
+                            f"Line {line_number}: timestamp rollback for key {canonical} "
+                            f"(previous: {prev.updated_at}, current: {record.updated_at})",
                             {},
                         )
 
-                    # 2. Lifecycle state machine validation
-                    # Terminal statuses cannot reopen
-                    if prev_status in (RecordStatus.COMPLETED, RecordStatus.FAILED):
-                        if status != prev_status:
-                            return (
-                                f"Line {line_number}: illegal transition from terminal status "
-                                f"{prev_status.value} to {status.value} for key {canonical_key}",
-                                {},
-                            )
+                    if record.created_at != prev.created_at:
+                        return (
+                            f"Line {line_number}: created_at changed for key {canonical} "
+                            f"(previous: {prev.created_at}, current: {record.created_at})",
+                            {},
+                        )
 
-                    if prev_status == RecordStatus.IN_PROGRESS:
-                        if status not in (
+                    if record.attempt < prev.attempt:
+                        return (
+                            f"Line {line_number}: attempt rollback for key {canonical} "
+                            f"(previous: {prev.attempt}, current: {record.attempt})",
+                            {},
+                        )
+
+                    # Terminal states cannot reopen or change
+                    if prev.status in (RecordStatus.COMPLETED, RecordStatus.FAILED):
+                        return (
+                            f"Line {line_number}: illegal transition from terminal status "
+                            f"{prev.status.value} to {record.status.value} for key {canonical}",
+                            {},
+                        )
+
+                    if prev.status == RecordStatus.IN_PROGRESS:
+                        if record.status not in (
                             RecordStatus.IN_PROGRESS,
                             RecordStatus.COMPLETED,
                             RecordStatus.FAILED,
@@ -160,27 +161,25 @@ def parse_idempotency_store_read_only(
                         ):
                             return (
                                 f"Line {line_number}: illegal transition from IN_PROGRESS to "
-                                f"{status.value} for key {canonical_key}",
+                                f"{record.status.value} for key {canonical}",
                                 {},
                             )
 
-                    if prev_status == RecordStatus.RECOVERABLE:
-                        if status not in (RecordStatus.IN_PROGRESS, RecordStatus.RECOVERABLE):
+                    if prev.status == RecordStatus.RECOVERABLE:
+                        if record.status != RecordStatus.IN_PROGRESS:
                             return (
                                 f"Line {line_number}: illegal transition from RECOVERABLE to "
-                                f"{status.value} for key {canonical_key}",
+                                f"{record.status.value} for key {canonical} (must reclaim to IN_PROGRESS first)",
+                                {},
+                            )
+                        if record.attempt != prev.attempt + 1:
+                            return (
+                                f"Line {line_number}: reclaiming RECOVERABLE record for key {canonical} "
+                                f"must increment attempt by 1 (previous: {prev.attempt}, current: {record.attempt})",
                                 {},
                             )
 
-                records[canonical_key] = {
-                    "op_key": op_key,
-                    "idem_key": idem_key,
-                    "status": status,
-                    "updated_at": updated_at,
-                    "owner_id": owner_id,
-                    "attempt": attempt,
-                    "data": payload.get("data"),
-                }
+                records[canonical] = record
 
     except OSError as exc:
         return f"I/O error reading idempotency store: {exc}", {}
@@ -499,7 +498,7 @@ class ProductionReadinessChecker:
     @staticmethod
     def _check_idempotency_store(
         idempotency_path: Optional[str],
-    ) -> Tuple[ReadinessCheck, Dict[str, Dict[str, Any]]]:
+    ) -> Tuple[ReadinessCheck, Dict[str, IdempotencyRecord]]:
         name = "idempotency_store_health"
         if not idempotency_path:
             return (
@@ -545,7 +544,7 @@ class ProductionReadinessChecker:
     def _check_cross_store_consistency(
         checkpoint_path: Optional[str],
         idempotency_path: Optional[str],
-        idempotency_records: Dict[str, Dict[str, Any]],
+        idempotency_records: Dict[str, IdempotencyRecord],
         run_ids: List[str],
         cp_healthy: bool,
         idem_healthy: bool,
@@ -568,11 +567,24 @@ class ProductionReadinessChecker:
         # For each run in checkpoints, verify exact tool call RecordKey in idempotency store
         for rid in run_ids:
             try:
+                events = ReplayEngine.load_events_for_run(checkpoint_path, rid)
                 session = ReplayEngine.reconstruct_session(checkpoint_path, rid)
+
+                # Track tool calls where durable execution/attempt/retry began
+                started_call_ids = set()
+                for evt in events:
+                    if evt.event_type in (
+                        CheckpointEventType.TOOL_ATTEMPT_STARTED,
+                        CheckpointEventType.RETRY_SCHEDULED,
+                        CheckpointEventType.TOOL_RESULT_RECEIVED,
+                        CheckpointEventType.TOOL_CALL_REJECTED,
+                    ):
+                        cid = evt.payload.get("call_id")
+                        if cid:
+                            started_call_ids.add(cid)
 
                 # 1. Verify completed tool calls
                 for cid, result in session.completed_tool_calls.items():
-                    # Find tool arguments from session messages or fallback to call_id
                     t_call = None
                     for msg in session.messages:
                         if msg.tool_calls:
@@ -612,32 +624,34 @@ class ProductionReadinessChecker:
                         )
 
                     rec = idempotency_records[canonical_key]
-                    if rec["status"] != RecordStatus.COMPLETED:
+                    if rec.status != RecordStatus.COMPLETED:
                         return ReadinessCheck(
                             name=name,
                             passed=False,
                             reason=(
                                 f"Cross-store mismatch in run '{rid}': completed tool call '{cid}' "
-                                f"has non-completed idempotency record status {rec['status'].value}"
+                                f"has non-completed idempotency record status {rec.status.value}"
                             ),
                         )
 
                 # 2. Verify pending/recoverable tool calls for non-terminal runs
                 if session.last_state not in (RunState.COMPLETED, RunState.HALTED, RunState.FAILED):
                     for cid, t_call in session.pending_tool_calls.items():
-                        canonical_key = json.dumps(
-                            [f"tool:{t_call.name}", t_call.idempotency_key],
-                            separators=(",", ":"),
-                        )
-                        if canonical_key not in idempotency_records:
-                            return ReadinessCheck(
-                                name=name,
-                                passed=False,
-                                reason=(
-                                    f"Cross-store mismatch in run '{rid}': pending recoverable tool call "
-                                    f"'{cid}' missing required idempotency record for key {canonical_key}"
-                                ),
+                        # Only require idempotency record if durable history shows execution/attempt started
+                        if cid in started_call_ids:
+                            canonical_key = json.dumps(
+                                [f"tool:{t_call.name}", t_call.idempotency_key],
+                                separators=(",", ":"),
                             )
+                            if canonical_key not in idempotency_records:
+                                return ReadinessCheck(
+                                    name=name,
+                                    passed=False,
+                                    reason=(
+                                        f"Cross-store mismatch in run '{rid}': started/recoverable tool call "
+                                        f"'{cid}' missing required idempotency record for key {canonical_key}"
+                                    ),
+                                )
 
             except Exception as exc:
                 return ReadinessCheck(
