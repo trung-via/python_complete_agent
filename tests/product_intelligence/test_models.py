@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import pytest
 
 from src.product_intelligence.models import (
+    CANONICAL_FACTUAL_SIGNALS,
     CategoryScore,
     ConfidenceBreakdown,
     DecisionBand,
@@ -134,63 +135,54 @@ def test_signal_evidence_safety_and_serialization() -> None:
     assert "cookie" not in d
     assert "secret" not in d
 
+    # Helper test
+    assert SignalEvidence.format_scalar(15.0, "%") == "15%"
+    assert SignalEvidence.format_scalar(15.25, "%") == "15.25%"
 
-def test_signal_evidence_rejects_payload_leakage_and_oversized_repr() -> None:
+
+def test_signal_evidence_rejects_credential_cookie_and_structured_payloads() -> None:
     now = datetime(2026, 8, 16, 0, 0, 0, tzinfo=timezone.utc)
 
     # Oversized raw_value_repr (> 120 chars)
     with pytest.raises(ValueError, match="exceeds maximum safe scalar length"):
-        SignalEvidence(
-            signal_name="s",
-            source_type="shopee",
-            observed_at=now,
-            raw_value_repr="A" * 121,
-        )
+        SignalEvidence(signal_name="s", source_type="shopee", observed_at=now, raw_value_repr="A" * 121)
 
     # Multiline raw payload
     with pytest.raises(ValueError, match="single-line scalar diagnostic"):
-        SignalEvidence(
-            signal_name="s",
-            source_type="shopee",
-            observed_at=now,
-            raw_value_repr="line1\nline2",
-        )
+        SignalEvidence(signal_name="s", source_type="shopee", observed_at=now, raw_value_repr="line1\nline2")
 
-    # Bearer token leakage attempt
-    with pytest.raises(ValueError, match="forbidden sensitive or raw payload token"):
-        SignalEvidence(
-            signal_name="s",
-            source_type="shopee",
-            observed_at=now,
-            raw_value_repr="Bearer secret_token_xyz",
-        )
+    # Generic cookie assignments
+    with pytest.raises(ValueError, match="forbidden"):
+        SignalEvidence(signal_name="s", source_type="shopee", observed_at=now, raw_value_repr="cookie=session=abc")
 
-    # Cookie leakage attempt
-    with pytest.raises(ValueError, match="forbidden sensitive or raw payload token"):
-        SignalEvidence(
-            signal_name="s",
-            source_type="shopee",
-            observed_at=now,
-            raw_value_repr="Set-Cookie: session=123",
-        )
+    # Generic authorization headers
+    with pytest.raises(ValueError, match="forbidden"):
+        SignalEvidence(signal_name="s", source_type="shopee", observed_at=now, raw_value_repr="authorization: Basic abc")
 
-    # HTML payload leakage attempt
-    with pytest.raises(ValueError, match="forbidden sensitive or raw payload token"):
-        SignalEvidence(
-            signal_name="s",
-            source_type="shopee",
-            observed_at=now,
-            raw_value_repr="<html><body>dump</body></html>",
-        )
+    # Token assignment
+    with pytest.raises(ValueError, match="forbidden"):
+        SignalEvidence(signal_name="s", source_type="shopee", observed_at=now, raw_value_repr="token=abc")
+
+    # Secret assignment
+    with pytest.raises(ValueError, match="forbidden"):
+        SignalEvidence(signal_name="s", source_type="shopee", observed_at=now, raw_value_repr="secret=abc")
+
+    # JSON with whitespace
+    with pytest.raises(ValueError, match="forbidden"):
+        SignalEvidence(signal_name="s", source_type="shopee", observed_at=now, raw_value_repr="{ \"x\": 1 }")
+
+    # HTML fragment
+    with pytest.raises(ValueError, match="forbidden"):
+        SignalEvidence(signal_name="s", source_type="shopee", observed_at=now, raw_value_repr="<html><body>dump</body></html>")
 
 
-def test_normalized_signal_range_and_provenance_validations() -> None:
+def test_normalized_signal_canonical_registry_and_provenance_validations() -> None:
     now = datetime.now(timezone.utc)
     ev = SignalEvidence(signal_name="s", source_type="t", observed_at=now)
 
-    # Valid factual observed signal
+    # Valid factual observed signal matching canonical registry
     sig = NormalizedSignal(
-        name="test_demand",
+        name="sold_volume",
         category=ScoreCategory.DEMAND,
         score=0.85,
         provenance=SignalProvenance.OBSERVED,
@@ -209,8 +201,27 @@ def test_normalized_signal_range_and_provenance_validations() -> None:
     )
     assert sem_sig.score == 0.75
 
-    # Inferred provenance illegally assigned to factual DEMAND category
-    with pytest.raises(ValueError, match="Factual market signal in category DEMAND cannot have INFERRED provenance"):
+    # Canonical factual signal placed in wrong category (sold_volume in CONTENTABILITY)
+    with pytest.raises(ValueError, match="must belong to category DEMAND"):
+        NormalizedSignal(
+            name="sold_volume",
+            category=ScoreCategory.CONTENTABILITY,
+            score=0.80,
+            provenance=SignalProvenance.INFERRED,
+        )
+
+    # Canonical factual signal placed in wrong category (commission_rate in MOMENTUM)
+    with pytest.raises(ValueError, match="must belong to category COMMERCIAL_ATTRACTIVENESS"):
+        NormalizedSignal(
+            name="commission_rate",
+            category=ScoreCategory.MOMENTUM,
+            score=0.80,
+            provenance=SignalProvenance.OBSERVED,
+            evidence_refs=(ev,),
+        )
+
+    # Canonical factual signal with INFERRED provenance
+    with pytest.raises(ValueError, match="cannot have INFERRED provenance"):
         NormalizedSignal(
             name="sold_volume",
             category=ScoreCategory.DEMAND,
@@ -218,16 +229,16 @@ def test_normalized_signal_range_and_provenance_validations() -> None:
             provenance=SignalProvenance.INFERRED,
         )
 
-    # Inferred provenance illegally assigned to factual COMMERCIAL category
-    with pytest.raises(ValueError, match="Factual market signal in category COMMERCIAL_ATTRACTIVENESS cannot have INFERRED provenance"):
+    # Semantic signal placed in factual category with INFERRED provenance
+    with pytest.raises(ValueError, match="Factual market signal in category DEMAND cannot have INFERRED provenance"):
         NormalizedSignal(
-            name="commission_rate",
-            category=ScoreCategory.COMMERCIAL_ATTRACTIVENESS,
-            score=0.80,
+            name="visual_demo_potential",
+            category=ScoreCategory.DEMAND,
+            score=0.85,
             provenance=SignalProvenance.INFERRED,
         )
 
-    # Observed provenance illegally assigned to semantic CONTENTABILITY category
+    # Semantic signal with OBSERVED provenance
     with pytest.raises(ValueError, match="Semantic signal in category CONTENTABILITY cannot have OBSERVED provenance"):
         NormalizedSignal(
             name="visual_demo_potential",

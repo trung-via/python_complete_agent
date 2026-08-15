@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -32,9 +33,35 @@ class DecisionBand(str, Enum):
     HOLD = "HOLD"
 
 
+# Canonical registry of V1 factual marketplace signals to their mandatory category
+CANONICAL_FACTUAL_SIGNALS: Dict[str, ScoreCategory] = {
+    "sold_volume": ScoreCategory.DEMAND,
+    "review_depth": ScoreCategory.DEMAND,
+    "sales_velocity": ScoreCategory.MOMENTUM,
+    "creator_growth": ScoreCategory.MOMENTUM,
+    "commission_rate": ScoreCategory.COMMERCIAL_ATTRACTIVENESS,
+    "discount_appeal": ScoreCategory.COMMERCIAL_ATTRACTIVENESS,
+    "rating_quality": ScoreCategory.TRUST,
+    "market_whitespace": ScoreCategory.COMPETITION_OPPORTUNITY,
+    "creator_whitespace": ScoreCategory.COMPETITION_OPPORTUNITY,
+}
+
 # Maximum safe scalar length for diagnostic raw value representations
 MAX_RAW_VALUE_REPR_LEN = 120
-FORBIDDEN_RAW_REPR_TOKENS = ("bearer ", "set-cookie:", "<html", "<body", "<script", "{\"")
+
+# Forbidden sensitive keywords and structured payload characters in raw_value_repr
+FORBIDDEN_RAW_KEYWORDS = (
+    "bearer",
+    "token",
+    "cookie",
+    "session",
+    "auth",
+    "secret",
+    "apikey",
+    "password",
+    "credential",
+)
+FORBIDDEN_STRUCTURE_CHARS = ("{", "}", "<", ">", "[", "]", ";", "=")
 
 
 @dataclass(frozen=True)
@@ -70,12 +97,32 @@ class SignalEvidence:
                 raise ValueError(
                     "raw_value_repr must be a single-line scalar diagnostic, multiline payloads forbidden"
                 )
-            raw_lower = self.raw_value_repr.lower()
-            for token in FORBIDDEN_RAW_REPR_TOKENS:
-                if token in raw_lower:
+
+            # Check structured characters (JSON, HTML/XML, assignments)
+            for char in FORBIDDEN_STRUCTURE_CHARS:
+                if char in self.raw_value_repr:
                     raise ValueError(
-                        f"raw_value_repr contains forbidden sensitive or raw payload token: {token!r}"
+                        f"raw_value_repr contains forbidden payload or assignment character {char!r}"
                     )
+
+            # Check sensitive token keywords (word-boundary or substring in lower case)
+            raw_lower = self.raw_value_repr.lower()
+            for kw in FORBIDDEN_RAW_KEYWORDS:
+                if kw in raw_lower:
+                    raise ValueError(
+                        f"raw_value_repr contains forbidden sensitive or credential keyword: {kw!r}"
+                    )
+
+    @classmethod
+    def format_scalar(cls, value: Any, unit: str = "") -> str:
+        """Utility helper to safely format a scalar diagnostic string."""
+        if value is None:
+            return "None"
+        if isinstance(value, float):
+            formatted = f"{value:.2f}" if not value.is_integer() else f"{int(value)}"
+        else:
+            formatted = str(value)
+        return f"{formatted}{unit}" if unit else formatted
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -214,9 +261,9 @@ class ProductCandidateSnapshot:
 class NormalizedSignal:
     """
     A platform-agnostic normalized market signal with score in [0.0, 1.0].
-    Enforces strict category-to-provenance boundaries:
-    - Factual market categories (DEMAND, MOMENTUM, COMMERCIAL, TRUST, COMPETITION) cannot have INFERRED provenance.
-    - Semantic category (CONTENTABILITY) cannot have OBSERVED provenance.
+    Enforces canonical signal-name to category pairing and strict category-to-provenance boundaries:
+    - Canonical factual signals must match their designated category and forbid INFERRED provenance.
+    - Semantic category (CONTENTABILITY) cannot have OBSERVED provenance and cannot use factual signal names.
     """
     name: str
     category: ScoreCategory
@@ -241,11 +288,27 @@ class NormalizedSignal:
         if not self.name:
             raise ValueError("name cannot be empty")
 
-        # Provenance integrity validation
+        # 1. Canonical Signal Name to Category Registry Check
+        if self.name in CANONICAL_FACTUAL_SIGNALS:
+            expected_cat = CANONICAL_FACTUAL_SIGNALS[self.name]
+            if self.category != expected_cat:
+                raise ValueError(
+                    f"Canonical signal {self.name!r} must belong to category {expected_cat.value}, got {self.category.value}"
+                )
+            if self.provenance == SignalProvenance.INFERRED:
+                raise ValueError(
+                    f"Canonical factual signal {self.name!r} cannot have INFERRED provenance"
+                )
+
+        # 2. Category Provenance Boundary Checks
         if self.category == ScoreCategory.CONTENTABILITY:
             if self.provenance == SignalProvenance.OBSERVED:
                 raise ValueError(
                     f"Semantic signal in category {self.category.value} cannot have OBSERVED provenance"
+                )
+            if self.name in CANONICAL_FACTUAL_SIGNALS:
+                raise ValueError(
+                    f"Canonical factual signal {self.name!r} cannot be placed in {self.category.value}"
                 )
         else:
             if self.provenance == SignalProvenance.INFERRED:
@@ -253,6 +316,7 @@ class NormalizedSignal:
                     f"Factual market signal in category {self.category.value} cannot have INFERRED provenance"
                 )
 
+        # 3. MISSING Signal Integrity Check
         if self.provenance == SignalProvenance.MISSING:
             if self.score != 0.0:
                 raise ValueError("MISSING signals must have score=0.0")
