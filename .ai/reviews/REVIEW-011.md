@@ -5,90 +5,99 @@ CHANGES_REQUIRED
 
 ## Reviewed Head
 - Branch: `ai/task-011`
-- Reviewed commit: `0efaac1ce0e6317fb87ab4b354b82fdc4d248c58`
+- Reviewed commit: `2eb0fbc390e0c60051e72dfc055862523f61e5d1`
 - Main baseline: `a3ab8ee06495d06006d6d61d06313c8977f555f0`
-- Branch relation to main: ahead 2, behind 0 (fast-forward safe)
+- Branch relation to main: ahead 3, behind 0 (fast-forward safe)
 - Task artifact blob: `677b6f6dd635bfe78d712f492fc818c50f05d7c4`
-- Prior CHANGES_REQUIRED authorization blob: `6b65308264097fea6d525924f645a95fb8eb8719`
-- RESULT-011 blob: `c20985398732cf489c4b3a013c21e608fc92d691`
+- Prior CHANGES_REQUIRED authorization blob: `028595bba76fe08c048306c9f5d3ab9730dae643`
+- RESULT-011 blob: `dfac2c7a4e4ab81780d54523fda8f3a4df5c9805`
 - RESULT action: `FIX`
-- Exact FIX authorization recorded by worker: `.ai/reviews/REVIEW-011.md (6b65308264)` — matches the prior review artifact exactly.
-- Reported focused Product Intelligence suite: 19 passed, 0 failed, exit code 0.
-- Reported full repository suite: 392 passed, 0 failed, exit code 0.
+- Exact FIX authorization recorded by worker: `.ai/reviews/REVIEW-011.md (028595bba7)` — matches the prior review artifact exactly.
+- Reported focused Product Intelligence suite: 20 passed, 0 failed, exit code 0.
+- Reported full repository suite: 393 passed, 0 failed, exit code 0.
 
 ## Re-review Summary
-The four blockers from the previous review are materially fixed:
+The previous two findings were partially addressed in the right direction:
 
-1. `base_score` is now renormalized over available categories to a 0–100 scale, while missing expected snapshot signals are emitted explicitly as `MISSING` and partial category coverage feeds confidence rather than double-penalizing the base score.
-2. The canonical scorer and normalizer now require explicit `evaluated_at`; the wall-clock fallback was removed from the pure path.
-3. `affiliate_commission_rate` now has one canonical unit: percentage points in `[0,100]`, and normalization is continuous around `1.0`.
-4. `ScoringPolicy` now rejects invalid/non-finite weights and out-of-range thresholds, and RESULT evidence was refreshed with a real diff stat and focused/full verification counts.
+1. `NormalizedSignal` now rejects `INFERRED` provenance in factual score categories, rejects `OBSERVED` provenance in `CONTENTABILITY`, and makes `MISSING` signals structurally non-contributing.
+2. `SignalEvidence.raw_value_repr` now has a 120-character bound, rejects multiline strings, and blocks several obvious bearer/cookie/HTML/JSON markers.
 
-These fixes are good. Two remaining contract-level gaps still block approval because TASK-011 is the authority that later M2.2 adapters and semantic assessors will depend on.
+These are useful improvements, and the earlier M2.1 fixes remain intact: available-data base-score renormalization, explicit missing signals/partial coverage, mandatory `evaluated_at`, percentage-point commission units, strict policy validation, deterministic confidence damping, and no network/LLM/queue side effects.
 
-## Blocking Finding 1 — Provenance rules are still descriptive, not enforced; inferred semantic data can impersonate observed market facts
+Two contract gaps remain before M2.2 adapters should depend on this foundation.
+
+## Blocking Finding 1 — Provenance validation is category-only; canonical signal identity/category pairing is still unenforced
 
 ### Location
-- `src/product_intelligence/models.py` — `NormalizedSignal`
-- `src/product_intelligence/scoring.py` — public `score()` aggregation
+- `src/product_intelligence/models.py` — `NormalizedSignal.__post_init__`
+- `src/product_intelligence/normalizer.py` — canonical V1 signal names emitted by the snapshot normalizer
 - `tests/product_intelligence/`
 
-TASK-011 explicitly requires that semantic/inferred signals cannot be mislabeled as observed by validation/helper constructors, and the LLM boundary says inferred semantic assessments must never become source-of-truth market facts.
+The updated validator checks only the category/provenance pair. It still permits a caller to move a semantic or factual signal into the wrong category and thereby bypass the intended boundary. For example, these structurally invalid combinations remain constructible:
 
-Current `NormalizedSignal` validates numeric ranges but does not validate the relationship between signal identity/category and provenance. Therefore callers can legally construct examples such as:
+- `visual_demo_potential` + `DEMAND` + `OBSERVED`
+- `sold_volume` + `CONTENTABILITY` + `INFERRED`
+- `commission_rate` + an unrelated factual category with otherwise allowed provenance
 
-- `commission_rate` or `sold_volume` with `provenance=INFERRED`, then pass it to `WinningProductScorer.score()`;
-- `visual_demo_potential` with `provenance=OBSERVED` even though the contract defines it as semantic/inferred;
-- arbitrary inferred signals in Demand, Momentum, Commercial, Trust, or Competition categories.
-
-The scorer treats every non-`MISSING` signal as available scoring evidence regardless of provenance, so an LLM-side semantic producer could directly influence factual market categories without violating any runtime validation. This defeats the canonical M2.1 LLM boundary and leaves M2.2/M2.3 vulnerable to accidental provenance drift.
+That means the system still lacks the small canonical V1 signal registry/validator requested in the prior review: signal name → canonical category → allowed provenance class. Category-only validation prevents one class of misuse but does not make the scoring contract authoritative for M2.2/M2.3 producers.
 
 ### Required Fix
-Add a small canonical signal/provenance validation contract without redesigning the scorer. A minimal acceptable approach is a typed/central registry or validator that defines the canonical V1 signal names/categories and allowed provenance classes, then rejects illegal combinations before scoring.
+Add a minimal platform-independent V1 signal contract/registry for the canonical factual signals emitted by the normalizer, at least:
 
-At minimum:
-- factual marketplace signals used for Demand/Momentum/Commercial/Trust/Competition must not accept `INFERRED` provenance;
-- semantic Contentability signals must not be silently presented as `OBSERVED` marketplace facts;
-- `MISSING` signals must remain non-contributing and structurally consistent;
-- direct public `score()` must enforce the rule as well as `score_snapshot()`;
-- add targeted regression tests for the explicit TASK-011 requirement that inferred/semantic signals cannot masquerade as observed facts.
+- `sold_volume` → `DEMAND`
+- `review_depth` → `DEMAND`
+- `sales_velocity` → `MOMENTUM`
+- `creator_growth` → `MOMENTUM`
+- `commission_rate` → `COMMERCIAL_ATTRACTIVENESS`
+- `discount_appeal` → `COMMERCIAL_ATTRACTIVENESS`
+- `rating_quality` → `TRUST`
+- `market_whitespace` → `COMPETITION_OPPORTUNITY`
+- `creator_whitespace` → `COMPETITION_OPPORTUNITY`
 
-Keep the implementation small and platform-independent. Do not add an LLM call or a new framework.
+Canonical factual signal names must reject wrong categories and must reject `INFERRED`. Contentability may remain extensible for semantic signal names, but it must reject `OBSERVED` marketplace provenance. `MISSING` instances must remain consistent with the same canonical category contract.
 
-## Blocking Finding 2 — Evidence serialization still permits raw secret/payload leakage despite the evidence-safety contract
+Add targeted regressions showing wrong-name/wrong-category combinations are rejected, not merely wrong provenance within an already-correct category. This can stay as a small validator; do not add a framework or LLM call.
+
+## Blocking Finding 2 — `raw_value_repr` is still an arbitrary short string channel, so common credential/cookie/payload forms still serialize
 
 ### Location
-`src/product_intelligence/models.py` — `SignalEvidence.raw_value_repr` / `to_dict()`.
+`src/product_intelligence/models.py` — `SignalEvidence.raw_value_repr` validation.
 
-TASK-011 requires evidence to avoid prompt, credential, cookie, secret, or large raw payload leakage, and its verification list requires serialization to contain no secrets/raw payload blobs.
+The new length/multiline checks are good, but the denylist is too narrow to satisfy the evidence contract. The current forbidden tokens cover `bearer `, `set-cookie:`, a few HTML tags, and the exact JSON opener `{"`. Common sensitive/payload forms can still pass, for example:
 
-Current `SignalEvidence` accepts an unrestricted `raw_value_repr: Optional[str]` and serializes it verbatim. The existing test only checks that dictionary key names like `token`, `cookie`, and `secret` are absent; it does not prevent a caller from placing a bearer token, cookie string, prompt, signed URL fragment, or a very large HTML/JSON payload inside `raw_value_repr` itself.
+- `cookie=session=abc`
+- `authorization: Basic abc`
+- `token=abc`
+- `secret=abc`
+- JSON-like text with whitespace such as `{ "x": 1 }`
+- other short raw markup/payload fragments
 
-This becomes important as soon as M2.2 adapters consume real marketplace responses: a debugging shortcut could permanently copy sensitive/raw source material into score evidence and downstream artifacts.
+Because `raw_value_repr` is serialized verbatim, a real M2.2 adapter can still accidentally persist sensitive debug material while satisfying all current validation.
 
 ### Required Fix
-Make `raw_value_repr` a genuinely safe diagnostic scalar rather than an unrestricted payload channel. A minimal solution should:
-- enforce a conservative bounded length;
-- reject multiline/large raw payload-like content, or route construction through a safe scalar formatter;
-- document that adapters must supply only scalar market-value representations, never headers/cookies/tokens/raw HTML/JSON;
-- add regressions proving oversized/raw-payload-like evidence is rejected or safely bounded before serialization.
+Keep this small, but make `raw_value_repr` a genuinely constrained scalar representation rather than an arbitrary short string. Prefer either:
 
-Do not build a generic secret-scanning framework; this should stay a small contract-level guard.
+- a safe scalar formatter/constructor that accepts only scalar market values and produces the representation, or
+- a stricter validation contract that rejects credential/header/key-value/payload-like forms broadly enough to cover cookie/token/authorization/secret and JSON/markup cases.
+
+Add regressions for at least generic cookie, authorization/token/secret, whitespace-variant JSON, oversized, multiline, and HTML/payload attempts. Do not build a general secret scanner.
+
+## RESULT Evidence Finding
+`RESULT-011` now contains a real diff stat and reports focused/full pass counts. However, the focused test entry is still recorded as shorthand `pytest tests/product_intelligence/ -v`, while TASK-011 requires the exact focused command and exit code. Refresh the result with the actual executed command, ideally the required `.\venv\Scripts\python -m pytest tests/product_intelligence/ -v`, plus exit code and pass count.
 
 ## Verification Notes
-What is now correct and should be preserved:
-- six canonical category weights remain `25/20/15/10/15/15 = 100`;
-- confidence remains `40/25/20/15 = 1.0`;
-- `final_score = base_score * confidence` remains explicit;
-- sparse strong evidence can retain a high base score while low completeness damps final score;
-- individual expected snapshot signals now produce partial coverage rather than binary category coverage;
-- deterministic `evaluated_at` is mandatory;
-- commission normalization is percentage-point based and continuous;
-- policy validation is fail-fast;
-- scorer remains offline/pure with no queue write, Product KB work, or Phase 5.6 redesign;
-- RESULT now contains a non-empty FIX diff stat and reports focused 19 / full 392 passing.
+Preserve the currently-correct behavior:
+- six category weights `25/20/15/10/15/15 = 100`;
+- confidence weights `40/25/20/15 = 1.0`;
+- `final_score = base_score * confidence`;
+- available-data base score is renormalized independently from completeness;
+- expected missing signals reduce confidence rather than double-penalizing base score;
+- `evaluated_at` is mandatory;
+- commission rate is percentage points `[0,100]`;
+- policy validation fails fast;
+- scorer stays offline/pure and does not auto-write to the M1 queue.
 
-The previous non-blocking note about deep immutability of the `category_scores` mapping remains optional for this task.
+The previously noted deep immutability of `WinningProductScore.category_scores` remains optional/non-blocking for TASK-011.
 
 ## Decision
 CHANGES_REQUIRED.
