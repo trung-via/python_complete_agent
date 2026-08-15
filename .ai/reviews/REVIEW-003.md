@@ -1,70 +1,56 @@
 # REVIEW-003 — TASK-003
 
 ## Status
-CHANGES_REQUIRED
+APPROVED
 
-## Summary
-TASK-003 correctly integrates only the two requested Phase 5.6 M1/M2 commits onto current `main`, excludes the three M3 commits, and keeps the task branch exactly two commits ahead of `main`. However, two blocking correctness/regression issues remain in the integrated M1/M2 behavior.
+## Re-review Summary
+Re-reviewed `ai/task-003` at commit `8ebab4f5a85ba842e76cbd3c26bf0b73080890a8` against the previous reviewed head `4c47669a38518689a2fccd8bd9cb087aec7566f1` and current `main`.
 
-## Blocking Finding 1 — Concurrent cancellation is not durably idempotent
+Both blocking findings from the first review are resolved.
 
-### Location
-`src/core/cancellation.py` — `RunCancellationController.cancel()`
+## Finding 1 — Concurrent cancellation durable idempotency
+RESOLVED.
 
-### Problem
-`cancel()` does:
-1. `token = get_token(run_id)`
-2. checks `token.is_cancelled`
-3. writes `RUN_HALTED`
-4. calls `token._mark_cancelled(...)`
+`RunCancellationController` now uses a controller-level `threading.RLock` and performs the full same-run cancellation sequence under that lock:
+- get token;
+- check already-cancelled state;
+- write durable `RUN_HALTED`;
+- only after successful durable write, mark the in-memory token cancelled.
 
-The check/write/mark sequence is not protected by one controller-level critical section. Two or more concurrent callers can all observe `token.is_cancelled == False` before any caller marks the token, then each writes its own durable `RUN_HALTED` event.
+This preserves fail-closed ordering and prevents concurrent callers for the same run from persisting duplicate cancellation transitions.
 
-This violates the stated M1 guarantee that multiple cancel calls are idempotent, especially under concurrency. The current concurrent test only checks that all returned tokens end cancelled; it does not assert that exactly one durable halt event is written.
+The concurrency test was strengthened to assert exactly one durable `RUN_HALTED` entry.
 
-### Required Fix
-Make cancellation atomic per run (or otherwise serialize the check -> durable write -> mark sequence) while preserving the required ordering:
-- durable checkpoint write FIRST;
-- only after durable write succeeds, mark in-memory token cancelled;
-- checkpoint failure must leave token uncancelled;
-- repeated/concurrent cancellation must produce exactly one durable cancellation transition.
+## Finding 2 — RetryPolicy runtime delay semantics
+RESOLVED.
 
-Add/strengthen a concurrency test that launches multiple simultaneous cancel calls for the same run and asserts exactly one `RUN_HALTED` checkpoint entry is persisted.
+`RetryPolicyEngine` remains the pure decision authority for whether retry is allowed and for the next attempt/reason. Runtime sleeping now obtains the actual delay from `RetryPolicy.get_delay(...)`, restoring the existing contract for:
+- provider/tool `retry_after` values;
+- configured jitter;
+- existing exponential/capped delay fallback.
 
-## Blocking Finding 2 — RetryManager regresses existing RetryPolicy delay semantics
+`RATE_LIMIT_ERROR` is also accepted alongside `RATE_LIMIT` for retry-after handling.
 
-### Location
-`src/core/retry.py` — `RetryManager.execute_with_retry()`
+Integration tests were added for both raised rate-limit errors and failure `ToolResult` rate-limit errors, with `asyncio.sleep` patched so no real delay is incurred.
 
-### Problem
-Before M2, RetryManager used `self.policy.get_delay(attempt, error_to_eval)`. That path supports:
-- `RATE_LIMIT` errors with `details["retry_after"]`;
-- configured jitter.
+## Scope Verification
+`main..ai/task-003` remains limited to the intended M1/M2 functional areas and their tests. The excluded M3 work is not present in the branch diff:
+- no RETRY_SCHEDULED checkpoint/event work;
+- no FailureClassifier;
+- no per-attempt start persistence changes.
 
-After the M2 integration, RetryManager bypasses `RetryPolicy.get_delay()` and sleeps only for `RetryPolicyEngine.decide(...).delay_seconds`, which is deterministic exponential backoff. As a result, the previously supported `Retry-After` delay and configured jitter are silently ignored by actual retry execution, even though `RetryPolicy.get_delay()` and its existing unit test remain in the codebase.
+The branch is 3 commits ahead of `main`: two M1/M2 integration commits plus the review-fix commit.
 
-This is a behavior regression against current `main`, conflicting with TASK-003's no-regression acceptance criterion.
+## Test Report
+Worker reported:
+- concurrent cancellation durable-idempotency focused test: PASS;
+- both RATE_LIMIT retry-after focused tests: PASS;
+- M1/M2 focused suite: 29/29 PASS;
+- full repository suite: 251/251 PASS.
 
-### Required Fix
-Preserve RetryPolicyEngine as the pure authority for whether/when to retry, but keep the established runtime delay contract. A minimal acceptable design is:
-- policy engine decides `should_retry`, `next_attempt`, reason, etc.;
-- actual sleep delay preserves `Retry-After` when supplied and existing jitter semantics where configured, without adding M3-only FailureClassifier/event-persistence work.
+No GitHub status checks are configured for this commit, so the test totals above are the worker's published local verification rather than independently observed CI results.
 
-Add integration coverage proving that `RetryManager.execute_with_retry()` actually respects a `RATE_LIMIT` `retry_after` value (mock/patch sleep; do not make the test wait in real time). If jitter behavior is intentionally changed, document that decision explicitly and adjust the old contract/tests rather than leaving dead/contradictory behavior.
+## Decision
+APPROVED for HUMAN GATE.
 
-## Scope Guard
-Do NOT import the excluded M3 commits wholesale. In particular, keep excluded unless strictly required and explicitly justified:
-- `e70900b` — RETRY_SCHEDULED event/audit metadata
-- `fb5891a` — FailureClassifier
-- `4e0b3d6` — per-attempt start logging/persistence
-
-## Re-review Requirements
-After fixing, report:
-1. new commit SHA on `ai/task-003`;
-2. focused tests for concurrent cancellation durable idempotency;
-3. focused test proving RetryManager respects RATE_LIMIT `retry_after`;
-4. M1/M2 focused total;
-5. full repository test total;
-6. confirmation that the three M3 commits/features remain excluded.
-
-Do not merge automatically.
+Do not auto-merge. Final merge requires explicit human approval.
