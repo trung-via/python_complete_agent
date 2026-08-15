@@ -3,156 +3,137 @@
 ## Status
 CHANGES_REQUIRED
 
+## Re-review Head
+- Branch: `ai/task-008`
+- Reviewed commit: `0b1c6c2e88fa11bb05e686cf92479c0340be3d9f`
+- Previous reviewed commit: `e49fc9895efc67e96eff733aee3c91f20ed0cb61`
+- Exact FIX authorization in RESULT: `.ai/reviews/REVIEW-008.md (179ac3ff49)`
+- Reported focused M5 suite: 21 passed
+- Reported full suite: 322 passed
+
 ## Summary
-TASK-008 is directionally good and the branch is a clean one-commit fast-forward from `main` (`799aa448...` -> `e49fc989...`). It adds a useful test-only fault harness, same-run/same-call coverage, four-process independent-run coverage, corruption tests, and a focused production fix so raw application/tool `OSError` is no longer automatically promoted to checkpoint-store failure. The reported full suite is 317/317 passing.
+The first-round blockers were addressed in the right direction: a retry continuation hook was added, the dead `ToolExecutor` block was removed, barrier-based async tests were introduced, a multiprocessing same-call test was added, and RESULT-008 now records focused/full test counts plus verified fault classes.
 
-However, M5 is verification-first and several mandatory race/fault invariants are not actually exercised yet. One of those omissions leaves a real control-plane gap visible in the current production code: once `RetryManager` has scheduled a retry, there is no cancellation/terminal continuation guard before the next attempt. In addition, the current same-run concurrency tests are not forced into a real contention boundary, and the required process-level same-run/same-call contention case is absent.
+The task is not yet approvable because several fail-closed/concurrency verification requirements are still weaker than the production invariant they claim to prove.
 
-## Blocking Finding 1 — Cancellation/terminal state cannot stop an already-scheduled retry
+## Blocking Finding 1 — Retry continuation state-check fails OPEN on inspection errors
 
 ### Location
-- `src/core/retry.py` — `RetryManager.execute_with_retry()`
-- `src/core/tool_executor.py` — retry callback wiring
+`src/core/tool_executor.py` — `before_retry_attempt()`.
 
-Current retry flow is:
+Current behavior:
 
-```text
-attempt fails
-RetryPolicyEngine decides RETRY
-on_retry_scheduled(...)
-await asyncio.sleep(delay)
-attempt = next_attempt
-loop continues
+```python
+try:
+    diag = RecoveryAnalyzer.analyze(call.run_id, self.checkpoints.db_path)
+    if diag.current_state in (RunState.HALTED, RunState.FAILED, RunState.COMPLETED):
+        return False
+    return True
+except Exception as e:
+    logger.warning(...)
+    return True
 ```
 
-There is no durable run-state/cancellation check between `RETRY_SCHEDULED` and the next attempt.
+If durable-state inspection fails because of checkpoint corruption, I/O failure, malformed state, or another recovery-analysis error, the guard explicitly returns `True` and permits attempt N+1.
 
-AgentLoop cancellation checks happen before entering a tool batch, but once `ToolExecutor.execute()` is inside `RetryManager.execute_with_retry()`, a durable cancellation or terminal transition can occur and the next retry attempt still proceeds.
-
-That violates TASK-008 required cases:
-- cancel after retryable failure but before retry continuation -> zero next attempt;
-- cancellation wins while retryable failure is waiting -> no next attempt;
-- terminal state appears before scheduled retry continuation -> no retry execution;
-- no race may silently turn STOP/terminal into active work.
+That violates TASK-008's fail-closed invariant and the previous review requirement that the continuation guard must not weaken checkpoint-store/corruption safety.
 
 ### Required Fix
-Add the smallest possible retry-continuation guard at the existing retry boundary. Do not redesign RetryManager.
+Fail closed on inspection errors.
 
-Acceptable shape:
-- add an optional callback/predicate invoked immediately before a retry attempt continues (or immediately after retry wait, before next operation execution);
-- ToolExecutor supplies a guard based on the durable run/checkpoint state for `call.run_id`;
-- if the run is `HALTED`, `FAILED`, or `COMPLETED`, do not execute another tool attempt;
-- durable cancellation is represented by terminal/halted checkpoint state, so durable state is authoritative;
-- preserve existing `retry_after` and jitter delay calculation exactly;
-- do not add a second retry engine.
+Acceptable approaches:
+- let checkpoint/recovery exceptions propagate; or
+- convert them to the existing `SystemStateError` / corruption domain and stop continuation.
 
-The guard must not weaken checkpoint-store/corruption fail-closed behavior.
+Do not return `True` from the exception path.
 
-### Required Regression Tests
-Add deterministic barrier/event-driven tests proving:
-1. retryable attempt fails;
-2. `RETRY_SCHEDULED` is durably written;
-3. test pauses before next attempt;
-4. cancellation becomes durable;
-5. release the retry continuation;
-6. attempt N+1 never executes.
+Add a regression proving that a checkpoint/recovery inspection failure between `RETRY_SCHEDULED` and attempt N+1 results in zero further tool attempts.
 
-Also add the terminal-state variant (`FAILED`/`HALTED`/`COMPLETED` as appropriate) proving no retry continuation after terminal state wins.
+Preserve `retry_after` and jitter calculation exactly.
 
-Do not implement this test with arbitrary sleeps.
-
-## Blocking Finding 2 — Same-run/same-call “concurrency” tests are not forced into a contention boundary
+## Blocking Finding 2 — Async contention tests still do not prove contender 2 reached the claim boundary before release
 
 ### Location
 `tests/integration/test_phase56_concurrency.py`
 
-The two key tests use plain `asyncio.gather(...)`:
-- `test_same_run_two_concurrent_resume_contenders`
-- `test_concurrent_same_run_and_call_id_execution`
-
-But the tool/store path is mostly synchronous and the test tool itself has no blocking await/barrier at the side-effect boundary. Therefore one coroutine can claim/execute/complete before the other actually contends. The test can pass as effectively sequential idempotent replay rather than a deterministic race.
-
-TASK-008 explicitly requires deterministic race control using events/barriers rather than timing luck.
-
-### Required Fix
-Use the existing fault-injection/barrier utility (or a similarly small test-only barrier) to force both contenders to reach a known contention boundary before either is released.
-
-At minimum verify under forced contention:
-- exactly one external side effect for one stable `(run_id, call_id)`;
-- the losing contender converges through idempotency or fails closed cleanly;
-- checkpoint/idempotency durable state remains valid.
-
-## Blocking Finding 3 — Required real multiprocessing same-run/same-call contention case is missing
-
-The current real multiprocessing test covers four **independent** runs. That is useful and should remain, but TASK-008 also explicitly requires at least one real process-level same-store **same-run or same-call** contention scenario.
-
-Add one multiprocessing test where two OS processes contend for the same durable idempotency key / stable `(run_id, call_id)` against the shared Jsonl idempotency store.
-
-Acceptance:
-- at most one external side effect is committed;
-- store remains parseable/valid;
-- no duplicate successful claim/complete path for the same logical call;
-- losing process may fail closed or replay completed result according to current architecture.
-
-Avoid fragile sleeps; use a multiprocessing barrier/event if synchronization is required.
-
-## Finding 4 — Production refactor leaves unreachable stale code
-
-### Location
-`src/core/tool_executor.py` after:
+The new tests correctly hold contender 1 inside tool execution, but then do:
 
 ```python
-except (SystemStateError, CheckpointCorruptionError, CheckpointStateError):
-    raise
+task2 = asyncio.create_task(...)
+release_event.set()
 ```
 
-There is unreachable leftover code referencing `failure_result` after the `raise`.
+There is no acknowledgment/barrier proving contender 2 actually attempted the idempotency claim while contender 1 still owns it. The scheduler can release contender 1 before contender 2 reaches `claim()`, turning the case back into sequential completed-result replay.
 
-It does not currently execute, but this is production core code and indicates an incomplete exception-path refactor. Remove the dead block and keep exception classification explicit and minimal.
+### Required Fix
+Instrument a deterministic second-contender boundary.
 
-Also preserve the intended M5 fix:
-- raw application/tool `OSError` -> ordinary tool failure classification;
-- idempotency/checkpoint persistence `OSError` -> `SystemStateError` at the persistence boundary.
+For example, use a test-only store wrapper/callback/event around `claim()` so the test waits until contender 2 has entered/returned from the competing claim attempt before releasing contender 1.
 
-## Finding 5 — RESULT-008 does not satisfy the required operational evidence contract
+Required assertions under forced contention:
+- contender 1 holds the key;
+- contender 2 actually reaches the competing claim while key is in progress;
+- exactly one external side effect occurs;
+- losing contender returns `IDEMPOTENCY_IN_PROGRESS`, replay, or another documented fail-closed result;
+- durable state remains valid.
 
-`RESULT-008.md` reports the full suite (`317 passed`) and exact RUN authorization, but TASK-008 M5.7 requires additional durable evidence that is currently absent:
-- focused M5 test command(s);
-- focused M5 pass count;
-- published commit SHA;
-- short list of verified fault classes;
-- known intentionally untested limitation(s), if any.
+No arbitrary sleep/yield-based synchronization.
 
-The current Diff Stat also lists only `src/core/tool_executor.py` even though the branch adds the M5 test files/harness. Regenerate RESULT-008 from the final FIX publish so the evidence accurately describes the complete branch.
+## Blocking Finding 3 — Multiprocessing same-call test does not measure duplicate external side effects
 
-## Additional Missing Mandatory Matrix Coverage
+### Location
+`tests/integration/test_phase56_concurrency.py` — `test_multiprocessing_concurrent_same_call_contention`.
 
-Add or clearly demonstrate existing tests for these TASK-008 required cases if not already covered by the final suite:
-- invalid checkpoint sequence/state-transition corruption fails closed;
-- explicit persistence-boundary failure is classified as infrastructure/checkpoint-store failure;
-- cancel-after-failure-before-retry continuation;
-- terminal-before-retry continuation.
+Each process constructs its own `BarrierSideEffectTool`, so `tool.side_effects` is process-local and invisible to the parent. The parent currently asserts:
+- at least one successful result;
+- the idempotency record is parseable/has a valid status.
 
-Existing TASK-003/TASK-005/TASK-007 regressions must remain green, including RateLimit `retry_after`, jitter, retry timeline, and budget resume behavior.
+It does **not** assert that the two processes produced at most one external side effect. In fact, `len(success_results) >= 1` would still pass if both processes successfully executed the side effect.
 
-## What Is Already Good
+### Required Fix
+Use a process-shared observable side-effect sink (for example `multiprocessing.Value`, Manager-backed counter/list, or locked test file) and assert exactly one side effect for the shared `(run_id, call_id)`.
 
-- Branch is based exactly on current main and contains no AIOS/bridge changes.
-- Full reported suite is 317/317 passing.
-- Raw tool/application `OSError` classification is being corrected in the right direction.
-- Fault harness is test-only and does not introduce a production chaos/debug backdoor.
-- Crash-after-LLM-response, idempotent replay after missing tool-result checkpoint, malformed JSON, repeated cancellation, independent multiprocessing, and budget/retry reconstruction coverage are useful.
-- No auto-merge behavior was introduced.
+Also assert the result/store relationship tightly enough that two successful underlying executions cannot pass unnoticed.
+
+## Blocking Finding 4 — Persistence-boundary regression does not test the claimed `SystemStateError` classification
+
+### Location
+`tests/integration/test_phase56_fault_injection.py` — `test_explicit_persistence_boundary_failure_is_classified_as_system_state_error`.
+
+The test injects `OSError` directly from `FaultyCheckpointManager.log_event()` and then expects that raw `OSError`:
+
+```python
+with pytest.raises(OSError, match="Simulated checkpoint write failure"):
+    await executor.execute(call)
+```
+
+So the test name/RESULT claim says `SystemStateError`, but the assertion verifies the opposite. This bypasses the actual production persistence wrapper that turns checkpoint/idempotency persistence failures into infrastructure/system-state failures.
+
+### Required Fix
+Exercise a real production persistence boundary and assert the production classification (`SystemStateError` or the exact established checkpoint-store exception domain).
+
+Keep the separate raw application/tool `OSError` regression proving ordinary tool OSError is *not* promoted.
+
+## What Is Fixed Correctly
+
+- Retry continuation now has a dedicated minimal hook rather than a second retry engine.
+- `RetryPolicy.get_delay()` remains authoritative for `retry_after` and jitter.
+- Cancellation/terminal-before-retry tests now exist and report passing.
+- Dead unreachable `failure_result` code in `ToolExecutor` was removed.
+- `AgentLoop` yields a competing resume contender on `IDEMPOTENCY_IN_PROGRESS` rather than writing a false tool result.
+- RESULT-008 now reports the focused M5 command/count, full suite count, and fault classes.
+- Branch remains scoped to Phase 5.6 M5; no bridge/AIOS changes are present.
 
 ## Re-review Requirements
 
-Publish a new commit on `ai/task-008` through the exact current FIX authorization.
+Publish one more FIX commit through the exact current REVIEW-008 artifact.
 
-Before publishing:
-1. close Findings 1-4;
-2. add the mandatory deterministic/process-level regressions above;
-3. run focused M5 tests separately and record their pass count;
-4. run the full repository suite;
-5. regenerate `.ai/results/RESULT-008.md` with complete M5.7 evidence.
+Before publish:
+1. make retry-continuation inspection fail closed;
+2. make async contention boundary deterministic for contender 2;
+3. measure real multiprocessing side effects with a shared sink and assert exactly one;
+4. correct the persistence-boundary classification regression;
+5. run focused M5 tests and the full repository suite;
+6. regenerate RESULT-008 with fresh evidence.
 
 Then the user should only need to say `Review TASK-008` again. Do not merge automatically.
