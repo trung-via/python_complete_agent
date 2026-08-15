@@ -3,24 +3,28 @@
 STATUS: READY_FOR_REVIEW
 
 ## Summary
-Phase 5.6 M6 Production Readiness Gate: typed read-only preflight gate, 6 required readiness checks, bounded deterministic soak verification suite, safety precedence regression matrix, and comprehensive Phase 5.6 documentation
+Phase 5.6 M6 Production Readiness Gate (FIX): strictly read-only non-mutating idempotency inspection, persisted lifecycle state transition validation, exact RecordKey cross-store verification for completed and pending calls, complete safety matrix precedence regressions, and Windows OS locking write contention resolution
 
 ## Task Metadata
 - Task: `TASK-009`
-- Action: `RUN`
-- Authorized Artifact: `.ai/tasks/TASK-009.md (14086def0a)`
-- Base Main SHA: `bfce0eb1b10061ee5ec23d549ef75f1a6f3f4e6f`
+- Action: `FIX`
+- Authorized Artifact: `.ai/reviews/REVIEW-009.md (acefab4a10)`
+- Base Main SHA: `(n/a)`
 - Branch: `ai/task-009`
 
 ## Files Changed
-- docs/
 - src/agent/production_readiness.py
+- src/core/checkpoint.py
+- src/core/idempotency_store_v2.py
 - tests/integration/test_phase56_production_readiness.py
-- tests/integration/test_phase56_soak.py
 
 ## Diff Stat
 ```text
-
+src/agent/production_readiness.py                  | 268 +++++++++++---
+ src/core/checkpoint.py                             |  11 +-
+ src/core/idempotency_store_v2.py                   |  11 +-
+ .../test_phase56_production_readiness.py           | 391 ++++++++++++++-------
+ 4 files changed, 488 insertions(+), 193 deletions(-)
 ```
 
 ## Tests
@@ -32,8 +36,8 @@ Exit code: 0
 ........................................................................ [ 41%]
 ........................................................................ [ 62%]
 ........................................................................ [ 83%]
-.......................................................                  [100%]
-343 passed in 47.77s
+........................................................                 [100%]
+344 passed in 45.42s
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -42,7 +46,7 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 ```
 
 ## Risks / Notes
-Focused M6 Test Suite: pytest tests/integration/test_phase56_production_readiness.py tests/integration/test_phase56_soak.py -v (20 passed, 0 failed). Full Phase 5.6 Integration Suite: 42 passed, 0 failed. Full Repository Suite: 343 passed, 0 failed. Readiness Checks Implemented: run_policy_validity, retry_policy_sanity, checkpoint_store_health, idempotency_store_health, cross_store_consistency, terminal_run_immutability. Safety Matrix Covered: corruption/store inspection > continuation, durable terminal/cancellation > retry/resume/iteration, budget exhaustion > new work, stable call_id > duplicate side effects/charges. Known Limitations Intentionally Retained: timeout_seconds is session-scoped per active execution; external network/LLM provider availability is not tested by preflight readiness. Intentionally Untested Limitations: None.
+Focused M6 Test Suite: pytest tests/integration/test_phase56_production_readiness.py tests/integration/test_phase56_soak.py -v (21 passed, 0 failed). Full Phase 5.6 Integration Suite: 43 passed, 0 failed. Full Repository Suite: 344 passed, 0 failed. Readiness Checks Implemented: run_policy_validity, retry_policy_sanity, checkpoint_store_health, idempotency_store_health (strictly read-only, non-mutating, lifecycle validated), cross_store_consistency (exact RecordKey match for completed and pending calls), terminal_run_immutability. Safety Matrix Covered: corruption/store inspection > continuation, durable terminal/cancellation > retry/resume/iteration, budget exhaustion > new work, stable call_id > duplicate side effects and budget charges, RetryPolicyEngine STOP > retry continuation. Known Limitations Intentionally Retained: timeout_seconds is session-scoped per active execution; external network/LLM provider availability is not tested by preflight readiness. Intentionally Untested Limitations: None.
 
 ## Generated
-2026-08-15T18:37:59+07:00
+2026-08-15T18:54:41+07:00

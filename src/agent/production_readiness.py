@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from src.agent.loop import AgentLoop
 from src.agent.policy import RunPolicy
+from src.agent.replay_engine import ReplayEngine
 from src.core.checkpoint_contract import (
     CheckpointCorruptionError,
     CheckpointEvent,
@@ -23,10 +24,9 @@ from src.core.idempotency_contract import (
     RecordKey,
     RecordStatus,
 )
-from src.core.idempotency_store_v2 import JsonlIdempotencyStore
-from src.core.integrity_verifier import RunIntegrityVerifier
 from src.core.recovery_diagnostics import RecoveryAnalyzer, RecoveryPotential
 from src.core.retry import RetryPolicy
+from src.core.types import ToolCall
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +67,127 @@ class ProductionReadinessReport:
         }
 
 
+def parse_idempotency_store_read_only(
+    idempotency_path: Optional[str],
+) -> Tuple[Optional[str], Dict[str, Dict[str, Any]]]:
+    """
+    Strictly read-only parser and lifecycle validator for JSONL idempotency stores.
+    
+    Invariants:
+    - Never creates directories, data files, lock files, or temp files.
+    - Validates JSON syntax, schema, timestamp monotonicity, and lifecycle state transitions.
+    - Prevents terminal reopening (e.g. COMPLETED -> IN_PROGRESS).
+    - Returns (None, records_dict) on success, or (error_reason, {}) on failure.
+    """
+    if not idempotency_path or not os.path.exists(idempotency_path):
+        return None, {}
+
+    records: Dict[str, Dict[str, Any]] = {}
+
+    try:
+        with open(idempotency_path, "r", encoding="utf-8") as handle:
+            for line_number, line in enumerate(handle, start=1):
+                stripped = line.strip()
+                if not stripped:
+                    continue
+
+                try:
+                    payload = json.loads(stripped)
+                except json.JSONDecodeError as exc:
+                    return f"Malformed JSON at line {line_number}: {exc.msg}", {}
+
+                if not isinstance(payload, dict):
+                    return f"Line {line_number}: record payload is not a JSON object", {}
+
+                # Validate required schema fields
+                key_dict = payload.get("key")
+                if (
+                    not isinstance(key_dict, dict)
+                    or "operation_key" not in key_dict
+                    or "idempotency_key" not in key_dict
+                ):
+                    return f"Line {line_number}: missing or invalid key structure in idempotency record", {}
+
+                op_key = key_dict["operation_key"]
+                idem_key = key_dict["idempotency_key"]
+                if not isinstance(op_key, str) or not isinstance(idem_key, str) or not op_key or not idem_key:
+                    return f"Line {line_number}: invalid operation_key or idempotency_key in record", {}
+
+                status_str = payload.get("status")
+                try:
+                    status = RecordStatus(status_str)
+                except (ValueError, TypeError):
+                    return f"Line {line_number}: invalid RecordStatus '{status_str}'", {}
+
+                updated_at = payload.get("updated_at")
+                if not isinstance(updated_at, (int, float)):
+                    return f"Line {line_number}: invalid or missing updated_at timestamp", {}
+
+                owner_id = payload.get("owner_id")
+                attempt = payload.get("attempt", 1)
+
+                canonical_key = json.dumps([op_key, idem_key], separators=(",", ":"))
+
+                if canonical_key in records:
+                    prev = records[canonical_key]
+                    prev_status = prev["status"]
+                    prev_updated_at = prev["updated_at"]
+
+                    # 1. Monotonicity check
+                    if updated_at < prev_updated_at:
+                        return (
+                            f"Line {line_number}: timestamp rollback for key {canonical_key} "
+                            f"(previous: {prev_updated_at}, current: {updated_at})",
+                            {},
+                        )
+
+                    # 2. Lifecycle state machine validation
+                    # Terminal statuses cannot reopen
+                    if prev_status in (RecordStatus.COMPLETED, RecordStatus.FAILED):
+                        if status != prev_status:
+                            return (
+                                f"Line {line_number}: illegal transition from terminal status "
+                                f"{prev_status.value} to {status.value} for key {canonical_key}",
+                                {},
+                            )
+
+                    if prev_status == RecordStatus.IN_PROGRESS:
+                        if status not in (
+                            RecordStatus.IN_PROGRESS,
+                            RecordStatus.COMPLETED,
+                            RecordStatus.FAILED,
+                            RecordStatus.RECOVERABLE,
+                        ):
+                            return (
+                                f"Line {line_number}: illegal transition from IN_PROGRESS to "
+                                f"{status.value} for key {canonical_key}",
+                                {},
+                            )
+
+                    if prev_status == RecordStatus.RECOVERABLE:
+                        if status not in (RecordStatus.IN_PROGRESS, RecordStatus.RECOVERABLE):
+                            return (
+                                f"Line {line_number}: illegal transition from RECOVERABLE to "
+                                f"{status.value} for key {canonical_key}",
+                                {},
+                            )
+
+                records[canonical_key] = {
+                    "op_key": op_key,
+                    "idem_key": idem_key,
+                    "status": status,
+                    "updated_at": updated_at,
+                    "owner_id": owner_id,
+                    "attempt": attempt,
+                    "data": payload.get("data"),
+                }
+
+    except OSError as exc:
+        return f"I/O error reading idempotency store: {exc}", {}
+
+    return None, records
+
+
 class ProductionReadinessChecker:
     """
     Deterministic, strictly read-only preflight gate verifying Phase 5.6 reliability controls.
@@ -75,12 +196,12 @@ class ProductionReadinessChecker:
     - RunPolicy configuration validity
     - RetryPolicy configuration sanity
     - Checkpoint store structural health (zero corruption, valid sequences & state transitions)
-    - Idempotency store structural health (zero corruption, valid schema)
-    - Cross-store consistency for recoverable/active runs
+    - Idempotency store structural health (zero corruption, valid schema, valid lifecycle history)
+    - Cross-store consistency for recoverable/active runs (exact RecordKey matching)
     - Terminal run immutability (no unsafe terminal continuation)
     
     Invariants:
-    - Strictly read-only: zero provider calls, zero tool executions, zero store mutations.
+    - Strictly read-only: zero provider calls, zero tool executions, zero store mutations, zero lock file touches.
     - Deterministic: same inputs/files produce identical reports.
     - Fail-closed: any failed safety check marks overall status NOT_READY.
     - No secret, prompt, or payload leakage in reports.
@@ -135,18 +256,18 @@ class ProductionReadinessChecker:
             chk_event_runs.extend(discovered_runs)
         if run_ids:
             chk_event_runs.extend(run_ids)
-        # Deduplicate preserving order
         unique_runs = list(dict.fromkeys(chk_event_runs))
 
-        # 4. Idempotency store structural health
-        idem_check, idem_store = cls._check_idempotency_store(idempotency_path)
+        # 4. Idempotency store structural health (strictly read-only)
+        idem_check, idem_records = cls._check_idempotency_store(idempotency_path)
         checks.append(idem_check)
 
         # 5. Cross-store consistency
         checks.append(
             cls._check_cross_store_consistency(
                 checkpoint_path=checkpoint_path,
-                idempotency_store=idem_store,
+                idempotency_path=idempotency_path,
+                idempotency_records=idem_records,
                 run_ids=unique_runs,
                 cp_healthy=cp_check.passed,
                 idem_healthy=idem_check.passed,
@@ -291,7 +412,6 @@ class ProductionReadinessChecker:
                 [],
             )
 
-        # Read-only structural parse and verification without file mutation
         events_by_run: Dict[str, List[CheckpointEvent]] = {}
         total_events = 0
 
@@ -379,7 +499,7 @@ class ProductionReadinessChecker:
     @staticmethod
     def _check_idempotency_store(
         idempotency_path: Optional[str],
-    ) -> Tuple[ReadinessCheck, Optional[JsonlIdempotencyStore]]:
+    ) -> Tuple[ReadinessCheck, Dict[str, Dict[str, Any]]]:
         name = "idempotency_store_health"
         if not idempotency_path:
             return (
@@ -388,7 +508,7 @@ class ProductionReadinessChecker:
                     passed=True,
                     reason="Idempotency store path not configured (in-memory/fresh runtime)",
                 ),
-                None,
+                {},
             )
 
         if not os.path.exists(idempotency_path):
@@ -398,44 +518,34 @@ class ProductionReadinessChecker:
                     passed=True,
                     reason=f"Idempotency store file does not exist ({idempotency_path}) — fresh runtime ready",
                 ),
-                JsonlIdempotencyStore(db_path=idempotency_path),
+                {},
             )
 
-        try:
-            # Instantiate and load store in read-only verification
-            store = JsonlIdempotencyStore(db_path=idempotency_path)
-            record_count = len(store.get_all_records())
-            return (
-                ReadinessCheck(
-                    name=name,
-                    passed=True,
-                    reason=f"Idempotency store structurally sound ({record_count} records verified)",
-                ),
-                store,
-            )
-        except IdempotencyCorruptionError as exc:
+        err, records = parse_idempotency_store_read_only(idempotency_path)
+        if err is not None:
             return (
                 ReadinessCheck(
                     name=name,
                     passed=False,
-                    reason=f"Idempotency store corruption: {exc.message}",
+                    reason=f"Idempotency store corruption: {err}",
                 ),
-                None,
+                {},
             )
-        except OSError as exc:
-            return (
-                ReadinessCheck(
-                    name=name,
-                    passed=False,
-                    reason=f"I/O error reading idempotency store: {exc}",
-                ),
-                None,
-            )
+
+        return (
+            ReadinessCheck(
+                name=name,
+                passed=True,
+                reason=f"Idempotency store structurally sound ({len(records)} records verified)",
+            ),
+            records,
+        )
 
     @staticmethod
     def _check_cross_store_consistency(
         checkpoint_path: Optional[str],
-        idempotency_store: Optional[JsonlIdempotencyStore],
+        idempotency_path: Optional[str],
+        idempotency_records: Dict[str, Dict[str, Any]],
         run_ids: List[str],
         cp_healthy: bool,
         idem_healthy: bool,
@@ -455,20 +565,80 @@ class ProductionReadinessChecker:
                 reason="No active runs to verify cross-store consistency (fresh runtime)",
             )
 
+        # For each run in checkpoints, verify exact tool call RecordKey in idempotency store
         for rid in run_ids:
             try:
-                report = RunIntegrityVerifier.verify(
-                    checkpoint_path,
-                    rid,
-                    idempotency_store=idempotency_store,
-                )
-                if not report.valid:
-                    issues_str = "; ".join(report.issues)
-                    return ReadinessCheck(
-                        name=name,
-                        passed=False,
-                        reason=f"Cross-store integrity violation in run '{rid}': {issues_str}",
+                session = ReplayEngine.reconstruct_session(checkpoint_path, rid)
+
+                # 1. Verify completed tool calls
+                for cid, result in session.completed_tool_calls.items():
+                    # Find tool arguments from session messages or fallback to call_id
+                    t_call = None
+                    for msg in session.messages:
+                        if msg.tool_calls:
+                            for tc in msg.tool_calls:
+                                if tc.call_id == cid:
+                                    t_call = ToolCall(
+                                        name=tc.name,
+                                        arguments=tc.arguments,
+                                        call_id=cid,
+                                        run_id=rid,
+                                    )
+                                    break
+                        if t_call:
+                            break
+
+                    if not t_call:
+                        t_call = ToolCall(
+                            name=result.tool_name,
+                            arguments={},
+                            call_id=cid,
+                            run_id=rid,
+                        )
+
+                    canonical_key = json.dumps(
+                        [f"tool:{t_call.name}", t_call.idempotency_key],
+                        separators=(",", ":"),
                     )
+
+                    if canonical_key not in idempotency_records:
+                        return ReadinessCheck(
+                            name=name,
+                            passed=False,
+                            reason=(
+                                f"Cross-store mismatch in run '{rid}': completed tool call '{cid}' "
+                                f"missing exact idempotency record for key {canonical_key}"
+                            ),
+                        )
+
+                    rec = idempotency_records[canonical_key]
+                    if rec["status"] != RecordStatus.COMPLETED:
+                        return ReadinessCheck(
+                            name=name,
+                            passed=False,
+                            reason=(
+                                f"Cross-store mismatch in run '{rid}': completed tool call '{cid}' "
+                                f"has non-completed idempotency record status {rec['status'].value}"
+                            ),
+                        )
+
+                # 2. Verify pending/recoverable tool calls for non-terminal runs
+                if session.last_state not in (RunState.COMPLETED, RunState.HALTED, RunState.FAILED):
+                    for cid, t_call in session.pending_tool_calls.items():
+                        canonical_key = json.dumps(
+                            [f"tool:{t_call.name}", t_call.idempotency_key],
+                            separators=(",", ":"),
+                        )
+                        if canonical_key not in idempotency_records:
+                            return ReadinessCheck(
+                                name=name,
+                                passed=False,
+                                reason=(
+                                    f"Cross-store mismatch in run '{rid}': pending recoverable tool call "
+                                    f"'{cid}' missing required idempotency record for key {canonical_key}"
+                                ),
+                            )
+
             except Exception as exc:
                 return ReadinessCheck(
                     name=name,

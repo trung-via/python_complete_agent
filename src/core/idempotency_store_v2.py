@@ -920,11 +920,12 @@ class JsonlIdempotencyStore:
         if os.name == "nt":
             import msvcrt
 
-            handle.seek(0)
-
-            if handle.tell() == 0:
-                handle.write(b"\0")
-                handle.flush()
+            if os.fstat(handle.fileno()).st_size == 0:
+                try:
+                    handle.write(b"\0")
+                    handle.flush()
+                except OSError:
+                    pass
 
             handle.seek(0)
             msvcrt.locking(
