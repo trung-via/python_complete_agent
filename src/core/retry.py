@@ -60,29 +60,33 @@ class RetryManager:
         )
         
         attempt = 1
-        last_result = None
-        last_exception = None
         
         while attempt <= self.policy.max_attempts:
             if on_attempt_start:
                 on_attempt_start(attempt)
 
-            error_to_eval = None
+            current_result: Optional[ToolResult] = None
+            current_exception: Optional[Exception] = None
+            target_err: Any = None
+
             try:
                 result = await operation(*args, **kwargs)
                 
                 if isinstance(result, ToolResult) and result.status == ToolStatus.FAILURE:
-                    if result.error and result.error.retryable:
-                        logger.warning(f"Operation failed with retryable error (Attempt {attempt}/{self.policy.max_attempts}): {result.error.code} - {result.error.message}")
-                        last_result = result
-                        error_to_eval = result.error
-                        if on_attempt_complete:
-                            on_attempt_complete(attempt, "FAILURE", result.error.message)
-                    else:
-                        logger.error(f"Operation failed with non-retryable error: {result.error.message if result.error else 'Unknown'}")
-                        if on_attempt_complete:
-                            on_attempt_complete(attempt, "FATAL_FAILURE", result.error.message if result.error else 'Unknown')
-                        return result
+                    current_result = result
+                    target_err = result.error
+                    if on_attempt_complete:
+                        status_str = (
+                            "FAILURE"
+                            if (result.error and result.error.retryable)
+                            else "FATAL_FAILURE"
+                        )
+                        err_msg = (
+                            result.error.message
+                            if result.error
+                            else "Unknown tool failure"
+                        )
+                        on_attempt_complete(attempt, status_str, err_msg)
                 else:
                     # Success or Partial Success
                     if on_attempt_complete:
@@ -91,23 +95,17 @@ class RetryManager:
                     return result
                     
             except AgentException as e:
-                last_exception = e
-                if not e.retryable:
-                    logger.error(f"Operation raised non-retryable AgentException: {e.code} - {e.message}")
-                    if on_attempt_complete:
-                        on_attempt_complete(attempt, "FATAL_EXCEPTION", e.message)
-                    raise
-                logger.warning(f"Operation raised retryable AgentException (Attempt {attempt}/{self.policy.max_attempts}): {e.code} - {e.message}")
-                error_to_eval = e
+                current_exception = e
+                target_err = e
                 if on_attempt_complete:
-                    on_attempt_complete(attempt, "EXCEPTION", e.message)
+                    status_str = "EXCEPTION" if e.retryable else "FATAL_EXCEPTION"
+                    on_attempt_complete(attempt, status_str, e.message)
             except Exception as e:
-                last_exception = e
-                logger.error(f"Operation raised unexpected exception (Attempt {attempt}/{self.policy.max_attempts}): {e}")
+                current_exception = e
+                target_err = e
                 if on_attempt_complete:
                     on_attempt_complete(attempt, "UNEXPECTED_EXCEPTION", str(e))
                 
-            target_err = error_to_eval or last_exception
             failure_domain, is_transient, err_code = FailureClassifier.classify(
                 target_err, operation=RetryOperation.TOOL
             )
@@ -128,14 +126,14 @@ class RetryManager:
             )
 
             if not decision.should_retry:
-                logger.error(
+                logger.info(
                     f"RetryPolicyEngine decided to STOP retry (attempt {attempt}/{self.policy.max_attempts}): "
                     f"reason={decision.reason.value}"
                 )
-                if last_result:
-                    return last_result
-                if last_exception:
-                    raise last_exception
+                if current_exception is not None:
+                    raise current_exception
+                if current_result is not None:
+                    return current_result
                 raise RuntimeError("Retry stopped by RetryPolicyEngine.")
 
             delay = self.policy.get_delay(

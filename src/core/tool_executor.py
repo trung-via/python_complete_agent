@@ -5,6 +5,10 @@ import os
 from typing import Any, Dict, Optional
 
 from src.core.checkpoint import CheckpointManager
+from src.core.checkpoint_contract import (
+    CheckpointCorruptionError,
+    CheckpointStateError,
+)
 from src.core.errors import AgentException, SystemStateError
 from src.core.idempotency import IdempotencyStore
 from src.core.idempotency_contract import (
@@ -206,7 +210,7 @@ class ToolExecutor:
             )
             return failure_result
 
-        except SystemStateError:
+        except (SystemStateError, CheckpointCorruptionError, CheckpointStateError):
             raise
 
         except OSError as exc:
@@ -289,7 +293,7 @@ class ToolExecutor:
                 error=exc,
             )
 
-        except SystemStateError:
+        except (SystemStateError, CheckpointCorruptionError, CheckpointStateError):
             raise
 
         except Exception as exc:

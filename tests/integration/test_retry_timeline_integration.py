@@ -322,3 +322,205 @@ def test_retry_scheduled_state_machine_transition():
     for terminal in (RunState.COMPLETED, RunState.FAILED, RunState.HALTED):
         with pytest.raises(CheckpointStateError):
             validate_state_transition(terminal, ev)
+
+
+@pytest.mark.asyncio
+async def test_current_critical_failure_beats_stale_prior_result(monkeypatch):
+    """
+    Validates:
+    - Attempt 1 returns retryable failed ToolResult.
+    - Attempt 2 raises critical SystemStateError.
+    - Result: SystemStateError is raised (NOT masked by attempt 1's ToolResult).
+    - Exactly one RETRY_SCHEDULED event (1->2), zero after attempt 2.
+    """
+    sleep_calls = []
+
+    async def fake_sleep(duration):
+        sleep_calls.append(duration)
+
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = os.path.join(tmpdir, "checkpoints.jsonl")
+        checkpoints = CheckpointManager(db_path=db_path)
+        idempotency_store = IdempotencyStore(db_path=os.path.join(tmpdir, "idemp.jsonl"))
+        registry = ToolRegistry()
+
+        attempt1_result = ToolResult(
+            call_id="call_crit_1",
+            run_id="run_crit_1",
+            tool_name="dummy_tool",
+            status=ToolStatus.FAILURE,
+            error=AgentException("Transient error", code="TRANSIENT", retryable=True),
+        )
+        attempt2_error = SystemStateError("Critical checkpoint disk write failure")
+
+        dummy_tool = DummyTool([attempt1_result, attempt2_error])
+        registry.register_tool(dummy_tool)
+
+        policy = RetryPolicy(max_attempts=3, base_delay=1.0, jitter=False)
+        retry_manager = RetryManager(default_policy=policy)
+        executor = ToolExecutor(
+            registry=registry,
+            idempotency_store=idempotency_store,
+            checkpoints=checkpoints,
+            retry_manager=retry_manager,
+            context={},
+        )
+
+        run_id = checkpoints.log_task_start("test critical priority")
+        checkpoints.log_llm_requested(run_id, iteration=1)
+        checkpoints.log_llm_responded(run_id, iteration=1, content=None, num_tool_calls=1)
+
+        call = ToolCall(
+            run_id=run_id,
+            call_id="call_crit_1",
+            name="dummy_tool",
+            arguments={},
+        )
+
+        with pytest.raises(SystemStateError, match="Critical checkpoint disk write failure"):
+            await executor.execute(call)
+
+        events = []
+        with open(db_path, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    events.append(json.loads(line))
+
+        # Assert exactly 1 retry event (1->2), zero after attempt 2
+        retry_events = [e for e in events if e["event"] == "RETRY_SCHEDULED"]
+        assert len(retry_events) == 1
+        assert retry_events[0]["attempt"] == 1
+        assert retry_events[0]["next_attempt"] == 2
+
+
+@pytest.mark.asyncio
+async def test_current_corruption_error_beats_stale_prior_result(monkeypatch):
+    """
+    Validates:
+    - Attempt 1 returns retryable failed ToolResult.
+    - Attempt 2 raises CheckpointCorruptionError.
+    - Result: CheckpointCorruptionError is raised (NOT masked by attempt 1's ToolResult).
+    - Exactly one RETRY_SCHEDULED event (1->2), zero after attempt 2.
+    """
+    from src.core.checkpoint_contract import CheckpointCorruptionError
+
+    sleep_calls = []
+
+    async def fake_sleep(duration):
+        sleep_calls.append(duration)
+
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = os.path.join(tmpdir, "checkpoints.jsonl")
+        checkpoints = CheckpointManager(db_path=db_path)
+        idempotency_store = IdempotencyStore(db_path=os.path.join(tmpdir, "idemp.jsonl"))
+        registry = ToolRegistry()
+
+        attempt1_result = ToolResult(
+            call_id="call_corrupt_1",
+            run_id="run_corrupt_1",
+            tool_name="dummy_tool",
+            status=ToolStatus.FAILURE,
+            error=AgentException("Transient error", code="TRANSIENT", retryable=True),
+        )
+        attempt2_error = CheckpointCorruptionError("run_corrupt_1", "Sequence mismatch")
+
+        dummy_tool = DummyTool([attempt1_result, attempt2_error])
+        registry.register_tool(dummy_tool)
+
+        policy = RetryPolicy(max_attempts=3, base_delay=1.0, jitter=False)
+        retry_manager = RetryManager(default_policy=policy)
+        executor = ToolExecutor(
+            registry=registry,
+            idempotency_store=idempotency_store,
+            checkpoints=checkpoints,
+            retry_manager=retry_manager,
+            context={},
+        )
+
+        run_id = checkpoints.log_task_start("test corrupt priority")
+        checkpoints.log_llm_requested(run_id, iteration=1)
+        checkpoints.log_llm_responded(run_id, iteration=1, content=None, num_tool_calls=1)
+
+        call = ToolCall(
+            run_id=run_id,
+            call_id="call_corrupt_1",
+            name="dummy_tool",
+            arguments={},
+        )
+
+        with pytest.raises(CheckpointCorruptionError, match="Sequence mismatch"):
+            await executor.execute(call)
+
+        events = []
+        with open(db_path, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    events.append(json.loads(line))
+
+        # Assert exactly 1 retry event (1->2), zero after attempt 2
+        retry_events = [e for e in events if e["event"] == "RETRY_SCHEDULED"]
+        assert len(retry_events) == 1
+        assert retry_events[0]["attempt"] == 1
+        assert retry_events[0]["next_attempt"] == 2
+
+
+@pytest.mark.asyncio
+async def test_non_retryable_paths_pass_through_policy_and_do_not_retry():
+    """
+    Validates:
+    - Non-retryable ToolResult returns without emitting RETRY_SCHEDULED.
+    - Non-retryable AgentException raises without emitting RETRY_SCHEDULED.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = os.path.join(tmpdir, "checkpoints.jsonl")
+        checkpoints = CheckpointManager(db_path=db_path)
+        idempotency_store = IdempotencyStore(db_path=os.path.join(tmpdir, "idemp.jsonl"))
+        registry = ToolRegistry()
+
+        fatal_result = ToolResult(
+            call_id="call_non_ret_1",
+            run_id="run_non_ret_1",
+            tool_name="dummy_tool",
+            status=ToolStatus.FAILURE,
+            error=AgentException("Invalid schema arguments", code="INVALID_ARGS", retryable=False),
+        )
+        dummy_tool = DummyTool([fatal_result])
+        registry.register_tool(dummy_tool)
+
+        policy = RetryPolicy(max_attempts=3, base_delay=1.0, jitter=False)
+        retry_manager = RetryManager(default_policy=policy)
+        executor = ToolExecutor(
+            registry=registry,
+            idempotency_store=idempotency_store,
+            checkpoints=checkpoints,
+            retry_manager=retry_manager,
+            context={},
+        )
+
+        run_id = checkpoints.log_task_start("test non-retryable")
+        checkpoints.log_llm_requested(run_id, iteration=1)
+        checkpoints.log_llm_responded(run_id, iteration=1, content=None, num_tool_calls=1)
+
+        call = ToolCall(
+            run_id=run_id,
+            call_id="call_non_ret_1",
+            name="dummy_tool",
+            arguments={},
+        )
+
+        res = await executor.execute(call)
+        assert res.status == ToolStatus.FAILURE
+        assert res.error.code == "INVALID_ARGS"
+
+        events = []
+        with open(db_path, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    events.append(json.loads(line))
+
+        assert len([e for e in events if e["event"] == "RETRY_SCHEDULED"]) == 0
+
