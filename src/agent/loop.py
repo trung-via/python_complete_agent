@@ -6,15 +6,15 @@ from typing import List, Optional
 
 from src.agent.messages import AssistantToolCall, LLMMessage, MessageRole
 from src.agent.policy import RunPolicy
+from src.core.cancellation import RunCancellationController
 from src.core.checkpoint import CheckpointManager
 from src.core.errors import AgentException, SystemStateError
 from src.core.recovery_diagnostics import RecoveryAnalyzer, RecoveryPotential
+from src.core.run_budget import BudgetUsage, RunBudgetEngine
 from src.core.tool_executor import ToolExecutor
 from src.core.tool_registry import ToolRegistry
 from src.core.types import ToolCall, ToolResult, ToolStatus
 from src.providers.base import LLMProvider, LLMResponse
-
-from src.core.cancellation import RunCancellationController
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,6 @@ class AgentLoop:
         self.cancellation_controller = (
             cancellation_controller or RunCancellationController(checkpoints)
         )
-
 
     async def run(self, run_id: str, system_prompt: str, user_prompt: str) -> Optional[str]:
         """
@@ -78,8 +77,8 @@ class AgentLoop:
             logger.info(f"Run {run_id} is already cancelled before starting.")
             return None
 
-        iterations = 0
-        total_tool_calls = 0
+        iterations_used = 0
+        tool_calls_used = 0
 
         messages: List[LLMMessage] = [
             LLMMessage(role=MessageRole.SYSTEM, content=system_prompt),
@@ -89,25 +88,33 @@ class AgentLoop:
         self.checkpoints.log_run_started(run_id, system_prompt, user_prompt)
         tools_schema = self.tool_registry.get_tools_schema()
 
-
         while True:
             token = self.cancellation_controller.get_token(run_id)
             if token.is_cancelled:
                 logger.info(f"Run {run_id} cancelled before iteration: {token.reason}")
                 return None
 
-            # 1. Check Safety Limits
-            if iterations >= self.policy.max_iterations:
-                logger.warning(f"Run {run_id} halted: Max iterations ({self.policy.max_iterations}) reached.")
-                self.checkpoints.log_run_halted(run_id, "MAX_ITERATIONS_REACHED")
+            # 1. Check Iteration Budget
+            decision = RunBudgetEngine.decide(
+                self.policy,
+                BudgetUsage(iterations_used=iterations_used, tool_calls_used=tool_calls_used),
+                requested_iterations=1,
+            )
+            if not decision.allowed:
+                logger.warning(
+                    f"Run {run_id} halted: {decision.reason} "
+                    f"(used {iterations_used}/{self.policy.max_iterations} iterations, "
+                    f"{tool_calls_used}/{self.policy.max_tool_calls} tool calls)."
+                )
+                self.checkpoints.log_run_halted(run_id, decision.reason or "MAX_ITERATIONS_REACHED")
                 return None
 
-            iterations += 1
+            iterations_used += 1
             if token.is_cancelled:
                 logger.info(f"Run {run_id} cancelled before LLM request: {token.reason}")
                 return None
 
-            self.checkpoints.log_llm_requested(run_id, iterations)
+            self.checkpoints.log_llm_requested(run_id, iterations_used)
 
             # 2. Invoke LLM
             try:
@@ -122,7 +129,7 @@ class AgentLoop:
                 ]
                 self.checkpoints.log_llm_responded(
                     run_id,
-                    iterations,
+                    iterations_used,
                     response.content,
                     len(response.tool_calls),
                     tool_calls=tool_calls_payload,
@@ -165,12 +172,22 @@ class AgentLoop:
                     logger.info(f"Run {run_id} cancelled during tool batch: {token.reason}")
                     return None
 
-                total_tool_calls += 1
-                if total_tool_calls > self.policy.max_tool_calls:
-                    logger.warning(f"Run {run_id} halted: Max tool calls ({self.policy.max_tool_calls}) reached.")
-                    self.checkpoints.log_run_halted(run_id, "MAX_TOOL_CALLS_REACHED")
+                # Check Tool Call Budget
+                decision = RunBudgetEngine.decide(
+                    self.policy,
+                    BudgetUsage(iterations_used=iterations_used, tool_calls_used=tool_calls_used),
+                    requested_tool_calls=1,
+                )
+                if not decision.allowed:
+                    logger.warning(
+                        f"Run {run_id} halted: {decision.reason} "
+                        f"(used {iterations_used}/{self.policy.max_iterations} iterations, "
+                        f"{tool_calls_used}/{self.policy.max_tool_calls} tool calls)."
+                    )
+                    self.checkpoints.log_run_halted(run_id, decision.reason or "MAX_TOOL_CALLS_REACHED")
                     return None
 
+                tool_calls_used += 1
 
                 call = ToolCall(
                     name=p_call.name,
@@ -271,12 +288,38 @@ class AgentLoop:
 
         messages = list(session.messages)
         tools_schema = self.tool_registry.get_tools_schema()
-        total_tool_calls = len(session.completed_tool_calls) + len(session.pending_tool_calls)
+
+        # Reconstruct prior budget usage from durable checkpoint events
+        events = ReplayEngine.load_events_for_run(self.checkpoints.db_path, run_id)
+        prior_usage = RunBudgetEngine.reconstruct_usage(events)
+        iterations_used = prior_usage.iterations_used
+        tool_calls_used = len(session.completed_tool_calls)
 
         # 1. Process pending tool calls if any
         if session.pending_tool_calls:
             pending_items = list(session.pending_tool_calls.items())
             for idx, (cid, p_call) in enumerate(pending_items):
+                token = self.cancellation_controller.get_token(run_id)
+                if token.is_cancelled:
+                    logger.info(f"Resumed run {run_id} cancelled during pending tool batch: {token.reason}")
+                    return None
+
+                # Check Tool Call Budget before executing pending tool
+                decision = RunBudgetEngine.decide(
+                    self.policy,
+                    BudgetUsage(iterations_used=iterations_used, tool_calls_used=tool_calls_used),
+                    requested_tool_calls=1,
+                )
+                if not decision.allowed:
+                    logger.warning(
+                        f"Resumed run {run_id} halted: {decision.reason} "
+                        f"(used {iterations_used}/{self.policy.max_iterations} iterations, "
+                        f"{tool_calls_used}/{self.policy.max_tool_calls} tool calls)."
+                    )
+                    self.checkpoints.log_run_halted(run_id, decision.reason or "MAX_TOOL_CALLS_REACHED")
+                    return None
+
+                tool_calls_used += 1
                 is_last_in_batch = idx == len(pending_items) - 1
                 try:
                     result: ToolResult = await self.tool_executor.execute(p_call)
@@ -313,20 +356,33 @@ class AgentLoop:
                     return None
 
         # 2. Continue main LLM loop from current iteration
-        events = ReplayEngine.load_events_for_run(self.checkpoints.db_path, run_id)
-        iterations = max(
-            [e.payload.get("iteration", 0) for e in events if isinstance(e.payload, dict)]
-            or [0]
-        )
-
         while True:
-            if iterations >= self.policy.max_iterations:
-                logger.warning(f"Run {run_id} halted: Max iterations ({self.policy.max_iterations}) reached.")
-                self.checkpoints.log_run_halted(run_id, "MAX_ITERATIONS_REACHED")
+            token = self.cancellation_controller.get_token(run_id)
+            if token.is_cancelled:
+                logger.info(f"Resumed run {run_id} cancelled before iteration: {token.reason}")
                 return None
 
-            iterations += 1
-            self.checkpoints.log_llm_requested(run_id, iterations)
+            # Check Iteration Budget
+            decision = RunBudgetEngine.decide(
+                self.policy,
+                BudgetUsage(iterations_used=iterations_used, tool_calls_used=tool_calls_used),
+                requested_iterations=1,
+            )
+            if not decision.allowed:
+                logger.warning(
+                    f"Resumed run {run_id} halted: {decision.reason} "
+                    f"(used {iterations_used}/{self.policy.max_iterations} iterations, "
+                    f"{tool_calls_used}/{self.policy.max_tool_calls} tool calls)."
+                )
+                self.checkpoints.log_run_halted(run_id, decision.reason or "MAX_ITERATIONS_REACHED")
+                return None
+
+            iterations_used += 1
+            if token.is_cancelled:
+                logger.info(f"Resumed run {run_id} cancelled before LLM request: {token.reason}")
+                return None
+
+            self.checkpoints.log_llm_requested(run_id, iterations_used)
 
             try:
                 response: LLMResponse = await self.llm.generate(messages, tools_schema)
@@ -340,7 +396,7 @@ class AgentLoop:
                 ]
                 self.checkpoints.log_llm_responded(
                     run_id,
-                    iterations,
+                    iterations_used,
                     response.content,
                     len(response.tool_calls),
                     tool_calls=tool_calls_payload,
@@ -376,11 +432,25 @@ class AgentLoop:
                 return response.content
 
             for idx, p_call in enumerate(response.tool_calls):
-                total_tool_calls += 1
-                if total_tool_calls > self.policy.max_tool_calls:
-                    logger.warning(f"Run {run_id} halted: Max tool calls ({self.policy.max_tool_calls}) reached.")
-                    self.checkpoints.log_run_halted(run_id, "MAX_TOOL_CALLS_REACHED")
+                if token.is_cancelled:
+                    logger.info(f"Resumed run {run_id} cancelled during tool batch: {token.reason}")
                     return None
+
+                decision = RunBudgetEngine.decide(
+                    self.policy,
+                    BudgetUsage(iterations_used=iterations_used, tool_calls_used=tool_calls_used),
+                    requested_tool_calls=1,
+                )
+                if not decision.allowed:
+                    logger.warning(
+                        f"Resumed run {run_id} halted: {decision.reason} "
+                        f"(used {iterations_used}/{self.policy.max_iterations} iterations, "
+                        f"{tool_calls_used}/{self.policy.max_tool_calls} tool calls)."
+                    )
+                    self.checkpoints.log_run_halted(run_id, decision.reason or "MAX_TOOL_CALLS_REACHED")
+                    return None
+
+                tool_calls_used += 1
 
                 call = ToolCall(
                     name=p_call.name,
@@ -424,3 +494,4 @@ class AgentLoop:
                     logger.critical(f"SystemStateError during tool execution: {e}")
                     self.checkpoints.log_run_halted(run_id, f"SYSTEM_STATE_ERROR: {e}")
                     return None
+
