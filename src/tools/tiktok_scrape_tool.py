@@ -40,14 +40,20 @@ class TikTokScrapeTool(BaseTool):
             
         logger.info(f"Executing TikTokScrapeTool for URL: {url}")
         
-        browser = context.get('browser')
+        browser = context.get('browser') or context.get('browser_manager')
         image_processor = context.get('image_processor')
         gdrive = context.get('gdrive')
-        ai_controller = context.get('ai_controller')
         gdrive_folder_id = context.get('gdrive_folder_id')
         
-        if not all([browser, image_processor, gdrive, ai_controller]):
-            raise DependencyError("Missing required context components for TikTokScrapeTool")
+        if not all([browser, image_processor, gdrive]):
+            missing = []
+            if not browser:
+                missing.append("browser/browser_manager")
+            if not image_processor:
+                missing.append("image_processor")
+            if not gdrive:
+                missing.append("gdrive")
+            raise DependencyError(f"Missing required context components for TikTokScrapeTool: {', '.join(missing)}")
 
         # 1. Playwright Scraping Logic
         logger.info(f"Navigating to TikTok: {url}")

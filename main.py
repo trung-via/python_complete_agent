@@ -28,18 +28,18 @@ async def main():
     agent = AgentController()
     
     try:
-        await agent.initialize()
+        await agent.start()
         
-        # Phase 6: Autonomous Loop
         print("Python Complete Agent is running in Autonomous Mode.")
         print("Reading from tasks.txt...")
         
-        await agent.run_autonomous_loop()
+        completed = await agent.run_autonomous_loop()
+        print(f"Autonomous loop finished. Successfully completed {len(completed)} tasks.")
             
     except KeyboardInterrupt:
         print("Agent stopped by user.")
     finally:
-        await agent.shutdown()
+        await agent.stop()
 
 if __name__ == "__main__":
     asyncio.run(main())
