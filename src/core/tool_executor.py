@@ -165,7 +165,39 @@ class ToolExecutor:
         key: RecordKey,
     ) -> ToolResult:
         try:
-            result = await self._execute_with_retry(call, tool)
+            try:
+                result = await self._execute_with_retry(call, tool)
+            except AgentException as exc:
+                logger.error(
+                    "Tool failed after retries: %s - %s",
+                    exc.code,
+                    exc.message,
+                )
+                result = ToolResult(
+                    call_id=call.call_id,
+                    run_id=call.run_id,
+                    tool_name=call.name,
+                    status=ToolStatus.FAILURE,
+                    error=exc,
+                )
+            except (SystemStateError, CheckpointCorruptionError, CheckpointStateError):
+                raise
+            except Exception as exc:
+                logger.error(
+                    "Unexpected tool execution failure: %s",
+                    exc,
+                    exc_info=True,
+                )
+                result = ToolResult(
+                    call_id=call.call_id,
+                    run_id=call.run_id,
+                    tool_name=call.name,
+                    status=ToolStatus.FAILURE,
+                    error=AgentException(
+                        str(exc),
+                        code="UNKNOWN_TOOL_ERROR",
+                    ),
+                )
 
             if result.status == ToolStatus.SUCCESS:
                 self._complete_v2(key, result)
@@ -186,67 +218,8 @@ class ToolExecutor:
             )
             return result
 
-        except AgentException as exc:
-            logger.error(
-                "Tool failed after retries: %s - %s",
-                exc.code,
-                exc.message,
-            )
-
-            failure_result = ToolResult(
-                call_id=call.call_id,
-                run_id=call.run_id,
-                tool_name=call.name,
-                status=ToolStatus.FAILURE,
-                error=exc,
-            )
-
-            self._fail_v2(
-                key,
-                retryable=exc.retryable,
-                data={
-                    "result": failure_result.to_dict(),
-                },
-            )
-            return failure_result
-
         except (SystemStateError, CheckpointCorruptionError, CheckpointStateError):
             raise
-
-        except OSError as exc:
-            logger.error(
-                "Unexpected persistence/tool OS failure: %s",
-                exc,
-                exc_info=True,
-            )
-            self._fail_v2(
-                key,
-                retryable=True,
-                data={"error": str(exc)},
-            )
-            raise SystemStateError(
-                f"Tool execution infrastructure failure: {exc}"
-            ) from exc
-
-        except Exception as exc:
-            logger.error(
-                "Unexpected tool execution failure: %s",
-                exc,
-                exc_info=True,
-            )
-
-            failure = AgentException(
-                str(exc),
-                code="UNKNOWN_TOOL_ERROR",
-            )
-
-            failure_result = ToolResult(
-                call_id=call.call_id,
-                run_id=call.run_id,
-                tool_name=call.name,
-                status=ToolStatus.FAILURE,
-                error=failure,
-            )
 
             self._fail_v2(
                 key,
