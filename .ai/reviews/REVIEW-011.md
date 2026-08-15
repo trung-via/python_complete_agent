@@ -1,67 +1,55 @@
 # REVIEW-011 — TASK-011 (Phase 6 M2.1 Winning Product Intelligence Contracts & Score V1)
 
 ## Status
-CHANGES_REQUIRED
+APPROVED
 
 ## Reviewed Head
 - Branch: `ai/task-011`
-- Reviewed commit: `fb8c3862d855f9ca508f89d101dce76f56172762`
+- Reviewed commit: `68db4d45154994c929bae22e660f1aca236e2bcd`
 - Main baseline: `a3ab8ee06495d06006d6d61d06313c8977f555f0`
-- Branch relation to main: ahead 5, behind 0 (fast-forward safe)
+- Branch relation to main: ahead 6, behind 0 (fast-forward safe)
 - Task artifact blob: `677b6f6dd635bfe78d712f492fc818c50f05d7c4`
-- Prior CHANGES_REQUIRED authorization blob: `c7b49d1c5856bd63ffdc32135cad5ab21ba1f864`
-- RESULT-011 blob: `e200c3f0e1a90677fda412af6f034ccbb995b5fc`
+- Prior CHANGES_REQUIRED authorization blob: `4168c2fd7e509d0823c6236363363628828c5da2`
+- RESULT-011 blob: `f43e2367901f4acffe342e5c231c49e13cc5f1a0`
 - RESULT action: `FIX`
-- Exact FIX authorization recorded by worker: `.ai/reviews/REVIEW-011.md (c7b49d1c58)` — matches the prior review artifact exactly.
+- Exact FIX authorization recorded by worker: `.ai/reviews/REVIEW-011.md (4168c2fd7e)` — matches the prior review artifact exactly.
 - Reported focused Product Intelligence suite: 20 passed, 0 failed, exit code 0.
 - Reported full repository suite: 393 passed, 0 failed, exit code 0.
 
-## Re-review Summary
-The remaining code-level blocker is closed correctly.
+## Final Review Summary
+TASK-011 now satisfies the Phase 6 M2.1 contract and the prior review findings.
 
-`CANONICAL_SEMANTIC_SIGNALS` now registers the known V1 semantic contentability signals (`visual_demo_potential`, `problem_solution_clarity`, `hook_angles`, `ugc_creator_appeal`) and forces them into `CONTENTABILITY`. A known semantic signal can no longer be moved into a factual category even when mislabeled `OBSERVED`, while extensible custom semantic signals remain allowed in `CONTENTABILITY` with `INFERRED` provenance. The requested `visual_demo_potential + DEMAND + OBSERVED` regression is present.
+The source implementation previously accepted remains unchanged by the final FIX. GitHub comparison from the prior reviewed head `fb8c3862d855f9ca508f89d101dce76f56172762` to the current head shows that the final FIX changes only `.ai/results/RESULT-011.md`.
 
-The earlier M2.1 contract fixes also remain intact: canonical factual signal/category mapping, provenance boundaries, bounded evidence serialization, available-data base-score renormalization, explicit `MISSING` signals with partial coverage, mandatory `evaluated_at`, percentage-point commission units, strict scoring-policy validation, deterministic confidence damping, and no network/LLM/queue side effects.
+The durable RESULT now records the previously missing contract evidence:
+- category weights: Demand 25, Momentum 20, Commercial Attractiveness 15, Trust 10, Contentability 15, Competition Opportunity 15;
+- confidence weights: Data Completeness 0.40, Freshness 0.25, Source Reliability 0.20, Evidence Coverage 0.15;
+- missing-data semantics: `base_score` is renormalized over available categories, missing expected signals reduce completeness/confidence rather than double-penalizing the base score, and `final_score = base_score * confidence`;
+- intentionally retained limitations and the M2.2/M2.3/M2.4/M3 boundaries;
+- explicit no-auto-merge governance;
+- exact focused and full verification commands, pass counts, and exit codes.
 
-No additional source-code blocker was found in this re-review.
+The underlying M2.1 implementation remains acceptable:
+- immutable candidate snapshots and explicit evidence/provenance contracts;
+- deterministic, platform-independent normalized signals and scoring;
+- six canonical scoring categories with the required 25/20/15/10/15/15 weights;
+- deterministic confidence with the required 40/25/20/15 weighting;
+- available-data base-score renormalization and confidence damping for missing data;
+- canonical factual and semantic signal registries preventing provenance/category masquerading;
+- bounded evidence serialization guards;
+- explicit `evaluated_at` determinism;
+- advisory decision bands only;
+- no network, provider/LLM, queue-write, Product KB, or Phase 5.6 control-plane redesign in this task.
 
-## Blocking Finding — RESULT-011 still does not satisfy its explicit durable-result requirements
+## Verification
+- `.\venv\Scripts\python -m pytest tests/product_intelligence/ -v` → 20 passed, 0 failed, exit code 0.
+- `.\venv\Scripts\python -m pytest tests/ -q -W ignore` → 393 passed, 0 failed, exit code 0.
+- Main → task relation: ahead 6, behind 0; fast-forward safe.
+- Final evidence-only FIX changed only `RESULT-011.md`; no scoring/source behavior changed after the last accepted code review.
 
-### Location
-`.ai/results/RESULT-011.md`
-
-TASK-011 explicitly requires RESULT-011 to contain, in addition to commands/pass counts:
-- the exact six scoring weights implemented;
-- the exact four confidence weights implemented;
-- a concise explanation of missing-data / `base_score` / `confidence` / `final_score` semantics;
-- known limitations intentionally retained;
-- an explicit no-auto-merge statement.
-
-The current RESULT records the exact focused/full commands and pass counts and accurately describes the latest semantic-registry FIX, but it still omits those required durable contract fields.
-
-This is now an artifact/evidence-only blocker. The reviewed source implementation itself is acceptable for TASK-011.
-
-### Required Fix
-Refresh `.ai/results/RESULT-011.md` without changing scoring behavior. Add durable entries that state at minimum:
-
-- Category weights: `Demand 25`, `Momentum 20`, `Commercial Attractiveness 15`, `Trust 10`, `Contentability 15`, `Competition Opportunity 15`.
-- Confidence weights: `Completeness 0.40`, `Freshness 0.25`, `Source Reliability 0.20`, `Evidence Coverage 0.15`.
-- Missing-data semantics: `base_score` is renormalized over available categories; missing expected signals reduce completeness/confidence rather than double-penalizing `base_score`; `final_score = base_score * confidence`.
-- Known limitations: M2.1 remains offline/synthetic, no real marketplace discovery, no auto-queue, no M3 entity resolution, no content/distribution work.
-- Explicit statement that TASK-011 is not auto-merged.
-
-Preserve the already-correct exact verification evidence:
-- `.\venv\Scripts\python -m pytest tests/product_intelligence/ -v` → 20 passed, exit code 0.
-- `.\venv\Scripts\python -m pytest tests/ -q -W ignore` → 393 passed, exit code 0.
-
-No source-code change is required for this review finding unless the worker discovers a genuine regression while refreshing the result artifact.
-
-## Verification Notes
-The semantic signal identity/provenance blocker is resolved. The evidence-safety blocker is resolved. The deterministic scoring and confidence contracts are acceptable. The task branch remains fast-forward safe against the pinned main baseline.
-
-The previously noted deep immutability of `WinningProductScore.category_scores` remains optional/non-blocking for TASK-011.
+The empty self-diff block inside the final RESULT is treated as non-blocking because this final FIX is itself an artifact-only refresh; GitHub comparison provides the authoritative one-file change evidence above.
 
 ## Decision
-CHANGES_REQUIRED.
+APPROVED.
 
-This is an evidence-only finalization fix. Publish only through this exact updated REVIEW-011 artifact. Do not merge automatically. After the refreshed RESULT is published, request `Review TASK-011` again.
+No merge has been performed. Merge remains an explicit human gate and may proceed only after the user requests `Merge TASK-011`.
