@@ -6,6 +6,7 @@ import pytest
 
 from src.product_intelligence.models import (
     CANONICAL_FACTUAL_SIGNALS,
+    CANONICAL_SEMANTIC_SIGNALS,
     CategoryScore,
     ConfidenceBreakdown,
     DecisionBand,
@@ -192,7 +193,7 @@ def test_normalized_signal_canonical_registry_and_provenance_validations() -> No
     )
     assert sig.score == 0.85
 
-    # Valid semantic inferred signal
+    # Valid semantic inferred signal matching canonical semantic registry
     sem_sig = NormalizedSignal(
         name="visual_demo_potential",
         category=ScoreCategory.CONTENTABILITY,
@@ -200,6 +201,34 @@ def test_normalized_signal_canonical_registry_and_provenance_validations() -> No
         provenance=SignalProvenance.INFERRED,
     )
     assert sem_sig.score == 0.75
+
+    # Valid extensible custom semantic signal in CONTENTABILITY with INFERRED
+    custom_sem_sig = NormalizedSignal(
+        name="custom_unregistered_hook",
+        category=ScoreCategory.CONTENTABILITY,
+        score=0.70,
+        provenance=SignalProvenance.INFERRED,
+    )
+    assert custom_sem_sig.score == 0.70
+
+    # Known semantic signal in factual DEMAND category with OBSERVED provenance (MUST BE REJECTED)
+    with pytest.raises(ValueError, match="Canonical semantic signal 'visual_demo_potential' must belong to category CONTENTABILITY"):
+        NormalizedSignal(
+            name="visual_demo_potential",
+            category=ScoreCategory.DEMAND,
+            score=0.85,
+            provenance=SignalProvenance.OBSERVED,
+            evidence_refs=(ev,),
+        )
+
+    # Known semantic signal in factual DEMAND category with INFERRED provenance (MUST BE REJECTED)
+    with pytest.raises(ValueError, match="Canonical semantic signal 'visual_demo_potential' must belong to category CONTENTABILITY"):
+        NormalizedSignal(
+            name="visual_demo_potential",
+            category=ScoreCategory.DEMAND,
+            score=0.85,
+            provenance=SignalProvenance.INFERRED,
+        )
 
     # Canonical factual signal placed in wrong category (sold_volume in CONTENTABILITY)
     with pytest.raises(ValueError, match="must belong to category DEMAND"):
@@ -229,19 +258,20 @@ def test_normalized_signal_canonical_registry_and_provenance_validations() -> No
             provenance=SignalProvenance.INFERRED,
         )
 
-    # Semantic signal placed in factual category with INFERRED provenance
-    with pytest.raises(ValueError, match="Factual market signal in category DEMAND cannot have INFERRED provenance"):
+    # Semantic signal with OBSERVED provenance in CONTENTABILITY
+    with pytest.raises(ValueError, match="Semantic signal 'visual_demo_potential' cannot have OBSERVED provenance"):
         NormalizedSignal(
             name="visual_demo_potential",
-            category=ScoreCategory.DEMAND,
+            category=ScoreCategory.CONTENTABILITY,
             score=0.85,
-            provenance=SignalProvenance.INFERRED,
+            provenance=SignalProvenance.OBSERVED,
+            evidence_refs=(ev,),
         )
 
-    # Semantic signal with OBSERVED provenance
+    # Custom semantic signal with OBSERVED provenance in CONTENTABILITY
     with pytest.raises(ValueError, match="Semantic signal in category CONTENTABILITY cannot have OBSERVED provenance"):
         NormalizedSignal(
-            name="visual_demo_potential",
+            name="custom_unregistered_hook",
             category=ScoreCategory.CONTENTABILITY,
             score=0.85,
             provenance=SignalProvenance.OBSERVED,

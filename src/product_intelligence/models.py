@@ -46,6 +46,14 @@ CANONICAL_FACTUAL_SIGNALS: Dict[str, ScoreCategory] = {
     "creator_whitespace": ScoreCategory.COMPETITION_OPPORTUNITY,
 }
 
+# Canonical registry of V1 semantic contentability signals
+CANONICAL_SEMANTIC_SIGNALS: Tuple[str, ...] = (
+    "visual_demo_potential",
+    "problem_solution_clarity",
+    "hook_angles",
+    "ugc_creator_appeal",
+)
+
 # Maximum safe scalar length for diagnostic raw value representations
 MAX_RAW_VALUE_REPR_LEN = 120
 
@@ -263,7 +271,9 @@ class NormalizedSignal:
     A platform-agnostic normalized market signal with score in [0.0, 1.0].
     Enforces canonical signal-name to category pairing and strict category-to-provenance boundaries:
     - Canonical factual signals must match their designated category and forbid INFERRED provenance.
-    - Semantic category (CONTENTABILITY) cannot have OBSERVED provenance and cannot use factual signal names.
+    - Canonical semantic signals must belong to CONTENTABILITY and forbid OBSERVED provenance.
+    - Factual categories (DEMAND, MOMENTUM, COMMERCIAL, TRUST, COMPETITION) strictly forbid INFERRED provenance.
+    - Semantic category (CONTENTABILITY) strictly forbids OBSERVED provenance and canonical factual signal names.
     """
     name: str
     category: ScoreCategory
@@ -288,19 +298,30 @@ class NormalizedSignal:
         if not self.name:
             raise ValueError("name cannot be empty")
 
-        # 1. Canonical Signal Name to Category Registry Check
+        # 1. Canonical Factual Signal Name Registry Check
         if self.name in CANONICAL_FACTUAL_SIGNALS:
             expected_cat = CANONICAL_FACTUAL_SIGNALS[self.name]
             if self.category != expected_cat:
                 raise ValueError(
-                    f"Canonical signal {self.name!r} must belong to category {expected_cat.value}, got {self.category.value}"
+                    f"Canonical factual signal {self.name!r} must belong to category {expected_cat.value}, got {self.category.value}"
                 )
             if self.provenance == SignalProvenance.INFERRED:
                 raise ValueError(
                     f"Canonical factual signal {self.name!r} cannot have INFERRED provenance"
                 )
 
-        # 2. Category Provenance Boundary Checks
+        # 2. Canonical Semantic Signal Name Registry Check
+        if self.name in CANONICAL_SEMANTIC_SIGNALS:
+            if self.category != ScoreCategory.CONTENTABILITY:
+                raise ValueError(
+                    f"Canonical semantic signal {self.name!r} must belong to category CONTENTABILITY, got {self.category.value}"
+                )
+            if self.provenance == SignalProvenance.OBSERVED:
+                raise ValueError(
+                    f"Semantic signal {self.name!r} cannot have OBSERVED provenance"
+                )
+
+        # 3. Category Provenance Boundary Checks (for all signals including custom/extensible)
         if self.category == ScoreCategory.CONTENTABILITY:
             if self.provenance == SignalProvenance.OBSERVED:
                 raise ValueError(
@@ -316,7 +337,7 @@ class NormalizedSignal:
                     f"Factual market signal in category {self.category.value} cannot have INFERRED provenance"
                 )
 
-        # 3. MISSING Signal Integrity Check
+        # 4. MISSING Signal Integrity Check
         if self.provenance == SignalProvenance.MISSING:
             if self.score != 0.0:
                 raise ValueError("MISSING signals must have score=0.0")
