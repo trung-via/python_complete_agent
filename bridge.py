@@ -11,7 +11,8 @@ Safety model:
 - Explicit human approval is required before TASK/FIX execution.
 - Implementation may commit/push only to an isolated task branch.
 - This tool NEVER merges.
-- Runtime/config/checkpoint/inbox files are stored OUTSIDE the Git worktree.
+- Runtime/config/checkpoint/inbox/artifacts are stored OUTSIDE the Git worktree.
+- Receiving TASK/REVIEW events NEVER dirties the active Git worktree.
 
 Typical:
     python bridge.py setup --base-branch main
@@ -137,7 +138,15 @@ def get_runtime_paths(repo_root: Path | None = None):
         "seen": rdir / "seen.json",
         "inbox": rdir / "inbox",
         "state": rdir / "state" / "CURRENT_STATE.json",
+        "artifacts": rdir / "artifacts",
+        "history": rdir / "history",
     }
+
+
+def get_artifact_path(path: str, repo_root: Path | None = None) -> Path:
+    """Returns external runtime storage path for synchronized control artifacts."""
+    clean_path = path.lstrip("/\\")
+    return get_runtime_paths(repo_root)["artifacts"] / clean_path
 
 
 def now() -> str:
@@ -184,20 +193,12 @@ def ensure_git():
 
 
 def ensure_dirs():
-    for d in [
-        AI / "tasks",
-        AI / "results",
-        AI / "reviews",
-        AI / "decisions",
-        AI / "history",
-        AI / "context",
-    ]:
-        d.mkdir(parents=True, exist_ok=True)
-
     paths = get_runtime_paths()
     paths["root"].mkdir(parents=True, exist_ok=True)
     paths["inbox"].mkdir(parents=True, exist_ok=True)
     paths["state"].parent.mkdir(parents=True, exist_ok=True)
+    paths["artifacts"].mkdir(parents=True, exist_ok=True)
+    paths["history"].mkdir(parents=True, exist_ok=True)
 
 
 def load_json(path: Path, default):
@@ -258,7 +259,7 @@ def non_ai_dirty_paths():
 def archive_local(path: Path, task_id: int):
     if not path.exists():
         return
-    hdir = AI / "history" / f"TASK-{task_id:03d}"
+    hdir = get_runtime_paths()["history"] / f"TASK-{task_id:03d}"
     hdir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     target = hdir / f"{path.stem}.{ts}{path.suffix}"
@@ -432,20 +433,22 @@ def sync_once(verbose=True):
             continue
 
         content = read_remote_file(cfg, path)
-        local = PROJECT / path
-        local.parent.mkdir(parents=True, exist_ok=True)
+        # Store synchronized inbound control artifacts in external runtime directory
+        # so receiving events NEVER dirties the active Git worktree!
+        dest = get_artifact_path(path)
+        dest.parent.mkdir(parents=True, exist_ok=True)
 
         task_id = parse_task_id(path)
         if (
-            local.exists()
-            and local.read_text(encoding="utf-8", errors="replace") != content
+            dest.exists()
+            and dest.read_text(encoding="utf-8", errors="replace") != content
         ):
             if task_id and ("/results/" in path or "/reviews/" in path):
-                archive_local(local, task_id)
+                archive_local(dest, task_id)
             elif task_id and "/reviews/" in path:
-                archive_local(local, task_id)
+                archive_local(dest, task_id)
 
-        local.write_text(content, encoding="utf-8")
+        dest.write_text(content, encoding="utf-8")
         notification = None
 
         if task_id and path.startswith(".ai/tasks/"):
@@ -457,7 +460,7 @@ def sync_once(verbose=True):
             )
             notification = (
                 "AIOS: TASK mới",
-                f"TASK-{task_id:03d} đã vào repo. Chưa chạy. "
+                f"TASK-{task_id:03d} đã nhận qua bridge. Chưa chạy. "
                 f"Dùng `python bridge.py approve {task_id}` rồi `/aios-worker`.",
                 cfg.get("windows_popup", True),
             )
@@ -470,7 +473,7 @@ def sync_once(verbose=True):
             )
             notification = (
                 "AIOS: REVIEW mới",
-                f"REVIEW-{task_id:03d} đã vào repo. Chưa sửa. "
+                f"REVIEW-{task_id:03d} đã nhận qua bridge. Chưa sửa. "
                 f"Dùng `python bridge.py approve {task_id} --kind review` rồi `/aios-worker`.",
                 cfg.get("windows_popup", True),
             )
@@ -653,15 +656,42 @@ def cmd_context(args):
     task_id = args.task_id
     event = latest_approved(task_id)
     paths = get_runtime_paths()
+
+    task_artifact = get_artifact_path(f".ai/tasks/TASK-{task_id:03d}.md")
+    review_artifact = get_artifact_path(f".ai/reviews/REVIEW-{task_id:03d}.md")
+    project_context_artifact = get_artifact_path(".ai/context/PROJECT_CONTEXT.md")
+    roadmap_artifact = get_artifact_path(".ai/context/ROADMAP.md")
+
+    task_file = (
+        task_artifact
+        if task_artifact.exists()
+        else (AI / "tasks" / f"TASK-{task_id:03d}.md")
+    )
+    review_file = (
+        review_artifact
+        if review_artifact.exists()
+        else (AI / "reviews" / f"REVIEW-{task_id:03d}.md")
+    )
+    project_context = (
+        project_context_artifact
+        if project_context_artifact.exists()
+        else (AI / "context" / "PROJECT_CONTEXT.md")
+    )
+    roadmap = (
+        roadmap_artifact
+        if roadmap_artifact.exists()
+        else (AI / "context" / "ROADMAP.md")
+    )
+
     data = {
         "task_id": f"TASK-{task_id:03d}",
         "approved_event": event,
         "current_branch": current_branch(),
         "expected_branch": f"{cfg['task_branch_prefix']}{task_id:03d}",
-        "task_file": str(AI / "tasks" / f"TASK-{task_id:03d}.md"),
-        "review_file": str(AI / "reviews" / f"REVIEW-{task_id:03d}.md"),
-        "project_context": str(AI / "context" / "PROJECT_CONTEXT.md"),
-        "roadmap": str(AI / "context" / "ROADMAP.md"),
+        "task_file": str(task_file),
+        "review_file": str(review_file),
+        "project_context": str(project_context),
+        "roadmap": str(roadmap),
         "runtime_dir": str(paths["root"]),
         "state_file": str(paths["state"]),
     }
@@ -670,7 +700,6 @@ def cmd_context(args):
 
 def cmd_publish(args):
     ensure_git()
-    ensure_dirs()
     cfg = load_config()
     task_id = args.task_id
     expected = f"{cfg['task_branch_prefix']}{task_id:03d}"
@@ -703,6 +732,7 @@ def cmd_publish(args):
             )
 
     result = AI / "results" / f"RESULT-{task_id:03d}.md"
+    result.parent.mkdir(parents=True, exist_ok=True)
     archive_local(result, task_id)
 
     files = changed_files()
@@ -755,7 +785,6 @@ Exit code: {test_rc}
     result.write_text(result_content, encoding="utf-8")
 
     git("add", "-A")
-    # Runtime files are now outside the repository worktree, but reset any transient .ai subdirs if created
     git(
         "reset",
         "--",

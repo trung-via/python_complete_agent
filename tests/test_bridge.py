@@ -30,6 +30,80 @@ def test_runtime_state_path_is_outside_repository_worktree():
             del os.environ["AIOS_RUNTIME_DIR"]
 
 
+def test_sync_does_not_dirty_worktree_and_provides_context():
+    """Validates that receiving inbound TASK/REVIEW events leaves git status 100% clean."""
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        # Initialize clean git repo
+        subprocess.run(["git", "init", "-b", "main"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "README.md").write_text("# Clean Repo\n", encoding="utf-8")
+        subprocess.run(["git", "add", "README.md"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "initial commit"], cwd=root, check=True, capture_output=True)
+
+        # Confirm worktree starts clean
+        p_init = subprocess.run(["git", "status", "--porcelain"], cwd=root, check=True, capture_output=True, text=True)
+        assert p_init.stdout.strip() == ""
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_git = bridge.git
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            bridge.ensure_dirs()
+            cfg = {
+                "remote": "origin",
+                "base_branch": "main",
+                "control_branch": "ai-control",
+                "task_branch_prefix": "ai/task-",
+                "poll_seconds": 20,
+                "windows_popup": False,
+            }
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            # Mock remote inbound artifacts from control branch
+            inbound_task = (".ai/tasks/TASK-001.md", "1111111111111111111111111111111111111111")
+            inbound_review = (".ai/reviews/REVIEW-001.md", "2222222222222222222222222222222222222222")
+
+            bridge.fetch_control = lambda cfg: None
+            bridge.list_remote_inbound = lambda cfg: [inbound_task, inbound_review]
+            bridge.read_remote_file = lambda cfg, path: f"# Content of {path}\n"
+
+            # Execute sync_once
+            changed = bridge.sync_once(verbose=False)
+            assert len(changed) == 2
+
+            # CRITICAL INVARIANT: Git status in worktree must remain 100% clean!
+            p_status = subprocess.run(["git", "status", "--porcelain"], cwd=root, check=True, capture_output=True, text=True)
+            assert p_status.stdout.strip() == "", f"Git worktree was dirtied by sync: {p_status.stdout}"
+
+            # Pending events are available in external runtime inbox
+            events = bridge.pending_events()
+            assert len(events) == 2
+            kinds = {e["kind"] for e in events}
+            assert kinds == {"TASK", "REVIEW"}
+
+            # Context contains external artifact paths accessible for execution
+            task_artifact = bridge.get_artifact_path(".ai/tasks/TASK-001.md")
+            assert task_artifact.exists()
+            assert "Content of .ai/tasks/TASK-001.md" in task_artifact.read_text(encoding="utf-8")
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.git = old_git
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+
 def test_task_approval_branch_switch_succeeds_with_bridge_runtime_present():
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp) / "repo"
@@ -224,7 +298,8 @@ def test_popup_notification_failure_does_not_break_sync_or_checkpoint():
             changed = bridge.sync_once(verbose=False)
 
             assert changed == [".ai/tasks/TASK-001.md"]
-            assert (root / ".ai/tasks/TASK-001.md").read_text(encoding="utf-8") == "# TASK-001\n"
+            artifact_file = bridge.get_artifact_path(".ai/tasks/TASK-001.md")
+            assert artifact_file.read_text(encoding="utf-8") == "# TASK-001\n"
 
             seen = bridge.load_json(bridge.get_runtime_paths()["seen"], {})
             assert seen[".ai/tasks/TASK-001.md"] == "c" * 40
