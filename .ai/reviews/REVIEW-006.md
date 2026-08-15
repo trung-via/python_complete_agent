@@ -3,104 +3,84 @@
 ## Status
 CHANGES_REQUIRED
 
-## Summary
-TASK-006 implements most of the intended v0.4.0 shape correctly: zero-touch `handoff`, exact artifact metadata, safe local-main reconciliation, durable RESULT evidence, updated watcher UX, and a broad bridge regression suite. The task branch is one commit ahead of `main`, based on current canonical `main`, and the published RESULT reports 275/275 tests passing.
+## Re-review Summary
+The two previous blockers are fixed correctly in commit `7dedfe5a585877e070314fa3ba0abf742fa88229`:
 
-However, there are two blocking safety gaps that violate TASK-006's core acceptance criteria.
+- normal `cmd_publish()` now requires an ACTIVE v0.4.0 authorization and no longer falls back to a historical legacy approval;
+- existing task-branch resume now explicitly classifies identical / behind / ahead / diverged states, fast-forwards only when behind, and fails closed on ahead/diverged ambiguity;
+- `RESULT-006.md` was republished through an exact FIX authorization bound to the current REVIEW-006 blob;
+- the reported full suite is 279/279 passing.
 
-## Blocking Finding 1 — `cmd_publish` still accepts legacy historical approval when no ACTIVE exact authorization exists
+One remaining authorization gap still violates TASK-006's explicit acceptance criteria, plus one smaller malformed-task validation gap should be closed in the same pass.
 
-### Location
-`bridge.py` — `cmd_publish()` authorization gate.
-
-Current behavior:
-
-```python
-auth = get_active_authorization(task_id)
-if not auth:
-    # Fallback to legacy approval check
-    if not latest_approved(task_id):
-        fail("Không có ACTIVE authorization cho task này. Không publish.")
-```
-
-This fallback defeats the v0.4.0 exact-artifact authorization model. A historical v0.3.3 inbox approval can remain present indefinitely and authorize a later publish even when there is no current ACTIVE RUN/FIX authorization bound to the exact current control artifact.
-
-This directly conflicts with TASK-006 requirements:
-- publish must require an ACTIVE authorization;
-- stale historical approval must not authorize unrelated later work;
-- an old RUN approval must not authorize work after a CHANGES_REQUIRED review;
-- publish must verify the current exact TASK/REVIEW blob that the user explicitly authorized.
-
-The current `RESULT-006.md` itself shows `Authorized Artifact: (legacy approval)`, confirming TASK-006 was published through this fallback rather than through the new exact-artifact authorization path.
-
-### Required Fix
-Remove the generic legacy-approval fallback from normal `cmd_publish` authorization.
-
-Acceptable options:
-1. Require ACTIVE v0.4.0 authorization unconditionally for normal publish; or
-2. If a one-time TASK-006 migration bootstrap must remain, scope it narrowly and explicitly to TASK-006 migration only, with deterministic checks that cannot authorize TASK-007+ or later FIX work.
-
-After v0.4.0 behavior is active, `latest_approved()` alone must never authorize publish.
-
-Add regression coverage proving:
-- historical APPROVED inbox event + no ACTIVE authorization => publish fails closed;
-- historical RUN approval cannot authorize publish after a CHANGES_REQUIRED review appears;
-- ACTIVE exact RUN/FIX authorization is still accepted normally.
-
-## Blocking Finding 2 — Existing task-branch resume does not fail closed on local-ahead/diverged ambiguity
+## Blocking Finding 1 — ACTIVE RUN authorization is not invalidated when a CHANGES_REQUIRED review appears
 
 ### Location
-`bridge.py` — `prepare_task_branch()` for both RUN and FIX.
+`bridge.py` — `cmd_publish()` authorization revalidation.
 
-For an existing local branch with a remote counterpart, the code checks only whether local is an ancestor of remote. If yes, it fast-forwards. If that check fails, it simply continues and returns the branch:
+The current publish path correctly revalidates the authorized artifact itself. For a FIX authorization it also re-reads the review and requires `CHANGES_REQUIRED`.
 
-```python
-if local_branch_exists(branch):
-    git("checkout", branch)
-    if branch_exists_remote(remote, branch):
-        ...
-        if p_ancestor.returncode == 0:
-            git("merge", "--ff-only", remote_branch_ref, check=False)
-    return branch
-```
+However, for an ACTIVE RUN authorization, publish only verifies that the authorized TASK blob is still unchanged. It does **not** check whether a current `.ai/reviews/REVIEW-N.md` has appeared with status `CHANGES_REQUIRED` after that RUN authorization was created.
 
-The same pattern exists when the task branch is already current.
+That means this sequence is still technically possible:
 
-Therefore a local task branch that is ahead of remote or diverged from remote is silently resumed instead of failing closed. That violates TASK-006 requirements that existing task branch resume be allowed only when state is safe and unambiguous, with local-ahead/diverged ambiguity rejected rather than rewritten or silently accepted.
+1. RUN handoff creates ACTIVE RUN authorization bound to TASK-N blob A;
+2. a CHANGES_REQUIRED REVIEW-N appears on `ai-control`;
+3. TASK-N blob A itself remains unchanged;
+4. `cmd_publish()` still accepts the ACTIVE RUN authorization because only the TASK blob is revalidated.
 
-This is especially important for FIX: a local-only commit or diverged task branch could cause the worker to modify/publish from code that ChatGPT never reviewed.
+This violates TASK-006's explicit rules:
+
+- `a RUN authorization must never authorize a later FIX`;
+- `do not accept an old RUN approval as authorization after a CHANGES_REQUIRED review`;
+- required test #15: `Old RUN authorization cannot authorize a FIX publish.`
 
 ### Required Fix
-For an existing task branch when remote exists, explicitly classify branch relation:
-- local == remote -> continue;
-- local strictly behind remote -> fast-forward only and verify success;
-- local ahead of remote -> fail closed;
-- local/remote diverged -> fail closed.
+When publishing under action `RUN`, after fetching `ai-control`:
 
-Do this for both RUN resume and FIX resume, including the case where the task branch is already the current branch.
+- inspect the current `.ai/reviews/REVIEW-N.md` if it exists;
+- if its current parsed status is `CHANGES_REQUIRED`, fail closed and require a fresh `/aios-worker FIX TASK-N` handoff;
+- an APPROVED or absent review does not need to convert RUN into FIX; preserve normal RUN behavior;
+- do not silently mutate the authorization action.
 
-Do not use `check=False` on the actual fast-forward merge in a way that can silently ignore failure. If fast-forward fails, abort handoff.
+Preferably also make the worker session action explicit to publish (for example `publish ... --action run|fix`) and require it to match the ACTIVE authorization action. If the existing integration already guarantees that deterministically, the review-presence guard above is the minimum blocker fix.
 
-Add regression coverage for at least:
-- RUN existing task branch local-ahead -> fail;
-- RUN existing task branch diverged -> fail;
-- FIX existing task branch local-ahead -> fail;
-- FIX existing task branch diverged -> fail;
-- local-behind -> successful ff-only;
-- identical -> continue.
+Add regression coverage:
 
-## Additional Review Notes
+- ACTIVE RUN auth + unchanged TASK blob + current CHANGES_REQUIRED REVIEW -> publish fails;
+- ACTIVE RUN auth + no review -> normal publish allowed;
+- ACTIVE FIX auth + exact CHANGES_REQUIRED review -> normal publish allowed.
 
-The safe local-main reconciliation logic is directionally correct: it fetches first, fast-forwards only when local main is strictly behind, and fails on local-main ahead/diverged state.
+## Finding 2 — RUN handoff does not meaningfully reject malformed TASK artifacts
 
-The exact control-artifact revalidation in the ACTIVE authorization path is also correct in principle: publish refetches `ai-control`, compares current blob SHA with the authorized SHA, and revalidates CHANGES_REQUIRED for FIX.
+### Location
+`bridge.py` — `cmd_handoff()` RUN artifact validation.
 
-The durable RESULT artifact is sufficient for the new user experience: ChatGPT can inspect branch HEAD plus `.ai/results/RESULT-N.md` without asking the user to paste the SHA or test output.
+Current validation is effectively only:
+
+```python
+content = read_remote_file(...)
+if not content.strip():
+    fail(...)
+```
+
+TASK-006 requires RUN to fail if TASK-N is `missing or malformed`. A non-empty unrelated Markdown file at `.ai/tasks/TASK-N.md` therefore currently passes.
+
+### Required Fix
+Add a lightweight deterministic validation appropriate to this bridge layer, for example requiring the requested canonical task identity to be present in the task heading / metadata (`TASK-N`) and rejecting obviously mismatched artifacts. Do not build a large schema parser.
+
+Add focused coverage for a non-empty artifact whose task identity does not match the requested TASK id.
+
+## What Is Now Correct
+
+- Previous Finding 1 is fixed: no generic legacy approval fallback remains in normal publish.
+- Previous Finding 2 is fixed: local-ahead/diverged task branches fail closed and ff-only failure is no longer silently ignored.
+- FIX RESULT metadata is now exact-artifact based rather than `(legacy approval)`.
+- Branch is still based on current `main` history with no unrelated app changes.
+- No auto-merge / force update behavior was introduced.
 
 ## Re-review Requirements
-After fixing, publish a new commit on `ai/task-006` and update `RESULT-006.md` through the actual v0.4.0 ACTIVE authorization path. Re-run:
-- focused bridge tests covering the two findings above;
-- full bridge suite;
-- full repository test suite.
 
-The user should then only need to say `Review TASK-006` again. Do not merge automatically.
+After fixing, publish a new commit on `ai/task-006`, update `RESULT-006.md` through the exact current FIX authorization, and run the full repository suite again.
+
+The user should only need to say `Review TASK-006` again. Do not merge automatically.
