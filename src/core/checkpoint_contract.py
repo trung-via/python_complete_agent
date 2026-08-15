@@ -45,6 +45,7 @@ class CheckpointEventType(str, Enum):
     TOOL_CALL_CREATED = "TOOL_CALL_CREATED"
     TOOL_ATTEMPT_STARTED = "TOOL_ATTEMPT_STARTED"
     TOOL_ATTEMPT_ENDED = "TOOL_ATTEMPT_ENDED"
+    RETRY_SCHEDULED = "RETRY_SCHEDULED"
     TOOL_RESULT_RECEIVED = "TOOL_RESULT_RECEIVED"
     TOOL_CALL_REJECTED = "TOOL_CALL_REJECTED"
     LLM_FINAL_RESPONSE = "LLM_FINAL_RESPONSE"
@@ -298,7 +299,11 @@ def validate_state_transition(
         raise CheckpointStateError(event.run_id, current_state, evt_type)
 
     if current_state == RunState.RUNNING:
-        if evt_type in (CheckpointEventType.TASK_START, CheckpointEventType.RUN_STARTED):
+        if evt_type in (
+            CheckpointEventType.TASK_START,
+            CheckpointEventType.RUN_STARTED,
+            CheckpointEventType.RETRY_SCHEDULED,
+        ):
             return RunState.RUNNING
         if evt_type == CheckpointEventType.LLM_REQUESTED:
             return RunState.LLM_WAITING
@@ -335,6 +340,7 @@ def validate_state_transition(
             CheckpointEventType.TOOL_CALL_CREATED,
             CheckpointEventType.TOOL_ATTEMPT_STARTED,
             CheckpointEventType.TOOL_ATTEMPT_ENDED,
+            CheckpointEventType.RETRY_SCHEDULED,
             CheckpointEventType.TOOL_CALL_REJECTED,
         ):
             return RunState.TOOL_EXECUTING

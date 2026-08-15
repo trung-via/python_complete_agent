@@ -1,7 +1,12 @@
 import pytest
 
-from src.core.checkpoint_contract import FailureDomain, RunState
+from src.core.checkpoint_contract import (
+    CheckpointEventType,
+    FailureDomain,
+    RunState,
+)
 from src.core.retry_policy import (
+    FailureClassifier,
     RetryContext,
     RetryDecision,
     RetryOperation,
@@ -164,3 +169,88 @@ def test_decision_immutability_and_determinism():
 
     assert d1 == d2
     assert d1.to_dict() == d2.to_dict()
+
+
+def test_failure_classifier_checkpoint_corruption():
+    from src.core.checkpoint_contract import (
+        CheckpointCorruptionError,
+        CheckpointStateError,
+    )
+
+    err1 = CheckpointCorruptionError("run1", "bad line")
+    domain, transient, code = FailureClassifier.classify(err1)
+    assert domain == FailureDomain.CORRUPTION_INTEGRITY
+    assert transient is False
+    assert code == "CheckpointCorruptionError"
+
+    err2 = CheckpointStateError(
+        "run1", RunState.COMPLETED, CheckpointEventType.TOOL_CALL_CREATED
+    )
+    domain, transient, code = FailureClassifier.classify(err2)
+    assert domain == FailureDomain.CORRUPTION_INTEGRITY
+    assert transient is False
+    assert code == "CheckpointStateError"
+
+
+def test_failure_classifier_system_state_error():
+    from src.core.errors import SystemStateError
+
+    err = SystemStateError("disk write failed")
+    domain, transient, code = FailureClassifier.classify(err)
+    assert domain == FailureDomain.CHECKPOINT_STORE
+    assert transient is False
+    assert code == "SYSTEM_STATE_ERROR"
+
+
+def test_failure_classifier_agent_exception():
+    from src.core.errors import AgentException, RateLimitError
+
+    err_retryable = RateLimitError("too many requests", details={"retry_after": 5.0})
+    domain, transient, code = FailureClassifier.classify(
+        err_retryable, operation=RetryOperation.TOOL
+    )
+    assert domain == FailureDomain.TOOL_EXECUTION
+    assert transient is True
+    assert code == "RATE_LIMIT_ERROR"
+
+    err_fatal = AgentException(
+        "Fatal tool error", code="INVALID_ARGUMENTS", retryable=False
+    )
+    domain, transient, code = FailureClassifier.classify(
+        err_fatal, operation=RetryOperation.TOOL
+    )
+    assert domain == FailureDomain.TOOL_EXECUTION
+    assert transient is False
+    assert code == "INVALID_ARGUMENTS"
+
+
+def test_failure_classifier_timeout():
+    import asyncio
+
+    err1 = asyncio.TimeoutError()
+    domain, transient, code = FailureClassifier.classify(
+        err1, operation=RetryOperation.TOOL
+    )
+    assert domain == FailureDomain.TOOL_EXECUTION
+    assert transient is True
+    assert code == "TIMEOUT"
+
+    err2 = TimeoutError()
+    domain, transient, code = FailureClassifier.classify(
+        err2, operation=RetryOperation.LLM
+    )
+    assert domain == FailureDomain.LLM_PROVIDER
+    assert transient is True
+    assert code == "TIMEOUT"
+
+
+def test_failure_classifier_raw_os_error_not_classified_as_checkpoint_store():
+    # A raw tool OSError should NOT be classified as CHECKPOINT_STORE
+    err = OSError("file not found in tool")
+    domain, transient, code = FailureClassifier.classify(
+        err, operation=RetryOperation.TOOL
+    )
+    assert domain == FailureDomain.TOOL_EXECUTION
+    assert transient is False
+    assert code == "OSError"
+

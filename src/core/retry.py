@@ -43,6 +43,8 @@ class RetryManager:
         operation: Callable, 
         *args, 
         on_attempt_complete: Optional[Callable[[int, str, Optional[str]], None]] = None,
+        on_attempt_start: Optional[Callable[[int], None]] = None,
+        on_retry_scheduled: Optional[Callable[[int, int, float, str, str], None]] = None,
         **kwargs
     ) -> Any:
         """
@@ -50,12 +52,21 @@ class RetryManager:
         Returns the ToolResult of the operation.
         """
         from src.core.types import ToolResult, ToolStatus
+        from src.core.retry_policy import (
+            FailureClassifier,
+            RetryContext,
+            RetryOperation,
+            RetryPolicyEngine,
+        )
         
         attempt = 1
         last_result = None
         last_exception = None
         
         while attempt <= self.policy.max_attempts:
+            if on_attempt_start:
+                on_attempt_start(attempt)
+
             error_to_eval = None
             try:
                 result = await operation(*args, **kwargs)
@@ -96,27 +107,16 @@ class RetryManager:
                 if on_attempt_complete:
                     on_attempt_complete(attempt, "UNEXPECTED_EXCEPTION", str(e))
                 
-            from src.core.checkpoint_contract import FailureDomain
-            from src.core.retry_policy import (
-                RetryContext,
-                RetryOperation,
-                RetryPolicyEngine,
+            target_err = error_to_eval or last_exception
+            failure_domain, is_transient, err_code = FailureClassifier.classify(
+                target_err, operation=RetryOperation.TOOL
             )
-
-            is_transient = False
-            err_code = ""
-            if error_to_eval:
-                is_transient = getattr(error_to_eval, "retryable", True)
-                err_code = getattr(error_to_eval, "code", "")
-            elif last_exception:
-                is_transient = getattr(last_exception, "retryable", False)
-                err_code = getattr(last_exception, "code", "")
 
             ctx = RetryContext(
                 operation=RetryOperation.TOOL,
                 attempt=attempt,
                 max_attempts=self.policy.max_attempts,
-                failure_domain=FailureDomain.TOOL_EXECUTION,
+                failure_domain=failure_domain,
                 error_code=err_code,
                 transient=is_transient,
             )
@@ -138,8 +138,20 @@ class RetryManager:
                     raise last_exception
                 raise RuntimeError("Retry stopped by RetryPolicyEngine.")
 
-            target_err = error_to_eval or (last_exception if isinstance(last_exception, AgentException) else None)
-            delay = self.policy.get_delay(attempt, target_err)
+            delay = self.policy.get_delay(
+                attempt,
+                target_err if isinstance(target_err, AgentException) else None,
+            )
+
+            if on_retry_scheduled:
+                on_retry_scheduled(
+                    attempt,
+                    decision.next_attempt,
+                    delay,
+                    decision.reason.value,
+                    failure_domain.value,
+                )
+
             logger.info(
                 f"RetryPolicyEngine decision: RETRY (attempt {attempt} -> {decision.next_attempt}, "
                 f"delay {delay:.2f}s, reason {decision.reason.value})"

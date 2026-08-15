@@ -160,11 +160,6 @@ class ToolExecutor:
         tool: Any,
         key: RecordKey,
     ) -> ToolResult:
-        self.checkpoints.log_tool_attempt_started(
-            call.run_id,
-            call.call_id,
-        )
-
         try:
             result = await self._execute_with_retry(call, tool)
 
@@ -269,11 +264,6 @@ class ToolExecutor:
             )
             return cached_result
 
-        self.checkpoints.log_tool_attempt_started(
-            call.run_id,
-            call.call_id,
-        )
-
         try:
             result = await self._execute_with_retry(call, tool)
 
@@ -320,7 +310,16 @@ class ToolExecutor:
             )
 
     async def _execute_with_retry(self, call: ToolCall, tool: Any) -> ToolResult:
-        def log_attempt(
+        def on_attempt_start(attempt: int) -> None:
+            self.checkpoints.log_tool_attempt_started(
+                call.run_id,
+                call.call_id,
+                attempt=attempt,
+                tool_name=call.name,
+                arguments=call.arguments,
+            )
+
+        def on_attempt_complete(
             attempt: int,
             status: str,
             error: Optional[str],
@@ -333,11 +332,31 @@ class ToolExecutor:
                 error,
             )
 
+        def on_retry_scheduled(
+            attempt: int,
+            next_attempt: int,
+            delay_seconds: float,
+            reason: str,
+            failure_domain: str,
+        ) -> None:
+            self.checkpoints.log_retry_scheduled(
+                run_id=call.run_id,
+                operation="TOOL",
+                attempt=attempt,
+                next_attempt=next_attempt,
+                delay_seconds=delay_seconds,
+                reason=reason,
+                failure_domain=failure_domain,
+                call_id=call.call_id,
+            )
+
         return await self.retry_manager.execute_with_retry(
             tool.execute,
             call=call,
             context=self.context,
-            on_attempt_complete=log_attempt,
+            on_attempt_start=on_attempt_start,
+            on_attempt_complete=on_attempt_complete,
+            on_retry_scheduled=on_retry_scheduled,
         )
 
     def _complete_v2(

@@ -178,3 +178,60 @@ class RetryPolicyEngine:
             reason=reason,
             failure_domain=context.failure_domain,
         )
+
+
+class FailureClassifier:
+    """
+    Deterministic failure classifier that normalizes exceptions into
+    (FailureDomain, transient: bool, error_code: str) for RetryPolicyEngine.
+    """
+
+    @classmethod
+    def classify(
+        cls,
+        error: Any,
+        operation: RetryOperation = RetryOperation.TOOL,
+    ) -> tuple[FailureDomain, bool, str]:
+        """
+        Classifies an exception or error object into (FailureDomain, transient, error_code).
+        """
+        import asyncio
+        from src.core.checkpoint_contract import (
+            CheckpointCorruptionError,
+            CheckpointStateError,
+            FailureDomain,
+        )
+        from src.core.errors import AgentException, SystemStateError
+
+        default_domain = (
+            FailureDomain.TOOL_EXECUTION
+            if operation == RetryOperation.TOOL
+            else FailureDomain.LLM_PROVIDER
+        )
+
+        if error is None:
+            return (default_domain, False, "UNKNOWN")
+
+        # 1. Checkpoint corruption or state transition integrity error (never retry)
+        if isinstance(error, (CheckpointCorruptionError, CheckpointStateError)):
+            return (FailureDomain.CORRUPTION_INTEGRITY, False, type(error).__name__)
+
+        # 2. System State / Checkpoint Store persistence error (never retry)
+        if isinstance(error, SystemStateError):
+            return (FailureDomain.CHECKPOINT_STORE, False, "SYSTEM_STATE_ERROR")
+
+        # 3. AgentException (preserve exact code and retryable flag)
+        if isinstance(error, AgentException):
+            transient = bool(getattr(error, "retryable", False))
+            code = getattr(error, "code", type(error).__name__)
+            return (default_domain, transient, code)
+
+        # 4. Timeout errors (transient)
+        if isinstance(error, (asyncio.TimeoutError, TimeoutError)):
+            return (default_domain, True, "TIMEOUT")
+
+        # 5. Generic/unknown exceptions (default non-transient unless explicit metadata)
+        transient = bool(getattr(error, "retryable", False))
+        code = getattr(error, "code", type(error).__name__)
+        return (default_domain, transient, code)
+

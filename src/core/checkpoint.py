@@ -112,11 +112,56 @@ class CheckpointManager:
             },
         )
 
-    def log_tool_attempt_started(self, run_id: str, call_id: str) -> None:
+    def log_tool_attempt_started(
+        self,
+        run_id: str,
+        call_id: str,
+        attempt: int = 1,
+        tool_name: Optional[str] = None,
+        arguments: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        payload: Dict[str, Any] = {
+            "call_id": call_id,
+            "attempt": attempt,
+        }
+        if tool_name:
+            payload["tool_name"] = tool_name
+        if arguments is not None:
+            payload["arguments"] = arguments
         self.log_event(
             run_id,
             CheckpointEventType.TOOL_ATTEMPT_STARTED.value,
-            {"call_id": call_id},
+            payload,
+        )
+
+    def log_retry_scheduled(
+        self,
+        run_id: str,
+        operation: str,
+        attempt: int,
+        next_attempt: int,
+        delay_seconds: float,
+        reason: str,
+        failure_domain: str,
+        call_id: Optional[str] = None,
+        error_code: Optional[str] = None,
+    ) -> None:
+        payload: Dict[str, Any] = {
+            "operation": operation,
+            "attempt": attempt,
+            "next_attempt": next_attempt,
+            "delay_seconds": delay_seconds,
+            "reason": reason,
+            "failure_domain": failure_domain,
+        }
+        if call_id:
+            payload["call_id"] = call_id
+        if error_code:
+            payload["error_code"] = error_code
+        self.log_event(
+            run_id,
+            CheckpointEventType.RETRY_SCHEDULED.value,
+            payload,
         )
 
     def log_tool_attempt_ended(

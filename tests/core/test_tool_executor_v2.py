@@ -64,8 +64,13 @@ class FakeRetryManager:
         *,
         call: Any,
         context: Dict[str, Any],
-        on_attempt_complete: Any,
+        on_attempt_complete: Any = None,
+        on_attempt_start: Any = None,
+        on_retry_scheduled: Any = None,
+        **kwargs: Any,
     ) -> ToolResult:
+        if on_attempt_start:
+            on_attempt_start(1)
         try:
             result = await execute(
                 call=call,
@@ -77,18 +82,20 @@ class FakeRetryManager:
                 if isinstance(exc, AgentException)
                 else False
             )
-            on_attempt_complete(
-                1,
-                "FAILURE",
-                str(exc),
-            )
+            if on_attempt_complete:
+                on_attempt_complete(
+                    1,
+                    "FAILURE",
+                    str(exc),
+                )
 
             if retryable:
                 raise
 
             raise
 
-        on_attempt_complete(1, result.status.value, None)
+        if on_attempt_complete:
+            on_attempt_complete(1, result.status.value, None)
         return result
 
 
