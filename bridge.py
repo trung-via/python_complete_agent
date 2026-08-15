@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-AI Engineering OS Lite Bridge v0.3.2
+AI Engineering OS Lite Bridge v0.3.3
 ====================================
 
 Transport layer between:
@@ -13,6 +13,7 @@ Safety model:
 - This tool NEVER merges.
 - Runtime/config/checkpoint/inbox/artifacts are stored OUTSIDE the Git worktree.
 - Receiving TASK/REVIEW events NEVER dirties the active Git worktree.
+- Terminal/non-actionable reviews (e.g. APPROVED) do not create actionable pending work.
 
 Typical:
     python bridge.py setup --base-branch main
@@ -315,9 +316,66 @@ def write_pending(kind: str, task_id: int, path: str, blob_sha: str):
     return target
 
 
+def clear_pending_reviews(task_id: int):
+    """Removes any pending review events for this task once it reaches a terminal status."""
+    inbox = get_runtime_paths()["inbox"]
+    if not inbox.exists():
+        return
+    for f in inbox.glob("*.json"):
+        data = load_json(f, {})
+        raw_tid = str(data.get("task_id", ""))
+        eid = parse_task_id(raw_tid)
+        if eid == task_id and data.get("kind") == "REVIEW":
+            try:
+                f.unlink()
+            except OSError:
+                pass
+
+
 def parse_task_id(path: str):
-    m = re.search(r"(?:TASK|REVIEW)-(\d+)\.md$", path)
+    m = re.search(r"(?:TASK|REVIEW)-(\d+)", path)
     return int(m.group(1)) if m else None
+
+
+def parse_review_status(content: str) -> str | None:
+    """
+    Parses review status from review markdown content.
+    Supports formats:
+      ## Status
+      CHANGES_REQUIRED
+      or
+      ## Status: APPROVED
+      or
+      STATUS: APPROVED
+    """
+    # 1. Header ## Status followed on next non-empty line
+    m = re.search(
+        r"^#{1,3}\s*Status\s*$\s*\n\s*([A-Za-z0-9_]+)",
+        content,
+        re.MULTILINE | re.IGNORECASE,
+    )
+    if m:
+        return m.group(1).upper()
+
+    # 2. Header ## Status: <VALUE>
+    m = re.search(
+        r"^#{1,3}\s*Status\s*:\s*([A-Za-z0-9_]+)",
+        content,
+        re.MULTILINE | re.IGNORECASE,
+    )
+    if m:
+        return m.group(1).upper()
+
+    # 3. Key-value STATUS: <VALUE>
+    m = re.search(
+        r"^\s*STATUS\s*:\s*([A-Za-z0-9_]+)",
+        content,
+        re.MULTILINE | re.IGNORECASE,
+    )
+    if m:
+        return m.group(1).upper()
+
+    return None
 
 
 def update_state(task_id: int, status: str, next_step: str | None = None):
@@ -336,7 +394,7 @@ def update_state(task_id: int, status: str, next_step: str | None = None):
     state["status"] = status
     if next_step is not None:
         state["next_step"] = next_step
-    if status == "CHANGES_REQUIRED":
+    if status in ("CHANGES_REQUIRED", "APPROVED", "REVIEW_RECEIVED"):
         state["last_review"] = f"REVIEW-{task_id:03d}"
     save_json(state_file, state)
 
@@ -433,8 +491,6 @@ def sync_once(verbose=True):
             continue
 
         content = read_remote_file(cfg, path)
-        # Store synchronized inbound control artifacts in external runtime directory
-        # so receiving events NEVER dirties the active Git worktree!
         dest = get_artifact_path(path)
         dest.parent.mkdir(parents=True, exist_ok=True)
 
@@ -465,18 +521,45 @@ def sync_once(verbose=True):
                 cfg.get("windows_popup", True),
             )
         elif task_id and path.startswith(".ai/reviews/"):
-            write_pending("REVIEW", task_id, path, blob_sha)
-            update_state(
-                task_id,
-                "CHANGES_REQUIRED",
-                "Approve review fix before execution",
-            )
-            notification = (
-                "AIOS: REVIEW mới",
-                f"REVIEW-{task_id:03d} đã nhận qua bridge. Chưa sửa. "
-                f"Dùng `python bridge.py approve {task_id} --kind review` rồi `/aios-worker`.",
-                cfg.get("windows_popup", True),
-            )
+            review_status = parse_review_status(content)
+            if review_status == "CHANGES_REQUIRED":
+                write_pending("REVIEW", task_id, path, blob_sha)
+                update_state(
+                    task_id,
+                    "CHANGES_REQUIRED",
+                    "Approve review fix before execution",
+                )
+                notification = (
+                    "AIOS: REVIEW mới",
+                    f"REVIEW-{task_id:03d} yêu cầu sửa đổi (CHANGES_REQUIRED). "
+                    f"Dùng `python bridge.py approve {task_id} --kind review` rồi `/aios-worker`.",
+                    cfg.get("windows_popup", True),
+                )
+            elif review_status == "APPROVED":
+                clear_pending_reviews(task_id)
+                update_state(
+                    task_id,
+                    "APPROVED",
+                    f"REVIEW-{task_id:03d} approved; ready for next task or merge",
+                )
+                notification = (
+                    "AIOS: REVIEW đã duyệt",
+                    f"REVIEW-{task_id:03d} đã APPROVED. Không cần sửa.",
+                    cfg.get("windows_popup", True),
+                )
+            else:
+                # Missing or unrecognized review status -> fail-safe, non-actionable
+                clear_pending_reviews(task_id)
+                update_state(
+                    task_id,
+                    "REVIEW_RECEIVED",
+                    f"REVIEW-{task_id:03d} received (status: {review_status or 'UNSPECIFIED'})",
+                )
+                notification = (
+                    "AIOS: REVIEW cập nhật",
+                    f"REVIEW-{task_id:03d} đã cập nhật (status: {review_status or 'UNSPECIFIED'}).",
+                    cfg.get("windows_popup", True),
+                )
 
         seen[path] = blob_sha
         save_json(paths["seen"], seen)
@@ -550,7 +633,7 @@ def cmd_pending(args):
 def find_latest_event(task_id: int, kind: str | None):
     candidates = []
     for e in pending_events():
-        eid = int(re.search(r"\d+", e.get("task_id", "0")).group())
+        eid = parse_task_id(e.get("task_id", "0"))
         if eid != task_id:
             continue
         if kind and e.get("kind", "").lower() != kind.lower():
@@ -632,7 +715,7 @@ def latest_approved(task_id: int):
     for f in inbox.glob("*.json"):
         d = load_json(f, {})
         try:
-            eid = int(re.search(r"\d+", d.get("task_id", "0")).group())
+            eid = parse_task_id(d.get("task_id", "0"))
         except Exception:
             continue
         if eid == task_id and d.get("approval") == "APPROVED":
@@ -818,7 +901,7 @@ Exit code: {test_rc}
 
 
 def build_parser():
-    p = argparse.ArgumentParser(description="AI Engineering OS Lite Bridge v0.3.2")
+    p = argparse.ArgumentParser(description="AI Engineering OS Lite Bridge v0.3.3")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     s = sub.add_parser("setup", help="Configure GitHub control branch")
