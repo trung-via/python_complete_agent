@@ -21,6 +21,7 @@ class BudgetDimension(str, Enum):
 class BudgetUsage:
     iterations_used: int
     tool_calls_used: int
+    seen_tool_call_ids: frozenset[str] = frozenset()
     elapsed_seconds: float = 0.0
 
 
@@ -120,6 +121,7 @@ class RunBudgetEngine:
         return BudgetUsage(
             iterations_used=iter_count,
             tool_calls_used=len(logical_tool_call_ids),
+            seen_tool_call_ids=frozenset(logical_tool_call_ids),
             elapsed_seconds=0.0,
         )
 
@@ -129,3 +131,4 @@ class RunBudgetEngine:
         from src.agent.replay_engine import ReplayEngine
         events = ReplayEngine.load_events_for_run(db_path, run_id)
         return cls.reconstruct_usage(events)
+

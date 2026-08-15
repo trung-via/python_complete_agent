@@ -79,6 +79,7 @@ class AgentLoop:
 
         iterations_used = 0
         tool_calls_used = 0
+        seen_tool_call_ids: set[str] = set()
 
         messages: List[LLMMessage] = [
             LLMMessage(role=MessageRole.SYSTEM, content=system_prompt),
@@ -97,7 +98,11 @@ class AgentLoop:
             # 1. Check Iteration Budget
             decision = RunBudgetEngine.decide(
                 self.policy,
-                BudgetUsage(iterations_used=iterations_used, tool_calls_used=tool_calls_used),
+                BudgetUsage(
+                    iterations_used=iterations_used,
+                    tool_calls_used=tool_calls_used,
+                    seen_tool_call_ids=frozenset(seen_tool_call_ids),
+                ),
                 requested_iterations=1,
             )
             if not decision.allowed:
@@ -172,22 +177,29 @@ class AgentLoop:
                     logger.info(f"Run {run_id} cancelled during tool batch: {token.reason}")
                     return None
 
-                # Check Tool Call Budget
-                decision = RunBudgetEngine.decide(
-                    self.policy,
-                    BudgetUsage(iterations_used=iterations_used, tool_calls_used=tool_calls_used),
-                    requested_tool_calls=1,
-                )
-                if not decision.allowed:
-                    logger.warning(
-                        f"Run {run_id} halted: {decision.reason} "
-                        f"(used {iterations_used}/{self.policy.max_iterations} iterations, "
-                        f"{tool_calls_used}/{self.policy.max_tool_calls} tool calls)."
+                # Check Tool Call Budget (only charge new logical tool calls)
+                is_new_call = p_call.provider_call_id not in seen_tool_call_ids
+                if is_new_call:
+                    decision = RunBudgetEngine.decide(
+                        self.policy,
+                        BudgetUsage(
+                            iterations_used=iterations_used,
+                            tool_calls_used=tool_calls_used,
+                            seen_tool_call_ids=frozenset(seen_tool_call_ids),
+                        ),
+                        requested_tool_calls=1,
                     )
-                    self.checkpoints.log_run_halted(run_id, decision.reason or "MAX_TOOL_CALLS_REACHED")
-                    return None
+                    if not decision.allowed:
+                        logger.warning(
+                            f"Run {run_id} halted: {decision.reason} "
+                            f"(used {iterations_used}/{self.policy.max_iterations} iterations, "
+                            f"{tool_calls_used}/{self.policy.max_tool_calls} tool calls)."
+                        )
+                        self.checkpoints.log_run_halted(run_id, decision.reason or "MAX_TOOL_CALLS_REACHED")
+                        return None
 
-                tool_calls_used += 1
+                    tool_calls_used += 1
+                    seen_tool_call_ids.add(p_call.provider_call_id)
 
                 call = ToolCall(
                     name=p_call.name,
@@ -289,11 +301,32 @@ class AgentLoop:
         messages = list(session.messages)
         tools_schema = self.tool_registry.get_tools_schema()
 
-        # Reconstruct prior budget usage from durable checkpoint events
+        # Reconstruct authoritative prior budget usage from durable checkpoint events
         events = ReplayEngine.load_events_for_run(self.checkpoints.db_path, run_id)
         prior_usage = RunBudgetEngine.reconstruct_usage(events)
         iterations_used = prior_usage.iterations_used
-        tool_calls_used = len(session.completed_tool_calls)
+        tool_calls_used = prior_usage.tool_calls_used
+        seen_tool_call_ids: set[str] = set(prior_usage.seen_tool_call_ids)
+
+        # 0. Check if durable reconstructed usage is ALREADY beyond policy limits
+        initial_decision = RunBudgetEngine.decide(
+            self.policy,
+            BudgetUsage(
+                iterations_used=iterations_used,
+                tool_calls_used=tool_calls_used,
+                seen_tool_call_ids=frozenset(seen_tool_call_ids),
+            ),
+            requested_iterations=0,
+            requested_tool_calls=0,
+        )
+        if not initial_decision.allowed:
+            logger.warning(
+                f"Resumed run {run_id} halted: {initial_decision.reason} "
+                f"(prior durable usage: {iterations_used}/{self.policy.max_iterations} iterations, "
+                f"{tool_calls_used}/{self.policy.max_tool_calls} tool calls)."
+            )
+            self.checkpoints.log_run_halted(run_id, initial_decision.reason or "MAX_TOOL_CALLS_REACHED")
+            return None
 
         # 1. Process pending tool calls if any
         if session.pending_tool_calls:
@@ -304,22 +337,30 @@ class AgentLoop:
                     logger.info(f"Resumed run {run_id} cancelled during pending tool batch: {token.reason}")
                     return None
 
-                # Check Tool Call Budget before executing pending tool
-                decision = RunBudgetEngine.decide(
-                    self.policy,
-                    BudgetUsage(iterations_used=iterations_used, tool_calls_used=tool_calls_used),
-                    requested_tool_calls=1,
-                )
-                if not decision.allowed:
-                    logger.warning(
-                        f"Resumed run {run_id} halted: {decision.reason} "
-                        f"(used {iterations_used}/{self.policy.max_iterations} iterations, "
-                        f"{tool_calls_used}/{self.policy.max_tool_calls} tool calls)."
+                # Check if this pending tool call is newly seen or already accounted for in durable usage
+                is_new_call = cid not in seen_tool_call_ids
+                if is_new_call:
+                    decision = RunBudgetEngine.decide(
+                        self.policy,
+                        BudgetUsage(
+                            iterations_used=iterations_used,
+                            tool_calls_used=tool_calls_used,
+                            seen_tool_call_ids=frozenset(seen_tool_call_ids),
+                        ),
+                        requested_tool_calls=1,
                     )
-                    self.checkpoints.log_run_halted(run_id, decision.reason or "MAX_TOOL_CALLS_REACHED")
-                    return None
+                    if not decision.allowed:
+                        logger.warning(
+                            f"Resumed run {run_id} halted: {decision.reason} "
+                            f"(used {iterations_used}/{self.policy.max_iterations} iterations, "
+                            f"{tool_calls_used}/{self.policy.max_tool_calls} tool calls)."
+                        )
+                        self.checkpoints.log_run_halted(run_id, decision.reason or "MAX_TOOL_CALLS_REACHED")
+                        return None
 
-                tool_calls_used += 1
+                    tool_calls_used += 1
+                    seen_tool_call_ids.add(cid)
+
                 is_last_in_batch = idx == len(pending_items) - 1
                 try:
                     result: ToolResult = await self.tool_executor.execute(p_call)
@@ -365,7 +406,11 @@ class AgentLoop:
             # Check Iteration Budget
             decision = RunBudgetEngine.decide(
                 self.policy,
-                BudgetUsage(iterations_used=iterations_used, tool_calls_used=tool_calls_used),
+                BudgetUsage(
+                    iterations_used=iterations_used,
+                    tool_calls_used=tool_calls_used,
+                    seen_tool_call_ids=frozenset(seen_tool_call_ids),
+                ),
                 requested_iterations=1,
             )
             if not decision.allowed:
@@ -436,21 +481,28 @@ class AgentLoop:
                     logger.info(f"Resumed run {run_id} cancelled during tool batch: {token.reason}")
                     return None
 
-                decision = RunBudgetEngine.decide(
-                    self.policy,
-                    BudgetUsage(iterations_used=iterations_used, tool_calls_used=tool_calls_used),
-                    requested_tool_calls=1,
-                )
-                if not decision.allowed:
-                    logger.warning(
-                        f"Resumed run {run_id} halted: {decision.reason} "
-                        f"(used {iterations_used}/{self.policy.max_iterations} iterations, "
-                        f"{tool_calls_used}/{self.policy.max_tool_calls} tool calls)."
+                is_new_call = p_call.provider_call_id not in seen_tool_call_ids
+                if is_new_call:
+                    decision = RunBudgetEngine.decide(
+                        self.policy,
+                        BudgetUsage(
+                            iterations_used=iterations_used,
+                            tool_calls_used=tool_calls_used,
+                            seen_tool_call_ids=frozenset(seen_tool_call_ids),
+                        ),
+                        requested_tool_calls=1,
                     )
-                    self.checkpoints.log_run_halted(run_id, decision.reason or "MAX_TOOL_CALLS_REACHED")
-                    return None
+                    if not decision.allowed:
+                        logger.warning(
+                            f"Resumed run {run_id} halted: {decision.reason} "
+                            f"(used {iterations_used}/{self.policy.max_iterations} iterations, "
+                            f"{tool_calls_used}/{self.policy.max_tool_calls} tool calls)."
+                        )
+                        self.checkpoints.log_run_halted(run_id, decision.reason or "MAX_TOOL_CALLS_REACHED")
+                        return None
 
-                tool_calls_used += 1
+                    tool_calls_used += 1
+                    seen_tool_call_ids.add(p_call.provider_call_id)
 
                 call = ToolCall(
                     name=p_call.name,
@@ -494,4 +546,5 @@ class AgentLoop:
                     logger.critical(f"SystemStateError during tool execution: {e}")
                     self.checkpoints.log_run_halted(run_id, f"SYSTEM_STATE_ERROR: {e}")
                     return None
+
 

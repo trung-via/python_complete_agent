@@ -616,3 +616,153 @@ async def test_tool_retry_attempts_do_not_inflate_logical_tool_call_budget(tmp_p
     assert usage.tool_calls_used == 1  # Exactly 1 logical tool call!
 
 
+@pytest.mark.asyncio
+async def test_completed_call_a_plus_replayed_pending_call_a_counts_as_one_logical_tool_call(tmp_path: Any):
+    """
+    Regression Test 2:
+    Completed call_id=A + replayed/pending call_id=A counts as exactly 1 logical tool call
+    and does NOT halt at max_tool_calls=1 merely because A is pending again.
+    """
+    cp_path = str(tmp_path / "checkpoints.jsonl")
+    checkpoints = CheckpointManager(db_path=cp_path)
+
+    run_id = "run-replayed-pending-same-id"
+    checkpoints.log_run_started(run_id, "sys", "user")
+    checkpoints.log_llm_requested(run_id, iteration=1)
+    checkpoints.log_llm_responded(
+        run_id,
+        iteration=1,
+        content=None,
+        num_tool_calls=1,
+        tool_calls=[{"call_id": "call_A", "name": "test_tool", "arguments": {"x": 1}}],
+    )
+    # A was completed
+    checkpoints.log_tool_result_received(run_id, "call_A", "success", tool_name="test_tool", result={"status": "success"})
+
+    # Later event has call_A pending again in session replay
+    checkpoints.log_llm_requested(run_id, iteration=2)
+    checkpoints.log_llm_responded(
+        run_id,
+        iteration=2,
+        content=None,
+        num_tool_calls=1,
+        tool_calls=[{"call_id": "call_A", "name": "test_tool", "arguments": {"x": 1}}],
+    )
+    # Process crashes before call_A result in iter 2
+
+    # Policy max_tool_calls=1.
+    policy = RunPolicy(max_iterations=5, max_tool_calls=1, timeout_seconds=10)
+    tool = CountingTool()
+    responses = [
+        LLMResponse(provider="mock", provider_response_id="3", content="Final Answer Replayed A", tool_calls=[]),
+    ]
+    loop, _ = _setup_loop(tmp_path, responses, tool, policy)
+
+    # Resume must succeed because call_A is the same logical tool call (budget used == 1/1)
+    res = await loop.resume(run_id)
+    assert res == "Final Answer Replayed A"
+
+    from src.agent.replay_engine import ReplayEngine
+    events = ReplayEngine.load_events_for_run(checkpoints.db_path, run_id)
+    usage = RunBudgetEngine.reconstruct_usage(events)
+    assert usage.tool_calls_used == 1
+
+
+@pytest.mark.asyncio
+async def test_distinct_pending_call_b_after_completed_call_a_blocked_when_limit_is_one(tmp_path: Any):
+    """
+    Regression Test 3:
+    Distinct pending call_id=B after completed A consumes the 2nd unit and is blocked when limit is 1.
+    """
+    cp_path = str(tmp_path / "checkpoints.jsonl")
+    checkpoints = CheckpointManager(db_path=cp_path)
+
+    run_id = "run-distinct-pending-b"
+    checkpoints.log_run_started(run_id, "sys", "user")
+    checkpoints.log_llm_requested(run_id, iteration=1)
+    checkpoints.log_llm_responded(
+        run_id,
+        iteration=1,
+        content=None,
+        num_tool_calls=1,
+        tool_calls=[{"call_id": "call_A", "name": "test_tool", "arguments": {"x": 1}}],
+    )
+    checkpoints.log_tool_result_received(run_id, "call_A", "success", tool_name="test_tool", result={"status": "success"})
+
+    # Iteration 2 requests distinct call_B, crashes before result
+    checkpoints.log_llm_requested(run_id, iteration=2)
+    checkpoints.log_llm_responded(
+        run_id,
+        iteration=2,
+        content=None,
+        num_tool_calls=1,
+        tool_calls=[{"call_id": "call_B", "name": "test_tool", "arguments": {"x": 2}}],
+    )
+
+    policy = RunPolicy(max_iterations=5, max_tool_calls=1, timeout_seconds=10)
+    tool = CountingTool()
+    responses = []
+    loop, _ = _setup_loop(tmp_path, responses, tool, policy)
+
+    # Resume must halt with MAX_TOOL_CALLS_REACHED before executing call_B
+    res = await loop.resume(run_id)
+    assert res is None
+    assert tool.execute_count == 0  # call_B was NOT executed
+
+    from src.agent.replay_engine import ReplayEngine
+    events = ReplayEngine.load_events_for_run(checkpoints.db_path, run_id)
+    assert any(e.event_type == CheckpointEventType.RUN_HALTED and e.payload.get("reason") == "MAX_TOOL_CALLS_REACHED" for e in events)
+
+
+@pytest.mark.asyncio
+async def test_durable_usage_already_above_tool_limit_halts_before_executing_pending_tool(tmp_path: Any):
+    """
+    Regression Test 5:
+    Durable usage already above configured limit halts before further pending tool execution.
+    """
+    cp_path = str(tmp_path / "checkpoints.jsonl")
+    checkpoints = CheckpointManager(db_path=cp_path)
+
+    run_id = "run-durable-already-exceeded"
+    checkpoints.log_run_started(run_id, "sys", "user")
+    checkpoints.log_llm_requested(run_id, iteration=1)
+    checkpoints.log_llm_responded(
+        run_id,
+        iteration=1,
+        content=None,
+        num_tool_calls=2,
+        tool_calls=[
+            {"call_id": "call_1", "name": "test_tool", "arguments": {"x": 1}},
+            {"call_id": "call_2", "name": "test_tool", "arguments": {"x": 2}},
+        ],
+    )
+    checkpoints.log_tool_result_received(run_id, "call_1", "success", tool_name="test_tool", result={"status": "success"}, iteration_complete=False)
+    checkpoints.log_tool_result_received(run_id, "call_2", "success", tool_name="test_tool", result={"status": "success"}, iteration_complete=True)
+
+    # Iteration 2 has pending call_3
+    checkpoints.log_llm_requested(run_id, iteration=2)
+    checkpoints.log_llm_responded(
+        run_id,
+        iteration=2,
+        content=None,
+        num_tool_calls=1,
+        tool_calls=[{"call_id": "call_3", "name": "test_tool", "arguments": {"x": 3}}],
+    )
+
+    # Policy max_tool_calls=2 (durable usage is 3 distinct calls)
+    policy = RunPolicy(max_iterations=5, max_tool_calls=2, timeout_seconds=10)
+    tool = CountingTool()
+    responses = []
+    loop, _ = _setup_loop(tmp_path, responses, tool, policy)
+
+    # Resume must halt immediately before executing call_3
+    res = await loop.resume(run_id)
+    assert res is None
+    assert tool.execute_count == 0
+
+    from src.agent.replay_engine import ReplayEngine
+    events = ReplayEngine.load_events_for_run(checkpoints.db_path, run_id)
+    assert any(e.event_type == CheckpointEventType.RUN_HALTED and e.payload.get("reason") == "MAX_TOOL_CALLS_REACHED" for e in events)
+
+
+
