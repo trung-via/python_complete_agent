@@ -708,6 +708,12 @@ def cmd_handoff(args):
         if not content.strip():
             fail(f"Task artifact '{artifact_rel}' bị rỗng.")
 
+        task_ident = f"TASK-{task_id:03d}"
+        if not re.search(rf"\b{re.escape(task_ident)}\b", content, re.IGNORECASE):
+            fail(
+                f"Task artifact '{artifact_rel}' bị malformed (không tìm thấy định danh {task_ident})."
+            )
+
         dest = get_artifact_path(artifact_rel)
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(content, encoding="utf-8")
@@ -1142,6 +1148,13 @@ def cmd_publish(args):
             f"Cần chạy `/aios-worker RUN TASK-{task_id:03d}` hoặc `/aios-worker FIX TASK-{task_id:03d}` trước khi publish."
         )
 
+    if getattr(args, "action", None):
+        req_action = args.action.upper()
+        if auth["action"] != req_action:
+            fail(
+                f"Yêu cầu publish action '{req_action}' không khớp với ACTIVE authorization action '{auth['action']}'."
+            )
+
     # Re-validate against current control branch
     fetch_control(cfg)
     current_blob = get_remote_blob_sha(cfg, auth["artifact_path"])
@@ -1151,7 +1164,19 @@ def cmd_publish(args):
             f"Cần chạy lại `/aios-worker {auth['action']} TASK-{task_id:03d}`."
         )
 
-    if auth["action"] == "FIX":
+    if auth["action"] == "RUN":
+        review_rel = f".ai/reviews/REVIEW-{task_id:03d}.md"
+        review_blob = get_remote_blob_sha(cfg, review_rel)
+        if review_blob:
+            review_content = read_remote_file(cfg, review_rel)
+            status = parse_review_status(review_content)
+            if status == "CHANGES_REQUIRED":
+                fail(
+                    f"Đã có REVIEW-{task_id:03d} yêu cầu sửa đổi (CHANGES_REQUIRED) trên control branch. "
+                    f"Không thể dùng RUN authorization để publish. Cần chạy `/aios-worker FIX TASK-{task_id:03d}`."
+                )
+
+    elif auth["action"] == "FIX":
         content = read_remote_file(cfg, auth["artifact_path"])
         status = parse_review_status(content)
         if status != "CHANGES_REQUIRED":
@@ -1380,6 +1405,7 @@ def build_parser():
         "publish", help="Run tests, create RESULT, commit and push task branch"
     )
     s.add_argument("task_id", type=int)
+    s.add_argument("--action", choices=["run", "fix", "RUN", "FIX"])
     s.add_argument("--test")
     s.add_argument("--summary")
     s.add_argument("--notes")

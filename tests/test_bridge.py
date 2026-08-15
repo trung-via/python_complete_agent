@@ -811,7 +811,7 @@ def test_publish_consumes_active_authorization_and_creates_result_with_test_evid
             bridge.save_authorization(6, auth)
 
             bridge.fetch_control = lambda cfg: None
-            bridge.get_remote_blob_sha = lambda cfg, path: "c" * 40
+            bridge.get_remote_blob_sha = lambda cfg, path: "c" * 40 if "tasks" in path else None
 
             # Mock git push
             bridge.git = lambda *args, **kw: (
@@ -822,6 +822,7 @@ def test_publish_consumes_active_authorization_and_creates_result_with_test_evid
 
             bridge.cmd_publish(type("Args", (), {
                 "task_id": 6,
+                "action": None,
                 "test": "echo '264 passed in 20.86s'",
                 "summary": "Completed TASK-006",
                 "notes": "Safe zero-touch workflow verified",
@@ -899,11 +900,12 @@ def test_publish_preserves_active_authorization_when_tests_fail():
             bridge.save_authorization(6, auth)
 
             bridge.fetch_control = lambda cfg: None
-            bridge.get_remote_blob_sha = lambda cfg, path: "d" * 40
+            bridge.get_remote_blob_sha = lambda cfg, path: "d" * 40 if "tasks" in path else None
 
             with pytest.raises(SystemExit):
                 bridge.cmd_publish(type("Args", (), {
                     "task_id": 6,
+                    "action": None,
                     "test": "python -c 'import sys; sys.exit(1)'",
                     "summary": "Failing test run",
                     "notes": None,
@@ -1273,4 +1275,188 @@ def test_existing_task_branch_resume_fast_forwards_when_local_strictly_behind():
         finally:
             bridge.PROJECT = old_project
             bridge.AI = old_ai
+
+
+def test_publish_fails_when_active_run_auth_has_changes_required_review_on_control():
+    """Validates: An active RUN auth is rejected during publish if CHANGES_REQUIRED review exists on control."""
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "ai/task-006"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "README.md").write_text("# Repo\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_fetch = bridge.fetch_control
+        old_blob = bridge.get_remote_blob_sha
+        old_read = bridge.read_remote_file
+
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            bridge.ensure_dirs()
+            cfg = {
+                "remote": "origin",
+                "base_branch": "main",
+                "control_branch": "ai-control",
+                "task_branch_prefix": "ai/task-",
+                "poll_seconds": 20,
+                "windows_popup": False,
+            }
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            auth = {
+                "task_id": "TASK-006",
+                "action": "RUN",
+                "kind": "TASK",
+                "artifact_path": ".ai/tasks/TASK-006.md",
+                "artifact_blob_sha": "a" * 40,
+                "approved_at": bridge.now(),
+                "branch": "ai/task-006",
+                "status": "ACTIVE",
+            }
+            bridge.save_authorization(6, auth)
+
+            bridge.fetch_control = lambda cfg: None
+            # TASK blob unchanged
+            bridge.get_remote_blob_sha = lambda cfg, path: "a" * 40 if "tasks" in path else "r" * 40
+            bridge.read_remote_file = lambda cfg, path: (
+                "# TASK-006\n" if "tasks" in path else "# REVIEW-006\n## Status\nCHANGES_REQUIRED\n"
+            )
+
+            with pytest.raises(SystemExit):
+                bridge.cmd_publish(type("Args", (), {
+                    "task_id": 6,
+                    "action": None,
+                    "test": None,
+                    "summary": "test",
+                    "notes": None,
+                    "message": None,
+                })())
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.fetch_control = old_fetch
+            bridge.get_remote_blob_sha = old_blob
+            bridge.read_remote_file = old_read
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+
+def test_publish_fails_when_action_argument_mismatches_active_authorization():
+    """Validates: Explicit action argument mismatch fails publish."""
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "ai/task-006"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "README.md").write_text("# Repo\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            bridge.ensure_dirs()
+            cfg = {
+                "remote": "origin",
+                "base_branch": "main",
+                "control_branch": "ai-control",
+                "task_branch_prefix": "ai/task-",
+                "poll_seconds": 20,
+                "windows_popup": False,
+            }
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            auth = {
+                "task_id": "TASK-006",
+                "action": "RUN",
+                "kind": "TASK",
+                "artifact_path": ".ai/tasks/TASK-006.md",
+                "artifact_blob_sha": "a" * 40,
+                "approved_at": bridge.now(),
+                "branch": "ai/task-006",
+                "status": "ACTIVE",
+            }
+            bridge.save_authorization(6, auth)
+
+            # Request action="fix" while auth is "RUN" -> fails closed
+            with pytest.raises(SystemExit):
+                bridge.cmd_publish(type("Args", (), {
+                    "task_id": 6,
+                    "action": "fix",
+                    "test": None,
+                    "summary": "mismatch",
+                    "notes": None,
+                    "message": None,
+                })())
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+
+def test_handoff_run_fails_when_task_artifact_is_malformed():
+    """Validates Finding 2: RUN handoff fails closed when task artifact is missing canonical TASK-N identifier."""
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_fetch = bridge.fetch_control
+        old_blob = bridge.get_remote_blob_sha
+        old_read = bridge.read_remote_file
+        old_ensure = bridge.ensure_git
+
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            bridge.ensure_git = lambda: None
+            bridge.ensure_dirs()
+            cfg = {"windows_popup": False, "remote": "origin", "control_branch": "ai-control"}
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            bridge.fetch_control = lambda cfg: None
+            bridge.get_remote_blob_sha = lambda cfg, path: "x" * 40
+            # Non-empty content but missing TASK-006 identifier
+            bridge.read_remote_file = lambda cfg, path: "# Random Document\n\nSome unrelated content without task id."
+
+            with pytest.raises(SystemExit):
+                bridge.cmd_handoff(type("Args", (), {"task_id": 6, "action": "run"})())
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.fetch_control = old_fetch
+            bridge.get_remote_blob_sha = old_blob
+            bridge.read_remote_file = old_read
+            bridge.ensure_git = old_ensure
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
 
