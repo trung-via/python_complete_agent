@@ -88,6 +88,12 @@ def test_controller_concurrent_cancel():
         for tok in results:
             assert tok.is_cancelled is True
 
+        # Assert exactly ONE RUN_HALTED checkpoint entry is persisted across all concurrent callers
+        with open(db_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        halted_count = sum(1 for line in lines if "RUN_HALTED" in line)
+        assert halted_count == 1
+
 
 def test_controller_checkpoint_write_failure_preserves_uncancelled_memory():
     manager = CheckpointManager(db_path="/invalid_dir_xxx/checkpoints.jsonl")

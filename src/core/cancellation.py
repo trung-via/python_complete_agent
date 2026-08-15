@@ -67,7 +67,7 @@ class RunCancellationController:
     def __init__(self, checkpoints: CheckpointManager) -> None:
         self.checkpoints = checkpoints
         self._tokens: Dict[str, CancellationToken] = {}
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
 
     def get_token(self, run_id: str) -> CancellationToken:
         with self._lock:
@@ -81,20 +81,21 @@ class RunCancellationController:
         reason: str = "CANCELLED_BY_USER",
         event: ControlEvent = ControlEvent.CANCEL,
     ) -> CancellationToken:
-        token = self.get_token(run_id)
+        with self._lock:
+            token = self.get_token(run_id)
 
-        # Idempotency check: if already cancelled, return existing token
-        if token.is_cancelled:
+            # Idempotency check: if already cancelled, return existing token
+            if token.is_cancelled:
+                return token
+
+            cancel_reason = CancellationReason(event=event, reason=reason)
+
+            # 1. Commit durable RUN_HALTED checkpoint FIRST
+            self.checkpoints.log_run_halted(
+                run_id,
+                reason=f"{event.value}: {reason}",
+            )
+
+            # 2. Update memory ONLY AFTER checkpoint write succeeds
+            token._mark_cancelled(cancel_reason)
             return token
-
-        cancel_reason = CancellationReason(event=event, reason=reason)
-
-        # 1. Commit durable RUN_HALTED checkpoint FIRST
-        self.checkpoints.log_run_halted(
-            run_id,
-            reason=f"{event.value}: {reason}",
-        )
-
-        # 2. Update memory ONLY AFTER checkpoint write succeeds
-        token._mark_cancelled(cancel_reason)
-        return token

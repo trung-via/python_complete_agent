@@ -17,7 +17,7 @@ class RetryPolicy:
     def get_delay(self, attempt: int, error: Optional[AgentException] = None) -> float:
         """Calculates the backoff delay based on attempt and error type."""
         # Special case: Respect RateLimit Retry-After if provided in details
-        if error and error.code == "RATE_LIMIT" and error.details:
+        if error and error.code in ("RATE_LIMIT", "RATE_LIMIT_ERROR") and error.details:
             retry_after = error.details.get("retry_after")
             if retry_after:
                 return float(retry_after)
@@ -138,7 +138,8 @@ class RetryManager:
                     raise last_exception
                 raise RuntimeError("Retry stopped by RetryPolicyEngine.")
 
-            delay = decision.delay_seconds
+            target_err = error_to_eval or (last_exception if isinstance(last_exception, AgentException) else None)
+            delay = self.policy.get_delay(attempt, target_err)
             logger.info(
                 f"RetryPolicyEngine decision: RETRY (attempt {attempt} -> {decision.next_attempt}, "
                 f"delay {delay:.2f}s, reason {decision.reason.value})"

@@ -127,3 +127,72 @@ def test_retry_policy_engine_max_attempts_boundary_stops():
     assert decision.should_retry is False
     assert decision.reason == RetryReason.MAX_ATTEMPTS_EXCEEDED
     assert decision.next_attempt == 3
+
+
+@pytest.mark.asyncio
+async def test_retry_manager_respects_rate_limit_retry_after(monkeypatch: pytest.MonkeyPatch):
+    slept_delays = []
+
+    async def mock_sleep(delay: float):
+        slept_delays.append(delay)
+
+    monkeypatch.setattr(asyncio, "sleep", mock_sleep)
+
+    retry_mgr = RetryManager(default_policy=RetryPolicy(max_attempts=3, base_delay=2.0))
+
+    call_count = 0
+
+    async def rate_limited_op():
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            from src.core.errors import RateLimitError
+            raise RateLimitError("Rate limit exceeded", details={"retry_after": 7.5})
+        return "success_val"
+
+    result = await retry_mgr.execute_with_retry(rate_limited_op)
+
+    assert result == "success_val"
+    assert call_count == 2
+    assert slept_delays == [7.5]
+
+
+@pytest.mark.asyncio
+async def test_retry_manager_respects_rate_limit_retry_after_tool_result(monkeypatch: pytest.MonkeyPatch):
+    slept_delays = []
+
+    async def mock_sleep(delay: float):
+        slept_delays.append(delay)
+
+    monkeypatch.setattr(asyncio, "sleep", mock_sleep)
+
+    retry_mgr = RetryManager(default_policy=RetryPolicy(max_attempts=3, base_delay=2.0))
+
+    call_count = 0
+
+    async def rate_limited_tool():
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            from src.core.errors import RateLimitError
+            return ToolResult(
+                call_id="c1",
+                run_id="r1",
+                tool_name="t1",
+                status=ToolStatus.FAILURE,
+                error=RateLimitError("Too Many Requests", details={"retry_after": 4.2}),
+            )
+        return ToolResult(
+            call_id="c1",
+            run_id="r1",
+            tool_name="t1",
+            status=ToolStatus.SUCCESS,
+            data={"done": True},
+        )
+
+    result = await retry_mgr.execute_with_retry(rate_limited_tool)
+
+    assert result.status == ToolStatus.SUCCESS
+    assert call_count == 2
+    assert slept_delays == [4.2]
+
