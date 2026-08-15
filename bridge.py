@@ -1,34 +1,20 @@
 #!/usr/bin/env python3
 """
-AI Engineering OS Lite Bridge v0.3.3
+AI Engineering OS Lite Bridge v0.4.0
 ====================================
 
 Transport layer between:
   ChatGPT <-> GitHub control branch <-> local repo <-> Antigravity
 
-Safety model:
-- New TASK/REVIEW is synchronized, never auto-executed.
-- Explicit human approval is required before TASK/FIX execution.
-- Implementation may commit/push only to an isolated task branch.
-- This tool NEVER merges.
-- Runtime/config/checkpoint/inbox/artifacts are stored OUTSIDE the Git worktree.
-- Receiving TASK/REVIEW events NEVER dirties the active Git worktree.
-- Terminal/non-actionable reviews (e.g. APPROVED) do not create actionable pending work.
-
-Typical:
-    python bridge.py setup --base-branch main
-    python bridge.py watch
-
-When notified:
-    python bridge.py pending
-    python bridge.py approve 1
-
-Then in Antigravity:
-    /aios-worker
-    RUN TASK-001
-
-At the end Antigravity can run:
-    python bridge.py publish 1 --test "pytest -q" --summary "Implemented ..."
+Zero-Touch Workflow Model:
+- User issues `/aios-worker RUN TASK-N` in Antigravity.
+- Bridge `handoff` directly fetches `ai-control`, reconciles local main,
+  prepares `ai/task-N`, caches artifact externally, and records exact authorization.
+- On review feedback, user issues `/aios-worker FIX TASK-N`.
+- Bridge `handoff --action fix` validates CHANGES_REQUIRED review and authorizes fix.
+- Bridge `publish` verifies current authorization and control artifact consistency,
+  runs tests, generates RESULT-N, commits and pushes to remote task branch.
+- No force-push, no auto-merge, no dirty worktree mutations.
 """
 
 from __future__ import annotations
@@ -138,6 +124,7 @@ def get_runtime_paths(repo_root: Path | None = None):
         "config": rdir / "config.json",
         "seen": rdir / "seen.json",
         "inbox": rdir / "inbox",
+        "auth": rdir / "auth",
         "state": rdir / "state" / "CURRENT_STATE.json",
         "artifacts": rdir / "artifacts",
         "history": rdir / "history",
@@ -150,90 +137,102 @@ def get_artifact_path(path: str, repo_root: Path | None = None) -> Path:
     return get_runtime_paths(repo_root)["artifacts"] / clean_path
 
 
-def now() -> str:
+def now():
     return datetime.now().astimezone().isoformat(timespec="seconds")
 
 
 def fail(msg: str, code: int = 1):
     print(f"[ERROR] {msg}", file=sys.stderr)
-    raise SystemExit(code)
+    sys.exit(code)
 
 
-def run(cmd, check=True, capture=True, shell=False, env=None):
-    p = subprocess.run(
+def run(cmd, cwd=None, check=True, capture=True, **kwargs):
+    kwargs.setdefault("encoding", "utf-8")
+    kwargs.setdefault("errors", "replace")
+    return subprocess.run(
         cmd,
-        cwd=PROJECT,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
+        cwd=cwd or PROJECT,
+        check=check,
         capture_output=capture,
-        shell=shell,
-        env=env,
+        text=True,
+        **kwargs,
     )
-    if check and p.returncode != 0:
-        stderr = (p.stderr or "").strip()
-        stdout = (p.stdout or "").strip()
-        fail(f"Command failed ({p.returncode}): {cmd}\n{stderr or stdout}")
-    return p
 
 
 def git(*args, check=True):
-    env = os.environ.copy()
+    env = dict(os.environ)
     env["LANG"] = "C.UTF-8"
     env["LC_ALL"] = "C.UTF-8"
-    return run(["git", *args], check=check, env=env)
+    p = subprocess.run(
+        ["git", *args],
+        cwd=PROJECT,
+        text=True,
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        env=env,
+    )
+    if check and p.returncode != 0:
+        cmd_str = " ".join(args)
+        stderr_msg = p.stderr.strip() or p.stdout.strip()
+        fail(f"git {cmd_str} thất bại: {stderr_msg}")
+    return p
 
 
 def ensure_git():
-    p = git("rev-parse", "--show-toplevel", check=False)
+    p = git("rev-parse", "--is-inside-work-tree", check=False)
     if p.returncode != 0:
-        fail("Bridge phải chạy ở trong một Git repository.")
-    root = Path(p.stdout.strip()).resolve()
-    if root != PROJECT.resolve():
-        fail(f"Hãy chạy bridge.py tại repo root: {root}")
+        fail(f"Thư mục '{PROJECT}' không phải là một git repository.")
 
 
 def ensure_dirs():
     paths = get_runtime_paths()
-    paths["root"].mkdir(parents=True, exist_ok=True)
-    paths["inbox"].mkdir(parents=True, exist_ok=True)
+    for key in ("inbox", "auth", "artifacts", "history"):
+        paths[key].mkdir(parents=True, exist_ok=True)
     paths["state"].parent.mkdir(parents=True, exist_ok=True)
-    paths["artifacts"].mkdir(parents=True, exist_ok=True)
-    paths["history"].mkdir(parents=True, exist_ok=True)
 
 
-def load_json(path: Path, default):
+def load_json(path: Path, default=None):
     if not path.exists():
-        return default
+        return default if default is not None else {}
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
-        return default
+        return default if default is not None else {}
 
 
 def save_json(path: Path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    tmp.replace(path)
 
 
 def load_config():
     cfg_file = get_runtime_paths()["config"]
     if not cfg_file.exists():
-        fail("Bridge chưa setup. Chạy: python bridge.py setup --base-branch <branch>")
-    return load_json(cfg_file, {})
-
-
-def remote_ref(cfg) -> str:
-    return f"refs/remotes/{cfg['remote']}/{cfg['control_branch']}"
+        fail(
+            f"Chưa cấu hình bridge. File '{cfg_file}' không tồn tại. "
+            "Chạy `python bridge.py setup --base-branch <branch>` trước."
+        )
+    return load_json(cfg_file)
 
 
 def branch_exists_remote(remote: str, branch: str) -> bool:
-    p = git("ls-remote", "--heads", remote, f"refs/heads/{branch}", check=False)
-    return bool((p.stdout or "").strip())
+    p = git(
+        "ls-remote",
+        "--heads",
+        remote,
+        f"refs/heads/{branch}",
+        check=False,
+    )
+    return bool(p.stdout.strip())
 
 
 def local_branch_exists(branch: str) -> bool:
-    p = git("show-ref", "--verify", "--quiet", f"refs/heads/{branch}", check=False)
+    p = git("show-ref", "--verify", f"refs/heads/{branch}", check=False)
     return p.returncode == 0
 
 
@@ -242,77 +241,81 @@ def current_branch() -> str:
     return p.stdout.strip()
 
 
-def non_ai_dirty_paths():
+def non_ai_dirty_paths() -> list[str]:
     p = git("status", "--porcelain")
-    paths = []
+    dirty = []
     for line in p.stdout.splitlines():
-        if not line.strip():
+        if len(line) < 4:
             continue
-        raw = line[3:] if len(line) >= 4 else line
-        if " -> " in raw:
-            raw = raw.split(" -> ", 1)[1]
-        raw = raw.strip('"')
-        if not raw.startswith(".ai/"):
-            paths.append(raw)
-    return paths
+        rel = line[3:].strip()
+        if " -> " in rel:
+            rel = rel.split(" -> ")[1].strip()
+        # All control artifacts now live outside the repo worktree.
+        # Any dirty worktree path is considered blocking.
+        dirty.append(rel)
+    return dirty
 
 
-def archive_local(path: Path, task_id: int):
-    if not path.exists():
-        return
-    hdir = get_runtime_paths()["history"] / f"TASK-{task_id:03d}"
-    hdir.mkdir(parents=True, exist_ok=True)
-    ts = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
-    target = hdir / f"{path.stem}.{ts}{path.suffix}"
-    shutil.copy2(path, target)
+def is_worktree_clean() -> bool:
+    return len(non_ai_dirty_paths()) == 0
 
 
-def notify(title: str, message: str, windows_popup: bool = True):
-    print("\n" + "=" * 72)
-    print(f"[{title}] {message}")
-    print("=" * 72 + "\a", flush=True)
-
-    if os.name == "nt" and windows_popup:
-        safe_title = title.replace("'", "''")
-        safe_message = message.replace("'", "''")
-        ps = (
-            "Add-Type -AssemblyName PresentationFramework; "
-            f"[System.Windows.MessageBox]::Show('{safe_message}','{safe_title}') | Out-Null"
+def notify(title: str, message: str):
+    print(f"\n{'='*72}\n[{title}] {message}\n{'='*72}")
+    if os.name == "nt":
+        script = (
+            "[reflection.assembly]::loadwithpartialname('System.Windows.Forms') | Out-Null; "
+            f"[System.Windows.Forms.MessageBox]::Show('{message}', '{title}', "
+            "[System.Windows.Forms.MessageBoxButtons]::OK, "
+            "[System.Windows.Forms.MessageBoxIcon]::Information)"
         )
-        try:
-            subprocess.Popen(
-                ["powershell", "-NoProfile", "-WindowStyle", "Hidden", "-Command", ps],
-                cwd=PROJECT,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-        except Exception:
-            pass
+        subprocess.Popen(
+            ["powershell", "-NoProfile", "-Command", script],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
 
 
 def notify_best_effort(title: str, message: str, windows_popup: bool = True):
+    print(f"\n{'='*72}\n[{title}] {message}\n{'='*72} ")
+    if not windows_popup or os.name != "nt":
+        return
     try:
-        notify(title, message, windows_popup)
+        clean_msg = message.replace("'", "''").replace('"', '`"')
+        clean_title = title.replace("'", "''").replace('"', '`"')
+        script = (
+            "[reflection.assembly]::loadwithpartialname('System.Windows.Forms') | Out-Null; "
+            f"[System.Windows.Forms.MessageBox]::Show('{clean_msg}', '{clean_title}', "
+            "[System.Windows.Forms.MessageBoxButtons]::OK, "
+            "[System.Windows.Forms.MessageBoxIcon]::Information)"
+        )
+        subprocess.Popen(
+            ["powershell", "-NoProfile", "-Command", script],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
     except Exception as e:
-        try:
-            print(f"[NOTIFY][WARN] {e}", file=sys.stderr)
-        except Exception:
-            pass
+        print(f"[NOTIFY][WARN] Windows popup notification failed: {e}", file=sys.stderr)
+
+
+def remote_ref(cfg):
+    return f"refs/remotes/{cfg['remote']}/{cfg['control_branch']}"
 
 
 def write_pending(kind: str, task_id: int, path: str, blob_sha: str):
     inbox = get_runtime_paths()["inbox"]
-    name = f"{kind.upper()}-{task_id:03d}.{blob_sha[:10]}.json"
-    event = {
-        "kind": kind.upper(),
+    inbox.mkdir(parents=True, exist_ok=True)
+    filename = f"{kind}-TASK-{task_id:03d}.{blob_sha[:10]}.json"
+    target = inbox / filename
+    data = {
+        "kind": kind,
         "task_id": f"TASK-{task_id:03d}",
         "path": path,
         "blob_sha": blob_sha,
         "detected_at": now(),
         "approval": "PENDING",
     }
-    target = inbox / name
-    save_json(target, event)
+    save_json(target, data)
     return target
 
 
@@ -336,7 +339,7 @@ def clear_pending_reviews(task_id: int):
     clear_pending_events("REVIEW", task_id)
 
 
-def parse_task_id(path: str):
+def parse_task_id(path: str) -> int | None:
     m = re.search(r"(?:TASK|REVIEW)-(\d+)", path)
     return int(m.group(1)) if m else None
 
@@ -352,7 +355,6 @@ def parse_review_status(content: str) -> str | None:
       or
       STATUS: APPROVED
     """
-    # 1. Header ## Status followed on next non-empty line
     m = re.search(
         r"^#{1,3}\s*Status\s*$\s*\n\s*([A-Za-z0-9_]+)",
         content,
@@ -361,7 +363,6 @@ def parse_review_status(content: str) -> str | None:
     if m:
         return m.group(1).upper()
 
-    # 2. Header ## Status: <VALUE>
     m = re.search(
         r"^#{1,3}\s*Status\s*:\s*([A-Za-z0-9_]+)",
         content,
@@ -370,7 +371,6 @@ def parse_review_status(content: str) -> str | None:
     if m:
         return m.group(1).upper()
 
-    # 3. Key-value STATUS: <VALUE>
     m = re.search(
         r"^\s*STATUS\s*:\s*([A-Za-z0-9_]+)",
         content,
@@ -403,49 +403,41 @@ def update_state(task_id: int, status: str, next_step: str | None = None):
     save_json(state_file, state)
 
 
-def cmd_setup(args):
-    ensure_git()
-    ensure_dirs()
-    remote = args.remote
-    base = args.base_branch
-    control = args.control_branch
+# ---------------------------------------------------------------------------
+# Authorization Storage & Verification (v0.4.0)
+# ---------------------------------------------------------------------------
 
-    if git("remote", "get-url", remote, check=False).returncode != 0:
-        fail(f"Không tìm thấy git remote '{remote}'.")
 
-    git("fetch", remote, "--prune")
+def get_auth_path(task_id: int) -> Path:
+    return get_runtime_paths()["auth"] / f"AUTH-TASK-{task_id:03d}.json"
 
-    base_remote_exists = branch_exists_remote(remote, base)
-    if not base_remote_exists and not local_branch_exists(base):
-        fail(f"Không tìm thấy base branch '{base}' ở local hoặc {remote}.")
 
-    if not branch_exists_remote(remote, control):
-        source = (
-            f"refs/remotes/{remote}/{base}"
-            if base_remote_exists
-            else f"refs/heads/{base}"
-        )
-        print(f"[SETUP] Tạo control branch '{control}' từ '{base}'...")
-        git("push", remote, f"{source}:refs/heads/{control}")
+def load_authorization(task_id: int) -> dict | None:
+    f = get_auth_path(task_id)
+    if not f.exists():
+        return None
+    return load_json(f, None)
 
-    cfg = {
-        "remote": remote,
-        "base_branch": base,
-        "control_branch": control,
-        "task_branch_prefix": args.task_branch_prefix,
-        "poll_seconds": args.poll_seconds,
-        "windows_popup": not args.no_popup,
-    }
-    paths = get_runtime_paths()
-    save_json(paths["config"], cfg)
-    if not paths["seen"].exists():
-        save_json(paths["seen"], {})
 
-    print("[OK] Bridge configured in external runtime directory:")
-    print(f"  {paths['root']}")
-    print(json.dumps(cfg, ensure_ascii=False, indent=2))
-    print("\nTiếp theo mở một terminal riêng và chạy:")
-    print("  python bridge.py watch")
+def save_authorization(task_id: int, data: dict):
+    f = get_auth_path(task_id)
+    save_json(f, data)
+
+
+def get_active_authorization(task_id: int, action: str | None = None) -> dict | None:
+    auth = load_authorization(task_id)
+    if not auth:
+        return None
+    if auth.get("status") != "ACTIVE":
+        return None
+    if action and auth.get("action", "").upper() != action.upper():
+        return None
+    return auth
+
+
+# ---------------------------------------------------------------------------
+# Core Git & Control Branch Operations
+# ---------------------------------------------------------------------------
 
 
 def fetch_control(cfg):
@@ -475,10 +467,297 @@ def list_remote_inbound(cfg):
     return items
 
 
-def read_remote_file(cfg, path: str):
+def get_remote_blob_sha(cfg, path: str) -> str | None:
+    ref = remote_ref(cfg)
+    clean_path = path.lstrip("/\\")
+    p = git("ls-tree", ref, "--", clean_path, check=False)
+    if p.returncode != 0 or not p.stdout.strip():
+        return None
+    for line in p.stdout.splitlines():
+        if "\t" in line:
+            meta, pth = line.split("\t", 1)
+            parts = meta.split()
+            if len(parts) >= 3 and pth == clean_path:
+                return parts[2]
+    return None
+
+
+def read_remote_file(cfg, path: str) -> str:
     ref = remote_ref(cfg)
     p = git("show", f"{ref}:{path}")
     return p.stdout
+
+
+def archive_local(dest: Path, task_id: int):
+    if not dest.exists():
+        return
+    history_dir = get_runtime_paths()["history"] / f"TASK-{task_id:03d}"
+    history_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    target = history_dir / f"{dest.stem}_{ts}{dest.suffix}"
+    shutil.copy2(dest, target)
+
+
+# ---------------------------------------------------------------------------
+# Safe Local-Main Reconciliation & Task-Branch Preparation (v0.4.0)
+# ---------------------------------------------------------------------------
+
+
+def reconcile_local_main(cfg) -> str:
+    """
+    Safely reconciles local base_branch with remote base_branch before starting a new RUN.
+    - Fails closed on dirty worktree.
+    - Fast-forwards local main if strictly behind remote.
+    - Fails closed on diverged / ahead local main.
+    - Never uses reset --hard or destructive checkout.
+    - Returns canonical base_main_sha.
+    """
+    dirty = non_ai_dirty_paths()
+    if dirty:
+        fail(
+            "Worktree có thay đổi chưa commit; không thể tự động reconcile main:\n  "
+            + "\n  ".join(dirty)
+        )
+
+    remote = cfg["remote"]
+    base = cfg["base_branch"]
+    git("fetch", remote, "--prune", check=False)
+
+    remote_base_ref = f"refs/remotes/{remote}/{base}"
+    p_remote = git("rev-parse", remote_base_ref, check=False)
+    if p_remote.returncode != 0 or not p_remote.stdout.strip():
+        # If remote tracking ref not found, check if local base exists
+        p_local = git("rev-parse", f"refs/heads/{base}", check=False)
+        if p_local.returncode == 0:
+            return p_local.stdout.strip()
+        fail(f"Không tìm thấy remote branch '{remote}/{base}'.")
+    remote_sha = p_remote.stdout.strip()
+
+    local_base_ref = f"refs/heads/{base}"
+    p_local = git("rev-parse", local_base_ref, check=False)
+    if p_local.returncode != 0 or not p_local.stdout.strip():
+        # Local base branch doesn't exist yet; create it tracking remote
+        git("branch", base, remote_base_ref)
+        return remote_sha
+
+    local_sha = p_local.stdout.strip()
+    if local_sha == remote_sha:
+        return remote_sha
+
+    # Check if local is an ancestor of remote (strictly behind)
+    p_ancestor = git("merge-base", "--is-ancestor", local_base_ref, remote_base_ref, check=False)
+    if p_ancestor.returncode == 0:
+        # Local main is strictly behind remote main; fast-forward safely
+        if current_branch() == base:
+            git("merge", "--ff-only", remote_base_ref)
+        else:
+            # Fast forward the local branch ref without switching
+            git("fetch", ".", f"{remote_base_ref}:{local_base_ref}")
+        print(f"[RECONCILE] Fast-forwarded local '{base}' to '{remote}/{base}' ({remote_sha[:10]})")
+        return remote_sha
+
+    # Check if remote is ancestor of local (local is ahead)
+    p_ahead = git("merge-base", "--is-ancestor", remote_base_ref, local_base_ref, check=False)
+    if p_ahead.returncode == 0:
+        fail(
+            f"Local branch '{base}' đang ahead so với '{remote}/{base}'. "
+            "Cần push hoặc đối soát thủ công; bridge không tự ghi đè."
+        )
+
+    # Branches have diverged
+    fail(
+        f"Local branch '{base}' đã bị DIVERGED so với '{remote}/{base}'. "
+        "Cần xử lý merge/rebase thủ công; bridge không tự động sửa."
+    )
+
+
+def prepare_task_branch(cfg, task_id: int, action: str) -> str:
+    """
+    Safely prepares and switches to the task branch.
+    For RUN: Creates from synchronized canonical main or safely resumes.
+    For FIX: Requires existing branch, fetches remote, and resumes without rebase.
+    """
+    dirty = non_ai_dirty_paths()
+    if dirty:
+        fail(
+            "Worktree có thay đổi chưa commit; không thể switch task branch:\n  "
+            + "\n  ".join(dirty)
+        )
+
+    remote = cfg["remote"]
+    branch = f"{cfg['task_branch_prefix']}{task_id:03d}"
+    base = cfg["base_branch"]
+    git("fetch", remote, "--prune", check=False)
+
+    if action.upper() == "RUN":
+        if current_branch() == branch:
+            return branch
+
+        if local_branch_exists(branch):
+            git("checkout", branch)
+            # If remote exists and local is strictly behind, fast-forward
+            if branch_exists_remote(remote, branch):
+                remote_branch_ref = f"refs/remotes/{remote}/{branch}"
+                p_ancestor = git("merge-base", "--is-ancestor", f"refs/heads/{branch}", remote_branch_ref, check=False)
+                if p_ancestor.returncode == 0:
+                    git("merge", "--ff-only", remote_branch_ref, check=False)
+            return branch
+
+        if branch_exists_remote(remote, branch):
+            git("checkout", "-b", branch, "--track", f"{remote}/{branch}")
+            return branch
+
+        # Create new branch from synchronized canonical base
+        git("checkout", "-b", branch, f"refs/heads/{base}")
+        print(f"[BRANCH] Tạo task branch '{branch}' từ '{base}'")
+        return branch
+
+    elif action.upper() == "FIX":
+        if current_branch() == branch:
+            if branch_exists_remote(remote, branch):
+                remote_branch_ref = f"refs/remotes/{remote}/{branch}"
+                p_ancestor = git("merge-base", "--is-ancestor", f"refs/heads/{branch}", remote_branch_ref, check=False)
+                if p_ancestor.returncode == 0:
+                    git("merge", "--ff-only", remote_branch_ref, check=False)
+            return branch
+
+        if local_branch_exists(branch):
+            git("checkout", branch)
+            if branch_exists_remote(remote, branch):
+                remote_branch_ref = f"refs/remotes/{remote}/{branch}"
+                p_ancestor = git("merge-base", "--is-ancestor", f"refs/heads/{branch}", remote_branch_ref, check=False)
+                if p_ancestor.returncode == 0:
+                    git("merge", "--ff-only", remote_branch_ref, check=False)
+            return branch
+
+        if branch_exists_remote(remote, branch):
+            git("checkout", "-b", branch, "--track", f"{remote}/{branch}")
+            return branch
+
+        fail(
+            f"Không thể FIX: Không tìm thấy task branch '{branch}' ở local hoặc '{remote}'."
+        )
+
+    else:
+        fail(f"Hành động không hợp lệ: {action}")
+
+
+# ---------------------------------------------------------------------------
+# Zero-Touch Handoff Command (v0.4.0)
+# ---------------------------------------------------------------------------
+
+
+def cmd_handoff(args):
+    ensure_git()
+    ensure_dirs()
+    cfg = load_config()
+    task_id = args.task_id
+    action = args.action.upper()
+
+    fetch_control(cfg)
+    paths = get_runtime_paths()
+
+    if action == "RUN":
+        artifact_rel = f".ai/tasks/TASK-{task_id:03d}.md"
+        blob_sha = get_remote_blob_sha(cfg, artifact_rel)
+        if not blob_sha:
+            fail(
+                f"Không tìm thấy task artifact '{artifact_rel}' trên control branch '{cfg['control_branch']}'."
+            )
+
+        content = read_remote_file(cfg, artifact_rel)
+        if not content.strip():
+            fail(f"Task artifact '{artifact_rel}' bị rỗng.")
+
+        dest = get_artifact_path(artifact_rel)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(content, encoding="utf-8")
+
+        seen = load_json(paths["seen"], {})
+        seen[artifact_rel] = blob_sha
+        save_json(paths["seen"], seen)
+
+        clear_pending_events("TASK", task_id)
+
+        base_main_sha = reconcile_local_main(cfg)
+        branch = prepare_task_branch(cfg, task_id, "RUN")
+
+        auth_record = {
+            "task_id": f"TASK-{task_id:03d}",
+            "action": "RUN",
+            "kind": "TASK",
+            "artifact_path": artifact_rel,
+            "artifact_blob_sha": blob_sha,
+            "approved_at": now(),
+            "branch": branch,
+            "status": "ACTIVE",
+            "base_main_sha": base_main_sha,
+        }
+        save_authorization(task_id, auth_record)
+        update_state(
+            task_id,
+            "IN_PROGRESS",
+            f"TASK-{task_id:03d} authorized for execution by Antigravity",
+        )
+
+    elif action == "FIX":
+        artifact_rel = f".ai/reviews/REVIEW-{task_id:03d}.md"
+        blob_sha = get_remote_blob_sha(cfg, artifact_rel)
+        if not blob_sha:
+            fail(
+                f"Không tìm thấy review artifact '{artifact_rel}' trên control branch '{cfg['control_branch']}'."
+            )
+
+        content = read_remote_file(cfg, artifact_rel)
+        status = parse_review_status(content)
+        if status != "CHANGES_REQUIRED":
+            if status == "APPROVED":
+                fail(
+                    f"REVIEW-{task_id:03d} đã APPROVED. Không cần sửa mã nguồn."
+                )
+            fail(
+                f"REVIEW-{task_id:03d} có trạng thái '{status or 'UNSPECIFIED'}', không phải CHANGES_REQUIRED. Không thể FIX."
+            )
+
+        dest = get_artifact_path(artifact_rel)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(content, encoding="utf-8")
+
+        seen = load_json(paths["seen"], {})
+        seen[artifact_rel] = blob_sha
+        save_json(paths["seen"], seen)
+
+        clear_pending_events("REVIEW", task_id)
+
+        branch = prepare_task_branch(cfg, task_id, "FIX")
+
+        auth_record = {
+            "task_id": f"TASK-{task_id:03d}",
+            "action": "FIX",
+            "kind": "REVIEW",
+            "artifact_path": artifact_rel,
+            "artifact_blob_sha": blob_sha,
+            "approved_at": now(),
+            "branch": branch,
+            "status": "ACTIVE",
+        }
+        save_authorization(task_id, auth_record)
+        update_state(
+            task_id,
+            "CHANGES_REQUIRED",
+            f"FIX TASK-{task_id:03d} authorized for execution by Antigravity",
+        )
+
+    else:
+        fail(f"Hành động không hợp lệ: {action}")
+
+    # Output context JSON for Antigravity worker
+    cmd_context(args)
+
+
+# ---------------------------------------------------------------------------
+# Watcher & Sync (v0.4.0)
+# ---------------------------------------------------------------------------
 
 
 def sync_once(verbose=True):
@@ -521,8 +800,8 @@ def sync_once(verbose=True):
             )
             notification = (
                 "AIOS: TASK mới",
-                f"TASK-{task_id:03d} đã nhận qua bridge. Chưa chạy. "
-                f"Dùng `python bridge.py approve {task_id}` rồi `/aios-worker`.",
+                f"TASK-{task_id:03d} đã nhận qua bridge. "
+                f"Dùng `/aios-worker RUN TASK-{task_id:03d}` để thực hiện.",
                 cfg.get("windows_popup", True),
             )
         elif task_id and path.startswith(".ai/reviews/"):
@@ -538,7 +817,7 @@ def sync_once(verbose=True):
                 notification = (
                     "AIOS: REVIEW mới",
                     f"REVIEW-{task_id:03d} yêu cầu sửa đổi (CHANGES_REQUIRED). "
-                    f"Dùng `python bridge.py approve {task_id} --kind review` rồi `/aios-worker`.",
+                    f"Dùng `/aios-worker FIX TASK-{task_id:03d}` để sửa.",
                     cfg.get("windows_popup", True),
                 )
             elif review_status == "APPROVED":
@@ -554,7 +833,6 @@ def sync_once(verbose=True):
                     cfg.get("windows_popup", True),
                 )
             else:
-                # Missing or unrecognized review status -> fail-safe, non-actionable
                 clear_pending_events("REVIEW", task_id)
                 update_state(
                     task_id,
@@ -655,7 +933,7 @@ def checkout_task_branch(cfg, task_id: int):
     dirty = non_ai_dirty_paths()
     if dirty:
         fail(
-            "Worktree có thay đổi ngoài .ai; không tự switch branch:\n  "
+            "Worktree có thay đổi chưa commit; không tự switch branch:\n  "
             + "\n  ".join(dirty)
         )
 
@@ -706,6 +984,19 @@ def cmd_approve(args):
         )
         action = "RUN"
 
+    # Also record authorization for consistency with v0.4.0
+    auth = {
+        "task_id": f"TASK-{args.task_id:03d}",
+        "action": action,
+        "kind": data.get("kind", "TASK"),
+        "artifact_path": data.get("path", f".ai/tasks/TASK-{args.task_id:03d}.md"),
+        "artifact_blob_sha": data.get("blob_sha", ""),
+        "approved_at": now(),
+        "branch": branch,
+        "status": "ACTIVE",
+    }
+    save_authorization(args.task_id, auth)
+
     print(f"[APPROVED] {data.get('kind')} for TASK-{args.task_id:03d}")
     print(f"[BRANCH] {branch}")
     print("\nTrong Antigravity chạy:")
@@ -744,6 +1035,7 @@ def cmd_context(args):
     cfg = load_config()
     task_id = args.task_id
     event = latest_approved(task_id)
+    auth = load_authorization(task_id)
     paths = get_runtime_paths()
 
     task_artifact = get_artifact_path(f".ai/tasks/TASK-{task_id:03d}.md")
@@ -775,6 +1067,7 @@ def cmd_context(args):
     data = {
         "task_id": f"TASK-{task_id:03d}",
         "approved_event": event,
+        "authorization": auth,
         "current_branch": current_branch(),
         "expected_branch": f"{cfg['task_branch_prefix']}{task_id:03d}",
         "task_file": str(task_file),
@@ -785,6 +1078,11 @@ def cmd_context(args):
         "state_file": str(paths["state"]),
     }
     print(json.dumps(data, ensure_ascii=False, indent=2))
+
+
+# ---------------------------------------------------------------------------
+# Strengthened Publish Command (v0.4.0)
+# ---------------------------------------------------------------------------
 
 
 def cmd_publish(args):
@@ -798,8 +1096,29 @@ def cmd_publish(args):
             f"Publish chỉ được phép trên task branch '{expected}', hiện tại là '{branch}'."
         )
 
-    if not latest_approved(task_id):
-        fail("Không có approval event cho task này. Không publish.")
+    auth = get_active_authorization(task_id)
+    if not auth:
+        # Fallback to legacy approval check
+        if not latest_approved(task_id):
+            fail("Không có ACTIVE authorization cho task này. Không publish.")
+
+    if auth:
+        # Re-validate against current control branch
+        fetch_control(cfg)
+        current_blob = get_remote_blob_sha(cfg, auth["artifact_path"])
+        if not current_blob or current_blob != auth["artifact_blob_sha"]:
+            fail(
+                f"Artifact '{auth['artifact_path']}' đã thay đổi trên control branch kể từ lúc handoff. "
+                f"Cần chạy lại `/aios-worker {auth['action']} TASK-{task_id:03d}`."
+            )
+
+        if auth["action"] == "FIX":
+            content = read_remote_file(cfg, auth["artifact_path"])
+            status = parse_review_status(content)
+            if status != "CHANGES_REQUIRED":
+                fail(
+                    f"Review '{auth['artifact_path']}' hiện không ở trạng thái CHANGES_REQUIRED (status={status}). Không publish."
+                )
 
     test_output = "(no test command supplied)"
     test_rc = 0
@@ -831,6 +1150,14 @@ def cmd_publish(args):
         or "Implementation completed by Antigravity; pending ChatGPT review."
     )
 
+    action_label = auth.get("action", "RUN") if auth else "RUN"
+    artifact_label = (
+        f"{auth.get('artifact_path')} ({auth.get('artifact_blob_sha')[:10]})"
+        if auth
+        else "(legacy approval)"
+    )
+    base_main_label = auth.get("base_main_sha", "(n/a)") if auth else "(n/a)"
+
     result_content = (
         f"""# RESULT-{task_id:03d}
 
@@ -839,8 +1166,12 @@ STATUS: READY_FOR_REVIEW
 ## Summary
 {summary}
 
-## Branch
-{branch}
+## Task Metadata
+- Task: `TASK-{task_id:03d}`
+- Action: `{action_label}`
+- Authorized Artifact: `{artifact_label}`
+- Base Main SHA: `{base_main_label}`
+- Branch: `{branch}`
 
 ## Files Changed
 """
@@ -879,6 +1210,7 @@ Exit code: {test_rc}
         "--",
         ".ai/bridge",
         ".ai/inbox",
+        ".ai/auth",
         ".ai/state/CURRENT_STATE.json",
         check=False,
     )
@@ -891,6 +1223,12 @@ Exit code: {test_rc}
     git("commit", "-m", msg)
     sha = git("rev-parse", "HEAD").stdout.strip()
     git("push", "-u", cfg["remote"], branch)
+
+    if auth:
+        auth["status"] = "CONSUMED"
+        auth["published_sha"] = sha
+        auth["published_at"] = now()
+        save_authorization(task_id, auth)
 
     update_state(
         task_id,
@@ -906,8 +1244,53 @@ Exit code: {test_rc}
     print(f'  "Review TASK-{task_id:03d}"')
 
 
+def cmd_setup(args):
+    ensure_git()
+    ensure_dirs()
+    remote = args.remote
+    base = args.base_branch
+    control = args.control_branch
+
+    if git("remote", "get-url", remote, check=False).returncode != 0:
+        fail(f"Không tìm thấy git remote '{remote}'.")
+
+    git("fetch", remote, "--prune")
+
+    base_remote_exists = branch_exists_remote(remote, base)
+    if not base_remote_exists and not local_branch_exists(base):
+        fail(f"Không tìm thấy base branch '{base}' ở local hoặc {remote}.")
+
+    if not branch_exists_remote(remote, control):
+        source = (
+            f"refs/remotes/{remote}/{base}"
+            if base_remote_exists
+            else f"refs/heads/{base}"
+        )
+        print(f"[SETUP] Tạo control branch '{control}' từ '{base}'...")
+        git("push", remote, f"{source}:refs/heads/{control}")
+
+    cfg = {
+        "remote": remote,
+        "base_branch": base,
+        "control_branch": control,
+        "task_branch_prefix": args.task_branch_prefix,
+        "poll_seconds": args.poll_seconds,
+        "windows_popup": not args.no_popup,
+    }
+    paths = get_runtime_paths()
+    save_json(paths["config"], cfg)
+    if not paths["seen"].exists():
+        save_json(paths["seen"], {})
+
+    print("[OK] Bridge configured in external runtime directory:")
+    print(f"  {paths['root']}")
+    print(json.dumps(cfg, ensure_ascii=False, indent=2))
+
+
 def build_parser():
-    p = argparse.ArgumentParser(description="AI Engineering OS Lite Bridge v0.3.3")
+    p = argparse.ArgumentParser(
+        description="AI Engineering OS Lite Bridge v0.4.0"
+    )
     sub = p.add_subparsers(dest="cmd", required=True)
 
     s = sub.add_parser("setup", help="Configure GitHub control branch")
@@ -918,6 +1301,16 @@ def build_parser():
     s.add_argument("--poll-seconds", type=int, default=20)
     s.add_argument("--no-popup", action="store_true")
     s.set_defaults(func=cmd_setup)
+
+    s = sub.add_parser(
+        "handoff",
+        help="Zero-touch handoff: fetch artifact, reconcile main, prepare task branch, and record authorization",
+    )
+    s.add_argument("task_id", type=int)
+    s.add_argument(
+        "--action", choices=["run", "fix", "RUN", "FIX"], default="run"
+    )
+    s.set_defaults(func=cmd_handoff)
 
     s = sub.add_parser(
         "sync", help="Fetch TASK/REVIEW/ADR/context from control branch"

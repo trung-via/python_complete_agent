@@ -15,13 +15,11 @@ def test_runtime_state_path_is_outside_repository_worktree():
         repo_root = Path(temp) / "my_project"
         repo_root.mkdir()
 
-        # Without override, get_runtime_dir must be outside repo_root
         runtime_dir = bridge.get_runtime_dir(repo_root)
 
         assert not str(runtime_dir).startswith(str(repo_root))
         assert runtime_dir.name.startswith("my_project-")
 
-        # With override AIOS_RUNTIME_DIR
         custom_dir = Path(temp) / "custom_runtime"
         os.environ["AIOS_RUNTIME_DIR"] = str(custom_dir)
         try:
@@ -36,7 +34,6 @@ def test_sync_does_not_dirty_worktree_and_provides_context():
         root = Path(temp) / "repo"
         root.mkdir()
 
-        # Initialize clean git repo
         subprocess.run(["git", "init", "-b", "main"], cwd=root, check=True, capture_output=True)
         subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
         subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
@@ -54,6 +51,10 @@ def test_sync_does_not_dirty_worktree_and_provides_context():
         old_project = bridge.PROJECT
         old_ai = bridge.AI
         old_git = bridge.git
+        old_fetch = bridge.fetch_control
+        old_list = bridge.list_remote_inbound
+        old_read = bridge.read_remote_file
+
         bridge.PROJECT = root
         bridge.AI = root / ".ai"
 
@@ -69,7 +70,6 @@ def test_sync_does_not_dirty_worktree_and_provides_context():
             }
             bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
 
-            # Mock remote inbound artifacts from control branch
             inbound_task = (".ai/tasks/TASK-001.md", "1111111111111111111111111111111111111111")
             inbound_review = (".ai/reviews/REVIEW-001.md", "2222222222222222222222222222222222222222")
 
@@ -79,7 +79,6 @@ def test_sync_does_not_dirty_worktree_and_provides_context():
                 "# Task 1\n" if "tasks" in path else "# Review 1\n## Status\nCHANGES_REQUIRED\n"
             )
 
-            # Execute sync_once
             changed = bridge.sync_once(verbose=False)
             assert len(changed) == 2
 
@@ -87,7 +86,6 @@ def test_sync_does_not_dirty_worktree_and_provides_context():
             p_status = subprocess.run(["git", "status", "--porcelain"], cwd=root, check=True, capture_output=True, text=True)
             assert p_status.stdout.strip() == "", f"Git worktree was dirtied by sync: {p_status.stdout}"
 
-            # Pending events are available in external runtime inbox
             events = bridge.pending_events()
             assert len(events) == 2
             kinds = {e["kind"] for e in events}
@@ -100,6 +98,9 @@ def test_sync_does_not_dirty_worktree_and_provides_context():
             bridge.PROJECT = old_project
             bridge.AI = old_ai
             bridge.git = old_git
+            bridge.fetch_control = old_fetch
+            bridge.list_remote_inbound = old_list
+            bridge.read_remote_file = old_read
             if "AIOS_RUNTIME_DIR" in os.environ:
                 del os.environ["AIOS_RUNTIME_DIR"]
 
@@ -114,6 +115,11 @@ def test_changes_required_review_creates_pending_review_event():
 
         old_project = bridge.PROJECT
         old_ai = bridge.AI
+        old_fetch = bridge.fetch_control
+        old_list = bridge.list_remote_inbound
+        old_read = bridge.read_remote_file
+        old_ensure = bridge.ensure_git
+
         bridge.PROJECT = root
         bridge.AI = root / ".ai"
 
@@ -141,6 +147,10 @@ def test_changes_required_review_creates_pending_review_event():
         finally:
             bridge.PROJECT = old_project
             bridge.AI = old_ai
+            bridge.fetch_control = old_fetch
+            bridge.list_remote_inbound = old_list
+            bridge.read_remote_file = old_read
+            bridge.ensure_git = old_ensure
             if "AIOS_RUNTIME_DIR" in os.environ:
                 del os.environ["AIOS_RUNTIME_DIR"]
 
@@ -164,6 +174,10 @@ def test_repeated_changes_required_updates_do_not_create_duplicate_pending_event
         old_project = bridge.PROJECT
         old_ai = bridge.AI
         old_git = bridge.git
+        old_fetch = bridge.fetch_control
+        old_list = bridge.list_remote_inbound
+        old_read = bridge.read_remote_file
+
         bridge.PROJECT = root
         bridge.AI = root / ".ai"
 
@@ -191,20 +205,23 @@ def test_repeated_changes_required_updates_do_not_create_duplicate_pending_event
             # 3. Sync again
             bridge.sync_once(verbose=False)
 
-            # 4. Assert pending_events() contains exactly ONE REVIEW event for TASK-004 (corresponding to current update SHA B)
+            # 4. Assert pending_events() contains exactly ONE REVIEW event for TASK-004
             events = bridge.pending_events()
             assert len(events) == 1, f"Expected exactly 1 pending event, found {len(events)}: {events}"
             assert events[0]["kind"] == "REVIEW"
             assert events[0]["task_id"] == "TASK-004"
             assert events[0]["blob_sha"] == "b" * 40
 
-            # 5. Assert worktree remains clean/non-mutated by sync
+            # 5. Assert worktree remains clean
             p_status = subprocess.run(["git", "status", "--porcelain"], cwd=root, check=True, capture_output=True, text=True)
             assert p_status.stdout.strip() == "", f"Git worktree dirtied: {p_status.stdout}"
         finally:
             bridge.PROJECT = old_project
             bridge.AI = old_ai
             bridge.git = old_git
+            bridge.fetch_control = old_fetch
+            bridge.list_remote_inbound = old_list
+            bridge.read_remote_file = old_read
             if "AIOS_RUNTIME_DIR" in os.environ:
                 del os.environ["AIOS_RUNTIME_DIR"]
 
@@ -219,6 +236,12 @@ def test_review_update_to_approved_clears_pending_and_sets_approved_state():
 
         old_project = bridge.PROJECT
         old_ai = bridge.AI
+        old_fetch = bridge.fetch_control
+        old_list = bridge.list_remote_inbound
+        old_read = bridge.read_remote_file
+        old_notify = bridge.notify_best_effort
+        old_ensure = bridge.ensure_git
+
         bridge.PROJECT = root
         bridge.AI = root / ".ai"
 
@@ -244,22 +267,24 @@ def test_review_update_to_approved_clears_pending_and_sets_approved_state():
             bridge.read_remote_file = lambda cfg, path: "# REVIEW-003\n\n## Status\nAPPROVED\n\nLGTM!"
             bridge.sync_once(verbose=False)
 
-            # Assert: pending list is now empty!
             events = bridge.pending_events()
             assert len(events) == 0, f"Expected 0 pending events, got: {events}"
 
-            # Assert: state status is APPROVED (not regressed to CHANGES_REQUIRED)
             state = bridge.load_json(bridge.get_runtime_paths()["state"], {})
             assert state["status"] == "APPROVED"
             assert "approved" in state["next_step"].lower()
 
-            # Assert: notification was informational, not instructing /aios-worker FIX
             last_title, last_msg = notifications[-1]
             assert "APPROVED" in last_msg
-            assert "/aios-worker" not in last_msg
+            assert "Dùng" not in last_msg
         finally:
             bridge.PROJECT = old_project
             bridge.AI = old_ai
+            bridge.fetch_control = old_fetch
+            bridge.list_remote_inbound = old_list
+            bridge.read_remote_file = old_read
+            bridge.notify_best_effort = old_notify
+            bridge.ensure_git = old_ensure
             if "AIOS_RUNTIME_DIR" in os.environ:
                 del os.environ["AIOS_RUNTIME_DIR"]
 
@@ -274,6 +299,11 @@ def test_missing_or_unknown_review_status_is_non_actionable():
 
         old_project = bridge.PROJECT
         old_ai = bridge.AI
+        old_fetch = bridge.fetch_control
+        old_list = bridge.list_remote_inbound
+        old_read = bridge.read_remote_file
+        old_ensure = bridge.ensure_git
+
         bridge.PROJECT = root
         bridge.AI = root / ".ai"
 
@@ -285,25 +315,31 @@ def test_missing_or_unknown_review_status_is_non_actionable():
 
             bridge.fetch_control = lambda cfg: None
             bridge.list_remote_inbound = lambda cfg: [(".ai/reviews/REVIEW-004.md", "3" * 40)]
-            # Unrecognized status
             bridge.read_remote_file = lambda cfg, path: "# REVIEW-004\n\nJust some notes without status.\n"
 
             bridge.sync_once(verbose=False)
 
-            # Must NOT create pending approval event
             assert len(bridge.pending_events()) == 0
 
-            # State is REVIEW_RECEIVED, not CHANGES_REQUIRED
             state = bridge.load_json(bridge.get_runtime_paths()["state"], {})
             assert state["status"] == "REVIEW_RECEIVED"
         finally:
             bridge.PROJECT = old_project
             bridge.AI = old_ai
+            bridge.fetch_control = old_fetch
+            bridge.list_remote_inbound = old_list
+            bridge.read_remote_file = old_read
+            bridge.ensure_git = old_ensure
             if "AIOS_RUNTIME_DIR" in os.environ:
                 del os.environ["AIOS_RUNTIME_DIR"]
 
 
-def test_task_approval_branch_switch_succeeds_with_bridge_runtime_present():
+# ---------------------------------------------------------------------------
+# v0.4.0 Zero-Touch Handoff & Authorization Tests
+# ---------------------------------------------------------------------------
+
+
+def test_handoff_run_without_preexisting_pending_event_records_active_auth_and_creates_branch():
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp) / "repo"
         root.mkdir()
@@ -322,7 +358,10 @@ def test_task_approval_branch_switch_succeeds_with_bridge_runtime_present():
         old_project = bridge.PROJECT
         old_ai = bridge.AI
         old_git = bridge.git
-        old_branch_exists = bridge.branch_exists_remote
+        old_fetch = bridge.fetch_control
+        old_blob = bridge.get_remote_blob_sha
+        old_read = bridge.read_remote_file
+        old_reconcile = bridge.reconcile_local_main
 
         bridge.PROJECT = root
         bridge.AI = root / ".ai"
@@ -339,94 +378,134 @@ def test_task_approval_branch_switch_succeeds_with_bridge_runtime_present():
             }
             bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
 
-            inbox_file = bridge.write_pending("TASK", 2, ".ai/tasks/TASK-002.md", "a" * 40)
-            assert inbox_file.exists()
-            assert not (root / ".ai" / "inbox").exists()
+            # Mock control branch content
+            bridge.fetch_control = lambda cfg: None
+            bridge.get_remote_blob_sha = lambda cfg, path: "7" * 40
+            bridge.read_remote_file = lambda cfg, path: "# TASK-006 Content\n"
+            bridge.reconcile_local_main = lambda cfg: "main_sha_12345"
 
-            bridge.branch_exists_remote = lambda r, b: False
-            bridge.git = lambda *args, **kw: subprocess.run(
-                ["git", *args], cwd=root, check=kw.get("check", True), capture_output=True, text=True
-            ) if args[0] != "fetch" else type("Res", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+            # Execute handoff without any prior inbox event
+            bridge.cmd_handoff(type("Args", (), {"task_id": 6, "action": "run"})())
 
-            bridge.cmd_approve(type("Args", (), {"task_id": 2, "kind": None})())
-
+            # Verify branch switched to ai/task-006
             p = subprocess.run(["git", "branch", "--show-current"], cwd=root, check=True, capture_output=True, text=True)
-            assert p.stdout.strip() == "ai/task-002"
+            assert p.stdout.strip() == "ai/task-006"
 
-            ev = bridge.load_json(inbox_file, {})
-            assert ev.get("approval") == "APPROVED"
+            # Verify active authorization recorded
+            auth = bridge.get_active_authorization(6, "RUN")
+            assert auth is not None
+            assert auth["task_id"] == "TASK-006"
+            assert auth["action"] == "RUN"
+            assert auth["artifact_blob_sha"] == "7" * 40
+            assert auth["branch"] == "ai/task-006"
+            assert auth["base_main_sha"] == "main_sha_12345"
+
+            # Verify task artifact cached externally
+            task_file = bridge.get_artifact_path(".ai/tasks/TASK-006.md")
+            assert task_file.exists()
+            assert "TASK-006 Content" in task_file.read_text(encoding="utf-8")
         finally:
             bridge.PROJECT = old_project
             bridge.AI = old_ai
             bridge.git = old_git
-            bridge.branch_exists_remote = old_branch_exists
+            bridge.fetch_control = old_fetch
+            bridge.get_remote_blob_sha = old_blob
+            bridge.read_remote_file = old_read
+            bridge.reconcile_local_main = old_reconcile
             if "AIOS_RUNTIME_DIR" in os.environ:
                 del os.environ["AIOS_RUNTIME_DIR"]
 
 
-def test_review_approval_succeeds_without_stash_or_manual_runtime_movement():
+def test_handoff_run_missing_task_fails_closed():
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp) / "repo"
         root.mkdir()
-
-        subprocess.run(["git", "init", "-b", "main"], cwd=root, check=True, capture_output=True)
-        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
-        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
-
-        (root / "README.md").write_text("# Repo\n", encoding="utf-8")
-        subprocess.run(["git", "add", "README.md"], cwd=root, check=True, capture_output=True)
-        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
-
-        subprocess.run(["git", "checkout", "-b", "ai/task-002"], cwd=root, check=True, capture_output=True)
 
         runtime_dir = Path(temp) / "bridge_runtime"
         os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
 
         old_project = bridge.PROJECT
         old_ai = bridge.AI
-        old_git = bridge.git
-        old_branch_exists = bridge.branch_exists_remote
+        old_fetch = bridge.fetch_control
+        old_blob = bridge.get_remote_blob_sha
+        old_ensure = bridge.ensure_git
 
         bridge.PROJECT = root
         bridge.AI = root / ".ai"
 
         try:
+            bridge.ensure_git = lambda: None
             bridge.ensure_dirs()
-            cfg = {
-                "remote": "origin",
-                "base_branch": "main",
-                "control_branch": "ai-control",
-                "task_branch_prefix": "ai/task-",
-                "poll_seconds": 20,
-                "windows_popup": False,
-            }
+            cfg = {"windows_popup": False, "remote": "origin", "control_branch": "ai-control"}
             bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
 
-            inbox_file = bridge.write_pending("REVIEW", 2, ".ai/reviews/REVIEW-002.md", "b" * 40)
+            bridge.fetch_control = lambda cfg: None
+            bridge.get_remote_blob_sha = lambda cfg, path: None  # Missing task
 
-            bridge.branch_exists_remote = lambda r, b: False
-            bridge.git = lambda *args, **kw: subprocess.run(
-                ["git", *args], cwd=root, check=kw.get("check", True), capture_output=True, text=True
-            ) if args[0] != "fetch" else type("Res", (), {"returncode": 0, "stdout": "", "stderr": ""})()
-
-            bridge.cmd_approve(type("Args", (), {"task_id": 2, "kind": "review"})())
-
-            state = bridge.load_json(bridge.get_runtime_paths()["state"], {})
-            assert state.get("status") == "CHANGES_REQUIRED"
-            assert state.get("active_task") == "TASK-002"
-
-            ev = bridge.load_json(inbox_file, {})
-            assert ev.get("approval") == "APPROVED"
+            with pytest.raises(SystemExit):
+                bridge.cmd_handoff(type("Args", (), {"task_id": 999, "action": "run"})())
         finally:
             bridge.PROJECT = old_project
             bridge.AI = old_ai
-            bridge.git = old_git
-            bridge.branch_exists_remote = old_branch_exists
+            bridge.fetch_control = old_fetch
+            bridge.get_remote_blob_sha = old_blob
+            bridge.ensure_git = old_ensure
             if "AIOS_RUNTIME_DIR" in os.environ:
                 del os.environ["AIOS_RUNTIME_DIR"]
 
 
-def test_unrelated_dirty_file_still_blocks_switch():
+def test_reconcile_local_main_fast_forwards_when_behind():
+    with tempfile.TemporaryDirectory() as temp:
+        # Create a "remote" bare repository and a local clone
+        remote_repo = Path(temp) / "remote_repo.git"
+        subprocess.run(["git", "init", "--bare", "-b", "main", str(remote_repo)], check=True, capture_output=True)
+
+        local_repo = Path(temp) / "local_repo"
+        subprocess.run(["git", "clone", str(remote_repo), str(local_repo)], check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=local_repo, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=local_repo, check=True, capture_output=True)
+
+        (local_repo / "README.md").write_text("# Initial\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=local_repo, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "commit 1"], cwd=local_repo, check=True, capture_output=True)
+        subprocess.run(["git", "push", "origin", "main"], cwd=local_repo, check=True, capture_output=True)
+
+        # Create another clone to simulate ChatGPT remote merge advancing origin/main
+        other_repo = Path(temp) / "other_repo"
+        subprocess.run(["git", "clone", str(remote_repo), str(other_repo)], check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "ChatGPT"], cwd=other_repo, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "chatgpt@test.local"], cwd=other_repo, check=True, capture_output=True)
+
+        (other_repo / "new_feature.txt").write_text("feature content\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=other_repo, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "commit 2 from remote merge"], cwd=other_repo, check=True, capture_output=True)
+        subprocess.run(["git", "push", "origin", "main"], cwd=other_repo, check=True, capture_output=True)
+
+        remote_main_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=other_repo, check=True, capture_output=True, text=True).stdout.strip()
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        bridge.PROJECT = local_repo
+        bridge.AI = local_repo / ".ai"
+
+        try:
+            cfg = {"remote": "origin", "base_branch": "main"}
+            reconciled_sha = bridge.reconcile_local_main(cfg)
+
+            assert reconciled_sha == remote_main_sha
+            local_main_sha = subprocess.run(["git", "rev-parse", "main"], cwd=local_repo, check=True, capture_output=True, text=True).stdout.strip()
+            assert local_main_sha == remote_main_sha
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+
+def test_reconcile_local_main_fails_closed_when_diverged_or_ahead():
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp) / "repo"
         root.mkdir()
@@ -435,12 +514,264 @@ def test_unrelated_dirty_file_still_blocks_switch():
         subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
         subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
 
-        (root / "README.md").write_text("# Repo\n", encoding="utf-8")
-        (root / "app.py").write_text("print('initial')\n", encoding="utf-8")
+        (root / "README.md").write_text("# Local Commit Ahead\n", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
         subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
 
-        (root / "app.py").write_text("print('uncommitted change')\n", encoding="utf-8")
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_git = bridge.git
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            def fake_git(*args, **kwargs):
+                if args == ("rev-parse", "refs/remotes/origin/main"):
+                    return type("Res", (), {"returncode": 0, "stdout": "1" * 40, "stderr": ""})()
+                if args == ("merge-base", "--is-ancestor", "refs/heads/main", "refs/remotes/origin/main"):
+                    return type("Res", (), {"returncode": 1, "stdout": "", "stderr": ""})()
+                if args == ("merge-base", "--is-ancestor", "refs/remotes/origin/main", "refs/heads/main"):
+                    return type("Res", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+                return old_git(*args, **kwargs)
+
+            bridge.git = fake_git
+
+            with pytest.raises(SystemExit):
+                bridge.reconcile_local_main({"remote": "origin", "base_branch": "main"})
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.git = old_git
+
+
+def test_dirty_worktree_blocks_handoff_and_reconciliation():
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "main"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "app.py").write_text("print(1)\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+        # Uncommitted dirty edit
+        (root / "app.py").write_text("print(2)\n", encoding="utf-8")
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            bridge.ensure_dirs()
+            cfg = {"windows_popup": False, "remote": "origin", "base_branch": "main", "control_branch": "ai-control"}
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            with pytest.raises(SystemExit):
+                bridge.cmd_handoff(type("Args", (), {"task_id": 6, "action": "run"})())
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+
+def test_handoff_fix_succeeds_only_for_changes_required_and_binds_exact_blob():
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "main"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "README.md").write_text("# Repo\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+        # Create existing task branch ai/task-006
+        subprocess.run(["git", "checkout", "-b", "ai/task-006"], cwd=root, check=True, capture_output=True)
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_fetch = bridge.fetch_control
+        old_blob = bridge.get_remote_blob_sha
+        old_read = bridge.read_remote_file
+
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            bridge.ensure_dirs()
+            cfg = {
+                "remote": "origin",
+                "base_branch": "main",
+                "control_branch": "ai-control",
+                "task_branch_prefix": "ai/task-",
+                "poll_seconds": 20,
+                "windows_popup": False,
+            }
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            bridge.fetch_control = lambda cfg: None
+            bridge.get_remote_blob_sha = lambda cfg, path: "8" * 40
+            bridge.read_remote_file = lambda cfg, path: "# REVIEW-006\n\n## Status\nCHANGES_REQUIRED\n\nPlease fix unit tests."
+
+            bridge.cmd_handoff(type("Args", (), {"task_id": 6, "action": "fix"})())
+
+            auth = bridge.get_active_authorization(6, "FIX")
+            assert auth is not None
+            assert auth["action"] == "FIX"
+            assert auth["kind"] == "REVIEW"
+            assert auth["artifact_blob_sha"] == "8" * 40
+
+            state = bridge.load_json(bridge.get_runtime_paths()["state"], {})
+            assert state["status"] == "CHANGES_REQUIRED"
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.fetch_control = old_fetch
+            bridge.get_remote_blob_sha = old_blob
+            bridge.read_remote_file = old_read
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+
+def test_handoff_fix_fails_closed_when_approved_or_missing_or_unknown_status():
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_fetch = bridge.fetch_control
+        old_blob = bridge.get_remote_blob_sha
+        old_read = bridge.read_remote_file
+        old_ensure = bridge.ensure_git
+
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            bridge.ensure_git = lambda: None
+            bridge.ensure_dirs()
+            cfg = {"windows_popup": False, "remote": "origin", "control_branch": "ai-control"}
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            bridge.fetch_control = lambda cfg: None
+            bridge.get_remote_blob_sha = lambda cfg, path: "9" * 40
+            # Review is APPROVED
+            bridge.read_remote_file = lambda cfg, path: "# REVIEW-006\n\n## Status\nAPPROVED\n"
+
+            with pytest.raises(SystemExit):
+                bridge.cmd_handoff(type("Args", (), {"task_id": 6, "action": "fix"})())
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.fetch_control = old_fetch
+            bridge.get_remote_blob_sha = old_blob
+            bridge.read_remote_file = old_read
+            bridge.ensure_git = old_ensure
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+
+def test_publish_enforces_active_authorization_and_detects_control_drift():
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "ai/task-006"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "README.md").write_text("# Repo\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_fetch = bridge.fetch_control
+        old_blob = bridge.get_remote_blob_sha
+
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            bridge.ensure_dirs()
+            cfg = {
+                "remote": "origin",
+                "base_branch": "main",
+                "control_branch": "ai-control",
+                "task_branch_prefix": "ai/task-",
+                "poll_seconds": 20,
+                "windows_popup": False,
+            }
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            auth = {
+                "task_id": "TASK-006",
+                "action": "RUN",
+                "kind": "TASK",
+                "artifact_path": ".ai/tasks/TASK-006.md",
+                "artifact_blob_sha": "a" * 40,
+                "approved_at": bridge.now(),
+                "branch": "ai/task-006",
+                "status": "ACTIVE",
+            }
+            bridge.save_authorization(6, auth)
+
+            # Control branch drifted to "b"*40!
+            bridge.fetch_control = lambda cfg: None
+            bridge.get_remote_blob_sha = lambda cfg, path: "b" * 40
+
+            with pytest.raises(SystemExit):
+                bridge.cmd_publish(type("Args", (), {
+                    "task_id": 6,
+                    "test": None,
+                    "summary": "drift test",
+                    "notes": None,
+                    "message": None,
+                })())
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.fetch_control = old_fetch
+            bridge.get_remote_blob_sha = old_blob
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+
+def test_publish_consumes_active_authorization_and_creates_result_with_test_evidence():
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "ai/task-006"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "app.py").write_text("print('v0.4.0')\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+        # Make a tracked change
+        (root / "app.py").write_text("print('v0.4.0 final')\n", encoding="utf-8")
 
         runtime_dir = Path(temp) / "bridge_runtime"
         os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
@@ -448,23 +779,202 @@ def test_unrelated_dirty_file_still_blocks_switch():
         old_project = bridge.PROJECT
         old_ai = bridge.AI
         old_git = bridge.git
+        old_fetch = bridge.fetch_control
+        old_blob = bridge.get_remote_blob_sha
 
         bridge.PROJECT = root
         bridge.AI = root / ".ai"
 
         try:
-            bridge.git = lambda *args, **kw: subprocess.run(
-                ["git", *args], cwd=root, check=kw.get("check", True), capture_output=True, text=True
-            )
-            dirty = bridge.non_ai_dirty_paths()
-            assert "app.py" in dirty
+            bridge.ensure_dirs()
+            cfg = {
+                "remote": "origin",
+                "base_branch": "main",
+                "control_branch": "ai-control",
+                "task_branch_prefix": "ai/task-",
+                "poll_seconds": 20,
+                "windows_popup": False,
+            }
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
 
-            with pytest.raises(SystemExit):
-                bridge.checkout_task_branch({"remote": "origin", "base_branch": "main", "task_branch_prefix": "ai/task-"}, 2)
+            auth = {
+                "task_id": "TASK-006",
+                "action": "RUN",
+                "kind": "TASK",
+                "artifact_path": ".ai/tasks/TASK-006.md",
+                "artifact_blob_sha": "c" * 40,
+                "approved_at": bridge.now(),
+                "branch": "ai/task-006",
+                "status": "ACTIVE",
+                "base_main_sha": "base_123",
+            }
+            bridge.save_authorization(6, auth)
+
+            bridge.fetch_control = lambda cfg: None
+            bridge.get_remote_blob_sha = lambda cfg, path: "c" * 40
+
+            # Mock git push
+            bridge.git = lambda *args, **kw: (
+                type("Res", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+                if args[0] == "push"
+                else subprocess.run(["git", *args], cwd=root, check=kw.get("check", True), capture_output=True, text=True)
+            )
+
+            bridge.cmd_publish(type("Args", (), {
+                "task_id": 6,
+                "test": "echo '264 passed in 20.86s'",
+                "summary": "Completed TASK-006",
+                "notes": "Safe zero-touch workflow verified",
+                "message": "TASK-006: implementation ready",
+            })())
+
+            # Authorization is CONSUMED
+            updated_auth = bridge.load_authorization(6)
+            assert updated_auth["status"] == "CONSUMED"
+            assert updated_auth["published_sha"] is not None
+
+            # RESULT-006 artifact created with full evidence
+            result_file = root / ".ai" / "results" / "RESULT-006.md"
+            assert result_file.exists()
+            content = result_file.read_text(encoding="utf-8")
+            assert "STATUS: READY_FOR_REVIEW" in content
+            assert "264 passed" in content
+            assert "base_123" in content
         finally:
             bridge.PROJECT = old_project
             bridge.AI = old_ai
             bridge.git = old_git
+            bridge.fetch_control = old_fetch
+            bridge.get_remote_blob_sha = old_blob
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+
+def test_publish_preserves_active_authorization_when_tests_fail():
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "ai/task-006"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "README.md").write_text("# Repo\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_fetch = bridge.fetch_control
+        old_blob = bridge.get_remote_blob_sha
+
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            bridge.ensure_dirs()
+            cfg = {
+                "remote": "origin",
+                "base_branch": "main",
+                "control_branch": "ai-control",
+                "task_branch_prefix": "ai/task-",
+                "poll_seconds": 20,
+                "windows_popup": False,
+            }
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            auth = {
+                "task_id": "TASK-006",
+                "action": "RUN",
+                "kind": "TASK",
+                "artifact_path": ".ai/tasks/TASK-006.md",
+                "artifact_blob_sha": "d" * 40,
+                "approved_at": bridge.now(),
+                "branch": "ai/task-006",
+                "status": "ACTIVE",
+            }
+            bridge.save_authorization(6, auth)
+
+            bridge.fetch_control = lambda cfg: None
+            bridge.get_remote_blob_sha = lambda cfg, path: "d" * 40
+
+            with pytest.raises(SystemExit):
+                bridge.cmd_publish(type("Args", (), {
+                    "task_id": 6,
+                    "test": "python -c 'import sys; sys.exit(1)'",
+                    "summary": "Failing test run",
+                    "notes": None,
+                    "message": None,
+                })())
+
+            # Authorization MUST REMAIN ACTIVE for the developer session to fix code
+            updated_auth = bridge.load_authorization(6)
+            assert updated_auth["status"] == "ACTIVE"
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.fetch_control = old_fetch
+            bridge.get_remote_blob_sha = old_blob
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+
+def test_watcher_notifications_v040_instruct_aios_worker_command():
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_fetch = bridge.fetch_control
+        old_list = bridge.list_remote_inbound
+        old_read = bridge.read_remote_file
+        old_notify = bridge.notify_best_effort
+        old_ensure = bridge.ensure_git
+
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            bridge.ensure_git = lambda: None
+            bridge.ensure_dirs()
+            cfg = {"windows_popup": False, "remote": "origin", "control_branch": "ai-control"}
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            notifications = []
+            bridge.notify_best_effort = lambda title, msg, *args: notifications.append((title, msg))
+
+            bridge.fetch_control = lambda cfg: None
+            bridge.list_remote_inbound = lambda cfg: [
+                (".ai/tasks/TASK-006.md", "t" * 40),
+                (".ai/reviews/REVIEW-006.md", "r" * 40),
+            ]
+            bridge.read_remote_file = lambda cfg, path: (
+                "# TASK-006\n" if "tasks" in path else "# REVIEW-006\n## Status\nCHANGES_REQUIRED\n"
+            )
+
+            bridge.sync_once(verbose=False)
+
+            assert len(notifications) == 2
+            assert "/aios-worker RUN TASK-006" in notifications[0][1]
+            assert "bridge.py approve" not in notifications[0][1]
+
+            assert "/aios-worker FIX TASK-006" in notifications[1][1]
+            assert "bridge.py approve" not in notifications[1][1]
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.fetch_control = old_fetch
+            bridge.list_remote_inbound = old_list
+            bridge.read_remote_file = old_read
+            bridge.notify_best_effort = old_notify
+            bridge.ensure_git = old_ensure
             if "AIOS_RUNTIME_DIR" in os.environ:
                 del os.environ["AIOS_RUNTIME_DIR"]
 
@@ -479,6 +989,12 @@ def test_popup_notification_failure_does_not_break_sync_or_checkpoint():
 
         old_project = bridge.PROJECT
         old_ai = bridge.AI
+        old_fetch = bridge.fetch_control
+        old_list = bridge.list_remote_inbound
+        old_read = bridge.read_remote_file
+        old_notify = bridge.notify
+        old_ensure = bridge.ensure_git
+
         bridge.PROJECT = root
         bridge.AI = root / ".ai"
 
@@ -504,6 +1020,11 @@ def test_popup_notification_failure_does_not_break_sync_or_checkpoint():
         finally:
             bridge.PROJECT = old_project
             bridge.AI = old_ai
+            bridge.fetch_control = old_fetch
+            bridge.list_remote_inbound = old_list
+            bridge.read_remote_file = old_read
+            bridge.notify = old_notify
+            bridge.ensure_git = old_ensure
             if "AIOS_RUNTIME_DIR" in os.environ:
                 del os.environ["AIOS_RUNTIME_DIR"]
 
