@@ -316,8 +316,8 @@ def write_pending(kind: str, task_id: int, path: str, blob_sha: str):
     return target
 
 
-def clear_pending_reviews(task_id: int):
-    """Removes any pending review events for this task once it reaches a terminal status."""
+def clear_pending_events(kind: str, task_id: int):
+    """Removes any prior pending events for a specific kind and task_id."""
     inbox = get_runtime_paths()["inbox"]
     if not inbox.exists():
         return
@@ -325,11 +325,15 @@ def clear_pending_reviews(task_id: int):
         data = load_json(f, {})
         raw_tid = str(data.get("task_id", ""))
         eid = parse_task_id(raw_tid)
-        if eid == task_id and data.get("kind") == "REVIEW":
+        if eid == task_id and data.get("kind") == kind.upper():
             try:
                 f.unlink()
             except OSError:
                 pass
+
+
+def clear_pending_reviews(task_id: int):
+    clear_pending_events("REVIEW", task_id)
 
 
 def parse_task_id(path: str):
@@ -508,6 +512,7 @@ def sync_once(verbose=True):
         notification = None
 
         if task_id and path.startswith(".ai/tasks/"):
+            clear_pending_events("TASK", task_id)
             write_pending("TASK", task_id, path, blob_sha)
             update_state(
                 task_id,
@@ -523,6 +528,7 @@ def sync_once(verbose=True):
         elif task_id and path.startswith(".ai/reviews/"):
             review_status = parse_review_status(content)
             if review_status == "CHANGES_REQUIRED":
+                clear_pending_events("REVIEW", task_id)
                 write_pending("REVIEW", task_id, path, blob_sha)
                 update_state(
                     task_id,
@@ -536,7 +542,7 @@ def sync_once(verbose=True):
                     cfg.get("windows_popup", True),
                 )
             elif review_status == "APPROVED":
-                clear_pending_reviews(task_id)
+                clear_pending_events("REVIEW", task_id)
                 update_state(
                     task_id,
                     "APPROVED",
@@ -549,7 +555,7 @@ def sync_once(verbose=True):
                 )
             else:
                 # Missing or unrecognized review status -> fail-safe, non-actionable
-                clear_pending_reviews(task_id)
+                clear_pending_events("REVIEW", task_id)
                 update_state(
                     task_id,
                     "REVIEW_RECEIVED",

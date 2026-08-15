@@ -145,6 +145,70 @@ def test_changes_required_review_creates_pending_review_event():
                 del os.environ["AIOS_RUNTIME_DIR"]
 
 
+def test_repeated_changes_required_updates_do_not_create_duplicate_pending_events():
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "main"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "README.md").write_text("# Clean Repo\n", encoding="utf-8")
+        subprocess.run(["git", "add", "README.md"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "initial commit"], cwd=root, check=True, capture_output=True)
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_git = bridge.git
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            bridge.ensure_dirs()
+            cfg = {"windows_popup": False, "remote": "origin", "control_branch": "ai-control"}
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            # 1. Sync REVIEW-004 at blob SHA A
+            bridge.fetch_control = lambda cfg: None
+            bridge.list_remote_inbound = lambda cfg: [(".ai/reviews/REVIEW-004.md", "a" * 40)]
+            bridge.read_remote_file = lambda cfg, path: "# REVIEW-004\n\n## Status\nCHANGES_REQUIRED\n\nInitial review fix required."
+
+            bridge.sync_once(verbose=False)
+
+            events = bridge.pending_events()
+            assert len(events) == 1
+            assert events[0]["task_id"] == "TASK-004"
+            assert events[0]["blob_sha"] == "a" * 40
+
+            # 2. Update same review content while keeping CHANGES_REQUIRED at blob SHA B
+            bridge.list_remote_inbound = lambda cfg: [(".ai/reviews/REVIEW-004.md", "b" * 40)]
+            bridge.read_remote_file = lambda cfg, path: "# REVIEW-004\n\n## Status\nCHANGES_REQUIRED\n\nUpdated review notes."
+
+            # 3. Sync again
+            bridge.sync_once(verbose=False)
+
+            # 4. Assert pending_events() contains exactly ONE REVIEW event for TASK-004 (corresponding to current update SHA B)
+            events = bridge.pending_events()
+            assert len(events) == 1, f"Expected exactly 1 pending event, found {len(events)}: {events}"
+            assert events[0]["kind"] == "REVIEW"
+            assert events[0]["task_id"] == "TASK-004"
+            assert events[0]["blob_sha"] == "b" * 40
+
+            # 5. Assert worktree remains clean/non-mutated by sync
+            p_status = subprocess.run(["git", "status", "--porcelain"], cwd=root, check=True, capture_output=True, text=True)
+            assert p_status.stdout.strip() == "", f"Git worktree dirtied: {p_status.stdout}"
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.git = old_git
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+
 def test_review_update_to_approved_clears_pending_and_sets_approved_state():
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp) / "repo"
