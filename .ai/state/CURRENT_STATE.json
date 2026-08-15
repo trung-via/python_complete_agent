@@ -1,0 +1,7 @@
+{
+  "phase": "unset",
+  "active_task": "TASK-001",
+  "status": "COMPLETED",
+  "last_review": null,
+  "next_step": "Awaiting bridge review"
+}

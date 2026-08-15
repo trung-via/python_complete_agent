@@ -1,0 +1,8 @@
+{
+  "remote": "origin",
+  "base_branch": "main",
+  "control_branch": "ai-control",
+  "task_branch_prefix": "ai/task-",
+  "poll_seconds": 20,
+  "windows_popup": true
+}
