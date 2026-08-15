@@ -3,125 +3,105 @@
 ## Status
 CHANGES_REQUIRED
 
-## Reviewed Head
+## Re-review Head
 - Branch: `ai/task-009`
-- Reviewed commit: `3e41fd5b41f04acd8056742c937613a55a777390`
+- Reviewed commit: `76ab9e48656e34c0538a3a70849e2ef82b53be6e`
+- Previous reviewed commit: `3e41fd5b41f04acd8056742c937613a55a777390`
 - Main baseline: `bfce0eb1b10061ee5ec23d549ef75f1a6f3f4e6f`
-- Branch relation to main: ahead 1, behind 0 (fast-forward safe)
-- Exact RUN authorization in RESULT: `.ai/tasks/TASK-009.md (14086def0a)`
-- Reported focused M6 suite: 20 passed, 0 failed
-- Reported full Phase 5.6 integration suite: 42 passed, 0 failed
-- Reported full repository suite: 343 passed, 0 failed
+- Branch relation to main: ahead 2, behind 0 (fast-forward safe)
+- Exact FIX authorization in RESULT: `.ai/reviews/REVIEW-009.md (acefab4a10)`
+- Reported focused M6 suite: 21 passed, 0 failed
+- Reported full Phase 5.6 integration suite: 43 passed, 0 failed
+- Reported full repository suite: 344 passed, 0 failed
 
 ## Summary
-The M6 shape is good: a typed READY/NOT_READY contract, six explicit checks, bounded soak tests, and Phase 5.6 documentation are present, with the full repository suite green. However, the current implementation does not yet satisfy several mandatory production-readiness invariants. Most importantly, the supposedly read-only gate mutates filesystem state when inspecting the idempotency store, and cross-store verification can return READY for semantic mismatches that M6 explicitly requires to fail closed.
+The first-round blockers were substantially addressed: readiness no longer constructs a persistent idempotency store during inspection, the missing-store path is non-mutating, exact RecordKey matching replaced the previous same-tool heuristic, and the M6 safety matrix now exercises real retry/terminal and budget-dedup boundaries. The branch remains fast-forward safe and all reported suites are green.
 
-## Blocking Finding 1 — Readiness is not strictly read-only for the idempotency store
+Two correctness blockers remain in the readiness contract.
 
-### Location
-`src/agent/production_readiness.py` — `_check_idempotency_store()`.
-
-For both an existing store and especially a missing store, the checker constructs `JsonlIdempotencyStore(db_path=...)` and then calls `get_all_records()`.
-
-The current `JsonlIdempotencyStore` constructor is not a read-only parser. It:
-- calls `_ensure_parent_directory()` (creates directories),
-- enters `_store_lock()`,
-- `_store_lock()` opens `<db_path>.lock` with `a+b`, which creates/modifies the lock file,
-- on Windows `_acquire_os_lock()` writes a byte to an empty lock file.
-
-So a readiness evaluation can create directories and lock files even when the data store itself does not exist. That violates M6.1/M6.2 D and the acceptance criteria requiring zero store mutation.
-
-The current regression `test_readiness_evaluation_is_strictly_read_only` only compares the JSONL data-file sizes after the store has already been constructed; it does not detect creation/modification of the lock file or parent directory.
-
-### Required Fix
-Use a genuinely read-only idempotency inspection path. Keep production mutation/locking semantics unchanged.
-
-Acceptable direction:
-- add a small read-only snapshot/validation helper that parses the JSONL without constructing a mutating `JsonlIdempotencyStore`; or
-- add an explicitly read-only store inspection API that does not create directories, lock files, temp files, or data files.
-
-For a missing store path, return a fresh-runtime result without constructing the persistent store.
-
-Add regressions that assert readiness does not create or modify:
-- the JSONL data file,
-- the `.lock` file,
-- the parent directory when it did not exist,
-- existing file mtimes/content.
-
-## Blocking Finding 2 — Idempotency structural health does not detect persisted lifecycle inconsistency
-
-M6 requires malformed **or internally inconsistent persisted records** to be NOT_READY.
-
-The current health check delegates to `JsonlIdempotencyStore` loading. That loader validates record shape and timestamp monotonicity, but it does not validate the persisted lifecycle history for a canonical key. For example, a later record can move a key from terminal `COMPLETED`/`FAILED` back to `IN_PROGRESS` with a newer timestamp and still be accepted by the loader, even though the idempotency contract says terminal transitions cannot reopen that way.
-
-### Required Fix
-During the read-only structural scan, validate per-key persisted lifecycle invariants without mutating the store. At minimum fail closed on impossible transitions, attempt/ownership progression that contradicts the current idempotency contract, or terminal reopening.
-
-Add a deterministic regression with a syntactically valid JSONL file containing an impossible lifecycle transition and prove:
-- readiness is NOT_READY,
-- the file is unchanged.
-
-Do not add a second idempotency engine; this is validation of the existing contract only.
-
-## Blocking Finding 3 — Cross-store consistency can miss the exact mismatch M6 requires
+## Blocking Finding 1 — The new read-only idempotency parser does not validate the actual persisted store contract
 
 ### Location
-`ProductionReadinessChecker._check_cross_store_consistency()` delegates to `RunIntegrityVerifier.verify()`.
+`src/agent/production_readiness.py` — `parse_idempotency_store_read_only()`.
 
-The existing verifier only cross-checks `session.completed_tool_calls`; it does not verify pending/recoverable logical calls. M6 explicitly requires a recoverable/pending logical-call mismatch to be NOT_READY.
+The parser currently validates only a subset of the production JSONL record schema: key, status, and `updated_at`. It reads `owner_id` and `attempt` but does not validate them, defaults a missing `attempt` to 1, and does not require/validate `created_at` or `data`.
 
-Also, for completed calls the verifier searches for **any** COMPLETED idempotency record with the same tool operation scope. It does not require the exact expected `RecordKey`/idempotency identity for that logical operation. Therefore an unrelated completed record for the same tool can mask a missing record and produce a false READY.
+That is weaker than `JsonlIdempotencyStore._record_from_dict()` / `_validate_record()`, which require and validate the persisted contract including:
+- `created_at` and `updated_at` numeric values;
+- non-empty `owner_id`;
+- integer `attempt >= 1` (bool is not accepted);
+- `data` being object or null;
+- `updated_at >= created_at`.
+
+As a result, syntactically valid but structurally impossible store records can currently pass `idempotency_store_health` and contribute to an overall READY report.
+
+The new lifecycle regression demonstrates the gap itself: its supposedly valid persisted records omit `created_at`, which the real store loader would reject, but the readiness parser accepts them far enough to test terminal reopening.
+
+The lifecycle transition check is also too permissive relative to the actual mutation contract. For example it permits terminal → same-terminal and `RECOVERABLE → RECOVERABLE`, while production transitions only originate from `IN_PROGRESS` for complete/fail, and a recoverable record must be reclaimed to `IN_PROGRESS` before another failure transition. Re-claim transitions should also preserve the real attempt/ownership progression instead of ignoring those fields.
 
 ### Required Fix
-Make M6 cross-store verification exact enough to prove safe replay/recovery:
-- derive the exact current idempotency identity/`RecordKey` using the existing `ToolCall`/store semantics; do not invent new identity rules;
-- verify pending/recoverable calls whose durable replay requires idempotency state;
-- ensure an unrelated record for the same tool cannot satisfy the check;
-- ambiguous/missing state must be NOT_READY.
+Keep inspection strictly read-only, but validate the same persisted record contract as production.
 
-Add regressions for:
-1. pending/recoverable checkpoint call with missing required idempotency state => NOT_READY;
-2. missing exact record plus an unrelated COMPLETED record for the same tool => still NOT_READY;
-3. exact consistent state => READY.
+Preferred direction: reuse/extract a pure record-deserialization/validation helper from the existing idempotency implementation rather than maintaining a weaker second schema. Then validate per-key lifecycle history against the actual allowed persisted transitions, including attempt progression where the existing contract makes it deterministic.
 
-## Blocking Finding 4 — The M6 safety matrix does not actually cover all required precedence rules
+Add regressions proving NOT_READY, file unchanged, for at least:
+1. missing/invalid `created_at`;
+2. empty/missing `owner_id`;
+3. invalid `attempt` (0, negative, bool/non-int);
+4. invalid `data` shape;
+5. `updated_at < created_at`;
+6. impossible lifecycle history such as terminal reopening and an invalid recoverable progression.
 
-The new matrix has useful tests, but two required relationships are not demonstrated by the M6 tests themselves:
+## Blocking Finding 2 — Cross-store readiness now rejects a known-safe crash boundary before idempotency is required
 
-1. `test_safety_matrix_cancellation_precedence_over_scheduled_retry` pre-cancels the run before `AgentLoop.run()` starts. It does not create a retryable failure, durably write `RETRY_SCHEDULED`, then prove cancellation wins before attempt N+1. The test name claims a scheduled-retry race that it never exercises.
+### Location
+`ProductionReadinessChecker._check_cross_store_consistency()` and `test_cross_store_pending_recoverable_call_missing_record_fails_closed`.
 
-2. The task explicitly requires `RetryPolicyEngine STOP > retry continuation`; there is no compact M6 matrix regression for this rule.
+The implementation requires **every** non-terminal `session.pending_tool_calls` entry to already have an idempotency record. But a pending call can exist durably immediately after `LLM_RESPONDED` and before `ToolExecutor` has claimed the idempotency key.
 
-3. The stable-call test executes `ToolExecutor` twice and proves no duplicate side effect, but it does not exercise AgentLoop/resume budget accounting, so it does not prove `stable call_id > duplicate logical budget charge` inside the M6 matrix.
+That exact boundary is a supported Phase 5.6 recovery case: crash after the LLM response, before tool execution/claim. On resume, the call can safely create a fresh idempotency claim; the absence of a record is not a cross-store mismatch yet.
 
-Existing M1–M5 regressions should remain green, but M6.5 explicitly asks for a compact final precedence verification matrix. Add focused M6 regressions that exercise the real boundaries rather than only relying on older suites.
+The new test named `pending_recoverable_call_missing_record` creates exactly that pre-execution state — `RUN_STARTED → LLM_REQUESTED → LLM_RESPONDED` only — and then expects NOT_READY. It therefore turns a previously verified safe crash/resume state into a production-readiness false negative.
 
-## Finding 5 — RESULT-009 durable evidence is incomplete
+M6.2 C requires a record only where durable history shows idempotency state is **required for safe replay/recovery**. The checker must distinguish:
+- pending but never-started tool work: missing idempotency record can be valid;
+- a call with durable evidence that execution/attempt/retry began: exact idempotency state is required, and missing/ambiguous state must be NOT_READY;
+- completed checkpoint calls: exact COMPLETED idempotency state remains required.
 
-`RESULT-009.md` has good test counts and authorization, but:
-- the Diff Stat block is empty;
-- it does not record the published task-head SHA / immutable reviewed-head reference required by M6.7.
+### Required Fix
+Use existing durable events to decide when idempotency state becomes mandatory. Do not blanket-require a record for every LLM-produced pending call.
 
-Regenerate the final FIX result with complete evidence. As in earlier tasks, the immutable reviewed head can be recorded through the publish/review contract without attempting an impossible self-referential SHA inside the same commit; the final evidence should make the reviewed head unambiguous.
+Add focused regressions for:
+1. crash after `LLM_RESPONDED` before tool claim, no idempotency record → readiness remains safe/consistent;
+2. pending call with durable `TOOL_ATTEMPT_STARTED` / retry evidence but missing exact idempotency record → NOT_READY;
+3. exact pending/recoverable idempotency state → READY;
+4. completed call with unrelated same-tool record still → NOT_READY.
 
-## What Is Already Good
+This preserves both the M5 crash-before-tool recovery invariant and the M6 fail-closed cross-store requirement.
 
-- Branch is exactly one commit ahead of current main and not behind.
-- Full reported suite is 343/343 passing.
-- Focused M6 suite reports 20/20 passing.
-- The production-readiness model is typed and fail-closed at the report level.
-- No AIOS/bridge changes are included.
-- No live provider/network health checks or auto-repair were introduced.
-- Documentation correctly frames provider/network availability as outside preflight scope.
+## What Is Fixed Correctly
+
+- Missing-store readiness inspection no longer creates parent directories or `.lock` files.
+- The readiness path parses the idempotency data file directly instead of constructing `JsonlIdempotencyStore`.
+- Exact RecordKey matching is used for completed calls, so an unrelated same-tool record cannot mask a missing exact record.
+- The M6 matrix now creates a real `RETRY_SCHEDULED` boundary before durable terminal/cancellation wins.
+- A dedicated STOP-over-retry regression is present.
+- Stable-call resume budget dedup is exercised through AgentLoop/resume rather than only direct ToolExecutor replay.
+- Windows lock-file growth/contention fix is small and the full reported suite remains green.
+- RESULT-009 now includes populated diff stats and correct FIX authorization.
+
+## Durable Evidence Note
+
+`RESULT-009.md` still cannot embed the SHA of the commit that contains itself without a self-reference cycle. As with earlier AIOS tasks, the immutable reviewed head is recorded by this REVIEW artifact after publication. This re-review therefore treats the reviewed commit recorded above as the canonical immutable head reference rather than requiring another self-referential RESULT-only publication cycle.
 
 ## Re-review Requirements
 
-Publish a FIX commit through the exact current REVIEW-009 artifact. Before publishing:
-1. make idempotency readiness inspection truly read-only, including lock/directory behavior;
-2. validate persisted idempotency lifecycle consistency;
-3. make cross-store checks exact and cover pending/recoverable calls;
-4. complete the M6 precedence matrix with real scheduled-retry/STOP/budget-dedupe boundaries;
-5. run focused M6 tests, the full Phase 5.6 integration suite, and the full repository suite;
-6. regenerate RESULT-009 with complete durable evidence.
+Publish one more FIX commit through the exact current REVIEW-009 artifact. Before publish:
+1. make read-only idempotency validation contract-equivalent to the production persisted schema/lifecycle;
+2. distinguish safe pre-claim pending calls from pending calls whose durable history requires idempotency state;
+3. add focused regressions for both cases;
+4. keep the readiness path strictly non-mutating;
+5. run focused M6, full Phase 5.6 integration, and full repository suites;
+6. regenerate RESULT-009 with fresh evidence.
 
 Then the user should only need to say `Review TASK-009` again. Do not merge automatically.
