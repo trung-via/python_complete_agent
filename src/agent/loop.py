@@ -364,6 +364,12 @@ class AgentLoop:
                 is_last_in_batch = idx == len(pending_items) - 1
                 try:
                     result: ToolResult = await self.tool_executor.execute(p_call)
+                    if result.error and result.error.code == "IDEMPOTENCY_IN_PROGRESS":
+                        logger.warning(
+                            f"Resumed tool {cid} is in progress by another worker; yielding resume contender."
+                        )
+                        return None
+
                     self.checkpoints.log_tool_result_received(
                         run_id=run_id,
                         call_id=cid,
@@ -513,6 +519,12 @@ class AgentLoop:
 
                 try:
                     result: ToolResult = await self.tool_executor.execute(call)
+                    if result.error and result.error.code == "IDEMPOTENCY_IN_PROGRESS":
+                        logger.warning(
+                            f"Tool {call.call_id} is in progress by another worker; yielding run contender."
+                        )
+                        return None
+
                     is_last_in_batch = idx == len(response.tool_calls) - 1
                     self.checkpoints.log_tool_result_received(
                         run_id,

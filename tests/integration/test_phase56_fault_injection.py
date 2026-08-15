@@ -498,3 +498,156 @@ async def test_terminal_state_immutability_enforced_against_new_events(tmp_path:
 
     with pytest.raises(CheckpointStateError):
         cm.log_tool_call_created(run_id, "c_extra", "tool", {})
+
+
+@pytest.mark.asyncio
+async def test_cancellation_after_retryable_failure_before_retry_continuation_stops_attempt_n_plus_one(tmp_path: Any) -> None:
+    """
+    Cancellation arrives while tool is in retry backoff before attempt N+1.
+    Continuation guard stops retry; attempt N+1 never executes.
+    """
+    class FailOnceTool:
+        def __init__(self) -> None:
+            self.name = "cancel_during_retry_tool"
+            self.description = "tool failing on attempt 1"
+            self.attempts = 0
+
+        def get_schema(self) -> Dict[str, Any]:
+            return {"type": "object", "properties": {}}
+
+        async def execute(self, call: ToolCall, context: Dict[str, Any]) -> ToolResult:
+            self.attempts += 1
+            if self.attempts == 1:
+                raise AgentException(message="503 Service Unavailable", code="HTTP_503", retryable=True)
+            return ToolResult(call_id=call.call_id, run_id=call.run_id, tool_name=call.name, status=ToolStatus.SUCCESS, data={"attempts": self.attempts})
+
+    db_path = str(tmp_path / "idempotency.jsonl")
+    cp_path = str(tmp_path / "checkpoints.jsonl")
+    store = JsonlIdempotencyStore(db_path=db_path)
+    checkpoints = CheckpointManager(db_path=cp_path)
+    controller = RunCancellationController(checkpoints)
+
+    run_id = "run-cancel-during-retry"
+    checkpoints.log_run_started(run_id, "sys", "usr")
+
+    tool = FailOnceTool()
+    registry = ToolRegistry()
+    registry.register_tool(tool)
+
+    class CancellingRetryManager(RetryManager):
+        async def execute_with_retry(self, operation: Any, *args: Any, **kwargs: Any) -> Any:
+            orig_on_retry = kwargs.get("on_retry_scheduled")
+            def hook_on_retry(att: int, next_att: int, delay: float, reason: str, domain: str) -> None:
+                if orig_on_retry:
+                    orig_on_retry(att, next_att, delay, reason, domain)
+                # Durably cancel the run immediately after retry is scheduled
+                controller.cancel(run_id, reason="Cancelled Before Attempt 2")
+
+            kwargs["on_retry_scheduled"] = hook_on_retry
+            return await super().execute_with_retry(operation, *args, **kwargs)
+
+    retry_manager = CancellingRetryManager(default_policy=RetryPolicy(max_attempts=3, base_delay=0.01, jitter=False))
+    executor = ToolExecutor(registry, store, retry_manager, checkpoints, {})
+
+    call = ToolCall(name="cancel_during_retry_tool", arguments={}, call_id="c_cancel_retry", run_id=run_id)
+
+    result = await executor.execute(call)
+
+    # Invariant: Attempt 2 NEVER executes because cancellation won before attempt 2
+    assert tool.attempts == 1
+    assert result.status == ToolStatus.FAILURE
+
+
+@pytest.mark.asyncio
+async def test_terminal_state_before_retry_continuation_stops_attempt_n_plus_one(tmp_path: Any) -> None:
+    """
+    Run is marked terminal (HALTED/FAILED/COMPLETED) before scheduled retry continuation.
+    Continuation guard stops retry; attempt N+1 never executes.
+    """
+    class FailOnceTool:
+        def __init__(self) -> None:
+            self.name = "term_during_retry_tool"
+            self.description = "tool failing on attempt 1"
+            self.attempts = 0
+
+        def get_schema(self) -> Dict[str, Any]:
+            return {"type": "object", "properties": {}}
+
+        async def execute(self, call: ToolCall, context: Dict[str, Any]) -> ToolResult:
+            self.attempts += 1
+            if self.attempts == 1:
+                raise AgentException(message="503 Service Unavailable", code="HTTP_503", retryable=True)
+            return ToolResult(call_id=call.call_id, run_id=call.run_id, tool_name=call.name, status=ToolStatus.SUCCESS)
+
+    db_path = str(tmp_path / "idempotency.jsonl")
+    cp_path = str(tmp_path / "checkpoints.jsonl")
+    store = JsonlIdempotencyStore(db_path=db_path)
+    checkpoints = CheckpointManager(db_path=cp_path)
+
+    run_id = "run-term-during-retry"
+    checkpoints.log_run_started(run_id, "sys", "usr")
+
+    tool = FailOnceTool()
+    registry = ToolRegistry()
+    registry.register_tool(tool)
+
+    class TerminatingRetryManager(RetryManager):
+        async def execute_with_retry(self, operation: Any, *args: Any, **kwargs: Any) -> Any:
+            orig_on_retry = kwargs.get("on_retry_scheduled")
+            def hook_on_retry(att: int, next_att: int, delay: float, reason: str, domain: str) -> None:
+                if orig_on_retry:
+                    orig_on_retry(att, next_att, delay, reason, domain)
+                # Durably halt the run immediately after retry is scheduled
+                checkpoints.log_run_halted(run_id, reason="RUN_HALTED_EXTERNALLY")
+
+            kwargs["on_retry_scheduled"] = hook_on_retry
+            return await super().execute_with_retry(operation, *args, **kwargs)
+
+    retry_manager = TerminatingRetryManager(default_policy=RetryPolicy(max_attempts=3, base_delay=0.01, jitter=False))
+    executor = ToolExecutor(registry, store, retry_manager, checkpoints, {})
+
+    call = ToolCall(name="term_during_retry_tool", arguments={}, call_id="c_term_retry", run_id=run_id)
+
+    result = await executor.execute(call)
+
+    # Attempt 2 never executes
+    assert tool.attempts == 1
+    assert result.status == ToolStatus.FAILURE
+
+
+@pytest.mark.asyncio
+async def test_invalid_checkpoint_transition_sequence_fails_closed(tmp_path: Any) -> None:
+    """Illegal checkpoint state transition raises CheckpointStateError and fails closed."""
+    from src.core.checkpoint_contract import validate_state_transition, CheckpointEvent
+    run_id = "run-illegal-transition"
+
+    # Attempt to process TOOL_RESULT_RECEIVED while in PENDING state
+    event = CheckpointEvent(
+        run_id=run_id,
+        sequence_id=1,
+        timestamp=100.0,
+        event_type=CheckpointEventType.TOOL_RESULT_RECEIVED,
+        payload={"call_id": "c1", "status": "success"},
+    )
+    with pytest.raises(CheckpointStateError):
+        validate_state_transition(RunState.PENDING, event)
+
+
+@pytest.mark.asyncio
+async def test_explicit_persistence_boundary_failure_is_classified_as_system_state_error(tmp_path: Any) -> None:
+    """Storage / persistence failure during complete raises SystemStateError."""
+    db_path = str(tmp_path / "idempotency.jsonl")
+    cp_path = str(tmp_path / "checkpoints.jsonl")
+    faulty_cp = FaultyCheckpointManager(db_path=cp_path, fail_on_event_types={CheckpointEventType.TOOL_CALL_CREATED})
+    store = JsonlIdempotencyStore(db_path=db_path)
+    tool = BaseCountingTool()
+
+    registry = ToolRegistry()
+    registry.register_tool(tool)
+    retry_manager = RetryManager(default_policy=RetryPolicy(max_attempts=1))
+    executor = ToolExecutor(registry, store, retry_manager, faulty_cp, {})
+
+    call = ToolCall(name="test_tool", arguments={}, call_id="c_persist_fail", run_id="run_persist_fail")
+    with pytest.raises(OSError, match="Simulated checkpoint write failure"):
+        await executor.execute(call)
+

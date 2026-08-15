@@ -221,15 +221,6 @@ class ToolExecutor:
         except (SystemStateError, CheckpointCorruptionError, CheckpointStateError):
             raise
 
-            self._fail_v2(
-                key,
-                retryable=False,
-                data={
-                    "result": failure_result.to_dict(),
-                },
-            )
-            return failure_result
-
     async def _execute_legacy(self, call: ToolCall, tool: Any) -> ToolResult:
         cached_result = self.idempotency_store.get(call.idempotency_key)
 
@@ -327,6 +318,18 @@ class ToolExecutor:
                 call_id=call.call_id,
             )
 
+        def before_retry_attempt(next_attempt: int) -> bool:
+            try:
+                from src.core.recovery_diagnostics import RecoveryAnalyzer
+                from src.core.checkpoint_contract import RunState
+                diag = RecoveryAnalyzer.analyze(call.run_id, self.checkpoints.db_path)
+                if diag.current_state in (RunState.HALTED, RunState.FAILED, RunState.COMPLETED):
+                    return False
+                return True
+            except Exception as e:
+                logger.warning(f"Error checking run state before retry attempt for {call.run_id}: {e}")
+                return True
+
         return await self.retry_manager.execute_with_retry(
             tool.execute,
             call=call,
@@ -334,6 +337,7 @@ class ToolExecutor:
             on_attempt_start=on_attempt_start,
             on_attempt_complete=on_attempt_complete,
             on_retry_scheduled=on_retry_scheduled,
+            before_retry_attempt=before_retry_attempt,
         )
 
     def _complete_v2(

@@ -45,6 +45,7 @@ class RetryManager:
         on_attempt_complete: Optional[Callable[[int, str, Optional[str]], None]] = None,
         on_attempt_start: Optional[Callable[[int], None]] = None,
         on_retry_scheduled: Optional[Callable[[int, int, float, str, str], None]] = None,
+        before_retry_attempt: Optional[Callable[[int], bool]] = None,
         **kwargs
     ) -> Any:
         """
@@ -155,4 +156,15 @@ class RetryManager:
                 f"delay {delay:.2f}s, reason {decision.reason.value})"
             )
             await asyncio.sleep(delay)
+
+            if before_retry_attempt is not None and not before_retry_attempt(decision.next_attempt):
+                logger.info(
+                    f"Retry continuation blocked by before_retry_attempt guard before attempt {decision.next_attempt}"
+                )
+                if current_exception is not None:
+                    raise current_exception
+                if current_result is not None:
+                    return current_result
+                raise RuntimeError("Retry stopped by cancellation or terminal run state.")
+
             attempt = decision.next_attempt
