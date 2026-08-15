@@ -1078,3 +1078,199 @@ def test_utf8_output_and_path_handling_remains_functional():
     finally:
         bridge.run = old_run
         bridge.git = old_git
+
+
+def test_publish_fails_closed_when_only_legacy_approval_exists_and_no_active_authorization():
+    """Validates Finding 1: Legacy historical approval alone can NEVER authorize publish."""
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "ai/task-006"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "README.md").write_text("# Repo\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            bridge.ensure_dirs()
+            cfg = {
+                "remote": "origin",
+                "base_branch": "main",
+                "control_branch": "ai-control",
+                "task_branch_prefix": "ai/task-",
+                "poll_seconds": 20,
+                "windows_popup": False,
+            }
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            # Write a historical legacy APPROVED inbox file
+            inbox = bridge.get_runtime_paths()["inbox"]
+            bridge.save_json(inbox / "TASK-006.legacy.json", {
+                "kind": "TASK",
+                "task_id": "TASK-006",
+                "approval": "APPROVED",
+                "approved_at": "2026-08-10T10:00:00+07:00",
+            })
+
+            # Assert NO active v0.4.0 authorization exists
+            assert bridge.get_active_authorization(6) is None
+
+            # Publish MUST fail closed!
+            with pytest.raises(SystemExit):
+                bridge.cmd_publish(type("Args", (), {
+                    "task_id": 6,
+                    "test": None,
+                    "summary": "legacy test",
+                    "notes": None,
+                    "message": None,
+                })())
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+
+def test_existing_task_branch_resume_fails_when_local_ahead_of_remote():
+    """Validates Finding 2: Existing task branch resume fails closed if local is ahead of remote."""
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "ai/task-006"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "README.md").write_text("# Repo\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_git = bridge.git
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            def fake_git(*args, **kwargs):
+                if args == ("rev-parse", "refs/remotes/origin/ai/task-006"):
+                    return type("Res", (), {"returncode": 0, "stdout": "1" * 40, "stderr": ""})()
+                if args == ("merge-base", "--is-ancestor", "refs/heads/ai/task-006", "refs/remotes/origin/ai/task-006"):
+                    return type("Res", (), {"returncode": 1, "stdout": "", "stderr": ""})()
+                if args == ("merge-base", "--is-ancestor", "refs/remotes/origin/ai/task-006", "refs/heads/ai/task-006"):
+                    return type("Res", (), {"returncode": 0, "stdout": "", "stderr": ""})()  # Local is ahead
+                return old_git(*args, **kwargs)
+
+            bridge.git = fake_git
+
+            cfg = {"remote": "origin", "base_branch": "main", "task_branch_prefix": "ai/task-"}
+            with pytest.raises(SystemExit):
+                bridge.prepare_task_branch(cfg, 6, "FIX")
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.git = old_git
+
+
+def test_existing_task_branch_resume_fails_when_local_and_remote_diverged():
+    """Validates Finding 2: Existing task branch resume fails closed if local and remote diverged."""
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "ai/task-006"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "README.md").write_text("# Repo\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_git = bridge.git
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            def fake_git(*args, **kwargs):
+                if args == ("rev-parse", "refs/remotes/origin/ai/task-006"):
+                    return type("Res", (), {"returncode": 0, "stdout": "1" * 40, "stderr": ""})()
+                if args == ("merge-base", "--is-ancestor", "refs/heads/ai/task-006", "refs/remotes/origin/ai/task-006"):
+                    return type("Res", (), {"returncode": 1, "stdout": "", "stderr": ""})()
+                if args == ("merge-base", "--is-ancestor", "refs/remotes/origin/ai/task-006", "refs/heads/ai/task-006"):
+                    return type("Res", (), {"returncode": 1, "stdout": "", "stderr": ""})()  # Diverged
+                return old_git(*args, **kwargs)
+
+            bridge.git = fake_git
+
+            cfg = {"remote": "origin", "base_branch": "main", "task_branch_prefix": "ai/task-"}
+            with pytest.raises(SystemExit):
+                bridge.prepare_task_branch(cfg, 6, "FIX")
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.git = old_git
+
+
+def test_existing_task_branch_resume_fast_forwards_when_local_strictly_behind():
+    """Validates Finding 2: Existing task branch resume fast-forwards when local is strictly behind."""
+    with tempfile.TemporaryDirectory() as temp:
+        # Create bare remote repository
+        remote_repo = Path(temp) / "remote_repo.git"
+        subprocess.run(["git", "init", "--bare", "-b", "main", str(remote_repo)], check=True, capture_output=True)
+
+        local_repo = Path(temp) / "local_repo"
+        subprocess.run(["git", "clone", str(remote_repo), str(local_repo)], check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=local_repo, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=local_repo, check=True, capture_output=True)
+
+        (local_repo / "README.md").write_text("# Initial\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=local_repo, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "commit 1"], cwd=local_repo, check=True, capture_output=True)
+        subprocess.run(["git", "push", "origin", "main"], cwd=local_repo, check=True, capture_output=True)
+
+        # Create ai/task-006 on remote
+        subprocess.run(["git", "checkout", "-b", "ai/task-006"], cwd=local_repo, check=True, capture_output=True)
+        subprocess.run(["git", "push", "-u", "origin", "ai/task-006"], cwd=local_repo, check=True, capture_output=True)
+
+        # In another clone, advance ai/task-006 on remote
+        other_repo = Path(temp) / "other_repo"
+        subprocess.run(["git", "clone", str(remote_repo), str(other_repo)], check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "Reviewer"], cwd=other_repo, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "rev@test.local"], cwd=other_repo, check=True, capture_output=True)
+        subprocess.run(["git", "checkout", "ai/task-006"], cwd=other_repo, check=True, capture_output=True)
+        (other_repo / "patch.txt").write_text("patch\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=other_repo, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "remote patch commit"], cwd=other_repo, check=True, capture_output=True)
+        subprocess.run(["git", "push", "origin", "ai/task-006"], cwd=other_repo, check=True, capture_output=True)
+
+        remote_task_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=other_repo, check=True, capture_output=True, text=True).stdout.strip()
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        bridge.PROJECT = local_repo
+        bridge.AI = local_repo / ".ai"
+
+        try:
+            cfg = {"remote": "origin", "base_branch": "main", "task_branch_prefix": "ai/task-"}
+            branch = bridge.prepare_task_branch(cfg, 6, "FIX")
+            assert branch == "ai/task-006"
+
+            local_task_sha = subprocess.run(["git", "rev-parse", "ai/task-006"], cwd=local_repo, check=True, capture_output=True, text=True).stdout.strip()
+            assert local_task_sha == remote_task_sha
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+

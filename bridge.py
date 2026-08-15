@@ -571,11 +571,62 @@ def reconcile_local_main(cfg) -> str:
     )
 
 
+def sync_existing_task_branch(remote: str, branch: str):
+    """
+    Classifies relation between local task branch and remote task branch:
+    - local == remote: OK, continue
+    - local strictly behind remote: fast-forward merge and verify
+    - local ahead of remote: fail closed
+    - local/remote diverged: fail closed
+    """
+    remote_branch_ref = f"refs/remotes/{remote}/{branch}"
+    local_branch_ref = f"refs/heads/{branch}"
+
+    p_remote = git("rev-parse", remote_branch_ref, check=False)
+    if p_remote.returncode != 0 or not p_remote.stdout.strip():
+        # Remote task branch does not exist yet; local only is valid
+        return
+
+    remote_sha = p_remote.stdout.strip()
+    p_local = git("rev-parse", local_branch_ref, check=False)
+    if p_local.returncode != 0 or not p_local.stdout.strip():
+        return
+
+    local_sha = p_local.stdout.strip()
+    if local_sha == remote_sha:
+        return
+
+    # Check if local is an ancestor of remote (strictly behind)
+    p_ancestor = git("merge-base", "--is-ancestor", local_branch_ref, remote_branch_ref, check=False)
+    if p_ancestor.returncode == 0:
+        if current_branch() == branch:
+            git("merge", "--ff-only", remote_branch_ref)
+        else:
+            git("fetch", ".", f"{remote_branch_ref}:{local_branch_ref}")
+        print(f"[BRANCH] Fast-forwarded task branch '{branch}' to '{remote}/{branch}' ({remote_sha[:10]})")
+        return
+
+    # Check if remote is ancestor of local (local is ahead)
+    p_ahead = git("merge-base", "--is-ancestor", remote_branch_ref, local_branch_ref, check=False)
+    if p_ahead.returncode == 0:
+        fail(
+            f"Task branch '{branch}' ở local đang AHEAD so với '{remote}/{branch}'. "
+            "Không thể tự động resume an toàn; cần push hoặc đối soát commit thủ công."
+        )
+
+    # Branches have diverged
+    fail(
+        f"Task branch '{branch}' ở local đã bị DIVERGED so với '{remote}/{branch}'. "
+        "Không thể tự động resume an toàn; cần đối soát hoặc rebase/merge thủ công."
+    )
+
+
 def prepare_task_branch(cfg, task_id: int, action: str) -> str:
     """
     Safely prepares and switches to the task branch.
     For RUN: Creates from synchronized canonical main or safely resumes.
     For FIX: Requires existing branch, fetches remote, and resumes without rebase.
+    Fails closed on local-ahead or diverged state when remote branch exists.
     """
     dirty = non_ai_dirty_paths()
     if dirty:
@@ -591,16 +642,12 @@ def prepare_task_branch(cfg, task_id: int, action: str) -> str:
 
     if action.upper() == "RUN":
         if current_branch() == branch:
+            sync_existing_task_branch(remote, branch)
             return branch
 
         if local_branch_exists(branch):
+            sync_existing_task_branch(remote, branch)
             git("checkout", branch)
-            # If remote exists and local is strictly behind, fast-forward
-            if branch_exists_remote(remote, branch):
-                remote_branch_ref = f"refs/remotes/{remote}/{branch}"
-                p_ancestor = git("merge-base", "--is-ancestor", f"refs/heads/{branch}", remote_branch_ref, check=False)
-                if p_ancestor.returncode == 0:
-                    git("merge", "--ff-only", remote_branch_ref, check=False)
             return branch
 
         if branch_exists_remote(remote, branch):
@@ -614,20 +661,12 @@ def prepare_task_branch(cfg, task_id: int, action: str) -> str:
 
     elif action.upper() == "FIX":
         if current_branch() == branch:
-            if branch_exists_remote(remote, branch):
-                remote_branch_ref = f"refs/remotes/{remote}/{branch}"
-                p_ancestor = git("merge-base", "--is-ancestor", f"refs/heads/{branch}", remote_branch_ref, check=False)
-                if p_ancestor.returncode == 0:
-                    git("merge", "--ff-only", remote_branch_ref, check=False)
+            sync_existing_task_branch(remote, branch)
             return branch
 
         if local_branch_exists(branch):
+            sync_existing_task_branch(remote, branch)
             git("checkout", branch)
-            if branch_exists_remote(remote, branch):
-                remote_branch_ref = f"refs/remotes/{remote}/{branch}"
-                p_ancestor = git("merge-base", "--is-ancestor", f"refs/heads/{branch}", remote_branch_ref, check=False)
-                if p_ancestor.returncode == 0:
-                    git("merge", "--ff-only", remote_branch_ref, check=False)
             return branch
 
         if branch_exists_remote(remote, branch):
@@ -1098,27 +1137,27 @@ def cmd_publish(args):
 
     auth = get_active_authorization(task_id)
     if not auth:
-        # Fallback to legacy approval check
-        if not latest_approved(task_id):
-            fail("Không có ACTIVE authorization cho task này. Không publish.")
+        fail(
+            f"Không có ACTIVE authorization cho TASK-{task_id:03d}. "
+            f"Cần chạy `/aios-worker RUN TASK-{task_id:03d}` hoặc `/aios-worker FIX TASK-{task_id:03d}` trước khi publish."
+        )
 
-    if auth:
-        # Re-validate against current control branch
-        fetch_control(cfg)
-        current_blob = get_remote_blob_sha(cfg, auth["artifact_path"])
-        if not current_blob or current_blob != auth["artifact_blob_sha"]:
+    # Re-validate against current control branch
+    fetch_control(cfg)
+    current_blob = get_remote_blob_sha(cfg, auth["artifact_path"])
+    if not current_blob or current_blob != auth["artifact_blob_sha"]:
+        fail(
+            f"Artifact '{auth['artifact_path']}' đã thay đổi trên control branch kể từ lúc handoff. "
+            f"Cần chạy lại `/aios-worker {auth['action']} TASK-{task_id:03d}`."
+        )
+
+    if auth["action"] == "FIX":
+        content = read_remote_file(cfg, auth["artifact_path"])
+        status = parse_review_status(content)
+        if status != "CHANGES_REQUIRED":
             fail(
-                f"Artifact '{auth['artifact_path']}' đã thay đổi trên control branch kể từ lúc handoff. "
-                f"Cần chạy lại `/aios-worker {auth['action']} TASK-{task_id:03d}`."
+                f"Review '{auth['artifact_path']}' hiện không ở trạng thái CHANGES_REQUIRED (status={status}). Không publish."
             )
-
-        if auth["action"] == "FIX":
-            content = read_remote_file(cfg, auth["artifact_path"])
-            status = parse_review_status(content)
-            if status != "CHANGES_REQUIRED":
-                fail(
-                    f"Review '{auth['artifact_path']}' hiện không ở trạng thái CHANGES_REQUIRED (status={status}). Không publish."
-                )
 
     test_output = "(no test command supplied)"
     test_rc = 0
