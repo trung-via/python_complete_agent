@@ -18,6 +18,7 @@ class SnapshotNormalizer:
     """
     Deterministic, platform-agnostic converter from a raw ProductCandidateSnapshot
     to a sequence of NormalizedSignal instances.
+    Consistently requires an explicit evaluated_at timestamp for 100% reproducibility.
     """
 
     @staticmethod
@@ -45,21 +46,28 @@ class SnapshotNormalizer:
     def normalize_snapshot(
         cls,
         snapshot: ProductCandidateSnapshot,
-        evaluated_at: Optional[datetime] = None,
+        evaluated_at: datetime,
         policy: Optional[ScoringPolicy] = None,
     ) -> List[NormalizedSignal]:
-        """Converts observed snapshot fields into normalized signals with evidence."""
+        """
+        Converts snapshot fields into normalized signals.
+        Emits explicit MISSING signals for unobserved expected metrics.
+        """
+        if evaluated_at is None:
+            raise ValueError("evaluated_at timestamp is required for deterministic normalization")
+
         policy = policy or ScoringPolicy()
-        eval_time = evaluated_at or datetime.now(timezone.utc)
         freshness = cls.calculate_freshness(
             snapshot.observed_at,
-            eval_time,
+            evaluated_at,
             policy.freshness_half_life_hours,
         )
 
         signals: List[NormalizedSignal] = []
 
-        # 1. Demand signals
+        # -------------------------------------------------------------------------
+        # 1. Demand signals (Expected: sold_volume, review_depth)
+        # -------------------------------------------------------------------------
         if snapshot.sold_count is not None:
             score = min(1.0, math.log10(max(1, snapshot.sold_count)) / 4.0) if snapshot.sold_count > 0 else 0.0
             evidence = SignalEvidence(
@@ -80,6 +88,19 @@ class SnapshotNormalizer:
                     evidence_refs=(evidence,),
                     freshness=freshness,
                     source_reliability=1.0,
+                    weight=1.5,
+                )
+            )
+        else:
+            signals.append(
+                NormalizedSignal(
+                    name="sold_volume",
+                    category=ScoreCategory.DEMAND,
+                    score=0.0,
+                    provenance=SignalProvenance.MISSING,
+                    evidence_refs=(),
+                    freshness=0.0,
+                    source_reliability=0.0,
                     weight=1.5,
                 )
             )
@@ -107,8 +128,23 @@ class SnapshotNormalizer:
                     weight=1.0,
                 )
             )
+        else:
+            signals.append(
+                NormalizedSignal(
+                    name="review_depth",
+                    category=ScoreCategory.DEMAND,
+                    score=0.0,
+                    provenance=SignalProvenance.MISSING,
+                    evidence_refs=(),
+                    freshness=0.0,
+                    source_reliability=0.0,
+                    weight=1.0,
+                )
+            )
 
-        # 2. Momentum signals (ONLY from explicit velocity/deltas)
+        # -------------------------------------------------------------------------
+        # 2. Momentum signals (Expected: sales_velocity, creator_growth)
+        # -------------------------------------------------------------------------
         if snapshot.sales_velocity is not None:
             score = min(1.0, math.log10(max(1.0, snapshot.sales_velocity + 1.0)) / 1.7)
             evidence = SignalEvidence(
@@ -129,6 +165,19 @@ class SnapshotNormalizer:
                     evidence_refs=(evidence,),
                     freshness=freshness,
                     source_reliability=1.0,
+                    weight=1.5,
+                )
+            )
+        else:
+            signals.append(
+                NormalizedSignal(
+                    name="sales_velocity",
+                    category=ScoreCategory.MOMENTUM,
+                    score=0.0,
+                    provenance=SignalProvenance.MISSING,
+                    evidence_refs=(),
+                    freshness=0.0,
+                    source_reliability=0.0,
                     weight=1.5,
                 )
             )
@@ -156,12 +205,27 @@ class SnapshotNormalizer:
                     weight=1.0,
                 )
             )
+        else:
+            signals.append(
+                NormalizedSignal(
+                    name="creator_growth",
+                    category=ScoreCategory.MOMENTUM,
+                    score=0.0,
+                    provenance=SignalProvenance.MISSING,
+                    evidence_refs=(),
+                    freshness=0.0,
+                    source_reliability=0.0,
+                    weight=1.0,
+                )
+            )
 
-        # 3. Commercial Attractiveness
+        # -------------------------------------------------------------------------
+        # 3. Commercial Attractiveness (Expected: commission_rate, discount_appeal)
+        # -------------------------------------------------------------------------
         if snapshot.affiliate_commission_rate is not None:
-            rate = snapshot.affiliate_commission_rate
-            rate_pct = rate if rate > 1.0 else rate * 100.0
-            score = min(1.0, rate_pct / 20.0)
+            # Canonical unit: percentage points in [0.0, 100.0] (e.g. 15.0 = 15%, 1.0 = 1%)
+            rate_pct = snapshot.affiliate_commission_rate
+            score = min(1.0, max(0.0, rate_pct / 20.0))
             evidence = SignalEvidence(
                 signal_name="affiliate_commission_rate",
                 source_type=snapshot.platform,
@@ -183,9 +247,22 @@ class SnapshotNormalizer:
                     weight=1.5,
                 )
             )
+        else:
+            signals.append(
+                NormalizedSignal(
+                    name="commission_rate",
+                    category=ScoreCategory.COMMERCIAL_ATTRACTIVENESS,
+                    score=0.0,
+                    provenance=SignalProvenance.MISSING,
+                    evidence_refs=(),
+                    freshness=0.0,
+                    source_reliability=0.0,
+                    weight=1.5,
+                )
+            )
 
         if snapshot.discount_percent is not None:
-            score = min(1.0, snapshot.discount_percent / 50.0)
+            score = min(1.0, max(0.0, snapshot.discount_percent / 50.0))
             evidence = SignalEvidence(
                 signal_name="discount_percent",
                 source_type=snapshot.platform,
@@ -207,8 +284,23 @@ class SnapshotNormalizer:
                     weight=1.0,
                 )
             )
+        else:
+            signals.append(
+                NormalizedSignal(
+                    name="discount_appeal",
+                    category=ScoreCategory.COMMERCIAL_ATTRACTIVENESS,
+                    score=0.0,
+                    provenance=SignalProvenance.MISSING,
+                    evidence_refs=(),
+                    freshness=0.0,
+                    source_reliability=0.0,
+                    weight=1.0,
+                )
+            )
 
-        # 4. Trust
+        # -------------------------------------------------------------------------
+        # 4. Trust (Expected: rating_quality)
+        # -------------------------------------------------------------------------
         if snapshot.rating is not None:
             base_rating_score = max(0.0, (snapshot.rating - 3.0) / 2.0)
             reviews = snapshot.review_count or 0
@@ -236,8 +328,23 @@ class SnapshotNormalizer:
                     weight=1.0,
                 )
             )
+        else:
+            signals.append(
+                NormalizedSignal(
+                    name="rating_quality",
+                    category=ScoreCategory.TRUST,
+                    score=0.0,
+                    provenance=SignalProvenance.MISSING,
+                    evidence_refs=(),
+                    freshness=0.0,
+                    source_reliability=0.0,
+                    weight=1.0,
+                )
+            )
 
-        # 5. Competition Opportunity (Higher is Better: fewer competitors -> higher opportunity score)
+        # -------------------------------------------------------------------------
+        # 5. Competition Opportunity (Expected: market_whitespace, creator_whitespace)
+        # -------------------------------------------------------------------------
         if snapshot.similar_listing_count is not None:
             count = snapshot.similar_listing_count
             score = max(0.0, 1.0 - (math.log10(max(1, count + 1)) / 3.0))
@@ -259,6 +366,19 @@ class SnapshotNormalizer:
                     evidence_refs=(evidence,),
                     freshness=freshness,
                     source_reliability=1.0,
+                    weight=1.0,
+                )
+            )
+        else:
+            signals.append(
+                NormalizedSignal(
+                    name="market_whitespace",
+                    category=ScoreCategory.COMPETITION_OPPORTUNITY,
+                    score=0.0,
+                    provenance=SignalProvenance.MISSING,
+                    evidence_refs=(),
+                    freshness=0.0,
+                    source_reliability=0.0,
                     weight=1.0,
                 )
             )
@@ -284,6 +404,19 @@ class SnapshotNormalizer:
                     evidence_refs=(evidence,),
                     freshness=freshness,
                     source_reliability=1.0,
+                    weight=1.0,
+                )
+            )
+        else:
+            signals.append(
+                NormalizedSignal(
+                    name="creator_whitespace",
+                    category=ScoreCategory.COMPETITION_OPPORTUNITY,
+                    score=0.0,
+                    provenance=SignalProvenance.MISSING,
+                    evidence_refs=(),
+                    freshness=0.0,
+                    source_reliability=0.0,
                     weight=1.0,
                 )
             )

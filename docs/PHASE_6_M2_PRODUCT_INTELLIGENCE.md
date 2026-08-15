@@ -41,7 +41,7 @@ Canonical Product Knowledge Base (M3)
 Represents an immutable observation of a marketplace listing at a single point in time:
 - **Identity / Source**: `candidate_id`, `platform` (e.g. `"shopee"`, `"tiktok"`), `url`, `observed_at`, `collector`, `source_product_id`.
 - **Descriptive**: `title`, `shop_id`, `shop_name`, `category`, `brand`, `model`.
-- **Observed Market Metrics (Nullable)**: `price`, `original_price`, `discount_percent`, `sold_count`, `rating`, `review_count`, `affiliate_commission_rate`, `estimated_commission_value`, `creator_count`, `video_count`, `similar_listing_count`.
+- **Observed Market Metrics (Nullable)**: `price`, `original_price`, `discount_percent`, `sold_count`, `rating`, `review_count`, `affiliate_commission_rate` (percentage points in `[0.0, 100.0]`), `estimated_commission_value`, `creator_count`, `video_count`, `similar_listing_count`.
 - **Velocity / Deltas (Nullable)**: `sales_velocity`, `review_velocity`, `creator_velocity`, `video_velocity`.
 
 > [!IMPORTANT]
@@ -60,13 +60,18 @@ The score is computed across **6 canonical categories** with strictly fixed weig
 
 | Category | Weight | Description & Signal Sources |
 | :--- | :---: | :--- |
-| **Demand** | **25** | Absolute volume evidence: `sold_count`, `review_count`. |
-| **Momentum** | **20** | Explicit observed deltas/velocities: `sales_velocity`, `creator_velocity`. (*Never inferred from static single-snapshot counts*). |
-| **Commercial Attractiveness** | **15** | Monetization appeal: `affiliate_commission_rate`, `discount_percent`. |
-| **Trust** | **10** | Quality score: `rating` damped by review volume depth. |
+| **Demand** | **25** | Absolute volume evidence: `sold_volume`, `review_depth`. |
+| **Momentum** | **20** | Explicit observed deltas/velocities: `sales_velocity`, `creator_growth`. (*Never inferred from static single-snapshot counts*). |
+| **Commercial Attractiveness** | **15** | Monetization appeal: `commission_rate` (percentage points), `discount_appeal`. |
+| **Trust** | **10** | Quality score: `rating_quality` damped by review volume depth. |
 | **Contentability** | **15** | Hookability, visual demo potential, problem/solution clarity (`INFERRED` semantic signals). |
 | **Competition Opportunity** | **15** | Market whitespace: lower creator/competitor saturation yields a **higher** opportunity score. |
 | **Total** | **100** | |
+
+### Base Score Normalization
+`base_score` represents the normalized strength of the **available observed evidence** on a 0–100 scale:
+$$\text{Base Score} = \left( \frac{\sum_{\text{available}} \text{Weighted Category Score}}{\sum_{\text{available}} \text{Category Weight}} \right) \times 100.0$$
+This cleanly separates the strength of the evidence from its completeness. Missing-data risk is handled by the explicit 4D confidence factor.
 
 ---
 
@@ -76,10 +81,10 @@ To ensure that sparse or unverified data cannot artificially inflate a candidate
 
 $$\text{Confidence} = 0.40 \cdot \text{Completeness} + 0.25 \cdot \text{Freshness} + 0.20 \cdot \text{Reliability} + 0.15 \cdot \text{Evidence Coverage}$$
 
-- **Data Completeness (40%)**: Weighted coverage across the 6 categories.
+- **Data Completeness (40%)**: Weighted coverage across all 6 categories (accounting for missing individual expected signals).
 - **Freshness (25%)**: Exponential decay based on observation age ($t_{1/2} = 72$ hours by default).
 - **Source Reliability (20%)**: Reliability score of the data sources.
-- **Evidence Coverage (15%)**: Fraction of signals backed by verifiable factual evidence.
+- **Evidence Coverage (15%)**: Fraction of present signals backed by verifiable factual evidence.
 
 ### Final Score Formula
 $$\text{Final Score} = \text{Base Score} \times \text{Overall Confidence}$$
@@ -102,7 +107,7 @@ $$\text{Final Score} = \text{Base Score} \times \text{Overall Confidence}$$
 
 - **LLM MAY**: Infer semantic qualities such as contentability, visual demo potential, UGC hook angles, or audience hypotheses (`SignalProvenance.INFERRED`).
 - **LLM MUST NOT**: Fabricate, hallucinate, or directly assign numerical market facts (`sold_count`, `rating`, `price`, `commission_rate`, `velocity`).
-- **Scorer Core**: The scoring subsystem (`WinningProductScorer`) is 100% pure and deterministic, performing zero network or LLM calls.
+- **Scorer Core**: The scoring subsystem (`WinningProductScorer`) is 100% pure and deterministic, strictly requiring an explicit `evaluated_at` timestamp with zero network, LLM, or filesystem operations.
 
 ---
 
@@ -110,34 +115,34 @@ $$\text{Final Score} = \text{Base Score} \times \text{Overall Confidence}$$
 
 Given a candidate snapshot:
 - `title`: *"Magnetic Wireless Car Charger 15W"*
-- `sold_count`: 8,500 (Demand score = 0.98)
-- `sales_velocity`: 35/day (Momentum score = 0.91)
-- `affiliate_commission_rate`: 15% (Commercial score = 0.75)
-- `rating`: 4.85 with 1,200 reviews (Trust score = 0.92)
-- `contentability`: 0.85 (inferred semantic signal)
-- `similar_listing_count`: 4 (Competition whitespace score = 0.82)
+- `sold_count`: 8,500, `review_count`: 1,200 (Demand raw score = 0.9223)
+- `sales_velocity`: 35.0/day, `creator_velocity`: 3.0/day (Momentum raw score = 0.7098)
+- `affiliate_commission_rate`: 15.0%, `discount_percent`: 25.0% (Commercial raw score = 0.6500)
+- `rating`: 4.85 with 1,200 reviews (Trust raw score = 0.9250)
+- `contentability`: 0.85 (inferred semantic signal, raw score = 0.8500)
+- `similar_listing_count`: 4, `creator_count`: 2 (Competition whitespace raw score = 0.7881)
 
 ### Score Breakdown:
 1. **Category Points**:
-   - Demand: $0.98 \times 25 = 24.50$
-   - Momentum: $0.91 \times 20 = 18.20$
-   - Commercial: $0.75 \times 15 = 11.25$
-   - Trust: $0.92 \times 10 = 9.20$
-   - Contentability: $0.85 \times 15 = 12.75$
-   - Competition: $0.82 \times 15 = 12.30$
-   - **Base Score**: **`88.20 / 100.0`**
+   - Demand: $0.9223 \times 25.0 = 23.0574$
+   - Momentum: $0.7098 \times 20.0 = 14.1967$
+   - Commercial: $0.6500 \times 15.0 = 9.7500$
+   - Trust: $0.9250 \times 10.0 = 9.2500$
+   - Contentability: $0.8500 \times 15.0 = 12.7500$
+   - Competition: $0.7881 \times 15.0 = 11.8212$
+   - **Base Score**: **`80.8253 / 100.0`**
 
 2. **Confidence Components**:
-   - Data Completeness: $1.00 \times 0.40 = 0.400$
-   - Freshness (observed 1 hour ago): $0.99 \times 0.25 = 0.248$
-   - Reliability: $1.00 \times 0.20 = 0.200$
-   - Evidence Coverage (5 of 6 observed/derived): $0.83 \times 0.15 = 0.125$
-   - **Overall Confidence**: **`0.973`**
+   - Data Completeness: $1.0000 \times 0.40 = 0.4000$
+   - Freshness (evaluated at observation time): $1.0000 \times 0.25 = 0.2500$
+   - Source Reliability: $0.9913 \times 0.20 = 0.1983$
+   - Evidence Coverage (9 of 10 factual signals): $0.9000 \times 0.15 = 0.1350$
+   - **Overall Confidence**: **`0.9833`**
 
 3. **Result**:
-   - **`Final Score`**: $88.20 \times 0.973 = \mathbf{85.82}$
-   - **`Decision Band`**: **`RECOMMENDED`**
-   - **`Reason Codes`**: `STRONG_DEMAND`, `HIGH_MOMENTUM`, `FAVORABLE_ECONOMICS`, `TRUST_SIGNAL_STRONG`, `CONTENTABILITY_HIGH`, `COMPETITION_FAVORABLE`, `HIGH_DATA_COMPLETENESS`, `FRESH_MARKET_DATA`, `HIGH_EVIDENCE_COVERAGE`, `HIGH_SOURCE_RELIABILITY`.
+   - **`Final Score`**: $80.8253 \times 0.9833 = \mathbf{79.4723}$
+   - **`Decision Band`**: **`NEEDS_REVIEW`**
+   - **`Reason Codes`**: `STRONG_DEMAND`, `TRUST_SIGNAL_STRONG`, `CONTENTABILITY_HIGH`, `COMPETITION_FAVORABLE`, `HIGH_DATA_COMPLETENESS`, `FRESH_MARKET_DATA`, `HIGH_EVIDENCE_COVERAGE`, `HIGH_SOURCE_RELIABILITY`.
 
 ---
 

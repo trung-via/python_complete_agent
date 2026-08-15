@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from datetime import datetime, timezone
 import pytest
 
@@ -49,6 +50,31 @@ def test_product_candidate_snapshot_immutable_and_serialization() -> None:
     assert d["affiliate_commission_rate"] == 12.5
     assert d["sales_velocity"] is None  # Remains None, never converted to 0
     assert d["video_count"] is None
+
+
+def test_product_candidate_snapshot_commission_rate_boundaries() -> None:
+    now = datetime.now(timezone.utc)
+
+    # Valid commission rates in [0.0, 100.0] percentage points
+    for valid_rate in [0.0, 1.0, 10.0, 15.0, 20.0, 100.0]:
+        s = ProductCandidateSnapshot(
+            candidate_id="c1", platform="shopee", url="u", observed_at=now, title="t",
+            affiliate_commission_rate=valid_rate,
+        )
+        assert s.affiliate_commission_rate == valid_rate
+
+    # Invalid commission rates
+    with pytest.raises(ValueError, match="affiliate_commission_rate"):
+        ProductCandidateSnapshot(
+            candidate_id="c1", platform="shopee", url="u", observed_at=now, title="t",
+            affiliate_commission_rate=-0.5,
+        )
+
+    with pytest.raises(ValueError, match="affiliate_commission_rate"):
+        ProductCandidateSnapshot(
+            candidate_id="c1", platform="shopee", url="u", observed_at=now, title="t",
+            affiliate_commission_rate=105.0,
+        )
 
 
 def test_product_candidate_snapshot_rejects_invalid_values() -> None:
@@ -104,7 +130,6 @@ def test_signal_evidence_validation_and_serialization() -> None:
     d = ev.to_dict()
     assert d["signal_name"] == "sold_count"
     assert d["source_reliability"] == 0.95
-    # Asserts no sensitive keys in dictionary
     assert "token" not in d
     assert "cookie" not in d
     assert "secret" not in d
@@ -146,7 +171,7 @@ def test_normalized_signal_range_validations() -> None:
         )
 
 
-def test_scoring_policy_weights_validation() -> None:
+def test_scoring_policy_strict_validation() -> None:
     # Valid default policy sums to 100 and 1.0
     policy = ScoringPolicy()
     assert sum(policy.category_weights.values()) == 100.0
@@ -157,10 +182,38 @@ def test_scoring_policy_weights_validation() -> None:
         + policy.evidence_weight
     ) == 1.0
 
-    # Invalid category weights sum
-    with pytest.raises(ValueError, match="Category weights must sum to exactly 100.0"):
-        ScoringPolicy(demand_weight=30.0)  # Total 105.0
+    # Negative category weight that still sums to 100.0 must be rejected
+    with pytest.raises(ValueError, match="Category weight must be finite and > 0.0"):
+        ScoringPolicy(demand_weight=-20.0, momentum_weight=65.0)
 
-    # Invalid confidence weights sum
-    with pytest.raises(ValueError, match="Confidence weights must sum to exactly 1.0"):
-        ScoringPolicy(completeness_weight=0.50)  # Total 1.10
+    # Negative confidence weight that still sums to 1.0 must be rejected
+    with pytest.raises(ValueError, match="Confidence weight must be finite"):
+        ScoringPolicy(completeness_weight=-0.20, freshness_weight=0.85)
+
+    # Non-finite values
+    with pytest.raises(ValueError):
+        ScoringPolicy(demand_weight=float("nan"))
+
+    with pytest.raises(ValueError):
+        ScoringPolicy(completeness_weight=float("inf"))
+
+    # Out of range decision thresholds
+    with pytest.raises(ValueError, match="Score threshold"):
+        ScoringPolicy(recommended_min_final_score=120.0)
+
+    with pytest.raises(ValueError, match="Confidence threshold"):
+        ScoringPolicy(recommended_min_confidence=1.5)
+
+    # Inverted thresholds
+    with pytest.raises(ValueError, match="recommended_min_final_score must be >="):
+        ScoringPolicy(recommended_min_final_score=60.0, needs_review_min_final_score=70.0)
+
+    with pytest.raises(ValueError, match="recommended_min_confidence must be >="):
+        ScoringPolicy(recommended_min_confidence=0.50, needs_review_min_confidence=0.70)
+
+    with pytest.raises(ValueError, match="needs_review_min_confidence must be >="):
+        ScoringPolicy(needs_review_min_confidence=0.40, insufficient_data_confidence_threshold=0.50)
+
+    # Non-positive half-life
+    with pytest.raises(ValueError, match="freshness_half_life_hours"):
+        ScoringPolicy(freshness_half_life_hours=0.0)
