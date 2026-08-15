@@ -11,7 +11,7 @@ from src.agent_controller import AgentController
 from src.agent.policy import RunPolicy
 from src.agent.production_readiness import ReadinessStatus
 from src.core.checkpoint import CheckpointManager
-from src.core.errors import DependencyError, SystemStateError
+from src.core.errors import AgentException, DependencyError, SystemStateError
 from src.core.idempotency_store_v2 import JsonlIdempotencyStore
 from src.core.retry import RetryPolicy
 from src.core.tool_registry import ToolRegistry
@@ -64,24 +64,30 @@ class FakeImageProcessor:
 
 
 class FakeGDrive:
-    def __init__(self) -> None:
+    def __init__(self, should_fail: bool = False) -> None:
         self.authenticated = False
+        self.should_fail = should_fail
 
     def authenticate(self) -> None:
+        if self.should_fail:
+            raise RuntimeError("OAuth2 token expired or credentials invalid")
         self.authenticated = True
 
 
 class MockCallingTool:
-    def __init__(self, name: str = "mock_task_tool") -> None:
+    def __init__(self, name: str = "mock_task_tool", fatal_on_call: bool = False) -> None:
         self.name = name
         self.description = "mock tool for testing"
         self.calls: List[str] = []
+        self.fatal_on_call = fatal_on_call
 
     def get_schema(self) -> Dict[str, Any]:
         return {"type": "object", "properties": {"input": {"type": "string"}}}
 
     async def execute(self, call: ToolCall, context: Dict[str, Any]) -> ToolResult:
         self.calls.append(call.arguments.get("input", ""))
+        if self.fatal_on_call:
+            raise SystemStateError("Fatal hardware storage failure during tool execution")
         return ToolResult(
             call_id=call.call_id,
             run_id=call.run_id,
@@ -97,6 +103,7 @@ def _build_test_controller(
     tool: Optional[Any] = None,
     policy: Optional[RunPolicy] = None,
     retry_policy: Optional[RetryPolicy] = None,
+    gdrive_should_fail: bool = False,
 ) -> tuple[AgentController, FakeBrowserManager, FakeGDrive]:
     db_path = str(tmp_path / "checkpoints.jsonl")
     idempotency_path = str(tmp_path / "idempotency.jsonl")
@@ -106,7 +113,7 @@ def _build_test_controller(
         registry.register_tool(tool)
 
     browser = FakeBrowserManager()
-    gdrive = FakeGDrive()
+    gdrive = FakeGDrive(should_fail=gdrive_should_fail)
     image_processor = FakeImageProcessor()
     llm = FaultyLLMProvider(responses)
 
@@ -175,6 +182,30 @@ async def test_not_ready_startup_fails_closed_and_blocks_execution(tmp_path: Any
     assert "checkpoint_store_health" in str(exc_info.value)
     # Proves 0 tool calls executed
     assert len(tool.calls) == 0
+
+
+@pytest.mark.asyncio
+async def test_failed_gdrive_initialization_fails_closed_and_permits_safe_shutdown(tmp_path: Any) -> None:
+    """
+    If required Google Drive authentication fails during start(),
+    controller raises SystemStateError and blocks work, while stop() in finally cleans up safely.
+    """
+    tool = MockCallingTool()
+    controller, browser, gdrive = _build_test_controller(
+        tmp_path,
+        [LLMResponse("mock", "1", "SHOULD_NOT_EXECUTE", [])],
+        tool=tool,
+        gdrive_should_fail=True,
+    )
+
+    try:
+        with pytest.raises(SystemStateError) as exc_info:
+            await controller.start()
+        assert "Google Drive initialization failed" in str(exc_info.value)
+        assert len(tool.calls) == 0
+    finally:
+        await controller.stop()
+        assert browser.closed is True
 
 
 @pytest.mark.asyncio
@@ -257,7 +288,7 @@ async def test_scraper_missing_required_dependency_fails_clearly() -> None:
 
 
 # ============================================================================
-# M1.4 & M1.5 — Autonomous File-Queue Contract
+# M1.4 & M1.5 — Autonomous File-Queue Contract & Fail-Closed Safety
 # ============================================================================
 
 @pytest.mark.asyncio
@@ -345,18 +376,17 @@ async def test_autonomous_queue_deduplicates_duplicate_lines_in_snapshot(tmp_pat
 
 
 @pytest.mark.asyncio
-async def test_autonomous_queue_does_not_mark_failed_task_as_completed_and_continues(tmp_path: Any) -> None:
+async def test_autonomous_queue_ordinary_task_failure_continues_to_next_task(tmp_path: Any) -> None:
     """
-    If a task fails (e.g. LLM error), it is NOT appended to completed.txt,
-    and the loop continues to process the next task.
+    If a task experiences an ordinary non-fatal failure (e.g. LLM error / AgentException),
+    it is NOT appended to completed.txt, and the queue continues to process subsequent tasks.
     """
     tasks_file = str(tmp_path / "tasks.txt")
     completed_file = str(tmp_path / "completed.txt")
 
     with open(tasks_file, "w", encoding="utf-8") as f:
-        f.write("Task 1: Fails\nTask 2: Succeeds\n")
+        f.write("Task 1: Ordinary Failure\nTask 2: Successful Task\n")
 
-    # First task fails because provider raises error, second succeeds
     class FlakyProvider(LLMProvider):
         def __init__(self) -> None:
             self.count = 0
@@ -364,7 +394,7 @@ async def test_autonomous_queue_does_not_mark_failed_task_as_completed_and_conti
         async def generate(self, *args: Any, **kwargs: Any) -> LLMResponse:
             self.count += 1
             if self.count == 1:
-                raise AgentException("Provider transient error", code="PROVIDER_ERR")
+                raise AgentException("Transient LLM error", code="PROVIDER_ERR")
             return LLMResponse("mock", "2", "Task 2 Done", [])
 
     db_path = str(tmp_path / "checkpoints.jsonl")
@@ -380,12 +410,108 @@ async def test_autonomous_queue_does_not_mark_failed_task_as_completed_and_conti
     await controller.start()
 
     completed = await controller.run_autonomous_loop(tasks_file=tasks_file, completed_file=completed_file)
-    assert completed == ["Task 2: Succeeds"]
+    assert completed == ["Task 2: Successful Task"]
 
     # Only Task 2 is in completed.txt
     with open(completed_file, "r", encoding="utf-8") as f:
         lines = [line.strip() for line in f.readlines() if line.strip()]
-    assert lines == ["Task 2: Succeeds"]
+    assert lines == ["Task 2: Successful Task"]
+
+    await controller.stop()
+
+
+@pytest.mark.asyncio
+async def test_fatal_system_state_error_in_tool_stops_autonomous_queue(tmp_path: Any) -> None:
+    """
+    If a fatal SystemStateError occurs during tool execution (e.g. storage integrity failure),
+    the run halts with SYSTEM_STATE_ERROR and run_autonomous_loop raises SystemStateError immediately,
+    terminating the queue and preventing subsequent tasks from executing.
+    """
+    tasks_file = str(tmp_path / "tasks.txt")
+    completed_file = str(tmp_path / "completed.txt")
+
+    with open(tasks_file, "w", encoding="utf-8") as f:
+        f.write("Task 1: Fatal Tool Failure\nTask 2: Should Never Execute\n")
+
+    fatal_tool = MockCallingTool(fatal_on_call=True)
+    responses = [
+        # LLM calls the fatal tool for Task 1
+        LLMResponse(
+            provider="mock",
+            provider_response_id="1",
+            content=None,
+            tool_calls=[ProviderToolCall(name="mock_task_tool", arguments={"input": "test_payload"}, provider_call_id="c_fatal_1")],
+        ),
+        # Task 2 response if it were ever reached
+        LLMResponse(provider="mock", provider_response_id="2", content="Task 2 completed", tool_calls=[]),
+    ]
+
+    controller, browser, gdrive = _build_test_controller(
+        tmp_path,
+        responses,
+        tool=fatal_tool,
+    )
+    await controller.start()
+
+    with pytest.raises(SystemStateError) as exc_info:
+        await controller.run_autonomous_loop(tasks_file=tasks_file, completed_file=completed_file)
+
+    assert "Fatal system state error" in str(exc_info.value)
+    # Proves Task 1 was called, but Task 2 never executed (only 1 tool call made)
+    assert len(fatal_tool.calls) == 1
+
+    # Neither task is marked completed
+    if os.path.exists(completed_file):
+        with open(completed_file, "r", encoding="utf-8") as f:
+            lines = [line.strip() for line in f.readlines() if line.strip()]
+        assert len(lines) == 0
+
+    await controller.stop()
+
+
+@pytest.mark.asyncio
+async def test_checkpoint_corruption_during_queue_run_fails_closed_and_stops_queue(tmp_path: Any) -> None:
+    """
+    If checkpoint store is corrupted during/after task execution,
+    post-run verification fails closed (raises SystemStateError) and stops the queue.
+    """
+    tasks_file = str(tmp_path / "tasks.txt")
+    completed_file = str(tmp_path / "completed.txt")
+
+    with open(tasks_file, "w", encoding="utf-8") as f:
+        f.write("Task 1: Corrupted Store Task\nTask 2: Subsequent Task\n")
+
+    db_path = str(tmp_path / "checkpoints.jsonl")
+    idempotency_path = str(tmp_path / "idempotency.jsonl")
+
+    # Custom LLM provider that corrupts the checkpoint file right after generating response
+    class CorruptingLLMProvider(LLMProvider):
+        async def generate(self, *args: Any, **kwargs: Any) -> LLMResponse:
+            # Corrupt the checkpoint file by appending garbage line
+            with open(db_path, "a", encoding="utf-8") as f:
+                f.write("MALFORMED_CORRUPTED_CHECKPOINT_LINE\n")
+            return LLMResponse("mock", "1", "Completed Task 1", [])
+
+    controller = AgentController(
+        db_path=db_path,
+        idempotency_path=idempotency_path,
+        llm_provider=CorruptingLLMProvider(),
+        browser_manager=FakeBrowserManager(),  # type: ignore[arg-type]
+        gdrive=FakeGDrive(),  # type: ignore[arg-type]
+        image_processor=FakeImageProcessor(),  # type: ignore[arg-type]
+    )
+    await controller.start()
+
+    with pytest.raises(SystemStateError) as exc_info:
+        await controller.run_autonomous_loop(tasks_file=tasks_file, completed_file=completed_file)
+
+    assert "Fatal checkpoint store integrity error" in str(exc_info.value)
+
+    # Task 1 was not marked completed
+    if os.path.exists(completed_file):
+        with open(completed_file, "r", encoding="utf-8") as f:
+            lines = [line.strip() for line in f.readlines() if line.strip()]
+        assert len(lines) == 0
 
     await controller.stop()
 

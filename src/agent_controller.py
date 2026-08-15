@@ -10,7 +10,11 @@ from src.agent.policy import RunPolicy
 from src.agent.production_readiness import ProductionReadinessChecker
 from src.agent.replay_engine import ReplayEngine
 from src.core.checkpoint import CheckpointManager
-from src.core.checkpoint_contract import CheckpointEventType
+from src.core.checkpoint_contract import (
+    CheckpointCorruptionError,
+    CheckpointEventType,
+    CheckpointStateError,
+)
 from src.core.errors import SystemStateError
 from src.core.idempotency_store_v2 import JsonlIdempotencyStore
 from src.core.retry import RetryManager, RetryPolicy
@@ -38,10 +42,10 @@ class AgentController:
     Main orchestration class for the autonomous e-commerce product agent.
 
     Provides canonical lifecycle methods:
-    - start() / initialize(): verifies ProductionReadinessChecker, then initializes external resources.
+    - start() / initialize(): verifies ProductionReadinessChecker, then initializes external resources (fails closed on failure).
     - stop() / shutdown(): idempotent resource cleanup (safe in finally).
     - run(): single-prompt execution through AgentLoop.
-    - run_autonomous_loop(): snapshot-bounded file-queue processing (tasks.txt -> completed.txt).
+    - run_autonomous_loop(): snapshot-bounded file-queue processing (tasks.txt -> completed.txt) with fatal-state fail-closed semantics.
     """
 
     def __init__(
@@ -122,7 +126,7 @@ class AgentController:
         Canonical startup method:
         1. Evaluates ProductionReadinessChecker preflight gate.
         2. Fails closed (raises SystemStateError) if NOT_READY.
-        3. Initializes external dependencies (GDrive authentication).
+        3. Initializes required external dependencies (GDrive authentication). Fails closed if auth fails.
         """
         logger.info("Evaluating production readiness gate...")
         report = ProductionReadinessChecker.evaluate_agent(self.agent_loop)
@@ -137,7 +141,9 @@ class AgentController:
             try:
                 self.gdrive.authenticate()
             except Exception as exc:
-                logger.warning(f"GDrive authentication skipped or failed: {exc}")
+                error_msg = f"Google Drive initialization failed: {exc}"
+                logger.error(error_msg)
+                raise SystemStateError(error_msg) from exc
 
     async def initialize(self) -> None:
         """Compatibility alias for start()."""
@@ -199,8 +205,9 @@ class AgentController:
         5. Processes each remaining task sequentially via self.run().
         6. Appends to completed_file with immediate flush/fsync only after successful completion.
         7. Failed/halted/cancelled tasks are NOT marked completed.
-        8. Continues to next task on ordinary task failure.
-        9. Strictly bounded to snapshot (does not poll indefinitely).
+        8. Fatal system state / storage corruption failures immediately fail closed and stop the queue.
+        9. Continues to next task on ordinary task failure.
+        10. Strictly bounded to snapshot (does not poll indefinitely).
         """
         if not os.path.exists(tasks_file):
             logger.warning(f"Tasks file not found: {tasks_file}")
@@ -250,30 +257,56 @@ class AgentController:
         # 4. Process each task
         for task in tasks_to_process:
             logger.info(f"Processing queued task: {task}")
-            run_id = self.checkpoints.log_task_start(task)
+            try:
+                run_id = self.checkpoints.log_task_start(task)
+            except (CheckpointCorruptionError, CheckpointStateError, OSError) as exc:
+                error_msg = f"Fatal checkpoint store integrity error starting task '{task}': {exc}"
+                logger.error(error_msg)
+                raise SystemStateError(error_msg) from exc
 
             try:
                 result = await self.run(user_prompt=task, run_id=run_id)
-                # Verify run ended in terminal COMPLETED state
-                events = ReplayEngine.load_events_for_run(self.checkpoints.db_path, run_id)
-                is_completed = any(e.event_type == CheckpointEventType.RUN_COMPLETED for e in events)
-
-                if is_completed and result is not None:
-                    self._mark_task_completed(completed_file, task)
-                    completed_set.add(task)
-                    completed_in_this_run.append(task)
-                    logger.info(f"Successfully completed task: {task}")
-                else:
-                    logger.warning(f"Task did not complete successfully (is_completed={is_completed}): {task}")
-
             except (KeyboardInterrupt, asyncio.CancelledError):
                 logger.warning("Autonomous loop interrupted by user/cancellation.")
                 raise
-            except SystemStateError as exc:
+            except (SystemStateError, CheckpointCorruptionError, CheckpointStateError) as exc:
                 logger.error(f"Fatal system state error during task '{task}', failing closed: {exc}")
                 raise
             except Exception as exc:
-                logger.error(f"Error processing task '{task}': {exc}", exc_info=True)
+                logger.error(f"Ordinary error processing task '{task}': {exc}", exc_info=True)
+                continue
+
+            # Post-run checkpoint verification
+            try:
+                events = ReplayEngine.load_events_for_run(self.checkpoints.db_path, run_id)
+            except (CheckpointCorruptionError, CheckpointStateError, OSError) as exc:
+                error_msg = f"Fatal checkpoint store integrity error while verifying run '{run_id}': {exc}"
+                logger.error(error_msg)
+                raise SystemStateError(error_msg) from exc
+            except Exception as exc:
+                error_msg = f"Unexpected failure loading checkpoint events for run '{run_id}': {exc}"
+                logger.error(error_msg)
+                raise SystemStateError(error_msg) from exc
+
+            # Check if run ended in fatal RUN_HALTED due to SYSTEM_STATE_ERROR or corruption
+            for e in events:
+                if e.event_type == CheckpointEventType.RUN_HALTED:
+                    reason = str(e.payload.get("reason", ""))
+                    if "SYSTEM_STATE_ERROR" in reason or "CORRUPT" in reason or "STORAGE" in reason:
+                        error_msg = f"Fatal system state error halted run '{run_id}': {reason}"
+                        logger.error(error_msg)
+                        raise SystemStateError(error_msg)
+
+            # Check if run completed successfully
+            is_completed = any(e.event_type == CheckpointEventType.RUN_COMPLETED for e in events)
+
+            if is_completed and result is not None:
+                self._mark_task_completed(completed_file, task)
+                completed_set.add(task)
+                completed_in_this_run.append(task)
+                logger.info(f"Successfully completed task: {task}")
+            else:
+                logger.warning(f"Task did not complete successfully (is_completed={is_completed}): {task}")
 
         return completed_in_this_run
 

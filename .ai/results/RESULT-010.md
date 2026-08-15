@@ -3,30 +3,24 @@
 STATUS: READY_FOR_REVIEW
 
 ## Summary
-Phase 6 M1 Production Bootstrap & Autonomous Queue: canonical controller lifecycle, readiness gate startup enforcement, unified tool context, and bounded file-queue processing
+Phase 6 M1 Production Bootstrap & Autonomous Queue (FIX): fail-closed GDrive initialization, fail-closed queue termination on fatal system/storage errors, and comprehensive regressions
 
 ## Task Metadata
 - Task: `TASK-010`
-- Action: `RUN`
-- Authorized Artifact: `.ai/tasks/TASK-010.md (80850fe722)`
-- Base Main SHA: `e332ee142afc04da62e8ca73ba0819047a5b139b`
+- Action: `FIX`
+- Authorized Artifact: `.ai/reviews/REVIEW-010.md (e71caef2cf)`
+- Base Main SHA: `(n/a)`
 - Branch: `ai/task-010`
 
 ## Files Changed
-- main.py
 - src/agent_controller.py
-- src/tools/shopee_scrape_tool.py
-- src/tools/tiktok_scrape_tool.py
-- docs/PHASE_6_BOOTSTRAP.md
 - tests/integration/test_phase6_bootstrap.py
 
 ## Diff Stat
 ```text
-main.py                         |   8 +-
- src/agent_controller.py         | 234 +++++++++++++++++++++++++++++++++-------
- src/tools/shopee_scrape_tool.py |  14 ++-
- src/tools/tiktok_scrape_tool.py |  14 ++-
- 4 files changed, 218 insertions(+), 52 deletions(-)
+src/agent_controller.py                    |  77 ++++++++++-----
+ tests/integration/test_phase6_bootstrap.py | 152 ++++++++++++++++++++++++++---
+ 2 files changed, 194 insertions(+), 35 deletions(-)
 ```
 
 ## Tests
@@ -36,11 +30,11 @@ Exit code: 0
 ```text
 ........................................................................ [ 19%]
 ........................................................................ [ 38%]
-........................................................................ [ 58%]
+........................................................................ [ 57%]
 ........................................................................ [ 77%]
-........................................................................ [ 97%]
-..........                                                               [100%]
-370 passed in 49.08s
+........................................................................ [ 96%]
+.............                                                            [100%]
+373 passed in 51.70s
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -49,7 +43,7 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 ```
 
 ## Risks / Notes
-Focused Bootstrap Tests: pytest tests/integration/test_phase6_bootstrap.py -v (13 passed, 0 failed). Full Repository Suite: 370 passed, 0 failed. Lifecycle & Readiness: start() enforces ProductionReadinessChecker preflight gate and fails closed (SystemStateError) before external side effects; stop() is idempotent and safe in finally blocks. Tool Context: unified browser/browser_manager, image_processor, gdrive, gdrive_folder_id; removed obsolete ai_controller requirements from ShopeeScrapeTool and TikTokScrapeTool. File Queue Contract: tasks.txt snapshot bounding, comment/blank filtering, completed.txt skipping, order-preserving deduplication, crash-conscious fsync append on terminal RUN_COMPLETED, and fault-isolated continuation on ordinary task errors. Known Limitations Intentionally Retained: timeout_seconds is per-task execution; preflight readiness evaluates local configuration/storage without live cloud API calls; file queue is single-process and bounded to invocation snapshot. Next Milestone: Product Intelligence discovery (M2/M3) is explicitly deferred to subsequent tasks.
+Focused Bootstrap Tests: pytest tests/integration/test_phase6_bootstrap.py -v (16 passed, 0 failed). Full Repository Suite: 373 passed, 0 failed. Fix 1: run_autonomous_loop() detects fatal RUN_HALTED (SYSTEM_STATE_ERROR/corruption) and post-run checkpoint verification errors (CheckpointCorruptionError, CheckpointStateError, OSError), immediately failing closed and terminating the queue before subsequent tasks. Fix 2: AgentController.start() propagates Google Drive authentication failure wrapped as SystemStateError with actionable diagnostics, blocking execution while preserving safe shutdown in finally. Regressions: added tests for failed GDrive initialization, tool-side fatal SystemStateError stopping the queue, and checkpoint corruption during queue runs. Known Limitations Intentionally Retained: timeout_seconds is per-task execution; preflight readiness evaluates local configuration/storage without live cloud API calls; file queue is single-process and bounded to invocation snapshot. Next Milestone: Product Intelligence discovery (M2/M3) is explicitly deferred to subsequent tasks.
 
 ## Generated
-2026-08-15T22:46:42+07:00
+2026-08-15T23:15:25+07:00
