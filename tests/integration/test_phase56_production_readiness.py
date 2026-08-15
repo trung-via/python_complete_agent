@@ -387,25 +387,133 @@ def test_idempotency_terminal_reopening_fails_closed_without_modifying_file(tmp_
         assert f.read() == content
 
 
-def test_idempotency_invalid_recoverable_progression_fails_closed(tmp_path: Any) -> None:
-    """Direct transition from RECOVERABLE -> COMPLETED without reclaiming to IN_PROGRESS fails closed."""
+def test_idempotency_owner_change_on_completion_fails_closed(tmp_path: Any) -> None:
+    """Owner change during transition from IN_PROGRESS -> COMPLETED fails closed."""
     db_path = str(tmp_path / "idempotency.jsonl")
     rec1 = {
         "key": {"operation_key": "tool:test", "idempotency_key": "run_1"},
-        "status": "RECOVERABLE",
+        "status": "IN_PROGRESS",
         "created_at": 100.0,
         "updated_at": 100.0,
-        "owner_id": "owner1",
+        "owner_id": "ownerA",
         "attempt": 1,
         "data": None,
     }
-    # Illegal direct transition to COMPLETED without reclaiming to IN_PROGRESS
     rec2 = {
         "key": {"operation_key": "tool:test", "idempotency_key": "run_1"},
         "status": "COMPLETED",
         "created_at": 100.0,
         "updated_at": 101.0,
-        "owner_id": "owner2",
+        "owner_id": "ownerB",  # Owner changed illegally
+        "attempt": 1,
+        "data": {"res": "ok"},
+    }
+    content = f"{json.dumps(rec1)}\n{json.dumps(rec2)}\n"
+    with open(db_path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+    report = ProductionReadinessChecker.evaluate(
+        policy=RunPolicy(),
+        retry_policy=RetryPolicy(),
+        idempotency_path=db_path,
+    )
+    assert report.ready is False
+    check = next(c for c in report.checks if c.name == "idempotency_store_health")
+    assert check.passed is False
+    assert "owner_id changed during transition from IN_PROGRESS to COMPLETED" in check.reason
+
+
+def test_idempotency_attempt_jump_on_completion_fails_closed(tmp_path: Any) -> None:
+    """Attempt jump during transition from IN_PROGRESS -> COMPLETED fails closed."""
+    db_path = str(tmp_path / "idempotency.jsonl")
+    rec1 = {
+        "key": {"operation_key": "tool:test", "idempotency_key": "run_1"},
+        "status": "IN_PROGRESS",
+        "created_at": 100.0,
+        "updated_at": 100.0,
+        "owner_id": "ownerA",
+        "attempt": 1,
+        "data": None,
+    }
+    rec2 = {
+        "key": {"operation_key": "tool:test", "idempotency_key": "run_1"},
+        "status": "COMPLETED",
+        "created_at": 100.0,
+        "updated_at": 101.0,
+        "owner_id": "ownerA",
+        "attempt": 9,  # Attempt jumped illegally
+        "data": {"res": "ok"},
+    }
+    content = f"{json.dumps(rec1)}\n{json.dumps(rec2)}\n"
+    with open(db_path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+    report = ProductionReadinessChecker.evaluate(
+        policy=RunPolicy(),
+        retry_policy=RetryPolicy(),
+        idempotency_path=db_path,
+    )
+    assert report.ready is False
+    check = next(c for c in report.checks if c.name == "idempotency_store_health")
+    assert check.passed is False
+    assert "attempt changed during transition from IN_PROGRESS to COMPLETED" in check.reason
+
+
+def test_idempotency_same_attempt_in_progress_reclaim_fails_closed(tmp_path: Any) -> None:
+    """Re-claiming an IN_PROGRESS record without incrementing attempt fails closed."""
+    db_path = str(tmp_path / "idempotency.jsonl")
+    rec1 = {
+        "key": {"operation_key": "tool:test", "idempotency_key": "run_1"},
+        "status": "IN_PROGRESS",
+        "created_at": 100.0,
+        "updated_at": 100.0,
+        "owner_id": "ownerA",
+        "attempt": 1,
+        "data": None,
+    }
+    rec2 = {
+        "key": {"operation_key": "tool:test", "idempotency_key": "run_1"},
+        "status": "IN_PROGRESS",
+        "created_at": 100.0,
+        "updated_at": 101.0,
+        "owner_id": "ownerB",
+        "attempt": 1,  # Same attempt on reclaim is illegal
+        "data": None,
+    }
+    content = f"{json.dumps(rec1)}\n{json.dumps(rec2)}\n"
+    with open(db_path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+    report = ProductionReadinessChecker.evaluate(
+        policy=RunPolicy(),
+        retry_policy=RetryPolicy(),
+        idempotency_path=db_path,
+    )
+    assert report.ready is False
+    check = next(c for c in report.checks if c.name == "idempotency_store_health")
+    assert check.passed is False
+    assert "re-claiming IN_PROGRESS record for key" in check.reason
+    assert "must increment attempt by 1" in check.reason
+
+
+def test_idempotency_invalid_new_progression_fails_closed(tmp_path: Any) -> None:
+    """Transitioning directly from NEW to COMPLETED without claiming to IN_PROGRESS fails closed."""
+    db_path = str(tmp_path / "idempotency.jsonl")
+    rec1 = {
+        "key": {"operation_key": "tool:test", "idempotency_key": "run_1"},
+        "status": "NEW",
+        "created_at": 100.0,
+        "updated_at": 100.0,
+        "owner_id": "ownerA",
+        "attempt": 1,
+        "data": None,
+    }
+    rec2 = {
+        "key": {"operation_key": "tool:test", "idempotency_key": "run_1"},
+        "status": "COMPLETED",
+        "created_at": 100.0,
+        "updated_at": 101.0,
+        "owner_id": "ownerA",
         "attempt": 2,
         "data": {"res": "ok"},
     }
@@ -421,7 +529,7 @@ def test_idempotency_invalid_recoverable_progression_fails_closed(tmp_path: Any)
     assert report.ready is False
     check = next(c for c in report.checks if c.name == "idempotency_store_health")
     assert check.passed is False
-    assert "must reclaim to IN_PROGRESS first" in check.reason
+    assert "illegal transition from NEW to COMPLETED" in check.reason
 
 
 def test_readiness_evaluation_is_strictly_read_only(tmp_path: Any) -> None:
@@ -446,7 +554,7 @@ def test_readiness_evaluation_is_strictly_read_only(tmp_path: Any) -> None:
 
 
 # ============================================================================
-# Cross-Store Consistency & Pre-Execution Crash Boundary Regressions
+# Cross-Store Consistency & Pre-Execution / Pre-Claim Crash Boundary Regressions
 # ============================================================================
 
 def test_cross_store_crash_after_llm_response_before_tool_claim_is_ready(tmp_path: Any) -> None:
@@ -484,6 +592,47 @@ def test_cross_store_crash_after_llm_response_before_tool_claim_is_ready(tmp_pat
     assert check.passed is True
 
 
+def test_cross_store_preclaim_validation_rejected_completed_call_is_ready(tmp_path: Any) -> None:
+    """
+    Pre-claim rejected tool call (e.g. invalid tool name or argument schema rejected before claim)
+    is recorded as completed failure result in checkpoints, but never claimed in idempotency store.
+    Readiness checker must recognize that absence of an idempotency record is consistent (READY).
+    """
+    cp_path = str(tmp_path / "checkpoints.jsonl")
+    db_path = str(tmp_path / "idempotency.jsonl")
+
+    cm = CheckpointManager(db_path=cp_path)
+    run_id = "run-preclaim-rejected"
+    cm.log_run_started(run_id, "sys", "usr")
+    cm.log_llm_requested(run_id, iteration=1)
+    cm.log_llm_responded(
+        run_id,
+        iteration=1,
+        content=None,
+        num_tool_calls=1,
+        tool_calls=[{"call_id": "c_rejected_1", "name": "non_existent_tool", "arguments": {}}],
+    )
+    # Rejected before attempt started
+    cm.log_tool_call_created(run_id, "c_rejected_1", "non_existent_tool", {})
+    cm.log_tool_call_rejected(run_id, "c_rejected_1", "Tool not found")
+    cm.log_tool_result_received(run_id, "c_rejected_1", "failure", "non_existent_tool", {"error": "Tool not found"})
+    cm.log_run_completed(run_id)
+
+    # Empty idempotency store (no claim ever made)
+    with open(db_path, "w", encoding="utf-8") as f:
+        pass
+
+    report = ProductionReadinessChecker.evaluate(
+        policy=RunPolicy(),
+        retry_policy=RetryPolicy(),
+        checkpoint_path=cp_path,
+        idempotency_path=db_path,
+    )
+    assert report.ready is True
+    check = next(c for c in report.checks if c.name == "cross_store_consistency")
+    assert check.passed is True
+
+
 def test_cross_store_pending_tool_with_started_attempt_missing_record_fails_closed(tmp_path: Any) -> None:
     """
     When durable checkpoint history shows tool execution began (e.g. TOOL_ATTEMPT_STARTED),
@@ -506,7 +655,6 @@ def test_cross_store_pending_tool_with_started_attempt_missing_record_fails_clos
     cm.log_tool_call_created(run_id, "c_started_1", "my_tool", {"x": 1})
     cm.log_tool_attempt_started(run_id, "c_started_1", attempt=1, tool_name="my_tool", arguments={"x": 1})
 
-    # Empty idempotency store missing the started record
     with open(db_path, "w", encoding="utf-8") as f:
         pass
 
@@ -522,16 +670,16 @@ def test_cross_store_pending_tool_with_started_attempt_missing_record_fails_clos
     assert "missing required idempotency record" in check.reason
 
 
-def test_cross_store_pending_recoverable_idempotency_state_returns_ready(tmp_path: Any) -> None:
+def test_cross_store_actually_executed_completed_call_missing_record_fails_closed(tmp_path: Any) -> None:
     """
-    When tool execution was interrupted and recorded as RECOVERABLE/IN_PROGRESS in idempotency store,
-    cross-store consistency recognizes the matching record and returns READY.
+    When a tool call actually began execution (TOOL_ATTEMPT_STARTED) and completed,
+    missing exact COMPLETED idempotency record produces NOT_READY.
     """
     cp_path = str(tmp_path / "checkpoints.jsonl")
     db_path = str(tmp_path / "idempotency.jsonl")
 
     cm = CheckpointManager(db_path=cp_path)
-    run_id = "run-recoverable-ready"
+    run_id = "run-executed-missing-record"
     cm.log_run_started(run_id, "sys", "usr")
     cm.log_llm_requested(run_id, iteration=1)
     cm.log_llm_responded(
@@ -539,23 +687,16 @@ def test_cross_store_pending_recoverable_idempotency_state_returns_ready(tmp_pat
         iteration=1,
         content=None,
         num_tool_calls=1,
-        tool_calls=[{"call_id": "c_rec_1", "name": "my_tool", "arguments": {"x": 1}}],
+        tool_calls=[{"call_id": "c_exec_1", "name": "my_tool", "arguments": {"x": 1}}],
     )
-    cm.log_tool_call_created(run_id, "c_rec_1", "my_tool", {"x": 1})
-    cm.log_tool_attempt_started(run_id, "c_rec_1", attempt=1, tool_name="my_tool", arguments={"x": 1})
+    cm.log_tool_call_created(run_id, "c_exec_1", "my_tool", {"x": 1})
+    cm.log_tool_attempt_started(run_id, "c_exec_1", attempt=1, tool_name="my_tool", arguments={"x": 1})
+    cm.log_tool_result_received(run_id, "c_exec_1", "success", "my_tool", {"res": "ok"})
+    cm.log_run_completed(run_id)
 
-    t_call = ToolCall(name="my_tool", arguments={"x": 1}, call_id="c_rec_1", run_id=run_id)
-    rec = {
-        "key": {"operation_key": "tool:my_tool", "idempotency_key": t_call.idempotency_key},
-        "status": "RECOVERABLE",
-        "created_at": 100.0,
-        "updated_at": 100.0,
-        "owner_id": "owner1",
-        "attempt": 1,
-        "data": None,
-    }
+    # Empty idempotency store
     with open(db_path, "w", encoding="utf-8") as f:
-        f.write(json.dumps(rec) + "\n")
+        pass
 
     report = ProductionReadinessChecker.evaluate(
         policy=RunPolicy(),
@@ -563,21 +704,22 @@ def test_cross_store_pending_recoverable_idempotency_state_returns_ready(tmp_pat
         checkpoint_path=cp_path,
         idempotency_path=db_path,
     )
-    assert report.ready is True
+    assert report.ready is False
     check = next(c for c in report.checks if c.name == "cross_store_consistency")
-    assert check.passed is True
+    assert check.passed is False
+    assert "missing exact idempotency record" in check.reason
 
 
-def test_cross_store_unrelated_completed_record_for_same_tool_does_not_mask_missing(tmp_path: Any) -> None:
+def test_cross_store_actually_executed_completed_call_unrelated_record_fails_closed(tmp_path: Any) -> None:
     """
-    If an unrelated COMPLETED record exists for the same tool name but different idempotency key,
-    it must NOT satisfy the check for a completed call and must fail closed (NOT_READY).
+    When a tool call actually executed and completed, having an unrelated COMPLETED record
+    for the same tool name but different idempotency key does not mask the missing record and fails closed (NOT_READY).
     """
     cp_path = str(tmp_path / "checkpoints.jsonl")
     db_path = str(tmp_path / "idempotency.jsonl")
 
     cm = CheckpointManager(db_path=cp_path)
-    run_id = "run-unrelated-mask"
+    run_id = "run-executed-unrelated-mask"
     cm.log_run_started(run_id, "sys", "usr")
     cm.log_llm_requested(run_id, iteration=1)
     cm.log_llm_responded(
@@ -588,6 +730,7 @@ def test_cross_store_unrelated_completed_record_for_same_tool_does_not_mask_miss
         tool_calls=[{"call_id": "c_target_1", "name": "my_tool", "arguments": {"x": 1}}],
     )
     cm.log_tool_call_created(run_id, "c_target_1", "my_tool", {"x": 1})
+    cm.log_tool_attempt_started(run_id, "c_target_1", attempt=1, tool_name="my_tool", arguments={"x": 1})
     cm.log_tool_result_received(run_id, "c_target_1", "success", "my_tool", {"res": "ok"})
     cm.log_run_completed(run_id)
 

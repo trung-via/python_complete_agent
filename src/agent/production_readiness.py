@@ -83,12 +83,15 @@ def parse_idempotency_store_read_only(
       * non-empty owner_id
       * integer attempt >= 1 (bool rejected)
       * data is dict or None
-    - Validates per-key persisted lifecycle invariants:
+    - Validates per-key persisted lifecycle progression matching production store mutation contract:
       * timestamp monotonicity (updated_at >= prev.updated_at)
       * created_at immutability (created_at == prev.created_at)
-      * attempt monotonicity (attempt >= prev.attempt)
-      * no terminal reopening (transitions from COMPLETED/FAILED to any other status rejected)
-      * no invalid intermediate transitions (e.g. RECOVERABLE to RECOVERABLE/COMPLETED without IN_PROGRESS)
+      * terminal status immutability (COMPLETED/FAILED are terminal; no later records for that key)
+      * IN_PROGRESS -> COMPLETED|FAILED|RECOVERABLE: preserves owner_id, preserves attempt
+      * IN_PROGRESS -> IN_PROGRESS (stale reclaim): requires attempt == prev.attempt + 1
+      * RECOVERABLE -> IN_PROGRESS (re-claim on retry): requires attempt == prev.attempt + 1
+      * NEW -> IN_PROGRESS (claim pre-seeded): requires attempt == prev.attempt + 1
+      * rejects all other persisted transitions
     """
     if not idempotency_path or not os.path.exists(idempotency_path):
         return None, {}
@@ -137,14 +140,7 @@ def parse_idempotency_store_read_only(
                             {},
                         )
 
-                    if record.attempt < prev.attempt:
-                        return (
-                            f"Line {line_number}: attempt rollback for key {canonical} "
-                            f"(previous: {prev.attempt}, current: {record.attempt})",
-                            {},
-                        )
-
-                    # Terminal states cannot reopen or change
+                    # Terminal states cannot have any subsequent records
                     if prev.status in (RecordStatus.COMPLETED, RecordStatus.FAILED):
                         return (
                             f"Line {line_number}: illegal transition from terminal status "
@@ -153,19 +149,44 @@ def parse_idempotency_store_read_only(
                         )
 
                     if prev.status == RecordStatus.IN_PROGRESS:
-                        if record.status not in (
-                            RecordStatus.IN_PROGRESS,
+                        if record.status in (
                             RecordStatus.COMPLETED,
                             RecordStatus.FAILED,
                             RecordStatus.RECOVERABLE,
                         ):
+                            # Must preserve owner_id and attempt
+                            if record.owner_id != prev.owner_id:
+                                return (
+                                    f"Line {line_number}: owner_id changed during transition from IN_PROGRESS to "
+                                    f"{record.status.value} for key {canonical} "
+                                    f"(previous: {prev.owner_id}, current: {record.owner_id})",
+                                    {},
+                                )
+                            if record.attempt != prev.attempt:
+                                return (
+                                    f"Line {line_number}: attempt changed during transition from IN_PROGRESS to "
+                                    f"{record.status.value} for key {canonical} "
+                                    f"(previous: {prev.attempt}, current: {record.attempt})",
+                                    {},
+                                )
+
+                        elif record.status == RecordStatus.IN_PROGRESS:
+                            # Stale reclaim must increment attempt by exactly 1
+                            if record.attempt != prev.attempt + 1:
+                                return (
+                                    f"Line {line_number}: re-claiming IN_PROGRESS record for key {canonical} "
+                                    f"must increment attempt by 1 (previous: {prev.attempt}, current: {record.attempt})",
+                                    {},
+                                )
+
+                        else:
                             return (
                                 f"Line {line_number}: illegal transition from IN_PROGRESS to "
                                 f"{record.status.value} for key {canonical}",
                                 {},
                             )
 
-                    if prev.status == RecordStatus.RECOVERABLE:
+                    elif prev.status == RecordStatus.RECOVERABLE:
                         if record.status != RecordStatus.IN_PROGRESS:
                             return (
                                 f"Line {line_number}: illegal transition from RECOVERABLE to "
@@ -175,6 +196,20 @@ def parse_idempotency_store_read_only(
                         if record.attempt != prev.attempt + 1:
                             return (
                                 f"Line {line_number}: reclaiming RECOVERABLE record for key {canonical} "
+                                f"must increment attempt by 1 (previous: {prev.attempt}, current: {record.attempt})",
+                                {},
+                            )
+
+                    elif prev.status == RecordStatus.NEW:
+                        if record.status != RecordStatus.IN_PROGRESS:
+                            return (
+                                f"Line {line_number}: illegal transition from NEW to "
+                                f"{record.status.value} for key {canonical} (must claim to IN_PROGRESS first)",
+                                {},
+                            )
+                        if record.attempt != prev.attempt + 1:
+                            return (
+                                f"Line {line_number}: claiming NEW record for key {canonical} "
                                 f"must increment attempt by 1 (previous: {prev.attempt}, current: {record.attempt})",
                                 {},
                             )
@@ -564,7 +599,6 @@ class ProductionReadinessChecker:
                 reason="No active runs to verify cross-store consistency (fresh runtime)",
             )
 
-        # For each run in checkpoints, verify exact tool call RecordKey in idempotency store
         for rid in run_ids:
             try:
                 events = ReplayEngine.load_events_for_run(checkpoint_path, rid)
@@ -576,15 +610,18 @@ class ProductionReadinessChecker:
                     if evt.event_type in (
                         CheckpointEventType.TOOL_ATTEMPT_STARTED,
                         CheckpointEventType.RETRY_SCHEDULED,
-                        CheckpointEventType.TOOL_RESULT_RECEIVED,
-                        CheckpointEventType.TOOL_CALL_REJECTED,
                     ):
                         cid = evt.payload.get("call_id")
                         if cid:
                             started_call_ids.add(cid)
 
-                # 1. Verify completed tool calls
+                # 1. Verify completed tool calls that entered execution
                 for cid, result in session.completed_tool_calls.items():
+                    # If call never reached attempt/execution (e.g. pre-claim rejected tool call),
+                    # idempotency record was never required and absence is safe
+                    if cid not in started_call_ids:
+                        continue
+
                     t_call = None
                     for msg in session.messages:
                         if msg.tool_calls:
