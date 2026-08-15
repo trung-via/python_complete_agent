@@ -105,7 +105,7 @@ def test_product_candidate_snapshot_rejects_invalid_values() -> None:
         ProductCandidateSnapshot(candidate_id="", platform="shopee", url="u", observed_at=now, title="t")
 
 
-def test_signal_evidence_validation_and_serialization() -> None:
+def test_signal_evidence_safety_and_serialization() -> None:
     now = datetime(2026, 8, 16, 0, 0, 0, tzinfo=timezone.utc)
     ev = SignalEvidence(
         signal_name="sold_count",
@@ -135,11 +135,60 @@ def test_signal_evidence_validation_and_serialization() -> None:
     assert "secret" not in d
 
 
-def test_normalized_signal_range_validations() -> None:
+def test_signal_evidence_rejects_payload_leakage_and_oversized_repr() -> None:
+    now = datetime(2026, 8, 16, 0, 0, 0, tzinfo=timezone.utc)
+
+    # Oversized raw_value_repr (> 120 chars)
+    with pytest.raises(ValueError, match="exceeds maximum safe scalar length"):
+        SignalEvidence(
+            signal_name="s",
+            source_type="shopee",
+            observed_at=now,
+            raw_value_repr="A" * 121,
+        )
+
+    # Multiline raw payload
+    with pytest.raises(ValueError, match="single-line scalar diagnostic"):
+        SignalEvidence(
+            signal_name="s",
+            source_type="shopee",
+            observed_at=now,
+            raw_value_repr="line1\nline2",
+        )
+
+    # Bearer token leakage attempt
+    with pytest.raises(ValueError, match="forbidden sensitive or raw payload token"):
+        SignalEvidence(
+            signal_name="s",
+            source_type="shopee",
+            observed_at=now,
+            raw_value_repr="Bearer secret_token_xyz",
+        )
+
+    # Cookie leakage attempt
+    with pytest.raises(ValueError, match="forbidden sensitive or raw payload token"):
+        SignalEvidence(
+            signal_name="s",
+            source_type="shopee",
+            observed_at=now,
+            raw_value_repr="Set-Cookie: session=123",
+        )
+
+    # HTML payload leakage attempt
+    with pytest.raises(ValueError, match="forbidden sensitive or raw payload token"):
+        SignalEvidence(
+            signal_name="s",
+            source_type="shopee",
+            observed_at=now,
+            raw_value_repr="<html><body>dump</body></html>",
+        )
+
+
+def test_normalized_signal_range_and_provenance_validations() -> None:
     now = datetime.now(timezone.utc)
     ev = SignalEvidence(signal_name="s", source_type="t", observed_at=now)
 
-    # Valid signal
+    # Valid factual observed signal
     sig = NormalizedSignal(
         name="test_demand",
         category=ScoreCategory.DEMAND,
@@ -151,23 +200,60 @@ def test_normalized_signal_range_validations() -> None:
     )
     assert sig.score == 0.85
 
-    # Score > 1.0
-    with pytest.raises(ValueError, match="score must be in"):
+    # Valid semantic inferred signal
+    sem_sig = NormalizedSignal(
+        name="visual_demo_potential",
+        category=ScoreCategory.CONTENTABILITY,
+        score=0.75,
+        provenance=SignalProvenance.INFERRED,
+    )
+    assert sem_sig.score == 0.75
+
+    # Inferred provenance illegally assigned to factual DEMAND category
+    with pytest.raises(ValueError, match="Factual market signal in category DEMAND cannot have INFERRED provenance"):
         NormalizedSignal(
-            name="invalid_sig",
+            name="sold_volume",
             category=ScoreCategory.DEMAND,
-            score=1.2,
-            provenance=SignalProvenance.OBSERVED,
+            score=0.90,
+            provenance=SignalProvenance.INFERRED,
         )
 
-    # Freshness < 0.0
-    with pytest.raises(ValueError, match="freshness must be in"):
+    # Inferred provenance illegally assigned to factual COMMERCIAL category
+    with pytest.raises(ValueError, match="Factual market signal in category COMMERCIAL_ATTRACTIVENESS cannot have INFERRED provenance"):
         NormalizedSignal(
-            name="invalid_sig",
-            category=ScoreCategory.DEMAND,
-            score=0.5,
+            name="commission_rate",
+            category=ScoreCategory.COMMERCIAL_ATTRACTIVENESS,
+            score=0.80,
+            provenance=SignalProvenance.INFERRED,
+        )
+
+    # Observed provenance illegally assigned to semantic CONTENTABILITY category
+    with pytest.raises(ValueError, match="Semantic signal in category CONTENTABILITY cannot have OBSERVED provenance"):
+        NormalizedSignal(
+            name="visual_demo_potential",
+            category=ScoreCategory.CONTENTABILITY,
+            score=0.85,
             provenance=SignalProvenance.OBSERVED,
-            freshness=-0.1,
+            evidence_refs=(ev,),
+        )
+
+    # MISSING signal with non-zero score rejected
+    with pytest.raises(ValueError, match="MISSING signals must have score=0.0"):
+        NormalizedSignal(
+            name="sales_velocity",
+            category=ScoreCategory.MOMENTUM,
+            score=0.50,
+            provenance=SignalProvenance.MISSING,
+        )
+
+    # MISSING signal with evidence references rejected
+    with pytest.raises(ValueError, match="MISSING signals cannot have evidence references"):
+        NormalizedSignal(
+            name="sales_velocity",
+            category=ScoreCategory.MOMENTUM,
+            score=0.0,
+            provenance=SignalProvenance.MISSING,
+            evidence_refs=(ev,),
         )
 
 

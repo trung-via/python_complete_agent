@@ -76,12 +76,16 @@ def test_score_and_confidence_bounds() -> None:
     assert empty_score.final_score == 0.0
     assert empty_score.decision_band == DecisionBand.INSUFFICIENT_DATA
 
-    # Maxed out signals for all 6 categories
+    # Maxed out signals for all 6 categories (with proper provenance)
     obs_time = eval_time
     ev = SignalEvidence("test", "shopee", obs_time)
     max_signals = [
-        NormalizedSignal(f"s_{cat.value}", cat, score=1.0, provenance=SignalProvenance.OBSERVED, evidence_refs=(ev,))
-        for cat in ScoreCategory
+        NormalizedSignal("s_demand", ScoreCategory.DEMAND, score=1.0, provenance=SignalProvenance.OBSERVED, evidence_refs=(ev,)),
+        NormalizedSignal("s_momentum", ScoreCategory.MOMENTUM, score=1.0, provenance=SignalProvenance.DERIVED, evidence_refs=(ev,)),
+        NormalizedSignal("s_commercial", ScoreCategory.COMMERCIAL_ATTRACTIVENESS, score=1.0, provenance=SignalProvenance.OBSERVED, evidence_refs=(ev,)),
+        NormalizedSignal("s_trust", ScoreCategory.TRUST, score=1.0, provenance=SignalProvenance.OBSERVED, evidence_refs=(ev,)),
+        NormalizedSignal("s_content", ScoreCategory.CONTENTABILITY, score=1.0, provenance=SignalProvenance.INFERRED),
+        NormalizedSignal("s_comp", ScoreCategory.COMPETITION_OPPORTUNITY, score=1.0, provenance=SignalProvenance.OBSERVED, evidence_refs=(ev,)),
     ]
 
     max_score = WinningProductScorer.score("c_max", "shopee", max_signals, evaluated_at=eval_time)
@@ -113,15 +117,10 @@ def test_base_score_renormalization_and_sparse_confidence_damping() -> None:
     ]
 
     score = WinningProductScorer.score("c_sparse", "shopee", signals, evaluated_at=eval_time)
-    # Available evidence is 100% strong -> base_score = 100.0
     assert score.base_score == pytest.approx(100.0, rel=1e-4)
-    # Completeness = 0.25 (25.0 / 100.0)
     assert score.confidence_breakdown.data_completeness == pytest.approx(0.25, rel=1e-4)
-    # Confidence = 0.40 * 0.25 + 0.25 * 1.0 + 0.20 * 1.0 + 0.15 * 1.0 = 0.70
     assert score.confidence == pytest.approx(0.70, rel=1e-4)
-    # Final score = 100.0 * 0.70 = 70.0
     assert score.final_score == pytest.approx(70.0, rel=1e-4)
-    # Explicit missing signals in breakdown
     assert "MISSING_sales_velocity" in score.missing_or_weak_signals
     assert "MISSING_commission_rate" in score.missing_or_weak_signals
 
@@ -140,7 +139,6 @@ def test_partial_category_completeness() -> None:
     dem_cat = score.category_scores[ScoreCategory.DEMAND]
     assert dem_cat.coverage == pytest.approx(0.60, rel=1e-4)
     assert dem_cat.raw_score == pytest.approx(1.0, rel=1e-4)
-    # data_completeness = 0.60 * 0.25 = 0.15
     assert score.confidence_breakdown.data_completeness == pytest.approx(0.15, rel=1e-4)
 
 
@@ -210,8 +208,8 @@ def test_missing_evidence_lowers_evidence_coverage_confidence() -> None:
         NormalizedSignal("s2", ScoreCategory.TRUST, 1.0, SignalProvenance.OBSERVED, evidence_refs=(ev,)),
     ]
     without_evidence = [
-        NormalizedSignal("s1", ScoreCategory.DEMAND, 1.0, SignalProvenance.INFERRED, evidence_refs=()),
-        NormalizedSignal("s2", ScoreCategory.TRUST, 1.0, SignalProvenance.INFERRED, evidence_refs=()),
+        NormalizedSignal("s1", ScoreCategory.DEMAND, 1.0, SignalProvenance.DERIVED, evidence_refs=()),
+        NormalizedSignal("s2", ScoreCategory.TRUST, 1.0, SignalProvenance.DERIVED, evidence_refs=()),
     ]
 
     score_ev = WinningProductScorer.score("c1", "shopee", with_evidence, evaluated_at=eval_time)

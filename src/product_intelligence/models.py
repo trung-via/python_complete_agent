@@ -32,11 +32,16 @@ class DecisionBand(str, Enum):
     HOLD = "HOLD"
 
 
+# Maximum safe scalar length for diagnostic raw value representations
+MAX_RAW_VALUE_REPR_LEN = 120
+FORBIDDEN_RAW_REPR_TOKENS = ("bearer ", "set-cookie:", "<html", "<body", "<script", "{\"")
+
+
 @dataclass(frozen=True)
 class SignalEvidence:
     """
     Immutable audit trail for a single observed or derived market fact.
-    Contains no secrets, credentials, cookies, or large raw HTML payloads.
+    Enforces scalar bounded diagnostics; strictly forbids credentials, cookies, tokens, or raw payloads.
     """
     signal_name: str
     source_type: str
@@ -55,6 +60,22 @@ class SignalEvidence:
             raise ValueError("signal_name cannot be empty")
         if not self.source_type:
             raise ValueError("source_type cannot be empty")
+
+        if self.raw_value_repr is not None:
+            if len(self.raw_value_repr) > MAX_RAW_VALUE_REPR_LEN:
+                raise ValueError(
+                    f"raw_value_repr exceeds maximum safe scalar length of {MAX_RAW_VALUE_REPR_LEN} chars, got {len(self.raw_value_repr)}"
+                )
+            if "\n" in self.raw_value_repr or "\r" in self.raw_value_repr:
+                raise ValueError(
+                    "raw_value_repr must be a single-line scalar diagnostic, multiline payloads forbidden"
+                )
+            raw_lower = self.raw_value_repr.lower()
+            for token in FORBIDDEN_RAW_REPR_TOKENS:
+                if token in raw_lower:
+                    raise ValueError(
+                        f"raw_value_repr contains forbidden sensitive or raw payload token: {token!r}"
+                    )
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -96,6 +117,7 @@ class ProductCandidateSnapshot:
     sold_count: Optional[int] = None
     rating: Optional[float] = None
     review_count: Optional[int] = None
+    # Canonical unit: percentage points in [0.0, 100.0] (e.g. 15.0 = 15%, 1.0 = 1%)
     affiliate_commission_rate: Optional[float] = None
     estimated_commission_value: Optional[float] = None
     creator_count: Optional[int] = None
@@ -192,7 +214,9 @@ class ProductCandidateSnapshot:
 class NormalizedSignal:
     """
     A platform-agnostic normalized market signal with score in [0.0, 1.0].
-    Consumes evidence references and provenance metadata.
+    Enforces strict category-to-provenance boundaries:
+    - Factual market categories (DEMAND, MOMENTUM, COMMERCIAL, TRUST, COMPETITION) cannot have INFERRED provenance.
+    - Semantic category (CONTENTABILITY) cannot have OBSERVED provenance.
     """
     name: str
     category: ScoreCategory
@@ -216,6 +240,24 @@ class NormalizedSignal:
             raise ValueError(f"weight must be strictly positive, got {self.weight}")
         if not self.name:
             raise ValueError("name cannot be empty")
+
+        # Provenance integrity validation
+        if self.category == ScoreCategory.CONTENTABILITY:
+            if self.provenance == SignalProvenance.OBSERVED:
+                raise ValueError(
+                    f"Semantic signal in category {self.category.value} cannot have OBSERVED provenance"
+                )
+        else:
+            if self.provenance == SignalProvenance.INFERRED:
+                raise ValueError(
+                    f"Factual market signal in category {self.category.value} cannot have INFERRED provenance"
+                )
+
+        if self.provenance == SignalProvenance.MISSING:
+            if self.score != 0.0:
+                raise ValueError("MISSING signals must have score=0.0")
+            if len(self.evidence_refs) > 0:
+                raise ValueError("MISSING signals cannot have evidence references")
 
     def to_dict(self) -> Dict[str, Any]:
         return {
