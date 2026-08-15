@@ -616,6 +616,64 @@ async def test_terminal_state_before_retry_continuation_stops_attempt_n_plus_one
 
 
 @pytest.mark.asyncio
+async def test_retry_continuation_inspection_error_fails_closed_without_next_attempt(tmp_path: Any) -> None:
+    """
+    If durable state inspection fails (e.g. corrupted checkpoint) before retry continuation,
+    the continuation guard FAILS CLOSED, raising SystemStateError, and attempt N+1 never executes.
+    """
+    class FlakyFailOnceTool:
+        def __init__(self) -> None:
+            self.name = "flaky_corrupt_tool"
+            self.description = "flaky tool"
+            self.attempts = 0
+
+        def get_schema(self) -> Dict[str, Any]:
+            return {"type": "object", "properties": {}}
+
+        async def execute(self, call: ToolCall, context: Dict[str, Any]) -> ToolResult:
+            self.attempts += 1
+            if self.attempts == 1:
+                raise AgentException(message="503 Service Unavailable", code="HTTP_503", retryable=True)
+            return ToolResult(call_id=call.call_id, run_id=call.run_id, tool_name=call.name, status=ToolStatus.SUCCESS)
+
+    db_path = str(tmp_path / "idempotency.jsonl")
+    cp_path = str(tmp_path / "checkpoints.jsonl")
+    store = JsonlIdempotencyStore(db_path=db_path)
+    checkpoints = CheckpointManager(db_path=cp_path)
+
+    run_id = "run-corrupt-during-retry"
+    checkpoints.log_run_started(run_id, "sys", "usr")
+
+    tool = FlakyFailOnceTool()
+    registry = ToolRegistry()
+    registry.register_tool(tool)
+
+    class CorruptingRetryManager(RetryManager):
+        async def execute_with_retry(self, operation: Any, *args: Any, **kwargs: Any) -> Any:
+            orig_on_retry = kwargs.get("on_retry_scheduled")
+            def hook_on_retry(att: int, next_att: int, delay: float, reason: str, domain: str) -> None:
+                if orig_on_retry:
+                    orig_on_retry(att, next_att, delay, reason, domain)
+                # Corrupt the checkpoint file right after retry is scheduled
+                with open(cp_path, "a", encoding="utf-8") as f:
+                    f.write("MALFORMED JSON CORRUPTION DATA\n")
+
+            kwargs["on_retry_scheduled"] = hook_on_retry
+            return await super().execute_with_retry(operation, *args, **kwargs)
+
+    retry_manager = CorruptingRetryManager(default_policy=RetryPolicy(max_attempts=3, base_delay=0.01, jitter=False))
+    executor = ToolExecutor(registry, store, retry_manager, checkpoints, {})
+
+    call = ToolCall(name="flaky_corrupt_tool", arguments={}, call_id="c_corrupt_retry", run_id=run_id)
+
+    with pytest.raises(SystemStateError, match="Failed to verify run state before retry continuation"):
+        await executor.execute(call)
+
+    # Invariant: Attempt 2 NEVER executed because continuation guard failed closed
+    assert tool.attempts == 1
+
+
+@pytest.mark.asyncio
 async def test_invalid_checkpoint_transition_sequence_fails_closed(tmp_path: Any) -> None:
     """Illegal checkpoint state transition raises CheckpointStateError and fails closed."""
     from src.core.checkpoint_contract import validate_state_transition, CheckpointEvent
@@ -635,19 +693,23 @@ async def test_invalid_checkpoint_transition_sequence_fails_closed(tmp_path: Any
 
 @pytest.mark.asyncio
 async def test_explicit_persistence_boundary_failure_is_classified_as_system_state_error(tmp_path: Any) -> None:
-    """Storage / persistence failure during complete raises SystemStateError."""
+    """Storage / persistence failure during completion raises SystemStateError."""
+    class FaultyCompletionStore(JsonlIdempotencyStore):
+        def complete(self, key: RecordKey, owner_id: str, *, data: Optional[Dict[str, Any]] = None) -> Any:
+            raise OSError("Disk write failed during idempotency completion")
+
     db_path = str(tmp_path / "idempotency.jsonl")
     cp_path = str(tmp_path / "checkpoints.jsonl")
-    faulty_cp = FaultyCheckpointManager(db_path=cp_path, fail_on_event_types={CheckpointEventType.TOOL_CALL_CREATED})
-    store = JsonlIdempotencyStore(db_path=db_path)
+    store = FaultyCompletionStore(db_path=db_path)
+    checkpoints = CheckpointManager(db_path=cp_path)
     tool = BaseCountingTool()
 
     registry = ToolRegistry()
     registry.register_tool(tool)
     retry_manager = RetryManager(default_policy=RetryPolicy(max_attempts=1))
-    executor = ToolExecutor(registry, store, retry_manager, faulty_cp, {})
+    executor = ToolExecutor(registry, store, retry_manager, checkpoints, {})
 
     call = ToolCall(name="test_tool", arguments={}, call_id="c_persist_fail", run_id="run_persist_fail")
-    with pytest.raises(OSError, match="Simulated checkpoint write failure"):
+    with pytest.raises(SystemStateError, match="Idempotency completion persistence failed"):
         await executor.execute(call)
 

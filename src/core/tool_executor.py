@@ -320,15 +320,23 @@ class ToolExecutor:
 
         def before_retry_attempt(next_attempt: int) -> bool:
             try:
-                from src.core.recovery_diagnostics import RecoveryAnalyzer
+                from src.core.recovery_diagnostics import RecoveryAnalyzer, RecoveryPotential
                 from src.core.checkpoint_contract import RunState
                 diag = RecoveryAnalyzer.analyze(call.run_id, self.checkpoints.db_path)
+                if diag.recovery_potential == RecoveryPotential.CORRUPT:
+                    raise SystemStateError(
+                        f"Checkpoint corruption detected before retry continuation: {diag.error_message}"
+                    )
                 if diag.current_state in (RunState.HALTED, RunState.FAILED, RunState.COMPLETED):
                     return False
                 return True
             except Exception as e:
-                logger.warning(f"Error checking run state before retry attempt for {call.run_id}: {e}")
-                return True
+                logger.error(
+                    f"Error checking run state before retry attempt for {call.run_id}, failing closed: {e}"
+                )
+                raise SystemStateError(
+                    f"Failed to verify run state before retry continuation: {e}"
+                ) from e
 
         return await self.retry_manager.execute_with_retry(
             tool.execute,

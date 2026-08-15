@@ -13,6 +13,7 @@ from src.agent.messages import LLMMessage
 from src.agent.policy import RunPolicy
 from src.core.checkpoint import CheckpointManager
 from src.core.checkpoint_contract import RunState
+from src.core.idempotency_contract import ClaimResult, RecordKey, RecordStatus
 from src.core.idempotency_store_v2 import JsonlIdempotencyStore
 from src.core.retry import RetryManager, RetryPolicy
 from src.core.tool_executor import ToolExecutor
@@ -62,17 +63,39 @@ class BarrierSideEffectTool:
         )
 
 
+class ContentionAwareIdempotencyStore(JsonlIdempotencyStore):
+    """
+    Test-only store wrapper instrumenting claim events to prove contender 2 reaches
+    the claim boundary before contender 1 is released.
+    """
+    def __init__(
+        self,
+        db_path: str,
+        on_claim_event: Optional[asyncio.Event] = None,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(db_path=db_path, **kwargs)
+        self.on_claim_event = on_claim_event
+        self.claim_attempts = 0
+
+    def claim(self, key: RecordKey, owner_id: str) -> ClaimResult:
+        res = super().claim(key, owner_id)
+        self.claim_attempts += 1
+        if self.on_claim_event is not None and self.claim_attempts >= 2:
+            self.on_claim_event.set()
+        return res
+
+
 def _build_concurrency_agent(
     tmp_path: Any,
     responses: List[LLMResponse],
     tool: Any,
-    db_path: str,
+    store: JsonlIdempotencyStore,
     cp_path: str,
     policy: Optional[RunPolicy] = None,
 ) -> AgentLoop:
     registry = ToolRegistry()
     registry.register_tool(tool)
-    store = JsonlIdempotencyStore(db_path=db_path)
     checkpoints = CheckpointManager(db_path=cp_path)
     retry_manager = RetryManager(default_policy=RetryPolicy(max_attempts=2, base_delay=0.01))
 
@@ -103,7 +126,9 @@ async def test_same_run_two_concurrent_resume_contenders(tmp_path: Any) -> None:
     Same run, two resume contenders:
     Contender 1 starts resume, claims tool key and enters execution.
     Explicit barrier holds contender 1 inside tool execution.
-    Contender 2 starts resume concurrently, reaching claim boundary while key is CLAIMED.
+    Contender 2 starts resume concurrently and reaches claim boundary (verified by event).
+    Contender 2 receives ALREADY_IN_PROGRESS and yields.
+    Then contender 1 is released and finishes run.
     Invariant: exactly one external side effect executes; no duplicate execution.
     """
     db_path = str(tmp_path / "idempotency.jsonl")
@@ -111,6 +136,7 @@ async def test_same_run_two_concurrent_resume_contenders(tmp_path: Any) -> None:
 
     in_tool_event = asyncio.Event()
     release_event = asyncio.Event()
+    contender2_claim_event = asyncio.Event()
     tool = BarrierSideEffectTool(on_enter_event=in_tool_event, release_event=release_event)
 
     run_id = "run-concurrent-resume"
@@ -132,8 +158,9 @@ async def test_same_run_two_concurrent_resume_contenders(tmp_path: Any) -> None:
         LLMResponse(provider="mock", provider_response_id="2", content="Final Answer 2", tool_calls=[]),
     ]
 
-    loop1 = _build_concurrency_agent(tmp_path, responses1, tool, db_path, cp_path)
-    loop2 = _build_concurrency_agent(tmp_path, responses2, tool, db_path, cp_path)
+    store = ContentionAwareIdempotencyStore(db_path=db_path, on_claim_event=contender2_claim_event)
+    loop1 = _build_concurrency_agent(tmp_path, responses1, tool, store, cp_path)
+    loop2 = _build_concurrency_agent(tmp_path, responses2, tool, store, cp_path)
 
     # Start contender 1
     task1 = asyncio.create_task(loop1.resume(run_id))
@@ -144,7 +171,10 @@ async def test_same_run_two_concurrent_resume_contenders(tmp_path: Any) -> None:
     # Start contender 2 while contender 1 is inside tool execution
     task2 = asyncio.create_task(loop2.resume(run_id))
 
-    # Release contender 1
+    # Deterministically wait until contender 2 reaches the claim boundary and observes IN_PROGRESS
+    await contender2_claim_event.wait()
+
+    # Now release contender 1
     release_event.set()
 
     res1 = await task1
@@ -153,11 +183,11 @@ async def test_same_run_two_concurrent_resume_contenders(tmp_path: Any) -> None:
     # Exactly 1 external side effect was executed
     assert len(tool.side_effects) == 1
 
-    # Contender 1 completed with final answer
+    # Contender 1 completed with final answer, contender 2 yielded cleanly
     assert res1 == "Final Answer 1"
+    assert res2 is None
 
     # Store and checkpoint integrity verified
-    store = JsonlIdempotencyStore(db_path=db_path)
     report = RunIntegrityVerifier.verify(cp_path, run_id, idempotency_store=store)
     assert report.valid is True
 
@@ -168,7 +198,8 @@ async def test_concurrent_same_run_and_call_id_execution(tmp_path: Any) -> None:
     Concurrent same (run_id, call_id):
     Contender 1 claims key and enters tool execution.
     Contender 2 attempts execution for the same (run_id, call_id) simultaneously.
-    Contender 2 receives IDEMPOTENCY_IN_PROGRESS or converges.
+    Test deterministically waits until Contender 2 enters claim() while Contender 1 holds claim.
+    Contender 2 receives IDEMPOTENCY_IN_PROGRESS.
     Invariant: exactly one underlying execution occurs.
     """
     db_path = str(tmp_path / "idempotency.jsonl")
@@ -176,11 +207,12 @@ async def test_concurrent_same_run_and_call_id_execution(tmp_path: Any) -> None:
 
     in_tool_event = asyncio.Event()
     release_event = asyncio.Event()
+    contender2_claim_event = asyncio.Event()
     tool = BarrierSideEffectTool(on_enter_event=in_tool_event, release_event=release_event)
 
     registry = ToolRegistry()
     registry.register_tool(tool)
-    store = JsonlIdempotencyStore(db_path=db_path)
+    store = ContentionAwareIdempotencyStore(db_path=db_path, on_claim_event=contender2_claim_event)
     cm = CheckpointManager(db_path=cp_path)
     retry_manager = RetryManager(default_policy=RetryPolicy(max_attempts=1))
 
@@ -193,6 +225,10 @@ async def test_concurrent_same_run_and_call_id_execution(tmp_path: Any) -> None:
     await in_tool_event.wait()
 
     task2 = asyncio.create_task(exec2.execute(call))
+    # Wait until contender 2 reaches claim boundary
+    await contender2_claim_event.wait()
+
+    # Release contender 1
     release_event.set()
 
     res1 = await task1
@@ -201,8 +237,34 @@ async def test_concurrent_same_run_and_call_id_execution(tmp_path: Any) -> None:
     # Exactly 1 underlying side effect occurred
     assert len(tool.side_effects) == 1
     assert res1.status == ToolStatus.SUCCESS
-    # Contender 2 was prevented from duplicating the execution
-    assert res2.status in (ToolStatus.FAILURE, ToolStatus.SUCCESS)
+    assert res2.status == ToolStatus.FAILURE
+    assert res2.error is not None
+    assert res2.error.code == "IDEMPOTENCY_IN_PROGRESS"
+
+
+class ProcessSharedCountingTool:
+    """Tool that updates a multiprocessing-shared counter with explicit lock."""
+    def __init__(self, shared_counter: Any, shared_lock: Any, name: str = "concurrency_tool") -> None:
+        self.name = name
+        self.description = "concurrency tool tracking process-shared side effects"
+        self.shared_counter = shared_counter
+        self.shared_lock = shared_lock
+
+    def get_schema(self) -> Dict[str, Any]:
+        return {"type": "object", "properties": {"val": {"type": "integer"}}}
+
+    async def execute(self, call: ToolCall, context: Dict[str, Any]) -> ToolResult:
+        with self.shared_lock:
+            self.shared_counter.value += 1
+            count = self.shared_counter.value
+
+        return ToolResult(
+            call_id=call.call_id,
+            run_id=call.run_id,
+            tool_name=call.name,
+            status=ToolStatus.SUCCESS,
+            data={"count": count},
+        )
 
 
 def _worker_same_call_process(
@@ -212,9 +274,11 @@ def _worker_same_call_process(
     call_id: str,
     barrier: multiprocessing.Barrier,
     out_queue: multiprocessing.Queue,
+    shared_counter: Any,
+    shared_lock: Any,
 ) -> None:
     """Worker process contending for the exact same (run_id, call_id)."""
-    tool = BarrierSideEffectTool()
+    tool = ProcessSharedCountingTool(shared_counter, shared_lock)
     registry = ToolRegistry()
     registry.register_tool(tool)
     store = JsonlIdempotencyStore(db_path=db_path)
@@ -241,7 +305,8 @@ def test_multiprocessing_concurrent_same_call_contention(tmp_path: Any) -> None:
     Real multiprocessing same-call contention:
     Two OS worker processes execute ToolExecutor.execute for the exact same (run_id, call_id)
     simultaneously against shared JsonlIdempotencyStore.
-    Assert at most one successful execution, zero duplicate side effects, valid store.
+    Assert EXACTLY ONE process executes the underlying side effect via shared counter,
+    zero duplicate side effects, valid store.
     """
     db_path = str(tmp_path / "idempotency.jsonl")
     cp_path = str(tmp_path / "checkpoints.jsonl")
@@ -255,14 +320,16 @@ def test_multiprocessing_concurrent_same_call_contention(tmp_path: Any) -> None:
 
     barrier = multiprocessing.Barrier(2)
     out_queue: multiprocessing.Queue = multiprocessing.Queue()
+    shared_counter = multiprocessing.Value('i', 0)
+    shared_lock = multiprocessing.Lock()
 
     p1 = multiprocessing.Process(
         target=_worker_same_call_process,
-        args=(db_path, cp_path, run_id, call_id, barrier, out_queue),
+        args=(db_path, cp_path, run_id, call_id, barrier, out_queue, shared_counter, shared_lock),
     )
     p2 = multiprocessing.Process(
         target=_worker_same_call_process,
-        args=(db_path, cp_path, run_id, call_id, barrier, out_queue),
+        args=(db_path, cp_path, run_id, call_id, barrier, out_queue, shared_counter, shared_lock),
     )
 
     p1.start()
@@ -278,19 +345,20 @@ def test_multiprocessing_concurrent_same_call_contention(tmp_path: Any) -> None:
 
     results = [out_queue.get(timeout=2), out_queue.get(timeout=2)]
 
-    # At least one process successfully completed the call
-    success_results = [r for r in results if r["status"] == "success"]
-    assert len(success_results) >= 1
+    # Invariant: EXACTLY 1 underlying side effect was executed across OS processes
+    assert shared_counter.value == 1
+
+    # Both processes finished cleanly (either primary execution or replay/in-progress convergence)
+    for r in results:
+        assert r["status"] in ("success", "failure")
 
     # Store remains valid and parseable
-    from src.core.idempotency_contract import RecordKey, RecordStatus
     store = JsonlIdempotencyStore(db_path=db_path)
     call = ToolCall(name="concurrency_tool", arguments={"val": 999}, call_id=call_id, run_id=run_id)
     key = ToolExecutor._record_key(call)
     rec = store.get(key)
     assert rec is not None
-    assert rec.status in (RecordStatus.COMPLETED, RecordStatus.IN_PROGRESS, RecordStatus.FAILED)
-    # Verify no corruption occurred during simultaneous multi-process contention
+    assert rec.status == RecordStatus.COMPLETED
     assert os.path.exists(db_path)
 
 
