@@ -250,15 +250,9 @@ def test_context_refs_content_anchoring_to_state_snapshot():
             blob_sha="a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
         )
 
-    # 6. Cross-role state artifact path collision (task vs contract) fails closed (R7-1)
-    state_contract_collision = ContinuityState(
-        schema_version=state.schema_version,
-        task_id=state.task_id,
-        phase=state.phase,
-        next_operation=state.next_operation,
-        main=state.main,
-        task_branch=state.task_branch,
-        artifacts=ContinuityArtifacts(
+    # 6. Cross-role state artifact path collision (task vs contract) fails closed (R7-1 / TASK-025 C2)
+    with pytest.raises(ContinuityStateValidationError, match="Duplicate authoritative artifact path detected across role set"):
+        ContinuityArtifacts(
             task=state.artifacts.task,
             contracts=(
                 ArtifactRef(
@@ -267,35 +261,17 @@ def test_context_refs_content_anchoring_to_state_snapshot():
                     ref="contract",
                 ),
             ),
-        ),
-        executor=state.executor,
-    )
-    with pytest.raises(ContinuityStateValidationError, match="Ambiguous state artifact path collision in canonical state"):
-        validate_brain_failover_eligibility(
-            src, rep, state_contract_collision, expected_state_fingerprint=state_contract_collision.fingerprint(), replacement_capability=cap
         )
 
-    # 7. Cross-role state artifact path collision (task vs plan) fails closed (R7-1)
-    state_plan_collision = ContinuityState(
-        schema_version=state.schema_version,
-        task_id=state.task_id,
-        phase=state.phase,
-        next_operation=state.next_operation,
-        main=state.main,
-        task_branch=state.task_branch,
-        artifacts=ContinuityArtifacts(
+    # 7. Cross-role state artifact path collision (task vs plan) fails closed (R7-1 / TASK-025 C2)
+    with pytest.raises(ContinuityStateValidationError, match="Duplicate authoritative artifact path detected across role set"):
+        ContinuityArtifacts(
             task=state.artifacts.task,
             plan=ArtifactRef(
                 path=state.artifacts.task.path,
                 blob_sha=state.artifacts.task.blob_sha,
                 ref="plan",
             ),
-        ),
-        executor=state.executor,
-    )
-    with pytest.raises(ContinuityStateValidationError, match="Ambiguous state artifact path collision in canonical state"):
-        validate_brain_failover_eligibility(
-            src, rep, state_plan_collision, expected_state_fingerprint=state_plan_collision.fingerprint(), replacement_capability=cap
         )
 
 

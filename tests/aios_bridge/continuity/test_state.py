@@ -517,7 +517,7 @@ def test_duplicate_contract_rejection():
         "blob_sha": "504630c25f37c83819ae951076704765609105c7",
     }
     d["artifacts"]["contracts"] = [dup_contract, dup_contract]
-    with pytest.raises(ContinuityStateValidationError, match="Duplicate contract"):
+    with pytest.raises(ContinuityStateValidationError, match="Duplicate authoritative artifact path"):
         ContinuityState.from_dict(d)
 
 
@@ -735,3 +735,152 @@ def test_cli_validate_and_fingerprint_commands(tmp_path: Path):
     # CLI validate failure on non-existent file
     missing_file = tmp_path / "NON-EXISTENT.json"
     assert cli_module.main(["validate", str(missing_file)]) == 1
+
+
+def test_exact_canonical_state_identities_and_whitespace_rejection():
+    """Canonical identities pass; leading/trailing whitespace fails closed (C1 / Checklist 1-5)."""
+    # 1. BranchState: valid vs padded
+    b_valid = BranchState(branch="main", sha=None)
+    assert b_valid.branch == "main"
+    for padded in [" main", "main ", "  main  "]:
+        with pytest.raises(ContinuityStateValidationError, match="must not contain leading or trailing whitespace"):
+            BranchState(branch=padded)
+
+    # 2. ArtifactRef: valid ref vs padded ref
+    ref_valid = ArtifactRef(path=".ai/tasks/TASK-019.md", ref="ai-control", blob_sha="adc44f449f2a991a455b8039d8e8978fe4643146")
+    assert ref_valid.ref == "ai-control"
+    for padded in [" ai-control", "ai-control ", "  ai-control  "]:
+        with pytest.raises(ContinuityStateValidationError, match="must not contain leading or trailing whitespace"):
+            ArtifactRef(path=".ai/tasks/TASK-019.md", ref=padded, blob_sha="adc44f449f2a991a455b8039d8e8978fe4643146")
+
+    # 3. ArtifactRef: valid path vs padded path
+    for padded in [" .ai/tasks/TASK-019.md", ".ai/tasks/TASK-019.md ", "  .ai/tasks/TASK-019.md  "]:
+        with pytest.raises(ContinuityStateValidationError, match="must not contain leading or trailing whitespace"):
+            ArtifactRef(path=padded, ref="ai-control", blob_sha="adc44f449f2a991a455b8039d8e8978fe4643146")
+
+    # 4. Actor IDs: valid vs padded
+    for padded in [" chatgpt-chat", "chatgpt-chat ", "  chatgpt-chat  "]:
+        with pytest.raises(ContinuityStateValidationError, match="must not contain leading or trailing whitespace"):
+            BrainState(last_id=padded)
+        with pytest.raises(ContinuityStateValidationError, match="must not contain leading or trailing whitespace"):
+            ExecutorState(last_id=padded)
+
+    # 5. Canonical state round-trip & fingerprint stability
+    d = _make_valid_state_dict()
+    s1 = ContinuityState.from_dict(d)
+    s2 = ContinuityState.from_json(s1.to_canonical_json())
+    assert s1.fingerprint() == s2.fingerprint()
+
+
+def test_global_authoritative_artifact_path_uniqueness():
+    """Authoritative artifact paths must be globally unique across task, contracts, plan, result, review (C2 / Checklist 6-11)."""
+    # 6. Task path colliding with contract path (same blob/ref) fails closed
+    d6 = _make_valid_state_dict()
+    d6["artifacts"]["contracts"].append({
+        "path": ".ai/tasks/TASK-019.md",  # Same as task.path
+        "ref": "ai-control",
+        "blob_sha": "adc44f449f2a991a455b8039d8e8978fe4643146",
+    })
+    with pytest.raises(ContinuityStateValidationError, match="Duplicate authoritative artifact path"):
+        ContinuityState.from_dict(d6)
+
+    # 7. Task path colliding with contract path (different blob/ref) fails closed
+    d7 = _make_valid_state_dict()
+    d7["artifacts"]["contracts"].append({
+        "path": ".ai/tasks/TASK-019.md",  # Same path, different blob/ref
+        "ref": "main",
+        "blob_sha": "1111111111111111111111111111111111111111",
+    })
+    with pytest.raises(ContinuityStateValidationError, match="Duplicate authoritative artifact path"):
+        ContinuityState.from_dict(d7)
+
+    # 8. Contract path colliding with plan path fails closed
+    d8 = _make_valid_state_dict()
+    d8["artifacts"]["contracts"].append({
+        "path": ".ai/context/TASK-019-CHATGPT-PLAN.md",  # Collides with plan.path
+        "ref": "ai-control",
+        "blob_sha": "9583000000000000000000000000000000000000",
+    })
+    with pytest.raises(ContinuityStateValidationError, match="Duplicate authoritative artifact path"):
+        ContinuityState.from_dict(d8)
+
+    # 9. Direct ContinuityArtifacts construction: contract-result duplicate path fails
+    task_ref = ArtifactRef(path=".ai/tasks/TASK-019.md", ref="ai-control", blob_sha="adc44f449f2a991a455b8039d8e8978fe4643146")
+    res_ref = ArtifactRef(path=".ai/results/RESULT-019.md", ref="ai/task-019", blob_sha="2222222222222222222222222222222222222222")
+    with pytest.raises(ContinuityStateValidationError, match="Duplicate authoritative artifact path"):
+        ContinuityArtifacts(
+            task=task_ref,
+            contracts=(ArtifactRef(path=".ai/results/RESULT-019.md", ref="ai-control", blob_sha="3333333333333333333333333333333333333333"),),
+            result=res_ref,
+        )
+
+    # 10. Direct ContinuityArtifacts construction: plan/review duplicate path fails
+    rev_ref = ArtifactRef(path=".ai/reviews/REVIEW-019.md", ref="ai/task-019", blob_sha="4444444444444444444444444444444444444444")
+    with pytest.raises(ContinuityStateValidationError, match="Duplicate authoritative artifact path"):
+        ContinuityArtifacts(
+            task=task_ref,
+            plan=ArtifactRef(path=".ai/reviews/REVIEW-019.md", ref="ai-control", blob_sha="5555555555555555555555555555555555555555"),
+            review=rev_ref,
+        )
+
+    # 11. Two distinct contracts remain valid
+    art_valid = ContinuityArtifacts(
+        task=task_ref,
+        contracts=(
+            ArtifactRef(path=".ai/decisions/ADR-010.md", ref="ai-control", blob_sha="504630c25f37c83819ae951076704765609105c7"),
+            ArtifactRef(path=".ai/decisions/ADR-011.md", ref="ai-control", blob_sha="0ce561b1de5c964bb93ea0a5a127b48d86a65839"),
+        ),
+    )
+    assert len(art_valid.contracts) == 2
+
+
+def test_state_observation_empty_and_deep_immutability():
+    """StateObservation supports omitted mappings and deeply freezes caller facts (C3, C4 / Checklist 12-16)."""
+    # 12. StateObservation with omitted artifact mapping constructs successfully
+    obs_default = StateObservation(main_sha="689c2c6dd8e41fe0f735b822118ba6530379b7dd")
+    assert obs_default.main_sha == "689c2c6dd8e41fe0f735b822118ba6530379b7dd"
+    assert len(obs_default.artifact_blobs) == 0
+
+    # 13. Empty artifact mapping + state with artifacts produces INCOMPLETE
+    state = ContinuityState.from_dict(_make_valid_state_dict())
+    report = check_freshness(state, obs_default)
+    assert report.status == FreshnessStatus.INCOMPLETE
+    assert report.is_fresh is False
+    assert len(report.issues) == 4  # task, 2 contracts, plan missing
+
+    # 14. Caller dict mutated after observation construction does NOT mutate observation facts
+    caller_dict = {
+        ".ai/tasks/TASK-019.md": "adc44f449f2a991a455b8039d8e8978fe4643146",
+    }
+    obs_frozen = StateObservation(
+        main_sha="689c2c6dd8e41fe0f735b822118ba6530379b7dd",
+        artifact_blobs=caller_dict,
+    )
+    caller_dict[".ai/tasks/TASK-019.md"] = "9999999999999999999999999999999999999999"
+    caller_dict[".ai/decisions/ADR-010.md"] = "504630c25f37c83819ae951076704765609105c7"
+    assert obs_frozen.artifact_blobs[".ai/tasks/TASK-019.md"] == "adc44f449f2a991a455b8039d8e8978fe4643146"
+    assert ".ai/decisions/ADR-010.md" not in obs_frozen.artifact_blobs
+
+    # 15. Observation mapping itself rejects mutation
+    with pytest.raises(TypeError):
+        obs_frozen.artifact_blobs[".ai/tasks/TASK-019.md"] = "1111111111111111111111111111111111111111"  # type: ignore[index]
+
+    # 16. Invalid observation blob SHA remains rejected
+    with pytest.raises(ContinuityStateValidationError, match="must be an exact lowercase 40-character"):
+        StateObservation(
+            artifact_blobs={".ai/tasks/TASK-019.md": "INVALID_BLOB_SHA"}
+        )
+
+
+def test_brain_operation_parser_error_domain():
+    """Invalid Brain operation parser errors stay within ContinuityStateValidationError domain (C5 / Checklist 17-18)."""
+    # 17. Through BrainState.from_dict()
+    with pytest.raises(ContinuityStateValidationError, match="Invalid BrainOperation in BrainState.last_operation"):
+        BrainState.from_dict({"last_operation": "FORBIDDEN_OPERATION"})
+
+    # 18. Through ContinuityState.from_dict()
+    d = _make_valid_state_dict()
+    d["brain"]["last_operation"] = "MALICIOUS_OP"
+    with pytest.raises(ContinuityStateValidationError, match="Invalid BrainOperation in brain.last_operation"):
+        ContinuityState.from_dict(d)
+

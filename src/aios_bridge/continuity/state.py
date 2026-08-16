@@ -1,13 +1,14 @@
 """Canonical Project State contract, parser, serializer, and freshness evaluator (ADR-011)."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 import hashlib
 import json
 import os
 from pathlib import Path, PurePosixPath
 import re
+from types import MappingProxyType
 from typing import Any, Mapping, Sequence
 
 from .errors import ContinuityFreshnessError, ContinuityStateValidationError
@@ -128,9 +129,13 @@ def _validate_exact_hex_sha(sha: Any, field_name: str) -> str:
 
 
 def _validate_safe_git_ref(ref: Any, field_name: str) -> str:
-    if isinstance(ref, bool) or not isinstance(ref, str) or not ref.strip():
+    if isinstance(ref, bool) or not isinstance(ref, str) or not ref:
         raise ContinuityStateValidationError(f"{field_name} must be a non-empty string")
-    ref_str = ref.strip()
+    if ref != ref.strip():
+        raise ContinuityStateValidationError(
+            f"{field_name} must not contain leading or trailing whitespace: {ref!r}"
+        )
+    ref_str = ref
 
     if any(c in _GIT_REF_FORBIDDEN_CHARS for c in ref_str) or any(ord(c) < 32 or ord(c) == 127 for c in ref_str):
         raise ContinuityStateValidationError(f"{field_name} contains forbidden character in Git ref: {ref!r}")
@@ -156,9 +161,13 @@ def _validate_safe_git_ref(ref: Any, field_name: str) -> str:
 
 
 def _validate_actor_id(actor_id: Any, field_name: str) -> str:
-    if isinstance(actor_id, bool) or not isinstance(actor_id, str) or not actor_id.strip():
+    if isinstance(actor_id, bool) or not isinstance(actor_id, str) or not actor_id:
         raise ContinuityStateValidationError(f"{field_name} must be a non-empty string")
-    actor_str = actor_id.strip()
+    if actor_id != actor_id.strip():
+        raise ContinuityStateValidationError(
+            f"{field_name} must not contain leading or trailing whitespace: {actor_id!r}"
+        )
+    actor_str = actor_id
     if not _ACTOR_ID_PATTERN.match(actor_str):
         raise ContinuityStateValidationError(
             f"{field_name} must be a conservative lowercase identifier (e.g. 'chatgpt-chat', 'antigravity'), got: {actor_id!r}"
@@ -167,9 +176,13 @@ def _validate_actor_id(actor_id: Any, field_name: str) -> str:
 
 
 def _validate_artifact_path(path: Any, field_name: str) -> str:
-    if isinstance(path, bool) or not isinstance(path, str) or not path.strip():
+    if isinstance(path, bool) or not isinstance(path, str) or not path:
         raise ContinuityStateValidationError(f"{field_name} must be a non-empty string")
-    path_str = path.strip()
+    if path != path.strip():
+        raise ContinuityStateValidationError(
+            f"{field_name} must not contain leading or trailing whitespace: {path!r}"
+        )
+    path_str = path
 
     # Reject backslashes, double slashes, traversal, absolute paths
     if "\\" in path_str:
@@ -292,21 +305,11 @@ class ContinuityArtifacts:
             except Exception as e:
                 raise ContinuityStateValidationError("contracts must be an iterable of ArtifactRef") from e
 
-        # Validate unique contracts
-        seen_paths: set[str] = set()
-        seen_identities: set[tuple[str, str, str]] = set()
         for idx, c in enumerate(self.contracts):
             if not isinstance(c, ArtifactRef):
                 raise ContinuityStateValidationError(
                     f"contracts[{idx}] must be an ArtifactRef, got: {type(c).__name__}"
                 )
-            identity = (c.ref, c.path, c.blob_sha)
-            if c.path in seen_paths or identity in seen_identities:
-                raise ContinuityStateValidationError(
-                    f"Duplicate contract artifact reference detected: path={c.path!r}"
-                )
-            seen_paths.add(c.path)
-            seen_identities.add(identity)
 
         if self.plan is not None and not isinstance(self.plan, ArtifactRef):
             raise ContinuityStateValidationError(f"plan must be an ArtifactRef or None, got: {type(self.plan).__name__}")
@@ -314,6 +317,24 @@ class ContinuityArtifacts:
             raise ContinuityStateValidationError(f"result must be an ArtifactRef or None, got: {type(self.result).__name__}")
         if self.review is not None and not isinstance(self.review, ArtifactRef):
             raise ContinuityStateValidationError(f"review must be an ArtifactRef or None, got: {type(self.review).__name__}")
+
+        # Enforce global authoritative artifact path uniqueness across all present roles (C2 / AIP-3)
+        all_refs: list[ArtifactRef] = [self.task]
+        all_refs.extend(self.contracts)
+        if self.plan is not None:
+            all_refs.append(self.plan)
+        if self.result is not None:
+            all_refs.append(self.result)
+        if self.review is not None:
+            all_refs.append(self.review)
+
+        seen_paths: set[str] = set()
+        for ref_item in all_refs:
+            if ref_item.path in seen_paths:
+                raise ContinuityStateValidationError(
+                    f"Duplicate authoritative artifact path detected across role set: {ref_item.path!r}"
+                )
+            seen_paths.add(ref_item.path)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -389,9 +410,21 @@ class BrainState:
         extra_keys = set(data.keys()) - allowed_keys
         if extra_keys:
             raise ContinuityStateValidationError(f"Unknown fields in {context_name}: {sorted(extra_keys)}")
+
+        last_op_raw = data.get("last_operation")
+        last_op: BrainOperation | None = None
+        if last_op_raw is not None:
+            try:
+                last_op = BrainOperation(last_op_raw)
+            except ValueError as e:
+                valid_ops = ", ".join(o.value for o in BrainOperation)
+                raise ContinuityStateValidationError(
+                    f"Invalid BrainOperation in {context_name}.last_operation: {last_op_raw!r}. Valid values: {valid_ops}"
+                ) from e
+
         return cls(
             last_id=data.get("last_id"),
-            last_operation=BrainOperation(data["last_operation"]) if data.get("last_operation") is not None else None,
+            last_operation=last_op,
         )
 
 
@@ -703,21 +736,28 @@ class StateObservation:
     """Immutable caller-provided observation of current repository facts."""
     main_sha: str | None = None
     task_branch_sha: str | None = None
-    artifact_blobs: Mapping[str, str] = ()
+    artifact_blobs: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.main_sha is not None:
             _validate_exact_hex_sha(self.main_sha, "StateObservation.main_sha")
         if self.task_branch_sha is not None:
             _validate_exact_hex_sha(self.task_branch_sha, "StateObservation.task_branch_sha")
-        if not isinstance(self.artifact_blobs, Mapping):
+
+        blobs_input = self.artifact_blobs if self.artifact_blobs is not None else {}
+        if not isinstance(blobs_input, Mapping):
             raise ContinuityFreshnessError(
-                f"artifact_blobs must be a Mapping[str, str], got: {type(self.artifact_blobs).__name__}"
+                f"artifact_blobs must be a Mapping[str, str], got: {type(blobs_input).__name__}"
             )
-        for path_key, blob_val in self.artifact_blobs.items():
+
+        validated_blobs: dict[str, str] = {}
+        for path_key, blob_val in blobs_input.items():
             if not isinstance(path_key, str) or not isinstance(blob_val, str):
                 raise ContinuityFreshnessError("artifact_blobs keys and values must be strings")
             _validate_exact_hex_sha(blob_val, f"artifact_blobs[{path_key!r}]")
+            validated_blobs[path_key] = blob_val
+
+        object.__setattr__(self, "artifact_blobs", MappingProxyType(validated_blobs))
 
 
 @dataclass(frozen=True)
