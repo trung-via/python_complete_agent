@@ -240,6 +240,84 @@ def test_model_response_validation():
             input_tokens=-5,
         )
 
+    # Boolean usage / latency rejected
+    with pytest.raises(ContractValidationError, match="input_tokens must be a non-negative integer"):
+        ModelResponse(
+            schema_version="1",
+            request_id="req-001",
+            task_id="TASK-014",
+            provider="deepseek",
+            model="deepseek-coder",
+            status=ModelResponseStatus.FAILED,
+            output_type=None,
+            content=None,
+            input_tokens=True,
+        )
+
+
+def test_model_response_rejects_contradictory_success_failure_metadata():
+    """SUCCESS status must not have error_code or error_message."""
+    # 1. SUCCESS with error_code rejected
+    with pytest.raises(ContractValidationError, match="SUCCESS status cannot have error_code"):
+        ModelResponse(
+            schema_version="1",
+            request_id="req-001",
+            task_id="TASK-014",
+            provider="minimax",
+            model="MiniMax-Text-01",
+            status=ModelResponseStatus.SUCCESS,
+            output_type=BrainOutputType.PLAN,
+            content="Valid plan content",
+            error_code="AUTH_ERROR",
+        )
+
+    # 2. SUCCESS with error_message rejected
+    with pytest.raises(ContractValidationError, match="SUCCESS status cannot have error_message"):
+        ModelResponse(
+            schema_version="1",
+            request_id="req-001",
+            task_id="TASK-014",
+            provider="minimax",
+            model="MiniMax-Text-01",
+            status=ModelResponseStatus.SUCCESS,
+            output_type=BrainOutputType.PLAN,
+            content="Valid plan content",
+            error_message="some error occurred",
+        )
+
+    # 3. Normal SUCCESS remains valid
+    ok = ModelResponse(
+        schema_version="1",
+        request_id="req-001",
+        task_id="TASK-014",
+        provider="minimax",
+        model="MiniMax-Text-01",
+        status=ModelResponseStatus.SUCCESS,
+        output_type=BrainOutputType.PLAN,
+        content="Valid plan content",
+    )
+    assert ok.status == ModelResponseStatus.SUCCESS
+    assert ok.error_code is None
+    assert ok.error_message is None
+
+    # 4. Non-success with error metadata remains valid
+    err = ModelResponse(
+        schema_version="1",
+        request_id="req-001",
+        task_id="TASK-014",
+        provider="minimax",
+        model="MiniMax-Text-01",
+        status=ModelResponseStatus.AUTH_ERROR,
+        output_type=None,
+        content=None,
+        error_code="INVALID_API_KEY",
+        error_message="The API key is invalid",
+    )
+    assert err.status == ModelResponseStatus.AUTH_ERROR
+    assert err.error_code == "INVALID_API_KEY"
+    assert err.error_message == "The API key is invalid"
+
+
 
 def test_validate_request_response_correlation():
     """validate_request_response_correlation asserts request ID, task ID, and output type match."""

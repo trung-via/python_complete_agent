@@ -92,7 +92,7 @@ class ContextItem:
         if not isinstance(self.content, str):
             raise ContractValidationError("ContextItem content must be a non-null string")
 
-        if not isinstance(self.priority, int):
+        if isinstance(self.priority, bool) or not isinstance(self.priority, int):
             raise ContractValidationError(f"priority must be an integer, got: {type(self.priority)}")
 
         if self.content_sha256 is not None:
@@ -182,11 +182,11 @@ class ModelRequest:
                 raise ContractValidationError(f"All context items must be ContextItem instances, got: {type(item)}")
 
         if self.max_input_tokens is not None:
-            if not isinstance(self.max_input_tokens, int) or self.max_input_tokens <= 0:
+            if isinstance(self.max_input_tokens, bool) or not isinstance(self.max_input_tokens, int) or self.max_input_tokens <= 0:
                 raise ContractValidationError("max_input_tokens must be a positive integer if specified")
 
         if self.max_output_tokens is not None:
-            if not isinstance(self.max_output_tokens, int) or self.max_output_tokens <= 0:
+            if isinstance(self.max_output_tokens, bool) or not isinstance(self.max_output_tokens, int) or self.max_output_tokens <= 0:
                 raise ContractValidationError("max_output_tokens must be a positive integer if specified")
 
     def to_dict(self) -> dict[str, Any]:
@@ -257,6 +257,10 @@ class ModelResponse:
                     raise ContractValidationError(f"Invalid BrainOutputType: {self.output_type}") from e
             if not isinstance(self.content, str) or not self.content.strip():
                 raise ContractValidationError("SUCCESS status requires non-empty content string")
+            if self.error_code is not None:
+                raise ContractValidationError(f"SUCCESS status cannot have error_code (got {self.error_code!r})")
+            if self.error_message is not None:
+                raise ContractValidationError(f"SUCCESS status cannot have error_message (got {self.error_message!r})")
         else:
             if self.output_type is not None and not isinstance(self.output_type, BrainOutputType):
                 try:
@@ -265,15 +269,15 @@ class ModelResponse:
                     raise ContractValidationError(f"Invalid BrainOutputType: {self.output_type}") from e
 
         if self.input_tokens is not None:
-            if not isinstance(self.input_tokens, int) or self.input_tokens < 0:
+            if isinstance(self.input_tokens, bool) or not isinstance(self.input_tokens, int) or self.input_tokens < 0:
                 raise ContractValidationError("input_tokens must be a non-negative integer if specified")
 
         if self.output_tokens is not None:
-            if not isinstance(self.output_tokens, int) or self.output_tokens < 0:
+            if isinstance(self.output_tokens, bool) or not isinstance(self.output_tokens, int) or self.output_tokens < 0:
                 raise ContractValidationError("output_tokens must be a non-negative integer if specified")
 
         if self.latency_ms is not None:
-            if not isinstance(self.latency_ms, int) or self.latency_ms < 0:
+            if isinstance(self.latency_ms, bool) or not isinstance(self.latency_ms, int) or self.latency_ms < 0:
                 raise ContractValidationError("latency_ms must be a non-negative integer if specified")
 
     def to_dict(self) -> dict[str, Any]:
