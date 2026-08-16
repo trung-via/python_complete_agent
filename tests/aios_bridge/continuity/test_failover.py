@@ -410,6 +410,18 @@ def test_state_anchor_and_fingerprint_mandatory_validation():
             src, rep, state, expected_state_fingerprint="not-a-sha256", replacement_capability=cap
         )
 
+    # Missing / omitted expected_state_fingerprint fails closed (TypeError)
+    with pytest.raises(TypeError):
+        validate_brain_failover_eligibility(  # type: ignore[call-arg]
+            src, rep, state, replacement_capability=cap
+        )
+
+    # Explicit None expected_state_fingerprint fails closed
+    with pytest.raises(ContinuityStateValidationError, match="expected_state_fingerprint must be a non-empty string"):
+        validate_brain_failover_eligibility(
+            src, rep, state, expected_state_fingerprint=None, replacement_capability=cap  # type: ignore[arg-type]
+        )
+
     # State for a different task fails closed
     state_other_task = _make_valid_state("TASK-099")
     with pytest.raises(ContinuityStateValidationError, match="State task_id mismatch"):
