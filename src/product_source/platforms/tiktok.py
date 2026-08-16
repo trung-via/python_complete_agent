@@ -24,7 +24,9 @@ _TIKTOK_EXTRACTOR_JS = r"""
     const extractUrl = (str) => {
         if (!str) return null;
         try {
-            const url = new URL(str, window.location.origin);
+            let base = window.location.href;
+            if (base === 'about:blank') base = 'http://localhost';
+            const url = new URL(str, base);
             if (url.protocol === 'http:' || url.protocol === 'https:') {
                 return url.href;
             }
@@ -90,14 +92,28 @@ _TIKTOK_EXTRACTOR_JS = r"""
             const data = JSON.parse(script.textContent);
             if (data['@type'] === 'Product' || data['@type'] === 'ProductGroup') {
                 const itemUrl = data.offers && data.offers.url ? data.offers.url : (data.url || '');
-                const productId = data.productID || data.sku || '';
+                const productId = (data.productID || data.sku || '').toString();
+                const dataSku = (data.sku || '').toString();
+
+                let urlMatch = false;
+                if (itemUrl && targetProductId) {
+                    const m1 = itemUrl.match(/\/product\/(\d+)/);
+                    const m2 = itemUrl.match(/\/item\/(\d+)/);
+                    const m3 = itemUrl.match(/itemId=(\d+)/);
+                    const parsedId = (m1 && m1[1]) || (m2 && m2[1]) || (m3 && m3[1]);
+                    if (parsedId === targetProductId.toString()) {
+                        urlMatch = true;
+                    }
+                }
+
                 const matches = targetProductId && (
-                    itemUrl.includes(targetProductId) || 
-                    productId.toString().includes(targetProductId) ||
-                    (data.sku && data.sku.toString().includes(targetProductId))
+                    urlMatch || 
+                    productId === targetProductId.toString() ||
+                    dataSku === targetProductId.toString()
                 );
 
                 if (matches) {
+                    if (dataSku && !result.structured.model_sku) result.structured.model_sku = dataSku;
                     if (data.name && !result.structured.title) result.structured.title = data.name;
                     if (data.description && !result.structured.description) result.structured.description = data.description;
                     if (data.brand) {
@@ -140,9 +156,11 @@ _TIKTOK_EXTRACTOR_JS = r"""
         }
 
         for (const prod of productCandidates) {
-            const pId = prod.productId || prod.id || prod.itemId || '';
-            const matches = targetProductId && pId.toString().includes(targetProductId);
+            const pId = (prod.productId || prod.id || prod.itemId || '').toString();
+            const dataSku = (prod.sku || '').toString();
+            const matches = targetProductId && pId === targetProductId.toString();
             if (matches) {
+                if (dataSku && !result.structured.model_sku) result.structured.model_sku = dataSku;
                 if (prod.title && !result.structured.title) result.structured.title = prod.title;
                 if (prod.description && !result.structured.description) result.structured.description = prod.description;
                 if (prod.brand && prod.brand.name && !result.structured.brand) result.structured.brand = prod.brand.name;
@@ -256,9 +274,10 @@ _TIKTOK_EXTRACTOR_JS = r"""
         }
         result.fallback_images = Array.from(urls);
     }
-
+    
     return result;
 }
+
 """
 
 
@@ -445,6 +464,7 @@ class TikTokSourceExtractor:
         description = structured.get("description") if structured_matches else None
         shop_name = structured.get("shop_name") if structured_matches else None
         brand = structured.get("brand") if structured_matches else None
+        model_sku = structured.get("model_sku") if structured_matches else None
 
         return ProductSourcePack(
             source_pack_id=source_pack_id,
@@ -456,6 +476,7 @@ class TikTokSourceExtractor:
             source_product_id=product_id,
             shop_name=shop_name,
             brand=brand,
+            model_sku=model_sku,
             description_text=description if description else None,
             facts=tuple(facts),
             media=tuple(media_items),

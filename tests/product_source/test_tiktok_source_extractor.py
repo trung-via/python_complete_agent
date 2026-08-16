@@ -201,6 +201,7 @@ async def test_tiktok_extractor_with_strict_browser_manager():
         "structured": {
             "title": "TikTok Manager Product",
             "product_id": "888999",
+            "model_sku": "SKU-888",
             "images": ["https://p16-oec-va.ibyteimg.com/img.jpg"],
             "specifications": [],
         },
@@ -216,8 +217,41 @@ async def test_tiktok_extractor_with_strict_browser_manager():
 
     pack = await extractor.extract("https://www.tiktok.com/view/product/888999", run_id="tiktok_run_abc")
     assert pack.title == "TikTok Manager Product"
+    assert pack.model_sku == "SKU-888"
     assert manager.received_run_id == "tiktok_run_abc"
     assert session.navigated_url == "https://www.tiktok.com/view/product/888999"
+
+
+@pytest.mark.asyncio
+async def test_tiktok_extractor_rejects_overlapping_substring_id():
+    """Exact identity match rejects a product whose ID only overlaps as a substring."""
+    eval_data = {
+        "structured": {
+            "title": "Overlapping ID Product",
+            "product_id": "9123456",  # Target is 123456
+            "images": ["https://p16-oec-va.ibyteimg.com/overlap.jpg"],
+            "brand": "OverlapBrand",
+            "model_sku": "SKU-OVERLAP",
+            "specifications": [],
+        },
+        "gallery_images": ["https://p16-oec-va.ibyteimg.com/real_gallery.jpg"],
+        "variants": [],
+        "seller_images": [],
+        "fallback_images": [],
+        "blocked": False,
+        "page_title": "Fallback Page Title | TikTok",
+    }
+    session = FakeSession(eval_data)
+    extractor = TikTokSourceExtractor(browser=session)
+
+    pack = await extractor.extract("https://www.tiktok.com/view/product/123456")
+
+    # Mismatched overlapping ID rejected -> falls back to actual gallery images
+    assert len(pack.media) == 1
+    assert pack.media[0].source_url == "https://p16-oec-va.ibyteimg.com/real_gallery.jpg"
+    assert pack.media[0].provenance == MediaProvenance.SEMANTIC_PRODUCT_GALLERY
+    assert pack.title == "Fallback Page Title"
+    assert pack.model_sku is None
 
 
 @pytest.mark.asyncio

@@ -86,16 +86,25 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
             const data = JSON.parse(script.textContent);
             if (data['@type'] === 'Product' || data['@type'] === 'ProductGroup') {
                 const itemUrl = data.offers && data.offers.url ? data.offers.url : (data.url || '');
-                const productId = data.productID || data.sku || data.mpn || '';
+                const productId = (data.productID || data.sku || data.mpn || '').toString();
+                const dataSku = (data.sku || '').toString();
                 
-                // Match current product identity strictly from object attributes
+                let urlMatch = false;
+                if (itemUrl && targetProductId) {
+                    const match = itemUrl.match(/-i\.\d+\.(\d+)/);
+                    if (match && match[1] === targetProductId.toString()) {
+                        urlMatch = true;
+                    }
+                }
+
                 const matchesCurrentProduct = targetProductId && (
-                    itemUrl.includes(targetProductId) || 
-                    productId.toString().includes(targetProductId) ||
-                    (data.sku && data.sku.toString().includes(targetProductId))
+                    urlMatch || 
+                    productId === targetProductId.toString() ||
+                    dataSku === targetProductId.toString()
                 );
 
                 if (matchesCurrentProduct) {
+                    if (dataSku && !result.structured.model_sku) result.structured.model_sku = dataSku;
                     if (data.name && !result.structured.title) result.structured.title = data.name;
                     if (data.image) {
                         const imgArr = Array.isArray(data.image) ? data.image : [data.image];
@@ -371,6 +380,7 @@ class ShopeeSourceExtractor:
         title = structured.get("title") if structured_matches else None
         brand = structured.get("brand") if structured_matches else None
         description = structured.get("description") if structured_matches else None
+        model_sku = structured.get("model_sku") if structured_matches else None
 
         if structured_matches and brand:
             facts.append(
@@ -392,6 +402,7 @@ class ShopeeSourceExtractor:
             source_product_id=product_id,
             shop_name=structured.get("shop_name") if structured_matches else None,
             brand=brand,
+            model_sku=model_sku,
             description_text=description,
             facts=tuple(facts),
             media=tuple(media_items),

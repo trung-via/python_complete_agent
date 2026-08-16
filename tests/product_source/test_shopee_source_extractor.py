@@ -236,6 +236,7 @@ async def test_shopee_extractor_with_strict_browser_manager():
         "structured": {
             "title": "Product with Manager",
             "product_id": "200",
+            "model_sku": "SKU-200",
             "images": ["https://cf.shopee.vn/file/img.jpg"],
             "specs": [],
         },
@@ -251,8 +252,40 @@ async def test_shopee_extractor_with_strict_browser_manager():
 
     pack = await extractor.extract("https://shopee.vn/product/100/200", run_id="custom_run_shopee")
     assert pack.title == "Product with Manager"
+    assert pack.model_sku == "SKU-200"
     assert manager.received_run_id == "custom_run_shopee"
     assert session.navigated_url == "https://shopee.vn/product/100/200"
+
+
+@pytest.mark.asyncio
+async def test_shopee_extractor_rejects_overlapping_substring_id():
+    """Exact identity match rejects a product whose ID only overlaps as a substring."""
+    eval_data = {
+        "structured": {
+            "title": "Overlapping ID Product",
+            "product_id": "9123456",  # Target is 123456
+            "images": ["https://cf.shopee.vn/file/overlap.jpg"],
+            "brand": "OverlapBrand",
+            "model_sku": "SKU-OVERLAP",
+            "specs": [],
+        },
+        "gallery": ["https://cf.shopee.vn/file/actual_gallery.jpg"],
+        "variants": [],
+        "description_media": [],
+        "fallback_media": [],
+        "blocked": False,
+    }
+    session = FakeSession(eval_data)
+    extractor = ShopeeSourceExtractor(browser=session)
+
+    pack = await extractor.extract("https://shopee.vn/product/100/123456")
+
+    # Mismatched overlapping ID rejected -> falls back to actual gallery images
+    assert len(pack.media) == 1
+    assert pack.media[0].source_url == "https://cf.shopee.vn/file/actual_gallery.jpg"
+    assert pack.media[0].provenance == MediaProvenance.SEMANTIC_PRODUCT_GALLERY
+    assert pack.title is None
+    assert pack.model_sku is None
 
 
 @pytest.mark.asyncio

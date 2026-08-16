@@ -54,14 +54,21 @@ def test_build_source_pack_id_ignores_tracking_and_auth_noise():
 
 
 def test_sanitize_url_redacts_sensitive_parameters():
-    """5. sanitize_url redacts tokens, auth, signatures, and sessions."""
-    url = "https://cf.shopee.vn/file/img.jpg?token=secret_token_123&auth=bearer_xyz&signature=sig456&valid=1"
-    sanitized = sanitize_url(url)
-    assert "secret_token_123" not in sanitized
-    assert "bearer_xyz" not in sanitized
-    assert "sig456" not in sanitized
-    assert "token=%5BREDACTED%5D" in sanitized or "token=[REDACTED]" in sanitized
-    assert "valid=1" in sanitized
+    """sanitize_url redacts sensitive/auth-like/tracking query parameters via pattern matching."""
+    cases = [
+        # Normal params kept
+        ("https://example.com/img.jpg?size=large", "https://example.com/img.jpg?size=large"),
+        # Exact keys
+        ("https://example.com/img.jpg?token=abc", "https://example.com/img.jpg?token=%5BREDACTED%5D"),
+        # Pattern variants
+        ("https://example.com/img.jpg?X-Amz-Signature=xyz&Policy=123&Key-Pair-Id=K1", "https://example.com/img.jpg?X-Amz-Signature=%5BREDACTED%5D&Policy=%5BREDACTED%5D&Key-Pair-Id=%5BREDACTED%5D"),
+        ("https://ex.com/img?_signature=sig&auth_key=k&X-Goog-Credential=cred", "https://ex.com/img?_signature=%5BREDACTED%5D&auth_key=%5BREDACTED%5D&X-Goog-Credential=%5BREDACTED%5D"),
+        ("https://ex.com/img?fbclid=123&utm_source=FB", "https://ex.com/img?fbclid=%5BREDACTED%5D&utm_source=%5BREDACTED%5D"),
+        # Harmless 'id' kept
+        ("https://example.com/img.jpg?id=123", "https://example.com/img.jpg?id=123"),
+    ]
+    for url, expected in cases:
+        assert sanitize_url(url) == expected
 
 
 def test_product_fact_validation():

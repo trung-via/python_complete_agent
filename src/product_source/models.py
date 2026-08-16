@@ -24,17 +24,25 @@ class MediaProvenance(Enum):
     PLATFORM_SCOPED_FALLBACK = "PLATFORM_SCOPED_FALLBACK"
 
 
-SENSITIVE_QUERY_KEYS = {
-    "token", "auth", "signature", "sig", "session", "access_token",
-    "key", "secret", "expires", "credential", "password", "ticket",
-    "spm", "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
-    "gclid", "fbclid",
-}
+import re
+
+SENSITIVE_QUERY_PATTERNS = re.compile(
+    r"(token|auth|sign|sig|session|cred|credential|key|secret|expire|ticket|pass|policy)",
+    re.IGNORECASE
+)
+TRACKING_QUERY_PATTERNS = re.compile(
+    r"(spm|utm_|gclid|fbclid)",
+    re.IGNORECASE
+)
+
+def _is_sensitive_query_key(k: str) -> bool:
+    lk = k.lower()
+    return bool(SENSITIVE_QUERY_PATTERNS.search(lk) or TRACKING_QUERY_PATTERNS.search(lk))
 
 
 def sanitize_url(url: str) -> str:
     """
-    Sanitizes URL by redacting sensitive or auth-like query parameters.
+    Sanitizes URL by redacting sensitive, auth-like, or tracking query parameters.
     Used for safe serialization and diagnostic logging.
     """
     if not url:
@@ -46,7 +54,7 @@ def sanitize_url(url: str) -> str:
         params = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
         sanitized_params = []
         for k, v in params:
-            if k.lower() in SENSITIVE_QUERY_KEYS:
+            if _is_sensitive_query_key(k):
                 sanitized_params.append((k, "[REDACTED]"))
             else:
                 sanitized_params.append((k, v))
