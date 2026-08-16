@@ -16,3 +16,23 @@ class CorrelationError(ExternalBrainError):
 
 class OutputContractError(ExternalBrainError):
     """Raised when an output artifact structure violates required section/format rules."""
+
+
+class ContextBuildError(ExternalBrainError):
+    """Base exception for context construction, integrity, and safety errors."""
+
+
+class ContextIntegrityError(ContextBuildError):
+    """Raised when a ContextItem's content_sha256 does not match its computed SHA-256 digest."""
+
+
+class SensitiveContextError(ContextBuildError):
+    """Raised when a sensitive file path or secret-bearing content is detected in context candidates."""
+
+
+class MissingMandatoryContextError(ContextBuildError):
+    """Raised when no mandatory TASK context items are present."""
+
+
+class MandatoryContextBudgetError(ContextBuildError):
+    """Raised when mandatory context items exceed the available context token budget."""
