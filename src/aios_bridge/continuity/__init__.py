@@ -1,4 +1,4 @@
-"""Open Multi-Agent Continuity OS — Canonical Project State, Usage Telemetry & Brain-Neutral Contract (M1 / M1.5 / M2)."""
+"""Open Multi-Agent Continuity OS — Canonical Project State, Usage Telemetry & Brain-Neutral Contract (M1 / M1.5 / M2 / M3A)."""
 from __future__ import annotations
 
 from .brain import (
@@ -12,6 +12,11 @@ from .brain import (
     OutputContract,
 )
 from .errors import ContinuityError, ContinuityFreshnessError, ContinuityStateValidationError
+from .failover import (
+    BrainFailoverProof,
+    build_replacement_brain_request,
+    validate_brain_failover_eligibility,
+)
 from .state import (
     MAX_SERIALIZED_BYTES,
     PHASE_NEXT_OPERATION_MAP,
@@ -55,6 +60,7 @@ __all__ = [
     "SCHEMA_VERSION",
     "ArtifactRef",
     "BrainCapability",
+    "BrainFailoverProof",
     "BrainOperation",
     "BrainOutputType",
     "BrainRequest",
@@ -86,7 +92,9 @@ __all__ = [
     "TokenMeasurement",
     "UsageSource",
     "aggregate_token_ranges",
+    "build_replacement_brain_request",
     "calculate_context_efficiency_ratio",
     "check_freshness",
     "estimate_tokens_from_bytes",
+    "validate_brain_failover_eligibility",
 ]
