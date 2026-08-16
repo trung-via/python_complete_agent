@@ -51,14 +51,21 @@ class MiniMaxOpenAIProvider:
             raise ContractValidationError("base_url must be a non-empty string")
         if not path or not isinstance(path, str) or not path.strip():
             raise ContractValidationError("path must be a non-empty string")
-        if (
-            isinstance(timeout_seconds, bool)
-            or not isinstance(timeout_seconds, (int, float))
-            or not math.isfinite(timeout_seconds)
-            or timeout_seconds <= 0
-        ):
+        if isinstance(timeout_seconds, bool) or not isinstance(timeout_seconds, (int, float)):
             raise ContractValidationError(
-                f"timeout_seconds must be a positive finite number, got: {timeout_seconds!r}"
+                f"timeout_seconds must be a positive finite number, got: {type(timeout_seconds).__name__}"
+            )
+
+        try:
+            normalized_timeout = float(timeout_seconds)
+        except (OverflowError, ValueError, TypeError) as e:
+            raise ContractValidationError(
+                "timeout_seconds cannot be converted to a valid finite float"
+            ) from e
+
+        if not math.isfinite(normalized_timeout) or normalized_timeout <= 0:
+            raise ContractValidationError(
+                f"timeout_seconds must be a positive finite number, got: {normalized_timeout!r}"
             )
 
         self._api_key = api_key.strip()
@@ -66,7 +73,7 @@ class MiniMaxOpenAIProvider:
         self._base_url = base_url.strip()
         self._path = path.strip()
         self._transport = transport if transport is not None else OpenAICompatibleTransport()
-        self._timeout_seconds = float(timeout_seconds)
+        self._timeout_seconds = normalized_timeout
 
     @property
     def provider_id(self) -> str:

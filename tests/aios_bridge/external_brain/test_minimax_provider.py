@@ -313,7 +313,20 @@ async def test_minimax_provider_timeout_configurability_and_validation():
     assert len(mock_transport_custom.sent_requests) == 1
     assert mock_transport_custom.sent_requests[0].timeout_seconds == 90.0
 
-    # 3. Invalid timeout values fail during __init__
+    # 2b. Integer timeout (e.g. 90) normalizes to float 90.0
+    mock_transport_int = MockTransport()
+    provider_int = MiniMaxOpenAIProvider(
+        api_key="key",
+        transport=mock_transport_int,
+        timeout_seconds=90,
+    )
+    assert isinstance(provider_int.timeout_seconds, float)
+    assert provider_int.timeout_seconds == 90.0
+    await provider_int.invoke(_make_plan_request())
+    assert len(mock_transport_int.sent_requests) == 1
+    assert mock_transport_int.sent_requests[0].timeout_seconds == 90.0
+
+    # 3. Invalid timeout values fail during __init__ with ContractValidationError
     invalid_timeouts = [
         0,
         0.0,
@@ -330,6 +343,11 @@ async def test_minimax_provider_timeout_configurability_and_validation():
     for invalid_val in invalid_timeouts:
         with pytest.raises(ContractValidationError, match="timeout_seconds must be a positive finite number"):
             MiniMaxOpenAIProvider(api_key="key", timeout_seconds=invalid_val)  # type: ignore
+
+    # 4. Extreme large/negative integers fail during __init__ with ContractValidationError (C1 / AIP-2 / P18-1)
+    for extreme_int in [10**10000, -(10**10000)]:
+        with pytest.raises(ContractValidationError, match="timeout_seconds cannot be converted to a valid finite float"):
+            MiniMaxOpenAIProvider(api_key="key", timeout_seconds=extreme_int)
 
 
 def test_minimax_provider_api_key_isolation_in_repr():
