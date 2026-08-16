@@ -1,0 +1,107 @@
+{
+  "brain_usage": [
+    {
+      "artifact_reads": 0,
+      "brain_id": "chatgpt-chat",
+      "external_api_calls": 0,
+      "full_file_reads": 0,
+      "input_bytes": null,
+      "operation": "TASK_AND_PLAN",
+      "output_bytes": null,
+      "patch_bytes": null,
+      "round": 1,
+      "tokens": {
+        "max_tokens": 30000,
+        "method": "historical-audit-estimate-v1",
+        "min_tokens": 22000,
+        "source": "ESTIMATED"
+      },
+      "turns": 1
+    },
+    {
+      "artifact_reads": 0,
+      "brain_id": "chatgpt-chat",
+      "external_api_calls": 0,
+      "full_file_reads": 0,
+      "input_bytes": null,
+      "operation": "REVIEW",
+      "output_bytes": null,
+      "patch_bytes": null,
+      "round": 1,
+      "tokens": {
+        "max_tokens": 38000,
+        "method": "historical-audit-estimate-v1",
+        "min_tokens": 28000,
+        "source": "ESTIMATED"
+      },
+      "turns": 1
+    },
+    {
+      "artifact_reads": 0,
+      "brain_id": "chatgpt-chat",
+      "external_api_calls": 0,
+      "full_file_reads": 0,
+      "input_bytes": null,
+      "operation": "REVIEW",
+      "output_bytes": null,
+      "patch_bytes": null,
+      "round": 2,
+      "tokens": {
+        "max_tokens": 45000,
+        "method": "historical-audit-estimate-v1",
+        "min_tokens": 30000,
+        "source": "ESTIMATED"
+      },
+      "turns": 1
+    }
+  ],
+  "efficiency": {
+    "brain_context_bytes": null,
+    "context_efficiency_ratio": null,
+    "escalated_context_bytes": null,
+    "full_file_read_rate": null,
+    "redundant_context_bytes": null,
+    "useful_context_bytes": null
+  },
+  "executor_usage": [
+    {
+      "action": "RUN",
+      "executor_id": "antigravity",
+      "external_api_calls": 0,
+      "input_bytes": null,
+      "output_bytes": null,
+      "runs": 1,
+      "test_runs": 0,
+      "tokens": {
+        "max_tokens": 60000,
+        "method": "historical-audit-estimate-v1",
+        "min_tokens": 35000,
+        "source": "ESTIMATED"
+      }
+    },
+    {
+      "action": "FIX",
+      "executor_id": "antigravity",
+      "external_api_calls": 0,
+      "input_bytes": null,
+      "output_bytes": null,
+      "runs": 1,
+      "test_runs": 0,
+      "tokens": {
+        "max_tokens": 38000,
+        "method": "historical-audit-estimate-v1",
+        "min_tokens": 23000,
+        "source": "ESTIMATED"
+      }
+    }
+  ],
+  "human_usage": {
+    "approvals": 2,
+    "human_copy_paste_bytes": null,
+    "manual_pending": 0,
+    "manual_sync": 0,
+    "manual_watch": 0
+  },
+  "schema_version": "1",
+  "task_id": "TASK-019"
+}

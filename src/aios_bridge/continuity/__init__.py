@@ -1,4 +1,4 @@
-"""Open Multi-Agent Continuity OS — Canonical Project State namespace (M1)."""
+"""Open Multi-Agent Continuity OS — Canonical Project State & Usage Telemetry namespace (M1 / M1.5)."""
 from __future__ import annotations
 
 from .errors import ContinuityError, ContinuityFreshnessError, ContinuityStateValidationError
@@ -23,6 +23,19 @@ from .state import (
     StateObservation,
     check_freshness,
 )
+from .usage import (
+    BrainUsageRecord,
+    EfficiencyMetrics,
+    ExecutorAction,
+    ExecutorUsageRecord,
+    HumanUsage,
+    TaskUsageRecord,
+    TokenMeasurement,
+    UsageSource,
+    aggregate_token_ranges,
+    calculate_context_efficiency_ratio,
+    estimate_tokens_from_bytes,
+)
 
 __all__ = [
     "MAX_SERIALIZED_BYTES",
@@ -32,6 +45,7 @@ __all__ = [
     "ArtifactRef",
     "BrainOperation",
     "BrainState",
+    "BrainUsageRecord",
     "BranchState",
     "ContinuityArtifacts",
     "ContinuityError",
@@ -39,12 +53,22 @@ __all__ = [
     "ContinuityPhase",
     "ContinuityState",
     "ContinuityStateValidationError",
+    "EfficiencyMetrics",
+    "ExecutorAction",
     "ExecutorState",
+    "ExecutorUsageRecord",
     "FreshnessIssue",
     "FreshnessIssueCode",
     "FreshnessReport",
     "FreshnessStatus",
+    "HumanUsage",
     "NextOperation",
     "StateObservation",
+    "TaskUsageRecord",
+    "TokenMeasurement",
+    "UsageSource",
+    "aggregate_token_ranges",
+    "calculate_context_efficiency_ratio",
     "check_freshness",
+    "estimate_tokens_from_bytes",
 ]
