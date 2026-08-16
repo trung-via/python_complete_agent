@@ -1,4 +1,4 @@
-"""Unit tests for TASK-027 M3B Cross-Brain Proof Runner (ADR-016 / ADR-017 / REVIEW-027 R1-1..R2-1)."""
+"""Unit tests for TASK-027 M3B Cross-Brain Proof Runner (ADR-016 / ADR-017 / REVIEW-027 R1-1..R3-2)."""
 from __future__ import annotations
 
 import json
@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from scripts.aios_m3b_cross_brain_proof import (
+    DOWNSTREAM_PROOF_ARTIFACTS,
     REPO_DIR,
     M3BLiveAttestation,
     audit_persisted_bundle,
@@ -18,6 +19,7 @@ from scripts.aios_m3b_cross_brain_proof import (
     compute_git_blob_sha,
     normalize_line_endings,
     validate_diagnosis_semantic_anchors,
+    validate_m3b_controlled_source_result,
     verify_and_bind_m3b_proof,
 )
 from src.aios_bridge.continuity.brain import (
@@ -166,36 +168,78 @@ def test_m3b_proof_runner_success_end_to_end(tmp_path: Path):
     assert audit_res["status"] == "PASS"
 
 
-def test_m3b_proof_runner_source_success_rejected(tmp_path: Path):
-    """Source SUCCESS result fails failover validation (duplicate outputs forbidden)."""
-    state = build_m3b_proof_state()
+def test_m3b_controlled_source_result_validation(tmp_path: Path):
+    """TASK-027 controlled source result mode is strictly enforced (R3-1)."""
     src_req = build_m3b_source_request()
-    rep_req = build_replacement_brain_request(src_req, "claude-chat", "req-task-027-rep-01")
-    rep_cap = build_m3b_replacement_capability()
 
-    # Source produced SUCCESS -> failover is forbidden
-    src_res_success = BrainResult(
+    # Valid controlled source result
+    valid = _valid_source_result(src_req)
+    validate_m3b_controlled_source_result(valid)
+
+    # 1. Invalid statuses
+    for bad_status in [BrainResultStatus.FAILED, BrainResultStatus.REJECTED, BrainResultStatus.SUCCESS]:
+        bad_res = BrainResult(
+            schema_version="1",
+            task_id=src_req.task_id,
+            request_id=src_req.request_id,
+            brain_id=src_req.brain_id,
+            operation=src_req.operation,
+            status=bad_status,
+            output_type=src_req.output_contract.expected_output_type,
+            error_code="M3B-CONTROLLED-HANDOFF" if bad_status != BrainResultStatus.SUCCESS else None,
+            artifact_ref=ArtifactRef(path=".ai/diagnosis/TASK-027-M3B-DIAGNOSIS.md", ref="ai/task-027", blob_sha="1" * 40) if bad_status == BrainResultStatus.SUCCESS else None,
+        )
+        with pytest.raises(ContinuityStateValidationError, match="TASK-027 requires source result status INCOMPLETE"):
+            validate_m3b_controlled_source_result(bad_res)
+
+    # 2. Wrong error code
+    bad_code = BrainResult(
         schema_version="1",
         task_id=src_req.task_id,
         request_id=src_req.request_id,
         brain_id=src_req.brain_id,
         operation=src_req.operation,
-        status=BrainResultStatus.SUCCESS,
-        output_type=BrainOutputType.DIAGNOSIS_ARTIFACT,
+        status=BrainResultStatus.INCOMPLETE,
+        output_type=src_req.output_contract.expected_output_type,
+        error_code="OTHER-ERROR",
+    )
+    with pytest.raises(ContinuityStateValidationError, match="requires error_code 'M3B-CONTROLLED-HANDOFF'"):
+        validate_m3b_controlled_source_result(bad_code)
+
+    # 3. Present artifact_ref or evidence_ref
+    bad_artifact = BrainResult(
+        schema_version="1",
+        task_id=src_req.task_id,
+        request_id=src_req.request_id,
+        brain_id=src_req.brain_id,
+        operation=src_req.operation,
+        status=BrainResultStatus.INCOMPLETE,
+        output_type=src_req.output_contract.expected_output_type,
+        error_code="M3B-CONTROLLED-HANDOFF",
         artifact_ref=ArtifactRef(path=".ai/diagnosis/TASK-027-M3B-DIAGNOSIS.md", ref="ai/task-027", blob_sha="1" * 40),
     )
+    with pytest.raises(ContinuityStateValidationError, match="must not contain artifact_ref"):
+        validate_m3b_controlled_source_result(bad_artifact)
 
-    with pytest.raises(ContinuityStateValidationError, match="source request already succeeded with status SUCCESS"):
-        verify_and_bind_m3b_proof(
-            state=state,
-            source_request=src_req,
-            replacement_request=rep_req,
-            replacement_capability=rep_cap,
-            source_result=src_res_success,
-            diagnosis_content_text=_valid_anchored_diagnosis_sample(),
-            attestation=_valid_attestation(),
-            worktree_root=tmp_path,
-        )
+
+def test_prepare_source_purges_stale_downstream_artifacts(tmp_path: Path):
+    """prepare-source removes any pre-existing downstream Stage 2/3 artifacts (R1-1 A)."""
+    proofs_dir = tmp_path / "proofs"
+    proofs_dir.mkdir(parents=True, exist_ok=True)
+
+    # Populate stale downstream artifacts
+    for art in DOWNSTREAM_PROOF_ARTIFACTS:
+        (proofs_dir / art).write_text("stale content", encoding="utf-8")
+
+    assert command_prepare_source(proofs_dir) == 0
+
+    # Ensure Stage 1 artifacts exist
+    assert (proofs_dir / "TASK-027-M3B-STATE.json").exists()
+    assert (proofs_dir / "TASK-027-M3B-SOURCE-REQUEST.json").exists()
+
+    # Ensure ALL downstream artifacts were wiped clean
+    for art in DOWNSTREAM_PROOF_ARTIFACTS:
+        assert not (proofs_dir / art).exists(), f"Stale artifact not purged: {art}"
 
 
 def test_m3b_proof_runner_capability_missing_operation_rejected(tmp_path: Path):
@@ -426,8 +470,8 @@ def test_deterministic_newline_only_normalization():
     assert "line with trailing spaces  \n" in norm_text
 
 
-def test_staged_lifecycle_commands_and_source_gate(tmp_path: Path):
-    """Test staged commands (prepare-source -> validate-source -> verify-replacement -> audit-bundle) (R1-1, R1-2)."""
+def test_staged_lifecycle_commands_and_immutable_binding(tmp_path: Path):
+    """Test staged lifecycle and immutable Stage-2 proof receipt binding (R1-1, R1-2, R3-1)."""
     proofs_dir = tmp_path / "proofs"
 
     # 1. Stage 1: prepare-source
@@ -452,7 +496,7 @@ def test_staged_lifecycle_commands_and_source_gate(tmp_path: Path):
     src_res_succ_file = tmp_path / "src_res_success.json"
     src_res_succ_file.write_text(src_res_success.to_canonical_json(), encoding="utf-8")
 
-    with pytest.raises(ContinuityStateValidationError, match="source request already succeeded with status SUCCESS"):
+    with pytest.raises(ContinuityStateValidationError, match="TASK-027 requires source result status INCOMPLETE"):
         command_validate_source(src_res_succ_file, proofs_dir)
 
     # 3. Stage 2: validate-source with valid controlled INCOMPLETE result
@@ -483,8 +527,8 @@ def test_staged_lifecycle_commands_and_source_gate(tmp_path: Path):
     assert audit_res["status"] == "PASS"
 
 
-def test_audit_persisted_bundle_negative(tmp_path: Path):
-    """audit_persisted_bundle fails closed when on-disk files are corrupted or fingerprints drift (R1-2)."""
+def test_audit_persisted_bundle_full_cross_binding_negative(tmp_path: Path):
+    """audit_persisted_bundle fails closed on any structural drift in replacement BrainResult (R3-2)."""
     proofs_dir = tmp_path / "proofs"
     assert command_prepare_source(proofs_dir) == 0
     src_req = build_m3b_source_request()
@@ -508,17 +552,34 @@ def test_audit_persisted_bundle_negative(tmp_path: Path):
     target_diag = tmp_path / ".ai" / "diagnosis" / "TASK-027-M3B-DIAGNOSIS.md"
     orig_diag_bytes = target_diag.read_bytes()
     target_diag.write_bytes(orig_diag_bytes + b"\n# extra line\n")
-    with pytest.raises(ContinuityStateValidationError, match="disk diagnosis blob SHA"):
+    with pytest.raises(ContinuityStateValidationError, match="Persisted replacement result does not match expected"):
         audit_persisted_bundle(proofs_dir=proofs_dir, worktree_root=tmp_path)
 
     # Restore diagnosis
     target_diag.write_bytes(orig_diag_bytes)
     assert audit_persisted_bundle(proofs_dir=proofs_dir, worktree_root=tmp_path)["status"] == "PASS"
 
-    # 2. Corrupt replacement result blob_sha -> audit fails
     rep_res_file = proofs_dir / "TASK-027-M3B-REPLACEMENT-RESULT.json"
-    rep_res_data = json.loads(rep_res_file.read_text(encoding="utf-8"))
-    rep_res_data["artifact_ref"]["blob_sha"] = "0" * 40
-    rep_res_file.write_text(json.dumps(rep_res_data), encoding="utf-8")
-    with pytest.raises(ContinuityStateValidationError, match="disk diagnosis blob SHA"):
+    orig_rep_res_data = json.loads(rep_res_file.read_text(encoding="utf-8"))
+
+    # 2. Corrupt replacement result request_id -> audit fails (R3-2)
+    rep_res_corrupt_req = dict(orig_rep_res_data)
+    rep_res_corrupt_req["request_id"] = "req-task-027-drifted"
+    rep_res_file.write_text(json.dumps(rep_res_corrupt_req), encoding="utf-8")
+    with pytest.raises(ContinuityStateValidationError, match="Persisted replacement result does not match expected"):
+        audit_persisted_bundle(proofs_dir=proofs_dir, worktree_root=tmp_path)
+
+    # 3. Corrupt replacement result brain_id -> audit fails (R3-2)
+    rep_res_corrupt_brain = dict(orig_rep_res_data)
+    rep_res_corrupt_brain["brain_id"] = "gemini-chat"
+    rep_res_file.write_text(json.dumps(rep_res_corrupt_brain), encoding="utf-8")
+    with pytest.raises(ContinuityStateValidationError, match="Persisted replacement result does not match expected"):
+        audit_persisted_bundle(proofs_dir=proofs_dir, worktree_root=tmp_path)
+
+    # 4. Corrupt replacement result artifact_ref.ref -> audit fails (R3-2)
+    rep_res_corrupt_ref = dict(orig_rep_res_data)
+    rep_res_corrupt_ref["artifact_ref"] = dict(orig_rep_res_data["artifact_ref"])
+    rep_res_corrupt_ref["artifact_ref"]["ref"] = "main"
+    rep_res_file.write_text(json.dumps(rep_res_corrupt_ref), encoding="utf-8")
+    with pytest.raises(ContinuityStateValidationError, match="Persisted replacement result does not match expected"):
         audit_persisted_bundle(proofs_dir=proofs_dir, worktree_root=tmp_path)
