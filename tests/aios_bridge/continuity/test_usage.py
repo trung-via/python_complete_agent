@@ -351,6 +351,16 @@ def test_efficiency_partition_exact_equality_and_ratio_validation():
             context_efficiency_ratio=0.5,  # Expected 0.8
         )
 
+    # 5. Near-but-different ratio value (e.g. 0.80009 vs expected 0.8000) must be rejected
+    with pytest.raises(ContinuityStateValidationError, match="Inconsistent context_efficiency_ratio"):
+        EfficiencyMetrics(
+            brain_context_bytes=10000,
+            useful_context_bytes=8000,
+            redundant_context_bytes=1500,
+            escalated_context_bytes=500,
+            context_efficiency_ratio=0.80009,  # Expected 0.8
+        )
+
 
 def test_task_019_historical_baseline_artifact_validates_cleanly():
     """The committed .ai/metrics/TASK-019-USAGE.json artifact must parse with null unmeasured proxies."""

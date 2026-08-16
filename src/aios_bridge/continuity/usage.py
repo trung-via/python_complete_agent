@@ -431,14 +431,14 @@ class EfficiencyMetrics:
                     f"Impossible efficiency partition: partial sum of components ({sum_known}) exceeds total brain_context_bytes ({self.brain_context_bytes})"
                 )
 
-        # Validate supplied ratio against known useful and total bytes
+        # Validate supplied ratio against known useful and total bytes (must match deterministic 4-decimal convention exactly)
         if (
             self.context_efficiency_ratio is not None
             and self.useful_context_bytes is not None
             and self.brain_context_bytes is not None
         ):
             expected_ratio = calculate_context_efficiency_ratio(self.useful_context_bytes, self.brain_context_bytes)
-            if expected_ratio is not None and abs(float(self.context_efficiency_ratio) - expected_ratio) > 1e-4:
+            if expected_ratio is not None and float(self.context_efficiency_ratio) != float(expected_ratio):
                 raise ContinuityStateValidationError(
                     f"Inconsistent context_efficiency_ratio: supplied {self.context_efficiency_ratio} != expected {expected_ratio} (useful_bytes / brain_context_bytes)"
                 )
