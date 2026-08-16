@@ -72,6 +72,7 @@ async def test_shopee_discovery_successful_extraction_and_mapping() -> None:
             "discount_text": "-25%",
             "sold_text": "Đã bán 1,5k",
             "rating_text": "4.85",
+            "review_text": None,
             "shop_name": "Official Store Audio",
             "item_id": "222",
             "shop_id": "111",
@@ -84,6 +85,7 @@ async def test_shopee_discovery_successful_extraction_and_mapping() -> None:
             "discount_text": None,
             "sold_text": "Đã bán 850",
             "rating_text": "4.9",
+            "review_text": "(350)",
             "shop_name": "GearVN Store",
             "item_id": "444",
             "shop_id": "333",
@@ -115,7 +117,12 @@ async def test_shopee_discovery_successful_extraction_and_mapping() -> None:
     assert c1.discount_percent == 25.0
     assert c1.sold_count == 1500
     assert c1.rating == 4.85
+    assert c1.review_count is None  # Should not be fabricated from rating_text
     assert c1.shop_name == "Official Store Audio"
+
+    c2 = batch.candidates[1]
+    assert c2.rating == 4.9
+    assert c2.review_count == 350  # Should be extracted from dedicated review_text
 
     # Verify unobserved fields remain strictly None (no fabricated momentum or commission)
     assert c1.affiliate_commission_rate is None
@@ -209,6 +216,18 @@ async def test_shopee_discovery_true_empty_search_returns_empty_batch() -> None:
 
     assert len(batch.candidates) == 0
     assert "TRUE_EMPTY_SEARCH" in batch.diagnostic_codes
+
+
+@pytest.mark.asyncio
+async def test_shopee_discovery_empty_items_without_empty_marker_raises_error() -> None:
+    # A successful JS evaluation that returns zero items but NO explicit empty marker
+    # Should not be silently treated as TRUE_EMPTY_SEARCH
+    fake_page = FakePage(script_results=[{"is_blocked": False, "is_empty": False, "items": []}])
+    adapter = ShopeeDiscoveryAdapter(browser=fake_page)
+
+    req = DiscoveryRequest(query="xyz")
+    with pytest.raises(DiscoveryNavigationError, match="No cards extracted"):
+        await adapter.discover(req)
 
 
 @pytest.mark.asyncio

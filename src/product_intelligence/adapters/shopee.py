@@ -95,6 +95,10 @@ SHOPEE_CARD_EXTRACTION_SCRIPT = r"""() => {
         const itemIdAttr = card.getAttribute('data-item-id') || (linkEl ? linkEl.getAttribute('data-item-id') : null);
         const shopIdAttr = card.getAttribute('data-shop-id') || (linkEl ? linkEl.getAttribute('data-shop-id') : null);
 
+        // Review count (often adjacent to rating or in parentheses)
+        const reviewEl = card.querySelector('.shopee-rating-stars__reviews, .rating-reviews, [data-sqe="review"]');
+        const reviewText = reviewEl ? reviewEl.innerText : null;
+
         if (title || href) {
             items.push({
                 title: title,
@@ -104,6 +108,7 @@ SHOPEE_CARD_EXTRACTION_SCRIPT = r"""() => {
                 discount_text: discountText,
                 sold_text: soldText,
                 rating_text: ratingText,
+                review_text: reviewText,
                 shop_name: shopText,
                 item_id: itemIdAttr,
                 shop_id: shopIdAttr,
@@ -218,9 +223,13 @@ class ShopeeDiscoveryAdapter(ProductDiscoveryAdapter):
                 raw_cards = extraction_data.get("items", [])
                 raw_items_seen += len(raw_cards)
 
-                if not raw_cards and page_idx == 1:
-                    diagnostic_codes.append("TRUE_EMPTY_SEARCH")
-                    break
+                if not raw_cards:
+                    if page_idx == 1:
+                        diagnostic_codes.append("EXTRACTION_FAILED")
+                        raise DiscoveryNavigationError(f"No cards extracted on page 1 and no empty-result marker found for query {request.query!r}")
+                    else:
+                        diagnostic_codes.append("PARTIAL_EXTRACTION_PAGE_FAILED")
+                        break
 
                 # Map extracted cards to canonical snapshots
                 for card_dict in raw_cards:
@@ -298,7 +307,7 @@ class ShopeeDiscoveryAdapter(ProductDiscoveryAdapter):
         discount_percent = parse_shopee_discount_percent(card_dict.get("discount_text"))
         sold_count = parse_shopee_sold_count(card_dict.get("sold_text"))
         rating = parse_shopee_rating(card_dict.get("rating_text"))
-        review_count = parse_shopee_review_count(card_dict.get("rating_text"))
+        review_count = parse_shopee_review_count(card_dict.get("review_text"))
 
         shop_name = card_dict.get("shop_name", "").strip() or None
         shop_id = card_dict.get("shop_id", "").strip() or None

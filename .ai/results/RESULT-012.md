@@ -3,28 +3,24 @@
 STATUS: READY_FOR_REVIEW
 
 ## Summary
-TASK-012 RUN: Implement Phase 6 M2.2 Shopee Discovery Adapter V1 with platform-independent discovery contracts (DiscoveryRequest, DiscoveryBatch, ProductDiscoveryAdapter), pure deterministic marketplace parsing engine, bounded Shopee candidate collector, and robust error/anti-bot challenge handling.
+TASK-012 FIX: Resolved review blockers for review_count fabrication and TRUE_EMPTY_SEARCH classification.
 
 ## Task Metadata
 - Task: `TASK-012`
-- Action: `RUN`
-- Authorized Artifact: `.ai/tasks/TASK-012.md (86af9ebbcc)`
-- Base Main SHA: `68db4d45154994c929bae22e660f1aca236e2bcd`
+- Action: `FIX`
+- Authorized Artifact: `.ai/reviews/REVIEW-012.md (408cbc0c03)`
+- Base Main SHA: `(n/a)`
 - Branch: `ai/task-012`
 
 ## Files Changed
-- src/product_intelligence/__init__.py
-- docs/PHASE_6_M2_DISCOVERY.md
-- src/product_intelligence/adapters/
-- src/product_intelligence/discovery.py
-- tests/product_intelligence/test_discovery_contract.py
+- src/product_intelligence/adapters/shopee.py
 - tests/product_intelligence/test_shopee_discovery.py
-- tests/product_intelligence/test_shopee_parsing.py
 
 ## Diff Stat
 ```text
-src/product_intelligence/__init__.py | 40 ++++++++++++++++++++++++++++++++++++
- 1 file changed, 40 insertions(+)
+src/product_intelligence/adapters/shopee.py         | 17 +++++++++++++----
+ tests/product_intelligence/test_shopee_discovery.py | 19 +++++++++++++++++++
+ 2 files changed, 32 insertions(+), 4 deletions(-)
 ```
 
 ## Tests
@@ -37,8 +33,8 @@ Exit code: 0
 ........................................................................ [ 51%]
 ........................................................................ [ 69%]
 ........................................................................ [ 86%]
-........................................................                 [100%]
-416 passed in 53.66s
+.........................................................                [100%]
+417 passed in 46.25s
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -47,7 +43,7 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 ```
 
 ## Risks / Notes
-1. Discovery Bounds: max_candidates bounded in [1, 100] (default 50); max_pages bounded in [1, 5] (default 1); non-empty query required; no unbounded crawler mode. 2. Candidate Identity & Dedup: Stable candidate_id derived from item ID ('shopee_{item_id}') or deterministic SHA-256 fingerprint ('shopee_url_{digest[:16]}'); duplicate cards across search pages collapsed into one while preserving first-seen order. 3. Missing-Value Policy: Only fields visible on listing/search cards are extracted (title, price, orig_price, discount_pct, sold_count, rating, review_count, shop_name); unobserved metrics (affiliate commission, creator/video counts, velocity metrics) remain strictly None; malformed values return None, never 0 or negative. 4. Blocked / Navigation Failure Semantics: First-page navigation error fails closed with DiscoveryNavigationError; captcha / security verification challenges detected and raised as DiscoveryBlockedError (diagnostic BLOCKED_PAGE_DETECTED); true empty search returns empty batch with TRUE_EMPTY_SEARCH; subsequent page failures return partial batch with PARTIAL_EXTRACTION_PAGE_FAILED. 5. Side-Effect Guarantees: Pure lightweight discovery collector; zero deep-ingestion coupling, zero image downloading, zero Google Drive uploads, zero LLM calls, zero scoring, zero tasks.txt queue mutation. 6. Exact Focused Verification Command: .\venv\Scripts\python -m pytest tests/product_intelligence/ -v (exit code 0, 43 passed, 0 failed). 7. Exact Full Repository Verification Command: .\venv\Scripts\python -m pytest tests/ -q -W ignore (exit code 0, 416 passed, 0 failed). 8. Known Limitations Intentionally Retained: M2.2 implements Shopee search discovery; TikTok discovery deferred to later tasks; cross-platform ranking/shortlist to M2.3; human-approved queue handoff to M2.4; entity resolution and Product KB to M3. 9. Merge Governance: TASK-012 is not auto-merged; merge is performed exclusively by human operator upon approval.
+1. Review Count Isolation: Separated review_count extraction from rating_text. The extraction script now explicitly hunts for review elements (e.g. '.shopee-rating-stars__reviews'). A rating-only text (e.g., '4.85') now correctly yields a rating of 4.85 and review_count of None. 2. Extraction Failure Semantics: First-page empty extraction no longer masquerades as TRUE_EMPTY_SEARCH unless the positive empty-result marker is present. Unknown failures raise DiscoveryNavigationError (EXTRACTION_FAILED) on page 1, and return a partial batch (PARTIAL_EXTRACTION_PAGE_FAILED) on subsequent pages. 3. Discovery Bounds: max_candidates bounded in [1, 100] (default 50); max_pages bounded in [1, 5] (default 1); non-empty query required. 4. Candidate Identity & Dedup: Stable candidate_id derived from item ID or SHA-256 fingerprint; duplicate cards collapsed preserving first-seen order. 5. Missing-Value Policy: Unobserved metrics (affiliate commission, creator/video counts, velocity metrics) remain strictly None; malformed values return None. 6. Blocked Page Semantics: Captcha / security verification challenges detected and raised as DiscoveryBlockedError. 7. Side-Effect Guarantees: Pure lightweight discovery collector; zero deep-ingestion coupling, zero image downloading, zero Google Drive uploads, zero LLM calls, zero scoring, zero tasks.txt queue mutation. 8. Exact Focused Verification Command: .\venv\Scripts\python -m pytest tests/product_intelligence/ -v (exit code 0, 44 passed, 0 failed). 9. Exact Full Repository Verification Command: .\venv\Scripts\python -m pytest tests/ -q -W ignore (exit code 0, 417 passed, 0 failed). 10. Merge Governance: TASK-012 is not auto-merged; merge is performed exclusively by human operator upon approval.
 
 ## Generated
-2026-08-16T07:08:16+07:00
+2026-08-16T07:14:52+07:00
