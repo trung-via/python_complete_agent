@@ -1,0 +1,50 @@
+"""Open Multi-Agent Continuity OS — Canonical Project State namespace (M1)."""
+from __future__ import annotations
+
+from .errors import ContinuityError, ContinuityFreshnessError, ContinuityStateValidationError
+from .state import (
+    MAX_SERIALIZED_BYTES,
+    PHASE_NEXT_OPERATION_MAP,
+    PHASES_REQUIRING_TASK_BRANCH_SHA,
+    SCHEMA_VERSION,
+    ArtifactRef,
+    BrainOperation,
+    BrainState,
+    BranchState,
+    ContinuityArtifacts,
+    ContinuityPhase,
+    ContinuityState,
+    ExecutorState,
+    FreshnessIssue,
+    FreshnessIssueCode,
+    FreshnessReport,
+    FreshnessStatus,
+    NextOperation,
+    StateObservation,
+    check_freshness,
+)
+
+__all__ = [
+    "MAX_SERIALIZED_BYTES",
+    "PHASE_NEXT_OPERATION_MAP",
+    "PHASES_REQUIRING_TASK_BRANCH_SHA",
+    "SCHEMA_VERSION",
+    "ArtifactRef",
+    "BrainOperation",
+    "BrainState",
+    "BranchState",
+    "ContinuityArtifacts",
+    "ContinuityError",
+    "ContinuityFreshnessError",
+    "ContinuityPhase",
+    "ContinuityState",
+    "ContinuityStateValidationError",
+    "ExecutorState",
+    "FreshnessIssue",
+    "FreshnessIssueCode",
+    "FreshnessReport",
+    "FreshnessStatus",
+    "NextOperation",
+    "StateObservation",
+    "check_freshness",
+]
