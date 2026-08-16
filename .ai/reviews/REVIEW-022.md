@@ -1,90 +1,58 @@
 # REVIEW-022 — TASK-022 M3A Brain Failover Contract & Proof Harness
 
-STATUS: CHANGES_REQUIRED
+STATUS: APPROVED
 
 ## Review Scope
-- Review round: `2`
+- Review round: `3` — Final
 - Reviewed branch: `ai/task-022`
-- Reviewed branch head: `9d558a2ca98ebc892e43a0ea2f985f050a1f1a60`
-- Tested implementation SHA: `92696e61782839a25aa8c0223e79904090590bfe`
-- Previous tested implementation SHA: `56d9b68cbeb25203d010600b264c859cbf134c18`
+- Reviewed branch head: `ef71a89f8a05823e12abd744150ab681aa58f312`
+- Tested implementation SHA: `bae29799837229e30303e68f46f32a2b8cd62aa6`
+- Previous tested implementation SHA: `92696e61782839a25aa8c0223e79904090590bfe`
 - Base main: `4978e426f3445c086c017c07c844943ac841e4de`
-- Branch relation: ahead `4`, behind `0`; merge-base is exact current main.
-- Implementation-to-reviewed-head relation: one evidence-only RESULT update after `92696e6...`; production code/tests at reviewed head equal tested implementation.
-- Review mode: ADR-013 finding-scoped delta-first. Reviewed previous REVIEW, new RESULT, `56d9b68... -> 92696e6...` FIX delta, targeted tests, and SHA relations only. No full TASK/ADR/source/test reload.
+- Branch relation: ahead `6`, behind `0`; merge-base is exact current main.
+- Implementation-to-reviewed-head relation: one evidence-only RESULT update after `bae2979...`; production code/tests at reviewed head equal tested implementation.
+- Review mode: ADR-013 Round-3 ultra-delta. Reviewed Round-2 REVIEW, new RESULT, the 12-line omitted-fingerprint test delta, test evidence, and SHA relations only. No production-source/TASK/ADR reload.
 
 ## Finding Closure
 
 ### R1-1 — Mandatory canonical-state fingerprint anchor
-SUBSTANTIVELY RESOLVED; one explicit boundary test remains.
+RESOLVED.
 
-Production contract is correct:
-- `expected_state_fingerprint` is now a required function argument;
-- it is validated as exact lowercase 64-char SHA-256;
-- it must equal `ContinuityState.fingerprint()` on every successful path;
-- there is no default that silently substitutes the in-memory state fingerprint.
-
-Focused tests prove valid, malformed, mismatched/stale fingerprint behavior and task-state mismatch.
-
-Remaining evidence gap:
-- Round-1 explicitly required a negative test for a **missing/omitted** fingerprint;
-- RESULT claims missing/malformed/mismatched fingerprint tests were added;
-- current test suite does not actually call the validator while omitting `expected_state_fingerprint`.
-
-Because the parameter is now required by the Python signature, omission currently fails closed with `TypeError`, which is acceptable behavior for this API boundary. The missing item is proof/test evidence, not production logic.
-
-Required final fix:
-- add one focused test proving omission of `expected_state_fingerprint` cannot create a proof (a `TypeError` caused by the required argument is acceptable; alternatively a bounded domain validation path is acceptable if implementation deliberately chooses one);
-- do not relax the mandatory argument or add a default.
+Production contract was already correct in Round 2. Round 3 adds the missing explicit boundary evidence:
+- omitting `expected_state_fingerprint` raises `TypeError` because the argument is mandatory;
+- explicitly supplying `None` fails with `ContinuityStateValidationError`;
+- no default or silent in-memory fingerprint substitution was introduced.
 
 ### R1-2 — Mandatory replacement capability gate
-RESOLVED.
-
-- `replacement_capability` is now mandatory;
-- explicit `None`/invalid type fails closed;
-- Brain identity and operation support remain enforced;
-- gate remains declarative-only and introduces no routing/invocation/fallback.
+RESOLVED in Round 2 and unchanged.
 
 ### R1-3 — Complete source-result identity test matrix
-RESOLVED.
-
-Focused negative tests now cover all required identity mismatches:
-- task_id;
-- request_id;
-- brain_id;
-- operation.
+RESOLVED in Round 2 and unchanged.
 
 ## Evidence
-- FIX implementation commit: `92696e61782839a25aa8c0223e79904090590bfe`.
-- Final reviewed head: `9d558a2ca98ebc892e43a0ea2f985f050a1f1a60`.
-- `92696e6... -> 9d558a2...` changes only `.ai/results/RESULT-022.md`; production code/tests at final head equal the tested implementation.
-- RESULT reports Continuity `60 passed`, Bridge `146 passed`, full repository `620 passed`, zero regressions.
+- Round-3 test-only implementation commit: `bae29799837229e30303e68f46f32a2b8cd62aa6`.
+- Final reviewed branch head: `ef71a89f8a05823e12abd744150ab681aa58f312`.
+- `9d558a2... -> bae2979...` changes only `tests/aios_bridge/continuity/test_failover.py` with 12 added lines.
+- `bae2979... -> ef71a89...` changes only `.ai/results/RESULT-022.md`; production code/tests at final head equal the tested implementation.
+- Branch remains ahead `6`, behind `0` from current `main` with exact merge-base.
+- RESULT reports:
+  - Continuity: `60 passed`
+  - AIOS Bridge: `146 passed`
+  - Full repository: `620 passed`
+  - zero regressions
 - `LIVE_EXTERNAL_CALLS: 0`.
 - `BRIDGE_V0_4_BEHAVIOR_CHANGED: NO`.
 - `AUTHORITY_WIDENED: NO`.
+- `M3A_MECHANICS_PROVED: YES`.
 - `M3_REAL_CROSS_BRAIN_PROOF_COMPLETE: NO` remains correctly stated.
 
-## Final FIX Scope
-Expected final delta should normally be limited to:
-
-```text
-tests/aios_bridge/continuity/test_failover.py
-.ai/results/RESULT-022.md
-```
-
-No production-code change is required unless the missing-fingerprint test exposes an unexpected issue.
-
-Do not modify Brain/state contracts, Bridge, providers, routing/fallback, executor contracts, or authority semantics.
-
-## Round-3 Review Budget
-Round 3 should inspect only:
-- this REVIEW;
-- new RESULT;
-- tiny test delta;
-- test evidence / SHA relation.
+## Scope / Authority
+No Brain invocation, provider/router/fallback behavior, Bridge lifecycle mutation, executor contract, or RUN/FIX/MERGE authority change was introduced.
 
 ## Decision
 
-`CHANGES_REQUIRED`
+`APPROVED`
 
-The M3A production contract now satisfies the substantive fail-closed requirements. Add the single omitted-fingerprint boundary test promised by Round 1/RESULT, rerun required suites, and this should be ready for final approval.
+TASK-022 satisfies M3A Brain Failover Contract & Proof Harness at reviewed branch head `ef71a89f8a05823e12abd744150ab681aa58f312`.
+
+M3 itself is not yet complete: M3B real cross-chat two-Brain proof remains pending after merge. Merge remains a separate explicit human action.
