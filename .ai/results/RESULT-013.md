@@ -3,12 +3,12 @@
 STATUS: READY_FOR_REVIEW
 
 ## Summary
-TASK-013 FIX: Enhanced Shopee live gallery extraction strategy to discover obfuscated top product sections (SECTION.C21rQm) and thumbnail formats (img and background-image) while strictly excluding FOOTER.Dtu9HW and UGC/reviews.
+TASK-013 FIX: Implemented positive ownership seed anchor for structural gallery discovery, verified exclusion of unrelated non-product obfuscated sections, and recorded live CDP validation evidence.
 
 ## Task Metadata
 - Task: `TASK-013`
 - Action: `FIX`
-- Authorized Artifact: `.ai/reviews/REVIEW-013.md (af397858b5)`
+- Authorized Artifact: `.ai/reviews/REVIEW-013.md (5b33fc835a)`
 - Base Main SHA: `(n/a)`
 - Branch: `ai/task-013`
 
@@ -18,9 +18,9 @@ TASK-013 FIX: Enhanced Shopee live gallery extraction strategy to discover obfus
 
 ## Diff Stat
 ```text
-src/product_source/platforms/shopee.py             | 138 +++++++++++++++++----
- .../product_source/test_extractor_dom_fixtures.py  |  97 +++++++++++++++
- 2 files changed, 209 insertions(+), 26 deletions(-)
+src/product_source/platforms/shopee.py             | 102 ++++++++++++++++++---
+ .../product_source/test_extractor_dom_fixtures.py  |  44 +++++++--
+ 2 files changed, 127 insertions(+), 19 deletions(-)
 ```
 
 ## Tests
@@ -148,7 +148,7 @@ tests/product_source/test_tiktok_source_extractor.py: 8 warnings
     policy = asyncio.get_event_loop_policy()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-====================== 49 passed, 218 warnings in 3.75s =======================
+====================== 49 passed, 218 warnings in 5.17s =======================
 ........................................................................ [ 15%]
 ........................................................................ [ 30%]
 ........................................................................ [ 46%]
@@ -156,7 +156,7 @@ tests/product_source/test_tiktok_source_extractor.py: 8 warnings
 ........................................................................ [ 77%]
 ........................................................................ [ 92%]
 ...................................                                      [100%]
-467 passed in 56.71s
+467 passed in 58.12s
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -171,43 +171,60 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 ## Risks / Notes
 ### Full Task Diff Stat (against main)
 ```text
- .ai/results/RESULT-013.md                          | 202 +++++++++
- docs/PHASE_6_PRODUCT_SOURCE_PACK.md                | 171 +++++++
- src/product_source/__init__.py                     |  28 ++
- src/product_source/downloader.py                   | 220 +++++++++
+ .ai/results/RESULT-013.md                          | 213 ++++++++
+ docs/PHASE_6_PRODUCT_SOURCE_PACK.md                | 171 ++++++
+ src/product_source/__init__.py                     |  28 +
+ src/product_source/downloader.py                   | 220 ++++++++
  src/product_source/extractor.py                    |  10 +
- src/product_source/models.py                      | 235 ++++++++++
+ src/product_source/models.py                      | 235 +++++++++
  src/product_source/platforms/__init__.py           |   5 +
- src/product_source/platforms/shopee.py             | 495 ++++++++++++++++++++
- src/product_source/platforms/tiktok.py             | 483 ++++++++++++++++++++
+ src/product_source/platforms/shopee.py             | 571 +++++++++++++++++++++
+ src/product_source/platforms/tiktok.py             | 483 +++++++++++++++++
  src/product_source/serialization.py                |  20 +
- src/tools/shopee_scrape_tool.py                    | 378 +++++++ ---------
- src/tools/tiktok_scrape_tool.py                    | 329 +++++++ --------
+ src/tools/shopee_scrape_tool.py                    | 378 ++++++ --------
+ src/tools/tiktok_scrape_tool.py                    | 329 ++++++ ------
  tests/product_source/__init__.py                   |   1 +
- .../product_source/test_extractor_dom_fixtures.py  | 241 ++++++++++
- tests/product_source/test_models.py                | 223 ++++++++++
- .../test_original_media_downloader.py              | 270 +++++++++++
- tests/product_source/test_scrape_tool_compat.py    | 300 +++++++++++++
- .../product_source/test_shopee_source_extractor.py | 310 ++++++++++++++
- .../product_source/test_tiktok_source_extractor.py | 279 ++++++++++++
- 19 files changed, 3829 insertions(+), 371 deletions(-)
+ .../product_source/test_extractor_dom_fixtures.py  | 273 ++++++++++
+ tests/product_source/test_models.py                | 223 ++++++++
+ tests/product_source/test_original_media_downloader.py  | 270 ++++++++++
+ tests/product_source/test_scrape_tool_compat.py    | 300 +++++++++++
+ .../product_source/test_shopee_source_extractor.py | 310 +++++++++++
+ .../product_source/test_tiktok_source_extractor.py | 279 ++++++++++
+ 19 files changed, 3948 insertions(+), 371 deletions(-)
 ```
 
-### Live Shopee Gallery Fix Details:
-1. Strategy 2A (Semantic Selectors) + Strategy 2B (Structural Section Gallery Discovery):
-   - Added structural top-section media discovery in _SHOPEE_EXTRACTION_SCRIPT that locates seller gallery images across obfuscated/hashed markup (e.g. SECTION.C21rQm, BvNoX2/OMOWB7, qIctnQ/mdCA_C/FAWPL0) without hardcoding ephemeral class hashes.
-   - Added getMediaUrls helper extracting both img tags (src, data-src, srcset) and inline background-image: url(...) styles.
-2. Robust Negative Exclusion:
-   - Excludes FOOTER.Dtu9HW, header, nav, .product-ratings, .similar-products, .shop-review, .comment, .review-images, .recommend, [class*="voucher"], [class*="bundle"].
-3. Deterministic Live DOM Regression:
-   - Added test_shopee_obfuscated_live_dom_gallery_extraction_and_footer_exclusion in tests/product_source/test_extractor_dom_fixtures.py reproducing the live product 52764529835 structure.
-4  Test Results:
-   - Focused Product Source Pack suite (tests/product_source/): 49 passed, 0 failed.
-   - Full repository suite (tests/): 467 passed, 0 failed.
-5. Invariants Preserved:
-   - Exact identity matching, identity-gated structured fields, explicit model/SKU capture, pattern-based signed URL redaction, run-id plumbing, zero-media fail closed, streaming size bounds, SHA-256 dedupe, no AI image generation / LMM / scoring / ranking / queue mutation.
-   - Known limitations: M2.2A establishes canonical Product Source Packs; M2.3 scoring/ranking and M2.4 queue handoff remain scheduled for future milestones.
-   - Merge governance: Do not merge automatically. Human review required.
+### Positive Ownership Anchor Implementation:
+1. Seed Anchor Strategy:
+   - Evaluates positive identity-gated structured product image (or product title) as a verified DOM seed anchor.
+   - Restricts structural gallery expansion to the ancestor cluster enclosing the verified seed node.
+   - Fails closed if no verified positive anchor can be located.
+2. Unrelated Non-Product Obfuscated Section Rejection:
+   - Added deterministic regression in tests/product_source/test_extractor_dom_fixtures.py proving unrelated obfuscated sections with multiple same-CDN images without exclusion tokens (kL89_Z mN01_X) are completely ignored.
+3. SVG & UI Icon Exclusion:
+   - Stripped UI SVG icons (.svg, icon_) and canonicalized Shopee image URLs by stripping thumbnail resize parameters (@resize_..., _tn).
+
+### Pre-Merge Live CDP Validation Evidence (2026-08-16):
+- Product ID: 22590099603 (Authenticated Shopee PDP tab):
+  - Title: 'O cung di dong SSD Sandisk Extreme Portable SPSSDE61-G25 500GB/1PB/2PB/4PB V2 E61 upto 1050/1000 MB/s BH 5 nam'
+  - Product ID: '22590099603'
+  - Blocked: False
+  - STRUCTURED_IMAGES: 1
+  - GALLERY: 10 (Full gallery captured: vn-11134207-81ztc-mmwubhq4wdfnd5, vn-11134207-81ztc-mrosvhppu68438, vn-11134207-81ztc-mmwubwpnf66g2e, etc.)
+  - VARIANTS: 0, DESCRIPTION_MEDIA: 0, FALLBACK_MEDIA: 0
+  - Absence of footer/review/recommendation/SVG icon media confirmed.
+- Product ID: 52764529835 (Challenged Shopee PDP tab):
+  - Target URL: https://shopee.vn/verify/traffic?anti_bot_tracking_id=...
+  - Blocked: True (Fail-closed anti-bot detection correctly raised without bypass)
+  - STRUCTURED_IMAGES: 0, GALLERY: 0
+
+### Test Results:
+- Focused Product Source Pack suite (tests/product_source/): 49 passed, 0 failed.
+- Full repository suite (tests/): 467 passed, 0 failed.
+
+### Invariants Preserved:
+- Exact identity matching, identity-gated structured fields, explicit model/SKU capture, pattern-based signed URL redaction, run-id plumbing, zero-media fail closed, streaming size bounds, SHA-256 dedupe, no AI image generation / LMM / scoring / ranking / queue mutation.
+- Known limitations: M2.2A establishes canonical Product Source Packs; M2.3 scoring/ranking and M2.4 queue handoff remain scheduled for future milestones.
+- Merge governance: Do not merge automatically. Human review required.
 
 ## Generated
-2026-08-16T09:00:08+07:00
+2026-08-16T09:09:00+07:00

@@ -146,22 +146,36 @@ async def test_tiktok_dom_selection_and_ugc_exclusion():
 async def test_shopee_obfuscated_live_dom_gallery_extraction_and_footer_exclusion():
     """
     Reproduces modern live Shopee DOM shape (observed on product 52764529835)
-    with obfuscated classes (SECTION.C21rQm, BvNoX2/OMOWB7 main image,
-    qIctnQ/mdCA_C/FAWPL0 thumbnails) and proves full gallery extraction
-    while excluding FOOTER.Dtu9HW and review/recommendation images.
+    with JSON-LD structured seed, obfuscated classes (SECTION.C21rQm, BvNoX2/OMOWB7 main image,
+    qIctnQ/mdCA_C/FAWPL0 thumbnails), proves full gallery extraction,
+    and proves strict rejection of unrelated obfuscated sections with multiple same-CDN images,
+    FOOTER.Dtu9HW, and review/recommendation images.
     """
     html = '''
     <html>
+    <head>
+        <!-- JSON-LD structured data providing positive seed identity -->
+        <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "Product",
+            "name": "Áo thun nam phong cách Hàn Quốc",
+            "productID": "52764529835",
+            "url": "https://shopee.vn/product-i.24625047.52764529835",
+            "image": "https://down-vn.img.susercontent.com/file/vn-11134207-main.jpg"
+        }
+        </script>
+    </head>
     <body>
         <!-- Header -->
         <header class="shopee-top">
             <img src="https://down-vn.img.susercontent.com/file/header_logo.png" />
         </header>
 
-        <!-- Top product section with modern hashed class C21rQm -->
+        <!-- Top product section with modern hashed class C21rQm anchored to product -->
         <section class="C21rQm">
             <div class="media-column">
-                <!-- Main product image -->
+                <!-- Main product image matching structured seed -->
                 <div class="BvNoX2 OMOWB7">
                     <img src="https://down-vn.img.susercontent.com/file/vn-11134207-main.jpg" />
                 </div>
@@ -190,6 +204,15 @@ async def test_shopee_obfuscated_live_dom_gallery_extraction_and_footer_exclusio
                 <img src="https://down-vn.img.susercontent.com/file/vn-11134207-desc-banner.jpg" />
             </div>
         </div>
+
+        <!-- Unrelated obfuscated non-product section containing multiple same-CDN images without exclusion keywords -->
+        <section class="kL89_Z mN01_X">
+            <div class="pQ23_Y">
+                <img src="https://down-vn.img.susercontent.com/file/vn-11134207-unrelated-banner1.jpg" />
+                <img src="https://down-vn.img.susercontent.com/file/vn-11134207-unrelated-banner2.jpg" />
+                <div style="background-image: url('https://down-vn.img.susercontent.com/file/vn-11134207-unrelated-thumb.jpg')"></div>
+            </div>
+        </section>
 
         <!-- Review section with same-CDN images (UGC) -->
         <div class="product-ratings">
@@ -230,12 +253,21 @@ async def test_shopee_obfuscated_live_dom_gallery_extraction_and_footer_exclusio
         # 2. Proves seller description image is captured
         assert "https://down-vn.img.susercontent.com/file/vn-11134207-desc-banner.jpg" in result["description_media"]
 
-        # 3. Proves review, recommendation, header and FOOTER.Dtu9HW images are strictly excluded
+        # 3. Proves unrelated obfuscated section images (kL89_Z) are strictly rejected (not in gallery or anywhere)
+        assert "https://down-vn.img.susercontent.com/file/vn-11134207-unrelated-banner1.jpg" not in result["gallery"]
+        assert "https://down-vn.img.susercontent.com/file/vn-11134207-unrelated-banner2.jpg" not in result["gallery"]
+        assert "https://down-vn.img.susercontent.com/file/vn-11134207-unrelated-thumb.jpg" not in result["gallery"]
+
+        # 4. Proves review, recommendation, header, footer, and unrelated images are absent from all extracted media
         all_media = result["gallery"] + result["description_media"] + result["fallback_media"]
+        assert "https://down-vn.img.susercontent.com/file/vn-11134207-unrelated-banner1.jpg" not in all_media
+        assert "https://down-vn.img.susercontent.com/file/vn-11134207-unrelated-banner2.jpg" not in all_media
+        assert "https://down-vn.img.susercontent.com/file/vn-11134207-unrelated-thumb.jpg" not in all_media
         assert "https://down-vn.img.susercontent.com/file/vn-11134207-customer-review.jpg" not in all_media
         assert "https://down-vn.img.susercontent.com/file/vn-11134207-recommended-other.jpg" not in all_media
         assert "https://down-vn.img.susercontent.com/file/header_logo.png" not in all_media
         assert "https://down-vn.img.susercontent.com/file/footer_payment_badge.png" not in all_media
         assert "https://down-vn.img.susercontent.com/file/footer_cert_badge.png" not in all_media
+
 
 

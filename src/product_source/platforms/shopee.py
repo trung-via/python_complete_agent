@@ -89,6 +89,20 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
         if (bgMatch) clean = bgMatch[1];
         if (clean.startsWith('//')) clean = 'https:' + clean;
         if (!clean.startsWith('http')) return null;
+
+        // Filter out UI SVG icons, static asset icons, or badges
+        if (clean.endsWith('.svg') || clean.includes('.svg?') || clean.includes('.svg#') || clean.includes('icon_')) {
+            return null;
+        }
+
+        // Canonicalize Shopee image URLs by stripping thumbnail resize query/suffix if present
+        if (clean.includes('@resize_')) {
+            clean = clean.split('@resize_')[0];
+        }
+        if (clean.endsWith('_tn')) {
+            clean = clean.substring(0, clean.length - 3);
+        }
+
         return clean;
     };
 
@@ -132,6 +146,8 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
     // Check anti-bot block / captcha
     if (document.querySelector('.shopee-captcha') || 
         document.body.innerHTML.includes('verify.shopee') ||
+        window.location.href.includes('/verify') ||
+        window.location.pathname.includes('/verify') ||
         document.title.toLowerCase().includes('robot') ||
         document.title.toLowerCase().includes('captcha')) {
         result.blocked = true;
@@ -215,7 +231,7 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
         }
     }
 
-    // PRIORITY 2: Semantic & Structural Product Gallery
+    // PRIORITY 2: Semantic & Anchored Product Gallery
     // Strategy 2A: Semantic gallery selectors
     const gallerySelectors = [
         '.product-image-carousel', '.product-image__content', '.V9sV-Q', '.xNIlvG',
@@ -234,21 +250,81 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
         }
     }
 
-    // Strategy 2B: Structural top product section gallery discovery (handles modern obfuscated markup like SECTION.C21rQm)
+    // Strategy 2B: Positive Anchor Expansion (anchored by verified identity/structured image or title)
+    // Avoids scanning arbitrary whole-page sections or unverified promo/recommendation blocks
     if (result.gallery.length === 0) {
-        const candidateSections = document.querySelectorAll('section, .page-product__briefing, .product-briefing, [class*="product-briefing"]');
-        for (const sec of candidateSections) {
-            if (isExcluded(sec)) continue;
-            // The top product briefing section contains product media before ratings or comments
-            const mediaContainers = sec.querySelectorAll('div');
-            for (const mc of mediaContainers) {
-                if (isExcluded(mc)) continue;
-                // If a subcontainer contains multiple media items (e.g. carousel or thumbnail strip)
-                const urls = getMediaUrls(mc);
-                if (urls.length >= 2 || (urls.length >= 1 && result.gallery.length === 0)) {
-                    for (const u of urls) {
+        let seedNode = null;
+
+        // Anchor 1: Match verified structured seed image in the DOM
+        if (result.structured.images.length > 0) {
+            const seedUrls = result.structured.images;
+            const allDomImgs = document.querySelectorAll('img, [style*="background-image"]');
+            for (const el of allDomImgs) {
+                if (isExcluded(el)) continue;
+                const elUrls = getMediaUrls(el);
+                for (const u of elUrls) {
+                    const uParts = u.split('/');
+                    const uFile = uParts[uParts.length - 1].split('?')[0].split('@')[0].split('_tn')[0];
+                    for (const s of seedUrls) {
+                        const sParts = s.split('/');
+                        const sFile = sParts[sParts.length - 1].split('?')[0].split('@')[0].split('_tn')[0];
+                        if (u === s || (uFile && sFile && uFile === sFile && uFile.length > 8)) {
+                            seedNode = el;
+                            break;
+                        }
+                    }
+                    if (seedNode) break;
+                }
+                if (seedNode) break;
+            }
+        }
+
+        // Anchor 2: If seed image node not found, match verified product title in the DOM
+        if (!seedNode && result.structured.title) {
+            const h1s = document.querySelectorAll('h1, [class*="title"], [class*="name"]');
+            for (const h of h1s) {
+                if (isExcluded(h)) continue;
+                if (h.innerText && h.innerText.trim().includes(result.structured.title.trim().substring(0, 30))) {
+                    seedNode = h;
+                    break;
+                }
+            }
+        }
+
+        // If a verified positive anchor is found, locate its enclosing product media column / thumbnail cluster
+        if (seedNode) {
+            let curr = seedNode;
+            let galleryFound = false;
+            for (let level = 0; level < 6 && curr && curr !== document.body; level++) {
+                if (isExcluded(curr)) break;
+
+                const candidateUrls = getMediaUrls(curr);
+                if (candidateUrls.length >= 2) {
+                    for (const u of candidateUrls) {
                         if (!result.gallery.includes(u)) {
                             result.gallery.push(u);
+                        }
+                    }
+                    galleryFound = true;
+                    break;
+                }
+                curr = curr.parentElement;
+            }
+
+            if (!galleryFound && curr) {
+                const parentSection = curr.closest('section, .page-product__briefing, .product-briefing, [class*="briefing"], main > div');
+                if (parentSection && !isExcluded(parentSection)) {
+                    const divs = parentSection.querySelectorAll('div');
+                    for (const d of divs) {
+                        if (isExcluded(d)) continue;
+                        const candidateUrls = getMediaUrls(d);
+                        if (candidateUrls.length >= 2) {
+                            for (const u of candidateUrls) {
+                                if (!result.gallery.includes(u)) {
+                                    result.gallery.push(u);
+                                }
+                            }
+                            if (result.gallery.length >= 2) break;
                         }
                     }
                 }
