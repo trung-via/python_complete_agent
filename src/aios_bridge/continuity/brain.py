@@ -20,18 +20,20 @@ from .state import (
     _validate_actor_id,
     _validate_artifact_path,
     _validate_exact_hex_sha,
+    _validate_safe_git_ref,
 )
 
 _TASK_ID_PATTERN = re.compile(r"^TASK-\d+$")
 _REQUEST_ID_PATTERN = re.compile(r"^[a-z0-9]+(?:[a-z0-9_.\-:]+)*$")
 _ERROR_CODE_PATTERN = re.compile(r"^[A-Za-z0-9_.\-]+$")
-_TASK_TOKEN_PATTERN = re.compile(r"(?<![A-Za-z0-9])TASK-(\d+)(?![A-Za-z0-9])", re.IGNORECASE)
+_TASK_TOKEN_PATTERN = re.compile(r"(?<![A-Za-z0-9])(TASK-\d+)(?![A-Za-z0-9])")
 
 MAX_REQUEST_ID_LENGTH = 64
 MAX_ERROR_CODE_LENGTH = 64
 MAX_OBJECTIVE_LENGTH = 4096
 MAX_CONTEXT_REFS = 32
 MAX_DESCRIPTION_LENGTH = 256
+MAX_BRAIN_CAPACITY_CONTEXT_BYTES = 1024 * 1024 * 1024  # 1 GiB semantic cap
 
 
 class BrainResultStatus(str, Enum):
@@ -147,6 +149,22 @@ def _validate_canonical_artifact_path(path: Any, field_name: str) -> str:
     return canonical
 
 
+def _validate_canonical_git_ref(ref: Any, field_name: str) -> str:
+    """Validates exact canonical Git ref with zero whitespace padding (R1-4)."""
+    if isinstance(ref, bool) or not isinstance(ref, str):
+        raise ContinuityStateValidationError(f"{field_name} must be a non-empty string")
+    if ref != ref.strip() or not ref:
+        raise ContinuityStateValidationError(
+            f"{field_name} must not contain leading or trailing whitespace: {ref!r}"
+        )
+    canonical = _validate_safe_git_ref(ref, field_name)
+    if ref != canonical:
+        raise ContinuityStateValidationError(
+            f"{field_name} must be exact canonical git ref, got: {ref!r}"
+        )
+    return canonical
+
+
 def _validate_error_code(error_code: Any, field_name: str = "error_code") -> str | None:
     if error_code is None:
         return None
@@ -164,21 +182,19 @@ def _validate_error_code(error_code: Any, field_name: str = "error_code") -> str
 
 def _validate_task_token_in_path(path: str, task_id: str, field_name: str) -> None:
     """
-    Validates delimiter-aware task identity tokens in path (C3 / AIP-3).
-    Extracts all 'TASK-<digits>' tokens and requires all extracted task numbers
-    to match the numeric identifier of active task_id without ambiguity or aliasing.
+    Validates delimiter-aware exact case-sensitive task identity tokens in path (C3 / R1-1).
+    Extracts all 'TASK-<digits>' tokens and requires all extracted task tokens
+    to match active task_id exactly without integer equivalence or case aliasing.
     """
-    target_num = int(task_id.split("-")[1])
     matches = _TASK_TOKEN_PATTERN.findall(path)
     if not matches:
         raise ContinuityStateValidationError(
             f"{field_name} path '{path}' must match active task identity {task_id}"
         )
-    extracted_nums = [int(m) for m in matches]
-    for num in extracted_nums:
-        if num != target_num:
+    for token in matches:
+        if token != task_id:
             raise ContinuityStateValidationError(
-                f"{field_name} path '{path}' contains task token 'TASK-{num}' "
+                f"{field_name} path '{path}' contains task token '{token}' "
                 f"which does not match active task identity {task_id}"
             )
 
@@ -189,10 +205,9 @@ def _validate_artifact_role_and_task(
     task_id: str,
     field_name: str,
 ) -> None:
-    """Validates that target artifact path matches the output type and active task_id."""
+    """Validates that target artifact path matches the output type and active task_id without aliasing (R1-1)."""
     canon_path = _validate_canonical_artifact_path(path, field_name)
-    task_num_str = task_id.split("-")[1]
-    task_num_int = int(task_num_str)
+    task_num_str = task_id[5:]
 
     if output_type == BrainOutputType.TASK_ARTIFACT:
         expected = f".ai/tasks/{task_id}.md"
@@ -201,12 +216,10 @@ def _validate_artifact_role_and_task(
                 f"{field_name} path '{canon_path}' incompatible with TASK_ARTIFACT for {task_id} (expected '{expected}')"
             )
     elif output_type == BrainOutputType.REVIEW_ARTIFACT:
-        expected_standard = f".ai/reviews/REVIEW-{str(task_num_int).zfill(3)}.md"
-        expected_exact = f".ai/reviews/REVIEW-{task_num_str}.md"
-        expected_short = f".ai/reviews/REVIEW-{task_num_int}.md"
-        if canon_path not in (expected_standard, expected_exact, expected_short):
+        expected = f".ai/reviews/REVIEW-{task_num_str}.md"
+        if canon_path != expected:
             raise ContinuityStateValidationError(
-                f"{field_name} path '{canon_path}' incompatible with REVIEW_ARTIFACT for {task_id} (expected '{expected_standard}')"
+                f"{field_name} path '{canon_path}' incompatible with REVIEW_ARTIFACT for {task_id} (expected '{expected}')"
             )
     elif output_type == BrainOutputType.PLAN_ARTIFACT:
         # PLAN must live under .ai/context/, .ai/plans/, or .ai/decisions/ and NOT under tasks/reviews/results/metrics
@@ -233,6 +246,31 @@ def _validate_artifact_role_and_task(
         raise ContinuityStateValidationError(
             f"{field_name} path '{canon_path}' cannot be specified for BOUNDED_TEXT output type"
         )
+
+
+def _validate_evidence_role_and_task(
+    path: str,
+    operation: BrainOperation,
+    task_id: str,
+    field_name: str,
+) -> None:
+    """Validates that evidence_ref path matches operation evidence namespace and active task_id (C4 / R1-2)."""
+    canon_path = _validate_canonical_artifact_path(path, field_name)
+    if operation == BrainOperation.DIAGNOSIS:
+        if not (canon_path.startswith(".ai/context/") or canon_path.startswith(".ai/diagnosis/")):
+            raise ContinuityStateValidationError(
+                f"{field_name} path '{canon_path}' incompatible with DIAGNOSIS evidence (must live under .ai/context/ or .ai/diagnosis/)"
+            )
+    elif operation == BrainOperation.PATCH_PROPOSAL:
+        if not (canon_path.startswith(".ai/context/") or canon_path.startswith(".ai/patches/")):
+            raise ContinuityStateValidationError(
+                f"{field_name} path '{canon_path}' incompatible with PATCH_PROPOSAL evidence (must live under .ai/context/ or .ai/patches/)"
+            )
+    else:
+        raise ContinuityStateValidationError(
+            f"{field_name} is only supported for DIAGNOSIS or PATCH_PROPOSAL operations, got: {operation.value}"
+        )
+    _validate_task_token_in_path(canon_path, task_id, field_name)
 
 
 @dataclass(frozen=True)
@@ -268,6 +306,7 @@ class ContextRef:
         if not isinstance(data, dict):
             raise ContinuityStateValidationError(f"{context_name} must be a dict, got: {type(data).__name__}")
         allowed_keys = {"blob_sha", "description", "path"}
+        extra_keys = set(data.keys()) - allowed_root_keys if (allowed_root_keys := allowed_keys) else set()
         extra_keys = set(data.keys()) - allowed_keys
         if extra_keys:
             raise ContinuityStateValidationError(f"Unknown fields in {context_name}: {sorted(extra_keys)}")
@@ -383,6 +422,10 @@ class BrainCapability:
         object.__setattr__(self, "supported_operations", tuple(validated_ops))
 
         _validate_non_negative_int(self.max_context_bytes, "BrainCapability.max_context_bytes", allow_none=True)
+        if self.max_context_bytes is not None and self.max_context_bytes > MAX_BRAIN_CAPACITY_CONTEXT_BYTES:
+            raise ContinuityStateValidationError(
+                f"BrainCapability.max_context_bytes ({self.max_context_bytes}) exceeds maximum allowed ({MAX_BRAIN_CAPACITY_CONTEXT_BYTES})"
+            )
 
         # Enforce 16 KiB size cap fail-closed in constructor/parser
         raw_canonical = json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
@@ -717,13 +760,14 @@ class BrainResult:
                     f"SUCCESS status with {self.output_type.value} output_type cannot carry evidence_ref"
                 )
 
-        # Validate artifact_ref if present
+        # Validate artifact_ref if present (for any status! R1-4 / C4)
         if self.artifact_ref is not None:
             if not isinstance(self.artifact_ref, ArtifactRef):
                 raise ContinuityStateValidationError(
                     f"BrainResult.artifact_ref must be an ArtifactRef or None, got: {type(self.artifact_ref).__name__}"
                 )
             _validate_canonical_artifact_path(self.artifact_ref.path, "BrainResult.artifact_ref.path")
+            _validate_canonical_git_ref(self.artifact_ref.ref, "BrainResult.artifact_ref.ref")
             _validate_artifact_role_and_task(
                 self.artifact_ref.path,
                 self.output_type,
@@ -731,7 +775,7 @@ class BrainResult:
                 "BrainResult.artifact_ref",
             )
 
-        # Validate evidence_ref if present
+        # Validate evidence_ref if present (for any status! R1-2 / C4)
         if self.evidence_ref is not None:
             if not isinstance(self.evidence_ref, ContextRef):
                 raise ContinuityStateValidationError(
@@ -742,6 +786,12 @@ class BrainResult:
                 raise ContinuityStateValidationError(
                     f"evidence_ref payload is only valid for BOUNDED_TEXT output_type, got: {self.output_type.value}"
                 )
+            _validate_evidence_role_and_task(
+                self.evidence_ref.path,
+                self.operation,
+                self.task_id,
+                "BrainResult.evidence_ref",
+            )
 
         if self.error_code is not None:
             object.__setattr__(self, "error_code", _validate_error_code(self.error_code, "BrainResult.error_code"))

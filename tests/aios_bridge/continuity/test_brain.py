@@ -17,6 +17,7 @@ from src.aios_bridge.continuity import (
     OPERATION_OUTPUT_TYPE_COMPATIBILITY,
     OutputContract,
 )
+from src.aios_bridge.continuity.brain import MAX_BRAIN_CAPACITY_CONTEXT_BYTES
 
 
 def _make_valid_brain_request_dict() -> dict:
@@ -244,7 +245,11 @@ def test_output_type_and_artifact_role_validation():
     res_bad_role = _make_valid_brain_result_dict()
     res_bad_role["operation"] = "REVIEW"
     res_bad_role["output_type"] = "REVIEW_ARTIFACT"
-    res_bad_role["artifact_ref"]["path"] = ".ai/tasks/TASK-021.md"
+    res_bad_role["artifact_ref"] = {
+        "path": ".ai/tasks/TASK-021.md",
+        "blob_sha": "3ca21b58663c2de99ee2f16d16e2203ec77d0558",
+        "ref": "review",
+    }
     with pytest.raises(ContinuityStateValidationError, match="incompatible with REVIEW_ARTIFACT"):
         BrainResult.from_dict(res_bad_role)
 
@@ -330,7 +335,7 @@ def test_plan_diagnosis_patch_artifact_namespace_validation():
 
 
 def test_exact_task_token_matching_in_role_paths():
-    """Exact delimiter-aware task token parsing rejects TASK-0210, TASK-210, and conflicting tokens (C3 / Checklist 10-14)."""
+    """Exact delimiter-aware task token parsing rejects TASK-0210, TASK-21, TASK-0021, lowercase, and REVIEW aliases (C3 / R1-1)."""
     # 1. TASK-0210 fails for active TASK-021
     res_plan_210 = _make_valid_brain_result_dict()
     res_plan_210["operation"] = "PLAN"
@@ -339,15 +344,31 @@ def test_exact_task_token_matching_in_role_paths():
     with pytest.raises(ContinuityStateValidationError, match="which does not match active task identity TASK-021"):
         BrainResult.from_dict(res_plan_210)
 
-    # 2. TASK-210 fails for active TASK-021
-    res_plan_short_210 = _make_valid_brain_result_dict()
-    res_plan_short_210["operation"] = "PLAN"
-    res_plan_short_210["output_type"] = "PLAN_ARTIFACT"
-    res_plan_short_210["artifact_ref"]["path"] = ".ai/plans/TASK-210-PLAN.md"
+    # 2. TASK-21 (unpadded alias) fails for active TASK-021 (R1-1)
+    res_plan_short_21 = _make_valid_brain_result_dict()
+    res_plan_short_21["operation"] = "PLAN"
+    res_plan_short_21["output_type"] = "PLAN_ARTIFACT"
+    res_plan_short_21["artifact_ref"]["path"] = ".ai/plans/TASK-21-ARCHITECTURE-PLAN.md"
     with pytest.raises(ContinuityStateValidationError, match="which does not match active task identity TASK-021"):
-        BrainResult.from_dict(res_plan_short_210)
+        BrainResult.from_dict(res_plan_short_21)
 
-    # 3. Conflicting multiple task tokens fail closed
+    # 3. TASK-0021 (overpadded alias) fails for active TASK-021 (R1-1)
+    res_plan_overpadded = _make_valid_brain_result_dict()
+    res_plan_overpadded["operation"] = "PLAN"
+    res_plan_overpadded["output_type"] = "PLAN_ARTIFACT"
+    res_plan_overpadded["artifact_ref"]["path"] = ".ai/plans/TASK-0021-PLAN.md"
+    with pytest.raises(ContinuityStateValidationError, match="which does not match active task identity TASK-021"):
+        BrainResult.from_dict(res_plan_overpadded)
+
+    # 4. Lowercase task-021 fails for active TASK-021 (case-sensitive R1-1)
+    res_plan_lowercase = _make_valid_brain_result_dict()
+    res_plan_lowercase["operation"] = "PLAN"
+    res_plan_lowercase["output_type"] = "PLAN_ARTIFACT"
+    res_plan_lowercase["artifact_ref"]["path"] = ".ai/plans/task-021-plan.md"
+    with pytest.raises(ContinuityStateValidationError, match="must match active task identity TASK-021"):
+        BrainResult.from_dict(res_plan_lowercase)
+
+    # 5. Conflicting multiple task tokens fail closed
     res_plan_conflict = _make_valid_brain_result_dict()
     res_plan_conflict["operation"] = "PLAN"
     res_plan_conflict["output_type"] = "PLAN_ARTIFACT"
@@ -355,12 +376,11 @@ def test_exact_task_token_matching_in_role_paths():
     with pytest.raises(ContinuityStateValidationError, match="which does not match active task identity TASK-021"):
         BrainResult.from_dict(res_plan_conflict)
 
-    # 4. Valid TASK-021 and TASK-21 role paths succeed
+    # 6. Valid exact TASK-021 role paths succeed
     for valid_path in [
         ".ai/plans/TASK-021.md",
         ".ai/plans/TASK-021-PLAN.md",
-        ".ai/plans/TASK-21-ARCHITECTURE-PLAN.md",
-        ".ai/context/TASK-021-SUBTASK-021.md",
+        ".ai/context/TASK-021-SUBTASK-TASK-021.md",
     ]:
         res_valid = _make_valid_brain_result_dict()
         res_valid["operation"] = "PLAN"
@@ -368,6 +388,150 @@ def test_exact_task_token_matching_in_role_paths():
         res_valid["artifact_ref"]["path"] = valid_path
         obj = BrainResult.from_dict(res_valid)
         assert obj.artifact_ref.path == valid_path
+
+    # 7. REVIEW_ARTIFACT canonical uniqueness (R1-1): exact matching without aliases
+    res_review_valid = {
+        "schema_version": "1",
+        "task_id": "TASK-021",
+        "request_id": "req-task-021-rev-r1",
+        "brain_id": "chatgpt-chat",
+        "operation": "REVIEW",
+        "status": "SUCCESS",
+        "output_type": "REVIEW_ARTIFACT",
+        "artifact_ref": {
+            "path": ".ai/reviews/REVIEW-021.md",
+            "blob_sha": "3ca21b58663c2de99ee2f16d16e2203ec77d0558",
+            "ref": "review",
+        },
+        "evidence_ref": None,
+        "error_code": None,
+    }
+    assert BrainResult.from_dict(res_review_valid).artifact_ref.path == ".ai/reviews/REVIEW-021.md"
+
+    # Aliased short REVIEW-21.md fails for active TASK-021
+    res_review_alias = dict(res_review_valid)
+    res_review_alias["artifact_ref"] = {
+        "path": ".ai/reviews/REVIEW-21.md",
+        "blob_sha": "3ca21b58663c2de99ee2f16d16e2203ec77d0558",
+        "ref": "review",
+    }
+    with pytest.raises(ContinuityStateValidationError, match="incompatible with REVIEW_ARTIFACT for TASK-021"):
+        BrainResult.from_dict(res_review_alias)
+
+
+def test_bounded_text_evidence_ref_task_and_role_consistency():
+    """evidence_ref must belong to active task_id and appropriate evidence namespace (C4 / R1-2)."""
+    # 1. Valid DIAGNOSIS evidence under .ai/context/ and .ai/diagnosis/ succeeds
+    for valid_evidence_path in [
+        ".ai/context/TASK-021-DIAGNOSIS.md",
+        ".ai/diagnosis/TASK-021-ANALYSIS.md",
+    ]:
+        res = BrainResult(
+            schema_version="1",
+            task_id="TASK-021",
+            request_id="req-task-021-diag-r1",
+            brain_id="chatgpt-chat",
+            operation=BrainOperation.DIAGNOSIS,
+            status=BrainResultStatus.SUCCESS,
+            output_type=BrainOutputType.BOUNDED_TEXT,
+            evidence_ref=ContextRef(path=valid_evidence_path),
+        )
+        assert res.evidence_ref.path == valid_evidence_path
+
+    # 2. Valid PATCH_PROPOSAL evidence under .ai/patches/ succeeds
+    res_patch = BrainResult(
+        schema_version="1",
+        task_id="TASK-021",
+        request_id="req-task-021-patch-r1",
+        brain_id="chatgpt-chat",
+        operation=BrainOperation.PATCH_PROPOSAL,
+        status=BrainResultStatus.SUCCESS,
+        output_type=BrainOutputType.BOUNDED_TEXT,
+        evidence_ref=ContextRef(path=".ai/patches/TASK-021-PROPOSAL.md"),
+    )
+    assert res_patch.evidence_ref.path == ".ai/patches/TASK-021-PROPOSAL.md"
+
+    # 3. Wrong task in evidence_ref fails closed (R1-2)
+    with pytest.raises(ContinuityStateValidationError, match="which does not match active task identity TASK-021"):
+        BrainResult(
+            schema_version="1",
+            task_id="TASK-021",
+            request_id="req-task-021-diag-r1",
+            brain_id="chatgpt-chat",
+            operation=BrainOperation.DIAGNOSIS,
+            status=BrainResultStatus.SUCCESS,
+            output_type=BrainOutputType.BOUNDED_TEXT,
+            evidence_ref=ContextRef(path=".ai/context/TASK-099-DIAGNOSIS.md"),
+        )
+
+    # 4. Wrong role namespace in evidence_ref fails closed (e.g. .ai/tasks/ or .ai/reviews/)
+    for bad_namespace in [
+        ".ai/tasks/TASK-021.md",
+        ".ai/reviews/REVIEW-021.md",
+        ".ai/results/RESULT-021.md",
+    ]:
+        with pytest.raises(ContinuityStateValidationError, match="incompatible with DIAGNOSIS evidence"):
+            BrainResult(
+                schema_version="1",
+                task_id="TASK-021",
+                request_id="req-task-021-diag-r1",
+                brain_id="chatgpt-chat",
+                operation=BrainOperation.DIAGNOSIS,
+                status=BrainResultStatus.SUCCESS,
+                output_type=BrainOutputType.BOUNDED_TEXT,
+                evidence_ref=ContextRef(path=bad_namespace),
+            )
+
+    # 5. Non-success status with wrong-task evidence_ref fails closed
+    with pytest.raises(ContinuityStateValidationError, match="which does not match active task identity TASK-021"):
+        BrainResult(
+            schema_version="1",
+            task_id="TASK-021",
+            request_id="req-task-021-diag-r1",
+            brain_id="chatgpt-chat",
+            operation=BrainOperation.DIAGNOSIS,
+            status=BrainResultStatus.FAILED,
+            output_type=BrainOutputType.BOUNDED_TEXT,
+            evidence_ref=ContextRef(path=".ai/context/TASK-099-DIAGNOSIS.md"),
+            error_code="FAILED_ANALYSIS",
+        )
+
+
+def test_artifact_ref_canonical_git_ref_validation():
+    """ArtifactRef.ref inside BrainResult must be exact canonical without whitespace padding (R1-4)."""
+    # Padded ref fails closed
+    with pytest.raises(ContinuityStateValidationError, match="must not contain leading or trailing whitespace"):
+        BrainResult(
+            schema_version="1",
+            task_id="TASK-021",
+            request_id="req-task-021-r1",
+            brain_id="chatgpt-chat",
+            operation=BrainOperation.TASK,
+            status=BrainResultStatus.SUCCESS,
+            output_type=BrainOutputType.TASK_ARTIFACT,
+            artifact_ref=ArtifactRef(
+                path=".ai/tasks/TASK-021.md",
+                ref=" task ",
+                blob_sha="3ca21b58663c2de99ee2f16d16e2203ec77d0558",
+            ),
+        )
+
+    # Exact canonical ref succeeds
+    res = BrainResult(
+        schema_version="1",
+        task_id="TASK-021",
+        request_id="req-task-021-r1",
+        brain_id="chatgpt-chat",
+        operation=BrainOperation.TASK,
+        status=BrainResultStatus.SUCCESS,
+        output_type=BrainOutputType.TASK_ARTIFACT,
+        artifact_ref=ArtifactRef(
+            path=".ai/tasks/TASK-021.md",
+            ref="task",
+            blob_sha="3ca21b58663c2de99ee2f16d16e2203ec77d0558",
+        ),
+    )
+    assert res.artifact_ref.ref == "task"
 
 
 def test_result_payload_exclusivity_and_status_matrix():
@@ -554,7 +718,7 @@ def test_16kib_fail_closed_limit():
 
 
 def test_brain_capability_declarative_and_bounded():
-    """BrainCapability is purely descriptive, rejects duplicates, and is bounded (C6 / Checklist 24-28)."""
+    """BrainCapability is purely descriptive, rejects duplicates, and is bounded (C6 / R1-3 / Checklist 24-28)."""
     cap = BrainCapability(
         brain_id="chatgpt-chat",
         supported_operations=(
@@ -602,3 +766,43 @@ def test_brain_capability_declarative_and_bounded():
             brain_id="chatgpt-chat",
             supported_operations=(),
         )
+
+    # max_context_bytes upper bound validation (R1-3)
+    cap_max = BrainCapability(
+        brain_id="chatgpt-chat",
+        supported_operations=(BrainOperation.TASK,),
+        max_context_bytes=MAX_BRAIN_CAPACITY_CONTEXT_BYTES,
+    )
+    assert cap_max.max_context_bytes == MAX_BRAIN_CAPACITY_CONTEXT_BYTES
+
+    # max_context_bytes > MAX_BRAIN_CAPACITY_CONTEXT_BYTES fails closed
+    with pytest.raises(ContinuityStateValidationError, match="exceeds maximum allowed"):
+        BrainCapability(
+            brain_id="chatgpt-chat",
+            supported_operations=(BrainOperation.TASK,),
+            max_context_bytes=MAX_BRAIN_CAPACITY_CONTEXT_BYTES + 1,
+        )
+
+    # Negative integer fails closed
+    with pytest.raises(ContinuityStateValidationError, match="must be >= 0"):
+        BrainCapability(
+            brain_id="chatgpt-chat",
+            supported_operations=(BrainOperation.TASK,),
+            max_context_bytes=-1,
+        )
+
+    # Bool fails closed
+    with pytest.raises(ContinuityStateValidationError, match="must be an integer"):
+        BrainCapability(
+            brain_id="chatgpt-chat",
+            supported_operations=(BrainOperation.TASK,),
+            max_context_bytes=True,
+        )
+
+    # None is permitted (unspecified capacity)
+    cap_none = BrainCapability(
+        brain_id="chatgpt-chat",
+        supported_operations=(BrainOperation.TASK,),
+        max_context_bytes=None,
+    )
+    assert cap_none.max_context_bytes is None
