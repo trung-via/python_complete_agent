@@ -116,3 +116,76 @@ def test_transport_request_deep_immutability_and_defensive_copy():
     with pytest.raises(ContractValidationError, match="timeout_seconds must be a positive number"):
         TransportRequest(endpoint_url="https://api.example.com", path="/", timeout_seconds=True)
 
+
+def test_transport_request_json_payload_wire_serialization():
+    """TransportRequest provides a fresh JSON-compatible dictionary for wire serialization."""
+    import json
+
+    req = TransportRequest(
+        endpoint_url="https://api.openai.com/v1",
+        path="/chat/completions",
+        headers={"Authorization": "Bearer sk-test", "Content-Type": "application/json"},
+        payload={
+            "model": "gpt-4o",
+            "messages": [
+                {"role": "system", "content": "You are a reviewer."},
+                {"role": "user", "content": "Review code."},
+            ],
+            "temperature": 0.2,
+            "stream": False,
+            "max_tokens": 1000,
+            "metadata": None,
+        },
+        timeout_seconds=30.0,
+    )
+
+    # 1. to_json_payload returns regular dict and list primitives
+    wire_payload = req.to_json_payload()
+    assert isinstance(wire_payload, dict)
+    assert isinstance(wire_payload["messages"], list)
+    assert isinstance(wire_payload["messages"][0], dict)
+    assert wire_payload["temperature"] == 0.2
+    assert wire_payload["stream"] is False
+    assert wire_payload["metadata"] is None
+
+    # 2. json.dumps on to_json_payload succeeds
+    serialized_json = json.dumps(wire_payload)
+    assert "gpt-4o" in serialized_json
+
+    # 3. to_wire_dict produces full wire payload
+    wire_dict = req.to_wire_dict()
+    assert wire_dict["endpoint_url"] == "https://api.openai.com/v1"
+    assert wire_dict["path"] == "/chat/completions"
+    assert isinstance(wire_dict["headers"], dict)
+    assert isinstance(wire_dict["payload"], dict)
+    serialized_full = json.dumps(wire_dict)
+    assert "https://api.openai.com/v1" in serialized_full
+
+    # 4. Mutating returned wire payload does NOT mutate req.payload
+    wire_payload["model"] = "mutated-model"
+    wire_payload["messages"].append({"role": "user", "content": "injected"})
+    wire_payload["messages"][0]["content"] = "tampered"
+
+    assert req.payload["model"] == "gpt-4o"
+    assert len(req.payload["messages"]) == 2
+    assert req.payload["messages"][0]["content"] == "You are a reviewer."
+
+    # 5. Non-JSON-compatible payload values fail with ContractValidationError
+    class CustomObj:
+        pass
+
+    with pytest.raises(ContractValidationError, match="Non-JSON-compatible payload value"):
+        TransportRequest(
+            endpoint_url="https://api.example.com",
+            path="/",
+            payload={"invalid": CustomObj()},
+        )
+
+    with pytest.raises(ContractValidationError, match="Non-JSON-compatible payload value"):
+        TransportRequest(
+            endpoint_url="https://api.example.com",
+            path="/",
+            payload={"fn": lambda x: x},
+        )
+
+

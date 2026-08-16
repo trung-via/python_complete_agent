@@ -8,14 +8,41 @@ from typing import Any, Mapping, Protocol
 from .errors import ContractValidationError
 
 
-def _deep_freeze(val: Any) -> Any:
-    """Recursively converts dicts/mappings to MappingProxyType, lists to tuples, and sets to frozensets."""
-    if isinstance(val, (dict, Mapping)):
-        return MappingProxyType({str(k): _deep_freeze(v) for k, v in val.items()})
+def _validate_and_freeze_payload(val: Any) -> Any:
+    """Recursively validates JSON compatibility and freezes payload into immutable structures."""
+    if val is None or isinstance(val, (str, int, float, bool)):
+        return val
+    elif isinstance(val, (dict, Mapping)):
+        frozen_dict = {}
+        for k, v in val.items():
+            if not isinstance(k, str):
+                raise ContractValidationError(f"Payload dictionary keys must be strings, got: {type(k)}")
+            frozen_dict[k] = _validate_and_freeze_payload(v)
+        return MappingProxyType(frozen_dict)
     elif isinstance(val, (list, tuple)):
-        return tuple(_deep_freeze(v) for v in val)
+        return tuple(_validate_and_freeze_payload(v) for v in val)
     elif isinstance(val, (set, frozenset)):
-        return frozenset(_deep_freeze(v) for v in val)
+        return tuple(_validate_and_freeze_payload(v) for v in val)
+    else:
+        raise ContractValidationError(f"Non-JSON-compatible payload value: {type(val)} ({val!r})")
+
+
+def _freeze_headers(headers: Mapping[str, Any]) -> MappingProxyType[str, str]:
+    """Validates and freezes request headers into an immutable MappingProxyType."""
+    frozen = {}
+    for k, v in headers.items():
+        if not isinstance(k, str) or not isinstance(v, str):
+            raise ContractValidationError(f"Header keys and values must be strings, got key={type(k)}, value={type(v)}")
+        frozen[k] = v
+    return MappingProxyType(frozen)
+
+
+def _to_json_compatible(val: Any) -> Any:
+    """Recursively converts internal MappingProxyType and tuples into standard JSON dict/list primitives."""
+    if isinstance(val, (MappingProxyType, dict, Mapping)):
+        return {str(k): _to_json_compatible(v) for k, v in val.items()}
+    elif isinstance(val, (tuple, list, set, frozenset)):
+        return [_to_json_compatible(v) for v in val]
     return val
 
 
@@ -50,8 +77,22 @@ class TransportRequest:
             raise ContractValidationError("payload must be a mapping")
 
         # Defensive deep-copy & deep-freeze
-        object.__setattr__(self, "headers", _deep_freeze(self.headers))
-        object.__setattr__(self, "payload", _deep_freeze(self.payload))
+        object.__setattr__(self, "headers", _freeze_headers(self.headers))
+        object.__setattr__(self, "payload", _validate_and_freeze_payload(self.payload))
+
+    def to_json_payload(self) -> dict[str, Any]:
+        """Returns a fresh JSON-compatible dictionary representation of the request payload."""
+        return _to_json_compatible(self.payload)
+
+    def to_wire_dict(self) -> dict[str, Any]:
+        """Returns a fresh JSON-compatible wire representation of the entire transport request."""
+        return {
+            "endpoint_url": self.endpoint_url,
+            "path": self.path,
+            "headers": dict(self.headers),
+            "payload": self.to_json_payload(),
+            "timeout_seconds": self.timeout_seconds,
+        }
 
 
 @dataclass(frozen=True)
@@ -71,7 +112,16 @@ class TransportResult:
                 raise ContractValidationError(f"status_code must be an integer if specified, got: {self.status_code!r}")
 
         if isinstance(self.body, (dict, list, set, Mapping)):
-            object.__setattr__(self, "body", _deep_freeze(self.body))
+            object.__setattr__(self, "body", _validate_and_freeze_payload(self.body))
+
+    def to_dict(self) -> dict[str, Any]:
+        """Returns a fresh JSON-compatible dictionary representation of the transport result."""
+        return {
+            "status_code": self.status_code,
+            "body": _to_json_compatible(self.body),
+            "latency_ms": self.latency_ms,
+            "provider_request_id": self.provider_request_id,
+        }
 
 
 class ModelTransport(Protocol):

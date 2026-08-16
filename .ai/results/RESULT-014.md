@@ -3,28 +3,24 @@
 STATUS: READY_FOR_REVIEW
 
 ## Summary
-TASK-014 FIX: Implemented deep immutability for TransportRequest and rejected contradictory error metadata on ModelResponse(SUCCESS).
+TASK-014 FIX: Added JSON-compatible wire serialization helpers (to_json_payload, to_wire_dict) and payload JSON validation for TransportRequest.
 
 ## Task Metadata
 - Task: `TASK-014`
 - Action: `FIX`
-- Authorized Artifact: `.ai/reviews/REVIEW-014.md (25df1c3e9e)`
+- Authorized Artifact: `.ai/reviews/REVIEW-014.md (2f1483baa9)`
 - Base Main SHA: `(n/a)`
 - Branch: `ai/task-014`
 
 ## Files Changed
-- src/aios_bridge/external_brain/contracts.py
 - src/aios_bridge/external_brain/transport.py
-- tests/aios_bridge/external_brain/test_contracts.py
 - tests/aios_bridge/external_brain/test_transport_contract.py
 
 ## Diff Stat
 ```text
-src/aios_bridge/external_brain/contracts.py        | 16 +++--
- src/aios_bridge/external_brain/transport.py        | 34 ++++++++--
- tests/aios_bridge/external_brain/test_contracts.py | 78 ++++++++++++++++++++++
- .../external_brain/test_transport_contract.py      | 48 ++++++++++++-
- 4 files changed, 165 insertions(+), 11 deletions(-)
+src/aios_bridge/external_brain/transport.py        | 68 +++++++++++++++++---
+ .../external_brain/test_transport_contract.py      | 73 ++++++++++++++++++++++
+ 2 files changed, 132 insertions(+), 9 deletions(-)
 ```
 
 ## Tests
@@ -38,27 +34,28 @@ cachedir: .pytest_cache
 rootdir: C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent
 plugins: anyio-4.14.2, asyncio-0.25.0
 asyncio: mode=Mode.STRICT, asyncio_default_fixture_loop_scope=None
-collecting ... collected 19 items
+collecting ... collected 20 items
 
 tests/aios_bridge/external_brain/test_contracts.py::test_enum_string_values_match_adr005 PASSED [  5%]
 tests/aios_bridge/external_brain/test_contracts.py::test_operation_to_expected_output_type_mapping PASSED [ 10%]
 tests/aios_bridge/external_brain/test_contracts.py::test_context_item_immutability_and_validation PASSED [ 15%]
-tests/aios_bridge/external_brain/test_contracts.py::test_model_request_validation PASSED [ 21%]
-tests/aios_bridge/external_brain/test_contracts.py::test_model_response_validation PASSED [ 26%]
-tests/aios_bridge/external_brain/test_contracts.py::test_model_response_rejects_contradictory_success_failure_metadata PASSED [ 31%]
-tests/aios_bridge/external_brain/test_contracts.py::test_validate_request_response_correlation PASSED [ 36%]
-tests/aios_bridge/external_brain/test_contracts.py::test_deterministic_serialization_equality PASSED [ 42%]
-tests/aios_bridge/external_brain/test_contracts.py::test_context_immutability_and_order_preservation PASSED [ 47%]
-tests/aios_bridge/external_brain/test_output_contract.py::test_plan_structural_validation PASSED [ 52%]
-tests/aios_bridge/external_brain/test_output_contract.py::test_patch_proposal_structural_validation_and_data_treatment PASSED [ 57%]
-tests/aios_bridge/external_brain/test_output_contract.py::test_diagnosis_structural_validation PASSED [ 63%]
-tests/aios_bridge/external_brain/test_output_contract.py::test_review_structural_validation_and_allowed_statuses PASSED [ 68%]
-tests/aios_bridge/external_brain/test_provider_contract.py::test_provider_adapter_protocol_conformance PASSED [ 73%]
-tests/aios_bridge/external_brain/test_provider_contract.py::test_runtime_llm_provider_remains_untouched PASSED [ 78%]
-tests/aios_bridge/external_brain/test_transport_contract.py::test_transport_protocol_conformance PASSED [ 84%]
-tests/aios_bridge/external_brain/test_transport_contract.py::test_transport_request_validation PASSED [ 89%]
-tests/aios_bridge/external_brain/test_transport_contract.py::test_transport_result_validation PASSED [ 94%]
-tests/aios_bridge/external_brain/test_transport_contract.py::test_transport_request_deep_immutability_and_defensive_copy PASSED [100%]
+tests/aios_bridge/external_brain/test_contracts.py::test_model_request_validation PASSED [ 20%]
+tests/aios_bridge/external_brain/test_contracts.py::test_model_response_validation PASSED [ 25%]
+tests/aios_bridge/external_brain/test_contracts.py::test_model_response_rejects_contradictory_success_failure_metadata PASSED [ 30%]
+tests/aios_bridge/external_brain/test_contracts.py::test_validate_request_response_correlation PASSED [ 35%]
+tests/aios_bridge/external_brain/test_contracts.py::test_deterministic_serialization_equality PASSED [ 40%]
+tests/aios_bridge/external_brain/test_contracts.py::test_context_immutability_and_order_preservation PASSED [ 45%]
+tests/aios_bridge/external_brain/test_output_contract.py::test_plan_structural_validation PASSED [ 50%]
+tests/aios_bridge/external_brain/test_output_contract.py::test_patch_proposal_structural_validation_and_data_treatment PASSED [ 55%]
+tests/aios_bridge/external_brain/test_output_contract.py::test_diagnosis_structural_validation PASSED [ 60%]
+tests/aios_bridge/external_brain/test_output_contract.py::test_review_structural_validation_and_allowed_statuses PASSED [ 65%]
+tests/aios_bridge/external_brain/test_provider_contract.py::test_provider_adapter_protocol_conformance PASSED [ 70%]
+tests/aios_bridge/external_brain/test_provider_contract.py::test_runtime_llm_provider_remains_untouched PASSED [ 75%]
+tests/aios_bridge/external_brain/test_transport_contract.py::test_transport_protocol_conformance PASSED [ 80%]
+tests/aios_bridge/external_brain/test_transport_contract.py::test_transport_request_validation PASSED [ 85%]
+tests/aios_bridge/external_brain/test_transport_contract.py::test_transport_result_validation PASSED [ 90%]
+tests/aios_bridge/external_brain/test_transport_contract.py::test_transport_request_deep_immutability_and_defensive_copy PASSED [ 95%]
+tests/aios_bridge/external_brain/test_transport_contract.py::test_transport_request_json_payload_wire_serialization PASSED [100%]
 
 ============================== warnings summary ===============================
 tests/aios_bridge/external_brain/test_contracts.py::test_enum_string_values_match_adr005
@@ -101,15 +98,15 @@ tests/aios_bridge/external_brain/test_transport_contract.py::test_transport_prot
     policy = asyncio.get_event_loop_policy()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-======================= 19 passed, 15 warnings in 0.07s =======================
+======================= 20 passed, 15 warnings in 0.06s =======================
 ........................................................................ [ 14%]
 ........................................................................ [ 29%]
 ........................................................................ [ 43%]
 ........................................................................ [ 58%]
-........................................................................ [ 73%]
+........................................................................ [ 72%]
 ........................................................................ [ 87%]
-.............................................................            [100%]
-493 passed in 58.80s
+..............................................................           [100%]
+494 passed in 54.81s
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -122,22 +119,19 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 ```
 
 ## Risks / Notes
-### Corrections Implemented (Review Round 1 Fixes):
-1. Fixed Blocker 1 (`TransportRequest` Deep Immutability):
-   - Implemented `_deep_freeze` in `src/aios_bridge/external_brain/transport.py` converting dicts/mappings into `MappingProxyType`, lists to `tuple`, and sets to `frozenset`.
-   - Both `headers` and `payload` (including arbitrary nested structures) are now deeply frozen and defensively copied during `TransportRequest.__post_init__`.
-   - Caller mutations after construction or direct mutation attempts on `req.headers` / `req.payload` are prevented.
-   - Added regression test `test_transport_request_deep_immutability_and_defensive_copy` in `tests/aios_bridge/external_brain/test_transport_contract.py`.
-2. Fixed Blocker 2 (`ModelResponse(SUCCESS)` Contradictory Metadata):
-   - `ModelResponse.__post_init__` now strictly rejects `error_code` and `error_message` when `status == ModelResponseStatus.SUCCESS`.
-   - Added regression test `test_model_response_rejects_contradictory_success_failure_metadata` in `tests/aios_bridge/external_brain/test_contracts.py`.
-3. Non-Blocking Hardening:
-   - Added `not isinstance(..., bool)` checks to all integer/numeric fields (`priority`, `max_input_tokens`, `max_output_tokens`, `input_tokens`, `output_tokens`, `latency_ms`, `timeout_seconds`, `status_code`).
-4. Invariants Preserved:
+### Corrections Implemented (Review Round 2 Fixes):
+1. Fixed Transport Wire Serialization & JSON Compatibility:
+   - Added `_validate_and_freeze_payload` in `src/aios_bridge/external_brain/transport.py` that validates JSON-compatible types (`str`, `int`, `float`, `bool`, `None`, and nested collections) while rejecting non-JSON types (e.g. custom classes, callables) at construction.
+   - Added `to_json_payload()` on `TransportRequest` to recursively convert internal immutable structures into fresh standard `dict` / `list` primitives for wire serialization (`json.dumps`).
+   - Added `to_wire_dict()` on `TransportRequest` and `to_dict()` on `TransportResult`.
+   - Guaranteed that mutating the returned wire dictionary does NOT affect the stored immutable `TransportRequest.payload`.
+2. Regression Tests Added:
+   - Added `test_transport_request_json_payload_wire_serialization` in `tests/aios_bridge/external_brain/test_transport_contract.py` covering wire dictionary conversion, json.dumps serialization, deep immutability preservation, and rejection of non-JSON values.
+3. Invariants Preserved:
    - Zero live external-model calls.
    - Zero changes to protected files (`bridge.py`, `src/providers/base.py`, `src/providers/gemini.py`, AgentLoop, etc.).
-   - Focused test suite (`tests/aios_bridge/external_brain/`): 19 passed.
-   - Full repository test suite (`tests/`): 493 passed, 0 regressions.
+   - Focused test suite (`tests/aios_bridge/external_brain/`): 20 passed.
+   - Full repository test suite (`tests/`): 494 passed, 0 regressions.
 
 ## Generated
-2026-08-16T12:35:41+07:00
+2026-08-16T12:41:13+07:00
