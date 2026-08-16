@@ -5,90 +5,75 @@ CHANGES_REQUIRED
 
 ## Reviewed Head
 - Branch: `ai/task-012`
-- Reviewed commit: `5f2de78c995f8b3e9f9e85add130c18a4a228eaa`
+- Reviewed commit: `3543f017fb2bacefcd06268011a06d49dea0734e`
 - Main baseline: `68db4d45154994c929bae22e660f1aca236e2bcd`
-- Branch relation to main: ahead 1, behind 0 (fast-forward safe)
+- Branch relation to main: ahead 2, behind 0 (fast-forward safe)
 - Task artifact blob: `86af9ebbcc5aea780146c16625d2820fcc3c1b22`
-- RESULT-012 blob: `fd99285b20344b8d42d5175a2bd08f6e6c283a7a`
-- RESULT action: `RUN`
-- Exact RUN authorization recorded by worker: `.ai/tasks/TASK-012.md (86af9ebbcc)` — matches the task artifact.
-- Reported focused Product Intelligence suite: 43 passed, 0 failed, exit code 0.
-- Reported full repository suite: 416 passed, 0 failed, exit code 0.
+- Prior CHANGES_REQUIRED authorization blob: `408cbc0c03e2a6c71559e506c1cecd98264dc11b`
+- RESULT-012 blob: `b5e8d27f699ac1c43e80f808da6536a34caa744d`
+- RESULT action: `FIX`
+- Exact FIX authorization recorded by worker: `.ai/reviews/REVIEW-012.md (408cbc0c03)` — matches the prior review artifact exactly.
+- Reported focused Product Intelligence suite: 44 passed, 0 failed, exit code 0.
+- Reported full repository suite: 417 passed, 0 failed, exit code 0.
 
-## Review Summary
-The implementation is directionally aligned with M2.2: it adds a platform-independent discovery contract, keeps Shopee-specific extraction isolated in an adapter, enforces bounded pages/candidates, uses deterministic candidate IDs and first-seen dedupe, keeps deep-ingestion/GDrive/LLM/scoring/queue concerns out of discovery, and includes deterministic parsing helpers plus injected-browser tests.
+## Re-review Summary
+The three prior findings are closed correctly:
 
-Two source-level correctness blockers remain before real marketplace data may feed M2.1/M2.3. There is also one durable RESULT evidence issue.
+1. `review_count` is now isolated from `rating_text`; rating-only cards preserve `review_count=None`, while explicit review text is parsed separately.
+2. First-page zero-card extraction without a positive empty-result marker now fails closed instead of being reported as `TRUE_EMPTY_SEARCH`; later-page zero-card extraction returns an explicit partial diagnostic.
+3. RESULT-012 now gives an accurate FIX diff stat and preserves the requested verification/bounds/governance evidence.
 
-## Blocking Finding 1 — `review_count` is fabricated from `rating_text`
+One integration-level blocker remains against TASK-012's explicit dependency-injection requirement.
 
-### Location
-- `src/product_intelligence/adapters/shopee.py` — card extraction and `_map_card_to_snapshot`
-- `src/product_intelligence/adapters/shopee_parsing.py` — `parse_shopee_review_count`
+## Blocking Finding — Shopee discovery is not actually compatible with the project's existing BrowserManager/BrowserSession abstraction
+
+### Locations
+- `src/product_intelligence/adapters/shopee.py` — `_acquire_page`, `_light_scroll`, `_evaluate_script`
+- `src/browser/manager.py` / `src/browser/session.py`
+- `src/integrations/playwright/manager.py` / `src/integrations/playwright/session.py`
 - `tests/product_intelligence/test_shopee_discovery.py`
 
-The extraction script currently emits `rating_text` but does not emit a distinct review-count field. `_map_card_to_snapshot` then does both:
+TASK-012 requires the adapter to consume an injected browser/browser-manager dependency compatible with the existing project browser abstraction.
 
-- `rating = parse_shopee_rating(card_dict.get("rating_text"))`
-- `review_count = parse_shopee_review_count(card_dict.get("rating_text"))`
+The adapter advertises a BrowserManager path in `_acquire_page`: when an object exposes `get_or_create_session`, it calls `get_or_create_session("discovery_run")` and returns that session. The project's real `PlaywrightBrowserManager` does exactly this and returns a `BrowserSession` / `PlaywrightBrowserSession`.
 
-This violates TASK-012's evidence/missing-value boundary. A rating-only string such as `"4.85"` is not review-count evidence. Worse, the current review-count parser treats the plain decimal text as digits after removing separators, so `"4.85"` can become `485` reviews and `"4.9"` can become `49` reviews. The successful discovery fixture uses exactly these rating strings but does not assert that `review_count` stays `None`, so the fabrication is currently untested.
+However, the public `BrowserSession` contract exposes `navigate`, `inspect`, `click`, `type_text`, `press`, and `screenshot`; it does **not** expose a public `evaluate` method. The concrete `PlaywrightBrowserSession` likewise evaluates JavaScript only internally against its private `_page`. Therefore after the adapter acquires a real project BrowserSession:
 
-### Required Fix
-Keep rating and review-count extraction independent.
+- navigation works through `session.navigate(url)`;
+- `_light_scroll()` becomes a no-op because the session has no public `evaluate`;
+- `_evaluate_script()` returns its fallback `{is_blocked: false, is_empty: false, items: []}` because the session has no public `evaluate`;
+- the newly-correct fail-closed logic then raises `DiscoveryNavigationError` on page 1.
 
-- Add a distinct `review_count_text` field only when the listing/search card genuinely exposes review count, or leave it absent/`None` when unavailable.
-- Map `review_count` only from that dedicated field.
-- A rating-only value must never be reused as review-count evidence.
-- Add regressions proving a card with `rating_text="4.85"` and no review-count text yields `rating == 4.85` and `review_count is None`.
-- Add a positive fixture only if the listing fixture explicitly contains review-count evidence.
+So the adapter passes its fake-page tests but cannot perform discovery through the actual browser dependency used by `AgentController`, where both `browser` and `browser_manager` point to `PlaywrightBrowserManager`.
 
-Do not infer review count from stars/rating or from unrelated text.
-
-## Blocking Finding 2 — Unknown extraction failure is silently classified as `TRUE_EMPTY_SEARCH`
-
-### Location
-`src/product_intelligence/adapters/shopee.py` — first-page empty-card handling.
-
-After evaluation, the adapter already receives an explicit `is_empty` signal from the extraction script. However, it then contains a second fallback:
-
-```python
-if not raw_cards and page_idx == 1:
-    diagnostic_codes.append("TRUE_EMPTY_SEARCH")
-    break
-```
-
-That means a Shopee DOM/layout change, selector miss, incomplete hydration, or otherwise successful JavaScript evaluation returning `{is_blocked: false, is_empty: false, items: []}` is reported as a legitimate zero-result market search. TASK-012 explicitly requires a true empty search to be distinguishable from extraction failure and says blocked/navigation/extraction problems must not be silently converted to ordinary empty marketplace results.
+The current test named `test_shopee_discovery_with_browser_manager_dependency` does not exercise the real manager contract: its `FakeBrowser` exposes `new_page()` directly, which follows the adapter's Playwright-page path rather than the project's `BrowserManager.get_or_create_session()` path.
 
 ### Required Fix
-Fail closed when no cards are extracted unless the page positively proves an empty result.
+Keep this small and preserve abstraction boundaries. Make one supported path work end-to-end with the real project browser stack, and test that exact contract.
 
-A small approach is sufficient:
-- retain `TRUE_EMPTY_SEARCH` only when the extraction script positively reports the empty-result marker;
-- otherwise, on first page with zero extracted cards and no explicit empty marker, raise a typed discovery/extraction error or equivalent fail-closed diagnostic;
-- on later pages, if earlier candidates exist, return a partial batch with an explicit extraction-failure diagnostic;
-- add regressions for `{is_blocked: false, is_empty: false, items: []}` showing it is not treated as `TRUE_EMPTY_SEARCH`.
+Acceptable approaches include:
+- add a small, generic public script-evaluation capability to the project BrowserSession abstraction and Playwright implementation, then use it from discovery; or
+- add a narrowly scoped injected discovery-page/session adapter that is intentionally supported by the existing Playwright integration without reaching into private `_page`; or
+- another minimal equivalent that keeps platform DOM logic in Shopee discovery and does not construct a second browser framework.
 
-If useful, the extraction result may expose a small structural field such as `listing_surface_detected`; do not add a complex framework.
+Do **not** access `PlaywrightBrowserSession._page` directly from Product Intelligence, and do not redesign the whole browser subsystem.
 
-## RESULT Evidence Finding — Diff stat is not the task diff
+Add a regression using a fake shaped like the real `BrowserManager` (`get_or_create_session`) returning a fake shaped like the public session contract/capability chosen by the fix. It must prove search navigation, extraction, candidate mapping, and bounded behavior can execute through that path.
 
-`RESULT-012` reports a diff stat containing only `src/product_intelligence/__init__.py | 40 ...`, while GitHub's main → task comparison shows the task adds/modifies ten files, including the discovery contract, Shopee adapter/parser, docs, and three focused test files.
-
-Refresh RESULT-012 after the FIX with a concise but accurate task/FIX diff stat. Preserve the exact focused/full commands, pass counts, discovery bounds, identity/dedup policy, missing-value policy, failure semantics, side-effect boundaries, limitations, and no-auto-merge statement.
+If the browser abstraction gains a new generic capability, preserve existing browser-tool behavior and run the full suite.
 
 ## Verification Notes
-Preserve the currently-correct behavior:
-- `max_candidates` is bounded to 1–100 and `max_pages` to 1–5;
-- deterministic URL encoding, stable candidate identity, and first-seen dedupe;
-- no per-result deep detail-page opening in the normal discovery path;
-- no image processing, GDrive, LLM/provider, scoring/ranking, or queue mutation;
-- unobserved commission/creator/video/velocity fields remain `None`;
-- first-page navigation failure and detected blocked/captcha pages fail closed;
-- later-page navigation failure after valid earlier candidates can return explicit partial diagnostics;
-- M2.1 scoring/evidence behavior remains unchanged.
+Preserve the now-correct behavior from the current head:
+- dedicated review-count evidence; no reuse of rating text;
+- positive-marker-only `TRUE_EMPTY_SEARCH` classification;
+- first-page unknown extraction failure fails closed;
+- `max_candidates` 1–100 and `max_pages` 1–5;
+- deterministic candidate identity and first-seen dedupe;
+- unobserved commission/creator/video/velocity fields stay `None`;
+- no per-candidate deep ingestion, image download, GDrive, LLM/provider, scoring/ranking, or queue mutation;
+- 44 focused tests and 417 full-suite tests are reported green at the reviewed head.
 
 ## Decision
 CHANGES_REQUIRED.
 
-Do not merge automatically. Publish fixes only through this exact REVIEW-012 artifact, then request `Review TASK-012` again.
+Do not merge automatically. Publish the compatibility fix only through this exact updated REVIEW-012 artifact, then request `Review TASK-012` again.
