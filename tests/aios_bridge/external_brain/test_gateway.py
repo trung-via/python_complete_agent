@@ -25,7 +25,7 @@ from src.aios_bridge.external_brain import (
 
 
 class FakeProvider:
-    """Fake provider adapter tracking complete() call counts."""
+    """Fake provider adapter tracking invoke() call counts."""
 
     def __init__(self, provider_id: str = "minimax", response: ModelResponse | None = None) -> None:
         self.provider_id = provider_id
@@ -53,19 +53,20 @@ class FakeProvider:
 
 
 class FakeLedger:
-    """Fake UsageLedger tracking appended records."""
+    """Fake synchronous UsageLedger tracking appended records."""
 
-    def __init__(self, should_fail: bool = False) -> None:
+    def __init__(self, should_fail: bool = False, fail_message: str = "Disk full / sensitive/path/key=SECRET123") -> None:
         self.records: list[UsageRecord] = []
         self.should_fail = should_fail
+        self.fail_message = fail_message
 
-    async def append(self, record: UsageRecord) -> None:
+    def append(self, record: UsageRecord) -> None:
         if self.should_fail:
-            raise IOError("Disk full / write failure")
+            raise IOError(self.fail_message)
         self.records.append(record)
 
 
-def _make_req(provider: str = "minimax") -> tuple[ModelRequest, Any]:
+def _make_req(provider: str | None = "minimax") -> tuple[ModelRequest, Any]:
     task = ContextItem(kind=ContextKind.TASK, content="Plan something")
     budget = ContextBudget(max_context_tokens=1000)
     builder = ContextBuilder()
@@ -99,7 +100,7 @@ async def test_gateway_successful_invocation_and_ledger_persistence():
     assert isinstance(result, GatewayResult)
     assert result.response.status == ModelResponseStatus.SUCCESS
     assert result.ledger_persisted is True
-    assert result.ledger_error is None
+    assert result.ledger_error_code is None
     assert provider.call_count == 1
 
     assert len(ledger.records) == 1
@@ -107,15 +108,32 @@ async def test_gateway_successful_invocation_and_ledger_persistence():
     assert rec.request_id == "req-gw-1"
     assert rec.task_id == "TASK-016"
     assert rec.provider == "minimax"
-    assert rec.input_tokens == 100
-    assert rec.output_tokens == 50
-    assert rec.total_tokens == 150
+    assert rec.requested_model == "MiniMax-M3"
+    assert rec.actual_model == "test-model"
+    assert rec.provider_input_tokens == 100
+    assert rec.provider_output_tokens == 50
     assert rec.context_fingerprint == context_build.context_fingerprint
 
 
 @pytest.mark.asyncio
+async def test_gateway_allows_none_provider_and_invokes_configured_provider():
+    """request.provider=None is accepted and uses the gateway's configured provider."""
+    provider = FakeProvider(provider_id="minimax")
+    gateway = ModelGateway(provider=provider)
+
+    req, context_build = _make_req(provider=None)
+    assert req.provider is None
+
+    result = await gateway.invoke(req, context_build=context_build)
+    assert result.response.status == ModelResponseStatus.SUCCESS
+    assert result.ledger_persisted is None
+    assert result.ledger_error_code is None
+    assert provider.call_count == 1
+
+
+@pytest.mark.asyncio
 async def test_gateway_provider_mismatch_fails_closed_before_call():
-    """Provider mismatch raises ContractValidationError before invoking provider."""
+    """Explicit provider mismatch raises ContractValidationError before invoking provider."""
     provider = FakeProvider(provider_id="minimax")
     gateway = ModelGateway(provider=provider)
 
@@ -135,7 +153,6 @@ async def test_gateway_context_build_mismatch_fails_closed_before_call():
 
     req, _ = _make_req()
 
-    # Different context_build
     other_task = ContextItem(kind=ContextKind.TASK, content="Different task")
     other_build = ContextBuilder().build([other_task], ContextBudget(max_context_tokens=1000))
 
@@ -199,10 +216,11 @@ async def test_gateway_correlation_mismatch_normalizes_to_invalid_response():
 
 
 @pytest.mark.asyncio
-async def test_gateway_ledger_failure_does_not_repeat_provider_call():
-    """Ledger persistence failure records ledger_persisted=False without re-invoking provider."""
+async def test_gateway_ledger_failure_does_not_repeat_call_and_bounds_error_code():
+    """Ledger persistence failure sets ledger_persisted=False and bounded code without leaking secrets."""
+    secret_fail_msg = "Disk write failed at /private/var/keys/token=sk-999999"
+    failing_ledger = FakeLedger(should_fail=True, fail_message=secret_fail_msg)
     provider = FakeProvider(provider_id="minimax")
-    failing_ledger = FakeLedger(should_fail=True)
     gateway = ModelGateway(provider=provider, ledger=failing_ledger)
 
     req, context_build = _make_req()
@@ -212,6 +230,12 @@ async def test_gateway_ledger_failure_does_not_repeat_provider_call():
     assert provider.call_count == 1
     # Response was still returned successfully
     assert result.response.status == ModelResponseStatus.SUCCESS
-    # Ledger failure is honestly reported
+    # Ledger failure is tri-state False + bounded error code
     assert result.ledger_persisted is False
-    assert "Disk full" in (result.ledger_error or "")
+    assert result.ledger_error_code == "LEDGER_WRITE_FAILED"
+
+    # Verify secret string was never leaked into GatewayResult
+    result_dict = result.to_dict()
+    assert secret_fail_msg not in str(result_dict)
+    assert "sk-999999" not in str(result_dict)
+    assert "/private/var" not in str(result_dict)

@@ -1,6 +1,7 @@
 """MiniMax OpenAI-compatible ProviderAdapter implementation for External Brain."""
 from __future__ import annotations
 
+import re
 from typing import Any, Mapping, Sequence
 
 from ..contracts import (
@@ -21,19 +22,20 @@ _MINIMAX_AUTH_ERROR_CODES = {1004, 2049}
 _MINIMAX_RATE_LIMIT_ERROR_CODES = {1002, 2056}
 _MINIMAX_TIMEOUT_ERROR_CODES = {1001}
 _MINIMAX_UNAVAILABLE_ERROR_CODES = {1000, 1024, 1033}
+_REASONING_MARKER_RE = re.compile(r"<\s*/?\s*think\b", re.IGNORECASE)
 
 
 class MiniMaxOpenAIProvider:
     """
-    MiniMax inference provider adapter using the OpenAI-compatible chat completions interface.
-    Implements ProviderAdapter protocol.
+    OpenAI-compatible ProviderAdapter for MiniMax.
+    Translates ModelRequest into MiniMax Chat Completions wire payload and normalizes responses.
+    Strictly proposal-only reasoning engine with no execution authority.
     """
-
-    provider_id: str = "minimax"
 
     def __init__(
         self,
         api_key: str,
+        *,
         model_name: str = "MiniMax-M3",
         base_url: str = "https://api.minimax.io/v1",
         path: str = "/chat/completions",
@@ -41,16 +43,22 @@ class MiniMaxOpenAIProvider:
     ) -> None:
         if not api_key or not isinstance(api_key, str) or not api_key.strip():
             raise ContractValidationError("api_key must be a non-empty string")
-        if not model_name or not isinstance(model_name, str):
+        if not model_name or not isinstance(model_name, str) or not model_name.strip():
             raise ContractValidationError("model_name must be a non-empty string")
-        if not base_url or not isinstance(base_url, str):
+        if not base_url or not isinstance(base_url, str) or not base_url.strip():
             raise ContractValidationError("base_url must be a non-empty string")
+        if not path or not isinstance(path, str) or not path.strip():
+            raise ContractValidationError("path must be a non-empty string")
 
         self._api_key = api_key.strip()
         self._model_name = model_name.strip()
         self._base_url = base_url.strip()
         self._path = path.strip()
         self._transport = transport if transport is not None else OpenAICompatibleTransport()
+
+    @property
+    def provider_id(self) -> str:
+        return "minimax"
 
     @property
     def model_name(self) -> str:
@@ -61,6 +69,9 @@ class MiniMaxOpenAIProvider:
             f"MiniMaxOpenAIProvider(provider_id={self.provider_id!r}, "
             f"model_name={self._model_name!r}, base_url={self._base_url!r})"
         )
+
+    def __str__(self) -> str:
+        return f"MiniMaxOpenAIProvider(model={self._model_name})"
 
     def _extract_usage(self, body: Any) -> tuple[int | None, int | None]:
         """Safely extracts input_tokens and output_tokens from response payload."""
@@ -143,15 +154,13 @@ class MiniMaxOpenAIProvider:
                 content=None,
                 latency_ms=latency_ms,
                 error_code="UNAVAILABLE",
-                error_message=f"Transport connection failed: {body.get('error', 'Network error') if isinstance(body, Mapping) else 'Network error'}",
+                error_message="Transport connection failed",
             )
 
         # 2. Inspect MiniMax base_resp if present in JSON body
         base_resp_code = None
-        base_resp_msg = None
         if isinstance(body, Mapping) and "base_resp" in body and isinstance(body["base_resp"], Mapping):
             base_resp_code = body["base_resp"].get("status_code")
-            base_resp_msg = body["base_resp"].get("status_msg")
 
         if base_resp_code is not None and base_resp_code != 0:
             if base_resp_code in _MINIMAX_AUTH_ERROR_CODES:
@@ -167,7 +176,7 @@ class MiniMaxOpenAIProvider:
                     latency_ms=latency_ms,
                     provider_request_id=provider_req_id,
                     error_code="AUTH_ERROR",
-                    error_message=f"MiniMax auth error (code {base_resp_code}): {base_resp_msg or 'Authentication failed'}",
+                    error_message=f"MiniMax auth error (code {base_resp_code})",
                 )
             if base_resp_code in _MINIMAX_RATE_LIMIT_ERROR_CODES:
                 return ModelResponse(
@@ -182,7 +191,7 @@ class MiniMaxOpenAIProvider:
                     latency_ms=latency_ms,
                     provider_request_id=provider_req_id,
                     error_code="RATE_LIMITED",
-                    error_message=f"MiniMax rate limit exceeded (code {base_resp_code}): {base_resp_msg or 'Rate limit exceeded'}",
+                    error_message=f"MiniMax rate limit exceeded (code {base_resp_code})",
                 )
             if base_resp_code in _MINIMAX_TIMEOUT_ERROR_CODES:
                 return ModelResponse(
@@ -197,7 +206,7 @@ class MiniMaxOpenAIProvider:
                     latency_ms=latency_ms,
                     provider_request_id=provider_req_id,
                     error_code="TIMEOUT",
-                    error_message=f"MiniMax timeout (code {base_resp_code}): {base_resp_msg or 'Timed out'}",
+                    error_message=f"MiniMax timeout (code {base_resp_code})",
                 )
             if base_resp_code in _MINIMAX_UNAVAILABLE_ERROR_CODES:
                 return ModelResponse(
@@ -212,7 +221,7 @@ class MiniMaxOpenAIProvider:
                     latency_ms=latency_ms,
                     provider_request_id=provider_req_id,
                     error_code="UNAVAILABLE",
-                    error_message=f"MiniMax service unavailable (code {base_resp_code}): {base_resp_msg or 'Unavailable'}",
+                    error_message=f"MiniMax service unavailable (code {base_resp_code})",
                 )
             return ModelResponse(
                 schema_version="1",
@@ -226,7 +235,7 @@ class MiniMaxOpenAIProvider:
                 latency_ms=latency_ms,
                 provider_request_id=provider_req_id,
                 error_code=f"MINIMAX_{base_resp_code}",
-                error_message=f"MiniMax error (code {base_resp_code}): {base_resp_msg or 'Unknown error'}",
+                error_message=f"MiniMax error (code {base_resp_code})",
             )
 
         # 3. HTTP status error mappings
@@ -422,7 +431,26 @@ class MiniMaxOpenAIProvider:
                 error_message="Choice returned empty or non-string message content",
             )
 
-        # 5. Success
+        # 5. Reasoning Safety Check: Discard thinking blocks embedded in message.content
+        if _REASONING_MARKER_RE.search(content):
+            return ModelResponse(
+                schema_version="1",
+                request_id=request.request_id,
+                task_id=request.task_id,
+                provider=self.provider_id,
+                model=self._model_name,
+                status=ModelResponseStatus.INVALID_RESPONSE,
+                output_type=None,
+                content=None,
+                latency_ms=latency_ms,
+                provider_request_id=provider_req_id,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                error_code="REASONING_CONTENT_LEAK",
+                error_message="Model response contained embedded reasoning markers",
+            )
+
+        # 6. Success
         expected_output = get_expected_output_type(request.operation)
         return ModelResponse(
             schema_version="1",

@@ -1,7 +1,9 @@
 """ModelGateway implementation orchestrating external inference, validation, and usage telemetry."""
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 
 from .context import ContextBuildResult
@@ -26,16 +28,18 @@ class GatewayResult:
 
     response: ModelResponse
     usage_record: UsageRecord
-    ledger_persisted: bool
-    ledger_error: str | None = None
+    ledger_persisted: bool | None = None
+    ledger_error_code: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.response, ModelResponse):
             raise ContractValidationError(f"response must be a ModelResponse, got: {type(self.response)}")
         if not isinstance(self.usage_record, UsageRecord):
             raise ContractValidationError(f"usage_record must be a UsageRecord, got: {type(self.usage_record)}")
-        if not isinstance(self.ledger_persisted, bool):
-            raise ContractValidationError("ledger_persisted must be a boolean")
+        if self.ledger_persisted is not None and not isinstance(self.ledger_persisted, bool):
+            raise ContractValidationError("ledger_persisted must be a boolean or None")
+        if self.ledger_error_code is not None and not isinstance(self.ledger_error_code, str):
+            raise ContractValidationError("ledger_error_code must be a string or None")
 
     def to_dict(self) -> dict[str, Any]:
         """Returns a deterministic JSON-serializable dictionary representation."""
@@ -43,7 +47,7 @@ class GatewayResult:
             "response": self.response.to_dict(),
             "usage_record": self.usage_record.to_dict(),
             "ledger_persisted": self.ledger_persisted,
-            "ledger_error": self.ledger_error,
+            "ledger_error_code": self.ledger_error_code,
         }
 
 
@@ -79,8 +83,8 @@ class ModelGateway:
         if not isinstance(request, ModelRequest):
             raise ContractValidationError(f"request must be a ModelRequest instance, got: {type(request)}")
 
-        # 1. Pre-call Provider Compatibility Check
-        if request.provider != self._provider.provider_id:
+        # 1. Pre-call Provider Compatibility Check (if set, must match configured provider)
+        if request.provider is not None and request.provider != self._provider.provider_id:
             raise ContractValidationError(
                 f"Provider mismatch: request.provider={request.provider!r} "
                 f"does not match gateway configured provider={self._provider.provider_id!r}"
@@ -143,40 +147,43 @@ class ModelGateway:
                     error_message=f"Artifact structural validation failed: {str(e)}",
                 )
 
-        # 6. Build Immutable UsageRecord
+        # 6. Build Immutable UsageRecord adhering to ADR-007 schema
+        timestamp_utc = datetime.now(timezone.utc).isoformat()
         usage_record = UsageRecord(
+            schema_version="1",
+            timestamp_utc=timestamp_utc,
             request_id=request.request_id,
             task_id=request.task_id,
             provider=self._provider.provider_id,
-            model=response.model,
-            operation=request.operation.value,
-            status=response.status.value,
-            input_tokens=response.input_tokens,
-            output_tokens=response.output_tokens,
+            requested_model=request.model,
+            actual_model=response.model,
+            status=response.status,
+            provider_input_tokens=response.input_tokens,
+            provider_output_tokens=response.output_tokens,
             latency_ms=response.latency_ms,
             provider_request_id=response.provider_request_id,
             context_fingerprint=context_build.context_fingerprint if context_build else None,
-            context_token_count=context_build.counted_tokens if context_build else None,
+            context_counted_tokens=context_build.counted_tokens if context_build else None,
             context_counter_id=context_build.counter_id if context_build else None,
-            context_token_count_is_exact=context_build.token_count_is_exact if context_build else None,
+            context_count_is_exact=context_build.token_count_is_exact if context_build else None,
             error_code=response.error_code,
         )
 
         # 7. Append to UsageLedger (if configured)
-        ledger_persisted = False
-        ledger_error = None
+        ledger_persisted: bool | None = None
+        ledger_error_code: str | None = None
+
         if self._ledger is not None:
             try:
-                await self._ledger.append(usage_record)
+                await asyncio.to_thread(self._ledger.append, usage_record)
                 ledger_persisted = True
-            except Exception as e:
+            except Exception:
                 ledger_persisted = False
-                ledger_error = f"{type(e).__name__}: {str(e)}"
-                # Note: failure in ledger persistence MUST NOT repeat provider invocation
+                ledger_error_code = "LEDGER_WRITE_FAILED"
 
         return GatewayResult(
             response=response,
             usage_record=usage_record,
             ledger_persisted=ledger_persisted,
-            ledger_error=ledger_error,
+            ledger_error_code=ledger_error_code,
         )

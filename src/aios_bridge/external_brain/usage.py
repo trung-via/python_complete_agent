@@ -1,7 +1,6 @@
 """Usage telemetry records and append-only ledger protocol for External Brain."""
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
@@ -9,6 +8,7 @@ import os
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
+from .contracts import ModelResponseStatus
 from .errors import ContractValidationError
 
 
@@ -16,82 +16,97 @@ from .errors import ContractValidationError
 class UsageRecord:
     """
     Immutable telemetry record capturing request metadata, token counts, and latency.
+    Strictly adheres to ADR-007 locked telemetry schema.
     Strictly excludes prompts, context content, model outputs, headers, and credentials.
     """
 
+    schema_version: str
+    timestamp_utc: str
     request_id: str
     task_id: str
     provider: str
-    model: str
-    operation: str
-    status: str
-    recorded_at: str | None = None
-    input_tokens: int | None = None
-    output_tokens: int | None = None
-    total_tokens: int | None = None
+    requested_model: str | None
+    actual_model: str
+    status: ModelResponseStatus
+    provider_input_tokens: int | None = None
+    provider_output_tokens: int | None = None
+    provider_reasoning_tokens: int | None = None
+    provider_cached_tokens: int | None = None
     latency_ms: int | None = None
     provider_request_id: str | None = None
     context_fingerprint: str | None = None
-    context_token_count: int | None = None
+    context_counted_tokens: int | None = None
     context_counter_id: str | None = None
-    context_token_count_is_exact: bool | None = None
+    context_count_is_exact: bool | None = None
     error_code: str | None = None
-    schema_version: str = "1.0"
 
     def __post_init__(self) -> None:
+        if self.schema_version != "1":
+            raise ContractValidationError(f"Unsupported schema_version: {self.schema_version!r} (expected '1')")
+
+        if not self.timestamp_utc or not isinstance(self.timestamp_utc, str):
+            raise ContractValidationError("timestamp_utc must be a non-empty ISO 8601 string")
+
         if not self.request_id or not isinstance(self.request_id, str):
             raise ContractValidationError("request_id must be a non-empty string")
+
         if not self.task_id or not isinstance(self.task_id, str):
             raise ContractValidationError("task_id must be a non-empty string")
+
         if not self.provider or not isinstance(self.provider, str):
             raise ContractValidationError("provider must be a non-empty string")
-        if not self.model or not isinstance(self.model, str):
-            raise ContractValidationError("model must be a non-empty string")
-        if not self.operation or not isinstance(self.operation, str):
-            raise ContractValidationError("operation must be a non-empty string")
-        if not self.status or not isinstance(self.status, str):
-            raise ContractValidationError("status must be a non-empty string")
 
-        if self.recorded_at is None:
-            now_iso = datetime.now(timezone.utc).isoformat()
-            object.__setattr__(self, "recorded_at", now_iso)
-        elif not isinstance(self.recorded_at, str):
-            raise ContractValidationError("recorded_at must be an ISO 8601 string")
+        if self.requested_model is not None and not isinstance(self.requested_model, str):
+            raise ContractValidationError("requested_model must be a string or None")
 
-        # Validate token count non-negativity
-        for field_name in ("input_tokens", "output_tokens", "total_tokens", "latency_ms", "context_token_count"):
+        if not self.actual_model or not isinstance(self.actual_model, str):
+            raise ContractValidationError("actual_model must be a non-empty string")
+
+        if not isinstance(self.status, ModelResponseStatus):
+            try:
+                object.__setattr__(self, "status", ModelResponseStatus(self.status))
+            except Exception as e:
+                raise ContractValidationError(f"Invalid ModelResponseStatus: {self.status}") from e
+
+        # Validate non-negative integers for token metrics and latency
+        integer_fields = (
+            "provider_input_tokens",
+            "provider_output_tokens",
+            "provider_reasoning_tokens",
+            "provider_cached_tokens",
+            "latency_ms",
+            "context_counted_tokens",
+        )
+        for field_name in integer_fields:
             val = getattr(self, field_name)
             if val is not None:
                 if isinstance(val, bool) or not isinstance(val, int) or val < 0:
                     raise ContractValidationError(f"{field_name} must be a non-negative integer, got: {val!r}")
 
-        if self.context_token_count_is_exact is not None and not isinstance(self.context_token_count_is_exact, bool):
-            raise ContractValidationError("context_token_count_is_exact must be a boolean or None")
-
-        # Calculate total_tokens if missing and components present
-        if self.total_tokens is None and self.input_tokens is not None and self.output_tokens is not None:
-            object.__setattr__(self, "total_tokens", self.input_tokens + self.output_tokens)
+        if self.context_count_is_exact is not None and not isinstance(self.context_count_is_exact, bool):
+            raise ContractValidationError("context_count_is_exact must be a boolean or None")
 
     def to_dict(self) -> dict[str, Any]:
         """Returns a deterministic JSON-serializable dictionary representation."""
         return {
             "schema_version": self.schema_version,
-            "recorded_at": self.recorded_at,
+            "timestamp_utc": self.timestamp_utc,
             "request_id": self.request_id,
             "task_id": self.task_id,
             "provider": self.provider,
-            "model": self.model,
-            "operation": self.operation,
-            "status": self.status,
-            "input_tokens": self.input_tokens,
-            "output_tokens": self.output_tokens,
-            "total_tokens": self.total_tokens,
+            "requested_model": self.requested_model,
+            "actual_model": self.actual_model,
+            "status": self.status.value,
+            "provider_input_tokens": self.provider_input_tokens,
+            "provider_output_tokens": self.provider_output_tokens,
+            "provider_reasoning_tokens": self.provider_reasoning_tokens,
+            "provider_cached_tokens": self.provider_cached_tokens,
             "latency_ms": self.latency_ms,
             "provider_request_id": self.provider_request_id,
             "context_fingerprint": self.context_fingerprint,
-            "context_token_count": self.context_token_count,
+            "context_counted_tokens": self.context_counted_tokens,
             "context_counter_id": self.context_counter_id,
-            "context_token_count_is_exact": self.context_token_count_is_exact,
+            "context_count_is_exact": self.context_count_is_exact,
             "error_code": self.error_code,
         }
 
@@ -100,7 +115,7 @@ class UsageRecord:
 class UsageLedger(Protocol):
     """Protocol for recording usage telemetry."""
 
-    async def append(self, record: UsageRecord) -> None:
+    def append(self, record: UsageRecord) -> None:
         """Appends a single UsageRecord to the underlying ledger store."""
         ...
 
@@ -118,16 +133,13 @@ class JsonlUsageLedger:
     def path(self) -> Path:
         return self._path
 
-    def _sync_append(self, line: str) -> None:
+    def append(self, record: UsageRecord) -> None:
+        if not isinstance(record, UsageRecord):
+            raise ContractValidationError(f"record must be a UsageRecord instance, got: {type(record)}")
+
         self._path.parent.mkdir(parents=True, exist_ok=True)
+        line = json.dumps(record.to_dict(), sort_keys=True)
         with open(self._path, "a", encoding="utf-8") as f:
             f.write(line + "\n")
             f.flush()
             os.fsync(f.fileno())
-
-    async def append(self, record: UsageRecord) -> None:
-        if not isinstance(record, UsageRecord):
-            raise ContractValidationError(f"record must be a UsageRecord instance, got: {type(record)}")
-
-        line = json.dumps(record.to_dict(), sort_keys=True)
-        await asyncio.to_thread(self._sync_append, line)

@@ -112,6 +112,42 @@ async def test_minimax_provider_protocol_and_success_parse():
 
 
 @pytest.mark.asyncio
+async def test_minimax_provider_embedded_reasoning_fails_closed():
+    """Embedded <think>...</think> in message.content fails closed to INVALID_RESPONSE with content=None."""
+    think_contents = [
+        "<think>Let me ponder this internally</think>\n# PLAN\n## SUMMARY\nPlan summary",
+        "<THINK>Uppercase think envelope</THINK>\n## SUMMARY\nPlan",
+        "<think>Unclosed thinking block",
+    ]
+
+    for think_text in think_contents:
+        mock_transport = MockTransport(
+            result=TransportResult(
+                status_code=200,
+                body={
+                    "choices": [
+                        {
+                            "finish_reason": "stop",
+                            "message": {"content": think_text},
+                        }
+                    ],
+                    "usage": {"prompt_tokens": 100, "completion_tokens": 50},
+                },
+                latency_ms=200,
+            )
+        )
+        provider = MiniMaxOpenAIProvider(api_key="key", transport=mock_transport)
+        res = await provider.invoke(_make_plan_request())
+
+        assert res.status == ModelResponseStatus.INVALID_RESPONSE
+        assert res.error_code == "REASONING_CONTENT_LEAK"
+        assert res.content is None
+        # Thinking text must not leak into error_message
+        assert "ponder" not in (res.error_message or "")
+        assert "thinking" not in (res.error_message or "").lower() or "embedded reasoning markers" in (res.error_message or "")
+
+
+@pytest.mark.asyncio
 async def test_minimax_provider_finish_reason_length_truncated():
     """finish_reason=length maps to INVALID_RESPONSE with TRUNCATED_OUTPUT."""
     mock_transport = MockTransport(
@@ -140,8 +176,10 @@ async def test_minimax_provider_finish_reason_length_truncated():
 
 
 @pytest.mark.asyncio
-async def test_minimax_provider_error_mappings():
-    """MiniMax provider accurately maps HTTP status and MiniMax base_resp codes."""
+async def test_minimax_provider_error_mappings_and_bounded_metadata():
+    """MiniMax provider maps codes and never surfaces unbounded or sensitive status_msg."""
+    secret_status_msg = "Bearer token=sk-super-secret-123 failed for user root at /secret/path"
+
     cases = [
         # (status_code, body, expected_status, expected_error_code)
         (401, {"error": "Unauthorized"}, ModelResponseStatus.AUTH_ERROR, "AUTH_ERROR"),
@@ -149,12 +187,12 @@ async def test_minimax_provider_error_mappings():
         (429, {"error": "Rate limit"}, ModelResponseStatus.RATE_LIMITED, "RATE_LIMITED"),
         (504, {"error": "Gateway Timeout"}, ModelResponseStatus.TIMEOUT, "TIMEOUT"),
         (500, {"error": "Server Error"}, ModelResponseStatus.UNAVAILABLE, "UNAVAILABLE"),
-        (200, {"base_resp": {"status_code": 1004, "status_msg": "Invalid token"}}, ModelResponseStatus.AUTH_ERROR, "AUTH_ERROR"),
-        (200, {"base_resp": {"status_code": 2049, "status_msg": "Auth failed"}}, ModelResponseStatus.AUTH_ERROR, "AUTH_ERROR"),
+        (200, {"base_resp": {"status_code": 1004, "status_msg": secret_status_msg}}, ModelResponseStatus.AUTH_ERROR, "AUTH_ERROR"),
+        (200, {"base_resp": {"status_code": 2049, "status_msg": secret_status_msg}}, ModelResponseStatus.AUTH_ERROR, "AUTH_ERROR"),
         (200, {"base_resp": {"status_code": 1002, "status_msg": "Rate limited"}}, ModelResponseStatus.RATE_LIMITED, "RATE_LIMITED"),
         (200, {"base_resp": {"status_code": 1001, "status_msg": "Timeout"}}, ModelResponseStatus.TIMEOUT, "TIMEOUT"),
         (200, {"base_resp": {"status_code": 1024, "status_msg": "Unavailable"}}, ModelResponseStatus.UNAVAILABLE, "UNAVAILABLE"),
-        (200, {"base_resp": {"status_code": 9999, "status_msg": "Other failure"}}, ModelResponseStatus.FAILED, "MINIMAX_9999"),
+        (200, {"base_resp": {"status_code": 9999, "status_msg": secret_status_msg}}, ModelResponseStatus.FAILED, "MINIMAX_9999"),
         (None, {"type": "Timeout"}, ModelResponseStatus.TIMEOUT, "TIMEOUT"),
         (None, {"type": "ConnectionError"}, ModelResponseStatus.UNAVAILABLE, "UNAVAILABLE"),
     ]
@@ -166,6 +204,9 @@ async def test_minimax_provider_error_mappings():
 
         assert res.status == expected_status, f"Failed for status_code={status_code}, body={body}"
         assert res.error_code == expected_error_code
+        # Ensure secret_status_msg was never reflected into error_message
+        assert secret_status_msg not in (res.error_message or "")
+        assert "sk-super-secret" not in (res.error_message or "")
 
 
 @pytest.mark.asyncio
