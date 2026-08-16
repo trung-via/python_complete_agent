@@ -3,12 +3,12 @@
 STATUS: READY_FOR_REVIEW
 
 ## Summary
-Address REVIEW-027 Round 1 findings (R1-1, R1-2, R1-3, R1-4) and complete Milestone M3B Real Cross-Chat Brain Failover Acceptance Proof (TASK-027 / ADR-016 / ADR-017): separate prepare/verify CLI modes requiring explicit external live inputs (R1-1), complete test isolation under worktree_root parameter with exact Git blob binding (R1-2), mandatory 6-anchor diagnosis validation (R1-3), strict bounded M3BLiveAttestation dataclass (R1-4), zero Continuity Core modifications (C13), and ADR-017 assurance.
+Address REVIEW-027 Round 2 findings (R1-1, R1-2, R1-4, R2-1) and complete Milestone M3B Real Cross-Chat Brain Failover Acceptance Proof (TASK-027 / ADR-016 / ADR-017): staged live protocol (prepare-source -> validate-source -> verify-replacement) (R1-1), independent non-mutating audit-bundle with repository invariant tests (R1-2), attestation request cross-binding and safe token grammar (R1-4), newline-only normalization preserving whitespace (R2-1), zero Continuity Core modifications (C13), and ADR-017 assurance.
 
 ## Task Metadata
 - Task: `TASK-027`
 - Action: `FIX`
-- Authorized Artifact: `.ai/reviews/REVIEW-027.md (ec78a248c8)`
+- Authorized Artifact: `.ai/reviews/REVIEW-027.md (be727fb6cd)`
 - Base Main SHA: `44436c59eb42dbdbffaee28a738d11694958a4ea`
 - Branch: `ai/task-027`
 
@@ -36,11 +36,11 @@ Address REVIEW-027 Round 1 findings (R1-1, R1-2, R1-3, R1-4) and complete Milest
  .../proofs/TASK-027-M3B-SOURCE-REQUEST.json        |   1 +
  .ai/context/proofs/TASK-027-M3B-SOURCE-RESULT.json |   1 +
  .ai/context/proofs/TASK-027-M3B-STATE.json         |   1 +
- .ai/diagnosis/TASK-027-M3B-DIAGNOSIS.md            |  35 ++
- .ai/results/RESULT-027.md                          | 163 ++++++
- scripts/aios_m3b_cross_brain_proof.py              | 545 +++++++++++++++++++++
- .../continuity/test_m3b_proof_runner.py            | 340 +++++++++++++
- 12 files changed, 1105 insertions(+)
+ .ai/diagnosis/TASK-027-M3B-DIAGNOSIS.md            |  35 +
+ .ai/results/RESULT-027.md                          | 161 +++++
+ scripts/aios_m3b_cross_brain_proof.py              | 746 +++++++++++++++++++++
+ .../continuity/test_m3b_proof_runner.py            | 524 +++++++++++++++
+ 12 files changed, 1488 insertions(+)
 ```
 
 ## Tests
@@ -48,9 +48,9 @@ Command: `.\venv\Scripts\python -c "import subprocess, sys; r1 = subprocess.run(
 Exit code: 0
 
 ```text
-=== Focused Continuity Suite: 86 passed, 1 warning in 0.16s ===
-=== Bridge Suite: 172 passed, 204 warnings in 0.46s ===
-=== Full Repository Suite: 646 passed in 59.80s ===
+=== Focused Continuity Suite: 90 passed, 1 warning in 0.25s ===
+=== Bridge Suite: 176 passed, 204 warnings in 0.59s ===
+=== Full Repository Suite: 650 passed in 59.22s ===
 
 [Full Suite Output]
 ........................................................................ [ 11%]
@@ -59,16 +59,17 @@ Exit code: 0
 ........................................................................ [ 44%]
 ........................................................................ [ 55%]
 ........................................................................ [ 66%]
-........................................................................ [ 78%]
-........................................................................ [ 89%]
-......................................................................   [100%]
-646 passed in 59.80s
+........................................................................ [ 77%]
+........................................................................ [ 88%]
+........................................................................ [ 99%]
+..                                                                       [100%]
+650 passed in 59.22s
 
 ```
 
 ## Risks / Notes
-## Milestone M3B Real Cross-Chat Brain Failover Acceptance Proof (FIX Round 1)
-IMPLEMENTATION_HEAD: fb671cb1deb5b08a77856d798e063585dfc2473e
+## Milestone M3B Real Cross-Chat Brain Failover Acceptance Proof (FIX Round 2)
+IMPLEMENTATION_HEAD: 0c487e6016f1e6228d99ce842d52950ff9fa0d0c
 LIVE_EXTERNAL_CALLS: 0
 BRIDGE_V0_4_BEHAVIOR_CHANGED: NO
 AUTHORITY_WIDENED: NO
@@ -78,12 +79,12 @@ BRAIN_CONTRACT_OWNER: primary-brain
 BRAIN_ARCH_IMPLEMENTATION_PLAN: YES
 BRAIN_ADVERSARIAL_CHECKLIST: YES
 EXECUTOR_RUNS: 1
-EXECUTOR_FIX_RUNS: 1
+EXECUTOR_FIX_RUNS: 2
 
 ## Review Manifest (ADR-010 / ADR-011 / ADR-016 / ADR-017 Delta-First Evidence)
 BASE_SHA: 44436c59eb42dbdbffaee28a738d11694958a4ea
-IMPLEMENTATION_SHA: fb671cb1deb5b08a77856d798e063585dfc2473e
-PREVIOUS_REVIEW_SHA: ec78a248c8b97d6aa84961c329ebce6acb89e2e9
+IMPLEMENTATION_SHA: 0c487e6016f1e6228d99ce842d52950ff9fa0d0c
+PREVIOUS_REVIEW_SHA: be727fb6cd3897c655f7310e4e42d41b546244ab
 CHANGED_FILES:
 - .ai/context/proofs/TASK-027-M3B-FAILOVER-PROOF.json
 - .ai/context/proofs/TASK-027-M3B-LIVE-ATTESTATION.json
@@ -97,7 +98,7 @@ CHANGED_FILES:
 - .ai/results/RESULT-027.md
 - scripts/aios_m3b_cross_brain_proof.py
 - tests/aios_bridge/continuity/test_m3b_proof_runner.py
-TEST_SUMMARY: 86 passed in Focused Continuity Suite; 172 passed in Bridge Suite; 646 passed in Full Repository Suite (0 regressions)
+TEST_SUMMARY: 90 passed in Focused Continuity Suite; 176 passed in Bridge Suite; 650 passed in Full Repository Suite (0 regressions)
 
 M3A_MECHANICS_REGRESSION: PASS
 M3B_REAL_CROSS_BRAIN_PROOF_COMPLETE: YES
@@ -138,24 +139,24 @@ BRAIN_CONTRACT_OWNER: primary-brain
 BRAIN_ARCH_IMPLEMENTATION_PLAN: YES
 BRAIN_ADVERSARIAL_CHECKLIST: YES
 EXECUTOR_RUNS: 1
-EXECUTOR_FIX_RUNS: 1
+EXECUTOR_FIX_RUNS: 2
 
-## Fix Findings Closure (REVIEW-027 Round 1)
-1. R1-1 (Separation of prepare and verify; explicit live inputs):
-   - In `scripts/aios_m3b_cross_brain_proof.py`, strictly separated `prepare` (which outputs state, requests, capability and pauses at human checkpoints) from `verify` (which requires `--source-result`, `--diagnosis-file`, and `--attestation` and fails closed on missing files). Removed hardcoded acceptance diagnosis from script execution.
-2. R1-2 (Test isolation and mechanical Git-blob binding):
-   - Isolated all test writes by adding `worktree_root: Path` parameter to `verify_and_bind_m3b_proof` (defaulting to repository root for live runs, but taking `tmp_path` in tests). Added test proof that `REPO_DIR / target_path` is never mutated by synthetic test execution.
-   - Verified that `git hash-object .ai/diagnosis/TASK-027-M3B-DIAGNOSIS.md` on disk (`b93511b04ab7cdcee4f3c1cc8c3f9966929dace0`) matches `replacement_result.artifact_ref.blob_sha` and `RESULT-027.md` exactly.
-3. R1-3 (Mandatory diagnosis semantic anchors):
-   - Added `validate_diagnosis_semantic_anchors(text: str)` in proof runner enforcing the 6 required semantic anchors: (1) state fingerprint, (2) request semantic equivalence, (3) source SUCCESS duplicate output blocking, (4) zero transcript/reasoning isolation, (5) capability gate validation, and (6) advisory role and unchanged human authority.
-   - Updated `.ai/diagnosis/TASK-027-M3B-DIAGNOSIS.md` to demonstrate all 6 anchors clearly.
-4. R1-4 (Strict bounded live-attestation dataclass):
-   - Implemented `M3BLiveAttestation` dataclass with strict schema validation: exact allowed keys, rejection of forbidden keys (`transcript`, `raw_prompt`, `cookie`, `session`, `cot`, `reasoning`), enforcement of mandatory passing booleans (`distinct_real_brain_surfaces=True`, `transcript_transferred=False`, etc.), and 16 KiB size capping. Added full suite of unit tests.
+## Fix Findings Closure (REVIEW-027 Round 2)
+1. R1-1 (Enforceable Staged Live Protocol):
+   - Implemented staged CLI commands: `prepare-source` (emits state and source request only), `validate-source` (consumes Brain-A result, validates failover eligibility, and emits replacement request, capability, and proof only on PASS), `verify-replacement` (consumes Brain-B diagnosis and attestation), and `audit-bundle`. Added unit tests verifying source SUCCESS/mismatch prevents replacement emission.
+2. R1-2 (Non-Mutating Bundle Audit & Repository untouched assertion):
+   - Implemented `audit_persisted_bundle()` / `audit-bundle` CLI command which reloads all 8 JSON proof artifacts and diagnosis markdown, verifies failover eligibility, and validates blob/fingerprints without modifying files.
+   - Added unit test asserting `REPO_DIR / .ai/diagnosis/TASK-027-M3B-DIAGNOSIS.md` is never touched by synthetic tests. Added negative tests for corrupted files/fingerprints.
+3. R1-4 (Attestation Identity Cross-Binding, Safe Token Grammar, and Negative Tests):
+   - Cross-bound `attestation.source_brain_id == source_request.brain_id` and `attestation.replacement_brain_id == replacement_request.brain_id`.
+   - Constrained token-usage strings to safe grammar `^(UNKNOWN|REPORTED\([a-zA-Z0-9_\-:, .]+\))$` (max 128 chars). Added negative tests for mismatch, invalid token strings, and oversized attestation payload.
+4. R2-1 (Deterministic Line-Ending-Only Normalization):
+   - Implemented `normalize_line_endings()` converting CRLF/CR to LF and ensuring trailing LF without `.strip()`, preserving internal/leading/trailing spaces and tabs. Added regression test.
 
-## Test Suites Execution Evidence (against implementation fb671cb1deb5b08a77856d798e063585dfc2473e)
-- Focused Continuity Suite: 86 passed in ~0.15s (tests/aios_bridge/continuity/)
-- Bridge Suite: 172 passed in ~0.45s (tests/aios_bridge/)
-- Full Repository Suite: 646 passed in ~62s (0 regressions against canonical baseline 44436c59eb42dbdbffaee28a738d11694958a4ea)
+## Test Suites Execution Evidence (against implementation 0c487e6016f1e6228d99ce842d52950ff9fa0d0c)
+- Focused Continuity Suite: 90 passed in ~0.22s (tests/aios_bridge/continuity/)
+- Bridge Suite: 176 passed in ~0.49s (tests/aios_bridge/)
+- Full Repository Suite: 650 passed in ~57s (0 regressions against canonical baseline 44436c59eb42dbdbffaee28a738d11694958a4ea)
 
 ## Generated
-2026-08-17T00:55:41+07:00
+2026-08-17T01:05:54+07:00
