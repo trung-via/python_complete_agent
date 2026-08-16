@@ -5,10 +5,11 @@ Operator utility for executing advisory ARCHITECT PLAN operations with MiniMax-M
 
 Adheres strictly to ADR-008 and ADR-009 governance:
 - Explicit task file and context files only (no automatic discovery or crawl).
+- Locked to provider=minimax and model=MiniMax-M3 in M3.1.
 - Reuses M1/M2/M3 contracts and primitives (ContextBuilder, ModelGateway, MiniMaxOpenAIProvider).
 - Proposal-only: ZERO filesystem write authority, zero Git/shell/patch execution.
 - Single provider call: ZERO retries, zero fallbacks.
-- Credential safety: API key from environment, never printed or persisted.
+- Credential safety: API key exclusively from local AIOS_MINIMAX_API_KEY environment variable.
 """
 from __future__ import annotations
 
@@ -34,7 +35,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--task-file",
         required=True,
-        help="Path to the primary task markdown file (loaded as ContextKind.TASK).",
+        help="Path to the primary task markdown file with name matching 'TASK-<digits>' (loaded as ContextKind.TASK).",
     )
     parser.add_argument(
         "--context",
@@ -42,16 +43,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=[],
         dest="contexts",
         help="Explicit context file spec in format 'KIND:PATH' (e.g. 'CONTRACT:docs/ADR.md', 'SOURCE:src/app.py'). Can be repeated.",
-    )
-    parser.add_argument(
-        "--model",
-        default="MiniMax-M3",
-        help="Model name for provider inference.",
-    )
-    parser.add_argument(
-        "--provider",
-        default="minimax",
-        help="Provider adapter ID.",
     )
     parser.add_argument(
         "--max-context-tokens",
@@ -81,11 +72,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Optional explicit correlation request ID.",
     )
-    parser.add_argument(
-        "--api-key",
-        default=None,
-        help="Optional MiniMax API key (defaults to AIOS_MINIMAX_API_KEY environment variable).",
-    )
     return parser.parse_args(argv)
 
 
@@ -96,9 +82,6 @@ def main(argv: list[str] | None = None) -> int:
         execute_plan_runner(
             task_file=args.task_file,
             context_specs=args.contexts,
-            api_key=args.api_key,
-            model=args.model,
-            provider_id=args.provider,
             max_context_tokens=args.max_context_tokens,
             max_output_tokens=args.max_output_tokens,
             timeout_seconds=args.timeout_seconds,

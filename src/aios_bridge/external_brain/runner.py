@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import math
 import os
 from pathlib import Path
+import re
 import sys
 from typing import Any, Mapping, Sequence
 import uuid
@@ -31,6 +32,26 @@ from .gateway import GatewayResult, ModelGateway
 from .providers.minimax import MiniMaxOpenAIProvider
 from .transport import ModelTransport
 from .usage import JsonlUsageLedger, UsageLedger
+
+
+_LOCKED_PROVIDER = "minimax"
+_LOCKED_MODEL = "MiniMax-M3"
+_TASK_ID_PATTERN = re.compile(r"^TASK-\d+$", re.IGNORECASE)
+
+
+def extract_task_id(task_file: str | Path) -> str:
+    """
+    Derives and validates the task ID from task filename.
+    Requires strictly TASK-<digits> format (e.g. TASK-017).
+    Fails closed before provider/network invocation on invalid task identity.
+    """
+    stem = Path(task_file).stem.strip()
+    if not _TASK_ID_PATTERN.match(stem):
+        raise ContractValidationError(
+            f"Invalid task identity derived from filename {str(task_file)!r}: stem={stem!r}. "
+            f"Expected format 'TASK-<digits>' (e.g. 'TASK-017')."
+        )
+    return stem.upper()
 
 
 def parse_context_spec(spec: str) -> tuple[ContextKind, str]:
@@ -157,7 +178,7 @@ def format_safe_plan_output(
 ) -> str:
     """
     Formats execution telemetry and final validated PLAN content safely.
-    Strictly excludes API keys, authorization headers, raw HTTP bodies, and reasoning markers.
+    Strictly excludes API keys, authorization headers, raw HTTP bodies, error messages, and reasoning markers.
     """
     resp = result.response
     lines: list[str] = []
@@ -200,8 +221,6 @@ def format_safe_plan_output(
     if resp.status != ModelResponseStatus.SUCCESS:
         lines.append("-" * 72)
         lines.append(f"Error Code:           {resp.error_code or 'UNKNOWN'}")
-        if resp.error_message:
-            lines.append(f"Error Message:        {resp.error_message}")
         lines.append("=" * 72)
         return "\n".join(lines)
 
@@ -239,13 +258,25 @@ async def execute_plan_runner(
         err_msg = "Preflight check failed: Missing MiniMax API key. Set AIOS_MINIMAX_API_KEY environment variable."
         return 1, f"[ERROR] {err_msg}"
 
-    # 2. Explicit context loading
+    # 2. Lock check for provider and model (M3.1 boundary)
+    if provider_id != _LOCKED_PROVIDER:
+        return 1, f"[ERROR] Invalid provider {provider_id!r}. M3.1 is locked to {_LOCKED_PROVIDER!r}."
+    if model != _LOCKED_MODEL:
+        return 1, f"[ERROR] Invalid model {model!r}. M3.1 is locked to {_LOCKED_MODEL!r}."
+
+    # 3. Explicit task identity extraction & validation
+    try:
+        task_id = extract_task_id(task_file)
+    except (ContractValidationError, ExternalBrainError) as e:
+        return 1, f"[ERROR] Task identity validation failed: {str(e)}"
+
+    # 4. Explicit context loading
     try:
         candidates = load_explicit_context(task_file, context_specs)
     except (ContractValidationError, ExternalBrainError) as e:
         return 1, f"[ERROR] Context loading failed: {str(e)}"
 
-    # 3. Context budget & building through M2
+    # 5. Context budget & building through M2
     budget = ContextBudget(max_context_tokens=max_context_tokens)
     builder = ContextBuilder()
     try:
@@ -253,11 +284,7 @@ async def execute_plan_runner(
     except (MandatoryContextBudgetError, SensitiveContextError, ContextBuildError, ContractValidationError, ExternalBrainError) as e:
         return 1, f"[ERROR] Context build failed: {str(e)}"
 
-    # Derive task_id from task_file basename
-    task_basename = Path(task_file).stem
-    task_id = task_basename if task_basename.startswith("TASK-") else "TASK-017"
-
-    # 4. Build ModelRequest
+    # 6. Build ModelRequest
     try:
         request = build_plan_request(
             task_id=task_id,
@@ -270,7 +297,7 @@ async def execute_plan_runner(
     except ContractValidationError as e:
         return 1, f"[ERROR] Request construction failed: {str(e)}"
 
-    # 5. ModelGateway & Provider setup
+    # 7. ModelGateway & Provider setup
     ledger: UsageLedger | None = None
     if ledger_path:
         ledger = JsonlUsageLedger(ledger_path)
@@ -289,7 +316,7 @@ async def execute_plan_runner(
         except ContractValidationError as e:
             return 1, f"[ERROR] Gateway initialization failed: {str(e)}"
 
-    # 6. Execute Gateway invocation (single call, no retry)
+    # 8. Execute Gateway invocation (single call, no retry)
     try:
         result = await gateway.invoke(request, context_build=context_build)
     except Exception as e:

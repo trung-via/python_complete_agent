@@ -24,6 +24,7 @@ from src.aios_bridge.external_brain import (
 from src.aios_bridge.external_brain.runner import (
     build_plan_request,
     execute_plan_runner,
+    extract_task_id,
     format_safe_plan_output,
     load_explicit_context,
     parse_context_spec,
@@ -101,6 +102,26 @@ def test_parse_context_spec():
         parse_context_spec("INVALID_KIND:src/app.py")
 
 
+def test_extract_task_id_valid_and_invalid():
+    """extract_task_id enforces TASK-<digits> format and fails closed on invalid filenames."""
+    assert extract_task_id("TASK-017.md") == "TASK-017"
+    assert extract_task_id(".ai/tasks/TASK-001.md") == "TASK-001"
+    assert extract_task_id("path/to/task-999.md") == "TASK-999"
+
+    # Invalid task filenames
+    invalid_filenames = [
+        "task.md",
+        "TASK.md",
+        "MY_TASK-017.md",
+        "TASK-abc.md",
+        "README.md",
+        "",
+    ]
+    for name in invalid_filenames:
+        with pytest.raises(ContractValidationError, match="Invalid task identity"):
+            extract_task_id(name)
+
+
 def test_load_explicit_context_reads_only_specified_files(tmp_path: Path):
     """load_explicit_context reads only explicitly given files, no repo crawl or globbing."""
     task_file = tmp_path / "TASK-017.md"
@@ -137,7 +158,7 @@ def test_load_explicit_context_reads_only_specified_files(tmp_path: Path):
 
 def test_load_explicit_context_missing_task_file_fails(tmp_path: Path):
     """Missing task file raises ContractValidationError."""
-    missing_task = tmp_path / "NON_EXISTENT_TASK.md"
+    missing_task = tmp_path / "TASK-999.md"
     with pytest.raises(ContractValidationError, match="Task file not found"):
         load_explicit_context(task_file=missing_task, base_dir=tmp_path)
 
@@ -153,6 +174,55 @@ def test_load_explicit_context_missing_context_file_fails(tmp_path: Path):
             context_specs=["SOURCE:non_existent_file.py"],
             base_dir=tmp_path,
         )
+
+
+@pytest.mark.asyncio
+async def test_execute_plan_runner_invalid_task_id_fails_closed(tmp_path: Path):
+    """Invalid task filename fails closed with non-zero exit before any network call."""
+    invalid_task_file = tmp_path / "invalid_task_name.md"
+    invalid_task_file.write_text("# Task", encoding="utf-8")
+
+    mock_transport = MockTransport()
+    code, output = await execute_plan_runner(
+        task_file=invalid_task_file,
+        api_key="test-key",
+        custom_transport=mock_transport,
+    )
+
+    assert code == 1
+    assert "Task identity validation failed" in output
+    assert len(mock_transport.sent_requests) == 0
+
+
+@pytest.mark.asyncio
+async def test_execute_plan_runner_locked_provider_and_model_enforcement(tmp_path: Path):
+    """Non-locked provider or model fails closed before network call."""
+    task_file = tmp_path / "TASK-017.md"
+    task_file.write_text("# Task", encoding="utf-8")
+
+    mock_transport = MockTransport()
+
+    # Invalid provider
+    code, output = await execute_plan_runner(
+        task_file=task_file,
+        provider_id="openai",
+        api_key="test-key",
+        custom_transport=mock_transport,
+    )
+    assert code == 1
+    assert "Invalid provider 'openai'" in output
+    assert len(mock_transport.sent_requests) == 0
+
+    # Invalid model
+    code, output = await execute_plan_runner(
+        task_file=task_file,
+        model="gpt-4o",
+        api_key="test-key",
+        custom_transport=mock_transport,
+    )
+    assert code == 1
+    assert "Invalid model 'gpt-4o'" in output
+    assert len(mock_transport.sent_requests) == 0
 
 
 @pytest.mark.asyncio
@@ -263,15 +333,17 @@ async def test_execute_plan_runner_successful_execution_and_safe_output(tmp_path
 
 
 @pytest.mark.asyncio
-async def test_execute_plan_runner_provider_failure_returns_nonzero(tmp_path: Path):
-    """Normalized provider failure (e.g. rate limited) returns non-zero with bounded error."""
+async def test_execute_plan_runner_provider_failure_redacts_error_message(tmp_path: Path):
+    """Normalized provider failure returns non-zero and does NOT emit provider error_message text."""
     task_file = tmp_path / "TASK-017.md"
     task_file.write_text("# Task", encoding="utf-8")
+
+    sensitive_error_msg = "Database connection string leaked: postgres://user:secret@internal:5432/db"
 
     mock_transport = MockTransport(
         result=TransportResult(
             status_code=429,
-            body={"error": "Rate limit exceeded"},
+            body={"error": sensitive_error_msg},
             latency_ms=80,
         )
     )
@@ -285,16 +357,18 @@ async def test_execute_plan_runner_provider_failure_returns_nonzero(tmp_path: Pa
     assert code == 1
     assert "Status:               RATE_LIMITED" in output
     assert "Error Code:           RATE_LIMITED" in output
+    # Regression check: error_message must NOT be printed in output
+    assert sensitive_error_msg not in output
+    assert "Error Message:" not in output
     assert len(mock_transport.sent_requests) == 1
 
 
-def test_cli_argument_parsing(tmp_path: Path):
-    """CLI parser handles all flags correctly."""
+def test_cli_argument_parsing_rejects_api_key_provider_model(tmp_path: Path):
+    """CLI parser accepts supported flags and rejects removed options (--api-key, --provider, --model)."""
     args = cli_module.parse_args([
         "--task-file", "tasks/TASK-017.md",
         "--context", "CONTRACT:ADR.md",
         "--context", "SOURCE:src/app.py",
-        "--model", "MiniMax-M3",
         "--max-context-tokens", "40000",
         "--max-output-tokens", "4096",
         "--timeout-seconds", "120.0",
@@ -303,8 +377,12 @@ def test_cli_argument_parsing(tmp_path: Path):
 
     assert args.task_file == "tasks/TASK-017.md"
     assert args.contexts == ["CONTRACT:ADR.md", "SOURCE:src/app.py"]
-    assert args.model == "MiniMax-M3"
     assert args.max_context_tokens == 40000
     assert args.max_output_tokens == 4096
     assert args.timeout_seconds == 120.0
     assert args.ledger_file == "logs/usage.jsonl"
+
+    # Verify removed flags cause SystemExit / unrecognized arguments
+    for removed_flag in ["--api-key", "--provider", "--model"]:
+        with pytest.raises(SystemExit):
+            cli_module.parse_args(["--task-file", "tasks/TASK-017.md", removed_flag, "foo"])
