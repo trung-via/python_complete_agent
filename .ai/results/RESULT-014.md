@@ -3,12 +3,12 @@
 STATUS: READY_FOR_REVIEW
 
 ## Summary
-TASK-014 FIX: Added JSON-compatible wire serialization helpers (to_json_payload, to_wire_dict) and payload JSON validation for TransportRequest.
+TASK-014 FIX: Rejected unordered sets and non-finite floats in transport payload to ensure deterministic JSON wire serialization.
 
 ## Task Metadata
 - Task: `TASK-014`
 - Action: `FIX`
-- Authorized Artifact: `.ai/reviews/REVIEW-014.md (2f1483baa9)`
+- Authorized Artifact: `.ai/reviews/REVIEW-014.md (fb2a4f4d47)`
 - Base Main SHA: `(n/a)`
 - Branch: `ai/task-014`
 
@@ -18,9 +18,9 @@ TASK-014 FIX: Added JSON-compatible wire serialization helpers (to_json_payload,
 
 ## Diff Stat
 ```text
-src/aios_bridge/external_brain/transport.py        | 68 +++++++++++++++++---
- .../external_brain/test_transport_contract.py      | 73 ++++++++++++++++++++++
- 2 files changed, 132 insertions(+), 9 deletions(-)
+src/aios_bridge/external_brain/transport.py        | 19 +++++++++----
+ .../external_brain/test_transport_contract.py      | 31 ++++++++++++++++++++++
+ 2 files changed, 45 insertions(+), 5 deletions(-)
 ```
 
 ## Tests
@@ -106,7 +106,7 @@ tests/aios_bridge/external_brain/test_transport_contract.py::test_transport_prot
 ........................................................................ [ 72%]
 ........................................................................ [ 87%]
 ..............................................................           [100%]
-494 passed in 54.81s
+494 passed in 66.14s (0:01:06)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -119,14 +119,12 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 ```
 
 ## Risks / Notes
-### Corrections Implemented (Review Round 2 Fixes):
-1. Fixed Transport Wire Serialization & JSON Compatibility:
-   - Added `_validate_and_freeze_payload` in `src/aios_bridge/external_brain/transport.py` that validates JSON-compatible types (`str`, `int`, `float`, `bool`, `None`, and nested collections) while rejecting non-JSON types (e.g. custom classes, callables) at construction.
-   - Added `to_json_payload()` on `TransportRequest` to recursively convert internal immutable structures into fresh standard `dict` / `list` primitives for wire serialization (`json.dumps`).
-   - Added `to_wire_dict()` on `TransportRequest` and `to_dict()` on `TransportResult`.
-   - Guaranteed that mutating the returned wire dictionary does NOT affect the stored immutable `TransportRequest.payload`.
+### Corrections Implemented (Review Round 3 Fixes):
+1. Rejection of Unordered Sets & Non-Finite Floats:
+   - Updated `_validate_and_freeze_payload` in `src/aios_bridge/external_brain/transport.py` to strictly reject `set` and `frozenset` with `ContractValidationError` instead of non-deterministically coercing them to tuples.
+   - Strictly enforced finite floats (rejecting `NaN`, `+Inf`, `-Inf`) via `math.isfinite()`.
 2. Regression Tests Added:
-   - Added `test_transport_request_json_payload_wire_serialization` in `tests/aios_bridge/external_brain/test_transport_contract.py` covering wire dictionary conversion, json.dumps serialization, deep immutability preservation, and rejection of non-JSON values.
+   - Added tests in `tests/aios_bridge/external_brain/test_transport_contract.py` asserting deterministic rejection of `set`, `frozenset`, `NaN`, and `Inf`.
 3. Invariants Preserved:
    - Zero live external-model calls.
    - Zero changes to protected files (`bridge.py`, `src/providers/base.py`, `src/providers/gemini.py`, AgentLoop, etc.).
@@ -134,4 +132,4 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
    - Full repository test suite (`tests/`): 494 passed, 0 regressions.
 
 ## Generated
-2026-08-16T12:41:13+07:00
+2026-08-16T12:46:22+07:00

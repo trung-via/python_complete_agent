@@ -188,4 +188,35 @@ def test_transport_request_json_payload_wire_serialization():
             payload={"fn": lambda x: x},
         )
 
+    # 6. Unordered set and frozenset rejected
+    with pytest.raises(ContractValidationError, match="Unordered sets are not JSON-compatible"):
+        TransportRequest(
+            endpoint_url="https://api.example.com",
+            path="/",
+            payload={"tags": {1, 2, 3}},
+        )
+
+    with pytest.raises(ContractValidationError, match="Unordered sets are not JSON-compatible"):
+        TransportRequest(
+            endpoint_url="https://api.example.com",
+            path="/",
+            payload={"tags": frozenset({"a", "b"})},
+        )
+
+    # 7. Non-finite floats (NaN, Inf) rejected
+    with pytest.raises(ContractValidationError, match="Float payload values must be finite"):
+        TransportRequest(
+            endpoint_url="https://api.example.com",
+            path="/",
+            payload={"val": float("nan")},
+        )
+
+    with pytest.raises(ContractValidationError, match="Float payload values must be finite"):
+        TransportRequest(
+            endpoint_url="https://api.example.com",
+            path="/",
+            payload={"val": float("inf")},
+        )
+
+
 

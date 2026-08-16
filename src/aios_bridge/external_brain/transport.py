@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
 from types import MappingProxyType
 from typing import Any, Mapping, Protocol
 
@@ -9,8 +10,14 @@ from .errors import ContractValidationError
 
 
 def _validate_and_freeze_payload(val: Any) -> Any:
-    """Recursively validates JSON compatibility and freezes payload into immutable structures."""
-    if val is None or isinstance(val, (str, int, float, bool)):
+    """Recursively validates strict JSON compatibility and freezes payload into immutable structures."""
+    if val is None or isinstance(val, (str, bool)):
+        return val
+    elif isinstance(val, int):
+        return val
+    elif isinstance(val, float):
+        if not math.isfinite(val):
+            raise ContractValidationError(f"Float payload values must be finite (no NaN/Inf), got: {val}")
         return val
     elif isinstance(val, (dict, Mapping)):
         frozen_dict = {}
@@ -22,7 +29,9 @@ def _validate_and_freeze_payload(val: Any) -> Any:
     elif isinstance(val, (list, tuple)):
         return tuple(_validate_and_freeze_payload(v) for v in val)
     elif isinstance(val, (set, frozenset)):
-        return tuple(_validate_and_freeze_payload(v) for v in val)
+        raise ContractValidationError(
+            f"Unordered sets are not JSON-compatible payload values: {type(val).__name__} ({val!r})"
+        )
     else:
         raise ContractValidationError(f"Non-JSON-compatible payload value: {type(val)} ({val!r})")
 
@@ -41,7 +50,7 @@ def _to_json_compatible(val: Any) -> Any:
     """Recursively converts internal MappingProxyType and tuples into standard JSON dict/list primitives."""
     if isinstance(val, (MappingProxyType, dict, Mapping)):
         return {str(k): _to_json_compatible(v) for k, v in val.items()}
-    elif isinstance(val, (tuple, list, set, frozenset)):
+    elif isinstance(val, (tuple, list)):
         return [_to_json_compatible(v) for v in val]
     return val
 
@@ -111,7 +120,7 @@ class TransportResult:
             if isinstance(self.status_code, bool) or not isinstance(self.status_code, int):
                 raise ContractValidationError(f"status_code must be an integer if specified, got: {self.status_code!r}")
 
-        if isinstance(self.body, (dict, list, set, Mapping)):
+        if isinstance(self.body, (dict, list, Mapping)):
             object.__setattr__(self, "body", _validate_and_freeze_payload(self.body))
 
     def to_dict(self) -> dict[str, Any]:
