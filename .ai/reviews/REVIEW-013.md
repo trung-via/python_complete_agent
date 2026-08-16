@@ -5,55 +5,43 @@ CHANGES_REQUIRED
 
 ## Reviewed Head
 - Branch: `ai/task-013`
-- Reviewed commit: `53b9ffc0c4bc1ca391d1e5ee78c553bd8c96e079`
-- Parent reviewed head: `9ffe8fe51001da2d9615cca68f2c131acfc41d0e`
-- Current main at prior review: `9d3dcfeab5ffc98bf6aeb3ef7a67912a5bc1fd52`
-- RESULT-013 blob: `423cf9bd633e0013a4f65fa74beee51bbcd1523d`
+- Reviewed commit: `f7cd4296d4efe0ed6b8e2dcaa506766fb7a9260f`
+- Parent reviewed head: `53b9ffc0c4bc1ca391d1e5ee78c553bd8c96e079`
+- Current main: `9d3dcfeab5ffc98bf6aeb3ef7a67912a5bc1fd52`
+- Branch relation to main: ahead 13, behind 0 (fast-forward safe at review time)
+- RESULT-013 blob: `3fc44afe4e3e5de8d21e21acebd3f41acaffac84`
 - RESULT action: `FIX`
+- FIX authorization recorded by worker: `.ai/reviews/REVIEW-013.md (74e632f80c)` — matches the prior CHANGES_REQUIRED artifact.
+- Delta from prior reviewed head: 1 commit, 3 changed files (`RESULT-013.md`, `shopee.py`, DOM fixture tests).
 
-## Prior Static Verification
-The RESULT recorded:
-- Focused Product Source Pack suite: **51 passed, 0 failed**.
-- Full repository suite: **469 passed, 0 failed**.
-- Image-seed anchor regression passed.
-- No-structured/no-semantic-gallery fail-closed regression passed.
+## Verification
+The RESULT records:
+- Focused Product Source Pack suite: **52 passed, 0 failed**.
+- Full repository suite: **470 passed, 0 failed**.
+- New regression `test_shopee_near_seed_ancestor_with_two_images_expands_to_full_sibling_thumbnail_strip` passes.
+- Non-challenged live validation on Shopee product `52764529835` reports `blocked=False`, one structured image, six gallery media entries, zero variants/description/fallback, and no footer/review/recommendation/SVG media.
 
-Those checks remain useful, but the user's requested non-challenged live validation on the original product has now exposed an acceptance-critical seller-gallery omission.
+The branch remains a clean fast-forward from current main.
 
-## Pre-Merge Live Validation — 2026-08-16
-Exact local task head was verified as:
-
-`53b9ffc0c4bc1ca391d1e5ee78c553bd8c96e079`
-
-The user then re-ran the actual `_SHOPEE_EXTRACTION_SCRIPT` against the original Shopee regression product `52764529835` in the authenticated Chrome CDP session after the product page was reopened successfully.
-
-Observed live result:
-- product URL resolved to item `52764529835`;
-- title matched the TP-Link TC70 product;
-- `PRODUCT_ID: 52764529835`;
-- `BLOCKED: False`;
-- `STRUCTURED_IMAGES: 1`;
-- `GALLERY: 2`;
-- `VARIANTS: 0`;
-- `DESCRIPTION_MEDIA: 0`;
-- `FALLBACK_MEDIA: 0`.
-
-The two accepted gallery paths were the main seller image plus one additional seller-owned media item. However, the same product's earlier inspected live DOM showed a seller thumbnail strip with several additional product images under the same positively owned top product-media cluster. Therefore the current implementation still under-extracts the live seller gallery on the exact product that motivated this fix.
+## Resolved Prior Blocker
+The prior under-extraction defect is fixed: Strategy 2B no longer stops at the first near ancestor with two URLs. It now carries the verified seed upward, retains the largest positively anchored media set found within the bounded ancestor walk, and stops at the enclosing briefing/section boundary. The exact live product now includes the sibling thumbnail strip instead of returning only two items.
 
 ## Blocking Finding
-**The positive anchor expansion stops too early inside the media cluster.**
+### Product-media cluster expansion currently accepts a non-product overlay as canonical gallery media
+The new regression explicitly models the near-seed second image as an `overlay-badge` and asserts that it is accepted into `result["gallery"]`. The live RESULT likewise describes the six accepted entries as the main image, a badge overlay, and the thumbnail strip.
 
-Current Strategy 2B walks upward from the verified seed node and accepts the first ancestor whose `getMediaUrls(...)` result has at least two media URLs, then stops. On the live Shopee DOM, the seed image's near ancestor can already contain two seller media URLs while the actual thumbnail strip is a sibling under a higher common product-media ancestor. Stopping at the first `>= 2` ancestor therefore yields an incomplete gallery.
+That conflicts with TASK-013's source-media boundary. The task requires accepted media to be seller-original product media and explicitly excludes promotional/banner/non-product imagery that is not part of the current product media set. A standalone UI/promo/badge overlay is not a product view and must not be persisted as `SEMANTIC_PRODUCT_GALLERY` merely because it shares the positively anchored media cluster.
 
-This is visible in the implementation's early break after `candidateUrls.length >= 2` and is now confirmed by the exact non-challenged live run.
+The original live DOM evidence for this product showed the seller thumbnail strip as the authoritative gallery relationship: the main image is repeated in the strip together with the additional seller product views, while a separate image inside the main-image stack is rendered alongside the main image. The current fix solves under-extraction by admitting every image in the common cluster, but in doing so it over-extracts that separate overlay asset.
 
 Required correction:
-1. Preserve the positive ownership seed; do **not** return to generic page/section scanning.
-2. Expand from the verified seed to the smallest trustworthy enclosing product-media cluster that includes both the main-image area and its associated thumbnail strip, rather than stopping at the first ancestor with two URLs.
-3. Keep unrelated obfuscated sections, reviews, recommendations, footer/app-shell media excluded.
-4. Add a deterministic regression where a near seed ancestor contains two media URLs but the sibling thumbnail strip under a higher owned ancestor contains additional seller images; prove the full owned gallery is returned while unrelated sections remain excluded.
-5. Re-run focused and full suites.
-6. Re-run the non-challenged live validation on product `52764529835` and demonstrate that the seller thumbnail images previously observed on the page are captured, with no non-product contamination.
+1. Keep the verified structured-image seed and bounded ancestor expansion.
+2. Treat the associated thumbnail strip / carousel relationship as the authoritative gallery set when present, plus the verified main seed; do not automatically admit every sibling image in the enclosing cluster.
+3. Exclude standalone overlay/badge/promo imagery from canonical gallery media even when it lives inside the positively owned product-media area.
+4. Update the deterministic regression so the near-seed overlay image is **rejected**, while the main seed and all sibling thumbnail-strip product images are accepted.
+5. Keep unrelated obfuscated sections, reviews, recommendations, footer/app-shell media excluded.
+6. Re-run focused and full suites.
+7. Re-run the non-challenged live validation on product `52764529835`; the accepted set should correspond to actual seller product views/thumbnails only, without the overlay asset.
 
 ## Decision
 CHANGES_REQUIRED.
@@ -64,4 +52,4 @@ The next authorized worker action is:
 
 `/aios-worker FIX TASK-013`
 
-After the worker publishes a new head and RESULT, request `Review TASK-013` again. Approval can only be restored after the exact live product returns a complete, positively owned seller gallery without contamination.
+After the worker publishes a new head and RESULT, request `Review TASK-013` again. Approval can only be restored after the live seller gallery is complete **and** the non-product overlay is excluded from canonical source media.
