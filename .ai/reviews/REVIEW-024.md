@@ -1,145 +1,112 @@
 # REVIEW-024 — TASK-024 Usage & Efficiency Telemetry Hardening
 
-STATUS: CHANGES_REQUIRED
+STATUS: APPROVED
 
 ## Review Scope
-- Review round: `2` — ADR-017 Delta Fix Review + Final Independent Audit attempt
+- Review round: `3` — ADR-017 Delta Fix Review + Final Independent Audit
 - Reviewed branch: `ai/task-024`
-- Reviewed branch head: `d1fd7a7451186e82df142b33c03f5683f5facd47`
-- Tested implementation SHA reported by RESULT: `cc96b8f384490f689ef5d2bd1a4c4a6198b63310`
-- Previous reviewed branch head: `7b42e5bb52dec69d93508c083266c6d55983921f`
+- Reviewed branch head: `47dbde428169bb003d010b9ded79c9528bb40fba`
+- Tested implementation SHA reported by RESULT: `8b8036d343d36e49cd5b0ca7d8e23510a62ead1f`
+- Previous reviewed branch head: `d1fd7a7451186e82df142b33c03f5683f5facd47`
 - Base main: `f47cc9d7e2d954413918ef7b7a2ab7a90bb1a6d8`
-- Branch relation: ahead `4`, behind `0`; merge-base exact current main.
-- `7b42e5b... -> cc96b8f...` changes only `src/aios_bridge/continuity/usage.py` (+4) and `tests/aios_bridge/continuity/test_usage.py` (+55).
-- `cc96b8f... -> d1fd7a7...` changes only `.ai/results/RESULT-024.md`; production code/tests at final branch head equal tested implementation.
+- Branch relation: ahead `6`, behind `0`; merge-base exact current main.
+- `d1fd7a7... -> 8b8036d...` changes only `src/aios_bridge/continuity/usage.py` and `tests/aios_bridge/continuity/test_usage.py`.
+- `8b8036d... -> 47dbde4...` changes only `.ai/results/RESULT-024.md`; production code/tests at final branch head equal the tested implementation.
+- TASK-024 control blob remains `9e54b70645d297c7e6b3d11fd32cbd04398f77cd`; no task-contract drift was observed.
 - Test counts below are RESULT evidence from Antigravity; this review did not independently execute the repository test suite.
 
-## Round-1 Finding Status
+## ADR-017 Stage Result
 
-### R1-2 — PREVIOUS_REVIEW_SHA evidence identity
+```text
+FULL_SEMANTIC_REVIEW: PASS after remediation
+KNOWN_FINDINGS: CLOSED
+DELTA_FIX_REVIEW: PASS
+FINAL_INDEPENDENT_AUDIT: PASS
+APPROVED: YES
+```
+
+The Final Independent Audit reconstructed the verdict from the TASK-024 contract, final tested Usage implementation, final Usage tests, TASK-019 historical baseline compatibility, shared actor-validator assumptions, final RESULT evidence, and branch/base relation. Previous findings were supplementary evidence only and did not limit the audit search space.
+
+## Finding Closure
+
+### R1-1 / R2-1 — bounded token aggregation including UNKNOWN ordering
 RESOLVED.
 
-The FIX RESULT correctly records:
+`aggregate_token_ranges()` now scans all measurements, tracks `saw_unknown`, continues validating known measurements after UNKNOWN entries, and applies the same `MAX_USAGE_INT` bound incrementally to cumulative known min/max totals. A provable overflow therefore fails closed regardless of UNKNOWN presence or ordering. Only after a complete bounded scan may an UNKNOWN cause `(None, None)`.
+
+Regression tests cover:
+- exact cumulative `MAX_USAGE_INT` success;
+- all-known cumulative overflow;
+- `[MAX, 1, UNKNOWN]` overflow;
+- `[UNKNOWN, MAX, 1]` overflow;
+- bounded known values plus UNKNOWN -> `(None, None)`;
+- Brain actor-class overflow with UNKNOWN sibling;
+- Executor actor-class overflow with UNKNOWN sibling.
+
+### R1-2 — Review Manifest evidence identity
+RESOLVED.
+
+The final FIX RESULT records:
 
 ```text
-PREVIOUS_REVIEW_SHA: 2501ec720d67ec75ee70c91cd4b0546c6fd568e7
+PREVIOUS_REVIEW_SHA: 556f285feeb45a31f2d7f40b8d2c8bcaafe1c508
 ```
 
-which is the Round-1 REVIEW-024 blob SHA. The authorized artifact is separately and correctly labeled as REVIEW-024.
+which is the exact Round-2 REVIEW-024 blob SHA. The authorized artifact is separately labeled as REVIEW-024.
 
-### R1-1 — cumulative token aggregation bound
-PARTIALLY RESOLVED; one fail-closed edge remains.
+### R2-2 — extreme integer ratio exception leakage
+RESOLVED.
 
-The implementation now validates final `total_min` and `total_max` against `MAX_USAGE_INT` and tests all-known generic, Brain, and Executor overflow. That closes the normal all-known path.
+`_validate_canonical_ratio()` now handles Python integer inputs before float/math conversion. Only integer `0` and `1` are accepted and canonicalized to floats; all other integers fail with `ContinuityStateValidationError`. Oversized integers use a bounded diagnostic representation and do not leak `OverflowError` or Python large-int string-conversion errors.
 
-However the helper still returns immediately on the first UNKNOWN measurement before validating/scanning the remaining known measurements. Therefore UNKNOWN can mask a deterministically known overflow.
+Regression tests cover very large positive/negative integers plus ordinary `2`, `-1`, `0`, `1`, normal floats, negative zero, NaN and infinities.
 
-Example:
+## Final Independent Audit
 
-```text
-MAX = MAX_USAGE_INT
-aggregate_token_ranges([
-    REPORTED(MAX),
-    REPORTED(1),
-    UNKNOWN,
-])
-```
+The final audit deliberately searched beyond R1/R2 findings and verified:
+- `BrainUsageRecord.brain_id` and `ExecutorUsageRecord.executor_id` are exact-canonical at the Usage boundary;
+- all schema-v1 token/count/byte measurements and estimator byte input use the common signed-64-safe `MAX_USAGE_INT` semantic ceiling;
+- token provenance semantics remain strict: REPORTED exact, ESTIMATED bounded with method, UNKNOWN without values/method;
+- cumulative token aggregation cannot exceed the same semantic ceiling and UNKNOWN cannot mask a provable known overflow;
+- Brain and Executor actor-class aggregates remain isolated; UNKNOWN in one class does not erase a valid aggregate in the other;
+- context efficiency remains UNKNOWN when required source bytes are unknown or total is zero;
+- supplied context-efficiency ratios must match the deterministic helper when source bytes are known;
+- ratio fields canonicalize accepted numeric representations to float, normalize negative zero, reject non-finite values, and safely reject extreme integers;
+- exact efficiency partition checks remain intact;
+- `utf8-bytes-div4-v1` estimator behavior remains deterministic and ESTIMATED only;
+- strict unknown-field handling and 16 KiB TaskUsageRecord/parser protection remain intact;
+- canonical JSON and SHA-256 fingerprint semantics remain deterministic for valid canonical records;
+- `.ai/metrics/TASK-019-USAGE.json` remains unchanged at blob `be2287e505e32da68f268c632700ac4f8b7ce56b`, validates under the hardened schema, remains ESTIMATED, and does not fabricate uncaptured exact proxies;
+- production scope remains limited to `usage.py` plus the expected public exports in `continuity/__init__.py`; no `state.py`, `brain.py`, `failover.py`, Bridge, provider or executor production semantics were changed;
+- no RUN/FIX/MERGE authority, model routing, invocation or failover authority was widened.
 
-The known subtotal alone is already `MAX + 1`, so no valid bounded aggregate is possible even before accounting for the UNKNOWN contribution. Current code returns `(None, None)` when it reaches UNKNOWN, before the post-loop bound check.
+No new blocking contract defect was found in the final independent pass.
 
-The reverse ordering also matters: an UNKNOWN encountered first prevents inspection of later known records. A deterministic aggregation helper must not let ordering decide whether a provable overflow is detected.
+## Evidence
 
-## Blocking Finding R2-1 — UNKNOWN must not mask a provable cumulative overflow
-Severity: HIGH
-
-Required fix:
-- do not return immediately when UNKNOWN is encountered;
-- scan/validate every measurement;
-- track `saw_unknown` separately;
-- sum known ranges and enforce `MAX_USAGE_INT` on the known subtotal (preferably incrementally or at least after the full scan);
-- if known subtotal overflows, fail closed regardless of UNKNOWN presence/order;
-- only after all inputs have been inspected and known subtotal is bounded, return `(None, None)` if `saw_unknown`, otherwise return the bounded totals;
-- preserve `(0, 0)` for empty input.
-
-Required regression tests:
-1. `[MAX, 1, UNKNOWN]` -> fail closed;
-2. `[UNKNOWN, MAX, 1]` -> fail closed;
-3. bounded known values + UNKNOWN -> `(None, None)`;
-4. same semantics through Brain actor-class aggregation;
-5. same semantics through Executor actor-class aggregation.
-
-## Blocking Finding R2-2 — ratio validator can leak OverflowError for extreme integer input
-Severity: MEDIUM
-
-`_validate_canonical_ratio()` accepts `int | float`, then calls `math.isnan(val)` / `math.isinf(val)` before converting/range-checking. Python's math conversion for an arbitrarily large integer can raise `OverflowError` before the validator reaches its `[0, 1]` rejection.
-
-The Usage validation boundary should reject invalid ratio inputs deterministically with `ContinuityStateValidationError`, not leak a raw numeric conversion exception through `EfficiencyMetrics.from_dict()` / construction.
-
-Required fix:
-- make conversion/range validation safe for arbitrary accepted Python `int`/`float` values;
-- catch conversion overflow (or check integer range before float conversion) and raise `ContinuityStateValidationError`;
-- preserve bool rejection, finite checks, `[0,1]`, canonical float conversion, and `-0.0 -> 0.0` semantics.
-
-Required regression tests:
-- very large positive integer ratio fails with `ContinuityStateValidationError`;
-- very large negative integer ratio fails with `ContinuityStateValidationError`;
-- ordinary `0`, `1`, `0.0`, `1.0`, `-0.0`, NaN and infinities retain current semantics.
-
-## Final Independent Audit — Positive Evidence
-
-Outside the blockers above, the final audit reconfirms:
-- exact-canonical Brain/Executor actor identities;
-- common signed-64-safe semantic bound on token/count/byte telemetry;
-- estimator input bound and existing estimator semantics;
-- UNKNOWN context-efficiency rule when useful/total is absent or total is zero;
-- canonical persisted ratio floats and canonical positive zero for normal bounded numeric inputs;
-- exact efficiency partition checks;
-- actor-class aggregation isolation between Brain and Executor;
-- REPORTED / ESTIMATED / UNKNOWN provenance semantics;
-- strict unknown-field handling and 16 KiB TaskUsageRecord/parser bound;
-- TASK-019 baseline remains byte-identical (`be2287e505e32da68f268c632700ac4f8b7ce56b`), ESTIMATED, and un-fabricated;
-- no Bridge/provider/Brain/failover/Executor/human authority change.
-
-RESULT reports against tested implementation `cc96b8f384490f689ef5d2bd1a4c4a6198b63310`:
+RESULT-024 reports against tested implementation `8b8036d343d36e49cd5b0ca7d8e23510a62ead1f`:
 
 ```text
 Continuity: 72 passed
 AIOS Bridge: 158 passed
 Full repository: 632 passed
 Regressions: 0
+TELEMETRY_MODEL_TURNS_ADDED: 0
 LIVE_EXTERNAL_CALLS: 0
+BRIDGE_V0_4_BEHAVIOR_CHANGED: NO
+AUTHORITY_WIDENED: NO
 EXECUTOR_RUNS: 1
-EXECUTOR_FIX_RUNS: 1
+EXECUTOR_FIX_RUNS: 2
 TASK_019_BASELINE_VALID: YES
 TASK_019_BASELINE_CHANGED: NO
 ```
 
-Non-blocking evidence cleanup: RESULT still labels `FAILOVER_SCHEMA_VERSION: 1` inside a Usage Telemetry milestone. This field is not required by TASK-024 and does not affect code correctness; prefer removing it or renaming it to an accurate Usage schema label in the next RESULT rather than carrying cross-milestone terminology forward.
-
-## Required FIX Scope
-Expected production/test delta remains tiny and bounded to:
-
-```text
-src/aios_bridge/continuity/usage.py
-tests/aios_bridge/continuity/test_usage.py
-.ai/results/RESULT-024.md
-```
-
-No `state.py`, `brain.py`, `failover.py`, Bridge, provider, executor, or authority changes.
-
-## ADR-017 Stage Status
-
-```text
-FULL_SEMANTIC_REVIEW: FAIL (Round 1)
-R1-2: CLOSED
-R1-1: PARTIAL — edge remains
-DELTA_FIX_REVIEW: FAIL
-FINAL_INDEPENDENT_AUDIT: FAIL — new robustness finding R2-2
-APPROVED: NO
-```
-
-After the next FIX, use a narrow delta-first review for R2-1/R2-2 and evidence identity. If that delta passes, perform one fresh Final Independent Audit on the resulting final tested implementation before APPROVED.
+The final RESULT also removed the previously noted misleading `FAILOVER_SCHEMA_VERSION` field from this Usage milestone.
 
 ## Decision
 
-`CHANGES_REQUIRED`
+`APPROVED`
+
+TASK-024 satisfies the hardened M1.5 Usage & Efficiency Telemetry contract at reviewed branch head `47dbde428169bb003d010b9ded79c9528bb40fba` under ADR-017.
+
+Merge eligibility is approved. Human MERGE authorization remains separate and mandatory.
