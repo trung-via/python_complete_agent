@@ -1,104 +1,71 @@
 # REVIEW-016 — TASK-016 (AIOS Bridge v0.5-M3 ModelGateway + OpenAI-Compatible Transport + MiniMax Provider + Usage Ledger)
 
 ## Status
-CHANGES_REQUIRED
+APPROVED
 
 ## Review Round
-3
+4 — Final
 
 ## Reviewed Head
 - Branch: `ai/task-016`
-- Reviewed commit: `71fb8af8575d5ba16d442d99f23566fd6df1e030`
-- Previous reviewed commit: `4c3f868d6e6f63bd456d902917a10ac17cf84c65`
+- Reviewed exact commit: `6fd3cb155c9edf6aaebbf85c5ad0812e7e737abb`
+- Tested implementation head: `71fb8af8575d5ba16d442d99f23566fd6df1e030`
 - Canonical baseline: `4f5fafc4f9c4f16413d3e4e2d13adc856509bde9`
-- Branch relation to main: ahead 3, behind 0; merge base exactly canonical baseline
+- Branch relation to main: ahead 4, behind 0; merge base exactly canonical baseline
+- Delta from tested implementation head to reviewed exact head: RESULT-016 metadata/evidence only; no source or test code changes
 - RESULT-016 status: `READY_FOR_REVIEW`
 
-## Round-2 Code Blockers — RESOLVED
-The remaining code/security findings from round 2 are corrected at this head:
+## Acceptance Evidence
+RESULT-016 records the required offline verification:
+- Focused External Brain suite: **72 passed**
+- Existing AIOS Bridge suite: **72 passed**
+- Full repository suite: **546 passed**
+- Full-suite regressions: **0**
+- `LIVE_SMOKE: NOT_RUN`
+- No automated live MiniMax request was made
+- Full TASK-016 branch changed-file summary is recorded relative to canonical `main`
+- Pre-publish tested head is explicitly recorded as `71fb8af8575d5ba16d442d99f23566fd6df1e030`
 
-1. **Explicit model mismatch pre-network validation — RESOLVED**
-   - `request.model is None` uses the configured provider model.
-   - explicit matching model proceeds.
-   - explicit mismatch raises before `ModelTransport.send()` and regression coverage verifies no additional transport call.
+Independent GitHub verification confirms current reviewed head `6fd3cb155c9edf6aaebbf85c5ad0812e7e737abb` is exactly one commit ahead of the tested implementation head, and that single commit changes only `.ai/results/RESULT-016.md`. Therefore the verified source/test state is unchanged after the full test run.
 
-2. **TransportRequest credential-safe representation — RESOLVED**
-   - `TransportRequest.__repr__()` / `__str__()` redact sensitive auth header values including Authorization/X-Api-Key while preserving actual immutable headers for transmission.
-   - regression coverage verifies a fake secret is absent from repr/str and still transmitted on the wire.
+## Final Contract Review Summary
+TASK-016 now satisfies ADR-007 and preserves ADR-005/ADR-006 plus AIOS Bridge v0.4 authority boundaries:
 
-3. **MiniMax request-ID precedence — RESOLVED**
-   - non-empty JSON response `body["id"]` now takes precedence over transport/header correlation ID.
-   - transport/header ID remains the fallback.
-   - focused tests cover both cases.
-
-All previously resolved round-1 properties remain intact: provider=None handling, tri-state ledger status, bounded ledger error code, ADR-007 UsageRecord schema, synchronous UsageLedger contract, reasoning fail-closed, and bounded MiniMax provider diagnostics.
-
-Focused External Brain suite recorded in the current RESULT-016: **72 passed**.
-
-No new code blocker was found in this review round.
-
----
-
-## Final Blocker — Acceptance evidence in RESULT-016 remains incomplete
-
-TASK-016 explicitly requires acceptance evidence beyond the focused External Brain suite.
-
-Current RESULT-016 records only:
-
-```text
-Focused External Brain: 72 passed
-```
-
-It still does **not** record:
-- existing bridge test count / pass result;
-- full repository `tests/` suite count / pass result;
-- zero-regression evidence based on that full run;
-- explicit `LIVE_SMOKE: NOT_RUN` (unless an operator intentionally ran one);
-- the reviewed implementation/published branch head identifier in a clearly named metadata field;
-- a complete full TASK-016 branch diff summary (current `Files Changed` / `Diff Stat` describes only the latest fix delta, not the complete M3 branch relative to canonical main).
-
-Because M3 is the first real external-provider path, this evidence gate is mandatory before approval. The code itself does not need another redesign round.
-
-### Required Re-Verification Only
-Do not change M3 architecture or behavior unless a test exposes a real regression.
-
-1. Run focused External Brain tests.
-2. Run the existing bridge tests.
-3. Run the full repository `tests/` suite.
-4. Do **not** run a live MiniMax request automatically.
-5. Update RESULT-016 with:
-   - focused test exact count;
-   - bridge test exact count;
-   - full repository exact count;
-   - zero regressions only if supported by the full run;
-   - `LIVE_SMOKE: NOT_RUN` unless manually invoked by the operator;
-   - reviewed implementation/publish head metadata sufficient to correlate the result to this branch state;
-   - complete changed-file/diff summary for `main...ai/task-016`, not only the last FIX commit.
-6. Publish the updated RESULT and return for review.
-
-### Note on Head Metadata
-Do not create a self-referential SHA loop solely to make RESULT contain the SHA of the commit that contains RESULT itself. Record the implementation/tested head or the bridge's canonical pre-publish/publish correlation identifier in a clearly labeled field. The reviewer will independently verify the final GitHub branch head after publish.
-
----
-
-## Scope Guard
-This final round is evidence/re-verification only. Do not add:
-- ProviderRegistry;
-- other provider adapters;
-- router/classifier;
-- retry/fallback;
-- quota polling;
-- repo crawling;
-- Antigravity execution authority;
-- patch application;
-- bridge.py semantic changes;
-- Python Agent runtime provider semantic changes.
+1. ModelGateway is single-provider only; no provider registry, routing, classifier, fallback, or retry loop was introduced.
+2. Provider mismatch fails before external invocation; `request.provider=None` is allowed to use the trusted configured provider.
+3. MiniMax explicit model mismatch fails before `ModelTransport.send()`; `request.model=None` may use the configured model.
+4. M2 `context_build.selected` correlation is checked before any provider call.
+5. Provider is invoked at most once per gateway invocation.
+6. Prompt rendering is deterministic, reuses M2 context framing, supplies no tools, and grants no execution authority.
+7. OpenAICompatibleTransport performs one bounded JSON POST with no automatic retry.
+8. Non-JSON diagnostic bodies are bounded.
+9. Credential-bearing TransportRequest repr/str redacts sensitive authorization/API-key header values while preserving wire transmission semantics.
+10. MiniMax provider defaults to configurable `MiniMax-M3` / official OpenAI-compatible endpoint.
+11. MiniMax payload uses `stream=false`, `reasoning_split=true`, `max_completion_tokens`, no tools, no deprecated `max_tokens`, and no priority service tier.
+12. Separate reasoning fields are ignored; embedded `<think>` / inseparable reasoning markers fail closed to `INVALID_RESPONSE` without persisting reasoning text.
+13. MiniMax HTTP/base_resp auth/rate/timeout/unavailable/error mappings are normalized; provider raw `status_msg` is not reflected verbatim.
+14. `finish_reason=length` is rejected as truncated output.
+15. MiniMax JSON response body `id` takes precedence over transport/header correlation ID, with header ID as fallback.
+16. Gateway validates correlation and structural output before accepting SUCCESS.
+17. UsageRecord follows the ADR-007 schema and keeps provider-reported usage separate from M2 context-count estimates.
+18. Usage telemetry stores no prompt, context content, output content, Authorization headers, API key, raw response body, or raw secret-bearing errors.
+19. UsageLedger is explicit, append-only, synchronous at contract level, and JsonlUsageLedger flushes/fsyncs to an explicit caller-supplied path.
+20. GatewayResult correctly distinguishes ledger disabled (`None`), write success (`True`), and write failure (`False`) and exposes only bounded `ledger_error_code` metadata.
+21. Ledger failure never triggers a second provider/model invocation.
+22. External Brain remains proposal-only: no filesystem/shell/browser/Git/tool execution, patch application, commit, push, merge, or RUN/FIX authorization authority was added.
+23. Existing `bridge.py` v0.4 handoff/authorization/publish semantics remain untouched.
+24. Existing Python Agent `src.providers.LLMProvider` semantics remain untouched.
+25. Full repository suite is green with zero regressions at the tested implementation state.
 
 ## Decision
-CHANGES_REQUIRED.
+APPROVED.
 
-The M3 code/security blockers are resolved. Only mandatory acceptance evidence remains before APPROVED.
+TASK-016 / AIOS Bridge v0.5-M3 is accepted at exact reviewed branch head:
 
-Human fix gate:
+`6fd3cb155c9edf6aaebbf85c5ad0812e7e737abb`
 
-`/aios-worker FIX TASK-016`
+The tested source/test implementation is `71fb8af8575d5ba16d442d99f23566fd6df1e030`; the only later branch change is the RESULT-016 evidence artifact.
+
+A manual live MiniMax smoke test was intentionally **not** required for approval. Provider connectivity/credential validation can be exercised separately after merge under an explicit operator action without changing this contract approval.
+
+Do not merge automatically unless the existing human merge gate is explicitly invoked.
