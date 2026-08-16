@@ -1,67 +1,61 @@
 # REVIEW-013 — TASK-013 (Phase 6 M2.2A Product Source Pack & Original Media Extraction V1)
 
 ## Status
-APPROVED
+CHANGES_REQUIRED
 
 ## Reviewed Head
 - Branch: `ai/task-013`
 - Reviewed commit: `a45cb80e242f7e4b25afa40860f2e0ecb2907e1d`
 - Main baseline: `9d3dcfeab5ffc98bf6aeb3ef7a67912a5bc1fd52`
-- Branch relation to main: ahead 9, behind 0 (fast-forward safe)
+- Branch relation at prior review: ahead 9, behind 0 (fast-forward safe)
 - Task artifact blob: `c0144bc2e7ffc21422a491ca621a0fe7ceceecde`
-- Prior CHANGES_REQUIRED authorization blob: `28dc314869861d4a71dc36e9c47d81430fef6263`
-- RESULT-013 blob: `5ef20b0e0640449baf418f9c150d4b8d25570b3f`
-- RESULT action: `FIX`
-- Exact FIX authorization recorded by worker: `.ai/reviews/REVIEW-013.md (28dc314869)` — matches the prior review artifact exactly.
-- Live main → task comparison: 19 changed files, no `scratch_publish.py`, no `test_pw.py`.
+- Prior RESULT-013 blob: `5ef20b0e0640449baf418f9c150d4b8d25570b3f`
+- Prior RESULT action: `FIX`
 
-## Verification
-- Focused command: `.\venv\Scripts\python -m pytest tests/product_source/ -v`
+## Regression Test Evidence
+- Focused command recorded in RESULT: `.\venv\Scripts\python -m pytest tests/product_source/ -v`
   - 48 passed, 0 failed, exit code 0.
-- Full repository command: `.\venv\Scripts\python -m pytest tests/ -q -W ignore`
+- Full repository command recorded in RESULT: `.\venv\Scripts\python -m pytest tests/ -q -W ignore`
   - 466 passed, 0 failed, exit code 0.
 
-The RESULT artifact records the required test evidence, known limitations, merge governance, and a 19-file task diff summary. Final GitHub live comparison is authoritative for the reviewed head and confirms the task branch remains a clean fast-forward from main.
+## Pre-Merge Live Validation — 2026-08-16
+The user intentionally performed a real Shopee validation against the exact approved TASK-013 head before merge, using an authenticated local Chrome session exposed through CDP port 9222.
 
-## Approval Summary
-TASK-013 satisfies the acceptance-critical Product Source Pack and original-media requirements reviewed across the prior cycles:
+Live product:
+- Shopee product ID: `52764529835`
+- Extracted title matched the target product.
+- `blocked = false`.
+- Structured identity matched exactly.
 
-1. **Current-product identity is fail-closed and exact.**
-   - Shopee/TikTok structured product evidence uses exact normalized ID/SKU equality or product/item ID parsed from an object-owned URL.
-   - Overlapping substring IDs are covered by regressions.
-   - Structured-derived title/brand/shop/description/model-SKU/media are gated behind verified product identity.
+Observed extraction counts from the actual `_SHOPEE_EXTRACTION_SCRIPT`:
+- `STRUCTURED_IMAGES: 1`
+- `GALLERY: 0`
+- `VARIANTS: 0`
+- `DESCRIPTION_MEDIA: 0`
+- `FALLBACK_MEDIA: 0`
 
-2. **Review/comment/UGC contamination is explicitly excluded.**
-   - Deterministic Playwright DOM fixtures invoke the actual extraction functions.
-   - Review/comment/recommendation subtrees are nested inside scanned product containers and share the same CDN host as accepted product media.
-   - Seller/gallery media is accepted while nested UGC/recommendation media is rejected by container ownership rules, not CDN heuristics.
-   - TikTok generic outer-page content is not admitted by fallback.
+The live DOM contained multiple seller-owned product gallery images, but the TASK-013 Shopee semantic gallery selectors did not recognize the current Shopee gallery markup. The current implementation only scans:
 
-3. **Original media extraction is bounded and source-preserving.**
-   - Trusted order remains structured product data → semantic gallery → explicit variant media → seller description → bounded platform-scoped fallback.
-   - No generic whole-page/main/article success scan is used.
-   - Accepted source bytes are written without ImageProcessor re-encoding.
-   - Per-file 20 MiB streaming ceiling and per-product 30-media ceiling are enforced.
-   - URL dedupe and SHA-256 exact-byte duplicate collapse are preserved without duplicate orphan files.
+`'.product-image-carousel, .product-image__content, .V9sV-Q, .xNIlvG'`
 
-4. **Source evidence is secret-safe and provenance-aware.**
-   - Signed/auth-like URL query families are redacted for persisted manifests/diagnostics while fetch URLs remain usable in memory.
-   - Canonical product identity ignores query noise.
-   - Explicit model/SKU evidence is preserved when observed; missing values remain absent rather than inferred.
+The live seller gallery was instead rendered under a top product-media section whose current classes included `SECTION.C21rQm`, with the main product image under `BvNoX2 / OMOWB7` and seller thumbnails under `qIctnQ / mdCA_C / FAWPL0`. Those classes appear hashed/obfuscated and carry no stable semantic attributes in the inspected ancestor chain, so hard-coding `C21rQm` or the other observed hash classes is not an acceptable long-term fix.
 
-5. **Project integration boundaries are preserved.**
-   - Real BrowserManager/BrowserSession run-id contract is covered.
-   - Zero trusted media fails closed rather than publishing an empty successful pack.
-   - Public `shopee_scrape` / `tiktok_scrape` names and schemas remain compatible.
-   - No AI image generation, background removal, 360 synthesis, LLM calls, scoring, ranking, or queue mutation is introduced in this task.
-   - Temporary publication/debug helpers have been removed from the final task diff.
+A separate group of images at the bottom of the page was confirmed to be under `FOOTER.Dtu9HW`; those are not product-source media and must remain excluded.
 
-## Known Limitations
-- TASK-013 establishes the canonical source/original layer only.
-- Cross-platform scoring/ranking, queue handoff, and downstream derived AI asset generation remain future milestones.
-- Marketplace DOM/schema changes may require selector/structured-data adapter maintenance; current behavior fails closed where trusted ownership cannot be established.
+## Blocking Finding
+**Shopee live gallery compatibility is incomplete.**
+
+TASK-013 currently succeeds with only one structured image on this real Shopee product while missing the remaining seller gallery images. This violates the task objective to capture seller-original product media and means the prior static approval is superseded by this live validation result.
+
+The fix must:
+1. Add a robust current-Shopee gallery ownership strategy without relying solely on ephemeral hashed class names.
+2. Preserve fail-closed review/comment/UGC/recommendation/footer exclusion.
+3. Keep current exact product identity gating and provenance roles.
+4. Add deterministic regression coverage reproducing the current live DOM shape, including seller gallery acceptance and footer/review/recommendation rejection.
+5. Re-run focused and full tests.
+6. Re-run a live Shopee validation on the same product before approval is restored.
 
 ## Decision
-APPROVED.
+CHANGES_REQUIRED.
 
-Do not merge automatically. Merge only after the user's explicit `Merge TASK-013` command and only if the approved task head remains unchanged and main can be fast-forwarded safely.
+Do not merge TASK-013. The next authorized worker action is `/aios-worker FIX TASK-013`. After the worker publishes the new task head and RESULT, the user must request `Review TASK-013` again. Merge remains forbidden until a new review is APPROVED and the user explicitly says `Merge TASK-013`.
