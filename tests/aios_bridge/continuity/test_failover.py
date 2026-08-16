@@ -68,7 +68,7 @@ def _make_valid_source_request(task_id: str = "TASK-022") -> BrainRequest:
             ),
             ContextRef(
                 path=f".ai/tasks/{task_id}.md",
-                blob_sha=None,
+                blob_sha="92494bcd64b594d60a5f74a82e3e64c113d817db",
                 description="Task definition",
             ),
         ),
@@ -164,6 +164,112 @@ def test_canonical_actor_id_and_whitespace_padded_pseudo_failover_rejected():
     with pytest.raises(ContinuityStateValidationError, match="must not contain leading or trailing whitespace"):
         validate_brain_failover_eligibility(
             src, rep_normal, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap_padded
+        )
+
+
+def test_context_refs_content_anchoring_to_state_snapshot():
+    """R6-1: Context references must be content-addressed and match canonical state artifact blobs."""
+    state = _make_valid_state("TASK-022")
+    src = _make_valid_source_request("TASK-022")
+    rep = build_replacement_brain_request(src, "brain-b", "req-task-022-r2")
+    cap = _make_valid_replacement_capability("brain-b")
+
+    # 1. Valid case with exact task blob and non-state explicit blob passes
+    proof = validate_brain_failover_eligibility(
+        src, rep, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap
+    )
+    assert proof.task_id == "TASK-022"
+
+    # 2. Canonical task ContextRef with blob_sha=None fails closed
+    src_none_task_blob = BrainRequest(
+        schema_version=src.schema_version,
+        task_id=src.task_id,
+        request_id=src.request_id,
+        brain_id=src.brain_id,
+        operation=src.operation,
+        objective=src.objective,
+        context_refs=(
+            ContextRef(
+                path=".ai/decisions/ADR-010-OPEN-MULTI-AGENT-CONTINUITY-OS-ARCHITECTURE-LOCK.md",
+                blob_sha="a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+            ),
+            ContextRef(
+                path=f".ai/tasks/{src.task_id}.md",
+                blob_sha=None,
+            ),
+        ),
+        output_contract=src.output_contract,
+    )
+    rep_none_task_blob = build_replacement_brain_request(src_none_task_blob, "brain-b", "req-r2")
+    with pytest.raises(ContinuityStateValidationError, match="must have a non-null, content-addressed blob_sha"):
+        validate_brain_failover_eligibility(
+            src_none_task_blob, rep_none_task_blob, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap
+        )
+
+    # 3. Canonical task ContextRef with wrong 40-char blob fails closed
+    src_wrong_task_blob = BrainRequest(
+        schema_version=src.schema_version,
+        task_id=src.task_id,
+        request_id=src.request_id,
+        brain_id=src.brain_id,
+        operation=src.operation,
+        objective=src.objective,
+        context_refs=(
+            ContextRef(
+                path=f".ai/tasks/{src.task_id}.md",
+                blob_sha="0" * 40,
+            ),
+        ),
+        output_contract=src.output_contract,
+    )
+    rep_wrong_task_blob = build_replacement_brain_request(src_wrong_task_blob, "brain-b", "req-r2")
+    with pytest.raises(ContinuityStateValidationError, match="mismatches canonical state artifact blob_sha"):
+        validate_brain_failover_eligibility(
+            src_wrong_task_blob, rep_wrong_task_blob, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap
+        )
+
+    # 4. Non-state ContextRef with blob_sha=None fails closed
+    src_none_nonstate_blob = BrainRequest(
+        schema_version=src.schema_version,
+        task_id=src.task_id,
+        request_id=src.request_id,
+        brain_id=src.brain_id,
+        operation=src.operation,
+        objective=src.objective,
+        context_refs=(
+            ContextRef(
+                path=".ai/decisions/ADR-010-OPEN-MULTI-AGENT-CONTINUITY-OS-ARCHITECTURE-LOCK.md",
+                blob_sha=None,
+            ),
+        ),
+        output_contract=src.output_contract,
+    )
+    rep_none_nonstate_blob = build_replacement_brain_request(src_none_nonstate_blob, "brain-b", "req-r2")
+    with pytest.raises(ContinuityStateValidationError, match="must have a non-null, content-addressed blob_sha"):
+        validate_brain_failover_eligibility(
+            src_none_nonstate_blob, rep_none_nonstate_blob, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap
+        )
+
+    # 5. Non-state ContextRef with padded path fails closed
+    src_padded_path = BrainRequest(
+        schema_version=src.schema_version,
+        task_id=src.task_id,
+        request_id=src.request_id,
+        brain_id=src.brain_id,
+        operation=src.operation,
+        objective=src.objective,
+        context_refs=(
+            ContextRef(
+                path=" .ai/decisions/ADR-010.md ",
+                blob_sha="a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+            ),
+        ),
+        output_contract=src.output_contract,
+    )
+    rep_padded_path = build_replacement_brain_request(src_padded_path, "brain-b", "req-r2")
+    with pytest.raises(ContinuityStateValidationError, match="ContextRef.path must not contain leading or trailing whitespace"):
+        validate_brain_failover_eligibility(
+            src_padded_path, rep_padded_path, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap
         )
 
 
@@ -471,6 +577,8 @@ def test_state_anchor_and_fingerprint_mandatory_validation():
 
     # State for a different task fails closed
     state_other_task = _make_valid_state("TASK-099")
+    src_other_task = _make_valid_source_request("TASK-099")
+    rep_other_task = build_replacement_brain_request(src_other_task, "brain-b", "req-r2")
     with pytest.raises(ContinuityStateValidationError, match="State task_id mismatch"):
         validate_brain_failover_eligibility(
             src, rep, state_other_task, expected_state_fingerprint=state_other_task.fingerprint(), replacement_capability=cap

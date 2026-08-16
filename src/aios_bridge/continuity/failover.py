@@ -16,6 +16,7 @@ from .brain import (
     BrainRequest,
     BrainResult,
     BrainResultStatus,
+    ContextRef,
     _validate_request_id,
     _validate_task_id,
 )
@@ -25,6 +26,7 @@ from .state import (
     SCHEMA_VERSION,
     ContinuityState,
     _validate_actor_id,
+    _validate_exact_hex_sha,
 )
 
 _FINGERPRINT_PATTERN = re.compile(r"^[0-9a-f]{64}$")
@@ -75,6 +77,52 @@ def _validate_canonical_request_id(request_id: Any, field_name: str) -> str:
             f"{field_name} must be exact canonical request ID, got: {request_id!r}"
         )
     return canonical
+
+
+def _validate_context_refs_content_anchored(
+    context_refs: Sequence[ContextRef],
+    state: ContinuityState,
+) -> None:
+    """
+    Validates that every ContextRef in the failover request is deterministically content-addressed (R6-1):
+    - Must have a non-null, valid lowercase 40-character hex blob_sha.
+    - Path must have zero leading or trailing whitespace.
+    - If path matches an authoritative ContinuityState artifact, its blob_sha must exactly match the state snapshot.
+    - If path is not in ContinuityState artifacts, its explicit blob_sha ensures independent content-addressing.
+    """
+    state_artifacts = state.artifacts
+    state_artifact_blobs: dict[str, str] = {state_artifacts.task.path: state_artifacts.task.blob_sha}
+    if state_artifacts.plan is not None:
+        state_artifact_blobs[state_artifacts.plan.path] = state_artifacts.plan.blob_sha
+    if state_artifacts.result is not None:
+        state_artifact_blobs[state_artifacts.result.path] = state_artifacts.result.blob_sha
+    if state_artifacts.review is not None:
+        state_artifact_blobs[state_artifacts.review.path] = state_artifacts.review.blob_sha
+    for contract in state_artifacts.contracts:
+        state_artifact_blobs[contract.path] = contract.blob_sha
+
+    for ref in context_refs:
+        if not isinstance(ref, ContextRef):
+            raise ContinuityStateValidationError(f"Context ref must be ContextRef, got: {type(ref).__name__}")
+
+        if ref.path != ref.path.strip() or not ref.path:
+            raise ContinuityStateValidationError(
+                f"ContextRef.path must not contain leading or trailing whitespace: {ref.path!r}"
+            )
+
+        if ref.blob_sha is None or not str(ref.blob_sha).strip():
+            raise ContinuityStateValidationError(
+                f"ContextRef '{ref.path}' must have a non-null, content-addressed blob_sha for failover continuity proof"
+            )
+
+        _validate_exact_hex_sha(ref.blob_sha, f"ContextRef.blob_sha for '{ref.path}'")
+
+        if ref.path in state_artifact_blobs:
+            expected_blob = state_artifact_blobs[ref.path]
+            if ref.blob_sha != expected_blob:
+                raise ContinuityStateValidationError(
+                    f"ContextRef '{ref.path}' blob_sha '{ref.blob_sha}' mismatches canonical state artifact blob_sha '{expected_blob}'"
+                )
 
 
 @dataclass(frozen=True)
@@ -372,6 +420,9 @@ def validate_brain_failover_eligibility(
     if source_request.schema_version != replacement_request.schema_version:
         raise ContinuityStateValidationError("Schema version drift in failover")
 
+    # 3. Context References Content-Anchoring to State Snapshot (R6-1)
+    _validate_context_refs_content_anchored(source_request.context_refs, state)
+
     canon_source_brain = _validate_canonical_actor_id(source_request.brain_id, "source_request.brain_id")
     canon_rep_brain = _validate_canonical_actor_id(replacement_request.brain_id, "replacement_request.brain_id")
 
@@ -380,7 +431,7 @@ def validate_brain_failover_eligibility(
             f"Same-Brain pseudo-failover rejected: source and replacement brain_id are identical ('{canon_source_brain}')"
         )
 
-    # 3. Replacement Capability Validation (Mandatory Gate)
+    # 4. Replacement Capability Validation (Mandatory Gate)
     if not isinstance(replacement_capability, BrainCapability):
         raise ContinuityStateValidationError(
             f"replacement_capability must be a BrainCapability, got: {type(replacement_capability).__name__}"
@@ -398,7 +449,7 @@ def validate_brain_failover_eligibility(
     if not replacement_capability.declarative_only:
         raise ContinuityStateValidationError("Replacement capability declarative_only must be True")
 
-    # 4. Source Result Validation (if provided)
+    # 5. Source Result Validation (if provided)
     source_status: BrainResultStatus | None = None
     if source_result is not None:
         if not isinstance(source_result, BrainResult):
@@ -428,7 +479,7 @@ def validate_brain_failover_eligibility(
             )
         source_status = source_result.status
 
-    # 5. Construct and return verified BrainFailoverProof
+    # 6. Construct and return verified BrainFailoverProof
     return BrainFailoverProof(
         task_id=source_request.task_id,
         operation=source_request.operation,
