@@ -1,95 +1,60 @@
 # REVIEW-014 — TASK-014 (AIOS Bridge v0.5-M1 External Brain Contract Implementation)
 
 ## Status
-CHANGES_REQUIRED
+APPROVED
 
 ## Reviewed Head
 - Branch: `ai/task-014`
-- Reviewed commit: `fb970c8325a9fd2887021010c7663868be019d37`
-- Previous reviewed head: `6f7e0323187b76b71e3466e89c3a6ff04f86caca`
+- Reviewed commit: `34b331c75d0577e403bb80b2ba0fe9818183b4f9`
+- Previous reviewed head: `fb970c8325a9fd2887021010c7663868be019d37`
 - Canonical baseline: `540f4cb20b56cf72db333192d49ccf6eb295e9c4`
+- Branch relation to main: ahead 4, behind 0; merge base exactly canonical baseline
 - RESULT-014 status: `READY_FOR_REVIEW`
 
 ## Verification Recorded in RESULT-014
 - Focused External Brain suite: **20 passed**
 - Full repository suite: **494 passed**
 - No live external-model request was made
-- Fix delta remains limited to transport contract/serialization tests plus RESULT metadata
+- No protected subsystem was changed
 
-## Previous Blocker — RESOLVED
-The JSON wire boundary requested in the previous review is now present:
-- `TransportRequest.to_json_payload()` returns a fresh ordinary JSON-shaped structure;
-- `TransportRequest.to_wire_dict()` returns a fresh wire representation;
-- `json.dumps(req.to_json_payload())` is covered and succeeds for normal nested payloads;
-- mutating the returned wire payload does not mutate the immutable stored request;
-- custom objects/callables are rejected deterministically.
+## Final Blocker Resolution — Deterministic JSON Payload Boundary
+RESOLVED.
 
-The previous immutability and contradictory-success-metadata fixes remain valid.
+The final review blocker required unordered/non-JSON set values to be rejected rather than silently normalized. The reviewed head now:
+- rejects `set` and `frozenset` with `ContractValidationError`;
+- accepts ordered JSON-compatible structures and immutable internal tuple/mapping forms;
+- preserves fresh JSON-compatible wire conversion through `to_json_payload()` / `to_wire_dict()`;
+- rejects non-finite float values (`NaN`, `+Inf`, `-Inf`) to keep the wire boundary strict JSON-compatible;
+- retains defensive-copy/deep-immutability behavior;
+- retains rejection of contradictory failure metadata on `ModelResponse(status=SUCCESS)`.
 
----
+Regression coverage explicitly verifies rejection of `set`, `frozenset`, `NaN`, and `Inf`, while the existing normal nested payload serialization, `json.dumps(...)`, caller-mutation isolation, and wire-copy isolation tests remain green.
 
-## Final Blocker — `set` / `frozenset` are silently accepted as JSON payload values and break deterministic serialization
+## Contract Review Summary
+The M1 implementation now satisfies ADR-005 and TASK-014 boundaries:
 
-`_validate_and_freeze_payload()` currently contains:
-
-```python
-elif isinstance(val, (set, frozenset)):
-    return tuple(_validate_and_freeze_payload(v) for v in val)
-```
-
-This is inconsistent with the locked transport contract for two reasons:
-
-1. `set` and `frozenset` are not JSON-compatible payload types.
-2. Set iteration order is not a stable semantic order, so silently converting a set to tuple/list can make wire serialization non-deterministic across processes/runs.
-
-M1 requires deterministic serialization and the prior review explicitly required unsupported non-JSON payload values to fail rather than be silently coerced by provider-specific or contract-specific magic.
-
-### Required Fix
-Do not accept unordered sets as valid JSON request payload data.
-
-Preferred V1 rule:
-- accept JSON scalars: `str`, `int`, finite `float`, `bool`, `None`;
-- accept mappings with string keys;
-- accept ordered sequences (`list`, and `tuple` if intentionally normalized to JSON array);
-- reject `set` and `frozenset` with `ContractValidationError`.
-
-Keep the internal immutable mapping/tuple representation and existing `to_json_payload()` / `to_wire_dict()` helpers.
-
-### Required Regression Tests
-Add focused tests proving:
-1. `payload={"x": {1, 2}}` is rejected;
-2. `payload={"x": frozenset({1, 2})}` is rejected;
-3. ordinary nested list/dict/tuple payloads remain JSON-serializable and deterministic;
-4. previous defensive-copy and wire-copy mutation tests remain green.
-
-Optional but desirable while touching this exact validator: reject non-finite floats (`NaN`, `+Inf`, `-Inf`) so the payload is strict JSON-compatible rather than relying on Python `json.dumps(..., allow_nan=True)` behavior. This is not a separate blocker if left for later, but strict rejection would make the V1 boundary cleaner.
-
----
-
-## Scope Guard
-This remains an M1 contract fix only. Do not add:
-- HTTP/networking;
-- MiniMax/DeepSeek/Kimi adapters;
-- ContextBuilder;
-- ModelGateway;
-- router/fallback/retry/quota logic;
-- usage ledger;
-- filesystem/shell/browser/Git/tool execution authority;
-- changes to `bridge.py` or `src.providers.LLMProvider`.
-
-## Re-Verification Required
-After the fix:
-1. run focused `tests/aios_bridge/external_brain/`;
-2. run existing bridge tests;
-3. run full repository tests;
-4. update RESULT-014 with exact counts;
-5. publish the new branch head for re-review.
+1. `src/aios_bridge/external_brain/` is isolated from the existing Python Agent runtime provider abstraction.
+2. `ContextItem`, `ModelRequest`, and `ModelResponse` are immutable/frozen and enforce the locked V1 invariants.
+3. Operation-to-output mapping is centralized.
+4. Request/response correlation is explicit and deterministic.
+5. Successful responses cannot carry contradictory failure metadata.
+6. Unknown provider usage can remain `None` without fabricated token counts.
+7. `ProviderAdapter` remains protocol-only with no workspace/tool authority.
+8. `ModelTransport` remains a generic networking boundary with no HTTP implementation in M1.
+9. `TransportRequest` is defensively immutable while exposing a fresh strict-JSON wire representation.
+10. PLAN / PATCH_PROPOSAL / DIAGNOSIS / REVIEW output validation exists and remains structural-only.
+11. No live MiniMax / DeepSeek / Kimi call was introduced.
+12. No ContextBuilder, Gateway, Router, fallback, quota policy, MCP, or usage ledger was introduced.
+13. `bridge.py`, `src/providers/base.py`, `src/providers/gemini.py`, AgentLoop/retry/checkpoint/idempotency, browser stack, and Product Source Pack semantics remain untouched.
+14. Antigravity remains the sole executor; External Brain remains proposal-only.
 
 ## Decision
-CHANGES_REQUIRED.
+APPROVED.
 
-All previous blockers are resolved. Only deterministic rejection of unordered/non-JSON set payloads remains before M1 approval.
+TASK-014 / AIOS Bridge v0.5-M1 External Brain Contract Implementation is accepted at exact reviewed head:
 
-Human fix gate:
+`34b331c75d0577e403bb80b2ba0fe9818183b4f9`
 
-`/aios-worker FIX TASK-014`
+The next milestone may proceed to **v0.5-M2 — deterministic ContextBuilder + Token/Context Budget**, while preserving all M1 contracts and v0.4 Zero-Touch Handoff semantics.
+
+Do not merge automatically unless the existing human merge gate is explicitly invoked.
