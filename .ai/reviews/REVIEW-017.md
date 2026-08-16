@@ -2,43 +2,53 @@
 
 STATUS: CHANGES_REQUIRED
 
-## Scope
+## Review Scope
+- Review round: `2`
 - Reviewed branch: `ai/task-017`
-- Reviewed head: `a50aa3bb44be695496afe8c196af16c9adaf29fd`
+- Reviewed head: `c29ac6c4ad5875c8c69a62b89e197fc96f1411d7`
 - Base main: `54303dc7d56ddce4ae9b22ef05c7dd310e731737`
+- Branch relation: ahead 2 / behind 0; merge-base is exact current main.
 - PLAN adoption remains `ACCEPTED_WITH_LOCAL_ADJUSTMENTS`.
 - `CHATGPT_REPLAN_REQUIRED: NO`.
 
-## Required Changes
+## Round-1 Fixes Accepted
+1. Operator CLI `--api-key` removed; production CLI now relies on `AIOS_MINIMAX_API_KEY`.
+2. Operator-facing `--provider` / `--model` removed; internal runner fails closed unless provider=`minimax` and model=`MiniMax-M3`.
+3. Provider non-SUCCESS output no longer emits `ModelResponse.error_message`.
+4. PLAN artifact identity is now correct: control commit `8b65bca623ccfba95d9ea0956f960a3eb8efd93a`, blob `7cfe32d75a8989a58a45c08aaca4084c6323e78e`.
+5. Focused regression coverage was extended and current RESULT reports External Brain 86 passed, Bridge 86 passed, full repository 560 passed.
+6. No retry/fallback/router/repo crawl/provider HTTP duplication was found in the reviewed delta.
 
-1. Remove the operator CLI `--api-key` option. TASK-017 requires the production runner to use `AIOS_MINIMAX_API_KEY` from the local environment. Test-only dependency injection may remain internal, but must not be an operator CLI option.
+## Remaining Required Changes
 
-2. Keep M3.1 locked to `provider=minimax` and `model=MiniMax-M3`. Remove operator-facing `--provider` / `--model` generalization or fail closed unless those exact locked values are used. Do not introduce routing or provider selection in TASK-017.
+1. Enforce the existing task-ID contract **case-sensitively**. The canonical M1 contract uses `^TASK-\d+$`; current `runner.py` uses `re.IGNORECASE` and the test explicitly accepts `task-999.md`, then normalizes it to `TASK-999`. This widens the locked identity contract. Remove `re.IGNORECASE`, do not normalize an invalid lowercase ID into a valid uppercase ID, and add a regression assertion that `task-999.md` fails before provider/network invocation.
 
-3. Fail closed on invalid task identity. The current helper silently substitutes `TASK-017` when the task filename does not begin with `TASK-`. Require the existing `TASK-<digits>` identity contract and return non-zero before provider invocation on invalid input.
+2. Fix `RESULT-017` exact tested implementation evidence. It still contains:
+   - `IMPLEMENTATION_HEAD: (tested implementation commit SHA)`
+   This must be an actual immutable SHA for the implementation revision on which the reported suites were run. After the remaining code/test fix, run the focused, Bridge, and full repository suites on that exact implementation revision and record its SHA. If the RESULT update itself creates a later evidence-only commit, that is acceptable; clearly distinguish tested implementation SHA from evidence/publish head.
 
-4. On non-SUCCESS provider outcomes, do not print `ModelResponse.error_message`. Output only normalized safe status/error-code information plus permitted telemetry. Add a regression test proving provider error text is not emitted.
+3. Replace the current FIX-only diffstat with the required branch changed-file summary / diffstat relative to canonical `main`. At review round 2, `main...ai/task-017` contains four branch files:
+   - `.ai/results/RESULT-017.md`
+   - `scripts/aios_external_brain_plan.py`
+   - `src/aios_bridge/external_brain/runner.py`
+   - `tests/aios_bridge/external_brain/test_runner.py`
+   The current RESULT diffstat (`3 files changed, 128 insertions(+), 40 deletions(-)`) describes only the round-1 FIX delta, not the complete TASK-017 branch delta. Also restore the exact base-main SHA instead of `Base Main SHA: (n/a)`.
 
-5. Fix RESULT-017 exact evidence. Current values are not acceptable:
-   - `IMPLEMENTATION_HEAD: (pre-publish branch commit)` must become the exact tested implementation commit SHA.
-   - `PLAN_ARTIFACT_IDENTITY: 54303dc...` is the base-main SHA, not the PLAN artifact identity.
-   - Actual validated PLAN artifact identities at review time: control commit `8b65bca623ccfba95d9ea0956f960a3eb8efd93a`; file blob `7cfe32d75a8989a58a45c08aaca4084c6323e78e`.
-   If needed, use an evidence-only RESULT follow-up commit after the tested implementation commit.
-
-6. Complete RESULT changed-file evidence. `## Diff Stat` is empty and `Files Changed` should list exact paths rather than `scripts/`.
-
-7. Extend focused tests for the fixes: no operator CLI key option; locked provider/model; invalid task identity fails before provider call; provider failure text not emitted; invalid context kind fails before provider call; zero live external calls remains true.
-
-## Existing Good Evidence
-- Branch is ahead 1 / behind 0 from current main.
-- Existing M1/M2/M3 components are reused; provider HTTP logic is not duplicated.
-- No retry/fallback/router/repo crawl was found in the reviewed delta.
-- Current RESULT reports External Brain 83 passed, Bridge 83 passed, full repository 557 passed; rerun all after fixes.
-- Live PLAN proof remains valid: request `m31-real-plan-task017-005`, status `SUCCESS`, 7921 input tokens, 4232 output tokens, 84525 ms, ledger persisted.
+## Evidence Verified in Round 2
+- Exact reviewed head: `c29ac6c4ad5875c8c69a62b89e197fc96f1411d7`.
+- Round-1 -> Round-2 fix is one commit (`a50aa3b...` -> `c29ac6c...`) touching RESULT, CLI, runner, and runner tests.
+- Current RESULT reports:
+  - External Brain: `86 passed`
+  - Bridge: `86 passed`
+  - Full repository: `560 passed`
+  - live calls in automated tests: `0`
+  - credentials persisted: `NO`
+  - separated reasoning persisted: `NO`
+- Live MiniMax proof remains valid: request `m31-real-plan-task017-005`, `SUCCESS`, input `7921`, output `4232`, latency `84525 ms`, ledger persisted.
 
 ## Re-review Gate
-Run the normal human-approved fix workflow:
+Use the normal human-approved fix workflow:
 
 `/aios-worker FIX TASK-017`
 
-Then publish a new branch head and updated RESULT-017 with exact evidence and all required suites green.
+This is a narrow contract/evidence correction only; no architectural re-plan is required. Publish a new branch head with strict uppercase task identity, exact tested implementation SHA, full branch diff evidence, and all required suites green.
