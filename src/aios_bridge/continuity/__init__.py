@@ -1,6 +1,15 @@
-"""Open Multi-Agent Continuity OS — Canonical Project State & Usage Telemetry namespace (M1 / M1.5)."""
+"""Open Multi-Agent Continuity OS — Canonical Project State, Usage Telemetry & Brain-Neutral Contract (M1 / M1.5 / M2)."""
 from __future__ import annotations
 
+from .brain import (
+    BrainCapability,
+    BrainOutputType,
+    BrainRequest,
+    BrainResult,
+    BrainResultStatus,
+    ContextRef,
+    OutputContract,
+)
 from .errors import ContinuityError, ContinuityFreshnessError, ContinuityStateValidationError
 from .state import (
     MAX_SERIALIZED_BYTES,
@@ -43,10 +52,16 @@ __all__ = [
     "PHASES_REQUIRING_TASK_BRANCH_SHA",
     "SCHEMA_VERSION",
     "ArtifactRef",
+    "BrainCapability",
     "BrainOperation",
+    "BrainOutputType",
+    "BrainRequest",
+    "BrainResult",
+    "BrainResultStatus",
     "BrainState",
     "BrainUsageRecord",
     "BranchState",
+    "ContextRef",
     "ContinuityArtifacts",
     "ContinuityError",
     "ContinuityFreshnessError",
@@ -63,6 +78,7 @@ __all__ = [
     "FreshnessStatus",
     "HumanUsage",
     "NextOperation",
+    "OutputContract",
     "StateObservation",
     "TaskUsageRecord",
     "TokenMeasurement",
