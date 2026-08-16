@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from .brain import (
+    OPERATION_OUTPUT_TYPE_COMPATIBILITY,
     BrainCapability,
     BrainOutputType,
     BrainRequest,
@@ -48,6 +49,7 @@ from .usage import (
 
 __all__ = [
     "MAX_SERIALIZED_BYTES",
+    "OPERATION_OUTPUT_TYPE_COMPATIBILITY",
     "PHASE_NEXT_OPERATION_MAP",
     "PHASES_REQUIRING_TASK_BRANCH_SHA",
     "SCHEMA_VERSION",

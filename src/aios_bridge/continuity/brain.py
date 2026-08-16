@@ -29,7 +29,6 @@ _ERROR_CODE_PATTERN = re.compile(r"^[A-Za-z0-9_.\-]+$")
 MAX_REQUEST_ID_LENGTH = 64
 MAX_ERROR_CODE_LENGTH = 64
 MAX_OBJECTIVE_LENGTH = 4096
-MAX_BOUNDED_CONTENT_LENGTH = 4096
 MAX_CONTEXT_REFS = 32
 MAX_DESCRIPTION_LENGTH = 256
 
@@ -50,6 +49,16 @@ class BrainOutputType(str, Enum):
     DIAGNOSIS_ARTIFACT = "DIAGNOSIS_ARTIFACT"
     PATCH_PROPOSAL_ARTIFACT = "PATCH_PROPOSAL_ARTIFACT"
     BOUNDED_TEXT = "BOUNDED_TEXT"
+
+
+OPERATION_OUTPUT_TYPE_COMPATIBILITY: dict[BrainOperation, frozenset[BrainOutputType]] = {
+    BrainOperation.TASK: frozenset({BrainOutputType.TASK_ARTIFACT}),
+    BrainOperation.TASK_AND_PLAN: frozenset({BrainOutputType.TASK_ARTIFACT, BrainOutputType.PLAN_ARTIFACT}),
+    BrainOperation.PLAN: frozenset({BrainOutputType.PLAN_ARTIFACT}),
+    BrainOperation.REVIEW: frozenset({BrainOutputType.REVIEW_ARTIFACT}),
+    BrainOperation.DIAGNOSIS: frozenset({BrainOutputType.DIAGNOSIS_ARTIFACT, BrainOutputType.BOUNDED_TEXT}),
+    BrainOperation.PATCH_PROPOSAL: frozenset({BrainOutputType.PATCH_PROPOSAL_ARTIFACT, BrainOutputType.BOUNDED_TEXT}),
+}
 
 
 def _validate_non_negative_int(val: Any, field_name: str, allow_none: bool = False, min_val: int = 0) -> int | None:
@@ -102,6 +111,39 @@ def _validate_error_code(error_code: Any, field_name: str = "error_code") -> str
     if not _ERROR_CODE_PATTERN.match(code_str):
         raise ContinuityStateValidationError(f"{field_name} contains invalid characters: {error_code!r}")
     return code_str
+
+
+def _validate_artifact_role_and_task(
+    path: str,
+    output_type: BrainOutputType,
+    task_id: str,
+    field_name: str,
+) -> None:
+    """Validates that target artifact path matches the output type and active task_id."""
+    task_num = task_id.split("-")[1].lstrip("0") or "0"
+
+    if output_type == BrainOutputType.TASK_ARTIFACT:
+        expected = f".ai/tasks/{task_id}.md"
+        if path != expected:
+            raise ContinuityStateValidationError(
+                f"{field_name} path '{path}' incompatible with TASK_ARTIFACT for {task_id} (expected '{expected}')"
+            )
+    elif output_type == BrainOutputType.REVIEW_ARTIFACT:
+        expected_standard = f".ai/reviews/REVIEW-{task_num.zfill(3)}.md"
+        expected_short = f".ai/reviews/REVIEW-{task_num}.md"
+        if path not in (expected_standard, expected_short):
+            raise ContinuityStateValidationError(
+                f"{field_name} path '{path}' incompatible with REVIEW_ARTIFACT for {task_id} (expected '{expected_standard}')"
+            )
+    elif output_type in (
+        BrainOutputType.PLAN_ARTIFACT,
+        BrainOutputType.DIAGNOSIS_ARTIFACT,
+        BrainOutputType.PATCH_PROPOSAL_ARTIFACT,
+    ):
+        if task_id not in path and f"TASK-{task_num}" not in path:
+            raise ContinuityStateValidationError(
+                f"{field_name} path '{path}' must match active task identity {task_id}"
+            )
 
 
 @dataclass(frozen=True)
@@ -276,8 +318,8 @@ class BrainRequest:
     brain_id: str
     operation: BrainOperation
     objective: str
+    output_contract: OutputContract
     context_refs: tuple[ContextRef, ...] = ()
-    output_contract: OutputContract = OutputContract(expected_output_type=BrainOutputType.TASK_ARTIFACT)
     schema_version: str = SCHEMA_VERSION
 
     def __post_init__(self) -> None:
@@ -306,6 +348,28 @@ class BrainRequest:
                 f"BrainRequest.objective length ({len(self.objective)}) exceeds maximum allowed ({MAX_OBJECTIVE_LENGTH})"
             )
 
+        if not isinstance(self.output_contract, OutputContract):
+            raise ContinuityStateValidationError(
+                f"BrainRequest.output_contract must be an OutputContract, got: {type(self.output_contract).__name__}"
+            )
+
+        # Validate operation vs expected_output_type compatibility
+        allowed_types = OPERATION_OUTPUT_TYPE_COMPATIBILITY.get(self.operation, frozenset())
+        if self.output_contract.expected_output_type not in allowed_types:
+            raise ContinuityStateValidationError(
+                f"Incompatible expected_output_type {self.output_contract.expected_output_type.value!r} "
+                f"for operation {self.operation.value!r}. Allowed types: {sorted(t.value for t in allowed_types)}"
+            )
+
+        # Validate output target artifact path against output type and task_id if provided
+        if self.output_contract.target_artifact_path is not None:
+            _validate_artifact_role_and_task(
+                self.output_contract.target_artifact_path,
+                self.output_contract.expected_output_type,
+                self.task_id,
+                "OutputContract.target_artifact_path",
+            )
+
         if not isinstance(self.context_refs, tuple):
             try:
                 object.__setattr__(self, "context_refs", tuple(self.context_refs))
@@ -326,11 +390,6 @@ class BrainRequest:
             if ref.path in seen_paths:
                 raise ContinuityStateValidationError(f"Duplicate context_ref path rejected: {ref.path!r}")
             seen_paths.add(ref.path)
-
-        if not isinstance(self.output_contract, OutputContract):
-            raise ContinuityStateValidationError(
-                f"BrainRequest.output_contract must be an OutputContract, got: {type(self.output_contract).__name__}"
-            )
 
         # Enforce 16 KiB size cap fail-closed in constructor/parser
         raw_canonical = json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
@@ -385,7 +444,7 @@ class BrainRequest:
         if extra_keys:
             raise ContinuityStateValidationError(f"Unknown root fields in BrainRequest: {sorted(extra_keys)}")
 
-        for req in ("brain_id", "objective", "operation", "request_id", "schema_version", "task_id"):
+        for req in ("brain_id", "objective", "operation", "output_contract", "request_id", "schema_version", "task_id"):
             if req not in data:
                 raise ContinuityStateValidationError(f"Missing required field '{req}' in BrainRequest")
 
@@ -401,8 +460,7 @@ class BrainRequest:
             ContextRef.from_dict(r, f"context_refs[{i}]") for i, r in enumerate(refs_raw)
         ]
 
-        contract_data = data.get("output_contract", {"expected_output_type": BrainOutputType.TASK_ARTIFACT.value})
-        output_contract = OutputContract.from_dict(contract_data, "output_contract")
+        output_contract = OutputContract.from_dict(data["output_contract"], "output_contract")
 
         return cls(
             task_id=data["task_id"],
@@ -410,8 +468,8 @@ class BrainRequest:
             brain_id=data["brain_id"],
             operation=data["operation"],
             objective=data["objective"],
-            context_refs=tuple(context_refs),
             output_contract=output_contract,
+            context_refs=tuple(context_refs),
             schema_version=data["schema_version"],
         )
 
@@ -450,6 +508,7 @@ class BrainResult:
     """
     Vendor-neutral advisory Brain outcome (ADR-010 Milestone 2).
     Represents an advisory result or artifact pointer without granting execution authority.
+    Persists only pointers and deterministic metadata, never raw model output bodies.
     """
     task_id: str
     request_id: str
@@ -458,7 +517,7 @@ class BrainResult:
     status: BrainResultStatus
     output_type: BrainOutputType
     artifact_ref: ArtifactRef | None = None
-    bounded_content: str | None = None
+    evidence_ref: ContextRef | None = None
     error_code: str | None = None
     schema_version: str = SCHEMA_VERSION
 
@@ -499,28 +558,50 @@ class BrainResult:
                     f"Invalid BrainOutputType: {self.output_type!r}. Valid values: {valid_types}"
                 ) from e
 
+        # Validate operation vs output_type compatibility
+        allowed_types = OPERATION_OUTPUT_TYPE_COMPATIBILITY.get(self.operation, frozenset())
+        if self.output_type not in allowed_types:
+            raise ContinuityStateValidationError(
+                f"Incompatible output_type {self.output_type.value!r} for operation {self.operation.value!r}. "
+                f"Allowed types: {sorted(t.value for t in allowed_types)}"
+            )
+
         if self.artifact_ref is not None and not isinstance(self.artifact_ref, ArtifactRef):
             raise ContinuityStateValidationError(
                 f"BrainResult.artifact_ref must be an ArtifactRef or None, got: {type(self.artifact_ref).__name__}"
             )
 
-        if self.bounded_content is not None:
-            if isinstance(self.bounded_content, bool) or not isinstance(self.bounded_content, str):
-                raise ContinuityStateValidationError("BrainResult.bounded_content must be a string or None")
-            if len(self.bounded_content) > MAX_BOUNDED_CONTENT_LENGTH:
-                raise ContinuityStateValidationError(
-                    f"BrainResult.bounded_content length ({len(self.bounded_content)}) exceeds maximum allowed ({MAX_BOUNDED_CONTENT_LENGTH})"
-                )
+        if self.evidence_ref is not None and not isinstance(self.evidence_ref, ContextRef):
+            raise ContinuityStateValidationError(
+                f"BrainResult.evidence_ref must be a ContextRef or None, got: {type(self.evidence_ref).__name__}"
+            )
 
         if self.error_code is not None:
             object.__setattr__(self, "error_code", _validate_error_code(self.error_code, "BrainResult.error_code"))
 
-        # Status consistency checks
+        # Payload consistency and exclusivity
         if self.status == BrainResultStatus.SUCCESS:
-            if self.artifact_ref is None and self.bounded_content is None:
+            if self.artifact_ref is not None and self.evidence_ref is not None:
                 raise ContinuityStateValidationError(
-                    "BrainResult with SUCCESS status requires at least artifact_ref or bounded_content"
+                    "Ambiguous result payload: both artifact_ref and evidence_ref provided for SUCCESS result"
                 )
+            if self.artifact_ref is None and self.evidence_ref is None:
+                raise ContinuityStateValidationError(
+                    "SUCCESS status requires exactly one result payload pointer (artifact_ref or evidence_ref)"
+                )
+
+            if self.artifact_ref is not None:
+                _validate_artifact_role_and_task(
+                    self.artifact_ref.path,
+                    self.output_type,
+                    self.task_id,
+                    "BrainResult.artifact_ref",
+                )
+            elif self.evidence_ref is not None:
+                if self.output_type != BrainOutputType.BOUNDED_TEXT:
+                    raise ContinuityStateValidationError(
+                        f"evidence_ref payload is only valid for BOUNDED_TEXT output_type, got: {self.output_type.value}"
+                    )
 
         # Enforce 16 KiB size cap fail-closed in constructor/parser
         raw_canonical = json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
@@ -533,9 +614,9 @@ class BrainResult:
     def to_dict(self) -> dict[str, Any]:
         return {
             "artifact_ref": self.artifact_ref.to_dict() if self.artifact_ref is not None else None,
-            "bounded_content": self.bounded_content,
             "brain_id": self.brain_id,
             "error_code": self.error_code,
+            "evidence_ref": self.evidence_ref.to_dict() if self.evidence_ref is not None else None,
             "operation": self.operation.value,
             "output_type": self.output_type.value,
             "request_id": self.request_id,
@@ -565,9 +646,9 @@ class BrainResult:
 
         allowed_root_keys = {
             "artifact_ref",
-            "bounded_content",
             "brain_id",
             "error_code",
+            "evidence_ref",
             "operation",
             "output_type",
             "request_id",
@@ -591,6 +672,9 @@ class BrainResult:
         artifact_data = data.get("artifact_ref")
         artifact_ref = ArtifactRef.from_dict(artifact_data, "artifact_ref") if artifact_data is not None else None
 
+        evidence_data = data.get("evidence_ref")
+        evidence_ref = ContextRef.from_dict(evidence_data, "evidence_ref") if evidence_data is not None else None
+
         return cls(
             task_id=data["task_id"],
             request_id=data["request_id"],
@@ -599,7 +683,7 @@ class BrainResult:
             status=data["status"],
             output_type=data["output_type"],
             artifact_ref=artifact_ref,
-            bounded_content=data.get("bounded_content"),
+            evidence_ref=evidence_ref,
             error_code=data.get("error_code"),
             schema_version=data["schema_version"],
         )

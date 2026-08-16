@@ -14,6 +14,7 @@ from src.aios_bridge.continuity import (
     BrainResultStatus,
     ContextRef,
     ContinuityStateValidationError,
+    OPERATION_OUTPUT_TYPE_COMPATIBILITY,
     OutputContract,
 )
 
@@ -62,7 +63,7 @@ def _make_valid_brain_result_dict() -> dict:
             "blob_sha": "3ca21b58663c2de99ee2f16d16e2203ec77d0558",
             "ref": "task",
         },
-        "bounded_content": None,
+        "evidence_ref": None,
         "error_code": None,
     }
 
@@ -170,12 +171,20 @@ def test_closed_operation_status_and_output_type_validation():
         BrainResult.from_dict(res_bad_out)
 
 
-def test_unknown_fields_rejection_at_all_layers():
-    """Unknown fields at root or nested layers fail closed."""
+def test_unknown_fields_and_raw_body_rejection():
+    """Unknown fields and raw transcript/reasoning/content fields fail closed."""
+    # Root level arbitrary field
     d_root = _make_valid_brain_request_dict()
     d_root["prompt_override"] = "system prompt"
     with pytest.raises(ContinuityStateValidationError, match="Unknown root fields in BrainRequest"):
         BrainRequest.from_dict(d_root)
+
+    # Raw content / reasoning rejection in BrainResult
+    for forbidden_field in ["bounded_content", "transcript", "reasoning", "raw_output"]:
+        res_raw = _make_valid_brain_result_dict()
+        res_raw[forbidden_field] = "Some model output body"
+        with pytest.raises(ContinuityStateValidationError, match="Unknown root fields in BrainResult"):
+            BrainResult.from_dict(res_raw)
 
     d_context = _make_valid_brain_request_dict()
     d_context["context_refs"][0]["raw_content"] = "file body"
@@ -186,6 +195,77 @@ def test_unknown_fields_rejection_at_all_layers():
     d_out["output_contract"]["auto_merge"] = True
     with pytest.raises(ContinuityStateValidationError, match="Unknown fields in output_contract"):
         BrainRequest.from_dict(d_out)
+
+
+def test_operation_and_output_type_compatibility():
+    """Operation and output_type must adhere to closed compatibility matrix."""
+    # REVIEW operation with TASK_ARTIFACT output contract is rejected
+    d_mismatch = _make_valid_brain_request_dict()
+    d_mismatch["operation"] = "REVIEW"
+    d_mismatch["output_contract"]["expected_output_type"] = "TASK_ARTIFACT"
+    with pytest.raises(ContinuityStateValidationError, match="Incompatible expected_output_type"):
+        BrainRequest.from_dict(d_mismatch)
+
+    # Result with operation=REVIEW and output_type=TASK_ARTIFACT is rejected
+    res_mismatch = _make_valid_brain_result_dict()
+    res_mismatch["operation"] = "REVIEW"
+    res_mismatch["output_type"] = "TASK_ARTIFACT"
+    with pytest.raises(ContinuityStateValidationError, match="Incompatible output_type"):
+        BrainResult.from_dict(res_mismatch)
+
+
+def test_output_type_and_artifact_role_validation():
+    """Output type and artifact role/path must match active task identity and role."""
+    # REVIEW_ARTIFACT pointing to .ai/tasks/... fails
+    res_bad_role = _make_valid_brain_result_dict()
+    res_bad_role["operation"] = "REVIEW"
+    res_bad_role["output_type"] = "REVIEW_ARTIFACT"
+    res_bad_role["artifact_ref"]["path"] = ".ai/tasks/TASK-021.md"
+    with pytest.raises(ContinuityStateValidationError, match="incompatible with REVIEW_ARTIFACT"):
+        BrainResult.from_dict(res_bad_role)
+
+    # Task identity mismatch (pointing to TASK-099 for active TASK-021)
+    res_task_mismatch = _make_valid_brain_result_dict()
+    res_task_mismatch["artifact_ref"]["path"] = ".ai/tasks/TASK-099.md"
+    with pytest.raises(ContinuityStateValidationError, match="incompatible with TASK_ARTIFACT for TASK-021"):
+        BrainResult.from_dict(res_task_mismatch)
+
+
+def test_result_payload_exclusivity():
+    """SUCCESS status requires exactly one result pointer (artifact_ref or evidence_ref)."""
+    # Both provided -> ambiguous
+    res_both = _make_valid_brain_result_dict()
+    res_both["evidence_ref"] = {"path": ".ai/context/TASK-021-EVIDENCE.md"}
+    with pytest.raises(ContinuityStateValidationError, match="Ambiguous result payload"):
+        BrainResult.from_dict(res_both)
+
+    # Neither provided -> missing
+    res_none = _make_valid_brain_result_dict()
+    res_none["artifact_ref"] = None
+    res_none["evidence_ref"] = None
+    with pytest.raises(ContinuityStateValidationError, match="SUCCESS status requires exactly one result payload pointer"):
+        BrainResult.from_dict(res_none)
+
+    # Evidence ref with BOUNDED_TEXT succeeds
+    res_evidence = {
+        "schema_version": "1",
+        "task_id": "TASK-021",
+        "request_id": "req-task-021-diag-r1",
+        "brain_id": "chatgpt-chat",
+        "operation": "DIAGNOSIS",
+        "status": "SUCCESS",
+        "output_type": "BOUNDED_TEXT",
+        "artifact_ref": None,
+        "evidence_ref": {
+            "path": ".ai/context/TASK-021-DIAGNOSIS.md",
+            "blob_sha": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+            "description": "Diagnosis evidence pointer",
+        },
+        "error_code": None,
+    }
+    res_obj = BrainResult.from_dict(res_evidence)
+    assert res_obj.evidence_ref is not None
+    assert res_obj.evidence_ref.path == ".ai/context/TASK-021-DIAGNOSIS.md"
 
 
 def test_bounded_context_refs_and_duplicate_rejection():
@@ -227,7 +307,6 @@ def test_16kib_fail_closed_limit():
     """Oversized BrainRequest or BrainResult fails closed in constructor and parser."""
     d_huge = _make_valid_brain_request_dict()
     d_huge["objective"] = "x" * 4000
-    # Add multiple large context refs to push size over 16 KiB
     refs = []
     for i in range(30):
         refs.append({
@@ -272,20 +351,3 @@ def test_brain_capability_declarative_only():
             brain_id="chatgpt-chat",
             supported_operations=(),
         )
-
-
-def test_brain_result_status_and_content_consistency():
-    """SUCCESS status requires artifact_ref or bounded_content."""
-    d = _make_valid_brain_result_dict()
-    d["status"] = "SUCCESS"
-    d["artifact_ref"] = None
-    d["bounded_content"] = None
-    with pytest.raises(ContinuityStateValidationError, match="requires at least artifact_ref or bounded_content"):
-        BrainResult.from_dict(d)
-
-    # Bounded content only is valid for SUCCESS
-    d_content = _make_valid_brain_result_dict()
-    d_content["artifact_ref"] = None
-    d_content["bounded_content"] = "Bounded diagnosis summary"
-    res = BrainResult.from_dict(d_content)
-    assert res.bounded_content == "Bounded diagnosis summary"
