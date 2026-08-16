@@ -1,103 +1,62 @@
 # REVIEW-022 — TASK-022 M3A Brain Failover Contract & Proof Harness
 
-STATUS: CHANGES_REQUIRED
+STATUS: APPROVED
 
 ## Review Scope
-- Review round: `7` — finding-scoped delta review after Round-6 full re-audit
+- Review round: `8` — finding-scoped delta review after Round-7 collision finding
 - Reviewed branch: `ai/task-022`
-- Reviewed branch head: `ab489a0c281a98dd62b96f0b57ee1e1752c45556`
-- Tested implementation SHA reported by RESULT: `b1cb97d41f40f26bdfb8faa3ddd048838da6e9b0`
-- Previous reviewed head: `fcec3e8bb2bfe826e231849b77afd115a6d6e016`
+- Reviewed branch head: `27b8abafe9466b52e8eccc8dd68b4b5306a1fe78`
+- Tested implementation SHA reported by RESULT: `ab47be4a007337c9be270e4b51af4ae66bfe7eaa`
+- Previous reviewed head: `ab489a0c281a98dd62b96f0b57ee1e1752c45556`
 - Base main: `4978e426f3445c086c017c07c844943ac841e4de`
-- Branch relation: ahead `10`, behind `0`; merge-base exact current main.
-- `fcec3e8... -> b1cb97d...` changes only `src/aios_bridge/continuity/failover.py` and `tests/aios_bridge/continuity/test_failover.py` for R6-1.
-- `b1cb97d... -> ab489a0...` changes only `.ai/results/RESULT-022.md`; production code/tests at final head equal the tested implementation.
-- Review mode: ADR-013 delta-first restricted to Round-6 finding, new RESULT, implementation/test delta, and SHA relation.
+- Branch relation: ahead `12`, behind `0`; merge-base is exact current main.
+- `ab489a0... -> ab47be4...` changes only `src/aios_bridge/continuity/failover.py` and `tests/aios_bridge/continuity/test_failover.py` for R7-1.
+- `ab47be4... -> 27b8aba...` changes only `.ai/results/RESULT-022.md`; production code/tests at final branch head equal the tested implementation.
+- Review mode: ADR-013 delta-first restricted to Round-7 finding, new RESULT, collision-handling delta, regression tests, and SHA relation.
 - Test counts below are RESULT evidence from Antigravity; this review did not independently execute the repository test suite.
 
-## Round-6 Finding Closure
+## Round-7 Finding Closure
 
-### R6-1 — Context references content-anchored to canonical state snapshot
-PARTIALLY RESOLVED; normal-path behavior is correct, but one fail-closed edge remains.
+### R7-1 — Authoritative state artifact path collisions
+RESOLVED.
 
-The fix correctly adds `_validate_context_refs_content_anchored()` and now:
-- requires every failover ContextRef to carry a non-null exact 40-char lowercase blob SHA;
-- rejects leading/trailing whitespace in ContextRef paths;
-- compares a context ref against the matching state artifact blob when the path is present in state artifacts;
-- permits non-state ContextRefs only when they are independently content-addressed by explicit blob SHA;
-- updates the valid task ContextRef fixture to use the exact state task blob;
-- preserves the existing ordered source/replacement ContextRef equality requirement.
+`_validate_context_refs_content_anchored()` now builds the authoritative state artifact map through a single `_add_artifact()` boundary. Before insertion, `_add_artifact()` checks whether the path is already present and fails closed with `ContinuityStateValidationError` instead of overwriting the existing blob identity.
 
-Regression coverage now includes valid exact anchoring, missing task blob, wrong task blob, missing non-state blob, padded path rejection, and the existing semantic-drift checks.
+The rule applies uniformly to:
+- task;
+- plan;
+- result;
+- review;
+- every contract artifact.
 
-## New Blocking Finding
+The implementation intentionally rejects every cross-role duplicate authoritative path, even when the duplicate carries the same blob SHA. This is the simplest deterministic fail-closed policy and removes ambiguity from the continuity snapshot.
 
-### R7-1 — Authoritative state artifact path collisions can silently overwrite blob identity in the failover anchor map
+Regression tests prove:
+- task path duplicated by a contract with a different blob fails closed;
+- task path duplicated by plan with the same blob also fails closed;
+- the existing unique-path valid state remains accepted through the normal context-anchor test.
 
-The new helper builds an authoritative map as a plain dictionary:
+The new tests construct states that are valid under the existing generic ContinuityState contract, so the rejection is proven specifically at the M3A failover context-anchor boundary rather than by unrelated state validation.
 
-```python
-state_artifact_blobs = {state_artifacts.task.path: state_artifacts.task.blob_sha}
-...
-state_artifact_blobs[contract.path] = contract.blob_sha
-```
+## M3A Contract Status
 
-This assumes every authoritative artifact path is globally unique across `task`, `contracts`, `plan`, `result`, and `review`.
+The previously reviewed invariants remain satisfied:
+- replacement request preserves schema/task/operation/objective/ordered context refs/output contract while changing only Brain/request identity;
+- same-Brain pseudo-failover fails closed, including non-canonical whitespace identities;
+- replacement capability is mandatory, descriptive-only, Brain-matched, and operation-compatible;
+- source SUCCESS blocks competing same-operation failover; non-success/missing result may proceed when identities match;
+- source-result task/request/brain/operation mismatches fail closed;
+- caller-supplied canonical-state fingerprint is mandatory, exact lowercase SHA-256, and must match the supplied ContinuityState;
+- failover ContextRefs are content-addressed; authoritative-state paths must match exact artifact blobs; non-state refs require their own explicit blob identity;
+- authoritative state artifact paths are now collision-free at the failover boundary;
+- proof Brain/request identities and fingerprints are exact/canonical;
+- proof schema is immutable, strict, deterministic, SHA-256 fingerprintable, and bounded by the Continuity 16 KiB limit;
+- no raw prompt/response, transcript, hidden reasoning, secrets/session data, or RUN/FIX/MERGE authority enters the proof;
+- no Brain/provider invocation, vendor routing/ranking, automatic fallback, filesystem/Git/Bridge mutation, shell/browser execution, or executor-authority change is introduced.
 
-The current Continuity state contract does not guarantee that assumption. `ContinuityArtifacts` rejects duplicate paths only *within* the `contracts` tuple. It does not reject a contract path that equals the task path, nor a plan path that collides with task/contract paths. `ContinuityState` gives task/result/review some role-specific checks, but there is no global cross-role artifact-path uniqueness rule.
+## Test / Operational Evidence
 
-Therefore a syntactically valid state can contain, for example:
-
-```text
-artifacts.task:
-  path = .ai/tasks/TASK-022.md
-  blob = A
-
-artifacts.contracts[0]:
-  path = .ai/tasks/TASK-022.md
-  blob = B
-```
-
-When the failover helper builds its dict, blob `B` silently overwrites blob `A`. A ContextRef for `.ai/tasks/TASK-022.md` carrying blob `B` can then pass the new anchor check even though it conflicts with the canonical task artifact in the same state snapshot.
-
-This violates the R6 requirement that a context path matching an authoritative state artifact must match that artifact's content identity, and it weakens the fail-closed continuity proof.
-
-### Required fix
-
-Keep the fix local to TASK-022/failover validation; do not widen into a ContinuityState migration.
-
-While constructing the authoritative path/blob view:
-- detect a repeated authoritative path before assignment;
-- if the same path is already present, fail closed on ambiguity rather than silently overwriting;
-- rejecting all cross-role duplicate paths is the simplest/safest policy; alternatively, at minimum reject duplicates whose blob SHA differs;
-- do not mutate `ContinuityState` or its lifecycle contract in this task.
-
-### Required regression tests
-
-At minimum add:
-
-```text
-- state task path duplicated by a contract with a different blob -> fail closed
-- state task path duplicated by plan/another authoritative role -> fail closed (or one representative cross-role collision if helper policy is generic)
-- normal unique-path state continues to pass
-```
-
-The test should prove failure occurs in the failover context-anchor boundary, not from unrelated state construction validation.
-
-## Positive Evidence
-
-All earlier boundaries remain intact in the reviewed delta:
-- canonical Brain/request IDs and same-Brain rejection;
-- exact state/request fingerprints;
-- mandatory caller state fingerprint and replacement capability;
-- source-result identity checks and SUCCESS duplicate-output blocking;
-- semantic drift rejection;
-- strict bounded proof schema;
-- no transcript/reasoning/secrets/authority fields;
-- no provider/router/Bridge/Git/model side effects;
-- M3B remains explicitly incomplete.
-
-RESULT reports against `b1cb97d41f40f26bdfb8faa3ddd048838da6e9b0`:
+RESULT reports against implementation `ab47be4a007337c9be270e4b51af4ae66bfe7eaa`:
 
 ```text
 Continuity: 63 passed
@@ -107,41 +66,19 @@ Regressions: 0
 LIVE_EXTERNAL_CALLS: 0
 BRIDGE_V0_4_BEHAVIOR_CHANGED: NO
 AUTHORITY_WIDENED: NO
+SECRETS_OR_REASONING_PERSISTED: NO
+EXECUTOR_PLAN_OWNER: antigravity
+CHATGPT_IMPLEMENTATION_PLAN_USED: NO
+M3A_MECHANICS_PROVED: YES
 M3_REAL_CROSS_BRAIN_PROOF_COMPLETE: NO
 ```
 
-## FIX Scope Guidance
-
-Expected change remains tiny:
-
-```text
-src/aios_bridge/continuity/failover.py
-tests/aios_bridge/continuity/test_failover.py
-.ai/results/RESULT-022.md
-```
-
-No Bridge/provider/state-lifecycle/router/executor/authority changes.
-
-## Required Re-Test
-
-```text
-pytest tests/aios_bridge/continuity/ -q
-pytest tests/aios_bridge/ -q
-pytest tests/ -q -W ignore
-```
-
-No live external calls.
-
-## Next Review Budget
-
-Round 8 should inspect only:
-- this Round-7 REVIEW;
-- new RESULT;
-- authoritative-artifact collision delta and regression test;
-- SHA/branch relation.
-
 ## Decision
 
-`CHANGES_REQUIRED`
+`APPROVED`
 
-R6-1 is substantially fixed, but TASK-022 must not be merged until ambiguous/colliding authoritative artifact paths fail closed instead of being silently overwritten in the state artifact blob map.
+TASK-022 satisfies the M3A Brain Failover Contract & Proof Harness at reviewed branch head `27b8abafe9466b52e8eccc8dd68b4b5306a1fe78`.
+
+This approval covers M3A only. M3 remains incomplete until the separately required M3B real cross-chat two-Brain proof succeeds after TASK-022 is merged.
+
+Merge remains a separate explicit human-authorized action.
