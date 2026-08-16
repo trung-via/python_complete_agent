@@ -5,120 +5,59 @@ CHANGES_REQUIRED
 
 ## Reviewed Head
 - Branch: `ai/task-013`
-- Reviewed commit: `5042620ab53c432c7209816b6ac1a4fec817c377`
+- Reviewed commit: `d2e827eef3c5b4450c50055c667cec9f82e97976`
 - Main baseline: `9d3dcfeab5ffc98bf6aeb3ef7a67912a5bc1fd52`
-- Branch relation to main: ahead 6, behind 0 (fast-forward safe)
+- Branch relation to main: ahead 7, behind 0 (fast-forward safe)
 - Task artifact blob: `c0144bc2e7ffc21422a491ca621a0fe7ceceecde`
-- Prior CHANGES_REQUIRED authorization blob: `79adc61318d1977d4dacfddb6fd452827ae73a77`
-- RESULT-013 blob: `54f1ae0a4a460b7af992e965d1b58b13793740fb`
-- RESULT action: `FIX`
-- Exact FIX authorization recorded by worker: `.ai/reviews/REVIEW-013.md (79adc61318)` — matches the prior review artifact.
+- Prior CHANGES_REQUIRED authorization blob: `20ca15825978fa3efd636691621147c9b17d395b`
+- RESULT-013 current head contains `Action: FIX` and records authorization `.ai/reviews/REVIEW-013.md (20ca158259)`, matching the prior review artifact.
+- Focused Product Source suite reported: 48 passed, exit code 0.
+- Full repository suite reported: 466 passed, exit code 0.
 
 ## Re-review Summary
-The source-level fixes for the prior identity/SKU/redaction findings are materially improved:
+The substantive source-extraction blockers from the previous review are now closed:
 
-1. Shopee/TikTok JSON-LD identity matching now uses exact ID/SKU equality or an ID parsed from a product/item URL instead of arbitrary substring containment.
-2. `model_sku` is now preserved when an identity-matched structured source exposes it.
-3. URL redaction now uses pattern-based sensitive-key detection, covering prefixed signature/credential/token/session/policy/key families.
-4. The branch remains fast-forward safe against the canonical main baseline.
+1. The Playwright DOM fixtures invoke the real extractor arrow functions with a target product ID.
+2. Review/comment/recommendation nodes are nested inside containers the extraction pass actually scans, using the same CDN host as accepted seller media, and are excluded in both Shopee and TikTok fixtures.
+3. Exact identity matching, identity-gated structured fields, explicit model/SKU capture, pattern-based signed-URL redaction, run-id plumbing, zero-media fail-closed behavior, bounded fallback, byte-preserving downloads, streaming limits, and SHA-256 dedupe remain intact.
+4. Required focused and full repository test commands are now durably recorded and green.
 
-TASK-013 is still not ready for merge because the new DOM regression does not yet prove the intended extraction behavior, and the durable RESULT verification evidence has regressed.
+TASK-013 is very close, but the reviewed branch still contains one stray publication helper and the durable RESULT diff description does not match the actual task state.
 
-## Blocking Finding 1 — New DOM fixture does not actually invoke the extraction function
-
-### Location
-`tests/product_source/test_extractor_dom_fixtures.py`
-
-Both platform extractor constants are JavaScript arrow functions of the form:
-
-```javascript
-(targetProductId) => { ... }
-```
-
-The new fixture builds a string like:
-
-```python
-script = "const targetProductId = '123';\n" + _SHOPEE_EXTRACTION_SCRIPT
-result = await page.evaluate(script)
-```
-
-and similarly for TikTok.
-
-That expression defines/evaluates an arrow function but does not call it with the target product ID. Therefore the fixture is not a valid proof that the extraction body ran and returned the expected `gallery` / `seller_images` / fallback structures.
-
-### Required Fix
-Invoke the actual extractor function through Playwright, for example by evaluating the existing function source with an argument in the same shape as production (`page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, target_id)` / TikTok equivalent), or wrap-and-call it explicitly.
-
-The regression must run green under the required focused command before review.
-
-## Blocking Finding 2 — The UGC fixture still does not stress the contamination path strongly enough
+## Blocking Finding 1 — `scratch_publish.py` is a stray repository-root publication helper
 
 ### Location
-`tests/product_source/test_extractor_dom_fixtures.py`
+`scratch_publish.py`
 
-The Shopee review and recommendation nodes are separate siblings outside the positively selected `.product-image-carousel` / `.product-detail` containers. The TikTok review node is likewise outside the selected `.product-image` / `.seller-description` containers.
+The branch removed the prior `test_pw.py` debug script, but introduced a new repository-root `scratch_publish.py` helper. It shells out to `bridge.py publish 13` with hard-coded TASK-013 summary/test text and then exits.
 
-Those images would be ignored even if the child-level `isExcluded(...)` protection were broken, because the positive container selectors never visit them. This does not directly prove the defect TASK-013 was created to eliminate: review/customer media leaking from inside a broader product/detail container.
+This file is not part of the Product Source Pack architecture, runtime, test suite, or documented TASK-013 deliverable. It is another ad-hoc task-publication helper and should not be merged into `main`.
 
 ### Required Fix
-Use same-CDN fixtures where a review/comment/recommendation subtree is nested inside a container that the extraction pass actually scans. Prove that:
-- the seller gallery/source image is accepted;
-- a review/customer image under the scanned outer product container is rejected specifically by subtree ownership/exclusion;
-- a recommendation image under a scanned/bounded product container is rejected;
-- TikTok generic outer-page content is not admitted by fallback.
+Remove `scratch_publish.py` from the task branch. Do not replace it with another task-specific root helper. The bridge workflow should publish RESULT artifacts without adding temporary publication scripts to product code history.
 
-No live marketplace access is needed.
-
-## Blocking Finding 3 — RESULT-013 verification evidence regressed to “not supplied”
+## Blocking Finding 2 — RESULT-013 diff evidence is not accurate for the reviewed head
 
 ### Location
 `.ai/results/RESULT-013.md`
 
-The previous reviewed result had exact focused/full commands and green counts. The current RESULT at blob `54f1ae0a4a460b7af992e965d1b58b13793740fb` has replaced that evidence with:
+The current RESULT lists `scratch_publish.py` under `Files Changed`, but its shown diff stat contains only `test_pw.py` and `tests/product_source/test_extractor_dom_fixtures.py`.
 
-- `Command: (not supplied)`
-- `(no test command supplied)`
+Live `main → ai/task-013` comparison at reviewed head contains 20 changed files and includes `scratch_publish.py`; therefore the durable diff description is not an accurate representation of the reviewed state.
 
-TASK-013 explicitly requires exact focused and full-suite commands, exit codes, and pass counts. This is a hard review gate, especially because the new Playwright DOM fixture was added in this FIX.
-
-### Required Fix
-Run and record at minimum:
-
-```powershell
-.\venv\Scripts\python -m pytest tests/product_source/ -v
-.\venv\Scripts\python -m pytest tests/ -q -W ignore
-```
-
-RESULT-013 must contain the exact commands, exit codes, exact pass counts, current authorization reference, known limitations, and no-auto-merge statement.
-
-## Blocking Finding 4 — Current RESULT diff evidence is incomplete and a stray debug script is in the task diff
-
-### Locations
-- `.ai/results/RESULT-013.md`
-- `test_pw.py`
-
-Live `main → ai/task-013` comparison currently contains 20 changed files and includes both `tests/product_source/test_extractor_dom_fixtures.py` and a repository-root `test_pw.py` debug script. The current RESULT labels an 8-file FIX diff but lists `test_pw.py` under Files Changed while omitting it from the shown diff stat; it is therefore not an accurate durable description of the reviewed state.
-
-`test_pw.py` is an ad-hoc executable Playwright smoke script (`asyncio.run(main())`) and is not part of the TASK-013 product-source architecture or required test suite.
+The verification commands and counts are now good and should be preserved.
 
 ### Required Fix
-Remove the stray debug script unless it is intentionally converted into a proper test under `tests/product_source/`. Then refresh RESULT-013 against the final reviewed head with an accurate task diff (or explicitly labeled FIX-only diff plus a separate current task diff), so the artifact and GitHub state agree.
+After removing `scratch_publish.py`, refresh RESULT-013 once against the final head so it contains:
+- exact FIX authorization reference;
+- exact focused/full commands, exit codes, and pass counts;
+- an accurate current task diff summary, or clearly labeled FIX-only diff plus a separate current task diff;
+- the existing known-limitations and no-auto-merge statement.
+
+Do not regress the currently recorded test evidence.
 
 ## Preserve During Fix
-Preserve the now-correct direction:
-- exact object-owned product identity matching rather than substring matching;
-- identity-gated structured fields;
-- `model_sku` capture only when explicitly observed;
-- pattern-based signed URL redaction;
-- explicit `run_id` through BrowserManager/BrowserSession;
-- fail-closed zero-media extraction;
-- narrow platform-scoped fallback with no generic `main` / `article` success path;
-- variant media roles/provenance;
-- 20 MiB streaming bound and 30-media cap;
-- byte-preserving source originals and SHA-256 evidence;
-- no source-original `ImageProcessor.process_and_save()`;
-- no AI image generation, LLM, scoring, ranking, or queue mutation;
-- backward-compatible `shopee_scrape` / `tiktok_scrape` names and schemas.
+Preserve all now-correct implementation behavior, especially the real nested same-CDN UGC exclusion fixtures, exact product identity matching, structured-field gating, model/SKU capture, secret-safe URL serialization, BrowserManager compatibility, zero-media fail-closed semantics, narrow platform fallback, variant provenance, byte-preserving originals, streaming bounds, SHA-256 evidence, and the no-LLM/no-scoring/no-ranking/no-queue boundary.
 
 ## Decision
 CHANGES_REQUIRED.
