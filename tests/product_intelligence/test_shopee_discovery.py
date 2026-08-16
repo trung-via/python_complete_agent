@@ -50,14 +50,93 @@ class FakePage:
         self.closed = True
 
 
-class FakeBrowser:
-    """Test fake for browser object supporting new_page()."""
+class FakePlaywrightBrowser:
+    """Test fake for Playwright Browser/BrowserContext object supporting new_page()."""
 
     def __init__(self, fake_page: FakePage) -> None:
         self.fake_page = fake_page
 
     async def new_page(self) -> FakePage:
         return self.fake_page
+
+
+class FakeBrowserSession:
+    """Test fake implementing the project's BrowserSession protocol."""
+
+    def __init__(
+        self,
+        run_id: str = "discovery_run",
+        script_results: Optional[List[Dict[str, Any]]] = None,
+        fail_navigation_on_page: Optional[int] = None,
+    ) -> None:
+        self._run_id = run_id
+        self.script_results = script_results or []
+        self.fail_navigation_on_page = fail_navigation_on_page
+        self.navigated_urls: List[str] = []
+        self.call_count = 0
+        self.closed = False
+
+    @property
+    def run_id(self) -> str:
+        return self._run_id
+
+    @property
+    def state(self) -> Any:
+        return "READY"
+
+    async def start(self) -> None:
+        pass
+
+    async def close(self) -> None:
+        self.closed = True
+
+    async def navigate(self, url: str) -> None:
+        current_page_idx = len(self.navigated_urls) + 1
+        if self.fail_navigation_on_page is not None and current_page_idx == self.fail_navigation_on_page:
+            raise RuntimeError(f"Network error on page {current_page_idx}")
+        self.navigated_urls.append(url)
+
+    async def evaluate(self, script: str) -> Any:
+        if "scrollBy" in script:
+            return None
+        idx = min(self.call_count, len(self.script_results) - 1) if self.script_results else -1
+        self.call_count += 1
+        if idx >= 0:
+            return self.script_results[idx]
+        return {"is_blocked": False, "is_empty": False, "items": []}
+
+    async def inspect(self) -> Dict[str, Any]:
+        return {"url": self.navigated_urls[-1] if self.navigated_urls else "", "title": "Test", "elements": []}
+
+    async def click(self, element_id: Optional[str] = None, locator: Optional[Any] = None) -> None:
+        pass
+
+    async def type_text(self, text: str, element_id: Optional[str] = None, locator: Optional[Any] = None) -> None:
+        pass
+
+    async def press(self, key: str) -> None:
+        pass
+
+    async def screenshot(self) -> bytes:
+        return b""
+
+
+class FakeBrowserManager:
+    """Test fake implementing the project's BrowserManager protocol."""
+
+    def __init__(self, session: FakeBrowserSession) -> None:
+        self.session = session
+        self.requested_run_ids: List[str] = []
+
+    async def get_or_create_session(self, run_id: str, config: Optional[Any] = None) -> FakeBrowserSession:
+        self.requested_run_ids.append(run_id)
+        return self.session
+
+    async def close_session(self, run_id: str) -> None:
+        await self.session.close()
+
+    async def close_all(self) -> None:
+        await self.session.close()
 
 
 @pytest.mark.asyncio
@@ -280,12 +359,43 @@ async def test_shopee_discovery_missing_browser_dependency_fails() -> None:
 @pytest.mark.asyncio
 async def test_shopee_discovery_with_browser_manager_dependency() -> None:
     obs_time = datetime(2026, 8, 16, 12, 0, 0, tzinfo=timezone.utc)
+    card_data = [
+        {"title": "USB Cable Fast Charge", "href": "/usb-i.1.99", "item_id": "99", "price_text": "50.000₫"},
+        {"title": "USB Cable Fast Charge Dup", "href": "/usb-i.1.99", "item_id": "99", "price_text": "50.000₫"},
+        {"title": "USB-C Adapter", "href": "/adapter-i.1.100", "item_id": "100", "price_text": "80.000₫"},
+    ]
+    session = FakeBrowserSession(
+        run_id="discovery_run",
+        script_results=[{"is_blocked": False, "is_empty": False, "items": card_data}],
+    )
+    manager = FakeBrowserManager(session=session)
+    adapter = ShopeeDiscoveryAdapter(browser=manager)
+
+    req = DiscoveryRequest(query="usb cable", max_candidates=2, max_pages=1)
+    batch = await adapter.discover(req, observed_at=obs_time)
+
+    # Verify BrowserManager.get_or_create_session was called
+    assert "discovery_run" in manager.requested_run_ids
+    # Verify session navigation and evaluation occurred
+    assert len(session.navigated_urls) == 1
+    assert "keyword=usb+cable" in session.navigated_urls[0]
+    # Verify candidates extracted, deduplicated, and bounded
+    assert len(batch.candidates) == 2
+    assert batch.candidates[0].candidate_id == "shopee_99"
+    assert batch.candidates[0].price == 50000.0
+    assert batch.candidates[1].candidate_id == "shopee_100"
+    assert batch.candidates[1].price == 80000.0
+
+
+@pytest.mark.asyncio
+async def test_shopee_discovery_with_playwright_browser_context() -> None:
+    obs_time = datetime(2026, 8, 16, 12, 0, 0, tzinfo=timezone.utc)
     page = FakePage(script_results=[{
         "is_blocked": False,
         "is_empty": False,
         "items": [{"title": "USB Cable", "href": "/usb-i.1.99", "item_id": "99"}],
     }])
-    browser = FakeBrowser(fake_page=page)
+    browser = FakePlaywrightBrowser(fake_page=page)
     adapter = ShopeeDiscoveryAdapter(browser=browser)
 
     req = DiscoveryRequest(query="usb cable")
@@ -293,4 +403,4 @@ async def test_shopee_discovery_with_browser_manager_dependency() -> None:
 
     assert len(batch.candidates) == 1
     assert batch.candidates[0].candidate_id == "shopee_99"
-    assert page.closed is True  # Verify cleanup called
+    assert page.closed is True  # Verify cleanup called on page created via new_page()

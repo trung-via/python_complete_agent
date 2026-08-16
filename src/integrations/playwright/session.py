@@ -233,6 +233,17 @@ class PlaywrightBrowserSession(BrowserSession):
             if self._state != BrowserState.CRASHED:
                 self._state = BrowserState.READY
 
+    async def evaluate(self, script: str) -> Any:
+        self._check_ready()
+        self._state = BrowserState.BUSY
+        try:
+            return await self._page.evaluate(script)
+        except PlaywrightError as e:
+            raise BrowserContextError(f"Failed to evaluate script: {e}")
+        finally:
+            if self._state != BrowserState.CRASHED:
+                self._state = BrowserState.READY
+
     async def inspect(self) -> Dict[str, Any]:
         self._check_ready()
         self._state = BrowserState.BUSY

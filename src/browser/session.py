@@ -57,3 +57,9 @@ class BrowserSession(Protocol):
         Takes a screenshot of the current page and returns the raw image bytes.
         """
         ...
+
+    async def evaluate(self, script: str) -> Any:
+        """
+        Evaluates a JavaScript expression or function in the context of the current page.
+        """
+        ...
