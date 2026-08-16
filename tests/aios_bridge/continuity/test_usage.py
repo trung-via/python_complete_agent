@@ -1,11 +1,13 @@
-"""Comprehensive test suite for AIOS Usage & Efficiency Telemetry (ADR-013 / ADR-014)."""
+"""Comprehensive test suite for AIOS Usage & Efficiency Telemetry (ADR-013 / ADR-014 / TASK-024 Hardening)."""
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 import pytest
 
 from src.aios_bridge.continuity import (
+    MAX_USAGE_INT,
     BrainOperation,
     BrainUsageRecord,
     ContinuityStateValidationError,
@@ -17,6 +19,7 @@ from src.aios_bridge.continuity import (
     TokenMeasurement,
     UsageSource,
     aggregate_token_ranges,
+    aggregate_token_ranges_by_actor_class,
     calculate_context_efficiency_ratio,
     estimate_tokens_from_bytes,
 )
@@ -105,6 +108,316 @@ def test_valid_schema_v1_parse_and_attributes():
 
     assert record.human_usage.approvals == 1
     assert record.efficiency.context_efficiency_ratio == 0.8
+
+
+def test_actor_identity_exactness_and_whitespace_rejection():
+    """Canonical actor IDs succeed; padded/invalid actor IDs fail closed (C1 / Checklist 1-5)."""
+    # 1. chatgpt-chat passes
+    b_valid = BrainUsageRecord(
+        brain_id="chatgpt-chat",
+        operation=BrainOperation.TASK,
+        tokens=TokenMeasurement(source=UsageSource.UNKNOWN),
+    )
+    assert b_valid.brain_id == "chatgpt-chat"
+
+    # 2. Padded brain_id fails closed
+    for padded in [" chatgpt-chat", "chatgpt-chat ", "  chatgpt-chat  "]:
+        with pytest.raises(ContinuityStateValidationError, match="must not contain leading or trailing whitespace"):
+            BrainUsageRecord(
+                brain_id=padded,
+                operation=BrainOperation.TASK,
+                tokens=TokenMeasurement(source=UsageSource.UNKNOWN),
+            )
+
+    # 3. antigravity passes
+    e_valid = ExecutorUsageRecord(
+        executor_id="antigravity",
+        action=ExecutorAction.RUN,
+        tokens=TokenMeasurement(source=UsageSource.UNKNOWN),
+    )
+    assert e_valid.executor_id == "antigravity"
+
+    # 4. Padded executor_id fails closed
+    for padded in [" antigravity", "antigravity ", "  antigravity  "]:
+        with pytest.raises(ContinuityStateValidationError, match="must not contain leading or trailing whitespace"):
+            ExecutorUsageRecord(
+                executor_id=padded,
+                action=ExecutorAction.RUN,
+                tokens=TokenMeasurement(source=UsageSource.UNKNOWN),
+            )
+
+    # 5. Stable fingerprint after round trip
+    d = _make_valid_task_usage_dict()
+    r1 = TaskUsageRecord.from_dict(d)
+    r2 = TaskUsageRecord.from_json(r1.to_canonical_json())
+    assert r1.fingerprint() == r2.fingerprint()
+
+
+def test_numeric_upper_bounds_and_boundary_checks():
+    """All numeric fields enforce MAX_USAGE_INT semantic upper bound fail-closed (C2 / Checklist 6-16)."""
+    # 6. Token maximum exact boundary passes
+    t_max = TokenMeasurement(
+        source=UsageSource.REPORTED,
+        min_tokens=MAX_USAGE_INT,
+        max_tokens=MAX_USAGE_INT,
+    )
+    assert t_max.min_tokens == MAX_USAGE_INT
+
+    # 7. Token max+1 fails closed
+    with pytest.raises(ContinuityStateValidationError, match="exceeds maximum allowed"):
+        TokenMeasurement(
+            source=UsageSource.REPORTED,
+            min_tokens=MAX_USAGE_INT + 1,
+            max_tokens=MAX_USAGE_INT + 1,
+        )
+
+    # 8. Brain count/byte exact boundary passes
+    b_max = BrainUsageRecord(
+        brain_id="chatgpt-chat",
+        operation=BrainOperation.TASK,
+        tokens=TokenMeasurement(source=UsageSource.UNKNOWN),
+        round=MAX_USAGE_INT,
+        turns=MAX_USAGE_INT,
+        input_bytes=MAX_USAGE_INT,
+        output_bytes=MAX_USAGE_INT,
+        patch_bytes=MAX_USAGE_INT,
+        full_file_reads=MAX_USAGE_INT,
+        artifact_reads=MAX_USAGE_INT,
+        external_api_calls=MAX_USAGE_INT,
+    )
+    assert b_max.input_bytes == MAX_USAGE_INT
+
+    # 9. Brain boundary+1 fails
+    with pytest.raises(ContinuityStateValidationError, match="exceeds maximum allowed"):
+        BrainUsageRecord(
+            brain_id="chatgpt-chat",
+            operation=BrainOperation.TASK,
+            tokens=TokenMeasurement(source=UsageSource.UNKNOWN),
+            input_bytes=MAX_USAGE_INT + 1,
+        )
+
+    # 10. Executor boundary+1 fails
+    with pytest.raises(ContinuityStateValidationError, match="exceeds maximum allowed"):
+        ExecutorUsageRecord(
+            executor_id="antigravity",
+            action=ExecutorAction.RUN,
+            tokens=TokenMeasurement(source=UsageSource.UNKNOWN),
+            output_bytes=MAX_USAGE_INT + 1,
+        )
+
+    # 11. Human boundary+1 fails
+    with pytest.raises(ContinuityStateValidationError, match="exceeds maximum allowed"):
+        HumanUsage(approvals=MAX_USAGE_INT + 1)
+
+    # 12. Efficiency byte boundary+1 fails
+    with pytest.raises(ContinuityStateValidationError, match="exceeds maximum allowed"):
+        EfficiencyMetrics(brain_context_bytes=MAX_USAGE_INT + 1)
+
+    # 13. Estimator byte_count boundary passes
+    est_max = estimate_tokens_from_bytes(MAX_USAGE_INT)
+    assert est_max.source == UsageSource.ESTIMATED
+
+    # 14. Estimator byte_count boundary+1 fails
+    with pytest.raises(ContinuityStateValidationError, match="exceeds maximum allowed"):
+        estimate_tokens_from_bytes(MAX_USAGE_INT + 1)
+
+    # 15. Negative and bool cases remain rejected
+    with pytest.raises(ContinuityStateValidationError, match="must be an integer"):
+        HumanUsage(approvals=True)
+    with pytest.raises(ContinuityStateValidationError, match="must be >= 0"):
+        HumanUsage(approvals=-1)
+
+
+def test_efficiency_unknown_semantics():
+    """context_efficiency_ratio must be None when inputs are unknown or zero (C3 / Checklist 17-23)."""
+    # 17. Known useful + known positive total + exact ratio passes
+    eff_valid = EfficiencyMetrics(
+        brain_context_bytes=10000,
+        useful_context_bytes=8000,
+        redundant_context_bytes=2000,
+        escalated_context_bytes=0,
+        context_efficiency_ratio=0.8,
+    )
+    assert eff_valid.context_efficiency_ratio == 0.8
+
+    # 18. useful=None + ratio=None passes
+    eff_unk = EfficiencyMetrics(
+        brain_context_bytes=10000,
+        useful_context_bytes=None,
+        context_efficiency_ratio=None,
+    )
+    assert eff_unk.context_efficiency_ratio is None
+
+    # 19. useful=None + non-null ratio fails closed
+    with pytest.raises(ContinuityStateValidationError, match="context_efficiency_ratio must be None when useful_context_bytes or brain_context_bytes is unknown"):
+        EfficiencyMetrics(
+            brain_context_bytes=10000,
+            useful_context_bytes=None,
+            context_efficiency_ratio=0.8,
+        )
+
+    # 20. total=None + non-null ratio fails closed
+    with pytest.raises(ContinuityStateValidationError, match="context_efficiency_ratio must be None when useful_context_bytes or brain_context_bytes is unknown"):
+        EfficiencyMetrics(
+            brain_context_bytes=None,
+            useful_context_bytes=8000,
+            context_efficiency_ratio=0.8,
+        )
+
+    # 21. total=0 + ratio=None passes where partition is valid
+    eff_zero = EfficiencyMetrics(
+        brain_context_bytes=0,
+        useful_context_bytes=0,
+        redundant_context_bytes=0,
+        escalated_context_bytes=0,
+        context_efficiency_ratio=None,
+    )
+    assert eff_zero.context_efficiency_ratio is None
+
+    # 22. total=0 + ratio=0.0 fails closed
+    with pytest.raises(ContinuityStateValidationError, match="context_efficiency_ratio must be None"):
+        EfficiencyMetrics(
+            brain_context_bytes=0,
+            useful_context_bytes=0,
+            redundant_context_bytes=0,
+            escalated_context_bytes=0,
+            context_efficiency_ratio=0.0,
+        )
+
+    # 23. Supplied ratio differing from deterministic helper fails closed
+    with pytest.raises(ContinuityStateValidationError, match="Inconsistent context_efficiency_ratio"):
+        EfficiencyMetrics(
+            brain_context_bytes=10000,
+            useful_context_bytes=8000,
+            redundant_context_bytes=2000,
+            escalated_context_bytes=0,
+            context_efficiency_ratio=0.75,
+        )
+
+
+def test_canonical_ratio_representation():
+    """Ratio fields have deterministic canonical float representation in [0.0, 1.0] (C4 / Checklist 24-27)."""
+    # 24. 1 and 1.0 produce identical float representation
+    eff_int1 = EfficiencyMetrics(
+        brain_context_bytes=1000,
+        useful_context_bytes=1000,
+        redundant_context_bytes=0,
+        escalated_context_bytes=0,
+        context_efficiency_ratio=1,
+    )
+    assert eff_int1.context_efficiency_ratio == 1.0
+    assert isinstance(eff_int1.context_efficiency_ratio, float)
+
+    # 25. 0, 0.0, and -0.0 do not create distinct fingerprints
+    eff_neg0 = EfficiencyMetrics(
+        brain_context_bytes=1000,
+        useful_context_bytes=0,
+        redundant_context_bytes=1000,
+        escalated_context_bytes=0,
+        context_efficiency_ratio=-0.0,
+    )
+    assert eff_neg0.context_efficiency_ratio == 0.0
+    assert math.copysign(1.0, eff_neg0.context_efficiency_ratio) == 1.0
+
+    # 26. NaN, Infinity, -Infinity fail closed
+    for bad_float in [float("nan"), float("inf"), float("-inf")]:
+        with pytest.raises(ContinuityStateValidationError, match="must be a finite number"):
+            EfficiencyMetrics(
+                brain_context_bytes=1000,
+                useful_context_bytes=500,
+                context_efficiency_ratio=bad_float,
+            )
+
+    # 27. full_file_read_rate follows same canonical rule
+    eff_rate = EfficiencyMetrics(full_file_read_rate=0)
+    assert eff_rate.full_file_read_rate == 0.0
+    assert isinstance(eff_rate.full_file_read_rate, float)
+
+
+def test_actor_class_aggregation_helper():
+    """aggregate_token_ranges_by_actor_class aggregates BRAIN and EXECUTOR independently (C5 / Checklist 28-33)."""
+    # 28. Known Brain + known Executor ranges aggregate separately
+    rec_both_known = TaskUsageRecord(
+        task_id="TASK-024",
+        brain_usage=(
+            BrainUsageRecord(
+                brain_id="chatgpt-chat",
+                operation=BrainOperation.TASK,
+                tokens=TokenMeasurement(source=UsageSource.REPORTED, min_tokens=1000, max_tokens=1000),
+            ),
+            BrainUsageRecord(
+                brain_id="chatgpt-chat",
+                operation=BrainOperation.REVIEW,
+                tokens=TokenMeasurement(
+                    source=UsageSource.ESTIMATED, min_tokens=2000, max_tokens=3000, method="historical-audit-estimate-v1"
+                ),
+            ),
+        ),
+        executor_usage=(
+            ExecutorUsageRecord(
+                executor_id="antigravity",
+                action=ExecutorAction.RUN,
+                tokens=TokenMeasurement(source=UsageSource.REPORTED, min_tokens=5000, max_tokens=5000),
+            ),
+        ),
+    )
+    agg = aggregate_token_ranges_by_actor_class(rec_both_known)
+    assert agg["BRAIN"] == (3000, 4000)
+    assert agg["EXECUTOR"] == (5000, 5000)
+
+    # 29. Brain UNKNOWN leaves Executor known aggregate intact
+    rec_brain_unk = TaskUsageRecord(
+        task_id="TASK-024",
+        brain_usage=(
+            BrainUsageRecord(
+                brain_id="chatgpt-chat",
+                operation=BrainOperation.TASK,
+                tokens=TokenMeasurement(source=UsageSource.UNKNOWN),
+            ),
+        ),
+        executor_usage=(
+            ExecutorUsageRecord(
+                executor_id="antigravity",
+                action=ExecutorAction.RUN,
+                tokens=TokenMeasurement(source=UsageSource.REPORTED, min_tokens=5000, max_tokens=5000),
+            ),
+        ),
+    )
+    agg_b_unk = aggregate_token_ranges_by_actor_class(rec_brain_unk)
+    assert agg_b_unk["BRAIN"] == (None, None)
+    assert agg_b_unk["EXECUTOR"] == (5000, 5000)
+
+    # 30. Executor UNKNOWN leaves Brain known aggregate intact
+    rec_exec_unk = TaskUsageRecord(
+        task_id="TASK-024",
+        brain_usage=(
+            BrainUsageRecord(
+                brain_id="chatgpt-chat",
+                operation=BrainOperation.TASK,
+                tokens=TokenMeasurement(source=UsageSource.REPORTED, min_tokens=3000, max_tokens=3000),
+            ),
+        ),
+        executor_usage=(
+            ExecutorUsageRecord(
+                executor_id="antigravity",
+                action=ExecutorAction.RUN,
+                tokens=TokenMeasurement(source=UsageSource.UNKNOWN),
+            ),
+        ),
+    )
+    agg_e_unk = aggregate_token_ranges_by_actor_class(rec_exec_unk)
+    assert agg_e_unk["BRAIN"] == (3000, 3000)
+    assert agg_e_unk["EXECUTOR"] == (None, None)
+
+    # 31 & 32. Empty actor classes aggregate deterministically to (0, 0)
+    rec_empty = TaskUsageRecord(task_id="TASK-024")
+    agg_empty = aggregate_token_ranges_by_actor_class(rec_empty)
+    assert agg_empty["BRAIN"] == (0, 0)
+    assert agg_empty["EXECUTOR"] == (0, 0)
+
+    # 33. Invalid input type fails closed
+    with pytest.raises(ContinuityStateValidationError, match="Expected TaskUsageRecord"):
+        aggregate_token_ranges_by_actor_class({"task_id": "TASK-024"})  # type: ignore[arg-type]
 
 
 def test_token_measurement_semantics_reported_estimated_unknown():

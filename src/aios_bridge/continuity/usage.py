@@ -1,5 +1,5 @@
 """
-Usage & Efficiency Telemetry Contract for Open Multi-Agent Continuity OS (ADR-013 / ADR-014).
+Usage & Efficiency Telemetry Contract for Open Multi-Agent Continuity OS (ADR-013 / ADR-014 / TASK-024).
 Provides deterministic measurement models, validation, estimation, and canonical serialization.
 """
 from __future__ import annotations
@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from enum import Enum
 import hashlib
 import json
+import math
 import re
 from typing import Any, Mapping, Sequence
 
@@ -22,6 +23,7 @@ from .state import (
 _TASK_ID_PATTERN = re.compile(r"^TASK-\d+$")
 _METHOD_PATTERN = re.compile(r"^[a-z0-9]+(?:[a-z0-9_.\-]+)*$")
 MAX_METHOD_LENGTH = 64
+MAX_USAGE_INT = (1 << 63) - 1  # 9,223,372,036,854,775,807 (signed 64-bit int max)
 
 SUPPORTED_ESTIMATION_METHODS = {
     "utf8-bytes-div4-v1",
@@ -41,7 +43,14 @@ class ExecutorAction(str, Enum):
     FIX = "FIX"
 
 
-def _validate_non_negative_int(val: Any, field_name: str, allow_none: bool = False, min_val: int = 0) -> int | None:
+def _validate_usage_int(
+    val: Any,
+    field_name: str,
+    allow_none: bool = False,
+    min_val: int = 0,
+    max_val: int = MAX_USAGE_INT,
+) -> int | None:
+    """Validates non-negative integer within deterministic [min_val, max_val] boundaries (C2 / AIP-2)."""
     if val is None:
         if allow_none:
             return None
@@ -50,7 +59,49 @@ def _validate_non_negative_int(val: Any, field_name: str, allow_none: bool = Fal
         raise ContinuityStateValidationError(f"{field_name} must be an integer, got: {type(val).__name__}")
     if val < min_val:
         raise ContinuityStateValidationError(f"{field_name} must be >= {min_val}, got: {val}")
+    if val > max_val:
+        raise ContinuityStateValidationError(
+            f"{field_name} ({val}) exceeds maximum allowed ({max_val})"
+        )
     return val
+
+
+def _validate_non_negative_int(val: Any, field_name: str, allow_none: bool = False, min_val: int = 0) -> int | None:
+    return _validate_usage_int(val, field_name, allow_none=allow_none, min_val=min_val, max_val=MAX_USAGE_INT)
+
+
+def _validate_canonical_actor_id(actor_id: Any, field_name: str) -> str:
+    """Validates exact canonical actor ID with zero whitespace padding (C1 / AIP-3)."""
+    if isinstance(actor_id, bool) or not isinstance(actor_id, str):
+        raise ContinuityStateValidationError(f"{field_name} must be a non-empty string")
+    if actor_id != actor_id.strip() or not actor_id:
+        raise ContinuityStateValidationError(
+            f"{field_name} must not contain leading or trailing whitespace: {actor_id!r}"
+        )
+    canonical = _validate_actor_id(actor_id, field_name)
+    if actor_id != canonical:
+        raise ContinuityStateValidationError(
+            f"{field_name} must be exact canonical actor ID, got: {actor_id!r}"
+        )
+    return canonical
+
+
+def _validate_canonical_ratio(val: Any, field_name: str, allow_none: bool = False) -> float | None:
+    """Validates and normalizes numeric ratio to a canonical float in [0.0, 1.0] (C4 / AIP-4)."""
+    if val is None:
+        if allow_none:
+            return None
+        raise ContinuityStateValidationError(f"{field_name} cannot be null/None")
+    if isinstance(val, bool) or not isinstance(val, (int, float)):
+        raise ContinuityStateValidationError(f"{field_name} must be a float or None, got: {type(val).__name__}")
+    if math.isnan(val) or math.isinf(val):
+        raise ContinuityStateValidationError(f"{field_name} must be a finite number, got: {val}")
+    fval = float(val)
+    if fval == 0.0:
+        fval = 0.0  # normalize -0.0 to +0.0
+    if not (0.0 <= fval <= 1.0):
+        raise ContinuityStateValidationError(f"{field_name} must be in [0.0, 1.0], got: {val}")
+    return fval
 
 
 def _validate_task_id(task_id: Any, field_name: str = "task_id") -> str:
@@ -99,8 +150,8 @@ class TokenMeasurement:
         if self.source == UsageSource.REPORTED:
             if self.min_tokens is None or self.max_tokens is None:
                 raise ContinuityStateValidationError("REPORTED token measurement requires exact min_tokens and max_tokens")
-            _validate_non_negative_int(self.min_tokens, "TokenMeasurement.min_tokens")
-            _validate_non_negative_int(self.max_tokens, "TokenMeasurement.max_tokens")
+            _validate_usage_int(self.min_tokens, "TokenMeasurement.min_tokens")
+            _validate_usage_int(self.max_tokens, "TokenMeasurement.max_tokens")
             if self.min_tokens != self.max_tokens:
                 raise ContinuityStateValidationError(
                     f"REPORTED token measurement must be exact (min_tokens == max_tokens), got: min={self.min_tokens}, max={self.max_tokens}"
@@ -111,8 +162,8 @@ class TokenMeasurement:
         elif self.source == UsageSource.ESTIMATED:
             if self.min_tokens is None or self.max_tokens is None:
                 raise ContinuityStateValidationError("ESTIMATED token measurement requires bounded min_tokens and max_tokens")
-            _validate_non_negative_int(self.min_tokens, "TokenMeasurement.min_tokens")
-            _validate_non_negative_int(self.max_tokens, "TokenMeasurement.max_tokens")
+            _validate_usage_int(self.min_tokens, "TokenMeasurement.min_tokens")
+            _validate_usage_int(self.max_tokens, "TokenMeasurement.max_tokens")
             if self.min_tokens > self.max_tokens:
                 raise ContinuityStateValidationError(
                     f"Token measurement min_tokens ({self.min_tokens}) cannot exceed max_tokens ({self.max_tokens})"
@@ -169,7 +220,8 @@ class BrainUsageRecord:
     external_api_calls: int | None = None
 
     def __post_init__(self) -> None:
-        _validate_actor_id(self.brain_id, "BrainUsageRecord.brain_id")
+        canon_brain = _validate_canonical_actor_id(self.brain_id, "BrainUsageRecord.brain_id")
+        object.__setattr__(self, "brain_id", canon_brain)
 
         if not isinstance(self.operation, BrainOperation):
             try:
@@ -185,14 +237,14 @@ class BrainUsageRecord:
                 f"BrainUsageRecord.tokens must be a TokenMeasurement, got: {type(self.tokens).__name__}"
             )
 
-        _validate_non_negative_int(self.round, "BrainUsageRecord.round", min_val=1)
-        _validate_non_negative_int(self.turns, "BrainUsageRecord.turns", min_val=1)
-        _validate_non_negative_int(self.input_bytes, "BrainUsageRecord.input_bytes", allow_none=True)
-        _validate_non_negative_int(self.output_bytes, "BrainUsageRecord.output_bytes", allow_none=True)
-        _validate_non_negative_int(self.patch_bytes, "BrainUsageRecord.patch_bytes", allow_none=True)
-        _validate_non_negative_int(self.full_file_reads, "BrainUsageRecord.full_file_reads", allow_none=True)
-        _validate_non_negative_int(self.artifact_reads, "BrainUsageRecord.artifact_reads", allow_none=True)
-        _validate_non_negative_int(self.external_api_calls, "BrainUsageRecord.external_api_calls", allow_none=True)
+        _validate_usage_int(self.round, "BrainUsageRecord.round", min_val=1)
+        _validate_usage_int(self.turns, "BrainUsageRecord.turns", min_val=1)
+        _validate_usage_int(self.input_bytes, "BrainUsageRecord.input_bytes", allow_none=True)
+        _validate_usage_int(self.output_bytes, "BrainUsageRecord.output_bytes", allow_none=True)
+        _validate_usage_int(self.patch_bytes, "BrainUsageRecord.patch_bytes", allow_none=True)
+        _validate_usage_int(self.full_file_reads, "BrainUsageRecord.full_file_reads", allow_none=True)
+        _validate_usage_int(self.artifact_reads, "BrainUsageRecord.artifact_reads", allow_none=True)
+        _validate_usage_int(self.external_api_calls, "BrainUsageRecord.external_api_calls", allow_none=True)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -262,7 +314,8 @@ class ExecutorUsageRecord:
     external_api_calls: int | None = None
 
     def __post_init__(self) -> None:
-        _validate_actor_id(self.executor_id, "ExecutorUsageRecord.executor_id")
+        canon_exec = _validate_canonical_actor_id(self.executor_id, "ExecutorUsageRecord.executor_id")
+        object.__setattr__(self, "executor_id", canon_exec)
 
         if not isinstance(self.action, ExecutorAction):
             try:
@@ -278,11 +331,11 @@ class ExecutorUsageRecord:
                 f"ExecutorUsageRecord.tokens must be a TokenMeasurement, got: {type(self.tokens).__name__}"
             )
 
-        _validate_non_negative_int(self.runs, "ExecutorUsageRecord.runs", min_val=1)
-        _validate_non_negative_int(self.input_bytes, "ExecutorUsageRecord.input_bytes", allow_none=True)
-        _validate_non_negative_int(self.output_bytes, "ExecutorUsageRecord.output_bytes", allow_none=True)
-        _validate_non_negative_int(self.test_runs, "ExecutorUsageRecord.test_runs", allow_none=True)
-        _validate_non_negative_int(self.external_api_calls, "ExecutorUsageRecord.external_api_calls", allow_none=True)
+        _validate_usage_int(self.runs, "ExecutorUsageRecord.runs", min_val=1)
+        _validate_usage_int(self.input_bytes, "ExecutorUsageRecord.input_bytes", allow_none=True)
+        _validate_usage_int(self.output_bytes, "ExecutorUsageRecord.output_bytes", allow_none=True)
+        _validate_usage_int(self.test_runs, "ExecutorUsageRecord.test_runs", allow_none=True)
+        _validate_usage_int(self.external_api_calls, "ExecutorUsageRecord.external_api_calls", allow_none=True)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -340,11 +393,11 @@ class HumanUsage:
     human_copy_paste_bytes: int | None = None
 
     def __post_init__(self) -> None:
-        _validate_non_negative_int(self.approvals, "HumanUsage.approvals")
-        _validate_non_negative_int(self.manual_sync, "HumanUsage.manual_sync")
-        _validate_non_negative_int(self.manual_pending, "HumanUsage.manual_pending")
-        _validate_non_negative_int(self.manual_watch, "HumanUsage.manual_watch")
-        _validate_non_negative_int(self.human_copy_paste_bytes, "HumanUsage.human_copy_paste_bytes", allow_none=True)
+        _validate_usage_int(self.approvals, "HumanUsage.approvals")
+        _validate_usage_int(self.manual_sync, "HumanUsage.manual_sync")
+        _validate_usage_int(self.manual_pending, "HumanUsage.manual_pending")
+        _validate_usage_int(self.manual_watch, "HumanUsage.manual_watch")
+        _validate_usage_int(self.human_copy_paste_bytes, "HumanUsage.human_copy_paste_bytes", allow_none=True)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -389,26 +442,20 @@ class EfficiencyMetrics:
     full_file_read_rate: float | None = None
 
     def __post_init__(self) -> None:
-        _validate_non_negative_int(self.brain_context_bytes, "EfficiencyMetrics.brain_context_bytes", allow_none=True)
-        _validate_non_negative_int(self.useful_context_bytes, "EfficiencyMetrics.useful_context_bytes", allow_none=True)
-        _validate_non_negative_int(self.redundant_context_bytes, "EfficiencyMetrics.redundant_context_bytes", allow_none=True)
-        _validate_non_negative_int(self.escalated_context_bytes, "EfficiencyMetrics.escalated_context_bytes", allow_none=True)
+        _validate_usage_int(self.brain_context_bytes, "EfficiencyMetrics.brain_context_bytes", allow_none=True)
+        _validate_usage_int(self.useful_context_bytes, "EfficiencyMetrics.useful_context_bytes", allow_none=True)
+        _validate_usage_int(self.redundant_context_bytes, "EfficiencyMetrics.redundant_context_bytes", allow_none=True)
+        _validate_usage_int(self.escalated_context_bytes, "EfficiencyMetrics.escalated_context_bytes", allow_none=True)
 
-        if self.context_efficiency_ratio is not None:
-            if isinstance(self.context_efficiency_ratio, bool) or not isinstance(self.context_efficiency_ratio, (int, float)):
-                raise ContinuityStateValidationError("EfficiencyMetrics.context_efficiency_ratio must be a float or None")
-            if not (0.0 <= float(self.context_efficiency_ratio) <= 1.0):
-                raise ContinuityStateValidationError(
-                    f"EfficiencyMetrics.context_efficiency_ratio must be in [0.0, 1.0], got: {self.context_efficiency_ratio}"
-                )
+        norm_eff_ratio = _validate_canonical_ratio(
+            self.context_efficiency_ratio, "EfficiencyMetrics.context_efficiency_ratio", allow_none=True
+        )
+        object.__setattr__(self, "context_efficiency_ratio", norm_eff_ratio)
 
-        if self.full_file_read_rate is not None:
-            if isinstance(self.full_file_read_rate, bool) or not isinstance(self.full_file_read_rate, (int, float)):
-                raise ContinuityStateValidationError("EfficiencyMetrics.full_file_read_rate must be a float or None")
-            if not (0.0 <= float(self.full_file_read_rate) <= 1.0):
-                raise ContinuityStateValidationError(
-                    f"EfficiencyMetrics.full_file_read_rate must be in [0.0, 1.0], got: {self.full_file_read_rate}"
-                )
+        norm_read_rate = _validate_canonical_ratio(
+            self.full_file_read_rate, "EfficiencyMetrics.full_file_read_rate", allow_none=True
+        )
+        object.__setattr__(self, "full_file_read_rate", norm_read_rate)
 
         # Enforce exact partition equality when all components and total are known
         if (
@@ -431,14 +478,15 @@ class EfficiencyMetrics:
                     f"Impossible efficiency partition: partial sum of components ({sum_known}) exceeds total brain_context_bytes ({self.brain_context_bytes})"
                 )
 
-        # Validate supplied ratio against known useful and total bytes (must match deterministic 4-decimal convention exactly)
-        if (
-            self.context_efficiency_ratio is not None
-            and self.useful_context_bytes is not None
-            and self.brain_context_bytes is not None
-        ):
+        # C3: UNKNOWN efficiency inputs require context_efficiency_ratio to be None
+        if self.useful_context_bytes is None or self.brain_context_bytes is None or self.brain_context_bytes == 0:
+            if self.context_efficiency_ratio is not None:
+                raise ContinuityStateValidationError(
+                    "context_efficiency_ratio must be None when useful_context_bytes or brain_context_bytes is unknown or brain_context_bytes is 0"
+                )
+        else:
             expected_ratio = calculate_context_efficiency_ratio(self.useful_context_bytes, self.brain_context_bytes)
-            if expected_ratio is not None and float(self.context_efficiency_ratio) != float(expected_ratio):
+            if self.context_efficiency_ratio is not None and float(self.context_efficiency_ratio) != float(expected_ratio):
                 raise ContinuityStateValidationError(
                     f"Inconsistent context_efficiency_ratio: supplied {self.context_efficiency_ratio} != expected {expected_ratio} (useful_bytes / brain_context_bytes)"
                 )
@@ -670,9 +718,9 @@ def estimate_tokens_from_bytes(
     """
     Computes a deterministic token-equivalent estimate from byte count.
     ALWAYS returns source=ESTIMATED, never REPORTED.
-    Fails closed if the requested method label is unsupported.
+    Fails closed if the requested method label is unsupported or byte_count exceeds MAX_USAGE_INT.
     """
-    _validate_non_negative_int(byte_count, "byte_count")
+    _validate_usage_int(byte_count, "byte_count")
     _validate_method_identifier(method, "method")
 
     if method not in SUPPORTED_ESTIMATION_METHODS:
@@ -688,12 +736,8 @@ def estimate_tokens_from_bytes(
             method=method,
         )
 
-    if method == "utf8-bytes-div4-v1":
-        min_tok = max(1, byte_count // 5)
-        max_tok = max(1, (byte_count + 2) // 3)
-    else:
-        min_tok = max(1, byte_count // 5)
-        max_tok = max(1, (byte_count + 2) // 3)
+    min_tok = max(1, byte_count // 5)
+    max_tok = max(1, (byte_count + 2) // 3)
 
     return TokenMeasurement(
         source=UsageSource.ESTIMATED,
@@ -729,6 +773,29 @@ def aggregate_token_ranges(
     return (total_min, total_max)
 
 
+def aggregate_token_ranges_by_actor_class(
+    record: TaskUsageRecord,
+) -> dict[str, tuple[int | None, int | None]]:
+    """
+    Deterministically aggregates token ranges separately for BRAIN and EXECUTOR actor classes (C5).
+    Returns {'BRAIN': (brain_min, brain_max), 'EXECUTOR': (exec_min, exec_max)}.
+    UNKNOWN in one class does not contaminate the other class's known aggregate.
+    Empty actor class deterministically returns (0, 0).
+    """
+    if not isinstance(record, TaskUsageRecord):
+        raise ContinuityStateValidationError(
+            f"Expected TaskUsageRecord, got: {type(record).__name__}"
+        )
+
+    brain_tokens = [b.tokens for b in record.brain_usage]
+    exec_tokens = [e.tokens for e in record.executor_usage]
+
+    return {
+        "BRAIN": aggregate_token_ranges(brain_tokens),
+        "EXECUTOR": aggregate_token_ranges(exec_tokens),
+    }
+
+
 def calculate_context_efficiency_ratio(
     useful_bytes: int | None,
     total_bytes: int | None,
@@ -739,8 +806,8 @@ def calculate_context_efficiency_ratio(
     """
     if useful_bytes is None or total_bytes is None:
         return None
-    _validate_non_negative_int(useful_bytes, "useful_bytes")
-    _validate_non_negative_int(total_bytes, "total_bytes")
+    _validate_usage_int(useful_bytes, "useful_bytes")
+    _validate_usage_int(total_bytes, "total_bytes")
 
     if total_bytes == 0:
         return None

@@ -39,6 +39,7 @@ from .state import (
     check_freshness,
 )
 from .usage import (
+    MAX_USAGE_INT,
     BrainUsageRecord,
     EfficiencyMetrics,
     ExecutorAction,
@@ -48,12 +49,14 @@ from .usage import (
     TokenMeasurement,
     UsageSource,
     aggregate_token_ranges,
+    aggregate_token_ranges_by_actor_class,
     calculate_context_efficiency_ratio,
     estimate_tokens_from_bytes,
 )
 
 __all__ = [
     "MAX_SERIALIZED_BYTES",
+    "MAX_USAGE_INT",
     "OPERATION_OUTPUT_TYPE_COMPATIBILITY",
     "PHASE_NEXT_OPERATION_MAP",
     "PHASES_REQUIRING_TASK_BRANCH_SHA",
@@ -92,6 +95,7 @@ __all__ = [
     "TokenMeasurement",
     "UsageSource",
     "aggregate_token_ranges",
+    "aggregate_token_ranges_by_actor_class",
     "build_replacement_brain_request",
     "calculate_context_efficiency_ratio",
     "check_freshness",
