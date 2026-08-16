@@ -28,6 +28,7 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
             product_id: null,
             brand: null,
             shop_name: null,
+            model_sku: null,
             images: [],
             description: null,
             specs: []
@@ -45,13 +46,19 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
             '.product-ratings', '.product-reviews', '[data-sqe="rating"]',
             '.shop-review', '.comment', '.review-images',
             '.similar-products', '.recommend', '.you-may-like',
-            '.shopee-header-section', 'header', 'nav', 'footer'
+            '.shopee-header-section', 'header', 'nav', 'footer',
+            '[class*="footer"]', '[class*="header"]', '[class*="nav"]',
+            '[class*="voucher"]', '[class*="bundle"]', '[class*="badge"]'
         ];
         if (element.closest && element.closest(excludedSelectors.join(', '))) {
             return true;
         }
         let curr = element;
         while (curr && curr !== document.body) {
+            const tagName = (curr.tagName || '').toLowerCase();
+            if (tagName === 'footer' || tagName === 'header' || tagName === 'nav') {
+                return true;
+            }
             const className = (curr.className || '').toString().toLowerCase();
             const id = (curr.id || '').toString().toLowerCase();
             if (
@@ -60,14 +67,66 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
                 className.includes('comment') ||
                 className.includes('recommend') ||
                 className.includes('similar') ||
+                className.includes('footer') ||
+                className.includes('header') ||
+                className.includes('nav') ||
                 id.includes('review') ||
-                id.includes('comment')
+                id.includes('rating') ||
+                id.includes('comment') ||
+                id.includes('footer')
             ) {
                 return true;
             }
             curr = curr.parentElement;
         }
         return false;
+    };
+
+    const extractMediaUrl = (raw) => {
+        if (!raw || typeof raw !== 'string') return null;
+        let clean = raw.trim();
+        const bgMatch = clean.match(/url\(['"]?(https?:\/\/[^'")\s]+)['"]?\)/i);
+        if (bgMatch) clean = bgMatch[1];
+        if (clean.startsWith('//')) clean = 'https:' + clean;
+        if (!clean.startsWith('http')) return null;
+        return clean;
+    };
+
+    const getMediaUrls = (rootEl) => {
+        const urls = [];
+        const seen = new Set();
+
+        const addUrl = (raw) => {
+            const u = extractMediaUrl(raw);
+            if (u && !seen.has(u)) {
+                seen.add(u);
+                urls.push(u);
+            }
+        };
+
+        if (!rootEl || isExcluded(rootEl)) return urls;
+
+        // 1. img elements
+        const imgs = rootEl.querySelectorAll('img');
+        for (const img of imgs) {
+            if (isExcluded(img)) continue;
+            addUrl(img.src);
+            addUrl(img.getAttribute('data-src'));
+            const srcset = img.getAttribute('srcset');
+            if (srcset) {
+                const firstSrc = srcset.split(',')[0].trim().split(' ')[0];
+                addUrl(firstSrc);
+            }
+        }
+
+        // 2. background-image elements
+        const bgEls = rootEl.querySelectorAll('[style*="background-image"], [style*="url("]');
+        for (const el of bgEls) {
+            if (isExcluded(el)) continue;
+            addUrl(el.style.backgroundImage || el.getAttribute('style'));
+        }
+
+        return urls;
     };
 
     // Check anti-bot block / captcha
@@ -156,14 +215,43 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
         }
     }
 
-    // PRIORITY 2: Semantic Product Gallery
-    const galleryContainers = document.querySelectorAll('.product-image-carousel, .product-image__content, .V9sV-Q, .xNIlvG');
-    for (const container of galleryContainers) {
-        if (isExcluded(container)) continue;
-        const imgs = container.querySelectorAll('img');
-        for (const img of imgs) {
-            if (img.src && !isExcluded(img) && !result.gallery.includes(img.src)) {
-                result.gallery.push(img.src);
+    // PRIORITY 2: Semantic & Structural Product Gallery
+    // Strategy 2A: Semantic gallery selectors
+    const gallerySelectors = [
+        '.product-image-carousel', '.product-image__content', '.V9sV-Q', '.xNIlvG',
+        '[class*="gallery-container"]', '[class*="image-carousel"]', '[class*="product-slider"]',
+        '[class*="product-gallery"]', '[class*="product-image"]'
+    ];
+    for (const sel of gallerySelectors) {
+        const containers = document.querySelectorAll(sel);
+        for (const container of containers) {
+            const urls = getMediaUrls(container);
+            for (const u of urls) {
+                if (!result.gallery.includes(u)) {
+                    result.gallery.push(u);
+                }
+            }
+        }
+    }
+
+    // Strategy 2B: Structural top product section gallery discovery (handles modern obfuscated markup like SECTION.C21rQm)
+    if (result.gallery.length === 0) {
+        const candidateSections = document.querySelectorAll('section, .page-product__briefing, .product-briefing, [class*="product-briefing"]');
+        for (const sec of candidateSections) {
+            if (isExcluded(sec)) continue;
+            // The top product briefing section contains product media before ratings or comments
+            const mediaContainers = sec.querySelectorAll('div');
+            for (const mc of mediaContainers) {
+                if (isExcluded(mc)) continue;
+                // If a subcontainer contains multiple media items (e.g. carousel or thumbnail strip)
+                const urls = getMediaUrls(mc);
+                if (urls.length >= 2 || (urls.length >= 1 && result.gallery.length === 0)) {
+                    for (const u of urls) {
+                        if (!result.gallery.includes(u)) {
+                            result.gallery.push(u);
+                        }
+                    }
+                }
             }
         }
     }
@@ -174,24 +262,22 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
     );
     for (const container of variantContainers) {
         if (isExcluded(container)) continue;
-        const imgs = container.querySelectorAll('img');
+        const urls = getMediaUrls(container);
         const labelEl = container.querySelector('span, div, p') || container;
         const label = labelEl ? labelEl.innerText.trim() : null;
-        for (const img of imgs) {
-            if (img.src && !isExcluded(img)) {
-                result.variants.push({ url: img.src, label: label || null });
-            }
+        for (const u of urls) {
+            result.variants.push({ url: u, label: label || null });
         }
     }
 
     // PRIORITY 3: Seller Description Media
-    const descriptionContainers = document.querySelectorAll('.product-detail, .product-description, .page-product__description');
+    const descriptionContainers = document.querySelectorAll('.product-detail, .product-description, .page-product__description, [class*="product-detail"], [class*="product-description"]');
     for (const container of descriptionContainers) {
         if (isExcluded(container)) continue;
-        const imgs = container.querySelectorAll('img');
-        for (const img of imgs) {
-            if (img.src && !isExcluded(img) && !result.description_media.includes(img.src)) {
-                result.description_media.push(img.src);
+        const urls = getMediaUrls(container);
+        for (const u of urls) {
+            if (!result.description_media.includes(u)) {
+                result.description_media.push(u);
             }
         }
         if (!result.structured.description) {
@@ -202,17 +288,17 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
         }
     }
 
-    // PRIORITY 4: Bounded Platform-Scoped Fallback (within product summary briefing only)
+    // PRIORITY 4: Bounded Platform-Scoped Fallback (within top product section only)
     if (result.structured.images.length === 0 && result.gallery.length === 0) {
-        const briefingContainers = document.querySelectorAll('.page-product__briefing, .product-briefing');
+        const briefingContainers = document.querySelectorAll('section, .page-product__briefing, .product-briefing');
         for (const container of briefingContainers) {
             if (isExcluded(container)) continue;
-            const imgs = container.querySelectorAll('img');
+            const urls = getMediaUrls(container);
             let count = 0;
-            for (const img of imgs) {
+            for (const u of urls) {
                 if (count >= 10) break;
-                if (img.src && !isExcluded(img) && !result.fallback_media.includes(img.src)) {
-                    result.fallback_media.push(img.src);
+                if (!result.fallback_media.includes(u)) {
+                    result.fallback_media.push(u);
                     count++;
                 }
             }

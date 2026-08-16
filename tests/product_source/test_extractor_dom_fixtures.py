@@ -142,3 +142,100 @@ async def test_tiktok_dom_selection_and_ugc_exclusion():
         assert "https://p16-oec-va.ibyteimg.com/nested_recommend_image.jpg" not in all_media
         assert "https://p16-oec-va.ibyteimg.com/sidebar_image.jpg" not in all_media
 
+@pytest.mark.asyncio
+async def test_shopee_obfuscated_live_dom_gallery_extraction_and_footer_exclusion():
+    """
+    Reproduces modern live Shopee DOM shape (observed on product 52764529835)
+    with obfuscated classes (SECTION.C21rQm, BvNoX2/OMOWB7 main image,
+    qIctnQ/mdCA_C/FAWPL0 thumbnails) and proves full gallery extraction
+    while excluding FOOTER.Dtu9HW and review/recommendation images.
+    """
+    html = '''
+    <html>
+    <body>
+        <!-- Header -->
+        <header class="shopee-top">
+            <img src="https://down-vn.img.susercontent.com/file/header_logo.png" />
+        </header>
+
+        <!-- Top product section with modern hashed class C21rQm -->
+        <section class="C21rQm">
+            <div class="media-column">
+                <!-- Main product image -->
+                <div class="BvNoX2 OMOWB7">
+                    <img src="https://down-vn.img.susercontent.com/file/vn-11134207-main.jpg" />
+                </div>
+                <!-- Thumbnail carousel strip -->
+                <div class="qIctnQ">
+                    <div class="mdCA_C FAWPL0">
+                        <img src="https://down-vn.img.susercontent.com/file/vn-11134207-thumb1.jpg" />
+                    </div>
+                    <div class="mdCA_C FAWPL0">
+                        <img src="https://down-vn.img.susercontent.com/file/vn-11134207-thumb2.jpg" />
+                    </div>
+                    <div class="mdCA_C FAWPL0" style="background-image: url('https://down-vn.img.susercontent.com/file/vn-11134207-thumb3.jpg')">
+                    </div>
+                </div>
+            </div>
+            <div class="details-column">
+                <h1>Áo thun nam phong cách Hàn Quốc</h1>
+                <div class="product-price">199.000₫</div>
+            </div>
+        </section>
+
+        <!-- Middle section: Product specifications and description -->
+        <div class="product-detail">
+            <div class="product-description">
+                <p>Mô tả chi tiết sản phẩm chính hãng</p>
+                <img src="https://down-vn.img.susercontent.com/file/vn-11134207-desc-banner.jpg" />
+            </div>
+        </div>
+
+        <!-- Review section with same-CDN images (UGC) -->
+        <div class="product-ratings">
+            <div class="shopee-product-rating">
+                <img src="https://down-vn.img.susercontent.com/file/vn-11134207-customer-review.jpg" />
+            </div>
+        </div>
+
+        <!-- Recommendations section -->
+        <div class="similar-products">
+            <img src="https://down-vn.img.susercontent.com/file/vn-11134207-recommended-other.jpg" />
+        </div>
+
+        <!-- Footer with modern hashed class Dtu9HW -->
+        <footer class="Dtu9HW">
+            <img src="https://down-vn.img.susercontent.com/file/footer_payment_badge.png" />
+            <img src="https://down-vn.img.susercontent.com/file/footer_cert_badge.png" />
+        </footer>
+    </body>
+    </html>
+    '''
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.set_content(html)
+
+        result = await page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, "52764529835")
+        await browser.close()
+
+        # 1. Proves all seller gallery images (main + thumbnails including background-image) are extracted
+        assert "https://down-vn.img.susercontent.com/file/vn-11134207-main.jpg" in result["gallery"]
+        assert "https://down-vn.img.susercontent.com/file/vn-11134207-thumb1.jpg" in result["gallery"]
+        assert "https://down-vn.img.susercontent.com/file/vn-11134207-thumb2.jpg" in result["gallery"]
+        assert "https://down-vn.img.susercontent.com/file/vn-11134207-thumb3.jpg" in result["gallery"]
+        assert len(result["gallery"]) >= 4
+
+        # 2. Proves seller description image is captured
+        assert "https://down-vn.img.susercontent.com/file/vn-11134207-desc-banner.jpg" in result["description_media"]
+
+        # 3. Proves review, recommendation, header and FOOTER.Dtu9HW images are strictly excluded
+        all_media = result["gallery"] + result["description_media"] + result["fallback_media"]
+        assert "https://down-vn.img.susercontent.com/file/vn-11134207-customer-review.jpg" not in all_media
+        assert "https://down-vn.img.susercontent.com/file/vn-11134207-recommended-other.jpg" not in all_media
+        assert "https://down-vn.img.susercontent.com/file/header_logo.png" not in all_media
+        assert "https://down-vn.img.susercontent.com/file/footer_payment_badge.png" not in all_media
+        assert "https://down-vn.img.susercontent.com/file/footer_cert_badge.png" not in all_media
+
+
