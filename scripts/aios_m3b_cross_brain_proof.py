@@ -1,6 +1,7 @@
 """
 Deterministic M3B Real Cross-Chat Brain Failover Proof Runner (TASK-027 / ADR-016 / ADR-017).
-Provides separate prepare and verify commands with strict live-attestation schema and test isolation.
+Provides staged commands (prepare-source, validate-source, verify-replacement, audit-bundle),
+strict attestation schema and token grammar, deterministic newline normalization, and test isolation.
 """
 from __future__ import annotations
 
@@ -66,6 +67,27 @@ FORBIDDEN_ATTESTATION_KEYS = {
     "history",
 }
 
+_TOKEN_USAGE_PATTERN = re.compile(r"^(UNKNOWN|REPORTED\([a-zA-Z0-9_\-:, .]+\))$")
+
+
+def normalize_line_endings(text: str | bytes) -> bytes:
+    """
+    Deterministic newline-only normalization (ADR-016 / TASK-027 C7 / R2-1):
+    Converts CRLF and CR line endings to LF.
+    Ensures a single trailing LF at the end of the artifact.
+    Does NOT strip or alter leading/trailing spaces, tabs, or empty lines.
+    """
+    if isinstance(text, (bytes, bytearray)):
+        decoded = bytes(text).decode("utf-8")
+    else:
+        decoded = str(text)
+
+    # Normalize CRLF and CR to LF
+    normalized = decoded.replace("\r\n", "\n").replace("\r", "\n")
+    if not normalized.endswith("\n"):
+        normalized += "\n"
+    return normalized.encode("utf-8")
+
 
 @dataclass(frozen=True)
 class M3BLiveAttestation:
@@ -118,10 +140,24 @@ class M3BLiveAttestation:
             raise ContinuityStateValidationError("replacement_brain_id must be a non-empty string")
         if self.source_brain_id == self.replacement_brain_id:
             raise ContinuityStateValidationError("source_brain_id and replacement_brain_id must differ")
-        if not self.source_brain_token_usage or not isinstance(self.source_brain_token_usage, str):
-            raise ContinuityStateValidationError("source_brain_token_usage must be a non-empty string")
-        if not self.replacement_brain_token_usage or not isinstance(self.replacement_brain_token_usage, str):
-            raise ContinuityStateValidationError("replacement_brain_token_usage must be a non-empty string")
+        if (
+            not self.source_brain_token_usage
+            or not isinstance(self.source_brain_token_usage, str)
+            or len(self.source_brain_token_usage) > 128
+            or not _TOKEN_USAGE_PATTERN.match(self.source_brain_token_usage)
+        ):
+            raise ContinuityStateValidationError(
+                f"source_brain_token_usage must match safe grammar 'UNKNOWN' or 'REPORTED(...)', got: {self.source_brain_token_usage!r}"
+            )
+        if (
+            not self.replacement_brain_token_usage
+            or not isinstance(self.replacement_brain_token_usage, str)
+            or len(self.replacement_brain_token_usage) > 128
+            or not _TOKEN_USAGE_PATTERN.match(self.replacement_brain_token_usage)
+        ):
+            raise ContinuityStateValidationError(
+                f"replacement_brain_token_usage must match safe grammar 'UNKNOWN' or 'REPORTED(...)', got: {self.replacement_brain_token_usage!r}"
+            )
         if (
             isinstance(self.paid_external_api_calls, bool)
             or not isinstance(self.paid_external_api_calls, int)
@@ -241,7 +277,8 @@ def validate_diagnosis_semantic_anchors(text: str) -> None:
         raise ContinuityStateValidationError("Diagnosis missing mandatory semantic anchor 2: request semantic equivalence")
 
     # Anchor 3: Source SUCCESS duplicate output blocking
-    if "success" not in norm_text or not any(k in norm_text for k in ["duplicate", "competing", "block", "forbidden", "fail over"]):
+    has_success_block = ("success" in norm_text and any(k in norm_text for k in ["duplicate", "competing", "block", "forbidden"]))
+    if not has_success_block:
         raise ContinuityStateValidationError("Diagnosis missing mandatory semantic anchor 3: source SUCCESS duplicate output blocking")
 
     # Anchor 4: Zero transcript / hidden reasoning
@@ -330,7 +367,7 @@ def verify_and_bind_m3b_proof(
     replacement_request: BrainRequest,
     replacement_capability: BrainCapability,
     source_result: BrainResult,
-    diagnosis_content_text: str,
+    diagnosis_content_text: str | bytes,
     attestation: M3BLiveAttestation,
     output_dir: Path | None = None,
     worktree_root: Path = REPO_DIR,
@@ -351,12 +388,22 @@ def verify_and_bind_m3b_proof(
         source_result=source_result,
     )
 
-    # 2. Validate diagnosis semantic anchors
-    validate_diagnosis_semantic_anchors(diagnosis_content_text)
+    # 2. Cross-bind attestation identities with request identities (R1-4)
+    if attestation.source_brain_id != source_request.brain_id:
+        raise ContinuityStateValidationError(
+            f"Attestation source_brain_id '{attestation.source_brain_id}' != source_request.brain_id '{source_request.brain_id}'"
+        )
+    if attestation.replacement_brain_id != replacement_request.brain_id:
+        raise ContinuityStateValidationError(
+            f"Attestation replacement_brain_id '{attestation.replacement_brain_id}' != replacement_request.brain_id '{replacement_request.brain_id}'"
+        )
 
-    # 3. Mechanically verify and bind diagnosis artifact
-    norm_diagnosis_text = diagnosis_content_text.replace("\r\n", "\n").strip() + "\n"
-    diagnosis_bytes = norm_diagnosis_text.encode("utf-8")
+    # 3. Validate diagnosis semantic anchors
+    diag_str = diagnosis_content_text if isinstance(diagnosis_content_text, str) else diagnosis_content_text.decode("utf-8")
+    validate_diagnosis_semantic_anchors(diag_str)
+
+    # 4. Deterministic newline-only normalization (R2-1)
+    diagnosis_bytes = normalize_line_endings(diagnosis_content_text)
     if len(diagnosis_bytes) > MAX_SERIALIZED_BYTES:
         raise ContinuityStateValidationError(
             f"Diagnosis artifact exceeds 16 KiB bound: {len(diagnosis_bytes)} bytes"
@@ -367,7 +414,7 @@ def verify_and_bind_m3b_proof(
     if not target_path:
         raise ContinuityStateValidationError("Replacement request missing target_artifact_path")
 
-    # 4. Construct replacement BrainResult
+    # 5. Construct replacement BrainResult
     replacement_result = BrainResult(
         schema_version="1",
         task_id=replacement_request.task_id,
@@ -385,7 +432,7 @@ def verify_and_bind_m3b_proof(
         evidence_ref=None,
     )
 
-    # 5. Persist isolated files under worktree_root & output_dir
+    # 6. Persist isolated files under worktree_root & output_dir
     diag_file = worktree_root / target_path
     diag_file.parent.mkdir(parents=True, exist_ok=True)
     diag_file.write_bytes(diagnosis_bytes)
@@ -429,51 +476,182 @@ def verify_and_bind_m3b_proof(
     }
 
 
-def command_prepare(output_dir: Path) -> int:
-    """Deterministic prepare command: emits state, requests, capability, and prompts."""
+def audit_persisted_bundle(proofs_dir: Path, worktree_root: Path = REPO_DIR) -> dict[str, Any]:
+    """
+    Non-mutating final bundle verifier (REVIEW-027 R1-2):
+    Reloads all 8 persisted JSON proof artifacts and the on-disk diagnosis artifact.
+    Re-runs full M3A failover validation, recomputes all fingerprints and Git blob SHA.
+    Fails closed on any inconsistency without writing or mutating any files.
+    """
+    for req_art in [
+        "TASK-027-M3B-STATE.json",
+        "TASK-027-M3B-SOURCE-REQUEST.json",
+        "TASK-027-M3B-SOURCE-RESULT.json",
+        "TASK-027-M3B-REPLACEMENT-REQUEST.json",
+        "TASK-027-M3B-REPLACEMENT-CAPABILITY.json",
+        "TASK-027-M3B-FAILOVER-PROOF.json",
+        "TASK-027-M3B-REPLACEMENT-RESULT.json",
+        "TASK-027-M3B-LIVE-ATTESTATION.json",
+    ]:
+        fpath = proofs_dir / req_art
+        if not fpath.exists():
+            raise ContinuityStateValidationError(f"Missing persisted proof artifact for audit: {req_art}")
+
+    state = ContinuityState.from_json((proofs_dir / "TASK-027-M3B-STATE.json").read_text(encoding="utf-8"))
+    src_req = BrainRequest.from_json((proofs_dir / "TASK-027-M3B-SOURCE-REQUEST.json").read_text(encoding="utf-8"))
+    src_res = BrainResult.from_json((proofs_dir / "TASK-027-M3B-SOURCE-RESULT.json").read_text(encoding="utf-8"))
+    rep_req = BrainRequest.from_json((proofs_dir / "TASK-027-M3B-REPLACEMENT-REQUEST.json").read_text(encoding="utf-8"))
+    rep_cap_data = json.loads((proofs_dir / "TASK-027-M3B-REPLACEMENT-CAPABILITY.json").read_text(encoding="utf-8"))
+    rep_cap = BrainCapability.from_dict(rep_cap_data)
+    persisted_proof = BrainFailoverProof.from_json((proofs_dir / "TASK-027-M3B-FAILOVER-PROOF.json").read_text(encoding="utf-8"))
+    rep_res = BrainResult.from_json((proofs_dir / "TASK-027-M3B-REPLACEMENT-RESULT.json").read_text(encoding="utf-8"))
+    att_data = json.loads((proofs_dir / "TASK-027-M3B-LIVE-ATTESTATION.json").read_text(encoding="utf-8"))
+    attestation = M3BLiveAttestation.from_dict(att_data)
+
+    target_path = rep_req.output_contract.target_artifact_path
+    if not target_path:
+        raise ContinuityStateValidationError("Replacement request missing target_artifact_path")
+
+    diag_file = worktree_root / target_path
+    if not diag_file.exists():
+        raise ContinuityStateValidationError(f"Persisted diagnosis file missing at target: {diag_file}")
+
+    diag_bytes = diag_file.read_bytes()
+    if len(diag_bytes) > MAX_SERIALIZED_BYTES:
+        raise ContinuityStateValidationError(f"Persisted diagnosis size ({len(diag_bytes)}) exceeds limit")
+
+    diag_text = diag_bytes.decode("utf-8")
+    validate_diagnosis_semantic_anchors(diag_text)
+    disk_blob_sha = compute_git_blob_sha(diag_bytes)
+
+    if rep_res.artifact_ref is None or rep_res.artifact_ref.blob_sha != disk_blob_sha:
+        raise ContinuityStateValidationError(
+            f"Replacement result artifact_ref.blob_sha '{rep_res.artifact_ref.blob_sha if rep_res.artifact_ref else None}' "
+            f"!= disk diagnosis blob SHA '{disk_blob_sha}'"
+        )
+    if rep_res.artifact_ref.path != target_path:
+        raise ContinuityStateValidationError(
+            f"Replacement result artifact_ref.path '{rep_res.artifact_ref.path}' != target '{target_path}'"
+        )
+
+    # Re-validate M3A eligibility
+    recomputed_proof = validate_brain_failover_eligibility(
+        source_request=src_req,
+        replacement_request=rep_req,
+        state=state,
+        expected_state_fingerprint=state.fingerprint(),
+        replacement_capability=rep_cap,
+        source_result=src_res,
+    )
+
+    if recomputed_proof.fingerprint() != persisted_proof.fingerprint():
+        raise ContinuityStateValidationError(
+            f"Recomputed failover proof fingerprint '{recomputed_proof.fingerprint()}' "
+            f"!= persisted '{persisted_proof.fingerprint()}'"
+        )
+
+    # Attestation cross-binding
+    if attestation.source_brain_id != src_req.brain_id:
+        raise ContinuityStateValidationError("Attestation source_brain_id != source_request.brain_id")
+    if attestation.replacement_brain_id != rep_req.brain_id:
+        raise ContinuityStateValidationError("Attestation replacement_brain_id != replacement_request.brain_id")
+
+    return {
+        "status": "PASS",
+        "state_fingerprint": state.fingerprint(),
+        "source_request_fingerprint": src_req.fingerprint(),
+        "source_result_fingerprint": src_res.fingerprint(),
+        "replacement_request_fingerprint": rep_req.fingerprint(),
+        "replacement_result_fingerprint": rep_res.fingerprint(),
+        "failover_proof_fingerprint": persisted_proof.fingerprint(),
+        "diagnosis_blob_sha": disk_blob_sha,
+        "diagnosis_bytes": len(diag_bytes),
+    }
+
+
+def command_prepare_source(output_dir: Path) -> int:
+    """Stage 1: Deterministically constructs and writes state and source request only (R1-1)."""
     state = build_m3b_proof_state()
     src_req = build_m3b_source_request()
-    rep_req = build_replacement_brain_request(src_req, "claude-chat", "req-task-027-rep-01")
-    rep_cap = build_m3b_replacement_capability()
 
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "TASK-027-M3B-STATE.json").write_text(state.to_canonical_json(), encoding="utf-8")
     (output_dir / "TASK-027-M3B-SOURCE-REQUEST.json").write_text(src_req.to_canonical_json(), encoding="utf-8")
-    (output_dir / "TASK-027-M3B-REPLACEMENT-REQUEST.json").write_text(rep_req.to_canonical_json(), encoding="utf-8")
-    (output_dir / "TASK-027-M3B-REPLACEMENT-CAPABILITY.json").write_text(
-        json.dumps(rep_cap.to_dict(), sort_keys=True, separators=(",", ":"), ensure_ascii=False),
-        encoding="utf-8",
-    )
 
-    print("=== TASK-027 M3B Preparation Complete ===")
+    print("=== TASK-027 Stage 1: Source Preparation Complete ===")
     print(f"TASK_ID:                         {state.task_id}")
     print(f"STATE_FINGERPRINT:               {state.fingerprint()}")
     print(f"SOURCE_BRAIN_ID:                 {src_req.brain_id}")
     print(f"SOURCE_REQUEST_ID:               {src_req.request_id}")
     print(f"SOURCE_REQUEST_FINGERPRINT:      {src_req.fingerprint()}")
-    print(f"REPLACEMENT_BRAIN_ID:            {rep_req.brain_id}")
-    print(f"REPLACEMENT_REQUEST_ID:          {rep_req.request_id}")
-    print(f"REPLACEMENT_REQUEST_FINGERPRINT: {rep_req.fingerprint()}")
     print(f"OUTPUT_TARGET:                   {src_req.output_contract.target_artifact_path}")
     print(f"OUTPUT_DIR:                      {output_dir}")
     print("\n--- HUMAN CHECKPOINT 1 (Brain A: chatgpt-chat) ---")
-    print("Provide source request pack to ChatGPT in a fresh session. Return controlled INCOMPLETE result.")
-    print("\n--- HUMAN CHECKPOINT 2 (Brain B: claude-chat) ---")
-    print("Provide replacement request pack to Claude in a fresh session (NO Brain A transcript). Return diagnosis artifact.")
+    print("Provide source request pack to ChatGPT in a fresh session.")
+    print("Return the controlled INCOMPLETE result JSON to proceed to validate-source / prepare-replacement.")
     return 0
 
 
-def command_verify(
-    source_result_path: Path,
+def command_validate_source(source_result_path: Path, output_dir: Path) -> int:
+    """
+    Stage 2: Consumes external Brain A source result, validates failover eligibility,
+    and only on PASS emits replacement request, capability, and failover proof (R1-1).
+    """
+    if not source_result_path.exists():
+        print(f"[ERROR] Source result file not found: {source_result_path}", file=sys.stderr)
+        return 1
+
+    state_path = output_dir / "TASK-027-M3B-STATE.json"
+    src_req_path = output_dir / "TASK-027-M3B-SOURCE-REQUEST.json"
+    if not state_path.exists() or not src_req_path.exists():
+        print("[ERROR] Stage 1 artifacts missing in output_dir. Run prepare-source first.", file=sys.stderr)
+        return 1
+
+    state = ContinuityState.from_json(state_path.read_text(encoding="utf-8"))
+    src_req = BrainRequest.from_json(src_req_path.read_text(encoding="utf-8"))
+    src_res = BrainResult.from_json(source_result_path.read_text(encoding="utf-8"))
+
+    rep_req = build_replacement_brain_request(src_req, "claude-chat", "req-task-027-rep-01")
+    rep_cap = build_m3b_replacement_capability()
+
+    # Failover eligibility validation gate (M3A pure validator)
+    failover_proof = validate_brain_failover_eligibility(
+        source_request=src_req,
+        replacement_request=rep_req,
+        state=state,
+        expected_state_fingerprint=state.fingerprint(),
+        replacement_capability=rep_cap,
+        source_result=src_res,
+    )
+
+    # Persist Stage 2 artifacts
+    (output_dir / "TASK-027-M3B-SOURCE-RESULT.json").write_text(src_res.to_canonical_json(), encoding="utf-8")
+    (output_dir / "TASK-027-M3B-REPLACEMENT-REQUEST.json").write_text(rep_req.to_canonical_json(), encoding="utf-8")
+    (output_dir / "TASK-027-M3B-REPLACEMENT-CAPABILITY.json").write_text(
+        json.dumps(rep_cap.to_dict(), sort_keys=True, separators=(",", ":"), ensure_ascii=False),
+        encoding="utf-8",
+    )
+    (output_dir / "TASK-027-M3B-FAILOVER-PROOF.json").write_text(failover_proof.to_canonical_json(), encoding="utf-8")
+
+    print("=== TASK-027 Stage 2: Source Validated & Failover Eligible ===")
+    print(f"SOURCE_RESULT_STATUS:            {src_res.status.value}")
+    print(f"FAILOVER_PROOF_FINGERPRINT:      {failover_proof.fingerprint()}")
+    print(f"REPLACEMENT_BRAIN_ID:            {rep_req.brain_id}")
+    print(f"REPLACEMENT_REQUEST_ID:          {rep_req.request_id}")
+    print(f"REPLACEMENT_REQUEST_FINGERPRINT: {rep_req.fingerprint()}")
+    print("\n--- HUMAN CHECKPOINT 2 (Brain B: claude-chat) ---")
+    print("Provide replacement request pack to Claude in a fresh session (NO Brain A transcript).")
+    print("Return diagnosis artifact and explicit live attestation to proceed to verify-replacement.")
+    return 0
+
+
+def command_verify_replacement(
     diagnosis_path: Path,
     attestation_path: Path,
     output_dir: Path,
     worktree_root: Path = REPO_DIR,
 ) -> int:
-    """Verifies failover eligibility from explicit external live inputs and binds replacement artifact."""
-    if not source_result_path.exists():
-        print(f"[ERROR] Source result file not found: {source_result_path}", file=sys.stderr)
-        return 1
+    """Stage 3: Consumes Brain B diagnosis and attestation, binds replacement result, and audits bundle."""
     if not diagnosis_path.exists():
         print(f"[ERROR] Diagnosis artifact file not found: {diagnosis_path}", file=sys.stderr)
         return 1
@@ -481,12 +659,13 @@ def command_verify(
         print(f"[ERROR] Attestation file not found: {attestation_path}", file=sys.stderr)
         return 1
 
-    state = build_m3b_proof_state()
-    src_req = build_m3b_source_request()
-    rep_req = build_replacement_brain_request(src_req, "claude-chat", "req-task-027-rep-01")
-    rep_cap = build_m3b_replacement_capability()
+    state = ContinuityState.from_json((output_dir / "TASK-027-M3B-STATE.json").read_text(encoding="utf-8"))
+    src_req = BrainRequest.from_json((output_dir / "TASK-027-M3B-SOURCE-REQUEST.json").read_text(encoding="utf-8"))
+    src_res = BrainResult.from_json((output_dir / "TASK-027-M3B-SOURCE-RESULT.json").read_text(encoding="utf-8"))
+    rep_req = BrainRequest.from_json((output_dir / "TASK-027-M3B-REPLACEMENT-REQUEST.json").read_text(encoding="utf-8"))
+    rep_cap_data = json.loads((output_dir / "TASK-027-M3B-REPLACEMENT-CAPABILITY.json").read_text(encoding="utf-8"))
+    rep_cap = BrainCapability.from_dict(rep_cap_data)
 
-    src_res = BrainResult.from_json(source_result_path.read_text(encoding="utf-8"))
     diag_text = diagnosis_path.read_text(encoding="utf-8")
     att_data = json.loads(attestation_path.read_text(encoding="utf-8"))
     attestation = M3BLiveAttestation.from_dict(att_data)
@@ -503,10 +682,14 @@ def command_verify(
         worktree_root=worktree_root,
     )
 
-    print("\n=== M3B Proof Verification Passed ===")
+    # Run non-mutating bundle audit to double-check consistency
+    audit_summary = audit_persisted_bundle(proofs_dir=output_dir, worktree_root=worktree_root)
+
+    print("\n=== M3B Proof Verification & Audit Passed ===")
     print(f"FAILOVER_PROOF_FINGERPRINT:      {summary['failover_proof_fingerprint']}")
     print(f"DIAGNOSIS_BLOB_SHA:              {summary['diagnosis_blob_sha']}")
     print(f"REPLACEMENT_RESULT_FINGERPRINT:  {summary['replacement_result_fingerprint']}")
+    print(f"AUDIT_STATUS:                    {audit_summary['status']}")
     return 0
 
 
@@ -514,30 +697,48 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="TASK-027 M3B Cross-Brain Proof Runner")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # prepare
-    prep_p = subparsers.add_parser("prepare", help="Prepare deterministic proof state and requests")
-    prep_p.add_argument("--output-dir", type=Path, default=REPO_DIR / ".ai" / "context" / "proofs", help="Output directory for prepared artifacts")
+    # prepare-source
+    p_prep = subparsers.add_parser("prepare-source", help="Stage 1: Prepare state and source request")
+    p_prep.add_argument("--output-dir", type=Path, default=REPO_DIR / ".ai" / "context" / "proofs", help="Output directory")
 
-    # verify
-    ver_p = subparsers.add_parser("verify", help="Verify live failover proof from explicit external inputs")
-    ver_p.add_argument("--source-result", type=Path, required=True, help="Path to normalized source BrainResult JSON")
-    ver_p.add_argument("--diagnosis-file", type=Path, required=True, help="Path to replacement diagnosis artifact markdown")
-    ver_p.add_argument("--attestation", type=Path, required=True, help="Path to human live attestation JSON")
-    ver_p.add_argument("--output-dir", type=Path, default=REPO_DIR / ".ai" / "context" / "proofs", help="Output directory for proof evidence")
-    ver_p.add_argument("--worktree-root", type=Path, default=REPO_DIR, help="Worktree root for diagnosis destination")
+    # validate-source
+    p_val = subparsers.add_parser("validate-source", help="Stage 2: Validate source result and prepare replacement")
+    p_val.add_argument("--source-result", type=Path, required=True, help="Path to source BrainResult JSON")
+    p_val.add_argument("--output-dir", type=Path, default=REPO_DIR / ".ai" / "context" / "proofs", help="Output directory")
+
+    # verify-replacement
+    p_ver = subparsers.add_parser("verify-replacement", help="Stage 3: Verify replacement diagnosis and bind evidence")
+    p_ver.add_argument("--diagnosis-file", type=Path, required=True, help="Path to replacement diagnosis artifact markdown")
+    p_ver.add_argument("--attestation", type=Path, required=True, help="Path to human live attestation JSON")
+    p_ver.add_argument("--output-dir", type=Path, default=REPO_DIR / ".ai" / "context" / "proofs", help="Output directory")
+    p_ver.add_argument("--worktree-root", type=Path, default=REPO_DIR, help="Worktree root for diagnosis destination")
+
+    # audit-bundle
+    p_aud = subparsers.add_parser("audit-bundle", help="Non-mutating audit of persisted proof bundle")
+    p_aud.add_argument("--output-dir", type=Path, default=REPO_DIR / ".ai" / "context" / "proofs", help="Directory containing proof JSONs")
+    p_aud.add_argument("--worktree-root", type=Path, default=REPO_DIR, help="Worktree root containing diagnosis")
 
     args = parser.parse_args()
 
-    if args.command == "prepare":
-        return command_prepare(args.output_dir)
-    elif args.command == "verify":
-        return command_verify(
-            source_result_path=args.source_result,
+    if args.command == "prepare-source":
+        return command_prepare_source(args.output_dir)
+    elif args.command == "validate-source":
+        return command_validate_source(source_result_path=args.source_result, output_dir=args.output_dir)
+    elif args.command == "verify-replacement":
+        return command_verify_replacement(
             diagnosis_path=args.diagnosis_file,
             attestation_path=args.attestation,
             output_dir=args.output_dir,
             worktree_root=args.worktree_root,
         )
+    elif args.command == "audit-bundle":
+        res = audit_persisted_bundle(proofs_dir=args.output_dir, worktree_root=args.worktree_root)
+        print("=== Non-Mutating Bundle Audit Passed ===")
+        print(f"STATUS:                     {res['status']}")
+        print(f"STATE_FINGERPRINT:          {res['state_fingerprint']}")
+        print(f"FAILOVER_PROOF_FINGERPRINT: {res['failover_proof_fingerprint']}")
+        print(f"DIAGNOSIS_BLOB_SHA:         {res['diagnosis_blob_sha']}")
+        return 0
     return 1
 
 
