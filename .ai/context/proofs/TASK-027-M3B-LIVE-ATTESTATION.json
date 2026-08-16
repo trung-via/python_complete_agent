@@ -3,7 +3,7 @@
   "distinct_real_brain_surfaces": true,
   "fresh_replacement_session": true,
   "fresh_source_session": true,
-  "human_bounded_transfer_bytes": 2218,
+  "human_bounded_transfer_bytes": 2685,
   "interaction_transport": "HUMAN_BOUNDED_ARTIFACT_TRANSFER",
   "paid_external_api_calls": 0,
   "replacement_brain_id": "claude-chat",
