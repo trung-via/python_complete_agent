@@ -1,65 +1,67 @@
 # REVIEW-013 — TASK-013 (Phase 6 M2.2A Product Source Pack & Original Media Extraction V1)
 
 ## Status
-CHANGES_REQUIRED
+APPROVED
 
 ## Reviewed Head
 - Branch: `ai/task-013`
-- Reviewed commit: `d2e827eef3c5b4450c50055c667cec9f82e97976`
+- Reviewed commit: `a45cb80e242f7e4b25afa40860f2e0ecb2907e1d`
 - Main baseline: `9d3dcfeab5ffc98bf6aeb3ef7a67912a5bc1fd52`
-- Branch relation to main: ahead 7, behind 0 (fast-forward safe)
+- Branch relation to main: ahead 9, behind 0 (fast-forward safe)
 - Task artifact blob: `c0144bc2e7ffc21422a491ca621a0fe7ceceecde`
-- Prior CHANGES_REQUIRED authorization blob: `20ca15825978fa3efd636691621147c9b17d395b`
-- RESULT-013 current head contains `Action: FIX` and records authorization `.ai/reviews/REVIEW-013.md (20ca158259)`, matching the prior review artifact.
-- Focused Product Source suite reported: 48 passed, exit code 0.
-- Full repository suite reported: 466 passed, exit code 0.
+- Prior CHANGES_REQUIRED authorization blob: `28dc314869861d4a71dc36e9c47d81430fef6263`
+- RESULT-013 blob: `5ef20b0e0640449baf418f9c150d4b8d25570b3f`
+- RESULT action: `FIX`
+- Exact FIX authorization recorded by worker: `.ai/reviews/REVIEW-013.md (28dc314869)` — matches the prior review artifact exactly.
+- Live main → task comparison: 19 changed files, no `scratch_publish.py`, no `test_pw.py`.
 
-## Re-review Summary
-The substantive source-extraction blockers from the previous review are now closed:
+## Verification
+- Focused command: `.\venv\Scripts\python -m pytest tests/product_source/ -v`
+  - 48 passed, 0 failed, exit code 0.
+- Full repository command: `.\venv\Scripts\python -m pytest tests/ -q -W ignore`
+  - 466 passed, 0 failed, exit code 0.
 
-1. The Playwright DOM fixtures invoke the real extractor arrow functions with a target product ID.
-2. Review/comment/recommendation nodes are nested inside containers the extraction pass actually scans, using the same CDN host as accepted seller media, and are excluded in both Shopee and TikTok fixtures.
-3. Exact identity matching, identity-gated structured fields, explicit model/SKU capture, pattern-based signed-URL redaction, run-id plumbing, zero-media fail-closed behavior, bounded fallback, byte-preserving downloads, streaming limits, and SHA-256 dedupe remain intact.
-4. Required focused and full repository test commands are now durably recorded and green.
+The RESULT artifact records the required test evidence, known limitations, merge governance, and a 19-file task diff summary. Final GitHub live comparison is authoritative for the reviewed head and confirms the task branch remains a clean fast-forward from main.
 
-TASK-013 is very close, but the reviewed branch still contains one stray publication helper and the durable RESULT diff description does not match the actual task state.
+## Approval Summary
+TASK-013 satisfies the acceptance-critical Product Source Pack and original-media requirements reviewed across the prior cycles:
 
-## Blocking Finding 1 — `scratch_publish.py` is a stray repository-root publication helper
+1. **Current-product identity is fail-closed and exact.**
+   - Shopee/TikTok structured product evidence uses exact normalized ID/SKU equality or product/item ID parsed from an object-owned URL.
+   - Overlapping substring IDs are covered by regressions.
+   - Structured-derived title/brand/shop/description/model-SKU/media are gated behind verified product identity.
 
-### Location
-`scratch_publish.py`
+2. **Review/comment/UGC contamination is explicitly excluded.**
+   - Deterministic Playwright DOM fixtures invoke the actual extraction functions.
+   - Review/comment/recommendation subtrees are nested inside scanned product containers and share the same CDN host as accepted product media.
+   - Seller/gallery media is accepted while nested UGC/recommendation media is rejected by container ownership rules, not CDN heuristics.
+   - TikTok generic outer-page content is not admitted by fallback.
 
-The branch removed the prior `test_pw.py` debug script, but introduced a new repository-root `scratch_publish.py` helper. It shells out to `bridge.py publish 13` with hard-coded TASK-013 summary/test text and then exits.
+3. **Original media extraction is bounded and source-preserving.**
+   - Trusted order remains structured product data → semantic gallery → explicit variant media → seller description → bounded platform-scoped fallback.
+   - No generic whole-page/main/article success scan is used.
+   - Accepted source bytes are written without ImageProcessor re-encoding.
+   - Per-file 20 MiB streaming ceiling and per-product 30-media ceiling are enforced.
+   - URL dedupe and SHA-256 exact-byte duplicate collapse are preserved without duplicate orphan files.
 
-This file is not part of the Product Source Pack architecture, runtime, test suite, or documented TASK-013 deliverable. It is another ad-hoc task-publication helper and should not be merged into `main`.
+4. **Source evidence is secret-safe and provenance-aware.**
+   - Signed/auth-like URL query families are redacted for persisted manifests/diagnostics while fetch URLs remain usable in memory.
+   - Canonical product identity ignores query noise.
+   - Explicit model/SKU evidence is preserved when observed; missing values remain absent rather than inferred.
 
-### Required Fix
-Remove `scratch_publish.py` from the task branch. Do not replace it with another task-specific root helper. The bridge workflow should publish RESULT artifacts without adding temporary publication scripts to product code history.
+5. **Project integration boundaries are preserved.**
+   - Real BrowserManager/BrowserSession run-id contract is covered.
+   - Zero trusted media fails closed rather than publishing an empty successful pack.
+   - Public `shopee_scrape` / `tiktok_scrape` names and schemas remain compatible.
+   - No AI image generation, background removal, 360 synthesis, LLM calls, scoring, ranking, or queue mutation is introduced in this task.
+   - Temporary publication/debug helpers have been removed from the final task diff.
 
-## Blocking Finding 2 — RESULT-013 diff evidence is not accurate for the reviewed head
-
-### Location
-`.ai/results/RESULT-013.md`
-
-The current RESULT lists `scratch_publish.py` under `Files Changed`, but its shown diff stat contains only `test_pw.py` and `tests/product_source/test_extractor_dom_fixtures.py`.
-
-Live `main → ai/task-013` comparison at reviewed head contains 20 changed files and includes `scratch_publish.py`; therefore the durable diff description is not an accurate representation of the reviewed state.
-
-The verification commands and counts are now good and should be preserved.
-
-### Required Fix
-After removing `scratch_publish.py`, refresh RESULT-013 once against the final head so it contains:
-- exact FIX authorization reference;
-- exact focused/full commands, exit codes, and pass counts;
-- an accurate current task diff summary, or clearly labeled FIX-only diff plus a separate current task diff;
-- the existing known-limitations and no-auto-merge statement.
-
-Do not regress the currently recorded test evidence.
-
-## Preserve During Fix
-Preserve all now-correct implementation behavior, especially the real nested same-CDN UGC exclusion fixtures, exact product identity matching, structured-field gating, model/SKU capture, secret-safe URL serialization, BrowserManager compatibility, zero-media fail-closed semantics, narrow platform fallback, variant provenance, byte-preserving originals, streaming bounds, SHA-256 evidence, and the no-LLM/no-scoring/no-ranking/no-queue boundary.
+## Known Limitations
+- TASK-013 establishes the canonical source/original layer only.
+- Cross-platform scoring/ranking, queue handoff, and downstream derived AI asset generation remain future milestones.
+- Marketplace DOM/schema changes may require selector/structured-data adapter maintenance; current behavior fails closed where trusted ownership cannot be established.
 
 ## Decision
-CHANGES_REQUIRED.
+APPROVED.
 
-Do not merge automatically. Publish the next FIX only through this exact REVIEW-013 artifact, then request `Review TASK-013` again.
+Do not merge automatically. Merge only after the user's explicit `Merge TASK-013` command and only if the approved task head remains unchanged and main can be fast-forwarded safely.
