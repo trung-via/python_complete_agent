@@ -1,4 +1,4 @@
-"""Open Multi-Agent Continuity OS — Canonical Project State, Usage Telemetry & Brain-Neutral Contract (M1 / M1.5 / M2 / M3A)."""
+"""Open Multi-Agent Continuity OS — Canonical Project State, Telemetry, Brain & Executor Contracts (M1 / M1.5 / M2 / M3A / M4)."""
 from __future__ import annotations
 
 from .brain import (
@@ -12,6 +12,19 @@ from .brain import (
     OutputContract,
 )
 from .errors import ContinuityError, ContinuityFreshnessError, ContinuityStateValidationError
+from .executor import (
+    ExecutionCapability,
+    ExecutionOperation,
+    ExecutionRequest,
+    ExecutionResult,
+    ExecutionResultStatus,
+    ExecutorAdapter,
+    ExecutorCapabilities,
+    PreparedExecution,
+    validate_execution_request_against_state,
+    validate_execution_result_against_request,
+    validate_executor_eligibility,
+)
 from .failover import (
     BrainFailoverProof,
     build_replacement_brain_request,
@@ -80,7 +93,14 @@ __all__ = [
     "ContinuityState",
     "ContinuityStateValidationError",
     "EfficiencyMetrics",
+    "ExecutionCapability",
+    "ExecutionOperation",
+    "ExecutionRequest",
+    "ExecutionResult",
+    "ExecutionResultStatus",
     "ExecutorAction",
+    "ExecutorAdapter",
+    "ExecutorCapabilities",
     "ExecutorState",
     "ExecutorUsageRecord",
     "FreshnessIssue",
@@ -90,6 +110,7 @@ __all__ = [
     "HumanUsage",
     "NextOperation",
     "OutputContract",
+    "PreparedExecution",
     "StateObservation",
     "TaskUsageRecord",
     "TokenMeasurement",
@@ -101,4 +122,7 @@ __all__ = [
     "check_freshness",
     "estimate_tokens_from_bytes",
     "validate_brain_failover_eligibility",
+    "validate_execution_request_against_state",
+    "validate_execution_result_against_request",
+    "validate_executor_eligibility",
 ]
