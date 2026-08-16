@@ -270,4 +270,128 @@ async def test_shopee_obfuscated_live_dom_gallery_extraction_and_footer_exclusio
         assert "https://down-vn.img.susercontent.com/file/footer_cert_badge.png" not in all_media
 
 
+@pytest.mark.asyncio
+async def test_shopee_image_seed_anchor_independently_extracts_gallery_without_title_anchor():
+    """
+    Proves that when structured data contains an identity-verified product image seed
+    but NO matching DOM title anchor exists, the image seed node itself anchors the
+    gallery cluster in the DOM and extracts seller thumbnails while excluding unrelated sections.
+    """
+    html = '''
+    <html>
+    <head>
+        <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "Product",
+            "name": "Different Unmatched Title In JSON-LD",
+            "productID": "52764529835",
+            "url": "https://shopee.vn/product-i.24625047.52764529835",
+            "image": "https://down-vn.img.susercontent.com/file/vn-11134207-main.jpg"
+        }
+        </script>
+    </head>
+    <body>
+        <!-- Product Section with obfuscated classes and non-matching DOM title -->
+        <section class="C21rQm">
+            <div class="media-column">
+                <div class="BvNoX2 OMOWB7">
+                    <!-- Root img node matching structured image seed -->
+                    <img src="https://down-vn.img.susercontent.com/file/vn-11134207-main.jpg" />
+                </div>
+                <div class="qIctnQ">
+                    <div class="mdCA_C FAWPL0">
+                        <img src="https://down-vn.img.susercontent.com/file/vn-11134207-thumb1.jpg" />
+                    </div>
+                    <div class="mdCA_C FAWPL0">
+                        <img src="https://down-vn.img.susercontent.com/file/vn-11134207-thumb2.jpg" />
+                    </div>
+                </div>
+            </div>
+            <div class="details-column">
+                <h1>Some Random Non Matching Heading</h1>
+            </div>
+        </section>
+
+        <!-- Unrelated obfuscated section with multiple same-CDN images -->
+        <section class="kL89_Z">
+            <div>
+                <img src="https://down-vn.img.susercontent.com/file/vn-11134207-unrelated1.jpg" />
+                <img src="https://down-vn.img.susercontent.com/file/vn-11134207-unrelated2.jpg" />
+            </div>
+        </section>
+    </body>
+    </html>
+    '''
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.set_content(html)
+
+        result = await page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, "52764529835")
+        await browser.close()
+
+        # Proves gallery is anchored by image seed alone
+        assert "https://down-vn.img.susercontent.com/file/vn-11134207-main.jpg" in result["gallery"]
+        assert "https://down-vn.img.susercontent.com/file/vn-11134207-thumb1.jpg" in result["gallery"]
+        assert "https://down-vn.img.susercontent.com/file/vn-11134207-thumb2.jpg" in result["gallery"]
+
+        # Proves unrelated section is not captured
+        all_media = result["gallery"] + result["description_media"] + result["fallback_media"]
+        assert "https://down-vn.img.susercontent.com/file/vn-11134207-unrelated1.jpg" not in all_media
+        assert "https://down-vn.img.susercontent.com/file/vn-11134207-unrelated2.jpg" not in all_media
+
+
+@pytest.mark.asyncio
+async def test_shopee_no_structured_images_and_no_semantic_gallery_fails_closed_without_fallback():
+    """
+    Proves that when there are no structured images, no semantic gallery,
+    and no positive briefing container, generic page sections containing multiple
+    images are NOT accepted as fallback media (Priority 4 fails closed).
+    """
+    html = '''
+    <html>
+    <body>
+        <header>
+            <img src="https://down-vn.img.susercontent.com/file/logo.png" />
+        </header>
+
+        <!-- Generic unrelated sections on the page -->
+        <section class="unrelated-promo-box">
+            <img src="https://down-vn.img.susercontent.com/file/promo1.jpg" />
+            <img src="https://down-vn.img.susercontent.com/file/promo2.jpg" />
+            <img src="https://down-vn.img.susercontent.com/file/promo3.jpg" />
+        </section>
+
+        <section class="shop-campaign-banner">
+            <img src="https://down-vn.img.susercontent.com/file/campaign1.jpg" />
+            <img src="https://down-vn.img.susercontent.com/file/campaign2.jpg" />
+        </section>
+
+        <footer>
+            <img src="https://down-vn.img.susercontent.com/file/footer.png" />
+        </footer>
+    </body>
+    </html>
+    '''
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.set_content(html)
+
+        result = await page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, "52764529835")
+        await browser.close()
+
+        # Proves no media accepted (fails closed)
+        assert len(result["structured"]["images"]) == 0
+        assert len(result["gallery"]) == 0
+        assert len(result["description_media"]) == 0
+        assert len(result["fallback_media"]) == 0
+        all_media = result["gallery"] + result["description_media"] + result["fallback_media"]
+        assert len(all_media) == 0
+
+
+
 

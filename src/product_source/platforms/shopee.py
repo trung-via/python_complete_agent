@@ -88,6 +88,10 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
         const bgMatch = clean.match(/url\(['"]?(https?:\/\/[^'")\s]+)['"]?\)/i);
         if (bgMatch) clean = bgMatch[1];
         if (clean.startsWith('//')) clean = 'https:' + clean;
+        if (clean.includes('http://') || clean.includes('https://')) {
+            const httpIdx = clean.indexOf('http');
+            if (httpIdx > 0) clean = clean.substring(httpIdx);
+        }
         if (!clean.startsWith('http')) return null;
 
         // Filter out UI SVG icons, static asset icons, or badges
@@ -120,10 +124,26 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
 
         if (!rootEl || isExcluded(rootEl)) return urls;
 
-        // 1. img elements
-        const imgs = rootEl.querySelectorAll('img');
+        // 1. Inspect rootEl itself if it is an img or has background-image
+        if (rootEl.tagName === 'IMG') {
+            addUrl(rootEl.getAttribute('src'));
+            addUrl(rootEl.src);
+            addUrl(rootEl.getAttribute('data-src'));
+            const srcset = rootEl.getAttribute('srcset');
+            if (srcset) {
+                const firstSrc = srcset.split(',')[0].trim().split(' ')[0];
+                addUrl(firstSrc);
+            }
+        }
+        if (rootEl.style && (rootEl.style.backgroundImage || rootEl.getAttribute('style'))) {
+            addUrl(rootEl.style.backgroundImage || rootEl.getAttribute('style'));
+        }
+
+        // 2. Inspect descendant img elements
+        const imgs = rootEl.querySelectorAll ? rootEl.querySelectorAll('img') : [];
         for (const img of imgs) {
             if (isExcluded(img)) continue;
+            addUrl(img.getAttribute('src'));
             addUrl(img.src);
             addUrl(img.getAttribute('data-src'));
             const srcset = img.getAttribute('srcset');
@@ -133,8 +153,8 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
             }
         }
 
-        // 2. background-image elements
-        const bgEls = rootEl.querySelectorAll('[style*="background-image"], [style*="url("]');
+        // 3. Inspect descendant background-image elements
+        const bgEls = rootEl.querySelectorAll ? rootEl.querySelectorAll('[style*="background-image"], [style*="url("]') : [];
         for (const el of bgEls) {
             if (isExcluded(el)) continue;
             addUrl(el.style.backgroundImage || el.getAttribute('style'));
@@ -144,10 +164,9 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
     };
 
     // Check anti-bot block / captcha
-    if (document.querySelector('.shopee-captcha') || 
-        document.body.innerHTML.includes('verify.shopee') ||
-        window.location.href.includes('/verify') ||
-        window.location.pathname.includes('/verify') ||
+    if (document.querySelector('.shopee-captcha, iframe[src*="/verify/captcha"], [class*="captcha-container"]') || 
+        window.location.pathname.startsWith('/verify') ||
+        window.location.href.includes('/verify/') ||
         document.title.toLowerCase().includes('robot') ||
         document.title.toLowerCase().includes('captcha')) {
         result.blocked = true;
@@ -184,7 +203,8 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
                     if (data.image) {
                         const imgArr = Array.isArray(data.image) ? data.image : [data.image];
                         for (const img of imgArr) {
-                            const u = typeof img === 'string' ? img : (img && img.url ? img.url : null);
+                            const rawUrl = typeof img === 'string' ? img : (img && (img.url || img.contentUrl) ? (img.url || img.contentUrl) : null);
+                            const u = extractMediaUrl(rawUrl);
                             if (u && !result.structured.images.includes(u)) {
                                 result.structured.images.push(u);
                             }
@@ -295,10 +315,14 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
         if (seedNode) {
             let curr = seedNode;
             let galleryFound = false;
+            let fallbackUrls = [];
             for (let level = 0; level < 6 && curr && curr !== document.body; level++) {
                 if (isExcluded(curr)) break;
 
                 const candidateUrls = getMediaUrls(curr);
+                if (candidateUrls.length > fallbackUrls.length) {
+                    fallbackUrls = candidateUrls;
+                }
                 if (candidateUrls.length >= 2) {
                     for (const u of candidateUrls) {
                         if (!result.gallery.includes(u)) {
@@ -311,8 +335,17 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
                 curr = curr.parentElement;
             }
 
+            if (!galleryFound && fallbackUrls.length > 0) {
+                for (const u of fallbackUrls) {
+                    if (!result.gallery.includes(u)) {
+                        result.gallery.push(u);
+                    }
+                }
+                galleryFound = true;
+            }
+
             if (!galleryFound && curr) {
-                const parentSection = curr.closest('section, .page-product__briefing, .product-briefing, [class*="briefing"], main > div');
+                const parentSection = curr.closest('.page-product__briefing, .product-briefing, [class*="briefing"]');
                 if (parentSection && !isExcluded(parentSection)) {
                     const divs = parentSection.querySelectorAll('div');
                     for (const d of divs) {
@@ -338,17 +371,23 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
     );
     for (const container of variantContainers) {
         if (isExcluded(container)) continue;
-        const urls = getMediaUrls(container);
+        const imgs = container.querySelectorAll('img');
         const labelEl = container.querySelector('span, div, p') || container;
         const label = labelEl ? labelEl.innerText.trim() : null;
-        for (const u of urls) {
-            result.variants.push({ url: u, label: label || null });
+        for (const img of imgs) {
+            if (isExcluded(img)) continue;
+            const u = extractMediaUrl(img.src) || extractMediaUrl(img.getAttribute('data-src'));
+            if (u) {
+                result.variants.push({ url: u, label: label || null });
+            }
         }
     }
 
     // PRIORITY 3: Seller Description Media
-    const descriptionContainers = document.querySelectorAll('.product-detail, .product-description, .page-product__description, [class*="product-detail"], [class*="product-description"]');
-    for (const container of descriptionContainers) {
+    const descContainers = document.querySelectorAll(
+        '.product-detail, .product-description, [class*="product-detail"], [class*="product-description"]'
+    );
+    for (const container of descContainers) {
         if (isExcluded(container)) continue;
         const urls = getMediaUrls(container);
         for (const u of urls) {
@@ -364,9 +403,12 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
         }
     }
 
-    // PRIORITY 4: Bounded Platform-Scoped Fallback (within top product section only)
+    // PRIORITY 4: Bounded Platform-Scoped Fallback (within known product briefing container only)
+    // NEVER scans generic 'section' or unanchored page elements
     if (result.structured.images.length === 0 && result.gallery.length === 0) {
-        const briefingContainers = document.querySelectorAll('section, .page-product__briefing, .product-briefing');
+        const briefingContainers = document.querySelectorAll(
+            '.page-product__briefing, .product-briefing, [class*="product-briefing"], [class*="page-product__briefing"]'
+        );
         for (const container of briefingContainers) {
             if (isExcluded(container)) continue;
             const urls = getMediaUrls(container);
