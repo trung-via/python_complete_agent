@@ -22,6 +22,7 @@ _HEX_40_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 _ACTOR_ID_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _GIT_REF_COMPONENT_PATTERN = re.compile(r"^[a-zA-Z0-9_\-]+(?:\.[a-zA-Z0-9_\-]+)*$")
 _GIT_REF_FORBIDDEN_CHARS = set(" ~^:?*[\\]@\0\t\r\n")
+_TASK_TOKEN_IN_FILENAME_PATTERN = re.compile(r"(?i)(?<![a-zA-Z0-9])(task[-_]\d+)(?![a-zA-Z0-9])")
 
 _SENSITIVE_PATH_EXTENSIONS = {
     ".pem",
@@ -301,11 +302,12 @@ class ContinuityArtifacts:
         if not isinstance(self.task, ArtifactRef):
             raise ContinuityStateValidationError(f"task must be an ArtifactRef, got: {type(self.task).__name__}")
 
-        if not isinstance(self.contracts, tuple):
-            try:
-                object.__setattr__(self, "contracts", tuple(self.contracts))
-            except Exception as e:
-                raise ContinuityStateValidationError("contracts must be an iterable of ArtifactRef") from e
+        if isinstance(self.contracts, list):
+            object.__setattr__(self, "contracts", tuple(self.contracts))
+        elif not isinstance(self.contracts, tuple):
+            raise ContinuityStateValidationError(
+                f"contracts must be an ordered tuple or list of ArtifactRef, got: {type(self.contracts).__name__}"
+            )
 
         for idx, c in enumerate(self.contracts):
             if not isinstance(c, ArtifactRef):
@@ -555,15 +557,15 @@ class ContinuityState:
                     f"artifacts.review path must be exactly {expected_review_path!r}, got: {self.artifacts.review.path!r}"
                 )
 
-        # Plan artifact task identity check if declared
+        # Plan artifact task identity check if declared in filename (R2-2)
         if self.artifacts.plan is not None:
-            plan_path_upper = self.artifacts.plan.path.upper()
-            found_task_tokens = re.findall(r"TASK[-_](\d+)", plan_path_upper)
+            plan_filename = PurePosixPath(self.artifacts.plan.path).name
+            found_task_tokens = _TASK_TOKEN_IN_FILENAME_PATTERN.findall(plan_filename)
             if found_task_tokens:
-                for tok in found_task_tokens:
-                    if f"TASK-{tok}" != self.task_id:
+                for raw_tok in found_task_tokens:
+                    if raw_tok != self.task_id:
                         raise ContinuityStateValidationError(
-                            f"artifacts.plan path {self.artifacts.plan.path!r} declares task identifier 'TASK-{tok}' "
+                            f"artifacts.plan filename {plan_filename!r} declares task identifier {raw_tok!r} "
                             f"which does not match active task_id {self.task_id!r}"
                         )
 

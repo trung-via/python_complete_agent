@@ -901,3 +901,95 @@ def test_brain_operation_parser_error_domain():
     with pytest.raises(ContinuityStateValidationError, match="Invalid BrainOperation in brain.last_operation"):
         ContinuityState.from_dict(d)
 
+
+def test_contracts_strict_ordered_collection_validation():
+    """ContinuityArtifacts.contracts accepts only ordered tuple or list, rejecting set/generator (R2-1)."""
+    task_ref = ArtifactRef(path=".ai/tasks/TASK-019.md", ref="ai-control", blob_sha="adc44f449f2a991a455b8039d8e8978fe4643146")
+    c1 = ArtifactRef(path=".ai/decisions/ADR-010.md", ref="ai-control", blob_sha="504630c25f37c83819ae951076704765609105c7")
+    c2 = ArtifactRef(path=".ai/decisions/ADR-011.md", ref="ai-control", blob_sha="0ce561b1de5c964bb93ea0a5a127b48d86a65839")
+
+    # 1. Tuple input accepted directly
+    art_tuple = ContinuityArtifacts(task=task_ref, contracts=(c1, c2))
+    assert isinstance(art_tuple.contracts, tuple)
+    assert art_tuple.contracts == (c1, c2)
+
+    # 2. List input accepted and converted to tuple
+    art_list = ContinuityArtifacts(task=task_ref, contracts=[c1, c2])
+    assert isinstance(art_list.contracts, tuple)
+    assert art_list.contracts == (c1, c2)
+
+    # 3. Unordered / arbitrary iterables rejected fail-closed
+    for invalid_contracts in [
+        {c1, c2},  # set
+        frozenset([c1, c2]),  # frozenset
+        (c for c in [c1, c2]),  # generator
+        {c1.path: c1, c2.path: c2},  # dict
+        "invalid_contracts_string",  # str
+        12345,  # int
+    ]:
+        with pytest.raises(ContinuityStateValidationError, match="contracts must be an ordered tuple or list"):
+            ContinuityArtifacts(task=task_ref, contracts=invalid_contracts)  # type: ignore
+
+    # 4. Canonical JSON & fingerprint stability for valid ordered inputs
+    d = _make_valid_state_dict()
+    s1 = ContinuityState.from_dict(d)
+    s2 = ContinuityState.from_json(s1.to_canonical_json())
+    assert s1.fingerprint() == s2.fingerprint()
+
+
+def test_plan_filename_task_identity_strict_validation():
+    """Plan artifact filename task token must match active task_id exactly, without normalization (R2-2)."""
+    d = _make_valid_state_dict()  # active task_id is TASK-019
+    task_id = "TASK-019"
+
+    # 1. Exact canonical active task token passes
+    for valid_plan_path in [
+        ".ai/context/TASK-019-CHATGPT-PLAN.md",
+        ".ai/context/PLAN-TASK-019.md",
+        ".ai/context/TASK-019.md.draft",
+    ]:
+        d_valid = _make_valid_state_dict()
+        d_valid["artifacts"]["plan"] = {
+            "path": valid_plan_path,
+            "ref": "ai-control",
+            "blob_sha": "9583000000000000000000000000000000000000",
+        }
+        state = ContinuityState.from_dict(d_valid)
+        assert state.artifacts.plan.path == valid_plan_path
+
+    # 2. Filename with no task token is allowed under optional-declaration rule
+    for generic_plan_path in [
+        ".ai/context/GENERAL-ARCHITECTURE-PLAN.md",
+        ".ai/context/TASK-018/GENERIC-PLAN.md",  # Parent directory contains task token, filename is generic
+        ".ai/context/PLAN.md",
+    ]:
+        d_gen = _make_valid_state_dict()
+        d_gen["artifacts"]["plan"] = {
+            "path": generic_plan_path,
+            "ref": "ai-control",
+            "blob_sha": "9583000000000000000000000000000000000000",
+        }
+        state = ContinuityState.from_dict(d_gen)
+        assert state.artifacts.plan.path == generic_plan_path
+
+    # 3. Non-canonical task token forms rejected fail-closed
+    invalid_plan_filenames = [
+        ("task-019-PLAN.md", "task-019"),  # Lowercase
+        ("TaSk-019-PLAN.md", "TaSk-019"),  # Mixed-case
+        ("TASK_019_PLAN.md", "TASK_019"),  # Underscore delimiter
+        ("TASK-19-PLAN.md", "TASK-19"),    # Shortened / leading-zero mismatch
+        ("TASK-0019-PLAN.md", "TASK-0019"), # Extra leading zero
+        ("TASK-018-PLAN.md", "TASK-018"),  # Wrong canonical task
+    ]
+
+    for fname, bad_tok in invalid_plan_filenames:
+        d_inv = _make_valid_state_dict()
+        d_inv["artifacts"]["plan"] = {
+            "path": f".ai/context/{fname}",
+            "ref": "ai-control",
+            "blob_sha": "9583000000000000000000000000000000000000",
+        }
+        with pytest.raises(ContinuityStateValidationError, match=f"declares task identifier {bad_tok!r}"):
+            ContinuityState.from_dict(d_inv)
+
+
