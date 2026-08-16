@@ -274,7 +274,7 @@ class ContextBuilder:
         # Sort candidates deterministically before dedupe to guarantee order-independence
         sorted_for_dedupe = sorted(
             verified_candidates,
-            key=lambda t: (-t[0].priority, t[0].kind.value, _normalized_sort_path(t[0].path), t[1]),
+            key=lambda t: (-t[0].priority, t[0].kind.value, _normalized_sort_path(t[0].path), t[1], t[0].path or ""),
         )
 
         seen_identities: set[tuple[ContextKind, str, str]] = set()
@@ -313,8 +313,8 @@ class ContextBuilder:
             raise MissingMandatoryContextError("No TASK context item provided in candidates")
 
         # 5. Sort mandatory items deterministically
-        task_items.sort(key=lambda t: (-t[0].priority, _normalized_sort_path(t[0].path), t[1]))
-        contract_items.sort(key=lambda t: (-t[0].priority, _normalized_sort_path(t[0].path), t[1]))
+        task_items.sort(key=lambda t: (-t[0].priority, _normalized_sort_path(t[0].path), t[1], t[0].path or ""))
+        contract_items.sort(key=lambda t: (-t[0].priority, _normalized_sort_path(t[0].path), t[1], t[0].path or ""))
 
         # 6. Evaluate mandatory budget
         selected_items: list[ContextItem] = []
@@ -339,6 +339,7 @@ class ContextBuilder:
                 -_KIND_PRECEDENCE.get(t[0].kind, 0),
                 _normalized_sort_path(t[0].path),
                 t[1],
+                t[0].path or "",
             )
         )
 
@@ -370,6 +371,7 @@ class ContextBuilder:
                 exc.kind.value,
                 _normalized_sort_path(exc.path),
                 exc.content_sha256,
+                exc.path or "",
             )
         )
 

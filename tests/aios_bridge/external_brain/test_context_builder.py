@@ -492,3 +492,43 @@ def test_atomic_budget_selection_follows_normalized_path_tie_break():
     assert res1.context_fingerprint == res2.context_fingerprint
 
 
+def test_normalized_path_collision_raw_path_deterministic_fallback():
+    """Candidates whose paths normalize identically fall back to deterministic raw-path ordering."""
+    counter = FakeExactWordCounter()
+    builder = ContextBuilder(token_counter=counter)
+
+    task = ContextItem(kind=ContextKind.TASK, content="Task")
+    task_tokens = counter.count(render_context_item(task))
+
+    # Two distinct candidates whose paths normalize identically
+    # Path A: 'src/a.py' (ASCII / is 47)
+    # Path B: 'src\a.py' (ASCII \ is 92)
+    # Lexical order: 'src/a.py' < 'src\a.py'
+    item_forward = ContextItem(kind=ContextKind.SOURCE, content="identical content", path="src/a.py", priority=5)
+    item_backslash = ContextItem(kind=ContextKind.SOURCE, content="identical content", path=r"src\a.py", priority=5)
+    single_item_tokens = counter.count(render_context_item(item_forward))
+
+    # 1. With ample budget, both distinct items are selected in deterministic order regardless of input permutation
+    large_budget = ContextBudget(max_context_tokens=1000)
+    res_perm1 = builder.build([task, item_forward, item_backslash], large_budget)
+    res_perm2 = builder.build([task, item_backslash, item_forward], large_budget)
+
+    assert len(res_perm1.selected) == 3
+    assert res_perm1.selected == res_perm2.selected
+    assert [item.path for item in res_perm1.selected] == [None, "src/a.py", r"src\a.py"]
+    assert res_perm1.context_fingerprint == res_perm2.context_fingerprint
+
+    # 2. When budget fits only ONE item, the exact same winner is chosen regardless of input permutation
+    tight_budget = ContextBudget(max_context_tokens=task_tokens + single_item_tokens)
+    res_tight1 = builder.build([task, item_forward, item_backslash], tight_budget)
+    res_tight2 = builder.build([task, item_backslash, item_forward], tight_budget)
+
+    assert len(res_tight1.selected) == 2
+    assert res_tight1.selected == res_tight2.selected
+    assert res_tight1.selected[1].path == "src/a.py"
+    assert res_tight1.excluded[0].path == r"src\a.py"
+    assert res_tight1.excluded[0].reason == ContextExclusionReason.BUDGET
+    assert res_tight1.context_fingerprint == res_tight2.context_fingerprint
+
+
+
