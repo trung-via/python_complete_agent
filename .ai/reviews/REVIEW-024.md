@@ -3,107 +3,121 @@
 STATUS: CHANGES_REQUIRED
 
 ## Review Scope
-- Review round: `1` — ADR-017 Full Semantic Review
+- Review round: `2` — ADR-017 Delta Fix Review + Final Independent Audit attempt
 - Reviewed branch: `ai/task-024`
-- Reviewed branch head: `7b42e5bb52dec69d93508c083266c6d55983921f`
-- Tested implementation SHA reported by RESULT: `6a6d88e3b29403d6ad1c555f5b7b0ccc09281fec`
+- Reviewed branch head: `d1fd7a7451186e82df142b33c03f5683f5facd47`
+- Tested implementation SHA reported by RESULT: `cc96b8f384490f689ef5d2bd1a4c4a6198b63310`
+- Previous reviewed branch head: `7b42e5bb52dec69d93508c083266c6d55983921f`
 - Base main: `f47cc9d7e2d954413918ef7b7a2ab7a90bb1a6d8`
-- Branch relation: ahead `2`, behind `0`; merge-base exact current main.
-- `6a6d88e... -> 7b42e5b...` changes only `.ai/results/RESULT-024.md`; production code/tests at final branch head equal tested implementation.
-- Review mode: ADR-017 first-review Full Semantic Review of TASK-024 Contract + Architecture Implementation Plan + Adversarial Checklist, complete Usage production boundary, focused tests, TASK-019 baseline compatibility, RESULT and SHA relation.
+- Branch relation: ahead `4`, behind `0`; merge-base exact current main.
+- `7b42e5b... -> cc96b8f...` changes only `src/aios_bridge/continuity/usage.py` (+4) and `tests/aios_bridge/continuity/test_usage.py` (+55).
+- `cc96b8f... -> d1fd7a7...` changes only `.ai/results/RESULT-024.md`; production code/tests at final branch head equal tested implementation.
 - Test counts below are RESULT evidence from Antigravity; this review did not independently execute the repository test suite.
 
-## Semantic Review Result
+## Round-1 Finding Status
 
-TASK-024 correctly closes most of P20-1 through P20-5, but the bounded aggregation contract is not complete. The current implementation also contains a Review Manifest identity error that must be corrected in the next RESULT.
+### R1-2 — PREVIOUS_REVIEW_SHA evidence identity
+RESOLVED.
 
-## Blocking Findings
+The FIX RESULT correctly records:
 
-### R1-1 — Aggregate token ranges can exceed the locked numeric bound
-Severity: HIGH
+```text
+PREVIOUS_REVIEW_SHA: 2501ec720d67ec75ee70c91cd4b0546c6fd568e7
+```
 
-TASK-024 introduces `MAX_USAGE_INT = 2**63 - 1` and correctly applies it to individual token values, counts, byte metrics and estimator input. However `aggregate_token_ranges()` sums valid `TokenMeasurement.min_tokens/max_tokens` values without validating the cumulative totals against `MAX_USAGE_INT`.
+which is the Round-1 REVIEW-024 blob SHA. The authorized artifact is separately and correctly labeled as REVIEW-024.
+
+### R1-1 — cumulative token aggregation bound
+PARTIALLY RESOLVED; one fail-closed edge remains.
+
+The implementation now validates final `total_min` and `total_max` against `MAX_USAGE_INT` and tests all-known generic, Brain, and Executor overflow. That closes the normal all-known path.
+
+However the helper still returns immediately on the first UNKNOWN measurement before validating/scanning the remaining known measurements. Therefore UNKNOWN can mask a deterministically known overflow.
 
 Example:
 
 ```text
-m1 = REPORTED(MAX_USAGE_INT)
-m2 = REPORTED(MAX_USAGE_INT)
-aggregate_token_ranges([m1, m2])
-    -> (2 * MAX_USAGE_INT, 2 * MAX_USAGE_INT)
+MAX = MAX_USAGE_INT
+aggregate_token_ranges([
+    REPORTED(MAX),
+    REPORTED(1),
+    UNKNOWN,
+])
 ```
 
-Both inputs are individually valid, but the returned aggregate is outside the deterministic telemetry bound. `aggregate_token_ranges_by_actor_class()` delegates directly to this helper and therefore inherits the same behavior.
+The known subtotal alone is already `MAX + 1`, so no valid bounded aggregate is possible even before accounting for the UNKNOWN contribution. Current code returns `(None, None)` when it reaches UNKNOWN, before the post-loop bound check.
 
-This violates:
-- C2: explicit bounded numeric telemetry;
-- C5: actor-class aggregate return shape must be bounded and explicit;
-- the stated purpose of a single signed-64-bit-safe observability ceiling.
+The reverse ordering also matters: an UNKNOWN encountered first prevents inspection of later known records. A deterministic aggregation helper must not let ordering decide whether a provable overflow is detected.
+
+## Blocking Finding R2-1 — UNKNOWN must not mask a provable cumulative overflow
+Severity: HIGH
 
 Required fix:
-- make cumulative min/max aggregation fail closed if either aggregate would exceed `MAX_USAGE_INT`;
-- prefer reusing the same Usage bounded-integer rule rather than introducing a second limit;
-- do not saturate/truncate, because that would fabricate a measurement;
-- preserve `(None, None)` behavior when an UNKNOWN measurement is encountered;
-- preserve `(0, 0)` for an empty sequence/class;
-- add regression tests for:
-  - generic aggregate exactly at `MAX_USAGE_INT` -> pass;
-  - generic aggregate `MAX_USAGE_INT + 1` through multiple individually valid measurements -> fail closed;
-  - Brain class cumulative overflow -> fail closed;
-  - Executor class cumulative overflow -> fail closed;
-  - UNKNOWN behavior remains unchanged.
+- do not return immediately when UNKNOWN is encountered;
+- scan/validate every measurement;
+- track `saw_unknown` separately;
+- sum known ranges and enforce `MAX_USAGE_INT` on the known subtotal (preferably incrementally or at least after the full scan);
+- if known subtotal overflows, fail closed regardless of UNKNOWN presence/order;
+- only after all inputs have been inspected and known subtotal is bounded, return `(None, None)` if `saw_unknown`, otherwise return the bounded totals;
+- preserve `(0, 0)` for empty input.
 
-### R1-2 — RESULT Review Manifest mislabels TASK blob as PREVIOUS_REVIEW_SHA
-Severity: MEDIUM — evidence integrity
+Required regression tests:
+1. `[MAX, 1, UNKNOWN]` -> fail closed;
+2. `[UNKNOWN, MAX, 1]` -> fail closed;
+3. bounded known values + UNKNOWN -> `(None, None)`;
+4. same semantics through Brain actor-class aggregation;
+5. same semantics through Executor actor-class aggregation.
 
-This is the first review after `RUN`, so there is no previous REVIEW artifact. `RESULT-024.md` currently records:
+## Blocking Finding R2-2 — ratio validator can leak OverflowError for extreme integer input
+Severity: MEDIUM
+
+`_validate_canonical_ratio()` accepts `int | float`, then calls `math.isnan(val)` / `math.isinf(val)` before converting/range-checking. Python's math conversion for an arbitrarily large integer can raise `OverflowError` before the validator reaches its `[0, 1]` rejection.
+
+The Usage validation boundary should reject invalid ratio inputs deterministically with `ContinuityStateValidationError`, not leak a raw numeric conversion exception through `EfficiencyMetrics.from_dict()` / construction.
+
+Required fix:
+- make conversion/range validation safe for arbitrary accepted Python `int`/`float` values;
+- catch conversion overflow (or check integer range before float conversion) and raise `ContinuityStateValidationError`;
+- preserve bool rejection, finite checks, `[0,1]`, canonical float conversion, and `-0.0 -> 0.0` semantics.
+
+Required regression tests:
+- very large positive integer ratio fails with `ContinuityStateValidationError`;
+- very large negative integer ratio fails with `ContinuityStateValidationError`;
+- ordinary `0`, `1`, `0.0`, `1.0`, `-0.0`, NaN and infinities retain current semantics.
+
+## Final Independent Audit — Positive Evidence
+
+Outside the blockers above, the final audit reconfirms:
+- exact-canonical Brain/Executor actor identities;
+- common signed-64-safe semantic bound on token/count/byte telemetry;
+- estimator input bound and existing estimator semantics;
+- UNKNOWN context-efficiency rule when useful/total is absent or total is zero;
+- canonical persisted ratio floats and canonical positive zero for normal bounded numeric inputs;
+- exact efficiency partition checks;
+- actor-class aggregation isolation between Brain and Executor;
+- REPORTED / ESTIMATED / UNKNOWN provenance semantics;
+- strict unknown-field handling and 16 KiB TaskUsageRecord/parser bound;
+- TASK-019 baseline remains byte-identical (`be2287e505e32da68f268c632700ac4f8b7ce56b`), ESTIMATED, and un-fabricated;
+- no Bridge/provider/Brain/failover/Executor/human authority change.
+
+RESULT reports against tested implementation `cc96b8f384490f689ef5d2bd1a4c4a6198b63310`:
 
 ```text
-PREVIOUS_REVIEW_SHA: 9e54b70645d297c7e6b3d11fd32cbd04398f77cd
-```
-
-That SHA is the authorized `TASK-024.md` blob, not a REVIEW blob. `PREVIOUS_REVIEW_SHA` is a semantic manifest field and must not be repurposed to mean the task authorization artifact.
-
-Required fix in the next RESULT:
-- for the original RUN evidence, previous review is `null` / absent according to the manifest convention;
-- for the upcoming FIX result, `PREVIOUS_REVIEW_SHA` must point to this REVIEW-024 artifact blob SHA, not the TASK blob;
-- keep `Authorized Artifact` separate and correctly labeled.
-
-No production code change is required for R1-2.
-
-## Positive Evidence
-
-The Full Semantic Review confirms these TASK-024 changes are substantively correct:
-- Usage-local exact-canonical actor validation rejects padded Brain/Executor identities;
-- all listed schema-v1 integer fields and estimator input use the common `MAX_USAGE_INT` boundary;
-- bool and negative integer rejection are preserved;
-- `context_efficiency_ratio` must remain `None` when useful/total bytes are unknown or total is zero;
-- ratio values are normalized to canonical float representation, including canonical positive zero, and NaN/Infinity are rejected;
-- actor-class aggregation separates Brain and Executor UNKNOWN state correctly;
-- TASK-019 historical baseline is unchanged and remains ESTIMATED;
-- current byte estimator semantics are preserved;
-- 16 KiB top-level TaskUsageRecord/parser protection remains present;
-- no Bridge/provider/Brain/failover/Executor/human authority behavior was changed.
-
-RESULT reports against implementation `6a6d88e3b29403d6ad1c555f5b7b0ccc09281fec`:
-
-```text
-Continuity: 71 passed
-AIOS Bridge: 157 passed
-Full repository: 631 passed
+Continuity: 72 passed
+AIOS Bridge: 158 passed
+Full repository: 632 passed
 Regressions: 0
 LIVE_EXTERNAL_CALLS: 0
-BRIDGE_V0_4_BEHAVIOR_CHANGED: NO
-AUTHORITY_WIDENED: NO
 EXECUTOR_RUNS: 1
-EXECUTOR_FIX_RUNS: 0
+EXECUTOR_FIX_RUNS: 1
 TASK_019_BASELINE_VALID: YES
 TASK_019_BASELINE_CHANGED: NO
 ```
 
-## Required FIX Scope
+Non-blocking evidence cleanup: RESULT still labels `FAILOVER_SCHEMA_VERSION: 1` inside a Usage Telemetry milestone. This field is not required by TASK-024 and does not affect code correctness; prefer removing it or renaming it to an accurate Usage schema label in the next RESULT rather than carrying cross-milestone terminology forward.
 
-Expected changes should remain bounded to:
+## Required FIX Scope
+Expected production/test delta remains tiny and bounded to:
 
 ```text
 src/aios_bridge/continuity/usage.py
@@ -111,31 +125,20 @@ tests/aios_bridge/continuity/test_usage.py
 .ai/results/RESULT-024.md
 ```
 
-`src/aios_bridge/continuity/__init__.py` should not need another production change unless public exports actually change.
-
-Do not modify `state.py`, `brain.py`, `failover.py`, Bridge, provider layers, Executor authority or Canonical State lifecycle.
-
-## Required Re-Test
-
-```text
-pytest tests/aios_bridge/continuity/test_usage.py -q
-pytest tests/aios_bridge/continuity/ -q
-pytest tests/aios_bridge/ -q
-pytest tests/ -q -W ignore
-```
-
-No live external calls.
+No `state.py`, `brain.py`, `failover.py`, Bridge, provider, executor, or authority changes.
 
 ## ADR-017 Stage Status
 
 ```text
-FULL_SEMANTIC_REVIEW: FAIL
-KNOWN_FINDINGS: OPEN
-DELTA_FIX_REVIEW: NOT_RUN
-FINAL_INDEPENDENT_AUDIT: NOT_RUN
+FULL_SEMANTIC_REVIEW: FAIL (Round 1)
+R1-2: CLOSED
+R1-1: PARTIAL — edge remains
+DELTA_FIX_REVIEW: FAIL
+FINAL_INDEPENDENT_AUDIT: FAIL — new robustness finding R2-2
+APPROVED: NO
 ```
 
-Final Independent Audit must not run for approval until R1-1 and R1-2 are closed. After the FIX delta passes, perform a fresh Final Independent Audit against the final tested implementation and telemetry/baseline boundary before emitting APPROVED.
+After the next FIX, use a narrow delta-first review for R2-1/R2-2 and evidence identity. If that delta passes, perform one fresh Final Independent Audit on the resulting final tested implementation before APPROVED.
 
 ## Decision
 
