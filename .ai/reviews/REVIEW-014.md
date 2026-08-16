@@ -5,133 +5,116 @@ CHANGES_REQUIRED
 
 ## Reviewed Head
 - Branch: `ai/task-014`
-- Reviewed commit: `f69fa64efd12581bf2cfc514b12cb6d1f7fdf04e`
-- Parent / canonical baseline: `540f4cb20b56cf72db333192d49ccf6eb295e9c4`
-- Branch relation: ahead 1, behind 0; merge base exactly canonical baseline
+- Reviewed commit: `6f7e0323187b76b71e3466e89c3a6ff04f86caca`
+- Previous reviewed head: `f69fa64efd12581bf2cfc514b12cb6d1f7fdf04e`
+- Canonical baseline: `540f4cb20b56cf72db333192d49ccf6eb295e9c4`
+- Branch relation to main: ahead 2, behind 0; merge base exactly canonical baseline
 - RESULT-014 status: `READY_FOR_REVIEW`
 
-## Verification Recorded in RESULT-014
-- Focused External Brain suite: **17 passed**
-- Full repository suite: **491 passed**
+## Verification Recorded in Updated RESULT-014
+- Focused External Brain suite: **19 passed**
+- Full repository suite: **493 passed**
 - No live external-model request was made
-- No semantic changes to `bridge.py`, `src/providers/base.py`, `src/providers/gemini.py`, AgentLoop/retry/checkpoint/idempotency, browser stack, or Product Source Pack
+- No protected subsystem was changed
 
-The overall structure is good: the subsystem is isolated under `src/aios_bridge/external_brain/`, the existing Python Agent `LLMProvider` contract is untouched, operation-to-output mapping is centralized, request/response correlation exists, and output artifact parsing remains deliberately small.
+## Prior Review Blockers — RESOLVED
 
-However, two contract defects violate explicit TASK-014 review/acceptance requirements and should be corrected before M1 is locked.
+### Prior Blocker 1 — Transport request aliases mutable caller state
+RESOLVED.
+
+The updated implementation defensively deep-freezes caller-provided `headers` and `payload`, including nested mapping/list/set values, so later caller mutation no longer changes the stored request. Regression coverage now exercises the aliasing/direct-mutation cases.
+
+### Prior Blocker 2 — SUCCESS response accepts contradictory error metadata
+RESOLVED.
+
+`ModelResponse(status=SUCCESS)` now rejects both non-null `error_code` and non-null `error_message`; failure responses may still carry error metadata. Regression coverage is present.
+
+The small bool-vs-int validation hardening is also acceptable and remains in scope.
 
 ---
 
-## Blocker 1 — `TransportRequest` is only shallow-frozen; caller-owned mutable state can still change the contract after construction
+## New Blocker — Deep-freeze breaks the locked JSON-compatible transport payload boundary
 
-Current `TransportRequest` is declared `@dataclass(frozen=True)`, but stores caller-provided mappings directly:
-
-```python
-headers: Mapping[str, str] = field(default_factory=dict)
-payload: Mapping[str, Any] = field(default_factory=dict)
-```
-
-A frozen dataclass only prevents assigning `request.headers = ...`; it does not make the referenced dictionary or nested payload immutable.
-
-Example of the current problem:
+The current fix makes `TransportRequest.payload` immutable by recursively converting mappings to `types.MappingProxyType`:
 
 ```python
-headers = {"Authorization": "Bearer A"}
-payload = {"messages": [{"role": "user", "content": "A"}]}
-
-req = TransportRequest(..., headers=headers, payload=payload)
-
-headers["Authorization"] = "Bearer B"
-payload["messages"][0]["content"] = "B"
-
-# req now observes mutated values even though it is described as immutable/frozen.
+def _deep_freeze(val):
+    if isinstance(val, (dict, Mapping)):
+        return MappingProxyType({...})
 ```
 
-This matters for v0.5 because the transport boundary will later carry credentials and the exact payload that is audited/sent. TASK-014 explicitly calls out **"mutable dict/list fields inside otherwise frozen dataclasses"** as a review focus, and M1.6 requires the transport boundary to be immutable where practical.
+and stores that frozen representation directly as `req.payload`.
+
+This solves immutability, but introduces a new contract problem: Python's standard JSON encoder does **not** serialize `MappingProxyType` directly. A future M3 OpenAI-compatible transport cannot safely assume it can pass the locked `req.payload` to a normal JSON encoder/client without an additional conversion layer.
+
+TASK-014 M1.6 explicitly locks `TransportRequest` as carrying a **JSON-compatible payload** and states that the transport contracts must be sufficient for M3 without changing `ModelRequest` / `ModelResponse`. The current representation is therefore immutable but not directly wire/JSON compatible.
+
+This is not a request to remove deep immutability. Both properties are required:
+
+1. the internal/stored request must remain independent of caller-owned mutable objects and read-only;
+2. there must be a deterministic, explicit way to obtain a fresh JSON-compatible wire payload for transport serialization.
 
 ### Required fix
-Make the stored transport request independent of caller-owned mutable objects and read-only after construction.
-
-Acceptable approaches include a small deterministic deep-freeze/canonicalization helper, or equivalent defensive-copy + immutable representation. At minimum:
-- caller mutations after construction MUST NOT change `req.headers` or `req.payload`;
-- direct mutation through the stored object MUST be rejected or impossible;
-- nested dict/list payload state must not remain an alias to caller-owned objects;
-- keep the representation generic for future OpenAI-compatible / Anthropic-compatible transport use.
-
-Do not add HTTP networking or provider logic while fixing this.
-
-### Required regression tests
-Add focused tests proving:
-1. mutating the original `headers` dict after construction does not mutate the request;
-2. mutating the original `payload`, including a nested list/dict value, does not mutate the request;
-3. mutating `req.headers` / stored payload through the contract is rejected or impossible;
-4. existing timeout/URL validation remains green.
-
----
-
-## Blocker 2 — `ModelResponse(status=SUCCESS)` accepts contradictory failure metadata
-
-TASK-014 M1.4 explicitly requires successful responses to have **no contradictory required failure state**.
-
-The current `ModelResponse.__post_init__` validates `output_type` and non-empty content for SUCCESS, but does not reject:
+Keep the defensive immutable representation, but add a small explicit serialization/wire boundary such as one of these equivalent approaches:
 
 ```python
-ModelResponse(
-    ...,
-    status=ModelResponseStatus.SUCCESS,
-    output_type=BrainOutputType.PLAN,
-    content="valid plan",
-    error_code="AUTH_ERROR",
-    error_message="authentication failed",
-)
+req.to_json_payload() -> dict[str, Any]
 ```
 
-That produces a logically contradictory normalized response. Future Gateway/accounting code should never have to decide whether `status` or the failure fields are authoritative.
+or
 
-### Required fix
-For `ModelResponseStatus.SUCCESS`:
-- `error_code` MUST be `None`;
-- `error_message` MUST be `None`.
+```python
+req.to_wire_dict() -> dict[str, Any]
+```
 
-Failure statuses may continue to carry optional error metadata and may preserve unknown usage as `None`.
+or another clearly named deterministic helper.
+
+The helper MUST:
+- recursively convert immutable internal mappings/tuples/frozensets used by the contract into fresh JSON-compatible `dict` / `list` primitives;
+- preserve normal JSON scalar values (`str`, `int`, `float`, `bool`, `None`);
+- return a fresh structure whose mutation cannot mutate the stored `TransportRequest`;
+- reject or avoid silently accepting values that cannot be represented as JSON rather than relying on provider-specific magic;
+- not expose/redact/log credentials; it is a data conversion helper only;
+- not perform HTTP/networking;
+- not add provider-specific behavior.
+
+Prefer rejecting non-JSON-compatible payload values at contract construction or serialization rather than silently coercing arbitrary objects.
 
 ### Required regression tests
-Add focused tests proving:
-1. SUCCESS + `error_code` is rejected;
-2. SUCCESS + `error_message` is rejected;
-3. normal SUCCESS remains valid;
-4. non-success response with error metadata remains valid.
+Add tests proving:
+1. a nested normal transport payload can be converted and `json.dumps(...)` succeeds;
+2. the serialized/wire payload has the expected ordinary `dict`/`list` shape;
+3. mutating the returned wire payload does not mutate `req.payload`;
+4. caller mutation protection from the prior fix remains green;
+5. unsupported non-JSON payload values fail deterministically if accepted at construction today.
+
+`headers` may remain an immutable mapping internally; this blocker specifically concerns the JSON request body/wire representation needed by M3.
 
 ---
 
-## Non-Blocking Hardening
-Python `bool` is a subclass of `int`, so current integer checks can accept values such as `True` for token limits / latency / priority / status code. This is not the reason for CHANGES_REQUIRED, but while touching validation it is reasonable to reject booleans where the contract semantically requires an integer/number. Keep this small if addressed.
-
----
-
-## Preserve Existing Good Boundaries
-The fix MUST NOT:
-- modify v0.4 `bridge.py` handoff semantics;
-- modify `src.providers.LLMProvider` / `GeminiProvider`;
-- add a live MiniMax/DeepSeek/Kimi call;
-- add ContextBuilder, ModelGateway, router, fallback, retries, provider registry, MCP, or usage ledger;
-- add filesystem/shell/browser/Git/tool authority to External Brain;
-- make provider-specific assumptions leak into the generic contracts.
-
-This should remain a small M1 contract correction only.
-
----
+## Scope Guard
+The next fix MUST remain inside M1 contract/serialization support. Do not add:
+- HTTP calls;
+- MiniMax/DeepSeek/Kimi adapters;
+- ContextBuilder;
+- ModelGateway;
+- router/fallback/retry/quota logic;
+- usage ledger;
+- filesystem/shell/browser/Git/tool execution authority;
+- changes to `bridge.py` or `src.providers.LLMProvider`.
 
 ## Re-Verification Required
 After the fix:
-1. run the focused `tests/aios_bridge/external_brain/` suite;
+1. run focused `tests/aios_bridge/external_brain/`;
 2. run existing bridge tests;
 3. run the full repository suite;
-4. update `RESULT-014` with the exact new counts and fix delta;
+4. update `RESULT-014` with exact test counts and delta;
 5. publish the new branch head for re-review.
 
 ## Decision
 CHANGES_REQUIRED.
+
+The first two blockers are fully resolved; only the JSON-compatible wire-serialization boundary above remains before M1 can be approved.
 
 Human fix gate:
 
