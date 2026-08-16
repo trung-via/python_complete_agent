@@ -82,6 +82,29 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
         return false;
     };
 
+    const isOverlayOrBadge = (el) => {
+        if (!el) return false;
+        const cls = (el.className || '').toString().toLowerCase();
+        const src = (el.getAttribute('src') || el.src || '').toLowerCase();
+        const alt = (el.getAttribute('alt') || '').toLowerCase();
+        if (cls.includes('overlay') || cls.includes('badge') || cls.includes('stamp') || cls.includes('frame') || cls.includes('watermark') || cls.includes('tag')) {
+            return true;
+        }
+        if (src.includes('badge') || src.includes('overlay') || src.includes('frame') || src.includes('stamp')) {
+            return true;
+        }
+        if (alt.includes('badge') || alt.includes('overlay') || alt.includes('frame') || alt.includes('stamp')) {
+            return true;
+        }
+        if (el.closest && el.closest('[class*="overlay"], [class*="badge"], [class*="stamp"], [class*="frame"], [class*="watermark"]')) {
+            return true;
+        }
+        if (el.tagName === 'IMG' && el.parentElement && el.parentElement.querySelector('picture') && el.parentElement.querySelector('picture') !== el.parentElement) {
+            if (!el.closest('picture')) return true;
+        }
+        return false;
+    };
+
     const extractMediaUrl = (raw) => {
         if (!raw || typeof raw !== 'string') return null;
         let clean = raw.trim();
@@ -126,37 +149,54 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
 
         // 1. Inspect rootEl itself if it is an img or has background-image
         if (rootEl.tagName === 'IMG') {
-            addUrl(rootEl.getAttribute('src'));
-            addUrl(rootEl.src);
-            addUrl(rootEl.getAttribute('data-src'));
-            const srcset = rootEl.getAttribute('srcset');
-            if (srcset) {
-                const firstSrc = srcset.split(',')[0].trim().split(' ')[0];
-                addUrl(firstSrc);
+            if (!isOverlayOrBadge(rootEl)) {
+                addUrl(rootEl.getAttribute('src'));
+                addUrl(rootEl.src);
+                addUrl(rootEl.getAttribute('data-src'));
+                const srcset = rootEl.getAttribute('srcset');
+                if (srcset) {
+                    const firstSrc = srcset.split(',')[0].trim().split(' ')[0];
+                    addUrl(firstSrc);
+                }
             }
         }
         if (rootEl.style && (rootEl.style.backgroundImage || rootEl.getAttribute('style'))) {
-            addUrl(rootEl.style.backgroundImage || rootEl.getAttribute('style'));
+            if (!isOverlayOrBadge(rootEl)) {
+                addUrl(rootEl.style.backgroundImage || rootEl.getAttribute('style'));
+            }
         }
 
-        // 2. Inspect descendant img elements
-        const imgs = rootEl.querySelectorAll ? rootEl.querySelectorAll('img') : [];
-        for (const img of imgs) {
-            if (isExcluded(img)) continue;
-            addUrl(img.getAttribute('src'));
-            addUrl(img.src);
-            addUrl(img.getAttribute('data-src'));
-            const srcset = img.getAttribute('srcset');
-            if (srcset) {
-                const firstSrc = srcset.split(',')[0].trim().split(' ')[0];
-                addUrl(firstSrc);
+        // 2. If rootEl contains <picture> elements (standard Shopee product views), extract primary image inside each picture
+        const pictures = rootEl.querySelectorAll ? rootEl.querySelectorAll('picture') : [];
+        if (pictures.length > 0) {
+            for (const pic of pictures) {
+                if (isExcluded(pic) || isOverlayOrBadge(pic)) continue;
+                const img = pic.querySelector('img');
+                if (img && !isExcluded(img) && !isOverlayOrBadge(img)) {
+                    addUrl(img.getAttribute('src'));
+                    addUrl(img.src);
+                    addUrl(img.getAttribute('data-src'));
+                }
+            }
+        } else {
+            const imgs = rootEl.querySelectorAll ? rootEl.querySelectorAll('img') : [];
+            for (const img of imgs) {
+                if (isExcluded(img) || isOverlayOrBadge(img)) continue;
+                addUrl(img.getAttribute('src'));
+                addUrl(img.src);
+                addUrl(img.getAttribute('data-src'));
+                const srcset = img.getAttribute('srcset');
+                if (srcset) {
+                    const firstSrc = srcset.split(',')[0].trim().split(' ')[0];
+                    addUrl(firstSrc);
+                }
             }
         }
 
         // 3. Inspect descendant background-image elements
         const bgEls = rootEl.querySelectorAll ? rootEl.querySelectorAll('[style*="background-image"], [style*="url("]') : [];
         for (const el of bgEls) {
-            if (isExcluded(el)) continue;
+            if (isExcluded(el) || isOverlayOrBadge(el)) continue;
             addUrl(el.style.backgroundImage || el.getAttribute('style'));
         }
 
@@ -252,16 +292,13 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
     }
 
     // PRIORITY 2: Semantic & Anchored Product Gallery
-    // Strategy 2A: Semantic gallery selectors
-    const gallerySelectors = [
-        '.product-image-carousel', '.product-image__content', '.V9sV-Q', '.xNIlvG',
-        '[class*="gallery-container"]', '[class*="image-carousel"]', '[class*="product-slider"]',
-        '[class*="product-gallery"]', '[class*="product-image"]'
-    ];
-    for (const sel of gallerySelectors) {
-        const containers = document.querySelectorAll(sel);
-        for (const container of containers) {
-            const urls = getMediaUrls(container);
+    // Strategy 2A: Semantic gallery selectors strictly scoped inside product briefing containers
+    const briefingContainers = document.querySelectorAll('.page-product__briefing, .product-briefing, [class*="product-briefing"], section.C21rQm');
+    for (const briefing of briefingContainers) {
+        if (isExcluded(briefing)) continue;
+        const galleryEls = briefing.querySelectorAll('.product-image-carousel, .product-image__content, .V9sV-Q, .xNIlvG, [class*="gallery-container"]');
+        for (const g of galleryEls) {
+            const urls = getMediaUrls(g);
             for (const u of urls) {
                 if (!result.gallery.includes(u)) {
                     result.gallery.push(u);
@@ -273,14 +310,15 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
     // Strategy 2B: Positive Anchor Expansion (anchored by verified identity/structured image or title)
     // Avoids scanning arbitrary whole-page sections or unverified promo/recommendation blocks
     if (result.gallery.length === 0) {
+        const topScope = document.querySelector('.page-product__briefing, .product-briefing, [class*="product-briefing"], section.C21rQm, section.card') || document;
         let seedNode = null;
 
         // Anchor 1: Match verified structured seed image in the DOM
         if (result.structured.images.length > 0) {
             const seedUrls = result.structured.images;
-            const allDomImgs = document.querySelectorAll('img, [style*="background-image"]');
-            for (const el of allDomImgs) {
-                if (isExcluded(el)) continue;
+            const topImgs = topScope.querySelectorAll('img, [style*="background-image"]');
+            for (const el of topImgs) {
+                if (isExcluded(el) || isOverlayOrBadge(el)) continue;
                 const elUrls = getMediaUrls(el);
                 for (const u of elUrls) {
                     const uParts = u.split('/');
@@ -301,7 +339,7 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
 
         // Anchor 2: If seed image node not found, match verified product title in the DOM
         if (!seedNode && result.structured.title) {
-            const h1s = document.querySelectorAll('h1, [class*="title"], [class*="name"]');
+            const h1s = topScope.querySelectorAll('h1, [class*="title"], [class*="name"]');
             for (const h of h1s) {
                 if (isExcluded(h)) continue;
                 if (h.innerText && h.innerText.trim().includes(result.structured.title.trim().substring(0, 30))) {
@@ -322,7 +360,7 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
                 if (candidateUrls.length >= bestUrls.length) {
                     bestUrls = candidateUrls;
                 }
-                if (curr.matches && curr.matches('.page-product__briefing, .product-briefing, [class*="briefing"], section')) {
+                if (curr.matches && curr.matches('.page-product__briefing, .product-briefing, [class*="product-briefing"], section.C21rQm, section.card, [class*="vr0998"]')) {
                     break;
                 }
                 curr = curr.parentElement;

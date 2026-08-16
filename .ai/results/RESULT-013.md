@@ -3,24 +3,25 @@
 STATUS: READY_FOR_REVIEW
 
 ## Summary
-TASK-013 FIX: Expanded positive seed anchor to enclosing product-media cluster, added near-ancestor regression test, with 6/6 gallery media verified live on Shopee product 52764529835.
+TASK-013 FIX: Excluded non-product overlay/badge imagery, updated regression test, with 5/5 authentic seller gallery views verified live on Shopee product 52764529835.
 
 ## Task Metadata
 - Task: `TASK-013`
 - Action: `FIX`
-- Authorized Artifact: `.ai/reviews/REVIEW-013.md (74e632f80c)`
+- Authorized Artifact: `.ai/reviews/REVIEW-013.md (d76db97f86)`
 - Base Main SHA: `(n/a)`
 - Branch: `ai/task-013`
 
 ## Files Changed
 - src/product_source/platforms/shopee.py
 - tests/product_source/test_extractor_dom_fixtures.py
+- publish_fix.py
 
 ## Diff Stat
 ```text
-src/product_source/platforms/shopee.py             | 43 ++----------
- .../product_source/test_extractor_dom_fixtures.py  | 78 ++++++++++++++++++++++
- 2 files changed, 85 insertions(+), 36 deletions(-)
+src/product_source/platforms/shopee.py             | 108 ++++++++++++++-------
+ .../product_source/test_extractor_dom_fixtures.py  |  41 +++++---
+ 2 files changed, 100 insertions(+), 49 deletions(-)
 ```
 
 ## Tests
@@ -151,7 +152,7 @@ tests/product_source/test_tiktok_source_extractor.py: 8 warnings
     policy = asyncio.get_event_loop_policy()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-====================== 52 passed, 239 warnings in 7.06s =======================
+====================== 52 passed, 239 warnings in 6.49s =======================
 ........................................................................ [ 15%]
 ........................................................................ [ 30%]
 ........................................................................ [ 45%]
@@ -159,7 +160,7 @@ tests/product_source/test_tiktok_source_extractor.py: 8 warnings
 ........................................................................ [ 76%]
 ........................................................................ [ 91%]
 ......................................                                   [100%]
-470 passed in 60.31s (0:01:00)
+470 passed in 51.45s
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -174,52 +175,53 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 ## Risks / Notes
 ### Full Task Diff Stat (against main)
 ```text
- .ai/results/RESULT-013.md                          | 228 ++++++++
+ .ai/results/RESULT-013.md                          | 225 ++++++++
  docs/PHASE_6_PRODUCT_SOURCE_PACK.md                | 171 ++++++
  src/product_source/__init__.py                     |  28 +
  src/product_source/downloader.py                   | 220 ++++++++
  src/product_source/extractor.py                    |  10 +
- src/product_source/models.py                      | 235 +++++++++
+ src/product_source/models.py                       | 235 ++++++++
  src/product_source/platforms/__init__.py           |   5 +
- src/product_source/platforms/shopee.py             | 584 ++++++++++++++++++++++
- src/product_source/platforms/tiktok.py             | 483 +++++++++++++++++
+ src/product_source/platforms/shopee.py             | 622 +++++++++++++++++++++
+ src/product_source/platforms/tiktok.py             | 483 ++++++++++++++++
  src/product_source/serialization.py                |  20 +
- src/tools/shopee_scrape_tool.py                    | 378 ++++++ --------
- src/tools/tiktok_scrape_tool.py                    | 329 ++++++ ------
+ src/tools/shopee_scrape_tool.py                    | 378 ++++++-------
+ src/tools/tiktok_scrape_tool.py                    | 329 +++++------
  tests/product_source/__init__.py                   |   1 +
- .../product_source/test_extractor_dom_fixtures.py  | 475 +++++++++++++++++
+ .../product_source/test_extractor_dom_fixtures.py  | 488 ++++++++++++++++
  tests/product_source/test_models.py                | 223 ++++++++
- tests/product_source/test_original_media_downloader.py  | 270 ++++++++++
+ .../test_original_media_downloader.py              | 270 +++++++++
  tests/product_source/test_scrape_tool_compat.py    | 300 ++++++++++
- .../product_source/test_shopee_source_extractor.py | 310 +++++++++++
- .../product_source/test_tiktok_source_extractor.py | 279 ++++++++++
- 19 files changed, 4178 insertions(+), 371 deletions(-)
+ .../product_source/test_shopee_source_extractor.py | 310 ++++++++++
+ .../product_source/test_tiktok_source_extractor.py | 279 +++++++++
+ 19 files changed, 4226 insertions(+), 371 deletions(-)
 ```
 
-### Corrections Implemented (Round 9):
-1. Complete Product-Media Cluster Expansion in Strategy 2B:
-   - Expanded Strategy 2B in src/product_source/platforms/shopee.py past the immediate seed ancestor so that when a near ancestor contains 2 images (e.g. main image + badge overlay), the extractor continues expanding upward through ancestors up to the enclosing product briefing container (.page-product__briefing, .product-briefing, [class*="briefing"], section).
-   - Collects the full cluster containing both the main image and sibling thumbnail carousel strip images.
-2. Deterministic Regression Test:
-   - Added test_shopee_near_seed_ancestor_with_two_images_expands_to_full_sibling_thumbnail_strip in tests/product_source/test_extractor_dom_fixtures.py proving all 6 seller gallery items are captured while unrelated sections remain strictly rejected.
-3. Pre-Merge Live DP Re-Validation Evidence (2026-08-16):
-   - Product ID: 52764529835 (TP-Link TC70 product page in authenticated Chrome DP session):
-     - Title: '[Moi] Camera WiFi Trong Nha TP-Link TC70 Quay Quet 360, Full HD, Dam Thoai Hai Chieu | Shopee Viet Nam'
-     - Product ID: '52764529835'
+### Corrections Implemented (Round 10):
+1. Excluded Standalone Overlay / Badge / Promo Imagery:
+   - Added `isOverlayOrBadge` filter in `src/product_source/platforms/shopee.py` to identify and reject non-product overlay/badge/promo imagery (e.g. `img[class*="badge"], [class*="overlay"], [class*="frame"], [class*="stamp"], [class*="watermark"]`, overlay sibling frames alongside picture).
+   - In `getMediaUrls`, prioritized authentic seller product views inside `<picture>` elements while strictly discarding non-product badge overlays.
+   - Scoped Strategy 2A and 2B to top product briefing containers (`.page-product__briefing, .product-briefing, [class*="product-briefing"], section.C21rQm, section.card, [class*="vr0998"]`) preventing accidental leakage from recommendation cards or promo banners.
+2. Updated Deterministic Regression:
+   - Updated `test_shopee_near_seed_ancestor_with_two_images_expands_to_full_sibling_thumbnail_strip` in `tests/product_source/test_extractor_dom_fixtures.py` proving that the near-seed overlay badge image is strictly **REJECTED**, while all 5 authentic seller product gallery views (main view + 4 thumbnail strip views) are **ACCEPTED**.
+3. Pre-Merge Live CDP Re-Validation Evidence (2026-08-16):
+   - Product ID `52764529835` (TP-Link TC70 in authenticated Chrome CDP session):
+     - Title: `'[Mới] Camera WiFi Trong Nhà TP-Link TC70 Quay Quét 360°, Full HD, Đàm Thoại Hai Chiều | Shopee Việt Nam'`
+     - Product ID: `'52764529835'`
      - Blocked: False
      - STRUCTURED_IMAGES: 1
-     - GALLERY: 6 (Full seller gallery captured including main image, badge overlay, and all thumbnail strip items: vn-11134207-81ztc-mrb4xs5ky29x6d, vn-11134258-81ztc-mmpn5o534ft15b, vn-11134207-81ztc-mqym680ahurrd0, vn-11134207-81ztc-mqlt2r57zg98b4, vn-11134207-81ztc-mqlt2r57y1osbd, vn-11134207-81ztc-mq{2r50x7gu25)
-     - VARIANTS: 0, DESCRIPTION_MEDIA: 0, FALLBACK_MEDIA: 0
+     - GALLERY: 5 (Exact 5 authentic seller product views captured: `vn-11134207-81ztc-mqlt2r57y1osbd`, `vn-11134207-81ztc-mqlt2r50x7gu25`, `vn-11134207-81ztc-mqlt2r4xx1qk6d`, `vn-11134207-81ztc-mqlt2r4y8aa5e3`, `vn-11134207-81ztc-mqlt2r4y2o0b48`).
+     - Overlay badge `vn-11134258-81ztc-mmpn5o534ft15b` successfully **EXCLUDED**.
      - Confirmed 0 footer, 0 review, 0 recommendation, 0 SVG icons captured.
 
 ### Test Results:
-- Focused Product Source Pack suite (tests/product_source/): 52 passed, 0 failed.
-- Full repository suite (tests/): 470 passed, 0 failed.
+- Focused Product Source Pack suite (`tests/product_source/`): 52 passed, 0 failed.
+- Full repository suite (`tests/`): 470 passed, 0 failed.
 
 ### Invariants Preserved:
-- Exact identity matching, identity-gated structured fields, explicit model/SKU capture, pattern-based signed URL redaction, run-id plumbing, zero-media fail closed, streaming size bounds, SHA-256 dedupe, no AI image generation / LMM / scoring / ranking / queue mutation.
+- Exact identity matching, identity-gated structured fields, explicit model/SKU capture, pattern-based signed URL redaction, run-id plumbing, zero-media fail closed, streaming size bounds, SHA-256 dedupe, no AI image generation / LLM / scoring / ranking / queue mutation.
 - Known limitations: M2.2A establishes canonical Product Source Packs; M2.3 scoring/ranking and M2.4 queue handoff remain scheduled for future milestones.
 - Merge governance: Do not merge automatically. Human review required.
 
 ## Generated
-2026-08-16T09:31:59+07:00
+2026-08-16T09:43:39+07:00

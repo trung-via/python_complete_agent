@@ -396,10 +396,10 @@ async def test_shopee_no_structured_images_and_no_semantic_gallery_fails_closed_
 @pytest.mark.asyncio
 async def test_shopee_near_seed_ancestor_with_two_images_expands_to_full_sibling_thumbnail_strip():
     """
-    Proves that when a near seed ancestor contains 2 images (e.g. main image + badge),
+    Proves that when a near seed ancestor contains 2 images (main product view + non-product overlay badge),
     expansion does not terminate prematurely at 2 images, but expands upward to the enclosing
-    product-media cluster to capture all sibling thumbnail strip images (e.g. 6 total images),
-    while still strictly excluding unrelated non-product sections.
+    product-media cluster to capture all sibling thumbnail strip product images (5 actual product views total),
+    while explicitly excluding the standalone overlay/badge image and unrelated non-product sections.
     """
     html = '''
     <html>
@@ -418,17 +418,28 @@ async def test_shopee_near_seed_ancestor_with_two_images_expands_to_full_sibling
     <body>
         <section class="C21rQm">
             <div class="media-column-container">
-                <!-- Near seed ancestor containing 2 images (main + badge) -->
+                <!-- Near seed ancestor containing main image wrapped in picture + sibling overlay badge -->
                 <div class="BvNoX2 OMOWB7">
-                    <img src="https://down-vn.img.susercontent.com/file/vn-11134207-main.jpg" />
-                    <img src="https://down-vn.img.susercontent.com/file/vn-11134207-overlay-badge.png" />
+                    <picture>
+                        <img src="https://down-vn.img.susercontent.com/file/vn-11134207-main.jpg" />
+                    </picture>
+                    <img class="overlay-badge" src="https://down-vn.img.susercontent.com/file/vn-11134258-overlay-badge.png" />
                 </div>
                 <!-- Sibling thumbnail strip with 4 more seller images under common media-column-container -->
                 <div class="qIctnQ">
-                    <div class="mdCA_C"><img src="https://down-vn.img.susercontent.com/file/vn-11134207-thumb1.jpg" /></div>
-                    <div class="mdCA_C"><img src="https://down-vn.img.susercontent.com/file/vn-11134207-thumb2.jpg" /></div>
-                    <div class="mdCA_C"><img src="https://down-vn.img.susercontent.com/file/vn-11134207-thumb3.jpg" /></div>
-                    <div class="mdCA_C"><img src="https://down-vn.img.susercontent.com/file/vn-11134207-thumb4.jpg" /></div>
+                    <div class="mdCA_C">
+                        <picture><img src="https://down-vn.img.susercontent.com/file/vn-11134207-thumb1.jpg" /></picture>
+                        <img class="overlay-badge" src="https://down-vn.img.susercontent.com/file/vn-11134258-overlay-badge.png" />
+                    </div>
+                    <div class="mdCA_C">
+                        <picture><img src="https://down-vn.img.susercontent.com/file/vn-11134207-thumb2.jpg" /></picture>
+                    </div>
+                    <div class="mdCA_C">
+                        <picture><img src="https://down-vn.img.susercontent.com/file/vn-11134207-thumb3.jpg" /></picture>
+                    </div>
+                    <div class="mdCA_C">
+                        <picture><img src="https://down-vn.img.susercontent.com/file/vn-11134207-thumb4.jpg" /></picture>
+                    </div>
                 </div>
             </div>
             <div class="details-column">
@@ -455,16 +466,18 @@ async def test_shopee_near_seed_ancestor_with_two_images_expands_to_full_sibling
         result = await page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, "52764529835")
         await browser.close()
 
-        # 1. Proves all 6 seller gallery media (main, badge, and 4 thumbnails) are captured
+        # 1. Proves all 5 authentic seller product gallery media (main + 4 thumbnails) are captured
         assert "https://down-vn.img.susercontent.com/file/vn-11134207-main.jpg" in result["gallery"]
-        assert "https://down-vn.img.susercontent.com/file/vn-11134207-overlay-badge.png" in result["gallery"]
         assert "https://down-vn.img.susercontent.com/file/vn-11134207-thumb1.jpg" in result["gallery"]
         assert "https://down-vn.img.susercontent.com/file/vn-11134207-thumb2.jpg" in result["gallery"]
         assert "https://down-vn.img.susercontent.com/file/vn-11134207-thumb3.jpg" in result["gallery"]
         assert "https://down-vn.img.susercontent.com/file/vn-11134207-thumb4.jpg" in result["gallery"]
-        assert len(result["gallery"]) == 6
+        assert len(result["gallery"]) == 5
 
-        # 2. Proves unrelated section is strictly rejected
+        # 2. Proves non-product overlay badge is REJECTED
+        assert "https://down-vn.img.susercontent.com/file/vn-11134258-overlay-badge.png" not in result["gallery"]
+
+        # 3. Proves unrelated section is strictly rejected
         all_media = result["gallery"] + result["description_media"] + result["fallback_media"]
         assert "https://down-vn.img.susercontent.com/file/unrelated1.jpg" not in all_media
         assert "https://down-vn.img.susercontent.com/file/unrelated2.jpg" not in all_media
