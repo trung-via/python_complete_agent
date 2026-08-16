@@ -1,63 +1,67 @@
 # REVIEW-013 — TASK-013 (Phase 6 M2.2A Product Source Pack & Original Media Extraction V1)
 
 ## Status
-APPROVED
+CHANGES_REQUIRED
 
 ## Reviewed Head
 - Branch: `ai/task-013`
 - Reviewed commit: `53b9ffc0c4bc1ca391d1e5ee78c553bd8c96e079`
 - Parent reviewed head: `9ffe8fe51001da2d9615cca68f2c131acfc41d0e`
-- Current main: `9d3dcfeab5ffc98bf6aeb3ef7a67912a5bc1fd52`
-- Branch relation to main: ahead 12, behind 0 (fast-forward safe at review time)
+- Current main at prior review: `9d3dcfeab5ffc98bf6aeb3ef7a67912a5bc1fd52`
 - RESULT-013 blob: `423cf9bd633e0013a4f65fa74beee51bbcd1523d`
 - RESULT action: `FIX`
-- FIX authorization recorded by worker: `.ai/reviews/REVIEW-013.md (8d87254286)` — matches the prior CHANGES_REQUIRED artifact.
-- Delta from prior reviewed head: 1 commit, 3 changed files (`RESULT-013.md`, `shopee.py`, DOM fixture tests).
 
-## Verification
-The RESULT records:
+## Prior Static Verification
+The RESULT recorded:
 - Focused Product Source Pack suite: **51 passed, 0 failed**.
 - Full repository suite: **469 passed, 0 failed**.
-- New regression `test_shopee_image_seed_anchor_independently_extracts_gallery_without_title_anchor` passes.
-- New regression `test_shopee_no_structured_images_and_no_semantic_gallery_fails_closed_without_fallback` passes.
+- Image-seed anchor regression passed.
+- No-structured/no-semantic-gallery fail-closed regression passed.
 
-Live main → task comparison remains a clean fast-forward from current main with the task branch ahead 12 and behind 0.
+Those checks remain useful, but the user's requested non-challenged live validation on the original product has now exposed an acceptance-critical seller-gallery omission.
 
-## Resolution of Prior Blockers
+## Pre-Merge Live Validation — 2026-08-16
+Exact local task head was verified as:
 
-### 1. RESOLVED — Forbidden generic Priority-4 section fallback removed
-Priority 4 no longer scans generic `section` nodes. It is restricted to explicit product-briefing selectors (`.page-product__briefing`, `.product-briefing`, and matching product-briefing class variants). The new deterministic negative fixture proves unrelated generic multi-image sections are not accepted when structured/semantic product media is absent.
+`53b9ffc0c4bc1ca391d1e5ee78c553bd8c96e079`
 
-### 2. RESOLVED — Structured-image seed anchor now works independently
-`getMediaUrls(rootEl)` now inspects the root media node itself (`src`, `data-src`, `srcset`, and inline background image) in addition to descendants. A dedicated regression removes any usable title anchor and proves an identity-gated structured image seed alone anchors the product gallery while unrelated same-CDN sections remain excluded.
+The user then re-ran the actual `_SHOPEE_EXTRACTION_SCRIPT` against the original Shopee regression product `52764529835` in the authenticated Chrome CDP session after the product page was reopened successfully.
 
-### 3. LIVE VALIDATION — Fail-closed challenge confirmed; successful current-Shopee gallery extraction also demonstrated
-The worker re-ran the actual extractor against the original regression product `52764529835`. Shopee redirected that authenticated tab to `/verify/traffic`, and the extractor correctly reported `blocked=True` with zero accepted structured/gallery/description/fallback media. No captcha or anti-bot bypass was attempted.
+Observed live result:
+- product URL resolved to item `52764529835`;
+- title matched the TP-Link TC70 product;
+- `PRODUCT_ID: 52764529835`;
+- `BLOCKED: False`;
+- `STRUCTURED_IMAGES: 1`;
+- `GALLERY: 2`;
+- `VARIANTS: 0`;
+- `DESCRIPTION_MEDIA: 0`;
+- `FALLBACK_MEDIA: 0`.
 
-Because Shopee challenged the original product at validation time, a successful same-product gallery capture could not be observed in that run. However, two independent evidence layers cover the implementation behavior:
-- the deterministic fixture reproducing the original product's observed obfuscated gallery DOM and seller/review/footer separation now passes under the positive image-seed ownership path; and
-- a separate authenticated live Shopee PDP (`22590099603`) returned `blocked=False`, one structured image, and a 10-image seller gallery with footer/UGC/SVG UI media absent.
+The two accepted gallery paths were the main seller image plus one additional seller-owned media item. However, the same product's earlier inspected live DOM showed a seller thumbnail strip with several additional product images under the same positively owned top product-media cluster. Therefore the current implementation still under-extracts the live seller gallery on the exact product that motivated this fix.
 
-This is sufficient for code review approval. It does **not** override the user's explicit pre-merge validation preference: merge must still wait until the user has a non-challenged live session on the intended product and confirms the real output is acceptable.
+## Blocking Finding
+**The positive anchor expansion stops too early inside the media cluster.**
 
-## Approval Summary
-TASK-013 now satisfies the acceptance-critical source-media boundaries reviewed across the fix cycles:
-- positive current-product ownership for obfuscated Shopee gallery expansion;
-- no generic whole-page/section fallback success path;
-- exact structured identity gating;
-- fail-closed anti-bot handling;
-- explicit exclusion of review/comment/recommendation/footer/app-shell media;
-- independent image-seed regression coverage;
-- original-byte preservation, bounded downloads, SHA-256 dedupe, secret-safe manifests, and existing integration contracts preserved;
-- no derived AI assets, LLM calls, scoring, ranking, or queue mutation introduced.
+Current Strategy 2B walks upward from the verified seed node and accepts the first ancestor whose `getMediaUrls(...)` result has at least two media URLs, then stops. On the live Shopee DOM, the seed image's near ancestor can already contain two seller media URLs while the actual thumbnail strip is a sibling under a higher common product-media ancestor. Stopping at the first `>= 2` ancestor therefore yields an incomplete gallery.
+
+This is visible in the implementation's early break after `candidateUrls.length >= 2` and is now confirmed by the exact non-challenged live run.
+
+Required correction:
+1. Preserve the positive ownership seed; do **not** return to generic page/section scanning.
+2. Expand from the verified seed to the smallest trustworthy enclosing product-media cluster that includes both the main-image area and its associated thumbnail strip, rather than stopping at the first ancestor with two URLs.
+3. Keep unrelated obfuscated sections, reviews, recommendations, footer/app-shell media excluded.
+4. Add a deterministic regression where a near seed ancestor contains two media URLs but the sibling thumbnail strip under a higher owned ancestor contains additional seller images; prove the full owned gallery is returned while unrelated sections remain excluded.
+5. Re-run focused and full suites.
+6. Re-run the non-challenged live validation on product `52764529835` and demonstrate that the seller thumbnail images previously observed on the page are captured, with no non-product contamination.
 
 ## Decision
-APPROVED.
+CHANGES_REQUIRED.
 
-Do not merge automatically.
+Do not merge TASK-013.
 
-Merge remains gated by both:
-1. the user's requested successful pre-merge live validation on the intended Shopee product/session; and
-2. an explicit `Merge TASK-013` command after that validation.
+The next authorized worker action is:
 
-If the live validation exposes any seller-gallery omission or non-product contamination, this approval becomes stale and TASK-013 must return to CHANGES_REQUIRED before merge.
+`/aios-worker FIX TASK-013`
+
+After the worker publishes a new head and RESULT, request `Review TASK-013` again. Approval can only be restored after the exact live product returns a complete, positively owned seller gallery without contamination.
