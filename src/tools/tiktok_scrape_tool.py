@@ -1,12 +1,27 @@
+from __future__ import annotations
+
+import logging
 import os
 import re
-import logging
-from typing import Dict, Any
+from typing import Any, Dict
+
 from src.core.base_tool import BaseTool
-from src.core.types import ToolCall, ToolResult
-from src.core.errors import AgentException, DependencyError, BrowserNavigationError, ExtractionError
+from src.core.errors import (
+    AgentException,
+    DependencyError,
+)
+from src.core.types import ToolCall, ToolResult, ToolStatus
+from src.product_source.downloader import OriginalMediaDownloader
+from src.product_source.models import (
+    SourcePackBlockedError,
+    SourcePackError,
+    SourcePackExtractionError,
+)
+from src.product_source.platforms.tiktok import TikTokSourceExtractor
+from src.product_source.serialization import serialize_source_pack
 
 logger = logging.getLogger(__name__)
+
 
 class TikTokScrapeTool(BaseTool):
     @property
@@ -15,7 +30,7 @@ class TikTokScrapeTool(BaseTool):
 
     @property
     def description(self) -> str:
-        return "Scrapes product images from a TikTok Shop URL, processes them, and uploads to Google Drive."
+        return "Scrapes canonical product source pack (facts and original media) from a TikTok Shop URL, persists source_pack.json, and uploads to Google Drive."
 
     def get_schema(self) -> dict:
         return {
@@ -23,181 +38,179 @@ class TikTokScrapeTool(BaseTool):
             "properties": {
                 "url": {
                     "type": "string",
-                    "description": "The TikTok Shop product URL to scrape"
+                    "description": "The TikTok Shop product URL to scrape",
                 }
             },
-            "required": ["url"]
+            "required": ["url"],
         }
 
     async def execute(self, call: ToolCall, context: Dict[str, Any]) -> ToolResult:
-        from src.core.types import ToolStatus
         url = call.arguments.get("url")
         if not url:
             return ToolResult(
-                call_id=call.call_id, run_id=call.run_id, tool_name=self.name,
-                status=ToolStatus.FAILURE, error=AgentException("Missing 'url' in arguments", code="MISSING_ARG_URL")
+                call_id=call.call_id,
+                run_id=call.run_id,
+                tool_name=self.name,
+                status=ToolStatus.FAILURE,
+                error=AgentException("Missing 'url' in arguments", code="MISSING_ARG_URL"),
             )
-            
+
         logger.info(f"Executing TikTokScrapeTool for URL: {url}")
-        
-        browser = context.get('browser') or context.get('browser_manager')
-        image_processor = context.get('image_processor')
-        gdrive = context.get('gdrive')
-        gdrive_folder_id = context.get('gdrive_folder_id')
-        
-        if not all([browser, image_processor, gdrive]):
+
+        browser = context.get("browser") or context.get("browser_manager")
+        gdrive = context.get("gdrive")
+        gdrive_folder_id = context.get("gdrive_folder_id")
+
+        if not all([browser, gdrive]):
             missing = []
             if not browser:
                 missing.append("browser/browser_manager")
-            if not image_processor:
-                missing.append("image_processor")
             if not gdrive:
                 missing.append("gdrive")
-            raise DependencyError(f"Missing required context components for TikTokScrapeTool: {', '.join(missing)}")
-
-        # 1. Playwright Scraping Logic
-        logger.info(f"Navigating to TikTok: {url}")
-        result = {'images': [], 'product_name': 'TikTok Product', 'shop_name': 'TikTok Shop'}
-        images = set()
-        
-        async with browser.new_page() as page:
-            try:
-                await page.goto(url, wait_until="domcontentloaded", timeout=30000)
-            except Exception as e:
-                logger.warning(f"TikTok goto issue (tab closed/redirect): {e}")
-                
-            await page.wait_for_timeout(4000)
-            
-            try:
-                await page.evaluate('''() => {
-                    const words = ['not now', 'lúc khác', 'để sau', 'không, cảm ơn', 'no thanks'];
-                    document.querySelectorAll('button,span,div').forEach(el => {
-                        const text = (el.innerText || '').toLowerCase().trim();
-                        if (text && words.some(w => text === w)) el.click();
-                    });
-                }''')
-                await page.wait_for_timeout(1000)
-            except Exception:
-                pass
-                
-            try:
-                dom_urls = await page.evaluate('''() => {
-                    const out = [];
-                    let limitY = Infinity;
-                    const stopWords = [
-                        'explore more', 'khám phá', 'recommend', 'similar', 'bạn có thể thích', 'you may also like',
-                        'đánh giá', 'review', 'bình luận', 'đánh giá khách hàng', 'customer reviews', 'shop reviews'
-                    ];
-                    
-                    document.querySelectorAll('div,h2,h3,p,span').forEach(el => {
-                        const text = (el.innerText || '').toLowerCase().trim();
-                        if (text && stopWords.some(word => text.includes(word))) {
-                            const y = el.getBoundingClientRect().top + window.scrollY;
-                            if (y > 300) limitY = Math.min(limitY, y);
-                        }
-                    });
-                    
-                    document.querySelectorAll('img').forEach(img => {
-                        const rect = img.getBoundingClientRect();
-                        const y = rect.top + window.scrollY;
-                        if (y < limitY && rect.width >= 60 && rect.height >= 60) {
-                            const src = img.currentSrc || img.src || img.getAttribute('data-src') || img.getAttribute('data-original') || '';
-                            if (src) out.push(src);
-                        }
-                    });
-                    
-                    document.querySelectorAll('*').forEach(el => {
-                        const style = window.getComputedStyle(el);
-                        if (!style.backgroundImage || style.backgroundImage === 'none') return;
-                        const rect = el.getBoundingClientRect();
-                        const y = rect.top + window.scrollY;
-                        if (y >= limitY || rect.width < 60 || rect.height < 60) return;
-                        const match = style.backgroundImage.match(/url\(['"]?(.*?)['"]?\)/);
-                        if (match && match[1]) out.push(match[1]);
-                    });
-                    
-                    return out;
-                }''')
-                
-                for u in dom_urls:
-                    images.add(u)
-            except Exception as e:
-                logger.warning(f"TikTok DOM extraction failed (possibly closed tab): {e}")
-                
-            try:
-                title_el = await page.query_selector('title')
-                if title_el:
-                    result['product_name'] = (await title_el.inner_text()).split('|')[0].strip()
-            except Exception:
-                pass
-                
-            result['images'] = list(images)
-            logger.info(f"TikTok data extracted: {len(result['images'])} images.")
-                
-        extracted_data = result
-
-        # 2. Process extracted data
-        image_urls = extracted_data.get('images', [])
-        product_name = extracted_data.get('product_name', 'Unknown Product')
-        shop_name = extracted_data.get('shop_name', 'Unknown Shop')
-        
-        if not image_urls:
-            return ToolResult(
-                call_id=call.call_id, run_id=call.run_id, tool_name=self.name,
-                status=ToolStatus.FAILURE, error=AgentException("No images found or TikTok extraction failed", code="EXTRACTION_EMPTY", retryable=True)
+            raise DependencyError(
+                f"Missing required context components for TikTokScrapeTool: {', '.join(missing)}"
             )
 
-        downloaded_files = []
-        for img_url in image_urls:
-            filename = await image_processor.process_and_save(img_url)
-            if filename:
-                file_path = os.path.join(image_processor.output_dir, filename)
-                downloaded_files.append(file_path)
-                
-        if not downloaded_files:
+        output_base_dir = context.get("output_dir") or "data/source_packs"
+
+        # 1. Extract canonical product source pack
+        extractor = TikTokSourceExtractor(browser=browser)
+        try:
+            source_pack = await extractor.extract(url)
+        except SourcePackBlockedError as e:
             return ToolResult(
-                call_id=call.call_id, run_id=call.run_id, tool_name=self.name,
-                status=ToolStatus.FAILURE, error=AgentException("Failed to download any images locally", code="DOWNLOAD_FAILED", retryable=True)
+                call_id=call.call_id,
+                run_id=call.run_id,
+                tool_name=self.name,
+                status=ToolStatus.FAILURE,
+                error=AgentException(
+                    f"TikTok extraction blocked: {e}",
+                    code="EXTRACTION_BLOCKED",
+                    retryable=False,
+                ),
             )
-            
-        unique_files = downloaded_files
-        
-        logger.info("Setting up GDrive folders...")
-        platform_folder_id = gdrive.get_or_create_folder("TikTok", parent_id=gdrive_folder_id)
-        if not platform_folder_id:
-            logger.error("Could not access or create 'TikTok' folder. Uploading to root instead.")
-            platform_folder_id = gdrive_folder_id
-            
-        safe_product_name = re.sub(r'[\\/*?:"<>|]', "", product_name)[:80].strip() or "Unknown Product"
-        product_folder_id = gdrive.get_or_create_folder(safe_product_name, parent_id=platform_folder_id)
-        if not product_folder_id:
-            product_folder_id = platform_folder_id
-            
-        info_path = os.path.join(image_processor.output_dir, "info.txt")
-        with open(info_path, "w", encoding="utf-8") as f:
-            f.write(f"Product Name: {product_name}\n")
-            f.write(f"Shop Name: {shop_name}\n")
-            f.write(f"Product Link: {url}\n")
-        
-        logger.info(f"Uploading metadata and {len(unique_files)} unique images to folder: {safe_product_name}")
-        gdrive.upload_file(info_path, folder_id=product_folder_id)
-        
+        except (SourcePackExtractionError, SourcePackError, Exception) as e:
+            return ToolResult(
+                call_id=call.call_id,
+                run_id=call.run_id,
+                tool_name=self.name,
+                status=ToolStatus.FAILURE,
+                error=AgentException(
+                    f"TikTok source extraction failed: {e}",
+                    code="EXTRACTION_EMPTY",
+                    retryable=True,
+                ),
+            )
+
+        product_output_dir = os.path.join(output_base_dir, "tiktok", source_pack.source_pack_id)
+        os.makedirs(product_output_dir, exist_ok=True)
+
+        # 2. Download original media bytes (byte-preserving, no re-encoding)
+        downloader = OriginalMediaDownloader(output_dir=product_output_dir)
+        downloaded_refs, download_diagnostics = await downloader.download_accepted_media(source_pack.media)
+
+        # Update pack with downloaded refs and diagnostics
+        all_diagnostics = list(source_pack.diagnostic_codes) + download_diagnostics
+        updated_pack = type(source_pack)(
+            source_pack_id=source_pack.source_pack_id,
+            platform=source_pack.platform,
+            product_url=source_pack.product_url,
+            observed_at=source_pack.observed_at,
+            collector=source_pack.collector,
+            title=source_pack.title,
+            source_product_id=source_pack.source_product_id,
+            shop_name=source_pack.shop_name,
+            brand=source_pack.brand,
+            model_sku=source_pack.model_sku,
+            description_text=source_pack.description_text,
+            facts=source_pack.facts,
+            media=tuple(downloaded_refs),
+            diagnostic_codes=tuple(all_diagnostics),
+        )
+
+        manifest_path = serialize_source_pack(updated_pack, product_output_dir)
+
+        if not downloaded_refs and len(source_pack.media) > 0:
+            return ToolResult(
+                call_id=call.call_id,
+                run_id=call.run_id,
+                tool_name=self.name,
+                status=ToolStatus.FAILURE,
+                error=AgentException(
+                    "Failed to download any accepted original media locally",
+                    code="DOWNLOAD_FAILED",
+                    retryable=True,
+                ),
+            )
+
+        # 3. Google Drive Publication (source_pack.json + original files)
         upload_success_count = 0
-        for file_path in unique_files:
-            if gdrive.upload_file(file_path, folder_id=product_folder_id):
-                upload_success_count += 1
-            
-        is_partial = upload_success_count < len(unique_files)
-        
-        if upload_success_count == 0:
-             return ToolResult(
-                call_id=call.call_id, run_id=call.run_id, tool_name=self.name,
-                status=ToolStatus.FAILURE, error=AgentException("Failed to upload any images to GDrive", code="UPLOAD_FAILED", retryable=True)
+        total_files_to_upload = 0
+
+        try:
+            logger.info("Setting up GDrive folders...")
+            platform_folder_id = gdrive.get_or_create_folder("TikTok", parent_id=gdrive_folder_id)
+            if not platform_folder_id:
+                platform_folder_id = gdrive_folder_id
+
+            safe_product_name = (
+                re.sub(r'[\\/*?:"<>|]', "", source_pack.title or "Unknown Product")[:80].strip()
+                or source_pack.source_pack_id
             )
-             
-        logger.info("TikTok Scrape task completed.")
+            product_folder_id = gdrive.get_or_create_folder(safe_product_name, parent_id=platform_folder_id)
+            if not product_folder_id:
+                product_folder_id = platform_folder_id
+
+            # Upload source_pack.json
+            total_files_to_upload += 1
+            if gdrive.upload_file(manifest_path, folder_id=product_folder_id):
+                upload_success_count += 1
+
+            # Upload original files
+            orig_folder_id = gdrive.get_or_create_folder("original", parent_id=product_folder_id)
+            if not orig_folder_id:
+                orig_folder_id = product_folder_id
+
+            for ref in downloaded_refs:
+                if ref.local_filename:
+                    file_path = os.path.join(downloader.original_dir, ref.local_filename)
+                    if os.path.exists(file_path):
+                        total_files_to_upload += 1
+                        if gdrive.upload_file(file_path, folder_id=orig_folder_id):
+                            upload_success_count += 1
+        except Exception as e:
+            logger.warning(f"GDrive upload encountered error: {e}")
+
+        is_partial = upload_success_count < total_files_to_upload
+
+        if total_files_to_upload > 0 and upload_success_count == 0:
+            return ToolResult(
+                call_id=call.call_id,
+                run_id=call.run_id,
+                tool_name=self.name,
+                status=ToolStatus.FAILURE,
+                error=AgentException(
+                    "Failed to upload source pack to GDrive",
+                    code="UPLOAD_FAILED",
+                    retryable=True,
+                ),
+            )
+
+        logger.info("TikTok Source Pack task completed successfully.")
         return ToolResult(
-            call_id=call.call_id, run_id=call.run_id, tool_name=self.name,
-            status=ToolStatus.PARTIAL_SUCCESS if is_partial else ToolStatus.SUCCESS, 
-            data={"uploaded_count": upload_success_count, "total_found": len(unique_files)}
+            call_id=call.call_id,
+            run_id=call.run_id,
+            tool_name=self.name,
+            status=ToolStatus.PARTIAL_SUCCESS if is_partial else ToolStatus.SUCCESS,
+            data={
+                "source_pack_id": source_pack.source_pack_id,
+                "title": source_pack.title,
+                "shop_name": source_pack.shop_name,
+                "brand": source_pack.brand,
+                "facts_count": len(source_pack.facts),
+                "total_found": len(source_pack.media),
+                "downloaded_count": len(downloaded_refs),
+                "uploaded_count": upload_success_count,
+                "manifest_path": manifest_path,
+            },
         )
