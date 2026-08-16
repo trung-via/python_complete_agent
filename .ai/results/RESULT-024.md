@@ -8,7 +8,7 @@ Harden M1.5 Usage & Efficiency Telemetry (src/aios_bridge/continuity/usage.py) a
 ## Task Metadata
 - Task: `TASK-024`
 - Action: `FIX`
-- Authorized Artifact: `.ai/reviews/REVIEW-024.md (2501ec720d)`
+- Authorized Artifact: `.ai/reviews/REVIEW-024.md (556f285fee)`
 - Base Main SHA: `f47cc9d7e2d954413918ef7b7a2ab7a90bb1a6d8`
 - Branch: `ai/task-024`
 
@@ -20,11 +20,11 @@ Harden M1.5 Usage & Efficiency Telemetry (src/aios_bridge/continuity/usage.py) a
 
 ## Diff Stat
 ```text
- .ai/results/RESULT-024.md                  | 134 ++++++++
+ .ai/results/RESULT-024.md                  | 136 ++++++++
  src/aios_bridge/continuity/__init__.py     |   4 +
- src/aios_bridge/continuity/usage.py        | 195 ++++++++++-----
- tests/aios_bridge/continuity/test_usage.py | 370 ++++++++++++++++++++++++++++-
- 4 files changed, 640 insertions(+), 63 deletions(-)
+ src/aios_bridge/continuity/usage.py        | 218 +++++++++++-----
+ tests/aios_bridge/continuity/test_usage.py | 404 ++++++++++++++++++++++++++++-
+ 4 files changed, 694 insertions(+), 68 deletions(-)
 ```
 
 ## Tests
@@ -33,8 +33,8 @@ Exit code: 0
 
 ```text
 === Focused Continuity Suite: 72 passed, 1 warning in 0.14s ===
-=== Bridge Suite: 158 passed, 204 warnings in 0.50s ===
-=== Full Repository Suite: 632 passed in 56.38s ===
+=== Bridge Suite: 158 passed, 204 warnings in 0.48s ===
+=== Full Repository Suite: 632 passed in 61.39s (0:01:01) ===
 
 [Full Suite Output]
 ........................................................................ [ 11%]
@@ -46,14 +46,13 @@ Exit code: 0
 ........................................................................ [ 79%]
 ........................................................................ [ 91%]
 ........................................................                 [100%]
-632 passed in 56.38s
+632 passed in 61.39s (0:01:01)
 
 ```
 
 ## Risks / Notes
 ## Milestone M1.5 Usage & Efficiency Telemetry Hardening Telemetry
-IMPLEMENTATION_HEAD: cc96b8f384490f689ef5d2bd1a4c4a6198b63310
-FAILOVER_SCHEMA_VERSION: 1
+IMPLEMENTATION_HEAD: 8b8036d343d36e49cd5b0ca7d8e23510a62ead1f
 TELEMETRY_MODEL_TURNS_ADDED: 0
 LIVE_EXTERNAL_CALLS: 0
 BRIDGE_V0_4_BEHAVIOR_CHANGED: NO
@@ -64,14 +63,14 @@ BRAIN_CONTRACT_OWNER: primary-brain
 BRAIN_ARCH_IMPLEMENTATION_PLAN: YES
 BRAIN_ADVERSARIAL_CHECKLIST: YES
 EXECUTOR_RUNS: 1
-EXECUTOR_FIX_RUNS: 1
+EXECUTOR_FIX_RUNS: 2
 TASK_019_BASELINE_VALID: YES
 TASK_019_BASELINE_CHANGED: NO
 
 ## Review Manifest (ADR-013 / ADR-014 / ADR-016 / ADR-017 Delta-First Evidence)
 BASE_SHA: f47cc9d7e2d954413918ef7b7a2ab7a90bb1a6d8
-IMPLEMENTATION_SHA: cc96b8f384490f689ef5d2bd1a4c4a6198b63310
-PREVIOUS_REVIEW_SHA: 2501ec720d67ec75ee70c91cd4b0546c6fd568e7
+IMPLEMENTATION_SHA: 8b8036d343d36e49cd5b0ca7d8e23510a62ead1f
+PREVIOUS_REVIEW_SHA: 556f285feeb45a31f2d7f40b8d2c8bcaafe1c508
 CHANGED_FILES:
 - .ai/results/RESULT-024.md
 - src/aios_bridge/continuity/__init__.py
@@ -86,23 +85,26 @@ BRAIN_CONTRACT_OWNER: primary-brain
 BRAIN_ARCH_IMPLEMENTATION_PLAN: YES
 BRAIN_ADVERSARIAL_CHECKLIST: YES
 EXECUTOR_RUNS: 1
-EXECUTOR_FIX_RUNS: 1
+EXECUTOR_FIX_RUNS: 2
 TASK_019_BASELINE_VALID: YES
 TASK_019_BASELINE_CHANGED: NO
 
-## REVIEW-024 Round 1 Findings Closure
-1. R1-1 (Cumulative Token Aggregation Bound Enforcement):
-   - Added `_validate_usage_int()` checks on `total_min` and `total_max` inside `aggregate_token_ranges()`.
-   - Ensures any cumulative sum overflowing `MAX_USAGE_INT` across individually valid measurements fails closed with `ContinuityStateValidationError`.
-   - Added comprehensive tests for exact boundary sum, multiple-item overflow, Brain class overflow, Executor class overflow, and UNKNOWN preservation.
-2. R1-2 (Review Manifest Evidence Integrity):
-   - Corrected `PREVIOUS_REVIEW_SHA` to accurately point to the REVIEW-024 artifact blob SHA (`2501ec720d67ec75ee70c91cd4b0546c6fd568e7`).
-   - Clearly separated authorized review artifact from previous task metadata.
+## REVIEW-024 Round 2 Findings Closure
+1. R2-1 (Cumulative Token Aggregation Overflow Not Masked by UNKNOWN):
+   - Refactored `aggregate_token_ranges()` to scan and validate every measurement without early exit.
+   - Sums all known measurements incrementally with `_validate_usage_int()` and tracks `saw_unknown`.
+   - Fails closed immediately if known cumulative subtotal exceeds `MAX_USAGE_INT`, regardless of UNKNOWN presence or element ordering.
+   - Returns `(None, None)` only when all known sub-ranges are strictly within `MAX_USAGE_INT` and an UNKNOWN was observed.
+   - Added regression tests for `[MAX, 1, UNKNOWN]`, `[UNKNOWN, MAX, 1]`, mixed bounded values, and Brain/Executor class aggregation with UNKNOWN siblings.
+2. R2-2 (Deterministic Handling of Arbitrary Integer Ratios Without Exception Leakage):
+   - Updated `_validate_canonical_ratio()` to check integer bounds (`0` or `1`) directly before float conversion or formatting.
+   - Prevents `OverflowError` or `ValueError` (from Python int-to-str limits) from leaking on extremely large integer inputs, raising `ContinuityStateValidationError` deterministically.
+   - Added regression tests for `10**10000`, `-10**10000`, `2`, `-1`.
 
-## Test Suites Execution Evidence (against implementation cc96b8f384490f689ef5d2bd1a4c4a6198b63310)
-- Focused Continuity Suite: 72 passed in ~0.13s (tests/aios_bridge/continuity/)
-- Bridge Suite: 158 passed in ~0.42s (tests/aios_bridge/)
-- Full Repository Suite: 632 passed in ~54s (0 regressions against canonical baseline f47cc9d7e2d954413918ef7b7a2ab7a90bb1a6d8)
+## Test Suites Execution Evidence (against implementation 8b8036d343d36e49cd5b0ca7d8e23510a62ead1f)
+- Focused Continuity Suite: 72 passed in ~0.12s (tests/aios_bridge/continuity/)
+- Bridge Suite: 158 passed in ~0.43s (tests/aios_bridge/)
+- Full Repository Suite: 632 passed in ~52s (0 regressions against canonical baseline f47cc9d7e2d954413918ef7b7a2ab7a90bb1a6d8)
 
 ## Generated
-2026-08-16T23:10:00+07:00
+2026-08-16T23:17:48+07:00
