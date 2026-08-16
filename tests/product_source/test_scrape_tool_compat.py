@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Dict
-from unittest.mock import AsyncMock, MagicMock, patch
+from typing import Any, Dict, Optional
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -22,11 +22,13 @@ class FakeBrowserSession:
         self._evaluate_result = evaluate_result or {
             "structured": {
                 "title": "Sample Product",
+                "product_id": "456",
                 "images": ["https://cf.shopee.vn/file/img1.jpg"],
                 "brand": "SampleBrand",
                 "specs": [],
             },
             "gallery": [],
+            "variants": [],
             "description_media": [],
             "fallback_media": [],
             "blocked": False,
@@ -36,22 +38,29 @@ class FakeBrowserSession:
         self.navigated_urls.append(url)
 
     async def evaluate(self, script: str, *args: Any) -> Any:
-        self.evaluated_scripts.append(script)
+        self.evaluated_scripts.append((script, args))
         return self._evaluate_result
 
 
 class FakeBrowserManager:
+    """
+    Fake conforming strictly to BrowserManager protocol:
+    async def get_or_create_session(self, run_id: str, config: Optional[Any] = None) -> BrowserSession
+    """
     def __init__(self, session: FakeBrowserSession):
         self._session = session
         self.new_page_called = False
-        self.get_or_create_session_called = False
+        self.received_run_id: Optional[str] = None
 
     def new_page(self):
         self.new_page_called = True
         raise NotImplementedError("Tools should not call new_page() directly")
 
-    async def get_or_create_session(self, **kwargs: Any):
-        self.get_or_create_session_called = True
+    async def get_or_create_session(self, run_id: str, config: Optional[Any] = None):
+        # Strict positional run_id argument enforcement
+        if not isinstance(run_id, str) or not run_id.strip():
+            raise TypeError("get_or_create_session requires a non-empty run_id string")
+        self.received_run_id = run_id
         return self._session
 
 
@@ -90,7 +99,7 @@ def fake_browser_manager(fake_browser_session):
 
 
 def test_shopee_scrape_tool_schema():
-    """1, 2. ShopeeScrapeTool name and schema."""
+    """1. ShopeeScrapeTool name and schema."""
     tool = ShopeeScrapeTool()
     assert tool.name == "shopee_scrape"
     schema = tool.get_schema()
@@ -99,7 +108,7 @@ def test_shopee_scrape_tool_schema():
 
 
 def test_tiktok_scrape_tool_schema():
-    """3, 4. TikTokScrapeTool name and schema."""
+    """2. TikTokScrapeTool name and schema."""
     tool = TikTokScrapeTool()
     assert tool.name == "tiktok_scrape"
     schema = tool.get_schema()
@@ -108,8 +117,8 @@ def test_tiktok_scrape_tool_schema():
 
 
 @pytest.mark.asyncio
-async def test_shopee_scrape_tool_does_not_call_new_page(fake_browser_manager):
-    """5. ShopeeScrapeTool uses get_or_create_session, not new_page()."""
+async def test_shopee_scrape_tool_passes_run_id_to_browser_manager(fake_browser_manager):
+    """3. ShopeeScrapeTool calls get_or_create_session(run_id) with non-empty run_id."""
     tool = ShopeeScrapeTool()
     context = {
         "browser_manager": fake_browser_manager,
@@ -120,7 +129,7 @@ async def test_shopee_scrape_tool_does_not_call_new_page(fake_browser_manager):
         name="shopee_scrape",
         arguments={"url": "https://shopee.vn/product/123/456"},
         call_id="c1",
-        run_id="r1",
+        run_id="run_shopee_123",
     )
 
     fake_downloaded = [
@@ -140,13 +149,13 @@ async def test_shopee_scrape_tool_does_not_call_new_page(fake_browser_manager):
         result = await tool.execute(call, context)
 
     assert not fake_browser_manager.new_page_called
-    assert fake_browser_manager.get_or_create_session_called
+    assert fake_browser_manager.received_run_id == "run_shopee_123"
     assert result.status == ToolStatus.SUCCESS
 
 
 @pytest.mark.asyncio
-async def test_tiktok_scrape_tool_does_not_call_new_page(fake_browser_manager):
-    """6. TikTokScrapeTool uses get_or_create_session, not new_page()."""
+async def test_tiktok_scrape_tool_passes_run_id_to_browser_manager(fake_browser_manager):
+    """4. TikTokScrapeTool calls get_or_create_session(run_id) with non-empty run_id."""
     tool = TikTokScrapeTool()
     context = {
         "browser_manager": fake_browser_manager,
@@ -157,7 +166,7 @@ async def test_tiktok_scrape_tool_does_not_call_new_page(fake_browser_manager):
         name="tiktok_scrape",
         arguments={"url": "https://www.tiktok.com/view/product/123456"},
         call_id="c2",
-        run_id="r2",
+        run_id="run_tiktok_456",
     )
 
     fake_downloaded = [
@@ -177,12 +186,12 @@ async def test_tiktok_scrape_tool_does_not_call_new_page(fake_browser_manager):
         result = await tool.execute(call, context)
 
     assert not fake_browser_manager.new_page_called
-    assert fake_browser_manager.get_or_create_session_called
+    assert fake_browser_manager.received_run_id == "run_tiktok_456"
     assert result.status == ToolStatus.SUCCESS
 
 
 def test_tools_do_not_call_image_processor():
-    """7. Scrape tools do not import or require ImageProcessor for source persistence."""
+    """5. Scrape tools do not import or require ImageProcessor for source persistence."""
     import inspect
     from src.tools import shopee_scrape_tool, tiktok_scrape_tool
 
@@ -194,7 +203,7 @@ def test_tools_do_not_call_image_processor():
 
 
 def test_tools_do_not_invoke_llm():
-    """8. Scrape tools do not invoke LLM/scoring/ranking/queue mutation."""
+    """6. Scrape tools do not invoke LLM/scoring/ranking/queue mutation."""
     import inspect
     from src.tools import shopee_scrape_tool, tiktok_scrape_tool
 
@@ -209,9 +218,8 @@ def test_tools_do_not_invoke_llm():
 
 @pytest.mark.asyncio
 async def test_partial_upload_returns_partial_success(fake_browser_manager, tmp_path):
-    """9. Partial upload returns honest PARTIAL_SUCCESS semantics."""
+    """7. Partial upload returns honest PARTIAL_SUCCESS semantics."""
     tool = ShopeeScrapeTool()
-    # Fake GDrive where first upload succeeds (manifest), but subsequent file uploads fail
     partial_gdrive = FakeGDrive(partial_fail=True)
     context = {
         "browser_manager": fake_browser_manager,
@@ -226,7 +234,6 @@ async def test_partial_upload_returns_partial_success(fake_browser_manager, tmp_
         run_id="r3",
     )
 
-    # Pre-create the dummy file on disk in the expected original folder
     orig_dir = tmp_path / "shopee" / "shopee_456" / "original"
     orig_dir.mkdir(parents=True, exist_ok=True)
     dummy_file = orig_dir / "orig_000_abc123.jpg"
@@ -254,7 +261,7 @@ async def test_partial_upload_returns_partial_success(fake_browser_manager, tmp_
 
 @pytest.mark.asyncio
 async def test_full_upload_failure_returns_failure(fake_browser_manager):
-    """10. Full upload failure returns FAILURE with UPLOAD_FAILED error code."""
+    """8. Full upload failure returns FAILURE with UPLOAD_FAILED error code."""
     tool = ShopeeScrapeTool()
     failing_gdrive = FakeGDrive(should_fail=True)
     context = {

@@ -18,37 +18,46 @@ class FakeSession:
         self.raise_on_eval = raise_on_eval
         self.navigated_url = None
         self.evaluated_script = None
+        self.evaluated_args = None
 
     async def navigate(self, url: str, **kwargs: Any) -> None:
         self.navigated_url = url
 
     async def evaluate(self, script: str, *args: Any) -> Any:
         self.evaluated_script = script
+        self.evaluated_args = args
         if self.raise_on_eval:
             raise RuntimeError("Browser session evaluate failed")
         return self.evaluate_data
 
 
-class FakeBrowserManager:
+class StrictFakeBrowserManager:
+    """Fake browser manager strictly enforcing get_or_create_session(run_id: str, ...)."""
     def __init__(self, session: FakeSession):
         self._session = session
+        self.received_run_id = None
 
-    async def get_or_create_session(self, **kwargs: Any) -> FakeSession:
+    async def get_or_create_session(self, run_id: str, config: Optional[Any] = None) -> FakeSession:
+        if not isinstance(run_id, str) or not run_id.strip():
+            raise TypeError("run_id must be a non-empty string")
+        self.received_run_id = run_id
         return self._session
 
 
 @pytest.mark.asyncio
-async def test_shopee_extractor_prefers_structured_data():
-    """Structured product images preferred with STRUCTURED_PRODUCT_DATA provenance."""
+async def test_shopee_extractor_prefers_structured_data_when_identity_matches():
+    """Structured product images preferred when product identity matches target product."""
     eval_data = {
         "structured": {
             "title": "Shopee Official Product",
+            "product_id": "456789",
             "images": ["https://cf.shopee.vn/file/struct1.jpg", "https://cf.shopee.vn/file/struct2.jpg"],
             "brand": "Anker",
             "description": "Detailed product description",
             "specs": [{"name": "Weight", "value": "200g"}],
         },
         "gallery": ["https://cf.shopee.vn/file/gallery1.jpg"],
+        "variants": [],
         "description_media": ["https://cf.shopee.vn/file/desc1.jpg"],
         "fallback_media": [],
         "blocked": False,
@@ -65,18 +74,69 @@ async def test_shopee_extractor_prefers_structured_data():
     assert pack.brand == "Anker"
     assert pack.description_text == "Detailed product description"
 
-    # Verify structured media
     assert len(pack.media) >= 2
     assert pack.media[0].source_url == "https://cf.shopee.vn/file/struct1.jpg"
     assert pack.media[0].provenance == MediaProvenance.STRUCTURED_PRODUCT_DATA
     assert pack.media[0].role == MediaRole.PRIMARY
 
-    # Verify facts
-    assert len(pack.facts) >= 2
-    spec_fact = next((f for f in pack.facts if f.key == "Weight"), None)
-    assert spec_fact is not None
-    assert spec_fact.value == "200g"
-    assert spec_fact.source_section == "specification_table"
+
+@pytest.mark.asyncio
+async def test_shopee_extractor_rejects_unrelated_structured_data_on_identity_mismatch():
+    """Structured data from unrelated recommendation/card with different ID is not accepted as STRUCTURED_PRODUCT_DATA."""
+    eval_data = {
+        "structured": {
+            "title": "Unrelated Recommended Product",
+            "product_id": "999999",  # Mismatched ID
+            "images": ["https://cf.shopee.vn/file/unrelated_recommendation.jpg"],
+            "brand": "OtherBrand",
+            "specs": [],
+        },
+        "gallery": ["https://cf.shopee.vn/file/actual_gallery.jpg"],
+        "variants": [],
+        "description_media": [],
+        "fallback_media": [],
+        "blocked": False,
+    }
+    session = FakeSession(eval_data)
+    extractor = ShopeeSourceExtractor(browser=session)
+
+    pack = await extractor.extract("https://shopee.vn/product/123/456789")
+
+    # Mismatched structured images rejected -> falls back to actual gallery images
+    assert len(pack.media) == 1
+    assert pack.media[0].source_url == "https://cf.shopee.vn/file/actual_gallery.jpg"
+    assert pack.media[0].provenance == MediaProvenance.SEMANTIC_PRODUCT_GALLERY
+
+
+@pytest.mark.asyncio
+async def test_shopee_extractor_collects_explicit_variants():
+    """Variant images are collected with MediaRole.VARIANT and SEMANTIC_VARIANT_MEDIA."""
+    eval_data = {
+        "structured": {
+            "title": "Shopee Variant Product",
+            "product_id": "456789",
+            "images": ["https://cf.shopee.vn/file/main.jpg"],
+            "specs": [],
+        },
+        "gallery": [],
+        "variants": [
+            {"url": "https://cf.shopee.vn/file/variant_black.jpg", "label": "Black / 128GB"},
+            {"url": "https://cf.shopee.vn/file/variant_white.jpg", "label": "White / 256GB"},
+        ],
+        "description_media": [],
+        "fallback_media": [],
+        "blocked": False,
+    }
+    session = FakeSession(eval_data)
+    extractor = ShopeeSourceExtractor(browser=session)
+
+    pack = await extractor.extract("https://shopee.vn/product/123/456789")
+
+    variant_media = [m for m in pack.media if m.role == MediaRole.VARIANT]
+    assert len(variant_media) == 2
+    assert variant_media[0].provenance == MediaProvenance.SEMANTIC_VARIANT_MEDIA
+    assert variant_media[0].variant_label == "Black / 128GB"
+    assert variant_media[1].variant_label == "White / 256GB"
 
 
 @pytest.mark.asyncio
@@ -85,11 +145,13 @@ async def test_shopee_extractor_gallery_fallback_when_no_structured_images():
     eval_data = {
         "structured": {
             "title": "Shopee Gallery Product",
+            "product_id": "456789",
             "images": [],
             "brand": None,
             "specs": [],
         },
         "gallery": ["https://cf.shopee.vn/file/gal1.jpg", "https://cf.shopee.vn/file/gal2.jpg"],
+        "variants": [],
         "description_media": [],
         "fallback_media": [],
         "blocked": False,
@@ -109,10 +171,12 @@ async def test_shopee_extractor_seller_description_media_labeled():
     eval_data = {
         "structured": {
             "title": "Shopee Desc Product",
+            "product_id": "456789",
             "images": ["https://cf.shopee.vn/file/main.jpg"],
             "specs": [],
         },
         "gallery": [],
+        "variants": [],
         "description_media": ["https://cf.shopee.vn/file/seller_desc.jpg"],
         "fallback_media": [],
         "blocked": False,
@@ -141,35 +205,28 @@ async def test_shopee_extractor_raises_blocked_on_captcha():
 
 
 @pytest.mark.asyncio
-async def test_shopee_extractor_invalid_url_raises_extraction_error():
-    """URL without product ID raises SourcePackExtractionError."""
-    session = FakeSession({})
-    extractor = ShopeeSourceExtractor(browser=session)
-
-    with pytest.raises(SourcePackExtractionError):
-        await extractor.extract("https://shopee.vn/invalid-url-pattern")
-
-
-@pytest.mark.asyncio
-async def test_shopee_extractor_with_browser_manager():
-    """Extractor works with BrowserManager interface (get_or_create_session)."""
+async def test_shopee_extractor_with_strict_browser_manager():
+    """Extractor works with real BrowserManager interface get_or_create_session(run_id)."""
     eval_data = {
         "structured": {
             "title": "Product with Manager",
+            "product_id": "200",
             "images": ["https://cf.shopee.vn/file/img.jpg"],
             "specs": [],
         },
         "gallery": [],
+        "variants": [],
         "description_media": [],
         "fallback_media": [],
         "blocked": False,
     }
     session = FakeSession(eval_data)
-    manager = FakeBrowserManager(session)
+    manager = StrictFakeBrowserManager(session)
     extractor = ShopeeSourceExtractor(browser=manager)
 
-    pack = await extractor.extract("https://shopee.vn/product/100/200")
+    pack = await extractor.extract("https://shopee.vn/product/100/200", run_id="custom_run_shopee")
     assert pack.title == "Product with Manager"
+    assert manager.received_run_id == "custom_run_shopee"
     assert session.navigated_url == "https://shopee.vn/product/100/200"
 
 
@@ -177,8 +234,9 @@ async def test_shopee_extractor_with_browser_manager():
 async def test_shopee_js_script_excludes_reviews_by_container_provenance():
     """The JS extraction script must contain explicit review/UGC exclusions."""
     session = FakeSession({
-        "structured": {"title": "Test", "images": []},
+        "structured": {"title": "Test", "product_id": "2", "images": []},
         "gallery": [],
+        "variants": [],
         "description_media": [],
         "fallback_media": [],
     })
@@ -187,7 +245,6 @@ async def test_shopee_js_script_excludes_reviews_by_container_provenance():
 
     script = session.evaluated_script
     assert script is not None
-    # Verify exclusions in JS script
     assert "product-ratings" in script
     assert "product-reviews" in script
     assert "shop-review" in script

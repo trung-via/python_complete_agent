@@ -76,7 +76,7 @@ class ShopeeScrapeTool(BaseTool):
         # 1. Extract canonical product source pack
         extractor = ShopeeSourceExtractor(browser=browser)
         try:
-            source_pack = await extractor.extract(url)
+            source_pack = await extractor.extract(url, run_id=call.run_id)
         except SourcePackBlockedError as e:
             return ToolResult(
                 call_id=call.call_id,

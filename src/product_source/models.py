@@ -1,10 +1,13 @@
 from __future__ import annotations
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import Optional, Any
-from datetime import datetime
+
 import hashlib
+import re
 import urllib.parse
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple
+
 
 class MediaRole(Enum):
     PRIMARY = "PRIMARY"
@@ -12,12 +15,65 @@ class MediaRole(Enum):
     VARIANT = "VARIANT"
     SELLER_DESCRIPTION = "SELLER_DESCRIPTION"
 
+
 class MediaProvenance(Enum):
     STRUCTURED_PRODUCT_DATA = "STRUCTURED_PRODUCT_DATA"
     SEMANTIC_PRODUCT_GALLERY = "SEMANTIC_PRODUCT_GALLERY"
     SEMANTIC_VARIANT_MEDIA = "SEMANTIC_VARIANT_MEDIA"
     SEMANTIC_SELLER_DESCRIPTION = "SEMANTIC_SELLER_DESCRIPTION"
     PLATFORM_SCOPED_FALLBACK = "PLATFORM_SCOPED_FALLBACK"
+
+
+SENSITIVE_QUERY_KEYS = {
+    "token", "auth", "signature", "sig", "session", "access_token",
+    "key", "secret", "expires", "credential", "password", "ticket",
+    "spm", "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
+    "gclid", "fbclid",
+}
+
+
+def sanitize_url(url: str) -> str:
+    """
+    Sanitizes URL by redacting sensitive or auth-like query parameters.
+    Used for safe serialization and diagnostic logging.
+    """
+    if not url:
+        return ""
+    try:
+        parsed = urllib.parse.urlparse(url)
+        if not parsed.query:
+            return url
+        params = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+        sanitized_params = []
+        for k, v in params:
+            if k.lower() in SENSITIVE_QUERY_KEYS:
+                sanitized_params.append((k, "[REDACTED]"))
+            else:
+                sanitized_params.append((k, v))
+        new_query = urllib.parse.urlencode(sanitized_params)
+        return urllib.parse.urlunparse((
+            parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment
+        ))
+    except Exception:
+        return url
+
+
+def canonicalize_url(url: str) -> str:
+    """
+    Canonicalizes product URL for deterministic fingerprinting.
+    Strips noise, query parameters, tracking tags, and trailing slashes.
+    """
+    if not url:
+        return ""
+    try:
+        parsed = urllib.parse.urlparse(url.strip())
+        clean_path = parsed.path.rstrip("/")
+        return urllib.parse.urlunparse((
+            parsed.scheme.lower(), parsed.netloc.lower(), clean_path, "", "", ""
+        ))
+    except Exception:
+        return url.strip().split("?")[0].rstrip("/")
+
 
 @dataclass(frozen=True)
 class ProductFact:
@@ -28,10 +84,11 @@ class ProductFact:
     unit: Optional[str] = None
 
     def __post_init__(self):
-        if not self.key:
+        if not self.key or not self.key.strip():
             raise ValueError("key cannot be empty")
-        if not self.value:
+        if not self.value or not self.value.strip():
             raise ValueError("value cannot be empty")
+
 
 @dataclass(frozen=True)
 class OriginalMediaRef:
@@ -56,27 +113,34 @@ class OriginalMediaRef:
         if self.byte_size is not None and self.byte_size <= 0:
             raise ValueError("byte_size must be > 0 if set")
 
+
 def build_source_pack_id(platform: str, source_product_id: Optional[str], product_url: str) -> str:
-    if source_product_id:
-        return f"{platform}_{source_product_id}"
-    parsed = urllib.parse.urlparse(product_url)
-    canonical_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
-    if parsed.query:
-        canonical_url += f"?{parsed.query}"
-    url_hash = hashlib.sha256(canonical_url.encode('utf-8')).hexdigest()
-    return f"{platform}_{url_hash}"
+    """
+    Builds deterministic source_pack_id from platform + product_id or canonicalized URL hash.
+    Never uses Python hash().
+    """
+    if source_product_id and source_product_id.strip():
+        return f"{platform.lower()}_{source_product_id.strip()}"
+    canonical_url = canonicalize_url(product_url)
+    url_hash = hashlib.sha256(canonical_url.encode("utf-8")).hexdigest()[:16]
+    return f"{platform.lower()}_{url_hash}"
+
 
 class SourcePackError(Exception):
     """Base exception for source pack operations."""
 
+
 class SourcePackExtractionError(SourcePackError):
     """Extraction failures."""
+
 
 class SourcePackBlockedError(SourcePackError):
     """Anti-bot/captcha."""
 
+
 class SourcePackNavigationError(SourcePackError):
     """Navigation failures."""
+
 
 @dataclass(frozen=True)
 class ProductSourcePack:
@@ -102,25 +166,28 @@ class ProductSourcePack:
             raise ValueError("platform cannot be empty")
         if not self.product_url.startswith(("http://", "https://")):
             raise ValueError("product_url must start with http")
-        
-        # Bypass frozen dataclass to set attributes
+
         if self.description_text is not None and len(self.description_text) > 10000:
-            object.__setattr__(self, 'description_text', self.description_text[:10000])
-        
+            object.__setattr__(self, "description_text", self.description_text[:10000])
+
         if not isinstance(self.facts, tuple):
-            object.__setattr__(self, 'facts', tuple(self.facts))
-            
+            object.__setattr__(self, "facts", tuple(self.facts))
+
         if not isinstance(self.media, tuple):
-            object.__setattr__(self, 'media', tuple(self.media))
-            
+            object.__setattr__(self, "media", tuple(self.media))
+
         if not isinstance(self.diagnostic_codes, tuple):
-            object.__setattr__(self, 'diagnostic_codes', tuple(self.diagnostic_codes))
+            object.__setattr__(self, "diagnostic_codes", tuple(self.diagnostic_codes))
 
     def to_dict(self) -> dict[str, Any]:
+        """
+        Serializes to a clean, secret-safe dictionary.
+        All URLs are sanitized (credentials/tokens redacted).
+        """
         return {
             "source_pack_id": self.source_pack_id,
             "platform": self.platform,
-            "product_url": self.product_url,
+            "product_url": sanitize_url(self.product_url),
             "observed_at": self.observed_at.isoformat() if self.observed_at else None,
             "collector": self.collector,
             "title": self.title,
@@ -135,16 +202,16 @@ class ProductSourcePack:
                     "value": f.value,
                     "unit": f.unit,
                     "source_section": f.source_section,
-                    "provenance": f.provenance
+                    "provenance": f.provenance,
                 }
                 for f in self.facts
             ],
             "media": [
                 {
-                    "source_url": m.source_url,
+                    "source_url": sanitize_url(m.source_url),
                     "platform": m.platform,
-                    "role": m.role.value if hasattr(m.role, 'value') else m.role,
-                    "provenance": m.provenance.value if hasattr(m.provenance, 'value') else m.provenance,
+                    "role": m.role.value if hasattr(m.role, "value") else str(m.role),
+                    "provenance": m.provenance.value if hasattr(m.provenance, "value") else str(m.provenance),
                     "ordinal": m.ordinal,
                     "alt_text": m.alt_text,
                     "variant_label": m.variant_label,
@@ -152,9 +219,9 @@ class ProductSourcePack:
                     "byte_size": m.byte_size,
                     "sha256_hash": m.sha256_hash,
                     "perceptual_hash": m.perceptual_hash,
-                    "local_filename": m.local_filename
+                    "local_filename": m.local_filename,
                 }
                 for m in self.media
             ],
-            "diagnostic_codes": list(self.diagnostic_codes)
+            "diagnostic_codes": list(self.diagnostic_codes),
         }

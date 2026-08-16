@@ -3,23 +3,24 @@ from __future__ import annotations
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Any, List, Optional, Set
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from src.product_source.models import (
-    MediaRole,
     MediaProvenance,
+    MediaRole,
     OriginalMediaRef,
     ProductFact,
     ProductSourcePack,
     SourcePackBlockedError,
+    SourcePackError,
     SourcePackExtractionError,
     build_source_pack_id,
 )
 
 logger = logging.getLogger(__name__)
 
-_TIKTOK_EXTRACTOR_JS = """
-(() => {
+_TIKTOK_EXTRACTOR_JS = r"""
+(targetProductId) => {
     const extractUrl = (str) => {
         if (!str) return null;
         try {
@@ -32,6 +33,7 @@ _TIKTOK_EXTRACTOR_JS = """
     };
 
     const isExcluded = (node) => {
+        if (!node) return false;
         while (node && node !== document.body) {
             const className = (node.className || '').toString().toLowerCase();
             const id = (node.id || '').toString().toLowerCase();
@@ -43,6 +45,7 @@ _TIKTOK_EXTRACTOR_JS = """
                 className.includes('similar') ||
                 className.includes('ugc') ||
                 className.includes('you-may-like') ||
+                className.includes('suggestion') ||
                 id.includes('review') ||
                 id.includes('comment') ||
                 id.includes('recommend')
@@ -55,8 +58,17 @@ _TIKTOK_EXTRACTOR_JS = """
     };
 
     const result = {
-        structured: null,
+        structured: {
+            title: null,
+            product_id: null,
+            brand: null,
+            shop_name: null,
+            images: [],
+            description: null,
+            specifications: []
+        },
         gallery_images: [],
+        variants: [],
         seller_images: [],
         fallback_images: [],
         blocked: false,
@@ -64,130 +76,95 @@ _TIKTOK_EXTRACTOR_JS = """
     };
 
     if (document.title.toLowerCase().includes('captcha') ||
+        document.title.toLowerCase().includes('robot') ||
         document.querySelector('script[src*="captcha"]')) {
         result.blocked = true;
         return result;
     }
 
-    // PRIORITY 1: Structured Data
-    let structuredData = null;
-
-    try {
-        if (window.SIGI_STATE) {
-            structuredData = window.SIGI_STATE;
-        } else {
-            const sigiScript = document.getElementById('SIGI_STATE');
-            if (sigiScript) {
-                structuredData = JSON.parse(sigiScript.textContent);
-            }
-        }
-    } catch (e) {}
-
-    if (!structuredData) {
-        try {
-            if (window.__NEXT_DATA__) {
-                structuredData = window.__NEXT_DATA__;
-            } else {
-                const nextScript = document.getElementById('__NEXT_DATA__');
-                if (nextScript) {
-                    structuredData = JSON.parse(nextScript.textContent);
-                }
-            }
-        } catch (e) {}
-    }
-
-    let jsonLdData = null;
+    // PRIORITY 1: Structured Data (Identity matched to targetProductId)
+    // Try JSON-LD first
     const jsonLdScripts = document.querySelectorAll('script[type="application/ld+json"]');
     for (const script of jsonLdScripts) {
         try {
             const data = JSON.parse(script.textContent);
             if (data['@type'] === 'Product' || data['@type'] === 'ProductGroup') {
-                jsonLdData = data;
-                break;
+                const itemUrl = data.offers && data.offers.url ? data.offers.url : (data.url || '');
+                const productId = data.productID || data.sku || '';
+                const matches = !targetProductId || 
+                    itemUrl.includes(targetProductId) || 
+                    productId.toString().includes(targetProductId) ||
+                    window.location.href.includes(targetProductId);
+
+                if (matches) {
+                    if (data.name && !result.structured.title) result.structured.title = data.name;
+                    if (data.description && !result.structured.description) result.structured.description = data.description;
+                    if (data.brand) {
+                        const bName = typeof data.brand === 'string' ? data.brand : (data.brand.name || null);
+                        if (bName && !result.structured.brand) result.structured.brand = bName;
+                    }
+                    if (data.image) {
+                        const imgArr = Array.isArray(data.image) ? data.image : [data.image];
+                        for (const img of imgArr) {
+                            const u = extractUrl(typeof img === 'string' ? img : (img && img.url ? img.url : null));
+                            if (u && !result.structured.images.includes(u)) {
+                                result.structured.images.push(u);
+                            }
+                        }
+                    }
+                    result.structured.product_id = targetProductId;
+                }
             }
         } catch (e) {}
     }
 
-    const findValues = (obj, key, depth) => {
-        if (depth > 6) return [];
-        let results = [];
-        if (!obj || typeof obj !== 'object') return results;
-        if (obj[key] !== undefined) results.push(obj[key]);
-        for (const k in obj) {
-            if (typeof obj[k] === 'object') {
-                results = results.concat(findValues(obj[k], key, depth + 1));
-            }
+    // Try SIGI_STATE or __NEXT_DATA__ (scoped to productDetail / itemInfo)
+    let stateObj = null;
+    try {
+        if (window.SIGI_STATE) stateObj = window.SIGI_STATE;
+        else if (window.__NEXT_DATA__) stateObj = window.__NEXT_DATA__;
+        else {
+            const sEl = document.getElementById('SIGI_STATE') || document.getElementById('__NEXT_DATA__');
+            if (sEl) stateObj = JSON.parse(sEl.textContent);
         }
-        return results;
-    };
+    } catch (e) {}
 
-    const parseStructured = () => {
-        let title = '';
-        let images = [];
-        let brand = '';
-        let shop_name = '';
-        let description = '';
-        let specifications = [];
+    if (stateObj && typeof stateObj === 'object') {
+        // Target product object inspection without blind global search
+        const productCandidates = [];
+        if (stateObj.productInfo) productCandidates.push(stateObj.productInfo);
+        if (stateObj.productDetail) productCandidates.push(stateObj.productDetail);
+        if (stateObj.itemInfo && stateObj.itemInfo.itemStruct) productCandidates.push(stateObj.itemInfo.itemStruct);
+        if (stateObj.props && stateObj.props.pageProps && stateObj.props.pageProps.productInfo) {
+            productCandidates.push(stateObj.props.pageProps.productInfo);
+        }
 
-        if (jsonLdData) {
-            title = jsonLdData.name || '';
-            description = jsonLdData.description || '';
-            if (jsonLdData.brand) {
-                brand = typeof jsonLdData.brand === 'string' ? jsonLdData.brand : jsonLdData.brand.name || '';
-            }
-            if (jsonLdData.image) {
-                if (Array.isArray(jsonLdData.image)) {
-                    images = jsonLdData.image.map(img => typeof img === 'string' ? img : img.url).filter(Boolean);
-                } else if (typeof jsonLdData.image === 'string') {
-                    images.push(jsonLdData.image);
+        for (const prod of productCandidates) {
+            const pId = prod.productId || prod.id || prod.itemId || '';
+            const matches = !targetProductId || pId.toString().includes(targetProductId) || window.location.href.includes(targetProductId);
+            if (matches) {
+                if (prod.title && !result.structured.title) result.structured.title = prod.title;
+                if (prod.description && !result.structured.description) result.structured.description = prod.description;
+                if (prod.brand && prod.brand.name && !result.structured.brand) result.structured.brand = prod.brand.name;
+                if (prod.seller && prod.seller.name && !result.structured.shop_name) result.structured.shop_name = prod.seller.name;
+                if (prod.images && Array.isArray(prod.images)) {
+                    for (const img of prod.images) {
+                        const u = extractUrl(typeof img === 'string' ? img : (img.urlList ? img.urlList[0] : img.url));
+                        if (u && !result.structured.images.includes(u)) result.structured.images.push(u);
+                    }
                 }
-            }
-        }
-
-        if (structuredData) {
-            if (!title) {
-                const titles = findValues(structuredData, 'title', 0);
-                if (titles.length > 0 && typeof titles[0] === 'string') title = titles[0];
-            }
-            if (images.length === 0) {
-                const imgArrays = findValues(structuredData, 'images', 0);
-                if (imgArrays.length > 0 && Array.isArray(imgArrays[0])) {
-                    images = imgArrays[0].map(img => {
-                        if (typeof img === 'string') return img;
-                        if (img && img.urlList && img.urlList[0]) return img.urlList[0];
-                        return null;
-                    }).filter(Boolean);
+                if (prod.specifications && Array.isArray(prod.specifications)) {
+                    for (const spec of prod.specifications) {
+                        if (spec.name && spec.value) {
+                            result.structured.specifications.push({ name: spec.name, value: spec.value });
+                        }
+                    }
                 }
-            }
-            if (!description) {
-                const descs = findValues(structuredData, 'description', 0);
-                if (descs.length > 0 && typeof descs[0] === 'string') description = descs[0];
-            }
-            if (!brand) {
-                const brands = findValues(structuredData, 'brand', 0);
-                if (brands.length > 0 && brands[0] && brands[0].name) brand = brands[0].name;
-            }
-            const sellerInfo = findValues(structuredData, 'sellerInfo', 0);
-            if (sellerInfo.length > 0 && sellerInfo[0] && sellerInfo[0].name) {
-                shop_name = sellerInfo[0].name;
-            }
-            const specs = findValues(structuredData, 'specifications', 0);
-            if (specs.length > 0 && Array.isArray(specs[0])) {
-                specifications = specs[0];
+                result.structured.product_id = targetProductId;
+                break;
             }
         }
-
-        return {
-            title,
-            images: images.map(extractUrl).filter(Boolean),
-            brand,
-            shop_name,
-            description: typeof description === 'string' ? description.slice(0, 10000) : '',
-            specifications
-        };
-    };
-
-    result.structured = parseStructured();
+    }
 
     const getImagesFromNodes = (nodes) => {
         const urls = [];
@@ -212,13 +189,35 @@ _TIKTOK_EXTRACTOR_JS = """
     const gallerySelectors = [
         '.product-image', '.pdp-image',
         '[data-testid*="gallery"]',
-        '[class*="gallery"]', '[class*="carousel"]', '[class*="slider"]'
+        '[class*="gallery-container"]', '[class*="pdp-carousel"]', '[class*="product-slider"]'
     ];
     let galleryNodes = [];
     for (const sel of gallerySelectors) {
         galleryNodes = [...galleryNodes, ...document.querySelectorAll(sel)];
     }
     result.gallery_images = getImagesFromNodes(galleryNodes);
+
+    // PRIORITY 2.5: Semantic Variant Media
+    const variantSelectors = [
+        '[class*="sku-item"]', '[class*="spec-item"]', '[class*="variation-item"]', '[data-testid*="sku"]'
+    ];
+    for (const sel of variantSelectors) {
+        const nodes = document.querySelectorAll(sel);
+        for (const n of nodes) {
+            if (isExcluded(n)) continue;
+            const imgs = n.querySelectorAll('img');
+            const labelEl = n.querySelector('span, div, p') || n;
+            const label = labelEl ? labelEl.innerText.trim() : null;
+            for (const img of imgs) {
+                if (!isExcluded(img) && img.src) {
+                    const u = extractUrl(img.src);
+                    if (u) {
+                        result.variants.push({ url: u, label: label || null });
+                    }
+                }
+            }
+        }
+    }
 
     // PRIORITY 3: Seller Description Media
     const sellerSelectors = [
@@ -232,10 +231,11 @@ _TIKTOK_EXTRACTOR_JS = """
     }
     result.seller_images = getImagesFromNodes(sellerNodes);
 
-    // PRIORITY 4: Platform Scoped Fallback (bounded, max 10)
+    // PRIORITY 4: Bounded Platform-Scoped Fallback
+    // Confined to specific product detail container ONLY
     if (result.structured.images.length === 0 && result.gallery_images.length === 0) {
         const productContainers = document.querySelectorAll(
-            '[class*="product-detail"], [class*="product-info"], main, article'
+            '[data-testid="pdp-container"], .pdp-container, .product-container, [class*="product-detail-container"], [class*="product-info-container"]'
         );
         let count = 0;
         const urls = new Set();
@@ -258,92 +258,114 @@ _TIKTOK_EXTRACTOR_JS = """
     }
 
     return result;
-})();
+}
 """
 
 
 def _extract_tiktok_product_id(url: str) -> Optional[str]:
     """Extracts TikTok Shop product ID from URL patterns."""
-    # Pattern: /product/{product_id}
     m = re.search(r"/product/(\d+)", url)
     if m:
         return m.group(1)
-    # Pattern: /item/{product_id}
     m = re.search(r"/item/(\d+)", url)
+    if m:
+        return m.group(1)
+    m = re.search(r"itemId=(\d+)", url)
     if m:
         return m.group(1)
     return None
 
 
 class TikTokSourceExtractor:
-    """Extracts product source pack from TikTok Shop product pages."""
+    """Extracts canonical product source pack from TikTok Shop product pages."""
 
-    def __init__(self, browser: Optional[Any] = None, *, collector_name: str = 'tiktok_source_v1') -> None:
+    def __init__(self, browser: Optional[Any] = None, *, collector_name: str = "tiktok_source_v1") -> None:
         self.browser = browser
         self.collector_name = collector_name
 
-    async def _acquire_page(self) -> Any:
-        """Acquire a page/session using the injected browser dependency."""
-        # Pattern 1: BrowserManager
-        if hasattr(self.browser, "get_or_create_session"):
-            return await self.browser.get_or_create_session()
-        # Pattern 2: Playwright Browser/Context
-        if hasattr(self.browser, "new_page"):
-            return await self.browser.new_page()
-        # Pattern 3: Direct session with navigate() + evaluate()
-        if hasattr(self.browser, "navigate") and hasattr(self.browser, "evaluate"):
-            return self.browser
-        # Pattern 4: Callable
-        if callable(self.browser):
-            import asyncio
-            session = self.browser()
-            if asyncio.iscoroutine(session):
-                session = await session
-            return session
+    async def _acquire_page(self, url: str, run_id: str) -> Any:
+        b = self.browser
 
-        raise ValueError("Unsupported browser interface")
+        # Pattern 1: BrowserManager with get_or_create_session(run_id)
+        if hasattr(b, "get_or_create_session") and callable(b.get_or_create_session):
+            page = await b.get_or_create_session(run_id)
+        # Pattern 2: Playwright Browser or BrowserContext with new_page()
+        elif hasattr(b, "new_page") and callable(b.new_page):
+            res = b.new_page()
+            import inspect
+            page = await res if inspect.isawaitable(res) else res
+            if hasattr(page, "__aenter__"):
+                page = await page.__aenter__()
+        # Pattern 3: Async or sync callable
+        elif callable(b):
+            import inspect
+            res = b()
+            page = await res if inspect.isawaitable(res) else res
+        # Pattern 4: Direct session
+        elif hasattr(b, "navigate") or hasattr(b, "goto"):
+            page = b
+        else:
+            page = b
 
-    async def extract(self, product_url: str, *, observed_at: Optional[datetime] = None) -> ProductSourcePack:
+        if hasattr(page, "navigate") and callable(page.navigate):
+            await page.navigate(url)
+        elif hasattr(page, "goto") and callable(page.goto):
+            await page.goto(url, wait_until="domcontentloaded")
+
+        return page
+
+    async def extract(
+        self,
+        product_url: str,
+        *,
+        run_id: Optional[str] = None,
+        observed_at: Optional[datetime] = None,
+    ) -> ProductSourcePack:
         if observed_at is None:
             observed_at = datetime.now(timezone.utc)
 
         product_id = _extract_tiktok_product_id(product_url)
-
-        page = await self._acquire_page()
+        eff_run_id = run_id or (f"tiktok_source_{product_id}" if product_id else "tiktok_source_run")
 
         try:
-            if hasattr(page, "navigate") and hasattr(page, "evaluate"):
-                await page.navigate(product_url)
-                result = await page.evaluate(_TIKTOK_EXTRACTOR_JS)
-            else:
-                await page.goto(product_url, wait_until="domcontentloaded")
-                result = await page.evaluate(_TIKTOK_EXTRACTOR_JS)
+            page = await self._acquire_page(product_url, eff_run_id)
         except Exception as e:
-            raise SourcePackExtractionError(f"Failed to navigate/evaluate TikTok product page: {e}") from e
+            raise SourcePackExtractionError(f"Failed to acquire browser session for {product_url}: {e}") from e
 
-        if not result:
-            raise SourcePackExtractionError("TikTok extractor script returned null")
+        try:
+            if hasattr(page, "evaluate") and callable(page.evaluate):
+                result = await page.evaluate(_TIKTOK_EXTRACTOR_JS, product_id)
+            else:
+                raise SourcePackExtractionError("Page object lacks evaluate capability")
+        except Exception as e:
+            raise SourcePackExtractionError(f"Failed to evaluate TikTok extraction script: {e}") from e
+
+        if not result or not isinstance(result, dict):
+            raise SourcePackExtractionError("TikTok extractor script returned invalid/null data")
 
         if result.get("blocked"):
             raise SourcePackBlockedError("TikTok platform blocking detected (Captcha)")
 
         structured = result.get("structured") or {}
 
-        title = structured.get("title", "")
+        title = structured.get("title")
         if not title:
-            # Fallback to page title
             page_title = result.get("page_title", "")
             if page_title:
                 title = page_title.split("|")[0].strip() or None
             else:
                 title = None
 
-        # Build media refs with proper deduplication
         seen_urls: Set[str] = set()
         media_items: List[OriginalMediaRef] = []
         ordinal = 0
 
-        def add_media(url: str, role: MediaRole, provenance: MediaProvenance) -> None:
+        def add_media(
+            url: str,
+            role: MediaRole,
+            provenance: MediaProvenance,
+            variant_label: Optional[str] = None,
+        ) -> None:
             nonlocal ordinal
             if not url or url in seen_urls:
                 return
@@ -357,44 +379,63 @@ class TikTokSourceExtractor:
                     role=role,
                     provenance=provenance,
                     ordinal=ordinal,
+                    variant_label=variant_label,
                 )
             )
             ordinal += 1
 
-        # Priority 1: Structured images
-        for img_url in structured.get("images", []):
-            add_media(img_url, MediaRole.PRIMARY, MediaProvenance.STRUCTURED_PRODUCT_DATA)
+        # Priority 1: Structured images (identity checked)
+        if structured.get("product_id") == product_id or (product_id is None and structured.get("images")):
+            for img_url in structured.get("images", []):
+                add_media(img_url, MediaRole.PRIMARY, MediaProvenance.STRUCTURED_PRODUCT_DATA)
 
         # Priority 2: Gallery images
         for img_url in result.get("gallery_images", []):
             role = MediaRole.PRIMARY if not media_items else MediaRole.GALLERY
             add_media(img_url, role, MediaProvenance.SEMANTIC_PRODUCT_GALLERY)
 
+        # Priority 2.5: Variant images
+        for var_item in result.get("variants", []):
+            if isinstance(var_item, dict) and var_item.get("url"):
+                add_media(
+                    var_item["url"],
+                    MediaRole.VARIANT,
+                    MediaProvenance.SEMANTIC_VARIANT_MEDIA,
+                    variant_label=var_item.get("label"),
+                )
+
         # Priority 3: Seller description images
         for img_url in result.get("seller_images", []):
             add_media(img_url, MediaRole.SELLER_DESCRIPTION, MediaProvenance.SEMANTIC_SELLER_DESCRIPTION)
 
-        # Priority 4: Fallback images
+        # Priority 4: Bounded Scoped Fallback
         for img_url in result.get("fallback_images", []):
             add_media(img_url, MediaRole.GALLERY, MediaProvenance.PLATFORM_SCOPED_FALLBACK)
 
         # Build facts
         facts: List[ProductFact] = []
         if structured.get("brand"):
-            facts.append(ProductFact(
-                key="Brand", value=str(structured["brand"]),
-                source_section="structured_data", provenance="structured_data",
-            ))
+            facts.append(
+                ProductFact(
+                    key="Brand",
+                    value=str(structured["brand"]),
+                    source_section="structured_data",
+                    provenance="structured_data",
+                )
+            )
 
         for spec in structured.get("specifications", []):
             if isinstance(spec, dict) and spec.get("name") and spec.get("value"):
-                facts.append(ProductFact(
-                    key=str(spec["name"]), value=str(spec["value"]),
-                    source_section="specification_table", provenance="structured_data",
-                ))
+                facts.append(
+                    ProductFact(
+                        key=str(spec["name"]),
+                        value=str(spec["value"]),
+                        source_section="specification_table",
+                        provenance="structured_data",
+                    )
+                )
 
         source_pack_id = build_source_pack_id("tiktok", product_id, product_url)
-
         description = structured.get("description")
         shop_name = structured.get("shop_name") or None
         brand = structured.get("brand") or None
