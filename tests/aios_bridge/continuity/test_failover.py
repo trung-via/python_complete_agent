@@ -22,7 +22,6 @@ from src.aios_bridge.continuity import (
     ExecutorState,
     NextOperation,
     OutputContract,
-    StateObservation,
     build_replacement_brain_request,
     validate_brain_failover_eligibility,
 )
@@ -81,6 +80,14 @@ def _make_valid_source_request(task_id: str = "TASK-022") -> BrainRequest:
     )
 
 
+def _make_valid_replacement_capability(brain_id: str = "brain-b") -> BrainCapability:
+    return BrainCapability(
+        brain_id=brain_id,
+        supported_operations=(BrainOperation.TASK, BrainOperation.TASK_AND_PLAN, BrainOperation.PLAN),
+        declarative_only=True,
+    )
+
+
 def test_valid_replacement_request_construction_and_field_preservation():
     """Derived replacement request preserves all task semantics and changes only brain_id and request_id."""
     src = _make_valid_source_request("TASK-022")
@@ -124,9 +131,12 @@ def test_semantic_drift_rejection_in_failover_validation():
     state = _make_valid_state("TASK-022")
     src = _make_valid_source_request("TASK-022")
     rep = build_replacement_brain_request(src, "brain-b", "req-task-022-r2")
+    cap = _make_valid_replacement_capability("brain-b")
 
     # Valid case produces valid proof
-    proof = validate_brain_failover_eligibility(src, rep, state)
+    proof = validate_brain_failover_eligibility(
+        src, rep, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap
+    )
     assert proof.task_id == "TASK-022"
     assert proof.source_brain_id == "brain-a"
     assert proof.replacement_brain_id == "brain-b"
@@ -146,7 +156,9 @@ def test_semantic_drift_rejection_in_failover_validation():
         context_refs=rep.context_refs,
     )
     with pytest.raises(ContinuityStateValidationError, match="State task_id mismatch|Task ID drift"):
-        validate_brain_failover_eligibility(src, rep_bad_task, state)
+        validate_brain_failover_eligibility(
+            src, rep_bad_task, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap
+        )
 
     # 2. Changed operation
     rep_bad_op = BrainRequest(
@@ -162,7 +174,9 @@ def test_semantic_drift_rejection_in_failover_validation():
         context_refs=rep.context_refs,
     )
     with pytest.raises(ContinuityStateValidationError, match="Operation drift in failover"):
-        validate_brain_failover_eligibility(src, rep_bad_op, state)
+        validate_brain_failover_eligibility(
+            src, rep_bad_op, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap
+        )
 
     # 3. Changed objective
     rep_bad_obj = BrainRequest(
@@ -175,7 +189,9 @@ def test_semantic_drift_rejection_in_failover_validation():
         context_refs=src.context_refs,
     )
     with pytest.raises(ContinuityStateValidationError, match="Objective drift in failover"):
-        validate_brain_failover_eligibility(src, rep_bad_obj, state)
+        validate_brain_failover_eligibility(
+            src, rep_bad_obj, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap
+        )
 
     # 4. Changed or reordered context refs
     rep_bad_refs = BrainRequest(
@@ -188,7 +204,9 @@ def test_semantic_drift_rejection_in_failover_validation():
         context_refs=tuple(reversed(src.context_refs)),
     )
     with pytest.raises(ContinuityStateValidationError, match="ContextRefs drift in failover"):
-        validate_brain_failover_eligibility(src, rep_bad_refs, state)
+        validate_brain_failover_eligibility(
+            src, rep_bad_refs, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap
+        )
 
     # 5. Changed output contract
     rep_bad_out = BrainRequest(
@@ -205,23 +223,22 @@ def test_semantic_drift_rejection_in_failover_validation():
         context_refs=src.context_refs,
     )
     with pytest.raises(ContinuityStateValidationError, match="OutputContract drift in failover"):
-        validate_brain_failover_eligibility(src, rep_bad_out, state)
+        validate_brain_failover_eligibility(
+            src, rep_bad_out, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap
+        )
 
 
-def test_replacement_capability_eligibility_validation():
-    """Replacement capability must match replacement brain_id, support operation, and be declarative-only."""
+def test_replacement_capability_gate_is_mandatory():
+    """Missing or invalid replacement capability fails closed."""
     state = _make_valid_state("TASK-022")
     src = _make_valid_source_request("TASK-022")
     rep = build_replacement_brain_request(src, "brain-b", "req-task-022-r2")
 
-    # Valid capability
-    cap_valid = BrainCapability(
-        brain_id="brain-b",
-        supported_operations=(BrainOperation.TASK, BrainOperation.TASK_AND_PLAN),
-        declarative_only=True,
-    )
-    proof = validate_brain_failover_eligibility(src, rep, state, replacement_capability=cap_valid)
-    assert proof.replacement_brain_id == "brain-b"
+    # None or missing replacement_capability fails closed
+    with pytest.raises(ContinuityStateValidationError, match="replacement_capability must be a BrainCapability"):
+        validate_brain_failover_eligibility(
+            src, rep, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=None  # type: ignore
+        )
 
     # Capability brain_id mismatch
     cap_wrong_id = BrainCapability(
@@ -229,7 +246,9 @@ def test_replacement_capability_eligibility_validation():
         supported_operations=(BrainOperation.TASK, BrainOperation.TASK_AND_PLAN),
     )
     with pytest.raises(ContinuityStateValidationError, match="Replacement capability brain_id mismatch"):
-        validate_brain_failover_eligibility(src, rep, state, replacement_capability=cap_wrong_id)
+        validate_brain_failover_eligibility(
+            src, rep, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap_wrong_id
+        )
 
     # Capability missing requested operation
     cap_missing_op = BrainCapability(
@@ -237,7 +256,9 @@ def test_replacement_capability_eligibility_validation():
         supported_operations=(BrainOperation.REVIEW,),
     )
     with pytest.raises(ContinuityStateValidationError, match="does not support operation"):
-        validate_brain_failover_eligibility(src, rep, state, replacement_capability=cap_missing_op)
+        validate_brain_failover_eligibility(
+            src, rep, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap_missing_op
+        )
 
 
 def test_source_result_and_duplicate_output_blocking():
@@ -245,9 +266,12 @@ def test_source_result_and_duplicate_output_blocking():
     state = _make_valid_state("TASK-022")
     src = _make_valid_source_request("TASK-022")
     rep = build_replacement_brain_request(src, "brain-b", "req-task-022-r2")
+    cap = _make_valid_replacement_capability("brain-b")
 
     # None source result allows failover
-    proof_none = validate_brain_failover_eligibility(src, rep, state, source_result=None)
+    proof_none = validate_brain_failover_eligibility(
+        src, rep, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap, source_result=None
+    )
     assert proof_none.source_result_status is None
 
     # REJECTED source result allows failover
@@ -260,7 +284,9 @@ def test_source_result_and_duplicate_output_blocking():
         output_type=BrainOutputType.TASK_ARTIFACT,
         error_code="CAPACITY_EXCEEDED",
     )
-    proof_rej = validate_brain_failover_eligibility(src, rep, state, source_result=res_rejected)
+    proof_rej = validate_brain_failover_eligibility(
+        src, rep, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap, source_result=res_rejected
+    )
     assert proof_rej.source_result_status == BrainResultStatus.REJECTED
 
     # FAILED and INCOMPLETE allow failover
@@ -273,7 +299,9 @@ def test_source_result_and_duplicate_output_blocking():
             status=st,
             output_type=BrainOutputType.TASK_ARTIFACT,
         )
-        p = validate_brain_failover_eligibility(src, rep, state, source_result=res)
+        p = validate_brain_failover_eligibility(
+            src, rep, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap, source_result=res
+        )
         assert p.source_result_status == st
 
     # SUCCESS source result MUST FAIL CLOSED to prevent duplicate outputs
@@ -287,7 +315,9 @@ def test_source_result_and_duplicate_output_blocking():
         artifact_ref=ArtifactRef(path=".ai/tasks/TASK-022.md", blob_sha="92494bcd64b594d60a5f74a82e3e64c113d817db", ref="task"),
     )
     with pytest.raises(ContinuityStateValidationError, match="source request already succeeded with status SUCCESS"):
-        validate_brain_failover_eligibility(src, rep, state, source_result=res_success)
+        validate_brain_failover_eligibility(
+            src, rep, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap, source_result=res_success
+        )
 
 
 def test_source_result_identity_mismatches_fail_closed():
@@ -295,20 +325,23 @@ def test_source_result_identity_mismatches_fail_closed():
     state = _make_valid_state("TASK-022")
     src = _make_valid_source_request("TASK-022")
     rep = build_replacement_brain_request(src, "brain-b", "req-task-022-r2")
+    cap = _make_valid_replacement_capability("brain-b")
 
-    # Mismatched brain_id in source result
-    res_wrong_brain = BrainResult(
-        task_id=src.task_id,
+    # 1. Mismatched task_id in source result
+    res_wrong_task = BrainResult(
+        task_id="TASK-099",
         request_id=src.request_id,
-        brain_id="brain-c",
+        brain_id=src.brain_id,
         operation=src.operation,
         status=BrainResultStatus.FAILED,
         output_type=BrainOutputType.TASK_ARTIFACT,
     )
-    with pytest.raises(ContinuityStateValidationError, match="Source result brain_id mismatch"):
-        validate_brain_failover_eligibility(src, rep, state, source_result=res_wrong_brain)
+    with pytest.raises(ContinuityStateValidationError, match="Source result task_id mismatch"):
+        validate_brain_failover_eligibility(
+            src, rep, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap, source_result=res_wrong_task
+        )
 
-    # Mismatched request_id in source result
+    # 2. Mismatched request_id in source result
     res_wrong_req = BrainResult(
         task_id=src.task_id,
         request_id="req-other-id",
@@ -318,30 +351,71 @@ def test_source_result_identity_mismatches_fail_closed():
         output_type=BrainOutputType.TASK_ARTIFACT,
     )
     with pytest.raises(ContinuityStateValidationError, match="Source result request_id mismatch"):
-        validate_brain_failover_eligibility(src, rep, state, source_result=res_wrong_req)
+        validate_brain_failover_eligibility(
+            src, rep, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap, source_result=res_wrong_req
+        )
+
+    # 3. Mismatched brain_id in source result
+    res_wrong_brain = BrainResult(
+        task_id=src.task_id,
+        request_id=src.request_id,
+        brain_id="brain-c",
+        operation=src.operation,
+        status=BrainResultStatus.FAILED,
+        output_type=BrainOutputType.TASK_ARTIFACT,
+    )
+    with pytest.raises(ContinuityStateValidationError, match="Source result brain_id mismatch"):
+        validate_brain_failover_eligibility(
+            src, rep, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap, source_result=res_wrong_brain
+        )
+
+    # 4. Mismatched operation in source result
+    res_wrong_op = BrainResult(
+        task_id=src.task_id,
+        request_id=src.request_id,
+        brain_id=src.brain_id,
+        operation=BrainOperation.REVIEW,
+        status=BrainResultStatus.FAILED,
+        output_type=BrainOutputType.REVIEW_ARTIFACT,
+    )
+    with pytest.raises(ContinuityStateValidationError, match="Source result operation mismatch"):
+        validate_brain_failover_eligibility(
+            src, rep, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap, source_result=res_wrong_op
+        )
 
 
-def test_state_anchor_and_fingerprint_validation():
-    """State task_id mismatch or fingerprint mismatch fails closed."""
+def test_state_anchor_and_fingerprint_mandatory_validation():
+    """State task_id mismatch, missing fingerprint, or wrong fingerprint fails closed."""
     state = _make_valid_state("TASK-022")
     src = _make_valid_source_request("TASK-022")
     rep = build_replacement_brain_request(src, "brain-b", "req-task-022-r2")
+    cap = _make_valid_replacement_capability("brain-b")
 
     # Valid expected fingerprint passes
     proof = validate_brain_failover_eligibility(
-        src, rep, state, expected_state_fingerprint=state.fingerprint()
+        src, rep, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap
     )
     assert proof.state_fingerprint == state.fingerprint()
 
     # Mismatched expected fingerprint fails closed
     wrong_fp = "0" * 64
     with pytest.raises(ContinuityStateValidationError, match="State fingerprint mismatch"):
-        validate_brain_failover_eligibility(src, rep, state, expected_state_fingerprint=wrong_fp)
+        validate_brain_failover_eligibility(
+            src, rep, state, expected_state_fingerprint=wrong_fp, replacement_capability=cap
+        )
+
+    # Malformed expected fingerprint fails closed
+    with pytest.raises(ContinuityStateValidationError, match="must be an exact 64-character lowercase hex"):
+        validate_brain_failover_eligibility(
+            src, rep, state, expected_state_fingerprint="not-a-sha256", replacement_capability=cap
+        )
 
     # State for a different task fails closed
     state_other_task = _make_valid_state("TASK-099")
     with pytest.raises(ContinuityStateValidationError, match="State task_id mismatch"):
-        validate_brain_failover_eligibility(src, rep, state_other_task)
+        validate_brain_failover_eligibility(
+            src, rep, state_other_task, expected_state_fingerprint=state_other_task.fingerprint(), replacement_capability=cap
+        )
 
 
 def test_deterministic_canonical_json_fingerprint_and_unknown_fields():
@@ -349,8 +423,11 @@ def test_deterministic_canonical_json_fingerprint_and_unknown_fields():
     state = _make_valid_state("TASK-022")
     src = _make_valid_source_request("TASK-022")
     rep = build_replacement_brain_request(src, "brain-b", "req-task-022-r2")
+    cap = _make_valid_replacement_capability("brain-b")
 
-    proof1 = validate_brain_failover_eligibility(src, rep, state)
+    proof1 = validate_brain_failover_eligibility(
+        src, rep, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap
+    )
     json1 = proof1.to_canonical_json()
     fp1 = proof1.fingerprint()
 
@@ -381,7 +458,10 @@ def test_16kib_fail_closed_limit():
     state = _make_valid_state("TASK-022")
     src = _make_valid_source_request("TASK-022")
     rep = build_replacement_brain_request(src, "brain-b", "req-task-022-r2")
-    proof = validate_brain_failover_eligibility(src, rep, state)
+    cap = _make_valid_replacement_capability("brain-b")
+    proof = validate_brain_failover_eligibility(
+        src, rep, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap
+    )
 
     # Oversized JSON input
     huge_bytes = b" " * 16385

@@ -270,13 +270,14 @@ def validate_brain_failover_eligibility(
     source_request: BrainRequest,
     replacement_request: BrainRequest,
     state: ContinuityState,
-    replacement_capability: BrainCapability | None = None,
+    expected_state_fingerprint: str,
+    replacement_capability: BrainCapability,
     source_result: BrainResult | None = None,
-    expected_state_fingerprint: str | None = None,
 ) -> BrainFailoverProof:
     """
     Validates pure mathematical and state-anchored failover eligibility between two BrainRequests.
     Returns an immutable BrainFailoverProof record on success. Fails closed on any discrepancy.
+    Requires caller-supplied expected_state_fingerprint and replacement_capability.
     """
     if not isinstance(source_request, BrainRequest):
         raise ContinuityStateValidationError(
@@ -291,7 +292,8 @@ def validate_brain_failover_eligibility(
             f"state must be a ContinuityState, got: {type(state).__name__}"
         )
 
-    # 1. State Anchor Validation
+    # 1. State Anchor Validation (Mandatory)
+    _validate_hex_fingerprint(expected_state_fingerprint, "expected_state_fingerprint")
     if state.task_id != source_request.task_id:
         raise ContinuityStateValidationError(
             f"State task_id mismatch: state.task_id '{state.task_id}' != source_request.task_id '{source_request.task_id}'"
@@ -302,12 +304,10 @@ def validate_brain_failover_eligibility(
         )
 
     actual_state_fingerprint = state.fingerprint()
-    if expected_state_fingerprint is not None:
-        _validate_hex_fingerprint(expected_state_fingerprint, "expected_state_fingerprint")
-        if expected_state_fingerprint != actual_state_fingerprint:
-            raise ContinuityStateValidationError(
-                f"State fingerprint mismatch: expected '{expected_state_fingerprint}', actual '{actual_state_fingerprint}'"
-            )
+    if expected_state_fingerprint != actual_state_fingerprint:
+        raise ContinuityStateValidationError(
+            f"State fingerprint mismatch: expected '{expected_state_fingerprint}', actual '{actual_state_fingerprint}'"
+        )
 
     # 2. Semantic Equivalence Validation
     if source_request.task_id != replacement_request.task_id:
@@ -332,23 +332,22 @@ def validate_brain_failover_eligibility(
             f"Same-Brain pseudo-failover rejected: source and replacement brain_id are identical ('{source_request.brain_id}')"
         )
 
-    # 3. Replacement Capability Validation (if provided)
-    if replacement_capability is not None:
-        if not isinstance(replacement_capability, BrainCapability):
-            raise ContinuityStateValidationError(
-                f"replacement_capability must be a BrainCapability, got: {type(replacement_capability).__name__}"
-            )
-        if replacement_capability.brain_id != replacement_request.brain_id:
-            raise ContinuityStateValidationError(
-                f"Replacement capability brain_id mismatch: capability '{replacement_capability.brain_id}' "
-                f"!= replacement_request '{replacement_request.brain_id}'"
-            )
-        if replacement_request.operation not in replacement_capability.supported_operations:
-            raise ContinuityStateValidationError(
-                f"Replacement brain '{replacement_capability.brain_id}' does not support operation '{replacement_request.operation.value}'"
-            )
-        if not replacement_capability.declarative_only:
-            raise ContinuityStateValidationError("Replacement capability declarative_only must be True")
+    # 3. Replacement Capability Validation (Mandatory Gate)
+    if not isinstance(replacement_capability, BrainCapability):
+        raise ContinuityStateValidationError(
+            f"replacement_capability must be a BrainCapability, got: {type(replacement_capability).__name__}"
+        )
+    if replacement_capability.brain_id != replacement_request.brain_id:
+        raise ContinuityStateValidationError(
+            f"Replacement capability brain_id mismatch: capability '{replacement_capability.brain_id}' "
+            f"!= replacement_request '{replacement_request.brain_id}'"
+        )
+    if replacement_request.operation not in replacement_capability.supported_operations:
+        raise ContinuityStateValidationError(
+            f"Replacement brain '{replacement_capability.brain_id}' does not support operation '{replacement_request.operation.value}'"
+        )
+    if not replacement_capability.declarative_only:
+        raise ContinuityStateValidationError("Replacement capability declarative_only must be True")
 
     # 4. Source Result Validation (if provided)
     source_status: BrainResultStatus | None = None
