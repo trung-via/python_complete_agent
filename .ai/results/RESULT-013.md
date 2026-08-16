@@ -3,25 +3,21 @@
 STATUS: READY_FOR_REVIEW
 
 ## Summary
-TASK-013 FIX: Invoked JS extractor functions properly in Playwright fixture with targetProductId argument, verified nested UGC/recommendation contamination exclusion across scanned product containers, removed stray test_pw.py script, and supplied full verification evidence.
+TASK-013 FIX: Removed stray publication helper script scratch_publish.py, verified accurate 19-file task diff against main, and preserved complete green test suite evidence.
 
 ## Task Metadata
 - Task: `TASK-013`
 - Action: `FIX`
-- Authorized Artifact: `.ai/reviews/REVIEW-013.md (20ca158259)`
+- Authorized Artifact: `.ai/reviews/REVIEW-013.md (28dc314869)`
 - Base Main SHA: `(n/a)`
 - Branch: `ai/task-013`
 
 ## Files Changed
-- test_pw.py
-- tests/product_source/test_extractor_dom_fixtures.py
-- scratch_publish.py
+- (none before result generation)
 
 ## Diff Stat
 ```text
-test_pw.py                                         |  10 --
- .../product_source/test_extractor_dom_fixtures.py  | 136 ++++++++++++---------
- 2 files changed, 81 insertions(+), 65 deletions(-)
+
 ```
 
 ## Tests
@@ -148,7 +144,7 @@ tests/product_source/test_tiktok_source_extractor.py: 8 warnings
     policy = asyncio.get_event_loop_policy()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-====================== 48 passed, 211 warnings in 2.96s =======================
+====================== 48 passed, 211 warnings in 2.20s =======================
 ........................................................................ [ 15%]
 ........................................................................ [ 30%]
 ........................................................................ [ 46%]
@@ -156,7 +152,7 @@ tests/product_source/test_tiktok_source_extractor.py: 8 warnings
 ........................................................................ [ 77%]
 ........................................................................ [ 92%]
 ..................................                                       [100%]
-466 passed in 48.34s
+466 passed in 47.21s
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -169,28 +165,38 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 ```
 
 ## Risks / Notes
-1. DOM Fixture Invocation Fix:
-- Extractor scripts are arrow functions (targetProductId) => { ... } evaluated directly through page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, "123") and page.evaluate(_TIKTOK_EXTRACTOR_JS, "123").
+### Full Task Diff Stat (against main)
+`	ext
+ .ai/results/RESULT-013.md                          | 196 +++++++++
+ docs/PHASE_6_PRODUCT_SOURCE_PACK.md                | 171 ++++++++
+ src/product_source/__init__.py                     |  28 ++
+ src/product_source/downloader.py                   | 220 ++++++++++
+ src/product_source/extractor.py                    |  10 +
+ src/product_source/models.py                       | 235 ++++++++++
+ src/product_source/platforms/__init__.py           |   5 +
+ src/product_source/platforms/shopee.py             | 409 +++++++++++++++++
+ src/product_source/platforms/tiktok.py             | 483 +++++++++++++++++++++
+ src/product_source/serialization.py                |  20 +
+ src/tools/shopee_scrape_tool.py                    | 378 +++++++---------
+ src/tools/tiktok_scrape_tool.py                    | 329 +++++++-------
+ tests/product_source/__init__.py                   |   1 +
+ .../product_source/test_extractor_dom_fixtures.py  | 144 ++++++
+ tests/product_source/test_models.py                | 223 ++++++++++
+ .../test_original_media_downloader.py              | 270 ++++++++++++
+ tests/product_source/test_scrape_tool_compat.py    | 300 +++++++++++++
+ .../product_source/test_shopee_source_extractor.py | 310 +++++++++++++
+ .../product_source/test_tiktok_source_extractor.py | 279 ++++++++++++
+ 19 files changed, 3640 insertions(+), 371 deletions(-)
+`
 
-2. Nested UGC/Review Contamination Exclusion Verification:
-- Playwright DOM fixtures in tests/product_source/test_extractor_dom_fixtures.py now explicitly nest review, comment, rating, and recommendation subtrees directly INSIDE scanned product containers (.product-briefing, .product-image-carousel, .product-detail for Shopee; .pdp-container, .product-image, .seller-description for TikTok) sharing identical CDN hosts.
-- Assertions prove that valid seller/gallery images are accepted, while all nested UGC and recommendation subtrees are rejected specifically by container/subtree ownership exclusion.
-
-3. Stray Script Cleanup:
-- Removed stray test_pw.py debug script from repository.
-
-4. Durable Verification Evidence:
-- Focused suite (tests/product_source/): 48 passed, 0 failed.
-- Full repository suite (tests/): 466 passed, 0 failed.
-
-5. Architectural Invariants Preserved:
-- Exact identity matching (no substring overlap).
-- Structured product fields strictly gated behind identity.
-- Model/SKU captured when present.
-- Pattern-based URL sensitive parameter redaction.
-- Fail-closed on zero accepted seller media.
-- Known limitations: M2.2A establishes canonical Product Source Packs; M2.3 cross-platform scoring/ranking and M2.4 queue handoff remain scheduled for future milestones.
-- Merge governance: Do not merge automatically. Human review required.
+### Fix Summary & Invariants:
+1. Removed scratch publication helper scratch_publish.py and prior debug script test_pw.py.
+2. Verified Playwright DOM fixtures directly evaluate extractor arrow functions with targetProductId and exclude nested UGC/recommendation subtrees sharing same CDN host.
+3. Focused suite (tests/product_source/): 48 passed, 0 failed.
+4. Full repository suite (tests/): 466 passed, 0 failed.
+5. Invariants preserved: exact identity matching, identity-gated structured fields, explicit model/SKU capture, pattern-based signed URL redaction, run-id plumbing, zero-media fail closed, streaming size bounds, SHA-256 dedupe, no AI image generation / LLM / scoring / ranking / queue mutation.
+6. Known limitations: M2.2A establishes canonical Product Source Packs; M2.3 scoring/ranking and M2.4 queue handoff remain scheduled for future milestones.
+7. Merge governance: Do not merge automatically. Human review required.
 
 ## Generated
-2026-08-16T08:32:56+07:00
+2026-08-16T08:36:50+07:00
