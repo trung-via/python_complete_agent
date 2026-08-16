@@ -1,0 +1,47 @@
+{
+  "artifacts": {
+    "contracts": [
+      {
+        "blob_sha": "504630c25f37c83819ae951076704765609105c7",
+        "path": ".ai/decisions/ADR-010-OPEN-MULTI-AGENT-CONTINUITY-OS-ARCHITECTURE-LOCK.md",
+        "ref": "ai-control"
+      },
+      {
+        "blob_sha": "0ce561b1de5c964bb93ea0a5a127b48d86a65839",
+        "path": ".ai/decisions/ADR-011-AIOS-CONTINUITY-M1-CANONICAL-PROJECT-STATE-CONTRACT-LOCK.md",
+        "ref": "ai-control"
+      }
+    ],
+    "plan": {
+      "blob_sha": "fa595e44822690b38974d26dbe20f97e4020e1c6",
+      "path": ".ai/context/TASK-019-CHATGPT-PLAN.md",
+      "ref": "ai-control"
+    },
+    "result": null,
+    "review": null,
+    "task": {
+      "blob_sha": "adc44f449f2a991a455b8039d8e8978fe4643146",
+      "path": ".ai/tasks/TASK-019.md",
+      "ref": "ai-control"
+    }
+  },
+  "brain": {
+    "last_id": "chatgpt-chat",
+    "last_operation": "TASK_AND_PLAN"
+  },
+  "executor": {
+    "last_id": null
+  },
+  "main": {
+    "branch": "main",
+    "sha": "689c2c6dd8e41fe0f735b822118ba6530379b7dd"
+  },
+  "next_operation": "RUN_APPROVAL",
+  "phase": "READY_FOR_RUN",
+  "schema_version": "1",
+  "task_branch": {
+    "branch": "ai/task-019",
+    "sha": null
+  },
+  "task_id": "TASK-019"
+}
