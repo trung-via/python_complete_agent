@@ -33,8 +33,13 @@ from .errors import (
     OutputContractError,
     SensitiveContextError,
 )
+from .gateway import GatewayResult, ModelGateway
+from .prompt import render_messages
 from .provider import ProviderAdapter
+from .providers.minimax import MiniMaxOpenAIProvider
 from .transport import ModelTransport, TransportRequest, TransportResult
+from .transports.openai_compatible import OpenAICompatibleTransport
+from .usage import JsonlUsageLedger, UsageLedger, UsageRecord
 from .validation import (
     ALLOWED_REVIEW_STATUSES,
     REQUIRED_SECTIONS,
@@ -68,12 +73,14 @@ __all__ = [
     "ContextItem",
     "ModelRequest",
     "ModelResponse",
-    # Provider protocol
+    # Provider protocol & implementations
     "ProviderAdapter",
-    # Transport protocol & types
+    "MiniMaxOpenAIProvider",
+    # Transport protocol & implementations
     "TransportRequest",
     "TransportResult",
     "ModelTransport",
+    "OpenAICompatibleTransport",
     # Artifact validation
     "REQUIRED_SECTIONS",
     "ALLOWED_REVIEW_STATUSES",
@@ -88,4 +95,13 @@ __all__ = [
     "ContextBuildResult",
     "ContextBuilder",
     "render_context_item",
+    # Prompt rendering
+    "render_messages",
+    # Gateway & Result
+    "GatewayResult",
+    "ModelGateway",
+    # Usage Telemetry & Ledger
+    "UsageRecord",
+    "UsageLedger",
+    "JsonlUsageLedger",
 ]
