@@ -1,10 +1,10 @@
 {
   "brain_usage": [
     {
-      "artifact_reads": 0,
+      "artifact_reads": null,
       "brain_id": "chatgpt-chat",
       "external_api_calls": 0,
-      "full_file_reads": 0,
+      "full_file_reads": null,
       "input_bytes": null,
       "operation": "TASK_AND_PLAN",
       "output_bytes": null,
@@ -19,10 +19,10 @@
       "turns": 1
     },
     {
-      "artifact_reads": 0,
+      "artifact_reads": null,
       "brain_id": "chatgpt-chat",
       "external_api_calls": 0,
-      "full_file_reads": 0,
+      "full_file_reads": null,
       "input_bytes": null,
       "operation": "REVIEW",
       "output_bytes": null,
@@ -37,10 +37,10 @@
       "turns": 1
     },
     {
-      "artifact_reads": 0,
+      "artifact_reads": null,
       "brain_id": "chatgpt-chat",
       "external_api_calls": 0,
-      "full_file_reads": 0,
+      "full_file_reads": null,
       "input_bytes": null,
       "operation": "REVIEW",
       "output_bytes": null,
@@ -71,7 +71,7 @@
       "input_bytes": null,
       "output_bytes": null,
       "runs": 1,
-      "test_runs": 0,
+      "test_runs": null,
       "tokens": {
         "max_tokens": 60000,
         "method": "historical-audit-estimate-v1",
@@ -86,7 +86,7 @@
       "input_bytes": null,
       "output_bytes": null,
       "runs": 1,
-      "test_runs": 0,
+      "test_runs": null,
       "tokens": {
         "max_tokens": 38000,
         "method": "historical-audit-estimate-v1",

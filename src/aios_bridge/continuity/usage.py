@@ -20,6 +20,12 @@ from .state import (
 )
 
 _TASK_ID_PATTERN = re.compile(r"^TASK-\d+$")
+_METHOD_PATTERN = re.compile(r"^[a-z0-9]+(?:[a-z0-9_.\-]+)*$")
+MAX_METHOD_LENGTH = 64
+
+SUPPORTED_ESTIMATION_METHODS = {
+    "utf8-bytes-div4-v1",
+}
 
 
 class UsageSource(str, Enum):
@@ -57,6 +63,21 @@ def _validate_task_id(task_id: Any, field_name: str = "task_id") -> str:
     return task_id
 
 
+def _validate_method_identifier(method: Any, field_name: str = "method") -> str:
+    if isinstance(method, bool) or not isinstance(method, str) or not method.strip():
+        raise ContinuityStateValidationError(f"{field_name} must be a non-empty string")
+    method_str = method.strip()
+    if len(method_str) > MAX_METHOD_LENGTH:
+        raise ContinuityStateValidationError(
+            f"{field_name} length ({len(method_str)}) exceeds maximum allowed ({MAX_METHOD_LENGTH})"
+        )
+    if not _METHOD_PATTERN.match(method_str):
+        raise ContinuityStateValidationError(
+            f"{field_name} must be a conservative lowercase identifier (e.g. 'utf8-bytes-div4-v1'), got: {method!r}"
+        )
+    return method_str
+
+
 @dataclass(frozen=True)
 class TokenMeasurement:
     """Bounded, provenance-explicit token measurement."""
@@ -84,8 +105,8 @@ class TokenMeasurement:
                 raise ContinuityStateValidationError(
                     f"REPORTED token measurement must be exact (min_tokens == max_tokens), got: min={self.min_tokens}, max={self.max_tokens}"
                 )
-            if self.method is not None and (isinstance(self.method, bool) or not isinstance(self.method, str)):
-                raise ContinuityStateValidationError("TokenMeasurement.method must be a string or None")
+            if self.method is not None:
+                object.__setattr__(self, "method", _validate_method_identifier(self.method, "TokenMeasurement.method"))
 
         elif self.source == UsageSource.ESTIMATED:
             if self.min_tokens is None or self.max_tokens is None:
@@ -96,8 +117,9 @@ class TokenMeasurement:
                 raise ContinuityStateValidationError(
                     f"Token measurement min_tokens ({self.min_tokens}) cannot exceed max_tokens ({self.max_tokens})"
                 )
-            if isinstance(self.method, bool) or not isinstance(self.method, str) or not self.method.strip():
-                raise ContinuityStateValidationError("ESTIMATED token measurement requires a non-empty method description")
+            if self.method is None:
+                raise ContinuityStateValidationError("ESTIMATED token measurement requires a method identifier")
+            object.__setattr__(self, "method", _validate_method_identifier(self.method, "TokenMeasurement.method"))
 
         elif self.source == UsageSource.UNKNOWN:
             if self.min_tokens is not None or self.max_tokens is not None:
@@ -142,9 +164,9 @@ class BrainUsageRecord:
     input_bytes: int | None = None
     output_bytes: int | None = None
     patch_bytes: int | None = None
-    full_file_reads: int = 0
-    artifact_reads: int = 0
-    external_api_calls: int = 0
+    full_file_reads: int | None = None
+    artifact_reads: int | None = None
+    external_api_calls: int | None = None
 
     def __post_init__(self) -> None:
         _validate_actor_id(self.brain_id, "BrainUsageRecord.brain_id")
@@ -168,9 +190,9 @@ class BrainUsageRecord:
         _validate_non_negative_int(self.input_bytes, "BrainUsageRecord.input_bytes", allow_none=True)
         _validate_non_negative_int(self.output_bytes, "BrainUsageRecord.output_bytes", allow_none=True)
         _validate_non_negative_int(self.patch_bytes, "BrainUsageRecord.patch_bytes", allow_none=True)
-        _validate_non_negative_int(self.full_file_reads, "BrainUsageRecord.full_file_reads")
-        _validate_non_negative_int(self.artifact_reads, "BrainUsageRecord.artifact_reads")
-        _validate_non_negative_int(self.external_api_calls, "BrainUsageRecord.external_api_calls")
+        _validate_non_negative_int(self.full_file_reads, "BrainUsageRecord.full_file_reads", allow_none=True)
+        _validate_non_negative_int(self.artifact_reads, "BrainUsageRecord.artifact_reads", allow_none=True)
+        _validate_non_negative_int(self.external_api_calls, "BrainUsageRecord.external_api_calls", allow_none=True)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -221,9 +243,9 @@ class BrainUsageRecord:
             input_bytes=data.get("input_bytes"),
             output_bytes=data.get("output_bytes"),
             patch_bytes=data.get("patch_bytes"),
-            full_file_reads=data.get("full_file_reads", 0),
-            artifact_reads=data.get("artifact_reads", 0),
-            external_api_calls=data.get("external_api_calls", 0),
+            full_file_reads=data.get("full_file_reads"),
+            artifact_reads=data.get("artifact_reads"),
+            external_api_calls=data.get("external_api_calls"),
         )
 
 
@@ -236,8 +258,8 @@ class ExecutorUsageRecord:
     runs: int = 1
     input_bytes: int | None = None
     output_bytes: int | None = None
-    test_runs: int = 0
-    external_api_calls: int = 0
+    test_runs: int | None = None
+    external_api_calls: int | None = None
 
     def __post_init__(self) -> None:
         _validate_actor_id(self.executor_id, "ExecutorUsageRecord.executor_id")
@@ -259,8 +281,8 @@ class ExecutorUsageRecord:
         _validate_non_negative_int(self.runs, "ExecutorUsageRecord.runs", min_val=1)
         _validate_non_negative_int(self.input_bytes, "ExecutorUsageRecord.input_bytes", allow_none=True)
         _validate_non_negative_int(self.output_bytes, "ExecutorUsageRecord.output_bytes", allow_none=True)
-        _validate_non_negative_int(self.test_runs, "ExecutorUsageRecord.test_runs")
-        _validate_non_negative_int(self.external_api_calls, "ExecutorUsageRecord.external_api_calls")
+        _validate_non_negative_int(self.test_runs, "ExecutorUsageRecord.test_runs", allow_none=True)
+        _validate_non_negative_int(self.external_api_calls, "ExecutorUsageRecord.external_api_calls", allow_none=True)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -303,8 +325,8 @@ class ExecutorUsageRecord:
             runs=data.get("runs", 1),
             input_bytes=data.get("input_bytes"),
             output_bytes=data.get("output_bytes"),
-            test_runs=data.get("test_runs", 0),
-            external_api_calls=data.get("external_api_calls", 0),
+            test_runs=data.get("test_runs"),
+            external_api_calls=data.get("external_api_calls"),
         )
 
 
@@ -388,17 +410,37 @@ class EfficiencyMetrics:
                     f"EfficiencyMetrics.full_file_read_rate must be in [0.0, 1.0], got: {self.full_file_read_rate}"
                 )
 
-        # Validate partition consistency when all components are known
-        if self.brain_context_bytes is not None:
-            sum_parts = 0
-            has_parts = False
-            for part in (self.useful_context_bytes, self.redundant_context_bytes, self.escalated_context_bytes):
-                if part is not None:
-                    sum_parts += part
-                    has_parts = True
-            if has_parts and sum_parts > self.brain_context_bytes:
+        # Enforce exact partition equality when all components and total are known
+        if (
+            self.brain_context_bytes is not None
+            and self.useful_context_bytes is not None
+            and self.redundant_context_bytes is not None
+            and self.escalated_context_bytes is not None
+        ):
+            sum_all = self.useful_context_bytes + self.redundant_context_bytes + self.escalated_context_bytes
+            if sum_all != self.brain_context_bytes:
                 raise ContinuityStateValidationError(
-                    f"Impossible efficiency partition: components sum ({sum_parts}) exceeds total brain_context_bytes ({self.brain_context_bytes})"
+                    f"Inconsistent efficiency partition: sum of components ({sum_all}) != total brain_context_bytes ({self.brain_context_bytes})"
+                )
+        elif self.brain_context_bytes is not None:
+            sum_known = sum(
+                x for x in (self.useful_context_bytes, self.redundant_context_bytes, self.escalated_context_bytes) if x is not None
+            )
+            if sum_known > self.brain_context_bytes:
+                raise ContinuityStateValidationError(
+                    f"Impossible efficiency partition: partial sum of components ({sum_known}) exceeds total brain_context_bytes ({self.brain_context_bytes})"
+                )
+
+        # Validate supplied ratio against known useful and total bytes
+        if (
+            self.context_efficiency_ratio is not None
+            and self.useful_context_bytes is not None
+            and self.brain_context_bytes is not None
+        ):
+            expected_ratio = calculate_context_efficiency_ratio(self.useful_context_bytes, self.brain_context_bytes)
+            if expected_ratio is not None and abs(float(self.context_efficiency_ratio) - expected_ratio) > 1e-4:
+                raise ContinuityStateValidationError(
+                    f"Inconsistent context_efficiency_ratio: supplied {self.context_efficiency_ratio} != expected {expected_ratio} (useful_bytes / brain_context_bytes)"
                 )
 
     def to_dict(self) -> dict[str, Any]:
@@ -628,10 +670,15 @@ def estimate_tokens_from_bytes(
     """
     Computes a deterministic token-equivalent estimate from byte count.
     ALWAYS returns source=ESTIMATED, never REPORTED.
+    Fails closed if the requested method label is unsupported.
     """
     _validate_non_negative_int(byte_count, "byte_count")
-    if isinstance(method, bool) or not isinstance(method, str) or not method.strip():
-        raise ContinuityStateValidationError("method must be a non-empty string")
+    _validate_method_identifier(method, "method")
+
+    if method not in SUPPORTED_ESTIMATION_METHODS:
+        raise ContinuityStateValidationError(
+            f"Unsupported estimation method: {method!r}. Supported methods: {sorted(SUPPORTED_ESTIMATION_METHODS)}"
+        )
 
     if byte_count == 0:
         return TokenMeasurement(
@@ -661,23 +708,24 @@ def aggregate_token_ranges(
 ) -> tuple[int | None, int | None]:
     """
     Deterministically aggregates min and max token ranges across a sequence of TokenMeasurements.
-    Returns (total_min, total_max). If all measurements are UNKNOWN, returns (None, None).
+    Returns (total_min, total_max).
+    If any measurement is UNKNOWN or missing min/max, returns (None, None) to preserve incompleteness.
+    If measurements is empty, returns (0, 0).
     """
+    if not measurements:
+        return (0, 0)
+
     total_min = 0
     total_max = 0
-    has_known = False
 
     for m in measurements:
         if not isinstance(m, TokenMeasurement):
             raise ContinuityStateValidationError(f"Expected TokenMeasurement, got: {type(m).__name__}")
-        if m.source in (UsageSource.REPORTED, UsageSource.ESTIMATED):
-            if m.min_tokens is not None and m.max_tokens is not None:
-                total_min += m.min_tokens
-                total_max += m.max_tokens
-                has_known = True
+        if m.source == UsageSource.UNKNOWN or m.min_tokens is None or m.max_tokens is None:
+            return (None, None)
+        total_min += m.min_tokens
+        total_max += m.max_tokens
 
-    if not has_known:
-        return (None, None)
     return (total_min, total_max)
 
 

@@ -124,7 +124,7 @@ def test_token_measurement_semantics_reported_estimated_unknown():
 
     # ESTIMATED valid
     m_est = TokenMeasurement(
-        source=UsageSource.ESTIMATED, min_tokens=1000, max_tokens=2000, method="model-div4"
+        source=UsageSource.ESTIMATED, min_tokens=1000, max_tokens=2000, method="utf8-bytes-div4-v1"
     )
     assert m_est.source == UsageSource.ESTIMATED
     assert m_est.min_tokens == 1000
@@ -133,12 +133,12 @@ def test_token_measurement_semantics_reported_estimated_unknown():
     # ESTIMATED invalid if min > max
     with pytest.raises(ContinuityStateValidationError, match="cannot exceed max_tokens"):
         TokenMeasurement(
-            source=UsageSource.ESTIMATED, min_tokens=2001, max_tokens=2000, method="model-div4"
+            source=UsageSource.ESTIMATED, min_tokens=2001, max_tokens=2000, method="utf8-bytes-div4-v1"
         )
 
     # ESTIMATED invalid if method missing
-    with pytest.raises(ContinuityStateValidationError, match="requires a non-empty method"):
-        TokenMeasurement(source=UsageSource.ESTIMATED, min_tokens=1000, max_tokens=2000, method="")
+    with pytest.raises(ContinuityStateValidationError, match="requires a method identifier"):
+        TokenMeasurement(source=UsageSource.ESTIMATED, min_tokens=1000, max_tokens=2000, method=None)
 
     # UNKNOWN valid
     m_unk = TokenMeasurement(source=UsageSource.UNKNOWN)
@@ -153,7 +153,28 @@ def test_token_measurement_semantics_reported_estimated_unknown():
 
     # UNKNOWN invalid if method supplied
     with pytest.raises(ContinuityStateValidationError, match="UNKNOWN token measurement must have method=None"):
-        TokenMeasurement(source=UsageSource.UNKNOWN, method="some-method")
+        TokenMeasurement(source=UsageSource.UNKNOWN, method="utf8-bytes-div4-v1")
+
+
+def test_token_measurement_method_bounding():
+    """TokenMeasurement.method must be a bounded conservative identifier without free-form payload."""
+    # Valid method identifiers
+    for valid_m in ["utf8-bytes-div4-v1", "historical-audit-estimate-v1", "gpt4-tokenizer-v1", "proxy-v2"]:
+        m = TokenMeasurement(source=UsageSource.ESTIMATED, min_tokens=10, max_tokens=20, method=valid_m)
+        assert m.method == valid_m
+
+    # Invalid methods
+    invalid_methods = [
+        "Method With Spaces",
+        "UPPERCASE_METHOD",
+        "method;injection()",
+        "a" * 65,  # Exceeds max length of 64
+        "",
+        True,
+    ]
+    for inv_m in invalid_methods:
+        with pytest.raises(ContinuityStateValidationError):
+            TokenMeasurement(source=UsageSource.ESTIMATED, min_tokens=10, max_tokens=20, method=inv_m)
 
 
 def test_non_negative_integer_and_bool_rejection():
@@ -237,7 +258,7 @@ def test_deterministic_canonical_json_and_fingerprint():
 
 
 def test_estimate_tokens_from_bytes_helper():
-    """estimate_tokens_from_bytes produces ESTIMATED tokens with explicit method and never REPORTED."""
+    """estimate_tokens_from_bytes produces ESTIMATED tokens with explicit method and rejects unsupported methods."""
     est = estimate_tokens_from_bytes(1000, method="utf8-bytes-div4-v1")
     assert est.source == UsageSource.ESTIMATED
     assert est.min_tokens == 200  # 1000 // 5
@@ -245,26 +266,36 @@ def test_estimate_tokens_from_bytes_helper():
     assert est.method == "utf8-bytes-div4-v1"
 
     # Zero bytes
-    est_zero = estimate_tokens_from_bytes(0)
+    est_zero = estimate_tokens_from_bytes(0, method="utf8-bytes-div4-v1")
     assert est_zero.source == UsageSource.ESTIMATED
     assert est_zero.min_tokens == 0
     assert est_zero.max_tokens == 0
 
+    # Unsupported method label must fail closed
+    with pytest.raises(ContinuityStateValidationError, match="Unsupported estimation method"):
+        estimate_tokens_from_bytes(1000, method="arbitrary-untested-method")
 
-def test_aggregate_token_ranges_helper():
-    """aggregate_token_ranges accurately sums token ranges across heterogeneous measurements."""
+
+def test_aggregate_token_ranges_helper_complete_and_incomplete():
+    """aggregate_token_ranges accurately sums token ranges or returns (None, None) if incomplete."""
     m1 = TokenMeasurement(source=UsageSource.REPORTED, min_tokens=1000, max_tokens=1000)
-    m2 = TokenMeasurement(source=UsageSource.ESTIMATED, min_tokens=2000, max_tokens=4000, method="audit")
+    m2 = TokenMeasurement(source=UsageSource.ESTIMATED, min_tokens=2000, max_tokens=4000, method="historical-audit-estimate-v1")
     m3 = TokenMeasurement(source=UsageSource.UNKNOWN)
 
-    total_min, total_max = aggregate_token_ranges([m1, m2, m3])
+    # Pure known measurements
+    total_min, total_max = aggregate_token_ranges([m1, m2])
     assert total_min == 3000
     assert total_max == 5000
 
-    # All UNKNOWN
-    unk_min, unk_max = aggregate_token_ranges([m3, TokenMeasurement(source=UsageSource.UNKNOWN)])
-    assert unk_min is None
-    assert unk_max is None
+    # Mixed sequence containing UNKNOWN must return (None, None) to preserve incompleteness
+    mixed_min, mixed_max = aggregate_token_ranges([m1, m2, m3])
+    assert mixed_min is None
+    assert mixed_max is None
+
+    # Empty sequence
+    empty_min, empty_max = aggregate_token_ranges([])
+    assert empty_min == 0
+    assert empty_max == 0
 
 
 def test_calculate_context_efficiency_ratio_helper():
@@ -280,19 +311,49 @@ def test_calculate_context_efficiency_ratio_helper():
         calculate_context_efficiency_ratio(10001, 10000)
 
 
-def test_impossible_efficiency_partition_rejection():
-    """Efficiency partition components exceeding total brain_context_bytes are rejected."""
-    d = _make_valid_task_usage_dict()
-    d["efficiency"]["brain_context_bytes"] = 10000
-    d["efficiency"]["useful_context_bytes"] = 8000
-    d["efficiency"]["redundant_context_bytes"] = 3000  # 8000 + 3000 = 11000 > 10000
+def test_efficiency_partition_exact_equality_and_ratio_validation():
+    """Enforces exact partition equality and consistent context_efficiency_ratio when components are known."""
+    # 1. Exact match succeeds
+    eff_valid = EfficiencyMetrics(
+        brain_context_bytes=10000,
+        useful_context_bytes=8000,
+        redundant_context_bytes=1500,
+        escalated_context_bytes=500,
+        context_efficiency_ratio=0.8,
+    )
+    assert eff_valid.context_efficiency_ratio == 0.8
 
-    with pytest.raises(ContinuityStateValidationError, match="Impossible efficiency partition"):
-        TaskUsageRecord.from_dict(d)
+    # 2. Over-filled partition fails
+    with pytest.raises(ContinuityStateValidationError, match="Inconsistent efficiency partition"):
+        EfficiencyMetrics(
+            brain_context_bytes=10000,
+            useful_context_bytes=8000,
+            redundant_context_bytes=2000,
+            escalated_context_bytes=500,  # 8000 + 2000 + 500 = 10500 > 10000
+        )
+
+    # 3. Under-filled fully-known partition fails
+    with pytest.raises(ContinuityStateValidationError, match="Inconsistent efficiency partition"):
+        EfficiencyMetrics(
+            brain_context_bytes=10000,
+            useful_context_bytes=1000,
+            redundant_context_bytes=1000,
+            escalated_context_bytes=1000,  # 1000 + 1000 + 1000 = 3000 != 10000
+        )
+
+    # 4. Inconsistent context_efficiency_ratio fails
+    with pytest.raises(ContinuityStateValidationError, match="Inconsistent context_efficiency_ratio"):
+        EfficiencyMetrics(
+            brain_context_bytes=10000,
+            useful_context_bytes=8000,
+            redundant_context_bytes=1500,
+            escalated_context_bytes=500,
+            context_efficiency_ratio=0.5,  # Expected 0.8
+        )
 
 
 def test_task_019_historical_baseline_artifact_validates_cleanly():
-    """The committed .ai/metrics/TASK-019-USAGE.json artifact must parse and remain ESTIMATED."""
+    """The committed .ai/metrics/TASK-019-USAGE.json artifact must parse with null unmeasured proxies."""
     baseline_path = Path(__file__).resolve().parent.parent.parent.parent / ".ai" / "metrics" / "TASK-019-USAGE.json"
     assert baseline_path.exists(), f"Baseline artifact missing at {baseline_path}"
 
@@ -305,11 +366,16 @@ def test_task_019_historical_baseline_artifact_validates_cleanly():
     for b in record.brain_usage:
         assert b.tokens.source == UsageSource.ESTIMATED
         assert b.tokens.method == "historical-audit-estimate-v1"
+        assert b.full_file_reads is None
+        assert b.artifact_reads is None
+        assert b.external_api_calls == 0
 
     assert len(record.executor_usage) == 2
     for ex in record.executor_usage:
         assert ex.tokens.source == UsageSource.ESTIMATED
         assert ex.tokens.method == "historical-audit-estimate-v1"
+        assert ex.test_runs is None
+        assert ex.external_api_calls == 0
 
     # Verify bounds match TASK-020 spec
     # ChatGPT TASK_AND_PLAN: 22k–30k
@@ -347,7 +413,7 @@ def test_size_limit_16kib_fail_closed():
                 "source": "ESTIMATED",
                 "min_tokens": 1000,
                 "max_tokens": 2000,
-                "method": "long-method-string-padding-for-testing-16kib-limit-overflow",
+                "method": "historical-audit-estimate-v1",
             },
         })
     d["brain_usage"] = many_brain_records
