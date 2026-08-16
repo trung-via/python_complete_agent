@@ -87,13 +87,20 @@ def _validate_canonical_actor_id(actor_id: Any, field_name: str) -> str:
 
 
 def _validate_canonical_ratio(val: Any, field_name: str, allow_none: bool = False) -> float | None:
-    """Validates and normalizes numeric ratio to a canonical float in [0.0, 1.0] (C4 / AIP-4)."""
+    """Validates and normalizes numeric ratio to a canonical float in [0.0, 1.0] (C4 / AIP-4 / R2-2)."""
     if val is None:
         if allow_none:
             return None
         raise ContinuityStateValidationError(f"{field_name} cannot be null/None")
     if isinstance(val, bool) or not isinstance(val, (int, float)):
         raise ContinuityStateValidationError(f"{field_name} must be a float or None, got: {type(val).__name__}")
+
+    if isinstance(val, int):
+        if val not in (0, 1):
+            val_display = "<oversized int>" if val.bit_length() > 64 else val
+            raise ContinuityStateValidationError(f"{field_name} must be in [0.0, 1.0], got: {val_display}")
+        return float(val)
+
     if math.isnan(val) or math.isinf(val):
         raise ContinuityStateValidationError(f"{field_name} must be a finite number, got: {val}")
     fval = float(val)
@@ -755,24 +762,30 @@ def aggregate_token_ranges(
     Returns (total_min, total_max).
     If any measurement is UNKNOWN or missing min/max, returns (None, None) to preserve incompleteness.
     If measurements is empty, returns (0, 0).
-    Fails closed if cumulative total_min or total_max exceeds MAX_USAGE_INT (R1-1).
+    Fails closed if cumulative total_min or total_max exceeds MAX_USAGE_INT, even if UNKNOWN is present (R1-1 / R2-1).
     """
     if not measurements:
         return (0, 0)
 
     total_min = 0
     total_max = 0
+    saw_unknown = False
 
-    for m in measurements:
+    for idx, m in enumerate(measurements):
         if not isinstance(m, TokenMeasurement):
-            raise ContinuityStateValidationError(f"Expected TokenMeasurement, got: {type(m).__name__}")
+            raise ContinuityStateValidationError(
+                f"Expected TokenMeasurement in measurements[{idx}], got: {type(m).__name__}"
+            )
         if m.source == UsageSource.UNKNOWN or m.min_tokens is None or m.max_tokens is None:
-            return (None, None)
-        total_min += m.min_tokens
-        total_max += m.max_tokens
+            saw_unknown = True
+        else:
+            total_min += m.min_tokens
+            total_max += m.max_tokens
+            _validate_usage_int(total_min, "aggregate_token_ranges.total_min")
+            _validate_usage_int(total_max, "aggregate_token_ranges.total_max")
 
-    _validate_usage_int(total_min, "aggregate_token_ranges.total_min")
-    _validate_usage_int(total_max, "aggregate_token_ranges.total_max")
+    if saw_unknown:
+        return (None, None)
 
     return (total_min, total_max)
 
