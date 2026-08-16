@@ -1,5 +1,5 @@
 """
-Brain-Neutral Contract for Open Multi-Agent Continuity OS (ADR-010 Milestone 2).
+Brain-Neutral Contract for Open Multi-Agent Continuity OS (ADR-010 Milestone 2 / TASK-023 Hardening).
 Provides vendor-independent request, result, capability, and context representation.
 """
 from __future__ import annotations
@@ -25,6 +25,7 @@ from .state import (
 _TASK_ID_PATTERN = re.compile(r"^TASK-\d+$")
 _REQUEST_ID_PATTERN = re.compile(r"^[a-z0-9]+(?:[a-z0-9_.\-:]+)*$")
 _ERROR_CODE_PATTERN = re.compile(r"^[A-Za-z0-9_.\-]+$")
+_TASK_TOKEN_PATTERN = re.compile(r"(?<![A-Za-z0-9])TASK-(\d+)(?![A-Za-z0-9])", re.IGNORECASE)
 
 MAX_REQUEST_ID_LENGTH = 64
 MAX_ERROR_CODE_LENGTH = 64
@@ -98,6 +99,54 @@ def _validate_request_id(request_id: Any, field_name: str = "request_id") -> str
     return req_str
 
 
+def _validate_canonical_actor_id(actor_id: Any, field_name: str) -> str:
+    """Validates exact canonical actor ID with zero whitespace padding (C1 / AIP-1)."""
+    if isinstance(actor_id, bool) or not isinstance(actor_id, str):
+        raise ContinuityStateValidationError(f"{field_name} must be a non-empty string")
+    if actor_id != actor_id.strip() or not actor_id:
+        raise ContinuityStateValidationError(
+            f"{field_name} must not contain leading or trailing whitespace: {actor_id!r}"
+        )
+    canonical = _validate_actor_id(actor_id, field_name)
+    if actor_id != canonical:
+        raise ContinuityStateValidationError(
+            f"{field_name} must be exact canonical actor ID, got: {actor_id!r}"
+        )
+    return canonical
+
+
+def _validate_canonical_request_id(request_id: Any, field_name: str) -> str:
+    """Validates exact canonical request ID with zero whitespace padding (C1 / AIP-1)."""
+    if isinstance(request_id, bool) or not isinstance(request_id, str):
+        raise ContinuityStateValidationError(f"{field_name} must be a non-empty string")
+    if request_id != request_id.strip() or not request_id:
+        raise ContinuityStateValidationError(
+            f"{field_name} must not contain leading or trailing whitespace: {request_id!r}"
+        )
+    canonical = _validate_request_id(request_id, field_name)
+    if request_id != canonical:
+        raise ContinuityStateValidationError(
+            f"{field_name} must be exact canonical request ID, got: {request_id!r}"
+        )
+    return canonical
+
+
+def _validate_canonical_artifact_path(path: Any, field_name: str) -> str:
+    """Validates exact canonical artifact path with zero whitespace padding (C2 / AIP-1)."""
+    if isinstance(path, bool) or not isinstance(path, str):
+        raise ContinuityStateValidationError(f"{field_name} must be a non-empty string")
+    if path != path.strip() or not path:
+        raise ContinuityStateValidationError(
+            f"{field_name} must not contain leading or trailing whitespace: {path!r}"
+        )
+    canonical = _validate_artifact_path(path, field_name)
+    if path != canonical:
+        raise ContinuityStateValidationError(
+            f"{field_name} must be exact canonical artifact path, got: {path!r}"
+        )
+    return canonical
+
+
 def _validate_error_code(error_code: Any, field_name: str = "error_code") -> str | None:
     if error_code is None:
         return None
@@ -113,6 +162,27 @@ def _validate_error_code(error_code: Any, field_name: str = "error_code") -> str
     return code_str
 
 
+def _validate_task_token_in_path(path: str, task_id: str, field_name: str) -> None:
+    """
+    Validates delimiter-aware task identity tokens in path (C3 / AIP-3).
+    Extracts all 'TASK-<digits>' tokens and requires all extracted task numbers
+    to match the numeric identifier of active task_id without ambiguity or aliasing.
+    """
+    target_num = int(task_id.split("-")[1])
+    matches = _TASK_TOKEN_PATTERN.findall(path)
+    if not matches:
+        raise ContinuityStateValidationError(
+            f"{field_name} path '{path}' must match active task identity {task_id}"
+        )
+    extracted_nums = [int(m) for m in matches]
+    for num in extracted_nums:
+        if num != target_num:
+            raise ContinuityStateValidationError(
+                f"{field_name} path '{path}' contains task token 'TASK-{num}' "
+                f"which does not match active task identity {task_id}"
+            )
+
+
 def _validate_artifact_role_and_task(
     path: str,
     output_type: BrainOutputType,
@@ -120,51 +190,49 @@ def _validate_artifact_role_and_task(
     field_name: str,
 ) -> None:
     """Validates that target artifact path matches the output type and active task_id."""
-    task_num = task_id.split("-")[1].lstrip("0") or "0"
+    canon_path = _validate_canonical_artifact_path(path, field_name)
+    task_num_str = task_id.split("-")[1]
+    task_num_int = int(task_num_str)
 
     if output_type == BrainOutputType.TASK_ARTIFACT:
         expected = f".ai/tasks/{task_id}.md"
-        if path != expected:
+        if canon_path != expected:
             raise ContinuityStateValidationError(
-                f"{field_name} path '{path}' incompatible with TASK_ARTIFACT for {task_id} (expected '{expected}')"
+                f"{field_name} path '{canon_path}' incompatible with TASK_ARTIFACT for {task_id} (expected '{expected}')"
             )
     elif output_type == BrainOutputType.REVIEW_ARTIFACT:
-        expected_standard = f".ai/reviews/REVIEW-{task_num.zfill(3)}.md"
-        expected_short = f".ai/reviews/REVIEW-{task_num}.md"
-        if path not in (expected_standard, expected_short):
+        expected_standard = f".ai/reviews/REVIEW-{str(task_num_int).zfill(3)}.md"
+        expected_exact = f".ai/reviews/REVIEW-{task_num_str}.md"
+        expected_short = f".ai/reviews/REVIEW-{task_num_int}.md"
+        if canon_path not in (expected_standard, expected_exact, expected_short):
             raise ContinuityStateValidationError(
-                f"{field_name} path '{path}' incompatible with REVIEW_ARTIFACT for {task_id} (expected '{expected_standard}')"
+                f"{field_name} path '{canon_path}' incompatible with REVIEW_ARTIFACT for {task_id} (expected '{expected_standard}')"
             )
     elif output_type == BrainOutputType.PLAN_ARTIFACT:
         # PLAN must live under .ai/context/, .ai/plans/, or .ai/decisions/ and NOT under tasks/reviews/results/metrics
-        if not (path.startswith(".ai/context/") or path.startswith(".ai/plans/") or path.startswith(".ai/decisions/")):
+        if not (canon_path.startswith(".ai/context/") or canon_path.startswith(".ai/plans/") or canon_path.startswith(".ai/decisions/")):
             raise ContinuityStateValidationError(
-                f"{field_name} path '{path}' incompatible with PLAN_ARTIFACT (must live under .ai/context/, .ai/plans/, or .ai/decisions/)"
+                f"{field_name} path '{canon_path}' incompatible with PLAN_ARTIFACT (must live under .ai/context/, .ai/plans/, or .ai/decisions/)"
             )
-        if task_id not in path and f"TASK-{task_num}" not in path:
-            raise ContinuityStateValidationError(
-                f"{field_name} path '{path}' must match active task identity {task_id}"
-            )
+        _validate_task_token_in_path(canon_path, task_id, field_name)
     elif output_type == BrainOutputType.DIAGNOSIS_ARTIFACT:
         # DIAGNOSIS must live under .ai/context/ or .ai/diagnosis/
-        if not (path.startswith(".ai/context/") or path.startswith(".ai/diagnosis/")):
+        if not (canon_path.startswith(".ai/context/") or canon_path.startswith(".ai/diagnosis/")):
             raise ContinuityStateValidationError(
-                f"{field_name} path '{path}' incompatible with DIAGNOSIS_ARTIFACT (must live under .ai/context/ or .ai/diagnosis/)"
+                f"{field_name} path '{canon_path}' incompatible with DIAGNOSIS_ARTIFACT (must live under .ai/context/ or .ai/diagnosis/)"
             )
-        if task_id not in path and f"TASK-{task_num}" not in path:
-            raise ContinuityStateValidationError(
-                f"{field_name} path '{path}' must match active task identity {task_id}"
-            )
+        _validate_task_token_in_path(canon_path, task_id, field_name)
     elif output_type == BrainOutputType.PATCH_PROPOSAL_ARTIFACT:
         # PATCH_PROPOSAL must live under .ai/context/ or .ai/patches/
-        if not (path.startswith(".ai/context/") or path.startswith(".ai/patches/")):
+        if not (canon_path.startswith(".ai/context/") or canon_path.startswith(".ai/patches/")):
             raise ContinuityStateValidationError(
-                f"{field_name} path '{path}' incompatible with PATCH_PROPOSAL_ARTIFACT (must live under .ai/context/ or .ai/patches/)"
+                f"{field_name} path '{canon_path}' incompatible with PATCH_PROPOSAL_ARTIFACT (must live under .ai/context/ or .ai/patches/)"
             )
-        if task_id not in path and f"TASK-{task_num}" not in path:
-            raise ContinuityStateValidationError(
-                f"{field_name} path '{path}' must match active task identity {task_id}"
-            )
+        _validate_task_token_in_path(canon_path, task_id, field_name)
+    elif output_type == BrainOutputType.BOUNDED_TEXT:
+        raise ContinuityStateValidationError(
+            f"{field_name} path '{canon_path}' cannot be specified for BOUNDED_TEXT output type"
+        )
 
 
 @dataclass(frozen=True)
@@ -175,7 +243,9 @@ class ContextRef:
     description: str | None = None
 
     def __post_init__(self) -> None:
-        _validate_artifact_path(self.path, "ContextRef.path")
+        canon_path = _validate_canonical_artifact_path(self.path, "ContextRef.path")
+        object.__setattr__(self, "path", canon_path)
+
         if self.blob_sha is not None:
             _validate_exact_hex_sha(self.blob_sha, "ContextRef.blob_sha")
         if self.description is not None:
@@ -227,8 +297,17 @@ class OutputContract:
                     f"Invalid BrainOutputType: {self.expected_output_type!r}. Valid values: {valid_types}"
                 ) from e
 
-        if self.target_artifact_path is not None:
-            _validate_artifact_path(self.target_artifact_path, "OutputContract.target_artifact_path")
+        if self.expected_output_type == BrainOutputType.BOUNDED_TEXT:
+            if self.target_artifact_path is not None:
+                raise ContinuityStateValidationError(
+                    "OutputContract with expected_output_type 'BOUNDED_TEXT' must have target_artifact_path=None"
+                )
+        else:
+            if self.target_artifact_path is not None:
+                canon_target = _validate_canonical_artifact_path(
+                    self.target_artifact_path, "OutputContract.target_artifact_path"
+                )
+                object.__setattr__(self, "target_artifact_path", canon_target)
 
         _validate_non_negative_int(self.max_output_bytes, "OutputContract.max_output_bytes", min_val=1)
         if self.max_output_bytes > MAX_SERIALIZED_BYTES:
@@ -269,7 +348,8 @@ class BrainCapability:
     declarative_only: bool = True
 
     def __post_init__(self) -> None:
-        _validate_actor_id(self.brain_id, "BrainCapability.brain_id")
+        canon_brain = _validate_canonical_actor_id(self.brain_id, "BrainCapability.brain_id")
+        object.__setattr__(self, "brain_id", canon_brain)
 
         if not self.declarative_only:
             raise ContinuityStateValidationError("BrainCapability.declarative_only must be True")
@@ -284,6 +364,7 @@ class BrainCapability:
             raise ContinuityStateValidationError("BrainCapability.supported_operations cannot be empty")
 
         validated_ops = []
+        seen_ops: set[BrainOperation] = set()
         for idx, op in enumerate(self.supported_operations):
             if not isinstance(op, BrainOperation):
                 try:
@@ -293,10 +374,23 @@ class BrainCapability:
                     raise ContinuityStateValidationError(
                         f"Invalid BrainOperation in supported_operations[{idx}]: {op!r}. Valid: {valid_ops}"
                     ) from e
+            if op in seen_ops:
+                raise ContinuityStateValidationError(
+                    f"Duplicate BrainOperation in supported_operations: {op.value!r}"
+                )
+            seen_ops.add(op)
             validated_ops.append(op)
         object.__setattr__(self, "supported_operations", tuple(validated_ops))
 
         _validate_non_negative_int(self.max_context_bytes, "BrainCapability.max_context_bytes", allow_none=True)
+
+        # Enforce 16 KiB size cap fail-closed in constructor/parser
+        raw_canonical = json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        utf8_bytes = raw_canonical.encode("utf-8")
+        if len(utf8_bytes) > MAX_SERIALIZED_BYTES:
+            raise ContinuityStateValidationError(
+                f"Serialized BrainCapability size ({len(utf8_bytes)} bytes) exceeds MAX_SERIALIZED_BYTES limit ({MAX_SERIALIZED_BYTES})"
+            )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -350,8 +444,10 @@ class BrainRequest:
             )
 
         _validate_task_id(self.task_id, "BrainRequest.task_id")
-        _validate_request_id(self.request_id, "BrainRequest.request_id")
-        _validate_actor_id(self.brain_id, "BrainRequest.brain_id")
+        canon_req_id = _validate_canonical_request_id(self.request_id, "BrainRequest.request_id")
+        canon_brain_id = _validate_canonical_actor_id(self.brain_id, "BrainRequest.brain_id")
+        object.__setattr__(self, "request_id", canon_req_id)
+        object.__setattr__(self, "brain_id", canon_brain_id)
 
         if not isinstance(self.operation, BrainOperation):
             try:
@@ -557,8 +653,10 @@ class BrainResult:
             )
 
         _validate_task_id(self.task_id, "BrainResult.task_id")
-        _validate_request_id(self.request_id, "BrainResult.request_id")
-        _validate_actor_id(self.brain_id, "BrainResult.brain_id")
+        canon_req_id = _validate_canonical_request_id(self.request_id, "BrainResult.request_id")
+        canon_brain_id = _validate_canonical_actor_id(self.brain_id, "BrainResult.brain_id")
+        object.__setattr__(self, "request_id", canon_req_id)
+        object.__setattr__(self, "brain_id", canon_brain_id)
 
         if not isinstance(self.operation, BrainOperation):
             try:
@@ -595,42 +693,58 @@ class BrainResult:
                 f"Allowed types: {sorted(t.value for t in allowed_types)}"
             )
 
-        if self.artifact_ref is not None and not isinstance(self.artifact_ref, ArtifactRef):
+        # Check payload exclusivity first (C4 / AIP-4)
+        if self.artifact_ref is not None and self.evidence_ref is not None:
             raise ContinuityStateValidationError(
-                f"BrainResult.artifact_ref must be an ArtifactRef or None, got: {type(self.artifact_ref).__name__}"
+                "Ambiguous result payload: both artifact_ref and evidence_ref provided"
             )
 
-        if self.evidence_ref is not None and not isinstance(self.evidence_ref, ContextRef):
-            raise ContinuityStateValidationError(
-                f"BrainResult.evidence_ref must be a ContextRef or None, got: {type(self.evidence_ref).__name__}"
-            )
-
-        if self.error_code is not None:
-            object.__setattr__(self, "error_code", _validate_error_code(self.error_code, "BrainResult.error_code"))
-
-        # Payload consistency and exclusivity
         if self.status == BrainResultStatus.SUCCESS:
-            if self.artifact_ref is not None and self.evidence_ref is not None:
+            if self.error_code is not None:
                 raise ContinuityStateValidationError(
-                    "Ambiguous result payload: both artifact_ref and evidence_ref provided for SUCCESS result"
+                    "SUCCESS status cannot have a non-null error_code"
                 )
             if self.artifact_ref is None and self.evidence_ref is None:
                 raise ContinuityStateValidationError(
                     "SUCCESS status requires exactly one result payload pointer (artifact_ref or evidence_ref)"
                 )
-
-            if self.artifact_ref is not None:
-                _validate_artifact_role_and_task(
-                    self.artifact_ref.path,
-                    self.output_type,
-                    self.task_id,
-                    "BrainResult.artifact_ref",
+            if self.output_type == BrainOutputType.BOUNDED_TEXT and self.artifact_ref is not None:
+                raise ContinuityStateValidationError(
+                    "SUCCESS status with BOUNDED_TEXT output_type cannot carry artifact_ref"
                 )
-            elif self.evidence_ref is not None:
-                if self.output_type != BrainOutputType.BOUNDED_TEXT:
-                    raise ContinuityStateValidationError(
-                        f"evidence_ref payload is only valid for BOUNDED_TEXT output_type, got: {self.output_type.value}"
-                    )
+            if self.output_type != BrainOutputType.BOUNDED_TEXT and self.evidence_ref is not None:
+                raise ContinuityStateValidationError(
+                    f"SUCCESS status with {self.output_type.value} output_type cannot carry evidence_ref"
+                )
+
+        # Validate artifact_ref if present
+        if self.artifact_ref is not None:
+            if not isinstance(self.artifact_ref, ArtifactRef):
+                raise ContinuityStateValidationError(
+                    f"BrainResult.artifact_ref must be an ArtifactRef or None, got: {type(self.artifact_ref).__name__}"
+                )
+            _validate_canonical_artifact_path(self.artifact_ref.path, "BrainResult.artifact_ref.path")
+            _validate_artifact_role_and_task(
+                self.artifact_ref.path,
+                self.output_type,
+                self.task_id,
+                "BrainResult.artifact_ref",
+            )
+
+        # Validate evidence_ref if present
+        if self.evidence_ref is not None:
+            if not isinstance(self.evidence_ref, ContextRef):
+                raise ContinuityStateValidationError(
+                    f"BrainResult.evidence_ref must be a ContextRef or None, got: {type(self.evidence_ref).__name__}"
+                )
+            _validate_canonical_artifact_path(self.evidence_ref.path, "BrainResult.evidence_ref.path")
+            if self.output_type != BrainOutputType.BOUNDED_TEXT:
+                raise ContinuityStateValidationError(
+                    f"evidence_ref payload is only valid for BOUNDED_TEXT output_type, got: {self.output_type.value}"
+                )
+
+        if self.error_code is not None:
+            object.__setattr__(self, "error_code", _validate_error_code(self.error_code, "BrainResult.error_code"))
 
         # Enforce 16 KiB size cap fail-closed in constructor/parser
         raw_canonical = json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":"), ensure_ascii=False)

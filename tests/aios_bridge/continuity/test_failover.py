@@ -139,31 +139,24 @@ def test_canonical_actor_id_and_whitespace_padded_pseudo_failover_rejected():
     with pytest.raises(ContinuityStateValidationError, match="must not contain leading or trailing whitespace"):
         build_replacement_brain_request(src, " brain-b", "req-task-022-r2")
 
-    # 2. Padded source brain_id in BrainRequest fails closed when used in failover
-    src_padded = BrainRequest(
-        schema_version=src.schema_version,
-        task_id=src.task_id,
-        request_id=src.request_id,
-        brain_id="brain-a ",
-        operation=src.operation,
-        objective=src.objective,
-        context_refs=src.context_refs,
-        output_contract=src.output_contract,
-    )
-    rep_normal = build_replacement_brain_request(src, "brain-b", "req-task-022-r2")
+    # 2. Padded source brain_id in BrainRequest fails closed
     with pytest.raises(ContinuityStateValidationError, match="must not contain leading or trailing whitespace"):
-        validate_brain_failover_eligibility(
-            src_padded, rep_normal, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap
+        BrainRequest(
+            schema_version=src.schema_version,
+            task_id=src.task_id,
+            request_id=src.request_id,
+            brain_id="brain-a ",
+            operation=src.operation,
+            objective=src.objective,
+            context_refs=src.context_refs,
+            output_contract=src.output_contract,
         )
 
     # 3. Padded capability brain_id fails closed
-    cap_padded = BrainCapability(
-        brain_id="brain-b ",
-        supported_operations=(BrainOperation.TASK, BrainOperation.TASK_AND_PLAN, BrainOperation.PLAN),
-    )
     with pytest.raises(ContinuityStateValidationError, match="must not contain leading or trailing whitespace"):
-        validate_brain_failover_eligibility(
-            src, rep_normal, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap_padded
+        BrainCapability(
+            brain_id="brain-b ",
+            supported_operations=(BrainOperation.TASK, BrainOperation.TASK_AND_PLAN, BrainOperation.PLAN),
         )
 
 
@@ -251,25 +244,10 @@ def test_context_refs_content_anchoring_to_state_snapshot():
         )
 
     # 5. Non-state ContextRef with padded path fails closed
-    src_padded_path = BrainRequest(
-        schema_version=src.schema_version,
-        task_id=src.task_id,
-        request_id=src.request_id,
-        brain_id=src.brain_id,
-        operation=src.operation,
-        objective=src.objective,
-        context_refs=(
-            ContextRef(
-                path=" .ai/decisions/ADR-010.md ",
-                blob_sha="a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
-            ),
-        ),
-        output_contract=src.output_contract,
-    )
-    rep_padded_path = build_replacement_brain_request(src_padded_path, "brain-b", "req-r2")
     with pytest.raises(ContinuityStateValidationError, match="ContextRef.path must not contain leading or trailing whitespace"):
-        validate_brain_failover_eligibility(
-            src_padded_path, rep_padded_path, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap
+        ContextRef(
+            path=" .ai/decisions/ADR-010.md ",
+            blob_sha="a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
         )
 
     # 6. Cross-role state artifact path collision (task vs contract) fails closed (R7-1)
