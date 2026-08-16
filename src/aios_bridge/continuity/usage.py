@@ -755,6 +755,7 @@ def aggregate_token_ranges(
     Returns (total_min, total_max).
     If any measurement is UNKNOWN or missing min/max, returns (None, None) to preserve incompleteness.
     If measurements is empty, returns (0, 0).
+    Fails closed if cumulative total_min or total_max exceeds MAX_USAGE_INT (R1-1).
     """
     if not measurements:
         return (0, 0)
@@ -769,6 +770,9 @@ def aggregate_token_ranges(
             return (None, None)
         total_min += m.min_tokens
         total_max += m.max_tokens
+
+    _validate_usage_int(total_min, "aggregate_token_ranges.total_min")
+    _validate_usage_int(total_max, "aggregate_token_ranges.total_max")
 
     return (total_min, total_max)
 

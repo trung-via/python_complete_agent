@@ -420,6 +420,61 @@ def test_actor_class_aggregation_helper():
         aggregate_token_ranges_by_actor_class({"task_id": "TASK-024"})  # type: ignore[arg-type]
 
 
+def test_aggregate_token_ranges_cumulative_overflow_rejection():
+    """aggregate_token_ranges and actor-class aggregation fail closed when cumulative totals exceed MAX_USAGE_INT (R1-1)."""
+    # 1. Exact MAX_USAGE_INT cumulative sum passes
+    m1 = TokenMeasurement(source=UsageSource.REPORTED, min_tokens=MAX_USAGE_INT - 1000, max_tokens=MAX_USAGE_INT - 1000)
+    m2 = TokenMeasurement(source=UsageSource.REPORTED, min_tokens=1000, max_tokens=1000)
+    assert aggregate_token_ranges([m1, m2]) == (MAX_USAGE_INT, MAX_USAGE_INT)
+
+    # 2. Cumulative overflow via multiple valid measurements fails closed
+    m_over = TokenMeasurement(source=UsageSource.REPORTED, min_tokens=1001, max_tokens=1001)
+    with pytest.raises(ContinuityStateValidationError, match="exceeds maximum allowed"):
+        aggregate_token_ranges([m1, m_over])
+
+    # 3. Brain class cumulative overflow fails closed
+    rec_brain_over = TaskUsageRecord(
+        task_id="TASK-024",
+        brain_usage=(
+            BrainUsageRecord(
+                brain_id="chatgpt-chat",
+                operation=BrainOperation.TASK,
+                tokens=m1,
+            ),
+            BrainUsageRecord(
+                brain_id="chatgpt-chat",
+                operation=BrainOperation.REVIEW,
+                tokens=m_over,
+            ),
+        ),
+    )
+    with pytest.raises(ContinuityStateValidationError, match="exceeds maximum allowed"):
+        aggregate_token_ranges_by_actor_class(rec_brain_over)
+
+    # 4. Executor class cumulative overflow fails closed
+    rec_exec_over = TaskUsageRecord(
+        task_id="TASK-024",
+        executor_usage=(
+            ExecutorUsageRecord(
+                executor_id="antigravity",
+                action=ExecutorAction.RUN,
+                tokens=m1,
+            ),
+            ExecutorUsageRecord(
+                executor_id="antigravity",
+                action=ExecutorAction.FIX,
+                tokens=m_over,
+            ),
+        ),
+    )
+    with pytest.raises(ContinuityStateValidationError, match="exceeds maximum allowed"):
+        aggregate_token_ranges_by_actor_class(rec_exec_over)
+
+    # 5. UNKNOWN behavior remains (None, None) even if sibling has large tokens
+    m_unk = TokenMeasurement(source=UsageSource.UNKNOWN)
+    assert aggregate_token_ranges([m1, m_unk]) == (None, None)
+
+
 def test_token_measurement_semantics_reported_estimated_unknown():
     """Validates REPORTED (exact min=max), ESTIMATED (bounded range + method), and UNKNOWN."""
     # REPORTED valid
