@@ -31,14 +31,50 @@ _FINGERPRINT_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
 def _validate_hex_fingerprint(fp: Any, field_name: str) -> str:
-    if isinstance(fp, bool) or not isinstance(fp, str) or not fp.strip():
+    """Validates exact lowercase 64-character SHA-256 hex string with zero whitespace tolerance."""
+    if isinstance(fp, bool) or not isinstance(fp, str):
         raise ContinuityStateValidationError(f"{field_name} must be a non-empty string")
-    fp_str = fp.strip()
-    if not _FINGERPRINT_PATTERN.match(fp_str):
+    if fp != fp.strip() or not fp:
+        raise ContinuityStateValidationError(
+            f"{field_name} must not contain leading or trailing whitespace: {fp!r}"
+        )
+    if not _FINGERPRINT_PATTERN.match(fp):
         raise ContinuityStateValidationError(
             f"{field_name} must be an exact 64-character lowercase hex SHA-256 string, got: {fp!r}"
         )
-    return fp_str
+    return fp
+
+
+def _validate_canonical_actor_id(actor_id: Any, field_name: str) -> str:
+    """Validates exact canonical actor ID with zero whitespace padding."""
+    if isinstance(actor_id, bool) or not isinstance(actor_id, str):
+        raise ContinuityStateValidationError(f"{field_name} must be a non-empty string")
+    if actor_id != actor_id.strip() or not actor_id:
+        raise ContinuityStateValidationError(
+            f"{field_name} must not contain leading or trailing whitespace: {actor_id!r}"
+        )
+    canonical = _validate_actor_id(actor_id, field_name)
+    if actor_id != canonical:
+        raise ContinuityStateValidationError(
+            f"{field_name} must be exact canonical actor ID, got: {actor_id!r}"
+        )
+    return canonical
+
+
+def _validate_canonical_request_id(request_id: Any, field_name: str) -> str:
+    """Validates exact canonical request ID with zero whitespace padding."""
+    if isinstance(request_id, bool) or not isinstance(request_id, str):
+        raise ContinuityStateValidationError(f"{field_name} must be a non-empty string")
+    if request_id != request_id.strip() or not request_id:
+        raise ContinuityStateValidationError(
+            f"{field_name} must not contain leading or trailing whitespace: {request_id!r}"
+        )
+    canonical = _validate_request_id(request_id, field_name)
+    if request_id != canonical:
+        raise ContinuityStateValidationError(
+            f"{field_name} must be exact canonical request ID, got: {request_id!r}"
+        )
+    return canonical
 
 
 @dataclass(frozen=True)
@@ -76,21 +112,29 @@ class BrainFailoverProof:
                     f"Invalid BrainOperation: {self.operation!r}. Valid values: {valid_ops}"
                 ) from e
 
-        _validate_hex_fingerprint(self.state_fingerprint, "BrainFailoverProof.state_fingerprint")
-        _validate_actor_id(self.source_brain_id, "BrainFailoverProof.source_brain_id")
-        _validate_request_id(self.source_request_id, "BrainFailoverProof.source_request_id")
-        _validate_hex_fingerprint(self.source_request_fingerprint, "BrainFailoverProof.source_request_fingerprint")
+        canon_state_fp = _validate_hex_fingerprint(self.state_fingerprint, "BrainFailoverProof.state_fingerprint")
+        canon_source_brain = _validate_canonical_actor_id(self.source_brain_id, "BrainFailoverProof.source_brain_id")
+        canon_source_req_id = _validate_canonical_request_id(self.source_request_id, "BrainFailoverProof.source_request_id")
+        canon_source_req_fp = _validate_hex_fingerprint(self.source_request_fingerprint, "BrainFailoverProof.source_request_fingerprint")
 
-        _validate_actor_id(self.replacement_brain_id, "BrainFailoverProof.replacement_brain_id")
-        _validate_request_id(self.replacement_request_id, "BrainFailoverProof.replacement_request_id")
-        _validate_hex_fingerprint(
+        canon_rep_brain = _validate_canonical_actor_id(self.replacement_brain_id, "BrainFailoverProof.replacement_brain_id")
+        canon_rep_req_id = _validate_canonical_request_id(self.replacement_request_id, "BrainFailoverProof.replacement_request_id")
+        canon_rep_req_fp = _validate_hex_fingerprint(
             self.replacement_request_fingerprint,
             "BrainFailoverProof.replacement_request_fingerprint",
         )
 
-        if self.source_brain_id == self.replacement_brain_id:
+        object.__setattr__(self, "state_fingerprint", canon_state_fp)
+        object.__setattr__(self, "source_brain_id", canon_source_brain)
+        object.__setattr__(self, "source_request_id", canon_source_req_id)
+        object.__setattr__(self, "source_request_fingerprint", canon_source_req_fp)
+        object.__setattr__(self, "replacement_brain_id", canon_rep_brain)
+        object.__setattr__(self, "replacement_request_id", canon_rep_req_id)
+        object.__setattr__(self, "replacement_request_fingerprint", canon_rep_req_fp)
+
+        if canon_source_brain == canon_rep_brain:
             raise ContinuityStateValidationError(
-                f"Same-Brain pseudo-failover rejected: source and replacement brain_id are identical ('{self.source_brain_id}')"
+                f"Same-Brain pseudo-failover rejected: source and replacement brain_id are identical ('{canon_source_brain}')"
             )
 
         if self.source_result_status is not None:
@@ -245,19 +289,20 @@ def build_replacement_brain_request(
             f"source_request must be a BrainRequest, got: {type(source_request).__name__}"
         )
 
-    _validate_actor_id(replacement_brain_id, "replacement_brain_id")
-    _validate_request_id(replacement_request_id, "replacement_request_id")
+    canon_source_brain = _validate_canonical_actor_id(source_request.brain_id, "source_request.brain_id")
+    canon_rep_brain = _validate_canonical_actor_id(replacement_brain_id, "replacement_brain_id")
+    canon_rep_req_id = _validate_canonical_request_id(replacement_request_id, "replacement_request_id")
 
-    if source_request.brain_id == replacement_brain_id:
+    if canon_source_brain == canon_rep_brain:
         raise ContinuityStateValidationError(
-            f"Same-Brain pseudo-failover rejected: replacement_brain_id '{replacement_brain_id}' "
-            f"must differ from source_request.brain_id '{source_request.brain_id}'"
+            f"Same-Brain pseudo-failover rejected: replacement_brain_id '{canon_rep_brain}' "
+            f"must differ from source_request.brain_id '{canon_source_brain}'"
         )
 
     return BrainRequest(
         task_id=source_request.task_id,
-        request_id=replacement_request_id,
-        brain_id=replacement_brain_id,
+        request_id=canon_rep_req_id,
+        brain_id=canon_rep_brain,
         operation=source_request.operation,
         objective=source_request.objective,
         output_contract=source_request.output_contract,
@@ -293,7 +338,7 @@ def validate_brain_failover_eligibility(
         )
 
     # 1. State Anchor Validation (Mandatory)
-    _validate_hex_fingerprint(expected_state_fingerprint, "expected_state_fingerprint")
+    canon_expected_fp = _validate_hex_fingerprint(expected_state_fingerprint, "expected_state_fingerprint")
     if state.task_id != source_request.task_id:
         raise ContinuityStateValidationError(
             f"State task_id mismatch: state.task_id '{state.task_id}' != source_request.task_id '{source_request.task_id}'"
@@ -304,9 +349,9 @@ def validate_brain_failover_eligibility(
         )
 
     actual_state_fingerprint = state.fingerprint()
-    if expected_state_fingerprint != actual_state_fingerprint:
+    if canon_expected_fp != actual_state_fingerprint:
         raise ContinuityStateValidationError(
-            f"State fingerprint mismatch: expected '{expected_state_fingerprint}', actual '{actual_state_fingerprint}'"
+            f"State fingerprint mismatch: expected '{canon_expected_fp}', actual '{actual_state_fingerprint}'"
         )
 
     # 2. Semantic Equivalence Validation
@@ -327,9 +372,12 @@ def validate_brain_failover_eligibility(
     if source_request.schema_version != replacement_request.schema_version:
         raise ContinuityStateValidationError("Schema version drift in failover")
 
-    if source_request.brain_id == replacement_request.brain_id:
+    canon_source_brain = _validate_canonical_actor_id(source_request.brain_id, "source_request.brain_id")
+    canon_rep_brain = _validate_canonical_actor_id(replacement_request.brain_id, "replacement_request.brain_id")
+
+    if canon_source_brain == canon_rep_brain:
         raise ContinuityStateValidationError(
-            f"Same-Brain pseudo-failover rejected: source and replacement brain_id are identical ('{source_request.brain_id}')"
+            f"Same-Brain pseudo-failover rejected: source and replacement brain_id are identical ('{canon_source_brain}')"
         )
 
     # 3. Replacement Capability Validation (Mandatory Gate)
@@ -337,14 +385,15 @@ def validate_brain_failover_eligibility(
         raise ContinuityStateValidationError(
             f"replacement_capability must be a BrainCapability, got: {type(replacement_capability).__name__}"
         )
-    if replacement_capability.brain_id != replacement_request.brain_id:
+    canon_cap_brain = _validate_canonical_actor_id(replacement_capability.brain_id, "replacement_capability.brain_id")
+    if canon_cap_brain != canon_rep_brain:
         raise ContinuityStateValidationError(
-            f"Replacement capability brain_id mismatch: capability '{replacement_capability.brain_id}' "
-            f"!= replacement_request '{replacement_request.brain_id}'"
+            f"Replacement capability brain_id mismatch: capability '{canon_cap_brain}' "
+            f"!= replacement_request '{canon_rep_brain}'"
         )
     if replacement_request.operation not in replacement_capability.supported_operations:
         raise ContinuityStateValidationError(
-            f"Replacement brain '{replacement_capability.brain_id}' does not support operation '{replacement_request.operation.value}'"
+            f"Replacement brain '{canon_cap_brain}' does not support operation '{replacement_request.operation.value}'"
         )
     if not replacement_capability.declarative_only:
         raise ContinuityStateValidationError("Replacement capability declarative_only must be True")
@@ -384,10 +433,10 @@ def validate_brain_failover_eligibility(
         task_id=source_request.task_id,
         operation=source_request.operation,
         state_fingerprint=actual_state_fingerprint,
-        source_brain_id=source_request.brain_id,
+        source_brain_id=canon_source_brain,
         source_request_id=source_request.request_id,
         source_request_fingerprint=source_request.fingerprint(),
-        replacement_brain_id=replacement_request.brain_id,
+        replacement_brain_id=canon_rep_brain,
         replacement_request_id=replacement_request.request_id,
         replacement_request_fingerprint=replacement_request.fingerprint(),
         source_result_status=source_status,

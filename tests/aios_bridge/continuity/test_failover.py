@@ -126,6 +126,47 @@ def test_same_brain_pseudo_failover_rejected():
         )
 
 
+def test_canonical_actor_id_and_whitespace_padded_pseudo_failover_rejected():
+    """R4-1: Non-canonical whitespace-padded Brain IDs fail closed and cannot bypass same-Brain check."""
+    src = _make_valid_source_request("TASK-022")
+    state = _make_valid_state("TASK-022")
+    cap = _make_valid_replacement_capability("brain-b")
+
+    # 1. Padded replacement brain_id in build_replacement_brain_request fails closed
+    with pytest.raises(ContinuityStateValidationError, match="must not contain leading or trailing whitespace"):
+        build_replacement_brain_request(src, "brain-a ", "req-task-022-r2")
+
+    with pytest.raises(ContinuityStateValidationError, match="must not contain leading or trailing whitespace"):
+        build_replacement_brain_request(src, " brain-b", "req-task-022-r2")
+
+    # 2. Padded source brain_id in BrainRequest fails closed when used in failover
+    src_padded = BrainRequest(
+        schema_version=src.schema_version,
+        task_id=src.task_id,
+        request_id=src.request_id,
+        brain_id="brain-a ",
+        operation=src.operation,
+        objective=src.objective,
+        context_refs=src.context_refs,
+        output_contract=src.output_contract,
+    )
+    rep_normal = build_replacement_brain_request(src, "brain-b", "req-task-022-r2")
+    with pytest.raises(ContinuityStateValidationError, match="must not contain leading or trailing whitespace"):
+        validate_brain_failover_eligibility(
+            src_padded, rep_normal, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap
+        )
+
+    # 3. Padded capability brain_id fails closed
+    cap_padded = BrainCapability(
+        brain_id="brain-b ",
+        supported_operations=(BrainOperation.TASK, BrainOperation.TASK_AND_PLAN, BrainOperation.PLAN),
+    )
+    with pytest.raises(ContinuityStateValidationError, match="must not contain leading or trailing whitespace"):
+        validate_brain_failover_eligibility(
+            src, rep_normal, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap_padded
+        )
+
+
 def test_semantic_drift_rejection_in_failover_validation():
     """Any semantic drift between source and replacement requests is rejected."""
     state = _make_valid_state("TASK-022")
@@ -410,6 +451,12 @@ def test_state_anchor_and_fingerprint_mandatory_validation():
             src, rep, state, expected_state_fingerprint="not-a-sha256", replacement_capability=cap
         )
 
+    # Whitespace-padded expected fingerprint fails closed (R4-2)
+    with pytest.raises(ContinuityStateValidationError, match="must not contain leading or trailing whitespace"):
+        validate_brain_failover_eligibility(
+            src, rep, state, expected_state_fingerprint=f" {state.fingerprint()} ", replacement_capability=cap
+        )
+
     # Missing / omitted expected_state_fingerprint fails closed (TypeError)
     with pytest.raises(TypeError):
         validate_brain_failover_eligibility(  # type: ignore[call-arg]
@@ -428,6 +475,54 @@ def test_state_anchor_and_fingerprint_mandatory_validation():
         validate_brain_failover_eligibility(
             src, rep, state_other_task, expected_state_fingerprint=state_other_task.fingerprint(), replacement_capability=cap
         )
+
+
+def test_exact_fingerprints_and_canonical_request_id_in_proof():
+    """R4-2 & R4-3: Proof rejects whitespace-padded fingerprints and request IDs in direct, from_dict, and from_json."""
+    state = _make_valid_state("TASK-022")
+    src = _make_valid_source_request("TASK-022")
+    rep = build_replacement_brain_request(src, "brain-b", "req-task-022-r2")
+    cap = _make_valid_replacement_capability("brain-b")
+
+    valid_proof = validate_brain_failover_eligibility(
+        src, rep, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap
+    )
+    d = valid_proof.to_dict()
+
+    # 1. Whitespace-padded state_fingerprint rejected
+    d_bad_fp = dict(d)
+    d_bad_fp["state_fingerprint"] = f" {d['state_fingerprint']} "
+    with pytest.raises(ContinuityStateValidationError, match="must not contain leading or trailing whitespace"):
+        BrainFailoverProof.from_dict(d_bad_fp)
+
+    # 2. Whitespace-padded source_request_fingerprint rejected
+    d_bad_src_fp = dict(d)
+    d_bad_src_fp["source_request_fingerprint"] = f" {d['source_request_fingerprint']}"
+    with pytest.raises(ContinuityStateValidationError, match="must not contain leading or trailing whitespace"):
+        BrainFailoverProof.from_dict(d_bad_src_fp)
+
+    # 3. Whitespace-padded replacement_request_fingerprint rejected
+    d_bad_rep_fp = dict(d)
+    d_bad_rep_fp["replacement_request_fingerprint"] = f"{d['replacement_request_fingerprint']} "
+    with pytest.raises(ContinuityStateValidationError, match="must not contain leading or trailing whitespace"):
+        BrainFailoverProof.from_dict(d_bad_rep_fp)
+
+    # 4. Whitespace-padded request_id rejected (R4-3)
+    d_bad_req_id = dict(d)
+    d_bad_req_id["source_request_id"] = f" {d['source_request_id']} "
+    with pytest.raises(ContinuityStateValidationError, match="must not contain leading or trailing whitespace"):
+        BrainFailoverProof.from_dict(d_bad_req_id)
+
+    d_bad_rep_req_id = dict(d)
+    d_bad_rep_req_id["replacement_request_id"] = f"{d['replacement_request_id']} "
+    with pytest.raises(ContinuityStateValidationError, match="must not contain leading or trailing whitespace"):
+        BrainFailoverProof.from_dict(d_bad_rep_req_id)
+
+    # 5. Whitespace-padded brain_id in proof rejected (R4-1)
+    d_bad_brain = dict(d)
+    d_bad_brain["replacement_brain_id"] = "brain-b "
+    with pytest.raises(ContinuityStateValidationError, match="must not contain leading or trailing whitespace"):
+        BrainFailoverProof.from_dict(d_bad_brain)
 
 
 def test_deterministic_canonical_json_fingerprint_and_unknown_fields():
