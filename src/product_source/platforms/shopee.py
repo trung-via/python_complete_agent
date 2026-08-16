@@ -314,52 +314,23 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
         // If a verified positive anchor is found, locate its enclosing product media column / thumbnail cluster
         if (seedNode) {
             let curr = seedNode;
-            let galleryFound = false;
-            let fallbackUrls = [];
+            let bestUrls = [];
             for (let level = 0; level < 6 && curr && curr !== document.body; level++) {
                 if (isExcluded(curr)) break;
 
                 const candidateUrls = getMediaUrls(curr);
-                if (candidateUrls.length > fallbackUrls.length) {
-                    fallbackUrls = candidateUrls;
+                if (candidateUrls.length >= bestUrls.length) {
+                    bestUrls = candidateUrls;
                 }
-                if (candidateUrls.length >= 2) {
-                    for (const u of candidateUrls) {
-                        if (!result.gallery.includes(u)) {
-                            result.gallery.push(u);
-                        }
-                    }
-                    galleryFound = true;
+                if (curr.matches && curr.matches('.page-product__briefing, .product-briefing, [class*="briefing"], section')) {
                     break;
                 }
                 curr = curr.parentElement;
             }
 
-            if (!galleryFound && fallbackUrls.length > 0) {
-                for (const u of fallbackUrls) {
-                    if (!result.gallery.includes(u)) {
-                        result.gallery.push(u);
-                    }
-                }
-                galleryFound = true;
-            }
-
-            if (!galleryFound && curr) {
-                const parentSection = curr.closest('.page-product__briefing, .product-briefing, [class*="briefing"]');
-                if (parentSection && !isExcluded(parentSection)) {
-                    const divs = parentSection.querySelectorAll('div');
-                    for (const d of divs) {
-                        if (isExcluded(d)) continue;
-                        const candidateUrls = getMediaUrls(d);
-                        if (candidateUrls.length >= 2) {
-                            for (const u of candidateUrls) {
-                                if (!result.gallery.includes(u)) {
-                                    result.gallery.push(u);
-                                }
-                            }
-                            if (result.gallery.length >= 2) break;
-                        }
-                    }
+            for (const u of bestUrls) {
+                if (!result.gallery.includes(u)) {
+                    result.gallery.push(u);
                 }
             }
         }
