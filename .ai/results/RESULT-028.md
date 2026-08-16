@@ -3,12 +3,12 @@
 STATUS: READY_FOR_REVIEW
 
 ## Summary
-Implement Milestone M4 Executor-Neutral Contract (TASK-028 / ADR-010 / ADR-018 / ADR-017): pure vendor-neutral execution operation domain (RUN, FIX), ExecutionRequest schema-v1 with canonical state and work_ref role binding, ExecutorCapabilities declarative contract with pure eligibility gate, PreparedExecution request receipt, ExecutionResult strict payload matrix with request/result binding validator, and vendor-neutral ExecutorAdapter Protocol validated against three distinct stubs.
+Implement Milestone M4 Executor-Neutral Contract (TASK-028 / ADR-010 / ADR-018 / ADR-017 / REVIEW-028 FIX Round 1): pure vendor-neutral execution operation domain (RUN, FIX), ExecutionRequest schema-v1 with canonical state and work_ref role binding, ExecutorCapabilities declarative contract with pure eligibility gate, PreparedExecution request receipt with pure relational binding validator, ExecutionResult strict payload matrix with request/result binding validator, and vendor-neutral ExecutorAdapter Protocol validated against three distinct stubs.
 
 ## Task Metadata
 - Task: `TASK-028`
-- Action: `RUN`
-- Authorized Artifact: `.ai/tasks/TASK-028.md (67b787479f)`
+- Action: `FIX`
+- Authorized Artifact: `.ai/reviews/REVIEW-028.md (7d5d522db5)`
 - Base Main SHA: `b4178d283d451054dca51964771053d9e0de2b5c`
 - Branch: `ai/task-028`
 
@@ -20,10 +20,10 @@ Implement Milestone M4 Executor-Neutral Contract (TASK-028 / ADR-010 / ADR-018 /
 
 ## Diff Stat
 ```text
- src/aios_bridge/continuity/__init__.py        |   26 +-
- src/aios_bridge/continuity/executor.py        | 1171 +++++++++++++++++++++++++
- tests/aios_bridge/continuity/test_executor.py |  976 +++++++++++++++++++++
- 3 files changed, 2172 insertions(+), 1 deletion(-)
+ src/aios_bridge/continuity/__init__.py        |   28 +-
+ src/aios_bridge/continuity/executor.py        | 1237 +++++++++++++++++++++++++
+ tests/aios_bridge/continuity/test_executor.py | 1105 ++++++++++++++++++++++
+ 3 files changed, 2369 insertions(+), 1 deletion(-)
 ```
 
 ## Tests
@@ -31,10 +31,10 @@ Command: `.\venv\Scripts\python -c "import subprocess, sys; r1 = subprocess.run(
 Exit code: 0
 
 ```text
-=== Focused M4 Executor Suite: 20 passed, 1 warning in 0.06s ===
-=== Focused Continuity Suite: 111 passed, 1 warning in 0.34s ===
-=== Bridge Suite: 197 passed, 204 warnings in 0.57s ===
-=== Full Repository Suite: 671 passed in 56.00s ===
+=== Focused M4 Executor Suite: 23 passed, 1 warning in 0.06s ===
+=== Focused Continuity Suite: 114 passed, 1 warning in 0.30s ===
+=== Bridge Suite: 200 passed, 204 warnings in 0.59s ===
+=== Full Repository Suite: 674 passed in 60.40s (0:01:00) ===
 
 [Full Suite Output]
 ........................................................................ [ 10%]
@@ -43,17 +43,17 @@ Exit code: 0
 ........................................................................ [ 42%]
 ........................................................................ [ 53%]
 ........................................................................ [ 64%]
-........................................................................ [ 75%]
+........................................................................ [ 74%]
 ........................................................................ [ 85%]
 ........................................................................ [ 96%]
-.......................                                                  [100%]
-671 passed in 56.00s
+..........................                                               [100%]
+674 passed in 60.40s (0:01:00)
 
 ```
 
 ## Risks / Notes
-## Milestone M4 Executor-Neutral Contract (ADR-010 / ADR-018 / TASK-028)
-IMPLEMENTATION_HEAD: e69c06ae2ef2e9f74b9a4aaceaeda53a22c1bcea
+## Milestone M4 Executor-Neutral Contract (ADR-010 / ADR-018 / TASK-028 / REVIEW-028 FIX Round 1)
+IMPLEMENTATION_HEAD: b398ca2978f2db117b05058c04e6dd324b9c17e9
 LIVE_EXTERNAL_CALLS: 0
 PAID_EXTERNAL_API_CALLS: 0
 BRIDGE_V0_4_BEHAVIOR_CHANGED: NO
@@ -65,16 +65,21 @@ BRAIN_CONTRACT_OWNER: primary-brain
 BRAIN_ARCH_IMPLEMENTATION_PLAN: YES
 BRAIN_ADVERSARIAL_CHECKLIST: YES
 EXECUTOR_RUNS: 1
-EXECUTOR_FIX_RUNS: 0
+EXECUTOR_FIX_RUNS: 1
 
 ## Review Manifest (ADR-010 / ADR-018 / ADR-017 Assurance Evidence)
 BASE_SHA: b4178d283d451054dca51964771053d9e0de2b5c
-IMPLEMENTATION_SHA: e69c06ae2ef2e9f74b9a4aaceaeda53a22c1bcea
-PREVIOUS_REVIEW_SHA: NONE
+IMPLEMENTATION_SHA: b398ca2978f2db117b05058c04e6dd324b9c17e9
+PREVIOUS_REVIEW_SHA: af029ae336550ea75954bb921ac0037d7dd0b853
 CHANGED_FILES:
 - src/aios_bridge/continuity/__init__.py
 - src/aios_bridge/continuity/executor.py
 - tests/aios_bridge/continuity/test_executor.py
+
+R1_1_CAPACITY_METADATA_REMOVED: RESOLVED
+R1_2_FROM_DICT_STRICT_SEQUENCE: RESOLVED
+R1_3_PREPARED_EXECUTION_BINDING: RESOLVED
+R1_4_UTF8_BYTE_DECODING_WRAPPED: RESOLVED
 
 M4_EXECUTOR_NEUTRAL_CONTRACT: PASS
 EXECUTION_REQUEST_SCHEMA_V1: PASS
@@ -96,23 +101,20 @@ AUTHORITY_WIDENED: NO
 LIVE_EXTERNAL_CALLS: 0
 PAID_EXTERNAL_API_CALLS: 0
 
-FOCUSED_M4_TESTS: 20 passed
-CONTINUITY_TESTS: 111 passed
-BRIDGE_TESTS: 197 passed
-FULL_REPO_TESTS: 671 passed
+FOCUSED_M4_TESTS: 23 passed
+CONTINUITY_TESTS: 114 passed
+BRIDGE_TESTS: 200 passed
+FULL_REPO_TESTS: 674 passed
 REGRESSIONS: 0
 
 EXECUTOR_RUNS: 1
-EXECUTOR_FIX_RUNS: 0
+EXECUTOR_FIX_RUNS: 1
 
-## Implementation Summary
-1. `ExecutionOperation` (RUN, FIX) defined independently of telemetry, with semantic alignment verified.
-2. `ExecutionRequest` frozen schema-v1 with exact state fingerprint, safe git target branch, expected head SHA, work_ref role validation (RUN -> .ai/tasks/TASK-NNN.md, FIX -> .ai/reviews/REVIEW-NNN.md), bounded context refs, required capabilities, expected result path, and deterministic SHA-256 fingerprinting.
-3. `ExecutorCapabilities` declarative contract with sorted enum canonicalization, `declarative_only=True` invariant, and pure eligibility gate `validate_executor_eligibility()`.
-4. `PreparedExecution` request receipt binding without lease/secret fields (`PreparedExecution != Executor Lease`).
-5. `ExecutionResult` strict stable-boundary payload matrix (SUCCESS requires implementation SHA + result_ref; Non-SUCCESS requires error_code and null payload refs).
-6. Pure relational validators `validate_execution_request_against_state()` and `validate_execution_result_against_request()`.
-7. `ExecutorAdapter` vendor/transport neutral Protocol tested against three distinct neutral stubs (`executor-a`, `executor-b`, `executor-c`) with zero Continuity Core changes.
+## Delta Fix Summary (Round 1 Findings Resolution)
+1. **R1-1 Resolved**: Removed `capacity_metadata` completely from `ExecutorCapabilities` to ensure immutable, deterministic canonical identity and prevent secret/authority leakage.
+2. **R1-2 Resolved**: Added explicit type validation in `from_dict()` for `context_refs`, `required_capabilities`, `supported_operations`, `supported_capabilities`, and `evidence_refs` ensuring sets/generators/dicts are strictly rejected without conversion.
+3. **R1-3 Resolved**: Implemented and exported pure relational validator `validate_prepared_execution_against_request(prepared, request)` to mechanically verify exact task ID, request ID, executor ID, schema version, and `request.fingerprint()`. Added positive and negative test cases.
+4. **R1-4 Resolved**: Wrapped UTF-8 byte decoding in `from_json(bytes)` across all four M4 record types (`ExecutionRequest`, `ExecutorCapabilities`, `PreparedExecution`, `ExecutionResult`) to convert `UnicodeDecodeError` into `ContinuityStateValidationError` without raw byte leaking.
 
 ## Generated
-2026-08-17T01:45:15+07:00
+2026-08-17T01:53:33+07:00
