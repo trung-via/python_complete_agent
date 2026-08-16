@@ -103,13 +103,15 @@ def test_parse_context_spec():
 
 
 def test_extract_task_id_valid_and_invalid():
-    """extract_task_id enforces TASK-<digits> format and fails closed on invalid filenames."""
+    """extract_task_id enforces case-sensitive TASK-<digits> format and fails closed on invalid filenames."""
     assert extract_task_id("TASK-017.md") == "TASK-017"
     assert extract_task_id(".ai/tasks/TASK-001.md") == "TASK-001"
-    assert extract_task_id("path/to/task-999.md") == "TASK-999"
+    assert extract_task_id("path/to/TASK-999.md") == "TASK-999"
 
-    # Invalid task filenames
+    # Invalid task filenames (including lowercase/mixed case which must fail)
     invalid_filenames = [
+        "task-999.md",
+        "Task-017.md",
         "task.md",
         "TASK.md",
         "MY_TASK-017.md",

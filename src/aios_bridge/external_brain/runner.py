@@ -36,13 +36,13 @@ from .usage import JsonlUsageLedger, UsageLedger
 
 _LOCKED_PROVIDER = "minimax"
 _LOCKED_MODEL = "MiniMax-M3"
-_TASK_ID_PATTERN = re.compile(r"^TASK-\d+$", re.IGNORECASE)
+_TASK_ID_PATTERN = re.compile(r"^TASK-\d+$")
 
 
 def extract_task_id(task_file: str | Path) -> str:
     """
     Derives and validates the task ID from task filename.
-    Requires strictly TASK-<digits> format (e.g. TASK-017).
+    Requires strictly case-sensitive TASK-<digits> format (e.g. TASK-017).
     Fails closed before provider/network invocation on invalid task identity.
     """
     stem = Path(task_file).stem.strip()
@@ -51,7 +51,7 @@ def extract_task_id(task_file: str | Path) -> str:
             f"Invalid task identity derived from filename {str(task_file)!r}: stem={stem!r}. "
             f"Expected format 'TASK-<digits>' (e.g. 'TASK-017')."
         )
-    return stem.upper()
+    return stem
 
 
 def parse_context_spec(spec: str) -> tuple[ContextKind, str]:
