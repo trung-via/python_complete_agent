@@ -229,12 +229,11 @@ def _validate_expected_result_path(path: str, task_id: str) -> str:
 
 @dataclass(frozen=True)
 class ExecutorCapabilities:
-    """Declarative capability declaration for an execution actor (C8 / AIP-6)."""
+    """Declarative capability declaration for an execution actor (C8 / AIP-6 / R1-1)."""
     executor_id: str
     supported_operations: tuple[ExecutionOperation, ...]
     supported_capabilities: tuple[ExecutionCapability, ...]
     declarative_only: bool = True
-    capacity_metadata: Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
         if type(self.declarative_only) is not bool or self.declarative_only is not True:
@@ -298,16 +297,6 @@ class ExecutorCapabilities:
         parsed_caps.sort(key=lambda c: c.value)
         object.__setattr__(self, "supported_capabilities", tuple(parsed_caps))
 
-        if self.capacity_metadata is not None:
-            if not isinstance(self.capacity_metadata, Mapping):
-                raise ContinuityStateValidationError(
-                    f"capacity_metadata must be a Mapping or None, got: {type(self.capacity_metadata).__name__}"
-                )
-            for k in self.capacity_metadata:
-                if not isinstance(k, str) or not k:
-                    raise ContinuityStateValidationError("capacity_metadata keys must be non-empty strings")
-            object.__setattr__(self, "capacity_metadata", dict(self.capacity_metadata))
-
         raw_canonical = json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
         utf8_bytes = raw_canonical.encode("utf-8")
         if len(utf8_bytes) > MAX_SERIALIZED_BYTES:
@@ -316,15 +305,12 @@ class ExecutorCapabilities:
             )
 
     def to_dict(self) -> dict[str, Any]:
-        data: dict[str, Any] = {
+        return {
             "declarative_only": self.declarative_only,
             "executor_id": self.executor_id,
             "supported_capabilities": [c.value for c in self.supported_capabilities],
             "supported_operations": [o.value for o in self.supported_operations],
         }
-        if self.capacity_metadata is not None:
-            data["capacity_metadata"] = dict(self.capacity_metadata)
-        return data
 
     def to_canonical_json(self) -> str:
         return json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
@@ -344,7 +330,6 @@ class ExecutorCapabilities:
             "executor_id",
             "supported_capabilities",
             "supported_operations",
-            "capacity_metadata",
         }
         extra_keys = set(data.keys()) - allowed_keys
         if extra_keys:
@@ -356,12 +341,20 @@ class ExecutorCapabilities:
             if req not in data:
                 raise ContinuityStateValidationError(f"Missing required field '{req}' in ExecutorCapabilities")
 
+        if not isinstance(data["supported_operations"], (list, tuple)):
+            raise ContinuityStateValidationError(
+                f"supported_operations in dict must be a list or tuple, got: {type(data['supported_operations']).__name__}"
+            )
+        if not isinstance(data["supported_capabilities"], (list, tuple)):
+            raise ContinuityStateValidationError(
+                f"supported_capabilities in dict must be a list or tuple, got: {type(data['supported_capabilities']).__name__}"
+            )
+
         return cls(
             executor_id=data["executor_id"],
             supported_operations=data["supported_operations"],
             supported_capabilities=data["supported_capabilities"],
             declarative_only=data["declarative_only"],
-            capacity_metadata=data.get("capacity_metadata"),
         )
 
     @classmethod
@@ -371,7 +364,12 @@ class ExecutorCapabilities:
                 raise ContinuityStateValidationError(
                     f"Input JSON byte size ({len(json_str)}) exceeds maximum allowed ({MAX_SERIALIZED_BYTES})"
                 )
-            decoded = json_str.decode("utf-8")
+            try:
+                decoded = json_str.decode("utf-8")
+            except UnicodeDecodeError as e:
+                raise ContinuityStateValidationError(
+                    f"Invalid UTF-8 encoding in input bytes for {cls.__name__}: {e}"
+                ) from e
         elif isinstance(json_str, str):
             utf8_bytes = json_str.encode("utf-8")
             if len(utf8_bytes) > MAX_SERIALIZED_BYTES:
@@ -575,6 +573,15 @@ class ExecutionRequest:
             if req not in data:
                 raise ContinuityStateValidationError(f"Missing required field '{req}' in ExecutionRequest")
 
+        if not isinstance(data["context_refs"], (list, tuple)):
+            raise ContinuityStateValidationError(
+                f"context_refs in dict must be a list or tuple, got: {type(data['context_refs']).__name__}"
+            )
+        if not isinstance(data["required_capabilities"], (list, tuple)):
+            raise ContinuityStateValidationError(
+                f"required_capabilities in dict must be a list or tuple, got: {type(data['required_capabilities']).__name__}"
+            )
+
         work_ref = ArtifactRef.from_dict(data["work_ref"])
         context_refs = tuple(ArtifactRef.from_dict(r) for r in data["context_refs"])
 
@@ -600,7 +607,12 @@ class ExecutionRequest:
                 raise ContinuityStateValidationError(
                     f"Input JSON byte size ({len(json_str)}) exceeds maximum allowed ({MAX_SERIALIZED_BYTES})"
                 )
-            decoded = json_str.decode("utf-8")
+            try:
+                decoded = json_str.decode("utf-8")
+            except UnicodeDecodeError as e:
+                raise ContinuityStateValidationError(
+                    f"Invalid UTF-8 encoding in input bytes for {cls.__name__}: {e}"
+                ) from e
         elif isinstance(json_str, str):
             utf8_bytes = json_str.encode("utf-8")
             if len(utf8_bytes) > MAX_SERIALIZED_BYTES:
@@ -623,7 +635,7 @@ class ExecutionRequest:
 
 @dataclass(frozen=True)
 class PreparedExecution:
-    """Immutable receipt binding adapter preparation to an exact request (C10). Not a lease."""
+    """Immutable receipt binding adapter preparation to an exact request (C10 / R1-3). Not a lease."""
     schema_version: str
     task_id: str
     request_id: str
@@ -714,7 +726,12 @@ class PreparedExecution:
                 raise ContinuityStateValidationError(
                     f"Input JSON byte size ({len(json_str)}) exceeds maximum allowed ({MAX_SERIALIZED_BYTES})"
                 )
-            decoded = json_str.decode("utf-8")
+            try:
+                decoded = json_str.decode("utf-8")
+            except UnicodeDecodeError as e:
+                raise ContinuityStateValidationError(
+                    f"Invalid UTF-8 encoding in input bytes for {cls.__name__}: {e}"
+                ) from e
         elif isinstance(json_str, str):
             utf8_bytes = json_str.encode("utf-8")
             if len(utf8_bytes) > MAX_SERIALIZED_BYTES:
@@ -916,6 +933,11 @@ class ExecutionResult:
             if req not in data:
                 raise ContinuityStateValidationError(f"Missing required field '{req}' in ExecutionResult")
 
+        if not isinstance(data["evidence_refs"], (list, tuple)):
+            raise ContinuityStateValidationError(
+                f"evidence_refs in dict must be a list or tuple, got: {type(data['evidence_refs']).__name__}"
+            )
+
         res_ref = ArtifactRef.from_dict(data["result_ref"]) if data["result_ref"] is not None else None
         ev_refs = tuple(ArtifactRef.from_dict(r) for r in data["evidence_refs"])
 
@@ -939,7 +961,12 @@ class ExecutionResult:
                 raise ContinuityStateValidationError(
                     f"Input JSON byte size ({len(json_str)}) exceeds maximum allowed ({MAX_SERIALIZED_BYTES})"
                 )
-            decoded = json_str.decode("utf-8")
+            try:
+                decoded = json_str.decode("utf-8")
+            except UnicodeDecodeError as e:
+                raise ContinuityStateValidationError(
+                    f"Invalid UTF-8 encoding in input bytes for {cls.__name__}: {e}"
+                ) from e
         elif isinstance(json_str, str):
             utf8_bytes = json_str.encode("utf-8")
             if len(utf8_bytes) > MAX_SERIALIZED_BYTES:
@@ -958,6 +985,45 @@ class ExecutionResult:
             raise ContinuityStateValidationError(f"Malformed JSON for ExecutionResult: {e}") from e
 
         return cls.from_dict(data)
+
+
+def validate_prepared_execution_against_request(
+    prepared: PreparedExecution,
+    request: ExecutionRequest,
+) -> None:
+    """
+    Pure validation of a PreparedExecution receipt against its originating ExecutionRequest (C10 / R1-3).
+    Fails closed on schema version, task_id, request_id, executor_id, or request_fingerprint mismatch.
+    """
+    if not isinstance(prepared, PreparedExecution):
+        raise ContinuityStateValidationError(
+            f"prepared must be a PreparedExecution instance, got: {type(prepared).__name__}"
+        )
+    if not isinstance(request, ExecutionRequest):
+        raise ContinuityStateValidationError(
+            f"request must be an ExecutionRequest instance, got: {type(request).__name__}"
+        )
+
+    if prepared.schema_version != request.schema_version:
+        raise ContinuityStateValidationError(
+            f"PreparedExecution schema_version '{prepared.schema_version}' != request.schema_version '{request.schema_version}'"
+        )
+    if prepared.task_id != request.task_id:
+        raise ContinuityStateValidationError(
+            f"PreparedExecution task_id '{prepared.task_id}' != request.task_id '{request.task_id}'"
+        )
+    if prepared.request_id != request.request_id:
+        raise ContinuityStateValidationError(
+            f"PreparedExecution request_id '{prepared.request_id}' != request.request_id '{request.request_id}'"
+        )
+    if prepared.executor_id != request.executor_id:
+        raise ContinuityStateValidationError(
+            f"PreparedExecution executor_id '{prepared.executor_id}' != request.executor_id '{request.executor_id}'"
+        )
+    if prepared.request_fingerprint != request.fingerprint():
+        raise ContinuityStateValidationError(
+            f"PreparedExecution request_fingerprint '{prepared.request_fingerprint}' != request.fingerprint() '{request.fingerprint()}'"
+        )
 
 
 def validate_execution_request_against_state(

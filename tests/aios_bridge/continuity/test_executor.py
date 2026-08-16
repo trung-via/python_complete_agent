@@ -1,5 +1,5 @@
 """
-Unit tests for Open Multi-Agent Continuity OS M4 Executor-Neutral Contract (ADR-018 / TASK-028).
+Unit tests for Open Multi-Agent Continuity OS M4 Executor-Neutral Contract (ADR-018 / TASK-028 / REVIEW-028 FIX Round 1).
 Validates vendor-neutral execution request, result, capability, preparation, state binding, and adapter protocol.
 """
 from __future__ import annotations
@@ -22,6 +22,7 @@ from src.aios_bridge.continuity.executor import (
     validate_execution_request_against_state,
     validate_execution_result_against_request,
     validate_executor_eligibility,
+    validate_prepared_execution_against_request,
 )
 from src.aios_bridge.continuity.state import (
     MAX_SERIALIZED_BYTES,
@@ -309,7 +310,7 @@ def test_execution_request_context_refs_sequence_and_collision_rules():
     state = _sample_state()
     req = _sample_execution_request(state)
 
-    # 1. Set input is rejected
+    # 1. Set input is rejected in constructor
     with pytest.raises(ContinuityStateValidationError, match="context_refs must be a list or tuple"):
         ExecutionRequest(
             schema_version="1",
@@ -326,7 +327,7 @@ def test_execution_request_context_refs_sequence_and_collision_rules():
             expected_result_path=".ai/results/RESULT-028.md",
         )
 
-    # 2. Generator input is rejected
+    # 2. Generator input is rejected in constructor
     with pytest.raises(ContinuityStateValidationError, match="context_refs must be a list or tuple"):
         ExecutionRequest(
             schema_version="1",
@@ -377,6 +378,47 @@ def test_execution_request_context_refs_sequence_and_collision_rules():
             required_capabilities=(),
             expected_result_path=".ai/results/RESULT-028.md",
         )
+
+
+def test_from_dict_strict_sequence_validation():
+    """from_dict rejects sets, generators, and dicts for context_refs and evidence_refs without laundering (R1-2)."""
+    state = _sample_state()
+    req_dict = _sample_execution_request(state).to_dict()
+
+    # 1. Generator in context_refs for ExecutionRequest.from_dict
+    bad_req_gen = {**req_dict, "context_refs": (r for r in req_dict["context_refs"])}
+    with pytest.raises(ContinuityStateValidationError, match="context_refs in dict must be a list or tuple"):
+        ExecutionRequest.from_dict(bad_req_gen)
+
+    # 2. Set in context_refs for ExecutionRequest.from_dict
+    bad_req_set = {**req_dict, "context_refs": {req_dict["context_refs"][0]["path"]}}
+    with pytest.raises(ContinuityStateValidationError, match="context_refs in dict must be a list or tuple"):
+        ExecutionRequest.from_dict(bad_req_set)
+
+    # 3. Generator in required_capabilities for ExecutionRequest.from_dict
+    bad_req_caps_gen = {**req_dict, "required_capabilities": (c for c in req_dict["required_capabilities"])}
+    with pytest.raises(ContinuityStateValidationError, match="required_capabilities in dict must be a list or tuple"):
+        ExecutionRequest.from_dict(bad_req_caps_gen)
+
+    # 4. Generator in evidence_refs for ExecutionResult.from_dict
+    res_dict = ExecutionResult(
+        schema_version="1",
+        task_id="TASK-028",
+        request_id="req-01",
+        executor_id="antigravity",
+        operation=ExecutionOperation.RUN,
+        status=ExecutionResultStatus.FAILED,
+        error_code="FAIL",
+    ).to_dict()
+    bad_res_gen = {**res_dict, "evidence_refs": (r for r in [ArtifactRef(path=".ai/evidence/01.md", ref="main", blob_sha="1" * 40).to_dict()])}
+    with pytest.raises(ContinuityStateValidationError, match="evidence_refs in dict must be a list or tuple"):
+        ExecutionResult.from_dict(bad_res_gen)
+
+    # 5. Generator in supported_operations for ExecutorCapabilities.from_dict
+    caps_dict = _sample_capabilities().to_dict()
+    bad_caps_gen = {**caps_dict, "supported_operations": (o for o in caps_dict["supported_operations"])}
+    with pytest.raises(ContinuityStateValidationError, match="supported_operations in dict must be a list or tuple"):
+        ExecutorCapabilities.from_dict(bad_caps_gen)
 
 
 # -----------------------------------------------------------------------------
@@ -475,7 +517,7 @@ def test_validate_execution_request_against_state_mismatches():
 # -----------------------------------------------------------------------------
 
 def test_executor_capabilities_determinism_and_declarative_constraint():
-    """ExecutorCapabilities sorts enums canonically and enforces declarative_only=True."""
+    """ExecutorCapabilities sorts enums canonically, enforces declarative_only=True, and has no mutable metadata (R1-1)."""
     caps = ExecutorCapabilities(
         executor_id="antigravity",
         supported_operations=[ExecutionOperation.FIX, ExecutionOperation.RUN],
@@ -504,6 +546,10 @@ def test_executor_capabilities_determinism_and_declarative_constraint():
             supported_capabilities=(ExecutionCapability.REPOSITORY_READ, ExecutionCapability.REPOSITORY_READ),
         )
 
+    # Rejection of capacity_metadata (R1-1)
+    with pytest.raises(ContinuityStateValidationError, match="Unknown fields in ExecutorCapabilities"):
+        ExecutorCapabilities.from_dict({**caps.to_dict(), "capacity_metadata": {"foo": "bar"}})
+
 
 def test_validate_executor_eligibility():
     """Eligibility gate enforces matching actor ID, supported operation, and required capabilities."""
@@ -531,7 +577,7 @@ def test_validate_executor_eligibility():
 
 
 # -----------------------------------------------------------------------------
-# 5. PreparedExecution Tests
+# 5. PreparedExecution & Relational Request Binding Tests
 # -----------------------------------------------------------------------------
 
 def test_prepared_execution_invariants_and_no_lease_fields():
@@ -556,6 +602,72 @@ def test_prepared_execution_invariants_and_no_lease_fields():
     for lease_key in ["lease", "lease_id", "lease_owner", "lease_expiry", "generation"]:
         with pytest.raises(ContinuityStateValidationError, match="Forbidden lease/secret fields"):
             PreparedExecution.from_dict({**prep_dict, lease_key: "lease-01"})
+
+
+def test_validate_prepared_execution_against_request():
+    """validate_prepared_execution_against_request mechanically binds receipt to request (R1-3)."""
+    state = _sample_state()
+    req = _sample_execution_request(state)
+
+    prep_valid = PreparedExecution(
+        schema_version=req.schema_version,
+        task_id=req.task_id,
+        request_id=req.request_id,
+        executor_id=req.executor_id,
+        execution_id="exec-01",
+        request_fingerprint=req.fingerprint(),
+    )
+
+    # Valid binding passes
+    validate_prepared_execution_against_request(prep_valid, req)
+
+    # 1. Syntactically valid but wrong 64-hex request fingerprint fails (R1-3)
+    prep_wrong_fp = PreparedExecution(
+        schema_version=req.schema_version,
+        task_id=req.task_id,
+        request_id=req.request_id,
+        executor_id=req.executor_id,
+        execution_id="exec-01",
+        request_fingerprint="0" * 64,
+    )
+    with pytest.raises(ContinuityStateValidationError, match="request_fingerprint"):
+        validate_prepared_execution_against_request(prep_wrong_fp, req)
+
+    # 2. Task ID mismatch fails
+    prep_bad_task = PreparedExecution(
+        schema_version=req.schema_version,
+        task_id="TASK-029",
+        request_id=req.request_id,
+        executor_id=req.executor_id,
+        execution_id="exec-01",
+        request_fingerprint=req.fingerprint(),
+    )
+    with pytest.raises(ContinuityStateValidationError, match="task_id"):
+        validate_prepared_execution_against_request(prep_bad_task, req)
+
+    # 3. Request ID mismatch fails
+    prep_bad_req = PreparedExecution(
+        schema_version=req.schema_version,
+        task_id=req.task_id,
+        request_id="req-drifted",
+        executor_id=req.executor_id,
+        execution_id="exec-01",
+        request_fingerprint=req.fingerprint(),
+    )
+    with pytest.raises(ContinuityStateValidationError, match="request_id"):
+        validate_prepared_execution_against_request(prep_bad_req, req)
+
+    # 4. Executor ID mismatch fails
+    prep_bad_exec = PreparedExecution(
+        schema_version=req.schema_version,
+        task_id=req.task_id,
+        request_id=req.request_id,
+        executor_id="codex",
+        execution_id="exec-01",
+        request_fingerprint=req.fingerprint(),
+    )
+    with pytest.raises(ContinuityStateValidationError, match="executor_id"):
+        validate_prepared_execution_against_request(prep_bad_exec, req)
 
 
 # -----------------------------------------------------------------------------
@@ -842,7 +954,7 @@ def test_executor_adapter_protocol_conformance():
 
 
 # -----------------------------------------------------------------------------
-# 8. Exhaustive Serialization, Bounds & Unknown Field Tests
+# 8. Exhaustive Serialization, Bounds, UTF-8 & Unknown Field Tests
 # -----------------------------------------------------------------------------
 
 def test_unknown_fields_rejected_in_all_models():
@@ -974,3 +1086,20 @@ def test_malformed_json_wraps_continuity_error():
 
     with pytest.raises(ContinuityStateValidationError, match="Malformed JSON"):
         ExecutionResult.from_json("{invalid json")
+
+
+def test_invalid_utf8_bytes_wrapped_in_from_json():
+    """Invalid UTF-8 bytes in from_json(bytes) wrap as ContinuityStateValidationError (R1-4)."""
+    invalid_utf8 = b"\x80\x81\xff"
+
+    with pytest.raises(ContinuityStateValidationError, match="Invalid UTF-8 encoding in input bytes for ExecutionRequest"):
+        ExecutionRequest.from_json(invalid_utf8)
+
+    with pytest.raises(ContinuityStateValidationError, match="Invalid UTF-8 encoding in input bytes for ExecutorCapabilities"):
+        ExecutorCapabilities.from_json(invalid_utf8)
+
+    with pytest.raises(ContinuityStateValidationError, match="Invalid UTF-8 encoding in input bytes for PreparedExecution"):
+        PreparedExecution.from_json(invalid_utf8)
+
+    with pytest.raises(ContinuityStateValidationError, match="Invalid UTF-8 encoding in input bytes for ExecutionResult"):
+        ExecutionResult.from_json(invalid_utf8)

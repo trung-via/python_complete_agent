@@ -24,6 +24,7 @@ from .executor import (
     validate_execution_request_against_state,
     validate_execution_result_against_request,
     validate_executor_eligibility,
+    validate_prepared_execution_against_request,
 )
 from .failover import (
     BrainFailoverProof,
@@ -125,4 +126,5 @@ __all__ = [
     "validate_execution_request_against_state",
     "validate_execution_result_against_request",
     "validate_executor_eligibility",
+    "validate_prepared_execution_against_request",
 ]
