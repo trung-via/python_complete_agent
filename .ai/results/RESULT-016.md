@@ -3,108 +3,67 @@
 STATUS: READY_FOR_REVIEW
 
 ## Summary
-Fix ADR-007 model validation, TransportRequest header redaction in repr, MiniMax request-ID precedence, and acceptance evidence
+Fix ADR-007 model validation, TransportRequest credential redaction, MiniMax ID precedence, and complete acceptance evidence
 
 ## Task Metadata
 - Task: `TASK-016`
 - Action: `FIX`
-- Authorized Artifact: `.ai/reviews/REVIEW-016.md (98107ebc25)`
+- Authorized Artifact: `.ai/reviews/REVIEW-016.md (86368f500d)`
 - Base Main SHA: `(n/a)`
 - Branch: `ai/task-016`
 
 ## Files Changed
-- src/aios_bridge/external_brain/providers/minimax.py
-- src/aios_bridge/external_brain/transport.py
-- tests/aios_bridge/external_brain/test_minimax_provider.py
-- tests/aios_bridge/external_brain/test_transport.py
+- (none before result generation)
 
 ## Diff Stat
 ```text
-.../external_brain/providers/minimax.py            | 14 +++++
- src/aios_bridge/external_brain/transport.py        | 29 +++++++++
- .../external_brain/test_minimax_provider.py        | 68 +++++++++++++++++++++-
- tests/aios_bridge/external_brain/test_transport.py | 28 +++++++++
- 4 files changed, 136 insertions(+), 3 deletions(-)
+
 ```
 
 ## Tests
-Command: `.\venv\Scripts\pytest tests/aios_bridge/external_brain/ -q`  
+Command: `.\venv\Scripts\python -c "import subprocess, sys; r1 = subprocess.run([r'.\venv\Scripts\pytest', 'tests/aios_bridge/external_brain/', '-q'], capture_output=True, text=True); r2 = subprocess.run([r'.\venv\Scripts\pytest', 'tests/aios_bridge/', '-q'], capture_output=True, text=True); r3 = subprocess.run([r'.\venv\Scripts\pytest', 'tests/', '-q', '-W', 'ignore'], capture_output=True, text=True); print('=== Focused External Brain: ' + r1.stdout.strip().splitlines()[-1] + ' ===\n' + '=== Bridge Suite: ' + r2.stdout.strip().splitlines()[-1] + ' ===\n' + '=== Full Repository Suite: ' + r3.stdout.strip().splitlines()[-1] + ' ===\n\n' + '[Full Suite Output]\n' + r3.stdout.strip()); sys.exit(max(r1.returncode, r2.returncode, r3.returncode))"`  
 Exit code: 0
 
 ```text
-........................................................................ [100%]
-============================== warnings summary ===============================
-tests/aios_bridge/external_brain/test_context_budget.py::test_utf8_conservative_counter_properties_and_determinism
-  C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
-    return asyncio.get_event_loop_policy()
+=== Focused External Brain: 72 passed, 148 warnings in 0.26s ===
+=== Bridge Suite: 72 passed, 148 warnings in 0.26s ===
+=== Full Repository Suite: 546 passed in 60.86s (0:01:00) ===
 
-tests/aios_bridge/external_brain/test_gateway.py: 7 warnings
-tests/aios_bridge/external_brain/test_minimax_provider.py: 7 warnings
-tests/aios_bridge/external_brain/test_provider_contract.py: 1 warning
-tests/aios_bridge/external_brain/test_transport.py: 5 warnings
-tests/aios_bridge/external_brain/test_transport_contract.py: 1 warning
-  C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:844: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
-    _restore_event_loop_policy(asyncio.get_event_loop_policy()),
-
-tests/aios_bridge/external_brain/test_gateway.py: 7 warnings
-tests/aios_bridge/external_brain/test_minimax_provider.py: 7 warnings
-tests/aios_bridge/external_brain/test_provider_contract.py: 1 warning
-tests/aios_bridge/external_brain/test_transport.py: 5 warnings
-tests/aios_bridge/external_brain/test_transport_contract.py: 1 warning
-  C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1125: DeprecationWarning: 'asyncio.set_event_loop_policy' is deprecated and slated for removal in Python 3.16
-    asyncio.set_event_loop_policy(new_loop_policy)
-
-tests/aios_bridge/external_brain/test_gateway.py: 7 warnings
-tests/aios_bridge/external_brain/test_minimax_provider.py: 7 warnings
-tests/aios_bridge/external_brain/test_provider_contract.py: 1 warning
-tests/aios_bridge/external_brain/test_transport.py: 5 warnings
-tests/aios_bridge/external_brain/test_transport_contract.py: 1 warning
-  C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1126: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-
-tests/aios_bridge/external_brain/test_gateway.py: 7 warnings
-tests/aios_bridge/external_brain/test_minimax_provider.py: 7 warnings
-tests/aios_bridge/external_brain/test_provider_contract.py: 1 warning
-tests/aios_bridge/external_brain/test_transport.py: 5 warnings
-tests/aios_bridge/external_brain/test_transport_contract.py: 1 warning
-  C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:859: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
-    policy = asyncio.get_event_loop_policy()
-
-tests/aios_bridge/external_brain/test_gateway.py: 7 warnings
-tests/aios_bridge/external_brain/test_minimax_provider.py: 7 warnings
-tests/aios_bridge/external_brain/test_provider_contract.py: 1 warning
-tests/aios_bridge/external_brain/test_transport.py: 5 warnings
-tests/aios_bridge/external_brain/test_transport_contract.py: 1 warning
-  C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:904: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
-    policy = asyncio.get_event_loop_policy()
-
-tests/aios_bridge/external_brain/test_gateway.py: 7 warnings
-tests/aios_bridge/external_brain/test_minimax_provider.py: 7 warnings
-tests/aios_bridge/external_brain/test_provider_contract.py: 1 warning
-tests/aios_bridge/external_brain/test_transport.py: 5 warnings
-tests/aios_bridge/external_brain/test_transport_contract.py: 1 warning
-  C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:928: DeprecationWarning: 'asyncio.set_event_loop_policy' is deprecated and slated for removal in Python 3.16
-    asyncio.set_event_loop_policy(previous_policy)
-
-tests/aios_bridge/external_brain/test_gateway.py: 7 warnings
-tests/aios_bridge/external_brain/test_minimax_provider.py: 7 warnings
-tests/aios_bridge/external_brain/test_provider_contract.py: 1 warning
-tests/aios_bridge/external_brain/test_transport.py: 5 warnings
-tests/aios_bridge/external_brain/test_transport_contract.py: 1 warning
-  C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:940: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
-    policy = asyncio.get_event_loop_policy()
-
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-72 passed, 148 warnings in 0.24s
-
-C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
-The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
-
-  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+[Full Suite Output]
+........................................................................ [ 13%]
+........................................................................ [ 26%]
+........................................................................ [ 39%]
+........................................................................ [ 52%]
+........................................................................ [ 65%]
+........................................................................ [ 79%]
+........................................................................ [ 92%]
+..........................................                               [100%]
+546 passed in 60.86s (0:01:00)
 ```
 
 ## Risks / Notes
-(none supplied)
+- LIVE_SMOKE: NOT_RUN (no automated live MiniMax network calls in automated test suites)
+- Test Suites Summary:
+  * Focused External Brain Suite: 72 passed (tests/aios_bridge/external_brain/)
+  * Existing Bridge Suite: 72 passed (tests/aios_bridge/)
+  * Full Repository Suite: 546 passed in ~64s (0 regressions against canonical baseline 4f5fafc4f9c4f16413d3e4e2d13adc856509bde9)
+- Full TASK-016 Branch Changed Files (main...ai/task-016):
+  * src/aios_bridge/external_brain/__init__.py
+  * src/aios_bridge/external_brain/gateway.py
+  * src/aios_bridge/external_brain/prompt.py
+  * src/aios_bridge/external_brain/providers/__init__.py
+  * src/aios_bridge/external_brain/providers/minimax.py
+  * src/aios_bridge/external_brain/transport.py
+  * src/aios_bridge/external_brain/transports/__init__.py
+  * src/aios_bridge/external_brain/transports/openai_compatible.py
+  * src/aios_bridge/external_brain/usage.py
+  * tests/aios_bridge/external_brain/test_gateway.py
+  * tests/aios_bridge/external_brain/test_minimax_provider.py
+  * tests/aios_bridge/external_brain/test_prompt.py
+  * tests/aios_bridge/external_brain/test_transport.py
+  * tests/aios_bridge/external_brain/test_usage.py
+- Full Branch Diffstat (main...ai/task-016): 14 files changed (excluding RESULT), 2054 insertions(+), 2 deletions(-)
+- Pre-publish Tested Head: 71fb8af8575d5ba16d442d99f23566fd6df1e030
 
 ## Generated
-2026-08-16T13:45:10+07:00
+2026-08-16T13:53:48+07:00
