@@ -8,7 +8,7 @@ Implement #13-M3A Brain Failover Contract, replacement-request builder, semantic
 ## Task Metadata
 - Task: `TASK-022`
 - Action: `FIX`
-- Authorized Artifact: `.ai/reviews/REVIEW-022.md (c337cb4d85)`
+- Authorized Artifact: `.ai/reviews/REVIEW-022.md (48359475ac)`
 - Base Main SHA: `4978e426f3445c086c017c07c844943ac841e4de`
 - Branch: `ai/task-022`
 
@@ -22,9 +22,9 @@ Implement #13-M3A Brain Failover Contract, replacement-request builder, semantic
 ```text
  .ai/results/RESULT-022.md                     | 113 ++++++
  src/aios_bridge/continuity/__init__.py        |  10 +-
- src/aios_bridge/continuity/failover.py        | 495 +++++++++++++++++++
- tests/aios_bridge/continuity/test_failover.py | 684 ++++++++++++++++++++++++++
- 4 files changed, 1302 insertions(+), 1 deletion(-)
+ src/aios_bridge/continuity/failover.py        | 506 ++++++++++++++++++
+ tests/aios_bridge/continuity/test_failover.py | 732 ++++++++++++++++++++++++++
+ 4 files changed, 1360 insertions(+), 1 deletion(-)
 ```
 
 ## Tests
@@ -32,9 +32,9 @@ Command: `.\venv\Scripts\python -c "import subprocess, sys; r1 = subprocess.run(
 Exit code: 0
 
 ```text
-=== Focused Continuity Suite: 63 passed, 1 warning in 0.12s ===
+=== Focused Continuity Suite: 63 passed, 1 warning in 0.13s ===
 === Bridge Suite: 149 passed, 204 warnings in 0.45s ===
-=== Full Repository Suite: 623 passed in 58.37s ===
+=== Full Repository Suite: 623 passed in 57.86s ===
 
 [Full Suite Output]
 ........................................................................ [ 11%]
@@ -46,13 +46,13 @@ Exit code: 0
 ........................................................................ [ 80%]
 ........................................................................ [ 92%]
 ...............................................                          [100%]
-623 passed in 58.37s
+623 passed in 57.86s
 
 ```
 
 ## Risks / Notes
 ## Milestone M3A Brain Failover Contract Telemetry
-IMPLEMENTATION_HEAD: b1cb97d41f40f26bdfb8faa3ddd048838da6e9b0
+IMPLEMENTATION_HEAD: ab47be4a007337c9be270e4b51af4ae66bfe7eaa
 FAILOVER_SCHEMA_VERSION: 1
 TELEMETRY_MODEL_TURNS_ADDED: 0
 LIVE_EXTERNAL_CALLS: 0
@@ -66,8 +66,8 @@ M3_REAL_CROSS_BRAIN_PROOF_COMPLETE: NO
 
 ## Review Manifest (ADR-013 / ADR-014 / ADR-016 Delta-First Evidence)
 BASE_SHA: 4978e426f3445c086c017c07c844943ac841e4de
-IMPLEMENTATION_SHA: b1cb97d41f40f26bdfb8faa3ddd048838da6e9b0
-PREVIOUS_REVIEW_SHA: c337cb4d85465e902be6f753c4e5cfd3edbb583d
+IMPLEMENTATION_SHA: ab47be4a007337c9be270e4b51af4ae66bfe7eaa
+PREVIOUS_REVIEW_SHA: 48359475ac06243f27066a8e6d1f673478349ad4
 CHANGED_FILES:
 - .ai/results/RESULT-022.md
 - src/aios_bridge/continuity/__init__.py
@@ -82,18 +82,15 @@ CHATGPT_IMPLEMENTATION_PLAN_USED: NO
 M3A_MECHANICS_PROVED: YES
 M3_REAL_CROSS_BRAIN_PROOF_COMPLETE: NO
 
-## REVIEW-022 Second Full Re-Audit Findings Closure
-1. R6-1 (Context References Content-Anchored to Canonical State Snapshot):
-   - Implemented `_validate_context_refs_content_anchored()` in `failover.py`.
-   - Requires every ContextRef at the failover boundary to be content-addressed with a valid, non-null 40-hex lowercase `blob_sha` and unpadded path.
-   - Enforces that if a ContextRef path matches an authoritative state artifact (`task`, `plan`, `result`, `review`, or `contracts`), its `blob_sha` MUST strictly match the state artifact blob SHA.
-   - Enforces that non-state ContextRefs must carry explicit blob SHA for deterministic content-addressing.
-   - Added comprehensive regression tests in `test_context_refs_content_anchoring_to_state_snapshot()` covering allowed cases and all fail-closed rejections.
+## REVIEW-022 Round-7 Finding Closure
+1. R7-1 (State Artifact Path Collision Rejection in Failover Context Anchor):
+   - Updated `_validate_context_refs_content_anchored()` to detect and reject cross-role path collisions across `task`, `plan`, `result`, `review`, and `contracts` fail-closed rather than silently overwriting entries in the authoritative blob map.
+   - Added focused regression tests in `test_context_refs_content_anchoring_to_state_snapshot()` verifying that state artifact path collisions (e.g. task path repeated in contracts or plan) fail closed with `ContinuityStateValidationError`.
 
-## Test Suites Execution Evidence (against implementation b1cb97d41f40f26bdfb8faa3ddd048838da6e9b0)
-- Focused Continuity Suite: 63 passed in ~0.11s (tests/aios_bridge/continuity/)
-- Bridge Suite: 149 passed in ~0.43s (tests/aios_bridge/)
-- Full Repository Suite: 623 passed in ~56s (0 regressions against canonical baseline 4978e426f3445c086c017c07c844943ac841e4de)
+## Test Suites Execution Evidence (against implementation ab47be4a007337c9be270e4b51af4ae66bfe7eaa)
+- Focused Continuity Suite: 63 passed in ~0.12s (tests/aios_bridge/continuity/)
+- Bridge Suite: 149 passed in ~0.42s (tests/aios_bridge/)
+- Full Repository Suite: 623 passed in ~50s (0 regressions against canonical baseline 4978e426f3445c086c017c07c844943ac841e4de)
 
 ## Generated
-2026-08-16T21:46:34+07:00
+2026-08-16T21:53:17+07:00
