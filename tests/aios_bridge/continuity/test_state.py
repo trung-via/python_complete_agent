@@ -216,6 +216,7 @@ def test_path_safety_validation():
         ".ai\\tasks\\TASK-019.md",
         "src/app.py",  # Not under .ai/
         "tasks/TASK-019.md",
+        ".ai//tasks/TASK-019.md",
         "",
         None,
     ]
@@ -227,7 +228,7 @@ def test_path_safety_validation():
 
 
 def test_sensitive_path_rejection():
-    """Sensitive file paths (.env, keys, credentials, tokens) are strictly rejected."""
+    """Sensitive file paths (.env, keys, credentials, tokens, secrets) are strictly rejected regardless of extension."""
     sensitive_paths = [
         ".ai/.env",
         ".ai/.env.local",
@@ -236,7 +237,11 @@ def test_sensitive_path_rejection():
         ".ai/certs/server.key",
         ".ai/certs/cert.pem",
         ".ai/secrets/token.bin",
-        ".ai/credentials/password.txt",
+        ".ai/secrets/plan.md",               # Sensitive directory + markdown
+        ".ai/context/token.json",            # Sensitive keyword in JSON
+        ".ai/credentials/creds.yaml",        # Sensitive directory + YAML
+        ".ai/auth/tokens.md",                # Sensitive keyword + markdown
+        ".ai/profiles/admin.json",           # Sensitive directory + JSON
     ]
     for sp in sensitive_paths:
         d = _make_valid_state_dict()
@@ -249,6 +254,46 @@ def test_sensitive_path_rejection():
         ]
         with pytest.raises(ContinuityStateValidationError, match="Sensitive"):
             ContinuityState.from_dict(d)
+
+
+def test_git_ref_validation_conservative_hardening():
+    """Git references must be conservative valid ref labels; unsafe/malformed refs are rejected."""
+    # Valid Git refs
+    valid_refs = ["main", "ai/task-019", "ai-control", "refs/heads/main", "feat.v1", "release-1.0.0"]
+    for r in valid_refs:
+        b = BranchState(branch=r, sha="689c2c6dd8e41fe0f735b822118ba6530379b7dd")
+        assert b.branch == r
+
+    # Invalid Git refs
+    invalid_refs = [
+        "main/",            # Trailing slash
+        "/main",            # Leading slash
+        "main//branch",     # Double slash
+        "main.lock",        # Component ends with .lock
+        "ai/task.lock",     # Component ends with .lock
+        "ai/.task",         # Component starts with .
+        ".main",            # Starts with .
+        "main.",            # Ends with .
+        "main..branch",     # Traversal ..
+        "main~1",           # Tilde
+        "main^1",           # Caret
+        "main:branch",      # Colon
+        "main?branch",      # Question mark
+        "main*branch",      # Asterisk
+        "main[1]",          # Bracket
+        "main\\branch",     # Backslash
+        "main@branch",      # @
+        "main@{0}",         # @{}
+        "main branch",      # Space
+        "main\tbranch",     # Tab
+        "main\nbranch",     # Newline
+        "",                 # Empty
+        None,               # None
+        True,               # Bool
+    ]
+    for inv_r in invalid_refs:
+        with pytest.raises(ContinuityStateValidationError):
+            BranchState(branch=inv_r)  # type: ignore
 
 
 def test_unknown_fields_rejection_at_all_layers():
@@ -376,15 +421,21 @@ def test_task_branch_sha_requirement_from_running_onward():
             ContinuityState.from_dict(d)
 
 
-def test_task_identity_consistency():
-    """TASK-NNN, RESULT-NNN, REVIEW-NNN, and plan task declared identity must match active task_id."""
+def test_task_identity_and_canonical_namespace_consistency():
+    """TASK-NNN, RESULT-NNN, REVIEW-NNN must live in exact canonical directories and match active task_id."""
     # 1. Task file mismatch
     d1 = _make_valid_state_dict()
     d1["artifacts"]["task"]["path"] = ".ai/tasks/TASK-018.md"
-    with pytest.raises(ContinuityStateValidationError, match="does not match active task_id"):
+    with pytest.raises(ContinuityStateValidationError, match="artifacts.task path must be exactly"):
         ContinuityState.from_dict(d1)
 
-    # 2. Result file mismatch
+    # 2. Task file in wrong directory (e.g. .ai/context/TASK-019.md)
+    d1_wrong_dir = _make_valid_state_dict()
+    d1_wrong_dir["artifacts"]["task"]["path"] = ".ai/context/TASK-019.md"
+    with pytest.raises(ContinuityStateValidationError, match="artifacts.task path must be exactly"):
+        ContinuityState.from_dict(d1_wrong_dir)
+
+    # 3. Result file mismatch
     d2 = _make_valid_state_dict()
     d2["phase"] = "READY_FOR_REVIEW"
     d2["next_operation"] = "REVIEW"
@@ -394,10 +445,23 @@ def test_task_identity_consistency():
         "ref": "ai/task-019",
         "blob_sha": "3333333333333333333333333333333333333333",
     }
-    with pytest.raises(ContinuityStateValidationError, match="does not match active task_id"):
+    with pytest.raises(ContinuityStateValidationError, match="artifacts.result path must be exactly"):
         ContinuityState.from_dict(d2)
 
-    # 3. Review file mismatch
+    # 4. Result file in wrong directory (e.g. .ai/context/RESULT-019.md)
+    d2_wrong_dir = _make_valid_state_dict()
+    d2_wrong_dir["phase"] = "READY_FOR_REVIEW"
+    d2_wrong_dir["next_operation"] = "REVIEW"
+    d2_wrong_dir["task_branch"]["sha"] = "2222222222222222222222222222222222222222"
+    d2_wrong_dir["artifacts"]["result"] = {
+        "path": ".ai/context/RESULT-019.md",
+        "ref": "ai/task-019",
+        "blob_sha": "3333333333333333333333333333333333333333",
+    }
+    with pytest.raises(ContinuityStateValidationError, match="artifacts.result path must be exactly"):
+        ContinuityState.from_dict(d2_wrong_dir)
+
+    # 5. Review file mismatch
     d3 = _make_valid_state_dict()
     d3["phase"] = "APPROVED"
     d3["next_operation"] = "MERGE_APPROVAL"
@@ -412,10 +476,28 @@ def test_task_identity_consistency():
         "ref": "ai-control",
         "blob_sha": "4444444444444444444444444444444444444444",
     }
-    with pytest.raises(ContinuityStateValidationError, match="does not match active task_id"):
+    with pytest.raises(ContinuityStateValidationError, match="artifacts.review path must be exactly"):
         ContinuityState.from_dict(d3)
 
-    # 4. Plan file mismatch
+    # 6. Review file in wrong directory (e.g. .ai/context/REVIEW-019.md)
+    d3_wrong_dir = _make_valid_state_dict()
+    d3_wrong_dir["phase"] = "APPROVED"
+    d3_wrong_dir["next_operation"] = "MERGE_APPROVAL"
+    d3_wrong_dir["task_branch"]["sha"] = "2222222222222222222222222222222222222222"
+    d3_wrong_dir["artifacts"]["result"] = {
+        "path": ".ai/results/RESULT-019.md",
+        "ref": "ai/task-019",
+        "blob_sha": "3333333333333333333333333333333333333333",
+    }
+    d3_wrong_dir["artifacts"]["review"] = {
+        "path": ".ai/context/REVIEW-019.md",
+        "ref": "ai-control",
+        "blob_sha": "4444444444444444444444444444444444444444",
+    }
+    with pytest.raises(ContinuityStateValidationError, match="artifacts.review path must be exactly"):
+        ContinuityState.from_dict(d3_wrong_dir)
+
+    # 7. Plan file mismatch
     d4 = _make_valid_state_dict()
     d4["artifacts"]["plan"] = {
         "path": ".ai/context/TASK-018-MINIMAX-PLAN.md",
@@ -465,8 +547,8 @@ def test_phase_required_artifacts_enforcement():
         ContinuityState.from_dict(d2)
 
 
-def test_size_limit_16kib_fail_closed():
-    """State exceeding 16 KiB (16384 bytes) fails closed with no truncation."""
+def test_size_limit_16kib_fail_closed_in_constructor_and_parser():
+    """State exceeding 16 KiB (16384 bytes) fails closed in constructor, from_dict, and from_json."""
     d = _make_valid_state_dict()
     # Add many valid contract items to exceed 16 KiB
     many_contracts = []
@@ -478,15 +560,36 @@ def test_size_limit_16kib_fail_closed():
         })
     d["artifacts"]["contracts"] = many_contracts
 
-    state = ContinuityState.from_dict(d)
+    # from_dict must fail closed immediately
     with pytest.raises(ContinuityStateValidationError, match="exceeds MAX_SERIALIZED_BYTES"):
-        state.to_canonical_json()
+        ContinuityState.from_dict(d)
 
-    # Also test from_json rejects oversized payloads
+    # from_json must fail closed immediately
     huge_json = json.dumps(d)
     assert len(huge_json.encode("utf-8")) > MAX_SERIALIZED_BYTES
     with pytest.raises(ContinuityStateValidationError, match="exceeds maximum allowable size"):
         ContinuityState.from_json(huge_json)
+
+    # Direct constructor must fail closed immediately
+    contracts_objs = tuple(
+        ArtifactRef(path=c["path"], ref=c["ref"], blob_sha=c["blob_sha"]) for c in many_contracts
+    )
+    with pytest.raises(ContinuityStateValidationError, match="exceeds MAX_SERIALIZED_BYTES"):
+        ContinuityState(
+            task_id="TASK-019",
+            phase=ContinuityPhase.READY_FOR_RUN,
+            next_operation=NextOperation.RUN_APPROVAL,
+            main=BranchState(branch="main", sha="689c2c6dd8e41fe0f735b822118ba6530379b7dd"),
+            task_branch=BranchState(branch="ai/task-019", sha=None),
+            artifacts=ContinuityArtifacts(
+                task=ArtifactRef(
+                    path=".ai/tasks/TASK-019.md",
+                    ref="ai-control",
+                    blob_sha="adc44f449f2a991a455b8039d8e8978fe4643146",
+                ),
+                contracts=contracts_objs,
+            ),
+        )
 
 
 def test_freshness_evaluation_fresh():

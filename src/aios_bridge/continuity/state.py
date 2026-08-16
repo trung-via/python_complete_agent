@@ -18,12 +18,34 @@ MAX_SERIALIZED_BYTES: int = 16384  # 16 KiB
 
 _TASK_ID_PATTERN = re.compile(r"^TASK-\d+$")
 _HEX_40_PATTERN = re.compile(r"^[0-9a-f]{40}$")
-_BRANCH_REF_PATTERN = re.compile(r"^[a-zA-Z0-9_.\-\/]+$")
 _ACTOR_ID_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+_GIT_REF_COMPONENT_PATTERN = re.compile(r"^[a-zA-Z0-9_\-]+(?:\.[a-zA-Z0-9_\-]+)*$")
+_GIT_REF_FORBIDDEN_CHARS = set(" ~^:?*[\\]@\0\t\r\n")
 
-_SENSITIVE_PATH_EXTENSIONS = {".pem", ".key", ".pfx", ".p12", ".pkcs12"}
-_SENSITIVE_FILENAME_SUBSTRINGS = {"id_rsa", "id_ecdsa", "id_ed25519", "id_dsa"}
-_SENSITIVE_KEYWORDS = {"secret", "token", "credential", "password", "cookie", "profile"}
+_SENSITIVE_PATH_EXTENSIONS = {
+    ".pem",
+    ".key",
+    ".pfx",
+    ".p12",
+    ".pkcs12",
+    ".crt",
+    ".cer",
+    ".der",
+}
+_SENSITIVE_SUBSTRINGS = {
+    "id_rsa",
+    "id_ecdsa",
+    "id_ed25519",
+    "id_dsa",
+    "secret",
+    "token",
+    "credential",
+    "password",
+    "cookie",
+    "profile",
+    "private_key",
+    "private-key",
+}
 
 
 class ContinuityPhase(str, Enum):
@@ -109,8 +131,27 @@ def _validate_safe_git_ref(ref: Any, field_name: str) -> str:
     if isinstance(ref, bool) or not isinstance(ref, str) or not ref.strip():
         raise ContinuityStateValidationError(f"{field_name} must be a non-empty string")
     ref_str = ref.strip()
-    if not _BRANCH_REF_PATTERN.match(ref_str) or ".." in ref_str or ref_str.startswith("/") or ref_str.endswith("/"):
-        raise ContinuityStateValidationError(f"{field_name} is not a valid Git reference: {ref!r}")
+
+    if any(c in _GIT_REF_FORBIDDEN_CHARS for c in ref_str) or any(ord(c) < 32 or ord(c) == 127 for c in ref_str):
+        raise ContinuityStateValidationError(f"{field_name} contains forbidden character in Git ref: {ref!r}")
+    if ref_str.startswith("/") or ref_str.endswith("/") or ref_str.startswith(".") or ref_str.endswith("."):
+        raise ContinuityStateValidationError(f"{field_name} cannot start or end with '/' or '.': {ref!r}")
+    if "//" in ref_str or ".." in ref_str or "@{" in ref_str:
+        raise ContinuityStateValidationError(f"{field_name} contains forbidden sequence in Git ref: {ref!r}")
+
+    components = ref_str.split("/")
+    for comp in components:
+        if not comp:
+            raise ContinuityStateValidationError(f"{field_name} contains empty component: {ref!r}")
+        if comp.startswith(".") or comp.endswith(".lock"):
+            raise ContinuityStateValidationError(
+                f"{field_name} component cannot start with '.' or end with '.lock': {ref!r}"
+            )
+        if not _GIT_REF_COMPONENT_PATTERN.match(comp):
+            raise ContinuityStateValidationError(
+                f"{field_name} component has invalid characters: {comp!r} in {ref!r}"
+            )
+
     return ref_str
 
 
@@ -137,25 +178,27 @@ def _validate_artifact_path(path: Any, field_name: str) -> str:
         )
     if path_str.startswith("/") or re.match(r"^[a-zA-Z]:", path_str):
         raise ContinuityStateValidationError(f"{field_name} must be a relative path: {path!r}")
-    if ".." in path_str.split("/"):
-        raise ContinuityStateValidationError(f"{field_name} must not contain '..' traversal: {path!r}")
+    
+    parts = path_str.split("/")
+    if any(p == ".." for p in parts) or any(p == "" for p in parts):
+        raise ContinuityStateValidationError(f"{field_name} must not contain empty or '..' segments: {path!r}")
     if not path_str.startswith(".ai/"):
         raise ContinuityStateValidationError(f"{field_name} must live under '.ai/', got: {path!r}")
 
-    # Sensitive path rejection
+    # Sensitive path rejection across ALL path components regardless of file extension
     p = PurePosixPath(path_str)
-    basename = p.name.lower()
-
-    if basename == ".env" or basename.startswith(".env."):
-        raise ContinuityStateValidationError(f"Sensitive path rejected in {field_name}: {path!r}")
     if p.suffix.lower() in _SENSITIVE_PATH_EXTENSIONS:
         raise ContinuityStateValidationError(f"Sensitive file extension rejected in {field_name}: {path!r}")
-    for sub in _SENSITIVE_FILENAME_SUBSTRINGS:
-        if sub in basename:
-            raise ContinuityStateValidationError(f"Sensitive key pattern rejected in {field_name}: {path!r}")
-    for kw in _SENSITIVE_KEYWORDS:
-        if kw in basename and not basename.endswith((".md", ".json", ".yaml", ".yml", ".sql")):
-            raise ContinuityStateValidationError(f"Sensitive keyword rejected in {field_name}: {path!r}")
+
+    for component in parts:
+        comp_lower = component.lower()
+        if comp_lower == ".env" or comp_lower.startswith(".env."):
+            raise ContinuityStateValidationError(f"Sensitive environment path rejected in {field_name}: {path!r}")
+        for sub in _SENSITIVE_SUBSTRINGS:
+            if sub in comp_lower:
+                raise ContinuityStateValidationError(
+                    f"Sensitive keyword/pattern '{sub}' rejected in {field_name}: {path!r}"
+                )
 
     return path_str
 
@@ -450,33 +493,31 @@ class ContinuityState:
                 f"task_branch.sha is required for phase {self.phase.value}, but was null"
             )
 
-        # 6. Artifact identity consistency
+        # 6. Artifact exact namespace + task identity consistency
         if not isinstance(self.artifacts, ContinuityArtifacts):
             raise ContinuityStateValidationError(f"artifacts must be a ContinuityArtifacts, got: {type(self.artifacts).__name__}")
 
-        # Task artifact identity
-        task_filename = PurePosixPath(self.artifacts.task.path).name
-        if task_filename != f"{self.task_id}.md":
+        # Task artifact exact canonical path: .ai/tasks/{task_id}.md
+        expected_task_path = f".ai/tasks/{self.task_id}.md"
+        if self.artifacts.task.path != expected_task_path:
             raise ContinuityStateValidationError(
-                f"artifacts.task path {self.artifacts.task.path!r} does not match active task_id {self.task_id!r}"
+                f"artifacts.task path must be exactly {expected_task_path!r}, got: {self.artifacts.task.path!r}"
             )
 
-        # Result artifact identity
+        # Result artifact exact canonical path: .ai/results/RESULT-{task_num}.md
         if self.artifacts.result is not None:
-            result_stem = PurePosixPath(self.artifacts.result.path).stem
-            expected_result_stem = f"RESULT-{self.task_id[5:]}"
-            if result_stem != expected_result_stem:
+            expected_result_path = f".ai/results/RESULT-{self.task_id[5:]}.md"
+            if self.artifacts.result.path != expected_result_path:
                 raise ContinuityStateValidationError(
-                    f"artifacts.result path {self.artifacts.result.path!r} does not match active task_id {self.task_id!r}"
+                    f"artifacts.result path must be exactly {expected_result_path!r}, got: {self.artifacts.result.path!r}"
                 )
 
-        # Review artifact identity
+        # Review artifact exact canonical path: .ai/reviews/REVIEW-{task_num}.md
         if self.artifacts.review is not None:
-            review_stem = PurePosixPath(self.artifacts.review.path).stem
-            expected_review_stem = f"REVIEW-{self.task_id[5:]}"
-            if review_stem != expected_review_stem:
+            expected_review_path = f".ai/reviews/REVIEW-{self.task_id[5:]}.md"
+            if self.artifacts.review.path != expected_review_path:
                 raise ContinuityStateValidationError(
-                    f"artifacts.review path {self.artifacts.review.path!r} does not match active task_id {self.task_id!r}"
+                    f"artifacts.review path must be exactly {expected_review_path!r}, got: {self.artifacts.review.path!r}"
                 )
 
         # Plan artifact task identity check if declared
@@ -517,6 +558,14 @@ class ContinuityState:
             raise ContinuityStateValidationError(f"brain must be a BrainState, got: {type(self.brain).__name__}")
         if not isinstance(self.executor, ExecutorState):
             raise ContinuityStateValidationError(f"executor must be an ExecutorState, got: {type(self.executor).__name__}")
+
+        # 9. Strict constructor/parser 16 KiB size cap enforcement fail-closed
+        raw_canonical = json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        utf8_bytes = raw_canonical.encode("utf-8")
+        if len(utf8_bytes) > MAX_SERIALIZED_BYTES:
+            raise ContinuityStateValidationError(
+                f"Serialized ContinuityState size ({len(utf8_bytes)} bytes) exceeds MAX_SERIALIZED_BYTES limit ({MAX_SERIALIZED_BYTES})"
+            )
 
     def to_dict(self) -> dict[str, Any]:
         """Deterministic JSON-serializable dictionary representation."""
