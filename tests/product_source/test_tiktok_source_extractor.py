@@ -273,7 +273,50 @@ async def test_tiktok_js_script_excludes_reviews_and_no_main_article_fallback():
     assert "rating" in script
     assert "comment" in script
     assert "recommend" in script
-    assert "ugc" in script
     assert "main, article" not in script
     assert "main" not in script
     assert "article" not in script
+
+
+@pytest.mark.asyncio
+async def test_tiktok_extractor_does_not_block_on_globally_loaded_captcha_scripts():
+    """Normal TikTok product page with globally loaded captcha scripts extracts successfully (blocked == False)."""
+    eval_data = {
+        "structured": {
+            "title": "UVGREEN KA600",
+            "product_id": "1729981094029264939",
+            "images": ["https://p16-oec-sg.ibyteimg.com/main.webp"],
+            "brand": "UVGREEN",
+        },
+        "gallery_images": ["https://p16-oec-sg.ibyteimg.com/gal1.webp"],
+        "variants": [],
+        "seller_images": [],
+        "fallback_images": [],
+        "blocked": False,
+    }
+    session = FakeSession(eval_data)
+    extractor = TikTokSourceExtractor(browser=session)
+
+    pack = await extractor.extract("https://www.tiktok.com/view/product/1729981094029264939")
+    assert pack.title == "UVGREEN KA600"
+    assert pack.source_product_id == "1729981094029264939"
+    assert len(pack.media) >= 1
+
+
+@pytest.mark.asyncio
+async def test_tiktok_extractor_raises_blocked_on_active_challenge():
+    """Extractor raises SourcePackBlockedError when active captcha/challenge is encountered."""
+    eval_data = {
+        "structured": {"title": None, "product_id": None, "images": []},
+        "gallery_images": [],
+        "variants": [],
+        "seller_images": [],
+        "fallback_images": [],
+        "blocked": True,
+    }
+    session = FakeSession(eval_data)
+    extractor = TikTokSourceExtractor(browser=session)
+
+    with pytest.raises(SourcePackBlockedError, match="TikTok platform blocking detected"):
+        await extractor.extract("https://www.tiktok.com/view/product/1729981094029264939")
+

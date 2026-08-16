@@ -483,6 +483,87 @@ async def test_shopee_near_seed_ancestor_with_two_images_expands_to_full_sibling
         assert "https://down-vn.img.susercontent.com/file/unrelated2.jpg" not in all_media
 
 
+@pytest.mark.asyncio
+async def test_tiktok_dom_global_captcha_scripts_do_not_block_normal_product():
+    """
+    Proves that a normal TikTok product page loading background/global captcha loader scripts
+    (e.g. lucifer-captcha-loader-js) is NOT falsely flagged as blocked.
+    """
+    html = '''
+    <html>
+    <head>
+        <title>[TẶNG LỌC 1.250K] Máy Lọc Không Khí UVGREEN KA600 - TikTok Shop</title>
+        <!-- Global captcha loader script loaded on normal pages -->
+        <script id="lucifer-captcha-loader-js" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/oec-ttweb-captcha/loader/sg/1.0.0.58/captcha/index.js"></script>
+    </head>
+    <body>
+        <h1>[TẶNG LỌC 1.250K] Máy Lọc Không Khí UVGREEN KA600</h1>
+        <div class="slick-slider">
+            <div class="slick-track">
+                <img src="https://p16-oec-sg.ibyteimg.com/gal1.webp" />
+                <img src="https://p16-oec-sg.ibyteimg.com/gal2.webp" />
+            </div>
+        </div>
+        <div class="reviews-section">
+            <img src="https://p16-oec-sg.ibyteimg.com/review_ugc.webp" />
+        </div>
+    </body>
+    </html>
+    '''
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.set_content(html)
+
+        result = await page.evaluate(_TIKTOK_EXTRACTOR_JS, "1729981094029264939")
+        await browser.close()
+
+        # 1. Proves page is NOT marked blocked
+        assert result["blocked"] is False
+
+        # 2. Proves gallery images are extracted
+        assert "https://p16-oec-sg.ibyteimg.com/gal1.webp" in result["gallery_images"]
+        assert "https://p16-oec-sg.ibyteimg.com/gal2.webp" in result["gallery_images"]
+
+        # 3. Proves review UGC is excluded
+        assert "https://p16-oec-sg.ibyteimg.com/review_ugc.webp" not in result["gallery_images"]
+
+
+@pytest.mark.asyncio
+async def test_tiktok_dom_active_challenge_blocks_extraction():
+    """
+    Proves that an active captcha challenge modal/dialog causes extraction to fail closed with blocked=True.
+    """
+    html = '''
+    <html>
+    <head>
+        <title>Security Check</title>
+    </head>
+    <body>
+        <div id="captcha_container" style="display: block;">
+            <div class="captcha_verify_container" style="visibility: visible;">
+                <div class="captcha_verify_bar">Please verify</div>
+                <div class="secsdk-captcha-drag-icon"></div>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.set_content(html)
+
+        result = await page.evaluate(_TIKTOK_EXTRACTOR_JS, "1729981094029264939")
+        await browser.close()
+
+        # Proves active challenge triggers blocked=True
+        assert result["blocked"] is True
+
+
+
 
 
 

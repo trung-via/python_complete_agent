@@ -48,6 +48,9 @@ _TIKTOK_EXTRACTOR_JS = r"""
                 className.includes('ugc') ||
                 className.includes('you-may-like') ||
                 className.includes('suggestion') ||
+                className.includes('footer') ||
+                className.includes('header') ||
+                className.includes('nav') ||
                 id.includes('review') ||
                 id.includes('comment') ||
                 id.includes('recommend')
@@ -69,6 +72,7 @@ _TIKTOK_EXTRACTOR_JS = r"""
             description: null,
             specifications: []
         },
+        dom_title: null,
         gallery_images: [],
         variants: [],
         seller_images: [],
@@ -77,9 +81,36 @@ _TIKTOK_EXTRACTOR_JS = r"""
         page_title: document.title || ''
     };
 
-    if (document.title.toLowerCase().includes('captcha') ||
-        document.title.toLowerCase().includes('robot') ||
-        document.querySelector('script[src*="captcha"]')) {
+    // ACTIVE CHALLENGE / CAPTCHA CHECK
+    // Do NOT mark blocked merely because captcha scripts/bundles are loaded globally in background
+    const hasActiveChallenge = () => {
+        const title = (document.title || '').toLowerCase();
+        if (title.includes('captcha') || title.includes('robot') || title.includes('security check')) return true;
+        const path = window.location.pathname.toLowerCase();
+        if (path.includes('/verify') || path.includes('/challenge')) return true;
+        
+        const activeChallengeSelectors = [
+            '#captcha-verify-image',
+            '#captcha_container',
+            '.captcha_verify_container',
+            '.secsdk-captcha-drag-icon',
+            '[data-testid="captcha-modal"]',
+            '.captcha-verify-container',
+            'iframe[src*="captcha"]',
+            'iframe[src*="verify"]',
+            '[class*="captcha-modal"]',
+            '[class*="secsdk_captcha"]'
+        ];
+        for (const sel of activeChallengeSelectors) {
+            const el = document.querySelector(sel);
+            if (el && (el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0 || el.tagName === 'IFRAME')) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    if (hasActiveChallenge()) {
         result.blocked = true;
         return result;
     }
@@ -203,11 +234,21 @@ _TIKTOK_EXTRACTOR_JS = r"""
         return urls;
     };
 
+    // Fallback: If structured title is missing, look for h1 heading
+    if (!result.structured.title) {
+        const h1 = document.querySelector('h1');
+        if (h1 && !isExcluded(h1) && h1.innerText && h1.innerText.trim()) {
+            result.dom_title = h1.innerText.trim();
+        }
+    }
+
     // PRIORITY 2: Semantic Product Gallery
     const gallerySelectors = [
         '.product-image', '.pdp-image',
         '[data-testid*="gallery"]',
-        '[class*="gallery-container"]', '[class*="pdp-carousel"]', '[class*="product-slider"]'
+        '[class*="gallery-container"]', '[class*="pdp-carousel"]', '[class*="product-slider"]',
+        '[class*="image-gallery"]', '[class*="carousel"]',
+        '.slick-slider', '.slick-track', '[class*="slick-slider"]', '[class*="slick-track"]'
     ];
     let galleryNodes = [];
     for (const sel of gallerySelectors) {
@@ -217,7 +258,8 @@ _TIKTOK_EXTRACTOR_JS = r"""
 
     // PRIORITY 2.5: Semantic Variant Media
     const variantSelectors = [
-        '[class*="sku-item"]', '[class*="spec-item"]', '[class*="variation-item"]', '[data-testid*="sku"]'
+        '[class*="sku-item"]', '[class*="spec-item"]', '[class*="variation-item"]', '[data-testid*="sku"]',
+        '[class*="sku_item"]'
     ];
     for (const sel of variantSelectors) {
         const nodes = document.querySelectorAll(sel);
@@ -253,7 +295,7 @@ _TIKTOK_EXTRACTOR_JS = r"""
     // Confined to specific product detail container ONLY
     if (result.structured.images.length === 0 && result.gallery_images.length === 0) {
         const productContainers = document.querySelectorAll(
-            '[data-testid="pdp-container"], .pdp-container, .product-container, [class*="product-detail-container"], [class*="product-info-container"]'
+            '[data-testid="pdp-container"], .pdp-container, .product-container, [class*="product-detail-container"], [class*="product-info-container"], [class*="pdp-wrapper"]'
         );
         let count = 0;
         const urls = new Set();
@@ -432,9 +474,13 @@ class TikTokSourceExtractor:
 
         title = structured.get("title") if structured_matches else None
         if not title:
-            page_title = result.get("page_title", "")
-            if page_title:
-                title = page_title.split("|")[0].strip() or None
+            dom_title = result.get("dom_title")
+            if dom_title:
+                title = dom_title
+            else:
+                page_title = result.get("page_title", "")
+                if page_title:
+                    title = page_title.split("|")[0].split("- TikTok Shop")[0].strip() or None
 
         # Build facts
         facts: List[ProductFact] = []
