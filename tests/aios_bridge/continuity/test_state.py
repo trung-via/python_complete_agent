@@ -758,6 +758,23 @@ def test_exact_canonical_state_identities_and_whitespace_rejection():
         with pytest.raises(ContinuityStateValidationError, match="must not contain leading or trailing whitespace"):
             ArtifactRef(path=padded, ref="ai-control", blob_sha="adc44f449f2a991a455b8039d8e8978fe4643146")
 
+    # 3b. ArtifactRef: POSIX dot-segment aliases rejected fail-closed (R1-1)
+    for dot_path in [
+        ".ai/./tasks/TASK-019.md",
+        ".ai/context/./TASK-019-CHATGPT-PLAN.md",
+        ".ai/decisions/./ADR-010.md",
+        ".ai/context/subdir/./file.md",
+    ]:
+        with pytest.raises(ContinuityStateValidationError, match="must not contain '\\.' dot-segment aliases"):
+            ArtifactRef(path=dot_path, ref="ai-control", blob_sha="adc44f449f2a991a455b8039d8e8978fe4643146")
+
+    for traversal_path in [
+        ".ai/tasks/../tasks/TASK-019.md",
+        ".ai//tasks/TASK-019.md",
+    ]:
+        with pytest.raises(ContinuityStateValidationError, match="must not contain empty or '\\.\\.' segments"):
+            ArtifactRef(path=traversal_path, ref="ai-control", blob_sha="adc44f449f2a991a455b8039d8e8978fe4643146")
+
     # 4. Actor IDs: valid vs padded
     for padded in [" chatgpt-chat", "chatgpt-chat ", "  chatgpt-chat  "]:
         with pytest.raises(ContinuityStateValidationError, match="must not contain leading or trailing whitespace"):

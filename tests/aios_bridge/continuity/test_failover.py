@@ -250,7 +250,7 @@ def test_context_refs_content_anchoring_to_state_snapshot():
             blob_sha="a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
         )
 
-    # 6. Cross-role state artifact path collision (task vs contract) fails closed (R7-1 / TASK-025 C2)
+    # 6. Canonical State constructor rejection (TASK-025 C2)
     with pytest.raises(ContinuityStateValidationError, match="Duplicate authoritative artifact path detected across role set"):
         ContinuityArtifacts(
             task=state.artifacts.task,
@@ -263,15 +263,47 @@ def test_context_refs_content_anchoring_to_state_snapshot():
             ),
         )
 
-    # 7. Cross-role state artifact path collision (task vs plan) fails closed (R7-1 / TASK-025 C2)
-    with pytest.raises(ContinuityStateValidationError, match="Duplicate authoritative artifact path detected across role set"):
-        ContinuityArtifacts(
-            task=state.artifacts.task,
-            plan=ArtifactRef(
-                path=state.artifacts.task.path,
-                blob_sha=state.artifacts.task.blob_sha,
-                ref="plan",
-            ),
+    # 7. Failover defense-in-depth collision gate direct exercise (R1-2 / TASK-022 R7-1)
+    # Test-only crafted malformed state verifies validate_brain_failover_eligibility fails closed
+    malformed_artifacts = object.__new__(ContinuityArtifacts)
+    object.__setattr__(malformed_artifacts, "task", state.artifacts.task)
+    object.__setattr__(malformed_artifacts, "contracts", (
+        ArtifactRef(path=state.artifacts.task.path, blob_sha="1" * 40, ref="contract"),
+    ))
+    object.__setattr__(malformed_artifacts, "plan", None)
+    object.__setattr__(malformed_artifacts, "result", None)
+    object.__setattr__(malformed_artifacts, "review", None)
+
+    malformed_state = object.__new__(ContinuityState)
+    for field_name, field_val in state.__dict__.items():
+        object.__setattr__(malformed_state, field_name, field_val)
+    object.__setattr__(malformed_state, "artifacts", malformed_artifacts)
+
+    with pytest.raises(ContinuityStateValidationError, match="Ambiguous state artifact path collision in canonical state"):
+        validate_brain_failover_eligibility(
+            src, rep, malformed_state, expected_state_fingerprint=malformed_state.fingerprint(), replacement_capability=cap
+        )
+
+    # 8. Failover defense-in-depth collision gate with same blob (task vs plan)
+    malformed_plan_artifacts = object.__new__(ContinuityArtifacts)
+    object.__setattr__(malformed_plan_artifacts, "task", state.artifacts.task)
+    object.__setattr__(malformed_plan_artifacts, "contracts", ())
+    object.__setattr__(malformed_plan_artifacts, "plan", ArtifactRef(
+        path=state.artifacts.task.path,
+        blob_sha=state.artifacts.task.blob_sha,
+        ref="plan",
+    ))
+    object.__setattr__(malformed_plan_artifacts, "result", None)
+    object.__setattr__(malformed_plan_artifacts, "review", None)
+
+    malformed_plan_state = object.__new__(ContinuityState)
+    for field_name, field_val in state.__dict__.items():
+        object.__setattr__(malformed_plan_state, field_name, field_val)
+    object.__setattr__(malformed_plan_state, "artifacts", malformed_plan_artifacts)
+
+    with pytest.raises(ContinuityStateValidationError, match="Ambiguous state artifact path collision in canonical state"):
+        validate_brain_failover_eligibility(
+            src, rep, malformed_plan_state, expected_state_fingerprint=malformed_plan_state.fingerprint(), replacement_capability=cap
         )
 
 

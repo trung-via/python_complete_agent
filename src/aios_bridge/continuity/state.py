@@ -193,8 +193,10 @@ def _validate_artifact_path(path: Any, field_name: str) -> str:
         raise ContinuityStateValidationError(f"{field_name} must be a relative path: {path!r}")
     
     parts = path_str.split("/")
-    if any(p == ".." for p in parts) or any(p == "" for p in parts):
+    if any(p == ".." or p == "" for p in parts):
         raise ContinuityStateValidationError(f"{field_name} must not contain empty or '..' segments: {path!r}")
+    if any(p == "." for p in parts):
+        raise ContinuityStateValidationError(f"{field_name} must not contain '.' dot-segment aliases: {path!r}")
     if not path_str.startswith(".ai/"):
         raise ContinuityStateValidationError(f"{field_name} must live under '.ai/', got: {path!r}")
 
