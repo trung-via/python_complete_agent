@@ -22,13 +22,53 @@ The RESULT records:
 - GitHub comparison confirms the current branch contains no `publish_fix.py` in the full task diff.
 - Current main has not drifted and the task branch remains a clean fast-forward.
 
-Because the authoritative delta from the previous reviewed head changes only the result artifact and removes `publish_fix.py`, the previously reviewed extractor and DOM regression blobs are unchanged. Therefore the successful non-challenged live validation on Shopee product `52764529835` remains applicable: five authentic seller product views were captured, the standalone overlay/badge was excluded, and footer/review/recommendation/SVG contamination was absent.
+## Final Pre-Merge Live Validation — 2026-08-16
+The user verified local HEAD exactly matched the approved task head:
+
+`564d69d4aac66d3e541ef82c34b5f756ae5a24e7`
+
+The actual `_SHOPEE_EXTRACTION_SCRIPT` was then run against the intended authenticated Shopee product `52764529835` (TP-Link TC70) via the user's Chrome CDP session.
+
+Observed result:
+- title matched the intended TP-Link TC70 product;
+- `PRODUCT_ID: 52764529835`;
+- `BLOCKED: False`;
+- `STRUCTURED_IMAGES: 1`;
+- `GALLERY: 5`;
+- `VARIANTS: 0`;
+- `DESCRIPTION_MEDIA: 12`;
+- `FALLBACK_MEDIA: 0`.
+
+Accepted seller gallery paths were exactly five product-view assets:
+1. `vn-11134207-81ztc-mqlt2r57y1osbd`
+2. `vn-11134207-81ztc-mqlt2r50x7gu25`
+3. `vn-11134207-81ztc-mqlt2r4xx1qk6d`
+4. `vn-11134207-81ztc-mqlt2r4y8aa5e3`
+5. `vn-11134207-81ztc-mqlt2r4y2o0b48`
+
+The 12 description-media assets were then provenance-checked in the live DOM. Every accepted description image had nearest owner:
+
+`DIV product-detail page-product__detail`
+
+and every one returned:
+
+`EXCLUDED_ANCESTOR: None`
+
+against review/recommendation/comment/footer/header/nav exclusion selectors. Three Shopee UI SVG assets also existed inside the product-detail area, but they were not present in `DESCRIPTION_MEDIA`, confirming the extractor's SVG filtering remained effective.
+
+This final live run confirms the requested pre-merge gate on the exact product/session:
+- complete five-view seller gallery;
+- standalone overlay/badge excluded;
+- seller-description media scoped to the product-detail owner;
+- no review/recommendation/comment/footer/header/nav ancestry on accepted description media;
+- no broad fallback used;
+- page not anti-bot blocked.
 
 ## Resolution of Prior Blocker
 ### RESOLVED — Stray publication helper removed
 The prior blocker required removing the tracked one-off `publish_fix.py` helper, preserving the accepted extractor/test implementation, regenerating the result artifact, and rerunning the focused/full suites.
 
-The new head satisfies those requirements. The only code-tree hygiene change is deletion of `publish_fix.py`; production extractor and regression files remain unchanged from the successful live-validation head.
+The approved head satisfies those requirements. The only code-tree hygiene change is deletion of `publish_fix.py`; production extractor and regression files remain unchanged from the successful live-validation implementation.
 
 ## Approval Summary
 TASK-013 now satisfies the reviewed acceptance boundaries:
@@ -36,7 +76,8 @@ TASK-013 now satisfies the reviewed acceptance boundaries:
 - positive current-product media ownership;
 - complete seller gallery extraction on the live TP-Link TC70 regression product;
 - standalone overlay/badge exclusion;
-- no review/comment/recommendation/footer/app-shell contamination;
+- seller-description media proven product-detail scoped in the final live run;
+- no review/comment/recommendation/footer/app-shell contamination observed in accepted media;
 - no generic whole-page/section success fallback;
 - fail-closed anti-bot handling;
 - original-byte preservation, bounded downloads, SHA-256 dedupe, and secret-safe manifests;
@@ -48,6 +89,6 @@ APPROVED.
 
 Do not merge automatically.
 
-Merge requires an explicit human command:
+The explicit human merge gate remains:
 
 `Merge TASK-013`
