@@ -428,3 +428,67 @@ def test_context_builder_purity_no_filesystem_side_effects(monkeypatch):
     result = builder.build([task, source], budget)
     assert len(result.selected) == 2
 
+
+def test_normalized_path_separator_ranking_tie_breaks():
+    """Candidates with mixed forward and backslash path separators rank by normalized '/' path order."""
+    counter = FakeExactWordCounter()
+    builder = ContextBuilder(token_counter=counter)
+    budget = ContextBudget(max_context_tokens=1000)
+
+    # 1. Mandatory TASK items with mixed separators: task/a.md before task\b.md
+    task_b = ContextItem(kind=ContextKind.TASK, content="Task B", path=r"tasks\b.md", priority=10)
+    task_a = ContextItem(kind=ContextKind.TASK, content="Task A", path="tasks/a.md", priority=10)
+
+    # 2. Mandatory CONTRACT items with mixed separators: contract/a.md before contract\b.md
+    contract_b = ContextItem(kind=ContextKind.CONTRACT, content="Contract B", path=r"contracts\b.md", priority=5)
+    contract_a = ContextItem(kind=ContextKind.CONTRACT, content="Contract A", path="contracts/a.md", priority=5)
+
+    # 3. Optional SOURCE items with mixed separators: src/a.py before src\b.py
+    src_b = ContextItem(kind=ContextKind.SOURCE, content="Source B", path=r"src\b.py", priority=1)
+    src_a = ContextItem(kind=ContextKind.SOURCE, content="Source A", path="src/a.py", priority=1)
+
+    result = builder.build([task_b, contract_b, src_b, task_a, contract_a, src_a], budget)
+
+    paths = [item.path for item in result.selected]
+    assert paths == [
+        "tasks/a.md",
+        r"tasks\b.md",
+        "contracts/a.md",
+        r"contracts\b.md",
+        "src/a.py",
+        r"src\b.py",
+    ]
+
+
+def test_atomic_budget_selection_follows_normalized_path_tie_break():
+    """Atomic budget selection chooses the higher normalized-path candidate when budget only fits one."""
+    counter = FakeExactWordCounter()
+    builder = ContextBuilder(token_counter=counter)
+
+    task = ContextItem(kind=ContextKind.TASK, content="Task")
+    task_tokens = counter.count(render_context_item(task))
+
+    # Two equal-priority optional items of identical token size
+    # src/a.py vs src\b.py (normalized: src/a.py < src/b.py)
+    src_b = ContextItem(kind=ContextKind.SOURCE, content="Source content same size", path=r"src\b.py", priority=10)
+    src_a = ContextItem(kind=ContextKind.SOURCE, content="Source content same size", path="src/a.py", priority=10)
+    item_tokens = counter.count(render_context_item(src_a))
+
+    # Budget fits task + exactly 1 item
+    budget = ContextBudget(max_context_tokens=task_tokens + item_tokens)
+
+    # Regardless of input order:
+    res1 = builder.build([task, src_b, src_a], budget)
+    res2 = builder.build([task, src_a, src_b], budget)
+
+    # src/a.py is selected as the winner, src\b.py is excluded for budget
+    assert len(res1.selected) == 2
+    assert res1.selected[1].path == "src/a.py"
+    assert len(res1.excluded) == 1
+    assert res1.excluded[0].path == r"src\b.py"
+    assert res1.excluded[0].reason == ContextExclusionReason.BUDGET
+
+    assert res1.selected == res2.selected
+    assert res1.context_fingerprint == res2.context_fingerprint
+
+
