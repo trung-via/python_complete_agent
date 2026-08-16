@@ -5,62 +5,70 @@ CHANGES_REQUIRED
 
 ## Reviewed Head
 - Branch: `ai/task-013`
-- Reviewed commit: `2b2e7a4fd209c0fda7aaa482b1da418dcc91e42a`
-- Parent reviewed head: `a45cb80e242f7e4b25afa40860f2e0ecb2907e1d`
+- Reviewed commit: `9ffe8fe51001da2d9615cca68f2c131acfc41d0e`
+- Parent reviewed head: `2b2e7a4fd209c0fda7aaa482b1da418dcc91e42a`
 - Main baseline/current main: `9d3dcfeab5ffc98bf6aeb3ef7a67912a5bc1fd52`
-- Branch relation to main: ahead 10, behind 0 (fast-forward safe at review time)
-- RESULT-013 blob: `4b50f7cdb8f99601e4a9bc01e03d4bd04f198e7d`
+- Branch relation to main: ahead 11, behind 0 (fast-forward safe at review time)
+- RESULT-013 blob: `33cc24f84b5fbf2665109d7496909384b896b616`
 - RESULT action: `FIX`
-- FIX authorization recorded by worker: `.ai/reviews/REVIEW-013.md (af397858b5)` — matches the prior CHANGES_REQUIRED artifact.
+- FIX authorization recorded by worker: `.ai/reviews/REVIEW-013.md (5b33fc835a)` — matches the prior CHANGES_REQUIRED artifact.
 - Delta from prior reviewed head: 1 commit, 3 changed files (`RESULT-013.md`, `shopee.py`, DOM fixture tests).
 
 ## Test Evidence
 The RESULT records:
 - Focused Product Source Pack suite: 49 passed, 0 failed.
 - Full repository suite: 467 passed, 0 failed.
-- New deterministic fixture: `test_shopee_obfuscated_live_dom_gallery_extraction_and_footer_exclusion` passes.
+- The obfuscated live-DOM regression now includes an unrelated same-CDN non-product section and proves it is excluded in that structured-image/title fixture.
 
-The test evidence is green, but it does not resolve the acceptance-critical ownership issue below.
+These are good improvements, but acceptance-critical issues remain.
 
 ## Findings
 
-### 1. BLOCKER — Structural gallery fallback is not positively bounded to the current product
-The new Strategy 2B is described as "top product section" discovery, but the implementation actually selects **every** `section` in the document (plus briefing selectors), then scans **every** descendant `div` in every non-excluded section.
+### 1. BLOCKER — Priority 4 still contains a forbidden global `section` fallback
+TASK-013 explicitly requires positive inclusion and states that no whole-page image sweep may be used as a normal or fallback success path. Priority 4 is allowed only inside a **known current-product container**; if trusted paths fail, extraction must fail closed.
 
-A descendant container is admitted as gallery when it has `>= 2` media URLs, or when it has a single URL while the gallery is still empty. There is no positive proof that the candidate section belongs to the current product, no relation to the identity-gated structured product object, no structural relationship to the current product title/summary card, and no bounded stop condition after the true gallery is found.
+The current Shopee implementation still executes this path when both structured images and gallery are empty:
 
-This means an obfuscated unrelated section with two images — for example a shop promotion, campaign carousel, bundle panel, or recommendation block whose generated class names do not contain one of the known exclusion keywords — can be labeled `SEMANTIC_PRODUCT_GALLERY` and persisted as seller-product source media.
+`document.querySelectorAll('section, .page-product__briefing, .product-briefing')`
 
-That violates TASK-013's fail-closed seller-original-only requirement and can reintroduce exactly the contamination class this task exists to prevent.
+It then scans media inside every non-excluded `section` and accepts those URLs as `fallback_media`.
 
-Required correction: use a **positive ownership anchor** for structural discovery. A strong option is to use identity-gated structured product media as a seed, locate the corresponding DOM media node, and expand only to its nearest product-media/gallery ancestor/thumbnail cluster. If no trustworthy positive anchor can be established, fail closed rather than scanning generic page sections. Other structurally equivalent positive-ownership strategies are acceptable, but generic whole-page `section` discovery is not.
+A generic or obfuscated promotional/recommendation section with no exclusion keyword can therefore become `PLATFORM_SCOPED_FALLBACK` media when structured images/gallery are absent. This directly violates the task's `No global DOM fallback` rule and the explicit Priority-4 requirement that fallback be bounded to a known current-product container.
 
-### 2. BLOCKER — New regression fixture does not exercise the unsafe case
-The new fixture proves rejection of elements carrying semantic exclusion signals such as `product-ratings`, `similar-products`, `<header>`, and `<footer>`.
+Required correction:
+- remove generic `section` from Priority 4;
+- permit fallback only from a positively identified current-product container/anchor;
+- if no such owned container exists, return no fallback media so the Python layer fails closed;
+- add a deterministic regression with **no structured image and no semantic gallery** plus an unrelated obfuscated multi-image section, proving the extractor returns no accepted fallback media.
 
-It does **not** include an unrelated obfuscated/generic `<section>` containing multiple same-CDN images with no `review`, `recommend`, `footer`, etc. token. Such a fixture would currently be eligible under Strategy 2B.
+### 2. BLOCKER — Structured-image positive anchor is currently non-functional for the root media node
+Strategy 2B attempts to find the structured seed image by iterating DOM media nodes and calling `getMediaUrls(el)` on each node.
 
-Add a deterministic negative regression where a generic/obfuscated non-product section contains two or more same-CDN images and prove they are not returned as gallery media.
+However, `getMediaUrls(rootEl)` only queries descendants via `rootEl.querySelectorAll('img')` and descendant background-image selectors; it does not inspect `rootEl` itself. For a root `<img>` node, `querySelectorAll('img')` returns no descendants, so the seed image URL is never observed from that element.
 
-### 3. BLOCKER — Required live re-validation on the same Shopee product is still missing
-The prior review explicitly required a re-run of the actual extractor against Shopee product `52764529835` before approval could be restored.
+The current fixture still passes because the identity-gated structured title provides Anchor 2. That means the claimed image-seed ownership path is not actually covered independently.
 
-The new RESULT records the deterministic DOM reproduction and green suites, but it does not record a new live CDP run against that product or the resulting extraction counts/accepted media set.
+Required correction:
+- make the media helper inspect the root element's own `src` / `data-src` / `srcset` / background-image as well as descendants, or use a dedicated root-node extraction helper;
+- add a regression where the structured product image is present and identity-matched but no usable title anchor exists, proving the image seed alone anchors the gallery and unrelated sections remain excluded.
 
-After the ownership fix is implemented and tests pass, re-run the actual `_SHOPEE_EXTRACTION_SCRIPT` on the same authenticated live page and record at minimum:
-- exact product identity/title and `blocked` status;
-- structured/gallery/variant/description/fallback counts;
-- enough accepted gallery URL/path evidence to confirm multiple seller gallery images are captured;
-- confirmation that footer/review/recommendation media are absent.
+### 3. BLOCKER — Required same-product live re-validation was not performed
+The prior durable review required re-running the actual extractor against the same Shopee product used to expose the defect: `52764529835`.
 
-No captcha or anti-bot bypass is permitted; a blocked page must be reported as blocked.
+The new RESULT instead records a live CDP validation for product `22590099603`. That is useful additional evidence, and it reports `blocked=False`, one structured image, and a 10-image gallery, but it does not satisfy the explicitly required same-product regression check.
+
+Required correction/evidence:
+- after the code fixes above, re-run the actual `_SHOPEE_EXTRACTION_SCRIPT` against product `52764529835` in the authenticated CDP session;
+- record exact identity/title, blocked status, structured/gallery/variant/description/fallback counts;
+- record enough sanitized accepted gallery path evidence to show multiple seller gallery images were captured;
+- confirm footer/review/recommendation media are absent;
+- do not bypass captcha or anti-bot controls.
 
 ## Positive Notes
-- The worker used the exact authorized prior review artifact.
+- The prior broad Strategy-2B whole-document section scan was replaced with a positive-anchor expansion path.
+- The new regression now covers an unrelated obfuscated same-CDN section in the structured/title-anchored case.
 - Main has not drifted and the task branch remains fast-forward safe.
-- The new helper supports `img`, `data-src`, `srcset`, and inline background-image media.
-- Footer/header/nav and known UGC/recommendation exclusion handling was strengthened.
-- Existing identity gating, downloader bounds, byte preservation, and no-AI/no-scoring boundaries remain intact according to the reviewed diff and RESULT.
+- Existing exact identity gating, UGC/recommendation exclusion, byte-preserving download, media bounds, signed-URL redaction, and no-AI/no-scoring boundaries remain intact in the reviewed task diff.
 
 ## Decision
 CHANGES_REQUIRED.
@@ -71,4 +79,4 @@ The next authorized worker action is:
 
 `/aios-worker FIX TASK-013`
 
-After the worker publishes a new head and RESULT, request `Review TASK-013` again. Approval can only be restored after both fail-closed positive gallery ownership and the required live Shopee re-validation are demonstrated.
+After the worker publishes a new head and RESULT, request `Review TASK-013` again. Approval can only be restored after the forbidden generic fallback is removed, the image-seed anchor is independently proven, and the required live re-validation on Shopee product `52764529835` is demonstrated.
