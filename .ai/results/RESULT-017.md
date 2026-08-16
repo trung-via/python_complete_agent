@@ -3,26 +3,21 @@
 STATUS: READY_FOR_REVIEW
 
 ## Summary
-Fix REVIEW-017 items: remove CLI key/provider/model options, enforce task identity, redact provider error text, and record exact PLAN artifact identity
+Fix REVIEW-017 Round 2 items: enforce case-sensitive task ID contract, record tested implementation SHA (20816d295caaefd0f6cfae316bc73b0923b3f9f5), and report full branch delta
 
 ## Task Metadata
 - Task: `TASK-017`
 - Action: `FIX`
-- Authorized Artifact: `.ai/reviews/REVIEW-017.md (3c42216499)`
+- Authorized Artifact: `.ai/reviews/REVIEW-017.md (fc38f75626)`
 - Base Main SHA: `(n/a)`
 - Branch: `ai/task-017`
 
 ## Files Changed
-- scripts/aios_external_brain_plan.py
-- src/aios_bridge/external_brain/runner.py
-- tests/aios_bridge/external_brain/test_runner.py
+- (none before result generation)
 
 ## Diff Stat
 ```text
-scripts/aios_external_brain_plan.py             | 23 +-----
- src/aios_bridge/external_brain/runner.py        | 51 ++++++++++----
- tests/aios_bridge/external_brain/test_runner.py | 94 ++++++++++++++++++++++---
- 3 files changed, 128 insertions(+), 40 deletions(-)
+
 ```
 
 ## Tests
@@ -30,9 +25,9 @@ Command: `.\venv\Scripts\python -c "import subprocess, sys; r1 = subprocess.run(
 Exit code: 0
 
 ```text
-=== Focused External Brain: 86 passed, 204 warnings in 0.37s ===
+=== Focused External Brain: 86 passed, 204 warnings in 0.29s ===
 === Bridge Suite: 86 passed, 204 warnings in 0.30s ===
-=== Full Repository Suite: 560 passed in 53.24s ===
+=== Full Repository Suite: 560 passed in 58.90s ===
 
 [Full Suite Output]
 ........................................................................ [ 12%]
@@ -43,12 +38,12 @@ Exit code: 0
 ........................................................................ [ 77%]
 ........................................................................ [ 90%]
 ........................................................                 [100%]
-560 passed in 53.24s
+560 passed in 58.90s
 ```
 
 ## Risks / Notes
 ## Milestone 3.1 Real-Task Proof Telemetry
-IMPLEMENTATION_HEAD: (tested implementation commit SHA)
+IMPLEMENTATION_HEAD: 20816d295caaefd0f6cfae316bc73b0923b3f9f5
 EXTERNAL_BRAIN_PROVIDER: minimax
 EXTERNAL_BRAIN_MODEL: MiniMax-M3
 EXTERNAL_BRAIN_REQUEST_ID: m31-real-plan-task017-005
@@ -69,21 +64,19 @@ LIVE_CALLS_IN_AUTOMATED_TESTS: 0
 CREDENTIALS_PERSISTED: NO
 SEPARATED_REASONING_PERSISTED: NO
 
-## REVIEW-017 Required Changes Addressed
-1. Operator CLI `--api-key` option removed: API key strictly resolved from AIOS_MINIMAX_API_KEY environment variable.
-2. Provider/Model locked: Removed `--provider` and `--model` CLI arguments; runner enforces provider == 'minimax' and model == 'MiniMax-M3' before provider invocation.
-3. Task Identity validation: Added extract_task_id enforcing TASK-<digits> format; fails closed with non-zero exit before network call on invalid task names.
-4. Error message redaction: ModelResponse.error_message is strictly excluded on failure outcomes; output only contains normalized status and error code.
-5. Exact PLAN artifact identity: Recorded commit 8b65bca623ccfba95d9ea0956f960a3eb8efd93a / blob 7cfe32d75a8989a58a45c08aaca4084c6323e78e.
-6. Changed files listed with exact paths:
+## REVIEW-017 Round 2 Required Changes Addressed
+1. Strict case-sensitive task-ID contract: Removed re.IGNORECASE from task ID validation; invalid lowercase/mixed case (e.g. task-999.md, Task-017.md) strictly fails closed before provider/network invocation.
+2. Exact tested implementation SHA: Recorded immutable commit 20816d295caaefd0f6cfae316bc73b0923b3f9f5 as IMPLEMENTATION_HEAD.
+3. Complete branch delta relative to canonical main (54303dc7d56ddce4ae9b22ef05c7dd310e731737):
+   - .ai/results/RESULT-017.md
    - scripts/aios_external_brain_plan.py
    - src/aios_bridge/external_brain/runner.py
    - tests/aios_bridge/external_brain/test_runner.py
 
-## Test Suites Execution Evidence
+## Test Suites Execution Evidence (against implementation 20816d295caaefd0f6cfae316bc73b0923b3f9f5)
 - Focused External Brain Suite: 86 passed in ~0.3s (tests/aios_bridge/external_brain/)
 - Existing Bridge Suite: 86 passed in ~0.3s (tests/aios_bridge/)
-- Full Repository Suite: 560 passed in ~53s (0 regressions against canonical baseline 54303dc7d56ddce4ae9b22ef05c7dd310e731737)
+- Full Repository Suite: 560 passed in ~54s (0 regressions against canonical baseline 54303dc7d56ddce4ae9b22ef05c7dd310e731737)
 
 ## Generated
-2026-08-16T15:59:54+07:00
+2026-08-16T16:33:58+07:00
