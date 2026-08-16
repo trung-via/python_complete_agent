@@ -46,7 +46,7 @@ class StrictFakeBrowserManager:
 
 @pytest.mark.asyncio
 async def test_shopee_extractor_prefers_structured_data_when_identity_matches():
-    """Structured product images preferred when product identity matches target product."""
+    """Structured product images and metadata preferred when product identity matches target product."""
     eval_data = {
         "structured": {
             "title": "Shopee Official Product",
@@ -82,13 +82,14 @@ async def test_shopee_extractor_prefers_structured_data_when_identity_matches():
 
 @pytest.mark.asyncio
 async def test_shopee_extractor_rejects_unrelated_structured_data_on_identity_mismatch():
-    """Structured data from unrelated recommendation/card with different ID is not accepted as STRUCTURED_PRODUCT_DATA."""
+    """Structured data from unrelated recommendation with different ID is rejected for BOTH media and title/brand."""
     eval_data = {
         "structured": {
             "title": "Unrelated Recommended Product",
             "product_id": "999999",  # Mismatched ID
             "images": ["https://cf.shopee.vn/file/unrelated_recommendation.jpg"],
-            "brand": "OtherBrand",
+            "brand": "UnrelatedBrand",
+            "description": "Unrelated desc",
             "specs": [],
         },
         "gallery": ["https://cf.shopee.vn/file/actual_gallery.jpg"],
@@ -106,6 +107,30 @@ async def test_shopee_extractor_rejects_unrelated_structured_data_on_identity_mi
     assert len(pack.media) == 1
     assert pack.media[0].source_url == "https://cf.shopee.vn/file/actual_gallery.jpg"
     assert pack.media[0].provenance == MediaProvenance.SEMANTIC_PRODUCT_GALLERY
+
+    # Unrelated structured title, brand, description are discarded
+    assert pack.title is None
+    assert pack.brand is None
+    assert pack.description_text is None
+    assert not any(f.key == "Brand" and f.value == "UnrelatedBrand" for f in pack.facts)
+
+
+@pytest.mark.asyncio
+async def test_shopee_extractor_fails_closed_when_no_media_found():
+    """Exhausting all extraction paths without media raises SourcePackExtractionError."""
+    eval_data = {
+        "structured": {"title": "No Media Product", "product_id": "456789", "images": []},
+        "gallery": [],
+        "variants": [],
+        "description_media": [],
+        "fallback_media": [],
+        "blocked": False,
+    }
+    session = FakeSession(eval_data)
+    extractor = ShopeeSourceExtractor(browser=session)
+
+    with pytest.raises(SourcePackExtractionError, match="No trusted seller-product media"):
+        await extractor.extract("https://shopee.vn/product/123/456789")
 
 
 @pytest.mark.asyncio
@@ -235,7 +260,7 @@ async def test_shopee_js_script_excludes_reviews_by_container_provenance():
     """The JS extraction script must contain explicit review/UGC exclusions."""
     session = FakeSession({
         "structured": {"title": "Test", "product_id": "2", "images": []},
-        "gallery": [],
+        "gallery": ["https://cf.shopee.vn/file/gal.jpg"],
         "variants": [],
         "description_media": [],
         "fallback_media": [],

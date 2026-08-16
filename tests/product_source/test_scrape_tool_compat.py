@@ -27,10 +27,13 @@ class FakeBrowserSession:
                 "brand": "SampleBrand",
                 "specs": [],
             },
-            "gallery": [],
+            "gallery": ["https://cf.shopee.vn/file/gallery.jpg"],
+            "gallery_images": ["https://p16-oec-va.ibyteimg.com/gallery.jpg"],
             "variants": [],
             "description_media": [],
+            "seller_images": [],
             "fallback_media": [],
+            "fallback_images": [],
             "blocked": False,
         }
 

@@ -82,7 +82,7 @@ _TIKTOK_EXTRACTOR_JS = r"""
         return result;
     }
 
-    // PRIORITY 1: Structured Data (Identity matched to targetProductId)
+    // PRIORITY 1: Structured Data (Identity strictly matched to targetProductId from the object itself)
     // Try JSON-LD first
     const jsonLdScripts = document.querySelectorAll('script[type="application/ld+json"]');
     for (const script of jsonLdScripts) {
@@ -91,10 +91,11 @@ _TIKTOK_EXTRACTOR_JS = r"""
             if (data['@type'] === 'Product' || data['@type'] === 'ProductGroup') {
                 const itemUrl = data.offers && data.offers.url ? data.offers.url : (data.url || '');
                 const productId = data.productID || data.sku || '';
-                const matches = !targetProductId || 
+                const matches = targetProductId && (
                     itemUrl.includes(targetProductId) || 
                     productId.toString().includes(targetProductId) ||
-                    window.location.href.includes(targetProductId);
+                    (data.sku && data.sku.toString().includes(targetProductId))
+                );
 
                 if (matches) {
                     if (data.name && !result.structured.title) result.structured.title = data.name;
@@ -130,7 +131,6 @@ _TIKTOK_EXTRACTOR_JS = r"""
     } catch (e) {}
 
     if (stateObj && typeof stateObj === 'object') {
-        // Target product object inspection without blind global search
         const productCandidates = [];
         if (stateObj.productInfo) productCandidates.push(stateObj.productInfo);
         if (stateObj.productDetail) productCandidates.push(stateObj.productDetail);
@@ -141,7 +141,7 @@ _TIKTOK_EXTRACTOR_JS = r"""
 
         for (const prod of productCandidates) {
             const pId = prod.productId || prod.id || prod.itemId || '';
-            const matches = !targetProductId || pId.toString().includes(targetProductId) || window.location.href.includes(targetProductId);
+            const matches = targetProductId && pId.toString().includes(targetProductId);
             if (matches) {
                 if (prod.title && !result.structured.title) result.structured.title = prod.title;
                 if (prod.description && !result.structured.description) result.structured.description = prod.description;
@@ -347,14 +347,7 @@ class TikTokSourceExtractor:
             raise SourcePackBlockedError("TikTok platform blocking detected (Captcha)")
 
         structured = result.get("structured") or {}
-
-        title = structured.get("title")
-        if not title:
-            page_title = result.get("page_title", "")
-            if page_title:
-                title = page_title.split("|")[0].strip() or None
-            else:
-                title = None
+        structured_matches = (structured.get("product_id") == product_id and product_id is not None)
 
         seen_urls: Set[str] = set()
         media_items: List[OriginalMediaRef] = []
@@ -385,7 +378,7 @@ class TikTokSourceExtractor:
             ordinal += 1
 
         # Priority 1: Structured images (identity checked)
-        if structured.get("product_id") == product_id or (product_id is None and structured.get("images")):
+        if structured_matches:
             for img_url in structured.get("images", []):
                 add_media(img_url, MediaRole.PRIMARY, MediaProvenance.STRUCTURED_PRODUCT_DATA)
 
@@ -412,9 +405,21 @@ class TikTokSourceExtractor:
         for img_url in result.get("fallback_images", []):
             add_media(img_url, MediaRole.GALLERY, MediaProvenance.PLATFORM_SCOPED_FALLBACK)
 
+        # Fail closed when no trusted media could be extracted
+        if not media_items:
+            raise SourcePackExtractionError(
+                f"No trusted seller-product media could be extracted for TikTok product {product_id} ({product_url})"
+            )
+
+        title = structured.get("title") if structured_matches else None
+        if not title:
+            page_title = result.get("page_title", "")
+            if page_title:
+                title = page_title.split("|")[0].strip() or None
+
         # Build facts
         facts: List[ProductFact] = []
-        if structured.get("brand"):
+        if structured_matches and structured.get("brand"):
             facts.append(
                 ProductFact(
                     key="Brand",
@@ -424,21 +429,22 @@ class TikTokSourceExtractor:
                 )
             )
 
-        for spec in structured.get("specifications", []):
-            if isinstance(spec, dict) and spec.get("name") and spec.get("value"):
-                facts.append(
-                    ProductFact(
-                        key=str(spec["name"]),
-                        value=str(spec["value"]),
-                        source_section="specification_table",
-                        provenance="structured_data",
+        if structured_matches:
+            for spec in structured.get("specifications", []):
+                if isinstance(spec, dict) and spec.get("name") and spec.get("value"):
+                    facts.append(
+                        ProductFact(
+                            key=str(spec["name"]),
+                            value=str(spec["value"]),
+                            source_section="specification_table",
+                            provenance="structured_data",
+                        )
                     )
-                )
 
         source_pack_id = build_source_pack_id("tiktok", product_id, product_url)
-        description = structured.get("description")
-        shop_name = structured.get("shop_name") or None
-        brand = structured.get("brand") or None
+        description = structured.get("description") if structured_matches else None
+        shop_name = structured.get("shop_name") if structured_matches else None
+        brand = structured.get("brand") if structured_matches else None
 
         return ProductSourcePack(
             source_pack_id=source_pack_id,

@@ -79,7 +79,7 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
         return result;
     }
 
-    // PRIORITY 1: Structured Data (Must match target product ID)
+    // PRIORITY 1: Structured Data (Identity strictly matched to targetProductId from the object itself)
     const ldJsonScripts = document.querySelectorAll('script[type="application/ld+json"]');
     for (const script of ldJsonScripts) {
         try {
@@ -88,11 +88,12 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
                 const itemUrl = data.offers && data.offers.url ? data.offers.url : (data.url || '');
                 const productId = data.productID || data.sku || data.mpn || '';
                 
-                // Match current product identity
-                const matchesCurrentProduct = !targetProductId || 
+                // Match current product identity strictly from object attributes
+                const matchesCurrentProduct = targetProductId && (
                     itemUrl.includes(targetProductId) || 
                     productId.toString().includes(targetProductId) ||
-                    (window.location.href.includes(targetProductId));
+                    (data.sku && data.sku.toString().includes(targetProductId))
+                );
 
                 if (matchesCurrentProduct) {
                     if (data.name && !result.structured.title) result.structured.title = data.name;
@@ -317,9 +318,10 @@ class ShopeeSourceExtractor:
             ordinal += 1
 
         structured = data.get("structured", {})
+        structured_matches = (structured.get("product_id") == product_id)
 
-        # Priority 1: Structured Product Data (if tied to product identity)
-        if structured.get("product_id") == product_id:
+        # Priority 1: Structured Product Data (ONLY when identity matches target product)
+        if structured_matches:
             for url in structured.get("images", []):
                 add_media(url, MediaRole.PRIMARY, MediaProvenance.STRUCTURED_PRODUCT_DATA)
 
@@ -346,6 +348,12 @@ class ShopeeSourceExtractor:
         for url in data.get("fallback_media", []):
             add_media(url, MediaRole.GALLERY, MediaProvenance.PLATFORM_SCOPED_FALLBACK)
 
+        # Fail closed when no trusted media could be accepted
+        if not media_items:
+            raise SourcePackExtractionError(
+                f"No trusted seller-product media could be extracted for Shopee product {product_id} ({product_url})"
+            )
+
         # Build facts
         facts: List[ProductFact] = []
         for spec in structured.get("specs", []):
@@ -359,17 +367,20 @@ class ShopeeSourceExtractor:
                     )
                 )
 
-        if structured.get("brand"):
+        # Gate structured-derived title, brand, description behind verified identity
+        title = structured.get("title") if structured_matches else None
+        brand = structured.get("brand") if structured_matches else None
+        description = structured.get("description") if structured_matches else None
+
+        if structured_matches and brand:
             facts.append(
                 ProductFact(
                     key="Brand",
-                    value=structured["brand"],
+                    value=brand,
                     source_section="structured_data",
                     provenance="structured_data",
                 )
             )
-
-        description = structured.get("description")
 
         return ProductSourcePack(
             source_pack_id=source_pack_id,
@@ -377,10 +388,10 @@ class ShopeeSourceExtractor:
             product_url=product_url,
             observed_at=observed_at,
             collector=self.collector_name,
-            title=structured.get("title"),
+            title=title,
             source_product_id=product_id,
-            shop_name=structured.get("shop_name"),
-            brand=structured.get("brand"),
+            shop_name=structured.get("shop_name") if structured_matches else None,
+            brand=brand,
             description_text=description,
             facts=tuple(facts),
             media=tuple(media_items),

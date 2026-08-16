@@ -83,16 +83,48 @@ async def test_tiktok_extractor_prefers_structured_data_when_identity_matches():
 
 @pytest.mark.asyncio
 async def test_tiktok_extractor_rejects_unrelated_structured_data_on_identity_mismatch():
-    """Structured data from unrelated recommendation with mismatched ID is rejected; falls back to gallery."""
+    """Structured data from unrelated recommendation with mismatched ID is rejected for BOTH media and title/brand/shop."""
     eval_data = {
         "structured": {
             "title": "Unrelated TikTok Recommendation",
             "product_id": "999888777",  # Mismatched ID
             "images": ["https://p16-oec-va.ibyteimg.com/unrelated.jpg"],
-            "brand": "OtherBrand",
-            "specifications": [],
+            "brand": "UnrelatedBrand",
+            "shop_name": "UnrelatedShop",
+            "description": "Unrelated desc",
+            "specifications": [{"name": "UnrelatedSpec", "value": "Bad"}],
         },
         "gallery_images": ["https://p16-oec-va.ibyteimg.com/real_gallery.jpg"],
+        "variants": [],
+        "seller_images": [],
+        "fallback_images": [],
+        "blocked": False,
+        "page_title": "Fallback Page Title | TikTok",
+    }
+    session = FakeSession(eval_data)
+    extractor = TikTokSourceExtractor(browser=session)
+
+    pack = await extractor.extract("https://www.tiktok.com/view/product/17294829102938")
+
+    # Mismatched structured media rejected -> falls back to real gallery images
+    assert len(pack.media) == 1
+    assert pack.media[0].source_url == "https://p16-oec-va.ibyteimg.com/real_gallery.jpg"
+    assert pack.media[0].provenance == MediaProvenance.SEMANTIC_PRODUCT_GALLERY
+
+    # Unrelated structured metadata is discarded
+    assert pack.title == "Fallback Page Title"
+    assert pack.brand is None
+    assert pack.shop_name is None
+    assert pack.description_text is None
+    assert not any(f.key == "Brand" and f.value == "UnrelatedBrand" for f in pack.facts)
+
+
+@pytest.mark.asyncio
+async def test_tiktok_extractor_fails_closed_when_no_media_found():
+    """Exhausting all extraction paths without media raises SourcePackExtractionError."""
+    eval_data = {
+        "structured": {"title": "No Media Product", "product_id": "17294829102938", "images": []},
+        "gallery_images": [],
         "variants": [],
         "seller_images": [],
         "fallback_images": [],
@@ -101,11 +133,8 @@ async def test_tiktok_extractor_rejects_unrelated_structured_data_on_identity_mi
     session = FakeSession(eval_data)
     extractor = TikTokSourceExtractor(browser=session)
 
-    pack = await extractor.extract("https://www.tiktok.com/view/product/17294829102938")
-
-    assert len(pack.media) == 1
-    assert pack.media[0].source_url == "https://p16-oec-va.ibyteimg.com/real_gallery.jpg"
-    assert pack.media[0].provenance == MediaProvenance.SEMANTIC_PRODUCT_GALLERY
+    with pytest.raises(SourcePackExtractionError, match="No trusted seller-product media"):
+        await extractor.extract("https://www.tiktok.com/view/product/17294829102938")
 
 
 @pytest.mark.asyncio
@@ -196,7 +225,7 @@ async def test_tiktok_js_script_excludes_reviews_and_no_main_article_fallback():
     """JS script contains review/UGC exclusions and does NOT use broad 'main' or 'article' selector."""
     session = FakeSession({
         "structured": {"title": "Test", "product_id": "123", "images": []},
-        "gallery_images": [],
+        "gallery_images": ["https://p16-oec-va.ibyteimg.com/gal.jpg"],
         "variants": [],
         "seller_images": [],
         "fallback_images": [],
@@ -211,7 +240,6 @@ async def test_tiktok_js_script_excludes_reviews_and_no_main_article_fallback():
     assert "comment" in script
     assert "recommend" in script
     assert "ugc" in script
-    # Verify 'main' and 'article' are NOT in fallback selectors
     assert "main, article" not in script
     assert "main" not in script
     assert "article" not in script
