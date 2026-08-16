@@ -1,86 +1,57 @@
 # REVIEW-020 — TASK-020 Quota & Efficiency Telemetry
 
-STATUS: CHANGES_REQUIRED
+STATUS: APPROVED
 
 ## Review Scope
-- Review round: `2`
+- Review round: `3` — Final
 - Reviewed branch: `ai/task-020`
-- Reviewed branch head: `fdbd0703188422c19192fac5bdc9659c7c114e48`
-- Tested implementation SHA: `c079e69d0cbb7764b4585515805b35add1dddb50`
+- Reviewed branch head: `5c93561bf08d7fb0ed91c9199b0ae023c8b1ea4b`
+- Tested implementation SHA: `9128906ed12688cc74397a0a52dd776ab2123d19`
 - Base main: `5484462208dd47b9fbb3fd5ad382f423301c468a`
-- Branch relation: ahead `4`, behind `0`; merge-base is exact current main.
-- Implementation-to-reviewed-head relation: one evidence-only RESULT update after the tested implementation; production code/tests at reviewed head equal the tested implementation.
-- Review mode: ADR-013 Round-2 delta-first. Reviewed previous REVIEW, new RESULT, FIX delta, and finding-scoped tests only. No full TASK/ADR/source/test reload.
+- Branch relation: ahead `6`, behind `0`; merge-base is exact current main.
+- Implementation-to-reviewed-head relation: one evidence-only RESULT update after the tested implementation; production code/tests at reviewed head equal tested implementation `9128906...`.
+- Review mode: ADR-013 Round-3 delta-first. Reviewed previous REVIEW, new RESULT, exact tiny implementation/test patch, and compare metadata only. No full TASK/ADR/source/test reload.
 
-## Round-1 Findings
+## Final Finding Closure
 
 ### R1-1 — Bounded method / truthful estimator provenance
-RESOLVED.
+RESOLVED in Round 2 and unchanged.
 
-- `TokenMeasurement.method` is now bounded to a conservative lowercase identifier with a 64-character cap.
-- required identifiers such as `utf8-bytes-div4-v1` and `historical-audit-estimate-v1` remain valid.
-- `estimate_tokens_from_bytes()` rejects unsupported estimation method labels.
-- tests cover free-form/oversized identifiers and unsupported estimator methods.
-
-### R1-2 — Historical exact proxies must remain UNKNOWN when uncaptured
-RESOLVED.
-
-- relevant exact proxy fields are nullable.
-- TASK-019 baseline now records uncaptured `full_file_reads`, `artifact_reads`, and executor `test_runs` as `null` rather than fabricated zeroes.
-- known zero `external_api_calls` remains explicit.
-- baseline tests assert the unknown/null semantics.
+### R1-2 — Historical exact proxies remain UNKNOWN when uncaptured
+RESOLVED in Round 2 and unchanged.
 
 ### R1-3 — Efficiency partition and ratio integrity
-PARTIALLY RESOLVED.
-
-- fully-known partition components now require exact equality with `brain_context_bytes`.
-- partially-known partitions retain the safe partial-sum `<= total` rule.
-- tests cover both over-filled and under-filled fully-known partitions.
-
-One small integrity defect remains in the supplied ratio check. The implementation currently accepts a ratio whenever:
-
-```python
-abs(float(self.context_efficiency_ratio) - expected_ratio) <= 1e-4
-```
-
-But `expected_ratio` is already the deterministic helper result rounded to 4 decimal places. This tolerance can accept a value whose own 4-decimal rounding differs from the expected value; e.g. expected `0.8000`, supplied `0.80009` is within `1e-4` but rounds to `0.8001`. Such a value is not the locked deterministic ratio and would serialize/fingerprint differently.
-
-Required final fix:
-- require the supplied ratio to match the deterministic 4-decimal convention exactly, e.g. compare `round(float(supplied), 4)` to `expected_ratio`, or normalize/store the ratio deterministically before comparison;
-- add a boundary test proving a near-but-different value such as `0.80009` is rejected (or normalized deterministically to the canonical expected value).
-
-### R1-4 — Mixed UNKNOWN aggregation
 RESOLVED.
 
-- a mixed known + UNKNOWN sequence now returns `(None, None)` rather than a misleading known-only subtotal.
-- fully-known sequences still aggregate deterministically.
-- empty sequence behavior is explicitly defined and tested.
+The final FIX replaces the fuzzy `1e-4` tolerance with exact comparison against the deterministic helper result. A supplied near-but-different value such as `0.80009` is now rejected when canonical expected ratio is `0.8`.
+
+A dedicated boundary test was added. The production delta is exactly two changed source lines plus the targeted test addition.
+
+### R1-4 — Mixed UNKNOWN aggregation
+RESOLVED in Round 2 and unchanged.
 
 ## Evidence
-- FIX implementation commit: `c079e69d0cbb7764b4585515805b35add1dddb50`.
-- Final reviewed head: `fdbd0703188422c19192fac5bdc9659c7c114e48`; only `.ai/results/RESULT-020.md` changes after the tested implementation.
-- RESULT reports: Continuity `36 passed`; Bridge `122 passed`; full repository `596 passed`; no regressions.
+- Round-3 implementation commit: `9128906ed12688cc74397a0a52dd776ab2123d19`.
+- Final reviewed branch head: `5c93561bf08d7fb0ed91c9199b0ae023c8b1ea4b`.
+- `9128906... -> 5c93561...` changes only `.ai/results/RESULT-020.md`; production code/tests at final head equal the tested implementation.
+- RESULT reports:
+  - Continuity: `36 passed`
+  - AIOS Bridge: `122 passed`
+  - Full repository: `596 passed`
+  - zero regressions
 - `LIVE_EXTERNAL_CALLS: 0`.
 - `TELEMETRY_MODEL_TURNS_ADDED: 0`.
 - `BRIDGE_V0_4_BEHAVIOR_CHANGED: NO`.
 - `AUTHORITY_WIDENED: NO`.
+- RESULT now uses the exact previous REVIEW artifact blob SHA in `PREVIOUS_REVIEW_SHA`.
 
-## Evidence Note
-`RESULT-020` currently labels `PREVIOUS_REVIEW_SHA` with the previously reviewed branch head (`579ef1...`) while the exact authorized REVIEW artifact is separately recorded as `7e96b9c56d...`. This does not block correctness because the authorized artifact pointer is present, but future Review Manifest generation should standardize this field to unambiguously identify the previous REVIEW artifact rather than a reviewed implementation/head SHA.
-
-## Final FIX Scope
-Expected production delta is extremely small:
-
-```text
-src/aios_bridge/continuity/usage.py
-tests/aios_bridge/continuity/test_usage.py
-.ai/results/RESULT-020.md
-```
-
-No Bridge, authority, routing, model invocation, or unrelated telemetry changes.
+## Scope / Authority
+No Bridge handoff/sync/publish semantic change, model invocation, routing, executor switching, or RUN/FIX/MERGE authority widening was introduced.
 
 ## Decision
 
-`CHANGES_REQUIRED`
+`APPROVED`
 
-All substantive Round-1 issues except the final deterministic ratio boundary are resolved. Fix only that boundary, re-run the required suites, and publish evidence. Round 3 should require only the tiny implementation/test delta plus RESULT evidence.
+TASK-020 satisfies the M1.5 Usage & Efficiency Telemetry contract at reviewed branch head `5c93561bf08d7fb0ed91c9199b0ae023c8b1ea4b`.
+
+Merge eligibility is approved. Merge remains a separate explicit human action.
