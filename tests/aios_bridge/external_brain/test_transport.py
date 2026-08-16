@@ -51,6 +51,34 @@ async def test_openai_transport_success():
     assert call_kwargs["json"]["model"] == "test-model"
 
 
+def test_transport_request_credential_redaction_in_repr():
+    """TransportRequest __repr__ and __str__ redact sensitive headers like Authorization."""
+    secret_token = "sk-super-secret-production-bearer-token-12345"
+    req = TransportRequest(
+        endpoint_url="https://api.example.com",
+        path="/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {secret_token}",
+            "X-Api-Key": secret_token,
+            "Content-Type": "application/json",
+        },
+        payload={"model": "test-model"},
+    )
+
+    repr_str = repr(req)
+    str_str = str(req)
+
+    # Secret token must NOT appear in repr or str
+    assert secret_token not in repr_str
+    assert secret_token not in str_str
+    assert "[REDACTED]" in repr_str
+    assert "[REDACTED]" in str_str
+
+    # Actual headers remain available for transmission
+    assert req.headers["Authorization"] == f"Bearer {secret_token}"
+    assert req.to_wire_dict()["headers"]["Authorization"] == f"Bearer {secret_token}"
+
+
 @pytest.mark.asyncio
 async def test_openai_transport_non_json_bounded_diagnostic():
     """Non-JSON response text is bounded by max_diagnostic_bytes."""

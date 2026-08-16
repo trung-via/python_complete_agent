@@ -49,11 +49,11 @@ class MockTransport:
                 "usage": {"prompt_tokens": 150, "completion_tokens": 80, "total_tokens": 230},
             },
             latency_ms=320,
-            provider_request_id="minimax-req-123",
+            provider_request_id="minimax-header-123",
         )
 
 
-def _make_plan_request() -> ModelRequest:
+def _make_plan_request(model: str | None = "MiniMax-M3") -> ModelRequest:
     task = ContextItem(kind=ContextKind.TASK, content="Task description")
     return ModelRequest(
         schema_version="1",
@@ -65,7 +65,7 @@ def _make_plan_request() -> ModelRequest:
         output_format=BrainOutputType.PLAN,
         context=(task,),
         provider="minimax",
-        model="MiniMax-M3",
+        model=model,
         max_output_tokens=2048,
     )
 
@@ -91,6 +91,7 @@ async def test_minimax_provider_protocol_and_success_parse():
     assert res.input_tokens == 150
     assert res.output_tokens == 80
     assert res.latency_ms == 320
+    # Body id takes precedence over header id
     assert res.provider_request_id == "minimax-req-123"
 
     # Verify reasoning_content was discarded and not leaked into res.content
@@ -109,6 +110,67 @@ async def test_minimax_provider_protocol_and_success_parse():
     assert sent.payload["max_completion_tokens"] == 2048
     assert "tools" not in sent.payload
     assert "max_tokens" not in sent.payload
+
+
+@pytest.mark.asyncio
+async def test_minimax_provider_model_validation():
+    """Provider validates request.model: None or matching succeeds; mismatch fails before transport."""
+    mock_transport = MockTransport()
+    provider = MiniMaxOpenAIProvider(api_key="key", transport=mock_transport)
+
+    # 1. request.model is None -> succeeds using configured model
+    req_none = _make_plan_request(model=None)
+    res_none = await provider.invoke(req_none)
+    assert res_none.status == ModelResponseStatus.SUCCESS
+    assert len(mock_transport.sent_requests) == 1
+
+    # 2. request.model matches configured model -> succeeds
+    req_match = _make_plan_request(model="MiniMax-M3")
+    res_match = await provider.invoke(req_match)
+    assert res_match.status == ModelResponseStatus.SUCCESS
+    assert len(mock_transport.sent_requests) == 2
+
+    # 3. request.model mismatch -> fails before any transport call
+    req_mismatch = _make_plan_request(model="OtherModel-7B")
+    with pytest.raises(ContractValidationError, match="Model mismatch"):
+        await provider.invoke(req_mismatch)
+
+    assert len(mock_transport.sent_requests) == 2  # No new transport calls
+
+
+@pytest.mark.asyncio
+async def test_minimax_provider_request_id_precedence():
+    """Provider prefers JSON body 'id' when present, falling back to transport header ID."""
+    # Case A: Both body id and header id present -> body id wins
+    mock_transport_both = MockTransport(
+        result=TransportResult(
+            status_code=200,
+            body={
+                "id": "body-id-preferred",
+                "choices": [{"finish_reason": "stop", "message": {"content": "# PLAN\n## SUMMARY\nS\n## STEPS\nSt\n## FILES\nF\n## TESTS\nT\n## RISKS\nR"}}],
+            },
+            latency_ms=100,
+            provider_request_id="header-id-fallback",
+        )
+    )
+    provider_both = MiniMaxOpenAIProvider(api_key="key", transport=mock_transport_both)
+    res_both = await provider_both.invoke(_make_plan_request())
+    assert res_both.provider_request_id == "body-id-preferred"
+
+    # Case B: Body id absent -> header id used
+    mock_transport_hdr = MockTransport(
+        result=TransportResult(
+            status_code=200,
+            body={
+                "choices": [{"finish_reason": "stop", "message": {"content": "# PLAN\n## SUMMARY\nS\n## STEPS\nSt\n## FILES\nF\n## TESTS\nT\n## RISKS\nR"}}],
+            },
+            latency_ms=100,
+            provider_request_id="header-id-fallback",
+        )
+    )
+    provider_hdr = MiniMaxOpenAIProvider(api_key="key", transport=mock_transport_hdr)
+    res_hdr = await provider_hdr.invoke(_make_plan_request())
+    assert res_hdr.provider_request_id == "header-id-fallback"
 
 
 @pytest.mark.asyncio

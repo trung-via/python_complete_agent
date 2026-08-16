@@ -55,6 +55,24 @@ def _to_json_compatible(val: Any) -> Any:
     return val
 
 
+_SENSITIVE_HEADER_KEYS = frozenset({
+    "authorization",
+    "proxy-authorization",
+    "api-key",
+    "x-api-key",
+    "token",
+    "x-auth-token",
+})
+
+
+def _sanitize_headers_for_repr(headers: Mapping[str, str]) -> dict[str, str]:
+    """Returns a dict of headers with sensitive credential values redacted."""
+    return {
+        k: ("[REDACTED]" if k.lower() in _SENSITIVE_HEADER_KEYS else v)
+        for k, v in headers.items()
+    }
+
+
 @dataclass(frozen=True)
 class TransportRequest:
     """Immutable low-level HTTP transport request contract."""
@@ -88,6 +106,17 @@ class TransportRequest:
         # Defensive deep-copy & deep-freeze
         object.__setattr__(self, "headers", _freeze_headers(self.headers))
         object.__setattr__(self, "payload", _validate_and_freeze_payload(self.payload))
+
+    def __repr__(self) -> str:
+        safe_headers = _sanitize_headers_for_repr(self.headers)
+        return (
+            f"TransportRequest(endpoint_url={self.endpoint_url!r}, "
+            f"path={self.path!r}, headers={safe_headers!r}, "
+            f"payload={self.payload!r}, timeout_seconds={self.timeout_seconds!r})"
+        )
+
+    def __str__(self) -> str:
+        return repr(self)
 
     def to_json_payload(self) -> dict[str, Any]:
         """Returns a fresh JSON-compatible dictionary representation of the request payload."""

@@ -97,6 +97,13 @@ class MiniMaxOpenAIProvider:
         if not isinstance(request, ModelRequest):
             raise ContractValidationError(f"request must be a ModelRequest instance, got: {type(request)}")
 
+        # 0. Pre-call Model Compatibility Check (if request.model is explicitly set, must match)
+        if request.model is not None and request.model != self._model_name:
+            raise ContractValidationError(
+                f"Model mismatch: request.model={request.model!r} does not match "
+                f"configured provider model={self._model_name!r}"
+            )
+
         # Build messages and payload
         messages = render_messages(request)
         payload: dict[str, Any] = {
@@ -123,7 +130,14 @@ class MiniMaxOpenAIProvider:
         status_code = transport_res.status_code
         body = transport_res.body
         latency_ms = transport_res.latency_ms
+
+        # ADR-007 Precedence: use body["id"] if present, otherwise transport_res.provider_request_id
         provider_req_id = transport_res.provider_request_id
+        if isinstance(body, Mapping):
+            body_id = body.get("id")
+            if isinstance(body_id, str) and body_id.strip():
+                provider_req_id = body_id.strip()
+
         input_tokens, output_tokens = self._extract_usage(body)
 
         # 1. Transport-level connection / timeout failures
