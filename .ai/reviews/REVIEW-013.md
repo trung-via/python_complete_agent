@@ -5,120 +5,118 @@ CHANGES_REQUIRED
 
 ## Reviewed Head
 - Branch: `ai/task-013`
-- Reviewed commit: `15c98145098531ff181d2c156d20bcc9c339579c`
+- Reviewed commit: `5042620ab53c432c7209816b6ac1a4fec817c377`
 - Main baseline: `9d3dcfeab5ffc98bf6aeb3ef7a67912a5bc1fd52`
-- Branch relation to main: ahead 5, behind 0 (fast-forward safe)
+- Branch relation to main: ahead 6, behind 0 (fast-forward safe)
 - Task artifact blob: `c0144bc2e7ffc21422a491ca621a0fe7ceceecde`
-- Prior CHANGES_REQUIRED authorization blob: `527d3d5a0bb101739ee13f366088a16ed871707f`
-- RESULT-013 blob: `f8f2f29bdfcfc13c281f6b9f7e54df993bec3a7c`
+- Prior CHANGES_REQUIRED authorization blob: `79adc61318d1977d4dacfddb6fd452827ae73a77`
+- RESULT-013 blob: `54f1ae0a4a460b7af992e965d1b58b13793740fb`
 - RESULT action: `FIX`
-- Exact FIX authorization recorded by worker: `.ai/reviews/REVIEW-013.md (527d3d5a0b)` — matches the prior review artifact exactly.
-- Reported focused Product Source suite: 44 passed, 0 failed, exit code 0.
-- Reported full repository suite: 462 passed, 0 failed, exit code 0.
+- Exact FIX authorization recorded by worker: `.ai/reviews/REVIEW-013.md (79adc61318)` — matches the prior review artifact.
 
 ## Re-review Summary
-The previous three blockers are materially improved: the page-URL identity bypass was removed, zero-media extraction now fails closed, and RESULT-013 now records exact focused/full test commands with green counts. BrowserManager run-id plumbing, variant roles, bounded streaming, byte-preserving writes, narrow TikTok fallback, and no-LLM/no-scoring/no-queue boundaries remain intact.
+The source-level fixes for the prior identity/SKU/redaction findings are materially improved:
 
-TASK-013 is still not ready for merge because the remaining issues affect the exact problem this milestone is meant to solve: authoritative product identity, proof that review/UGC images are excluded by container ownership, secret-safe signed media URLs, explicit seller SKU/model capture, and durable result accuracy.
+1. Shopee/TikTok JSON-LD identity matching now uses exact ID/SKU equality or an ID parsed from a product/item URL instead of arbitrary substring containment.
+2. `model_sku` is now preserved when an identity-matched structured source exposes it.
+3. URL redaction now uses pattern-based sensitive-key detection, covering prefixed signature/credential/token/session/policy/key families.
+4. The branch remains fast-forward safe against the canonical main baseline.
 
-## Blocking Finding 1 — Structured identity matching still uses substring matching instead of exact product identity
+TASK-013 is still not ready for merge because the new DOM regression does not yet prove the intended extraction behavior, and the durable RESULT verification evidence has regressed.
 
-### Locations
-- `src/product_source/platforms/shopee.py`
-- `src/product_source/platforms/tiktok.py`
-
-The page-URL bypass is gone, which is good, but JSON-LD identity still uses predicates equivalent to:
-
-```javascript
-itemUrl.includes(targetProductId) ||
-productId.toString().includes(targetProductId) ||
-sku.toString().includes(targetProductId)
-```
-
-This can false-match another product whose ID/SKU merely contains the requested ID as a substring (for example target `12345` vs unrelated `9123450`) or a URL where the digits occur in a non-identity component.
-
-For a canonical evidence layer, identity must be exact after normalization/parsing, not substring-based.
-
-### Required Fix
-- Compare normalized product/item/SKU IDs by exact equality when the structured object exposes an ID.
-- When using an object URL, parse the platform product/item identity from that URL and compare exact IDs; do not accept arbitrary string containment.
-- Add regressions for overlapping IDs proving an unrelated object such as `9123450` is rejected when target is `12345`.
-
-## Blocking Finding 2 — The core review/UGC exclusion behavior is still not proven by deterministic fixtures
-
-### Locations
-- `tests/product_source/test_shopee_source_extractor.py`
-- `tests/product_source/test_tiktok_source_extractor.py`
-- platform extraction JS in both source extractors
-
-TASK-013 explicitly requires fixtures where seller gallery media and review/customer media use the same CDN, proving container/provenance rules — not hostname — determine acceptance.
-
-Current extractor tests inject pre-built `evaluate_data` dictionaries. Those fakes already contain only the accepted output, so they do not execute the DOM selection/exclusion decision. The review tests only inspect that strings such as `review`, `rating`, `comment`, or `recommend` appear in the JS source.
-
-That does not prove the real regression reported by the user — review images leaking into product originals — is fixed.
-
-### Required Fix
-Add deterministic extraction fixtures that exercise the selector/ownership decision itself. Acceptable approaches include a small DOM/HTML fixture runner or extracting the DOM-selection logic into a directly testable deterministic parser. At minimum prove for both platforms that:
-- a gallery image and a review/customer image can share the same CDN host;
-- the gallery image is accepted;
-- the review/customer image is rejected because of container ownership;
-- unrelated recommendation/product-card images are rejected;
-- TikTok generic outer-page content cannot become fallback media.
-
-No live marketplace test is required.
-
-## Blocking Finding 3 — Secret-safe URL redaction is too narrow for real signed CDN query keys
+## Blocking Finding 1 — New DOM fixture does not actually invoke the extraction function
 
 ### Location
-`src/product_source/models.py`
+`tests/product_source/test_extractor_dom_fixtures.py`
 
-`sanitize_url()` redacts only an exact allow-list of sensitive key names such as `token`, `auth`, `signature`, `session`, `credential`, and `expires`.
+Both platform extractor constants are JavaScript arrow functions of the form:
 
-Common signed media URLs can use prefixed or variant names such as `X-Amz-Signature`, `X-Amz-Credential`, `X-Goog-Signature`, `_signature`, `Key-Pair-Id`, or policy/key-token variants. Those values are not covered by exact-key equality and can therefore be serialized into `source_pack.json` or downloader diagnostics.
+```javascript
+(targetProductId) => { ... }
+```
 
-TASK-013 explicitly requires that signed CDN/auth-like credentials not be persisted.
+The new fixture builds a string like:
+
+```python
+script = "const targetProductId = '123';\n" + _SHOPEE_EXTRACTION_SCRIPT
+result = await page.evaluate(script)
+```
+
+and similarly for TikTok.
+
+That expression defines/evaluates an arrow function but does not call it with the target product ID. Therefore the fixture is not a valid proof that the extraction body ran and returned the expected `gallery` / `seller_images` / fallback structures.
 
 ### Required Fix
-Use normalized/pattern-based sensitive-key detection for auth/signature/token/session/credential/policy/key-pair/expiry families while preserving non-sensitive fetch parameters in memory. Add regression cases for prefixed signature/credential keys and prove their values never appear in serialized manifests or diagnostics.
+Invoke the actual extractor function through Playwright, for example by evaluating the existing function source with an argument in the same shape as production (`page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, target_id)` / TikTok equivalent), or wrap-and-call it explicitly.
 
-## Blocking Finding 4 — Explicit model/SKU evidence is still discarded
+The regression must run green under the required focused command before review.
 
-### Locations
-- `src/product_source/platforms/shopee.py`
-- `src/product_source/platforms/tiktok.py`
-- `ProductSourcePack.model_sku`
+## Blocking Finding 2 — The UGC fixture still does not stress the contamination path strongly enough
 
-The task requires model/SKU to be populated when explicitly observed. The extractors already inspect structured `sku`/product identity fields for matching, but neither platform currently assigns an observed seller SKU/model to `ProductSourcePack.model_sku` or an equivalent source fact.
+### Location
+`tests/product_source/test_extractor_dom_fixtures.py`
+
+The Shopee review and recommendation nodes are separate siblings outside the positively selected `.product-image-carousel` / `.product-detail` containers. The TikTok review node is likewise outside the selected `.product-image` / `.seller-description` containers.
+
+Those images would be ignored even if the child-level `isExcluded(...)` protection were broken, because the positive container selectors never visit them. This does not directly prove the defect TASK-013 was created to eliminate: review/customer media leaking from inside a broader product/detail container.
 
 ### Required Fix
-When a trusted, identity-matched structured/spec source explicitly provides model/SKU, preserve it with provenance and populate `model_sku` (or an equivalent canonical fact consistent with the task contract). Missing values must remain `None`; do not infer them from title or images.
+Use same-CDN fixtures where a review/comment/recommendation subtree is nested inside a container that the extraction pass actually scans. Prove that:
+- the seller gallery/source image is accepted;
+- a review/customer image under the scanned outer product container is rejected specifically by subtree ownership/exclusion;
+- a recommendation image under a scanned/bounded product container is rejected;
+- TikTok generic outer-page content is not admitted by fallback.
 
-Add focused tests for observed SKU/model and missing SKU/model.
+No live marketplace access is needed.
 
-## Blocking Finding 5 — RESULT-013 diff evidence is stale relative to the reviewed head
+## Blocking Finding 3 — RESULT-013 verification evidence regressed to “not supplied”
 
 ### Location
 `.ai/results/RESULT-013.md`
 
-The test evidence is now present and green, but the recorded diff stat is not the current `main → ai/task-013` diff. Live comparison at reviewed head shows 18 changed files, including `.ai/results/RESULT-013.md`, and current line counts differ from the 17-file diff recorded in RESULT-013.
+The previous reviewed result had exact focused/full commands and green counts. The current RESULT at blob `54f1ae0a4a460b7af992e965d1b58b13793740fb` has replaced that evidence with:
 
-The task requires an accurate concise diff summary tied to the reviewed state.
+- `Command: (not supplied)`
+- `(no test command supplied)`
+
+TASK-013 explicitly requires exact focused and full-suite commands, exit codes, and pass counts. This is a hard review gate, especially because the new Playwright DOM fixture was added in this FIX.
 
 ### Required Fix
-Refresh RESULT-013 after the final code/test changes with the exact current task diff (or an explicitly labeled code-only diff plus the RESULT artifact itself), while preserving the exact focused/full commands, exit codes, pass counts, authorization reference, limitations, and no-auto-merge statement.
+Run and record at minimum:
+
+```powershell
+.\venv\Scripts\python -m pytest tests/product_source/ -v
+.\venv\Scripts\python -m pytest tests/ -q -W ignore
+```
+
+RESULT-013 must contain the exact commands, exit codes, exact pass counts, current authorization reference, known limitations, and no-auto-merge statement.
+
+## Blocking Finding 4 — Current RESULT diff evidence is incomplete and a stray debug script is in the task diff
+
+### Locations
+- `.ai/results/RESULT-013.md`
+- `test_pw.py`
+
+Live `main → ai/task-013` comparison currently contains 20 changed files and includes both `tests/product_source/test_extractor_dom_fixtures.py` and a repository-root `test_pw.py` debug script. The current RESULT labels an 8-file FIX diff but lists `test_pw.py` under Files Changed while omitting it from the shown diff stat; it is therefore not an accurate durable description of the reviewed state.
+
+`test_pw.py` is an ad-hoc executable Playwright smoke script (`asyncio.run(main())`) and is not part of the TASK-013 product-source architecture or required test suite.
+
+### Required Fix
+Remove the stray debug script unless it is intentionally converted into a proper test under `tests/product_source/`. Then refresh RESULT-013 against the final reviewed head with an accurate task diff (or explicitly labeled FIX-only diff plus a separate current task diff), so the artifact and GitHub state agree.
 
 ## Preserve During Fix
-Preserve the now-correct improvements:
-- explicit `run_id` through the real BrowserManager/BrowserSession contract;
+Preserve the now-correct direction:
+- exact object-owned product identity matching rather than substring matching;
+- identity-gated structured fields;
+- `model_sku` capture only when explicitly observed;
+- pattern-based signed URL redaction;
+- explicit `run_id` through BrowserManager/BrowserSession;
 - fail-closed zero-media extraction;
-- structured fields gated after identity verification;
-- narrow platform-scoped fallback with no `main`/generic `article` success path;
-- explicit variant media roles/provenance;
+- narrow platform-scoped fallback with no generic `main` / `article` success path;
+- variant media roles/provenance;
 - 20 MiB streaming bound and 30-media cap;
 - byte-preserving source originals and SHA-256 evidence;
-- duplicate collapse before duplicate file persistence;
-- source/derived asset boundary;
-- no `ImageProcessor.process_and_save()` for source originals;
+- no source-original `ImageProcessor.process_and_save()`;
 - no AI image generation, LLM, scoring, ranking, or queue mutation;
 - backward-compatible `shopee_scrape` / `tiktok_scrape` names and schemas.
 
