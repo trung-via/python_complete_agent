@@ -231,6 +231,70 @@ def test_output_type_and_artifact_role_validation():
         BrainResult.from_dict(res_task_mismatch)
 
 
+def test_artifact_producing_request_requires_target_path():
+    """BrainRequest with an artifact output type requires non-null target_artifact_path."""
+    # TASK_ARTIFACT without target path fails
+    d_no_target = _make_valid_brain_request_dict()
+    d_no_target["output_contract"]["target_artifact_path"] = None
+    with pytest.raises(ContinuityStateValidationError, match="requires a non-null target_artifact_path"):
+        BrainRequest.from_dict(d_no_target)
+
+    # REVIEW_ARTIFACT without target path fails
+    d_review_no_target = _make_valid_brain_request_dict()
+    d_review_no_target["operation"] = "REVIEW"
+    d_review_no_target["output_contract"] = {
+        "expected_output_type": "REVIEW_ARTIFACT",
+        "target_artifact_path": None,
+    }
+    with pytest.raises(ContinuityStateValidationError, match="requires a non-null target_artifact_path"):
+        BrainRequest.from_dict(d_review_no_target)
+
+    # BOUNDED_TEXT without target path succeeds
+    d_bounded_text = _make_valid_brain_request_dict()
+    d_bounded_text["operation"] = "DIAGNOSIS"
+    d_bounded_text["output_contract"] = {
+        "expected_output_type": "BOUNDED_TEXT",
+        "target_artifact_path": None,
+    }
+    req = BrainRequest.from_dict(d_bounded_text)
+    assert req.output_contract.target_artifact_path is None
+
+
+def test_plan_diagnosis_patch_artifact_namespace_validation():
+    """PLAN, DIAGNOSIS, and PATCH_PROPOSAL must live in allowed namespaces and reject wrong-role directories."""
+    # PLAN_ARTIFACT under .ai/tasks/ fails
+    res_plan_in_tasks = _make_valid_brain_result_dict()
+    res_plan_in_tasks["operation"] = "PLAN"
+    res_plan_in_tasks["output_type"] = "PLAN_ARTIFACT"
+    res_plan_in_tasks["artifact_ref"]["path"] = ".ai/tasks/TASK-021-PLAN.md"
+    with pytest.raises(ContinuityStateValidationError, match="incompatible with PLAN_ARTIFACT"):
+        BrainResult.from_dict(res_plan_in_tasks)
+
+    # DIAGNOSIS_ARTIFACT under .ai/reviews/ fails
+    res_diag_in_reviews = _make_valid_brain_result_dict()
+    res_diag_in_reviews["operation"] = "DIAGNOSIS"
+    res_diag_in_reviews["output_type"] = "DIAGNOSIS_ARTIFACT"
+    res_diag_in_reviews["artifact_ref"]["path"] = ".ai/reviews/TASK-021-DIAGNOSIS.md"
+    with pytest.raises(ContinuityStateValidationError, match="incompatible with DIAGNOSIS_ARTIFACT"):
+        BrainResult.from_dict(res_diag_in_reviews)
+
+    # PATCH_PROPOSAL_ARTIFACT under .ai/tasks/ fails
+    res_patch_in_tasks = _make_valid_brain_result_dict()
+    res_patch_in_tasks["operation"] = "PATCH_PROPOSAL"
+    res_patch_in_tasks["output_type"] = "PATCH_PROPOSAL_ARTIFACT"
+    res_patch_in_tasks["artifact_ref"]["path"] = ".ai/tasks/TASK-021-PATCH.md"
+    with pytest.raises(ContinuityStateValidationError, match="incompatible with PATCH_PROPOSAL_ARTIFACT"):
+        BrainResult.from_dict(res_patch_in_tasks)
+
+    # Valid PLAN under .ai/context/ succeeds
+    res_plan_valid = _make_valid_brain_result_dict()
+    res_plan_valid["operation"] = "PLAN"
+    res_plan_valid["output_type"] = "PLAN_ARTIFACT"
+    res_plan_valid["artifact_ref"]["path"] = ".ai/context/TASK-021-CHATGPT-PLAN.md"
+    obj = BrainResult.from_dict(res_plan_valid)
+    assert obj.artifact_ref.path == ".ai/context/TASK-021-CHATGPT-PLAN.md"
+
+
 def test_result_payload_exclusivity():
     """SUCCESS status requires exactly one result pointer (artifact_ref or evidence_ref)."""
     # Both provided -> ambiguous

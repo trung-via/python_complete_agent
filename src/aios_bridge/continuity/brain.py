@@ -135,11 +135,32 @@ def _validate_artifact_role_and_task(
             raise ContinuityStateValidationError(
                 f"{field_name} path '{path}' incompatible with REVIEW_ARTIFACT for {task_id} (expected '{expected_standard}')"
             )
-    elif output_type in (
-        BrainOutputType.PLAN_ARTIFACT,
-        BrainOutputType.DIAGNOSIS_ARTIFACT,
-        BrainOutputType.PATCH_PROPOSAL_ARTIFACT,
-    ):
+    elif output_type == BrainOutputType.PLAN_ARTIFACT:
+        # PLAN must live under .ai/context/, .ai/plans/, or .ai/decisions/ and NOT under tasks/reviews/results/metrics
+        if not (path.startswith(".ai/context/") or path.startswith(".ai/plans/") or path.startswith(".ai/decisions/")):
+            raise ContinuityStateValidationError(
+                f"{field_name} path '{path}' incompatible with PLAN_ARTIFACT (must live under .ai/context/, .ai/plans/, or .ai/decisions/)"
+            )
+        if task_id not in path and f"TASK-{task_num}" not in path:
+            raise ContinuityStateValidationError(
+                f"{field_name} path '{path}' must match active task identity {task_id}"
+            )
+    elif output_type == BrainOutputType.DIAGNOSIS_ARTIFACT:
+        # DIAGNOSIS must live under .ai/context/ or .ai/diagnosis/
+        if not (path.startswith(".ai/context/") or path.startswith(".ai/diagnosis/")):
+            raise ContinuityStateValidationError(
+                f"{field_name} path '{path}' incompatible with DIAGNOSIS_ARTIFACT (must live under .ai/context/ or .ai/diagnosis/)"
+            )
+        if task_id not in path and f"TASK-{task_num}" not in path:
+            raise ContinuityStateValidationError(
+                f"{field_name} path '{path}' must match active task identity {task_id}"
+            )
+    elif output_type == BrainOutputType.PATCH_PROPOSAL_ARTIFACT:
+        # PATCH_PROPOSAL must live under .ai/context/ or .ai/patches/
+        if not (path.startswith(".ai/context/") or path.startswith(".ai/patches/")):
+            raise ContinuityStateValidationError(
+                f"{field_name} path '{path}' incompatible with PATCH_PROPOSAL_ARTIFACT (must live under .ai/context/ or .ai/patches/)"
+            )
         if task_id not in path and f"TASK-{task_num}" not in path:
             raise ContinuityStateValidationError(
                 f"{field_name} path '{path}' must match active task identity {task_id}"
@@ -360,6 +381,14 @@ class BrainRequest:
                 f"Incompatible expected_output_type {self.output_contract.expected_output_type.value!r} "
                 f"for operation {self.operation.value!r}. Allowed types: {sorted(t.value for t in allowed_types)}"
             )
+
+        # For artifact output types, require a non-null target_artifact_path
+        if self.output_contract.expected_output_type != BrainOutputType.BOUNDED_TEXT:
+            if self.output_contract.target_artifact_path is None:
+                raise ContinuityStateValidationError(
+                    f"BrainRequest with expected_output_type '{self.output_contract.expected_output_type.value}' "
+                    f"requires a non-null target_artifact_path"
+                )
 
         # Validate output target artifact path against output type and task_id if provided
         if self.output_contract.target_artifact_path is not None:
