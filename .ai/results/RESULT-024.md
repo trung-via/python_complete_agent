@@ -7,8 +7,8 @@ Harden M1.5 Usage & Efficiency Telemetry (src/aios_bridge/continuity/usage.py) a
 
 ## Task Metadata
 - Task: `TASK-024`
-- Action: `RUN`
-- Authorized Artifact: `.ai/tasks/TASK-024.md (9e54b70645)`
+- Action: `FIX`
+- Authorized Artifact: `.ai/reviews/REVIEW-024.md (2501ec720d)`
 - Base Main SHA: `f47cc9d7e2d954413918ef7b7a2ab7a90bb1a6d8`
 - Branch: `ai/task-024`
 
@@ -20,11 +20,11 @@ Harden M1.5 Usage & Efficiency Telemetry (src/aios_bridge/continuity/usage.py) a
 
 ## Diff Stat
 ```text
- .ai/results/RESULT-024.md                  | 110 ++++++++
+ .ai/results/RESULT-024.md                  | 134 ++++++++
  src/aios_bridge/continuity/__init__.py     |   4 +
- src/aios_bridge/continuity/usage.py        | 191 +++++++++++------
- tests/aios_bridge/continuity/test_usage.py | 315 ++++++++++++++++++++++++++++-
- 4 files changed, 557 insertions(+), 63 deletions(-)
+ src/aios_bridge/continuity/usage.py        | 195 ++++++++++-----
+ tests/aios_bridge/continuity/test_usage.py | 370 ++++++++++++++++++++++++++++-
+ 4 files changed, 640 insertions(+), 63 deletions(-)
 ```
 
 ## Tests
@@ -32,27 +32,27 @@ Command: `.\venv\Scripts\python -c "import subprocess, sys; r1 = subprocess.run(
 Exit code: 0
 
 ```text
-=== Focused Continuity Suite: 71 passed, 1 warning in 0.15s ===
-=== Bridge Suite: 157 passed, 204 warnings in 0.44s ===
-=== Full Repository Suite: 631 passed in 55.86s ===
+=== Focused Continuity Suite: 72 passed, 1 warning in 0.14s ===
+=== Bridge Suite: 158 passed, 204 warnings in 0.50s ===
+=== Full Repository Suite: 632 passed in 56.38s ===
 
 [Full Suite Output]
 ........................................................................ [ 11%]
 ........................................................................ [ 22%]
 ........................................................................ [ 34%]
 ........................................................................ [ 45%]
-........................................................................ [ 57%]
+........................................................................ [ 56%]
 ........................................................................ [ 68%]
 ........................................................................ [ 79%]
 ........................................................................ [ 91%]
-.......................................................                  [100%]
-631 passed in 55.86s
+........................................................                 [100%]
+632 passed in 56.38s
 
 ```
 
 ## Risks / Notes
 ## Milestone M1.5 Usage & Efficiency Telemetry Hardening Telemetry
-IMPLEMENTATION_HEAD: 6a6d88e3b29403d6ad1c555f5b7b0ccc09281fec
+IMPLEMENTATION_HEAD: cc96b8f384490f689ef5d2bd1a4c4a6198b63310
 FAILOVER_SCHEMA_VERSION: 1
 TELEMETRY_MODEL_TURNS_ADDED: 0
 LIVE_EXTERNAL_CALLS: 0
@@ -64,20 +64,20 @@ BRAIN_CONTRACT_OWNER: primary-brain
 BRAIN_ARCH_IMPLEMENTATION_PLAN: YES
 BRAIN_ADVERSARIAL_CHECKLIST: YES
 EXECUTOR_RUNS: 1
-EXECUTOR_FIX_RUNS: 0
+EXECUTOR_FIX_RUNS: 1
 TASK_019_BASELINE_VALID: YES
 TASK_019_BASELINE_CHANGED: NO
 
 ## Review Manifest (ADR-013 / ADR-014 / ADR-016 / ADR-017 Delta-First Evidence)
 BASE_SHA: f47cc9d7e2d954413918ef7b7a2ab7a90bb1a6d8
-IMPLEMENTATION_SHA: 6a6d88e3b29403d6ad1c555f5b7b0ccc09281fec
-PREVIOUS_REVIEW_SHA: 9e54b70645d297c7e6b3d11fd32cbd04398f77cd
+IMPLEMENTATION_SHA: cc96b8f384490f689ef5d2bd1a4c4a6198b63310
+PREVIOUS_REVIEW_SHA: 2501ec720d67ec75ee70c91cd4b0546c6fd568e7
 CHANGED_FILES:
 - .ai/results/RESULT-024.md
 - src/aios_bridge/continuity/__init__.py
 - src/aios_bridge/continuity/usage.py
 - tests/aios_bridge/continuity/test_usage.py
-TEST_SUMMARY: 71 passed in Focused Continuity Suite; 157 passed in Bridge Suite; 631 passed in Full Repository Suite (0 regressions)
+TEST_SUMMARY: 72 passed in Focused Continuity Suite; 158 passed in Bridge Suite; 632 passed in Full Repository Suite (0 regressions)
 BRIDGE_BEHAVIOR_CHANGED: NO
 AUTHORITY_WIDENED: NO
 LIVE_EXTERNAL_CALLS: 0
@@ -86,28 +86,23 @@ BRAIN_CONTRACT_OWNER: primary-brain
 BRAIN_ARCH_IMPLEMENTATION_PLAN: YES
 BRAIN_ADVERSARIAL_CHECKLIST: YES
 EXECUTOR_RUNS: 1
-EXECUTOR_FIX_RUNS: 0
+EXECUTOR_FIX_RUNS: 1
 TASK_019_BASELINE_VALID: YES
 TASK_019_BASELINE_CHANGED: NO
 
-## Post-Merge Audit Findings Closure & Adversarial Verification
-1. C1 (Exact Canonical Actor Identity):
-   - Added `_validate_canonical_actor_id()` rejecting leading/trailing whitespace across `BrainUsageRecord.brain_id` and `ExecutorUsageRecord.executor_id`.
-2. C2 (Explicit Bounded Numeric Telemetry):
-   - Defined `MAX_USAGE_INT = (1 << 63) - 1` (signed 64-bit int max: 9,223,372,036,854,775,807) and enforced it fail-closed across all integer counts, byte metrics, token ranges, and estimator inputs.
-3. C3 (UNKNOWN Efficiency Semantics):
-   - Required `context_efficiency_ratio` to be `None` whenever `useful_context_bytes` or `brain_context_bytes` is `None` or `brain_context_bytes == 0`.
-4. C4 (Canonical Ratio Representation):
-   - Added `_validate_canonical_ratio()` enforcing deterministic float conversion and canonical zero (`-0.0` -> `0.0`, `1` -> `1.0`) on `context_efficiency_ratio` and `full_file_read_rate`, failing closed on NaN/Infinity.
-5. C5 (Actor-Class Token Aggregation):
-   - Implemented `aggregate_token_ranges_by_actor_class(record)` aggregating `BRAIN` and `EXECUTOR` tokens independently without cross-class contamination, returning deterministic `(0, 0)` for empty classes.
-6. C6 (Preserved Telemetry Behavior & Baseline):
-   - Verified that `.ai/metrics/TASK-019-USAGE.json` historical baseline validates unchanged, with ESTIMATED provenance and exact byte-level preservation.
+## REVIEW-024 Round 1 Findings Closure
+1. R1-1 (Cumulative Token Aggregation Bound Enforcement):
+   - Added `_validate_usage_int()` checks on `total_min` and `total_max` inside `aggregate_token_ranges()`.
+   - Ensures any cumulative sum overflowing `MAX_USAGE_INT` across individually valid measurements fails closed with `ContinuityStateValidationError`.
+   - Added comprehensive tests for exact boundary sum, multiple-item overflow, Brain class overflow, Executor class overflow, and UNKNOWN preservation.
+2. R1-2 (Review Manifest Evidence Integrity):
+   - Corrected `PREVIOUS_REVIEW_SHA` to accurately point to the REVIEW-024 artifact blob SHA (`2501ec720d67ec75ee70c91cd4b0546c6fd568e7`).
+   - Clearly separated authorized review artifact from previous task metadata.
 
-## Test Suites Execution Evidence (against implementation 6a6d88e3b29403d6ad1c555f5b7b0ccc09281fec)
-- Focused Continuity Suite: 71 passed in ~0.12s (tests/aios_bridge/continuity/)
-- Bridge Suite: 157 passed in ~0.43s (tests/aios_bridge/)
-- Full Repository Suite: 631 passed in ~55s (0 regressions against canonical baseline f47cc9d7e2d954413918ef7b7a2ab7a90bb1a6d8)
+## Test Suites Execution Evidence (against implementation cc96b8f384490f689ef5d2bd1a4c4a6198b63310)
+- Focused Continuity Suite: 72 passed in ~0.13s (tests/aios_bridge/continuity/)
+- Bridge Suite: 158 passed in ~0.42s (tests/aios_bridge/)
+- Full Repository Suite: 632 passed in ~54s (0 regressions against canonical baseline f47cc9d7e2d954413918ef7b7a2ab7a90bb1a6d8)
 
 ## Generated
-2026-08-16T23:00:58+07:00
+2026-08-16T23:10:00+07:00
