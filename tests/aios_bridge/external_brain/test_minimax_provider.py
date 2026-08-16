@@ -290,10 +290,52 @@ async def test_minimax_provider_malformed_response_handling():
         assert res.status == ModelResponseStatus.INVALID_RESPONSE
 
 
+@pytest.mark.asyncio
+async def test_minimax_provider_timeout_configurability_and_validation():
+    """Provider supports configurable positive finite timeout_seconds forwarded to TransportRequest."""
+    # 1. Default timeout is 30.0
+    mock_transport_default = MockTransport()
+    provider_default = MiniMaxOpenAIProvider(api_key="key", transport=mock_transport_default)
+    assert provider_default.timeout_seconds == 30.0
+    await provider_default.invoke(_make_plan_request())
+    assert len(mock_transport_default.sent_requests) == 1
+    assert mock_transport_default.sent_requests[0].timeout_seconds == 30.0
+
+    # 2. Explicit custom timeout (e.g. 90.0 for real-task proof)
+    mock_transport_custom = MockTransport()
+    provider_custom = MiniMaxOpenAIProvider(
+        api_key="key",
+        transport=mock_transport_custom,
+        timeout_seconds=90.0,
+    )
+    assert provider_custom.timeout_seconds == 90.0
+    await provider_custom.invoke(_make_plan_request())
+    assert len(mock_transport_custom.sent_requests) == 1
+    assert mock_transport_custom.sent_requests[0].timeout_seconds == 90.0
+
+    # 3. Invalid timeout values fail during __init__
+    invalid_timeouts = [
+        0,
+        0.0,
+        -1,
+        -10.5,
+        True,
+        False,
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        "90.0",
+        None,
+    ]
+    for invalid_val in invalid_timeouts:
+        with pytest.raises(ContractValidationError, match="timeout_seconds must be a positive finite number"):
+            MiniMaxOpenAIProvider(api_key="key", timeout_seconds=invalid_val)  # type: ignore
+
+
 def test_minimax_provider_api_key_isolation_in_repr():
-    """API key is private and not exposed in __repr__ or __str__."""
+    """API key is private and not exposed in __repr__ or __str__, while timeout is visible."""
     key = "super-secret-production-token-9999"
-    provider = MiniMaxOpenAIProvider(api_key=key, model_name="MiniMax-M3")
+    provider = MiniMaxOpenAIProvider(api_key=key, model_name="MiniMax-M3", timeout_seconds=45.0)
 
     repr_str = repr(provider)
     str_str = str(provider)
@@ -301,3 +343,6 @@ def test_minimax_provider_api_key_isolation_in_repr():
     assert key not in repr_str
     assert key not in str_str
     assert "MiniMax-M3" in repr_str
+    assert "45" in repr_str
+    assert "45" in str_str
+

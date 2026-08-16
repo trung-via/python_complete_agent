@@ -1,6 +1,7 @@
 """MiniMax OpenAI-compatible ProviderAdapter implementation for External Brain."""
 from __future__ import annotations
 
+import math
 import re
 from typing import Any, Mapping, Sequence
 
@@ -40,6 +41,7 @@ class MiniMaxOpenAIProvider:
         base_url: str = "https://api.minimax.io/v1",
         path: str = "/chat/completions",
         transport: ModelTransport | None = None,
+        timeout_seconds: float = 30.0,
     ) -> None:
         if not api_key or not isinstance(api_key, str) or not api_key.strip():
             raise ContractValidationError("api_key must be a non-empty string")
@@ -49,12 +51,22 @@ class MiniMaxOpenAIProvider:
             raise ContractValidationError("base_url must be a non-empty string")
         if not path or not isinstance(path, str) or not path.strip():
             raise ContractValidationError("path must be a non-empty string")
+        if (
+            isinstance(timeout_seconds, bool)
+            or not isinstance(timeout_seconds, (int, float))
+            or not math.isfinite(timeout_seconds)
+            or timeout_seconds <= 0
+        ):
+            raise ContractValidationError(
+                f"timeout_seconds must be a positive finite number, got: {timeout_seconds!r}"
+            )
 
         self._api_key = api_key.strip()
         self._model_name = model_name.strip()
         self._base_url = base_url.strip()
         self._path = path.strip()
         self._transport = transport if transport is not None else OpenAICompatibleTransport()
+        self._timeout_seconds = float(timeout_seconds)
 
     @property
     def provider_id(self) -> str:
@@ -64,14 +76,19 @@ class MiniMaxOpenAIProvider:
     def model_name(self) -> str:
         return self._model_name
 
+    @property
+    def timeout_seconds(self) -> float:
+        return self._timeout_seconds
+
     def __repr__(self) -> str:
         return (
             f"MiniMaxOpenAIProvider(provider_id={self.provider_id!r}, "
-            f"model_name={self._model_name!r}, base_url={self._base_url!r})"
+            f"model_name={self._model_name!r}, base_url={self._base_url!r}, "
+            f"timeout_seconds={self._timeout_seconds!r})"
         )
 
     def __str__(self) -> str:
-        return f"MiniMaxOpenAIProvider(model={self._model_name})"
+        return f"MiniMaxOpenAIProvider(model={self._model_name}, timeout={self._timeout_seconds}s)"
 
     def _extract_usage(self, body: Any) -> tuple[int | None, int | None]:
         """Safely extracts input_tokens and output_tokens from response payload."""
@@ -123,6 +140,7 @@ class MiniMaxOpenAIProvider:
                 "Content-Type": "application/json",
             },
             payload=payload,
+            timeout_seconds=self._timeout_seconds,
         )
 
         transport_res: TransportResult = await self._transport.send(transport_req)
