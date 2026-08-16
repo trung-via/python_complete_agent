@@ -84,22 +84,33 @@ def _validate_context_refs_content_anchored(
     state: ContinuityState,
 ) -> None:
     """
-    Validates that every ContextRef in the failover request is deterministically content-addressed (R6-1):
+    Validates that every ContextRef in the failover request is deterministically content-addressed (R6-1 / R7-1):
     - Must have a non-null, valid lowercase 40-character hex blob_sha.
     - Path must have zero leading or trailing whitespace.
+    - Authoritative state artifact paths must be unambiguous (no cross-role path collisions).
     - If path matches an authoritative ContinuityState artifact, its blob_sha must exactly match the state snapshot.
     - If path is not in ContinuityState artifacts, its explicit blob_sha ensures independent content-addressing.
     """
     state_artifacts = state.artifacts
-    state_artifact_blobs: dict[str, str] = {state_artifacts.task.path: state_artifacts.task.blob_sha}
+    state_artifact_blobs: dict[str, str] = {}
+
+    def _add_artifact(path: str, blob: str, role: str) -> None:
+        if path in state_artifact_blobs:
+            raise ContinuityStateValidationError(
+                f"Ambiguous state artifact path collision in canonical state: path '{path}' in {role} "
+                f"already present with blob '{state_artifact_blobs[path]}'"
+            )
+        state_artifact_blobs[path] = blob
+
+    _add_artifact(state_artifacts.task.path, state_artifacts.task.blob_sha, "task")
     if state_artifacts.plan is not None:
-        state_artifact_blobs[state_artifacts.plan.path] = state_artifacts.plan.blob_sha
+        _add_artifact(state_artifacts.plan.path, state_artifacts.plan.blob_sha, "plan")
     if state_artifacts.result is not None:
-        state_artifact_blobs[state_artifacts.result.path] = state_artifacts.result.blob_sha
+        _add_artifact(state_artifacts.result.path, state_artifacts.result.blob_sha, "result")
     if state_artifacts.review is not None:
-        state_artifact_blobs[state_artifacts.review.path] = state_artifacts.review.blob_sha
-    for contract in state_artifacts.contracts:
-        state_artifact_blobs[contract.path] = contract.blob_sha
+        _add_artifact(state_artifacts.review.path, state_artifacts.review.blob_sha, "review")
+    for idx, contract in enumerate(state_artifacts.contracts):
+        _add_artifact(contract.path, contract.blob_sha, f"contracts[{idx}]")
 
     for ref in context_refs:
         if not isinstance(ref, ContextRef):

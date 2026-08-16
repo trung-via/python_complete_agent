@@ -272,6 +272,54 @@ def test_context_refs_content_anchoring_to_state_snapshot():
             src_padded_path, rep_padded_path, state, expected_state_fingerprint=state.fingerprint(), replacement_capability=cap
         )
 
+    # 6. Cross-role state artifact path collision (task vs contract) fails closed (R7-1)
+    state_contract_collision = ContinuityState(
+        schema_version=state.schema_version,
+        task_id=state.task_id,
+        phase=state.phase,
+        next_operation=state.next_operation,
+        main=state.main,
+        task_branch=state.task_branch,
+        artifacts=ContinuityArtifacts(
+            task=state.artifacts.task,
+            contracts=(
+                ArtifactRef(
+                    path=state.artifacts.task.path,
+                    blob_sha="1" * 40,
+                    ref="contract",
+                ),
+            ),
+        ),
+        executor=state.executor,
+    )
+    with pytest.raises(ContinuityStateValidationError, match="Ambiguous state artifact path collision in canonical state"):
+        validate_brain_failover_eligibility(
+            src, rep, state_contract_collision, expected_state_fingerprint=state_contract_collision.fingerprint(), replacement_capability=cap
+        )
+
+    # 7. Cross-role state artifact path collision (task vs plan) fails closed (R7-1)
+    state_plan_collision = ContinuityState(
+        schema_version=state.schema_version,
+        task_id=state.task_id,
+        phase=state.phase,
+        next_operation=state.next_operation,
+        main=state.main,
+        task_branch=state.task_branch,
+        artifacts=ContinuityArtifacts(
+            task=state.artifacts.task,
+            plan=ArtifactRef(
+                path=state.artifacts.task.path,
+                blob_sha=state.artifacts.task.blob_sha,
+                ref="plan",
+            ),
+        ),
+        executor=state.executor,
+    )
+    with pytest.raises(ContinuityStateValidationError, match="Ambiguous state artifact path collision in canonical state"):
+        validate_brain_failover_eligibility(
+            src, rep, state_plan_collision, expected_state_fingerprint=state_plan_collision.fingerprint(), replacement_capability=cap
+        )
+
 
 def test_semantic_drift_rejection_in_failover_validation():
     """Any semantic drift between source and replacement requests is rejected."""
