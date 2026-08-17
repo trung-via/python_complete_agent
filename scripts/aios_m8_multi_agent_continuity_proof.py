@@ -156,6 +156,11 @@ def validate_m8_attestation(attestation_data: dict[str, Any]) -> None:
             )
 
 
+TASK_032_PATH = ".ai/tasks/TASK-032.md"
+ADR_022_PATH = ".ai/decisions/ADR-022-M8-MULTI-AGENT-CONTINUITY-PROOF-CONTRACT-LOCK.md"
+RESULT_032_PATH = ".ai/results/RESULT-032.md"
+
+
 def prepare_brain_pack(
     repo_dir: Path,
     output_dir: Path,
@@ -166,37 +171,61 @@ def prepare_brain_pack(
     replacement_brain_id: str = "claude-chat",
 ) -> dict[str, Any]:
     """
-    Prepares the exact S0-bound canonical Brain proof bundle (AIP-3 / C1 / C3 / C4 / C5).
+    Prepares the exact S0-bound canonical Brain proof bundle (AIP-3 / C1 / C3 / C4 / C5 / R1-2).
     """
     if source_brain_id == replacement_brain_id:
         raise ContinuityStateValidationError(
             f"TASK-032 requires distinct source and replacement Brains: {source_brain_id} vs {replacement_brain_id}"
         )
 
-    # Determine S0
+    # Determine and validate S0
     if not source_published_sha:
-        p_head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo_dir, check=True, capture_output=True, text=True)
+        p_head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo_dir, check=False, capture_output=True, text=True)
+        if p_head.returncode != 0 or not p_head.stdout.strip():
+            raise ContinuityStateValidationError("Failed to resolve git HEAD for source_published_sha")
         source_published_sha = p_head.stdout.strip()
 
-    # Resolve exact artifact blobs at S0
-    def _get_blob(ref: str, rel_path: str) -> str:
-        p = subprocess.run(["git", "rev-parse", f"{ref}:{rel_path}"], cwd=repo_dir, check=False, capture_output=True, text=True)
-        if p.returncode != 0 or not p.stdout.strip():
-            # Fallback to current filesystem if not yet committed
-            full_path = repo_dir / rel_path
-            if full_path.exists():
-                return compute_git_blob_sha(normalize_line_endings(full_path.read_bytes()))
-            return "0" * 40
-        return p.stdout.strip()
+    if not re.match(r"^[0-9a-f]{40}$", source_published_sha):
+        raise ContinuityStateValidationError(
+            f"source_published_sha must be a 40-hex lowercase string, got: {source_published_sha!r}"
+        )
 
-    task_blob = _get_blob(source_published_sha, ".ai/tasks/TASK-032.md")
-    adr_blob = _get_blob(source_published_sha, ".ai/decisions/ADR-022-AIOS-CONTINUITY-M8-MULTI-AGENT-CONTINUITY-PROOF-CONTRACT-LOCK.md")
-    result_blob = _get_blob(source_published_sha, ".ai/results/RESULT-032.md")
+    # Check commit existence in git object database
+    p_check_commit = subprocess.run(["git", "cat-file", "-e", f"{source_published_sha}^{{commit}}"], cwd=repo_dir, check=False, capture_output=True)
+    if p_check_commit.returncode != 0:
+        raise ContinuityStateValidationError(
+            f"source_published_sha '{source_published_sha}' does not exist as a commit in git object store"
+        )
+
+    # Resolve exact artifact blobs strictly from Git objects (R1-2: no filesystem fallback, no zero-SHA)
+    def _get_exact_git_blob(rel_path: str, primary_ref: str, fallback_ref: str | None = None) -> tuple[str, str]:
+        candidates = [primary_ref]
+        if fallback_ref and fallback_ref != primary_ref:
+            candidates.append(fallback_ref)
+        if "origin/ai-control" not in candidates:
+            candidates.append("origin/ai-control")
+        if "ai-control" not in candidates:
+            candidates.append("ai-control")
+
+        for ref in candidates:
+            p = subprocess.run(["git", "rev-parse", f"{ref}:{rel_path}"], cwd=repo_dir, check=False, capture_output=True, text=True)
+            if p.returncode == 0 and p.stdout.strip():
+                blob_sha = p.stdout.strip()
+                if re.match(r"^[0-9a-f]{40}$", blob_sha) and blob_sha != "0" * 40:
+                    return blob_sha, ref
+
+        raise ContinuityStateValidationError(
+            f"Failed to resolve exact artifact '{rel_path}' in Git (tried {candidates})"
+        )
+
+    task_blob, task_ref_name = _get_exact_git_blob(TASK_032_PATH, source_published_sha, "origin/ai-control")
+    adr_blob, adr_ref_name = _get_exact_git_blob(ADR_022_PATH, source_published_sha, "origin/ai-control")
+    result_blob, result_ref_name = _get_exact_git_blob(RESULT_032_PATH, source_published_sha)
 
     # Build Canonical State
-    task_ref = ArtifactRef(path=".ai/tasks/TASK-032.md", ref=source_published_sha, blob_sha=task_blob)
-    adr_ref = ArtifactRef(path=".ai/decisions/ADR-022-AIOS-CONTINUITY-M8-MULTI-AGENT-CONTINUITY-PROOF-CONTRACT-LOCK.md", ref=source_published_sha, blob_sha=adr_blob)
-    result_ref = ArtifactRef(path=".ai/results/RESULT-032.md", ref=source_published_sha, blob_sha=result_blob)
+    task_ref = ArtifactRef(path=TASK_032_PATH, ref="ai-control", blob_sha=task_blob)
+    adr_ref = ArtifactRef(path=ADR_022_PATH, ref="ai-control", blob_sha=adr_blob)
+    result_ref = ArtifactRef(path=RESULT_032_PATH, ref=source_published_sha, blob_sha=result_blob)
 
     state = ContinuityState(
         schema_version=SCHEMA_VERSION,
@@ -218,17 +247,17 @@ def prepare_brain_pack(
     # Build Context Refs
     context_refs = (
         ContextRef(
-            path=".ai/tasks/TASK-032.md",
+            path=TASK_032_PATH,
             blob_sha=task_blob,
             description="Task contract",
         ),
         ContextRef(
-            path=".ai/decisions/ADR-022-AIOS-CONTINUITY-M8-MULTI-AGENT-CONTINUITY-PROOF-CONTRACT-LOCK.md",
+            path=ADR_022_PATH,
             blob_sha=adr_blob,
             description="ADR-022 contract",
         ),
         ContextRef(
-            path=".ai/results/RESULT-032.md",
+            path=RESULT_032_PATH,
             blob_sha=result_blob,
             description="Prior result",
         ),
@@ -302,7 +331,7 @@ Please provide the diagnosis strictly containing the following sections:
 
 def verify_brain_proof(proof_dir: Path) -> dict[str, Any]:
     """
-    Verifies the Brain proof bundle (AIP-4 / C4 / C5 / C6).
+    Verifies the Brain proof bundle (AIP-4 / C4 / C5 / C6 / R1-3 / R1-4).
     """
     req_files = [
         "canonical-state.json",
@@ -331,36 +360,53 @@ def verify_brain_proof(proof_dir: Path) -> dict[str, Any]:
     attestation = json.loads((proof_dir / "brain-proof-attestation.json").read_text(encoding="utf-8"))
 
     # 1. State validation (validated during ContinuityState.from_json)
+
     # 2. Source Result validation (controlled non-success)
     validate_m8_controlled_source_result(source_res)
+    if source_res.task_id != source_req.task_id:
+        raise ContinuityStateValidationError(f"Source result task_id mismatch: '{source_res.task_id}' vs '{source_req.task_id}'")
     if source_res.request_id != source_req.request_id:
-        raise ContinuityStateValidationError("Source result request_id mismatch")
+        raise ContinuityStateValidationError(f"Source result request_id mismatch: '{source_res.request_id}' vs '{source_req.request_id}'")
     if source_res.brain_id != source_req.brain_id:
-        raise ContinuityStateValidationError("Source result brain_id mismatch")
+        raise ContinuityStateValidationError(f"Source result brain_id mismatch: '{source_res.brain_id}' vs '{source_req.brain_id}'")
+    if source_res.operation != source_req.operation:
+        raise ContinuityStateValidationError(f"Source result operation mismatch: '{source_res.operation.value}' vs '{source_req.operation.value}'")
 
     # 3. Diagnosis artifact validation
     diag_norm = normalize_line_endings(diag_raw)
     validate_m8_diagnosis_artifact(diag_norm.decode("utf-8"))
     diag_blob_sha = compute_git_blob_sha(diag_norm)
 
-    # 4. Replacement Result validation
+    # 4. Replacement Result validation (R1-4: full identity and output contract binding)
     if repl_res.status != BrainResultStatus.SUCCESS:
         raise ContinuityStateValidationError(f"Replacement result status must be SUCCESS, got: {repl_res.status.value}")
+    if repl_res.task_id != repl_req.task_id:
+        raise ContinuityStateValidationError(f"Replacement result task_id mismatch: '{repl_res.task_id}' vs '{repl_req.task_id}'")
     if repl_res.request_id != repl_req.request_id:
-        raise ContinuityStateValidationError("Replacement result request_id mismatch")
+        raise ContinuityStateValidationError(f"Replacement result request_id mismatch: '{repl_res.request_id}' vs '{repl_req.request_id}'")
     if repl_res.brain_id != repl_req.brain_id:
-        raise ContinuityStateValidationError("Replacement result brain_id mismatch")
+        raise ContinuityStateValidationError(f"Replacement result brain_id mismatch: '{repl_res.brain_id}' vs '{repl_req.brain_id}'")
     if repl_res.brain_id == source_req.brain_id:
         raise ContinuityStateValidationError("Replacement brain_id must differ from source brain_id")
+    if repl_res.operation != repl_req.operation:
+        raise ContinuityStateValidationError(f"Replacement result operation mismatch: '{repl_res.operation.value}' vs '{repl_req.operation.value}'")
+    if repl_res.output_type != repl_req.output_contract.expected_output_type:
+        raise ContinuityStateValidationError(
+            f"Replacement result output_type mismatch: '{repl_res.output_type.value}' vs '{repl_req.output_contract.expected_output_type.value}'"
+        )
     if not repl_res.artifact_ref:
         raise ContinuityStateValidationError("Replacement result missing artifact_ref")
+    if repl_res.artifact_ref.path != repl_req.output_contract.target_artifact_path:
+        raise ContinuityStateValidationError(
+            f"Replacement result artifact path mismatch: '{repl_res.artifact_ref.path}' vs '{repl_req.output_contract.target_artifact_path}'"
+        )
     if repl_res.artifact_ref.blob_sha != diag_blob_sha:
         raise ContinuityStateValidationError(
-            f"Replacement result artifact blob mismatch: {repl_res.artifact_ref.blob_sha} vs {diag_blob_sha}"
+            f"Replacement result artifact blob mismatch: '{repl_res.artifact_ref.blob_sha}' vs '{diag_blob_sha}'"
         )
 
-    # 5. Failover Proof validation
-    validate_brain_failover_eligibility(
+    # 5. Failover Proof validation & exact input binding (R1-3)
+    expected_proof = validate_brain_failover_eligibility(
         source_request=source_req,
         replacement_request=repl_req,
         state=state,
@@ -368,6 +414,37 @@ def verify_brain_proof(proof_dir: Path) -> dict[str, Any]:
         replacement_capability=repl_cap,
         source_result=source_res,
     )
+
+    if proof.to_canonical_json() != expected_proof.to_canonical_json():
+        if proof.state_fingerprint != expected_proof.state_fingerprint:
+            raise ContinuityStateValidationError(
+                f"BrainFailoverProof state_fingerprint mismatch: '{proof.state_fingerprint}' vs '{expected_proof.state_fingerprint}'"
+            )
+        if proof.source_request_fingerprint != expected_proof.source_request_fingerprint:
+            raise ContinuityStateValidationError(
+                f"BrainFailoverProof source_request_fingerprint mismatch: '{proof.source_request_fingerprint}' vs '{expected_proof.source_request_fingerprint}'"
+            )
+        if proof.replacement_request_fingerprint != expected_proof.replacement_request_fingerprint:
+            raise ContinuityStateValidationError(
+                f"BrainFailoverProof replacement_request_fingerprint mismatch: '{proof.replacement_request_fingerprint}' vs '{expected_proof.replacement_request_fingerprint}'"
+            )
+        if proof.source_brain_id != expected_proof.source_brain_id:
+            raise ContinuityStateValidationError(
+                f"BrainFailoverProof source_brain_id mismatch: '{proof.source_brain_id}' vs '{expected_proof.source_brain_id}'"
+            )
+        if proof.replacement_brain_id != expected_proof.replacement_brain_id:
+            raise ContinuityStateValidationError(
+                f"BrainFailoverProof replacement_brain_id mismatch: '{proof.replacement_brain_id}' vs '{expected_proof.replacement_brain_id}'"
+            )
+        if proof.task_id != expected_proof.task_id:
+            raise ContinuityStateValidationError(
+                f"BrainFailoverProof task_id mismatch: '{proof.task_id}' vs '{expected_proof.task_id}'"
+            )
+        if proof.operation != expected_proof.operation:
+            raise ContinuityStateValidationError(
+                f"BrainFailoverProof operation mismatch: '{proof.operation.value}' vs '{expected_proof.operation.value}'"
+            )
+        raise ContinuityStateValidationError("BrainFailoverProof content differs from derived canonical proof")
 
     # 6. Attestation validation (no transcripts/secrets)
     validate_m8_attestation(attestation)
@@ -377,7 +454,7 @@ def verify_brain_proof(proof_dir: Path) -> dict[str, Any]:
         "state_fingerprint": state.fingerprint(),
         "brain_source_id": source_req.brain_id,
         "brain_replacement_id": repl_req.brain_id,
-        "failover_proof_fingerprint": proof.fingerprint(),
+        "failover_proof_fingerprint": expected_proof.fingerprint(),
         "diagnosis_artifact_path": str(proof_dir / "BRAIN-DIAGNOSIS.md"),
         "diagnosis_artifact_blob_sha": diag_blob_sha,
     }

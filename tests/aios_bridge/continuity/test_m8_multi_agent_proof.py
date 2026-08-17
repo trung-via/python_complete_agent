@@ -334,6 +334,122 @@ M8_CANONICAL_STATE_FINGERPRINT: {bundle['state_fingerprint']}
         )
 
 
+def test_m8_brain_proof_fails_on_proof_state_fingerprint_mismatch(sample_m8_valid_bundle):
+    bundle = sample_m8_valid_bundle
+    proof_path = bundle["dir"] / "brain-failover-proof.json"
+    p_data = json.loads(proof_path.read_text(encoding="utf-8"))
+    p_data["state_fingerprint"] = "0" * 64
+    proof_path.write_text(json.dumps(p_data), encoding="utf-8")
+
+    with pytest.raises(ContinuityStateValidationError, match="BrainFailoverProof state_fingerprint mismatch"):
+        verify_brain_proof(bundle["dir"])
+
+
+def test_m8_brain_proof_fails_on_proof_source_request_fingerprint_mismatch(sample_m8_valid_bundle):
+    bundle = sample_m8_valid_bundle
+    proof_path = bundle["dir"] / "brain-failover-proof.json"
+    p_data = json.loads(proof_path.read_text(encoding="utf-8"))
+    p_data["source_request_fingerprint"] = "0" * 64
+    proof_path.write_text(json.dumps(p_data), encoding="utf-8")
+
+    with pytest.raises(ContinuityStateValidationError, match="BrainFailoverProof source_request_fingerprint mismatch"):
+        verify_brain_proof(bundle["dir"])
+
+
+def test_m8_brain_proof_fails_on_proof_replacement_request_fingerprint_mismatch(sample_m8_valid_bundle):
+    bundle = sample_m8_valid_bundle
+    proof_path = bundle["dir"] / "brain-failover-proof.json"
+    p_data = json.loads(proof_path.read_text(encoding="utf-8"))
+    p_data["replacement_request_fingerprint"] = "0" * 64
+    proof_path.write_text(json.dumps(p_data), encoding="utf-8")
+
+    with pytest.raises(ContinuityStateValidationError, match="BrainFailoverProof replacement_request_fingerprint mismatch"):
+        verify_brain_proof(bundle["dir"])
+
+
+def test_m8_brain_proof_fails_on_replacement_result_task_id_mismatch(sample_m8_valid_bundle):
+    bundle = sample_m8_valid_bundle
+    repl_res_path = bundle["dir"] / "replacement-result.json"
+    res_data = json.loads(repl_res_path.read_text(encoding="utf-8"))
+    res_data["task_id"] = "TASK-999"
+    res_data["artifact_ref"]["path"] = ".ai/context/proofs/TASK-999-M8/brain/BRAIN-DIAGNOSIS.md"
+    repl_res_path.write_text(json.dumps(res_data), encoding="utf-8")
+
+    with pytest.raises(ContinuityStateValidationError, match="Replacement result task_id mismatch"):
+        verify_brain_proof(bundle["dir"])
+
+
+def test_m8_brain_proof_fails_on_replacement_result_operation_mismatch(sample_m8_valid_bundle):
+    bundle = sample_m8_valid_bundle
+    repl_res_path = bundle["dir"] / "replacement-result.json"
+    res_data = json.loads(repl_res_path.read_text(encoding="utf-8"))
+    res_data["operation"] = "PLAN"
+    res_data["output_type"] = "PLAN_ARTIFACT"
+    res_data["artifact_ref"]["path"] = ".ai/plans/TASK-032-PLAN.md"
+    repl_res_path.write_text(json.dumps(res_data), encoding="utf-8")
+
+    with pytest.raises(ContinuityStateValidationError, match="Replacement result operation mismatch"):
+        verify_brain_proof(bundle["dir"])
+
+
+def test_m8_brain_proof_fails_on_replacement_result_output_type_mismatch(sample_m8_valid_bundle):
+    bundle = sample_m8_valid_bundle
+    repl_res_path = bundle["dir"] / "replacement-result.json"
+    res_data = json.loads(repl_res_path.read_text(encoding="utf-8"))
+    res_data["output_type"] = "BOUNDED_TEXT"
+    res_data["artifact_ref"] = None
+    res_data["evidence_ref"] = {"path": ".ai/context/proofs/TASK-032-M8/brain/BRAIN-DIAGNOSIS.md"}
+    repl_res_path.write_text(json.dumps(res_data), encoding="utf-8")
+
+    with pytest.raises(ContinuityStateValidationError, match="Replacement result output_type mismatch"):
+        verify_brain_proof(bundle["dir"])
+
+
+def test_m8_brain_proof_fails_on_replacement_result_artifact_path_mismatch(sample_m8_valid_bundle):
+    bundle = sample_m8_valid_bundle
+    repl_res_path = bundle["dir"] / "replacement-result.json"
+    res_data = json.loads(repl_res_path.read_text(encoding="utf-8"))
+    res_data["artifact_ref"]["path"] = ".ai/context/proofs/TASK-032-M8/brain/OTHER-DIAGNOSIS-TASK-032.md"
+    repl_res_path.write_text(json.dumps(res_data), encoding="utf-8")
+
+    with pytest.raises(ContinuityStateValidationError, match="Replacement result artifact path mismatch"):
+        verify_brain_proof(bundle["dir"])
+
+
+def test_prepare_brain_pack_fails_on_invalid_or_missing_s0_commit(tmp_path: Path):
+    with pytest.raises(ContinuityStateValidationError, match="must be a 40-hex lowercase string"):
+        prepare_brain_pack(
+            repo_dir=Path("."),
+            output_dir=tmp_path / "pack",
+            source_published_sha="invalid-sha",
+        )
+
+    with pytest.raises(ContinuityStateValidationError, match="does not exist as a commit"):
+        prepare_brain_pack(
+            repo_dir=Path("."),
+            output_dir=tmp_path / "pack",
+            source_published_sha="f" * 40,
+        )
+
+
+def test_prepare_brain_pack_success_on_real_head(tmp_path: Path):
+    p_head = subprocess.run(["git", "rev-parse", "HEAD"], check=True, capture_output=True, text=True)
+    head_sha = p_head.stdout.strip()
+
+    res = prepare_brain_pack(
+        repo_dir=Path("."),
+        output_dir=tmp_path / "pack",
+        source_published_sha=head_sha,
+    )
+    assert res["task_id"] == "TASK-032"
+    assert res["source_published_sha"] == head_sha
+    assert (tmp_path / "pack" / "canonical-state.json").exists()
+    assert (tmp_path / "pack" / "source-request.json").exists()
+    assert (tmp_path / "pack" / "replacement-request.json").exists()
+    assert (tmp_path / "pack" / "replacement-capability.json").exists()
+    assert (tmp_path / "pack" / "BRAIN_PROMPT.md").exists()
+
+
 def test_m8_composite_chain_fails_on_s1_review_blob_mismatch(sample_m8_valid_bundle):
     bundle = sample_m8_valid_bundle
     s0 = bundle["s0_sha"]

@@ -5261,6 +5261,72 @@ def test_cmd_publish_task_032_proof_progress_manifest_generation(tmp_path: Path,
     assert "CONTINUITY_TESTS: 1/1 pass" in content
     assert "FULL_REPO_TESTS: 755/755 pass" in content
 
+    # Case 2: Failover FIX with non-M8 review (generic review without C7 block) -> proofs stay PENDING (R1-1)
+    failover_info_generic = {
+        "from_executor": "codex",
+        "to_executor": "antigravity",
+        "source_published_sha": "08508e48f6ffda70d1891dad461f6fd1b893b24b",
+        "proof_fingerprint": "e" * 64,
+        "review_blob_sha": "f" * 40,
+    }
+    b, e, c, s = bridge._evaluate_task_032_proof_progress(
+        cfg={"remote": "origin", "control_branch": "ai-control"},
+        auth=auth_run,
+        failover_info=failover_info_generic,
+    )
+    assert b == "PENDING"
+    assert e == "PENDING"
+    assert c == "PENDING"
+    assert s == "08508e48f6ffda70d1891dad461f6fd1b893b24b"
+
+    # Case 3: Failover FIX with valid C7 Brain provenance block in review -> PASS
+    c7_review_text = f"""# REVIEW-032
+STATUS: CHANGES_REQUIRED
+M8_SOURCE_EXECUTOR_PUBLISHED_SHA: 08508e48f6ffda70d1891dad461f6fd1b893b24b
+M8_BRAIN_SOURCE_ID: chatgpt-chat
+M8_BRAIN_REPLACEMENT_ID: claude-chat
+M8_BRAIN_FAILOVER_PROOF_FINGERPRINT: {'1' * 64}
+M8_BRAIN_SUCCESS_ARTIFACT_BLOB_SHA: {'2' * 40}
+M8_CANONICAL_STATE_FINGERPRINT: {'3' * 64}
+"""
+    monkeypatch.setattr(bridge, "read_remote_file", lambda cfg, path: c7_review_text)
+    b, e, c, s = bridge._evaluate_task_032_proof_progress(
+        cfg={"remote": "origin", "control_branch": "ai-control"},
+        auth=auth_run,
+        failover_info=failover_info_generic,
+    )
+    assert b == "PASS"
+    assert e == "PASS"
+    assert c == "PASS"
+    assert s == "08508e48f6ffda70d1891dad461f6fd1b893b24b"
+
+    # Case 4: Failover FIX with C7 source SHA mismatch -> PENDING
+    c7_mismatch_sha = c7_review_text.replace(
+        "M8_SOURCE_EXECUTOR_PUBLISHED_SHA: 08508e48f6ffda70d1891dad461f6fd1b893b24b",
+        "M8_SOURCE_EXECUTOR_PUBLISHED_SHA: 1111111111111111111111111111111111111111",
+    )
+    monkeypatch.setattr(bridge, "read_remote_file", lambda cfg, path: c7_mismatch_sha)
+    b, e, c, s = bridge._evaluate_task_032_proof_progress(
+        cfg={"remote": "origin", "control_branch": "ai-control"},
+        auth=auth_run,
+        failover_info=failover_info_generic,
+    )
+    assert b == "PENDING"
+    assert e == "PENDING"
+    assert c == "PENDING"
+
+    # Case 5: Failover FIX with identical brain IDs -> PENDING
+    c7_same_brain = c7_review_text.replace("M8_BRAIN_REPLACEMENT_ID: claude-chat", "M8_BRAIN_REPLACEMENT_ID: chatgpt-chat")
+    monkeypatch.setattr(bridge, "read_remote_file", lambda cfg, path: c7_same_brain)
+    b, e, c, s = bridge._evaluate_task_032_proof_progress(
+        cfg={"remote": "origin", "control_branch": "ai-control"},
+        auth=auth_run,
+        failover_info=failover_info_generic,
+    )
+    assert b == "PENDING"
+    assert e == "PENDING"
+    assert c == "PENDING"
+
 
 def test_task_032_portability_scope_validation_fails_closed_on_core_change_or_fourth_executor(
     monkeypatch: pytest.MonkeyPatch,
