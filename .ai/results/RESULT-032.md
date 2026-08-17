@@ -26,8 +26,8 @@ CHAT_UI_AUTOMATION: NO
 PAID_EXTERNAL_API_CALLS: 0
 LIVE_EXTERNAL_CALLS_AUTOMATED_TESTS: 0
 BRIDGE_TESTS: 58/58 pass
-CONTINUITY_TESTS: 179/179 pass
-FULL_REPO_TESTS: 784/784 pass
+CONTINUITY_TESTS: 183/183 pass
+FULL_REPO_TESTS: 788/788 pass
 REGRESSIONS: 0
 ```
 
@@ -38,7 +38,7 @@ Implementation completed by claude-code; pending ChatGPT review.
 - Task: `TASK-032`
 - Action: `FIX`
 - Executor: `claude-code`
-- Authorized Artifact: `.ai/reviews/REVIEW-032.md (9022970c3d)`
+- Authorized Artifact: `.ai/reviews/REVIEW-032.md (9b15b7697e)`
 - Base Main SHA: `(n/a)`
 - Branch: `ai/task-032`
 
@@ -48,9 +48,9 @@ Implementation completed by claude-code; pending ChatGPT review.
 
 ## Diff Stat
 ```text
-scripts/aios_m8_multi_agent_continuity_proof.py    | 123 +++++++++-
- .../continuity/test_m8_multi_agent_proof.py        | 262 +++++++++++++++++++--
- 2 files changed, 351 insertions(+), 34 deletions(-)
+scripts/aios_m8_multi_agent_continuity_proof.py    | 322 ++++++++++++---------
+ .../continuity/test_m8_multi_agent_proof.py        | 171 ++++++++++-
+ 2 files changed, 358 insertions(+), 135 deletions(-)
 ```
 
 ## Tests
@@ -87,7 +87,7 @@ tests/product_source/test_tiktok_source_extractor.py::test_tiktok_extractor_coll
 tests/product_source/test_tiktok_source_extractor.py::test_tiktok_extractor_gallery_fallback PASSED [ 91%]
 tests/product_source/test_tiktok_source_extractor.py::test_tiktok_extractor_with_strict_browser_manager PASSED [ 91%]
 tests/product_source/test_tiktok_source_extractor.py::test_tiktok_extractor_rejects_overlapping_substring_id PASSED [ 91%]
-tests/product_source/test_tiktok_source_extractor.py::test_tiktok_js_script_excludes_reviews_and_no_main_article_fallback PASSED [ 91%]
+tests/product_source/test_tiktok_source_extractor.py::test_tiktok_js_script_excludes_reviews_and_no_main_article_fallback PASSED [ 92%]
 tests/product_source/test_tiktok_source_extractor.py::test_tiktok_extractor_does_not_block_on_globally_loaded_captcha_scripts PASSED [ 92%]
 tests/product_source/test_tiktok_source_extractor.py::test_tiktok_extractor_raises_blocked_on_active_challenge PASSED [ 92%]
 tests/test_bridge.py::test_runtime_state_path_is_outside_repository_worktree PASSED [ 92%]
@@ -95,7 +95,7 @@ tests/test_bridge.py::test_sync_does_not_dirty_worktree_and_provides_context PAS
 tests/test_bridge.py::test_changes_required_review_creates_pending_review_event PASSED [ 92%]
 tests/test_bridge.py::test_repeated_changes_required_updates_do_not_create_duplicate_pending_events PASSED [ 92%]
 tests/test_bridge.py::test_review_update_to_approved_clears_pending_and_sets_approved_state PASSED [ 92%]
-tests/test_bridge.py::test_missing_or_unknown_review_status_is_non_actionable PASSED [ 92%]
+tests/test_bridge.py::test_missing_or_unknown_review_status_is_non_actionable PASSED [ 93%]
 tests/test_bridge.py::test_handoff_run_without_preexisting_pending_event_records_active_auth_and_creates_branch PASSED [ 93%]
 tests/test_bridge.py::test_handoff_run_missing_task_fails_closed PASSED  [ 93%]
 tests/test_bridge.py::test_reconcile_local_main_fast_forwards_when_behind PASSED [ 93%]
@@ -454,7 +454,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-================ 784 passed, 1533 warnings in 80.21s (0:01:20) ================
+================ 788 passed, 1533 warnings in 80.56s (0:01:20) ================
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -466,4 +466,4 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 (none supplied)
 
 ## Generated
-2026-08-18T00:09:17+07:00
+2026-08-18T00:25:08+07:00

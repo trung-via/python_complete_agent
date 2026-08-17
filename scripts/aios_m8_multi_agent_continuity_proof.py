@@ -499,30 +499,166 @@ def verify_brain_proof(proof_dir: Path) -> dict[str, Any]:
     }
 
 
-def verify_composite_chain(
+def verify_brain_review_provenance(
     s0_sha: str,
     review_content: str,
     proof_dir: Path,
+) -> dict[str, Any]:
+    """
+    Non-composite helper: verifies Brain proof bundle and checks that caller review_content
+    satisfies C7 provenance keys against Brain proof.
+    NOTE: This is NOT a composite proof. Composite proof requires verify_composite_chain.
+    """
+    brain_summary = verify_brain_proof(proof_dir)
+    required_review_keys = [
+        ("M8_SOURCE_EXECUTOR_PUBLISHED_SHA", s0_sha),
+        ("M8_BRAIN_SOURCE_ID", brain_summary["brain_source_id"]),
+        ("M8_BRAIN_REPLACEMENT_ID", brain_summary["brain_replacement_id"]),
+        ("M8_BRAIN_FAILOVER_PROOF_FINGERPRINT", brain_summary["failover_proof_fingerprint"]),
+        ("M8_BRAIN_SUCCESS_ARTIFACT_BLOB_SHA", brain_summary["diagnosis_artifact_blob_sha"]),
+        ("M8_CANONICAL_STATE_FINGERPRINT", brain_summary["state_fingerprint"]),
+    ]
+    for key, expected_val in required_review_keys:
+        m = re.search(rf"{key}:\s*([^\s\n]+)", review_content)
+        if not m:
+            raise ContinuityStateValidationError(f"REVIEW-032 missing required C7 provenance key: '{key}'")
+        actual_val = m.group(1).strip()
+        if actual_val != expected_val:
+            raise ContinuityStateValidationError(
+                f"REVIEW-032 provenance mismatch for '{key}': expected '{expected_val}', got '{actual_val}'"
+            )
+    review_blob_sha = compute_git_blob_sha(normalize_line_endings(review_content))
+    return {
+        "status": "PASS_STAGE_A_PROVENANCE",
+        "s0_sha": s0_sha,
+        "review_blob_sha": review_blob_sha,
+        "brain_proof_fingerprint": brain_summary["failover_proof_fingerprint"],
+    }
+
+
+def verify_composite_chain(
+    s0_sha: str,
+    proof_dir: Path,
     s1_sha: str | None = None,
-    s1_result_content: str | None = None,
     executor_failover_proof: bytes | str | dict[str, Any] | Path | StableExecutorFailoverProof | None = None,
+    review_content: str | None = None,
+    expected_review_commit: str = "781ea59a470d7850cb99c91d1f83914d886e94de",
+    s1_result_content: str | None = None,
     repo_dir: Path = REPO_DIR,
 ) -> dict[str, Any]:
     """
-    Verifies the complete composite causal chain (AIP-7 / C7 / C8 / C9 / C10 / R6-1):
-    Brain proof -> exact REVIEW-032 blob -> StableExecutorFailoverProof -> S1 publication.
+    Verifies the complete composite causal chain (AIP-7 / C7 / C8 / C9 / C10 / R6-1 / Round-7):
+    S0 -> verified Brain proof -> exact historical REVIEW commit/blob from Git -> StableExecutorFailoverProof -> S1 publication.
+
+    MUST fail closed if S1 or StableExecutorFailoverProof is absent.
     """
-    # 1. Validate S0 commit
+    # 1. Enforce mandatory S1 and Executor proof (Gap A)
+    if not s1_sha:
+        raise ContinuityStateValidationError("s1_sha is required for composite verification (cannot pass composite proof without S1)")
+    if not executor_failover_proof:
+        raise ContinuityStateValidationError("Missing required StableExecutorFailoverProof for composite verification")
+
+    # 2. Validate S0 commit
     if not re.match(r"^[0-9a-f]{40}$", s0_sha):
         raise ContinuityStateValidationError(f"s0_sha must be a 40-hex string, got: {s0_sha!r}")
     p_check_s0 = subprocess.run(["git", "cat-file", "-e", f"{s0_sha}^{{commit}}"], cwd=repo_dir, check=False, capture_output=True)
     if p_check_s0.returncode != 0:
         raise ContinuityStateValidationError(f"s0_sha commit '{s0_sha}' does not exist in git object database")
 
-    # 2. Verify Brain Proof Bundle
-    brain_summary = verify_brain_proof(proof_dir)
+    # 3. Validate S1 commit and ancestry
+    if not re.match(r"^[0-9a-f]{40}$", s1_sha):
+        raise ContinuityStateValidationError(f"s1_sha must be a 40-hex string, got: {s1_sha!r}")
+    p_check_s1 = subprocess.run(["git", "cat-file", "-e", f"{s1_sha}^{{commit}}"], cwd=repo_dir, check=False, capture_output=True)
+    if p_check_s1.returncode != 0:
+        raise ContinuityStateValidationError(f"s1_sha commit '{s1_sha}' does not exist in git object database")
 
-    # 3. Verify REVIEW-032 C7 Provenance Block
+    p_parent = subprocess.run(["git", "rev-parse", f"{s1_sha}^"], cwd=repo_dir, check=False, capture_output=True, text=True)
+    if p_parent.returncode != 0 or p_parent.stdout.strip() != s0_sha:
+        actual_parent = p_parent.stdout.strip() if p_parent.returncode == 0 else "unknown"
+        raise ContinuityStateValidationError(
+            f"S1 commit {s1_sha[:10]} must be a direct child of S0 {s0_sha[:10]}, got parent: {actual_parent[:10]}"
+        )
+
+    # 4. Parse StableExecutorFailoverProof
+    if isinstance(executor_failover_proof, Path):
+        exec_proof = StableExecutorFailoverProof.from_json(executor_failover_proof.read_bytes())
+    elif isinstance(executor_failover_proof, (bytes, str, dict)):
+        exec_proof = StableExecutorFailoverProof.from_json(executor_failover_proof)
+    elif isinstance(executor_failover_proof, StableExecutorFailoverProof):
+        exec_proof = executor_failover_proof
+    else:
+        raise ContinuityStateValidationError(f"Invalid executor_failover_proof type: {type(executor_failover_proof).__name__}")
+
+    proof_fingerprint = exec_proof.fingerprint()
+
+    # Validate failover proof core fields
+    if exec_proof.task_id != "TASK-032":
+        raise ContinuityStateValidationError(f"Executor proof task_id mismatch: expected 'TASK-032', got '{exec_proof.task_id}'")
+    if exec_proof.target_branch != "ai/task-032":
+        raise ContinuityStateValidationError(f"Executor proof target_branch mismatch: expected 'ai/task-032', got '{exec_proof.target_branch}'")
+    if exec_proof.source_published_sha != s0_sha:
+        raise ContinuityStateValidationError(f"Executor proof source_published_sha mismatch: expected '{s0_sha}', got '{exec_proof.source_published_sha}'")
+    if exec_proof.source_executor_id == exec_proof.replacement_executor_id:
+        raise ContinuityStateValidationError(f"Executor proof source and replacement executor must differ: '{exec_proof.source_executor_id}'")
+    if exec_proof.source_executor_id != "antigravity":
+        raise ContinuityStateValidationError(f"Executor proof source_executor_id mismatch: expected 'antigravity', got '{exec_proof.source_executor_id}'")
+    if exec_proof.replacement_executor_id != "claude-code":
+        raise ContinuityStateValidationError(f"Executor proof replacement_executor_id mismatch: expected 'claude-code', got '{exec_proof.replacement_executor_id}'")
+
+    # Validate source_result_ref
+    p_s0_res_blob = subprocess.run(["git", "rev-parse", f"{s0_sha}:{RESULT_032_PATH}"], cwd=repo_dir, check=False, capture_output=True, text=True)
+    if p_s0_res_blob.returncode != 0:
+        raise ContinuityStateValidationError(f"Failed to resolve {RESULT_032_PATH} at S0 commit {s0_sha[:10]}")
+    expected_s0_res_blob = p_s0_res_blob.stdout.strip()
+
+    if exec_proof.source_result_ref.path != RESULT_032_PATH:
+        raise ContinuityStateValidationError(f"Executor proof source_result_ref.path mismatch: '{exec_proof.source_result_ref.path}' vs '{RESULT_032_PATH}'")
+    if exec_proof.source_result_ref.ref != s0_sha:
+        raise ContinuityStateValidationError(f"Executor proof source_result_ref.ref mismatch: '{exec_proof.source_result_ref.ref}' vs '{s0_sha}'")
+    if exec_proof.source_result_ref.blob_sha != expected_s0_res_blob:
+        raise ContinuityStateValidationError(f"Executor proof source_result_ref.blob_sha mismatch: '{exec_proof.source_result_ref.blob_sha}' vs '{expected_s0_res_blob}'")
+
+    # 5. Mechanically resolve and verify historical REVIEW commit & blob from Git (Gap B)
+    if exec_proof.review_ref.path != ".ai/reviews/REVIEW-032.md":
+        raise ContinuityStateValidationError(f"Executor proof review_ref.path mismatch: '{exec_proof.review_ref.path}'")
+
+    if not re.match(r"^[0-9a-f]{40}$", exec_proof.review_ref.ref):
+        raise ContinuityStateValidationError(f"review_ref.ref must be a 40-hex commit SHA, got: {exec_proof.review_ref.ref!r}")
+
+    p_check_rev_commit = subprocess.run(["git", "cat-file", "-e", f"{exec_proof.review_ref.ref}^{{commit}}"], cwd=repo_dir, check=False, capture_output=True)
+    if p_check_rev_commit.returncode != 0:
+        raise ContinuityStateValidationError(f"Historical REVIEW ref commit '{exec_proof.review_ref.ref}' does not exist in git object database")
+
+    if expected_review_commit and exec_proof.review_ref.ref != expected_review_commit:
+        raise ContinuityStateValidationError(
+            f"Executor proof review_ref.ref mismatch: expected '{expected_review_commit}', got '{exec_proof.review_ref.ref}'"
+        )
+
+    # Resolve .ai/reviews/REVIEW-032.md directly from Git at review_ref.ref
+    p_git_rev = subprocess.run(["git", "show", f"{exec_proof.review_ref.ref}:{exec_proof.review_ref.path}"], cwd=repo_dir, check=False, capture_output=True, text=True, encoding="utf-8")
+    if p_git_rev.returncode != 0 or not p_git_rev.stdout:
+        raise ContinuityStateValidationError(f"Failed to resolve {exec_proof.review_ref.path} from git at commit {exec_proof.review_ref.ref[:10]}")
+    git_review_content = p_git_rev.stdout
+
+    git_review_blob = compute_git_blob_sha(normalize_line_endings(git_review_content))
+    if git_review_blob != exec_proof.review_ref.blob_sha:
+        raise ContinuityStateValidationError(
+            f"Git blob at {exec_proof.review_ref.ref[:10]}:{exec_proof.review_ref.path} ({git_review_blob}) does not match proof review_ref.blob_sha ({exec_proof.review_ref.blob_sha})"
+        )
+
+    if git_review_blob != "6ea95987983a06b066fc31789bedad5d4c954ff6":
+        raise ContinuityStateValidationError(
+            f"Historical Stage-B review blob mismatch: expected '6ea95987983a06b066fc31789bedad5d4c954ff6', got '{git_review_blob}'"
+        )
+
+    # If caller provided review_content, verify it matches the resolved Git review
+    if review_content is not None:
+        caller_review_blob = compute_git_blob_sha(normalize_line_endings(review_content))
+        if caller_review_blob != git_review_blob:
+            raise ContinuityStateValidationError("Caller-supplied REVIEW-032 content does not match exact historical git blob at review_ref.ref")
+
+    # 6. Verify Brain Proof Bundle & match against the authoritative Git REVIEW
+    brain_summary = verify_brain_proof(proof_dir)
     required_review_keys = [
         ("M8_SOURCE_EXECUTOR_PUBLISHED_SHA", s0_sha),
         ("M8_BRAIN_SOURCE_ID", brain_summary["brain_source_id"]),
@@ -533,133 +669,59 @@ def verify_composite_chain(
     ]
 
     for key, expected_val in required_review_keys:
-        m = re.search(rf"{key}:\s*([^\s\n]+)", review_content)
+        m = re.search(rf"{key}:\s*([^\s\n]+)", git_review_content)
         if not m:
-            raise ContinuityStateValidationError(f"REVIEW-032 missing required C7 provenance key: '{key}'")
+            raise ContinuityStateValidationError(f"Historical REVIEW-032 missing required C7 provenance key: '{key}'")
         actual_val = m.group(1).strip()
         if actual_val != expected_val:
             raise ContinuityStateValidationError(
-                f"REVIEW-032 provenance mismatch for '{key}': expected '{expected_val}', got '{actual_val}'"
+                f"Historical REVIEW-032 provenance mismatch for '{key}': expected '{expected_val}', got '{actual_val}'"
             )
 
-    review_blob_sha = compute_git_blob_sha(normalize_line_endings(review_content))
+    # 7. Resolve and verify S1 RESULT
+    p_res = subprocess.run(["git", "show", f"{s1_sha}:{RESULT_032_PATH}"], cwd=repo_dir, check=False, capture_output=True, text=True, encoding="utf-8")
+    if p_res.returncode != 0 or not p_res.stdout:
+        raise ContinuityStateValidationError(f"Failed to resolve {RESULT_032_PATH} at S1 commit {s1_sha[:10]}")
+    actual_s1_result = p_res.stdout
 
-    executor_proof_summary = None
+    if s1_result_content is not None:
+        caller_res_blob = compute_git_blob_sha(normalize_line_endings(s1_result_content))
+        git_s1_blob = compute_git_blob_sha(normalize_line_endings(actual_s1_result))
+        if caller_res_blob != git_s1_blob:
+            raise ContinuityStateValidationError("Caller-supplied S1 RESULT content does not match git blob at S1")
 
-    # 4. If S1 is provided, verify Executor Failover link
-    if s1_sha:
-        if not re.match(r"^[0-9a-f]{40}$", s1_sha):
-            raise ContinuityStateValidationError(f"s1_sha must be a 40-hex string, got: {s1_sha!r}")
-        p_check_s1 = subprocess.run(["git", "cat-file", "-e", f"{s1_sha}^{{commit}}"], cwd=repo_dir, check=False, capture_output=True)
-        if p_check_s1.returncode != 0:
-            raise ContinuityStateValidationError(f"s1_sha commit '{s1_sha}' does not exist in git object database")
-
-        # Verify S1 is direct child of S0
-        p_parent = subprocess.run(["git", "rev-parse", f"{s1_sha}^"], cwd=repo_dir, check=False, capture_output=True, text=True)
-        if p_parent.returncode != 0 or p_parent.stdout.strip() != s0_sha:
-            actual_parent = p_parent.stdout.strip() if p_parent.returncode == 0 else "unknown"
+    req_result_checks = [
+        ("EXECUTOR_FAILOVER", "YES"),
+        ("EXECUTOR_ID", exec_proof.replacement_executor_id),
+        ("FAILOVER_FROM_EXECUTOR", exec_proof.source_executor_id),
+        ("FAILOVER_TO_EXECUTOR", exec_proof.replacement_executor_id),
+        ("FAILOVER_SOURCE_PUBLISHED_SHA", s0_sha),
+        ("FAILOVER_REVIEW_BLOB_SHA", git_review_blob),
+        ("FAILOVER_PROOF_FINGERPRINT", proof_fingerprint),
+        ("M8_EXECUTOR_PROOF", "PASS"),
+    ]
+    for rk, exp_rv in req_result_checks:
+        m = re.search(rf"{rk}:\s*([^\s\n]+)", actual_s1_result)
+        if not m:
+            raise ContinuityStateValidationError(f"S1 RESULT-032 missing required key: '{rk}'")
+        act_rv = m.group(1).strip()
+        if act_rv != exp_rv:
             raise ContinuityStateValidationError(
-                f"S1 commit {s1_sha[:10]} must be a direct child of S0 {s0_sha[:10]}, got parent: {actual_parent[:10]}"
+                f"S1 RESULT-032 mismatch for '{rk}': expected '{exp_rv}', got '{act_rv}'"
             )
 
-        # Resolve RESULT-032 from S1 Git tree
-        p_res = subprocess.run(["git", "show", f"{s1_sha}:{RESULT_032_PATH}"], cwd=repo_dir, check=False, capture_output=True, text=True, encoding="utf-8")
-        if p_res.returncode != 0 or not p_res.stdout:
-            raise ContinuityStateValidationError(f"Failed to resolve {RESULT_032_PATH} at S1 commit {s1_sha[:10]}")
-        actual_s1_result = p_res.stdout
-
-        # If caller provided s1_result_content, verify its git blob matches S1:.ai/results/RESULT-032.md
-        if s1_result_content:
-            caller_blob = compute_git_blob_sha(normalize_line_endings(s1_result_content))
-            git_s1_blob = compute_git_blob_sha(normalize_line_endings(actual_s1_result))
-            if caller_blob != git_s1_blob:
-                raise ContinuityStateValidationError("Caller-supplied S1 RESULT content does not match git blob at S1")
-
-        # StableExecutorFailoverProof validation (R6-1)
-        if not executor_failover_proof:
-            # Check if default proof file exists in proof_dir
-            cand_proof_file = proof_dir / "stable-executor-failover-proof.json"
-            if cand_proof_file.exists():
-                executor_failover_proof = cand_proof_file
-            else:
-                raise ContinuityStateValidationError("Missing required StableExecutorFailoverProof for composite verification")
-
-        if isinstance(executor_failover_proof, Path):
-            exec_proof = StableExecutorFailoverProof.from_json(executor_failover_proof.read_bytes())
-        elif isinstance(executor_failover_proof, (bytes, str, dict)):
-            exec_proof = StableExecutorFailoverProof.from_json(executor_failover_proof)
-        elif isinstance(executor_failover_proof, StableExecutorFailoverProof):
-            exec_proof = executor_failover_proof
-        else:
-            raise ContinuityStateValidationError(f"Invalid executor_failover_proof type: {type(executor_failover_proof).__name__}")
-
-        proof_fingerprint = exec_proof.fingerprint()
-
-        # Validate failover proof fields
-        if exec_proof.task_id != "TASK-032":
-            raise ContinuityStateValidationError(f"Executor proof task_id mismatch: expected 'TASK-032', got '{exec_proof.task_id}'")
-        if exec_proof.target_branch != "ai/task-032":
-            raise ContinuityStateValidationError(f"Executor proof target_branch mismatch: expected 'ai/task-032', got '{exec_proof.target_branch}'")
-        if exec_proof.source_published_sha != s0_sha:
-            raise ContinuityStateValidationError(f"Executor proof source_published_sha mismatch: expected '{s0_sha}', got '{exec_proof.source_published_sha}'")
-        if exec_proof.source_executor_id == exec_proof.replacement_executor_id:
-            raise ContinuityStateValidationError(f"Executor proof source and replacement executor must differ: '{exec_proof.source_executor_id}'")
-        if exec_proof.source_executor_id != "antigravity":
-            raise ContinuityStateValidationError(f"Executor proof source_executor_id mismatch: expected 'antigravity', got '{exec_proof.source_executor_id}'")
-        if exec_proof.replacement_executor_id != "claude-code":
-            raise ContinuityStateValidationError(f"Executor proof replacement_executor_id mismatch: expected 'claude-code', got '{exec_proof.replacement_executor_id}'")
-
-        # Validate source_result_ref
-        p_s0_res_blob = subprocess.run(["git", "rev-parse", f"{s0_sha}:{RESULT_032_PATH}"], cwd=repo_dir, check=False, capture_output=True, text=True)
-        if p_s0_res_blob.returncode != 0:
-            raise ContinuityStateValidationError(f"Failed to resolve {RESULT_032_PATH} at S0 commit {s0_sha[:10]}")
-        expected_s0_res_blob = p_s0_res_blob.stdout.strip()
-
-        if exec_proof.source_result_ref.path != RESULT_032_PATH:
-            raise ContinuityStateValidationError(f"Executor proof source_result_ref.path mismatch: '{exec_proof.source_result_ref.path}' vs '{RESULT_032_PATH}'")
-        if exec_proof.source_result_ref.ref != s0_sha:
-            raise ContinuityStateValidationError(f"Executor proof source_result_ref.ref mismatch: '{exec_proof.source_result_ref.ref}' vs '{s0_sha}'")
-        if exec_proof.source_result_ref.blob_sha != expected_s0_res_blob:
-            raise ContinuityStateValidationError(f"Executor proof source_result_ref.blob_sha mismatch: '{exec_proof.source_result_ref.blob_sha}' vs '{expected_s0_res_blob}'")
-
-        # Validate review_ref
-        if exec_proof.review_ref.path != ".ai/reviews/REVIEW-032.md":
-            raise ContinuityStateValidationError(f"Executor proof review_ref.path mismatch: '{exec_proof.review_ref.path}'")
-        if exec_proof.review_ref.blob_sha != review_blob_sha:
-            raise ContinuityStateValidationError(f"Executor proof review_ref.blob_sha mismatch: '{exec_proof.review_ref.blob_sha}' vs '{review_blob_sha}'")
-
-        # Validate S1 RESULT fields match the verified proof
-        req_result_checks = [
-            ("EXECUTOR_FAILOVER", "YES"),
-            ("EXECUTOR_ID", exec_proof.replacement_executor_id),
-            ("FAILOVER_FROM_EXECUTOR", exec_proof.source_executor_id),
-            ("FAILOVER_TO_EXECUTOR", exec_proof.replacement_executor_id),
-            ("FAILOVER_SOURCE_PUBLISHED_SHA", s0_sha),
-            ("FAILOVER_REVIEW_BLOB_SHA", review_blob_sha),
-            ("FAILOVER_PROOF_FINGERPRINT", proof_fingerprint),
-            ("M8_EXECUTOR_PROOF", "PASS"),
-        ]
-        for rk, exp_rv in req_result_checks:
-            m = re.search(rf"{rk}:\s*([^\s\n]+)", actual_s1_result)
-            if not m:
-                raise ContinuityStateValidationError(f"S1 RESULT-032 missing required key: '{rk}'")
-            act_rv = m.group(1).strip()
-            if act_rv != exp_rv:
-                raise ContinuityStateValidationError(
-                    f"S1 RESULT-032 mismatch for '{rk}': expected '{exp_rv}', got '{act_rv}'"
-                )
-
-        executor_proof_summary = {
-            "source_executor_id": exec_proof.source_executor_id,
-            "replacement_executor_id": exec_proof.replacement_executor_id,
-            "failover_proof_fingerprint": proof_fingerprint,
-        }
+    executor_proof_summary = {
+        "source_executor_id": exec_proof.source_executor_id,
+        "replacement_executor_id": exec_proof.replacement_executor_id,
+        "failover_proof_fingerprint": proof_fingerprint,
+    }
 
     return {
         "status": "PASS",
         "s0_sha": s0_sha,
         "s1_sha": s1_sha,
-        "review_blob_sha": review_blob_sha,
+        "review_commit_sha": exec_proof.review_ref.ref,
+        "review_blob_sha": git_review_blob,
         "brain_proof_fingerprint": brain_summary["failover_proof_fingerprint"],
         "executor_proof": executor_proof_summary,
     }
@@ -686,11 +748,12 @@ def main() -> int:
     # verify-composite
     p_vcomp = subparsers.add_parser("verify-composite", help="Verifies composite causal chain")
     p_vcomp.add_argument("--s0", required=True)
-    p_vcomp.add_argument("--review-file", required=True)
+    p_vcomp.add_argument("--s1", required=True)
     p_vcomp.add_argument("--proof-dir", required=True)
-    p_vcomp.add_argument("--s1", default=None)
+    p_vcomp.add_argument("--executor-proof-file", required=True)
+    p_vcomp.add_argument("--review-file", default=None)
     p_vcomp.add_argument("--s1-result-file", default=None)
-    p_vcomp.add_argument("--executor-proof-file", default=None)
+    p_vcomp.add_argument("--expected-review-commit", default="781ea59a470d7850cb99c91d1f83914d886e94de")
 
     args = parser.parse_args()
 
@@ -715,16 +778,17 @@ def main() -> int:
             return 0
 
         elif args.command == "verify-composite":
-            rev_text = Path(args.review_file).read_text(encoding="utf-8")
+            rev_text = Path(args.review_file).read_text(encoding="utf-8") if args.review_file else None
             s1_res_text = Path(args.s1_result_file).read_text(encoding="utf-8") if args.s1_result_file else None
-            exec_proof_path = Path(args.executor_proof_file) if args.executor_proof_file else None
+            exec_proof_path = Path(args.executor_proof_file)
             res = verify_composite_chain(
                 s0_sha=args.s0,
-                review_content=rev_text,
-                proof_dir=Path(args.proof_dir),
                 s1_sha=args.s1,
-                s1_result_content=s1_res_text,
+                proof_dir=Path(args.proof_dir),
                 executor_failover_proof=exec_proof_path,
+                review_content=rev_text,
+                expected_review_commit=args.expected_review_commit,
+                s1_result_content=s1_res_text,
             )
             print(json.dumps(res, indent=2))
             return 0
