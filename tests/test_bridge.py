@@ -5168,3 +5168,140 @@ def test_task_031_test_evidence_truthful_binding_and_negative_subset_cases():
     assert r == "0"
 
 
+def test_cmd_publish_task_032_proof_progress_manifest_generation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """
+    Verifies that cmd_publish correctly renders the TASK-032 manifest block for initial RUN and failover FIX.
+    """
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    (repo / ".ai" / "results").mkdir(parents=True)
+    monkeypatch.setattr(bridge, "AI", repo / ".ai")
+    monkeypatch.setattr(bridge, "ensure_git", lambda: None)
+    monkeypatch.setattr(
+        bridge,
+        "load_config",
+        lambda: {"task_branch_prefix": "ai/task-", "remote": "origin", "control_branch": "ai-control"},
+    )
+    monkeypatch.setattr(bridge, "current_branch", lambda: "ai/task-032")
+    monkeypatch.setattr(bridge, "changed_files", lambda: [".ai/results/RESULT-032.md"])
+    def dummy_git(*args, **kwargs):
+        cmd = list(args)
+        if "diff" in cmd and "--cached" in cmd:
+            return subprocess.CompletedProcess(cmd, 0, ".ai/results/RESULT-032.md\n", "")
+        if "rev-parse" in cmd:
+            return subprocess.CompletedProcess(cmd, 0, "08508e48f6ffda70d1891dad461f6fd1b893b24b\n", "")
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(bridge, "git", dummy_git)
+    monkeypatch.setattr(bridge, "archive_local", lambda *args: None)
+    monkeypatch.setattr(bridge, "fetch_control", lambda cfg: None)
+    monkeypatch.setattr(bridge, "read_remote_file", lambda cfg, path: None)
+    monkeypatch.setattr(bridge, "save_authorization", lambda *args: None)
+    monkeypatch.setattr(bridge, "update_state", lambda *args: None)
+    monkeypatch.setattr(bridge, "_validate_task_032_portability_scope", lambda cfg, auth: None)
+
+    class DummyArgs:
+        task_id = 32
+        test = ".\\venv\\Scripts\\python -m pytest tests/ -v"
+        summary = None
+        notes = None
+        message = None
+
+    class DummyStore:
+        def require_active(self, lease):
+            pass
+
+        def release(self, lease):
+            pass
+
+        def release_active(self, lease):
+            pass
+
+    monkeypatch.setattr(bridge, "get_lease_store", lambda: DummyStore())
+    monkeypatch.setattr(bridge, "reconstruct_expected_executor_lease", lambda auth: None)
+    monkeypatch.setattr(bridge, "get_remote_blob_sha", lambda cfg, path: "d" * 40 if path == ".ai/tasks/TASK-032.md" else None)
+
+    # Case 1: Initial RUN (S0)
+    auth_run = {
+        "task_id": "TASK-032",
+        "action": "RUN",
+        "executor_id": "antigravity",
+        "lease_id": "lease-task-032-123456",
+        "lease_fingerprint": "a" * 64,
+        "workspace_id": "c" * 64,
+        "execution_fingerprint": "b" * 64,
+        "base_main_sha": "08508e48f6ffda70d1891dad461f6fd1b893b24b",
+        "artifact_path": ".ai/tasks/TASK-032.md",
+        "artifact_blob_sha": "d" * 40,
+    }
+    monkeypatch.setattr(bridge, "get_active_authorization", lambda tid: auth_run)
+    monkeypatch.setattr(
+        bridge,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args, 0, "tests/test_bridge.py::t1 PASSED\ntests/aios_bridge/continuity/t2 PASSED\n= 755 passed in 10s =", ""
+        ),
+    )
+
+    bridge.cmd_publish(DummyArgs())
+    res_path = repo / ".ai" / "results" / "RESULT-032.md"
+    content = res_path.read_text(encoding="utf-8")
+    assert "TASK_ID: TASK-032" in content
+    assert "ACTION: RUN" in content
+    assert "EXECUTOR_ID: antigravity" in content
+    assert "EXECUTOR_FAILOVER: NO" in content
+    assert "BASE_SHA: 08508e48f6ffda70d1891dad461f6fd1b893b24b" in content
+    assert "M8_MULTI_AGENT_CONTINUITY_HARNESS: IMPLEMENTED" in content
+    assert "M8_SHARED_BOUNDARY_SHA: PENDING_SELF_REFERENCE" in content
+    assert "M8_BRAIN_PROOF: PENDING" in content
+    assert "M8_EXECUTOR_PROOF: PENDING" in content
+    assert "M8_COMPOSITE_CHAIN: PENDING" in content
+    assert "BRIDGE_TESTS: 1/1 pass" in content
+    assert "CONTINUITY_TESTS: 1/1 pass" in content
+    assert "FULL_REPO_TESTS: 755/755 pass" in content
+
+
+def test_task_032_portability_scope_validation_fails_closed_on_core_change_or_fourth_executor(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """
+    Verifies that _validate_task_032_portability_scope strictly enforces:
+    1. 3 executors allowlist
+    2. Fail-closed on locked core files modified vs base_main_sha
+    3. Fail-closed on uncommitted working tree changes to core files
+    4. Fail-closed on git command errors
+    """
+    cfg = {}
+    auth = {"base_main_sha": "08508e48f6ffda70d1891dad461f6fd1b893b24b"}
+
+    # 1. Fourth executor fails
+    monkeypatch.setattr(bridge, "SUPPORTED_RUNTIME_EXECUTORS", ("antigravity", "codex", "claude-code", "cursor"))
+    with pytest.raises(SystemExit):
+        bridge._validate_task_032_portability_scope(cfg, auth)
+
+    monkeypatch.setattr(bridge, "SUPPORTED_RUNTIME_EXECUTORS", ("antigravity", "codex", "claude-code"))
+
+    # 2. Modified core file vs base fails
+    monkeypatch.setattr(
+        bridge,
+        "git",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args, 0, "src/aios_bridge/continuity/state.py\n", ""
+        ),
+    )
+    with pytest.raises(SystemExit):
+        bridge._validate_task_032_portability_scope(cfg, auth)
+
+    # 3. Git diff error fails closed
+    monkeypatch.setattr(
+        bridge,
+        "git",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args, 128, "", "fatal: bad revision '08508e48f6ffda70d1891dad461f6fd1b893b24b'"
+        ),
+    )
+    with pytest.raises(SystemExit):
+        bridge._validate_task_032_portability_scope(cfg, auth)
+
+

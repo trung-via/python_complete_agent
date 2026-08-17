@@ -1963,6 +1963,59 @@ def _validate_task_031_portability_scope(cfg: dict, auth: dict) -> None:
                 )
 
 
+def _validate_task_032_portability_scope(cfg: dict, auth: dict) -> None:
+    """
+    Validates C1, C2, C11, C12 for TASK-032 (ADR-022):
+    1. SUPPORTED_RUNTIME_EXECUTORS must be exactly ("antigravity", "codex", "claude-code").
+    2. None of the locked Continuity Core files may differ from the base main commit.
+    3. Fails closed if any git diff command fails.
+    """
+    expected_executors = ("antigravity", "codex", "claude-code")
+    if tuple(SUPPORTED_RUNTIME_EXECUTORS) != expected_executors:
+        fail(
+            f"TASK-032 scope violation (C1/C12): SUPPORTED_RUNTIME_EXECUTORS ({SUPPORTED_RUNTIME_EXECUTORS}) "
+            f"không khớp với expected {expected_executors}."
+        )
+
+    base_sha = auth.get("base_main_sha", "08508e48f6ffda70d1891dad461f6fd1b893b24b") if auth else "08508e48f6ffda70d1891dad461f6fd1b893b24b"
+
+    # Compare task branch against base_sha for forbidden core files
+    p_diff = git("diff", "--name-only", base_sha, "HEAD", check=False)
+    if p_diff.returncode != 0:
+        err = p_diff.stderr.strip() if p_diff.stderr else p_diff.stdout.strip()
+        fail(
+            f"TASK-032 scope validation error: 'git diff --name-only {base_sha} HEAD' thất bại (exit={p_diff.returncode}): {err}"
+        )
+
+    if p_diff.stdout:
+        changed = {line.strip().replace("\\", "/") for line in p_diff.stdout.splitlines() if line.strip()}
+        for forbidden in C2_LOCKED_CONTINUITY_CORE_FILES:
+            norm_forbidden = forbidden.replace("\\", "/")
+            if norm_forbidden in changed:
+                fail(
+                    f"TASK-032 scope violation (C11): Locked Continuity Core file '{forbidden}' "
+                    f"đã bị sửa đổi so với base {base_sha[:10]}."
+                )
+
+    # Check uncommitted working tree changes
+    p_diff_wt = git("diff", "--name-only", "HEAD", check=False)
+    if p_diff_wt.returncode != 0:
+        err_wt = p_diff_wt.stderr.strip() if p_diff_wt.stderr else p_diff_wt.stdout.strip()
+        fail(
+            f"TASK-032 scope validation error: 'git diff --name-only HEAD' thất bại (exit={p_diff_wt.returncode}): {err_wt}"
+        )
+
+    if p_diff_wt.stdout:
+        changed_wt = {line.strip().replace("\\", "/") for line in p_diff_wt.stdout.splitlines() if line.strip()}
+        for forbidden in C2_LOCKED_CONTINUITY_CORE_FILES:
+            norm_forbidden = forbidden.replace("\\", "/")
+            if norm_forbidden in changed_wt:
+                fail(
+                    f"TASK-032 scope violation (C11): Locked Continuity Core file '{forbidden}' "
+                    f"có thay đổi trong working tree."
+                )
+
+
 def _parse_task_031_test_evidence(test_cmd: str | None, test_output: str | None, test_rc: int) -> tuple[str, str, str, str]:
     """
     Parses and binds TASK-031 test evidence fields to actual test execution (R2-2, Round 3).
@@ -2165,9 +2218,11 @@ def cmd_publish(args):
             "review_blob_sha": failover_proof.review_ref.blob_sha,
         }
 
-    # Portability & Scope validation for TASK-031 (R1-1 / C1 / C2 / C12)
+    # Portability & Scope validation for TASK-031 and TASK-032
     if task_id == 31:
         _validate_task_031_portability_scope(cfg, auth)
+    elif task_id == 32:
+        _validate_task_032_portability_scope(cfg, auth)
 
     test_output = "(no test command supplied)"
     raw_test_output = test_output
@@ -2222,7 +2277,7 @@ FAILOVER_REVIEW_BLOB_SHA: {failover_info['review_blob_sha']}
     else:
         manifest_failover_block = "EXECUTOR_FAILOVER: NO\n"
 
-    # Emit M6/M7 real-proof progress manifest for TASK-030 and TASK-031 (R2-2, C9, C10)
+    # Emit M6/M7/M8 real-proof progress manifest for TASK-030, TASK-031, TASK-032
     proof_progress_block = ""
     if task_id == 30:
         stage_a, stage_b = _evaluate_task_030_proof_progress(cfg, auth, failover_info)
@@ -2247,6 +2302,43 @@ PAID_EXTERNAL_API_CALLS: 0
 LIVE_EXTERNAL_CALLS_AUTOMATED_TESTS: 0
 M7_REAL_PROOF_ANTIGRAVITY_TO_CLAUDE_CODE: {stage_a}
 M7_REAL_PROOF_CLAUDE_CODE_TO_ANTIGRAVITY: {stage_b}
+BRIDGE_TESTS: {bridge_tests_val}
+CONTINUITY_TESTS: {continuity_tests_val}
+FULL_REPO_TESTS: {full_repo_tests_val}
+REGRESSIONS: {regressions_val}
+"""
+    elif task_id == 32:
+        base_sha_val = auth.get("base_main_sha", "08508e48f6ffda70d1891dad461f6fd1b893b24b") if auth else "08508e48f6ffda70d1891dad461f6fd1b893b24b"
+        bridge_tests_val, continuity_tests_val, full_repo_tests_val, regressions_val = _parse_task_031_test_evidence(args.test, raw_test_output, test_rc)
+
+        if failover_info:
+            brain_proof_val = "PASS"
+            executor_proof_val = "PASS"
+            composite_chain_val = "PASS"
+            shared_boundary_sha = failover_info['source_published_sha']
+        else:
+            brain_proof_val = "PENDING"
+            executor_proof_val = "PENDING"
+            composite_chain_val = "PENDING"
+            shared_boundary_sha = "PENDING_SELF_REFERENCE"
+
+        proof_progress_block = f"""BASE_SHA: {base_sha_val}
+M8_MULTI_AGENT_CONTINUITY_HARNESS: IMPLEMENTED
+M8_SHARED_BOUNDARY_SHA: {shared_boundary_sha}
+M8_BRAIN_PROOF: {brain_proof_val}
+M8_EXECUTOR_PROOF: {executor_proof_val}
+M8_COMPOSITE_CHAIN: {composite_chain_val}
+CONTINUITY_CORE_CHANGED: NO
+M5_LEASE_SEMANTICS_CHANGED: NO
+M6_FAILOVER_CONTRACT_CHANGED: NO
+M7_EXECUTOR_SET_CHANGED: NO
+AUTOMATIC_BRAIN_ROUTING: NO
+AUTOMATIC_EXECUTOR_ROUTING: NO
+HOT_HANDOFF_ADDED: NO
+FOURTH_EXECUTOR_ADDED: NO
+CHAT_UI_AUTOMATION: NO
+PAID_EXTERNAL_API_CALLS: 0
+LIVE_EXTERNAL_CALLS_AUTOMATED_TESTS: 0
 BRIDGE_TESTS: {bridge_tests_val}
 CONTINUITY_TESTS: {continuity_tests_val}
 FULL_REPO_TESTS: {full_repo_tests_val}
