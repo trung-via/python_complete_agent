@@ -1,106 +1,41 @@
 # REVIEW-029 — TASK-029 Open Multi-Agent Continuity OS M5 Executor Lease Enforcement
 
-STATUS: CHANGES_REQUIRED
+STATUS: APPROVED
 
 ## Review Scope
-- Review round: `5` — ADR-013 Delta Fix Review + ADR-017 Final Independent Audit
+- Review round: `6` — ADR-013 Delta Fix Review + ADR-017 Final Independent Audit
 - Reviewed branch: `ai/task-029`
-- Reviewed branch head: `43c675d93ebe37e41ad1200bf7d7daeabe729a99`
-- Tested implementation SHA reported by RESULT: `bb84e0facb6b24d4c5fdd0eb636b45b9d89ab0b5`
-- Previous tested implementation: `2be2b37f051917583b122215e0fa7654e377dc3e`
-- Previous REVIEW blob: `1b975d9972fee5a929de6374f7aee9740b47ba09`
+- Reviewed branch head: `f36432c953fd84b8a38288f3d8580d2057a15cfc`
+- Tested implementation SHA reported by RESULT: `95b9aa70b2f5049b2b4f6026b0c4a272e6162af7`
+- Previous tested implementation: `bb84e0facb6b24d4c5fdd0eb636b45b9d89ab0b5`
+- Previous REVIEW blob: `059e2d540b89493045947f4a9efb3a26fe098478`
 - Base/current main: `de556e5065ab1aea08fc832d2541532fe7085e33`
-- Branch relation: ahead `10`, behind `0`; merge-base exact current main.
-- `bb84e0f... -> 43c675d...` changes only `.ai/results/RESULT-029.md`; production/test code at reviewed branch head equals the tested implementation.
+- Branch relation: ahead `12`, behind `0`; merge-base exact current main.
+- `95b9aa7... -> f36432c...` changes only `.ai/results/RESULT-029.md`; production/test code at reviewed branch head equals the tested implementation.
 - Test counts are RESULT evidence from Antigravity; this review did not independently execute the repository suite.
 
 ## ADR-017 Stage Result
 
 ```text
-FULL_SEMANTIC_REVIEW: FAIL in Round 1
-KNOWN_FINDINGS: OPEN (new Final Independent Audit finding R5-1)
-DELTA_FIX_REVIEW: PASS for Round-4 findings
-FINAL_INDEPENDENT_AUDIT: FAIL
-APPROVED: NO
+FULL_SEMANTIC_REVIEW: PASS after remediation
+KNOWN_FINDINGS: CLOSED
+DELTA_FIX_REVIEW: PASS
+FINAL_INDEPENDENT_AUDIT: PASS
+APPROVED: YES
 ```
 
-## Round-5 Delta Result
+## Round-6 Delta Result
 
-The two findings carried from Round 4 are closed.
-
-### R1-1 — Compare-and-release TOCTOU proof
+### R5-1 — ACTIVE authorization reconstruction fail-closed binding
 Status: CLOSED
 
-The release test seam remains exactly between `require_active(expected)` and `os.replace()`. Round 5 removes the prior sleep-based correctness inference and directly probes both protection layers while the releaser is paused:
-
-- a separate probe thread cannot non-blockingly acquire the task `RLock`;
-- a separate file descriptor cannot non-blockingly acquire the OS `.lease_mutation.lock`;
-- after the protected release linearizes, Lease B can acquire;
-- a stale Lease-A release then fails closed and cannot remove Lease B.
-
-The remaining immediate `contender_finished` assertion is supplementary; the lock-ownership proof no longer depends on scheduler delay or sleep.
-
-### R2-1 — `cmd_approve()` post-acquire rollback state
-Status: CLOSED
-
-Rollback now treats ordinary retryability as proven only when BOTH exact lease release and inbox restoration succeed:
-
-```text
-lease_released && inbox_restored -> PENDING_APPROVAL
-otherwise                         -> RECOVERY_REQUIRED
-```
-
-A dedicated fault test injects rollback `store.release()` failure and verifies bounded diagnostics include `lease_release_failed` and state update reports `RECOVERY_REQUIRED`.
-
-### R1-5 — Required M5 RESULT manifest
-Status: CLOSED
-
-The formal manifest remains complete and is correctly rebound to the Round-4 REVIEW blob.
-
----
-
-## Final Independent Audit
-
-A fresh audit was performed from ADR-019 / TASK-029 architecture and acceptance criteria through the final tested implementation, rather than only checking prior findings.
-
-Most M5 boundaries pass: canonical lease strictness, atomic create-if-absent, compare-and-release, RUN/FIX/legacy activation gating, publish-before-test lease validation, test/push retention behavior, successful-publish release ordering, manual recovery, current Antigravity-only executor scope, no TTL/steal/failover/router leakage, and expected file-boundary scope.
-
-The independent audit found one new blocking contract defect.
-
-### R5-1 — ACTIVE authorization reconstruction is not fully fail-closed
-Severity: HIGH
-Status: OPEN
-
-TASK-029 AIP-7 explicitly requires strict authorization-to-lease reconstruction:
-
-```text
-Add one Bridge helper to reconstruct the expected ExecutorLease from authorization binding fields.
-Missing/malformed new lease fields in an ACTIVE M5 authorization fail closed.
-```
-
-ADR-019 Decision 11 also defines `executor_id` as part of the lease binding metadata that ACTIVE authorization SHALL persist, and Decision 13 requires publish to match the exact ACTIVE lease against the authorization binding.
-
-Current `cmd_publish()` validates only:
+Round 6 introduces one strict helper:
 
 ```python
-["lease_id", "lease_fingerprint", "workspace_id", "execution_fingerprint"]
+reconstruct_expected_executor_lease(auth)
 ```
 
-and then reconstructs with:
-
-```python
-executor_id=auth.get("executor_id", "antigravity")
-```
-
-This means an otherwise M5-shaped ACTIVE authorization with the `executor_id` binding missing does **not** fail closed. Instead, Bridge invents the current executor identity and may accept the authorization if the active lease is also `antigravity`.
-
-That is weaker than exact authorization/lease binding and directly violates the AIP-7 rule that missing M5 lease fields fail closed. It also bypasses the intended architecture of one strict authorization-to-lease reconstruction helper.
-
-#### Required remediation
-Keep the fix narrow:
-
-1. introduce one strict helper equivalent to `expected_lease_from_authorization(auth)` / `reconstruct_expected_executor_lease(auth)`;
-2. require all binding fields without defaults, including at minimum:
+The helper requires all M5 authorization-to-lease binding fields without fallback/default inference:
 
 ```text
 task_id
@@ -112,56 +47,123 @@ workspace_id
 execution_fingerprint
 ```
 
-3. validate/canonicalize through `ExecutorLease` + `ExecutionOperation`; do not infer `executor_id="antigravity"` when missing;
-4. verify the reconstructed canonical lease fingerprint equals `lease_fingerprint`;
-5. use that helper in `cmd_publish()`; use it at any authorization-to-lease recovery/status boundary where AIP-7 applies rather than duplicating weaker reconstruction semantics;
-6. add a regression test: remove `executor_id` from an otherwise valid ACTIVE M5 authorization while the matching Antigravity lease exists, then assert publish fails **before test/RESULT/commit/push** and the lease remains ACTIVE;
-7. add malformed `executor_id` coverage if not naturally covered by the same helper test.
+It then:
+1. rejects missing, non-string, empty, or whitespace-only required fields;
+2. canonicalizes/validates `action` through `ExecutionOperation`;
+3. constructs canonical `ExecutorLease` with the exact authorization-provided `executor_id`;
+4. verifies the reconstructed canonical lease fingerprint exactly equals authorization `lease_fingerprint`;
+5. returns the exact expected lease only after all checks pass.
 
-Do not broaden into M6, alternate Executor activation, TTL, heartbeat, stealing, dispatch or router behavior.
+`cmd_publish()` now uses this helper before active-lease verification and before any test command, RESULT write, commit, or push. The prior `auth.get("executor_id", "antigravity")` fallback is removed.
+
+Regression evidence adds:
+- direct helper coverage for valid input, missing/None/empty required fields, invalid operation, malformed canonical fields and fingerprint mismatch;
+- publish coverage proving an ACTIVE authorization missing `executor_id` fails before test execution while the exact active lease remains retained.
+
+No new authority, alternate Executor, TTL, heartbeat, stealing, router, or M6 failover semantics were introduced.
 
 ---
 
-## Final Audit Notes
+## Known Finding Disposition
 
-No other new blocking defect was identified in the audited M5 boundary.
+```text
+R1-1  CLOSED — compare-and-release TOCTOU proof
+R1-2  CLOSED — failed-writer cleanup ownership
+R1-3  CLOSED — complete durable write/fsync
+R1-4  CLOSED — legacy approve lease-conflict retryability
+R1-5  CLOSED — formal M5 RESULT manifest/evidence
+R2-1  CLOSED — cmd_approve post-acquire rollback/recovery state
+R5-1  CLOSED — strict ACTIVE authorization -> lease reconstruction
+```
 
-The following observations are non-blocking for TASK-029:
-- handoff authorization-persistence rollback remains fail-closed if exact lease release itself errors, although diagnostics could be improved in a later hardening task;
-- Continuity package docstring still names milestones only through M4; this is documentation staleness, not an M5 authority defect.
+---
+
+## Final Independent Audit
+
+A fresh final audit was performed against ADR-019 / TASK-029 and the final tested implementation rather than approving by incremental convergence.
+
+### Canonical lease contract — PASS
+- `MAX_ACTIVE_EXECUTORS_PER_TASK = 1` is explicit.
+- `ExecutorLease` is frozen, strict-schema, bounded, canonical JSON/fingerprint capable and vendor-neutral.
+- RUN/FIX reuse M4 `ExecutionOperation`; MERGE/unknown values are rejected.
+- no approval, merge authority, TTL, heartbeat, failover target, secrets, raw local path or mutable metadata exist in the canonical lease.
+
+### Runtime lease store — PASS
+- active lease is outside the worktree.
+- acquisition uses OS exclusive create (`O_CREAT | O_EXCL`).
+- complete write loops until all bytes are written and fsync failure fails closed.
+- corrupt/empty/oversized ACTIVE records are occupied/integrity failures, never treated as free.
+- failed-writer cleanup is limited to the file created by that acquisition attempt.
+- compare-and-release validates exact current lease while holding the task mutation guard and atomically moves ACTIVE to history.
+- deterministic lock probes demonstrate the compare-to-rename critical section is protected without sleep as the correctness mechanism.
+- stale Lease A cannot remove subsequently acquired Lease B.
+
+### Bridge activation / authorization — PASS
+- RUN handoff, FIX handoff and legacy approve all acquire lease before usable ACTIVE authorization.
+- authorization stores exact non-secret lease binding fields.
+- legacy approve conflict leaves the pending event retryable.
+- post-acquire approve failures rollback exact ownership and use `RECOVERY_REQUIRED` whenever lease release or inbox restoration is unproven.
+- Antigravity remains the sole activated runtime Executor.
+
+### Publish stable-boundary gate — PASS
+- ACTIVE authorization is mandatory.
+- authorization-to-lease reconstruction is now strict and has no executor fallback inference.
+- exact ACTIVE lease is required before test/workspace mutation.
+- control-artifact drift remains fail-closed.
+- test, commit and push failures retain lease ownership.
+- exact lease is released only after successful remote push; authorization is then consumed and state transitions to IN_REVIEW.
+
+### Human recovery — PASS
+- lease status is diagnostic/read-only.
+- recovery release requires exact lease ID and explicit `--confirm-stopped`.
+- associated ACTIVE authorization is deactivated before exact release.
+- no force release, lease stealing or replacement Executor selection exists.
+
+### Scope / M6 leakage — PASS
+- no Codex or Claude Code adapter/invocation.
+- no executor-selection flag.
+- no TTL/heartbeat/stale reclaim.
+- no automatic failover or router/quota detection.
+- M4 executor contract, canonical state, Brain/failover/provider semantics remain outside the M5 production change boundary.
+
+No new blocking defect was identified in the final audited M5 boundary.
+
+Non-blocking observations retained for later hardening only:
+- handoff authorization-persistence rollback could expose richer diagnostics if exact rollback release itself fails;
+- the Continuity package top-level docstring still names milestones only through M4.
+
+---
 
 ## Test / Evidence Status
 
-RESULT-029 reports against implementation `bb84e0facb6b24d4c5fdd0eb636b45b9d89ab0b5`:
+RESULT-029 reports against implementation `95b9aa70b2f5049b2b4f6026b0c4a272e6162af7`:
 
 ```text
-Focused combined:      63 passed
+Focused combined:      65 passed
 Lease core:            13/13 passed
 Runtime lease:         14/14 passed
-Bridge:                36/36 passed
+Bridge:                38/38 passed
 Continuity:           127/127 passed
-Full repository:      710/710 passed
+Full repository:      712/712 passed
 Regressions:            0
 LIVE_EXTERNAL_CALLS:    0
 PAID_EXTERNAL_API_CALLS: 0
 EXECUTOR_RUNS:          1
-EXECUTOR_FIX_RUNS:      4
+EXECUTOR_FIX_RUNS:      5
 ```
 
-The suites are green, but R5-1 is a semantic fail-closed gap not covered by those tests.
+These are Executor-reported test results in RESULT-029; ChatGPT did not independently execute pytest.
 
-## Required FIX Scope
+## Merge Eligibility
 
-Round 6 should be very small:
+TASK-029 is semantically approved and merge-eligible at reviewed branch head:
 
 ```text
-bridge.py
- tests/test_bridge.py
- .ai/results/RESULT-029.md
+f36432c953fd84b8a38288f3d8580d2057a15cfc
 ```
 
-`runtime_lease.py`, `continuity/lease.py`, M4 `executor.py`, canonical state, Brain/failover/provider semantics should not need changes.
+Human MERGE authority remains mandatory and is not implied by this review.
 
 ## Decision
 
-`CHANGES_REQUIRED`
+`APPROVED`
