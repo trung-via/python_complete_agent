@@ -5,7 +5,7 @@ STATUS: READY_FOR_REVIEW
 ## Review Manifest
 ```yaml
 TASK_ID: TASK-031
-ACTION: RUN
+ACTION: FIX
 EXECUTOR_ID: antigravity
 EXECUTOR_FAILOVER: NO
 BASE_SHA: 8a1550b40692798fe0c049aa2ad74d55c54618ee
@@ -21,6 +21,10 @@ PAID_EXTERNAL_API_CALLS: 0
 LIVE_EXTERNAL_CALLS_AUTOMATED_TESTS: 0
 M7_REAL_PROOF_ANTIGRAVITY_TO_CLAUDE_CODE: PENDING
 M7_REAL_PROOF_CLAUDE_CODE_TO_ANTIGRAVITY: PENDING
+BRIDGE_TESTS: 78/78 pass
+CONTINUITY_TESTS: 152/152 pass
+FULL_REPO_TESTS: 754/754 pass
+REGRESSIONS: 0
 ```
 
 ## Summary
@@ -28,10 +32,10 @@ Implementation completed by antigravity; pending ChatGPT review.
 
 ## Task Metadata
 - Task: `TASK-031`
-- Action: `RUN`
+- Action: `FIX`
 - Executor: `antigravity`
-- Authorized Artifact: `.ai/tasks/TASK-031.md (909eb91e98)`
-- Base Main SHA: `8a1550b40692798fe0c049aa2ad74d55c54618ee`
+- Authorized Artifact: `.ai/reviews/REVIEW-031.md (dede02ba9a)`
+- Base Main SHA: `(n/a)`
 - Branch: `ai/task-031`
 
 ## Files Changed
@@ -40,9 +44,9 @@ Implementation completed by antigravity; pending ChatGPT review.
 
 ## Diff Stat
 ```text
-bridge.py            |  70 ++++++-
- tests/test_bridge.py | 541 ++++++++++++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 604 insertions(+), 7 deletions(-)
+bridge.py            |  69 ++++++++++++++++++
+ tests/test_bridge.py | 201 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 270 insertions(+)
 ```
 
 ## Tests
@@ -55,7 +59,7 @@ platform win32 -- Python 3.14.7, pytest-8.3.4, pluggy-1.6.0
 rootdir: C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent
 plugins: anyio-4.14.2, asyncio-0.25.0
 asyncio: mode=Mode.STRICT, asyncio_default_fixture_loop_scope=None
-collected 752 items
+collected 754 items
 
 tests\aios_bridge\continuity\test_brain.py ..................            [  2%]
 tests\aios_bridge\continuity\test_executor.py .......................    [  5%]
@@ -75,7 +79,7 @@ tests\aios_bridge\external_brain\test_gateway.py .......                 [ 25%]
 tests\aios_bridge\external_brain\test_minimax_provider.py .........      [ 26%]
 tests\aios_bridge\external_brain\test_output_contract.py ....            [ 27%]
 tests\aios_bridge\external_brain\test_prompt.py ....                     [ 27%]
-tests\aios_bridge\external_brain\test_provider_contract.py ..            [ 28%]
+tests\aios_bridge\external_brain\test_provider_contract.py ..            [ 27%]
 tests\aios_bridge\external_brain\test_runner.py .............            [ 29%]
 tests\aios_bridge\external_brain\test_transport.py ......                [ 30%]
 tests\aios_bridge\external_brain\test_transport_contract.py .....        [ 31%]
@@ -92,7 +96,7 @@ tests\core\test_idempotency_contract.py ................                 [ 39%]
 tests\core\test_idempotency_store_v2_compact.py ..........               [ 41%]
 tests\core\test_idempotency_store_v2_hardening.py .................      [ 43%]
 tests\core\test_idempotency_store_v2_prune_repair.py ..............      [ 45%]
-tests\core\test_idempotency_store_v2_safety.py .....                     [ 46%]
+tests\core\test_idempotency_store_v2_safety.py .....                     [ 45%]
 tests\core\test_idempotency_store_v2_ttl.py .......                      [ 46%]
 tests\core\test_integrity_verifier.py ...........                        [ 48%]
 tests\core\test_recovery_analyzer.py ................                    [ 50%]
@@ -100,7 +104,7 @@ tests\core\test_recovery_controller.py .......                           [ 51%]
 tests\core\test_recovery_diagnostics.py ....                             [ 51%]
 tests\core\test_retry.py ....                                            [ 52%]
 tests\core\test_retry_policy.py ...............                          [ 54%]
-tests\core\test_run_budget.py ...................                        [ 57%]
+tests\core\test_run_budget.py ...................                        [ 56%]
 tests\core\test_run_lifecycle_contract.py ....                           [ 57%]
 tests\core\test_tool_executor_v2.py ..............                       [ 59%]
 tests\core\test_tool_registry.py ...                                     [ 59%]
@@ -109,39 +113,39 @@ tests\images\test_models.py ...                                          [ 60%]
 tests\images\test_pipeline.py ..                                         [ 60%]
 tests\images\test_storage.py ..                                          [ 61%]
 tests\images\test_validator.py ...                                       [ 61%]
-tests\integration\test_agent_crash_recovery_integration.py ....          [ 62%]
+tests\integration\test_agent_crash_recovery_integration.py ....          [ 61%]
 tests\integration\test_agent_failures.py ..                              [ 62%]
 tests\integration\test_agent_flow.py ..                                  [ 62%]
 tests\integration\test_agent_loop.py .....                               [ 63%]
 tests\integration\test_browser_tools.py .                                [ 63%]
 tests\integration\test_cancellation_integration.py ....                  [ 63%]
 tests\integration\test_phase55_reliability_suite.py .....                [ 64%]
-tests\integration\test_phase56_concurrency.py ....                       [ 65%]
+tests\integration\test_phase56_concurrency.py ....                       [ 64%]
 tests\integration\test_phase56_fault_injection.py ..................     [ 67%]
 tests\integration\test_phase56_production_readiness.py ................. [ 69%]
 ............                                                             [ 71%]
-tests\integration\test_phase56_soak.py .....                             [ 72%]
+tests\integration\test_phase56_soak.py .....                             [ 71%]
 tests\integration\test_phase6_bootstrap.py ................              [ 74%]
-tests\integration\test_recovery_control_plane.py .......                 [ 75%]
+tests\integration\test_recovery_control_plane.py .......                 [ 74%]
 tests\integration\test_retry_policy_integration.py .....                 [ 75%]
 tests\integration\test_retry_timeline_integration.py .......             [ 76%]
 tests\integration\test_tool_executor_jsonl_integration.py .....          [ 77%]
-tests\integration\test_tool_executor_ttl_compact_integration.py .....    [ 78%]
+tests\integration\test_tool_executor_ttl_compact_integration.py .....    [ 77%]
 tests\integrations\google_drive\test_gdrive_models.py ...                [ 78%]
-tests\integrations\google_drive\test_publisher.py .....                  [ 79%]
+tests\integrations\google_drive\test_publisher.py .....                  [ 78%]
 tests\product_intelligence\test_discovery_contract.py .....              [ 79%]
 tests\product_intelligence\test_models.py .......                        [ 80%]
 tests\product_intelligence\test_scoring.py .............                 [ 82%]
-tests\product_intelligence\test_shopee_discovery.py ............         [ 84%]
-tests\product_intelligence\test_shopee_parsing.py ........               [ 85%]
-tests\product_source\test_extractor_dom_fixtures.py ........             [ 86%]
-tests\product_source\test_models.py ..............                       [ 88%]
+tests\product_intelligence\test_shopee_discovery.py ............         [ 83%]
+tests\product_intelligence\test_shopee_parsing.py ........               [ 84%]
+tests\product_source\test_extractor_dom_fixtures.py ........             [ 85%]
+tests\product_source\test_models.py ..............                       [ 87%]
 tests\product_source\test_original_media_downloader.py ......            [ 88%]
 tests\product_source\test_scrape_tool_compat.py ........                 [ 89%]
-tests\product_source\test_shopee_source_extractor.py ..........          [ 91%]
+tests\product_source\test_shopee_source_extractor.py ..........          [ 90%]
 tests\product_source\test_tiktok_source_extractor.py ..........          [ 92%]
 tests\test_bridge.py ................................................... [ 99%]
-..                                                                       [ 99%]
+....                                                                     [ 99%]
 tests\test_gdrive_integrator.py ..                                       [ 99%]
 tests\test_image_processor.py .                                          [100%]
 
@@ -447,7 +451,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-================ 752 passed, 1533 warnings in 74.27s (0:01:14) ================
+================ 754 passed, 1533 warnings in 77.87s (0:01:17) ================
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -459,4 +463,4 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 (none supplied)
 
 ## Generated
-2026-08-17T16:34:57+07:00
+2026-08-17T17:00:44+07:00
