@@ -3,15 +3,16 @@
 STATUS: CHANGES_REQUIRED
 
 ## Review Scope
-- Round: 1 — Initial Full Semantic Review / Stage 0
+- Round: 2 — Semantic Re-review after Antigravity FIX
 - Base main: `8a1550b40692798fe0c049aa2ad74d55c54618ee`
-- Reviewed branch head: `a9e37746c0cedee269138686ff5aa76c4a235c3f`
-- Branch relation: ahead 1 / behind 0; exact merge-base main.
-- Authoritative contracts: ADR-021 + TASK-031.
+- Reviewed branch head: `e11b55a44eba7ef5cfe5cfea7475ded29f0b3868`
+- Prior review blob: `dede02ba9af7a988ebf5f615f2cd8445507f2eaa`
+- Authoritative contracts: ADR-021 + TASK-031 + Round-1 REVIEW-031.
 
 ```text
 FULL_SEMANTIC_REVIEW: FAIL
-KNOWN_FINDINGS: OPEN
+ROUND_1_FINDINGS: PARTIALLY_CLOSED
+NEW_FINDINGS: OPEN
 M7_PROOF_REQUIRED: BLOCKED_UNTIL_SEMANTIC_FIXES
 M7_REAL_PROOF_ANTIGRAVITY_TO_CLAUDE_CODE: PENDING
 M7_REAL_PROOF_CLAUDE_CODE_TO_ANTIGRAVITY: PENDING
@@ -19,126 +20,111 @@ FINAL_INDEPENDENT_AUDIT: NOT_RUN
 APPROVED: NO
 ```
 
-## Positive Findings
+## Round-1 Remediation Status
 
-The implementation is structurally close to the locked M7 design:
+### R1-3 — CLOSED
+A deterministic Claude Code RUN activation test now covers both direct `cmd_handoff()` and legacy `cmd_approve()` paths. It asserts ACTIVE authorization and lease `executor_id == "claude-code"`, RUN operation, and no fabricated failover proof metadata.
 
-- runtime allowlist is exactly `antigravity,codex,claude-code`;
-- Claude-specific logic was not added to Continuity Core;
-- branch delta is limited to `bridge.py`, `tests/test_bridge.py`, and `RESULT-031.md`;
-- M6 stable-boundary lease/failover machinery is reused instead of redesigned;
-- TASK-031 proof progress uses exact predecessor SHA provenance rather than arbitrary history scans;
-- Antigravity -> Claude Code, Claude Code -> Antigravity, and Claude Code -> Claude Code flows are exercised through existing M6 authorization/lease semantics;
-- current initial RESULT truthfully leaves both real proof directions PENDING;
-- Antigravity reports a fresh full repository run of `752 passed, 0 failed`.
+### R1-1 — PARTIALLY CLOSED
+A TASK-031 portability scope gate was added and is invoked before tests / RESULT mutation. It checks the exact three-executor allowlist and blocks known Continuity Core file changes in committed history and the working tree.
 
-These positives are not sufficient to open the real Claude Code proof while the findings below remain open.
+However, the implementation is not fully fail-closed when the underlying Git diff operation itself fails; see R2-1.
+
+### R1-2 — PARTIALLY CLOSED
+The formal RESULT manifest now includes `BRIDGE_TESTS`, `CONTINUITY_TESTS`, `FULL_REPO_TESTS`, and `REGRESSIONS`, and the current published RESULT reports `78/78`, `152/152`, `754/754`, and `0` respectively.
+
+However, Bridge currently hard-codes two suite counts and infers the full-repo field from any supplied test command, so the evidence layer can emit unsupported success claims; see R2-2.
 
 ## Findings
 
-### R1-1 HIGH — M7 portability/scope attestations are emitted as unconditional constants instead of being fail-closed against the repository delta
+### R2-1 HIGH — TASK-031 scope validator is not actually fail-closed on Git diff failure
 
-TASK-031 C2 and the Expected Implementation Boundary require Continuity Core to remain unchanged, and explicitly require the run to STOP/escalate if those files change rather than claim completion. C1/C12 likewise require exactly three runtime executors and forbid a fourth executor.
+`_validate_task_031_portability_scope()` runs both:
 
-Current `cmd_publish()` emits TASK-031 fields equivalent to:
-
-```text
-CONTINUITY_CORE_CHANGED: NO
-M5_LEASE_SEMANTICS_CHANGED: NO
-M6_FAILOVER_CONTRACT_CHANGED: NO
-FOURTH_EXECUTOR_ADDED: NO
+```python
+git("diff", "--name-only", base_sha, "HEAD", check=False)
+git("diff", "--name-only", "HEAD", check=False)
 ```
 
-unconditionally whenever `task_id == 31`.
+but only inspects the changed-file sets when `returncode == 0`.
 
-The current Round-1 branch happens to satisfy those claims, but Bridge does not enforce them. A later Stage-A/Stage-B/repair Executor could modify a forbidden Continuity Core file or widen the runtime executor set and Bridge would still generate the same `NO` attestations. That weakens the canonical evidence layer for the portability proof.
+If either Git command fails — for example because the base SHA is invalid/unavailable, repository state is damaged, or Git itself errors — validation silently skips that comparison and publish can continue. That violates the Round-1 remediation requirement to fail closed before emitting the M7 scope attestations.
 
 Required remediation:
 
-1. Add a narrow TASK-031 portability-scope validation before tests / RESULT mutation.
-2. Compare the task branch/worktree against the locked M7 base `8a1550b40692798fe0c049aa2ad74d55c54618ee` (or an equivalently immutable M7 baseline) and fail closed if any C2-forbidden Continuity Core file differs.
-3. Require `SUPPORTED_RUNTIME_EXECUTORS` to remain exactly `("antigravity", "codex", "claude-code")` before emitting the M7 manifest.
-4. Add deterministic regression tests proving a forbidden core-file change and a fourth-executor widening cannot publish a successful M7 RESULT.
-5. Do not redesign M5/M6; this is only an M7 evidence/scope gate.
+1. Treat any non-zero return code from either scope diff command as a hard publish failure.
+2. Include stderr / failing comparison context in the failure message.
+3. Add deterministic tests for:
+   - failure of `git diff <base_sha> HEAD`;
+   - failure of `git diff HEAD` for working-tree validation;
+   - both cases must prevent successful TASK-031 publication.
+4. Keep this narrow; do not redesign M5/M6.
 
-### R1-2 MEDIUM — Initial formal RESULT manifest is incomplete versus the locked TASK-031 minimum schema
+### R2-2 HIGH — TASK-031 test evidence fields are not bound to the tests actually executed
 
-TASK-031 requires the initial RESULT manifest to report at minimum:
+Current TASK-031 manifest generation initializes:
 
 ```text
-BRIDGE_TESTS: <count/pass>
-CONTINUITY_TESTS: <count/pass>
-FULL_REPO_TESTS: <count/pass>
+BRIDGE_TESTS: 78/78 pass
+CONTINUITY_TESTS: 152/152 pass
+FULL_REPO_TESTS: 752/752 pass
+```
+
+as constants. If `args.test` runs, Bridge extracts only the first generic `<N> passed` match and rewrites `FULL_REPO_TESTS` to `<N>/<N> pass` regardless of what test command was actually executed.
+
+Consequences:
+
+- publishing with only `pytest tests/test_bridge.py` can still claim `CONTINUITY_TESTS: 152/152 pass` without running the Continuity suite;
+- publishing any subset that reports `78 passed` can be mislabeled as `FULL_REPO_TESTS: 78/78 pass`;
+- future test-count changes can leave the hard-coded Bridge/Continuity counts stale while the manifest still claims success.
+
+This conflicts with TASK-031's requirement for truthful evidence and the Round-1 R1-2 remediation.
+
+Required remediation:
+
+1. Do not emit pass counts that are not derived from authoritative execution evidence for the corresponding suite.
+2. Bind each field to its actual command/result, or fail publication when required evidence is absent.
+3. `FULL_REPO_TESTS` must only be populated from an actual full-repository test execution, not an arbitrary `args.test` subset.
+4. Add deterministic negative tests proving subset runs cannot fabricate Bridge, Continuity, or Full Repo PASS evidence.
+5. Preserve Bridge-generated authority for proof-progress fields; do not accept worker-authored evidence text.
+
+## Positive Evidence Reviewed
+
+Current branch head `e11b55a44eba7ef5cfe5cfea7475ded29f0b3868` is a narrow FIX commit relative to the previous TASK-031 implementation and reports:
+
+```text
+BRIDGE_TESTS: 78/78 pass
+CONTINUITY_TESTS: 152/152 pass
+FULL_REPO_TESTS: 754/754 pass
 REGRESSIONS: 0
+M7_REAL_PROOF_ANTIGRAVITY_TO_CLAUDE_CODE: PENDING
+M7_REAL_PROOF_CLAUDE_CODE_TO_ANTIGRAVITY: PENDING
 ```
 
-Current RESULT-031 contains the full pytest transcript and proves `752 passed`, but those required fields are absent from the formal YAML Review Manifest.
-
-Required remediation:
-
-- make the Bridge-published TASK-031 manifest contain these four fields with truthful evidence;
-- run the relevant Bridge and Continuity suites plus the full repository suite as needed to support the reported counts;
-- keep proof progress fields Bridge-generated and do not accept worker-authored proof text as authority.
-
-### R1-3 MEDIUM — Required explicit Claude Code RUN-path portability test is missing
-
-TASK-031 Required Automated Tests item 4 requires proof that an initial Human RUN explicitly selecting `claude-code` persists the exact Claude Code executor identity into the M5 authorization/lease.
-
-The new tests cover:
-
-- Antigravity -> Claude Code FIX through `cmd_handoff()`;
-- Claude Code -> Antigravity FIX through legacy `cmd_approve()`;
-- Claude Code -> Claude Code ordinary FIX;
-- TASK-031 proof-progress generation/preservation/forgery resistance.
-
-But the Round-1 delta does not add a test for the distinct RUN activation path with `executor=claude-code`.
-
-Required remediation:
-
-- add a deterministic temp-repo test for explicit Claude Code RUN through the Bridge activation path;
-- assert ACTIVE authorization `executor_id == "claude-code"`, exact active lease `executor_id == "claude-code"`, correct RUN operation/binding, and no fabricated failover metadata;
-- preferably exercise both direct handoff RUN and legacy approve RUN if that can be done without duplicating large fixtures.
-
-## Test Evidence Reviewed
-
-Reported by Antigravity / Bridge RESULT:
-
-```text
-full repository: 752 passed, 0 failed
-paid external API calls: 0 (reported)
-live external calls in automated tests: 0 (reported)
-```
-
-The full repository test result is accepted as execution evidence, but it does not waive the missing formal manifest fields or the missing required RUN-path test.
+The fresh full repository transcript reports `754 passed, 0 failed`. These execution results are useful evidence for this specific commit, but they do not repair the semantic evidence-generation flaws above.
 
 ## Controlled Proof Gate
 
 Do NOT start Claude Code Proof A yet.
 
-After R1-1 through R1-3 are closed and the semantic delta is clean, Primary Brain may issue:
-
-```text
-STATUS: CHANGES_REQUIRED
-SEMANTIC_FINDINGS: NONE
-M7_PROOF_REQUIRED: ANTIGRAVITY_TO_CLAUDE_CODE
-```
-
-Until then both real-proof fields remain:
+Both real-proof fields remain:
 
 ```text
 M7_REAL_PROOF_ANTIGRAVITY_TO_CLAUDE_CODE: PENDING
 M7_REAL_PROOF_CLAUDE_CODE_TO_ANTIGRAVITY: PENDING
 ```
 
+After R2-1 and R2-2 are closed and the semantic delta is clean, Primary Brain may open the controlled Antigravity -> Claude Code real-proof step.
+
 ## Next Step
 
-Run an ordinary Antigravity FIX:
+Run another narrow Antigravity FIX:
 
 ```text
 /aios-worker FIX TASK-031 --executor antigravity
 ```
 
-Keep the fix narrow to `bridge.py`, `tests/test_bridge.py`, and `RESULT-031.md`. Do not modify Continuity Core, M5 lease semantics, M6 failover proof schema, router/quota behavior, or add any fourth executor.
+Allowed scope remains `bridge.py`, `tests/test_bridge.py`, and `RESULT-031.md`. Do not modify Continuity Core, M5 lease semantics, M6 failover proof schema, router/quota behavior, or add a fourth executor.
 
 After publish, return with `Review TASK-031`.
 
