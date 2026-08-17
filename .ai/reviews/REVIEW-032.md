@@ -3,15 +3,14 @@
 STATUS: CHANGES_REQUIRED
 
 ## Review Scope
-- Round: 6 — Stage-C Final Composite Audit / Proof-Verifier Repair
+- Round: 7 — R6-1 Targeted Composite-Verifier Re-audit
 - Baseline main: `08508e48f6ffda70d1891dad461f6fd1b893b24b`
 - Frozen Executor-A boundary S0: `38356f100563da420c488ee6362917fd4f81b48b`
-- Historical Stage-B Executor-B publication S1: `22f2339eaa9acfdf30f5cf0f112172542362ecc3`
-- Executor A: `antigravity`
-- Executor B: `claude-code`
-- Stage-A Brain proof bundle commit: `62263aa3a28ab56cc856fa6f980f39dec49163a1`
-- Exact Stage-B authorization REVIEW commit: `781ea59a470d7850cb99c91d1f83914d886e94de`
-- Exact Stage-B authorization REVIEW blob: `6ea95987983a06b066fc31789bedad5d4c954ff6`
+- Historical Stage-B S1: `22f2339eaa9acfdf30f5cf0f112172542362ecc3`
+- Current repair head: `a40dd1236543a4b90a4c4d392e9ae89bb66f519c`
+- Historical Stage-B REVIEW commit: `781ea59a470d7850cb99c91d1f83914d886e94de`
+- Historical Stage-B REVIEW blob: `6ea95987983a06b066fc31789bedad5d4c954ff6`
+- Historical StableExecutorFailoverProof fingerprint: `9ae77dfef922bc860cf5c423a242961a08060163972a6a329e7e69fa2df2a1d7`
 
 ```text
 FULL_SEMANTIC_REVIEW: PASS
@@ -19,6 +18,7 @@ R1-1: CLOSED
 R1-2: CLOSED
 R1-3: CLOSED
 R1-4: CLOSED
+R6-1: PARTIALLY_CLOSED
 SEMANTIC_FINDINGS: NONE
 M8_BRAIN_PROOF: PASS
 M8_EXECUTOR_PROOF: PASS_EVIDENCE_VALIDATED
@@ -27,219 +27,228 @@ FINAL_INDEPENDENT_AUDIT: FAIL
 APPROVED: NO
 ```
 
-## Preserved C7 Provenance
+## Round-7 Accepted Repairs
+
+The repair correctly moved the composite verifier toward authoritative evidence:
 
 ```text
-M8_SOURCE_EXECUTOR_PUBLISHED_SHA: 38356f100563da420c488ee6362917fd4f81b48b
-M8_BRAIN_SOURCE_ID: chatgpt-chat
-M8_BRAIN_REPLACEMENT_ID: claude-chat
-M8_BRAIN_FAILOVER_PROOF_FINGERPRINT: 16682e6cbf04180ec4624c8395a531f7574cfe7b43bf747ac862f5ce0b680a65
-M8_BRAIN_SUCCESS_ARTIFACT_PATH: .ai/context/proofs/TASK-032-M8/brain/BRAIN-DIAGNOSIS.md
-M8_BRAIN_SUCCESS_ARTIFACT_BLOB_SHA: 9ec543c0a70bff1c5088a1940075b5c711cf2374
-M8_CANONICAL_STATE_FINGERPRINT: eac54ad486491164289a0187f16e83e228c624d76e8c58b58f6cf5633231e9ac
-M8_BRAIN_PROOF_BUNDLE_COMMIT: 62263aa3a28ab56cc856fa6f980f39dec49163a1
+[x] S0 is required to resolve as a real Git commit
+[x] when S1 is supplied, S1 must resolve as a real Git commit
+[x] historical S1 is required to be a direct child of S0
+[x] RESULT-032 is resolved from S1 Git tree
+[x] caller-supplied RESULT cannot substitute unless exact blob matches S1 RESULT
+[x] StableExecutorFailoverProof is parsed as the executor evidence object
+[x] proof canonical fingerprint is recomputed
+[x] proof task/branch/source-SHA/source-result-ref are checked
+[x] source/replacement executor IDs are checked and must differ
+[x] S1 RESULT failover IDs/source SHA/review blob/proof fingerprint are matched to proof
+[x] verifier no longer requires pre-existing M8_COMPOSITE_CHAIN: PASS
+[x] conservative M8_BRAIN_PROOF/PENDING and M8_COMPOSITE_CHAIN/PENDING in historical S1 do not block proof-derived PASS
+[x] fabricated/nonexistent S1 test now fails closed
+[x] historical S0/S1 test path was added
+[x] locked Continuity Core was not modified in this repair
+[x] full repository evidence reports 784/784 pass, 0 regressions
 ```
 
-## Stage-B Evidence Accepted
-
-The historical Stage-B publication is a direct child of S0:
-
-```text
-S0 = 38356f100563da420c488ee6362917fd4f81b48b
-S1 = 22f2339eaa9acfdf30f5cf0f112172542362ecc3
-S1 parent = S0
-```
-
-S1 changes only `.ai/results/RESULT-032.md` and records:
-
-```text
-EXECUTOR_ID: claude-code
-EXECUTOR_FAILOVER: YES
-FAILOVER_FROM_EXECUTOR: antigravity
-FAILOVER_TO_EXECUTOR: claude-code
-FAILOVER_SOURCE_PUBLISHED_SHA: 38356f100563da420c488ee6362917fd4f81b48b
-FAILOVER_PROOF_FINGERPRINT: 9ae77dfef922bc860cf5c423a242961a08060163972a6a329e7e69fa2df2a1d7
-FAILOVER_REVIEW_BLOB_SHA: 6ea95987983a06b066fc31789bedad5d4c954ff6
-M8_EXECUTOR_PROOF: PASS
-M8_COMPOSITE_CHAIN: PENDING
-```
-
-The exact Stage-B REVIEW remained unchanged during activation/publish. Bridge's guarded publish path reconstructs the actual `StableExecutorFailoverProof`, recomputes its fingerprint, validates it relationally against source/replacement leases, verifies the authoritative control commit and exact REVIEW blob, and only then constructs `failover_info`. RESULT failover fields are generated from that validated object rather than copied from arbitrary worker text.
-
-Therefore the real Executor A -> Executor B transition is accepted as valid evidence. The blocker below concerns the final composite verifier, not the historical failover itself.
+These close most of R6-1, but two exact Round-6 requirements remain open.
 
 ---
 
-# FINDING R6-1 — OPEN
+# FINDING R6-1 — PARTIALLY_CLOSED
 
 ## SEVERITY
 `CRITICAL`
 
 ## ROOT_CAUSE
-`verify_composite_chain(...)` does not mechanically verify the Executor half of the M8 causal chain required by C9/C10/AIP-7.
+The repaired function still has an optional Brain+Review-only success path and does not mechanically resolve the historical REVIEW from `StableExecutorFailoverProof.review_ref.ref`.
 
-Current behavior:
+### Gap A — composite verification can PASS with no S1 and no Executor proof
 
-1. It verifies the Brain proof bundle and C7 fields in REVIEW.
-2. For S1, it accepts an arbitrary `s1_sha` string without resolving that commit or binding the supplied RESULT text to `S1:.ai/results/RESULT-032.md`.
-3. It does not accept, parse, recompute, or validate the actual `StableExecutorFailoverProof`.
-4. It does not validate `FAILOVER_PROOF_FINGERPRINT` at all.
-5. It does not validate exact source/replacement Executor IDs against the failover proof.
-6. It does not validate the proof's exact `review_ref.ref`, `review_ref.blob_sha`, or `source_result_ref` against S0.
-7. It requires `M8_COMPOSITE_CHAIN: PASS` to already exist in RESULT before returning composite PASS, creating a circular self-attestation.
-8. It also requires `M8_BRAIN_PROOF: PASS` in S1 RESULT even though Round-4 deliberately chose the conservative authority model where Bridge may keep Brain proof `PENDING` and Primary Brain is the authority for Brain acceptance.
+`verify_composite_chain(...)` executes the Executor half only under:
 
-The existing positive unit test demonstrates the false-positive path directly: it uses `s1 = "1" * 40`, supplies no StableExecutorFailoverProof, writes `M8_COMPOSITE_CHAIN: PASS` into synthetic RESULT text, and expects `verify_composite_chain(...)` to PASS.
-
-## BROKEN_INVARIANT
-TASK-032 C9/C10/AIP-7 requires the independently verified chain:
-
-```text
-exact S0
--> exact verified BrainFailoverProof
--> exact Brain-B artifact
--> exact immutable Stage-B REVIEW blob/ref
--> actual StableExecutorFailoverProof
--> exact source/replacement Executor IDs
--> exact S1 publication / RESULT
+```python
+if s1_sha:
+    ...
 ```
 
-No worker/RESULT-authored `PASS` string is proof authority.
+and then unconditionally returns:
 
-## REQUIRED_BEHAVIOR
-Repair only the proof-local composite verifier. Do not redo Stage A or Stage B.
+```python
+{"status": "PASS", ...}
+```
 
-`verify-composite` MUST consume or resolve exact immutable evidence including at least:
+Therefore `s1_sha=None` skips all StableExecutorFailoverProof/S1 validation and still returns PASS.
+
+The test suite explicitly preserves this behavior in:
+
+```text
+test_m8_composite_chain_verification_success_brain_and_review
+```
+
+which calls `verify_composite_chain(...)` with only S0 + REVIEW + Brain bundle and asserts:
+
+```text
+status == PASS
+s1_sha is None
+```
+
+This violates Round-6 REQUIRED_BEHAVIOR: `verify-composite` MUST consume the historical S1 and actual StableExecutorFailoverProof before returning composite PASS.
+
+### Gap B — exact historical REVIEW commit is not resolved from Git
+
+The repaired verifier checks:
+
+```text
+exec_proof.review_ref.path
+exec_proof.review_ref.blob_sha == hash(caller review_content)
+```
+
+but it does not require/resolve:
+
+```text
+exec_proof.review_ref.ref == 781ea59a470d7850cb99c91d1f83914d886e94de
+```
+
+nor execute the equivalent of:
+
+```text
+git cat-file -e 781ea59a...^{commit}
+git rev-parse 781ea59a...:.ai/reviews/REVIEW-032.md
+git show 781ea59a...:.ai/reviews/REVIEW-032.md
+```
+
+Thus the verifier has not mechanically proven Round-6 requirement #10/#11: the exact historical REVIEW commit/ref must exist and contain the exact blob/content used by C7 and the executor proof.
+
+## BROKEN_INVARIANT
+Final M8 composite PASS must mean the whole chain was mechanically verified:
 
 ```text
 S0
-historical Stage-B REVIEW ref/commit = 781ea59a470d7850cb99c91d1f83914d886e94de
-historical Stage-B REVIEW blob = 6ea95987983a06b066fc31789bedad5d4c954ff6
-Brain proof bundle
-actual StableExecutorFailoverProof JSON
-historical Stage-B S1 = 22f2339eaa9acfdf30f5cf0f112172542362ecc3
+-> verified Brain proof/artifact
+-> exact historical REVIEW commit/blob
+-> actual StableExecutorFailoverProof
+-> historical S1/result
 ```
 
-It MUST mechanically prove:
+A Brain+Review-only verification is not a composite proof, and caller REVIEW text alone is not proof that `review_ref.ref` contains that artifact.
 
-1. `S0` and `S1` are real Git commits.
-2. Historical S1 is the Stage-B Executor-B publication anchored to S0; for this proof, require `S1^ == S0`.
-3. `S1:.ai/results/RESULT-032.md` is resolved from Git directly; arbitrary caller-supplied RESULT text cannot substitute unless its exact Git blob identity is mechanically matched.
-4. `StableExecutorFailoverProof.from_json(...)` succeeds and its canonical fingerprint equals exact `FAILOVER_PROOF_FINGERPRINT` in historical S1 RESULT.
-5. Proof `task_id == TASK-032` and `target_branch == ai/task-032`.
-6. Proof `source_published_sha == S0`.
-7. Proof `source_executor_id == antigravity` and `replacement_executor_id == claude-code`; source/replacement must differ.
-8. Proof `source_result_ref` is exact `.ai/results/RESULT-032.md` at S0 with the exact source RESULT blob.
-9. Proof `review_ref.path == .ai/reviews/REVIEW-032.md`.
-10. Proof `review_ref.ref == 781ea59a470d7850cb99c91d1f83914d886e94de` and `review_ref.blob_sha == 6ea95987983a06b066fc31789bedad5d4c954ff6`.
-11. Computed Git blob of that historical REVIEW equals the proof/ref/S1 RESULT review blob.
-12. REVIEW C7 Brain provenance matches the mechanically verified Brain proof bundle exactly.
-13. Historical S1 RESULT's `EXECUTOR_ID`, `FAILOVER_FROM_EXECUTOR`, `FAILOVER_TO_EXECUTOR`, source SHA, proof fingerprint, and review blob all match the actual proof.
-14. Composite verifier returns PASS from these relationships. It MUST NOT require a pre-existing `M8_COMPOSITE_CHAIN: PASS` string.
-15. `M8_BRAIN_PROOF` / `M8_COMPOSITE_CHAIN` fields in RESULT remain evidence summaries, not proof authority. A conservative `PENDING` must not prevent mechanically correct independent verification.
+## REQUIRED_BEHAVIOR
+Keep all accepted Round-7 checks. Make only these final changes:
 
-The real Stage-B proof currently resides in the consumed runtime authorization. Preserve/export only the sanitized `failover_proof` JSON before starting another FIX. Preferred durable proof location:
+1. `verify_composite_chain` MUST fail closed when `s1_sha` is absent.
+2. `verify_composite_chain` MUST fail closed when actual `executor_failover_proof` evidence is absent.
+3. CLI `verify-composite` MUST require `--s1` and `--executor-proof-file` for composite mode; do not expose a PASS-capable partial mode under the same command/function.
+4. If Brain+Review-only checking is still useful, make it a separately named verifier/helper whose result cannot be represented as composite PASS.
+5. Resolve `exec_proof.review_ref.ref` as an exact Git commit.
+6. For TASK-032 historical acceptance, require:
 
 ```text
-ai-control:.ai/context/proofs/TASK-032-M8/executor/stable-executor-failover-proof.json
+exec_proof.review_ref.ref == 781ea59a470d7850cb99c91d1f83914d886e94de
 ```
 
-Do not persist authorization tokens, full runtime auth, leases, secrets, prompts, or transcripts.
+or equivalently require an explicit expected historical-review-commit input and compare exact equality.
+7. Resolve `.ai/reviews/REVIEW-032.md` directly at that commit and require its Git blob SHA equals:
+
+```text
+exec_proof.review_ref.blob_sha
+6ea95987983a06b066fc31789bedad5d4c954ff6
+historical S1 RESULT FAILOVER_REVIEW_BLOB_SHA
+```
+
+8. Caller `review_content`, if retained, must exact-match the REVIEW resolved from that immutable Git ref; it cannot be the authority by itself.
+9. Historical chain `38356f10 -> 781ea59a REVIEW -> 9ae77d proof -> 22f2339e S1` must continue to PASS with S1 summary fields still PENDING where appropriate.
 
 ## FORBIDDEN_IMPLEMENTATIONS
-- No PASS based on `M8_COMPOSITE_CHAIN: PASS` text.
-- No fake/nonexistent S1 accepted.
-- No arbitrary RESULT file supplied from working tree as authority.
-- No reconstructing Executor proof from only RESULT strings.
-- No history scan for a plausible proof/review/result.
-- No modification to locked Continuity Core.
-- No new Brain proof.
-- No second cross-executor failover merely to make the verifier pass.
-- No M9/M10/M11 scope leakage.
+- Do not treat missing S1 as successful composite verification.
+- Do not treat missing Executor proof as successful composite verification.
+- Do not hash caller REVIEW text and call that sufficient review-ref verification.
+- Do not inspect current `ai-control` as a substitute for historical REVIEW commit `781ea59a...`.
+- Do not rewrite historical S1.
+- Do not redo Brain proof or Executor failover.
+- Do not modify locked Continuity Core/M5/M6/M7 semantics.
+- Do not add automatic routing/failover or M9+ scope.
 
 ## REQUIRED_TESTS
-1. Existing synthetic success test must be replaced; nonexistent/fabricated S1 (`"1" * 40`) => fail.
-2. Missing actual StableExecutorFailoverProof => fail.
-3. Tampered proof canonical field with unchanged claimed fingerprint => fail.
-4. RESULT `FAILOVER_PROOF_FINGERPRINT` mismatch => fail.
-5. Proof source SHA != S0 => fail.
-6. Proof source/replacement Executor IDs wrong or equal => fail.
-7. Proof source RESULT ref/blob mismatch => fail.
-8. Proof REVIEW ref commit mismatch => fail.
-9. Proof REVIEW blob mismatch => fail.
-10. S1 RESULT review blob/failover IDs mismatch => fail.
-11. S1 not direct child of S0 for this historical Stage-B proof => fail.
-12. Caller-supplied RESULT text differing from exact S1 Git blob => fail.
-13. Exact chain with `M8_BRAIN_PROOF: PENDING` and `M8_COMPOSITE_CHAIN: PENDING` in historical RESULT may still return verifier PASS when all authoritative proof relationships pass.
-14. Brain proof/C7 negative tests remain green.
-15. Full Bridge/Continuity/repository suites remain green with execution-derived evidence.
-
-## ADVERSARIAL_TESTS
-The following must never PASS:
+Add/adjust exact assertions:
 
 ```text
-s1_sha = 1111111111111111111111111111111111111111
-no StableExecutorFailoverProof provided
-synthetic RESULT says:
-  M8_BRAIN_PROOF: PASS
-  M8_EXECUTOR_PROOF: PASS
-  M8_COMPOSITE_CHAIN: PASS
+1. no S1 supplied => FAIL, never composite PASS
+2. S1 supplied but no StableExecutorFailoverProof => FAIL
+3. historical REVIEW ref commit missing/nonexistent => FAIL
+4. proof review_ref.ref != expected historical REVIEW commit => FAIL
+5. git blob at review_ref.ref:path != proof review_ref.blob_sha => FAIL
+6. caller review text != exact historical Git REVIEW => FAIL
+7. fabricated/nonexistent S1 => FAIL
+8. tampered proof/source/result/review/fingerprint/executor IDs remain FAIL
+9. real historical chain with S1 M8_BRAIN_PROOF:PENDING and M8_COMPOSITE_CHAIN:PENDING => verifier PASS
+10. full Bridge/Continuity/repository suites remain green with execution-derived counts
 ```
 
-A syntactically convincing RESULT is not a causal proof.
+The old positive test:
+
+```text
+test_m8_composite_chain_verification_success_brain_and_review
+```
+
+must no longer assert composite PASS. Replace it with a failure assertion or move the behavior into a separately named non-composite Brain/C7 verifier.
+
+## ADVERSARIAL_TESTS
+These inputs must all return non-zero/raise:
+
+```text
+S0 + valid Brain bundle + valid-looking REVIEW + s1=None + executor_proof=None
+S0 + real S1 + no executor proof
+real proof + caller-copied REVIEW text but nonexistent/wrong review_ref.ref
+real-looking review blob but review_ref.ref does not resolve that blob from Git
+```
 
 ## CLOSE_CONDITIONS
 ```text
-[ ] actual StableExecutorFailoverProof is an explicit verifier input/evidence object
-[ ] proof fingerprint is recomputed and matches historical S1 RESULT
-[ ] exact historical Stage-B REVIEW commit/blob is bound
-[ ] source RESULT is exact S0 artifact
-[ ] source/replacement Executor identities are verified from proof
-[ ] S1 is real and exact RESULT is resolved from S1 Git tree
-[ ] fabricated/nonexistent S1 cannot pass
-[ ] composite PASS no longer depends on pre-existing PASS text
-[ ] conservative PENDING summary fields do not block exact independent verification
-[ ] real historical chain S0 -> REVIEW -> failover proof -> S1 passes repaired verifier
-[ ] full repository remains green
+[x] actual StableExecutorFailoverProof can be consumed and fingerprinted
+[x] proof fingerprint binds to historical S1 RESULT
+[ ] composite PASS is impossible without S1
+[ ] composite PASS is impossible without actual Executor proof
+[ ] exact historical REVIEW commit is equality-checked
+[ ] exact REVIEW blob/content is resolved from review_ref.ref Git tree
+[x] source RESULT is exact S0 artifact
+[x] source/replacement Executor identities are verified
+[x] S1 is real and exact RESULT is resolved from S1 Git tree
+[x] fabricated/nonexistent S1 cannot pass
+[x] pre-existing M8_COMPOSITE_CHAIN:PASS is not required
+[x] conservative PENDING summary fields do not block authoritative verification
+[x] historical chain has a positive test path
+[x] full repository remains green
 ```
 
 ## ALLOWED_FILES
 - `scripts/aios_m8_multi_agent_continuity_proof.py`
 - `tests/aios_bridge/continuity/test_m8_multi_agent_proof.py`
-- proof-local documentation/helper only if strictly necessary to consume the exact sanitized Executor proof
 
 ## FORBIDDEN_SCOPE
 - `src/aios_bridge/continuity/*`
 - `src/aios_bridge/runtime_lease.py`
+- `bridge.py` semantic changes
 - M5/M6/M7 behavior
-- Executor routing/selection
-- new failover
-- Brain proof regeneration
+- new Brain proof
+- new Executor failover
+- historical S1 mutation
 
 ---
 
-## Next Execution Contract
-
-Before any new `/aios-worker FIX`, preserve the historical Stage-B sanitized failover proof from the consumed TASK-032 authorization. `bridge.py context 32` loads the consumed authorization and exposes the proof data; extract only `authorization.failover_proof` to a bounded proof JSON file.
-
-After that evidence is preserved, repair R6-1 using the same current Executor B (`claude-code`). This is a verifier repair continuation, not another cross-executor proof.
-
-Expected command after proof preservation:
+## Historical Proof Anchors — DO NOT CHANGE
 
 ```text
-/aios-worker FIX TASK-032 --executor claude-code
-```
-
-The subsequent repair publication is not a replacement for historical Stage-B S1. Final composite verification must continue to anchor the original:
-
-```text
-S0 = 38356f100563da420c488ee6362917fd4f81b48b
-Stage-B REVIEW commit = 781ea59a470d7850cb99c91d1f83914d886e94de
-Stage-B REVIEW blob = 6ea95987983a06b066fc31789bedad5d4c954ff6
-Stage-B failover fingerprint = 9ae77dfef922bc860cf5c423a242961a08060163972a6a329e7e69fa2df2a1d7
-Historical S1 = 22f2339eaa9acfdf30f5cf0f112172542362ecc3
+S0: 38356f100563da420c488ee6362917fd4f81b48b
+Brain proof bundle: 62263aa3a28ab56cc856fa6f980f39dec49163a1
+BrainFailoverProof fingerprint: 16682e6cbf04180ec4624c8395a531f7574cfe7b43bf747ac862f5ce0b680a65
+Brain diagnosis blob: 9ec543c0a70bff1c5088a1940075b5c711cf2374
+Stage-B REVIEW commit: 781ea59a470d7850cb99c91d1f83914d886e94de
+Stage-B REVIEW blob: 6ea95987983a06b066fc31789bedad5d4c954ff6
+StableExecutorFailoverProof fingerprint: 9ae77dfef922bc860cf5c423a242961a08060163972a6a329e7e69fa2df2a1d7
+Historical S1: 22f2339eaa9acfdf30f5cf0f112172542362ecc3
+Current repair head: a40dd1236543a4b90a4c4d392e9ae89bb66f519c
 ```
 
 ## Decision
 
-`CHANGES_REQUIRED — STAGE A PASS — STAGE B FAILOVER EVIDENCE VALID — R6-1 CRITICAL COMPOSITE-VERIFIER DEFECT — FINAL PASS BLOCKED`
+`CHANGES_REQUIRED — R6-1 PARTIALLY_CLOSED — ONLY MISSING-S1/PARTIAL-PASS AND HISTORICAL-REVIEW-REF BINDING REMAIN — FINAL M8 PASS BLOCKED`
