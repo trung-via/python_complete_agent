@@ -5138,7 +5138,7 @@ def test_task_031_test_evidence_truthful_binding_and_negative_subset_cases():
     assert r == "0"
 
     # 6. Full repository execution with verbose output -> exact subsuite pass counts dynamically derived
-    bridge_lines = "\n".join(f"tests/test_bridge.py::test_case_{i} PASSED" for i in range(81))
+    bridge_lines = "\n".join(f"tests/test_bridge.py::test_case_{i} PASSED" for i in range(56))
     continuity_lines = "\n".join(f"tests/aios_bridge/continuity/test_case_{i} PASSED" for i in range(152))
     verbose_output = f"{bridge_lines}\n{continuity_lines}\n= 755 passed in 78.0s ="
 
@@ -5147,7 +5147,7 @@ def test_task_031_test_evidence_truthful_binding_and_negative_subset_cases():
         verbose_output,
         0,
     )
-    assert b == "81/81 pass"
+    assert b == "56/56 pass"
     assert c == "152/152 pass"
     assert f == "755/755 pass"
     assert r == "0"

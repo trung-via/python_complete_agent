@@ -39,12 +39,12 @@ Implementation completed by antigravity; pending ChatGPT review.
 - Branch: `ai/task-031`
 
 ## Files Changed
-- bridge.py
+- tests/test_bridge.py
 
 ## Diff Stat
 ```text
-bridge.py | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+tests/test_bridge.py | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 ```
 
 ## Tests
@@ -448,7 +448,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-================ 755 passed, 1533 warnings in 74.25s (0:01:14) ================
+================ 755 passed, 1533 warnings in 73.30s (0:01:13) ================
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -460,4 +460,4 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 (none supplied)
 
 ## Generated
-2026-08-17T17:27:23+07:00
+2026-08-17T17:29:51+07:00
