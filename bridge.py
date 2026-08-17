@@ -852,6 +852,42 @@ def prepare_task_branch(cfg, task_id: int, action: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _validate_and_classify_fix_prior_auth(
+    task_id: int,
+    selected_executor: str,
+) -> tuple[dict, bool]:
+    """
+    Strictly validates prior authorization for FIX operation (R2-1).
+    - If prior authorization is missing: fails closed immediately (no CLI default inference).
+    - If prior authorization exists: strictly validates executor identity and reconstructs M5 lease binding.
+    - Returns (prior_auth, is_failover).
+    """
+    prior_auth = load_authorization(task_id)
+    if prior_auth is None:
+        fail(
+            f"Không tìm thấy prior authorization cho TASK-{task_id:03d}. "
+            f"Cần chạy `/aios-worker RUN TASK-{task_id:03d}` trước khi FIX (R2-1)."
+        )
+
+    prior_executor = prior_auth.get("executor_id")
+    if not prior_executor or prior_executor not in SUPPORTED_RUNTIME_EXECUTORS:
+        fail(
+            f"Prior authorization cho TASK-{task_id:03d} thiếu executor_id hợp lệ ({prior_executor}). "
+            f"Không thể xác định source executor (R2-1)."
+        )
+
+    # Strictly validate M5 lease binding reconstruction (R2-1)
+    try:
+        reconstruct_expected_executor_lease(prior_auth)
+    except Exception as e:
+        fail(
+            f"Prior authorization cho TASK-{task_id:03d} chứa M5 lease binding không hợp lệ ({e}) (R2-1)."
+        )
+
+    is_failover = (prior_executor != selected_executor)
+    return prior_auth, is_failover
+
+
 def _validate_stable_failover_preconditions(
     cfg: dict,
     task_id: int,
@@ -1094,30 +1130,7 @@ def cmd_handoff(args):
         task_id_str = f"TASK-{task_id:03d}"
         ws_id = get_workspace_id()
 
-        prior_auth = load_authorization(task_id)
-        if prior_auth is None:
-            if explicit_executor or selected_executor != "antigravity":
-                fail(
-                    f"Không thể thực hiện cross-executor FIX cho TASK-{task_id:03d} "
-                    f"khi không có prior authorization để xác định nguồn (R2-1)."
-                )
-            is_failover = False
-        else:
-            prior_executor = prior_auth.get("executor_id")
-            if not prior_executor:
-                fail(
-                    f"Prior authorization cho TASK-{task_id:03d} thiếu executor_id hợp lệ. "
-                    f"Không thể xác định source executor (R2-1)."
-                )
-
-            # Validate prior auth lease binding completeness (R2-1)
-            for req_m5_field in ("lease_id", "lease_fingerprint", "workspace_id", "execution_fingerprint"):
-                if not prior_auth.get(req_m5_field):
-                    fail(
-                        f"Prior authorization cho TASK-{task_id:03d} thiếu M5 lease field '{req_m5_field}' (R2-1)."
-                    )
-
-            is_failover = (prior_executor != selected_executor)
+        prior_auth, is_failover = _validate_and_classify_fix_prior_auth(task_id, selected_executor)
 
         store = get_lease_store()
 
@@ -1515,28 +1528,10 @@ def cmd_approve(args):
     art_blob = data.get("blob_sha", "")
 
     store = get_lease_store()
-    prior_auth = load_authorization(args.task_id)
     if action == "FIX":
-        if prior_auth is None:
-            if explicit_executor or selected_executor != "antigravity":
-                fail(
-                    f"Không thể thực hiện cross-executor FIX cho TASK-{args.task_id:03d} "
-                    f"khi không có prior authorization để xác định nguồn (R2-1)."
-                )
-            is_failover = False
-        else:
-            prior_executor = prior_auth.get("executor_id")
-            if not prior_executor:
-                fail(
-                    f"Prior authorization cho TASK-{args.task_id:03d} thiếu executor_id hợp lệ (R2-1)."
-                )
-            for req_m5_field in ("lease_id", "lease_fingerprint", "workspace_id", "execution_fingerprint"):
-                if not prior_auth.get(req_m5_field):
-                    fail(
-                        f"Prior authorization cho TASK-{args.task_id:03d} thiếu M5 lease field '{req_m5_field}' (R2-1)."
-                    )
-            is_failover = (prior_executor != selected_executor)
+        prior_auth, is_failover = _validate_and_classify_fix_prior_auth(args.task_id, selected_executor)
     else:
+        prior_auth = load_authorization(args.task_id)
         is_failover = False
 
     source_lease = None
@@ -1797,13 +1792,39 @@ def cmd_context(args):
 def _evaluate_task_030_proof_progress(cfg: dict, auth: dict, failover_info: dict | None) -> tuple[str, str]:
     """
     Deterministically evaluates M6 real-proof progress for TASK-030 (R2-2).
-    Stage A (antigravity -> codex): PASS if active publish is a validated antigravity -> codex failover, else PENDING.
-    Stage B (codex -> antigravity): PASS if active publish is a validated codex -> antigravity failover AND Stage A is proven
-    from prior immutable repository result artifact at source_published_sha, else PENDING.
+    - Scans prior immutable repository commit history to preserve already-proven progress (e.g. during same-executor repairs).
+    - Stage A (antigravity -> codex): PASS if active publish is a validated failover OR if proven in prior immutable git history.
+    - Stage B (codex -> antigravity): PASS if active publish is a validated failover AND Stage A is proven OR if proven in prior immutable git history.
+    - Working-tree RESULT content is NEVER trusted.
     """
     stage_a = "PENDING"
     stage_b = "PENDING"
 
+    # Step 1: Scan immutable repository history for prior proven results on task branch
+    p_log = git("log", "-n", "30", "--format=%H", "--", ".ai/results/RESULT-030.md", check=False)
+    if p_log.returncode == 0 and p_log.stdout.strip():
+        for commit_sha in p_log.stdout.splitlines():
+            commit_sha = commit_sha.strip()
+            if not commit_sha:
+                continue
+            p_show = git("show", f"{commit_sha}:.ai/results/RESULT-030.md", check=False)
+            if p_show.returncode == 0 and p_show.stdout:
+                res_text = p_show.stdout
+                if "M6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: PASS" in res_text or (
+                    "FAILOVER_FROM_EXECUTOR: antigravity" in res_text
+                    and "FAILOVER_TO_EXECUTOR: codex" in res_text
+                ):
+                    stage_a = "PASS"
+                if "M6_REAL_PROOF_CODEX_TO_ANTIGRAVITY: PASS" in res_text or (
+                    "FAILOVER_FROM_EXECUTOR: codex" in res_text
+                    and "FAILOVER_TO_EXECUTOR: antigravity" in res_text
+                ):
+                    if stage_a == "PASS":
+                        stage_b = "PASS"
+            if stage_a == "PASS" and stage_b == "PASS":
+                break
+
+    # Step 2: Incorporate active failover publication if present
     if failover_info:
         from_exec = failover_info.get("from_executor")
         to_exec = failover_info.get("to_executor")
@@ -1811,23 +1832,18 @@ def _evaluate_task_030_proof_progress(cfg: dict, auth: dict, failover_info: dict
 
         if from_exec == "antigravity" and to_exec == "codex":
             stage_a = "PASS"
-            stage_b = "PENDING"
         elif from_exec == "codex" and to_exec == "antigravity":
-            # Verify Stage A from prior immutable repository result artifact at source_published_sha
-            if source_sha:
-                p = git("show", f"{source_sha}:.ai/results/RESULT-030.md", check=False)
-                if p.returncode == 0 and p.stdout:
-                    source_res = p.stdout
-                    # Stage A is proven if prior result manifest records antigravity -> codex failover or Stage A PASS
-                    if (
-                        "M6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: PASS" in source_res
-                        or (
-                            "FAILOVER_FROM_EXECUTOR: antigravity" in source_res
-                            and "FAILOVER_TO_EXECUTOR: codex" in source_res
-                        )
+            # Stage B requires Stage A to be proven (either from history or from source_published_sha)
+            if stage_a != "PASS" and source_sha:
+                p_src = git("show", f"{source_sha}:.ai/results/RESULT-030.md", check=False)
+                if p_src.returncode == 0 and p_src.stdout:
+                    if "M6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: PASS" in p_src.stdout or (
+                        "FAILOVER_FROM_EXECUTOR: antigravity" in p_src.stdout
+                        and "FAILOVER_TO_EXECUTOR: codex" in p_src.stdout
                     ):
                         stage_a = "PASS"
-                        stage_b = "PASS"
+            if stage_a == "PASS":
+                stage_b = "PASS"
 
     return stage_a, stage_b
 

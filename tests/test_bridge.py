@@ -628,6 +628,32 @@ def test_handoff_fix_succeeds_only_for_changes_required_and_binds_exact_blob():
             bridge.get_remote_blob_sha = lambda cfg, path: "8" * 40
             bridge.read_remote_file = lambda cfg, path: "# REVIEW-006\n\n## Status\nCHANGES_REQUIRED\n\nPlease fix unit tests."
 
+            store = bridge.get_lease_store()
+            prior_lease = bridge.build_executor_lease_candidate(
+                task_id="TASK-006",
+                workspace_id=store.workspace_id,
+                operation=ExecutionOperation.RUN,
+                target_branch="ai/task-006",
+                authorized_artifact_path=".ai/tasks/TASK-006.md",
+                authorized_artifact_blob_sha="7" * 40,
+                executor_id="antigravity",
+            )
+            bridge.save_authorization(6, {
+                "task_id": "TASK-006",
+                "action": "RUN",
+                "kind": "TASK",
+                "artifact_path": ".ai/tasks/TASK-006.md",
+                "artifact_blob_sha": "7" * 40,
+                "approved_at": "2026-08-16T10:00:00+07:00",
+                "branch": "ai/task-006",
+                "status": "CONSUMED",
+                "executor_id": "antigravity",
+                "lease_id": prior_lease.lease_id,
+                "lease_fingerprint": prior_lease.fingerprint(),
+                "workspace_id": prior_lease.workspace_id,
+                "execution_fingerprint": prior_lease.execution_fingerprint,
+            })
+
             bridge.cmd_handoff(type("Args", (), {"task_id": 6, "action": "fix"})())
 
             auth = bridge.get_active_authorization(6, "FIX")
@@ -3675,7 +3701,7 @@ def test_handoff_failover_post_acquire_rollback_restores_prior_consumed_auth_whe
 
 
 def test_handoff_and_approve_fix_fails_closed_when_prior_auth_missing_or_malformed():
-    """Validates R2-1: Missing or malformed prior authorization fails closed before lease acquisition."""
+    """Validates R2-1: Missing or malformed prior authorization fails closed before lease acquisition for both handoff and approve."""
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp) / "repo"
         root.mkdir()
@@ -3714,39 +3740,98 @@ def test_handoff_and_approve_fix_fails_closed_when_prior_auth_missing_or_malform
             }
             bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
 
+            review_blob = "b" * 40
             bridge.fetch_control = lambda cfg: None
-            bridge.get_remote_blob_sha = lambda cfg, path: "b" * 40
+            bridge.get_remote_blob_sha = lambda cfg, path: review_blob
             bridge.read_remote_file = lambda cfg, path: "# REVIEW-030\n\nSTATUS: CHANGES_REQUIRED\n"
 
-            # 1. Total missing prior authorization -> fails closed
+            # Create inbox event for cmd_approve testing
+            inbox_event_path = bridge.get_runtime_paths()["inbox"] / "review_030.json"
+            inbox_event = {
+                "task_id": "TASK-030",
+                "kind": "REVIEW",
+                "path": ".ai/reviews/REVIEW-030.md",
+                "blob_sha": review_blob,
+                "approval": "PENDING",
+            }
+            bridge.save_json(inbox_event_path, inbox_event)
+
+            store = bridge.get_lease_store()
+
+            # --- Test Group 1: Missing prior authorization (no auth file) ---
+            # 1a. handoff FIX with omitted --executor
+            with pytest.raises(SystemExit):
+                bridge.cmd_handoff(type("Args", (), {"task_id": 30, "action": "fix", "executor": None})())
+            assert store.load_active("TASK-030") is None
+
+            # 1b. handoff FIX with explicit --executor antigravity
             with pytest.raises(SystemExit):
                 bridge.cmd_handoff(type("Args", (), {"task_id": 30, "action": "fix", "executor": "antigravity"})())
+            assert store.load_active("TASK-030") is None
 
+            # 1c. handoff FIX with explicit --executor codex
             with pytest.raises(SystemExit):
                 bridge.cmd_handoff(type("Args", (), {"task_id": 30, "action": "fix", "executor": "codex"})())
+            assert store.load_active("TASK-030") is None
 
-            # 2. Prior auth missing executor_id -> fails closed (does not downgrade to same-executor)
+            # 1d. cmd_approve FIX with omitted --executor
+            with pytest.raises(SystemExit):
+                bridge.cmd_approve(type("Args", (), {"task_id": 30, "kind": "review", "executor": None})())
+            assert store.load_active("TASK-030") is None
+
+            # 1e. cmd_approve FIX with explicit --executor codex
+            with pytest.raises(SystemExit):
+                bridge.cmd_approve(type("Args", (), {"task_id": 30, "kind": "review", "executor": "codex"})())
+            assert store.load_active("TASK-030") is None
+
+            # --- Test Group 2: Prior auth exists but missing executor_id ---
             malformed_auth = {
                 "task_id": "TASK-030",
                 "action": "RUN",
+                "kind": "TASK",
+                "artifact_path": ".ai/tasks/TASK-030.md",
+                "artifact_blob_sha": "a" * 40,
                 "status": "CONSUMED",
-                "lease_id": "l-123",
-                "lease_fingerprint": "fp-123",
+                "lease_id": "lease-task-030-123456789abc",
+                "lease_fingerprint": "1" * 64,
                 "workspace_id": "0" * 64,
-                "execution_fingerprint": "1" * 64,
+                "execution_fingerprint": "2" * 64,
             }
             bridge.save_authorization(30, malformed_auth)
 
             with pytest.raises(SystemExit):
-                bridge.cmd_handoff(type("Args", (), {"task_id": 30, "action": "fix", "executor": "codex"})())
+                bridge.cmd_handoff(type("Args", (), {"task_id": 30, "action": "fix", "executor": None})())
+            assert store.load_active("TASK-030") is None
 
-            # 3. Prior auth missing lease binding fields -> fails closed
+            with pytest.raises(SystemExit):
+                bridge.cmd_approve(type("Args", (), {"task_id": 30, "kind": "review", "executor": "codex"})())
+            assert store.load_active("TASK-030") is None
+
+            # --- Test Group 3: Prior auth exists but has malformed nonempty M5 binding ---
+            # 3a. Invalid lease fingerprint (doesn't match computed fingerprint)
             malformed_auth["executor_id"] = "antigravity"
-            del malformed_auth["lease_fingerprint"]
+            malformed_auth["lease_fingerprint"] = "bad_fingerprint_hex"
             bridge.save_authorization(30, malformed_auth)
 
             with pytest.raises(SystemExit):
                 bridge.cmd_handoff(type("Args", (), {"task_id": 30, "action": "fix", "executor": "codex"})())
+            assert store.load_active("TASK-030") is None
+
+            with pytest.raises(SystemExit):
+                bridge.cmd_approve(type("Args", (), {"task_id": 30, "kind": "review", "executor": None})())
+            assert store.load_active("TASK-030") is None
+
+            # 3b. Missing required field in M5 lease binding
+            del malformed_auth["lease_fingerprint"]
+            bridge.save_authorization(30, malformed_auth)
+
+            with pytest.raises(SystemExit):
+                bridge.cmd_handoff(type("Args", (), {"task_id": 30, "action": "fix", "executor": "antigravity"})())
+            assert store.load_active("TASK-030") is None
+
+            with pytest.raises(SystemExit):
+                bridge.cmd_approve(type("Args", (), {"task_id": 30, "kind": "review", "executor": "antigravity"})())
+            assert store.load_active("TASK-030") is None
         finally:
             bridge.PROJECT = old_project
             bridge.AI = old_ai
@@ -3758,7 +3843,7 @@ def test_handoff_and_approve_fix_fails_closed_when_prior_auth_missing_or_malform
 
 
 def test_cmd_publish_task_030_proof_progress_manifest_generation():
-    """Validates R2-2: Bridge emits canonical M6 real-proof progress fields for TASK-030."""
+    """Validates R2-2: Bridge emits canonical M6 real-proof progress fields and preserves proven stages across repairs."""
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp) / "repo"
         root.mkdir()
@@ -3777,8 +3862,8 @@ def test_cmd_publish_task_030_proof_progress_manifest_generation():
         (results_dir / "RESULT-030.md").write_text("# RESULT-030\n", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
         subprocess.run(["git", "commit", "-m", "initial result"], cwd=root, check=True, capture_output=True)
-        stage_a_source_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
-        result_blob_sha = subprocess.run(["git", "rev-parse", f"{stage_a_source_sha}:.ai/results/RESULT-030.md"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
+        init_source_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
+        init_result_blob_sha = subprocess.run(["git", "rev-parse", f"{init_source_sha}:.ai/results/RESULT-030.md"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
 
         runtime_dir = Path(temp) / "bridge_runtime"
         os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
@@ -3823,16 +3908,51 @@ def test_cmd_publish_task_030_proof_progress_manifest_generation():
 
             store = bridge.get_lease_store()
 
-            # --- Case 1: Stage A failover (antigravity -> codex) ---
-            source_lease_a = bridge.build_executor_lease_candidate(
+            # --- Stage 0: Initial same-executor Antigravity FIX before failover ---
+            lease_antigravity = bridge.build_executor_lease_candidate(
                 task_id="TASK-030",
                 workspace_id=store.workspace_id,
-                operation=ExecutionOperation.RUN,
+                operation=ExecutionOperation.FIX,
                 target_branch="ai/task-030",
-                authorized_artifact_path=".ai/tasks/TASK-030.md",
-                authorized_artifact_blob_sha="a" * 40,
+                authorized_artifact_path=".ai/reviews/REVIEW-030.md",
+                authorized_artifact_blob_sha=review_blob,
                 executor_id="antigravity",
             )
+            store.acquire(lease_antigravity)
+
+            auth_antigravity = {
+                "task_id": "TASK-030",
+                "action": "FIX",
+                "kind": "REVIEW",
+                "artifact_path": ".ai/reviews/REVIEW-030.md",
+                "artifact_blob_sha": review_blob,
+                "approved_at": "2026-08-17T11:00:00+07:00",
+                "branch": "ai/task-030",
+                "status": "ACTIVE",
+                "executor_id": "antigravity",
+                "lease_id": lease_antigravity.lease_id,
+                "lease_fingerprint": lease_antigravity.fingerprint(),
+                "workspace_id": lease_antigravity.workspace_id,
+                "execution_fingerprint": lease_antigravity.execution_fingerprint,
+            }
+            bridge.save_authorization(30, auth_antigravity)
+
+            # Worker attempt to forge Stage A in working tree file before failover is ignored
+            (results_dir / "RESULT-030.md").write_text("# WORKER FABRICATED\nM6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: PASS\n", encoding="utf-8")
+
+            bridge.cmd_publish(type("Args", (), {
+                "task_id": 30, "action": "FIX", "test": None, "summary": "Initial Antigravity FIX", "notes": None, "message": "Round 2 fix"
+            })())
+
+            res_init = (results_dir / "RESULT-030.md").read_text(encoding="utf-8")
+            assert "M6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: PENDING" in res_init
+            assert "M6_REAL_PROOF_CODEX_TO_ANTIGRAVITY: PENDING" in res_init
+            assert "EXECUTOR_FAILOVER: NO" in res_init
+
+            stage_a_source_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
+            stage_a_result_blob = subprocess.run(["git", "rev-parse", f"{stage_a_source_sha}:.ai/results/RESULT-030.md"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
+
+            # --- Stage A: Validated failover (antigravity -> codex) ---
             repl_lease_a = bridge.build_executor_lease_candidate(
                 task_id="TASK-030",
                 workspace_id=store.workspace_id,
@@ -3848,15 +3968,15 @@ def test_cmd_publish_task_030_proof_progress_manifest_generation():
                 schema_version="1",
                 task_id="TASK-030",
                 target_branch="ai/task-030",
-                source_executor_id=source_lease_a.executor_id,
-                source_operation=source_lease_a.operation,
-                source_execution_fingerprint=source_lease_a.execution_fingerprint,
-                source_lease_fingerprint=source_lease_a.fingerprint(),
+                source_executor_id="antigravity",
+                source_operation=ExecutionOperation.FIX,
+                source_execution_fingerprint=lease_antigravity.execution_fingerprint,
+                source_lease_fingerprint=lease_antigravity.fingerprint(),
                 source_published_sha=stage_a_source_sha,
                 source_result_ref=bridge.ArtifactRef(
                     path=".ai/results/RESULT-030.md",
                     ref=stage_a_source_sha,
-                    blob_sha=result_blob_sha,
+                    blob_sha=stage_a_result_blob,
                 ),
                 replacement_executor_id=repl_lease_a.executor_id,
                 replacement_operation=repl_lease_a.operation,
@@ -3883,16 +4003,13 @@ def test_cmd_publish_task_030_proof_progress_manifest_generation():
                 "lease_fingerprint": repl_lease_a.fingerprint(),
                 "workspace_id": repl_lease_a.workspace_id,
                 "execution_fingerprint": repl_lease_a.execution_fingerprint,
-                "failover_source_lease": source_lease_a.to_dict(),
+                "failover_source_lease": lease_antigravity.to_dict(),
                 "failover_proof": proof_a.to_dict(),
                 "failover_proof_fingerprint": proof_a.fingerprint(),
             }
             bridge.save_authorization(30, active_auth_a)
 
             (root / "change_a.txt").write_text("change a\n", encoding="utf-8")
-
-            # Worker attempt to put arbitrary content in RESULT-030.md is overwritten by Bridge
-            (results_dir / "RESULT-030.md").write_text("# WORKER FABRICATED CONTENT\nM6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: FABRICATED\n", encoding="utf-8")
 
             bridge.cmd_publish(type("Args", (), {
                 "task_id": 30, "action": "FIX", "test": None, "summary": "Stage A publish", "notes": None, "message": "Stage A"
@@ -3904,14 +4021,54 @@ def test_cmd_publish_task_030_proof_progress_manifest_generation():
             assert "EXECUTOR_FAILOVER: YES" in res_a
             assert "FAILOVER_FROM_EXECUTOR: antigravity" in res_a
             assert "FAILOVER_TO_EXECUTOR: codex" in res_a
-            assert "FABRICATED" not in res_a
 
-            # The Stage A result is already committed by cmd_publish at HEAD
+            stage_a_published_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
+            stage_a_published_result_blob = subprocess.run(["git", "rev-parse", f"{stage_a_published_sha}:.ai/results/RESULT-030.md"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
+
+            # --- Stage A+: Same-executor Codex FIX (repair before Stage B) preserves Stage A PASS ---
+            lease_codex_repair = bridge.build_executor_lease_candidate(
+                task_id="TASK-030",
+                workspace_id=store.workspace_id,
+                operation=ExecutionOperation.FIX,
+                target_branch="ai/task-030",
+                authorized_artifact_path=".ai/reviews/REVIEW-030.md",
+                authorized_artifact_blob_sha=review_blob,
+                executor_id="codex",
+            )
+            store.acquire(lease_codex_repair)
+
+            auth_codex_repair = {
+                "task_id": "TASK-030",
+                "action": "FIX",
+                "kind": "REVIEW",
+                "artifact_path": ".ai/reviews/REVIEW-030.md",
+                "artifact_blob_sha": review_blob,
+                "approved_at": "2026-08-17T11:45:00+07:00",
+                "branch": "ai/task-030",
+                "status": "ACTIVE",
+                "executor_id": "codex",
+                "lease_id": lease_codex_repair.lease_id,
+                "lease_fingerprint": lease_codex_repair.fingerprint(),
+                "workspace_id": lease_codex_repair.workspace_id,
+                "execution_fingerprint": lease_codex_repair.execution_fingerprint,
+            }
+            bridge.save_authorization(30, auth_codex_repair)
+
+            (root / "change_codex_repair.txt").write_text("repair\n", encoding="utf-8")
+
+            bridge.cmd_publish(type("Args", (), {
+                "task_id": 30, "action": "FIX", "test": None, "summary": "Codex repair", "notes": None, "message": "Codex repair"
+            })())
+
+            res_repair = (results_dir / "RESULT-030.md").read_text(encoding="utf-8")
+            assert "M6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: PASS" in res_repair
+            assert "M6_REAL_PROOF_CODEX_TO_ANTIGRAVITY: PENDING" in res_repair
+            assert "EXECUTOR_FAILOVER: NO" in res_repair
+
             stage_b_source_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
             stage_b_result_blob = subprocess.run(["git", "rev-parse", f"{stage_b_source_sha}:.ai/results/RESULT-030.md"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
 
-            # --- Case 2: Stage B failover (codex -> antigravity) with prior Stage A evidence ---
-            source_lease_b = repl_lease_a  # prior source was codex
+            # --- Stage B: Failover (codex -> antigravity) ---
             repl_lease_b = bridge.build_executor_lease_candidate(
                 task_id="TASK-030",
                 workspace_id=store.workspace_id,
@@ -3929,8 +4086,8 @@ def test_cmd_publish_task_030_proof_progress_manifest_generation():
                 target_branch="ai/task-030",
                 source_executor_id="codex",
                 source_operation=ExecutionOperation.FIX,
-                source_execution_fingerprint=source_lease_b.execution_fingerprint,
-                source_lease_fingerprint=source_lease_b.fingerprint(),
+                source_execution_fingerprint=lease_codex_repair.execution_fingerprint,
+                source_lease_fingerprint=lease_codex_repair.fingerprint(),
                 source_published_sha=stage_b_source_sha,
                 source_result_ref=bridge.ArtifactRef(
                     path=".ai/results/RESULT-030.md",
@@ -3962,7 +4119,7 @@ def test_cmd_publish_task_030_proof_progress_manifest_generation():
                 "lease_fingerprint": repl_lease_b.fingerprint(),
                 "workspace_id": repl_lease_b.workspace_id,
                 "execution_fingerprint": repl_lease_b.execution_fingerprint,
-                "failover_source_lease": source_lease_b.to_dict(),
+                "failover_source_lease": lease_codex_repair.to_dict(),
                 "failover_proof": proof_b.to_dict(),
                 "failover_proof_fingerprint": proof_b.fingerprint(),
             }
@@ -3980,6 +4137,46 @@ def test_cmd_publish_task_030_proof_progress_manifest_generation():
             assert "EXECUTOR_FAILOVER: YES" in res_b
             assert "FAILOVER_FROM_EXECUTOR: codex" in res_b
             assert "FAILOVER_TO_EXECUTOR: antigravity" in res_b
+
+            # --- Stage B+: Subsequent same-executor Antigravity repair preserves both PASS ---
+            lease_antigravity_repair = bridge.build_executor_lease_candidate(
+                task_id="TASK-030",
+                workspace_id=store.workspace_id,
+                operation=ExecutionOperation.FIX,
+                target_branch="ai/task-030",
+                authorized_artifact_path=".ai/reviews/REVIEW-030.md",
+                authorized_artifact_blob_sha=review_blob,
+                executor_id="antigravity",
+            )
+            store.acquire(lease_antigravity_repair)
+
+            auth_antigravity_repair = {
+                "task_id": "TASK-030",
+                "action": "FIX",
+                "kind": "REVIEW",
+                "artifact_path": ".ai/reviews/REVIEW-030.md",
+                "artifact_blob_sha": review_blob,
+                "approved_at": "2026-08-17T12:15:00+07:00",
+                "branch": "ai/task-030",
+                "status": "ACTIVE",
+                "executor_id": "antigravity",
+                "lease_id": lease_antigravity_repair.lease_id,
+                "lease_fingerprint": lease_antigravity_repair.fingerprint(),
+                "workspace_id": lease_antigravity_repair.workspace_id,
+                "execution_fingerprint": lease_antigravity_repair.execution_fingerprint,
+            }
+            bridge.save_authorization(30, auth_antigravity_repair)
+
+            (root / "change_antigravity_repair.txt").write_text("repair2\n", encoding="utf-8")
+
+            bridge.cmd_publish(type("Args", (), {
+                "task_id": 30, "action": "FIX", "test": None, "summary": "Antigravity repair", "notes": None, "message": "Antigravity repair"
+            })())
+
+            res_final = (results_dir / "RESULT-030.md").read_text(encoding="utf-8")
+            assert "M6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: PASS" in res_final
+            assert "M6_REAL_PROOF_CODEX_TO_ANTIGRAVITY: PASS" in res_final
+            assert "EXECUTOR_FAILOVER: NO" in res_final
         finally:
             bridge.PROJECT = old_project
             bridge.AI = old_ai
