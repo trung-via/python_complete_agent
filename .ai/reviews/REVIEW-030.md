@@ -3,105 +3,84 @@
 STATUS: CHANGES_REQUIRED
 
 ## Review Scope
-- Round: 7 — Controlled Real Proof B review + Final Independent Audit
-- Proof-B source boundary: `4b9827b85955dcde14d852bfbeb7aaadaf66ddef`
-- Proof-B published head: `acf0205728756f6ff8b1134bcdbfdccf25e92820`
+- Round: 8 — Delta review of Final-Audit finding R7-1 + Final Independent Audit rerun
+- Previous proof-B head: `acf0205728756f6ff8b1134bcdbfdccf25e92820`
+- Reviewed branch head: `6a2c428fc12d9400641fc5a248403a2625849ed9`
 - Base main: `f36432c953fd84b8a38288f3d8580d2057a15cfc`
-- Branch: ahead 9 / behind 0; exact merge-base main.
+- Branch: ahead 10 / behind 0; exact merge-base main.
 
 ```text
 FULL_SEMANTIC_REVIEW: PASS AFTER REMEDIATION
-KNOWN_PREVIOUS_FINDINGS: CLOSED
+KNOWN_FINDINGS: CLOSED
 DELTA_FIX_REVIEW: PASS
+R7-1: CLOSED
 M6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: PASS
 M6_REAL_PROOF_CODEX_TO_ANTIGRAVITY: PASS
-FINAL_INDEPENDENT_AUDIT: FAIL
+FINAL_INDEPENDENT_AUDIT_CODE: PASS
+FINAL_INDEPENDENT_AUDIT: INCOMPLETE_EVIDENCE
 APPROVED: NO
 ```
 
-## Proof B Decision
+## R7-1 Closure
 
-Proof B is accepted.
+R7-1 is closed.
 
-The Proof-B commit is the direct child of the exact Codex source boundary and changes only `.ai/results/RESULT-030.md`; no production or test code changed in the reverse proof round.
-
-Bridge-generated RESULT binds:
+`_validate_stable_failover_preconditions()` now performs the C13 final branch-name assertion before the source HEAD / remote branch checks and before either activation path can reach replacement lease acquisition:
 
 ```text
-EXECUTOR_ID: antigravity
-EXECUTOR_FAILOVER: YES
-FAILOVER_FROM_EXECUTOR: codex
-FAILOVER_TO_EXECUTOR: antigravity
-FAILOVER_SOURCE_PUBLISHED_SHA: 4b9827b85955dcde14d852bfbeb7aaadaf66ddef
-FAILOVER_REVIEW_BLOB_SHA: f93e416f3ad93759d51ef471b6c2da95e9847bb2
+current_branch() == expected task branch
+HEAD             == source published SHA
+remote task ref  == source published SHA
+```
+
+The new regression creates `feature/other-branch` pointing to the exact same source commit as `ai/task-030`, then proves the stable-boundary helper rejects the activation and the lease store remains empty. It also exercises both `cmd_handoff()` and legacy `cmd_approve()` through the shared failover gate and confirms no replacement lease is acquired.
+
+No M5 lease semantic, failover proof schema, proof-progress logic, executor set, or real-proof evidence was changed.
+
+## Proof Preservation
+
+The Round-8 same-executor Antigravity RESULT correctly preserves:
+
+```text
 M6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: PASS
 M6_REAL_PROOF_CODEX_TO_ANTIGRAVITY: PASS
 ```
 
-Focused Bridge + executor-failover tests report `75 passed, 0 failed`. The semantically identical production/test code at `9e07edc16690e2549a377e596c05089b3331fd97` previously ran the full repository suite with `749 passed, 0 failed`; the two later proof commits changed only RESULT evidence.
+and correctly reports `EXECUTOR_FAILOVER: NO` for this repair round.
 
-## Final Independent Audit Finding
+## Test Evidence Gate
 
-### R7-1 HIGH — Stable-boundary precondition does not explicitly assert current task branch before replacement lease acquisition
-
-TASK-030 C13 requires all three final stable-boundary assertions before replacement acquisition:
+Round 8 reports only the focused command:
 
 ```text
-current_branch == expected task branch
-git HEAD == prior_auth.published_sha
-remote task branch == prior_auth.published_sha
+.\venv\Scripts\python -m pytest tests/test_bridge.py tests/aios_bridge/continuity/test_executor_failover.py
+76 passed, 0 failed
 ```
 
-and explicitly says existing branch reconciliation does not remove the need to assert the final boundary.
+This closes the focused regression for R7-1. However Round 7 explicitly required a fresh full repository suite after the production/test-code repair. No full-repository result is present in the current RESULT, and the reviewed commit has no GitHub status/CI evidence that supplies an equivalent full regression run.
 
-Current `_validate_stable_failover_preconditions()` validates the latter two conditions, but it never checks `current_branch() == branch` inside the final failover gate. It proceeds from source-auth reconstruction directly to `git rev-parse HEAD`, then remote-task-ref equality.
+Therefore there is no remaining semantic code finding, but the mandatory final regression evidence is incomplete. Final approval is withheld solely for this evidence gate.
 
-A different local branch can point at the same source commit. In that state HEAD and remote task SHA checks can both pass while the workspace is not actually on the authorized task branch. Bridge could then acquire the replacement lease and expose execution authority on the wrong branch; `cmd_publish()` would reject later, but that is after the Executor may already have mutated the workspace. For an L3 authority-safety contract, publish-time detection is too late.
+## Required Final Evidence Round
 
-Required remediation is intentionally narrow:
+Run one ordinary same-executor Antigravity FIX with no semantic code changes unless a test reveals a real defect. Execute at minimum:
 
-1. In `_validate_stable_failover_preconditions()`, before the HEAD equality check, resolve `current_branch()` and fail closed unless it equals the exact `branch` argument.
-2. The assertion must occur before `store.acquire()` can be reached through either `cmd_handoff()` or legacy `cmd_approve()`.
-3. Add a deterministic regression where another branch points to the same exact source published SHA; failover activation must reject and no replacement lease may be acquired.
-4. Because handoff and approve share the helper, one helper-level/integration proof may cover both only if it mechanically demonstrates the shared pre-acquire gate; otherwise cover both activation paths.
-5. Do not modify M5 lease semantics, proof schema, proof-progress logic, or real-proof evidence.
+```text
+.\venv\Scripts\python -m pytest tests/
+```
 
-## Final Audit Areas That Passed
+The next Bridge-published RESULT must preserve both M6 proof flags as PASS and contain fresh full-repository test evidence with zero failures/regressions.
 
-- canonical `StableExecutorFailoverProof` remains immutable, strict, bounded, role-specific and vendor-neutral;
-- pure relational validation binds task/executor/operation/execution and lease fingerprints plus same workspace;
-- runtime executor set remains exactly `antigravity,codex` with no router or third executor;
-- prior FIX authorization classification is fail-closed and strict;
-- source RESULT and REVIEW are content-addressed at immutable Git anchors;
-- no ACTIVE lease is allowed before replacement acquisition;
-- cross-executor activation rollback restores prior control state and releases only the exact replacement lease;
-- legacy approve uses the same failover precondition gate;
-- publish requires exact replacement lease and revalidates strict failover proof + current immutable REVIEW before tests;
-- successful publish retains M5 ordering: push -> exact lease release -> auth CONSUMED + published SHA -> IN_REVIEW;
-- proof progress uses exact predecessor anchors rather than arbitrary history;
-- Stage A and Stage B real repository proofs are both accepted;
-- no runtime_lease/executor/state/Brain/provider semantics were widened;
-- no hot handoff, TTL/heartbeat/steal, quota routing, auto failover, paid API path, or merge authority widening was introduced.
-
-## Next Step
-
-Run one ordinary same-executor Antigravity FIX. This is a semantic repair after both proofs are already complete; it is not another failover proof.
-
-Expected command:
+Expected activation:
 
 ```text
 /aios-worker FIX TASK-030 --executor antigravity
 ```
 
-The resulting RESULT must preserve:
+A RESULT-only evidence commit is acceptable if the full suite passes and no code change is needed.
 
-```text
-M6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: PASS
-M6_REAL_PROOF_CODEX_TO_ANTIGRAVITY: PASS
-```
-
-Run focused Bridge/failover tests and a fresh full repository suite. After publish, return with `Review TASK-030`; Primary Brain will delta-review R7-1 and rerun the Final Independent Audit before APPROVED.
+After publish, return with `Review TASK-030`. Primary Brain will verify the exact predecessor/result relation and, if the fresh full suite is green and no new delta appears, finalize the Final Independent Audit as PASS and issue APPROVED.
 
 ## Decision
 
-`CHANGES_REQUIRED`
+`CHANGES_REQUIRED` — evidence-only gate; no open semantic code finding.
