@@ -3,17 +3,17 @@
 STATUS: CHANGES_REQUIRED
 
 ## Review Scope
-- Round: 3 — Delta Fix Review / Stage 0
-- Previous reviewed head: `8a909d16eaba0f7ae796ed95a4cde63c11f5a683`
-- Reviewed/tested branch head: `40ecab28e222df85621f092a46f5474701dd7f6c`
+- Round: 4 — Delta Fix Review / Stage 0
+- Previous reviewed head: `40ecab28e222df85621f092a46f5474701dd7f6c`
+- Reviewed/tested branch head: `dd605785bc9450d75744fb49be3b5e6bc8c316f7`
 - Base main: `f36432c953fd84b8a38288f3d8580d2057a15cfc`
-- Branch: ahead 5 / behind 0; exact merge-base main.
+- Branch: ahead 6 / behind 0; exact merge-base main.
 
 ```text
 FULL_SEMANTIC_REVIEW: FAIL in Round 1
 KNOWN_FINDINGS: OPEN
 DELTA_FIX_REVIEW: FAIL
-M6_PROOF_REQUIRED: BLOCKED_UNTIL_SEMANTIC_FIXES
+M6_PROOF_REQUIRED: BLOCKED_UNTIL_SEMANTIC_FIXES_AND_FULL_REGRESSION
 M6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: PENDING
 M6_REAL_PROOF_CODEX_TO_ANTIGRAVITY: PENDING
 FINAL_INDEPENDENT_AUDIT: NOT_RUN
@@ -26,81 +26,68 @@ APPROVED: NO
 - `R1-2` CLOSED
 - `R1-3` CLOSED
 - `R1-4` CLOSED
-- `R1-5` CLOSED — handoff rollback now restores prior CONSUMED authorization after a post-save `update_state()` failure, releases only the exact replacement lease, and reports recovery state.
-- `R2-1` PARTIAL / OPEN
-- `R2-2` PARTIAL / OPEN
+- `R1-5` CLOSED
+- `R2-1` CLOSED — FIX activation now fails closed when prior authorization is absent even with omitted `--executor`, strictly reconstructs prior M5 lease binding before same-vs-cross classification, and applies the same helper to handoff and approve. Rejection tests assert no lease acquisition.
+- `R2-2` PARTIAL / OPEN — proof-progress preservation now survives same-executor repairs, but provenance is still too broad.
 
-## Remaining Findings
+## Remaining Finding
 
-### R2-1 HIGH — Missing prior authorization can still downgrade a real cross-executor FIX when `--executor` is omitted
-Current FIX classification does this when `prior_auth is None`:
+### R2-2 HIGH — Proof progress trusts arbitrary committed RESULT history rather than an exact Bridge-controlled prior publish anchor
+
+`_evaluate_task_030_proof_progress()` currently scans:
 
 ```text
-if explicit_executor or selected_executor != antigravity:
-    reject
-else:
-    is_failover = False
+git log -n 30 -- .ai/results/RESULT-030.md
 ```
 
-Because omitted `--executor` defaults to `antigravity`, a missing authorization file after a prior Codex execution can still become an ordinary Antigravity FIX. The Bridge no longer has source identity, so it cannot prove this is same-executor; fail-closed semantics require rejection rather than assumption.
+and promotes proof progress when any historical RESULT contains either a PASS flag or a matching `FAILOVER_FROM_EXECUTOR` / `FAILOVER_TO_EXECUTOR` pair.
 
-The new test called `test_handoff_and_approve_fix_fails_closed_when_prior_auth_missing_or_malformed` tests explicit `antigravity` and explicit `codex`, but does not test omitted executor, and it exercises handoff rather than both activation paths.
+This fixes the previous working-tree reset, but it does not prove that the historical RESULT was produced by the immediately preceding successful Bridge publish. Executors have local-git capability; a worker can create and locally commit a fabricated `RESULT-030.md` containing Stage-A/B PASS or failover-direction prose before `cmd_publish()`. That commit is immutable Git history, and the current scan would accept it as proof evidence even though the real selected-executor/lease/auth/publish transition never occurred.
 
-The same classification exists in `cmd_approve()`.
+The arbitrary `-n 30` bound also makes valid proof progress non-monotonic: enough same-executor repair commits can push the genuine proof commit out of the scan window and regress PASS to PENDING.
 
-Additionally, existing prior M5 binding is checked only for truthiness before same-executor classification. Malformed-but-nonempty lease/workspace/fingerprint values can still be treated as ordinary same-executor FIX without strict canonical reconstruction.
+This conflicts with TASK-030 AIP-12/C27/C28: real proof evidence may update only when the actual selected Executor + lease + authorization + Bridge publish chain occurred; worker-prepared evidence must never become the proof source merely by being committed.
 
 Required:
-- for M6 FIX activation, if prior authorization is absent, fail closed for both handoff and approve; do not infer Antigravity from the CLI default;
-- when prior authorization exists, strictly reconstruct/validate its M5 lease binding before classifying same-vs-cross executor (or an equivalent strict helper);
-- add handoff + approve regression cases for omitted executor with missing prior auth and malformed nonempty M5 binding;
-- no lease acquisition may occur in these rejection cases.
+- do not scan arbitrary RESULT history for proof authority;
+- bind proof-progress inheritance to one exact prior Bridge-controlled published SHA, preferably copied in bounded form from the prior CONSUMED authorization during same-executor FIX activation;
+- at publish, read only `.ai/results/RESULT-030.md` at that exact immutable prior published SHA and validate its canonical proof-progress fields;
+- for cross-executor Stage B, the existing exact `source_published_sha` remains the authoritative predecessor anchor;
+- malformed/missing predecessor RESULT must not fabricate PASS;
+- remove the arbitrary 30-commit history dependence;
+- add a regression where a worker locally commits a forged PASS RESULT before publish and Bridge still emits PENDING unless the exact predecessor anchor proves PASS;
+- retain existing tests that Stage-A PASS survives same-executor Codex repair and both PASS survive same-executor Antigravity repair.
 
-### R2-2 MEDIUM — Proof progress is generated, but ordinary same-executor FIX can erase already-proven progress
-Bridge now correctly overwrites worker-prepared RESULT content and emits:
+## Evidence Gate — Full repository regression still missing
 
-```text
-Stage A: PASS / PENDING
-Stage B: PASS / PASS
-```
-
-for validated failover directions. However `_evaluate_task_030_proof_progress()` initializes both directions to `PENDING` and only promotes them when the **current** authorization is a failover.
-
-Therefore after a valid Stage-A `antigravity -> codex` publish, any required same-executor Codex FIX before Stage B would produce:
+Round 3 explicitly required a fresh full-repository suite before proof A could open. Round 4 RESULT reports only:
 
 ```text
-M6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: PENDING
-M6_REAL_PROOF_CODEX_TO_ANTIGRAVITY: PENDING
+75 passed
 ```
 
-and erase the already-proven Stage-A progress from the canonical RESULT. This conflicts with the Round-2 requirement that ordinary same-executor FIX keep proof directions pending/**unchanged** and with C29, where semantic repair may be needed between proof stages.
+for `tests/test_bridge.py + tests/aios_bridge/continuity/test_executor_failover.py`.
 
-Required:
-- for ordinary TASK-030 FIX, preserve previously proven progress only from immutable prior repository evidence, never from the worker-prepared working-tree RESULT;
-- Stage-A PASS must survive a same-executor Codex FIX;
-- after both proofs PASS, any same-executor repair must preserve both PASS values;
-- malformed/missing prior immutable evidence must not fabricate PASS;
-- add explicit preservation tests.
+There is no fresh full-repository result in RESULT-030 and no CI status attached to the reviewed commit. The next semantic-fix publish must run the full repository suite and report the total/zero-regression result.
 
-## Evidence Requirement
-Round 3 reports the complete Bridge + failover focused command as `75 passed`. Because this round changed 583 lines across Bridge/tests, the next semantic-fix RESULT must also include a fresh full-repository regression run before proof A is opened.
+## Passing Scope Checks
 
-## Scope Check
 Still clean:
 - M5 lease-store semantics unchanged;
 - no Claude Code / third executor;
-- no hot or dirty handoff;
+- no dirty/hot handoff;
 - no TTL/heartbeat/lease steal;
 - no quota/router/automatic executor selection;
 - no paid external API path;
 - no merge authority widening.
 
 ## Next Stage
+
 Do **not** start Codex proof A yet.
 
-Run one more ordinary Antigravity FIX to close only `R2-1` and `R2-2`, and run the full repository suite. Keep current real-proof flags `PENDING/PENDING` for this semantic-fix publish.
+Run one more ordinary same-executor Antigravity FIX. Scope should be limited to exact proof-progress provenance plus tests/evidence. Run focused tests and the full repository suite.
 
-If Round 4 closes both findings, Primary Brain will replace this review with the controlled proof gate:
+If Round 5 closes R2-2 and full regression is green, Primary Brain will replace this review with the controlled proof gate:
 
 ```text
 STATUS: CHANGES_REQUIRED
@@ -111,4 +98,5 @@ M6_REAL_PROOF_CODEX_TO_ANTIGRAVITY: PENDING
 ```
 
 ## Decision
+
 `CHANGES_REQUIRED`
