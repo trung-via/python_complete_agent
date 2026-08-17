@@ -1215,26 +1215,37 @@ def cmd_approve(args):
         save_authorization(args.task_id, auth)
     except Exception as e:
         # Full post-acquire rollback: release lease, restore inbox event to PENDING, restore state (R2-1)
+        rollback_diagnostics: list[str] = []
         try:
             store.release(acquired_lease)
-        except Exception:
-            pass
+            rollback_diagnostics.append("lease_released: OK")
+        except Exception as re:
+            rollback_diagnostics.append(f"lease_release_failed: {re}")
+
+        inbox_restored = False
         try:
             data["approval"] = orig_approval
             if "approved_at" in data:
                 del data["approved_at"]
             save_json(f, data)
-        except Exception:
-            pass
+            inbox_restored = True
+            rollback_diagnostics.append("inbox_restored: PENDING")
+        except Exception as ie:
+            rollback_diagnostics.append(f"inbox_restore_failed: {ie}")
+
         try:
+            state_label = "PENDING_APPROVAL" if inbox_restored else "RECOVERY_REQUIRED"
             update_state(
                 args.task_id,
-                "PENDING_APPROVAL",
-                f"Approval failed during activation ({e}); restored to PENDING",
+                state_label,
+                f"Approval failed during activation ({e}); recovery: {'; '.join(rollback_diagnostics)}",
             )
-        except Exception:
-            pass
-        fail(f"Kích hoạt approval thất bại sau khi chiếm lease: {e}")
+            rollback_diagnostics.append(f"state_updated: {state_label}")
+        except Exception as se:
+            rollback_diagnostics.append(f"state_restore_failed: {se}")
+
+        diag_str = f" [Rollback diagnostics: {'; '.join(rollback_diagnostics)}]"
+        fail(f"Kích hoạt approval thất bại sau khi chiếm lease: {e}{diag_str}")
 
     print(f"[APPROVED] {data.get('kind')} for TASK-{args.task_id:03d}")
     print(f"[BRANCH] {branch}")

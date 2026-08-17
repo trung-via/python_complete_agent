@@ -256,7 +256,12 @@ class AtomicExecutorLeaseStore:
                     f"Failed acquiring lease for {lease.task_id}: {e}"
                 ) from e
 
-    def release(self, expected: ExecutorLease) -> ExecutorLease:
+    def release(
+        self,
+        expected: ExecutorLease,
+        *,
+        _test_pre_replace_hook: Any = None,
+    ) -> ExecutorLease:
         """
         Atomically releases lease via compare-and-release to history (C11 / R1-1 / ADR-019).
         Guarantees under task mutation guard that stale releases can never remove newer leases.
@@ -272,6 +277,10 @@ class AtomicExecutorLeaseStore:
         with _task_mutation_guard(task_dir, expected.task_id):
             # 1. Strict compare-and-validate against current active lease while holding lock
             self.require_active(expected)
+
+            # Test seam for deterministic concurrency interleaving proof (R1-1)
+            if _test_pre_replace_hook is not None:
+                _test_pre_replace_hook(expected)
 
             # 2. Prepare history directory
             history_dir = self._get_history_dir(expected.task_id)

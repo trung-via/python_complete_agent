@@ -216,6 +216,84 @@ def test_compare_and_release_lifecycle(tmp_path: Path):
     assert store.load_active(lease2.task_id) == lease2
 
 
+def test_deterministic_compare_and_release_toctou_interleaving_proof(tmp_path: Path):
+    """
+    Validates R1-1: Proves deterministically using a test seam hook in release() that:
+    1. While Releaser 1 has validated require_active(lease_a) and is paused inside its critical section,
+       competing operations (e.g. Acquirer B or Releaser 2) from independent store instances are
+       strictly blocked from entering the task mutation guard.
+    2. Once Releaser 1 finishes release, Acquirer B unblocks and acquires Lease B.
+    3. Stale Releaser 2 attempting to release Lease A fails closed with ContinuityStateValidationError
+       and CANNOT remove Lease B.
+    """
+    ws_id = "1" * 64
+    task_id = "TASK-029"
+    store1 = AtomicExecutorLeaseStore(lease_root=tmp_path, workspace_id=ws_id)
+    store2 = AtomicExecutorLeaseStore(lease_root=tmp_path, workspace_id=ws_id)
+    store3 = AtomicExecutorLeaseStore(lease_root=tmp_path, workspace_id=ws_id)
+
+    # 1. Lease A active
+    lease_a = _sample_lease(task_id=task_id, lease_id="lease-a", workspace_id=ws_id)
+    store1.acquire(lease_a)
+    assert store1.load_active(task_id) == lease_a
+
+    lease_b = _sample_lease(task_id=task_id, lease_id="lease-b", workspace_id=ws_id)
+
+    hook_entered = threading.Event()
+    hook_continue = threading.Event()
+    contender_blocked = threading.Event()
+    contender_finished = threading.Event()
+
+    contender_result = {}
+
+    def pre_replace_hook(l):
+        hook_entered.set()
+        # Wait until test runner signals to continue
+        hook_continue.wait(timeout=5.0)
+
+    def _competing_acquirer():
+        hook_entered.wait(timeout=5.0)
+        # Signal that contender is attempting acquire while Releaser 1 is inside critical section
+        contender_blocked.set()
+        try:
+            res = store2.acquire(lease_b)
+            contender_result["acquirer_b"] = res
+        except Exception as e:
+            contender_result["acquirer_b"] = e
+        finally:
+            contender_finished.set()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        f_releaser = executor.submit(lambda: store1.release(lease_a, _test_pre_replace_hook=pre_replace_hook))
+
+        # Wait for Releaser 1 to enter pre_replace_hook
+        hook_entered.wait(timeout=5.0)
+
+        # Launch contender in background
+        f_contender = executor.submit(_competing_acquirer)
+        contender_blocked.wait(timeout=5.0)
+
+        # Yield execution to confirm contender is blocked and cannot finish
+        time.sleep(0.05)
+        assert not contender_finished.is_set(), "Contender must be blocked by task mutation guard"
+
+        # Now let Releaser 1 complete
+        hook_continue.set()
+
+        released_a = f_releaser.result()
+        f_contender.result()
+
+    assert released_a == lease_a
+    assert contender_result["acquirer_b"] == lease_b
+
+    # Now Stale Releaser 3 attempts to release lease A -> MUST FAIL CLOSED
+    with pytest.raises(ContinuityStateValidationError, match="lease_id"):
+        store3.release(lease_a)
+
+    # Invariant: Active lease MUST BE Lease B and was NEVER removed by stale releaser!
+    assert store1.load_active(task_id) == lease_b
+
+
 def test_concurrent_compare_and_release_interleaving_race_protection(tmp_path: Path):
     """
     Validates R1-1: Concurrent race where Releaser 1, Acquirer B, and Stale Releaser 2 interact concurrently.
