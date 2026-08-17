@@ -38,6 +38,7 @@ from src.aios_bridge.continuity.lease import (
     ExecutorLease,
     validate_executor_lease_binding,
 )
+from src.aios_bridge.continuity.state import ContinuityStateValidationError
 from src.aios_bridge.runtime_lease import AtomicExecutorLeaseStore
 
 PROJECT = Path.cwd()
@@ -211,6 +212,64 @@ def build_executor_lease_candidate(
         operation=operation,
         execution_fingerprint=exec_fp,
     )
+
+
+def reconstruct_expected_executor_lease(auth: dict) -> ExecutorLease:
+    """
+    Reconstructs expected ExecutorLease strictly from ACTIVE authorization binding fields (AIP-7 / C20).
+    Fails closed without default inferences if any required field is missing, malformed, non-string,
+    empty/whitespace, or if the reconstructed lease fingerprint does not match auth['lease_fingerprint'].
+    """
+    if not isinstance(auth, dict):
+        raise ContinuityStateValidationError("Authorization payload must be a dictionary")
+
+    required_fields = [
+        "task_id",
+        "action",
+        "executor_id",
+        "lease_id",
+        "lease_fingerprint",
+        "workspace_id",
+        "execution_fingerprint",
+    ]
+
+    for field in required_fields:
+        val = auth.get(field)
+        if val is None or not isinstance(val, str) or not val.strip():
+            raise ContinuityStateValidationError(
+                f"ACTIVE authorization missing or malformed required lease field: '{field}'"
+            )
+
+    try:
+        op = ExecutionOperation(auth["action"])
+    except Exception as e:
+        raise ContinuityStateValidationError(
+            f"Invalid execution operation '{auth.get('action')}' in authorization: {e}"
+        ) from e
+
+    try:
+        expected_lease = ExecutorLease(
+            schema_version="1",
+            lease_id=auth["lease_id"],
+            task_id=auth["task_id"],
+            workspace_id=auth["workspace_id"],
+            executor_id=auth["executor_id"],
+            operation=op,
+            execution_fingerprint=auth["execution_fingerprint"],
+        )
+    except Exception as e:
+        raise ContinuityStateValidationError(
+            f"Failed constructing expected ExecutorLease from authorization: {e}"
+        ) from e
+
+    calc_fp = expected_lease.fingerprint()
+    auth_fp = auth["lease_fingerprint"]
+    if calc_fp != auth_fp:
+        raise ContinuityStateValidationError(
+            f"Lease fingerprint mismatch: calculated '{calc_fp}' vs authorization '{auth_fp}'"
+        )
+
+    return expected_lease
 
 
 def get_lease_store(repo_root: Path | None = None) -> AtomicExecutorLeaseStore:
@@ -1371,27 +1430,11 @@ def cmd_publish(args):
             f"Cần chạy `/aios-worker RUN TASK-{task_id:03d}` hoặc `/aios-worker FIX TASK-{task_id:03d}` trước khi publish."
         )
 
-    # Validate M5 lease binding fields in authorization (C20 / AIP-7)
-    for required_lease_field in ["lease_id", "lease_fingerprint", "workspace_id", "execution_fingerprint"]:
-        if not auth.get(required_lease_field):
-            fail(f"ACTIVE authorization thiếu thông tin lease bắt buộc: '{required_lease_field}'.")
-
-    # Reconstruct expected lease from ACTIVE authorization (AIP-7 / C20)
+    # Reconstruct expected lease strictly from ACTIVE authorization (AIP-7 / C20 / R5-1)
     try:
-        expected_lease = ExecutorLease(
-            schema_version="1",
-            lease_id=auth["lease_id"],
-            task_id=auth["task_id"],
-            workspace_id=auth["workspace_id"],
-            executor_id=auth.get("executor_id", "antigravity"),
-            operation=ExecutionOperation(auth["action"]),
-            execution_fingerprint=auth["execution_fingerprint"],
-        )
+        expected_lease = reconstruct_expected_executor_lease(auth)
     except Exception as e:
         fail(f"Tái cấu trúc expected lease từ authorization thất bại: {e}")
-
-    if expected_lease.fingerprint() != auth["lease_fingerprint"]:
-        fail("Lease fingerprint trong authorization không khớp với canonical lease.")
 
     # Require exact active lease before test execution or workspace mutation (AIP-9 / C20)
     store = get_lease_store()

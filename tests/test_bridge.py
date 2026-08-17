@@ -8,6 +8,8 @@ from pathlib import Path
 import pytest
 
 import bridge
+from src.aios_bridge.continuity.executor import ExecutionOperation
+from src.aios_bridge.continuity.state import ContinuityStateValidationError
 
 
 def test_runtime_state_path_is_outside_repository_worktree():
@@ -2330,6 +2332,178 @@ def test_cmd_approve_post_acquire_rollback_lease_release_failure_reports_recover
             bridge.save_authorization = old_save_auth
             bridge.checkout_task_branch = old_checkout
             bridge.get_lease_store = old_get_store
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+
+def test_reconstruct_expected_executor_lease_valid_and_invalid_cases():
+    """
+    Validates R5-1 / AIP-7: reconstruct_expected_executor_lease must fail closed without default
+    inferences on missing, empty, malformed, or mismatched lease fields.
+    """
+    ws_id = "a" * 64
+    task_id = "TASK-029"
+    candidate = bridge.build_executor_lease_candidate(
+        task_id=task_id,
+        workspace_id=ws_id,
+        operation=ExecutionOperation.RUN,
+        executor_id="antigravity",
+        target_branch="ai/task-029",
+        authorized_artifact_path=".ai/tasks/TASK-029.md",
+        authorized_artifact_blob_sha="1" * 40,
+    )
+
+    valid_auth = {
+        "task_id": task_id,
+        "action": "RUN",
+        "executor_id": "antigravity",
+        "lease_id": candidate.lease_id,
+        "lease_fingerprint": candidate.fingerprint(),
+        "workspace_id": ws_id,
+        "execution_fingerprint": candidate.execution_fingerprint,
+    }
+
+    # 1. Valid reconstruction
+    reconstructed = bridge.reconstruct_expected_executor_lease(valid_auth)
+    assert reconstructed == candidate
+    assert reconstructed.fingerprint() == candidate.fingerprint()
+
+    # 2. Non-dict input
+    with pytest.raises(ContinuityStateValidationError, match="dictionary"):
+        bridge.reconstruct_expected_executor_lease("invalid_type")
+
+    # 3. Missing or empty required fields (no default inference!)
+    for field in [
+        "task_id",
+        "action",
+        "executor_id",
+        "lease_id",
+        "lease_fingerprint",
+        "workspace_id",
+        "execution_fingerprint",
+    ]:
+        # Missing field
+        bad_auth = dict(valid_auth)
+        del bad_auth[field]
+        with pytest.raises(ContinuityStateValidationError, match=field):
+            bridge.reconstruct_expected_executor_lease(bad_auth)
+
+        # None value
+        bad_auth[field] = None
+        with pytest.raises(ContinuityStateValidationError, match=field):
+            bridge.reconstruct_expected_executor_lease(bad_auth)
+
+        # Empty or whitespace string
+        bad_auth[field] = "   "
+        with pytest.raises(ContinuityStateValidationError, match=field):
+            bridge.reconstruct_expected_executor_lease(bad_auth)
+
+    # 4. Invalid operation
+    bad_op_auth = dict(valid_auth, action="INVALID_OP")
+    with pytest.raises(ContinuityStateValidationError, match="Invalid execution operation"):
+        bridge.reconstruct_expected_executor_lease(bad_op_auth)
+
+    # 5. Fingerprint mismatch
+    bad_fp_auth = dict(valid_auth, lease_fingerprint="0" * 64)
+    with pytest.raises(ContinuityStateValidationError, match="fingerprint mismatch"):
+        bridge.reconstruct_expected_executor_lease(bad_fp_auth)
+
+
+def test_cmd_publish_missing_executor_id_in_active_auth_fails_closed_and_retains_lease():
+    """
+    Validates R5-1: When executor_id is missing from an otherwise valid ACTIVE M5 authorization
+    while the matching active lease exists, publish must fail closed BEFORE test execution/commit/push
+    and the lease remains ACTIVE.
+    """
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "main"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "README.md").write_text("# Repo\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+        subprocess.run(["git", "checkout", "-b", "ai/task-029"], cwd=root, check=True, capture_output=True)
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_blob = bridge.get_remote_blob_sha
+        old_read = bridge.read_remote_file
+        old_fetch = bridge.fetch_control
+
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+        bridge.fetch_control = lambda cfg: None
+        bridge.get_remote_blob_sha = lambda cfg, rel: "1" * 40
+        bridge.read_remote_file = lambda cfg, rel: "STATUS: IN_PROGRESS"
+
+        try:
+            bridge.ensure_dirs()
+            cfg = {
+                "remote": "origin",
+                "base_branch": "main",
+                "control_branch": "ai-control",
+                "task_branch_prefix": "ai/task-",
+                "poll_seconds": 20,
+                "windows_popup": False,
+            }
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            # 1. Acquire valid active lease
+            store = bridge.get_lease_store()
+            lease_candidate = bridge.build_executor_lease_candidate(
+                task_id="TASK-029",
+                workspace_id=store.workspace_id,
+                operation=ExecutionOperation.RUN,
+                executor_id="antigravity",
+                target_branch="ai/task-029",
+                authorized_artifact_path=".ai/tasks/TASK-029.md",
+                authorized_artifact_blob_sha="1" * 40,
+            )
+            store.acquire(lease_candidate)
+            assert store.load_active("TASK-029") == lease_candidate
+
+            # 2. Save ACTIVE authorization that is MISSING executor_id
+            auth = {
+                "task_id": "TASK-029",
+                "action": "RUN",
+                "kind": "TASK",
+                "artifact_path": ".ai/tasks/TASK-029.md",
+                "artifact_blob_sha": "1" * 40,
+                "approved_at": "2026-08-17T10:00:00+07:00",
+                "branch": "ai/task-029",
+                "status": "ACTIVE",
+                # "executor_id" is intentionally omitted!
+                "lease_id": lease_candidate.lease_id,
+                "lease_fingerprint": lease_candidate.fingerprint(),
+                "workspace_id": lease_candidate.workspace_id,
+                "execution_fingerprint": lease_candidate.execution_fingerprint,
+            }
+            bridge.save_authorization(29, auth)
+
+            # 3. Publish must FAIL CLOSED before tests or commits
+            with pytest.raises(SystemExit):
+                bridge.cmd_publish(
+                    type("Args", (), {"task_id": 29, "action": "RUN", "test": "echo test_ran > test.txt", "keep_branch": False})()
+                )
+
+            # 4. Invariant: Test did NOT run, and lease is RETAINED as ACTIVE!
+            assert not (root / "test.txt").exists()
+            assert store.load_active("TASK-029") == lease_candidate
+            assert bridge.get_active_authorization(29) is not None
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.get_remote_blob_sha = old_blob
+            bridge.read_remote_file = old_read
+            bridge.fetch_control = old_fetch
             if "AIOS_RUNTIME_DIR" in os.environ:
                 del os.environ["AIOS_RUNTIME_DIR"]
 
