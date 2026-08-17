@@ -20,6 +20,7 @@ Zero-Touch Workflow Model:
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import os
@@ -1094,11 +1095,29 @@ def cmd_handoff(args):
         ws_id = get_workspace_id()
 
         prior_auth = load_authorization(task_id)
-        is_failover = (
-            prior_auth is not None
-            and prior_auth.get("executor_id") is not None
-            and prior_auth.get("executor_id") != selected_executor
-        )
+        if prior_auth is None:
+            if explicit_executor or selected_executor != "antigravity":
+                fail(
+                    f"Không thể thực hiện cross-executor FIX cho TASK-{task_id:03d} "
+                    f"khi không có prior authorization để xác định nguồn (R2-1)."
+                )
+            is_failover = False
+        else:
+            prior_executor = prior_auth.get("executor_id")
+            if not prior_executor:
+                fail(
+                    f"Prior authorization cho TASK-{task_id:03d} thiếu executor_id hợp lệ. "
+                    f"Không thể xác định source executor (R2-1)."
+                )
+
+            # Validate prior auth lease binding completeness (R2-1)
+            for req_m5_field in ("lease_id", "lease_fingerprint", "workspace_id", "execution_fingerprint"):
+                if not prior_auth.get(req_m5_field):
+                    fail(
+                        f"Prior authorization cho TASK-{task_id:03d} thiếu M5 lease field '{req_m5_field}' (R2-1)."
+                    )
+
+            is_failover = (prior_executor != selected_executor)
 
         store = get_lease_store()
 
@@ -1117,6 +1136,9 @@ def cmd_handoff(args):
                 )
             )
 
+            # Preserve exact backup of prior authorization before replacement persistence (R1-5)
+            prior_auth_backup = copy.deepcopy(prior_auth)
+
             # Acquire replacement lease
             replacement_lease_candidate = build_executor_lease_candidate(
                 task_id=task_id_str,
@@ -1133,6 +1155,7 @@ def cmd_handoff(args):
                 fail(f"Chiếm replacement executor lease thất bại cho {task_id_str}: {e}")
 
             # Atomic post-acquire transaction (R1-5)
+            auth_saved = False
             try:
                 failover_proof = StableExecutorFailoverProof(
                     schema_version="1",
@@ -1175,6 +1198,7 @@ def cmd_handoff(args):
                     "failover_proof_fingerprint": failover_proof.fingerprint(),
                 }
                 save_authorization(task_id, auth_record)
+                auth_saved = True
 
                 update_state(
                     task_id,
@@ -1189,8 +1213,19 @@ def cmd_handoff(args):
                 except Exception as rel_err:
                     rollback_diagnostics.append(f"replacement_lease_release_failed: {rel_err}")
 
+                auth_restored = False
+                if auth_saved:
+                    try:
+                        save_authorization(task_id, prior_auth_backup)
+                        rollback_diagnostics.append("prior_auth_restored: OK")
+                        auth_restored = True
+                    except Exception as auth_err:
+                        rollback_diagnostics.append(f"prior_auth_restore_failed: {auth_err}")
+                else:
+                    auth_restored = True
+
                 lease_released = "replacement_lease_released: OK" in rollback_diagnostics
-                state_label = "PENDING_APPROVAL" if lease_released else "RECOVERY_REQUIRED"
+                state_label = "PENDING_APPROVAL" if (lease_released and auth_restored) else "RECOVERY_REQUIRED"
                 try:
                     update_state(
                         task_id,
@@ -1481,12 +1516,28 @@ def cmd_approve(args):
 
     store = get_lease_store()
     prior_auth = load_authorization(args.task_id)
-    is_failover = (
-        action == "FIX"
-        and prior_auth is not None
-        and prior_auth.get("executor_id") is not None
-        and prior_auth.get("executor_id") != selected_executor
-    )
+    if action == "FIX":
+        if prior_auth is None:
+            if explicit_executor or selected_executor != "antigravity":
+                fail(
+                    f"Không thể thực hiện cross-executor FIX cho TASK-{args.task_id:03d} "
+                    f"khi không có prior authorization để xác định nguồn (R2-1)."
+                )
+            is_failover = False
+        else:
+            prior_executor = prior_auth.get("executor_id")
+            if not prior_executor:
+                fail(
+                    f"Prior authorization cho TASK-{args.task_id:03d} thiếu executor_id hợp lệ (R2-1)."
+                )
+            for req_m5_field in ("lease_id", "lease_fingerprint", "workspace_id", "execution_fingerprint"):
+                if not prior_auth.get(req_m5_field):
+                    fail(
+                        f"Prior authorization cho TASK-{args.task_id:03d} thiếu M5 lease field '{req_m5_field}' (R2-1)."
+                    )
+            is_failover = (prior_executor != selected_executor)
+    else:
+        is_failover = False
 
     source_lease = None
     source_published_sha = None
@@ -1508,6 +1559,8 @@ def cmd_approve(args):
         )
         art_blob = review_ref.blob_sha
 
+    prior_auth_backup = copy.deepcopy(prior_auth) if prior_auth else None
+
     lease_candidate = build_executor_lease_candidate(
         task_id=task_id_str,
         workspace_id=ws_id,
@@ -1523,7 +1576,8 @@ def cmd_approve(args):
         # Note: Event file remains PENDING and operational state is untouched so it remains retryable (R1-4)
         fail(f"Chiếm executor lease thất bại khi approve {task_id_str}: {e}")
 
-    # Comprehensive post-acquire atomic activation unit (R2-1)
+    # Comprehensive post-acquire atomic activation unit (R2-1 / R1-5)
+    auth_saved = False
     try:
         failover_proof = None
         if is_failover:
@@ -1587,14 +1641,15 @@ def cmd_approve(args):
             auth["failover_proof_fingerprint"] = failover_proof.fingerprint()
 
         save_authorization(args.task_id, auth)
+        auth_saved = True
     except Exception as e:
-        # Full post-acquire rollback: release lease, restore inbox event to PENDING, restore state (R2-1)
+        # Full post-acquire rollback: release lease, restore inbox event to PENDING, restore auth, restore state (R2-1 / R1-5)
         rollback_diagnostics: list[str] = []
         try:
             store.release(acquired_lease)
             rollback_diagnostics.append("lease_released: OK")
-        except Exception as re:
-            rollback_diagnostics.append(f"lease_release_failed: {re}")
+        except Exception as re_err:
+            rollback_diagnostics.append(f"lease_release_failed: {re_err}")
 
         inbox_restored = False
         try:
@@ -1607,9 +1662,21 @@ def cmd_approve(args):
         except Exception as ie:
             rollback_diagnostics.append(f"inbox_restore_failed: {ie}")
 
+        auth_restored = False
+        if auth_saved:
+            try:
+                if prior_auth_backup:
+                    save_authorization(args.task_id, prior_auth_backup)
+                rollback_diagnostics.append("prior_auth_restored: OK")
+                auth_restored = True
+            except Exception as ae:
+                rollback_diagnostics.append(f"prior_auth_restore_failed: {ae}")
+        else:
+            auth_restored = True
+
         lease_released = "lease_released: OK" in rollback_diagnostics
+        state_label = "PENDING_APPROVAL" if (lease_released and inbox_restored and auth_restored) else "RECOVERY_REQUIRED"
         try:
-            state_label = "PENDING_APPROVAL" if (lease_released and inbox_restored) else "RECOVERY_REQUIRED"
             update_state(
                 args.task_id,
                 state_label,
@@ -1723,8 +1790,46 @@ def cmd_context(args):
 
 
 # ---------------------------------------------------------------------------
-# Strengthened Publish Command (v0.4.0 / M5)
+# Strengthened Publish Command (v0.4.0 / M5 / M6)
 # ---------------------------------------------------------------------------
+
+
+def _evaluate_task_030_proof_progress(cfg: dict, auth: dict, failover_info: dict | None) -> tuple[str, str]:
+    """
+    Deterministically evaluates M6 real-proof progress for TASK-030 (R2-2).
+    Stage A (antigravity -> codex): PASS if active publish is a validated antigravity -> codex failover, else PENDING.
+    Stage B (codex -> antigravity): PASS if active publish is a validated codex -> antigravity failover AND Stage A is proven
+    from prior immutable repository result artifact at source_published_sha, else PENDING.
+    """
+    stage_a = "PENDING"
+    stage_b = "PENDING"
+
+    if failover_info:
+        from_exec = failover_info.get("from_executor")
+        to_exec = failover_info.get("to_executor")
+        source_sha = failover_info.get("source_published_sha")
+
+        if from_exec == "antigravity" and to_exec == "codex":
+            stage_a = "PASS"
+            stage_b = "PENDING"
+        elif from_exec == "codex" and to_exec == "antigravity":
+            # Verify Stage A from prior immutable repository result artifact at source_published_sha
+            if source_sha:
+                p = git("show", f"{source_sha}:.ai/results/RESULT-030.md", check=False)
+                if p.returncode == 0 and p.stdout:
+                    source_res = p.stdout
+                    # Stage A is proven if prior result manifest records antigravity -> codex failover or Stage A PASS
+                    if (
+                        "M6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: PASS" in source_res
+                        or (
+                            "FAILOVER_FROM_EXECUTOR: antigravity" in source_res
+                            and "FAILOVER_TO_EXECUTOR: codex" in source_res
+                        )
+                    ):
+                        stage_a = "PASS"
+                        stage_b = "PASS"
+
+    return stage_a, stage_b
 
 
 def cmd_publish(args):
@@ -1924,6 +2029,22 @@ FAILOVER_REVIEW_BLOB_SHA: {failover_info['review_blob_sha']}
     else:
         manifest_failover_block = "EXECUTOR_FAILOVER: NO\n"
 
+    # Emit M6 real-proof progress manifest for TASK-030 (R2-2)
+    proof_progress_block = ""
+    if task_id == 30:
+        stage_a, stage_b = _evaluate_task_030_proof_progress(cfg, auth, failover_info)
+        proof_progress_block = f"""M6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: {stage_a}
+M6_REAL_PROOF_CODEX_TO_ANTIGRAVITY: {stage_b}
+"""
+
+    manifest_content = f"""TASK_ID: TASK-{task_id:03d}
+ACTION: {action_label}
+EXECUTOR_ID: {active_exec}
+{manifest_failover_block.rstrip()}"""
+
+    if proof_progress_block:
+        manifest_content += f"\n{proof_progress_block.rstrip()}"
+
     result_content = (
         f"""# RESULT-{task_id:03d}
 
@@ -1931,10 +2052,7 @@ STATUS: READY_FOR_REVIEW
 
 ## Review Manifest
 ```yaml
-TASK_ID: TASK-{task_id:03d}
-ACTION: {action_label}
-EXECUTOR_ID: {active_exec}
-{manifest_failover_block.rstrip()}
+{manifest_content}
 ```
 
 ## Summary
