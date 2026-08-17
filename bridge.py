@@ -851,13 +851,132 @@ def prepare_task_branch(cfg, task_id: int, action: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _validate_stable_failover_preconditions(
+    cfg: dict,
+    task_id: int,
+    branch: str,
+    prior_auth: dict,
+    selected_executor: str,
+    explicit_executor: bool,
+    expected_review_rel: str,
+    expected_review_blob: str | None = None,
+) -> tuple[ExecutorLease, str, ArtifactRef, ArtifactRef]:
+    """
+    Shared, fail-closed validation of stable-boundary Executor failover preconditions (R1-1, R1-2, R1-3 / ADR-020).
+    Enforces explicit executor selection, consumed prior auth, stable branch anchor across local HEAD and remote tracking ref,
+    source RESULT artifact existence at source published SHA, authoritative remote control commit without fallback,
+    and valid CHANGES_REQUIRED review artifact.
+    """
+    # 1. Require explicit user-supplied executor when switching executors (R1-3)
+    if not explicit_executor:
+        fail(
+            f"Chuyển đổi executor từ '{prior_auth.get('executor_id')}' sang '{selected_executor}' "
+            f"yêu cầu chỉ định rõ ràng qua tham số `--executor {selected_executor}` (R1-3)."
+        )
+
+    # 2. Require prior auth to be CONSUMED (C12)
+    if prior_auth.get("status") != "CONSUMED":
+        fail(
+            f"Failover từ '{prior_auth.get('executor_id')}' sang '{selected_executor}' "
+            f"yêu cầu prior authorization status là 'CONSUMED' (hiện tại: '{prior_auth.get('status')}')."
+        )
+
+    # 3. Require valid 40-hex published SHA
+    source_published_sha = prior_auth.get("published_sha")
+    if not source_published_sha or len(source_published_sha) != 40:
+        fail(
+            f"Failover yêu cầu prior authorization có published_sha 40-hex hợp lệ, got: {source_published_sha!r}."
+        )
+
+    # 4. Reconstruct source lease from prior auth
+    try:
+        source_lease = reconstruct_expected_executor_lease(prior_auth)
+    except Exception as e:
+        fail(f"Tái cấu trúc source executor lease từ prior authorization thất bại: {e}")
+
+    # 5. Assert stable local branch anchor (C13)
+    local_head_sha = git("rev-parse", "HEAD").stdout.strip()
+    if local_head_sha != source_published_sha:
+        fail(
+            f"Task branch HEAD '{local_head_sha}' không khớp với source published SHA '{source_published_sha}'."
+        )
+
+    # 6. Assert remote task branch tracking ref exists and matches source published SHA (R1-1)
+    remote_task_ref = f"refs/remotes/{cfg['remote']}/{branch}"
+    p_rem = git("rev-parse", remote_task_ref, check=False)
+    if p_rem.returncode != 0 or not p_rem.stdout.strip():
+        fail(
+            f"Không thể resolve remote task branch tracking ref '{remote_task_ref}'. "
+            f"Remote tracking ref bắt buộc phải tồn tại và trùng khớp với source published SHA '{source_published_sha}' (R1-1)."
+        )
+    remote_head_sha = p_rem.stdout.strip()
+    if remote_head_sha != source_published_sha:
+        fail(
+            f"Remote branch '{remote_task_ref}' ({remote_head_sha}) không khớp với source published SHA '{source_published_sha}' (R1-1)."
+        )
+
+    # 7. Resolve exact source RESULT artifact at source published SHA (C15)
+    result_rel = f".ai/results/RESULT-{task_id:03d}.md"
+    p_blob = git("rev-parse", f"{source_published_sha}:{result_rel}", check=False)
+    if p_blob.returncode != 0 or not p_blob.stdout.strip():
+        fail(f"Không tìm thấy source RESULT artifact '{result_rel}' tại commit '{source_published_sha}'.")
+    source_result_blob = p_blob.stdout.strip()
+    source_result_ref = ArtifactRef(
+        path=result_rel,
+        ref=source_published_sha,
+        blob_sha=source_result_blob,
+    )
+
+    # 8. Resolve immutable authoritative remote control REVIEW commit SHA (R1-2: strictly authoritative remote ref)
+    fetch_control(cfg)
+    control_ref = remote_ref(cfg)
+    p_ctrl = git("rev-parse", control_ref, check=False)
+    if p_ctrl.returncode != 0 or not p_ctrl.stdout.strip():
+        fail(f"Không thể resolve authoritative remote control branch commit SHA cho '{control_ref}' (R1-2).")
+    control_commit_sha = p_ctrl.stdout.strip()
+
+    # 9. Validate current remote review artifact blob & status (R1-1)
+    current_review_blob = get_remote_blob_sha(cfg, expected_review_rel)
+    if not current_review_blob:
+        fail(
+            f"Không tìm thấy review artifact '{expected_review_rel}' trên control branch '{cfg['control_branch']}'."
+        )
+    if expected_review_blob and current_review_blob != expected_review_blob:
+        fail(
+            f"Review artifact blob '{current_review_blob}' không khớp với expected blob '{expected_review_blob}'."
+        )
+    review_content = read_remote_file(cfg, expected_review_rel)
+    status = parse_review_status(review_content)
+    if status != "CHANGES_REQUIRED":
+        fail(
+            f"Review '{expected_review_rel}' có trạng thái '{status or 'UNSPECIFIED'}', không phải CHANGES_REQUIRED (R1-1)."
+        )
+    review_ref = ArtifactRef(
+        path=expected_review_rel,
+        ref=control_commit_sha,
+        blob_sha=current_review_blob,
+    )
+
+    # 10. Require no ACTIVE lease (C14)
+    store = get_lease_store()
+    active_existing = store.load_active(f"TASK-{task_id:03d}")
+    if active_existing is not None:
+        fail(
+            f"Đang tồn tại active lease '{active_existing.lease_id}' cho TASK-{task_id:03d}; failover yêu cầu không có active lease."
+        )
+
+    return source_lease, source_published_sha, source_result_ref, review_ref
+
+
 def cmd_handoff(args):
     ensure_git()
     ensure_dirs()
     cfg = load_config()
     task_id = args.task_id
     action = args.action.upper()
-    selected_executor = validate_runtime_executor_id(getattr(args, "executor", None))
+    raw_executor = getattr(args, "executor", None)
+    explicit_executor = raw_executor is not None
+    selected_executor = validate_runtime_executor_id(raw_executor)
 
     fetch_control(cfg)
     paths = get_runtime_paths()
@@ -984,71 +1103,19 @@ def cmd_handoff(args):
         store = get_lease_store()
 
         if is_failover:
-            # M6 Stable-Boundary Executor Failover Activation (C12 - C17)
-            if prior_auth.get("status") != "CONSUMED":
-                fail(
-                    f"Failover từ '{prior_auth.get('executor_id')}' sang '{selected_executor}' "
-                    f"yêu cầu prior authorization status là 'CONSUMED' (hiện tại: '{prior_auth.get('status')}')."
+            # M6 Stable-Boundary Executor Failover Activation (C12 - C17 / R1-1..R1-5)
+            source_lease, source_published_sha, source_result_ref, review_ref = (
+                _validate_stable_failover_preconditions(
+                    cfg=cfg,
+                    task_id=task_id,
+                    branch=branch,
+                    prior_auth=prior_auth,
+                    selected_executor=selected_executor,
+                    explicit_executor=explicit_executor,
+                    expected_review_rel=artifact_rel,
+                    expected_review_blob=blob_sha,
                 )
-
-            source_published_sha = prior_auth.get("published_sha")
-            if not source_published_sha or len(source_published_sha) != 40:
-                fail(
-                    f"Failover yêu cầu prior authorization có published_sha 40-hex hợp lệ, got: {source_published_sha!r}."
-                )
-
-            try:
-                source_lease = reconstruct_expected_executor_lease(prior_auth)
-            except Exception as e:
-                fail(f"Tái cấu trúc source executor lease từ prior authorization thất bại: {e}")
-
-            # Assert stable branch anchor (C13)
-            local_head_sha = git("rev-parse", "HEAD").stdout.strip()
-            if local_head_sha != source_published_sha:
-                fail(
-                    f"Task branch HEAD '{local_head_sha}' không khớp với source published SHA '{source_published_sha}'."
-                )
-
-            p_rem = git("rev-parse", f"{cfg['remote']}/{branch}", check=False)
-            if p_rem.returncode == 0:
-                remote_head_sha = p_rem.stdout.strip()
-                if remote_head_sha != source_published_sha:
-                    fail(
-                        f"Remote branch '{cfg['remote']}/{branch}' ({remote_head_sha}) không khớp với source published SHA '{source_published_sha}'."
-                    )
-
-            # Resolve exact source RESULT artifact at source published SHA (C15)
-            result_rel = f".ai/results/RESULT-{task_id:03d}.md"
-            p_blob = git("rev-parse", f"{source_published_sha}:{result_rel}", check=False)
-            if p_blob.returncode != 0 or not p_blob.stdout.strip():
-                fail(f"Không tìm thấy source RESULT artifact '{result_rel}' tại commit '{source_published_sha}'.")
-            source_result_blob = p_blob.stdout.strip()
-            source_result_ref = ArtifactRef(
-                path=result_rel,
-                ref=source_published_sha,
-                blob_sha=source_result_blob,
             )
-
-            # Resolve immutable authoritative control REVIEW commit SHA (C16)
-            control_ref = remote_ref(cfg)
-            p_ctrl = git("rev-parse", control_ref, check=False)
-            if p_ctrl.returncode != 0 or not p_ctrl.stdout.strip():
-                p_ctrl = git("rev-parse", f"refs/heads/{cfg['control_branch']}", check=False)
-                if p_ctrl.returncode != 0 or not p_ctrl.stdout.strip():
-                    p_ctrl = git("rev-parse", "HEAD", check=False)
-            if p_ctrl.returncode != 0 or not p_ctrl.stdout.strip():
-                fail(f"Không thể resolve immutable commit SHA cho control branch '{control_ref}'.")
-            control_commit_sha = p_ctrl.stdout.strip()
-            review_ref = ArtifactRef(
-                path=artifact_rel,
-                ref=control_commit_sha,
-                blob_sha=blob_sha,
-            )
-
-            # Require no ACTIVE lease (C14)
-            active_existing = store.load_active(task_id_str)
-            if active_existing is not None:
-                fail(f"Đang tồn tại active lease '{active_existing.lease_id}' cho {task_id_str}; failover yêu cầu không có active lease.")
 
             # Acquire replacement lease
             replacement_lease_candidate = build_executor_lease_candidate(
@@ -1057,7 +1124,7 @@ def cmd_handoff(args):
                 operation=ExecutionOperation.FIX,
                 target_branch=branch,
                 authorized_artifact_path=artifact_rel,
-                authorized_artifact_blob_sha=blob_sha,
+                authorized_artifact_blob_sha=review_ref.blob_sha,
                 executor_id=selected_executor,
             )
             try:
@@ -1065,68 +1132,77 @@ def cmd_handoff(args):
             except Exception as e:
                 fail(f"Chiếm replacement executor lease thất bại cho {task_id_str}: {e}")
 
-            # Build and validate StableExecutorFailoverProof (C17)
-            failover_proof = StableExecutorFailoverProof(
-                schema_version="1",
-                task_id=task_id_str,
-                target_branch=branch,
-                source_executor_id=source_lease.executor_id,
-                source_operation=source_lease.operation,
-                source_execution_fingerprint=source_lease.execution_fingerprint,
-                source_lease_fingerprint=source_lease.fingerprint(),
-                source_published_sha=source_published_sha,
-                source_result_ref=source_result_ref,
-                replacement_executor_id=acquired_lease.executor_id,
-                replacement_operation=acquired_lease.operation,
-                replacement_execution_fingerprint=acquired_lease.execution_fingerprint,
-                replacement_lease_fingerprint=acquired_lease.fingerprint(),
-                review_ref=review_ref,
-            )
+            # Atomic post-acquire transaction (R1-5)
             try:
+                failover_proof = StableExecutorFailoverProof(
+                    schema_version="1",
+                    task_id=task_id_str,
+                    target_branch=branch,
+                    source_executor_id=source_lease.executor_id,
+                    source_operation=source_lease.operation,
+                    source_execution_fingerprint=source_lease.execution_fingerprint,
+                    source_lease_fingerprint=source_lease.fingerprint(),
+                    source_published_sha=source_published_sha,
+                    source_result_ref=source_result_ref,
+                    replacement_executor_id=acquired_lease.executor_id,
+                    replacement_operation=acquired_lease.operation,
+                    replacement_execution_fingerprint=acquired_lease.execution_fingerprint,
+                    replacement_lease_fingerprint=acquired_lease.fingerprint(),
+                    review_ref=review_ref,
+                )
                 validate_stable_executor_failover(
                     failover_proof,
                     source_lease=source_lease,
                     replacement_lease=acquired_lease,
                 )
-            except Exception as e:
-                try:
-                    store.release(acquired_lease)
-                except Exception:
-                    pass
-                fail(f"Xác thực StableExecutorFailoverProof thất bại: {e}")
 
-            auth_record = {
-                "task_id": task_id_str,
-                "action": "FIX",
-                "kind": "REVIEW",
-                "artifact_path": artifact_rel,
-                "artifact_blob_sha": blob_sha,
-                "approved_at": now(),
-                "branch": branch,
-                "status": "ACTIVE",
-                "executor_id": acquired_lease.executor_id,
-                "lease_id": acquired_lease.lease_id,
-                "lease_fingerprint": acquired_lease.fingerprint(),
-                "workspace_id": acquired_lease.workspace_id,
-                "execution_fingerprint": acquired_lease.execution_fingerprint,
-                "failover_source_lease": source_lease.to_dict(),
-                "failover_proof": failover_proof.to_dict(),
-                "failover_proof_fingerprint": failover_proof.fingerprint(),
-            }
-            try:
+                auth_record = {
+                    "task_id": task_id_str,
+                    "action": "FIX",
+                    "kind": "REVIEW",
+                    "artifact_path": artifact_rel,
+                    "artifact_blob_sha": review_ref.blob_sha,
+                    "approved_at": now(),
+                    "branch": branch,
+                    "status": "ACTIVE",
+                    "executor_id": acquired_lease.executor_id,
+                    "lease_id": acquired_lease.lease_id,
+                    "lease_fingerprint": acquired_lease.fingerprint(),
+                    "workspace_id": acquired_lease.workspace_id,
+                    "execution_fingerprint": acquired_lease.execution_fingerprint,
+                    "failover_source_lease": source_lease.to_dict(),
+                    "failover_proof": failover_proof.to_dict(),
+                    "failover_proof_fingerprint": failover_proof.fingerprint(),
+                }
                 save_authorization(task_id, auth_record)
+
+                update_state(
+                    task_id,
+                    "CHANGES_REQUIRED",
+                    f"FIX TASK-{task_id:03d} authorized for failover execution by {selected_executor}",
+                )
             except Exception as e:
+                rollback_diagnostics = []
                 try:
                     store.release(acquired_lease)
-                except Exception:
-                    pass
-                fail(f"Lưu authorization thất bại sau khi acquire replacement lease: {e}")
+                    rollback_diagnostics.append("replacement_lease_released: OK")
+                except Exception as rel_err:
+                    rollback_diagnostics.append(f"replacement_lease_release_failed: {rel_err}")
 
-            update_state(
-                task_id,
-                "CHANGES_REQUIRED",
-                f"FIX TASK-{task_id:03d} authorized for failover execution by {selected_executor}",
-            )
+                lease_released = "replacement_lease_released: OK" in rollback_diagnostics
+                state_label = "PENDING_APPROVAL" if lease_released else "RECOVERY_REQUIRED"
+                try:
+                    update_state(
+                        task_id,
+                        state_label,
+                        f"Failover handoff activation failed post-acquire ({e}); recovery: {'; '.join(rollback_diagnostics)}",
+                    )
+                    rollback_diagnostics.append(f"state_updated: {state_label}")
+                except Exception as se:
+                    rollback_diagnostics.append(f"state_update_failed: {se}")
+
+                diag_str = f" [Rollback diagnostics: {'; '.join(rollback_diagnostics)}]"
+                fail(f"Kích hoạt failover handoff thất bại sau khi chiếm lease: {e}{diag_str}")
 
         else:
             # Ordinary Same-Executor FIX Activation (C23)
@@ -1384,7 +1460,9 @@ def checkout_task_branch(cfg, task_id: int):
 def cmd_approve(args):
     cfg = load_config()
     kind = args.kind.lower() if args.kind else None
-    selected_executor = validate_runtime_executor_id(getattr(args, "executor", None))
+    raw_executor = getattr(args, "executor", None)
+    explicit_executor = raw_executor is not None
+    selected_executor = validate_runtime_executor_id(raw_executor)
     event = find_latest_event(args.task_id, kind)
     if not event:
         fail(f"Không có pending event phù hợp cho TASK-{args.task_id:03d}.")
@@ -1410,65 +1488,25 @@ def cmd_approve(args):
         and prior_auth.get("executor_id") != selected_executor
     )
 
+    source_lease = None
+    source_published_sha = None
+    source_result_ref = None
+    review_ref = None
+
     if is_failover:
-        # Preconditions for failover activation (C12 - C17)
-        if prior_auth.get("status") != "CONSUMED":
-            fail(
-                f"Failover từ '{prior_auth.get('executor_id')}' sang '{selected_executor}' "
-                f"yêu cầu prior authorization status là 'CONSUMED' (hiện tại: '{prior_auth.get('status')}')."
+        source_lease, source_published_sha, source_result_ref, review_ref = (
+            _validate_stable_failover_preconditions(
+                cfg=cfg,
+                task_id=args.task_id,
+                branch=branch,
+                prior_auth=prior_auth,
+                selected_executor=selected_executor,
+                explicit_executor=explicit_executor,
+                expected_review_rel=art_path,
+                expected_review_blob=art_blob,
             )
-
-        source_published_sha = prior_auth.get("published_sha")
-        if not source_published_sha or len(source_published_sha) != 40:
-            fail(
-                f"Failover yêu cầu prior authorization có published_sha 40-hex hợp lệ, got: {source_published_sha!r}."
-            )
-
-        try:
-            source_lease = reconstruct_expected_executor_lease(prior_auth)
-        except Exception as e:
-            fail(f"Tái cấu trúc source executor lease từ prior authorization thất bại: {e}")
-
-        # Assert stable branch anchor (C13)
-        local_head_sha = git("rev-parse", "HEAD").stdout.strip()
-        if local_head_sha != source_published_sha:
-            fail(
-                f"Task branch HEAD '{local_head_sha}' không khớp với source published SHA '{source_published_sha}'."
-            )
-
-        # Resolve exact source RESULT artifact at source published SHA (C15)
-        result_rel = f".ai/results/RESULT-{args.task_id:03d}.md"
-        p_blob = git("rev-parse", f"{source_published_sha}:{result_rel}", check=False)
-        if p_blob.returncode != 0 or not p_blob.stdout.strip():
-            fail(f"Không tìm thấy source RESULT artifact '{result_rel}' tại commit '{source_published_sha}'.")
-        source_result_blob = p_blob.stdout.strip()
-        source_result_ref = ArtifactRef(
-            path=result_rel,
-            ref=source_published_sha,
-            blob_sha=source_result_blob,
         )
-
-        # Resolve immutable authoritative control REVIEW commit SHA (C16)
-        fetch_control(cfg)
-        control_ref = remote_ref(cfg)
-        p_ctrl = git("rev-parse", control_ref, check=False)
-        if p_ctrl.returncode != 0 or not p_ctrl.stdout.strip():
-            p_ctrl = git("rev-parse", f"refs/heads/{cfg['control_branch']}", check=False)
-            if p_ctrl.returncode != 0 or not p_ctrl.stdout.strip():
-                p_ctrl = git("rev-parse", "HEAD", check=False)
-        if p_ctrl.returncode != 0 or not p_ctrl.stdout.strip():
-            fail(f"Không thể resolve immutable commit SHA cho control branch '{control_ref}'.")
-        control_commit_sha = p_ctrl.stdout.strip()
-        review_ref = ArtifactRef(
-            path=art_path,
-            ref=control_commit_sha,
-            blob_sha=art_blob,
-        )
-
-        # Require no ACTIVE lease (C14)
-        active_existing = store.load_active(task_id_str)
-        if active_existing is not None:
-            fail(f"Đang tồn tại active lease '{active_existing.lease_id}' cho {task_id_str}; failover yêu cầu không có active lease.")
+        art_blob = review_ref.blob_sha
 
     lease_candidate = build_executor_lease_candidate(
         task_id=task_id_str,
@@ -1799,12 +1837,32 @@ def cmd_publish(args):
         if failover_proof.target_branch != branch:
             fail(f"Failover proof target_branch '{failover_proof.target_branch}' không khớp với '{branch}'.")
 
-        # Re-validate current control REVIEW matches proof review_ref (C20)
+        # Re-validate current control commit matches proof review_ref (R1-2)
+        control_ref = remote_ref(cfg)
+        p_ctrl = git("rev-parse", control_ref, check=False)
+        if p_ctrl.returncode != 0 or not p_ctrl.stdout.strip():
+            fail(f"Không thể resolve authoritative remote control branch commit SHA cho '{control_ref}' (R1-2).")
+        current_control_commit = p_ctrl.stdout.strip()
+        if current_control_commit != failover_proof.review_ref.ref:
+            fail(
+                f"Control branch commit '{current_control_commit}' không khớp với "
+                f"failover proof review commit '{failover_proof.review_ref.ref}' (R1-2)."
+            )
+
+        # Re-validate current control REVIEW blob and status matches proof review_ref (C20 / R1-2)
         current_review_blob = get_remote_blob_sha(cfg, auth["artifact_path"])
         if not current_review_blob or current_review_blob != failover_proof.review_ref.blob_sha:
             fail(
                 f"Review artifact '{auth['artifact_path']}' trên control branch ({current_review_blob}) "
                 f"không khớp với failover proof review blob ({failover_proof.review_ref.blob_sha})."
+            )
+
+        review_content = read_remote_file(cfg, auth["artifact_path"])
+        review_status = parse_review_status(review_content)
+        if review_status != "CHANGES_REQUIRED":
+            fail(
+                f"Review artifact '{auth['artifact_path']}' trên control branch có status '{review_status}', "
+                f"không phải CHANGES_REQUIRED (R1-2)."
             )
 
         failover_info = {

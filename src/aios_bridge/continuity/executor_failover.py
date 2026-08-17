@@ -51,23 +51,23 @@ FORBIDDEN_FAILOVER_PROOF_KEYS = {
 
 
 def _validate_task_specific_artifact_path(path: str, task_id: str, artifact_type: str) -> None:
-    """Validates that artifact path matches the exact numeric task identity (e.g. .ai/results/RESULT-030.md)."""
+    """Validates that artifact path matches the exact numeric task identity without alias tolerance (R1-4)."""
     match = re.match(r"^TASK-(\d+)$", task_id)
     if not match:
         raise ContinuityStateValidationError(f"Invalid task_id format: {task_id!r}")
-    num = int(match.group(1))
+    task_suffix = match.group(1)
 
     if artifact_type == "RESULT":
-        expected_paths = {f".ai/results/RESULT-{num:03d}.md", f".ai/results/RESULT-{num}.md"}
-        if path not in expected_paths:
+        expected_path = f".ai/results/RESULT-{task_suffix}.md"
+        if path != expected_path:
             raise ContinuityStateValidationError(
-                f"Source RESULT artifact path '{path}' does not match task_id '{task_id}'"
+                f"Source RESULT artifact path '{path}' does not match task_id '{task_id}' (expected '{expected_path}')"
             )
     elif artifact_type == "REVIEW":
-        expected_paths = {f".ai/reviews/REVIEW-{num:03d}.md", f".ai/reviews/REVIEW-{num}.md"}
-        if path not in expected_paths:
+        expected_path = f".ai/reviews/REVIEW-{task_suffix}.md"
+        if path != expected_path:
             raise ContinuityStateValidationError(
-                f"REVIEW artifact path '{path}' does not match task_id '{task_id}'"
+                f"REVIEW artifact path '{path}' does not match task_id '{task_id}' (expected '{expected_path}')"
             )
     else:
         raise ContinuityStateValidationError(f"Unknown artifact type: {artifact_type}")
@@ -79,6 +79,7 @@ class StableExecutorFailoverProof:
     Immutable, content-addressed proof of a valid stable-boundary Executor failover (ADR-020 / C2).
     Captures exact source execution/lease/RESULT identities and replacement execution/lease/REVIEW bindings.
     """
+    schema_version: str
     task_id: str
     target_branch: str
     source_executor_id: str
@@ -92,7 +93,6 @@ class StableExecutorFailoverProof:
     replacement_execution_fingerprint: str
     replacement_lease_fingerprint: str
     review_ref: ArtifactRef
-    schema_version: str = SCHEMA_VERSION
 
     def __post_init__(self) -> None:
         if self.schema_version != SCHEMA_VERSION:
@@ -153,6 +153,13 @@ class StableExecutorFailoverProof:
 
         _validate_exact_hex_sha(self.review_ref.ref, "review_ref.ref")
 
+        # Enforce canonical serialized size limit on every construction path (R1-4)
+        canonical_bytes = self.to_canonical_json().encode("utf-8")
+        if len(canonical_bytes) > MAX_SERIALIZED_BYTES:
+            raise ContinuityStateValidationError(
+                f"StableExecutorFailoverProof serialized size ({len(canonical_bytes)} bytes) exceeds maximum allowed ({MAX_SERIALIZED_BYTES} bytes)"
+            )
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "replacement_execution_fingerprint": self.replacement_execution_fingerprint,
@@ -176,6 +183,98 @@ class StableExecutorFailoverProof:
 
     def fingerprint(self) -> str:
         return hashlib.sha256(self.to_canonical_json().encode("utf-8")).hexdigest()
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> StableExecutorFailoverProof:
+        if not isinstance(data, dict):
+            raise ContinuityStateValidationError(
+                f"from_dict expects a dict, got: {type(data).__name__}"
+            )
+
+        # Check forbidden keys (C9)
+        forbidden = set(data.keys()) & FORBIDDEN_FAILOVER_PROOF_KEYS
+        if forbidden:
+            raise ContinuityStateValidationError(
+                f"Forbidden authority/secret/transport keys present in failover proof: {sorted(forbidden)}"
+            )
+
+        allowed_keys = {
+            "schema_version",
+            "task_id",
+            "target_branch",
+            "source_executor_id",
+            "source_operation",
+            "source_execution_fingerprint",
+            "source_lease_fingerprint",
+            "source_published_sha",
+            "source_result_ref",
+            "replacement_executor_id",
+            "replacement_operation",
+            "replacement_execution_fingerprint",
+            "replacement_lease_fingerprint",
+            "review_ref",
+        }
+        unknown = set(data.keys()) - allowed_keys
+        if unknown:
+            raise ContinuityStateValidationError(
+                f"Unknown fields rejected in StableExecutorFailoverProof: {sorted(unknown)}"
+            )
+
+        required_keys = {
+            "schema_version",
+            "task_id",
+            "target_branch",
+            "source_executor_id",
+            "source_operation",
+            "source_execution_fingerprint",
+            "source_lease_fingerprint",
+            "source_published_sha",
+            "source_result_ref",
+            "replacement_executor_id",
+            "replacement_operation",
+            "replacement_execution_fingerprint",
+            "replacement_lease_fingerprint",
+            "review_ref",
+        }
+        missing = required_keys - set(data.keys())
+        if missing:
+            raise ContinuityStateValidationError(
+                f"Missing required fields in StableExecutorFailoverProof: {sorted(missing)}"
+            )
+
+        try:
+            source_op = ExecutionOperation(data["source_operation"])
+        except Exception as e:
+            raise ContinuityStateValidationError(
+                f"Invalid source_operation in failover proof: {data.get('source_operation')!r}"
+            ) from e
+
+        try:
+            replacement_op = ExecutionOperation(data["replacement_operation"])
+        except Exception as e:
+            raise ContinuityStateValidationError(
+                f"Invalid replacement_operation in failover proof: {data.get('replacement_operation')!r}"
+            ) from e
+
+        source_result = ArtifactRef.from_dict(data["source_result_ref"], "source_result_ref")
+        review = ArtifactRef.from_dict(data["review_ref"], "review_ref")
+
+        return cls(
+            schema_version=data["schema_version"],
+            task_id=data["task_id"],
+            target_branch=data["target_branch"],
+            source_executor_id=data["source_executor_id"],
+            source_operation=source_op,
+            source_execution_fingerprint=data["source_execution_fingerprint"],
+            source_lease_fingerprint=data["source_lease_fingerprint"],
+            source_published_sha=data["source_published_sha"],
+            source_result_ref=source_result,
+            replacement_executor_id=data["replacement_executor_id"],
+            replacement_operation=replacement_op,
+            replacement_execution_fingerprint=data["replacement_execution_fingerprint"],
+            replacement_lease_fingerprint=data["replacement_lease_fingerprint"],
+            review_ref=review,
+        )
 
     @classmethod
     def from_json(cls, data: bytes | str | dict[str, Any]) -> StableExecutorFailoverProof:
@@ -209,94 +308,7 @@ class StableExecutorFailoverProof:
                 f"Data must be bytes, str, or dict, got: {type(data).__name__}"
             )
 
-        if not isinstance(parsed, dict):
-            raise ContinuityStateValidationError(
-                f"Root payload must be a JSON object, got: {type(parsed).__name__}"
-            )
-
-        # Check forbidden keys (C9)
-        forbidden = set(parsed.keys()) & FORBIDDEN_FAILOVER_PROOF_KEYS
-        if forbidden:
-            raise ContinuityStateValidationError(
-                f"Forbidden authority/secret/transport keys present in failover proof: {sorted(forbidden)}"
-            )
-
-        allowed_keys = {
-            "schema_version",
-            "task_id",
-            "target_branch",
-            "source_executor_id",
-            "source_operation",
-            "source_execution_fingerprint",
-            "source_lease_fingerprint",
-            "source_published_sha",
-            "source_result_ref",
-            "replacement_executor_id",
-            "replacement_operation",
-            "replacement_execution_fingerprint",
-            "replacement_lease_fingerprint",
-            "review_ref",
-        }
-        unknown = set(parsed.keys()) - allowed_keys
-        if unknown:
-            raise ContinuityStateValidationError(
-                f"Unknown fields rejected in StableExecutorFailoverProof: {sorted(unknown)}"
-            )
-
-        required_keys = {
-            "task_id",
-            "target_branch",
-            "source_executor_id",
-            "source_operation",
-            "source_execution_fingerprint",
-            "source_lease_fingerprint",
-            "source_published_sha",
-            "source_result_ref",
-            "replacement_executor_id",
-            "replacement_operation",
-            "replacement_execution_fingerprint",
-            "replacement_lease_fingerprint",
-            "review_ref",
-        }
-        missing = required_keys - set(parsed.keys())
-        if missing:
-            raise ContinuityStateValidationError(
-                f"Missing required fields in StableExecutorFailoverProof: {sorted(missing)}"
-            )
-
-        try:
-            source_op = ExecutionOperation(parsed["source_operation"])
-        except Exception as e:
-            raise ContinuityStateValidationError(
-                f"Invalid source_operation in failover proof: {parsed.get('source_operation')!r}"
-            ) from e
-
-        try:
-            replacement_op = ExecutionOperation(parsed["replacement_operation"])
-        except Exception as e:
-            raise ContinuityStateValidationError(
-                f"Invalid replacement_operation in failover proof: {parsed.get('replacement_operation')!r}"
-            ) from e
-
-        source_result = ArtifactRef.from_dict(parsed["source_result_ref"], "source_result_ref")
-        review = ArtifactRef.from_dict(parsed["review_ref"], "review_ref")
-
-        return cls(
-            schema_version=parsed.get("schema_version", SCHEMA_VERSION),
-            task_id=parsed["task_id"],
-            target_branch=parsed["target_branch"],
-            source_executor_id=parsed["source_executor_id"],
-            source_operation=source_op,
-            source_execution_fingerprint=parsed["source_execution_fingerprint"],
-            source_lease_fingerprint=parsed["source_lease_fingerprint"],
-            source_published_sha=parsed["source_published_sha"],
-            source_result_ref=source_result,
-            replacement_executor_id=parsed["replacement_executor_id"],
-            replacement_operation=replacement_op,
-            replacement_execution_fingerprint=parsed["replacement_execution_fingerprint"],
-            replacement_lease_fingerprint=parsed["replacement_lease_fingerprint"],
-            review_ref=review,
-        )
+        return cls.from_dict(parsed)
 
 
 def validate_stable_executor_failover(

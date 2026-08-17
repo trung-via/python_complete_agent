@@ -441,3 +441,135 @@ def test_validate_stable_executor_failover_type_validation():
 
     with pytest.raises(ContinuityStateValidationError, match="replacement_lease must be ExecutorLease"):
         validate_stable_executor_failover(proof, source_lease=source, replacement_lease="invalid_lease")
+
+
+def test_proof_alias_paths_rejected_strictly():
+    """Validates R1-4: Exact token matching without alias normalization (e.g. RESULT-30.md rejected for TASK-030)."""
+    source = _sample_source_lease(task_id="TASK-030")
+    repl = _sample_replacement_lease(task_id="TASK-030")
+
+    # RESULT-30.md (unpadded alias) rejected for TASK-030
+    with pytest.raises(ContinuityStateValidationError, match="does not match task_id 'TASK-030'"):
+        StableExecutorFailoverProof(
+            schema_version="1",
+            task_id="TASK-030",
+            target_branch="ai/task-030",
+            source_executor_id=source.executor_id,
+            source_operation=source.operation,
+            source_execution_fingerprint=source.execution_fingerprint,
+            source_lease_fingerprint=source.fingerprint(),
+            source_published_sha="a" * 40,
+            source_result_ref=ArtifactRef(
+                path=".ai/results/RESULT-30.md",  # Alias!
+                ref="a" * 40,
+                blob_sha="d" * 40,
+            ),
+            replacement_executor_id=repl.executor_id,
+            replacement_operation=repl.operation,
+            replacement_execution_fingerprint=repl.execution_fingerprint,
+            replacement_lease_fingerprint=repl.fingerprint(),
+            review_ref=ArtifactRef(
+                path=".ai/reviews/REVIEW-030.md",
+                ref="b" * 40,
+                blob_sha="c" * 40,
+            ),
+        )
+
+    # REVIEW-30.md (unpadded alias) rejected for TASK-030
+    with pytest.raises(ContinuityStateValidationError, match="does not match task_id 'TASK-030'"):
+        StableExecutorFailoverProof(
+            schema_version="1",
+            task_id="TASK-030",
+            target_branch="ai/task-030",
+            source_executor_id=source.executor_id,
+            source_operation=source.operation,
+            source_execution_fingerprint=source.execution_fingerprint,
+            source_lease_fingerprint=source.fingerprint(),
+            source_published_sha="a" * 40,
+            source_result_ref=ArtifactRef(
+                path=".ai/results/RESULT-030.md",
+                ref="a" * 40,
+                blob_sha="d" * 40,
+            ),
+            replacement_executor_id=repl.executor_id,
+            replacement_operation=repl.operation,
+            replacement_execution_fingerprint=repl.execution_fingerprint,
+            replacement_lease_fingerprint=repl.fingerprint(),
+            review_ref=ArtifactRef(
+                path=".ai/reviews/REVIEW-30.md",  # Alias!
+                ref="b" * 40,
+                blob_sha="c" * 40,
+            ),
+        )
+
+
+def test_proof_schema_version_required_and_strictly_one():
+    """Validates R1-4: schema_version must be explicit and strictly '1'."""
+    source = _sample_source_lease()
+    repl = _sample_replacement_lease()
+
+    # Invalid schema_version
+    with pytest.raises(ContinuityStateValidationError, match="Unsupported schema_version"):
+        StableExecutorFailoverProof(
+            schema_version="2",
+            task_id="TASK-030",
+            target_branch="ai/task-030",
+            source_executor_id=source.executor_id,
+            source_operation=source.operation,
+            source_execution_fingerprint=source.execution_fingerprint,
+            source_lease_fingerprint=source.fingerprint(),
+            source_published_sha="a" * 40,
+            source_result_ref=ArtifactRef(
+                path=".ai/results/RESULT-030.md",
+                ref="a" * 40,
+                blob_sha="d" * 40,
+            ),
+            replacement_executor_id=repl.executor_id,
+            replacement_operation=repl.operation,
+            replacement_execution_fingerprint=repl.execution_fingerprint,
+            replacement_lease_fingerprint=repl.fingerprint(),
+            review_ref=ArtifactRef(
+                path=".ai/reviews/REVIEW-030.md",
+                ref="b" * 40,
+                blob_sha="c" * 40,
+            ),
+        )
+
+    # Missing schema_version in from_dict fails closed
+    d = _sample_proof().to_dict()
+    del d["schema_version"]
+    with pytest.raises(ContinuityStateValidationError, match="Missing required fields"):
+        StableExecutorFailoverProof.from_dict(d)
+
+
+def test_proof_oversized_direct_construction_rejected():
+    """Validates R1-4: Direct construction exceeding MAX_SERIALIZED_BYTES fails closed in __post_init__."""
+    source = _sample_source_lease()
+    repl = _sample_replacement_lease()
+    huge_branch = "ai/" + "x" * MAX_SERIALIZED_BYTES
+
+    with pytest.raises(ContinuityStateValidationError, match="exceeds maximum allowed"):
+        StableExecutorFailoverProof(
+            schema_version="1",
+            task_id="TASK-030",
+            target_branch=huge_branch,
+            source_executor_id=source.executor_id,
+            source_operation=source.operation,
+            source_execution_fingerprint=source.execution_fingerprint,
+            source_lease_fingerprint=source.fingerprint(),
+            source_published_sha="a" * 40,
+            source_result_ref=ArtifactRef(
+                path=".ai/results/RESULT-030.md",
+                ref="a" * 40,
+                blob_sha="d" * 40,
+            ),
+            replacement_executor_id=repl.executor_id,
+            replacement_operation=repl.operation,
+            replacement_execution_fingerprint=repl.execution_fingerprint,
+            replacement_lease_fingerprint=repl.fingerprint(),
+            review_ref=ArtifactRef(
+                path=".ai/reviews/REVIEW-030.md",
+                ref="b" * 40,
+                blob_sha="c" * 40,
+            ),
+        )
