@@ -1283,6 +1283,9 @@ def cmd_handoff(args):
                 "workspace_id": acquired_lease.workspace_id,
                 "execution_fingerprint": acquired_lease.execution_fingerprint,
             }
+            if prior_auth and prior_auth.get("published_sha"):
+                auth_record["prior_published_sha"] = prior_auth["published_sha"]
+
             try:
                 save_authorization(task_id, auth_record)
             except Exception as e:
@@ -1634,6 +1637,8 @@ def cmd_approve(args):
             auth["failover_source_lease"] = source_lease.to_dict()
             auth["failover_proof"] = failover_proof.to_dict()
             auth["failover_proof_fingerprint"] = failover_proof.fingerprint()
+        elif prior_auth and prior_auth.get("published_sha"):
+            auth["prior_published_sha"] = prior_auth["published_sha"]
 
         save_authorization(args.task_id, auth)
         auth_saved = True
@@ -1792,56 +1797,46 @@ def cmd_context(args):
 def _evaluate_task_030_proof_progress(cfg: dict, auth: dict, failover_info: dict | None) -> tuple[str, str]:
     """
     Deterministically evaluates M6 real-proof progress for TASK-030 (R2-2).
-    - Scans prior immutable repository commit history to preserve already-proven progress (e.g. during same-executor repairs).
-    - Stage A (antigravity -> codex): PASS if active publish is a validated failover OR if proven in prior immutable git history.
-    - Stage B (codex -> antigravity): PASS if active publish is a validated failover AND Stage A is proven OR if proven in prior immutable git history.
-    - Working-tree RESULT content is NEVER trusted.
+    - Checks the single authoritative predecessor anchor SHA (source_published_sha for failover,
+      or prior_published_sha from prior Bridge publish for same-executor FIX).
+    - Stage A (antigravity -> codex): PASS if active publish is a validated failover OR if proven in predecessor publish.
+    - Stage B (codex -> antigravity): PASS if active publish is a validated failover AND Stage A is proven OR if proven in predecessor publish.
+    - Working-tree RESULT content and unanchored intermediate commits are NEVER trusted.
     """
     stage_a = "PENDING"
     stage_b = "PENDING"
 
-    # Step 1: Scan immutable repository history for prior proven results on task branch
-    p_log = git("log", "-n", "30", "--format=%H", "--", ".ai/results/RESULT-030.md", check=False)
-    if p_log.returncode == 0 and p_log.stdout.strip():
-        for commit_sha in p_log.stdout.splitlines():
-            commit_sha = commit_sha.strip()
-            if not commit_sha:
-                continue
-            p_show = git("show", f"{commit_sha}:.ai/results/RESULT-030.md", check=False)
-            if p_show.returncode == 0 and p_show.stdout:
-                res_text = p_show.stdout
-                if "M6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: PASS" in res_text or (
-                    "FAILOVER_FROM_EXECUTOR: antigravity" in res_text
-                    and "FAILOVER_TO_EXECUTOR: codex" in res_text
-                ):
-                    stage_a = "PASS"
-                if "M6_REAL_PROOF_CODEX_TO_ANTIGRAVITY: PASS" in res_text or (
-                    "FAILOVER_FROM_EXECUTOR: codex" in res_text
-                    and "FAILOVER_TO_EXECUTOR: antigravity" in res_text
-                ):
-                    if stage_a == "PASS":
-                        stage_b = "PASS"
-            if stage_a == "PASS" and stage_b == "PASS":
-                break
+    # Step 1: Resolve exact single predecessor published SHA anchor (R2-2)
+    predecessor_sha = None
+    if failover_info:
+        predecessor_sha = failover_info.get("source_published_sha")
+    elif auth:
+        predecessor_sha = auth.get("prior_published_sha")
+
+    if predecessor_sha:
+        p_show = git("show", f"{predecessor_sha}:.ai/results/RESULT-030.md", check=False)
+        if p_show.returncode == 0 and p_show.stdout:
+            res_text = p_show.stdout
+            if "M6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: PASS" in res_text or (
+                "FAILOVER_FROM_EXECUTOR: antigravity" in res_text
+                and "FAILOVER_TO_EXECUTOR: codex" in res_text
+            ):
+                stage_a = "PASS"
+            if "M6_REAL_PROOF_CODEX_TO_ANTIGRAVITY: PASS" in res_text or (
+                "FAILOVER_FROM_EXECUTOR: codex" in res_text
+                and "FAILOVER_TO_EXECUTOR: antigravity" in res_text
+            ):
+                if stage_a == "PASS":
+                    stage_b = "PASS"
 
     # Step 2: Incorporate active failover publication if present
     if failover_info:
         from_exec = failover_info.get("from_executor")
         to_exec = failover_info.get("to_executor")
-        source_sha = failover_info.get("source_published_sha")
 
         if from_exec == "antigravity" and to_exec == "codex":
             stage_a = "PASS"
         elif from_exec == "codex" and to_exec == "antigravity":
-            # Stage B requires Stage A to be proven (either from history or from source_published_sha)
-            if stage_a != "PASS" and source_sha:
-                p_src = git("show", f"{source_sha}:.ai/results/RESULT-030.md", check=False)
-                if p_src.returncode == 0 and p_src.stdout:
-                    if "M6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: PASS" in p_src.stdout or (
-                        "FAILOVER_FROM_EXECUTOR: antigravity" in p_src.stdout
-                        and "FAILOVER_TO_EXECUTOR: codex" in p_src.stdout
-                    ):
-                        stage_a = "PASS"
             if stage_a == "PASS":
                 stage_b = "PASS"
 

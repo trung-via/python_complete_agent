@@ -3937,8 +3937,10 @@ def test_cmd_publish_task_030_proof_progress_manifest_generation():
             }
             bridge.save_authorization(30, auth_antigravity)
 
-            # Worker attempt to forge Stage A in working tree file before failover is ignored
-            (results_dir / "RESULT-030.md").write_text("# WORKER FABRICATED\nM6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: PASS\n", encoding="utf-8")
+            # Worker attempt to forge Stage A in local committed git history is ignored
+            (results_dir / "RESULT-030.md").write_text("# WORKER FORGED GIT COMMIT\nM6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: PASS\n", encoding="utf-8")
+            subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+            subprocess.run(["git", "commit", "-m", "worker forged commit"], cwd=root, check=True, capture_output=True)
 
             bridge.cmd_publish(type("Args", (), {
                 "task_id": 30, "action": "FIX", "test": None, "summary": "Initial Antigravity FIX", "notes": None, "message": "Round 2 fix"
@@ -3948,6 +3950,7 @@ def test_cmd_publish_task_030_proof_progress_manifest_generation():
             assert "M6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: PENDING" in res_init
             assert "M6_REAL_PROOF_CODEX_TO_ANTIGRAVITY: PENDING" in res_init
             assert "EXECUTOR_FAILOVER: NO" in res_init
+            assert "FORGED" not in res_init
 
             stage_a_source_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
             stage_a_result_blob = subprocess.run(["git", "rev-parse", f"{stage_a_source_sha}:.ai/results/RESULT-030.md"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
@@ -4051,6 +4054,7 @@ def test_cmd_publish_task_030_proof_progress_manifest_generation():
                 "lease_fingerprint": lease_codex_repair.fingerprint(),
                 "workspace_id": lease_codex_repair.workspace_id,
                 "execution_fingerprint": lease_codex_repair.execution_fingerprint,
+                "prior_published_sha": stage_a_published_sha,
             }
             bridge.save_authorization(30, auth_codex_repair)
 
@@ -4138,6 +4142,8 @@ def test_cmd_publish_task_030_proof_progress_manifest_generation():
             assert "FAILOVER_FROM_EXECUTOR: codex" in res_b
             assert "FAILOVER_TO_EXECUTOR: antigravity" in res_b
 
+            stage_b_published_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
+
             # --- Stage B+: Subsequent same-executor Antigravity repair preserves both PASS ---
             lease_antigravity_repair = bridge.build_executor_lease_candidate(
                 task_id="TASK-030",
@@ -4164,6 +4170,7 @@ def test_cmd_publish_task_030_proof_progress_manifest_generation():
                 "lease_fingerprint": lease_antigravity_repair.fingerprint(),
                 "workspace_id": lease_antigravity_repair.workspace_id,
                 "execution_fingerprint": lease_antigravity_repair.execution_fingerprint,
+                "prior_published_sha": stage_b_published_sha,
             }
             bridge.save_authorization(30, auth_antigravity_repair)
 
