@@ -416,6 +416,28 @@ def test_m8_brain_proof_fails_on_replacement_result_artifact_path_mismatch(sampl
         verify_brain_proof(bundle["dir"])
 
 
+def test_m8_brain_proof_fails_on_replacement_result_artifact_ref_to_task_branch(sample_m8_valid_bundle):
+    bundle = sample_m8_valid_bundle
+    repl_res_path = bundle["dir"] / "replacement-result.json"
+    res_data = json.loads(repl_res_path.read_text(encoding="utf-8"))
+    res_data["artifact_ref"]["ref"] = "ai/task-032"
+    repl_res_path.write_text(json.dumps(res_data), encoding="utf-8")
+
+    with pytest.raises(ContinuityStateValidationError, match="must not point to task/main branch|not in approved control storage domain"):
+        verify_brain_proof(bundle["dir"])
+
+
+def test_m8_brain_proof_fails_on_replacement_result_artifact_ref_unapproved_domain(sample_m8_valid_bundle):
+    bundle = sample_m8_valid_bundle
+    repl_res_path = bundle["dir"] / "replacement-result.json"
+    res_data = json.loads(repl_res_path.read_text(encoding="utf-8"))
+    res_data["artifact_ref"]["ref"] = "some-random-unapproved-ref"
+    repl_res_path.write_text(json.dumps(res_data), encoding="utf-8")
+
+    with pytest.raises(ContinuityStateValidationError, match="not in approved control storage domain"):
+        verify_brain_proof(bundle["dir"])
+
+
 def test_prepare_brain_pack_fails_on_invalid_or_missing_s0_commit(tmp_path: Path):
     with pytest.raises(ContinuityStateValidationError, match="must be a 40-hex lowercase string"):
         prepare_brain_pack(

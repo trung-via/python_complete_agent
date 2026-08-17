@@ -2026,14 +2026,15 @@ def _evaluate_task_032_proof_progress(
     Returns (brain_proof_val, executor_proof_val, composite_chain_val, shared_boundary_sha).
     - Initial RUN: returns ("PENDING", "PENDING", "PENDING", "PENDING_SELF_REFERENCE")
     - If failover_info is present:
+      - Mechanically enforces exact review blob equality against failover_info['review_blob_sha'].
       - Validates that review artifact on control branch contains exact C7 Brain provenance block.
-      - If review contains all 6 required C7 keys and matches failover_info['source_published_sha'],
-        and review blob equals failover_info['review_blob_sha']:
+      - If review contains all 6 required C7 keys, matches failover_info['source_published_sha'],
+        has distinct brain actors, and matches the exact review blob:
         - brain_proof_val = "PASS"
         - executor_proof_val = "PASS"
-        - composite_chain_val = "PASS"
+        - composite_chain_val = "PENDING"  # Composite PASS requires explicit independent composite verification
         - shared_boundary_sha = failover_info['source_published_sha']
-      - Otherwise, failover does NOT establish Brain/Executor/Composite proof:
+      - Otherwise:
         - brain_proof_val = "PENDING"
         - executor_proof_val = "PENDING"
         - composite_chain_val = "PENDING"
@@ -2047,8 +2048,21 @@ def _evaluate_task_032_proof_progress(
 
     # Read review artifact from control branch
     review_rel = ".ai/reviews/REVIEW-032.md"
+    remote_blob = get_remote_blob_sha(cfg, review_rel)
+    if not remote_blob or remote_blob != review_blob_sha:
+        return "PENDING", "PENDING", "PENDING", source_published_sha or "PENDING_SELF_REFERENCE"
+
     review_content = read_remote_file(cfg, review_rel)
     if not review_content:
+        return "PENDING", "PENDING", "PENDING", source_published_sha or "PENDING_SELF_REFERENCE"
+
+    # Check exact content blob equality
+    content_norm = review_content.replace("\r\n", "\n").replace("\r", "\n")
+    if not content_norm.endswith("\n"):
+        content_norm += "\n"
+    content_bytes = content_norm.encode("utf-8")
+    content_blob = hashlib.sha1(f"blob {len(content_bytes)}\0".encode("utf-8") + content_bytes).hexdigest()
+    if content_blob != review_blob_sha:
         return "PENDING", "PENDING", "PENDING", source_published_sha or "PENDING_SELF_REFERENCE"
 
     # Check C7 Brain Provenance Block in REVIEW-032
@@ -2071,7 +2085,7 @@ def _evaluate_task_032_proof_progress(
     if len(c7_values) == 6 and c7_values["source_sha"] == source_published_sha:
         # Also check distinct brain actors
         if c7_values["brain_source"] != c7_values["brain_repl"]:
-            return "PASS", "PASS", "PASS", source_published_sha
+            return "PASS", "PASS", "PENDING", source_published_sha
 
     return "PENDING", "PENDING", "PENDING", source_published_sha or "PENDING_SELF_REFERENCE"
 

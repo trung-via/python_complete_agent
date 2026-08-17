@@ -197,34 +197,54 @@ def prepare_brain_pack(
             f"source_published_sha '{source_published_sha}' does not exist as a commit in git object store"
         )
 
-    # Resolve exact artifact blobs strictly from Git objects (R1-2: no filesystem fallback, no zero-SHA)
-    def _get_exact_git_blob(rel_path: str, primary_ref: str, fallback_ref: str | None = None) -> tuple[str, str]:
-        candidates = [primary_ref]
-        if fallback_ref and fallback_ref != primary_ref:
-            candidates.append(fallback_ref)
-        if "origin/ai-control" not in candidates:
-            candidates.append("origin/ai-control")
-        if "ai-control" not in candidates:
-            candidates.append("ai-control")
+    # Resolve authoritative control commit strictly (R1-2 Round 2)
+    control_ref = "origin/ai-control"
+    p_ctrl = subprocess.run(["git", "rev-parse", control_ref], cwd=repo_dir, check=False, capture_output=True, text=True)
+    if p_ctrl.returncode != 0 or not p_ctrl.stdout.strip():
+        # Fallback to local tracking branch if remote not configured in test environments
+        p_ctrl = subprocess.run(["git", "rev-parse", "ai-control"], cwd=repo_dir, check=False, capture_output=True, text=True)
+        if p_ctrl.returncode != 0 or not p_ctrl.stdout.strip():
+            raise ContinuityStateValidationError("Failed to resolve authoritative control commit (tried origin/ai-control and ai-control)")
+    control_commit_sha = p_ctrl.stdout.strip()
+    if not re.match(r"^[0-9a-f]{40}$", control_commit_sha):
+        raise ContinuityStateValidationError(f"Invalid control commit SHA: {control_commit_sha!r}")
 
-        for ref in candidates:
-            p = subprocess.run(["git", "rev-parse", f"{ref}:{rel_path}"], cwd=repo_dir, check=False, capture_output=True, text=True)
-            if p.returncode == 0 and p.stdout.strip():
-                blob_sha = p.stdout.strip()
-                if re.match(r"^[0-9a-f]{40}$", blob_sha) and blob_sha != "0" * 40:
-                    return blob_sha, ref
-
+    # Resolve exact artifact blobs strictly from their designated provenance domains (R1-2)
+    # RESULT-032 strictly from S0
+    p_res = subprocess.run(["git", "rev-parse", f"{source_published_sha}:{RESULT_032_PATH}"], cwd=repo_dir, check=False, capture_output=True, text=True)
+    if p_res.returncode != 0 or not p_res.stdout.strip():
+        err = p_res.stderr.strip() if p_res.stderr else p_res.stdout.strip()
         raise ContinuityStateValidationError(
-            f"Failed to resolve exact artifact '{rel_path}' in Git (tried {candidates})"
+            f"Failed to resolve exact source RESULT-032 at S0 commit {source_published_sha[:10]}: {err}"
         )
+    result_blob = p_res.stdout.strip()
+    if not re.match(r"^[0-9a-f]{40}$", result_blob) or result_blob == "0" * 40:
+        raise ContinuityStateValidationError(f"Resolved invalid blob SHA for RESULT-032 at S0: {result_blob!r}")
 
-    task_blob, task_ref_name = _get_exact_git_blob(TASK_032_PATH, source_published_sha, "origin/ai-control")
-    adr_blob, adr_ref_name = _get_exact_git_blob(ADR_022_PATH, source_published_sha, "origin/ai-control")
-    result_blob, result_ref_name = _get_exact_git_blob(RESULT_032_PATH, source_published_sha)
+    # TASK-032 and ADR-022 strictly from authoritative control commit
+    p_task = subprocess.run(["git", "rev-parse", f"{control_commit_sha}:{TASK_032_PATH}"], cwd=repo_dir, check=False, capture_output=True, text=True)
+    if p_task.returncode != 0 or not p_task.stdout.strip():
+        err = p_task.stderr.strip() if p_task.stderr else p_task.stdout.strip()
+        raise ContinuityStateValidationError(
+            f"Failed to resolve exact TASK-032 at control commit {control_commit_sha[:10]}: {err}"
+        )
+    task_blob = p_task.stdout.strip()
+    if not re.match(r"^[0-9a-f]{40}$", task_blob) or task_blob == "0" * 40:
+        raise ContinuityStateValidationError(f"Resolved invalid blob SHA for TASK-032 at control commit: {task_blob!r}")
 
-    # Build Canonical State
-    task_ref = ArtifactRef(path=TASK_032_PATH, ref="ai-control", blob_sha=task_blob)
-    adr_ref = ArtifactRef(path=ADR_022_PATH, ref="ai-control", blob_sha=adr_blob)
+    p_adr = subprocess.run(["git", "rev-parse", f"{control_commit_sha}:{ADR_022_PATH}"], cwd=repo_dir, check=False, capture_output=True, text=True)
+    if p_adr.returncode != 0 or not p_adr.stdout.strip():
+        err = p_adr.stderr.strip() if p_adr.stderr else p_adr.stdout.strip()
+        raise ContinuityStateValidationError(
+            f"Failed to resolve exact ADR-022 at control commit {control_commit_sha[:10]}: {err}"
+        )
+    adr_blob = p_adr.stdout.strip()
+    if not re.match(r"^[0-9a-f]{40}$", adr_blob) or adr_blob == "0" * 40:
+        raise ContinuityStateValidationError(f"Resolved invalid blob SHA for ADR-022 at control commit: {adr_blob!r}")
+
+    # Build Canonical State with explicit provenance
+    task_ref = ArtifactRef(path=TASK_032_PATH, ref=control_commit_sha, blob_sha=task_blob)
+    adr_ref = ArtifactRef(path=ADR_022_PATH, ref=control_commit_sha, blob_sha=adr_blob)
     result_ref = ArtifactRef(path=RESULT_032_PATH, ref=source_published_sha, blob_sha=result_blob)
 
     state = ContinuityState(
@@ -304,6 +324,7 @@ def prepare_brain_pack(
 - Base Main SHA: `{base_main_sha}`
 - Shared Boundary SHA (S0): `{source_published_sha}`
 - Canonical State Fingerprint: `{state_fingerprint}`
+- Control Commit SHA: `{control_commit_sha}`
 
 ## Objective
 Independently diagnose whether S0 is safe and contract-complete for a cross-executor M8 continuation,
@@ -322,6 +343,7 @@ Please provide the diagnosis strictly containing the following sections:
     return {
         "task_id": task_id,
         "source_published_sha": source_published_sha,
+        "control_commit_sha": control_commit_sha,
         "state_fingerprint": state_fingerprint,
         "source_request_id": source_request.request_id,
         "replacement_request_id": replacement_request.request_id,
@@ -377,7 +399,7 @@ def verify_brain_proof(proof_dir: Path) -> dict[str, Any]:
     validate_m8_diagnosis_artifact(diag_norm.decode("utf-8"))
     diag_blob_sha = compute_git_blob_sha(diag_norm)
 
-    # 4. Replacement Result validation (R1-4: full identity and output contract binding)
+    # 4. Replacement Result validation (R1-4: full identity, output contract, and storage domain binding)
     if repl_res.status != BrainResultStatus.SUCCESS:
         raise ContinuityStateValidationError(f"Replacement result status must be SUCCESS, got: {repl_res.status.value}")
     if repl_res.task_id != repl_req.task_id:
@@ -403,6 +425,15 @@ def verify_brain_proof(proof_dir: Path) -> dict[str, Any]:
     if repl_res.artifact_ref.blob_sha != diag_blob_sha:
         raise ContinuityStateValidationError(
             f"Replacement result artifact blob mismatch: '{repl_res.artifact_ref.blob_sha}' vs '{diag_blob_sha}'"
+        )
+    approved_control_domain_pattern = re.compile(r"^(ai-control|refs/remotes/[a-zA-Z0-9_\-]+/ai-control|origin/ai-control|[0-9a-f]{40})$")
+    if not repl_res.artifact_ref.ref or not approved_control_domain_pattern.match(repl_res.artifact_ref.ref):
+        raise ContinuityStateValidationError(
+            f"Replacement result artifact ref '{repl_res.artifact_ref.ref}' is not in approved control storage domain"
+        )
+    if repl_res.artifact_ref.ref in ("ai/task-032", "main", state.task_branch.branch, state.main.branch):
+        raise ContinuityStateValidationError(
+            f"Replacement result artifact ref must not point to task/main branch: '{repl_res.artifact_ref.ref}'"
         )
 
     # 5. Failover Proof validation & exact input binding (R1-3)

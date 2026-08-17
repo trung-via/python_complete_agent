@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
@@ -5279,7 +5280,7 @@ def test_cmd_publish_task_032_proof_progress_manifest_generation(tmp_path: Path,
     assert c == "PENDING"
     assert s == "08508e48f6ffda70d1891dad461f6fd1b893b24b"
 
-    # Case 3: Failover FIX with valid C7 Brain provenance block in review -> PASS
+    # Case 3: Failover FIX with valid C7 Brain provenance block in review -> Brain and Executor PASS, Composite PENDING (R1-1 Round 2)
     c7_review_text = f"""# REVIEW-032
 STATUS: CHANGES_REQUIRED
 M8_SOURCE_EXECUTOR_PUBLISHED_SHA: 08508e48f6ffda70d1891dad461f6fd1b893b24b
@@ -5289,15 +5290,21 @@ M8_BRAIN_FAILOVER_PROOF_FINGERPRINT: {'1' * 64}
 M8_BRAIN_SUCCESS_ARTIFACT_BLOB_SHA: {'2' * 40}
 M8_CANONICAL_STATE_FINGERPRINT: {'3' * 64}
 """
+    c7_norm = c7_review_text.replace("\r\n", "\n").replace("\r", "\n")
+    c7_blob = hashlib.sha1(f"blob {len(c7_norm.encode('utf-8'))}\0".encode("utf-8") + c7_norm.encode("utf-8")).hexdigest()
+    failover_info_c7 = dict(failover_info_generic)
+    failover_info_c7["review_blob_sha"] = c7_blob
+
     monkeypatch.setattr(bridge, "read_remote_file", lambda cfg, path: c7_review_text)
+    monkeypatch.setattr(bridge, "get_remote_blob_sha", lambda cfg, path: c7_blob)
     b, e, c, s = bridge._evaluate_task_032_proof_progress(
         cfg={"remote": "origin", "control_branch": "ai-control"},
         auth=auth_run,
-        failover_info=failover_info_generic,
+        failover_info=failover_info_c7,
     )
     assert b == "PASS"
     assert e == "PASS"
-    assert c == "PASS"
+    assert c == "PENDING"
     assert s == "08508e48f6ffda70d1891dad461f6fd1b893b24b"
 
     # Case 4: Failover FIX with C7 source SHA mismatch -> PENDING
@@ -5305,11 +5312,16 @@ M8_CANONICAL_STATE_FINGERPRINT: {'3' * 64}
         "M8_SOURCE_EXECUTOR_PUBLISHED_SHA: 08508e48f6ffda70d1891dad461f6fd1b893b24b",
         "M8_SOURCE_EXECUTOR_PUBLISHED_SHA: 1111111111111111111111111111111111111111",
     )
+    c7_mismatch_norm = c7_mismatch_sha.replace("\r\n", "\n").replace("\r", "\n")
+    c7_mismatch_blob = hashlib.sha1(f"blob {len(c7_mismatch_norm.encode('utf-8'))}\0".encode("utf-8") + c7_mismatch_norm.encode("utf-8")).hexdigest()
+    failover_info_mismatch = dict(failover_info_generic)
+    failover_info_mismatch["review_blob_sha"] = c7_mismatch_blob
     monkeypatch.setattr(bridge, "read_remote_file", lambda cfg, path: c7_mismatch_sha)
+    monkeypatch.setattr(bridge, "get_remote_blob_sha", lambda cfg, path: c7_mismatch_blob)
     b, e, c, s = bridge._evaluate_task_032_proof_progress(
         cfg={"remote": "origin", "control_branch": "ai-control"},
         auth=auth_run,
-        failover_info=failover_info_generic,
+        failover_info=failover_info_mismatch,
     )
     assert b == "PENDING"
     assert e == "PENDING"
@@ -5317,11 +5329,30 @@ M8_CANONICAL_STATE_FINGERPRINT: {'3' * 64}
 
     # Case 5: Failover FIX with identical brain IDs -> PENDING
     c7_same_brain = c7_review_text.replace("M8_BRAIN_REPLACEMENT_ID: claude-chat", "M8_BRAIN_REPLACEMENT_ID: chatgpt-chat")
+    c7_same_norm = c7_same_brain.replace("\r\n", "\n").replace("\r", "\n")
+    c7_same_blob = hashlib.sha1(f"blob {len(c7_same_norm.encode('utf-8'))}\0".encode("utf-8") + c7_same_norm.encode("utf-8")).hexdigest()
+    failover_info_same = dict(failover_info_generic)
+    failover_info_same["review_blob_sha"] = c7_same_blob
     monkeypatch.setattr(bridge, "read_remote_file", lambda cfg, path: c7_same_brain)
+    monkeypatch.setattr(bridge, "get_remote_blob_sha", lambda cfg, path: c7_same_blob)
     b, e, c, s = bridge._evaluate_task_032_proof_progress(
         cfg={"remote": "origin", "control_branch": "ai-control"},
         auth=auth_run,
-        failover_info=failover_info_generic,
+        failover_info=failover_info_same,
+    )
+    assert b == "PENDING"
+    assert e == "PENDING"
+    assert c == "PENDING"
+
+    # Case 6: Review blob mismatch against remote control tree -> PENDING (R1-1 Round 2)
+    failover_info_blob_mismatch = dict(failover_info_c7)
+    failover_info_blob_mismatch["review_blob_sha"] = "0" * 40
+    monkeypatch.setattr(bridge, "read_remote_file", lambda cfg, path: c7_review_text)
+    monkeypatch.setattr(bridge, "get_remote_blob_sha", lambda cfg, path: c7_blob)
+    b, e, c, s = bridge._evaluate_task_032_proof_progress(
+        cfg={"remote": "origin", "control_branch": "ai-control"},
+        auth=auth_run,
+        failover_info=failover_info_blob_mismatch,
     )
     assert b == "PENDING"
     assert e == "PENDING"
