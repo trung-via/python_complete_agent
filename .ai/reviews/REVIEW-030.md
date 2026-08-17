@@ -1,13 +1,13 @@
 # REVIEW-030 — TASK-030 M6 Stable-Boundary Executor Failover
 
-STATUS: CHANGES_REQUIRED
+STATUS: APPROVED
 
 ## Review Scope
-- Round: 8 — Delta review of Final-Audit finding R7-1 + Final Independent Audit rerun
-- Previous proof-B head: `acf0205728756f6ff8b1134bcdbfdccf25e92820`
-- Reviewed branch head: `6a2c428fc12d9400641fc5a248403a2625849ed9`
+- Round: 9 — Final evidence review + Final Independent Audit completion
+- Previous reviewed code head: `6a2c428fc12d9400641fc5a248403a2625849ed9`
+- Final reviewed branch head: `8a1550b40692798fe0c049aa2ad74d55c54618ee`
 - Base main: `f36432c953fd84b8a38288f3d8580d2057a15cfc`
-- Branch: ahead 10 / behind 0; exact merge-base main.
+- Branch: ahead 11 / behind 0; exact merge-base main.
 
 ```text
 FULL_SEMANTIC_REVIEW: PASS AFTER REMEDIATION
@@ -17,70 +17,73 @@ R7-1: CLOSED
 M6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: PASS
 M6_REAL_PROOF_CODEX_TO_ANTIGRAVITY: PASS
 FINAL_INDEPENDENT_AUDIT_CODE: PASS
-FINAL_INDEPENDENT_AUDIT: INCOMPLETE_EVIDENCE
-APPROVED: NO
+FINAL_REGRESSION_EVIDENCE: PASS
+FINAL_INDEPENDENT_AUDIT: PASS
+APPROVED: YES
 ```
 
-## R7-1 Closure
+## Final Evidence Review
 
-R7-1 is closed.
+The final evidence commit `8a1550b40692798fe0c049aa2ad74d55c54618ee` is the direct child of the previously audited code head `6a2c428fc12d9400641fc5a248403a2625849ed9`.
 
-`_validate_stable_failover_preconditions()` now performs the C13 final branch-name assertion before the source HEAD / remote branch checks and before either activation path can reach replacement lease acquisition:
+The delta contains only:
 
 ```text
-current_branch() == expected task branch
-HEAD             == source published SHA
-remote task ref  == source published SHA
+.ai/results/RESULT-030.md
 ```
 
-The new regression creates `feature/other-branch` pointing to the exact same source commit as `ai/task-030`, then proves the stable-boundary helper rejects the activation and the lease store remains empty. It also exercises both `cmd_handoff()` and legacy `cmd_approve()` through the shared failover gate and confirms no replacement lease is acquired.
+There is no production-code or test-code change after the Round-8 code audit. Therefore the code surface remains exactly the implementation that already closed R7-1 and passed the code portion of the Final Independent Audit.
 
-No M5 lease semantic, failover proof schema, proof-progress logic, executor set, or real-proof evidence was changed.
-
-## Proof Preservation
-
-The Round-8 same-executor Antigravity RESULT correctly preserves:
+The Bridge-generated RESULT is an ordinary same-executor Antigravity FIX evidence publish and correctly preserves:
 
 ```text
+EXECUTOR_ID: antigravity
+EXECUTOR_FAILOVER: NO
 M6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: PASS
 M6_REAL_PROOF_CODEX_TO_ANTIGRAVITY: PASS
 ```
 
-and correctly reports `EXECUTOR_FAILOVER: NO` for this repair round.
+It is bound to the exact prior review artifact blob `50069eb7dc0a110758d4e3ba4aaf8e9a48549741`.
 
-## Test Evidence Gate
+## Fresh Full Repository Regression
 
-Round 8 reports only the focused command:
-
-```text
-.\venv\Scripts\python -m pytest tests/test_bridge.py tests/aios_bridge/continuity/test_executor_failover.py
-76 passed, 0 failed
-```
-
-This closes the focused regression for R7-1. However Round 7 explicitly required a fresh full repository suite after the production/test-code repair. No full-repository result is present in the current RESULT, and the reviewed commit has no GitHub status/CI evidence that supplies an equivalent full regression run.
-
-Therefore there is no remaining semantic code finding, but the mandatory final regression evidence is incomplete. Final approval is withheld solely for this evidence gate.
-
-## Required Final Evidence Round
-
-Run one ordinary same-executor Antigravity FIX with no semantic code changes unless a test reveals a real defect. Execute at minimum:
+The required final regression command was executed after the R7-1 repair:
 
 ```text
 .\venv\Scripts\python -m pytest tests/
 ```
 
-The next Bridge-published RESULT must preserve both M6 proof flags as PASS and contain fresh full-repository test evidence with zero failures/regressions.
-
-Expected activation:
+Reported result:
 
 ```text
-/aios-worker FIX TASK-030 --executor antigravity
+750 passed
+0 failed
+75.14s
 ```
 
-A RESULT-only evidence commit is acceptable if the full suite passes and no code change is needed.
+Warnings are deprecation/runtime warnings already present in the repository test environment; no regression failure is reported.
 
-After publish, return with `Review TASK-030`. Primary Brain will verify the exact predecessor/result relation and, if the fresh full suite is green and no new delta appears, finalize the Final Independent Audit as PASS and issue APPROVED.
+## Final Independent Audit Decision
+
+The final audit re-confirms:
+
+- canonical `StableExecutorFailoverProof` remains strict, bounded, immutable and vendor-neutral;
+- source and replacement leases are relationally bound by task, executor, operation, workspace and fingerprints;
+- runtime executor set is limited to `antigravity,codex` with explicit human selection for failover;
+- failover requires prior CONSUMED authorization, exact published SHA, exact task branch name, exact HEAD, exact remote task branch, immutable RESULT and REVIEW anchors, and no ACTIVE lease before replacement acquisition;
+- both `cmd_handoff()` and legacy `cmd_approve()` pass through the same fail-closed stable-boundary gate;
+- publish requires exact ACTIVE replacement authorization + lease and revalidates failover proof / REVIEW before tests;
+- M5 single-active-executor invariant and release ordering remain unchanged;
+- proof progress is derived from exact predecessor published evidence rather than arbitrary Git history;
+- real repository Proof A `Antigravity -> Codex` is accepted;
+- real repository Proof B `Codex -> Antigravity` is accepted;
+- no hot/dirty handoff, third executor, TTL/heartbeat/lease steal, quota router, automatic failover, paid API path, or merge-authority widening was introduced;
+- fresh full repository regression is green after the final code repair.
+
+No open semantic, authority-safety, proof, or regression-evidence finding remains.
 
 ## Decision
 
-`CHANGES_REQUIRED` — evidence-only gate; no open semantic code finding.
+`APPROVED`
+
+TASK-030 / M6 satisfies its Definition of Done and is ready for explicit Human MERGE authorization.
