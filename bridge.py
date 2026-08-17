@@ -1965,15 +1965,16 @@ def _validate_task_031_portability_scope(cfg: dict, auth: dict) -> None:
 
 def _parse_task_031_test_evidence(test_cmd: str | None, test_output: str | None, test_rc: int) -> tuple[str, str, str, str]:
     """
-    Parses and binds TASK-031 test evidence fields to actual test execution (R2-2).
+    Parses and binds TASK-031 test evidence fields to actual test execution (R2-2, Round 3).
     Returns (bridge_tests, continuity_tests, full_repo_tests, regressions).
+    Derives counts strictly from authoritative execution evidence with zero hard-coded fallback constants.
     """
     if not test_cmd or test_rc != 0 or not test_output:
         return "NOT_RUN", "NOT_RUN", "NOT_RUN", "0"
 
     import re
 
-    # Extract total passed count from pytest summary (e.g. "= 754 passed, 1 warning ... =")
+    # Extract total passed count from pytest summary (e.g. "= 755 passed, 1 warning ... =")
     summary_match = re.search(r"=\s*(\d+)\s+passed", test_output)
     total_passed = int(summary_match.group(1)) if summary_match else None
 
@@ -1994,25 +1995,25 @@ def _parse_task_031_test_evidence(test_cmd: str | None, test_output: str | None,
 
     if ran_bridge:
         if "test_bridge.py" in cmd_norm and not is_full_repo and "continuity" not in cmd_norm:
-            bridge_str = f"{total_passed}/{total_passed} pass" if total_passed else "NOT_RUN"
-        elif is_full_repo and total_passed:
+            bridge_str = f"{total_passed}/{total_passed} pass" if total_passed is not None else "UNVERIFIED"
+        elif is_full_repo:
             v_matches = len(re.findall(r"tests[/\\]test_bridge\.py[^\n]*PASSED", test_output))
             if v_matches > 0:
                 bridge_str = f"{v_matches}/{v_matches} pass"
             else:
-                bridge_str = "80/80 pass"
+                bridge_str = "UNVERIFIED"
 
     if ran_continuity:
         if "continuity" in cmd_norm and not is_full_repo and "test_bridge.py" not in cmd_norm:
-            continuity_str = f"{total_passed}/{total_passed} pass" if total_passed else "NOT_RUN"
-        elif is_full_repo and total_passed:
-            v_matches = len(re.findall(r"tests[/\\]aios_bridge[/\\]continuity[^\n]*PASSED", test_output))
+            continuity_str = f"{total_passed}/{total_passed} pass" if total_passed is not None else "UNVERIFIED"
+        elif is_full_repo:
+            v_matches = len(re.findall(r"tests[/\\]aios_bridge[/\\]continuity[/\\][^\n]*PASSED", test_output))
             if v_matches > 0:
                 continuity_str = f"{v_matches}/{v_matches} pass"
             else:
-                continuity_str = "152/152 pass"
+                continuity_str = "UNVERIFIED"
 
-    if is_full_repo and total_passed:
+    if is_full_repo and total_passed is not None:
         full_repo_str = f"{total_passed}/{total_passed} pass"
 
     return bridge_str, continuity_str, full_repo_str, "0"

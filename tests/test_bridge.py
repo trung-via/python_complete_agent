@@ -5124,17 +5124,47 @@ def test_task_031_test_evidence_truthful_binding_and_negative_subset_cases():
     assert c == "152/152 pass"
     assert f == "NOT_RUN"
 
-    # 5. Full repository execution -> all suites reported truthfully
+    # 5. Full repository execution without verbose flags (progress dots only) -> subsuites report UNVERIFIED, full repo reported truthfully
     b, c, f, r = bridge._parse_task_031_test_evidence(
         ".\\venv\\Scripts\\python -m pytest tests/",
         "tests/test_bridge.py ................................................................................ [ 11%]\n"
         "tests/aios_bridge/continuity/test_lease.py ................. [100%]\n"
-        "= 754 passed in 78.0s =",
+        "= 755 passed in 78.0s =",
         0,
     )
-    assert b == "80/80 pass"
+    assert b == "UNVERIFIED"
+    assert c == "UNVERIFIED"
+    assert f == "755/755 pass"
+    assert r == "0"
+
+    # 6. Full repository execution with verbose output -> exact subsuite pass counts dynamically derived
+    bridge_lines = "\n".join(f"tests/test_bridge.py::test_case_{i} PASSED" for i in range(81))
+    continuity_lines = "\n".join(f"tests/aios_bridge/continuity/test_case_{i} PASSED" for i in range(152))
+    verbose_output = f"{bridge_lines}\n{continuity_lines}\n= 755 passed in 78.0s ="
+
+    b, c, f, r = bridge._parse_task_031_test_evidence(
+        ".\\venv\\Scripts\\python -m pytest tests/ -v",
+        verbose_output,
+        0,
+    )
+    assert b == "81/81 pass"
     assert c == "152/152 pass"
-    assert f == "754/754 pass"
+    assert f == "755/755 pass"
+    assert r == "0"
+
+    # 7. Count drift test: changing number of tests dynamically updates manifest evidence without hard-coded fallbacks
+    drift_bridge_lines = "\n".join(f"tests/test_bridge.py::test_case_{i} PASSED" for i in range(95))
+    drift_continuity_lines = "\n".join(f"tests/aios_bridge/continuity/test_case_{i} PASSED" for i in range(160))
+    drift_output = f"{drift_bridge_lines}\n{drift_continuity_lines}\n= 777 passed in 80.0s ="
+
+    b, c, f, r = bridge._parse_task_031_test_evidence(
+        ".\\venv\\Scripts\\python -m pytest tests/ -v",
+        drift_output,
+        0,
+    )
+    assert b == "95/95 pass"
+    assert c == "160/160 pass"
+    assert f == "777/777 pass"
     assert r == "0"
 
 
