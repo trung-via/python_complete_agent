@@ -4,10 +4,17 @@ Provides atomic create-if-absent lease persistence, strict active verification, 
 """
 from __future__ import annotations
 
+import contextlib
 import os
 from pathlib import Path
+import threading
 import time
-from typing import Any
+from typing import Any, Iterator
+
+if os.name == "nt":
+    import msvcrt
+else:
+    import fcntl
 
 from .continuity.errors import ContinuityStateValidationError
 from .continuity.lease import (
@@ -17,6 +24,57 @@ from .continuity.lease import (
     validate_executor_lease_binding,
 )
 from .continuity.state import MAX_SERIALIZED_BYTES
+
+_GLOBAL_THREAD_LOCK = threading.Lock()
+_TASK_THREAD_LOCKS: dict[str, threading.RLock] = {}
+
+
+def _get_task_thread_lock(task_id: str) -> threading.RLock:
+    with _GLOBAL_THREAD_LOCK:
+        if task_id not in _TASK_THREAD_LOCKS:
+            _TASK_THREAD_LOCKS[task_id] = threading.RLock()
+        return _TASK_THREAD_LOCKS[task_id]
+
+
+@contextlib.contextmanager
+def _task_mutation_guard(task_dir: Path, task_id: str) -> Iterator[None]:
+    """
+    Task-scoped cross-thread and cross-process mutation lock (R1-1 / ADR-019).
+    Guarantees linearizability for atomic acquire and compare-and-release operations.
+    """
+    thread_lock = _get_task_thread_lock(task_id)
+    with thread_lock:
+        task_dir.mkdir(parents=True, exist_ok=True)
+        lock_file = task_dir / ".lease_mutation.lock"
+        fd = os.open(
+            str(lock_file),
+            os.O_CREAT | os.O_RDWR | getattr(os, "O_BINARY", 0),
+            0o600,
+        )
+        try:
+            if os.name == "nt":
+                msvcrt.locking(fd, msvcrt.LK_LOCK, 1)
+            else:
+                fcntl.flock(fd, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                if os.name == "nt":
+                    try:
+                        os.lseek(fd, 0, os.SEEK_SET)
+                        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        fcntl.flock(fd, fcntl.LOCK_UN)
+                    except Exception:
+                        pass
+        finally:
+            try:
+                os.close(fd)
+            except Exception:
+                pass
 
 
 class AtomicExecutorLeaseStore:
@@ -127,7 +185,7 @@ class AtomicExecutorLeaseStore:
     def acquire(self, lease: ExecutorLease) -> ExecutorLease:
         """
         Atomically acquires exclusive lease for task_id using O_CREAT | O_EXCL (C9 / ADR-019).
-        Fails closed on collision, corruption, or workspace mismatch.
+        Fails closed on collision, corruption, partial write, or workspace mismatch.
         """
         if not isinstance(lease, ExecutorLease):
             raise ContinuityStateValidationError(
@@ -140,76 +198,93 @@ class AtomicExecutorLeaseStore:
             )
 
         task_dir = self._get_task_dir(lease.task_id)
-        task_dir.mkdir(parents=True, exist_ok=True)
         active_file = self._get_active_path(lease.task_id)
-
         canonical_bytes = lease.to_canonical_json().encode("utf-8")
         flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_BINARY", 0)
 
-        fd: int | None = None
-        try:
-            fd = os.open(str(active_file), flags, 0o600)
-            os.write(fd, canonical_bytes)
+        with _task_mutation_guard(task_dir, lease.task_id):
+            created_by_this_call = False
+            fd: int | None = None
             try:
-                os.fsync(fd)
-            except OSError:
-                pass
-            os.close(fd)
-            fd = None
-            return lease
-        except FileExistsError:
-            # Another lease file exists: strictly load it to surface exact diagnostic
-            existing = self.load_active(lease.task_id)
-            if existing is not None:
+                fd = os.open(str(active_file), flags, 0o600)
+                created_by_this_call = True
+
+                # Complete durable record write (R1-3)
+                total_written = 0
+                while total_written < len(canonical_bytes):
+                    n = os.write(fd, canonical_bytes[total_written:])
+                    if n <= 0:
+                        raise ContinuityStateValidationError(
+                            f"Zero bytes written to lease file for {lease.task_id}"
+                        )
+                    total_written += n
+
+                try:
+                    os.fsync(fd)
+                except OSError as e:
+                    raise ContinuityStateValidationError(
+                        f"Durable fsync failed for lease {lease.task_id}: {e}"
+                    ) from e
+
+                os.close(fd)
+                fd = None
+                return lease
+            except FileExistsError:
+                existing = self.load_active(lease.task_id)
+                if existing is not None:
+                    raise ContinuityStateValidationError(
+                        f"Task {lease.task_id} is already leased to executor '{existing.executor_id}' (lease_id={existing.lease_id!r})"
+                    )
                 raise ContinuityStateValidationError(
-                    f"Task {lease.task_id} is already leased to executor '{existing.executor_id}' (lease_id={existing.lease_id!r})"
+                    f"Task {lease.task_id} lease acquisition conflict on '{active_file}'"
                 )
-            # If load_active returned None (impossible for FileExistsError unless unlinked concurrently), fail closed
-            raise ContinuityStateValidationError(
-                f"Task {lease.task_id} lease acquisition conflict on '{active_file}'"
-            )
-        except Exception as e:
-            if fd is not None:
-                try:
-                    os.close(fd)
-                except Exception:
-                    pass
-            # Best-effort cleanup of our own newly created file if we failed during write
-            if active_file.exists():
-                try:
-                    active_file.unlink()
-                except Exception:
-                    pass
-            raise ContinuityStateValidationError(
-                f"Failed acquiring lease for {lease.task_id}: {e}"
-            ) from e
+            except Exception as e:
+                if fd is not None:
+                    try:
+                        os.close(fd)
+                    except Exception:
+                        pass
+                # Ownership-safe failed-writer cleanup (R1-2)
+                if created_by_this_call and active_file.exists():
+                    try:
+                        active_file.unlink()
+                    except Exception:
+                        pass
+                if isinstance(e, ContinuityStateValidationError):
+                    raise e
+                raise ContinuityStateValidationError(
+                    f"Failed acquiring lease for {lease.task_id}: {e}"
+                ) from e
 
     def release(self, expected: ExecutorLease) -> ExecutorLease:
         """
-        Atomically releases lease via compare-and-release to history (C11 / ADR-019).
-        Refuses release if current active lease does not match expected exact lease.
+        Atomically releases lease via compare-and-release to history (C11 / R1-1 / ADR-019).
+        Guarantees under task mutation guard that stale releases can never remove newer leases.
         """
         if not isinstance(expected, ExecutorLease):
             raise ContinuityStateValidationError(
                 f"expected must be an ExecutorLease instance, got: {type(expected).__name__}"
             )
 
-        # 1. Strict compare-and-validate against current active lease
-        self.require_active(expected)
-
-        # 2. Prepare history directory
-        history_dir = self._get_history_dir(expected.task_id)
-        history_dir.mkdir(parents=True, exist_ok=True)
-        timestamp = int(time.time())
-        dest_file = history_dir / f"RELEASED-{expected.lease_id}-{timestamp}.json"
-
-        # 3. Atomic rename out of ACTIVE.json
+        task_dir = self._get_task_dir(expected.task_id)
         active_file = self._get_active_path(expected.task_id)
-        try:
-            os.replace(str(active_file), str(dest_file))
-        except Exception as e:
-            raise ContinuityStateValidationError(
-                f"Failed to atomically release lease for {expected.task_id}: {e}"
-            ) from e
 
-        return expected
+        with _task_mutation_guard(task_dir, expected.task_id):
+            # 1. Strict compare-and-validate against current active lease while holding lock
+            self.require_active(expected)
+
+            # 2. Prepare history directory
+            history_dir = self._get_history_dir(expected.task_id)
+            history_dir.mkdir(parents=True, exist_ok=True)
+            timestamp = int(time.time())
+            dest_file = history_dir / f"RELEASED-{expected.lease_id}-{timestamp}.json"
+
+            # 3. Atomic rename out of ACTIVE.json
+            try:
+                os.replace(str(active_file), str(dest_file))
+            except Exception as e:
+                raise ContinuityStateValidationError(
+                    f"Failed to atomically release lease for {expected.task_id}: {e}"
+                ) from e
+
+            return expected

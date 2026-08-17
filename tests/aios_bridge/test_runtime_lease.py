@@ -5,6 +5,7 @@ Validates atomic create-if-absent, concurrent race linearization, corrupt file f
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+import os
 from pathlib import Path
 import threading
 import pytest
@@ -212,3 +213,127 @@ def test_compare_and_release_lifecycle(tmp_path: Path):
     lease2 = _sample_lease(lease_id="lease-02", workspace_id=ws_id)
     store.acquire(lease2)
     assert store.load_active(lease2.task_id) == lease2
+
+
+def test_compare_and_release_interleaving_race_prevents_stale_release_removing_new_lease(tmp_path: Path):
+    """
+    Validates R1-1: An old/stale release attempt for Lease A cannot remove a newly acquired Lease B.
+    """
+    ws_id = "1" * 64
+    store = AtomicExecutorLeaseStore(lease_root=tmp_path, workspace_id=ws_id)
+    task_id = "TASK-029"
+
+    # 1. Lease A is acquired
+    lease_a = _sample_lease(task_id=task_id, lease_id="lease-a", workspace_id=ws_id)
+    store.acquire(lease_a)
+    assert store.load_active(task_id) == lease_a
+
+    # 2. Releaser 1 releases Lease A
+    store.release(lease_a)
+    assert store.load_active(task_id) is None
+
+    # 3. Acquirer B acquires Lease B
+    lease_b = _sample_lease(task_id=task_id, lease_id="lease-b", workspace_id=ws_id)
+    store.acquire(lease_b)
+    assert store.load_active(task_id) == lease_b
+
+    # 4. Stale Releaser 2 attempts to release Lease A -> MUST FAIL CLOSED
+    with pytest.raises(ContinuityStateValidationError, match="lease_id"):
+        store.release(lease_a)
+
+    # 5. Critical invariant: Lease B remains active and untouched in store!
+    assert store.load_active(task_id) == lease_b
+
+
+def test_failed_writer_cleanup_safety_when_open_fails(tmp_path: Path, monkeypatch):
+    """
+    Validates R1-2: Failed writer cleanup NEVER unlinks somebody else's lease when failure occurs during/before open.
+    """
+    ws_id = "1" * 64
+    store = AtomicExecutorLeaseStore(lease_root=tmp_path, workspace_id=ws_id)
+    task_id = "TASK-029"
+
+    # Pre-existing active lease
+    existing_lease = _sample_lease(task_id=task_id, lease_id="lease-existing", workspace_id=ws_id)
+    store.acquire(existing_lease)
+
+    # Fault-inject os.open to raise an unexpected error when contender attempts opening ACTIVE.json
+    real_open = os.open
+    def fake_open(path, flags, mode=0o777):
+        if "ACTIVE.json" in str(path):
+            raise PermissionError("Simulated filesystem permission error before file creation")
+        return real_open(path, flags, mode)
+
+    monkeypatch.setattr(os, "open", fake_open)
+
+    contender_lease = _sample_lease(task_id=task_id, lease_id="lease-contender", workspace_id=ws_id)
+    with pytest.raises(ContinuityStateValidationError, match="Simulated filesystem permission error"):
+        store.acquire(contender_lease)
+
+    # Unpatch and verify existing lease was NOT unlinked!
+    monkeypatch.undo()
+    assert store.load_active(task_id) == existing_lease
+
+
+def test_failed_writer_cleanup_only_removes_own_created_file_on_write_error(tmp_path: Path, monkeypatch):
+    """
+    Validates R1-2 & R1-3: When this call created the file but failed during write, it unlinks the broken file.
+    """
+    ws_id = "1" * 64
+    store = AtomicExecutorLeaseStore(lease_root=tmp_path, workspace_id=ws_id)
+    task_id = "TASK-029"
+
+    def fake_write(fd, data):
+        raise OSError("Simulated disk I/O failure during write")
+
+    monkeypatch.setattr(os, "write", fake_write)
+
+    lease = _sample_lease(task_id=task_id, workspace_id=ws_id)
+    with pytest.raises(ContinuityStateValidationError, match="Simulated disk I/O failure"):
+        store.acquire(lease)
+
+    monkeypatch.undo()
+    # Incomplete file was cleanly unlinked and load_active returns None
+    assert store.load_active(task_id) is None
+
+
+def test_partial_write_fault_injection_fails_closed(tmp_path: Path, monkeypatch):
+    """
+    Validates R1-3: os.write returning 0 bytes causes acquire to fail closed.
+    """
+    ws_id = "1" * 64
+    store = AtomicExecutorLeaseStore(lease_root=tmp_path, workspace_id=ws_id)
+    task_id = "TASK-029"
+
+    def fake_write(fd, data):
+        return 0  # 0 bytes written
+
+    monkeypatch.setattr(os, "write", fake_write)
+
+    lease = _sample_lease(task_id=task_id, workspace_id=ws_id)
+    with pytest.raises(ContinuityStateValidationError, match="Zero bytes written"):
+        store.acquire(lease)
+
+    monkeypatch.undo()
+    assert store.load_active(task_id) is None
+
+
+def test_fsync_failure_fault_injection_fails_closed(tmp_path: Path, monkeypatch):
+    """
+    Validates R1-3: os.fsync raising OSError causes acquire to fail closed.
+    """
+    ws_id = "1" * 64
+    store = AtomicExecutorLeaseStore(lease_root=tmp_path, workspace_id=ws_id)
+    task_id = "TASK-029"
+
+    def fake_fsync(fd):
+        raise OSError(5, "Simulated hardware I/O error on fsync")
+
+    monkeypatch.setattr(os, "fsync", fake_fsync)
+
+    lease = _sample_lease(task_id=task_id, workspace_id=ws_id)
+    with pytest.raises(ContinuityStateValidationError, match="Durable fsync failed"):
+        store.acquire(lease)
+
+    monkeypatch.undo()
+    assert store.load_active(task_id) is None

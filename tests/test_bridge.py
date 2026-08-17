@@ -1695,3 +1695,227 @@ def test_lease_status_and_confirmation_gated_release():
                 del os.environ["AIOS_RUNTIME_DIR"]
 
 
+def test_cmd_approve_lease_conflict_preserves_pending_event_and_state():
+    """
+    Validates R1-4: When cmd_approve encounters a lease conflict, the inbox event remains PENDING
+    and operational state is untouched, keeping the approval retryable.
+    """
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "main"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "README.md").write_text("# Repo\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            bridge.ensure_dirs()
+            cfg = {
+                "remote": "origin",
+                "base_branch": "main",
+                "control_branch": "ai-control",
+                "task_branch_prefix": "ai/task-",
+                "poll_seconds": 20,
+                "windows_popup": False,
+            }
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            # 1. Create a pending inbox event
+            inbox_path = bridge.get_runtime_paths()["inbox"] / "TASK-029.11111111111111111111.json"
+            event_data = {
+                "kind": "TASK",
+                "task_id": "TASK-029",
+                "path": ".ai/tasks/TASK-029.md",
+                "blob_sha": "a" * 40,
+                "detected_at": "2026-08-17T08:00:00+07:00",
+                "approval": "PENDING",
+            }
+            bridge.save_json(inbox_path, event_data)
+
+            # Pre-acquire lease for TASK-029 by another executor
+            ws_id = bridge.get_workspace_id()
+            other_lease = bridge.build_executor_lease_candidate(
+                task_id="TASK-029",
+                workspace_id=ws_id,
+                operation=bridge.ExecutionOperation.RUN,
+                target_branch="ai/task-029",
+                authorized_artifact_path=".ai/tasks/TASK-029.md",
+                authorized_artifact_blob_sha="a" * 40,
+                executor_id="other-executor",
+            )
+            store = bridge.get_lease_store()
+            store.acquire(other_lease)
+
+            # 2. Attempt cmd_approve -> must fail closed due to lease conflict
+            with pytest.raises(SystemExit):
+                bridge.cmd_approve(type("Args", (), {"task_id": 29, "kind": None})())
+
+            # 3. Critical verification: Inbox event is STILL PENDING and retryable!
+            reloaded_event = bridge.load_json(inbox_path, {})
+            assert reloaded_event.get("approval") == "PENDING"
+            assert bridge.find_latest_event(29, "TASK") is not None
+            assert len(bridge.pending_events()) == 1
+
+            # 4. No ACTIVE authorization was persisted
+            assert bridge.get_active_authorization(29) is None
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+
+def test_publish_commit_and_push_failure_retains_exact_lease():
+    """
+    Validates R1-5: Commit or push failure during publish retains the exact active lease in store.
+    """
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "ai/task-029"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "README.md").write_text("# Initial\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_fetch = bridge.fetch_control
+        old_blob = bridge.get_remote_blob_sha
+        old_read = bridge.read_remote_file
+        old_git = bridge.git
+
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            bridge.ensure_dirs()
+            cfg = {
+                "remote": "origin",
+                "base_branch": "main",
+                "control_branch": "ai-control",
+                "task_branch_prefix": "ai/task-",
+                "poll_seconds": 20,
+                "windows_popup": False,
+            }
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            # Acquire lease & bind auth
+            ws_id = bridge.get_workspace_id()
+            lease = bridge.build_executor_lease_candidate(
+                task_id="TASK-029",
+                workspace_id=ws_id,
+                operation=bridge.ExecutionOperation.RUN,
+                target_branch="ai/task-029",
+                authorized_artifact_path=".ai/tasks/TASK-029.md",
+                authorized_artifact_blob_sha="c" * 40,
+                executor_id="antigravity",
+            )
+            store = bridge.get_lease_store()
+            store.acquire(lease)
+
+            auth = {
+                "task_id": "TASK-029",
+                "action": "RUN",
+                "kind": "TASK",
+                "artifact_path": ".ai/tasks/TASK-029.md",
+                "artifact_blob_sha": "c" * 40,
+                "approved_at": bridge.now(),
+                "branch": "ai/task-029",
+                "status": "ACTIVE",
+                "executor_id": lease.executor_id,
+                "lease_id": lease.lease_id,
+                "lease_fingerprint": lease.fingerprint(),
+                "workspace_id": lease.workspace_id,
+                "execution_fingerprint": lease.execution_fingerprint,
+            }
+            bridge.save_authorization(29, auth)
+
+            bridge.fetch_control = lambda cfg: None
+            bridge.get_remote_blob_sha = lambda cfg, path: "c" * 40 if "tasks" in path else None
+
+            # 1. Test failure retains lease
+            with pytest.raises(SystemExit):
+                bridge.cmd_publish(type("Args", (), {
+                    "task_id": 29,
+                    "action": None,
+                    "test": 'python -c "import sys; sys.exit(1)"',
+                    "summary": "failing test",
+                    "notes": None,
+                    "message": None,
+                })())
+            assert store.load_active("TASK-029") == lease
+
+            # 2. Push failure retains lease
+            def fake_git_push_fail(*args, **kwargs):
+                if args[0] == "push":
+                    bridge.fail("git push thất bại: fatal: remote rejected push")
+                return old_git(*args, **kwargs)
+
+            bridge.git = fake_git_push_fail
+
+            with pytest.raises(SystemExit):
+                bridge.cmd_publish(type("Args", (), {
+                    "task_id": 29,
+                    "action": None,
+                    "test": None,
+                    "summary": "push failing",
+                    "notes": None,
+                    "message": "push fail commit",
+                })())
+
+            # Active lease in store MUST REMAIN EXACTLY ACTIVE
+            assert store.load_active("TASK-029") == lease
+            assert bridge.load_authorization(29)["status"] == "ACTIVE"
+
+            # 3. Commit failure retains lease
+            def fake_git_commit_fail(*args, **kwargs):
+                if args[0] == "commit":
+                    bridge.fail("git commit thất bại: pre-commit hook rejected")
+                return old_git(*args, **kwargs)
+
+            bridge.git = fake_git_commit_fail
+
+            with pytest.raises(SystemExit):
+                bridge.cmd_publish(type("Args", (), {
+                    "task_id": 29,
+                    "action": None,
+                    "test": None,
+                    "summary": "commit failing",
+                    "notes": None,
+                    "message": "commit fail",
+                })())
+
+            # Active lease in store MUST REMAIN EXACTLY ACTIVE
+            assert store.load_active("TASK-029") == lease
+            assert bridge.load_authorization(29)["status"] == "ACTIVE"
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.fetch_control = old_fetch
+            bridge.get_remote_blob_sha = old_blob
+            bridge.read_remote_file = old_read
+            bridge.git = old_git
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+

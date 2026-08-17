@@ -1153,25 +1153,8 @@ def cmd_approve(args):
     branch = checkout_task_branch(cfg, args.task_id)
     f = Path(event["_file"])
     data = load_json(f, {})
-    data["approval"] = "APPROVED"
-    data["approved_at"] = now()
-    save_json(f, data)
 
-    if data.get("kind") == "REVIEW":
-        update_state(
-            args.task_id,
-            "CHANGES_REQUIRED",
-            "Antigravity may apply REVIEW after explicit approval",
-        )
-        action = "FIX"
-    else:
-        update_state(
-            args.task_id,
-            "IN_PROGRESS",
-            "Antigravity may execute TASK after explicit approval",
-        )
-        action = "RUN"
-
+    action = "FIX" if data.get("kind") == "REVIEW" else "RUN"
     task_id_str = f"TASK-{args.task_id:03d}"
     ws_id = get_workspace_id()
     op = ExecutionOperation.FIX if action == "FIX" else ExecutionOperation.RUN
@@ -1191,7 +1174,26 @@ def cmd_approve(args):
     try:
         acquired_lease = store.acquire(lease_candidate)
     except Exception as e:
+        # Note: Event file remains PENDING and operational state is untouched so it remains retryable (R1-4)
         fail(f"Chiếm executor lease thất bại khi approve {task_id_str}: {e}")
+
+    # Now that lease is acquired, mark event approved and update state
+    data["approval"] = "APPROVED"
+    data["approved_at"] = now()
+    save_json(f, data)
+
+    if data.get("kind") == "REVIEW":
+        update_state(
+            args.task_id,
+            "CHANGES_REQUIRED",
+            "Antigravity may apply REVIEW after explicit approval",
+        )
+    else:
+        update_state(
+            args.task_id,
+            "IN_PROGRESS",
+            "Antigravity may execute TASK after explicit approval",
+        )
 
     auth = {
         "task_id": task_id_str,
