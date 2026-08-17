@@ -3,16 +3,17 @@
 STATUS: CHANGES_REQUIRED
 
 ## Review Scope
-- Round: 1 — Full Semantic Review / Stage 0
-- Reviewed branch: `ai/task-030`
-- Reviewed head: `1ffb9f10eb4363b1455d9fcdacba4ff1914bd2fe`
-- Tested implementation: `3347c2433c05478ea0f9b3f1f6d4ff565370f1a8`
+- Round: 2 — Delta Fix Review / Stage 0
+- Previous reviewed head: `1ffb9f10eb4363b1455d9fcdacba4ff1914bd2fe`
+- Tested implementation: `c0a89818d8ec08b0de0b986a549d2e7f6134b95c`
+- Reviewed branch head: `8a909d16eaba0f7ae796ed95a4cde63c11f5a683`
 - Base main: `f36432c953fd84b8a38288f3d8580d2057a15cfc`
-- Branch: ahead 2 / behind 0; exact merge-base main.
+- Branch: ahead 4 / behind 0; exact merge-base main.
 
 ```text
-FULL_SEMANTIC_REVIEW: FAIL
-SEMANTIC_FINDINGS: OPEN
+FULL_SEMANTIC_REVIEW: FAIL in Round 1
+KNOWN_FINDINGS: OPEN
+DELTA_FIX_REVIEW: FAIL
 M6_PROOF_REQUIRED: BLOCKED_UNTIL_SEMANTIC_FIXES
 M6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: PENDING
 M6_REAL_PROOF_CODEX_TO_ANTIGRAVITY: PENDING
@@ -20,54 +21,91 @@ FINAL_INDEPENDENT_AUDIT: NOT_RUN
 APPROVED: NO
 ```
 
-## Findings
+## Round-1 Finding Status
 
-### R1-1 HIGH — Stable-boundary parity incomplete
-`cmd_handoff()` tolerates inability to resolve the remote task branch during failover; `cmd_approve()` does not assert remote task branch == prior `published_sha` at all. `cmd_approve()` also does not freshly revalidate the current REVIEW blob/status before replacement lease acquisition. This violates C13/C16/C24.
+- `R1-1` CLOSED — shared stable-boundary helper now enforces local HEAD, remote task branch, fresh REVIEW blob/status and no active lease for both handoff/approve.
+- `R1-2` CLOSED — failover proof uses authoritative remote control commit only; publish revalidates exact control commit + REVIEW blob/status.
+- `R1-3` CLOSED — actual executor switch requires explicit user-supplied `--executor`.
+- `R1-4` CLOSED — exact role paths, required schema_version and canonical size bound are enforced.
+- `R1-5` PARTIAL / OPEN — post-acquire block now covers proof/auth/state, but rollback does not restore authorization after authorization persistence succeeds and a later step fails.
 
-Required: shared fail-closed validation for local HEAD, remote task branch, current REVIEW blob and `CHANGES_REQUIRED` status before replacement acquisition, with drift/missing-ref tests for both handoff and approve.
+## Remaining / New Findings
 
-### R1-2 HIGH — REVIEW control-commit binding not exact
-Failover activation falls back from the authoritative remote control ref to local control ref and then `HEAD`. Publish checks current REVIEW blob but not that current fetched control commit equals `proof.review_ref.ref`.
+### R1-5 HIGH — Handoff rollback can leave replacement ACTIVE authorization after releasing replacement lease
+Cross-executor `cmd_handoff()` performs:
 
-Required: authoritative remote control commit only; no fallback. Publish must require exact control commit ref + exact review blob/status.
-
-### R1-3 HIGH — Replacement Executor may be selected implicitly
-`executor=None` defaults to `antigravity`. After a prior consumed Codex execution, an ordinary FIX with no explicit executor selector becomes `codex -> antigravity` failover. M6 requires explicit Human replacement selection.
-
-Required: if selected executor differs from prior consumed executor, require explicit user-supplied executor selection. Add omitted-vs-explicit regression tests.
-
-### R1-4 MEDIUM — Canonical proof strictness gaps
-`StableExecutorFailoverProof` currently:
-- accepts `RESULT-30.md` / `REVIEW-30.md` aliases for `TASK-030` due integer normalization;
-- accepts missing `schema_version` and defaults it;
-- lacks canonical `<= MAX_SERIALIZED_BYTES` enforcement for direct/dict construction.
-
-Required: exact task-token role paths, explicit required schema_version, canonical serialized-size enforcement on every construction path, plus regression tests.
-
-### R1-5 MEDIUM — Handoff post-acquire rollback coverage incomplete
-In cross-executor `cmd_handoff()`, failover proof construction occurs after replacement lease acquisition but outside the rollback-protected block. A post-acquire failure can escape without guaranteed exact replacement-lease rollback; rollback release errors are swallowed.
-
-Required: one post-acquire transaction covering proof construction, relational validation, auth persistence and activation state. Exact replacement-only rollback; uncertain rollback must emit bounded recovery diagnostics. Add fault-injection coverage.
-
-## Passing Scope Checks
-- Expected M6 file boundary only.
-- M5 lease store semantics unchanged.
-- No Claude Code, hot handoff, TTL/heartbeat/steal, quota/router, paid API, auto launch or merge authority.
-- Initial RESULT truthfully leaves both real proof directions PENDING.
-
-## Reported Tests
 ```text
-Failover:   22/22
-Lease:      14/14
-Bridge:     43/43
-Continuity: 149/149
-Full repo:  739/739
-Regressions: 0
+acquire replacement lease
+-> build/validate proof
+-> save replacement ACTIVE authorization (overwrites prior CONSUMED source auth)
+-> update_state
 ```
 
+If `update_state()` fails after `save_authorization()` succeeds, the exception handler releases the replacement lease but does not restore the prior CONSUMED source authorization. This leaves an ACTIVE replacement authorization with no active lease and loses the authoritative prior auth record. A retry with the same replacement executor can then be classified as ordinary same-executor FIX and bypass the intended failover proof path.
+
+Required:
+- preserve an exact copy of prior authorization before replacement persistence;
+- on any post-save failure, restore prior CONSUMED authorization (or fail into explicit `RECOVERY_REQUIRED` if restoration cannot be proven);
+- rollback diagnostics must report lease/auth/state recovery independently;
+- add fault injection specifically for `update_state()` failure after successful replacement `save_authorization()` and verify prior CONSUMED auth is restored and no replacement lease remains.
+
+### R2-1 HIGH — Missing source executor identity can downgrade cross-executor FIX into ordinary FIX
+Current classification is effectively:
+
+```text
+is_failover = prior_auth exists
+              and prior_auth.executor_id is not None
+              and prior_auth.executor_id != selected_executor
+```
+
+Therefore a prior/pre-M5/malformed authorization with missing `executor_id` makes `is_failover = False`. An explicit `--executor codex` FIX can then enter the ordinary same-executor path without source stable-boundary proof. This violates C12 and the adversarial requirement that missing/pre-M5 source authorization cannot authorize a cross-executor replacement.
+
+Required:
+- FIX classification must fail closed when a prior authorization exists but source executor identity / M5 lease binding is missing or malformed;
+- do not treat unknown source identity as "same executor";
+- explicit Codex FIX with missing prior auth/source identity must reject before lease acquisition;
+- add missing-auth, missing-executor-id and missing-lease-binding tests.
+
+### R2-2 MEDIUM — Bridge RESULT generator cannot yet emit mandatory Stage-A/Stage-B proof-progress evidence
+TASK-030 requires Stage-A RESULT to contain:
+
+```text
+M6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: PASS
+M6_REAL_PROOF_CODEX_TO_ANTIGRAVITY: PENDING
+```
+
+and Stage-B RESULT to contain both PASS. `cmd_publish()` currently overwrites `RESULT-030.md` and emits only the immediate failover manifest (`EXECUTOR_FAILOVER`, from/to, source SHA, proof fingerprint, review blob). A worker-authored proof-progress manifest is therefore discarded during publish.
+
+Required:
+- make Bridge-generated RESULT capable of carrying the TASK-030 real-proof progress fields deterministically;
+- Stage A must record A=PASS/B=PENDING only for a validated `antigravity -> codex` failover;
+- Stage B must record B=PASS and preserve/prove A=PASS from prior immutable repository/review evidence rather than merely assuming it from executor direction;
+- ordinary same-executor FIX must keep both proof directions pending/unchanged and must not fabricate PASS;
+- add tests proving worker-prepared RESULT cannot be the source of truth and Bridge emits the required canonical proof-progress fields.
+
+## Evidence Note
+The implementation commit reports 25 failover tests, 47 Bridge tests, 152 Continuity tests and 746 full-repository tests green. The final Bridge-generated RESULT at reviewed head records the focused command as 72 passed. Next RESULT should preserve bounded review-manifest evidence needed for the proof stages.
+
+## Scope Check
+Still clean:
+- M5 lease semantics unchanged;
+- no Claude Code;
+- no dirty/hot handoff;
+- no TTL/heartbeat/steal;
+- no quota/router/automatic executor selection;
+- no paid external API path;
+- no merge authority widening.
+
 ## Next Stage
-Do not start Codex proof A yet. First run an ordinary same-executor Antigravity FIX to close R1-1..R1-5. Keep both real proof flags PENDING. After semantic review passes, the next controlled review will request `ANTIGRAVITY_TO_CODEX` proof.
+Do **not** start Codex proof A yet.
+
+Run one more ordinary same-executor Antigravity FIX to close `R1-5`, `R2-1`, and `R2-2`. Keep both real proof directions PENDING. If Round 3 closes these findings, Primary Brain will issue the controlled proof review:
+
+```text
+STATUS: CHANGES_REQUIRED
+SEMANTIC_FINDINGS: NONE
+M6_PROOF_REQUIRED: ANTIGRAVITY_TO_CODEX
+```
 
 ## Decision
 `CHANGES_REQUIRED`
