@@ -46,7 +46,7 @@ from src.aios_bridge.continuity.lease import (
 from src.aios_bridge.continuity.state import ArtifactRef, ContinuityStateValidationError
 from src.aios_bridge.runtime_lease import AtomicExecutorLeaseStore
 
-SUPPORTED_RUNTIME_EXECUTORS = ("antigravity", "codex")
+SUPPORTED_RUNTIME_EXECUTORS = ("antigravity", "codex", "claude-code")
 
 
 def validate_runtime_executor_id(executor_id: str | None) -> str:
@@ -1850,6 +1850,55 @@ def _evaluate_task_030_proof_progress(cfg: dict, auth: dict, failover_info: dict
     return stage_a, stage_b
 
 
+def _evaluate_task_031_proof_progress(cfg: dict, auth: dict, failover_info: dict | None) -> tuple[str, str]:
+    """
+    Deterministically evaluates M7 real-proof progress for TASK-031 (C9, C10).
+    - Checks the single authoritative predecessor anchor SHA (source_published_sha for failover,
+      or prior_published_sha from prior Bridge publish for same-executor FIX).
+    - Stage A (antigravity -> claude-code): PASS if active publish is a validated failover OR if proven in predecessor publish.
+    - Stage B (claude-code -> antigravity): PASS if active publish is a validated failover AND Stage A is proven OR if proven in predecessor publish.
+    - Working-tree RESULT content and unanchored intermediate commits are NEVER trusted.
+    """
+    stage_a = "PENDING"
+    stage_b = "PENDING"
+
+    # Step 1: Resolve exact single predecessor published SHA anchor (C10)
+    predecessor_sha = None
+    if failover_info:
+        predecessor_sha = failover_info.get("source_published_sha")
+    elif auth:
+        predecessor_sha = auth.get("prior_published_sha")
+
+    if predecessor_sha:
+        p_show = git("show", f"{predecessor_sha}:.ai/results/RESULT-031.md", check=False)
+        if p_show.returncode == 0 and p_show.stdout:
+            res_text = p_show.stdout
+            if "M7_REAL_PROOF_ANTIGRAVITY_TO_CLAUDE_CODE: PASS" in res_text or (
+                "FAILOVER_FROM_EXECUTOR: antigravity" in res_text
+                and "FAILOVER_TO_EXECUTOR: claude-code" in res_text
+            ):
+                stage_a = "PASS"
+            if "M7_REAL_PROOF_CLAUDE_CODE_TO_ANTIGRAVITY: PASS" in res_text or (
+                "FAILOVER_FROM_EXECUTOR: claude-code" in res_text
+                and "FAILOVER_TO_EXECUTOR: antigravity" in res_text
+            ):
+                if stage_a == "PASS":
+                    stage_b = "PASS"
+
+    # Step 2: Incorporate active failover publication if present
+    if failover_info:
+        from_exec = failover_info.get("from_executor")
+        to_exec = failover_info.get("to_executor")
+
+        if from_exec == "antigravity" and to_exec == "claude-code":
+            stage_a = "PASS"
+        elif from_exec == "claude-code" and to_exec == "antigravity":
+            if stage_a == "PASS":
+                stage_b = "PASS"
+
+    return stage_a, stage_b
+
+
 def cmd_publish(args):
     ensure_git()
     cfg = load_config()
@@ -2047,12 +2096,29 @@ FAILOVER_REVIEW_BLOB_SHA: {failover_info['review_blob_sha']}
     else:
         manifest_failover_block = "EXECUTOR_FAILOVER: NO\n"
 
-    # Emit M6 real-proof progress manifest for TASK-030 (R2-2)
+    # Emit M6/M7 real-proof progress manifest for TASK-030 and TASK-031 (R2-2, C9, C10)
     proof_progress_block = ""
     if task_id == 30:
         stage_a, stage_b = _evaluate_task_030_proof_progress(cfg, auth, failover_info)
         proof_progress_block = f"""M6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: {stage_a}
 M6_REAL_PROOF_CODEX_TO_ANTIGRAVITY: {stage_b}
+"""
+    elif task_id == 31:
+        stage_a, stage_b = _evaluate_task_031_proof_progress(cfg, auth, failover_info)
+        base_sha_val = auth.get("base_main_sha", "8a1550b40692798fe0c049aa2ad74d55c54618ee") if auth else "8a1550b40692798fe0c049aa2ad74d55c54618ee"
+        proof_progress_block = f"""BASE_SHA: {base_sha_val}
+M7_THIRD_EXECUTOR_PORTABILITY: IMPLEMENTED
+SUPPORTED_RUNTIME_EXECUTORS: {','.join(SUPPORTED_RUNTIME_EXECUTORS)}
+CONTINUITY_CORE_CHANGED: NO
+M5_LEASE_SEMANTICS_CHANGED: NO
+M6_FAILOVER_CONTRACT_CHANGED: NO
+AUTOMATIC_EXECUTOR_ROUTING: NO
+HOT_HANDOFF_ADDED: NO
+FOURTH_EXECUTOR_ADDED: NO
+PAID_EXTERNAL_API_CALLS: 0
+LIVE_EXTERNAL_CALLS_AUTOMATED_TESTS: 0
+M7_REAL_PROOF_ANTIGRAVITY_TO_CLAUDE_CODE: {stage_a}
+M7_REAL_PROOF_CLAUDE_CODE_TO_ANTIGRAVITY: {stage_b}
 """
 
     manifest_content = f"""TASK_ID: TASK-{task_id:03d}

@@ -2535,21 +2535,27 @@ def test_cmd_publish_missing_executor_id_in_active_auth_fails_closed_and_retains
 
 
 def test_validate_runtime_executor_id_rules():
-    """Validates C10 / AIP-3: Runtime executor set is closed and explicit."""
+    """Validates C1 (M7): Runtime executor set is closed and explicit with exactly three executors."""
+    assert bridge.SUPPORTED_RUNTIME_EXECUTORS == ("antigravity", "codex", "claude-code")
+
     # 1. Defaults to antigravity
     assert bridge.validate_runtime_executor_id(None) == "antigravity"
 
     # 2. Canonical supported executors
     assert bridge.validate_runtime_executor_id("antigravity") == "antigravity"
     assert bridge.validate_runtime_executor_id("codex") == "codex"
+    assert bridge.validate_runtime_executor_id("claude-code") == "claude-code"
 
-    # 3. Padded / mixed-case fail closed
-    for bad in [" antigravity", "antigravity ", "Antigravity", "CODEX", "codex "]:
+    # 3. Padded / mixed-case / aliases fail closed
+    for bad in [
+        " antigravity", "antigravity ", "Antigravity", "CODEX", "codex ",
+        "Claude-Code", "claude_code", " claude-code", "claude-code ", "claude",
+    ]:
         with pytest.raises(ContinuityStateValidationError):
             bridge.validate_runtime_executor_id(bad)
 
-    # 4. Unknown / claude-code / type errors fail closed
-    for bad in ["claude-code", "gemini-cli", "random", "", 123, True]:
+    # 4. Unknown / type errors fail closed
+    for bad in ["gemini-cli", "random", "", 123, True]:
         with pytest.raises(ContinuityStateValidationError):
             bridge.validate_runtime_executor_id(bad)
 
@@ -4327,6 +4333,531 @@ def test_cmd_publish_task_030_proof_progress_manifest_generation():
             res_final = (results_dir / "RESULT-030.md").read_text(encoding="utf-8")
             assert "M6_REAL_PROOF_ANTIGRAVITY_TO_CODEX: PASS" in res_final
             assert "M6_REAL_PROOF_CODEX_TO_ANTIGRAVITY: PASS" in res_final
+            assert "EXECUTOR_FAILOVER: NO" in res_final
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.fetch_control = old_fetch
+            bridge.get_remote_blob_sha = old_blob
+            bridge.read_remote_file = old_read
+            bridge.git = old_git
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+
+def test_handoff_and_approve_claude_code_transitions():
+    """Validates C1, C4-C7: Claude Code transitions in handoff and approve."""
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "main"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "README.md").write_text("# Repo\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+        subprocess.run(["git", "checkout", "-b", "ai/task-031"], cwd=root, check=True, capture_output=True)
+        results_dir = root / ".ai" / "results"
+        results_dir.mkdir(parents=True, exist_ok=True)
+        (results_dir / "RESULT-031.md").write_text("# RESULT-031\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "result"], cwd=root, check=True, capture_output=True)
+        published_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
+        result_blob_sha = subprocess.run(["git", "rev-parse", f"{published_sha}:.ai/results/RESULT-031.md"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_fetch = bridge.fetch_control
+        old_blob = bridge.get_remote_blob_sha
+        old_read = bridge.read_remote_file
+        old_git = bridge.git
+
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            bridge.ensure_dirs()
+            cfg = {
+                "remote": "origin",
+                "base_branch": "main",
+                "control_branch": "ai-control",
+                "task_branch_prefix": "ai/task-",
+                "poll_seconds": 20,
+                "windows_popup": False,
+            }
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            review_blob = "b" * 40
+            control_commit_sha = "c" * 40
+            bridge.fetch_control = lambda cfg: None
+            bridge.get_remote_blob_sha = lambda cfg, path: review_blob
+            bridge.read_remote_file = lambda cfg, path: "# REVIEW-031\n\nSTATUS: CHANGES_REQUIRED\n"
+
+            bridge.git = lambda *args, **kw: (
+                type("Res", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+                if args and args[0] == "fetch"
+                else (
+                    type("Res", (), {"returncode": 0, "stdout": published_sha, "stderr": ""})()
+                    if args == ("rev-parse", "refs/remotes/origin/ai/task-031")
+                    else (
+                        type("Res", (), {"returncode": 0, "stdout": control_commit_sha, "stderr": ""})()
+                        if args == ("rev-parse", "refs/remotes/origin/ai-control")
+                        else old_git(*args, **kw)
+                    )
+                )
+            )
+
+            store = bridge.get_lease_store()
+
+            # 1. Antigravity -> Claude Code failover FIX via cmd_handoff
+            prior_lease_ag = bridge.build_executor_lease_candidate(
+                task_id="TASK-031",
+                workspace_id=store.workspace_id,
+                operation=ExecutionOperation.RUN,
+                target_branch="ai/task-031",
+                authorized_artifact_path=".ai/tasks/TASK-031.md",
+                authorized_artifact_blob_sha="a" * 40,
+                executor_id="antigravity",
+            )
+            prior_auth_ag = {
+                "task_id": "TASK-031",
+                "action": "RUN",
+                "kind": "TASK",
+                "artifact_path": ".ai/tasks/TASK-031.md",
+                "artifact_blob_sha": "a" * 40,
+                "approved_at": "2026-08-17T10:00:00+07:00",
+                "branch": "ai/task-031",
+                "status": "CONSUMED",
+                "published_sha": published_sha,
+                "published_at": "2026-08-17T11:00:00+07:00",
+                "executor_id": "antigravity",
+                "lease_id": prior_lease_ag.lease_id,
+                "lease_fingerprint": prior_lease_ag.fingerprint(),
+                "workspace_id": prior_lease_ag.workspace_id,
+                "execution_fingerprint": prior_lease_ag.execution_fingerprint,
+            }
+            bridge.save_authorization(31, prior_auth_ag)
+
+            bridge.cmd_handoff(type("Args", (), {"task_id": 31, "action": "fix", "executor": "claude-code"})())
+
+            auth_cc = bridge.load_authorization(31)
+            assert auth_cc is not None
+            assert auth_cc["status"] == "ACTIVE"
+            assert auth_cc["executor_id"] == "claude-code"
+            assert auth_cc.get("failover_proof") is not None
+            assert auth_cc["failover_proof"]["source_executor_id"] == "antigravity"
+            assert auth_cc["failover_proof"]["replacement_executor_id"] == "claude-code"
+
+            lease_cc = store.load_active("TASK-031")
+            assert lease_cc is not None
+            assert lease_cc.executor_id == "claude-code"
+            store.release(lease_cc)
+
+            # 2. Claude Code -> Antigravity failover FIX via cmd_approve
+            auth_cc["status"] = "CONSUMED"
+            auth_cc["published_sha"] = published_sha
+            bridge.save_authorization(31, auth_cc)
+
+            inbox_event = {
+                "task_id": "TASK-031",
+                "kind": "REVIEW",
+                "path": ".ai/reviews/REVIEW-031.md",
+                "blob_sha": review_blob,
+                "approval": "PENDING",
+            }
+            bridge.save_json(bridge.get_runtime_paths()["inbox"] / "review_031.json", inbox_event)
+
+            bridge.cmd_approve(type("Args", (), {"task_id": 31, "kind": "review", "executor": "antigravity"})())
+
+            auth_ag = bridge.load_authorization(31)
+            assert auth_ag is not None
+            assert auth_ag["status"] == "ACTIVE"
+            assert auth_ag["executor_id"] == "antigravity"
+            assert auth_ag.get("failover_proof") is not None
+            assert auth_ag["failover_proof"]["source_executor_id"] == "claude-code"
+            assert auth_ag["failover_proof"]["replacement_executor_id"] == "antigravity"
+
+            lease_ag = store.load_active("TASK-031")
+            assert lease_ag is not None
+            assert lease_ag.executor_id == "antigravity"
+            store.release(lease_ag)
+
+            # 3. Claude Code -> Claude Code same-executor FIX via cmd_handoff
+            auth_cc["status"] = "CONSUMED"
+            auth_cc["published_sha"] = published_sha
+            bridge.save_authorization(31, auth_cc)
+
+            bridge.cmd_handoff(type("Args", (), {"task_id": 31, "action": "fix", "executor": "claude-code"})())
+
+            auth_cc_repair = bridge.load_authorization(31)
+            assert auth_cc_repair is not None
+            assert auth_cc_repair["status"] == "ACTIVE"
+            assert auth_cc_repair["executor_id"] == "claude-code"
+            assert "failover_proof" not in auth_cc_repair
+            assert auth_cc_repair.get("prior_published_sha") == published_sha
+
+            lease_cc_repair = store.load_active("TASK-031")
+            assert lease_cc_repair is not None
+            assert lease_cc_repair.executor_id == "claude-code"
+            store.release(lease_cc_repair)
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.fetch_control = old_fetch
+            bridge.get_remote_blob_sha = old_blob
+            bridge.read_remote_file = old_read
+            bridge.git = old_git
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+
+def test_cmd_publish_task_031_proof_progress_manifest_generation():
+    """Validates C9, C10 (M7): Bridge emits canonical M7 real-proof progress fields for TASK-031 and preserves them across repairs."""
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "main"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "README.md").write_text("# Repo\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+        subprocess.run(["git", "checkout", "-b", "ai/task-031"], cwd=root, check=True, capture_output=True)
+        results_dir = root / ".ai" / "results"
+        results_dir.mkdir(parents=True, exist_ok=True)
+        (results_dir / "RESULT-031.md").write_text("# RESULT-031\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "initial result"], cwd=root, check=True, capture_output=True)
+        init_source_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
+        init_result_blob_sha = subprocess.run(["git", "rev-parse", f"{init_source_sha}:.ai/results/RESULT-031.md"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_fetch = bridge.fetch_control
+        old_blob = bridge.get_remote_blob_sha
+        old_read = bridge.read_remote_file
+        old_git = bridge.git
+
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            bridge.ensure_dirs()
+            cfg = {
+                "remote": "origin",
+                "base_branch": "main",
+                "control_branch": "ai-control",
+                "task_branch_prefix": "ai/task-",
+                "poll_seconds": 20,
+                "windows_popup": False,
+            }
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            review_blob = "b" * 40
+            control_commit_sha = "c" * 40
+            bridge.fetch_control = lambda cfg: None
+            bridge.get_remote_blob_sha = lambda cfg, path: review_blob
+            bridge.read_remote_file = lambda cfg, path: "# REVIEW-031\n\nSTATUS: CHANGES_REQUIRED\n"
+
+            bridge.git = lambda *args, **kw: (
+                type("Res", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+                if args[0] == "push"
+                else (
+                    type("Res", (), {"returncode": 0, "stdout": control_commit_sha, "stderr": ""})()
+                    if args == ("rev-parse", "refs/remotes/origin/ai-control")
+                    else old_git(*args, **kw)
+                )
+            )
+
+            store = bridge.get_lease_store()
+
+            # --- Stage 0: Initial same-executor Antigravity FIX before failover ---
+            lease_antigravity = bridge.build_executor_lease_candidate(
+                task_id="TASK-031",
+                workspace_id=store.workspace_id,
+                operation=ExecutionOperation.FIX,
+                target_branch="ai/task-031",
+                authorized_artifact_path=".ai/reviews/REVIEW-031.md",
+                authorized_artifact_blob_sha=review_blob,
+                executor_id="antigravity",
+            )
+            store.acquire(lease_antigravity)
+
+            auth_antigravity = {
+                "task_id": "TASK-031",
+                "action": "FIX",
+                "kind": "REVIEW",
+                "artifact_path": ".ai/reviews/REVIEW-031.md",
+                "artifact_blob_sha": review_blob,
+                "approved_at": "2026-08-17T11:00:00+07:00",
+                "branch": "ai/task-031",
+                "status": "ACTIVE",
+                "executor_id": "antigravity",
+                "lease_id": lease_antigravity.lease_id,
+                "lease_fingerprint": lease_antigravity.fingerprint(),
+                "workspace_id": lease_antigravity.workspace_id,
+                "execution_fingerprint": lease_antigravity.execution_fingerprint,
+                "prior_published_sha": init_source_sha,
+            }
+            bridge.save_authorization(31, auth_antigravity)
+
+            # Worker attempt to forge Stage A in local committed git history is ignored
+            (results_dir / "RESULT-031.md").write_text("# WORKER FORGED GIT COMMIT\nM7_REAL_PROOF_ANTIGRAVITY_TO_CLAUDE_CODE: PASS\n", encoding="utf-8")
+            subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+            subprocess.run(["git", "commit", "-m", "worker forged commit"], cwd=root, check=True, capture_output=True)
+
+            bridge.cmd_publish(type("Args", (), {
+                "task_id": 31, "action": "FIX", "test": None, "summary": "Initial Antigravity FIX", "notes": None, "message": "Round 1 fix"
+            })())
+
+            res_init = (results_dir / "RESULT-031.md").read_text(encoding="utf-8")
+            assert "M7_REAL_PROOF_ANTIGRAVITY_TO_CLAUDE_CODE: PENDING" in res_init
+            assert "M7_REAL_PROOF_CLAUDE_CODE_TO_ANTIGRAVITY: PENDING" in res_init
+            assert "EXECUTOR_FAILOVER: NO" in res_init
+            assert "FORGED" not in res_init
+
+            stage_a_source_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
+            stage_a_result_blob = subprocess.run(["git", "rev-parse", f"{stage_a_source_sha}:.ai/results/RESULT-031.md"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
+
+            # --- Stage A: Validated failover (antigravity -> claude-code) ---
+            repl_lease_a = bridge.build_executor_lease_candidate(
+                task_id="TASK-031",
+                workspace_id=store.workspace_id,
+                operation=ExecutionOperation.FIX,
+                target_branch="ai/task-031",
+                authorized_artifact_path=".ai/reviews/REVIEW-031.md",
+                authorized_artifact_blob_sha=review_blob,
+                executor_id="claude-code",
+            )
+            store.acquire(repl_lease_a)
+
+            proof_a = bridge.StableExecutorFailoverProof(
+                schema_version="1",
+                task_id="TASK-031",
+                target_branch="ai/task-031",
+                source_executor_id="antigravity",
+                source_operation=ExecutionOperation.FIX,
+                source_execution_fingerprint=lease_antigravity.execution_fingerprint,
+                source_lease_fingerprint=lease_antigravity.fingerprint(),
+                source_published_sha=stage_a_source_sha,
+                source_result_ref=bridge.ArtifactRef(
+                    path=".ai/results/RESULT-031.md",
+                    ref=stage_a_source_sha,
+                    blob_sha=stage_a_result_blob,
+                ),
+                replacement_executor_id=repl_lease_a.executor_id,
+                replacement_operation=repl_lease_a.operation,
+                replacement_execution_fingerprint=repl_lease_a.execution_fingerprint,
+                replacement_lease_fingerprint=repl_lease_a.fingerprint(),
+                review_ref=bridge.ArtifactRef(
+                    path=".ai/reviews/REVIEW-031.md",
+                    ref=control_commit_sha,
+                    blob_sha=review_blob,
+                ),
+            )
+
+            active_auth_a = {
+                "task_id": "TASK-031",
+                "action": "FIX",
+                "kind": "REVIEW",
+                "artifact_path": ".ai/reviews/REVIEW-031.md",
+                "artifact_blob_sha": review_blob,
+                "approved_at": "2026-08-17T11:30:00+07:00",
+                "branch": "ai/task-031",
+                "status": "ACTIVE",
+                "executor_id": "claude-code",
+                "lease_id": repl_lease_a.lease_id,
+                "lease_fingerprint": repl_lease_a.fingerprint(),
+                "workspace_id": repl_lease_a.workspace_id,
+                "execution_fingerprint": repl_lease_a.execution_fingerprint,
+                "failover_source_lease": lease_antigravity.to_dict(),
+                "failover_proof": proof_a.to_dict(),
+                "failover_proof_fingerprint": proof_a.fingerprint(),
+            }
+            bridge.save_authorization(31, active_auth_a)
+
+            (root / "change_a.txt").write_text("change a\n", encoding="utf-8")
+
+            bridge.cmd_publish(type("Args", (), {
+                "task_id": 31, "action": "FIX", "test": None, "summary": "Stage A publish", "notes": None, "message": "Stage A"
+            })())
+
+            res_a = (results_dir / "RESULT-031.md").read_text(encoding="utf-8")
+            assert "M7_REAL_PROOF_ANTIGRAVITY_TO_CLAUDE_CODE: PASS" in res_a
+            assert "M7_REAL_PROOF_CLAUDE_CODE_TO_ANTIGRAVITY: PENDING" in res_a
+            assert "EXECUTOR_FAILOVER: YES" in res_a
+            assert "FAILOVER_FROM_EXECUTOR: antigravity" in res_a
+            assert "FAILOVER_TO_EXECUTOR: claude-code" in res_a
+
+            stage_a_published_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
+
+            # --- Stage A+: Same-executor Claude Code FIX (repair before Stage B) preserves Stage A PASS ---
+            lease_cc_repair = bridge.build_executor_lease_candidate(
+                task_id="TASK-031",
+                workspace_id=store.workspace_id,
+                operation=ExecutionOperation.FIX,
+                target_branch="ai/task-031",
+                authorized_artifact_path=".ai/reviews/REVIEW-031.md",
+                authorized_artifact_blob_sha=review_blob,
+                executor_id="claude-code",
+            )
+            store.acquire(lease_cc_repair)
+
+            auth_cc_repair = {
+                "task_id": "TASK-031",
+                "action": "FIX",
+                "kind": "REVIEW",
+                "artifact_path": ".ai/reviews/REVIEW-031.md",
+                "artifact_blob_sha": review_blob,
+                "approved_at": "2026-08-17T11:45:00+07:00",
+                "branch": "ai/task-031",
+                "status": "ACTIVE",
+                "executor_id": "claude-code",
+                "lease_id": lease_cc_repair.lease_id,
+                "lease_fingerprint": lease_cc_repair.fingerprint(),
+                "workspace_id": lease_cc_repair.workspace_id,
+                "execution_fingerprint": lease_cc_repair.execution_fingerprint,
+                "prior_published_sha": stage_a_published_sha,
+            }
+            bridge.save_authorization(31, auth_cc_repair)
+
+            (root / "change_cc_repair.txt").write_text("repair\n", encoding="utf-8")
+
+            bridge.cmd_publish(type("Args", (), {
+                "task_id": 31, "action": "FIX", "test": None, "summary": "Claude Code repair", "notes": None, "message": "Claude Code repair"
+            })())
+
+            res_repair = (results_dir / "RESULT-031.md").read_text(encoding="utf-8")
+            assert "M7_REAL_PROOF_ANTIGRAVITY_TO_CLAUDE_CODE: PASS" in res_repair
+            assert "M7_REAL_PROOF_CLAUDE_CODE_TO_ANTIGRAVITY: PENDING" in res_repair
+            assert "EXECUTOR_FAILOVER: NO" in res_repair
+
+            stage_b_source_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
+            stage_b_result_blob = subprocess.run(["git", "rev-parse", f"{stage_b_source_sha}:.ai/results/RESULT-031.md"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
+
+            # --- Stage B: Failover (claude-code -> antigravity) ---
+            repl_lease_b = bridge.build_executor_lease_candidate(
+                task_id="TASK-031",
+                workspace_id=store.workspace_id,
+                operation=ExecutionOperation.FIX,
+                target_branch="ai/task-031",
+                authorized_artifact_path=".ai/reviews/REVIEW-031.md",
+                authorized_artifact_blob_sha=review_blob,
+                executor_id="antigravity",
+            )
+            store.acquire(repl_lease_b)
+
+            proof_b = bridge.StableExecutorFailoverProof(
+                schema_version="1",
+                task_id="TASK-031",
+                target_branch="ai/task-031",
+                source_executor_id="claude-code",
+                source_operation=ExecutionOperation.FIX,
+                source_execution_fingerprint=lease_cc_repair.execution_fingerprint,
+                source_lease_fingerprint=lease_cc_repair.fingerprint(),
+                source_published_sha=stage_b_source_sha,
+                source_result_ref=bridge.ArtifactRef(
+                    path=".ai/results/RESULT-031.md",
+                    ref=stage_b_source_sha,
+                    blob_sha=stage_b_result_blob,
+                ),
+                replacement_executor_id="antigravity",
+                replacement_operation=ExecutionOperation.FIX,
+                replacement_execution_fingerprint=repl_lease_b.execution_fingerprint,
+                replacement_lease_fingerprint=repl_lease_b.fingerprint(),
+                review_ref=bridge.ArtifactRef(
+                    path=".ai/reviews/REVIEW-031.md",
+                    ref=control_commit_sha,
+                    blob_sha=review_blob,
+                ),
+            )
+
+            active_auth_b = {
+                "task_id": "TASK-031",
+                "action": "FIX",
+                "kind": "REVIEW",
+                "artifact_path": ".ai/reviews/REVIEW-031.md",
+                "artifact_blob_sha": review_blob,
+                "approved_at": "2026-08-17T12:00:00+07:00",
+                "branch": "ai/task-031",
+                "status": "ACTIVE",
+                "executor_id": "antigravity",
+                "lease_id": repl_lease_b.lease_id,
+                "lease_fingerprint": repl_lease_b.fingerprint(),
+                "workspace_id": repl_lease_b.workspace_id,
+                "execution_fingerprint": repl_lease_b.execution_fingerprint,
+                "failover_source_lease": lease_cc_repair.to_dict(),
+                "failover_proof": proof_b.to_dict(),
+                "failover_proof_fingerprint": proof_b.fingerprint(),
+            }
+            bridge.save_authorization(31, active_auth_b)
+
+            (root / "change_b.txt").write_text("change b\n", encoding="utf-8")
+
+            bridge.cmd_publish(type("Args", (), {
+                "task_id": 31, "action": "FIX", "test": None, "summary": "Stage B publish", "notes": None, "message": "Stage B"
+            })())
+
+            res_b = (results_dir / "RESULT-031.md").read_text(encoding="utf-8")
+            assert "M7_REAL_PROOF_ANTIGRAVITY_TO_CLAUDE_CODE: PASS" in res_b
+            assert "M7_REAL_PROOF_CLAUDE_CODE_TO_ANTIGRAVITY: PASS" in res_b
+            assert "EXECUTOR_FAILOVER: YES" in res_b
+            assert "FAILOVER_FROM_EXECUTOR: claude-code" in res_b
+            assert "FAILOVER_TO_EXECUTOR: antigravity" in res_b
+
+            stage_b_published_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
+
+            # --- Stage B+: Subsequent same-executor Antigravity repair preserves both PASS ---
+            lease_antigravity_repair = bridge.build_executor_lease_candidate(
+                task_id="TASK-031",
+                workspace_id=store.workspace_id,
+                operation=ExecutionOperation.FIX,
+                target_branch="ai/task-031",
+                authorized_artifact_path=".ai/reviews/REVIEW-031.md",
+                authorized_artifact_blob_sha=review_blob,
+                executor_id="antigravity",
+            )
+            store.acquire(lease_antigravity_repair)
+
+            auth_antigravity_repair = {
+                "task_id": "TASK-031",
+                "action": "FIX",
+                "kind": "REVIEW",
+                "artifact_path": ".ai/reviews/REVIEW-031.md",
+                "artifact_blob_sha": review_blob,
+                "approved_at": "2026-08-17T12:15:00+07:00",
+                "branch": "ai/task-031",
+                "status": "ACTIVE",
+                "executor_id": "antigravity",
+                "lease_id": lease_antigravity_repair.lease_id,
+                "lease_fingerprint": lease_antigravity_repair.fingerprint(),
+                "workspace_id": lease_antigravity_repair.workspace_id,
+                "execution_fingerprint": lease_antigravity_repair.execution_fingerprint,
+                "prior_published_sha": stage_b_published_sha,
+            }
+            bridge.save_authorization(31, auth_antigravity_repair)
+
+            (root / "change_antigravity_repair.txt").write_text("repair2\n", encoding="utf-8")
+
+            bridge.cmd_publish(type("Args", (), {
+                "task_id": 31, "action": "FIX", "test": None, "summary": "Antigravity repair", "notes": None, "message": "Antigravity repair"
+            })())
+
+            res_final = (results_dir / "RESULT-031.md").read_text(encoding="utf-8")
+            assert "M7_REAL_PROOF_ANTIGRAVITY_TO_CLAUDE_CODE: PASS" in res_final
+            assert "M7_REAL_PROOF_CLAUDE_CODE_TO_ANTIGRAVITY: PASS" in res_final
             assert "EXECUTOR_FAILOVER: NO" in res_final
         finally:
             bridge.PROJECT = old_project
