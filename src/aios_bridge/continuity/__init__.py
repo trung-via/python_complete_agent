@@ -31,6 +31,11 @@ from .failover import (
     build_replacement_brain_request,
     validate_brain_failover_eligibility,
 )
+from .lease import (
+    MAX_ACTIVE_EXECUTORS_PER_TASK,
+    ExecutorLease,
+    validate_executor_lease_binding,
+)
 from .state import (
     MAX_SERIALIZED_BYTES,
     PHASE_NEXT_OPERATION_MAP,
@@ -69,6 +74,7 @@ from .usage import (
 )
 
 __all__ = [
+    "MAX_ACTIVE_EXECUTORS_PER_TASK",
     "MAX_SERIALIZED_BYTES",
     "MAX_USAGE_INT",
     "OPERATION_OUTPUT_TYPE_COMPATIBILITY",
@@ -102,6 +108,7 @@ __all__ = [
     "ExecutorAction",
     "ExecutorAdapter",
     "ExecutorCapabilities",
+    "ExecutorLease",
     "ExecutorState",
     "ExecutorUsageRecord",
     "FreshnessIssue",
@@ -126,5 +133,6 @@ __all__ = [
     "validate_execution_request_against_state",
     "validate_execution_result_against_request",
     "validate_executor_eligibility",
+    "validate_executor_lease_binding",
     "validate_prepared_execution_against_request",
 ]

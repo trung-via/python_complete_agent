@@ -797,6 +797,19 @@ def test_publish_consumes_active_authorization_and_creates_result_with_test_evid
             }
             bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
 
+            ws_id = bridge.get_workspace_id()
+            lease_cand = bridge.build_executor_lease_candidate(
+                task_id="TASK-006",
+                workspace_id=ws_id,
+                operation=bridge.ExecutionOperation.RUN,
+                target_branch="ai/task-006",
+                authorized_artifact_path=".ai/tasks/TASK-006.md",
+                authorized_artifact_blob_sha="c" * 40,
+                executor_id="antigravity",
+            )
+            store = bridge.get_lease_store()
+            acq_lease = store.acquire(lease_cand)
+
             auth = {
                 "task_id": "TASK-006",
                 "action": "RUN",
@@ -807,6 +820,11 @@ def test_publish_consumes_active_authorization_and_creates_result_with_test_evid
                 "branch": "ai/task-006",
                 "status": "ACTIVE",
                 "base_main_sha": "base_123",
+                "executor_id": acq_lease.executor_id,
+                "lease_id": acq_lease.lease_id,
+                "lease_fingerprint": acq_lease.fingerprint(),
+                "workspace_id": acq_lease.workspace_id,
+                "execution_fingerprint": acq_lease.execution_fingerprint,
             }
             bridge.save_authorization(6, auth)
 
@@ -887,6 +905,19 @@ def test_publish_preserves_active_authorization_when_tests_fail():
             }
             bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
 
+            ws_id = bridge.get_workspace_id()
+            lease_cand = bridge.build_executor_lease_candidate(
+                task_id="TASK-006",
+                workspace_id=ws_id,
+                operation=bridge.ExecutionOperation.RUN,
+                target_branch="ai/task-006",
+                authorized_artifact_path=".ai/tasks/TASK-006.md",
+                authorized_artifact_blob_sha="d" * 40,
+                executor_id="antigravity",
+            )
+            store = bridge.get_lease_store()
+            acq_lease = store.acquire(lease_cand)
+
             auth = {
                 "task_id": "TASK-006",
                 "action": "RUN",
@@ -896,6 +927,11 @@ def test_publish_preserves_active_authorization_when_tests_fail():
                 "approved_at": bridge.now(),
                 "branch": "ai/task-006",
                 "status": "ACTIVE",
+                "executor_id": acq_lease.executor_id,
+                "lease_id": acq_lease.lease_id,
+                "lease_fingerprint": acq_lease.fingerprint(),
+                "workspace_id": acq_lease.workspace_id,
+                "execution_fingerprint": acq_lease.execution_fingerprint,
             }
             bridge.save_authorization(6, auth)
 
@@ -1315,6 +1351,19 @@ def test_publish_fails_when_active_run_auth_has_changes_required_review_on_contr
             }
             bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
 
+            ws_id = bridge.get_workspace_id()
+            lease_cand = bridge.build_executor_lease_candidate(
+                task_id="TASK-006",
+                workspace_id=ws_id,
+                operation=bridge.ExecutionOperation.RUN,
+                target_branch="ai/task-006",
+                authorized_artifact_path=".ai/tasks/TASK-006.md",
+                authorized_artifact_blob_sha="a" * 40,
+                executor_id="antigravity",
+            )
+            store = bridge.get_lease_store()
+            acq_lease = store.acquire(lease_cand)
+
             auth = {
                 "task_id": "TASK-006",
                 "action": "RUN",
@@ -1324,6 +1373,11 @@ def test_publish_fails_when_active_run_auth_has_changes_required_review_on_contr
                 "approved_at": bridge.now(),
                 "branch": "ai/task-006",
                 "status": "ACTIVE",
+                "executor_id": acq_lease.executor_id,
+                "lease_id": acq_lease.lease_id,
+                "lease_fingerprint": acq_lease.fingerprint(),
+                "workspace_id": acq_lease.workspace_id,
+                "execution_fingerprint": acq_lease.execution_fingerprint,
             }
             bridge.save_authorization(6, auth)
 
@@ -1388,6 +1442,19 @@ def test_publish_fails_when_action_argument_mismatches_active_authorization():
             }
             bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
 
+            ws_id = bridge.get_workspace_id()
+            lease_cand = bridge.build_executor_lease_candidate(
+                task_id="TASK-006",
+                workspace_id=ws_id,
+                operation=bridge.ExecutionOperation.RUN,
+                target_branch="ai/task-006",
+                authorized_artifact_path=".ai/tasks/TASK-006.md",
+                authorized_artifact_blob_sha="a" * 40,
+                executor_id="antigravity",
+            )
+            store = bridge.get_lease_store()
+            acq_lease = store.acquire(lease_cand)
+
             auth = {
                 "task_id": "TASK-006",
                 "action": "RUN",
@@ -1397,6 +1464,11 @@ def test_publish_fails_when_action_argument_mismatches_active_authorization():
                 "approved_at": bridge.now(),
                 "branch": "ai/task-006",
                 "status": "ACTIVE",
+                "executor_id": acq_lease.executor_id,
+                "lease_id": acq_lease.lease_id,
+                "lease_fingerprint": acq_lease.fingerprint(),
+                "workspace_id": acq_lease.workspace_id,
+                "execution_fingerprint": acq_lease.execution_fingerprint,
             }
             bridge.save_authorization(6, auth)
 
@@ -1456,6 +1528,169 @@ def test_handoff_run_fails_when_task_artifact_is_malformed():
             bridge.get_remote_blob_sha = old_blob
             bridge.read_remote_file = old_read
             bridge.ensure_git = old_ensure
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+
+def test_handoff_run_acquires_lease_and_second_handoff_conflicts():
+    """Validates: RUN handoff acquires lease and binds to auth; second concurrent handoff fails closed (C9 / C16)."""
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "main"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "README.md").write_text("# Repo\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_fetch = bridge.fetch_control
+        old_blob = bridge.get_remote_blob_sha
+        old_read = bridge.read_remote_file
+
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            bridge.ensure_dirs()
+            cfg = {
+                "remote": "origin",
+                "base_branch": "main",
+                "control_branch": "ai-control",
+                "task_branch_prefix": "ai/task-",
+                "poll_seconds": 20,
+                "windows_popup": False,
+            }
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            bridge.fetch_control = lambda cfg: None
+            bridge.get_remote_blob_sha = lambda cfg, path: "a" * 40
+            bridge.read_remote_file = lambda cfg, path: "# TASK-029\n\nObjective: M5 Lease Implementation."
+
+            # 1. First handoff succeeds
+            bridge.cmd_handoff(type("Args", (), {"task_id": 29, "action": "run"})())
+
+            # Verify active lease was created in store
+            store = bridge.get_lease_store()
+            active_lease = store.load_active("TASK-029")
+            assert active_lease is not None
+            assert active_lease.task_id == "TASK-029"
+            assert active_lease.executor_id == "antigravity"
+            assert active_lease.operation == bridge.ExecutionOperation.RUN
+
+            # Verify authorization contains exact lease binding
+            auth = bridge.load_authorization(29)
+            assert auth["status"] == "ACTIVE"
+            assert auth["lease_id"] == active_lease.lease_id
+            assert auth["lease_fingerprint"] == active_lease.fingerprint()
+            assert auth["workspace_id"] == active_lease.workspace_id
+            assert auth["execution_fingerprint"] == active_lease.execution_fingerprint
+
+            # 2. Second concurrent handoff for same task fails closed on lease collision
+            with pytest.raises(SystemExit):
+                bridge.cmd_handoff(type("Args", (), {"task_id": 29, "action": "run"})())
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.fetch_control = old_fetch
+            bridge.get_remote_blob_sha = old_blob
+            bridge.read_remote_file = old_read
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+
+def test_lease_status_and_confirmation_gated_release():
+    """Validates: lease-status prints active leases, and lease-release requires --confirm-stopped (C23)."""
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "main"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "README.md").write_text("# Repo\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_fetch = bridge.fetch_control
+        old_blob = bridge.get_remote_blob_sha
+        old_read = bridge.read_remote_file
+
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            bridge.ensure_dirs()
+            cfg = {
+                "remote": "origin",
+                "base_branch": "main",
+                "control_branch": "ai-control",
+                "task_branch_prefix": "ai/task-",
+                "poll_seconds": 20,
+                "windows_popup": False,
+            }
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            bridge.fetch_control = lambda cfg: None
+            bridge.get_remote_blob_sha = lambda cfg, path: "a" * 40
+            bridge.read_remote_file = lambda cfg, path: "# TASK-029\n\nObjective: M5 Lease Implementation."
+
+            bridge.cmd_handoff(type("Args", (), {"task_id": 29, "action": "run"})())
+
+            store = bridge.get_lease_store()
+            active_lease = store.load_active("TASK-029")
+            assert active_lease is not None
+
+            # 1. lease-status runs cleanly
+            bridge.cmd_lease_status(type("Args", (), {"task_id": 29})())
+            bridge.cmd_lease_status(type("Args", (), {"task_id": None})())
+
+            # 2. lease-release without confirm_stopped fails
+            with pytest.raises(SystemExit):
+                bridge.cmd_lease_release(type("Args", (), {
+                    "task_id": 29,
+                    "lease_id": active_lease.lease_id,
+                    "confirm_stopped": False,
+                })())
+
+            # 3. lease-release with mismatched lease_id fails
+            with pytest.raises(SystemExit):
+                bridge.cmd_lease_release(type("Args", (), {
+                    "task_id": 29,
+                    "lease_id": "lease-wrong-id",
+                    "confirm_stopped": True,
+                })())
+
+            # 4. lease-release with correct lease_id and confirm_stopped succeeds
+            bridge.cmd_lease_release(type("Args", (), {
+                "task_id": 29,
+                "lease_id": active_lease.lease_id,
+                "confirm_stopped": True,
+            })())
+
+            # Active lease is now None and auth is CANCELLED
+            assert store.load_active("TASK-029") is None
+            auth = bridge.load_authorization(29)
+            assert auth["status"] == "CANCELLED"
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.fetch_control = old_fetch
+            bridge.get_remote_blob_sha = old_blob
+            bridge.read_remote_file = old_read
             if "AIOS_RUNTIME_DIR" in os.environ:
                 del os.environ["AIOS_RUNTIME_DIR"]
 

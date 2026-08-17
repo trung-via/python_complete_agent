@@ -24,12 +24,21 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import shutil
 import subprocess
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
+
+from src.aios_bridge.continuity.executor import ExecutionOperation
+from src.aios_bridge.continuity.lease import (
+    MAX_ACTIVE_EXECUTORS_PER_TASK,
+    ExecutorLease,
+    validate_executor_lease_binding,
+)
+from src.aios_bridge.runtime_lease import AtomicExecutorLeaseStore
 
 PROJECT = Path.cwd()
 AI = PROJECT / ".ai"
@@ -128,6 +137,7 @@ def get_runtime_paths(repo_root: Path | None = None):
         "state": rdir / "state" / "CURRENT_STATE.json",
         "artifacts": rdir / "artifacts",
         "history": rdir / "history",
+        "leases": rdir / "leases",
     }
 
 
@@ -135,6 +145,79 @@ def get_artifact_path(path: str, repo_root: Path | None = None) -> Path:
     """Returns external runtime storage path for synchronized control artifacts."""
     clean_path = path.lstrip("/\\")
     return get_runtime_paths(repo_root)["artifacts"] / clean_path
+
+
+def get_workspace_id(repo_root: Path | None = None) -> str:
+    """Returns exact deterministic 64-hex SHA-256 fingerprint for the current workspace root (C5)."""
+    root = (repo_root or get_repo_root()).resolve()
+    norm_path = str(root).replace("\\", "/").lower()
+    return hashlib.sha256(norm_path.encode("utf-8")).hexdigest()
+
+
+def build_execution_fingerprint(
+    *,
+    task_id: str,
+    workspace_id: str,
+    executor_id: str,
+    operation: str,
+    target_branch: str,
+    authorized_artifact_path: str,
+    authorized_artifact_blob_sha: str,
+) -> str:
+    """Deterministic activation fingerprint binding task, workspace, actor, operation, and artifacts (C6 / AIP-6)."""
+    payload = {
+        "authorized_artifact_blob_sha": authorized_artifact_blob_sha,
+        "authorized_artifact_path": authorized_artifact_path,
+        "executor_id": executor_id,
+        "operation": operation.upper(),
+        "target_branch": target_branch,
+        "task_id": task_id,
+        "workspace_id": workspace_id,
+    }
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def build_executor_lease_candidate(
+    *,
+    task_id: str,
+    workspace_id: str,
+    operation: ExecutionOperation,
+    target_branch: str,
+    authorized_artifact_path: str,
+    authorized_artifact_blob_sha: str,
+    executor_id: str = "antigravity",
+    lease_id: str | None = None,
+) -> ExecutorLease:
+    """Builds a canonical ExecutorLease candidate for task activation (AIP-6)."""
+    if not lease_id:
+        random_suffix = secrets.token_hex(6)
+        lease_id = f"lease-{task_id.lower()}-{random_suffix}"
+    exec_fp = build_execution_fingerprint(
+        task_id=task_id,
+        workspace_id=workspace_id,
+        executor_id=executor_id,
+        operation=operation.value,
+        target_branch=target_branch,
+        authorized_artifact_path=authorized_artifact_path,
+        authorized_artifact_blob_sha=authorized_artifact_blob_sha,
+    )
+    return ExecutorLease(
+        schema_version="1",
+        lease_id=lease_id,
+        task_id=task_id,
+        workspace_id=workspace_id,
+        executor_id=executor_id,
+        operation=operation,
+        execution_fingerprint=exec_fp,
+    )
+
+
+def get_lease_store(repo_root: Path | None = None) -> AtomicExecutorLeaseStore:
+    """Returns atomic lease store initialized for current repository runtime and workspace ID (AIP-3)."""
+    paths = get_runtime_paths(repo_root)
+    ws_id = get_workspace_id(repo_root)
+    return AtomicExecutorLeaseStore(lease_root=paths["leases"], workspace_id=ws_id)
 
 
 def now():
@@ -187,7 +270,7 @@ def ensure_git():
 
 def ensure_dirs():
     paths = get_runtime_paths()
-    for key in ("inbox", "auth", "artifacts", "history"):
+    for key in ("inbox", "auth", "artifacts", "history", "leases"):
         paths[key].mkdir(parents=True, exist_ok=True)
     paths["state"].parent.mkdir(parents=True, exist_ok=True)
 
@@ -727,8 +810,25 @@ def cmd_handoff(args):
         base_main_sha = reconcile_local_main(cfg)
         branch = prepare_task_branch(cfg, task_id, "RUN")
 
+        task_id_str = f"TASK-{task_id:03d}"
+        ws_id = get_workspace_id()
+        lease_candidate = build_executor_lease_candidate(
+            task_id=task_id_str,
+            workspace_id=ws_id,
+            operation=ExecutionOperation.RUN,
+            target_branch=branch,
+            authorized_artifact_path=artifact_rel,
+            authorized_artifact_blob_sha=blob_sha,
+            executor_id="antigravity",
+        )
+        store = get_lease_store()
+        try:
+            acquired_lease = store.acquire(lease_candidate)
+        except Exception as e:
+            fail(f"Chiếm executor lease thất bại cho {task_id_str}: {e}")
+
         auth_record = {
-            "task_id": f"TASK-{task_id:03d}",
+            "task_id": task_id_str,
             "action": "RUN",
             "kind": "TASK",
             "artifact_path": artifact_rel,
@@ -737,8 +837,21 @@ def cmd_handoff(args):
             "branch": branch,
             "status": "ACTIVE",
             "base_main_sha": base_main_sha,
+            "executor_id": acquired_lease.executor_id,
+            "lease_id": acquired_lease.lease_id,
+            "lease_fingerprint": acquired_lease.fingerprint(),
+            "workspace_id": acquired_lease.workspace_id,
+            "execution_fingerprint": acquired_lease.execution_fingerprint,
         }
-        save_authorization(task_id, auth_record)
+        try:
+            save_authorization(task_id, auth_record)
+        except Exception as e:
+            try:
+                store.release(acquired_lease)
+            except Exception:
+                pass
+            fail(f"Lưu authorization thất bại sau khi acquire lease: {e}")
+
         update_state(
             task_id,
             "IN_PROGRESS",
@@ -776,8 +889,25 @@ def cmd_handoff(args):
 
         branch = prepare_task_branch(cfg, task_id, "FIX")
 
+        task_id_str = f"TASK-{task_id:03d}"
+        ws_id = get_workspace_id()
+        lease_candidate = build_executor_lease_candidate(
+            task_id=task_id_str,
+            workspace_id=ws_id,
+            operation=ExecutionOperation.FIX,
+            target_branch=branch,
+            authorized_artifact_path=artifact_rel,
+            authorized_artifact_blob_sha=blob_sha,
+            executor_id="antigravity",
+        )
+        store = get_lease_store()
+        try:
+            acquired_lease = store.acquire(lease_candidate)
+        except Exception as e:
+            fail(f"Chiếm executor lease thất bại cho {task_id_str}: {e}")
+
         auth_record = {
-            "task_id": f"TASK-{task_id:03d}",
+            "task_id": task_id_str,
             "action": "FIX",
             "kind": "REVIEW",
             "artifact_path": artifact_rel,
@@ -785,8 +915,21 @@ def cmd_handoff(args):
             "approved_at": now(),
             "branch": branch,
             "status": "ACTIVE",
+            "executor_id": acquired_lease.executor_id,
+            "lease_id": acquired_lease.lease_id,
+            "lease_fingerprint": acquired_lease.fingerprint(),
+            "workspace_id": acquired_lease.workspace_id,
+            "execution_fingerprint": acquired_lease.execution_fingerprint,
         }
-        save_authorization(task_id, auth_record)
+        try:
+            save_authorization(task_id, auth_record)
+        except Exception as e:
+            try:
+                store.release(acquired_lease)
+            except Exception:
+                pass
+            fail(f"Lưu authorization thất bại sau khi acquire lease: {e}")
+
         update_state(
             task_id,
             "CHANGES_REQUIRED",
@@ -1029,18 +1172,50 @@ def cmd_approve(args):
         )
         action = "RUN"
 
-    # Also record authorization for consistency with v0.4.0
+    task_id_str = f"TASK-{args.task_id:03d}"
+    ws_id = get_workspace_id()
+    op = ExecutionOperation.FIX if action == "FIX" else ExecutionOperation.RUN
+    art_path = data.get("path", f".ai/tasks/TASK-{args.task_id:03d}.md")
+    art_blob = data.get("blob_sha", "")
+
+    lease_candidate = build_executor_lease_candidate(
+        task_id=task_id_str,
+        workspace_id=ws_id,
+        operation=op,
+        target_branch=branch,
+        authorized_artifact_path=art_path,
+        authorized_artifact_blob_sha=art_blob,
+        executor_id="antigravity",
+    )
+    store = get_lease_store()
+    try:
+        acquired_lease = store.acquire(lease_candidate)
+    except Exception as e:
+        fail(f"Chiếm executor lease thất bại khi approve {task_id_str}: {e}")
+
     auth = {
-        "task_id": f"TASK-{args.task_id:03d}",
+        "task_id": task_id_str,
         "action": action,
         "kind": data.get("kind", "TASK"),
-        "artifact_path": data.get("path", f".ai/tasks/TASK-{args.task_id:03d}.md"),
-        "artifact_blob_sha": data.get("blob_sha", ""),
+        "artifact_path": art_path,
+        "artifact_blob_sha": art_blob,
         "approved_at": now(),
         "branch": branch,
         "status": "ACTIVE",
+        "executor_id": acquired_lease.executor_id,
+        "lease_id": acquired_lease.lease_id,
+        "lease_fingerprint": acquired_lease.fingerprint(),
+        "workspace_id": acquired_lease.workspace_id,
+        "execution_fingerprint": acquired_lease.execution_fingerprint,
     }
-    save_authorization(args.task_id, auth)
+    try:
+        save_authorization(args.task_id, auth)
+    except Exception as e:
+        try:
+            store.release(acquired_lease)
+        except Exception:
+            pass
+        fail(f"Lưu authorization thất bại sau khi acquire lease: {e}")
 
     print(f"[APPROVED] {data.get('kind')} for TASK-{args.task_id:03d}")
     print(f"[BRANCH] {branch}")
@@ -1109,10 +1284,27 @@ def cmd_context(args):
         else (AI / "context" / "ROADMAP.md")
     )
 
+    active_lease_info = None
+    try:
+        store = get_lease_store()
+        loaded = store.load_active(f"TASK-{task_id:03d}")
+        if loaded:
+            active_lease_info = {
+                "lease_id": loaded.lease_id,
+                "lease_fingerprint": loaded.fingerprint(),
+                "executor_id": loaded.executor_id,
+                "operation": loaded.operation.value,
+                "workspace_id": loaded.workspace_id,
+                "execution_fingerprint": loaded.execution_fingerprint,
+            }
+    except Exception:
+        pass
+
     data = {
         "task_id": f"TASK-{task_id:03d}",
         "approved_event": event,
         "authorization": auth,
+        "lease": active_lease_info,
         "current_branch": current_branch(),
         "expected_branch": f"{cfg['task_branch_prefix']}{task_id:03d}",
         "task_file": str(task_file),
@@ -1126,7 +1318,7 @@ def cmd_context(args):
 
 
 # ---------------------------------------------------------------------------
-# Strengthened Publish Command (v0.4.0)
+# Strengthened Publish Command (v0.4.0 / M5)
 # ---------------------------------------------------------------------------
 
 
@@ -1147,6 +1339,35 @@ def cmd_publish(args):
             f"Không có ACTIVE authorization cho TASK-{task_id:03d}. "
             f"Cần chạy `/aios-worker RUN TASK-{task_id:03d}` hoặc `/aios-worker FIX TASK-{task_id:03d}` trước khi publish."
         )
+
+    # Validate M5 lease binding fields in authorization (C20 / AIP-7)
+    for required_lease_field in ["lease_id", "lease_fingerprint", "workspace_id", "execution_fingerprint"]:
+        if not auth.get(required_lease_field):
+            fail(f"ACTIVE authorization thiếu thông tin lease bắt buộc: '{required_lease_field}'.")
+
+    # Reconstruct expected lease from ACTIVE authorization (AIP-7 / C20)
+    try:
+        expected_lease = ExecutorLease(
+            schema_version="1",
+            lease_id=auth["lease_id"],
+            task_id=auth["task_id"],
+            workspace_id=auth["workspace_id"],
+            executor_id=auth.get("executor_id", "antigravity"),
+            operation=ExecutionOperation(auth["action"]),
+            execution_fingerprint=auth["execution_fingerprint"],
+        )
+    except Exception as e:
+        fail(f"Tái cấu trúc expected lease từ authorization thất bại: {e}")
+
+    if expected_lease.fingerprint() != auth["lease_fingerprint"]:
+        fail("Lease fingerprint trong authorization không khớp với canonical lease.")
+
+    # Require exact active lease before test execution or workspace mutation (AIP-9 / C20)
+    store = get_lease_store()
+    try:
+        store.require_active(expected_lease)
+    except Exception as e:
+        fail(f"Xác thực active executor lease thất bại trước khi publish: {e}")
 
     if getattr(args, "action", None):
         req_action = args.action.upper()
@@ -1288,6 +1509,12 @@ Exit code: {test_rc}
     sha = git("rev-parse", "HEAD").stdout.strip()
     git("push", "-u", cfg["remote"], branch)
 
+    # Release exact lease after push success (C22 / AIP-10)
+    try:
+        store.release(expected_lease)
+    except Exception as e:
+        fail(f"Release lease thất bại sau khi push: {e}")
+
     if auth:
         auth["status"] = "CONSUMED"
         auth["published_sha"] = sha
@@ -1306,6 +1533,101 @@ Exit code: {test_rc}
     print(f"SHA:    {sha}")
     print("\nTiếp theo trong ChatGPT chỉ cần nói:")
     print(f'  "Review TASK-{task_id:03d}"')
+
+
+# ---------------------------------------------------------------------------
+# Human Recovery & Lease Diagnostic Commands (C23)
+# ---------------------------------------------------------------------------
+
+
+def cmd_lease_status(args):
+    """Read-only diagnostic command for active executor leases (C23)."""
+    paths = get_runtime_paths()
+    leases_dir = paths["leases"]
+    store = get_lease_store()
+
+    if getattr(args, "task_id", None) is not None:
+        task_id_str = f"TASK-{args.task_id:03d}"
+        active = None
+        try:
+            active = store.load_active(task_id_str)
+        except Exception as e:
+            print(f"[LEASE-STATUS] {task_id_str}: CORRUPT / ERROR ({e})")
+            return
+
+        if active is None:
+            print(f"[LEASE-STATUS] {task_id_str}: (no active lease)")
+        else:
+            print(f"[LEASE-STATUS] {task_id_str}:")
+            print(f"  lease_id:              {active.lease_id}")
+            print(f"  executor_id:           {active.executor_id}")
+            print(f"  operation:             {active.operation.value}")
+            print(f"  workspace_id:          {active.workspace_id}")
+            print(f"  lease_fingerprint:     {active.fingerprint()}")
+            print(f"  execution_fingerprint: {active.execution_fingerprint}")
+    else:
+        if not leases_dir.exists():
+            print("[LEASE-STATUS] (no lease records found)")
+            return
+
+        found = 0
+        for task_dir in sorted(leases_dir.glob("TASK-*")):
+            if not task_dir.is_dir():
+                continue
+            task_id_str = task_dir.name
+            try:
+                active = store.load_active(task_id_str)
+                if active:
+                    found += 1
+                    print(
+                        f"- {task_id_str}: lease_id={active.lease_id} executor={active.executor_id} op={active.operation.value}"
+                    )
+            except Exception as e:
+                found += 1
+                print(f"- {task_id_str}: CORRUPT / ERROR ({e})")
+
+        if found == 0:
+            print("[LEASE-STATUS] (no active leases)")
+
+
+def cmd_lease_release(args):
+    """Explicit confirmation-gated human recovery lease release (C23 / AIP-11)."""
+    if not getattr(args, "confirm_stopped", False):
+        fail(
+            "lease-release yêu cầu cờ '--confirm-stopped' để xác nhận Executor đã dừng hoàn toàn."
+        )
+
+    task_id_str = f"TASK-{args.task_id:03d}"
+    store = get_lease_store()
+
+    try:
+        active = store.load_active(task_id_str)
+    except Exception as e:
+        fail(f"Không thể đọc active lease cho {task_id_str}: {e}")
+
+    if active is None:
+        fail(f"Không tìm thấy active lease cho {task_id_str}.")
+
+    if active.lease_id != args.lease_id:
+        fail(
+            f"lease_id '{args.lease_id}' không khớp với active lease_id '{active.lease_id}' của {task_id_str}."
+        )
+
+    # 1. Deactivate associated ACTIVE authorization before release (AIP-11)
+    auth = load_authorization(args.task_id)
+    if auth and auth.get("status") == "ACTIVE":
+        auth["status"] = "CANCELLED"
+        auth["cancelled_at"] = now()
+        auth["cancellation_reason"] = f"Human recovery release with lease_id {args.lease_id}"
+        save_authorization(args.task_id, auth)
+
+    # 2. Compare-and-release exact lease
+    try:
+        store.release(active)
+    except Exception as e:
+        fail(f"Release lease thất bại cho {task_id_str}: {e}")
+
+    print(f"[RELEASED] Đã giải phóng lease '{active.lease_id}' cho {task_id_str}.")
 
 
 def cmd_setup(args):
@@ -1411,6 +1733,20 @@ def build_parser():
     s.add_argument("--notes")
     s.add_argument("--message")
     s.set_defaults(func=cmd_publish)
+
+    s = sub.add_parser(
+        "lease-status", help="Read-only diagnostic command for active executor leases"
+    )
+    s.add_argument("task_id", type=int, nargs="?", default=None)
+    s.set_defaults(func=cmd_lease_status)
+
+    s = sub.add_parser(
+        "lease-release", help="Explicit human recovery lease release"
+    )
+    s.add_argument("task_id", type=int)
+    s.add_argument("--lease-id", required=True)
+    s.add_argument("--confirm-stopped", action="store_true")
+    s.set_defaults(func=cmd_lease_release)
 
     return p
 
