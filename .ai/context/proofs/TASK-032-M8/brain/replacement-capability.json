@@ -1,0 +1,9 @@
+{
+  "brain_id": "claude-chat",
+  "declarative_only": true,
+  "max_context_bytes": null,
+  "supported_operations": [
+    "DIAGNOSIS",
+    "PLAN"
+  ]
+}
