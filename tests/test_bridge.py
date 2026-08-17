@@ -2508,3 +2508,549 @@ def test_cmd_publish_missing_executor_id_in_active_auth_fails_closed_and_retains
                 del os.environ["AIOS_RUNTIME_DIR"]
 
 
+def test_validate_runtime_executor_id_rules():
+    """Validates C10 / AIP-3: Runtime executor set is closed and explicit."""
+    # 1. Defaults to antigravity
+    assert bridge.validate_runtime_executor_id(None) == "antigravity"
+
+    # 2. Canonical supported executors
+    assert bridge.validate_runtime_executor_id("antigravity") == "antigravity"
+    assert bridge.validate_runtime_executor_id("codex") == "codex"
+
+    # 3. Padded / mixed-case fail closed
+    for bad in [" antigravity", "antigravity ", "Antigravity", "CODEX", "codex "]:
+        with pytest.raises(ContinuityStateValidationError):
+            bridge.validate_runtime_executor_id(bad)
+
+    # 4. Unknown / claude-code / type errors fail closed
+    for bad in ["claude-code", "gemini-cli", "random", "", 123, True]:
+        with pytest.raises(ContinuityStateValidationError):
+            bridge.validate_runtime_executor_id(bad)
+
+
+def test_handoff_fix_failover_activation_flow_and_proof_generation():
+    """Validates C12-C18: FIX handoff with --executor codex from prior antigravity auth generates valid failover proof."""
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "main"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "README.md").write_text("# Repo\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+        # Create task branch ai/task-030 and commit source RESULT
+        subprocess.run(["git", "checkout", "-b", "ai/task-030"], cwd=root, check=True, capture_output=True)
+        results_dir = root / ".ai" / "results"
+        results_dir.mkdir(parents=True, exist_ok=True)
+        (results_dir / "RESULT-030.md").write_text("# RESULT-030\nSTATUS: READY_FOR_REVIEW\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "TASK-030: initial result"], cwd=root, check=True, capture_output=True)
+        published_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_fetch = bridge.fetch_control
+        old_blob = bridge.get_remote_blob_sha
+        old_read = bridge.read_remote_file
+
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            bridge.ensure_dirs()
+            cfg = {
+                "remote": "origin",
+                "base_branch": "main",
+                "control_branch": "ai-control",
+                "task_branch_prefix": "ai/task-",
+                "poll_seconds": 20,
+                "windows_popup": False,
+            }
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            bridge.fetch_control = lambda cfg: None
+            review_blob = "b" * 40
+            bridge.get_remote_blob_sha = lambda cfg, path: review_blob
+            bridge.read_remote_file = lambda cfg, path: "# REVIEW-030\n\nSTATUS: CHANGES_REQUIRED\n"
+
+            # Setup prior CONSUMED auth by antigravity
+            store = bridge.get_lease_store()
+            prior_lease = bridge.build_executor_lease_candidate(
+                task_id="TASK-030",
+                workspace_id=store.workspace_id,
+                operation=ExecutionOperation.RUN,
+                target_branch="ai/task-030",
+                authorized_artifact_path=".ai/tasks/TASK-030.md",
+                authorized_artifact_blob_sha="a" * 40,
+                executor_id="antigravity",
+            )
+            prior_auth = {
+                "task_id": "TASK-030",
+                "action": "RUN",
+                "kind": "TASK",
+                "artifact_path": ".ai/tasks/TASK-030.md",
+                "artifact_blob_sha": "a" * 40,
+                "approved_at": "2026-08-17T10:00:00+07:00",
+                "branch": "ai/task-030",
+                "status": "CONSUMED",
+                "published_sha": published_sha,
+                "published_at": "2026-08-17T11:00:00+07:00",
+                "executor_id": "antigravity",
+                "lease_id": prior_lease.lease_id,
+                "lease_fingerprint": prior_lease.fingerprint(),
+                "workspace_id": prior_lease.workspace_id,
+                "execution_fingerprint": prior_lease.execution_fingerprint,
+            }
+            bridge.save_authorization(30, prior_auth)
+
+            # Execute FIX handoff selecting Codex
+            bridge.cmd_handoff(type("Args", (), {"task_id": 30, "action": "fix", "executor": "codex"})())
+
+            # Verify active replacement lease belongs to codex
+            active_lease = store.load_active("TASK-030")
+            assert active_lease is not None
+            assert active_lease.executor_id == "codex"
+            assert active_lease.operation == ExecutionOperation.FIX
+
+            # Verify ACTIVE authorization contains complete failover proof
+            new_auth = bridge.load_authorization(30)
+            assert new_auth["status"] == "ACTIVE"
+            assert new_auth["executor_id"] == "codex"
+            assert "failover_source_lease" in new_auth
+            assert "failover_proof" in new_auth
+            assert "failover_proof_fingerprint" in new_auth
+
+            proof = bridge.StableExecutorFailoverProof.from_json(new_auth["failover_proof"])
+            assert proof.source_executor_id == "antigravity"
+            assert proof.replacement_executor_id == "codex"
+            assert proof.source_published_sha == published_sha
+            assert proof.fingerprint() == new_auth["failover_proof_fingerprint"]
+
+            # Relational validation succeeds against reconstructed leases
+            source_lease = bridge.ExecutorLease.from_dict(new_auth["failover_source_lease"])
+            bridge.validate_stable_executor_failover(proof, source_lease=source_lease, replacement_lease=active_lease)
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.fetch_control = old_fetch
+            bridge.get_remote_blob_sha = old_blob
+            bridge.read_remote_file = old_read
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+
+def test_handoff_fix_failover_fails_closed_when_prior_auth_not_consumed_or_branch_drift():
+    """Validates C12-C14: Failover fails closed on non-consumed prior auth, branch drift, or active lease."""
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "main"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "README.md").write_text("# Repo\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+        subprocess.run(["git", "checkout", "-b", "ai/task-030"], cwd=root, check=True, capture_output=True)
+        results_dir = root / ".ai" / "results"
+        results_dir.mkdir(parents=True, exist_ok=True)
+        (results_dir / "RESULT-030.md").write_text("# RESULT-030\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "result"], cwd=root, check=True, capture_output=True)
+        published_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_fetch = bridge.fetch_control
+        old_blob = bridge.get_remote_blob_sha
+        old_read = bridge.read_remote_file
+
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            bridge.ensure_dirs()
+            cfg = {
+                "remote": "origin",
+                "base_branch": "main",
+                "control_branch": "ai-control",
+                "task_branch_prefix": "ai/task-",
+                "poll_seconds": 20,
+                "windows_popup": False,
+            }
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            bridge.fetch_control = lambda cfg: None
+            bridge.get_remote_blob_sha = lambda cfg, path: "b" * 40
+            bridge.read_remote_file = lambda cfg, path: "# REVIEW-030\n\nSTATUS: CHANGES_REQUIRED\n"
+
+            store = bridge.get_lease_store()
+            prior_lease = bridge.build_executor_lease_candidate(
+                task_id="TASK-030",
+                workspace_id=store.workspace_id,
+                operation=ExecutionOperation.RUN,
+                target_branch="ai/task-030",
+                authorized_artifact_path=".ai/tasks/TASK-030.md",
+                authorized_artifact_blob_sha="a" * 40,
+                executor_id="antigravity",
+            )
+
+            # 1. Non-consumed prior auth fails closed
+            bad_auth = {
+                "task_id": "TASK-030",
+                "action": "RUN",
+                "kind": "TASK",
+                "artifact_path": ".ai/tasks/TASK-030.md",
+                "artifact_blob_sha": "a" * 40,
+                "approved_at": "2026-08-17T10:00:00+07:00",
+                "branch": "ai/task-030",
+                "status": "ACTIVE",  # Still ACTIVE!
+                "published_sha": published_sha,
+                "executor_id": "antigravity",
+                "lease_id": prior_lease.lease_id,
+                "lease_fingerprint": prior_lease.fingerprint(),
+                "workspace_id": prior_lease.workspace_id,
+                "execution_fingerprint": prior_lease.execution_fingerprint,
+            }
+            bridge.save_authorization(30, bad_auth)
+
+            with pytest.raises(SystemExit):
+                bridge.cmd_handoff(type("Args", (), {"task_id": 30, "action": "fix", "executor": "codex"})())
+
+            # 2. Branch head mismatch (drift) fails closed
+            bad_auth["status"] = "CONSUMED"
+            bad_auth["published_sha"] = "0" * 40  # Mismatched published sha
+            bridge.save_authorization(30, bad_auth)
+
+            with pytest.raises(SystemExit):
+                bridge.cmd_handoff(type("Args", (), {"task_id": 30, "action": "fix", "executor": "codex"})())
+
+            # 3. Active lease in store blocks failover replacement
+            bad_auth["published_sha"] = published_sha
+            bridge.save_authorization(30, bad_auth)
+            store.acquire(prior_lease)  # Active lease present!
+
+            with pytest.raises(SystemExit):
+                bridge.cmd_handoff(type("Args", (), {"task_id": 30, "action": "fix", "executor": "codex"})())
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.fetch_control = old_fetch
+            bridge.get_remote_blob_sha = old_blob
+            bridge.read_remote_file = old_read
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+
+def test_cmd_publish_failover_revalidation_and_result_manifest():
+    """Validates C20-C22: Publish under failover authorization validates proof, outputs failover manifest, and releases lease."""
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "main"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "README.md").write_text("# Repo\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+        subprocess.run(["git", "checkout", "-b", "ai/task-030"], cwd=root, check=True, capture_output=True)
+        results_dir = root / ".ai" / "results"
+        results_dir.mkdir(parents=True, exist_ok=True)
+        (results_dir / "RESULT-030.md").write_text("# RESULT-030\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "source result"], cwd=root, check=True, capture_output=True)
+        published_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
+        result_blob_sha = subprocess.run(["git", "rev-parse", f"{published_sha}:.ai/results/RESULT-030.md"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_fetch = bridge.fetch_control
+        old_blob = bridge.get_remote_blob_sha
+        old_read = bridge.read_remote_file
+
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            bridge.ensure_dirs()
+            cfg = {
+                "remote": "origin",
+                "base_branch": "main",
+                "control_branch": "ai-control",
+                "task_branch_prefix": "ai/task-",
+                "poll_seconds": 20,
+                "windows_popup": False,
+            }
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            review_blob = "b" * 40
+            control_commit_sha = "c" * 40
+            bridge.fetch_control = lambda cfg: None
+            bridge.get_remote_blob_sha = lambda cfg, path: review_blob
+            bridge.read_remote_file = lambda cfg, path: "# REVIEW-030\n\nSTATUS: CHANGES_REQUIRED\n"
+
+            store = bridge.get_lease_store()
+            source_lease = bridge.build_executor_lease_candidate(
+                task_id="TASK-030",
+                workspace_id=store.workspace_id,
+                operation=ExecutionOperation.RUN,
+                target_branch="ai/task-030",
+                authorized_artifact_path=".ai/tasks/TASK-030.md",
+                authorized_artifact_blob_sha="a" * 40,
+                executor_id="antigravity",
+            )
+            repl_lease = bridge.build_executor_lease_candidate(
+                task_id="TASK-030",
+                workspace_id=store.workspace_id,
+                operation=ExecutionOperation.FIX,
+                target_branch="ai/task-030",
+                authorized_artifact_path=".ai/reviews/REVIEW-030.md",
+                authorized_artifact_blob_sha=review_blob,
+                executor_id="codex",
+            )
+            store.acquire(repl_lease)
+
+            proof = bridge.StableExecutorFailoverProof(
+                schema_version="1",
+                task_id="TASK-030",
+                target_branch="ai/task-030",
+                source_executor_id=source_lease.executor_id,
+                source_operation=source_lease.operation,
+                source_execution_fingerprint=source_lease.execution_fingerprint,
+                source_lease_fingerprint=source_lease.fingerprint(),
+                source_published_sha=published_sha,
+                source_result_ref=bridge.ArtifactRef(
+                    path=".ai/results/RESULT-030.md",
+                    ref=published_sha,
+                    blob_sha=result_blob_sha,
+                ),
+                replacement_executor_id=repl_lease.executor_id,
+                replacement_operation=repl_lease.operation,
+                replacement_execution_fingerprint=repl_lease.execution_fingerprint,
+                replacement_lease_fingerprint=repl_lease.fingerprint(),
+                review_ref=bridge.ArtifactRef(
+                    path=".ai/reviews/REVIEW-030.md",
+                    ref=control_commit_sha,
+                    blob_sha=review_blob,
+                ),
+            )
+
+            active_auth = {
+                "task_id": "TASK-030",
+                "action": "FIX",
+                "kind": "REVIEW",
+                "artifact_path": ".ai/reviews/REVIEW-030.md",
+                "artifact_blob_sha": review_blob,
+                "approved_at": "2026-08-17T11:30:00+07:00",
+                "branch": "ai/task-030",
+                "status": "ACTIVE",
+                "executor_id": "codex",
+                "lease_id": repl_lease.lease_id,
+                "lease_fingerprint": repl_lease.fingerprint(),
+                "workspace_id": repl_lease.workspace_id,
+                "execution_fingerprint": repl_lease.execution_fingerprint,
+                "failover_source_lease": source_lease.to_dict(),
+                "failover_proof": proof.to_dict(),
+                "failover_proof_fingerprint": proof.fingerprint(),
+            }
+            bridge.save_authorization(30, active_auth)
+
+            # Make a code change to publish
+            (root / "fix.txt").write_text("fix by codex\n", encoding="utf-8")
+
+            # Mock git push to avoid remote error
+            old_git = bridge.git
+            bridge.git = lambda *args, **kw: (
+                type("Res", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+                if args[0] == "push"
+                else old_git(*args, **kw)
+            )
+
+            try:
+                bridge.cmd_publish(
+                    type("Args", (), {
+                        "task_id": 30,
+                        "action": "FIX",
+                        "test": None,
+                        "summary": "Codex failover fix",
+                        "notes": "all good",
+                        "message": "TASK-030: failover fix",
+                    })()
+                )
+            finally:
+                bridge.git = old_git
+
+            # Verify RESULT content contains failover manifest
+            result_text = (results_dir / "RESULT-030.md").read_text(encoding="utf-8")
+            assert "EXECUTOR_FAILOVER: YES" in result_text
+            assert "FAILOVER_FROM_EXECUTOR: antigravity" in result_text
+            assert "FAILOVER_TO_EXECUTOR: codex" in result_text
+            assert f"FAILOVER_SOURCE_PUBLISHED_SHA: {published_sha}" in result_text
+            assert f"FAILOVER_PROOF_FINGERPRINT: {proof.fingerprint()}" in result_text
+            assert f"FAILOVER_REVIEW_BLOB_SHA: {review_blob}" in result_text
+
+            # Verify replacement lease was released
+            assert store.load_active("TASK-030") is None
+
+            # Verify authorization became CONSUMED
+            consumed_auth = bridge.load_authorization(30)
+            assert consumed_auth["status"] == "CONSUMED"
+            assert "published_sha" in consumed_auth
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.fetch_control = old_fetch
+            bridge.get_remote_blob_sha = old_blob
+            bridge.read_remote_file = old_read
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+
+def test_cmd_publish_failover_tampered_proof_fails_closed_and_retains_lease():
+    """Validates C20: Tampered failover proof blocks test execution and retains replacement lease."""
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "main"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "README.md").write_text("# Repo\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+        subprocess.run(["git", "checkout", "-b", "ai/task-030"], cwd=root, check=True, capture_output=True)
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_fetch = bridge.fetch_control
+        old_blob = bridge.get_remote_blob_sha
+        old_read = bridge.read_remote_file
+
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            bridge.ensure_dirs()
+            cfg = {
+                "remote": "origin",
+                "base_branch": "main",
+                "control_branch": "ai-control",
+                "task_branch_prefix": "ai/task-",
+                "poll_seconds": 20,
+                "windows_popup": False,
+            }
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            review_blob = "b" * 40
+            bridge.fetch_control = lambda cfg: None
+            bridge.get_remote_blob_sha = lambda cfg, path: review_blob
+            bridge.read_remote_file = lambda cfg, path: "# REVIEW-030\n\nSTATUS: CHANGES_REQUIRED\n"
+
+            store = bridge.get_lease_store()
+            source_lease = bridge.build_executor_lease_candidate(
+                task_id="TASK-030",
+                workspace_id=store.workspace_id,
+                operation=ExecutionOperation.RUN,
+                target_branch="ai/task-030",
+                authorized_artifact_path=".ai/tasks/TASK-030.md",
+                authorized_artifact_blob_sha="a" * 40,
+                executor_id="antigravity",
+            )
+            repl_lease = bridge.build_executor_lease_candidate(
+                task_id="TASK-030",
+                workspace_id=store.workspace_id,
+                operation=ExecutionOperation.FIX,
+                target_branch="ai/task-030",
+                authorized_artifact_path=".ai/reviews/REVIEW-030.md",
+                authorized_artifact_blob_sha=review_blob,
+                executor_id="codex",
+            )
+            store.acquire(repl_lease)
+
+            proof = bridge.StableExecutorFailoverProof(
+                schema_version="1",
+                task_id="TASK-030",
+                target_branch="ai/task-030",
+                source_executor_id=source_lease.executor_id,
+                source_operation=source_lease.operation,
+                source_execution_fingerprint=source_lease.execution_fingerprint,
+                source_lease_fingerprint=source_lease.fingerprint(),
+                source_published_sha="1" * 40,
+                source_result_ref=bridge.ArtifactRef(
+                    path=".ai/results/RESULT-030.md",
+                    ref="1" * 40,
+                    blob_sha="d" * 40,
+                ),
+                replacement_executor_id=repl_lease.executor_id,
+                replacement_operation=repl_lease.operation,
+                replacement_execution_fingerprint=repl_lease.execution_fingerprint,
+                replacement_lease_fingerprint=repl_lease.fingerprint(),
+                review_ref=bridge.ArtifactRef(
+                    path=".ai/reviews/REVIEW-030.md",
+                    ref="c" * 40,
+                    blob_sha=review_blob,
+                ),
+            )
+
+            # Save ACTIVE auth with tampered fingerprint
+            active_auth = {
+                "task_id": "TASK-030",
+                "action": "FIX",
+                "kind": "REVIEW",
+                "artifact_path": ".ai/reviews/REVIEW-030.md",
+                "artifact_blob_sha": review_blob,
+                "approved_at": "2026-08-17T11:30:00+07:00",
+                "branch": "ai/task-030",
+                "status": "ACTIVE",
+                "executor_id": "codex",
+                "lease_id": repl_lease.lease_id,
+                "lease_fingerprint": repl_lease.fingerprint(),
+                "workspace_id": repl_lease.workspace_id,
+                "execution_fingerprint": repl_lease.execution_fingerprint,
+                "failover_source_lease": source_lease.to_dict(),
+                "failover_proof": proof.to_dict(),
+                "failover_proof_fingerprint": "0" * 64,  # Tampered fingerprint!
+            }
+            bridge.save_authorization(30, active_auth)
+
+            with pytest.raises(SystemExit):
+                bridge.cmd_publish(
+                    type("Args", (), {"task_id": 30, "action": "FIX", "test": "echo test_ran > test.txt"})()
+                )
+
+            # Test did not run and lease is retained
+            assert not (root / "test.txt").exists()
+            assert store.load_active("TASK-030") == repl_lease
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.fetch_control = old_fetch
+            bridge.get_remote_blob_sha = old_blob
+            bridge.read_remote_file = old_read
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+

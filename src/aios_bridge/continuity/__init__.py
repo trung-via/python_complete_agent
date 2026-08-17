@@ -31,6 +31,10 @@ from .failover import (
     build_replacement_brain_request,
     validate_brain_failover_eligibility,
 )
+from .executor_failover import (
+    StableExecutorFailoverProof,
+    validate_stable_executor_failover,
+)
 from .lease import (
     MAX_ACTIVE_EXECUTORS_PER_TASK,
     ExecutorLease,
@@ -119,6 +123,7 @@ __all__ = [
     "NextOperation",
     "OutputContract",
     "PreparedExecution",
+    "StableExecutorFailoverProof",
     "StateObservation",
     "TaskUsageRecord",
     "TokenMeasurement",
@@ -135,4 +140,5 @@ __all__ = [
     "validate_executor_eligibility",
     "validate_executor_lease_binding",
     "validate_prepared_execution_against_request",
+    "validate_stable_executor_failover",
 ]
