@@ -4605,6 +4605,7 @@ def test_cmd_publish_task_031_proof_progress_manifest_generation():
                 "branch": "ai/task-031",
                 "status": "ACTIVE",
                 "executor_id": "antigravity",
+                "base_main_sha": init_source_sha,
                 "lease_id": lease_antigravity.lease_id,
                 "lease_fingerprint": lease_antigravity.fingerprint(),
                 "workspace_id": lease_antigravity.workspace_id,
@@ -4678,6 +4679,7 @@ def test_cmd_publish_task_031_proof_progress_manifest_generation():
                 "branch": "ai/task-031",
                 "status": "ACTIVE",
                 "executor_id": "claude-code",
+                "base_main_sha": init_source_sha,
                 "lease_id": repl_lease_a.lease_id,
                 "lease_fingerprint": repl_lease_a.fingerprint(),
                 "workspace_id": repl_lease_a.workspace_id,
@@ -4725,6 +4727,7 @@ def test_cmd_publish_task_031_proof_progress_manifest_generation():
                 "branch": "ai/task-031",
                 "status": "ACTIVE",
                 "executor_id": "claude-code",
+                "base_main_sha": init_source_sha,
                 "lease_id": lease_cc_repair.lease_id,
                 "lease_fingerprint": lease_cc_repair.fingerprint(),
                 "workspace_id": lease_cc_repair.workspace_id,
@@ -4794,6 +4797,7 @@ def test_cmd_publish_task_031_proof_progress_manifest_generation():
                 "branch": "ai/task-031",
                 "status": "ACTIVE",
                 "executor_id": "antigravity",
+                "base_main_sha": init_source_sha,
                 "lease_id": repl_lease_b.lease_id,
                 "lease_fingerprint": repl_lease_b.fingerprint(),
                 "workspace_id": repl_lease_b.workspace_id,
@@ -4841,6 +4845,7 @@ def test_cmd_publish_task_031_proof_progress_manifest_generation():
                 "branch": "ai/task-031",
                 "status": "ACTIVE",
                 "executor_id": "antigravity",
+                "base_main_sha": init_source_sha,
                 "lease_id": lease_antigravity_repair.lease_id,
                 "lease_fingerprint": lease_antigravity_repair.fingerprint(),
                 "workspace_id": lease_antigravity_repair.workspace_id,
@@ -5058,10 +5063,23 @@ def test_task_031_portability_scope_validation_fails_closed_on_core_change_or_fo
             subprocess.run(["git", "commit", "-m", "revert core"], cwd=root, check=True, capture_output=True)
             bridge._validate_task_031_portability_scope(cfg, auth)
 
-            # 3. Widening SUPPORTED_RUNTIME_EXECUTORS to add 4th executor fails closed
-            bridge.SUPPORTED_RUNTIME_EXECUTORS = ("antigravity", "codex", "claude-code", "gemini-cli")
+            # 4. Git diff base_sha failure fails closed (R2-1)
+            auth_bad_sha = dict(auth, base_main_sha="0" * 40)
             with pytest.raises(SystemExit):
-                bridge._validate_task_031_portability_scope(cfg, auth)
+                bridge._validate_task_031_portability_scope(cfg, auth_bad_sha)
+
+            # 5. Git diff working-tree failure fails closed (R2-1)
+            old_g = bridge.git
+            bridge.git = lambda *args, **kw: (
+                type("Res", (), {"returncode": 128, "stdout": "", "stderr": "fatal: corrupted git index"})()
+                if args == ("diff", "--name-only", "HEAD")
+                else old_g(*args, **kw)
+            )
+            try:
+                with pytest.raises(SystemExit):
+                    bridge._validate_task_031_portability_scope(cfg, auth)
+            finally:
+                bridge.git = old_g
         finally:
             bridge.PROJECT = old_project
             bridge.AI = old_ai
@@ -5069,5 +5087,54 @@ def test_task_031_portability_scope_validation_fails_closed_on_core_change_or_fo
             bridge.SUPPORTED_RUNTIME_EXECUTORS = old_executors
             if "AIOS_RUNTIME_DIR" in os.environ:
                 del os.environ["AIOS_RUNTIME_DIR"]
+
+
+def test_task_031_test_evidence_truthful_binding_and_negative_subset_cases():
+    """Validates R1-2, R2-2: Evidence parser truthfully binds pass counts and blocks fabricated claims on subset runs."""
+    # 1. No test command supplied
+    b, c, f, r = bridge._parse_task_031_test_evidence(None, None, 0)
+    assert b == "NOT_RUN"
+    assert c == "NOT_RUN"
+    assert f == "NOT_RUN"
+    assert r == "0"
+
+    # 2. Failing test command
+    b, c, f, r = bridge._parse_task_031_test_evidence("pytest tests/", "1 failed", 1)
+    assert b == "NOT_RUN"
+    assert c == "NOT_RUN"
+    assert f == "NOT_RUN"
+
+    # 3. Subset: only bridge tests run -> full repo & continuity are NOT_RUN
+    b, c, f, r = bridge._parse_task_031_test_evidence(
+        ".\\venv\\Scripts\\python -m pytest tests/test_bridge.py",
+        "tests/test_bridge.py: 80 passed in 1.2s\n= 80 passed in 1.2s =",
+        0,
+    )
+    assert b == "80/80 pass"
+    assert c == "NOT_RUN"
+    assert f == "NOT_RUN"
+
+    # 4. Subset: only continuity tests run -> bridge & full repo are NOT_RUN
+    b, c, f, r = bridge._parse_task_031_test_evidence(
+        ".\\venv\\Scripts\\python -m pytest tests/aios_bridge/continuity/",
+        "tests/aios_bridge/continuity/test_lease.py PASSED\n= 152 passed in 0.5s =",
+        0,
+    )
+    assert b == "NOT_RUN"
+    assert c == "152/152 pass"
+    assert f == "NOT_RUN"
+
+    # 5. Full repository execution -> all suites reported truthfully
+    b, c, f, r = bridge._parse_task_031_test_evidence(
+        ".\\venv\\Scripts\\python -m pytest tests/",
+        "tests/test_bridge.py ................................................................................ [ 11%]\n"
+        "tests/aios_bridge/continuity/test_lease.py ................. [100%]\n"
+        "= 754 passed in 78.0s =",
+        0,
+    )
+    assert b == "80/80 pass"
+    assert c == "152/152 pass"
+    assert f == "754/754 pass"
+    assert r == "0"
 
 

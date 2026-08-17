@@ -21,9 +21,9 @@ PAID_EXTERNAL_API_CALLS: 0
 LIVE_EXTERNAL_CALLS_AUTOMATED_TESTS: 0
 M7_REAL_PROOF_ANTIGRAVITY_TO_CLAUDE_CODE: PENDING
 M7_REAL_PROOF_CLAUDE_CODE_TO_ANTIGRAVITY: PENDING
-BRIDGE_TESTS: 78/78 pass
+BRIDGE_TESTS: 80/80 pass
 CONTINUITY_TESTS: 152/152 pass
-FULL_REPO_TESTS: 754/754 pass
+FULL_REPO_TESTS: 755/755 pass
 REGRESSIONS: 0
 ```
 
@@ -34,7 +34,7 @@ Implementation completed by antigravity; pending ChatGPT review.
 - Task: `TASK-031`
 - Action: `FIX`
 - Executor: `antigravity`
-- Authorized Artifact: `.ai/reviews/REVIEW-031.md (dede02ba9a)`
+- Authorized Artifact: `.ai/reviews/REVIEW-031.md (ad692efc2f)`
 - Base Main SHA: `(n/a)`
 - Branch: `ai/task-031`
 
@@ -44,9 +44,9 @@ Implementation completed by antigravity; pending ChatGPT review.
 
 ## Diff Stat
 ```text
-bridge.py            |  69 ++++++++++++++++++
- tests/test_bridge.py | 201 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 270 insertions(+)
+bridge.py            | 90 +++++++++++++++++++++++++++++++++++++++++++---------
+ tests/test_bridge.py | 73 ++++++++++++++++++++++++++++++++++++++++--
+ 2 files changed, 145 insertions(+), 18 deletions(-)
 ```
 
 ## Tests
@@ -59,7 +59,7 @@ platform win32 -- Python 3.14.7, pytest-8.3.4, pluggy-1.6.0
 rootdir: C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent
 plugins: anyio-4.14.2, asyncio-0.25.0
 asyncio: mode=Mode.STRICT, asyncio_default_fixture_loop_scope=None
-collected 754 items
+collected 755 items
 
 tests\aios_bridge\continuity\test_brain.py ..................            [  2%]
 tests\aios_bridge\continuity\test_executor.py .......................    [  5%]
@@ -89,7 +89,7 @@ tests\core\test_cancellation.py ......                                   [ 34%]
 tests\core\test_checkpoint.py ..                                         [ 34%]
 tests\core\test_checkpoint_contract.py ..........                        [ 35%]
 tests\core\test_checkpoint_replay.py .....                               [ 36%]
-tests\core\test_checkpoint_store_durability.py ....                      [ 37%]
+tests\core\test_checkpoint_store_durability.py ....                      [ 36%]
 tests\core\test_errors.py ...                                            [ 37%]
 tests\core\test_idempotency.py ..                                        [ 37%]
 tests\core\test_idempotency_contract.py ................                 [ 39%]
@@ -111,7 +111,7 @@ tests\core\test_tool_registry.py ...                                     [ 59%]
 tests\core\test_types.py ...                                             [ 60%]
 tests\images\test_models.py ...                                          [ 60%]
 tests\images\test_pipeline.py ..                                         [ 60%]
-tests\images\test_storage.py ..                                          [ 61%]
+tests\images\test_storage.py ..                                          [ 60%]
 tests\images\test_validator.py ...                                       [ 61%]
 tests\integration\test_agent_crash_recovery_integration.py ....          [ 61%]
 tests\integration\test_agent_failures.py ..                              [ 62%]
@@ -125,7 +125,7 @@ tests\integration\test_phase56_fault_injection.py ..................     [ 67%]
 tests\integration\test_phase56_production_readiness.py ................. [ 69%]
 ............                                                             [ 71%]
 tests\integration\test_phase56_soak.py .....                             [ 71%]
-tests\integration\test_phase6_bootstrap.py ................              [ 74%]
+tests\integration\test_phase6_bootstrap.py ................              [ 73%]
 tests\integration\test_recovery_control_plane.py .......                 [ 74%]
 tests\integration\test_retry_policy_integration.py .....                 [ 75%]
 tests\integration\test_retry_timeline_integration.py .......             [ 76%]
@@ -144,8 +144,8 @@ tests\product_source\test_original_media_downloader.py ......            [ 88%]
 tests\product_source\test_scrape_tool_compat.py ........                 [ 89%]
 tests\product_source\test_shopee_source_extractor.py ..........          [ 90%]
 tests\product_source\test_tiktok_source_extractor.py ..........          [ 92%]
-tests\test_bridge.py ................................................... [ 99%]
-....                                                                     [ 99%]
+tests\test_bridge.py ................................................... [ 98%]
+.....                                                                    [ 99%]
 tests\test_gdrive_integrator.py ..                                       [ 99%]
 tests\test_image_processor.py .                                          [100%]
 
@@ -451,7 +451,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-================ 754 passed, 1533 warnings in 77.87s (0:01:17) ================
+================ 755 passed, 1533 warnings in 73.82s (0:01:13) ================
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -463,4 +463,4 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 (none supplied)
 
 ## Generated
-2026-08-17T17:00:44+07:00
+2026-08-17T17:12:21+07:00
