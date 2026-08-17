@@ -3,213 +3,202 @@
 STATUS: CHANGES_REQUIRED
 
 ## Review Scope
-- Review round: `1` — ADR-017 Full Semantic Review
+- Review round: `2` — ADR-013 Delta Fix Review
 - Reviewed branch: `ai/task-029`
-- Reviewed branch head: `682f8436c43dcdc73bb048c10732f34f1b2445b9`
-- Tested implementation SHA reported by RESULT: `580739b1e9daadf6e4cf7a44bb6e39ad77d08b81`
+- Reviewed branch head: `6bcd46df2be6c6ba0c86a7a1a3da416a2e93f036`
+- Tested implementation SHA reported by RESULT: `1ffebb3c58f1f4d1647c8372d13278ecdc1c559f`
+- Previous tested implementation: `580739b1e9daadf6e4cf7a44bb6e39ad77d08b81`
+- Previous REVIEW blob: `abc8357b8b7adfd315f6c6cc255e2f2e2b718c6a`
 - Base/current main: `de556e5065ab1aea08fc832d2541532fe7085e33`
-- Branch relation: ahead `2`, behind `0`; merge-base exact current main.
-- `580739b... -> 682f843...` adds only `.ai/results/RESULT-029.md`; production/test code at reviewed branch head equals the tested implementation.
+- Branch relation: ahead `4`, behind `0`; merge-base exact current main.
+- `1ffebb3... -> 6bcd46d...` changes only `.ai/results/RESULT-029.md`; production/test code at reviewed head equals the tested implementation.
 - Test counts are RESULT evidence from Antigravity; this review did not independently execute the repository suite.
 
 ## ADR-017 Stage Result
 
 ```text
-FULL_SEMANTIC_REVIEW: FAIL
+FULL_SEMANTIC_REVIEW: FAIL in Round 1
 KNOWN_FINDINGS: OPEN
-DELTA_FIX_REVIEW: NOT_RUN
+DELTA_FIX_REVIEW: FAIL
 FINAL_INDEPENDENT_AUDIT: NOT_RUN
 APPROVED: NO
 ```
 
-## What Passed
+## Delta Summary
 
-The implementation is correctly scoped to the intended M5 boundary:
-- new vendor-neutral `continuity/lease.py`;
-- new runtime-only `runtime_lease.py`;
-- additive Continuity exports;
-- Bridge lease integration and explicit human recovery commands;
-- no changes to M4 `executor.py`, canonical state, Brain/failover/provider code;
-- no Codex/Claude Code activation, TTL, heartbeat, stealing, routing or M6 failover.
+Round 2 materially improves M5. The following code defects from Round 1 are closed:
+- R1-2 failed-writer cleanup now tracks `created_by_this_call` and no longer path-unlinks after a pre-create failure;
+- R1-3 acquisition now uses a write-all loop and treats `fsync` failure as fail-closed;
+- R1-4 lease conflict in legacy `cmd_approve()` now occurs before the pending event/state are mutated, so that exact conflict case remains retryable;
+- the runtime mutation path now introduces a task-scoped in-process + OS file lock and wraps both acquire/release mutation under that guard.
 
-The canonical `ExecutorLease` model itself is materially aligned with ADR-019/TASK-029: strict schema, RUN/FIX only, frozen record, bounded canonical JSON, exact workspace/execution fingerprints, forbidden authority/timing/secret keys, and a pure lease-binding validator.
-
-Atomic acquisition also uses `O_CREAT | O_EXCL`, and the focused two-store acquisition race proves one winner for simultaneous acquisition.
-
-These positive points are not sufficient for approval because the runtime release/acquisition failure paths do not yet satisfy the locked concurrency contract.
+However, the required concurrency proof for R1-1 is not actually present, the formal RESULT manifest still does not satisfy TASK-029, and a new post-acquire rollback gap exists in `cmd_approve()`.
 
 ---
 
-## Findings
+## Finding Disposition
 
-### R1-1 — Compare-and-release has a TOCTOU race that can remove a newer lease
+### R1-1 — Compare-and-release TOCTOU
+Status: PARTIALLY CLOSED / OPEN
 Severity: HIGH
 
-`AtomicExecutorLeaseStore.release()` currently performs:
+The implementation-side defect is materially addressed: `_task_mutation_guard()` now combines a task-scoped `threading.RLock` with an OS file lock (`msvcrt.locking` on Windows / `fcntl.flock` on POSIX), and both `acquire()` and `release()` enter the same guard. The compare (`require_active(expected)`) and `os.replace(ACTIVE, history)` therefore execute under the same task mutation critical section for cooperating store instances.
+
+But the required regression proof from Round 1 is not satisfied.
+
+The new test named:
 
 ```text
-require_active(expected)
-→ create history destination
-→ os.replace(ACTIVE.json, history)
+test_compare_and_release_interleaving_race_prevents_stale_release_removing_new_lease
 ```
 
-The equality check and the rename are separate operations with no cross-process/task-scoped synchronization or compare-and-swap primitive tying the renamed file to the exact record that was validated.
-
-A valid interleaving is:
+is fully sequential:
 
 ```text
-ACTIVE = Lease A
-
-Releaser 1: require_active(A) PASS
-Releaser 2: require_active(A) PASS
-Releaser 1: rename ACTIVE(A) -> history
-Acquirer B:  acquire Lease B -> ACTIVE(B)
-Releaser 2: rename ACTIVE(B) -> history  # stale A release removes B
+release A
+→ acquire B
+→ stale release A
+→ assert B remains
 ```
 
-The second releaser then returns `expected A` even though it actually moved Lease B out of ACTIVE.
-
-This directly violates TASK-029 C11 / Acceptance Criterion 6 / adversarial checklist:
-
-```text
-stale old lease cannot release newer lease
-```
+It does not create the old dangerous interleaving, does not exercise two concurrent releasers/acquirer, and does not prove the new OS/task guard is the reason the TOCTOU is impossible. It would also pass against many implementations that still had a check/rename race but happened not to be concurrently scheduled in the test.
 
 Required remediation:
-1. make acquire/release ownership mutation linearizable across independent store/process instances, not merely within one Python call;
-2. use a task-scoped cross-process mutation guard or another mechanism providing a true compare-and-release property;
-3. corruption/guard failure must remain fail-closed; no timeout/steal semantics may be introduced;
-4. add a deterministic interleaving regression test (barriers/events/fault hook, no sleep-based correctness) proving an old release can never remove newly acquired Lease B.
+1. add a deterministic concurrency regression using barriers/events/fault synchronization, not sleep-based correctness;
+2. exercise independent store instances and the actual release/acquire critical section;
+3. preferably include a cross-process/subprocess case so the OS lock path—not only the in-process RLock—is proven;
+4. demonstrate that after stale releaser A has started, Lease B can never be removed by that stale release regardless of whether B acquires before or after the stale contender obtains the mutation guard.
 
-### R1-2 — Failed-writer cleanup can unlink an ACTIVE lease not proven to belong to this acquire call
-Severity: HIGH
+### R1-2 — Failed-writer cleanup ownership
+Status: CLOSED
 
-`acquire()` catches a broad non-`FileExistsError` exception and then does:
+`acquire()` now sets `created_by_this_call=True` only after the exclusive `os.open(... O_CREAT|O_EXCL ...)` succeeds. Pre-create/open failure no longer authorizes cleanup of an existing ACTIVE path. Fault tests cover pre-create failure and post-create write failure.
 
-```python
-if active_file.exists():
-    active_file.unlink()
-```
+### R1-3 — Complete durable write
+Status: CLOSED
 
-The implementation does not track whether this call successfully passed the exclusive `os.open()` linearization point before cleanup. Therefore cleanup is based on path existence rather than proven ownership of the file created by this call.
+`acquire()` now loops until all canonical bytes are written, rejects zero-byte progress, and treats `os.fsync()` failure as acquisition failure. Fault-injection tests cover zero/partial-progress failure behavior and fsync failure while ensuring incomplete ACTIVE state is cleaned only under owned-create semantics.
 
-This violates TASK-029 C9 and the explicit adversarial requirement:
+### R1-4 — Legacy approve lease-conflict retryability
+Status: CLOSED for the original finding
 
-```text
-failed writer cleanup cannot delete somebody else’s lease
-```
+`cmd_approve()` now acquires the lease before changing the PENDING event or operational state. The new conflict regression proves a conflicting lease leaves the inbox event PENDING and no new ACTIVE authorization is created.
 
-Required remediation:
-1. track `created_by_this_call` only after successful exclusive create;
-2. cleanup may target ACTIVE only when this call demonstrably created the file and the cleanup target is still that same created object/identity;
-3. an ambiguous failure before ownership must never unlink ACTIVE;
-4. add fault-injection regression tests covering failure before successful create and failure after this call created the file.
+A separate post-acquire rollback defect remains as R2-1 below.
 
-### R1-3 — Acquisition may report success without proving complete durable record write
-Severity: HIGH
-
-The acquisition write path currently issues one `os.write(fd, canonical_bytes)` and ignores every `OSError` from `os.fsync(fd)`.
-
-Problems:
-- `os.write()` is not contractually guaranteed to write all requested bytes in one call; its return value is ignored;
-- a short write can therefore leave truncated `ACTIVE.json` while `acquire()` still returns success;
-- `fsync` failure is swallowed, even though C9 requires the complete record to be flushed/fsync'd before success where supported;
-- the next strict read may see corruption after the caller already persisted ACTIVE authorization.
-
-Required remediation:
-1. implement write-all semantics and verify all canonical bytes were persisted before success;
-2. treat durable-write/fsync failures as acquisition failure except only narrowly documented platform-not-supported cases, if any;
-3. cleanup must follow R1-2 ownership-safe rules;
-4. add deterministic fault-injection tests for partial writes and fsync failure.
-
-### R1-4 — Legacy `cmd_approve()` mutates approval/state before lease acquisition and becomes non-retryable on conflict
+### R1-5 — Required M5 evidence / formal RESULT manifest
+Status: OPEN
 Severity: MEDIUM
 
-`cmd_approve()` currently:
+The test coverage is improved and RESULT-029 now contains a YAML Review Manifest, but it still does not provide the minimum manifest explicitly required by TASK-029.
+
+The current manifest omits required fields including, among others:
 
 ```text
-load PENDING event
-→ mark event APPROVED + save
-→ update operational state to IN_PROGRESS / CHANGES_REQUIRED
-→ attempt lease acquisition
-→ save ACTIVE authorization
+MAX_ACTIVE_EXECUTORS_PER_TASK
+CANONICAL_EXECUTOR_LEASE
+ATOMIC_CREATE_IF_ABSENT
+RACE_EXACTLY_ONE_WINNER
+CORRUPT_ACTIVE_FAIL_CLOSED
+HANDOFF_RUN_LEASE_GATE
+HANDOFF_FIX_LEASE_GATE
+LEGACY_APPROVE_LEASE_GATE
+PUBLISH_REQUIRES_LEASE
+SUCCESSFUL_PUBLISH_RELEASES_LEASE
+TEST_FAILURE_RETAINS_LEASE
+HUMAN_RECOVERY_RELEASE
+EXECUTOR_FAILOVER_ADDED
+LEASE_TTL_OR_HEARTBEAT_ADDED
+LEASE_STEAL_ADDED
+DISPATCH_ROUTER_ADDED
+REGRESSIONS
+EXECUTOR_RUNS
+EXECUTOR_FIX_RUNS
 ```
 
-If lease acquisition conflicts/fails, no new ACTIVE authorization is persisted, which is fail-closed for execution authority; however the inbox event is already `APPROVED` and therefore no longer returned by `pending_events()` / `find_latest_event()` on retry. The operational state was also advanced before ownership was acquired.
+Additionally:
 
-This can strand the legacy/manual approval workflow after a legitimate lease conflict and is contrary to the intended activation ordering/rollback discipline of C17/AIP-8 and the requirement to preserve Bridge behavior outside the M5 gate.
+```text
+PREVIOUS_REVIEW_SHA: 682f8436c43dcdc73bb048c10732f34f1b2445b9
+```
+
+is not a REVIEW-029 SHA; it is the previous `ai/task-029` branch head. The previous authoritative REVIEW artifact blob is:
+
+```text
+abc8357b8b7adfd315f6c6cc255e2f2e2b718c6a
+```
+
+Use the project’s chosen REVIEW-artifact SHA convention consistently and do not substitute the old implementation/result branch head.
 
 Required remediation:
-- acquire the exact lease before making the pending approval/event operationally consumed/approved, or restore the event/state exactly if acquisition fails;
-- successful path must still acquire before ACTIVE authorization;
-- add a Bridge regression test proving a lease conflict leaves the legacy approval retryable and creates no new ACTIVE authorization.
+- regenerate RESULT-029 with the complete required manifest;
+- bind PREVIOUS_REVIEW_SHA to the actual previous REVIEW artifact identity;
+- include updated focused/runtime/Bridge/Continuity/full-suite counts and executor RUN/FIX counts;
+- do not claim RACE_EXACTLY_ONE_WINNER / compare-and-release proof PASS until the R1-1 concurrent regression above exists and passes.
 
-### R1-5 — Required M5 evidence cases are not demonstrated by the submitted tests/RESULT manifest
+---
+
+## New Round-2 Finding
+
+### R2-1 — `cmd_approve()` still has a post-acquire rollback/stranding window
 Severity: MEDIUM
 
-The focused runtime suite contains seven tests and does not exercise the two critical failure classes above: ownership-safe failed-writer cleanup or concurrent stale-release/new-acquire interleaving. The Bridge test list also does not provide explicit evidence for several required M5 lifecycle cases such as legacy `cmd_approve()` lease conflict/rollback and commit/push-failure lease retention.
+After successful lease acquisition, `cmd_approve()` currently performs:
 
-Additionally, RESULT-029 contains useful prose/test output but does not provide the explicit minimum Review Manifest requested by TASK-029 (`BASE_SHA`, `IMPLEMENTATION_SHA`, `PREVIOUS_REVIEW_SHA`, `M5_EXECUTOR_LEASE`, `COMPARE_AND_RELEASE`, `BRIDGE_V0_4_BEHAVIOR_CHANGED: YES — ADR-019-authorized M5 lease gate only`, `AUTHORITY_WIDENED`, etc.) in the required audit-friendly form.
+```text
+acquire lease
+→ save inbox event as APPROVED
+→ update operational state
+→ save ACTIVE authorization (inside try/rollback)
+```
+
+Two failure classes remain:
+
+1. if inbox `save_json()` or `update_state()` raises after lease acquisition but before `save_authorization()`, there is no surrounding rollback and the newly acquired lease can remain ACTIVE without a usable authorization;
+2. if `save_authorization()` raises, the catch releases the lease, but the inbox event has already become APPROVED and the operational state has already advanced, so the legacy approval is again non-retryable/stranded even though no ACTIVE authorization exists.
+
+This is fail-closed for execution authority, but it violates the intended AIP-8 activation rollback discipline and preservation of the legacy approval workflow.
 
 Required remediation:
-- add the missing adversarial/failure-injection tests required by R1-1 through R1-4 and TASK-029 checklist;
-- explicitly prove test failure, commit failure and push failure retain the exact lease, and successful push releases it;
-- regenerate RESULT-029 with the required formal manifest and updated test counts.
+- treat the post-acquire activation sequence as a rollback-aware unit;
+- on any failure before durable ACTIVE authorization is established, release only the exact newly acquired lease and restore/retain the approval event in a retryable PENDING state plus a non-executable operational state;
+- if rollback itself cannot be proven, remain fail-closed and surface explicit recovery evidence;
+- add fault-injection tests for event persistence failure, state persistence failure, and authorization persistence failure after lease acquisition.
 
 ---
 
 ## Test / Evidence Status
 
-RESULT-029 reports against implementation `580739b1e9daadf6e4cf7a44bb6e39ad77d08b81`:
+RESULT-029 reports against implementation `1ffebb3c58f1f4d1647c8372d13278ecdc1c559f`:
 
 ```text
-Focused M5/Bridge set: 49 passed
-Full repository:      696 passed
-Regressions:            0
+Focused M5/Bridge set: 56 passed
+Full repository:      703 passed
 LIVE_EXTERNAL_CALLS:    0
 PAID_EXTERNAL_API_CALLS: 0
-EXECUTOR_RUNS:          1
-EXECUTOR_FIX_RUNS:      0
 ```
 
-The suites are green, but the findings above identify missing concurrency/failure interleavings not represented by the current tests.
+The suites are green, but R1-1 remains unproven by a real interleaving/concurrency regression and R2-1 is not covered.
 
 ## Required FIX Scope
 
-Expected narrow scope:
+Keep Round 3 narrow:
 
 ```text
-src/aios_bridge/runtime_lease.py
+src/aios_bridge/runtime_lease.py        # only if needed for deterministic proof/testability
 tests/aios_bridge/test_runtime_lease.py
-bridge.py
+bridge.py                               # rollback-aware cmd_approve only
 tests/test_bridge.py
 .ai/results/RESULT-029.md
 ```
 
-`continuity/lease.py` and `continuity/__init__.py` should remain unchanged unless the Executor proves a genuine lease-contract defect requiring them.
-
-Do not modify M4 `executor.py`, state/Brain/failover/provider semantics, introduce TTL/heartbeat/steal, activate another Executor, or implement M6 failover.
-
-## Required Re-Test
-
-At minimum after FIX:
-
-```text
-Focused lease core
-Focused runtime lease including fault/race tests
-Focused Bridge tests
-Full Continuity
-Full AIOS Bridge
-Full repository
-```
-
-All green, zero external/model/API calls.
+Do not modify `continuity/lease.py`, M4 `executor.py`, state/Brain/failover/provider semantics unless a new locked-contract defect is proven. Do not add TTL, heartbeat, steal, alternate Executor activation or M6 failover.
 
 ## Final Independent Audit
 
 `NOT_RUN`.
 
-ADR-017 requires all known findings to close before the mandatory fresh Final Independent Audit. Round 2 should be delta-first over R1-1 through R1-5; if all close, perform the independent contract-to-final-code audit before `APPROVED`.
+ADR-017 requires known findings to close first. Round 3 should be delta-first over R1-1, R1-5 and R2-1. Only if all close should the mandatory fresh Final Independent Audit be performed.
 
 ## Decision
 
