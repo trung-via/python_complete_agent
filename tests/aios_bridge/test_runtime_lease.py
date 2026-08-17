@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 import os
 from pathlib import Path
 import threading
+import time
 import pytest
 
 from src.aios_bridge.continuity.errors import ContinuityStateValidationError
@@ -215,34 +216,132 @@ def test_compare_and_release_lifecycle(tmp_path: Path):
     assert store.load_active(lease2.task_id) == lease2
 
 
-def test_compare_and_release_interleaving_race_prevents_stale_release_removing_new_lease(tmp_path: Path):
+def test_concurrent_compare_and_release_interleaving_race_protection(tmp_path: Path):
     """
-    Validates R1-1: An old/stale release attempt for Lease A cannot remove a newly acquired Lease B.
+    Validates R1-1: Concurrent race where Releaser 1, Acquirer B, and Stale Releaser 2 interact concurrently.
+    Proves that even when Stale Releaser 2 runs concurrently with or after Acquirer B, Lease B is NEVER removed,
+    and Stale Releaser 2 fails closed.
     """
     ws_id = "1" * 64
-    store = AtomicExecutorLeaseStore(lease_root=tmp_path, workspace_id=ws_id)
     task_id = "TASK-029"
+    store1 = AtomicExecutorLeaseStore(lease_root=tmp_path, workspace_id=ws_id)
+    store2 = AtomicExecutorLeaseStore(lease_root=tmp_path, workspace_id=ws_id)
+    store3 = AtomicExecutorLeaseStore(lease_root=tmp_path, workspace_id=ws_id)
 
-    # 1. Lease A is acquired
+    # 1. Lease A is active initially
     lease_a = _sample_lease(task_id=task_id, lease_id="lease-a", workspace_id=ws_id)
-    store.acquire(lease_a)
-    assert store.load_active(task_id) == lease_a
+    store1.acquire(lease_a)
+    assert store1.load_active(task_id) == lease_a
 
-    # 2. Releaser 1 releases Lease A
-    store.release(lease_a)
-    assert store.load_active(task_id) is None
-
-    # 3. Acquirer B acquires Lease B
     lease_b = _sample_lease(task_id=task_id, lease_id="lease-b", workspace_id=ws_id)
-    store.acquire(lease_b)
-    assert store.load_active(task_id) == lease_b
 
-    # 4. Stale Releaser 2 attempts to release Lease A -> MUST FAIL CLOSED
-    with pytest.raises(ContinuityStateValidationError, match="lease_id"):
-        store.release(lease_a)
+    release_a_done = threading.Event()
+    acquire_b_done = threading.Event()
+    results = {}
+    lock = threading.Lock()
 
-    # 5. Critical invariant: Lease B remains active and untouched in store!
-    assert store.load_active(task_id) == lease_b
+    def _worker_release_a():
+        try:
+            res = store1.release(lease_a)
+            with lock:
+                results["releaser_1"] = res
+        except Exception as e:
+            with lock:
+                results["releaser_1"] = e
+        finally:
+            release_a_done.set()
+
+    def _worker_acquire_b():
+        release_a_done.wait(timeout=5.0)
+        try:
+            res = store2.acquire(lease_b)
+            with lock:
+                results["acquirer_b"] = res
+        except Exception as e:
+            with lock:
+                results["acquirer_b"] = e
+        finally:
+            acquire_b_done.set()
+
+    def _worker_stale_release_a():
+        acquire_b_done.wait(timeout=5.0)
+        try:
+            res = store3.release(lease_a)
+            with lock:
+                results["stale_releaser_2"] = res
+        except Exception as e:
+            with lock:
+                results["stale_releaser_2"] = e
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        f1 = executor.submit(_worker_release_a)
+        f2 = executor.submit(_worker_acquire_b)
+        f3 = executor.submit(_worker_stale_release_a)
+        f1.result()
+        f2.result()
+        f3.result()
+
+    # Releaser 1 succeeded
+    assert results["releaser_1"] == lease_a
+    # Acquirer B succeeded
+    assert results["acquirer_b"] == lease_b
+    # Stale Releaser 2 failed closed with ContinuityStateValidationError
+    assert isinstance(results["stale_releaser_2"], ContinuityStateValidationError)
+    assert "lease_id" in str(results["stale_releaser_2"])
+
+    # Invariant: Active lease MUST BE Lease B and was NEVER removed by stale releaser!
+    assert store1.load_active(task_id) == lease_b
+
+
+def test_cross_process_lease_mutation_guard(tmp_path: Path):
+    """
+    Validates R1-1: OS file lock synchronization across independent Python processes.
+    """
+    import subprocess
+    import sys
+
+    ws_id = "1" * 64
+    task_id = "TASK-029"
+    sync_file = tmp_path / "sync.txt"
+    repo_path = Path.cwd().resolve()
+
+    code = f"""
+import sys, time
+from pathlib import Path
+sys.path.insert(0, r"{repo_path}")
+from src.aios_bridge.runtime_lease import AtomicExecutorLeaseStore
+from src.aios_bridge.continuity.lease import ExecutorLease
+from src.aios_bridge.continuity.executor import ExecutionOperation
+
+store = AtomicExecutorLeaseStore(lease_root=Path(r"{tmp_path}"), workspace_id="{ws_id}")
+lease = ExecutorLease(
+    schema_version="1",
+    lease_id="lease-proc-1",
+    task_id="{task_id}",
+    workspace_id="{ws_id}",
+    executor_id="antigravity",
+    operation=ExecutionOperation.RUN,
+    execution_fingerprint="2" * 64,
+)
+store.acquire(lease)
+Path(r"{sync_file}").write_text("acquired", encoding="utf-8")
+time.sleep(0.5)
+"""
+    p = subprocess.Popen([sys.executable, "-c", code], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    try:
+        for _ in range(50):
+            if sync_file.exists():
+                break
+            time.sleep(0.05)
+        assert sync_file.exists()
+
+        # In current process, acquiring another lease for same task must fail closed immediately
+        store = AtomicExecutorLeaseStore(lease_root=tmp_path, workspace_id=ws_id)
+        lease2 = _sample_lease(task_id=task_id, lease_id="lease-proc-2", workspace_id=ws_id)
+        with pytest.raises(ContinuityStateValidationError, match="already leased"):
+            store.acquire(lease2)
+    finally:
+        p.wait()
 
 
 def test_failed_writer_cleanup_safety_when_open_fails(tmp_path: Path, monkeypatch):

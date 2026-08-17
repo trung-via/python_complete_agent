@@ -1919,3 +1919,161 @@ def test_publish_commit_and_push_failure_retains_exact_lease():
                 del os.environ["AIOS_RUNTIME_DIR"]
 
 
+def test_cmd_approve_post_acquire_inbox_save_failure_rolls_back_lease():
+    """
+    Validates R2-1: When an exception occurs during inbox save or state update after lease acquisition,
+    the newly acquired lease is rolled back and the event remains retryable.
+    """
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "main"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "README.md").write_text("# Repo\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_update_state = bridge.update_state
+
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            bridge.ensure_dirs()
+            cfg = {
+                "remote": "origin",
+                "base_branch": "main",
+                "control_branch": "ai-control",
+                "task_branch_prefix": "ai/task-",
+                "poll_seconds": 20,
+                "windows_popup": False,
+            }
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            inbox_path = bridge.get_runtime_paths()["inbox"] / "TASK-029.22222222222222222222.json"
+            event_data = {
+                "kind": "TASK",
+                "task_id": "TASK-029",
+                "path": ".ai/tasks/TASK-029.md",
+                "blob_sha": "b" * 40,
+                "detected_at": "2026-08-17T08:00:00+07:00",
+                "approval": "PENDING",
+            }
+            bridge.save_json(inbox_path, event_data)
+
+            # Fault-inject update_state to fail during activation
+            def fake_update_state(*args, **kwargs):
+                if args[1] in ("IN_PROGRESS", "CHANGES_REQUIRED"):
+                    raise RuntimeError("Simulated state transition disk error")
+                return old_update_state(*args, **kwargs)
+
+            bridge.update_state = fake_update_state
+
+            store = bridge.get_lease_store()
+            with pytest.raises(SystemExit):
+                bridge.cmd_approve(type("Args", (), {"task_id": 29, "kind": None})())
+
+            # 1. Lease was released on rollback
+            assert store.load_active("TASK-029") is None
+
+            # 2. Inbox event remains PENDING and retryable
+            reloaded_event = bridge.load_json(inbox_path, {})
+            assert reloaded_event.get("approval") == "PENDING"
+            assert len(bridge.pending_events()) == 1
+
+            # 3. No active authorization persisted
+            assert bridge.get_active_authorization(29) is None
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.update_state = old_update_state
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+
+def test_cmd_approve_post_acquire_save_auth_failure_rolls_back_lease_and_restores_pending():
+    """
+    Validates R2-1: When save_authorization raises after lease acquisition and event mutation,
+    the lease is released, the inbox event is restored to PENDING, and approval remains retryable.
+    """
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "main"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "README.md").write_text("# Repo\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_save_auth = bridge.save_authorization
+
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            bridge.ensure_dirs()
+            cfg = {
+                "remote": "origin",
+                "base_branch": "main",
+                "control_branch": "ai-control",
+                "task_branch_prefix": "ai/task-",
+                "poll_seconds": 20,
+                "windows_popup": False,
+            }
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            inbox_path = bridge.get_runtime_paths()["inbox"] / "TASK-029.33333333333333333333.json"
+            event_data = {
+                "kind": "TASK",
+                "task_id": "TASK-029",
+                "path": ".ai/tasks/TASK-029.md",
+                "blob_sha": "c" * 40,
+                "detected_at": "2026-08-17T08:00:00+07:00",
+                "approval": "PENDING",
+            }
+            bridge.save_json(inbox_path, event_data)
+
+            # Fault-inject save_authorization to raise an unexpected exception
+            def fake_save_auth(task_id, auth_dict):
+                raise IOError("Simulated authorization storage failure")
+
+            bridge.save_authorization = fake_save_auth
+
+            store = bridge.get_lease_store()
+            with pytest.raises(SystemExit):
+                bridge.cmd_approve(type("Args", (), {"task_id": 29, "kind": None})())
+
+            # 1. Lease was released on rollback
+            assert store.load_active("TASK-029") is None
+
+            # 2. Inbox event was RESTORED to PENDING and remains retryable
+            reloaded_event = bridge.load_json(inbox_path, {})
+            assert reloaded_event.get("approval") == "PENDING"
+            assert len(bridge.pending_events()) == 1
+
+            # 3. No active authorization persisted
+            assert bridge.get_active_authorization(29) is None
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.save_authorization = old_save_auth
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+

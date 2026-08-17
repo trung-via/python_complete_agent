@@ -1153,6 +1153,7 @@ def cmd_approve(args):
     branch = checkout_task_branch(cfg, args.task_id)
     f = Path(event["_file"])
     data = load_json(f, {})
+    orig_approval = data.get("approval", "PENDING")
 
     action = "FIX" if data.get("kind") == "REVIEW" else "RUN"
     task_id_str = f"TASK-{args.task_id:03d}"
@@ -1177,47 +1178,63 @@ def cmd_approve(args):
         # Note: Event file remains PENDING and operational state is untouched so it remains retryable (R1-4)
         fail(f"Chiếm executor lease thất bại khi approve {task_id_str}: {e}")
 
-    # Now that lease is acquired, mark event approved and update state
-    data["approval"] = "APPROVED"
-    data["approved_at"] = now()
-    save_json(f, data)
-
-    if data.get("kind") == "REVIEW":
-        update_state(
-            args.task_id,
-            "CHANGES_REQUIRED",
-            "Antigravity may apply REVIEW after explicit approval",
-        )
-    else:
-        update_state(
-            args.task_id,
-            "IN_PROGRESS",
-            "Antigravity may execute TASK after explicit approval",
-        )
-
-    auth = {
-        "task_id": task_id_str,
-        "action": action,
-        "kind": data.get("kind", "TASK"),
-        "artifact_path": art_path,
-        "artifact_blob_sha": art_blob,
-        "approved_at": now(),
-        "branch": branch,
-        "status": "ACTIVE",
-        "executor_id": acquired_lease.executor_id,
-        "lease_id": acquired_lease.lease_id,
-        "lease_fingerprint": acquired_lease.fingerprint(),
-        "workspace_id": acquired_lease.workspace_id,
-        "execution_fingerprint": acquired_lease.execution_fingerprint,
-    }
+    # Comprehensive post-acquire atomic activation unit (R2-1)
     try:
+        data["approval"] = "APPROVED"
+        data["approved_at"] = now()
+        save_json(f, data)
+
+        if data.get("kind") == "REVIEW":
+            update_state(
+                args.task_id,
+                "CHANGES_REQUIRED",
+                "Antigravity may apply REVIEW after explicit approval",
+            )
+        else:
+            update_state(
+                args.task_id,
+                "IN_PROGRESS",
+                "Antigravity may execute TASK after explicit approval",
+            )
+
+        auth = {
+            "task_id": task_id_str,
+            "action": action,
+            "kind": data.get("kind", "TASK"),
+            "artifact_path": art_path,
+            "artifact_blob_sha": art_blob,
+            "approved_at": now(),
+            "branch": branch,
+            "status": "ACTIVE",
+            "executor_id": acquired_lease.executor_id,
+            "lease_id": acquired_lease.lease_id,
+            "lease_fingerprint": acquired_lease.fingerprint(),
+            "workspace_id": acquired_lease.workspace_id,
+            "execution_fingerprint": acquired_lease.execution_fingerprint,
+        }
         save_authorization(args.task_id, auth)
     except Exception as e:
+        # Full post-acquire rollback: release lease, restore inbox event to PENDING, restore state (R2-1)
         try:
             store.release(acquired_lease)
         except Exception:
             pass
-        fail(f"Lưu authorization thất bại sau khi acquire lease: {e}")
+        try:
+            data["approval"] = orig_approval
+            if "approved_at" in data:
+                del data["approved_at"]
+            save_json(f, data)
+        except Exception:
+            pass
+        try:
+            update_state(
+                args.task_id,
+                "PENDING_APPROVAL",
+                f"Approval failed during activation ({e}); restored to PENDING",
+            )
+        except Exception:
+            pass
+        fail(f"Kích hoạt approval thất bại sau khi chiếm lease: {e}")
 
     print(f"[APPROVED] {data.get('kind')} for TASK-{args.task_id:03d}")
     print(f"[BRANCH] {branch}")
