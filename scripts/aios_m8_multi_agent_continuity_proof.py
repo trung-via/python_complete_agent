@@ -167,6 +167,7 @@ def prepare_brain_pack(
     task_id: str = "TASK-032",
     base_main_sha: str = "08508e48f6ffda70d1891dad461f6fd1b893b24b",
     source_published_sha: str | None = None,
+    control_commit_sha: str | None = None,
     source_brain_id: str = "chatgpt-chat",
     replacement_brain_id: str = "claude-chat",
 ) -> dict[str, Any]:
@@ -197,17 +198,23 @@ def prepare_brain_pack(
             f"source_published_sha '{source_published_sha}' does not exist as a commit in git object store"
         )
 
-    # Resolve authoritative control commit strictly (R1-2 Round 2)
-    control_ref = "origin/ai-control"
-    p_ctrl = subprocess.run(["git", "rev-parse", control_ref], cwd=repo_dir, check=False, capture_output=True, text=True)
-    if p_ctrl.returncode != 0 or not p_ctrl.stdout.strip():
-        # Fallback to local tracking branch if remote not configured in test environments
-        p_ctrl = subprocess.run(["git", "rev-parse", "ai-control"], cwd=repo_dir, check=False, capture_output=True, text=True)
+    # Resolve authoritative control commit strictly (R1-2 Round 3: explicit parameter or strict origin/ai-control, no local fallback)
+    if control_commit_sha:
+        if not re.match(r"^[0-9a-f]{40}$", control_commit_sha):
+            raise ContinuityStateValidationError(f"Invalid control commit SHA: {control_commit_sha!r}")
+        p_check_ctrl = subprocess.run(["git", "cat-file", "-e", f"{control_commit_sha}^{{commit}}"], cwd=repo_dir, check=False, capture_output=True)
+        if p_check_ctrl.returncode != 0:
+            raise ContinuityStateValidationError(f"Explicit control_commit_sha '{control_commit_sha}' does not exist as a commit in git object store")
+    else:
+        control_ref = "origin/ai-control"
+        p_ctrl = subprocess.run(["git", "rev-parse", control_ref], cwd=repo_dir, check=False, capture_output=True, text=True)
         if p_ctrl.returncode != 0 or not p_ctrl.stdout.strip():
-            raise ContinuityStateValidationError("Failed to resolve authoritative control commit (tried origin/ai-control and ai-control)")
-    control_commit_sha = p_ctrl.stdout.strip()
-    if not re.match(r"^[0-9a-f]{40}$", control_commit_sha):
-        raise ContinuityStateValidationError(f"Invalid control commit SHA: {control_commit_sha!r}")
+            raise ContinuityStateValidationError(
+                f"Failed to resolve authoritative remote control ref '{control_ref}' (no local fallback allowed)"
+            )
+        control_commit_sha = p_ctrl.stdout.strip()
+        if not re.match(r"^[0-9a-f]{40}$", control_commit_sha):
+            raise ContinuityStateValidationError(f"Invalid control commit SHA: {control_commit_sha!r}")
 
     # Resolve exact artifact blobs strictly from their designated provenance domains (R1-2)
     # RESULT-032 strictly from S0
@@ -565,6 +572,7 @@ def main() -> int:
     p_prep.add_argument("--task-id", default="TASK-032")
     p_prep.add_argument("--base-main-sha", default="08508e48f6ffda70d1891dad461f6fd1b893b24b")
     p_prep.add_argument("--source-published-sha", default=None)
+    p_prep.add_argument("--control-commit-sha", default=None)
     p_prep.add_argument("--source-brain-id", default="chatgpt-chat")
     p_prep.add_argument("--replacement-brain-id", default="claude-chat")
     p_prep.add_argument("--output-dir", required=True)
@@ -591,6 +599,7 @@ def main() -> int:
                 task_id=args.task_id,
                 base_main_sha=args.base_main_sha,
                 source_published_sha=args.source_published_sha,
+                control_commit_sha=args.control_commit_sha,
                 source_brain_id=args.source_brain_id,
                 replacement_brain_id=args.replacement_brain_id,
             )

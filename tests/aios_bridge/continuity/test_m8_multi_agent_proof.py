@@ -457,19 +457,44 @@ def test_prepare_brain_pack_fails_on_invalid_or_missing_s0_commit(tmp_path: Path
 def test_prepare_brain_pack_success_on_real_head(tmp_path: Path):
     p_head = subprocess.run(["git", "rev-parse", "HEAD"], check=True, capture_output=True, text=True)
     head_sha = p_head.stdout.strip()
+    p_ctrl = subprocess.run(["git", "rev-parse", "origin/ai-control"], check=True, capture_output=True, text=True)
+    ctrl_sha = p_ctrl.stdout.strip()
 
     res = prepare_brain_pack(
         repo_dir=Path("."),
         output_dir=tmp_path / "pack",
         source_published_sha=head_sha,
+        control_commit_sha=ctrl_sha,
     )
     assert res["task_id"] == "TASK-032"
     assert res["source_published_sha"] == head_sha
+    assert res["control_commit_sha"] == ctrl_sha
     assert (tmp_path / "pack" / "canonical-state.json").exists()
     assert (tmp_path / "pack" / "source-request.json").exists()
     assert (tmp_path / "pack" / "replacement-request.json").exists()
     assert (tmp_path / "pack" / "replacement-capability.json").exists()
     assert (tmp_path / "pack" / "BRAIN_PROMPT.md").exists()
+
+
+def test_prepare_brain_pack_fails_closed_when_remote_control_ref_unresolvable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    p_head = subprocess.run(["git", "rev-parse", "HEAD"], check=True, capture_output=True, text=True)
+    head_sha = p_head.stdout.strip()
+
+    orig_run = subprocess.run
+    def dummy_run(cmd, *args, **kwargs):
+        if isinstance(cmd, list) and len(cmd) >= 3 and cmd[0] == "git" and cmd[1] == "rev-parse" and cmd[2] == "origin/ai-control":
+            return subprocess.CompletedProcess(cmd, 1, "", "fatal: ambiguous argument 'origin/ai-control'")
+        return orig_run(cmd, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", dummy_run)
+
+    with pytest.raises(ContinuityStateValidationError, match="no local fallback allowed"):
+        prepare_brain_pack(
+            repo_dir=Path("."),
+            output_dir=tmp_path / "pack",
+            source_published_sha=head_sha,
+            control_commit_sha=None,
+        )
 
 
 def test_m8_composite_chain_fails_on_s1_review_blob_mismatch(sample_m8_valid_bundle):

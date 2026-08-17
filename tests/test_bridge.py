@@ -5302,7 +5302,7 @@ M8_CANONICAL_STATE_FINGERPRINT: {'3' * 64}
         auth=auth_run,
         failover_info=failover_info_c7,
     )
-    assert b == "PASS"
+    assert b == "PENDING"
     assert e == "PASS"
     assert c == "PENDING"
     assert s == "08508e48f6ffda70d1891dad461f6fd1b893b24b"

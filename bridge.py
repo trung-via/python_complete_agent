@@ -2085,7 +2085,7 @@ def _evaluate_task_032_proof_progress(
     if len(c7_values) == 6 and c7_values["source_sha"] == source_published_sha:
         # Also check distinct brain actors
         if c7_values["brain_source"] != c7_values["brain_repl"]:
-            return "PASS", "PASS", "PENDING", source_published_sha
+            return "PENDING", "PASS", "PENDING", source_published_sha
 
     return "PENDING", "PENDING", "PENDING", source_published_sha or "PENDING_SELF_REFERENCE"
 
