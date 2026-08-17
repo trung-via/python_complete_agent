@@ -2245,3 +2245,92 @@ def test_cmd_approve_post_acquire_rollback_failure_reports_recovery_diagnostics(
                 del os.environ["AIOS_RUNTIME_DIR"]
 
 
+def test_cmd_approve_post_acquire_rollback_lease_release_failure_reports_recovery_required(capsys):
+    """
+    Validates R2-1: When activation fails and rollback store.release() also fails,
+    the task operational state is set to RECOVERY_REQUIRED and failure diagnostics report lease_release_failed.
+    """
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "main"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "README.md").write_text("# Repo\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_save_auth = bridge.save_authorization
+        old_checkout = bridge.checkout_task_branch
+        old_get_store = bridge.get_lease_store
+
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+        bridge.checkout_task_branch = lambda cfg, task_id: "ai/task-029"
+
+        try:
+            bridge.ensure_dirs()
+            cfg = {
+                "remote": "origin",
+                "base_branch": "main",
+                "control_branch": "ai-control",
+                "task_branch_prefix": "ai/task-",
+                "poll_seconds": 20,
+                "windows_popup": False,
+            }
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            inbox_path = bridge.get_runtime_paths()["inbox"] / "TASK-029.55555555555555555555.json"
+            event_data = {
+                "kind": "TASK",
+                "task_id": "TASK-029",
+                "path": ".ai/tasks/TASK-029.md",
+                "blob_sha": "e" * 40,
+                "detected_at": "2026-08-17T08:00:00+07:00",
+                "approval": "PENDING",
+            }
+            bridge.save_json(inbox_path, event_data)
+
+            # Fault-inject save_auth to fail
+            def fake_save_auth(task_id, auth_dict):
+                raise IOError("Primary auth disk failure")
+
+            real_store = old_get_store()
+
+            class FlakyReleaseStore:
+                def __getattr__(self, name):
+                    return getattr(real_store, name)
+
+                def acquire(self, *args, **kwargs):
+                    return real_store.acquire(*args, **kwargs)
+
+                def release(self, *args, **kwargs):
+                    raise RuntimeError("Simulated store rollback release crash")
+
+            bridge.save_authorization = fake_save_auth
+            bridge.get_lease_store = lambda: FlakyReleaseStore()
+
+            with pytest.raises(SystemExit):
+                bridge.cmd_approve(type("Args", (), {"task_id": 29, "kind": None})())
+
+            err = capsys.readouterr().err
+            assert "Rollback diagnostics:" in err
+            assert "lease_release_failed" in err
+            assert "state_updated: RECOVERY_REQUIRED" in err
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.save_authorization = old_save_auth
+            bridge.checkout_task_branch = old_checkout
+            bridge.get_lease_store = old_get_store
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+

@@ -218,14 +218,16 @@ def test_compare_and_release_lifecycle(tmp_path: Path):
 
 def test_deterministic_compare_and_release_toctou_interleaving_proof(tmp_path: Path):
     """
-    Validates R1-1: Proves deterministically using a test seam hook in release() that:
+    Validates R1-1: Proves deterministically using a test seam hook in release() with ZERO sleep that:
     1. While Releaser 1 has validated require_active(lease_a) and is paused inside its critical section,
-       competing operations (e.g. Acquirer B or Releaser 2) from independent store instances are
-       strictly blocked from entering the task mutation guard.
-    2. Once Releaser 1 finishes release, Acquirer B unblocks and acquires Lease B.
-    3. Stale Releaser 2 attempting to release Lease A fails closed with ContinuityStateValidationError
+       direct non-blocking probes prove that the in-process RLock and OS file lock are held.
+    2. Competing contender (Acquirer B) is launched and cannot finish while the lock is held.
+    3. Once Releaser 1 finishes release and unblocks, Acquirer B acquires Lease B.
+    4. Stale Releaser 3 attempting to release Lease A fails closed with ContinuityStateValidationError
        and CANNOT remove Lease B.
     """
+    from src.aios_bridge.runtime_lease import _get_task_thread_lock
+
     ws_id = "1" * 64
     task_id = "TASK-029"
     store1 = AtomicExecutorLeaseStore(lease_root=tmp_path, workspace_id=ws_id)
@@ -241,20 +243,44 @@ def test_deterministic_compare_and_release_toctou_interleaving_proof(tmp_path: P
 
     hook_entered = threading.Event()
     hook_continue = threading.Event()
-    contender_blocked = threading.Event()
     contender_finished = threading.Event()
-
     contender_result = {}
 
     def pre_replace_hook(l):
+        # 1. Deterministic lock probe: non-blocking probe on in-process task thread lock MUST fail
+        task_thread_lock = _get_task_thread_lock(task_id)
+        # Attempt non-blocking acquire from a temporary probe thread
+        probe_results = {}
+        def _probe_in_process_lock():
+            probe_results["acquired"] = task_thread_lock.acquire(blocking=False)
+            if probe_results["acquired"]:
+                task_thread_lock.release()
+
+        t_probe = threading.Thread(target=_probe_in_process_lock)
+        t_probe.start()
+        t_probe.join()
+        assert probe_results.get("acquired") is False, "Task thread lock must be actively held by Releaser 1"
+
+        # 2. Deterministic OS file lock probe: non-blocking lock on .lease_mutation.lock MUST fail
+        lock_file = tmp_path / task_id / ".lease_mutation.lock"
+        probe_fd = os.open(str(lock_file), os.O_RDWR | getattr(os, "O_BINARY", 0))
+        try:
+            if os.name == "nt":
+                import msvcrt
+                with pytest.raises(OSError):
+                    msvcrt.locking(probe_fd, msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+                with pytest.raises((BlockingIOError, OSError)):
+                    fcntl.flock(probe_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        finally:
+            os.close(probe_fd)
+
         hook_entered.set()
-        # Wait until test runner signals to continue
+        # Wait until test runner signals to continue (zero sleep)
         hook_continue.wait(timeout=5.0)
 
     def _competing_acquirer():
-        hook_entered.wait(timeout=5.0)
-        # Signal that contender is attempting acquire while Releaser 1 is inside critical section
-        contender_blocked.set()
         try:
             res = store2.acquire(lease_b)
             contender_result["acquirer_b"] = res
@@ -266,18 +292,16 @@ def test_deterministic_compare_and_release_toctou_interleaving_proof(tmp_path: P
     with ThreadPoolExecutor(max_workers=2) as executor:
         f_releaser = executor.submit(lambda: store1.release(lease_a, _test_pre_replace_hook=pre_replace_hook))
 
-        # Wait for Releaser 1 to enter pre_replace_hook
+        # Wait until Releaser 1 is inside critical section and has validated active lease
         hook_entered.wait(timeout=5.0)
 
-        # Launch contender in background
+        # Launch contender while Releaser 1 is inside critical section
         f_contender = executor.submit(_competing_acquirer)
-        contender_blocked.wait(timeout=5.0)
 
-        # Yield execution to confirm contender is blocked and cannot finish
-        time.sleep(0.05)
-        assert not contender_finished.is_set(), "Contender must be blocked by task mutation guard"
+        # Verify that contender cannot be finished while hook_continue is not set
+        assert not contender_finished.is_set(), "Contender cannot finish while Releaser 1 holds critical section"
 
-        # Now let Releaser 1 complete
+        # Signal Releaser 1 to complete os.replace and release lock
         hook_continue.set()
 
         released_a = f_releaser.result()

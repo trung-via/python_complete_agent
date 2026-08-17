@@ -1233,8 +1233,9 @@ def cmd_approve(args):
         except Exception as ie:
             rollback_diagnostics.append(f"inbox_restore_failed: {ie}")
 
+        lease_released = "lease_released: OK" in rollback_diagnostics
         try:
-            state_label = "PENDING_APPROVAL" if inbox_restored else "RECOVERY_REQUIRED"
+            state_label = "PENDING_APPROVAL" if (lease_released and inbox_restored) else "RECOVERY_REQUIRED"
             update_state(
                 args.task_id,
                 state_label,
