@@ -2170,14 +2170,16 @@ def cmd_publish(args):
         _validate_task_031_portability_scope(cfg, auth)
 
     test_output = "(no test command supplied)"
+    raw_test_output = test_output
     test_rc = 0
     if args.test:
         print(f"[TEST] {args.test}")
         p = run(args.test, check=False, capture=True, shell=True)
         test_rc = p.returncode
-        test_output = (
+        raw_test_output = (
             (p.stdout or "") + ("\n" + p.stderr if p.stderr else "")
         ).strip()
+        test_output = raw_test_output
         if len(test_output) > 30000:
             test_output = test_output[-30000:]
         if test_rc != 0:
@@ -2230,7 +2232,7 @@ M6_REAL_PROOF_CODEX_TO_ANTIGRAVITY: {stage_b}
     elif task_id == 31:
         stage_a, stage_b = _evaluate_task_031_proof_progress(cfg, auth, failover_info)
         base_sha_val = auth.get("base_main_sha", "8a1550b40692798fe0c049aa2ad74d55c54618ee") if auth else "8a1550b40692798fe0c049aa2ad74d55c54618ee"
-        bridge_tests_val, continuity_tests_val, full_repo_tests_val, regressions_val = _parse_task_031_test_evidence(args.test, test_output, test_rc)
+        bridge_tests_val, continuity_tests_val, full_repo_tests_val, regressions_val = _parse_task_031_test_evidence(args.test, raw_test_output, test_rc)
 
         proof_progress_block = f"""BASE_SHA: {base_sha_val}
 M7_THIRD_EXECUTOR_PORTABILITY: IMPLEMENTED

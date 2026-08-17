@@ -22,7 +22,7 @@ LIVE_EXTERNAL_CALLS_AUTOMATED_TESTS: 0
 M7_REAL_PROOF_ANTIGRAVITY_TO_CLAUDE_CODE: PENDING
 M7_REAL_PROOF_CLAUDE_CODE_TO_ANTIGRAVITY: PENDING
 BRIDGE_TESTS: 56/56 pass
-CONTINUITY_TESTS: UNVERIFIED
+CONTINUITY_TESTS: 152/152 pass
 FULL_REPO_TESTS: 755/755 pass
 REGRESSIONS: 0
 ```
@@ -40,13 +40,11 @@ Implementation completed by antigravity; pending ChatGPT review.
 
 ## Files Changed
 - bridge.py
-- tests/test_bridge.py
 
 ## Diff Stat
 ```text
-bridge.py            | 21 +++++++++++----------
- tests/test_bridge.py | 38 ++++++++++++++++++++++++++++++++++----
- 2 files changed, 45 insertions(+), 14 deletions(-)
+bridge.py | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 ```
 
 ## Tests
@@ -450,7 +448,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-================ 755 passed, 1533 warnings in 77.58s (0:01:17) ================
+================ 755 passed, 1533 warnings in 74.25s (0:01:14) ================
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -462,4 +460,4 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 (none supplied)
 
 ## Generated
-2026-08-17T17:24:10+07:00
+2026-08-17T17:27:23+07:00
