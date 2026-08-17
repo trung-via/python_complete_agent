@@ -197,6 +197,38 @@ Scope drift without strict verifier.
     }
 
 
+@pytest.fixture
+def real_stage_b_m8_bundle(tmp_path: Path):
+    """
+    Extracts the verified Stage-A Brain proof bundle from control commit 62263aa3a28ab56cc856fa6f980f39dec49163a1.
+    """
+    ctrl_commit = "62263aa3a28ab56cc856fa6f980f39dec49163a1"
+    files = [
+        "canonical-state.json",
+        "source-request.json",
+        "replacement-request.json",
+        "replacement-capability.json",
+        "source-result.json",
+        "replacement-result.json",
+        "brain-failover-proof.json",
+        "BRAIN-DIAGNOSIS.md",
+        "brain-proof-attestation.json",
+    ]
+    bundle_dir = tmp_path / "brain_bundle"
+    bundle_dir.mkdir()
+    for fname in files:
+        rel_path = f".ai/context/proofs/TASK-032-M8/brain/{fname}"
+        content = subprocess.check_output(["git", "show", f"{ctrl_commit}:{rel_path}"])
+        (bundle_dir / fname).write_bytes(content)
+
+    return {
+        "dir": bundle_dir,
+        "s0_sha": "38356f100563da420c488ee6362917fd4f81b48b",
+        "s1_sha": "22f2339eaa9acfdf30f5cf0f112172542362ecc3",
+        "stage_b_review_commit": "781ea59a470d7850cb99c91d1f83914d886e94de",
+    }
+
+
 def test_m8_verify_brain_proof_success(sample_m8_valid_bundle):
     bundle = sample_m8_valid_bundle
     res = verify_brain_proof(bundle["dir"])
@@ -275,10 +307,9 @@ def test_m8_attestation_rejects_invalid_token_usage_format():
         validate_m8_attestation({"token_usage": "1500 tokens used"})
 
 
-def test_m8_composite_chain_verification_success(sample_m8_valid_bundle):
+def test_m8_composite_chain_verification_success_brain_and_review(sample_m8_valid_bundle):
     bundle = sample_m8_valid_bundle
     s0 = bundle["s0_sha"]
-    s1 = "1" * 40
 
     review_text = f"""# REVIEW-032
 STATUS: CHANGES_REQUIRED
@@ -291,25 +322,14 @@ M8_CANONICAL_STATE_FINGERPRINT: {bundle['state_fingerprint']}
 """
     rev_blob = compute_git_blob_sha(normalize_line_endings(review_text))
 
-    s1_result_text = f"""# RESULT-032
-EXECUTOR_FAILOVER: YES
-FAILOVER_SOURCE_PUBLISHED_SHA: {s0}
-FAILOVER_REVIEW_BLOB_SHA: {rev_blob}
-M8_BRAIN_PROOF: PASS
-M8_EXECUTOR_PROOF: PASS
-M8_COMPOSITE_CHAIN: PASS
-"""
-
     res = verify_composite_chain(
         s0_sha=s0,
         review_content=review_text,
         proof_dir=bundle["dir"],
-        s1_sha=s1,
-        s1_result_content=s1_result_text,
     )
     assert res["status"] == "PASS"
     assert res["s0_sha"] == s0
-    assert res["s1_sha"] == s1
+    assert res["s1_sha"] is None
     assert res["review_blob_sha"] == rev_blob
 
 
@@ -497,7 +517,7 @@ def test_prepare_brain_pack_fails_closed_when_remote_control_ref_unresolvable(tm
         )
 
 
-def test_m8_composite_chain_fails_on_s1_review_blob_mismatch(sample_m8_valid_bundle):
+def test_m8_composite_chain_fails_on_fabricated_or_missing_s1_commit(sample_m8_valid_bundle):
     bundle = sample_m8_valid_bundle
     s0 = bundle["s0_sha"]
 
@@ -510,19 +530,211 @@ M8_BRAIN_FAILOVER_PROOF_FINGERPRINT: {bundle['proof_fingerprint']}
 M8_BRAIN_SUCCESS_ARTIFACT_BLOB_SHA: {bundle['diag_blob']}
 M8_CANONICAL_STATE_FINGERPRINT: {bundle['state_fingerprint']}
 """
-    s1_result_text = f"""# RESULT-032
-EXECUTOR_FAILOVER: YES
-FAILOVER_SOURCE_PUBLISHED_SHA: {s0}
-FAILOVER_REVIEW_BLOB_SHA: {'0' * 40}
-M8_BRAIN_PROOF: PASS
-M8_EXECUTOR_PROOF: PASS
-M8_COMPOSITE_CHAIN: PASS
-"""
-    with pytest.raises(ContinuityStateValidationError, match="S1 RESULT-032 mismatch for 'FAILOVER_REVIEW_BLOB_SHA'"):
+    with pytest.raises(ContinuityStateValidationError, match="does not exist in git object database"):
         verify_composite_chain(
             s0_sha=s0,
             review_content=review_text,
             proof_dir=bundle["dir"],
             s1_sha="1" * 40,
-            s1_result_content=s1_result_text,
+        )
+
+
+def test_m8_composite_chain_fails_on_missing_executor_proof(sample_m8_valid_bundle):
+    bundle = sample_m8_valid_bundle
+    s0 = "38356f100563da420c488ee6362917fd4f81b48b"
+    s1 = "22f2339eaa9acfdf30f5cf0f112172542362ecc3"
+
+    review_text = f"""# REVIEW-032
+STATUS: CHANGES_REQUIRED
+M8_SOURCE_EXECUTOR_PUBLISHED_SHA: {s0}
+M8_BRAIN_SOURCE_ID: chatgpt-chat
+M8_BRAIN_REPLACEMENT_ID: claude-chat
+M8_BRAIN_FAILOVER_PROOF_FINGERPRINT: {bundle['proof_fingerprint']}
+M8_BRAIN_SUCCESS_ARTIFACT_BLOB_SHA: {bundle['diag_blob']}
+M8_CANONICAL_STATE_FINGERPRINT: {bundle['state_fingerprint']}
+"""
+    with pytest.raises(ContinuityStateValidationError, match="Missing required StableExecutorFailoverProof"):
+        verify_composite_chain(
+            s0_sha=s0,
+            review_content=review_text,
+            proof_dir=bundle["dir"],
+            s1_sha=s1,
+            executor_failover_proof=None,
+        )
+
+
+def test_m8_composite_chain_success_on_historical_stage_b(real_stage_b_m8_bundle):
+    bundle = real_stage_b_m8_bundle
+    s0 = bundle["s0_sha"]
+    s1 = bundle["s1_sha"]
+
+    p_rev = subprocess.run(["git", "show", f"{bundle['stage_b_review_commit']}:.ai/reviews/REVIEW-032.md"], check=True, capture_output=True, text=True, encoding="utf-8")
+    stage_b_review = p_rev.stdout
+
+    proof_dict = {
+        "schema_version": "1",
+        "task_id": "TASK-032",
+        "target_branch": "ai/task-032",
+        "source_executor_id": "antigravity",
+        "replacement_executor_id": "claude-code",
+        "source_operation": "FIX",
+        "replacement_operation": "FIX",
+        "source_published_sha": s0,
+        "source_lease_fingerprint": "225ac14a0892e28505dad4d9ef768f21dc74fec167b3ee5a4b5f94dfd3730dda",
+        "replacement_lease_fingerprint": "e55ee3d169954141614eaa10999e39c9ecf752cfde74f102bc1b9aeb14861f1f",
+        "source_execution_fingerprint": "44e31488c207f8a49eabb52aae504ea447f8915136181f2bd3ce51ab0253c78e",
+        "replacement_execution_fingerprint": "46b69fa0f97e50914976cf59659dd46d17d5abcffcddba0a8d02f7913c3878ff",
+        "review_ref": {
+            "path": ".ai/reviews/REVIEW-032.md",
+            "ref": "781ea59a470d7850cb99c91d1f83914d886e94de",
+            "blob_sha": "6ea95987983a06b066fc31789bedad5d4c954ff6",
+        },
+        "source_result_ref": {
+            "path": ".ai/results/RESULT-032.md",
+            "ref": s0,
+            "blob_sha": "3a86327d096dd90c6f2c46f56d88d346581a6a46",
+        },
+    }
+
+    res = verify_composite_chain(
+        s0_sha=s0,
+        review_content=stage_b_review,
+        proof_dir=bundle["dir"],
+        s1_sha=s1,
+        executor_failover_proof=proof_dict,
+    )
+    assert res["status"] == "PASS"
+    assert res["s0_sha"] == s0
+    assert res["s1_sha"] == s1
+    assert res["executor_proof"]["source_executor_id"] == "antigravity"
+    assert res["executor_proof"]["replacement_executor_id"] == "claude-code"
+
+
+def test_m8_composite_chain_fails_on_executor_proof_tampered_source_sha(real_stage_b_m8_bundle):
+    bundle = real_stage_b_m8_bundle
+    s0 = bundle["s0_sha"]
+    s1 = bundle["s1_sha"]
+
+    p_rev = subprocess.run(["git", "show", f"{bundle['stage_b_review_commit']}:.ai/reviews/REVIEW-032.md"], check=True, capture_output=True, text=True, encoding="utf-8")
+    stage_b_review = p_rev.stdout
+
+    proof_dict = {
+        "schema_version": "1",
+        "task_id": "TASK-032",
+        "target_branch": "ai/task-032",
+        "source_executor_id": "antigravity",
+        "replacement_executor_id": "claude-code",
+        "source_operation": "FIX",
+        "replacement_operation": "FIX",
+        "source_published_sha": "0" * 40,
+        "source_lease_fingerprint": "225ac14a0892e28505dad4d9ef768f21dc74fec167b3ee5a4b5f94dfd3730dda",
+        "replacement_lease_fingerprint": "e55ee3d169954141614eaa10999e39c9ecf752cfde74f102bc1b9aeb14861f1f",
+        "source_execution_fingerprint": "44e31488c207f8a49eabb52aae504ea447f8915136181f2bd3ce51ab0253c78e",
+        "replacement_execution_fingerprint": "46b69fa0f97e50914976cf59659dd46d17d5abcffcddba0a8d02f7913c3878ff",
+        "review_ref": {
+            "path": ".ai/reviews/REVIEW-032.md",
+            "ref": "781ea59a470d7850cb99c91d1f83914d886e94de",
+            "blob_sha": "6ea95987983a06b066fc31789bedad5d4c954ff6",
+        },
+        "source_result_ref": {
+            "path": ".ai/results/RESULT-032.md",
+            "ref": "0" * 40,
+            "blob_sha": "3a86327d096dd90c6f2c46f56d88d346581a6a46",
+        },
+    }
+
+    with pytest.raises(ContinuityStateValidationError, match="Executor proof source_published_sha mismatch"):
+        verify_composite_chain(
+            s0_sha=s0,
+            review_content=stage_b_review,
+            proof_dir=bundle["dir"],
+            s1_sha=s1,
+            executor_failover_proof=proof_dict,
+        )
+
+
+def test_m8_composite_chain_fails_on_executor_proof_same_executor(real_stage_b_m8_bundle):
+    bundle = real_stage_b_m8_bundle
+    s0 = bundle["s0_sha"]
+    s1 = bundle["s1_sha"]
+
+    p_rev = subprocess.run(["git", "show", f"{bundle['stage_b_review_commit']}:.ai/reviews/REVIEW-032.md"], check=True, capture_output=True, text=True, encoding="utf-8")
+    stage_b_review = p_rev.stdout
+
+    proof_dict = {
+        "schema_version": "1",
+        "task_id": "TASK-032",
+        "target_branch": "ai/task-032",
+        "source_executor_id": "claude-code",
+        "replacement_executor_id": "claude-code",
+        "source_operation": "FIX",
+        "replacement_operation": "FIX",
+        "source_published_sha": s0,
+        "source_lease_fingerprint": "225ac14a0892e28505dad4d9ef768f21dc74fec167b3ee5a4b5f94dfd3730dda",
+        "replacement_lease_fingerprint": "e55ee3d169954141614eaa10999e39c9ecf752cfde74f102bc1b9aeb14861f1f",
+        "source_execution_fingerprint": "44e31488c207f8a49eabb52aae504ea447f8915136181f2bd3ce51ab0253c78e",
+        "replacement_execution_fingerprint": "46b69fa0f97e50914976cf59659dd46d17d5abcffcddba0a8d02f7913c3878ff",
+        "review_ref": {
+            "path": ".ai/reviews/REVIEW-032.md",
+            "ref": "781ea59a470d7850cb99c91d1f83914d886e94de",
+            "blob_sha": "6ea95987983a06b066fc31789bedad5d4c954ff6",
+        },
+        "source_result_ref": {
+            "path": ".ai/results/RESULT-032.md",
+            "ref": s0,
+            "blob_sha": "3a86327d096dd90c6f2c46f56d88d346581a6a46",
+        },
+    }
+
+    with pytest.raises(ContinuityStateValidationError, match="must differ"):
+        verify_composite_chain(
+            s0_sha=s0,
+            review_content=stage_b_review,
+            proof_dir=bundle["dir"],
+            s1_sha=s1,
+            executor_failover_proof=proof_dict,
+        )
+
+
+def test_m8_composite_chain_fails_on_caller_s1_result_content_blob_mismatch(real_stage_b_m8_bundle):
+    bundle = real_stage_b_m8_bundle
+    s0 = bundle["s0_sha"]
+    s1 = bundle["s1_sha"]
+
+    p_rev = subprocess.run(["git", "show", f"{bundle['stage_b_review_commit']}:.ai/reviews/REVIEW-032.md"], check=True, capture_output=True, text=True, encoding="utf-8")
+    stage_b_review = p_rev.stdout
+
+    proof_dict = {
+        "schema_version": "1",
+        "task_id": "TASK-032",
+        "target_branch": "ai/task-032",
+        "source_executor_id": "antigravity",
+        "replacement_executor_id": "claude-code",
+        "source_operation": "FIX",
+        "replacement_operation": "FIX",
+        "source_published_sha": s0,
+        "source_lease_fingerprint": "225ac14a0892e28505dad4d9ef768f21dc74fec167b3ee5a4b5f94dfd3730dda",
+        "replacement_lease_fingerprint": "e55ee3d169954141614eaa10999e39c9ecf752cfde74f102bc1b9aeb14861f1f",
+        "source_execution_fingerprint": "44e31488c207f8a49eabb52aae504ea447f8915136181f2bd3ce51ab0253c78e",
+        "replacement_execution_fingerprint": "46b69fa0f97e50914976cf59659dd46d17d5abcffcddba0a8d02f7913c3878ff",
+        "review_ref": {
+            "path": ".ai/reviews/REVIEW-032.md",
+            "ref": "781ea59a470d7850cb99c91d1f83914d886e94de",
+            "blob_sha": "6ea95987983a06b066fc31789bedad5d4c954ff6",
+        },
+        "source_result_ref": {
+            "path": ".ai/results/RESULT-032.md",
+            "ref": s0,
+            "blob_sha": "3a86327d096dd90c6f2c46f56d88d346581a6a46",
+        },
+    }
+
+    with pytest.raises(ContinuityStateValidationError, match="Caller-supplied S1 RESULT content does not match git blob at S1"):
+        verify_composite_chain(
+            s0_sha=s0,
+            review_content=stage_b_review,
+            proof_dir=bundle["dir"],
+            s1_sha=s1,
+            s1_result_content="# FAKE TAMPERED RESULT",
+            executor_failover_proof=proof_dict,
         )
