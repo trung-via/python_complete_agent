@@ -3842,6 +3842,150 @@ def test_handoff_and_approve_fix_fails_closed_when_prior_auth_missing_or_malform
                 del os.environ["AIOS_RUNTIME_DIR"]
 
 
+def test_failover_preconditions_reject_when_workspace_on_wrong_branch():
+    """Validates R7-1 / C13: Failover activation rejects and acquires no lease when workspace is on wrong branch even if HEAD matches published SHA."""
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp) / "repo"
+        root.mkdir()
+
+        subprocess.run(["git", "init", "-b", "main"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "AIOS Test"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "aios@test.local"], cwd=root, check=True, capture_output=True)
+
+        (root / "README.md").write_text("# Repo\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+        subprocess.run(["git", "checkout", "-b", "ai/task-030"], cwd=root, check=True, capture_output=True)
+        results_dir = root / ".ai" / "results"
+        results_dir.mkdir(parents=True, exist_ok=True)
+        (results_dir / "RESULT-030.md").write_text("# RESULT-030\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "result"], cwd=root, check=True, capture_output=True)
+        published_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
+        result_blob_sha = subprocess.run(["git", "rev-parse", f"{published_sha}:.ai/results/RESULT-030.md"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
+
+        # Create another branch pointing to the EXACT same commit SHA
+        subprocess.run(["git", "checkout", "-b", "feature/other-branch"], cwd=root, check=True, capture_output=True)
+
+        runtime_dir = Path(temp) / "bridge_runtime"
+        os.environ["AIOS_RUNTIME_DIR"] = str(runtime_dir)
+
+        old_project = bridge.PROJECT
+        old_ai = bridge.AI
+        old_fetch = bridge.fetch_control
+        old_blob = bridge.get_remote_blob_sha
+        old_read = bridge.read_remote_file
+        old_git = bridge.git
+
+        bridge.PROJECT = root
+        bridge.AI = root / ".ai"
+
+        try:
+            bridge.ensure_dirs()
+            cfg = {
+                "remote": "origin",
+                "base_branch": "main",
+                "control_branch": "ai-control",
+                "task_branch_prefix": "ai/task-",
+                "poll_seconds": 20,
+                "windows_popup": False,
+            }
+            bridge.save_json(bridge.get_runtime_paths()["config"], cfg)
+
+            review_blob = "b" * 40
+            control_commit_sha = "c" * 40
+            bridge.fetch_control = lambda cfg: None
+            bridge.get_remote_blob_sha = lambda cfg, path: review_blob
+            bridge.read_remote_file = lambda cfg, path: "# REVIEW-030\n\nSTATUS: CHANGES_REQUIRED\n"
+
+            bridge.git = lambda *args, **kw: (
+                type("Res", (), {"returncode": 0, "stdout": published_sha, "stderr": ""})()
+                if args == ("rev-parse", "refs/remotes/origin/ai/task-030")
+                else (
+                    type("Res", (), {"returncode": 0, "stdout": control_commit_sha, "stderr": ""})()
+                    if args == ("rev-parse", "refs/remotes/origin/ai-control")
+                    else old_git(*args, **kw)
+                )
+            )
+
+            store = bridge.get_lease_store()
+            prior_lease = bridge.build_executor_lease_candidate(
+                task_id="TASK-030",
+                workspace_id=store.workspace_id,
+                operation=ExecutionOperation.RUN,
+                target_branch="ai/task-030",
+                authorized_artifact_path=".ai/tasks/TASK-030.md",
+                authorized_artifact_blob_sha="a" * 40,
+                executor_id="antigravity",
+            )
+            prior_auth = {
+                "task_id": "TASK-030",
+                "action": "RUN",
+                "kind": "TASK",
+                "artifact_path": ".ai/tasks/TASK-030.md",
+                "artifact_blob_sha": "a" * 40,
+                "approved_at": "2026-08-17T10:00:00+07:00",
+                "branch": "ai/task-030",
+                "status": "CONSUMED",
+                "published_sha": published_sha,
+                "published_at": "2026-08-17T11:00:00+07:00",
+                "executor_id": "antigravity",
+                "lease_id": prior_lease.lease_id,
+                "lease_fingerprint": prior_lease.fingerprint(),
+                "workspace_id": prior_lease.workspace_id,
+                "execution_fingerprint": prior_lease.execution_fingerprint,
+            }
+            bridge.save_authorization(30, prior_auth)
+
+            # 1. Direct helper test: workspace is on feature/other-branch, expected is ai/task-030 -> fails closed
+            with pytest.raises(SystemExit):
+                bridge._validate_stable_failover_preconditions(
+                    cfg=cfg,
+                    task_id=30,
+                    branch="ai/task-030",
+                    prior_auth=prior_auth,
+                    selected_executor="codex",
+                    explicit_executor=True,
+                    expected_review_rel=".ai/reviews/REVIEW-030.md",
+                    expected_review_blob=review_blob,
+                )
+            assert store.load_active("TASK-030") is None
+
+            # 2. Integration test via cmd_handoff when current_branch remains on wrong branch
+            old_curr = bridge.current_branch
+            bridge.current_branch = lambda: "feature/other-branch"
+            try:
+                with pytest.raises(SystemExit):
+                    bridge.cmd_handoff(type("Args", (), {"task_id": 30, "action": "fix", "executor": "codex"})())
+                assert store.load_active("TASK-030") is None
+
+                # 3. Integration test via cmd_approve when current_branch remains on wrong branch
+                inbox_event = {
+                    "task_id": "TASK-030",
+                    "kind": "REVIEW",
+                    "path": ".ai/reviews/REVIEW-030.md",
+                    "blob_sha": review_blob,
+                    "approval": "PENDING",
+                }
+                bridge.save_json(bridge.get_runtime_paths()["inbox"] / "review_030.json", inbox_event)
+
+                with pytest.raises(SystemExit):
+                    bridge.cmd_approve(type("Args", (), {"task_id": 30, "kind": "review", "executor": "codex"})())
+                assert store.load_active("TASK-030") is None
+            finally:
+                bridge.current_branch = old_curr
+        finally:
+            bridge.PROJECT = old_project
+            bridge.AI = old_ai
+            bridge.fetch_control = old_fetch
+            bridge.get_remote_blob_sha = old_blob
+            bridge.read_remote_file = old_read
+            bridge.git = old_git
+            if "AIOS_RUNTIME_DIR" in os.environ:
+                del os.environ["AIOS_RUNTIME_DIR"]
+
+
 def test_cmd_publish_task_030_proof_progress_manifest_generation():
     """Validates R2-2: Bridge emits canonical M6 real-proof progress fields and preserves proven stages across repairs."""
     with tempfile.TemporaryDirectory() as temp:

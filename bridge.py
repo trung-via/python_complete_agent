@@ -931,14 +931,21 @@ def _validate_stable_failover_preconditions(
     except Exception as e:
         fail(f"Tái cấu trúc source executor lease từ prior authorization thất bại: {e}")
 
-    # 5. Assert stable local branch anchor (C13)
+    # 5. Assert workspace is on exact expected task branch (R7-1 / C13)
+    curr_branch = current_branch()
+    if curr_branch != branch:
+        fail(
+            f"Workspace hiện đang ở branch '{curr_branch}', không khớp với expected task branch '{branch}' (R7-1 / C13)."
+        )
+
+    # 6. Assert stable local branch anchor (C13)
     local_head_sha = git("rev-parse", "HEAD").stdout.strip()
     if local_head_sha != source_published_sha:
         fail(
             f"Task branch HEAD '{local_head_sha}' không khớp với source published SHA '{source_published_sha}'."
         )
 
-    # 6. Assert remote task branch tracking ref exists and matches source published SHA (R1-1)
+    # 7. Assert remote task branch tracking ref exists and matches source published SHA (R1-1)
     remote_task_ref = f"refs/remotes/{cfg['remote']}/{branch}"
     p_rem = git("rev-parse", remote_task_ref, check=False)
     if p_rem.returncode != 0 or not p_rem.stdout.strip():
