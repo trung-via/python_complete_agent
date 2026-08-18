@@ -44,6 +44,11 @@ from src.aios_bridge.continuity.hot_handoff import (
     capture_hot_handoff_checkpoint,
     verify_hot_handoff_checkpoint,
 )
+from src.aios_bridge.continuity.dispatch import (
+    CapacityState,
+    DispatchActorKind,
+    dispatch_executor,
+)
 from src.aios_bridge.continuity.lease import (
     MAX_ACTIVE_EXECUTORS_PER_TASK,
     ExecutorLease,
@@ -51,6 +56,15 @@ from src.aios_bridge.continuity.lease import (
 )
 from src.aios_bridge.continuity.state import ArtifactRef, ContinuityStateValidationError
 from src.aios_bridge.runtime_lease import AtomicExecutorLeaseStore
+from src.aios_bridge.runtime_dispatch import (
+    AtomicRuntimeCapacityStore,
+    ObservationSource,
+    RuntimeCapacityRecord,
+    build_executor_dispatch_request_from_runtime,
+    classify_capacity_freshness,
+    effective_capacity_state,
+    parse_executor_dispatch_policy_marker,
+)
 
 SUPPORTED_RUNTIME_EXECUTORS = ("antigravity", "codex", "claude-code")
 
@@ -209,6 +223,7 @@ def get_runtime_paths(repo_root: Path | None = None):
         "history": rdir / "history",
         "leases": rdir / "leases",
         "hot_handoff": rdir / "hot_handoff",
+        "dispatch_capacity": rdir / "dispatch" / "capacity",
     }
 
 
@@ -702,6 +717,199 @@ def read_remote_file(cfg, path: str) -> str:
     ref = remote_ref(cfg)
     p = git("show", f"{ref}:{path}")
     return p.stdout
+
+
+def get_runtime_capacity_store() -> AtomicRuntimeCapacityStore:
+    return AtomicRuntimeCapacityStore(get_runtime_paths()["dispatch_capacity"])
+
+
+def _dispatch_actor_kind_from_cli(kind: str) -> DispatchActorKind:
+    mapping = {
+        "brain": DispatchActorKind.BRAIN,
+        "executor": DispatchActorKind.EXECUTOR,
+    }
+    if kind not in mapping:
+        raise ContinuityStateValidationError(f"Unsupported capacity actor kind: {kind!r}")
+    return mapping[kind]
+
+
+def resolve_dispatch_control_artifact(
+    cfg, task_id: int, action: str
+) -> tuple[str, str, str]:
+    action = action.upper() if isinstance(action, str) else action
+    if action not in {"RUN", "FIX"}:
+        raise ContinuityStateValidationError("Dispatch recommendation action must be RUN or FIX")
+    path = (
+        f".ai/tasks/TASK-{task_id:03d}.md"
+        if action == "RUN"
+        else f".ai/reviews/REVIEW-{task_id:03d}.md"
+    )
+    fetch_control(cfg)
+    before_blob = get_remote_blob_sha(cfg, path)
+    if not before_blob:
+        raise ContinuityStateValidationError(f"Authoritative dispatch artifact is missing: {path}")
+    content = read_remote_file(cfg, path)
+    if not isinstance(content, str) or not content:
+        raise ContinuityStateValidationError(f"Authoritative dispatch artifact is empty: {path}")
+    after_blob = get_remote_blob_sha(cfg, path)
+    if after_blob != before_blob:
+        raise ContinuityStateValidationError(
+            f"Authoritative dispatch artifact drifted while reading: {path}"
+        )
+    if action == "FIX" and parse_review_status(content) != "CHANGES_REQUIRED":
+        raise ContinuityStateValidationError(
+            f"FIX dispatch requires CHANGES_REQUIRED review semantics: {path}"
+        )
+    return path, before_blob, content
+
+
+def cmd_capacity_set(args):
+    ensure_dirs()
+    try:
+        actor_kind = _dispatch_actor_kind_from_cli(args.kind)
+        record = RuntimeCapacityRecord(
+            actor_kind=actor_kind,
+            actor_id=args.actor,
+            capacity_state=CapacityState(args.state),
+            observed_at_epoch_seconds=int(time.time()),
+            ttl_seconds=args.ttl_seconds,
+            observation_source=ObservationSource(args.source),
+        )
+        store = get_runtime_capacity_store()
+        store.write(record)
+        loaded = store.load(actor_kind, args.actor)
+        if loaded != record:
+            raise ContinuityStateValidationError("Capacity record read-back mismatch")
+    except Exception as e:
+        fail(f"capacity-set thất bại: {e}")
+    print("[CAPACITY RECORDED]")
+    print(f"ACTOR_KIND: {record.actor_kind.value}")
+    print(f"ACTOR_ID: {record.actor_id}")
+    print(f"CAPACITY_STATE: {record.capacity_state.value}")
+    print(f"OBSERVED_AT_EPOCH_SECONDS: {record.observed_at_epoch_seconds}")
+    print(f"TTL_SECONDS: {record.ttl_seconds}")
+    print(f"RECORD_FINGERPRINT: {record.record_fingerprint}")
+    print("AUTHORIZATION_CHANGED: NO")
+    print("LEASE_CHANGED: NO")
+
+
+def _print_capacity_record(record, now_epoch_seconds: int) -> None:
+    freshness = classify_capacity_freshness(record, now_epoch_seconds)
+    effective = effective_capacity_state(record, now_epoch_seconds)
+    print(
+        "CAPACITY: "
+        + json.dumps(
+            {
+                "actor_id": record.actor_id,
+                "actor_kind": record.actor_kind.value,
+                "effective_state": effective.value,
+                "freshness": freshness,
+                "record_fingerprint": record.record_fingerprint,
+                "stored_state": record.capacity_state.value,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
+    )
+
+
+def cmd_capacity_show(args):
+    ensure_dirs()
+    try:
+        if args.actor is not None and args.kind is None:
+            raise ContinuityStateValidationError("--actor requires --kind")
+        actor_kind = (
+            _dispatch_actor_kind_from_cli(args.kind) if args.kind is not None else None
+        )
+        store = get_runtime_capacity_store()
+        now_epoch_seconds = int(time.time())
+        if args.actor is not None:
+            record = store.load(actor_kind, args.actor)
+            if record is None:
+                print("[CAPACITY]")
+                print(f"ACTOR_KIND: {actor_kind.value}")
+                print(f"ACTOR_ID: {args.actor}")
+                print("STORED_STATE: NONE")
+                print("FRESHNESS: MISSING")
+                print("EFFECTIVE_STATE: UNKNOWN")
+                return
+            records = (record,)
+        else:
+            records = store.list_records(actor_kind=actor_kind)
+        print("[CAPACITY]")
+        for record in records:
+            _print_capacity_record(record, now_epoch_seconds)
+    except Exception as e:
+        fail(f"capacity-show thất bại: {e}")
+
+
+def cmd_recommend(args):
+    ensure_git()
+    ensure_dirs()
+    if args.kind != "executor":
+        fail("M10.2 recommend chỉ hỗ trợ '--kind executor'.")
+    action = args.action.upper() if isinstance(args.action, str) else args.action
+    if action not in {"RUN", "FIX"}:
+        fail("recommend --action phải là RUN hoặc FIX.")
+    try:
+        cfg = load_config()
+        artifact_path, artifact_blob, content = resolve_dispatch_control_artifact(
+            cfg, args.task_id, action
+        )
+        policy = parse_executor_dispatch_policy_marker(content)
+        if policy.operation.value != action:
+            raise ContinuityStateValidationError(
+                f"Dispatch policy operation {policy.operation.value} does not match requested {action}"
+            )
+        now_epoch_seconds = int(time.time())
+        request, evidence = build_executor_dispatch_request_from_runtime(
+            policy, get_runtime_capacity_store(), now_epoch_seconds
+        )
+        result = dispatch_executor(request)
+        fetch_control(cfg)
+        final_blob = get_remote_blob_sha(cfg, artifact_path)
+        if final_blob != artifact_blob:
+            raise ContinuityStateValidationError(
+                "Authoritative dispatch artifact drifted before recommendation output"
+            )
+    except Exception as e:
+        fail(f"recommend thất bại: {e}")
+
+    observation_fingerprints = {
+        item.actor_id: item.record_fingerprint for item in evidence
+    }
+    evaluations = {item.actor_id: item for item in result.evaluations}
+    print("[DISPATCH RECOMMENDATION]")
+    print(f"TASK_ID: TASK-{args.task_id:03d}")
+    print(f"ACTION: {action}")
+    print(f"AUTHORIZED_ARTIFACT_PATH: {artifact_path}")
+    print(f"AUTHORIZED_ARTIFACT_BLOB_SHA: {artifact_blob}")
+    print(f"POLICY_FINGERPRINT: {policy.fingerprint()}")
+    print(
+        "CAPACITY_OBSERVATION_FINGERPRINTS: "
+        + json.dumps(observation_fingerprints, sort_keys=True, separators=(",", ":"))
+    )
+    print(f"DISPATCH_REQUEST_FINGERPRINT: {request.fingerprint()}")
+    print(f"DISPATCH_RESULT_FINGERPRINT: {result.fingerprint()}")
+    print(f"STATUS: {result.status.value}")
+    print(f"SELECTED_EXECUTOR: {result.selected_actor_id or 'NONE'}")
+    print("HUMAN_APPROVAL_REQUIRED: YES")
+    print("AUTHORIZATION_CHANGED: NO")
+    print("LEASE_CHANGED: NO")
+    for item in evidence:
+        evaluation = evaluations[item.actor_id]
+        row = {
+            **item.to_dict(),
+            "compatible": evaluation.compatible,
+            "reasons": [reason.value for reason in evaluation.reasons],
+            "runnable": evaluation.runnable,
+        }
+        print(
+            "CANDIDATE_EVIDENCE: "
+            + json.dumps(row, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        )
+    print("Human must explicitly use the existing approval flow to accept any recommendation.")
 
 
 def archive_local(dest: Path, task_id: int):
@@ -3249,6 +3457,29 @@ def build_parser():
     s = sub.add_parser("context", help="Print execution context for Antigravity")
     s.add_argument("task_id", type=int)
     s.set_defaults(func=cmd_context)
+
+    s = sub.add_parser("capacity-set", help="Record explicit runtime actor capacity")
+    s.add_argument("--kind", required=True, choices=["brain", "executor"])
+    s.add_argument("--actor", required=True)
+    s.add_argument("--state", required=True, choices=[item.value for item in CapacityState])
+    s.add_argument("--ttl-seconds", required=True, type=int)
+    s.add_argument(
+        "--source",
+        default=ObservationSource.HUMAN_DECLARED.value,
+        choices=[item.value for item in ObservationSource],
+    )
+    s.set_defaults(func=cmd_capacity_set)
+
+    s = sub.add_parser("capacity-show", help="Show runtime capacity evidence read-only")
+    s.add_argument("--kind", choices=["brain", "executor"])
+    s.add_argument("--actor")
+    s.set_defaults(func=cmd_capacity_show)
+
+    s = sub.add_parser("recommend", help="Read-only deterministic Executor recommendation")
+    s.add_argument("task_id", type=int)
+    s.add_argument("--kind", required=True, choices=["executor"])
+    s.add_argument("--action", required=True, choices=["RUN", "FIX"])
+    s.set_defaults(func=cmd_recommend)
 
     s = sub.add_parser(
         "hot-handoff-prepare",
