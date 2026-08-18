@@ -3,7 +3,7 @@
 STATUS: PASS
 APPROVED: YES
 READY_FOR_HUMAN_MERGE: YES
-MERGE_AUTHORIZED: NO
+MERGE_AUTHORIZED: YES
 
 ## Review Round
 
@@ -214,7 +214,7 @@ TASK-038 satisfies ADR-027 and the locked implementation blueprint after Round-2
 STATUS: PASS
 APPROVED: YES
 READY_FOR_HUMAN_MERGE: YES
-MERGE_AUTHORIZED: NO
+MERGE_AUTHORIZED: YES
 ```
 
-Human may authorize merge. M10.3 real operational dispatch proof remains a separate future task.
+Human authorized merge on 2026-08-18. M10.3 real operational dispatch proof remains a separate future task.
