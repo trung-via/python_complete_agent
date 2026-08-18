@@ -40,6 +40,17 @@ from .lease import (
     ExecutorLease,
     validate_executor_lease_binding,
 )
+from .hot_handoff import (
+    HOT_HANDOFF_SCHEMA_VERSION,
+    HotHandoffCheckpoint,
+    HotHandoffCheckpointError,
+    UntrackedFileManifestEntry,
+    WorkspaceFileManifestEntry,
+    capture_checkpoint,
+    capture_hot_handoff_checkpoint,
+    verify_checkpoint,
+    verify_hot_handoff_checkpoint,
+)
 from .state import (
     MAX_SERIALIZED_BYTES,
     PHASE_NEXT_OPERATION_MAP,
@@ -79,6 +90,7 @@ from .usage import (
 
 __all__ = [
     "MAX_ACTIVE_EXECUTORS_PER_TASK",
+    "HOT_HANDOFF_SCHEMA_VERSION",
     "MAX_SERIALIZED_BYTES",
     "MAX_USAGE_INT",
     "OPERATION_OUTPUT_TYPE_COMPATIBILITY",
@@ -120,6 +132,8 @@ __all__ = [
     "FreshnessReport",
     "FreshnessStatus",
     "HumanUsage",
+    "HotHandoffCheckpoint",
+    "HotHandoffCheckpointError",
     "NextOperation",
     "OutputContract",
     "PreparedExecution",
@@ -127,10 +141,14 @@ __all__ = [
     "StateObservation",
     "TaskUsageRecord",
     "TokenMeasurement",
+    "UntrackedFileManifestEntry",
     "UsageSource",
+    "WorkspaceFileManifestEntry",
     "aggregate_token_ranges",
     "aggregate_token_ranges_by_actor_class",
     "build_replacement_brain_request",
+    "capture_checkpoint",
+    "capture_hot_handoff_checkpoint",
     "calculate_context_efficiency_ratio",
     "check_freshness",
     "estimate_tokens_from_bytes",
@@ -141,4 +159,6 @@ __all__ = [
     "validate_executor_lease_binding",
     "validate_prepared_execution_against_request",
     "validate_stable_executor_failover",
+    "verify_checkpoint",
+    "verify_hot_handoff_checkpoint",
 ]
