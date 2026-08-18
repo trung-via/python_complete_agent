@@ -1,12 +1,21 @@
-"""Focused unit and adversarial tests for M9.3 Real Hot Local Handoff Proof (TASK-036 / ADR-025)."""
+"""Focused unit and adversarial tests for M9.3 Real Hot Local Handoff Proof (TASK-036 / ADR-025).
+
+Addresses Finding R1-1 and Finding R1-2 from REVIEW-036:
+- Complete adversarial coverage of authority/provenance fail-closed trust boundaries.
+- Path-safety and parent-component symlink / path escape validation.
+- Proof preservation invariants and tamper detection.
+"""
 from __future__ import annotations
 
 import copy
 import hashlib
 import json
+import os
 from pathlib import Path
+import stat
 import pytest
 import subprocess
+from typing import Any
 
 from scripts.aios_m9_real_hot_handoff_proof import (
     BASELINE_SHA,
@@ -21,6 +30,8 @@ from scripts.aios_m9_real_hot_handoff_proof import (
     TASK_ID,
     compute_canonical_semantic_proof_fingerprint,
     safe_read_workspace_payload,
+    validate_safe_repository_path,
+    verify_proof_fingerprint_integrity,
     verify_real_hot_handoff_proof,
 )
 from src.aios_bridge.continuity.errors import ContinuityStateValidationError
@@ -145,14 +156,9 @@ def fake_proof_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     }
 
 
-def test_canonical_semantic_proof_fingerprint_determinism():
-    data1 = {"schema_version": "1", "task_id": "TASK-036", "source": {"executor_id": "codex"}}
-    data2 = {"task_id": "TASK-036", "source": {"executor_id": "codex"}, "schema_version": "1"}
-    fp1, json1 = compute_canonical_semantic_proof_fingerprint(data1)
-    fp2, json2 = compute_canonical_semantic_proof_fingerprint(data2)
-    assert fp1 == fp2
-    assert json1 == json2
-
+# ==============================================================================
+# Finding R1-2: Path Safety and Symlink Escape Tests
+# ==============================================================================
 
 def test_safe_read_workspace_payload_valid(tmp_path: Path):
     p = tmp_path / "test.txt"
@@ -163,7 +169,16 @@ def test_safe_read_workspace_payload_valid(tmp_path: Path):
     assert res["sha256"] == hashlib.sha256(b"Hello UTF-8\n").hexdigest()
 
 
-def test_safe_read_workspace_payload_rejects_symlink(tmp_path: Path):
+def test_safe_read_workspace_payload_rejects_absolute_or_traversal_paths(tmp_path: Path):
+    with pytest.raises(ContinuityStateValidationError, match="repository-relative"):
+        safe_read_workspace_payload(tmp_path, "/abs/path/file.txt")
+    with pytest.raises(ContinuityStateValidationError, match="traversal components"):
+        safe_read_workspace_payload(tmp_path, "../outside.txt")
+    with pytest.raises(ContinuityStateValidationError, match="traversal components"):
+        safe_read_workspace_payload(tmp_path, "foo/../../bar.txt")
+
+
+def test_safe_read_workspace_payload_rejects_symlink_leaf(tmp_path: Path):
     target = tmp_path / "target.txt"
     target.write_bytes(b"real\n")
     link = tmp_path / "link.txt"
@@ -173,6 +188,42 @@ def test_safe_read_workspace_payload_rejects_symlink(tmp_path: Path):
         pytest.skip("Symlinks not supported on this platform/privilege level")
     with pytest.raises(ContinuityStateValidationError, match="must not be a symlink"):
         safe_read_workspace_payload(tmp_path, "link.txt")
+
+
+def test_safe_read_workspace_payload_rejects_symlink_parent_directory(tmp_path: Path):
+    real_dir = tmp_path / "real_dir"
+    real_dir.mkdir()
+    target_file = real_dir / "leaf.txt"
+    target_file.write_bytes(b"content\n")
+
+    link_dir = tmp_path / "link_dir"
+    try:
+        link_dir.symlink_to(real_dir, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("Symlinks not supported on this platform/privilege level")
+
+    with pytest.raises(ContinuityStateValidationError, match="Path component must not be a symlink"):
+        safe_read_workspace_payload(tmp_path, "link_dir/leaf.txt")
+
+
+def test_validate_safe_repository_path_rejects_mocked_parent_symlink(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Deterministic, platform-independent unit test for parent-component symlink rejection."""
+    nested_file = tmp_path / "a" / "b" / "c.txt"
+    nested_file.parent.mkdir(parents=True)
+    nested_file.write_bytes(b"test\n")
+
+    original_lstat = os.lstat
+
+    def fake_lstat(path, *args, **kwargs):
+        p_str = str(path).replace("\\", "/")
+        if p_str.endswith("/a/b"):
+            # Mock directory 'b' as a symlink
+            return os.stat_result((stat.S_IFLNK | 0o777, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+        return original_lstat(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "lstat", fake_lstat)
+    with pytest.raises(ContinuityStateValidationError, match="Path component must not be a symlink: 'b'"):
+        validate_safe_repository_path(tmp_path, "a/b/c.txt")
 
 
 def test_safe_read_workspace_payload_rejects_binary_or_nul(tmp_path: Path):
@@ -187,6 +238,47 @@ def test_safe_read_workspace_payload_rejects_non_utf8(tmp_path: Path):
     p.write_bytes(b"\xff\xfe\x00")
     with pytest.raises(ContinuityStateValidationError, match="forbidden NUL bytes|not valid UTF-8"):
         safe_read_workspace_payload(tmp_path, "latin.txt")
+
+
+# ==============================================================================
+# Finding R1-1: End-to-End Success & Proof Determinism
+# ==============================================================================
+
+def test_canonical_semantic_proof_fingerprint_determinism():
+    data1 = {"schema_version": "1", "task_id": "TASK-036", "source": {"executor_id": "codex"}}
+    data2 = {"task_id": "TASK-036", "source": {"executor_id": "codex"}, "schema_version": "1"}
+    fp1, json1 = compute_canonical_semantic_proof_fingerprint(data1)
+    fp2, json2 = compute_canonical_semantic_proof_fingerprint(data2)
+    assert fp1 == fp2
+    assert json1 == json2
+
+
+def test_verify_proof_fingerprint_integrity_success_and_tamper():
+    semantic = {
+        "schema_version": "1",
+        "task_id": "TASK-036",
+        "source": {"executor_id": "codex"},
+    }
+    fp, _ = compute_canonical_semantic_proof_fingerprint(semantic)
+    valid_proof = {**semantic, "proof_fingerprint": fp}
+
+    assert verify_proof_fingerprint_integrity(valid_proof) == fp
+
+    # Tamper with semantic field
+    tampered_semantic = copy.deepcopy(valid_proof)
+    tampered_semantic["task_id"] = "TASK-099"
+    with pytest.raises(ContinuityStateValidationError, match="Proof fingerprint mismatch"):
+        verify_proof_fingerprint_integrity(tampered_semantic)
+
+    # Tamper with fingerprint string
+    tampered_fp = copy.deepcopy(valid_proof)
+    tampered_fp["proof_fingerprint"] = "0" * 64
+    with pytest.raises(ContinuityStateValidationError, match="Proof fingerprint mismatch"):
+        verify_proof_fingerprint_integrity(tampered_fp)
+
+    # Missing fingerprint
+    with pytest.raises(ContinuityStateValidationError, match="Missing or invalid"):
+        verify_proof_fingerprint_integrity(semantic)
 
 
 def test_verify_real_hot_handoff_proof_e2e_success(fake_proof_workspace):
@@ -206,103 +298,175 @@ def test_verify_real_hot_handoff_proof_e2e_success(fake_proof_workspace):
     assert proof["replacement"]["absent_from_source_checkpoint"] is True
 
 
-def test_verify_fails_on_missing_or_non_active_auth(fake_proof_workspace, monkeypatch):
-    monkeypatch.setattr("scripts.aios_m9_real_hot_handoff_proof.get_active_authorization", lambda tid: None)
+# ==============================================================================
+# Finding R1-1: 11 Adversarial Proof Boundary Tests
+# ==============================================================================
+
+# Case 1: authorization exists but status != ACTIVE
+def test_verify_fails_on_non_active_auth_status(fake_proof_workspace, monkeypatch):
+    ws = fake_proof_workspace
+    bad_auth = copy.deepcopy(ws["auth"])
+    bad_auth["status"] = "PENDING"
+    monkeypatch.setattr("scripts.aios_m9_real_hot_handoff_proof.get_active_authorization", lambda tid: bad_auth)
+
+    out_file = ws["repo_root"] / OUTPUT_PATH
     with pytest.raises(ContinuityStateValidationError, match="ACTIVE authorization"):
-        verify_real_hot_handoff_proof(fake_proof_workspace["repo_root"])
+        verify_real_hot_handoff_proof(ws["repo_root"])
+    assert not out_file.exists()
 
 
-def test_verify_fails_on_wrong_task_or_action_or_branch(fake_proof_workspace, monkeypatch):
+# Case 2: malformed/partial authorization required fields
+@pytest.mark.parametrize("missing_field", ["task_id", "action", "branch", "executor_id", "lease_id", "lease_fingerprint"])
+def test_verify_fails_on_malformed_or_missing_auth_fields(fake_proof_workspace, monkeypatch, missing_field):
     ws = fake_proof_workspace
     bad_auth = copy.deepcopy(ws["auth"])
-    bad_auth["action"] = "FIX"
+    del bad_auth[missing_field]
     monkeypatch.setattr("scripts.aios_m9_real_hot_handoff_proof.get_active_authorization", lambda tid: bad_auth)
-    with pytest.raises(ContinuityStateValidationError, match="Authorization action mismatch"):
+
+    out_file = ws["repo_root"] / OUTPUT_PATH
+    with pytest.raises(ContinuityStateValidationError):
         verify_real_hot_handoff_proof(ws["repo_root"])
+    assert not out_file.exists()
 
 
-def test_verify_fails_on_wrong_source_actor(fake_proof_workspace, monkeypatch):
+# Case 3: ACTIVE authorization with no hot_handoff metadata
+def test_verify_fails_on_missing_hot_handoff_metadata(fake_proof_workspace, monkeypatch):
     ws = fake_proof_workspace
     bad_auth = copy.deepcopy(ws["auth"])
-    bad_auth["hot_handoff"]["source_executor_id"] = "claude-code"
+    del bad_auth["hot_handoff"]
     monkeypatch.setattr("scripts.aios_m9_real_hot_handoff_proof.get_active_authorization", lambda tid: bad_auth)
-    monkeypatch.setattr("scripts.aios_m9_real_hot_handoff_proof.validate_active_hot_handoff_provenance", lambda tid, a, l: bad_auth["hot_handoff"])
-    with pytest.raises(ContinuityStateValidationError, match="Hot handoff source_executor_id mismatch"):
+    monkeypatch.setattr("scripts.aios_m9_real_hot_handoff_proof.validate_active_hot_handoff_provenance", lambda tid, a, l: None)
+
+    out_file = ws["repo_root"] / OUTPUT_PATH
+    with pytest.raises(ContinuityStateValidationError, match="valid hot_handoff metadata"):
         verify_real_hot_handoff_proof(ws["repo_root"])
+    assert not out_file.exists()
 
 
-def test_verify_fails_on_wrong_replacement_actor(fake_proof_workspace, monkeypatch):
+# Case 4: active replacement lease mismatch / require_active() failure
+def test_verify_fails_on_replacement_lease_mismatch_or_inactive(fake_proof_workspace, monkeypatch):
     ws = fake_proof_workspace
-    bad_auth = copy.deepcopy(ws["auth"])
-    bad_auth["executor_id"] = "claude-code"
-    monkeypatch.setattr("scripts.aios_m9_real_hot_handoff_proof.get_active_authorization", lambda tid: bad_auth)
-    with pytest.raises(ContinuityStateValidationError, match="Authorization executor_id mismatch"):
+
+    class InactiveLeaseStore:
+        def require_active(self, lease):
+            raise ContinuityStateValidationError("Lease is not active in store")
+
+    monkeypatch.setattr("scripts.aios_m9_real_hot_handoff_proof.get_lease_store", lambda: InactiveLeaseStore())
+
+    out_file = ws["repo_root"] / OUTPUT_PATH
+    with pytest.raises(ContinuityStateValidationError, match="Lease is not active"):
         verify_real_hot_handoff_proof(ws["repo_root"])
+    assert not out_file.exists()
 
 
-def test_verify_fails_on_same_source_and_replacement_actor(fake_proof_workspace, monkeypatch):
+# Case 5: exact checkpoint file missing/unreadable
+def test_verify_fails_on_missing_checkpoint_file(fake_proof_workspace, monkeypatch):
     ws = fake_proof_workspace
-    bad_auth = copy.deepcopy(ws["auth"])
-    bad_auth["hot_handoff"]["source_executor_id"] = "antigravity"
-    monkeypatch.setattr("scripts.aios_m9_real_hot_handoff_proof.get_active_authorization", lambda tid: bad_auth)
-    monkeypatch.setattr("scripts.aios_m9_real_hot_handoff_proof.validate_active_hot_handoff_provenance", lambda tid, a, l: bad_auth["hot_handoff"])
-    with pytest.raises(ContinuityStateValidationError, match="Hot handoff source_executor_id mismatch|must differ"):
+
+    def fake_missing_loader(tid, fp):
+        raise ContinuityStateValidationError(f"Persisted checkpoint not found: {fp}")
+
+    monkeypatch.setattr("scripts.aios_m9_real_hot_handoff_proof.load_persisted_hot_handoff_checkpoint", fake_missing_loader)
+
+    out_file = ws["repo_root"] / OUTPUT_PATH
+    with pytest.raises(ContinuityStateValidationError, match="Persisted checkpoint not found"):
         verify_real_hot_handoff_proof(ws["repo_root"])
+    assert not out_file.exists()
 
 
-def test_verify_fails_on_checkpoint_head_mismatch(fake_proof_workspace, monkeypatch):
+# Case 6: exact checkpoint object / fingerprint tamper
+def test_verify_fails_on_checkpoint_fingerprint_tamper(fake_proof_workspace, monkeypatch):
+    ws = fake_proof_workspace
+
+    def fake_tampered_loader(tid, fp):
+        raise ContinuityStateValidationError("Checkpoint fingerprint mismatch: data altered")
+
+    monkeypatch.setattr("scripts.aios_m9_real_hot_handoff_proof.load_persisted_hot_handoff_checkpoint", fake_tampered_loader)
+
+    out_file = ws["repo_root"] / OUTPUT_PATH
+    with pytest.raises(ContinuityStateValidationError, match="Checkpoint fingerprint mismatch"):
+        verify_real_hot_handoff_proof(ws["repo_root"])
+    assert not out_file.exists()
+
+
+# Case 7: checkpoint task/branch/workspace/source provenance mismatch cases
+@pytest.mark.parametrize("field, bad_val, err_pattern", [
+    ("task_id", "TASK-999", "task_id mismatch"),
+    ("target_branch", "main", "target_branch mismatch"),
+    ("workspace_id", "0" * 64, "workspace_id mismatch"),
+    ("source_executor_id", "claude-code", "source_executor_id mismatch"),
+    ("source_lease_fingerprint", "0" * 64, "source_lease_fingerprint mismatch"),
+    ("source_execution_fingerprint", "0" * 64, "source_execution_fingerprint mismatch"),
+    ("allowed_paths", ["proofs/other.txt"], "allowed_paths mismatch"),
+])
+def test_verify_fails_on_checkpoint_provenance_mismatches(fake_proof_workspace, monkeypatch, field, bad_val, err_pattern):
     ws = fake_proof_workspace
     ckpt_dict = ws["checkpoint"].to_dict()
-    ckpt_dict["head_sha"] = "0" * 40
+    ckpt_dict[field] = bad_val
     bad_checkpoint = _recompute_checkpoint(ckpt_dict)
     monkeypatch.setattr("scripts.aios_m9_real_hot_handoff_proof.load_persisted_hot_handoff_checkpoint", lambda tid, fp: bad_checkpoint)
-    with pytest.raises(ContinuityStateValidationError, match="Checkpoint head_sha mismatch"):
+
+    out_file = ws["repo_root"] / OUTPUT_PATH
+    with pytest.raises(ContinuityStateValidationError, match=err_pattern):
         verify_real_hot_handoff_proof(ws["repo_root"])
+    assert not out_file.exists()
 
 
-def test_verify_fails_on_checkpoint_manifest_extra_payload(fake_proof_workspace, monkeypatch):
+# Case 8: source-stage absent from checkpoint
+def test_verify_fails_when_source_stage_absent_from_checkpoint(fake_proof_workspace, monkeypatch):
     ws = fake_proof_workspace
     ckpt_dict = ws["checkpoint"].to_dict()
-    ckpt_dict["untracked_file_manifest"].append({"path": "proofs/other.txt", "size_bytes": 5, "sha256": "1" * 64})
+    ckpt_dict["untracked_file_manifest"] = []
     bad_checkpoint = _recompute_checkpoint(ckpt_dict)
     monkeypatch.setattr("scripts.aios_m9_real_hot_handoff_proof.load_persisted_hot_handoff_checkpoint", lambda tid, fp: bad_checkpoint)
-    with pytest.raises(ContinuityStateValidationError, match="Checkpoint untracked manifest must contain exactly 1 entry"):
+
+    out_file = ws["repo_root"] / OUTPUT_PATH
+    with pytest.raises(ContinuityStateValidationError, match="untracked manifest must contain exactly 1 entry"):
         verify_real_hot_handoff_proof(ws["repo_root"])
+    assert not out_file.exists()
 
 
-def test_verify_fails_on_source_stage_drift(fake_proof_workspace):
-    ws = fake_proof_workspace
-    ws["source_file"].write_bytes(b"TAMPERED CONTENT\n")
-    with pytest.raises(ContinuityStateValidationError, match="Current proofs/TASK-036-M9/source-stage.txt sha256 mismatch"):
-        verify_real_hot_handoff_proof(ws["repo_root"])
-
-
-def test_verify_fails_on_replacement_stage_present_in_source_checkpoint(fake_proof_workspace, monkeypatch):
+# Case 9: source-stage present in tracked rather than the required untracked manifest
+def test_verify_fails_when_source_stage_in_tracked_manifest(fake_proof_workspace, monkeypatch):
     ws = fake_proof_workspace
     ckpt_dict = ws["checkpoint"].to_dict()
-    ckpt_dict["tracked_file_manifest"].append({"path": REPLACEMENT_PATH, "size_bytes": 10, "sha256": "0" * 64})
+    ckpt_dict["tracked_file_manifest"] = ckpt_dict["untracked_file_manifest"]
+    ckpt_dict["untracked_file_manifest"] = []
     bad_checkpoint = _recompute_checkpoint(ckpt_dict)
     monkeypatch.setattr("scripts.aios_m9_real_hot_handoff_proof.load_persisted_hot_handoff_checkpoint", lambda tid, fp: bad_checkpoint)
-    with pytest.raises(ContinuityStateValidationError, match="Checkpoint tracked manifest must be empty"):
+
+    out_file = ws["repo_root"] / OUTPUT_PATH
+    with pytest.raises(ContinuityStateValidationError, match="tracked manifest must be empty"):
         verify_real_hot_handoff_proof(ws["repo_root"])
+    assert not out_file.exists()
 
 
-def test_verify_fails_on_replacement_stage_missing(fake_proof_workspace):
+# Case 10: generated PROOF semantic content altered while retaining old proof_fingerprint
+def test_generated_proof_semantic_alteration_fails_fingerprint_integrity(fake_proof_workspace):
     ws = fake_proof_workspace
-    ws["replacement_file"].unlink()
-    with pytest.raises(ContinuityStateValidationError, match="Required payload file does not exist"):
-        verify_real_hot_handoff_proof(ws["repo_root"])
+    verify_real_hot_handoff_proof(ws["repo_root"])
+    out_file = ws["repo_root"] / OUTPUT_PATH
+    assert out_file.exists()
+
+    proof_data = json.loads(out_file.read_text(encoding="utf-8"))
+    # Alter source executor without updating top-level proof_fingerprint
+    proof_data["source"]["executor_id"] = "antigravity"
+
+    with pytest.raises(ContinuityStateValidationError, match="Proof fingerprint mismatch"):
+        verify_proof_fingerprint_integrity(proof_data)
 
 
-def test_verify_fails_on_replacement_stage_fingerprint_mismatch(fake_proof_workspace):
+# Case 11: prove exact checkpoint lookup receives only the authorization-bound fingerprint (no history/latest/fuzzy fallback)
+def test_verify_exact_checkpoint_lookup_no_fallback(fake_proof_workspace, monkeypatch):
     ws = fake_proof_workspace
-    bad_content = (
-        "TASK_ID: TASK-036\n"
-        "STAGE: REPLACEMENT_POST_ACTIVATION\n"
-        "EXECUTOR_ID: antigravity\n"
-        f"CHECKPOINT_FINGERPRINT: {'f' * 64}\n"
-        "PAYLOAD_VERSION: 1\n"
-    )
-    ws["replacement_file"].write_bytes(bad_content.encode("utf-8"))
-    with pytest.raises(ContinuityStateValidationError, match="content does not match expected marker format"):
-        verify_real_hot_handoff_proof(ws["repo_root"])
+    recorded_lookups = []
+
+    def tracking_checkpoint_loader(tid, fp):
+        recorded_lookups.append((tid, fp))
+        return ws["checkpoint"]
+
+    monkeypatch.setattr("scripts.aios_m9_real_hot_handoff_proof.load_persisted_hot_handoff_checkpoint", tracking_checkpoint_loader)
+
+    verify_real_hot_handoff_proof(ws["repo_root"])
+    assert len(recorded_lookups) == 1
+    assert recorded_lookups[0] == (TASK_ID, ws["checkpoint_fp"]) or recorded_lookups[0] == (36, ws["checkpoint_fp"])

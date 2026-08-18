@@ -49,15 +49,49 @@ EXPECTED_SOURCE_CONTENT = (
 )
 
 
+def validate_safe_repository_path(repo_root: Path, relative_path: str) -> Path:
+    """
+    Validates that a repository-relative path does not use absolute paths, traversal,
+    or symlinks at any component (intermediate directories or leaf), and is physically
+    confined within repo_root.
+    """
+    if (
+        os.path.isabs(relative_path)
+        or Path(relative_path).is_absolute()
+        or relative_path.startswith(("/", "\\"))
+        or ":" in relative_path
+    ):
+        raise ContinuityStateValidationError(f"Path must be repository-relative: {relative_path!r}")
+
+    norm_path = relative_path.replace("\\", "/")
+    parts = norm_path.split("/")
+    if not parts or any(p in ("..", ".", "") for p in parts):
+        raise ContinuityStateValidationError(f"Path must be canonical without traversal components: {relative_path!r}")
+
+    current = repo_root.resolve()
+    for part in parts:
+        current = current / part
+        # Check if current path exists or is a broken symlink
+        if current.exists() or current.is_symlink():
+            st = os.lstat(current)
+            if stat.S_ISLNK(st.st_mode):
+                raise ContinuityStateValidationError(f"Path component must not be a symlink: '{part}' in '{relative_path}'")
+
+    # Verify physical confinement within repo_root
+    try:
+        current.resolve().relative_to(repo_root.resolve())
+    except ValueError as e:
+        raise ContinuityStateValidationError(f"Path escapes repository root: {relative_path}") from e
+
+    return current
+
+
 def safe_read_workspace_payload(repo_root: Path, relative_path: str) -> dict[str, Any]:
     """
     Safely reads a repository-relative payload file without following symlinks.
-    Rejects symlinks, non-regular files, binary/NUL content, or non-UTF-8 data.
+    Rejects parent/leaf symlinks, non-regular files, binary/NUL content, or non-UTF-8 data.
     """
-    if os.path.isabs(relative_path) or ".." in Path(relative_path).parts:
-        raise ContinuityStateValidationError(f"Path must be repository-relative and canonical: {relative_path!r}")
-
-    full_path = repo_root / relative_path
+    full_path = validate_safe_repository_path(repo_root, relative_path)
     if not full_path.exists():
         raise ContinuityStateValidationError(f"Required payload file does not exist: {relative_path}")
 
@@ -102,6 +136,26 @@ def compute_canonical_semantic_proof_fingerprint(semantic_proof: dict[str, Any])
     return proof_fingerprint, canonical_json_str
 
 
+def verify_proof_fingerprint_integrity(proof_data: dict[str, Any]) -> str:
+    """
+    Verifies that proof_data has a valid top-level proof_fingerprint matching
+    the canonical semantic proof fields. Returns the verified proof_fingerprint.
+    """
+    if not isinstance(proof_data, dict):
+        raise ContinuityStateValidationError("Proof data must be a dictionary")
+    declared_fp = proof_data.get("proof_fingerprint")
+    if not declared_fp or not isinstance(declared_fp, str):
+        raise ContinuityStateValidationError("Missing or invalid top-level 'proof_fingerprint'")
+
+    semantic_copy = {k: v for k, v in proof_data.items() if k != "proof_fingerprint"}
+    recomputed_fp, _ = compute_canonical_semantic_proof_fingerprint(semantic_copy)
+    if declared_fp != recomputed_fp:
+        raise ContinuityStateValidationError(
+            f"Proof fingerprint mismatch: declared '{declared_fp}', recomputed '{recomputed_fp}'"
+        )
+    return declared_fp
+
+
 def verify_real_hot_handoff_proof(repo_root: Path | None = None) -> dict[str, Any]:
     """
     Executes fail-closed mechanical verification of the real M9.3 hot handoff proof.
@@ -117,23 +171,14 @@ def verify_real_hot_handoff_proof(repo_root: Path | None = None) -> dict[str, An
     if curr_branch != EXPECTED_BRANCH:
         raise ContinuityStateValidationError(f"Branch mismatch: expected '{EXPECTED_BRANCH}', got '{curr_branch}'")
 
-    # 2. Require current git rev-parse HEAD exactly BASELINE_SHA
-    try:
-        head_sha = subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], cwd=root, stderr=subprocess.PIPE
-        ).decode().strip()
-    except Exception as e:
-        raise ContinuityStateValidationError(f"Failed to resolve git HEAD: {e}") from e
-
-    if head_sha != BASELINE_SHA:
-        raise ContinuityStateValidationError(
-            f"Git HEAD mismatch: expected baseline commit '{BASELINE_SHA}', got '{head_sha}'"
-        )
-
-    # 3. Load exact ACTIVE authorization for task 36
+    # 2. Load exact ACTIVE authorization for task 36
     auth = get_active_authorization(TASK_NUM)
-    if not auth or auth.get("status") != "ACTIVE":
+    if not auth or not isinstance(auth, dict) or auth.get("status") != "ACTIVE":
         raise ContinuityStateValidationError("Task 36 does not have an ACTIVE authorization")
+
+    for req_field in ("task_id", "action", "branch", "executor_id", "lease_id", "lease_fingerprint", "execution_fingerprint"):
+        if not auth.get(req_field):
+            raise ContinuityStateValidationError(f"Authorization missing or empty required field: '{req_field}'")
 
     if auth.get("task_id") != TASK_ID:
         raise ContinuityStateValidationError(f"Authorization task_id mismatch: expected '{TASK_ID}', got '{auth.get('task_id')}'")
@@ -144,6 +189,19 @@ def verify_real_hot_handoff_proof(repo_root: Path | None = None) -> dict[str, An
     if auth.get("executor_id") != REPLACEMENT_EXECUTOR:
         raise ContinuityStateValidationError(
             f"Authorization executor_id mismatch: expected '{REPLACEMENT_EXECUTOR}', got '{auth.get('executor_id')}'"
+        )
+
+    # 3. Require current git rev-parse HEAD exactly BASELINE_SHA
+    try:
+        head_sha = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=root, stderr=subprocess.PIPE
+        ).decode().strip()
+    except Exception as e:
+        raise ContinuityStateValidationError(f"Failed to resolve git HEAD: {e}") from e
+
+    if head_sha != BASELINE_SHA:
+        raise ContinuityStateValidationError(
+            f"Git HEAD mismatch: expected baseline commit '{BASELINE_SHA}', got '{head_sha}'"
         )
 
     # 4. Reconstruct and verify replacement lease is active
@@ -301,10 +359,7 @@ def verify_real_hot_handoff_proof(repo_root: Path | None = None) -> dict[str, An
 
     # 13. Read back and verify exact written output
     written_data = json.loads(out_file.read_text(encoding="utf-8"))
-    written_fp = written_data.pop("proof_fingerprint", None)
-    recalculated_fp, _ = compute_canonical_semantic_proof_fingerprint(written_data)
-    if written_fp != proof_fingerprint or recalculated_fp != proof_fingerprint:
-        raise ContinuityStateValidationError("Written PROOF.json failed read-back validation")
+    verify_proof_fingerprint_integrity(written_data)
 
     return {
         "status": "PASS",
