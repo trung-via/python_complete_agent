@@ -172,6 +172,26 @@ def test_resolve_fix_requires_exact_changes_required_review(monkeypatch):
         bridge.resolve_dispatch_control_artifact({}, TASK_ID, "FIX")
 
 
+@pytest.mark.parametrize(
+    "content",
+    [
+        _content(_policy(ExecutionOperation.FIX)),
+        "STATUS CHANGES_REQUIRED\n" + _content(_policy(ExecutionOperation.FIX)),
+        _content(_policy(ExecutionOperation.FIX), review_status="UNKNOWN"),
+    ],
+    ids=["missing", "malformed", "unknown"],
+)
+def test_resolve_fix_rejects_missing_malformed_or_unknown_review_status(
+    monkeypatch, content
+):
+    monkeypatch.setattr(bridge, "fetch_control", lambda cfg: None)
+    monkeypatch.setattr(bridge, "get_remote_blob_sha", lambda cfg, path: BLOB)
+    monkeypatch.setattr(bridge, "read_remote_file", lambda cfg, path: content)
+
+    with pytest.raises(ContinuityStateValidationError, match="CHANGES_REQUIRED"):
+        bridge.resolve_dispatch_control_artifact({}, TASK_ID, "FIX")
+
+
 def test_resolve_control_artifact_drift_fails_closed(monkeypatch):
     blobs = iter((BLOB, "b" * 40))
     monkeypatch.setattr(bridge, "fetch_control", lambda cfg: None)

@@ -1,6 +1,7 @@
 """Adversarial unit tests for external M10.2 runtime capacity evidence."""
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from src.aios_bridge.continuity.dispatch import (
 )
 from src.aios_bridge.continuity.errors import ContinuityStateValidationError
 from src.aios_bridge.continuity.executor import ExecutionCapability, ExecutionOperation
+from src.aios_bridge.continuity.state import MAX_SERIALIZED_BYTES
 from src.aios_bridge.runtime_dispatch import (
     AtomicRuntimeCapacityStore,
     ExecutorDispatchPolicySpec,
@@ -83,6 +85,30 @@ def _policy(candidates=None, *, allow_paid_api=False) -> ExecutorDispatchPolicyS
 def _marker(policy=None) -> str:
     policy = policy or _policy()
     return "DISPATCH_EXECUTOR_POLICY_JSON: " + policy.to_canonical_json() + "\n"
+
+
+def _capacity_json_at_size(target_size: int) -> str:
+    semantic = _record("a").semantic_dict()
+    semantic["actor_id"] = "a"
+
+    def render() -> str:
+        fingerprint = hashlib.sha256(
+            json.dumps(
+                semantic, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+            ).encode("utf-8")
+        ).hexdigest()
+        return json.dumps(
+            {**semantic, "record_fingerprint": fingerprint},
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
+
+    initial = render()
+    semantic["actor_id"] = "a" * (1 + target_size - len(initial.encode("utf-8")))
+    result = render()
+    assert len(result.encode("utf-8")) == target_size
+    return result
 
 
 def test_record_canonical_serialization_and_fingerprint_are_deterministic():
@@ -271,6 +297,60 @@ def test_record_and_policy_serialization_byte_caps():
         _policy(candidates)
 
 
+def test_exact_max_minus_newline_capacity_record_round_trips(tmp_path, monkeypatch):
+    canonical = _capacity_json_at_size(MAX_SERIALIZED_BYTES - 1)
+    record = RuntimeCapacityRecord.from_json(canonical)
+    store = AtomicRuntimeCapacityStore(tmp_path / "capacity")
+    boundary_path = tmp_path / "capacity" / "EXECUTOR" / "boundary.json"
+    monkeypatch.setattr(store, "record_path", lambda actor_kind, actor_id: boundary_path)
+
+    store.write(record)
+
+    assert len(boundary_path.read_bytes()) == MAX_SERIALIZED_BYTES
+    assert boundary_path.read_bytes() == canonical.encode("utf-8") + b"\n"
+    assert store.load(record.actor_kind, record.actor_id) == record
+
+
+def test_exact_max_canonical_record_is_rejected_before_persistence(tmp_path):
+    canonical = _capacity_json_at_size(MAX_SERIALIZED_BYTES)
+    store = AtomicRuntimeCapacityStore(tmp_path / "capacity")
+
+    with pytest.raises(ContinuityStateValidationError, match="persisted size limit"):
+        RuntimeCapacityRecord.from_json(canonical)
+
+    assert not store.root.exists()
+
+
+def test_writer_size_guard_preserves_preexisting_valid_final(tmp_path, monkeypatch):
+    store = AtomicRuntimeCapacityStore(tmp_path / "capacity")
+    original = _record()
+    store.write(original)
+    final_path = store.record_path(original.actor_kind, original.actor_id)
+    before = final_path.read_bytes()
+    oversized_canonical = _capacity_json_at_size(MAX_SERIALIZED_BYTES)
+    monkeypatch.setattr(
+        RuntimeCapacityRecord,
+        "to_canonical_json",
+        lambda self: oversized_canonical,
+    )
+
+    with pytest.raises(ContinuityStateValidationError, match="persisted payload"):
+        store.write(original)
+
+    assert final_path.read_bytes() == before
+    assert not list(final_path.parent.glob("*.tmp-*"))
+
+
+def test_oversized_persisted_payload_remains_rejected(tmp_path):
+    store = AtomicRuntimeCapacityStore(tmp_path / "capacity")
+    path = store.record_path(DispatchActorKind.EXECUTOR, "codex")
+    path.parent.mkdir(parents=True)
+    path.write_bytes(b"{" + b"x" * MAX_SERIALIZED_BYTES)
+
+    with pytest.raises(ContinuityStateValidationError, match="oversized"):
+        store.load(DispatchActorKind.EXECUTOR, "codex")
+
+
 def test_temp_file_is_cleaned_when_atomic_replace_fails(tmp_path, monkeypatch):
     store = AtomicRuntimeCapacityStore(tmp_path / "capacity")
 
@@ -283,6 +363,63 @@ def test_temp_file_is_cleaned_when_atomic_replace_fails(tmp_path, monkeypatch):
     parent = store.record_path(DispatchActorKind.EXECUTOR, "codex").parent
     assert not list(parent.glob("*.tmp-*"))
     assert not store.record_path(DispatchActorKind.EXECUTOR, "codex").exists()
+
+
+@pytest.mark.parametrize("failure_point", ["write", "flush", "fsync"])
+def test_temp_io_failure_cleans_temp_and_preserves_valid_final(
+    tmp_path, monkeypatch, failure_point
+):
+    store = AtomicRuntimeCapacityStore(tmp_path / "capacity")
+    original = _record()
+    store.write(original)
+    final_path = store.record_path(original.actor_kind, original.actor_id)
+    before = final_path.read_bytes()
+    real_open = Path.open
+
+    class FailingTempHandle:
+        def __init__(self, path):
+            self.handle = real_open(path, "xb")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            self.handle.close()
+
+        def write(self, payload):
+            if failure_point == "write":
+                raise OSError("simulated write failure")
+            return self.handle.write(payload)
+
+        def flush(self):
+            if failure_point == "flush":
+                raise OSError("simulated flush failure")
+            return self.handle.flush()
+
+        def fileno(self):
+            return self.handle.fileno()
+
+    def failing_temp_open(path, mode="r", *args, **kwargs):
+        if mode == "xb" and ".tmp-" in path.name:
+            return FailingTempHandle(path)
+        return real_open(path, mode, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", failing_temp_open)
+    if failure_point == "fsync":
+        monkeypatch.setattr(
+            runtime_dispatch.os,
+            "fsync",
+            lambda file_descriptor: (_ for _ in ()).throw(
+                OSError("simulated fsync failure")
+            ),
+        )
+
+    with pytest.raises(ContinuityStateValidationError, match="Atomic runtime capacity write failed"):
+        store.write(_record(state=CapacityState.LIMITED))
+
+    assert final_path.read_bytes() == before
+    assert store.load(original.actor_kind, original.actor_id) == original
+    assert not list(final_path.parent.glob("*.tmp-*"))
 
 
 def test_corrupt_discovered_record_fails_closed_instead_of_skip(tmp_path):

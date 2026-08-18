@@ -91,6 +91,16 @@ def _validate_serialized_size(value: Any, context_name: str) -> None:
         )
 
 
+def _validate_persisted_record_size(value: Any) -> None:
+    canonical_size = len(_canonical_json(value).encode("utf-8"))
+    persisted_size = canonical_size + 1  # AtomicRuntimeCapacityStore writes one canonical newline.
+    if persisted_size > MAX_SERIALIZED_BYTES:
+        raise ContinuityStateValidationError(
+            "Serialized RuntimeCapacityRecord exceeds persisted size limit "
+            f"({persisted_size} > {MAX_SERIALIZED_BYTES})"
+        )
+
+
 def _normalize_enum_sequence(
     value: Any,
     enum_type: type[Enum],
@@ -157,7 +167,7 @@ class RuntimeCapacityRecord:
             raise ContinuityStateValidationError(
                 "RuntimeCapacityRecord record_fingerprint does not match canonical semantics"
             )
-        _validate_serialized_size(self.to_dict(), "RuntimeCapacityRecord")
+        _validate_persisted_record_size(self.to_dict())
 
     def semantic_dict(self) -> dict[str, Any]:
         return {
@@ -272,8 +282,12 @@ class AtomicRuntimeCapacityStore:
         if not isinstance(record, RuntimeCapacityRecord):
             raise ContinuityStateValidationError("record must be RuntimeCapacityRecord")
         final_path = self.record_path(record.actor_kind, record.actor_id)
-        final_path.parent.mkdir(parents=True, exist_ok=True)
         payload = record.to_canonical_json().encode("utf-8") + b"\n"
+        if len(payload) > MAX_SERIALIZED_BYTES:
+            raise ContinuityStateValidationError(
+                "Runtime capacity persisted payload exceeds size limit"
+            )
+        final_path.parent.mkdir(parents=True, exist_ok=True)
         temp_path = final_path.with_name(f".{final_path.name}.tmp-{secrets.token_hex(8)}")
         try:
             with temp_path.open("xb") as handle:

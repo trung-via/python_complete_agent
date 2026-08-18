@@ -5,7 +5,7 @@ STATUS: READY_FOR_REVIEW
 ## Review Manifest
 ```yaml
 TASK_ID: TASK-038
-ACTION: RUN
+ACTION: FIX
 EXECUTOR_ID: codex
 EXECUTOR_FAILOVER: NO
 HOT_HANDOFF: NO
@@ -16,22 +16,23 @@ Implementation completed by codex; pending ChatGPT review.
 
 ## Task Metadata
 - Task: `TASK-038`
-- Action: `RUN`
+- Action: `FIX`
 - Executor: `codex`
-- Authorized Artifact: `.ai/tasks/TASK-038.md (e6711e6efd)`
+- Authorized Artifact: `.ai/reviews/REVIEW-038.md (fb06073297)`
 - Base Main SHA: `(n/a)`
 - Branch: `ai/task-038`
 
 ## Files Changed
-- bridge.py
 - src/aios_bridge/runtime_dispatch.py
 - tests/aios_bridge/test_runtime_dispatch.py
 - tests/test_bridge_dispatch.py
 
 ## Diff Stat
 ```text
-bridge.py | 231 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 231 insertions(+)
+src/aios_bridge/runtime_dispatch.py        |  18 +++-
+ tests/aios_bridge/test_runtime_dispatch.py | 137 +++++++++++++++++++++++++++++
+ tests/test_bridge_dispatch.py              |  20 +++++
+ 3 files changed, 173 insertions(+), 2 deletions(-)
 ```
 
 ## Tests
@@ -42,17 +43,17 @@ Exit code: 0
 ........................................................................ [  7%]
 ........................................................................ [ 14%]
 .............................................s...........ss............. [ 21%]
-.......................s................................................ [ 29%]
-........................................................................ [ 36%]
+.......................s................................................ [ 28%]
+........................................................................ [ 35%]
 ........................................................................ [ 43%]
 ........................................................................ [ 50%]
-........................................................................ [ 58%]
-........................................................................ [ 65%]
-........................................................................ [ 72%]
+........................................................................ [ 57%]
+........................................................................ [ 64%]
+........................................................................ [ 71%]
 ........................................................................ [ 79%]
-........................................................................ [ 87%]
-........................................................................ [ 94%]
-.......................................................                  [100%]
+........................................................................ [ 86%]
+........................................................................ [ 93%]
+.................................................................        [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -355,7 +356,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-987 passed, 4 skipped, 1533 warnings in 123.92s (0:02:03)
+997 passed, 4 skipped, 1533 warnings in 147.90s (0:02:27)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -367,4 +368,4 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 (none supplied)
 
 ## Generated
-2026-08-18T21:35:23+07:00
+2026-08-18T22:08:26+07:00
