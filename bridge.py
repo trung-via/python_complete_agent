@@ -38,6 +38,12 @@ from src.aios_bridge.continuity.executor_failover import (
     StableExecutorFailoverProof,
     validate_stable_executor_failover,
 )
+from src.aios_bridge.continuity.hot_handoff import (
+    HotHandoffCheckpoint,
+    HotHandoffCheckpointError,
+    capture_hot_handoff_checkpoint,
+    verify_hot_handoff_checkpoint,
+)
 from src.aios_bridge.continuity.lease import (
     MAX_ACTIVE_EXECUTORS_PER_TASK,
     ExecutorLease,
@@ -47,6 +53,45 @@ from src.aios_bridge.continuity.state import ArtifactRef, ContinuityStateValidat
 from src.aios_bridge.runtime_lease import AtomicExecutorLeaseStore
 
 SUPPORTED_RUNTIME_EXECUTORS = ("antigravity", "codex", "claude-code")
+
+HOT_HANDOFF_PROTECTED_PATHS = frozenset(
+    {
+        "bridge.py",
+        "src/aios_bridge/runtime_lease.py",
+        "src/aios_bridge/continuity/hot_handoff.py",
+        "src/aios_bridge/continuity/lease.py",
+        "src/aios_bridge/continuity/executor.py",
+        "src/aios_bridge/continuity/executor_failover.py",
+        "src/aios_bridge/continuity/state.py",
+        "src/aios_bridge/continuity/errors.py",
+    }
+)
+
+HOT_HANDOFF_PREPARED_FIELDS = frozenset(
+    {
+        "checkpoint_fingerprint",
+        "allowed_paths",
+        "source_executor_id",
+        "source_lease_id",
+        "source_lease_fingerprint",
+        "source_execution_fingerprint",
+        "authorized_artifact_path",
+        "authorized_artifact_blob_sha",
+        "prepared_at",
+    }
+)
+
+HOT_HANDOFF_ACTIVATED_FIELDS = frozenset(
+    {
+        "replacement_executor_id",
+        "replacement_lease_id",
+        "replacement_lease_fingerprint",
+        "replacement_execution_fingerprint",
+        "activated_at",
+    }
+)
+
+_LOWER_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 def validate_runtime_executor_id(executor_id: str | None) -> str:
@@ -163,6 +208,7 @@ def get_runtime_paths(repo_root: Path | None = None):
         "artifacts": rdir / "artifacts",
         "history": rdir / "history",
         "leases": rdir / "leases",
+        "hot_handoff": rdir / "hot_handoff",
     }
 
 
@@ -170,6 +216,10 @@ def get_artifact_path(path: str, repo_root: Path | None = None) -> Path:
     """Returns external runtime storage path for synchronized control artifacts."""
     clean_path = path.lstrip("/\\")
     return get_runtime_paths(repo_root)["artifacts"] / clean_path
+
+
+def get_hot_handoff_checkpoint_dir(task_id: int) -> Path:
+    return get_runtime_paths()["hot_handoff"] / f"TASK-{task_id:03d}" / "checkpoints"
 
 
 def get_workspace_id(repo_root: Path | None = None) -> str:
@@ -1730,6 +1780,456 @@ def changed_files():
     return out
 
 
+def parse_hot_handoff_allowed_paths(content: str) -> tuple[str, ...]:
+    """Parse the one exact machine-readable hot-handoff scope marker."""
+    if not isinstance(content, str):
+        raise ContinuityStateValidationError("Hot-handoff control artifact content must be text")
+    prefix = "HOT_HANDOFF_ALLOWED_PATHS_JSON:"
+    occurrences = [line[len(prefix):].strip() for line in content.splitlines() if line.startswith(prefix)]
+    if len(occurrences) != 1:
+        raise ContinuityStateValidationError(
+            f"Control artifact must contain exactly one {prefix} marker; found {len(occurrences)}"
+        )
+    try:
+        parsed = json.loads(occurrences[0])
+    except (TypeError, ValueError) as e:
+        raise ContinuityStateValidationError(f"Malformed hot-handoff allowed-path JSON: {e}") from e
+    if not isinstance(parsed, list) or not parsed:
+        raise ContinuityStateValidationError("Hot-handoff allowed paths must be a non-empty JSON list")
+    if any(not isinstance(item, str) or not item for item in parsed):
+        raise ContinuityStateValidationError("Every hot-handoff allowed path must be a non-empty string")
+    if len(parsed) != len(set(parsed)):
+        raise ContinuityStateValidationError("Hot-handoff allowed paths must not contain duplicates")
+    return tuple(parsed)
+
+
+def reject_protected_hot_handoff_dirty_paths(paths: list[str] | None = None) -> None:
+    """Reject dirty trusted control-plane paths before invoking M9.1 capture."""
+    observed: set[str] = set()
+    for raw in changed_files() if paths is None else paths:
+        normalized = raw.replace("\\", "/").strip().strip('"')
+        if " -> " in normalized:
+            observed.update(part.strip().strip('"') for part in normalized.split(" -> ", 1))
+        else:
+            observed.add(normalized)
+    protected = sorted(observed & HOT_HANDOFF_PROTECTED_PATHS)
+    if protected:
+        raise ContinuityStateValidationError(
+            f"Hot handoff is forbidden while protected control-plane paths are dirty: {protected}"
+        )
+
+
+def load_persisted_hot_handoff_checkpoint(task_id: int, fingerprint: str) -> HotHandoffCheckpoint:
+    """Load one exact content-addressed checkpoint without scanning or fallback."""
+    if not isinstance(fingerprint, str) or not _LOWER_SHA256_RE.fullmatch(fingerprint):
+        raise ContinuityStateValidationError("Checkpoint fingerprint must be exact lowercase 64-hex")
+    path = get_hot_handoff_checkpoint_dir(task_id) / f"{fingerprint}.json"
+    try:
+        checkpoint = HotHandoffCheckpoint.from_json(path.read_bytes())
+    except Exception as e:
+        raise ContinuityStateValidationError(
+            f"Cannot load exact persisted hot-handoff checkpoint '{fingerprint}': {e}"
+        ) from e
+    if checkpoint.checkpoint_fingerprint != fingerprint:
+        raise ContinuityStateValidationError("Persisted hot-handoff checkpoint fingerprint mismatch")
+    return checkpoint
+
+
+def _validate_hot_handoff_metadata(metadata: object, *, activated: bool) -> dict:
+    if not isinstance(metadata, dict):
+        raise ContinuityStateValidationError("hot_handoff authorization metadata must be a dictionary")
+    required = HOT_HANDOFF_PREPARED_FIELDS | (HOT_HANDOFF_ACTIVATED_FIELDS if activated else frozenset())
+    missing = sorted(field for field in required if field not in metadata)
+    if missing:
+        raise ContinuityStateValidationError(f"Partial hot_handoff metadata; missing fields: {missing}")
+    for field in required - {"allowed_paths"}:
+        value = metadata[field]
+        if not isinstance(value, str) or not value:
+            raise ContinuityStateValidationError(f"hot_handoff.{field} must be a non-empty string")
+    allowed_paths = metadata["allowed_paths"]
+    if (
+        not isinstance(allowed_paths, list)
+        or not allowed_paths
+        or any(not isinstance(item, str) or not item for item in allowed_paths)
+        or len(allowed_paths) != len(set(allowed_paths))
+    ):
+        raise ContinuityStateValidationError(
+            "hot_handoff.allowed_paths must be a non-empty unique list of strings"
+        )
+    for field in ("checkpoint_fingerprint", "source_lease_fingerprint", "source_execution_fingerprint"):
+        if not _LOWER_SHA256_RE.fullmatch(metadata[field]):
+            raise ContinuityStateValidationError(f"hot_handoff.{field} must be exact lowercase 64-hex")
+    if activated:
+        for field in ("replacement_lease_fingerprint", "replacement_execution_fingerprint"):
+            if not _LOWER_SHA256_RE.fullmatch(metadata[field]):
+                raise ContinuityStateValidationError(f"hot_handoff.{field} must be exact lowercase 64-hex")
+        if metadata["source_executor_id"] == metadata["replacement_executor_id"]:
+            raise ContinuityStateValidationError("Hot-handoff source and replacement executors must differ")
+    return metadata
+
+
+def _validate_checkpoint_provenance(
+    checkpoint: HotHandoffCheckpoint,
+    *,
+    task_id: int,
+    auth: dict,
+    metadata: dict,
+) -> None:
+    expected = {
+        "task_id": f"TASK-{task_id:03d}",
+        "target_branch": auth.get("branch"),
+        "workspace_id": auth.get("workspace_id"),
+        "source_executor_id": metadata["source_executor_id"],
+        "source_lease_fingerprint": metadata["source_lease_fingerprint"],
+        "source_execution_fingerprint": metadata["source_execution_fingerprint"],
+        "allowed_paths": tuple(metadata["allowed_paths"]),
+    }
+    actual = {
+        "task_id": checkpoint.task_id,
+        "target_branch": checkpoint.target_branch,
+        "workspace_id": checkpoint.workspace_id,
+        "source_executor_id": checkpoint.source_executor_id,
+        "source_lease_fingerprint": checkpoint.source_lease_fingerprint,
+        "source_execution_fingerprint": checkpoint.source_execution_fingerprint,
+        "allowed_paths": checkpoint.allowed_paths,
+    }
+    mismatches = sorted(field for field in expected if actual[field] != expected[field])
+    if mismatches:
+        raise ContinuityStateValidationError(
+            f"Persisted hot-handoff checkpoint provenance mismatch: {mismatches}"
+        )
+    if metadata["authorized_artifact_path"] != auth.get("artifact_path"):
+        raise ContinuityStateValidationError("Hot-handoff authorized artifact path mismatch")
+    if metadata["authorized_artifact_blob_sha"] != auth.get("artifact_blob_sha"):
+        raise ContinuityStateValidationError("Hot-handoff authorized artifact blob mismatch")
+
+
+def validate_active_hot_handoff_provenance(
+    task_id: int,
+    auth: dict,
+    active_lease: ExecutorLease,
+) -> dict | None:
+    """Validate complete activated provenance for publish without workspace equality."""
+    if "hot_handoff" not in auth:
+        return None
+    metadata = _validate_hot_handoff_metadata(auth["hot_handoff"], activated=True)
+    replacement_bindings = {
+        "replacement_executor_id": (auth.get("executor_id"), active_lease.executor_id),
+        "replacement_lease_id": (auth.get("lease_id"), active_lease.lease_id),
+        "replacement_lease_fingerprint": (auth.get("lease_fingerprint"), active_lease.fingerprint()),
+        "replacement_execution_fingerprint": (
+            auth.get("execution_fingerprint"),
+            active_lease.execution_fingerprint,
+        ),
+    }
+    for field, (auth_value, lease_value) in replacement_bindings.items():
+        if metadata[field] != auth_value or metadata[field] != lease_value:
+            raise ContinuityStateValidationError(f"Hot-handoff {field} binding mismatch")
+    checkpoint = load_persisted_hot_handoff_checkpoint(task_id, metadata["checkpoint_fingerprint"])
+    _validate_checkpoint_provenance(checkpoint, task_id=task_id, auth=auth, metadata=metadata)
+    return metadata
+
+
+def _record_hot_handoff_recovery_required(task_id: int, diagnostic: str) -> None:
+    try:
+        update_state(task_id, "RECOVERY_REQUIRED", diagnostic)
+    except Exception as state_error:
+        print(f"[RECOVERY][ERROR] Không thể persist RECOVERY_REQUIRED: {state_error}", file=sys.stderr)
+
+
+def cmd_hot_handoff_prepare(args):
+    ensure_git()
+    cfg = load_config()
+    task_id = args.task_id
+    task_id_str = f"TASK-{task_id:03d}"
+    if getattr(args, "confirm_quiescent", False) is not True:
+        fail("hot-handoff-prepare yêu cầu '--confirm-quiescent' từ Human.")
+
+    expected_branch = f"{cfg['task_branch_prefix']}{task_id:03d}"
+    branch = current_branch()
+    if branch != expected_branch:
+        fail(f"Hot handoff yêu cầu branch '{expected_branch}', hiện tại là '{branch}'.")
+
+    auth = get_active_authorization(task_id)
+    if not auth:
+        fail(f"Không có exact ACTIVE authorization cho {task_id_str}.")
+    original_auth = copy.deepcopy(auth)
+    source_released = False
+
+    try:
+        source_lease = reconstruct_expected_executor_lease(auth)
+        store = get_lease_store()
+        store.require_active(source_lease)
+        current_workspace_id = get_workspace_id()
+        exact_bindings = {
+            "task_id": task_id_str,
+            "branch": expected_branch,
+            "workspace_id": current_workspace_id,
+        }
+        for field, expected_value in exact_bindings.items():
+            if auth.get(field) != expected_value:
+                raise ContinuityStateValidationError(
+                    f"ACTIVE authorization {field} mismatch: {auth.get(field)!r} != {expected_value!r}"
+                )
+        if auth.get("action") not in {"RUN", "FIX"}:
+            raise ContinuityStateValidationError("ACTIVE authorization action must be RUN or FIX")
+        if not isinstance(auth.get("artifact_path"), str) or not auth["artifact_path"]:
+            raise ContinuityStateValidationError("ACTIVE authorization artifact_path is missing")
+        if not isinstance(auth.get("artifact_blob_sha"), str) or not auth["artifact_blob_sha"]:
+            raise ContinuityStateValidationError("ACTIVE authorization artifact_blob_sha is missing")
+
+        fetch_control(cfg)
+        current_blob = get_remote_blob_sha(cfg, auth["artifact_path"])
+        if current_blob != auth["artifact_blob_sha"]:
+            raise ContinuityStateValidationError("Authorized control artifact blob drift blocks hot handoff")
+        control_content = read_remote_file(cfg, auth["artifact_path"])
+        allowed_paths = parse_hot_handoff_allowed_paths(control_content)
+        reject_protected_hot_handoff_dirty_paths()
+
+        checkpoint_dir = get_hot_handoff_checkpoint_dir(task_id)
+        checkpoint = capture_hot_handoff_checkpoint(
+            PROJECT,
+            checkpoint_dir,
+            task_id=task_id_str,
+            target_branch=expected_branch,
+            workspace_id=current_workspace_id,
+            source_executor_id=source_lease.executor_id,
+            source_lease_fingerprint=source_lease.fingerprint(),
+            source_execution_fingerprint=source_lease.execution_fingerprint,
+            allowed_paths=allowed_paths,
+        )
+        verify_hot_handoff_checkpoint(
+            checkpoint,
+            PROJECT,
+            workspace_id=current_workspace_id,
+            allowed_paths=allowed_paths,
+            checkpoint_dir=checkpoint_dir,
+        )
+
+        store.release(source_lease)
+        source_released = True
+        verify_hot_handoff_checkpoint(
+            checkpoint,
+            PROJECT,
+            workspace_id=current_workspace_id,
+            allowed_paths=allowed_paths,
+            checkpoint_dir=checkpoint_dir,
+        )
+
+        prepared_auth = copy.deepcopy(original_auth)
+        prepared_auth["status"] = "HANDOFF_PREPARED"
+        prepared_auth["hot_handoff"] = {
+            "checkpoint_fingerprint": checkpoint.checkpoint_fingerprint,
+            "allowed_paths": list(allowed_paths),
+            "source_executor_id": source_lease.executor_id,
+            "source_lease_id": source_lease.lease_id,
+            "source_lease_fingerprint": source_lease.fingerprint(),
+            "source_execution_fingerprint": source_lease.execution_fingerprint,
+            "authorized_artifact_path": auth["artifact_path"],
+            "authorized_artifact_blob_sha": auth["artifact_blob_sha"],
+            "prepared_at": now(),
+        }
+        save_authorization(task_id, prepared_auth)
+        update_state(
+            task_id,
+            "HANDOFF_PREPARED",
+            f"Human must activate an explicit replacement for checkpoint {checkpoint.checkpoint_fingerprint}",
+        )
+    except Exception as e:
+        if not source_released:
+            fail(f"Hot-handoff prepare thất bại trước source release: {e}")
+        rollback_errors = []
+        try:
+            store.acquire(source_lease)
+            store.require_active(source_lease)
+        except Exception as rollback_error:
+            rollback_errors.append(f"source_lease_restore={rollback_error}")
+        try:
+            save_authorization(task_id, original_auth)
+            if load_authorization(task_id) != original_auth:
+                raise RuntimeError("authorization read-back mismatch")
+        except Exception as rollback_error:
+            rollback_errors.append(f"authorization_restore={rollback_error}")
+        if not rollback_errors:
+            try:
+                original_state = "IN_PROGRESS" if original_auth.get("action") == "RUN" else "CHANGES_REQUIRED"
+                update_state(task_id, original_state, "Hot-handoff prepare rolled back to source Executor")
+            except Exception as rollback_error:
+                rollback_errors.append(f"state_restore={rollback_error}")
+        if rollback_errors:
+            diagnostic = f"Hot-handoff prepare rollback unproven: {rollback_errors}; original_error={e}"
+            _record_hot_handoff_recovery_required(task_id, diagnostic)
+            fail(diagnostic)
+        fail(f"Hot-handoff prepare thất bại sau source release; source authority restored: {e}")
+
+    print("[HOT-HANDOFF PREPARED]")
+    print(f"Task:       {task_id_str}")
+    print(f"Checkpoint: {checkpoint.checkpoint_fingerprint}")
+    print(f"Source:     {source_lease.executor_id}")
+    print("Active lease: NONE")
+    print("Tiếp theo Human chọn replacement rõ ràng:")
+    print(
+        f"  bridge.py hot-handoff-activate {task_id} --executor <replacement> "
+        f"--checkpoint {checkpoint.checkpoint_fingerprint}"
+    )
+
+
+def cmd_hot_handoff_activate(args):
+    ensure_git()
+    cfg = load_config()
+    task_id = args.task_id
+    task_id_str = f"TASK-{task_id:03d}"
+    if getattr(args, "executor", None) is None:
+        fail("hot-handoff-activate yêu cầu explicit '--executor'.")
+    try:
+        replacement_executor = validate_runtime_executor_id(args.executor)
+    except Exception as e:
+        fail(f"Replacement executor không hợp lệ: {e}")
+    checkpoint_fingerprint = getattr(args, "checkpoint", None)
+    if not isinstance(checkpoint_fingerprint, str) or not _LOWER_SHA256_RE.fullmatch(
+        checkpoint_fingerprint
+    ):
+        fail("--checkpoint phải là exact lowercase 64-hex fingerprint.")
+
+    expected_branch = f"{cfg['task_branch_prefix']}{task_id:03d}"
+    branch = current_branch()
+    if branch != expected_branch:
+        fail(f"Hot-handoff activation yêu cầu branch '{expected_branch}', hiện tại là '{branch}'.")
+
+    auth = load_authorization(task_id)
+    if not isinstance(auth, dict) or auth.get("status") != "HANDOFF_PREPARED":
+        fail(f"{task_id_str} không có authorization status HANDOFF_PREPARED.")
+    prepared_auth = copy.deepcopy(auth)
+    replacement_acquired = False
+
+    try:
+        metadata = _validate_hot_handoff_metadata(auth.get("hot_handoff"), activated=False)
+        if checkpoint_fingerprint != metadata["checkpoint_fingerprint"]:
+            raise ContinuityStateValidationError("CLI checkpoint does not match prepared checkpoint")
+        if replacement_executor == metadata["source_executor_id"]:
+            raise ContinuityStateValidationError("Replacement executor must differ from source executor")
+        current_workspace_id = get_workspace_id()
+        exact_bindings = {
+            "task_id": task_id_str,
+            "branch": expected_branch,
+            "workspace_id": current_workspace_id,
+            "artifact_path": metadata["authorized_artifact_path"],
+            "artifact_blob_sha": metadata["authorized_artifact_blob_sha"],
+        }
+        for field, expected_value in exact_bindings.items():
+            if auth.get(field) != expected_value:
+                raise ContinuityStateValidationError(
+                    f"Prepared authorization {field} mismatch: {auth.get(field)!r} != {expected_value!r}"
+                )
+        if auth.get("action") not in {"RUN", "FIX"}:
+            raise ContinuityStateValidationError("Prepared authorization action must be RUN or FIX")
+
+        store = get_lease_store()
+        if store.load_active(task_id_str) is not None:
+            raise ContinuityStateValidationError("Activation requires zero active Executor leases")
+
+        fetch_control(cfg)
+        current_blob = get_remote_blob_sha(cfg, auth["artifact_path"])
+        if (
+            current_blob != auth["artifact_blob_sha"]
+            or current_blob != metadata["authorized_artifact_blob_sha"]
+        ):
+            raise ContinuityStateValidationError("Authorized control artifact blob drift blocks activation")
+
+        checkpoint = load_persisted_hot_handoff_checkpoint(task_id, checkpoint_fingerprint)
+        _validate_checkpoint_provenance(checkpoint, task_id=task_id, auth=auth, metadata=metadata)
+        checkpoint_dir = get_hot_handoff_checkpoint_dir(task_id)
+        allowed_paths = tuple(metadata["allowed_paths"])
+        verify_hot_handoff_checkpoint(
+            checkpoint,
+            PROJECT,
+            workspace_id=current_workspace_id,
+            allowed_paths=allowed_paths,
+            checkpoint_dir=checkpoint_dir,
+        )
+
+        replacement_lease = build_executor_lease_candidate(
+            task_id=task_id_str,
+            workspace_id=current_workspace_id,
+            operation=ExecutionOperation(auth["action"]),
+            target_branch=expected_branch,
+            authorized_artifact_path=auth["artifact_path"],
+            authorized_artifact_blob_sha=auth["artifact_blob_sha"],
+            executor_id=replacement_executor,
+        )
+        store.acquire(replacement_lease)
+        replacement_acquired = True
+        verify_hot_handoff_checkpoint(
+            checkpoint,
+            PROJECT,
+            workspace_id=current_workspace_id,
+            allowed_paths=allowed_paths,
+            checkpoint_dir=checkpoint_dir,
+        )
+
+        active_auth = copy.deepcopy(prepared_auth)
+        active_auth.update(
+            {
+                "status": "ACTIVE",
+                "executor_id": replacement_lease.executor_id,
+                "lease_id": replacement_lease.lease_id,
+                "lease_fingerprint": replacement_lease.fingerprint(),
+                "execution_fingerprint": replacement_lease.execution_fingerprint,
+                "approved_at": now(),
+            }
+        )
+        active_metadata = copy.deepcopy(metadata)
+        active_metadata.update(
+            {
+                "replacement_executor_id": replacement_lease.executor_id,
+                "replacement_lease_id": replacement_lease.lease_id,
+                "replacement_lease_fingerprint": replacement_lease.fingerprint(),
+                "replacement_execution_fingerprint": replacement_lease.execution_fingerprint,
+                "activated_at": now(),
+            }
+        )
+        active_auth["hot_handoff"] = active_metadata
+        save_authorization(task_id, active_auth)
+        execution_state = "IN_PROGRESS" if auth["action"] == "RUN" else "CHANGES_REQUIRED"
+        update_state(
+            task_id,
+            execution_state,
+            f"Replacement Executor {replacement_executor} active from checkpoint {checkpoint_fingerprint}",
+        )
+    except Exception as e:
+        if not replacement_acquired:
+            fail(f"Hot-handoff activation thất bại trước replacement acquire: {e}")
+        rollback_errors = []
+        try:
+            store.release(replacement_lease)
+            if store.load_active(task_id_str) is not None:
+                raise RuntimeError("replacement lease still active after release")
+        except Exception as rollback_error:
+            rollback_errors.append(f"replacement_lease_release={rollback_error}")
+        try:
+            save_authorization(task_id, prepared_auth)
+            if load_authorization(task_id) != prepared_auth:
+                raise RuntimeError("prepared authorization read-back mismatch")
+        except Exception as rollback_error:
+            rollback_errors.append(f"prepared_authorization_restore={rollback_error}")
+        if not rollback_errors:
+            try:
+                update_state(task_id, "HANDOFF_PREPARED", "Replacement activation rolled back")
+            except Exception as rollback_error:
+                rollback_errors.append(f"state_restore={rollback_error}")
+        if rollback_errors:
+            diagnostic = f"Hot-handoff activation rollback unproven: {rollback_errors}; original_error={e}"
+            _record_hot_handoff_recovery_required(task_id, diagnostic)
+            fail(diagnostic)
+        fail(f"Hot-handoff activation thất bại; HANDOFF_PREPARED restored: {e}")
+
+    print("[HOT-HANDOFF ACTIVE]")
+    print(f"Task:        {task_id_str}")
+    print(f"Checkpoint:  {checkpoint_fingerprint}")
+    print(f"Replacement: {replacement_executor}")
+    print(f"Chạy `bridge.py context {task_id}` trước mutation đầu tiên.")
+
+
 def cmd_context(args):
     cfg = load_config()
     task_id = args.task_id
@@ -1784,6 +2284,7 @@ def cmd_context(args):
         "approved_event": event,
         "authorization": auth,
         "lease": active_lease_info,
+        "hot_handoff": auth.get("hot_handoff") if isinstance(auth, dict) else None,
         "current_branch": current_branch(),
         "expected_branch": f"{cfg['task_branch_prefix']}{task_id:03d}",
         "task_file": str(task_file),
@@ -2213,6 +2714,11 @@ def cmd_publish(args):
                 f"Review '{auth['artifact_path']}' hiện không ở trạng thái CHANGES_REQUIRED (status={status}). Không publish."
             )
 
+    try:
+        hot_handoff_info = validate_active_hot_handoff_provenance(task_id, auth, expected_lease)
+    except Exception as e:
+        fail(f"Xác thực hot-handoff provenance trước publish thất bại: {e}")
+
     # Re-validate M6 failover metadata if present (C19 / C20 / AIP-8)
     has_failover_marker = any(
         k in auth for k in ("failover_proof", "failover_source_lease", "failover_proof_fingerprint")
@@ -2351,6 +2857,15 @@ FAILOVER_REVIEW_BLOB_SHA: {failover_info['review_blob_sha']}
     else:
         manifest_failover_block = "EXECUTOR_FAILOVER: NO\n"
 
+    if hot_handoff_info:
+        manifest_hot_handoff_block = f"""HOT_HANDOFF: YES
+HOT_HANDOFF_CHECKPOINT_FINGERPRINT: {hot_handoff_info['checkpoint_fingerprint']}
+HOT_HANDOFF_FROM_EXECUTOR: {hot_handoff_info['source_executor_id']}
+HOT_HANDOFF_TO_EXECUTOR: {hot_handoff_info['replacement_executor_id']}
+"""
+    else:
+        manifest_hot_handoff_block = "HOT_HANDOFF: NO\n"
+
     # Emit M6/M7/M8 real-proof progress manifest for TASK-030, TASK-031, TASK-032
     proof_progress_block = ""
     if task_id == 30:
@@ -2412,7 +2927,8 @@ REGRESSIONS: {regressions_val}
     manifest_content = f"""TASK_ID: TASK-{task_id:03d}
 ACTION: {action_label}
 EXECUTOR_ID: {active_exec}
-{manifest_failover_block.rstrip()}"""
+{manifest_failover_block.rstrip()}
+{manifest_hot_handoff_block.rstrip()}"""
 
     if proof_progress_block:
         manifest_content += f"\n{proof_progress_block.rstrip()}"
@@ -2708,6 +3224,23 @@ def build_parser():
     s = sub.add_parser("context", help="Print execution context for Antigravity")
     s.add_argument("task_id", type=int)
     s.set_defaults(func=cmd_context)
+
+    s = sub.add_parser(
+        "hot-handoff-prepare",
+        help="Human-confirmed quiescent checkpoint preparation for a dirty local workspace",
+    )
+    s.add_argument("task_id", type=int)
+    s.add_argument("--confirm-quiescent", action="store_true")
+    s.set_defaults(func=cmd_hot_handoff_prepare)
+
+    s = sub.add_parser(
+        "hot-handoff-activate",
+        help="Human-authorized activation of an explicit replacement Executor",
+    )
+    s.add_argument("task_id", type=int)
+    s.add_argument("--executor", required=True)
+    s.add_argument("--checkpoint", required=True)
+    s.set_defaults(func=cmd_hot_handoff_activate)
 
     s = sub.add_parser(
         "publish", help="Run tests, create RESULT, commit and push task branch"
