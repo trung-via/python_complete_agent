@@ -5,7 +5,7 @@ STATUS: READY_FOR_REVIEW
 ## Review Manifest
 ```yaml
 TASK_ID: TASK-035
-ACTION: RUN
+ACTION: FIX
 EXECUTOR_ID: codex
 EXECUTOR_FAILOVER: NO
 HOT_HANDOFF: NO
@@ -16,9 +16,9 @@ Implementation completed by codex; pending ChatGPT review.
 
 ## Task Metadata
 - Task: `TASK-035`
-- Action: `RUN`
+- Action: `FIX`
 - Executor: `codex`
-- Authorized Artifact: `.ai/tasks/TASK-035.md (7bed4597fb)`
+- Authorized Artifact: `.ai/reviews/REVIEW-035.md (90fb94fc0b)`
 - Base Main SHA: `(n/a)`
 - Branch: `ai/task-035`
 
@@ -28,8 +28,9 @@ Implementation completed by codex; pending ChatGPT review.
 
 ## Diff Stat
 ```text
-bridge.py | 535 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 534 insertions(+), 1 deletion(-)
+bridge.py                        | 25 ++++++++++++++
+ tests/test_bridge_hot_handoff.py | 71 ++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 96 insertions(+)
 ```
 
 ## Tests
@@ -41,14 +42,14 @@ Exit code: 0
 ........................................................................ [ 16%]
 ...............s........................................................ [ 25%]
 ........................................................................ [ 33%]
-........................................................................ [ 42%]
+........................................................................ [ 41%]
 ........................................................................ [ 50%]
-........................................................................ [ 59%]
+........................................................................ [ 58%]
 ........................................................................ [ 67%]
-........................................................................ [ 76%]
-........................................................................ [ 84%]
-........................................................................ [ 93%]
-..........................................................               [100%]
+........................................................................ [ 75%]
+........................................................................ [ 83%]
+........................................................................ [ 92%]
+...................................................................      [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -351,7 +352,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-849 passed, 1 skipped, 1533 warnings in 97.20s (0:01:37)
+858 passed, 1 skipped, 1533 warnings in 108.57s (0:01:48)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -363,4 +364,4 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 (none supplied)
 
 ## Generated
-2026-08-18T11:42:02+07:00
+2026-08-18T12:14:18+07:00

@@ -1,6 +1,7 @@
 """Focused adversarial tests for the TASK-035 Bridge hot-handoff lifecycle."""
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -188,6 +189,47 @@ def test_prepare_requires_exact_source_lease(monkeypatch):
     assert store.active.executor_id == "antigravity"
 
 
+@pytest.mark.parametrize(
+    "failover_metadata",
+    [
+        {
+            "failover_source_lease": {},
+            "failover_proof": {},
+            "failover_proof_fingerprint": "c" * 64,
+        },
+        {"failover_source_lease": {}},
+        {"failover_proof": {}},
+        {"failover_proof_fingerprint": "c" * 64},
+    ],
+)
+def test_prepare_rejects_any_stable_failover_marker_before_capture_or_release(
+    monkeypatch, failover_metadata
+):
+    _base(monkeypatch)
+    source = _lease()
+    auth = _active_auth(source)
+    auth.update(failover_metadata)
+    original = copy.deepcopy(auth)
+    store = FakeStore(active=source)
+    saved = []
+    monkeypatch.setattr(bridge, "get_active_authorization", lambda task_id: auth)
+    monkeypatch.setattr(bridge, "get_lease_store", lambda: store)
+    monkeypatch.setattr(
+        bridge,
+        "capture_hot_handoff_checkpoint",
+        lambda *args, **kwargs: pytest.fail("checkpoint capture must not run"),
+    )
+    monkeypatch.setattr(bridge, "save_authorization", lambda *args: saved.append(args))
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_hot_handoff_prepare(SimpleNamespace(task_id=TASK_ID, confirm_quiescent=True))
+
+    assert auth == original
+    assert store.active == source
+    assert not store.released
+    assert not saved
+
+
 def test_prepare_control_blob_drift_leaves_source_active(monkeypatch):
     _base(monkeypatch)
     source = _lease()
@@ -357,6 +399,35 @@ def test_active_lease_collision_blocks_activation(monkeypatch):
         )
     assert store.active == collision
     assert not store.acquired
+
+
+@pytest.mark.parametrize(
+    "location,field,value",
+    [
+        ("top", "lease_id", "lease-task-035-tampered"),
+        ("nested", "source_lease_id", "lease-task-035-tampered"),
+        ("top", "executor_id", "claude-code"),
+        ("top", "lease_fingerprint", "c" * 64),
+        ("top", "execution_fingerprint", "c" * 64),
+    ],
+)
+def test_activation_rejects_tampered_source_lease_provenance_before_acquire(
+    monkeypatch, location, field, value
+):
+    _, _, _, store, auth_box, states = _activation_seams(monkeypatch)
+    target = auth_box["value"] if location == "top" else auth_box["value"]["hot_handoff"]
+    target[field] = value
+    tampered_prepared = copy.deepcopy(auth_box["value"])
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_hot_handoff_activate(
+            SimpleNamespace(task_id=TASK_ID, executor="antigravity", checkpoint=CHECKPOINT_FP)
+        )
+
+    assert store.active is None
+    assert not store.acquired
+    assert auth_box["value"] == tampered_prepared
+    assert not states
 
 
 def test_successful_activation_creates_new_lease_and_retains_source_provenance(monkeypatch):

@@ -1953,6 +1953,17 @@ def cmd_hot_handoff_prepare(args):
     auth = get_active_authorization(task_id)
     if not auth:
         fail(f"Không có exact ACTIVE authorization cho {task_id_str}.")
+    stable_failover_markers = (
+        "failover_source_lease",
+        "failover_proof",
+        "failover_proof_fingerprint",
+    )
+    present_failover_markers = [field for field in stable_failover_markers if field in auth]
+    if present_failover_markers:
+        fail(
+            "Hot handoff không hỗ trợ ACTIVE authorization chứa stable-failover metadata: "
+            + ", ".join(present_failover_markers)
+        )
     original_auth = copy.deepcopy(auth)
     source_released = False
 
@@ -2123,6 +2134,20 @@ def cmd_hot_handoff_activate(args):
                 )
         if auth.get("action") not in {"RUN", "FIX"}:
             raise ContinuityStateValidationError("Prepared authorization action must be RUN or FIX")
+
+        source_lease = reconstruct_expected_executor_lease(auth)
+        source_provenance = {
+            "source_executor_id": source_lease.executor_id,
+            "source_lease_id": source_lease.lease_id,
+            "source_lease_fingerprint": source_lease.fingerprint(),
+            "source_execution_fingerprint": source_lease.execution_fingerprint,
+        }
+        for field, expected_value in source_provenance.items():
+            if metadata[field] != expected_value:
+                raise ContinuityStateValidationError(
+                    f"Prepared hot-handoff {field} mismatch: "
+                    f"{metadata[field]!r} != {expected_value!r}"
+                )
 
         store = get_lease_store()
         if store.load_active(task_id_str) is not None:
