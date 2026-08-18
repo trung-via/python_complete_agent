@@ -18,19 +18,17 @@ Implementation completed by antigravity; pending ChatGPT review.
 - Task: `TASK-036`
 - Action: `FIX`
 - Executor: `antigravity`
-- Authorized Artifact: `.ai/reviews/REVIEW-036.md (c6a7b31e60)`
+- Authorized Artifact: `.ai/reviews/REVIEW-036.md (63801c884f)`
 - Base Main SHA: `(n/a)`
 - Branch: `ai/task-036`
 
 ## Files Changed
-- scripts/aios_m9_real_hot_handoff_proof.py
 - tests/aios_bridge/continuity/test_m9_real_hot_handoff_proof.py
 
 ## Diff Stat
 ```text
-scripts/aios_m9_real_hot_handoff_proof.py          | 103 ++++++--
- .../continuity/test_m9_real_hot_handoff_proof.py   | 286 ++++++++++++++++-----
- 2 files changed, 304 insertions(+), 85 deletions(-)
+.../continuity/test_m9_real_hot_handoff_proof.py   | 187 +++++++++++++++++++++
+ 1 file changed, 187 insertions(+)
 ```
 
 ## Tests
@@ -38,19 +36,19 @@ Command: `.\venv\Scripts\python.exe -m pytest tests/ -q`
 Exit code: 0
 
 ```text
-........................................................................ [  8%]
-........................................................................ [ 16%]
-...............s...........ss........................................... [ 24%]
-........................................................................ [ 32%]
-........................................................................ [ 40%]
-........................................................................ [ 48%]
-........................................................................ [ 56%]
-........................................................................ [ 64%]
-........................................................................ [ 72%]
-........................................................................ [ 80%]
-........................................................................ [ 88%]
-........................................................................ [ 96%]
-...........................                                              [100%]
+........................................................................ [  7%]
+........................................................................ [ 15%]
+...............s...........ss....................................s...... [ 23%]
+........................................................................ [ 31%]
+........................................................................ [ 39%]
+........................................................................ [ 47%]
+........................................................................ [ 55%]
+........................................................................ [ 63%]
+........................................................................ [ 71%]
+........................................................................ [ 79%]
+........................................................................ [ 87%]
+........................................................................ [ 95%]
+.....................................                                    [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -353,7 +351,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-888 passed, 3 skipped, 1533 warnings in 133.22s (0:02:13)
+897 passed, 4 skipped, 1533 warnings in 146.70s (0:02:26)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -365,4 +363,4 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 (none supplied)
 
 ## Generated
-2026-08-18T19:37:50+07:00
+2026-08-18T20:33:51+07:00

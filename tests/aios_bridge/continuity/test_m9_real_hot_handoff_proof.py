@@ -470,3 +470,190 @@ def test_verify_exact_checkpoint_lookup_no_fallback(fake_proof_workspace, monkey
     verify_real_hot_handoff_proof(ws["repo_root"])
     assert len(recorded_lookups) == 1
     assert recorded_lookups[0] == (TASK_ID, ws["checkpoint_fp"]) or recorded_lookups[0] == (36, ws["checkpoint_fp"])
+
+
+# ==============================================================================
+# R1-1 Restored: ADR-025 Proof Boundary Tests (previously deleted, now restored)
+# ==============================================================================
+
+# Restored: source actor != codex -> reject
+def test_verify_fails_when_source_actor_is_wrong(fake_proof_workspace, monkeypatch):
+    ws = fake_proof_workspace
+    bad_metadata = dict(ws["auth"]["hot_handoff"])
+    bad_metadata["source_executor_id"] = "claude-code"
+    monkeypatch.setattr(
+        "scripts.aios_m9_real_hot_handoff_proof.validate_active_hot_handoff_provenance",
+        lambda tid, a, l: bad_metadata,
+    )
+
+    out_file = ws["repo_root"] / OUTPUT_PATH
+    with pytest.raises(ContinuityStateValidationError, match="source_executor_id mismatch"):
+        verify_real_hot_handoff_proof(ws["repo_root"])
+    assert not out_file.exists()
+
+
+# Restored: replacement actor != antigravity -> reject
+def test_verify_fails_when_replacement_actor_is_wrong(fake_proof_workspace, monkeypatch):
+    ws = fake_proof_workspace
+    bad_metadata = dict(ws["auth"]["hot_handoff"])
+    bad_metadata["replacement_executor_id"] = "claude-code"
+    monkeypatch.setattr(
+        "scripts.aios_m9_real_hot_handoff_proof.validate_active_hot_handoff_provenance",
+        lambda tid, a, l: bad_metadata,
+    )
+
+    out_file = ws["repo_root"] / OUTPUT_PATH
+    with pytest.raises(ContinuityStateValidationError, match="replacement_executor_id mismatch"):
+        verify_real_hot_handoff_proof(ws["repo_root"])
+    assert not out_file.exists()
+
+
+# Restored: source actor == replacement actor -> reject
+def test_verify_fails_when_source_and_replacement_actors_are_same(fake_proof_workspace, monkeypatch):
+    ws = fake_proof_workspace
+    bad_metadata = dict(ws["auth"]["hot_handoff"])
+    bad_metadata["source_executor_id"] = "antigravity"
+    bad_metadata["replacement_executor_id"] = "antigravity"
+    monkeypatch.setattr(
+        "scripts.aios_m9_real_hot_handoff_proof.validate_active_hot_handoff_provenance",
+        lambda tid, a, l: bad_metadata,
+    )
+
+    out_file = ws["repo_root"] / OUTPUT_PATH
+    # Verifier checks source_actor != SOURCE_EXECUTOR before checking source == replacement,
+    # so either error pattern is valid depending on which actor differs first.
+    with pytest.raises(ContinuityStateValidationError, match="source_executor_id mismatch|must differ"):
+        verify_real_hot_handoff_proof(ws["repo_root"])
+    assert not out_file.exists()
+
+
+# Restored: checkpoint head_sha != exact baseline -> reject
+def test_verify_fails_when_checkpoint_head_sha_mismatches_baseline(fake_proof_workspace, monkeypatch):
+    ws = fake_proof_workspace
+    ckpt_dict = ws["checkpoint"].to_dict()
+    ckpt_dict["head_sha"] = "0" * 40
+    bad_checkpoint = _recompute_checkpoint(ckpt_dict)
+    monkeypatch.setattr(
+        "scripts.aios_m9_real_hot_handoff_proof.load_persisted_hot_handoff_checkpoint",
+        lambda tid, fp: bad_checkpoint,
+    )
+
+    out_file = ws["repo_root"] / OUTPUT_PATH
+    with pytest.raises(ContinuityStateValidationError, match="head_sha mismatch"):
+        verify_real_hot_handoff_proof(ws["repo_root"])
+    assert not out_file.exists()
+
+
+# Restored: source-stage current hash/content drift -> reject
+def test_verify_fails_when_source_stage_content_drifts_from_checkpoint(fake_proof_workspace, monkeypatch):
+    ws = fake_proof_workspace
+    # Overwrite source file on disk with different content
+    ws["source_file"].write_bytes(b"TASK_ID: TASK-036\nSTAGE: TAMPERED\n")
+
+    out_file = ws["repo_root"] / OUTPUT_PATH
+    with pytest.raises(ContinuityStateValidationError, match="sha256 mismatch|content does not match"):
+        verify_real_hot_handoff_proof(ws["repo_root"])
+    assert not out_file.exists()
+
+
+# Restored: replacement-stage already present in source checkpoint -> reject
+def test_verify_fails_when_replacement_stage_present_in_source_checkpoint(fake_proof_workspace, monkeypatch):
+    ws = fake_proof_workspace
+    ckpt_dict = ws["checkpoint"].to_dict()
+    # Add replacement path to the untracked manifest alongside source
+    repl_entry = {
+        "path": REPLACEMENT_PATH,
+        "sha256": "f" * 64,
+        "size_bytes": 186,
+    }
+    # REPLACEMENT_PATH < SOURCE_PATH alphabetically ('r' < 's'), so prepend to maintain sort order
+    ckpt_dict["untracked_file_manifest"] = [repl_entry] + list(ckpt_dict["untracked_file_manifest"])
+    bad_checkpoint = _recompute_checkpoint(ckpt_dict)
+    monkeypatch.setattr(
+        "scripts.aios_m9_real_hot_handoff_proof.load_persisted_hot_handoff_checkpoint",
+        lambda tid, fp: bad_checkpoint,
+    )
+
+    out_file = ws["repo_root"] / OUTPUT_PATH
+    with pytest.raises(ContinuityStateValidationError, match="untracked manifest must contain exactly 1 entry|forbiddenly present"):
+        verify_real_hot_handoff_proof(ws["repo_root"])
+    assert not out_file.exists()
+
+
+# Restored: replacement-stage missing after activation -> reject
+def test_verify_fails_when_replacement_stage_is_missing(fake_proof_workspace, monkeypatch):
+    ws = fake_proof_workspace
+    # Remove replacement file from disk
+    ws["replacement_file"].unlink()
+
+    out_file = ws["repo_root"] / OUTPUT_PATH
+    with pytest.raises(ContinuityStateValidationError, match="does not exist"):
+        verify_real_hot_handoff_proof(ws["repo_root"])
+    assert not out_file.exists()
+
+
+# Restored: replacement-stage checkpoint-fingerprint mismatch -> reject
+def test_verify_fails_when_replacement_stage_checkpoint_fingerprint_mismatches(fake_proof_workspace, monkeypatch):
+    ws = fake_proof_workspace
+    # Write replacement file with wrong checkpoint fingerprint
+    wrong_content = (
+        "TASK_ID: TASK-036\n"
+        "STAGE: REPLACEMENT_POST_ACTIVATION\n"
+        "EXECUTOR_ID: antigravity\n"
+        f"CHECKPOINT_FINGERPRINT: {'0' * 64}\n"
+        "PAYLOAD_VERSION: 1\n"
+    )
+    ws["replacement_file"].write_bytes(wrong_content.encode("utf-8"))
+
+    out_file = ws["repo_root"] / OUTPUT_PATH
+    with pytest.raises(ContinuityStateValidationError, match="does not match expected marker format or active checkpoint fingerprint"):
+        verify_real_hot_handoff_proof(ws["repo_root"])
+    assert not out_file.exists()
+
+
+# ==============================================================================
+# R1-2 Additional: Missing Path Safety Tests
+# ==============================================================================
+
+# R1-2 new: parent symlink pointing outside repo -> reject
+def test_safe_read_workspace_payload_rejects_symlink_parent_pointing_outside_repo(tmp_path: Path):
+    """Symlink parent component whose target is outside the repository root must be rejected."""
+    # outside_dir is outside tmp_path (the repo root for this test)
+    outside_dir = tmp_path.parent / "outside_target_dir"
+    try:
+        outside_dir.mkdir(exist_ok=True)
+        outside_file = outside_dir / "secret.txt"
+        outside_file.write_bytes(b"outside content\n")
+
+        # repo_root is a subdirectory of tmp_path
+        repo_root = tmp_path / "repo"
+        repo_root.mkdir()
+
+        link_dir = repo_root / "link_to_outside"
+        try:
+            link_dir.symlink_to(outside_dir, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            pytest.skip("Symlinks not supported on this platform/privilege level")
+
+        # The symlink parent points outside repo_root — must reject
+        with pytest.raises(ContinuityStateValidationError, match="Path component must not be a symlink|Path escapes repository root"):
+            safe_read_workspace_payload(repo_root, "link_to_outside/secret.txt")
+    finally:
+        import shutil
+        if outside_dir.exists():
+            shutil.rmtree(outside_dir, ignore_errors=True)
+
+
+# R1-2 new: ordinary nested regular path -> accept
+def test_validate_safe_repository_path_accepts_ordinary_nested_regular_path(tmp_path: Path):
+    """A multi-level ordinary (non-symlink) regular file path must be accepted."""
+    nested = tmp_path / "proofs" / "TASK-036-M9" / "source-stage.txt"
+    nested.parent.mkdir(parents=True)
+    nested.write_bytes(b"TASK_ID: TASK-036\n")
+
+    resolved = validate_safe_repository_path(tmp_path, "proofs/TASK-036-M9/source-stage.txt")
+    assert resolved == nested
+    # Confirm safe_read_workspace_payload also accepts it
+    res = safe_read_workspace_payload(tmp_path, "proofs/TASK-036-M9/source-stage.txt")
+    assert res["text"] == "TASK_ID: TASK-036\n"
+    assert res["size_bytes"] == 18
