@@ -3,7 +3,7 @@
 STATUS: PASS
 APPROVED: YES
 READY_FOR_HUMAN_MERGE: YES
-MERGE_AUTHORIZED: NO
+MERGE_AUTHORIZED: YES
 
 ## Review Round
 
@@ -195,9 +195,9 @@ TASK-039 satisfies ADR-028 and the locked implementation blueprint after the Rou
 STATUS: PASS
 APPROVED: YES
 READY_FOR_HUMAN_MERGE: YES
-MERGE_AUTHORIZED: NO
+MERGE_AUTHORIZED: YES
 M10_3: PASS
 M10: PASS
 ```
 
-Human may authorize merge. After merge, M10 — Quota-Efficient Deterministic Dispatch — is complete. M11 API Escape Hatch remains separate.
+Human authorized merge on 2026-08-18. TASK-039 was fast-forward merged to `main` at `b22a48b14c5fc07007caf498fedc6503656c73e6`. M10 — Quota-Efficient Deterministic Dispatch — is complete. M11 API Escape Hatch remains separate.
