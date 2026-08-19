@@ -3,8 +3,8 @@
 STATUS: PASS
 APPROVED: YES
 READY_FOR_HUMAN_MERGE: YES
-MERGE_AUTHORIZED: NO
-MERGED_TO_MAIN: NO
+MERGE_AUTHORIZED: YES
+MERGED_TO_MAIN: YES
 
 ## Authoritative Anchors
 
@@ -23,7 +23,7 @@ CODEX_LOCAL_BLOB_SHA: b3a2c29fae7acab549bf26d0c621117923037375
 CODEX_LOCAL_TEST_BLOB_SHA: 57a489182d2f3195a84d15de33013b914ba1bd73
 ```
 
-Fresh lineage:
+Fresh lineage before merge:
 
 ```text
 main -> ai/task-045
@@ -34,7 +34,7 @@ MERGE_BASE: a01b5f4b028ccdc416004b3d25608d23fb922c51
 FAST_FORWARD_LINEAGE: YES
 ```
 
-Fresh final drift check:
+Fresh final drift check before merge:
 
 ```text
 7b4e8bbe1322c0e26338071ca3be7bf08a3144ec -> ai/task-045
@@ -149,6 +149,30 @@ TASK_044_RETRIED_OR_PUBLISHED: NO_EVIDENCE_IN_TASK_045_DELTA
 
 TASK-044 remains a failed E5 proof and is not converted into PASS by this fix.
 
+## Merge Event
+
+Human explicitly authorized merge with command `Merge TASK-045`.
+
+Fresh preflight immediately before ref update proved:
+
+```text
+main -> ai/task-045
+STATUS: ahead
+AHEAD: 1
+BEHIND: 0
+BASE_MAIN_SHA: a01b5f4b028ccdc416004b3d25608d23fb922c51
+MERGE_BASE: a01b5f4b028ccdc416004b3d25608d23fb922c51
+EXACT_REVIEWED_HEAD -> ai/task-045: identical
+```
+
+GitHub `main` was then fast-forwarded with `force=false` to the exact reviewed head:
+
+```text
+7b4e8bbe1322c0e26338071ca3be7bf08a3144ec
+```
+
+Fresh post-merge branch verification proved `main` is exactly that SHA and its parent is the locked baseline main SHA.
+
 ## Final Decision
 
 ```text
@@ -173,9 +197,10 @@ E2_1: PASS
 STATUS: PASS
 APPROVED: YES
 READY_FOR_HUMAN_MERGE: YES
-MERGE_AUTHORIZED: NO
+MERGE_AUTHORIZED: YES
+MERGED_TO_MAIN: YES
 ```
 
-TASK-045 is accepted at exact reviewed head `7b4e8bbe1322c0e26338071ca3be7bf08a3144ec`.
+TASK-045 is accepted and merged at exact reviewed head `7b4e8bbe1322c0e26338071ca3be7bf08a3144ec`.
 
-Human merge authorization remains required. After merge, E5 must restart with a fresh task number and fresh challenge values; TASK-044 must not be reused as successful E5 evidence.
+E5 must restart with a fresh task number and fresh challenge values; TASK-044 must not be reused as successful E5 evidence.
