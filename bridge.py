@@ -1044,11 +1044,49 @@ def _e4_effective_publication_identity(publication_remote: str) -> tuple[str, st
         value = _e4_git_probe_bytes(*args)
         identity_hasher.update(len(value).to_bytes(8, "big"))
         identity_hasher.update(value)
-    hooks_path = _e4_git_probe_text(
-        "rev-parse", "--path-format=absolute", "--git-path", "hooks"
-    )
-    identity_hasher.update(hooks_path.encode("utf-8"))
     return hashlib.sha256(config_bytes).hexdigest(), identity_hasher.hexdigest()
+
+
+def _e4_read_core_hooks_path() -> str | None:
+    proc = _run_git_binary("config", "--path", "--null", "--get", "core.hooksPath")
+    if proc.returncode == 1 and proc.stdout == b"":
+        return None
+    if proc.returncode != 0:
+        raise ContinuityStateValidationError("Unable to resolve effective core.hooksPath")
+    if len(proc.stdout) > _E4_MAX_GIT_PROBE_BYTES:
+        raise ContinuityStateValidationError("core.hooksPath observation exceeded its byte bound")
+    if not proc.stdout.endswith(b"\0") or proc.stdout.count(b"\0") != 1:
+        raise ContinuityStateValidationError("core.hooksPath must resolve to one exact path")
+    try:
+        configured = proc.stdout[:-1].decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ContinuityStateValidationError("core.hooksPath was not strict UTF-8") from exc
+    if not configured or any(char in configured for char in ("\0", "\r", "\n")):
+        raise ContinuityStateValidationError("core.hooksPath was empty or malformed")
+    return configured
+
+
+def _e4_resolve_active_hooks_path(
+    *,
+    repository_root: Path,
+    default_hooks_path: Path,
+    configured: str | None,
+) -> Path:
+    """Resolve the actual active hooks directory from proven non-bare Git semantics."""
+    if configured is None:
+        return default_hooks_path.resolve()
+    configured_path = Path(configured)
+    if configured_path.is_absolute():
+        return configured_path.resolve()
+
+    is_bare = _e4_git_probe_text("rev-parse", "--is-bare-repository")
+    inside_worktree = _e4_git_probe_text("rev-parse", "--is-inside-work-tree")
+    observed_root = Path(_e4_git_probe_text("rev-parse", "--show-toplevel")).resolve()
+    if is_bare != "false" or inside_worktree != "true" or observed_root != repository_root:
+        raise ContinuityStateValidationError(
+            "Relative core.hooksPath semantics are not provable for this repository"
+        )
+    return (repository_root / configured_path).resolve()
 
 
 @dataclass(frozen=True)
@@ -1056,6 +1094,7 @@ class E4PublicationTrustSnapshot:
     repository_root: str
     git_dir: str
     common_git_dir: str
+    default_hooks_path: str
     hooks_path: str
     publication_remote: str
     effective_config_sha256: str
@@ -1065,6 +1104,7 @@ class E4PublicationTrustSnapshot:
     def fingerprint(self) -> str:
         payload = {
             "common_git_dir": self.common_git_dir,
+            "default_hooks_path": self.default_hooks_path,
             "effective_config_sha256": self.effective_config_sha256,
             "git_dir": self.git_dir,
             "hooks_path": self.hooks_path,
@@ -1085,9 +1125,21 @@ def capture_e4_publication_trust_snapshot(publication_remote: str) -> E4Publicat
     common_git_dir = Path(
         _e4_git_probe_text("rev-parse", "--path-format=absolute", "--git-common-dir")
     ).resolve()
-    hooks_path = Path(
-        _e4_git_probe_text("rev-parse", "--path-format=absolute", "--git-path", "hooks")
-    ).resolve()
+    configured_hooks_path = _e4_read_core_hooks_path()
+    default_hooks_path = (
+        Path(
+            _e4_git_probe_text(
+                "rev-parse", "--path-format=absolute", "--git-path", "hooks"
+            )
+        ).resolve()
+        if configured_hooks_path is None
+        else (git_dir / "hooks").resolve()
+    )
+    hooks_path = _e4_resolve_active_hooks_path(
+        repository_root=repository_root,
+        default_hooks_path=default_hooks_path,
+        configured=configured_hooks_path,
+    )
     effective_config, remote_identity = _e4_effective_publication_identity(publication_remote)
 
     protected = {
@@ -1115,6 +1167,7 @@ def capture_e4_publication_trust_snapshot(publication_remote: str) -> E4Publicat
         repository_root=str(repository_root),
         git_dir=str(git_dir),
         common_git_dir=str(common_git_dir),
+        default_hooks_path=str(default_hooks_path),
         hooks_path=str(hooks_path),
         publication_remote=publication_remote,
         effective_config_sha256=effective_config,
@@ -1137,6 +1190,15 @@ def verify_e4_publication_trust_snapshot(snapshot: E4PublicationTrustSnapshot) -
             raise ContinuityStateValidationError(
                 f"Protected Git administration drifted after Executor invocation: {label}"
             )
+    observed_hooks_path = _e4_resolve_active_hooks_path(
+        repository_root=Path(snapshot.repository_root),
+        default_hooks_path=Path(snapshot.default_hooks_path),
+        configured=_e4_read_core_hooks_path(),
+    )
+    if observed_hooks_path != Path(snapshot.hooks_path):
+        raise ContinuityStateValidationError(
+            "Active core.hooksPath identity drifted after Executor invocation"
+        )
     effective_config, remote_identity = _e4_effective_publication_identity(
         snapshot.publication_remote
     )

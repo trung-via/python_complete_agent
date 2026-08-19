@@ -371,6 +371,139 @@ def test_unchanged_git_admin_and_allowed_mutation_preserve_happy_path(monkeypatc
     assert len(calls["publish"]) == 1
 
 
+def assert_custom_hook_drift_blocked(monkeypatch, tmp_path, repo, hook):
+    monkeypatch.setattr(bridge, "PROJECT", repo)
+
+    def mutate():
+        (repo / "bridge.py").write_text("allowed mutation\n", encoding="utf-8")
+        hook.write_text("#!/bin/sh\necho changed\n", encoding="utf-8")
+
+    _, _, calls = make_execute_environment(
+        monkeypatch,
+        tmp_path,
+        on_invoke=mutate,
+        real_publication_trust=True,
+    )
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+    assert calls["invoke"] == 1
+    assert calls["publish"] == []
+    assert calls["state"][-1][0] == "RECOVERY_REQUIRED"
+
+
+def test_preexisting_absolute_core_hookspath_content_drift_blocks_publication(
+    monkeypatch, tmp_path
+):
+    repo = tmp_path / "repo"
+    custom_hooks = tmp_path / "external-custom-hooks"
+    init_publication_repo(repo)
+    custom_hooks.mkdir()
+    hook = custom_hooks / "pre-commit"
+    hook.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    hook.chmod(0o755)
+    subprocess.run(
+        ["git", "config", "core.hooksPath", str(custom_hooks.resolve())],
+        cwd=repo,
+        check=True,
+    )
+    monkeypatch.setattr(bridge, "PROJECT", repo)
+    snapshot = bridge.capture_e4_publication_trust_snapshot("origin")
+    assert Path(snapshot.hooks_path) == custom_hooks.resolve()
+    assert Path(snapshot.hooks_path) != Path(snapshot.default_hooks_path)
+    assert_custom_hook_drift_blocked(monkeypatch, tmp_path, repo, hook)
+
+
+def test_custom_hooks_under_nondefault_git_admin_path_are_protected(monkeypatch, tmp_path):
+    repo = tmp_path / "repo"
+    init_publication_repo(repo)
+    custom_hooks = repo / ".git" / "publication-hooks"
+    custom_hooks.mkdir()
+    hook = custom_hooks / "pre-commit"
+    hook.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    hook.chmod(0o755)
+    subprocess.run(
+        ["git", "config", "core.hooksPath", str(custom_hooks.resolve())],
+        cwd=repo,
+        check=True,
+    )
+    assert_custom_hook_drift_blocked(monkeypatch, tmp_path, repo, hook)
+
+
+def test_relative_core_hookspath_resolves_from_nonbare_worktree_root_and_is_protected(
+    monkeypatch, tmp_path
+):
+    repo = tmp_path / "repo"
+    init_publication_repo(repo)
+    custom_hooks = repo / ".relative-hooks"
+    custom_hooks.mkdir()
+    hook = custom_hooks / "pre-commit"
+    hook.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    hook.chmod(0o755)
+    subprocess.run(
+        ["git", "config", "core.hooksPath", ".relative-hooks"], cwd=repo, check=True
+    )
+    monkeypatch.setattr(bridge, "PROJECT", repo)
+    snapshot = bridge.capture_e4_publication_trust_snapshot("origin")
+    assert Path(snapshot.hooks_path) == custom_hooks.resolve()
+    assert_custom_hook_drift_blocked(monkeypatch, tmp_path, repo, hook)
+
+
+def test_preexisting_custom_hooks_unchanged_preserves_happy_path(monkeypatch, tmp_path):
+    repo = tmp_path / "repo"
+    custom_hooks = tmp_path / "stable-custom-hooks"
+    init_publication_repo(repo)
+    custom_hooks.mkdir()
+    hook = custom_hooks / "pre-commit"
+    hook.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    hook.chmod(0o755)
+    subprocess.run(
+        ["git", "config", "core.hooksPath", str(custom_hooks.resolve())],
+        cwd=repo,
+        check=True,
+    )
+    monkeypatch.setattr(bridge, "PROJECT", repo)
+
+    def mutate_allowed_file_only():
+        (repo / "bridge.py").write_text("allowed mutation\n", encoding="utf-8")
+
+    _, _, calls = make_execute_environment(
+        monkeypatch,
+        tmp_path,
+        on_invoke=mutate_allowed_file_only,
+        real_publication_trust=True,
+    )
+    bridge.cmd_execute(execute_args())
+    assert calls["invoke"] == 1
+    assert len(calls["publish"]) == 1
+
+
+def test_linked_worktree_custom_hookspath_never_falls_back_to_default(monkeypatch, tmp_path):
+    main_repo = tmp_path / "main"
+    linked_repo = tmp_path / "linked"
+    init_publication_repo(main_repo)
+    subprocess.run(
+        ["git", "worktree", "add", "-qb", "linked-custom-hooks", str(linked_repo)],
+        cwd=main_repo,
+        check=True,
+    )
+    custom_hooks = main_repo / ".git" / "linked-publication-hooks"
+    custom_hooks.mkdir()
+    hook = custom_hooks / "pre-commit"
+    hook.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    hook.chmod(0o755)
+    subprocess.run(
+        ["git", "config", "core.hooksPath", str(custom_hooks.resolve())],
+        cwd=linked_repo,
+        check=True,
+    )
+    monkeypatch.setattr(bridge, "PROJECT", linked_repo)
+    snapshot = bridge.capture_e4_publication_trust_snapshot("origin")
+    assert Path(snapshot.git_dir) != Path(snapshot.common_git_dir)
+    assert Path(snapshot.hooks_path) == custom_hooks.resolve()
+    assert Path(snapshot.hooks_path) != Path(snapshot.default_hooks_path)
+    assert_custom_hook_drift_blocked(monkeypatch, tmp_path, linked_repo, hook)
+
+
 def test_exit_zero_invokes_once_and_reuses_publisher_with_fixed_suite(monkeypatch, tmp_path):
     _, _, calls = make_execute_environment(monkeypatch, tmp_path)
     result = bridge.cmd_execute(execute_args())
