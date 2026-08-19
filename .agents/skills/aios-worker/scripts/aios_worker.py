@@ -15,7 +15,7 @@ import subprocess
 import sys
 from typing import Sequence
 
-TASK_PATTERN = re.compile(r"^TASK-(\d+)$")
+TASK_PATTERN = re.compile(r"^TASK-(\d+)\Z")
 ALLOWED_ACTIONS = {"RUN", "FIX", "STATUS"}
 ALLOWED_ADAPTERS = {"codex", "antigravity"}
 

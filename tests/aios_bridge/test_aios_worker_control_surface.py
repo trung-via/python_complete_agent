@@ -140,6 +140,19 @@ class TestParsing:
             code = aw.main(["MERGE", "TASK-1", "--adapter", "codex"])
         assert code != 0
 
+    # Test 7 (extra): whitespace-padded task IDs must be mechanically rejected
+    @pytest.mark.parametrize("padded_task", [
+        " TASK-48",    # leading space
+        "TASK-48 ",    # trailing space
+        " TASK-48 ",   # both sides
+        "\tTASK-48",   # leading tab
+        "TASK-48\n",   # trailing newline
+    ])
+    def test_whitespace_padded_task_ids_rejected(self, padded_task):
+        """Whitespace-padded task IDs must be mechanically rejected."""
+        with pytest.raises(ValueError):
+            aw.parse_task_id(padded_task)
+
 
 # ===========================================================================
 # 5–10. Codex RUN and FIX exact argv contract
@@ -163,40 +176,84 @@ class TestCodexRunFix:
             code = aw.main([action, "TASK-48", "--adapter", "codex"])
         return code, mock_run.calls_made
 
-    # Test 5: Codex RUN exact argv order
-    def test_codex_run_invokes_handoff_then_execute(self):
-        returncode, calls = self._codex_run_with_codes("RUN", [0, 0])
-        assert len(calls) == 2
+    # Test 5: Codex RUN — exact full ordered argv equality
+    def test_codex_run_exact_first_argv(self):
+        """Handoff must be called with the exact ordered argv list — no extras, no reordering."""
+        _, calls = self._codex_run_with_codes("RUN", [0, 0])
+        expected = [
+            sys.executable,
+            str(self.fake_root / "bridge.py"),
+            "handoff",
+            "48",
+            "--action",
+            "run",
+            "--executor",
+            "codex",
+        ]
+        assert calls[0]["cmd"] == expected, f"Expected {expected}, got {calls[0]['cmd']}"
 
-        handoff_call = calls[0]
-        assert handoff_call["cmd"][1] == str(self.fake_root / "bridge.py")
-        assert "handoff" in handoff_call["cmd"]
-        assert "48" in handoff_call["cmd"]
-        assert "--action" in handoff_call["cmd"]
-        idx = handoff_call["cmd"].index("--action")
-        assert handoff_call["cmd"][idx + 1] == "run"
-        assert "--executor" in handoff_call["cmd"]
-        idx = handoff_call["cmd"].index("--executor")
-        assert handoff_call["cmd"][idx + 1] == "codex"
+    def test_codex_run_exact_second_argv(self):
+        """Execute must be called with the exact ordered argv list — no extras."""
+        _, calls = self._codex_run_with_codes("RUN", [0, 0])
+        expected = [
+            sys.executable,
+            str(self.fake_root / "bridge.py"),
+            "execute",
+            "48",
+        ]
+        assert calls[1]["cmd"] == expected, f"Expected {expected}, got {calls[1]['cmd']}"
 
-        execute_call = calls[1]
-        assert "execute" in execute_call["cmd"]
-        assert "48" in execute_call["cmd"]
+    def test_codex_run_exactly_two_calls(self):
+        _, calls = self._codex_run_with_codes("RUN", [0, 0])
+        assert len(calls) == 2, f"Expected exactly 2 subprocess calls, got {len(calls)}"
 
-    # Test 6: Codex FIX exact argv order
-    def test_codex_fix_invokes_fix_handoff_then_execute(self):
-        returncode, calls = self._codex_run_with_codes("FIX", [0, 0])
-        assert len(calls) == 2
+    # Adversarial: exact-equality check detects extra injected token
+    def test_exact_argv_fails_if_extra_token_appended(self):
+        """Prove the exact-equality check would catch an injected extra arg."""
+        _, calls = self._codex_run_with_codes("RUN", [0, 0])
+        expected_with_extra = [
+            sys.executable,
+            str(self.fake_root / "bridge.py"),
+            "handoff",
+            "48",
+            "--action",
+            "run",
+            "--executor",
+            "codex",
+            "--extra-injected-flag",
+        ]
+        assert calls[0]["cmd"] != expected_with_extra, \
+            "Exact-equality check must detect extra injected token"
 
-        handoff_call = calls[0]
-        assert "handoff" in handoff_call["cmd"]
-        idx = handoff_call["cmd"].index("--action")
-        assert handoff_call["cmd"][idx + 1] == "fix"
-        idx = handoff_call["cmd"].index("--executor")
-        assert handoff_call["cmd"][idx + 1] == "codex"
+    # Test 6: Codex FIX — exact full ordered argv equality
+    def test_codex_fix_exact_first_argv(self):
+        """FIX handoff must use 'fix' not 'run' — exact ordered equality."""
+        _, calls = self._codex_run_with_codes("FIX", [0, 0])
+        expected = [
+            sys.executable,
+            str(self.fake_root / "bridge.py"),
+            "handoff",
+            "48",
+            "--action",
+            "fix",
+            "--executor",
+            "codex",
+        ]
+        assert calls[0]["cmd"] == expected, f"Expected {expected}, got {calls[0]['cmd']}"
 
-        execute_call = calls[1]
-        assert "execute" in execute_call["cmd"]
+    def test_codex_fix_exact_second_argv(self):
+        _, calls = self._codex_run_with_codes("FIX", [0, 0])
+        expected = [
+            sys.executable,
+            str(self.fake_root / "bridge.py"),
+            "execute",
+            "48",
+        ]
+        assert calls[1]["cmd"] == expected, f"Expected {expected}, got {calls[1]['cmd']}"
+
+    def test_codex_fix_exactly_two_calls(self):
+        _, calls = self._codex_run_with_codes("FIX", [0, 0])
+        assert len(calls) == 2, f"Expected exactly 2 subprocess calls, got {len(calls)}"
 
     # Test 7: sys.executable, exact bridge.py, list argv, shell=False, exact cwd
     def test_every_bridge_child_uses_sys_executable_list_argv_no_shell_exact_cwd(self):
@@ -205,7 +262,7 @@ class TestCodexRunFix:
             assert c["cmd"][0] == sys.executable, "Must use sys.executable"
             assert c["cmd"][1] == str(self.fake_root / "bridge.py"), "Exact bridge.py path"
             assert isinstance(c["cmd"], list), "argv must be a list"
-            assert c["kwargs"].get("shell") is False or "shell" not in c["kwargs"] or c["kwargs"]["shell"] is False
+            assert c["kwargs"].get("shell", False) is False, "shell must be False"
             assert str(c["kwargs"].get("cwd", "")) == str(self.fake_root), "Must use exact repo cwd"
 
     def test_subprocess_shell_is_false(self):
@@ -220,15 +277,14 @@ class TestCodexRunFix:
     def test_handoff_nonzero_prevents_execute(self):
         returncode, calls = self._codex_run_with_codes("RUN", [1])
         assert returncode == 1
-        # Only handoff should have been called; execute never runs
         assert len(calls) == 1
-        assert "handoff" in calls[0]["cmd"]
+        assert calls[0]["cmd"][2] == "handoff", "Only handoff must be called"
 
     # Test 9: Execute nonzero is returned, never retried
     def test_execute_nonzero_returned_and_not_retried(self):
         returncode, calls = self._codex_run_with_codes("RUN", [0, 2])
         assert returncode == 2
-        assert len(calls) == 2  # handoff + one execute only
+        assert len(calls) == 2  # exactly handoff + one execute, no retry
 
     # Test 10: No fallback/reroute on failure
     def test_no_fallback_on_failure(self):
@@ -256,30 +312,44 @@ class TestAntigravityAdapter:
             code = aw.main([action, "TASK-48", "--adapter", "antigravity"])
         return code, mock_run.calls_made
 
-    def test_antigravity_run_invokes_handoff_only(self):
+    def test_antigravity_run_exact_argv_and_one_call(self):
+        """Antigravity RUN must invoke exactly one subprocess with exact argv — no execute."""
         code, calls = self._antigravity_run_with_codes("RUN", [0])
-        assert len(calls) == 1
-        assert "handoff" in calls[0]["cmd"]
-        assert "execute" not in calls[0]["cmd"]
+        assert len(calls) == 1, "Antigravity adapter must invoke exactly one subprocess call"
+        expected = [
+            sys.executable,
+            str(self.fake_root / "bridge.py"),
+            "handoff",
+            "48",
+            "--action",
+            "run",
+            "--executor",
+            "antigravity",
+        ]
+        assert calls[0]["cmd"] == expected, f"Expected {expected}, got {calls[0]['cmd']}"
         assert code == 0
 
-    def test_antigravity_fix_invokes_handoff_only(self):
+    def test_antigravity_fix_exact_argv_and_one_call(self):
+        """Antigravity FIX must invoke exactly one subprocess with exact argv — no execute."""
         code, calls = self._antigravity_run_with_codes("FIX", [0])
-        assert len(calls) == 1
-        assert "handoff" in calls[0]["cmd"]
-        assert "execute" not in calls[0]["cmd"]
+        assert len(calls) == 1, "Antigravity adapter must invoke exactly one subprocess call"
+        expected = [
+            sys.executable,
+            str(self.fake_root / "bridge.py"),
+            "handoff",
+            "48",
+            "--action",
+            "fix",
+            "--executor",
+            "antigravity",
+        ]
+        assert calls[0]["cmd"] == expected, f"Expected {expected}, got {calls[0]['cmd']}"
         assert code == 0
-
-    def test_antigravity_handoff_uses_executor_antigravity(self):
-        _, calls = self._antigravity_run_with_codes("RUN", [0])
-        cmd = calls[0]["cmd"]
-        idx = cmd.index("--executor")
-        assert cmd[idx + 1] == "antigravity"
 
     def test_antigravity_execute_never_called_regardless_of_handoff_success(self):
         _, calls = self._antigravity_run_with_codes("RUN", [0])
-        for c in calls:
-            assert "execute" not in c["cmd"]
+        assert len(calls) == 1
+        assert calls[0]["cmd"][2] == "handoff"
 
 
 # ===========================================================================
@@ -302,12 +372,30 @@ class TestStatusAdapter:
             code = aw.main(["STATUS", "TASK-1", "--adapter", adapter])
         return code, mock_run.calls_made
 
-    # Test 12: STATUS invokes sync then pending only
-    def test_status_invokes_sync_then_pending(self):
+    # Test 12: STATUS — exact argv equality for both commands
+    def test_status_exact_sync_argv(self):
+        """STATUS first call must be exactly sync with no extra arguments."""
+        _, calls = self._status_run([0, 0])
+        expected_sync = [
+            sys.executable,
+            str(self.fake_root / "bridge.py"),
+            "sync",
+        ]
+        assert calls[0]["cmd"] == expected_sync, f"Expected {expected_sync}, got {calls[0]['cmd']}"
+
+    def test_status_exact_pending_argv(self):
+        """STATUS second call must be exactly pending with no extra arguments."""
+        _, calls = self._status_run([0, 0])
+        expected_pending = [
+            sys.executable,
+            str(self.fake_root / "bridge.py"),
+            "pending",
+        ]
+        assert calls[1]["cmd"] == expected_pending, f"Expected {expected_pending}, got {calls[1]['cmd']}"
+
+    def test_status_exactly_two_calls(self):
         code, calls = self._status_run([0, 0])
-        assert len(calls) == 2
-        assert "sync" in calls[0]["cmd"]
-        assert "pending" in calls[1]["cmd"]
+        assert len(calls) == 2, f"Expected exactly 2 subprocess calls, got {len(calls)}"
         assert code == 0
 
     # Test 13: STATUS sync failure prevents pending
@@ -315,27 +403,25 @@ class TestStatusAdapter:
         code, calls = self._status_run([1])
         assert code == 1
         assert len(calls) == 1
-        assert "sync" in calls[0]["cmd"]
+        expected_sync = [
+            sys.executable,
+            str(self.fake_root / "bridge.py"),
+            "sync",
+        ]
+        assert calls[0]["cmd"] == expected_sync
 
-    # Test 14: STATUS never invokes forbidden commands
+    # Test 14: STATUS never invokes forbidden commands (confirmed by exact argv equality above)
     def test_status_never_invokes_handoff(self):
         _, calls = self._status_run([0, 0])
-        forbidden = {"handoff", "approve", "execute", "publish", "merge"}
         for c in calls:
-            for part in c["cmd"]:
-                assert part not in forbidden, f"STATUS must not invoke '{part}'"
-
-    def test_status_never_invokes_codex_binary(self):
-        _, calls = self._status_run([0, 0])
-        for c in calls:
-            for part in c["cmd"]:
-                assert "codex" not in part.lower() or "bridge" in part.lower()
+            assert c["cmd"][2] in ("sync", "pending"), \
+                f"STATUS must only invoke sync/pending, got {c['cmd'][2]}"
 
     def test_status_works_with_antigravity_adapter_too(self):
         code, calls = self._status_run([0, 0], adapter="antigravity")
         assert len(calls) == 2
-        assert "sync" in calls[0]["cmd"]
-        assert "pending" in calls[1]["cmd"]
+        assert calls[0]["cmd"][2] == "sync"
+        assert calls[1]["cmd"][2] == "pending"
 
 
 # ===========================================================================
