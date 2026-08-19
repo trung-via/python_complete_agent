@@ -3,7 +3,8 @@
 STATUS: PASS
 APPROVED: YES
 READY_FOR_HUMAN_MERGE: YES
-MERGE_AUTHORIZED: NO
+MERGE_AUTHORIZED: YES
+MERGED_TO_MAIN: YES
 
 ## Review Round
 
@@ -184,7 +185,8 @@ E5_PROVEN: NO
 STATUS: PASS
 APPROVED: YES
 READY_FOR_HUMAN_MERGE: YES
-MERGE_AUTHORIZED: NO
+MERGE_AUTHORIZED: YES
+MERGED_TO_MAIN: YES
 ```
 
-Only Human may authorize merge.
+Human merge authorization was exercised by fast-forwarding `main` to exact reviewed head `91813c04160cb664af47c5f0b04fea37ef9aa076` with `force=false`.
