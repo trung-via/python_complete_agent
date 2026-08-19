@@ -201,6 +201,8 @@ def test_exact_argv_process_contract_and_payload_bytes(
     argv, options = popen_calls[0]
     assert argv == [
         "resolved-codex",
+        "--ask-for-approval",
+        "never",
         "exec",
         "--ephemeral",
         "--json",
@@ -208,8 +210,6 @@ def test_exact_argv_process_contract_and_payload_bytes(
         "never",
         "--sandbox",
         "workspace-write",
-        "--ask-for-approval",
-        "never",
         "-c",
         "sandbox_workspace_write.network_access=false",
         "-c",
@@ -218,6 +218,11 @@ def test_exact_argv_process_contract_and_payload_bytes(
         str(workspace),
         "-",
     ]
+    assert argv.count("--ask-for-approval") == 1
+    assert argv.index("--ask-for-approval") == 1
+    assert argv[1:3] == ["--ask-for-approval", "never"]
+    assert argv.index("exec") == 3
+    assert argv.index("--ask-for-approval") < argv.index("exec")
     assert options["cwd"] == str(workspace)
     assert options["stdin"] is subprocess.PIPE
     assert options["stdout"] is subprocess.DEVNULL

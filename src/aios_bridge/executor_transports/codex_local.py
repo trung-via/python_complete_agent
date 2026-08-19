@@ -131,6 +131,8 @@ def _resolve_codex_executable(spec: str) -> str | None:
 def _build_codex_argv(executable: str, workspace: Path) -> list[str]:
     return [
         executable,
+        "--ask-for-approval",
+        "never",
         "exec",
         "--ephemeral",
         "--json",
@@ -138,8 +140,6 @@ def _build_codex_argv(executable: str, workspace: Path) -> list[str]:
         "never",
         "--sandbox",
         "workspace-write",
-        "--ask-for-approval",
-        "never",
         "-c",
         "sandbox_workspace_write.network_access=false",
         "-c",
