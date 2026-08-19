@@ -3,8 +3,8 @@
 STATUS: PASS
 APPROVED: YES
 READY_FOR_HUMAN_MERGE: YES
-MERGE_AUTHORIZED: NO
-MERGED_TO_MAIN: NO
+MERGE_AUTHORIZED: YES
+MERGED_TO_MAIN: YES
 
 ## Authoritative Anchors
 
@@ -14,6 +14,7 @@ MILESTONE: E5 — Zero-Copy/Paste Operational Proof
 BASELINE_MAIN_SHA: 7b4e8bbe1322c0e26338071ca3be7bf08a3144ec
 TASK_BRANCH: ai/task-046
 FINAL_REVIEWED_TASK_HEAD_SHA: 22a05d1f4880daf3a9f964e0564c658b051039cd
+POST_MERGE_MAIN_SHA: 22a05d1f4880daf3a9f964e0564c658b051039cd
 
 TASK_BLOB_SHA: 75e726733c10fd149f9b98436c913840d6f106eb
 ADR_035_BLOB_SHA: 3e2881b5710c4af85594a6fe9f2f963397dfbd83
@@ -25,7 +26,7 @@ RESULT_046_BLOB_SHA: 38379e583077dd51baa8be20f7aad7809149bad1
 
 ## Lineage / Drift Audit
 
-Fresh repository comparison:
+Fresh repository comparison immediately before Human-authorized merge:
 
 ```text
 main -> ai/task-046
@@ -36,7 +37,7 @@ MERGE_BASE: 7b4e8bbe1322c0e26338071ca3be7bf08a3144ec
 FAST_FORWARD_LINEAGE: YES
 ```
 
-Final reviewed-head drift check:
+Final reviewed-head drift check immediately before merge:
 
 ```text
 22a05d1f4880daf3a9f964e0564c658b051039cd -> ai/task-046
@@ -45,11 +46,21 @@ AHEAD: 0
 BEHIND: 0
 ```
 
+Post-merge refetch:
+
+```text
+main: 22a05d1f4880daf3a9f964e0564c658b051039cd
+parent: 7b4e8bbe1322c0e26338071ca3be7bf08a3144ec
+FAST_FORWARD_MERGE: PASS
+FORCE: FALSE
+```
+
 ```text
 BASELINE_MAIN_EXACT: PASS
 BASELINE_INCLUDES_E2_1_FIX: PASS
 TASK_BRANCH_FAST_FORWARD: PASS
 FINAL_HEAD_NO_DRIFT: PASS
+POST_MERGE_MAIN_EXACT: PASS
 ```
 
 ## Exact Scope Audit
@@ -140,8 +151,6 @@ E4_PUBLICATION_TRUST_VERIFIED: PASS
 E4_DIRTY_PATH_COUNT: 1
 ```
 
-The invocation receipt fingerprint and `EXITED_ZERO` evidence are produced by the E4 automatic path after a real CodexLocalTransport invocation; the proof mutation then survives E4 scope/publication-trust gates and is published by the existing publisher.
-
 ```text
 REAL_CODEX_E2_1_INVOCATION_PATH: PASS
 REAL_CODEX_E2_1_RECEIPT_EVIDENCE: PASS
@@ -155,7 +164,7 @@ RESULT_COMMIT_PUSH: PASS
 
 ## Full Repository Gate
 
-RESULT-046 records the fixed E4 publisher command using the current repository Python interpreter:
+RESULT-046 records:
 
 ```text
 python -m pytest tests/ -q
@@ -179,9 +188,9 @@ Human approve TASK-046 for codex
   -> RESULT + commit + push
 ```
 
-No manual `bridge.py context 46`, manually pasted Codex executor prompt, manual `codex exec`, or manual `bridge.py publish 46` was required on the successful path. The independent ADR/blueprint challenges appearing in the proof and the E4 manifest/invocation evidence demonstrate that bounded context delivery occurred through the E3 automatic payload.
+No manual `bridge.py context 46`, manually pasted Codex executor prompt, manual `codex exec`, or manual `bridge.py publish 46` was required on the successful path. The independent ADR/blueprint challenges appearing in the proof and the E4 manifest/invocation evidence demonstrate bounded context delivery through the E3 automatic payload.
 
-After successful publication, a second Human `bridge.py execute 46` command was attempted. It was rejected with no ACTIVE Human authorization. In merged E4 code, `cmd_execute()` checks `get_active_authorization()` and exits immediately when absent, before branch/workspace/lease/context construction and before `CodexLocalTransport.invoke`. Therefore this post-publication duplicate command created no second executor invocation, no retry execution, and no additional worktree/publication evidence.
+After successful publication, a second Human `bridge.py execute 46` command was rejected with no ACTIVE Human authorization before `CodexLocalTransport.invoke`, so it created no second executor invocation or publication.
 
 ```text
 MANUAL_CONTEXT_COMMAND_REQUIRED: NO
@@ -242,9 +251,10 @@ E5: PASS
 STATUS: PASS
 APPROVED: YES
 READY_FOR_HUMAN_MERGE: YES
-MERGE_AUTHORIZED: NO
+MERGE_AUTHORIZED: YES
+MERGED_TO_MAIN: YES
 ```
 
-TASK-046 is accepted at exact reviewed head `22a05d1f4880daf3a9f964e0564c658b051039cd`.
+TASK-046 is accepted and merged at exact reviewed head `22a05d1f4880daf3a9f964e0564c658b051039cd`.
 
-E-Series E1-E5 is now operationally proven at review level. Human merge authorization remains required before TASK-046 may enter `main`. H-Series remains DEFERRED and M11 remains separate.
+E-Series E1-E5 is operationally proven and merged. M11 remains the next roadmap milestone. H-Series remains DEFERRED pending evidence from real Python Agent workloads.
