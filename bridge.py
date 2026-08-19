@@ -26,6 +26,7 @@ import json
 import os
 import re
 import secrets
+import shlex
 import shutil
 import subprocess
 import sys
@@ -33,7 +34,10 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from src.aios_bridge.continuity.executor import ExecutionOperation
+from src.aios_bridge.continuity.executor import (
+    ExecutionOperation,
+    ExecutorCapabilities,
+)
 from src.aios_bridge.continuity.executor_failover import (
     StableExecutorFailoverProof,
     validate_stable_executor_failover,
@@ -55,6 +59,20 @@ from src.aios_bridge.continuity.lease import (
     validate_executor_lease_binding,
 )
 from src.aios_bridge.continuity.state import ArtifactRef, ContinuityStateValidationError
+from src.aios_bridge.continuity.executor_transport import InvocationStatus
+from src.aios_bridge.executor_automation import (
+    build_executor_automation_launch_plan,
+    build_published_execution_result,
+    parse_executor_automation_markers,
+    validate_executor_worktree_delta,
+)
+from src.aios_bridge.executor_context import ExecutorAuthorizationBinding
+from src.aios_bridge.executor_transports.codex_local import (
+    CODEX_EXECUTOR_ID,
+    CODEX_TRANSPORT_ID,
+    DEFAULT_CODEX_TIMEOUT_SECONDS,
+    CodexLocalTransport,
+)
 from src.aios_bridge.runtime_lease import AtomicExecutorLeaseStore
 from src.aios_bridge.runtime_dispatch import (
     AtomicRuntimeCapacityStore,
@@ -224,6 +242,7 @@ def get_runtime_paths(repo_root: Path | None = None):
         "leases": rdir / "leases",
         "hot_handoff": rdir / "hot_handoff",
         "dispatch_capacity": rdir / "dispatch" / "capacity",
+        "executor_automation": rdir / "executor_automation",
     }
 
 
@@ -717,6 +736,158 @@ def read_remote_file(cfg, path: str) -> str:
     ref = remote_ref(cfg)
     p = git("show", f"{ref}:{path}")
     return p.stdout
+
+
+def _run_git_binary(*args: str) -> subprocess.CompletedProcess[bytes]:
+    env = dict(os.environ)
+    env["LANG"] = "C.UTF-8"
+    env["LC_ALL"] = "C.UTF-8"
+    return subprocess.run(
+        ["git", *args],
+        cwd=PROJECT,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        shell=False,
+        env=env,
+    )
+
+
+def resolve_git_blob_sha(ref: str, path: str) -> str:
+    """Resolve one exact Git blob object without filesystem/text fallbacks."""
+    if not isinstance(ref, str) or not ref or not isinstance(path, str) or not path:
+        raise ContinuityStateValidationError("Git blob ref/path must be exact non-empty strings")
+    proc = _run_git_binary("rev-parse", f"{ref}:{path}")
+    if proc.returncode != 0:
+        raise ContinuityStateValidationError(f"Unable to resolve Git blob: {path}")
+    try:
+        value = proc.stdout.decode("ascii").strip()
+    except UnicodeDecodeError as exc:
+        raise ContinuityStateValidationError("Git blob SHA output was not ASCII") from exc
+    if not re.fullmatch(r"[0-9a-f]{40}", value):
+        raise ContinuityStateValidationError("Resolved Git blob SHA was not exact lowercase 40-hex")
+    return value
+
+
+def read_git_blob_bytes(ref: str, path: str) -> bytes:
+    """Read exact raw bytes for one Git blob, preserving every content byte."""
+    if not isinstance(ref, str) or not ref or not isinstance(path, str) or not path:
+        raise ContinuityStateValidationError("Git blob ref/path must be exact non-empty strings")
+    proc = _run_git_binary("cat-file", "blob", f"{ref}:{path}")
+    if proc.returncode != 0:
+        raise ContinuityStateValidationError(f"Unable to read exact Git blob bytes: {path}")
+    return bytes(proc.stdout)
+
+
+def resolve_e4_control_snapshot(cfg: dict, auth: dict) -> dict:
+    """Freeze and validate one exact control commit for E4 launch."""
+    fetch_control(cfg)
+    control_ref = remote_ref(cfg)
+    proc = _run_git_binary("rev-parse", control_ref)
+    if proc.returncode != 0:
+        raise ContinuityStateValidationError("Unable to resolve the E4 control snapshot")
+    try:
+        control_commit_sha = proc.stdout.decode("ascii").strip()
+    except UnicodeDecodeError as exc:
+        raise ContinuityStateValidationError("Control snapshot SHA was not ASCII") from exc
+    if not re.fullmatch(r"[0-9a-f]{40}", control_commit_sha):
+        raise ContinuityStateValidationError("Control snapshot must be exact lowercase 40-hex")
+
+    work_path = auth.get("artifact_path")
+    expected_work_blob = auth.get("artifact_blob_sha")
+    if not isinstance(work_path, str) or not isinstance(expected_work_blob, str):
+        raise ContinuityStateValidationError("Authorization lacks exact work artifact binding")
+    work_blob = resolve_git_blob_sha(control_commit_sha, work_path)
+    if work_blob != expected_work_blob:
+        raise ContinuityStateValidationError("Authorized work artifact drifted at control snapshot")
+    work_bytes = read_git_blob_bytes(control_commit_sha, work_path)
+    try:
+        work_content = work_bytes.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ContinuityStateValidationError("Authorized work artifact must be strict UTF-8") from exc
+
+    markers = parse_executor_automation_markers(work_content, work_path=work_path)
+    policy = parse_executor_dispatch_policy_marker(work_content)
+    try:
+        auth_operation = ExecutionOperation(auth.get("action"))
+    except (TypeError, ValueError) as exc:
+        raise ContinuityStateValidationError("Authorization action must be exact RUN or FIX") from exc
+    if policy.operation is not auth_operation:
+        raise ContinuityStateValidationError("Dispatch policy operation mismatches authorization")
+    executor_id = auth.get("executor_id")
+    candidates = [candidate for candidate in policy.candidates if candidate.executor_id == executor_id]
+    if len(candidates) != 1:
+        raise ContinuityStateValidationError("Authorized executor must appear exactly once in policy")
+    candidate = candidates[0]
+    if auth_operation not in candidate.supported_operations:
+        raise ContinuityStateValidationError("Authorized executor does not support the active operation")
+
+    work_ref = ArtifactRef(path=work_path, ref=control_commit_sha, blob_sha=work_blob)
+    context_refs = []
+    artifact_payloads = {work_path: work_bytes}
+    for spec in markers.context_refs:
+        observed_blob = resolve_git_blob_sha(control_commit_sha, spec.path)
+        if observed_blob != spec.blob_sha:
+            raise ContinuityStateValidationError(
+                f"Executor context blob drift for {spec.path}: expected {spec.blob_sha}, got {observed_blob}"
+            )
+        context_refs.append(
+            ArtifactRef(path=spec.path, ref=control_commit_sha, blob_sha=observed_blob)
+        )
+        artifact_payloads[spec.path] = read_git_blob_bytes(control_commit_sha, spec.path)
+
+    return {
+        "control_commit_sha": control_commit_sha,
+        "work_ref": work_ref,
+        "context_refs": tuple(context_refs),
+        "allowed_paths": markers.allowed_paths,
+        "policy": policy,
+        "candidate": candidate,
+        "artifact_payloads": artifact_payloads,
+    }
+
+
+def collect_e4_dirty_paths() -> tuple[str, ...]:
+    """Collect complete tracked/staged/unstaged/untracked E4 Git path evidence."""
+    tracked = _run_git_binary("diff", "--name-status", "-z", "HEAD")
+    if tracked.returncode != 0:
+        raise ContinuityStateValidationError("Unable to collect tracked E4 worktree delta")
+    fields = tracked.stdout.split(b"\0")
+    if fields and fields[-1] == b"":
+        fields.pop()
+    paths: list[str] = []
+    index = 0
+    while index < len(fields):
+        try:
+            status = fields[index].decode("ascii")
+        except UnicodeDecodeError as exc:
+            raise ContinuityStateValidationError("Malformed Git name-status code") from exc
+        index += 1
+        if not re.fullmatch(r"(?:[ACDMRTUXB]|[RC]\d{1,3})", status):
+            raise ContinuityStateValidationError(f"Malformed Git name-status code: {status!r}")
+        path_count = 2 if status.startswith(("R", "C")) else 1
+        if index + path_count > len(fields):
+            raise ContinuityStateValidationError("Truncated Git name-status evidence")
+        for raw_path in fields[index : index + path_count]:
+            try:
+                paths.append(raw_path.decode("utf-8"))
+            except UnicodeDecodeError as exc:
+                raise ContinuityStateValidationError("Git path evidence must be strict UTF-8") from exc
+        index += path_count
+
+    untracked = _run_git_binary("ls-files", "--others", "--exclude-standard", "-z")
+    if untracked.returncode != 0:
+        raise ContinuityStateValidationError("Unable to collect untracked E4 worktree delta")
+    for raw_path in untracked.stdout.split(b"\0"):
+        if not raw_path:
+            continue
+        try:
+            paths.append(raw_path.decode("utf-8"))
+        except UnicodeDecodeError as exc:
+            raise ContinuityStateValidationError("Untracked Git path must be strict UTF-8") from exc
+    if len(paths) != len(set(paths)):
+        paths = list(dict.fromkeys(paths))
+    return tuple(sorted(paths))
 
 
 def get_runtime_capacity_store() -> AtomicRuntimeCapacityStore:
@@ -1956,9 +2127,275 @@ def cmd_approve(args):
 
     print(f"[APPROVED] {data.get('kind')} for TASK-{args.task_id:03d} (executor={selected_executor})")
     print(f"[BRANCH] {branch}")
-    print(f"\nTrong {selected_executor} chạy:")
-    print("  /aios-worker")
-    print(f"và yêu cầu action: {action} TASK-{args.task_id:03d}")
+    if selected_executor == CODEX_EXECUTOR_ID:
+        print("\nHuman-authorized next step:")
+        print(f"  {sys.executable} bridge.py execute {args.task_id}")
+    else:
+        print(f"\nTrong {selected_executor} chạy:")
+        print("  /aios-worker")
+        print(f"và yêu cầu action: {action} TASK-{args.task_id:03d}")
+
+
+def _persist_e4_receipt(path: Path, record: dict) -> None:
+    save_json(path, record)
+    if load_json(path, None) != record:
+        raise ContinuityStateValidationError("E4 execution receipt read-back mismatch")
+
+
+def _e4_operational_failure(task_id: int, status: str, message: str) -> None:
+    try:
+        update_state(task_id, status, message)
+    except Exception as state_error:
+        message = f"{message}; operational state update also failed: {state_error}"
+    fail(message)
+
+
+def _resolve_e4_main_sha(cfg: dict) -> str:
+    remote = cfg["remote"]
+    base_branch = cfg["base_branch"]
+    ref = f"refs/remotes/{remote}/{base_branch}"
+    proc = _run_git_binary(
+        "fetch",
+        remote,
+        f"+refs/heads/{base_branch}:{ref}",
+        "--quiet",
+    )
+    if proc.returncode != 0:
+        raise ContinuityStateValidationError("Unable to fetch configured main branch for E4")
+    sha_proc = _run_git_binary("rev-parse", ref)
+    if sha_proc.returncode != 0:
+        raise ContinuityStateValidationError("Unable to resolve configured main branch for E4")
+    try:
+        sha = sha_proc.stdout.decode("ascii").strip()
+    except UnicodeDecodeError as exc:
+        raise ContinuityStateValidationError("Configured main SHA was not ASCII") from exc
+    if not re.fullmatch(r"[0-9a-f]{40}", sha):
+        raise ContinuityStateValidationError("Configured main SHA must be exact lowercase 40-hex")
+    return sha
+
+
+def cmd_execute(args):
+    """Run one already-authorized Codex E4 execution and auto-publish on exact success."""
+    ensure_git()
+    cfg = load_config()
+    task_num = args.task_id
+    task_id = f"TASK-{task_num:03d}"
+    auth = get_active_authorization(task_num)
+    if auth is None:
+        fail(f"Không có ACTIVE Human authorization cho {task_id}; execute không tạo approval.")
+
+    expected_branch = f"{cfg['task_branch_prefix']}{task_num:03d}"
+    pre_branch = current_branch()
+    if auth.get("branch") != expected_branch or pre_branch != expected_branch:
+        fail("E4 authorization/current branch does not match the exact task branch")
+    workspace_id = get_workspace_id()
+    if auth.get("workspace_id") != workspace_id:
+        fail("E4 authorization workspace does not match the current workspace")
+    if auth.get("executor_id") != CODEX_EXECUTOR_ID:
+        fail("E4 v1 automatic execution supports only the Human-selected codex executor")
+    if not is_worktree_clean():
+        fail("E4 requires a clean worktree before Codex invocation")
+
+    try:
+        operation = ExecutionOperation(auth.get("action"))
+        expected_lease = reconstruct_expected_executor_lease(auth)
+        get_lease_store().require_active(expected_lease)
+        pre_head_sha = git("rev-parse", "HEAD").stdout.strip()
+        if not re.fullmatch(r"[0-9a-f]{40}", pre_head_sha):
+            raise ContinuityStateValidationError("Pre-execution HEAD must be exact lowercase 40-hex")
+        main_sha = _resolve_e4_main_sha(cfg)
+        snapshot = resolve_e4_control_snapshot(cfg, auth)
+
+        prior_result_ref = None
+        if operation is ExecutionOperation.FIX:
+            result_path = f".ai/results/RESULT-{task_num:03d}.md"
+            result_blob = resolve_git_blob_sha(pre_head_sha, result_path)
+            prior_result_ref = ArtifactRef(
+                path=result_path,
+                ref=pre_head_sha,
+                blob_sha=result_blob,
+            )
+
+        binding = ExecutorAuthorizationBinding(
+            schema_version="1",
+            task_id=task_id,
+            operation=operation,
+            executor_id=auth["executor_id"],
+            target_branch=auth["branch"],
+            artifact_path=auth["artifact_path"],
+            artifact_blob_sha=auth["artifact_blob_sha"],
+            lease_id=auth["lease_id"],
+            lease_fingerprint=auth["lease_fingerprint"],
+            workspace_id=auth["workspace_id"],
+            execution_fingerprint=auth["execution_fingerprint"],
+            status=auth["status"],
+        )
+        candidate = snapshot["candidate"]
+        capabilities = ExecutorCapabilities(
+            executor_id=candidate.executor_id,
+            supported_operations=candidate.supported_operations,
+            supported_capabilities=candidate.supported_capabilities,
+        )
+        launch = build_executor_automation_launch_plan(
+            task_id=task_id,
+            operation=operation,
+            executor_id=auth["executor_id"],
+            main_branch=cfg["base_branch"],
+            main_sha=main_sha,
+            target_branch=expected_branch,
+            task_head_sha=pre_head_sha,
+            work_ref=snapshot["work_ref"],
+            context_refs=snapshot["context_refs"],
+            prior_result_ref=prior_result_ref,
+            required_capabilities=snapshot["policy"].required_capabilities,
+            executor_capabilities=capabilities,
+            executor_lease=expected_lease,
+            authorization_binding=binding,
+            artifact_payloads=snapshot["artifact_payloads"],
+            transport_id=CODEX_TRANSPORT_ID,
+        )
+    except SystemExit:
+        raise
+    except Exception as exc:
+        fail(f"E4 pre-invocation validation failed: {exc}")
+
+    transport = CodexLocalTransport(
+        PROJECT,
+        codex_executable=args.codex_executable,
+        timeout_seconds=args.timeout_seconds,
+    )
+    receipt = transport.invoke(launch.context_pack.invocation, launch.context_pack.payload)
+
+    try:
+        post_branch = current_branch()
+        post_head_sha = git("rev-parse", "HEAD").stdout.strip()
+        dirty_paths = collect_e4_dirty_paths()
+        invocation_fingerprint = launch.context_pack.invocation.fingerprint()
+        record = {
+            "schema_version": "1",
+            "task_id": task_id,
+            "action": operation.value,
+            "executor_id": auth["executor_id"],
+            "transport_id": CODEX_TRANSPORT_ID,
+            "control_commit_sha": snapshot["control_commit_sha"],
+            "pre_head_sha": pre_head_sha,
+            "post_head_sha": post_head_sha,
+            "pre_branch": pre_branch,
+            "post_branch": post_branch,
+            "manifest_fingerprint": launch.context_pack.manifest.fingerprint(),
+            "invocation_fingerprint": invocation_fingerprint,
+            "payload_sha256": launch.context_pack.invocation.payload_sha256,
+            "payload_size_bytes": launch.context_pack.invocation.payload_size_bytes,
+            "invocation_receipt": receipt.to_dict(),
+            "invocation_receipt_fingerprint": receipt.fingerprint(),
+            "dirty_paths": list(dirty_paths),
+            "published_sha": None,
+            "result_blob_sha": None,
+            "execution_result_fingerprint": None,
+        }
+        receipt_path = (
+            get_runtime_paths()["executor_automation"]
+            / task_id
+            / f"{invocation_fingerprint}.json"
+        )
+        _persist_e4_receipt(receipt_path, record)
+    except Exception as exc:
+        _e4_operational_failure(
+            task_num,
+            "RECOVERY_REQUIRED",
+            f"E4 invocation evidence persistence failed; no publication: {exc}",
+        )
+
+    if receipt.status is not InvocationStatus.EXITED_ZERO:
+        blocked_status = (
+            "EXECUTION_BLOCKED"
+            if receipt.status is InvocationStatus.FAILED_TO_START and not dirty_paths
+            else "RECOVERY_REQUIRED"
+        )
+        _e4_operational_failure(
+            task_num,
+            blocked_status,
+            f"E4 transport ended with {receipt.status.value}; no publication and no retry",
+        )
+
+    try:
+        verified_dirty_paths = validate_executor_worktree_delta(
+            pre_branch=pre_branch,
+            post_branch=post_branch,
+            pre_head_sha=pre_head_sha,
+            post_head_sha=post_head_sha,
+            dirty_paths=dirty_paths,
+            allowed_paths=snapshot["allowed_paths"],
+        )
+    except Exception as exc:
+        _e4_operational_failure(
+            task_num,
+            "RECOVERY_REQUIRED",
+            f"E4 post-executor Git/scope gate failed; work preserved: {exc}",
+        )
+
+    test_argv = [sys.executable, "-m", "pytest", "tests/", "-q"]
+    full_suite_command = (
+        subprocess.list2cmdline(test_argv) if os.name == "nt" else shlex.join(test_argv)
+    )
+    notes = "\n".join(
+        (
+            "E4_AUTO_EXECUTION: YES",
+            f"E4_CONTROL_COMMIT_SHA: {snapshot['control_commit_sha']}",
+            f"E4_CONTEXT_MANIFEST_FINGERPRINT: {launch.context_pack.manifest.fingerprint()}",
+            f"E4_INVOCATION_FINGERPRINT: {invocation_fingerprint}",
+            f"E4_INVOCATION_RECEIPT_FINGERPRINT: {receipt.fingerprint()}",
+            "E4_TRANSPORT_STATUS: EXITED_ZERO",
+            f"E4_PRE_EXECUTION_HEAD: {pre_head_sha}",
+            "E4_ALLOWED_SCOPE_VERIFIED: PASS",
+            f"E4_DIRTY_PATH_COUNT: {len(verified_dirty_paths)}",
+        )
+    )
+    publish_args = argparse.Namespace(
+        task_id=task_num,
+        action=operation.value,
+        test=full_suite_command,
+        summary=(
+            "Implementation completed by codex through E4 approved automatic execution; "
+            "pending ChatGPT review."
+        ),
+        notes=notes,
+        message=None,
+    )
+    cmd_publish(publish_args)
+
+    try:
+        published_auth = load_authorization(task_num)
+        if not isinstance(published_auth, dict) or published_auth.get("status") != "CONSUMED":
+            raise ContinuityStateValidationError("Post-publication authorization is not CONSUMED")
+        published_sha = published_auth.get("published_sha")
+        if not isinstance(published_sha, str) or not re.fullmatch(r"[0-9a-f]{40}", published_sha):
+            raise ContinuityStateValidationError("Post-publication SHA is invalid")
+        if git("rev-parse", "HEAD").stdout.strip() != published_sha:
+            raise ContinuityStateValidationError("Published SHA does not match task branch HEAD")
+        result_path = launch.execution_request.expected_result_path
+        result_blob_sha = resolve_git_blob_sha(published_sha, result_path)
+        result_ref = ArtifactRef(
+            path=result_path,
+            ref=launch.execution_request.target_branch,
+            blob_sha=result_blob_sha,
+        )
+        execution_result = build_published_execution_result(
+            launch.execution_request,
+            published_sha=published_sha,
+            result_ref=result_ref,
+        )
+        record["published_sha"] = published_sha
+        record["result_blob_sha"] = result_blob_sha
+        record["execution_result_fingerprint"] = execution_result.fingerprint()
+        _persist_e4_receipt(receipt_path, record)
+    except Exception as exc:
+        _e4_operational_failure(
+            task_num,
+            "RECOVERY_REQUIRED",
+            f"E4 post-publication integrity verification failed: {exc}",
+        )
+    return execution_result
 
 
 def latest_approved(task_id: int):
@@ -3453,6 +3890,14 @@ def build_parser():
         "--executor", default=None, help="Explicit target Executor ID (default: antigravity)"
     )
     s.set_defaults(func=cmd_approve)
+
+    s = sub.add_parser(
+        "execute", help="Invoke Codex once for an already ACTIVE Human authorization"
+    )
+    s.add_argument("task_id", type=int)
+    s.add_argument("--codex-executable", default="codex")
+    s.add_argument("--timeout-seconds", type=int, default=DEFAULT_CODEX_TIMEOUT_SECONDS)
+    s.set_defaults(func=cmd_execute)
 
     s = sub.add_parser("context", help="Print execution context for Antigravity")
     s.add_argument("task_id", type=int)
