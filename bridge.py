@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+from dataclasses import dataclass
 import hashlib
 import json
 import os
@@ -28,6 +29,7 @@ import re
 import secrets
 import shlex
 import shutil
+import stat
 import subprocess
 import sys
 import time
@@ -124,6 +126,12 @@ HOT_HANDOFF_ACTIVATED_FIELDS = frozenset(
 )
 
 _LOWER_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+
+_E4_MAX_ADMIN_ENTRIES = 512
+_E4_MAX_ADMIN_FILE_BYTES = 1024 * 1024
+_E4_MAX_ADMIN_TOTAL_BYTES = 4 * 1024 * 1024
+_E4_MAX_GIT_PROBE_BYTES = 1024 * 1024
+_E4_MAX_PUBLICATION_NOTES_BYTES = 4096
 
 
 def validate_runtime_executor_id(executor_id: str | None) -> str:
@@ -888,6 +896,254 @@ def collect_e4_dirty_paths() -> tuple[str, ...]:
     if len(paths) != len(set(paths)):
         paths = list(dict.fromkeys(paths))
     return tuple(sorted(paths))
+
+
+def _e4_git_probe_bytes(*args: str, allowed_returncodes: tuple[int, ...] = (0,)) -> bytes:
+    """Run one bounded, non-exiting Git observation for the E4 recovery boundary."""
+    proc = _run_git_binary(*args)
+    if proc.returncode not in allowed_returncodes:
+        raise ContinuityStateValidationError(
+            f"E4 Git observation failed: {' '.join(args)} (exit={proc.returncode})"
+        )
+    if len(proc.stdout) > _E4_MAX_GIT_PROBE_BYTES:
+        raise ContinuityStateValidationError("E4 Git observation exceeded its byte bound")
+    return bytes(proc.stdout)
+
+
+def _e4_git_probe_text(*args: str) -> str:
+    raw = _e4_git_probe_bytes(*args)
+    try:
+        value = raw.decode("utf-8").strip()
+    except UnicodeDecodeError as exc:
+        raise ContinuityStateValidationError("E4 Git observation was not strict UTF-8") from exc
+    if not value:
+        raise ContinuityStateValidationError("E4 Git observation returned an empty value")
+    return value
+
+
+def observe_e4_branch() -> str:
+    return _e4_git_probe_text("symbolic-ref", "--quiet", "--short", "HEAD")
+
+
+def observe_e4_head() -> str:
+    value = _e4_git_probe_text("rev-parse", "--verify", "HEAD")
+    if not re.fullmatch(r"[0-9a-f]{40}", value):
+        raise ContinuityStateValidationError("Observed E4 HEAD must be exact lowercase 40-hex")
+    return value
+
+
+def _e4_snapshot_path(path: Path) -> str:
+    """Hash one bounded file/directory/symlink state without invoking Git."""
+    hasher = hashlib.sha256()
+    total_bytes = 0
+    entry_count = 0
+
+    def add_bytes(value: bytes) -> None:
+        nonlocal total_bytes
+        total_bytes += len(value)
+        if total_bytes > _E4_MAX_ADMIN_TOTAL_BYTES:
+            raise ContinuityStateValidationError("E4 Git-admin snapshot exceeded total byte bound")
+        hasher.update(len(value).to_bytes(8, "big"))
+        hasher.update(value)
+
+    def add_file(file_path: Path, label: str) -> None:
+        nonlocal entry_count
+        entry_count += 1
+        if entry_count > _E4_MAX_ADMIN_ENTRIES:
+            raise ContinuityStateValidationError("E4 Git-admin snapshot exceeded entry bound")
+        try:
+            metadata = file_path.lstat()
+        except OSError as exc:
+            raise ContinuityStateValidationError(
+                f"Unable to inspect protected Git-admin path: {file_path}"
+            ) from exc
+        add_bytes(label.encode("utf-8"))
+        add_bytes(str(stat.S_IMODE(metadata.st_mode)).encode("ascii"))
+        if file_path.is_symlink():
+            try:
+                target_text = os.readlink(file_path)
+                target = file_path.resolve(strict=True)
+            except OSError as exc:
+                raise ContinuityStateValidationError(
+                    f"Protected Git-admin symlink is unresolved: {file_path}"
+                ) from exc
+            add_bytes(b"SYMLINK")
+            add_bytes(str(target_text).encode("utf-8"))
+            if target.is_file():
+                try:
+                    payload = target.read_bytes()
+                except OSError as exc:
+                    raise ContinuityStateValidationError(
+                        f"Unable to read protected Git-admin symlink target: {target}"
+                    ) from exc
+                if len(payload) > _E4_MAX_ADMIN_FILE_BYTES:
+                    raise ContinuityStateValidationError("Protected Git-admin file exceeded byte bound")
+                add_bytes(payload)
+            elif target.is_dir():
+                add_bytes(b"TARGET_DIRECTORY")
+            else:
+                raise ContinuityStateValidationError("Protected Git-admin symlink target is unsafe")
+            return
+        if file_path.is_file():
+            try:
+                payload = file_path.read_bytes()
+            except OSError as exc:
+                raise ContinuityStateValidationError(
+                    f"Unable to read protected Git-admin file: {file_path}"
+                ) from exc
+            if len(payload) > _E4_MAX_ADMIN_FILE_BYTES:
+                raise ContinuityStateValidationError("Protected Git-admin file exceeded byte bound")
+            add_bytes(b"FILE")
+            add_bytes(payload)
+        elif file_path.is_dir():
+            add_bytes(b"DIRECTORY")
+        else:
+            raise ContinuityStateValidationError("Protected Git-admin entry has unsupported type")
+
+    if not path.exists() and not path.is_symlink():
+        add_bytes(b"MISSING")
+        return hasher.hexdigest()
+    if path.is_file() or path.is_symlink():
+        add_file(path, path.name)
+        return hasher.hexdigest()
+    if not path.is_dir():
+        raise ContinuityStateValidationError("Protected Git-admin root has unsupported type")
+    add_file(path, ".")
+    try:
+        entries = sorted(path.rglob("*"), key=lambda item: item.relative_to(path).as_posix())
+    except OSError as exc:
+        raise ContinuityStateValidationError("Unable to enumerate protected Git-admin directory") from exc
+    for entry in entries:
+        add_file(entry, entry.relative_to(path).as_posix())
+    return hasher.hexdigest()
+
+
+def _e4_snapshot_git_locator(path: Path) -> str:
+    """Snapshot only the .git locator identity, not mutable index/ref contents."""
+    if path.is_symlink() or path.is_file():
+        return _e4_snapshot_path(path)
+    if path.is_dir():
+        payload = f"DIRECTORY\0{path.resolve()}".encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+    return hashlib.sha256(b"MISSING").hexdigest()
+
+
+def _e4_effective_publication_identity(publication_remote: str) -> tuple[str, str]:
+    if not isinstance(publication_remote, str) or not re.fullmatch(
+        r"[A-Za-z0-9._-]+", publication_remote
+    ):
+        raise ContinuityStateValidationError("Publication remote name is not canonical")
+    config_bytes = _e4_git_probe_bytes(
+        "config", "--includes", "--show-origin", "--null", "--list"
+    )
+    identity_hasher = hashlib.sha256()
+    for args in (
+        ("remote", "get-url", "--all", publication_remote),
+        ("remote", "get-url", "--push", "--all", publication_remote),
+    ):
+        value = _e4_git_probe_bytes(*args)
+        identity_hasher.update(len(value).to_bytes(8, "big"))
+        identity_hasher.update(value)
+    hooks_path = _e4_git_probe_text(
+        "rev-parse", "--path-format=absolute", "--git-path", "hooks"
+    )
+    identity_hasher.update(hooks_path.encode("utf-8"))
+    return hashlib.sha256(config_bytes).hexdigest(), identity_hasher.hexdigest()
+
+
+@dataclass(frozen=True)
+class E4PublicationTrustSnapshot:
+    repository_root: str
+    git_dir: str
+    common_git_dir: str
+    hooks_path: str
+    publication_remote: str
+    effective_config_sha256: str
+    remote_identity_sha256: str
+    protected_entries: tuple[tuple[str, str, str], ...]
+
+    def fingerprint(self) -> str:
+        payload = {
+            "common_git_dir": self.common_git_dir,
+            "effective_config_sha256": self.effective_config_sha256,
+            "git_dir": self.git_dir,
+            "hooks_path": self.hooks_path,
+            "protected_entries": [list(item) for item in self.protected_entries],
+            "publication_remote": self.publication_remote,
+            "remote_identity_sha256": self.remote_identity_sha256,
+            "repository_root": self.repository_root,
+        }
+        return hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+
+
+def capture_e4_publication_trust_snapshot(publication_remote: str) -> E4PublicationTrustSnapshot:
+    """Capture bounded publication-critical Git administration before E2 invocation."""
+    repository_root = Path(_e4_git_probe_text("rev-parse", "--show-toplevel")).resolve()
+    git_dir = Path(_e4_git_probe_text("rev-parse", "--absolute-git-dir")).resolve()
+    common_git_dir = Path(
+        _e4_git_probe_text("rev-parse", "--path-format=absolute", "--git-common-dir")
+    ).resolve()
+    hooks_path = Path(
+        _e4_git_probe_text("rev-parse", "--path-format=absolute", "--git-path", "hooks")
+    ).resolve()
+    effective_config, remote_identity = _e4_effective_publication_identity(publication_remote)
+
+    protected = {
+        "git_locator": repository_root / ".git",
+        "local_config": common_git_dir / "config",
+        "common_config_worktree": common_git_dir / "config.worktree",
+        "worktree_config": git_dir / "config.worktree",
+        "active_hooks": hooks_path,
+        "common_info_attributes": common_git_dir / "info" / "attributes",
+        "common_info_exclude": common_git_dir / "info" / "exclude",
+        "worktree_info_attributes": git_dir / "info" / "attributes",
+        "worktree_info_exclude": git_dir / "info" / "exclude",
+    }
+    entries = tuple(
+        (
+            label,
+            str(path),
+            _e4_snapshot_git_locator(path)
+            if label == "git_locator"
+            else _e4_snapshot_path(path),
+        )
+        for label, path in sorted(protected.items())
+    )
+    return E4PublicationTrustSnapshot(
+        repository_root=str(repository_root),
+        git_dir=str(git_dir),
+        common_git_dir=str(common_git_dir),
+        hooks_path=str(hooks_path),
+        publication_remote=publication_remote,
+        effective_config_sha256=effective_config,
+        remote_identity_sha256=remote_identity,
+        protected_entries=entries,
+    )
+
+
+def verify_e4_publication_trust_snapshot(snapshot: E4PublicationTrustSnapshot) -> None:
+    """Verify pre-E2 trust facts before any post-E2 worktree Git evidence."""
+    if not isinstance(snapshot, E4PublicationTrustSnapshot):
+        raise ContinuityStateValidationError("Invalid E4 publication trust snapshot")
+    for label, raw_path, expected_digest in snapshot.protected_entries:
+        observed_digest = (
+            _e4_snapshot_git_locator(Path(raw_path))
+            if label == "git_locator"
+            else _e4_snapshot_path(Path(raw_path))
+        )
+        if observed_digest != expected_digest:
+            raise ContinuityStateValidationError(
+                f"Protected Git administration drifted after Executor invocation: {label}"
+            )
+    effective_config, remote_identity = _e4_effective_publication_identity(
+        snapshot.publication_remote
+    )
+    if effective_config != snapshot.effective_config_sha256:
+        raise ContinuityStateValidationError("Effective Git configuration drifted after Executor invocation")
+    if remote_identity != snapshot.remote_identity_sha256:
+        raise ContinuityStateValidationError("Publication remote/hooks identity drifted after Executor invocation")
 
 
 def get_runtime_capacity_store() -> AtomicRuntimeCapacityStore:
@@ -2200,9 +2456,7 @@ def cmd_execute(args):
         operation = ExecutionOperation(auth.get("action"))
         expected_lease = reconstruct_expected_executor_lease(auth)
         get_lease_store().require_active(expected_lease)
-        pre_head_sha = git("rev-parse", "HEAD").stdout.strip()
-        if not re.fullmatch(r"[0-9a-f]{40}", pre_head_sha):
-            raise ContinuityStateValidationError("Pre-execution HEAD must be exact lowercase 40-hex")
+        pre_head_sha = observe_e4_head()
         main_sha = _resolve_e4_main_sha(cfg)
         snapshot = resolve_e4_control_snapshot(cfg, auth)
 
@@ -2254,6 +2508,7 @@ def cmd_execute(args):
             artifact_payloads=snapshot["artifact_payloads"],
             transport_id=CODEX_TRANSPORT_ID,
         )
+        publication_trust = capture_e4_publication_trust_snapshot(cfg["remote"])
     except SystemExit:
         raise
     except Exception as exc:
@@ -2267,8 +2522,17 @@ def cmd_execute(args):
     receipt = transport.invoke(launch.context_pack.invocation, launch.context_pack.payload)
 
     try:
-        post_branch = current_branch()
-        post_head_sha = git("rev-parse", "HEAD").stdout.strip()
+        verify_e4_publication_trust_snapshot(publication_trust)
+    except Exception as exc:
+        _e4_operational_failure(
+            task_num,
+            "RECOVERY_REQUIRED",
+            f"E4 protected Git administration drifted; work preserved: {exc}",
+        )
+
+    try:
+        post_branch = observe_e4_branch()
+        post_head_sha = observe_e4_head()
         dirty_paths = collect_e4_dirty_paths()
         invocation_fingerprint = launch.context_pack.invocation.fingerprint()
         record = {
@@ -2348,9 +2612,16 @@ def cmd_execute(args):
             "E4_TRANSPORT_STATUS: EXITED_ZERO",
             f"E4_PRE_EXECUTION_HEAD: {pre_head_sha}",
             "E4_ALLOWED_SCOPE_VERIFIED: PASS",
+            "E4_PUBLICATION_TRUST_VERIFIED: PASS",
             f"E4_DIRTY_PATH_COUNT: {len(verified_dirty_paths)}",
         )
     )
+    if len(notes.encode("utf-8")) > _E4_MAX_PUBLICATION_NOTES_BYTES:
+        _e4_operational_failure(
+            task_num,
+            "RECOVERY_REQUIRED",
+            "E4 publication notes exceeded their fixed byte bound; no publication",
+        )
     publish_args = argparse.Namespace(
         task_id=task_num,
         action=operation.value,
@@ -2371,7 +2642,7 @@ def cmd_execute(args):
         published_sha = published_auth.get("published_sha")
         if not isinstance(published_sha, str) or not re.fullmatch(r"[0-9a-f]{40}", published_sha):
             raise ContinuityStateValidationError("Post-publication SHA is invalid")
-        if git("rev-parse", "HEAD").stdout.strip() != published_sha:
+        if observe_e4_head() != published_sha:
             raise ContinuityStateValidationError("Published SHA does not match task branch HEAD")
         result_path = launch.execution_request.expected_result_path
         result_blob_sha = resolve_git_blob_sha(published_sha, result_path)

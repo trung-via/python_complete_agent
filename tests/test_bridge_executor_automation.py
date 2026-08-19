@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import inspect
+import json
 from pathlib import Path
 import subprocess
 from types import SimpleNamespace
@@ -19,6 +20,59 @@ from src.aios_bridge.continuity.state import ArtifactRef
 
 def git_blob(data: bytes) -> str:
     return hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest()
+
+
+def init_publication_repo(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["git", "init", "-q"], cwd=path, check=True)
+    subprocess.run(["git", "config", "user.email", "e4@example.invalid"], cwd=path, check=True)
+    subprocess.run(["git", "config", "user.name", "E4 Test"], cwd=path, check=True)
+    subprocess.run(["git", "config", "core.autocrlf", "false"], cwd=path, check=True)
+    subprocess.run(
+        ["git", "remote", "add", "origin", "https://example.invalid/repository.git"],
+        cwd=path,
+        check=True,
+    )
+    (path / "bridge.py").write_text("baseline\n", encoding="utf-8")
+    subprocess.run(["git", "add", "bridge.py"], cwd=path, check=True)
+    subprocess.run(["git", "commit", "-qm", "fixture"], cwd=path, check=True)
+
+
+def init_control_repo(path: Path, policy: dict) -> dict:
+    init_publication_repo(path)
+    context_path = path / ".ai" / "decisions" / "ADR-032.md"
+    context_path.parent.mkdir(parents=True, exist_ok=True)
+    context_path.write_bytes(b"ADR\n")
+    context_blob = git_blob(b"ADR\n")
+    task_path = path / ".ai" / "tasks" / "TASK-043.md"
+    task_path.parent.mkdir(parents=True, exist_ok=True)
+    task_content = "\n".join(
+        (
+            "TASK",
+            "EXECUTOR_CONTEXT_REFS_JSON: "
+            + json.dumps([{"path": ".ai/decisions/ADR-032.md", "blob_sha": context_blob}], separators=(",", ":")),
+            'EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py"]',
+            "DISPATCH_EXECUTOR_POLICY_JSON: " + json.dumps(policy, separators=(",", ":")),
+            "",
+        )
+    ).encode("utf-8")
+    task_path.write_bytes(task_content)
+    subprocess.run(["git", "add", ".ai"], cwd=path, check=True)
+    subprocess.run(["git", "commit", "-qm", "control"], cwd=path, check=True)
+    subprocess.run(["git", "branch", "-M", "ai-control"], cwd=path, check=True)
+    task_blob = subprocess.run(
+        ["git", "rev-parse", "ai-control:.ai/tasks/TASK-043.md"],
+        cwd=path,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.strip()
+    return {
+        "action": "RUN",
+        "artifact_path": ".ai/tasks/TASK-043.md",
+        "artifact_blob_sha": task_blob,
+        "executor_id": "codex",
+    }
 
 
 def test_binary_git_helpers_preserve_bom_crlf_and_trailing_spaces(tmp_path, monkeypatch):
@@ -49,7 +103,37 @@ def test_dirty_collector_includes_rename_ends_and_untracked(tmp_path, monkeypatc
     assert bridge.collect_e4_dirty_paths() == ("new.py", "old.py", "untracked.py")
 
 
-def make_execute_environment(monkeypatch, tmp_path, *, status=InvocationStatus.EXITED_ZERO):
+def test_publication_trust_snapshot_resolves_linked_worktree_gitdir(tmp_path, monkeypatch):
+    main_repo = tmp_path / "main"
+    linked_repo = tmp_path / "linked"
+    init_publication_repo(main_repo)
+    subprocess.run(
+        ["git", "worktree", "add", "-qb", "linked-test", str(linked_repo)],
+        cwd=main_repo,
+        check=True,
+    )
+    monkeypatch.setattr(bridge, "PROJECT", linked_repo)
+    snapshot = bridge.capture_e4_publication_trust_snapshot("origin")
+    assert Path(snapshot.git_dir) != Path(snapshot.common_git_dir)
+    assert (linked_repo / ".git").is_file()
+    bridge.verify_e4_publication_trust_snapshot(snapshot)
+    subprocess.run(
+        ["git", "config", "remote.origin.url", "https://attacker.invalid/repository.git"],
+        cwd=linked_repo,
+        check=True,
+    )
+    with pytest.raises(ContinuityStateValidationError, match="drifted"):
+        bridge.verify_e4_publication_trust_snapshot(snapshot)
+
+
+def make_execute_environment(
+    monkeypatch,
+    tmp_path,
+    *,
+    status=InvocationStatus.EXITED_ZERO,
+    on_invoke=None,
+    real_publication_trust=False,
+):
     task_bytes = b"TASK E4\r\n"
     context_bytes = b"ADR E4\n"
     task_blob = git_blob(task_bytes)
@@ -119,6 +203,8 @@ def make_execute_environment(monkeypatch, tmp_path, *, status=InvocationStatus.E
 
         def invoke(self, invocation, payload):
             calls["invoke"] += 1
+            if on_invoke is not None:
+                on_invoke()
             if status is InvocationStatus.EXITED_ZERO:
                 exit_code, error_code = 0, None
             elif status is InvocationStatus.EXITED_NONZERO:
@@ -165,6 +251,12 @@ def make_execute_environment(monkeypatch, tmp_path, *, status=InvocationStatus.E
     monkeypatch.setattr(bridge, "is_worktree_clean", lambda: True)
     monkeypatch.setattr(bridge, "get_lease_store", lambda: LeaseStore())
     monkeypatch.setattr(bridge, "git", fake_git)
+    monkeypatch.setattr(
+        bridge,
+        "observe_e4_head",
+        lambda: "e" * 40 if calls["published"] else "b" * 40,
+    )
+    monkeypatch.setattr(bridge, "observe_e4_branch", lambda: "ai/task-043")
     monkeypatch.setattr(bridge, "_resolve_e4_main_sha", lambda cfg: "a" * 40)
     monkeypatch.setattr(bridge, "resolve_e4_control_snapshot", lambda cfg, value: snapshot)
     monkeypatch.setattr(bridge, "CodexLocalTransport", FakeTransport)
@@ -193,11 +285,90 @@ def make_execute_environment(monkeypatch, tmp_path, *, status=InvocationStatus.E
         "update_state",
         lambda task_id, state, message: calls["state"].append((state, message)),
     )
+    if not real_publication_trust:
+        monkeypatch.setattr(
+            bridge, "capture_e4_publication_trust_snapshot", lambda remote: "trusted"
+        )
+        monkeypatch.setattr(
+            bridge,
+            "verify_e4_publication_trust_snapshot",
+            lambda snapshot: None,
+        )
     return auth, snapshot, calls
 
 
 def execute_args():
     return argparse.Namespace(task_id=43, codex_executable="codex", timeout_seconds=1800)
+
+
+@pytest.mark.parametrize("drift_kind", ["hook", "remote", "hooks_path", "attributes", "exclude"])
+def test_git_admin_drift_after_one_fake_invoke_blocks_publication(
+    monkeypatch, tmp_path, drift_kind
+):
+    repo = tmp_path / "repo"
+    init_publication_repo(repo)
+    hook = repo / ".git" / "hooks" / "pre-commit"
+    hook.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    monkeypatch.setattr(bridge, "PROJECT", repo)
+
+    def mutate():
+        (repo / "bridge.py").write_text("allowed mutation\n", encoding="utf-8")
+        if drift_kind == "hook":
+            hook.write_text("#!/bin/sh\necho attacker\n", encoding="utf-8")
+        elif drift_kind == "remote":
+            subprocess.run(
+                ["git", "config", "remote.origin.url", "https://attacker.invalid/repository.git"],
+                cwd=repo,
+                check=True,
+            )
+        elif drift_kind == "hooks_path":
+            subprocess.run(
+                ["git", "config", "core.hooksPath", "attacker-hooks"], cwd=repo, check=True
+            )
+        elif drift_kind == "attributes":
+            info = repo / ".git" / "info"
+            info.mkdir(exist_ok=True)
+            (info / "attributes").write_text("* filter=attacker\n", encoding="utf-8")
+        else:
+            (repo / ".git" / "info" / "exclude").write_text("bridge.py\n", encoding="utf-8")
+
+    _, _, calls = make_execute_environment(
+        monkeypatch,
+        tmp_path,
+        on_invoke=mutate,
+        real_publication_trust=True,
+    )
+    dirty_probes = []
+    monkeypatch.setattr(
+        bridge,
+        "collect_e4_dirty_paths",
+        lambda: dirty_probes.append(True) or ("bridge.py",),
+    )
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+    assert calls["invoke"] == 1
+    assert calls["publish"] == []
+    assert dirty_probes == []
+    assert calls["state"][-1][0] == "RECOVERY_REQUIRED"
+
+
+def test_unchanged_git_admin_and_allowed_mutation_preserve_happy_path(monkeypatch, tmp_path):
+    repo = tmp_path / "repo"
+    init_publication_repo(repo)
+    monkeypatch.setattr(bridge, "PROJECT", repo)
+
+    def mutate_allowed_file():
+        (repo / "bridge.py").write_text("allowed mutation\n", encoding="utf-8")
+
+    _, _, calls = make_execute_environment(
+        monkeypatch,
+        tmp_path,
+        on_invoke=mutate_allowed_file,
+        real_publication_trust=True,
+    )
+    bridge.cmd_execute(execute_args())
+    assert calls["invoke"] == 1
+    assert len(calls["publish"]) == 1
 
 
 def test_exit_zero_invokes_once_and_reuses_publisher_with_fixed_suite(monkeypatch, tmp_path):
@@ -209,7 +380,11 @@ def test_exit_zero_invokes_once_and_reuses_publisher_with_fixed_suite(monkeypatc
     assert published.action == "RUN"
     assert "-m pytest tests/ -q" in published.test
     assert "E4_TRANSPORT_STATUS: EXITED_ZERO" in published.notes
+    assert "E4_PUBLICATION_TRUST_VERIFIED: PASS" in published.notes
     assert "TASK E4" not in published.notes
+    assert "ADR E4" not in published.notes
+    assert "AIOS_EXECUTOR_CONTEXT_PACK" not in published.notes
+    assert len(published.notes.encode("utf-8")) <= bridge._E4_MAX_PUBLICATION_NOTES_BYTES
     assert len(calls["persist"]) == 2
     assert calls["persist"][0]["published_sha"] is None
     assert calls["persist"][1]["published_sha"] == "e" * 40
@@ -246,6 +421,67 @@ def test_no_active_authorization_blocks_before_transport(monkeypatch):
         bridge.cmd_execute(execute_args())
 
 
+def test_wrong_workspace_blocks_before_transport(monkeypatch, tmp_path):
+    auth, _, calls = make_execute_environment(monkeypatch, tmp_path)
+    auth["workspace_id"] = "f" * 64
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+    assert calls["invoke"] == 0
+    assert calls["publish"] == []
+
+
+@pytest.mark.parametrize("lease_failure", ["missing", "wrong"])
+def test_missing_or_wrong_active_lease_blocks_before_transport(
+    monkeypatch, tmp_path, lease_failure
+):
+    _, _, calls = make_execute_environment(monkeypatch, tmp_path)
+
+    class InvalidLeaseStore:
+        def require_active(self, lease):
+            raise ContinuityStateValidationError(f"{lease_failure} active lease")
+
+    monkeypatch.setattr(bridge, "get_lease_store", lambda: InvalidLeaseStore())
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+    assert calls["invoke"] == 0
+    assert calls["publish"] == []
+
+
+@pytest.mark.parametrize("authorized_branch,current", [("main", "ai/task-043"), ("ai/task-043", "main")])
+def test_wrong_authorized_or_current_branch_blocks_before_transport(
+    monkeypatch, tmp_path, authorized_branch, current
+):
+    auth, _, calls = make_execute_environment(monkeypatch, tmp_path)
+    auth["branch"] = authorized_branch
+    monkeypatch.setattr(bridge, "current_branch", lambda: current)
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+    assert calls["invoke"] == 0
+    assert calls["publish"] == []
+
+
+def test_non_codex_authorization_blocks_before_transport(monkeypatch, tmp_path):
+    auth, _, calls = make_execute_environment(monkeypatch, tmp_path)
+    auth["executor_id"] = "antigravity"
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+    assert calls["invoke"] == 0
+    assert calls["publish"] == []
+
+
+def test_ineligible_selected_executor_blocks_before_transport(monkeypatch, tmp_path):
+    _, snapshot, calls = make_execute_environment(monkeypatch, tmp_path)
+    snapshot["candidate"] = SimpleNamespace(
+        executor_id="codex",
+        supported_operations=(ExecutionOperation.RUN,),
+        supported_capabilities=(),
+    )
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+    assert calls["invoke"] == 0
+    assert calls["publish"] == []
+
+
 def test_control_drift_blocks_before_transport(monkeypatch, tmp_path):
     _, _, calls = make_execute_environment(monkeypatch, tmp_path)
     monkeypatch.setattr(
@@ -259,6 +495,62 @@ def test_control_drift_blocks_before_transport(monkeypatch, tmp_path):
     assert calls["publish"] == []
 
 
+@pytest.mark.parametrize(
+    "reason",
+    ["dispatch policy operation mismatch", "selected executor absent"],
+)
+def test_dispatch_policy_mismatch_or_absent_executor_has_zero_invoke(
+    monkeypatch, tmp_path, reason
+):
+    _, _, calls = make_execute_environment(monkeypatch, tmp_path)
+    monkeypatch.setattr(
+        bridge,
+        "resolve_e4_control_snapshot",
+        lambda cfg, auth: (_ for _ in ()).throw(ContinuityStateValidationError(reason)),
+    )
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+    assert calls["invoke"] == 0
+    assert calls["publish"] == []
+
+
+def policy(candidate_id="codex", operation="RUN", supported_operations=None):
+    return {
+        "allow_paid_api": False,
+        "candidates": [
+            {
+                "capacity_class": "SUBSCRIPTION",
+                "executor_id": candidate_id,
+                "preference_rank": 0,
+                "supported_capabilities": ["FILESYSTEM_WRITE"],
+                "supported_operations": supported_operations or ["RUN"],
+            }
+        ],
+        "operation": operation,
+        "required_capabilities": ["FILESYSTEM_WRITE"],
+    }
+
+
+@pytest.mark.parametrize(
+    "policy_value,error",
+    [
+        (policy(operation="FIX", supported_operations=["FIX"]), "operation mismatches"),
+        (policy(candidate_id="antigravity"), "appear exactly once"),
+        (policy(supported_operations=["FIX"]), "does not support"),
+    ],
+)
+def test_control_snapshot_rejects_policy_action_absence_and_operation_ineligibility(
+    monkeypatch, tmp_path, policy_value, error
+):
+    repo = tmp_path / "control"
+    auth = init_control_repo(repo, policy_value)
+    monkeypatch.setattr(bridge, "PROJECT", repo)
+    monkeypatch.setattr(bridge, "fetch_control", lambda cfg: None)
+    monkeypatch.setattr(bridge, "remote_ref", lambda cfg: "ai-control")
+    with pytest.raises(ContinuityStateValidationError, match=error):
+        bridge.resolve_e4_control_snapshot({}, auth)
+
+
 def test_out_of_scope_untracked_path_blocks_publication(monkeypatch, tmp_path):
     _, _, calls = make_execute_environment(monkeypatch, tmp_path)
     monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ("secret.txt",))
@@ -267,6 +559,96 @@ def test_out_of_scope_untracked_path_blocks_publication(monkeypatch, tmp_path):
     assert calls["invoke"] == 1
     assert calls["publish"] == []
     assert calls["state"][-1][0] == "RECOVERY_REQUIRED"
+
+
+def test_executor_head_advance_blocks_publication_and_requires_recovery(monkeypatch, tmp_path):
+    _, _, calls = make_execute_environment(monkeypatch, tmp_path)
+    observations = iter(("b" * 40, "c" * 40))
+    monkeypatch.setattr(bridge, "observe_e4_head", lambda: next(observations))
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+    assert calls["invoke"] == 1
+    assert calls["publish"] == []
+    assert calls["state"][-1][0] == "RECOVERY_REQUIRED"
+
+
+def test_post_executor_branch_observation_failure_enters_recovery(monkeypatch, tmp_path):
+    _, _, calls = make_execute_environment(monkeypatch, tmp_path)
+    monkeypatch.setattr(
+        bridge,
+        "observe_e4_branch",
+        lambda: (_ for _ in ()).throw(ContinuityStateValidationError("branch unavailable")),
+    )
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+    assert calls["invoke"] == 1
+    assert calls["publish"] == []
+    assert calls["state"][-1][0] == "RECOVERY_REQUIRED"
+
+
+def test_post_executor_head_observation_failure_enters_recovery(monkeypatch, tmp_path):
+    _, _, calls = make_execute_environment(monkeypatch, tmp_path)
+    count = {"head": 0}
+
+    def observe_head():
+        count["head"] += 1
+        if count["head"] == 1:
+            return "b" * 40
+        raise ContinuityStateValidationError("HEAD unavailable")
+
+    monkeypatch.setattr(bridge, "observe_e4_head", observe_head)
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+    assert calls["invoke"] == 1
+    assert calls["publish"] == []
+    assert calls["state"][-1][0] == "RECOVERY_REQUIRED"
+
+
+def test_post_publish_head_observation_failure_enters_recovery_once(monkeypatch, tmp_path):
+    _, _, calls = make_execute_environment(monkeypatch, tmp_path)
+    count = {"head": 0}
+
+    def observe_head():
+        count["head"] += 1
+        if count["head"] <= 2:
+            return "b" * 40
+        raise ContinuityStateValidationError("published HEAD unavailable")
+
+    monkeypatch.setattr(bridge, "observe_e4_head", observe_head)
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+    assert calls["invoke"] == 1
+    assert len(calls["publish"]) == 1
+    assert calls["state"][-1][0] == "RECOVERY_REQUIRED"
+
+
+def test_post_publish_integrity_mismatch_enters_recovery(monkeypatch, tmp_path):
+    auth, _, calls = make_execute_environment(monkeypatch, tmp_path)
+    monkeypatch.setattr(
+        bridge,
+        "load_authorization",
+        lambda task_id: {**auth, "status": "CONSUMED", "published_sha": "f" * 40},
+    )
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+    assert calls["invoke"] == 1
+    assert len(calls["publish"]) == 1
+    assert calls["state"][-1][0] == "RECOVERY_REQUIRED"
+
+
+def test_cmd_publish_full_test_failure_remains_fail_closed(monkeypatch, tmp_path):
+    _, _, calls = make_execute_environment(monkeypatch, tmp_path)
+
+    def failing_publish(namespace):
+        calls["publish"].append(namespace)
+        raise SystemExit(1)
+
+    monkeypatch.setattr(bridge, "cmd_publish", failing_publish)
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+    assert calls["invoke"] == 1
+    assert len(calls["publish"]) == 1
+    assert len(calls["persist"]) == 1
 
 
 def test_receipt_persistence_failure_blocks_publication(monkeypatch, tmp_path):
