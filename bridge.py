@@ -60,7 +60,11 @@ from src.aios_bridge.continuity.lease import (
     ExecutorLease,
     validate_executor_lease_binding,
 )
-from src.aios_bridge.continuity.state import ArtifactRef, ContinuityStateValidationError
+from src.aios_bridge.continuity.state import (
+    ArtifactRef,
+    BrainOperation,
+    ContinuityStateValidationError,
+)
 from src.aios_bridge.continuity.executor_transport import InvocationStatus
 from src.aios_bridge.executor_automation import (
     build_executor_automation_launch_plan,
@@ -76,6 +80,8 @@ from src.aios_bridge.executor_transports.codex_local import (
     CodexLocalTransport,
 )
 from src.aios_bridge.runtime_lease import AtomicExecutorLeaseStore
+from src.aios_bridge.paid_api_grant import PaidApiGrant
+from src.aios_bridge.runtime_paid_api_grant import AtomicPaidApiGrantStore
 from src.aios_bridge.runtime_dispatch import (
     AtomicRuntimeCapacityStore,
     ObservationSource,
@@ -132,6 +138,9 @@ _E4_MAX_ADMIN_FILE_BYTES = 1024 * 1024
 _E4_MAX_ADMIN_TOTAL_BYTES = 4 * 1024 * 1024
 _E4_MAX_GIT_PROBE_BYTES = 1024 * 1024
 _E4_MAX_PUBLICATION_NOTES_BYTES = 4096
+
+MIN_PAID_API_GRANT_TTL_SECONDS = 1
+MAX_PAID_API_GRANT_TTL_SECONDS = 900
 
 
 def validate_runtime_executor_id(executor_id: str | None) -> str:
@@ -248,6 +257,7 @@ def get_runtime_paths(repo_root: Path | None = None):
         "artifacts": rdir / "artifacts",
         "history": rdir / "history",
         "leases": rdir / "leases",
+        "paid_api_grants": rdir / "paid_api_grants",
         "hot_handoff": rdir / "hot_handoff",
         "dispatch_capacity": rdir / "dispatch" / "capacity",
         "executor_automation": rdir / "executor_automation",
@@ -395,6 +405,17 @@ def get_lease_store(repo_root: Path | None = None) -> AtomicExecutorLeaseStore:
     return AtomicExecutorLeaseStore(lease_root=paths["leases"], workspace_id=ws_id)
 
 
+def get_paid_api_grant_store(
+    repo_root: Path | None = None,
+) -> AtomicPaidApiGrantStore:
+    """Bind the paid API grant store to this exact external runtime workspace."""
+    paths = get_runtime_paths(repo_root)
+    return AtomicPaidApiGrantStore(
+        grant_root=paths["paid_api_grants"],
+        workspace_id=get_workspace_id(repo_root),
+    )
+
+
 def now():
     return datetime.now().astimezone().isoformat(timespec="seconds")
 
@@ -445,7 +466,14 @@ def ensure_git():
 
 def ensure_dirs():
     paths = get_runtime_paths()
-    for key in ("inbox", "auth", "artifacts", "history", "leases"):
+    for key in (
+        "inbox",
+        "auth",
+        "artifacts",
+        "history",
+        "leases",
+        "paid_api_grants",
+    ):
         paths[key].mkdir(parents=True, exist_ok=True)
     paths["state"].parent.mkdir(parents=True, exist_ok=True)
 
@@ -1210,6 +1238,123 @@ def verify_e4_publication_trust_snapshot(snapshot: E4PublicationTrustSnapshot) -
 
 def get_runtime_capacity_store() -> AtomicRuntimeCapacityStore:
     return AtomicRuntimeCapacityStore(get_runtime_paths()["dispatch_capacity"])
+
+
+def _paid_api_task_id(task_id: int) -> str:
+    if type(task_id) is not int or task_id < 0:
+        raise ContinuityStateValidationError("paid API grant task_id must be a non-negative integer")
+    return f"TASK-{task_id:03d}"
+
+
+def cmd_paid_grant_create(args):
+    if args.confirm_paid_api_spend is not True:
+        fail("paid-grant-create yêu cầu --confirm-paid-api-spend.")
+    if type(args.ttl_seconds) is not int or not (
+        MIN_PAID_API_GRANT_TTL_SECONDS
+        <= args.ttl_seconds
+        <= MAX_PAID_API_GRANT_TTL_SECONDS
+    ):
+        fail(
+            "paid-grant-create --ttl-seconds phải nằm trong khoảng "
+            f"{MIN_PAID_API_GRANT_TTL_SECONDS}..{MAX_PAID_API_GRANT_TTL_SECONDS}."
+        )
+
+    try:
+        ensure_git()
+        ensure_dirs()
+        cfg = load_config()
+        fetch_control(cfg)
+        artifact_blob_sha = resolve_git_blob_sha(
+            remote_ref(cfg),
+            args.artifact_path,
+        )
+        task_id = _paid_api_task_id(args.task_id)
+        workspace_id = get_workspace_id()
+        now_epoch_seconds = int(time.time())
+        grant_id = f"grant-task-{args.task_id:03d}-{secrets.token_hex()}"
+        grant = PaidApiGrant(
+            schema_version="1",
+            grant_id=grant_id,
+            task_id=task_id,
+            actor_kind=DispatchActorKind.BRAIN,
+            brain_id=args.brain_id,
+            provider_id=args.provider_id,
+            model_id=args.model_id,
+            brain_operation=BrainOperation(args.operation),
+            authorized_artifact_path=args.artifact_path,
+            authorized_artifact_blob_sha=artifact_blob_sha,
+            max_input_tokens=args.max_input_tokens,
+            max_output_tokens=args.max_output_tokens,
+            max_calls=1,
+            expires_at_epoch_seconds=now_epoch_seconds + args.ttl_seconds,
+            workspace_id=workspace_id,
+        )
+        store = get_paid_api_grant_store()
+        store.activate(grant, now_epoch_seconds=now_epoch_seconds)
+        active_grant = store.require_active(
+            grant,
+            now_epoch_seconds=now_epoch_seconds,
+        )
+    except Exception as e:
+        fail(f"paid-grant-create thất bại: {e}")
+
+    print("[PAID API GRANT ACTIVE]")
+    print(f"TASK_ID: {active_grant.task_id}")
+    print(f"GRANT_ID: {active_grant.grant_id}")
+    print(f"ACTOR_KIND: {active_grant.actor_kind.value}")
+    print(f"BRAIN_ID: {active_grant.brain_id}")
+    print(f"PROVIDER_ID: {active_grant.provider_id}")
+    print(f"MODEL_ID: {active_grant.model_id}")
+    print(f"BRAIN_OPERATION: {active_grant.brain_operation.value}")
+    print(f"AUTHORIZED_ARTIFACT_PATH: {active_grant.authorized_artifact_path}")
+    print(
+        "AUTHORIZED_ARTIFACT_BLOB_SHA: "
+        f"{active_grant.authorized_artifact_blob_sha}"
+    )
+    print(f"MAX_INPUT_TOKENS: {active_grant.max_input_tokens}")
+    print(f"MAX_OUTPUT_TOKENS: {active_grant.max_output_tokens}")
+    print(f"MAX_CALLS: {active_grant.max_calls}")
+    print(f"EXPIRES_AT_EPOCH_SECONDS: {active_grant.expires_at_epoch_seconds}")
+    print(f"WORKSPACE_ID: {active_grant.workspace_id}")
+    print(f"GRANT_FINGERPRINT: {active_grant.grant_fingerprint}")
+    print("HUMAN_SPEND_AUTHORIZATION: YES")
+    print("PAID_API_DISPATCH_ENABLED: NO")
+    print("PROVIDER_CALL_STARTED: NO")
+
+
+def cmd_paid_grant_status(args):
+    try:
+        task_id = _paid_api_task_id(args.task_id)
+        grant_root = get_runtime_paths()["paid_api_grants"]
+        if not grant_root.exists():
+            active_grant = None
+            consumed_grant = None
+        else:
+            store = get_paid_api_grant_store()
+            active_grant = store.load_active(task_id, args.grant_id)
+            consumed_grant = (
+                None
+                if active_grant is not None
+                else store.load_consumed(task_id, args.grant_id)
+            )
+    except Exception as e:
+        fail(f"paid-grant-status thất bại: {e}")
+
+    print("[PAID API GRANT STATUS]")
+    print(f"TASK_ID: {task_id}")
+    print(f"GRANT_ID: {args.grant_id}")
+    if active_grant is not None:
+        print("RUNTIME_STATE: ACTIVE")
+        usability = (
+            "UNEXPIRED"
+            if int(time.time()) < active_grant.expires_at_epoch_seconds
+            else "EXPIRED"
+        )
+        print(f"USABILITY: {usability}")
+    elif consumed_grant is not None:
+        print("RUNTIME_STATE: CONSUMED")
+    else:
+        print("RUNTIME_STATE: NONE")
 
 
 def _dispatch_actor_kind_from_cli(kind: str) -> DispatchActorKind:
@@ -4235,6 +4380,38 @@ def build_parser():
     s = sub.add_parser("context", help="Print execution context for Antigravity")
     s.add_argument("task_id", type=int)
     s.set_defaults(func=cmd_context)
+
+    s = sub.add_parser(
+        "paid-grant-create",
+        help="Create one explicit Human-authorized paid API Brain grant",
+    )
+    s.add_argument("task_id", type=int)
+    s.add_argument("--brain-id", required=True)
+    s.add_argument("--provider-id", required=True)
+    s.add_argument("--model-id", required=True)
+    s.add_argument(
+        "--operation",
+        required=True,
+        choices=[item.value for item in BrainOperation],
+    )
+    s.add_argument("--artifact-path", required=True)
+    s.add_argument("--max-input-tokens", required=True, type=int)
+    s.add_argument("--max-output-tokens", required=True, type=int)
+    s.add_argument("--ttl-seconds", required=True, type=int)
+    s.add_argument(
+        "--confirm-paid-api-spend",
+        required=True,
+        action="store_true",
+    )
+    s.set_defaults(func=cmd_paid_grant_create)
+
+    s = sub.add_parser(
+        "paid-grant-status",
+        help="Read exact paid API grant runtime state without authorizing use",
+    )
+    s.add_argument("task_id", type=int)
+    s.add_argument("--grant-id", required=True)
+    s.set_defaults(func=cmd_paid_grant_status)
 
     s = sub.add_parser("capacity-set", help="Record explicit runtime actor capacity")
     s.add_argument("--kind", required=True, choices=["brain", "executor"])
