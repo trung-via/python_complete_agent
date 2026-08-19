@@ -4,6 +4,7 @@ import ast
 from dataclasses import replace
 import hashlib
 from pathlib import Path
+import signal
 import subprocess
 
 import pytest
@@ -78,6 +79,44 @@ class _FakeProcess:
         return None
 
     def wait(self, *, timeout: int) -> object:
+        return self.returncode
+
+
+class _CleanupProcess(_FakeProcess):
+    def __init__(
+        self,
+        *,
+        pid: object = 41041,
+        returncode: object = None,
+        exit_on_terminate: bool = False,
+        fail_direct_cleanup: bool = False,
+        communicate_error: BaseException | None = None,
+    ) -> None:
+        super().__init__(returncode, communicate_error)
+        self.pid = pid
+        self.exit_on_terminate = exit_on_terminate
+        self.fail_direct_cleanup = fail_direct_cleanup
+        self.terminate_calls = 0
+        self.kill_calls = 0
+        self.wait_timeouts: list[int] = []
+
+    def terminate(self) -> None:
+        self.terminate_calls += 1
+        if self.exit_on_terminate:
+            self.returncode = 0
+        if self.fail_direct_cleanup:
+            raise OSError("synthetic terminate failure")
+
+    def kill(self) -> None:
+        self.kill_calls += 1
+        if self.fail_direct_cleanup:
+            raise OSError("synthetic kill failure")
+        self.returncode = -9
+
+    def wait(self, *, timeout: int) -> object:
+        self.wait_timeouts.append(timeout)
+        if self.fail_direct_cleanup or self.returncode is None:
+            raise subprocess.TimeoutExpired("codex", timeout)
         return self.returncode
 
 
@@ -488,6 +527,176 @@ def test_timeout_and_interruption_cleanup_without_retry(
     receipt, _, popen_calls = _invoke_with_process(monkeypatch, tmp_path, process)
     assert len(popen_calls) == 1
     assert cleaned == [process]
+    assert receipt.status is status
+    assert receipt.exit_code is None
+    assert receipt.error_code == error_code
+
+
+def test_windows_parent_exit_after_terminate_still_attempts_tree_cleanup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    process = _CleanupProcess(exit_on_terminate=True)
+    taskkill_calls: list[tuple[list[str], dict[str, object]]] = []
+    monkeypatch.setattr(codex_local, "_IS_WINDOWS", True)
+
+    def fake_run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[bytes]:
+        taskkill_calls.append((argv, kwargs))
+        return subprocess.CompletedProcess(argv, 0)
+
+    monkeypatch.setattr(codex_local.subprocess, "run", fake_run)
+    codex_local._cleanup_process(process)  # type: ignore[arg-type]
+
+    assert process.terminate_calls == 1
+    assert taskkill_calls[0][0] == [
+        "taskkill",
+        "/PID",
+        "41041",
+        "/T",
+        "/F",
+    ]
+    assert taskkill_calls[0][1]["shell"] is False
+    assert taskkill_calls[0][1]["timeout"] == codex_local._CLEANUP_WAIT_SECONDS
+    assert taskkill_calls[0][1]["env"] == codex_local._build_child_environment(
+        codex_local.os.environ
+    )
+    assert process.wait_timeouts == [codex_local._CLEANUP_WAIT_SECONDS]
+
+
+def test_windows_taskkill_and_direct_cleanup_failures_are_bounded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    process = _CleanupProcess(fail_direct_cleanup=True)
+    taskkill_calls = 0
+    monkeypatch.setattr(codex_local, "_IS_WINDOWS", True)
+
+    def fail_taskkill(*args: object, **kwargs: object) -> None:
+        nonlocal taskkill_calls
+        taskkill_calls += 1
+        raise OSError("synthetic taskkill failure")
+
+    monkeypatch.setattr(codex_local.subprocess, "run", fail_taskkill)
+    codex_local._cleanup_process(process)  # type: ignore[arg-type]
+
+    assert taskkill_calls == 1
+    assert process.terminate_calls == 1
+    assert process.kill_calls == 1
+    assert process.wait_timeouts == [
+        codex_local._CLEANUP_WAIT_SECONDS,
+        codex_local._CLEANUP_WAIT_SECONDS,
+    ]
+
+
+def test_windows_already_exited_parent_with_valid_pid_still_attempts_tree_cleanup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    process = _CleanupProcess(returncode=0)
+    taskkill_calls: list[list[str]] = []
+    monkeypatch.setattr(codex_local, "_IS_WINDOWS", True)
+    monkeypatch.setattr(
+        codex_local.subprocess,
+        "run",
+        lambda argv, **kwargs: taskkill_calls.append(argv)
+        or subprocess.CompletedProcess(argv, 1),
+    )
+
+    codex_local._cleanup_process(process)  # type: ignore[arg-type]
+    assert taskkill_calls == [["taskkill", "/PID", "41041", "/T", "/F"]]
+
+
+@pytest.mark.parametrize("pid", [None, 0, -1, True, "41041"])
+def test_windows_invalid_pid_is_bounded_and_skips_taskkill(
+    monkeypatch: pytest.MonkeyPatch, pid: object
+) -> None:
+    process = _CleanupProcess(pid=pid, returncode=0)
+    monkeypatch.setattr(codex_local, "_IS_WINDOWS", True)
+    monkeypatch.setattr(
+        codex_local.subprocess,
+        "run",
+        lambda *args, **kwargs: pytest.fail("taskkill requires a valid positive PID"),
+    )
+
+    codex_local._cleanup_process(process)  # type: ignore[arg-type]
+    assert process.terminate_calls == 1
+    assert process.wait_timeouts == [codex_local._CLEANUP_WAIT_SECONDS]
+
+
+def test_posix_exited_group_leader_still_receives_group_cleanup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    process = _CleanupProcess(returncode=0)
+    posix_sigkill = 9
+    signals: list[tuple[int, object]] = []
+    monkeypatch.setattr(codex_local, "_IS_WINDOWS", False)
+    monkeypatch.setattr(codex_local.signal, "SIGKILL", posix_sigkill, raising=False)
+
+    def fake_killpg(pid: int, sent_signal: object) -> None:
+        signals.append((pid, sent_signal))
+        if sent_signal == posix_sigkill:
+            raise ProcessLookupError("synthetic group already gone")
+
+    monkeypatch.setattr(codex_local.os, "killpg", fake_killpg, raising=False)
+    codex_local._cleanup_process(process)  # type: ignore[arg-type]
+
+    assert signals == [
+        (41041, signal.SIGTERM),
+        (41041, posix_sigkill),
+    ]
+    assert process.wait_timeouts == [
+        codex_local._CLEANUP_WAIT_SECONDS,
+        codex_local._CLEANUP_WAIT_SECONDS,
+    ]
+
+
+@pytest.mark.parametrize(
+    ("error", "status", "error_code"),
+    [
+        (
+            subprocess.TimeoutExpired("codex", DEFAULT_CODEX_TIMEOUT_SECONDS),
+            InvocationStatus.TIMED_OUT,
+            codex_local.ERROR_CODEX_TIMEOUT,
+        ),
+        (
+            KeyboardInterrupt(),
+            InvocationStatus.INTERRUPTED,
+            codex_local.ERROR_CALLER_INTERRUPTED,
+        ),
+    ],
+)
+def test_real_cleanup_failures_preserve_primary_receipt_and_single_spawn(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    error: BaseException,
+    status: InvocationStatus,
+    error_code: str,
+) -> None:
+    process = _CleanupProcess(
+        fail_direct_cleanup=True,
+        communicate_error=error,
+    )
+    spawn_calls = 0
+    taskkill_calls = 0
+    monkeypatch.setattr(codex_local, "_IS_WINDOWS", True)
+    monkeypatch.setattr(codex_local, "_git_preflight", lambda *args: True)
+    monkeypatch.setattr(
+        codex_local, "_resolve_codex_executable", lambda spec: "resolved-codex"
+    )
+
+    def fake_popen(*args: object, **kwargs: object) -> _CleanupProcess:
+        nonlocal spawn_calls
+        spawn_calls += 1
+        return process
+
+    def fail_taskkill(*args: object, **kwargs: object) -> None:
+        nonlocal taskkill_calls
+        taskkill_calls += 1
+        raise OSError("synthetic taskkill failure")
+
+    monkeypatch.setattr(codex_local.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(codex_local.subprocess, "run", fail_taskkill)
+
+    receipt = CodexLocalTransport(tmp_path).invoke(_invocation(), PAYLOAD)
+    assert spawn_calls == 1
+    assert taskkill_calls == 1
     assert receipt.status is status
     assert receipt.exit_code is None
     assert receipt.error_code == error_code

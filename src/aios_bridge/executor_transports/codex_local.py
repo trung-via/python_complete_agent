@@ -36,6 +36,7 @@ ERROR_CODEX_EXIT_CODE_INVALID = "CODEX_EXIT_CODE_INVALID"
 
 _GIT_PREFLIGHT_TIMEOUT_SECONDS = 10
 _CLEANUP_WAIT_SECONDS = 2
+_IS_WINDOWS = sys.platform == "win32"
 
 _WINDOWS_ENVIRONMENT_ALLOWLIST = frozenset(
     {
@@ -227,23 +228,17 @@ def _git_preflight(workspace: Path, target_branch: str) -> bool:
 def _cleanup_process(process: subprocess.Popen[bytes]) -> None:
     """Best-effort bounded process-group/tree cleanup."""
     try:
-        if process.poll() is not None:
-            return
-    except (OSError, ValueError):
-        return
+        candidate_pid = process.pid
+    except Exception:
+        candidate_pid = None
+    pid = candidate_pid if type(candidate_pid) is int and candidate_pid > 0 else None
 
-    if os.name == "nt":
+    if _IS_WINDOWS:
         try:
             process.terminate()
-        except (OSError, ValueError):
+        except Exception:
             pass
-        try:
-            process.wait(timeout=_CLEANUP_WAIT_SECONDS)
-            return
-        except (OSError, subprocess.SubprocessError, ValueError):
-            pass
-        pid = getattr(process, "pid", None)
-        if type(pid) is int and pid > 0:
+        if pid is not None:
             try:
                 subprocess.run(
                     ["taskkill", "/PID", str(pid), "/T", "/F"],
@@ -255,35 +250,65 @@ def _cleanup_process(process: subprocess.Popen[bytes]) -> None:
                     timeout=_CLEANUP_WAIT_SECONDS,
                     check=False,
                 )
-            except (OSError, subprocess.SubprocessError):
+            except Exception:
                 pass
+
         try:
-            if process.poll() is None:
+            process.wait(timeout=_CLEANUP_WAIT_SECONDS)
+            parent_exited = True
+        except Exception:
+            parent_exited = False
+        if not parent_exited:
+            try:
                 process.kill()
+            except Exception:
+                pass
+            try:
                 process.wait(timeout=_CLEANUP_WAIT_SECONDS)
-        except (OSError, subprocess.SubprocessError, ValueError):
-            pass
+            except Exception:
+                pass
         return
 
-    pid = getattr(process, "pid", None)
-    if type(pid) is not int or pid <= 0:
+    if pid is None:
+        try:
+            process.terminate()
+        except Exception:
+            pass
+        try:
+            process.wait(timeout=_CLEANUP_WAIT_SECONDS)
+            parent_exited = True
+        except Exception:
+            parent_exited = False
+        if not parent_exited:
+            try:
+                process.kill()
+            except Exception:
+                pass
+            try:
+                process.wait(timeout=_CLEANUP_WAIT_SECONDS)
+            except Exception:
+                pass
         return
+
     try:
         os.killpg(pid, signal.SIGTERM)
-    except (OSError, ProcessLookupError):
+    except (ProcessLookupError, OSError):
+        pass
+    except Exception:
         pass
     try:
         process.wait(timeout=_CLEANUP_WAIT_SECONDS)
-        return
-    except (OSError, subprocess.SubprocessError, ValueError):
+    except Exception:
         pass
     try:
         os.killpg(pid, signal.SIGKILL)
-    except (OSError, ProcessLookupError):
+    except (ProcessLookupError, OSError):
+        pass
+    except Exception:
         pass
     try:
         process.wait(timeout=_CLEANUP_WAIT_SECONDS)
-    except (OSError, subprocess.SubprocessError, ValueError):
+    except Exception:
         pass
 
 
