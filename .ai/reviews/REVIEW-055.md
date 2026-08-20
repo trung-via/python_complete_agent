@@ -1,8 +1,8 @@
 # REVIEW-055 — TASK-055 M11.2C.1 Full Provider Input Budget Proof Hardening
 
-STATUS: CHANGES_REQUIRED
-APPROVED: NO
-READY_FOR_HUMAN_MERGE: NO
+STATUS: PASS
+APPROVED: YES
+READY_FOR_HUMAN_MERGE: YES
 MERGE_AUTHORIZED: NO
 MERGED_TO_MAIN: NO
 
@@ -13,14 +13,16 @@ TASK_ID: TASK-055
 MILESTONE: M11.2C.1 — FULL PROVIDER INPUT TOKEN BOUND HARDENING
 BASELINE_MAIN_SHA: 439f073da2a112531dc78669dfb4aea53f88439b
 TASK_BRANCH: ai/task-055
-REVIEWED_TASK_HEAD_SHA: 42357e7e4dcfd1be7ad6e636e589c14f305ecb51
+INITIAL_REVIEWED_HEAD_SHA: 42357e7e4dcfd1be7ad6e636e589c14f305ecb51
+FINAL_REVIEWED_TASK_HEAD_SHA: 867cb5cdb730639db93a1f184f065dbb97230cd0
 TASK_BLOB_SHA: dd46a3615601ed871a7cd73ae80fcc17c8e4c143
 BLUEPRINT_BLOB_SHA: ee17d57a47c2a315877dae91ff448733e29347d8
-RESULT_055_BLOB_SHA: 1fe6711220c4333c930d0b1fc87e0a666a38368d
-PROVIDER_INPUT_BUDGET_BLOB_SHA: 8166dc0d08c54708d081107db97290d6050c81fb
-PAID_API_BRAIN_ESCAPE_BLOB_SHA: b97439c10cc67466b01dc3dc25ca7c9741d5ab98
-TEST_BLOB_SHA: 829b2e6711b1578cf479ad4740ac8289d084975a
-E4_CONTROL_COMMIT_SHA: 68c3f86b1682db0015fe8edd11a1d1e0a8e432e9
+FIX_AUTH_REVIEW_BLOB_SHA: 13738bbe0b6ef82d8aac615a5c8b587e54665c10
+RESULT_055_BLOB_SHA: f1ae493afebf728de5b92b43c5dd476cc0d7bb54
+PROVIDER_INPUT_BUDGET_BLOB_SHA: 0a6f9b5c5201215ef654b068aea215f370cc4593
+PAID_API_BRAIN_ESCAPE_BLOB_SHA: 8d536dd8dff7f7fb562666d6427a661a9e0dd15e
+TEST_BLOB_SHA: 7d7c095f103fe302168f3a66682aaeeb3bc09319
+E4_FIX_CONTROL_COMMIT_SHA: 85242e9a5ce60a2f8f2938365acececd9918cd3c
 ```
 
 ## Lineage / Scope — PASS
@@ -29,14 +31,21 @@ Independent comparison proves:
 
 ```text
 main: 439f073da2a112531dc78669dfb4aea53f88439b
-ai/task-055: 42357e7e4dcfd1be7ad6e636e589c14f305ecb51
+ai/task-055 final: 867cb5cdb730639db93a1f184f065dbb97230cd0
 status: ahead
-commits_ahead: 1
+commits_ahead: 2
 commits_behind: 0
 merge_base: 439f073da2a112531dc78669dfb4aea53f88439b
 ```
 
-Changed files are exactly:
+The FIX delta from the initial reviewed head is exactly one additional commit:
+
+```text
+42357e7e4dcfd1be7ad6e636e589c14f305ecb51
+  -> 867cb5cdb730639db93a1f184f065dbb97230cd0
+```
+
+FIX touched only:
 
 ```text
 .ai/results/RESULT-055.md
@@ -45,152 +54,164 @@ src/aios_bridge/provider_input_budget.py
 tests/aios_bridge/test_paid_api_brain_escape.py
 ```
 
-Executor scope therefore matches the three authorized implementation/test files plus Bridge-generated RESULT publication.
+Implementation scope remains the three authorized production/test paths plus Bridge-generated RESULT publication.
 
-## What Is Correct
+## Original Budget Hardening — PASS
 
-The implementation correctly closes the original context-only budget gap in several respects:
+The merged M11.2C coordinator is now additionally protected by a mandatory full-provider-input proof surface:
 
-- `provider_input_counter` is mandatory and keyword-only; no permissive default exists.
-- `ProviderInputCountEvidence` is immutable and stores no prompt/request body or credentials.
-- `fingerprint_model_request()` binds evidence to canonical `ModelRequest.to_dict()` semantics.
-- Counter provider/model/counter IDs are checked before counting.
-- Counter `is_exact` must be exactly `True`.
-- `count_request(model_request)` is called once before paid dispatch enablement.
-- Evidence exact type, provider/model/counter identity, exactness, and ModelRequest fingerprint are validated.
+- `provider_input_counter` is mandatory and keyword-only; there is no permissive default.
+- `ProviderInputCountEvidence` is immutable and stores no prompt body, request body, credential, or authorization header.
+- `fingerprint_model_request()` binds evidence to canonical `ModelRequest.to_dict()` semantics using compact sorted UTF-8 JSON + SHA-256.
+- Provider/model/counter identity and `is_exact is True` are validated.
+- `count_request(model_request)` runs exactly once after trust is established.
+- Evidence exact type, provider/model/counter ID, request fingerprint, exactness, and token count are revalidated.
 - `counted_input_tokens <= model_request.max_input_tokens` is enforced.
-- Existing M11.1 grant budget check still enforces `model_request.max_input_tokens <= grant.max_input_tokens` and output bound.
-- Existing ACTIVE grant, artifact proof, M10 subscription preference, consume-before-gateway, replay closure, and no-retry invariants remain intact.
+- Existing M11.1 budget validation still enforces `model_request.max_input_tokens <= grant.max_input_tokens` and output bound.
+- Context-only `token_count_is_exact=True` is no longer sufficient authorization for paid dispatch.
 
-Full repository suite is green:
+## B1 Re-review — RESOLVED
+
+Original blocking finding:
 
 ```text
-1749 passed, 7 skipped, 1533 warnings in 197.19s
+B1: local/no-network counter authority was not mechanically enforced
+```
+
+The FIX adds an explicit trusted-local implementation authority in `provider_input_budget.py`:
+
+```text
+_TRUSTED_LOCAL_COUNTER_TYPES: tuple[type[object], ...] = ()
+```
+
+Production state is intentionally closed: no real counter type is trusted yet.
+
+Before any caller-controlled counter property or callback is evaluated, the coordinator now calls:
+
+```text
+require_trusted_local_provider_input_counter(provider_input_counter)
+```
+
+Trust semantics are exact-type based:
+
+```text
+ARBITRARY_PROTOCOL_CONFORMING_COUNTER: REJECT
+UNREGISTERED SUBCLASS: REJECT
+SELF_ASSERTED is_exact=True: INSUFFICIENT
+UNTRUSTED PROPERTY ACCESS: NONE
+UNTRUSTED count_request CALLBACK: NONE
+TRUSTED EXACT REGISTERED TYPE: REQUIRED
+```
+
+This satisfies the TASK-055 locked allowance for an exact trusted implementation registration seam intended for TASK-056. Structural Protocol conformance alone no longer grants paid-budget authority.
+
+Regression tests mechanically prove:
+
+- a Protocol-conforming subclass is rejected before count/dispatch/consume/provider call;
+- an untrusted object with side-effecting properties and `count_request()` triggers zero property accesses and zero callbacks;
+- trust decision occurs before `count_request()`;
+- a trusted deterministic local test counter is called exactly once;
+- all existing provider/model/request fingerprint/budget checks remain active after trust.
+
+Therefore the original network-capable arbitrary-counter path is closed fail-closed.
+
+## Production Trust State
+
+TASK-055 does not register a real MiniMax counter.
+
+```text
+PRODUCTION_TRUSTED_COUNTER_TYPES: EMPTY
+REAL_MINIMAX_COUNTER: NOT_IMPLEMENTED
+REAL_TOKENIZER_DOWNLOAD: NO
+NETWORK_TOKEN_COUNT_ENDPOINT: NO
+REAL_PROVIDER_CALL: NO
+```
+
+TASK-056 may add one audited exact local MiniMax-M3 implementation and explicitly register that exact concrete type. That future registration requires separate review; TASK-055 itself does not open production authority.
+
+## Existing M11.2C Invariants — PRESERVED
+
+```text
+BASE_ALLOW_PAID_API_FALSE: PASS
+EXACT_ONE_PAID_CANDIDATE: PASS
+ACTIVE_GRANT_REQUIRED: PASS
+TASK_WORKSPACE_PROVIDER_MODEL_OPERATION_BINDING: PASS
+AUTHORIZED_ARTIFACT_CONTENT_BLOB_PROOF: PASS
+EXACT_CONTEXT_COUNTER_REQUIRED: PASS
+FULL_PROVIDER_INPUT_PROOF_REQUIRED: PASS
+FULL_INPUT_REQUEST_FINGERPRINT_BINDING: PASS
+FULL_INPUT_WITHIN_MODEL_REQUEST_LIMIT: PASS
+MODEL_REQUEST_WITHIN_HUMAN_GRANT: PASS
+SUBSCRIPTION_STILL_PREFERRED: PASS
+SUBSCRIPTION_WIN_GRANT_REMAINS_ACTIVE: PASS
+SUBSCRIPTION_WIN_GATEWAY_CALLS_ZERO: PASS
+PAID_WIN_CONSUME_BEFORE_GATEWAY: PASS
+CONSUME_FAILURE_GATEWAY_CALLS_ZERO: PASS
+GATEWAY_FAILURE_GRANT_STAYS_CONSUMED: PASS
+REPLAY_CLOSED: PASS
+NO_RETRY: PASS
+NO_SECOND_PAID_PROVIDER: PASS
+NO_EXECUTOR_AUTHORITY: PASS
+```
+
+## Test / E4 Evidence
+
+Bridge-owned full repository suite after FIX:
+
+```text
+1752 passed, 7 skipped, 1533 warnings in 153.02s
 EXIT_CODE: 0
 ```
 
-E4 reports:
+FIX E4 evidence:
 
 ```text
+ACTION: FIX
+EXECUTOR_ID: codex
+AUTHORIZED_ARTIFACT: .ai/reviews/REVIEW-055.md @ 13738bbe0b6ef82d8aac615a5c8b587e54665c10
+E4_CONTROL_COMMIT_SHA: 85242e9a5ce60a2f8f2938365acececd9918cd3c
 E4_TRANSPORT_STATUS: EXITED_ZERO
-E4_PRE_EXECUTION_HEAD: 439f073da2a112531dc78669dfb4aea53f88439b
+E4_PRE_EXECUTION_HEAD: 42357e7e4dcfd1be7ad6e636e589c14f305ecb51
 E4_ALLOWED_SCOPE_VERIFIED: PASS
 E4_PUBLICATION_TRUST_VERIFIED: PASS
 E4_DIRTY_PATH_COUNT: 3
 ```
 
-## Blocking Finding B1 — Local/No-Network Counter Authority Is Not Mechanically Enforced
+## N1 Re-review — RESOLVED
 
-The locked blueprint requires:
-
-```text
-No counter accepted by the paid coordinator may perform network I/O.
-NO_NETWORK_COUNTER_SURFACE
-```
-
-The current implementation defines `ProviderInputTokenCounter` as a structural Protocol and the coordinator accepts any object exposing:
+The initial RESULT diff-stat omitted the new provider-input-budget file. FIX publication now reports all three implementation/test files and the exact FIX stat:
 
 ```text
-provider_id
-model_id
-counter_id
-is_exact == True
-count_request(...)
+3 files changed, 147 insertions(+), 6 deletions(-)
 ```
 
-The coordinator then directly executes:
+Independent GitHub comparison agrees on the same three implementation/test paths.
 
-```python
-provider_input_evidence = count_request(model_request)
-```
-
-There is no trusted-local counter authority, sealed local execution classification, allowlisted concrete implementation identity, or other runtime proof that this caller-supplied method is local/offline.
-
-Therefore a counter can mechanically satisfy every current precondition while performing an HTTP/provider token-count request inside `count_request()`, then return a syntactically valid `ProviderInputCountEvidence`. The coordinator would accept that evidence and may construct `allow_paid_api=True`.
-
-This violates the locked TASK-055 boundary because a network token-count call can itself consume provider quota or create an additional external call before the one-shot generation grant is consumed. Self-asserted `is_exact=True` does not prove local execution.
-
-The existing `NO_NETWORK_COUNTER_SURFACE` test is insufficient. It checks that `provider_input_budget.py` and `paid_api_brain_escape.py` do not import common network modules, but it does not test the actual supplied counter implementation. The test fake is structurally accepted solely because it conforms to the Protocol.
-
-### Required FIX for B1
-
-Preserve the current full-input evidence contract, but make local/offline counter authority fail-closed before `count_request()`.
-
-The FIX must provide a mechanically enforced trusted-local counter boundary with these semantics:
+## Findings
 
 ```text
-ARBITRARY_STRUCTURAL_COUNTER: REJECT
-SELF_ASSERTED_IS_EXACT_ONLY: INSUFFICIENT
-NETWORK_CAPABLE_OR_UNTRUSTED_COUNTER: REJECT BEFORE count_request
-TRUSTED_LOCAL_COUNTER: REQUIRED BEFORE count_request
-PROVIDER/MODEL/REQUEST/EVIDENCE BINDING: PRESERVED
+BLOCKING_FINDINGS: 0
+B1: RESOLVED
+NON_BLOCKING_FINDINGS: 0
+N1: RESOLVED
+REGRESSIONS_OBSERVED: 0
+FINAL_INDEPENDENT_AUDIT: PASS
 ```
-
-A suitable design may use a sealed/trusted local counter authority or exact trusted implementation registration seam intended for TASK-056. The key requirement is that trust cannot be granted merely by a caller implementing Protocol properties or returning a valid evidence object.
-
-TASK-055 does not need to implement the real MiniMax tokenizer. It is acceptable for the production trusted counter registry/factory to contain no real MiniMax counter until TASK-056, provided tests can exercise the trust seam deterministically without opening arbitrary production authority.
-
-Required regression tests must prove at minimum:
-
-```text
-ARBITRARY_PROTOCOL_CONFORMING_COUNTER_REJECTED_BEFORE_COUNT
-UNTRUSTED_COUNTER_WITH_IS_EXACT_TRUE_REJECTED_BEFORE_COUNT
-UNTRUSTED_COUNTER_CANNOT_TRIGGER_NETWORK_OR_SIDE_EFFECT_CALLBACK
-TRUSTED_LOCAL_TEST_COUNTER_ACCEPTED
-TRUST_DECISION_PRECEDES_COUNT_REQUEST
-COUNTER_CALLED_EXACTLY_ONCE_AFTER_TRUST
-ALL_EXISTING_PROVIDER_MODEL_REQUEST_FINGERPRINT_BOUNDS_PRESERVED
-ALL_FAILURES_BEFORE_ALLOW_PAID_ENABLEMENT
-ALL_FAILURES_BEFORE_CONSUME
-ALL_FAILURES_BEFORE_GATEWAY
-FULL_REPO_TESTS_PASS
-```
-
-Do not solve this by adding another self-reported boolean such as `network_access=False`; that would have the same authority problem.
-
-## Non-Blocking Evidence Note N1
-
-`RESULT-055.md` lists all three implementation files under `Files Changed`, but its `Diff Stat` omits the new `src/aios_bridge/provider_input_budget.py` and reports only two files / 325 insertions. Independent GitHub comparison proves the actual scoped delta correctly, so this is not a code blocker, but Bridge RESULT diff-stat generation should not be treated as complete evidence for this run.
-
-## FIX Machine-Readable Contract
-
-EXECUTOR_CONTEXT_REFS_JSON: [{"path":".ai/tasks/TASK-055.md","blob_sha":"dd46a3615601ed871a7cd73ae80fcc17c8e4c143"},{"path":".ai/context/TASK-055-M11.2C1-FULL-PROVIDER-INPUT-BUDGET-PROOF-HARDENING-BLUEPRINT.md","blob_sha":"ee17d57a47c2a315877dae91ff448733e29347d8"},{"path":".ai/decisions/ADR-036-M11-EXTERNAL-API-ESCAPE-HATCH-ARCHITECTURE-LOCK.md","blob_sha":"cf71c571d8e3fd611ea07d21f15ad0bf90ef6ecc"}]
-
-EXECUTOR_ALLOWED_PATHS_JSON: ["src/aios_bridge/provider_input_budget.py","src/aios_bridge/paid_api_brain_escape.py","tests/aios_bridge/test_paid_api_brain_escape.py"]
-
-DISPATCH_EXECUTOR_POLICY_JSON: {"allow_paid_api":false,"candidates":[{"capacity_class":"SUBSCRIPTION","executor_id":"antigravity","preference_rank":0,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]},{"capacity_class":"SUBSCRIPTION","executor_id":"codex","preference_rank":1,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]}],"operation":"FIX","required_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"]}
-
-These markers authorize only the bounded FIX above. They do not authorize merge, a paid Executor, M11.3, tokenizer download, token-count network calls, or any real provider call.
 
 ## Decision
 
-```text
-BLOCKING_FINDINGS: 1
-B1: local/no-network counter authority is not mechanically enforced
-NON_BLOCKING_FINDINGS: 1
-N1: RESULT diff stat is incomplete but independently recoverable
-REGRESSIONS: 0 observed in full suite
-FINAL_INDEPENDENT_AUDIT: CHANGES_REQUIRED
-```
-
-Do not merge TASK-055.
-
-Human FIX gate:
+TASK-055 / M11.2C.1 is approved for Human merge at the exact reviewed final head:
 
 ```text
-$aios-worker FIX TASK-055
+867cb5cdb730639db93a1f184f065dbb97230cd0
 ```
 
-or
+No merge is performed by this review.
+
+Human merge gate remains explicit:
 
 ```text
-/aios-worker FIX TASK-055
+Merge TASK-055
 ```
 
-After Bridge republishes a fresh FIX head:
-
-```text
-Review TASK-055
-```
-
-M11.3 remains blocked and no real paid API call is authorized.
+Do not begin TASK-056 / MiniMax exact local tokenizer registration and do not begin M11.3 real operational proof until TASK-055 is merged. No real paid API call is authorized by this review.
