@@ -216,6 +216,7 @@ def _load_jinja_template(template_source: str) -> Any:
     try:
         from jinja2 import StrictUndefined
         from jinja2.sandbox import SandboxedEnvironment
+        from jinja2.utils import Namespace
     except ImportError as exc:
         raise MiniMaxM3InputCounterError(
             "Jinja2==3.1.6 is required for MiniMax-M3 input counting"
@@ -228,7 +229,12 @@ def _load_jinja_template(template_source: str) -> Any:
             autoescape=False,
         )
         environment.globals.clear()
-        environment.globals["raise_exception"] = _template_raise_exception
+        environment.globals.update(
+            {
+                "namespace": Namespace,
+                "raise_exception": _template_raise_exception,
+            }
+        )
         return environment.from_string(template_source)
     except MiniMaxM3InputCounterError:
         raise

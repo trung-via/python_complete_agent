@@ -292,6 +292,40 @@ def test_missing_runtime_dependencies_fail_closed(monkeypatch):
         counter_module._load_tokenizer(b"{}")
 
 
+def test_production_jinja_loader_supports_only_bounded_required_globals():
+    jinja2 = pytest.importorskip("jinja2")
+    from jinja2.sandbox import SandboxedEnvironment
+
+    template = counter_module._load_jinja_template(
+        "{% set state = namespace(name=none) %}"
+        "{% set state.name = messages[0].content %}"
+        "{{ state.name }}"
+    )
+
+    assert isinstance(template.environment, SandboxedEnvironment)
+    assert template.environment.undefined is jinja2.StrictUndefined
+    assert template.environment.loader is None
+    assert set(template.environment.globals) == {"namespace", "raise_exception"}
+    assert template.render(messages=[{"content": "bounded"}]) == "bounded"
+
+    unauthorized = counter_module._load_jinja_template("{{ range(1) }}")
+    with pytest.raises(jinja2.UndefinedError, match="'range' is undefined"):
+        unauthorized.render()
+
+
+def test_production_jinja_raise_exception_remains_bounded():
+    pytest.importorskip("jinja2")
+    template = counter_module._load_jinja_template(
+        '{{ raise_exception("caller-controlled detail") }}'
+    )
+
+    with pytest.raises(
+        MiniMaxM3InputCounterError,
+        match="^chat template rejected the render input$",
+    ):
+        template.render()
+
+
 def test_count_uses_exact_render_chain_and_returns_bound_evidence(
     tmp_path,
     fake_engines,
