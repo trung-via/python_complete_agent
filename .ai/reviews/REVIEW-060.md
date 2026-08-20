@@ -6,126 +6,158 @@ READY_FOR_HUMAN_MERGE: NO
 MERGE_AUTHORIZED: NO
 MERGED_TO_MAIN: NO
 
-## Review Binding
+## Fresh Re-Review Binding
 
 ```text
 TASK_ID: TASK-060
 BASELINE_MAIN_SHA: 0d7bddac2066ad508bf68fbb4d3bd8b69b18d1b3
-IMPLEMENTATION_COMMIT_SHA: c5995097748498052381bebf3479edcb3c024aa2
-REVIEWED_HEAD_SHA: 9e658797c0e874d16ff822afd078d677f28d9e14
+PRIOR_REVIEWED_HEAD_SHA: 9e658797c0e874d16ff822afd078d677f28d9e14
 TARGET_BRANCH: ai/task-060
 TASK_BLOB_SHA: b404be869367ddfd6d8c10cfa36b326c53b19469
 BLUEPRINT_BLOB_SHA: bd8859a4fa6a19792945c62809cf82acd9414e31
 ```
 
-Independent compare from baseline to reviewed head is ahead by 2 commits, behind by 0. The actual repository delta is bounded to the authorized TASK-060 implementation paths plus Bridge-generated `.ai/results/RESULT-060.md`.
+Independent compare at this re-review snapshot:
 
-## Findings
+```text
+main -> ai/task-060: ahead 8, behind 0
+prior reviewed head 9e658797... -> ai/task-060: ahead 6, behind 0
+```
 
-### B1 — Surface frontmatter is BOM-prefixed instead of beginning with exact `---`
+The fresh FIX branch therefore exists and is linearly descended from the previously reviewed head. This review does not authorize merge.
 
-**Severity:** BLOCKING — CONTROL-SURFACE DISCOVERY / IDENTITY
+## Re-Review Findings
 
-Both newly written operator-surface artifacts are committed with a UTF-8 BOM before the YAML frontmatter delimiter:
+### B1 — RESOLVED: exact frontmatter bytes / BOM hardening
+
+The prior frontmatter blocker is closed.
+
+Fresh repository bytes for both operator surfaces are BOM-free and begin with exact LF frontmatter:
 
 ```text
 .agents/workflows/aios-worker.md
-    bytes/text begin: BOM + ---
+base64 prefix: LS0tCg... -> bytes b"---\n"
 
 .agents/skills/aios-worker/SKILL.md
-    bytes/text begin: BOM + ---
+base64 prefix: LS0tCg... -> bytes b"---\n"
 ```
 
-GitHub's implementation diff exposes this as `﻿---` rather than `---` at the beginning of each file.
-
-TASK-060 exists specifically to remove UI discovery ambiguity. Antigravity's documented workspace workflow format uses `.agents/workflows/<workflow>.md` with YAML frontmatter beginning at the start of the file, and the existing Codex skill previously had clean frontmatter. A BOM-dependent parser outcome is therefore not acceptable at this identity boundary.
-
-Current tests read the Markdown with normal UTF-8 and search for substrings such as `name: aios-worker` / `--adapter antigravity`; they do not prove that the first bytes/characters form scanner-compatible frontmatter.
-
-**Required fix:**
+The FIX also adds raw-byte regression coverage requiring:
 
 ```text
-1. Rewrite `.agents/workflows/aios-worker.md` as UTF-8 without BOM.
-2. Rewrite `.agents/skills/aios-worker/SKILL.md` as UTF-8 without BOM.
-3. Add regression tests that read raw bytes and require each surface file to start with b"---\n" or the repository's explicitly locked LF equivalent.
-4. Keep the Antigravity workflow bound only to `--adapter antigravity`.
-5. Keep the Codex skill bound only to `--adapter codex`.
+not startswith b"\xef\xbb\xbf"
+startswith b"---\n"
+workflow contains --adapter antigravity
+skill contains --adapter codex
 ```
 
-Do not broaden this fix into adapter, Bridge, dispatcher, lease, TASK-059, or paid-API changes.
-
-### B2 — RESULT-060 does not provide authoritative implementation/test publication evidence
-
-**Severity:** BLOCKING — REVIEW EVIDENCE / PUBLICATION TRUST
-
-The implementation commit message states:
+The identity contract remains semantically correct:
 
 ```text
-Full repo suite: 1865 passed, 9 skipped, 0 failures
+/aios-worker -> Antigravity workflow -> --adapter antigravity
+$aios-worker -> Codex skill          -> --adapter codex
 ```
 
-but the canonical publication artifact `.ai/results/RESULT-060.md` says:
+No further B1 change is required unless a later FIX regresses these bytes.
+
+### B2 — STILL BLOCKING: RESULT-060 has no authoritative test/publication evidence
+
+Fresh `.ai/results/RESULT-060.md` still records:
 
 ```text
-Files Changed: (none before result generation)
+Files Changed:
+- (none before result generation)
+
+Diff Stat:
+(empty)
+
+Tests
 Command: (not supplied)
 Exit code: 0
 (no test command supplied)
 ```
 
-There are no GitHub workflow runs on the reviewed implementation/publication SHAs that independently supply the missing test evidence.
+This does not satisfy TASK-060's locked `FULL_REPO_TESTS_PASS` requirement and does not provide review-grade evidence for the fresh FIX implementation. A zero exit code with no command is not an authoritative test proof.
 
-TASK-060 explicitly requires `FULL_REPO_TESTS_PASS`. A commit-message assertion is not a substitute for the Bridge RESULT evidence expected by this workflow.
-
-**Required fix:**
+**Required FIX for B2:**
 
 ```text
-1. Run the focused TASK-060 control-surface tests after B1 is fixed.
-2. Run the full repository test suite.
-3. Republish RESULT-060 with the exact test command(s), exit code(s), and actual pass/skip counts.
-4. RESULT-060 must accurately record the implementation scope/diff evidence instead of reporting no changed files for the reviewed implementation.
+1. Run the focused control-surface suite explicitly.
+2. Run the full repository test suite explicitly.
+3. Publish RESULT-060 with exact command(s), exit code(s), pass/skip/fail counts,
+   and actual implementation changed-file/diff evidence.
+4. The fresh RESULT must not say `(not supplied)`, `(none before result generation)`,
+   or present an empty diff stat for a branch that contains implementation changes.
 ```
 
-No retry/reroute to another executor is authorized. Use the same Human-selected Antigravity path for the FIX.
+If the current Antigravity publication path cannot carry explicit test evidence, stop and fix the publication invocation/inputs only through an authorized task scope; do not fabricate RESULT content manually.
 
-## Semantic Audit — Otherwise Acceptable
+### B3 — BLOCKING: `.gitattributes` is outside TASK-060 writable scope
 
-Subject to B1/B2, the implementation direction is consistent with the locked identity contract:
+Fresh compare shows a new file:
+
+```text
+.gitattributes
+```
+
+with content that locks LF for the two operator surface files.
+
+The intent is understandable, but TASK-060's exact writable scope is locked to:
+
+```text
+.agents/workflows/aios-worker.md
+.agents/skills/aios-worker/SKILL.md
+.agents/skills/aios-worker/scripts/aios_worker.py
+tests/aios_bridge/test_aios_worker_control_surface.py
+docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+```
+
+plus Bridge-generated `.ai/results/RESULT-060.md` as publication output only.
+
+`.gitattributes` is not authorized by the canonical task. Adding it therefore violates the exact scope boundary even though it supports the BOM/LF objective.
+
+**Required FIX for B3:**
+
+```text
+1. Remove `.gitattributes` from the TASK-060 branch delta.
+2. Keep the two surface files themselves encoded UTF-8 without BOM and LF-frontmatter.
+3. Keep the raw-byte regression tests so a future line-ending/BOM regression fails closed.
+4. Do not broaden TASK-060 scope to justify `.gitattributes` after the fact.
+```
+
+## Semantic Audit — PASS subject to B2/B3
+
+The UI separation itself is now correct:
 
 ```text
 Antigravity /aios-worker
   -> .agents/workflows/aios-worker.md
   -> shared adapter --adapter antigravity
-  -> handoff only
+  -> RUN/FIX handoff only
 
 Codex $aios-worker
   -> .agents/skills/aios-worker/SKILL.md
   -> shared adapter --adapter codex
-  -> handoff + execute
+  -> RUN/FIX handoff + execute
+
+STATUS
+  -> non-authorizing on both surfaces
 ```
 
-The shared adapter implementation remains unchanged, preserving the previously reviewed RUN/FIX/STATUS split. The new workflow text explicitly forbids Codex routing, raw Codex invocation, Bridge execute, retry/reroute, publish/merge authority, and the Codex skill explicitly forbids serving the Antigravity slash surface.
+The shared adapter remains unchanged in the observed branch delta. No TASK-059 implementation, dispatcher, lease semantic, PID tracking, M11.3B/C, or paid-API change is part of the intended hotfix.
 
-## Scope / Lineage
+## Fresh Scope Snapshot
+
+Observed `main -> ai/task-060` paths:
 
 ```text
-BASELINE -> ai/task-060: ahead 2, behind 0
-REVIEWED_HEAD: 9e658797c0e874d16ff822afd078d677f28d9e14
-
-Observed implementation paths:
-- .agents/skills/aios-worker/SKILL.md
-- .agents/workflows/aios-worker.md
-- docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
-- tests/aios_bridge/test_aios_worker_control_surface.py
-
-Shared adapter:
-- .agents/skills/aios-worker/scripts/aios_worker.py (unchanged)
-
-Publication:
-- .ai/results/RESULT-060.md
+.agents/skills/aios-worker/SKILL.md                      authorized
+.agents/workflows/aios-worker.md                        authorized
+.ai/results/RESULT-060.md                               Bridge publication output
+.gitattributes                                          UNAUTHORIZED -> B3
+docs/AIOS_UNIFIED_WORKER_WORKFLOW.md                    authorized
+tests/aios_bridge/test_aios_worker_control_surface.py   authorized
 ```
-
-No TASK-059 implementation, M11.3B contract, dispatcher, lease semantics, process PID tracking, or paid-API change is part of this reviewed delta.
 
 ## Required Next Gate
 
@@ -133,10 +165,18 @@ No TASK-059 implementation, M11.3B contract, dispatcher, lease semantics, proces
 FIX TASK-060
 ```
 
-After a fresh FIX publication:
+The next FIX is narrow:
+
+```text
+B1: KEEP RESOLVED
+B2: repair real RESULT/test evidence
+B3: remove unauthorized .gitattributes delta
+```
+
+After a fresh publication:
 
 ```text
 Review TASK-060
 ```
 
-Do not merge TASK-060 and do not re-run TASK-059 until TASK-060 receives a fresh PASS review and Human merge.
+Do not merge TASK-060 and do not run TASK-059 until TASK-060 receives a fresh PASS review and explicit Human merge.
