@@ -1,4 +1,0 @@
-
-# TASK-060: Lock LF line endings for operator-surface frontmatter files
-.agents/workflows/aios-worker.md text eol=lf
-.agents/skills/aios-worker/SKILL.md text eol=lf
