@@ -1,4 +1,4 @@
-﻿# AIOS Unified Worker Workflow
+# AIOS Unified Worker Workflow
 
 This document describes the unified AIOS worker control surface defined in ADR-037 and implemented in TASK-048, with UI identity hardening applied in TASK-060.
 

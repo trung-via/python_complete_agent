@@ -1,4 +1,4 @@
-﻿---
+---
 name: aios-worker
 description: >
   Codex-only $aios-worker skill. Operates the AIOS worker protocol

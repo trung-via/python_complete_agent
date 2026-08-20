@@ -1,4 +1,4 @@
-﻿---
+---
 name: aios-worker
 description: >
   Antigravity-only /aios-worker workflow. Operates the AIOS worker protocol

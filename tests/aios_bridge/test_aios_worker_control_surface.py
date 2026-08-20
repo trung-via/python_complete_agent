@@ -1,4 +1,4 @@
-﻿"""Test suite for the Unified AIOS Worker Control Surface (TASK-048 / ADR-037 / TASK-060).
+"""Test suite for the Unified AIOS Worker Control Surface (TASK-048 / ADR-037 / TASK-060).
 
 Tests:
  1. Canonical RUN/FIX/STATUS TASK IDs parse correctly
@@ -659,3 +659,43 @@ class TestNoRetryRerouteMerge:
             code = aw.main(["MERGE", "TASK-1", "--adapter", "antigravity"])
         assert code != 0
         mock_bridge.assert_not_called()
+
+
+# ===========================================================================
+# B1 Regression (TASK-060 FIX): No BOM, frontmatter starts with b'---\n'
+# ===========================================================================
+
+class TestSurfaceFileFrontmatterNoBOM:
+    """B1 Regression: Both surface files must begin with b"---\n" with no UTF-8 BOM."""
+
+    def test_workflow_file_no_bom(self):
+        raw = WORKFLOW_FILE.read_bytes()
+        assert not raw.startswith(b'\xef\xbb\xbf'), (
+            f'workflow must not have BOM. First 6 bytes: {raw[:6]!r}'
+        )
+
+    def test_workflow_file_starts_with_frontmatter_delimiter(self):
+        raw = WORKFLOW_FILE.read_bytes()
+        assert raw.startswith(b'---\n') or raw.startswith(b'---\r\n'), (
+            f"workflow must start with b'---' frontmatter delimiter. First 6 bytes: {raw[:6]!r}"
+        )
+
+    def test_skill_file_no_bom(self):
+        raw = SKILL_FILE.read_bytes()
+        assert not raw.startswith(b'\xef\xbb\xbf'), (
+            f'SKILL.md must not have BOM. First 6 bytes: {raw[:6]!r}'
+        )
+
+    def test_skill_file_starts_with_frontmatter_delimiter(self):
+        raw = SKILL_FILE.read_bytes()
+        assert raw.startswith(b'---\n') or raw.startswith(b'---\r\n'), (
+            f"SKILL.md must start with b'---' frontmatter delimiter. First 6 bytes: {raw[:6]!r}"
+        )
+
+    def test_workflow_raw_bytes_contain_adapter_antigravity(self):
+        raw = WORKFLOW_FILE.read_bytes()
+        assert b'--adapter antigravity' in raw
+
+    def test_skill_raw_bytes_contain_adapter_codex(self):
+        raw = SKILL_FILE.read_bytes()
+        assert b'--adapter codex' in raw
