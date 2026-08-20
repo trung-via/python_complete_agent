@@ -83,11 +83,24 @@ LEASE RELEASE CHANGE: NO
 PAID API: NO
 ```
 
-## Executor Dispatch Policy
+## Bootstrap Executor Policy
 
-Human selects exactly one executor. For this hotfix, use Antigravity after the local workspace has been switched back to clean `main`.
+Human selects exactly one executor. Because the Antigravity `/aios-worker` slash surface is the bug target, **do not invoke `/aios-worker RUN TASK-060` before this hotfix is merged**.
 
-No silent reroute or second executor.
+Exactly two bootstrap routes are allowed:
+
+```text
+A) Explicit Codex selection:
+   $aios-worker RUN TASK-060
+   -> adapter codex
+
+B) Explicit Antigravity selection without the broken slash surface:
+   run the checked-in shared adapter directly with:
+   .\venv\Scripts\python.exe .agents/skills/aios-worker/scripts/aios_worker.py RUN TASK-060 --adapter antigravity
+   -> adapter antigravity
+```
+
+No other UI inference, reroute, fallback, second executor, or automatic retry is allowed.
 
 ## Completion
 
