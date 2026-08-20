@@ -124,12 +124,17 @@ class ProviderInputTokenCounter(Protocol):
     def count_request(self, request: ModelRequest) -> ProviderInputCountEvidence: ...
 
 
-# Production trust is intentionally closed until an audited local counter is
-# added.  New concrete implementations must be registered here by exact type;
+# Production trust contains only the audited pinned local MiniMax-M3 counter.
+# New concrete implementations must be registered here by exact type;
 # structural Protocol conformance and caller assertions never grant authority.
 # Tests replace this private immutable registry with their deterministic local
 # fake for the duration of each test.
-_TRUSTED_LOCAL_COUNTER_TYPES: tuple[type[object], ...] = ()
+from .minimax_m3_input_counter import MiniMaxM3LocalProviderInputCounter
+
+
+_TRUSTED_LOCAL_COUNTER_TYPES: tuple[type[object], ...] = (
+    MiniMaxM3LocalProviderInputCounter,
+)
 
 
 def require_trusted_local_provider_input_counter(
