@@ -22,6 +22,16 @@ TEST_BLOB_SHA: 85df56ae0dff5a6c5174e25c087edc3b696aacfc
 E4_CONTROL_COMMIT_SHA: 55893fbe00e5ca128bc19718490a65309aa6bfbe
 ```
 
+## Machine-Readable FIX Executor Contract
+
+EXECUTOR_CONTEXT_REFS_JSON: [{"path":".ai/tasks/TASK-052.md","blob_sha":"64b28033fde9ec273246928eb185120756e93714"},{"path":".ai/context/TASK-052-M11.2B-HUMAN-PAID-API-GRANT-COMMAND-BLUEPRINT.md","blob_sha":"c50d2acb153356c3e35609101302bf2cf650b735"},{"path":".ai/decisions/ADR-036-M11-EXTERNAL-API-ESCAPE-HATCH-ARCHITECTURE-LOCK.md","blob_sha":"cf71c571d8e3fd611ea07d21f15ad0bf90ef6ecc"}]
+
+EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py","tests/test_bridge_paid_api_grant.py"]
+
+DISPATCH_EXECUTOR_POLICY_JSON: {"allow_paid_api":false,"candidates":[{"capacity_class":"SUBSCRIPTION","executor_id":"antigravity","preference_rank":0,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]},{"capacity_class":"SUBSCRIPTION","executor_id":"codex","preference_rank":1,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]}],"operation":"FIX","required_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"]}
+
+These markers authorize only the bounded FIX described below. They do not authorize merge, paid Executor use, paid Brain dispatch, or any provider call.
+
 ## Lineage / Scope
 
 Independent GitHub comparison proves:
