@@ -56,6 +56,7 @@ class PaidApiBrainEscapeResult:
 
     effective_dispatch_request: BrainDispatchRequest
     dispatch_result: DispatchResult
+    provider_input_evidence: ProviderInputCountEvidence
     paid_candidate_selected: bool
     grant_consumed: bool
     gateway_result: GatewayResult | None
@@ -67,6 +68,10 @@ class PaidApiBrainEscapeResult:
             )
         if type(self.dispatch_result) is not DispatchResult:
             raise PaidApiBrainEscapeError("dispatch_result must be an exact DispatchResult")
+        if type(self.provider_input_evidence) is not ProviderInputCountEvidence:
+            raise PaidApiBrainEscapeError(
+                "provider_input_evidence must be an exact ProviderInputCountEvidence"
+            )
         if type(self.paid_candidate_selected) is not bool:
             raise PaidApiBrainEscapeError("paid_candidate_selected must be an exact bool")
         if type(self.grant_consumed) is not bool:
@@ -371,6 +376,7 @@ async def execute_paid_api_brain_escape(
         return PaidApiBrainEscapeResult(
             effective_dispatch_request=effective_request,
             dispatch_result=dispatch_result,
+            provider_input_evidence=provider_input_evidence,
             paid_candidate_selected=False,
             grant_consumed=False,
             gateway_result=None,
@@ -387,6 +393,7 @@ async def execute_paid_api_brain_escape(
     return PaidApiBrainEscapeResult(
         effective_dispatch_request=effective_request,
         dispatch_result=dispatch_result,
+        provider_input_evidence=provider_input_evidence,
         paid_candidate_selected=True,
         grant_consumed=True,
         gateway_result=gateway_result,

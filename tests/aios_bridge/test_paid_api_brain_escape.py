@@ -29,13 +29,18 @@ from src.aios_bridge.external_brain.contracts import (
     ModelResponseStatus,
 )
 from src.aios_bridge.external_brain.gateway import ModelGateway
+from src.aios_bridge.external_brain.usage import JsonlUsageLedger
 from src.aios_bridge import paid_api_brain_escape as paid_escape_module
 from src.aios_bridge import provider_input_budget as provider_input_budget_module
 from src.aios_bridge.paid_api_brain_escape import (
     PaidApiBrainEscapeError,
+    PaidApiBrainEscapeResult,
     execute_paid_api_brain_escape,
 )
 from src.aios_bridge.paid_api_grant import PaidApiGrant
+from src.aios_bridge.paid_api_operational_proof import (
+    build_paid_api_operational_proof,
+)
 from src.aios_bridge.provider_input_budget import (
     ProviderInputBudgetError,
     ProviderInputCountEvidence,
@@ -117,23 +122,27 @@ class OfflineProviderInputCounter:
         self.evidence_override = evidence_override
         self.observe = observe
         self.calls = 0
+        self.last_evidence = None
 
     def count_request(self, request: ModelRequest) -> ProviderInputCountEvidence:
         self.calls += 1
         if self.observe is not None:
             self.observe()
         if self.evidence_override is not _NO_EVIDENCE_OVERRIDE:
-            return self.evidence_override
-        return ProviderInputCountEvidence(
-            provider_id=self.evidence_provider_id or self.provider_id,
-            model_id=self.evidence_model_id or self.model_id,
-            model_request_fingerprint=(
-                self.evidence_fingerprint or fingerprint_model_request(request)
-            ),
-            counted_input_tokens=self.counted_input_tokens,
-            counter_id=self.evidence_counter_id or self.counter_id,
-            token_count_is_exact=self.evidence_is_exact,
-        )
+            evidence = self.evidence_override
+        else:
+            evidence = ProviderInputCountEvidence(
+                provider_id=self.evidence_provider_id or self.provider_id,
+                model_id=self.evidence_model_id or self.model_id,
+                model_request_fingerprint=(
+                    self.evidence_fingerprint or fingerprint_model_request(request)
+                ),
+                counted_input_tokens=self.counted_input_tokens,
+                counter_id=self.evidence_counter_id or self.counter_id,
+                token_count_is_exact=self.evidence_is_exact,
+            )
+        self.last_evidence = evidence
+        return evidence
 
 
 @pytest.fixture(autouse=True)
@@ -154,12 +163,16 @@ class OfflineProvider:
         observe=None,
         raises: Exception | None = None,
         status: ModelResponseStatus = ModelResponseStatus.FAILED,
+        input_tokens: int = 7,
+        output_tokens: int = 3,
     ) -> None:
         self.provider_id = provider_id
         self.model_name = model_name
         self.observe = observe
         self.raises = raises
         self.status = status
+        self.input_tokens = input_tokens
+        self.output_tokens = output_tokens
         self.calls = 0
 
     async def invoke(self, request: ModelRequest) -> ModelResponse:
@@ -168,6 +181,7 @@ class OfflineProvider:
             self.observe()
         if self.raises is not None:
             raise self.raises
+        success = self.status is ModelResponseStatus.SUCCESS
         return ModelResponse(
             schema_version="1",
             request_id=request.request_id,
@@ -175,13 +189,22 @@ class OfflineProvider:
             provider=self.provider_id,
             model=self.model_name,
             status=self.status,
-            output_type=None,
-            content=None,
-            input_tokens=7,
-            output_tokens=3,
+            output_type=BrainOutputType.PLAN if success else None,
+            content=(
+                "# SUMMARY\nOffline proof.\n\n"
+                "## STEPS\n1. Correlate evidence.\n\n"
+                "## FILES\n- No worktree mutation.\n\n"
+                "## TESTS\nRun targeted tests.\n\n"
+                "## RISKS\nNo provider call.\n"
+                if success
+                else None
+            ),
+            input_tokens=self.input_tokens,
+            output_tokens=self.output_tokens,
             latency_ms=1,
-            error_code="OFFLINE_TEST_FAILURE",
-            error_message="deterministic offline response",
+            provider_request_id="offline-provider-request-054",
+            error_code=None if success else "OFFLINE_TEST_FAILURE",
+            error_message=None if success else "deterministic offline response",
         )
 
 
@@ -797,8 +820,50 @@ def test_provider_input_counter_is_called_exactly_once_for_a_valid_attempt(tmp_p
     )
     result = run(arguments)
     assert result.paid_candidate_selected is True
+    assert result.provider_input_evidence is counter.last_evidence
     assert counter.calls == 1
     assert provider.calls == 1
+
+
+def test_escape_result_requires_exact_original_provider_input_evidence(tmp_path):
+    counter = OfflineProviderInputCounter()
+    arguments, _, _ = setup_execution(tmp_path, provider_input_counter=counter)
+    result = run(arguments)
+
+    parameter = inspect.signature(PaidApiBrainEscapeResult).parameters[
+        "provider_input_evidence"
+    ]
+    assert parameter.default is inspect.Parameter.empty
+    assert result.provider_input_evidence is counter.last_evidence
+    with pytest.raises(PaidApiBrainEscapeError, match="provider_input_evidence"):
+        replace(result, provider_input_evidence=object())
+
+
+def test_operational_proof_reuses_original_evidence_without_second_count(tmp_path):
+    counter = OfflineProviderInputCounter(counted_input_tokens=64)
+    provider = OfflineProvider(
+        status=ModelResponseStatus.SUCCESS,
+        input_tokens=64,
+        output_tokens=12,
+    )
+    arguments, _, store = setup_execution(
+        tmp_path,
+        provider=provider,
+        provider_input_counter=counter,
+        ledger=JsonlUsageLedger(tmp_path / "usage" / "paid-api.jsonl"),
+    )
+
+    result = run(arguments)
+    assert counter.calls == 1
+    assert result.provider_input_evidence is counter.last_evidence
+    receipt = build_paid_api_operational_proof(
+        escape_result=result,
+        grant=arguments["grant"],
+        grant_store=store,
+        model_request=arguments["model_request"],
+    )
+    assert receipt.input_token_match is True
+    assert counter.calls == 1
 
 
 def test_full_provider_input_over_request_limit_fails_before_enablement_consume_gateway(
@@ -868,6 +933,7 @@ def test_subscription_is_still_preferred_and_leaves_grant_active(tmp_path):
     assert result.paid_candidate_selected is False
     assert result.grant_consumed is False
     assert result.gateway_result is None
+    assert result.provider_input_evidence is arguments["provider_input_counter"].last_evidence
     assert provider.calls == 0
     assert arguments["provider_input_counter"].calls == 1
     assert store.require_active(arguments["grant"], now_epoch_seconds=20) == arguments["grant"]
