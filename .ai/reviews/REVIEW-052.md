@@ -4,7 +4,7 @@ STATUS: PASS
 APPROVED: YES
 READY_FOR_HUMAN_MERGE: YES
 MERGE_AUTHORIZED: YES
-MERGED_TO_MAIN: NO
+MERGED_TO_MAIN: YES
 
 ## Review Anchors
 
@@ -22,9 +22,14 @@ BRIDGE_BLOB_SHA: 1870351fb18bb9224e5a91524b72d612205617f2
 TEST_BLOB_SHA: 14fb86c85a071dda08d78415073121fcb4bf3f52
 FIX_AUTH_REVIEW_BLOB_SHA: 71d22b32dc0d7cc088721d74eba3e20942b2342c
 E4_FIX_CONTROL_COMMIT_SHA: 8a2973c472fb0622f345addb1987546f23ee2bcf
+POST_MERGE_MAIN_SHA: d3f66189431755cc8c188ab5bc9866c069f0e3e3
+MERGE_METHOD: FAST_FORWARD_REF_UPDATE
+FORCE: FALSE
+FAST_FORWARD_MERGE: PASS
+POST_MERGE_EXACT_HEAD: PASS
 ```
 
-## Merge Authorization State
+## Merge Verification
 
 Human explicitly authorized:
 
@@ -35,7 +40,7 @@ Merge TASK-052
 Pre-merge verification proved:
 
 ```text
-main: 15a26f7a2810a5540bed0a3f7ad8f662b04533d4
+main_before_merge: 15a26f7a2810a5540bed0a3f7ad8f662b04533d4
 ai/task-052: d3f66189431755cc8c188ab5bc9866c069f0e3e3
 status: ahead
 commits_ahead: 2
@@ -44,11 +49,27 @@ merge_base: 15a26f7a2810a5540bed0a3f7ad8f662b04533d4
 compare reviewed-head..ai/task-052: identical
 ```
 
-The merge is authorized for exact reviewed head only. This record does not itself move `main`.
+GitHub ref update was then performed with:
+
+```text
+branch: main
+target_sha: d3f66189431755cc8c188ab5bc9866c069f0e3e3
+force: false
+result: success
+```
+
+Post-merge verification proved:
+
+```text
+compare d3f66189431755cc8c188ab5bc9866c069f0e3e3..main
+status: identical
+ahead_by: 0
+behind_by: 0
+```
 
 ## Initial Blocking Finding B1 — RESOLVED
 
-The FIX now requires `git cat-file -t <sha>` output to be exactly `b"blob\n"`. Real Git regression tests prove file/blob acceptance and tree/non-blob/malformed rejection before grant activation.
+The FIX requires `git cat-file -t <sha>` output to be exactly `b"blob\n"`. Real Git regression tests prove file/blob acceptance and tree/non-blob/malformed rejection before grant activation.
 
 ## Test Evidence
 
@@ -79,10 +100,10 @@ B1: RESOLVED
 
 ## Decision
 
-TASK-052 is PASS and Human merge-authorized at exact reviewed head:
+TASK-052 / M11.2B is merged to `main` at the exact reviewed head:
 
 ```text
 d3f66189431755cc8c188ab5bc9866c069f0e3e3
 ```
 
-`MERGED_TO_MAIN` remains NO until the Git ref update is completed and post-merge exact-head verification passes.
+M11.2B is complete. Do not begin M11.2C automatically.
