@@ -676,8 +676,8 @@ class TestSurfaceFileFrontmatterNoBOM:
 
     def test_workflow_file_starts_with_frontmatter_delimiter(self):
         raw = WORKFLOW_FILE.read_bytes()
-        assert raw.startswith(b'---\n') or raw.startswith(b'---\r\n'), (
-            f"workflow must start with b'---' frontmatter delimiter. First 6 bytes: {raw[:6]!r}"
+        assert raw.startswith(b'---\n'), (
+            f"workflow must start with exactly b'---\\n' (LF, no CRLF, no BOM). First 6 bytes: {raw[:6]!r}"
         )
 
     def test_skill_file_no_bom(self):
@@ -688,8 +688,8 @@ class TestSurfaceFileFrontmatterNoBOM:
 
     def test_skill_file_starts_with_frontmatter_delimiter(self):
         raw = SKILL_FILE.read_bytes()
-        assert raw.startswith(b'---\n') or raw.startswith(b'---\r\n'), (
-            f"SKILL.md must start with b'---' frontmatter delimiter. First 6 bytes: {raw[:6]!r}"
+        assert raw.startswith(b'---\n'), (
+            f"SKILL.md must start with exactly b'---\\n' (LF, no CRLF, no BOM). First 6 bytes: {raw[:6]!r}"
         )
 
     def test_workflow_raw_bytes_contain_adapter_antigravity(self):
