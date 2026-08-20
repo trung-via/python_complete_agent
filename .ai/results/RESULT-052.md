@@ -5,7 +5,7 @@ STATUS: READY_FOR_REVIEW
 ## Review Manifest
 ```yaml
 TASK_ID: TASK-052
-ACTION: RUN
+ACTION: FIX
 EXECUTOR_ID: codex
 EXECUTOR_FAILOVER: NO
 HOT_HANDOFF: NO
@@ -16,10 +16,10 @@ Implementation completed by codex through E4 approved automatic execution; pendi
 
 ## Task Metadata
 - Task: `TASK-052`
-- Action: `RUN`
+- Action: `FIX`
 - Executor: `codex`
-- Authorized Artifact: `.ai/tasks/TASK-052.md (64b28033fd)`
-- Base Main SHA: `15a26f7a2810a5540bed0a3f7ad8f662b04533d4`
+- Authorized Artifact: `.ai/reviews/REVIEW-052.md (71d22b32dc)`
+- Base Main SHA: `(n/a)`
 - Branch: `ai/task-052`
 
 ## Files Changed
@@ -28,8 +28,9 @@ Implementation completed by codex through E4 approved automatic execution; pendi
 
 ## Diff Stat
 ```text
-bridge.py | 181 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 179 insertions(+), 2 deletions(-)
+bridge.py                           |   7 +++
+ tests/test_bridge_paid_api_grant.py | 104 ++++++++++++++++++++++++++++++++++++
+ 2 files changed, 111 insertions(+)
 ```
 
 ## Tests
@@ -40,27 +41,27 @@ Exit code: 0
 ........................................................................ [  4%]
 ........................................................................ [  8%]
 ........................................................................ [ 12%]
-........................................................................ [ 17%]
+........................................................................ [ 16%]
 ................................................................s....... [ 21%]
 ....ss....................................s............................. [ 25%]
 ........................................................................ [ 29%]
-........................................................................ [ 34%]
+........................................................................ [ 33%]
 ........................................................................ [ 38%]
 ........................................................................ [ 42%]
 ........................................................................ [ 46%]
-.......ss......................................s........................ [ 51%]
+.......ss......................................s........................ [ 50%]
 ........................................................................ [ 55%]
 ........................................................................ [ 59%]
 ........................................................................ [ 63%]
-........................................................................ [ 68%]
+........................................................................ [ 67%]
 ........................................................................ [ 72%]
 ........................................................................ [ 76%]
 ........................................................................ [ 80%]
-........................................................................ [ 85%]
+........................................................................ [ 84%]
 ........................................................................ [ 89%]
 ........................................................................ [ 93%]
 ........................................................................ [ 97%]
-...................................                                      [100%]
+........................................                                 [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -363,7 +364,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-1684 passed, 7 skipped, 1533 warnings in 143.18s (0:02:23)
+1689 passed, 7 skipped, 1533 warnings in 247.68s (0:04:07)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -373,15 +374,15 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 
 ## Risks / Notes
 E4_AUTO_EXECUTION: YES
-E4_CONTROL_COMMIT_SHA: 55893fbe00e5ca128bc19718490a65309aa6bfbe
-E4_CONTEXT_MANIFEST_FINGERPRINT: b73859ac2992775e2b0d552915a0b33e21fc7d47cb1a3870e9dc2a23ec2957c9
-E4_INVOCATION_FINGERPRINT: 33d4162b0960ff26fd2e26c5ef7325429cff8721439a2564e6c09af43906708c
-E4_INVOCATION_RECEIPT_FINGERPRINT: 68ef2674e6b357be67a52b3f95b44750ff3f56ea0a44db4bf626e1099531b476
+E4_CONTROL_COMMIT_SHA: 8a2973c472fb0622f345addb1987546f23ee2bcf
+E4_CONTEXT_MANIFEST_FINGERPRINT: eebc9b702784e92f38946fe7406c98c0364b841d60753457ba5b30244c677012
+E4_INVOCATION_FINGERPRINT: 9627d94b3841e96aeb74331d944eefcb983cadccd6463e683b8e3a09f46b1eb2
+E4_INVOCATION_RECEIPT_FINGERPRINT: 12e6d2e24cc3733fce94fe4c630e7417377d84585552b92f26f693a754659be6
 E4_TRANSPORT_STATUS: EXITED_ZERO
-E4_PRE_EXECUTION_HEAD: 15a26f7a2810a5540bed0a3f7ad8f662b04533d4
+E4_PRE_EXECUTION_HEAD: 8a0b7f4a916c3c8127c01c750ddb9bb86ae0f42f
 E4_ALLOWED_SCOPE_VERIFIED: PASS
 E4_PUBLICATION_TRUST_VERIFIED: PASS
 E4_DIRTY_PATH_COUNT: 2
 
 ## Generated
-2026-08-20T06:49:08+07:00
+2026-08-20T07:56:24+07:00

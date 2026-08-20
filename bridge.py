@@ -802,6 +802,13 @@ def resolve_git_blob_sha(ref: str, path: str) -> str:
         raise ContinuityStateValidationError("Git blob SHA output was not ASCII") from exc
     if not re.fullmatch(r"[0-9a-f]{40}", value):
         raise ContinuityStateValidationError("Resolved Git blob SHA was not exact lowercase 40-hex")
+    type_proc = _run_git_binary("cat-file", "-t", value)
+    if type_proc.returncode != 0:
+        raise ContinuityStateValidationError(f"Unable to verify Git blob type: {path}")
+    if type_proc.stdout != b"blob\n":
+        raise ContinuityStateValidationError(
+            f"Resolved Git object was not an exact blob: {path}"
+        )
     return value
 
 

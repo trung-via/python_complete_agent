@@ -64,6 +64,44 @@ def _mock_create_control(monkeypatch: pytest.MonkeyPatch, calls: list | None = N
     return calls
 
 
+def _prepare_real_control_repo(worktree: Path) -> str:
+    artifact = worktree / ".ai" / "tasks" / "TASK-052.md"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text("# TASK-052\n", encoding="utf-8")
+
+    for args in (
+        ("init",),
+        ("add", ".ai/tasks/TASK-052.md"),
+        (
+            "-c",
+            "user.name=TASK-052 Test",
+            "-c",
+            "user.email=task-052@example.invalid",
+            "commit",
+            "-m",
+            "control fixture",
+        ),
+        ("update-ref", "refs/remotes/origin/ai-control", "HEAD"),
+    ):
+        proc = bridge._run_git_binary(*args)
+        assert proc.returncode == 0, proc.stderr.decode("utf-8", errors="replace")
+
+    proc = bridge._run_git_binary(
+        "rev-parse", "refs/remotes/origin/ai-control:.ai/tasks/TASK-052.md"
+    )
+    assert proc.returncode == 0
+    return proc.stdout.decode("ascii").strip()
+
+
+def _mock_real_create_control(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        bridge,
+        "load_config",
+        lambda: {"remote": "origin", "control_branch": "ai-control"},
+    )
+    monkeypatch.setattr(bridge, "fetch_control", lambda cfg: None)
+
+
 def _grant(
     workspace_id: str,
     *,
@@ -282,6 +320,72 @@ def test_parser_requires_all_spend_fields_and_exposes_no_authority_overrides():
     for flag in forbidden_flags:
         with pytest.raises(SystemExit):
             parser.parse_args(command + [flag, "forbidden"])
+
+
+def test_real_blob_resolution_allows_grant_creation(isolated, monkeypatch, capsys):
+    _, worktree = isolated
+    expected_blob_sha = _prepare_real_control_repo(worktree)
+    _mock_real_create_control(monkeypatch)
+    monkeypatch.setattr(bridge.time, "time", lambda: NOW)
+    monkeypatch.setattr(bridge.secrets, "token_hex", lambda: TOKEN_HEX)
+
+    bridge.cmd_paid_grant_create(_args())
+
+    grant = bridge.get_paid_api_grant_store().load_active(
+        TASK_ID, f"grant-task-052-{TOKEN_HEX}"
+    )
+    assert grant is not None
+    assert grant.authorized_artifact_blob_sha == expected_blob_sha
+    assert "[PAID API GRANT ACTIVE]" in capsys.readouterr().out
+
+
+def test_real_tree_resolution_fails_before_activation_and_creates_no_grant(
+    isolated, monkeypatch
+):
+    runtime, worktree = isolated
+    _prepare_real_control_repo(worktree)
+    _mock_real_create_control(monkeypatch)
+    store_calls = []
+    monkeypatch.setattr(
+        bridge,
+        "get_paid_api_grant_store",
+        lambda: store_calls.append("store"),
+    )
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_paid_grant_create(_args(artifact_path=".ai/tasks"))
+
+    assert store_calls == []
+    assert not list((runtime / "paid_api_grants").rglob("*.json"))
+
+
+@pytest.mark.parametrize("type_output", [b"commit\n", b"blob\nextra\n", b"\xff\n"])
+def test_malformed_or_non_blob_type_evidence_fails_closed_before_activation(
+    isolated, monkeypatch, type_output
+):
+    runtime, worktree = isolated
+    _prepare_real_control_repo(worktree)
+    _mock_real_create_control(monkeypatch)
+    real_run_git_binary = bridge._run_git_binary
+
+    def run_git_with_invalid_type(*args):
+        if args[:2] == ("cat-file", "-t"):
+            return SimpleNamespace(returncode=0, stdout=type_output, stderr=b"")
+        return real_run_git_binary(*args)
+
+    monkeypatch.setattr(bridge, "_run_git_binary", run_git_with_invalid_type)
+    store_calls = []
+    monkeypatch.setattr(
+        bridge,
+        "get_paid_api_grant_store",
+        lambda: store_calls.append("store"),
+    )
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_paid_grant_create(_args())
+
+    assert store_calls == []
+    assert not list((runtime / "paid_api_grants").rglob("*.json"))
 
 
 def test_missing_artifact_and_invalid_contract_fail_before_activation(
