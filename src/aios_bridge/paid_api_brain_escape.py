@@ -29,6 +29,11 @@ from .paid_api_grant import (
     validate_paid_api_grant_binding,
     validate_paid_api_grant_budget,
 )
+from .provider_input_budget import (
+    ProviderInputCountEvidence,
+    ProviderInputTokenCounter,
+    fingerprint_model_request,
+)
 from .runtime_paid_api_grant import AtomicPaidApiGrantStore
 
 
@@ -131,6 +136,7 @@ async def execute_paid_api_brain_escape(
     authorized_artifact: ArtifactRef,
     model_request: ModelRequest,
     context_build: ContextBuildResult,
+    provider_input_counter: ProviderInputTokenCounter,
     gateway: ModelGateway,
     now_epoch_seconds: int,
 ) -> PaidApiBrainEscapeResult:
@@ -265,6 +271,74 @@ async def execute_paid_api_brain_escape(
         raise PaidApiBrainEscapeError(
             "selected context and protocol reserve exceed the exact context budget"
         )
+
+    counter_provider_id = _require_exact_nonempty_string(
+        getattr(provider_input_counter, "provider_id", None),
+        "provider_input_counter.provider_id",
+    )
+    counter_model_id = _require_exact_nonempty_string(
+        getattr(provider_input_counter, "model_id", None),
+        "provider_input_counter.model_id",
+    )
+    counter_id = _require_exact_nonempty_string(
+        getattr(provider_input_counter, "counter_id", None),
+        "provider_input_counter.counter_id",
+    )
+    if counter_provider_id != grant.provider_id:
+        raise PaidApiBrainEscapeError(
+            "provider_input_counter.provider_id must exactly match the grant provider"
+        )
+    if counter_model_id != grant.model_id:
+        raise PaidApiBrainEscapeError(
+            "provider_input_counter.model_id must exactly match the grant model"
+        )
+    if getattr(provider_input_counter, "is_exact", None) is not True:
+        raise PaidApiBrainEscapeError("provider_input_counter.is_exact must be exactly True")
+    count_request = getattr(provider_input_counter, "count_request", None)
+    if not callable(count_request):
+        raise PaidApiBrainEscapeError(
+            "provider_input_counter.count_request must be callable"
+        )
+
+    expected_request_fingerprint = fingerprint_model_request(model_request)
+    provider_input_evidence = count_request(model_request)
+    if type(provider_input_evidence) is not ProviderInputCountEvidence:
+        raise PaidApiBrainEscapeError(
+            "provider input evidence must be an exact ProviderInputCountEvidence"
+        )
+    if provider_input_evidence.provider_id != grant.provider_id:
+        raise PaidApiBrainEscapeError(
+            "provider input evidence provider_id must exactly match the grant"
+        )
+    if provider_input_evidence.model_id != grant.model_id:
+        raise PaidApiBrainEscapeError(
+            "provider input evidence model_id must exactly match the grant"
+        )
+    if provider_input_evidence.counter_id != counter_id:
+        raise PaidApiBrainEscapeError(
+            "provider input evidence counter_id must exactly match the counter"
+        )
+    if provider_input_evidence.token_count_is_exact is not True:
+        raise PaidApiBrainEscapeError(
+            "provider input evidence token_count_is_exact must be exactly True"
+        )
+    if provider_input_evidence.model_request_fingerprint != expected_request_fingerprint:
+        raise PaidApiBrainEscapeError(
+            "provider input evidence request fingerprint must exactly match ModelRequest"
+        )
+    if (
+        type(provider_input_evidence.counted_input_tokens) is not int
+        or provider_input_evidence.counted_input_tokens < 0
+    ):
+        raise PaidApiBrainEscapeError(
+            "provider input evidence counted_input_tokens must be an exact "
+            "non-negative integer"
+        )
+    if provider_input_evidence.counted_input_tokens > model_request.max_input_tokens:
+        raise PaidApiBrainEscapeError(
+            "full provider input count exceeds model_request.max_input_tokens"
+        )
+
     validate_paid_api_grant_budget(
         grant,
         input_tokens=model_request.max_input_tokens,

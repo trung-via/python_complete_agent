@@ -4,6 +4,7 @@ import asyncio
 from dataclasses import replace
 import hashlib
 import inspect
+import json
 
 import pytest
 
@@ -28,11 +29,18 @@ from src.aios_bridge.external_brain.contracts import (
     ModelResponseStatus,
 )
 from src.aios_bridge.external_brain.gateway import ModelGateway
+from src.aios_bridge import paid_api_brain_escape as paid_escape_module
 from src.aios_bridge.paid_api_brain_escape import (
     PaidApiBrainEscapeError,
     execute_paid_api_brain_escape,
 )
 from src.aios_bridge.paid_api_grant import PaidApiGrant
+from src.aios_bridge.provider_input_budget import (
+    ProviderInputBudgetError,
+    ProviderInputCountEvidence,
+    ProviderInputTokenCounter,
+    fingerprint_model_request,
+)
 from src.aios_bridge.runtime_paid_api_grant import (
     AtomicPaidApiGrantStore,
     ContinuityStateValidationError,
@@ -73,6 +81,54 @@ OPERATION_MAP = {
         BrainOutputType.REVIEW,
     ),
 }
+
+
+_NO_EVIDENCE_OVERRIDE = object()
+
+
+class OfflineProviderInputCounter:
+    def __init__(
+        self,
+        *,
+        provider_id: str = PROVIDER_ID,
+        model_id: str = MODEL_ID,
+        counter_id: str = "offline-full-input-counter",
+        is_exact: bool = True,
+        counted_input_tokens: int = 64,
+        evidence_provider_id: str | None = None,
+        evidence_model_id: str | None = None,
+        evidence_counter_id: str | None = None,
+        evidence_is_exact: bool = True,
+        evidence_fingerprint: str | None = None,
+        evidence_override=_NO_EVIDENCE_OVERRIDE,
+    ) -> None:
+        self.provider_id = provider_id
+        self.model_id = model_id
+        self.counter_id = counter_id
+        self.is_exact = is_exact
+        self.counted_input_tokens = counted_input_tokens
+        self.evidence_provider_id = evidence_provider_id
+        self.evidence_model_id = evidence_model_id
+        self.evidence_counter_id = evidence_counter_id
+        self.evidence_is_exact = evidence_is_exact
+        self.evidence_fingerprint = evidence_fingerprint
+        self.evidence_override = evidence_override
+        self.calls = 0
+
+    def count_request(self, request: ModelRequest) -> ProviderInputCountEvidence:
+        self.calls += 1
+        if self.evidence_override is not _NO_EVIDENCE_OVERRIDE:
+            return self.evidence_override
+        return ProviderInputCountEvidence(
+            provider_id=self.evidence_provider_id or self.provider_id,
+            model_id=self.evidence_model_id or self.model_id,
+            model_request_fingerprint=(
+                self.evidence_fingerprint or fingerprint_model_request(request)
+            ),
+            counted_input_tokens=self.counted_input_tokens,
+            counter_id=self.evidence_counter_id or self.counter_id,
+            token_count_is_exact=self.evidence_is_exact,
+        )
 
 
 class OfflineProvider:
@@ -276,6 +332,7 @@ def setup_execution(
     model_request: ModelRequest | None = None,
     artifact: ArtifactRef | None = None,
     provider: OfflineProvider | None = None,
+    provider_input_counter: OfflineProviderInputCounter | None = None,
     ledger=None,
     activate: bool = True,
     activation_now: int = 10,
@@ -296,6 +353,7 @@ def setup_execution(
         "authorized_artifact": artifact or make_artifact(),
         "model_request": actual_model_request,
         "context_build": actual_context,
+        "provider_input_counter": provider_input_counter or OfflineProviderInputCounter(),
         "gateway": ModelGateway(actual_provider, ledger=ledger),
         "now_epoch_seconds": 20,
     }, actual_provider, store
@@ -503,6 +561,189 @@ def test_exact_token_bounds_and_budget_are_required(tmp_path, case):
     assert_fails_closed(arguments, provider)
 
 
+def test_provider_input_evidence_contract_is_exact_immutable_and_prompt_free():
+    request = make_model_request(make_context())
+    evidence = ProviderInputCountEvidence(
+        provider_id=PROVIDER_ID,
+        model_id=MODEL_ID,
+        model_request_fingerprint=fingerprint_model_request(request),
+        counted_input_tokens=0,
+        counter_id="offline-full-input-counter",
+        token_count_is_exact=False,
+    )
+    assert evidence.schema_version == "1"
+    assert evidence.to_canonical_json() == json.dumps(
+        evidence.to_dict(), sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    )
+    assert "instruction" not in evidence.to_dict()
+    assert request.instruction not in evidence.to_canonical_json()
+    with pytest.raises((AttributeError, TypeError)):
+        evidence.counted_input_tokens = 1
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("schema_version", "2"),
+        ("provider_id", " padded"),
+        ("model_id", ""),
+        ("counter_id", 7),
+        ("model_request_fingerprint", "A" * 64),
+        ("counted_input_tokens", True),
+        ("counted_input_tokens", -1),
+        ("token_count_is_exact", 1),
+    ],
+)
+def test_provider_input_evidence_rejects_non_exact_fields(field, value):
+    values = {
+        "schema_version": "1",
+        "provider_id": PROVIDER_ID,
+        "model_id": MODEL_ID,
+        "model_request_fingerprint": "a" * 64,
+        "counted_input_tokens": 1,
+        "counter_id": "offline-full-input-counter",
+        "token_count_is_exact": True,
+    }
+    values[field] = value
+    with pytest.raises(ProviderInputBudgetError):
+        ProviderInputCountEvidence(**values)
+
+
+def test_model_request_fingerprint_is_canonical_deterministic_and_mutation_sensitive():
+    request = replace(
+        make_model_request(make_context()),
+        instruction="Phân tích bounded request exactly.",
+    )
+    expected = hashlib.sha256(
+        json.dumps(
+            request.to_dict(),
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ).encode("utf-8")
+    ).hexdigest()
+    assert fingerprint_model_request(request) == expected
+    assert fingerprint_model_request(request) == fingerprint_model_request(request)
+    assert fingerprint_model_request(
+        replace(request, instruction=request.instruction + " changed")
+    ) != fingerprint_model_request(request)
+
+
+def test_provider_input_counter_is_required_and_context_only_exact_is_insufficient(
+    tmp_path,
+):
+    arguments, provider, store = setup_execution(tmp_path)
+    assert arguments["context_build"].token_count_is_exact is True
+    arguments.pop("provider_input_counter")
+    with pytest.raises(TypeError, match="provider_input_counter"):
+        run(arguments)
+    assert provider.calls == 0
+    store.require_active(arguments["grant"], now_epoch_seconds=20)
+
+
+@pytest.mark.parametrize("mutation", ["provider", "model", "not_exact", "counter_id"])
+def test_provider_input_counter_identity_must_match_exactly_before_count(
+    tmp_path, mutation
+):
+    counter = OfflineProviderInputCounter(
+        provider_id="wrong-provider" if mutation == "provider" else PROVIDER_ID,
+        model_id="wrong-model" if mutation == "model" else MODEL_ID,
+        is_exact=False if mutation == "not_exact" else True,
+        counter_id=" padded" if mutation == "counter_id" else "offline-full-input-counter",
+    )
+    arguments, provider, store = setup_execution(
+        tmp_path, provider_input_counter=counter
+    )
+    assert_fails_closed(arguments, provider)
+    assert counter.calls == 0
+    store.require_active(arguments["grant"], now_epoch_seconds=20)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["type", "provider", "model", "counter_id", "not_exact", "fingerprint"],
+)
+def test_provider_input_evidence_requires_exact_type_and_complete_binding(
+    tmp_path, mutation
+):
+    counter = OfflineProviderInputCounter(
+        evidence_override=object() if mutation == "type" else _NO_EVIDENCE_OVERRIDE,
+        evidence_provider_id="wrong-provider" if mutation == "provider" else None,
+        evidence_model_id="wrong-model" if mutation == "model" else None,
+        evidence_counter_id="wrong-counter" if mutation == "counter_id" else None,
+        evidence_is_exact=False if mutation == "not_exact" else True,
+        evidence_fingerprint="0" * 64 if mutation == "fingerprint" else None,
+    )
+    arguments, provider, store = setup_execution(
+        tmp_path, provider_input_counter=counter
+    )
+    assert_fails_closed(arguments, provider)
+    assert counter.calls == 1
+    store.require_active(arguments["grant"], now_epoch_seconds=20)
+
+
+def test_provider_input_counter_is_called_exactly_once_for_a_valid_attempt(tmp_path):
+    counter = OfflineProviderInputCounter(counted_input_tokens=128)
+    arguments, provider, _ = setup_execution(
+        tmp_path, provider_input_counter=counter
+    )
+    result = run(arguments)
+    assert result.paid_candidate_selected is True
+    assert counter.calls == 1
+    assert provider.calls == 1
+
+
+def test_full_provider_input_over_request_limit_fails_before_enablement_consume_gateway(
+    tmp_path, monkeypatch
+):
+    counter = OfflineProviderInputCounter(counted_input_tokens=129)
+    arguments, provider, store = setup_execution(
+        tmp_path, provider_input_counter=counter
+    )
+
+    def forbidden_dispatch(_request):
+        raise AssertionError("paid dispatch was enabled before full-input proof")
+
+    def forbidden_consume(*_args, **_kwargs):
+        raise AssertionError("grant was consumed before full-input proof")
+
+    monkeypatch.setattr(paid_escape_module, "dispatch_brain", forbidden_dispatch)
+    monkeypatch.setattr(store, "consume", forbidden_consume)
+    with pytest.raises(PaidApiBrainEscapeError, match="full provider input count"):
+        run(arguments)
+    assert counter.calls == 1
+    assert provider.calls == 0
+    store.require_active(arguments["grant"], now_epoch_seconds=20)
+
+
+def test_full_provider_input_at_request_limit_and_within_human_grant_is_accepted(
+    tmp_path,
+):
+    grant = make_grant(max_input_tokens=128)
+    counter = OfflineProviderInputCounter(counted_input_tokens=128)
+    arguments, provider, _ = setup_execution(
+        tmp_path,
+        grant=grant,
+        provider_input_counter=counter,
+    )
+    result = run(arguments)
+    assert result.paid_candidate_selected is True
+    assert result.grant_consumed is True
+    assert counter.calls == 1
+    assert provider.calls == 1
+
+
+def test_exact_context_does_not_compensate_for_inexact_full_input_evidence(tmp_path):
+    counter = OfflineProviderInputCounter(evidence_is_exact=False)
+    arguments, provider, store = setup_execution(
+        tmp_path, provider_input_counter=counter
+    )
+    assert arguments["context_build"].token_count_is_exact is True
+    assert_fails_closed(arguments, provider, "token_count_is_exact")
+    assert counter.calls == 1
+    store.require_active(arguments["grant"], now_epoch_seconds=20)
+
+
 def test_subscription_is_still_preferred_and_leaves_grant_active(tmp_path):
     subscription = make_candidate(
         "subscription-brain",
@@ -520,6 +761,7 @@ def test_subscription_is_still_preferred_and_leaves_grant_active(tmp_path):
     assert result.grant_consumed is False
     assert result.gateway_result is None
     assert provider.calls == 0
+    assert arguments["provider_input_counter"].calls == 1
     assert store.require_active(arguments["grant"], now_epoch_seconds=20) == arguments["grant"]
 
 
@@ -635,7 +877,16 @@ def test_no_second_provider_executor_authority_git_or_network_surface(tmp_path):
     assert second_provider.calls == 0
 
     signature = inspect.signature(execute_paid_api_brain_escape)
+    counter_parameter = signature.parameters["provider_input_counter"]
+    assert counter_parameter.kind is inspect.Parameter.KEYWORD_ONLY
+    assert counter_parameter.default is inspect.Parameter.empty
     assert not any("executor" in name.lower() for name in signature.parameters)
     module = inspect.getmodule(execute_paid_api_brain_escape)
     assert module is not None
     assert not {"subprocess", "socket", "requests", "urllib"}.intersection(module.__dict__)
+    counter_module = inspect.getmodule(ProviderInputCountEvidence)
+    assert counter_module is not None
+    assert not {"subprocess", "socket", "requests", "urllib"}.intersection(
+        counter_module.__dict__
+    )
+    assert isinstance(arguments["provider_input_counter"], ProviderInputTokenCounter)
