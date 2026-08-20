@@ -4,7 +4,7 @@ STATUS: PASS
 APPROVED: YES
 READY_FOR_HUMAN_MERGE: YES
 MERGE_AUTHORIZED: YES
-MERGED_TO_MAIN: NO
+MERGED_TO_MAIN: YES
 
 ## Review Anchors
 
@@ -27,7 +27,7 @@ E4_FIX_CONTROL_COMMIT_SHA: 85242e9a5ce60a2f8f2938365acececd9918cd3c
 
 ## Lineage / Scope — PASS
 
-Independent comparison before merge proves:
+Independent comparison before merge proved:
 
 ```text
 main: 439f073da2a112531dc78669dfb4aea53f88439b
@@ -46,7 +46,7 @@ The FIX delta from the initial reviewed head is exactly one additional commit:
   -> 867cb5cdb730639db93a1f184f065dbb97230cd0
 ```
 
-FIX touched only:
+Implementation scope remained exactly:
 
 ```text
 .ai/results/RESULT-055.md
@@ -55,80 +55,41 @@ src/aios_bridge/provider_input_budget.py
 tests/aios_bridge/test_paid_api_brain_escape.py
 ```
 
-Implementation scope remains the three authorized production/test paths plus Bridge-generated RESULT publication.
+## Security Hardening — PASS
 
-## Original Budget Hardening — PASS
+TASK-055 closes the context-only input-budget gap by requiring separate exact full-provider-input evidence before paid dispatch can be enabled.
 
-The merged M11.2C coordinator is now additionally protected by a mandatory full-provider-input proof surface:
+The final implementation requires:
 
-- `provider_input_counter` is mandatory and keyword-only; there is no permissive default.
-- `ProviderInputCountEvidence` is immutable and stores no prompt body, request body, credential, or authorization header.
-- `fingerprint_model_request()` binds evidence to canonical `ModelRequest.to_dict()` semantics using compact sorted UTF-8 JSON + SHA-256.
-- Provider/model/counter identity and `is_exact is True` are validated.
-- `count_request(model_request)` runs exactly once after trust is established.
-- Evidence exact type, provider/model/counter ID, request fingerprint, exactness, and token count are revalidated.
-- `counted_input_tokens <= model_request.max_input_tokens` is enforced.
-- Existing M11.1 budget validation still enforces `model_request.max_input_tokens <= grant.max_input_tokens` and output bound.
-- Context-only `token_count_is_exact=True` is no longer sufficient authorization for paid dispatch.
+```text
+provider_input_counter: mandatory
+trusted-local exact implementation type: required
+structural Protocol conformance alone: insufficient
+self-asserted is_exact=True alone: insufficient
+untrusted property/callback access: forbidden before trust
+ModelRequest fingerprint binding: required
+provider/model/counter identity: exact
+count_request(): exactly once after trust
+counted_input_tokens <= model_request.max_input_tokens
+model_request.max_input_tokens <= grant.max_input_tokens
+model_request.max_output_tokens <= grant.max_output_tokens
+```
+
+Production trusted-counter registry remains intentionally empty until a separately reviewed exact local MiniMax-M3 counter is implemented.
 
 ## B1 Re-review — RESOLVED
 
-Original blocking finding:
+Original B1 was the ability for an arbitrary Protocol-conforming counter to perform network I/O inside `count_request()` before paid-grant consumption.
+
+The FIX introduced exact-type trusted-local registration and moves trust resolution before every caller-controlled counter property or callback. Tests prove untrusted subclasses and side-effecting objects are rejected with zero property accesses, zero count callbacks, zero dispatch, zero consume, and zero provider calls.
 
 ```text
-B1: local/no-network counter authority was not mechanically enforced
-```
-
-The FIX adds an explicit trusted-local implementation authority in `provider_input_budget.py`:
-
-```text
-_TRUSTED_LOCAL_COUNTER_TYPES: tuple[type[object], ...] = ()
-```
-
-Production state is intentionally closed: no real counter type is trusted yet.
-
-Before any caller-controlled counter property or callback is evaluated, the coordinator now calls:
-
-```text
-require_trusted_local_provider_input_counter(provider_input_counter)
-```
-
-Trust semantics are exact-type based:
-
-```text
-ARBITRARY_PROTOCOL_CONFORMING_COUNTER: REJECT
-UNREGISTERED SUBCLASS: REJECT
-SELF_ASSERTED is_exact=True: INSUFFICIENT
-UNTRUSTED PROPERTY ACCESS: NONE
-UNTRUSTED count_request CALLBACK: NONE
-TRUSTED EXACT REGISTERED TYPE: REQUIRED
-```
-
-This satisfies the TASK-055 locked allowance for an exact trusted implementation registration seam intended for TASK-056. Structural Protocol conformance alone no longer grants paid-budget authority.
-
-Regression tests mechanically prove:
-
-- a Protocol-conforming subclass is rejected before count/dispatch/consume/provider call;
-- an untrusted object with side-effecting properties and `count_request()` triggers zero property accesses and zero callbacks;
-- trust decision occurs before `count_request()`;
-- a trusted deterministic local test counter is called exactly once;
-- all existing provider/model/request fingerprint/budget checks remain active after trust.
-
-Therefore the original network-capable arbitrary-counter path is closed fail-closed.
-
-## Production Trust State
-
-TASK-055 does not register a real MiniMax counter.
-
-```text
+B1: RESOLVED
 PRODUCTION_TRUSTED_COUNTER_TYPES: EMPTY
 REAL_MINIMAX_COUNTER: NOT_IMPLEMENTED
-REAL_TOKENIZER_DOWNLOAD: NO
 NETWORK_TOKEN_COUNT_ENDPOINT: NO
 REAL_PROVIDER_CALL: NO
 ```
-
-TASK-056 may add one audited exact local MiniMax-M3 implementation and explicitly register that exact concrete type. That future registration requires separate review; TASK-055 itself does not open production authority.
 
 ## Existing M11.2C Invariants — PRESERVED
 
@@ -189,7 +150,7 @@ REGRESSIONS_OBSERVED: 0
 FINAL_INDEPENDENT_AUDIT: PASS
 ```
 
-## Merge Authorization Receipt
+## Merge Receipt
 
 Human explicitly authorized:
 
@@ -197,14 +158,25 @@ Human explicitly authorized:
 Merge TASK-055
 ```
 
-Pre-merge authorization is recorded here without claiming the merge has completed. Exact reviewed head and lineage were revalidated immediately before the ref update.
+Merge execution and post-merge verification:
+
+```text
+MERGE_METHOD: FAST_FORWARD_REF_UPDATE
+FORCE: FALSE
+PRE_MERGE_MAIN_SHA: 439f073da2a112531dc78669dfb4aea53f88439b
+MERGED_TASK_HEAD_SHA: 867cb5cdb730639db93a1f184f065dbb97230cd0
+POST_MERGE_MAIN_SHA: 867cb5cdb730639db93a1f184f065dbb97230cd0
+POST_MERGE_COMPARE_STATUS: IDENTICAL
+FAST_FORWARD_MERGE: PASS
+POST_MERGE_EXACT_HEAD: PASS
+```
 
 ## Decision
 
-TASK-055 / M11.2C.1 remains approved at exact reviewed head:
+TASK-055 / M11.2C.1 is merged to `main` at the exact independently reviewed final head:
 
 ```text
 867cb5cdb730639db93a1f184f065dbb97230cd0
 ```
 
-MERGED_TO_MAIN remains NO until the exact fast-forward ref update and post-merge verification succeed.
+TASK-056 / MiniMax exact local tokenizer counter is not started by this merge. M11.3 real operational proof remains blocked and no real paid API call is authorized by this merge.
