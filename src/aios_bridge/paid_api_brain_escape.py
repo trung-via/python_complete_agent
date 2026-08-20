@@ -33,6 +33,7 @@ from .provider_input_budget import (
     ProviderInputCountEvidence,
     ProviderInputTokenCounter,
     fingerprint_model_request,
+    require_trusted_local_provider_input_counter,
 )
 from .runtime_paid_api_grant import AtomicPaidApiGrantStore
 
@@ -272,16 +273,21 @@ async def execute_paid_api_brain_escape(
             "selected context and protocol reserve exceed the exact context budget"
         )
 
+    # Trust is resolved by exact registered implementation identity before any
+    # caller-controlled counter property or callback is evaluated.
+    trusted_provider_input_counter = require_trusted_local_provider_input_counter(
+        provider_input_counter
+    )
     counter_provider_id = _require_exact_nonempty_string(
-        getattr(provider_input_counter, "provider_id", None),
+        getattr(trusted_provider_input_counter, "provider_id", None),
         "provider_input_counter.provider_id",
     )
     counter_model_id = _require_exact_nonempty_string(
-        getattr(provider_input_counter, "model_id", None),
+        getattr(trusted_provider_input_counter, "model_id", None),
         "provider_input_counter.model_id",
     )
     counter_id = _require_exact_nonempty_string(
-        getattr(provider_input_counter, "counter_id", None),
+        getattr(trusted_provider_input_counter, "counter_id", None),
         "provider_input_counter.counter_id",
     )
     if counter_provider_id != grant.provider_id:
@@ -292,9 +298,9 @@ async def execute_paid_api_brain_escape(
         raise PaidApiBrainEscapeError(
             "provider_input_counter.model_id must exactly match the grant model"
         )
-    if getattr(provider_input_counter, "is_exact", None) is not True:
+    if getattr(trusted_provider_input_counter, "is_exact", None) is not True:
         raise PaidApiBrainEscapeError("provider_input_counter.is_exact must be exactly True")
-    count_request = getattr(provider_input_counter, "count_request", None)
+    count_request = getattr(trusted_provider_input_counter, "count_request", None)
     if not callable(count_request):
         raise PaidApiBrainEscapeError(
             "provider_input_counter.count_request must be callable"

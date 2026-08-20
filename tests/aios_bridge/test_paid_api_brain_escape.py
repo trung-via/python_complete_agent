@@ -30,6 +30,7 @@ from src.aios_bridge.external_brain.contracts import (
 )
 from src.aios_bridge.external_brain.gateway import ModelGateway
 from src.aios_bridge import paid_api_brain_escape as paid_escape_module
+from src.aios_bridge import provider_input_budget as provider_input_budget_module
 from src.aios_bridge.paid_api_brain_escape import (
     PaidApiBrainEscapeError,
     execute_paid_api_brain_escape,
@@ -101,6 +102,7 @@ class OfflineProviderInputCounter:
         evidence_is_exact: bool = True,
         evidence_fingerprint: str | None = None,
         evidence_override=_NO_EVIDENCE_OVERRIDE,
+        observe=None,
     ) -> None:
         self.provider_id = provider_id
         self.model_id = model_id
@@ -113,10 +115,13 @@ class OfflineProviderInputCounter:
         self.evidence_is_exact = evidence_is_exact
         self.evidence_fingerprint = evidence_fingerprint
         self.evidence_override = evidence_override
+        self.observe = observe
         self.calls = 0
 
     def count_request(self, request: ModelRequest) -> ProviderInputCountEvidence:
         self.calls += 1
+        if self.observe is not None:
+            self.observe()
         if self.evidence_override is not _NO_EVIDENCE_OVERRIDE:
             return self.evidence_override
         return ProviderInputCountEvidence(
@@ -129,6 +134,15 @@ class OfflineProviderInputCounter:
             counter_id=self.evidence_counter_id or self.counter_id,
             token_count_is_exact=self.evidence_is_exact,
         )
+
+
+@pytest.fixture(autouse=True)
+def trust_offline_provider_input_counter(monkeypatch):
+    monkeypatch.setattr(
+        provider_input_budget_module,
+        "_TRUSTED_LOCAL_COUNTER_TYPES",
+        (OfflineProviderInputCounter,),
+    )
 
 
 class OfflineProvider:
@@ -639,6 +653,100 @@ def test_provider_input_counter_is_required_and_context_only_exact_is_insufficie
         run(arguments)
     assert provider.calls == 0
     store.require_active(arguments["grant"], now_epoch_seconds=20)
+
+
+def test_arbitrary_protocol_counter_is_rejected_before_count_and_paid_side_effects(
+    tmp_path, monkeypatch
+):
+    class ArbitraryProtocolCounter(OfflineProviderInputCounter):
+        pass
+
+    counter = ArbitraryProtocolCounter(is_exact=True)
+    assert isinstance(counter, ProviderInputTokenCounter)
+    arguments, provider, store = setup_execution(
+        tmp_path, provider_input_counter=counter
+    )
+
+    def forbidden_dispatch(_request):
+        raise AssertionError("untrusted counter reached paid dispatch")
+
+    def forbidden_consume(*_args, **_kwargs):
+        raise AssertionError("untrusted counter reached grant consume")
+
+    monkeypatch.setattr(paid_escape_module, "dispatch_brain", forbidden_dispatch)
+    monkeypatch.setattr(store, "consume", forbidden_consume)
+    with pytest.raises(ProviderInputBudgetError, match="trusted-local"):
+        run(arguments)
+    assert counter.calls == 0
+    assert provider.calls == 0
+    store.require_active(arguments["grant"], now_epoch_seconds=20)
+
+
+def test_untrusted_counter_rejected_without_property_or_count_side_effects(tmp_path):
+    events = []
+
+    class SideEffectingUntrustedCounter:
+        @property
+        def provider_id(self):
+            events.append("provider_id")
+            return PROVIDER_ID
+
+        @property
+        def model_id(self):
+            events.append("model_id")
+            return MODEL_ID
+
+        @property
+        def counter_id(self):
+            events.append("counter_id")
+            return "untrusted-counter"
+
+        @property
+        def is_exact(self):
+            events.append("is_exact")
+            return True
+
+        def count_request(self, request):
+            events.append("network-or-side-effect-callback")
+            raise AssertionError("untrusted callback must not run")
+
+    counter = SideEffectingUntrustedCounter()
+    arguments, provider, store = setup_execution(
+        tmp_path, provider_input_counter=counter
+    )
+    with pytest.raises(ProviderInputBudgetError, match="trusted-local"):
+        run(arguments)
+    assert events == []
+    assert provider.calls == 0
+    store.require_active(arguments["grant"], now_epoch_seconds=20)
+
+
+def test_trust_decision_precedes_exactly_one_count_request(tmp_path, monkeypatch):
+    events = []
+    original_require_trusted = (
+        paid_escape_module.require_trusted_local_provider_input_counter
+    )
+
+    def observe_trust(counter):
+        events.append("trust")
+        return original_require_trusted(counter)
+
+    counter = OfflineProviderInputCounter(
+        observe=lambda: events.append("count_request")
+    )
+    arguments, provider, _ = setup_execution(
+        tmp_path, provider_input_counter=counter
+    )
+    monkeypatch.setattr(
+        paid_escape_module,
+        "require_trusted_local_provider_input_counter",
+        observe_trust,
+    )
+    result = run(arguments)
+    assert result.paid_candidate_selected is True
+    assert events == ["trust", "count_request"]
+    assert counter.calls == 1
+    assert provider.calls == 1
 
 
 @pytest.mark.parametrize("mutation", ["provider", "model", "not_exact", "counter_id"])

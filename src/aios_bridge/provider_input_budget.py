@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
-from typing import Protocol, runtime_checkable
+from typing import Protocol, cast, runtime_checkable
 
 from .external_brain.contracts import ModelRequest
 
@@ -124,9 +124,36 @@ class ProviderInputTokenCounter(Protocol):
     def count_request(self, request: ModelRequest) -> ProviderInputCountEvidence: ...
 
 
+# Production trust is intentionally closed until an audited local counter is
+# added.  New concrete implementations must be registered here by exact type;
+# structural Protocol conformance and caller assertions never grant authority.
+# Tests replace this private immutable registry with their deterministic local
+# fake for the duration of each test.
+_TRUSTED_LOCAL_COUNTER_TYPES: tuple[type[object], ...] = ()
+
+
+def require_trusted_local_provider_input_counter(
+    counter: object,
+) -> ProviderInputTokenCounter:
+    """Require exact-type registration as a trusted local counter.
+
+    This check deliberately performs no attribute access or callback on an
+    untrusted object.  Exact-type membership also prevents an unregistered
+    subclass from inheriting authority from a trusted implementation.
+    """
+
+    if type(counter) not in _TRUSTED_LOCAL_COUNTER_TYPES:
+        raise ProviderInputBudgetError(
+            "provider_input_counter must be an exact registered trusted-local "
+            "counter implementation"
+        )
+    return cast(ProviderInputTokenCounter, counter)
+
+
 __all__ = [
     "ProviderInputBudgetError",
     "ProviderInputCountEvidence",
     "ProviderInputTokenCounter",
     "fingerprint_model_request",
+    "require_trusted_local_provider_input_counter",
 ]

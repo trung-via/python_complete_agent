@@ -5,7 +5,7 @@ STATUS: READY_FOR_REVIEW
 ## Review Manifest
 ```yaml
 TASK_ID: TASK-055
-ACTION: RUN
+ACTION: FIX
 EXECUTOR_ID: codex
 EXECUTOR_FAILOVER: NO
 HOT_HANDOFF: NO
@@ -16,22 +16,23 @@ Implementation completed by codex through E4 approved automatic execution; pendi
 
 ## Task Metadata
 - Task: `TASK-055`
-- Action: `RUN`
+- Action: `FIX`
 - Executor: `codex`
-- Authorized Artifact: `.ai/tasks/TASK-055.md (dd46a36156)`
-- Base Main SHA: `439f073da2a112531dc78669dfb4aea53f88439b`
+- Authorized Artifact: `.ai/reviews/REVIEW-055.md (13738bbe0b)`
+- Base Main SHA: `(n/a)`
 - Branch: `ai/task-055`
 
 ## Files Changed
 - src/aios_bridge/paid_api_brain_escape.py
-- tests/aios_bridge/test_paid_api_brain_escape.py
 - src/aios_bridge/provider_input_budget.py
+- tests/aios_bridge/test_paid_api_brain_escape.py
 
 ## Diff Stat
 ```text
-src/aios_bridge/paid_api_brain_escape.py        |  74 +++++++
- tests/aios_bridge/test_paid_api_brain_escape.py | 251 ++++++++++++++++++++++++
- 2 files changed, 325 insertions(+)
+src/aios_bridge/paid_api_brain_escape.py        |  16 ++--
+ src/aios_bridge/provider_input_budget.py        |  29 ++++++-
+ tests/aios_bridge/test_paid_api_brain_escape.py | 108 ++++++++++++++++++++++++
+ 3 files changed, 147 insertions(+), 6 deletions(-)
 ```
 
 ## Tests
@@ -48,7 +49,7 @@ Exit code: 0
 ........................................................................ [ 28%]
 ........................................................................ [ 32%]
 ........................................................................ [ 36%]
-........................................................................ [ 41%]
+........................................................................ [ 40%]
 ........................................................................ [ 45%]
 .......ss......................................s........................ [ 49%]
 ........................................................................ [ 53%]
@@ -58,12 +59,12 @@ Exit code: 0
 ........................................................................ [ 69%]
 ........................................................................ [ 73%]
 ........................................................................ [ 77%]
-........................................................................ [ 82%]
-........................................................................ [ 86%]
+........................................................................ [ 81%]
+........................................................................ [ 85%]
 ........................................................................ [ 90%]
 ........................................................................ [ 94%]
 ........................................................................ [ 98%]
-............................                                             [100%]
+...............................                                          [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -366,7 +367,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-1749 passed, 7 skipped, 1533 warnings in 197.19s (0:03:17)
+1752 passed, 7 skipped, 1533 warnings in 153.02s (0:02:33)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -376,15 +377,15 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 
 ## Risks / Notes
 E4_AUTO_EXECUTION: YES
-E4_CONTROL_COMMIT_SHA: 68c3f86b1682db0015fe8edd11a1d1e0a8e432e9
-E4_CONTEXT_MANIFEST_FINGERPRINT: cce059df98e2724c7446c8707486ac4da3193570c33c301139cdba923c5a93cd
-E4_INVOCATION_FINGERPRINT: 4ce2bca49c6c23f7d169c13fad69af3b0fec8e7d38e8c6ffcfc0458b4b60da39
-E4_INVOCATION_RECEIPT_FINGERPRINT: 0ccb222c22dbb8d2ff1bc230cfe0626b3d0e33c89806cb36606b20fbb2e5014a
+E4_CONTROL_COMMIT_SHA: 85242e9a5ce60a2f8f2938365acececd9918cd3c
+E4_CONTEXT_MANIFEST_FINGERPRINT: 9ef5f2c78b88a443fae1086c374369dae7ab336f3ad1859cf3c20670978ceff6
+E4_INVOCATION_FINGERPRINT: 2cc28e0697bb96fa9424e1fe41a6de9eb7baeeba86c78f928f4b4fddb650df4c
+E4_INVOCATION_RECEIPT_FINGERPRINT: 8de7330fcb9fd2157c819b5bec78223e4d10cc0f03cba2e3c9bc031608ed66d7
 E4_TRANSPORT_STATUS: EXITED_ZERO
-E4_PRE_EXECUTION_HEAD: 439f073da2a112531dc78669dfb4aea53f88439b
+E4_PRE_EXECUTION_HEAD: 42357e7e4dcfd1be7ad6e636e589c14f305ecb51
 E4_ALLOWED_SCOPE_VERIFIED: PASS
 E4_PUBLICATION_TRUST_VERIFIED: PASS
 E4_DIRTY_PATH_COUNT: 3
 
 ## Generated
-2026-08-20T10:26:40+07:00
+2026-08-20T10:39:59+07:00
