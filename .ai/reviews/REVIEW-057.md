@@ -13,45 +13,17 @@ TASK_ID: TASK-057
 MILESTONE: M11.2C.2 — PINNED LOCAL MINIMAX-M3 PROVIDER-INPUT COUNTER
 BASELINE_MAIN_SHA: 867cb5cdb730639db93a1f184f065dbb97230cd0
 TASK_BRANCH: ai/task-057
-INITIAL_REVIEWED_HEAD_SHA: 17f62d3670e1b3a7cbe75f3444969cf51a85bc74
 FINAL_REVIEWED_TASK_HEAD_SHA: 1331813af4e21fa4e1769bcfe439abb1c67f7f20
-TASK_BLOB_SHA: 64eff17cebe59b267d73d6da9e652cdf3f28458d
-BLUEPRINT_BLOB_SHA: 9405f9823b613dd976f8bff6ffe4e9a7bdc85878
-FIX_AUTH_REVIEW_BLOB_SHA: 578b04bba554e7b6b0531587b7c585de1995d8e9
-RESULT_057_BLOB_SHA: 6e7c2b1ee3d3a7d4ee53a019ba6d805d3837b0f4
-MINIMAX_COUNTER_BLOB_SHA: 304011b037a7eec38f5d19cd4854e83cc725ed4d
-PROVIDER_INPUT_BUDGET_BLOB_SHA: ed9af7080af623ea7b6d8d802a5f43c591d74f9d
-REQUIREMENTS_BLOB_SHA: fa6c2618417bbd962f5927c305798a0a08917910
-TEST_BLOB_SHA: 404299c6fc4fb12fc6f77120ba0b16c0e4eb9b2f
-E4_FIX_CONTROL_COMMIT_SHA: 9cadc07ce90438947c564ac747b99cc38bee979e
-OFFICIAL_MINIMAX_REVISION: 3a41b311ffa5719cef48fed3974ccf2cc03733ea
-```
-
-## Review Decision
-
-```text
-BLOCKING_FINDINGS: 0
-B1: RESOLVED
-NON_BLOCKING_FINDINGS: 1
-N1: RESOLVED
-N2: runtime Jinja/tokenizer provisioning required before M11.3
-REGRESSIONS_OBSERVED: 0
-FINAL_INDEPENDENT_AUDIT: PASS
 ```
 
 ## Human Merge Authorization
 
-Human explicitly authorized:
+Human explicitly authorized `Merge TASK-057`.
 
-```text
-Merge TASK-057
-```
-
-Pre-merge gates independently verified:
+Pre-merge gates:
 
 ```text
 CANONICAL_REVIEW_STATUS: PASS
-REVIEWED_TASK_HEAD_SHA: 1331813af4e21fa4e1769bcfe439abb1c67f7f20
 TASK_BRANCH_MATCHES_REVIEWED_HEAD: PASS
 PRE_MERGE_MAIN_SHA: 867cb5cdb730639db93a1f184f065dbb97230cd0
 PRE_MERGE_MAIN_MATCHES_BASELINE: PASS
@@ -68,6 +40,4 @@ TARGET_MAIN_SHA: 1331813af4e21fa4e1769bcfe439abb1c67f7f20
 
 Post-merge verification is required before `MERGED_TO_MAIN: YES` is finalized.
 
-## M11.3 Boundary
-
-This Human merge authorization does not authorize dependency/asset provisioning, M11.3 execution, or any real MiniMax paid call. Before M11.3, the runtime must separately provision exact pinned dependencies and the real pinned asset bundle, then M11.3 must prove `LOCAL_PRECALL_COUNT == PROVIDER_REPORTED_INPUT_TOKENS` on the one separately authorized provider call.
+M11.3 remains separately gated. No dependency/asset provisioning or real MiniMax paid call is authorized by this merge gate.
