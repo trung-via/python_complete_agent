@@ -24,38 +24,25 @@ This task MUST NOT weaken ADR-020 stable-boundary failover and MUST NOT reinterp
 ## Authoritative References
 
 ```text
-ADR-019:
-.ai/decisions/ADR-019-AIOS-CONTINUITY-M5-EXECUTOR-LEASE-AND-SINGLE-ACTIVE-EXECUTOR-LOCK.md
+ADR-019: .ai/decisions/ADR-019-AIOS-CONTINUITY-M5-EXECUTOR-LEASE-AND-SINGLE-ACTIVE-EXECUTOR-LOCK.md
 BLOB_SHA: fb2be56d87bb8b7c556270bd9e6e1ff21e74a570
 
-ADR-020:
-.ai/decisions/ADR-020-AIOS-CONTINUITY-M6-STABLE-BOUNDARY-EXECUTOR-FAILOVER-CONTRACT-LOCK.md
+ADR-020: .ai/decisions/ADR-020-AIOS-CONTINUITY-M6-STABLE-BOUNDARY-EXECUTOR-FAILOVER-CONTRACT-LOCK.md
 BLOB_SHA: fbaf062a4d2938ea16b0f70b2dba76401e9396ff
 
-ADR-038:
-.ai/decisions/ADR-038-DEFAULT-DUAL-EXECUTOR-TASK-AUTHORING-POLICY-LOCK.md
+ADR-038: .ai/decisions/ADR-038-DEFAULT-DUAL-EXECUTOR-TASK-AUTHORING-POLICY-LOCK.md
 BLOB_SHA: 72d38bf2f2ff5a07e7b63322116ad87622349df1
 
-ADR-039:
-.ai/decisions/ADR-039-CANCELLED-EXECUTOR-RESELECTION-RECOVERY-CONTRACT-LOCK.md
+ADR-039: .ai/decisions/ADR-039-CANCELLED-EXECUTOR-RESELECTION-RECOVERY-CONTRACT-LOCK.md
 BLOB_SHA: d317711732cf141f3714d95c74e40b1e979e1b99
 
-BLUEPRINT:
-.ai/context/TASK-061-CANCELLED-EXECUTOR-RESELECTION-RECOVERY-BLUEPRINT.md
+BLUEPRINT: .ai/context/TASK-061-CANCELLED-EXECUTOR-RESELECTION-RECOVERY-BLUEPRINT.md
 BLOB_SHA: e2cb781a8b689d793af345ff6a74c6221edc28c7
 ```
 
-Machine-readable context refs:
+## Machine-Readable Executor Context
 
-```json
-[
-  {"path":".ai/decisions/ADR-019-AIOS-CONTINUITY-M5-EXECUTOR-LEASE-AND-SINGLE-ACTIVE-EXECUTOR-LOCK.md","blob_sha":"fb2be56d87bb8b7c556270bd9e6e1ff21e74a570"},
-  {"path":".ai/decisions/ADR-020-AIOS-CONTINUITY-M6-STABLE-BOUNDARY-EXECUTOR-FAILOVER-CONTRACT-LOCK.md","blob_sha":"fbaf062a4d2938ea16b0f70b2dba76401e9396ff"},
-  {"path":".ai/decisions/ADR-038-DEFAULT-DUAL-EXECUTOR-TASK-AUTHORING-POLICY-LOCK.md","blob_sha":"72d38bf2f2ff5a07e7b63322116ad87622349df1"},
-  {"path":".ai/decisions/ADR-039-CANCELLED-EXECUTOR-RESELECTION-RECOVERY-CONTRACT-LOCK.md","blob_sha":"d317711732cf141f3714d95c74e40b1e979e1b99"},
-  {"path":".ai/context/TASK-061-CANCELLED-EXECUTOR-RESELECTION-RECOVERY-BLUEPRINT.md","blob_sha":"e2cb781a8b689d793af345ff6a74c6221edc28c7"}
-]
-```
+EXECUTOR_CONTEXT_REFS_JSON: [{"path":".ai/decisions/ADR-019-AIOS-CONTINUITY-M5-EXECUTOR-LEASE-AND-SINGLE-ACTIVE-EXECUTOR-LOCK.md","blob_sha":"fb2be56d87bb8b7c556270bd9e6e1ff21e74a570"},{"path":".ai/decisions/ADR-020-AIOS-CONTINUITY-M6-STABLE-BOUNDARY-EXECUTOR-FAILOVER-CONTRACT-LOCK.md","blob_sha":"fbaf062a4d2938ea16b0f70b2dba76401e9396ff"},{"path":".ai/decisions/ADR-038-DEFAULT-DUAL-EXECUTOR-TASK-AUTHORING-POLICY-LOCK.md","blob_sha":"72d38bf2f2ff5a07e7b63322116ad87622349df1"},{"path":".ai/decisions/ADR-039-CANCELLED-EXECUTOR-RESELECTION-RECOVERY-CONTRACT-LOCK.md","blob_sha":"d317711732cf141f3714d95c74e40b1e979e1b99"},{"path":".ai/context/TASK-061-CANCELLED-EXECUTOR-RESELECTION-RECOVERY-BLUEPRINT.md","blob_sha":"e2cb781a8b689d793af345ff6a74c6221edc28c7"}]
 
 ## Locked Transition Semantics
 
@@ -73,13 +60,11 @@ different executor + prior auth ACTIVE/other
     -> fail closed
 ```
 
-The ADR-039 path is valid only for source operation FIX and replacement operation FIX.
-
-Cancelled RUN reselection is forbidden in TASK-061.
+ADR-039 is valid only for source FIX -> replacement FIX. Cancelled RUN reselection remains forbidden.
 
 ## Required Recovery Gates
 
-Before a replacement lease may be acquired, mechanically require all of:
+Before replacement lease acquisition require mechanically:
 
 ```text
 prior auth status == CANCELLED
@@ -116,11 +101,11 @@ The proof MUST NOT contain secrets, raw local paths, process IDs, quota values, 
 
 ## Bridge Integration
 
-Bridge FIX classification must preserve M6 and add the ADR-039 branch only for different-executor + prior `CANCELLED`.
+Bridge FIX classification must preserve M6 and add ADR-039 only for different-executor + prior `CANCELLED`.
 
 The source cancelled authorization remains `CANCELLED` forever as historical evidence. Never mutate it to `CONSUMED`.
 
-Replacement activation must acquire a completely new lease and persist a new ACTIVE authorization containing bounded recovery proof metadata.
+Replacement activation must acquire a new lease and persist a new ACTIVE authorization containing bounded recovery proof metadata.
 
 Publish must revalidate the exact recovery proof before tests/RESULT mutation/commit/push and must not allow malformed recovery metadata to fall back to ordinary FIX or M6 failover.
 
@@ -142,24 +127,9 @@ It must never claim `EXECUTOR_FAILOVER: YES` for this path.
 
 ## Exact Writable Scope
 
-EXECUTOR_ALLOWED_PATHS_JSON:
+EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py","src/aios_bridge/continuity/cancelled_reselection.py","tests/aios_bridge/continuity/test_cancelled_reselection.py","tests/test_bridge.py"]
 
-```json
-[
-  "bridge.py",
-  "src/aios_bridge/continuity/cancelled_reselection.py",
-  "tests/aios_bridge/continuity/test_cancelled_reselection.py",
-  "tests/test_bridge.py"
-]
-```
-
-Bridge-generated publication output only:
-
-```text
-.ai/results/RESULT-061.md
-```
-
-No other path is authorized.
+Bridge-generated `.ai/results/RESULT-061.md` is publication output only.
 
 ## Explicit Forbidden Scope
 
@@ -182,50 +152,7 @@ auto merge: NO
 
 ## Required Tests
 
-At minimum implement and pass the blueprint test matrix, including:
-
-```text
-CANONICAL_RESELECTION_PROOF_ROUNDTRIP
-CANONICAL_RESELECTION_PROOF_FINGERPRINT_DETERMINISTIC
-CANCELLED_AND_REPLACEMENT_EXECUTORS_MUST_DIFFER
-CANCELLED_OPERATION_MUST_BE_FIX
-REPLACEMENT_OPERATION_MUST_BE_FIX
-CROSS_TASK_REVIEW_REF_REJECTED
-RANDOM_SOURCE_LEASE_FINGERPRINT_REJECTED
-RANDOM_REPLACEMENT_LEASE_FINGERPRINT_REJECTED
-UNKNOWN_FIELDS_REJECTED
-
-CONSUMED_DIFFERENT_EXECUTOR_STILL_USES_M6_FAILOVER
-CANCELLED_DIFFERENT_EXECUTOR_USES_RESELECTION
-ACTIVE_DIFFERENT_EXECUTOR_REJECTED
-CANCELLED_RUN_RESELECTION_REJECTED
-CANCELLED_SAME_EXECUTOR_PRESERVES_EXISTING_SAME_EXECUTOR_RULE
-
-CANCELLED_REQUIRES_HUMAN_RECOVERY_CANCELLATION_EVIDENCE
-CANCELLED_REQUIRES_PRIOR_PUBLISHED_SHA
-CANCELLED_NEVER_MUTATED_TO_CONSUMED
-NO_ACTIVE_LEASE_REQUIRED
-WORKTREE_MUST_BE_CLEAN
-INDEX_MUST_BE_CLEAN
-LOCAL_HEAD_MUST_EQUAL_STABLE_PREDECESSOR
-REMOTE_HEAD_MUST_EQUAL_STABLE_PREDECESSOR
-CURRENT_REVIEW_MUST_BE_CHANGES_REQUIRED
-CURRENT_REVIEW_PATH_MUST_MATCH_CANCELLED_AUTH
-CURRENT_REVIEW_BLOB_MUST_MATCH_CANCELLED_AUTH
-REPLACEMENT_EXECUTOR_MUST_BE_REVIEW_ELIGIBLE
-NEW_REPLACEMENT_LEASE_ID_REQUIRED
-SOURCE_LEASE_NEVER_REACQUIRED
-
-PUBLISH_REVALIDATES_RESELECTION_BEFORE_TESTS
-TAMPERED_RESELECTION_PROOF_REJECTED_BEFORE_TESTS
-MISSING_RESELECTION_PROOF_DOES_NOT_FALL_BACK
-RESULT_MARKS_CANCELLED_RESELECTION_NOT_FAILOVER
-NO_AUTO_RETRY
-NO_AUTO_REROUTE
-NO_PROCESS_PROBING
-NO_DIRTY_WORK_TRANSFER
-FULL_REPO_TESTS_PASS
-```
+At minimum implement and pass the blueprint matrix, including canonical proof strictness, M6 non-regression, cancelled-FIX classification, recovery evidence, clean/stable predecessor gates, exact review binding, new replacement lease, publish-time revalidation, RESULT distinction, and no auto retry/reroute/process probing/dirty-work transfer.
 
 Targeted command:
 
@@ -245,36 +172,7 @@ SINGLE_EXECUTOR_REASON:
 Separate parallel implementation lane chosen explicitly by the Human to avoid contaminating the suspended TASK-060 Antigravity workspace.
 ```
 
-DISPATCH_EXECUTOR_POLICY_JSON:
-
-```json
-{
-  "allow_paid_api": false,
-  "operation": "RUN",
-  "required_capabilities": [
-    "FILESYSTEM_WRITE",
-    "LOCAL_GIT",
-    "REPOSITORY_READ",
-    "SHELL",
-    "TEST_EXECUTION"
-  ],
-  "candidates": [
-    {
-      "executor_id": "codex",
-      "capacity_class": "SUBSCRIPTION",
-      "preference_rank": 0,
-      "supported_operations": ["RUN"],
-      "supported_capabilities": [
-        "FILESYSTEM_WRITE",
-        "LOCAL_GIT",
-        "REPOSITORY_READ",
-        "SHELL",
-        "TEST_EXECUTION"
-      ]
-    }
-  ]
-}
-```
+DISPATCH_EXECUTOR_POLICY_JSON: {"allow_paid_api":false,"candidates":[{"capacity_class":"SUBSCRIPTION","executor_id":"codex","preference_rank":0,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["RUN"]}],"operation":"RUN","required_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"]}
 
 No fallback or reroute to Antigravity is authorized for this RUN.
 
@@ -308,8 +206,6 @@ until all of the following occur:
 6. ChatGPT performs a fresh Review TASK-061 on the exact reconciled head.
 7. Only a fresh post-reconcile PASS may become READY_FOR_HUMAN_MERGE.
 ```
-
-A PASS from the current pre-TASK-060 baseline is implementation evidence only.
 
 ## TASK-059 Boundary
 
