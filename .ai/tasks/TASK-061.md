@@ -1,226 +1,73 @@
 # TASK-061 — Cancelled Executor Reselection Recovery
 
-STATUS: READY
-CLASS: L3 — EXECUTOR AUTHORITY / RECOVERY / FAIL-CLOSED CONTROL
-MILESTONE: SUPPORTING EXECUTOR-CONTROL HARDENING
-EXECUTOR_MODE: CODEX_PARALLEL_LANE
-PARALLEL_LANE: YES
-MERGE_BLOCKED_UNTIL_TASK_060: YES
-POST_TASK_060_RECONCILE_AND_FRESH_REVIEW_REQUIRED: YES
+STATUS: ABORTED
+CLOSED: YES
+DO_NOT_RETRY_OR_REACTIVATE: YES
+MERGE_AUTHORIZED: NO
+MERGED_TO_MAIN: NO
+SUCCESSFUL_BRIDGE_PUBLICATION: NO
 
-## Baseline
+## Human Closure Decision
+
+The Human explicitly aborted TASK-061 and the parallel Codex worktree experiment on 2026-08-21.
+
+Reason:
+- the separate worktree / branch lane introduced excessive operational friction while TASK-060 was still unresolved;
+- the Codex implementation reached repository verification but the full suite encountered baseline fixture/environment gaps unrelated to TASK-061 (`tests/fixtures/images/valid.png` and `tests/fixtures/browser/index.html` were absent from the baseline repository state);
+- continuing the parallel lane was judged lower value than waiting for Antigravity and completing TASK-060 first.
+
+## Authority / Safety Closure
+
+TASK-061 MUST NOT be retried, reactivated, published, merged, cherry-picked, or used as an implementation source.
+
+Any local dirty delta produced by the aborted Codex run is forensic-only. It MUST NOT be automatically imported into another task or worktree.
+
+ADR-039 and the TASK-061 blueprint remain architecture/research artifacts only. They do not represent implemented runtime behavior.
+
+## Original Baseline / Target
 
 ```text
-MAIN_SHA: 0d7bddac2066ad508bf68fbb4d3bd8b69b18d1b3
+BASELINE_MAIN_SHA: 0d7bddac2066ad508bf68fbb4d3bd8b69b18d1b3
 TARGET_BRANCH: ai/task-061
+ORIGINAL_TASK_BLOB_BEFORE_ABORT: b2f443c94d21d2aacf3fcf85fbcf4ac9a95d2b7a
 ```
 
-## Purpose
-
-Implement ADR-039: allow a Human to select a different eligible Executor for a fresh FIX activation after a prior FIX attempt was explicitly cancelled by the existing Human recovery release path, but only after the repository has returned to a clean, lease-free, exact stable predecessor boundary.
-
-This task MUST NOT weaken ADR-020 stable-boundary failover and MUST NOT reinterpret `CANCELLED` as `CONSUMED`.
-
-## Authoritative References
+## Preserved References
 
 ```text
-ADR-019: .ai/decisions/ADR-019-AIOS-CONTINUITY-M5-EXECUTOR-LEASE-AND-SINGLE-ACTIVE-EXECUTOR-LOCK.md
-BLOB_SHA: fb2be56d87bb8b7c556270bd9e6e1ff21e74a570
-
-ADR-020: .ai/decisions/ADR-020-AIOS-CONTINUITY-M6-STABLE-BOUNDARY-EXECUTOR-FAILOVER-CONTRACT-LOCK.md
-BLOB_SHA: fbaf062a4d2938ea16b0f70b2dba76401e9396ff
-
-ADR-038: .ai/decisions/ADR-038-DEFAULT-DUAL-EXECUTOR-TASK-AUTHORING-POLICY-LOCK.md
-BLOB_SHA: 72d38bf2f2ff5a07e7b63322116ad87622349df1
-
-ADR-039: .ai/decisions/ADR-039-CANCELLED-EXECUTOR-RESELECTION-RECOVERY-CONTRACT-LOCK.md
+ADR-039:
+.ai/decisions/ADR-039-CANCELLED-EXECUTOR-RESELECTION-RECOVERY-CONTRACT-LOCK.md
 BLOB_SHA: d317711732cf141f3714d95c74e40b1e979e1b99
 
-BLUEPRINT: .ai/context/TASK-061-CANCELLED-EXECUTOR-RESELECTION-RECOVERY-BLUEPRINT.md
+BLUEPRINT:
+.ai/context/TASK-061-CANCELLED-EXECUTOR-RESELECTION-RECOVERY-BLUEPRINT.md
 BLOB_SHA: e2cb781a8b689d793af345ff6a74c6221edc28c7
 ```
 
-## Machine-Readable Executor Context
+## Verification Incident Record
 
-EXECUTOR_CONTEXT_REFS_JSON: [{"path":".ai/decisions/ADR-019-AIOS-CONTINUITY-M5-EXECUTOR-LEASE-AND-SINGLE-ACTIVE-EXECUTOR-LOCK.md","blob_sha":"fb2be56d87bb8b7c556270bd9e6e1ff21e74a570"},{"path":".ai/decisions/ADR-020-AIOS-CONTINUITY-M6-STABLE-BOUNDARY-EXECUTOR-FAILOVER-CONTRACT-LOCK.md","blob_sha":"fbaf062a4d2938ea16b0f70b2dba76401e9396ff"},{"path":".ai/decisions/ADR-038-DEFAULT-DUAL-EXECUTOR-TASK-AUTHORING-POLICY-LOCK.md","blob_sha":"72d38bf2f2ff5a07e7b63322116ad87622349df1"},{"path":".ai/decisions/ADR-039-CANCELLED-EXECUTOR-RESELECTION-RECOVERY-CONTRACT-LOCK.md","blob_sha":"d317711732cf141f3714d95c74e40b1e979e1b99"},{"path":".ai/context/TASK-061-CANCELLED-EXECUTOR-RESELECTION-RECOVERY-BLUEPRINT.md","blob_sha":"e2cb781a8b689d793af345ff6a74c6221edc28c7"}]
-
-## Locked Transition Semantics
+The bounded Codex executor did run implementation work locally. Before publication, full-suite verification reported:
 
 ```text
-same executor + existing valid FIX rules
-    -> ordinary FIX
-
-different executor + prior auth CONSUMED
-    -> existing ADR-020 M6 stable failover, unchanged
-
-different executor + prior auth CANCELLED
-    -> ADR-039 cancelled-reselection recovery path
-
-different executor + prior auth ACTIVE/other
-    -> fail closed
+1864 passed
+9 skipped
+1 failed
+1 error
 ```
 
-ADR-039 is valid only for source FIX -> replacement FIX. Cancelled RUN reselection remains forbidden.
+Subsequent diagnosis showed baseline verification-environment defects:
+- `tests/images/test_validator.py` requires `tests/fixtures/images/valid.png`, while the baseline repository does not track that PNG and only contains a generator script;
+- `tests/integration/test_browser_tools.py::test_browser_tools_end_to_end` requires `tests/fixtures/browser/index.html`, while that baseline fixture path is absent.
 
-## Required Recovery Gates
+These findings are diagnostic only and do not authorize TASK-061 publication.
 
-Before replacement lease acquisition require mechanically:
+## Next Canonical Work
 
 ```text
-prior auth status == CANCELLED
-prior auth action == FIX
-cancellation came from existing Human lease-release --confirm-stopped evidence
-prior auth retains exact M5 source lease binding
-prior_published_sha is exact lowercase 40-hex
-current canonical review == CHANGES_REQUIRED
-current review path/blob == cancelled FIX authorization path/blob
-current branch == ai/task-N
-worktree clean
-index clean
-local HEAD == prior_published_sha
-remote ai/task-N HEAD == prior_published_sha
-no ACTIVE lease for TASK-N
-replacement executor != cancelled executor
-replacement executor explicitly Human-selected
-replacement executor eligible for FIX in exact current review policy
-```
-
-Any unknown/corrupt/stale/missing evidence fails closed.
-
-## Required Canonical Proof
-
-Implement a strict immutable vendor-neutral `CancelledExecutorReselectionProof` in:
-
-```text
-src/aios_bridge/continuity/cancelled_reselection.py
-```
-
-and a pure relational validator binding it to the cancelled source lease identity and the newly acquired replacement lease identity.
-
-The proof MUST NOT contain secrets, raw local paths, process IDs, quota values, prompts/transcripts, hidden reasoning, merge authority or transport credentials.
-
-## Bridge Integration
-
-Bridge FIX classification must preserve M6 and add ADR-039 only for different-executor + prior `CANCELLED`.
-
-The source cancelled authorization remains `CANCELLED` forever as historical evidence. Never mutate it to `CONSUMED`.
-
-Replacement activation must acquire a new lease and persist a new ACTIVE authorization containing bounded recovery proof metadata.
-
-Publish must revalidate the exact recovery proof before tests/RESULT mutation/commit/push and must not allow malformed recovery metadata to fall back to ordinary FIX or M6 failover.
-
-## RESULT Evidence
-
-A successful ADR-039 publication must carry bounded evidence equivalent to:
-
-```text
-EXECUTOR_FAILOVER: NO
-CANCELLED_RESELECTION: YES
-RESELECTION_FROM_EXECUTOR: <source>
-RESELECTION_TO_EXECUTOR: <replacement>
-RESELECTION_STABLE_PREDECESSOR_SHA: <40hex>
-RESELECTION_PROOF_FINGERPRINT: <64hex>
-RESELECTION_REVIEW_BLOB_SHA: <40hex>
-```
-
-It must never claim `EXECUTOR_FAILOVER: YES` for this path.
-
-## Exact Writable Scope
-
-EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py","src/aios_bridge/continuity/cancelled_reselection.py","tests/aios_bridge/continuity/test_cancelled_reselection.py","tests/test_bridge.py"]
-
-Bridge-generated `.ai/results/RESULT-061.md` is publication output only.
-
-## Explicit Forbidden Scope
-
-```text
-TASK-060 operator UI files: NO
-.agents/workflows/**: NO
-.agents/skills/**: NO
-docs/AIOS_UNIFIED_WORKER_WORKFLOW.md: NO
-TASK-059 implementation/artifacts: NO
-MiniMax / paid API / M11.3B/C: NO
-requirements.txt: NO
-process PID tracking: NO
-process termination: NO
-quota detection: NO
-dirty hot handoff: NO
-auto stash/reset/cherry-pick: NO
-automatic retry/reroute: NO
-auto merge: NO
-```
-
-## Required Tests
-
-At minimum implement and pass the blueprint matrix, including canonical proof strictness, M6 non-regression, cancelled-FIX classification, recovery evidence, clean/stable predecessor gates, exact review binding, new replacement lease, publish-time revalidation, RESULT distinction, and no auto retry/reroute/process probing/dirty-work transfer.
-
-Targeted command:
-
-```powershell
-.\venv\Scripts\python.exe -m pytest tests/aios_bridge/continuity/test_cancelled_reselection.py tests/test_bridge.py -q
-```
-
-Bridge publication owns the full repository test gate.
-
-## Executor Selection
-
-This specific RUN is intentionally assigned to Codex as a parallel lane while the primary worktree is reserved for TASK-060 / Antigravity.
-
-SINGLE_EXECUTOR_REASON:
-
-```text
-Separate parallel implementation lane chosen explicitly by the Human to avoid contaminating the suspended TASK-060 Antigravity workspace.
-```
-
-DISPATCH_EXECUTOR_POLICY_JSON: {"allow_paid_api":false,"candidates":[{"capacity_class":"SUBSCRIPTION","executor_id":"codex","preference_rank":0,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["RUN"]}],"operation":"RUN","required_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"]}
-
-No fallback or reroute to Antigravity is authorized for this RUN.
-
-## Child Executor Role Lock
-
-```text
-visible Codex + $aios-worker skill = operator UI
-Bridge E4 spawned Codex process      = bounded implementation Executor
-```
-
-The child Executor must implement TASK-061 directly. It must not invoke `$aios-worker`, `/aios-worker`, raw nested Codex orchestration, Bridge approve/publish manually, or create another Executor.
-
-## Parallel Worktree / Merge Hold
-
-TASK-061 is designed for a second Git worktree so TASK-060 can remain untouched in the primary worktree.
-
-Even if TASK-061 first review is PASS:
-
-```text
-MERGE TASK-061: FORBIDDEN
-```
-
-until all of the following occur:
-
-```text
-1. TASK-060 receives PASS.
-2. Human merges TASK-060 first.
-3. TASK-061 is reconciled/rebased onto the new main without force-push.
-4. Targeted tests rerun.
-5. Full repository tests rerun.
-6. ChatGPT performs a fresh Review TASK-061 on the exact reconciled head.
-7. Only a fresh post-reconcile PASS may become READY_FOR_HUMAN_MERGE.
-```
-
-## TASK-059 Boundary
-
+TASK-060 remains the active priority.
+Wait for Antigravity capacity.
+Complete TASK-060 FIX -> Review -> PASS -> Human Merge.
 TASK-059 remains blocked until TASK-060 PASS + merge.
-
-Do not run or modify TASK-059 as part of TASK-061.
-
-After TASK-060 and TASK-061 are merged, TASK-059 must be reconciled/reissued against the then-current `main` before execution because its original baseline predates these supporting hardening changes.
-
-## Completion
-
-After first Bridge publication:
-
-```text
-STOP
-NEXT: Review TASK-061
-MERGE: BLOCKED UNTIL POST-TASK-060 RECONCILE + FRESH PASS
 ```
+
+If cancelled-executor reselection is needed later, author a NEW task from the then-current main and re-audit ADR-039 against the current runtime. Do not reopen TASK-061.
