@@ -6,43 +6,50 @@ READY_FOR_HUMAN_MERGE: NO
 MERGE_AUTHORIZED: NO
 MERGED_TO_MAIN: NO
 
-## Fresh Re-Review Binding
+## Fresh Review Binding
 
 ```text
 TASK_ID: TASK-060
 BASELINE_MAIN_SHA: 0d7bddac2066ad508bf68fbb4d3bd8b69b18d1b3
-PRIOR_REVIEWED_HEAD_SHA: 9e658797c0e874d16ff822afd078d677f28d9e14
+REVIEWED_HEAD_SHA: 6259de42c89a6909cb90f8baf97b90ae203410a9
 TARGET_BRANCH: ai/task-060
 TASK_BLOB_SHA: b404be869367ddfd6d8c10cfa36b326c53b19469
 BLUEPRINT_BLOB_SHA: bd8859a4fa6a19792945c62809cf82acd9414e31
+RESULT_BLOB_SHA: 8f4bb0857dee33c0bbae417fdf13aaea5b6cfd88
 ```
 
-Independent compare at this re-review snapshot:
+Independent compare at this review snapshot:
 
 ```text
-main -> ai/task-060: ahead 8, behind 0
-prior reviewed head 9e658797... -> ai/task-060: ahead 6, behind 0
+main -> ai/task-060: ahead 10, behind 0
+merge base: 0d7bddac2066ad508bf68fbb4d3bd8b69b18d1b3
 ```
 
-The fresh FIX branch therefore exists and is linearly descended from the previously reviewed head. This review does not authorize merge.
-
-## Re-Review Findings
-
-### B1 — RESOLVED: exact frontmatter bytes / BOM hardening
-
-The prior frontmatter blocker is closed.
-
-Fresh repository bytes for both operator surfaces are BOM-free and begin with exact LF frontmatter:
+Observed branch paths:
 
 ```text
-.agents/workflows/aios-worker.md
-base64 prefix: LS0tCg... -> bytes b"---\n"
-
-.agents/skills/aios-worker/SKILL.md
-base64 prefix: LS0tCg... -> bytes b"---\n"
+.agents/skills/aios-worker/SKILL.md                      authorized
+.agents/workflows/aios-worker.md                        authorized
+.ai/results/RESULT-060.md                               Bridge publication output
+docs/AIOS_UNIFIED_WORKER_WORKFLOW.md                    authorized
+tests/aios_bridge/test_aios_worker_control_surface.py   authorized
 ```
 
-The FIX also adds raw-byte regression coverage requiring:
+No `.gitattributes` delta remains.
+
+## Findings
+
+### B1 — RESOLVED: exact surface identity and byte-level frontmatter
+
+Both operator surfaces remain physically separated and byte-clean.
+
+Repository base64 for both surface files starts with `LS0tCg...`, which decodes to exact bytes:
+
+```text
+b"---\n"
+```
+
+The regression suite now checks raw bytes directly:
 
 ```text
 not startswith b"\xef\xbb\xbf"
@@ -51,113 +58,95 @@ workflow contains --adapter antigravity
 skill contains --adapter codex
 ```
 
-The identity contract remains semantically correct:
+The semantic identity contract remains correct:
 
 ```text
 /aios-worker -> Antigravity workflow -> --adapter antigravity
 $aios-worker -> Codex skill          -> --adapter codex
 ```
 
-No further B1 change is required unless a later FIX regresses these bytes.
+Antigravity RUN/FIX remains handoff-only; Codex RUN/FIX remains handoff + execute; STATUS remains non-authorizing. No new B1 work is required.
 
-### B2 — STILL BLOCKING: RESULT-060 has no authoritative test/publication evidence
+### B3 — RESOLVED: writable scope
 
-Fresh `.ai/results/RESULT-060.md` still records:
+The prior unauthorized `.gitattributes` file is no longer present in `main -> ai/task-060` compare.
+
+Current implementation paths are inside TASK-060 writable scope, with `.ai/results/RESULT-060.md` treated only as Bridge publication output.
+
+No further B3 work is required.
+
+### B2 — STILL BLOCKING: RESULT/test evidence is not yet review-grade
+
+Fresh RESULT-060 now contains real focused-test evidence:
+
+```text
+Command: venv\Scripts\python.exe -m pytest tests/aios_bridge/test_aios_worker_control_surface.py -q
+Exit code: 0
+113 passed, 1 warning
+```
+
+This is useful and closes the prior `(not supplied)` defect for the focused suite.
+
+However, B2 is still not satisfied for two independent reasons.
+
+#### B2.1 — RESULT implementation scope/diff evidence is still incorrect
+
+Fresh RESULT-060 still states:
 
 ```text
 Files Changed:
 - (none before result generation)
 
 Diff Stat:
-(empty)
-
-Tests
-Command: (not supplied)
-Exit code: 0
-(no test command supplied)
+<empty>
 ```
 
-This does not satisfy TASK-060's locked `FULL_REPO_TESTS_PASS` requirement and does not provide review-grade evidence for the fresh FIX implementation. A zero exit code with no command is not an authoritative test proof.
+That is inconsistent with the authoritative branch compare, which contains four implementation/documentation paths plus RESULT-060 itself.
 
-**Required FIX for B2:**
+The review requirement from the prior REVIEW-060 explicitly required actual implementation changed-file/diff evidence. A fresh publication must not describe a non-empty implementation branch as `(none before result generation)` with an empty diff stat.
+
+#### B2.2 — reported full-repository suite is not actually the full repository suite
+
+RESULT-060 reports:
 
 ```text
-1. Run the focused control-surface suite explicitly.
-2. Run the full repository test suite explicitly.
-3. Publish RESULT-060 with exact command(s), exit code(s), pass/skip/fail counts,
-   and actual implementation changed-file/diff evidence.
-4. The fresh RESULT must not say `(not supplied)`, `(none before result generation)`,
-   or present an empty diff stat for a branch that contains implementation changes.
+1871 passed, 9 skipped, 0 failed, exit=0
+Command: venv/Scripts/python.exe -m pytest --ignore=test_runner.py
 ```
 
-If the current Antigravity publication path cannot carry explicit test evidence, stop and fix the publication invocation/inputs only through an authorized task scope; do not fabricate RESULT content manually.
-
-### B3 — BLOCKING: `.gitattributes` is outside TASK-060 writable scope
-
-Fresh compare shows a new file:
+TASK-060 locks the requirement:
 
 ```text
-.gitattributes
+FULL_REPO_TESTS_PASS
 ```
 
-with content that locks LF for the two operator surface files.
+A run that explicitly excludes `test_runner.py` is not literal full-repository proof. The note that `test_runner.py` has a pre-existing local GDrive `token.json` JSONDecodeError may explain the exclusion, but it does not transform the excluded run into `FULL_REPO_TESTS_PASS` evidence.
 
-The intent is understandable, but TASK-060's exact writable scope is locked to:
+The correct resolution is to make the local verification environment capable of running the canonical full suite without modifying TASK-060 scope, then publish the exact unexcluded full-suite command, exit code, and pass/skip/fail counts. Do not change unrelated repository code merely to make TASK-060 green.
 
-```text
-.agents/workflows/aios-worker.md
-.agents/skills/aios-worker/SKILL.md
-.agents/skills/aios-worker/scripts/aios_worker.py
-tests/aios_bridge/test_aios_worker_control_surface.py
-docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
-```
+## Semantic / Scope Audit
 
-plus Bridge-generated `.ai/results/RESULT-060.md` as publication output only.
+PASS subject only to B2 evidence.
 
-`.gitattributes` is not authorized by the canonical task. Adding it therefore violates the exact scope boundary even though it supports the BOM/LF objective.
-
-**Required FIX for B3:**
-
-```text
-1. Remove `.gitattributes` from the TASK-060 branch delta.
-2. Keep the two surface files themselves encoded UTF-8 without BOM and LF-frontmatter.
-3. Keep the raw-byte regression tests so a future line-ending/BOM regression fails closed.
-4. Do not broaden TASK-060 scope to justify `.gitattributes` after the fact.
-```
-
-## Semantic Audit — PASS subject to B2/B3
-
-The UI separation itself is now correct:
+Observed implementation semantics remain aligned with TASK-060:
 
 ```text
 Antigravity /aios-worker
   -> .agents/workflows/aios-worker.md
-  -> shared adapter --adapter antigravity
+  -> --adapter antigravity
   -> RUN/FIX handoff only
 
 Codex $aios-worker
   -> .agents/skills/aios-worker/SKILL.md
-  -> shared adapter --adapter codex
+  -> --adapter codex
   -> RUN/FIX handoff + execute
 
 STATUS
-  -> non-authorizing on both surfaces
+  -> sync + pending only
+  -> no authorization / lease / execution
 ```
 
-The shared adapter remains unchanged in the observed branch delta. No TASK-059 implementation, dispatcher, lease semantic, PID tracking, M11.3B/C, or paid-API change is part of the intended hotfix.
-
-## Fresh Scope Snapshot
-
-Observed `main -> ai/task-060` paths:
-
-```text
-.agents/skills/aios-worker/SKILL.md                      authorized
-.agents/workflows/aios-worker.md                        authorized
-.ai/results/RESULT-060.md                               Bridge publication output
-.gitattributes                                          UNAUTHORIZED -> B3
-docs/AIOS_UNIFIED_WORKER_WORKFLOW.md                    authorized
-tests/aios_bridge/test_aios_worker_control_surface.py   authorized
-```
+The regression suite explicitly checks no retry/reroute/merge and raw-byte frontmatter behavior. No TASK-059 implementation, M11.3B/C, dispatcher, lease semantic, PID tracking, or paid-API change is present in the observed branch scope.
 
 ## Required Next Gate
 
@@ -165,15 +154,24 @@ tests/aios_bridge/test_aios_worker_control_surface.py   authorized
 FIX TASK-060
 ```
 
-The next FIX is narrow:
+This FIX is now **B2 only**:
 
 ```text
-B1: KEEP RESOLVED
-B2: repair real RESULT/test evidence
-B3: remove unauthorized .gitattributes delta
+B1: KEEP RESOLVED — do not alter unless required to preserve current behavior.
+B3: KEEP RESOLVED — do not reintroduce .gitattributes or broaden scope.
+
+B2.1:
+- republish RESULT-060 with actual implementation Files Changed and Diff Stat.
+
+B2.2:
+- run the canonical full repository suite without --ignore/exclusion;
+- resolve any local-only environment prerequisite outside TASK-060 implementation scope;
+- record exact command, exit code, and pass/skip/fail counts in RESULT-060.
+
+Focused suite evidence (113 passed) may be preserved.
 ```
 
-After a fresh publication:
+After fresh publication:
 
 ```text
 Review TASK-060
