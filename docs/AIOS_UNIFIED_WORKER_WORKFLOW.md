@@ -109,3 +109,17 @@ With the unified `aios-worker` control surface:
 - **Antigravity Routine Operation**: Human simply enters `/aios-worker RUN TASK-N` in Antigravity.
 - **Codex Routine Operation**: Human simply enters `$aios-worker RUN TASK-N` in Codex.
 - **PowerShell Role**: Direct PowerShell commands remain available exclusively for system diagnosis, recovery, and offline bootstrapping.
+
+---
+
+## 7. Surface File Format Standards
+
+To ensure unambiguous discovery and reliable tool parsing across all AI environments:
+
+- **Encoding**: UTF-8 strictly without BOM (`\xef\xbb\xbf`).
+- **Frontmatter Delimiter**: Frontmatter must begin at byte 0 with `b"---\n"` (LF).
+- **Physical Separation**:
+  - Antigravity workflow: `.agents/workflows/aios-worker.md`
+  - Codex skill: `.agents/skills/aios-worker/SKILL.md`
+- **Scope Isolation**: Surface files are dedicated to operator protocol translation and must never duplicate implementation logic.
+

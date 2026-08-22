@@ -1,4 +1,5 @@
 ---
+# Format: UTF-8 without BOM, LF line endings
 name: aios-worker
 description: >
   Antigravity-only /aios-worker workflow. Operates the AIOS worker protocol

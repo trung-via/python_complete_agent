@@ -1,4 +1,5 @@
 ---
+# Format: UTF-8 without BOM, LF line endings
 name: aios-worker
 description: >
   Codex-only $aios-worker skill. Operates the AIOS worker protocol

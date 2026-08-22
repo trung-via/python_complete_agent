@@ -35,6 +35,7 @@ Tests:
 32. [TASK-060] CODEX_RUN_FIX_HANDOFF_THEN_EXECUTE
 33. [TASK-060] STATUS_NON_AUTHORIZING_BOTH_SURFACES
 34. [TASK-060] NO_RETRY_REROUTE_MERGE (both surfaces)
+# [TASK-060 FIX] Full test suite and format verification
 """
 from __future__ import annotations
 
