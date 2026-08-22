@@ -7,39 +7,30 @@ STATUS: READY_FOR_REVIEW
 TASK_ID: TASK-062
 ACTION: FIX
 EXECUTOR_ID: antigravity
-EXECUTOR_FAILOVER: YES
-FAILOVER_FROM_EXECUTOR: codex
-FAILOVER_TO_EXECUTOR: antigravity
-FAILOVER_SOURCE_PUBLISHED_SHA: 82f461f5373f70d03f3035b021ae0fe1fc7c03d0
-FAILOVER_PROOF_FINGERPRINT: 799166951141aaa24674f35043dab75a0b6fba5422feace81e57d302eb546115
-FAILOVER_REVIEW_BLOB_SHA: 8781a6786d082c8233797847686134fbdadb187f
+EXECUTOR_FAILOVER: NO
 HOT_HANDOFF: NO
 ```
 
 ## Summary
-Resolved all REVIEW-062 findings (B1..B4): restricted R4 credential handling to presence-only (zero secret-value reads before R7/durable consume), hardened external proof directory persistence against symlink/junction/reparse escapes with strict path containment checks, closed single-component POSIX absolute path gap in proposal validator (/tmp, /etc, /Users, /var), and recorded complete truthful cumulative TASK-062 scope, diffstat, and targeted/full test evidence with explicit execution-boundary markers.
+Resolved final REVIEW-062 finding (B1): hardened credential presence probe in bridge.py to use value-free key iteration (any(k == credential_env_name for k in os.environ)), eliminating all fallback __getitem__ / mapping value lookups before R7 and durable grant consumption. Added regression tests under true MutableMapping / production os._Environ semantics proving zero credential-value reads on valid R0-R7 paths, R0-R7 validation failures, and replay rejections, and exactly one credential-value read when the deferred provider factory is constructed after R7 and durable consume.
 
 ## Task Metadata
 - Task: `TASK-062`
 - Action: `FIX`
 - Executor: `antigravity`
-- Authorized Artifact: `.ai/reviews/REVIEW-062.md (8781a6786d)`
+- Authorized Artifact: `.ai/reviews/REVIEW-062.md (41a3cbe66d)`
 - Base Main SHA: `(n/a)`
 - Branch: `ai/task-062`
 
 ## Files Changed
 - bridge.py
-- src/aios_bridge/paid_api_real_escape.py
-- tests/aios_bridge/test_paid_api_real_escape.py
 - tests/test_bridge_paid_api_real_escape.py
 
 ## Diff Stat
 ```text
-bridge.py                                      |  17 +++-
- src/aios_bridge/paid_api_real_escape.py        |  65 +++++++++++++-
- tests/aios_bridge/test_paid_api_real_escape.py | 116 +++++++++++++++++++++++++
- tests/test_bridge_paid_api_real_escape.py      | 111 +++++++++++++++++++++++
- 4 files changed, 302 insertions(+), 7 deletions(-)
+bridge.py                                 |   5 +-
+ tests/test_bridge_paid_api_real_escape.py | 145 +++++++++++++++++++++++++-----
+ 2 files changed, 127 insertions(+), 23 deletions(-)
 ```
 
 ## Tests
@@ -57,7 +48,7 @@ Exit code: 0
 ........................................................................ [ 29%]
 ........................................................................ [ 33%]
 ........................................................................ [ 37%]
-........................................................................ [ 41%]
+........................................................................ [ 40%]
 .............................................ss......................... [ 44%]
 .............s.......................................................... [ 48%]
 ........................................................................ [ 52%]
@@ -68,12 +59,12 @@ Exit code: 0
 ........................................................................ [ 70%]
 ........................................................................ [ 74%]
 ........................................................................ [ 78%]
-........................................................................ [ 82%]
+........................................................................ [ 81%]
 ........................................................................ [ 85%]
 ........................................................................ [ 89%]
 ........................................................................ [ 93%]
 ........................................................................ [ 96%]
-..........................................................               [100%]
+............................................................             [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -376,7 +367,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-1923 passed, 7 skipped, 1533 warnings in 167.87s (0:02:47)
+1925 passed, 7 skipped, 1533 warnings in 160.24s (0:02:40)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -388,20 +379,22 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 TARGETED_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/aios_bridge/test_minimax_m3_input_counter.py tests/aios_bridge/test_paid_api_real_escape.py tests/test_bridge_paid_api_real_escape.py -v
 Exit code: 0
-Result: 42 passed, 0 skipped, 0 failed
+Result: 44 passed, 0 skipped, 0 failed
 
 FULL_REPOSITORY_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/ -q
 Exit code: 0
-Result: 1923 passed, 7 skipped, 0 failed
+Result: 1925 passed, 7 skipped, 0 failed
 
 EXECUTION_BOUNDARY_EVIDENCE:
 REAL_PAID_API_CALL_DURING_TASK: NO
 REAL_API_KEY_USE_DURING_TASK: NO
 REAL_GRANT_CONSUME_DURING_TASK: NO
 CREDENTIAL_VALUE_READS_BEFORE_R7: ZERO
+VALUE_FREE_KEY_PRESENCE_CHECK: PASS
+PRODUCTION_MAPPING_REGRESSION_TESTS: PASS
 SYMLINK_JUNCTION_ESCAPE_REJECTION: PASS
 POSIX_SINGLE_COMPONENT_ABSOLUTE_PATH_REJECTION: PASS
 
 ## Generated
-2026-08-22T16:39:04+07:00
+2026-08-22T17:46:15+07:00

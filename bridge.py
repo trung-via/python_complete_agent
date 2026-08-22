@@ -1501,8 +1501,7 @@ def cmd_paid_proof_preflight(args):
             fail("paid-proof-preflight th?t b?i: asset validation or counter construction failed")
 
         # P5 ? Credential Boundary: Presence Only (never print, log, hash, persist, or return secret)
-        env_val = os.environ.get(proof_lock.credential_env_name, "").strip()
-        if not env_val:
+        if not any(k == proof_lock.credential_env_name for k in os.environ):
             fail(f"paid-proof-preflight th?t b?i: missing required credential: env:{proof_lock.credential_env_name}")
         credential_present = True
 
@@ -1733,7 +1732,7 @@ def cmd_paid_proof_execute(args):
             )
         except Exception as exc:
             raise PaidApiRealEscapeError("R4 locked asset validation failed") from exc
-        if proof_lock.credential_env_name not in os.environ:
+        if not any(k == proof_lock.credential_env_name for k in os.environ):
             raise PaidApiRealEscapeError(
                 f"R4 missing required credential source env:{proof_lock.credential_env_name}"
             )
