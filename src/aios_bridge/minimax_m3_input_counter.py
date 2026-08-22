@@ -360,6 +360,25 @@ class MiniMaxM3LocalProviderInputCounter:
     def is_exact(self) -> bool:
         return True
 
+    def count(self, text: str) -> int:
+        """Count one context string with the already-loaded pinned tokenizer."""
+
+        if type(text) is not str:
+            raise MiniMaxM3InputCounterError("text must be an exact string")
+        try:
+            encoding = self._tokenizer.encode(
+                text,
+                add_special_tokens=False,
+            )
+            counted_tokens = len(encoding.ids)
+        except Exception as exc:
+            raise MiniMaxM3InputCounterError("local tokenizer encoding failed") from exc
+        if type(counted_tokens) is not int or counted_tokens < 0:
+            raise MiniMaxM3InputCounterError(
+                "local tokenizer returned an invalid token count"
+            )
+        return counted_tokens
+
     def count_request(self, request: ModelRequest) -> ProviderInputCountEvidence:
         if type(request) is not ModelRequest:
             raise MiniMaxM3InputCounterError("request must be an exact ModelRequest")

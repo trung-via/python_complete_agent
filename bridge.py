@@ -20,6 +20,7 @@ Zero-Touch Workflow Model:
 from __future__ import annotations
 
 import argparse
+import asyncio
 import copy
 from dataclasses import dataclass
 import hashlib
@@ -1561,6 +1562,318 @@ def cmd_paid_proof_preflight(args):
     print("PAID_API_DISPATCH_ENABLED: NO")
     print("PROVIDER_CALL_STARTED: NO")
     print(f"PREFLIGHT_FINGERPRINT: {receipt.fingerprint()}")
+
+
+def cmd_paid_proof_execute(args):
+    """Execute one exact Human-granted MiniMax Brain proof with no retry."""
+
+    grant_store = None
+    grant = None
+    task_id = _paid_api_task_id(args.task_id)
+    try:
+        from src.aios_bridge.minimax_m3_proof_lock import (
+            MiniMaxM3ProofLock,
+            validate_canonical_ai_proof_lock_path,
+        )
+        from src.aios_bridge.paid_api_proof_preflight import (
+            build_paid_api_proof_preflight_receipt,
+            probe_ledger_durability,
+        )
+        from src.aios_bridge.paid_api_real_escape import (
+            PaidApiRealEscapeError,
+            execute_paid_api_real_escape,
+        )
+
+        # R0: exact clean current main, using local refs only.  No fetch occurs.
+        ensure_git()
+        ensure_dirs()
+        cfg = load_config()
+        if cfg.get("remote") != "origin" or cfg.get("control_branch") != "ai-control":
+            raise PaidApiRealEscapeError(
+                "R0 requires the exact local origin/ai-control configuration"
+            )
+        status = git("status", "--porcelain")
+        if status.stdout.strip():
+            raise PaidApiRealEscapeError("R0 requires a clean worktree")
+        branch = git("rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
+        if branch != "main":
+            raise PaidApiRealEscapeError("R0 requires current branch main")
+        runtime_main_sha = git("rev-parse", "HEAD").stdout.strip()
+        local_main_sha = git("rev-parse", "main").stdout.strip()
+        origin_main = git("rev-parse", "origin/main", check=False)
+        if origin_main.returncode != 0:
+            raise PaidApiRealEscapeError("R0 cannot resolve local origin/main")
+        origin_main_sha = origin_main.stdout.strip()
+        if (
+            re.fullmatch(r"[0-9a-f]{40}", runtime_main_sha) is None
+            or runtime_main_sha != local_main_sha
+            or runtime_main_sha != origin_main_sha
+        ):
+            raise PaidApiRealEscapeError(
+                "R0 requires HEAD == local main == origin/main"
+            )
+
+        # R1: exact Git-bound proof lock from local origin/ai-control.
+        if re.fullmatch(r"[0-9a-f]{40}", args.proof_lock_blob_sha) is None:
+            raise PaidApiRealEscapeError(
+                "proof-lock-blob-sha must be exact lowercase 40-hex"
+            )
+        proof_lock_path = validate_canonical_ai_proof_lock_path(
+            args.proof_lock_path
+        )
+        control_ref = "refs/remotes/origin/ai-control"
+        control_commit = git("rev-parse", control_ref, check=False)
+        if control_commit.returncode != 0:
+            raise PaidApiRealEscapeError("R1 cannot resolve local origin/ai-control")
+        control_commit_sha = control_commit.stdout.strip()
+        if re.fullmatch(r"[0-9a-f]{40}", control_commit_sha) is None:
+            raise PaidApiRealEscapeError("R1 control commit is invalid")
+        observed_proof_blob = resolve_git_blob_sha(
+            control_commit_sha, proof_lock_path
+        )
+        if observed_proof_blob != args.proof_lock_blob_sha:
+            raise PaidApiRealEscapeError("R1 proof-lock blob binding mismatch")
+        try:
+            proof_lock = MiniMaxM3ProofLock.from_json(
+                read_git_blob_bytes(control_commit_sha, proof_lock_path)
+            )
+        except Exception as exc:
+            raise PaidApiRealEscapeError("R1 proof lock is invalid") from exc
+
+        # R2: replay is rejected before assets, credentials, or provider setup.
+        grant_store = get_paid_api_grant_store()
+        active_grant = grant_store.load_active(task_id, args.grant_id)
+        if active_grant is None:
+            consumed_grant = grant_store.load_consumed(task_id, args.grant_id)
+            if consumed_grant is not None:
+                raise PaidApiRealEscapeError(
+                    "GRANT_ALREADY_CONSUMED / NO_PROVIDER_CALL"
+                )
+            raise PaidApiRealEscapeError("GRANT_NOT_ACTIVE / NO_PROVIDER_CALL")
+        now_epoch_seconds = int(time.time())
+        grant = grant_store.require_active(
+            active_grant, now_epoch_seconds=now_epoch_seconds
+        )
+        if grant.task_id != task_id:
+            raise PaidApiRealEscapeError("R2 grant task binding mismatch")
+        if grant.workspace_id != get_workspace_id():
+            raise PaidApiRealEscapeError("R2 grant workspace binding mismatch")
+        if grant.actor_kind is not DispatchActorKind.BRAIN:
+            raise PaidApiRealEscapeError("R2 grant actor_kind must be BRAIN")
+        if grant.brain_operation is not BrainOperation.PLAN:
+            raise PaidApiRealEscapeError("R2 grant must be PLAN-only")
+        if grant.max_calls != 1:
+            raise PaidApiRealEscapeError("R2 grant max_calls must be one")
+        if (
+            grant.provider_id != proof_lock.provider_id
+            or grant.model_id != proof_lock.model_id
+        ):
+            raise PaidApiRealEscapeError("R2 grant proof-lock binding mismatch")
+
+        # R3: one exact grant-bound TASK artifact from the same control commit.
+        if grant.authorized_artifact_path != f".ai/tasks/{task_id}.md":
+            raise PaidApiRealEscapeError(
+                "R3 authorized artifact must be the exact TASK artifact"
+            )
+        observed_artifact_blob = resolve_git_blob_sha(
+            control_commit_sha, grant.authorized_artifact_path
+        )
+        if observed_artifact_blob != grant.authorized_artifact_blob_sha:
+            raise PaidApiRealEscapeError("R3 authorized artifact blob mismatch")
+        artifact_bytes = read_git_blob_bytes(
+            control_commit_sha, grant.authorized_artifact_path
+        )
+        try:
+            authorized_artifact_content = artifact_bytes.decode(
+                "utf-8", errors="strict"
+            )
+        except UnicodeDecodeError as exc:
+            raise PaidApiRealEscapeError(
+                "R3 authorized artifact must be strict UTF-8"
+            ) from exc
+        authorized_artifact = ArtifactRef(
+            path=grant.authorized_artifact_path,
+            ref=control_commit_sha,
+            blob_sha=grant.authorized_artifact_blob_sha,
+        )
+
+        # R4: exact dependency versions, local locked assets, and same counter.
+        import importlib.metadata
+
+        for package_name, expected_version in (
+            ("Jinja2", proof_lock.jinja2_version),
+            ("tokenizers", proof_lock.tokenizers_version),
+            ("requests", proof_lock.requests_version),
+        ):
+            try:
+                actual_version = importlib.metadata.version(package_name)
+            except importlib.metadata.PackageNotFoundError as exc:
+                raise PaidApiRealEscapeError(
+                    f"R4 dependency is missing: {package_name}"
+                ) from exc
+            if actual_version != expected_version:
+                raise PaidApiRealEscapeError(
+                    f"R4 dependency version mismatch: {package_name}"
+                )
+        runtime_root = get_runtime_dir()
+        asset_directory = (
+            runtime_root
+            / "paid_api_assets"
+            / proof_lock.provider_id
+            / proof_lock.model_id
+            / proof_lock.source_revision
+        )
+        from src.aios_bridge.minimax_m3_input_counter import (
+            MiniMaxM3LocalProviderInputCounter,
+        )
+
+        try:
+            counter = MiniMaxM3LocalProviderInputCounter(
+                asset_directory, proof_lock
+            )
+        except Exception as exc:
+            raise PaidApiRealEscapeError("R4 locked asset validation failed") from exc
+        credential_value = os.environ.get(proof_lock.credential_env_name, "")
+        if type(credential_value) is not str or not credential_value.strip():
+            raise PaidApiRealEscapeError(
+                f"R4 missing required credential source env:{proof_lock.credential_env_name}"
+            )
+        del credential_value
+
+        grant_hash = hashlib.sha256(grant.grant_id.encode("utf-8")).hexdigest()
+        ledger_logical_path = f"paid_api_usage/{task_id}/{grant_hash}.jsonl"
+        ledger_path = runtime_root / "paid_api_usage" / task_id / f"{grant_hash}.jsonl"
+        try:
+            ledger_ready = probe_ledger_durability(ledger_path)
+        except Exception as exc:
+            raise PaidApiRealEscapeError("R4 ledger durability probe failed") from exc
+        preflight_receipt = build_paid_api_proof_preflight_receipt(
+            task_id=task_id,
+            grant=grant,
+            runtime_main_sha=runtime_main_sha,
+            control_commit_sha=control_commit_sha,
+            proof_lock_path=proof_lock_path,
+            proof_lock_blob_sha=args.proof_lock_blob_sha,
+            proof_lock=proof_lock,
+            counter_id=counter.counter_id,
+            ledger_logical_path=ledger_logical_path,
+            ledger_ready=ledger_ready,
+            credential_present=True,
+        )
+
+        # R5 input records: exact two explicit fresh Brain identities/digests.
+        for fingerprint_name in (
+            "subscription_capacity_fingerprint",
+            "paid_capacity_fingerprint",
+        ):
+            if re.fullmatch(r"[0-9a-f]{64}", getattr(args, fingerprint_name)) is None:
+                raise PaidApiRealEscapeError(
+                    f"{fingerprint_name} must be exact lowercase 64-hex"
+                )
+        capacity_store = get_runtime_capacity_store()
+        subscription_capacity = capacity_store.load(
+            DispatchActorKind.BRAIN, args.subscription_brain_id
+        )
+        paid_capacity = capacity_store.load(
+            DispatchActorKind.BRAIN, grant.brain_id
+        )
+        if subscription_capacity is None or paid_capacity is None:
+            raise PaidApiRealEscapeError("R5 requires exactly two capacity records")
+
+        from src.aios_bridge.external_brain.usage import JsonlUsageLedger
+
+        ledger = JsonlUsageLedger(ledger_path)
+
+        def construct_locked_provider():
+            # This function is invoked by the deferred provider only after R7
+            # and durable grant consumption.  Never log or persist the value.
+            current_key = os.environ.get(proof_lock.credential_env_name, "")
+            if type(current_key) is not str or not current_key.strip():
+                raise PaidApiRealEscapeError(
+                    "credential disappeared after pre-call validation"
+                )
+            from urllib.parse import urlparse
+            from src.aios_bridge.external_brain.providers.minimax import (
+                MiniMaxOpenAIProvider,
+            )
+
+            endpoint = urlparse(proof_lock.endpoint_url)
+            return MiniMaxOpenAIProvider(
+                api_key=current_key,
+                model_name=proof_lock.model_id,
+                base_url=f"{endpoint.scheme}://{endpoint.netloc}",
+                path=endpoint.path,
+                timeout_seconds=30.0,
+            )
+
+        result = asyncio.run(
+            execute_paid_api_real_escape(
+                task_id=task_id,
+                runtime_main_sha=runtime_main_sha,
+                control_commit_sha=control_commit_sha,
+                proof_lock_path=proof_lock_path,
+                proof_lock_blob_sha=args.proof_lock_blob_sha,
+                proof_lock=proof_lock,
+                preflight_receipt=preflight_receipt,
+                grant=grant,
+                grant_store=grant_store,
+                authorized_artifact=authorized_artifact,
+                authorized_artifact_content=authorized_artifact_content,
+                provider_input_counter=counter,
+                subscription_brain_id=args.subscription_brain_id,
+                subscription_capacity_record=subscription_capacity,
+                paid_capacity_record=paid_capacity,
+                subscription_capacity_fingerprint=(
+                    args.subscription_capacity_fingerprint
+                ),
+                paid_capacity_fingerprint=args.paid_capacity_fingerprint,
+                now_epoch_seconds=now_epoch_seconds,
+                runtime_root=runtime_root,
+                provider_factory=construct_locked_provider,
+                ledger=ledger,
+            )
+        )
+    except SystemExit:
+        raise
+    except PaidApiRealEscapeError as exc:
+        fail(f"paid-proof-execute failed: {exc}")
+    except Exception:
+        consumed = None
+        if grant_store is not None and grant is not None:
+            try:
+                consumed = grant_store.load_consumed(task_id, grant.grant_id)
+            except Exception:
+                consumed = None
+        if consumed is not None:
+            fail(
+                "paid-proof-execute failed after durable grant consumption; "
+                "no retry was attempted"
+            )
+        fail("paid-proof-execute failed before provider call; no spend occurred")
+
+    receipt = result.proof_receipt
+    print("[PAID API REAL ESCAPE PROOF PASS]")
+    print(f"TASK_ID: {receipt.task_id}")
+    print(f"RUNTIME_MAIN_SHA: {receipt.runtime_main_sha}")
+    print(f"CONTROL_COMMIT_SHA: {receipt.control_commit_sha}")
+    print(f"PROOF_LOCK_FINGERPRINT: {receipt.proof_lock_fingerprint}")
+    print(
+        "SUBSCRIPTION_CAPACITY_FINGERPRINT: "
+        f"{receipt.subscription_capacity_fingerprint}"
+    )
+    print(f"PAID_CAPACITY_FINGERPRINT: {receipt.paid_capacity_fingerprint}")
+    print(f"PREFLIGHT_FINGERPRINT: {receipt.preflight_fingerprint}")
+    print(
+        "OPERATIONAL_PROOF_FINGERPRINT: "
+        f"{receipt.operational_proof_fingerprint}"
+    )
+    print(f"PROPOSAL_LOGICAL_PATH: {receipt.proposal_logical_path}")
+    print(f"PROPOSAL_SHA256: {receipt.proposal_sha256}")
+    print(f"PROOF_LOGICAL_PATH: {receipt.proof_logical_path}")
+    print("GRANT_CONSUMED: YES")
+    print("PROVIDER_CALL_COUNT: 1")
+    print("RETRY_COUNT: 0")
+    print("EXECUTOR_AUTHORITY_CREATED: NO")
 
 
 def _dispatch_actor_kind_from_cli(kind: str) -> DispatchActorKind:
@@ -4628,6 +4941,19 @@ def build_parser():
     s.add_argument("--proof-lock-path", required=True)
     s.add_argument("--proof-lock-blob-sha", required=True)
     s.set_defaults(func=cmd_paid_proof_preflight)
+
+    s = sub.add_parser(
+        "paid-proof-execute",
+        help="Execute one exact Human-granted MiniMax paid Brain proof",
+    )
+    s.add_argument("task_id", type=int)
+    s.add_argument("--grant-id", required=True)
+    s.add_argument("--proof-lock-path", required=True)
+    s.add_argument("--proof-lock-blob-sha", required=True)
+    s.add_argument("--subscription-brain-id", required=True)
+    s.add_argument("--subscription-capacity-fingerprint", required=True)
+    s.add_argument("--paid-capacity-fingerprint", required=True)
+    s.set_defaults(func=cmd_paid_proof_execute)
 
     s = sub.add_parser("capacity-set", help="Record explicit runtime actor capacity")
     s.add_argument("--kind", required=True, choices=["brain", "executor"])

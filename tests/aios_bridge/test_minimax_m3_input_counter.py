@@ -263,6 +263,36 @@ class TestMiniMaxM3InputCounterProvenance:
         assert evidence.counter_id == counter.counter_id
         assert evidence.token_count_is_exact is True
 
+    def test_context_count_uses_same_already_loaded_pinned_tokenizer(
+        self,
+        tmp_path: Path,
+        fake_engines,
+    ):
+        bundle = tmp_path / "bundle"
+        _write_bundle(bundle)
+        template, tokenizer, _ = fake_engines
+        counter = MiniMaxM3LocalProviderInputCounter(bundle, _proof_lock())
+
+        assert counter.count("exact context text") == len(FakeEncoding.ids)
+        assert tokenizer.calls == [("exact context text", False)]
+        assert template.calls == []
+        assert counter.is_exact is True
+        assert counter.counter_id.startswith("minimax-m3-local:")
+
+    @pytest.mark.parametrize("invalid", [None, b"bytes", 1, True])
+    def test_context_count_rejects_non_exact_strings(
+        self,
+        tmp_path: Path,
+        fake_engines,
+        invalid,
+    ):
+        bundle = tmp_path / "bundle"
+        _write_bundle(bundle)
+        counter = MiniMaxM3LocalProviderInputCounter(bundle, _proof_lock())
+
+        with pytest.raises(MiniMaxM3InputCounterError, match="exact string"):
+            counter.count(invalid)  # type: ignore[arg-type]
+
     def test_production_registry_accepts_only_exact_class(self, tmp_path: Path, fake_engines):
         bundle = tmp_path / "bundle"
         _write_bundle(bundle)
