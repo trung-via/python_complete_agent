@@ -87,7 +87,11 @@ def _grant() -> PaidApiGrant:
     )
 
 
-def _args(subscription_fingerprint: str = "5" * 64, paid_fingerprint: str = "6" * 64):
+def _args(
+    subscription_fingerprint: str = "5" * 64,
+    paid_fingerprint: str = "6" * 64,
+    provider_timeout_seconds: int = 120,
+):
     return SimpleNamespace(
         task_id=TASK_NUM,
         grant_id=GRANT_ID,
@@ -96,6 +100,7 @@ def _args(subscription_fingerprint: str = "5" * 64, paid_fingerprint: str = "6" 
         subscription_brain_id=SUBSCRIPTION_BRAIN,
         subscription_capacity_fingerprint=subscription_fingerprint,
         paid_capacity_fingerprint=paid_fingerprint,
+        provider_timeout_seconds=provider_timeout_seconds,
     )
 
 
@@ -153,6 +158,7 @@ def test_parser_exposes_exact_paid_proof_execute_surface_without_overrides():
         "--subscription-brain-id",
         "--subscription-capacity-fingerprint",
         "--paid-capacity-fingerprint",
+        "--provider-timeout-seconds",
     }
     for forbidden in (
         "--api-key",
@@ -544,3 +550,157 @@ def test_same_grant_replay_rejection_reaches_zero_credential_value_reads(
         bridge.cmd_paid_proof_execute(_args())
 
     assert env.secret_value_reads == 0, "Secret value was read during replay rejection!"
+@pytest.mark.parametrize("valid_timeout", [60, 120, 180])
+def test_paid_proof_execute_accepts_valid_timeout_seconds_range_and_wires_to_provider(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    valid_timeout: int,
+):
+    """Prove 60, 120, and 180 are accepted and passed unchanged to MiniMaxOpenAIProvider."""
+    _mock_local_git(monkeypatch)
+    runtime_root = tmp_path / "runtime"
+    monkeypatch.setenv("AIOS_RUNTIME_DIR", str(runtime_root))
+    monkeypatch.setenv("MINIMAX_API_KEY", "DUMMY_KEY")
+    monkeypatch.setattr(bridge, "get_workspace_id", lambda: WORKSPACE_ID)
+    grant = _grant()
+    store = AtomicPaidApiGrantStore(runtime_root / "paid_api_grants", WORKSPACE_ID)
+    store.activate(grant, now_epoch_seconds=1_000_000_000)
+    monkeypatch.setattr(bridge, "get_paid_api_grant_store", lambda: store)
+
+    subscription = RuntimeCapacityRecord(
+        actor_kind=DispatchActorKind.BRAIN,
+        actor_id=SUBSCRIPTION_BRAIN,
+        capacity_state=CapacityState.UNAVAILABLE,
+        observed_at_epoch_seconds=1_000_000_000,
+        ttl_seconds=100,
+    )
+    paid = RuntimeCapacityRecord(
+        actor_kind=DispatchActorKind.BRAIN,
+        actor_id=PAID_BRAIN,
+        capacity_state=CapacityState.AVAILABLE,
+        observed_at_epoch_seconds=1_000_000_000,
+        ttl_seconds=100,
+    )
+
+    class CapacityStore:
+        def load(self, _kind, actor_id):
+            return subscription if actor_id == SUBSCRIPTION_BRAIN else paid
+
+    monkeypatch.setattr(bridge, "get_runtime_capacity_store", lambda: CapacityStore())
+    monkeypatch.setattr(
+        bridge,
+        "resolve_git_blob_sha",
+        lambda _ref, path: {
+            PROOF_LOCK_PATH: PROOF_LOCK_BLOB,
+            ARTIFACT_PATH: grant.authorized_artifact_blob_sha,
+        }[path],
+    )
+    monkeypatch.setattr(
+        bridge,
+        "read_git_blob_bytes",
+        lambda _ref, path: (
+            _proof_lock().to_canonical_json().encode("utf-8")
+            if path == PROOF_LOCK_PATH
+            else ARTIFACT_CONTENT.encode("utf-8")
+        ),
+    )
+
+    import importlib.metadata
+    versions = {"Jinja2": "3.1.6", "tokenizers": "0.23.1", "requests": "2.32.3"}
+    monkeypatch.setattr(importlib.metadata, "version", lambda name: versions[name])
+
+    class Counter:
+        counter_id = COUNTER_ID
+        def __init__(self, _asset_directory, _lock):
+            pass
+
+    monkeypatch.setattr(
+        "src.aios_bridge.minimax_m3_input_counter.MiniMaxM3LocalProviderInputCounter",
+        Counter,
+    )
+
+    factory_holder = {}
+    async def capture_execute(**kwargs):
+        factory_holder["provider_factory"] = kwargs["provider_factory"]
+        return SimpleNamespace(proof_receipt=SimpleNamespace(
+            task_id=TASK_ID,
+            runtime_main_sha=MAIN_SHA,
+            control_commit_sha=CONTROL_SHA,
+            proof_lock_fingerprint=_proof_lock().fingerprint(),
+            subscription_capacity_fingerprint=subscription.record_fingerprint,
+            paid_capacity_fingerprint=paid.record_fingerprint,
+            preflight_fingerprint="7" * 64,
+            operational_proof_fingerprint="8" * 64,
+            proposal_logical_path=f"paid_api_proofs/{TASK_ID}/hash/proposal.md",
+            proposal_sha256="9" * 64,
+            proof_logical_path=f"paid_api_proofs/{TASK_ID}/hash/proof.json",
+        ))
+
+    monkeypatch.setattr(
+        real_escape_module,
+        "execute_paid_api_real_escape",
+        capture_execute,
+    )
+    args = _args(
+        subscription.record_fingerprint,
+        paid.record_fingerprint,
+        provider_timeout_seconds=valid_timeout,
+    )
+    bridge.cmd_paid_proof_execute(args)
+
+    assert "provider_factory" in factory_holder
+    provider = factory_holder["provider_factory"]()
+    assert getattr(provider, "timeout_seconds", None) == float(valid_timeout) or getattr(provider, "_timeout_seconds", None) == float(valid_timeout) or getattr(getattr(provider, "_transport", None), "timeout_seconds", None) == float(valid_timeout)
+
+
+@pytest.mark.parametrize("invalid_timeout", [59, 181, 0, -1, -30, "120", 120.5, True, False, None])
+def test_paid_proof_execute_rejects_invalid_and_out_of_range_timeouts_before_execution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    invalid_timeout,
+):
+    """Prove values outside 60..180 or malformed/non-integer values fail before provider call/spend."""
+    _mock_local_git(monkeypatch)
+    runtime_root = tmp_path / "runtime"
+    monkeypatch.setenv("AIOS_RUNTIME_DIR", str(runtime_root))
+    monkeypatch.setenv("MINIMAX_API_KEY", "DUMMY_KEY")
+
+    factory_called = {"count": 0}
+    async def forbidden_execute(**_kwargs):
+        factory_called["count"] += 1
+        raise AssertionError("execute_paid_api_real_escape must not be called on invalid timeout")
+
+    monkeypatch.setattr(
+        real_escape_module,
+        "execute_paid_api_real_escape",
+        forbidden_execute,
+    )
+    args = _args(provider_timeout_seconds=invalid_timeout)
+    with pytest.raises(SystemExit):
+        bridge.cmd_paid_proof_execute(args)
+
+    assert factory_called["count"] == 0
+
+
+def test_cli_parser_rejects_omitted_provider_timeout_seconds(capsys):
+    """Prove omitting --provider-timeout-seconds fails CLI parsing."""
+    parser = bridge.build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args([
+            "paid-proof-execute",
+            "62",
+            "--grant-id", "grant-1",
+            "--proof-lock-path", ".ai/context/TASK-062-PROOF-LOCK.json",
+            "--proof-lock-blob-sha", "4" * 40,
+            "--subscription-brain-id", "sub-brain",
+            "--subscription-capacity-fingerprint", "5" * 64,
+            "--paid-capacity-fingerprint", "6" * 64,
+        ])
+
+
+def test_live_path_has_no_hardcoded_30_second_timeout():
+    """Verify the live paid-proof-execute function does not contain magic 30.0."""
+    import inspect
+    source = inspect.getsource(bridge.cmd_paid_proof_execute)
+    assert "timeout_seconds=30" not in source
+    assert "timeout_seconds=30.0" not in source

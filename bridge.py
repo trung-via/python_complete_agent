@@ -1583,6 +1583,18 @@ def cmd_paid_proof_execute(args):
             execute_paid_api_real_escape,
         )
 
+        timeout_raw = getattr(args, "provider_timeout_seconds", None)
+        if (
+            type(timeout_raw) is not int
+            or isinstance(timeout_raw, bool)
+            or timeout_raw < 60
+            or timeout_raw > 180
+        ):
+            raise PaidApiRealEscapeError(
+                "provider-timeout-seconds must be an integer between 60 and 180 inclusive"
+            )
+        provider_timeout_seconds = float(timeout_raw)
+
         # R0: exact clean current main, using local refs only.  No fetch occurs.
         ensure_git()
         ensure_dirs()
@@ -1800,7 +1812,7 @@ def cmd_paid_proof_execute(args):
                 model_name=proof_lock.model_id,
                 base_url=f"{endpoint.scheme}://{endpoint.netloc}",
                 path=endpoint.path,
-                timeout_seconds=30.0,
+                timeout_seconds=provider_timeout_seconds,
             )
 
         result = asyncio.run(
@@ -4963,6 +4975,7 @@ def build_parser():
     s.add_argument("--subscription-brain-id", required=True)
     s.add_argument("--subscription-capacity-fingerprint", required=True)
     s.add_argument("--paid-capacity-fingerprint", required=True)
+    s.add_argument("--provider-timeout-seconds", required=True, type=int)
     s.set_defaults(func=cmd_paid_proof_execute)
 
     s = sub.add_parser("capacity-set", help="Record explicit runtime actor capacity")
