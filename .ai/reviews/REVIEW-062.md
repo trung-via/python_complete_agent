@@ -3,8 +3,9 @@
 STATUS: PASS
 APPROVED: YES
 READY_FOR_HUMAN_MERGE: YES
-MERGE_AUTHORIZED: NO
-MERGED_TO_MAIN: NO
+MERGE_AUTHORIZED: YES
+MERGED_TO_MAIN: YES
+LIVE_MINIMAX_PROOF_AUTHORIZED: NO
 
 ## Fresh Independent Review Binding
 
@@ -23,7 +24,7 @@ REAL_ESCAPE_TEST_BLOB_SHA: 11fa3de7133c6a062a15c0b724c6e9c235d8d309
 BRIDGE_REAL_ESCAPE_TEST_BLOB_SHA: ea0fcfc0461f41728fe255336be518a05a939e85
 ```
 
-GitHub comparison at this review snapshot proves:
+GitHub comparison at the PASS review snapshot proved:
 
 ```text
 main -> ai/task-062: ahead 3 / behind 0
@@ -31,7 +32,7 @@ merge-base: d6f51f14188ffc56fd06bc887b68d9cad550c9e0
 cumulative scope: exact six authorized implementation/test paths + RESULT-062 publication output
 ```
 
-The connector comparison surface does not expose the symbolic branch head SHA directly. This PASS is therefore immutably snapshot-bound by the exact baseline, ahead/behind relation, and exact current blob set above. The Human merge gate MUST resolve the exact current `origin/ai/task-062` head and re-check that the reviewed blob set is unchanged before moving `main`.
+The Human merge gate subsequently resolved the exact symbolic task head and re-checked every reviewed blob before moving `main`.
 
 ## Final Findings
 
@@ -51,9 +52,9 @@ NO EXECUTOR AUTHORITY: PASS
 NO REAL PAID CALL DURING TASK: PASS
 ```
 
-## B1 — PASS — Credential presence is now genuinely value-free before R7
+## B1 — PASS — Credential presence is genuinely value-free before R7
 
-Production Bridge code now proves credential presence with key iteration:
+Production Bridge code proves credential presence with key iteration:
 
 ```python
 if not any(k == proof_lock.credential_env_name for k in os.environ):
@@ -62,7 +63,7 @@ if not any(k == proof_lock.credential_env_name for k in os.environ):
 
 This does not use `os.environ.get`, `os.getenv`, `os.environ[...]`, or `name in os.environ` before R7. The real secret value is retrieved only inside `construct_locked_provider()`, which remains deferred until the real-escape coordinator has passed the pre-call gates and durable consume-before-call authority permits the single provider invocation.
 
-The new `ProductionLikeEnviron` regression intentionally models membership semantics where `__contains__` reaches `__getitem__`. Therefore a regression back to `name in os.environ` would increment the secret-value-read counter and fail. Current tests prove:
+The `ProductionLikeEnviron` regression intentionally models membership semantics where `__contains__` reaches `__getitem__`. Therefore a regression back to `name in os.environ` would increment the secret-value-read counter and fail. Current tests prove:
 
 ```text
 valid R0-R7 path: 0 credential-value reads
@@ -71,19 +72,17 @@ same-grant replay rejection: 0 credential-value reads
 deferred provider factory: exactly 1 credential-value read permitted
 ```
 
-B1 is resolved.
-
 ## B2 — PASS — External proof persistence remains contained
 
-Previously-reviewed safe-path hardening remains unchanged: symlink/junction/reparse-point parents are rejected, resolved containment is checked through proofs/task/staging/final namespaces, and normal real directories persist successfully.
+Safe-path hardening rejects symlink/junction/reparse-point parents, verifies resolved containment through proofs/task/staging/final namespaces, and allows normal real directories to persist successfully.
 
 ## B3 — PASS — Absolute machine paths remain rejected
 
-Previously-reviewed proposal validation remains unchanged and rejects single-component and multi-component POSIX absolute paths including `/tmp`, `/etc`, `/Users`, `/var`, and `/etc/passwd`.
+Proposal validation rejects single-component and multi-component POSIX absolute paths including `/tmp`, `/etc`, `/Users`, `/var`, and `/etc/passwd`.
 
 ## B4 — PASS — Fresh evidence is complete
 
-Fresh RESULT-062 records the final B1 FIX delta:
+Final B1 FIX delta:
 
 ```text
 bridge.py
@@ -107,7 +106,7 @@ venv/Scripts/python.exe -m pytest tests/ -q
 exit code 0
 ```
 
-Fresh execution-boundary evidence:
+Execution-boundary evidence:
 
 ```text
 REAL_PAID_API_CALL_DURING_TASK: NO
@@ -122,7 +121,7 @@ POSIX_SINGLE_COMPONENT_ABSOLUTE_PATH_REJECTION: PASS
 
 ## Executor Continuity
 
-Fresh RESULT records:
+Final RESULT records:
 
 ```text
 ACTION: FIX
@@ -133,19 +132,35 @@ HOT_HANDOFF: NO
 
 No executor authority is created by M11.3C and no live paid API authority was exercised during implementation/testing.
 
-## Merge / Live-Proof Boundary
+## Human Merge Receipt
 
-TASK-062 is code-review PASS and is eligible for the explicit Human MERGE gate. This review does **not** authorize a merge by itself.
+Human explicitly issued `Merge TASK-062`.
 
-Even after merge, no MiniMax spend is authorized by this PASS. A real M11.3C operational proof still requires a separate fresh Human paid-API Brain grant plus explicit live-proof authorization. The one-call, consume-before-call, no-retry and replay-rejection boundaries remain mandatory.
+```text
+PRE_MERGE_MAIN_SHA: d6f51f14188ffc56fd06bc887b68d9cad550c9e0
+TASK_HEAD_SHA: 2beadb559ade5b46442b26d5b720357faf94f518
+MERGE_MODE: NON_FORCE_FAST_FORWARD
+POST_MERGE_MAIN_SHA: 2beadb559ade5b46442b26d5b720357faf94f518
+POST_MERGE_COMPARE: IDENTICAL
+POST_MERGE_AHEAD: 0
+POST_MERGE_BEHIND: 0
+```
 
-## Verdict
+Before the ref move, the exact task head was resolved and all PASS snapshot blobs were re-checked at that exact commit. GitHub accepted the `main` ref move with `force=false`. Post-merge verification proved `main == ai/task-062`.
+
+## Live-Proof Boundary
+
+The code merge does **not** authorize any MiniMax spend.
+
+A real M11.3C operational proof still requires a separate fresh Human paid-API Brain grant plus explicit Human live-proof/spend authorization. The one-call, consume-before-call, no-retry, replay-rejection, exact proof-lock, current-main, fresh-capacity and exact-token-budget boundaries remain mandatory.
+
+## Final State
 
 ```text
 TASK-062: PASS
 APPROVED: YES
-READY_FOR_HUMAN_MERGE: YES
-MERGE_AUTHORIZED: NO
+MERGE_AUTHORIZED: YES
+MERGED_TO_MAIN: YES
 LIVE_MINIMAX_PROOF_AUTHORIZED: NO
-NEXT: Human may issue `Merge TASK-062`.
+MAIN_SHA: 2beadb559ade5b46442b26d5b720357faf94f518
 ```
