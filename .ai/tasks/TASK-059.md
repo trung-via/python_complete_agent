@@ -8,9 +8,13 @@ EXECUTOR_MODE: UNIFIED_AIOS_WORKER_DUAL_EXECUTOR
 ## Baseline
 
 ```text
-MAIN_SHA: 0d7bddac2066ad508bf68fbb4d3bd8b69b18d1b3
+MAIN_SHA: 2a91334876e4a60be9eb278e21ea57d55bb884d3
 TARGET_BRANCH: ai/task-059
 ```
+
+### Execution-Baseline Supersession
+
+TASK-060 was merged after the TASK-059 blueprint was locked. For TASK-059 execution only, the `MAIN_SHA` above supersedes the blueprint's historical `BASELINE_MAIN_SHA`. This is a baseline-only reissue: the M11.3B architecture, requirements, writable scope, source anchors, no-spend boundary, and blueprint blob are unchanged. All locked source anchors below were re-verified unchanged on `main` after TASK-060.
 
 ## Purpose
 
