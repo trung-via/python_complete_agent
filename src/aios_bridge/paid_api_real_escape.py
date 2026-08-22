@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import stat
 from typing import Any, Callable
 
 from .continuity.brain import BrainCapability
@@ -72,7 +73,7 @@ _HEX_64_RE = re.compile(r"^[0-9a-f]{64}$")
 _WINDOWS_ABSOLUTE_PATH_RE = re.compile(r"(?i)(?:^|[\s('`\"])[a-z]:[\\/][^\s]+")
 _UNC_PATH_RE = re.compile(r"(?:^|[\s('`\"])(?:\\\\|//)[A-Za-z0-9._-]+[\\/]")
 _POSIX_ABSOLUTE_PATH_RE = re.compile(
-    r"(?:^|[\s('`\"])/(?!/)(?:[A-Za-z0-9._-]+/)+[A-Za-z0-9._-]+"
+    r"(?:^|[\s('`\"<>,[\]():;])/(?!/)[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]*)*"
 )
 _FORBIDDEN_PROPOSAL_RE = re.compile(
     r"(?i)(?:<\s*/?\s*think\b|reasoning_content|"
@@ -536,6 +537,22 @@ def _write_durable_new_file(path: Path, payload: bytes) -> None:
         os.fsync(handle.fileno())
 
 
+def _is_link_or_junction(path: Path) -> bool:
+    try:
+        if path.is_symlink() or os.path.islink(str(path)):
+            return True
+        st = path.stat(follow_symlinks=False)
+        if stat.S_ISLNK(st.st_mode):
+            return True
+        reparse_attr = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+        file_attrs = getattr(st, "st_file_attributes", 0)
+        if file_attrs & reparse_attr:
+            return True
+    except OSError:
+        pass
+    return False
+
+
 def persist_paid_api_real_escape_artifacts(
     *,
     runtime_root: str | os.PathLike[str],
@@ -552,14 +569,47 @@ def persist_paid_api_real_escape_artifacts(
         raise PaidApiRealEscapeError("proposal digest does not match proof receipt")
     try:
         supplied_root = Path(runtime_root)
+        if _is_link_or_junction(supplied_root):
+            raise PaidApiRealEscapeError("external runtime root cannot be a symlink or junction")
         supplied_root.mkdir(parents=True, exist_ok=True)
         root = supplied_root.resolve(strict=True)
+    except PaidApiRealEscapeError:
+        raise
     except (OSError, TypeError) as exc:
         raise PaidApiRealEscapeError("external runtime root is unavailable") from exc
 
     proofs_root = root / "paid_api_proofs"
+    if _is_link_or_junction(proofs_root):
+        raise PaidApiRealEscapeError("proofs root cannot be a symlink or junction")
+    try:
+        proofs_root.mkdir(exist_ok=True)
+        resolved_proofs = proofs_root.resolve(strict=True)
+        if resolved_proofs.parent != root:
+            raise PaidApiRealEscapeError("proofs root escapes the external runtime directory")
+    except PaidApiRealEscapeError:
+        raise
+    except OSError as exc:
+        raise PaidApiRealEscapeError("proofs root is unavailable") from exc
+
     task_root = proofs_root / proof_receipt.task_id
+    if _is_link_or_junction(task_root):
+        raise PaidApiRealEscapeError("task directory cannot be a symlink or junction")
+    try:
+        task_root.mkdir(exist_ok=True)
+        resolved_task = task_root.resolve(strict=True)
+        if resolved_task.parent != resolved_proofs:
+            raise PaidApiRealEscapeError("task directory escapes the external runtime directory")
+    except PaidApiRealEscapeError:
+        raise
+    except OSError as exc:
+        raise PaidApiRealEscapeError("task directory is unavailable") from exc
+
     final_root = task_root / proof_receipt.grant_id_sha256
+    if _is_link_or_junction(final_root):
+        raise PaidApiRealEscapeError("proof namespace cannot be a symlink or junction")
+    if final_root.exists():
+        raise PaidApiRealEscapeError("proof namespace already exists")
+
     staging_root = task_root / (
         f".{proof_receipt.grant_id_sha256}.tmp-{secrets.token_hex(8)}"
     )
@@ -569,15 +619,22 @@ def persist_paid_api_real_escape_artifacts(
         raise PaidApiRealEscapeError("proof receipt exceeds its bounded size")
 
     try:
-        task_root.mkdir(parents=True, exist_ok=True)
-        if final_root.exists():
-            raise PaidApiRealEscapeError("proof namespace already exists")
         staging_root.mkdir()
+        resolved_staging = staging_root.resolve(strict=True)
+        if resolved_staging.parent != resolved_task:
+            raise PaidApiRealEscapeError("staging directory escapes the external runtime directory")
+
         _write_durable_new_file(staging_root / "proposal.md", proposal_payload)
         _write_durable_new_file(staging_root / "proof.json", proof_payload)
         _fsync_directory(staging_root)
+
         os.replace(staging_root, final_root)
         _fsync_directory(task_root)
+
+        resolved_final = final_root.resolve(strict=True)
+        if resolved_final.parent != resolved_task:
+            raise PaidApiRealEscapeError("final proof directory escapes the external runtime directory")
+
         if (final_root / "proposal.md").read_bytes() != proposal_payload:
             raise PaidApiRealEscapeError("proposal durable read-back mismatch")
         if (final_root / "proof.json").read_bytes() != proof_payload:

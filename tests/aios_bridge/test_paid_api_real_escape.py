@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -556,3 +557,118 @@ def test_orchestrator_has_no_network_repository_or_executor_authority_surface():
         "paid-grant-create",
     )
     assert all(fragment not in source for fragment in forbidden)
+@pytest.mark.parametrize(
+    "path_content",
+    [
+        "/tmp",
+        "/etc",
+        "/Users",
+        "/var",
+        "/etc/passwd",
+        SUCCESS_PROPOSAL + "\nLook in /tmp\n",
+        SUCCESS_PROPOSAL + "\nSee /etc/hosts\n",
+    ],
+)
+def test_validate_proposal_content_rejects_single_component_and_posix_paths(path_content: str):
+    with pytest.raises(PaidApiRealEscapeError, match="absolute path"):
+        real_escape_module._validate_proposal_content(path_content)
+
+
+def _create_link_or_junction(target: Path, link_path: Path) -> None:
+    try:
+        link_path.symlink_to(target, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        if hasattr(os, "name") and os.name == "nt":
+            import _winapi
+            _winapi.CreateJunction(str(target), str(link_path))
+        else:
+            raise
+
+
+def test_persist_artifacts_rejects_symlink_proofs_parent_and_task_parent(tmp_path: Path):
+    runtime_root = tmp_path / "runtime"
+    runtime_root.mkdir()
+    outside_dir = tmp_path / "outside"
+    outside_dir.mkdir()
+
+    grant_hash = hashlib.sha256(GRANT_ID.encode("utf-8")).hexdigest()
+    proposal_sha = hashlib.sha256(SUCCESS_PROPOSAL.encode("utf-8")).hexdigest()
+    receipt = real_escape_module.PaidApiRealEscapeProofReceipt(
+        schema_version="1",
+        task_id=TASK_ID,
+        grant_id_sha256=grant_hash,
+        grant_fingerprint="a" * 64,
+        brain_id=PAID_BRAIN,
+        provider_id="minimax",
+        model_id="MiniMax-M3",
+        runtime_main_sha=MAIN_SHA,
+        control_commit_sha=CONTROL_SHA,
+        proof_lock_path=PROOF_LOCK_PATH,
+        proof_lock_blob_sha=PROOF_LOCK_BLOB,
+        proof_lock_fingerprint="b" * 64,
+        subscription_brain_id=SUBSCRIPTION_BRAIN,
+        subscription_capacity_fingerprint="c" * 64,
+        paid_capacity_fingerprint="d" * 64,
+        preflight_fingerprint="e" * 64,
+        operational_proof_fingerprint="f" * 64,
+        proposal_logical_path=f"paid_api_proofs/{TASK_ID}/{grant_hash}/proposal.md",
+        proposal_sha256=proposal_sha,
+        proof_logical_path=f"paid_api_proofs/{TASK_ID}/{grant_hash}/proof.json",
+        grant_consumed=True,
+        provider_call_count=1,
+        retry_count=0,
+        executor_authority_created=False,
+    )
+
+    # 1. Symlink / Junction on paid_api_proofs
+    proofs_dir = runtime_root / "paid_api_proofs"
+    try:
+        _create_link_or_junction(outside_dir, proofs_dir)
+    except Exception:
+        pytest.skip("Symlink or junction creation not supported")
+
+    with pytest.raises(PaidApiRealEscapeError, match="symlink or junction|escapes"):
+        real_escape_module.persist_paid_api_real_escape_artifacts(
+            runtime_root=runtime_root,
+            proposal_content=SUCCESS_PROPOSAL,
+            proof_receipt=receipt,
+        )
+
+    # 2. Symlink / Junction on task_dir
+    try:
+        if proofs_dir.is_symlink():
+            proofs_dir.unlink()
+        else:
+            proofs_dir.rmdir()
+    except OSError:
+        pass
+    proofs_dir.mkdir()
+    task_dir = proofs_dir / receipt.task_id
+    _create_link_or_junction(outside_dir, task_dir)
+
+    with pytest.raises(PaidApiRealEscapeError, match="symlink or junction|escapes"):
+        real_escape_module.persist_paid_api_real_escape_artifacts(
+            runtime_root=runtime_root,
+            proposal_content=SUCCESS_PROPOSAL,
+            proof_receipt=receipt,
+        )
+
+    # 3. Normal directory path persists successfully
+    try:
+        if task_dir.is_symlink():
+            task_dir.unlink()
+        else:
+            task_dir.rmdir()
+    except OSError:
+        pass
+    task_dir.mkdir()
+
+    real_escape_module.persist_paid_api_real_escape_artifacts(
+        runtime_root=runtime_root,
+        proposal_content=SUCCESS_PROPOSAL,
+        proof_receipt=receipt,
+    )
+    final_ns = task_dir / grant_hash
+    assert (final_ns / "proposal.md").read_text(encoding="utf-8") == SUCCESS_PROPOSAL
+    assert (final_ns / "proof.json").exists()
+

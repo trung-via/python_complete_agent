@@ -327,4 +327,115 @@ def test_successful_bridge_orchestration_is_offline_in_test_and_secret_safe(
     assert "EXECUTOR_AUTHORITY_CREATED: NO" in output
     assert "BRIDGE_DUMMY_SECRET_MUST_NOT_LEAK" not in output
     assert str(runtime_root) not in output
+def test_r0_r7_proves_credential_presence_without_accessing_secret_value(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Prove secret VALUE is never accessed during R0-R7, only key presence."""
+    import os
+    _mock_local_git(monkeypatch)
+    runtime_root = tmp_path / "runtime"
+    monkeypatch.setenv("AIOS_RUNTIME_DIR", str(runtime_root))
+    monkeypatch.setattr(bridge, "get_workspace_id", lambda: WORKSPACE_ID)
+    grant = _grant()
+    store = AtomicPaidApiGrantStore(runtime_root / "paid_api_grants", WORKSPACE_ID)
+    store.activate(grant, now_epoch_seconds=1_000_000_000)
+    monkeypatch.setattr(bridge, "get_paid_api_grant_store", lambda: store)
 
+    subscription = RuntimeCapacityRecord(
+        actor_kind=DispatchActorKind.BRAIN,
+        actor_id=SUBSCRIPTION_BRAIN,
+        capacity_state=CapacityState.UNAVAILABLE,
+        observed_at_epoch_seconds=1_000_000_000,
+        ttl_seconds=100,
+    )
+    paid = RuntimeCapacityRecord(
+        actor_kind=DispatchActorKind.BRAIN,
+        actor_id=PAID_BRAIN,
+        capacity_state=CapacityState.AVAILABLE,
+        observed_at_epoch_seconds=1_000_000_000,
+        ttl_seconds=100,
+    )
+
+    class CapacityStore:
+        def load(self, _kind, actor_id):
+            return subscription if actor_id == SUBSCRIPTION_BRAIN else paid
+
+    monkeypatch.setattr(bridge, "get_runtime_capacity_store", lambda: CapacityStore())
+    monkeypatch.setattr(
+        bridge,
+        "resolve_git_blob_sha",
+        lambda _ref, path: {
+            PROOF_LOCK_PATH: PROOF_LOCK_BLOB,
+            ARTIFACT_PATH: grant.authorized_artifact_blob_sha,
+        }[path],
+    )
+    monkeypatch.setattr(
+        bridge,
+        "read_git_blob_bytes",
+        lambda _ref, path: (
+            _proof_lock().to_canonical_json().encode("utf-8")
+            if path == PROOF_LOCK_PATH
+            else ARTIFACT_CONTENT.encode("utf-8")
+        ),
+    )
+
+    import importlib.metadata
+    versions = {"Jinja2": "3.1.6", "tokenizers": "0.23.1", "requests": "2.32.3"}
+    monkeypatch.setattr(importlib.metadata, "version", lambda name: versions[name])
+
+    class Counter:
+        counter_id = COUNTER_ID
+        def __init__(self, _asset_directory, _lock):
+            pass
+
+    monkeypatch.setattr(
+        "src.aios_bridge.minimax_m3_input_counter.MiniMaxM3LocalProviderInputCounter",
+        Counter,
+    )
+
+    secret_value_reads = {"count": 0}
+    original_environ = os.environ.copy()
+    original_environ["MINIMAX_API_KEY"] = "SECRET_VALUE_SENTINEL"
+
+    class GuardedEnviron(dict):
+        def __contains__(self, key):
+            return key in original_environ
+        def get(self, key, default=None):
+            if key == "MINIMAX_API_KEY":
+                secret_value_reads["count"] += 1
+            return original_environ.get(key, default)
+        def __getitem__(self, key):
+            if key == "MINIMAX_API_KEY":
+                secret_value_reads["count"] += 1
+            return original_environ[key]
+
+    monkeypatch.setattr(os, "environ", GuardedEnviron(original_environ))
+
+    factory_holder = {}
+    async def capture_execute(**kwargs):
+        factory_holder["provider_factory"] = kwargs["provider_factory"]
+        assert secret_value_reads["count"] == 0
+        return SimpleNamespace(proof_receipt=SimpleNamespace(
+            task_id=TASK_ID,
+            runtime_main_sha=MAIN_SHA,
+            control_commit_sha=CONTROL_SHA,
+            proof_lock_fingerprint=_proof_lock().fingerprint(),
+            subscription_capacity_fingerprint=subscription.record_fingerprint,
+            paid_capacity_fingerprint=paid.record_fingerprint,
+            preflight_fingerprint="7" * 64,
+            operational_proof_fingerprint="8" * 64,
+            proposal_logical_path=f"paid_api_proofs/{TASK_ID}/hash/proposal.md",
+            proposal_sha256="9" * 64,
+            proof_logical_path=f"paid_api_proofs/{TASK_ID}/hash/proof.json",
+        ))
+
+    monkeypatch.setattr(
+        real_escape_module,
+        "execute_paid_api_real_escape",
+        capture_execute,
+    )
+    args = _args(subscription.record_fingerprint, paid.record_fingerprint)
+    bridge.cmd_paid_proof_execute(args)
+
+    assert secret_value_reads["count"] == 0, "Secret value was read before provider factory invocation!"

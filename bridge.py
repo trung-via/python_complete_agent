@@ -1733,12 +1733,10 @@ def cmd_paid_proof_execute(args):
             )
         except Exception as exc:
             raise PaidApiRealEscapeError("R4 locked asset validation failed") from exc
-        credential_value = os.environ.get(proof_lock.credential_env_name, "")
-        if type(credential_value) is not str or not credential_value.strip():
+        if proof_lock.credential_env_name not in os.environ:
             raise PaidApiRealEscapeError(
                 f"R4 missing required credential source env:{proof_lock.credential_env_name}"
             )
-        del credential_value
 
         grant_hash = hashlib.sha256(grant.grant_id.encode("utf-8")).hexdigest()
         ledger_logical_path = f"paid_api_usage/{task_id}/{grant_hash}.jsonl"
@@ -4496,8 +4494,21 @@ def cmd_publish(args):
     result.parent.mkdir(parents=True, exist_ok=True)
     archive_local(result, task_id)
 
+    git("add", "-N", ".", check=False)
     files = changed_files()
     diffstat = git("diff", "--stat", "HEAD").stdout.strip()
+    if not diffstat:
+        base_main = auth.get("base_main_sha") if auth else None
+        if not base_main or base_main == "(n/a)":
+            base_main = cfg.get("base_branch", "main")
+        diffstat = git("diff", "--stat", f"{base_main}...HEAD").stdout.strip()
+    if not files:
+        base_main = auth.get("base_main_sha") if auth else None
+        if not base_main or base_main == "(n/a)":
+            base_main = cfg.get("base_branch", "main")
+        p_files = git("diff", "--name-only", f"{base_main}...HEAD", check=False)
+        if p_files.returncode == 0 and p_files.stdout.strip():
+            files = [line.strip() for line in p_files.stdout.splitlines() if line.strip() and not line.strip().startswith(".ai/results/")]
     active_exec = auth.get("executor_id", "antigravity")
     summary = (
         args.summary
