@@ -122,20 +122,29 @@ def mock_preflight_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     # Setup fake counter class to bypass actual jinja/tokenizer imports in bridge test
     class MockCounter:
         def __init__(self, asset_dir, proof_lock):
+            if type(proof_lock) is not MiniMaxM3ProofLock:
+                raise TypeError("not MiniMaxM3ProofLock")
             self.counter_id = f"minimax-m3-local:{SOURCE_REVISION}:{TEMPLATE_SHA}:{TOKENIZER_SHA}"
 
     from src.aios_bridge import minimax_m3_input_counter
     monkeypatch.setattr(minimax_m3_input_counter, "MiniMaxM3LocalProviderInputCounter", MockCounter)
 
-    # Mock git operations
+    # Mock git operations (pure offline)
     monkeypatch.setattr(bridge, "ensure_git", lambda: None)
     monkeypatch.setattr(bridge, "ensure_dirs", lambda: None)
     monkeypatch.setattr(bridge, "load_config", lambda: {"remote": "origin", "control_branch": "ai-control"})
-    monkeypatch.setattr(bridge, "fetch_control", lambda cfg: None)
     monkeypatch.setattr(bridge, "remote_ref", lambda cfg: "refs/remotes/origin/ai-control")
+
+    # If fetch_control is called, FAIL IMMEDIATELY (B2 offline proof)
+    def forbidden_fetch(*args, **kwargs):
+        raise AssertionError("cmd_paid_proof_preflight must NEVER call fetch_control() or perform network I/O")
+
+    monkeypatch.setattr(bridge, "fetch_control", forbidden_fetch)
 
     def mock_git(*args, **kwargs):
         cmd = args[0]
+        if cmd == "fetch":
+            raise AssertionError("git fetch was called during offline preflight")
         if cmd == "status":
             return SimpleNamespace(stdout="", returncode=0)
         elif cmd == "rev-parse":
@@ -215,6 +224,11 @@ class TestBridgePaidProofPreflight:
         # Crucial security check: secret key is NEVER printed
         assert "dummy-secret-key-never-printed" not in out
 
+    def test_never_calls_fetch_control_or_network(self, mock_preflight_env):
+        # mock_preflight_env already sets fetch_control and git fetch to raise AssertionError.
+        # This test ensures successful preflight runs purely offline without invoking them.
+        bridge.cmd_paid_proof_preflight(_preflight_args())
+
     def test_fails_if_worktree_is_dirty(self, mock_preflight_env, monkeypatch):
         def mock_dirty_git(*args, **kwargs):
             if args[0] == "status":
@@ -240,6 +254,18 @@ class TestBridgePaidProofPreflight:
         with pytest.raises(SystemExit):
             bridge.cmd_paid_proof_preflight(_preflight_args())
 
+    def test_fails_if_proof_lock_path_is_not_canonical_ai_path(self, mock_preflight_env):
+        for bad_path in [
+            "outside/proof_lock.json",
+            r".ai\context\proof_lock.json",
+            ".ai/../proof_lock.json",
+            "/.ai/context/proof_lock.json",
+            ".ai",
+        ]:
+            args = _preflight_args(proof_lock_path=bad_path)
+            with pytest.raises(SystemExit):
+                bridge.cmd_paid_proof_preflight(args)
+
     def test_fails_if_proof_lock_blob_mismatch(self, mock_preflight_env, monkeypatch):
         monkeypatch.setattr(bridge, "resolve_git_blob_sha", lambda ref, path: "f" * 40)
         with pytest.raises(SystemExit):
@@ -260,6 +286,27 @@ class TestBridgePaidProofPreflight:
         monkeypatch.delenv("MINIMAX_API_KEY", raising=False)
         with pytest.raises(SystemExit):
             bridge.cmd_paid_proof_preflight(_preflight_args())
+
+    def test_sanitizes_absolute_path_on_durability_probe_failure(
+        self,
+        mock_preflight_env,
+        monkeypatch,
+        capsys,
+    ):
+        sentinel_path = "/secret/internal/absolute/user/runtime/path/never_leak"
+
+        def failing_probe(*args, **kwargs):
+            raise OSError(f"Cannot write file: {sentinel_path}")
+
+        from src.aios_bridge import paid_api_proof_preflight
+        monkeypatch.setattr(paid_api_proof_preflight, "probe_ledger_durability", failing_probe)
+
+        with pytest.raises(SystemExit):
+            bridge.cmd_paid_proof_preflight(_preflight_args())
+
+        err = capsys.readouterr().err
+        assert sentinel_path not in err
+        assert "ledger directory durability probe failed" in err
 
     def test_parser_exposes_no_security_override_flags(self):
         parser = argparse.ArgumentParser()

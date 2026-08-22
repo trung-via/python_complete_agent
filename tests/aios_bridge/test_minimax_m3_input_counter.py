@@ -167,6 +167,13 @@ class TestMiniMaxM3InputCounterProvenance:
         with pytest.raises(MiniMaxM3InputCounterError, match="exact MiniMaxM3ProofLock"):
             MiniMaxM3LocalProviderInputCounter(bundle, {"some": "dict"})  # type: ignore
 
+        class SubclassProofLock(MiniMaxM3ProofLock):
+            pass
+
+        subclass_instance = SubclassProofLock(**_proof_lock().to_dict())
+        with pytest.raises(MiniMaxM3InputCounterError, match="exact MiniMaxM3ProofLock"):
+            MiniMaxM3LocalProviderInputCounter(bundle, subclass_instance)
+
     def test_rejects_manifest_digest_mismatch_with_proof_lock(self, tmp_path: Path, fake_engines):
         bundle = tmp_path / "bundle"
         _write_bundle(bundle)
@@ -181,7 +188,6 @@ class TestMiniMaxM3InputCounterProvenance:
     def test_rejects_file_digest_mismatch_with_proof_lock(self, tmp_path: Path, fake_engines):
         bundle = tmp_path / "bundle"
         _write_bundle(bundle)
-        # Change file on disk after manifest creation
         (bundle / CHAT_TEMPLATE_PATH).write_bytes(b"modified")
         lock = _proof_lock()
         with pytest.raises(MiniMaxM3InputCounterError, match="digest does not match"):

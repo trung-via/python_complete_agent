@@ -56,6 +56,24 @@ class MiniMaxM3ProofLockError(ValueError):
     """Raised when canonical proof-lock parsing or validation fails."""
 
 
+def validate_canonical_ai_proof_lock_path(path: object) -> str:
+    """Validates that path is an exact, normalized repository-relative POSIX path under .ai/."""
+    if type(path) is not str or not path:
+        raise MiniMaxM3ProofLockError("proof_lock_path must be an exact non-empty string")
+    if "\\" in path or ":" in path or path.startswith("/"):
+        raise MiniMaxM3ProofLockError(
+            "proof_lock_path must be a normalized repository-relative POSIX path without drive letters or backslashes"
+        )
+    parts = path.split("/")
+    if not parts or parts[0] != ".ai":
+        raise MiniMaxM3ProofLockError("proof_lock_path must be under the canonical '.ai/' directory")
+    if any(p in ("", ".", "..") for p in parts):
+        raise MiniMaxM3ProofLockError("proof_lock_path contains invalid, empty, or traversal segments")
+    if len(parts) < 2:
+        raise MiniMaxM3ProofLockError("proof_lock_path must specify a file path under '.ai/'")
+    return path
+
+
 def _reject_duplicate_json_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
     result: dict[str, object] = {}
     for key, value in pairs:
@@ -253,6 +271,7 @@ class MiniMaxM3ProofLock:
 __all__ = [
     "MiniMaxM3ProofLock",
     "MiniMaxM3ProofLockError",
+    "validate_canonical_ai_proof_lock_path",
     "SCHEMA_VERSION",
     "PROVIDER_ID",
     "MODEL_ID",

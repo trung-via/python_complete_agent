@@ -1,4 +1,4 @@
-"""Tests for MiniMaxM3ProofLock (TASK-059 / M11.3B)."""
+"""Tests for MiniMaxM3ProofLock and canonical path validation (TASK-059 / M11.3B)."""
 import hashlib
 import json
 import pytest
@@ -6,6 +6,7 @@ import pytest
 from src.aios_bridge.minimax_m3_proof_lock import (
     MiniMaxM3ProofLock,
     MiniMaxM3ProofLockError,
+    validate_canonical_ai_proof_lock_path,
     SCHEMA_VERSION,
     PROVIDER_ID,
     MODEL_ID,
@@ -178,3 +179,37 @@ class TestMiniMaxM3ProofLockValidation:
         fp2 = lock.fingerprint()
         assert fp1 == fp2
         assert len(fp1) == 64
+
+
+class TestValidateCanonicalAiProofLockPath:
+    def test_valid_paths(self):
+        assert validate_canonical_ai_proof_lock_path(".ai/context/proof_lock.json") == ".ai/context/proof_lock.json"
+        assert validate_canonical_ai_proof_lock_path(".ai/tasks/lock.json") == ".ai/tasks/lock.json"
+
+    def test_rejects_non_ai_prefix(self):
+        with pytest.raises(MiniMaxM3ProofLockError, match=r"must be under the canonical '\.ai/' directory"):
+            validate_canonical_ai_proof_lock_path("context/proof_lock.json")
+
+    def test_rejects_backslashes_and_drive(self):
+        with pytest.raises(MiniMaxM3ProofLockError, match="normalized repository-relative"):
+            validate_canonical_ai_proof_lock_path(r".ai\context\proof_lock.json")
+
+        with pytest.raises(MiniMaxM3ProofLockError, match="normalized repository-relative"):
+            validate_canonical_ai_proof_lock_path("C:.ai/context/proof_lock.json")
+
+    def test_rejects_leading_slash(self):
+        with pytest.raises(MiniMaxM3ProofLockError, match="normalized repository-relative"):
+            validate_canonical_ai_proof_lock_path("/.ai/context/proof_lock.json")
+
+    def test_rejects_traversal(self):
+        for bad in [".ai/../proof_lock.json", ".ai/./proof_lock.json", ".ai//proof_lock.json"]:
+            with pytest.raises(MiniMaxM3ProofLockError, match="invalid, empty, or traversal"):
+                validate_canonical_ai_proof_lock_path(bad)
+
+    def test_rejects_bare_dir_or_empty(self):
+        with pytest.raises(MiniMaxM3ProofLockError):
+            validate_canonical_ai_proof_lock_path(".ai")
+        with pytest.raises(MiniMaxM3ProofLockError):
+            validate_canonical_ai_proof_lock_path("")
+        with pytest.raises(MiniMaxM3ProofLockError):
+            validate_canonical_ai_proof_lock_path(None)

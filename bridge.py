@@ -1369,9 +1369,8 @@ def cmd_paid_proof_preflight(args):
         ensure_git()
         ensure_dirs()
         cfg = load_config()
-        fetch_control(cfg)
 
-        # P0 ? Local Git / Code State
+        # P0 ? Local Git / Code State (Offline: no fetch or network call)
         status_p = git("status", "--porcelain")
         if status_p.stdout.strip():
             fail("paid-proof-preflight th?t b?i: local worktree is dirty")
@@ -1380,22 +1379,34 @@ def cmd_paid_proof_preflight(args):
         main_sha = git("rev-parse", "main").stdout.strip()
         remote_main_p = git("rev-parse", f"{cfg['remote']}/main", check=False)
         if remote_main_p.returncode != 0:
-            fail("paid-proof-preflight th?t b?i: cannot resolve remote main")
+            fail("paid-proof-preflight th?t b?i: cannot resolve remote main tracking ref locally")
         origin_main_sha = remote_main_p.stdout.strip()
 
         if head_sha != main_sha or head_sha != origin_main_sha:
             fail("paid-proof-preflight th?t b?i: current checked-out HEAD must equal local main and origin/main")
         runtime_main_sha = head_sha
 
-        # P1 ? Canonical Proof Lock
+        # P1 ? Canonical Proof Lock (Offline: resolve only from local control tracking ref)
+        from src.aios_bridge.minimax_m3_proof_lock import (
+            MiniMaxM3ProofLock,
+            MiniMaxM3ProofLockError,
+            validate_canonical_ai_proof_lock_path,
+        )
+        try:
+            proof_lock_path = validate_canonical_ai_proof_lock_path(args.proof_lock_path)
+        except Exception as exc:
+            fail(f"paid-proof-preflight th?t b?i: invalid proof lock path: {exc}")
+
         control_ref = remote_ref(cfg)
-        control_commit_p = git("rev-parse", control_ref)
+        control_commit_p = git("rev-parse", control_ref, check=False)
+        if control_commit_p.returncode != 0:
+            fail("paid-proof-preflight th?t b?i: control ref not found locally")
         control_commit_sha = control_commit_p.stdout.strip()
 
         try:
-            proof_lock_blob_sha = resolve_git_blob_sha(control_ref, args.proof_lock_path)
+            proof_lock_blob_sha = resolve_git_blob_sha(control_ref, proof_lock_path)
         except Exception as exc:
-            fail(f"paid-proof-preflight th?t b?i: cannot resolve proof lock on control branch: {exc}")
+            fail(f"paid-proof-preflight th?t b?i: cannot resolve proof lock on local control tracking branch: {exc}")
 
         if proof_lock_blob_sha != args.proof_lock_blob_sha:
             fail(
@@ -1408,10 +1419,6 @@ def cmd_paid_proof_preflight(args):
             fail("paid-proof-preflight th?t b?i: cannot read proof lock git blob")
         proof_lock_raw = blob_p.stdout
 
-        from src.aios_bridge.minimax_m3_proof_lock import (
-            MiniMaxM3ProofLock,
-            MiniMaxM3ProofLockError,
-        )
         try:
             proof_lock = MiniMaxM3ProofLock.from_json(proof_lock_raw)
         except MiniMaxM3ProofLockError as exc:
@@ -1454,7 +1461,7 @@ def cmd_paid_proof_preflight(args):
         try:
             current_artifact_blob = resolve_git_blob_sha(control_ref, active_grant.authorized_artifact_path)
         except Exception as exc:
-            fail(f"paid-proof-preflight th?t b?i: cannot resolve authorized artifact on control branch: {exc}")
+            fail(f"paid-proof-preflight th?t b?i: cannot resolve authorized artifact on local control tracking branch: {exc}")
 
         if current_artifact_blob != active_grant.authorized_artifact_blob_sha:
             fail("paid-proof-preflight th?t b?i: authorized artifact blob changed on control branch")
@@ -1488,15 +1495,17 @@ def cmd_paid_proof_preflight(args):
         try:
             counter = MiniMaxM3LocalProviderInputCounter(asset_dir, proof_lock)
         except MiniMaxM3InputCounterError as exc:
-            fail(f"paid-proof-preflight th?t b?i: asset validation / counter construction failed: {exc}")
+            fail(f"paid-proof-preflight th?t b?i: asset validation failed: {exc}")
+        except Exception:
+            fail("paid-proof-preflight th?t b?i: asset validation or counter construction failed")
 
-        # P5 ? Credential Boundary: Presence Only
+        # P5 ? Credential Boundary: Presence Only (never print, log, hash, persist, or return secret)
         env_val = os.environ.get(proof_lock.credential_env_name, "").strip()
         if not env_val:
             fail(f"paid-proof-preflight th?t b?i: missing required credential: env:{proof_lock.credential_env_name}")
         credential_present = True
 
-        # P6 ? Durable Ledger Destination Readiness
+        # P6 ? Durable Ledger Destination Readiness (path-free sanitized diagnostic)
         grant_hash = hashlib.sha256(active_grant.grant_id.encode("utf-8")).hexdigest()
         ledger_dir = runtime_root / "paid_api_usage" / task_id
         ledger_path = ledger_dir / f"{grant_hash}.jsonl"
@@ -1510,7 +1519,9 @@ def cmd_paid_proof_preflight(args):
         try:
             ledger_ready = probe_ledger_durability(ledger_path)
         except PaidApiProofPreflightError as exc:
-            fail(f"paid-proof-preflight th?t b?i: ledger durability probe failed: {exc}")
+            fail(f"paid-proof-preflight th?t b?i: {exc}")
+        except Exception:
+            fail("paid-proof-preflight th?t b?i: ledger directory durability probe failed")
 
         # P7 ? Preflight Receipt & Output
         receipt = build_paid_api_proof_preflight_receipt(
@@ -1518,7 +1529,7 @@ def cmd_paid_proof_preflight(args):
             grant=active_grant,
             runtime_main_sha=runtime_main_sha,
             control_commit_sha=control_commit_sha,
-            proof_lock_path=args.proof_lock_path,
+            proof_lock_path=proof_lock_path,
             proof_lock_blob_sha=proof_lock_blob_sha,
             proof_lock=proof_lock,
             counter_id=counter.counter_id,

@@ -1,6 +1,7 @@
 """Unit tests for PaidApiProofPreflightReceipt and preflight logic (TASK-059 / M11.3B)."""
 import hashlib
 import json
+import os
 from pathlib import Path
 import pytest
 
@@ -40,7 +41,7 @@ def _valid_receipt_dict() -> dict[str, object]:
         "source_revision": "3a41b311ffa5719cef48fed3974ccf2cc03733ea",
         "chat_template_sha256": "c" * 64,
         "tokenizer_sha256": "d" * 64,
-        "counter_id": "minimax-m3-local:3a41b311ffa5719cef48fed3974ccf2cc03733ea:c:d",
+        "counter_id": f"minimax-m3-local:3a41b311ffa5719cef48fed3974ccf2cc03733ea:{'c' * 64}:{'d' * 64}",
         "jinja2_version": "3.1.6",
         "tokenizers_version": "0.23.1",
         "requests_version": "2.32.3",
@@ -134,6 +135,12 @@ class TestPaidApiProofPreflightReceipt:
         with pytest.raises(PaidApiProofPreflightError, match="ledger_logical_path"):
             PaidApiProofPreflightReceipt.from_dict(data)
 
+    def test_rejects_invalid_proof_lock_path(self):
+        data = _valid_receipt_dict()
+        data["proof_lock_path"] = "outside/proof_lock.json"
+        with pytest.raises(PaidApiProofPreflightError, match="proof_lock_path"):
+            PaidApiProofPreflightReceipt.from_dict(data)
+
     def test_rejects_consumed_or_dispatch_enabled(self):
         data = _valid_receipt_dict()
         data["grant_consumed"] = True
@@ -161,7 +168,7 @@ class TestPaidApiProofPreflightReceipt:
             proof_lock_path=".ai/context/proof_lock.json",
             proof_lock_blob_sha="4" * 40,
             proof_lock=lock,
-            counter_id="minimax-m3-local:3a41b311ffa5719cef48fed3974ccf2cc03733ea:c:d",
+            counter_id=f"minimax-m3-local:3a41b311ffa5719cef48fed3974ccf2cc03733ea:{'c' * 64}:{'d' * 64}",
             ledger_logical_path="paid_api_usage/TASK-059/grant_hash.jsonl",
             ledger_ready=True,
             credential_present=True,
@@ -176,6 +183,28 @@ class TestPaidApiProofPreflightReceipt:
         assert receipt.paid_dispatch_enabled is False
         assert receipt.provider_call_started is False
 
+    def test_builder_rejects_subclass_proof_lock(self):
+        grant = _valid_grant()
+
+        class SubclassProofLock(MiniMaxM3ProofLock):
+            pass
+
+        lock = SubclassProofLock(**_valid_proof_lock().to_dict())
+        with pytest.raises(PaidApiProofPreflightError, match="exact MiniMaxM3ProofLock"):
+            build_paid_api_proof_preflight_receipt(
+                task_id="TASK-059",
+                grant=grant,
+                runtime_main_sha="1" * 40,
+                control_commit_sha="2" * 40,
+                proof_lock_path=".ai/context/proof_lock.json",
+                proof_lock_blob_sha="4" * 40,
+                proof_lock=lock,
+                counter_id=f"minimax-m3-local:3a41b311ffa5719cef48fed3974ccf2cc03733ea:{'c' * 64}:{'d' * 64}",
+                ledger_logical_path="paid_api_usage/TASK-059/grant_hash.jsonl",
+                ledger_ready=True,
+                credential_present=True,
+            )
+
     def test_probe_ledger_durability(self, tmp_path: Path):
         ledger_path = tmp_path / "paid_api_usage" / "TASK-059" / "ledger.jsonl"
         assert probe_ledger_durability(ledger_path) is True
@@ -183,3 +212,18 @@ class TestPaidApiProofPreflightReceipt:
         assert not ledger_path.exists()
         # Verify parent dir exists
         assert ledger_path.parent.is_dir()
+
+    def test_probe_ledger_durability_failure_is_sanitized(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+        ledger_path = tmp_path / "paid_api_usage" / "TASK-059" / "ledger.jsonl"
+        sentinel_path = "/secret/internal/absolute/user/runtime/path/never_leak"
+
+        def failing_open(*args, **kwargs):
+            raise OSError(f"Permission denied: {sentinel_path}")
+
+        import builtins
+        monkeypatch.setattr(builtins, "open", failing_open)
+        with pytest.raises(PaidApiProofPreflightError) as exc_info:
+            probe_ledger_durability(ledger_path)
+
+        assert sentinel_path not in str(exc_info.value)
+        assert "cannot write probe file or fsync directory" in str(exc_info.value)

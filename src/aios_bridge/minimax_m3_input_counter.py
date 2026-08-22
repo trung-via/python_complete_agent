@@ -125,7 +125,7 @@ def _validate_manifest(
     manifest: dict[str, object],
     proof_lock: MiniMaxM3ProofLock,
 ) -> tuple[str, str]:
-    if not isinstance(proof_lock, MiniMaxM3ProofLock):
+    if type(proof_lock) is not MiniMaxM3ProofLock:
         raise MiniMaxM3InputCounterError("proof_lock must be an exact MiniMaxM3ProofLock instance")
 
     exact_values: tuple[tuple[str, object], ...] = (
@@ -173,7 +173,7 @@ def _load_validated_assets(
     asset_directory: str | os.PathLike[str],
     proof_lock: MiniMaxM3ProofLock,
 ) -> tuple[str, bytes, str, str]:
-    if not isinstance(proof_lock, MiniMaxM3ProofLock):
+    if type(proof_lock) is not MiniMaxM3ProofLock:
         raise MiniMaxM3InputCounterError(
             "proof_lock must be an exact MiniMaxM3ProofLock instance"
         )
@@ -323,7 +323,7 @@ class MiniMaxM3LocalProviderInputCounter:
         asset_directory: str | os.PathLike[str],
         proof_lock: MiniMaxM3ProofLock,
     ) -> None:
-        if not isinstance(proof_lock, MiniMaxM3ProofLock):
+        if type(proof_lock) is not MiniMaxM3ProofLock:
             raise MiniMaxM3InputCounterError(
                 "proof_lock must be an exact MiniMaxM3ProofLock instance"
             )

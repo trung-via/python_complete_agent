@@ -5,39 +5,44 @@ STATUS: READY_FOR_REVIEW
 ## Review Manifest
 ```yaml
 TASK_ID: TASK-059
-ACTION: RUN
+ACTION: FIX
 EXECUTOR_ID: antigravity
 EXECUTOR_FAILOVER: NO
 HOT_HANDOFF: NO
 ```
 
 ## Summary
-Implemented M11.3B Canonical MiniMax-M3 Proof Lock, Counter Provenance Hardening, PaidApiProofPreflightReceipt, and Bridge paid-proof-preflight CLI command without spend, provider dispatch, or real credential access.
+Resolved all REVIEW-059 findings (B1..B5): reconciled lineage onto current main 2a913348, enforced offline preflight (no fetch_control/git fetch), enforced exact MiniMaxM3ProofLock type checks across counter and preflight receipt, sanitized durability probe and filesystem diagnostics to prevent absolute path leaks, and validated canonical .ai/ proof lock paths.
 
 ## Task Metadata
 - Task: `TASK-059`
-- Action: `RUN`
+- Action: `FIX`
 - Executor: `antigravity`
-- Authorized Artifact: `.ai/tasks/TASK-059.md (e62ff217ab)`
-- Base Main SHA: `2a91334876e4a60be9eb278e21ea57d55bb884d3`
+- Authorized Artifact: `.ai/reviews/REVIEW-059.md (5ed0431be5)`
+- Base Main SHA: `(n/a)`
 - Branch: `ai/task-059`
 
 ## Files Changed
 - bridge.py
 - src/aios_bridge/minimax_m3_input_counter.py
-- tests/aios_bridge/test_minimax_m3_input_counter.py
 - src/aios_bridge/minimax_m3_proof_lock.py
 - src/aios_bridge/paid_api_proof_preflight.py
+- tests/aios_bridge/test_minimax_m3_input_counter.py
 - tests/aios_bridge/test_minimax_m3_proof_lock.py
 - tests/aios_bridge/test_paid_api_proof_preflight.py
 - tests/test_bridge_paid_api_proof_preflight.py
 
 ## Diff Stat
 ```text
-bridge.py                                          | 198 +++++++
- src/aios_bridge/minimax_m3_input_counter.py        |  86 +++-
- tests/aios_bridge/test_minimax_m3_input_counter.py | 566 +++++++--------------
- 3 files changed, 463 insertions(+), 387 deletions(-)
+bridge.py                                          |  45 +++--
+ src/aios_bridge/minimax_m3_input_counter.py        |   6 +-
+ src/aios_bridge/minimax_m3_proof_lock.py           |  19 ++
+ src/aios_bridge/paid_api_proof_preflight.py        | 192 ++++++++++-----------
+ tests/aios_bridge/test_minimax_m3_input_counter.py |   8 +-
+ tests/aios_bridge/test_minimax_m3_proof_lock.py    |  37 +++-
+ tests/aios_bridge/test_paid_api_proof_preflight.py |  48 +++++-
+ tests/test_bridge_paid_api_proof_preflight.py      |  51 +++++-
+ 8 files changed, 284 insertions(+), 122 deletions(-)
 ```
 
 ## Tests
@@ -49,28 +54,29 @@ Exit code: 0
 ........................................................................ [  7%]
 ........................................................................ [ 11%]
 ........................................................................ [ 15%]
-................................................................s....... [ 19%]
-....ss....................................s............................. [ 23%]
-........................................................................ [ 27%]
-........................................................................ [ 31%]
-........................................................................ [ 35%]
-........................................................................ [ 38%]
-........................................................................ [ 42%]
-.......ss......................................s........................ [ 46%]
-........................................................................ [ 50%]
-........................................................................ [ 54%]
-........................................................................ [ 58%]
-........................................................................ [ 62%]
-........................................................................ [ 66%]
-........................................................................ [ 70%]
-........................................................................ [ 74%]
-........................................................................ [ 77%]
-........................................................................ [ 81%]
-........................................................................ [ 85%]
-........................................................................ [ 89%]
-........................................................................ [ 93%]
-........................................................................ [ 97%]
-................................................                         [100%]
+................................................................s....... [ 18%]
+....ss....................................s............................. [ 22%]
+........................................................................ [ 26%]
+........................................................................ [ 30%]
+........................................................................ [ 34%]
+........................................................................ [ 37%]
+........................................................................ [ 41%]
+.............................................ss......................... [ 45%]
+.............s.......................................................... [ 49%]
+........................................................................ [ 53%]
+........................................................................ [ 56%]
+........................................................................ [ 60%]
+........................................................................ [ 64%]
+........................................................................ [ 68%]
+........................................................................ [ 72%]
+........................................................................ [ 75%]
+........................................................................ [ 79%]
+........................................................................ [ 83%]
+........................................................................ [ 87%]
+........................................................................ [ 91%]
+........................................................................ [ 94%]
+........................................................................ [ 98%]
+..........................                                               [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -373,7 +379,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-1841 passed, 7 skipped, 1533 warnings in 126.40s (0:02:06)
+1891 passed, 7 skipped, 1533 warnings in 133.36s (0:02:13)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -382,7 +388,7 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 ```
 
 ## Risks / Notes
-Full canonical test suite: venv\Scripts\python.exe -m pytest tests/ -q (1841 passed, 7 skipped, 0 failed, exit=0). Targeted suites: 40 passed in 0.33s. Scope strictly matches EXECUTOR_ALLOWED_PATHS_JSON (8 authorized files). No-spend and offline preflight invariants verified.
+Full canonical test suite on reconciled tree: venv\Scripts\python.exe -m pytest tests/ -q (1891 passed, 7 skipped, 0 failed, exit=0). Targeted test suites: 52 passed in 0.55s. Scope strictly matches EXECUTOR_ALLOWED_PATHS_JSON (8 authorized files). Invariants verified: LINEAGE_CURRENT_MAIN: PASS, OFFLINE_PREFLIGHT_NO_NETWORK: PASS, EXACT_LOCK_TYPE: PASS, ABSOLUTE_PATH_LEAK_ON_FAILURE: NONE, CANONICAL_DOT_AI_PROOF_LOCK_PATH: PASS, REAL_PAID_API_CALL: NO, REAL_API_KEY_LEAK: NO, GRANT_CONSUMED: NO, PAID_DISPATCH: NO.
 
 ## Generated
-2026-08-22T10:41:19+07:00
+2026-08-22T13:52:21+07:00
