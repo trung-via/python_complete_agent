@@ -1364,6 +1364,194 @@ def cmd_paid_grant_status(args):
         print("RUNTIME_STATE: NONE")
 
 
+def cmd_paid_proof_preflight(args):
+    try:
+        ensure_git()
+        ensure_dirs()
+        cfg = load_config()
+        fetch_control(cfg)
+
+        # P0 ? Local Git / Code State
+        status_p = git("status", "--porcelain")
+        if status_p.stdout.strip():
+            fail("paid-proof-preflight th?t b?i: local worktree is dirty")
+
+        head_sha = git("rev-parse", "HEAD").stdout.strip()
+        main_sha = git("rev-parse", "main").stdout.strip()
+        remote_main_p = git("rev-parse", f"{cfg['remote']}/main", check=False)
+        if remote_main_p.returncode != 0:
+            fail("paid-proof-preflight th?t b?i: cannot resolve remote main")
+        origin_main_sha = remote_main_p.stdout.strip()
+
+        if head_sha != main_sha or head_sha != origin_main_sha:
+            fail("paid-proof-preflight th?t b?i: current checked-out HEAD must equal local main and origin/main")
+        runtime_main_sha = head_sha
+
+        # P1 ? Canonical Proof Lock
+        control_ref = remote_ref(cfg)
+        control_commit_p = git("rev-parse", control_ref)
+        control_commit_sha = control_commit_p.stdout.strip()
+
+        try:
+            proof_lock_blob_sha = resolve_git_blob_sha(control_ref, args.proof_lock_path)
+        except Exception as exc:
+            fail(f"paid-proof-preflight th?t b?i: cannot resolve proof lock on control branch: {exc}")
+
+        if proof_lock_blob_sha != args.proof_lock_blob_sha:
+            fail(
+                f"paid-proof-preflight th?t b?i: proof lock blob mismatch: "
+                f"expected {args.proof_lock_blob_sha}, found {proof_lock_blob_sha}"
+            )
+
+        blob_p = git("show", proof_lock_blob_sha, check=False)
+        if blob_p.returncode != 0:
+            fail("paid-proof-preflight th?t b?i: cannot read proof lock git blob")
+        proof_lock_raw = blob_p.stdout
+
+        from src.aios_bridge.minimax_m3_proof_lock import (
+            MiniMaxM3ProofLock,
+            MiniMaxM3ProofLockError,
+        )
+        try:
+            proof_lock = MiniMaxM3ProofLock.from_json(proof_lock_raw)
+        except MiniMaxM3ProofLockError as exc:
+            fail(f"paid-proof-preflight th?t b?i: invalid proof lock: {exc}")
+
+        # P2 ? Existing Human Paid Grant
+        task_id = _paid_api_task_id(args.task_id) if isinstance(args.task_id, int) else args.task_id
+        if isinstance(task_id, str) and not task_id.startswith("TASK-"):
+            task_id = f"TASK-{int(task_id):03d}"
+
+        store = get_paid_api_grant_store()
+        now_epoch = int(time.time())
+        try:
+            grant = store.load_active(task_id, args.grant_id)
+        except Exception as exc:
+            fail(f"paid-proof-preflight th?t b?i: error loading grant: {exc}")
+
+        if grant is None:
+            fail(f"paid-proof-preflight th?t b?i: active grant '{args.grant_id}' not found for {task_id}")
+
+        try:
+            active_grant = store.require_active(grant, now_epoch_seconds=now_epoch)
+        except Exception as exc:
+            fail(f"paid-proof-preflight th?t b?i: grant is not active: {exc}")
+
+        if active_grant.task_id != task_id:
+            fail(f"paid-proof-preflight th?t b?i: grant task_id mismatch: {active_grant.task_id} != {task_id}")
+        ws_id = get_workspace_id()
+        if active_grant.workspace_id != ws_id:
+            fail(f"paid-proof-preflight th?t b?i: grant workspace_id mismatch: {active_grant.workspace_id} != {ws_id}")
+        if active_grant.actor_kind != DispatchActorKind.BRAIN:
+            fail("paid-proof-preflight th?t b?i: grant actor_kind must be BRAIN")
+        if active_grant.provider_id != proof_lock.provider_id:
+            fail(f"paid-proof-preflight th?t b?i: grant provider_id mismatch: {active_grant.provider_id} != {proof_lock.provider_id}")
+        if active_grant.model_id != proof_lock.model_id:
+            fail(f"paid-proof-preflight th?t b?i: grant model_id mismatch: {active_grant.model_id} != {proof_lock.model_id}")
+        if active_grant.max_calls != 1:
+            fail("paid-proof-preflight th?t b?i: grant max_calls must be 1")
+
+        try:
+            current_artifact_blob = resolve_git_blob_sha(control_ref, active_grant.authorized_artifact_path)
+        except Exception as exc:
+            fail(f"paid-proof-preflight th?t b?i: cannot resolve authorized artifact on control branch: {exc}")
+
+        if current_artifact_blob != active_grant.authorized_artifact_blob_sha:
+            fail("paid-proof-preflight th?t b?i: authorized artifact blob changed on control branch")
+
+        # P3 ? Exact Runtime Dependencies
+        import importlib.metadata
+        deps = [
+            ("Jinja2", proof_lock.jinja2_version),
+            ("tokenizers", proof_lock.tokenizers_version),
+            ("requests", proof_lock.requests_version),
+        ]
+        for pkg_name, expected_ver in deps:
+            try:
+                actual_ver = importlib.metadata.version(pkg_name)
+            except importlib.metadata.PackageNotFoundError:
+                fail(f"paid-proof-preflight th?t b?i: package '{pkg_name}' is not installed")
+            if actual_ver != expected_ver:
+                fail(
+                    f"paid-proof-preflight th?t b?i: package '{pkg_name}' version mismatch: "
+                    f"expected {expected_ver}, found {actual_ver}"
+                )
+
+        # P4 ? Deterministic External Asset Directory
+        runtime_root = get_runtime_dir()
+        asset_dir = runtime_root / "paid_api_assets" / proof_lock.provider_id / proof_lock.model_id / proof_lock.source_revision
+
+        from src.aios_bridge.minimax_m3_input_counter import (
+            MiniMaxM3LocalProviderInputCounter,
+            MiniMaxM3InputCounterError,
+        )
+        try:
+            counter = MiniMaxM3LocalProviderInputCounter(asset_dir, proof_lock)
+        except MiniMaxM3InputCounterError as exc:
+            fail(f"paid-proof-preflight th?t b?i: asset validation / counter construction failed: {exc}")
+
+        # P5 ? Credential Boundary: Presence Only
+        env_val = os.environ.get(proof_lock.credential_env_name, "").strip()
+        if not env_val:
+            fail(f"paid-proof-preflight th?t b?i: missing required credential: env:{proof_lock.credential_env_name}")
+        credential_present = True
+
+        # P6 ? Durable Ledger Destination Readiness
+        grant_hash = hashlib.sha256(active_grant.grant_id.encode("utf-8")).hexdigest()
+        ledger_dir = runtime_root / "paid_api_usage" / task_id
+        ledger_path = ledger_dir / f"{grant_hash}.jsonl"
+        ledger_logical_path = f"paid_api_usage/{task_id}/{grant_hash}.jsonl"
+
+        from src.aios_bridge.paid_api_proof_preflight import (
+            probe_ledger_durability,
+            build_paid_api_proof_preflight_receipt,
+            PaidApiProofPreflightError,
+        )
+        try:
+            ledger_ready = probe_ledger_durability(ledger_path)
+        except PaidApiProofPreflightError as exc:
+            fail(f"paid-proof-preflight th?t b?i: ledger durability probe failed: {exc}")
+
+        # P7 ? Preflight Receipt & Output
+        receipt = build_paid_api_proof_preflight_receipt(
+            task_id=task_id,
+            grant=active_grant,
+            runtime_main_sha=runtime_main_sha,
+            control_commit_sha=control_commit_sha,
+            proof_lock_path=args.proof_lock_path,
+            proof_lock_blob_sha=proof_lock_blob_sha,
+            proof_lock=proof_lock,
+            counter_id=counter.counter_id,
+            ledger_logical_path=ledger_logical_path,
+            ledger_ready=ledger_ready,
+            credential_present=credential_present,
+        )
+    except SystemExit:
+        raise
+    except Exception as e:
+        fail(f"paid-proof-preflight th?t b?i: {e}")
+
+    print("[PAID API PROOF PREFLIGHT PASS]")
+    print(f"TASK_ID: {receipt.task_id}")
+    print(f"GRANT_ID: {receipt.grant_id}")
+    print(f"GRANT_FINGERPRINT: {receipt.grant_fingerprint}")
+    print(f"RUNTIME_MAIN_SHA: {receipt.runtime_main_sha}")
+    print(f"CONTROL_COMMIT_SHA: {receipt.control_commit_sha}")
+    print(f"PROOF_LOCK_PATH: {receipt.proof_lock_path}")
+    print(f"PROOF_LOCK_BLOB_SHA: {receipt.proof_lock_blob_sha}")
+    print(f"PROOF_LOCK_FINGERPRINT: {receipt.proof_lock_fingerprint}")
+    print(f"COUNTER_ID: {receipt.counter_id}")
+    print(f"ENDPOINT_URL: {receipt.endpoint_url}")
+    print(f"CREDENTIAL_SOURCE: env:{receipt.credential_env_name}")
+    print("CREDENTIAL_PRESENT: YES")
+    print("LEDGER_READY: YES")
+    print("GRANT_STATE: ACTIVE")
+    print("GRANT_CONSUMED: NO")
+    print("PAID_API_DISPATCH_ENABLED: NO")
+    print("PROVIDER_CALL_STARTED: NO")
+    print(f"PREFLIGHT_FINGERPRINT: {receipt.fingerprint()}")
+
+
 def _dispatch_actor_kind_from_cli(kind: str) -> DispatchActorKind:
     mapping = {
         "brain": DispatchActorKind.BRAIN,
@@ -4419,6 +4607,16 @@ def build_parser():
     s.add_argument("task_id", type=int)
     s.add_argument("--grant-id", required=True)
     s.set_defaults(func=cmd_paid_grant_status)
+
+    s = sub.add_parser(
+        "paid-proof-preflight",
+        help="M11.3B paid API proof preflight without spend or provider dispatch",
+    )
+    s.add_argument("task_id", type=int)
+    s.add_argument("--grant-id", required=True)
+    s.add_argument("--proof-lock-path", required=True)
+    s.add_argument("--proof-lock-blob-sha", required=True)
+    s.set_defaults(func=cmd_paid_proof_preflight)
 
     s = sub.add_parser("capacity-set", help="Record explicit runtime actor capacity")
     s.add_argument("--kind", required=True, choices=["brain", "executor"])

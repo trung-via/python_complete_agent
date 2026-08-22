@@ -11,17 +11,20 @@ from typing import TYPE_CHECKING, Any
 
 from .external_brain.contracts import ModelRequest
 from .external_brain import prompt as external_brain_prompt
+from .minimax_m3_proof_lock import (
+    MiniMaxM3ProofLock,
+    PROVIDER_ID,
+    MODEL_ID,
+    SOURCE_REPOSITORY,
+    SOURCE_REVISION,
+    CHAT_TEMPLATE_PATH,
+    TOKENIZER_PATH,
+)
 
 if TYPE_CHECKING:
     from .provider_input_budget import ProviderInputCountEvidence
 
 
-PROVIDER_ID = "minimax"
-MODEL_ID = "MiniMax-M3"
-SOURCE_REPOSITORY = "MiniMaxAI/MiniMax-M3"
-SOURCE_REVISION = "3a41b311ffa5719cef48fed3974ccf2cc03733ea"
-CHAT_TEMPLATE_PATH = "chat_template.jinja"
-TOKENIZER_PATH = "tokenizer.json"
 ASSET_MANIFEST_PATH = "asset-manifest.json"
 ASSET_MANIFEST_SCHEMA_VERSION = "1"
 
@@ -118,7 +121,13 @@ def _parse_manifest(manifest_bytes: bytes) -> dict[str, object]:
     return value
 
 
-def _validate_manifest(manifest: dict[str, object]) -> tuple[str, str]:
+def _validate_manifest(
+    manifest: dict[str, object],
+    proof_lock: MiniMaxM3ProofLock,
+) -> tuple[str, str]:
+    if not isinstance(proof_lock, MiniMaxM3ProofLock):
+        raise MiniMaxM3InputCounterError("proof_lock must be an exact MiniMaxM3ProofLock instance")
+
     exact_values: tuple[tuple[str, object], ...] = (
         ("schema_version", ASSET_MANIFEST_SCHEMA_VERSION),
         ("source_repository", SOURCE_REPOSITORY),
@@ -142,6 +151,17 @@ def _validate_manifest(manifest: dict[str, object]) -> tuple[str, str]:
             raise MiniMaxM3InputCounterError(
                 f"asset manifest has an invalid {field_name}"
             )
+
+    # Bind manifest directly to canonical proof lock
+    if template_sha != proof_lock.chat_template_sha256:
+        raise MiniMaxM3InputCounterError(
+            "manifest chat_template_sha256 does not match proof lock"
+        )
+    if tokenizer_sha != proof_lock.tokenizer_sha256:
+        raise MiniMaxM3InputCounterError(
+            "manifest tokenizer_sha256 does not match proof lock"
+        )
+
     return template_sha, tokenizer_sha
 
 
@@ -149,7 +169,15 @@ def _sha256(content: bytes) -> str:
     return hashlib.sha256(content).hexdigest()
 
 
-def _load_validated_assets(asset_directory: str | os.PathLike[str]) -> tuple[str, bytes, str, str]:
+def _load_validated_assets(
+    asset_directory: str | os.PathLike[str],
+    proof_lock: MiniMaxM3ProofLock,
+) -> tuple[str, bytes, str, str]:
+    if not isinstance(proof_lock, MiniMaxM3ProofLock):
+        raise MiniMaxM3InputCounterError(
+            "proof_lock must be an exact MiniMaxM3ProofLock instance"
+        )
+
     try:
         supplied_root = Path(asset_directory)
     except TypeError as exc:
@@ -184,7 +212,7 @@ def _load_validated_assets(asset_directory: str | os.PathLike[str]) -> tuple[str
         MAX_ASSET_MANIFEST_BYTES,
     )
     manifest = _parse_manifest(manifest_bytes)
-    template_sha, tokenizer_sha = _validate_manifest(manifest)
+    template_sha, tokenizer_sha = _validate_manifest(manifest, proof_lock)
 
     template_bytes = _read_bounded_regular_file(
         asset_root,
@@ -196,10 +224,17 @@ def _load_validated_assets(asset_directory: str | os.PathLike[str]) -> tuple[str
         TOKENIZER_PATH,
         MAX_TOKENIZER_BYTES,
     )
-    if _sha256(template_bytes) != template_sha:
+    actual_template_sha = _sha256(template_bytes)
+    actual_tokenizer_sha = _sha256(tokenizer_bytes)
+
+    if actual_template_sha != template_sha:
         raise MiniMaxM3InputCounterError("chat template digest does not match manifest")
-    if _sha256(tokenizer_bytes) != tokenizer_sha:
+    if actual_tokenizer_sha != tokenizer_sha:
         raise MiniMaxM3InputCounterError("tokenizer digest does not match manifest")
+    if actual_template_sha != proof_lock.chat_template_sha256:
+        raise MiniMaxM3InputCounterError("chat template digest does not match proof lock")
+    if actual_tokenizer_sha != proof_lock.tokenizer_sha256:
+        raise MiniMaxM3InputCounterError("tokenizer digest does not match proof lock")
 
     try:
         template_source = template_bytes.decode("utf-8", errors="strict")
@@ -281,15 +316,24 @@ def _require_exact_messages(value: object) -> list[dict[str, str]]:
 
 
 class MiniMaxM3LocalProviderInputCounter:
-    """Trusted local exact counter backed only by a validated pinned asset bundle."""
+    """Trusted local exact counter backed by a validated pinned asset bundle and canonical proof lock."""
 
-    def __init__(self, asset_directory: str | os.PathLike[str]) -> None:
+    def __init__(
+        self,
+        asset_directory: str | os.PathLike[str],
+        proof_lock: MiniMaxM3ProofLock,
+    ) -> None:
+        if not isinstance(proof_lock, MiniMaxM3ProofLock):
+            raise MiniMaxM3InputCounterError(
+                "proof_lock must be an exact MiniMaxM3ProofLock instance"
+            )
         (
             template_source,
             tokenizer_bytes,
             template_sha,
             tokenizer_sha,
-        ) = _load_validated_assets(asset_directory)
+        ) = _load_validated_assets(asset_directory, proof_lock)
+        self._proof_lock = proof_lock
         self._template = _load_jinja_template(template_source)
         self._tokenizer = _load_tokenizer(tokenizer_bytes)
         self._counter_id = (
@@ -307,6 +351,10 @@ class MiniMaxM3LocalProviderInputCounter:
     @property
     def counter_id(self) -> str:
         return self._counter_id
+
+    @property
+    def proof_lock(self) -> MiniMaxM3ProofLock:
+        return self._proof_lock
 
     @property
     def is_exact(self) -> bool:
@@ -359,4 +407,12 @@ class MiniMaxM3LocalProviderInputCounter:
 __all__ = [
     "MiniMaxM3InputCounterError",
     "MiniMaxM3LocalProviderInputCounter",
+    "PROVIDER_ID",
+    "MODEL_ID",
+    "SOURCE_REPOSITORY",
+    "SOURCE_REVISION",
+    "CHAT_TEMPLATE_PATH",
+    "TOKENIZER_PATH",
+    "ASSET_MANIFEST_PATH",
+    "ASSET_MANIFEST_SCHEMA_VERSION",
 ]
