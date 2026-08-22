@@ -4,7 +4,7 @@ STATUS: PASS
 APPROVED: YES
 READY_FOR_HUMAN_MERGE: YES
 MERGE_AUTHORIZED: YES
-MERGED_TO_MAIN: PENDING
+MERGED_TO_MAIN: YES
 LIVE_MINIMAX_PROOF_AUTHORIZED: NO
 
 ## Reviewed Snapshot
@@ -75,17 +75,21 @@ RESULT_STATUS: READY_FOR_REVIEW
 
 The earlier Codex no-delta attempt is not part of the reviewed implementation snapshot; the reviewed published commit is the Antigravity-produced `67aa98132ca0413fda320929375887b8efed1fa6`.
 
-## Human Merge Authorization
+## Merge Receipt
 
 The Human explicitly issued `Merge TASK-063`.
 
 ```text
 MERGE_AUTHORIZED: YES
-PRE_MERGE_MAIN_EXPECTED: 2beadb559ade5b46442b26d5b720357faf94f518
-MERGE_TARGET_SHA: 67aa98132ca0413fda320929375887b8efed1fa6
 MERGE_MODE: NON_FORCE_FAST_FORWARD
+PRE_MERGE_MAIN: 2beadb559ade5b46442b26d5b720357faf94f518
+MERGE_TARGET_SHA: 67aa98132ca0413fda320929375887b8efed1fa6
+POST_MERGE_MAIN: 67aa98132ca0413fda320929375887b8efed1fa6
+POST_MERGE_TASK_HEAD: 67aa98132ca0413fda320929375887b8efed1fa6
+POST_MERGE_STATUS: IDENTICAL
+POST_MERGE_AHEAD_BY: 0
+POST_MERGE_BEHIND_BY: 0
+MERGED_TO_MAIN: YES
 ```
-
-Merge completion receipt will be written only after GitHub confirms `main == ai/task-063 == REVIEWED_TASK_HEAD_SHA`.
 
 PASS/merge does **not** authorize another paid MiniMax call. A fresh capacity record, fresh bounded Human paid grant, fresh no-spend preflight, and separate explicit Human live-call authorization remain required for the next M11.3C real proof attempt, which should use `--provider-timeout-seconds 120`.
