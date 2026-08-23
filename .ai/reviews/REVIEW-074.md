@@ -7,6 +7,12 @@ AUTO_MERGE_ELIGIBLE: NO
 MERGED_TO_MAIN: NO
 AUTO_MERGE_EXECUTED: NO
 
+EXECUTOR_CONTEXT_REFS_JSON: [{"path":".ai/decisions/ADR-032-E4-APPROVED-EXECUTOR-AUTOMATION-AND-AUTO-PUBLICATION-CONTRACT-LOCK.md","blob_sha":"22c300f882327aa812ad5e3250bf53ba8cf85eb5"},{"path":".ai/decisions/ADR-040-CODEX-LOCAL-TRANSPORT-BOUNDED-DIAGNOSTIC-OBSERVABILITY-CONTRACT-LOCK.md","blob_sha":"04937776829675e77a1651152bba16e7e7f31426"},{"path":".ai/decisions/ADR-046-CODEX-E4-IMPLEMENTATION-INTENT-CLEAN-NOOP-RECOVERY-CONTRACT-LOCK.md","blob_sha":"de5b63eb0c23681ec3feb427f44b91d8f44151c0"},{"path":".ai/decisions/ADR-047-CODEX-TERMINAL-DIAGNOSTIC-TAIL-PRODUCTIVE-NONZERO-RECOVERY-CONTRACT-LOCK.md","blob_sha":"dfe872e4e2d6ad021ec0c338ed46d730c3c95c26"}]
+EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py","src/aios_bridge/executor_transports/codex_local.py","src/aios_bridge/executor_transports/__init__.py","tests/aios_bridge/test_codex_local_transport.py","tests/test_bridge_executor_automation.py"]
+DISPATCH_EXECUTOR_POLICY_JSON: {"allow_paid_api":false,"candidates":[{"capacity_class":"SUBSCRIPTION","executor_id":"antigravity","preference_rank":0,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]}],"operation":"FIX","required_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"]}
+E4_MARKER_REPAIR: YES
+PRIOR_FIX_BOUNDED_EXECUTOR_INVOCATION_OCCURRED: NO
+
 TASK_ID: TASK-074
 REVIEWED_TASK_HEAD_SHA: 0b70eb08628d7660c8c0a7657ddef1c4f2262d9d
 REVIEWED_BASE_MAIN_SHA: c6bd8943b0e2420391961fe2d3203ec0b65068c9
