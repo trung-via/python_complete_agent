@@ -1,10 +1,11 @@
 # REVIEW-067 — Codex Transport Diagnostic & Reliability Hardening
 
-STATUS: CHANGES_REQUIRED
-APPROVED: NO
-READY_FOR_HUMAN_MERGE: NO
+STATUS: PASS
+APPROVED: YES
+READY_FOR_HUMAN_MERGE: YES
 MERGE_AUTHORIZED: NO
-TASK_067_IMPLEMENTATION_PASS: NO
+MERGED_TO_MAIN: NO
+TASK_067_IMPLEMENTATION_PASS: YES
 REAL_CODEX_PROOF_AUTHORIZED: NO
 H1_AUTHORIZED: NO
 LIVE_PAID_API_AUTHORIZED: NO
@@ -15,23 +16,22 @@ LIVE_PAID_API_AUTHORIZED: NO
 TASK_ID: TASK-067
 BASE_MAIN_SHA: 75866e0e033364fbcc308904e9b8e7572e8d2f48
 BRANCH: ai/task-067
+REVIEWED_TASK_HEAD_SHA: 08d82392c807d334636a902fe3bcfa5bd70e7b26
 BRANCH_STATUS_VS_MAIN: AHEAD
-AHEAD_BY: 2
+AHEAD_BY: 3
 BEHIND_BY: 0
 MERGE_BASE_SHA: 75866e0e033364fbcc308904e9b8e7572e8d2f48
 RESULT_STATUS: READY_FOR_REVIEW
-RESULT_BLOB_SHA: e2173538ce0f8a03643deb6a6f91364d5d1ee43f
-BRIDGE_BLOB_SHA: ba27d96122095a9cc97aa4fd117a8ef35ef7bc92
-CODEX_LOCAL_BLOB_SHA: e235039aed85051e9c88db053fee517fad16aa66
-TRANSPORT_TESTS_BLOB_SHA: bc2ad77152fe78de81f2f159d9b6b7b5f10dbe50
-E4_TESTS_BLOB_SHA: 1ebd60bb175e8f02f2bc013c47f1ed3447eab05d
+RESULT_BLOB_SHA: 11ff3da9469c41e5003220670302d390bfd14f41
+CODEX_LOCAL_BLOB_SHA: 3f9e0d65fdd501abee9480a3db956406e8a39384
+TRANSPORT_TESTS_BLOB_SHA: 4ecdf40d4639eafc137d4fca6f8d0553159c9ca2
 ```
 
-The task branch remains a clean fast-forward descendant of the exact H0-merged main baseline. This review remains CHANGES_REQUIRED; no merge or real Codex proof authority is created.
+The exact reviewed task head is a clean fast-forward descendant of the unchanged H0-merged main baseline. This PASS authorizes only Human consideration of fast-forward merge of this exact reviewed head. It does not authorize TASK-068, a real Codex call, H1, or any paid API action.
 
 ## Scope / Authority Audit — PASS
 
-Cumulative TASK-067 delta remains confined to the five authorized implementation/test paths plus Bridge-generated `.ai/results/RESULT-067.md`:
+Cumulative TASK-067 delta remains confined to the five authorized implementation/test paths plus Bridge-generated RESULT-067:
 
 ```text
 bridge.py
@@ -42,82 +42,58 @@ tests/test_bridge_executor_automation.py
 .ai/results/RESULT-067.md
 ```
 
-No continuity schema, executor-context core, dispatcher, lease, paid-provider/grant, H-Series, worker surface, dependency, task, or ADR path changed. Safe Codex argv, one-spawn semantics, exact stdin payload, no retry/reroute/paid fallback, and the E4 zero-exit/no-delta rejection remain intact.
+No continuity schema, executor-context core, dispatcher, lease, paid-provider/grant, H-Series, worker surface, dependency, task, or ADR path changed.
 
-## Test Evidence Observed
+Locked semantics remain intact:
+
+```text
+E1 InvocationReceipt schema: unchanged
+Codex executor/transport identity: unchanged
+safe Codex argv: unchanged
+exact stdin payload: unchanged
+one process per invocation: unchanged
+workspace-write sandbox: unchanged
+network_access=false: unchanged
+web_search=disabled: unchanged
+subscription-first local sign-in: unchanged
+API-key fallback: none
+auto retry: none
+auto reroute: none
+paid fallback: none
+EXITED_ZERO + no worktree delta: still rejected
+Human RUN/FIX/MERGE authority: unchanged
+```
+
+## Test Evidence — PASS
 
 Latest RESULT-067 reports:
 
 ```text
-TARGETED: 125 passed, 0 skipped, 0 failed
-FULL:     2087 passed, 7 skipped, 0 failed
+TARGETED: 130 passed, 0 skipped, 0 failed
+FULL:     2092 passed, 7 skipped, 0 failed
 REAL_CODEX_CALL_DURING_TASK: NO
 ```
 
-Green tests are necessary but B2 below is still a contract/runtime mismatch not covered by the new tests.
+No real Codex subscription execution was consumed by TASK-067 validation.
 
-## Prior Findings Status
+## Review Findings
 
 ```text
 B1_REAL_CODEX_EVENT_COMPATIBILITY: PASS
-B2_TEMP_CAPTURE_LOCATION_FAIL_CLOSED: FAIL
+B2_TEMP_CAPTURE_LOCATION_FAIL_CLOSED: PASS
 B3_STABLE_DIAGNOSTIC_CODE_VOCABULARY: PASS
 B4_EXACT_EVENT_COLLECTION_CONTRACT: PASS
 ```
 
 ### B1 — PASS
 
-The event-token contract now permits `.` and uses exact bounded full-match semantics. Regression tests use real Codex-style top-level tokens including `thread.started`, `turn.started`, `item.completed`, `turn.completed`, `turn.failed`, and `error`. Failure classification is now exact-token based (`error`, `turn.failed`) rather than substring/prose inference.
+Real Codex dotted top-level JSON event types are retained under the bounded `[A-Za-z0-9_.:-]{1,64}` token contract. Regression coverage includes `thread.started`, `turn.started`, `item.started`, `item.updated`, `item.completed`, `turn.completed`, `turn.failed`, and `error`. Failure-shaped diagnostics are derived only from exact mechanical event tokens (`error`, `turn.failed`), not free-form prose or substring guessing.
 
-### B3 — PASS
+### B2 — PASS
 
-`CodexDiagnosticCode` now defines a closed stable vocabulary and the diagnostic contract rejects otherwise well-shaped unsupported codes.
+Raw diagnostic capture uses invocation-lifetime OS temporary files only after resolving a safe temp root outside both the exact repository workspace and the persistent AIOS runtime surfaces used by Bridge.
 
-### B4 — PASS
-
-`stdout_event_types` now requires an exact tuple at the public contract boundary; list/string/dict shapes are rejected.
-
-## B2 — Persistent Runtime Root Resolution Does Not Match Bridge — BLOCKER
-
-The new fail-closed temp-location helper is directionally correct, but it does not protect the actual runtime configuration contract used by `bridge.py`.
-
-`codex_local.py` currently treats the following as persistent runtime roots:
-
-```text
-AIOS_BRIDGE_RUNTIME_DIR
-LOCALAPPDATA/aios-bridge          # Windows only
-~/.aios_bridge                   # underscore
-```
-
-The production Bridge actually resolves its persistent runtime through:
-
-```text
-AIOS_RUNTIME_DIR                  # exact override
-AIOS_HOME                         # runtime base override
-LOCALAPPDATA/aios-bridge          # Windows default base
-~/.aios-bridge                    # Windows fallback
-XDG_DATA_HOME/aios-bridge         # POSIX default base when set
-~/.aios-bridge                    # POSIX fallback
-```
-
-Therefore valid Bridge configurations are currently missed. Examples:
-
-```text
-AIOS_RUNTIME_DIR=<temp root>
-AIOS_HOME=<temp root>
-XDG_DATA_HOME=<parent of temp root on POSIX>
-~/.aios-bridge on POSIX/Windows fallback
-```
-
-In those cases `_resolve_safe_temporary_dir()` can accept a location that is actually the persistent AIOS runtime area and then open raw Codex stdout/stderr temporary files there. That violates ADR-040/TASK-067 even though the files remain invocation-lifetime-only.
-
-The current adversarial test sets `AIOS_BRIDGE_RUNTIME_DIR`, which Bridge does not use, so it proves the wrong configuration surface.
-
-### Required FIX for B2
-
-Make the transport's persistent-runtime exclusion mechanically mirror the production `bridge.py::get_runtime_dir()` configuration semantics without importing or mutating Bridge authority.
-
-At minimum cover:
+The exclusion logic now covers the production runtime configuration semantics:
 
 ```text
 AIOS_RUNTIME_DIR
@@ -127,71 +103,56 @@ XDG_DATA_HOME/aios-bridge
 ~/.aios-bridge
 ```
 
-A stricter rejection of the entire configured runtime base is acceptable. Remove or retain extra legacy names only if they do not substitute for the real Bridge names.
+It also conservatively retains legacy exclusions. Adversarial tests prove zero Codex spawn when the temp root resolves inside the worktree or any configured/default persistent runtime root. `TemporaryFile(dir=safe_temp_dir)` is scoped by a context manager, so raw capture is closed before the invocation outcome returns and is never persisted in runtime receipts, RESULT artifacts, or the worktree.
 
-Add adversarial zero-spawn tests for at least:
+### B3 — PASS
 
-```text
-AIOS_RUNTIME_DIR -> temp root inside exact override
-AIOS_HOME        -> temp root inside configured runtime base
-POSIX fallback/XDG base semantics
-```
+`CodexDiagnosticCode` is a closed stable vocabulary; unknown otherwise well-shaped diagnostic codes are rejected. Diagnostic codes describe observed output shape only and create no authority.
 
-and keep the existing workspace-inside-temp rejection. The accepted temporary capture must still be outside worktree/runtime and closed/deleted before return.
+### B4 — PASS
 
-Expected evidence:
+`stdout_event_types` is constrained to tuple collection semantics with bounded count and bounded safe tokens; list/string/dict collection shapes are rejected by regression tests. Diagnostic metadata remains frozen/immutable and deterministically fingerprinted.
 
-```text
-BRIDGE_RUNTIME_OVERRIDE_NAMES_MATCH: YES
-AIOS_RUNTIME_DIR_TEMP_REJECTED: YES
-AIOS_HOME_TEMP_REJECTED: YES
-XDG_OR_HOME_AI0S_BRIDGE_TEMP_REJECTED: YES
-UNSAFE_TEMP_LOCATION_SPAWN_COUNT: 0
-RAW_CAPTURE_PERSISTENT_RUNTIME_LOCATION: FORBIDDEN
-```
+## E4 Integration — PASS
 
-## FIX Scope
-
-This should be a very small FIX. Prefer modifying only:
+E4 persists only:
 
 ```text
-src/aios_bridge/executor_transports/codex_local.py
-tests/aios_bridge/test_codex_local_transport.py
+transport_diagnostic
+a deterministic transport_diagnostic_fingerprint
 ```
 
-`src/aios_bridge/executor_transports/__init__.py` may change only if mechanically necessary. Bridge-generated `.ai/results/RESULT-067.md` may be republished.
-
-Still forbidden:
-
-```text
-src/aios_bridge/continuity/**
-src/aios_bridge/executor_context.py
-src/aios_bridge/executor_automation.py
-src/aios_bridge/runtime_dispatch.py
-src/aios_bridge/runtime_lease.py
-src/aios_bridge/paid_api_*/**
-src/aios_engineering/**
-.agents/skills/aios-worker/**
-.agents/workflows/aios-worker.md
-requirements.txt
-```
-
-Do not run a real Codex call in this FIX.
+beside the canonical InvocationReceipt. Raw stdout/stderr/model prose is not persisted. Nonzero failures surface only stable status/error/diagnostic codes. Diagnostic metadata cannot override Git/scope gates or authorize publication.
 
 ## Decision
 
 ```text
-TASK-067: CHANGES_REQUIRED
+TASK-067: PASS
+TASK_067_IMPLEMENTATION_PASS: YES
 SCOPE_AUTHORITY_AUDIT: PASS
-B1_REAL_CODEX_EVENT_COMPATIBILITY: PASS
-B2_TEMP_CAPTURE_LOCATION_FAIL_CLOSED: FAIL
-B3_STABLE_DIAGNOSTIC_CODE_VOCABULARY: PASS
-B4_EXACT_EVENT_COLLECTION_CONTRACT: PASS
+E1_PROTOCOL_CONFORMANCE: PASS
+SAFE_ARGV_REGRESSION: PASS
+EXACT_STDIN_PAYLOAD: PASS
+ONE_SPAWN_PER_INVOCATION: PASS
+BOUNDED_TEMP_DIAGNOSTIC_CAPTURE: PASS
+RAW_DIAGNOSTIC_PERSISTENCE: NONE
+SAFE_EVENT_METADATA_ONLY: PASS
+DIAGNOSTIC_FINGERPRINT_DETERMINISTIC: PASS
+CANONICAL_RECEIPT_SEMANTICS_UNCHANGED: PASS
+TIMEOUT_INTERRUPT_CLEANUP_UNCHANGED: PASS
+E4_RECEIPT_DIAGNOSTIC_METADATA: PASS
+E4_FAILURE_DIAGNOSTIC_CODES: PASS
+EXIT_ZERO_NO_DELTA_REJECTED: PASS
+NO_RETRY: PASS
+NO_REROUTE: PASS
+NO_PAID_API: PASS
+NO_H_SERIES_CHANGE: PASS
 TARGETED_TESTS: PASS
 FULL_REPOSITORY_TESTS: PASS
+READY_FOR_HUMAN_MERGE: YES
+MERGE_AUTHORIZED: NO
 REAL_CODEX_PROOF_AUTHORIZED: NO
 H1_AUTHORIZED: NO
-MERGE_AUTHORIZED: NO
 ```
 
-Do not run TASK-068 or any real Codex operational proof until TASK-067 receives PASS and is Human-merged.
+Only Human may authorize merge. After this exact reviewed head is Human-merged to main, a fresh separately locked TASK-068 may perform one bounded real local Codex operational proof. TASK-067 PASS by itself does not mark the Codex local path operationally proven.
