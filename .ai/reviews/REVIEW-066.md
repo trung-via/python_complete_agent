@@ -1,9 +1,10 @@
 # REVIEW-066 — H0 Harness Foundation & Authority Boundary Lock
 
-STATUS: CHANGES_REQUIRED
-APPROVED: NO
-READY_FOR_HUMAN_MERGE: NO
+STATUS: PASS
+APPROVED: YES
+READY_FOR_HUMAN_MERGE: YES
 MERGE_AUTHORIZED: NO
+H0_IMPLEMENTATION_PASS: YES
 H0_COMPLETE: NO
 LIVE_PAID_API_AUTHORIZED: NO
 
@@ -14,168 +15,133 @@ TASK_ID: TASK-066
 BASE_MAIN_SHA: bb6e57ca6ba69b1a613430b3903d032c58cfdcd4
 BRANCH: ai/task-066
 BRANCH_STATUS_VS_MAIN: AHEAD
-AHEAD_BY: 2
+AHEAD_BY: 3
 BEHIND_BY: 0
 MERGE_BASE_SHA: bb6e57ca6ba69b1a613430b3903d032c58cfdcd4
 ACTION_REVIEWED: FIX
-EXECUTOR: antigravity
 RESULT_STATUS: READY_FOR_REVIEW
+CONTRACTS_BLOB_SHA: 2c0ed98d5568deba4b692c444542d1afdba30743
 FINGERPRINT_BLOB_SHA: aea04e1b8a38cde0c2825eac6f89f623960bdc3d
-TESTS_BLOB_SHA: 45bb31d3331f658b72863a7fe5bb662cedcc2724
-RESULT_BLOB_SHA: 209405fdd318feceb88ba1eb1bb8116c01acc680
+TESTS_BLOB_SHA: db747d8198395f8c6ec428303925602adb65aae5
+RESULT_BLOB_SHA: 6bee3f2859bf1786a481713d20f96933684ac823
 ```
+
+Human Merge Gate must re-verify that `main` remains at the reviewed merge base and `ai/task-066` has not drifted after this review before moving `main`.
 
 ## Scope / Authority Audit — PASS
 
-Cumulative delta remains confined to the six TASK-066 H0 implementation/test paths plus Bridge-generated `.ai/results/RESULT-066.md`.
+Cumulative TASK-066 delta remains confined to the six H0 implementation/test paths authorized by TASK-066 plus Bridge-generated `.ai/results/RESULT-066.md`.
 
-The FIX itself reports changes only to:
+No `bridge.py`, `src/aios_bridge/**`, `.agents/skills/aios-worker/**`, `.agents/workflows/aios-worker.md`, dispatcher, lease, paid-API, review/task/decision contract, or worker-identity path is modified.
 
-```text
-src/aios_engineering/harness/contracts.py
-src/aios_engineering/harness/fingerprint.py
-tests/aios_engineering/harness/test_contracts.py
-```
+The H0 package remains physically isolated under `src/aios_engineering/harness/` and creates no Bridge authority.
 
-No `bridge.py`, `src/aios_bridge/**`, worker surface, lease/dispatch, paid API, ADR-038, or TASK-066 mutation is present in the reviewed task branch.
+## B1 — Candidate-Set Evidence-Union Semantics — PASS
 
-Bridge publication evidence:
+`compute_candidate_set_fingerprint(...)` hashes only canonical underlying repository evidence identities from the union of selected evidence and excluded evidence. Selection/exclusion disposition and exclusion reason do not alter the candidate-set identity.
+
+Verified invariants:
 
 ```text
-TARGETED_TESTS: 67 passed, 0 skipped, 0 failed
-FULL_REPOSITORY_TESTS: 2039 passed, 7 skipped, 0 failed
-H_SERIES_AUTHORITY_CREATED: NO
-NO_PRODUCTION_BRIDGE_CHANGE: YES
-NO_WORKER_SURFACE_CHANGE: YES
-NETWORK_REQUIRED: NO
-LLM_REQUIRED: NO
-PAID_API_REQUIRED: NO
-SCOPE_EXACT: YES
+CANDIDATE_SET_EVIDENCE_UNION_SEMANTICS: PASS
+CANDIDATE_SET_SELECTED_PERMUTATION_INVARIANT: YES
+CANDIDATE_SET_EXCLUSION_PERMUTATION_INVARIANT: YES
+CANDIDATE_SET_DISPOSITION_INVARIANT: YES
+CANDIDATE_SET_EXCLUSION_REASON_INVARIANT: YES
 ```
 
-## Previous Findings B1-B4 — RESOLVED
+## B2 — Deterministic Exclusion Ordering — PASS
 
-### B1 — Candidate-set evidence-union semantics — PASS
-
-`compute_candidate_set_fingerprint(...)` now hashes only canonical `RepositoryEvidenceRef` identities from selected evidence plus `exclusion.evidence`, sorted canonically. Selection/exclusion disposition and exclusion reason no longer contaminate candidate-set identity.
-
-Regression coverage now proves:
+Plan fingerprinting preserves selected evidence rank order while canonically sorting exclusions before serialization.
 
 ```text
-selected permutation invariant: YES
-exclusion permutation invariant: YES
-selected <-> excluded disposition invariant: YES
-exclusion reason invariant: YES
+PLAN_EXCLUSION_ORDER_INVARIANT: YES
+SELECTED_RANK_ORDER_FINGERPRINT_SENSITIVE: YES
 ```
 
-### B2 — Deterministic exclusion ordering — PASS
+## B3 — Finite String Bounds — PASS
 
-`compute_plan_fingerprint(...)` preserves selected evidence rank order but canonically sorts exclusion payloads before hashing. Incidental exclusion input order no longer changes plan fingerprint.
-
-### B3 — Finite bounded strings — PASS WITH ONE VALIDATION EDGE CASE BELOW
-
-Named finite bounds now exist and are applied for schema version, reason code, symbol locator, and additional local strings.
-
-### B4 — Required regression coverage — PASS
-
-Tests now cover exclusion permutation, candidate disposition, exclusion reason invariance, snapshot commit change, snapshot tree change, and oversized strings.
-
-## Finding B5 — BLOCKER — trailing-newline reason code is still accepted
-
-TASK-066 locks `reason_code` as a bounded machine-readable uppercase ASCII token with **no whitespace/control characters**.
-
-Current implementation uses:
-
-```python
-_REASON_CODE_RE = re.compile(r"^[A-Z0-9_:-]+$")
-...
-_REASON_CODE_RE.match(val)
-```
-
-In Python regular-expression semantics, `$` may match immediately before a final newline. Therefore a value such as:
+Named finite bounds are present and enforced for H0 strings, including schema version, path, reason code, symbol locator, and generator version.
 
 ```text
-"VALID_REASON\n"
+BOUNDED_SCHEMA_VERSION: YES
+BOUNDED_REASON_CODE: YES
+BOUNDED_SYMBOL_LOCATOR: YES
 ```
 
-can satisfy the current `match(...)` check even though it contains a forbidden control/whitespace character.
+## B4 — Required Regression Coverage — PASS
 
-This affects both `RepositoryEvidenceRef.reason_code` and `HarnessEvidenceExclusion.reason_code` because both use `_validate_reason_code(...)`.
-
-### Required correction B5
-
-Make reason-code validation exact over the entire string. Acceptable bounded approaches include:
+Regression tests now cover selected/excluded permutation invariance, disposition invariance, exclusion-reason invariance, snapshot commit sensitivity, snapshot tree sensitivity, and oversized bounded strings.
 
 ```text
-_REASON_CODE_RE.fullmatch(val)
+SNAPSHOT_COMMIT_CHANGE_SENSITIVE: YES
+SNAPSHOT_TREE_CHANGE_SENSITIVE: YES
 ```
 
-or an equivalent `\Z`-anchored exact validation, while retaining the existing finite length bound.
+## B5 — Strict Full-String Reason-Code Validation — PASS
 
-Add focused regression tests proving at minimum:
+The reason-code validator now uses strict whole-string matching (`\A...\Z` with `fullmatch`) and an explicit control-character rejection check.
 
-```text
-"VALID_REASON\n" -> REJECT
-"VALID_REASON\r" -> REJECT
-"VALID_REASON\t" -> REJECT
-```
-
-Cover both evidence reason code and exclusion reason code, directly or through a parameterized validator-facing contract test.
-
-Do not redesign fingerprinting or broaden the H0 scope.
-
-## Exact FIX Writable Scope
-
-EXECUTOR_ALLOWED_PATHS_JSON: ["src/aios_engineering/harness/contracts.py","tests/aios_engineering/harness/test_contracts.py"]
-
-Bridge-generated `.ai/results/RESULT-066.md` remains publication output only.
-
-`fingerprint.py` is accepted for B1/B2 and must not be changed unless an unavoidable test-only integration issue is discovered; otherwise STOP and request review rather than broaden scope.
-
-Do not modify Bridge, worker surfaces, ADR-038, TASK-066, dependencies, configuration, or unrelated tests.
-
-## FIX Executor Dispatch Policy
-
-DISPATCH_EXECUTOR_POLICY_JSON: {"allow_paid_api":false,"candidates":[{"capacity_class":"SUBSCRIPTION","executor_id":"antigravity","preference_rank":0,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]},{"capacity_class":"SUBSCRIPTION","executor_id":"codex","preference_rank":1,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]}],"operation":"FIX","required_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"]}
-
-Antigravity remains the recommended executor for this final bounded H0 FIX. Codex transport hardening is a separate post-H0 task and must not be mixed into TASK-066.
-
-## Required Validation
+Both `RepositoryEvidenceRef.reason_code` and `HarnessEvidenceExclusion.reason_code` reject trailing or embedded forbidden whitespace/control input. Regression coverage includes at least newline, carriage return, and tab cases.
 
 ```text
-venv/Scripts/python.exe -m pytest tests/aios_engineering/harness/test_contracts.py -q
-venv/Scripts/python.exe -m pytest tests/ -q
-git diff --check
-exact writable-scope check
-```
-
-Required evidence:
-
-```text
-B1_B4_REMAIN_PASS: YES
 REASON_CODE_FULL_STRING_MATCH: YES
 REASON_CODE_TRAILING_NEWLINE_REJECTED: YES
 REASON_CODE_TRAILING_CR_REJECTED: YES
 REASON_CODE_TRAILING_TAB_REJECTED: YES
+```
+
+## Test Evidence — PASS
+
+Bridge publication reports:
+
+```text
+TARGETED_TESTS:
+83 passed, 0 skipped, 0 failed
+
+FULL_REPOSITORY_TESTS:
+2055 passed, 7 skipped, 0 failed
+```
+
+No regression is reported.
+
+## H0 Acceptance Audit — PASS
+
+```text
+H0_PACKAGE_EXISTS: YES
+H0_CONTRACTS_IMMUTABLE: YES
 H_SERIES_AUTHORITY_CREATED: NO
-NO_PRODUCTION_BRIDGE_CHANGE: YES
-NO_WORKER_SURFACE_CHANGE: YES
+BRIDGE_RUNTIME_CHANGED: NO
+DISPATCH_CHANGED: NO
+WORKER_IDENTITY_CHANGED: NO
+REPOSITORY_SNAPSHOT_BINDING: EXACT
+PATH_SAFETY_FAIL_CLOSED: YES
+DUPLICATE_EVIDENCE_AMBIGUITY: REJECTED
+CANONICAL_SERIALIZATION: YES
+CANDIDATE_SET_FINGERPRINT_ORDER_INDEPENDENT: YES
+SELECTED_RANK_ORDER_FINGERPRINT_SENSITIVE: YES
+DETERMINISTIC_PLAN_FINGERPRINT: YES
 NETWORK_REQUIRED: NO
 LLM_REQUIRED: NO
 PAID_API_REQUIRED: NO
+TARGETED_TESTS: PASS
+FULL_REPOSITORY_TESTS: PASS
 SCOPE_EXACT: YES
 ```
 
 ## Review Decision
 
 ```text
-TASK-066: CHANGES_REQUIRED
-PREVIOUS_BLOCKERS_B1_B4: RESOLVED
-NEW_BLOCKERS: 1
-B5: STRICT REASON-CODE FULL-STRING VALIDATION
-MERGE: FORBIDDEN
-H0_COMPLETE: NO
+TASK-066: PASS
+BLOCKERS: 0
+APPROVED: YES
+READY_FOR_HUMAN_MERGE: YES
+MERGE_AUTHORIZED: NO
+H0_IMPLEMENTATION_PASS: YES
+H0_COMPLETE: NO  # becomes complete only after Human merge
+H1_AUTHORIZED: NO
+CODEX_TRANSPORT_HARDENING_AUTHORIZED_BY_THIS_REVIEW: NO
 PAID PROVIDER CALL: FORBIDDEN
 ```
 
-After the bounded B5 FIX publication, ChatGPT must review the new blobs before Human merge.
+TASK-066 may proceed to the Human Merge Gate. Merge authorization must be explicit and must bind to the unchanged reviewed branch state. After a successful Human merge, REVIEW-066 should be updated to record `MERGED_TO_MAIN: YES` and `H0_COMPLETE: YES`.
