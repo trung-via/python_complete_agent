@@ -1,9 +1,10 @@
 # REVIEW-072 — H2 Deterministic Task Relevance Ranking & Bounded Selection
 
-STATUS: CHANGES_REQUIRED
-APPROVED: NO
-AUTO_MERGE_ELIGIBLE: NO
+STATUS: PASS
+APPROVED: YES
+AUTO_MERGE_ELIGIBLE: YES
 MERGED_TO_MAIN: NO
+AUTO_MERGE_EXECUTED: NO
 
 TASK_ID: TASK-072
 REVIEWED_TASK_HEAD_SHA: c6bd8943b0e2420391961fe2d3203ec0b65068c9
@@ -13,30 +14,36 @@ RESULT_BLOB_SHA: 8aeaf8b6b5b0100dadf32a84502f0c22cd92c406
 EXECUTOR_ID: codex
 CODE_AUDIT: PASS
 BRANCH_BASE_ALIGNMENT: PASS
-ALIGNED_HEAD_CANONICAL_TESTS: PENDING
-H2_COMPLETE: NO
+ALIGNED_HEAD_CANONICAL_TESTS: PASS
+H2_COMPLETE: YES
 H3_IMPLEMENTATION_AUTHORIZED: NO
 LIVE_PAID_API_AUTHORIZED: NO
 
+## Reviewed Snapshot
+
+```text
+CURRENT_MAIN_SHA: aa08034b1a76e97f0666e9897320cf40b582cf8f
+REVIEWED_TASK_HEAD_SHA: c6bd8943b0e2420391961fe2d3203ec0b65068c9
+AHEAD_BY: 2
+BEHIND_BY: 0
+MERGE_BASE_SHA: aa08034b1a76e97f0666e9897320cf40b582cf8f
+FORCE_UPDATE_USED_DURING_ALIGNMENT: NO
+```
+
 ## Alignment Recovery
 
-Explicit Human authorization was provided for branch-alignment repair only.
+Human-authorized branch alignment preserved the exact reviewed H2 implementation and RESULT blobs while incorporating current main ancestry through a two-parent merge commit:
 
 ```text
 PRE_REPAIR_TASK_HEAD: 003e6a0dae141d45b77bc8b240f5ff8bd5c79ff9
-CURRENT_MAIN_SHA: aa08034b1a76e97f0666e9897320cf40b582cf8f
 ALIGNED_TASK_HEAD: c6bd8943b0e2420391961fe2d3203ec0b65068c9
-ALIGNMENT_METHOD: TWO-PARENT MERGE COMMIT
 FIRST_PARENT: aa08034b1a76e97f0666e9897320cf40b582cf8f
 SECOND_PARENT: 003e6a0dae141d45b77bc8b240f5ff8bd5c79ff9
-FORCE_UPDATE: NO
-POST_ALIGNMENT_STATUS: AHEAD
-POST_ALIGNMENT_AHEAD_BY: 2
-POST_ALIGNMENT_BEHIND_BY: 0
-POST_ALIGNMENT_MERGE_BASE_SHA: aa08034b1a76e97f0666e9897320cf40b582cf8f
+EXECUTOR_RERUN_DURING_ALIGNMENT: NO
+H2_IMPLEMENTATION_BLOBS_CHANGED_DURING_ALIGNMENT: NO
 ```
 
-The aligned tree is built from current main plus the exact reviewed TASK-072 artifacts:
+Cumulative delta from current main is exactly:
 
 ```text
 .ai/results/RESULT-072.md
@@ -45,11 +52,7 @@ src/aios_engineering/harness/ranking.py
 tests/aios_engineering/harness/test_ranking.py
 ```
 
-No H2 implementation blob was changed during alignment. No executor was rerun. No force-push was used.
-
 ## H2 Code Audit
-
-PASS.
 
 ```text
 TASK_RELEVANCE_SPEC_IMMUTABLE_BOUNDED: PASS
@@ -77,39 +80,36 @@ GIT_SUBPROCESS_USED_BY_H2: NO
 WORKTREE_BYTES_READ_BY_H2: NO
 ```
 
-## Validation Evidence Before Alignment
+## Validation Evidence
+
+Pre-alignment recovery publication and human prechecks:
 
 ```text
 TARGETED_H2_PRECHECK: 182 passed
 FULL_PRECHECK: 2290 passed, 7 skipped, 0 failed
-GIT_DIFF_CHECK: PASS
+GIT_DIFF_CHECK_PRE_ALIGNMENT: PASS
 RECOVERY_PUBLICATION: SUCCESS
 EXECUTOR_RERUN_DURING_RECOVERY: NO
 ```
 
-These tests were run before the ancestry-alignment merge commit and therefore are not sufficient by themselves for final PASS on `c6bd8943...`.
+Canonical validation on exact aligned head `c6bd8943b0e2420391961fe2d3203ec0b65068c9`:
 
-## Remaining Gate
-
-Run canonical tests on exact aligned head `c6bd8943b0e2420391961fe2d3203ec0b65068c9`:
-
-```powershell
-.\venv\Scripts\python.exe -m pytest tests/aios_engineering/harness/test_contracts.py tests/aios_engineering/harness/test_discovery.py tests/aios_engineering/harness/test_ranking.py -q
-.\venv\Scripts\python.exe -m pytest tests/ -q
-git diff --check
+```text
+FULL_REPOSITORY_TESTS_ALIGNED_HEAD: 2302 passed, 7 skipped, 0 failed
+GIT_DIFF_CHECK_ALIGNED_HEAD: PASS
 ```
 
-Final PASS requires all three commands to succeed on the aligned head and a final no-drift merge-gate check.
+The full aligned suite contains the H0/H1/H2 harness tests, so the relevant targeted files were re-exercised on the aligned ancestry as part of that successful canonical run.
 
 ## Decision
 
 ```text
-TASK-072: CHANGES_REQUIRED
+TASK-072: PASS
 H2_CODE_AUDIT: PASS
 BRANCH_BASE_ALIGNMENT: PASS
-ALIGNED_TESTS: PENDING
-BLOCKERS_REMAINING: 1
-AUTO_MERGE: NO
-H2_COMPLETE: NO
+ALIGNED_CANONICAL_TESTS: PASS
+BLOCKERS_REMAINING: 0
+AUTO_MERGE_ELIGIBLE: YES
+H2_COMPLETE: YES
 H3_IMPLEMENTATION_AUTHORIZED: NO
 ```
