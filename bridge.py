@@ -76,6 +76,7 @@ from src.aios_bridge.executor_automation import (
 from src.aios_bridge.executor_context import ExecutorAuthorizationBinding
 from src.aios_bridge.review_merge import (
     MergeGateReason,
+    ReviewHeaderParseError,
     ReviewedMergeInput,
     MergeGateDecision,
     MergeReceipt,
@@ -4922,7 +4923,7 @@ def cmd_merge_reviewed(args):
     # 1. Sync / fetch required refs
     p_fetch = git("fetch", remote, control_branch, base_branch, task_branch, check=False)
     if p_fetch.returncode != 0:
-        print(f"[ERROR] Failed to fetch remote refs for merge: {p_fetch.stderr.strip()}")
+        print(f"[MERGE_GATE] GIT_OPERATION_FAILED: Failed to fetch remote refs for merge: {p_fetch.stderr.strip()}")
         sys.exit(1)
 
     # 2. Read review artifact from control branch
@@ -4933,11 +4934,14 @@ def cmd_merge_reviewed(args):
         sys.exit(1)
     review_text = res.stdout
 
-    # 3. Parse review header
+    # 3. Parse review header (closed error reasons)
     try:
         review_data = parse_review_header(review_text)
+    except ReviewHeaderParseError as exc:
+        print(f"[MERGE_GATE] {exc.reason.value}: {exc}")
+        sys.exit(1)
     except Exception as exc:
-        print(f"[MERGE_GATE] REVIEW_PARSE_FAILED: {exc}")
+        print(f"[MERGE_GATE] REVIEW_HEAD_INVALID: Parse exception: {exc}")
         sys.exit(1)
 
     # 4. Resolve current remote main and task branch head
@@ -4984,11 +4988,11 @@ def cmd_merge_reviewed(args):
         )
         decision = evaluate_merge_gate(input_data)
     except Exception as exc:
-        print(f"[MERGE_GATE] GATE_EVALUATION_ERROR: {exc}")
+        print(f"[MERGE_GATE] REVIEW_HEAD_INVALID: Gate input validation failed: {exc}")
         sys.exit(1)
 
     if not decision.eligible:
-        print(f"[MERGE_GATE] BLOCKED: {decision.reason.value} - {decision.message}")
+        print(f"[MERGE_GATE] {decision.reason.value}: {decision.message}")
         sys.exit(1)
 
     # 6. Execute fast-forward only mutation
@@ -4997,12 +5001,34 @@ def cmd_merge_reviewed(args):
         print(f"[MERGE_GATE] GIT_OPERATION_FAILED: Push failed: {p_push.stderr.strip()}")
         sys.exit(1)
 
-    # 7. Post-merge identity verification
-    p_post_fetch = git("fetch", remote, base_branch, check=False)
+    # 7. Post-merge identity verification (dual ref resolution + post fetch check)
+    p_post_fetch = git("fetch", remote, base_branch, task_branch, check=False)
+    if p_post_fetch.returncode != 0:
+        print(f"[MERGE_GATE] POST_MERGE_IDENTITY_FAILED: Post-merge refetch failed: {p_post_fetch.stderr.strip()}")
+        sys.exit(1)
+
     p_post_main = git("rev-parse", f"refs/remotes/{remote}/{base_branch}", check=False)
+    if p_post_main.returncode != 0:
+        print(f"[MERGE_GATE] POST_MERGE_IDENTITY_FAILED: Cannot resolve remote {base_branch}")
+        sys.exit(1)
     post_main_sha = p_post_main.stdout.strip().lower()
-    if post_main_sha != current_task_head_sha or post_main_sha != review_data["reviewed_task_head_sha"]:
-        print(f"[MERGE_GATE] POST_MERGE_IDENTITY_FAILED: Remote main at {post_main_sha} != {current_task_head_sha}")
+
+    p_post_task = git("rev-parse", f"refs/remotes/{remote}/{task_branch}", check=False)
+    if p_post_task.returncode != 0:
+        print(f"[MERGE_GATE] POST_MERGE_IDENTITY_FAILED: Cannot resolve remote {task_branch}")
+        sys.exit(1)
+    post_task_sha = p_post_task.stdout.strip().lower()
+
+    if (
+        post_main_sha != current_task_head_sha
+        or post_main_sha != review_data["reviewed_task_head_sha"]
+        or post_task_sha != review_data["reviewed_task_head_sha"]
+        or post_main_sha != post_task_sha
+    ):
+        print(
+            f"[MERGE_GATE] POST_MERGE_IDENTITY_FAILED: post_main_sha={post_main_sha}, "
+            f"post_task_sha={post_task_sha}, reviewed_task_head={review_data['reviewed_task_head_sha']}"
+        )
         sys.exit(1)
 
     # 8. Persist merge receipt

@@ -7,6 +7,7 @@ from src.aios_bridge.review_merge import (
     MergeGateDecision,
     MergeGateReason,
     MergeReceipt,
+    ReviewHeaderParseError,
     ReviewedMergeInput,
     evaluate_merge_gate,
     parse_review_header,
@@ -52,6 +53,7 @@ def test_reviewed_merge_input_immutability_and_validation() -> None:
     ("invalid_task_id", {"task_id": "task-69"}),
     ("non_canonical_task_id", {"task_id": "TASK69"}),
     ("empty_status", {"review_status": ""}),
+    ("lowercase_status", {"review_status": "pass"}),
     ("bool_as_ahead_count", {"ahead_by": True}),
     ("bool_as_behind_count", {"behind_by": False}),
     ("negative_ahead", {"ahead_by": -1}),
@@ -176,6 +178,56 @@ BASE_MAIN_SHA: {VALID_MAIN_SHA}
     assert res["reviewed_base_main_sha"] == VALID_MAIN_SHA
 
 
+@pytest.mark.parametrize("header,expected_reason", [
+    (
+        f"STATUS: PASS\nAPPROVED: YES\nAUTO_MERGE_ELIGIBLE: YES\nAUTO_MERGE_ALLOWED: NO\nREVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}\nREVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}",
+        MergeGateReason.AUTO_MERGE_DISABLED,
+    ),
+    (
+        f"STATUS: PASS\nAPPROVED: YES\nAUTO_MERGE_ELIGIBLE: YES\nREVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}\nREVIEWED_HEAD_SHA: {'c'*40}\nREVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}",
+        MergeGateReason.REVIEW_HEAD_INVALID,
+    ),
+    (
+        f"STATUS: PASS\nAPPROVED: YES\nAUTO_MERGE_ELIGIBLE: YES\nREVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}\nREVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}\nBASE_MAIN_SHA: {'d'*40}",
+        MergeGateReason.REVIEW_BASE_INVALID,
+    ),
+])
+def test_parse_review_header_rejects_alias_conflicts(header: str, expected_reason: MergeGateReason) -> None:
+    with pytest.raises(ReviewHeaderParseError) as excinfo:
+        parse_review_header(header)
+    assert excinfo.value.reason is expected_reason
+
+
+@pytest.mark.parametrize("invalid_casing_header,expected_reason", [
+    (
+        f"STATUS: pass\nAPPROVED: YES\nAUTO_MERGE_ELIGIBLE: YES\nREVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}\nREVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}",
+        MergeGateReason.REVIEW_NOT_PASS,
+    ),
+    (
+        f"STATUS: PASS\nAPPROVED: yes\nAUTO_MERGE_ELIGIBLE: YES\nREVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}\nREVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}",
+        MergeGateReason.REVIEW_NOT_APPROVED,
+    ),
+    (
+        f"STATUS: PASS\nAPPROVED: YES\nAUTO_MERGE_ELIGIBLE: yes\nREVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}\nREVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}",
+        MergeGateReason.AUTO_MERGE_DISABLED,
+    ),
+    (
+        f"STATUS: PASS\nAPPROVED: YES\nAUTO_MERGE_ELIGIBLE: YES\nREVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA.upper()}\nREVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}",
+        MergeGateReason.REVIEW_HEAD_INVALID,
+    ),
+    (
+        f"STATUS: PASS\nAPPROVED: YES\nAUTO_MERGE_ELIGIBLE: YES\nREVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}\nREVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA.upper()}",
+        MergeGateReason.REVIEW_BASE_INVALID,
+    ),
+])
+def test_parse_review_header_rejects_non_canonical_casing(
+    invalid_casing_header: str, expected_reason: MergeGateReason
+) -> None:
+    with pytest.raises(ReviewHeaderParseError) as excinfo:
+        parse_review_header(invalid_casing_header)
+    assert excinfo.value.reason is expected_reason
+
+
 def test_parse_review_header_rejects_duplicate_keys() -> None:
     header = f"""
 STATUS: PASS
@@ -185,35 +237,29 @@ AUTO_MERGE_ELIGIBLE: YES
 REVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}
 REVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}
 """
-    with pytest.raises(ContinuityStateValidationError, match="Duplicate"):
+    with pytest.raises(ReviewHeaderParseError) as excinfo:
         parse_review_header(header)
+    assert excinfo.value.reason is MergeGateReason.REVIEW_MISSING
 
 
-@pytest.mark.parametrize("missing_key,header", [
-    ("STATUS", f"APPROVED: YES\nAUTO_MERGE_ELIGIBLE: YES\nREVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}\nREVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}"),
-    ("APPROVED", f"STATUS: PASS\nAUTO_MERGE_ELIGIBLE: YES\nREVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}\nREVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}"),
-    ("AUTO_MERGE_ELIGIBLE", f"STATUS: PASS\nAPPROVED: YES\nREVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}\nREVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}"),
-    ("REVIEWED_TASK_HEAD_SHA", f"STATUS: PASS\nAPPROVED: YES\nAUTO_MERGE_ELIGIBLE: YES\nREVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}"),
-    ("REVIEWED_BASE_MAIN_SHA", f"STATUS: PASS\nAPPROVED: YES\nAUTO_MERGE_ELIGIBLE: YES\nREVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}"),
+@pytest.mark.parametrize("missing_key,header,expected_reason", [
+    ("STATUS", f"APPROVED: YES\nAUTO_MERGE_ELIGIBLE: YES\nREVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}\nREVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}", MergeGateReason.REVIEW_NOT_PASS),
+    ("APPROVED", f"STATUS: PASS\nAUTO_MERGE_ELIGIBLE: YES\nREVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}\nREVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}", MergeGateReason.REVIEW_NOT_APPROVED),
+    ("AUTO_MERGE_ELIGIBLE", f"STATUS: PASS\nAPPROVED: YES\nREVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}\nREVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}", MergeGateReason.AUTO_MERGE_DISABLED),
+    ("REVIEWED_TASK_HEAD_SHA", f"STATUS: PASS\nAPPROVED: YES\nAUTO_MERGE_ELIGIBLE: YES\nREVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}", MergeGateReason.REVIEW_HEAD_INVALID),
+    ("REVIEWED_BASE_MAIN_SHA", f"STATUS: PASS\nAPPROVED: YES\nAUTO_MERGE_ELIGIBLE: YES\nREVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}", MergeGateReason.REVIEW_BASE_INVALID),
 ])
-def test_parse_review_header_rejects_missing_required_keys(missing_key: str, header: str) -> None:
-    with pytest.raises(ContinuityStateValidationError, match="Missing required"):
+def test_parse_review_header_rejects_missing_required_keys(
+    missing_key: str, header: str, expected_reason: MergeGateReason
+) -> None:
+    with pytest.raises(ReviewHeaderParseError) as excinfo:
         parse_review_header(header)
-
-
-@pytest.mark.parametrize("invalid_val_header", [
-    f"STATUS: PASS\nAPPROVED: TRUE\nAUTO_MERGE_ELIGIBLE: YES\nREVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}\nREVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}",
-    f"STATUS: PASS\nAPPROVED: YES\nAUTO_MERGE_ELIGIBLE: MAYBE\nREVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}\nREVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}",
-    f"STATUS: PASS\nAPPROVED: YES\nAUTO_MERGE_ELIGIBLE: YES\nREVIEWED_TASK_HEAD_SHA: invalid_sha\nREVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}",
-])
-def test_parse_review_header_rejects_malformed_values(invalid_val_header: str) -> None:
-    with pytest.raises(ContinuityStateValidationError):
-        parse_review_header(invalid_val_header)
+    assert excinfo.value.reason is expected_reason
 
 
 def test_parse_review_header_does_not_infer_pass_from_prose() -> None:
     prose_only = "This task is totally PASS and we should definitely merge it."
-    with pytest.raises(ContinuityStateValidationError):
+    with pytest.raises(ReviewHeaderParseError):
         parse_review_header(prose_only)
 
 

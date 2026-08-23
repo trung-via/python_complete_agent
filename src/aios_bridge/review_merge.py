@@ -11,6 +11,7 @@ from src.aios_bridge.continuity.errors import ContinuityStateValidationError
 
 
 _SHA_RE = re.compile(r"\A[0-9a-f]{40}\Z")
+_STATUS_TOKEN_RE = re.compile(r"\A[A-Z0-9_]+\Z")
 _TASK_ID_RE = re.compile(r"\ATASK-\d+\Z")
 _KEY_VALUE_LINE_RE = re.compile(r"\A([A-Z0-9_]+)\s*:\s*(.+)\Z")
 
@@ -33,6 +34,13 @@ class MergeGateReason(str, Enum):
     GIT_OPERATION_FAILED = "GIT_OPERATION_FAILED"
 
 
+class ReviewHeaderParseError(ContinuityStateValidationError):
+    """Review header parse failure bound to an exact closed MergeGateReason."""
+    def __init__(self, message: str, reason: MergeGateReason) -> None:
+        super().__init__(message)
+        self.reason = reason
+
+
 @dataclass(frozen=True)
 class ReviewedMergeInput:
     """Immutable input parameters for the pure merge gate decision."""
@@ -53,9 +61,9 @@ class ReviewedMergeInput:
             raise ContinuityStateValidationError(
                 f"task_id must be canonical TASK-NNN: got {self.task_id!r}"
             )
-        if not isinstance(self.review_status, str) or not self.review_status.strip():
+        if not isinstance(self.review_status, str) or not _STATUS_TOKEN_RE.fullmatch(self.review_status):
             raise ContinuityStateValidationError(
-                f"review_status must be non-empty string: got {self.review_status!r}"
+                f"review_status must be exact uppercase token: got {self.review_status!r}"
             )
         if type(self.review_approved) is not bool:
             raise ContinuityStateValidationError(
@@ -185,10 +193,10 @@ def evaluate_merge_gate(input_data: ReviewedMergeInput) -> MergeGateDecision:
 def parse_review_header(review_text: str) -> dict[str, Any]:
     """
     Parse strict machine-readable review header key-values.
-    Fails closed on missing required keys, duplicate keys, or malformed YES/NO values.
+    Fails closed on missing required keys, duplicate keys, malformed YES/NO, non-canonical casing, or alias conflicts.
     """
     if not isinstance(review_text, str) or not review_text.strip():
-        raise ContinuityStateValidationError("review_text must be non-empty string")
+        raise ReviewHeaderParseError("review_text must be non-empty string", MergeGateReason.REVIEW_MISSING)
 
     seen_raw_keys: set[str] = set()
     raw_kv: dict[str, str] = {}
@@ -201,79 +209,120 @@ def parse_review_header(review_text: str) -> dict[str, Any]:
         match = _KEY_VALUE_LINE_RE.match(line)
         if match:
             key, val = match.group(1), match.group(2).strip()
-            # Remove any trailing inline comment or backticks if present
+            # Remove any trailing inline backticks if present
             if val.startswith("`") and val.endswith("`") and len(val) >= 2:
                 val = val[1:-1].strip()
             if key in seen_raw_keys:
-                raise ContinuityStateValidationError(
-                    f"Duplicate required/header key rejected: {key}"
+                raise ReviewHeaderParseError(
+                    f"Duplicate required/header key rejected: {key}", MergeGateReason.REVIEW_MISSING
                 )
             seen_raw_keys.add(key)
             raw_kv[key] = val
 
-    # Resolve required STATUS
+    # Resolve required STATUS (exact uppercase token, no normalization)
     if "STATUS" not in raw_kv:
-        raise ContinuityStateValidationError("Missing required review key: STATUS")
-    status = raw_kv["STATUS"].upper()
+        raise ReviewHeaderParseError("Missing required review key: STATUS", MergeGateReason.REVIEW_NOT_PASS)
+    status = raw_kv["STATUS"]
+    if not _STATUS_TOKEN_RE.fullmatch(status):
+        raise ReviewHeaderParseError(
+            f"STATUS must be exact uppercase token (lowercase/normalization rejected): got {status!r}",
+            MergeGateReason.REVIEW_NOT_PASS,
+        )
 
-    # Resolve required APPROVED
+    # Resolve required APPROVED (exact YES or NO, no normalization)
     if "APPROVED" not in raw_kv:
-        raise ContinuityStateValidationError("Missing required review key: APPROVED")
-    approved_raw = raw_kv["APPROVED"].upper()
+        raise ReviewHeaderParseError("Missing required review key: APPROVED", MergeGateReason.REVIEW_NOT_APPROVED)
+    approved_raw = raw_kv["APPROVED"]
     if approved_raw == "YES":
         approved = True
     elif approved_raw == "NO":
         approved = False
     else:
-        raise ContinuityStateValidationError(
-            f"Malformed APPROVED value (must be exact YES/NO): got {raw_kv['APPROVED']!r}"
+        raise ReviewHeaderParseError(
+            f"APPROVED must be exact 'YES' or 'NO' (case-sensitive): got {approved_raw!r}",
+            MergeGateReason.REVIEW_NOT_APPROVED,
         )
 
-    # Resolve required AUTO_MERGE_ELIGIBLE (or alias AUTO_MERGE_ALLOWED)
-    if "AUTO_MERGE_ELIGIBLE" in raw_kv:
-        auto_merge_raw = raw_kv["AUTO_MERGE_ELIGIBLE"].upper()
-    elif "AUTO_MERGE_ALLOWED" in raw_kv:
-        auto_merge_raw = raw_kv["AUTO_MERGE_ALLOWED"].upper()
+    # Resolve required AUTO_MERGE_ELIGIBLE (or alias AUTO_MERGE_ALLOWED) with conflict check
+    has_eligible = "AUTO_MERGE_ELIGIBLE" in raw_kv
+    has_allowed = "AUTO_MERGE_ALLOWED" in raw_kv
+    if not has_eligible and not has_allowed:
+        raise ReviewHeaderParseError(
+            "Missing required review key: AUTO_MERGE_ELIGIBLE", MergeGateReason.AUTO_MERGE_DISABLED
+        )
+    if has_eligible and has_allowed:
+        if raw_kv["AUTO_MERGE_ELIGIBLE"] != raw_kv["AUTO_MERGE_ALLOWED"]:
+            raise ReviewHeaderParseError(
+                f"Conflicting AUTO_MERGE_ELIGIBLE ({raw_kv['AUTO_MERGE_ELIGIBLE']!r}) "
+                f"and AUTO_MERGE_ALLOWED ({raw_kv['AUTO_MERGE_ALLOWED']!r})",
+                MergeGateReason.AUTO_MERGE_DISABLED,
+            )
+        auto_merge_raw = raw_kv["AUTO_MERGE_ELIGIBLE"]
+    elif has_eligible:
+        auto_merge_raw = raw_kv["AUTO_MERGE_ELIGIBLE"]
     else:
-        raise ContinuityStateValidationError("Missing required review key: AUTO_MERGE_ELIGIBLE")
+        auto_merge_raw = raw_kv["AUTO_MERGE_ALLOWED"]
 
     if auto_merge_raw == "YES":
         auto_merge_eligible = True
     elif auto_merge_raw == "NO":
         auto_merge_eligible = False
     else:
-        raise ContinuityStateValidationError(
-            f"Malformed AUTO_MERGE_ELIGIBLE value (must be exact YES/NO): got {auto_merge_raw!r}"
+        raise ReviewHeaderParseError(
+            f"AUTO_MERGE_ELIGIBLE must be exact 'YES' or 'NO' (case-sensitive): got {auto_merge_raw!r}",
+            MergeGateReason.AUTO_MERGE_DISABLED,
         )
 
-    # Resolve REVIEWED_TASK_HEAD_SHA (or alias REVIEWED_HEAD_SHA)
-    if "REVIEWED_TASK_HEAD_SHA" in raw_kv:
-        reviewed_task_head = raw_kv["REVIEWED_TASK_HEAD_SHA"].lower()
-    elif "REVIEWED_HEAD_SHA" in raw_kv:
-        reviewed_task_head = raw_kv["REVIEWED_HEAD_SHA"].lower()
-    else:
-        raise ContinuityStateValidationError(
-            "Missing required review key: REVIEWED_TASK_HEAD_SHA"
+    # Resolve REVIEWED_TASK_HEAD_SHA (or alias REVIEWED_HEAD_SHA) with conflict check
+    has_task_head = "REVIEWED_TASK_HEAD_SHA" in raw_kv
+    has_head_alias = "REVIEWED_HEAD_SHA" in raw_kv
+    if not has_task_head and not has_head_alias:
+        raise ReviewHeaderParseError(
+            "Missing required review key: REVIEWED_TASK_HEAD_SHA", MergeGateReason.REVIEW_HEAD_INVALID
         )
+    if has_task_head and has_head_alias:
+        if raw_kv["REVIEWED_TASK_HEAD_SHA"] != raw_kv["REVIEWED_HEAD_SHA"]:
+            raise ReviewHeaderParseError(
+                f"Conflicting REVIEWED_TASK_HEAD_SHA ({raw_kv['REVIEWED_TASK_HEAD_SHA']!r}) "
+                f"and REVIEWED_HEAD_SHA ({raw_kv['REVIEWED_HEAD_SHA']!r})",
+                MergeGateReason.REVIEW_HEAD_INVALID,
+            )
+        reviewed_task_head = raw_kv["REVIEWED_TASK_HEAD_SHA"]
+    elif has_task_head:
+        reviewed_task_head = raw_kv["REVIEWED_TASK_HEAD_SHA"]
+    else:
+        reviewed_task_head = raw_kv["REVIEWED_HEAD_SHA"]
 
     if not _SHA_RE.fullmatch(reviewed_task_head):
-        raise ContinuityStateValidationError(
-            f"REVIEWED_TASK_HEAD_SHA must be exact 40-hex lowercase SHA: got {reviewed_task_head!r}"
+        raise ReviewHeaderParseError(
+            f"REVIEWED_TASK_HEAD_SHA must be exact lowercase 40-hex SHA: got {reviewed_task_head!r}",
+            MergeGateReason.REVIEW_HEAD_INVALID,
         )
 
-    # Resolve REVIEWED_BASE_MAIN_SHA (or alias BASE_MAIN_SHA)
-    if "REVIEWED_BASE_MAIN_SHA" in raw_kv:
-        reviewed_base_main = raw_kv["REVIEWED_BASE_MAIN_SHA"].lower()
-    elif "BASE_MAIN_SHA" in raw_kv:
-        reviewed_base_main = raw_kv["BASE_MAIN_SHA"].lower()
-    else:
-        raise ContinuityStateValidationError(
-            "Missing required review key: REVIEWED_BASE_MAIN_SHA"
+    # Resolve REVIEWED_BASE_MAIN_SHA (or alias BASE_MAIN_SHA) with conflict check
+    has_base_main = "REVIEWED_BASE_MAIN_SHA" in raw_kv
+    has_base_alias = "BASE_MAIN_SHA" in raw_kv
+    if not has_base_main and not has_base_alias:
+        raise ReviewHeaderParseError(
+            "Missing required review key: REVIEWED_BASE_MAIN_SHA", MergeGateReason.REVIEW_BASE_INVALID
         )
+    if has_base_main and has_base_alias:
+        if raw_kv["REVIEWED_BASE_MAIN_SHA"] != raw_kv["BASE_MAIN_SHA"]:
+            raise ReviewHeaderParseError(
+                f"Conflicting REVIEWED_BASE_MAIN_SHA ({raw_kv['REVIEWED_BASE_MAIN_SHA']!r}) "
+                f"and BASE_MAIN_SHA ({raw_kv['BASE_MAIN_SHA']!r})",
+                MergeGateReason.REVIEW_BASE_INVALID,
+            )
+        reviewed_base_main = raw_kv["REVIEWED_BASE_MAIN_SHA"]
+    elif has_base_main:
+        reviewed_base_main = raw_kv["REVIEWED_BASE_MAIN_SHA"]
+    else:
+        reviewed_base_main = raw_kv["BASE_MAIN_SHA"]
 
     if not _SHA_RE.fullmatch(reviewed_base_main):
-        raise ContinuityStateValidationError(
-            f"REVIEWED_BASE_MAIN_SHA must be exact 40-hex lowercase SHA: got {reviewed_base_main!r}"
+        raise ReviewHeaderParseError(
+            f"REVIEWED_BASE_MAIN_SHA must be exact lowercase 40-hex SHA: got {reviewed_base_main!r}",
+            MergeGateReason.REVIEW_BASE_INVALID,
         )
 
     return {
@@ -321,6 +370,7 @@ class MergeReceipt:
 
 __all__ = [
     "MergeGateReason",
+    "ReviewHeaderParseError",
     "ReviewedMergeInput",
     "MergeGateDecision",
     "MergeReceipt",

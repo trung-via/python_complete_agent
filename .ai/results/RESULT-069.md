@@ -5,42 +5,36 @@ STATUS: READY_FOR_REVIEW
 ## Review Manifest
 ```yaml
 TASK_ID: TASK-069
-ACTION: RUN
+ACTION: FIX
 EXECUTOR_ID: antigravity
 EXECUTOR_FAILOVER: NO
 HOT_HANDOFF: NO
 ```
 
 ## Summary
-Implemented TASK-069 (Lean Auto-Merge & Reviewed-Head Binding under ADR-042): created deterministic merge gate module src/aios_bridge/review_merge.py with immutable ReviewedMergeInput/MergeGateDecision contracts, closed MergeGateReason vocabulary, strict review header parser, and MergeReceipt record; added python bridge.py merge-reviewed TASK-N command performing fast-forward-only mutation without force or re-review/re-testing; updated worker skill/workflow/docs (.agents/skills/aios-worker/SKILL.md, .agents/workflows/aios-worker.md, docs/AIOS_UNIFIED_WORKER_WORKFLOW.md) reflecting ADR-042 standing auto-merge authorization while locking worker executors from merging; and added comprehensive test suites in tests/aios_bridge/test_review_merge.py and tests/test_bridge_review_merge.py (50 targeted passed, 2142 full repo passed).
+Resolved REVIEW-069 Findings B1-B4 for TASK-069: (B1) added deterministic conflict/duplicate-equivalence detection in parse_review_header() failing closed on conflicting alias pairs; (B2) enforced exact case-sensitive token and lowercase 40-hex SHA parsing without silent normalization; (B3) mapped all command-level merge gate parse and preflight failures strictly to closed MergeGateReason vocabulary; (B4) enforced dual remote ref post-fetch and verified both remote main and remote task branch equal exact reviewed task head; and updated test suites in tests/aios_bridge/test_review_merge.py and tests/test_bridge_review_merge.py (61 targeted passed, 2153 full repo passed).
 
 ## Task Metadata
 - Task: `TASK-069`
-- Action: `RUN`
+- Action: `FIX`
 - Executor: `antigravity`
-- Authorized Artifact: `.ai/tasks/TASK-069.md (7f371fc934)`
-- Base Main SHA: `bd4cc149352683de02884cb6da6b55074c74e205`
+- Authorized Artifact: `.ai/reviews/REVIEW-069.md (a217dd401e)`
+- Base Main SHA: `(n/a)`
 - Branch: `ai/task-069`
 
 ## Files Changed
-- .agents/skills/aios-worker/SKILL.md
-- .agents/workflows/aios-worker.md
 - bridge.py
-- docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
 - src/aios_bridge/review_merge.py
 - tests/aios_bridge/test_review_merge.py
 - tests/test_bridge_review_merge.py
 
 ## Diff Stat
 ```text
-.agents/skills/aios-worker/SKILL.md    |   4 +-
- .agents/workflows/aios-worker.md       |   4 +-
- bridge.py                              | 142 ++++++++++++++
- docs/AIOS_UNIFIED_WORKER_WORKFLOW.md   |   5 +-
- src/aios_bridge/review_merge.py        | 329 +++++++++++++++++++++++++++++++++
- tests/aios_bridge/test_review_merge.py | 239 ++++++++++++++++++++++++
- tests/test_bridge_review_merge.py      | 206 +++++++++++++++++++++
- 7 files changed, 923 insertions(+), 6 deletions(-)
+bridge.py                              |  44 ++++++++---
+ src/aios_bridge/review_merge.py        | 136 ++++++++++++++++++++++-----------
+ tests/aios_bridge/test_review_merge.py |  86 ++++++++++++++++-----
+ tests/test_bridge_review_merge.py      | 115 +++++++++++++++++++++++-----
+ 4 files changed, 291 insertions(+), 90 deletions(-)
 ```
 
 ## Tests
@@ -67,17 +61,17 @@ Exit code: 0
 ........................................................................ [ 56%]
 ........................................................................ [ 60%]
 ........................................................................ [ 63%]
-........................................................................ [ 67%]
+........................................................................ [ 66%]
 ........................................................................ [ 70%]
 ........................................................................ [ 73%]
-........................................................................ [ 77%]
+........................................................................ [ 76%]
 ........................................................................ [ 80%]
 ........................................................................ [ 83%]
-........................................................................ [ 87%]
+........................................................................ [ 86%]
 ........................................................................ [ 90%]
 ........................................................................ [ 93%]
-........................................................................ [ 97%]
-.............................................................            [100%]
+........................................................................ [ 96%]
+........................................................................ [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -380,7 +374,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-2142 passed, 7 skipped, 1540 warnings in 214.11s (0:03:34)
+2153 passed, 7 skipped, 1540 warnings in 210.49s (0:03:30)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -392,33 +386,27 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 TARGETED_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/aios_bridge/test_review_merge.py tests/test_bridge_review_merge.py -q
 Exit code: 0
-Result: 50 passed, 0 skipped, 0 failed
+Result: 61 passed, 0 skipped, 0 failed
 
 FULL_REPOSITORY_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/ -q
 Exit code: 0
-Result: 2142 passed, 7 skipped, 0 failed
+Result: 2153 passed, 7 skipped, 0 failed
 
 DIAGNOSTIC_EVIDENCE:
-TASK_069_CLASS: LEAN_AUTO_MERGE_REVIEWED_HEAD_BINDING
+TASK_069_FIX: COMPLETED
+B1_ALIAS_CONFLICT_FAIL_CLOSED: PASS
+B2_EXACT_AUTHORITY_TOKEN_PARSING: PASS
+B3_CLOSED_COMMAND_REASON_VOCABULARY: PASS
+B4_POST_MERGE_DUAL_REF_IDENTITY: PASS
+POST_FETCH_VERIFIED: YES
+CLOSED_REASON_CODES: 14
 STANDING_AUTO_MERGE_AUTHORIZATION: ENABLED
-SECOND_HUMAN_MERGE_CONFIRMATION_REQUIRED: NO
 WORKER_MERGE_AUTHORITY: NO
-CHATGPT_PASS_REVIEW_REQUIRED: YES
-STRICT_REVIEW_HEADER_PARSER: PASS
-EXACT_REVIEWED_HEAD_BINDING: PASS
-EXACT_REVIEWED_BASE_MAIN_BINDING: PASS
-TASK_HEAD_DRIFT_FAIL_CLOSED: PASS
-MAIN_DRIFT_FAIL_CLOSED: PASS
-FAST_FORWARD_ONLY: PASS
-FORCE_UPDATE_ALLOWED: NO
-POST_MERGE_IDENTITY_REQUIRED: YES
-MERGE_REAUDIT_REQUIRED: NO
-NO_FULL_TEST_RERUN_DURING_MERGE: YES
 PAID_API_USED: NO
 H0_CHANGED: NO
 H1_STARTED: NO
 SCOPE_EXACT: YES
 
 ## Generated
-2026-08-23T14:08:11+07:00
+2026-08-23T14:23:00+07:00
