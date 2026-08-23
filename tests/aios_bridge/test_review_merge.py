@@ -1,8 +1,21 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+import subprocess
+from types import SimpleNamespace
+
 import pytest
 
+import bridge
 from src.aios_bridge.continuity.errors import ContinuityStateValidationError
+from src.aios_bridge.roadmap_governance import (
+    H_SERIES_ROADMAP_BLOB_SHA,
+    H_SERIES_ROADMAP_PATH,
+    RoadmapTaskBinding,
+    git_blob_sha,
+    parse_canonical_roadmap,
+)
 from src.aios_bridge.review_merge import (
     MergeGateDecision,
     MergeGateReason,
@@ -16,6 +29,13 @@ from src.aios_bridge.review_merge import (
 
 VALID_TASK_SHA = "a" * 40
 VALID_MAIN_SHA = "b" * 40
+CONTROL_SHA = "c" * 40
+CANONICAL_TASK_BLOB_SHA = "d" * 40
+ROADMAP_BYTES = subprocess.run(
+    ["git", "cat-file", "blob", H_SERIES_ROADMAP_BLOB_SHA],
+    check=True,
+    stdout=subprocess.PIPE,
+).stdout
 
 
 def _valid_input(**kwargs: object) -> ReviewedMergeInput:
@@ -341,3 +361,193 @@ def test_merge_receipt_dataclass_and_json() -> None:
     assert d["gate_reason"] == "PASS_ELIGIBLE"
     assert d["post_merge_identity_verified"] is True
     assert '"task_id": "TASK-069"' in receipt.to_json()
+
+
+def _governed_command_artifacts(*, audit: str) -> tuple[str, str]:
+    roadmap = parse_canonical_roadmap(
+        ROADMAP_BYTES,
+        artifact_path=H_SERIES_ROADMAP_PATH,
+        expected_blob_sha=git_blob_sha(ROADMAP_BYTES),
+    )
+    milestone = roadmap.milestone("H0")
+    binding = RoadmapTaskBinding(
+        roadmap_id=roadmap.roadmap_id,
+        roadmap_version=roadmap.roadmap_version,
+        roadmap_blob_sha=roadmap.roadmap_blob_sha,
+        roadmap_fingerprint=roadmap.roadmap_fingerprint,
+        roadmap_fingerprint_algorithm_version=roadmap.algorithm_version,
+        milestone="H0",
+        capability_id=milestone.capability_id,
+        requirement_bindings=(milestone.requirements[0],),
+        scope_in=("bounded",),
+        scope_out=("authority",),
+    )
+    policy = {
+        "allow_paid_api": False,
+        "candidates": [{
+            "capacity_class": "SUBSCRIPTION",
+            "executor_id": "codex",
+            "preference_rank": 0,
+            "supported_capabilities": ["SHELL"],
+            "supported_operations": ["RUN"],
+        }],
+        "operation": "RUN",
+        "required_capabilities": ["SHELL"],
+    }
+    task = f"""# TASK-069 — H0 governed implementation
+STATUS: READY
+PUBLISHER_PROFILE: CANONICAL_E4
+CLASS: AIOS ENGINEERING H-SERIES
+MILESTONE: H0
+ROADMAP_BINDING_JSON: {json.dumps(binding.to_dict(), separators=(',', ':'))}
+EXECUTOR_CONTEXT_REFS_JSON: [{{"path":"{H_SERIES_ROADMAP_PATH}","blob_sha":"{H_SERIES_ROADMAP_BLOB_SHA}"}}]
+EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py"]
+DISPATCH_EXECUTOR_POLICY_JSON: {json.dumps(policy, separators=(',', ':'))}
+"""
+    audit_lines = ""
+    if audit != "missing":
+        fingerprint = "0" * 64 if audit == "wrong" else binding.roadmap_fingerprint
+        audit_lines = f"""ROADMAP_AUDIT: PASS
+ROADMAP_ID: {binding.roadmap_id}
+ROADMAP_VERSION: {binding.roadmap_version}
+ROADMAP_BLOB_SHA: {binding.roadmap_blob_sha}
+ROADMAP_FINGERPRINT: {fingerprint}
+MILESTONE: {binding.milestone}
+CAPABILITY_ID: {binding.capability_id}
+REQUIREMENT_BINDINGS_FINGERPRINT: {binding.requirement_bindings_fingerprint()}
+"""
+    review = f"""# REVIEW-069 — governed review
+STATUS: PASS
+APPROVED: YES
+AUTO_MERGE_ELIGIBLE: YES
+REVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}
+REVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}
+TASK_ARTIFACT_BLOB_SHA: {CANONICAL_TASK_BLOB_SHA}
+{audit_lines}
+## Findings
+Bounded review.
+"""
+    return task, review
+
+
+@pytest.mark.parametrize(
+    "case,expected_reason",
+    (
+        ("missing_audit", MergeGateReason.ROADMAP_AUDIT_MISSING),
+        ("wrong_roadmap", MergeGateReason.ROADMAP_IDENTITY_MISMATCH),
+        ("wrong_task_blob", MergeGateReason.ROADMAP_TASK_INVALID),
+        ("missing_task", MergeGateReason.ROADMAP_TASK_MISSING),
+    ),
+)
+def test_cmd_merge_reviewed_governed_control_evidence_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture,
+    case: str,
+    expected_reason: MergeGateReason,
+) -> None:
+    audit = (
+        "missing" if case == "missing_audit"
+        else "wrong" if case == "wrong_roadmap"
+        else "exact"
+    )
+    task, review = _governed_command_artifacts(audit=audit)
+    if case == "wrong_task_blob":
+        review = review.replace(CANONICAL_TASK_BLOB_SHA, "e" * 40)
+    pushes = _install_governed_merge_command(
+        monkeypatch,
+        tmp_path,
+        task=task,
+        review=review,
+        task_missing=case == "missing_task",
+    )
+    with pytest.raises(SystemExit):
+        bridge.cmd_merge_reviewed(SimpleNamespace(task_id=69))
+    assert pushes == []
+    assert f"[MERGE_GATE] {expected_reason.value}:" in capsys.readouterr().out
+
+
+def test_cmd_merge_reviewed_exact_control_roadmap_reaches_existing_gates(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    task, review = _governed_command_artifacts(audit="exact")
+    pushes = _install_governed_merge_command(
+        monkeypatch,
+        tmp_path,
+        task=task,
+        review=review,
+    )
+    receipt = bridge.cmd_merge_reviewed(SimpleNamespace(task_id=69))
+    assert receipt.gate_reason == MergeGateReason.PASS_ELIGIBLE.value
+    assert pushes == [["push", "origin", f"{VALID_TASK_SHA}:refs/heads/main"]]
+
+
+def _install_governed_merge_command(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    *,
+    task: str,
+    review: str,
+    task_missing: bool = False,
+) -> list[list[str]]:
+    pushed = False
+    pushes: list[list[str]] = []
+    monkeypatch.setattr(bridge, "ensure_git", lambda: None)
+    monkeypatch.setattr(bridge, "load_config", lambda: {
+        "remote": "origin",
+        "base_branch": "main",
+        "control_branch": "ai-control",
+        "task_branch_prefix": "ai/task-",
+    })
+    monkeypatch.setattr(
+        bridge,
+        "get_runtime_paths",
+        lambda repo_root=None: {"root": tmp_path / "runtime"},
+    )
+    monkeypatch.setattr(
+        bridge,
+        "resolve_exact_roadmap_bytes",
+        lambda ref, path, blob: ROADMAP_BYTES,
+    )
+
+    def fake_git(*args: str, check: bool = True) -> SimpleNamespace:
+        nonlocal pushed
+        op = args[0]
+        if op == "fetch":
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        if op == "show":
+            target = args[1]
+            if target.endswith(".ai/reviews/REVIEW-069.md"):
+                return SimpleNamespace(returncode=0, stdout=review, stderr="")
+            if target.endswith(".ai/tasks/TASK-069.md"):
+                return SimpleNamespace(
+                    returncode=1 if task_missing else 0,
+                    stdout="" if task_missing else task,
+                    stderr="missing" if task_missing else "",
+                )
+        if op == "rev-parse":
+            target = args[1]
+            if target == "refs/remotes/origin/ai-control":
+                value = CONTROL_SHA
+            elif target.endswith(":.ai/tasks/TASK-069.md"):
+                if task_missing:
+                    return SimpleNamespace(returncode=1, stdout="", stderr="missing")
+                value = CANONICAL_TASK_BLOB_SHA
+            elif target == "refs/remotes/origin/main":
+                value = VALID_TASK_SHA if pushed else VALID_MAIN_SHA
+            else:
+                value = VALID_TASK_SHA
+            return SimpleNamespace(returncode=0, stdout=value + "\n", stderr="")
+        if op == "merge-base":
+            return SimpleNamespace(returncode=0, stdout=VALID_MAIN_SHA + "\n", stderr="")
+        if op == "rev-list":
+            return SimpleNamespace(returncode=0, stdout="0\t1\n", stderr="")
+        if op == "push":
+            pushes.append(list(args))
+            pushed = True
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(bridge, "git", fake_git)
+    return pushes

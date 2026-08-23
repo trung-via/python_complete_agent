@@ -28,6 +28,8 @@ MAX_BINDING_JSON_BYTES = 32768
 MAX_BINDING_LIST_ITEMS = 64
 MAX_BINDING_STRING_CHARS = 512
 MAX_EVIDENCE_CHARS = 2048
+MAX_COMPLETION_RECORDS_BYTES = 131072
+MAX_COMPLETION_RECORDS = 64
 
 _BLOB_SHA_RE = re.compile(r"\A[0-9a-f]{40}\Z")
 _FINGERPRINT_RE = re.compile(r"\A[0-9a-f]{64}\Z")
@@ -282,6 +284,12 @@ class MilestoneCompletionRecord:
         fingerprint = _completion_record_fingerprint(values)
         return cls(**values, record_fingerprint=fingerprint)
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            **_completion_record_payload(self.__dict__),
+            "record_fingerprint": self.record_fingerprint,
+        }
+
 
 @dataclass(frozen=True)
 class RoadmapPreflightDecision:
@@ -524,6 +532,163 @@ def _strict_json_object(payload: str) -> dict[str, Any]:
     if type(result) is not dict:
         raise RoadmapGovernanceError("ROADMAP_BINDING_JSON root must be a strict object")
     return result
+
+
+def milestone_completion_artifact_path(roadmap: CanonicalRoadmap) -> str:
+    """Return the one canonical control-plane completion artifact for a roadmap."""
+    if not isinstance(roadmap, CanonicalRoadmap):
+        raise RoadmapGovernanceError("roadmap must be CanonicalRoadmap")
+    suffix = ".md"
+    if not roadmap.artifact_path.endswith(suffix):
+        raise RoadmapGovernanceError("Canonical roadmap artifact path must end in .md")
+    return f"{roadmap.artifact_path[:-len(suffix)]}.completions.json"
+
+
+def parse_milestone_completion_records(
+    exact_bytes: bytes,
+    *,
+    roadmap: CanonicalRoadmap,
+) -> tuple[MilestoneCompletionRecord, ...]:
+    """Parse strict completion records from exact authoritative control bytes."""
+    if type(exact_bytes) is not bytes or not exact_bytes:
+        raise RoadmapGovernanceError("Milestone completion artifact must be exact non-empty bytes")
+    if len(exact_bytes) > MAX_COMPLETION_RECORDS_BYTES:
+        raise RoadmapGovernanceError("Milestone completion artifact exceeds bounded size")
+    try:
+        payload = exact_bytes.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise RoadmapGovernanceError("Milestone completion artifact must be strict UTF-8") from exc
+
+    def pairs_hook(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise RoadmapGovernanceError(
+                    f"Duplicate milestone completion field {key!r}"
+                )
+            result[key] = value
+        return result
+
+    def reject_constant(value: str) -> None:
+        raise RoadmapGovernanceError(f"Non-finite JSON constant rejected: {value}")
+
+    try:
+        data = json.loads(
+            payload,
+            object_pairs_hook=pairs_hook,
+            parse_constant=reject_constant,
+        )
+    except RoadmapGovernanceError:
+        raise
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise RoadmapGovernanceError(
+            f"Malformed milestone completion artifact: {exc}"
+        ) from exc
+    if type(data) is not dict:
+        raise RoadmapGovernanceError("Milestone completion artifact root must be an object")
+
+    envelope_keys = {
+        "schema_version",
+        "roadmap_id",
+        "roadmap_version",
+        "roadmap_blob_sha",
+        "roadmap_fingerprint",
+        "roadmap_fingerprint_algorithm_version",
+        "records",
+    }
+    if set(data) != envelope_keys:
+        missing = sorted(envelope_keys - set(data))
+        extra = sorted(set(data) - envelope_keys)
+        raise RoadmapGovernanceError(
+            f"Milestone completion artifact keys must be exact; missing={missing}, extra={extra}"
+        )
+    if data["schema_version"] != "1":
+        raise RoadmapGovernanceError("Unsupported milestone completion schema_version")
+    envelope_pairs = (
+        ("roadmap_id", roadmap.roadmap_id),
+        ("roadmap_version", roadmap.roadmap_version),
+        ("roadmap_blob_sha", roadmap.roadmap_blob_sha),
+        ("roadmap_fingerprint", roadmap.roadmap_fingerprint),
+        ("roadmap_fingerprint_algorithm_version", roadmap.algorithm_version),
+    )
+    for field_name, expected in envelope_pairs:
+        if type(data[field_name]) is not str or data[field_name] != expected:
+            raise RoadmapGovernanceError(
+                f"Milestone completion artifact {field_name} mismatch"
+            )
+    raw_records = data["records"]
+    if type(raw_records) is not list or len(raw_records) > MAX_COMPLETION_RECORDS:
+        raise RoadmapGovernanceError("records must be a bounded JSON list")
+
+    record_keys = {
+        "roadmap_id",
+        "roadmap_version",
+        "roadmap_blob_sha",
+        "roadmap_fingerprint",
+        "roadmap_fingerprint_algorithm_version",
+        "milestone",
+        "capability_id",
+        "requirement_evidence",
+        "unresolved_requirements",
+        "unresolved_blockers",
+        "status",
+        "record_fingerprint",
+    }
+    parsed: list[MilestoneCompletionRecord] = []
+    seen_milestones: set[str] = set()
+    for index, item in enumerate(raw_records):
+        if type(item) is not dict or set(item) != record_keys:
+            missing = sorted(record_keys - set(item)) if type(item) is dict else sorted(record_keys)
+            extra = sorted(set(item) - record_keys) if type(item) is dict else []
+            raise RoadmapGovernanceError(
+                f"Completion record {index} keys must be exact; missing={missing}, extra={extra}"
+            )
+        if type(item["requirement_evidence"]) is not dict:
+            raise RoadmapGovernanceError(
+                f"Completion record {index} requirement_evidence must be an object"
+            )
+        for list_field in ("unresolved_requirements", "unresolved_blockers"):
+            if type(item[list_field]) is not list or any(
+                type(value) is not str for value in item[list_field]
+            ):
+                raise RoadmapGovernanceError(
+                    f"Completion record {index} {list_field} must be a JSON string list"
+                )
+        scalar_fields = record_keys - {
+            "requirement_evidence", "unresolved_requirements", "unresolved_blockers"
+        }
+        if any(type(item[field]) is not str for field in scalar_fields):
+            raise RoadmapGovernanceError(
+                f"Completion record {index} scalar fields must be exact strings"
+            )
+        record = MilestoneCompletionRecord(
+            roadmap_id=item["roadmap_id"],
+            roadmap_version=item["roadmap_version"],
+            roadmap_blob_sha=item["roadmap_blob_sha"],
+            roadmap_fingerprint=item["roadmap_fingerprint"],
+            roadmap_fingerprint_algorithm_version=item[
+                "roadmap_fingerprint_algorithm_version"
+            ],
+            milestone=item["milestone"],
+            capability_id=item["capability_id"],
+            requirement_evidence=item["requirement_evidence"],
+            unresolved_requirements=tuple(item["unresolved_requirements"]),
+            unresolved_blockers=tuple(item["unresolved_blockers"]),
+            status=item["status"],
+            record_fingerprint=item["record_fingerprint"],
+        )
+        if record.milestone in seen_milestones:
+            raise RoadmapGovernanceError(
+                f"Duplicate completion record for {record.milestone}"
+            )
+        seen_milestones.add(record.milestone)
+        decision = validate_milestone_completion(record, roadmap)
+        if not decision.allowed:
+            raise RoadmapGovernanceError(
+                f"Invalid completion record for {record.milestone}: {decision.message}"
+            )
+        parsed.append(record)
+    return tuple(parsed)
 
 
 def _top_level_marker_payloads(content: str, marker: str) -> list[str]:
@@ -1040,6 +1205,7 @@ __all__ = [
     "parse_roadmap_task_binding", "task_header_fields", "claimed_h_milestones",
     "task_requires_roadmap_governance", "requirement_bindings_fingerprint",
     "validate_task_binding", "evaluate_roadmap_preflight", "require_roadmap_preflight",
+    "milestone_completion_artifact_path", "parse_milestone_completion_records",
     "validate_milestone_completion", "may_open_milestone", "validate_controlled_evolution",
     "impact_cone", "detect_task_roadmap_drift",
 ]

@@ -44,6 +44,8 @@ class MergeGateReason(str, Enum):
     ROADMAP_CAPABILITY_MISMATCH = "ROADMAP_CAPABILITY_MISMATCH"
     ROADMAP_BINDING_FINGERPRINT_MISMATCH = "ROADMAP_BINDING_FINGERPRINT_MISMATCH"
     ROADMAP_CURRENT_DRIFT = "ROADMAP_CURRENT_DRIFT"
+    ROADMAP_TASK_MISSING = "ROADMAP_TASK_MISSING"
+    ROADMAP_TASK_INVALID = "ROADMAP_TASK_INVALID"
 
 
 class ReviewHeaderParseError(ContinuityStateValidationError):
@@ -489,6 +491,13 @@ def parse_review_header(review_text: str) -> dict[str, Any]:
             MergeGateReason.REVIEW_BASE_INVALID,
         )
 
+    task_artifact_blob_sha = raw_kv.get("TASK_ARTIFACT_BLOB_SHA")
+    if task_artifact_blob_sha is not None and not _SHA_RE.fullmatch(task_artifact_blob_sha):
+        raise ReviewHeaderParseError(
+            "TASK_ARTIFACT_BLOB_SHA must be exact lowercase 40-hex SHA",
+            MergeGateReason.ROADMAP_TASK_INVALID,
+        )
+
     roadmap_keys = (
         "ROADMAP_AUDIT", "ROADMAP_ID", "ROADMAP_VERSION", "ROADMAP_BLOB_SHA",
         "ROADMAP_FINGERPRINT", "MILESTONE", "CAPABILITY_ID",
@@ -525,6 +534,7 @@ def parse_review_header(review_text: str) -> dict[str, Any]:
         "auto_merge_eligible": auto_merge_eligible,
         "reviewed_task_head_sha": reviewed_task_head,
         "reviewed_base_main_sha": reviewed_base_main,
+        "task_artifact_blob_sha": task_artifact_blob_sha,
         "roadmap_audit": roadmap_audit,
     }
 

@@ -36,8 +36,8 @@ completion when their capability identity differs from the locked roadmap.
 
 | Canonical milestone | Canonical capability | Classification | Principal evidence | Canonical gap |
 |---|---|---|---|---|
-| H0 | Harness & Learning Boundary Contract | COMPLETE | ADR-038, TASK-066, REVIEW-066, `contracts.py` / `fingerprint.py` | None found |
-| H1 | Repository + Experience Manifest | COMPLETE | ADR-043, TASK-070, REVIEW-070, `discovery.py` | None found at manifest/inventory layer |
+| H0 | Harness & Learning Boundary Contract | COMPLETE (formal completion record still required for progression) | ADR-038, TASK-066, REVIEW-066, `contracts.py` / `fingerprint.py` | Formal ADR-050 completion record |
+| H1 | Repository + Experience Manifest | PARTIAL | ADR-043, TASK-070, REVIEW-070, `discovery.py` | Independent `ai-control` experience manifest and dual-provenance binding are missing |
 | H2 | Structural + Experience Graph | PARTIAL | TASK-072 ranking, TASK-075 symbol evidence, preserved TASK-076 import graph | Component graph and experience graph are incomplete |
 | H3 | Role Summaries + Executor Tendencies | PARTIAL | ADR-048, TASK-075, REVIEW-075, `roles.py` | Executor tendencies absent; negative ownership coverage is incomplete |
 | H4 | Knowledge Registry | MISSING | No canonical registry implementation | H4.R1-H4.R4 all missing |
@@ -76,23 +76,29 @@ from PASS.
 
 Canonical capability: `H1_REPOSITORY_EXPERIENCE_MANIFEST`.
 
-Classification: **COMPLETE** at the manifest/inventory layer.
+Classification: **PARTIAL**.
 
 - H1.R1 is evidenced by exact-commit recursive Git-tree discovery of regular
   repository blobs, deterministic path classification, canonical path ordering,
   exact commit/tree/blob provenance, and explicit exclusion accounting.
-- H1.R2 is evidenced by the same inventory covering provenance-bearing `.ai`
-  TASK, RESULT, review, decision, and learning artifacts without interpreting
-  their authority. Semantic relationships among this experience evidence belong
-  to H2.R2 and are not claimed here.
-- H1.R3 is evidenced by `RepositoryDiscoveryResult`, candidate/discovery
+- H1.R2 is incomplete. The discovery implementation inventories one supplied
+  Git commit/tree only; it has no independent control-plane snapshot/ref input.
+  In the audited topology, `main` carries repository code and `.ai/results`,
+  while canonical `.ai/tasks`, `.ai/reviews`, and `.ai/decisions` live on
+  `ai-control`. A manifest of `main` therefore cannot establish the required
+  TASK/RESULT/review/decision/learning experience inventory.
+- H1.R3 is partial. `RepositoryDiscoveryResult`, candidate/discovery
   fingerprints, local-only Git plumbing with lazy fetch disabled, closed child
-  environment, and zero-authority receipts.
+  environment, and zero-authority receipts bind repository snapshot provenance.
+  They do not bind that repository snapshot to a separately frozen exact
+  `ai-control` commit/tree/blob provenance surface.
 
 REVIEW-070 binds the final implementation to
 `2eb9822bfcd923bd937598def9fcf1f2c93b6c9b` and records 2,216 passing tests.
-The inventory is a reusable H2 input; it is not itself a structural or experience
-graph.
+The repository inventory is substantial and reusable, but canonical H1 remains
+open until a bounded control-plane experience manifest and exact repository ↔
+`ai-control` provenance binding exist. It is not itself a structural or
+experience graph.
 
 ### H2 — Structural + Experience Graph
 
@@ -249,16 +255,25 @@ or merge authority to the worker.
 ## 6. Conclusion and safe next canonical work
 
 ```text
-TRUE_EARLIEST_INCOMPLETE_CANONICAL_MILESTONE: H2
-SAFE_NEXT_CANONICAL_CAPABILITY: H2_STRUCTURAL_EXPERIENCE_GRAPH
+H0: COMPLETE (SUBJECT_TO_FORMAL_COMPLETION_RECORD)
+H1: PARTIAL
+  - repository manifest/provenance: substantial/present
+  - control-plane experience manifest: missing/incomplete
+H2: PARTIAL
+H3: PARTIAL
+H4-H8: MISSING
+TRUE_EARLIEST_INCOMPLETE_CANONICAL_MILESTONE: H1
+SAFE_NEXT_CANONICAL_CAPABILITY: H1_REPOSITORY_EXPERIENCE_MANIFEST
 NEXT_REQUIRED_SCOPE:
-  - complete file → symbol → component structural relationships
-  - add provenance-bound component/invariant/task/review-finding/executor experience relationships
-  - integrate reusable ranking, role/symbol, and import-graph evidence under one bounded canonical graph contract
+  - retain the exact repository commit/tree/blob manifest
+  - add a separately frozen ai-control experience manifest covering TASK/RESULT/review/decision/learning evidence
+  - bind repository and control-plane provenance without creating authority
 TASK_076: PRESERVE_AND_REBIND_BEFORE_MERGE
 CANONICAL_H4_KNOWLEDGE_REGISTRY: NOT_STARTED
 H5_IMPLEMENTATION_AUTHORIZED: NO
 ```
 
-Governance installation does not itself complete H2, authorize H5, or convert any
+H2/H3/TASK-076 evidence remains reusable downstream; correcting canonical
+progression does not discard it. Governance installation does not itself
+complete H1, authorize H5, or convert any
 historical PASS review into a canonical milestone-completion record.

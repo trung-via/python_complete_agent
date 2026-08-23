@@ -858,6 +858,28 @@ def resolve_exact_roadmap_bytes(ref: str, path: str, expected_blob_sha: str) -> 
     return read_git_blob_bytes(ref, path)
 
 
+def resolve_control_commit_sha(cfg: dict) -> str:
+    """Freeze the current authoritative control tracking ref to one exact commit."""
+    proc = _run_git_binary("rev-parse", remote_ref(cfg))
+    if proc.returncode != 0:
+        raise ContinuityStateValidationError("Unable to resolve authoritative control commit")
+    try:
+        value = proc.stdout.decode("ascii").strip()
+    except UnicodeDecodeError as exc:
+        raise ContinuityStateValidationError("Control commit SHA was not ASCII") from exc
+    if re.fullmatch(r"[0-9a-f]{40}", value) is None:
+        raise ContinuityStateValidationError(
+            "Authoritative control commit must be exact lowercase 40-hex"
+        )
+    return value
+
+
+def resolve_exact_control_artifact_bytes(ref: str, path: str) -> bytes:
+    """Read one artifact as exact Git bytes from an already-frozen control commit."""
+    resolve_git_blob_sha(ref, path)
+    return read_git_blob_bytes(ref, path)
+
+
 def resolve_e4_control_snapshot(cfg: dict, auth: dict) -> dict:
     """Freeze and validate one exact control commit for E4 launch."""
     fetch_control(cfg)
@@ -889,6 +911,30 @@ def resolve_e4_control_snapshot(cfg: dict, auth: dict) -> dict:
         auth_operation = ExecutionOperation(auth.get("action"))
     except (TypeError, ValueError) as exc:
         raise ContinuityStateValidationError("Authorization action must be exact RUN or FIX") from exc
+
+    roadmap_task_content = None
+    roadmap_task_work_path = None
+    roadmap_task_blob_sha = None
+    if auth_operation is ExecutionOperation.FIX:
+        task_match = re.fullmatch(r"\.ai/reviews/REVIEW-([0-9]+)\.md", work_path)
+        if task_match is None:
+            raise ContinuityStateValidationError(
+                "FIX authorization review path cannot resolve canonical TASK identity"
+            )
+        roadmap_task_work_path = (
+            f".ai/tasks/TASK-{int(task_match.group(1)):03d}.md"
+        )
+        roadmap_task_blob_sha = resolve_git_blob_sha(
+            control_commit_sha, roadmap_task_work_path
+        )
+        task_bytes = read_git_blob_bytes(control_commit_sha, roadmap_task_work_path)
+        try:
+            roadmap_task_content = task_bytes.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise ContinuityStateValidationError(
+                "Canonical TASK artifact must be strict UTF-8"
+            ) from exc
+
     executor_id = auth.get("executor_id")
     preflight = preflight_executable_artifact(
         work_content,
@@ -898,6 +944,12 @@ def resolve_e4_control_snapshot(cfg: dict, auth: dict) -> dict:
         require_explicit_profile=False,
         roadmap_resolver=lambda path, blob_sha: resolve_exact_roadmap_bytes(
             control_commit_sha, path, blob_sha
+        ),
+        roadmap_task_content=roadmap_task_content,
+        roadmap_task_work_path=roadmap_task_work_path,
+        roadmap_task_blob_sha=roadmap_task_blob_sha,
+        milestone_completion_resolver=lambda path: resolve_exact_control_artifact_bytes(
+            control_commit_sha, path
         ),
     )
     markers = preflight.markers
@@ -2493,6 +2545,19 @@ def cmd_handoff(args):
 
     fetch_control(cfg)
     paths = get_runtime_paths()
+    frozen_control_commit: str | None = None
+
+    def control_commit() -> str:
+        nonlocal frozen_control_commit
+        if frozen_control_commit is None:
+            frozen_control_commit = resolve_control_commit_sha(cfg)
+        return frozen_control_commit
+
+    def roadmap_bytes(path: str, expected_blob: str) -> bytes:
+        return resolve_exact_roadmap_bytes(control_commit(), path, expected_blob)
+
+    def completion_bytes(path: str) -> bytes:
+        return resolve_exact_control_artifact_bytes(control_commit(), path)
 
     if action == "RUN":
         artifact_rel = f".ai/tasks/TASK-{task_id:03d}.md"
@@ -2506,6 +2571,20 @@ def cmd_handoff(args):
         if not content.strip():
             fail(f"Task artifact '{artifact_rel}' bị rỗng.")
 
+        governed_task = task_requires_roadmap_governance(content) or (
+            "ROADMAP_BINDING_JSON:" in content
+        )
+        if governed_task:
+            try:
+                exact_task_blob = resolve_git_blob_sha(control_commit(), artifact_rel)
+                if exact_task_blob != blob_sha:
+                    raise ContinuityStateValidationError(
+                        "Governed RUN task drifted while freezing exact control evidence"
+                    )
+                content = read_git_blob_bytes(control_commit(), artifact_rel).decode("utf-8")
+            except (ContinuityStateValidationError, UnicodeDecodeError) as exc:
+                fail(f"Governed RUN control evidence resolution failed: {exc}")
+
         task_ident = f"TASK-{task_id:03d}"
         if not re.search(rf"\b{re.escape(task_ident)}\b", content, re.IGNORECASE):
             fail(
@@ -2518,9 +2597,8 @@ def cmd_handoff(args):
                 work_path=artifact_rel,
                 operation=ExecutionOperation.RUN,
                 selected_executor=selected_executor,
-                roadmap_resolver=lambda path, expected_blob: resolve_exact_roadmap_bytes(
-                    remote_ref(cfg), path, expected_blob
-                ),
+                roadmap_resolver=roadmap_bytes,
+                milestone_completion_resolver=completion_bytes,
             )
         except Exception as exc:
             fail(f"Executable task artifact preflight failed: {exc}")
@@ -2605,15 +2683,46 @@ def cmd_handoff(args):
                 f"REVIEW-{task_id:03d} có trạng thái '{status or 'UNSPECIFIED'}', không phải CHANGES_REQUIRED. Không thể FIX."
             )
 
+        task_artifact_rel = f".ai/tasks/TASK-{task_id:03d}.md"
+        task_blob_sha = get_remote_blob_sha(cfg, task_artifact_rel)
+        if not task_blob_sha:
+            fail(
+                f"Không tìm thấy canonical task artifact '{task_artifact_rel}' trên control branch "
+                f"'{cfg['control_branch']}'."
+            )
+        task_content = read_remote_file(cfg, task_artifact_rel)
+        if not task_content.strip():
+            fail(f"Canonical task artifact '{task_artifact_rel}' bị rỗng.")
+
+        governed_task = task_requires_roadmap_governance(task_content) or (
+            "ROADMAP_BINDING_JSON:" in task_content
+        )
+        if governed_task:
+            try:
+                exact_review_blob = resolve_git_blob_sha(control_commit(), artifact_rel)
+                exact_task_blob = resolve_git_blob_sha(control_commit(), task_artifact_rel)
+                if exact_review_blob != blob_sha or exact_task_blob != task_blob_sha:
+                    raise ContinuityStateValidationError(
+                        "Governed FIX control artifacts drifted while freezing exact evidence"
+                    )
+                content = read_git_blob_bytes(control_commit(), artifact_rel).decode("utf-8")
+                task_content = read_git_blob_bytes(
+                    control_commit(), task_artifact_rel
+                ).decode("utf-8")
+            except (ContinuityStateValidationError, UnicodeDecodeError) as exc:
+                fail(f"Governed FIX control evidence resolution failed: {exc}")
+
         try:
             preflight = preflight_executable_artifact(
                 content,
                 work_path=artifact_rel,
                 operation=ExecutionOperation.FIX,
                 selected_executor=selected_executor,
-                roadmap_resolver=lambda path, expected_blob: resolve_exact_roadmap_bytes(
-                    remote_ref(cfg), path, expected_blob
-                ),
+                roadmap_resolver=roadmap_bytes,
+                roadmap_task_content=task_content,
+                roadmap_task_work_path=task_artifact_rel,
+                roadmap_task_blob_sha=task_blob_sha,
+                milestone_completion_resolver=completion_bytes,
             )
         except Exception as exc:
             fail(f"Executable review artifact preflight failed: {exc}")
@@ -5290,9 +5399,18 @@ def cmd_merge_reviewed(args):
         print(f"[MERGE_GATE] GIT_OPERATION_FAILED: Failed to fetch remote refs for merge: {p_fetch.stderr.strip()}")
         sys.exit(1)
 
+    control_ref = f"refs/remotes/{remote}/{control_branch}"
+    p_control = git("rev-parse", control_ref, check=False)
+    if p_control.returncode != 0 or re.fullmatch(
+        r"[0-9a-f]{40}", p_control.stdout.strip().lower()
+    ) is None:
+        print("[MERGE_GATE] GIT_OPERATION_FAILED: Cannot freeze authoritative control commit")
+        sys.exit(1)
+    control_commit_sha = p_control.stdout.strip().lower()
+
     # 2. Read review artifact from control branch
     review_path = f".ai/reviews/REVIEW-{task_num:03d}.md"
-    res = git("show", f"refs/remotes/{remote}/{control_branch}:{review_path}", check=False)
+    res = git("show", f"{control_commit_sha}:{review_path}", check=False)
     if res.returncode != 0 or not res.stdout.strip():
         print(f"[MERGE_GATE] REVIEW_MISSING: Cannot read {review_path} from {remote}/{control_branch}")
         sys.exit(1)
@@ -5351,41 +5469,64 @@ def cmd_merge_reviewed(args):
     task_roadmap_binding = None
     current_roadmap = None
     task_path = f".ai/tasks/TASK-{task_num:03d}.md"
-    p_task_artifact = git("show", f"{current_task_head_sha}:{task_path}", check=False)
-    if p_task_artifact.returncode == 0 and p_task_artifact.stdout.strip():
-        task_text = p_task_artifact.stdout
-        roadmap_governed = task_requires_roadmap_governance(task_text)
-        if roadmap_governed:
-            try:
-                task_roadmap_binding = parse_roadmap_task_binding(task_text)
-                registration = DEFAULT_ROADMAP_REGISTRY.get(
-                    (task_roadmap_binding.roadmap_id, task_roadmap_binding.roadmap_version)
-                )
-                if registration is None:
-                    raise ContinuityStateValidationError("Task-bound roadmap is not registered")
-                exact_roadmap_bytes = resolve_exact_roadmap_bytes(
-                    current_main_sha,
-                    registration.artifact_path,
-                    registration.roadmap_blob_sha,
-                )
-                current_roadmap = parse_canonical_roadmap(
-                    exact_roadmap_bytes,
-                    artifact_path=registration.artifact_path,
-                    expected_blob_sha=registration.roadmap_blob_sha,
-                )
-                task_markers = parse_executor_automation_markers(
-                    task_text,
-                    work_path=task_path,
-                )
-                validate_task_binding(
-                    task_text,
-                    task_roadmap_binding,
-                    current_roadmap,
-                    context_refs=task_markers.context_refs,
-                )
-            except Exception as exc:
-                print(f"[MERGE_GATE] ROADMAP_CURRENT_DRIFT: Roadmap gate input invalid: {exc}")
-                sys.exit(1)
+    p_task_blob = git("rev-parse", f"{control_commit_sha}:{task_path}", check=False)
+    if p_task_blob.returncode != 0 or re.fullmatch(
+        r"[0-9a-f]{40}", p_task_blob.stdout.strip().lower()
+    ) is None:
+        print(
+            f"[MERGE_GATE] {MergeGateReason.ROADMAP_TASK_MISSING.value}: "
+            f"Cannot resolve canonical {task_path} from frozen control commit"
+        )
+        sys.exit(1)
+    canonical_task_blob_sha = p_task_blob.stdout.strip().lower()
+    p_task_artifact = git("show", f"{control_commit_sha}:{task_path}", check=False)
+    if p_task_artifact.returncode != 0 or not p_task_artifact.stdout.strip():
+        print(
+            f"[MERGE_GATE] {MergeGateReason.ROADMAP_TASK_MISSING.value}: "
+            f"Cannot read canonical {task_path} from frozen control commit"
+        )
+        sys.exit(1)
+    task_text = p_task_artifact.stdout
+    roadmap_governed = task_requires_roadmap_governance(task_text) or (
+        "ROADMAP_BINDING_JSON:" in task_text
+    )
+    if roadmap_governed:
+        if review_data.get("task_artifact_blob_sha") != canonical_task_blob_sha:
+            print(
+                f"[MERGE_GATE] {MergeGateReason.ROADMAP_TASK_INVALID.value}: "
+                "PASS review TASK_ARTIFACT_BLOB_SHA does not match the frozen canonical TASK"
+            )
+            sys.exit(1)
+        try:
+            task_roadmap_binding = parse_roadmap_task_binding(task_text)
+            registration = DEFAULT_ROADMAP_REGISTRY.get(
+                (task_roadmap_binding.roadmap_id, task_roadmap_binding.roadmap_version)
+            )
+            if registration is None:
+                raise ContinuityStateValidationError("Task-bound roadmap is not registered")
+            exact_roadmap_bytes = resolve_exact_roadmap_bytes(
+                control_commit_sha,
+                registration.artifact_path,
+                registration.roadmap_blob_sha,
+            )
+            current_roadmap = parse_canonical_roadmap(
+                exact_roadmap_bytes,
+                artifact_path=registration.artifact_path,
+                expected_blob_sha=registration.roadmap_blob_sha,
+            )
+            task_markers = parse_executor_automation_markers(
+                task_text,
+                work_path=task_path,
+            )
+            validate_task_binding(
+                task_text,
+                task_roadmap_binding,
+                current_roadmap,
+                context_refs=task_markers.context_refs,
+            )
+        except Exception as exc:
+            print(f"[MERGE_GATE] ROADMAP_CURRENT_DRIFT: Roadmap gate input invalid: {exc}")
+            sys.exit(1)
 
     # 6. Evaluate pure merge gate
     try:

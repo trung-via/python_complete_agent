@@ -121,6 +121,13 @@ def test_valid_fix_preflight_passes() -> None:
         work_path=".ai/reviews/REVIEW-071.md",
         operation=ExecutionOperation.FIX,
         selected_executor="codex",
+        roadmap_task_content=_sample_artifact_content(
+            task_id="TASK-071",
+            operation="RUN",
+            selected_executor="codex",
+        ),
+        roadmap_task_work_path=".ai/tasks/TASK-071.md",
+        roadmap_task_blob_sha=VALID_BLOB_SHA,
     )
     assert isinstance(res, ExecutableArtifactPreflight)
     assert res.operation is ExecutionOperation.FIX

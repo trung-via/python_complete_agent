@@ -18,11 +18,14 @@ from src.aios_bridge.runtime_dispatch import (
 )
 from src.aios_bridge.roadmap_governance import (
     DEFAULT_ROADMAP_REGISTRY,
-    MilestoneCompletionRecord,
     RoadmapPreflightDecision,
     RoadmapRegistryEntry,
+    RoadmapTaskBinding,
     may_open_milestone,
+    milestone_completion_artifact_path,
+    parse_milestone_completion_records,
     require_roadmap_preflight,
+    task_header_fields,
 )
 
 
@@ -241,7 +244,10 @@ def preflight_executable_artifact(
     roadmap_resolver: Callable[[str, str], bytes] | None = None,
     roadmap_registry: Mapping[tuple[str, str], RoadmapRegistryEntry] = DEFAULT_ROADMAP_REGISTRY,
     roadmap_migration_approved: bool = False,
-    milestone_completion_records: Sequence[MilestoneCompletionRecord] = (),
+    roadmap_task_content: str | None = None,
+    roadmap_task_work_path: str | None = None,
+    roadmap_task_blob_sha: str | None = None,
+    milestone_completion_resolver: Callable[[str], bytes] | None = None,
 ) -> ExecutableArtifactPreflight:
     """
     Deterministically validate executable TASK/REVIEW artifact markers and dispatch policy.
@@ -311,30 +317,81 @@ def preflight_executable_artifact(
     # It deliberately runs only after the existing publisher/automation/dispatch
     # contracts and performs no I/O itself.  The Bridge caller supplies exact Git
     # blob bytes through roadmap_resolver before any authority-bearing mutation.
+    # A FIX review is execution authority evidence, not the TASK roadmap-binding
+    # artifact.  FIX therefore resolves and validates the original canonical TASK.
+    roadmap_content = content
+    roadmap_context_refs = markers.context_refs
+    if operation is ExecutionOperation.FIX:
+        if not isinstance(roadmap_task_content, str) or not roadmap_task_content.strip():
+            raise ExecutableArtifactPreflightError(
+                "FIX preflight requires the exact canonical TASK artifact"
+            )
+        if not isinstance(roadmap_task_work_path, str) or not re.fullmatch(
+            r"\.ai/tasks/TASK-[0-9]+\.md", roadmap_task_work_path
+        ):
+            raise ExecutableArtifactPreflightError(
+                "FIX preflight requires a canonical TASK artifact path"
+            )
+        if not isinstance(roadmap_task_blob_sha, str) or re.fullmatch(
+            r"[0-9a-f]{40}", roadmap_task_blob_sha
+        ) is None:
+            raise ExecutableArtifactPreflightError(
+                "FIX preflight requires an exact canonical TASK blob SHA"
+            )
+        try:
+            task_markers = parse_executor_automation_markers(
+                roadmap_task_content,
+                work_path=roadmap_task_work_path,
+            )
+        except ContinuityStateValidationError as exc:
+            raise ExecutableArtifactPreflightError(
+                f"Canonical TASK automation markers invalid: {exc}"
+            ) from exc
+        roadmap_content = roadmap_task_content
+        roadmap_context_refs = task_markers.context_refs
+
     try:
         roadmap_decision = require_roadmap_preflight(
-            content,
-            context_refs=markers.context_refs,
+            roadmap_content,
+            context_refs=roadmap_context_refs,
             roadmap_resolver=roadmap_resolver,
             registry=roadmap_registry,
             migration_approved=roadmap_migration_approved,
         )
     except ContinuityStateValidationError as exc:
         raise ExecutableArtifactPreflightError(str(exc)) from exc
-    if (
-        milestone_completion_records
-        and roadmap_decision.binding is not None
-        and roadmap_decision.roadmap is not None
-    ):
-        progression = may_open_milestone(
-            roadmap_decision.roadmap,
-            roadmap_decision.binding.milestone,
-            milestone_completion_records,
-        )
-        if not progression.allowed:
-            raise ExecutableArtifactPreflightError(
-                f"{progression.reason.value}: {progression.message}"
+    if roadmap_decision.binding is not None and roadmap_decision.roadmap is not None:
+        if operation is ExecutionOperation.FIX:
+            _validate_governed_fix_review(
+                content,
+                review_context_refs=markers.context_refs,
+                task_work_path=roadmap_task_work_path,
+                task_blob_sha=roadmap_task_blob_sha,
+                binding=roadmap_decision.binding,
             )
+        target = roadmap_decision.binding.milestone
+        roadmap = roadmap_decision.roadmap
+        if roadmap.milestone_ids.index(target) > 0:
+            if milestone_completion_resolver is None:
+                raise ExecutableArtifactPreflightError(
+                    "MILESTONE_OPEN_BLOCKED: exact authoritative control-plane completion evidence is required"
+                )
+            completion_path = milestone_completion_artifact_path(roadmap)
+            try:
+                completion_bytes = milestone_completion_resolver(completion_path)
+                completion_records = parse_milestone_completion_records(
+                    completion_bytes,
+                    roadmap=roadmap,
+                )
+            except ContinuityStateValidationError as exc:
+                raise ExecutableArtifactPreflightError(
+                    f"MILESTONE_OPEN_BLOCKED: {exc}"
+                ) from exc
+            progression = may_open_milestone(roadmap, target, completion_records)
+            if not progression.allowed:
+                raise ExecutableArtifactPreflightError(
+                    f"{progression.reason.value}: {progression.message}"
+                )
 
     return ExecutableArtifactPreflight(
         work_path=work_path,
@@ -345,6 +402,56 @@ def preflight_executable_artifact(
         candidate=candidate,
         roadmap_decision=roadmap_decision,
     )
+
+
+def _validate_governed_fix_review(
+    review_content: str,
+    *,
+    review_context_refs: Sequence[object],
+    task_work_path: str,
+    task_blob_sha: str,
+    binding: RoadmapTaskBinding,
+) -> None:
+    """Bind CHANGES_REQUIRED review evidence to the exact governed TASK."""
+    task_refs = tuple(
+        ref for ref in review_context_refs
+        if getattr(ref, "path", None) == task_work_path
+    )
+    if len(task_refs) != 1:
+        raise ExecutableArtifactPreflightError(
+            "Governed FIX review must reference the exact canonical TASK exactly once"
+        )
+    if getattr(task_refs[0], "blob_sha", None) != task_blob_sha:
+        raise ExecutableArtifactPreflightError(
+            "Governed FIX review canonical TASK context blob mismatch"
+        )
+
+    _title, fields = task_header_fields(review_content)
+    reviewed_heads = fields.get("REVIEWED_TASK_HEAD_SHA", ())
+    if len(reviewed_heads) != 1 or re.fullmatch(r"[0-9a-f]{40}", reviewed_heads[0]) is None:
+        raise ExecutableArtifactPreflightError(
+            "Governed FIX review requires one exact REVIEWED_TASK_HEAD_SHA"
+        )
+    task_blob_claims = fields.get("TASK_ARTIFACT_BLOB_SHA", ())
+    if len(task_blob_claims) != 1 or task_blob_claims[0] != task_blob_sha:
+        raise ExecutableArtifactPreflightError(
+            "Governed FIX review TASK_ARTIFACT_BLOB_SHA mismatch"
+        )
+
+    expected_claims = {
+        "ROADMAP_ID": binding.roadmap_id,
+        "ROADMAP_VERSION": binding.roadmap_version,
+        "ROADMAP_BLOB_SHA": binding.roadmap_blob_sha,
+        "ROADMAP_FINGERPRINT": binding.roadmap_fingerprint,
+        "MILESTONE": binding.milestone,
+        "CAPABILITY_ID": binding.capability_id,
+    }
+    for key, expected in expected_claims.items():
+        values = fields.get(key, ())
+        if len(values) != 1 or values[0] != expected:
+            raise ExecutableArtifactPreflightError(
+                f"Governed FIX review {key} mismatches the exact TASK roadmap binding"
+            )
 
 
 __all__ = [

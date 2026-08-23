@@ -5,9 +5,12 @@ import inspect
 import json
 from pathlib import Path
 import subprocess
+from types import SimpleNamespace
 
 import pytest
 
+import bridge
+from src.aios_bridge.continuity.errors import ContinuityStateValidationError
 from src.aios_bridge.continuity.executor import ExecutionOperation
 from src.aios_bridge.roadmap_governance import (
     H_SERIES_ROADMAP_BLOB_SHA,
@@ -27,7 +30,9 @@ from src.aios_bridge.roadmap_governance import (
     git_blob_sha,
     impact_cone,
     may_open_milestone,
+    milestone_completion_artifact_path,
     parse_canonical_roadmap,
+    parse_milestone_completion_records,
     parse_roadmap_task_binding,
     roadmap_fingerprint,
     task_requires_roadmap_governance,
@@ -121,6 +126,22 @@ def _complete(roadmap, milestone: str) -> MilestoneCompletionRecord:
     )
 
 
+def _completion_artifact(roadmap, records) -> bytes:
+    return json.dumps(
+        {
+            "schema_version": "1",
+            "roadmap_id": roadmap.roadmap_id,
+            "roadmap_version": roadmap.roadmap_version,
+            "roadmap_blob_sha": roadmap.roadmap_blob_sha,
+            "roadmap_fingerprint": roadmap.roadmap_fingerprint,
+            "roadmap_fingerprint_algorithm_version": roadmap.algorithm_version,
+            "records": [record.to_dict() for record in records],
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+
+
 def _review_input(binding: RoadmapTaskBinding, roadmap, audit: RoadmapReviewAudit | None):
     return ReviewedMergeInput(
         task_id="TASK-100",
@@ -139,6 +160,50 @@ def _review_input(binding: RoadmapTaskBinding, roadmap, audit: RoadmapReviewAudi
         task_roadmap_binding=binding,
         current_roadmap=roadmap,
     )
+
+
+def _fix_review(
+    roadmap,
+    binding: RoadmapTaskBinding,
+    task_blob_sha: str,
+    *,
+    task_ref_blob_sha: str | None = None,
+    roadmap_id: str | None = None,
+) -> str:
+    refs = [
+        {
+            "path": ".ai/tasks/TASK-100.md",
+            "blob_sha": task_ref_blob_sha or task_blob_sha,
+        },
+        {"path": H_SERIES_ROADMAP_PATH, "blob_sha": H_SERIES_ROADMAP_BLOB_SHA},
+    ]
+    policy = {
+        "allow_paid_api": False,
+        "candidates": [{
+            "capacity_class": "SUBSCRIPTION",
+            "executor_id": "codex",
+            "preference_rank": 0,
+            "supported_capabilities": ["SHELL"],
+            "supported_operations": ["FIX"],
+        }],
+        "operation": "FIX",
+        "required_capabilities": ["SHELL"],
+    }
+    return f"""# REVIEW-100 — governed repair
+STATUS: CHANGES_REQUIRED
+PUBLISHER_PROFILE: CANONICAL_E4
+REVIEWED_TASK_HEAD_SHA: {'a' * 40}
+TASK_ARTIFACT_BLOB_SHA: {task_blob_sha}
+ROADMAP_ID: {roadmap_id or binding.roadmap_id}
+ROADMAP_VERSION: {binding.roadmap_version}
+ROADMAP_BLOB_SHA: {binding.roadmap_blob_sha}
+ROADMAP_FINGERPRINT: {binding.roadmap_fingerprint}
+MILESTONE: {binding.milestone}
+CAPABILITY_ID: {binding.capability_id}
+EXECUTOR_CONTEXT_REFS_JSON: {json.dumps(refs, separators=(',', ':'))}
+EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py"]
+DISPATCH_EXECUTOR_POLICY_JSON: {json.dumps(policy, separators=(',', ':'))}
+"""
 
 
 def _audit(binding: RoadmapTaskBinding, **changes: str) -> RoadmapReviewAudit:
@@ -367,6 +432,234 @@ def test_later_milestone_requires_all_linear_predecessor_completions() -> None:
     assert may_open_milestone(roadmap, "H2", (h0,)).allowed is False
     h1 = _complete(roadmap, "H1")
     assert may_open_milestone(roadmap, "H2", (h0, h1)).allowed is True
+
+
+def test_authoring_requires_authoritative_completion_artifact_for_later_milestone() -> None:
+    roadmap = _parse_bytes()
+    task = _task(_binding(roadmap=roadmap, milestone="H1"), milestone="H1")
+    with pytest.raises(ExecutableArtifactPreflightError, match="authoritative control-plane"):
+        preflight_executable_artifact(
+            task,
+            work_path=".ai/tasks/TASK-100.md",
+            operation=ExecutionOperation.RUN,
+            selected_executor="codex",
+            roadmap_resolver=_resolver,
+        )
+
+    completion_path = milestone_completion_artifact_path(roadmap)
+    result = preflight_executable_artifact(
+        task,
+        work_path=".ai/tasks/TASK-100.md",
+        operation=ExecutionOperation.RUN,
+        selected_executor="codex",
+        roadmap_resolver=_resolver,
+        milestone_completion_resolver=lambda path: (
+            _completion_artifact(roadmap, (_complete(roadmap, "H0"),))
+            if path == completion_path
+            else b""
+        ),
+    )
+    assert result.roadmap_decision is not None
+    assert result.roadmap_decision.allowed is True
+
+
+def test_completion_artifact_rejects_stale_duplicate_malformed_and_incomplete_records() -> None:
+    roadmap = _parse_bytes()
+    complete = _complete(roadmap, "H0")
+    assert parse_milestone_completion_records(
+        _completion_artifact(roadmap, (complete,)), roadmap=roadmap
+    ) == (complete,)
+
+    with pytest.raises(RoadmapGovernanceError, match="Duplicate completion record"):
+        parse_milestone_completion_records(
+            _completion_artifact(roadmap, (complete, complete)), roadmap=roadmap
+        )
+
+    stale = json.loads(_completion_artifact(roadmap, (complete,)))
+    stale["roadmap_fingerprint"] = "0" * 64
+    with pytest.raises(RoadmapGovernanceError, match="roadmap_fingerprint mismatch"):
+        parse_milestone_completion_records(
+            json.dumps(stale).encode("utf-8"), roadmap=roadmap
+        )
+
+    incomplete = MilestoneCompletionRecord.create(
+        roadmap=roadmap,
+        milestone="H0",
+        requirement_evidence={"H0.R1": "reviewed"},
+    )
+    with pytest.raises(RoadmapGovernanceError, match="Invalid completion record"):
+        parse_milestone_completion_records(
+            _completion_artifact(roadmap, (incomplete,)), roadmap=roadmap
+        )
+
+    with pytest.raises(RoadmapGovernanceError, match="Malformed milestone completion"):
+        parse_milestone_completion_records(b"{not-json", roadmap=roadmap)
+
+
+def test_bridge_run_and_e4_paths_reject_missing_authoritative_progression(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    roadmap = _parse_bytes()
+    task = _task(_binding(roadmap=roadmap, milestone="H1"), milestone="H1")
+    task_blob = git_blob_sha(task.encode("utf-8"))
+    mutations: list[str] = []
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+
+    monkeypatch.setattr(bridge, "ensure_git", lambda: None)
+    monkeypatch.setattr(bridge, "ensure_dirs", lambda: None)
+    monkeypatch.setattr(bridge, "load_config", lambda: {
+        "remote": "origin",
+        "control_branch": "ai-control",
+        "base_branch": "main",
+        "task_branch_prefix": "ai/task-",
+    })
+    monkeypatch.setattr(bridge, "fetch_control", lambda cfg: None)
+    monkeypatch.setattr(bridge, "get_runtime_paths", lambda repo_root=None: {
+        "root": runtime,
+        "seen": runtime / "seen.json",
+        "inbox": runtime / "inbox",
+    })
+    monkeypatch.setattr(bridge, "get_remote_blob_sha", lambda cfg, path: task_blob)
+    monkeypatch.setattr(bridge, "read_remote_file", lambda cfg, path: task)
+    monkeypatch.setattr(bridge, "resolve_control_commit_sha", lambda cfg: "c" * 40)
+    monkeypatch.setattr(
+        bridge,
+        "resolve_git_blob_sha",
+        lambda ref, path: task_blob if path.endswith("TASK-100.md") else H_SERIES_ROADMAP_BLOB_SHA,
+    )
+    monkeypatch.setattr(
+        bridge,
+        "read_git_blob_bytes",
+        lambda ref, path: task.encode("utf-8") if path.endswith("TASK-100.md") else ROADMAP_BYTES,
+    )
+    monkeypatch.setattr(bridge, "resolve_exact_roadmap_bytes", lambda ref, path, blob: ROADMAP_BYTES)
+    monkeypatch.setattr(
+        bridge,
+        "resolve_exact_control_artifact_bytes",
+        lambda ref, path: (_ for _ in ()).throw(
+            ContinuityStateValidationError("completion artifact missing")
+        ),
+    )
+    monkeypatch.setattr(
+        bridge,
+        "prepare_task_branch",
+        lambda *args: mutations.append("prepare") or "ai/task-100",
+    )
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_handoff(SimpleNamespace(
+            task_id=100,
+            action="run",
+            executor="codex",
+        ))
+    assert mutations == []
+
+    monkeypatch.setattr(bridge, "remote_ref", lambda cfg: "ai-control")
+    monkeypatch.setattr(
+        bridge,
+        "_run_git_binary",
+        lambda *args: SimpleNamespace(returncode=0, stdout=("c" * 40 + "\n").encode(), stderr=b""),
+    )
+    auth = {
+        "artifact_path": ".ai/tasks/TASK-100.md",
+        "artifact_blob_sha": task_blob,
+        "action": "RUN",
+        "executor_id": "codex",
+    }
+    with pytest.raises(ContinuityStateValidationError, match="MILESTONE_OPEN_BLOCKED"):
+        bridge.resolve_e4_control_snapshot({}, auth)
+
+
+@pytest.mark.parametrize(
+    "case",
+    ("exact", "missing_task", "task_blob_drift", "roadmap_mismatch"),
+)
+def test_bridge_governed_fix_uses_exact_original_task_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    case: str,
+) -> None:
+    roadmap = _parse_bytes()
+    binding = _binding(roadmap=roadmap, milestone="H0")
+    task = _task(binding, milestone="H0")
+    task_blob = git_blob_sha(task.encode("utf-8"))
+    review = _fix_review(
+        roadmap,
+        binding,
+        task_blob,
+        task_ref_blob_sha="0" * 40 if case == "task_blob_drift" else None,
+        roadmap_id="WRONG-ROADMAP" if case == "roadmap_mismatch" else None,
+    )
+    review_blob = git_blob_sha(review.encode("utf-8"))
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    reached_prepare: list[bool] = []
+
+    monkeypatch.setattr(bridge, "ensure_git", lambda: None)
+    monkeypatch.setattr(bridge, "ensure_dirs", lambda: None)
+    monkeypatch.setattr(bridge, "load_config", lambda: {
+        "remote": "origin",
+        "control_branch": "ai-control",
+        "base_branch": "main",
+        "task_branch_prefix": "ai/task-",
+    })
+    monkeypatch.setattr(bridge, "fetch_control", lambda cfg: None)
+    monkeypatch.setattr(bridge, "get_runtime_paths", lambda repo_root=None: {
+        "root": runtime,
+        "seen": runtime / "seen.json",
+        "inbox": runtime / "inbox",
+    })
+
+    def remote_blob(_cfg, path: str):
+        if path.endswith("REVIEW-100.md"):
+            return review_blob
+        if path.endswith("TASK-100.md"):
+            return None if case == "missing_task" else task_blob
+        return None
+
+    monkeypatch.setattr(bridge, "get_remote_blob_sha", remote_blob)
+    monkeypatch.setattr(
+        bridge,
+        "read_remote_file",
+        lambda cfg, path: review if path.endswith("REVIEW-100.md") else task,
+    )
+    monkeypatch.setattr(bridge, "resolve_control_commit_sha", lambda cfg: "c" * 40)
+    monkeypatch.setattr(
+        bridge,
+        "resolve_git_blob_sha",
+        lambda ref, path: review_blob if path.endswith("REVIEW-100.md") else task_blob,
+    )
+    monkeypatch.setattr(
+        bridge,
+        "read_git_blob_bytes",
+        lambda ref, path: review.encode("utf-8") if path.endswith("REVIEW-100.md") else task.encode("utf-8"),
+    )
+    monkeypatch.setattr(bridge, "resolve_exact_roadmap_bytes", lambda ref, path, blob: ROADMAP_BYTES)
+    monkeypatch.setattr(
+        bridge,
+        "get_artifact_path",
+        lambda path: tmp_path / "cache" / path,
+    )
+
+    class ReachedPrepare(Exception):
+        pass
+
+    def prepare(*args):
+        reached_prepare.append(True)
+        raise ReachedPrepare
+
+    monkeypatch.setattr(bridge, "prepare_task_branch", prepare)
+    args = SimpleNamespace(task_id=100, action="fix", executor="codex")
+    if case == "exact":
+        with pytest.raises(ReachedPrepare):
+            bridge.cmd_handoff(args)
+        assert reached_prepare == [True]
+    else:
+        with pytest.raises(SystemExit):
+            bridge.cmd_handoff(args)
+        assert reached_prepare == []
 
 
 def test_controlled_evolution_semantics_and_impact_cone() -> None:
