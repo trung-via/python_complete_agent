@@ -3210,8 +3210,9 @@ def is_productive_nonzero_recovery_candidate(
     target_branch: str,
     pre_head_sha: str,
     post_head_sha: str,
-    dirty_paths: tuple[str, ...] | list[str] | set[str],
-    allowed_paths: tuple[str, ...] | list[str] | set[str],
+    dirty_paths: tuple[str, ...] | list[str] | set[str] | Sequence[str],
+    allowed_paths: tuple[str, ...] | list[str] | set[str] | Sequence[str] | None = None,
+    exact_scope_valid: bool | None = None,
     publication_trust_valid: bool,
     authorization_binding_valid: bool,
 ) -> bool:
@@ -3230,22 +3231,27 @@ def is_productive_nonzero_recovery_candidate(
         return False
     if authorization_binding_valid is not True:
         return False
-    if not allowed_paths:
+    if exact_scope_valid is False:
         return False
-    allowed_set = {
-        p.replace("\\", "/").strip("/")
-        for p in allowed_paths
-        if isinstance(p, str) and p.strip()
-    }
-    if not allowed_set:
+    if exact_scope_valid is True:
+        return True
+    if allowed_paths is None:
         return False
-    for p in dirty_paths:
-        if not isinstance(p, str) or not p.strip():
-            return False
-        norm = p.replace("\\", "/").strip("/")
-        if norm not in allowed_set:
-            return False
-    return True
+    try:
+        dirty_seq = list(dirty_paths) if isinstance(dirty_paths, set) else dirty_paths
+        allowed_seq = list(allowed_paths) if isinstance(allowed_paths, set) else allowed_paths
+        validate_executor_worktree_delta(
+            pre_branch=pre_branch,
+            post_branch=post_branch,
+            pre_head_sha=pre_head_sha,
+            post_head_sha=post_head_sha,
+            dirty_paths=dirty_seq,
+            allowed_paths=allowed_seq,
+        )
+        return True
+    except Exception:
+        return False
+
 
 
 def _e4_operational_failure(task_id: int, status: str, message: str) -> None:
@@ -3517,20 +3523,62 @@ def cmd_execute(args):
                     "RECOVERY_REQUIRED",
                     recovery_msg,
                 )
-    elif is_productive_nonzero_recovery_candidate(
-        receipt_status=receipt.status,
-        receipt_error_code=receipt.error_code,
-        pre_branch=pre_branch,
-        post_branch=post_branch,
-        target_branch=expected_branch,
-        pre_head_sha=pre_head_sha,
-        post_head_sha=post_head_sha,
-        dirty_paths=dirty_paths,
-        allowed_paths=snapshot["allowed_paths"],
-        publication_trust_valid=publication_trust_valid,
-        authorization_binding_valid=authorization_binding_valid,
+
+        try:
+            verified_dirty_paths = validate_executor_worktree_delta(
+                pre_branch=pre_branch,
+                post_branch=post_branch,
+                pre_head_sha=pre_head_sha,
+                post_head_sha=post_head_sha,
+                dirty_paths=dirty_paths,
+                allowed_paths=snapshot["allowed_paths"],
+            )
+        except Exception as exc:
+            _e4_operational_failure(
+                task_num,
+                "RECOVERY_REQUIRED",
+                f"E4 post-executor Git/scope gate failed; diagnostic={diagnostic.code}; work preserved: {exc}",
+            )
+    elif (
+        receipt.status is InvocationStatus.EXITED_NONZERO
+        and receipt.error_code == ERROR_CODEX_EXIT_NONZERO
+        and bool(dirty_paths)
     ):
-        pass
+        try:
+            verified_dirty_paths = validate_executor_worktree_delta(
+                pre_branch=pre_branch,
+                post_branch=post_branch,
+                pre_head_sha=pre_head_sha,
+                post_head_sha=post_head_sha,
+                dirty_paths=dirty_paths,
+                allowed_paths=snapshot["allowed_paths"],
+            )
+        except Exception as exc:
+            _e4_operational_failure(
+                task_num,
+                "RECOVERY_REQUIRED",
+                f"E4 post-executor Git/scope gate failed; diagnostic={diagnostic.code}; work preserved: {exc}",
+            )
+
+        if not is_productive_nonzero_recovery_candidate(
+            receipt_status=receipt.status,
+            receipt_error_code=receipt.error_code,
+            pre_branch=pre_branch,
+            post_branch=post_branch,
+            target_branch=expected_branch,
+            pre_head_sha=pre_head_sha,
+            post_head_sha=post_head_sha,
+            dirty_paths=verified_dirty_paths,
+            allowed_paths=snapshot["allowed_paths"],
+            exact_scope_valid=True,
+            publication_trust_valid=publication_trust_valid,
+            authorization_binding_valid=authorization_binding_valid,
+        ):
+            _e4_operational_failure(
+                task_num,
+                "RECOVERY_REQUIRED",
+                f"E4 productive non-zero recovery criteria not met; diagnostic={diagnostic.code}; work preserved",
+            )
     else:
         blocked_status = (
             "EXECUTION_BLOCKED"
@@ -3548,21 +3596,6 @@ def cmd_execute(args):
             err_msg,
         )
 
-    try:
-        verified_dirty_paths = validate_executor_worktree_delta(
-            pre_branch=pre_branch,
-            post_branch=post_branch,
-            pre_head_sha=pre_head_sha,
-            post_head_sha=post_head_sha,
-            dirty_paths=dirty_paths,
-            allowed_paths=snapshot["allowed_paths"],
-        )
-    except Exception as exc:
-        _e4_operational_failure(
-            task_num,
-            "RECOVERY_REQUIRED",
-            f"E4 post-executor Git/scope gate failed; diagnostic={diagnostic.code}; work preserved: {exc}",
-        )
 
     test_argv = [sys.executable, "-m", "pytest", "tests/", "-q"]
     full_suite_command = (

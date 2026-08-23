@@ -12,29 +12,25 @@ HOT_HANDOFF: NO
 ```
 
 ## Summary
-Fixed REVIEW-074 Findings B1-B4: (B1) preserved pre-existing CHANGES_REQUIRED canonical suite failure for normal EXITED_ZERO while ensuring productive non-zero recovery uses RECOVERY_REQUIRED; (B2) made is_productive_nonzero_recovery_candidate() fail-closed with required parameters and fresh post-invocation ACTIVE auth/lease/execution-binding derivation; (B3) added comprehensive post-test revalidation in cmd_publish() for Git-admin trust, exact branch, pre-test HEAD, ACTIVE auth/lease binding, and allowed dirty scope before RESULT generation and Git mutation, with real-path test coverage; (B4) included boundary lookbehind predecessor byte within the strict 65536 byte budget; full test suite passes (2322 passed, 7 skipped).
+Fixed REVIEW-074 Finding B1: (B1) strictly enforced execution of authoritative validate_executor_worktree_delta before productive-nonzero candidate classification on EXITED_NONZERO + CODEX_EXIT_NONZERO path; eliminated weaker duplicate path-membership validator and bound predicate directly to exact-scope verification result; added contract-order and scope-failure blocking regression tests; full test suite passes (2324 passed, 7 skipped).
 
 ## Task Metadata
 - Task: `TASK-074`
 - Action: `FIX`
 - Executor: `antigravity`
-- Authorized Artifact: `.ai/reviews/REVIEW-074.md (e5be58f4ff)`
+- Authorized Artifact: `.ai/reviews/REVIEW-074.md (b769cb9c12)`
 - Base Main SHA: `(n/a)`
 - Branch: `ai/task-074`
 
 ## Files Changed
 - bridge.py
-- src/aios_bridge/executor_transports/codex_local.py
-- tests/aios_bridge/test_codex_local_transport.py
 - tests/test_bridge_executor_automation.py
 
 ## Diff Stat
 ```text
-bridge.py                                          | 134 +++++++-
- src/aios_bridge/executor_transports/codex_local.py |  17 +-
- tests/aios_bridge/test_codex_local_transport.py    |  48 +++
- tests/test_bridge_executor_automation.py           | 337 +++++++++++++++++++--
- 4 files changed, 488 insertions(+), 48 deletions(-)
+bridge.py                                | 121 ++++++++++++++++++++-----------
+ tests/test_bridge_executor_automation.py |  82 +++++++++++++++++++++
+ 2 files changed, 159 insertions(+), 44 deletions(-)
 ```
 
 ## Tests
@@ -52,7 +48,7 @@ Exit code: 0
 ........................................................................ [ 24%]
 ........................................................................ [ 27%]
 ........................................................................ [ 30%]
-........................................................................ [ 34%]
+........................................................................ [ 33%]
 ........................................................................ [ 37%]
 ..................ss......................................s............. [ 40%]
 ........................................................................ [ 43%]
@@ -63,7 +59,7 @@ Exit code: 0
 ........................................................................ [ 58%]
 ........................................................................ [ 61%]
 ........................................................................ [ 64%]
-........................................................................ [ 68%]
+........................................................................ [ 67%]
 ........................................................................ [ 71%]
 ........................................................................ [ 74%]
 ........................................................................ [ 77%]
@@ -74,7 +70,7 @@ Exit code: 0
 ........................................................................ [ 92%]
 ........................................................................ [ 95%]
 ........................................................................ [ 98%]
-.........................                                                [100%]
+...........................                                              [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -377,7 +373,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-2322 passed, 7 skipped, 1540 warnings in 141.45s (0:02:21)
+2324 passed, 7 skipped, 1540 warnings in 141.91s (0:02:21)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -389,12 +385,12 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 TARGETED_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/aios_bridge/test_codex_local_transport.py tests/test_bridge_executor_automation.py -q
 Exit code: 0
-Result: 159 passed, 0 skipped, 0 failed
+Result: 161 passed, 0 skipped, 0 failed
 
 FULL_REPOSITORY_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/ -q
 Exit code: 0
-Result: 2322 passed, 7 skipped, 0 failed
+Result: 2324 passed, 7 skipped, 0 failed
 
 GIT_DIFF_CHECK:
 Command: git diff --check
@@ -402,10 +398,7 @@ Exit code: 0
 Result: Clean
 
 REVIEW_074_FINDINGS_REPAIR:
-B1_NORMAL_EXITED_ZERO_CHANGES_REQUIRED_AND_PRODUCTIVE_NONZERO_RECOVERY_REQUIRED: RESOLVED
-B2_FAIL_CLOSED_PREDICATE_AND_FRESH_POST_INVOCATION_AUTH_LEASE_DERIVATION: RESOLVED
-B3_POST_TEST_GIT_ADMIN_BRANCH_HEAD_AUTH_AND_DIRTY_SCOPE_REVERIFICATION: RESOLVED
-B4_DIAGNOSTIC_ANALYSIS_STRICTLY_BOUNDED_TO_65536_BYTES_INCLUDING_LOOKBEHIND: RESOLVED
+B1_EXACT_E4_SCOPE_VALIDATOR_ORDER_BEFORE_PRODUCTIVE_NONZERO_PREDICATE: RESOLVED
 BOUNDED_ANALYSIS_BUDGET_PRESERVED: <= 65536 BYTES
 AUTHORIZED_SCOPE_ONLY: YES
 CANONICAL_RECEIPT_STATUS_REWRITTEN_TO_ZERO: NO
@@ -419,4 +412,4 @@ STANDING_AUTO_MERGE_AUTHORIZATION: ENABLED
 WORKER_MERGE_AUTHORITY: NO
 
 ## Generated
-2026-08-23T21:19:50+07:00
+2026-08-23T21:38:55+07:00

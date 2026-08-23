@@ -1280,6 +1280,37 @@ def test_is_productive_nonzero_recovery_candidate_predicate():
         authorization_binding_valid=True,
     ) is False
 
+    # exact_scope_valid = True explicitly passed -> True
+    assert bridge.is_productive_nonzero_recovery_candidate(
+        receipt_status=InvocationStatus.EXITED_NONZERO,
+        receipt_error_code="CODEX_EXIT_NONZERO",
+        pre_branch="ai/task-043",
+        post_branch="ai/task-043",
+        target_branch="ai/task-043",
+        pre_head_sha="a" * 40,
+        post_head_sha="a" * 40,
+        dirty_paths=("bridge.py",),
+        exact_scope_valid=True,
+        publication_trust_valid=True,
+        authorization_binding_valid=True,
+    ) is True
+
+    # exact_scope_valid = False explicitly passed -> False
+    assert bridge.is_productive_nonzero_recovery_candidate(
+        receipt_status=InvocationStatus.EXITED_NONZERO,
+        receipt_error_code="CODEX_EXIT_NONZERO",
+        pre_branch="ai/task-043",
+        post_branch="ai/task-043",
+        target_branch="ai/task-043",
+        pre_head_sha="a" * 40,
+        post_head_sha="a" * 40,
+        dirty_paths=("bridge.py",),
+        exact_scope_valid=False,
+        publication_trust_valid=True,
+        authorization_binding_valid=True,
+    ) is False
+
+
 
 def test_productive_nonzero_exact_scope_and_green_suite_publishes_for_review(monkeypatch, tmp_path):
     _, _, calls = make_execute_environment(
@@ -1399,6 +1430,57 @@ def test_productive_nonzero_empty_delta_fails_closed_without_publish(monkeypatch
     assert calls["invoke"] == 1
     assert calls["publish"] == []
     assert calls["state"][-1][0] == "RECOVERY_REQUIRED"
+
+
+def test_productive_nonzero_contract_order_exact_scope_validator_runs_before_predicate(monkeypatch, tmp_path):
+    _, _, calls = make_execute_environment(
+        monkeypatch, tmp_path, status=InvocationStatus.EXITED_NONZERO
+    )
+    monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ("bridge.py",))
+
+    call_order = []
+
+    orig_validate = bridge.validate_executor_worktree_delta
+    def tracked_validate(*args, **kwargs):
+        call_order.append("validate_executor_worktree_delta")
+        return orig_validate(*args, **kwargs)
+
+    orig_predicate = bridge.is_productive_nonzero_recovery_candidate
+    def tracked_predicate(*args, **kwargs):
+        call_order.append("is_productive_nonzero_recovery_candidate")
+        assert "validate_executor_worktree_delta" in call_order
+        return orig_predicate(*args, **kwargs)
+
+    monkeypatch.setattr(bridge, "validate_executor_worktree_delta", tracked_validate)
+    monkeypatch.setattr(bridge, "is_productive_nonzero_recovery_candidate", tracked_predicate)
+
+    res = bridge.cmd_execute(execute_args())
+    assert call_order == ["validate_executor_worktree_delta", "is_productive_nonzero_recovery_candidate"]
+    assert calls["invoke"] == 1
+    assert len(calls["publish"]) == 1
+
+
+def test_productive_nonzero_exact_scope_failure_blocks_before_predicate(monkeypatch, tmp_path):
+    _, _, calls = make_execute_environment(
+        monkeypatch, tmp_path, status=InvocationStatus.EXITED_NONZERO
+    )
+    monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ("unauthorized.txt",))
+
+    predicate_called = []
+    def tracked_predicate(*args, **kwargs):
+        predicate_called.append(True)
+        return True
+
+    monkeypatch.setattr(bridge, "is_productive_nonzero_recovery_candidate", tracked_predicate)
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+
+    assert not predicate_called
+    assert calls["invoke"] == 1
+    assert calls["publish"] == []
+    assert calls["state"][-1][0] == "RECOVERY_REQUIRED"
+
 
 
 def _setup_real_publish_repo(monkeypatch, tmp_path, *, action="FIX", task_id=43):
