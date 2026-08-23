@@ -1459,7 +1459,7 @@ def cmd_paid_proof_preflight(args):
         if active_grant.max_calls != 1:
             fail("paid-proof-preflight th?t b?i: grant max_calls must be 1")
         from src.aios_bridge.paid_api_real_escape import M11_REAL_PROOF_MAX_OUTPUT_TOKENS
-        if active_grant.task_id != "TASK-059" and active_grant.max_output_tokens != M11_REAL_PROOF_MAX_OUTPUT_TOKENS:
+        if active_grant.max_output_tokens != M11_REAL_PROOF_MAX_OUTPUT_TOKENS:
             fail(
                 f"paid-proof-preflight th?t b?i: grant max_output_tokens ({active_grant.max_output_tokens}) "
                 f"must be exactly {M11_REAL_PROOF_MAX_OUTPUT_TOKENS}"

@@ -5,38 +5,32 @@ STATUS: READY_FOR_REVIEW
 ## Review Manifest
 ```yaml
 TASK_ID: TASK-064
-ACTION: RUN
+ACTION: FIX
 EXECUTOR_ID: antigravity
 EXECUTOR_FAILOVER: NO
 HOT_HANDOFF: NO
 ```
 
 ## Summary
-Implemented M11.3D paid-Brain completion envelope & post-consume diagnostics hardening: established canonical M11_REAL_PROOF_MAX_OUTPUT_TOKENS = 8192 enforced in execute_paid_api_real_escape, paid-proof-preflight, and paid-proof-execute before spend/consumption/provider call; wired 8192 unchanged to ModelRequest and MiniMax payload max_completion_tokens; replaced coarse failure with allowlisted, secret-safe, bounded post-consume response diagnostic (POST_CONSUME_RESPONSE_REJECTED / STATUS=... / ERROR_CODE=... / GRANT_CONSUMED=YES / RETRY_COUNT=0) collapsing unknown error codes to OTHER; and preserved fail-closed R9 operational proof requirements.
+Resolved REVIEW-064 finding B1: removed the TASK-059 production exemption in bridge.py paid-proof-preflight, making the 8192 completion envelope check unconditionally universal (grant.max_output_tokens == M11_REAL_PROOF_MAX_OUTPUT_TOKENS) across all tasks; migrated the legacy TASK-059 preflight test fixture in tests/test_bridge_paid_api_proof_preflight.py from 4000 to 8192; and added parameterized regression tests proving non-8192 grants (4000, 2000, 8191, 8193, 64, 16384) are strictly rejected before any spend, credential access, or provider call.
 
 ## Task Metadata
 - Task: `TASK-064`
-- Action: `RUN`
+- Action: `FIX`
 - Executor: `antigravity`
-- Authorized Artifact: `.ai/tasks/TASK-064.md (863a2372c1)`
-- Base Main SHA: `67aa98132ca0413fda320929375887b8efed1fa6`
+- Authorized Artifact: `.ai/reviews/REVIEW-064.md (96a093dd1a)`
+- Base Main SHA: `(n/a)`
 - Branch: `ai/task-064`
 
 ## Files Changed
 - bridge.py
-- src/aios_bridge/paid_api_real_escape.py
-- tests/aios_bridge/external_brain/test_minimax_provider.py
-- tests/aios_bridge/test_paid_api_real_escape.py
-- tests/test_bridge_paid_api_real_escape.py
+- tests/test_bridge_paid_api_proof_preflight.py
 
 ## Diff Stat
 ```text
-bridge.py                                          |  11 ++
- src/aios_bridge/paid_api_real_escape.py            |  59 ++++++++-
- .../external_brain/test_minimax_provider.py        |  29 ++++-
- tests/aios_bridge/test_paid_api_real_escape.py     | 139 ++++++++++++++++++++-
- tests/test_bridge_paid_api_real_escape.py          | 114 ++++++++++++++++-
- 5 files changed, 343 insertions(+), 9 deletions(-)
+bridge.py                                     |  2 +-
+ tests/test_bridge_paid_api_proof_preflight.py | 45 ++++++++++++++++++++++++++-
+ 2 files changed, 45 insertions(+), 2 deletions(-)
 ```
 
 ## Tests
@@ -57,10 +51,10 @@ Exit code: 0
 ........................................................................ [ 40%]
 ..............................................ss........................ [ 43%]
 ..............s......................................................... [ 47%]
-........................................................................ [ 51%]
+........................................................................ [ 50%]
 ........................................................................ [ 54%]
 ........................................................................ [ 58%]
-........................................................................ [ 62%]
+........................................................................ [ 61%]
 ........................................................................ [ 65%]
 ........................................................................ [ 69%]
 ........................................................................ [ 72%]
@@ -68,10 +62,10 @@ Exit code: 0
 ........................................................................ [ 80%]
 ........................................................................ [ 83%]
 ........................................................................ [ 87%]
-........................................................................ [ 91%]
+........................................................................ [ 90%]
 ........................................................................ [ 94%]
 ........................................................................ [ 98%]
-.............................                                            [100%]
+...................................                                      [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -374,7 +368,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-1966 passed, 7 skipped, 1540 warnings in 151.87s (0:02:31)
+1972 passed, 7 skipped, 1540 warnings in 131.43s (0:02:11)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -384,14 +378,14 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 
 ## Risks / Notes
 TARGETED_TESTS:
-Command: venv/Scripts/python.exe -m pytest tests/aios_bridge/test_minimax_m3_input_counter.py tests/aios_bridge/test_paid_api_real_escape.py tests/test_bridge_paid_api_real_escape.py tests/aios_bridge/external_brain/test_minimax_provider.py -v
+Command: venv/Scripts/python.exe -m pytest tests/test_bridge_paid_api_proof_preflight.py tests/test_bridge_paid_api_real_escape.py tests/aios_bridge/test_paid_api_real_escape.py tests/aios_bridge/external_brain/test_minimax_provider.py -v
 Exit code: 0
-Result: 94 passed, 0 skipped, 0 failed
+Result: 96 passed, 0 skipped, 0 failed
 
 FULL_REPOSITORY_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/ -q
 Exit code: 0
-Result: 1966 passed, 7 skipped, 0 failed
+Result: 1972 passed, 7 skipped, 0 failed
 
 EXECUTION_BOUNDARY_EVIDENCE:
 REAL_PAID_API_CALL_DURING_TASK: NO
@@ -399,27 +393,16 @@ REAL_MINIMAX_NETWORK_DURING_TASK: NO
 REAL_API_KEY_VALUE_USE_DURING_TASK: NO
 REAL_GRANT_CREATION_DURING_TASK: NO
 REAL_GRANT_CONSUME_DURING_TASK: NO
-ATTEMPT_1_GRANT_REUSE: NO
-ATTEMPT_2_GRANT_REUSE: NO
-M11_REAL_PROOF_MAX_OUTPUT_TOKENS: 8192
-SINGLE_OUTPUT_BUDGET_AUTHORITY_PRESERVED: YES
-NON_8192_REAL_PROOF_GRANT_FAILS_PRE_SPEND: YES
-8192_FLOWS_TO_MODEL_REQUEST_UNCHANGED: YES
-8192_FLOWS_TO_MINIMAX_MAX_COMPLETION_TOKENS_UNCHANGED: YES
-POST_CONSUME_SAFE_DIAGNOSTIC: YES
-UNKNOWN_ERROR_CODE_COLLAPSES_TO_OTHER: YES
-DIAGNOSTIC_SECRET_SAFE: YES
-TRUNCATED_OUTPUT_REMAINS_FAILURE: YES
-R9_SUCCESS_REQUIREMENTS_UNCHANGED: YES
-PROPOSAL_ON_NON_SUCCESS: NO
-PROOF_JSON_ON_NON_SUCCESS: NO
-CONSUME_BEFORE_CALL_PRESERVED: YES
-MAX_CALLS_ONE_PRESERVED: YES
-AUTO_RETRY_ZERO_PRESERVED: YES
-SECOND_PAID_PROVIDER_ZERO_PRESERVED: YES
-TIMEOUT_CONTRACT_60_180_PRESERVED: YES
-MODEL_RESPONSE_SCHEMA_CHANGED: NO
-PROOF_LOCK_CHANGED: NO
+TASK_059_BYPASS_REMOVED: YES
+NON_8192_PREFLIGHT_REJECTED_FOR_TASK_059: YES
+NON_8192_PREFLIGHT_REJECTED_FOR_CURRENT_TASKS: YES
+8192_PREFLIGHT_SUCCESS_PATH: YES
+PAID_PROOF_EXECUTE_8192_GATE_UNCHANGED: YES
+DIRECT_REAL_ESCAPE_8192_GATE_UNCHANGED: YES
+POST_CONSUME_DIAGNOSTICS_UNCHANGED: YES
+R9_STRICTNESS_UNCHANGED: YES
+MAX_CALLS_ONE: YES
+AUTO_RETRY_ZERO: YES
 
 ## Generated
-2026-08-23T08:20:22+07:00
+2026-08-23T08:37:05+07:00

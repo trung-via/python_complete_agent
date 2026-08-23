@@ -74,7 +74,7 @@ def _valid_grant() -> PaidApiGrant:
         authorized_artifact_path=ARTIFACT_PATH,
         authorized_artifact_blob_sha=ARTIFACT_BLOB,
         max_input_tokens=10000,
-        max_output_tokens=4000,
+        max_output_tokens=8192,
         max_calls=1,
         expires_at_epoch_seconds=2000000000,
         workspace_id=WORKSPACE_ID,
@@ -307,6 +307,49 @@ class TestBridgePaidProofPreflight:
         err = capsys.readouterr().err
         assert sentinel_path not in err
         assert "ledger directory durability probe failed" in err
+
+    @pytest.mark.parametrize("invalid_output_tokens", [4000, 2000, 8191, 8193, 64, 16384])
+    def test_fails_if_grant_max_output_tokens_not_8192(
+        self,
+        mock_preflight_env,
+        monkeypatch,
+        tmp_path,
+        capsys,
+        invalid_output_tokens,
+    ):
+        runtime_dir = tmp_path / "runtime"
+        store = AtomicPaidApiGrantStore(runtime_dir / "paid_api_grants", WORKSPACE_ID)
+        bad_grant = PaidApiGrant(
+            schema_version="1",
+            grant_id="grant-bad-output-tokens",
+            task_id=TASK_ID_STR,
+            actor_kind=DispatchActorKind.BRAIN,
+            brain_id="minimax",
+            provider_id="minimax",
+            model_id="MiniMax-M3",
+            brain_operation=BrainOperation.PLAN,
+            authorized_artifact_path=ARTIFACT_PATH,
+            authorized_artifact_blob_sha=ARTIFACT_BLOB,
+            max_input_tokens=10000,
+            max_output_tokens=invalid_output_tokens,
+            max_calls=1,
+            expires_at_epoch_seconds=2000000000,
+            workspace_id=WORKSPACE_ID,
+        )
+        store.activate(bad_grant, now_epoch_seconds=1000000000)
+        monkeypatch.setattr(bridge, "get_paid_api_grant_store", lambda *args, **kwargs: store)
+
+        args = SimpleNamespace(
+            task_id=TASK_NUM,
+            grant_id="grant-bad-output-tokens",
+            proof_lock_path=PROOF_LOCK_PATH,
+            proof_lock_blob_sha=PROOF_LOCK_BLOB,
+        )
+        with pytest.raises(SystemExit):
+            bridge.cmd_paid_proof_preflight(args)
+
+        err = capsys.readouterr().err
+        assert "must be exactly 8192" in err
 
     def test_parser_exposes_no_security_override_flags(self):
         parser = argparse.ArgumentParser()
