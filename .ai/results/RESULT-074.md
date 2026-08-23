@@ -5,38 +5,36 @@ STATUS: READY_FOR_REVIEW
 ## Review Manifest
 ```yaml
 TASK_ID: TASK-074
-ACTION: RUN
+ACTION: FIX
 EXECUTOR_ID: antigravity
 EXECUTOR_FAILOVER: NO
 HOT_HANDOFF: NO
 ```
 
 ## Summary
-Implemented TASK-074 / ADR-047: (1) updated codex_local.py to analyze bounded head + tail (32 KiB head + 32 KiB tail, total analysis budget <= 64 KiB) for long JSON streams, safely ignoring boundary slice cuts while surfacing terminal tail failure events (error, turn.failed) as JSON_ERROR_EVENT and tail turn.completed as last_stdout_event_type; (2) added deterministic is_productive_nonzero_recovery_candidate() predicate in bridge.py to classify exact-scope non-zero Codex executions; (3) refactored cmd_execute() to route productive non-zero candidates through exact Git/scope validation and canonical full repository tests into standard ChatGPT review publication without rerunning Codex; (4) preserved fail-closed recovery for all other non-zero outcomes and failures; (5) added comprehensive unit and integration test coverage in tests/aios_bridge/test_codex_local_transport.py and tests/test_bridge_executor_automation.py (149 targeted passed, 2312 full repo passed).
+Fixed REVIEW-074 Findings B1-B4: (B1) ensured canonical full-suite failure during productive non-zero recovery transitions state to RECOVERY_REQUIRED without publishing or rerunning executor; (B2) added post-test reverification of captured E4 publication-trust snapshot immediately before RESULT generation and Git mutation, failing closed into RECOVERY_REQUIRED if drifted; (B3) hardened is_productive_nonzero_recovery_candidate() to strictly enforce allowed scope, publication trust validity, and active authorization binding; (B4) mechanically distinguished cut first-tail fragments from complete first-tail records via predecessor byte inspection without exceeding budget (<= 64 KiB total analyzed bytes), safely discarding slice-cut boundary fragments; added comprehensive regression tests (152 targeted passed, 2315 full repo passed).
 
 ## Task Metadata
 - Task: `TASK-074`
-- Action: `RUN`
+- Action: `FIX`
 - Executor: `antigravity`
-- Authorized Artifact: `.ai/tasks/TASK-074.md (6dabbfa827)`
-- Base Main SHA: `c6bd8943b0e2420391961fe2d3203ec0b65068c9`
+- Authorized Artifact: `.ai/reviews/REVIEW-074.md (94c5cfdc02)`
+- Base Main SHA: `(n/a)`
 - Branch: `ai/task-074`
 
 ## Files Changed
 - bridge.py
-- src/aios_bridge/executor_transports/__init__.py
 - src/aios_bridge/executor_transports/codex_local.py
 - tests/aios_bridge/test_codex_local_transport.py
 - tests/test_bridge_executor_automation.py
 
 ## Diff Stat
 ```text
-bridge.py                                          | 188 +++++++++++++--------
- src/aios_bridge/executor_transports/__init__.py    |   2 +
- src/aios_bridge/executor_transports/codex_local.py | 126 ++++++++------
- tests/aios_bridge/test_codex_local_transport.py    |  71 ++++++++
- tests/test_bridge_executor_automation.py           | 185 +++++++++++++++++++-
- 5 files changed, 450 insertions(+), 122 deletions(-)
+bridge.py                                          | 53 +++++++++++---
+ src/aios_bridge/executor_transports/codex_local.py | 45 +++++++-----
+ tests/aios_bridge/test_codex_local_transport.py    | 65 +++++++++++++++++
+ tests/test_bridge_executor_automation.py           | 82 +++++++++++++++++++++-
+ 4 files changed, 218 insertions(+), 27 deletions(-)
 ```
 
 ## Tests
@@ -56,7 +54,7 @@ Exit code: 0
 ........................................................................ [ 31%]
 ........................................................................ [ 34%]
 ........................................................................ [ 37%]
-...............ss......................................s................ [ 40%]
+.................ss......................................s.............. [ 40%]
 ........................................................................ [ 43%]
 ........................................................................ [ 46%]
 ........................................................................ [ 49%]
@@ -72,11 +70,11 @@ Exit code: 0
 ........................................................................ [ 80%]
 ........................................................................ [ 83%]
 ........................................................................ [ 86%]
-........................................................................ [ 90%]
+........................................................................ [ 89%]
 ........................................................................ [ 93%]
 ........................................................................ [ 96%]
 ........................................................................ [ 99%]
-...............                                                          [100%]
+..................                                                       [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -379,7 +377,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-2312 passed, 7 skipped, 1540 warnings in 263.61s (0:04:23)
+2315 passed, 7 skipped, 1540 warnings in 163.93s (0:02:43)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -391,26 +389,25 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 TARGETED_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/aios_bridge/test_codex_local_transport.py tests/test_bridge_executor_automation.py -q
 Exit code: 0
-Result: 149 passed, 0 skipped, 0 failed
+Result: 152 passed, 0 skipped, 0 failed
 
 FULL_REPOSITORY_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/ -q
 Exit code: 0
-Result: 2312 passed, 7 skipped, 0 failed
+Result: 2315 passed, 7 skipped, 0 failed
 
-DIAGNOSTIC_EVIDENCE:
-TASK_074_IMPLEMENTATION: COMPLETED
-BOUNDED_HEAD_TAIL_DIAGNOSTIC: PASS
-TAIL_FAILURE_AFTER_64K: JSON_ERROR_EVENT
-TAIL_ERROR_AFTER_64K: JSON_ERROR_EVENT
-TAIL_TURN_COMPLETED_AFTER_64K: OBSERVED_AS_LAST_EVENT
-TOTAL_ANALYZED_BYTES_PER_STREAM: <= 65536
-HEAD_TAIL_BOUNDARY_PARTIAL_JSON: SAFELY_IGNORED
-RAW_OUTPUT_PERSISTED: NO
-PRODUCTIVE_NONZERO_PREDICATE: PASS
-PRODUCTIVE_NONZERO_EXACT_SCOPE_REQUIRED: YES
-PRODUCTIVE_NONZERO_FULL_SUITE_REQUIRED: YES
-PRODUCTIVE_NONZERO_REVIEW_PUBLICATION: PASS
+GIT_DIFF_CHECK:
+Command: git diff --check
+Exit code: 0
+Result: Clean
+
+REVIEW_074_FINDINGS_REPAIR:
+B1_PRODUCTIVE_NONZERO_SUITE_FAILURE_RECOVERY_REQUIRED: RESOLVED
+B2_POST_TEST_PUBLICATION_TRUST_REVERIFICATION: RESOLVED
+B3_LOCKED_PRODUCTIVE_NONZERO_PREDICATE_CONDITIONS: RESOLVED
+B4_SLICE_CUT_BOUNDARY_FRAGMENT_DISCARD: RESOLVED
+BOUNDED_ANALYSIS_BUDGET_PRESERVED: <= 65536 BYTES
+AUTHORIZED_SCOPE_ONLY: YES
 CANONICAL_RECEIPT_STATUS_REWRITTEN_TO_ZERO: NO
 AUTO_RETRY: NO
 AUTO_REROUTE: NO
@@ -420,7 +417,6 @@ PAID_API: NO
 H3_STARTED: NO
 STANDING_AUTO_MERGE_AUTHORIZATION: ENABLED
 WORKER_MERGE_AUTHORITY: NO
-SCOPE_EXACT: YES
 
 ## Generated
-2026-08-23T20:09:34+07:00
+2026-08-23T20:59:14+07:00

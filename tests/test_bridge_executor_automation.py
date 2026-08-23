@@ -1123,7 +1123,55 @@ def test_is_productive_nonzero_recovery_candidate_predicate():
         pre_head_sha="a" * 40,
         post_head_sha="a" * 40,
         dirty_paths=("bridge.py",),
+        allowed_paths=["bridge.py", "tests/test_bridge_executor_automation.py"],
+        publication_trust_valid=True,
+        authorization_binding_valid=True,
     ) is True
+
+    # Out of scope dirty path -> False
+    assert bridge.is_productive_nonzero_recovery_candidate(
+        receipt_status=InvocationStatus.EXITED_NONZERO,
+        receipt_error_code="CODEX_EXIT_NONZERO",
+        pre_branch="ai/task-043",
+        post_branch="ai/task-043",
+        target_branch="ai/task-043",
+        pre_head_sha="a" * 40,
+        post_head_sha="a" * 40,
+        dirty_paths=("unauthorized.py",),
+        allowed_paths=["bridge.py"],
+        publication_trust_valid=True,
+        authorization_binding_valid=True,
+    ) is False
+
+    # Publication trust invalid -> False
+    assert bridge.is_productive_nonzero_recovery_candidate(
+        receipt_status=InvocationStatus.EXITED_NONZERO,
+        receipt_error_code="CODEX_EXIT_NONZERO",
+        pre_branch="ai/task-043",
+        post_branch="ai/task-043",
+        target_branch="ai/task-043",
+        pre_head_sha="a" * 40,
+        post_head_sha="a" * 40,
+        dirty_paths=("bridge.py",),
+        allowed_paths=["bridge.py"],
+        publication_trust_valid=False,
+        authorization_binding_valid=True,
+    ) is False
+
+    # Authorization binding invalid -> False
+    assert bridge.is_productive_nonzero_recovery_candidate(
+        receipt_status=InvocationStatus.EXITED_NONZERO,
+        receipt_error_code="CODEX_EXIT_NONZERO",
+        pre_branch="ai/task-043",
+        post_branch="ai/task-043",
+        target_branch="ai/task-043",
+        pre_head_sha="a" * 40,
+        post_head_sha="a" * 40,
+        dirty_paths=("bridge.py",),
+        allowed_paths=["bridge.py"],
+        publication_trust_valid=True,
+        authorization_binding_valid=False,
+    ) is False
 
     # EXITED_ZERO -> False
     assert bridge.is_productive_nonzero_recovery_candidate(
@@ -1227,7 +1275,9 @@ def test_productive_nonzero_failed_test_suite_does_not_publish_and_enters_recove
     monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ("bridge.py",))
 
     def failing_publish(namespace):
-        raise SystemExit(1)
+        failure_state = getattr(namespace, "failure_state", None) or "CHANGES_REQUIRED"
+        bridge.update_state(namespace.task_id, failure_state, "Tests failed; do not publish")
+        bridge.fail("Tests failed (exit=1). Không commit/push.", code=1)
 
     monkeypatch.setattr(bridge, "cmd_publish", failing_publish)
 
@@ -1235,6 +1285,36 @@ def test_productive_nonzero_failed_test_suite_does_not_publish_and_enters_recove
         bridge.cmd_execute(execute_args())
 
     assert calls["invoke"] == 1
+    assert calls["publish"] == []
+    assert calls["state"][-1] == ("RECOVERY_REQUIRED", "Tests failed; do not publish")
+
+
+def test_post_test_publication_trust_drift_enters_recovery_and_blocks_publish(monkeypatch, tmp_path):
+    _, _, calls = make_execute_environment(
+        monkeypatch, tmp_path, status=InvocationStatus.EXITED_NONZERO
+    )
+    monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ("bridge.py",))
+
+    def publishing_with_trust_drift(namespace):
+        trust = getattr(namespace, "publication_trust_snapshot", None)
+        assert trust is not None
+        failure_state = getattr(namespace, "failure_state", None) or "RECOVERY_REQUIRED"
+        bridge.update_state(
+            namespace.task_id,
+            failure_state,
+            "E4 protected Git administration drifted during test execution; work preserved: hook mutated",
+        )
+        bridge.fail("E4 protected Git administration drifted during test execution; work preserved: hook mutated", code=1)
+
+    monkeypatch.setattr(bridge, "cmd_publish", publishing_with_trust_drift)
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+
+    assert calls["invoke"] == 1
+    assert calls["publish"] == []
+    assert calls["state"][-1][0] == "RECOVERY_REQUIRED"
+    assert "E4 protected Git administration drifted during test execution" in calls["state"][-1][1]
 
 
 def test_productive_nonzero_out_of_scope_dirty_path_does_not_publish_and_enters_recovery(monkeypatch, tmp_path):

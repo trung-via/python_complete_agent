@@ -383,33 +383,42 @@ def _resolve_safe_temporary_dir(workspace: Path) -> Path | None:
     return temp_root
 
 
-def _read_bounded_stream(stream_file: Any) -> tuple[int, bytes, bytes, bool]:
+def _read_bounded_stream(stream_file: Any) -> tuple[int, bytes, bytes, bool, bool, bool]:
     """Read stream with bounded head + tail if stream exceeds budget.
 
-    Returns (total_bytes, head_bytes, tail_bytes, is_truncated).
+    Returns (total_bytes, head_bytes, tail_bytes, is_truncated, head_ends_at_record_boundary, tail_starts_at_record_boundary).
     """
     total_bytes = 0
     head_bytes = b""
     tail_bytes = b""
     if stream_file is None:
-        return 0, b"", b"", False
+        return 0, b"", b"", False, True, True
     try:
         stream_file.seek(0, os.SEEK_END)
         total_bytes = stream_file.tell()
         if total_bytes <= MAX_CODEX_DIAGNOSTIC_SCAN_BYTES_PER_STREAM:
             stream_file.seek(0)
             head_bytes = stream_file.read(MAX_CODEX_DIAGNOSTIC_SCAN_BYTES_PER_STREAM)
-            return total_bytes, head_bytes, b"", False
+            head_ends_at_record_boundary = head_bytes.endswith((b"\n", b"\r")) if head_bytes else True
+            return total_bytes, head_bytes, b"", False, head_ends_at_record_boundary, True
 
         half_budget = MAX_CODEX_DIAGNOSTIC_SCAN_BYTES_PER_STREAM // 2
         stream_file.seek(0)
         head_bytes = stream_file.read(half_budget)
+        head_ends_at_record_boundary = head_bytes.endswith((b"\n", b"\r"))
+
         tail_start = max(half_budget, total_bytes - half_budget)
+        tail_starts_at_record_boundary = True
+        if tail_start > 0:
+            stream_file.seek(tail_start - 1)
+            prev_byte = stream_file.read(1)
+            tail_starts_at_record_boundary = (prev_byte in (b"\n", b"\r"))
+
         stream_file.seek(tail_start)
         tail_bytes = stream_file.read(half_budget)
-        return total_bytes, head_bytes, tail_bytes, True
+        return total_bytes, head_bytes, tail_bytes, True, head_ends_at_record_boundary, tail_starts_at_record_boundary
     except Exception:
-        return total_bytes, head_bytes, tail_bytes, False
+        return total_bytes, head_bytes, tail_bytes, False, True, True
 
 
 def _analyze_diagnostic_stream(
@@ -418,8 +427,8 @@ def _analyze_diagnostic_stream(
 ) -> CodexTransportDiagnostic:
     """Safely analyze temporary stdout/stderr streams within strict bounds."""
     try:
-        total_out, head_out, tail_out, out_truncated = _read_bounded_stream(stdout_file)
-        total_err, head_err, tail_err, err_truncated = _read_bounded_stream(stderr_file)
+        total_out, head_out, tail_out, out_truncated, head_out_boundary, tail_out_boundary = _read_bounded_stream(stdout_file)
+        total_err, head_err, tail_err, err_truncated, head_err_boundary, tail_err_boundary = _read_bounded_stream(stderr_file)
 
         json_line_count = 0
         non_json_line_count = 0
@@ -428,7 +437,7 @@ def _analyze_diagnostic_stream(
         last_event_type: str | None = None
         has_failure_event = False
 
-        def _process_line(raw_line: bytes, is_boundary_fragment: bool) -> None:
+        def _process_line(raw_line: bytes) -> None:
             nonlocal json_line_count, non_json_line_count, last_event_type, has_failure_event
             line = raw_line.strip()
             if not line:
@@ -458,21 +467,21 @@ def _analyze_diagnostic_stream(
                 else:
                     json_line_count += 1
             except Exception:
-                if not is_boundary_fragment:
-                    non_json_line_count += 1
+                non_json_line_count += 1
 
         if head_out:
             head_lines = head_out.splitlines()
-            has_head_boundary = out_truncated and len(head_lines) > 0 and not head_out.endswith((b"\n", b"\r"))
-            for i, line in enumerate(head_lines):
-                is_boundary = has_head_boundary and (i == len(head_lines) - 1)
-                _process_line(line, is_boundary)
+            if out_truncated and not head_out_boundary and len(head_lines) > 0:
+                head_lines = head_lines[:-1]
+            for line in head_lines:
+                _process_line(line)
 
         if tail_out:
             tail_lines = tail_out.splitlines()
-            for i, line in enumerate(tail_lines):
-                is_boundary = (i == 0)
-                _process_line(line, is_boundary)
+            if out_truncated and not tail_out_boundary and len(tail_lines) > 0:
+                tail_lines = tail_lines[1:]
+            for line in tail_lines:
+                _process_line(line)
 
         if total_out == 0 and total_err == 0:
             code = CodexDiagnosticCode.EMPTY_OUTPUT.value

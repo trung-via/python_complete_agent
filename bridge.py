@@ -3211,15 +3211,30 @@ def is_productive_nonzero_recovery_candidate(
     pre_head_sha: str,
     post_head_sha: str,
     dirty_paths: tuple[str, ...] | list[str] | set[str],
+    allowed_paths: tuple[str, ...] | list[str] | set[str] | None = None,
+    publication_trust_valid: bool = True,
+    authorization_binding_valid: bool = True,
 ) -> bool:
     """Classify whether a non-zero executor invocation is eligible for productive recovery (ADR-047 / TASK-074)."""
-    return (
-        receipt_status is InvocationStatus.EXITED_NONZERO
-        and receipt_error_code == ERROR_CODEX_EXIT_NONZERO
-        and post_branch == pre_branch == target_branch
-        and post_head_sha == pre_head_sha
-        and len(dirty_paths) > 0
-    )
+    if receipt_status is not InvocationStatus.EXITED_NONZERO:
+        return False
+    if receipt_error_code != ERROR_CODEX_EXIT_NONZERO:
+        return False
+    if post_branch != pre_branch or pre_branch != target_branch:
+        return False
+    if post_head_sha != pre_head_sha:
+        return False
+    if not dirty_paths:
+        return False
+    if not publication_trust_valid or not authorization_binding_valid:
+        return False
+    if allowed_paths is not None:
+        allowed_set = {p.replace("\\", "/").strip("/") for p in allowed_paths}
+        for p in dirty_paths:
+            norm = p.replace("\\", "/").strip("/")
+            if norm not in allowed_set:
+                return False
+    return True
 
 
 def _e4_operational_failure(task_id: int, status: str, message: str) -> None:
@@ -3485,6 +3500,9 @@ def cmd_execute(args):
         pre_head_sha=pre_head_sha,
         post_head_sha=post_head_sha,
         dirty_paths=dirty_paths,
+        allowed_paths=snapshot["allowed_paths"],
+        publication_trust_valid=True,
+        authorization_binding_valid=True,
     ):
         pass
     else:
@@ -3573,6 +3591,8 @@ def cmd_execute(args):
         summary=summary,
         notes=notes,
         message=None,
+        failure_state="RECOVERY_REQUIRED",
+        publication_trust_snapshot=publication_trust,
     )
     cmd_publish(publish_args)
 
@@ -4700,11 +4720,28 @@ def cmd_publish(args):
         if len(test_output) > 30000:
             test_output = test_output[-30000:]
         if test_rc != 0:
-            update_state(task_id, "CHANGES_REQUIRED", "Tests failed; do not publish")
+            failure_state = getattr(args, "failure_state", None) or "CHANGES_REQUIRED"
+            update_state(task_id, failure_state, "Tests failed; do not publish")
             print(test_output)
             fail(
                 f"Tests failed (exit={test_rc}). Không commit/push.",
                 code=test_rc or 1,
+            )
+
+    trust_snapshot = getattr(args, "publication_trust_snapshot", None)
+    if trust_snapshot is not None:
+        try:
+            verify_e4_publication_trust_snapshot(trust_snapshot)
+        except Exception as exc:
+            failure_state = getattr(args, "failure_state", None) or "RECOVERY_REQUIRED"
+            update_state(
+                task_id,
+                failure_state,
+                f"E4 protected Git administration drifted during test execution; work preserved: {exc}",
+            )
+            fail(
+                f"E4 protected Git administration drifted during test execution; work preserved: {exc}",
+                code=1,
             )
 
     result = AI / "results" / f"RESULT-{task_id:03d}.md"

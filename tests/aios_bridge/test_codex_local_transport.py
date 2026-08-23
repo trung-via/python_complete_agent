@@ -1245,3 +1245,68 @@ def test_head_and_tail_boundary_fragments_do_not_produce_false_non_json(
     assert outcome.diagnostic.stdout_scan_truncated is True
     assert outcome.diagnostic.stdout_non_json_line_count == 0
     assert outcome.diagnostic.code == CodexDiagnosticCode.JSON_EVENT_STREAM.value
+
+
+def test_cut_tail_boundary_fragment_with_syntactically_valid_json_suffix_is_ignored(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Construct a stream where byte offset total_bytes - 32768 lands in the middle of a huge record,
+    # and the trailing slice starts with a valid JSON suffix like '{"type":"error"}\n'
+    head_line = (json.dumps({"type": "head_event"}) + "\n").encode("utf-8")
+    fake_cut_suffix = (json.dumps({"type": "error"}) + "\n").encode("utf-8")
+    tail_real_event = (json.dumps({"type": "turn.completed"}) + "\n").encode("utf-8")
+
+    # We want total_bytes > 65536 and tail_start = total_bytes - 32768 to fall mid-record.
+    # Total tail size = 32768.
+    # Tail slice will be: fake_cut_suffix + tail_real_event + padding
+    tail_prefix = fake_cut_suffix
+    tail_suffix = tail_real_event
+    needed_len = 32768 - len(tail_prefix) - len(tail_suffix)
+    base_json = json.dumps({"type": "filler", "d": ""}) + "\n"
+    pad_chars = needed_len - len(base_json.encode("utf-8"))
+    tail_padding = (json.dumps({"type": "filler", "d": "a" * pad_chars}) + "\n").encode("utf-8")
+    tail_slice = tail_prefix + tail_padding + tail_suffix
+    assert len(tail_slice) == 32768
+
+    # Middle record prefix: needs to not end with \n before tail_slice begins
+    middle_prefix = b'{"huge_field":"' + b"A" * 40000  # no newline!
+    stdout_data = head_line + middle_prefix + tail_slice
+    assert len(stdout_data) > 65536
+
+    process = _FakeProcess(returncode=0, stdout_bytes=stdout_data)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+
+    assert outcome.diagnostic.stdout_scan_truncated is True
+    # The fake_cut_suffix was a proven cut fragment -> ignored and NOT parsed as error event!
+    assert "error" not in outcome.diagnostic.stdout_event_types
+    assert outcome.diagnostic.code == CodexDiagnosticCode.JSON_EVENT_STREAM.value
+    assert outcome.diagnostic.last_stdout_event_type == "turn.completed"
+
+
+def test_exact_record_boundary_tail_start_parses_malformed_and_valid_records_correctly(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Construct a stream where byte offset total_bytes - 32768 lands EXACTLY after \n
+    # Tail size = 32768.
+    malformed_line = b"MALFORMED_LINE_AT_BOUNDARY\n"
+    valid_line = (json.dumps({"type": "turn.completed"}) + "\n").encode("utf-8")
+    tail_rest = b"y" * (32768 - len(malformed_line) - len(valid_line) - 1) + b"\n"
+    tail_slice = malformed_line + valid_line + tail_rest
+    assert len(tail_slice) == 32768
+
+    # Prefix total length must end with \n immediately before tail_slice
+    prefix = (json.dumps({"type": "head_event"}) + "\n").encode("utf-8")
+    prefix += b"A" * (40000 - len(prefix) - 1) + b"\n"
+    stdout_data = prefix + tail_slice
+    assert len(stdout_data) > 65536
+    # Check that byte immediately before tail_slice is \n
+    tail_start = len(stdout_data) - 32768
+    assert stdout_data[tail_start - 1 : tail_start] == b"\n"
+
+    process = _FakeProcess(returncode=0, stdout_bytes=stdout_data)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+
+    assert outcome.diagnostic.stdout_scan_truncated is True
+    # Because it starts on record boundary, malformed_line is counted as non_json
+    assert outcome.diagnostic.stdout_non_json_line_count >= 1
+    assert outcome.diagnostic.last_stdout_event_type == "turn.completed"
