@@ -5,21 +5,21 @@ STATUS: READY_FOR_REVIEW
 ## Review Manifest
 ```yaml
 TASK_ID: TASK-065
-ACTION: RUN
+ACTION: FIX
 EXECUTOR_ID: antigravity
 EXECUTOR_FAILOVER: NO
 HOT_HANDOFF: NO
 ```
 
 ## Summary
-Formally closed Milestone M11 (External Paid-Brain Escape Hatch Architecture & Runtime) as OPERATIONALLY_PROVEN at production baseline 5a714a410d4a4d5fc0b76cea62e7fd164f0cdd54. Documented authoritative Git/proof-lock anchors, three-attempt live operational sequence, independent read-only runtime evidence verification (consumed grant, 1-call usage ledger, exact 3155==3155 token match, durable proposal.md and proof.json receipts), and permanently locked safety invariants (1 call, 0 retries, 0 second provider, consume before call, no executor authority created).
+Resolved REVIEW-065 findings B1 and B2: (B1) restored the exact machine-readable invariant keys in section 6 without semantic aliases (including EXECUTOR_AUTHORITY_CREATED_BY_BRAIN: FALSE, R9_SUCCESS_REQUIRED: YES, TRUNCATED_OUTPUT_ACCEPTED: NO, LIVE_PROOF_OUTPUT_ENVELOPE: 8192); (B2) performed read-only inventory of TASK-062 grant state and accurately recorded the distinction between persistent directory state (3 consumed, 3 expired preflight preparation grants in active/) and usability (FINAL_SUCCESSFUL_GRANT_STATE: CONSUMED, PRIOR_LIVE_CALL_GRANTS_REUSABLE: NO, UNEXPIRED_USABLE_GRANTS_FOR_FINAL_PROOF: 0, EXPIRED_PREFLIGHT_ONLY_GRANT_STATE: NON_USABLE), proving no usable or reusable grant remains.
 
 ## Task Metadata
 - Task: `TASK-065`
-- Action: `RUN`
+- Action: `FIX`
 - Executor: `antigravity`
-- Authorized Artifact: `.ai/tasks/TASK-065.md (9218a6a234)`
-- Base Main SHA: `5a714a410d4a4d5fc0b76cea62e7fd164f0cdd54`
+- Authorized Artifact: `.ai/reviews/REVIEW-065.md (62f074c8bc)`
+- Base Main SHA: `(n/a)`
 - Branch: `ai/task-065`
 
 ## Files Changed
@@ -27,8 +27,8 @@ Formally closed Milestone M11 (External Paid-Brain Escape Hatch Architecture & R
 
 ## Diff Stat
 ```text
-.ai/proofs/M11-OPERATIONAL-PROOF-CLOSURE-065.md | 135 ++++++++++++++++++++++++
- 1 file changed, 135 insertions(+)
+.ai/proofs/M11-OPERATIONAL-PROOF-CLOSURE-065.md | 34 ++++++++++++++-----------
+ 1 file changed, 19 insertions(+), 15 deletions(-)
 ```
 
 ## Tests
@@ -366,7 +366,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-1972 passed, 7 skipped, 1540 warnings in 163.67s (0:02:43)
+1972 passed, 7 skipped, 1540 warnings in 153.05s (0:02:33)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -376,26 +376,18 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 
 ## Risks / Notes
 EVIDENCE_VERIFICATION:
-M11_STATUS: OPERATIONALLY_PROVEN
-M11_CLOSED: YES
-PRODUCTION_BASELINE_SHA: 5a714a410d4a4d5fc0b76cea62e7fd164f0cdd54
-PROOF_LOCK_MATCH: YES
-FINAL_GRANT_STATE: CONSUMED
-FINAL_PROVIDER_CALL_COUNT: 1
-FINAL_RETRY_COUNT: 0
-FINAL_EXECUTOR_AUTHORITY_CREATED: NO
-FINAL_PROPOSAL_SHA256_MATCH: YES
-FINAL_OPERATIONAL_PROOF_FINGERPRINT_MATCH: YES
-FINAL_LEDGER_SINGLE_CALL_EVIDENCE: YES
-FINAL_INPUT_TOKEN_CORRELATION_EXACT: YES
-PRIOR_LIVE_GRANTS_REUSABLE: NO
-NO_RUNTIME_MUTATION: YES
+EXACT_LOCKED_INVARIANT_KEYS_PRESENT: YES
+FINAL_SUCCESSFUL_GRANT_STATE: CONSUMED
+PRIOR_LIVE_CALL_GRANTS_REUSABLE: NO
+UNEXPIRED_USABLE_GRANTS_FOR_FINAL_PROOF: 0
+GRANT_STATE_WORDING_ACCURATE: YES
+NO_GRANT_MUTATION_DURING_FIX: YES
+NO_PROVIDER_CALL_DURING_FIX: YES
+NO_API_KEY_VALUE_READ_DURING_FIX: YES
 NO_PRODUCTION_CODE_CHANGE: YES
 NO_TEST_CODE_CHANGE: YES
-NO_PROVIDER_CALL_DURING_TASK: YES
-NO_API_KEY_VALUE_READ_DURING_TASK: YES
 NO_SECRET_OR_RAW_RESPONSE_LEAK: YES
 SCOPE_EXACT: YES
 
 ## Generated
-2026-08-23T09:45:25+07:00
+2026-08-23T09:55:22+07:00

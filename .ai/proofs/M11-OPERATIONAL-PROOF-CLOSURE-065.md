@@ -97,11 +97,18 @@ Read-only verification of local runtime state confirms:
    - `paid_api_proofs/TASK-062/b44af77179540f9efaf99496b83011367b853393d3b035cb436df51b8d3376e4/proof.json` exists with matching operational proof fingerprint `a33718c201e171d8145b3cd98ea246073ba146ab29e8a0f404b306a178151c96`.
 2. **Usage Ledger**:
    - `paid_api_usage/TASK-062/b44af77179540f9efaf99496b83011367b853393d3b035cb436df51b8d3376e4.jsonl` contains exactly 1 usage record (`status: SUCCESS`, `provider_input_tokens: 3155`, `provider_output_tokens: 3984`, `latency_ms: 82645`).
-3. **Grant Store**:
-   - Grant `b44af77179540f9efaf99496b83011367b853393d3b035cb436df51b8d3376e4.json` is located in `consumed/` directory with `max_output_tokens: 8192` and fingerprint `47a9c27b1d0c3ad48b380a48d23816f467b8a6e9855bd79ce3125c57da87d564`.
-   - 0 active grants remain for TASK-062.
-4. **Prior Attempt Grants**:
-   - Prior attempt grants remain permanently non-active/consumed; no replay or reuse is possible.
+3. **Grant Store Inventory & Usability State**:
+   - Final successful live proof grant (`b44af77179540f9efaf99496b83011367b853393d3b035cb436df51b8d3376e4.json`) is persisted in `consumed/` with `max_output_tokens: 8192` and fingerprint `47a9c27b1d0c3ad48b380a48d23816f467b8a6e9855bd79ce3125c57da87d564`.
+   - All 3 live provider call grants across the three operational attempts are permanently `CONSUMED`.
+   - Exactly 3 historical preflight-only preparation grants persist under the `active/` filesystem directory; read-only inspection confirms 100% of them have `expires_at_epoch_seconds < now` (expired timestamps), causing `require_active(...)` to fail closed.
+   - Usability summary:
+     ```text
+     FINAL_SUCCESSFUL_GRANT_STATE: CONSUMED
+     PRIOR_LIVE_CALL_GRANTS_REUSABLE: NO
+     UNEXPIRED_USABLE_GRANTS_FOR_FINAL_PROOF: 0
+     EXPIRED_PREFLIGHT_ONLY_GRANT_STATE: NON_USABLE
+     ```
+   - No reusable or unexpired usable grant remains for TASK-062 or any paid API operation.
 
 ## 6. Locked Safety Invariants
 
@@ -111,18 +118,15 @@ The following invariants remain strictly locked and enforced across the entire A
 MAX_CALLS: 1
 AUTO_RETRY: 0
 SECOND_PAID_PROVIDER: 0
-PAID_EXECUTOR: FORBIDDEN
+CONSUME_BEFORE_CALL: REQUIRED
 GRANT_REUSE: FORBIDDEN
 GRANT_REACTIVATION: FORBIDDEN
-CONSUME_BEFORE_CALL: REQUIRED
-MODEL_GATEWAY_INVOCATIONS: EXACTLY_ONE
-EXECUTOR_AUTHORITY_CREATED: FALSE
-BRAIN_OUTPUT_WORKTREE_AUTHORITY: FORBIDDEN
-SECRET_VALUE_READ_BEFORE_POST_GATE_FACTORY: FORBIDDEN
-PROVIDER_TIMEOUT_CONTRACT_SECONDS: 60..180
-REAL_PROOF_MAX_OUTPUT_TOKENS: 8192
-EXACT_INPUT_TOKEN_MATCH_REQUIRED: YES
-R9_OPERATIONAL_PROOF_STRICTNESS: PRESERVED
+EXECUTOR_AUTHORITY_CREATED_BY_BRAIN: FALSE
+R9_SUCCESS_REQUIRED: YES
+TRUNCATED_OUTPUT_ACCEPTED: NO
+INPUT_TOKEN_EXACT_MATCH_REQUIRED: YES
+TIMEOUT_CONTRACT_SECONDS: 60..180
+LIVE_PROOF_OUTPUT_ENVELOPE: 8192
 ```
 
 ## 7. Deferred / Non-Blocking Items
