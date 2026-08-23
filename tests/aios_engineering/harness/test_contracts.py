@@ -144,16 +144,46 @@ def test_evidence_rejects_oversized_path():
     "lowercase_not_allowed",
     "invalid@char",
     "control\nchar",
+    "VALID_REASON\n",
+    "VALID_REASON\r",
+    "VALID_REASON\t",
+    "\nVALID_REASON",
+    "VALID_REASON\nEXTRA",
 ])
 def test_evidence_rejects_invalid_reason_code(invalid_reason):
     with pytest.raises(HarnessValidationError):
         _sample_evidence(reason=invalid_reason)
 
 
+@pytest.mark.parametrize("invalid_reason", [
+    "",
+    "has whitespace",
+    "lowercase_not_allowed",
+    "invalid@char",
+    "control\nchar",
+    "VALID_REASON\n",
+    "VALID_REASON\r",
+    "VALID_REASON\t",
+    "\nVALID_REASON",
+    "VALID_REASON\nEXTRA",
+])
+def test_exclusion_rejects_invalid_reason_code(invalid_reason):
+    ev = _sample_evidence()
+    with pytest.raises(HarnessValidationError):
+        HarnessEvidenceExclusion(evidence=ev, reason_code=invalid_reason)
+
+
 def test_evidence_rejects_oversized_reason_code():
     oversized_reason = "REASON_" + "X" * MAX_REASON_CODE_LENGTH
     with pytest.raises(HarnessValidationError, match="reason_code length .* exceeds maximum"):
         _sample_evidence(reason=oversized_reason)
+
+
+def test_exclusion_rejects_oversized_reason_code():
+    ev = _sample_evidence()
+    oversized_reason = "REASON_" + "X" * MAX_REASON_CODE_LENGTH
+    with pytest.raises(HarnessValidationError, match="reason_code length .* exceeds maximum"):
+        HarnessEvidenceExclusion(evidence=ev, reason_code=oversized_reason)
 
 
 @pytest.mark.parametrize("invalid_priority", [

@@ -19,9 +19,9 @@ MAX_REASON_CODE_LENGTH: int = 64
 MAX_SYMBOL_LOCATOR_LENGTH: int = 256
 MAX_GENERATOR_VERSION_LENGTH: int = 64
 
-_HEX_40_RE = re.compile(r"^[0-9a-f]{40}$")
-_HEX_64_RE = re.compile(r"^[0-9a-f]{64}$")
-_REASON_CODE_RE = re.compile(r"^[A-Z0-9_:-]+$")
+_HEX_40_RE = re.compile(r"\A[0-9a-f]{40}\Z")
+_HEX_64_RE = re.compile(r"\A[0-9a-f]{64}\Z")
+_REASON_CODE_RE = re.compile(r"\A[A-Z0-9_:-]+\Z")
 
 
 def _validate_task_id(val: Any) -> str:
@@ -34,22 +34,24 @@ def _validate_task_id(val: Any) -> str:
 
 
 def _validate_hex_40(val: Any, field_name: str) -> str:
-    if not isinstance(val, str) or not _HEX_40_RE.match(val):
+    if not isinstance(val, str) or not _HEX_40_RE.fullmatch(val):
         raise HarnessValidationError(f"{field_name} must be exact lowercase 40-hex SHA: got {val!r}")
     return val
 
 
 def _validate_hex_64(val: Any, field_name: str) -> str:
-    if not isinstance(val, str) or not _HEX_64_RE.match(val):
+    if not isinstance(val, str) or not _HEX_64_RE.fullmatch(val):
         raise HarnessValidationError(f"{field_name} must be exact lowercase 64-hex hash: got {val!r}")
     return val
 
 
 def _validate_reason_code(val: Any, field_name: str = "reason_code") -> str:
-    if not isinstance(val, str) or not _REASON_CODE_RE.match(val):
+    if not isinstance(val, str) or not _REASON_CODE_RE.fullmatch(val):
         raise HarnessValidationError(
             f"{field_name} must be non-empty uppercase ASCII token matching ^[A-Z0-9_:-]+$: got {val!r}"
         )
+    if any(ord(c) < 32 or ord(c) == 127 for c in val):
+        raise HarnessValidationError(f"{field_name} must not contain control characters: got {val!r}")
     if len(val) > MAX_REASON_CODE_LENGTH:
         raise HarnessValidationError(
             f"{field_name} length ({len(val)}) exceeds maximum allowed ({MAX_REASON_CODE_LENGTH})"

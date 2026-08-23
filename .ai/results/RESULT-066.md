@@ -12,27 +12,25 @@ HOT_HANDOFF: NO
 ```
 
 ## Summary
-Resolved REVIEW-066 findings B1-B4: (B1) updated compute_candidate_set_fingerprint to hash only canonical RepositoryEvidenceRef identities from the union of selected evidence + exclusions, making candidate-set fingerprint strictly invariant to selection/exclusion disposition, reason changes, and input permutation; (B2) canonicalized exclusion serialization order in compute_plan_fingerprint so incidental exclusion permutation has zero semantic effect on plan fingerprint while preserving selected rank order sensitivity; (B3) introduced explicit named finite string bounds (MAX_SCHEMA_VERSION_LENGTH, MAX_PATH_LENGTH, MAX_REASON_CODE_LENGTH, MAX_SYMBOL_LOCATOR_LENGTH, MAX_GENERATOR_VERSION_LENGTH) across all H0 contracts with fail-closed rejection; and (B4) added comprehensive regression test coverage in test_contracts.py (67 passed).
+Resolved REVIEW-066 finding B5: updated reason_code validation in src/aios_engineering/harness/contracts.py to use fullmatch on \\A[A-Z0-9_:-]+\\Z and explicit control-character checks, strictly rejecting trailing newlines (\\n), carriage returns (\\r), and tabs (\\t) across RepositoryEvidenceRef.reason_code and HarnessEvidenceExclusion.reason_code; and added comprehensive regression tests in test_contracts.py (83 passed).
 
 ## Task Metadata
 - Task: `TASK-066`
 - Action: `FIX`
 - Executor: `antigravity`
-- Authorized Artifact: `.ai/reviews/REVIEW-066.md (b0a73d040c)`
+- Authorized Artifact: `.ai/reviews/REVIEW-066.md (6f239ba434)`
 - Base Main SHA: `(n/a)`
 - Branch: `ai/task-066`
 
 ## Files Changed
 - src/aios_engineering/harness/contracts.py
-- src/aios_engineering/harness/fingerprint.py
 - tests/aios_engineering/harness/test_contracts.py
 
 ## Diff Stat
 ```text
-src/aios_engineering/harness/contracts.py        |  34 +++++++
- src/aios_engineering/harness/fingerprint.py      |  35 +++++--
- tests/aios_engineering/harness/test_contracts.py | 120 ++++++++++++++++++++++-
- 3 files changed, 177 insertions(+), 12 deletions(-)
+src/aios_engineering/harness/contracts.py        | 14 ++++++-----
+ tests/aios_engineering/harness/test_contracts.py | 30 ++++++++++++++++++++++++
+ 2 files changed, 38 insertions(+), 6 deletions(-)
 ```
 
 ## Tests
@@ -41,34 +39,34 @@ Exit code: 0
 
 ```text
 ........................................................................ [  3%]
-........................................................................ [  7%]
+........................................................................ [  6%]
 ........................................................................ [ 10%]
-........................................................................ [ 14%]
+........................................................................ [ 13%]
 ................................................................s....... [ 17%]
-....ss....................................s............................. [ 21%]
+....ss....................................s............................. [ 20%]
 ........................................................................ [ 24%]
-........................................................................ [ 28%]
+........................................................................ [ 27%]
 ........................................................................ [ 31%]
-........................................................................ [ 35%]
+........................................................................ [ 34%]
 ........................................................................ [ 38%]
-..............................................ss........................ [ 42%]
+..............................................ss........................ [ 41%]
 ..............s......................................................... [ 45%]
-........................................................................ [ 49%]
+........................................................................ [ 48%]
 ........................................................................ [ 52%]
-........................................................................ [ 56%]
+........................................................................ [ 55%]
 ........................................................................ [ 59%]
-........................................................................ [ 63%]
+........................................................................ [ 62%]
 ........................................................................ [ 66%]
-........................................................................ [ 70%]
+........................................................................ [ 69%]
 ........................................................................ [ 73%]
-........................................................................ [ 77%]
+........................................................................ [ 76%]
 ........................................................................ [ 80%]
-........................................................................ [ 84%]
+........................................................................ [ 83%]
 ........................................................................ [ 87%]
-........................................................................ [ 91%]
-........................................................................ [ 95%]
-........................................................................ [ 98%]
-..............................                                           [100%]
+........................................................................ [ 90%]
+........................................................................ [ 94%]
+........................................................................ [ 97%]
+..............................................                           [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -371,7 +369,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-2039 passed, 7 skipped, 1540 warnings in 153.02s (0:02:33)
+2055 passed, 7 skipped, 1540 warnings in 155.50s (0:02:35)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -383,26 +381,19 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 TARGETED_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/aios_engineering/harness/test_contracts.py -v
 Exit code: 0
-Result: 67 passed, 0 skipped, 0 failed
+Result: 83 passed, 0 skipped, 0 failed
 
 FULL_REPOSITORY_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/ -q
 Exit code: 0
-Result: 2039 passed, 7 skipped, 0 failed
+Result: 2055 passed, 7 skipped, 0 failed
 
 H_SERIES_EVIDENCE:
-CANDIDATE_SET_EVIDENCE_UNION_SEMANTICS: PASS
-CANDIDATE_SET_SELECTED_PERMUTATION_INVARIANT: YES
-CANDIDATE_SET_EXCLUSION_PERMUTATION_INVARIANT: YES
-CANDIDATE_SET_DISPOSITION_INVARIANT: YES
-CANDIDATE_SET_EXCLUSION_REASON_INVARIANT: YES
-PLAN_EXCLUSION_ORDER_INVARIANT: YES
-SELECTED_RANK_ORDER_FINGERPRINT_SENSITIVE: YES
-SNAPSHOT_COMMIT_CHANGE_SENSITIVE: YES
-SNAPSHOT_TREE_CHANGE_SENSITIVE: YES
-BOUNDED_SCHEMA_VERSION: YES
-BOUNDED_REASON_CODE: YES
-BOUNDED_SYMBOL_LOCATOR: YES
+B1_B4_REMAIN_PASS: YES
+REASON_CODE_FULL_STRING_MATCH: YES
+REASON_CODE_TRAILING_NEWLINE_REJECTED: YES
+REASON_CODE_TRAILING_CR_REJECTED: YES
+REASON_CODE_TRAILING_TAB_REJECTED: YES
 H_SERIES_AUTHORITY_CREATED: NO
 NO_PRODUCTION_BRIDGE_CHANGE: YES
 NO_WORKER_SURFACE_CHANGE: YES
@@ -412,4 +403,4 @@ PAID_API_REQUIRED: NO
 SCOPE_EXACT: YES
 
 ## Generated
-2026-08-23T12:18:07+07:00
+2026-08-23T12:28:07+07:00
