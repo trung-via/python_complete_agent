@@ -1105,17 +1105,61 @@ def test_unsafe_temporary_capture_location_inside_workspace_fails_closed(
     assert outcome.receipt.error_code == codex_local.ERROR_WORKSPACE_PRECONDITION_FAILED
 
 
+@pytest.mark.parametrize("runtime_env,base_name", [
+    ("AIOS_RUNTIME_DIR", ""),
+    ("AIOS_HOME", ""),
+    ("LOCALAPPDATA", "aios-bridge"),
+    ("XDG_DATA_HOME", "aios-bridge"),
+    ("AIOS_BRIDGE_RUNTIME_DIR", ""),
+])
 def test_unsafe_temporary_capture_location_inside_persistent_runtime_fails_closed(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, runtime_env: str, base_name: str
 ) -> None:
-    workspace = tmp_path.resolve()
-    runtime_dir = tmp_path / "persistent_runtime"
-    runtime_dir.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setenv("AIOS_BRIDGE_RUNTIME_DIR", str(runtime_dir))
+    workspace = tmp_path / "workspace"
+    workspace.mkdir(parents=True, exist_ok=True)
+    runtime_root = tmp_path / "persistent_runtime_root"
+    runtime_root.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setenv(runtime_env, str(runtime_root))
+    if base_name:
+        temp_inside = runtime_root / base_name / "temp"
+    else:
+        temp_inside = runtime_root / "temp"
+    temp_inside.mkdir(parents=True, exist_ok=True)
 
     _install_valid_git(monkeypatch, workspace)
     monkeypatch.setattr(codex_local.shutil, "which", lambda spec: "resolved-codex")
-    monkeypatch.setattr(codex_local.tempfile, "gettempdir", lambda: str(runtime_dir))
+    monkeypatch.setattr(codex_local.tempfile, "gettempdir", lambda: str(temp_inside))
+
+    spawned = False
+
+    def fake_popen(*args: object, **kwargs: object) -> _FakeProcess:
+        nonlocal spawned
+        spawned = True
+        return _FakeProcess(0)
+
+    monkeypatch.setattr(codex_local.subprocess, "Popen", fake_popen)
+
+    outcome = CodexLocalTransport(workspace).invoke_with_diagnostic(_invocation(), PAYLOAD)
+    assert not spawned
+    assert outcome.receipt.status is InvocationStatus.FAILED_TO_START
+    assert outcome.receipt.error_code == codex_local.ERROR_WORKSPACE_PRECONDITION_FAILED
+
+
+def test_unsafe_temporary_capture_location_inside_home_fallback_fails_closed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir(parents=True, exist_ok=True)
+    fake_home = tmp_path / "fake_home"
+    fake_home.mkdir(parents=True, exist_ok=True)
+    fallback_dir = fake_home / ".aios-bridge" / "temp"
+    fallback_dir.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setattr(codex_local.Path, "home", lambda: fake_home)
+    _install_valid_git(monkeypatch, workspace)
+    monkeypatch.setattr(codex_local.shutil, "which", lambda spec: "resolved-codex")
+    monkeypatch.setattr(codex_local.tempfile, "gettempdir", lambda: str(fallback_dir))
 
     spawned = False
 

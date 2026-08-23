@@ -326,16 +326,38 @@ def _is_subpath_or_same(target: Path, base: Path) -> bool:
 
 
 def _get_persistent_runtime_dirs() -> list[Path]:
-    """Collect known persistent AIOS runtime directory paths."""
+    """Collect known persistent AIOS runtime directory paths matching Bridge runtime contract."""
     dirs: list[Path] = []
-    env_runtime = os.environ.get("AIOS_BRIDGE_RUNTIME_DIR")
-    if env_runtime:
-        dirs.append(Path(env_runtime))
-    if os.name == "nt":
-        local_app = os.environ.get("LOCALAPPDATA")
-        if local_app:
-            dirs.append(Path(local_app) / "aios-bridge")
+
+    # 1. Exact runtime override (Bridge: AIOS_RUNTIME_DIR)
+    runtime_override = os.environ.get("AIOS_RUNTIME_DIR")
+    if runtime_override:
+        dirs.append(Path(runtime_override))
+
+    # 2. Base directory override (Bridge: AIOS_HOME)
+    home_override = os.environ.get("AIOS_HOME")
+    if home_override:
+        dirs.append(Path(home_override))
+
+    # 3. Windows standard base (Bridge: LOCALAPPDATA / aios-bridge)
+    local_app = os.environ.get("LOCALAPPDATA")
+    if local_app:
+        dirs.append(Path(local_app) / "aios-bridge")
+
+    # 4. POSIX XDG base (Bridge: XDG_DATA_HOME / aios-bridge)
+    xdg_data = os.environ.get("XDG_DATA_HOME")
+    if xdg_data:
+        dirs.append(Path(xdg_data) / "aios-bridge")
+
+    # 5. Standard home fallbacks (Bridge: ~/.aios-bridge, and legacy ~/.aios_bridge)
+    dirs.append(Path.home() / ".aios-bridge")
     dirs.append(Path.home() / ".aios_bridge")
+
+    # 6. Legacy environment override if set
+    legacy_env = os.environ.get("AIOS_BRIDGE_RUNTIME_DIR")
+    if legacy_env:
+        dirs.append(Path(legacy_env))
+
     return dirs
 
 
