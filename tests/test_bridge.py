@@ -13,6 +13,45 @@ from src.aios_bridge.continuity.executor import ExecutionOperation
 from src.aios_bridge.continuity.state import ContinuityStateValidationError
 
 
+
+def _make_e4_test_task_content(task_id: int, action: str = "RUN", executor: str = "antigravity") -> str:
+    op = action.upper()
+    prefix = "TASK" if op == "RUN" else "REVIEW"
+    status_line = "STATUS: READY" if op == "RUN" else "STATUS: CHANGES_REQUIRED"
+    all_executors = ["antigravity", "codex", "claude-code"]
+    candidates = []
+    if executor in all_executors:
+        candidates.append({
+            "executor_id": executor,
+            "preference_rank": 0,
+            "capacity_class": "SUBSCRIPTION",
+            "supported_operations": [op],
+            "supported_capabilities": ["SHELL", "FILESYSTEM_WRITE", "LOCAL_GIT", "REPOSITORY_READ", "TEST_EXECUTION"],
+        })
+    for other in all_executors:
+        if other != executor:
+            candidates.append({
+                "executor_id": other,
+                "preference_rank": len(candidates),
+                "capacity_class": "SUBSCRIPTION",
+                "supported_operations": [op],
+                "supported_capabilities": ["SHELL", "FILESYSTEM_WRITE", "LOCAL_GIT", "REPOSITORY_READ", "TEST_EXECUTION"],
+            })
+    policy = {
+        "operation": op,
+        "required_capabilities": ["SHELL"],
+        "allow_paid_api": False,
+        "candidates": candidates,
+    }
+    return f"""# {prefix}-{task_id:03d} Content
+
+{status_line}
+
+EXECUTOR_CONTEXT_REFS_JSON: [{{"path": ".ai/decisions/ADR-001.md", "blob_sha": "{"a"*40}"}}]
+EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py"]
+DISPATCH_EXECUTOR_POLICY_JSON: {json.dumps(policy)}
+"""
+
 def test_runtime_state_path_is_outside_repository_worktree():
     with tempfile.TemporaryDirectory() as temp:
         repo_root = Path(temp) / "my_project"
@@ -384,7 +423,7 @@ def test_handoff_run_without_preexisting_pending_event_records_active_auth_and_c
             # Mock control branch content
             bridge.fetch_control = lambda cfg: None
             bridge.get_remote_blob_sha = lambda cfg, path: "7" * 40
-            bridge.read_remote_file = lambda cfg, path: "# TASK-006 Content\n"
+            bridge.read_remote_file = lambda cfg, path: _make_e4_test_task_content(6, "RUN", "antigravity")
             bridge.reconcile_local_main = lambda cfg: "main_sha_12345"
 
             # Execute handoff without any prior inbox event
@@ -627,7 +666,7 @@ def test_handoff_fix_succeeds_only_for_changes_required_and_binds_exact_blob():
 
             bridge.fetch_control = lambda cfg: None
             bridge.get_remote_blob_sha = lambda cfg, path: "8" * 40
-            bridge.read_remote_file = lambda cfg, path: "# REVIEW-006\n\n## Status\nCHANGES_REQUIRED\n\nPlease fix unit tests."
+            bridge.read_remote_file = lambda cfg, path: _make_e4_test_task_content(6, "FIX", "antigravity")
 
             store = bridge.get_lease_store()
             prior_lease = bridge.build_executor_lease_candidate(
@@ -1601,7 +1640,7 @@ def test_handoff_run_acquires_lease_and_second_handoff_conflicts():
 
             bridge.fetch_control = lambda cfg: None
             bridge.get_remote_blob_sha = lambda cfg, path: "a" * 40
-            bridge.read_remote_file = lambda cfg, path: "# TASK-029\n\nObjective: M5 Lease Implementation."
+            bridge.read_remote_file = lambda cfg, path: _make_e4_test_task_content(29, "RUN", "antigravity")
 
             # 1. First handoff succeeds
             bridge.cmd_handoff(type("Args", (), {"task_id": 29, "action": "run"})())
@@ -1675,7 +1714,7 @@ def test_lease_status_and_confirmation_gated_release():
 
             bridge.fetch_control = lambda cfg: None
             bridge.get_remote_blob_sha = lambda cfg, path: "a" * 40
-            bridge.read_remote_file = lambda cfg, path: "# TASK-029\n\nObjective: M5 Lease Implementation."
+            bridge.read_remote_file = lambda cfg, path: _make_e4_test_task_content(29, "RUN", "antigravity")
 
             bridge.cmd_handoff(type("Args", (), {"task_id": 29, "action": "run"})())
 
@@ -2613,7 +2652,7 @@ def test_handoff_fix_failover_activation_flow_and_proof_generation():
             review_blob = "b" * 40
             control_commit_sha = "c" * 40
             bridge.get_remote_blob_sha = lambda cfg, path: review_blob
-            bridge.read_remote_file = lambda cfg, path: "# REVIEW-030\n\nSTATUS: CHANGES_REQUIRED\n"
+            bridge.read_remote_file = lambda cfg, path: _make_e4_test_task_content(30, "FIX", "codex")
 
             bridge.git = lambda *args, **kw: (
                 type("Res", (), {"returncode": 0, "stdout": published_sha, "stderr": ""})()
@@ -2741,7 +2780,7 @@ def test_handoff_fix_failover_fails_closed_when_prior_auth_not_consumed_or_branc
 
             bridge.fetch_control = lambda cfg: None
             bridge.get_remote_blob_sha = lambda cfg, path: "b" * 40
-            bridge.read_remote_file = lambda cfg, path: "# REVIEW-030\n\nSTATUS: CHANGES_REQUIRED\n"
+            bridge.read_remote_file = lambda cfg, path: _make_e4_test_task_content(30, "FIX", "codex")
 
             bridge.git = lambda *args, **kw: (
                 type("Res", (), {"returncode": 0, "stdout": published_sha, "stderr": ""})()
@@ -2864,7 +2903,7 @@ def test_cmd_publish_failover_revalidation_and_result_manifest():
             control_commit_sha = "c" * 40
             bridge.fetch_control = lambda cfg: None
             bridge.get_remote_blob_sha = lambda cfg, path: review_blob
-            bridge.read_remote_file = lambda cfg, path: "# REVIEW-030\n\nSTATUS: CHANGES_REQUIRED\n"
+            bridge.read_remote_file = lambda cfg, path: _make_e4_test_task_content(30, "FIX", "codex")
 
             store = bridge.get_lease_store()
             source_lease = bridge.build_executor_lease_candidate(
@@ -3029,7 +3068,7 @@ def test_cmd_publish_failover_tampered_proof_fails_closed_and_retains_lease():
             review_blob = "b" * 40
             bridge.fetch_control = lambda cfg: None
             bridge.get_remote_blob_sha = lambda cfg, path: review_blob
-            bridge.read_remote_file = lambda cfg, path: "# REVIEW-030\n\nSTATUS: CHANGES_REQUIRED\n"
+            bridge.read_remote_file = lambda cfg, path: _make_e4_test_task_content(30, "FIX", "codex")
 
             store = bridge.get_lease_store()
             source_lease = bridge.build_executor_lease_candidate(
@@ -3165,7 +3204,7 @@ def test_handoff_and_approve_failover_remote_branch_drift_or_missing_fails_close
 
             bridge.fetch_control = lambda cfg: None
             bridge.get_remote_blob_sha = lambda cfg, path: "b" * 40
-            bridge.read_remote_file = lambda cfg, path: "# REVIEW-030\n\nSTATUS: CHANGES_REQUIRED\n"
+            bridge.read_remote_file = lambda cfg, path: _make_e4_test_task_content(30, "FIX", "codex")
 
             store = bridge.get_lease_store()
             prior_lease = bridge.build_executor_lease_candidate(
@@ -3269,7 +3308,7 @@ def test_handoff_and_approve_failover_requires_explicit_executor():
 
             bridge.fetch_control = lambda cfg: None
             bridge.get_remote_blob_sha = lambda cfg, path: "b" * 40
-            bridge.read_remote_file = lambda cfg, path: "# REVIEW-030\n\nSTATUS: CHANGES_REQUIRED\n"
+            bridge.read_remote_file = lambda cfg, path: _make_e4_test_task_content(30, "FIX", "codex")
 
             # Setup prior consumed auth by CODEX
             store = bridge.get_lease_store()
@@ -3376,7 +3415,7 @@ def test_publish_failover_control_commit_mismatch_fails_closed():
             review_blob = "b" * 40
             bridge.fetch_control = lambda cfg: None
             bridge.get_remote_blob_sha = lambda cfg, path: review_blob
-            bridge.read_remote_file = lambda cfg, path: "# REVIEW-030\n\nSTATUS: CHANGES_REQUIRED\n"
+            bridge.read_remote_file = lambda cfg, path: _make_e4_test_task_content(30, "FIX", "codex")
 
             store = bridge.get_lease_store()
             source_lease = bridge.build_executor_lease_candidate(
@@ -3520,7 +3559,7 @@ def test_handoff_failover_post_acquire_rollback_safety():
 
             bridge.fetch_control = lambda cfg: None
             bridge.get_remote_blob_sha = lambda cfg, path: "b" * 40
-            bridge.read_remote_file = lambda cfg, path: "# REVIEW-030\n\nSTATUS: CHANGES_REQUIRED\n"
+            bridge.read_remote_file = lambda cfg, path: _make_e4_test_task_content(30, "FIX", "codex")
 
             store = bridge.get_lease_store()
             prior_lease = bridge.build_executor_lease_candidate(
@@ -3631,7 +3670,7 @@ def test_handoff_failover_post_acquire_rollback_restores_prior_consumed_auth_whe
 
             bridge.fetch_control = lambda cfg: None
             bridge.get_remote_blob_sha = lambda cfg, path: "b" * 40
-            bridge.read_remote_file = lambda cfg, path: "# REVIEW-030\n\nSTATUS: CHANGES_REQUIRED\n"
+            bridge.read_remote_file = lambda cfg, path: _make_e4_test_task_content(30, "FIX", "codex")
 
             store = bridge.get_lease_store()
             prior_lease = bridge.build_executor_lease_candidate(
@@ -3750,7 +3789,7 @@ def test_handoff_and_approve_fix_fails_closed_when_prior_auth_missing_or_malform
             review_blob = "b" * 40
             bridge.fetch_control = lambda cfg: None
             bridge.get_remote_blob_sha = lambda cfg, path: review_blob
-            bridge.read_remote_file = lambda cfg, path: "# REVIEW-030\n\nSTATUS: CHANGES_REQUIRED\n"
+            bridge.read_remote_file = lambda cfg, path: _make_e4_test_task_content(30, "FIX", "codex")
 
             # Create inbox event for cmd_approve testing
             inbox_event_path = bridge.get_runtime_paths()["inbox"] / "review_030.json"
@@ -3904,7 +3943,7 @@ def test_failover_preconditions_reject_when_workspace_on_wrong_branch():
             control_commit_sha = "c" * 40
             bridge.fetch_control = lambda cfg: None
             bridge.get_remote_blob_sha = lambda cfg, path: review_blob
-            bridge.read_remote_file = lambda cfg, path: "# REVIEW-030\n\nSTATUS: CHANGES_REQUIRED\n"
+            bridge.read_remote_file = lambda cfg, path: _make_e4_test_task_content(30, "FIX", "codex")
 
             bridge.git = lambda *args, **kw: (
                 type("Res", (), {"returncode": 0, "stdout": published_sha, "stderr": ""})()
@@ -4045,7 +4084,7 @@ def test_cmd_publish_task_030_proof_progress_manifest_generation():
             control_commit_sha = "c" * 40
             bridge.fetch_control = lambda cfg: None
             bridge.get_remote_blob_sha = lambda cfg, path: review_blob
-            bridge.read_remote_file = lambda cfg, path: "# REVIEW-030\n\nSTATUS: CHANGES_REQUIRED\n"
+            bridge.read_remote_file = lambda cfg, path: _make_e4_test_task_content(30, "FIX", "codex")
 
             bridge.git = lambda *args, **kw: (
                 type("Res", (), {"returncode": 0, "stdout": "", "stderr": ""})()
@@ -4398,7 +4437,7 @@ def test_handoff_and_approve_claude_code_transitions():
             control_commit_sha = "c" * 40
             bridge.fetch_control = lambda cfg: None
             bridge.get_remote_blob_sha = lambda cfg, path: review_blob
-            bridge.read_remote_file = lambda cfg, path: "# REVIEW-031\n\nSTATUS: CHANGES_REQUIRED\n"
+            bridge.read_remote_file = lambda cfg, path: _make_e4_test_task_content(31, "FIX", "claude-code")
 
             bridge.git = lambda *args, **kw: (
                 type("Res", (), {"returncode": 0, "stdout": "", "stderr": ""})()
@@ -4570,7 +4609,7 @@ def test_cmd_publish_task_031_proof_progress_manifest_generation():
             control_commit_sha = "c" * 40
             bridge.fetch_control = lambda cfg: None
             bridge.get_remote_blob_sha = lambda cfg, path: review_blob
-            bridge.read_remote_file = lambda cfg, path: "# REVIEW-031\n\nSTATUS: CHANGES_REQUIRED\n"
+            bridge.read_remote_file = lambda cfg, path: _make_e4_test_task_content(31, "FIX", "claude-code")
 
             bridge.git = lambda *args, **kw: (
                 type("Res", (), {"returncode": 0, "stdout": "", "stderr": ""})()
@@ -4929,7 +4968,7 @@ def test_handoff_and_approve_claude_code_run_activation():
 
             bridge.fetch_control = lambda cfg: None
             bridge.get_remote_blob_sha = lambda cfg, path: task_blob_sha
-            bridge.read_remote_file = lambda cfg, path: "# TASK-031\n"
+            bridge.read_remote_file = lambda cfg, path: _make_e4_test_task_content(31, "RUN", "claude-code")
 
             bridge.git = lambda *args, **kw: (
                 type("Res", (), {"returncode": 0, "stdout": "", "stderr": ""})()

@@ -74,6 +74,12 @@ from src.aios_bridge.executor_automation import (
     validate_executor_worktree_delta,
 )
 from src.aios_bridge.executor_context import ExecutorAuthorizationBinding
+from src.aios_bridge.task_authoring import (
+    ExecutableArtifactPreflight,
+    ExecutableArtifactPreflightError,
+    preflight_executable_artifact,
+    validate_publisher_profile,
+)
 from src.aios_bridge.review_merge import (
     MergeGateReason,
     ReviewHeaderParseError,
@@ -861,21 +867,20 @@ def resolve_e4_control_snapshot(cfg: dict, auth: dict) -> dict:
     except UnicodeDecodeError as exc:
         raise ContinuityStateValidationError("Authorized work artifact must be strict UTF-8") from exc
 
-    markers = parse_executor_automation_markers(work_content, work_path=work_path)
-    policy = parse_executor_dispatch_policy_marker(work_content)
     try:
         auth_operation = ExecutionOperation(auth.get("action"))
     except (TypeError, ValueError) as exc:
         raise ContinuityStateValidationError("Authorization action must be exact RUN or FIX") from exc
-    if policy.operation is not auth_operation:
-        raise ContinuityStateValidationError("Dispatch policy operation mismatches authorization")
     executor_id = auth.get("executor_id")
-    candidates = [candidate for candidate in policy.candidates if candidate.executor_id == executor_id]
-    if len(candidates) != 1:
-        raise ContinuityStateValidationError("Authorized executor must appear exactly once in policy")
-    candidate = candidates[0]
-    if auth_operation not in candidate.supported_operations:
-        raise ContinuityStateValidationError("Authorized executor does not support the active operation")
+    preflight = preflight_executable_artifact(
+        work_content,
+        work_path=work_path,
+        operation=auth_operation,
+        selected_executor=executor_id,
+    )
+    markers = preflight.markers
+    policy = preflight.policy
+    candidate = preflight.candidate
 
     work_ref = ArtifactRef(path=work_path, ref=control_commit_sha, blob_sha=work_blob)
     context_refs = []
@@ -2485,6 +2490,16 @@ def cmd_handoff(args):
                 f"Task artifact '{artifact_rel}' bị malformed (không tìm thấy định danh {task_ident})."
             )
 
+        try:
+            preflight = preflight_executable_artifact(
+                content,
+                work_path=artifact_rel,
+                operation=ExecutionOperation.RUN,
+                selected_executor=selected_executor,
+            )
+        except Exception as exc:
+            fail(f"Executable task artifact preflight failed: {exc}")
+
         dest = get_artifact_path(artifact_rel)
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(content, encoding="utf-8")
@@ -2564,6 +2579,16 @@ def cmd_handoff(args):
             fail(
                 f"REVIEW-{task_id:03d} có trạng thái '{status or 'UNSPECIFIED'}', không phải CHANGES_REQUIRED. Không thể FIX."
             )
+
+        try:
+            preflight = preflight_executable_artifact(
+                content,
+                work_path=artifact_rel,
+                operation=ExecutionOperation.FIX,
+                selected_executor=selected_executor,
+            )
+        except Exception as exc:
+            fail(f"Executable review artifact preflight failed: {exc}")
 
         dest = get_artifact_path(artifact_rel)
         dest.parent.mkdir(parents=True, exist_ok=True)
