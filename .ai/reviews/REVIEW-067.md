@@ -16,23 +16,22 @@ TASK_ID: TASK-067
 BASE_MAIN_SHA: 75866e0e033364fbcc308904e9b8e7572e8d2f48
 BRANCH: ai/task-067
 BRANCH_STATUS_VS_MAIN: AHEAD
-AHEAD_BY: 1
+AHEAD_BY: 2
 BEHIND_BY: 0
 MERGE_BASE_SHA: 75866e0e033364fbcc308904e9b8e7572e8d2f48
 RESULT_STATUS: READY_FOR_REVIEW
-RESULT_BLOB_SHA: 9acbff4bb7903ae524b4e333fab92b89bfdab76e
+RESULT_BLOB_SHA: e2173538ce0f8a03643deb6a6f91364d5d1ee43f
 BRIDGE_BLOB_SHA: ba27d96122095a9cc97aa4fd117a8ef35ef7bc92
-TRANSPORT_EXPORTS_BLOB_SHA: 9ee58ac62fd101493940ddc9d101d62f5dd8d6a3
-CODEX_LOCAL_BLOB_SHA: 32ca7f69fe91c2f6886ac236f304584b68115e94
-TRANSPORT_TESTS_BLOB_SHA: 42aeaad2ae4e6cca51e01324f66080dc568fbe32
+CODEX_LOCAL_BLOB_SHA: e235039aed85051e9c88db053fee517fad16aa66
+TRANSPORT_TESTS_BLOB_SHA: bc2ad77152fe78de81f2f159d9b6b7b5f10dbe50
 E4_TESTS_BLOB_SHA: 1ebd60bb175e8f02f2bc013c47f1ed3447eab05d
 ```
 
-The branch is a clean fast-forward descendant of the reviewed main baseline. This review is CHANGES_REQUIRED; no merge authorization is created.
+The task branch remains a clean fast-forward descendant of the exact H0-merged main baseline. This review remains CHANGES_REQUIRED; no merge or real Codex proof authority is created.
 
 ## Scope / Authority Audit — PASS
 
-Cumulative TASK-067 delta is confined to the five TASK-067 writable implementation/test paths plus Bridge-generated `.ai/results/RESULT-067.md`:
+Cumulative TASK-067 delta remains confined to the five authorized implementation/test paths plus Bridge-generated `.ai/results/RESULT-067.md`:
 
 ```text
 bridge.py
@@ -43,191 +42,124 @@ tests/test_bridge_executor_automation.py
 .ai/results/RESULT-067.md
 ```
 
-No continuity schema, executor context, executor automation core, dispatch, lease, paid-API/provider, H-Series, worker-surface, dependency, task, decision, or prior review path changed.
-
-The existing safe Codex argv remains structurally unchanged, E1 `InvocationReceipt` remains unchanged, no retry/reroute/paid fallback was introduced, and E4 still rejects `EXITED_ZERO + dirty_paths=[]`.
+No continuity schema, executor-context core, dispatcher, lease, paid-provider/grant, H-Series, worker surface, dependency, task, or ADR path changed. Safe Codex argv, one-spawn semantics, exact stdin payload, no retry/reroute/paid fallback, and the E4 zero-exit/no-delta rejection remain intact.
 
 ## Test Evidence Observed
 
-RESULT-067 reports:
+Latest RESULT-067 reports:
 
 ```text
-TARGETED: 118 passed, 0 skipped, 0 failed
-FULL:     2080 passed, 7 skipped, 0 failed
+TARGETED: 125 passed, 0 skipped, 0 failed
+FULL:     2087 passed, 7 skipped, 0 failed
 REAL_CODEX_CALL_DURING_TASK: NO
 ```
 
-Green tests are necessary but not sufficient because the focused tests currently model the Codex JSON event vocabulary incorrectly in a way that hides B1 below.
+Green tests are necessary but B2 below is still a contract/runtime mismatch not covered by the new tests.
 
-## B1 — Real Codex `--json` Event Vocabulary Is Rejected — BLOCKER
-
-`codex_local.py` currently defines:
-
-```python
-_EVENT_TYPE_RE = re.compile(r"\A[A-Za-z0-9_:-]+\Z")
-```
-
-The pattern rejects `.`.
-
-Current Codex `exec --json` top-level events are dot-delimited. The upstream `openai/codex` source at `codex-rs/exec/src/exec_events.rs` defines top-level event types including:
+## Prior Findings Status
 
 ```text
-thread.started
-turn.started
-turn.completed
-turn.failed
-item.started
-item.updated
-item.completed
-error
+B1_REAL_CODEX_EVENT_COMPATIBILITY: PASS
+B2_TEMP_CAPTURE_LOCATION_FAIL_CLOSED: FAIL
+B3_STABLE_DIAGNOSTIC_CODE_VOCABULARY: PASS
+B4_EXACT_EVENT_COLLECTION_CONTRACT: PASS
 ```
 
-Therefore the current implementation drops nearly every normal real Codex event type from `stdout_event_types` and `last_stdout_event_type`. A real successful stream can be reduced to `JSON_EVENT_STREAM` with no retained event vocabulary, defeating the operational observability purpose of TASK-067. A `turn.failed` event is also discarded as an event type and is not mechanically recognized as a failure-shaped event.
+### B1 — PASS
 
-The current tests hide the defect by using synthetic underscore tokens such as:
+The event-token contract now permits `.` and uses exact bounded full-match semantics. Regression tests use real Codex-style top-level tokens including `thread.started`, `turn.started`, `item.completed`, `turn.completed`, `turn.failed`, and `error`. Failure classification is now exact-token based (`error`, `turn.failed`) rather than substring/prose inference.
+
+### B3 — PASS
+
+`CodexDiagnosticCode` now defines a closed stable vocabulary and the diagnostic contract rejects otherwise well-shaped unsupported codes.
+
+### B4 — PASS
+
+`stdout_event_types` now requires an exact tuple at the public contract boundary; list/string/dict shapes are rejected.
+
+## B2 — Persistent Runtime Root Resolution Does Not Match Bridge — BLOCKER
+
+The new fail-closed temp-location helper is directionally correct, but it does not protect the actual runtime configuration contract used by `bridge.py`.
+
+`codex_local.py` currently treats the following as persistent runtime roots:
 
 ```text
-turn_started
-item_started
-item_completed
+AIOS_BRIDGE_RUNTIME_DIR
+LOCALAPPDATA/aios-bridge          # Windows only
+~/.aios_bridge                   # underscore
 ```
 
-### Required FIX for B1
-
-1. Permit the canonical conservative token alphabet required by ADR-040, including `.`; e.g. exact full-match semantics equivalent to:
+The production Bridge actually resolves its persistent runtime through:
 
 ```text
-[A-Za-z0-9_.:-]{1,64}
+AIOS_RUNTIME_DIR                  # exact override
+AIOS_HOME                         # runtime base override
+LOCALAPPDATA/aios-bridge          # Windows default base
+~/.aios-bridge                    # Windows fallback
+XDG_DATA_HOME/aios-bridge         # POSIX default base when set
+~/.aios-bridge                    # POSIX fallback
 ```
 
-2. Add regression tests using the real top-level Codex vocabulary, at minimum:
+Therefore valid Bridge configurations are currently missed. Examples:
 
 ```text
-thread.started
-turn.started
-item.completed
-turn.completed
-turn.failed
-error
+AIOS_RUNTIME_DIR=<temp root>
+AIOS_HOME=<temp root>
+XDG_DATA_HOME=<parent of temp root on POSIX>
+~/.aios-bridge on POSIX/Windows fallback
 ```
 
-3. `stdout_event_types` and `last_stdout_event_type` must retain valid dotted event types.
-4. `JSON_ERROR_EVENT` classification must be based only on mechanically failure-shaped safe top-level event types. At minimum exact `error` and `turn.failed` must classify as failure-shaped. Do not classify arbitrary event types merely because the substring `error` appears somewhere in the token.
-5. Do not inspect or persist free-form error/model prose to make this decision.
+In those cases `_resolve_safe_temporary_dir()` can accept a location that is actually the persistent AIOS runtime area and then open raw Codex stdout/stderr temporary files there. That violates ADR-040/TASK-067 even though the files remain invocation-lifetime-only.
 
-Expected evidence:
-
-```text
-REAL_CODEX_DOTTED_EVENT_TYPES_RETAINED: YES
-TURN_FAILED_MECHANICALLY_CLASSIFIED: YES
-ARBITRARY_ERROR_SUBSTRING_INFERENCE: NO
-RAW_PROSE_ROOT_CAUSE_INFERENCE: NO
-```
-
-## B2 — Raw Temporary Capture Location Is Not Fail-Closed — BLOCKER
-
-TASK-067 / ADR-040 requires raw stdout/stderr capture to be non-worktree, invocation-lifetime-only, and never located under the persistent AIOS runtime directory.
-
-The current implementation uses:
-
-```python
-with tempfile.TemporaryFile() as out_f, tempfile.TemporaryFile() as err_f:
-```
-
-with no explicit capture-directory selection or post-resolution safety check.
-
-Python temporary-file placement can be influenced by process/environment temporary-directory configuration. The transport therefore does not mechanically prove that the raw files are outside:
-
-```text
-exact repository workspace
-persistent AIOS runtime directory
-```
-
-before Codex starts writing raw model/process output. The normal user machine likely places temp files elsewhere, but ADR-040 requires a fail-closed invariant rather than an environmental assumption.
+The current adversarial test sets `AIOS_BRIDGE_RUNTIME_DIR`, which Bridge does not use, so it proves the wrong configuration surface.
 
 ### Required FIX for B2
 
-Before spawning Codex, mechanically establish a temporary capture location that is outside the exact workspace and outside any configured/known persistent AIOS runtime root. If a safe location cannot be proven, fail closed before process spawn.
+Make the transport's persistent-runtime exclusion mechanically mirror the production `bridge.py::get_runtime_dir()` configuration semantics without importing or mutating Bridge authority.
 
-Add adversarial tests showing that a temp location resolving inside the workspace or persistent runtime is rejected with zero Codex spawn. Also prove the accepted temp location is deleted/closed before the outcome returns.
+At minimum cover:
 
-Do not solve this by placing capture files under `.ai/`, the repository, executor-automation receipts, or another persistent AIOS directory.
+```text
+AIOS_RUNTIME_DIR
+AIOS_HOME
+LOCALAPPDATA/aios-bridge
+XDG_DATA_HOME/aios-bridge
+~/.aios-bridge
+```
+
+A stricter rejection of the entire configured runtime base is acceptable. Remove or retain extra legacy names only if they do not substitute for the real Bridge names.
+
+Add adversarial zero-spawn tests for at least:
+
+```text
+AIOS_RUNTIME_DIR -> temp root inside exact override
+AIOS_HOME        -> temp root inside configured runtime base
+POSIX fallback/XDG base semantics
+```
+
+and keep the existing workspace-inside-temp rejection. The accepted temporary capture must still be outside worktree/runtime and closed/deleted before return.
 
 Expected evidence:
 
 ```text
-RAW_CAPTURE_WORKTREE_LOCATION: FORBIDDEN
-RAW_CAPTURE_PERSISTENT_RUNTIME_LOCATION: FORBIDDEN
+BRIDGE_RUNTIME_OVERRIDE_NAMES_MATCH: YES
+AIOS_RUNTIME_DIR_TEMP_REJECTED: YES
+AIOS_HOME_TEMP_REJECTED: YES
+XDG_OR_HOME_AI0S_BRIDGE_TEMP_REJECTED: YES
 UNSAFE_TEMP_LOCATION_SPAWN_COUNT: 0
-TEMP_CAPTURE_LIFETIME_BOUNDED: YES
-```
-
-## B3 — Diagnostic Code Contract Is Not Closed to Stable Codes — BLOCKER
-
-ADR-040 requires a stable bounded diagnostic enum/token. The current dataclass accepts any uppercase token matching `_DIAGNOSTIC_CODE_RE`, so values unrelated to the locked diagnostic vocabulary can be constructed and persisted.
-
-Examples that currently satisfy shape validation but are not locked semantics include arbitrary values such as `RANDOM_CODE`.
-
-### Required FIX for B3
-
-Use a closed enum or exact allowlist for the supported diagnostic codes. The implementation may keep the currently used names if semantics remain deterministic, e.g.:
-
-```text
-EMPTY_OUTPUT
-STDERR_ONLY
-JSON_EVENT_STREAM
-JSON_ERROR_EVENT
-NON_JSON_OUTPUT
-MIXED_OUTPUT
-UNKNOWN_OUTPUT_SHAPE
-CAPTURE_FAILED
-```
-
-Unknown diagnostic codes must fail validation. Add a regression test proving an otherwise well-shaped but unsupported code is rejected.
-
-Expected evidence:
-
-```text
-DIAGNOSTIC_CODE_VOCABULARY_CLOSED: YES
-UNKNOWN_DIAGNOSTIC_CODE_REJECTED: YES
-```
-
-## B4 — `stdout_event_types` Collection Validation Is Not Exact — BLOCKER
-
-`CodexTransportDiagnostic` is specified as an immutable/frozen contract with a bounded tuple of event types and exact finite collection validation. The current constructor silently coerces any non-tuple iterable:
-
-```python
-if not isinstance(self.stdout_event_types, tuple):
-    object.__setattr__(self, "stdout_event_types", tuple(self.stdout_event_types))
-```
-
-This accepts lists and can even reinterpret a string as a tuple of single-character event types instead of failing closed.
-
-### Required FIX for B4
-
-Require `stdout_event_types` to be an exact tuple at the public contract boundary. Reject list/string/generator/other collection shapes. Preserve existing bounded count and per-token validation.
-
-Expected evidence:
-
-```text
-STDOUT_EVENT_TYPES_EXACT_TUPLE: YES
-LIST_EVENT_TYPES_REJECTED: YES
-STRING_EVENT_TYPES_REJECTED: YES
+RAW_CAPTURE_PERSISTENT_RUNTIME_LOCATION: FORBIDDEN
 ```
 
 ## FIX Scope
 
-The FIX may modify only the existing TASK-067 writable implementation/test paths that are necessary:
+This should be a very small FIX. Prefer modifying only:
 
 ```text
-bridge.py
-src/aios_bridge/executor_transports/__init__.py
 src/aios_bridge/executor_transports/codex_local.py
 tests/aios_bridge/test_codex_local_transport.py
-tests/test_bridge_executor_automation.py
 ```
 
-Prefer not to touch `bridge.py` unless B2 integration mechanically requires it. Bridge-generated `.ai/results/RESULT-067.md` may be republished.
+`src/aios_bridge/executor_transports/__init__.py` may change only if mechanically necessary. Bridge-generated `.ai/results/RESULT-067.md` may be republished.
 
 Still forbidden:
 
@@ -244,39 +176,19 @@ src/aios_engineering/**
 requirements.txt
 ```
 
-## Required Validation After FIX
-
-Run the TASK-067 focused suite and full repository suite with zero real Codex call. Also run `git diff --check` and exact writable-scope verification.
-
-The next RESULT-067 must retain at minimum:
-
-```text
-REAL_CODEX_CALL_DURING_TASK: NO
-E1_INVOCATION_RECEIPT_SCHEMA_CHANGED: NO
-SAFE_CODEX_ARGV_CHANGED: NO
-PAYLOAD_BYTES_CHANGED: NO
-RAW_STDOUT_PERSISTED: NO
-RAW_STDERR_PERSISTED: NO
-EXIT_ZERO_NO_DELTA_STILL_REJECTED: YES
-AUTO_RETRY: NO
-AUTO_REROUTE: NO
-PAID_API_USED: NO
-H0_CHANGED: NO
-H1_STARTED: NO
-SCOPE_EXACT: YES
-```
-
-and add explicit B1-B4 evidence described above.
+Do not run a real Codex call in this FIX.
 
 ## Decision
 
 ```text
 TASK-067: CHANGES_REQUIRED
 SCOPE_AUTHORITY_AUDIT: PASS
-B1_REAL_CODEX_EVENT_COMPATIBILITY: FAIL
+B1_REAL_CODEX_EVENT_COMPATIBILITY: PASS
 B2_TEMP_CAPTURE_LOCATION_FAIL_CLOSED: FAIL
-B3_STABLE_DIAGNOSTIC_CODE_VOCABULARY: FAIL
-B4_EXACT_EVENT_COLLECTION_CONTRACT: FAIL
+B3_STABLE_DIAGNOSTIC_CODE_VOCABULARY: PASS
+B4_EXACT_EVENT_COLLECTION_CONTRACT: PASS
+TARGETED_TESTS: PASS
+FULL_REPOSITORY_TESTS: PASS
 REAL_CODEX_PROOF_AUTHORIZED: NO
 H1_AUTHORIZED: NO
 MERGE_AUTHORIZED: NO
