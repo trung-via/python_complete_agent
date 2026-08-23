@@ -564,7 +564,6 @@ def test_exit_zero_invokes_once_and_reuses_publisher_with_fixed_suite(monkeypatc
     "status",
     [
         InvocationStatus.FAILED_TO_START,
-        InvocationStatus.EXITED_NONZERO,
         InvocationStatus.TIMED_OUT,
         InvocationStatus.INTERRUPTED,
     ],
@@ -866,6 +865,7 @@ def test_e4_nonzero_failure_surfaces_stable_diagnostic_codes(monkeypatch, tmp_pa
     _, _, calls = make_execute_environment(
         monkeypatch, tmp_path, status=InvocationStatus.EXITED_NONZERO
     )
+    monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ())
     with pytest.raises(SystemExit):
         bridge.cmd_execute(execute_args())
 
@@ -1111,3 +1111,186 @@ def test_is_exact_clean_noop_unit_predicate():
         post_head_sha="a" * 40,
         dirty_paths=("bridge.py",),
     ) is False
+
+
+def test_is_productive_nonzero_recovery_candidate_predicate():
+    assert bridge.is_productive_nonzero_recovery_candidate(
+        receipt_status=InvocationStatus.EXITED_NONZERO,
+        receipt_error_code="CODEX_EXIT_NONZERO",
+        pre_branch="ai/task-043",
+        post_branch="ai/task-043",
+        target_branch="ai/task-043",
+        pre_head_sha="a" * 40,
+        post_head_sha="a" * 40,
+        dirty_paths=("bridge.py",),
+    ) is True
+
+    # EXITED_ZERO -> False
+    assert bridge.is_productive_nonzero_recovery_candidate(
+        receipt_status=InvocationStatus.EXITED_ZERO,
+        receipt_error_code=None,
+        pre_branch="ai/task-043",
+        post_branch="ai/task-043",
+        target_branch="ai/task-043",
+        pre_head_sha="a" * 40,
+        post_head_sha="a" * 40,
+        dirty_paths=("bridge.py",),
+    ) is False
+
+    # TIMED_OUT / INTERRUPTED / FAILED_TO_START -> False
+    for st in (InvocationStatus.TIMED_OUT, InvocationStatus.INTERRUPTED, InvocationStatus.FAILED_TO_START):
+        assert bridge.is_productive_nonzero_recovery_candidate(
+            receipt_status=st,
+            receipt_error_code="CODEX_TIMEOUT",
+            pre_branch="ai/task-043",
+            post_branch="ai/task-043",
+            target_branch="ai/task-043",
+            pre_head_sha="a" * 40,
+            post_head_sha="a" * 40,
+            dirty_paths=("bridge.py",),
+        ) is False
+
+    # Error code not CODEX_EXIT_NONZERO -> False
+    assert bridge.is_productive_nonzero_recovery_candidate(
+        receipt_status=InvocationStatus.EXITED_NONZERO,
+        receipt_error_code="OTHER_ERROR",
+        pre_branch="ai/task-043",
+        post_branch="ai/task-043",
+        target_branch="ai/task-043",
+        pre_head_sha="a" * 40,
+        post_head_sha="a" * 40,
+        dirty_paths=("bridge.py",),
+    ) is False
+
+    # Branch drift -> False
+    assert bridge.is_productive_nonzero_recovery_candidate(
+        receipt_status=InvocationStatus.EXITED_NONZERO,
+        receipt_error_code="CODEX_EXIT_NONZERO",
+        pre_branch="ai/task-043",
+        post_branch="ai/task-drift",
+        target_branch="ai/task-043",
+        pre_head_sha="a" * 40,
+        post_head_sha="a" * 40,
+        dirty_paths=("bridge.py",),
+    ) is False
+
+    # Head drift -> False
+    assert bridge.is_productive_nonzero_recovery_candidate(
+        receipt_status=InvocationStatus.EXITED_NONZERO,
+        receipt_error_code="CODEX_EXIT_NONZERO",
+        pre_branch="ai/task-043",
+        post_branch="ai/task-043",
+        target_branch="ai/task-043",
+        pre_head_sha="a" * 40,
+        post_head_sha="b" * 40,
+        dirty_paths=("bridge.py",),
+    ) is False
+
+    # Empty dirty paths -> False
+    assert bridge.is_productive_nonzero_recovery_candidate(
+        receipt_status=InvocationStatus.EXITED_NONZERO,
+        receipt_error_code="CODEX_EXIT_NONZERO",
+        pre_branch="ai/task-043",
+        post_branch="ai/task-043",
+        target_branch="ai/task-043",
+        pre_head_sha="a" * 40,
+        post_head_sha="a" * 40,
+        dirty_paths=(),
+    ) is False
+
+
+def test_productive_nonzero_exact_scope_and_green_suite_publishes_for_review(monkeypatch, tmp_path):
+    _, _, calls = make_execute_environment(
+        monkeypatch, tmp_path, status=InvocationStatus.EXITED_NONZERO
+    )
+    monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ("bridge.py",))
+
+    res = bridge.cmd_execute(execute_args())
+    assert calls["invoke"] == 1
+    assert len(calls["publish"]) == 1
+    pub_arg = calls["publish"][0]
+    assert "E4_TRANSPORT_STATUS: EXITED_NONZERO" in pub_arg.notes
+    assert "E4_TRANSPORT_ERROR: CODEX_EXIT_NONZERO" in pub_arg.notes
+    assert "E4_TRANSPORT_DIAGNOSTIC: JSON_ERROR_EVENT" in pub_arg.notes
+    assert "E4_PRODUCTIVE_NONZERO_RECOVERY: YES" in pub_arg.notes
+    assert "EXECUTOR_RERUN: NO" in pub_arg.notes
+    assert "E4_ALLOWED_SCOPE_VERIFIED: PASS" in pub_arg.notes
+    assert "E4_PUBLICATION_TRUST_VERIFIED: PASS" in pub_arg.notes
+    assert "productive non-zero recovery" in pub_arg.summary
+    assert res.implementation_sha == "e" * 40
+
+
+def test_productive_nonzero_failed_test_suite_does_not_publish_and_enters_recovery(monkeypatch, tmp_path):
+    _, _, calls = make_execute_environment(
+        monkeypatch, tmp_path, status=InvocationStatus.EXITED_NONZERO
+    )
+    monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ("bridge.py",))
+
+    def failing_publish(namespace):
+        raise SystemExit(1)
+
+    monkeypatch.setattr(bridge, "cmd_publish", failing_publish)
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+
+    assert calls["invoke"] == 1
+
+
+def test_productive_nonzero_out_of_scope_dirty_path_does_not_publish_and_enters_recovery(monkeypatch, tmp_path):
+    _, _, calls = make_execute_environment(
+        monkeypatch, tmp_path, status=InvocationStatus.EXITED_NONZERO
+    )
+    monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ("unauthorized.txt",))
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+
+    assert calls["invoke"] == 1
+    assert calls["publish"] == []
+    assert calls["state"][-1][0] == "RECOVERY_REQUIRED"
+
+
+def test_productive_nonzero_branch_drift_does_not_publish(monkeypatch, tmp_path):
+    _, _, calls = make_execute_environment(
+        monkeypatch, tmp_path, status=InvocationStatus.EXITED_NONZERO
+    )
+    monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ("bridge.py",))
+    monkeypatch.setattr(bridge, "observe_e4_branch", lambda: "ai/task-drift")
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+
+    assert calls["invoke"] == 1
+    assert calls["publish"] == []
+    assert calls["state"][-1][0] == "RECOVERY_REQUIRED"
+
+
+def test_productive_nonzero_head_drift_does_not_publish(monkeypatch, tmp_path):
+    _, _, calls = make_execute_environment(
+        monkeypatch, tmp_path, status=InvocationStatus.EXITED_NONZERO
+    )
+    monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ("bridge.py",))
+    observations = iter(("b" * 40, "c" * 40))
+    monkeypatch.setattr(bridge, "observe_e4_head", lambda: next(observations))
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+
+    assert calls["invoke"] == 1
+    assert calls["publish"] == []
+    assert calls["state"][-1][0] == "RECOVERY_REQUIRED"
+
+
+def test_productive_nonzero_empty_delta_fails_closed_without_publish(monkeypatch, tmp_path):
+    _, _, calls = make_execute_environment(
+        monkeypatch, tmp_path, status=InvocationStatus.EXITED_NONZERO
+    )
+    monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ())
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+
+    assert calls["invoke"] == 1
+    assert calls["publish"] == []
+    assert calls["state"][-1][0] == "RECOVERY_REQUIRED"

@@ -93,6 +93,7 @@ from src.aios_bridge.executor_transports.codex_local import (
     CODEX_EXECUTOR_ID,
     CODEX_TRANSPORT_ID,
     DEFAULT_CODEX_TIMEOUT_SECONDS,
+    ERROR_CODEX_EXIT_NONZERO,
     CodexLocalTransport,
     CodexTransportDiagnostic,
     CodexInvocationOutcome,
@@ -3200,6 +3201,27 @@ def is_exact_clean_noop(
     )
 
 
+def is_productive_nonzero_recovery_candidate(
+    *,
+    receipt_status: InvocationStatus,
+    receipt_error_code: str | None,
+    pre_branch: str,
+    post_branch: str,
+    target_branch: str,
+    pre_head_sha: str,
+    post_head_sha: str,
+    dirty_paths: tuple[str, ...] | list[str] | set[str],
+) -> bool:
+    """Classify whether a non-zero executor invocation is eligible for productive recovery (ADR-047 / TASK-074)."""
+    return (
+        receipt_status is InvocationStatus.EXITED_NONZERO
+        and receipt_error_code == ERROR_CODEX_EXIT_NONZERO
+        and post_branch == pre_branch == target_branch
+        and post_head_sha == pre_head_sha
+        and len(dirty_paths) > 0
+    )
+
+
 def _e4_operational_failure(task_id: int, status: str, message: str) -> None:
     try:
         update_state(task_id, status, message)
@@ -3392,7 +3414,80 @@ def cmd_execute(args):
             f"E4 invocation evidence persistence failed; no publication: {exc}",
         )
 
-    if receipt.status is not InvocationStatus.EXITED_ZERO:
+    if receipt.status is InvocationStatus.EXITED_ZERO:
+        if is_exact_clean_noop(
+            receipt_status=receipt.status,
+            pre_branch=pre_branch,
+            post_branch=post_branch,
+            target_branch=expected_branch,
+            pre_head_sha=pre_head_sha,
+            post_head_sha=post_head_sha,
+            dirty_paths=dirty_paths,
+        ):
+            cleanup_diagnostics: list[str] = []
+            try:
+                store = get_lease_store()
+                store.release(expected_lease)
+                cleanup_diagnostics.append("lease_released: OK")
+            except Exception as le:
+                cleanup_diagnostics.append(f"lease_release_failed: {le}")
+
+            auth_persisted = False
+            expected_blocked_auth = {**auth, "status": "EXECUTION_BLOCKED"}
+            try:
+                save_authorization(task_num, expected_blocked_auth)
+                read_auth = load_authorization(task_num)
+                if read_auth == expected_blocked_auth:
+                    auth_persisted = True
+                    cleanup_diagnostics.append("auth_persisted: EXECUTION_BLOCKED")
+                else:
+                    cleanup_diagnostics.append("auth_persisted: MISMATCH")
+            except Exception as ae:
+                cleanup_diagnostics.append(f"auth_persist_failed: {ae}")
+
+            lease_ok = "lease_released: OK" in cleanup_diagnostics
+            if lease_ok and auth_persisted:
+                blocked_msg = (
+                    f"E4 execution blocked: CLEAN_NO_WORKTREE_DELTA; "
+                    f"diagnostic={diagnostic.code}; no publication, no retry, no reroute"
+                )
+                try:
+                    update_state(task_num, "EXECUTION_BLOCKED", blocked_msg)
+                    fail(blocked_msg)
+                except SystemExit:
+                    raise
+                except Exception as state_err:
+                    fallback_msg = (
+                        f"E4 clean no-op state persistence failed ({state_err}); "
+                        f"diagnostic={diagnostic.code}; recovery required"
+                    )
+                    try:
+                        update_state(task_num, "RECOVERY_REQUIRED", fallback_msg)
+                    except Exception as fb_err:
+                        fallback_msg = f"{fallback_msg}; recovery state update also failed: {fb_err}"
+                    fail(fallback_msg)
+            else:
+                recovery_msg = (
+                    f"E4 clean no-op cleanup failed ({'; '.join(cleanup_diagnostics)}); "
+                    f"diagnostic={diagnostic.code}; recovery required"
+                )
+                _e4_operational_failure(
+                    task_num,
+                    "RECOVERY_REQUIRED",
+                    recovery_msg,
+                )
+    elif is_productive_nonzero_recovery_candidate(
+        receipt_status=receipt.status,
+        receipt_error_code=receipt.error_code,
+        pre_branch=pre_branch,
+        post_branch=post_branch,
+        target_branch=expected_branch,
+        pre_head_sha=pre_head_sha,
+        post_head_sha=post_head_sha,
+        dirty_paths=dirty_paths,
+    ):
+        pass
+    else:
         blocked_status = (
             "EXECUTION_BLOCKED"
             if receipt.status is InvocationStatus.FAILED_TO_START and not dirty_paths
@@ -3408,68 +3503,6 @@ def cmd_execute(args):
             blocked_status,
             err_msg,
         )
-
-    if is_exact_clean_noop(
-        receipt_status=receipt.status,
-        pre_branch=pre_branch,
-        post_branch=post_branch,
-        target_branch=expected_branch,
-        pre_head_sha=pre_head_sha,
-        post_head_sha=post_head_sha,
-        dirty_paths=dirty_paths,
-    ):
-        cleanup_diagnostics: list[str] = []
-        try:
-            store = get_lease_store()
-            store.release(expected_lease)
-            cleanup_diagnostics.append("lease_released: OK")
-        except Exception as le:
-            cleanup_diagnostics.append(f"lease_release_failed: {le}")
-
-        auth_persisted = False
-        expected_blocked_auth = {**auth, "status": "EXECUTION_BLOCKED"}
-        try:
-            save_authorization(task_num, expected_blocked_auth)
-            read_auth = load_authorization(task_num)
-            if read_auth == expected_blocked_auth:
-                auth_persisted = True
-                cleanup_diagnostics.append("auth_persisted: EXECUTION_BLOCKED")
-            else:
-                cleanup_diagnostics.append("auth_persisted: MISMATCH")
-        except Exception as ae:
-            cleanup_diagnostics.append(f"auth_persist_failed: {ae}")
-
-        lease_ok = "lease_released: OK" in cleanup_diagnostics
-        if lease_ok and auth_persisted:
-            blocked_msg = (
-                f"E4 execution blocked: CLEAN_NO_WORKTREE_DELTA; "
-                f"diagnostic={diagnostic.code}; no publication, no retry, no reroute"
-            )
-            try:
-                update_state(task_num, "EXECUTION_BLOCKED", blocked_msg)
-                fail(blocked_msg)
-            except SystemExit:
-                raise
-            except Exception as state_err:
-                fallback_msg = (
-                    f"E4 clean no-op state persistence failed ({state_err}); "
-                    f"diagnostic={diagnostic.code}; recovery required"
-                )
-                try:
-                    update_state(task_num, "RECOVERY_REQUIRED", fallback_msg)
-                except Exception as fb_err:
-                    fallback_msg = f"{fallback_msg}; recovery state update also failed: {fb_err}"
-                fail(fallback_msg)
-        else:
-            recovery_msg = (
-                f"E4 clean no-op cleanup failed ({'; '.join(cleanup_diagnostics)}); "
-                f"diagnostic={diagnostic.code}; recovery required"
-            )
-            _e4_operational_failure(
-                task_num,
-                "RECOVERY_REQUIRED",
-                recovery_msg,
-            )
 
     try:
         verified_dirty_paths = validate_executor_worktree_delta(
@@ -3491,6 +3524,28 @@ def cmd_execute(args):
     full_suite_command = (
         subprocess.list2cmdline(test_argv) if os.name == "nt" else shlex.join(test_argv)
     )
+    is_productive_recovery = receipt.status is InvocationStatus.EXITED_NONZERO
+    if is_productive_recovery:
+        transport_lines = (
+            f"E4_TRANSPORT_STATUS: {receipt.status.value}",
+            f"E4_TRANSPORT_ERROR: {receipt.error_code}",
+            f"E4_TRANSPORT_DIAGNOSTIC: {diagnostic.code}",
+            "E4_PRODUCTIVE_NONZERO_RECOVERY: YES",
+            "EXECUTOR_RERUN: NO",
+        )
+        summary = (
+            "Implementation completed by codex with productive non-zero recovery through E4 "
+            "approved automatic execution; pending ChatGPT review."
+        )
+    else:
+        transport_lines = (
+            "E4_TRANSPORT_STATUS: EXITED_ZERO",
+        )
+        summary = (
+            "Implementation completed by codex through E4 approved automatic execution; "
+            "pending ChatGPT review."
+        )
+
     notes = "\n".join(
         (
             "E4_AUTO_EXECUTION: YES",
@@ -3498,7 +3553,7 @@ def cmd_execute(args):
             f"E4_CONTEXT_MANIFEST_FINGERPRINT: {launch.context_pack.manifest.fingerprint()}",
             f"E4_INVOCATION_FINGERPRINT: {invocation_fingerprint}",
             f"E4_INVOCATION_RECEIPT_FINGERPRINT: {receipt.fingerprint()}",
-            "E4_TRANSPORT_STATUS: EXITED_ZERO",
+            *transport_lines,
             f"E4_PRE_EXECUTION_HEAD: {pre_head_sha}",
             "E4_ALLOWED_SCOPE_VERIFIED: PASS",
             "E4_PUBLICATION_TRUST_VERIFIED: PASS",
@@ -3515,10 +3570,7 @@ def cmd_execute(args):
         task_id=task_num,
         action=operation.value,
         test=full_suite_command,
-        summary=(
-            "Implementation completed by codex through E4 approved automatic execution; "
-            "pending ChatGPT review."
-        ),
+        summary=summary,
         notes=notes,
         message=None,
     )

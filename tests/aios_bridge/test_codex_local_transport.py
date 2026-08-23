@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 from dataclasses import replace
 import hashlib
+import json
 from pathlib import Path
 import signal
 import subprocess
@@ -1174,3 +1175,73 @@ def test_unsafe_temporary_capture_location_inside_home_fallback_fails_closed(
     assert not spawned
     assert outcome.receipt.status is InvocationStatus.FAILED_TO_START
     assert outcome.receipt.error_code == codex_local.ERROR_WORKSPACE_PRECONDITION_FAILED
+
+
+def test_long_json_stream_tail_turn_failed_produces_json_error_event(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    lines = [json.dumps({"type": "turn_started"}).encode("utf-8") + b"\n"]
+    filler_line = json.dumps({"type": "item_in_progress", "data": "x" * 200}).encode("utf-8") + b"\n"
+    while sum(len(l) for l in lines) < 120000:
+        lines.append(filler_line)
+    lines.append(json.dumps({"type": "turn.failed"}).encode("utf-8") + b"\n")
+    stdout_data = b"".join(lines)
+
+    process = _FakeProcess(returncode=2, stdout_bytes=stdout_data)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+    assert outcome.diagnostic.stdout_total_bytes > 65536
+    assert outcome.diagnostic.stdout_scan_truncated is True
+    assert outcome.diagnostic.code == CodexDiagnosticCode.JSON_ERROR_EVENT.value
+    assert outcome.diagnostic.last_stdout_event_type == "turn.failed"
+    assert "turn.failed" in outcome.diagnostic.stdout_event_types
+
+
+def test_long_json_stream_tail_error_event_produces_json_error_event(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    lines = [json.dumps({"type": "turn_started"}).encode("utf-8") + b"\n"]
+    filler_line = json.dumps({"type": "item_in_progress", "data": "y" * 200}).encode("utf-8") + b"\n"
+    while sum(len(l) for l in lines) < 100000:
+        lines.append(filler_line)
+    lines.append(json.dumps({"type": "error"}).encode("utf-8") + b"\n")
+    stdout_data = b"".join(lines)
+
+    process = _FakeProcess(returncode=2, stdout_bytes=stdout_data)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+    assert outcome.diagnostic.stdout_total_bytes > 65536
+    assert outcome.diagnostic.stdout_scan_truncated is True
+    assert outcome.diagnostic.code == CodexDiagnosticCode.JSON_ERROR_EVENT.value
+    assert outcome.diagnostic.last_stdout_event_type == "error"
+
+
+def test_long_json_stream_tail_turn_completed_observed_as_last_event(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    lines = [json.dumps({"type": "turn_started"}).encode("utf-8") + b"\n"]
+    filler_line = json.dumps({"type": "item_completed", "data": "z" * 200}).encode("utf-8") + b"\n"
+    while sum(len(l) for l in lines) < 100000:
+        lines.append(filler_line)
+    lines.append(json.dumps({"type": "turn.completed"}).encode("utf-8") + b"\n")
+    stdout_data = b"".join(lines)
+
+    process = _FakeProcess(returncode=0, stdout_bytes=stdout_data)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+    assert outcome.diagnostic.stdout_total_bytes > 65536
+    assert outcome.diagnostic.stdout_scan_truncated is True
+    assert outcome.diagnostic.code == CodexDiagnosticCode.JSON_EVENT_STREAM.value
+    assert outcome.diagnostic.last_stdout_event_type == "turn.completed"
+
+
+def test_head_and_tail_boundary_fragments_do_not_produce_false_non_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    line1 = (json.dumps({"type": "head_event", "padding": "a" * 32000}) + "\n").encode("utf-8")
+    line2 = (json.dumps({"type": "middle_event_cut", "padding": "b" * 40000}) + "\n").encode("utf-8")
+    line3 = (json.dumps({"type": "tail_event", "padding": "c" * 32000}) + "\n").encode("utf-8")
+    stdout_data = line1 + line2 + line3
+
+    process = _FakeProcess(returncode=0, stdout_bytes=stdout_data)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+    assert outcome.diagnostic.stdout_scan_truncated is True
+    assert outcome.diagnostic.stdout_non_json_line_count == 0
+    assert outcome.diagnostic.code == CodexDiagnosticCode.JSON_EVENT_STREAM.value

@@ -383,36 +383,43 @@ def _resolve_safe_temporary_dir(workspace: Path) -> Path | None:
     return temp_root
 
 
+def _read_bounded_stream(stream_file: Any) -> tuple[int, bytes, bytes, bool]:
+    """Read stream with bounded head + tail if stream exceeds budget.
+
+    Returns (total_bytes, head_bytes, tail_bytes, is_truncated).
+    """
+    total_bytes = 0
+    head_bytes = b""
+    tail_bytes = b""
+    if stream_file is None:
+        return 0, b"", b"", False
+    try:
+        stream_file.seek(0, os.SEEK_END)
+        total_bytes = stream_file.tell()
+        if total_bytes <= MAX_CODEX_DIAGNOSTIC_SCAN_BYTES_PER_STREAM:
+            stream_file.seek(0)
+            head_bytes = stream_file.read(MAX_CODEX_DIAGNOSTIC_SCAN_BYTES_PER_STREAM)
+            return total_bytes, head_bytes, b"", False
+
+        half_budget = MAX_CODEX_DIAGNOSTIC_SCAN_BYTES_PER_STREAM // 2
+        stream_file.seek(0)
+        head_bytes = stream_file.read(half_budget)
+        tail_start = max(half_budget, total_bytes - half_budget)
+        stream_file.seek(tail_start)
+        tail_bytes = stream_file.read(half_budget)
+        return total_bytes, head_bytes, tail_bytes, True
+    except Exception:
+        return total_bytes, head_bytes, tail_bytes, False
+
+
 def _analyze_diagnostic_stream(
     stdout_file: Any,
     stderr_file: Any,
 ) -> CodexTransportDiagnostic:
     """Safely analyze temporary stdout/stderr streams within strict bounds."""
     try:
-        total_out = 0
-        scan_out = b""
-        if stdout_file is not None:
-            try:
-                stdout_file.seek(0, os.SEEK_END)
-                total_out = stdout_file.tell()
-                stdout_file.seek(0)
-                scan_out = stdout_file.read(MAX_CODEX_DIAGNOSTIC_SCAN_BYTES_PER_STREAM)
-            except Exception:
-                pass
-
-        total_err = 0
-        scan_err = b""
-        if stderr_file is not None:
-            try:
-                stderr_file.seek(0, os.SEEK_END)
-                total_err = stderr_file.tell()
-                stderr_file.seek(0)
-                scan_err = stderr_file.read(MAX_CODEX_DIAGNOSTIC_SCAN_BYTES_PER_STREAM)
-            except Exception:
-                pass
-
-        out_truncated = total_out > len(scan_out)
-        err_truncated = total_err > len(scan_err)
+        total_out, head_out, tail_out, out_truncated = _read_bounded_stream(stdout_file)
+        total_err, head_err, tail_err, err_truncated = _read_bounded_stream(stderr_file)
 
         json_line_count = 0
         non_json_line_count = 0
@@ -421,38 +428,51 @@ def _analyze_diagnostic_stream(
         last_event_type: str | None = None
         has_failure_event = False
 
-        if scan_out:
-            raw_lines = scan_out.splitlines()
-            for raw_line in raw_lines:
-                line = raw_line.strip()
-                if not line:
-                    continue
-                try:
-                    decoded = line.decode("utf-8")
-                    parsed = json.loads(decoded)
-                    if isinstance(parsed, dict) and "type" in parsed:
-                        ev_type = parsed["type"]
+        def _process_line(raw_line: bytes, is_boundary_fragment: bool) -> None:
+            nonlocal json_line_count, non_json_line_count, last_event_type, has_failure_event
+            line = raw_line.strip()
+            if not line:
+                return
+            try:
+                decoded = line.decode("utf-8")
+                parsed = json.loads(decoded)
+                if isinstance(parsed, dict) and "type" in parsed:
+                    ev_type = parsed["type"]
+                    if (
+                        isinstance(ev_type, str)
+                        and ev_type
+                        and len(ev_type) <= MAX_SINGLE_EVENT_TYPE_LENGTH
+                        and _EVENT_TYPE_RE.fullmatch(ev_type)
+                        and not any(ord(c) < 32 or ord(c) == 127 for c in ev_type)
+                    ):
                         if (
-                            isinstance(ev_type, str)
-                            and ev_type
-                            and len(ev_type) <= MAX_SINGLE_EVENT_TYPE_LENGTH
-                            and _EVENT_TYPE_RE.fullmatch(ev_type)
-                            and not any(ord(c) < 32 or ord(c) == 127 for c in ev_type)
+                            ev_type not in seen_event_types
+                            and len(event_types) < MAX_CODEX_DIAGNOSTIC_EVENT_TYPES
                         ):
-                            if (
-                                ev_type not in seen_event_types
-                                and len(event_types) < MAX_CODEX_DIAGNOSTIC_EVENT_TYPES
-                            ):
-                                event_types.append(ev_type)
-                                seen_event_types.add(ev_type)
-                            last_event_type = ev_type
-                            if ev_type.lower() in _FAILURE_EVENT_TYPES:
-                                has_failure_event = True
-                        json_line_count += 1
-                    else:
-                        json_line_count += 1
-                except Exception:
+                            event_types.append(ev_type)
+                            seen_event_types.add(ev_type)
+                        last_event_type = ev_type
+                        if ev_type.lower() in _FAILURE_EVENT_TYPES:
+                            has_failure_event = True
+                    json_line_count += 1
+                else:
+                    json_line_count += 1
+            except Exception:
+                if not is_boundary_fragment:
                     non_json_line_count += 1
+
+        if head_out:
+            head_lines = head_out.splitlines()
+            has_head_boundary = out_truncated and len(head_lines) > 0 and not head_out.endswith((b"\n", b"\r"))
+            for i, line in enumerate(head_lines):
+                is_boundary = has_head_boundary and (i == len(head_lines) - 1)
+                _process_line(line, is_boundary)
+
+        if tail_out:
+            tail_lines = tail_out.splitlines()
+            for i, line in enumerate(tail_lines):
+                is_boundary = (i == 0)
+                _process_line(line, is_boundary)
 
         if total_out == 0 and total_err == 0:
             code = CodexDiagnosticCode.EMPTY_OUTPUT.value
