@@ -416,6 +416,28 @@ def test_every_git_process_forces_no_lazy_fetch_even_if_caller_enables_it(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ):
     monkeypatch.setenv("GIT_NO_LAZY_FETCH", "0")
+    monkeypatch.setenv("AIOS_UNRELATED_CALLER_VALUE", "must-not-be-copied")
+    provider_secrets = {
+        "OPENAI_API_KEY": "openai-provider-secret",
+        "ANTHROPIC_API_KEY": "anthropic-provider-secret",
+        "GEMINI_API_KEY": "gemini-provider-secret",
+        "AWS_SECRET_ACCESS_KEY": "aws-provider-secret",
+    }
+    caller_git_overrides = {
+        "GIT_DIR": "caller-git-dir",
+        "GIT_WORK_TREE": "caller-work-tree",
+        "GIT_OBJECT_DIRECTORY": "caller-object-directory",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES": "caller-alternate-objects",
+        "GIT_CONFIG_COUNT": "1",
+        "GIT_CONFIG_KEY_0": "core.repositoryformatversion",
+        "GIT_CONFIG_VALUE_0": "999",
+        "GIT_CONFIG_GLOBAL": "caller-global-config",
+        "GIT_CONFIG_SYSTEM": "caller-system-config",
+    }
+    for name, value in provider_secrets.items():
+        monkeypatch.setenv(name, value)
+    for name, value in caller_git_overrides.items():
+        monkeypatch.setenv(name, value)
     calls: list[tuple[list[str], dict[str, object]]] = []
     process_sentinel = object()
 
@@ -440,6 +462,13 @@ def test_every_git_process_forces_no_lazy_fetch_even_if_caller_enables_it(
         child_environment = kwargs["env"]
         assert isinstance(child_environment, dict)
         assert child_environment["GIT_NO_LAZY_FETCH"] == "1"
+        assert "AIOS_UNRELATED_CALLER_VALUE" not in child_environment
+        assert set(child_environment).isdisjoint(provider_secrets)
+        assert set(child_environment.values()).isdisjoint(provider_secrets.values())
+        assert set(child_environment).isdisjoint(caller_git_overrides)
+        assert {name for name in child_environment if name.startswith("GIT_")} == {
+            "GIT_NO_LAZY_FETCH"
+        }
 
 
 def test_discovery_records_are_frozen():

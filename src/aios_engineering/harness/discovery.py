@@ -42,6 +42,23 @@ MAX_GIT_TREE_RECORD_BYTES: int = 4096
 MAX_GIT_SCALAR_OUTPUT_BYTES: int = 4096
 _GIT_READ_CHUNK_BYTES: int = 64 * 1024
 
+# Keep the Git subprocess environment closed: only non-secret values required
+# for executable lookup and basic OS/locale/temp operation may cross the
+# process boundary. In particular, caller-controlled GIT_* variables and
+# provider credentials must never be inherited.
+_GIT_CHILD_ENVIRONMENT_ALLOWLIST: tuple[str, ...] = (
+    "PATH",
+    "PATHEXT",
+    "SYSTEMROOT",
+    "WINDIR",
+    "TEMP",
+    "TMP",
+    "TMPDIR",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+)
+
 DISCOVERED_GIT_BLOB: str = "DISCOVERED_GIT_BLOB"
 NON_REGULAR_GIT_MODE: str = "NON_REGULAR_GIT_MODE"
 UNSUPPORTED_GIT_OBJECT_TYPE: str = "UNSUPPORTED_GIT_OBJECT_TYPE"
@@ -461,7 +478,11 @@ def _read_bounded_output(stream: BinaryIO, limit: int) -> bytes:
 
 def _open_git_process(repository_root: Path, command: Sequence[str]) -> subprocess.Popen[bytes]:
     argv = ["git", "--no-replace-objects", "-C", os.fspath(repository_root), *command]
-    child_environment = os.environ.copy()
+    child_environment = {
+        name: value
+        for name in _GIT_CHILD_ENVIRONMENT_ALLOWLIST
+        if (value := os.environ.get(name)) is not None
+    }
     child_environment["GIT_NO_LAZY_FETCH"] = "1"
     try:
         return subprocess.Popen(
