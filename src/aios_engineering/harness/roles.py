@@ -4,6 +4,7 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 from enum import Enum
+import hashlib
 import os
 from pathlib import Path
 import re
@@ -758,6 +759,13 @@ def _read_blob_body(repository_root: Path, blob_sha: str, blob_size_bytes: int) 
         raise RepositoryRoleSummaryGitError(
             "local Git blob body length does not equal its exact preflight size"
         )
+    computed_blob_sha = hashlib.sha1(
+        b"blob " + str(blob_size_bytes).encode("ascii") + b"\0" + body
+    ).hexdigest()
+    if computed_blob_sha != blob_sha:
+        raise RepositoryRoleSummaryGitError(
+            f"actual analyzed body Git blob SHA ({computed_blob_sha}) does not match expected ({blob_sha})"
+        )
     return body
 
 
@@ -853,7 +861,7 @@ def _analyze_selected_evidence(
         else:
             try:
                 tree = ast.parse(source, filename=evidence.path, mode="exec")
-            except (SyntaxError, ValueError, TypeError, MemoryError, RecursionError):
+            except (SyntaxError, ValueError):
                 analysis_status = ContentAnalysisStatus.SYNTAX_REJECTED
             else:
                 analysis_status = ContentAnalysisStatus.PARSED

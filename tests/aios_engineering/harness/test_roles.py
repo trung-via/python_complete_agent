@@ -411,3 +411,75 @@ def test_summary_types_are_frozen_and_symbol_locators_are_bounded(tmp_path: Path
         summary.h2_priority = 1  # type: ignore[misc]
     with pytest.raises(dataclasses.FrozenInstanceError):
         result.task_id = "TASK-999"  # type: ignore[misc]
+
+
+def test_blob_body_tampering_same_length_is_rejected_before_ast_analysis(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    repository, ranking = _single_source_repository(tmp_path, b"def selected():\n    pass\n")
+    original_run_git_output = roles_module._run_git_output
+
+    def tampered_run_git_output(
+        repo_root: Path,
+        command: Sequence[str],
+        *,
+        output_limit: int,
+    ) -> bytes:
+        out = original_run_git_output(repo_root, command, output_limit=output_limit)
+        if len(command) >= 3 and command[0] == "cat-file" and command[1] == "blob":
+            # Tamper the body with same length
+            return b"def corrupted():\n   pass\n"
+        return out
+
+    ast_parsed = False
+
+    def instrumented_parse(*args: object, **kwargs: object):
+        nonlocal ast_parsed
+        ast_parsed = True
+        return roles_module.ast.parse(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(roles_module, "_run_git_output", tampered_run_git_output)
+    monkeypatch.setattr(roles_module.ast, "parse", instrumented_parse)
+
+    with pytest.raises(RepositoryRoleSummaryGitError, match="actual analyzed body Git blob SHA .* does not match expected"):
+        summarize_repository_roles(repository, ranking)
+
+    assert ast_parsed is False
+
+
+def test_value_error_content_rejection_for_null_byte_in_python_source(tmp_path: Path):
+    # Null byte in Python source string raises ValueError in ast.parse
+    repository, ranking = _single_source_repository(
+        tmp_path,
+        b"def func_with_null():\n    pass\n\x00",
+    )
+    result, receipt = summarize_repository_roles(repository, ranking)
+    assert result.summaries[0].analysis_status is ContentAnalysisStatus.SYNTAX_REJECTED
+    assert len(result.summaries[0].symbols) == 0
+    assert receipt.selected_count == 1
+
+
+@pytest.mark.parametrize(
+    "operational_error",
+    [
+        TypeError("operational type error"),
+        MemoryError("operational memory error"),
+        RecursionError("operational recursion error"),
+        RuntimeError("operational runtime error"),
+    ],
+)
+def test_operational_parser_errors_fail_closed_and_are_never_converted_to_syntax_rejected(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    operational_error: BaseException,
+):
+    repository, ranking = _single_source_repository(tmp_path)
+
+    def failing_parse(*args: object, **kwargs: object):
+        raise operational_error
+
+    monkeypatch.setattr(roles_module.ast, "parse", failing_parse)
+
+    with pytest.raises(type(operational_error)):
+        summarize_repository_roles(repository, ranking)
