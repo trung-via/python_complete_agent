@@ -5,36 +5,32 @@ STATUS: READY_FOR_REVIEW
 ## Review Manifest
 ```yaml
 TASK_ID: TASK-073
-ACTION: RUN
+ACTION: FIX
 EXECUTOR_ID: antigravity
 EXECUTOR_FAILOVER: NO
 HOT_HANDOFF: NO
 ```
 
 ## Summary
-Implemented TASK-073 / ADR-046: (1) updated the thin executor instruction block in src/aios_bridge/executor_context.py to explicitly state the mandatory non-empty authorized worktree delta requirement and protocol failure of no-op turns; (2) added deterministic is_exact_clean_noop() helper in bridge.py to classify exact clean no-ops; (3) implemented deterministic clean no-op cleanup transaction in bridge.py:cmd_execute that releases the active lease, marks authorization EXECUTION_BLOCKED, and updates task state to EXECUTION_BLOCKED with reason containing CLEAN_NO_WORKTREE_DELTA without publishing; (4) preserved existing fail-closed recovery for all dirty/drift/transport failure modes; (5) added comprehensive unit and integration test coverage in tests/aios_bridge/test_executor_context_pack.py and tests/test_bridge_executor_automation.py (103 targeted passed, 2253 full repo passed).
+Resolved REVIEW-073 Finding B1 for TASK-073: (1) enforced exact full-record authorization read-back equality (read_auth == expected_blocked_auth) during clean no-op cleanup, ensuring all audit fingerprints and bindings are preserved; (2) added deterministic fallback transaction for operational-state persistence (attempting RECOVERY_REQUIRED if EXECUTION_BLOCKED write throws); (3) added comprehensive regression tests in tests/test_bridge_executor_automation.py covering auth readback mismatch, blocked state write failure fallback, and both writes failing (106 targeted passed, 2256 full repo passed).
 
 ## Task Metadata
 - Task: `TASK-073`
-- Action: `RUN`
+- Action: `FIX`
 - Executor: `antigravity`
-- Authorized Artifact: `.ai/tasks/TASK-073.md (e7ae051277)`
-- Base Main SHA: `0f803c2d66244147734c5b8f5ea3670c6f57c6cc`
+- Authorized Artifact: `.ai/reviews/REVIEW-073.md (57b74b2823)`
+- Base Main SHA: `(n/a)`
 - Branch: `ai/task-073`
 
 ## Files Changed
 - bridge.py
-- src/aios_bridge/executor_context.py
-- tests/aios_bridge/test_executor_context_pack.py
 - tests/test_bridge_executor_automation.py
 
 ## Diff Stat
 ```text
-bridge.py                                       |  72 ++++++++-
- src/aios_bridge/executor_context.py             |   4 +-
- tests/aios_bridge/test_executor_context_pack.py |  28 ++++
- tests/test_bridge_executor_automation.py        | 199 ++++++++++++++++++++++--
- 4 files changed, 286 insertions(+), 17 deletions(-)
+bridge.py                                | 39 ++++++++++++-------
+ tests/test_bridge_executor_automation.py | 66 ++++++++++++++++++++++++++++++++
+ 2 files changed, 91 insertions(+), 14 deletions(-)
 ```
 
 ## Tests
@@ -52,7 +48,7 @@ Exit code: 0
 ........................................................................ [ 25%]
 ........................................................................ [ 28%]
 ........................................................................ [ 31%]
-........................................................................ [ 35%]
+........................................................................ [ 34%]
 ........................................................................ [ 38%]
 ...........ss......................................s.................... [ 41%]
 ........................................................................ [ 44%]
@@ -63,17 +59,17 @@ Exit code: 0
 ........................................................................ [ 60%]
 ........................................................................ [ 63%]
 ........................................................................ [ 66%]
-........................................................................ [ 70%]
+........................................................................ [ 69%]
 ........................................................................ [ 73%]
 ........................................................................ [ 76%]
 ........................................................................ [ 79%]
 ........................................................................ [ 82%]
-........................................................................ [ 86%]
+........................................................................ [ 85%]
 ........................................................................ [ 89%]
 ........................................................................ [ 92%]
 ........................................................................ [ 95%]
 ........................................................................ [ 98%]
-............................                                             [100%]
+...............................                                          [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -376,7 +372,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-2253 passed, 7 skipped, 1540 warnings in 159.63s (0:02:39)
+2256 passed, 7 skipped, 1540 warnings in 159.74s (0:02:39)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -388,30 +384,28 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 TARGETED_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/aios_bridge/test_executor_context_pack.py tests/test_bridge_executor_automation.py -q
 Exit code: 0
-Result: 103 passed, 0 skipped, 0 failed
+Result: 106 passed, 0 skipped, 0 failed
 
 FULL_REPOSITORY_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/ -q
 Exit code: 0
-Result: 2253 passed, 7 skipped, 0 failed
+Result: 2256 passed, 7 skipped, 0 failed
 
 DIAGNOSTIC_EVIDENCE:
-TASK_073_IMPLEMENTATION: COMPLETED
-CONTEXT_PACK_EXPLICIT_DELTA_OBLIGATION: PASS
-CONTEXT_PACK_STILL_DENIES_COMMIT_PUSH_PUBLISH_MERGE: PASS
-CONTEXT_PACK_NEW_AUTHORITY_CREATED: NO
+TASK_073_FIX: COMPLETED
+FINDING_B1_RESOLVED: PASS
+B1_1_EXACT_AUTH_READBACK: PASS
+B1_2_STATE_PERSISTENCE_FALLBACK: PASS
 CLEAN_NOOP_EXITED_ZERO: EXECUTION_BLOCKED
-CLEAN_NOOP_PUBLISH_CALLED: NO
 CLEAN_NOOP_LEASE_RELEASE_CALLED_EXACTLY_ONCE: YES
 CLEAN_NOOP_AUTH_STATUS_ACTIVE_AFTERWARD: NO
 CLEAN_NOOP_STATE_REASON_CONTAINS_CLEAN_NO_WORKTREE_DELTA: YES
 CLEAN_NOOP_SECOND_EXECUTOR_INVOKED: NO
-NOOP_WITH_BRANCH_DRIFT_AUTO_CLEANED: NO
-NOOP_WITH_HEAD_DRIFT_AUTO_CLEANED: NO
-DIRTY_OUT_OF_SCOPE_AUTO_CLEANED: NO
-TRANSPORT_FAILURE_AUTO_CLEANED: NO
 CLEANUP_RELEASE_FAILURE: RECOVERY_REQUIRED
 CLEANUP_AUTH_PERSISTENCE_FAILURE: RECOVERY_REQUIRED
+CLEANUP_AUTH_READBACK_MISMATCH: RECOVERY_REQUIRED
+EXECUTION_BLOCKED_STATE_WRITE_FAILS: RECOVERY_REQUIRED_ATTEMPTED
+BOTH_STATE_WRITES_FAIL: FAIL_WITH_EXPLICIT_DIAGNOSTIC
 AUTHORIZED_DELTA_HAPPY_PATH_PRESERVED: YES
 FULL_SUITE_PUBLICATION_PATH_PRESERVED: YES
 STANDING_AUTO_MERGE_AUTHORIZATION: ENABLED
@@ -424,4 +418,4 @@ AUTO_REROUTE: NO
 SCOPE_EXACT: YES
 
 ## Generated
-2026-08-23T18:24:31+07:00
+2026-08-23T18:39:19+07:00

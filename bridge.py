@@ -3427,12 +3427,11 @@ def cmd_execute(args):
             cleanup_diagnostics.append(f"lease_release_failed: {le}")
 
         auth_persisted = False
+        expected_blocked_auth = {**auth, "status": "EXECUTION_BLOCKED"}
         try:
-            auth_record = dict(auth)
-            auth_record["status"] = "EXECUTION_BLOCKED"
-            save_authorization(task_num, auth_record)
+            save_authorization(task_num, expected_blocked_auth)
             read_auth = load_authorization(task_num)
-            if isinstance(read_auth, dict) and read_auth.get("status") == "EXECUTION_BLOCKED":
+            if read_auth == expected_blocked_auth:
                 auth_persisted = True
                 cleanup_diagnostics.append("auth_persisted: EXECUTION_BLOCKED")
             else:
@@ -3442,23 +3441,35 @@ def cmd_execute(args):
 
         lease_ok = "lease_released: OK" in cleanup_diagnostics
         if lease_ok and auth_persisted:
-            final_status = "EXECUTION_BLOCKED"
-            msg = (
+            blocked_msg = (
                 f"E4 execution blocked: CLEAN_NO_WORKTREE_DELTA; "
                 f"diagnostic={diagnostic.code}; no publication, no retry, no reroute"
             )
+            try:
+                update_state(task_num, "EXECUTION_BLOCKED", blocked_msg)
+                fail(blocked_msg)
+            except SystemExit:
+                raise
+            except Exception as state_err:
+                fallback_msg = (
+                    f"E4 clean no-op state persistence failed ({state_err}); "
+                    f"diagnostic={diagnostic.code}; recovery required"
+                )
+                try:
+                    update_state(task_num, "RECOVERY_REQUIRED", fallback_msg)
+                except Exception as fb_err:
+                    fallback_msg = f"{fallback_msg}; recovery state update also failed: {fb_err}"
+                fail(fallback_msg)
         else:
-            final_status = "RECOVERY_REQUIRED"
-            msg = (
+            recovery_msg = (
                 f"E4 clean no-op cleanup failed ({'; '.join(cleanup_diagnostics)}); "
                 f"diagnostic={diagnostic.code}; recovery required"
             )
-
-        _e4_operational_failure(
-            task_num,
-            final_status,
-            msg,
-        )
+            _e4_operational_failure(
+                task_num,
+                "RECOVERY_REQUIRED",
+                recovery_msg,
+            )
 
     try:
         verified_dirty_paths = validate_executor_worktree_delta(

@@ -991,6 +991,72 @@ def test_clean_noop_auth_persistence_failure_enters_recovery(monkeypatch, tmp_pa
     assert "clean no-op cleanup failed" in calls["state"][-1][1]
 
 
+def test_clean_noop_auth_readback_mismatch_enters_recovery(monkeypatch, tmp_path):
+    auth, _, calls = make_execute_environment(monkeypatch, tmp_path)
+    monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ())
+
+    # Load returns status EXECUTION_BLOCKED but drifted lease_fingerprint
+    drifted_auth = {
+        **auth,
+        "status": "EXECUTION_BLOCKED",
+        "lease_fingerprint": "f" * 64,
+    }
+    monkeypatch.setattr(bridge, "load_authorization", lambda task_id: drifted_auth)
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+
+    assert calls["invoke"] == 1
+    assert calls["publish"] == []
+    assert len(calls["lease_released"]) == 1
+    assert calls["state"][-1][0] == "RECOVERY_REQUIRED"
+    assert "clean no-op cleanup failed" in calls["state"][-1][1]
+
+
+def test_clean_noop_execution_blocked_state_write_fails_attempts_recovery_required(monkeypatch, tmp_path):
+    _, _, calls = make_execute_environment(monkeypatch, tmp_path)
+    monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ())
+
+    state_attempts = []
+
+    def failing_first_update_state(task_id, state, message):
+        state_attempts.append((state, message))
+        if state == "EXECUTION_BLOCKED":
+            raise OSError("blocked state disk error")
+        calls["state"].append((state, message))
+
+    monkeypatch.setattr(bridge, "update_state", failing_first_update_state)
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+
+    assert calls["invoke"] == 1
+    assert calls["publish"] == []
+    assert len(calls["lease_released"]) == 1
+    assert [s[0] for s in state_attempts] == ["EXECUTION_BLOCKED", "RECOVERY_REQUIRED"]
+    assert calls["state"][-1][0] == "RECOVERY_REQUIRED"
+    assert "E4 clean no-op state persistence failed" in calls["state"][-1][1]
+
+
+def test_clean_noop_both_state_writes_fail_enters_explicit_diagnostic(monkeypatch, tmp_path):
+    _, _, calls = make_execute_environment(monkeypatch, tmp_path)
+    monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ())
+
+    def always_failing_update_state(task_id, state, message):
+        raise OSError("all state writes failed")
+
+    monkeypatch.setattr(bridge, "update_state", always_failing_update_state)
+
+    with pytest.raises(SystemExit) as excinfo:
+        bridge.cmd_execute(execute_args())
+
+    assert calls["invoke"] == 1
+    assert calls["publish"] == []
+    assert len(calls["lease_released"]) == 1
+    assert excinfo.value.code != 0
+
+
+
 def test_is_exact_clean_noop_unit_predicate():
     assert bridge.is_exact_clean_noop(
         receipt_status=InvocationStatus.EXITED_ZERO,
