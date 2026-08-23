@@ -1764,6 +1764,54 @@ def test_lease_status_and_confirmation_gated_release():
                 del os.environ["AIOS_RUNTIME_DIR"]
 
 
+@pytest.mark.parametrize(
+    ("kind", "governance_case"),
+    [
+        ("task", "governed_run_missing_or_invalid_roadmap_binding"),
+        ("task", "h1_run_missing_or_invalid_predecessor_completion"),
+        ("review", "governed_fix_missing_exact_task_review_binding"),
+    ],
+    ids=lambda value: value if isinstance(value, str) and "_" in value else None,
+)
+def test_cmd_approve_governed_attempts_fail_before_authority_access(
+    monkeypatch, capsys, kind, governance_case
+):
+    """All governed bypass variants are denied before any authority-bearing access."""
+    assert governance_case
+    accessed = []
+
+    def forbidden(name):
+        def _forbidden(*args, **kwargs):
+            accessed.append(name)
+            raise AssertionError(f"legacy approve accessed {name}")
+
+        return _forbidden
+
+    for name in (
+        "load_config",
+        "find_latest_event",
+        "checkout_task_branch",
+        "get_lease_store",
+        "save_json",
+        "save_authorization",
+        "update_state",
+    ):
+        monkeypatch.setattr(bridge, name, forbidden(name))
+
+    args = bridge.build_parser().parse_args(
+        ["approve", "77", "--kind", kind, "--executor", "codex"]
+    )
+    with pytest.raises(SystemExit) as exc:
+        args.func(args)
+
+    assert exc.value.code == 1
+    assert accessed == []
+    error = capsys.readouterr().err
+    assert "Legacy 'approve' is disabled" in error
+    assert "handoff" in error
+    assert "$aios-worker or /aios-worker" in error
+
+
 def test_cmd_approve_lease_conflict_preserves_pending_event_and_state():
     """
     Validates R1-4: When cmd_approve encounters a lease conflict, the inbox event remains PENDING
@@ -2230,10 +2278,10 @@ def test_cmd_approve_post_acquire_save_auth_failure_rolls_back_lease_and_restore
                 del os.environ["AIOS_RUNTIME_DIR"]
 
 
-def test_cmd_approve_post_acquire_rollback_failure_reports_recovery_diagnostics(capsys):
+def test_cmd_approve_deprecation_precedes_inbox_rollback_paths(capsys):
     """
-    Validates R2-1: When rollback itself fails (e.g. inbox restore fails), bounded recovery
-    diagnostics are explicitly included in failure reporting and operational state is RECOVERY_REQUIRED.
+    The retired approve surface exits before activation, so neither primary writes nor
+    rollback/recovery writes can become authority-bearing behavior.
     """
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp) / "repo"
@@ -2301,9 +2349,10 @@ def test_cmd_approve_post_acquire_rollback_failure_reports_recovery_diagnostics(
                 bridge.cmd_approve(type("Args", (), {"task_id": 29, "kind": None})())
 
             err = capsys.readouterr().err
-            assert "Rollback diagnostics:" in err
-            assert "inbox_restore_failed" in err
-            assert "state_updated: RECOVERY_REQUIRED" in err
+            assert "Legacy 'approve' is disabled" in err
+            assert bridge.load_json(inbox_path, {}) == event_data
+            assert bridge.get_active_authorization(29) is None
+            assert store.load_active("TASK-029") is None
         finally:
             bridge.PROJECT = old_project
             bridge.AI = old_ai
@@ -2314,10 +2363,10 @@ def test_cmd_approve_post_acquire_rollback_failure_reports_recovery_diagnostics(
                 del os.environ["AIOS_RUNTIME_DIR"]
 
 
-def test_cmd_approve_post_acquire_rollback_lease_release_failure_reports_recovery_required(capsys):
+def test_cmd_approve_deprecation_precedes_lease_acquire_and_release_paths(capsys):
     """
-    Validates R2-1: When activation fails and rollback store.release() also fails,
-    the task operational state is set to RECOVERY_REQUIRED and failure diagnostics report lease_release_failed.
+    The retired approve surface never acquires a lease, even when the configured store
+    would be unable to release one during rollback.
     """
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp) / "repo"
@@ -2390,9 +2439,10 @@ def test_cmd_approve_post_acquire_rollback_lease_release_failure_reports_recover
                 bridge.cmd_approve(type("Args", (), {"task_id": 29, "kind": None})())
 
             err = capsys.readouterr().err
-            assert "Rollback diagnostics:" in err
-            assert "lease_release_failed" in err
-            assert "state_updated: RECOVERY_REQUIRED" in err
+            assert "Legacy 'approve' is disabled" in err
+            assert bridge.load_json(inbox_path, {}) == event_data
+            assert bridge.get_active_authorization(29) is None
+            assert real_store.load_active("TASK-029") is None
         finally:
             bridge.PROJECT = old_project
             bridge.AI = old_ai
@@ -4386,8 +4436,8 @@ def test_cmd_publish_task_030_proof_progress_manifest_generation():
                 del os.environ["AIOS_RUNTIME_DIR"]
 
 
-def test_handoff_and_approve_claude_code_transitions():
-    """Validates C1, C4-C7: Claude Code transitions in handoff and approve."""
+def test_handoff_claude_code_transitions_and_legacy_approve_is_closed():
+    """Validates Claude Code handoff transitions and the retired approve boundary."""
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp) / "repo"
         root.mkdir()
@@ -4500,7 +4550,7 @@ def test_handoff_and_approve_claude_code_transitions():
             assert lease_cc.executor_id == "claude-code"
             store.release(lease_cc)
 
-            # 2. Claude Code -> Antigravity failover FIX via cmd_approve
+            # 2. Legacy approve cannot authorize Claude Code -> Antigravity failover FIX
             auth_cc["status"] = "CONSUMED"
             auth_cc["published_sha"] = published_sha
             bridge.save_authorization(31, auth_cc)
@@ -4514,20 +4564,19 @@ def test_handoff_and_approve_claude_code_transitions():
             }
             bridge.save_json(bridge.get_runtime_paths()["inbox"] / "review_031.json", inbox_event)
 
-            bridge.cmd_approve(type("Args", (), {"task_id": 31, "kind": "review", "executor": "antigravity"})())
+            with pytest.raises(SystemExit):
+                bridge.cmd_approve(
+                    type("Args", (), {"task_id": 31, "kind": "review", "executor": "antigravity"})()
+                )
 
-            auth_ag = bridge.load_authorization(31)
-            assert auth_ag is not None
-            assert auth_ag["status"] == "ACTIVE"
-            assert auth_ag["executor_id"] == "antigravity"
-            assert auth_ag.get("failover_proof") is not None
-            assert auth_ag["failover_proof"]["source_executor_id"] == "claude-code"
-            assert auth_ag["failover_proof"]["replacement_executor_id"] == "antigravity"
-
-            lease_ag = store.load_active("TASK-031")
-            assert lease_ag is not None
-            assert lease_ag.executor_id == "antigravity"
-            store.release(lease_ag)
+            unchanged_auth = bridge.load_authorization(31)
+            assert unchanged_auth is not None
+            assert unchanged_auth["status"] == "CONSUMED"
+            assert unchanged_auth["executor_id"] == "claude-code"
+            assert store.load_active("TASK-031") is None
+            assert bridge.load_json(
+                bridge.get_runtime_paths()["inbox"] / "review_031.json", {}
+            )["approval"] == "PENDING"
 
             # 3. Claude Code -> Claude Code same-executor FIX via cmd_handoff
             auth_cc["status"] = "CONSUMED"
@@ -4920,8 +4969,8 @@ def test_cmd_publish_task_031_proof_progress_manifest_generation():
                 del os.environ["AIOS_RUNTIME_DIR"]
 
 
-def test_handoff_and_approve_claude_code_run_activation():
-    """Validates C1, C3, C7 (R1-3): Explicit Claude Code RUN activation via handoff and approve."""
+def test_handoff_claude_code_run_activation_and_legacy_approve_is_closed():
+    """Validates Claude Code RUN handoff and that legacy approve creates no authority."""
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp) / "repo"
         root.mkdir()
@@ -5003,7 +5052,7 @@ def test_handoff_and_approve_claude_code_run_activation():
             assert lease_run.operation == ExecutionOperation.RUN
             store.release(lease_run)
 
-            # Clear auth to test legacy cmd_approve RUN
+            # Clear auth to prove legacy cmd_approve RUN cannot recreate it
             bridge.save_authorization(31, None)
 
             # 2. Legacy cmd_approve RUN with --executor claude-code
@@ -5016,20 +5065,16 @@ def test_handoff_and_approve_claude_code_run_activation():
             }
             bridge.save_json(bridge.get_runtime_paths()["inbox"] / "task_031.json", inbox_event)
 
-            bridge.cmd_approve(type("Args", (), {"task_id": 31, "kind": "task", "executor": "claude-code"})())
+            with pytest.raises(SystemExit):
+                bridge.cmd_approve(
+                    type("Args", (), {"task_id": 31, "kind": "task", "executor": "claude-code"})()
+                )
 
-            auth_appr = bridge.load_authorization(31)
-            assert auth_appr is not None
-            assert auth_appr["status"] == "ACTIVE"
-            assert auth_appr["action"] == "RUN"
-            assert auth_appr["executor_id"] == "claude-code"
-            assert "failover_proof" not in auth_appr
-
-            lease_appr = store.load_active("TASK-031")
-            assert lease_appr is not None
-            assert lease_appr.executor_id == "claude-code"
-            assert lease_appr.operation == ExecutionOperation.RUN
-            store.release(lease_appr)
+            assert bridge.load_authorization(31) is None
+            assert store.load_active("TASK-031") is None
+            assert bridge.load_json(
+                bridge.get_runtime_paths()["inbox"] / "task_031.json", {}
+            )["approval"] == "PENDING"
         finally:
             bridge.PROJECT = old_project
             bridge.AI = old_ai
@@ -5440,5 +5485,3 @@ def test_task_032_portability_scope_validation_fails_closed_on_core_change_or_fo
     )
     with pytest.raises(SystemExit):
         bridge._validate_task_032_portability_scope(cfg, auth)
-
-
