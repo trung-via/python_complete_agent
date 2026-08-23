@@ -1,4 +1,4 @@
-"""AIOS Engineering Harness foundation and local repository discovery."""
+"""AIOS Engineering Harness foundation and repository intelligence."""
 from __future__ import annotations
 
 from src.aios_engineering.harness.contracts import (
@@ -34,6 +34,27 @@ from src.aios_engineering.harness.fingerprint import (
     compute_plan_fingerprint,
     compute_sha256,
 )
+from src.aios_engineering.harness.ranking import (
+    EXACT_PATH_WEIGHT,
+    H2_RANKING_POLICY_VERSION,
+    H2_SELECTION_BOUND,
+    H2_TASK_RELEVANCE,
+    H2_ZERO_RELEVANCE,
+    MAX_EXACT_PATH_HINTS,
+    MAX_PATH_PREFIX_HINTS,
+    MAX_QUERY_TERMS,
+    MAX_QUERY_TERM_LENGTH,
+    MAX_RELEVANCE_SCORE,
+    MAX_SELECTED_EVIDENCE,
+    PATH_PREFIX_WEIGHT,
+    PREFERRED_KIND_WEIGHT,
+    QUERY_TERM_WEIGHT,
+    RANKING_SCHEMA_VERSION,
+    RepositoryRankingResult,
+    TaskRelevanceSpec,
+    compute_relevance_spec_fingerprint,
+    rank_repository_evidence,
+)
 
 __all__ = [
     "EvidenceKind",
@@ -61,4 +82,23 @@ __all__ = [
     "compute_candidate_set_fingerprint",
     "compute_plan_fingerprint",
     "compute_sha256",
+    "EXACT_PATH_WEIGHT",
+    "H2_RANKING_POLICY_VERSION",
+    "H2_SELECTION_BOUND",
+    "H2_TASK_RELEVANCE",
+    "H2_ZERO_RELEVANCE",
+    "MAX_EXACT_PATH_HINTS",
+    "MAX_PATH_PREFIX_HINTS",
+    "MAX_QUERY_TERMS",
+    "MAX_QUERY_TERM_LENGTH",
+    "MAX_RELEVANCE_SCORE",
+    "MAX_SELECTED_EVIDENCE",
+    "PATH_PREFIX_WEIGHT",
+    "PREFERRED_KIND_WEIGHT",
+    "QUERY_TERM_WEIGHT",
+    "RANKING_SCHEMA_VERSION",
+    "RepositoryRankingResult",
+    "TaskRelevanceSpec",
+    "compute_relevance_spec_fingerprint",
+    "rank_repository_evidence",
 ]
