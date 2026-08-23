@@ -5,36 +5,34 @@ STATUS: READY_FOR_REVIEW
 ## Review Manifest
 ```yaml
 TASK_ID: TASK-071
-ACTION: RUN
+ACTION: FIX
 EXECUTOR_ID: antigravity
 EXECUTOR_FAILOVER: NO
 HOT_HANDOFF: NO
 ```
 
 ## Summary
-Implemented ADR-044 executable task authoring preflight and zero-touch start hardening: (1) added src/aios_bridge/task_authoring.py with preflight_executable_artifact(), validate_publisher_profile(), ExecutableArtifactPreflight, and ExecutableArtifactPreflightError; (2) hardened bridge.py cmd_handoff() to enforce deterministic preflight before reconciliation, branch creation/switching, lease acquisition, authorization saving, or state mutation; (3) verified and preserved v0.4.0 zero-touch local-main reconciliation semantics without manual post-merge pulls; (4) added comprehensive unit and integration test suite in tests/test_bridge_task_authoring.py and updated tests/test_bridge.py (77 targeted passed, 2235 full repo passed).
+Resolved REVIEW-071 Finding B1 for TASK-071: (1) implemented a genuinely closed publisher-authoring contract in src/aios_bridge/task_authoring.py with validate_publisher_profile() and validate_publisher_profile_marker(); (2) strictly enforced CANONICAL_E4 profile, rejecting duplicate, conflicting, or unsupported PUBLISHER_PROFILE declarations; (3) closed the historical TASK-070 failure class by rejecting task-authored ## RESULT Evidence sections demanding unsupported custom RESULT keys; (4) ignored fenced code blocks and review finding discussions from active marker parsing; (5) added comprehensive regression tests in tests/test_bridge_task_authoring.py (82 targeted passed, 2240 full repo passed).
 
 ## Task Metadata
 - Task: `TASK-071`
-- Action: `RUN`
+- Action: `FIX`
 - Executor: `antigravity`
-- Authorized Artifact: `.ai/tasks/TASK-071.md (c830eeb40a)`
-- Base Main SHA: `2eb9822bfcd923bd937598def9fcf1f2c93b6c9b`
+- Authorized Artifact: `.ai/reviews/REVIEW-071.md (d6be90d9a0)`
+- Base Main SHA: `(n/a)`
 - Branch: `ai/task-071`
 
 ## Files Changed
 - bridge.py
 - src/aios_bridge/task_authoring.py
-- tests/test_bridge.py
 - tests/test_bridge_task_authoring.py
 
 ## Diff Stat
 ```text
-bridge.py                           |  45 +++-
- src/aios_bridge/task_authoring.py   | 174 +++++++++++++
- tests/test_bridge.py                |  77 ++++--
- tests/test_bridge_task_authoring.py | 475 ++++++++++++++++++++++++++++++++++++
- 4 files changed, 742 insertions(+), 29 deletions(-)
+bridge.py                           |  14 ++--
+ src/aios_bridge/task_authoring.py   | 158 ++++++++++++++++++++++++++++++++----
+ tests/test_bridge_task_authoring.py | 102 +++++++++++++++++++----
+ 3 files changed, 234 insertions(+), 40 deletions(-)
 ```
 
 ## Tests
@@ -60,20 +58,20 @@ Exit code: 0
 ........................................................................ [ 51%]
 ........................................................................ [ 54%]
 ........................................................................ [ 57%]
-........................................................................ [ 61%]
+........................................................................ [ 60%]
 ........................................................................ [ 64%]
 ........................................................................ [ 67%]
 ........................................................................ [ 70%]
 ........................................................................ [ 73%]
-........................................................................ [ 77%]
+........................................................................ [ 76%]
 ........................................................................ [ 80%]
 ........................................................................ [ 83%]
 ........................................................................ [ 86%]
 ........................................................................ [ 89%]
-........................................................................ [ 93%]
+........................................................................ [ 92%]
 ........................................................................ [ 96%]
 ........................................................................ [ 99%]
-..........                                                               [100%]
+...............                                                          [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -376,7 +374,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-2235 passed, 7 skipped, 1540 warnings in 161.83s (0:02:41)
+2240 passed, 7 skipped, 1540 warnings in 174.03s (0:02:54)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -388,19 +386,23 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 TARGETED_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/test_bridge_task_authoring.py tests/test_bridge.py -q
 Exit code: 0
-Result: 77 passed, 0 skipped, 0 failed
+Result: 82 passed, 0 skipped, 0 failed
 
 FULL_REPOSITORY_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/ -q
 Exit code: 0
-Result: 2235 passed, 7 skipped, 0 failed
+Result: 2240 passed, 7 skipped, 0 failed
 
 DIAGNOSTIC_EVIDENCE:
-TASK_071_RUN: COMPLETED
-ADR_044_PREFLIGHT_LOCK: PASS
-ZERO_TOUCH_START_PRESERVED: PASS
-PREFLIGHT_ORDERING_CONTRACT: PASS
-PUBLISHER_AUTHORING_GUARD: PASS
+TASK_071_FIX: COMPLETED
+FINDING_B1_RESOLVED: PASS
+PUBLISHER_PROFILE_MISSING: REJECT
+PUBLISHER_PROFILE_DUPLICATE: REJECT
+PUBLISHER_PROFILE_CONFLICT: REJECT
+PUBLISHER_PROFILE_UNSUPPORTED: REJECT
+TASK_070_STYLE_CUSTOM_RESULT_SECTION: REJECT
+CANONICAL_E4_PROFILE: PASS
+CUSTOM_RESULT_SCHEMA_NOT_EXPANDED: YES
 STANDING_AUTO_MERGE_AUTHORIZATION: ENABLED
 WORKER_MERGE_AUTHORITY: NO
 PAID_API_USED: NO
@@ -409,4 +411,4 @@ H2_STARTED: NO
 SCOPE_EXACT: YES
 
 ## Generated
-2026-08-23T16:58:44+07:00
+2026-08-23T17:13:27+07:00

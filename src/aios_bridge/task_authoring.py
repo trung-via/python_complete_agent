@@ -12,8 +12,8 @@ from src.aios_bridge.executor_automation import (
     parse_executor_automation_markers,
 )
 from src.aios_bridge.runtime_dispatch import (
-    ExecutorPolicyCandidateSpec,
     ExecutorDispatchPolicySpec,
+    ExecutorPolicyCandidateSpec,
     parse_executor_dispatch_policy_marker,
 )
 
@@ -21,11 +21,66 @@ from src.aios_bridge.runtime_dispatch import (
 CANONICAL_E4_PUBLISHER_PROFILE = "CANONICAL_E4"
 SUPPORTED_PUBLISHER_PROFILES = frozenset({CANONICAL_E4_PUBLISHER_PROFILE, "DEFAULT"})
 
-_FORBIDDEN_CUSTOM_RESULT_MARKERS = (
+CANONICAL_RESULT_KEYS = frozenset({
+    "STATUS",
+    "ACTION",
+    "TASK_ID",
+    "EXECUTOR_ID",
+    "EXECUTOR_FAILOVER",
+    "FAILOVER_FROM_EXECUTOR",
+    "FAILOVER_TO_EXECUTOR",
+    "FAILOVER_SOURCE_PUBLISHED_SHA",
+    "FAILOVER_PROOF_FINGERPRINT",
+    "FAILOVER_REVIEW_BLOB_SHA",
+    "HOT_HANDOFF",
+    "HOT_HANDOFF_CHECKPOINT_FINGERPRINT",
+    "HOT_HANDOFF_FROM_EXECUTOR",
+    "HOT_HANDOFF_TO_EXECUTOR",
+    "BASE_SHA",
+    "TARGETED_TESTS",
+    "FULL_REPO_TESTS",
+    "BRIDGE_TESTS",
+    "CONTINUITY_TESTS",
+    "REGRESSIONS",
+    "SUMMARY",
+    "DIFF_STAT",
+    "TESTS",
+    "GIT_DIFF_CHECK",
+    "DIAGNOSTIC_EVIDENCE",
+    "M6_REAL_PROOF_ANTIGRAVITY_TO_CODEX",
+    "M6_REAL_PROOF_CODEX_TO_ANTIGRAVITY",
+    "M7_THIRD_EXECUTOR_PORTABILITY",
+    "SUPPORTED_RUNTIME_EXECUTORS",
+    "CONTINUITY_CORE_CHANGED",
+    "M5_LEASE_SEMANTICS_CHANGED",
+    "M6_FAILOVER_CONTRACT_CHANGED",
+    "M7_EXECUTOR_SET_CHANGED",
+    "AUTOMATIC_BRAIN_ROUTING",
+    "AUTOMATIC_EXECUTOR_ROUTING",
+    "HOT_HANDOFF_ADDED",
+    "FOURTH_EXECUTOR_ADDED",
+    "CHAT_UI_AUTOMATION",
+    "PAID_EXTERNAL_API_CALLS",
+    "LIVE_EXTERNAL_CALLS_AUTOMATED_TESTS",
+    "M7_REAL_PROOF_ANTIGRAVITY_TO_CLAUDE_CODE",
+    "M7_REAL_PROOF_CLAUDE_CODE_TO_ANTIGRAVITY",
+    "M8_MULTI_AGENT_CONTINUITY_HARNESS",
+    "M8_SHARED_BOUNDARY_SHA",
+    "M8_BRAIN_PROOF",
+    "M8_EXECUTOR_PROOF",
+    "M8_COMPOSITE_CHAIN",
+})
+
+_FORBIDDEN_MARKER_NAMES = (
     "REQUIRED_RESULT_KEYS_JSON:",
     "CUSTOM_RESULT_SCHEMA_JSON:",
     "PUBLISHER_REQUIRED_KEYS_JSON:",
     "RESULT_SCHEMA_OVERRIDE_JSON:",
+)
+
+_PUBLISHER_PROFILE_LINE_RE = re.compile(r"^PUBLISHER_PROFILE:\s*(\S+)", re.MULTILINE)
+_CUSTOM_RESULT_SECTION_RE = re.compile(
+    r"(?im)^##\s+RESULT\s+Evidence\b\s*\n([\s\S]*?)(?=^##|\Z)"
 )
 
 
@@ -60,27 +115,97 @@ class ExecutableArtifactPreflight:
             raise ExecutableArtifactPreflightError("candidate must be ExecutorPolicyCandidateSpec")
 
 
-def validate_publisher_profile(content: str) -> None:
+def validate_publisher_profile_marker(
+    profile: str | None,
+    *,
+    allow_missing: bool = False,
+) -> str:
+    """Validate a standalone publisher profile value."""
+    if profile is None or not str(profile).strip():
+        if allow_missing:
+            return CANONICAL_E4_PUBLISHER_PROFILE
+        raise ExecutableArtifactPreflightError("Missing required PUBLISHER_PROFILE")
+    p = str(profile).strip()
+    if p not in SUPPORTED_PUBLISHER_PROFILES:
+        raise ExecutableArtifactPreflightError(
+            f"Unsupported publisher profile '{p}'; must be one of {sorted(SUPPORTED_PUBLISHER_PROFILES)}"
+        )
+    return CANONICAL_E4_PUBLISHER_PROFILE if p == "DEFAULT" else p
+
+
+def validate_publisher_profile(
+    content: str,
+    *,
+    require_explicit_profile: bool = False,
+) -> str:
     """
     Validate that an executable artifact adheres to the canonical E4 publisher profile.
-    Rejects artifacts that declare unsupported arbitrary custom RESULT schema requirements.
+    Rejects artifacts that declare unsupported arbitrary custom RESULT schema requirements,
+    duplicate/conflicting PUBLISHER_PROFILE markers, or non-canonical result key mandates (TASK-070 failure class).
     """
     if not isinstance(content, str):
         raise ExecutableArtifactPreflightError("Artifact content must be string")
 
-    for marker in _FORBIDDEN_CUSTOM_RESULT_MARKERS:
-        if marker in content:
-            raise ExecutableArtifactPreflightError(
-                f"Unsupported custom RESULT requirement marker rejected: {marker}"
-            )
+    # Only inspect non-fenced lines for top-level marker declarations
+    unfenced_lines = []
+    in_fence = False
+    for line in content.splitlines():
+        trimmed = line.strip()
+        if trimmed.startswith("```"):
+            in_fence = not in_fence
+            continue
+        if not in_fence:
+            unfenced_lines.append(line)
 
-    match = re.search(r"PUBLISHER_PROFILE:\s*(\S+)", content)
-    if match:
-        profile = match.group(1).strip()
-        if profile not in SUPPORTED_PUBLISHER_PROFILES:
+    unfenced_text = "\n".join(unfenced_lines)
+
+    # 1. Check for forbidden top-level marker definitions
+    for marker_name in _FORBIDDEN_MARKER_NAMES:
+        for line in unfenced_lines:
+            if line.strip().startswith(marker_name):
+                raise ExecutableArtifactPreflightError(
+                    f"Unsupported custom RESULT requirement marker rejected: {marker_name}"
+                )
+
+    # 2. Check line-anchored PUBLISHER_PROFILE markers
+    profile_matches = _PUBLISHER_PROFILE_LINE_RE.findall(unfenced_text)
+    if len(profile_matches) > 1:
+        distinct = set(profile_matches)
+        if len(distinct) > 1:
             raise ExecutableArtifactPreflightError(
-                f"Unsupported publisher profile '{profile}'; must be one of {sorted(SUPPORTED_PUBLISHER_PROFILES)}"
+                f"Conflicting PUBLISHER_PROFILE markers found: {profile_matches}"
             )
+        raise ExecutableArtifactPreflightError(
+            f"Duplicate PUBLISHER_PROFILE marker found: {profile_matches}"
+        )
+    elif len(profile_matches) == 1:
+        declared_profile = profile_matches[0].strip()
+        if declared_profile not in SUPPORTED_PUBLISHER_PROFILES:
+            raise ExecutableArtifactPreflightError(
+                f"Unsupported publisher profile '{declared_profile}'; must be one of {sorted(SUPPORTED_PUBLISHER_PROFILES)}"
+            )
+        active_profile = CANONICAL_E4_PUBLISHER_PROFILE if declared_profile == "DEFAULT" else declared_profile
+    else:
+        if require_explicit_profile:
+            raise ExecutableArtifactPreflightError("Missing required PUBLISHER_PROFILE marker")
+        active_profile = CANONICAL_E4_PUBLISHER_PROFILE
+
+    # 3. TASK-070 Failure Class Guard:
+    # Check for custom ## RESULT Evidence section attempting to enforce non-canonical result keys
+    section_match = _CUSTOM_RESULT_SECTION_RE.search(unfenced_text)
+    if section_match:
+        section_text = section_match.group(1)
+        # Scan for required key lists like "must report at minimum:\nKEY1\nKEY2" or line-by-line keys
+        tokens = re.findall(r"\b([A-Z][A-Z0-9_]{3,})\b", section_text)
+        for token in tokens:
+            if token in ("RESULT", "Evidence", "MUST", "REPORT", "AT", "MINIMUM", "REQUIRED", "KEYS", "TRUE", "FALSE", "PASS", "FAIL", "READY"):
+                continue
+            if token not in CANONICAL_RESULT_KEYS and not token.startswith("TASK_") and not token.startswith("STEP_"):
+                raise ExecutableArtifactPreflightError(
+                    f"Unsupported custom RESULT requirement key '{token}' rejected under {active_profile} profile"
+                )
+
+    return active_profile
 
 
 def preflight_executable_artifact(
@@ -89,6 +214,7 @@ def preflight_executable_artifact(
     work_path: str,
     operation: ExecutionOperation,
     selected_executor: str,
+    require_explicit_profile: bool = False,
 ) -> ExecutableArtifactPreflight:
     """
     Deterministically validate executable TASK/REVIEW artifact markers and dispatch policy.
@@ -107,7 +233,7 @@ def preflight_executable_artifact(
         raise ExecutableArtifactPreflightError("selected_executor must be non-empty str")
 
     # 1. Enforce publisher profile authoring guard
-    validate_publisher_profile(content)
+    validate_publisher_profile(content, require_explicit_profile=require_explicit_profile)
 
     # 2. Parse automation markers (EXECUTOR_CONTEXT_REFS_JSON and EXECUTOR_ALLOWED_PATHS_JSON)
     try:
@@ -151,7 +277,7 @@ def preflight_executable_artifact(
     if missing_caps:
         missing_names = [cap.value for cap in missing_caps]
         raise ExecutableArtifactPreflightError(
-            f"Selected executor '{selected_executor}' lacks required capabilities: {missing_names}"
+            f"Authorized executor '{selected_executor}' lacks required capabilities: {missing_names}"
         )
 
     return ExecutableArtifactPreflight(
@@ -167,8 +293,10 @@ def preflight_executable_artifact(
 __all__ = [
     "CANONICAL_E4_PUBLISHER_PROFILE",
     "SUPPORTED_PUBLISHER_PROFILES",
+    "CANONICAL_RESULT_KEYS",
     "ExecutableArtifactPreflight",
     "ExecutableArtifactPreflightError",
+    "validate_publisher_profile_marker",
     "validate_publisher_profile",
     "preflight_executable_artifact",
 ]

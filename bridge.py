@@ -2241,16 +2241,16 @@ def prepare_task_branch(cfg, task_id: int, action: str) -> str:
     For FIX: Requires existing branch, fetches remote, and resumes without rebase.
     Fails closed on local-ahead or diverged state when remote branch exists.
     """
-    dirty = non_ai_dirty_paths()
-    if dirty:
-        fail(
-            "Worktree có thay đổi chưa commit; không thể switch task branch:\n  "
-            + "\n  ".join(dirty)
-        )
-
     remote = cfg["remote"]
     branch = f"{cfg['task_branch_prefix']}{task_id:03d}"
     base = cfg["base_branch"]
+    if current_branch() != branch:
+        dirty = non_ai_dirty_paths()
+        if dirty:
+            fail(
+                "Worktree có thay đổi chưa commit; không thể switch task branch:\n  "
+                + "\n  ".join(dirty)
+            )
     git("fetch", remote, "--prune", check=False)
 
     if action.upper() == "RUN":

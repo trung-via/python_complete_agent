@@ -16,10 +16,12 @@ from src.aios_bridge.executor_automation import parse_executor_automation_marker
 from src.aios_bridge.runtime_dispatch import parse_executor_dispatch_policy_marker
 from src.aios_bridge.task_authoring import (
     CANONICAL_E4_PUBLISHER_PROFILE,
+    CANONICAL_RESULT_KEYS,
     ExecutableArtifactPreflight,
     ExecutableArtifactPreflightError,
     preflight_executable_artifact,
     validate_publisher_profile,
+    validate_publisher_profile_marker,
 )
 
 
@@ -170,7 +172,6 @@ EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py"]
 
 def test_duplicate_marker_fails_preflight() -> None:
     content = _sample_artifact_content()
-    # Add duplicate EXECUTOR_ALLOWED_PATHS_JSON
     content += '\nEXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py"]\n'
     with pytest.raises(ExecutableArtifactPreflightError, match="found 2"):
         preflight_executable_artifact(
@@ -202,7 +203,7 @@ def test_operation_mismatch_fails_preflight() -> None:
         preflight_executable_artifact(
             content,
             work_path=".ai/tasks/TASK-071.md",
-            operation=ExecutionOperation.FIX,  # requested FIX but artifact declares RUN
+            operation=ExecutionOperation.FIX,
             selected_executor="antigravity",
         )
 
@@ -214,7 +215,7 @@ def test_executor_not_declared_fails_preflight() -> None:
             content,
             work_path=".ai/tasks/TASK-071.md",
             operation=ExecutionOperation.RUN,
-            selected_executor="antigravity",  # requested antigravity but policy only lists codex
+            selected_executor="antigravity",
         )
 
 
@@ -268,24 +269,65 @@ def test_executor_lacks_required_capability_fails_preflight() -> None:
         )
 
 
-def test_unsupported_custom_result_marker_fails_preflight() -> None:
+# --- Finding B1 Dedicated Publisher Profile & TASK-070 Regression Tests ---
+
+def test_publisher_profile_missing_rejected() -> None:
+    with pytest.raises(ExecutableArtifactPreflightError, match="Missing required PUBLISHER_PROFILE"):
+        validate_publisher_profile_marker(None, allow_missing=False)
+
+    content = _sample_artifact_content()
+    with pytest.raises(ExecutableArtifactPreflightError, match="Missing required PUBLISHER_PROFILE"):
+        validate_publisher_profile(content, require_explicit_profile=True)
+
+
+def test_publisher_profile_duplicate_rejected() -> None:
     content = _sample_artifact_content(
-        extra_lines=['REQUIRED_RESULT_KEYS_JSON: ["CUSTOM_KEY_1", "CUSTOM_KEY_2"]']
+        extra_lines=[
+            f"PUBLISHER_PROFILE: {CANONICAL_E4_PUBLISHER_PROFILE}",
+            f"PUBLISHER_PROFILE: {CANONICAL_E4_PUBLISHER_PROFILE}",
+        ]
     )
-    with pytest.raises(ExecutableArtifactPreflightError, match="Unsupported custom RESULT requirement"):
-        preflight_executable_artifact(
-            content,
-            work_path=".ai/tasks/TASK-071.md",
-            operation=ExecutionOperation.RUN,
-            selected_executor="antigravity",
-        )
+    with pytest.raises(ExecutableArtifactPreflightError, match="Duplicate PUBLISHER_PROFILE"):
+        validate_publisher_profile(content)
 
 
-def test_unsupported_publisher_profile_fails_preflight() -> None:
+def test_publisher_profile_conflict_rejected() -> None:
+    content = _sample_artifact_content(
+        extra_lines=[
+            f"PUBLISHER_PROFILE: {CANONICAL_E4_PUBLISHER_PROFILE}",
+            "PUBLISHER_PROFILE: UNSUPPORTED_PROFILE",
+        ]
+    )
+    with pytest.raises(ExecutableArtifactPreflightError, match="Conflicting PUBLISHER_PROFILE"):
+        validate_publisher_profile(content)
+
+
+def test_publisher_profile_unsupported_rejected() -> None:
     content = _sample_artifact_content(
         extra_lines=["PUBLISHER_PROFILE: NON_CANONICAL_PROFILE"]
     )
     with pytest.raises(ExecutableArtifactPreflightError, match="Unsupported publisher profile"):
+        validate_publisher_profile(content)
+
+    with pytest.raises(ExecutableArtifactPreflightError, match="Unsupported publisher profile"):
+        validate_publisher_profile_marker("UNKNOWN_PROFILE")
+
+
+def test_task_070_style_custom_result_section_rejected() -> None:
+    # Historical TASK-070 failure class where an artifact declares a ## RESULT Evidence section
+    # with non-canonical result keys requiring custom publisher output
+    content = _sample_artifact_content(
+        extra_lines=[
+            "",
+            "## RESULT Evidence",
+            "",
+            "RESULT-070.md must report at minimum:",
+            "TARGETED_TESTS",
+            "GIT_DIFF_CHECK",
+            "CUSTOM_IMPLEMENTATION_KEY",
+        ]
+    )
+    with pytest.raises(ExecutableArtifactPreflightError, match="Unsupported custom RESULT requirement key 'CUSTOM_IMPLEMENTATION_KEY'"):
         preflight_executable_artifact(
             content,
             work_path=".ai/tasks/TASK-071.md",
@@ -294,9 +336,15 @@ def test_unsupported_publisher_profile_fails_preflight() -> None:
         )
 
 
-def test_canonical_e4_publisher_profile_accepted() -> None:
+def test_canonical_e4_profile_passes() -> None:
     content = _sample_artifact_content(
-        extra_lines=[f"PUBLISHER_PROFILE: {CANONICAL_E4_PUBLISHER_PROFILE}"]
+        extra_lines=[
+            f"PUBLISHER_PROFILE: {CANONICAL_E4_PUBLISHER_PROFILE}",
+            "",
+            "## RESULT / Review Evidence",
+            "",
+            "Use the existing canonical Bridge E4 publisher only.",
+        ]
     )
     res = preflight_executable_artifact(
         content,
@@ -305,6 +353,27 @@ def test_canonical_e4_publisher_profile_accepted() -> None:
         selected_executor="antigravity",
     )
     assert res.operation is ExecutionOperation.RUN
+
+
+def test_custom_result_schema_not_expanded() -> None:
+    # Verify Bridge RESULT publisher keys are strictly frozen and canonical
+    assert "CUSTOM_IMPLEMENTATION_KEY" not in CANONICAL_RESULT_KEYS
+    assert "TARGETED_TESTS" in CANONICAL_RESULT_KEYS
+    assert "FULL_REPO_TESTS" in CANONICAL_RESULT_KEYS
+    assert "STATUS" in CANONICAL_RESULT_KEYS
+
+
+def test_unsupported_custom_result_marker_fails_preflight() -> None:
+    content = _sample_artifact_content(
+        extra_lines=['REQUIRED_RESULT_KEYS_JSON: ["CUSTOM_KEY_1", "CUSTOM_KEY_2"]']
+    )
+    with pytest.raises(ExecutableArtifactPreflightError, match="Unsupported custom RESULT requirement marker"):
+        preflight_executable_artifact(
+            content,
+            work_path=".ai/tasks/TASK-071.md",
+            operation=ExecutionOperation.RUN,
+            selected_executor="antigravity",
+        )
 
 
 # --- Integration Tests proving Handoff Preflight Ordering ---
@@ -332,7 +401,6 @@ def test_cmd_handoff_preflight_failure_does_not_mutate_reconcile_branch_lease_or
     monkeypatch.setattr(bridge, "fetch_control", lambda cfg: None)
     monkeypatch.setattr(bridge, "get_remote_blob_sha", lambda cfg, path: VALID_BLOB_SHA)
 
-    # Malformed task: missing DISPATCH_EXECUTOR_POLICY_JSON
     malformed_content = f"""# TASK-071 ? Malformed Task
 STATUS: READY
 EXECUTOR_CONTEXT_REFS_JSON: [{{"path":".ai/decisions/ADR-044.md","blob_sha":"{VALID_BLOB_SHA}"}}]
@@ -381,7 +449,6 @@ EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py"]
 
     assert excinfo.value.code != 0
 
-    # Verify zero mutations occurred
     assert len(mutations["reconcile_called"]) == 0
     assert len(mutations["prepare_task_branch_called"]) == 0
     assert len(mutations["acquire_lease_called"]) == 0
@@ -436,7 +503,6 @@ def test_reconcile_local_main_fails_closed_on_divergence(tmp_path: Path, monkeyp
             elif args[1] == "refs/heads/main":
                 return SimpleNamespace(returncode=0, stdout="local_sha_1111\n", stderr="")
         elif op == "merge-base":
-            # Neither is ancestor of the other -> returncode 1
             return SimpleNamespace(returncode=1, stdout="", stderr="")
         elif op == "status":
             return SimpleNamespace(returncode=0, stdout="", stderr="")
