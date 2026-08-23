@@ -3,36 +3,38 @@
 STATUS: PASS
 APPROVED: YES
 READY_FOR_HUMAN_MERGE: YES
-MERGE_AUTHORIZED: NO
-MERGED_TO_MAIN: NO
+MERGE_AUTHORIZED: YES
+MERGED_TO_MAIN: YES
 TASK_068_RUNTIME_PROOF_PASS: YES
-CODEX_LOCAL_PATH_OPERATIONALLY_PROVEN: NO
-DUAL_EXECUTOR_OPERATIONAL_BASELINE: NOT_YET_FINAL
-H1_AUTHORIZED: NO
+TASK_068_COMPLETE: YES
+CODEX_LOCAL_PATH_OPERATIONALLY_PROVEN: YES
+DUAL_EXECUTOR_OPERATIONAL_BASELINE: PROVEN
+H1_AUTHORIZED: YES
 LIVE_PAID_API_AUTHORIZED: NO
 
-## Reviewed Snapshot
+## Reviewed and Merged Snapshot
 
 ```text
 TASK_ID: TASK-068
 BASE_MAIN_SHA: 08d82392c807d334636a902fe3bcfa5bd70e7b26
 BRANCH: ai/task-068
 REVIEWED_TASK_HEAD_SHA: bd4cc149352683de02884cb6da6b55074c74e205
-BRANCH_STATUS_VS_MAIN: AHEAD
-AHEAD_BY: 1
-BEHIND_BY: 0
-MERGE_BASE_SHA: 08d82392c807d334636a902fe3bcfa5bd70e7b26
+PRE_MERGE_MAIN_SHA: 08d82392c807d334636a902fe3bcfa5bd70e7b26
+POST_MERGE_MAIN_SHA: bd4cc149352683de02884cb6da6b55074c74e205
+MERGE_METHOD: FAST_FORWARD
+FORCE_UPDATE: NO
+POST_MERGE_BRANCH_STATUS: IDENTICAL
 TASK_BLOB_SHA: 93641fd4b4115dc53420006042d6dca60853af71
 ADR_041_BLOB_SHA: a5a238f771ab3f88a2ddb10ce984434c4b4f512d
 RESULT_BLOB_SHA: c47276836db4db52f2d96deb86e9cd0aaa58bca0
 PROOF_BLOB_SHA: b22b0d592ab3db27132d19918c54a4c902c34b9e
 ```
 
-The task branch is identical to the exact reviewed head above and is a one-commit fast-forward descendant of the unchanged TASK-067 merged main baseline.
+Human explicitly authorized merge of TASK-068. The merge gate verified that `main` had not drifted from the reviewed baseline and that `ai/task-068` remained identical to the exact reviewed task head before the non-force fast-forward update. Post-merge verification confirms `main` and `ai/task-068` are identical at `bd4cc149352683de02884cb6da6b55074c74e205`.
 
 ## Cumulative Scope Audit — PASS
 
-Exact branch delta versus baseline contains only:
+Exact task delta contains only:
 
 ```text
 proofs/TASK-068-CODEX-LOCAL-EXECUTOR-PROOF.md
@@ -83,9 +85,7 @@ E4_PUBLICATION_TRUST_VERIFIED: PASS
 E4_DIRTY_PATH_COUNT: 1
 ```
 
-The exact branch diff independently confirms the one allowed executor-created path and no out-of-scope production delta.
-
-TASK-068 did not alter the merged transport. Therefore the already-reviewed TASK-067 semantics remain in force for this invocation: one Codex process per invocation, subscription-first local sign-in, no API-key fallback, no automatic retry, no silent reroute, no paid fallback, network disabled, and web search disabled. A single E4 invocation fingerprint/receipt is present for the RUN, and no failover executor is recorded.
+The exact branch diff independently confirms the one allowed executor-created path and no out-of-scope production delta. TASK-067 transport semantics remained unchanged for the invocation: one Codex process per invocation, subscription-first local sign-in, no API-key fallback, no automatic retry, no silent reroute, no paid fallback, network disabled, and web search disabled.
 
 ## Test Evidence — PASS
 
@@ -97,7 +97,7 @@ Bridge publication ran the canonical full repository suite:
 
 No test or production source file was changed by TASK-068.
 
-## Acceptance Decision
+## Final Acceptance
 
 ```text
 REAL_CODEX_INVOCATION: YES
@@ -119,33 +119,23 @@ AUTO_RETRY: NO
 AUTO_REROUTE: NO
 SECOND_EXECUTOR_USED: NO
 PAID_API_USED: NO
-NETWORK_REQUIRED_BY_TASK: NO
-WEB_SEARCH_REQUIRED_BY_TASK: NO
 H0_CHANGED: NO
 H1_STARTED: NO
 ```
 
-## Decision
+## Final Decision
 
 ```text
 TASK-068: PASS
 TASK_068_RUNTIME_PROOF_PASS: YES
-READY_FOR_HUMAN_MERGE: YES
-MERGE_AUTHORIZED: NO
-MERGED_TO_MAIN: NO
-CODEX_LOCAL_PATH_OPERATIONALLY_PROVEN: NO
-DUAL_EXECUTOR_OPERATIONAL_BASELINE: NOT_YET_FINAL
-H1_AUTHORIZED: NO
-```
-
-This PASS authorizes only Human consideration of fast-forward merge of exact reviewed head `bd4cc149352683de02884cb6da6b55074c74e205`.
-
-Only after explicit Human merge and post-merge identity verification may the control record advance to:
-
-```text
+TASK_068_COMPLETE: YES
+MERGE_AUTHORIZED: YES
+MERGED_TO_MAIN: YES
+POST_MERGE_MAIN_SHA: bd4cc149352683de02884cb6da6b55074c74e205
 CODEX_LOCAL_PATH_OPERATIONALLY_PROVEN: YES
 DUAL_EXECUTOR_OPERATIONAL_BASELINE: PROVEN
 H1_AUTHORIZED: YES
+LIVE_PAID_API_AUTHORIZED: NO
 ```
 
-No paid API action is authorized by this review.
+TASK-068 closes the post-H0 Codex local reliability proof. Codex and Antigravity now have an operationally proven dual-executor baseline under the existing Human/Bridge authority model. This record authorizes progression to H1 under a fresh H1 task contract; it does not authorize any paid API action.
