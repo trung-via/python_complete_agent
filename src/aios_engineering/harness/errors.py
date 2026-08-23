@@ -12,3 +12,15 @@ class HarnessValidationError(HarnessError, ValueError):
 
 class HarnessFingerprintError(HarnessError, ValueError):
     """Raised when harness plan or candidate-set fingerprint fails verification."""
+
+
+class RepositoryDiscoveryError(HarnessError):
+    """Base error for deterministic local repository discovery failures."""
+
+
+class RepositoryDiscoveryGitError(RepositoryDiscoveryError):
+    """Raised when required local Git plumbing cannot produce an exact snapshot."""
+
+
+class RepositoryDiscoveryBoundError(RepositoryDiscoveryError):
+    """Raised when a hard repository discovery resource bound is exceeded."""
