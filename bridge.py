@@ -4909,13 +4909,14 @@ def cmd_merge_reviewed(args):
     """
     Executes a deterministic fast-forward auto-merge of an already-authorized,
     reviewed task head after valid ChatGPT PASS review under ADR-042 standing authorization.
+    All merge routing is strictly bound to Bridge configuration.
     """
     ensure_git()
     cfg = load_config()
-    remote = getattr(args, "remote", "origin") or "origin"
-    base_branch = getattr(args, "base_branch", "main") or "main"
-    control_branch = getattr(args, "control_branch", "ai-control") or "ai-control"
-    prefix = getattr(args, "task_branch_prefix", "ai/task-") or "ai/task-"
+    remote = str(cfg.get("remote", "origin") or "origin")
+    base_branch = str(cfg.get("base_branch", "main") or "main")
+    control_branch = str(cfg.get("control_branch", "ai-control") or "ai-control")
+    prefix = str(cfg.get("task_branch_prefix", "ai/task-") or "ai/task-")
     task_num = args.task_id
     task_id = f"TASK-{task_num:03d}"
     task_branch = f"{prefix}{task_num:03d}"
@@ -4934,7 +4935,7 @@ def cmd_merge_reviewed(args):
         sys.exit(1)
     review_text = res.stdout
 
-    # 3. Parse review header (closed error reasons)
+    # 3. Parse review header (anchored to top header region; closed error reasons)
     try:
         review_data = parse_review_header(review_text)
     except ReviewHeaderParseError as exc:
@@ -4965,11 +4966,20 @@ def cmd_merge_reviewed(args):
 
     p_counts = git("rev-list", "--left-right", "--count", f"refs/remotes/{remote}/{base_branch}...refs/remotes/{remote}/{task_branch}", check=False)
     if p_counts.returncode != 0:
-        print(f"[MERGE_GATE] GIT_OPERATION_FAILED: Cannot count ahead/behind")
+        print(f"[MERGE_GATE] GIT_OPERATION_FAILED: Cannot count ahead/behind: {p_counts.stderr.strip()}")
         sys.exit(1)
     parts = p_counts.stdout.strip().split()
-    behind_by = int(parts[0])
-    ahead_by = int(parts[1])
+    if len(parts) != 2:
+        print(f"[MERGE_GATE] GIT_OPERATION_FAILED: Malformed rev-list count format: {p_counts.stdout.strip()!r}")
+        sys.exit(1)
+    try:
+        behind_by = int(parts[0])
+        ahead_by = int(parts[1])
+        if behind_by < 0 or ahead_by < 0:
+            raise ValueError("Counts must be non-negative")
+    except Exception as exc:
+        print(f"[MERGE_GATE] GIT_OPERATION_FAILED: Malformed count integers ({p_counts.stdout.strip()!r}): {exc}")
+        sys.exit(1)
 
     # 5. Evaluate pure merge gate
     try:
@@ -5031,7 +5041,7 @@ def cmd_merge_reviewed(args):
         )
         sys.exit(1)
 
-    # 8. Persist merge receipt
+    # 8. Build and persist merge receipt (fail-safe persistence; merge is already proven and irreversible)
     receipt = MergeReceipt(
         task_id=task_id,
         reviewed_task_head_sha=review_data["reviewed_task_head_sha"],
@@ -5044,10 +5054,13 @@ def cmd_merge_reviewed(args):
         gate_reason=decision.reason.value,
         post_merge_identity_verified=True,
     )
-    receipt_dir = get_runtime_paths()["root"] / "merge_receipts" / task_id
-    receipt_dir.mkdir(parents=True, exist_ok=True)
-    receipt_file = receipt_dir / f"{post_main_sha}.json"
-    receipt_file.write_text(receipt.to_json(), encoding="utf-8")
+    try:
+        receipt_dir = get_runtime_paths()["root"] / "merge_receipts" / task_id
+        receipt_dir.mkdir(parents=True, exist_ok=True)
+        receipt_file = receipt_dir / f"{post_main_sha}.json"
+        receipt_file.write_text(receipt.to_json(), encoding="utf-8")
+    except Exception as exc:
+        print(f"[WARN] Failed to write merge receipt to disk: {exc}", file=sys.stderr)
 
     print(f"[MERGE_SUCCESS] Fast-forwarded {base_branch} to {post_main_sha} (Task: {task_id})")
     return receipt
@@ -5243,10 +5256,6 @@ def build_parser():
         help="Fast-forward main to exact reviewed task head after valid ChatGPT PASS review under ADR-042",
     )
     s.add_argument("task_id", type=int)
-    s.add_argument("--remote", default="origin")
-    s.add_argument("--base-branch", default="main")
-    s.add_argument("--control-branch", default="ai-control")
-    s.add_argument("--task-branch-prefix", default="ai/task-")
     s.set_defaults(func=cmd_merge_reviewed)
 
     return p

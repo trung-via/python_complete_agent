@@ -192,8 +192,9 @@ def evaluate_merge_gate(input_data: ReviewedMergeInput) -> MergeGateDecision:
 
 def parse_review_header(review_text: str) -> dict[str, Any]:
     """
-    Parse strict machine-readable review header key-values.
-    Fails closed on missing required keys, duplicate keys, malformed YES/NO, non-canonical casing, or alias conflicts.
+    Parse strict machine-readable review header key-values anchored strictly to the top header region.
+    Fails closed on missing required keys, duplicate keys, malformed YES/NO, non-canonical casing,
+    alias conflicts, or keys present only in later body/fenced sections.
     """
     if not isinstance(review_text, str) or not review_text.strip():
         raise ReviewHeaderParseError("review_text must be non-empty string", MergeGateReason.REVIEW_MISSING)
@@ -201,27 +202,61 @@ def parse_review_header(review_text: str) -> dict[str, Any]:
     seen_raw_keys: set[str] = set()
     raw_kv: dict[str, str] = {}
 
-    for raw_line in review_text.splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or line.startswith("```"):
+    lines = review_text.splitlines()
+    i = 0
+    # Skip leading blank lines
+    while i < len(lines) and not lines[i].strip():
+        i += 1
+    # Skip initial top-level title (e.g. '# REVIEW-069 ...')
+    if i < len(lines) and lines[i].strip().startswith("# "):
+        i += 1
+
+    # Anchor exclusively to the top header region before any section heading (## ...) or code block (```)
+    in_header = False
+    for line_idx in range(i, len(lines)):
+        line = lines[line_idx].strip()
+        if not line:
+            if in_header:
+                # Blank line following parsed header keys terminates the top header region
+                break
             continue
 
+        if line.startswith("#") or line.startswith("```"):
+            # Section header or code block delimiter terminates the top header region
+            break
+
         match = _KEY_VALUE_LINE_RE.match(line)
-        if match:
-            key, val = match.group(1), match.group(2).strip()
-            # Remove any trailing inline backticks if present
-            if val.startswith("`") and val.endswith("`") and len(val) >= 2:
-                val = val[1:-1].strip()
-            if key in seen_raw_keys:
-                raise ReviewHeaderParseError(
-                    f"Duplicate required/header key rejected: {key}", MergeGateReason.REVIEW_MISSING
-                )
-            seen_raw_keys.add(key)
-            raw_kv[key] = val
+        if not match:
+            # Any non-key-value prose line terminates the header region
+            break
+
+        in_header = True
+        key, val = match.group(1), match.group(2).strip()
+
+        # Reject any markdown wrapper formatting around authority values (e.g. `PASS` or "YES")
+        if (
+            val.startswith("`")
+            or val.endswith("`")
+            or val.startswith('"')
+            or val.endswith('"')
+            or val.startswith("'")
+            or val.endswith("'")
+        ):
+            raise ReviewHeaderParseError(
+                f"Authority value for {key} contains forbidden markdown/quote formatting: {val!r}",
+                MergeGateReason.REVIEW_HEAD_INVALID if "SHA" in key else MergeGateReason.REVIEW_NOT_PASS,
+            )
+
+        if key in seen_raw_keys:
+            raise ReviewHeaderParseError(
+                f"Duplicate required/header key rejected: {key}", MergeGateReason.REVIEW_MISSING
+            )
+        seen_raw_keys.add(key)
+        raw_kv[key] = val
 
     # Resolve required STATUS (exact uppercase token, no normalization)
     if "STATUS" not in raw_kv:
-        raise ReviewHeaderParseError("Missing required review key: STATUS", MergeGateReason.REVIEW_NOT_PASS)
+        raise ReviewHeaderParseError("Missing required review key in header: STATUS", MergeGateReason.REVIEW_NOT_PASS)
     status = raw_kv["STATUS"]
     if not _STATUS_TOKEN_RE.fullmatch(status):
         raise ReviewHeaderParseError(
@@ -231,7 +266,7 @@ def parse_review_header(review_text: str) -> dict[str, Any]:
 
     # Resolve required APPROVED (exact YES or NO, no normalization)
     if "APPROVED" not in raw_kv:
-        raise ReviewHeaderParseError("Missing required review key: APPROVED", MergeGateReason.REVIEW_NOT_APPROVED)
+        raise ReviewHeaderParseError("Missing required review key in header: APPROVED", MergeGateReason.REVIEW_NOT_APPROVED)
     approved_raw = raw_kv["APPROVED"]
     if approved_raw == "YES":
         approved = True
@@ -248,7 +283,7 @@ def parse_review_header(review_text: str) -> dict[str, Any]:
     has_allowed = "AUTO_MERGE_ALLOWED" in raw_kv
     if not has_eligible and not has_allowed:
         raise ReviewHeaderParseError(
-            "Missing required review key: AUTO_MERGE_ELIGIBLE", MergeGateReason.AUTO_MERGE_DISABLED
+            "Missing required review key in header: AUTO_MERGE_ELIGIBLE", MergeGateReason.AUTO_MERGE_DISABLED
         )
     if has_eligible and has_allowed:
         if raw_kv["AUTO_MERGE_ELIGIBLE"] != raw_kv["AUTO_MERGE_ALLOWED"]:
@@ -278,7 +313,7 @@ def parse_review_header(review_text: str) -> dict[str, Any]:
     has_head_alias = "REVIEWED_HEAD_SHA" in raw_kv
     if not has_task_head and not has_head_alias:
         raise ReviewHeaderParseError(
-            "Missing required review key: REVIEWED_TASK_HEAD_SHA", MergeGateReason.REVIEW_HEAD_INVALID
+            "Missing required review key in header: REVIEWED_TASK_HEAD_SHA", MergeGateReason.REVIEW_HEAD_INVALID
         )
     if has_task_head and has_head_alias:
         if raw_kv["REVIEWED_TASK_HEAD_SHA"] != raw_kv["REVIEWED_HEAD_SHA"]:
@@ -304,7 +339,7 @@ def parse_review_header(review_text: str) -> dict[str, Any]:
     has_base_alias = "BASE_MAIN_SHA" in raw_kv
     if not has_base_main and not has_base_alias:
         raise ReviewHeaderParseError(
-            "Missing required review key: REVIEWED_BASE_MAIN_SHA", MergeGateReason.REVIEW_BASE_INVALID
+            "Missing required review key in header: REVIEWED_BASE_MAIN_SHA", MergeGateReason.REVIEW_BASE_INVALID
         )
     if has_base_main and has_base_alias:
         if raw_kv["REVIEWED_BASE_MAIN_SHA"] != raw_kv["BASE_MAIN_SHA"]:

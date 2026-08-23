@@ -18,19 +18,14 @@ GATE_OUTPUT_RE = re.compile(r"\[MERGE_GATE\] ([A-Z0-9_]+):")
 
 
 def _make_args(task_id: int = 69) -> argparse.Namespace:
-    return argparse.Namespace(
-        task_id=task_id,
-        remote="origin",
-        base_branch="main",
-        control_branch="ai-control",
-        task_branch_prefix="ai/task-",
-    )
+    return argparse.Namespace(task_id=task_id)
 
 
 def _setup_merge_env(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     *,
+    config: dict[str, str] | None = None,
     review_status: str = "PASS",
     review_approved: bool = True,
     auto_merge_eligible: bool = True,
@@ -47,6 +42,7 @@ def _setup_merge_env(
     post_fetch_fails: bool = False,
     review_missing: bool = False,
     raw_review_text: str | None = None,
+    rev_list_output: str | None = None,
 ):
     calls: dict[str, list[object]] = {
         "git": [],
@@ -58,8 +54,17 @@ def _setup_merge_env(
     if post_task_sha is None:
         post_task_sha = current_task_sha
 
+    active_config = {
+        "remote": "origin",
+        "base_branch": "main",
+        "control_branch": "ai-control",
+        "task_branch_prefix": "ai/task-",
+    }
+    if config:
+        active_config.update(config)
+
     monkeypatch.setattr(bridge, "ensure_git", lambda: None)
-    monkeypatch.setattr(bridge, "load_config", lambda: {})
+    monkeypatch.setattr(bridge, "load_config", lambda: active_config)
     runtime_dir = tmp_path / "runtime"
     runtime_dir.mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr(bridge, "get_runtime_paths", lambda repo_root=None: {"root": runtime_dir})
@@ -91,7 +96,7 @@ REVIEWED_BASE_MAIN_SHA: {reviewed_main_sha}
             return SimpleNamespace(returncode=0, stdout=review_text, stderr="")
         elif op == "rev-parse":
             target = args[1]
-            if "main" in target:
+            if active_config["base_branch"] in target:
                 sha = post_main_sha if has_pushed else current_main_sha
                 return SimpleNamespace(returncode=0, stdout=f"{sha}\n", stderr="")
             else:
@@ -100,6 +105,8 @@ REVIEWED_BASE_MAIN_SHA: {reviewed_main_sha}
         elif op == "merge-base":
             return SimpleNamespace(returncode=0, stdout=f"{merge_base_sha}\n", stderr="")
         elif op == "rev-list":
+            if rev_list_output is not None:
+                return SimpleNamespace(returncode=0, stdout=f"{rev_list_output}\n", stderr="")
             return SimpleNamespace(returncode=0, stdout=f"{behind_by}\t{ahead_by}\n", stderr="")
         elif op == "push":
             calls["push_args"].append(list(args))
@@ -114,15 +121,17 @@ REVIEWED_BASE_MAIN_SHA: {reviewed_main_sha}
     return calls, runtime_dir
 
 
-def test_merge_reviewed_cli_parser() -> None:
+def test_merge_reviewed_cli_parser_rejects_routing_overrides() -> None:
     parser = bridge.build_parser()
     args = parser.parse_args(["merge-reviewed", "69"])
     assert args.func is bridge.cmd_merge_reviewed
     assert args.task_id == 69
-    assert args.remote == "origin"
-    assert args.base_branch == "main"
-    assert args.control_branch == "ai-control"
-    assert args.task_branch_prefix == "ai/task-"
+
+    # Routing overrides are forbidden on merge-reviewed
+    with pytest.raises(SystemExit):
+        parser.parse_args(["merge-reviewed", "69", "--remote", "upstream"])
+    with pytest.raises(SystemExit):
+        parser.parse_args(["merge-reviewed", "69", "--base-branch", "prod"])
 
 
 def test_merge_reviewed_happy_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -147,6 +156,21 @@ def test_merge_reviewed_happy_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     # Verify receipt persisted
     receipt_file = runtime_dir / "merge_receipts" / "TASK-069" / f"{VALID_TASK_SHA}.json"
     assert receipt_file.exists()
+
+
+def test_merge_reviewed_binds_to_configured_routing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    custom_cfg = {
+        "remote": "upstream_repo",
+        "base_branch": "production",
+        "control_branch": "custom-control",
+        "task_branch_prefix": "features/task-",
+    }
+    calls, _ = _setup_merge_env(monkeypatch, tmp_path, config=custom_cfg)
+    receipt = bridge.cmd_merge_reviewed(_make_args(69))
+
+    assert receipt.post_merge_identity_verified is True
+    assert len(calls["push_args"]) == 1
+    assert calls["push_args"][0] == ["push", "upstream_repo", f"{VALID_TASK_SHA}:refs/heads/production"]
 
 
 @pytest.mark.parametrize("block_scenario,expected_reason,kwargs", [
@@ -179,6 +203,23 @@ def test_merge_reviewed_happy_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
         {
             "raw_review_text": f"STATUS: PASS\nAPPROVED: YES\nAUTO_MERGE_ELIGIBLE: YES\nREVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}\nREVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA.upper()}"
         },
+    ),
+    (
+        "fenced_code_keys_only",
+        MergeGateReason.REVIEW_NOT_PASS,
+        {
+            "raw_review_text": f"# Title\n\n```text\nSTATUS: PASS\nAPPROVED: YES\nAUTO_MERGE_ELIGIBLE: YES\nREVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}\nREVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}\n```"
+        },
+    ),
+    (
+        "malformed_rev_list_single_token",
+        MergeGateReason.GIT_OPERATION_FAILED,
+        {"rev_list_output": "1"},
+    ),
+    (
+        "malformed_rev_list_non_int",
+        MergeGateReason.GIT_OPERATION_FAILED,
+        {"rev_list_output": "zero\tone"},
     ),
 ])
 def test_merge_reviewed_blocks_mutation_with_closed_reasons(
@@ -258,6 +299,21 @@ def test_merge_reviewed_git_push_failure_fails_closed(
     assert excinfo.value.code != 0
     out = capsys.readouterr().out
     assert "[MERGE_GATE] GIT_OPERATION_FAILED:" in out
+
+
+def test_merge_reviewed_receipt_persistence_failure_does_not_crash_post_merge(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    calls, _ = _setup_merge_env(monkeypatch, tmp_path)
+
+    def failing_mkdir(*args: object, **kwargs: object) -> None:
+        raise OSError("Read-only filesystem")
+
+    monkeypatch.setattr(Path, "mkdir", failing_mkdir)
+    receipt = bridge.cmd_merge_reviewed(_make_args(69))
+    assert isinstance(receipt, MergeReceipt)
+    assert receipt.post_merge_identity_verified is True
+    assert len(calls["push_args"]) == 1
 
 
 def test_worker_surfaces_expose_no_merge_command() -> None:

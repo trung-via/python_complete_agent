@@ -12,13 +12,13 @@ HOT_HANDOFF: NO
 ```
 
 ## Summary
-Resolved REVIEW-069 Findings B1-B4 for TASK-069: (B1) added deterministic conflict/duplicate-equivalence detection in parse_review_header() failing closed on conflicting alias pairs; (B2) enforced exact case-sensitive token and lowercase 40-hex SHA parsing without silent normalization; (B3) mapped all command-level merge gate parse and preflight failures strictly to closed MergeGateReason vocabulary; (B4) enforced dual remote ref post-fetch and verified both remote main and remote task branch equal exact reviewed task head; and updated test suites in tests/aios_bridge/test_review_merge.py and tests/test_bridge_review_merge.py (61 targeted passed, 2153 full repo passed).
+Resolved REVIEW-069 Findings B5-B7 for TASK-069: (B5) anchored parse_review_header() strictly to the single top-level header region, ignoring fenced/example/body blocks, and rejecting markdown wrapper formatting around authority values; (B6) removed merge routing override flags from CLI parser and bound merge-reviewed execution strictly to Bridge configuration; (B7) validated rev-list output shape and integers before gate evaluation with closed reason codes, and wrapped post-merge receipt file persistence in fail-safe handling; and updated test suites in tests/aios_bridge/test_review_merge.py and tests/test_bridge_review_merge.py (71 targeted passed, 2163 full repo passed).
 
 ## Task Metadata
 - Task: `TASK-069`
 - Action: `FIX`
 - Executor: `antigravity`
-- Authorized Artifact: `.ai/reviews/REVIEW-069.md (a217dd401e)`
+- Authorized Artifact: `.ai/reviews/REVIEW-069.md (cb8b6b886c)`
 - Base Main SHA: `(n/a)`
 - Branch: `ai/task-069`
 
@@ -30,11 +30,11 @@ Resolved REVIEW-069 Findings B1-B4 for TASK-069: (B1) added deterministic confli
 
 ## Diff Stat
 ```text
-bridge.py                              |  44 ++++++++---
- src/aios_bridge/review_merge.py        | 136 ++++++++++++++++++++++-----------
- tests/aios_bridge/test_review_merge.py |  86 ++++++++++++++++-----
- tests/test_bridge_review_merge.py      | 115 +++++++++++++++++++++++-----
- 4 files changed, 291 insertions(+), 90 deletions(-)
+bridge.py                              | 43 ++++++++++-------
+ src/aios_bridge/review_merge.py        | 77 ++++++++++++++++++++++---------
+ tests/aios_bridge/test_review_merge.py | 58 +++++++++++++++++++++++
+ tests/test_bridge_review_merge.py      | 84 ++++++++++++++++++++++++++++------
+ 4 files changed, 210 insertions(+), 52 deletions(-)
 ```
 
 ## Tests
@@ -44,34 +44,35 @@ Exit code: 0
 ```text
 ........................................................................ [  3%]
 ........................................................................ [  6%]
-........................................................................ [ 10%]
+........................................................................ [  9%]
 ........................................................................ [ 13%]
 ................................................................s....... [ 16%]
-....ss....................................s............................. [ 20%]
+....ss....................................s............................. [ 19%]
 ........................................................................ [ 23%]
 ........................................................................ [ 26%]
-........................................................................ [ 30%]
+........................................................................ [ 29%]
 ........................................................................ [ 33%]
 ........................................................................ [ 36%]
-........................................................................ [ 40%]
+........................................................................ [ 39%]
 ........ss......................................s....................... [ 43%]
 ........................................................................ [ 46%]
-........................................................................ [ 50%]
+........................................................................ [ 49%]
 ........................................................................ [ 53%]
 ........................................................................ [ 56%]
-........................................................................ [ 60%]
+........................................................................ [ 59%]
 ........................................................................ [ 63%]
 ........................................................................ [ 66%]
-........................................................................ [ 70%]
-........................................................................ [ 73%]
+........................................................................ [ 69%]
+........................................................................ [ 72%]
 ........................................................................ [ 76%]
-........................................................................ [ 80%]
-........................................................................ [ 83%]
+........................................................................ [ 79%]
+........................................................................ [ 82%]
 ........................................................................ [ 86%]
-........................................................................ [ 90%]
-........................................................................ [ 93%]
+........................................................................ [ 89%]
+........................................................................ [ 92%]
 ........................................................................ [ 96%]
-........................................................................ [100%]
+........................................................................ [ 99%]
+..........                                                               [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -374,7 +375,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-2153 passed, 7 skipped, 1540 warnings in 210.49s (0:03:30)
+2163 passed, 7 skipped, 1540 warnings in 210.20s (0:03:30)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -386,21 +387,20 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 TARGETED_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/aios_bridge/test_review_merge.py tests/test_bridge_review_merge.py -q
 Exit code: 0
-Result: 61 passed, 0 skipped, 0 failed
+Result: 71 passed, 0 skipped, 0 failed
 
 FULL_REPOSITORY_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/ -q
 Exit code: 0
-Result: 2153 passed, 7 skipped, 0 failed
+Result: 2163 passed, 7 skipped, 0 failed
 
 DIAGNOSTIC_EVIDENCE:
 TASK_069_FIX: COMPLETED
-B1_ALIAS_CONFLICT_FAIL_CLOSED: PASS
-B2_EXACT_AUTHORITY_TOKEN_PARSING: PASS
-B3_CLOSED_COMMAND_REASON_VOCABULARY: PASS
-B4_POST_MERGE_DUAL_REF_IDENTITY: PASS
-POST_FETCH_VERIFIED: YES
-CLOSED_REASON_CODES: 14
+B5_HEADER_AUTHORITY_ANCHORING: PASS
+B6_CONFIG_BOUND_MERGE_ROUTING: PASS
+B7_TOTAL_CLOSED_FAILURE_SEMANTICS: PASS
+REV_LIST_SHAPE_VALIDATION: PASS
+FAIL_SAFE_RECEIPT_PERSISTENCE: PASS
 STANDING_AUTO_MERGE_AUTHORIZATION: ENABLED
 WORKER_MERGE_AUTHORITY: NO
 PAID_API_USED: NO
@@ -409,4 +409,4 @@ H1_STARTED: NO
 SCOPE_EXACT: YES
 
 ## Generated
-2026-08-23T14:23:00+07:00
+2026-08-23T14:45:25+07:00

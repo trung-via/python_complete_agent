@@ -178,6 +178,64 @@ BASE_MAIN_SHA: {VALID_MAIN_SHA}
     assert res["reviewed_base_main_sha"] == VALID_MAIN_SHA
 
 
+def test_parse_review_header_ignores_later_fenced_blocks_when_header_is_missing() -> None:
+    doc_with_fenced_example_only = f"""# REVIEW-069 ? Fake Title
+
+Here is some prose in the body of the review.
+
+```text
+STATUS: PASS
+APPROVED: YES
+AUTO_MERGE_ELIGIBLE: YES
+REVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}
+REVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}
+```
+
+The above was an example block and should not be parsed as authoritative header.
+"""
+    with pytest.raises(ReviewHeaderParseError) as excinfo:
+        parse_review_header(doc_with_fenced_example_only)
+    assert excinfo.value.reason is MergeGateReason.REVIEW_NOT_PASS
+
+
+def test_parse_review_header_ignores_later_section_keys_when_header_is_incomplete() -> None:
+    doc_with_incomplete_header = f"""# REVIEW-069 ? Title
+
+STATUS: PASS
+APPROVED: YES
+
+## Later Section
+AUTO_MERGE_ELIGIBLE: YES
+REVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}
+REVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}
+"""
+    with pytest.raises(ReviewHeaderParseError) as excinfo:
+        parse_review_header(doc_with_incomplete_header)
+    assert excinfo.value.reason is MergeGateReason.AUTO_MERGE_DISABLED
+
+
+@pytest.mark.parametrize("header_with_wrapper,expected_reason", [
+    (
+        f"STATUS: `PASS`\nAPPROVED: YES\nAUTO_MERGE_ELIGIBLE: YES\nREVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}\nREVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}",
+        MergeGateReason.REVIEW_NOT_PASS,
+    ),
+    (
+        f"STATUS: PASS\nAPPROVED: \"YES\"\nAUTO_MERGE_ELIGIBLE: YES\nREVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}\nREVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}",
+        MergeGateReason.REVIEW_NOT_PASS,
+    ),
+    (
+        f"STATUS: PASS\nAPPROVED: YES\nAUTO_MERGE_ELIGIBLE: YES\nREVIEWED_TASK_HEAD_SHA: `{VALID_TASK_SHA}`\nREVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}",
+        MergeGateReason.REVIEW_HEAD_INVALID,
+    ),
+])
+def test_parse_review_header_rejects_markdown_wrappers(
+    header_with_wrapper: str, expected_reason: MergeGateReason
+) -> None:
+    with pytest.raises(ReviewHeaderParseError) as excinfo:
+        parse_review_header(header_with_wrapper)
+    assert excinfo.value.reason is expected_reason
+
+
 @pytest.mark.parametrize("header,expected_reason", [
     (
         f"STATUS: PASS\nAPPROVED: YES\nAUTO_MERGE_ELIGIBLE: YES\nAUTO_MERGE_ALLOWED: NO\nREVIEWED_TASK_HEAD_SHA: {VALID_TASK_SHA}\nREVIEWED_BASE_MAIN_SHA: {VALID_MAIN_SHA}",
