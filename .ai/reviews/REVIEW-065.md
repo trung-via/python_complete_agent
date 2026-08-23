@@ -3,8 +3,9 @@
 STATUS: PASS
 APPROVED: YES
 READY_FOR_HUMAN_MERGE: YES
-MERGE_AUTHORIZED: NO
-M11_CLOSURE_EVENT_FINAL: NO
+MERGE_AUTHORIZED: YES
+MERGED_TO_MAIN: YES
+M11_CLOSURE_EVENT_FINAL: YES
 LIVE_PAID_API_AUTHORIZED: NO
 
 ## Reviewed Snapshot
@@ -13,10 +14,9 @@ LIVE_PAID_API_AUTHORIZED: NO
 TASK_ID: TASK-065
 BASE_MAIN_SHA: 5a714a410d4a4d5fc0b76cea62e7fd164f0cdd54
 REVIEWED_TASK_HEAD_SHA: bb6e57ca6ba69b1a613430b3903d032c58cfdcd4
+POST_MERGE_MAIN_SHA: bb6e57ca6ba69b1a613430b3903d032c58cfdcd4
 BRANCH: ai/task-065
-AHEAD_BY: 2
-BEHIND_BY: 0
-MERGE_BASE_SHA: 5a714a410d4a4d5fc0b76cea62e7fd164f0cdd54
+POST_MERGE_BRANCH_STATUS: IDENTICAL_TO_MAIN
 TASK_BLOB_SHA: 9218a6a23415b5f26f74648dce2a546c4b0d69e7
 CLOSURE_BLOB_SHA: 422a46cd19a19236fef529654913b65f1b305a98
 RESULT_BLOB_SHA: 1d565576f3b0bff2f9dd9612bb0fbe8406df62c5
@@ -24,7 +24,7 @@ RESULT_BLOB_SHA: 1d565576f3b0bff2f9dd9612bb0fbe8406df62c5
 
 ## Scope Audit — PASS
 
-Cumulative branch delta from main is exactly:
+Cumulative task delta merged to main is exactly:
 
 ```text
 .ai/proofs/M11-OPERATIONAL-PROOF-CLOSURE-065.md
@@ -35,7 +35,7 @@ The FIX commit `bb6e57ca6ba69b1a613430b3903d032c58cfdcd4` changes only the closu
 
 ## B1 Resolution — PASS
 
-Section `6. Locked Safety Invariants` now preserves the exact frozen machine-readable keys and values required by TASK-065:
+Section `6. Locked Safety Invariants` preserves the exact frozen machine-readable keys and values required by TASK-065:
 
 ```text
 MAX_CALLS: 1
@@ -52,13 +52,9 @@ TIMEOUT_CONTRACT_SECONDS: 60..180
 LIVE_PROOF_OUTPUT_ENVELOPE: 8192
 ```
 
-No semantic alias is required to interpret the baseline lock.
-
 ## B2 Resolution — PASS
 
-The inaccurate `0 active grants remain for TASK-062` claim is removed.
-
-Read-only inventory now distinguishes persisted grant-store location from current usability:
+Read-only inventory distinguishes persisted grant-store location from current usability:
 
 ```text
 FINAL_SUCCESSFUL_GRANT_STATE: CONSUMED
@@ -67,15 +63,13 @@ UNEXPIRED_USABLE_GRANTS_FOR_FINAL_PROOF: 0
 EXPIRED_PREFLIGHT_ONLY_GRANT_STATE: NON_USABLE
 ```
 
-The closure records three historical preflight-only preparation grants still physically under `active/`, all expired and therefore rejected by `require_active(...)`; the three live-call grants are consumed. No raw grant ID is copied into the closure record.
-
-No grant cleanup, deletion, reactivation, consume, replay, capacity mutation, API-key value read, or provider call occurred during FIX.
+The closure records three historical preflight-only preparation grants still physically under `active/`, all expired and rejected by `require_active(...)`; the three live-call grants are consumed. No raw grant ID is copied into the closure record. No grant cleanup, deletion, reactivation, consume, replay, capacity mutation, API-key value read, or provider call occurred during FIX.
 
 ## Closure Contract Audit — PASS
 
 ```text
 M11_STATUS: OPERATIONALLY_PROVEN
-M11_CLOSED_CLAIM_IN_RECORD: YES
+M11_CLOSED: YES
 PRODUCTION_BASELINE_SHA: 5a714a410d4a4d5fc0b76cea62e7fd164f0cdd54
 FINAL_SUCCESSFUL_GRANT_STATE: CONSUMED
 FINAL_PROVIDER_CALL_COUNT: 1
@@ -106,20 +100,29 @@ Bridge publication reports the canonical repository suite green:
 1972 passed, 7 skipped, 0 failed
 ```
 
-TASK-065 itself changes no executable code. The extra suite execution does not alter the closure decision.
+TASK-065 changes no executable code.
 
-## Review Decision
+## Human Merge Gate — PASS
 
 ```text
-TASK-065: PASS
-BLOCKERS: 0
-B1: RESOLVED
-B2: RESOLVED
-APPROVED: YES
-READY_FOR_HUMAN_MERGE: YES
-MERGE_AUTHORIZED: NO
-M11_CLOSURE_EVENT_FINAL: NO
-PAID PROVIDER CALL: NOT AUTHORIZED
+PRE_MERGE_MAIN_SHA: 5a714a410d4a4d5fc0b76cea62e7fd164f0cdd54
+REVIEWED_TASK_HEAD_SHA: bb6e57ca6ba69b1a613430b3903d032c58cfdcd4
+MERGE_METHOD: FAST_FORWARD
+FORCE: NO
+POST_MERGE_MAIN_SHA: bb6e57ca6ba69b1a613430b3903d032c58cfdcd4
+POST_MERGE_STATUS: IDENTICAL
 ```
 
-TASK-065 PASS does not itself move `main` and does not authorize any future paid provider call. Per the locked TASK-065 contract, the M11 closure event becomes final only after a separate explicit Human merge of the exact reviewed head `bb6e57ca6ba69b1a613430b3903d032c58cfdcd4` into `main`.
+## Final Decision
+
+```text
+TASK-065: PASS + MERGED
+BLOCKERS: 0
+M11_STATUS: OPERATIONALLY_PROVEN
+M11_CLOSED: YES
+M11_CLOSURE_EVENT_FINAL: YES
+LIVE_PAID_API_AUTHORIZED: NO
+FUTURE_PAID_PROVIDER_CALL: REQUIRES NEW HUMAN AUTHORIZATION
+```
+
+M11 is now formally closed at the reviewed production baseline and closure record. This merge authorizes no future paid provider call.
