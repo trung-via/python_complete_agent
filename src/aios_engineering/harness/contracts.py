@@ -13,9 +13,17 @@ from src.aios_engineering.harness.fingerprint import (
 )
 
 
+MAX_SCHEMA_VERSION_LENGTH: int = 64
+MAX_PATH_LENGTH: int = 1024
+MAX_REASON_CODE_LENGTH: int = 64
+MAX_SYMBOL_LOCATOR_LENGTH: int = 256
+MAX_GENERATOR_VERSION_LENGTH: int = 64
+
 _HEX_40_RE = re.compile(r"^[0-9a-f]{40}$")
 _HEX_64_RE = re.compile(r"^[0-9a-f]{64}$")
 _REASON_CODE_RE = re.compile(r"^[A-Z0-9_:-]+$")
+
+
 def _validate_task_id(val: Any) -> str:
     if not isinstance(val, str) or not val.startswith("TASK-"):
         raise HarnessValidationError(f"task_id must be canonical TASK-<positive digits>: got {val!r}")
@@ -42,12 +50,18 @@ def _validate_reason_code(val: Any, field_name: str = "reason_code") -> str:
         raise HarnessValidationError(
             f"{field_name} must be non-empty uppercase ASCII token matching ^[A-Z0-9_:-]+$: got {val!r}"
         )
+    if len(val) > MAX_REASON_CODE_LENGTH:
+        raise HarnessValidationError(
+            f"{field_name} length ({len(val)}) exceeds maximum allowed ({MAX_REASON_CODE_LENGTH})"
+        )
     return val
 
 
 def _validate_posix_path(val: Any) -> str:
     if not isinstance(val, str) or not val:
         raise HarnessValidationError(f"path must be non-empty string: got {val!r}")
+    if len(val) > MAX_PATH_LENGTH:
+        raise HarnessValidationError(f"path length ({len(val)}) exceeds maximum allowed ({MAX_PATH_LENGTH})")
     
     # Fail closed on backslashes or absolute indicators
     if chr(92) in val:
@@ -100,6 +114,10 @@ class RepositorySnapshotRef:
     def __post_init__(self) -> None:
         if not isinstance(self.schema_version, str) or not self.schema_version.strip():
             raise HarnessValidationError("schema_version must be a non-empty string")
+        if len(self.schema_version) > MAX_SCHEMA_VERSION_LENGTH:
+            raise HarnessValidationError(
+                f"schema_version length ({len(self.schema_version)}) exceeds maximum allowed ({MAX_SCHEMA_VERSION_LENGTH})"
+            )
         _validate_hex_40(self.repository_commit_sha, "repository_commit_sha")
         _validate_hex_40(self.repository_tree_sha, "repository_tree_sha")
 
@@ -144,6 +162,10 @@ class RepositoryEvidenceRef:
         if self.symbol_locator is not None:
             if not isinstance(self.symbol_locator, str) or not self.symbol_locator.strip():
                 raise HarnessValidationError("symbol_locator if provided must be a non-empty string")
+            if len(self.symbol_locator) > MAX_SYMBOL_LOCATOR_LENGTH:
+                raise HarnessValidationError(
+                    f"symbol_locator length ({len(self.symbol_locator)}) exceeds maximum allowed ({MAX_SYMBOL_LOCATOR_LENGTH})"
+                )
             if any(ord(c) < 32 or ord(c) == 127 for c in self.symbol_locator):
                 raise HarnessValidationError("symbol_locator must not contain control characters")
             if self.symbol_locator.startswith("/") or chr(92) in self.symbol_locator or (len(self.symbol_locator) >= 2 and self.symbol_locator[1] == ":"):
@@ -192,6 +214,10 @@ class HarnessIntelligencePlan:
     def __post_init__(self) -> None:
         if not isinstance(self.schema_version, str) or not self.schema_version.strip():
             raise HarnessValidationError("schema_version must be a non-empty string")
+        if len(self.schema_version) > MAX_SCHEMA_VERSION_LENGTH:
+            raise HarnessValidationError(
+                f"schema_version length ({len(self.schema_version)}) exceeds maximum allowed ({MAX_SCHEMA_VERSION_LENGTH})"
+            )
         _validate_task_id(self.task_id)
         if not isinstance(self.snapshot, RepositorySnapshotRef):
             raise HarnessValidationError(f"snapshot must be RepositorySnapshotRef: got {self.snapshot!r}")
@@ -332,6 +358,10 @@ class HarnessReceipt:
     def __post_init__(self) -> None:
         if not isinstance(self.schema_version, str) or not self.schema_version.strip():
             raise HarnessValidationError("schema_version must be a non-empty string")
+        if len(self.schema_version) > MAX_SCHEMA_VERSION_LENGTH:
+            raise HarnessValidationError(
+                f"schema_version length ({len(self.schema_version)}) exceeds maximum allowed ({MAX_SCHEMA_VERSION_LENGTH})"
+            )
         _validate_task_id(self.task_id)
         _validate_hex_40(self.repository_commit_sha, "repository_commit_sha")
         _validate_hex_64(self.input_fingerprint, "input_fingerprint")
@@ -339,6 +369,10 @@ class HarnessReceipt:
         
         if not isinstance(self.generator_version, str) or not self.generator_version.strip():
             raise HarnessValidationError("generator_version must be a non-empty string")
+        if len(self.generator_version) > MAX_GENERATOR_VERSION_LENGTH:
+            raise HarnessValidationError(
+                f"generator_version length ({len(self.generator_version)}) exceeds maximum allowed ({MAX_GENERATOR_VERSION_LENGTH})"
+            )
             
         # Count validations
         for name, count_val in [

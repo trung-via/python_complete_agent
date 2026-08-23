@@ -5,40 +5,34 @@ STATUS: READY_FOR_REVIEW
 ## Review Manifest
 ```yaml
 TASK_ID: TASK-066
-ACTION: RUN
+ACTION: FIX
 EXECUTOR_ID: antigravity
 EXECUTOR_FAILOVER: NO
 HOT_HANDOFF: NO
 ```
 
 ## Summary
-Implemented Milestone H0 (Harness Foundation & Authority Boundary Lock) under src/aios_engineering/harness/: established immutable foundation contracts (RepositorySnapshotRef, RepositoryEvidenceRef, HarnessEvidenceExclusion, HarnessIntelligencePlan, HarnessReceipt) with strict fail-closed path/hash/priority validation and duplicate/conflict rejection; deterministic UTF-8 JSON canonical fingerprinting (order-independent candidate-set fingerprint, order-sensitive plan fingerprint); explicit extension-point identities (SKILL_COMPILER, SKILL_PRECEDENCE, EXECUTOR_SPECIFIC_RENDERING); and zero-authority receipts proving no network/LLM/paid-API/Bridge mutation.
+Resolved REVIEW-066 findings B1-B4: (B1) updated compute_candidate_set_fingerprint to hash only canonical RepositoryEvidenceRef identities from the union of selected evidence + exclusions, making candidate-set fingerprint strictly invariant to selection/exclusion disposition, reason changes, and input permutation; (B2) canonicalized exclusion serialization order in compute_plan_fingerprint so incidental exclusion permutation has zero semantic effect on plan fingerprint while preserving selected rank order sensitivity; (B3) introduced explicit named finite string bounds (MAX_SCHEMA_VERSION_LENGTH, MAX_PATH_LENGTH, MAX_REASON_CODE_LENGTH, MAX_SYMBOL_LOCATOR_LENGTH, MAX_GENERATOR_VERSION_LENGTH) across all H0 contracts with fail-closed rejection; and (B4) added comprehensive regression test coverage in test_contracts.py (67 passed).
 
 ## Task Metadata
 - Task: `TASK-066`
-- Action: `RUN`
+- Action: `FIX`
 - Executor: `antigravity`
-- Authorized Artifact: `.ai/tasks/TASK-066.md (3c75189955)`
-- Base Main SHA: `bb6e57ca6ba69b1a613430b3903d032c58cfdcd4`
+- Authorized Artifact: `.ai/reviews/REVIEW-066.md (b0a73d040c)`
+- Base Main SHA: `(n/a)`
 - Branch: `ai/task-066`
 
 ## Files Changed
-- src/aios_engineering/__init__.py
-- src/aios_engineering/harness/__init__.py
 - src/aios_engineering/harness/contracts.py
-- src/aios_engineering/harness/errors.py
 - src/aios_engineering/harness/fingerprint.py
 - tests/aios_engineering/harness/test_contracts.py
 
 ## Diff Stat
 ```text
-src/aios_engineering/__init__.py                 |   4 +
- src/aios_engineering/harness/__init__.py         |  40 +++
- src/aios_engineering/harness/contracts.py        | 385 +++++++++++++++++++++++
- src/aios_engineering/harness/errors.py           |  14 +
- src/aios_engineering/harness/fingerprint.py      |  71 +++++
- tests/aios_engineering/harness/test_contracts.py | 342 ++++++++++++++++++++
- 6 files changed, 856 insertions(+)
+src/aios_engineering/harness/contracts.py        |  34 +++++++
+ src/aios_engineering/harness/fingerprint.py      |  35 +++++--
+ tests/aios_engineering/harness/test_contracts.py | 120 ++++++++++++++++++++++-
+ 3 files changed, 177 insertions(+), 12 deletions(-)
 ```
 
 ## Tests
@@ -60,21 +54,21 @@ Exit code: 0
 ..............................................ss........................ [ 42%]
 ..............s......................................................... [ 45%]
 ........................................................................ [ 49%]
-........................................................................ [ 53%]
+........................................................................ [ 52%]
 ........................................................................ [ 56%]
-........................................................................ [ 60%]
+........................................................................ [ 59%]
 ........................................................................ [ 63%]
-........................................................................ [ 67%]
+........................................................................ [ 66%]
 ........................................................................ [ 70%]
-........................................................................ [ 74%]
+........................................................................ [ 73%]
 ........................................................................ [ 77%]
-........................................................................ [ 81%]
+........................................................................ [ 80%]
 ........................................................................ [ 84%]
-........................................................................ [ 88%]
+........................................................................ [ 87%]
 ........................................................................ [ 91%]
 ........................................................................ [ 95%]
-........................................................................ [ 99%]
-....................                                                     [100%]
+........................................................................ [ 98%]
+..............................                                           [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -377,7 +371,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-2029 passed, 7 skipped, 1540 warnings in 150.03s (0:02:30)
+2039 passed, 7 skipped, 1540 warnings in 153.02s (0:02:33)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -389,40 +383,33 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 TARGETED_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/aios_engineering/harness/test_contracts.py -v
 Exit code: 0
-Result: 57 passed, 0 skipped, 0 failed
+Result: 67 passed, 0 skipped, 0 failed
 
 FULL_REPOSITORY_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/ -q
 Exit code: 0
-Result: 2029 passed, 7 skipped, 0 failed
+Result: 2039 passed, 7 skipped, 0 failed
 
 H_SERIES_EVIDENCE:
-H_SERIES_MILESTONE: H0
-H_SERIES_AUTHORITY_CREATED: NO
-BRIDGE_RUNTIME_CHANGED: NO
-BRIDGE_STATE_CHANGED: NO
-DISPATCH_CHANGED: NO
-WORKER_IDENTITY_CHANGED: NO
-REPOSITORY_SNAPSHOT_BINDING: EXACT
-EVIDENCE_BLOB_BINDING_SHAPE: EXACT
-ABSOLUTE_PATH_ACCEPTED: NO
-PATH_TRAVERSAL_ACCEPTED: NO
-DUPLICATE_EVIDENCE_AMBIGUITY: REJECTED
-CANONICAL_SERIALIZATION: YES
-ORDER_INDEPENDENT_FINGERPRINT: YES
-CANDIDATE_SET_FINGERPRINT_ORDER_INDEPENDENT: YES
+CANDIDATE_SET_EVIDENCE_UNION_SEMANTICS: PASS
+CANDIDATE_SET_SELECTED_PERMUTATION_INVARIANT: YES
+CANDIDATE_SET_EXCLUSION_PERMUTATION_INVARIANT: YES
+CANDIDATE_SET_DISPOSITION_INVARIANT: YES
+CANDIDATE_SET_EXCLUSION_REASON_INVARIANT: YES
+PLAN_EXCLUSION_ORDER_INVARIANT: YES
 SELECTED_RANK_ORDER_FINGERPRINT_SENSITIVE: YES
-DETERMINISTIC_PLAN_FINGERPRINT: YES
+SNAPSHOT_COMMIT_CHANGE_SENSITIVE: YES
+SNAPSHOT_TREE_CHANGE_SENSITIVE: YES
+BOUNDED_SCHEMA_VERSION: YES
+BOUNDED_REASON_CODE: YES
+BOUNDED_SYMBOL_LOCATOR: YES
+H_SERIES_AUTHORITY_CREATED: NO
+NO_PRODUCTION_BRIDGE_CHANGE: YES
+NO_WORKER_SURFACE_CHANGE: YES
 NETWORK_REQUIRED: NO
 LLM_REQUIRED: NO
 PAID_API_REQUIRED: NO
-PROVIDER_CREDENTIAL_VALUE_READ: NO
-SKILL_COMPILER_EXTENSION_POINT: PRESENT
-SKILL_PRECEDENCE_EXTENSION_POINT: PRESENT
-EXECUTOR_RENDERING_EXTENSION_POINT: PRESENT
-NO_PRODUCTION_BRIDGE_CHANGE: YES
-NO_WORKER_SURFACE_CHANGE: YES
 SCOPE_EXACT: YES
 
 ## Generated
-2026-08-23T12:07:20+07:00
+2026-08-23T12:18:07+07:00

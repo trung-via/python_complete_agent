@@ -13,6 +13,11 @@ from src.aios_engineering.harness.contracts import (
     HarnessReceipt,
     RepositoryEvidenceRef,
     RepositorySnapshotRef,
+    MAX_SCHEMA_VERSION_LENGTH,
+    MAX_PATH_LENGTH,
+    MAX_REASON_CODE_LENGTH,
+    MAX_SYMBOL_LOCATOR_LENGTH,
+    MAX_GENERATOR_VERSION_LENGTH,
 )
 from src.aios_engineering.harness.errors import (
     HarnessError,
@@ -89,6 +94,12 @@ def test_snapshot_rejects_invalid_commit_or_tree_sha(invalid_sha):
         RepositorySnapshotRef(repository_commit_sha=COMMIT_A, repository_tree_sha=invalid_sha)  # type: ignore
 
 
+def test_snapshot_rejects_oversized_schema_version():
+    oversized = "x" * (MAX_SCHEMA_VERSION_LENGTH + 1)
+    with pytest.raises(HarnessValidationError, match="schema_version length .* exceeds maximum"):
+        RepositorySnapshotRef(repository_commit_sha=COMMIT_A, repository_tree_sha=TREE_A, schema_version=oversized)
+
+
 def test_evidence_kind_coverage():
     expected_kinds = {"SOURCE", "TEST", "DOCUMENTATION", "CONFIGURATION", "CONTRACT", "OTHER"}
     assert {k.value for k in EvidenceKind} == expected_kinds
@@ -121,6 +132,12 @@ def test_evidence_rejects_unsafe_paths(invalid_path):
         _sample_evidence(path=invalid_path)
 
 
+def test_evidence_rejects_oversized_path():
+    oversized_path = "src/" + "a" * (MAX_PATH_LENGTH + 1)
+    with pytest.raises(HarnessValidationError, match="path length .* exceeds maximum"):
+        _sample_evidence(path=oversized_path)
+
+
 @pytest.mark.parametrize("invalid_reason", [
     "",
     "has whitespace",
@@ -131,6 +148,12 @@ def test_evidence_rejects_unsafe_paths(invalid_path):
 def test_evidence_rejects_invalid_reason_code(invalid_reason):
     with pytest.raises(HarnessValidationError):
         _sample_evidence(reason=invalid_reason)
+
+
+def test_evidence_rejects_oversized_reason_code():
+    oversized_reason = "REASON_" + "X" * MAX_REASON_CODE_LENGTH
+    with pytest.raises(HarnessValidationError, match="reason_code length .* exceeds maximum"):
+        _sample_evidence(reason=oversized_reason)
 
 
 @pytest.mark.parametrize("invalid_priority", [
@@ -157,6 +180,12 @@ def test_evidence_rejects_invalid_symbol_locator(invalid_locator):
         _sample_evidence(symbol_locator=invalid_locator)
 
 
+def test_evidence_rejects_oversized_symbol_locator():
+    oversized_loc = "sym_" + "x" * MAX_SYMBOL_LOCATOR_LENGTH
+    with pytest.raises(HarnessValidationError, match="symbol_locator length .* exceeds maximum"):
+        _sample_evidence(symbol_locator=oversized_loc)
+
+
 def test_duplicate_exact_evidence_rejected_in_plan():
     snap = _sample_snapshot()
     ev1 = _sample_evidence("src/core/a.py", BLOB_1)
@@ -181,7 +210,7 @@ def test_conflicting_blob_sha_for_same_path_and_symbol_rejected():
         )
 
 
-def test_candidate_set_fingerprint_is_order_independent():
+def test_candidate_set_fingerprint_is_order_independent_for_selected():
     ev1 = _sample_evidence("src/a.py", BLOB_1, priority=10)
     ev2 = _sample_evidence("src/b.py", BLOB_2, priority=20)
     ev3 = _sample_evidence("src/c.py", BLOB_3, priority=30)
@@ -194,6 +223,40 @@ def test_candidate_set_fingerprint_is_order_independent():
     assert fp_1 == fp_2 == fp_3
 
 
+def test_candidate_set_fingerprint_is_order_independent_for_exclusions():
+    ev1 = _sample_evidence("src/a.py", BLOB_1)
+    ex1 = HarnessEvidenceExclusion(evidence=_sample_evidence("src/b.py", BLOB_2), reason_code="EXCLUDED_A")
+    ex2 = HarnessEvidenceExclusion(evidence=_sample_evidence("src/c.py", BLOB_3), reason_code="EXCLUDED_B")
+
+    fp_forward = compute_candidate_set_fingerprint([ev1], [ex1, ex2])
+    fp_reverse = compute_candidate_set_fingerprint([ev1], [ex2, ex1])
+
+    assert fp_forward == fp_reverse
+
+
+def test_candidate_set_fingerprint_invariant_when_evidence_moves_selected_to_excluded():
+    ev1 = _sample_evidence("src/a.py", BLOB_1)
+    ev2 = _sample_evidence("src/b.py", BLOB_2)
+    ex_for_ev2 = HarnessEvidenceExclusion(evidence=ev2, reason_code="EXCLUDED_FILTER")
+
+    fp_all_selected = compute_candidate_set_fingerprint([ev1, ev2], [])
+    fp_one_excluded = compute_candidate_set_fingerprint([ev1], [ex_for_ev2])
+
+    assert fp_all_selected == fp_one_excluded
+
+
+def test_candidate_set_fingerprint_invariant_when_exclusion_reason_changes():
+    ev1 = _sample_evidence("src/a.py", BLOB_1)
+    ev2 = _sample_evidence("src/b.py", BLOB_2)
+    ex_reason_A = HarnessEvidenceExclusion(evidence=ev2, reason_code="REASON_A")
+    ex_reason_B = HarnessEvidenceExclusion(evidence=ev2, reason_code="REASON_B")
+
+    fp_A = compute_candidate_set_fingerprint([ev1], [ex_reason_A])
+    fp_B = compute_candidate_set_fingerprint([ev1], [ex_reason_B])
+
+    assert fp_A == fp_B
+
+
 def test_plan_fingerprint_is_deterministic_for_identical_input():
     snap = _sample_snapshot()
     ev1 = _sample_evidence("src/a.py", BLOB_1)
@@ -204,6 +267,19 @@ def test_plan_fingerprint_is_deterministic_for_identical_input():
 
     assert plan_1.candidate_set_fingerprint == plan_2.candidate_set_fingerprint
     assert plan_1.plan_fingerprint == plan_2.plan_fingerprint
+
+
+def test_plan_fingerprint_is_invariant_under_exclusion_permutation():
+    snap = _sample_snapshot()
+    ev1 = _sample_evidence("src/a.py", BLOB_1)
+    ex1 = HarnessEvidenceExclusion(evidence=_sample_evidence("src/b.py", BLOB_2), reason_code="REASON_A")
+    ex2 = HarnessEvidenceExclusion(evidence=_sample_evidence("src/c.py", BLOB_3), reason_code="REASON_B")
+
+    plan1 = HarnessIntelligencePlan.create("TASK-066", snap, [ev1], [ex1, ex2])
+    plan2 = HarnessIntelligencePlan.create("TASK-066", snap, [ev1], [ex2, ex1])
+
+    assert plan1.candidate_set_fingerprint == plan2.candidate_set_fingerprint
+    assert plan1.plan_fingerprint == plan2.plan_fingerprint
 
 
 def test_plan_fingerprint_changes_when_selected_ranking_changes():
@@ -220,9 +296,20 @@ def test_plan_fingerprint_changes_when_selected_ranking_changes():
     assert plan_forward.plan_fingerprint != plan_reverse.plan_fingerprint
 
 
-def test_plan_fingerprint_changes_when_snapshot_changes():
+def test_plan_fingerprint_changes_when_snapshot_commit_changes():
     snap1 = _sample_snapshot()
     snap2 = RepositorySnapshotRef(repository_commit_sha="c" * 40, repository_tree_sha=TREE_A)
+    ev1 = _sample_evidence("src/a.py", BLOB_1)
+
+    plan1 = HarnessIntelligencePlan.create("TASK-066", snap1, [ev1])
+    plan2 = HarnessIntelligencePlan.create("TASK-066", snap2, [ev1])
+
+    assert plan1.plan_fingerprint != plan2.plan_fingerprint
+
+
+def test_plan_fingerprint_changes_when_snapshot_tree_changes():
+    snap1 = _sample_snapshot()
+    snap2 = RepositorySnapshotRef(repository_commit_sha=COMMIT_A, repository_tree_sha="d" * 40)
     ev1 = _sample_evidence("src/a.py", BLOB_1)
 
     plan1 = HarnessIntelligencePlan.create("TASK-066", snap1, [ev1])
@@ -308,6 +395,35 @@ def test_receipt_rejects_count_mismatch():
             candidate_count=5,  # Mismatch: 2 + 1 != 5
             selected_count=2,
             excluded_count=1,
+        )
+
+
+def test_receipt_rejects_oversized_strings():
+    oversized = "x" * (MAX_SCHEMA_VERSION_LENGTH + 1)
+    with pytest.raises(HarnessValidationError, match="schema_version length .* exceeds maximum"):
+        HarnessReceipt(
+            task_id="TASK-066",
+            repository_commit_sha=COMMIT_A,
+            input_fingerprint="1" * 64,
+            output_fingerprint="2" * 64,
+            generator_version="0.1.0",
+            candidate_count=1,
+            selected_count=1,
+            excluded_count=0,
+            schema_version=oversized,
+        )
+
+    oversized_gen = "gen_" + "x" * MAX_GENERATOR_VERSION_LENGTH
+    with pytest.raises(HarnessValidationError, match="generator_version length .* exceeds maximum"):
+        HarnessReceipt(
+            task_id="TASK-066",
+            repository_commit_sha=COMMIT_A,
+            input_fingerprint="1" * 64,
+            output_fingerprint="2" * 64,
+            generator_version=oversized_gen,
+            candidate_count=1,
+            selected_count=1,
+            excluded_count=0,
         )
 
 

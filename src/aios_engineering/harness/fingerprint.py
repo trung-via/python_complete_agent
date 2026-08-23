@@ -22,22 +22,31 @@ def compute_candidate_set_fingerprint(
     selected_evidence: Iterable[Any],
     excluded_evidence: Iterable[Any] = (),
 ) -> str:
-    """Compute order-independent SHA-256 fingerprint for the union of candidate evidence items.
+    """Compute order-independent SHA-256 fingerprint for the union of candidate evidence identities.
     
-    Each item is converted to its canonical dict, serialized to canonical JSON bytes,
-    sorted lexicographically, and hashed.
+    Extracts the underlying RepositoryEvidenceRef identity from selected evidence and exclusions,
+    serializes each evidence identity to canonical JSON, sorts them lexicographically, and hashes.
     """
-    serialized_items: list[str] = []
+    serialized_evidence_identities: list[str] = []
+    
     for item in selected_evidence:
         d = item.to_dict() if hasattr(item, "to_dict") else dict(item)
-        serialized_items.append(canonical_json_bytes({"type": "SELECTED", "evidence": d}).decode("utf-8"))
+        serialized_evidence_identities.append(canonical_json_bytes(d).decode("utf-8"))
+        
     for ex in excluded_evidence:
-        d = ex.to_dict() if hasattr(ex, "to_dict") else dict(ex)
-        serialized_items.append(canonical_json_bytes({"type": "EXCLUDED", "exclusion": d}).decode("utf-8"))
+        # For HarnessEvidenceExclusion, extract the underlying evidence reference
+        if hasattr(ex, "evidence"):
+            ev = ex.evidence
+            d = ev.to_dict() if hasattr(ev, "to_dict") else dict(ev)
+        elif isinstance(ex, dict) and "evidence" in ex:
+            d = ex["evidence"]
+        else:
+            d = ex.to_dict() if hasattr(ex, "to_dict") else dict(ex)
+        serialized_evidence_identities.append(canonical_json_bytes(d).decode("utf-8"))
     
     # Sort lexicographically for order-independence
-    serialized_items.sort()
-    payload_bytes = canonical_json_bytes(serialized_items)
+    serialized_evidence_identities.sort()
+    payload_bytes = canonical_json_bytes(serialized_evidence_identities)
     return compute_sha256(payload_bytes)
 
 
@@ -49,7 +58,11 @@ def compute_plan_fingerprint(
     candidate_set_fingerprint: str,
     schema_version: str = "1",
 ) -> str:
-    """Compute order-sensitive plan fingerprint binding snapshot, ranked selected evidence, and exclusions."""
+    """Compute plan fingerprint binding snapshot, ranked selected evidence, deterministic exclusions, and candidate set.
+    
+    Selected evidence rank order is preserved as semantically meaningful.
+    Exclusions are ordered canonically by deterministic serialization so incidental exclusion order has no semantic effect.
+    """
     snapshot_dict = snapshot.to_dict() if hasattr(snapshot, "to_dict") else dict(snapshot)
     selected_dicts = [
         item.to_dict() if hasattr(item, "to_dict") else dict(item)
@@ -59,6 +72,8 @@ def compute_plan_fingerprint(
         ex.to_dict() if hasattr(ex, "to_dict") else dict(ex)
         for ex in excluded_evidence
     ]
+    # Sort excluded dicts deterministically by canonical JSON bytes
+    excluded_dicts.sort(key=lambda d: canonical_json_bytes(d))
     
     payload = {
         "candidate_set_fingerprint": candidate_set_fingerprint,
