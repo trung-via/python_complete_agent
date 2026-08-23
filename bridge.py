@@ -79,6 +79,8 @@ from src.aios_bridge.executor_transports.codex_local import (
     CODEX_TRANSPORT_ID,
     DEFAULT_CODEX_TIMEOUT_SECONDS,
     CodexLocalTransport,
+    CodexTransportDiagnostic,
+    CodexInvocationOutcome,
 )
 from src.aios_bridge.runtime_lease import AtomicExecutorLeaseStore
 from src.aios_bridge.paid_api_grant import PaidApiGrant
@@ -3265,7 +3267,25 @@ def cmd_execute(args):
         codex_executable=args.codex_executable,
         timeout_seconds=args.timeout_seconds,
     )
-    receipt = transport.invoke(launch.context_pack.invocation, launch.context_pack.payload)
+    if hasattr(transport, "invoke_with_diagnostic"):
+        outcome = transport.invoke_with_diagnostic(
+            launch.context_pack.invocation, launch.context_pack.payload
+        )
+        receipt = outcome.receipt
+        diagnostic = outcome.diagnostic
+    else:
+        receipt = transport.invoke(launch.context_pack.invocation, launch.context_pack.payload)
+        diagnostic = CodexTransportDiagnostic(
+            code="EMPTY_OUTPUT",
+            stdout_total_bytes=0,
+            stderr_total_bytes=0,
+            stdout_scan_truncated=False,
+            stderr_scan_truncated=False,
+            stdout_json_line_count=0,
+            stdout_non_json_line_count=0,
+            stdout_event_types=(),
+            last_stdout_event_type=None,
+        )
 
     try:
         verify_e4_publication_trust_snapshot(publication_trust)
@@ -3298,6 +3318,8 @@ def cmd_execute(args):
             "payload_size_bytes": launch.context_pack.invocation.payload_size_bytes,
             "invocation_receipt": receipt.to_dict(),
             "invocation_receipt_fingerprint": receipt.fingerprint(),
+            "transport_diagnostic": diagnostic.to_dict(),
+            "transport_diagnostic_fingerprint": diagnostic.fingerprint(),
             "dirty_paths": list(dirty_paths),
             "published_sha": None,
             "result_blob_sha": None,
@@ -3322,10 +3344,15 @@ def cmd_execute(args):
             if receipt.status is InvocationStatus.FAILED_TO_START and not dirty_paths
             else "RECOVERY_REQUIRED"
         )
+        err_msg = (
+            f"E4 transport ended with {receipt.status.value}; "
+            f"error={receipt.error_code}; diagnostic={diagnostic.code}; "
+            f"no publication and no retry"
+        )
         _e4_operational_failure(
             task_num,
             blocked_status,
-            f"E4 transport ended with {receipt.status.value}; no publication and no retry",
+            err_msg,
         )
 
     try:
@@ -3341,7 +3368,7 @@ def cmd_execute(args):
         _e4_operational_failure(
             task_num,
             "RECOVERY_REQUIRED",
-            f"E4 post-executor Git/scope gate failed; work preserved: {exc}",
+            f"E4 post-executor Git/scope gate failed; diagnostic={diagnostic.code}; work preserved: {exc}",
         )
 
     test_argv = [sys.executable, "-m", "pytest", "tests/", "-q"]

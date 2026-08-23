@@ -14,6 +14,7 @@ import bridge
 from src.aios_bridge.continuity.errors import ContinuityStateValidationError
 from src.aios_bridge.continuity.executor import ExecutionCapability, ExecutionOperation
 from src.aios_bridge.continuity.executor_transport import InvocationReceipt, InvocationStatus
+from src.aios_bridge.executor_transports import CodexTransportDiagnostic, CodexInvocationOutcome
 from src.aios_bridge.continuity.lease import ExecutorLease
 from src.aios_bridge.continuity.state import ArtifactRef
 
@@ -225,6 +226,21 @@ def make_execute_environment(
                 exit_code=exit_code,
                 error_code=error_code,
             )
+
+        def invoke_with_diagnostic(self, invocation, payload):
+            receipt = self.invoke(invocation, payload)
+            diagnostic = CodexTransportDiagnostic(
+                code="JSON_EVENT_STREAM" if status is InvocationStatus.EXITED_ZERO else "JSON_ERROR_EVENT",
+                stdout_total_bytes=128,
+                stderr_total_bytes=0,
+                stdout_scan_truncated=False,
+                stderr_scan_truncated=False,
+                stdout_json_line_count=2,
+                stdout_non_json_line_count=0,
+                stdout_event_types=("turn_started", "item_completed"),
+                last_stdout_event_type="item_completed",
+            )
+            return CodexInvocationOutcome(receipt=receipt, diagnostic=diagnostic)
 
     def fake_git(*args, **kwargs):
         sha = "e" * 40 if calls["published"] else "b" * 40
@@ -809,3 +825,54 @@ def test_cli_exposes_execute_without_approval_side_effects():
     assert args.func is bridge.cmd_execute
     assert args.codex_executable == "codex"
     assert args.timeout_seconds == bridge.DEFAULT_CODEX_TIMEOUT_SECONDS
+
+
+
+def test_e4_persists_transport_diagnostic_metadata(monkeypatch, tmp_path):
+    _, _, calls = make_execute_environment(monkeypatch, tmp_path)
+    bridge.cmd_execute(execute_args())
+
+    assert len(calls["persist"]) == 2
+    rec = calls["persist"][0]
+    assert "transport_diagnostic" in rec
+    assert "transport_diagnostic_fingerprint" in rec
+    assert rec["transport_diagnostic"]["code"] == "JSON_EVENT_STREAM"
+    assert len(rec["transport_diagnostic_fingerprint"]) == 64
+    assert "stdout" not in rec
+    assert "stderr" not in rec
+
+
+def test_e4_nonzero_failure_surfaces_stable_diagnostic_codes(monkeypatch, tmp_path):
+    _, _, calls = make_execute_environment(
+        monkeypatch, tmp_path, status=InvocationStatus.EXITED_NONZERO
+    )
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+
+    assert calls["invoke"] == 1
+    assert calls["publish"] == []
+    # Check failure state message contains stable codes
+    last_state = calls["state"][-1]
+    assert last_state[0] == "RECOVERY_REQUIRED"
+    msg = last_state[1]
+    assert "EXITED_NONZERO" in msg
+    assert "error=CODEX_EXIT_NONZERO" in msg
+    assert "diagnostic=JSON_ERROR_EVENT" in msg
+    assert "no publication and no retry" in msg
+
+
+def test_e4_zero_exit_no_delta_surfaces_diagnostic_and_fails_closed(monkeypatch, tmp_path):
+    # No dirty paths
+    _, _, calls = make_execute_environment(monkeypatch, tmp_path)
+    monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ())
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+
+    assert calls["invoke"] == 1
+    assert calls["publish"] == []
+    last_state = calls["state"][-1]
+    assert last_state[0] == "RECOVERY_REQUIRED"
+    msg = last_state[1]
+    assert "diagnostic=JSON_EVENT_STREAM" in msg
+    assert "Executor produced no worktree delta" in msg

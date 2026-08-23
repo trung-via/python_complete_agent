@@ -1,13 +1,19 @@
-"""Fail-closed local Codex process transport (ADR-030 / E2)."""
+"""Fail-closed local Codex process transport with bounded diagnostic observability (ADR-030 / ADR-040 / E2 / TASK-067)."""
 from __future__ import annotations
 
+from dataclasses import dataclass
+import hashlib
+import io
+import json
 import os
 from pathlib import Path
+import re
 import shutil
 import signal
 import subprocess
 import sys
-from typing import Mapping
+import tempfile
+from typing import Any, Mapping, Sequence
 
 from src.aios_bridge.continuity.errors import ContinuityStateValidationError
 from src.aios_bridge.continuity.executor_transport import (
@@ -26,6 +32,12 @@ CODEX_TRANSPORT_ID = "codex-local-v1"
 DEFAULT_CODEX_TIMEOUT_SECONDS = 1800
 MAX_CODEX_TIMEOUT_SECONDS = 7200
 
+MAX_CODEX_DIAGNOSTIC_SCAN_BYTES_PER_STREAM: int = 65536
+MAX_CODEX_DIAGNOSTIC_EVENT_TYPES: int = 32
+MAX_SINGLE_EVENT_TYPE_LENGTH: int = 64
+MAX_DIAGNOSTIC_CODE_LENGTH: int = 64
+MAX_SCHEMA_VERSION_LENGTH: int = 64
+
 ERROR_CODEX_NOT_FOUND = "CODEX_NOT_FOUND"
 ERROR_CODEX_START_FAILED = "CODEX_START_FAILED"
 ERROR_WORKSPACE_PRECONDITION_FAILED = "WORKSPACE_PRECONDITION_FAILED"
@@ -37,6 +49,9 @@ ERROR_CODEX_EXIT_CODE_INVALID = "CODEX_EXIT_CODE_INVALID"
 _GIT_PREFLIGHT_TIMEOUT_SECONDS = 10
 _CLEANUP_WAIT_SECONDS = 2
 _IS_WINDOWS = sys.platform == "win32"
+
+_EVENT_TYPE_RE = re.compile(r"\A[A-Za-z0-9_:-]+\Z")
+_DIAGNOSTIC_CODE_RE = re.compile(r"\A[A-Z0-9_:-]+\Z")
 
 _WINDOWS_ENVIRONMENT_ALLOWLIST = frozenset(
     {
@@ -150,6 +165,125 @@ def _build_codex_argv(executable: str, workspace: Path) -> list[str]:
     ]
 
 
+@dataclass(frozen=True)
+class CodexTransportDiagnostic:
+    """Immutable safe diagnostic metadata derived from temporary Codex execution streams."""
+    code: str
+    stdout_total_bytes: int
+    stderr_total_bytes: int
+    stdout_scan_truncated: bool
+    stderr_scan_truncated: bool
+    stdout_json_line_count: int
+    stdout_non_json_line_count: int
+    stdout_event_types: tuple[str, ...]
+    last_stdout_event_type: str | None
+    schema_version: str = "1"
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.schema_version, str) or not self.schema_version.strip():
+            raise ContinuityStateValidationError("schema_version must be non-empty string")
+        if len(self.schema_version) > MAX_SCHEMA_VERSION_LENGTH:
+            raise ContinuityStateValidationError(
+                f"schema_version length ({len(self.schema_version)}) exceeds maximum ({MAX_SCHEMA_VERSION_LENGTH})"
+            )
+
+        if not isinstance(self.code, str) or not _DIAGNOSTIC_CODE_RE.fullmatch(self.code):
+            raise ContinuityStateValidationError(
+                f"diagnostic code must be non-empty uppercase ASCII token: got {self.code!r}"
+            )
+        if len(self.code) > MAX_DIAGNOSTIC_CODE_LENGTH:
+            raise ContinuityStateValidationError(
+                f"diagnostic code length ({len(self.code)}) exceeds maximum ({MAX_DIAGNOSTIC_CODE_LENGTH})"
+            )
+
+        for name, count_val in [
+            ("stdout_total_bytes", self.stdout_total_bytes),
+            ("stderr_total_bytes", self.stderr_total_bytes),
+            ("stdout_json_line_count", self.stdout_json_line_count),
+            ("stdout_non_json_line_count", self.stdout_non_json_line_count),
+        ]:
+            if type(count_val) is not int:
+                raise ContinuityStateValidationError(f"{name} must be exact int (bool forbidden): got {count_val!r}")
+            if count_val < 0:
+                raise ContinuityStateValidationError(f"{name} must be non-negative: got {count_val}")
+
+        for name, trunc_val in [
+            ("stdout_scan_truncated", self.stdout_scan_truncated),
+            ("stderr_scan_truncated", self.stderr_scan_truncated),
+        ]:
+            if type(trunc_val) is not bool:
+                raise ContinuityStateValidationError(f"{name} must be exact bool: got {trunc_val!r}")
+
+        if not isinstance(self.stdout_event_types, tuple):
+            object.__setattr__(self, "stdout_event_types", tuple(self.stdout_event_types))
+
+        if len(self.stdout_event_types) > MAX_CODEX_DIAGNOSTIC_EVENT_TYPES:
+            raise ContinuityStateValidationError(
+                f"stdout_event_types count ({len(self.stdout_event_types)}) exceeds maximum ({MAX_CODEX_DIAGNOSTIC_EVENT_TYPES})"
+            )
+
+        for ev in self.stdout_event_types:
+            if not isinstance(ev, str) or not _EVENT_TYPE_RE.fullmatch(ev):
+                raise ContinuityStateValidationError(f"Invalid stdout_event_type: {ev!r}")
+            if len(ev) > MAX_SINGLE_EVENT_TYPE_LENGTH:
+                raise ContinuityStateValidationError(
+                    f"event_type length ({len(ev)}) exceeds maximum ({MAX_SINGLE_EVENT_TYPE_LENGTH})"
+                )
+            if any(ord(c) < 32 or ord(c) == 127 for c in ev):
+                raise ContinuityStateValidationError(f"event_type must not contain control characters: {ev!r}")
+
+        if self.last_stdout_event_type is not None:
+            if not isinstance(self.last_stdout_event_type, str) or not _EVENT_TYPE_RE.fullmatch(self.last_stdout_event_type):
+                raise ContinuityStateValidationError(
+                    f"Invalid last_stdout_event_type: {self.last_stdout_event_type!r}"
+                )
+            if len(self.last_stdout_event_type) > MAX_SINGLE_EVENT_TYPE_LENGTH:
+                raise ContinuityStateValidationError(
+                    f"last_stdout_event_type length ({len(self.last_stdout_event_type)}) exceeds maximum ({MAX_SINGLE_EVENT_TYPE_LENGTH})"
+                )
+            if any(ord(c) < 32 or ord(c) == 127 for c in self.last_stdout_event_type):
+                raise ContinuityStateValidationError(
+                    f"last_stdout_event_type must not contain control characters: {self.last_stdout_event_type!r}"
+                )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "code": self.code,
+            "last_stdout_event_type": self.last_stdout_event_type,
+            "schema_version": self.schema_version,
+            "stderr_scan_truncated": self.stderr_scan_truncated,
+            "stderr_total_bytes": self.stderr_total_bytes,
+            "stdout_event_types": list(self.stdout_event_types),
+            "stdout_json_line_count": self.stdout_json_line_count,
+            "stdout_non_json_line_count": self.stdout_non_json_line_count,
+            "stdout_scan_truncated": self.stdout_scan_truncated,
+            "stdout_total_bytes": self.stdout_total_bytes,
+        }
+
+    def to_canonical_json(self) -> str:
+        return json.dumps(
+            self.to_dict(), sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        )
+
+    def fingerprint(self) -> str:
+        return hashlib.sha256(self.to_canonical_json().encode("utf-8")).hexdigest().lower()
+
+
+@dataclass(frozen=True)
+class CodexInvocationOutcome:
+    """Immutable binding of canonical InvocationReceipt and bounded CodexTransportDiagnostic."""
+    receipt: InvocationReceipt
+    diagnostic: CodexTransportDiagnostic
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.receipt, InvocationReceipt):
+            raise ContinuityStateValidationError(f"receipt must be InvocationReceipt: got {self.receipt!r}")
+        if not isinstance(self.diagnostic, CodexTransportDiagnostic):
+            raise ContinuityStateValidationError(
+                f"diagnostic must be CodexTransportDiagnostic: got {self.diagnostic!r}"
+            )
+
+
 def _make_receipt(
     invocation: ExecutorInvocation,
     *,
@@ -173,6 +307,121 @@ def _make_receipt(
     )
     validate_invocation_receipt(receipt, invocation)
     return receipt
+
+
+def _analyze_diagnostic_stream(
+    stdout_file: Any,
+    stderr_file: Any,
+) -> CodexTransportDiagnostic:
+    """Safely analyze temporary stdout/stderr streams within strict bounds."""
+    try:
+        total_out = 0
+        scan_out = b""
+        if stdout_file is not None:
+            try:
+                stdout_file.seek(0, os.SEEK_END)
+                total_out = stdout_file.tell()
+                stdout_file.seek(0)
+                scan_out = stdout_file.read(MAX_CODEX_DIAGNOSTIC_SCAN_BYTES_PER_STREAM)
+            except Exception:
+                pass
+
+        total_err = 0
+        scan_err = b""
+        if stderr_file is not None:
+            try:
+                stderr_file.seek(0, os.SEEK_END)
+                total_err = stderr_file.tell()
+                stderr_file.seek(0)
+                scan_err = stderr_file.read(MAX_CODEX_DIAGNOSTIC_SCAN_BYTES_PER_STREAM)
+            except Exception:
+                pass
+
+        out_truncated = total_out > len(scan_out)
+        err_truncated = total_err > len(scan_err)
+
+        json_line_count = 0
+        non_json_line_count = 0
+        event_types: list[str] = []
+        seen_event_types: set[str] = set()
+        last_event_type: str | None = None
+        has_error_event = False
+
+        if scan_out:
+            raw_lines = scan_out.splitlines()
+            for raw_line in raw_lines:
+                line = raw_line.strip()
+                if not line:
+                    continue
+                try:
+                    decoded = line.decode("utf-8")
+                    parsed = json.loads(decoded)
+                    if isinstance(parsed, dict) and "type" in parsed:
+                        ev_type = parsed["type"]
+                        if (
+                            isinstance(ev_type, str)
+                            and ev_type
+                            and len(ev_type) <= MAX_SINGLE_EVENT_TYPE_LENGTH
+                            and _EVENT_TYPE_RE.fullmatch(ev_type)
+                            and not any(ord(c) < 32 or ord(c) == 127 for c in ev_type)
+                        ):
+                            if (
+                                ev_type not in seen_event_types
+                                and len(event_types) < MAX_CODEX_DIAGNOSTIC_EVENT_TYPES
+                            ):
+                                event_types.append(ev_type)
+                                seen_event_types.add(ev_type)
+                            last_event_type = ev_type
+                            if (
+                                ev_type.lower() == "error"
+                                or ev_type.lower().endswith("_error")
+                                or "error" in ev_type.lower()
+                            ):
+                                has_error_event = True
+                        json_line_count += 1
+                    else:
+                        json_line_count += 1
+                except Exception:
+                    non_json_line_count += 1
+
+        if total_out == 0 and total_err == 0:
+            code = "EMPTY_OUTPUT"
+        elif total_out == 0 and total_err > 0:
+            code = "STDERR_ONLY"
+        elif has_error_event:
+            code = "JSON_ERROR_EVENT"
+        elif json_line_count > 0 and non_json_line_count == 0:
+            code = "JSON_EVENT_STREAM"
+        elif json_line_count > 0 and non_json_line_count > 0:
+            code = "MIXED_OUTPUT"
+        elif json_line_count == 0 and total_out > 0:
+            code = "NON_JSON_OUTPUT"
+        else:
+            code = "UNKNOWN_OUTPUT_SHAPE"
+
+        return CodexTransportDiagnostic(
+            code=code,
+            stdout_total_bytes=total_out,
+            stderr_total_bytes=total_err,
+            stdout_scan_truncated=out_truncated,
+            stderr_scan_truncated=err_truncated,
+            stdout_json_line_count=json_line_count,
+            stdout_non_json_line_count=non_json_line_count,
+            stdout_event_types=tuple(event_types),
+            last_stdout_event_type=last_event_type,
+        )
+    except Exception:
+        return CodexTransportDiagnostic(
+            code="CAPTURE_FAILED",
+            stdout_total_bytes=0,
+            stderr_total_bytes=0,
+            stdout_scan_truncated=False,
+            stderr_scan_truncated=False,
+            stdout_json_line_count=0,
+            stdout_non_json_line_count=0,
+            stdout_event_types=(),
+            last_stdout_event_type=None,
+        )
 
 
 def _resolve_workspace(workspace: Path) -> Path | None:
@@ -313,7 +562,7 @@ def _cleanup_process(process: subprocess.Popen[bytes]) -> None:
 
 
 class CodexLocalTransport:
-    """Synchronous local Codex transport with no authority or result semantics."""
+    """Synchronous local Codex transport with bounded diagnostic observability."""
 
     def __init__(
         self,
@@ -339,26 +588,59 @@ class CodexLocalTransport:
         invocation: ExecutorInvocation,
         payload: bytes,
     ) -> InvocationReceipt:
+        """Invoke Codex local transport conforming to ExecutionTransport Protocol."""
+        return self.invoke_with_diagnostic(invocation, payload).receipt
+
+    def invoke_with_diagnostic(
+        self,
+        invocation: ExecutorInvocation,
+        payload: bytes,
+    ) -> CodexInvocationOutcome:
+        """Invoke Codex exactly once with temporary bounded diagnostic capture."""
         validate_transport_binding(self, invocation)
         validate_invocation_payload(invocation, payload)
 
         workspace = _resolve_workspace(self._workspace)
         if workspace is None or not _git_preflight(workspace, invocation.target_branch):
-            return _make_receipt(
+            receipt = _make_receipt(
                 invocation,
                 status=InvocationStatus.FAILED_TO_START,
                 exit_code=None,
                 error_code=ERROR_WORKSPACE_PRECONDITION_FAILED,
             )
+            diagnostic = CodexTransportDiagnostic(
+                code="EMPTY_OUTPUT",
+                stdout_total_bytes=0,
+                stderr_total_bytes=0,
+                stdout_scan_truncated=False,
+                stderr_scan_truncated=False,
+                stdout_json_line_count=0,
+                stdout_non_json_line_count=0,
+                stdout_event_types=(),
+                last_stdout_event_type=None,
+            )
+            return CodexInvocationOutcome(receipt=receipt, diagnostic=diagnostic)
 
         executable = _resolve_codex_executable(self._codex_executable)
         if executable is None:
-            return _make_receipt(
+            receipt = _make_receipt(
                 invocation,
                 status=InvocationStatus.FAILED_TO_START,
                 exit_code=None,
                 error_code=ERROR_CODEX_NOT_FOUND,
             )
+            diagnostic = CodexTransportDiagnostic(
+                code="EMPTY_OUTPUT",
+                stdout_total_bytes=0,
+                stderr_total_bytes=0,
+                stdout_scan_truncated=False,
+                stderr_scan_truncated=False,
+                stdout_json_line_count=0,
+                stdout_non_json_line_count=0,
+                stdout_event_types=(),
+                last_stdout_event_type=None,
+            )
+            return CodexInvocationOutcome(receipt=receipt, diagnostic=diagnostic)
 
         environment = _build_child_environment(os.environ)
         argv = _build_codex_argv(executable, workspace)
@@ -371,72 +653,102 @@ class CodexLocalTransport:
         else:
             popen_options["start_new_session"] = True
 
-        try:
-            process = subprocess.Popen(
-                argv,
-                cwd=str(workspace),
-                stdin=subprocess.PIPE,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                shell=False,
-                env=environment,
-                **popen_options,
-            )
-            process.communicate(input=payload, timeout=self._timeout_seconds)
-        except subprocess.TimeoutExpired:
-            if process is not None:
-                _cleanup_process(process)
-            return _make_receipt(
-                invocation,
-                status=InvocationStatus.TIMED_OUT,
-                exit_code=None,
-                error_code=ERROR_CODEX_TIMEOUT,
-            )
-        except KeyboardInterrupt:
-            if process is not None:
-                _cleanup_process(process)
-            return _make_receipt(
-                invocation,
-                status=InvocationStatus.INTERRUPTED,
-                exit_code=None,
-                error_code=ERROR_CALLER_INTERRUPTED,
-            )
-        except OSError:
-            if process is not None:
-                _cleanup_process(process)
-            return _make_receipt(
-                invocation,
-                status=InvocationStatus.FAILED_TO_START,
-                exit_code=None,
-                error_code=ERROR_CODEX_START_FAILED,
-            )
+        with tempfile.TemporaryFile() as out_f, tempfile.TemporaryFile() as err_f:
+            timed_out = False
+            interrupted = False
+            start_failed = False
+            try:
+                process = subprocess.Popen(
+                    argv,
+                    cwd=str(workspace),
+                    stdin=subprocess.PIPE,
+                    stdout=out_f,
+                    stderr=err_f,
+                    shell=False,
+                    env=environment,
+                    **popen_options,
+                )
+                process.communicate(input=payload, timeout=self._timeout_seconds)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                if process is not None:
+                    _cleanup_process(process)
+            except KeyboardInterrupt:
+                interrupted = True
+                if process is not None:
+                    _cleanup_process(process)
+            except OSError:
+                start_failed = True
+                if process is not None:
+                    _cleanup_process(process)
 
-        return_code = process.returncode
-        if type(return_code) is not int or not -2_147_483_648 <= return_code <= 2_147_483_647:
-            return _make_receipt(
+            # Analyze diagnostic metadata from temporary sinks
+            diagnostic = _analyze_diagnostic_stream(out_f, err_f)
+
+            if timed_out:
+                receipt = _make_receipt(
+                    invocation,
+                    status=InvocationStatus.TIMED_OUT,
+                    exit_code=None,
+                    error_code=ERROR_CODEX_TIMEOUT,
+                )
+                return CodexInvocationOutcome(receipt=receipt, diagnostic=diagnostic)
+
+            if interrupted:
+                receipt = _make_receipt(
+                    invocation,
+                    status=InvocationStatus.INTERRUPTED,
+                    exit_code=None,
+                    error_code=ERROR_CALLER_INTERRUPTED,
+                )
+                return CodexInvocationOutcome(receipt=receipt, diagnostic=diagnostic)
+
+            if start_failed:
+                receipt = _make_receipt(
+                    invocation,
+                    status=InvocationStatus.FAILED_TO_START,
+                    exit_code=None,
+                    error_code=ERROR_CODEX_START_FAILED,
+                )
+                return CodexInvocationOutcome(receipt=receipt, diagnostic=diagnostic)
+
+            return_code = process.returncode if process is not None else None
+            if type(return_code) is not int or not -2_147_483_648 <= return_code <= 2_147_483_647:
+                receipt = _make_receipt(
+                    invocation,
+                    status=InvocationStatus.FAILED_TO_START,
+                    exit_code=None,
+                    error_code=ERROR_CODEX_EXIT_CODE_INVALID,
+                )
+                return CodexInvocationOutcome(receipt=receipt, diagnostic=diagnostic)
+
+            if return_code == 0:
+                receipt = _make_receipt(
+                    invocation,
+                    status=InvocationStatus.EXITED_ZERO,
+                    exit_code=0,
+                    error_code=None,
+                )
+                return CodexInvocationOutcome(receipt=receipt, diagnostic=diagnostic)
+
+            receipt = _make_receipt(
                 invocation,
-                status=InvocationStatus.FAILED_TO_START,
-                exit_code=None,
-                error_code=ERROR_CODEX_EXIT_CODE_INVALID,
+                status=InvocationStatus.EXITED_NONZERO,
+                exit_code=return_code,
+                error_code=ERROR_CODEX_EXIT_NONZERO,
             )
-        if return_code == 0:
-            return _make_receipt(
-                invocation,
-                status=InvocationStatus.EXITED_ZERO,
-                exit_code=0,
-                error_code=None,
-            )
-        return _make_receipt(
-            invocation,
-            status=InvocationStatus.EXITED_NONZERO,
-            exit_code=return_code,
-            error_code=ERROR_CODEX_EXIT_NONZERO,
-        )
+            return CodexInvocationOutcome(receipt=receipt, diagnostic=diagnostic)
 
 
 __all__ = [
     "CODEX_EXECUTOR_ID",
     "CODEX_TRANSPORT_ID",
     "DEFAULT_CODEX_TIMEOUT_SECONDS",
+    "MAX_CODEX_TIMEOUT_SECONDS",
+    "MAX_CODEX_DIAGNOSTIC_SCAN_BYTES_PER_STREAM",
+    "MAX_CODEX_DIAGNOSTIC_EVENT_TYPES",
+    "MAX_SINGLE_EVENT_TYPE_LENGTH",
     "CodexLocalTransport",
+    "CodexTransportDiagnostic",
+    "CodexInvocationOutcome",
 ]
