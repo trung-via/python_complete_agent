@@ -1,10 +1,10 @@
 # REVIEW-065 — M11 Operational Proof Closure & Production Baseline Lock
 
-STATUS: CHANGES_REQUIRED
-APPROVED: NO
-READY_FOR_HUMAN_MERGE: NO
+STATUS: PASS
+APPROVED: YES
+READY_FOR_HUMAN_MERGE: YES
 MERGE_AUTHORIZED: NO
-M11_CLOSED_BY_REVIEW: NO
+M11_CLOSURE_EVENT_FINAL: NO
 LIVE_PAID_API_AUTHORIZED: NO
 
 ## Reviewed Snapshot
@@ -12,57 +12,30 @@ LIVE_PAID_API_AUTHORIZED: NO
 ```text
 TASK_ID: TASK-065
 BASE_MAIN_SHA: 5a714a410d4a4d5fc0b76cea62e7fd164f0cdd54
+REVIEWED_TASK_HEAD_SHA: bb6e57ca6ba69b1a613430b3903d032c58cfdcd4
 BRANCH: ai/task-065
-BRANCH_STATUS_VS_MAIN: AHEAD
-AHEAD_BY: 1
+AHEAD_BY: 2
 BEHIND_BY: 0
 MERGE_BASE_SHA: 5a714a410d4a4d5fc0b76cea62e7fd164f0cdd54
 TASK_BLOB_SHA: 9218a6a23415b5f26f74648dce2a546c4b0d69e7
-CLOSURE_BLOB_SHA: 6af75547093b916dd5b497f62fc617374d03a34c
-RESULT_BLOB_SHA: 1ca814bee0998f57c397ec6031523eba8ad1d8c2
+CLOSURE_BLOB_SHA: 422a46cd19a19236fef529654913b65f1b305a98
+RESULT_BLOB_SHA: 1d565576f3b0bff2f9dd9612bb0fbe8406df62c5
 ```
 
 ## Scope Audit — PASS
 
-The task branch changes exactly:
+Cumulative branch delta from main is exactly:
 
 ```text
 .ai/proofs/M11-OPERATIONAL-PROOF-CLOSURE-065.md
 .ai/results/RESULT-065.md  # Bridge publication output only
 ```
 
-No production code, test code, schema, proof-lock, ADR, grant, capacity state, usage ledger, or prior proof artifact is changed.
+The FIX commit `bb6e57ca6ba69b1a613430b3903d032c58cfdcd4` changes only the closure record and publication result. No production code, test code, schema, proof-lock, ADR, capacity state, grant state, usage ledger, or prior proof artifact was modified.
 
-The reported closure evidence is otherwise directionally correct: final grant consumed, one provider call, zero retry, no executor authority created, proposal SHA match, operational-proof fingerprint match, single-call ledger evidence, exact input-token correlation, and no provider call/API-key value read during TASK-065.
+## B1 Resolution — PASS
 
-## Finding B1 — BLOCKER — Locked machine-readable invariant keys are not preserved exactly
-
-TASK-065 explicitly requires the closure record to preserve the following exact invariant keys:
-
-```text
-EXECUTOR_AUTHORITY_CREATED_BY_BRAIN: FALSE
-R9_SUCCESS_REQUIRED: YES
-TRUNCATED_OUTPUT_ACCEPTED: NO
-LIVE_PROOF_OUTPUT_ENVELOPE: 8192
-```
-
-The current closure uses semantic aliases instead:
-
-```text
-EXECUTOR_AUTHORITY_CREATED: FALSE
-R9_OPERATIONAL_PROOF_STRICTNESS: PRESERVED
-REAL_PROOF_MAX_OUTPUT_TOKENS: 8192
-```
-
-and does not include `TRUNCATED_OUTPUT_ACCEPTED: NO` in the locked invariant block.
-
-For a durable baseline-lock artifact, aliases are not sufficient. Downstream/manual verification must be able to compare the closure record against the frozen contract without interpretation.
-
-### Required correction B1
-
-In section `6. Locked Safety Invariants`, include the exact locked keys and values from TASK-065. Existing human-readable aliases may remain only if they do not contradict the exact keys.
-
-At minimum the block must include exactly:
+Section `6. Locked Safety Invariants` now preserves the exact frozen machine-readable keys and values required by TASK-065:
 
 ```text
 MAX_CALLS: 1
@@ -79,27 +52,13 @@ TIMEOUT_CONTRACT_SECONDS: 60..180
 LIVE_PROOF_OUTPUT_ENVELOPE: 8192
 ```
 
-## Finding B2 — BLOCKER — `0 active grants remain for TASK-062` overstates the durable grant-store state
+No semantic alias is required to interpret the baseline lock.
 
-The closure currently states:
+## B2 Resolution — PASS
 
-```text
-0 active grants remain for TASK-062.
-```
+The inaccurate `0 active grants remain for TASK-062` claim is removed.
 
-That wording conflates persistent runtime state with current usability.
-
-During the final-proof preparation, a fresh one-shot TASK-062 grant was created and successfully preflighted, then expired before execution; a second fresh grant was then created for the final successful live proof. The expired preflight-only grant was never consumed or reactivated.
-
-`AtomicPaidApiGrantStore` does not automatically delete or move an expired ACTIVE-state file when another grant is created. Expiration makes `require_active(...)` fail closed, but the persisted state can still be `ACTIVE` while usability is `EXPIRED`. Creating a later grant uses a different grant ID and does not clean earlier expired state.
-
-Therefore the closure must not claim zero ACTIVE-state records unless an exact read-only inventory actually proves that statement.
-
-### Required correction B2
-
-Perform read-only inventory of TASK-062 grant state and record the distinction precisely, without copying any raw grant ID into the closure.
-
-Acceptable semantics are:
+Read-only inventory now distinguishes persisted grant-store location from current usability:
 
 ```text
 FINAL_SUCCESSFUL_GRANT_STATE: CONSUMED
@@ -108,65 +67,17 @@ UNEXPIRED_USABLE_GRANTS_FOR_FINAL_PROOF: 0
 EXPIRED_PREFLIGHT_ONLY_GRANT_STATE: NON_USABLE
 ```
 
-If an expired preflight-only grant remains physically under `active/`, state that fact safely using count/state semantics only; do not include its raw grant ID. Do not mutate, delete, revoke, consume, reactivate, or clean up any grant during this FIX.
+The closure records three historical preflight-only preparation grants still physically under `active/`, all expired and therefore rejected by `require_active(...)`; the three live-call grants are consumed. No raw grant ID is copied into the closure record.
 
-The required security conclusion is `no reusable/usable grant remains`, not an inaccurate claim that no ACTIVE-state file exists.
+No grant cleanup, deletion, reactivation, consume, replay, capacity mutation, API-key value read, or provider call occurred during FIX.
 
-## Exact FIX Writable Scope
-
-EXECUTOR_ALLOWED_PATHS_JSON: [".ai/proofs/M11-OPERATIONAL-PROOF-CLOSURE-065.md"]
-
-Bridge-generated `.ai/results/RESULT-065.md` remains publication output only.
-
-No production/test/runtime path is authorized.
-
-## FIX Executor Dispatch Policy
-
-DISPATCH_EXECUTOR_POLICY_JSON: {"allow_paid_api":false,"candidates":[{"capacity_class":"SUBSCRIPTION","executor_id":"antigravity","preference_rank":0,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]},{"capacity_class":"SUBSCRIPTION","executor_id":"codex","preference_rank":1,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]}],"operation":"FIX","required_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"]}
-
-Human selects exactly one subscription Executor. No silent reroute, paid Executor, automatic failover, or second executor.
-
-## FIX Validation
-
-No provider call and no runtime mutation are permitted.
-
-Required checks:
-
-```text
-git diff --check
-exact writable-scope check
-read-only TASK-062 grant-state inventory
-exact invariant-key presence check
-no raw grant ID / secret / raw provider body / provider request ID / absolute local path leakage
-```
-
-Do not independently rerun the full repository suite merely for this documentation-only FIX. If Bridge publication enforces its own mandatory repository test gate, let Bridge perform it.
-
-Required evidence:
-
-```text
-EXACT_LOCKED_INVARIANT_KEYS_PRESENT: YES
-FINAL_SUCCESSFUL_GRANT_STATE: CONSUMED
-PRIOR_LIVE_CALL_GRANTS_REUSABLE: NO
-UNEXPIRED_USABLE_GRANTS_FOR_FINAL_PROOF: 0
-GRANT_STATE_WORDING_ACCURATE: YES
-NO_GRANT_MUTATION_DURING_FIX: YES
-NO_PROVIDER_CALL_DURING_FIX: YES
-NO_API_KEY_VALUE_READ_DURING_FIX: YES
-NO_PRODUCTION_CODE_CHANGE: YES
-NO_TEST_CODE_CHANGE: YES
-NO_SECRET_OR_RAW_RESPONSE_LEAK: YES
-SCOPE_EXACT: YES
-```
-
-## Evidence Already Passing
-
-`RESULT-065.md` reports:
+## Closure Contract Audit — PASS
 
 ```text
 M11_STATUS: OPERATIONALLY_PROVEN
-M11_CLOSED: YES
-FINAL_GRANT_STATE: CONSUMED
+M11_CLOSED_CLAIM_IN_RECORD: YES
+PRODUCTION_BASELINE_SHA: 5a714a410d4a4d5fc0b76cea62e7fd164f0cdd54
+FINAL_SUCCESSFUL_GRANT_STATE: CONSUMED
 FINAL_PROVIDER_CALL_COUNT: 1
 FINAL_RETRY_COUNT: 0
 FINAL_EXECUTOR_AUTHORITY_CREATED: NO
@@ -174,24 +85,41 @@ FINAL_PROPOSAL_SHA256_MATCH: YES
 FINAL_OPERATIONAL_PROOF_FINGERPRINT_MATCH: YES
 FINAL_LEDGER_SINGLE_CALL_EVIDENCE: YES
 FINAL_INPUT_TOKEN_CORRELATION_EXACT: YES
+PRIOR_LIVE_CALL_GRANTS_REUSABLE: NO
+UNEXPIRED_USABLE_GRANTS_FOR_FINAL_PROOF: 0
 NO_RUNTIME_MUTATION: YES
-NO_PROVIDER_CALL_DURING_TASK: YES
-NO_API_KEY_VALUE_READ_DURING_TASK: YES
+NO_PRODUCTION_CODE_CHANGE: YES
+NO_TEST_CODE_CHANGE: YES
+NO_PROVIDER_CALL_DURING_TASK_OR_FIX: YES
+NO_API_KEY_VALUE_READ_DURING_TASK_OR_FIX: YES
+NO_SECRET_OR_RAW_RESPONSE_LEAK_IN_CLOSURE: YES
 SCOPE_EXACT: YES
 ```
 
-Bridge publication also reports the repository suite green at `1972 passed, 7 skipped, 0 failed`. These do not override B1/B2 because TASK-065 is a durable evidence contract and the closure text itself must be exact.
+The three-attempt narrative remains causal and consistent with the locked forensic history: attempt 1 timed out at the old ~30s envelope; attempt 2 reached the provider with exact 3155==3155 input accounting and truncated at 2000; attempt 3 used timeout 120s plus the 8192 envelope and produced a successful strict R9 operational proof with exactly one provider call and zero retry.
+
+## Validation Evidence
+
+Bridge publication reports the canonical repository suite green:
+
+```text
+1972 passed, 7 skipped, 0 failed
+```
+
+TASK-065 itself changes no executable code. The extra suite execution does not alter the closure decision.
 
 ## Review Decision
 
 ```text
-TASK-065: CHANGES_REQUIRED
-BLOCKERS: 2
-B1: RESTORE EXACT LOCKED INVARIANT KEYS
-B2: CORRECT ACTIVE-STATE VS USABILITY GRANT CLAIM
-MERGE: FORBIDDEN
-M11_CLOSURE_EVENT: NOT YET FINAL
-PAID PROVIDER CALL: FORBIDDEN
+TASK-065: PASS
+BLOCKERS: 0
+B1: RESOLVED
+B2: RESOLVED
+APPROVED: YES
+READY_FOR_HUMAN_MERGE: YES
+MERGE_AUTHORIZED: NO
+M11_CLOSURE_EVENT_FINAL: NO
+PAID PROVIDER CALL: NOT AUTHORIZED
 ```
 
-After a clean documentation-only FIX publication, ChatGPT must review the new closure blob before merge. No new paid API call is needed or authorized.
+TASK-065 PASS does not itself move `main` and does not authorize any future paid provider call. Per the locked TASK-065 contract, the M11 closure event becomes final only after a separate explicit Human merge of the exact reviewed head `bb6e57ca6ba69b1a613430b3903d032c58cfdcd4` into `main`.
