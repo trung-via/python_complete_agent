@@ -188,7 +188,15 @@ def make_execute_environment(
             ".ai/decisions/ADR-032.md": context_bytes,
         },
     }
-    calls = {"invoke": 0, "publish": [], "persist": [], "state": [], "published": False}
+    calls = {
+        "invoke": 0,
+        "publish": [],
+        "persist": [],
+        "state": [],
+        "published": False,
+        "lease_released": [],
+        "auth_saved": [],
+    }
 
     class LeaseStore:
         def require_active(self, value):
@@ -196,6 +204,9 @@ def make_execute_environment(
 
         def acquire(self, value):
             raise AssertionError("execute must never acquire a lease")
+
+        def release(self, value):
+            calls["lease_released"].append(value)
 
     class FakeTransport:
         def __init__(self, workspace, *, codex_executable, timeout_seconds):
@@ -250,6 +261,22 @@ def make_execute_environment(
         calls["publish"].append(namespace)
         calls["published"] = True
 
+    current_auth = dict(auth)
+
+    def fake_save_auth(task_id, new_auth):
+        calls["auth_saved"].append((task_id, dict(new_auth)))
+        current_auth.clear()
+        current_auth.update(new_auth)
+
+    def fake_load_auth(task_id):
+        if calls["published"]:
+            return {
+                **current_auth,
+                "status": "CONSUMED",
+                "published_sha": "e" * 40,
+            }
+        return dict(current_auth)
+
     monkeypatch.setattr(bridge, "ensure_git", lambda: None)
     monkeypatch.setattr(
         bridge,
@@ -286,15 +313,8 @@ def make_execute_environment(
         bridge, "get_runtime_paths", lambda: {"executor_automation": tmp_path / "runtime"}
     )
     monkeypatch.setattr(bridge, "cmd_publish", fake_publish)
-    monkeypatch.setattr(
-        bridge,
-        "load_authorization",
-        lambda task_id: {
-            **auth,
-            "status": "CONSUMED",
-            "published_sha": "e" * 40,
-        },
-    )
+    monkeypatch.setattr(bridge, "save_authorization", fake_save_auth)
+    monkeypatch.setattr(bridge, "load_authorization", fake_load_auth)
     monkeypatch.setattr(bridge, "resolve_git_blob_sha", lambda ref, path: "f" * 40)
     monkeypatch.setattr(
         bridge,
@@ -861,9 +881,8 @@ def test_e4_nonzero_failure_surfaces_stable_diagnostic_codes(monkeypatch, tmp_pa
     assert "no publication and no retry" in msg
 
 
-def test_e4_zero_exit_no_delta_surfaces_diagnostic_and_fails_closed(monkeypatch, tmp_path):
-    # No dirty paths
-    _, _, calls = make_execute_environment(monkeypatch, tmp_path)
+def test_clean_noop_exited_zero_classified_blocked_and_releases_lease(monkeypatch, tmp_path):
+    auth, _, calls = make_execute_environment(monkeypatch, tmp_path)
     monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ())
 
     with pytest.raises(SystemExit):
@@ -871,8 +890,158 @@ def test_e4_zero_exit_no_delta_surfaces_diagnostic_and_fails_closed(monkeypatch,
 
     assert calls["invoke"] == 1
     assert calls["publish"] == []
+    assert len(calls["lease_released"]) == 1
+    assert len(calls["auth_saved"]) == 1
+    saved_task_id, saved_auth = calls["auth_saved"][0]
+    assert saved_task_id == 43
+    assert saved_auth["status"] == "EXECUTION_BLOCKED"
+    assert saved_auth["lease_id"] == auth["lease_id"]
+
     last_state = calls["state"][-1]
-    assert last_state[0] == "RECOVERY_REQUIRED"
+    assert last_state[0] == "EXECUTION_BLOCKED"
     msg = last_state[1]
+    assert "CLEAN_NO_WORKTREE_DELTA" in msg
     assert "diagnostic=JSON_EVENT_STREAM" in msg
-    assert "Executor produced no worktree delta" in msg
+    assert "no publication, no retry, no reroute" in msg
+
+
+def test_noop_with_branch_drift_enters_recovery(monkeypatch, tmp_path):
+    _, _, calls = make_execute_environment(monkeypatch, tmp_path)
+    monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ())
+    monkeypatch.setattr(bridge, "observe_e4_branch", lambda: "ai/task-drift")
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+
+    assert calls["invoke"] == 1
+    assert calls["publish"] == []
+    assert len(calls["lease_released"]) == 0
+    assert calls["state"][-1][0] == "RECOVERY_REQUIRED"
+
+
+def test_noop_with_head_drift_enters_recovery(monkeypatch, tmp_path):
+    _, _, calls = make_execute_environment(monkeypatch, tmp_path)
+    monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ())
+    observations = iter(("b" * 40, "c" * 40))
+    monkeypatch.setattr(bridge, "observe_e4_head", lambda: next(observations))
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+
+    assert calls["invoke"] == 1
+    assert calls["publish"] == []
+    assert len(calls["lease_released"]) == 0
+    assert calls["state"][-1][0] == "RECOVERY_REQUIRED"
+
+
+def test_dirty_out_of_scope_enters_recovery(monkeypatch, tmp_path):
+    _, _, calls = make_execute_environment(monkeypatch, tmp_path)
+    monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ("unauthorized.txt",))
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+
+    assert calls["invoke"] == 1
+    assert calls["publish"] == []
+    assert len(calls["lease_released"]) == 0
+    assert calls["state"][-1][0] == "RECOVERY_REQUIRED"
+
+
+def test_clean_noop_release_failure_enters_recovery(monkeypatch, tmp_path):
+    _, _, calls = make_execute_environment(monkeypatch, tmp_path)
+    monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ())
+
+    class FailingLeaseStore:
+        def require_active(self, value):
+            pass
+
+        def acquire(self, value):
+            raise AssertionError("must not acquire")
+
+        def release(self, value):
+            raise OSError("lease release disk lock error")
+
+    monkeypatch.setattr(bridge, "get_lease_store", lambda: FailingLeaseStore())
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+
+    assert calls["invoke"] == 1
+    assert calls["publish"] == []
+    assert calls["state"][-1][0] == "RECOVERY_REQUIRED"
+    assert "clean no-op cleanup failed" in calls["state"][-1][1]
+
+
+def test_clean_noop_auth_persistence_failure_enters_recovery(monkeypatch, tmp_path):
+    _, _, calls = make_execute_environment(monkeypatch, tmp_path)
+    monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ())
+
+    def failing_save_auth(task_id, new_auth):
+        raise OSError("auth write failed")
+
+    monkeypatch.setattr(bridge, "save_authorization", failing_save_auth)
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+
+    assert calls["invoke"] == 1
+    assert calls["publish"] == []
+    assert len(calls["lease_released"]) == 1
+    assert calls["state"][-1][0] == "RECOVERY_REQUIRED"
+    assert "clean no-op cleanup failed" in calls["state"][-1][1]
+
+
+def test_is_exact_clean_noop_unit_predicate():
+    assert bridge.is_exact_clean_noop(
+        receipt_status=InvocationStatus.EXITED_ZERO,
+        pre_branch="ai/task-043",
+        post_branch="ai/task-043",
+        target_branch="ai/task-043",
+        pre_head_sha="a" * 40,
+        post_head_sha="a" * 40,
+        dirty_paths=(),
+    ) is True
+
+    # Non-zero exit status -> False
+    assert bridge.is_exact_clean_noop(
+        receipt_status=InvocationStatus.EXITED_NONZERO,
+        pre_branch="ai/task-043",
+        post_branch="ai/task-043",
+        target_branch="ai/task-043",
+        pre_head_sha="a" * 40,
+        post_head_sha="a" * 40,
+        dirty_paths=(),
+    ) is False
+
+    # Branch drift -> False
+    assert bridge.is_exact_clean_noop(
+        receipt_status=InvocationStatus.EXITED_ZERO,
+        pre_branch="ai/task-043",
+        post_branch="ai/task-044",
+        target_branch="ai/task-043",
+        pre_head_sha="a" * 40,
+        post_head_sha="a" * 40,
+        dirty_paths=(),
+    ) is False
+
+    # Head drift -> False
+    assert bridge.is_exact_clean_noop(
+        receipt_status=InvocationStatus.EXITED_ZERO,
+        pre_branch="ai/task-043",
+        post_branch="ai/task-043",
+        target_branch="ai/task-043",
+        pre_head_sha="a" * 40,
+        post_head_sha="b" * 40,
+        dirty_paths=(),
+    ) is False
+
+    # Dirty paths present -> False
+    assert bridge.is_exact_clean_noop(
+        receipt_status=InvocationStatus.EXITED_ZERO,
+        pre_branch="ai/task-043",
+        post_branch="ai/task-043",
+        target_branch="ai/task-043",
+        pre_head_sha="a" * 40,
+        post_head_sha="a" * 40,
+        dirty_paths=("bridge.py",),
+    ) is False

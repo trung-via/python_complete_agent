@@ -533,3 +533,31 @@ def test_production_module_is_pure_and_has_no_transport_call() -> None:
             "open",
         }
     )
+
+
+def test_context_pack_explicit_delta_obligation() -> None:
+    payload = _fixture().build().payload
+    assert b"RUN/FIX is implementation execution, not advisory review." in payload
+    assert (
+        b"An authorized non-empty worktree delta inside allowed paths is strictly required for implementation completion."
+        in payload
+    )
+    assert (
+        b"A turn that makes no worktree edits (no-op) violates the implementation protocol and is rejected by the post-executor gate."
+        in payload
+    )
+    assert b"If blocked or unable to implement, report the blocker explicitly rather than claiming success." in payload
+
+
+def test_context_pack_still_denies_commit_push_publish_merge() -> None:
+    payload = _fixture().build().payload
+    assert b"Do not commit, push, publish RESULT, or merge." in payload
+    assert b"Do not mutate Bridge authorization, lease, dispatch, failover, or hot-handoff state." in payload
+
+
+def test_context_pack_creates_no_new_authority() -> None:
+    payload = _fixture().build().payload
+    assert b"pack itself does not grant or extend RUN, FIX, or MERGE authority" in payload
+    assert b"AUTO_RETRY" not in payload
+    assert b"AUTO_REROUTE" not in payload
+    assert b"PAID_API" not in payload

@@ -3181,6 +3181,25 @@ def _persist_e4_receipt(path: Path, record: dict) -> None:
         raise ContinuityStateValidationError("E4 execution receipt read-back mismatch")
 
 
+def is_exact_clean_noop(
+    *,
+    receipt_status: InvocationStatus,
+    pre_branch: str,
+    post_branch: str,
+    target_branch: str,
+    pre_head_sha: str,
+    post_head_sha: str,
+    dirty_paths: tuple[str, ...] | list[str] | set[str],
+) -> bool:
+    """Classify whether an executor invocation resulted in an exact clean no-op (ADR-046 / TASK-073)."""
+    return (
+        receipt_status is InvocationStatus.EXITED_ZERO
+        and post_branch == pre_branch == target_branch
+        and post_head_sha == pre_head_sha
+        and len(dirty_paths) == 0
+    )
+
+
 def _e4_operational_failure(task_id: int, status: str, message: str) -> None:
     try:
         update_state(task_id, status, message)
@@ -3388,6 +3407,57 @@ def cmd_execute(args):
             task_num,
             blocked_status,
             err_msg,
+        )
+
+    if is_exact_clean_noop(
+        receipt_status=receipt.status,
+        pre_branch=pre_branch,
+        post_branch=post_branch,
+        target_branch=expected_branch,
+        pre_head_sha=pre_head_sha,
+        post_head_sha=post_head_sha,
+        dirty_paths=dirty_paths,
+    ):
+        cleanup_diagnostics: list[str] = []
+        try:
+            store = get_lease_store()
+            store.release(expected_lease)
+            cleanup_diagnostics.append("lease_released: OK")
+        except Exception as le:
+            cleanup_diagnostics.append(f"lease_release_failed: {le}")
+
+        auth_persisted = False
+        try:
+            auth_record = dict(auth)
+            auth_record["status"] = "EXECUTION_BLOCKED"
+            save_authorization(task_num, auth_record)
+            read_auth = load_authorization(task_num)
+            if isinstance(read_auth, dict) and read_auth.get("status") == "EXECUTION_BLOCKED":
+                auth_persisted = True
+                cleanup_diagnostics.append("auth_persisted: EXECUTION_BLOCKED")
+            else:
+                cleanup_diagnostics.append("auth_persisted: MISMATCH")
+        except Exception as ae:
+            cleanup_diagnostics.append(f"auth_persist_failed: {ae}")
+
+        lease_ok = "lease_released: OK" in cleanup_diagnostics
+        if lease_ok and auth_persisted:
+            final_status = "EXECUTION_BLOCKED"
+            msg = (
+                f"E4 execution blocked: CLEAN_NO_WORKTREE_DELTA; "
+                f"diagnostic={diagnostic.code}; no publication, no retry, no reroute"
+            )
+        else:
+            final_status = "RECOVERY_REQUIRED"
+            msg = (
+                f"E4 clean no-op cleanup failed ({'; '.join(cleanup_diagnostics)}); "
+                f"diagnostic={diagnostic.code}; recovery required"
+            )
+
+        _e4_operational_failure(
+            task_num,
+            final_status,
+            msg,
         )
 
     try:
@@ -4731,7 +4801,7 @@ STATUS: READY_FOR_REVIEW
 ```
 
 ## Tests
-Command: `{args.test or '(not supplied)'}`  
+Command: `{args.test or '(not supplied)'}`
 Exit code: {test_rc}
 
 ```text

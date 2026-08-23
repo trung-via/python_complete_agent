@@ -49,7 +49,9 @@ This context pack is transport material bound to externally verified authorizati
 
 THIN EXECUTOR RULES
 - Obey the exact WORK artifact and bounded CONTEXT artifacts below.
-- Do not redesign or widen scope beyond those artifacts.
+- RUN/FIX is implementation execution, not advisory review. An authorized non-empty worktree delta inside allowed paths is strictly required for implementation completion.
+- A turn that makes no worktree edits (no-op) violates the implementation protocol and is rejected by the post-executor gate. If blocked or unable to implement, report the blocker explicitly rather than claiming success.
+- Do not redesign or widen scope beyond the authorized artifacts and allowed paths.
 - Do not self-select or change the executor.
 - Do not mutate Bridge authorization, lease, dispatch, failover, or hot-handoff state.
 - Do not commit, push, publish RESULT, or merge.
