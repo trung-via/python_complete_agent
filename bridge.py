@@ -89,6 +89,13 @@ from src.aios_bridge.review_merge import (
     evaluate_merge_gate,
     parse_review_header,
 )
+from src.aios_bridge.roadmap_governance import (
+    DEFAULT_ROADMAP_REGISTRY,
+    parse_canonical_roadmap,
+    parse_roadmap_task_binding,
+    task_requires_roadmap_governance,
+    validate_task_binding,
+)
 from src.aios_bridge.executor_transports.codex_local import (
     CODEX_EXECUTOR_ID,
     CODEX_TRANSPORT_ID,
@@ -841,6 +848,16 @@ def read_git_blob_bytes(ref: str, path: str) -> bytes:
     return bytes(proc.stdout)
 
 
+def resolve_exact_roadmap_bytes(ref: str, path: str, expected_blob_sha: str) -> bytes:
+    """Resolve exact canonical roadmap bytes while enforcing caller-bound Git provenance."""
+    observed_blob_sha = resolve_git_blob_sha(ref, path)
+    if observed_blob_sha != expected_blob_sha:
+        raise ContinuityStateValidationError(
+            f"Canonical roadmap blob drift for {path}: expected {expected_blob_sha}, got {observed_blob_sha}"
+        )
+    return read_git_blob_bytes(ref, path)
+
+
 def resolve_e4_control_snapshot(cfg: dict, auth: dict) -> dict:
     """Freeze and validate one exact control commit for E4 launch."""
     fetch_control(cfg)
@@ -879,6 +896,9 @@ def resolve_e4_control_snapshot(cfg: dict, auth: dict) -> dict:
         operation=auth_operation,
         selected_executor=executor_id,
         require_explicit_profile=False,
+        roadmap_resolver=lambda path, blob_sha: resolve_exact_roadmap_bytes(
+            control_commit_sha, path, blob_sha
+        ),
     )
     markers = preflight.markers
     policy = preflight.policy
@@ -2498,6 +2518,9 @@ def cmd_handoff(args):
                 work_path=artifact_rel,
                 operation=ExecutionOperation.RUN,
                 selected_executor=selected_executor,
+                roadmap_resolver=lambda path, expected_blob: resolve_exact_roadmap_bytes(
+                    remote_ref(cfg), path, expected_blob
+                ),
             )
         except Exception as exc:
             fail(f"Executable task artifact preflight failed: {exc}")
@@ -2588,6 +2611,9 @@ def cmd_handoff(args):
                 work_path=artifact_rel,
                 operation=ExecutionOperation.FIX,
                 selected_executor=selected_executor,
+                roadmap_resolver=lambda path, expected_blob: resolve_exact_roadmap_bytes(
+                    remote_ref(cfg), path, expected_blob
+                ),
             )
         except Exception as exc:
             fail(f"Executable review artifact preflight failed: {exc}")
@@ -5318,7 +5344,50 @@ def cmd_merge_reviewed(args):
         print(f"[MERGE_GATE] GIT_OPERATION_FAILED: Malformed count integers ({p_counts.stdout.strip()!r}): {exc}")
         sys.exit(1)
 
-    # 5. Evaluate pure merge gate
+    # 5. Bind roadmap-governed reviews to the exact task artifact and current
+    # locked roadmap before the existing reviewed-head merge checks.  Legacy
+    # non-governed tasks remain compatible.
+    roadmap_governed = False
+    task_roadmap_binding = None
+    current_roadmap = None
+    task_path = f".ai/tasks/TASK-{task_num:03d}.md"
+    p_task_artifact = git("show", f"{current_task_head_sha}:{task_path}", check=False)
+    if p_task_artifact.returncode == 0 and p_task_artifact.stdout.strip():
+        task_text = p_task_artifact.stdout
+        roadmap_governed = task_requires_roadmap_governance(task_text)
+        if roadmap_governed:
+            try:
+                task_roadmap_binding = parse_roadmap_task_binding(task_text)
+                registration = DEFAULT_ROADMAP_REGISTRY.get(
+                    (task_roadmap_binding.roadmap_id, task_roadmap_binding.roadmap_version)
+                )
+                if registration is None:
+                    raise ContinuityStateValidationError("Task-bound roadmap is not registered")
+                exact_roadmap_bytes = resolve_exact_roadmap_bytes(
+                    current_main_sha,
+                    registration.artifact_path,
+                    registration.roadmap_blob_sha,
+                )
+                current_roadmap = parse_canonical_roadmap(
+                    exact_roadmap_bytes,
+                    artifact_path=registration.artifact_path,
+                    expected_blob_sha=registration.roadmap_blob_sha,
+                )
+                task_markers = parse_executor_automation_markers(
+                    task_text,
+                    work_path=task_path,
+                )
+                validate_task_binding(
+                    task_text,
+                    task_roadmap_binding,
+                    current_roadmap,
+                    context_refs=task_markers.context_refs,
+                )
+            except Exception as exc:
+                print(f"[MERGE_GATE] ROADMAP_CURRENT_DRIFT: Roadmap gate input invalid: {exc}")
+                sys.exit(1)
+
+    # 6. Evaluate pure merge gate
     try:
         input_data = ReviewedMergeInput(
             task_id=task_id,
@@ -5332,6 +5401,10 @@ def cmd_merge_reviewed(args):
             merge_base_sha=merge_base_sha,
             ahead_by=ahead_by,
             behind_by=behind_by,
+            roadmap_governed=roadmap_governed,
+            roadmap_audit=review_data.get("roadmap_audit"),
+            task_roadmap_binding=task_roadmap_binding,
+            current_roadmap=current_roadmap,
         )
         decision = evaluate_merge_gate(input_data)
     except Exception as exc:
@@ -5342,7 +5415,7 @@ def cmd_merge_reviewed(args):
         print(f"[MERGE_GATE] {decision.reason.value}: {decision.message}")
         sys.exit(1)
 
-    # 6. Execute fast-forward only mutation
+    # 7. Execute fast-forward only mutation
     p_push = git("push", remote, f"{current_task_head_sha}:refs/heads/{base_branch}", check=False)
     if p_push.returncode != 0:
         print(f"[MERGE_GATE] GIT_OPERATION_FAILED: Push failed: {p_push.stderr.strip()}")

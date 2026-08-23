@@ -8,6 +8,11 @@ import re
 from typing import Any
 
 from src.aios_bridge.continuity.errors import ContinuityStateValidationError
+from src.aios_bridge.roadmap_governance import (
+    CanonicalRoadmap,
+    RoadmapStatus,
+    RoadmapTaskBinding,
+)
 
 
 _SHA_RE = re.compile(r"\A[0-9a-f]{40}\Z")
@@ -32,6 +37,13 @@ class MergeGateReason(str, Enum):
     NO_TASK_DELTA = "NO_TASK_DELTA"
     POST_MERGE_IDENTITY_FAILED = "POST_MERGE_IDENTITY_FAILED"
     GIT_OPERATION_FAILED = "GIT_OPERATION_FAILED"
+    ROADMAP_AUDIT_MISSING = "ROADMAP_AUDIT_MISSING"
+    ROADMAP_AUDIT_NOT_PASS = "ROADMAP_AUDIT_NOT_PASS"
+    ROADMAP_IDENTITY_MISMATCH = "ROADMAP_IDENTITY_MISMATCH"
+    ROADMAP_MILESTONE_MISMATCH = "ROADMAP_MILESTONE_MISMATCH"
+    ROADMAP_CAPABILITY_MISMATCH = "ROADMAP_CAPABILITY_MISMATCH"
+    ROADMAP_BINDING_FINGERPRINT_MISMATCH = "ROADMAP_BINDING_FINGERPRINT_MISMATCH"
+    ROADMAP_CURRENT_DRIFT = "ROADMAP_CURRENT_DRIFT"
 
 
 class ReviewHeaderParseError(ContinuityStateValidationError):
@@ -39,6 +51,39 @@ class ReviewHeaderParseError(ContinuityStateValidationError):
     def __init__(self, message: str, reason: MergeGateReason) -> None:
         super().__init__(message)
         self.reason = reason
+
+
+@dataclass(frozen=True)
+class RoadmapReviewAudit:
+    """Exact roadmap evidence independently asserted by a PASS review."""
+    roadmap_audit: str
+    roadmap_id: str
+    roadmap_version: str
+    roadmap_blob_sha: str
+    roadmap_fingerprint: str
+    milestone: str
+    capability_id: str
+    requirement_bindings_fingerprint: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.roadmap_audit, str) or not _STATUS_TOKEN_RE.fullmatch(self.roadmap_audit):
+            raise ContinuityStateValidationError("roadmap_audit must be exact uppercase token")
+        for name, value in (
+            ("roadmap_id", self.roadmap_id),
+            ("roadmap_version", self.roadmap_version),
+            ("milestone", self.milestone),
+            ("capability_id", self.capability_id),
+        ):
+            if not isinstance(value, str) or not value or value != value.strip():
+                raise ContinuityStateValidationError(f"{name} must be exact non-empty string")
+        if not _SHA_RE.fullmatch(self.roadmap_blob_sha):
+            raise ContinuityStateValidationError("roadmap_blob_sha must be exact lowercase 40-hex")
+        for name, value in (
+            ("roadmap_fingerprint", self.roadmap_fingerprint),
+            ("requirement_bindings_fingerprint", self.requirement_bindings_fingerprint),
+        ):
+            if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None:
+                raise ContinuityStateValidationError(f"{name} must be exact lowercase 64-hex")
 
 
 @dataclass(frozen=True)
@@ -55,6 +100,10 @@ class ReviewedMergeInput:
     merge_base_sha: str
     ahead_by: int
     behind_by: int
+    roadmap_governed: bool = False
+    roadmap_audit: RoadmapReviewAudit | None = None
+    task_roadmap_binding: RoadmapTaskBinding | None = None
+    current_roadmap: CanonicalRoadmap | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.task_id, str) or not _TASK_ID_RE.fullmatch(self.task_id):
@@ -73,6 +122,18 @@ class ReviewedMergeInput:
             raise ContinuityStateValidationError(
                 f"auto_merge_eligible must be exact bool: got {self.auto_merge_eligible!r}"
             )
+        if type(self.roadmap_governed) is not bool:
+            raise ContinuityStateValidationError("roadmap_governed must be exact bool")
+        if self.roadmap_audit is not None and not isinstance(self.roadmap_audit, RoadmapReviewAudit):
+            raise ContinuityStateValidationError("roadmap_audit must be RoadmapReviewAudit or None")
+        if self.task_roadmap_binding is not None and not isinstance(
+            self.task_roadmap_binding, RoadmapTaskBinding
+        ):
+            raise ContinuityStateValidationError(
+                "task_roadmap_binding must be RoadmapTaskBinding or None"
+            )
+        if self.current_roadmap is not None and not isinstance(self.current_roadmap, CanonicalRoadmap):
+            raise ContinuityStateValidationError("current_roadmap must be CanonicalRoadmap or None")
 
         for name, sha_val in [
             ("reviewed_task_head_sha", self.reviewed_task_head_sha),
@@ -138,6 +199,74 @@ def evaluate_merge_gate(input_data: ReviewedMergeInput) -> MergeGateDecision:
             reason=MergeGateReason.AUTO_MERGE_DISABLED,
             message="Auto-merge is disabled (AUTO_MERGE_ELIGIBLE != YES)",
         )
+
+    if input_data.roadmap_governed:
+        audit = input_data.roadmap_audit
+        binding = input_data.task_roadmap_binding
+        current = input_data.current_roadmap
+        if audit is None:
+            return MergeGateDecision(
+                eligible=False,
+                reason=MergeGateReason.ROADMAP_AUDIT_MISSING,
+                message="PASS review for roadmap-governed task omits exact roadmap audit evidence",
+            )
+        if audit.roadmap_audit != "PASS":
+            return MergeGateDecision(
+                eligible=False,
+                reason=MergeGateReason.ROADMAP_AUDIT_NOT_PASS,
+                message=f"ROADMAP_AUDIT is {audit.roadmap_audit}, expected PASS",
+            )
+        if binding is None:
+            return MergeGateDecision(
+                eligible=False,
+                reason=MergeGateReason.ROADMAP_IDENTITY_MISMATCH,
+                message="Roadmap-governed task has no machine-bound task roadmap evidence",
+            )
+        if (audit.roadmap_id, audit.roadmap_version, audit.roadmap_blob_sha, audit.roadmap_fingerprint) != (
+            binding.roadmap_id,
+            binding.roadmap_version,
+            binding.roadmap_blob_sha,
+            binding.roadmap_fingerprint,
+        ):
+            return MergeGateDecision(
+                eligible=False,
+                reason=MergeGateReason.ROADMAP_IDENTITY_MISMATCH,
+                message="Review roadmap identity differs from exact task-bound roadmap identity",
+            )
+        if audit.milestone != binding.milestone:
+            return MergeGateDecision(
+                eligible=False,
+                reason=MergeGateReason.ROADMAP_MILESTONE_MISMATCH,
+                message="Review milestone differs from task-bound milestone",
+            )
+        if audit.capability_id != binding.capability_id:
+            return MergeGateDecision(
+                eligible=False,
+                reason=MergeGateReason.ROADMAP_CAPABILITY_MISMATCH,
+                message="Review capability differs from task-bound capability",
+            )
+        if audit.requirement_bindings_fingerprint != binding.requirement_bindings_fingerprint():
+            return MergeGateDecision(
+                eligible=False,
+                reason=MergeGateReason.ROADMAP_BINDING_FINGERPRINT_MISMATCH,
+                message="Review requirement binding fingerprint differs from task binding",
+            )
+        if current is None or current.status is not RoadmapStatus.LOCKED or (
+            current.roadmap_id,
+            current.roadmap_version,
+            current.roadmap_blob_sha,
+            current.roadmap_fingerprint,
+        ) != (
+            binding.roadmap_id,
+            binding.roadmap_version,
+            binding.roadmap_blob_sha,
+            binding.roadmap_fingerprint,
+        ):
+            return MergeGateDecision(
+                eligible=False,
+                reason=MergeGateReason.ROADMAP_CURRENT_DRIFT,
+                message="Current locked roadmap drifted from the reviewed task binding",
+            )
 
     if input_data.current_task_head_sha != input_data.reviewed_task_head_sha:
         return MergeGateDecision(
@@ -360,12 +489,43 @@ def parse_review_header(review_text: str) -> dict[str, Any]:
             MergeGateReason.REVIEW_BASE_INVALID,
         )
 
+    roadmap_keys = (
+        "ROADMAP_AUDIT", "ROADMAP_ID", "ROADMAP_VERSION", "ROADMAP_BLOB_SHA",
+        "ROADMAP_FINGERPRINT", "MILESTONE", "CAPABILITY_ID",
+        "REQUIREMENT_BINDINGS_FINGERPRINT",
+    )
+    roadmap_audit: RoadmapReviewAudit | None = None
+    if any(key in raw_kv for key in roadmap_keys):
+        missing = [key for key in roadmap_keys if key not in raw_kv]
+        if missing:
+            raise ReviewHeaderParseError(
+                f"Incomplete roadmap audit evidence; missing {missing}",
+                MergeGateReason.ROADMAP_AUDIT_MISSING,
+            )
+        try:
+            roadmap_audit = RoadmapReviewAudit(
+                roadmap_audit=raw_kv["ROADMAP_AUDIT"],
+                roadmap_id=raw_kv["ROADMAP_ID"],
+                roadmap_version=raw_kv["ROADMAP_VERSION"],
+                roadmap_blob_sha=raw_kv["ROADMAP_BLOB_SHA"],
+                roadmap_fingerprint=raw_kv["ROADMAP_FINGERPRINT"],
+                milestone=raw_kv["MILESTONE"],
+                capability_id=raw_kv["CAPABILITY_ID"],
+                requirement_bindings_fingerprint=raw_kv["REQUIREMENT_BINDINGS_FINGERPRINT"],
+            )
+        except ContinuityStateValidationError as exc:
+            raise ReviewHeaderParseError(
+                f"Malformed roadmap audit evidence: {exc}",
+                MergeGateReason.ROADMAP_IDENTITY_MISMATCH,
+            ) from exc
+
     return {
         "status": status,
         "approved": approved,
         "auto_merge_eligible": auto_merge_eligible,
         "reviewed_task_head_sha": reviewed_task_head,
         "reviewed_base_main_sha": reviewed_base_main,
+        "roadmap_audit": roadmap_audit,
     }
 
 
@@ -405,6 +565,7 @@ class MergeReceipt:
 
 __all__ = [
     "MergeGateReason",
+    "RoadmapReviewAudit",
     "ReviewHeaderParseError",
     "ReviewedMergeInput",
     "MergeGateDecision",

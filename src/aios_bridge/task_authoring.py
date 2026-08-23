@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import re
-from typing import Any
+from typing import Any, Callable, Mapping, Sequence
 
 from src.aios_bridge.continuity.errors import ContinuityStateValidationError
 from src.aios_bridge.continuity.executor import ExecutionOperation
@@ -15,6 +15,14 @@ from src.aios_bridge.runtime_dispatch import (
     ExecutorDispatchPolicySpec,
     ExecutorPolicyCandidateSpec,
     parse_executor_dispatch_policy_marker,
+)
+from src.aios_bridge.roadmap_governance import (
+    DEFAULT_ROADMAP_REGISTRY,
+    MilestoneCompletionRecord,
+    RoadmapPreflightDecision,
+    RoadmapRegistryEntry,
+    may_open_milestone,
+    require_roadmap_preflight,
 )
 
 
@@ -107,6 +115,7 @@ class ExecutableArtifactPreflight:
     markers: ExecutorAutomationMarkers
     policy: ExecutorDispatchPolicySpec
     candidate: ExecutorPolicyCandidateSpec
+    roadmap_decision: RoadmapPreflightDecision | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.work_path, str) or not self.work_path.strip():
@@ -123,6 +132,12 @@ class ExecutableArtifactPreflight:
             raise ExecutableArtifactPreflightError("policy must be ExecutorDispatchPolicySpec")
         if not isinstance(self.candidate, ExecutorPolicyCandidateSpec):
             raise ExecutableArtifactPreflightError("candidate must be ExecutorPolicyCandidateSpec")
+        if self.roadmap_decision is not None and not isinstance(
+            self.roadmap_decision, RoadmapPreflightDecision
+        ):
+            raise ExecutableArtifactPreflightError(
+                "roadmap_decision must be RoadmapPreflightDecision or None"
+            )
 
 
 def validate_publisher_profile_marker(
@@ -223,6 +238,10 @@ def preflight_executable_artifact(
     operation: ExecutionOperation,
     selected_executor: str,
     require_explicit_profile: bool = True,
+    roadmap_resolver: Callable[[str, str], bytes] | None = None,
+    roadmap_registry: Mapping[tuple[str, str], RoadmapRegistryEntry] = DEFAULT_ROADMAP_REGISTRY,
+    roadmap_migration_approved: bool = False,
+    milestone_completion_records: Sequence[MilestoneCompletionRecord] = (),
 ) -> ExecutableArtifactPreflight:
     """
     Deterministically validate executable TASK/REVIEW artifact markers and dispatch policy.
@@ -288,6 +307,35 @@ def preflight_executable_artifact(
             f"Authorized executor '{selected_executor}' lacks required capabilities: {missing_names}"
         )
 
+    # 8. Governed roadmap validation is an additional fail-closed authoring gate.
+    # It deliberately runs only after the existing publisher/automation/dispatch
+    # contracts and performs no I/O itself.  The Bridge caller supplies exact Git
+    # blob bytes through roadmap_resolver before any authority-bearing mutation.
+    try:
+        roadmap_decision = require_roadmap_preflight(
+            content,
+            context_refs=markers.context_refs,
+            roadmap_resolver=roadmap_resolver,
+            registry=roadmap_registry,
+            migration_approved=roadmap_migration_approved,
+        )
+    except ContinuityStateValidationError as exc:
+        raise ExecutableArtifactPreflightError(str(exc)) from exc
+    if (
+        milestone_completion_records
+        and roadmap_decision.binding is not None
+        and roadmap_decision.roadmap is not None
+    ):
+        progression = may_open_milestone(
+            roadmap_decision.roadmap,
+            roadmap_decision.binding.milestone,
+            milestone_completion_records,
+        )
+        if not progression.allowed:
+            raise ExecutableArtifactPreflightError(
+                f"{progression.reason.value}: {progression.message}"
+            )
+
     return ExecutableArtifactPreflight(
         work_path=work_path,
         operation=operation,
@@ -295,6 +343,7 @@ def preflight_executable_artifact(
         markers=markers,
         policy=policy,
         candidate=candidate,
+        roadmap_decision=roadmap_decision,
     )
 
 
