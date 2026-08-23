@@ -22,7 +22,16 @@ LLM_CALL_ALLOWED: NO
 PAID_API_CALL_ALLOWED: NO
 AUTO_RETRY_ALLOWED: NO
 AUTO_REROUTE_ALLOWED: NO
+E4_MARKER_REPAIR: YES
+PRIOR_BOUNDED_EXECUTOR_INVOCATION_OCCURRED: NO
 ```
+
+## E4 Executor Automation Markers
+
+EXECUTOR_CONTEXT_REFS_JSON: [{"path":".ai/decisions/ADR-038-AIOS-ENGINEERING-H-SERIES-H0-AUTHORITY-BOUNDARY-CONTRACT-LOCK.md","blob_sha":"be56f92eef5dcffdc37cebafea280399730b151f"},{"path":".ai/decisions/ADR-043-AIOS-ENGINEERING-H1-REPOSITORY-SNAPSHOT-DISCOVERY-PROVENANCE-CONTRACT-LOCK.md","blob_sha":"140e1a03593e31f6681016ae45b427f9b16ee8c9"}]
+EXECUTOR_ALLOWED_PATHS_JSON: ["src/aios_engineering/harness/__init__.py","src/aios_engineering/harness/discovery.py","src/aios_engineering/harness/errors.py","tests/aios_engineering/harness/test_discovery.py"]
+
+These markers are machine-readable E4 authority inputs. They do not grant merge, retry, reroute, network, provider, or paid-API authority.
 
 ## Objective
 
