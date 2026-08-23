@@ -4,7 +4,7 @@ STATUS: READY
 CLASS: H1 — AIOS ENGINEERING / REPOSITORY INTELLIGENCE
 MILESTONE: H-SERIES H1
 EXECUTOR_MODE: DUAL_EXECUTOR_ALLOWED
-RECOMMENDED_EXECUTOR: antigravity
+RECOMMENDED_EXECUTOR: codex
 
 ## Baseline
 
@@ -22,46 +22,29 @@ LLM_CALL_ALLOWED: NO
 PAID_API_CALL_ALLOWED: NO
 AUTO_RETRY_ALLOWED: NO
 AUTO_REROUTE_ALLOWED: NO
-E4_MARKER_REPAIR: YES
 PRIOR_BOUNDED_EXECUTOR_INVOCATION_OCCURRED: NO
+E4_AUTHORING_REPAIR_COMPLETE: YES
 ```
 
-## E4 Executor Automation Markers
+The Human selected the Codex worker surface for the current RUN attempt. A failed E4 pre-invocation validation does not authorize retry/reroute by itself. No bounded executor invocation occurred during the prior marker-validation failures.
+
+## Machine-Readable E4 Inputs
 
 EXECUTOR_CONTEXT_REFS_JSON: [{"path":".ai/decisions/ADR-038-AIOS-ENGINEERING-H-SERIES-H0-AUTHORITY-BOUNDARY-CONTRACT-LOCK.md","blob_sha":"be56f92eef5dcffdc37cebafea280399730b151f"},{"path":".ai/decisions/ADR-043-AIOS-ENGINEERING-H1-REPOSITORY-SNAPSHOT-DISCOVERY-PROVENANCE-CONTRACT-LOCK.md","blob_sha":"140e1a03593e31f6681016ae45b427f9b16ee8c9"}]
 EXECUTOR_ALLOWED_PATHS_JSON: ["src/aios_engineering/harness/__init__.py","src/aios_engineering/harness/discovery.py","src/aios_engineering/harness/errors.py","tests/aios_engineering/harness/test_discovery.py"]
+DISPATCH_EXECUTOR_POLICY_JSON: {"allow_paid_api":false,"candidates":[{"capacity_class":"SUBSCRIPTION","executor_id":"codex","preference_rank":0,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["RUN"]},{"capacity_class":"SUBSCRIPTION","executor_id":"antigravity","preference_rank":1,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["RUN"]}],"operation":"RUN","required_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"]}
 
-These markers are machine-readable E4 authority inputs. They do not grant merge, retry, reroute, network, provider, or paid-API authority.
+The three marker lines above are the complete E4 machine-readable marker set for this executable RUN task. They create no merge, retry, reroute, network, provider, or paid-API authority.
 
 ## Objective
 
-Implement ADR-043 exactly: add deterministic, bounded, local-only repository snapshot discovery that converts one exact Git commit/tree into provenance-bearing H0 `RepositoryEvidenceRef` candidates plus deterministic non-regular-entry exclusions and a zero-authority audit receipt.
+Implement ADR-043 exactly: deterministic, bounded, local-only repository snapshot discovery that converts one exact Git commit/tree into provenance-bearing H0 `RepositoryEvidenceRef` candidates, deterministic non-regular-entry exclusions, a deterministic discovery result, and a zero-authority `HarnessReceipt`.
 
-H1 must establish trustworthy repository evidence inventory without introducing ranking, context selection, skill compilation, Bridge integration, executor authority, model calls, or network behavior.
-
-## Locked Architecture
-
-```text
-exact lowercase commit SHA
-        ↓
-local Git commit/tree verification
-        ↓
-bounded NUL-delimited ls-tree stream
-        ↓
-strict Git metadata/path validation
-        ↓
-regular tracked blob candidates
-        +
-deterministic non-regular exclusions
-        ↓
-RepositoryDiscoveryResult
-        ↓
-HarnessReceipt(authority/network/llm/paid_api = FALSE)
-```
+H1 is discovery/provenance only. Do not introduce relevance ranking, context selection, skill compilation, Bridge integration, executor authority, model calls, network access, retry/failover, or merge authority.
 
 ## Writable Scope
 
-Implementation may modify/create only:
+Executor may modify/create only:
 
 ```text
 src/aios_engineering/harness/__init__.py
@@ -70,23 +53,16 @@ src/aios_engineering/harness/errors.py
 tests/aios_engineering/harness/test_discovery.py
 ```
 
-Bridge-generated publication may additionally create/update:
+Bridge-generated publication may create/update `.ai/results/RESULT-070.md`; that path is not executor writable scope.
 
-```text
-.ai/results/RESULT-070.md
-```
-
-No other path is writable.
-
-## Explicitly Forbidden
+Explicitly forbidden:
 
 ```text
 bridge.py
 src/aios_bridge/**
 src/aios_engineering/harness/contracts.py
 src/aios_engineering/harness/fingerprint.py
-.agents/skills/aios-worker/**
-.agents/workflows/aios-worker.md
+.agents/**
 .ai/decisions/**
 .ai/reviews/**
 .ai/tasks/**
@@ -95,21 +71,15 @@ requirements.txt
 
 No dependency changes.
 
-## Required H1 API / Contracts
+## Required H1 Surface
 
-Implementation names may be minimally adjusted for Python ergonomics, but the semantic surface must include:
-
-### 1. Discovery policy identity
-
-A stable constant/version such as:
+Implement a stable policy identity such as:
 
 ```text
 H1_DISCOVERY_POLICY_VERSION = "h1-v1"
 ```
 
-### 2. RepositoryDiscoveryExclusion
-
-Frozen immutable bounded record containing at minimum:
+Add frozen immutable `RepositoryDiscoveryExclusion` with at least:
 
 ```text
 path
@@ -119,11 +89,7 @@ object_type
 reason_code
 ```
 
-It must validate canonical path shape, exact lowercase 40-hex object SHA, bounded machine-readable mode/type/reason fields, and deterministic serialization.
-
-### 3. RepositoryDiscoveryResult
-
-Frozen immutable result containing at minimum:
+Add frozen immutable `RepositoryDiscoveryResult` with at least:
 
 ```text
 schema_version
@@ -135,18 +101,7 @@ candidate_set_fingerprint
 discovery_fingerprint
 ```
 
-Requirements:
-
-- exact tuple boundaries; no silent iterable coercion;
-- deterministic path ordering;
-- duplicate path/identity ambiguity rejected;
-- fingerprints mechanically recomputed/verified;
-- evidence candidates are priority 0 and `symbol_locator=None`;
-- no field can encode executor/approval/lease/dispatch/merge/provider authority.
-
-### 4. Discovery execution surface
-
-Provide a deterministic local function/class equivalent to:
+Provide an execution surface equivalent to:
 
 ```python
 discover_repository_snapshot(
@@ -157,42 +112,36 @@ discover_repository_snapshot(
 ) -> tuple[RepositoryDiscoveryResult, HarnessReceipt]
 ```
 
-The implementation must require an exact lowercase 40-hex commit SHA. It must not accept symbolic refs/HEAD/tags/abbreviations as discovery identity.
+Input commit identity must be exact lowercase 40-hex. Reject `HEAD`, symbolic refs, tags, revision expressions, abbreviated SHA, uppercase SHA, malformed SHA.
 
-## Exact Git Provenance Requirements
+## Exact Provenance / Git Rules
 
-Use local Git object metadata, not recursive worktree scanning.
-
-Required semantics:
+Use the local Git object database, not recursive worktree scanning. Required semantics:
 
 ```text
 exact commit exists locally
-exact commit resolves as commit object
+exact commit is a commit object
 exact tree SHA resolved
 tracked tree enumerated from exact commit
 untracked files excluded by construction
-worktree dirty bytes do not replace tree-bound blob identities
+dirty worktree bytes never substitute tree-bound blob identities
 ```
 
-Use explicit argv + `shell=False`.
+Use explicit argv, `shell=False`, and local Git only. No fetch/pull/clone/remote access.
 
-No command used by H1 may fetch/pull/clone/contact remotes.
-
-## Git Entry Semantics
-
-Eligible evidence candidates:
+Eligible evidence entries:
 
 ```text
-mode 100644 + type blob
-mode 100755 + type blob
+100644 + blob
+100755 + blob
 ```
 
-Each becomes:
+Each eligible entry becomes:
 
 ```text
 RepositoryEvidenceRef(
-  path=<tree path>,
-  blob_sha=<exact blob sha>,
+  path=<canonical repo-relative Git tree path>,
+  blob_sha=<exact tree blob SHA>,
   evidence_kind=<deterministic classifier>,
   reason_code="DISCOVERED_GIT_BLOB",
   priority=0,
@@ -200,43 +149,41 @@ RepositoryEvidenceRef(
 )
 ```
 
-Non-regular entries must not become evidence. Deterministically account for at least:
+Non-regular entries must not become evidence. At minimum:
 
 ```text
-120000 → NON_REGULAR_GIT_MODE
-160000 → NON_REGULAR_GIT_MODE
-unexpected object type → UNSUPPORTED_GIT_OBJECT_TYPE
+120000 -> NON_REGULAR_GIT_MODE
+160000 -> NON_REGULAR_GIT_MODE
+unexpected object type -> UNSUPPORTED_GIT_OBJECT_TYPE
 ```
 
-Malformed regular entry metadata must fail closed rather than be emitted as an exclusion that hides corruption.
+Malformed regular-entry metadata or invalid path must fail closed, not be normalized or hidden as an exclusion.
 
-## Evidence-Kind Classifier
+## Deterministic Classifier
 
-Implement explicit deterministic rules with precedence:
+Precedence:
 
 ```text
 CONTRACT > TEST > DOCUMENTATION > CONFIGURATION > SOURCE > OTHER
 ```
 
-Minimum cases to test:
+Minimum required cases:
 
 ```text
-.ai/decisions/ADR-X.md        → CONTRACT
-tests/test_x.py               → TEST
-docs/guide.md                 → DOCUMENTATION
-README.md                     → DOCUMENTATION
-pyproject.toml                → CONFIGURATION
-requirements.txt              → CONFIGURATION
-src/pkg/module.py             → SOURCE
-scripts/tool.ps1              → SOURCE
-assets/sample.bin             → OTHER
+.ai/decisions/ADR-X.md -> CONTRACT
+tests/test_x.py -> TEST
+docs/guide.md -> DOCUMENTATION
+README.md -> DOCUMENTATION
+pyproject.toml -> CONFIGURATION
+requirements.txt -> CONFIGURATION
+src/pkg/module.py -> SOURCE
+scripts/tool.ps1 -> SOURCE
+assets/sample.bin -> OTHER
 ```
 
-A path matching a higher-precedence rule must not be reclassified by a lower rule.
+Classification is path-only; do not inspect file prose/content.
 
-Do not inspect prose/file contents for classification.
-
-## Bounded Stream Requirements
+## Bounded Discovery
 
 Define finite hard constants for at least:
 
@@ -246,9 +193,9 @@ MAX_DISCOVERY_STREAM_BYTES
 MAX_GIT_TREE_RECORD_BYTES
 ```
 
-Tree enumeration must be bounded while reading/parsing. An implementation that obtains the entire unbounded `ls-tree` output via a single unrestricted capture and only checks size afterwards is not acceptable.
+Enumerate with NUL-delimited Git output or equivalent unambiguous framing. Bounds must be enforced while reading/parsing; do not capture an unbounded whole-repository stdout and check only afterward.
 
-On any limit breach:
+Any bound breach:
 
 ```text
 FAIL_CLOSED: YES
@@ -258,34 +205,13 @@ REROUTE: NO
 NETWORK_FALLBACK: NO
 ```
 
-Use NUL-delimited records or equivalent unambiguous framing.
+## Fingerprints / Receipt
 
-## Fingerprints
+Reuse H0 canonical serialization and fingerprint helpers without modifying `contracts.py` or `fingerprint.py`.
 
-Use existing H0 canonical serialization/hash helpers without modifying them.
+Candidate-set fingerprint uses the emitted evidence set. Discovery fingerprint binds policy version + exact snapshot + canonically ordered evidence + deterministic exclusions + candidate-set fingerprint.
 
-### Candidate set fingerprint
-
-Use H0 `compute_candidate_set_fingerprint` over the emitted H1 evidence set. Same semantic evidence set must produce the same fingerprint independent of incidental traversal mechanics.
-
-### Discovery fingerprint
-
-Bind at minimum:
-
-```text
-schema_version
-policy_version
-snapshot
-evidence ordered canonically
-exclusions ordered canonically
-candidate_set_fingerprint
-```
-
-Changing commit/tree/blob inventory or policy version must change the discovery fingerprint.
-
-### Receipt fingerprints
-
-Receipt `input_fingerprint` must bind task id + exact snapshot request/policy. Receipt `output_fingerprint` must bind the final discovery result fingerprint.
+Receipt input fingerprint binds task id + exact snapshot request + policy. Receipt output fingerprint binds final discovery fingerprint.
 
 Receipt invariants:
 
@@ -297,54 +223,46 @@ paid_api_used: FALSE
 candidate_count == selected_count + excluded_count
 ```
 
-For H1 only, `selected_count` means emitted discovery evidence count; it is NOT relevance ranking.
+For H1, `selected_count` means emitted evidence count only; no relevance ranking exists.
 
 ## Mandatory Tests
 
-Tests must include pure parser/classifier tests and local temporary-Git integration tests.
-
-At minimum prove:
+Tests must prove at minimum:
 
 ```text
 EXACT_COMMIT_SHA_REQUIRED: YES
 HEAD_ACCEPTED_AS_INPUT: NO
 ABBREVIATED_SHA_ACCEPTED: NO
 UPPERCASE_SHA_ACCEPTED: NO
-
 SNAPSHOT_TREE_SHA_EXACT: YES
 TRACKED_BLOB_SHA_EXACT: YES
 UNTRACKED_FILE_DISCOVERED: NO
 DIRTY_WORKTREE_BYTES_SUBSTITUTED: NO
-
 REGULAR_100644_DISCOVERED: YES
 REGULAR_100755_DISCOVERED: YES
 NON_REGULAR_PROMOTED_TO_EVIDENCE: NO
 MALFORMED_GIT_RECORD_FAIL_CLOSED: YES
 INVALID_PATH_FAIL_CLOSED: YES
-
 CLASSIFIER_PRECEDENCE: PASS
 EVIDENCE_ORDER_DETERMINISTIC: YES
 PRIORITY_ALWAYS_ZERO: YES
 SYMBOL_LOCATOR_ALWAYS_NULL: YES
-
 EXACT_TUPLE_RESULT_CONTRACT: YES
 DUPLICATE_AMBIGUITY_REJECTED: YES
 CANDIDATE_SET_FINGERPRINT_DETERMINISTIC: YES
 DISCOVERY_FINGERPRINT_DETERMINISTIC: YES
 DISCOVERY_FINGERPRINT_SNAPSHOT_SENSITIVE: YES
-
 ENTRY_BOUND_FAIL_CLOSED: YES
 STREAM_BYTE_BOUND_FAIL_CLOSED: YES
 RECORD_BYTE_BOUND_FAIL_CLOSED: YES
 UNBOUNDED_WHOLE_STREAM_CAPTURE: NO
-
 NETWORK_USED: NO
 LLM_USED: NO
 PAID_API_USED: NO
 AUTHORITY_CREATED: NO
 ```
 
-Temporary Git tests must remain local-only and must not add a remote.
+Temporary Git integration tests must remain local-only and must not add a remote.
 
 ## Validation Commands
 
@@ -362,7 +280,7 @@ Pre-task full repository baseline:
 2163 passed, 7 skipped, 0 failed
 ```
 
-## Result Evidence Required
+## RESULT Evidence
 
 `RESULT-070.md` must report at minimum:
 
@@ -370,7 +288,6 @@ Pre-task full repository baseline:
 TARGETED_TESTS
 FULL_REPOSITORY_TESTS
 GIT_DIFF_CHECK
-
 EXACT_SNAPSHOT_BINDING
 GIT_OBJECT_PROVENANCE_ONLY
 UNTRACKED_DISCOVERED: NO
@@ -390,10 +307,10 @@ BRIDGE_CHANGED: NO
 SCOPE_EXACT
 ```
 
-Do not include raw repository source bodies or secret material in RESULT.
+Do not include raw repository source bodies, credentials, provider data, or secret material in RESULT.
 
 ## Acceptance Boundary
 
-TASK-070 is PASS only if H1 produces a deterministic bounded evidence inventory from an exact local Git snapshot while preserving every ADR-038 authority boundary and making zero Bridge/runtime/worker changes.
+TASK-070 passes only if H1 produces a deterministic bounded evidence inventory from an exact local Git snapshot while preserving ADR-038/ADR-043 authority boundaries and making zero Bridge/runtime/worker changes.
 
-H2 is not started by this task.
+H2 is not started or authorized by this task.
