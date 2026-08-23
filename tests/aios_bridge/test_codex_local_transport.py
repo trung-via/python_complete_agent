@@ -4,6 +4,7 @@ import ast
 from dataclasses import replace
 import hashlib
 import json
+import os
 from pathlib import Path
 import signal
 import subprocess
@@ -1310,3 +1311,50 @@ def test_exact_record_boundary_tail_start_parses_malformed_and_valid_records_cor
     # Because it starts on record boundary, malformed_line is counted as non_json
     assert outcome.diagnostic.stdout_non_json_line_count >= 1
     assert outcome.diagnostic.last_stdout_event_type == "turn.completed"
+
+
+def test_diagnostic_stream_read_strictly_bounded_to_budget_bytes() -> None:
+    class BoundedStreamCounter:
+        def __init__(self, data: bytes) -> None:
+            self._data = data
+            self._pos = 0
+            self.total_bytes_read = 0
+
+        def seek(self, offset: int, whence: int = os.SEEK_SET) -> int:
+            if whence == os.SEEK_SET:
+                self._pos = offset
+            elif whence == os.SEEK_END:
+                self._pos = len(self._data) + offset
+            elif whence == os.SEEK_CUR:
+                self._pos += offset
+            return self._pos
+
+        def tell(self) -> int:
+            return self._pos
+
+        def read(self, n: int = -1) -> bytes:
+            if n < 0:
+                chunk = self._data[self._pos:]
+            else:
+                chunk = self._data[self._pos : self._pos + n]
+            self._pos += len(chunk)
+            self.total_bytes_read += len(chunk)
+            return chunk
+
+    test_sizes = [0, 1, 100, 10000, 65535, 65536, 65537, 70000, 131072, 500000]
+    for size in test_sizes:
+        raw_data = b"x" * size
+        stream = BoundedStreamCounter(raw_data)
+        total, head, tail, truncated, head_boundary, tail_boundary = codex_local._read_bounded_stream(stream)
+        assert total == size
+        assert stream.total_bytes_read <= codex_local.MAX_CODEX_DIAGNOSTIC_SCAN_BYTES_PER_STREAM
+        assert len(head) + len(tail) <= codex_local.MAX_CODEX_DIAGNOSTIC_SCAN_BYTES_PER_STREAM
+        if size <= 65536:
+            assert truncated is False
+            assert len(tail) == 0
+        else:
+            assert truncated is True
+            assert len(head) == 32768
+            assert len(tail) == 32767
+            # Total bytes read across head and tail chunk is exactly 65536
+            assert stream.total_bytes_read == 65536

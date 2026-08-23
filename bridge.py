@@ -3211,9 +3211,9 @@ def is_productive_nonzero_recovery_candidate(
     pre_head_sha: str,
     post_head_sha: str,
     dirty_paths: tuple[str, ...] | list[str] | set[str],
-    allowed_paths: tuple[str, ...] | list[str] | set[str] | None = None,
-    publication_trust_valid: bool = True,
-    authorization_binding_valid: bool = True,
+    allowed_paths: tuple[str, ...] | list[str] | set[str],
+    publication_trust_valid: bool,
+    authorization_binding_valid: bool,
 ) -> bool:
     """Classify whether a non-zero executor invocation is eligible for productive recovery (ADR-047 / TASK-074)."""
     if receipt_status is not InvocationStatus.EXITED_NONZERO:
@@ -3226,14 +3226,25 @@ def is_productive_nonzero_recovery_candidate(
         return False
     if not dirty_paths:
         return False
-    if not publication_trust_valid or not authorization_binding_valid:
+    if publication_trust_valid is not True:
         return False
-    if allowed_paths is not None:
-        allowed_set = {p.replace("\\", "/").strip("/") for p in allowed_paths}
-        for p in dirty_paths:
-            norm = p.replace("\\", "/").strip("/")
-            if norm not in allowed_set:
-                return False
+    if authorization_binding_valid is not True:
+        return False
+    if not allowed_paths:
+        return False
+    allowed_set = {
+        p.replace("\\", "/").strip("/")
+        for p in allowed_paths
+        if isinstance(p, str) and p.strip()
+    }
+    if not allowed_set:
+        return False
+    for p in dirty_paths:
+        if not isinstance(p, str) or not p.strip():
+            return False
+        norm = p.replace("\\", "/").strip("/")
+        if norm not in allowed_set:
+            return False
     return True
 
 
@@ -3378,8 +3389,10 @@ def cmd_execute(args):
             last_stdout_event_type=None,
         )
 
+    publication_trust_valid = False
     try:
         verify_e4_publication_trust_snapshot(publication_trust)
+        publication_trust_valid = True
     except Exception as exc:
         _e4_operational_failure(
             task_num,
@@ -3428,6 +3441,19 @@ def cmd_execute(args):
             "RECOVERY_REQUIRED",
             f"E4 invocation evidence persistence failed; no publication: {exc}",
         )
+
+    authorization_binding_valid = False
+    try:
+        fresh_auth = get_active_authorization(task_num)
+        if fresh_auth is None or fresh_auth != auth:
+            raise ContinuityStateValidationError("ACTIVE authorization changed or missing after invocation")
+        fresh_lease = reconstruct_expected_executor_lease(fresh_auth)
+        if fresh_lease != expected_lease:
+            raise ContinuityStateValidationError("Reconstructed lease does not match expected lease")
+        get_lease_store().require_active(fresh_lease)
+        authorization_binding_valid = True
+    except Exception:
+        authorization_binding_valid = False
 
     if receipt.status is InvocationStatus.EXITED_ZERO:
         if is_exact_clean_noop(
@@ -3501,8 +3527,8 @@ def cmd_execute(args):
         post_head_sha=post_head_sha,
         dirty_paths=dirty_paths,
         allowed_paths=snapshot["allowed_paths"],
-        publication_trust_valid=True,
-        authorization_binding_valid=True,
+        publication_trust_valid=publication_trust_valid,
+        authorization_binding_valid=authorization_binding_valid,
     ):
         pass
     else:
@@ -3591,8 +3617,11 @@ def cmd_execute(args):
         summary=summary,
         notes=notes,
         message=None,
-        failure_state="RECOVERY_REQUIRED",
+        failure_state="RECOVERY_REQUIRED" if is_productive_recovery else "CHANGES_REQUIRED",
         publication_trust_snapshot=publication_trust,
+        allowed_paths=snapshot["allowed_paths"],
+        pre_head_sha=pre_head_sha,
+        pre_branch=pre_branch,
     )
     cmd_publish(publish_args)
 
@@ -4587,6 +4616,8 @@ def cmd_publish(args):
                 f"Yêu cầu publish action '{req_action}' không khớp với ACTIVE authorization action '{auth['action']}'."
             )
 
+    pre_test_head = getattr(args, "pre_head_sha", None) or observe_e4_head()
+
     # Re-validate against current control branch
     fetch_control(cfg)
     current_blob = get_remote_blob_sha(cfg, auth["artifact_path"])
@@ -4741,6 +4772,83 @@ def cmd_publish(args):
             )
             fail(
                 f"E4 protected Git administration drifted during test execution; work preserved: {exc}",
+                code=1,
+            )
+
+    post_test_branch = current_branch()
+    if post_test_branch != expected:
+        failure_state = getattr(args, "failure_state", None) or "RECOVERY_REQUIRED"
+        update_state(
+            task_id,
+            failure_state,
+            f"Current branch drifted to '{post_test_branch}' during test execution; expected '{expected}'; work preserved",
+        )
+        fail(
+            f"Current branch drifted to '{post_test_branch}' during test execution; expected '{expected}'; work preserved",
+            code=1,
+        )
+
+    post_test_head = observe_e4_head()
+    if post_test_head != pre_test_head:
+        failure_state = getattr(args, "failure_state", None) or "RECOVERY_REQUIRED"
+        update_state(
+            task_id,
+            failure_state,
+            f"Task branch HEAD drifted from '{pre_test_head}' to '{post_test_head}' during test execution; work preserved",
+        )
+        fail(
+            f"Task branch HEAD drifted from '{pre_test_head}' to '{post_test_head}' during test execution; work preserved",
+            code=1,
+        )
+
+    try:
+        post_test_auth = get_active_authorization(task_id)
+        if post_test_auth is None or post_test_auth != auth:
+            raise ContinuityStateValidationError(
+                "ACTIVE authorization was modified or missing after test execution"
+            )
+        post_test_lease = reconstruct_expected_executor_lease(post_test_auth)
+        if post_test_lease != expected_lease:
+            raise ContinuityStateValidationError(
+                "Reconstructed executor lease changed after test execution"
+            )
+        store.require_active(post_test_lease)
+    except Exception as exc:
+        failure_state = getattr(args, "failure_state", None) or "RECOVERY_REQUIRED"
+        update_state(
+            task_id,
+            failure_state,
+            f"E4 authorization or lease binding drifted during test execution; work preserved: {exc}",
+        )
+        fail(
+            f"E4 authorization or lease binding drifted during test execution; work preserved: {exc}",
+            code=1,
+        )
+
+    allowed_paths = getattr(args, "allowed_paths", None)
+    if allowed_paths is None and hot_handoff_info and "allowed_paths" in auth.get("hot_handoff", {}):
+        allowed_paths = auth["hot_handoff"]["allowed_paths"]
+
+    if allowed_paths is not None:
+        try:
+            post_test_dirty = collect_e4_dirty_paths()
+            validate_executor_worktree_delta(
+                pre_branch=branch,
+                post_branch=post_test_branch,
+                pre_head_sha=pre_test_head,
+                post_head_sha=post_test_head,
+                dirty_paths=post_test_dirty,
+                allowed_paths=allowed_paths,
+            )
+        except Exception as exc:
+            failure_state = getattr(args, "failure_state", None) or "RECOVERY_REQUIRED"
+            update_state(
+                task_id,
+                failure_state,
+                f"Dirty paths violated allowed scope during test execution; work preserved: {exc}",
+            )
+            fail(
+                f"Dirty paths violated allowed scope during test execution; work preserved: {exc}",
                 code=1,
             )
 

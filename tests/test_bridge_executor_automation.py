@@ -6,6 +6,7 @@ import inspect
 import json
 from pathlib import Path
 import subprocess
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -1173,6 +1174,21 @@ def test_is_productive_nonzero_recovery_candidate_predicate():
         authorization_binding_valid=False,
     ) is False
 
+    # Empty allowed paths -> False
+    assert bridge.is_productive_nonzero_recovery_candidate(
+        receipt_status=InvocationStatus.EXITED_NONZERO,
+        receipt_error_code="CODEX_EXIT_NONZERO",
+        pre_branch="ai/task-043",
+        post_branch="ai/task-043",
+        target_branch="ai/task-043",
+        pre_head_sha="a" * 40,
+        post_head_sha="a" * 40,
+        dirty_paths=("bridge.py",),
+        allowed_paths=[],
+        publication_trust_valid=True,
+        authorization_binding_valid=True,
+    ) is False
+
     # EXITED_ZERO -> False
     assert bridge.is_productive_nonzero_recovery_candidate(
         receipt_status=InvocationStatus.EXITED_ZERO,
@@ -1183,6 +1199,9 @@ def test_is_productive_nonzero_recovery_candidate_predicate():
         pre_head_sha="a" * 40,
         post_head_sha="a" * 40,
         dirty_paths=("bridge.py",),
+        allowed_paths=["bridge.py"],
+        publication_trust_valid=True,
+        authorization_binding_valid=True,
     ) is False
 
     # TIMED_OUT / INTERRUPTED / FAILED_TO_START -> False
@@ -1196,6 +1215,9 @@ def test_is_productive_nonzero_recovery_candidate_predicate():
             pre_head_sha="a" * 40,
             post_head_sha="a" * 40,
             dirty_paths=("bridge.py",),
+            allowed_paths=["bridge.py"],
+            publication_trust_valid=True,
+            authorization_binding_valid=True,
         ) is False
 
     # Error code not CODEX_EXIT_NONZERO -> False
@@ -1208,6 +1230,9 @@ def test_is_productive_nonzero_recovery_candidate_predicate():
         pre_head_sha="a" * 40,
         post_head_sha="a" * 40,
         dirty_paths=("bridge.py",),
+        allowed_paths=["bridge.py"],
+        publication_trust_valid=True,
+        authorization_binding_valid=True,
     ) is False
 
     # Branch drift -> False
@@ -1220,6 +1245,9 @@ def test_is_productive_nonzero_recovery_candidate_predicate():
         pre_head_sha="a" * 40,
         post_head_sha="a" * 40,
         dirty_paths=("bridge.py",),
+        allowed_paths=["bridge.py"],
+        publication_trust_valid=True,
+        authorization_binding_valid=True,
     ) is False
 
     # Head drift -> False
@@ -1232,6 +1260,9 @@ def test_is_productive_nonzero_recovery_candidate_predicate():
         pre_head_sha="a" * 40,
         post_head_sha="b" * 40,
         dirty_paths=("bridge.py",),
+        allowed_paths=["bridge.py"],
+        publication_trust_valid=True,
+        authorization_binding_valid=True,
     ) is False
 
     # Empty dirty paths -> False
@@ -1244,6 +1275,9 @@ def test_is_productive_nonzero_recovery_candidate_predicate():
         pre_head_sha="a" * 40,
         post_head_sha="a" * 40,
         dirty_paths=(),
+        allowed_paths=["bridge.py"],
+        publication_trust_valid=True,
+        authorization_binding_valid=True,
     ) is False
 
 
@@ -1257,6 +1291,7 @@ def test_productive_nonzero_exact_scope_and_green_suite_publishes_for_review(mon
     assert calls["invoke"] == 1
     assert len(calls["publish"]) == 1
     pub_arg = calls["publish"][0]
+    assert pub_arg.failure_state == "RECOVERY_REQUIRED"
     assert "E4_TRANSPORT_STATUS: EXITED_NONZERO" in pub_arg.notes
     assert "E4_TRANSPORT_ERROR: CODEX_EXIT_NONZERO" in pub_arg.notes
     assert "E4_TRANSPORT_DIAGNOSTIC: JSON_ERROR_EVENT" in pub_arg.notes
@@ -1268,45 +1303,36 @@ def test_productive_nonzero_exact_scope_and_green_suite_publishes_for_review(mon
     assert res.implementation_sha == "e" * 40
 
 
-def test_productive_nonzero_failed_test_suite_does_not_publish_and_enters_recovery(monkeypatch, tmp_path):
+def test_normal_exited_zero_passes_changes_required_failure_state(monkeypatch, tmp_path):
     _, _, calls = make_execute_environment(
-        monkeypatch, tmp_path, status=InvocationStatus.EXITED_NONZERO
+        monkeypatch, tmp_path, status=InvocationStatus.EXITED_ZERO
     )
     monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ("bridge.py",))
 
-    def failing_publish(namespace):
-        failure_state = getattr(namespace, "failure_state", None) or "CHANGES_REQUIRED"
-        bridge.update_state(namespace.task_id, failure_state, "Tests failed; do not publish")
-        bridge.fail("Tests failed (exit=1). Không commit/push.", code=1)
-
-    monkeypatch.setattr(bridge, "cmd_publish", failing_publish)
-
-    with pytest.raises(SystemExit):
-        bridge.cmd_execute(execute_args())
-
+    res = bridge.cmd_execute(execute_args())
     assert calls["invoke"] == 1
-    assert calls["publish"] == []
-    assert calls["state"][-1] == ("RECOVERY_REQUIRED", "Tests failed; do not publish")
+    assert len(calls["publish"]) == 1
+    pub_arg = calls["publish"][0]
+    assert pub_arg.failure_state == "CHANGES_REQUIRED"
 
 
-def test_post_test_publication_trust_drift_enters_recovery_and_blocks_publish(monkeypatch, tmp_path):
-    _, _, calls = make_execute_environment(
+def test_productive_nonzero_post_invocation_auth_mutation_blocks_and_enters_recovery(monkeypatch, tmp_path):
+    auth, _, calls = make_execute_environment(
         monkeypatch, tmp_path, status=InvocationStatus.EXITED_NONZERO
     )
     monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ("bridge.py",))
 
-    def publishing_with_trust_drift(namespace):
-        trust = getattr(namespace, "publication_trust_snapshot", None)
-        assert trust is not None
-        failure_state = getattr(namespace, "failure_state", None) or "RECOVERY_REQUIRED"
-        bridge.update_state(
-            namespace.task_id,
-            failure_state,
-            "E4 protected Git administration drifted during test execution; work preserved: hook mutated",
-        )
-        bridge.fail("E4 protected Git administration drifted during test execution; work preserved: hook mutated", code=1)
+    # Simulate post-invocation auth modification
+    calls_count = 0
 
-    monkeypatch.setattr(bridge, "cmd_publish", publishing_with_trust_drift)
+    def get_auth_sequence(task_id):
+        nonlocal calls_count
+        calls_count += 1
+        if calls_count == 1:
+            return auth
+        return {**auth, "executor_id": "codex_mutated"}
+
+    monkeypatch.setattr(bridge, "get_active_authorization", get_auth_sequence)
 
     with pytest.raises(SystemExit):
         bridge.cmd_execute(execute_args())
@@ -1314,7 +1340,6 @@ def test_post_test_publication_trust_drift_enters_recovery_and_blocks_publish(mo
     assert calls["invoke"] == 1
     assert calls["publish"] == []
     assert calls["state"][-1][0] == "RECOVERY_REQUIRED"
-    assert "E4 protected Git administration drifted during test execution" in calls["state"][-1][1]
 
 
 def test_productive_nonzero_out_of_scope_dirty_path_does_not_publish_and_enters_recovery(monkeypatch, tmp_path):
@@ -1374,3 +1399,259 @@ def test_productive_nonzero_empty_delta_fails_closed_without_publish(monkeypatch
     assert calls["invoke"] == 1
     assert calls["publish"] == []
     assert calls["state"][-1][0] == "RECOVERY_REQUIRED"
+
+
+def _setup_real_publish_repo(monkeypatch, tmp_path, *, action="FIX", task_id=43):
+    repo = tmp_path / "publish_repo"
+    init_publication_repo(repo)
+    monkeypatch.setattr(bridge, "PROJECT", repo)
+    monkeypatch.setattr(bridge, "AI", repo / ".ai")
+
+    runtime = tmp_path / "publish_runtime"
+    runtime.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(bridge, "get_runtime_dir", lambda repo_root=None: runtime)
+
+    cfg = {
+        "remote": "origin",
+        "control_branch": "ai-control",
+        "base_branch": "main",
+        "task_branch_prefix": "ai/task-",
+    }
+    bridge.save_json(runtime / "config.json", cfg)
+
+    task_branch = f"ai/task-{task_id:03d}"
+    subprocess.run(["git", "checkout", "-qb", task_branch], cwd=repo, check=True)
+    (repo / "bridge.py").write_text("# candidate change\n", encoding="utf-8")
+
+    op = ExecutionOperation(action)
+    art_path = f".ai/reviews/REVIEW-{task_id:03d}.md" if action == "FIX" else f".ai/tasks/TASK-{task_id:03d}.md"
+    lease = bridge.build_executor_lease_candidate(
+        task_id=f"TASK-{task_id:03d}",
+        workspace_id=bridge.get_workspace_id(repo),
+        operation=op,
+        target_branch=task_branch,
+        authorized_artifact_path=art_path,
+        authorized_artifact_blob_sha="a" * 40,
+        executor_id="antigravity",
+    )
+    store = bridge.get_lease_store(repo)
+    store.acquire(lease)
+
+    auth = {
+        "task_id": f"TASK-{task_id:03d}",
+        "action": action,
+        "kind": "REVIEW" if action == "FIX" else "TASK",
+        "artifact_path": art_path,
+        "artifact_blob_sha": "a" * 40,
+        "approved_at": bridge.now(),
+        "branch": task_branch,
+        "status": "ACTIVE",
+        "executor_id": "antigravity",
+        "lease_id": lease.lease_id,
+        "lease_fingerprint": lease.fingerprint(),
+        "workspace_id": bridge.get_workspace_id(repo),
+        "execution_fingerprint": lease.execution_fingerprint,
+    }
+    bridge.save_authorization(task_id, auth)
+
+    monkeypatch.setattr(bridge, "fetch_control", lambda c: None)
+    monkeypatch.setattr(bridge, "get_remote_blob_sha", lambda c, path: "a" * 40)
+    monkeypatch.setattr(
+        bridge,
+        "read_remote_file",
+        lambda c, path: "STATUS: CHANGES_REQUIRED\n" if action == "FIX" else "STATUS: ACTIVE\n",
+    )
+
+    return repo, auth, lease, runtime
+
+
+def test_real_cmd_publish_productive_nonzero_test_failure_updates_recovery_required(monkeypatch, tmp_path):
+    repo, auth, lease, runtime = _setup_real_publish_repo(monkeypatch, tmp_path)
+
+    publish_args = argparse.Namespace(
+        task_id=43,
+        action="FIX",
+        test=f'"{sys.executable}" -c "import sys; sys.exit(1)"',
+        summary="summary",
+        notes="notes",
+        message=None,
+        failure_state="RECOVERY_REQUIRED",
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        bridge.cmd_publish(publish_args)
+    assert exc.value.code == 1
+
+    # Authorization must NOT be consumed; work preserved
+    saved_auth = bridge.load_authorization(43)
+    assert saved_auth["status"] == "ACTIVE"
+    state = bridge.load_json(runtime / "state" / "CURRENT_STATE.json")
+    assert state["status"] == "RECOVERY_REQUIRED"
+    assert "Tests failed" in state["next_step"]
+
+
+def test_real_cmd_publish_normal_exited_zero_test_failure_updates_changes_required(monkeypatch, tmp_path):
+    repo, auth, lease, runtime = _setup_real_publish_repo(monkeypatch, tmp_path)
+
+    publish_args = argparse.Namespace(
+        task_id=43,
+        action="FIX",
+        test=f'"{sys.executable}" -c "import sys; sys.exit(1)"',
+        summary="summary",
+        notes="notes",
+        message=None,
+        failure_state="CHANGES_REQUIRED",
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        bridge.cmd_publish(publish_args)
+    assert exc.value.code == 1
+
+    saved_auth = bridge.load_authorization(43)
+    assert saved_auth["status"] == "ACTIVE"
+    state = bridge.load_json(runtime / "state" / "CURRENT_STATE.json")
+    assert state["status"] == "CHANGES_REQUIRED"
+    assert "Tests failed" in state["next_step"]
+
+
+def test_real_cmd_publish_post_test_git_admin_drift_blocks_with_work_preserved(monkeypatch, tmp_path):
+    repo, auth, lease, runtime = _setup_real_publish_repo(monkeypatch, tmp_path)
+    snapshot = bridge.capture_e4_publication_trust_snapshot("origin")
+
+    mutator = tmp_path / "mutate_git_admin.py"
+    mutator.write_text(
+        "import subprocess, sys\n"
+        "subprocess.run(['git', 'config', 'core.hooksPath', 'injected_hooks'], check=True)\n"
+        "sys.exit(0)\n",
+        encoding="utf-8",
+    )
+    publish_args = argparse.Namespace(
+        task_id=43,
+        action="FIX",
+        test=f'"{sys.executable}" "{mutator}"',
+        summary="summary",
+        notes="notes",
+        message=None,
+        failure_state="RECOVERY_REQUIRED",
+        publication_trust_snapshot=snapshot,
+        allowed_paths=["bridge.py"],
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        bridge.cmd_publish(publish_args)
+    assert exc.value.code == 1
+
+    saved_auth = bridge.load_authorization(43)
+    assert saved_auth["status"] == "ACTIVE"
+    state = bridge.load_json(runtime / "state" / "CURRENT_STATE.json")
+    assert state["status"] == "RECOVERY_REQUIRED"
+    assert "E4 protected Git administration drifted during test execution" in state["next_step"]
+
+
+def test_real_cmd_publish_post_test_out_of_scope_dirty_path_blocks_with_work_preserved(monkeypatch, tmp_path):
+    repo, auth, lease, runtime = _setup_real_publish_repo(monkeypatch, tmp_path)
+    snapshot = bridge.capture_e4_publication_trust_snapshot("origin")
+
+    mutator = tmp_path / "mutate_scope.py"
+    mutator.write_text(
+        "import pathlib, sys\n"
+        "pathlib.Path('unauthorized_leak.py').write_text('leak\\n', encoding='utf-8')\n"
+        "sys.exit(0)\n",
+        encoding="utf-8",
+    )
+    publish_args = argparse.Namespace(
+        task_id=43,
+        action="FIX",
+        test=f'"{sys.executable}" "{mutator}"',
+        summary="summary",
+        notes="notes",
+        message=None,
+        failure_state="RECOVERY_REQUIRED",
+        publication_trust_snapshot=snapshot,
+        allowed_paths=["bridge.py"],
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        bridge.cmd_publish(publish_args)
+    assert exc.value.code == 1
+
+    saved_auth = bridge.load_authorization(43)
+    assert saved_auth["status"] == "ACTIVE"
+    state = bridge.load_json(runtime / "state" / "CURRENT_STATE.json")
+    assert state["status"] == "RECOVERY_REQUIRED"
+    assert "Dirty paths violated allowed scope during test execution" in state["next_step"]
+
+
+def test_real_cmd_publish_post_test_head_drift_blocks_with_work_preserved(monkeypatch, tmp_path):
+    repo, auth, lease, runtime = _setup_real_publish_repo(monkeypatch, tmp_path)
+    snapshot = bridge.capture_e4_publication_trust_snapshot("origin")
+    pre_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, text=True, capture_output=True, check=True).stdout.strip()
+
+    mutator = tmp_path / "mutate_head.py"
+    mutator.write_text(
+        "import subprocess, sys\n"
+        "subprocess.run(['git', 'commit', '--allow-empty', '-m', 'illicit commit'], check=True)\n"
+        "sys.exit(0)\n",
+        encoding="utf-8",
+    )
+    publish_args = argparse.Namespace(
+        task_id=43,
+        action="FIX",
+        test=f'"{sys.executable}" "{mutator}"',
+        summary="summary",
+        notes="notes",
+        message=None,
+        failure_state="RECOVERY_REQUIRED",
+        publication_trust_snapshot=snapshot,
+        allowed_paths=["bridge.py"],
+        pre_head_sha=pre_sha,
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        bridge.cmd_publish(publish_args)
+    assert exc.value.code == 1
+
+    saved_auth = bridge.load_authorization(43)
+    assert saved_auth["status"] == "ACTIVE"
+    state = bridge.load_json(runtime / "state" / "CURRENT_STATE.json")
+    assert state["status"] == "RECOVERY_REQUIRED"
+    assert "Task branch HEAD drifted" in state["next_step"]
+
+
+def test_real_cmd_publish_post_test_auth_mutation_blocks_with_work_preserved(monkeypatch, tmp_path):
+    repo, auth, lease, runtime = _setup_real_publish_repo(monkeypatch, tmp_path)
+    snapshot = bridge.capture_e4_publication_trust_snapshot("origin")
+    pre_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, text=True, capture_output=True, check=True).stdout.strip()
+
+    # Test mutates the runtime auth file directly
+    auth_file = runtime / "auth" / "AUTH-TASK-043.json"
+    mutator = tmp_path / "mutate_auth.py"
+    mutator.write_text(
+        f"import json, pathlib, sys\n"
+        f"p = pathlib.Path(r'{auth_file}')\n"
+        f"d = json.loads(p.read_text(encoding='utf-8'))\n"
+        f"d['executor_id'] = 'attacker'\n"
+        f"p.write_text(json.dumps(d), encoding='utf-8')\n"
+        f"sys.exit(0)\n",
+        encoding="utf-8",
+    )
+    publish_args = argparse.Namespace(
+        task_id=43,
+        action="FIX",
+        test=f'"{sys.executable}" "{mutator}"',
+        summary="summary",
+        notes="notes",
+        message=None,
+        failure_state="RECOVERY_REQUIRED",
+        publication_trust_snapshot=snapshot,
+        allowed_paths=["bridge.py"],
+        pre_head_sha=pre_sha,
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        bridge.cmd_publish(publish_args)
+    assert exc.value.code == 1
+
+    state = bridge.load_json(runtime / "state" / "CURRENT_STATE.json")
+    assert state["status"] == "RECOVERY_REQUIRED"
+    assert "E4 authorization or lease binding drifted during test execution" in state["next_step"]

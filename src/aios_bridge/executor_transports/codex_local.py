@@ -407,15 +407,18 @@ def _read_bounded_stream(stream_file: Any) -> tuple[int, bytes, bytes, bool, boo
         head_bytes = stream_file.read(half_budget)
         head_ends_at_record_boundary = head_bytes.endswith((b"\n", b"\r"))
 
-        tail_start = max(half_budget, total_bytes - half_budget)
-        tail_starts_at_record_boundary = True
-        if tail_start > 0:
-            stream_file.seek(tail_start - 1)
-            prev_byte = stream_file.read(1)
-            tail_starts_at_record_boundary = (prev_byte in (b"\n", b"\r"))
-
+        tail_budget = MAX_CODEX_DIAGNOSTIC_SCAN_BYTES_PER_STREAM - half_budget
+        tail_start = max(half_budget, total_bytes - tail_budget)
         stream_file.seek(tail_start)
-        tail_bytes = stream_file.read(half_budget)
+        tail_chunk = stream_file.read(tail_budget)
+        if tail_chunk:
+            prev_byte = tail_chunk[:1]
+            tail_bytes = tail_chunk[1:]
+            tail_starts_at_record_boundary = (prev_byte in (b"\n", b"\r"))
+        else:
+            tail_bytes = b""
+            tail_starts_at_record_boundary = True
+
         return total_bytes, head_bytes, tail_bytes, True, head_ends_at_record_boundary, tail_starts_at_record_boundary
     except Exception:
         return total_bytes, head_bytes, tail_bytes, False, True, True
