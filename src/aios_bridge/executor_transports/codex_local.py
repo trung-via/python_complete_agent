@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 import hashlib
 import io
 import json
@@ -50,8 +51,23 @@ _GIT_PREFLIGHT_TIMEOUT_SECONDS = 10
 _CLEANUP_WAIT_SECONDS = 2
 _IS_WINDOWS = sys.platform == "win32"
 
-_EVENT_TYPE_RE = re.compile(r"\A[A-Za-z0-9_:-]+\Z")
-_DIAGNOSTIC_CODE_RE = re.compile(r"\A[A-Z0-9_:-]+\Z")
+_EVENT_TYPE_RE = re.compile(r"\A[A-Za-z0-9_.:-]{1,64}\Z")
+_FAILURE_EVENT_TYPES = frozenset({"error", "turn.failed"})
+
+
+class CodexDiagnosticCode(str, Enum):
+    """Closed vocabulary of safe diagnostic output codes for Codex execution streams."""
+    EMPTY_OUTPUT = "EMPTY_OUTPUT"
+    STDERR_ONLY = "STDERR_ONLY"
+    JSON_EVENT_STREAM = "JSON_EVENT_STREAM"
+    JSON_ERROR_EVENT = "JSON_ERROR_EVENT"
+    NON_JSON_OUTPUT = "NON_JSON_OUTPUT"
+    MIXED_OUTPUT = "MIXED_OUTPUT"
+    UNKNOWN_OUTPUT_SHAPE = "UNKNOWN_OUTPUT_SHAPE"
+    CAPTURE_FAILED = "CAPTURE_FAILED"
+
+
+_ALLOWED_DIAGNOSTIC_CODES = frozenset(c.value for c in CodexDiagnosticCode)
 
 _WINDOWS_ENVIRONMENT_ALLOWLIST = frozenset(
     {
@@ -187,13 +203,9 @@ class CodexTransportDiagnostic:
                 f"schema_version length ({len(self.schema_version)}) exceeds maximum ({MAX_SCHEMA_VERSION_LENGTH})"
             )
 
-        if not isinstance(self.code, str) or not _DIAGNOSTIC_CODE_RE.fullmatch(self.code):
+        if not isinstance(self.code, str) or self.code not in _ALLOWED_DIAGNOSTIC_CODES:
             raise ContinuityStateValidationError(
-                f"diagnostic code must be non-empty uppercase ASCII token: got {self.code!r}"
-            )
-        if len(self.code) > MAX_DIAGNOSTIC_CODE_LENGTH:
-            raise ContinuityStateValidationError(
-                f"diagnostic code length ({len(self.code)}) exceeds maximum ({MAX_DIAGNOSTIC_CODE_LENGTH})"
+                f"diagnostic code must be one of {sorted(_ALLOWED_DIAGNOSTIC_CODES)}: got {self.code!r}"
             )
 
         for name, count_val in [
@@ -215,7 +227,9 @@ class CodexTransportDiagnostic:
                 raise ContinuityStateValidationError(f"{name} must be exact bool: got {trunc_val!r}")
 
         if not isinstance(self.stdout_event_types, tuple):
-            object.__setattr__(self, "stdout_event_types", tuple(self.stdout_event_types))
+            raise ContinuityStateValidationError(
+                f"stdout_event_types must be exact tuple of strings: got {type(self.stdout_event_types).__name__}"
+            )
 
         if len(self.stdout_event_types) > MAX_CODEX_DIAGNOSTIC_EVENT_TYPES:
             raise ContinuityStateValidationError(
@@ -225,10 +239,6 @@ class CodexTransportDiagnostic:
         for ev in self.stdout_event_types:
             if not isinstance(ev, str) or not _EVENT_TYPE_RE.fullmatch(ev):
                 raise ContinuityStateValidationError(f"Invalid stdout_event_type: {ev!r}")
-            if len(ev) > MAX_SINGLE_EVENT_TYPE_LENGTH:
-                raise ContinuityStateValidationError(
-                    f"event_type length ({len(ev)}) exceeds maximum ({MAX_SINGLE_EVENT_TYPE_LENGTH})"
-                )
             if any(ord(c) < 32 or ord(c) == 127 for c in ev):
                 raise ContinuityStateValidationError(f"event_type must not contain control characters: {ev!r}")
 
@@ -236,10 +246,6 @@ class CodexTransportDiagnostic:
             if not isinstance(self.last_stdout_event_type, str) or not _EVENT_TYPE_RE.fullmatch(self.last_stdout_event_type):
                 raise ContinuityStateValidationError(
                     f"Invalid last_stdout_event_type: {self.last_stdout_event_type!r}"
-                )
-            if len(self.last_stdout_event_type) > MAX_SINGLE_EVENT_TYPE_LENGTH:
-                raise ContinuityStateValidationError(
-                    f"last_stdout_event_type length ({len(self.last_stdout_event_type)}) exceeds maximum ({MAX_SINGLE_EVENT_TYPE_LENGTH})"
                 )
             if any(ord(c) < 32 or ord(c) == 127 for c in self.last_stdout_event_type):
                 raise ContinuityStateValidationError(
@@ -309,6 +315,52 @@ def _make_receipt(
     return receipt
 
 
+def _is_subpath_or_same(target: Path, base: Path) -> bool:
+    """Check if target path is inside or identical to base path."""
+    try:
+        t_res = target.resolve()
+        b_res = base.resolve()
+        return t_res == b_res or b_res in t_res.parents
+    except (ValueError, OSError, RuntimeError):
+        return False
+
+
+def _get_persistent_runtime_dirs() -> list[Path]:
+    """Collect known persistent AIOS runtime directory paths."""
+    dirs: list[Path] = []
+    env_runtime = os.environ.get("AIOS_BRIDGE_RUNTIME_DIR")
+    if env_runtime:
+        dirs.append(Path(env_runtime))
+    if os.name == "nt":
+        local_app = os.environ.get("LOCALAPPDATA")
+        if local_app:
+            dirs.append(Path(local_app) / "aios-bridge")
+    dirs.append(Path.home() / ".aios_bridge")
+    return dirs
+
+
+def _resolve_safe_temporary_dir(workspace: Path) -> Path | None:
+    """Resolve a temporary directory that is provably outside workspace and persistent runtime."""
+    try:
+        temp_root = Path(tempfile.gettempdir()).resolve(strict=True)
+    except (OSError, RuntimeError):
+        return None
+
+    if not temp_root.is_dir():
+        return None
+
+    # Fail closed if temp_root is inside or identical to workspace
+    if _is_subpath_or_same(temp_root, workspace):
+        return None
+
+    # Fail closed if temp_root is inside any persistent AIOS runtime directory
+    for r_dir in _get_persistent_runtime_dirs():
+        if _is_subpath_or_same(temp_root, r_dir):
+            return None
+
+    return temp_root
+
+
 def _analyze_diagnostic_stream(
     stdout_file: Any,
     stderr_file: Any,
@@ -345,7 +397,7 @@ def _analyze_diagnostic_stream(
         event_types: list[str] = []
         seen_event_types: set[str] = set()
         last_event_type: str | None = None
-        has_error_event = False
+        has_failure_event = False
 
         if scan_out:
             raw_lines = scan_out.splitlines()
@@ -372,12 +424,8 @@ def _analyze_diagnostic_stream(
                                 event_types.append(ev_type)
                                 seen_event_types.add(ev_type)
                             last_event_type = ev_type
-                            if (
-                                ev_type.lower() == "error"
-                                or ev_type.lower().endswith("_error")
-                                or "error" in ev_type.lower()
-                            ):
-                                has_error_event = True
+                            if ev_type.lower() in _FAILURE_EVENT_TYPES:
+                                has_failure_event = True
                         json_line_count += 1
                     else:
                         json_line_count += 1
@@ -385,19 +433,19 @@ def _analyze_diagnostic_stream(
                     non_json_line_count += 1
 
         if total_out == 0 and total_err == 0:
-            code = "EMPTY_OUTPUT"
+            code = CodexDiagnosticCode.EMPTY_OUTPUT.value
         elif total_out == 0 and total_err > 0:
-            code = "STDERR_ONLY"
-        elif has_error_event:
-            code = "JSON_ERROR_EVENT"
+            code = CodexDiagnosticCode.STDERR_ONLY.value
+        elif has_failure_event:
+            code = CodexDiagnosticCode.JSON_ERROR_EVENT.value
         elif json_line_count > 0 and non_json_line_count == 0:
-            code = "JSON_EVENT_STREAM"
+            code = CodexDiagnosticCode.JSON_EVENT_STREAM.value
         elif json_line_count > 0 and non_json_line_count > 0:
-            code = "MIXED_OUTPUT"
+            code = CodexDiagnosticCode.MIXED_OUTPUT.value
         elif json_line_count == 0 and total_out > 0:
-            code = "NON_JSON_OUTPUT"
+            code = CodexDiagnosticCode.NON_JSON_OUTPUT.value
         else:
-            code = "UNKNOWN_OUTPUT_SHAPE"
+            code = CodexDiagnosticCode.UNKNOWN_OUTPUT_SHAPE.value
 
         return CodexTransportDiagnostic(
             code=code,
@@ -412,7 +460,7 @@ def _analyze_diagnostic_stream(
         )
     except Exception:
         return CodexTransportDiagnostic(
-            code="CAPTURE_FAILED",
+            code=CodexDiagnosticCode.CAPTURE_FAILED.value,
             stdout_total_bytes=0,
             stderr_total_bytes=0,
             stdout_scan_truncated=False,
@@ -609,7 +657,29 @@ class CodexLocalTransport:
                 error_code=ERROR_WORKSPACE_PRECONDITION_FAILED,
             )
             diagnostic = CodexTransportDiagnostic(
-                code="EMPTY_OUTPUT",
+                code=CodexDiagnosticCode.EMPTY_OUTPUT.value,
+                stdout_total_bytes=0,
+                stderr_total_bytes=0,
+                stdout_scan_truncated=False,
+                stderr_scan_truncated=False,
+                stdout_json_line_count=0,
+                stdout_non_json_line_count=0,
+                stdout_event_types=(),
+                last_stdout_event_type=None,
+            )
+            return CodexInvocationOutcome(receipt=receipt, diagnostic=diagnostic)
+
+        # Ensure temporary capture location is strictly safe and outside workspace & persistent runtime
+        safe_temp_dir = _resolve_safe_temporary_dir(workspace)
+        if safe_temp_dir is None:
+            receipt = _make_receipt(
+                invocation,
+                status=InvocationStatus.FAILED_TO_START,
+                exit_code=None,
+                error_code=ERROR_WORKSPACE_PRECONDITION_FAILED,
+            )
+            diagnostic = CodexTransportDiagnostic(
+                code=CodexDiagnosticCode.EMPTY_OUTPUT.value,
                 stdout_total_bytes=0,
                 stderr_total_bytes=0,
                 stdout_scan_truncated=False,
@@ -630,7 +700,7 @@ class CodexLocalTransport:
                 error_code=ERROR_CODEX_NOT_FOUND,
             )
             diagnostic = CodexTransportDiagnostic(
-                code="EMPTY_OUTPUT",
+                code=CodexDiagnosticCode.EMPTY_OUTPUT.value,
                 stdout_total_bytes=0,
                 stderr_total_bytes=0,
                 stdout_scan_truncated=False,
@@ -653,7 +723,7 @@ class CodexLocalTransport:
         else:
             popen_options["start_new_session"] = True
 
-        with tempfile.TemporaryFile() as out_f, tempfile.TemporaryFile() as err_f:
+        with tempfile.TemporaryFile(dir=safe_temp_dir) as out_f, tempfile.TemporaryFile(dir=safe_temp_dir) as err_f:
             timed_out = False
             interrupted = False
             start_failed = False
@@ -748,6 +818,7 @@ __all__ = [
     "MAX_CODEX_DIAGNOSTIC_SCAN_BYTES_PER_STREAM",
     "MAX_CODEX_DIAGNOSTIC_EVENT_TYPES",
     "MAX_SINGLE_EVENT_TYPE_LENGTH",
+    "CodexDiagnosticCode",
     "CodexLocalTransport",
     "CodexTransportDiagnostic",
     "CodexInvocationOutcome",

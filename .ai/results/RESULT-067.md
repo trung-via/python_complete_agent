@@ -5,38 +5,34 @@ STATUS: READY_FOR_REVIEW
 ## Review Manifest
 ```yaml
 TASK_ID: TASK-067
-ACTION: RUN
+ACTION: FIX
 EXECUTOR_ID: antigravity
 EXECUTOR_FAILOVER: NO
 HOT_HANDOFF: NO
 ```
 
 ## Summary
-Implemented TASK-067 (Codex Transport Diagnostic & Reliability Hardening under ADR-040): added immutable CodexTransportDiagnostic and CodexInvocationOutcome in src/aios_bridge/executor_transports/codex_local.py with bounded temporary diagnostic stream capture (MAX_CODEX_DIAGNOSTIC_SCAN_BYTES_PER_STREAM = 65536, MAX_CODEX_DIAGNOSTIC_EVENT_TYPES = 32), deterministic fingerprinting, and zero raw stdout/stderr/model prose persistence; updated E4 bridge.py executor automation to persist transport_diagnostic and transport_diagnostic_fingerprint beside InvocationReceipt, surface stable diagnostic codes on failure, and retain hard fail-closed zero-exit/no-delta gates; and added comprehensive unit test suites in test_codex_local_transport.py and test_bridge_executor_automation.py (118 targeted passed, 2080 full repo passed).
+Resolved Review Findings B1-B4 for TASK-067 (Codex Transport Diagnostic & Reliability Hardening under ADR-040): (B1) expanded event type regex to permit dotted real Codex events [A-Za-z0-9_.:-]{1,64} (retaining thread.started, turn.started, item.completed, turn.completed, turn.failed, error) and implemented mechanical failure classification for exact failure tokens ({'error', 'turn.failed'}) without substring guessing or prose inspection; (B2) added fail-closed temporary directory validation resolving outside repository workspace and outside persistent AIOS runtime root with zero process spawn on violation; (B3) closed diagnostic code vocabulary using CodexDiagnosticCode enum and exact membership validation; (B4) enforced exact tuple collection validation for stdout_event_types; and added comprehensive regression tests (125 targeted passed, 2087 full repo passed).
 
 ## Task Metadata
 - Task: `TASK-067`
-- Action: `RUN`
+- Action: `FIX`
 - Executor: `antigravity`
-- Authorized Artifact: `.ai/tasks/TASK-067.md (7ac5f21236)`
-- Base Main SHA: `75866e0e033364fbcc308904e9b8e7572e8d2f48`
+- Authorized Artifact: `.ai/reviews/REVIEW-067.md (f37694f710)`
+- Base Main SHA: `(n/a)`
 - Branch: `ai/task-067`
 
 ## Files Changed
-- bridge.py
 - src/aios_bridge/executor_transports/__init__.py
 - src/aios_bridge/executor_transports/codex_local.py
 - tests/aios_bridge/test_codex_local_transport.py
-- tests/test_bridge_executor_automation.py
 
 ## Diff Stat
 ```text
-bridge.py                                          |  33 +-
- src/aios_bridge/executor_transports/__init__.py    |  12 +
- src/aios_bridge/executor_transports/codex_local.py | 438 ++++++++++++++++++---
- tests/aios_bridge/test_codex_local_transport.py    | 304 +++++++++++++-
- tests/test_bridge_executor_automation.py           |  67 ++++
- 5 files changed, 786 insertions(+), 68 deletions(-)
+src/aios_bridge/executor_transports/__init__.py    |   2 +
+ src/aios_bridge/executor_transports/codex_local.py | 143 ++++++++++++++-----
+ tests/aios_bridge/test_codex_local_transport.py    | 158 ++++++++++++++++-----
+ 3 files changed, 228 insertions(+), 75 deletions(-)
 ```
 
 ## Tests
@@ -52,27 +48,28 @@ Exit code: 0
 ....ss....................................s............................. [ 20%]
 ........................................................................ [ 24%]
 ........................................................................ [ 27%]
-........................................................................ [ 31%]
+........................................................................ [ 30%]
 ........................................................................ [ 34%]
 ........................................................................ [ 37%]
-....................................................................ss.. [ 41%]
-....................................s................................... [ 44%]
+........................................................................ [ 41%]
+...ss......................................s............................ [ 44%]
 ........................................................................ [ 48%]
 ........................................................................ [ 51%]
 ........................................................................ [ 55%]
 ........................................................................ [ 58%]
-........................................................................ [ 62%]
+........................................................................ [ 61%]
 ........................................................................ [ 65%]
 ........................................................................ [ 68%]
 ........................................................................ [ 72%]
 ........................................................................ [ 75%]
 ........................................................................ [ 79%]
 ........................................................................ [ 82%]
-........................................................................ [ 86%]
+........................................................................ [ 85%]
 ........................................................................ [ 89%]
-........................................................................ [ 93%]
+........................................................................ [ 92%]
 ........................................................................ [ 96%]
-.......................................................................  [100%]
+........................................................................ [ 99%]
+......                                                                   [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -375,7 +372,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-2080 passed, 7 skipped, 1540 warnings in 172.40s (0:02:52)
+2087 passed, 7 skipped, 1540 warnings in 171.43s (0:02:51)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -387,12 +384,12 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 TARGETED_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/aios_bridge/test_codex_local_transport.py tests/test_bridge_executor_automation.py -v
 Exit code: 0
-Result: 118 passed, 0 skipped, 0 failed
+Result: 125 passed, 0 skipped, 0 failed
 
 FULL_REPOSITORY_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/ -q
 Exit code: 0
-Result: 2080 passed, 7 skipped, 0 failed
+Result: 2087 passed, 7 skipped, 0 failed
 
 DIAGNOSTIC_EVIDENCE:
 TASK_067_CLASS: CODEX_DIAGNOSTIC_HARDENING
@@ -419,5 +416,20 @@ H0_CHANGED: NO
 H1_STARTED: NO
 SCOPE_EXACT: YES
 
+REVIEW_FINDINGS_RESOLVED:
+B1_REAL_CODEX_DOTTED_EVENT_TYPES_RETAINED: YES
+B1_TURN_FAILED_MECHANICALLY_CLASSIFIED: YES
+B1_ARBITRARY_ERROR_SUBSTRING_INFERENCE: NO
+B1_RAW_PROSE_ROOT_CAUSE_INFERENCE: NO
+B2_RAW_CAPTURE_WORKTREE_LOCATION: FORBIDDEN
+B2_RAW_CAPTURE_PERSISTENT_RUNTIME_LOCATION: FORBIDDEN
+B2_UNSAFE_TEMP_LOCATION_SPAWN_COUNT: 0
+B2_TEMP_CAPTURE_LIFETIME_BOUNDED: YES
+B3_DIAGNOSTIC_CODE_VOCABULARY_CLOSED: YES
+B3_UNKNOWN_DIAGNOSTIC_CODE_REJECTED: YES
+B4_STDOUT_EVENT_TYPES_EXACT_TUPLE: YES
+B4_LIST_EVENT_TYPES_REJECTED: YES
+B4_STRING_EVENT_TYPES_REJECTED: YES
+
 ## Generated
-2026-08-23T12:53:42+07:00
+2026-08-23T13:08:27+07:00

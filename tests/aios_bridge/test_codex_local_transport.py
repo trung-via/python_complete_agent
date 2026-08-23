@@ -25,10 +25,12 @@ from src.aios_bridge.executor_transports import (
     MAX_CODEX_DIAGNOSTIC_SCAN_BYTES_PER_STREAM,
     MAX_CODEX_DIAGNOSTIC_EVENT_TYPES,
     MAX_SINGLE_EVENT_TYPE_LENGTH,
+    CodexDiagnosticCode,
     CodexLocalTransport,
     CodexTransportDiagnostic,
     CodexInvocationOutcome,
 )
+
 from src.aios_bridge.executor_transports import codex_local
 
 
@@ -785,35 +787,35 @@ def test_production_module_has_no_forbidden_scope_or_unsafe_command_tokens() -> 
 
 
 # -----------------------------------------------------------------------------
-# TASK-067 / ADR-040 Bounded Diagnostic Observability Tests
+# TASK-067 / ADR-040 Bounded Diagnostic Observability Tests (Review Fixes B1-B4)
 # -----------------------------------------------------------------------------
 
 
 def test_diagnostic_dataclass_immutability_and_validation() -> None:
     diag = CodexTransportDiagnostic(
-        code="JSON_EVENT_STREAM",
+        code=CodexDiagnosticCode.JSON_EVENT_STREAM.value,
         stdout_total_bytes=100,
         stderr_total_bytes=0,
         stdout_scan_truncated=False,
         stderr_scan_truncated=False,
         stdout_json_line_count=3,
         stdout_non_json_line_count=0,
-        stdout_event_types=("turn_started", "item_completed"),
-        last_stdout_event_type="item_completed",
+        stdout_event_types=("turn.started", "item.completed"),
+        last_stdout_event_type="item.completed",
     )
     assert diag.code == "JSON_EVENT_STREAM"
     assert diag.stdout_total_bytes == 100
-    assert diag.stdout_event_types == ("turn_started", "item_completed")
+    assert diag.stdout_event_types == ("turn.started", "item.completed")
     assert diag.schema_version == "1"
 
     d = diag.to_dict()
     assert d == {
         "code": "JSON_EVENT_STREAM",
-        "last_stdout_event_type": "item_completed",
+        "last_stdout_event_type": "item.completed",
         "schema_version": "1",
         "stderr_scan_truncated": False,
         "stderr_total_bytes": 0,
-        "stdout_event_types": ["turn_started", "item_completed"],
+        "stdout_event_types": ["turn.started", "item.completed"],
         "stdout_json_line_count": 3,
         "stdout_non_json_line_count": 0,
         "stdout_scan_truncated": False,
@@ -829,10 +831,13 @@ def test_diagnostic_dataclass_immutability_and_validation() -> None:
 @pytest.mark.parametrize("invalid_field,kwargs", [
     ("bool_as_int", {"stdout_total_bytes": True}),
     ("negative_int", {"stdout_total_bytes": -1}),
-    ("invalid_code", {"code": "invalid lowercase"}),
+    ("unknown_code", {"code": "RANDOM_UNSUPPORTED_CODE"}),
+    ("lowercase_code", {"code": "json_event_stream"}),
     ("empty_code", {"code": ""}),
-    ("control_code", {"code": "CODE\n"}),
-    ("oversized_code", {"code": "A" * 65}),
+    ("control_code", {"code": "JSON_EVENT_STREAM\n"}),
+    ("list_event_types", {"stdout_event_types": ["turn.started"]}),
+    ("string_event_types", {"stdout_event_types": "turn.started"}),
+    ("dict_event_types", {"stdout_event_types": {"type": "turn.started"}}),
     ("oversized_event_type", {"stdout_event_types": ("A" * 65,)}),
     ("control_event_type", {"stdout_event_types": ("turn\nstarted",)}),
     ("too_many_event_types", {"stdout_event_types": tuple(f"type_{i}" for i in range(33))}),
@@ -840,15 +845,15 @@ def test_diagnostic_dataclass_immutability_and_validation() -> None:
 ])
 def test_diagnostic_rejects_invalid_types_and_bounds(invalid_field, kwargs) -> None:
     valid_args = {
-        "code": "JSON_EVENT_STREAM",
+        "code": CodexDiagnosticCode.JSON_EVENT_STREAM.value,
         "stdout_total_bytes": 100,
         "stderr_total_bytes": 0,
         "stdout_scan_truncated": False,
         "stderr_scan_truncated": False,
         "stdout_json_line_count": 1,
         "stdout_non_json_line_count": 0,
-        "stdout_event_types": ("turn_started",),
-        "last_stdout_event_type": "turn_started",
+        "stdout_event_types": ("turn.started",),
+        "last_stdout_event_type": "turn.started",
     }
     valid_args.update(kwargs)
     with pytest.raises(ContinuityStateValidationError):
@@ -872,7 +877,7 @@ def test_outcome_dataclass_immutability_and_validation() -> None:
         error_code=None,
     )
     diag = CodexTransportDiagnostic(
-        code="EMPTY_OUTPUT",
+        code=CodexDiagnosticCode.EMPTY_OUTPUT.value,
         stdout_total_bytes=0,
         stderr_total_bytes=0,
         stdout_scan_truncated=False,
@@ -908,13 +913,16 @@ def test_invoke_with_diagnostic_returns_outcome_with_empty_output(
     assert len(popen_calls) == 1
 
 
-def test_invoke_with_diagnostic_parses_ndjson_event_stream(
+def test_invoke_with_diagnostic_parses_real_codex_dotted_event_stream(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     ndjson = (
-        b'{"type": "turn_started", "turn_id": "turn-1", "secret": "forbidden"}\n'
-        b'{"type": "item_started", "item_id": "item-1"}\n'
-        b'{"type": "item_completed", "item_id": "item-1", "result": "ok"}\n'
+        b'{"type": "thread.started", "thread_id": "t-1", "secret": "forbidden"}\n'
+        b'{"type": "turn.started", "turn_id": "turn-1"}\n'
+        b'{"type": "item.started", "item_id": "item-1"}\n'
+        b'{"type": "item.updated", "item_id": "item-1"}\n'
+        b'{"type": "item.completed", "item_id": "item-1", "result": "ok"}\n'
+        b'{"type": "turn.completed", "turn_id": "turn-1"}\n'
     )
     process = _FakeProcess(returncode=0, stdout_bytes=ndjson)
     outcome, _, popen_calls = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
@@ -922,10 +930,17 @@ def test_invoke_with_diagnostic_parses_ndjson_event_stream(
     assert outcome.receipt.status is InvocationStatus.EXITED_ZERO
     assert outcome.diagnostic.code == "JSON_EVENT_STREAM"
     assert outcome.diagnostic.stdout_total_bytes == len(ndjson)
-    assert outcome.diagnostic.stdout_json_line_count == 3
+    assert outcome.diagnostic.stdout_json_line_count == 6
     assert outcome.diagnostic.stdout_non_json_line_count == 0
-    assert outcome.diagnostic.stdout_event_types == ("turn_started", "item_started", "item_completed")
-    assert outcome.diagnostic.last_stdout_event_type == "item_completed"
+    assert outcome.diagnostic.stdout_event_types == (
+        "thread.started",
+        "turn.started",
+        "item.started",
+        "item.updated",
+        "item.completed",
+        "turn.completed",
+    )
+    assert outcome.diagnostic.last_stdout_event_type == "turn.completed"
     # Ensure no raw secret/payloads in diagnostic dict
     d_str = str(outcome.diagnostic.to_dict())
     assert "forbidden" not in d_str
@@ -933,13 +948,14 @@ def test_invoke_with_diagnostic_parses_ndjson_event_stream(
     assert "item_id" not in d_str
 
 
-def test_invoke_with_diagnostic_detects_json_error_event(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+@pytest.mark.parametrize("failure_event", ["error", "turn.failed"])
+def test_invoke_with_diagnostic_detects_mechanical_failure_events(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, failure_event: str
 ) -> None:
     ndjson = (
-        b'{"type": "turn_started"}\n'
-        b'{"type": "error", "message": "auth error"}\n'
-    )
+        f'{{"type": "turn.started"}}\n'
+        f'{{"type": "{failure_event}", "message": "auth error"}}\n'
+    ).encode("utf-8")
     process = _FakeProcess(returncode=1, stdout_bytes=ndjson)
     outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
     assert outcome.receipt.status is InvocationStatus.EXITED_NONZERO
@@ -947,9 +963,23 @@ def test_invoke_with_diagnostic_detects_json_error_event(
     assert outcome.receipt.error_code == codex_local.ERROR_CODEX_EXIT_NONZERO
     assert outcome.diagnostic.code == "JSON_ERROR_EVENT"
     assert outcome.diagnostic.stdout_json_line_count == 2
-    assert "error" in outcome.diagnostic.stdout_event_types
-    assert outcome.diagnostic.last_stdout_event_type == "error"
+    assert failure_event in outcome.diagnostic.stdout_event_types
+    assert outcome.diagnostic.last_stdout_event_type == failure_event
     assert "auth error" not in str(outcome.diagnostic.to_dict())
+
+
+def test_diagnostic_does_not_infer_error_from_arbitrary_substrings(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    ndjson = (
+        b'{"type": "error_reporting_config"}\n'
+        b'{"type": "system.terrordome"}\n'
+    )
+    process = _FakeProcess(returncode=0, stdout_bytes=ndjson)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+    # Must NOT classify as JSON_ERROR_EVENT because neither is in _FAILURE_EVENT_TYPES
+    assert outcome.diagnostic.code == "JSON_EVENT_STREAM"
+    assert outcome.diagnostic.stdout_event_types == ("error_reporting_config", "system.terrordome")
 
 
 def test_invoke_with_diagnostic_handles_non_json_stdout(
@@ -972,7 +1002,7 @@ def test_invoke_with_diagnostic_handles_mixed_json_and_non_json_stdout(
 ) -> None:
     mixed = (
         b"some initial banner text\n"
-        b'{"type": "turn_started"}\n'
+        b'{"type": "turn.started"}\n'
     )
     process = _FakeProcess(returncode=0, stdout_bytes=mixed)
     outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
@@ -980,7 +1010,7 @@ def test_invoke_with_diagnostic_handles_mixed_json_and_non_json_stdout(
     assert outcome.diagnostic.code == "MIXED_OUTPUT"
     assert outcome.diagnostic.stdout_json_line_count == 1
     assert outcome.diagnostic.stdout_non_json_line_count == 1
-    assert outcome.diagnostic.stdout_event_types == ("turn_started",)
+    assert outcome.diagnostic.stdout_event_types == ("turn.started",)
 
 
 def test_invoke_with_diagnostic_handles_stderr_only(
@@ -1001,8 +1031,7 @@ def test_invoke_with_diagnostic_handles_stderr_only(
 def test_diagnostic_scan_bytes_bounded_and_truncation_flag_set(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    # Generate stdout greater than 65536 bytes
-    line = b'{"type": "item_progress"}\n'
+    line = b'{"type": "item.progress"}\n'
     num_lines = (MAX_CODEX_DIAGNOSTIC_SCAN_BYTES_PER_STREAM // len(line)) + 100
     large_stdout = line * num_lines
     assert len(large_stdout) > MAX_CODEX_DIAGNOSTIC_SCAN_BYTES_PER_STREAM
@@ -1017,28 +1046,27 @@ def test_diagnostic_scan_bytes_bounded_and_truncation_flag_set(
 def test_diagnostic_event_types_bounded_at_maximum_32(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    # 50 unique event types
-    lines = [f'{{"type": "event_type_{i}"}}\n'.encode("utf-8") for i in range(50)]
+    lines = [f'{{"type": "event.type.{i}"}}\n'.encode("utf-8") for i in range(50)]
     process = _FakeProcess(returncode=0, stdout_bytes=b"".join(lines))
     outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
     assert len(outcome.diagnostic.stdout_event_types) == MAX_CODEX_DIAGNOSTIC_EVENT_TYPES == 32
-    assert outcome.diagnostic.last_stdout_event_type == "event_type_49"
+    assert outcome.diagnostic.last_stdout_event_type == "event.type.49"
 
 
 def test_diagnostic_event_types_filters_invalid_tokens_and_control_chars(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     ndjson = (
-        b'{"type": "valid_token"}\n'
+        b'{"type": "valid.token"}\n'
         b'{"type": "invalid with space"}\n'
         b'{"type": "invalid_with_control\\n"}\n'
         b'{"type": "' + b"A" * 65 + b'"}\n'
-        b'{"type": "another_valid_token"}\n'
+        b'{"type": "another.valid.token"}\n'
     )
     process = _FakeProcess(returncode=0, stdout_bytes=ndjson)
     outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
-    assert outcome.diagnostic.stdout_event_types == ("valid_token", "another_valid_token")
-    assert outcome.diagnostic.last_stdout_event_type == "another_valid_token"
+    assert outcome.diagnostic.stdout_event_types == ("valid.token", "another.valid.token")
+    assert outcome.diagnostic.last_stdout_event_type == "another.valid.token"
 
 
 def test_diagnostic_handles_malformed_and_invalid_utf8_safely(
@@ -1050,3 +1078,55 @@ def test_diagnostic_handles_malformed_and_invalid_utf8_safely(
     assert outcome.receipt.status is InvocationStatus.EXITED_NONZERO
     assert outcome.diagnostic.code == "NON_JSON_OUTPUT"
     assert outcome.diagnostic.stdout_non_json_line_count == 2
+
+
+def test_unsafe_temporary_capture_location_inside_workspace_fails_closed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    workspace = tmp_path.resolve()
+    inside_temp = workspace / "sub_temp"
+    inside_temp.mkdir(parents=True, exist_ok=True)
+    _install_valid_git(monkeypatch, workspace)
+    monkeypatch.setattr(codex_local.shutil, "which", lambda spec: "resolved-codex")
+    monkeypatch.setattr(codex_local.tempfile, "gettempdir", lambda: str(inside_temp))
+
+    spawned = False
+
+    def fake_popen(*args: object, **kwargs: object) -> _FakeProcess:
+        nonlocal spawned
+        spawned = True
+        return _FakeProcess(0)
+
+    monkeypatch.setattr(codex_local.subprocess, "Popen", fake_popen)
+
+    outcome = CodexLocalTransport(workspace).invoke_with_diagnostic(_invocation(), PAYLOAD)
+    assert not spawned
+    assert outcome.receipt.status is InvocationStatus.FAILED_TO_START
+    assert outcome.receipt.error_code == codex_local.ERROR_WORKSPACE_PRECONDITION_FAILED
+
+
+def test_unsafe_temporary_capture_location_inside_persistent_runtime_fails_closed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    workspace = tmp_path.resolve()
+    runtime_dir = tmp_path / "persistent_runtime"
+    runtime_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("AIOS_BRIDGE_RUNTIME_DIR", str(runtime_dir))
+
+    _install_valid_git(monkeypatch, workspace)
+    monkeypatch.setattr(codex_local.shutil, "which", lambda spec: "resolved-codex")
+    monkeypatch.setattr(codex_local.tempfile, "gettempdir", lambda: str(runtime_dir))
+
+    spawned = False
+
+    def fake_popen(*args: object, **kwargs: object) -> _FakeProcess:
+        nonlocal spawned
+        spawned = True
+        return _FakeProcess(0)
+
+    monkeypatch.setattr(codex_local.subprocess, "Popen", fake_popen)
+
+    outcome = CodexLocalTransport(workspace).invoke_with_diagnostic(_invocation(), PAYLOAD)
+    assert not spawned
+    assert outcome.receipt.status is InvocationStatus.FAILED_TO_START
+    assert outcome.receipt.error_code == codex_local.ERROR_WORKSPACE_PRECONDITION_FAILED
