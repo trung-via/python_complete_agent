@@ -877,6 +877,7 @@ def resolve_e4_control_snapshot(cfg: dict, auth: dict) -> dict:
         work_path=work_path,
         operation=auth_operation,
         selected_executor=executor_id,
+        require_explicit_profile=False,
     )
     markers = preflight.markers
     policy = preflight.policy

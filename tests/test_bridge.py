@@ -46,6 +46,7 @@ def _make_e4_test_task_content(task_id: int, action: str = "RUN", executor: str 
     return f"""# {prefix}-{task_id:03d} Content
 
 {status_line}
+PUBLISHER_PROFILE: CANONICAL_E4
 
 EXECUTOR_CONTEXT_REFS_JSON: [{{"path": ".ai/decisions/ADR-001.md", "blob_sha": "{"a"*40}"}}]
 EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py"]

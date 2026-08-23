@@ -71,16 +71,26 @@ CANONICAL_RESULT_KEYS = frozenset({
     "M8_COMPOSITE_CHAIN",
 })
 
+_EXEMPT_SECTION_WORDS = frozenset({
+    "RESULT", "EVIDENCE", "REQUIREMENTS", "SCHEMA", "MANIFEST", "KEYS", "MANDATE",
+    "MACHINE", "READABLE", "MUST", "REPORT", "AT", "MINIMUM", "REQUIRED",
+    "TRUE", "FALSE", "PASS", "FAIL", "READY", "ONLY", "USE", "THE", "EXISTING",
+    "CANONICAL", "BRIDGE", "PUBLISHER", "MD", "TXT", "JSON", "SH", "PY", "GIT",
+    "DIFF", "CHECK", "CODE", "PROSE", "TEST", "TESTS", "ALL", "REVIEW", "HEAD",
+    "SHA", "BASE", "MAIN", "SNAPSHOT", "APPROVED", "CHANGES", "STATUS",
+})
+
 _FORBIDDEN_MARKER_NAMES = (
     "REQUIRED_RESULT_KEYS_JSON:",
     "CUSTOM_RESULT_SCHEMA_JSON:",
     "PUBLISHER_REQUIRED_KEYS_JSON:",
     "RESULT_SCHEMA_OVERRIDE_JSON:",
+    "REQUIRED_RESULT_KEYS:",
 )
 
 _PUBLISHER_PROFILE_LINE_RE = re.compile(r"^PUBLISHER_PROFILE:\s*(\S+)", re.MULTILINE)
 _CUSTOM_RESULT_SECTION_RE = re.compile(
-    r"(?im)^##\s+RESULT\s+Evidence\b\s*\n([\s\S]*?)(?=^##|\Z)"
+    r"(?im)^##\s+(?:RESULT|Result|Machine-Readable)\s+(?:Evidence|Requirements|Schema|Manifest|Keys|Mandate)\b[\s\S]*?(?=^##|\Z)"
 )
 
 
@@ -136,7 +146,7 @@ def validate_publisher_profile_marker(
 def validate_publisher_profile(
     content: str,
     *,
-    require_explicit_profile: bool = False,
+    require_explicit_profile: bool = True,
 ) -> str:
     """
     Validate that an executable artifact adheres to the canonical E4 publisher profile.
@@ -191,16 +201,14 @@ def validate_publisher_profile(
         active_profile = CANONICAL_E4_PUBLISHER_PROFILE
 
     # 3. TASK-070 Failure Class Guard:
-    # Check for custom ## RESULT Evidence section attempting to enforce non-canonical result keys
-    section_match = _CUSTOM_RESULT_SECTION_RE.search(unfenced_text)
-    if section_match:
-        section_text = section_match.group(1)
-        # Scan for required key lists like "must report at minimum:\nKEY1\nKEY2" or line-by-line keys
-        tokens = re.findall(r"\b([A-Z][A-Z0-9_]{3,})\b", section_text)
+    # Check for custom result sections attempting to enforce non-canonical result keys
+    for section_match in _CUSTOM_RESULT_SECTION_RE.finditer(unfenced_text):
+        section_text = section_match.group(0)
+        tokens = re.findall(r"\b([A-Z][A-Z0-9_]{2,})\b", section_text)
         for token in tokens:
-            if token in ("RESULT", "Evidence", "MUST", "REPORT", "AT", "MINIMUM", "REQUIRED", "KEYS", "TRUE", "FALSE", "PASS", "FAIL", "READY"):
+            if token in _EXEMPT_SECTION_WORDS:
                 continue
-            if token not in CANONICAL_RESULT_KEYS and not token.startswith("TASK_") and not token.startswith("STEP_"):
+            if token not in CANONICAL_RESULT_KEYS:
                 raise ExecutableArtifactPreflightError(
                     f"Unsupported custom RESULT requirement key '{token}' rejected under {active_profile} profile"
                 )
@@ -214,7 +222,7 @@ def preflight_executable_artifact(
     work_path: str,
     operation: ExecutionOperation,
     selected_executor: str,
-    require_explicit_profile: bool = False,
+    require_explicit_profile: bool = True,
 ) -> ExecutableArtifactPreflight:
     """
     Deterministically validate executable TASK/REVIEW artifact markers and dispatch policy.

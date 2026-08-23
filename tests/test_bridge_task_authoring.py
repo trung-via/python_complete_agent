@@ -66,6 +66,7 @@ def _sample_artifact_content(
     allowed_paths: list[str] | None = None,
     policy: dict | None = None,
     extra_lines: list[str] | None = None,
+    include_profile: bool = True,
 ) -> str:
     if context_refs is None:
         context_refs = [{"path": ".ai/decisions/ADR-044.md", "blob_sha": VALID_BLOB_SHA}]
@@ -74,15 +75,20 @@ def _sample_artifact_content(
     if policy is None:
         policy = _sample_dispatch_policy(operation=operation, selected_executor=selected_executor)
 
+    status_line = "STATUS: READY" if operation == "RUN" else "STATUS: CHANGES_REQUIRED"
     lines = [
         f"# {task_id} ? Sample Task",
         "",
-        "STATUS: READY",
+        status_line,
+    ]
+    if include_profile:
+        lines.append(f"PUBLISHER_PROFILE: {CANONICAL_E4_PUBLISHER_PROFILE}")
+    lines.extend([
         "",
         f"EXECUTOR_CONTEXT_REFS_JSON: {json.dumps(context_refs)}",
         f"EXECUTOR_ALLOWED_PATHS_JSON: {json.dumps(allowed_paths)}",
         f"DISPATCH_EXECUTOR_POLICY_JSON: {json.dumps(policy)}",
-    ]
+    ])
     if extra_lines:
         lines.extend(extra_lines)
     return "\n".join(lines)
@@ -129,9 +135,11 @@ def test_existing_marker_parsers_reused() -> None:
 
 
 def test_missing_context_refs_marker_fails_preflight() -> None:
-    content = """# TASK-071
+    content = f"""# TASK-071
+STATUS: READY
+PUBLISHER_PROFILE: {CANONICAL_E4_PUBLISHER_PROFILE}
 EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py"]
-DISPATCH_EXECUTOR_POLICY_JSON: {"operation":"RUN","required_capabilities":["SHELL"],"allow_paid_api":false,"candidates":[{"executor_id":"antigravity","preference_rank":0,"capacity_class":"SUBSCRIPTION","supported_operations":["RUN"],"supported_capabilities":["SHELL"]}]}
+DISPATCH_EXECUTOR_POLICY_JSON: {{"operation":"RUN","required_capabilities":["SHELL"],"allow_paid_api":false,"candidates":[{{"executor_id":"antigravity","preference_rank":0,"capacity_class":"SUBSCRIPTION","supported_operations":["RUN"],"supported_capabilities":["SHELL"]}}]}}
 """
     with pytest.raises(ExecutableArtifactPreflightError, match="EXECUTOR_CONTEXT_REFS_JSON"):
         preflight_executable_artifact(
@@ -144,6 +152,8 @@ DISPATCH_EXECUTOR_POLICY_JSON: {"operation":"RUN","required_capabilities":["SHEL
 
 def test_missing_allowed_paths_marker_fails_preflight() -> None:
     content = f"""# TASK-071
+STATUS: READY
+PUBLISHER_PROFILE: {CANONICAL_E4_PUBLISHER_PROFILE}
 EXECUTOR_CONTEXT_REFS_JSON: [{{"path":".ai/decisions/ADR-044.md","blob_sha":"{VALID_BLOB_SHA}"}}]
 DISPATCH_EXECUTOR_POLICY_JSON: {{"operation":"RUN","required_capabilities":["SHELL"],"allow_paid_api":false,"candidates":[{{"executor_id":"antigravity","preference_rank":0,"capacity_class":"SUBSCRIPTION","supported_operations":["RUN"],"supported_capabilities":["SHELL"]}}]}}
 """
@@ -158,6 +168,8 @@ DISPATCH_EXECUTOR_POLICY_JSON: {{"operation":"RUN","required_capabilities":["SHE
 
 def test_missing_dispatch_policy_marker_fails_preflight() -> None:
     content = f"""# TASK-071
+STATUS: READY
+PUBLISHER_PROFILE: {CANONICAL_E4_PUBLISHER_PROFILE}
 EXECUTOR_CONTEXT_REFS_JSON: [{{"path":".ai/decisions/ADR-044.md","blob_sha":"{VALID_BLOB_SHA}"}}]
 EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py"]
 """
@@ -184,6 +196,8 @@ def test_duplicate_marker_fails_preflight() -> None:
 
 def test_malformed_marker_json_fails_preflight() -> None:
     content = f"""# TASK-071
+STATUS: READY
+PUBLISHER_PROFILE: {CANONICAL_E4_PUBLISHER_PROFILE}
 EXECUTOR_CONTEXT_REFS_JSON: [not_valid_json]
 EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py"]
 DISPATCH_EXECUTOR_POLICY_JSON: {{"operation":"RUN","required_capabilities":["SHELL"],"allow_paid_api":false,"candidates":[{{"executor_id":"antigravity","preference_rank":0,"capacity_class":"SUBSCRIPTION","supported_operations":["RUN"],"supported_capabilities":["SHELL"]}}]}}
@@ -275,13 +289,14 @@ def test_publisher_profile_missing_rejected() -> None:
     with pytest.raises(ExecutableArtifactPreflightError, match="Missing required PUBLISHER_PROFILE"):
         validate_publisher_profile_marker(None, allow_missing=False)
 
-    content = _sample_artifact_content()
-    with pytest.raises(ExecutableArtifactPreflightError, match="Missing required PUBLISHER_PROFILE"):
+    content = _sample_artifact_content(include_profile=False)
+    with pytest.raises(ExecutableArtifactPreflightError, match="Missing required PUBLISHER_PROFILE marker"):
         validate_publisher_profile(content, require_explicit_profile=True)
 
 
 def test_publisher_profile_duplicate_rejected() -> None:
     content = _sample_artifact_content(
+        include_profile=False,
         extra_lines=[
             f"PUBLISHER_PROFILE: {CANONICAL_E4_PUBLISHER_PROFILE}",
             f"PUBLISHER_PROFILE: {CANONICAL_E4_PUBLISHER_PROFILE}",
@@ -293,6 +308,7 @@ def test_publisher_profile_duplicate_rejected() -> None:
 
 def test_publisher_profile_conflict_rejected() -> None:
     content = _sample_artifact_content(
+        include_profile=False,
         extra_lines=[
             f"PUBLISHER_PROFILE: {CANONICAL_E4_PUBLISHER_PROFILE}",
             "PUBLISHER_PROFILE: UNSUPPORTED_PROFILE",
@@ -304,6 +320,7 @@ def test_publisher_profile_conflict_rejected() -> None:
 
 def test_publisher_profile_unsupported_rejected() -> None:
     content = _sample_artifact_content(
+        include_profile=False,
         extra_lines=["PUBLISHER_PROFILE: NON_CANONICAL_PROFILE"]
     )
     with pytest.raises(ExecutableArtifactPreflightError, match="Unsupported publisher profile"):
@@ -314,8 +331,6 @@ def test_publisher_profile_unsupported_rejected() -> None:
 
 
 def test_task_070_style_custom_result_section_rejected() -> None:
-    # Historical TASK-070 failure class where an artifact declares a ## RESULT Evidence section
-    # with non-canonical result keys requiring custom publisher output
     content = _sample_artifact_content(
         extra_lines=[
             "",
@@ -336,10 +351,70 @@ def test_task_070_style_custom_result_section_rejected() -> None:
         )
 
 
+def test_task_custom_publisher_key_rejected() -> None:
+    content = _sample_artifact_content(
+        extra_lines=[
+            "",
+            "## RESULT Evidence",
+            "",
+            "TASK_CUSTOM_PUBLISHER_KEY",
+        ]
+    )
+    with pytest.raises(ExecutableArtifactPreflightError, match="Unsupported custom RESULT requirement key 'TASK_CUSTOM_PUBLISHER_KEY'"):
+        preflight_executable_artifact(
+            content,
+            work_path=".ai/tasks/TASK-071.md",
+            operation=ExecutionOperation.RUN,
+            selected_executor="antigravity",
+        )
+
+
+def test_step_custom_evidence_rejected() -> None:
+    content = _sample_artifact_content(
+        extra_lines=[
+            "",
+            "## RESULT Evidence",
+            "",
+            "STEP_CUSTOM_EVIDENCE",
+        ]
+    )
+    with pytest.raises(ExecutableArtifactPreflightError, match="Unsupported custom RESULT requirement key 'STEP_CUSTOM_EVIDENCE'"):
+        preflight_executable_artifact(
+            content,
+            work_path=".ai/tasks/TASK-071.md",
+            operation=ExecutionOperation.RUN,
+            selected_executor="antigravity",
+        )
+
+
+def test_result_requirement_heading_variants_rejected() -> None:
+    variants = [
+        "##  Result   Requirements",
+        "## RESULT Schema",
+        "## Result Manifest Requirements",
+        "## Machine-Readable Evidence",
+    ]
+    for heading in variants:
+        content = _sample_artifact_content(
+            extra_lines=[
+                "",
+                heading,
+                "",
+                "UNSUPPORTED_RESULT_KEY",
+            ]
+        )
+        with pytest.raises(ExecutableArtifactPreflightError, match="Unsupported custom RESULT requirement key"):
+            preflight_executable_artifact(
+                content,
+                work_path=".ai/tasks/TASK-071.md",
+                operation=ExecutionOperation.RUN,
+                selected_executor="antigravity",
+            )
+
+
 def test_canonical_e4_profile_passes() -> None:
     content = _sample_artifact_content(
         extra_lines=[
-            f"PUBLISHER_PROFILE: {CANONICAL_E4_PUBLISHER_PROFILE}",
             "",
             "## RESULT / Review Evidence",
             "",
@@ -356,8 +431,9 @@ def test_canonical_e4_profile_passes() -> None:
 
 
 def test_custom_result_schema_not_expanded() -> None:
-    # Verify Bridge RESULT publisher keys are strictly frozen and canonical
     assert "CUSTOM_IMPLEMENTATION_KEY" not in CANONICAL_RESULT_KEYS
+    assert "TASK_CUSTOM_PUBLISHER_KEY" not in CANONICAL_RESULT_KEYS
+    assert "STEP_CUSTOM_EVIDENCE" not in CANONICAL_RESULT_KEYS
     assert "TARGETED_TESTS" in CANONICAL_RESULT_KEYS
     assert "FULL_REPO_TESTS" in CANONICAL_RESULT_KEYS
     assert "STATUS" in CANONICAL_RESULT_KEYS
@@ -376,9 +452,9 @@ def test_unsupported_custom_result_marker_fails_preflight() -> None:
         )
 
 
-# --- Integration Tests proving Handoff Preflight Ordering ---
+# --- Integration Tests proving Handoff Preflight Ordering (B1a Real Handoff) ---
 
-def test_cmd_handoff_preflight_failure_does_not_mutate_reconcile_branch_lease_or_auth(
+def test_real_run_handoff_missing_profile_rejected_before_mutation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     mutations: dict[str, list[object]] = {
@@ -387,7 +463,6 @@ def test_cmd_handoff_preflight_failure_does_not_mutate_reconcile_branch_lease_or
         "acquire_lease_called": [],
         "save_auth_called": [],
         "update_state_called": [],
-        "artifact_written": [],
     }
 
     monkeypatch.setattr(bridge, "ensure_git", lambda: None)
@@ -401,12 +476,14 @@ def test_cmd_handoff_preflight_failure_does_not_mutate_reconcile_branch_lease_or
     monkeypatch.setattr(bridge, "fetch_control", lambda cfg: None)
     monkeypatch.setattr(bridge, "get_remote_blob_sha", lambda cfg, path: VALID_BLOB_SHA)
 
-    malformed_content = f"""# TASK-071 ? Malformed Task
+    # Missing PUBLISHER_PROFILE line in task artifact
+    content_no_profile = f"""# TASK-071 ? Task Without Profile
 STATUS: READY
 EXECUTOR_CONTEXT_REFS_JSON: [{{"path":".ai/decisions/ADR-044.md","blob_sha":"{VALID_BLOB_SHA}"}}]
 EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py"]
+DISPATCH_EXECUTOR_POLICY_JSON: {{"operation":"RUN","required_capabilities":["SHELL"],"allow_paid_api":false,"candidates":[{{"executor_id":"antigravity","preference_rank":0,"capacity_class":"SUBSCRIPTION","supported_operations":["RUN"],"supported_capabilities":["SHELL"]}}]}}
 """
-    monkeypatch.setattr(bridge, "read_remote_file", lambda cfg, path: malformed_content)
+    monkeypatch.setattr(bridge, "read_remote_file", lambda cfg, path: content_no_profile)
 
     def fake_reconcile(cfg: dict) -> str:
         mutations["reconcile_called"].append(cfg)
@@ -448,8 +525,79 @@ EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py"]
         bridge.cmd_handoff(args)
 
     assert excinfo.value.code != 0
-
     assert len(mutations["reconcile_called"]) == 0
+    assert len(mutations["prepare_task_branch_called"]) == 0
+    assert len(mutations["acquire_lease_called"]) == 0
+    assert len(mutations["save_auth_called"]) == 0
+    assert len(mutations["update_state_called"]) == 0
+    assert not artifact_dest.exists()
+
+
+def test_real_fix_handoff_missing_profile_rejected_before_mutation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    mutations: dict[str, list[object]] = {
+        "prepare_task_branch_called": [],
+        "acquire_lease_called": [],
+        "save_auth_called": [],
+        "update_state_called": [],
+    }
+
+    monkeypatch.setattr(bridge, "ensure_git", lambda: None)
+    monkeypatch.setattr(bridge, "ensure_dirs", lambda: None)
+    monkeypatch.setattr(bridge, "load_config", lambda: {
+        "control_branch": "ai-control",
+        "remote": "origin",
+        "base_branch": "main",
+        "task_branch_prefix": "ai/task-",
+    })
+    monkeypatch.setattr(bridge, "fetch_control", lambda cfg: None)
+    monkeypatch.setattr(bridge, "get_remote_blob_sha", lambda cfg, path: VALID_BLOB_SHA)
+
+    # Missing PUBLISHER_PROFILE line in review artifact
+    review_no_profile = f"""# REVIEW-071 ? Review Without Profile
+STATUS: CHANGES_REQUIRED
+EXECUTOR_CONTEXT_REFS_JSON: [{{"path":".ai/tasks/TASK-071.md","blob_sha":"{VALID_BLOB_SHA}"}}]
+EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py"]
+DISPATCH_EXECUTOR_POLICY_JSON: {{"operation":"FIX","required_capabilities":["SHELL"],"allow_paid_api":false,"candidates":[{{"executor_id":"antigravity","preference_rank":0,"capacity_class":"SUBSCRIPTION","supported_operations":["FIX"],"supported_capabilities":["SHELL"]}}]}}
+"""
+    monkeypatch.setattr(bridge, "read_remote_file", lambda cfg, path: review_no_profile)
+
+    def fake_prepare_branch(cfg: dict, task_id: int, action: str) -> str:
+        mutations["prepare_task_branch_called"].append((task_id, action))
+        return "ai/task-071"
+
+    def fake_acquire(candidate: object) -> object:
+        mutations["acquire_lease_called"].append(candidate)
+        return candidate
+
+    def fake_save_auth(task_id: int, record: dict) -> None:
+        mutations["save_auth_called"].append((task_id, record))
+
+    def fake_update_state(task_id: int, status: str, msg: str) -> None:
+        mutations["update_state_called"].append((task_id, status, msg))
+
+    monkeypatch.setattr(bridge, "prepare_task_branch", fake_prepare_branch)
+    mock_store = SimpleNamespace(acquire=fake_acquire)
+    monkeypatch.setattr(bridge, "get_lease_store", lambda: mock_store)
+    monkeypatch.setattr(bridge, "save_authorization", fake_save_auth)
+    monkeypatch.setattr(bridge, "update_state", fake_update_state)
+
+    runtime_dir = tmp_path / "runtime"
+    runtime_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(bridge, "get_runtime_paths", lambda repo_root=None: {
+        "root": runtime_dir,
+        "seen": runtime_dir / "seen.json",
+    })
+    artifact_dest = tmp_path / "artifacts" / ".ai" / "reviews" / "REVIEW-071.md"
+    monkeypatch.setattr(bridge, "get_artifact_path", lambda rel: artifact_dest)
+
+    args = SimpleNamespace(task_id=71, action="fix", executor=None)
+
+    with pytest.raises(SystemExit) as excinfo:
+        bridge.cmd_handoff(args)
+
+    assert excinfo.value.code != 0
     assert len(mutations["prepare_task_branch_called"]) == 0
     assert len(mutations["acquire_lease_called"]) == 0
     assert len(mutations["save_auth_called"]) == 0
