@@ -10,11 +10,9 @@ AUTO_MERGE_EXECUTED: NO
 EXECUTOR_CONTEXT_REFS_JSON: [{"path":".ai/decisions/ADR-032-E4-APPROVED-EXECUTOR-AUTOMATION-AND-AUTO-PUBLICATION-CONTRACT-LOCK.md","blob_sha":"22c300f882327aa812ad5e3250bf53ba8cf85eb5"},{"path":".ai/decisions/ADR-040-CODEX-LOCAL-TRANSPORT-BOUNDED-DIAGNOSTIC-OBSERVABILITY-CONTRACT-LOCK.md","blob_sha":"04937776829675e77a1651152bba16e7e7f31426"},{"path":".ai/decisions/ADR-046-CODEX-E4-IMPLEMENTATION-INTENT-CLEAN-NOOP-RECOVERY-CONTRACT-LOCK.md","blob_sha":"de5b63eb0c23681ec3feb427f44b91d8f44151c0"},{"path":".ai/decisions/ADR-047-CODEX-TERMINAL-DIAGNOSTIC-TAIL-PRODUCTIVE-NONZERO-RECOVERY-CONTRACT-LOCK.md","blob_sha":"dfe872e4e2d6ad021ec0c338ed46d730c3c95c26"}]
 EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py","src/aios_bridge/executor_transports/codex_local.py","src/aios_bridge/executor_transports/__init__.py","tests/aios_bridge/test_codex_local_transport.py","tests/test_bridge_executor_automation.py"]
 DISPATCH_EXECUTOR_POLICY_JSON: {"allow_paid_api":false,"candidates":[{"capacity_class":"SUBSCRIPTION","executor_id":"antigravity","preference_rank":0,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]}],"operation":"FIX","required_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"]}
-E4_MARKER_REPAIR: YES
-PRIOR_FIX_BOUNDED_EXECUTOR_INVOCATION_OCCURRED: NO
 
 TASK_ID: TASK-074
-REVIEWED_TASK_HEAD_SHA: 0b70eb08628d7660c8c0a7657ddef1c4f2262d9d
+REVIEWED_TASK_HEAD_SHA: c0cd7d45c2d09318938121e721ff5f2bce2511e9
 REVIEWED_BASE_MAIN_SHA: c6bd8943b0e2420391961fe2d3203ec0b65068c9
 TASK_ARTIFACT_BLOB_SHA: 6dabbfa8274ac544cdd96b03cc07a8a00b3e31cc
 EXECUTOR_ID: antigravity
@@ -25,109 +23,61 @@ LIVE_PAID_API_AUTHORIZED: NO
 ```text
 BASE_MAIN_SHA: c6bd8943b0e2420391961fe2d3203ec0b65068c9
 BRANCH: ai/task-074
-REVIEWED_TASK_HEAD_SHA: 0b70eb08628d7660c8c0a7657ddef1c4f2262d9d
+REVIEWED_TASK_HEAD_SHA: c0cd7d45c2d09318938121e721ff5f2bce2511e9
 PRE_MERGE_STATUS: AHEAD
-PRE_MERGE_AHEAD_BY: 1
+PRE_MERGE_AHEAD_BY: 2
 PRE_MERGE_BEHIND_BY: 0
 PRE_MERGE_MERGE_BASE_SHA: c6bd8943b0e2420391961fe2d3203ec0b65068c9
 AUTO_MERGE: BLOCKED
 ```
 
-Cumulative implementation scope is exact: `bridge.py`, `src/aios_bridge/executor_transports/__init__.py`, `src/aios_bridge/executor_transports/codex_local.py`, `tests/aios_bridge/test_codex_local_transport.py`, `tests/test_bridge_executor_automation.py`, plus Bridge-generated `.ai/results/RESULT-074.md`.
+Cumulative implementation scope remains exact: `bridge.py`, `src/aios_bridge/executor_transports/__init__.py`, `src/aios_bridge/executor_transports/codex_local.py`, `tests/aios_bridge/test_codex_local_transport.py`, `tests/test_bridge_executor_automation.py`, plus Bridge-generated `.ai/results/RESULT-074.md`.
 
 ## Findings
 
-### B1 — BLOCKER / HIGH — Productive-nonzero full-suite failure records the wrong operational state
+### B1 — BLOCKER / REGRESSION — Normal EXITED_ZERO test-failure semantics were changed
 
-`cmd_execute()` routes a productive nonzero candidate into `cmd_publish()` with the canonical full-suite command. On any test failure, the existing `cmd_publish()` path unconditionally executes:
+`cmd_execute()` now passes `failure_state="RECOVERY_REQUIRED"` to `cmd_publish()` for both productive-nonzero and normal EXITED_ZERO publication paths. The pre-TASK-074 canonical publisher used `CHANGES_REQUIRED` on a normal implementation whose canonical tests fail, and TASK-074 explicitly requires the normal EXITED_ZERO path to remain unchanged.
 
-```text
-update_state(task_id, "CHANGES_REQUIRED", "Tests failed; do not publish")
-```
+Required repair: choose the failure state by transport class. Productive-nonzero canonical-suite failure must use `RECOVERY_REQUIRED`; the normal EXITED_ZERO path must retain its pre-existing test-failure state/behavior. Add regression coverage for both paths.
 
-ADR-047 / TASK-074 require this specific recovery class to preserve the work and enter `RECOVERY_REQUIRED`, not `CHANGES_REQUIRED`. `CHANGES_REQUIRED` is review semantics and is incorrect when no review artifact was published.
+### B2 — BLOCKER / FAIL-CLOSED — Final productive-nonzero eligibility is still fail-open and not rebound after invocation
 
-The added test named `test_productive_nonzero_failed_test_suite_does_not_publish_and_enters_recovery` does not exercise the real test-failure path: it replaces `cmd_publish` with a function that immediately raises `SystemExit` and then only asserts one executor invocation. It therefore does not prove the required recovery state or no-publication behavior.
+`is_productive_nonzero_recovery_candidate()` now accepts `allowed_paths`, `publication_trust_valid`, and `authorization_binding_valid`, but all three are optional/fail-open (`allowed_paths=None`, booleans default `True`). Production then calls the function with literal `publication_trust_valid=True` and `authorization_binding_valid=True` rather than deriving a fresh post-invocation exact authorization/lease/execution-binding proof at the final eligibility boundary.
 
-Required repair:
+Required repair: make the final eligibility API fail-closed (no permissive defaults), and mechanically re-read/revalidate the ACTIVE authorization plus exact lease/execution binding after executor return before the productive-nonzero path can be eligible. Scope/trust/binding must be proven facts, not caller assertions.
 
-- productive-nonzero canonical full-suite failure -> `RECOVERY_REQUIRED`;
-- no commit/push/publication;
-- work preserved;
-- no retry/reroute/second executor;
-- add a test that exercises the actual productive-nonzero publication test-failure path and asserts the state and publication boundary.
+### B3 — BLOCKER / TOCTOU + TEST COVERAGE — Changed canonical tests are still able to alter publish-relevant state after the first scope/binding checks
 
-### B2 — BLOCKER / HIGH — Publication trust is not reverified after executing changed repository tests
+The new post-test Git-administration trust reverification is correct, but `cmd_publish()` does not re-collect/revalidate exact dirty scope or revalidate ACTIVE authorization/lease after the canonical repository tests run and immediately before RESULT/Git mutation. Repository tests are code from the candidate worktree; a changed test can therefore create an out-of-scope worktree delta or alter runtime authorization/lease after the earlier checks while leaving protected Git-administration trust unchanged.
 
-`cmd_execute()` captures the E4 publication-trust snapshot before executor invocation and verifies it immediately after invocation. It then enters `cmd_publish()`, which runs the canonical full repository suite. After that test execution succeeds, there is no second verification of the captured protected Git-administration trust immediately before RESULT generation / Git mutation / commit / push.
+The new B1/B2 regression tests also monkeypatch `cmd_publish()` itself, so they do not execute the actual canonical test -> post-test revalidation -> publication boundary.
 
-TASK-074 explicitly requires publication-trust mismatch to block productive-nonzero publication. Because tests are repository code and may themselves be part of the authorized executor delta, a changed test can mutate protected Git administration after the current trust check but before publication.
+Required repair: after canonical tests return zero and before RESULT generation / `git add` / commit / push, reverify the captured Git-admin trust, exact current branch/head, exact dirty paths against allowed scope, and exact ACTIVE authorization/lease/execution binding. Add real-path tests that exercise `cmd_publish()` behavior rather than replacing it: one test for productive-nonzero suite failure -> `RECOVERY_REQUIRED`, and one where the test command mutates protected/publish-relevant state and publication is blocked with work preserved.
 
-Required repair:
+### B4 — BLOCKER / RESOURCE CONTRACT — Boundary detection reads one additional raw byte outside the 65536-byte analysis budget
 
-- keep the existing pre/post-executor trust check;
-- reverify the exact captured E4 publication-trust snapshot after canonical tests return zero and before any publication Git mutation;
-- if it drifted: no commit/push, preserve work, `RECOVERY_REQUIRED`, no retry/reroute;
-- add regression coverage where canonical test execution mutates a protected Git-admin surface and prove publication is blocked.
+For a truncated stream, `_read_bounded_stream()` reads 32768 bytes of head + 32768 bytes of tail, then separately reads the predecessor byte at `tail_start - 1` to decide whether the tail starts on a record boundary. That predecessor byte is raw stream data inspected for semantics, so the actual analyzed/read diagnostic data becomes 65537 bytes for that stream, while ADR-047/TASK-074 lock the total analyzed raw bytes per stream to `<= 65536`.
 
-### B3 — BLOCKER / CONTRACT — `is_productive_nonzero_recovery_candidate()` is true before the locked eligibility conditions are complete
-
-The new predicate returns true from only transport status/error, branch identity, HEAD identity, and a non-empty dirty set. It does not itself require the exact allowed-scope result, protected-trust validity, or exact active authorization/lease/execution binding that ADR-047 defines as mandatory before a productive-nonzero invocation is eligible for recovery consideration.
-
-The later flow does run the scope validator and `cmd_publish()` revalidates authorization/lease, so current publication remains partly fail-closed. However, the named recovery-candidate classification is broader than the locked contract and its unit test explicitly asserts `True` without those required conditions.
-
-Required repair: either move final productive-nonzero eligibility classification until after all locked conditions are mechanically established, or explicitly make the current function a non-authoritative pre-candidate and introduce/test one final eligibility boundary that cannot be true before exact scope/trust/binding verification.
-
-### B4 — BLOCKER / CORRECTNESS — Tail boundary fragments are still parsed instead of being ignored as fragments
-
-For a truncated tail, `_analyze_diagnostic_stream()` marks the first tail line as a boundary fragment, but `_process_line()` still attempts UTF-8/JSON parsing and accepts it if parsing succeeds. The boundary flag only suppresses `non_json_line_count` when parsing fails.
-
-ADR-047 requires complete NDJSON records only and requires slice-cut boundary fragments to be ignored. Current behavior can falsely accept a syntactically-valid suffix of a cut/mixed-output line as a real event, including a false `error` / `turn.failed`. Conversely, because the first tail line is always marked as a boundary fragment, a genuine malformed complete line is silently ignored when the tail happens to start exactly on a record boundary.
-
-Required repair:
-
-- mechanically distinguish a cut first-tail fragment from a complete first-tail record while keeping total per-stream analysis <= 65536 bytes;
-- never parse a proven cut fragment as an event;
-- preserve chronological complete-record parsing;
-- add adversarial tests for a cut suffix that is syntactically valid JSON and for an exact record-boundary start.
+Required repair: include any boundary-lookbehind byte inside the fixed 65536-byte budget (for example reduce one slice accordingly or use an equivalent bounded representation) and add a test that counts/ proves the total raw bytes inspected for diagnostic analysis never exceeds the locked budget.
 
 ## Positive Findings
 
-```text
-EXACT_BASE_ANCESTRY: PASS
-AUTHORIZED_SCOPE_ONLY: PASS
-HEAD_TAIL_TOTAL_BUDGET_NOT_INCREASED: PASS
-TAIL_TURN_FAILED_VISIBLE_IN_COVERED_CASE: PASS
-TAIL_ERROR_VISIBLE_IN_COVERED_CASE: PASS
-TAIL_TURN_COMPLETED_VISIBLE_IN_COVERED_CASE: PASS
-CANONICAL_RECEIPT_EXIT_NONZERO_PRESERVED: PASS
-NO_AUTO_RETRY_INTRODUCED: PASS
-NO_AUTO_REROUTE_INTRODUCED: PASS
-NO_SECOND_EXECUTOR_INTRODUCED: PASS
-NO_PAID_API_AUTHORITY_INTRODUCED: PASS
-NO_FORCE_PUSH_INTRODUCED: PASS
-H_SERIES_CODE_CHANGED: NO
-```
+The FIX correctly improves the tail boundary classification logic, adds post-test Git-admin trust verification, preserves the canonical EXITED_NONZERO receipt, and keeps no-retry/no-reroute/no-second-executor/no-paid-API/no-force-push boundaries. Exact ancestry and writable scope remain clean.
 
 ## Validation Evidence
 
-RESULT-074 reports:
-
-```text
-TARGETED_TESTS: 149 passed
-FULL_REPOSITORY_TESTS: 2312 passed, 7 skipped, 0 failed
-```
-
-These green suites are useful regression evidence but do not cover B1-B4 above. `git diff --check` evidence is not present in RESULT-074 and must be rerun after the repair together with both required pytest commands.
+RESULT-074 reports `152 passed` targeted, `2315 passed, 7 skipped, 0 failed` full repository, and a clean `git diff --check`. These suites are green but do not close B1-B4 above.
 
 ## Decision
 
 ```text
 TASK-074: CHANGES_REQUIRED
+BLOCKERS_REMAINING: 4
 AUTO_MERGE: BLOCKED
 MERGED_TO_MAIN: NO
 H3_IMPLEMENTATION_AUTHORIZED: NO
 LIVE_PAID_API_AUTHORIZED: NO
 ```
 
-Repair only the findings above. Do not broaden Codex authority, retry/reroute behavior, network access, paid-provider authority, worker-surface authority, or H-Series scope.
+Repair only B1-B4 above. Do not broaden Codex authority, retry/reroute behavior, network access, paid-provider authority, worker-surface authority, or H-Series scope.
