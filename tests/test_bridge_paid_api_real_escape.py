@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -80,7 +81,7 @@ def _grant() -> PaidApiGrant:
         authorized_artifact_path=ARTIFACT_PATH,
         authorized_artifact_blob_sha=_git_blob_sha(ARTIFACT_CONTENT),
         max_input_tokens=256,
-        max_output_tokens=64,
+        max_output_tokens=8192,
         max_calls=1,
         expires_at_epoch_seconds=2_000_000_000,
         workspace_id=WORKSPACE_ID,
@@ -131,6 +132,8 @@ def _mock_local_git(monkeypatch: pytest.MonkeyPatch, *, branch: str = "main") ->
                 return SimpleNamespace(stdout=MAIN_SHA, returncode=0)
             if target == "refs/remotes/origin/ai-control":
                 return SimpleNamespace(stdout=CONTROL_SHA, returncode=0)
+        if args[0] == "show":
+            return SimpleNamespace(stdout=_proof_lock().to_canonical_json(), returncode=0)
         return SimpleNamespace(stdout="", returncode=1)
 
     monkeypatch.setattr(bridge, "git", fake_git)
@@ -704,3 +707,112 @@ def test_live_path_has_no_hardcoded_30_second_timeout():
     source = inspect.getsource(bridge.cmd_paid_proof_execute)
     assert "timeout_seconds=30" not in source
     assert "timeout_seconds=30.0" not in source
+@pytest.mark.parametrize("invalid_output_tokens", [2000, 8191, 8193, 64, 16384])
+def test_preflight_rejects_non_8192_grant_before_any_spend(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys,
+    invalid_output_tokens: int,
+):
+    """Prove paid-proof-preflight rejects grants with max_output_tokens != 8192."""
+    _mock_local_git(monkeypatch)
+    runtime_root = tmp_path / "runtime"
+    monkeypatch.setenv("AIOS_RUNTIME_DIR", str(runtime_root))
+    monkeypatch.setattr(bridge, "get_workspace_id", lambda: WORKSPACE_ID)
+    grant = PaidApiGrant(
+        schema_version="1",
+        grant_id=GRANT_ID,
+        task_id=TASK_ID,
+        actor_kind=DispatchActorKind.BRAIN,
+        brain_id=PAID_BRAIN,
+        provider_id="minimax",
+        model_id="MiniMax-M3",
+        brain_operation=BrainOperation.PLAN,
+        authorized_artifact_path=ARTIFACT_PATH,
+        authorized_artifact_blob_sha=_git_blob_sha(ARTIFACT_CONTENT),
+        max_input_tokens=256,
+        max_output_tokens=invalid_output_tokens,
+        max_calls=1,
+        expires_at_epoch_seconds=2_000_000_000,
+        workspace_id=WORKSPACE_ID,
+    )
+    store = AtomicPaidApiGrantStore(runtime_root / "paid_api_grants", WORKSPACE_ID)
+    store.activate(grant, now_epoch_seconds=1_000_000_000)
+    monkeypatch.setattr(bridge, "get_paid_api_grant_store", lambda: store)
+    monkeypatch.setattr(
+        bridge,
+        "resolve_git_blob_sha",
+        lambda _ref, path: PROOF_LOCK_BLOB if path == PROOF_LOCK_PATH else grant.authorized_artifact_blob_sha,
+    )
+    monkeypatch.setattr(
+        bridge,
+        "read_git_blob_bytes",
+        lambda _ref, path: _proof_lock().to_canonical_json().encode("utf-8"),
+    )
+
+    args = SimpleNamespace(
+        task_id=TASK_NUM,
+        grant_id=GRANT_ID,
+        proof_lock_path=PROOF_LOCK_PATH,
+        proof_lock_blob_sha=PROOF_LOCK_BLOB,
+    )
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_paid_proof_preflight(args)
+
+    err = capsys.readouterr().err
+    assert "must be exactly 8192" in err
+
+
+@pytest.mark.parametrize("invalid_output_tokens", [2000, 8191, 8193, 64, 16384])
+def test_execute_rejects_non_8192_grant_before_credential_or_provider(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys,
+    invalid_output_tokens: int,
+):
+    """Prove paid-proof-execute rejects grants with max_output_tokens != 8192 before credential/provider."""
+    _mock_local_git(monkeypatch)
+    runtime_root = tmp_path / "runtime"
+    monkeypatch.setenv("AIOS_RUNTIME_DIR", str(runtime_root))
+    monkeypatch.setattr(bridge, "get_workspace_id", lambda: WORKSPACE_ID)
+    grant = PaidApiGrant(
+        schema_version="1",
+        grant_id=GRANT_ID,
+        task_id=TASK_ID,
+        actor_kind=DispatchActorKind.BRAIN,
+        brain_id=PAID_BRAIN,
+        provider_id="minimax",
+        model_id="MiniMax-M3",
+        brain_operation=BrainOperation.PLAN,
+        authorized_artifact_path=ARTIFACT_PATH,
+        authorized_artifact_blob_sha=_git_blob_sha(ARTIFACT_CONTENT),
+        max_input_tokens=256,
+        max_output_tokens=invalid_output_tokens,
+        max_calls=1,
+        expires_at_epoch_seconds=2_000_000_000,
+        workspace_id=WORKSPACE_ID,
+    )
+    store = AtomicPaidApiGrantStore(runtime_root / "paid_api_grants", WORKSPACE_ID)
+    store.activate(grant, now_epoch_seconds=1_000_000_000)
+    monkeypatch.setattr(bridge, "get_paid_api_grant_store", lambda: store)
+    monkeypatch.setattr(
+        bridge,
+        "resolve_git_blob_sha",
+        lambda _ref, path: PROOF_LOCK_BLOB if path == PROOF_LOCK_PATH else grant.authorized_artifact_blob_sha,
+    )
+    monkeypatch.setattr(
+        bridge,
+        "read_git_blob_bytes",
+        lambda _ref, path: _proof_lock().to_canonical_json().encode("utf-8"),
+    )
+
+    env = ProductionLikeEnviron({"MINIMAX_API_KEY": "SECRET_VALUE_SENTINEL"})
+    monkeypatch.setattr(os, "environ", env)
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_paid_proof_execute(_args())
+
+    err = capsys.readouterr().err
+    assert "must be exactly 8192" in err
+    assert env.secret_value_reads == 0

@@ -38,6 +38,7 @@ from .external_brain.contracts import (
     ContextKind,
     ModelRequest,
     ModelResponse,
+    ModelResponseStatus,
 )
 from .external_brain.gateway import ModelGateway
 from .external_brain.usage import UsageLedger
@@ -66,6 +67,33 @@ from .runtime_paid_api_grant import AtomicPaidApiGrantStore
 REAL_ESCAPE_SCHEMA_VERSION = "1"
 MAX_PROPOSAL_BYTES = 512 * 1024
 MAX_PROOF_BYTES = 64 * 1024
+M11_REAL_PROOF_MAX_OUTPUT_TOKENS = 8192
+
+_ALLOWLISTED_RESPONSE_STATUSES: frozenset[str] = frozenset(
+    {
+        "SUCCESS",
+        "FAILED",
+        "RATE_LIMITED",
+        "UNAVAILABLE",
+        "TIMEOUT",
+        "AUTH_ERROR",
+        "INVALID_RESPONSE",
+    }
+)
+
+SAFE_POST_CONSUME_ERROR_CODES: frozenset[str] = frozenset(
+    {
+        "TRUNCATED_OUTPUT",
+        "INVALID_ARTIFACT_STRUCTURE",
+        "CORRELATION_ERROR",
+        "MALFORMED_RESPONSE",
+        "EMPTY_CONTENT",
+        "TIMEOUT",
+        "AUTH_ERROR",
+        "RATE_LIMITED",
+        "UNAVAILABLE",
+    }
+)
 
 _TASK_ID_RE = re.compile(r"^TASK-[0-9]{3,}$")
 _HEX_40_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -729,6 +757,10 @@ async def execute_paid_api_real_escape(
         raise PaidApiRealEscapeError("real proof grant must be PLAN-only")
     if grant.max_calls != 1:
         raise PaidApiRealEscapeError("real proof grant max_calls must be one")
+    if grant.max_output_tokens != M11_REAL_PROOF_MAX_OUTPUT_TOKENS:
+        raise PaidApiRealEscapeError(
+            f"real proof grant max_output_tokens must be exactly {M11_REAL_PROOF_MAX_OUTPUT_TOKENS}"
+        )
     if grant.workspace_id != grant_store.workspace_id:
         raise PaidApiRealEscapeError("grant workspace binding mismatch")
     if grant.provider_id != proof_lock.provider_id or grant.model_id != proof_lock.model_id:
@@ -895,6 +927,30 @@ async def execute_paid_api_real_escape(
     ):
         raise PaidApiRealEscapeError("one-call paid dispatch proof did not complete")
 
+    gateway_result = escape_result.gateway_result
+    if gateway_result is None:
+        raise PaidApiRealEscapeError("successful gateway evidence is missing")
+
+    if gateway_result.response.status is not ModelResponseStatus.SUCCESS:
+        status_val = (
+            gateway_result.response.status.value
+            if isinstance(gateway_result.response.status, ModelResponseStatus)
+            else (
+                str(gateway_result.response.status)
+                if str(gateway_result.response.status) in _ALLOWLISTED_RESPONSE_STATUSES
+                else "OTHER"
+            )
+        )
+        raw_code = gateway_result.response.error_code
+        error_code_val = (
+            raw_code
+            if isinstance(raw_code, str) and raw_code in SAFE_POST_CONSUME_ERROR_CODES
+            else "OTHER"
+        )
+        raise PaidApiRealEscapeError(
+            f"POST_CONSUME_RESPONSE_REJECTED / STATUS={status_val} / ERROR_CODE={error_code_val} / GRANT_CONSUMED=YES / RETRY_COUNT=0"
+        )
+
     # R9: build only from the original pre-call evidence held by escape_result.
     try:
         operational_proof = build_paid_api_operational_proof(
@@ -907,9 +963,6 @@ async def execute_paid_api_real_escape(
         raise PaidApiRealEscapeError(
             "OPERATIONAL_PROOF_FAILED_AFTER_CONSUME"
         ) from exc
-    gateway_result = escape_result.gateway_result
-    if gateway_result is None:
-        raise PaidApiRealEscapeError("successful gateway evidence is missing")
     proposal_content = _validate_proposal_content(gateway_result.response.content)
     proposal_sha = hashlib.sha256(proposal_content.encode("utf-8")).hexdigest()
     if proposal_sha != operational_proof.response_content_sha256:

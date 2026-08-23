@@ -117,6 +117,8 @@ class FakeProvider:
         status: ModelResponseStatus = ModelResponseStatus.SUCCESS,
         raises: Exception | None = None,
         content: str = SUCCESS_PROPOSAL,
+        error_code: str | None = None,
+        error_message: str | None = None,
     ) -> None:
         self.store = store
         self.grant = grant
@@ -124,6 +126,8 @@ class FakeProvider:
         self.status = status
         self.raises = raises
         self.content = content
+        self.error_code = error_code
+        self.error_message = error_message
         self.calls = 0
         self.api_key = "DUMMY_REAL_ESCAPE_SECRET_MUST_NOT_LEAK"
 
@@ -135,6 +139,7 @@ class FakeProvider:
         if self.raises is not None:
             raise self.raises
         success = self.status is ModelResponseStatus.SUCCESS
+        default_err = "OFFLINE_PROVIDER_FAILURE" if not success else None
         return ModelResponse(
             schema_version="1",
             request_id=request.request_id,
@@ -148,8 +153,8 @@ class FakeProvider:
             output_tokens=8 if success else 0,
             latency_ms=1,
             provider_request_id="offline-minimax-request-062",
-            error_code=None if success else "OFFLINE_PROVIDER_FAILURE",
-            error_message=None if success else "offline failure",
+            error_code=self.error_code if self.error_code is not None else default_err,
+            error_message=self.error_message if self.error_message is not None else ("offline failure" if not success else None),
         )
 
 
@@ -219,7 +224,7 @@ def _grant() -> PaidApiGrant:
         authorized_artifact_path=ARTIFACT_PATH,
         authorized_artifact_blob_sha=_git_blob_sha(ARTIFACT_CONTENT),
         max_input_tokens=256,
-        max_output_tokens=64,
+        max_output_tokens=8192,
         max_calls=1,
         expires_at_epoch_seconds=1_000,
         workspace_id=WORKSPACE_ID,
@@ -243,6 +248,8 @@ def _setup(
     provider_status: ModelResponseStatus = ModelResponseStatus.SUCCESS,
     provider_raises: Exception | None = None,
     provider_content: str = SUCCESS_PROPOSAL,
+    provider_error_code: str | None = None,
+    provider_error_message: str | None = None,
     ledger=None,
     subscription_state: CapacityState = CapacityState.QUOTA_EXHAUSTED,
 ):
@@ -276,6 +283,8 @@ def _setup(
         status=provider_status,
         raises=provider_raises,
         content=provider_content,
+        error_code=provider_error_code,
+        error_message=provider_error_message,
     )
     factory_calls = {"count": 0}
 
@@ -477,7 +486,7 @@ def test_failed_response_and_ledger_failure_both_leave_consumed(
         monkeypatch,
         provider_status=ModelResponseStatus.FAILED,
     )
-    with pytest.raises(PaidApiRealEscapeError, match="OPERATIONAL_PROOF"):
+    with pytest.raises(PaidApiRealEscapeError, match="POST_CONSUME_RESPONSE_REJECTED"):
         _run(arguments)
     assert factory_calls["count"] == provider.calls == 1
     assert store.load_consumed(TASK_ID, GRANT_ID) == grant
@@ -671,4 +680,126 @@ def test_persist_artifacts_rejects_symlink_proofs_parent_and_task_parent(tmp_pat
     final_ns = task_dir / grant_hash
     assert (final_ns / "proposal.md").read_text(encoding="utf-8") == SUCCESS_PROPOSAL
     assert (final_ns / "proof.json").exists()
+@pytest.mark.parametrize("invalid_output_tokens", [2000, 8191, 8193, 64, 16384])
+def test_direct_execute_rejects_non_8192_grant_before_consume_or_provider(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    invalid_output_tokens: int,
+):
+    """Prove execute_paid_api_real_escape fails closed if grant max_output_tokens != 8192."""
+    arguments, provider, factory_calls, _events, store, grant = _setup(
+        tmp_path, monkeypatch
+    )
+    bad_grant = PaidApiGrant(
+        schema_version="1",
+        grant_id="grant-bad-tokens",
+        task_id=TASK_ID,
+        actor_kind=DispatchActorKind.BRAIN,
+        brain_id=PAID_BRAIN,
+        provider_id="minimax",
+        model_id="MiniMax-M3",
+        brain_operation=BrainOperation.PLAN,
+        authorized_artifact_path=ARTIFACT_PATH,
+        authorized_artifact_blob_sha=_git_blob_sha(ARTIFACT_CONTENT),
+        max_input_tokens=256,
+        max_output_tokens=invalid_output_tokens,
+        max_calls=1,
+        expires_at_epoch_seconds=1_000,
+        workspace_id=WORKSPACE_ID,
+    )
+    store.activate(bad_grant, now_epoch_seconds=10)
+    arguments["grant"] = bad_grant
 
+    with pytest.raises(PaidApiRealEscapeError, match="must be exactly 8192"):
+        _run(arguments)
+
+    assert factory_calls["count"] == 0
+    assert provider.calls == 0
+    assert store.load_active(TASK_ID, "grant-bad-tokens") == bad_grant
+    assert store.load_consumed(TASK_ID, "grant-bad-tokens") is None
+
+
+def test_post_consume_truncated_output_diagnostic_and_secret_safety(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Prove normalized TRUNCATED_OUTPUT produces bounded safe diagnostic after consume."""
+    arguments, provider, factory_calls, _events, store, grant = _setup(
+        tmp_path,
+        monkeypatch,
+        provider_status=ModelResponseStatus.INVALID_RESPONSE,
+        provider_error_code="TRUNCATED_OUTPUT",
+        provider_error_message="Generation stopped due to length",
+    )
+
+    with pytest.raises(PaidApiRealEscapeError) as exc_info:
+        _run(arguments)
+
+    err_msg = str(exc_info.value)
+    assert "POST_CONSUME_RESPONSE_REJECTED" in err_msg
+    assert "STATUS=INVALID_RESPONSE" in err_msg
+    assert "ERROR_CODE=TRUNCATED_OUTPUT" in err_msg
+    assert "GRANT_CONSUMED=YES" in err_msg
+    assert "RETRY_COUNT=0" in err_msg
+
+    # Diagnostic must NEVER leak secret/internal details
+    assert "Generation stopped due to length" not in err_msg
+    assert "DUMMY_REAL_ESCAPE_SECRET_MUST_NOT_LEAK" not in err_msg
+    assert "offline-minimax-request-062" not in err_msg
+    assert str(tmp_path) not in err_msg
+
+    assert factory_calls["count"] == 1
+    assert provider.calls == 1
+    assert store.load_consumed(TASK_ID, GRANT_ID) == grant
+    # No proposal or proof written
+    assert not (tmp_path / "paid_api_proofs").exists()
+
+
+@pytest.mark.parametrize(
+    "status,error_code,expected_error_code",
+    [
+        (ModelResponseStatus.TIMEOUT, "TIMEOUT", "TIMEOUT"),
+        (ModelResponseStatus.AUTH_ERROR, "AUTH_ERROR", "AUTH_ERROR"),
+        (ModelResponseStatus.RATE_LIMITED, "RATE_LIMITED", "RATE_LIMITED"),
+        (ModelResponseStatus.UNAVAILABLE, "UNAVAILABLE", "UNAVAILABLE"),
+        (ModelResponseStatus.INVALID_RESPONSE, "INVALID_ARTIFACT_STRUCTURE", "INVALID_ARTIFACT_STRUCTURE"),
+        (ModelResponseStatus.INVALID_RESPONSE, "MALFORMED_RESPONSE", "MALFORMED_RESPONSE"),
+        (ModelResponseStatus.INVALID_RESPONSE, "EMPTY_CONTENT", "EMPTY_CONTENT"),
+        (ModelResponseStatus.FAILED, "CUSTOM_UNKNOWN_MINIMAX_ERROR_CODE", "OTHER"),
+        (ModelResponseStatus.FAILED, None, "OTHER"),
+    ],
+)
+def test_post_consume_allowlist_and_unknown_collapse_to_other(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    status: ModelResponseStatus,
+    error_code: str | None,
+    expected_error_code: str,
+):
+    """Prove allowlisted codes are preserved and unknown codes collapse to OTHER."""
+    test_dir = tmp_path / f"diag_{status.value}_{expected_error_code}"
+    test_dir.mkdir()
+    arguments, provider, factory_calls, _events, store, grant = _setup(
+        test_dir,
+        monkeypatch,
+        provider_status=status,
+        provider_error_code=error_code,
+        provider_error_message="Some provider error message that must not leak",
+    )
+
+    with pytest.raises(PaidApiRealEscapeError) as exc_info:
+        _run(arguments)
+
+    err_msg = str(exc_info.value)
+    assert "POST_CONSUME_RESPONSE_REJECTED" in err_msg
+    assert f"STATUS={status.value}" in err_msg
+    assert f"ERROR_CODE={expected_error_code}" in err_msg
+    assert "GRANT_CONSUMED=YES" in err_msg
+    assert "RETRY_COUNT=0" in err_msg
+
+    assert "Some provider error message that must not leak" not in err_msg
+    assert "CUSTOM_UNKNOWN_MINIMAX_ERROR_CODE" not in err_msg
+
+    assert factory_calls["count"] == 1
+    assert provider.calls == 1
+    assert store.load_consumed(TASK_ID, GRANT_ID) == grant

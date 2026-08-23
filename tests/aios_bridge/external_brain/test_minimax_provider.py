@@ -363,4 +363,31 @@ def test_minimax_provider_api_key_isolation_in_repr():
     assert "MiniMax-M3" in repr_str
     assert "45" in repr_str
     assert "45" in str_str
-
+@pytest.mark.asyncio
+async def test_minimax_provider_passes_max_completion_tokens_8192():
+    """Prove ModelRequest with max_output_tokens=8192 sets payload max_completion_tokens=8192 unchanged."""
+    transport = MockTransport()
+    provider = MiniMaxOpenAIProvider(
+        api_key="test-key",
+        model_name="MiniMax-M3",
+        transport=transport,
+    )
+    request = ModelRequest(
+        schema_version="1",
+        request_id="req-tokens-8192",
+        task_id="TASK-064",
+        role=BrainRole.ARCHITECT,
+        operation=BrainOperation.PLAN,
+        instruction="Plan the task",
+        context=[ContextItem(kind=ContextKind.TASK, content="Task context")],
+        output_format=BrainOutputType.PLAN,
+        provider="minimax",
+        model="MiniMax-M3",
+        max_input_tokens=256,
+        max_output_tokens=8192,
+    )
+    response = await provider.invoke(request)
+    assert response.status == ModelResponseStatus.SUCCESS
+    assert len(transport.sent_requests) == 1
+    sent_payload = transport.sent_requests[0].payload
+    assert sent_payload.get("max_completion_tokens") == 8192
