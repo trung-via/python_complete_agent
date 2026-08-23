@@ -95,8 +95,9 @@ ChatGPT performs an independent semantic audit and emits `REVIEW-N.md` with eith
 
 `MERGE` is **never** a worker command and is intentionally omitted from both the skill and the workflow:
 
-- Worker surfaces cannot merge code into `main`.
-- Merging is strictly reserved for the Human operator following an explicit `PASS` audit from ChatGPT.
+- Worker executors **NEVER** merge code into `main`.
+- Under ADR-042 standing Human authorization, the ChatGPT review boundary executes the deterministic lean auto-merge transaction immediately after a valid `PASS` audit without requiring a separate second Human merge command.
+- Workers stop immediately after publication and instruct the Human operator to review the task in ChatGPT (`Review TASK-N in ChatGPT`).
 
 ---
 

@@ -74,6 +74,14 @@ from src.aios_bridge.executor_automation import (
     validate_executor_worktree_delta,
 )
 from src.aios_bridge.executor_context import ExecutorAuthorizationBinding
+from src.aios_bridge.review_merge import (
+    MergeGateReason,
+    ReviewedMergeInput,
+    MergeGateDecision,
+    MergeReceipt,
+    evaluate_merge_gate,
+    parse_review_header,
+)
 from src.aios_bridge.executor_transports.codex_local import (
     CODEX_EXECUTOR_ID,
     CODEX_TRANSPORT_ID,
@@ -4896,6 +4904,129 @@ def cmd_setup(args):
     print(json.dumps(cfg, ensure_ascii=False, indent=2))
 
 
+def cmd_merge_reviewed(args):
+    """
+    Executes a deterministic fast-forward auto-merge of an already-authorized,
+    reviewed task head after valid ChatGPT PASS review under ADR-042 standing authorization.
+    """
+    ensure_git()
+    cfg = load_config()
+    remote = getattr(args, "remote", "origin") or "origin"
+    base_branch = getattr(args, "base_branch", "main") or "main"
+    control_branch = getattr(args, "control_branch", "ai-control") or "ai-control"
+    prefix = getattr(args, "task_branch_prefix", "ai/task-") or "ai/task-"
+    task_num = args.task_id
+    task_id = f"TASK-{task_num:03d}"
+    task_branch = f"{prefix}{task_num:03d}"
+
+    # 1. Sync / fetch required refs
+    p_fetch = git("fetch", remote, control_branch, base_branch, task_branch, check=False)
+    if p_fetch.returncode != 0:
+        print(f"[ERROR] Failed to fetch remote refs for merge: {p_fetch.stderr.strip()}")
+        sys.exit(1)
+
+    # 2. Read review artifact from control branch
+    review_path = f".ai/reviews/REVIEW-{task_num:03d}.md"
+    res = git("show", f"refs/remotes/{remote}/{control_branch}:{review_path}", check=False)
+    if res.returncode != 0 or not res.stdout.strip():
+        print(f"[MERGE_GATE] REVIEW_MISSING: Cannot read {review_path} from {remote}/{control_branch}")
+        sys.exit(1)
+    review_text = res.stdout
+
+    # 3. Parse review header
+    try:
+        review_data = parse_review_header(review_text)
+    except Exception as exc:
+        print(f"[MERGE_GATE] REVIEW_PARSE_FAILED: {exc}")
+        sys.exit(1)
+
+    # 4. Resolve current remote main and task branch head
+    p_main = git("rev-parse", f"refs/remotes/{remote}/{base_branch}", check=False)
+    if p_main.returncode != 0:
+        print(f"[MERGE_GATE] GIT_OPERATION_FAILED: Cannot resolve {remote}/{base_branch}")
+        sys.exit(1)
+    current_main_sha = p_main.stdout.strip().lower()
+
+    p_task = git("rev-parse", f"refs/remotes/{remote}/{task_branch}", check=False)
+    if p_task.returncode != 0:
+        print(f"[MERGE_GATE] GIT_OPERATION_FAILED: Cannot resolve {remote}/{task_branch}")
+        sys.exit(1)
+    current_task_head_sha = p_task.stdout.strip().lower()
+
+    p_base = git("merge-base", f"refs/remotes/{remote}/{base_branch}", f"refs/remotes/{remote}/{task_branch}", check=False)
+    if p_base.returncode != 0:
+        print(f"[MERGE_GATE] GIT_OPERATION_FAILED: Cannot compute merge-base")
+        sys.exit(1)
+    merge_base_sha = p_base.stdout.strip().lower()
+
+    p_counts = git("rev-list", "--left-right", "--count", f"refs/remotes/{remote}/{base_branch}...refs/remotes/{remote}/{task_branch}", check=False)
+    if p_counts.returncode != 0:
+        print(f"[MERGE_GATE] GIT_OPERATION_FAILED: Cannot count ahead/behind")
+        sys.exit(1)
+    parts = p_counts.stdout.strip().split()
+    behind_by = int(parts[0])
+    ahead_by = int(parts[1])
+
+    # 5. Evaluate pure merge gate
+    try:
+        input_data = ReviewedMergeInput(
+            task_id=task_id,
+            review_status=review_data["status"],
+            review_approved=review_data["approved"],
+            auto_merge_eligible=review_data["auto_merge_eligible"],
+            reviewed_task_head_sha=review_data["reviewed_task_head_sha"],
+            reviewed_base_main_sha=review_data["reviewed_base_main_sha"],
+            current_task_head_sha=current_task_head_sha,
+            current_main_sha=current_main_sha,
+            merge_base_sha=merge_base_sha,
+            ahead_by=ahead_by,
+            behind_by=behind_by,
+        )
+        decision = evaluate_merge_gate(input_data)
+    except Exception as exc:
+        print(f"[MERGE_GATE] GATE_EVALUATION_ERROR: {exc}")
+        sys.exit(1)
+
+    if not decision.eligible:
+        print(f"[MERGE_GATE] BLOCKED: {decision.reason.value} - {decision.message}")
+        sys.exit(1)
+
+    # 6. Execute fast-forward only mutation
+    p_push = git("push", remote, f"{current_task_head_sha}:refs/heads/{base_branch}", check=False)
+    if p_push.returncode != 0:
+        print(f"[MERGE_GATE] GIT_OPERATION_FAILED: Push failed: {p_push.stderr.strip()}")
+        sys.exit(1)
+
+    # 7. Post-merge identity verification
+    p_post_fetch = git("fetch", remote, base_branch, check=False)
+    p_post_main = git("rev-parse", f"refs/remotes/{remote}/{base_branch}", check=False)
+    post_main_sha = p_post_main.stdout.strip().lower()
+    if post_main_sha != current_task_head_sha or post_main_sha != review_data["reviewed_task_head_sha"]:
+        print(f"[MERGE_GATE] POST_MERGE_IDENTITY_FAILED: Remote main at {post_main_sha} != {current_task_head_sha}")
+        sys.exit(1)
+
+    # 8. Persist merge receipt
+    receipt = MergeReceipt(
+        task_id=task_id,
+        reviewed_task_head_sha=review_data["reviewed_task_head_sha"],
+        reviewed_base_main_sha=review_data["reviewed_base_main_sha"],
+        pre_merge_main_sha=current_main_sha,
+        post_merge_main_sha=post_main_sha,
+        merge_method="FAST_FORWARD",
+        force_update=False,
+        auto_merge=True,
+        gate_reason=decision.reason.value,
+        post_merge_identity_verified=True,
+    )
+    receipt_dir = get_runtime_paths()["root"] / "merge_receipts" / task_id
+    receipt_dir.mkdir(parents=True, exist_ok=True)
+    receipt_file = receipt_dir / f"{post_main_sha}.json"
+    receipt_file.write_text(receipt.to_json(), encoding="utf-8")
+
+    print(f"[MERGE_SUCCESS] Fast-forwarded {base_branch} to {post_main_sha} (Task: {task_id})")
+    return receipt
+
+
 def build_parser():
     p = argparse.ArgumentParser(
         description="AI Engineering OS Lite Bridge v0.4.0"
@@ -5080,6 +5211,17 @@ def build_parser():
     s.add_argument("--lease-id", required=True)
     s.add_argument("--confirm-stopped", action="store_true")
     s.set_defaults(func=cmd_lease_release)
+
+    s = sub.add_parser(
+        "merge-reviewed",
+        help="Fast-forward main to exact reviewed task head after valid ChatGPT PASS review under ADR-042",
+    )
+    s.add_argument("task_id", type=int)
+    s.add_argument("--remote", default="origin")
+    s.add_argument("--base-branch", default="main")
+    s.add_argument("--control-branch", default="ai-control")
+    s.add_argument("--task-branch-prefix", default="ai/task-")
+    s.set_defaults(func=cmd_merge_reviewed)
 
     return p
 

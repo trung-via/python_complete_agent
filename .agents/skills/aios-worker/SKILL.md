@@ -63,8 +63,8 @@ When this skill is invoked:
 10. **DO NOT** call `bridge.py approve` directly.
 11. **DO NOT** call `bridge.py publish` directly.
 12. **DO NOT** perform automatic retries or rerouting upon failure.
-13. **DO NOT** authorize or perform branch merge (`MERGE` is strictly reserved for the Human
-    and ChatGPT review boundary).
+13. **DO NOT** authorize or perform branch merge (worker executors NEVER merge;
+    the ChatGPT review boundary may auto-merge after PASS under ADR-042 standing Human authorization).
 14. **DO NOT** delegate or reroute to the Antigravity `/aios-worker` workflow.
 15. On successful execution, instruct the Human:
     ```text

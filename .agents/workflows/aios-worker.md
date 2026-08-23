@@ -63,8 +63,8 @@ When this workflow is invoked:
 9. **DO NOT** call `bridge.py execute` directly (that is the Codex executor path only).
 10. **DO NOT** run `bridge.py context`.
 11. **DO NOT** perform automatic retries or rerouting upon failure.
-12. **DO NOT** authorize or perform branch merge (`MERGE` is strictly reserved for the Human
-    and ChatGPT review boundary).
+12. **DO NOT** authorize or perform branch merge (worker executors NEVER merge;
+    the ChatGPT review boundary may auto-merge after PASS under ADR-042 standing Human authorization).
 13. **DO NOT** delegate or reroute to the Codex `$aios-worker` skill.
 14. After successful handoff, continue the implementation work in this same Antigravity session.
 15. On task completion and Bridge publication, instruct the Human:
