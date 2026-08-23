@@ -227,26 +227,68 @@ def _sample_evidence(path: str = "src/a.py", blob_sha: str = SHA_A) -> Repositor
     )
 
 
+def _sample_exclusion(
+    path: str = "link", object_sha: str = SHA_A
+) -> RepositoryDiscoveryExclusion:
+    return RepositoryDiscoveryExclusion(
+        path=path,
+        object_sha=object_sha,
+        git_mode="120000",
+        object_type="blob",
+        reason_code=NON_REGULAR_GIT_MODE,
+    )
+
+
 def test_result_contract_uses_exact_tuples_canonical_order_and_rejects_duplicates():
     snapshot = RepositorySnapshotRef(SHA_A, TREE_A)
     result = RepositoryDiscoveryResult.create(
         snapshot,
-        [_sample_evidence("src/b.py", SHA_B), _sample_evidence("src/a.py", SHA_A)],
+        (_sample_evidence("src/b.py", SHA_B), _sample_evidence("src/a.py", SHA_A)),
+        (_sample_exclusion("z-link", SHA_B), _sample_exclusion("a-link", SHA_A)),
     )
     assert type(result.evidence) is tuple
     assert type(result.exclusions) is tuple
     assert [item.path for item in result.evidence] == ["src/a.py", "src/b.py"]
+    assert [item.path for item in result.exclusions] == ["a-link", "z-link"]
     with pytest.raises(HarnessValidationError, match="duplicate or ambiguous"):
-        RepositoryDiscoveryResult.create(snapshot, [_sample_evidence(), _sample_evidence()])
+        RepositoryDiscoveryResult.create(snapshot, (_sample_evidence(), _sample_evidence()))
     with pytest.raises(HarnessValidationError, match="exact tuple"):
         dataclasses.replace(result, evidence=list(result.evidence))  # type: ignore[arg-type]
 
 
+@pytest.mark.parametrize("iterable_kind", ["list", "generator", "reversed", "string"])
+def test_result_factory_rejects_non_tuple_evidence(iterable_kind: str):
+    snapshot = RepositorySnapshotRef(SHA_A, TREE_A)
+    evidence = (_sample_evidence(),)
+    invalid_evidence = {
+        "list": list(evidence),
+        "generator": (item for item in evidence),
+        "reversed": reversed(evidence),
+        "string": "src/a.py",
+    }[iterable_kind]
+    with pytest.raises(HarnessValidationError, match="evidence must be an exact tuple"):
+        RepositoryDiscoveryResult.create(snapshot, invalid_evidence)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("iterable_kind", ["list", "generator", "reversed", "string"])
+def test_result_factory_rejects_non_tuple_exclusions(iterable_kind: str):
+    snapshot = RepositorySnapshotRef(SHA_A, TREE_A)
+    exclusions = (_sample_exclusion(),)
+    invalid_exclusions = {
+        "list": list(exclusions),
+        "generator": (item for item in exclusions),
+        "reversed": reversed(exclusions),
+        "string": "link",
+    }[iterable_kind]
+    with pytest.raises(HarnessValidationError, match="exclusions must be an exact tuple"):
+        RepositoryDiscoveryResult.create(snapshot, (), invalid_exclusions)  # type: ignore[arg-type]
+
+
 def test_result_fingerprints_are_deterministic_and_tamper_evident():
     snapshot = RepositorySnapshotRef(SHA_A, TREE_A)
-    evidence = [_sample_evidence("src/b.py", SHA_B), _sample_evidence("src/a.py", SHA_A)]
+    evidence = (_sample_evidence("src/b.py", SHA_B), _sample_evidence("src/a.py", SHA_A))
     first = RepositoryDiscoveryResult.create(snapshot, evidence)
-    second = RepositoryDiscoveryResult.create(snapshot, reversed(evidence))
+    second = RepositoryDiscoveryResult.create(snapshot, tuple(reversed(evidence)))
     assert first.candidate_set_fingerprint == second.candidate_set_fingerprint
     assert first.discovery_fingerprint == second.discovery_fingerprint
     with pytest.raises(HarnessFingerprintError, match="Candidate set fingerprint mismatch"):
@@ -368,6 +410,36 @@ def test_discovery_uses_explicit_local_git_argv_and_no_unbounded_capture(local_g
     assert "git fetch" not in implementation
     assert "git pull" not in implementation
     assert "git clone" not in implementation
+
+
+def test_every_git_process_forces_no_lazy_fetch_even_if_caller_enables_it(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    monkeypatch.setenv("GIT_NO_LAZY_FETCH", "0")
+    calls: list[tuple[list[str], dict[str, object]]] = []
+    process_sentinel = object()
+
+    def fake_popen(argv: list[str], **kwargs: object) -> object:
+        calls.append((argv, kwargs))
+        return process_sentinel
+
+    monkeypatch.setattr(subprocess, "Popen", fake_popen)
+    commands = (
+        ("cat-file", "-t", SHA_A),
+        ("rev-parse", f"{SHA_A}^{{tree}}"),
+        ("ls-tree", "-r", "-z", "--full-tree", SHA_A, "--"),
+    )
+
+    for command in commands:
+        assert _open_git_process(tmp_path, command) is process_sentinel
+
+    assert len(calls) == len(commands)
+    for argv, kwargs in calls:
+        assert argv[:2] == ["git", "--no-replace-objects"]
+        assert kwargs["shell"] is False
+        child_environment = kwargs["env"]
+        assert isinstance(child_environment, dict)
+        assert child_environment["GIT_NO_LAZY_FETCH"] == "1"
 
 
 def test_discovery_records_are_frozen():

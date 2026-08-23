@@ -232,19 +232,21 @@ class RepositoryDiscoveryResult:
     def create(
         cls,
         snapshot: RepositorySnapshotRef,
-        evidence: Sequence[RepositoryEvidenceRef],
-        exclusions: Sequence[RepositoryDiscoveryExclusion] = (),
+        evidence: tuple[RepositoryEvidenceRef, ...],
+        exclusions: tuple[RepositoryDiscoveryExclusion, ...] = (),
     ) -> "RepositoryDiscoveryResult":
         """Create a canonically ordered and fingerprint-verified result."""
 
-        evidence_items = tuple(evidence)
-        exclusion_items = tuple(exclusions)
-        if any(not isinstance(item, RepositoryEvidenceRef) for item in evidence_items):
+        if type(evidence) is not tuple:
+            raise HarnessValidationError("evidence must be an exact tuple")
+        if type(exclusions) is not tuple:
+            raise HarnessValidationError("exclusions must be an exact tuple")
+        if any(not isinstance(item, RepositoryEvidenceRef) for item in evidence):
             raise HarnessValidationError("every evidence item must be RepositoryEvidenceRef")
-        if any(not isinstance(item, RepositoryDiscoveryExclusion) for item in exclusion_items):
+        if any(not isinstance(item, RepositoryDiscoveryExclusion) for item in exclusions):
             raise HarnessValidationError("every exclusion item must be RepositoryDiscoveryExclusion")
-        evidence_tuple = tuple(sorted(evidence_items, key=lambda item: item.path))
-        exclusion_tuple = tuple(sorted(exclusion_items, key=_exclusion_order_key))
+        evidence_tuple = tuple(sorted(evidence, key=lambda item: item.path))
+        exclusion_tuple = tuple(sorted(exclusions, key=_exclusion_order_key))
         candidate_fingerprint = compute_candidate_set_fingerprint(evidence_tuple)
         discovery_fingerprint = _compute_discovery_fingerprint(
             schema_version=DISCOVERY_SCHEMA_VERSION,
@@ -459,6 +461,8 @@ def _read_bounded_output(stream: BinaryIO, limit: int) -> bytes:
 
 def _open_git_process(repository_root: Path, command: Sequence[str]) -> subprocess.Popen[bytes]:
     argv = ["git", "--no-replace-objects", "-C", os.fspath(repository_root), *command]
+    child_environment = os.environ.copy()
+    child_environment["GIT_NO_LAZY_FETCH"] = "1"
     try:
         return subprocess.Popen(
             argv,
@@ -466,6 +470,7 @@ def _open_git_process(repository_root: Path, command: Sequence[str]) -> subproce
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
+            env=child_environment,
         )
     except OSError as exc:
         raise RepositoryDiscoveryGitError(f"unable to start local Git plumbing command {command[0]!r}") from exc
