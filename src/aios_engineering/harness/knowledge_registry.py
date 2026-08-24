@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 import json
+from types import MappingProxyType
 from typing import Any, Mapping, Sequence
 
 from src.aios_engineering.harness.contracts import (
@@ -165,8 +166,8 @@ def _validate_knowledge_id(knowledge_id: str) -> None:
 
 
 def _validate_metadata_mapping(metadata: Mapping[str, str]) -> dict[str, str]:
-    if type(metadata) is not dict:
-        raise HarnessValidationError("metadata must be an exact dict")
+    if not isinstance(metadata, Mapping):
+        raise HarnessValidationError("metadata must be a Mapping")
     if len(metadata) > MAX_KNOWLEDGE_METADATA_PAIRS:
         raise RepositoryKnowledgeRegistryBoundError(
             f"metadata pairs count ({len(metadata)}) exceeds hard limit ({MAX_KNOWLEDGE_METADATA_PAIRS})"
@@ -351,7 +352,7 @@ class KnowledgeItem:
     validation_state: KnowledgeValidationState
     lifecycle_state: KnowledgeLifecycleState
     authority_class: KnowledgeAuthorityClass
-    metadata: dict[str, str]
+    metadata: Mapping[str, str]
     item_fingerprint: str
 
     def __post_init__(self) -> None:
@@ -432,7 +433,9 @@ class KnowledgeItem:
                     "CANONICAL_INVARIANT_REFERENCE requires explicit INVARIANT_AUTHORITY or DECISION provenance"
                 )
 
-        _validate_metadata_mapping(self.metadata)
+        cleaned_meta = _validate_metadata_mapping(self.metadata)
+        frozen_meta = MappingProxyType(cleaned_meta)
+        object.__setattr__(self, "metadata", frozen_meta)
 
         _validate_hex_64(self.item_fingerprint, "item_fingerprint")
         expected_fingerprint = _bounded_fingerprint(
@@ -498,6 +501,7 @@ class KnowledgeItem:
 
         sorted_prov = tuple(sorted(provenance_refs, key=_provenance_sort_key))
         cleaned_meta = _validate_metadata_mapping(dict(metadata or {}))
+        frozen_meta = MappingProxyType(cleaned_meta)
 
         fingerprint = _bounded_fingerprint(
             _item_payload(
@@ -505,7 +509,7 @@ class KnowledgeItem:
                 kind=kind,
                 knowledge_id=knowledge_id,
                 lifecycle_state=lifecycle_state,
-                metadata=cleaned_meta,
+                metadata=frozen_meta,
                 provenance_refs=sorted_prov,
                 summary=summary,
                 title=title,
@@ -521,7 +525,7 @@ class KnowledgeItem:
             validation_state=validation_state,
             lifecycle_state=lifecycle_state,
             authority_class=authority_class,
-            metadata=cleaned_meta,
+            metadata=frozen_meta,
             item_fingerprint=fingerprint,
         )
 
@@ -989,7 +993,7 @@ def amend_knowledge_metadata(
             f"item fingerprint mismatch: expected {expected_item_fingerprint}, got {current_item.item_fingerprint}"
         )
 
-    if current_item.metadata == cleaned_meta:
+    if dict(current_item.metadata) == cleaned_meta:
         raise RepositoryKnowledgeRegistryStateError("amend_knowledge_metadata requires modifying metadata")
 
     updated_item = KnowledgeItem.create(

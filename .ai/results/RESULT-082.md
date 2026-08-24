@@ -5,34 +5,32 @@ STATUS: READY_FOR_REVIEW
 ## Review Manifest
 ```yaml
 TASK_ID: TASK-082
-ACTION: RUN
+ACTION: FIX
 EXECUTOR_ID: antigravity
 EXECUTOR_FAILOVER: NO
 HOT_HANDOFF: NO
 ```
 
 ## Summary
-Implemented Milestone H4 Canonical Knowledge Registry + Explicit Lifecycle (H4_KNOWLEDGE_REGISTRY) under policy h4-knowledge-registry-v1, schema version 1. Provides immutable KnowledgeItem with exact 4 KnowledgeKinds (INVARIANT, FINDING, LESSON, SKILL), exact multi-provenance binding (KnowledgeProvenanceRef), explicit 3-state validation lifecycle (UNVALIDATED, EVIDENCE_BACKED, HUMAN_APPROVED) with forward-only transitions, explicit 3-state lifecycle (PROPOSED, ACTIVE, RETIRED) with forward-only transitions, precedence boundary safety (FINDING/LESSON/SKILL advisory-only, CANONICAL_INVARIANT_REFERENCE requiring explicit authority provenance and HUMAN_APPROVED validation without creating authority), deterministic fingerprint-guarded lifecycle operations (REGISTER, SET_VALIDATION_STATE, SET_LIFECYCLE_STATE, AMEND_METADATA) with complete event audit trail (KnowledgeRegistryEvent), canonical JSON serialization/strict parsing, zero auto-gardening, zero kind promotion, zero bridge authority, and comprehensive hard-bound enforcement verified with 50 targeted tests and 2505 full-suite tests.
+Fixed REVIEW-082 round 1 finding B1: wrapped KnowledgeItem.metadata in types.MappingProxyType to enforce deep immutability after construction; prevented in-place dictionary mutation via direct item access or state.items / get_item(); ensured caller input dict mutation after construction does not alter internal state; added comprehensive metadata immutability regression tests; verified all 55 targeted and 2510 full-suite tests pass clean.
 
 ## Task Metadata
 - Task: `TASK-082`
-- Action: `RUN`
+- Action: `FIX`
 - Executor: `antigravity`
-- Authorized Artifact: `.ai/tasks/TASK-082.md (4b0fa4d4fb)`
-- Base Main SHA: `8f887f828ad765f74073636f7e5ff887603fb56b`
+- Authorized Artifact: `.ai/reviews/REVIEW-082.md (17173afe8f)`
+- Base Main SHA: `(n/a)`
 - Branch: `ai/task-082`
 
 ## Files Changed
-- src/aios_engineering/harness/__init__.py
 - src/aios_engineering/harness/knowledge_registry.py
 - tests/aios_engineering/harness/test_knowledge_registry.py
 
 ## Diff Stat
 ```text
-src/aios_engineering/harness/__init__.py           |   76 ++
- src/aios_engineering/harness/knowledge_registry.py | 1214 ++++++++++++++++++++
- .../harness/test_knowledge_registry.py             |  680 +++++++++++
- 3 files changed, 1970 insertions(+)
+src/aios_engineering/harness/knowledge_registry.py |  18 +--
+ .../harness/test_knowledge_registry.py             | 138 +++++++++++++++++++++
+ 2 files changed, 149 insertions(+), 7 deletions(-)
 ```
 
 ## Tests
@@ -61,20 +59,20 @@ Exit code: 0
 ........................................................................ [ 54%]
 ........................................................................ [ 57%]
 ........................................................................ [ 60%]
-........................................................................ [ 63%]
+........................................................................ [ 62%]
 ........................................................................ [ 65%]
 ........................................................................ [ 68%]
 ........................................................................ [ 71%]
 ........................................................................ [ 74%]
 ........................................................................ [ 77%]
 ........................................................................ [ 80%]
-........................................................................ [ 83%]
+........................................................................ [ 82%]
 ........................................................................ [ 85%]
 ........................................................................ [ 88%]
 ........................................................................ [ 91%]
 ........................................................................ [ 94%]
 ........................................................................ [ 97%]
-................................................................         [100%]
+.....................................................................    [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -377,7 +375,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-2505 passed, 7 skipped, 1540 warnings in 329.67s (0:05:29)
+2510 passed, 7 skipped, 1540 warnings in 336.95s (0:05:36)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -389,67 +387,33 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 TARGETED_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/aios_engineering/harness/test_knowledge_registry.py tests/aios_engineering/harness/test_role_tendencies.py tests/aios_engineering/harness/test_structural_experience_graph.py -v
 Exit code: 0
-Result: 50 passed, 0 skipped, 0 failed
+Result: 55 passed, 0 skipped, 0 failed
 
 FULL_REPOSITORY_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/ -q
 Exit code: 0
-Result: 2505 passed, 7 skipped, 0 failed
+Result: 2510 passed, 7 skipped, 0 failed
 
 GIT_DIFF_CHECK:
 Command: git diff --check
 Exit code: 0
 Result: Clean
 
-H4_KNOWLEDGE_REGISTRY_VERIFICATION:
-H4_POLICY_SCHEMA_IDENTITY: PASS
-KNOWLEDGE_KIND_EXACT_FOUR: PASS (INVARIANT, FINDING, LESSON, SKILL)
-IMMUTABLE_ITEM_AND_REGISTRY: PASS
-EXACT_PROVENANCE_REQUIRED: PASS
-PROVENANCE_TAMPER: REJECTED
-DUPLICATE_PROVENANCE: REJECTED
-DUPLICATE_KNOWLEDGE_ID: REJECTED
-VALIDATION_STATE_CLOSED: PASS
-VALIDATION_FORWARD_TRANSITIONS: PASS
-VALIDATION_STALE_FINGERPRINT: REJECTED
-VALIDATION_UNSUPPORTED_TRANSITION: REJECTED
-NO_AUTOMATIC_VALIDATION_UPGRADE: PASS
-LIFECYCLE_STATE_CLOSED: PASS
-LIFECYCLE_FORWARD_TRANSITIONS: PASS
-LIFECYCLE_STALE_FINGERPRINT: REJECTED
-LIFECYCLE_UNSUPPORTED_TRANSITION: REJECTED
-NO_PHYSICAL_DELETE_REQUIRED: PASS
-FINDING_LESSON_SKILL_ADVISORY_ONLY: PASS
-INVARIANT_REFERENCE_REQUIRES_EXPLICIT_AUTHORITY_PROVENANCE: PASS
-INVARIANT_REFERENCE_CREATES_AUTHORITY: NO
-BRIDGE_AUTHORITY_SURFACE: NONE
-REGISTER_EVENT_AUDIT: PASS
-VALIDATION_EVENT_AUDIT: PASS
-LIFECYCLE_EVENT_AUDIT: PASS
-METADATA_AMEND_EVENT_AUDIT: PASS
-STALE_REGISTRY_FINGERPRINT: REJECTED
-KIND_CHANGE_OPERATION: NONE
-PROMOTION_OPERATION: NONE
-AUTO_GARDENING: NONE
-CANONICAL_ORDERING: PASS
-CANONICAL_SERIALIZE_PARSE_ROUND_TRIP: PASS
-NONCANONICAL_OR_MALFORMED_BYTES: REJECTED
-UNKNOWN_FIELDS_OR_ENUMS: REJECTED
-ITEM_EVENT_REGISTRY_TAMPER: REJECTED
-DUPLICATE_PUBLIC_FACTORY_INPUTS: REJECTED
-ALL_HARD_BOUNDS: ENFORCED
-BOOL_AS_INT: REJECTED
-WORKTREE_READ: NO
-GIT_SUBPROCESS: NO
-NETWORK: NO
-LLM: NO
-PAID_API: NO
-BRIDGE_AUTHORITY_IMPORT: NO
-H5_H8_IMPLEMENTATION: NO
-ZERO_AUTHORITY_RECEIPT: PASS
+REVIEW_082_ROUND_1_FINDINGS_REPAIR:
+B1_METADATA_DEEP_IMMUTABILITY: RESOLVED
+- KnowledgeItem.metadata uses MappingProxyType
+- Direct mutation of item.metadata raises TypeError
+- get_item() / state.items metadata cannot be mutated
+- amend_knowledge_metadata remains only metadata update path
 AUTHORIZED_SCOPE_ONLY: YES
+H4_KNOWLEDGE_REGISTRY_POLICY_VERSION: h4-knowledge-registry-v1
+H4_KNOWLEDGE_REGISTRY_SCHEMA_VERSION: 1
+NETWORK_CALL: NO
+LLM_CALL: NO
+PAID_API: NO
+H5_H8_NEW_CAPABILITY: NONE
 STANDING_AUTO_MERGE_AUTHORIZATION: ENABLED
 WORKER_MERGE_AUTHORITY: NO
 
 ## Generated
-2026-08-24T14:55:30+07:00
+2026-08-24T16:09:52+07:00

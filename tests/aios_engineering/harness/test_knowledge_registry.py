@@ -678,3 +678,141 @@ def test_pure_composition_zero_authority_and_no_subprocesses(monkeypatch: pytest
     assert "bridge.py" not in source
     assert "promote_kind" not in source
     assert "auto_gardening" not in source
+
+
+# --- B1 METADATA DEEP IMMUTABILITY REGRESSIONS ---
+
+
+def test_metadata_direct_mutation_raises_type_error():
+    item = KnowledgeItem.create(
+        knowledge_id="INVARIANT:001",
+        kind=KnowledgeKind.INVARIANT,
+        title="Sample Invariant",
+        summary="Summary of invariant",
+        provenance_refs=[_make_provenance(provenance_kind=KnowledgeProvenanceKind.INVARIANT_AUTHORITY)],
+        validation_state=KnowledgeValidationState.HUMAN_APPROVED,
+        authority_class=KnowledgeAuthorityClass.CANONICAL_INVARIANT_REFERENCE,
+        metadata={"domain": "harness", "owner": "core"},
+    )
+    assert item.metadata["domain"] == "harness"
+    assert item.metadata.get("owner") == "core"
+
+    with pytest.raises(TypeError):
+        item.metadata["domain"] = "tampered"
+
+    with pytest.raises(TypeError):
+        del item.metadata["owner"]
+
+    with pytest.raises(AttributeError):
+        item.metadata.clear()
+
+    with pytest.raises(AttributeError):
+        item.metadata.pop("domain")
+
+    with pytest.raises(AttributeError):
+        item.metadata.update({"domain": "tampered"})
+
+
+def test_registry_state_contained_item_metadata_immutable():
+    item = KnowledgeItem.create(
+        knowledge_id="INVARIANT:001",
+        kind=KnowledgeKind.INVARIANT,
+        title="Sample Invariant",
+        summary="Summary of invariant",
+        provenance_refs=[_make_provenance(provenance_kind=KnowledgeProvenanceKind.INVARIANT_AUTHORITY)],
+        validation_state=KnowledgeValidationState.HUMAN_APPROVED,
+        authority_class=KnowledgeAuthorityClass.CANONICAL_INVARIANT_REFERENCE,
+        metadata={"domain": "harness"},
+    )
+    state, _ = register_knowledge_item(create_empty_knowledge_registry(), item, "a" * 64)
+
+    fetched = state.get_item("INVARIANT:001")
+    assert fetched is not None
+    with pytest.raises(TypeError):
+        fetched.metadata["domain"] = "tampered"
+
+    with pytest.raises(TypeError):
+        state.items[0].metadata["domain"] = "tampered"
+
+
+def test_caller_input_dict_mutation_after_construction():
+    input_meta = {"domain": "harness", "layer": "h4"}
+    item = KnowledgeItem.create(
+        knowledge_id="INVARIANT:001",
+        kind=KnowledgeKind.INVARIANT,
+        title="Sample Invariant",
+        summary="Summary of invariant",
+        provenance_refs=[_make_provenance(provenance_kind=KnowledgeProvenanceKind.INVARIANT_AUTHORITY)],
+        validation_state=KnowledgeValidationState.HUMAN_APPROVED,
+        authority_class=KnowledgeAuthorityClass.CANONICAL_INVARIANT_REFERENCE,
+        metadata=input_meta,
+    )
+    # Mutate caller input dictionary
+    input_meta["domain"] = "tampered_caller_dict"
+    input_meta["new_key"] = "added_later"
+
+    assert item.metadata["domain"] == "harness"
+    assert "new_key" not in item.metadata
+    assert item.to_dict()["metadata"]["domain"] == "harness"
+
+
+def test_failed_mutation_preserves_fingerprints_and_serialization():
+    item = KnowledgeItem.create(
+        knowledge_id="INVARIANT:001",
+        kind=KnowledgeKind.INVARIANT,
+        title="Sample Invariant",
+        summary="Summary of invariant",
+        provenance_refs=[_make_provenance(provenance_kind=KnowledgeProvenanceKind.INVARIANT_AUTHORITY)],
+        validation_state=KnowledgeValidationState.HUMAN_APPROVED,
+        authority_class=KnowledgeAuthorityClass.CANONICAL_INVARIANT_REFERENCE,
+        metadata={"domain": "harness"},
+    )
+    old_item_fp = item.item_fingerprint
+
+    state, _ = register_knowledge_item(create_empty_knowledge_registry(), item, "a" * 64)
+    old_reg_fp = state.registry_fingerprint
+    old_serialized = serialize_knowledge_registry(state)
+
+    try:
+        item.metadata["domain"] = "tampered"
+    except TypeError:
+        pass
+
+    assert item.item_fingerprint == old_item_fp
+    assert state.registry_fingerprint == old_reg_fp
+    assert serialize_knowledge_registry(state) == old_serialized
+
+
+def test_amend_metadata_remains_only_valid_mutation_path():
+    item = KnowledgeItem.create(
+        knowledge_id="INVARIANT:001",
+        kind=KnowledgeKind.INVARIANT,
+        title="Sample Invariant",
+        summary="Summary of invariant",
+        provenance_refs=[_make_provenance(provenance_kind=KnowledgeProvenanceKind.INVARIANT_AUTHORITY)],
+        validation_state=KnowledgeValidationState.HUMAN_APPROVED,
+        authority_class=KnowledgeAuthorityClass.CANONICAL_INVARIANT_REFERENCE,
+        metadata={"domain": "harness"},
+    )
+    old_item_fp = item.item_fingerprint
+    state, _ = register_knowledge_item(create_empty_knowledge_registry(), item, "a" * 64)
+    old_reg_fp = state.registry_fingerprint
+
+    amended_state, event = amend_knowledge_metadata(
+        state,
+        "INVARIANT:001",
+        {"domain": "updated_harness"},
+        old_item_fp,
+        old_reg_fp,
+        "b" * 64,
+    )
+
+    assert amended_state.registry_fingerprint != old_reg_fp
+    amended_item = amended_state.get_item("INVARIANT:001")
+    assert amended_item is not None
+    assert amended_item.item_fingerprint != old_item_fp
+    assert amended_item.metadata["domain"] == "updated_harness"
+
+    # Original state and item remain completely unchanged
+    assert state.registry_fingerprint == old_reg_fp
+    assert state.get_item("INVARIANT:001").metadata["domain"] == "harness"
