@@ -502,14 +502,18 @@ def _analyze_diagnostic_stream(
 
         agent_message_seen = False
         final_agent_message_text: str | None = None
-        command_activity_count: int = 0
-        file_change_activity_count: int = 0
-        has_observable_activity_stream = False
+        seen_command_item_ids: set[str] = set()
+        seen_file_change_item_ids: set[str] = set()
+        anonymous_command_event_count: int = 0
+        anonymous_file_change_event_count: int = 0
+        has_recognized_canonical_events: bool = False
 
         def _process_line(raw_line: bytes) -> None:
             nonlocal json_line_count, non_json_line_count, last_event_type, has_failure_event
             nonlocal agent_message_seen, final_agent_message_text
-            nonlocal command_activity_count, file_change_activity_count, has_observable_activity_stream
+            nonlocal seen_command_item_ids, seen_file_change_item_ids
+            nonlocal anonymous_command_event_count, anonymous_file_change_event_count
+            nonlocal has_recognized_canonical_events
 
             line = raw_line.strip()
             if not line:
@@ -518,7 +522,6 @@ def _analyze_diagnostic_stream(
                 decoded = line.decode("utf-8")
                 parsed = json.loads(decoded)
                 if isinstance(parsed, dict):
-                    has_observable_activity_stream = True
                     ev_type = parsed.get("type")
                     if (
                         isinstance(ev_type, str)
@@ -536,49 +539,72 @@ def _analyze_diagnostic_stream(
                         last_event_type = ev_type
                         if ev_type.lower() in _FAILURE_EVENT_TYPES:
                             has_failure_event = True
+                            has_recognized_canonical_events = True
 
-                    # 1. Reasoning Guard: Check if event is reasoning/chain-of-thought
                     item_dict = parsed.get("item") if isinstance(parsed.get("item"), dict) else {}
                     item_type = str(item_dict.get("type", "")).lower()
                     ev_type_str = str(ev_type or "").lower()
 
+                    if ev_type_str in ("turn.started", "turn.completed", "item.created", "item.completed", "item.started"):
+                        has_recognized_canonical_events = True
+
+                    # 1. Reasoning Guard: Check if event is reasoning/chain-of-thought
                     is_reasoning = (
                         ev_type_str in ("reasoning", "thinking", "thought", "chain_of_thought", "reasoning_content")
                         or item_type in ("reasoning", "thinking", "thought", "chain_of_thought")
                     )
+                    if is_reasoning:
+                        has_recognized_canonical_events = True
 
                     if not is_reasoning:
                         # 2. Agent Message Identification: Assistant / Agent response
                         role = str(item_dict.get("role") or parsed.get("role") or "").lower()
                         is_agent_msg = (
-                            role == "assistant"
+                            item_type in ("agent_message", "assistant_message", "message")
+                            or role == "assistant"
                             or ev_type_str in ("agent_message", "assistant_message")
-                            or (ev_type_str in ("item.created", "item.completed", "turn.completed") and (role == "assistant" or item_type == "message"))
                         )
 
                         if is_agent_msg:
-                            msg_content = item_dict.get("content") or parsed.get("content") or item_dict.get("text") or parsed.get("text")
-                            extracted = _extract_text_from_content(msg_content)
-                            if extracted:
+                            has_recognized_canonical_events = True
+                            extracted: str | None = None
+                            if "text" in item_dict and isinstance(item_dict["text"], str):
+                                extracted = item_dict["text"]
+                            elif "content" in item_dict:
+                                extracted = _extract_text_from_content(item_dict["content"])
+                            elif "text" in parsed and isinstance(parsed["text"], str):
+                                extracted = parsed["text"]
+                            elif "content" in parsed:
+                                extracted = _extract_text_from_content(parsed["content"])
+
+                            if extracted is not None and extracted.strip():
                                 agent_message_seen = True
                                 final_agent_message_text = extracted[:MAX_FINAL_MESSAGE_SCAN_BYTES]
 
-                    # 3. Activity Counting
+                    # 3. Activity Counting with Item ID Deduplication
                     is_cmd = (
-                        ev_type_str in ("command", "command_execution", "exec_command", "tool_call", "function_call", "command_executed")
-                        or item_type in ("command", "command_execution", "exec_command", "function_call", "call")
-                        or "exec" in ev_type_str or "command" in ev_type_str or "exec" in item_type or "command" in item_type
+                        item_type in ("command_execution", "command", "exec_command", "tool_call", "function_call")
+                        or ev_type_str in ("command_execution", "command", "exec_command")
                     )
                     if is_cmd:
-                        command_activity_count += 1
+                        has_recognized_canonical_events = True
+                        item_id = item_dict.get("id")
+                        if isinstance(item_id, str) and item_id.strip():
+                            seen_command_item_ids.add(item_id.strip())
+                        else:
+                            anonymous_command_event_count += 1
 
                     is_file = (
-                        ev_type_str in ("file_change", "file_edited", "write_file", "edit_file", "patch_applied")
-                        or item_type in ("file_change", "file_edited", "file_diff")
-                        or "file" in ev_type_str or "patch" in ev_type_str or "file" in item_type or "patch" in item_type
+                        item_type in ("file_change", "file_edited", "write_file", "edit_file", "patch_applied")
+                        or ev_type_str in ("file_change", "file_edited", "write_file")
                     )
                     if is_file:
-                        file_change_activity_count += 1
+                        has_recognized_canonical_events = True
+                        item_id = item_dict.get("id")
+                        if isinstance(item_id, str) and item_id.strip():
+                            seen_file_change_item_ids.add(item_id.strip())
+                        else:
+                            anonymous_file_change_event_count += 1
 
                     json_line_count += 1
                 else:
@@ -618,15 +644,19 @@ def _analyze_diagnostic_stream(
         if agent_message_seen:
             final_msg_obs = FinalAgentMessageObservation.YES.value
             outcome_code = extract_terminal_outcome_from_text(final_agent_message_text).value
-        elif json_line_count > 0:
+        elif has_recognized_canonical_events:
             final_msg_obs = FinalAgentMessageObservation.NO.value
             outcome_code = ExecutorOutcomeCode.UNKNOWN.value
         else:
             final_msg_obs = FinalAgentMessageObservation.UNKNOWN.value
             outcome_code = ExecutorOutcomeCode.UNKNOWN.value
 
-        cmd_count: int | str = command_activity_count if has_observable_activity_stream else "UNKNOWN"
-        file_count: int | str = file_change_activity_count if has_observable_activity_stream else "UNKNOWN"
+        if has_recognized_canonical_events:
+            cmd_count: int | str = len(seen_command_item_ids) + anonymous_command_event_count
+            file_count: int | str = len(seen_file_change_item_ids) + anonymous_file_change_event_count
+        else:
+            cmd_count = "UNKNOWN"
+            file_count = "UNKNOWN"
 
         return CodexTransportDiagnostic(
             code=code,

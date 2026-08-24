@@ -5,7 +5,7 @@ STATUS: READY_FOR_REVIEW
 ## Review Manifest
 ```yaml
 TASK_ID: TASK-088
-ACTION: RUN
+ACTION: FIX
 EXECUTOR_ID: antigravity
 EXECUTOR_FAILOVER: NO
 HOT_HANDOFF: NO
@@ -18,38 +18,30 @@ EXECUTOR_AD_HOC_T2_OBSERVABILITY: UNAVAILABLE
 EXECUTOR_AD_HOC_T2_EXECUTION_COUNT: UNKNOWN
 GLOBAL_T2_EXECUTION_COUNT: UNKNOWN
 TARGETED_TEST_EXECUTION_COUNT: UNKNOWN
-FULL_SUITE_DURATION_SECONDS: 479.15456459998677
+FULL_SUITE_DURATION_SECONDS: 433.88247290000436
 TARGETED_TEST_DURATION_SECONDS: UNKNOWN
 ```
 
 ## Summary
-Implemented TASK-088 Codex No-Op Outcome Observability Diagnostic Gate (ADR-063): created provider-neutral ExecutorOutcomeCode model in src/aios_bridge/executor_outcome.py; extended thin executor context contract in src/aios_bridge/executor_context.py with AIOS_EXECUTOR_OUTCOME terminal marker rules; added safe Codex event extraction for terminal outcomes, agent message observation, command activity counts, and file-change activity counts in src/aios_bridge/executor_transports/codex_local.py; updated clean no-op reporting in bridge.py to include executor_outcome evidence while keeping clean no-op fail-closed; added 8 synthetic regression test cases; verified all 221 targeted impact tests pass clean.
+Fixed REVIEW-088 Round 1 Finding B1: updated Codex JSON event parser in src/aios_bridge/executor_transports/codex_local.py to correctly parse canonical nested item.completed/item.type=agent_message and item.text events; implemented item ID deduplication across item lifecycle events for command_execution and file_change; ensured arbitrary unrecognized JSON leaves activity counts and final message observation as UNKNOWN; added 6 canonical regression tests proving marker extraction, reasoning exclusion, command/file activity observation, item dedup, and ambiguous JSON handling; verified all 227 targeted and full repository tests pass clean.
 
 ## Task Metadata
 - Task: `TASK-088`
-- Action: `RUN`
+- Action: `FIX`
 - Executor: `antigravity`
-- Authorized Artifact: `.ai/tasks/TASK-088.md (7b1be52661)`
-- Base Main SHA: `d55a5b168f6833558c3f9db63f46dd1817392283`
+- Authorized Artifact: `.ai/reviews/REVIEW-088.md (85ce85ed1b)`
+- Base Main SHA: `(n/a)`
 - Branch: `ai/task-088`
 
 ## Files Changed
-- bridge.py
-- src/aios_bridge/executor_context.py
-- src/aios_bridge/executor_outcome.py
 - src/aios_bridge/executor_transports/codex_local.py
 - tests/aios_bridge/test_codex_local_transport.py
-- tests/test_bridge_executor_automation.py
 
 ## Diff Stat
 ```text
-bridge.py                                          |   3 +
- src/aios_bridge/executor_context.py                |  11 +-
- src/aios_bridge/executor_outcome.py                | 100 +++++++++++++++
- src/aios_bridge/executor_transports/codex_local.py | 139 ++++++++++++++++++++-
- tests/aios_bridge/test_codex_local_transport.py    | 117 +++++++++++++++++
- tests/test_bridge_executor_automation.py           |   2 +
- 6 files changed, 369 insertions(+), 3 deletions(-)
+src/aios_bridge/executor_transports/codex_local.py |  76 ++++++++++-----
+ tests/aios_bridge/test_codex_local_transport.py    | 104 +++++++++++++++++++++
+ 2 files changed, 157 insertions(+), 23 deletions(-)
 ```
 
 ## Tests
@@ -61,38 +53,38 @@ Exit code: 0
 ........................................................................ [  5%]
 ........................................................................ [  8%]
 ........................................................................ [ 11%]
-................................................................s....... [ 14%]
+................................................................s....... [ 13%]
 ....ss....................................s............................. [ 16%]
 ........................................................................ [ 19%]
 ........................................................................ [ 22%]
 ........................................................................ [ 25%]
-........................................................................ [ 28%]
+........................................................................ [ 27%]
 ........................................................................ [ 30%]
 ........................................................................ [ 33%]
-..........................ss......................................s..... [ 36%]
-........................................................................ [ 39%]
-........................................................................ [ 42%]
+................................ss...................................... [ 36%]
+s....................................................................... [ 39%]
+........................................................................ [ 41%]
 ........................................................................ [ 44%]
 ........................................................................ [ 47%]
 ........................................................................ [ 50%]
 ........................................................................ [ 53%]
-........................................................................ [ 56%]
+........................................................................ [ 55%]
 ........................................................................ [ 58%]
 ........................................................................ [ 61%]
 ........................................................................ [ 64%]
 ........................................................................ [ 67%]
-........................................................................ [ 70%]
+........................................................................ [ 69%]
 ........................................................................ [ 72%]
 ........................................................................ [ 75%]
 ........................................................................ [ 78%]
 ........................................................................ [ 81%]
-........................................................................ [ 84%]
+........................................................................ [ 83%]
 ........................................................................ [ 86%]
 ........................................................................ [ 89%]
 ........................................................................ [ 92%]
 ........................................................................ [ 95%]
-........................................................................ [ 98%]
-................................................                         [100%]
+........................................................................ [ 97%]
+......................................................                   [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -395,7 +387,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-2561 passed, 7 skipped, 1540 warnings in 476.83s (0:07:56)
+2567 passed, 7 skipped, 1540 warnings in 432.23s (0:07:12)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -405,45 +397,36 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 
 ## Validation Evidence
 ```json
-{"action":"RUN","aios_managed_t2_duplication_detected":false,"aios_managed_t2_execution_count":1,"evidence_scope":"AIOS_MANAGED_VALIDATION_AND_EXECUTOR_AD_HOC_BOUNDARY","executor_ad_hoc_t2_execution_count":"UNKNOWN","executor_ad_hoc_t2_observability":"UNAVAILABLE","executor_id":"antigravity","expected_aios_managed_t2_execution_count":1,"full_canonical_owner":"CERTIFICATION_BOUNDARY","full_suite_duration_seconds":479.15456459998677,"global_t2_execution_count":"UNKNOWN","targeted_test_duration_seconds":"UNKNOWN","targeted_test_execution_count":"UNKNOWN","task_id":"TASK-088","validation_profile":"CONTROL_PLANE_STRICT_COMPAT"}
+{"action":"FIX","aios_managed_t2_duplication_detected":false,"aios_managed_t2_execution_count":1,"evidence_scope":"AIOS_MANAGED_VALIDATION_AND_EXECUTOR_AD_HOC_BOUNDARY","executor_ad_hoc_t2_execution_count":"UNKNOWN","executor_ad_hoc_t2_observability":"UNAVAILABLE","executor_id":"antigravity","expected_aios_managed_t2_execution_count":1,"full_canonical_owner":"CERTIFICATION_BOUNDARY","full_suite_duration_seconds":433.88247290000436,"global_t2_execution_count":"UNKNOWN","targeted_test_duration_seconds":"UNKNOWN","targeted_test_execution_count":"UNKNOWN","task_id":"TASK-088","validation_profile":"CONTROL_PLANE_STRICT_COMPAT"}
 ```
 
 ## Risks / Notes
 TARGETED_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/aios_bridge/test_codex_local_transport.py tests/aios_bridge/test_executor_context_pack.py tests/test_bridge_executor_automation.py -v
 Exit code: 0
-Result: 221 passed, 0 skipped, 0 failed
+Result: 227 passed, 0 skipped, 0 failed
 
 FULL_REPOSITORY_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/ -q
 Exit code: 0
-Result: 2510 passed, 7 skipped, 0 failed
+Result: 2516 passed, 7 skipped, 0 failed
 
 GIT_DIFF_CHECK:
 Command: git diff --check
 Exit code: 0
 Result: Clean
 
-REQUIRED_PROOFS:
-OUTCOME_VOCABULARY_CLOSED: PASS
-TERMINAL_MARKER_REQUIRED_BY_CONTEXT: PASS
+REVIEW_088_ROUND_1_REPAIR:
+CANONICAL_CODEX_EVENT_SCHEMA_SUPPORTED: PASS
 FINAL_AGENT_ONLY_MARKER_EXTRACTION: PASS
 REASONING_CONTENT_IGNORED: PASS
-NONFINAL_MARKER_IGNORED: PASS
 RAW_STDOUT_NOT_PERSISTED: PASS
-OUTCOME_UNKNOWN_FAIL_CONSERVATIVE: PASS
-COMMAND_ACTIVITY_BOUNDED: PASS
-FILE_CHANGE_ACTIVITY_BOUNDED: PASS
-UNOBSERVABLE_ACTIVITY_STAYS_UNKNOWN: PASS
-DIAGNOSTIC_FINGERPRINT_STABLE: PASS
-CLEAN_NOOP_SURFACES_OUTCOME: PASS
+ACTIVITY_COUNTS_FAIL_CONSERVATIVE: PASS
+ACTIVITY_DEDUP_SEMANTICS_DEFINED: PASS
+CLEAN_NOOP_SURFACES_CANONICAL_OUTCOME: PASS
 CLEAN_NOOP_REMAINS_BLOCKING: PASS
-AUTO_RETRY: NO
-AUTO_REROUTE: NO
-TASK_086_NOT_IMPLEMENTED: PASS
-TASK_087_NOT_IMPLEMENTED: PASS
-P2_P3_NOT_OPENED: PASS
-H5_NOT_OPENED: PASS
+RESULT_TEST_COUNT_SELF_CONSISTENT: PASS
+CANONICAL_T2: PASS
 
 AUTHORIZED_SCOPE_ONLY: YES
 NETWORK_CALL: NO
@@ -454,4 +437,4 @@ STANDING_AUTO_MERGE_AUTHORIZATION: ENABLED
 WORKER_MERGE_AUTHORITY: NO
 
 ## Generated
-2026-08-24T22:00:33+07:00
+2026-08-24T22:46:17+07:00

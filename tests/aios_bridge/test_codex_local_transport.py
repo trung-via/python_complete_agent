@@ -1475,3 +1475,107 @@ def test_codex_outcome_observability_unobservable_activity_stays_unknown(monkeyp
     assert diag.final_agent_message_observed == "UNKNOWN"
     assert diag.command_activity_count == "UNKNOWN"
     assert diag.file_change_activity_count == "UNKNOWN"
+
+
+def test_canonical_agent_message_marker_extracted(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    events = [
+        json.dumps({"type": "turn.started"}),
+        json.dumps({"type": "item.completed", "item": {"id": "item_msg_1", "type": "agent_message", "text": "Task finished.\nAIOS_EXECUTOR_OUTCOME: IMPLEMENTED"}}),
+        json.dumps({"type": "turn.completed"}),
+    ]
+    stdout_bytes = ("\n".join(events) + "\n").encode("utf-8")
+    process = _FakeProcess(returncode=0, stdout_bytes=stdout_bytes)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+
+    diag = outcome.diagnostic
+    assert diag.executor_outcome == "IMPLEMENTED"
+    assert diag.final_agent_message_observed == "YES"
+    assert diag.command_activity_count == 0
+    assert diag.file_change_activity_count == 0
+
+
+def test_canonical_reasoning_marker_ignored(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    events = [
+        json.dumps({"type": "turn.started"}),
+        json.dumps({"type": "item.completed", "item": {"id": "item_reason_1", "type": "reasoning", "text": "Thinking about AIOS_EXECUTOR_OUTCOME: IMPLEMENTED"}}),
+        json.dumps({"type": "item.completed", "item": {"id": "item_msg_2", "type": "agent_message", "text": "Final response without marker."}}),
+        json.dumps({"type": "turn.completed"}),
+    ]
+    stdout_bytes = ("\n".join(events) + "\n").encode("utf-8")
+    process = _FakeProcess(returncode=0, stdout_bytes=stdout_bytes)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+
+    diag = outcome.diagnostic
+    assert diag.executor_outcome == "UNKNOWN"
+    assert diag.final_agent_message_observed == "YES"
+
+
+def test_canonical_command_activity_observed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    events = [
+        json.dumps({"type": "turn.started"}),
+        json.dumps({"type": "item.completed", "item": {"id": "cmd_1", "type": "command_execution", "command": "pytest"}}),
+        json.dumps({"type": "item.completed", "item": {"id": "cmd_2", "type": "command_execution", "command": "git diff"}}),
+        json.dumps({"type": "item.completed", "item": {"id": "msg_1", "type": "agent_message", "text": "AIOS_EXECUTOR_OUTCOME: IMPLEMENTED"}}),
+        json.dumps({"type": "turn.completed"}),
+    ]
+    stdout_bytes = ("\n".join(events) + "\n").encode("utf-8")
+    process = _FakeProcess(returncode=0, stdout_bytes=stdout_bytes)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+
+    diag = outcome.diagnostic
+    assert diag.command_activity_count == 2
+    assert diag.file_change_activity_count == 0
+    assert diag.executor_outcome == "IMPLEMENTED"
+
+
+def test_canonical_file_change_activity_observed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    events = [
+        json.dumps({"type": "turn.started"}),
+        json.dumps({"type": "item.completed", "item": {"id": "file_1", "type": "file_change", "path": "src/app.py"}}),
+        json.dumps({"type": "item.completed", "item": {"id": "msg_1", "type": "agent_message", "text": "AIOS_EXECUTOR_OUTCOME: IMPLEMENTED"}}),
+        json.dumps({"type": "turn.completed"}),
+    ]
+    stdout_bytes = ("\n".join(events) + "\n").encode("utf-8")
+    process = _FakeProcess(returncode=0, stdout_bytes=stdout_bytes)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+
+    diag = outcome.diagnostic
+    assert diag.file_change_activity_count == 1
+    assert diag.command_activity_count == 0
+    assert diag.executor_outcome == "IMPLEMENTED"
+
+
+def test_started_completed_same_item_not_double_counted(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    events = [
+        json.dumps({"type": "turn.started"}),
+        json.dumps({"type": "item.started", "item": {"id": "cmd_item_42", "type": "command_execution"}}),
+        json.dumps({"type": "item.completed", "item": {"id": "cmd_item_42", "type": "command_execution"}}),
+        json.dumps({"type": "item.started", "item": {"id": "file_item_99", "type": "file_change"}}),
+        json.dumps({"type": "item.completed", "item": {"id": "file_item_99", "type": "file_change"}}),
+        json.dumps({"type": "item.completed", "item": {"id": "msg_item_1", "type": "agent_message", "text": "AIOS_EXECUTOR_OUTCOME: IMPLEMENTED"}}),
+        json.dumps({"type": "turn.completed"}),
+    ]
+    stdout_bytes = ("\n".join(events) + "\n").encode("utf-8")
+    process = _FakeProcess(returncode=0, stdout_bytes=stdout_bytes)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+
+    diag = outcome.diagnostic
+    assert diag.command_activity_count == 1
+    assert diag.file_change_activity_count == 1
+    assert diag.executor_outcome == "IMPLEMENTED"
+
+
+def test_arbitrary_json_activity_counts_unknown(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    events = [
+        json.dumps({"unrelated_event": 123, "data": "payload"}),
+        json.dumps({"other_random_object": True}),
+    ]
+    stdout_bytes = ("\n".join(events) + "\n").encode("utf-8")
+    process = _FakeProcess(returncode=0, stdout_bytes=stdout_bytes)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+
+    diag = outcome.diagnostic
+    assert diag.command_activity_count == "UNKNOWN"
+    assert diag.file_change_activity_count == "UNKNOWN"
+    assert diag.final_agent_message_observed == "UNKNOWN"
+    assert diag.executor_outcome == "UNKNOWN"
