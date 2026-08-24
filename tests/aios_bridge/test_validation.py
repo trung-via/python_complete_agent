@@ -5,11 +5,13 @@ import pytest
 from src.aios_bridge.continuity.errors import ContinuityStateValidationError
 from src.aios_bridge.validation import (
     CONTROL_PLANE_STRICT_COMPAT_PLAN,
+    ExecutorAdHocT2Observability,
     ValidationEvidence,
     ValidationOwner,
     ValidationPlan,
     ValidationProfile,
     ValidationTier,
+    certification_commands_for_plan,
     classify_validation_command,
     executor_commands_for_plan,
     require_certification_for_publication,
@@ -122,6 +124,20 @@ def test_legacy_full_suite_request_is_removed_from_executor_not_certification():
     )
 
 
+def test_certification_schedules_exactly_one_aios_managed_t2():
+    command = "pytest tests/ -q"
+    assert certification_commands_for_plan(
+        (command,), CONTROL_PLANE_STRICT_COMPAT_PLAN
+    ) == (command,)
+    with pytest.raises(
+        ContinuityStateValidationError,
+        match="AIOS_MANAGED_T2_DUPLICATION_DETECTED",
+    ):
+        certification_commands_for_plan(
+            (command, command), CONTROL_PLANE_STRICT_COMPAT_PLAN
+        )
+
+
 @pytest.mark.parametrize("executor_id", ("antigravity", "codex", "claude-code"))
 def test_evidence_contract_is_provider_neutral(executor_id):
     item = evidence(executor_id=executor_id)
@@ -132,18 +148,26 @@ def test_evidence_contract_is_provider_neutral(executor_id):
 def test_validation_count_and_duration_telemetry_is_bounded_and_machine_readable():
     item = evidence()
     payload = item.to_dict()
-    assert payload["full_suite_execution_count"] == 1
-    assert payload["expected_full_suite_execution_count"] == 1
+    assert payload["aios_managed_t2_execution_count"] == 1
+    assert payload["expected_aios_managed_t2_execution_count"] == 1
+    assert payload["aios_managed_t2_duplication_detected"] is False
     assert payload["targeted_test_execution_count"] == 2
     assert payload["full_suite_duration_seconds"] == 3.25
     assert payload["targeted_test_duration_seconds"] == 0.5
-    assert payload["validation_duplication_detected"] is False
+    assert payload["executor_ad_hoc_t2_observability"] == "UNAVAILABLE"
+    assert payload["executor_ad_hoc_t2_execution_count"] == "UNKNOWN"
+    assert payload["global_t2_execution_count"] == "UNKNOWN"
+    assert "full_suite_execution_count" not in payload
+    assert "expected_full_suite_execution_count" not in payload
 
 
 def test_duplication_is_detected_and_cannot_manufacture_publication_pass():
     item = evidence(full_suite_execution_count=2)
     assert item.validation_duplication_detected is True
-    with pytest.raises(ContinuityStateValidationError, match="VALIDATION_DUPLICATION_DETECTED"):
+    with pytest.raises(
+        ContinuityStateValidationError,
+        match="AIOS_MANAGED_T2_DUPLICATION_DETECTED",
+    ):
         require_certification_for_publication(
             CONTROL_PLANE_STRICT_COMPAT_PLAN,
             item,
@@ -168,9 +192,37 @@ def test_failed_or_missing_t2_cannot_publish():
 
 def test_unknown_duration_stays_unknown_without_quota_inference():
     payload = evidence(
+        targeted_test_execution_count=None,
         full_suite_duration_seconds=None,
         targeted_test_duration_seconds=None,
     ).to_dict()
-    assert payload["full_suite_duration_seconds"] is None
-    assert payload["targeted_test_duration_seconds"] is None
+    assert payload["targeted_test_execution_count"] == "UNKNOWN"
+    assert payload["full_suite_duration_seconds"] == "UNKNOWN"
+    assert payload["targeted_test_duration_seconds"] == "UNKNOWN"
     assert not any("token" in key or "quota" in key for key in payload)
+
+
+def test_unavailable_ad_hoc_observability_cannot_fabricate_counts():
+    item = evidence(
+        executor_ad_hoc_t2_observability=ExecutorAdHocT2Observability.UNAVAILABLE,
+        executor_ad_hoc_t2_execution_count=None,
+    )
+    payload = item.to_dict()
+    assert payload["executor_ad_hoc_t2_execution_count"] == "UNKNOWN"
+    assert payload["global_t2_execution_count"] == "UNKNOWN"
+    with pytest.raises(ContinuityStateValidationError, match="must remain UNKNOWN"):
+        evidence(executor_ad_hoc_t2_execution_count=0)
+
+
+def test_observed_executor_ad_hoc_t2_is_a_policy_violation():
+    item = evidence(
+        executor_ad_hoc_t2_observability=ExecutorAdHocT2Observability.OBSERVED,
+        executor_ad_hoc_t2_execution_count=1,
+    )
+    assert item.to_dict()["global_t2_execution_count"] == 2
+    with pytest.raises(ContinuityStateValidationError, match="VALIDATION_POLICY_VIOLATION"):
+        require_certification_for_publication(
+            CONTROL_PLANE_STRICT_COMPAT_PLAN,
+            item,
+            full_suite_succeeded=True,
+        )

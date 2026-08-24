@@ -18,6 +18,7 @@ from src.aios_bridge.continuity.executor_transport import InvocationReceipt, Inv
 from src.aios_bridge.executor_transports import CodexTransportDiagnostic, CodexInvocationOutcome
 from src.aios_bridge.continuity.lease import ExecutorLease
 from src.aios_bridge.continuity.state import ArtifactRef
+from src.aios_bridge.validation import ValidationProfile
 
 
 def git_blob(data: bytes) -> str:
@@ -559,6 +560,39 @@ def test_exit_zero_invokes_once_and_reuses_publisher_with_fixed_suite(monkeypatc
     assert calls["persist"][0]["published_sha"] is None
     assert calls["persist"][1]["published_sha"] == "e" * 40
     assert result.implementation_sha == "e" * 40
+
+
+def test_result_manifest_persists_scoped_validation_observability():
+    evidence = bridge.ValidationEvidence(
+        task_id="TASK-083",
+        action="FIX",
+        executor_id="codex",
+        validation_profile=ValidationProfile.CONTROL_PLANE_STRICT_COMPAT,
+        full_suite_execution_count=1,
+        expected_full_suite_execution_count=1,
+        targeted_test_execution_count=None,
+        full_suite_duration_seconds=12.5,
+        targeted_test_duration_seconds=None,
+        executor_ad_hoc_t2_observability=(
+            bridge.ExecutorAdHocT2Observability.UNAVAILABLE
+        ),
+        executor_ad_hoc_t2_execution_count=None,
+    )
+
+    manifest = bridge._validation_result_manifest(evidence)
+
+    assert "FULL_CANONICAL_OWNER: CERTIFICATION_BOUNDARY" in manifest
+    assert "EXPECTED_AIOS_MANAGED_T2_EXECUTION_COUNT: 1" in manifest
+    assert "AIOS_MANAGED_T2_EXECUTION_COUNT: 1" in manifest
+    assert "AIOS_MANAGED_T2_DUPLICATION_DETECTED: NO" in manifest
+    assert "EXECUTOR_AD_HOC_T2_OBSERVABILITY: UNAVAILABLE" in manifest
+    assert "EXECUTOR_AD_HOC_T2_EXECUTION_COUNT: UNKNOWN" in manifest
+    assert "GLOBAL_T2_EXECUTION_COUNT: UNKNOWN" in manifest
+    assert "TARGETED_TEST_EXECUTION_COUNT: UNKNOWN" in manifest
+    assert "FULL_SUITE_DURATION_SECONDS: 12.5" in manifest
+    assert "TARGETED_TEST_DURATION_SECONDS: UNKNOWN" in manifest
+    assert "EXPECTED_FULL_SUITE_EXECUTION_COUNT" not in manifest
+    assert "\nFULL_SUITE_EXECUTION_COUNT:" not in manifest
 
 
 @pytest.mark.parametrize(

@@ -121,9 +121,11 @@ from src.aios_bridge.runtime_dispatch import (
     parse_executor_dispatch_policy_marker,
 )
 from src.aios_bridge.validation import (
+    ExecutorAdHocT2Observability,
     ValidationEvidence,
     ValidationPlan,
     ValidationTier,
+    certification_commands_for_plan,
     classify_validation_command,
     require_certification_for_publication,
     validation_plan_for_task,
@@ -3684,6 +3686,18 @@ def cmd_execute(args):
     full_suite_command = (
         subprocess.list2cmdline(test_argv) if os.name == "nt" else shlex.join(test_argv)
     )
+    if launch.validation_plan is not None:
+        try:
+            certification_commands = certification_commands_for_plan(
+                (full_suite_command,), launch.validation_plan
+            )
+            full_suite_command = certification_commands[0]
+        except Exception as exc:
+            _e4_operational_failure(
+                task_num,
+                "RECOVERY_REQUIRED",
+                f"E4 AIOS-managed certification scheduling failed; no publication: {exc}",
+            )
     is_productive_recovery = receipt.status is InvocationStatus.EXITED_NONZERO
     if is_productive_recovery:
         transport_lines = (
@@ -4695,6 +4709,37 @@ def _parse_task_031_test_evidence(test_cmd: str | None, test_output: str | None,
     return bridge_str, continuity_str, full_repo_str, "0"
 
 
+def _validation_result_manifest(evidence: ValidationEvidence) -> str:
+    """Render RESULT evidence without widening AIOS-managed counts to global claims."""
+    if type(evidence) is not ValidationEvidence:
+        raise ContinuityStateValidationError(
+            "RESULT validation evidence must be an exact ValidationEvidence"
+        )
+    payload = evidence.to_dict()
+    return "\n".join(
+        (
+            f"VALIDATION_PROFILE: {payload['validation_profile']}",
+            f"FULL_CANONICAL_OWNER: {payload['full_canonical_owner']}",
+            "EXPECTED_AIOS_MANAGED_T2_EXECUTION_COUNT: "
+            f"{payload['expected_aios_managed_t2_execution_count']}",
+            "AIOS_MANAGED_T2_EXECUTION_COUNT: "
+            f"{payload['aios_managed_t2_execution_count']}",
+            "AIOS_MANAGED_T2_DUPLICATION_DETECTED: "
+            f"{'YES' if payload['aios_managed_t2_duplication_detected'] else 'NO'}",
+            "EXECUTOR_AD_HOC_T2_OBSERVABILITY: "
+            f"{payload['executor_ad_hoc_t2_observability']}",
+            "EXECUTOR_AD_HOC_T2_EXECUTION_COUNT: "
+            f"{payload['executor_ad_hoc_t2_execution_count']}",
+            f"GLOBAL_T2_EXECUTION_COUNT: {payload['global_t2_execution_count']}",
+            "TARGETED_TEST_EXECUTION_COUNT: "
+            f"{payload['targeted_test_execution_count']}",
+            f"FULL_SUITE_DURATION_SECONDS: {payload['full_suite_duration_seconds']}",
+            "TARGETED_TEST_DURATION_SECONDS: "
+            f"{payload['targeted_test_duration_seconds']}",
+        )
+    )
+
+
 def cmd_publish(args):
     ensure_git()
     cfg = load_config()
@@ -4917,19 +4962,18 @@ def cmd_publish(args):
                 expected_full_suite_execution_count=(
                     validation_plan.expected_full_suite_execution_count
                 ),
-                targeted_test_execution_count=(
-                    1 if observed_tier is ValidationTier.T1_TARGETED_IMPACT else 0
-                ),
+                # Executor T0/T1 activity is outside the certification event stream.
+                targeted_test_execution_count=None,
                 full_suite_duration_seconds=(
                     observed_test_duration
                     if observed_tier is ValidationTier.T2_FULL_CANONICAL
                     else None
                 ),
-                targeted_test_duration_seconds=(
-                    observed_test_duration
-                    if observed_tier is ValidationTier.T1_TARGETED_IMPACT
-                    else None
+                targeted_test_duration_seconds=None,
+                executor_ad_hoc_t2_observability=(
+                    ExecutorAdHocT2Observability.UNAVAILABLE
                 ),
+                executor_ad_hoc_t2_execution_count=None,
             )
             require_certification_for_publication(
                 validation_plan,
@@ -5155,13 +5199,7 @@ EXECUTOR_ID: {active_exec}
 {manifest_hot_handoff_block.rstrip()}"""
 
     if validation_evidence is not None:
-        manifest_content += f"""
-VALIDATION_PROFILE: {validation_evidence.validation_profile.value}
-FULL_CANONICAL_OWNER: CERTIFICATION_BOUNDARY
-EXPECTED_FULL_SUITE_EXECUTION_COUNT: {validation_evidence.expected_full_suite_execution_count}
-FULL_SUITE_EXECUTION_COUNT: {validation_evidence.full_suite_execution_count}
-TARGETED_TEST_EXECUTION_COUNT: {validation_evidence.targeted_test_execution_count}
-VALIDATION_DUPLICATION_DETECTED: {'YES' if validation_evidence.validation_duplication_detected else 'NO'}"""
+        manifest_content += f"\n{_validation_result_manifest(validation_evidence)}"
 
     if proof_progress_block:
         manifest_content += f"\n{proof_progress_block.rstrip()}"

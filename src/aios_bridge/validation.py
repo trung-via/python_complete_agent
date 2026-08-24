@@ -27,6 +27,11 @@ class ValidationProfile(str, Enum):
     CONTROL_PLANE_STRICT_COMPAT = "CONTROL_PLANE_STRICT_COMPAT"
 
 
+class ExecutorAdHocT2Observability(str, Enum):
+    OBSERVED = "OBSERVED"
+    UNAVAILABLE = "UNAVAILABLE"
+
+
 _CANONICAL_OWNERS = {
     ValidationTier.T0_MICRO: ValidationOwner.EXECUTOR,
     ValidationTier.T1_TARGETED_IMPACT: ValidationOwner.EXECUTOR,
@@ -180,6 +185,30 @@ def executor_commands_for_plan(
     return tuple(retained)
 
 
+def certification_commands_for_plan(
+    commands: Sequence[str], plan: ValidationPlan
+) -> tuple[str, ...]:
+    """Select the sole AIOS-managed T2 command and reject duplicate scheduling."""
+    if isinstance(commands, (str, bytes)) or not isinstance(commands, Sequence):
+        raise _error("commands must be a sequence of command strings")
+    if type(plan) is not ValidationPlan:
+        raise _error("plan must be an exact ValidationPlan")
+    retained: list[str] = []
+    for command in commands:
+        tier = classify_validation_command(command)
+        if tier in plan.certification_test_tiers:
+            retained.append(command)
+        elif tier not in plan.executor_test_tiers:
+            raise _error("validation ownership is ambiguous; strict certification retained")
+    actual_count = len(retained)
+    expected_count = plan.expected_full_suite_execution_count
+    if actual_count > expected_count:
+        raise _error("AIOS_MANAGED_T2_DUPLICATION_DETECTED")
+    if actual_count != expected_count:
+        raise _error("AIOS-managed certification must schedule T2 exactly once")
+    return tuple(retained)
+
+
 @dataclass(frozen=True)
 class ValidationEvidence:
     task_id: str
@@ -188,9 +217,13 @@ class ValidationEvidence:
     validation_profile: ValidationProfile
     full_suite_execution_count: int
     expected_full_suite_execution_count: int
-    targeted_test_execution_count: int
+    targeted_test_execution_count: int | None
     full_suite_duration_seconds: float | None = None
     targeted_test_duration_seconds: float | None = None
+    executor_ad_hoc_t2_observability: ExecutorAdHocT2Observability = (
+        ExecutorAdHocT2Observability.UNAVAILABLE
+    )
+    executor_ad_hoc_t2_execution_count: int | None = None
 
     def __post_init__(self) -> None:
         if type(self.task_id) is not str or not re.fullmatch(r"TASK-\d+", self.task_id):
@@ -203,34 +236,97 @@ class ValidationEvidence:
             raise _error("executor_id must be a bounded provider-neutral canonical ID")
         if type(self.validation_profile) is not ValidationProfile:
             raise _error("validation_profile must be an exact ValidationProfile")
-        for name in (
-            "full_suite_execution_count",
-            "expected_full_suite_execution_count",
-            "targeted_test_execution_count",
-        ):
+        for name in ("full_suite_execution_count", "expected_full_suite_execution_count"):
             value = getattr(self, name)
             if type(value) is not int or value < 0:
                 raise _error(f"{name} must be an exact non-negative integer")
+        if self.targeted_test_execution_count is not None and (
+            type(self.targeted_test_execution_count) is not int
+            or self.targeted_test_execution_count < 0
+        ):
+            raise _error(
+                "targeted_test_execution_count must be UNKNOWN or an exact non-negative integer"
+            )
         for name in ("full_suite_duration_seconds", "targeted_test_duration_seconds"):
             value = getattr(self, name)
             if value is not None and (type(value) not in {int, float} or value < 0):
                 raise _error(f"{name} must be unknown or a non-negative observed duration")
+        if type(self.executor_ad_hoc_t2_observability) is not ExecutorAdHocT2Observability:
+            raise _error(
+                "executor_ad_hoc_t2_observability must be an exact observability value"
+            )
+        ad_hoc_count = self.executor_ad_hoc_t2_execution_count
+        if self.executor_ad_hoc_t2_observability is ExecutorAdHocT2Observability.UNAVAILABLE:
+            if ad_hoc_count is not None:
+                raise _error("unavailable executor ad-hoc T2 count must remain UNKNOWN")
+        elif type(ad_hoc_count) is not int or ad_hoc_count < 0:
+            raise _error("observed executor ad-hoc T2 count must be a non-negative integer")
+        if (
+            self.targeted_test_execution_count is None
+            and self.targeted_test_duration_seconds is not None
+        ):
+            raise _error("unknown targeted test count cannot have an observed duration")
+
+    @property
+    def expected_aios_managed_t2_execution_count(self) -> int:
+        return self.expected_full_suite_execution_count
+
+    @property
+    def aios_managed_t2_execution_count(self) -> int:
+        return self.full_suite_execution_count
+
+    @property
+    def aios_managed_t2_duplication_detected(self) -> bool:
+        return self.full_suite_execution_count > self.expected_full_suite_execution_count
 
     @property
     def validation_duplication_detected(self) -> bool:
-        return self.full_suite_execution_count > self.expected_full_suite_execution_count
+        """Compatibility alias whose scope is AIOS-managed validation only."""
+        return self.aios_managed_t2_duplication_detected
+
+    @property
+    def global_t2_execution_count(self) -> int | None:
+        if self.executor_ad_hoc_t2_observability is ExecutorAdHocT2Observability.UNAVAILABLE:
+            return None
+        assert self.executor_ad_hoc_t2_execution_count is not None
+        return self.full_suite_execution_count + self.executor_ad_hoc_t2_execution_count
+
+    @staticmethod
+    def _observed_or_unknown(value: int | float | None) -> int | float | str:
+        return "UNKNOWN" if value is None else value
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "action": self.action,
+            "aios_managed_t2_duplication_detected": (
+                self.aios_managed_t2_duplication_detected
+            ),
+            "aios_managed_t2_execution_count": self.aios_managed_t2_execution_count,
+            "evidence_scope": "AIOS_MANAGED_VALIDATION_AND_EXECUTOR_AD_HOC_BOUNDARY",
             "executor_id": self.executor_id,
-            "expected_full_suite_execution_count": self.expected_full_suite_execution_count,
-            "full_suite_duration_seconds": self.full_suite_duration_seconds,
-            "full_suite_execution_count": self.full_suite_execution_count,
-            "targeted_test_duration_seconds": self.targeted_test_duration_seconds,
-            "targeted_test_execution_count": self.targeted_test_execution_count,
+            "executor_ad_hoc_t2_execution_count": self._observed_or_unknown(
+                self.executor_ad_hoc_t2_execution_count
+            ),
+            "executor_ad_hoc_t2_observability": (
+                self.executor_ad_hoc_t2_observability.value
+            ),
+            "expected_aios_managed_t2_execution_count": (
+                self.expected_aios_managed_t2_execution_count
+            ),
+            "full_canonical_owner": ValidationOwner.CERTIFICATION_BOUNDARY.value,
+            "full_suite_duration_seconds": self._observed_or_unknown(
+                self.full_suite_duration_seconds
+            ),
+            "global_t2_execution_count": self._observed_or_unknown(
+                self.global_t2_execution_count
+            ),
+            "targeted_test_duration_seconds": self._observed_or_unknown(
+                self.targeted_test_duration_seconds
+            ),
+            "targeted_test_execution_count": self._observed_or_unknown(
+                self.targeted_test_execution_count
+            ),
             "task_id": self.task_id,
-            "validation_duplication_detected": self.validation_duplication_detected,
             "validation_profile": self.validation_profile.value,
         }
 
@@ -247,8 +343,16 @@ def require_certification_for_publication(
         raise _error("validation evidence profile does not match the plan")
     if evidence.expected_full_suite_execution_count != plan.expected_full_suite_execution_count:
         raise _error("validation evidence expected count does not match the plan")
-    if evidence.validation_duplication_detected:
-        raise _error("VALIDATION_DUPLICATION_DETECTED")
+    if evidence.aios_managed_t2_duplication_detected:
+        raise _error("AIOS_MANAGED_T2_DUPLICATION_DETECTED")
+    if (
+        evidence.executor_ad_hoc_t2_observability
+        is ExecutorAdHocT2Observability.OBSERVED
+        and evidence.executor_ad_hoc_t2_execution_count
+    ):
+        raise _error(
+            "VALIDATION_POLICY_VIOLATION: executor ad-hoc T2 observed while certification owns T2"
+        )
     if not full_suite_succeeded:
         raise _error("failed T2 cannot publish")
     if evidence.full_suite_execution_count != plan.expected_full_suite_execution_count:
@@ -257,12 +361,14 @@ def require_certification_for_publication(
 
 __all__ = [
     "CONTROL_PLANE_STRICT_COMPAT_PLAN",
+    "ExecutorAdHocT2Observability",
     "ValidationEvidence",
     "ValidationOwner",
     "ValidationPlan",
     "ValidationProfile",
     "ValidationTier",
     "classify_validation_command",
+    "certification_commands_for_plan",
     "executor_commands_for_plan",
     "require_certification_for_publication",
     "validation_owner",

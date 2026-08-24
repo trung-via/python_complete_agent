@@ -5,10 +5,16 @@ STATUS: READY_FOR_REVIEW
 ## Review Manifest
 ```yaml
 TASK_ID: TASK-083
-ACTION: RUN
+ACTION: FIX
 EXECUTOR_ID: codex
 EXECUTOR_FAILOVER: NO
 HOT_HANDOFF: NO
+VALIDATION_PROFILE: CONTROL_PLANE_STRICT_COMPAT
+FULL_CANONICAL_OWNER: CERTIFICATION_BOUNDARY
+EXPECTED_FULL_SUITE_EXECUTION_COUNT: 1
+FULL_SUITE_EXECUTION_COUNT: 1
+TARGETED_TEST_EXECUTION_COUNT: 0
+VALIDATION_DUPLICATION_DETECTED: NO
 ```
 
 ## Summary
@@ -16,27 +22,25 @@ Implementation completed by codex through E4 approved automatic execution; pendi
 
 ## Task Metadata
 - Task: `TASK-083`
-- Action: `RUN`
+- Action: `FIX`
 - Executor: `codex`
-- Authorized Artifact: `.ai/tasks/TASK-083.md (15eaa9985f)`
-- Base Main SHA: `962712450ce14d3629c3d1caef59c9651bba7f90`
+- Authorized Artifact: `.ai/reviews/REVIEW-083.md (f8b35d4595)`
+- Base Main SHA: `(n/a)`
 - Branch: `ai/task-083`
 
 ## Files Changed
 - bridge.py
-- src/aios_bridge/executor_automation.py
 - src/aios_bridge/validation.py
 - tests/aios_bridge/test_validation.py
-- tests/test_bridge.py
+- tests/test_bridge_executor_automation.py
 
 ## Diff Stat
 ```text
-bridge.py                              | 115 ++++++++++++++
- src/aios_bridge/executor_automation.py |  12 +-
- src/aios_bridge/validation.py          | 270 +++++++++++++++++++++++++++++++++
- tests/aios_bridge/test_validation.py   | 176 +++++++++++++++++++++
- tests/test_bridge.py                   |  37 +++++
- 5 files changed, 609 insertions(+), 1 deletion(-)
+bridge.py                                |  66 +++++++++++----
+ src/aios_bridge/validation.py            | 136 +++++++++++++++++++++++++++----
+ tests/aios_bridge/test_validation.py     |  64 +++++++++++++--
+ tests/test_bridge_executor_automation.py |  34 ++++++++
+ 4 files changed, 265 insertions(+), 35 deletions(-)
 ```
 
 ## Tests
@@ -70,7 +74,7 @@ Exit code: 0
 ........................................................................ [ 67%]
 ........................................................................ [ 70%]
 ........................................................................ [ 73%]
-........................................................................ [ 76%]
+........................................................................ [ 75%]
 ........................................................................ [ 78%]
 ........................................................................ [ 81%]
 ........................................................................ [ 84%]
@@ -79,7 +83,7 @@ Exit code: 0
 ........................................................................ [ 92%]
 ........................................................................ [ 95%]
 ........................................................................ [ 98%]
-....................................                                     [100%]
+........................................                                 [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -382,7 +386,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-2549 passed, 7 skipped, 1540 warnings in 335.42s (0:05:35)
+2553 passed, 7 skipped, 1540 warnings in 316.38s (0:05:16)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -390,17 +394,22 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
   warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
 ```
 
+## Validation Evidence
+```json
+{"action":"FIX","executor_id":"codex","expected_full_suite_execution_count":1,"full_suite_duration_seconds":317.91388670000015,"full_suite_execution_count":1,"targeted_test_duration_seconds":null,"targeted_test_execution_count":0,"task_id":"TASK-083","validation_duplication_detected":false,"validation_profile":"CONTROL_PLANE_STRICT_COMPAT"}
+```
+
 ## Risks / Notes
 E4_AUTO_EXECUTION: YES
-E4_CONTROL_COMMIT_SHA: 47db0895999c14d1c2049a56cd0fba8c59904968
-E4_CONTEXT_MANIFEST_FINGERPRINT: 4622152efadd455dd63853bab3404e5c3ad08c0e78510b20e96d125f59814891
-E4_INVOCATION_FINGERPRINT: 28757f916df6638a227ee9037976d90503ec84dfa3bebd6da60047ac4df91190
-E4_INVOCATION_RECEIPT_FINGERPRINT: 4f1b51094768145761e716f8e26030104db3cc3316f53d057370c5bfc927c9bc
+E4_CONTROL_COMMIT_SHA: 733b6360dcce0c84ad14dffde8d5ae1dd604c904
+E4_CONTEXT_MANIFEST_FINGERPRINT: 597b9a34cf771cccc973ba3be8d0c68911eeb92ccfa6b710021e41d38fb506be
+E4_INVOCATION_FINGERPRINT: e4c382ab4513e22c337eaf54924b0b851226772abda7b16d430b092d49b87438
+E4_INVOCATION_RECEIPT_FINGERPRINT: dc1181abe33984e7a41e12a18e3e6b655ea5e01e6e7aed896b584106b41f0cd7
 E4_TRANSPORT_STATUS: EXITED_ZERO
-E4_PRE_EXECUTION_HEAD: 962712450ce14d3629c3d1caef59c9651bba7f90
+E4_PRE_EXECUTION_HEAD: 0c9c5f9fe5789fd56162c0786e4f8f90ef785bb0
 E4_ALLOWED_SCOPE_VERIFIED: PASS
 E4_PUBLICATION_TRUST_VERIFIED: PASS
-E4_DIRTY_PATH_COUNT: 5
+E4_DIRTY_PATH_COUNT: 4
 
 ## Generated
-2026-08-24T18:49:13+07:00
+2026-08-24T19:38:53+07:00
