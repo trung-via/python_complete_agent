@@ -108,7 +108,7 @@ _FINDING_TRANSITIONS: dict[FindingStatus, frozenset[FindingStatus]] = {
     FindingStatus.NEW: frozenset({FindingStatus.OPEN}),
     FindingStatus.OPEN: frozenset({FindingStatus.FIX_SUBMITTED}),
     FindingStatus.FIX_SUBMITTED: frozenset({FindingStatus.VERIFYING}),
-    FindingStatus.VERIFYING: frozenset({FindingStatus.CLOSED, FindingStatus.REOPENED}),
+    FindingStatus.VERIFYING: frozenset({FindingStatus.CLOSED, FindingStatus.OPEN}),
     FindingStatus.CLOSED: frozenset({FindingStatus.REOPENED}),
     FindingStatus.REOPENED: frozenset(
         {FindingStatus.OPEN, FindingStatus.FIX_SUBMITTED}
@@ -159,6 +159,11 @@ class FindingRecord:
             _require_round(self.closure_review_round, "closure_review_round")
             if self.closure_review_round < self.introduced_review_round:
                 raise _error("closure_review_round cannot precede introduction")
+        if self.status is FindingStatus.CLOSED:
+            if self.fixed_by_sha is None:
+                raise _error("closed finding requires fixed_by_sha")
+            if self.closure_review_round is None:
+                raise _error("closed finding requires closure_review_round")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -186,6 +191,10 @@ class FindingRecord:
         }
         if type(data) is not dict or set(data) != fields:
             raise _error("FindingRecord must contain the exact bounded field set")
+        if type(data["affected_surfaces"]) is not list:
+            raise _error("affected_surfaces must be an exact list")
+        if type(data["required_proof_ids"]) is not list:
+            raise _error("required_proof_ids must be an exact list")
         try:
             return cls(
                 finding_id=data["finding_id"],

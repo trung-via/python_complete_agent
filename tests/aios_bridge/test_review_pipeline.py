@@ -138,7 +138,11 @@ def test_finding_registry_rejects_duplicate_bounded_values(field, value, message
 
 
 def test_closed_finding_stays_closed_without_explicit_reopen_evidence():
-    closed = finding(status=FindingStatus.CLOSED, closure_review_round=2)
+    closed = finding(
+        status=FindingStatus.CLOSED,
+        fixed_by_sha=SHA_A,
+        closure_review_round=2,
+    )
     with pytest.raises(ReviewContractError, match="explicit evidence"):
         transition_finding_status(closed, FindingStatus.REOPENED)
     reopened = transition_finding_status(
@@ -160,6 +164,58 @@ def test_finding_lifecycle_rejects_invalid_status_transition():
     )
     assert closed.fixed_by_sha == SHA_A
     assert closed.closure_review_round == 3
+
+
+def test_verifying_finding_returns_to_open_but_cannot_reopen_directly():
+    verifying = finding(status=FindingStatus.VERIFYING)
+    assert transition_finding_status(
+        verifying, FindingStatus.OPEN
+    ).status is FindingStatus.OPEN
+    with pytest.raises(ReviewContractError, match="invalid finding transition"):
+        transition_finding_status(verifying, FindingStatus.REOPENED)
+
+
+def test_closing_finding_requires_complete_closure_evidence():
+    verifying = finding(status=FindingStatus.VERIFYING)
+    with pytest.raises(ReviewContractError, match="requires fixed_by_sha"):
+        transition_finding_status(verifying, FindingStatus.CLOSED)
+    closed = transition_finding_status(
+        verifying,
+        FindingStatus.CLOSED,
+        fixed_by_sha=SHA_A,
+        closure_review_round=2,
+    )
+    assert closed.status is FindingStatus.CLOSED
+    assert closed.fixed_by_sha == SHA_A
+    assert closed.closure_review_round == 2
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    (
+        {"fixed_by_sha": None, "closure_review_round": 2},
+        {"fixed_by_sha": SHA_A, "closure_review_round": None},
+    ),
+)
+def test_direct_and_machine_readable_closed_findings_require_both_closure_fields(
+    overrides,
+):
+    with pytest.raises(ReviewContractError, match="closed finding requires"):
+        finding(status=FindingStatus.CLOSED, **overrides)
+
+    data = finding().to_dict()
+    data.update(status=FindingStatus.CLOSED.value, **overrides)
+    with pytest.raises(ReviewContractError, match="closed finding requires"):
+        FindingRecord.from_dict(data)
+
+
+@pytest.mark.parametrize("field", ("affected_surfaces", "required_proof_ids"))
+@pytest.mark.parametrize("value", ("one", 1, {"one": "two"}, ("one",)))
+def test_finding_machine_readable_sequences_require_exact_lists(field, value):
+    data = finding().to_dict()
+    data[field] = value
+    with pytest.raises(ReviewContractError, match=f"{field} must be an exact list"):
+        FindingRecord.from_dict(data)
 
 
 def test_proof_record_is_immutable_fingerprint_bound_and_machine_readable():

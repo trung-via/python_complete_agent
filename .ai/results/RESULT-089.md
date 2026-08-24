@@ -5,7 +5,7 @@ STATUS: READY_FOR_REVIEW
 ## Review Manifest
 ```yaml
 TASK_ID: TASK-089
-ACTION: RUN
+ACTION: FIX
 EXECUTOR_ID: codex
 EXECUTOR_FAILOVER: NO
 HOT_HANDOFF: NO
@@ -18,7 +18,7 @@ EXECUTOR_AD_HOC_T2_OBSERVABILITY: UNAVAILABLE
 EXECUTOR_AD_HOC_T2_EXECUTION_COUNT: UNKNOWN
 GLOBAL_T2_EXECUTION_COUNT: UNKNOWN
 TARGETED_TEST_EXECUTION_COUNT: UNKNOWN
-FULL_SUITE_DURATION_SECONDS: 285.9504485999987
+FULL_SUITE_DURATION_SECONDS: 319.6203890999968
 TARGETED_TEST_DURATION_SECONDS: UNKNOWN
 ```
 
@@ -27,10 +27,10 @@ Implementation completed by codex through E4 approved automatic execution; pendi
 
 ## Task Metadata
 - Task: `TASK-089`
-- Action: `RUN`
+- Action: `FIX`
 - Executor: `codex`
-- Authorized Artifact: `.ai/tasks/TASK-089.md (21b9dee640)`
-- Base Main SHA: `90b381d3be78b68a8e7b25c42c66e539486a44e2`
+- Authorized Artifact: `.ai/reviews/REVIEW-089.md (6a7123baff)`
+- Base Main SHA: `(n/a)`
 - Branch: `ai/task-089`
 
 ## Files Changed
@@ -41,11 +41,11 @@ Implementation completed by codex through E4 approved automatic execution; pendi
 
 ## Diff Stat
 ```text
-src/aios_bridge/certification_job.py        | 274 ++++++++++++++++
- src/aios_bridge/review_pipeline.py          | 489 ++++++++++++++++++++++++++++
- tests/aios_bridge/test_certification_job.py | 152 +++++++++
- tests/aios_bridge/test_review_pipeline.py   | 250 ++++++++++++++
- 4 files changed, 1165 insertions(+)
+src/aios_bridge/certification_job.py        | 10 ++++-
+ src/aios_bridge/review_pipeline.py          | 11 ++++-
+ tests/aios_bridge/test_certification_job.py | 70 ++++++++++++++++++++++++++++-
+ tests/aios_bridge/test_review_pipeline.py   | 58 +++++++++++++++++++++++-
+ 4 files changed, 144 insertions(+), 5 deletions(-)
 ```
 
 ## Tests
@@ -65,31 +65,31 @@ Exit code: 0
 ........................................................................ [ 27%]
 ........................................................................ [ 30%]
 ........................................................................ [ 32%]
-...............................................ss....................... [ 35%]
-...............s........................................................ [ 38%]
-........................................................................ [ 41%]
+...................................................ss................... [ 35%]
+...................s.................................................... [ 38%]
+........................................................................ [ 40%]
 ........................................................................ [ 43%]
 ........................................................................ [ 46%]
 ........................................................................ [ 49%]
-........................................................................ [ 52%]
+........................................................................ [ 51%]
 ........................................................................ [ 54%]
 ........................................................................ [ 57%]
 ........................................................................ [ 60%]
-........................................................................ [ 63%]
+........................................................................ [ 62%]
 ........................................................................ [ 65%]
 ........................................................................ [ 68%]
-........................................................................ [ 71%]
-........................................................................ [ 74%]
+........................................................................ [ 70%]
+........................................................................ [ 73%]
 ........................................................................ [ 76%]
 ........................................................................ [ 79%]
-........................................................................ [ 82%]
-........................................................................ [ 85%]
+........................................................................ [ 81%]
+........................................................................ [ 84%]
 ........................................................................ [ 87%]
 ........................................................................ [ 90%]
-........................................................................ [ 93%]
-........................................................................ [ 96%]
+........................................................................ [ 92%]
+........................................................................ [ 95%]
 ........................................................................ [ 98%]
-................................                                         [100%]
+................................................                         [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -392,7 +392,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-2617 passed, 7 skipped, 1540 warnings in 284.60s (0:04:44)
+2633 passed, 7 skipped, 1540 warnings in 317.26s (0:05:17)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -402,20 +402,20 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 
 ## Validation Evidence
 ```json
-{"action":"RUN","aios_managed_t2_duplication_detected":false,"aios_managed_t2_execution_count":1,"evidence_scope":"AIOS_MANAGED_VALIDATION_AND_EXECUTOR_AD_HOC_BOUNDARY","executor_ad_hoc_t2_execution_count":"UNKNOWN","executor_ad_hoc_t2_observability":"UNAVAILABLE","executor_id":"codex","expected_aios_managed_t2_execution_count":1,"full_canonical_owner":"CERTIFICATION_BOUNDARY","full_suite_duration_seconds":285.9504485999987,"global_t2_execution_count":"UNKNOWN","targeted_test_duration_seconds":"UNKNOWN","targeted_test_execution_count":"UNKNOWN","task_id":"TASK-089","validation_profile":"CONTROL_PLANE_STRICT_COMPAT"}
+{"action":"FIX","aios_managed_t2_duplication_detected":false,"aios_managed_t2_execution_count":1,"evidence_scope":"AIOS_MANAGED_VALIDATION_AND_EXECUTOR_AD_HOC_BOUNDARY","executor_ad_hoc_t2_execution_count":"UNKNOWN","executor_ad_hoc_t2_observability":"UNAVAILABLE","executor_id":"codex","expected_aios_managed_t2_execution_count":1,"full_canonical_owner":"CERTIFICATION_BOUNDARY","full_suite_duration_seconds":319.6203890999968,"global_t2_execution_count":"UNKNOWN","targeted_test_duration_seconds":"UNKNOWN","targeted_test_execution_count":"UNKNOWN","task_id":"TASK-089","validation_profile":"CONTROL_PLANE_STRICT_COMPAT"}
 ```
 
 ## Risks / Notes
 E4_AUTO_EXECUTION: YES
-E4_CONTROL_COMMIT_SHA: 92eb4d2135f1ffb95b93fcd96207de7dfc411aa4
-E4_CONTEXT_MANIFEST_FINGERPRINT: 91258d8e735159198906c78050dc8516f52c2c3dcbe33ce2b3b622fe2aace78d
-E4_INVOCATION_FINGERPRINT: 65946efc71d4326d0e40e5f8833edf3fba8146b12e3a63bd668f49f16ccb681c
-E4_INVOCATION_RECEIPT_FINGERPRINT: 089700823fbc0eb37bd3d47b36526dfe81a38431105acca94aeebe27335c5d52
+E4_CONTROL_COMMIT_SHA: cc92fea0cd9e03014e93974b75ced2722391d072
+E4_CONTEXT_MANIFEST_FINGERPRINT: 8f569d006aa90d4b6db1c87adf9b34324cd5773ad7453489b15cb561d4996887
+E4_INVOCATION_FINGERPRINT: 1c4e8806bdd20064ebcbd2479b7e64a1036129a235a567e5af15a9c1203b2a1f
+E4_INVOCATION_RECEIPT_FINGERPRINT: 645d478c8bb7be6475d84c798f164e9a5d3069bce6d3816f922d4b22f4bca8ff
 E4_TRANSPORT_STATUS: EXITED_ZERO
-E4_PRE_EXECUTION_HEAD: 90b381d3be78b68a8e7b25c42c66e539486a44e2
+E4_PRE_EXECUTION_HEAD: 24cc46839f4bbd8043b0dc15a9426f7658c66064
 E4_ALLOWED_SCOPE_VERIFIED: PASS
 E4_PUBLICATION_TRUST_VERIFIED: PASS
 E4_DIRTY_PATH_COUNT: 4
 
 ## Generated
-2026-08-25T01:50:35+07:00
+2026-08-25T05:28:24+07:00

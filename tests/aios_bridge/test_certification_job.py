@@ -83,6 +83,10 @@ def test_certification_lifecycle_reaches_pass_only_from_running():
         CertificationJobStatus.CERTIFICATION_RUNNING,
         started_at="2026-08-25T00:00:00Z",
     )
+    with pytest.raises(CertificationContractError, match="requires terminal_result_digest"):
+        transition_certification_job(
+            running, CertificationJobStatus.CERTIFICATION_PASS
+        )
     passed = transition_certification_job(
         running,
         CertificationJobStatus.CERTIFICATION_PASS,
@@ -104,7 +108,11 @@ def test_terminal_state_reentry_fails_closed(terminal_status):
     terminal = job(
         status=terminal_status,
         started_at="2026-08-25T00:00:00Z",
-        terminal_result_digest=RESULT_DIGEST,
+        terminal_result_digest=(
+            None
+            if terminal_status is CertificationJobStatus.SUPERSEDED
+            else RESULT_DIGEST
+        ),
     )
     with pytest.raises(CertificationContractError, match="invalid certification transition"):
         transition_certification_job(
@@ -120,6 +128,66 @@ def test_superseded_certification_is_terminal_and_non_authoritative():
     with pytest.raises(CertificationContractError, match="invalid certification transition"):
         transition_certification_job(
             superseded, CertificationJobStatus.CERTIFICATION_PASS
+        )
+
+
+def test_failed_certification_requires_terminal_result_digest():
+    running = transition_certification_job(
+        job(),
+        CertificationJobStatus.CERTIFICATION_RUNNING,
+        started_at="2026-08-25T00:00:00Z",
+    )
+    with pytest.raises(CertificationContractError, match="requires terminal_result_digest"):
+        transition_certification_job(
+            running, CertificationJobStatus.CERTIFICATION_FAILED
+        )
+    failed = transition_certification_job(
+        running,
+        CertificationJobStatus.CERTIFICATION_FAILED,
+        terminal_result_digest=RESULT_DIGEST,
+    )
+    assert failed.terminal_result_digest == RESULT_DIGEST
+    assert failed.creates_certification_authority is False
+
+
+@pytest.mark.parametrize(
+    "status",
+    (
+        CertificationJobStatus.CERTIFICATION_PASS,
+        CertificationJobStatus.CERTIFICATION_FAILED,
+    ),
+)
+def test_direct_and_machine_readable_result_statuses_require_digest(status):
+    with pytest.raises(CertificationContractError, match="requires terminal_result_digest"):
+        job(status=status, started_at="2026-08-25T00:00:00Z")
+
+    data = job().to_dict()
+    data.update(
+        status=status.value,
+        started_at="2026-08-25T00:00:00Z",
+    )
+    with pytest.raises(CertificationContractError, match="requires terminal_result_digest"):
+        CertificationJob.from_dict(data)
+
+
+def test_superseded_certification_rejects_terminal_result_digest():
+    with pytest.raises(CertificationContractError, match="only for pass or failed"):
+        job(
+            status=CertificationJobStatus.SUPERSEDED,
+            started_at="2026-08-25T00:00:00Z",
+            terminal_result_digest=RESULT_DIGEST,
+        )
+
+    running = transition_certification_job(
+        job(),
+        CertificationJobStatus.CERTIFICATION_RUNNING,
+        started_at="2026-08-25T00:00:00Z",
+    )
+    with pytest.raises(CertificationContractError, match="only for pass or failed"):
+        transition_certification_job(
+            running,
+            CertificationJobStatus.SUPERSEDED,
+            terminal_result_digest=RESULT_DIGEST,
         )
 
 

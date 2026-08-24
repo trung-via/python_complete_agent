@@ -168,10 +168,16 @@ class CertificationJob:
             raise _error("started_at must be bounded exact text or None")
         if self.status is CertificationJobStatus.CERTIFICATION_PENDING and self.started_at is not None:
             raise _error("pending certification cannot have started_at evidence")
+        result_bearing_status = self.status in {
+            CertificationJobStatus.CERTIFICATION_PASS,
+            CertificationJobStatus.CERTIFICATION_FAILED,
+        }
+        if result_bearing_status and self.terminal_result_digest is None:
+            raise _error("pass or failed certification requires terminal_result_digest")
+        if not result_bearing_status and self.terminal_result_digest is not None:
+            raise _error("terminal_result_digest is valid only for pass or failed status")
         if self.terminal_result_digest is not None:
             _require_fingerprint(self.terminal_result_digest, "terminal_result_digest")
-            if self.status not in _TERMINAL_STATUSES:
-                raise _error("terminal_result_digest is valid only for terminal status")
 
     @property
     def creates_certification_authority(self) -> bool:
