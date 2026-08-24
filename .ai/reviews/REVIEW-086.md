@@ -9,8 +9,7 @@ MERGED_TO_MAIN: NO
 
 TASK_ID: TASK-086
 REVIEW_ROUND: 1
-REVIEWED_TASK_REF: ai/task-086
-REVIEWED_BASE_MAIN_SHA: 11967270857dd886e6e686a599bdd40e1d684619
+REVIEWED_TASK_HEAD_SHA: 0ae356cf5bdf3c1d92ab0d8d11ed4dc7056dcf02
 TASK_ARTIFACT_BLOB_SHA: 92d184f824f7dd31d538097e93284c92fd3ad916
 RESULT_BLOB_SHA: 99b992cbec7ad88693029cb6ca8f25e2ddf4af24
 EXECUTOR_ID: antigravity
@@ -29,45 +28,23 @@ TASK_087_REMAINS_RESERVED: YES
 P2_P3_AUTHORIZED: NO
 H5_H8_AUTHORIZED: NO
 
-## Reviewed Snapshot
-
-```text
-BRANCH: ai/task-086
-BOUND_MAIN_SHA: 11967270857dd886e6e686a599bdd40e1d684619
-COMPARE_VS_MAIN: DIVERGED
-AHEAD_BY_MAIN: 1
-BEHIND_BY_MAIN: 3
-ACTUAL_MERGE_BASE_SHA: d55a5b168f6833558c3f9db63f46dd1817392283
-RESULT_CLAIMED_BASE_MAIN_SHA: 11967270857dd886e6e686a599bdd40e1d684619
-RESULT_CANONICAL_T2: 2564 passed, 7 skipped
-CURRENT_MAIN_T2_FROM_TASK_088: 2573 passed, 7 skipped
-```
-
-The implementation files are within the TASK-086 allowed path set, and the task intent remains P1.0A only. However the published branch is not descended from the rebound canonical baseline, so the current RESULT cannot certify a mergeable state.
-
-## Finding B1 — Bound-main lineage was not actually present on the task branch
+## Finding B1 — Bound-main lineage integrity
 
 STATUS: BLOCKING
-SEVERITY: BASELINE_AUTHORITY_INTEGRITY
 
-TASK-086 was rebound to exact main `11967270857dd886e6e686a599bdd40e1d684619` after TASK-088 merged. RESULT-086 also claims that SHA as `Base Main SHA`. Git comparison proves the task branch instead has merge-base `d55a5b168f6833558c3f9db63f46dd1817392283`, is behind main by 3 commits, and ahead by 1.
-
-This is not metadata-only drift. The task branch still contains the pre-TASK-088 Codex transport implementation; for example `src/aios_bridge/executor_transports/codex_local.py` lacks the TASK-088 executor-outcome imports and strict observability implementation. The branch full suite reports 2564 passed, while the accepted TASK-088 main baseline reports 2573 passed.
+TASK-086 was rebound to canonical main `11967270857dd886e6e686a599bdd40e1d684619`, but the published RUN head above was built from stale merge-base `d55a5b168f6833558c3f9db63f46dd1817392283` and is behind canonical main by the three accepted TASK-088 commits.
 
 Required repair:
 
 ```text
-preserve the authorized TASK-086 implementation delta
-forward-port/rebase that delta onto exact main 11967270857dd886e6e686a599bdd40e1d684619
-resolve any bridge/adapter conflicts by preserving BOTH:
-  - all accepted TASK-088 observability behavior
-  - TASK-086 P1.0A behavior
-verify main is an ancestor of the repaired TASK-086 head
-rerun targeted tests and one canonical T2
-republish RESULT-086 from the repaired lineage
+preserve TASK-086 implementation delta
+forward-port/rebase it onto exact main 11967270857dd886e6e686a599bdd40e1d684619
+preserve all accepted TASK-088 observability behavior
+make bound main an ancestor of repaired TASK-086 head
+add a fail-closed/deterministic guard so a rebound RUN cannot silently reuse an older branch baseline
+rerun targeted tests and exactly one canonical T2
+republish RESULT-086 from repaired lineage
 ```
-
-Also add a bounded regression/guard in the existing authorized Bridge/test paths so a RUN artifact bound to a newer exact `base_main_sha` cannot silently reuse an older task branch and then claim the newer main as its baseline. Fail closed or deterministically realign before authorization; do not silently certify a diverged task branch.
 
 Acceptance:
 
@@ -78,35 +55,18 @@ TASK_088_ACCEPTED_CHANGES_PRESERVED: PASS
 STALE_EXISTING_RUN_BRANCH_CANNOT_SILENTLY_BYPASS_BOUND_MAIN: PASS
 ```
 
-## Finding B2 — RUN/FIX performs redundant synchronization before handoff
+## Finding B2 — Remove redundant RUN/FIX pre-sync
 
 STATUS: BLOCKING
-SEVERITY: LEAN_EXECUTION_CONTRACT
 
-`WorkerFlowCoordinator.execute_transaction()` currently performs:
-
-```text
-RUN/FIX
-→ bridge sync
-→ bridge handoff
-```
-
-but `bridge handoff` already fetches/freeze-resolves control evidence, reconciles canonical main, prepares the task branch, and performs pre-authority validation. TASK-086 explicitly required preserving handoff as the synchronization/authority boundary rather than creating another preparation requirement.
-
-The current design removes the Human-typed STATUS step but introduces an extra automatic sync/network round before every RUN/FIX. That fixes UX while retaining unnecessary wall-time overhead.
+`WorkerFlowCoordinator` currently performs `bridge sync` before `bridge handoff`, while handoff already fetches/freezes control evidence, reconciles canonical main and performs pre-authority validation.
 
 Required repair:
 
 ```text
-STATUS:
-  sync → pending remains valid
-
-RUN/FIX:
-  call handoff directly as the one pre-authority synchronization boundary
-  do not call a separate bridge sync first
+STATUS: sync -> pending
+RUN/FIX: handoff directly as the single pre-authority synchronization boundary
 ```
-
-Tests must prove one RUN/FIX operator command invokes exactly one handoff synchronization path and STATUS remains non-authorizing.
 
 Acceptance:
 
@@ -117,37 +77,21 @@ FIX_NO_REDUNDANT_PRE_SYNC: PASS
 HANDOFF_REMAINS_SINGLE_PRE_AUTHORITY_SYNC_BOUNDARY: PASS
 ```
 
-## Finding B3 — FIX continuation is not bound to the exact mode authorized by Bridge
+## Finding B3 — Exact Bridge authorization is the single FIX-mode authority
 
 STATUS: BLOCKING
-SEVERITY: AUTHORITY_TOCTOU
 
-The coordinator currently resolves review text itself after `sync`, chooses `fix_mode`, then calls `bridge handoff`. Bridge independently resolves/freeze-binds the exact REVIEW and independently computes/persists `fix_execution_mode` in authorization.
-
-The coordinator then routes continuation using its own earlier `fix_mode`, not the exact mode persisted by Bridge. Its default resolver also prefers a working-tree `.ai/reviews/REVIEW-N.md` if one exists before reading `origin/ai-control`.
-
-Therefore this unsafe sequence is possible:
-
-```text
-coordinator observes stale/local review A → EVIDENCE_REFRESH
-Bridge handoff freezes current review B → IMPLEMENTATION
-Bridge authorization correctly binds IMPLEMENTATION
-coordinator still follows A → publish without executor
-```
-
-That violates the TASK-086 requirement that FIX mode be bound to exact REVIEW authority and that drift fail closed.
+The coordinator must not independently route using a separately read local/stale REVIEW. The exact REVIEW frozen by Bridge handoff and its persisted authorization must be the single authority for `IMPLEMENTATION` versus `EVIDENCE_REFRESH`.
 
 Required repair:
 
 ```text
-one authority for FIX mode = exact REVIEW frozen by Bridge handoff
-coordinator must not independently decide an authoritative mode from working-tree review text
-continuation must consume a machine-readable mode/result returned from the exact handoff authorization, or use another deterministic Bridge-owned continuation command that reads the persisted authorization
-working-tree stale REVIEW must never override the synchronized/frozen control artifact
-mode mismatch/drift → fail closed
+remove independent authoritative local REVIEW mode decision
+continuation consumes Bridge-owned exact authorized mode/result
+stale working-tree REVIEW cannot override control evidence
+mode drift/mismatch fails closed
+EVIDENCE_REFRESH skips executor only when exact Bridge authorization says EVIDENCE_REFRESH
 ```
-
-Do not infer EVIDENCE_REFRESH from clean executor output.
 
 Acceptance:
 
@@ -159,7 +103,7 @@ MODE_DRIFT_FAILS_CLOSED: PASS
 EVIDENCE_REFRESH_SKIPS_EXECUTOR_ONLY_WHEN_EXACT_AUTH_SAYS_EVIDENCE_REFRESH: PASS
 ```
 
-## Accepted / Preserve
+## Preserve
 
 ```text
 FIX_MODE_CLOSED_VOCABULARY: ACCEPTED
@@ -167,7 +111,6 @@ UNKNOWN_FIX_MODE_FAILS_CLOSED: ACCEPTED
 CONFLICTING_FIX_MODE_FAILS_CLOSED: ACCEPTED
 ANTIGRAVITY_INTERACTIVE_IMPLEMENTATION_CONTINUATION: ACCEPTED
 CODEX_BOUNDED_IMPLEMENTATION_CONTINUATION_INTENT: ACCEPTED
-EVIDENCE_REFRESH_EXECUTOR_COUNT_TARGET: 0
 P0_T2_OWNER: CERTIFICATION_BOUNDARY
 AUTO_RETRY: NO
 AUTO_REROUTE: NO
@@ -176,7 +119,7 @@ P2_P3_NOT_OPENED: PASS
 H5_H8_NOT_OPENED: PASS
 ```
 
-The prior Codex failure-envelope propagation issue remains reserved for TASK-087 and is not a TASK-086 blocker unless the repair regresses existing behavior.
+The Codex failure-envelope propagation issue remains reserved for TASK-087.
 
 ## Decision
 
@@ -186,9 +129,6 @@ APPROVED: NO
 MERGE_AUTHORIZED: NO
 BLOCKERS_REMAINING: 3
 NEXT_ACTION: FIX TASK-086 WITH ANTIGRAVITY
-TASK_087_REMAINS_RESERVED: YES
-P2_P3_AUTHORIZED: NO
-H5_H8_AUTHORIZED: NO
 ```
 
 ## Machine-Readable E4 Inputs
