@@ -2,17 +2,17 @@
 
 STATUS: APPROVED_PENDING_ACTIVATION
 AUTHORITY: HUMAN_APPROVED_ARCHITECTURAL_REFINEMENT
-ACTIVATION_GATE: TASK-088_PASS_AND_MERGED_TO_MAIN
+ACTIVATION_GATE: TASK-086_PASS_AND_MERGED_TO_MAIN
 CURRENT_CANONICAL_ROADMAP_REMAINS: AIOS-BRIDGE-LEAN-EXECUTION-v1.1
-CURRENT_TASK_088_AUTHORITY_UNCHANGED: YES
-RETROACTIVE_APPLICATION_TO_TASK_088: NO
+CURRENT_TASK_086_AUTHORITY_UNCHANGED: YES
+RETROACTIVE_APPLICATION_TO_TASK_086: NO
 SILENT_ROADMAP_DRIFT_ALLOWED: NO
 
 ## Decision
 
-AIOS Engineering adopts a bounded Lean Review Pipeline refinement under the existing AIOS Bridge Lean Execution direction. The refinement is approved now but MUST NOT alter TASK-088 execution, review, certification, roadmap binding, or merge semantics while TASK-088 is active.
+AIOS Engineering adopts a bounded Lean Review Pipeline refinement under the existing AIOS Bridge Lean Execution direction. The refinement is approved now but MUST NOT alter TASK-086 execution, review, certification, roadmap binding, or merge semantics while TASK-086 is active.
 
-Activation occurs only after TASK-088 reaches PASS and is merged to main. At activation, the canonical roadmap must evolve through the existing Controlled Evolution mechanism; the locked roadmap/registry must not be silently edited in place.
+TASK-088 is already PASS and merged. TASK-086 is the final pre-activation bounded P1.0A task and remains governed by the current locked roadmap v1.1 contract. Activation occurs only after TASK-086 reaches PASS and is merged to main. At activation, the canonical roadmap must evolve through the existing Controlled Evolution mechanism; the locked roadmap/registry must not be silently edited in place.
 
 ## North-Star Alignment
 
@@ -36,7 +36,7 @@ EXECUTOR
   -> deterministic review preflight
   -> risk-sized semantic review
       -> CHANGES_REQUIRED -> FIX loop
-      -> semantic acceptance -> T2 full canonical exactly once
+      -> semantic acceptance -> deterministic T2 certification job exactly once
   -> final certification
   -> deterministic merge gate
   -> main
@@ -244,6 +244,57 @@ Raw logs may remain separately available for forensics but are not the canonical
 
 Machine-derived facts such as test counts, durations, fingerprints, finding status, and candidate identity must have one authoritative structured source. Derived prose must not independently restate stale values as authority.
 
+### Deterministic Certification Job / No Model Polling
+
+Long-running deterministic certification/publication work MUST NOT require repeated LLM or executor reasoning turns to ask whether the work has completed.
+
+Principle:
+
+```text
+MACHINE_WAITS_FOR_MACHINE
+MODEL_DOES_NOT_POLL_DETERMINISTIC_WORK
+```
+
+After semantic acceptance, final certification is represented as a bounded machine-readable job bound to the exact candidate subject. Minimum job evidence:
+
+```text
+job_id
+task_id
+candidate_head_sha
+candidate_fingerprint
+validation_profile
+certification_command_identity
+status
+started_at
+terminal_result_digest
+```
+
+Closed minimum lifecycle:
+
+```text
+CERTIFICATION_PENDING
+  -> CERTIFICATION_RUNNING
+      -> CERTIFICATION_PASS
+      -> CERTIFICATION_FAILED
+      -> SUPERSEDED
+```
+
+Requirements:
+
+```text
+REPEATED_MODEL_COMPLETION_CHECKS: FORBIDDEN_AS_NORMAL_FLOW
+T2_EXECUTION_OWNER: CERTIFICATION_BOUNDARY
+T2_EXECUTION_COUNT: EXACTLY_ONCE_FOR_FINAL_CANDIDATE
+JOB_SUBJECT_BINDING: EXACT_CANDIDATE_HEAD_OR_AUTHORIZED_FINGERPRINT
+NEW_CANDIDATE_INVALIDATES_OLD_JOB_AUTHORITY: YES
+OBSOLETE_JOB_CANCEL_OR_IGNORE_WHEN_POSSIBLE: YES
+MODEL_TOKEN_SPEND_WHILE_WAITING_FOR_T2: NOT_REQUIRED
+```
+
+A deterministic runner may block internally on the process, receive completion from the process, or use bounded non-model event/status mechanics. The normal workflow must not consume repeated model turns for `check completion again` behavior.
+
+This optimization does not weaken final T2, publication verification, reviewed-head binding, or merge safety. It only removes model participation from deterministic waiting.
+
 ## Non-Negotiable Invariants
 
 The refinement MUST NOT weaken or bypass:
@@ -270,16 +321,17 @@ Human authority over material roadmap/executor changes
 Current sequence is locked as:
 
 ```text
-TASK-088 completes under its existing v1.1 contract
-  -> TASK-088 review/FIX until PASS
-  -> TASK-088 merge to main
-  -> Controlled Evolution of AIOS-BRIDGE-LEAN-EXECUTION roadmap
+TASK-088 PASS + merged
+  -> TASK-086 executes/reviews/FIXes under existing v1.1 contract
+  -> TASK-086 PASS + merge to main
+  -> activate ADR-064 through Controlled Evolution of AIOS-BRIDGE-LEAN-EXECUTION roadmap
   -> author next available bounded implementation task for Lean Review Pipeline
   -> implement/test/review/certify/merge refinement
-  -> only then resume the paused P1 implementation path
+  -> rebind TASK-087 to the post-refinement canonical main
+  -> continue P1
 ```
 
-The activation task must not retroactively reinterpret TASK-088 evidence.
+ADR-064 MUST NOT retroactively reinterpret TASK-086 evidence or modify its currently active authority.
 
 ## Implementation Acceptance
 
@@ -303,6 +355,10 @@ FIX_CONTEXT_PACK_BOUNDED: PASS
 DETERMINISTIC_REVIEW_PREFLIGHT: PASS
 COMPACT_RESULT_EVIDENCE: PASS
 SINGLE_SOURCE_OF_TRUTH: PASS
+DETERMINISTIC_CERTIFICATION_JOB_STATE: PASS
+CERTIFICATION_JOB_BOUND_TO_EXACT_CANDIDATE: PASS
+NO_MODEL_POLLING_FOR_LONG_RUNNING_T2: PASS
+SUPERSEDED_CERTIFICATION_JOB_FAILS_CLOSED: PASS
 ROADMAP_GOVERNANCE_PRESERVED: PASS
 AUTHORITY_AND_LEASE_SEMANTICS_PRESERVED: PASS
 REVIEWED_HEAD_AND_MERGE_GATE_PRESERVED: PASS
@@ -320,7 +376,9 @@ FINDING_LIFECYCLE_REGISTRY: APPROVED
 RISK_ADAPTIVE_REVIEW: APPROVED
 REVIEW_SUPERSESSION: APPROVED
 FINDING_TO_GUARDRAIL_PROMOTION: APPROVED
-ACTIVATE_BEFORE_TASK_088_MERGE: NO
-ACTIVATE_AFTER_TASK_088_MERGE: YES
+DETERMINISTIC_CERTIFICATION_JOB: APPROVED
+NO_MODEL_POLLING_FOR_LONG_RUNNING_T2: APPROVED
+ACTIVATE_BEFORE_TASK_086_MERGE: NO
+ACTIVATE_AFTER_TASK_086_MERGE: YES
 ROADMAP_CHANGE_PROTOCOL: CONTROLLED_EVOLUTION_REQUIRED
 ```
