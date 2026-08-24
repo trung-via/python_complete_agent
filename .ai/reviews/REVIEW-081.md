@@ -4,13 +4,14 @@ STATUS: PASS
 PUBLISHER_PROFILE: CANONICAL_E4
 APPROVED: YES
 AUTO_MERGE_ELIGIBLE: YES
-MERGED_TO_MAIN: NO
-AUTO_MERGE_EXECUTED: NO
+MERGED_TO_MAIN: YES
+AUTO_MERGE_EXECUTED: YES
 
 TASK_ID: TASK-081
 REVIEW_ROUND: 3
 REVIEWED_TASK_HEAD_SHA: 8f887f828ad765f74073636f7e5ff887603fb56b
 REVIEWED_BASE_MAIN_SHA: 4d7e5a6be68ef0aaf0ed7db6927c26c5ddbb61af
+MERGED_MAIN_SHA: 8f887f828ad765f74073636f7e5ff887603fb56b
 PREVIOUS_REVIEWED_HEAD_SHA: e1e0067f5a05f7078bce77832ba9890f9e5ac975
 TASK_ARTIFACT_BLOB_SHA: 2ae2ad156717946ea74be659fc6cba952eceded6
 RESULT_BLOB_SHA: a7491ede7eabd2b42e45e5436565eabb7e6331a8
@@ -37,14 +38,19 @@ LIVE_PAID_API_AUTHORIZED: NO
 ## Reviewed Snapshot
 
 ```text
-BASE_MAIN_SHA: 4d7e5a6be68ef0aaf0ed7db6927c26c5ddbb61af
+PRE_MERGE_MAIN_SHA: 4d7e5a6be68ef0aaf0ed7db6927c26c5ddbb61af
 BRANCH: ai/task-081
 REVIEWED_TASK_HEAD_SHA: 8f887f828ad765f74073636f7e5ff887603fb56b
-STATUS_VS_MAIN: AHEAD
+STATUS_VS_MAIN_BEFORE_MERGE: AHEAD
 AHEAD_BY: 3
 BEHIND_BY: 0
 MERGE_BASE_SHA: 4d7e5a6be68ef0aaf0ed7db6927c26c5ddbb61af
-FIX_DELTA_VS_PREVIOUS_HEAD: 1 commit
+MERGE_METHOD: FAST_FORWARD_REF_UPDATE
+FORCE_UPDATE: NO
+POST_MERGE_MAIN_SHA: 8f887f828ad765f74073636f7e5ff887603fb56b
+POST_MERGE_BRANCH_STATUS: IDENTICAL
+POST_MERGE_AHEAD_BY: 0
+POST_MERGE_BEHIND_BY: 0
 CUMULATIVE_SCOPE: EXACT
 ```
 
@@ -69,24 +75,21 @@ NETWORK/LLM/PAID_API: NONE
 ## Finding Closure
 
 ### B1 — H3 scalar/count boundedness
-
 STATUS: CLOSED
 
 All exported scalar/count surfaces are explicitly upper-bounded. `coobserved_task_count` is bounded and must not exceed its parent profile's `observed_task_count`. Bool/negative/overflow cases fail closed.
 
 ### B2 — Mandatory regression matrix
-
 STATUS: CLOSED
 
-The suite now proves multiple executors on one task, shared component/finding co-observation without causal attribution, order independence, misleading business/domain path non-inference, and duplicate identity rejection.
+The suite proves multiple executors on one task, shared component/finding co-observation without causal attribution, order independence, misleading business/domain path non-inference, and duplicate identity rejection.
 
 ### B3 — Factory duplicate fail-closed + complete hard-bound matrix
-
 STATUS: CLOSED
 
-Public factories now reject duplicate member-file paths, observed roles, tasks, component observations, review-finding IDs, component summaries, and executor profiles before canonical sorting/fingerprinting. No public factory silently deduplicates with `set()`.
+Public factories reject duplicate member-file paths, observed roles, tasks, component observations, review-finding IDs, component summaries, and executor profiles before canonical sorting/fingerprinting. No public factory silently deduplicates with `set()`.
 
-Explicit regression coverage now exercises every required H3 hard-bound family:
+Explicit regression coverage exercises every required H3 hard-bound family:
 
 ```text
 MAX_H3_COMPONENT_SUMMARIES
@@ -133,6 +136,8 @@ H4_H8_NEW_CAPABILITY: NONE
 TASK-081: PASS
 APPROVED: YES
 AUTO_MERGE_ELIGIBLE: YES
+MERGED_TO_MAIN: YES
+AUTO_MERGE_EXECUTED: YES
 BLOCKERS_REMAINING: 0
 H3_R1: PASS
 H3_R2: PASS
