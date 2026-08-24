@@ -9,6 +9,7 @@ MERGED_TO_MAIN: NO
 
 TASK_ID: TASK-083
 REVIEW_ROUND: 1
+REVIEW_REVISION: ADR-060_OBSERVABILITY_BOUNDARY
 REVIEWED_TASK_HEAD_SHA: 0c9c5f9fe5789fd56162c0786e4f8f90ef785bb0
 REVIEWED_BASE_MAIN_SHA: 962712450ce14d3629c3d1caef59c9651bba7f90
 TASK_ARTIFACT_BLOB_SHA: 15eaa9985f0b522a1ad1a9325bd2674a4e593ccc
@@ -24,6 +25,7 @@ ROADMAP_BLOB_SHA: cae51de4db517dd452c260076a1daa521c1e3a4c
 ROADMAP_FINGERPRINT: 4bcbb10e1e8e02169ccb5a516801abd1ce01b0b5edd348d90abcac7d0887404f
 MILESTONE: P0
 CAPABILITY_ID: P0_VALIDATION_OWNERSHIP_TELEMETRY
+REFINEMENT_ADR: ADR-060
 P0_FORMAL_COMPLETION: NO
 P1_P3_AUTHORIZED: NO
 H5_H8_AUTHORIZED: NO
@@ -41,18 +43,7 @@ MERGE_BASE_SHA: 962712450ce14d3629c3d1caef59c9651bba7f90
 CUMULATIVE_SCOPE: EXACT
 ```
 
-Observed cumulative TASK-083 delta is limited to the TASK-authorized implementation/test paths plus Bridge-generated RESULT:
-
-```text
-bridge.py
-src/aios_bridge/executor_automation.py
-src/aios_bridge/validation.py
-tests/aios_bridge/test_validation.py
-tests/test_bridge.py
-.ai/results/RESULT-083.md
-```
-
-Reported canonical certification evidence:
+Reported canonical certification evidence remains:
 
 ```text
 FULL_REPOSITORY_TESTS: 2549 passed, 7 skipped, 0 failed
@@ -62,71 +53,79 @@ E4_ALLOWED_SCOPE_VERIFIED: PASS
 E4_PUBLICATION_TRUST_VERIFIED: PASS
 ```
 
-The current TASK-083 artifact is correctly rebound after TASK-084 bootstrap; TASK-084 is not part of the TASK-083 delta when reviewed against the authoritative baseline above.
+## Controlled Refinement — ADR-060
 
-## Finding B1 — T2 deduplication and full-suite count are modeled but not actually observed across the executor boundary
+Human-approved ADR-060 clarifies the P0 measurement boundary without changing Lean Execution roadmap v1.1 requirement identities, capability, authority, or sequencing.
+
+P0 distinguishes:
+
+```text
+AIOS_MANAGED_VALIDATION
+EXECUTOR_AD_HOC_VALIDATION
+```
+
+P0 must prove exact ownership/count for validation directly scheduled or invoked by AIOS. It must not claim exact global executor validation counts when the current executor transport/session cannot observe ad-hoc shell commands.
+
+The prior requested shell-level global proof is therefore withdrawn. Shell interception, terminal proxying, persistent session command capture, and Antigravity shell mediation are not authorized in P0.
+
+The Codex FIX attempt that ended `CLEAN_NO_WORKTREE_DELTA` created no implementation delta and no publication. It is a blocked pre-publication attempt, not a completed FIX round.
+
+## Finding B1 — AIOS-managed T2 deduplication and honest scoped telemetry are incomplete
 
 STATUS: BLOCKING
 SEVERITY: VALIDATION_INTEGRITY
 
-TASK-083 requires one shared validation ownership mechanism to both eliminate duplicate T2 execution and machine-observe actual versus expected full-suite execution count. The implementation creates sound contract objects (`ValidationPlan`, `ValidationEvidence`, T0-T3 tiers, canonical ownership, duplication rejection), but the executor-side enforcement/observation path is incomplete.
+The reviewed implementation has the correct validation tier/owner model and a handoff-bound `ValidationPlan`, but RESULT/publication evidence does not yet distinguish exact AIOS-managed counts from executor ad-hoc observability.
 
-### A. Executor-side T2 filtering is not wired into execution
+TASK-083 must finish P0 within the ADR-060 boundary.
 
-`executor_commands_for_plan()` correctly removes commands classified as T2 when the certification boundary owns T2, and unit tests prove that pure helper behavior. However the reviewed execution path does not consume that helper when launching Codex or Antigravity. `ExecutorAutomationLaunchPlan` carries a `validation_plan`, but this plan is only bound/passed onward; the actual executor validation command path is not derived through `executor_commands_for_plan()`.
+### Required Repair
 
-Consequently correctness still depends on the executor/model obeying task prose such as "do not independently run T2" rather than AIOS enforcing the shared validation plan.
-
-### B. Publication telemetry counts only the certification command, not executor-side full-suite executions
-
-In `cmd_publish`, `ValidationEvidence.full_suite_execution_count` is currently derived from the single publication `args.test` command:
-
-```text
-1 if args.test classifies as T2, else 0
-```
-
-This proves that the certification boundary ran T2 once. It does not prove that Codex/Antigravity did not already run a full suite during implementation.
-
-Therefore this sequence can remain invisible to the current telemetry:
+1. Preserve the existing provider-neutral validation tier/owner model and handoff-bound `ValidationPlan`.
+2. Ensure AIOS/Bridge never schedules more than one T2 for a P0 execution. The certification boundary remains the sole AIOS-managed T2 owner.
+3. Apply the bound validation plan to any AIOS-controlled executor validation command list so T2 is excluded from executor-owned T0/T1 validation. Do not add shell interception or transport command capture merely to observe executor ad-hoc commands.
+4. Replace ambiguous/global counting with scoped evidence. RESULT-N must persist machine-readable evidence equivalent to:
 
 ```text
-executor runs full pytest tests/ -q      -> unobserved by ValidationEvidence
-certification runs full pytest tests/ -q -> counted as 1
-reported full_suite_execution_count      -> 1
-actual full-suite executions             -> 2
+VALIDATION_PROFILE: CONTROL_PLANE_STRICT_COMPAT
+FULL_CANONICAL_OWNER: CERTIFICATION_BOUNDARY
+EXPECTED_AIOS_MANAGED_T2_EXECUTION_COUNT: 1
+AIOS_MANAGED_T2_EXECUTION_COUNT: 1
+AIOS_MANAGED_T2_DUPLICATION_DETECTED: NO
+EXECUTOR_AD_HOC_T2_OBSERVABILITY: OBSERVED | UNAVAILABLE
+EXECUTOR_AD_HOC_T2_EXECUTION_COUNT: <n> | UNKNOWN
+GLOBAL_T2_EXECUTION_COUNT: <n> | UNKNOWN
+TARGETED_TEST_EXECUTION_COUNT: <n> | UNKNOWN
+FULL_SUITE_DURATION_SECONDS: <observed> | UNKNOWN
+TARGETED_TEST_DURATION_SECONDS: <observed> | UNKNOWN
 ```
 
-That violates the core P0 requirement that duplicate full-suite work be machine-observable rather than inferred from executor compliance or RESULT prose.
+5. If executor ad-hoc T2 observability is `UNAVAILABLE`, its count and global count must be `UNKNOWN`; never fabricate zero or one.
+6. If ad-hoc T2 is actually observable and observed while certification owns T2, report a validation policy violation and fail conservatively.
+7. Add integration regressions proving AIOS-managed T2 is scheduled exactly once, a second AIOS-managed T2 is rejected/detected, unavailable ad-hoc observability remains explicit `UNKNOWN`, and RESULT persistence preserves the evidence scope.
+8. Prove the same validation policy semantics for Codex and Antigravity surfaces. No Claude transport implementation is authorized.
+9. Preserve canonical T2 certification, roadmap authority, task authority, leases, scope enforcement, publication trust, reviewed-head merge safety, no auto-retry, and no auto-reroute.
 
-### C. RESULT-083 does not persist the required final validation evidence
-
-RESULT-083 records the canonical full-suite command/result and E4 transport/publication facts, but does not persist the required P0 evidence fields:
+## Acceptance for B1
 
 ```text
-FULL_CANONICAL_OWNER
-EXPECTED_FULL_SUITE_EXECUTION_COUNT
-FULL_SUITE_EXECUTION_COUNT
-VALIDATION_DUPLICATION_DETECTED
-TARGETED_TEST_EXECUTION_COUNT / observed targeted timing when available
+VALIDATION_PLAN_BOUND_TO_AUTHORIZATION: PASS
+AIOS_CONTROLLED_EXECUTOR_T2_FILTERING: PASS
+FULL_CANONICAL_OWNER: CERTIFICATION_BOUNDARY
+EXPECTED_AIOS_MANAGED_T2_EXECUTION_COUNT: 1
+AIOS_MANAGED_T2_EXECUTION_COUNT: 1
+AIOS_MANAGED_T2_DUPLICATION_DETECTED: NO
+EXECUTOR_AD_HOC_T2_OBSERVABILITY: EXPLICIT
+GLOBAL_COUNT_NOT_FABRICATED: PASS
+RESULT_EVIDENCE_PERSISTED: PASS
+CODEX_ANTIGRAVITY_VALIDATION_POLICY_PARITY: PASS
+SHELL_INTERCEPTION_ADDED: NO
+P2_SESSION_CAPTURE_ADDED: NO
 ```
-
-So an independent reviewer cannot reconstruct the P0 invariant from the RESULT artifact itself.
-
-## Required Repair
-
-Keep the FIX within TASK-083 authorized paths and preserve the current good contract model.
-
-1. Wire the handoff-bound `ValidationPlan` into the real executor-facing validation path for both Codex and Antigravity semantics. T2 owned by certification must be removed/blocked from executor validation execution, not merely represented by a helper that is unused by the execution path.
-2. Build validation evidence from observed executor-validation events plus certification events. Do not manufacture `full_suite_execution_count=1` solely because the publication command is T2.
-3. If a runtime cannot observe whether an executor performed T2, represent that state explicitly and fail conservatively; do not claim deduplication is proven.
-4. Persist machine-readable validation evidence in RESULT-N (or an exact RESULT-bound evidence field) including owner, expected/actual T2 count, duplication flag, targeted count, and observed durations where available.
-5. Add integration regressions proving an attempted executor-side T2 plus certification T2 is either prevented before execution or yields `VALIDATION_DUPLICATION_DETECTED`; a fabricated `ValidationEvidence(full_suite_execution_count=2)` unit test alone is insufficient.
-6. Prove the same shared mechanism for Codex and Antigravity surfaces. Future Claude remains contract-compatible only; no Claude transport is authorized.
-7. Keep canonical T2 certification itself intact. No auto-retry, auto-reroute, P1 batching, P2 sessions, P3 routing, H5-H8, or authority redesign.
 
 ## Non-blocking Audit Results
 
-The following reviewed boundaries are acceptable at this snapshot and must remain preserved by the FIX:
+The following reviewed boundaries already PASS and must remain preserved:
 
 ```text
 BASELINE_AND_LINEAGE: PASS
@@ -140,8 +139,7 @@ VALIDATION_OWNER_CLOSED: PASS
 VALIDATION_PLAN_IMMUTABLE: PASS
 EXACTLY_ONE_T2_OWNER_MODEL: PASS
 FAILED_T2_CANNOT_PUBLISH: PASS
-DUPLICATION_REJECTION_MODEL: PASS
-PROVIDER_NEUTRAL_EVIDENCE_SCHEMA: PASS
+PROVIDER_NEUTRAL_EVIDENCE_SCHEMA_FOUNDATION: PASS
 CANONICAL_FULL_SUITE: PASS_REPORTED
 AUTO_RETRY: NO
 AUTO_REROUTE: NO
@@ -163,6 +161,6 @@ H5_H8_AUTHORIZED: NO
 
 ## Machine-Readable E4 Inputs
 
-EXECUTOR_CONTEXT_REFS_JSON: [{"path":".ai/tasks/TASK-083.md","blob_sha":"15eaa9985f0b522a1ad1a9325bd2674a4e593ccc"},{"path":".ai/roadmaps/AIOS-BRIDGE-LEAN-EXECUTION-v1.1.md","blob_sha":"cae51de4db517dd452c260076a1daa521c1e3a4c"},{"path":".ai/roadmaps/AIOS-BRIDGE-LEAN-EXECUTION-v1.1.completions.json","blob_sha":"ad2ed229adcd7e0db4909a8e1f330b7836544870"},{"path":".ai/roadmaps/CANONICAL-ROADMAP-REGISTRY-v1.json","blob_sha":"52f4f24a6b0af719886c6524ade8e19f8cc8984c"},{"path":".ai/decisions/ADR-056-AIOS-BRIDGE-LEAN-EXECUTION-CONTROLLED-EVOLUTION-CONTRACT-LOCK.md","blob_sha":"7ae9b7d518d5130d193ceb9cf981f29290014288"},{"path":".ai/decisions/ADR-057-AIOS-BRIDGE-LEAN-EXECUTION-V1.1-CANONICAL-ROADMAP-NORMALIZATION.md","blob_sha":"3270fca0fb723c49a67eba5586d6a6714bcb2bfa"},{"path":".ai/reviews/REVIEW-084.md","blob_sha":"46ea510b872d52047b030786bb6f91b57b2c00db"}]
+EXECUTOR_CONTEXT_REFS_JSON: [{"path":".ai/tasks/TASK-083.md","blob_sha":"15eaa9985f0b522a1ad1a9325bd2674a4e593ccc"},{"path":".ai/roadmaps/AIOS-BRIDGE-LEAN-EXECUTION-v1.1.md","blob_sha":"cae51de4db517dd452c260076a1daa521c1e3a4c"},{"path":".ai/roadmaps/AIOS-BRIDGE-LEAN-EXECUTION-v1.1.completions.json","blob_sha":"ad2ed229adcd7e0db4909a8e1f330b7836544870"},{"path":".ai/roadmaps/CANONICAL-ROADMAP-REGISTRY-v1.json","blob_sha":"52f4f24a6b0af719886c6524ade8e19f8cc8984c"},{"path":".ai/decisions/ADR-057-AIOS-BRIDGE-LEAN-EXECUTION-V1.1-CANONICAL-ROADMAP-NORMALIZATION.md","blob_sha":"3270fca0fb723c49a67eba5586d6a6714bcb2bfa"},{"path":".ai/decisions/ADR-060-AIOS-P0-MANAGED-VALIDATION-OBSERVABILITY-BOUNDARY-CONTRACT.md","blob_sha":"3a0b9bca86b0cf1aad4ec066e3e9a4089450f6ae"},{"path":".ai/reviews/REVIEW-084.md","blob_sha":"46ea510b872d52047b030786bb6f91b57b2c00db"}]
 EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py","src/aios_bridge/validation.py","src/aios_bridge/executor_automation.py",".agents/skills/aios-worker/scripts/aios_worker.py","tests/aios_bridge/test_validation.py","tests/test_bridge.py","tests/test_bridge_executor_automation.py","tests/aios_bridge/test_aios_worker_control_surface.py"]
 DISPATCH_EXECUTOR_POLICY_JSON: {"allow_paid_api":false,"candidates":[{"capacity_class":"SUBSCRIPTION","executor_id":"codex","preference_rank":0,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]},{"capacity_class":"SUBSCRIPTION","executor_id":"antigravity","preference_rank":1,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]}],"operation":"FIX","required_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"]}
