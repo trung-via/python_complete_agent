@@ -1,174 +1,137 @@
 # REVIEW-089 — Lean Review Deterministic Contract Foundation
 PUBLISHER_PROFILE: CANONICAL_E4
-STATUS: CHANGES_REQUIRED
-APPROVED: NO
-AUTO_MERGE_ELIGIBLE: NO
-MERGE_AUTHORIZED: NO
+
+STATUS: PASS
+APPROVED: YES
+AUTO_MERGE_ELIGIBLE: YES
+MERGE_AUTHORIZED: YES
+MERGED_TO_MAIN: NO
+
 TASK_ID: TASK-089
-REVIEW_ROUND: 1
-REVIEWED_TASK_HEAD_SHA: 24cc46839f4bbd8043b0dc15a9426f7658c66064
+REVIEW_ROUND: 2
+REVIEWED_TASK_HEAD_SHA: bb4a30775c2deb2a37ebe763d1a74ce7e64d6ebe
 REVIEWED_BASE_MAIN_SHA: 90b381d3be78b68a8e7b25c42c66e539486a44e2
 TASK_ARTIFACT_BLOB_SHA: 21b9dee64040c8289be49a33230af9e1b1b7480b
-RESULT_BLOB_SHA: 4802e47bf74a988d45885dc346210de1a43bad2f
+RESULT_BLOB_SHA: e1e8f1e0fa8880122c072619f43a847206be9aeb
 EXECUTOR_ID: codex
-BLOCKERS_REMAINING: 3
-FIX_EXECUTION_MODE: IMPLEMENTATION
+BLOCKERS_REMAINING: 0
+CODE_AUDIT: PASS
+CANONICAL_TESTS: PASS
+ROADMAP_AUDIT: PASS
 ROADMAP_ID: AIOS-BRIDGE-LEAN-EXECUTION
 ROADMAP_VERSION: 1.2
 ROADMAP_BLOB_SHA: 41bf467f3dd4fc8aea165ac65c37e0e2a5a3ef5c
 ROADMAP_FINGERPRINT: 89c9372c074ecb43778705f07c6fded67e4af7833c0feb72a92a9ae2e737c612
 MILESTONE: P1
 CAPABILITY_ID: P1_UNIFIED_VALIDATION_CAPABILITY_BATCH
+REQUIREMENT_BINDINGS_FINGERPRINT: 1e3482ef1a8cc63d0649818039b7cee8e6e20804a09cf31c157e571adc3c07c8
 P1_FORMAL_COMPLETION: NO
 TASK_087_PREREQUISITE_ELIGIBLE: NO
 P2_P3_AUTHORIZED: NO
 H5_H8_AUTHORIZED: NO
-EXECUTOR_CONTEXT_REFS_JSON: [{"path":".ai/tasks/TASK-089.md","blob_sha":"21b9dee64040c8289be49a33230af9e1b1b7480b"}]
-EXECUTOR_ALLOWED_PATHS_JSON: ["src/aios_bridge/review_pipeline.py","src/aios_bridge/certification_job.py","tests/aios_bridge/test_review_pipeline.py","tests/aios_bridge/test_certification_job.py"]
-DISPATCH_EXECUTOR_POLICY_JSON: {"allow_paid_api":false,"candidates":[{"capacity_class":"SUBSCRIPTION","executor_id":"codex","preference_rank":0,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]},{"capacity_class":"SUBSCRIPTION","executor_id":"antigravity","preference_rank":1,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]}],"operation":"FIX","required_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"]}
 
-## Snapshot
+## Final Snapshot
 
 ```text
-HEAD: 24cc46839f4bbd8043b0dc15a9426f7658c66064
+HEAD: bb4a30775c2deb2a37ebe763d1a74ce7e64d6ebe
 BASE_MAIN: 90b381d3be78b68a8e7b25c42c66e539486a44e2
 CURRENT_MAIN: 90b381d3be78b68a8e7b25c42c66e539486a44e2
-AHEAD: 1
+MERGE_BASE: 90b381d3be78b68a8e7b25c42c66e539486a44e2
+AHEAD: 2
 BEHIND: 0
-EXECUTOR: codex
-T2: 2617 passed, 7 skipped, 0 failed
+FIX_DELTA_COMMITS: 1
+FULL_CANONICAL: 2633 passed, 7 skipped, 0 failed
+FULL_CANONICAL_DURATION: 317.26s pytest / 319.6203890999968s validation telemetry
 AIOS_MANAGED_T2_EXECUTION_COUNT: 1
 AIOS_MANAGED_T2_DUPLICATION_DETECTED: NO
+TARGETED_TEST_EXECUTION_COUNT: UNKNOWN
 ```
 
-## Executor Authority Clarification
+## Round-2 Delta + Impact Review
 
-This REVIEW is the complete normative FIX instruction for B1-B3. The executor does not need to inspect or infer instructions from ADR-064, ADR-065, roadmap prose, prior reviews, or RESULT-089. TASK-089 is the sole context artifact needed to preserve original scope and acceptance boundaries.
+Round 2 reviews the FIX delta from prior reviewed head `24cc46839f4bbd8043b0dc15a9426f7658c66064` to candidate `bb4a30775c2deb2a37ebe763d1a74ce7e64d6ebe` plus the semantic impact envelope of the two changed foundation modules. Accepted Round-1 surfaces A1-A20 were not reopened outside that impact envelope.
 
-Do not redesign the contracts. Implement only the exact repairs below in the four allowed paths. Existing accepted behavior remains protected unless an exact repair below requires touching the same function.
+### B1 — CLOSED
 
-## B1 — Finding lifecycle and CLOSED evidence
-
-Required code behavior:
+Finding lifecycle now distinguishes failed verification from regression reopening:
 
 ```text
-_FINDING_TRANSITIONS[VERIFYING] = {CLOSED, OPEN}
-_FINDING_TRANSITIONS[CLOSED] = {REOPENED}
-VERIFYING -> REOPENED = INVALID
-VERIFYING -> OPEN = VALID
-CLOSED -> REOPENED requires reopen_evidence=True
+VERIFYING -> OPEN   # failed verification
+VERIFYING -> CLOSED # successful verification with closure evidence
+CLOSED -> REOPENED  # explicit reopen evidence required
 ```
 
-`FindingRecord.__post_init__` must additionally enforce:
+Authoritative CLOSED records now require both `fixed_by_sha` and `closure_review_round` under direct construction and `from_dict()`. Regression tests cover failed verification, successful closure, CLOSED construction, and evidence-gated reopening.
+
+### B2 — CLOSED
+
+Certification result-bearing terminal states now fail closed without exact terminal evidence:
 
 ```text
-status == CLOSED -> fixed_by_sha is required and exact lowercase 40-hex
-status == CLOSED -> closure_review_round is required and valid
+CERTIFICATION_PASS   -> requires terminal_result_digest
+CERTIFICATION_FAILED -> requires terminal_result_digest
+SUPERSEDED           -> no certification authority and no terminal result digest
 ```
 
-`transition_finding_status(..., target=CLOSED)` must only return a CLOSED record when the resulting record contains both closure fields. This may be achieved by normal dataclass validation after `replace()`; no new persistence layer is required.
+Direct construction, `from_dict()`, and transition paths are covered. `creates_certification_authority` can therefore be true only for a structurally valid PASS record carrying an exact 64-hex result digest.
 
-Required tests:
+### B3 — CLOSED
+
+`FindingRecord.from_dict()` now requires exact JSON/list inputs before tuple conversion for both `affected_surfaces` and `required_proof_ids`. String, scalar, mapping, and tuple inputs fail closed; canonical `to_dict() -> from_dict()` round-trip remains valid.
+
+## Preserved Accepted Surfaces
 
 ```text
-VERIFYING -> OPEN passes
-VERIFYING -> REOPENED rejects
-VERIFYING -> CLOSED without closure evidence rejects
-VERIFYING -> CLOSED with fixed_by_sha + closure_review_round passes
-direct FindingRecord(status=CLOSED) without either closure field rejects
-FindingRecord.from_dict(status=CLOSED) without either closure field rejects
-CLOSED -> REOPENED without reopen_evidence rejects
-CLOSED -> REOPENED with reopen_evidence passes
+A1 ReviewState closed vocabulary: PASS
+A2 semantic acceptance non-authoritative: PASS
+A3 FINAL_PASS requires CERTIFIED: PASS
+A4 SUPERSEDED review cannot FINAL_PASS: PASS
+A5 ProofRecord immutable fingerprint validation: PASS
+A6 unchanged VALID proof carry-forward: PASS
+A7 changed subject/dependency invalidation: PASS
+A8 malformed current proof fingerprint fail-closed: PASS
+A9 ReviewEffort closed vocabulary + deterministic routing: PASS
+A10 authority/security -> CRITICAL_SECOND_REVIEW: PASS
+A11 unknown impact conservative routing: PASS
+A12 exact certification candidate binding: PASS
+A13 terminal certification reentry blocked: PASS
+A14 SUPERSEDED certification non-authoritative: PASS
+A15 provider-neutral no-model-polling contract: PASS
+A16 pure modules have no Git/filesystem/network/model execution: PASS
+A17 live Bridge/publication/validation/merge flow unchanged: PASS
+A18 TASK-087/P2/P3/H5-H8 unopened: PASS
+A19 roadmap v1.2 binding/current registry identity: PASS
+A20 exact base/main lineage and allowed-path scope: PASS
 ```
 
-## B2 — Terminal certification evidence
+## Scope / Roadmap Audit
 
-Required code behavior in `CertificationJob.__post_init__`:
+The FIX delta changed only:
 
 ```text
-status == CERTIFICATION_PASS -> terminal_result_digest REQUIRED
-status == CERTIFICATION_FAILED -> terminal_result_digest REQUIRED
-status == SUPERSEDED -> terminal_result_digest MUST be None
-pre-terminal status -> terminal_result_digest MUST be None
+src/aios_bridge/review_pipeline.py
+src/aios_bridge/certification_job.py
+tests/aios_bridge/test_review_pipeline.py
+tests/aios_bridge/test_certification_job.py
 ```
 
-The digest remains exact lowercase 64-hex.
+Publication updated `.ai/results/RESULT-089.md`. No live Bridge, worker-flow, validation ownership, merge-gate, TASK-087, P2/P3, or H5-H8 implementation was introduced.
 
-`creates_certification_authority` remains true only for a valid `CERTIFICATION_PASS` object; because construction is fail-closed, an evidence-free PASS object must be impossible.
+Canonical Lean Execution v1.2 remains LOCKED and registered. TASK-089 remains bound to P1 / `P1_UNIFIED_VALIDATION_CAPABILITY_BATCH` requirements P1.R6-P1.R9. TASK PASS does not declare P1 complete.
 
-`transition_certification_job()` must therefore require/provide a digest when targeting PASS or FAILED. SUPERSEDED remains non-authoritative and must not carry a terminal test-result digest.
-
-Required tests:
-
-```text
-RUNNING -> PASS without digest rejects
-RUNNING -> PASS with 64-hex digest passes
-RUNNING -> FAILED without digest rejects
-RUNNING -> FAILED with 64-hex digest passes
-RUNNING -> SUPERSEDED with no digest passes
-SUPERSEDED with digest rejects
-direct/from_dict PASS without digest rejects
-direct/from_dict FAILED without digest rejects
-valid PASS creates authority
-SUPERSEDED never creates authority
-```
-
-## B3 — Strict machine-readable sequence parsing
-
-Before tuple conversion in `FindingRecord.from_dict()`, require:
-
-```text
-type(data["affected_surfaces"]) is list
-type(data["required_proof_ids"]) is list
-```
-
-Anything else, including string, tuple, scalar, or mapping, must reject before coercion. After that, tuple conversion is allowed and existing `FindingRecord.__post_init__` validation remains authoritative.
-
-Required tests:
-
-```text
-string/scalar/mapping affected_surfaces rejects
-string/scalar/mapping required_proof_ids rejects
-canonical to_dict -> from_dict round trip passes
-```
-
-Apply the same rule only where this FIX introduces or touches a machine-readable sequence parser in these two modules. Do not widen scope.
-
-## Accepted / Protected
-
-Preserve unless the exact repairs above necessarily touch the same local function:
-
-```text
-ReviewState vocabulary and transition authority
-semantic acceptance non-authoritative
-FINAL_PASS only after CERTIFIED
-SUPERSEDED review cannot FINAL_PASS
-ProofRecord fingerprint/carry-forward semantics
-RiskEvidence and deterministic ReviewEffort routing
-exact certification candidate binding
-terminal-state reentry blocking
-provider-neutral no-model-polling contract
-pure/no-I/O module boundary
-live Bridge/publication/validation/merge flow unchanged
-TASK-087/P2/P3/H5-H8 unopened
-roadmap v1.2 binding and exact branch lineage
-```
-
-## Validation
-
-Run focused tests for the two changed modules and directly impacted tests. Do not run or schedule an executor-owned full canonical T2. Existing certification boundary remains the sole T2 owner under the current live flow.
-
-Truthful telemetry only; do not invent targeted counts.
+The still-large raw pytest payload and unavailable targeted-test count are not reopened here; compact RESULT evidence and stronger telemetry are later ADR-065 integration slices. The latest exact candidate nevertheless has successful full canonical T2 evidence under the current pre-cutover flow.
 
 ## Decision
 
 ```text
-TASK-089: CHANGES_REQUIRED
-OPEN_FINDINGS: B1 B2 B3
-AUTO_RETRY: NO
-AUTO_REROUTE: NO
-LIVE_FLOW_CUTOVER: NO
-TASK_087_IMPLEMENTATION: NO
+TASK-089: PASS
+APPROVED: YES
+MERGE_AUTHORIZED: YES
+BLOCKERS_REMAINING: 0
+NEXT_ACTION: MERGE_TASK_089
+AFTER_MERGE: AUTHOR_NEXT_BOUNDED_LEAN_REVIEW_INTEGRATION_SLICE
+TASK_087: REMAINS_RESERVED
 P1_COMPLETE: NO
-NEXT: FIX TASK-089
+P2_P3_AUTHORIZED: NO
+H5_H8_AUTHORIZED: NO
 ```
