@@ -8,15 +8,15 @@ MERGE_AUTHORIZED: NO
 MERGED_TO_MAIN: NO
 
 TASK_ID: TASK-083
-REVIEW_ROUND: 1
-REVIEW_REVISION: ADR-060_OBSERVABILITY_BOUNDARY
-REVIEWED_TASK_HEAD_SHA: 0c9c5f9fe5789fd56162c0786e4f8f90ef785bb0
+REVIEW_ROUND: 2
+REVIEW_REVISION: ADR-060_RESULT_EVIDENCE_REFRESH
+REVIEWED_TASK_HEAD_SHA: 4f47ddfb2ae241a4d7efa0a3c6c2ae3c1536b2e1
 REVIEWED_BASE_MAIN_SHA: 962712450ce14d3629c3d1caef59c9651bba7f90
 TASK_ARTIFACT_BLOB_SHA: 15eaa9985f0b522a1ad1a9325bd2674a4e593ccc
-RESULT_BLOB_SHA: e24c6240541623aa95549269a64172436d5523fd
+RESULT_BLOB_SHA: 847bbc2629f4d2d9896032234e44764547c7f9b7
 EXECUTOR_ID: codex
 BLOCKERS_REMAINING: 1
-CODE_AUDIT: CHANGES_REQUIRED
+CODE_AUDIT: PASS_WITH_EVIDENCE_BLOCKER
 CANONICAL_TESTS: PASS_REPORTED
 ROADMAP_AUDIT: PASS
 ROADMAP_ID: AIOS-BRIDGE-LEAN-EXECUTION
@@ -35,114 +35,149 @@ H5_H8_AUTHORIZED: NO
 ```text
 BRANCH: ai/task-083
 BASE_MAIN_SHA: 962712450ce14d3629c3d1caef59c9651bba7f90
-REVIEWED_TASK_HEAD_SHA: 0c9c5f9fe5789fd56162c0786e4f8f90ef785bb0
-STATUS_VS_BASE: AHEAD
+PRIOR_REVIEWED_HEAD_SHA: 0c9c5f9fe5789fd56162c0786e4f8f90ef785bb0
+REVIEWED_TASK_HEAD_SHA: 4f47ddfb2ae241a4d7efa0a3c6c2ae3c1536b2e1
+STATUS_VS_PRIOR_REVIEWED_HEAD: AHEAD
 AHEAD_BY: 1
-BEHIND_BY: 0
+STATUS_VS_MAIN: AHEAD
+AHEAD_BY_MAIN: 2
+BEHIND_BY_MAIN: 0
 MERGE_BASE_SHA: 962712450ce14d3629c3d1caef59c9651bba7f90
-CUMULATIVE_SCOPE: EXACT
+FIX_SCOPE: EXACT
 ```
 
-Reported canonical certification evidence remains:
+Round-2 FIX delta is limited to authorized paths plus Bridge-generated RESULT:
 
 ```text
-FULL_REPOSITORY_TESTS: 2549 passed, 7 skipped, 0 failed
-FULL_REPOSITORY_DURATION: 335.42s
+bridge.py
+src/aios_bridge/validation.py
+tests/aios_bridge/test_validation.py
+tests/test_bridge_executor_automation.py
+.ai/results/RESULT-083.md
+```
+
+Reported canonical certification:
+
+```text
+FULL_REPOSITORY_TESTS: 2553 passed, 7 skipped, 0 failed
+FULL_REPOSITORY_DURATION: 316.38s
 E4_TRANSPORT_STATUS: EXITED_ZERO
 E4_ALLOWED_SCOPE_VERIFIED: PASS
 E4_PUBLICATION_TRUST_VERIFIED: PASS
 ```
 
-## Controlled Refinement — ADR-060
+## Round-2 Code Audit — ADR-060 Logic
 
-Human-approved ADR-060 clarifies the P0 measurement boundary without changing Lean Execution roadmap v1.1 requirement identities, capability, authority, or sequencing.
-
-P0 distinguishes:
+The reviewed source now implements the intended ADR-060 boundary:
 
 ```text
-AIOS_MANAGED_VALIDATION
-EXECUTOR_AD_HOC_VALIDATION
+AIOS_MANAGED_VALIDATION: scoped exact evidence
+EXECUTOR_AD_HOC_VALIDATION: OBSERVED | UNAVAILABLE
+UNAVAILABLE_AD_HOC_COUNT: UNKNOWN
+UNAVAILABLE_GLOBAL_COUNT: UNKNOWN
+CERTIFICATION_T2_OWNER: CERTIFICATION_BOUNDARY
+AIOS_MANAGED_T2_EXPECTED: 1
+SECOND_AIOS_MANAGED_T2: REJECTED
+OBSERVED_AD_HOC_T2_WHILE_CERTIFICATION_OWNS_T2: POLICY_VIOLATION
+TARGETED_COUNT_OUTSIDE_CERTIFICATION_STREAM: UNKNOWN
 ```
 
-P0 must prove exact ownership/count for validation directly scheduled or invoked by AIOS. It must not claim exact global executor validation counts when the current executor transport/session cannot observe ad-hoc shell commands.
+`certification_commands_for_plan()` now rejects duplicate AIOS-managed T2 scheduling. `ValidationEvidence` no longer fabricates unavailable ad-hoc/global counts, and `_validation_result_manifest()` renders the ADR-060 scoped fields. These logic changes are accepted for this reviewed head and must remain preserved.
 
-The prior requested shell-level global proof is therefore withdrawn. Shell interception, terminal proxying, persistent session command capture, and Antigravity shell mediation are not authorized in P0.
-
-The Codex FIX attempt that ended `CLEAN_NO_WORKTREE_DELTA` created no implementation delta and no publication. It is a blocked pre-publication attempt, not a completed FIX round.
-
-## Finding B1 — AIOS-managed T2 deduplication and honest scoped telemetry are incomplete
+## Finding B2 — Published RESULT still uses the pre-ADR-060 evidence schema
 
 STATUS: BLOCKING
-SEVERITY: VALIDATION_INTEGRITY
+SEVERITY: EVIDENCE_INTEGRITY
 
-The reviewed implementation has the correct validation tier/owner model and a handoff-bound `ValidationPlan`, but RESULT/publication evidence does not yet distinguish exact AIOS-managed counts from executor ad-hoc observability.
-
-TASK-083 must finish P0 within the ADR-060 boundary.
-
-### Required Repair
-
-1. Preserve the existing provider-neutral validation tier/owner model and handoff-bound `ValidationPlan`.
-2. Ensure AIOS/Bridge never schedules more than one T2 for a P0 execution. The certification boundary remains the sole AIOS-managed T2 owner.
-3. Apply the bound validation plan to any AIOS-controlled executor validation command list so T2 is excluded from executor-owned T0/T1 validation. Do not add shell interception or transport command capture merely to observe executor ad-hoc commands.
-4. Replace ambiguous/global counting with scoped evidence. RESULT-N must persist machine-readable evidence equivalent to:
+The source at reviewed head `4f47ddfb...` contains the new ADR-060 scoped renderer, but the RESULT committed by the same FIX still contains the prior schema:
 
 ```text
+EXPECTED_FULL_SUITE_EXECUTION_COUNT: 1
+FULL_SUITE_EXECUTION_COUNT: 1
+TARGETED_TEST_EXECUTION_COUNT: 0
+VALIDATION_DUPLICATION_DETECTED: NO
+```
+
+and its `Validation Evidence` JSON still uses the old ambiguous fields and records targeted count `0` instead of `UNKNOWN`.
+
+It does NOT persist the required ADR-060 evidence:
+
+```text
+EXPECTED_AIOS_MANAGED_T2_EXECUTION_COUNT
+AIOS_MANAGED_T2_EXECUTION_COUNT
+AIOS_MANAGED_T2_DUPLICATION_DETECTED
+EXECUTOR_AD_HOC_T2_OBSERVABILITY
+EXECUTOR_AD_HOC_T2_EXECUTION_COUNT
+GLOBAL_T2_EXECUTION_COUNT
+```
+
+This mismatch is consistent with the self-hosted execution path: `bridge.py execute` starts the Bridge process before the bounded executor mutates `bridge.py`, then the same already-loaded process performs E4 publication after the executor returns. Therefore the code fix can be correct on disk while that same run's RESULT is rendered by the pre-fix in-memory implementation.
+
+P0 cannot PASS until the canonical RESULT itself proves the new evidence contract.
+
+## Required Repair — bounded evidence refresh only
+
+Do not redesign P0 and do not add shell/session interception.
+
+1. Preserve the accepted round-2 implementation logic.
+2. Add or strengthen one bounded integration regression in an already authorized test path proving that `cmd_publish`/RESULT persistence, not merely the pure `_validation_result_manifest()` helper, emits the ADR-060 scoped evidence schema.
+3. The regression should prove at minimum:
+
+```text
+FULL_CANONICAL_OWNER: CERTIFICATION_BOUNDARY
+EXPECTED_AIOS_MANAGED_T2_EXECUTION_COUNT: 1
+AIOS_MANAGED_T2_EXECUTION_COUNT: 1
+AIOS_MANAGED_T2_DUPLICATION_DETECTED: NO
+EXECUTOR_AD_HOC_T2_OBSERVABILITY: UNAVAILABLE
+EXECUTOR_AD_HOC_T2_EXECUTION_COUNT: UNKNOWN
+GLOBAL_T2_EXECUTION_COUNT: UNKNOWN
+TARGETED_TEST_EXECUTION_COUNT: UNKNOWN
+```
+
+4. Re-run the FIX through a newly started Bridge process. Because the reviewed branch already contains the new renderer before this next invocation starts, the next canonical publication must regenerate RESULT-083 with the ADR-060 scoped evidence.
+5. The `Validation Evidence` JSON in RESULT must also use the scoped schema and must not present unavailable targeted/ad-hoc/global counts as exact zeroes.
+6. Legacy ambiguous field names may only remain if explicitly marked as AIOS-managed compatibility aliases. Preferred outcome for this task is the already-implemented scoped renderer with no ambiguous top-level legacy claims.
+7. Keep canonical T2 certification exactly once for this new execution. This new certification is for the new FIX candidate and is not a duplicate within the prior execution.
+8. No P1, P2, P3, H5-H8, shell interception, persistent session work, auto-retry, or auto-reroute.
+
+## Acceptance for B2
+
+```text
+ROUND2_LOGIC_PRESERVED: PASS
+CMD_PUBLISH_RESULT_PERSISTENCE_REGRESSION: PASS
 VALIDATION_PROFILE: CONTROL_PLANE_STRICT_COMPAT
 FULL_CANONICAL_OWNER: CERTIFICATION_BOUNDARY
 EXPECTED_AIOS_MANAGED_T2_EXECUTION_COUNT: 1
 AIOS_MANAGED_T2_EXECUTION_COUNT: 1
 AIOS_MANAGED_T2_DUPLICATION_DETECTED: NO
-EXECUTOR_AD_HOC_T2_OBSERVABILITY: OBSERVED | UNAVAILABLE
-EXECUTOR_AD_HOC_T2_EXECUTION_COUNT: <n> | UNKNOWN
-GLOBAL_T2_EXECUTION_COUNT: <n> | UNKNOWN
-TARGETED_TEST_EXECUTION_COUNT: <n> | UNKNOWN
-FULL_SUITE_DURATION_SECONDS: <observed> | UNKNOWN
-TARGETED_TEST_DURATION_SECONDS: <observed> | UNKNOWN
-```
-
-5. If executor ad-hoc T2 observability is `UNAVAILABLE`, its count and global count must be `UNKNOWN`; never fabricate zero or one.
-6. If ad-hoc T2 is actually observable and observed while certification owns T2, report a validation policy violation and fail conservatively.
-7. Add integration regressions proving AIOS-managed T2 is scheduled exactly once, a second AIOS-managed T2 is rejected/detected, unavailable ad-hoc observability remains explicit `UNKNOWN`, and RESULT persistence preserves the evidence scope.
-8. Prove the same validation policy semantics for Codex and Antigravity surfaces. No Claude transport implementation is authorized.
-9. Preserve canonical T2 certification, roadmap authority, task authority, leases, scope enforcement, publication trust, reviewed-head merge safety, no auto-retry, and no auto-reroute.
-
-## Acceptance for B1
-
-```text
-VALIDATION_PLAN_BOUND_TO_AUTHORIZATION: PASS
-AIOS_CONTROLLED_EXECUTOR_T2_FILTERING: PASS
-FULL_CANONICAL_OWNER: CERTIFICATION_BOUNDARY
-EXPECTED_AIOS_MANAGED_T2_EXECUTION_COUNT: 1
-AIOS_MANAGED_T2_EXECUTION_COUNT: 1
-AIOS_MANAGED_T2_DUPLICATION_DETECTED: NO
-EXECUTOR_AD_HOC_T2_OBSERVABILITY: EXPLICIT
+EXECUTOR_AD_HOC_T2_OBSERVABILITY: UNAVAILABLE
+EXECUTOR_AD_HOC_T2_EXECUTION_COUNT: UNKNOWN
+GLOBAL_T2_EXECUTION_COUNT: UNKNOWN
+TARGETED_TEST_EXECUTION_COUNT: UNKNOWN
+RESULT_SCOPED_EVIDENCE_PERSISTED: PASS
 GLOBAL_COUNT_NOT_FABRICATED: PASS
-RESULT_EVIDENCE_PERSISTED: PASS
-CODEX_ANTIGRAVITY_VALIDATION_POLICY_PARITY: PASS
-SHELL_INTERCEPTION_ADDED: NO
-P2_SESSION_CAPTURE_ADDED: NO
+CANONICAL_T2: PASS
 ```
 
-## Non-blocking Audit Results
-
-The following reviewed boundaries already PASS and must remain preserved:
+## Accepted / Do Not Reopen Without Regression
 
 ```text
 BASELINE_AND_LINEAGE: PASS
-CUMULATIVE_SCOPE: EXACT
+FIX_SCOPE: EXACT
 LEAN_ROADMAP_V1_1_NORMAL_PREFLIGHT: PASS
-TASK_084_BOOTSTRAP_REUSE: PASS
-RUN_FIX_SYNC_BEFORE_HANDOFF: PASS
-SYNC_FAILURE_BLOCKS_HANDOFF: PASS
-VALIDATION_TIER_CLOSED: PASS
-VALIDATION_OWNER_CLOSED: PASS
-VALIDATION_PLAN_IMMUTABLE: PASS
-EXACTLY_ONE_T2_OWNER_MODEL: PASS
+VALIDATION_PLAN_BOUND_TO_AUTHORIZATION: PASS
+VALIDATION_TIER_OWNER_MODEL: PASS
+AIOS_MANAGED_T2_SCHEDULER: PASS
+AIOS_MANAGED_DUPLICATE_REJECTION: PASS
+AD_HOC_OBSERVABILITY_MODEL: PASS
+GLOBAL_COUNT_NOT_FABRICATED_IN_SOURCE: PASS
 FAILED_T2_CANNOT_PUBLISH: PASS
-PROVIDER_NEUTRAL_EVIDENCE_SCHEMA_FOUNDATION: PASS
+RUN_FIX_SYNC_BEFORE_HANDOFF: PASS
+CODEX_ANTIGRAVITY_POLICY_MODEL: PASS
 CANONICAL_FULL_SUITE: PASS_REPORTED
 AUTO_RETRY: NO
 AUTO_REROUTE: NO
+P1_P3_OPENED: NO
 H5_H8_OPENED: NO
 ```
 
