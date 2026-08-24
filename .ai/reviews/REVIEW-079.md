@@ -1,18 +1,22 @@
 # REVIEW-079 — H2 Static Import Graph Salvage + Canonical Rebinding
 
-STATUS: CHANGES_REQUIRED
+STATUS: PASS
 PUBLISHER_PROFILE: CANONICAL_E4
-APPROVED: NO
-AUTO_MERGE_ELIGIBLE: NO
+APPROVED: YES
+AUTO_MERGE_ELIGIBLE: YES
+MERGED_TO_MAIN: NO
+AUTO_MERGE_EXECUTED: NO
 
 TASK_ID: TASK-079
-REVIEWED_TASK_HEAD_SHA: 91eedffe08501e0819a369bc829d081b47b850f2
+REVIEWED_TASK_HEAD_SHA: a2fe1e7273503d6dc1863ae00ac3c026192bb2a2
 REVIEWED_BASE_MAIN_SHA: a51e9c33cd66dc262f13063747295609d7b7df97
 TASK_ARTIFACT_BLOB_SHA: 0e783f3e1e32c37e93dd2d52f607c9d81e01cf95
-RESULT_BLOB_SHA: fa461ed5cead09f33d17d70e7b812fa94c468812
-EXECUTOR_ID: codex
-BLOCKERS_REMAINING: 1
-CODE_AUDIT: PASS_WITH_TEST_PORTABILITY_BLOCKER
+RESULT_BLOB_SHA: 9afacc65b3a0ed5a49b55438f49d43b2acf51fe8
+INITIAL_EXECUTOR_ID: codex
+FIX_EXECUTOR_ID: codex
+BLOCKERS_REMAINING: 0
+CODE_AUDIT: PASS
+CANONICAL_TESTS: PASS
 ROADMAP_AUDIT: PASS
 ROADMAP_ID: AIOS-ENGINEERING-H-SERIES
 ROADMAP_VERSION: 1.0
@@ -23,153 +27,125 @@ CAPABILITY_ID: H2_STRUCTURAL_EXPERIENCE_GRAPH
 REQUIREMENT_BINDINGS_FINGERPRINT: 6b99a9e7e047d29994e9abe3a5e35dbec5505c88687e9f30794324a133eb5d9e
 H1_FORMAL_COMPLETION_GATE: PASS
 H2_R1_PARTIAL_STRUCTURAL_EVIDENCE: PASS
+H2_R3_PROVENANCE_DETERMINISM_BOUNDS: PASS
+H2_R4_SUPPORTING_RANKING_BOUNDARY: PASS
 H2_R2_IMPLEMENTED: NO
 H2_FORMAL_COMPLETION: NO
 H3_H8_NEW_CAPABILITY: NONE
-TASK_076_BRANCH_PRESERVED_AT_REVIEW: YES
+TASK_076_HISTORY_PRESERVED: YES
 TASK_076_PRESERVED_HEAD_SHA: fea85a8bc7f696c50fd5457b0cea3b5d8032b24f
 LIVE_PAID_API_AUTHORIZED: NO
-
-EXECUTOR_CONTEXT_REFS_JSON: [{"path":".ai/tasks/TASK-079.md","blob_sha":"0e783f3e1e32c37e93dd2d52f607c9d81e01cf95"},{"path":".ai/roadmaps/H-SERIES-v1.0.md","blob_sha":"41775383879c86dc68a7d87c0d705cfc8512f62d"},{"path":".ai/roadmaps/H-SERIES-v1.0.completions.json","blob_sha":"864072a7444dd8d0ffdb234f0d03a323d898bf11"},{"path":".ai/decisions/ADR-052-AIOS-ENGINEERING-H2-STATIC-IMPORT-GRAPH-REBIND-SALVAGE-CONTRACT-LOCK.md","blob_sha":"57343ac3238c4052ee0f59dafe639d9a5f6f10d5"}]
-EXECUTOR_ALLOWED_PATHS_JSON: ["tests/aios_engineering/harness/test_graph.py"]
-DISPATCH_EXECUTOR_POLICY_JSON: {"allow_paid_api":false,"candidates":[{"capacity_class":"SUBSCRIPTION","executor_id":"codex","preference_rank":0,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]},{"capacity_class":"SUBSCRIPTION","executor_id":"antigravity","preference_rank":1,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]}],"operation":"FIX","required_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"]}
 
 ## Reviewed Snapshot
 
 ```text
 BASE_MAIN_SHA: a51e9c33cd66dc262f13063747295609d7b7df97
 BRANCH: ai/task-079
-REVIEWED_TASK_HEAD_SHA: 91eedffe08501e0819a369bc829d081b47b850f2
+REVIEWED_TASK_HEAD_SHA: a2fe1e7273503d6dc1863ae00ac3c026192bb2a2
 STATUS_VS_MAIN: AHEAD
-AHEAD_BY: 1
+AHEAD_BY: 2
 BEHIND_BY: 0
 MERGE_BASE_SHA: a51e9c33cd66dc262f13063747295609d7b7df97
 CUMULATIVE_SCOPE: EXACT
 ```
 
-Changed implementation scope is exactly the three TASK-079 writable paths plus Bridge-generated RESULT-079.
-
-The preserved historical branch was independently rechecked during review and still points to:
+Cumulative delta remains limited to:
 
 ```text
-ai/task-076 = fea85a8bc7f696c50fd5457b0cea3b5d8032b24f
+src/aios_engineering/harness/__init__.py
+src/aios_engineering/harness/graph.py
+tests/aios_engineering/harness/test_graph.py
+.ai/results/RESULT-079.md
 ```
 
-No mutation/rebase/merge of TASK-076 occurred.
+The FIX delta from reviewed RUN head `91eedffe08501e0819a369bc829d081b47b850f2` to final head `a2fe1e7273503d6dc1863ae00ac3c026192bb2a2` is exactly:
+
+```text
+tests/aios_engineering/harness/test_graph.py
+.ai/results/RESULT-079.md
+```
+
+No production graph code changed during FIX.
 
 ## Validation
 
 ```text
 FULL_REPOSITORY_TESTS: 2455 passed, 7 skipped, 0 failed
-E4_AUTO_EXECUTION: YES
-E4_CONTROL_COMMIT_SHA: 52a7baf0551bdba7cf7902c137822a982a95067b
-E4_PRE_EXECUTION_HEAD: a51e9c33cd66dc262f13063747295609d7b7df97
-E4_TRANSPORT_STATUS: EXITED_ZERO
-E4_ALLOWED_SCOPE_VERIFIED: PASS
-E4_PUBLICATION_TRUST_VERIFIED: PASS
-E4_DIRTY_PATH_COUNT: 3
+FIX_E4_AUTO_EXECUTION: YES
+FIX_E4_CONTROL_COMMIT_SHA: 5a03f4f4f7296f1e94494a9c4329b62acc409a10
+FIX_E4_PRE_EXECUTION_HEAD: 91eedffe08501e0819a369bc829d081b47b850f2
+FIX_E4_TRANSPORT_STATUS: EXITED_ZERO
+FIX_E4_ALLOWED_SCOPE_VERIFIED: PASS
+FIX_E4_PUBLICATION_TRUST_VERIFIED: PASS
+FIX_E4_DIRTY_PATH_COUNT: 1
 NETWORK_LLM_PAID_API: NONE
 ```
 
-## Passing Areas
+## Finding Closure
 
-The salvage itself is technically sound and remains accepted pending the single test-only blocker:
+### B1 — Permanent test portability
+
+CLOSED.
+
+The FIX removes all permanent pytest dependence on:
+
+```text
+refs/heads/ai/task-076
+local availability of unmerged historical commit fea85a8...
+local availability of baseline commit a51e9c33... for merge-base/diff assertions
+```
+
+The test now keeps the exact historical source SHA only as non-operational provenance documentation and continues to enforce the actual durable product contract:
+
+```text
+H2_IMPORT_GRAPH_POLICY_VERSION == h2-import-graph-v1
+no graph-specific H4 public/policy identity
+no H2 completion claim
+no H2.R2/component/experience graph claim
+no H3-H8 capability claim
+```
+
+This is portable across fresh clone/CI history topologies while historical branch preservation remains review evidence rather than runtime test authority.
+
+## Canonical H2 Audit
 
 ```text
 CANONICAL_H2_BINDING: PASS
-H1_COMPLETION_GATE: PASS
-CURRENT_MAIN_BASELINE: PASS
-TASK_076_HISTORY_PRESERVED: PASS (review evidence)
+H1_FORMAL_COMPLETION_GATE: PASS
 GRAPH_H4_PUBLIC_IDENTITY_REMAINING: NO
-H2_IMPORT_GRAPH_POLICY_VERSION: h2-import-graph-v1
+H2_IMPORT_GRAPH_POLICY_IDENTITY: PASS
 H2_H3_CROSS_BINDING_BEFORE_BODY_READ: PASS
 EXACT_REPOSITORY_SNAPSHOT_BOUND: PASS
 EXACT_BLOB_IDENTITY_BOUND: PASS
 WORKTREE_SOURCE_BYTES_USED: NO
 STATIC_AST_ONLY: PASS
+RUNTIME_IMPORT_EXECUTION: NO
 DETERMINISTIC_INTERNAL_RESOLUTION: PASS
-AMBIGUOUS/UNRESOLVED_RESOLUTION: CONSERVATIVE
+AMBIGUOUS_INTERNAL_TARGET: CONSERVATIVE
+UNRESOLVED_REFERENCE: CONSERVATIVE
 EDGE_ORDER_AND_FINGERPRINTS: PASS
-BODY/EDGE/REFERENCE_BOUNDS: PASS
+BODY/REFERENCE/EDGE_BOUNDS: PASS
 ZERO_AUTHORITY_RECEIPT: PASS
-H2_R2_IMPLEMENTED: NO
+H2_R1: PARTIAL STRUCTURAL EVIDENCE ONLY
+H2_R2: NOT IMPLEMENTED
+H2_R3: PASS FOR THIS SLICE
+H2_R4: PASS AS SUPPORTING BOUNDARY
 H2_COMPLETE_CLAIMED: NO
 H3_H8_NEW_CAPABILITY: NONE
 ```
 
-The recovered graph now uses only canonical H2-specific policy identity (`H2_IMPORT_GRAPH_POLICY_VERSION`, `MAX_H2_IMPORT_GRAPH_*`, and `h2_repository_import_dependency_graph`) while preserving neutral domain types such as `RepositoryImportDependency` and `RepositoryDependencyGraphResult`.
-
-## Blocking Finding
-
-### B1 — Permanent unit test depends on an unmerged local historical branch/object
-
-`test_salvage_history_baseline_and_h2_public_identity_are_locked()` currently executes repository-local Git assertions equivalent to:
-
-```text
-git cat-file -t fea85a8bc7f696c50fd5457b0cea3b5d8032b24f
-git rev-parse refs/heads/ai/task-076
-git merge-base --is-ancestor a51e9c33... HEAD
-```
-
-This passes in the current developer workspace because the old task branch and its unmerged commit object are locally present. It is not a durable repository test contract.
-
-A normal fresh clone or CI checkout of `main` is not required to create the local ref `refs/heads/ai/task-076`; a single-branch/shallow checkout may also not contain the unmerged historical commit object or the pre-task baseline object. Therefore, after merging TASK-079, the canonical full suite could fail solely because unrelated local Git history/ref topology differs even though the H2 graph implementation is correct.
-
-This violates the portability expectation of the permanent canonical test suite and incorrectly turns one-time salvage/review provenance into a runtime unit-test dependency.
-
-### Required Fix
-
-Modify only:
-
-```text
-tests/aios_engineering/harness/test_graph.py
-```
-
-Remove permanent test dependence on:
-
-```text
-refs/heads/ai/task-076
-availability of unmerged historical commit fea85a8...
-availability of baseline commit a51e9c33... for merge-base checks
-```
-
-Preserve deterministic regression coverage for the actual product contract:
-
-```text
-H2 public/policy identity is exact
-forbidden graph-specific H4 identity tokens are absent
-graph implementation does not claim H2 completion/H2.R2/H3-H8 capability
-salvaged behavioral semantics remain covered by the existing static-import/provenance/bounds tests
-```
-
-It is acceptable to retain the exact historical SHA as a non-operational constant/assertion documenting the audited source, but the test must not require that Git object/ref/history to exist locally.
-
-`TASK_076_BRANCH_MUTATED: NO`, exact historical-source provenance, and current-main branch ancestry are one-time execution/review evidence. They are already independently verified by the Bridge/GitHub review transaction and must not become permanent runtime dependencies of `pytest tests/`.
-
-Do not modify production graph code for B1.
-
-## Revalidation Required
-
-Run exactly:
-
-```powershell
-.\venv\Scripts\python.exe -m pytest tests/aios_engineering/harness/test_graph.py tests/aios_engineering/harness/test_ranking.py tests/aios_engineering/harness/test_roles.py tests/aios_engineering/harness/test_experience.py -q
-.\venv\Scripts\python.exe -m pytest tests/ -q
-git diff --check
-```
-
-Then publish through canonical E4 FIX.
+TASK-079 therefore makes the static import graph a valid canonical H2 supporting structural-graph slice. It does not complete H2.
 
 ## Decision
 
 ```text
-TASK-079: CHANGES_REQUIRED
-APPROVED: NO
-AUTO_MERGE_ELIGIBLE: NO
-BLOCKERS_REMAINING: 1
-B1_TEST_PORTABILITY: OPEN
+TASK-079: PASS
+APPROVED: YES
+AUTO_MERGE_ELIGIBLE: YES
+BLOCKERS_REMAINING: 0
+B1_TEST_PORTABILITY: CLOSED
 PRODUCTION_GRAPH_CHANGE_REQUIRED: NO
 H2_FORMAL_COMPLETION: NO
-H3_H8_NEW_CAPABILITY: NONE
+NEXT_CANONICAL_WORK: REMAINING H2.R1 + H2.R2 EXPERIENCE RELATIONSHIPS
 LIVE_PAID_API_AUTHORIZED: NO
 ```
