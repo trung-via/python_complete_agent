@@ -120,9 +120,8 @@ H4_FORMAL_COMPLETION: NO
 H5_H8_AUTHORIZED: NO
 ```
 
-
 ## Machine-Readable E4 Inputs
 
-EXECUTOR_CONTEXT_REFS_JSON: [{"path": ".ai/roadmaps/H-SERIES-v1.0.md", "blob_sha": "41775383879c86dc68a7d87c0d705cfc8512f62d"}, {"path": ".ai/roadmaps/H-SERIES-v1.0.completions.json", "blob_sha": "43659eb156dcd17845572e4d224dcbca7a114ad6"}, {"path": ".ai/decisions/ADR-055-AIOS-ENGINEERING-H3-FORMAL-COMPLETION-H4-KNOWLEDGE-REGISTRY-OPEN-CONTRACT-LOCK.md", "blob_sha": "7f5efd995e312f510f87dddb825ba312e8affbaa"}, {"path": ".ai/reviews/REVIEW-081.md", "blob_sha": "8d733df3bc253d4b8fdcc9a2a74036bc46dec7f3"}]
+EXECUTOR_CONTEXT_REFS_JSON: [{"path": ".ai/tasks/TASK-082.md", "blob_sha": "4b0fa4d4fbaa6064c6be66eda4a997eca83f4893"}, {"path": ".ai/roadmaps/H-SERIES-v1.0.md", "blob_sha": "41775383879c86dc68a7d87c0d705cfc8512f62d"}, {"path": ".ai/roadmaps/H-SERIES-v1.0.completions.json", "blob_sha": "43659eb156dcd17845572e4d224dcbca7a114ad6"}, {"path": ".ai/decisions/ADR-055-AIOS-ENGINEERING-H3-FORMAL-COMPLETION-H4-KNOWLEDGE-REGISTRY-OPEN-CONTRACT-LOCK.md", "blob_sha": "7f5efd995e312f510f87dddb825ba312e8affbaa"}, {"path": ".ai/reviews/REVIEW-081.md", "blob_sha": "8d733df3bc253d4b8fdcc9a2a74036bc46dec7f3"}]
 EXECUTOR_ALLOWED_PATHS_JSON: ["src/aios_engineering/harness/knowledge_registry.py", "src/aios_engineering/harness/__init__.py", "tests/aios_engineering/harness/test_knowledge_registry.py"]
 DISPATCH_EXECUTOR_POLICY_JSON: {"allow_paid_api": false, "candidates": [{"capacity_class": "SUBSCRIPTION", "executor_id": "antigravity", "preference_rank": 0, "supported_capabilities": ["FILESYSTEM_WRITE", "LOCAL_GIT", "REPOSITORY_READ", "SHELL", "TEST_EXECUTION"], "supported_operations": ["RUN", "FIX"]}, {"capacity_class": "SUBSCRIPTION", "executor_id": "codex", "preference_rank": 1, "supported_capabilities": ["FILESYSTEM_WRITE", "LOCAL_GIT", "REPOSITORY_READ", "SHELL", "TEST_EXECUTION"], "supported_operations": ["RUN", "FIX"]}], "operation": "FIX", "required_capabilities": ["FILESYSTEM_WRITE", "LOCAL_GIT", "REPOSITORY_READ", "SHELL", "TEST_EXECUTION"]}
