@@ -5,7 +5,8 @@ STATUS: PASS
 APPROVED: YES
 AUTO_MERGE_ELIGIBLE: YES
 MERGE_AUTHORIZED: YES
-MERGED_TO_MAIN: NO
+MERGED_TO_MAIN: YES
+MERGED_MAIN_SHA: 11967270857dd886e6e686a599bdd40e1d684619
 
 TASK_ID: TASK-088
 REVIEW_ROUND: 3
@@ -30,36 +31,18 @@ TASK_087_REMAINS_RESERVED: YES
 P2_P3_AUTHORIZED: NO
 H5_H8_AUTHORIZED: NO
 
-## Reviewed Snapshot
+## Final Evidence
 
 ```text
-BRANCH: ai/task-088
-BASE_MAIN_SHA: d55a5b168f6833558c3f9db63f46dd1817392283
-REVIEWED_TASK_HEAD_SHA: 11967270857dd886e6e686a599bdd40e1d684619
-STATUS_VS_MAIN: AHEAD
-AHEAD_BY: 3
-BEHIND_BY: 0
-MERGE_BASE_SHA: d55a5b168f6833558c3f9db63f46dd1817392283
-SCOPE: EXACT
-```
-
-## Final Review
-
-TASK-088 closes the diagnostic prerequisite introduced by ADR-063 without opening TASK-086/TASK-087/P2/P3/H5-H8 implementation.
-
-Accepted evidence:
-
-```text
-OUTCOME_VOCABULARY_CLOSED: PASS
+CODEX_NOOP_OUTCOME_OBSERVABLE: PASS
 CANONICAL_CODEX_EVENT_SCHEMA_SUPPORTED: PASS
 CANONICAL_AGENT_MESSAGE_ONLY_OUTCOME_EXTRACTION: PASS
 NON_AGENT_MARKERS_IGNORED: PASS
 REASONING_CONTENT_IGNORED: PASS
 RAW_STDOUT_NOT_PERSISTED: PASS
-ACTIVITY_COUNTS_FAIL_CONSERVATIVE: PASS
-ACTIVITY_DEDUP_SEMANTICS_DEFINED: PASS
 TRUNCATED_COUNTS_FAIL_CONSERVATIVE: PASS
 TRUNCATED_MESSAGE_OBSERVATION_FAIL_CONSERVATIVE: PASS
+ACTIVITY_DEDUP_SEMANTICS_PRESERVED: PASS
 UNTRUNCATED_CANONICAL_ZERO_ACTIVITY_EXACT_ZERO: PASS
 CLEAN_NOOP_SURFACES_SAFE_OUTCOME: PASS
 CLEAN_NOOP_REMAINS_BLOCKING: PASS
@@ -72,11 +55,7 @@ P2_P3_OPENED: NO
 H5_H8_OPENED: NO
 ```
 
-The bounded parser now accepts the canonical nested Codex agent-message shape and only treats explicitly identifiable agent-message compatibility shapes as message evidence. Generic `role=assistant` no longer upgrades error/tool/custom events into terminal outcomes. Tests prove markers embedded in error, command, and unknown-item payloads are ignored.
-
-When stdout is truncated, command/file counts are `UNKNOWN` and absence of an observed agent message is `UNKNOWN`, preserving the bounded-observation contract rather than fabricating exact evidence.
-
-Canonical certification captured in RESULT:
+Canonical certification:
 
 ```text
 FULL_CANONICAL_OWNER: CERTIFICATION_BOUNDARY
@@ -89,17 +68,13 @@ TARGETED_IMPACT: 233 passed
 GIT_DIFF_CHECK: PASS
 ```
 
-RESULT test evidence is now self-consistent: the authoritative canonical captured output carries the exact count, while the pre-certification notes no longer assert a stale conflicting full-suite count.
-
 ## Decision
 
 ```text
 TASK-088: PASS
-APPROVED: YES
-AUTO_MERGE_ELIGIBLE: YES
-MERGE_AUTHORIZED: YES
+MERGED_TO_MAIN: YES
 BLOCKERS_REMAINING: 0
-NEXT_ACTION: FAST_FORWARD_MERGE_THEN_REBIND_TASK_086
+NEXT_ACTION: REBIND_TASK_086
 TASK_087_REMAINS_RESERVED: YES
 P2_P3_AUTHORIZED: NO
 H5_H8_AUTHORIZED: NO
