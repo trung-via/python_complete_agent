@@ -4,13 +4,17 @@ STATUS: PASS
 PUBLISHER_PROFILE: CANONICAL_E4
 APPROVED: YES
 AUTO_MERGE_ELIGIBLE: YES
-MERGED_TO_MAIN: NO
-AUTO_MERGE_EXECUTED: NO
+MERGE_AUTHORIZED: YES
+MERGED_TO_MAIN: YES
+AUTO_MERGE_EXECUTED: YES
+MERGE_METHOD: FAST_FORWARD
+FORCE_UPDATE: NO
 
 TASK_ID: TASK-080
 REVIEW_ROUND: 3
 REVIEWED_TASK_HEAD_SHA: 4d7e5a6be68ef0aaf0ed7db6927c26c5ddbb61af
 REVIEWED_BASE_MAIN_SHA: a2fe1e7273503d6dc1863ae00ac3c026192bb2a2
+POST_MERGE_MAIN_SHA: 4d7e5a6be68ef0aaf0ed7db6927c26c5ddbb61af
 PREVIOUS_REVIEWED_HEAD_SHA: e587c3f6c254d9edd17706f689e7d4e4065fa2cd
 TASK_ARTIFACT_BLOB_SHA: c53f846f6cf3478bcc2fe0f59f92a71f36a41b00
 RESULT_BLOB_SHA: 6c8713a58804001434365d6ed11cf5ad06ca66a5
@@ -38,28 +42,22 @@ LIVE_PAID_API_AUTHORIZED: NO
 ## Reviewed Snapshot
 
 ```text
-BASE_MAIN_SHA: a2fe1e7273503d6dc1863ae00ac3c026192bb2a2
+PRE_MERGE_MAIN_SHA: a2fe1e7273503d6dc1863ae00ac3c026192bb2a2
 BRANCH: ai/task-080
 REVIEWED_TASK_HEAD_SHA: 4d7e5a6be68ef0aaf0ed7db6927c26c5ddbb61af
 STATUS_VS_MAIN_BEFORE_MERGE: AHEAD
 AHEAD_BY: 3
 BEHIND_BY: 0
 MERGE_BASE_SHA: a2fe1e7273503d6dc1863ae00ac3c026192bb2a2
+POST_MERGE_MAIN_SHA: 4d7e5a6be68ef0aaf0ed7db6927c26c5ddbb61af
+POST_MERGE_MAIN_VS_TASK_BRANCH: IDENTICAL
 CUMULATIVE_SCOPE: EXACT
 ```
 
-Cumulative task delta remains limited to:
+Cumulative task delta is limited to:
 
 ```text
 src/aios_engineering/harness/__init__.py
-src/aios_engineering/harness/structural_experience_graph.py
-tests/aios_engineering/harness/test_structural_experience_graph.py
-.ai/results/RESULT-080.md
-```
-
-Round-3 FIX delta from `e587c3f6c254d9edd17706f689e7d4e4065fa2cd` is limited to:
-
-```text
 src/aios_engineering/harness/structural_experience_graph.py
 tests/aios_engineering/harness/test_structural_experience_graph.py
 .ai/results/RESULT-080.md
@@ -76,33 +74,13 @@ NETWORK/LLM/PAID_API: NONE
 
 ## Finding Closure
 
-### B1 — Top-level TASK/invariant/REVIEW evidence boundary
-
-CLOSED.
-
-The bounded fence-aware scanner accepts only genuine column-0 machine evidence outside fenced examples; REVIEW finding headings and component-path evidence use the same conservative boundary.
-
-### B2 — RESULT Review Manifest LF/CRLF grammar
-
-CLOSED.
-
-The parser uses exact Git-verified bytes followed by line-ending-safe parsing. LF and real CRLF fixtures produce equivalent executor relationships while malformed, duplicate, and TASK-ID-mismatched evidence remains fail-closed.
-
-### B3 — RESULT top-level Review Manifest boundary
-
-CLOSED.
-
-Heading discovery is fence-aware and only accepts exact column-0 `## Review Manifest`. The associated opening and closing fences must also begin at column 0. Regression evidence proves:
-
 ```text
-RESULT_INDENTED_MANIFEST_EXAMPLE: IGNORED
-RESULT_MANIFEST_HEADING_INSIDE_FENCE: IGNORED
-REAL_TOP_LEVEL_PLUS_FENCED_MANIFEST_EXAMPLE: EXACTLY_ONE_REAL_MANIFEST
-TWO_REAL_TOP_LEVEL_MANIFESTS: FAIL_CLOSED
-LF_CRLF_EQUIVALENCE: PRESERVED
+B1_TOP_LEVEL_TASK_INVARIANT_REVIEW_EVIDENCE_BOUNDARY: CLOSED
+B2_RESULT_LF_CRLF_GRAMMAR: CLOSED
+B3_RESULT_TOP_LEVEL_REVIEW_MANIFEST_BOUNDARY: CLOSED
 ```
 
-No example/log/prose-shaped manifest can create `TASK_EXECUTED_BY_EXECUTOR` evidence through the reviewed grammar.
+B3 closure restores a strict evidence-only RESULT grammar: the Review Manifest heading is recognized only at column 0 outside fenced examples; its opening and closing fences must also be column-0 members of that top-level section. Indented/fenced examples create no executor relationship, one real manifest plus a fenced example yields exactly the real evidence, and duplicate real manifests fail closed.
 
 ## Canonical H2 Audit
 
@@ -124,21 +102,23 @@ H3_OWNERSHIP_OR_EXECUTOR_TENDENCY: NOT_STARTED
 H4_KNOWLEDGE_LIFECYCLE: NOT_STARTED
 ```
 
-TASK-080 supplies the remaining implementation evidence for canonical H2.R1-H2.R4. It does not itself complete H2; the separate formal milestone-completion record remains required.
+TASK-080 supplies the remaining implementation evidence for canonical H2.R1-H2.R4. Under the locked invariant `TASK PASS != MILESTONE COMPLETE`, H2 is not formally complete until a separate milestone completion record is minted and validated.
 
-## Lean Merge Preconditions
+## Lean Merge Transaction
 
 ```text
 STATUS: PASS
 APPROVED: YES
 AUTO_MERGE_ELIGIBLE: YES
-CURRENT_TASK_BRANCH_HEAD: 4d7e5a6be68ef0aaf0ed7db6927c26c5ddbb61af
-CURRENT_MAIN_HEAD: a2fe1e7273503d6dc1863ae00ac3c026192bb2a2
+PRE_MERGE_MAIN_SHA: a2fe1e7273503d6dc1863ae00ac3c026192bb2a2
+REVIEWED_TASK_HEAD_SHA: 4d7e5a6be68ef0aaf0ed7db6927c26c5ddbb61af
 REVIEWED_HEAD_MATCH: YES
 REVIEWED_BASE_MATCH: YES
 FAST_FORWARD_LINEAGE: YES
-BRANCH_BEHIND_MAIN: 0
-FORCE_UPDATE_ALLOWED: NO
+MERGE_METHOD: FAST_FORWARD_REF_UPDATE
+FORCE_UPDATE: NO
+POST_MERGE_MAIN_SHA: 4d7e5a6be68ef0aaf0ed7db6927c26c5ddbb61af
+POST_MERGE_IDENTITY: PASS
 ```
 
 ## Decision
@@ -147,10 +127,9 @@ FORCE_UPDATE_ALLOWED: NO
 TASK-080: PASS
 APPROVED: YES
 AUTO_MERGE_ELIGIBLE: YES
+MERGED_TO_MAIN: YES
+AUTO_MERGE_EXECUTED: YES
 BLOCKERS_REMAINING: 0
-B1: CLOSED
-B2: CLOSED
-B3: CLOSED
 H2_R1: PASS
 H2_R2: PASS
 H2_R3: PASS
