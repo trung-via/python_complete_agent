@@ -1,6 +1,6 @@
-# TASK-083 — P0 Validation Ownership + Full-Suite Deduplication Foundation
+# TASK-083 — P0 Lean Execution Bootstrap + Validation Ownership Foundation
 
-STATUS: BLOCKED_PENDING_TASK_082_CLOSURE
+STATUS: READY
 PUBLISHER_PROFILE: CANONICAL_E4
 CLASS: L3 — AIOS BRIDGE LEAN EXECUTION / P0 FOUNDATION
 MILESTONE: P0
@@ -10,75 +10,93 @@ RECOMMENDED_EXECUTOR: antigravity
 PAID_API_CALL_ALLOWED: NO
 AUTO_RETRY_ALLOWED: NO
 AUTO_REROUTE_ALLOWED: NO
+H5_H8_AUTHORIZED: NO
+BOOTSTRAP_ROADMAP_ENFORCEMENT: YES
 
-ROADMAP_ID: AIOS-BRIDGE-LEAN-EXECUTION
-ROADMAP_VERSION: 1.0
-CANONICAL_ROADMAP: .ai/roadmaps/AIOS-BRIDGE-LEAN-EXECUTION-v1.0.md
-CANONICAL_DECISION: .ai/decisions/ADR-056-AIOS-BRIDGE-LEAN-EXECUTION-CONTROLLED-EVOLUTION-CONTRACT-LOCK.md
+ROADMAP_BINDING_JSON: {"roadmap_id":"AIOS-BRIDGE-LEAN-EXECUTION","roadmap_version":"1.1","roadmap_blob_sha":"cae51de4db517dd452c260076a1daa521c1e3a4c","roadmap_fingerprint":"4bcbb10e1e8e02169ccb5a516801abd1ce01b0b5edd348d90abcac7d0887404f","roadmap_fingerprint_algorithm_version":"roadmap-sha256-v1","milestone":"P0","capability_id":"P0_VALIDATION_OWNERSHIP_TELEMETRY","requirement_bindings":["P0.R1","P0.R2","P0.R3","P0.R4","P0.R5"],"scope_in":["canonical Lean Execution roadmap registration and generic roadmap-binding bootstrap","single-owner validation tiers and bounded machine-readable validation plan","full-canonical T2 deduplication across Codex and Antigravity publication semantics","bounded validation-count and duration telemetry with duplication detection","preservation of existing Bridge authority publication and fail-closed semantics"],"scope_out":["P1 capability batching or product fast lane","P2 persistent sessions checkpoint resume or capacity suspension","P3 Claude Code adapter or adaptive executor routing","automatic retry or automatic reroute","H5-H8 implementation","authorization lease merge or reviewed-head authority redesign"]}
 
-## Activation Boundary
+## Baseline
 
-TASK-083 is intentionally authored now but MUST NOT RUN until TASK-082 is independently reviewed and its canonical disposition is complete. At activation time, Bridge/task-authoring must bind TASK-083 to the then-current canonical `main` and exact roadmap/decision blob identities before execution authorization.
+```text
+MAIN_SHA: 6aa75b88a1a6009afc0310ca3f8093f2d00bef5a
+TARGET_BRANCH: ai/task-083
+TASK_082_STATUS: PASS_MERGED
+H4_IMPLEMENTATION_STATUS: PASS_MERGED
+H5_STATUS: PAUSED_NOT_AUTHORIZED
+LEAN_ROADMAP_V1_0: HISTORICAL_NOT_EXECUTABLE
+LEAN_ROADMAP_V1_1: CANONICAL_TARGET
+```
 
-If the current executable-task contract cannot safely rebind a pre-authored blocked task to the new canonical main without violating immutable task authority, author a replacement executable task from the then-current main and close this artifact as blueprint-only. Do not weaken baseline binding to force execution.
+## Machine-Readable E4 Inputs
+
+EXECUTOR_CONTEXT_REFS_JSON: [{"path":".ai/roadmaps/AIOS-BRIDGE-LEAN-EXECUTION-v1.1.md","blob_sha":"cae51de4db517dd452c260076a1daa521c1e3a4c"},{"path":".ai/roadmaps/AIOS-BRIDGE-LEAN-EXECUTION-v1.1.completions.json","blob_sha":"ad2ed229adcd7e0db4909a8e1f330b7836544870"},{"path":".ai/decisions/ADR-056-AIOS-BRIDGE-LEAN-EXECUTION-CONTROLLED-EVOLUTION-CONTRACT-LOCK.md","blob_sha":"7ae9b7d518d5130d193ceb9cf981f29290014288"},{"path":".ai/decisions/ADR-057-AIOS-BRIDGE-LEAN-EXECUTION-V1.1-CANONICAL-ROADMAP-NORMALIZATION.md","blob_sha":"3270fca0fb723c49a67eba5586d6a6714bcb2bfa"},{"path":".ai/reviews/REVIEW-082.md","blob_sha":"14617f5ce355044d752ba5c409bf2989528131c4"}]
+EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py","src/aios_bridge/roadmap_governance.py","src/aios_bridge/validation.py","src/aios_bridge/executor_automation.py",".agents/skills/aios-worker/scripts/aios_worker.py","tests/aios_bridge/test_validation.py","tests/aios_bridge/test_roadmap_governance.py","tests/test_bridge.py","tests/test_bridge_executor_automation.py","tests/aios_bridge/test_aios_worker_control_surface.py"]
+DISPATCH_EXECUTOR_POLICY_JSON: {"allow_paid_api":false,"candidates":[{"capacity_class":"SUBSCRIPTION","executor_id":"antigravity","preference_rank":0,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["RUN"]},{"capacity_class":"SUBSCRIPTION","executor_id":"codex","preference_rank":1,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["RUN"]}],"operation":"RUN","required_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"]}
 
 ## Purpose
 
-Implement the first P0 slice of the locked AIOS Bridge Lean Execution Refactor:
+Implement the first executable P0 slice of AIOS Bridge Lean Execution Refactor without rewriting the Bridge control plane.
 
-1. establish explicit single-owner validation semantics;
-2. remove duplicate full-repository test execution from the Codex E4 path;
-3. make Antigravity and Codex share the same validation ownership contract;
-4. add bounded telemetry proving how many full suites actually ran;
-5. preserve all existing Bridge authority and publication safety semantics.
-
-This task is a surgical refactor, not a Bridge rewrite.
-
-## Required Invariants
+TASK-083 must accomplish five bounded outcomes:
 
 ```text
-TASK_AUTHORITY_UNCHANGED: YES
-REVIEW_AUTHORITY_UNCHANGED: YES
-LEASE_SEMANTICS_UNCHANGED: YES
-ROADMAP_BINDING_UNCHANGED: YES
-SCOPE_ENFORCEMENT_UNCHANGED: YES
-MERGE_AUTHORITY_UNCHANGED: YES
-AUTO_RETRY: NO
-AUTO_REROUTE: NO
-H5_OPENED: NO
+1. bootstrap canonical Bridge enforcement for the Lean Execution roadmap family;
+2. establish one shared validation-tier / owner contract;
+3. introduce a bounded machine-readable ValidationPlan;
+4. remove duplicate T2 full-canonical execution where ownership is already explicit;
+5. record bounded evidence proving actual versus expected validation execution counts.
 ```
 
-## P0 Validation Ownership Contract
+This is a foundation task. It does not complete P1-P3 and does not open H5.
 
-Define explicit validation tiers equivalent to:
+## 1. Bootstrap Lean Roadmap Enforcement
+
+Current `roadmap_governance.py` registers only H-Series and `task_requires_roadmap_governance()` only detects H-Series-class/H-milestone tasks.
+
+Extend the existing generic roadmap-governance mechanism so that after this task's implementation is present:
 
 ```text
-T0_MICRO
-T1_TARGETED_IMPACT
-T2_FULL_CANONICAL
-T3_RELEASE
+AIOS-BRIDGE-LEAN-EXECUTION v1.1 is registered by exact ID/version/path/blob SHA;
+ROADMAP_BINDING_JSON itself is sufficient to require roadmap governance;
+H-Series behavior remains unchanged;
+unknown/unregistered roadmap bindings fail closed;
+exact roadmap bytes/blob/fingerprint/capability/requirements remain validated by existing canonical machinery.
 ```
 
-and owner classes equivalent to:
+Bootstrap nuance: the pre-task `handoff` runs on main where Lean registration does not yet exist, so this first activation is authorized by the exact Human-approved TASK-083 artifact plus ADR-056/ADR-057. Publication/review must prove that the task-branch implementation now recognizes and validates TASK-083's own `ROADMAP_BINDING_JSON` before PASS. No later Lean task may use this bootstrap exception.
+
+Do not create a parallel roadmap authority implementation.
+
+## 2. Validation Tier / Owner Contract
+
+Define closed concepts equivalent to:
 
 ```text
-EXECUTOR
-CERTIFICATION_BOUNDARY
-RELEASE_BOUNDARY
+ValidationTier:
+  T0_MICRO
+  T1_TARGETED_IMPACT
+  T2_FULL_CANONICAL
+  T3_RELEASE
+
+ValidationOwner:
+  EXECUTOR
+  CERTIFICATION_BOUNDARY
+  RELEASE_BOUNDARY
 ```
 
-For normal canonical task publication under this P0 slice:
+For normal canonical task execution in P0:
 
 ```text
-T0/T1 -> executor owned
-T2    -> certification boundary owned
+T0/T1 -> EXECUTOR
+T2    -> CERTIFICATION_BOUNDARY
+T3    -> RELEASE_BOUNDARY
 ```
 
-Exactly one T2 owner is permitted.
+Exactly one owner may own T2 for an execution plan.
 
-## Machine-Readable Validation Plan
+## 3. Machine-Readable ValidationPlan
 
-Introduce a bounded immutable validation plan sufficient to express at least:
+Introduce a bounded immutable plan sufficient to express at least:
 
 ```text
 profile_id
@@ -88,35 +106,40 @@ diff_check_required
 expected_full_suite_execution_count
 ```
 
-Initial profiles must include a strict compatibility profile. Do not implement P1 product batching in this task.
-
-Legacy task artifacts that explicitly request a full suite must not cause a second identical T2 run if the certification boundary already owns it. Compatibility behavior must be deterministic, tested, and fail-conservative.
-
-## Codex Deduplication
-
-Current Codex `bridge execute` hard-codes:
+Required compatibility profile:
 
 ```text
-python -m pytest tests/ -q
+CONTROL_PLANE_STRICT_COMPAT
 ```
 
-while tasks may independently instruct the executor to run the same full suite.
+Legacy task prose requesting `pytest tests/ -q` must not cause a second identical T2 when the certification boundary already owns T2. Compatibility behavior must be deterministic and fail-conservative.
 
-Refactor so T2 canonical certification is invoked exactly once by its declared owner.
+If ownership cannot be proven, retain strict certification rather than silently skipping T2.
 
-Do not simply delete all tests from `cmd_execute`; preserve certification semantics through the validation plan/controller. If ownership is ambiguous, fall back to the strict existing-safe behavior and surface telemetry rather than silently skipping full certification.
+## 4. Shared Antigravity / Codex Validation Semantics
 
-## Antigravity Parity
+The UI surfaces may remain different, but validation ownership must be shared.
 
-Antigravity currently executes interactively and publishes through Bridge rather than `bridge execute`.
+```text
+Antigravity interactive execution
+Codex one-shot execution
+future Claude execution
+        |
+        v
+same ValidationPlan semantics
+same T2 certification owner semantics
+same evidence schema
+```
 
-TASK-083 must ensure the same validation plan and T2 ownership semantics govern Antigravity publication. Antigravity must not have a separate policy that happens to produce similar results.
+Remove Codex-specific duplicate full-suite behavior caused by executor instructions plus `bridge execute` hard-coded T2.
 
-The physical UI surfaces may remain different; validation semantics must be shared.
+Do not remove canonical certification itself.
 
-## Telemetry
+Antigravity publication must consume the same plan/ownership contract rather than a separate policy.
 
-Add bounded immutable telemetry/evidence sufficient to record:
+## 5. Validation Telemetry Foundation
+
+Add bounded immutable evidence equivalent to:
 
 ```text
 task_id
@@ -131,35 +154,46 @@ targeted_test_duration_seconds when observed
 validation_duplication_detected
 ```
 
-Optional executor/provider usage fields may be added only if actually observed. Do not infer token/quota from wall-clock time.
-
-Required behavior:
+Rules:
 
 ```text
-full_suite_execution_count == expected -> normal evidence
-full_suite_execution_count > expected  -> VALIDATION_DUPLICATION_DETECTED
+actual == expected -> normal evidence
+actual > expected  -> VALIDATION_DUPLICATION_DETECTED
+failed T2          -> publication denied
+unknown provider token/quota data stays unknown
+wall-clock test time must never be converted into provider quota/token estimates
 ```
 
-Duplication detection is diagnostic; it does not manufacture a PASS or override failed tests.
+Telemetry is evidence only. It cannot manufacture authority or PASS.
 
-## Executor-Neutral Boundary
+## 6. Authority Invariants
 
-No P0 validation policy may contain Codex-only or Antigravity-only semantics except in transport adapters required to invoke the shared contract.
+Must remain unchanged:
 
-Future `claude-code` must be representable by the same validation plan without changing core semantics.
+```text
+TASK_AUTHORITY
+REVIEW_AUTHORITY
+EXECUTOR_LEASE_SEMANTICS
+SCOPE_ENFORCEMENT
+PUBLICATION_TRUST
+REVIEWED_HEAD_MERGE_SAFETY
+HUMAN_EXECUTOR_SELECTION_AUTHORITY
+AUTO_RETRY_ALLOWED: NO
+AUTO_REROUTE_ALLOWED: NO
+```
 
-## Explicit Out of Scope
+## 7. Explicit Out of Scope
 
 ```text
 P1 capability batching
-product fast lane
+PRODUCT_DELIVERY_FAST implementation
 integration lane
-public RESUME command
-persistent Codex sessions
-persistent Claude sessions
-checkpoint/resume implementation
-capacity suspension state
-adaptive executor routing
+persistent Codex or Claude sessions
+public RESUME
+checkpoint/resume
+capacity suspension
+adaptive executor selection
+Claude Code transport integration
 automatic retry
 automatic reroute
 H5-H8 implementation
@@ -168,27 +202,19 @@ lease redesign
 merge redesign
 ```
 
-## Suggested Writable Scope
+## 8. Required Targeted / Impact Tests
 
-Exact scope must be rebound at activation against current main, but the intended implementation surface is limited to files equivalent to:
+Executor runs targeted/impact tests and `git diff --check`; executor must not independently run T2 when the plan assigns T2 to certification.
 
-```text
-bridge.py
-src/aios_bridge/validation.py                     # new if appropriate
-src/aios_bridge/executor_automation.py            # only if required for shared validation evidence
-.agents/skills/aios-worker/scripts/aios_worker.py # only if required for parity wiring
-tests/aios_bridge/test_validation.py              # new if appropriate
-tests/test_bridge_executor_automation.py
-tests/aios_bridge/test_aios_worker_control_surface.py
-```
-
-Do not touch H4/H5 feature implementation files.
-
-## Required Tests
-
-Targeted tests must prove at minimum:
+Required proofs:
 
 ```text
+LEAN_ROADMAP_V1_1_PARSE_CANONICAL: PASS
+LEAN_ROADMAP_REGISTRY_ENTRY: PASS
+ROADMAP_BINDING_MARKER_TRIGGERS_GOVERNANCE: PASS
+UNKNOWN_ROADMAP_FAIL_CLOSED: PASS
+H_SERIES_GOVERNANCE_REGRESSION: PASS
+TASK_083_SELF_BINDING_VALID_AT_PUBLICATION: PASS
 VALIDATION_TIER_CLOSED: PASS
 VALIDATION_OWNER_CLOSED: PASS
 EXACTLY_ONE_T2_OWNER: PASS
@@ -203,30 +229,37 @@ FAILED_T2_CANNOT_PUBLISH: PASS
 AMBIGUOUS_OWNERSHIP_FAILS_CONSERVATIVELY: PASS
 TASK_AUTHORITY_UNCHANGED: PASS
 LEASE_SEMANTICS_UNCHANGED: PASS
-ROADMAP_GOVERNANCE_UNCHANGED: PASS
 AUTO_RETRY: NO
 AUTO_REROUTE: NO
 ```
 
-## Validation Commands
+## 9. Certification Boundary
 
-Executor runs targeted/impact tests and diff check only.
+The certification boundary owns the canonical full repository suite exactly once after executor targeted/impact verification.
 
-The certification boundary owns the canonical full suite exactly once.
+Required final evidence:
 
-The task/result evidence must prove the actual full-suite execution count and owner.
+```text
+FULL_CANONICAL_OWNER: CERTIFICATION_BOUNDARY
+EXPECTED_FULL_SUITE_EXECUTION_COUNT: 1
+FULL_SUITE_EXECUTION_COUNT: 1
+VALIDATION_DUPLICATION_DETECTED: NO
+```
 
-## Acceptance Boundary
+If the current compatibility path cannot safely prove exactly-one T2 without weakening publication safety, fail conservatively and report the blocker; do not fake the count.
+
+## Acceptance
 
 TASK-083 passes only if:
 
 ```text
-P0_R1_SINGLE_TEST_OWNER: PASS
-P0_R2_EXPLICIT_VALIDATION_PLAN: PASS
-P0_R3_FULL_SUITE_DEDUP_FOUNDATION: PASS
-P0_R4_TELEMETRY_FOUNDATION: PASS
+P0.R1_SINGLE_TEST_OWNER: PASS
+P0.R2_EXPLICIT_VALIDATION_PLAN: PASS
+P0.R3_FULL_SUITE_DEDUP_FOUNDATION: PASS
+P0.R4_TELEMETRY_FOUNDATION: PASS
+P0.R5_CONTROL_PLANE_AUTHORITY_UNCHANGED: PASS
+LEAN_ROADMAP_ENFORCEMENT_BOOTSTRAPPED: PASS
 ANTIGRAVITY_CODEX_POLICY_PARITY: PASS
-CONTROL_PLANE_AUTHORITY_UNCHANGED: PASS
 FULL_CANONICAL_CERTIFICATION_PRESERVED: PASS
 P1_P3_NOT_IMPLEMENTED: PASS
 H5_NOT_OPENED: PASS
