@@ -5,13 +5,15 @@ STATUS: PASS
 APPROVED: YES
 AUTO_MERGE_ELIGIBLE: YES
 MERGE_AUTHORIZED: YES
-MERGED_TO_MAIN: PENDING
+MERGED_TO_MAIN: YES
+AUTO_MERGE_EXECUTED: YES
 
 TASK_ID: TASK-082
 REVIEW_ROUND: 2
 REVIEWED_TASK_HEAD_SHA: 6aa75b88a1a6009afc0310ca3f8093f2d00bef5a
 PREVIOUS_REVIEWED_HEAD_SHA: 1e2574bccb8944ff31709ce7ba8349229e327df9
 REVIEWED_BASE_MAIN_SHA: 8f887f828ad765f74073636f7e5ff887603fb56b
+POST_MERGE_MAIN_SHA: 6aa75b88a1a6009afc0310ca3f8093f2d00bef5a
 TASK_ARTIFACT_BLOB_SHA: 4b0fa4d4fbaa6064c6be66eda4a997eca83f4893
 RESULT_BLOB_SHA: d5db362ebd3bdab95e300914a61d92ebe79bc338
 EXECUTOR_ID: antigravity
@@ -59,7 +61,7 @@ STATUS: CLOSED
 
 The FIX replaces mutable exposed metadata with a validated copied mapping wrapped in `MappingProxyType`. Both direct construction and the public factory normalize metadata into a private copied immutable mapping before the object is exposed. Canonical payload construction continues to sort metadata keys, and `to_dict()` returns a detached mutable copy rather than exposing the stored mapping.
 
-Regression coverage now proves:
+Regression coverage proves:
 
 ```text
 DIRECT_ITEM_METADATA_MUTATION: REJECTED
@@ -108,13 +110,23 @@ NETWORK_LLM_PAID_API: NONE
 CUMULATIVE_SCOPE: EXACT
 ```
 
+## Merge Receipt
+
+```text
+PRE_MERGE_MAIN_SHA: 8f887f828ad765f74073636f7e5ff887603fb56b
+TASK_HEAD_SHA: 6aa75b88a1a6009afc0310ca3f8093f2d00bef5a
+MERGE_METHOD: FAST_FORWARD_REF_UPDATE
+FORCE: FALSE
+POST_MERGE_MAIN_SHA: 6aa75b88a1a6009afc0310ca3f8093f2d00bef5a
+POST_MERGE_MAIN_VS_TASK_BRANCH: IDENTICAL
+```
+
 ## Decision
 
 ```text
 TASK-082: PASS
 APPROVED: YES
-AUTO_MERGE_ELIGIBLE: YES
-MERGE_AUTHORIZED: YES
+MERGED_TO_MAIN: YES
 BLOCKERS_REMAINING: 0
 H4_IMPLEMENTATION_PASS: YES
 H4_FORMAL_COMPLETION: NO
