@@ -42,9 +42,9 @@ def extract_fix_execution_mode(review_text: str | None) -> FixExecutionMode:
 
     Rules:
       - Missing marker -> defaults to FixExecutionMode.IMPLEMENTATION.
-      - Exact valid marker -> returns corresponding FixExecutionMode.
+      - Exact single valid marker -> returns corresponding FixExecutionMode.
+      - Multiple markers (even if identical) -> raises ValueError (fails closed).
       - Unknown marker -> raises ValueError (fails closed).
-      - Multiple / conflicting markers -> raises ValueError (fails closed).
     """
     if not review_text or not isinstance(review_text, str):
         return FixExecutionMode.IMPLEMENTATION
@@ -53,15 +53,13 @@ def extract_fix_execution_mode(review_text: str | None) -> FixExecutionMode:
     if not matches:
         return FixExecutionMode.IMPLEMENTATION
 
-    # Normalize values
     cleaned = [m.strip().upper() for m in matches if m.strip()]
     if not cleaned:
         return FixExecutionMode.IMPLEMENTATION
 
-    unique_values = set(cleaned)
-    if len(unique_values) > 1:
+    if len(cleaned) > 1:
         raise ValueError(
-            f"Conflicting FIX_EXECUTION_MODE markers found in review: {sorted(unique_values)}"
+            f"Multiple FIX_EXECUTION_MODE markers found in review (count={len(cleaned)}): {cleaned}"
         )
 
     val = cleaned[0]
@@ -235,7 +233,17 @@ class WorkerFlowCoordinator:
                     message="Active authorization missing or invalid post-handoff",
                 )
 
-            mode_raw = auth.get("fix_execution_mode", FixExecutionMode.IMPLEMENTATION.value)
+            mode_raw = auth.get("fix_execution_mode")
+            if not mode_raw:
+                return WorkerFlowResult(
+                    action=action.value,
+                    task_id=task_id,
+                    adapter=adapter.value,
+                    status="AUTH_INVALID",
+                    returncode=1,
+                    message="Active FIX authorization missing explicit 'fix_execution_mode'",
+                )
+
             try:
                 fix_mode = FixExecutionMode(mode_raw)
             except ValueError as exc:

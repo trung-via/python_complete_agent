@@ -5553,3 +5553,186 @@ def test_prepare_task_branch_run_fails_closed_when_stale_branch_not_descended_fr
             action="RUN",
             bound_base_sha="11967270857dd886e6e686a599bdd40e1d684619",
         )
+
+
+def test_evidence_refresh_dirty_worktree_fails_before_certification(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Proof: EVIDENCE_REFRESH_DIRTY_WORKTREE_FAILS_BEFORE_CERTIFICATION: PASS (Finding B4)."""
+    cfg = {"remote": "origin", "task_branch_prefix": "ai/task-", "control_branch": "ai-control"}
+    lease_cand = bridge.build_executor_lease_candidate(
+        task_id="TASK-086",
+        workspace_id="a" * 64,
+        operation=bridge.ExecutionOperation.FIX,
+        target_branch="ai/task-086",
+        authorized_artifact_path=".ai/reviews/REVIEW-086.md",
+        authorized_artifact_blob_sha="a" * 40,
+        executor_id="antigravity",
+    )
+    auth = {
+        "task_id": "TASK-086",
+        "action": "FIX",
+        "fix_execution_mode": "EVIDENCE_REFRESH",
+        "artifact_path": ".ai/reviews/REVIEW-086.md",
+        "artifact_blob_sha": "a" * 40,
+        "reviewed_task_head_sha": "b" * 40,
+        "executor_id": "antigravity",
+        "lease_id": lease_cand.lease_id,
+        "lease_fingerprint": lease_cand.fingerprint(),
+        "workspace_id": lease_cand.workspace_id,
+        "execution_fingerprint": lease_cand.execution_fingerprint,
+    }
+
+    monkeypatch.setattr(bridge, "load_config", lambda: cfg)
+    monkeypatch.setattr(bridge, "get_active_authorization", lambda t: auth)
+    monkeypatch.setattr(bridge, "current_branch", lambda: "ai/task-086")
+    monkeypatch.setattr(bridge, "get_lease_store", lambda: type("Store", (), {"require_active": lambda s, l: None})())
+    monkeypatch.setattr(bridge, "fetch_control", lambda c: None)
+    monkeypatch.setattr(bridge, "get_remote_blob_sha", lambda c, p: "a" * 40)
+    monkeypatch.setattr(bridge, "observe_e4_head", lambda: "b" * 40)
+    # Simulate dirty non-.ai worktree
+    monkeypatch.setattr(bridge, "non_ai_dirty_paths", lambda: ["src/some_file.py"])
+
+    test_executed = []
+    args = type("Args", (), {
+        "task_id": 86,
+        "action": "fix",
+        "test": "pytest",
+        "summary": "refresh",
+        "notes": None,
+        "message": None,
+    })()
+
+    monkeypatch.setattr(bridge, "run", lambda cmd, **kwargs: test_executed.append(cmd))
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_publish(args)
+
+    # Test certification must NEVER be reached when worktree is dirty!
+    assert test_executed == []
+
+
+def test_evidence_refresh_head_drift_fails_before_certification(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Proof: EVIDENCE_REFRESH_HEAD_DRIFT_FAILS_BEFORE_CERTIFICATION: PASS (Finding B4)."""
+    cfg = {"remote": "origin", "task_branch_prefix": "ai/task-", "control_branch": "ai-control"}
+    lease_cand = bridge.build_executor_lease_candidate(
+        task_id="TASK-086",
+        workspace_id="a" * 64,
+        operation=bridge.ExecutionOperation.FIX,
+        target_branch="ai/task-086",
+        authorized_artifact_path=".ai/reviews/REVIEW-086.md",
+        authorized_artifact_blob_sha="a" * 40,
+        executor_id="antigravity",
+    )
+    auth = {
+        "task_id": "TASK-086",
+        "action": "FIX",
+        "fix_execution_mode": "EVIDENCE_REFRESH",
+        "artifact_path": ".ai/reviews/REVIEW-086.md",
+        "artifact_blob_sha": "a" * 40,
+        "reviewed_task_head_sha": "b" * 40,
+        "executor_id": "antigravity",
+        "lease_id": lease_cand.lease_id,
+        "lease_fingerprint": lease_cand.fingerprint(),
+        "workspace_id": lease_cand.workspace_id,
+        "execution_fingerprint": lease_cand.execution_fingerprint,
+    }
+
+    monkeypatch.setattr(bridge, "load_config", lambda: cfg)
+    monkeypatch.setattr(bridge, "get_active_authorization", lambda t: auth)
+    monkeypatch.setattr(bridge, "current_branch", lambda: "ai/task-086")
+    monkeypatch.setattr(bridge, "get_lease_store", lambda: type("Store", (), {"require_active": lambda s, l: None})())
+    monkeypatch.setattr(bridge, "fetch_control", lambda c: None)
+    monkeypatch.setattr(bridge, "get_remote_blob_sha", lambda c, p: "a" * 40)
+    # Head drifted from reviewed "b"*40 to "c"*40
+    monkeypatch.setattr(bridge, "observe_e4_head", lambda: "c" * 40)
+    monkeypatch.setattr(bridge, "non_ai_dirty_paths", lambda: [])
+
+    test_executed = []
+    args = type("Args", (), {
+        "task_id": 86,
+        "action": "fix",
+        "test": "pytest",
+        "summary": "refresh",
+        "notes": None,
+        "message": None,
+    })()
+
+    monkeypatch.setattr(bridge, "run", lambda cmd, **kwargs: test_executed.append(cmd))
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_publish(args)
+
+    # Test certification must NEVER be reached when head drifted!
+    assert test_executed == []
+
+
+def test_evidence_refresh_exact_clean_reviewed_head_passes(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    """Proof: EVIDENCE_REFRESH_EXACT_CLEAN_REVIEWED_HEAD_PASSES: PASS (Finding B4)."""
+    cfg = {"remote": "origin", "task_branch_prefix": "ai/task-", "control_branch": "ai-control"}
+    lease_cand = bridge.build_executor_lease_candidate(
+        task_id="TASK-086",
+        workspace_id="a" * 64,
+        operation=bridge.ExecutionOperation.FIX,
+        target_branch="ai/task-086",
+        authorized_artifact_path=".ai/reviews/REVIEW-086.md",
+        authorized_artifact_blob_sha="a" * 40,
+        executor_id="antigravity",
+    )
+    auth = {
+        "task_id": "TASK-086",
+        "action": "FIX",
+        "fix_execution_mode": "EVIDENCE_REFRESH",
+        "artifact_path": ".ai/reviews/REVIEW-086.md",
+        "artifact_blob_sha": "a" * 40,
+        "reviewed_task_head_sha": "b" * 40,
+        "executor_id": "antigravity",
+        "lease_id": lease_cand.lease_id,
+        "lease_fingerprint": lease_cand.fingerprint(),
+        "workspace_id": lease_cand.workspace_id,
+        "execution_fingerprint": lease_cand.execution_fingerprint,
+    }
+
+    ai_dir = tmp_path / ".ai"
+    (ai_dir / "results").mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setattr(bridge, "AI", ai_dir)
+    monkeypatch.setattr(bridge, "load_config", lambda: cfg)
+    monkeypatch.setattr(bridge, "get_active_authorization", lambda t: auth)
+    monkeypatch.setattr(bridge, "current_branch", lambda: "ai/task-086")
+    monkeypatch.setattr(bridge, "get_lease_store", lambda: type("Store", (), {
+        "require_active": lambda s, l: None,
+        "release": lambda s, l: None,
+    })())
+    monkeypatch.setattr(bridge, "fetch_control", lambda c: None)
+    monkeypatch.setattr(bridge, "get_remote_blob_sha", lambda c, p: "a" * 40)
+    monkeypatch.setattr(bridge, "read_remote_file", lambda c, p: "STATUS: CHANGES_REQUIRED\n")
+    # Head exactly matches reviewed "b"*40
+    monkeypatch.setattr(bridge, "observe_e4_head", lambda: "b" * 40)
+    monkeypatch.setattr(bridge, "non_ai_dirty_paths", lambda: [])
+    monkeypatch.setattr(bridge, "git", lambda *args, **kwargs: subprocess.CompletedProcess(args, 0, "b" * 40, ""))
+    monkeypatch.setattr(bridge, "save_authorization", lambda t, a: None)
+    monkeypatch.setattr(bridge, "update_state", lambda t, s, m: None)
+
+    test_executed = []
+    args = type("Args", (), {
+        "task_id": 86,
+        "action": "fix",
+        "test": "pytest",
+        "summary": "refresh",
+        "notes": None,
+        "message": None,
+    })()
+
+    monkeypatch.setattr(bridge, "run", lambda cmd, **kwargs: (test_executed.append(cmd), subprocess.CompletedProcess(cmd, 0, "1 passed", ""))[1])
+
+    # Should proceed through test certification and publish without exiting
+    bridge.cmd_publish(args)
+
+    assert test_executed == ["pytest"]
+    assert auth["status"] == "CONSUMED"

@@ -33,7 +33,7 @@ def test_worker_flow_module_created_and_exports_expected_types() -> None:
 
 
 def test_fix_execution_mode_closed_and_legacy_default() -> None:
-    """Proof: FIX_MODE_CLOSED: PASS & LEGACY_FIX_DEFAULT_IMPLEMENTATION: PASS."""
+    """Proof: FIX_MODE_CLOSED: PASS & LEGACY_FIX_DEFAULT_IMPLEMENTATION: PASS & VALID_MISSING_REVIEW_MARKER_NORMALIZES_TO_IMPLEMENTATION_IN_BRIDGE_AUTH: PASS."""
     # Missing / None / empty string defaults to IMPLEMENTATION
     assert extract_fix_execution_mode(None) == FixExecutionMode.IMPLEMENTATION
     assert extract_fix_execution_mode("") == FixExecutionMode.IMPLEMENTATION
@@ -62,8 +62,27 @@ def test_conflicting_fix_mode_fails_closed() -> None:
         "FIX_EXECUTION_MODE: IMPLEMENTATION\n"
         "FIX_EXECUTION_MODE: EVIDENCE_REFRESH\n"
     )
-    with pytest.raises(ValueError, match="Conflicting FIX_EXECUTION_MODE markers"):
+    with pytest.raises(ValueError, match="Multiple FIX_EXECUTION_MODE markers found"):
         extract_fix_execution_mode(review_with_conflicts)
+
+
+def test_duplicate_identical_fix_mode_markers_fail_closed() -> None:
+    """Proof: DUPLICATE_IDENTICAL_FIX_MODE_MARKERS_FAIL_CLOSED: PASS (Finding B5.1)."""
+    review_with_duplicates = (
+        "# REVIEW\n"
+        "FIX_EXECUTION_MODE: IMPLEMENTATION\n"
+        "FIX_EXECUTION_MODE: IMPLEMENTATION\n"
+    )
+    with pytest.raises(ValueError, match="Multiple FIX_EXECUTION_MODE markers found"):
+        extract_fix_execution_mode(review_with_duplicates)
+
+    review_with_duplicate_refresh = (
+        "# REVIEW\n"
+        "FIX_EXECUTION_MODE: EVIDENCE_REFRESH\n"
+        "FIX_EXECUTION_MODE: EVIDENCE_REFRESH\n"
+    )
+    with pytest.raises(ValueError, match="Multiple FIX_EXECUTION_MODE markers found"):
+        extract_fix_execution_mode(review_with_duplicate_refresh)
 
 
 def test_status_transaction_syncs_and_checks_pending_non_authorizing(tmp_path: Path) -> None:
@@ -215,7 +234,7 @@ def test_handoff_failure_blocks_continuation(tmp_path: Path) -> None:
 
 
 def test_evidence_refresh_skips_executor_and_publishes_directly(tmp_path: Path) -> None:
-    """Proof: EVIDENCE_REFRESH_SKIPS_EXECUTOR: PASS & EVIDENCE_REFRESH_PUBLISHES_THROUGH_NORMAL_WORKER_SURFACE: PASS & COORDINATOR_MODE_EQUALS_AUTHORIZED_MODE: PASS."""
+    """Proof: EVIDENCE_REFRESH_SKIPS_EXECUTOR: PASS & EVIDENCE_REFRESH_PUBLISHES_THROUGH_NORMAL_WORKER_SURFACE: PASS & COORDINATOR_MODE_EQUALS_AUTHORIZED_MODE: PASS & EVIDENCE_REFRESH_EXECUTOR_INVOCATION_COUNT_ZERO: PASS."""
     invoked_cmds: list[list[str]] = []
 
     def fake_run_bridge_cmd(args: list[str]) -> int:
@@ -257,7 +276,7 @@ def test_evidence_refresh_skips_executor_and_publishes_directly(tmp_path: Path) 
 
 
 def test_fix_mode_drift_or_invalid_auth_fails_closed(tmp_path: Path) -> None:
-    """Proof: MODE_DRIFT_FAILS_CLOSED: PASS."""
+    """Proof: MODE_DRIFT_FAILS_CLOSED: PASS & MISSING_AUTHORIZED_FIX_MODE_FAILS_CLOSED: PASS."""
     def fake_run_bridge_cmd(args: list[str]) -> int:
         return 0
 
@@ -277,7 +296,17 @@ def test_fix_mode_drift_or_invalid_auth_fails_closed(tmp_path: Path) -> None:
     assert res.status == "AUTH_INVALID"
     assert res.returncode == 1
 
-    # Test case 2: unknown fix execution mode in auth
+    # Test case 2: missing fix_execution_mode in auth (Finding B5.2)
+    coordinator_missing_mode = WorkerFlowCoordinator(
+        repo_root=tmp_path,
+        run_bridge_cmd_fn=fake_run_bridge_cmd,
+        load_auth_fn=lambda t: {"status": "ACTIVE", "action": "FIX"},
+    )
+    res_missing = coordinator_missing_mode.execute_transaction(intent)
+    assert res_missing.status == "AUTH_INVALID"
+    assert res_missing.returncode == 1
+
+    # Test case 3: unknown fix execution mode in auth
     coordinator_bad_mode = WorkerFlowCoordinator(
         repo_root=tmp_path,
         run_bridge_cmd_fn=fake_run_bridge_cmd,

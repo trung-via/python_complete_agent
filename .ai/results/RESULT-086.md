@@ -18,44 +18,43 @@ EXECUTOR_AD_HOC_T2_OBSERVABILITY: UNAVAILABLE
 EXECUTOR_AD_HOC_T2_EXECUTION_COUNT: UNKNOWN
 GLOBAL_T2_EXECUTION_COUNT: UNKNOWN
 TARGETED_TEST_EXECUTION_COUNT: UNKNOWN
-FULL_SUITE_DURATION_SECONDS: 314.2395897000006
+FULL_SUITE_DURATION_SECONDS: 313.30188030000045
 TARGETED_TEST_DURATION_SECONDS: UNKNOWN
 ```
 
 ## Summary
-Resolved all 3 REVIEW-086 findings (B1, B2, B3):
+Resolved Round 2 REVIEW-086 findings (B4 and B5):
 
-1. Finding B1 (Lineage & Stale Branch Guard): Forward-ported/rebased TASK-086 onto exact bound canonical main 11967270857dd886e6e686a599bdd40e1d684619, preserving all accepted TASK-088 changes alongside TASK-086 P1.0A behavior. Verified main is an ancestor of task head. Added is_git_ancestor guard in prepare_task_branch to prevent stale branches from silently bypassing bound main.
+1. Finding B4 (EVIDENCE_REFRESH Safety & Exact Reviewed Head Enforcement): Implemented fail-closed pre-certification checks in bridge publish for EVIDENCE_REFRESH mode: requires ACTIVE FIX authorization, exact authorized task branch, clean non-.ai worktree, and exact match between current task HEAD and bound reviewed_task_head_sha before test certification and publication. Executor invocation count is 0, and canonical T2 full suite runs exactly once.
 
-2. Finding B2 (Lean Execution Contract): Streamlined WorkerFlowCoordinator so RUN and FIX invoke bridge handoff directly as the single pre-authority synchronization boundary without redundant pre-sync, while STATUS preserves sync then pending.
+2. Finding B5 (Closed FIX Mode Fail-Closed Hardening):
+  - B5.1: Hardened extract_fix_execution_mode to fail closed (raise ValueError) on multiple markers even if identical (e.g. duplicate IMPLEMENTATION).
+  - B5.2: Hardened WorkerFlowCoordinator to fail closed (status AUTH_INVALID) if post-handoff authorization lacks an explicit fix_execution_mode field.
+  - Validated compatibility normalization of missing review marker to IMPLEMENTATION in Bridge auth.
 
-3. Finding B3 (Exact Mode Authority): Bound FIX continuation strictly to the exact fix_execution_mode frozen and persisted in active authorization by bridge handoff, eliminating working-tree TOCTOU risks and failing closed on mode drift.
-
-Verified all 259 targeted impact tests and full canonical test suite pass clean.
+Verified all 263 targeted impact tests and full canonical test suite pass clean.
 
 ## Task Metadata
 - Task: `TASK-086`
 - Action: `FIX`
 - Executor: `antigravity`
-- Authorized Artifact: `.ai/reviews/REVIEW-086.md (b2b4516cb8)`
+- Authorized Artifact: `.ai/reviews/REVIEW-086.md (feb439a631)`
 - Base Main SHA: `(n/a)`
 - Branch: `ai/task-086`
 
 ## Files Changed
 - bridge.py
 - src/aios_bridge/worker_flow.py
-- tests/aios_bridge/test_aios_worker_control_surface.py
 - tests/aios_bridge/test_worker_flow.py
 - tests/test_bridge.py
 
 ## Diff Stat
 ```text
-bridge.py                                          |  35 +++++-
- src/aios_bridge/worker_flow.py                     |  87 +++++----------
- .../test_aios_worker_control_surface.py            | 124 +++++++++++----------
- tests/aios_bridge/test_worker_flow.py              |  99 ++++++++++------
- tests/test_bridge.py                               |  31 ++++++
- 5 files changed, 220 insertions(+), 156 deletions(-)
+bridge.py                             |  25 +++++
+ src/aios_bridge/worker_flow.py        |  22 ++--
+ tests/aios_bridge/test_worker_flow.py |  39 +++++++-
+ tests/test_bridge.py                  | 183 ++++++++++++++++++++++++++++++++++
+ 4 files changed, 257 insertions(+), 12 deletions(-)
 ```
 
 ## Tests
@@ -71,7 +70,7 @@ Exit code: 0
 ....ss....................................s............................. [ 16%]
 ........................................................................ [ 19%]
 ........................................................................ [ 22%]
-........................................................................ [ 25%]
+........................................................................ [ 24%]
 ........................................................................ [ 27%]
 ........................................................................ [ 30%]
 ........................................................................ [ 33%]
@@ -80,7 +79,7 @@ Exit code: 0
 ........................................................................ [ 41%]
 ........................................................................ [ 44%]
 ........................................................................ [ 47%]
-........................................................................ [ 50%]
+........................................................................ [ 49%]
 ........................................................................ [ 52%]
 ........................................................................ [ 55%]
 ........................................................................ [ 58%]
@@ -89,7 +88,7 @@ Exit code: 0
 ........................................................................ [ 66%]
 ........................................................................ [ 69%]
 ........................................................................ [ 72%]
-........................................................................ [ 75%]
+........................................................................ [ 74%]
 ........................................................................ [ 77%]
 ........................................................................ [ 80%]
 ........................................................................ [ 83%]
@@ -98,7 +97,8 @@ Exit code: 0
 ........................................................................ [ 91%]
 ........................................................................ [ 94%]
 ........................................................................ [ 97%]
-.......................................................................  [100%]
+........................................................................ [ 99%]
+...                                                                      [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -401,7 +401,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-2584 passed, 7 skipped, 1540 warnings in 312.62s (0:05:12)
+2588 passed, 7 skipped, 1540 warnings in 312.06s (0:05:12)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -411,14 +411,14 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 
 ## Validation Evidence
 ```json
-{"action":"FIX","aios_managed_t2_duplication_detected":false,"aios_managed_t2_execution_count":1,"evidence_scope":"AIOS_MANAGED_VALIDATION_AND_EXECUTOR_AD_HOC_BOUNDARY","executor_ad_hoc_t2_execution_count":"UNKNOWN","executor_ad_hoc_t2_observability":"UNAVAILABLE","executor_id":"antigravity","expected_aios_managed_t2_execution_count":1,"full_canonical_owner":"CERTIFICATION_BOUNDARY","full_suite_duration_seconds":314.2395897000006,"global_t2_execution_count":"UNKNOWN","targeted_test_duration_seconds":"UNKNOWN","targeted_test_execution_count":"UNKNOWN","task_id":"TASK-086","validation_profile":"CONTROL_PLANE_STRICT_COMPAT"}
+{"action":"FIX","aios_managed_t2_duplication_detected":false,"aios_managed_t2_execution_count":1,"evidence_scope":"AIOS_MANAGED_VALIDATION_AND_EXECUTOR_AD_HOC_BOUNDARY","executor_ad_hoc_t2_execution_count":"UNKNOWN","executor_ad_hoc_t2_observability":"UNAVAILABLE","executor_id":"antigravity","expected_aios_managed_t2_execution_count":1,"full_canonical_owner":"CERTIFICATION_BOUNDARY","full_suite_duration_seconds":313.30188030000045,"global_t2_execution_count":"UNKNOWN","targeted_test_duration_seconds":"UNKNOWN","targeted_test_execution_count":"UNKNOWN","task_id":"TASK-086","validation_profile":"CONTROL_PLANE_STRICT_COMPAT"}
 ```
 
 ## Risks / Notes
 TARGETED_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/aios_bridge/test_worker_flow.py tests/aios_bridge/test_aios_worker_control_surface.py tests/test_bridge.py tests/test_bridge_executor_automation.py -v
 Exit code: 0
-Result: 259 passed, 0 skipped, 0 failed
+Result: 263 passed, 0 skipped, 0 failed
 
 FULL_REPOSITORY_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/ -q
@@ -447,11 +447,17 @@ FIX_MODE_CLOSED: PASS
 LEGACY_FIX_DEFAULT_IMPLEMENTATION: PASS
 UNKNOWN_FIX_MODE_FAILS_CLOSED: PASS
 CONFLICTING_FIX_MODE_FAILS_CLOSED: PASS
-IMPLEMENTATION_MODE_CODEX_CONTINUATION_PRESERVED: PASS
-IMPLEMENTATION_MODE_ANTIGRAVITY_CONTINUATION_PRESERVED: PASS
-EVIDENCE_REFRESH_SKIPS_EXECUTOR: PASS
+DUPLICATE_IDENTICAL_FIX_MODE_MARKERS_FAIL_CLOSED: PASS
+MISSING_AUTHORIZED_FIX_MODE_FAILS_CLOSED: PASS
+VALID_MISSING_REVIEW_MARKER_NORMALIZES_TO_IMPLEMENTATION_IN_BRIDGE_AUTH: PASS
+EVIDENCE_REFRESH_DIRTY_WORKTREE_FAILS_BEFORE_CERTIFICATION: PASS
+EVIDENCE_REFRESH_HEAD_DRIFT_FAILS_BEFORE_CERTIFICATION: PASS
+EVIDENCE_REFRESH_EXACT_CLEAN_REVIEWED_HEAD_PASSES: PASS
+EVIDENCE_REFRESH_EXECUTOR_INVOCATION_COUNT_ZERO: PASS
 EVIDENCE_REFRESH_T2_EXACTLY_ONCE: PASS
 EVIDENCE_REFRESH_PUBLISHES_THROUGH_NORMAL_WORKER_SURFACE: PASS
+IMPLEMENTATION_MODE_CODEX_CONTINUATION_PRESERVED: PASS
+IMPLEMENTATION_MODE_ANTIGRAVITY_CONTINUATION_PRESERVED: PASS
 P0_SCOPED_VALIDATION_EVIDENCE_PRESERVED: PASS
 AUTO_RETRY: NO
 AUTO_REROUTE: NO
@@ -468,4 +474,4 @@ STANDING_AUTO_MERGE_AUTHORIZATION: ENABLED
 WORKER_MERGE_AUTHORITY: NO
 
 ## Generated
-2026-08-25T00:46:47+07:00
+2026-08-25T01:10:37+07:00

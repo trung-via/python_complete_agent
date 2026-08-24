@@ -2864,6 +2864,9 @@ def cmd_handoff(args):
         seen[artifact_rel] = blob_sha
         save_json(paths["seen"], seen)
 
+        review_head_match = re.search(r"^REVIEWED_TASK_HEAD_SHA:\s*([0-9a-fA-F]{40})", content, re.MULTILINE)
+        reviewed_task_head = review_head_match.group(1).lower() if review_head_match else None
+
         clear_pending_events("REVIEW", task_id)
 
         branch = prepare_task_branch(cfg, task_id, "FIX")
@@ -2942,6 +2945,7 @@ def cmd_handoff(args):
                     "branch": branch,
                     "status": "ACTIVE",
                     "fix_execution_mode": fix_execution_mode.value,
+                    "reviewed_task_head_sha": reviewed_task_head,
                     "executor_id": acquired_lease.executor_id,
                     "lease_id": acquired_lease.lease_id,
                     "lease_fingerprint": acquired_lease.fingerprint(),
@@ -3021,6 +3025,7 @@ def cmd_handoff(args):
                 "branch": branch,
                 "status": "ACTIVE",
                 "fix_execution_mode": fix_execution_mode.value,
+                "reviewed_task_head_sha": reviewed_task_head,
                 "executor_id": acquired_lease.executor_id,
                 "lease_id": acquired_lease.lease_id,
                 "lease_fingerprint": acquired_lease.fingerprint(),
@@ -4848,6 +4853,26 @@ def cmd_publish(args):
             f"Artifact '{auth['artifact_path']}' đã thay đổi trên control branch kể từ lúc handoff. "
             f"Cần chạy lại `/aios-worker {auth['action']} TASK-{task_id:03d}`."
         )
+
+    # Finding B4 Guard: EVIDENCE_REFRESH must enforce clean exact reviewed head before tests/publication
+    if auth.get("fix_execution_mode") == "EVIDENCE_REFRESH":
+        if auth.get("action") != "FIX":
+            fail("EVIDENCE_REFRESH requires ACTIVE FIX authorization")
+        if branch != expected:
+            fail(f"EVIDENCE_REFRESH branch mismatch: current '{branch}' vs expected '{expected}'")
+        reviewed_head = auth.get("reviewed_task_head_sha")
+        current_head = observe_e4_head()
+        if not reviewed_head:
+            fail("EVIDENCE_REFRESH missing bound 'reviewed_task_head_sha' in authorization")
+        if current_head.lower() != reviewed_head.lower():
+            fail(
+                f"EVIDENCE_REFRESH requires exact reviewed task HEAD; current HEAD '{current_head}' != reviewed '{reviewed_head}'"
+            )
+        dirty_paths = non_ai_dirty_paths()
+        if dirty_paths:
+            fail(
+                f"EVIDENCE_REFRESH requires clean non-.ai worktree; found dirty paths: {dirty_paths}"
+            )
 
     if auth["action"] == "RUN":
         review_rel = f".ai/reviews/REVIEW-{task_id:03d}.md"
