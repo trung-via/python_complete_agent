@@ -1190,9 +1190,51 @@ def _strict_json(payload: str, marker: str) -> Any:
         ) from exc
 
 
+def _scan_top_level_lines(text: str) -> list[str]:
+    """Return only column-0 top-level lines that are outside fenced code blocks."""
+    lines = text.splitlines()
+    top_level_lines: list[str] = []
+    in_fence = False
+    fence_char = ""
+    fence_len = 0
+
+    for line in lines:
+        stripped = line.strip()
+        if not in_fence:
+            if stripped.startswith("```") or stripped.startswith("~~~"):
+                char = stripped[0]
+                count = 0
+                for c in stripped:
+                    if c == char:
+                        count += 1
+                    else:
+                        break
+                if count >= 3:
+                    in_fence = True
+                    fence_char = char
+                    fence_len = count
+                    continue
+            if line and not line[0].isspace() and not line.startswith(">"):
+                top_level_lines.append(line)
+        else:
+            if stripped.startswith(fence_char * fence_len):
+                closing_chars = 0
+                for c in stripped:
+                    if c == fence_char:
+                        closing_chars += 1
+                    else:
+                        break
+                if closing_chars >= fence_len and stripped[closing_chars:].strip() == "":
+                    in_fence = False
+                    fence_char = ""
+                    fence_len = 0
+    return top_level_lines
+
+
 def _marker_payload(text: str, marker: str) -> str | None:
     prefix = marker + ":"
-    values = [line[len(prefix) :].strip() for line in text.splitlines() if line.startswith(prefix)]
+    top_lines = _scan_top_level_lines(text)
+    values = [line[len(prefix) :].strip() for line in top_lines if line.startswith(prefix)]
     if len(values) > 1:
         raise RepositoryStructuralExperienceGraphConsistencyError(
             f"multiple {marker} markers are forbidden"
@@ -1260,19 +1302,66 @@ def _parse_invariants(text: str) -> tuple[tuple[str, str], ...] | None:
 
 
 def _parse_result_manifest(text: str, expected_task_id: str) -> tuple[str, str] | None:
-    heading_count = len(re.findall(r"^## Review Manifest[ \t]*$", text, re.MULTILINE))
-    matches = list(_REVIEW_MANIFEST_RE.finditer(text))
-    if heading_count == 0:
+    lines = text.splitlines()
+    heading_indices = [
+        i for i, line in enumerate(lines) if line.strip() == "## Review Manifest"
+    ]
+    if len(heading_indices) == 0:
         return None
-    if heading_count != 1 or len(matches) != 1:
+    if len(heading_indices) != 1:
         raise RepositoryStructuralExperienceGraphConsistencyError(
             "RESULT Review Manifest must be one closed fenced block"
         )
+
+    idx = heading_indices[0]
+    curr = idx + 1
+    while curr < len(lines) and not lines[curr].strip():
+        curr += 1
+
+    if curr >= len(lines):
+        raise RepositoryStructuralExperienceGraphConsistencyError(
+            "RESULT Review Manifest must be one closed fenced block"
+        )
+
+    fence_line = lines[curr].strip()
+    if not (fence_line.startswith("```") or fence_line.startswith("~~~")):
+        raise RepositoryStructuralExperienceGraphConsistencyError(
+            "RESULT Review Manifest must be one closed fenced block"
+        )
+
+    fence_char = fence_line[0]
+    fence_len = 0
+    for c in fence_line:
+        if c == fence_char:
+            fence_len += 1
+        else:
+            break
+    if fence_len < 3:
+        raise RepositoryStructuralExperienceGraphConsistencyError(
+            "RESULT Review Manifest must be one closed fenced block"
+        )
+
+    curr += 1
+    manifest_lines: list[str] = []
+    found_closing = False
+    while curr < len(lines):
+        l = lines[curr].strip()
+        if l.startswith(fence_char * fence_len) and l[fence_len:].strip() == "":
+            found_closing = True
+            break
+        manifest_lines.append(lines[curr])
+        curr += 1
+
+    if not found_closing:
+        raise RepositoryStructuralExperienceGraphConsistencyError(
+            "RESULT Review Manifest must be one closed fenced block"
+        )
+
     fields: dict[str, str] = {}
-    for line in matches[0].group(1).splitlines():
+    for line in manifest_lines:
         if not line.strip():
             continue
-        scalar = re.fullmatch(r"([A-Z][A-Z0-9_]*)[ \t]*(?::|=)[ \t]*([^\s][^\r\n]*?)\s*", line)
+        scalar = re.fullmatch(r"([A-Z][A-Z0-9_]*)[ \t]*(?::|=)[ \t]*([^\s][^\r\n]*?)\s*", line.strip())
         if scalar is None:
             raise RepositoryStructuralExperienceGraphConsistencyError(
                 "Review Manifest contains a non-scalar line"
@@ -1301,36 +1390,77 @@ def _parse_result_manifest(text: str, expected_task_id: str) -> tuple[str, str] 
 
 
 def _parse_review_findings(text: str) -> tuple[tuple[str, str, tuple[str, ...]], ...]:
-    matches = list(_FINDING_HEADING_RE.finditer(text))
-    findings: list[tuple[str, str, tuple[str, ...]]] = []
+    lines = text.splitlines()
+    findings: list[tuple[str, str, list[str]]] = []
     seen_numbers: set[str] = set()
-    for position, match in enumerate(matches):
-        number, title = match.groups()
-        if number in seen_numbers:
-            raise RepositoryStructuralExperienceGraphConsistencyError(
-                "duplicate REVIEW finding number is forbidden"
-            )
-        seen_numbers.add(number)
-        title = title.strip()
-        _bounded_text(title, "review finding title", _MAX_FINDING_TITLE)
-        section_end = matches[position + 1].start() if position + 1 < len(matches) else len(text)
-        section = text[match.end() : section_end]
-        paths: list[str] = []
-        for line in section.splitlines():
+    in_fence = False
+    fence_char = ""
+    fence_len = 0
+
+    for line in lines:
+        stripped = line.strip()
+        if not in_fence:
+            if stripped.startswith("```") or stripped.startswith("~~~"):
+                char = stripped[0]
+                count = 0
+                for c in stripped:
+                    if c == char:
+                        count += 1
+                    else:
+                        break
+                if count >= 3:
+                    in_fence = True
+                    fence_char = char
+                    fence_len = count
+                    continue
+
+            # Outside fence: check for column-0 finding heading: ### B1 — Title or ### B1 - Title
+            if line.startswith("###"):
+                match = re.fullmatch(r"###\s+(B[1-9][0-9]*)\s+(?:—|-)\s+([^\r\n]+?)\s*", line)
+                if match is not None:
+                    number, title = match.groups()
+                    if number in seen_numbers:
+                        raise RepositoryStructuralExperienceGraphConsistencyError(
+                            "duplicate REVIEW finding number is forbidden"
+                        )
+                    seen_numbers.add(number)
+                    title = title.strip()
+                    _bounded_text(title, "review finding title", _MAX_FINDING_TITLE)
+                    findings.append((number, title, []))
+                    continue
+
+            # Outside fence: check for column-0 H2_COMPONENT_PATH:
             if line.startswith("H2_COMPONENT_PATH:"):
+                if not findings:
+                    raise RepositoryStructuralExperienceGraphConsistencyError(
+                        "H2_COMPONENT_PATH evidence outside finding section"
+                    )
                 path = line[len("H2_COMPONENT_PATH:") :].strip()
                 if not path:
                     raise RepositoryStructuralExperienceGraphConsistencyError(
                         "empty H2_COMPONENT_PATH finding evidence"
                     )
                 _validate_posix_path(path)
-                paths.append(path)
-        if len(set(paths)) != len(paths):
-            raise RepositoryStructuralExperienceGraphConsistencyError(
-                "duplicate finding component path evidence is forbidden"
-            )
-        findings.append((number, title, tuple(paths)))
-    return tuple(findings)
+                curr_paths = findings[-1][2]
+                if path in curr_paths:
+                    raise RepositoryStructuralExperienceGraphConsistencyError(
+                        "duplicate finding component path evidence is forbidden"
+                    )
+                curr_paths.append(path)
+        else:
+            if stripped.startswith(fence_char * fence_len):
+                closing_chars = 0
+                for c in stripped:
+                    if c == fence_char:
+                        closing_chars += 1
+                    else:
+                        break
+                if closing_chars >= fence_len and stripped[closing_chars:].strip() == "":
+                    in_fence = False
+                    fence_char = ""
+                    fence_len = 0
+
+    return tuple((num, title, tuple(paths)) for num, title, paths in findings)
 
 
 def _artifact_evidence_fingerprint(artifact: ExperienceArtifactRef) -> str:

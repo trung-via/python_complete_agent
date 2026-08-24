@@ -5,38 +5,41 @@ STATUS: READY_FOR_REVIEW
 ## Review Manifest
 ```yaml
 TASK_ID: TASK-080
-ACTION: RUN
-EXECUTOR_ID: codex
-EXECUTOR_FAILOVER: NO
+ACTION: FIX
+EXECUTOR_ID: antigravity
+EXECUTOR_FAILOVER: YES
+FAILOVER_FROM_EXECUTOR: codex
+FAILOVER_TO_EXECUTOR: antigravity
+FAILOVER_SOURCE_PUBLISHED_SHA: 20c228c29843b3eee90935e74ad648dd1339a18b
+FAILOVER_PROOF_FINGERPRINT: 3f9f5847ccddef22acb18a7cc6b01bd6016d5d1c697c5ca0c7816e4d54833a3f
+FAILOVER_REVIEW_BLOB_SHA: 8ddbdedd52ddfca653c257f08f976cda69b3e145
 HOT_HANDOFF: NO
 ```
 
 ## Summary
-TASK-080 implementation recovered after Codex E4 timeout; targeted H2 validation passed; pending ChatGPT review.
+Fixed REVIEW-080 Findings B1-B2: (B1) implemented pure bounded _scan_top_level_lines() Markdown scanner to enforce column-0 top-level machine marker boundary outside fenced code blocks, ignoring marker-shaped lines inside fences, and made review finding heading/component path parsing fence-aware; (B2) made RESULT Review Manifest parsing line-ending agnostic over splitlines() supporting LF and CRLF while strictly enforcing one closed fenced block, TASK_ID matching RESULT path, valid EXECUTOR_ID, and fail-closed validation; added comprehensive regression tests (154 targeted passed, 2472 full repo passed).
 
 ## Task Metadata
 - Task: `TASK-080`
-- Action: `RUN`
-- Executor: `codex`
-- Authorized Artifact: `.ai/tasks/TASK-080.md (c53f846f6c)`
-- Base Main SHA: `a2fe1e7273503d6dc1863ae00ac3c026192bb2a2`
+- Action: `FIX`
+- Executor: `antigravity`
+- Authorized Artifact: `.ai/reviews/REVIEW-080.md (8ddbdedd52)`
+- Base Main SHA: `(n/a)`
 - Branch: `ai/task-080`
 
 ## Files Changed
-- src/aios_engineering/harness/__init__.py
 - src/aios_engineering/harness/structural_experience_graph.py
 - tests/aios_engineering/harness/test_structural_experience_graph.py
 
 ## Diff Stat
 ```text
-src/aios_engineering/harness/__init__.py           |   64 +
- .../harness/structural_experience_graph.py         | 1965 ++++++++++++++++++++
- .../harness/test_structural_experience_graph.py    |  427 +++++
- 3 files changed, 2456 insertions(+)
+.../harness/structural_experience_graph.py         | 188 +++++++++++++++++----
+ .../harness/test_structural_experience_graph.py    | 149 +++++++++++++++-
+ 2 files changed, 306 insertions(+), 31 deletions(-)
 ```
 
 ## Tests
-Command: `.\venv\Scripts\python.exe -m pytest tests/ -q`
+Command: `venv\Scripts\python.exe -m pytest tests/ -q`
 Exit code: 0
 
 ```text
@@ -60,7 +63,7 @@ Exit code: 0
 ........................................................................ [ 52%]
 ........................................................................ [ 55%]
 ........................................................................ [ 58%]
-........................................................................ [ 61%]
+........................................................................ [ 60%]
 ........................................................................ [ 63%]
 ........................................................................ [ 66%]
 ........................................................................ [ 69%]
@@ -71,10 +74,10 @@ Exit code: 0
 ........................................................................ [ 84%]
 ........................................................................ [ 87%]
 ........................................................................ [ 90%]
-........................................................................ [ 93%]
+........................................................................ [ 92%]
 ........................................................................ [ 95%]
 ........................................................................ [ 98%]
-.............................                                            [100%]
+...............................                                          [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -377,7 +380,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-2470 passed, 7 skipped, 1540 warnings in 198.61s (0:03:18)
+2472 passed, 7 skipped, 1540 warnings in 370.38s (0:06:10)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -386,7 +389,34 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 ```
 
 ## Risks / Notes
-E4_RECOVERY_PUBLICATION: YES; EXECUTOR_RERUN: NO; ORIGINAL_TRANSPORT: TIMED_OUT; TARGETED_TESTS: 152 passed, 1 warning
+TARGETED_TESTS:
+Command: venv/Scripts/python.exe -m pytest tests/aios_engineering/harness/test_structural_experience_graph.py tests/aios_engineering/harness/test_graph.py tests/aios_engineering/harness/test_roles.py tests/aios_engineering/harness/test_ranking.py tests/aios_engineering/harness/test_experience.py -v
+Exit code: 0
+Result: 154 passed, 0 skipped, 0 failed
+
+FULL_REPOSITORY_TESTS:
+Command: venv/Scripts/python.exe -m pytest tests/ -q
+Exit code: 0
+Result: 2472 passed, 7 skipped, 0 failed
+
+GIT_DIFF_CHECK:
+Command: git diff --check
+Exit code: 0
+Result: Clean
+
+REVIEW_080_FINDINGS_REPAIR:
+B1_TOP_LEVEL_MARKDOWN_EVIDENCE_BOUNDARY: RESOLVED
+B2_RESULT_CRLF_GRAMMAR: RESOLVED
+AUTHORIZED_SCOPE_ONLY: YES
+H2_STRUCTURAL_EXPERIENCE_GRAPH_POLICY_VERSION: h2-structural-experience-v1
+STRUCTURAL_EXPERIENCE_GRAPH_SCHEMA_VERSION: 1
+BOUNDED_ANALYSIS_BUDGET_PRESERVED: PASS
+NETWORK_CALL: NO
+LLM_CALL: NO
+PAID_API: NO
+H3_NEW_WORK_STARTED: NO
+STANDING_AUTO_MERGE_AUTHORIZATION: ENABLED
+WORKER_MERGE_AUTHORITY: NO
 
 ## Generated
-2026-08-24T10:52:39+07:00
+2026-08-24T11:32:48+07:00
