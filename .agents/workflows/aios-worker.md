@@ -76,23 +76,24 @@ When this workflow is invoked:
 
 ### RUN TASK-N
 
-Authorizes a new task run via Bridge handoff (antigravity adapter = handoff only, no auto-execute):
+Authorizes a new task run via Bridge handoff in a single-command transaction (automatically synchronizes before handoff, without requiring prior STATUS):
 
 ```powershell
 .\venv\Scripts\python.exe .agents/skills/aios-worker/scripts/aios_worker.py RUN TASK-N --adapter antigravity
 ```
 
-After the handoff succeeds, implementation continues in this Antigravity session.
+After handoff succeeds, implementation continues in this Antigravity session.
 
 ### FIX TASK-N
 
-Authorizes a fix run on an active review via Bridge handoff:
+Authorizes and processes a fix run on an active review via Bridge in a single-command transaction:
+
+- **IMPLEMENTATION mode (default)**: performs handoff and continues fix implementation in this Antigravity session.
+- **EVIDENCE_REFRESH mode**: performs handoff, skips executor invocation, certifies canonical test suite, and republishes RESULT directly.
 
 ```powershell
 .\venv\Scripts\python.exe .agents/skills/aios-worker/scripts/aios_worker.py FIX TASK-N --adapter antigravity
 ```
-
-After the handoff succeeds, fix implementation continues in this Antigravity session.
 
 ### STATUS TASK-N
 
@@ -102,4 +103,4 @@ Synchronizes control plane artifacts and displays pending tasks non-destructivel
 .\venv\Scripts\python.exe .agents/skills/aios-worker/scripts/aios_worker.py STATUS TASK-N --adapter antigravity
 ```
 
-STATUS is non-authorizing and never acquires leases or triggers execution on either surface.
+STATUS is diagnostic/non-authorizing and is not a prerequisite for RUN or FIX.

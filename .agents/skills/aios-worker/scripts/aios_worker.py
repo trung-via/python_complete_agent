@@ -15,10 +15,6 @@ import subprocess
 import sys
 from typing import Sequence
 
-TASK_PATTERN = re.compile(r"^TASK-(\d+)\Z")
-ALLOWED_ACTIONS = {"RUN", "FIX", "STATUS"}
-ALLOWED_ADAPTERS = {"codex", "antigravity"}
-
 
 def get_repo_root() -> Path:
     """Deterministically resolves the repository root from script layout."""
@@ -29,6 +25,26 @@ def get_repo_root() -> Path:
     if not bridge_py.is_file():
         raise FileNotFoundError(f"AIOS Bridge entrypoint not found at: {bridge_py}")
     return repo_root
+
+
+# Ensure repository root is on sys.path for internal bridge imports
+_repo_root = get_repo_root()
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
+
+from src.aios_bridge.worker_flow import (
+    FixExecutionMode,
+    WorkerAction,
+    WorkerAdapter,
+    WorkerFlowCoordinator,
+    WorkerFlowResult,
+    WorkerIntent,
+    extract_fix_execution_mode,
+)
+
+TASK_PATTERN = re.compile(r"^TASK-(\d+)\Z")
+ALLOWED_ACTIONS = {"RUN", "FIX", "STATUS"}
+ALLOWED_ADAPTERS = {"codex", "antigravity"}
 
 
 def parse_task_id(raw_task: str) -> tuple[str, int]:
@@ -66,79 +82,13 @@ def run_bridge_command(repo_root: Path, bridge_args: list[str]) -> int:
     return proc.returncode
 
 
-def handle_codex_run_fix(repo_root: Path, action: str, task_id: str, task_num: int) -> int:
-    """Handles RUN or FIX for Codex adapter: handoff then execute."""
-    action_lower = action.lower()
-
-    # Step 1: bridge.py handoff <N> --action <run|fix> --executor codex
-    handoff_args = ["handoff", str(task_num), "--action", action_lower, "--executor", "codex"]
-    code = run_bridge_command(repo_root, handoff_args)
-    if code != 0:
-        return code
-
-    # Step 2: bridge.py execute <N>
-    execute_args = ["execute", str(task_num)]
-    code = run_bridge_command(repo_root, execute_args)
-    if code != 0:
-        return code
-
-    print(
-        f"\nAIOS_WORKER_STATUS: PUBLISHED\n"
-        f"TASK_ID: {task_id}\n"
-        f"ACTION: {action}\n"
-        f"EXECUTOR: codex\n"
-        f"NEXT: Review {task_id} in ChatGPT"
-    )
-    return 0
-
-
-def handle_antigravity_run_fix(repo_root: Path, action: str, task_id: str, task_num: int) -> int:
-    """Handles RUN or FIX for Antigravity adapter: handoff only (execution remains in interactive session)."""
-    action_lower = action.lower()
-
-    # Step 1: bridge.py handoff <N> --action <run|fix> --executor antigravity
-    handoff_args = ["handoff", str(task_num), "--action", action_lower, "--executor", "antigravity"]
-    code = run_bridge_command(repo_root, handoff_args)
-    if code != 0:
-        return code
-
-    print(
-        f"\nAIOS_WORKER_STATUS: AUTHORIZED\n"
-        f"TASK_ID: {task_id}\n"
-        f"ACTION: {action}\n"
-        f"EXECUTOR: antigravity\n"
-        f"NEXT: continue in the authorized Antigravity worker session"
-    )
-    return 0
-
-
-def handle_status(repo_root: Path, task_id: str, adapter: str) -> int:
-    """Handles non-authorizing STATUS: sync then pending only."""
-    # Step 1: bridge.py sync
-    code = run_bridge_command(repo_root, ["sync"])
-    if code != 0:
-        return code
-
-    # Step 2: bridge.py pending
-    code = run_bridge_command(repo_root, ["pending"])
-    if code != 0:
-        return code
-
-    print(
-        f"\nAIOS_WORKER_STATUS: SYNCED\n"
-        f"TASK_ID: {task_id}\n"
-        f"ADAPTER: {adapter}"
-    )
-    return 0
-
-
 def main(argv: Sequence[str] | None = None) -> int:
     if argv is None:
         argv = sys.argv[1:]
 
     parser = argparse.ArgumentParser(
         prog="aios_worker.py",
-        description="Unified AIOS Worker Control Surface Adapter (ADR-037)",
+        description="Unified AIOS Worker Control Surface Adapter (ADR-037 / ADR-061)",
         add_help=True,
     )
     parser.add_argument(
@@ -162,7 +112,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return e.code if isinstance(e.code, int) else 1
 
     # Validate action
-    action = args.action
+    action = args.action.upper()
     if action not in ALLOWED_ACTIONS:
         print(
             f"[ERROR] Invalid action '{action}'. Allowed actions: {', '.join(sorted(ALLOWED_ACTIONS))}",
@@ -184,16 +134,44 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"[ERROR] Failed to resolve repository root: {e}", file=sys.stderr)
         return 1
 
-    # Dispatch based on action and adapter
-    if action == "STATUS":
-        return handle_status(repo_root, task_id, args.adapter)
-    elif args.adapter == "codex":
-        return handle_codex_run_fix(repo_root, action, task_id, task_num)
-    elif args.adapter == "antigravity":
-        return handle_antigravity_run_fix(repo_root, action, task_id, task_num)
-    else:
-        print(f"[ERROR] Unsupported adapter '{args.adapter}'", file=sys.stderr)
-        return 1
+    # Dispatch via WorkerFlowCoordinator for single-command transactional flow
+    intent = WorkerIntent(
+        action=WorkerAction(action),
+        task_id=task_id,
+        task_num=task_num,
+        adapter=WorkerAdapter(args.adapter),
+    )
+    coordinator = WorkerFlowCoordinator(repo_root=repo_root)
+    result = coordinator.execute_transaction(intent)
+
+    if result.returncode != 0:
+        if result.message:
+            print(f"[ERROR] {result.message}", file=sys.stderr)
+        return result.returncode
+
+    if result.status == "SYNCED":
+        print(
+            f"\nAIOS_WORKER_STATUS: SYNCED\n"
+            f"TASK_ID: {task_id}\n"
+            f"ADAPTER: {args.adapter}"
+        )
+    elif result.status == "AUTHORIZED":
+        print(
+            f"\nAIOS_WORKER_STATUS: AUTHORIZED\n"
+            f"TASK_ID: {task_id}\n"
+            f"ACTION: {action}\n"
+            f"EXECUTOR: {args.adapter}\n"
+            f"NEXT: continue in the authorized Antigravity worker session"
+        )
+    elif result.status == "PUBLISHED":
+        print(
+            f"\nAIOS_WORKER_STATUS: PUBLISHED\n"
+            f"TASK_ID: {task_id}\n"
+            f"ACTION: {action}\n"
+            f"EXECUTOR: {args.adapter}\n"
+            f"NEXT: Review {task_id} in ChatGPT"
+        )
+    return 0
 
 
 if __name__ == "__main__":

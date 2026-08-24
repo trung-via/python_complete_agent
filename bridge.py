@@ -108,6 +108,10 @@ from src.aios_bridge.executor_transports.codex_local import (
     CodexTransportDiagnostic,
     CodexInvocationOutcome,
 )
+from src.aios_bridge.worker_flow import (
+    FixExecutionMode,
+    extract_fix_execution_mode,
+)
 from src.aios_bridge.runtime_lease import AtomicExecutorLeaseStore
 from src.aios_bridge.paid_api_grant import PaidApiGrant
 from src.aios_bridge.runtime_paid_api_grant import AtomicPaidApiGrantStore
@@ -2820,6 +2824,11 @@ def cmd_handoff(args):
             fail(f"Executable review artifact preflight failed: {exc}")
         validation_plan = validation_plan_for_task(task_content)
 
+        try:
+            fix_execution_mode = extract_fix_execution_mode(content)
+        except ValueError as exc:
+            fail(f"Invalid FIX review execution mode: {exc}")
+
         dest = get_artifact_path(artifact_rel)
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(content, encoding="utf-8")
@@ -2905,6 +2914,7 @@ def cmd_handoff(args):
                     "approved_at": now(),
                     "branch": branch,
                     "status": "ACTIVE",
+                    "fix_execution_mode": fix_execution_mode.value,
                     "executor_id": acquired_lease.executor_id,
                     "lease_id": acquired_lease.lease_id,
                     "lease_fingerprint": acquired_lease.fingerprint(),
@@ -2983,6 +2993,7 @@ def cmd_handoff(args):
                 "approved_at": now(),
                 "branch": branch,
                 "status": "ACTIVE",
+                "fix_execution_mode": fix_execution_mode.value,
                 "executor_id": acquired_lease.executor_id,
                 "lease_id": acquired_lease.lease_id,
                 "lease_fingerprint": acquired_lease.fingerprint(),

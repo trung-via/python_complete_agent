@@ -75,7 +75,7 @@ When this skill is invoked:
 
 ### RUN TASK-N
 
-Authorizes and executes a new task run via Bridge (codex adapter = handoff + execute):
+Executes a single-command transactional task run via Bridge (automatically synchronizes, performs handoff, and executes bounded Codex run without requiring prior STATUS):
 
 ```powershell
 .\venv\Scripts\python.exe .agents/skills/aios-worker/scripts/aios_worker.py RUN TASK-N --adapter codex
@@ -83,7 +83,10 @@ Authorizes and executes a new task run via Bridge (codex adapter = handoff + exe
 
 ### FIX TASK-N
 
-Authorizes and executes a fix run on an active review via Bridge:
+Executes a single-command transactional fix on an active review via Bridge (automatically synchronizes latest exact review, inspects closed `FIX_EXECUTION_MODE`, and routes accordingly):
+
+- **IMPLEMENTATION mode (default)**: performs handoff and executes bounded Codex run.
+- **EVIDENCE_REFRESH mode**: performs handoff, skips executor invocation, certifies canonical test suite, and republishes RESULT directly.
 
 ```powershell
 .\venv\Scripts\python.exe .agents/skills/aios-worker/scripts/aios_worker.py FIX TASK-N --adapter codex
@@ -97,4 +100,4 @@ Synchronizes control plane artifacts and displays pending tasks non-destructivel
 .\venv\Scripts\python.exe .agents/skills/aios-worker/scripts/aios_worker.py STATUS TASK-N --adapter codex
 ```
 
-STATUS is non-authorizing and never acquires leases or triggers execution on either surface.
+STATUS is diagnostic/non-authorizing and is not a prerequisite for RUN or FIX.
