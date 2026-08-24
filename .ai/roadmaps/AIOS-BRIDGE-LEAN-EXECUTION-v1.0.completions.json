@@ -1,0 +1,48 @@
+{
+  "schema_version": "1",
+  "roadmap_id": "AIOS-BRIDGE-LEAN-EXECUTION",
+  "roadmap_version": "1.0",
+  "milestones": {
+    "P0": {
+      "status": "OPEN",
+      "completion_fingerprint": null,
+      "requirements": {
+        "P0.R1": "OPEN",
+        "P0.R2": "OPEN",
+        "P0.R3": "OPEN",
+        "P0.R4": "OPEN",
+        "P0.R5": "OPEN"
+      }
+    },
+    "P1": {
+      "status": "LOCKED_PENDING_P0",
+      "completion_fingerprint": null,
+      "requirements": {
+        "P1.R1": "LOCKED",
+        "P1.R2": "LOCKED",
+        "P1.R3": "LOCKED",
+        "P1.R4": "LOCKED"
+      }
+    },
+    "P2": {
+      "status": "LOCKED_PENDING_P1",
+      "completion_fingerprint": null,
+      "requirements": {
+        "P2.R1": "LOCKED",
+        "P2.R2": "LOCKED",
+        "P2.R3": "LOCKED",
+        "P2.R4": "LOCKED"
+      }
+    },
+    "P3": {
+      "status": "LOCKED_PENDING_P2",
+      "completion_fingerprint": null,
+      "requirements": {
+        "P3.R1": "LOCKED",
+        "P3.R2": "LOCKED",
+        "P3.R3": "LOCKED",
+        "P3.R4": "LOCKED"
+      }
+    }
+  }
+}
