@@ -6,12 +6,17 @@ APPROVED: NO
 AUTO_MERGE_ELIGIBLE: NO
 
 TASK_ID: TASK-080
-REVIEWED_TASK_HEAD_SHA: 20c228c29843b3eee90935e74ad648dd1339a18b
+REVIEW_ROUND: 2
+REVIEWED_TASK_HEAD_SHA: e587c3f6c254d9edd17706f689e7d4e4065fa2cd
 REVIEWED_BASE_MAIN_SHA: a2fe1e7273503d6dc1863ae00ac3c026192bb2a2
+PREVIOUS_REVIEWED_HEAD_SHA: 20c228c29843b3eee90935e74ad648dd1339a18b
 TASK_ARTIFACT_BLOB_SHA: c53f846f6cf3478bcc2fe0f59f92a71f36a41b00
-RESULT_BLOB_SHA: a9042443ddceee5275d235876c88a88c68afd729
-EXECUTOR_ID: codex
-BLOCKERS_REMAINING: 2
+RESULT_BLOB_SHA: 9efd9494f79861cee7b5cc1077dfb6ee88fd778d
+EXECUTOR_ID: antigravity
+EXECUTOR_FAILOVER: YES
+FAILOVER_FROM_EXECUTOR: codex
+FAILOVER_TO_EXECUTOR: antigravity
+BLOCKERS_REMAINING: 1
 CODE_AUDIT: CHANGES_REQUIRED
 CANONICAL_TESTS: PASS
 ROADMAP_AUDIT: PASS
@@ -22,7 +27,7 @@ ROADMAP_FINGERPRINT: 449dd8bfa4867e74723a1e4a3f619779aebc0c77845a702491bef178a8b
 MILESTONE: H2
 CAPABILITY_ID: H2_STRUCTURAL_EXPERIENCE_GRAPH
 H2_R1_STRUCTURAL_GRAPH: PASS
-H2_R2_EXPERIENCE_GRAPH: BLOCKED
+H2_R2_EXPERIENCE_GRAPH: BLOCKED_BY_ONE_RESIDUAL_GRAMMAR_DEFECT
 H2_R3_COMBINED_IDENTITY: PASS_FOR_CURRENT_SLICE
 H2_R4_RANKING_BOUNDARY: PASS
 H2_FORMAL_COMPLETION: NO
@@ -35,180 +40,107 @@ LIVE_PAID_API_AUTHORIZED: NO
 ```text
 BASE_MAIN_SHA: a2fe1e7273503d6dc1863ae00ac3c026192bb2a2
 BRANCH: ai/task-080
-REVIEWED_TASK_HEAD_SHA: 20c228c29843b3eee90935e74ad648dd1339a18b
+REVIEWED_TASK_HEAD_SHA: e587c3f6c254d9edd17706f689e7d4e4065fa2cd
 STATUS_VS_MAIN: AHEAD
-AHEAD_BY: 1
+AHEAD_BY: 2
 BEHIND_BY: 0
-CUMULATIVE_IMPLEMENTATION_SCOPE: EXACT
+FIX_DELTA_VS_PREVIOUS_HEAD: 1 commit
 ```
 
-Published delta is limited to:
+Round-2 FIX delta is limited to the two authorized implementation/test paths plus Bridge-generated RESULT update:
 
 ```text
-src/aios_engineering/harness/__init__.py
 src/aios_engineering/harness/structural_experience_graph.py
 tests/aios_engineering/harness/test_structural_experience_graph.py
 .ai/results/RESULT-080.md
 ```
 
-Recovery publication is accepted as valid evidence. Codex timed out before publication, but the preserved worktree stayed exactly inside TASK-080 allowed paths; targeted validation passed before recovery publication and Bridge subsequently ran the full canonical suite before commit/push.
-
 Validation evidence:
 
 ```text
-TARGETED_H2_SUITE: 152 passed, 1 warning
-FULL_REPOSITORY_TESTS: 2470 passed, 7 skipped, 0 failed
-RECOVERY_PUBLICATION: YES
-EXECUTOR_RERUN: NO
-ORIGINAL_TRANSPORT: TIMED_OUT
-TASK_BRANCH_REMOTE_PUBLICATION: PASS
+TARGETED_H2_SUITE: 154 passed, 0 skipped, 0 failed
+FULL_REPOSITORY_TESTS: 2472 passed, 7 skipped, 0 failed
+GIT_DIFF_CHECK: PASS
+NETWORK/LLM/PAID_API: NONE
 ```
 
-The timeout itself is not a review blocker.
+## Previous Findings
 
-## Passing Areas
+### B1 — Top-level Markdown machine evidence boundary
 
-```text
-H2_CANONICAL_POLICY_IDENTITY: PASS
-UPSTREAM_EXACT_CROSS_BINDING: PASS
-FILE_TO_SYMBOL_TO_COMPONENT: PASS
-DEEPEST_PACKAGE_COMPONENT_RULE: PASS
-STANDALONE_MODULE_COMPONENT_RULE: PASS
-STATIC_IMPORT_GRAPH_BOUND_NOT_REPARSED: PASS
-AMBIGUOUS_UNRESOLVED_IMPORTS: CONSERVATIVE
-EXACT_LOCAL_GIT_BLOB_IDENTITY: PASS
-WORKTREE_EXPERIENCE_BYTES_USED: NO
-BODY_AND_TOTAL_BOUNDS: PASS
-NODE_EDGE_ORDERING: PASS
-NODE_EDGE_GRAPH_FINGERPRINTS: PASS
-ZERO_AUTHORITY_RECEIPT: PASS
-NO_SECOND_SYMBOL_AST_PARSE: PASS
-NO_H3_OWNERSHIP_SEMANTICS: PASS
-NO_H3_EXECUTOR_TENDENCY: PASS
-NO_H4_KNOWLEDGE_LIFECYCLE: PASS
-NETWORK_LLM_PAID_API: NONE
-```
+STATUS: CLOSED
 
-These areas must remain unchanged unless a minimal parser fix requires an internal helper adjustment.
+The FIX adds a bounded fence-aware top-level scanner for TASK/invariant markers and makes REVIEW finding/component-path parsing fence-aware. The required fenced-example and duplicate-top-level regression cases are present.
 
-## Blocking Findings
+### B2 — RESULT Review Manifest CRLF grammar
 
-### B1 — Machine evidence parser does not enforce the locked top-level Markdown boundary
+STATUS: PARTIALLY CLOSED
 
-TASK-080 authorizes task scope evidence only from an **exact top-level** machine marker. The implementation currently resolves marker values by splitting the entire Markdown body and accepting any line that begins with the marker token.
+LF/CRLF handling is now line-ending safe and the tests preserve real CRLF bytes in Git fixtures. TASK_ID/path matching, bounded EXECUTOR_ID, duplicate manifest rejection, and malformed scalar rejection remain fail-closed.
 
-Current behavior is equivalent to:
+However one residual closed-grammar defect remains and blocks H2.R2.
+
+## Blocking Finding
+
+### B3 — CRLF rewrite weakened the RESULT Review Manifest top-level evidence boundary
+
+The previous RESULT grammar was anchored to a column-0 heading (`^## Review Manifest`). The new line-ending-safe parser discovers headings with:
 
 ```python
-values = [
-    line[len(prefix):].strip()
-    for line in text.splitlines()
-    if line.startswith(prefix)
-]
+line.strip() == "## Review Manifest"
 ```
 
-This is not a top-level Markdown evidence parser. A marker-shaped line inside a fenced code example is indistinguishable from authoritative evidence. It can therefore:
+and similarly strips the following fence/scalar lines before validating them.
+
+This accepts content that is not a canonical top-level Review Manifest. For example an indented Markdown code block can be interpreted as executor evidence:
 
 ```text
-create a false TASK_TOUCHES_COMPONENT edge
-create a false INVARIANT node/edge
-or cause a false duplicate-marker hard failure
+    ## Review Manifest
+    ```yaml
+    TASK_ID: TASK-080
+    EXECUTOR_ID: example-executor
+    ```
 ```
 
-This is not theoretical: TASK-080 itself already exposed the same failure class at Bridge preflight when prose repeated a machine-marker-shaped example. H2 must not reproduce that failure class inside its long-lived experience graph.
+A heading-shaped line inside another fenced example can also be counted as the unique Review Manifest because heading discovery is not fence-aware.
+
+That violates ADR-053's evidence-only rule: `TASK EXECUTED_BY EXECUTOR` must come from the canonical closed Review Manifest, not from example/test/log text that happens to contain the same grammar.
 
 #### Required FIX
 
-Implement one local, pure, bounded Markdown evidence scanner for H2 machine markers that at minimum:
+Keep the CRLF-safe `splitlines()` approach, but restore a closed top-level Markdown boundary for RESULT evidence:
 
 ```text
-accepts only column-0 marker lines outside fenced code blocks
-ignores marker-shaped text inside fenced code blocks
-continues to ignore blockquotes/indented prose because they are not column-0 markers
-supports the exact EXECUTOR_ALLOWED_PATHS and H2 invariant marker grammars already locked
-rejects multiple genuine top-level occurrences
-preserves strict JSON / duplicate-key / path validation
-uses no Bridge authority parser import
+Review Manifest heading must be exact column-0 outside fenced code
+its opening/closing fence must belong to that top-level section
+indented code-block headings must not count
+heading-shaped text inside fenced examples must not count
+one genuine top-level Review Manifest remains required when present
+LF and CRLF remain semantically equivalent
+TASK_ID/EXECUTOR_ID validation remains unchanged
+exact Git blob verification remains before parsing
 ```
 
-The scanner must be bounded by the already-read bounded artifact body; do not add another unbounded body read.
+Prefer reusing or generalizing the local bounded fence-aware scanner/state logic already introduced in this module; do not import Bridge authority parsing.
 
-Also make REVIEW finding heading/path parsing fence-aware enough that a heading or H2 component-path evidence line inside a fenced example cannot create a review-finding/component relationship.
-
-#### Required tests
+#### Required regression tests
 
 Add tests proving at minimum:
 
 ```text
-TOP_LEVEL_TASK_MARKER: PARSED
-TASK_MARKER_INSIDE_FENCE: IGNORED
-TOP_LEVEL_PLUS_FENCED_EXAMPLE: EXACTLY_ONE_REAL_MARKER
-TWO_TOP_LEVEL_TASK_MARKERS: FAIL_CLOSED
-INVARIANT_MARKER_INSIDE_FENCE: IGNORED
-REVIEW_FINDING_HEADING_INSIDE_FENCE: IGNORED
-REVIEW_COMPONENT_PATH_INSIDE_FENCE: IGNORED
+RESULT_TOP_LEVEL_MANIFEST_LF: PASS
+RESULT_TOP_LEVEL_MANIFEST_CRLF: PASS
+RESULT_INDENTED_MANIFEST_EXAMPLE: IGNORED
+RESULT_MANIFEST_HEADING_INSIDE_FENCE: IGNORED
+REAL_TOP_LEVEL_PLUS_FENCED_MANIFEST_EXAMPLE: EXACTLY_ONE_REAL_MANIFEST
+TWO_REAL_TOP_LEVEL_MANIFESTS: FAIL_CLOSED
 ```
 
-### B2 — RESULT Review Manifest parser rejects Bridge-generated CRLF artifacts
-
-The implementation's RESULT parser uses LF-only regular-expression structure around `## Review Manifest` and its fenced block. Exact Bridge publication evidence is not guaranteed to be LF-only.
-
-The reviewed `RESULT-080` itself is concrete counter-evidence: its Git diff/body uses CRLF line endings, while it contains a valid closed Review Manifest with:
-
-```text
-TASK_ID: TASK-080
-EXECUTOR_ID: codex
-```
-
-Under the current parser, the LF-only heading/fence expressions do not recognize that block. The artifact is therefore capable of falling through as no executor machine evidence instead of emitting:
-
-```text
-TASK-080 -> TASK_EXECUTED_BY_EXECUTOR -> codex
-```
-
-That violates canonical H2.R2's requirement to represent task/executor experience relationships **where evidence exists**.
-
-#### Required FIX
-
-Make the closed RESULT Review Manifest grammar line-ending safe after exact blob verification.
-
-Allowed approaches include:
-
-```text
-bounded parsing over splitlines()
-or an equivalent exact grammar supporting LF and CRLF
-```
-
-Requirements:
-
-```text
-exact Git blob SHA remains verified before parsing
-line-ending normalization/parsing must not replace provenance identity
-one closed Review Manifest only
-TASK_ID must still equal RESULT path identity
-EXECUTOR_ID remains bounded/closed
-malformed/duplicate scalar evidence remains fail-closed
-```
-
-#### Required tests
-
-Add tests proving:
-
-```text
-RESULT_REVIEW_MANIFEST_LF: PASS
-RESULT_REVIEW_MANIFEST_CRLF: PASS
-LF_AND_CRLF_SEMANTIC_RELATION: EQUIVALENT
-RESULT_TASK_ID_MISMATCH_CRLF: FAIL_CLOSED
-DUPLICATE_REVIEW_MANIFEST_CRLF: FAIL_CLOSED
-```
-
-At least one fixture must use bytes/text that actually preserve CRLF into the committed Git blob, not merely a Python string later rewritten as LF by the fixture helper.
+For the ignored-only cases, zero `TASK_EXECUTED_BY_EXECUTOR` edges is valid and preferable to invented evidence.
 
 ## FIX Scope
 
-The FIX is intentionally narrow.
-
-Permitted production/test paths:
+Permitted paths only:
 
 ```text
 src/aios_engineering/harness/structural_experience_graph.py
@@ -229,13 +161,13 @@ roadmap/completion records
 H3-H8 capability code
 ```
 
-No redesign of the structural graph is requested. Fix only the closed evidence grammar and regression tests.
+No structural-graph redesign is authorized.
 
 ## Machine-Readable FIX Inputs
 
 EXECUTOR_CONTEXT_REFS_JSON: [{"path":".ai/tasks/TASK-080.md","blob_sha":"c53f846f6cf3478bcc2fe0f59f92a71f36a41b00"},{"path":".ai/roadmaps/H-SERIES-v1.0.md","blob_sha":"41775383879c86dc68a7d87c0d705cfc8512f62d"},{"path":".ai/decisions/ADR-053-AIOS-ENGINEERING-H2-CANONICAL-STRUCTURAL-EXPERIENCE-GRAPH-COMPLETION-CONTRACT-LOCK.md","blob_sha":"5f484356baf69aaf0f5426c0dbb150c04a9d22f9"}]
 EXECUTOR_ALLOWED_PATHS_JSON: ["src/aios_engineering/harness/structural_experience_graph.py","tests/aios_engineering/harness/test_structural_experience_graph.py"]
-DISPATCH_EXECUTOR_POLICY_JSON: {"allow_paid_api":false,"candidates":[{"capacity_class":"SUBSCRIPTION","executor_id":"codex","preference_rank":0,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]},{"capacity_class":"SUBSCRIPTION","executor_id":"antigravity","preference_rank":1,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]}],"operation":"FIX","required_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"]}
+DISPATCH_EXECUTOR_POLICY_JSON: {"allow_paid_api":false,"candidates":[{"capacity_class":"SUBSCRIPTION","executor_id":"antigravity","preference_rank":0,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]},{"capacity_class":"SUBSCRIPTION","executor_id":"codex","preference_rank":1,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]}],"operation":"FIX","required_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"]}
 
 ## Validation Commands
 
@@ -247,7 +179,7 @@ Run exactly:
 git diff --check
 ```
 
-Publish only through canonical Bridge E4 FIX flow.
+Publish only through the canonical Bridge FIX flow.
 
 ## Decision
 
@@ -255,9 +187,10 @@ Publish only through canonical Bridge E4 FIX flow.
 TASK-080: CHANGES_REQUIRED
 APPROVED: NO
 AUTO_MERGE_ELIGIBLE: NO
-BLOCKERS_REMAINING: 2
-B1_TOP_LEVEL_MARKDOWN_EVIDENCE_BOUNDARY: OPEN
-B2_RESULT_CRLF_GRAMMAR: OPEN
+BLOCKERS_REMAINING: 1
+B1_TOP_LEVEL_TASK_REVIEW_EVIDENCE_BOUNDARY: CLOSED
+B2_RESULT_CRLF_GRAMMAR: CLOSED_EXCEPT_B3_TOP_LEVEL_BOUNDARY
+B3_RESULT_TOP_LEVEL_REVIEW_MANIFEST_BOUNDARY: OPEN
 H2_R1: PASS
 H2_R2: BLOCKED
 H2_R3: PASS_FOR_CURRENT_SLICE
