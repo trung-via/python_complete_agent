@@ -570,3 +570,71 @@ def test_result_review_manifest_crlf_and_lf_handling(tmp_path: Path):
     dup_manifest_crlf = crlf_body + "\r\n" + crlf_body
     with pytest.raises(RepositoryStructuralExperienceGraphConsistencyError, match="one closed fenced block"):
         _build_fixture(tmp_path / "dup_manifest_crlf", {".ai/results/RESULT-080.md": dup_manifest_crlf})
+
+    # 1. RESULT indented manifest example -> IGNORED (0 executor edges)
+    indented_manifest_result = (
+        "# RESULT-080\n\n"
+        "    ## Review Manifest\n"
+        "    ```text\n"
+        "    TASK_ID: TASK-080\n"
+        "    EXECUTOR_ID: codex\n"
+        "    ```\n"
+    )
+    fixture_indented = _build_fixture(tmp_path / "indented_manifest", {".ai/results/RESULT-080.md": indented_manifest_result})
+    indented_exec_edges = _relations(fixture_indented["result"], H2GraphRelation.TASK_EXECUTED_BY_EXECUTOR)
+    assert len(indented_exec_edges) == 0
+
+    # 2. RESULT manifest heading inside fence -> IGNORED (0 executor edges)
+    fenced_manifest_result = (
+        "# RESULT-080\n\n"
+        "Here is an example manifest:\n"
+        "```markdown\n"
+        "## Review Manifest\n\n"
+        "```text\n"
+        "TASK_ID: TASK-080\n"
+        "EXECUTOR_ID: codex\n"
+        "```\n"
+        "```\n"
+    )
+    fixture_fenced = _build_fixture(tmp_path / "fenced_manifest", {".ai/results/RESULT-080.md": fenced_manifest_result})
+    fenced_exec_edges = _relations(fixture_fenced["result"], H2GraphRelation.TASK_EXECUTED_BY_EXECUTOR)
+    assert len(fenced_exec_edges) == 0
+
+    # 3. Real top-level plus fenced example -> EXACTLY ONE REAL MANIFEST
+    mixed_manifest_result = (
+        "# RESULT-080\n\n"
+        "## Review Manifest\n\n"
+        "```text\n"
+        "TASK_ID: TASK-080\n"
+        "EXECUTOR_ID: codex\n"
+        "```\n\n"
+        "Documentation example:\n"
+        "```markdown\n"
+        "## Review Manifest\n\n"
+        "```text\n"
+        "TASK_ID: TASK-080\n"
+        "EXECUTOR_ID: antigravity\n"
+        "```\n"
+        "```\n"
+    )
+    fixture_mixed = _build_fixture(tmp_path / "mixed_manifest", {".ai/results/RESULT-080.md": mixed_manifest_result})
+    mixed_exec_edges = _relations(fixture_mixed["result"], H2GraphRelation.TASK_EXECUTED_BY_EXECUTOR)
+    assert len(mixed_exec_edges) >= 1
+    assert all(e.target_node_id == "executor:codex" for e in mixed_exec_edges)
+
+    # 4. Two real top-level manifests -> FAIL CLOSED
+    two_manifests_result = (
+        "# RESULT-080\n\n"
+        "## Review Manifest\n\n"
+        "```text\n"
+        "TASK_ID: TASK-080\n"
+        "EXECUTOR_ID: codex\n"
+        "```\n\n"
+        "## Review Manifest\n\n"
+        "```text\n"
+        "TASK_ID: TASK-080\n"
+        "EXECUTOR_ID: antigravity\n"
+        "```\n"
+    )
+    with pytest.raises(RepositoryStructuralExperienceGraphConsistencyError, match="one closed fenced block"):
+        _build_fixture(tmp_path / "two_top_manifests", {".ai/results/RESULT-080.md": two_manifests_result})

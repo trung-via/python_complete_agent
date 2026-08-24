@@ -1303,9 +1303,42 @@ def _parse_invariants(text: str) -> tuple[tuple[str, str], ...] | None:
 
 def _parse_result_manifest(text: str, expected_task_id: str) -> tuple[str, str] | None:
     lines = text.splitlines()
-    heading_indices = [
-        i for i, line in enumerate(lines) if line.strip() == "## Review Manifest"
-    ]
+    heading_indices: list[int] = []
+    in_fence = False
+    fence_char = ""
+    fence_len = 0
+
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if not in_fence:
+            if stripped.startswith("```") or stripped.startswith("~~~"):
+                char = stripped[0]
+                count = 0
+                for c in stripped:
+                    if c == char:
+                        count += 1
+                    else:
+                        break
+                if count >= 3:
+                    in_fence = True
+                    fence_char = char
+                    fence_len = count
+                    continue
+            if line.startswith("## Review Manifest") and line.rstrip() == "## Review Manifest":
+                heading_indices.append(i)
+        else:
+            if stripped.startswith(fence_char * fence_len):
+                closing_chars = 0
+                for c in stripped:
+                    if c == fence_char:
+                        closing_chars += 1
+                    else:
+                        break
+                if closing_chars >= fence_len and stripped[closing_chars:].strip() == "":
+                    in_fence = False
+                    fence_char = ""
+                    fence_len = 0
+
     if len(heading_indices) == 0:
         return None
     if len(heading_indices) != 1:
@@ -1323,7 +1356,7 @@ def _parse_result_manifest(text: str, expected_task_id: str) -> tuple[str, str] 
             "RESULT Review Manifest must be one closed fenced block"
         )
 
-    fence_line = lines[curr].strip()
+    fence_line = lines[curr]
     if not (fence_line.startswith("```") or fence_line.startswith("~~~")):
         raise RepositoryStructuralExperienceGraphConsistencyError(
             "RESULT Review Manifest must be one closed fenced block"
@@ -1345,11 +1378,11 @@ def _parse_result_manifest(text: str, expected_task_id: str) -> tuple[str, str] 
     manifest_lines: list[str] = []
     found_closing = False
     while curr < len(lines):
-        l = lines[curr].strip()
+        l = lines[curr]
         if l.startswith(fence_char * fence_len) and l[fence_len:].strip() == "":
             found_closing = True
             break
-        manifest_lines.append(lines[curr])
+        manifest_lines.append(l)
         curr += 1
 
     if not found_closing:
