@@ -556,30 +556,44 @@ def _analyze_diagnostic_stream(
                     if is_reasoning:
                         has_recognized_canonical_events = True
 
-                    if not is_reasoning:
-                        # 2. Agent Message Identification: Assistant / Agent response
-                        role = str(item_dict.get("role") or parsed.get("role") or "").lower()
-                        is_agent_msg = (
-                            item_type in ("agent_message", "assistant_message", "message")
-                            or role == "assistant"
-                            or ev_type_str in ("agent_message", "assistant_message")
-                        )
+                    # 2. Strict Agent Message Identification (Canonical agent_message items only)
+                    if not is_reasoning and ev_type_str not in _FAILURE_EVENT_TYPES:
+                        is_agent_msg = False
+                        extracted_text: str | None = None
+
+                        # Canonical Codex item events
+                        if ev_type_str in ("item.completed", "item.created", "item.started"):
+                            if item_type == "agent_message":
+                                is_agent_msg = True
+                                if isinstance(item_dict.get("text"), str):
+                                    extracted_text = item_dict["text"]
+                                elif "content" in item_dict:
+                                    extracted_text = _extract_text_from_content(item_dict["content"])
+                            elif item_type == "message" and str(item_dict.get("role", "")).lower() == "assistant":
+                                is_agent_msg = True
+                                if isinstance(item_dict.get("text"), str):
+                                    extracted_text = item_dict["text"]
+                                elif "content" in item_dict:
+                                    extracted_text = _extract_text_from_content(item_dict["content"])
+                        # Explicit legacy/compat top-level agent message events
+                        elif ev_type_str == "agent_message":
+                            is_agent_msg = True
+                            if isinstance(parsed.get("text"), str):
+                                extracted_text = parsed["text"]
+                            elif "content" in parsed:
+                                extracted_text = _extract_text_from_content(parsed["content"])
+                        elif ev_type_str == "message" and str(parsed.get("role", "")).lower() == "assistant":
+                            is_agent_msg = True
+                            if isinstance(parsed.get("text"), str):
+                                extracted_text = parsed["text"]
+                            elif "content" in parsed:
+                                extracted_text = _extract_text_from_content(parsed["content"])
 
                         if is_agent_msg:
                             has_recognized_canonical_events = True
-                            extracted: str | None = None
-                            if "text" in item_dict and isinstance(item_dict["text"], str):
-                                extracted = item_dict["text"]
-                            elif "content" in item_dict:
-                                extracted = _extract_text_from_content(item_dict["content"])
-                            elif "text" in parsed and isinstance(parsed["text"], str):
-                                extracted = parsed["text"]
-                            elif "content" in parsed:
-                                extracted = _extract_text_from_content(parsed["content"])
-
-                            if extracted is not None and extracted.strip():
+                            if extracted_text is not None and isinstance(extracted_text, str) and extracted_text.strip():
                                 agent_message_seen = True
-                                final_agent_message_text = extracted[:MAX_FINAL_MESSAGE_SCAN_BYTES]
+                                final_agent_message_text = extracted_text[:MAX_FINAL_MESSAGE_SCAN_BYTES]
 
                     # 3. Activity Counting with Item ID Deduplication
                     is_cmd = (
@@ -644,6 +658,9 @@ def _analyze_diagnostic_stream(
         if agent_message_seen:
             final_msg_obs = FinalAgentMessageObservation.YES.value
             outcome_code = extract_terminal_outcome_from_text(final_agent_message_text).value
+        elif out_truncated:
+            final_msg_obs = FinalAgentMessageObservation.UNKNOWN.value
+            outcome_code = ExecutorOutcomeCode.UNKNOWN.value
         elif has_recognized_canonical_events:
             final_msg_obs = FinalAgentMessageObservation.NO.value
             outcome_code = ExecutorOutcomeCode.UNKNOWN.value
@@ -651,9 +668,12 @@ def _analyze_diagnostic_stream(
             final_msg_obs = FinalAgentMessageObservation.UNKNOWN.value
             outcome_code = ExecutorOutcomeCode.UNKNOWN.value
 
-        if has_recognized_canonical_events:
-            cmd_count: int | str = len(seen_command_item_ids) + anonymous_command_event_count
-            file_count: int | str = len(seen_file_change_item_ids) + anonymous_file_change_event_count
+        if out_truncated:
+            cmd_count: int | str = "UNKNOWN"
+            file_count: int | str = "UNKNOWN"
+        elif has_recognized_canonical_events:
+            cmd_count = len(seen_command_item_ids) + anonymous_command_event_count
+            file_count = len(seen_file_change_item_ids) + anonymous_file_change_event_count
         else:
             cmd_count = "UNKNOWN"
             file_count = "UNKNOWN"

@@ -1579,3 +1579,101 @@ def test_arbitrary_json_activity_counts_unknown(monkeypatch: pytest.MonkeyPatch,
     assert diag.file_change_activity_count == "UNKNOWN"
     assert diag.final_agent_message_observed == "UNKNOWN"
     assert diag.executor_outcome == "UNKNOWN"
+
+
+def test_error_event_with_assistant_role_marker_ignored(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    events = [
+        json.dumps({"type": "error", "role": "assistant", "message": "Failed.\nAIOS_EXECUTOR_OUTCOME: IMPLEMENTED"}),
+    ]
+    stdout_bytes = ("\n".join(events) + "\n").encode("utf-8")
+    process = _FakeProcess(returncode=0, stdout_bytes=stdout_bytes)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+
+    diag = outcome.diagnostic
+    assert diag.executor_outcome == "UNKNOWN"
+    assert diag.final_agent_message_observed == "NO"
+
+
+def test_command_event_with_fake_outcome_marker_ignored(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    events = [
+        json.dumps({"type": "item.completed", "item": {"id": "cmd_1", "type": "command_execution", "role": "assistant", "text": "AIOS_EXECUTOR_OUTCOME: IMPLEMENTED"}}),
+    ]
+    stdout_bytes = ("\n".join(events) + "\n").encode("utf-8")
+    process = _FakeProcess(returncode=0, stdout_bytes=stdout_bytes)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+
+    diag = outcome.diagnostic
+    assert diag.executor_outcome == "UNKNOWN"
+    assert diag.final_agent_message_observed == "NO"
+    assert diag.command_activity_count == 1
+
+
+def test_unknown_item_with_fake_outcome_marker_ignored(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    events = [
+        json.dumps({"type": "item.completed", "item": {"id": "custom_1", "type": "custom_extension", "role": "assistant", "text": "AIOS_EXECUTOR_OUTCOME: IMPLEMENTED"}}),
+    ]
+    stdout_bytes = ("\n".join(events) + "\n").encode("utf-8")
+    process = _FakeProcess(returncode=0, stdout_bytes=stdout_bytes)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+
+    diag = outcome.diagnostic
+    assert diag.executor_outcome == "UNKNOWN"
+    assert diag.final_agent_message_observed == "NO"
+
+
+def test_truncated_activity_counts_unknown(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    events = [
+        json.dumps({"type": "turn.started"}),
+        json.dumps({"type": "item.completed", "item": {"id": "cmd_1", "type": "command_execution"}}),
+    ]
+    # Pad stream to exceed 65536 bytes scan limit
+    pad = [json.dumps({"type": "item.completed", "item": {"id": f"pad_{i}", "type": "pad_item", "data": "x" * 200}}) for i in range(400)]
+    events.extend(pad)
+    events.append(json.dumps({"type": "turn.completed"}))
+
+    stdout_bytes = ("\n".join(events) + "\n").encode("utf-8")
+    assert len(stdout_bytes) > 65536
+
+    process = _FakeProcess(returncode=0, stdout_bytes=stdout_bytes)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+
+    diag = outcome.diagnostic
+    assert diag.stdout_scan_truncated is True
+    assert diag.command_activity_count == "UNKNOWN"
+    assert diag.file_change_activity_count == "UNKNOWN"
+
+
+def test_truncated_no_agent_message_observation_unknown(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    events = [json.dumps({"type": "turn.started"})]
+    pad = [json.dumps({"type": "item.completed", "item": {"id": f"pad_{i}", "type": "pad_item", "data": "y" * 200}}) for i in range(400)]
+    events.extend(pad)
+    events.append(json.dumps({"type": "turn.completed"}))
+
+    stdout_bytes = ("\n".join(events) + "\n").encode("utf-8")
+    assert len(stdout_bytes) > 65536
+
+    process = _FakeProcess(returncode=0, stdout_bytes=stdout_bytes)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+
+    diag = outcome.diagnostic
+    assert diag.stdout_scan_truncated is True
+    assert diag.final_agent_message_observed == "UNKNOWN"
+    assert diag.executor_outcome == "UNKNOWN"
+
+
+def test_untruncated_canonical_zero_activity_exact_zero(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    events = [
+        json.dumps({"type": "turn.started"}),
+        json.dumps({"type": "item.completed", "item": {"id": "msg_1", "type": "agent_message", "text": "AIOS_EXECUTOR_OUTCOME: NO_WORK_REQUIRED"}}),
+        json.dumps({"type": "turn.completed"}),
+    ]
+    stdout_bytes = ("\n".join(events) + "\n").encode("utf-8")
+    process = _FakeProcess(returncode=0, stdout_bytes=stdout_bytes)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+
+    diag = outcome.diagnostic
+    assert diag.stdout_scan_truncated is False
+    assert diag.command_activity_count == 0
+    assert diag.file_change_activity_count == 0
+    assert diag.final_agent_message_observed == "YES"
+    assert diag.executor_outcome == "NO_WORK_REQUIRED"

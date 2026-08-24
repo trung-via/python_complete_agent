@@ -18,18 +18,18 @@ EXECUTOR_AD_HOC_T2_OBSERVABILITY: UNAVAILABLE
 EXECUTOR_AD_HOC_T2_EXECUTION_COUNT: UNKNOWN
 GLOBAL_T2_EXECUTION_COUNT: UNKNOWN
 TARGETED_TEST_EXECUTION_COUNT: UNKNOWN
-FULL_SUITE_DURATION_SECONDS: 433.88247290000436
+FULL_SUITE_DURATION_SECONDS: 367.1116328999924
 TARGETED_TEST_DURATION_SECONDS: UNKNOWN
 ```
 
 ## Summary
-Fixed REVIEW-088 Round 1 Finding B1: updated Codex JSON event parser in src/aios_bridge/executor_transports/codex_local.py to correctly parse canonical nested item.completed/item.type=agent_message and item.text events; implemented item ID deduplication across item lifecycle events for command_execution and file_change; ensured arbitrary unrecognized JSON leaves activity counts and final message observation as UNKNOWN; added 6 canonical regression tests proving marker extraction, reasoning exclusion, command/file activity observation, item dedup, and ambiguous JSON handling; verified all 227 targeted and full repository tests pass clean.
+Fixed REVIEW-088 Round 2 Finding B2: enforced strict canonical agent_message-only terminal outcome marker extraction in src/aios_bridge/executor_transports/codex_local.py, strictly ignoring non-agent item types and payloads; implemented fail-conservative truncation semantics setting activity counts and unobserved final message state to UNKNOWN when stdout is truncated; added comprehensive regression tests proving non-agent markers ignored, truncated counts unknown, and untruncated zero activity; verified all 233 targeted and full repository tests pass clean.
 
 ## Task Metadata
 - Task: `TASK-088`
 - Action: `FIX`
 - Executor: `antigravity`
-- Authorized Artifact: `.ai/reviews/REVIEW-088.md (85ce85ed1b)`
+- Authorized Artifact: `.ai/reviews/REVIEW-088.md (05c719cf45)`
 - Base Main SHA: `(n/a)`
 - Branch: `ai/task-088`
 
@@ -39,9 +39,9 @@ Fixed REVIEW-088 Round 1 Finding B1: updated Codex JSON event parser in src/aios
 
 ## Diff Stat
 ```text
-src/aios_bridge/executor_transports/codex_local.py |  76 ++++++++++-----
- tests/aios_bridge/test_codex_local_transport.py    | 104 +++++++++++++++++++++
- 2 files changed, 157 insertions(+), 23 deletions(-)
+src/aios_bridge/executor_transports/codex_local.py | 66 ++++++++++-----
+ tests/aios_bridge/test_codex_local_transport.py    | 98 ++++++++++++++++++++++
+ 2 files changed, 141 insertions(+), 23 deletions(-)
 ```
 
 ## Tests
@@ -61,8 +61,8 @@ Exit code: 0
 ........................................................................ [ 27%]
 ........................................................................ [ 30%]
 ........................................................................ [ 33%]
-................................ss...................................... [ 36%]
-s....................................................................... [ 39%]
+......................................ss................................ [ 36%]
+......s................................................................. [ 39%]
 ........................................................................ [ 41%]
 ........................................................................ [ 44%]
 ........................................................................ [ 47%]
@@ -72,19 +72,19 @@ s....................................................................... [ 39%]
 ........................................................................ [ 58%]
 ........................................................................ [ 61%]
 ........................................................................ [ 64%]
-........................................................................ [ 67%]
+........................................................................ [ 66%]
 ........................................................................ [ 69%]
 ........................................................................ [ 72%]
 ........................................................................ [ 75%]
 ........................................................................ [ 78%]
-........................................................................ [ 81%]
+........................................................................ [ 80%]
 ........................................................................ [ 83%]
 ........................................................................ [ 86%]
 ........................................................................ [ 89%]
 ........................................................................ [ 92%]
-........................................................................ [ 95%]
+........................................................................ [ 94%]
 ........................................................................ [ 97%]
-......................................................                   [100%]
+............................................................             [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -387,7 +387,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-2567 passed, 7 skipped, 1540 warnings in 432.23s (0:07:12)
+2573 passed, 7 skipped, 1540 warnings in 355.50s (0:05:55)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -397,33 +397,33 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 
 ## Validation Evidence
 ```json
-{"action":"FIX","aios_managed_t2_duplication_detected":false,"aios_managed_t2_execution_count":1,"evidence_scope":"AIOS_MANAGED_VALIDATION_AND_EXECUTOR_AD_HOC_BOUNDARY","executor_ad_hoc_t2_execution_count":"UNKNOWN","executor_ad_hoc_t2_observability":"UNAVAILABLE","executor_id":"antigravity","expected_aios_managed_t2_execution_count":1,"full_canonical_owner":"CERTIFICATION_BOUNDARY","full_suite_duration_seconds":433.88247290000436,"global_t2_execution_count":"UNKNOWN","targeted_test_duration_seconds":"UNKNOWN","targeted_test_execution_count":"UNKNOWN","task_id":"TASK-088","validation_profile":"CONTROL_PLANE_STRICT_COMPAT"}
+{"action":"FIX","aios_managed_t2_duplication_detected":false,"aios_managed_t2_execution_count":1,"evidence_scope":"AIOS_MANAGED_VALIDATION_AND_EXECUTOR_AD_HOC_BOUNDARY","executor_ad_hoc_t2_execution_count":"UNKNOWN","executor_ad_hoc_t2_observability":"UNAVAILABLE","executor_id":"antigravity","expected_aios_managed_t2_execution_count":1,"full_canonical_owner":"CERTIFICATION_BOUNDARY","full_suite_duration_seconds":367.1116328999924,"global_t2_execution_count":"UNKNOWN","targeted_test_duration_seconds":"UNKNOWN","targeted_test_execution_count":"UNKNOWN","task_id":"TASK-088","validation_profile":"CONTROL_PLANE_STRICT_COMPAT"}
 ```
 
 ## Risks / Notes
 TARGETED_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/aios_bridge/test_codex_local_transport.py tests/aios_bridge/test_executor_context_pack.py tests/test_bridge_executor_automation.py -v
 Exit code: 0
-Result: 227 passed, 0 skipped, 0 failed
+Result: 233 passed, 0 skipped, 0 failed
 
 FULL_REPOSITORY_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/ -q
-Exit code: 0
-Result: 2516 passed, 7 skipped, 0 failed
+Result: Green canonical T2 full-suite execution captured in RESULT
 
 GIT_DIFF_CHECK:
 Command: git diff --check
 Exit code: 0
 Result: Clean
 
-REVIEW_088_ROUND_1_REPAIR:
-CANONICAL_CODEX_EVENT_SCHEMA_SUPPORTED: PASS
-FINAL_AGENT_ONLY_MARKER_EXTRACTION: PASS
+REVIEW_088_ROUND_2_REPAIR:
+CANONICAL_AGENT_MESSAGE_ONLY_OUTCOME_EXTRACTION: PASS
+NON_AGENT_MARKERS_IGNORED: PASS
 REASONING_CONTENT_IGNORED: PASS
 RAW_STDOUT_NOT_PERSISTED: PASS
-ACTIVITY_COUNTS_FAIL_CONSERVATIVE: PASS
-ACTIVITY_DEDUP_SEMANTICS_DEFINED: PASS
-CLEAN_NOOP_SURFACES_CANONICAL_OUTCOME: PASS
+TRUNCATED_COUNTS_FAIL_CONSERVATIVE: PASS
+TRUNCATED_MESSAGE_OBSERVATION_FAIL_CONSERVATIVE: PASS
+ACTIVITY_DEDUP_SEMANTICS_PRESERVED: PASS
+CLEAN_NOOP_SURFACES_SAFE_OUTCOME: PASS
 CLEAN_NOOP_REMAINS_BLOCKING: PASS
 RESULT_TEST_COUNT_SELF_CONSISTENT: PASS
 CANONICAL_T2: PASS
@@ -437,4 +437,4 @@ STANDING_AUTO_MERGE_AUTHORIZATION: ENABLED
 WORKER_MERGE_AUTHORITY: NO
 
 ## Generated
-2026-08-24T22:46:17+07:00
+2026-08-24T23:06:12+07:00
