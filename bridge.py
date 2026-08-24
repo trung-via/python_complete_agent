@@ -120,6 +120,14 @@ from src.aios_bridge.runtime_dispatch import (
     effective_capacity_state,
     parse_executor_dispatch_policy_marker,
 )
+from src.aios_bridge.validation import (
+    ValidationEvidence,
+    ValidationPlan,
+    ValidationTier,
+    classify_validation_command,
+    require_certification_for_publication,
+    validation_plan_for_task,
+)
 
 SUPPORTED_RUNTIME_EXECUTORS = ("antigravity", "codex", "claude-code")
 
@@ -2680,6 +2688,7 @@ def cmd_handoff(args):
             )
         except Exception as exc:
             fail(f"Executable task artifact preflight failed: {exc}")
+        validation_plan = validation_plan_for_task(content)
 
         dest = get_artifact_path(artifact_rel)
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -2727,6 +2736,8 @@ def cmd_handoff(args):
             "workspace_id": acquired_lease.workspace_id,
             "execution_fingerprint": acquired_lease.execution_fingerprint,
         }
+        if validation_plan is not None:
+            auth_record["validation_plan"] = validation_plan.to_dict()
         try:
             save_authorization(task_id, auth_record)
         except Exception as e:
@@ -2805,6 +2816,7 @@ def cmd_handoff(args):
             )
         except Exception as exc:
             fail(f"Executable review artifact preflight failed: {exc}")
+        validation_plan = validation_plan_for_task(task_content)
 
         dest = get_artifact_path(artifact_rel)
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -2900,6 +2912,8 @@ def cmd_handoff(args):
                     "failover_proof": failover_proof.to_dict(),
                     "failover_proof_fingerprint": failover_proof.fingerprint(),
                 }
+                if validation_plan is not None:
+                    auth_record["validation_plan"] = validation_plan.to_dict()
                 save_authorization(task_id, auth_record)
                 auth_saved = True
 
@@ -2973,6 +2987,8 @@ def cmd_handoff(args):
                 "workspace_id": acquired_lease.workspace_id,
                 "execution_fingerprint": acquired_lease.execution_fingerprint,
             }
+            if validation_plan is not None:
+                auth_record["validation_plan"] = validation_plan.to_dict()
             if prior_auth and prior_auth.get("published_sha"):
                 auth_record["prior_published_sha"] = prior_auth["published_sha"]
 
@@ -3421,6 +3437,16 @@ def cmd_execute(args):
             artifact_payloads=snapshot["artifact_payloads"],
             transport_id=CODEX_TRANSPORT_ID,
         )
+        auth_plan_data = auth.get("validation_plan")
+        auth_plan = (
+            ValidationPlan.from_dict(auth_plan_data)
+            if auth_plan_data is not None
+            else None
+        )
+        if auth_plan != launch.validation_plan:
+            raise ContinuityStateValidationError(
+                "authorization validation plan does not match exact task evidence"
+            )
         publication_trust = capture_e4_publication_trust_snapshot(cfg["remote"])
     except SystemExit:
         raise
@@ -3712,6 +3738,7 @@ def cmd_execute(args):
         allowed_paths=snapshot["allowed_paths"],
         pre_head_sha=pre_head_sha,
         pre_branch=pre_branch,
+        validation_plan=launch.validation_plan,
     )
     cmd_publish(publish_args)
 
@@ -4686,6 +4713,25 @@ def cmd_publish(args):
             f"Cần chạy `/aios-worker RUN TASK-{task_id:03d}` hoặc `/aios-worker FIX TASK-{task_id:03d}` trước khi publish."
         )
 
+    try:
+        bound_validation_plan = (
+            ValidationPlan.from_dict(auth["validation_plan"])
+            if "validation_plan" in auth
+            else None
+        )
+        supplied_validation_plan = getattr(args, "validation_plan", None)
+        if supplied_validation_plan is not None and type(supplied_validation_plan) is not ValidationPlan:
+            raise ContinuityStateValidationError(
+                "supplied validation_plan must be an exact ValidationPlan"
+            )
+        if supplied_validation_plan is not None and supplied_validation_plan != bound_validation_plan:
+            raise ContinuityStateValidationError(
+                "supplied validation plan does not match handoff-bound evidence"
+            )
+        validation_plan = bound_validation_plan
+    except Exception as exc:
+        fail(f"Validation plan preflight failed before certification: {exc}")
+
     # Reconstruct expected lease strictly from ACTIVE authorization (AIP-7 / C20 / R5-1)
     try:
         expected_lease = reconstruct_expected_executor_lease(auth)
@@ -4830,9 +4876,13 @@ def cmd_publish(args):
     test_output = "(no test command supplied)"
     raw_test_output = test_output
     test_rc = 0
+    validation_evidence = None
+    observed_test_duration = None
     if args.test:
         print(f"[TEST] {args.test}")
+        test_started = time.monotonic()
         p = run(args.test, check=False, capture=True, shell=True)
+        observed_test_duration = time.monotonic() - test_started
         test_rc = p.returncode
         raw_test_output = (
             (p.stdout or "") + ("\n" + p.stderr if p.stderr else "")
@@ -4848,6 +4898,50 @@ def cmd_publish(args):
                 f"Tests failed (exit={test_rc}). Không commit/push.",
                 code=test_rc or 1,
             )
+
+    if validation_plan is not None:
+        try:
+            observed_tier = (
+                classify_validation_command(args.test)
+                if args.test
+                else None
+            )
+            validation_evidence = ValidationEvidence(
+                task_id=f"TASK-{task_id:03d}",
+                action=auth["action"],
+                executor_id=auth["executor_id"],
+                validation_profile=validation_plan.profile_id,
+                full_suite_execution_count=(
+                    1 if observed_tier is ValidationTier.T2_FULL_CANONICAL else 0
+                ),
+                expected_full_suite_execution_count=(
+                    validation_plan.expected_full_suite_execution_count
+                ),
+                targeted_test_execution_count=(
+                    1 if observed_tier is ValidationTier.T1_TARGETED_IMPACT else 0
+                ),
+                full_suite_duration_seconds=(
+                    observed_test_duration
+                    if observed_tier is ValidationTier.T2_FULL_CANONICAL
+                    else None
+                ),
+                targeted_test_duration_seconds=(
+                    observed_test_duration
+                    if observed_tier is ValidationTier.T1_TARGETED_IMPACT
+                    else None
+                ),
+            )
+            require_certification_for_publication(
+                validation_plan,
+                validation_evidence,
+                full_suite_succeeded=(
+                    test_rc == 0 and observed_tier is ValidationTier.T2_FULL_CANONICAL
+                ),
+            )
+        except Exception as exc:
+            failure_state = getattr(args, "failure_state", None) or "CHANGES_REQUIRED"
+            update_state(task_id, failure_state, f"Validation certification denied publication: {exc}")
+            fail(f"Validation certification denied publication: {exc}")
 
     trust_snapshot = getattr(args, "publication_trust_snapshot", None)
     if trust_snapshot is not None:
@@ -5060,6 +5154,15 @@ EXECUTOR_ID: {active_exec}
 {manifest_failover_block.rstrip()}
 {manifest_hot_handoff_block.rstrip()}"""
 
+    if validation_evidence is not None:
+        manifest_content += f"""
+VALIDATION_PROFILE: {validation_evidence.validation_profile.value}
+FULL_CANONICAL_OWNER: CERTIFICATION_BOUNDARY
+EXPECTED_FULL_SUITE_EXECUTION_COUNT: {validation_evidence.expected_full_suite_execution_count}
+FULL_SUITE_EXECUTION_COUNT: {validation_evidence.full_suite_execution_count}
+TARGETED_TEST_EXECUTION_COUNT: {validation_evidence.targeted_test_execution_count}
+VALIDATION_DUPLICATION_DETECTED: {'YES' if validation_evidence.validation_duplication_detected else 'NO'}"""
+
     if proof_progress_block:
         manifest_content += f"\n{proof_progress_block.rstrip()}"
 
@@ -5104,6 +5207,11 @@ Exit code: {test_rc}
 
 ```text
 {test_output}
+```
+
+## Validation Evidence
+```json
+{json.dumps(validation_evidence.to_dict(), sort_keys=True, separators=(',', ':')) if validation_evidence is not None else '(legacy task; no P0 validation plan bound)'}
 ```
 
 ## Risks / Notes
@@ -5773,6 +5881,13 @@ def build_parser():
 
 def main():
     args = build_parser().parse_args()
+    dispatch_command(args)
+
+
+def dispatch_command(args):
+    """Enforce read-only control synchronization before authority-bearing handoff."""
+    if getattr(args, "cmd", None) == "handoff":
+        sync_once(verbose=False)
     args.func(args)
 
 

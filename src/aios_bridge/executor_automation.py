@@ -44,6 +44,7 @@ from src.aios_bridge.executor_context import (
     ExecutorContextPack,
     build_executor_context_pack,
 )
+from src.aios_bridge.validation import ValidationPlan, validation_plan_for_task
 
 
 EXECUTOR_CONTEXT_REFS_MARKER = "EXECUTOR_CONTEXT_REFS_JSON:"
@@ -212,6 +213,7 @@ class ExecutorAutomationLaunchPlan:
     execution_request: ExecutionRequest
     prepared_execution: PreparedExecution
     context_pack: ExecutorContextPack
+    validation_plan: ValidationPlan | None
 
 
 def _require_exact_tuple(value: object, item_type: type, field_name: str) -> tuple:
@@ -375,7 +377,15 @@ def build_executor_automation_launch_plan(
         invocation_id=ids.invocation_id,
         transport_id=transport_id,
     )
-    return ExecutorAutomationLaunchPlan(state, request, prepared, context_pack)
+    task_payload = artifact_payloads[task_ref.path]
+    try:
+        task_content = task_payload.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise _error("canonical task payload must be strict UTF-8") from exc
+    validation_plan = validation_plan_for_task(task_content)
+    return ExecutorAutomationLaunchPlan(
+        state, request, prepared, context_pack, validation_plan
+    )
 
 
 def validate_executor_worktree_delta(

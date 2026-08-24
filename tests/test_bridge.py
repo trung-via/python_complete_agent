@@ -13,6 +13,43 @@ from src.aios_bridge.continuity.executor import ExecutionOperation
 from src.aios_bridge.continuity.state import ContinuityStateValidationError
 
 
+def test_cli_handoff_synchronizes_before_authority_boundary(monkeypatch):
+    calls = []
+    monkeypatch.setattr(bridge, "sync_once", lambda verbose=False: calls.append(("sync", verbose)))
+    args = type("Args", (), {})()
+    args.cmd = "handoff"
+    args.func = lambda _: calls.append(("handoff", None))
+    bridge.dispatch_command(args)
+    assert calls == [("sync", False), ("handoff", None)]
+
+
+def test_cli_handoff_sync_failure_blocks_authority_boundary(monkeypatch):
+    calls = []
+
+    def fail_sync(verbose=False):
+        calls.append(("sync", verbose))
+        raise SystemExit(7)
+
+    monkeypatch.setattr(bridge, "sync_once", fail_sync)
+    args = type("Args", (), {})()
+    args.cmd = "handoff"
+    args.func = lambda _: calls.append(("handoff", None))
+    with pytest.raises(SystemExit) as exc:
+        bridge.dispatch_command(args)
+    assert exc.value.code == 7
+    assert calls == [("sync", False)]
+
+
+def test_cli_status_dispatch_semantics_are_unchanged(monkeypatch):
+    calls = []
+    monkeypatch.setattr(bridge, "sync_once", lambda verbose=False: calls.append(("extra-sync", verbose)))
+    args = type("Args", (), {})()
+    args.cmd = "pending"
+    args.func = lambda _: calls.append(("pending", None))
+    bridge.dispatch_command(args)
+    assert calls == [("pending", None)]
+
+
 
 def _make_e4_test_task_content(task_id: int, action: str = "RUN", executor: str = "antigravity") -> str:
     op = action.upper()
