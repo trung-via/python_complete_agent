@@ -38,10 +38,13 @@ H3_ROLE_TENDENCY_SCHEMA_VERSION: str = "1"
 MAX_H3_COMPONENT_SUMMARIES: int = 512
 MAX_H3_MEMBER_FILES_PER_COMPONENT: int = 256
 MAX_H3_ROLES_PER_COMPONENT: int = 16
+MAX_H3_SYMBOLS_PER_COMPONENT: int = 65536
+MAX_H3_COMPONENT_RELATIONSHIPS: int = 4096
 MAX_H3_EXECUTOR_PROFILES: int = 256
 MAX_H3_OBSERVED_TASKS_PER_EXECUTOR: int = 1024
 MAX_H3_COMPONENT_OBSERVATIONS_PER_EXECUTOR: int = 512
 MAX_H3_REVIEW_FINDINGS_PER_EXECUTOR: int = 1024
+MAX_H3_UNOBSERVED_ROLE_FILES: int = 131072
 MAX_H3_FINGERPRINT_PAYLOAD_BYTES: int = 64 * 1024 * 1024
 
 
@@ -219,9 +222,24 @@ class ComponentRoleSummary:
             if idx > 0 and role.value < self.observed_roles[idx - 1].value:
                 raise HarnessValidationError("observed_roles must be sorted canonically")
 
-        _validate_bounded_int(self.symbol_count, "symbol_count")
-        _validate_bounded_int(self.inbound_component_count, "inbound_component_count")
-        _validate_bounded_int(self.outbound_component_count, "outbound_component_count")
+        _validate_bounded_int(
+            self.symbol_count,
+            "symbol_count",
+            min_val=0,
+            max_val=MAX_H3_SYMBOLS_PER_COMPONENT,
+        )
+        _validate_bounded_int(
+            self.inbound_component_count,
+            "inbound_component_count",
+            min_val=0,
+            max_val=MAX_H3_COMPONENT_RELATIONSHIPS,
+        )
+        _validate_bounded_int(
+            self.outbound_component_count,
+            "outbound_component_count",
+            min_val=0,
+            max_val=MAX_H3_COMPONENT_RELATIONSHIPS,
+        )
 
         if type(self.must_not_own) is not tuple or self.must_not_own != H3_MUST_NOT_OWN_DEFAULT:
             raise HarnessValidationError(
@@ -261,7 +279,7 @@ class ComponentRoleSummary:
         outbound_component_count: int,
     ) -> "ComponentRoleSummary":
         sorted_files = tuple(sorted(member_files, key=lambda f: f.path))
-        sorted_roles = tuple(sorted(set(observed_roles), key=lambda r: r.value))
+        sorted_roles = tuple(sorted(set(r for r in observed_roles if r is not None), key=lambda r: r.value))
         fingerprint = _bounded_fingerprint(
             _component_role_summary_payload(
                 component_id=component_id,
@@ -314,7 +332,10 @@ class ExecutorComponentObservation:
         if type(self.component_id) is not str or not self.component_id.startswith("component:"):
             raise HarnessValidationError("component_id must be a valid component ID string")
         _validate_bounded_int(
-            self.coobserved_task_count, "coobserved_task_count", min_val=1
+            self.coobserved_task_count,
+            "coobserved_task_count",
+            min_val=1,
+            max_val=MAX_H3_OBSERVED_TASKS_PER_EXECUTOR,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -395,6 +416,11 @@ class ExecutorTendencyProfile:
             if obs.component_id in seen_comp_ids:
                 raise HarnessValidationError(f"duplicate component observation: {obs.component_id}")
             seen_comp_ids.add(obs.component_id)
+            if obs.coobserved_task_count > self.observed_task_count:
+                raise HarnessValidationError(
+                    f"coobserved_task_count ({obs.coobserved_task_count}) cannot exceed "
+                    f"observed_task_count ({self.observed_task_count})"
+                )
             if idx > 0 and obs.component_id < self.component_observations[idx - 1].component_id:
                 raise HarnessValidationError("component_observations must be sorted canonically")
 
@@ -566,7 +592,10 @@ class RepositoryRoleTendencyResult:
                 raise HarnessValidationError("executor_profiles must be sorted canonically")
 
         _validate_bounded_int(
-            self.unobserved_role_file_count, "unobserved_role_file_count", min_val=0
+            self.unobserved_role_file_count,
+            "unobserved_role_file_count",
+            min_val=0,
+            max_val=MAX_H3_UNOBSERVED_ROLE_FILES,
         )
 
         _validate_hex_64(self.result_fingerprint, "result_fingerprint")
@@ -864,6 +893,7 @@ __all__ = [
     "H3_ROLE_TENDENCY_POLICY_VERSION",
     "H3_ROLE_TENDENCY_SCHEMA_VERSION",
     "MAX_H3_COMPONENT_OBSERVATIONS_PER_EXECUTOR",
+    "MAX_H3_COMPONENT_RELATIONSHIPS",
     "MAX_H3_COMPONENT_SUMMARIES",
     "MAX_H3_EXECUTOR_PROFILES",
     "MAX_H3_FINGERPRINT_PAYLOAD_BYTES",
@@ -871,6 +901,8 @@ __all__ = [
     "MAX_H3_OBSERVED_TASKS_PER_EXECUTOR",
     "MAX_H3_REVIEW_FINDINGS_PER_EXECUTOR",
     "MAX_H3_ROLES_PER_COMPONENT",
+    "MAX_H3_SYMBOLS_PER_COMPONENT",
+    "MAX_H3_UNOBSERVED_ROLE_FILES",
     "RepositoryRoleTendencyBoundError",
     "RepositoryRoleTendencyConsistencyError",
     "RepositoryRoleTendencyError",

@@ -14,6 +14,9 @@ from src.aios_engineering.harness import (
     ComponentRoleSummary,
     ExecutorComponentObservation,
     ExecutorTendencyProfile,
+    H2GraphEdge,
+    H2GraphNode,
+    H2GraphNodeKind,
     H2GraphRelation,
     H3MustNotOwn,
     H3_MUST_NOT_OWN_DEFAULT,
@@ -21,21 +24,39 @@ from src.aios_engineering.harness import (
     H3_ROLE_TENDENCY_SCHEMA_VERSION,
     HarnessFingerprintError,
     HarnessValidationError,
-    RepositoryRoleSummaryResult,
+    MAX_H3_COMPONENT_OBSERVATIONS_PER_EXECUTOR,
+    MAX_H3_COMPONENT_RELATIONSHIPS,
+    MAX_H3_COMPONENT_SUMMARIES,
+    MAX_H3_EXECUTOR_PROFILES,
+    MAX_H3_MEMBER_FILES_PER_COMPONENT,
+    MAX_H3_OBSERVED_TASKS_PER_EXECUTOR,
+    MAX_H3_REVIEW_FINDINGS_PER_EXECUTOR,
+    MAX_H3_ROLES_PER_COMPONENT,
+    MAX_H3_SYMBOLS_PER_COMPONENT,
+    MAX_H3_UNOBSERVED_ROLE_FILES,
     RepositoryRoleTendencyBoundError,
     RepositoryRoleTendencyConsistencyError,
     RepositoryRoleTendencyResult,
     RepositorySnapshotRef,
+    RepositoryStructuralExperienceGraphResult,
     StructuralComponentKind,
     TaskRelevanceSpec,
     build_repository_dependency_graph,
     build_repository_experience_manifest,
     build_repository_structural_experience_graph,
+    canonical_json_bytes,
+    compute_sha256,
     discover_control_plane_experience,
     discover_repository_snapshot,
     rank_repository_evidence,
     summarize_repository_roles,
     summarize_repository_roles_and_executor_tendencies,
+)
+from src.aios_engineering.harness.structural_experience_graph import (
+    _bounded_fingerprint,
+    _graph_edge_order_key,
+    _node_order_key,
+    _result_payload as _h2_result_payload,
 )
 
 
@@ -288,6 +309,28 @@ def test_global_must_not_own_set_exact_and_cannot_be_removed(tmp_path: Path):
         replace(first_comp, must_not_own=("MERGE_AUTHORITY",))
 
 
+def test_no_business_domain_role_inference_with_misleading_paths(tmp_path: Path):
+    # Create files with misleading business domain names
+    domain_files = {
+        "src/billing/payment_processor.py": "def process(): pass\n",
+        "src/bridge/authority.py": "def run(): pass\n",
+        "src/agent/executor_dispatch.py": "def dispatch(): pass\n",
+        "src/product/order_manager.py": "def manage(): pass\n",
+    }
+    fixture = _build_fixture(tmp_path, domain_files)
+    result = fixture["result"]
+
+    # Verify all components only receive technical artifact roles and fixed H3 negative boundaries
+    for comp in result.component_summaries:
+        assert comp.must_not_own == H3_MUST_NOT_OWN_DEFAULT
+        for role in comp.observed_roles:
+            assert isinstance(role, ArtifactRole)
+        # Ensure no manufactured domain properties
+        assert not hasattr(comp, "domain_ownership")
+        assert not hasattr(comp, "business_concept")
+        assert not hasattr(comp, "business_function")
+
+
 def test_executor_profile_from_h2_executor_edge_and_coobservations(tmp_path: Path):
     fixture = _build_fixture(tmp_path)
     result = fixture["result"]
@@ -304,27 +347,89 @@ def test_executor_profile_from_h2_executor_edge_and_coobservations(tmp_path: Pat
 
 
 def test_multiple_executors_one_task_preserved_and_no_preference(tmp_path: Path):
-    overrides = {
-        ".ai/tasks/TASK-082.md": "# TASK-082\n\nEXECUTOR_ALLOWED_PATHS_JSON: [\"loose.py\"]\n",
-        ".ai/results/RESULT-082.md": (
-            "# RESULT-082\n\n"
-            "## Review Manifest\n\n"
-            "```text\n"
-            "TASK_ID: TASK-082\n"
-            "EXECUTOR_ID: codex\n"
-            "STATUS: PASS\n"
-            "```\n"
-        ),
-    }
-    fixture = _build_fixture(tmp_path, overrides)
-    res = fixture["result"]
+    # Construct exact synthetic H2 input containing TWO valid TASK_EXECUTED_BY_EXECUTOR
+    # observations for the EXACT SAME TASK (TASK-081)
+    fixture = _build_fixture(tmp_path)
+    h2_graph = fixture["h2_graph"]
+    roles = fixture["roles"]
+
+    codex_node = H2GraphNode.create(
+        node_id="executor:codex",
+        kind=H2GraphNodeKind.EXECUTOR,
+        identity="executor:codex",
+        evidence_fingerprint=compute_sha256(canonical_json_bytes({"executor_id": "codex"})),
+    )
+    codex_edge = H2GraphEdge.create(
+        source_node_id="task:TASK-081",
+        target_node_id="executor:codex",
+        relation=H2GraphRelation.TASK_EXECUTED_BY_EXECUTOR,
+        evidence_path=".ai/results/RESULT-081-codex.md",
+        evidence_blob_sha="0" * 40,
+        evidence_fingerprint="0" * 64,
+    )
+    sorted_nodes = tuple(sorted((*h2_graph.nodes, codex_node), key=_node_order_key))
+    sorted_edges = tuple(sorted((*h2_graph.edges, codex_edge), key=_graph_edge_order_key))
+
+    payload = _h2_result_payload(
+        task_id=h2_graph.task_id,
+        repository_snapshot=h2_graph.repository_snapshot,
+        control_plane_snapshot=h2_graph.control_plane_snapshot,
+        discovery_fingerprint=h2_graph.discovery_fingerprint,
+        candidate_set_fingerprint=h2_graph.candidate_set_fingerprint,
+        experience_manifest_fingerprint=h2_graph.experience_manifest_fingerprint,
+        ranking_fingerprint=h2_graph.ranking_fingerprint,
+        relevance_spec_fingerprint=h2_graph.relevance_spec_fingerprint,
+        role_summary_fingerprint=h2_graph.role_summary_fingerprint,
+        import_graph_fingerprint=h2_graph.import_graph_fingerprint,
+        components=h2_graph.components,
+        symbols=h2_graph.symbols,
+        nodes=sorted_nodes,
+        edges=sorted_edges,
+        unresolved_records=h2_graph.unresolved_records,
+        authority_created=False,
+    )
+    multi_h2_graph = RepositoryStructuralExperienceGraphResult(
+        task_id=h2_graph.task_id,
+        repository_snapshot=h2_graph.repository_snapshot,
+        control_plane_snapshot=h2_graph.control_plane_snapshot,
+        discovery_fingerprint=h2_graph.discovery_fingerprint,
+        candidate_set_fingerprint=h2_graph.candidate_set_fingerprint,
+        experience_manifest_fingerprint=h2_graph.experience_manifest_fingerprint,
+        ranking_fingerprint=h2_graph.ranking_fingerprint,
+        relevance_spec_fingerprint=h2_graph.relevance_spec_fingerprint,
+        role_summary_fingerprint=h2_graph.role_summary_fingerprint,
+        import_graph_fingerprint=h2_graph.import_graph_fingerprint,
+        components=h2_graph.components,
+        symbols=h2_graph.symbols,
+        nodes=sorted_nodes,
+        edges=sorted_edges,
+        unresolved_records=h2_graph.unresolved_records,
+        graph_fingerprint=_bounded_fingerprint(payload),
+    )
+
+    res, receipt = summarize_repository_roles_and_executor_tendencies(multi_h2_graph, roles)
+
+    # 1. Both executor profiles are preserved
     assert len(res.executor_profiles) == 2
-    executors = {p.executor_id for p in res.executor_profiles}
-    assert executors == {"antigravity", "codex"}
+    prof_map = {p.executor_id: p for p in res.executor_profiles}
+    assert set(prof_map.keys()) == {"antigravity", "codex"}
+
+    # 2. The exact same task appears in BOTH profiles
+    assert prof_map["antigravity"].observed_tasks == ("TASK-081",)
+    assert prof_map["codex"].observed_tasks == ("TASK-081",)
+    assert prof_map["antigravity"].observed_task_count == 1
+    assert prof_map["codex"].observed_task_count == 1
+
+    # 3. Component & review finding co-observations appear in both profiles
+    assert prof_map["antigravity"].coobserved_component_ids == prof_map["codex"].coobserved_component_ids
+    assert prof_map["antigravity"].coobserved_review_finding_ids == prof_map["codex"].coobserved_review_finding_ids
+
+    # 4. Absolutely no preferred executor or routing authority
     for p in res.executor_profiles:
         assert not hasattr(p, "preferred_executor")
         assert not hasattr(p, "routing_score")
         assert not hasattr(p, "winner")
+        assert not hasattr(p, "quality_grade")
 
 
 def test_no_executor_edge_produces_no_executor_profiles(tmp_path: Path):
@@ -337,23 +442,163 @@ def test_no_executor_edge_produces_no_executor_profiles(tmp_path: Path):
     assert len(result.executor_profiles) == 0
 
 
-def test_hard_bounds_and_bool_as_int_rejection(
+def test_order_independence(tmp_path: Path):
+    fixture = _build_fixture(tmp_path)
+    result = fixture["result"]
+
+    # 1. Component summaries order permutation in Result
+    reversed_comps = tuple(reversed(result.component_summaries))
+    res_permuted_comps = RepositoryRoleTendencyResult.create(
+        snapshot=result.snapshot,
+        h2_graph_fingerprint=result.h2_graph_fingerprint,
+        role_summary_fingerprint=result.role_summary_fingerprint,
+        component_summaries=reversed_comps,
+        executor_profiles=result.executor_profiles,
+        unobserved_role_file_count=result.unobserved_role_file_count,
+    )
+    assert res_permuted_comps.component_summaries == result.component_summaries
+    assert res_permuted_comps.result_fingerprint == result.result_fingerprint
+
+    # 2. Member files order permutation in ComponentRoleSummary
+    first_comp = result.component_summaries[0]
+    if len(first_comp.member_files) > 1:
+        reversed_files = tuple(reversed(first_comp.member_files))
+        comp_permuted_files = ComponentRoleSummary.create(
+            component_id=first_comp.component_id,
+            path=first_comp.path,
+            kind=first_comp.kind,
+            member_files=reversed_files,
+            observed_roles=first_comp.observed_roles,
+            symbol_count=first_comp.symbol_count,
+            inbound_component_count=first_comp.inbound_component_count,
+            outbound_component_count=first_comp.outbound_component_count,
+        )
+        assert comp_permuted_files.member_files == first_comp.member_files
+        assert comp_permuted_files.summary_fingerprint == first_comp.summary_fingerprint
+
+    # 3. Tasks / components / findings permutation in ExecutorTendencyProfile
+    prof = result.executor_profiles[0]
+    prof_permuted = ExecutorTendencyProfile.create(
+        executor_id=prof.executor_id,
+        observed_tasks=tuple(reversed(prof.observed_tasks)),
+        component_observations=tuple(reversed(prof.component_observations)),
+        coobserved_review_finding_ids=tuple(reversed(prof.coobserved_review_finding_ids)),
+    )
+    assert prof_permuted.observed_tasks == prof.observed_tasks
+    assert prof_permuted.component_observations == prof.component_observations
+    assert prof_permuted.coobserved_review_finding_ids == prof.coobserved_review_finding_ids
+    assert prof_permuted.profile_fingerprint == prof.profile_fingerprint
+
+
+def test_duplicate_identity_rejection(tmp_path: Path):
+    fixture = _build_fixture(tmp_path)
+    result = fixture["result"]
+    comp = result.component_summaries[0]
+    prof = result.executor_profiles[0]
+
+    # 1. Duplicate member file path in ComponentRoleSummary
+    dup_file = comp.member_files[0]
+    with pytest.raises(HarnessValidationError, match="duplicate member file path"):
+        replace(comp, member_files=(dup_file, dup_file))
+
+    # 2. Duplicate observed role in ComponentRoleSummary
+    with pytest.raises(HarnessValidationError, match="duplicate observed role"):
+        replace(comp, observed_roles=(ArtifactRole.SOURCE_IMPLEMENTATION, ArtifactRole.SOURCE_IMPLEMENTATION))
+
+    # 3. Duplicate task in ExecutorTendencyProfile
+    with pytest.raises(HarnessValidationError, match="duplicate observed task"):
+        replace(prof, observed_tasks=("TASK-081", "TASK-081"), observed_task_count=2)
+
+    # 4. Duplicate component observation in ExecutorTendencyProfile
+    obs = prof.component_observations[0]
+    with pytest.raises(HarnessValidationError, match="duplicate component observation"):
+        replace(
+            prof,
+            component_observations=(obs, obs),
+            coobserved_component_ids=(obs.component_id, obs.component_id),
+        )
+
+    # 5. Duplicate review finding in ExecutorTendencyProfile
+    with pytest.raises(HarnessValidationError, match="duplicate finding ID"):
+        replace(
+            prof,
+            coobserved_review_finding_ids=("review-finding:1", "review-finding:1"),
+            coobserved_review_finding_count=2,
+        )
+
+    # 6. Duplicate component summary in Result
+    with pytest.raises(HarnessValidationError, match="duplicate component summary"):
+        replace(result, component_summaries=(comp, comp))
+
+    # 7. Duplicate executor profile in Result
+    with pytest.raises(HarnessValidationError, match="duplicate executor profile"):
+        replace(result, executor_profiles=(prof, prof))
+
+
+def test_all_hard_bounds_and_bool_as_int_rejection(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ):
     fixture = _build_fixture(tmp_path)
     result = fixture["result"]
     comp = result.component_summaries[0]
+    prof = result.executor_profiles[0]
+    obs = prof.component_observations[0]
 
-    # bool as int in symbol_count
+    # 1. Bool as int rejection on all scalar fields
     with pytest.raises(HarnessValidationError, match="symbol_count must be an exact integer, not bool"):
         replace(comp, symbol_count=True)  # type: ignore[arg-type]
 
-    # negative int in symbol_count
+    with pytest.raises(HarnessValidationError, match="inbound_component_count must be an exact integer, not bool"):
+        replace(comp, inbound_component_count=True)  # type: ignore[arg-type]
+
+    with pytest.raises(HarnessValidationError, match="outbound_component_count must be an exact integer, not bool"):
+        replace(comp, outbound_component_count=True)  # type: ignore[arg-type]
+
+    with pytest.raises(HarnessValidationError, match="coobserved_task_count must be an exact integer, not bool"):
+        ExecutorComponentObservation(component_id="component:PYTHON_PACKAGE:pkg", coobserved_task_count=True)  # type: ignore[arg-type]
+
+    with pytest.raises(HarnessValidationError, match="unobserved_role_file_count must be an exact integer, not bool"):
+        replace(result, unobserved_role_file_count=True)  # type: ignore[arg-type]
+
+    # 2. Negative int rejection on all scalar fields
     with pytest.raises(HarnessValidationError, match="symbol_count must be >= 0"):
         replace(comp, symbol_count=-1)
 
-    # bounds enforcement
+    with pytest.raises(HarnessValidationError, match="inbound_component_count must be >= 0"):
+        replace(comp, inbound_component_count=-1)
+
+    with pytest.raises(HarnessValidationError, match="outbound_component_count must be >= 0"):
+        replace(comp, outbound_component_count=-1)
+
+    with pytest.raises(HarnessValidationError, match="coobserved_task_count must be >= 1"):
+        ExecutorComponentObservation(component_id="component:PYTHON_PACKAGE:pkg", coobserved_task_count=0)
+
+    with pytest.raises(HarnessValidationError, match="unobserved_role_file_count must be >= 0"):
+        replace(result, unobserved_role_file_count=-1)
+
+    # 3. Scalar overflow limits
+    with pytest.raises(RepositoryRoleTendencyBoundError, match="symbol_count .* exceeds hard limit"):
+        replace(comp, symbol_count=MAX_H3_SYMBOLS_PER_COMPONENT + 1)
+
+    with pytest.raises(RepositoryRoleTendencyBoundError, match="inbound_component_count .* exceeds hard limit"):
+        replace(comp, inbound_component_count=MAX_H3_COMPONENT_RELATIONSHIPS + 1)
+
+    with pytest.raises(RepositoryRoleTendencyBoundError, match="outbound_component_count .* exceeds hard limit"):
+        replace(comp, outbound_component_count=MAX_H3_COMPONENT_RELATIONSHIPS + 1)
+
+    with pytest.raises(RepositoryRoleTendencyBoundError, match="coobserved_task_count .* exceeds hard limit"):
+        ExecutorComponentObservation(component_id="component:PYTHON_PACKAGE:pkg", coobserved_task_count=MAX_H3_OBSERVED_TASKS_PER_EXECUTOR + 1)
+
+    with pytest.raises(RepositoryRoleTendencyBoundError, match="unobserved_role_file_count .* exceeds hard limit"):
+        replace(result, unobserved_role_file_count=MAX_H3_UNOBSERVED_ROLE_FILES + 1)
+
+    # 4. Invariant: coobserved_task_count <= observed_task_count inside ExecutorTendencyProfile
+    big_obs = ExecutorComponentObservation(component_id="component:PYTHON_PACKAGE:pkg", coobserved_task_count=2)
+    with pytest.raises(HarnessValidationError, match="cannot exceed"):
+        replace(prof, component_observations=(big_obs,), coobserved_component_ids=(big_obs.component_id,))
+
+    # 5. Cardinality bound constants
     monkeypatch.setattr(role_tendencies_module, "MAX_H3_COMPONENT_SUMMARIES", 1)
     with pytest.raises(RepositoryRoleTendencyBoundError, match="component_summaries exceeds hard limit"):
         RepositoryRoleTendencyResult.create(

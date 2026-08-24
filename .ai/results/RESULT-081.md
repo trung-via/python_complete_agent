@@ -5,21 +5,21 @@ STATUS: READY_FOR_REVIEW
 ## Review Manifest
 ```yaml
 TASK_ID: TASK-081
-ACTION: RUN
+ACTION: FIX
 EXECUTOR_ID: antigravity
 EXECUTOR_FAILOVER: NO
 HOT_HANDOFF: NO
 ```
 
 ## Summary
-Implemented H3 Canonical Component Role Summaries and Evidence-Based Executor Tendencies (TASK-081): pure composition of H2 structural/experience graph and historical role summaries; enforced H0 negative authority boundary on every component summary; built bounded descriptive executor tendency profiles from exact H2 experience edges with zero authority expansion; exported intentional H3 public API; verified with 50 targeted tests and 2484 full repository tests.
+Fixed REVIEW-081 findings B1 and B2: enforced explicit hard limits on all scalar/count surfaces (MAX_H3_SYMBOLS_PER_COMPONENT, MAX_H3_COMPONENT_RELATIONSHIPS, MAX_H3_UNOBSERVED_ROLE_FILES, MAX_H3_OBSERVED_TASKS_PER_EXECUTOR) and enforced coobserved_task_count <= observed_task_count invariant inside ExecutorTendencyProfile; expanded comprehensive regression test matrix with exact multi-executor one-task preservation, order independence, duplicate identity rejection, boundary/overflow checks for all bound constants, and non-inference of business domain roles from paths (53 targeted passed, 2487 full repo passed).
 
 ## Task Metadata
 - Task: `TASK-081`
-- Action: `RUN`
+- Action: `FIX`
 - Executor: `antigravity`
-- Authorized Artifact: `.ai/tasks/TASK-081.md (2ae2ad1567)`
-- Base Main SHA: `4d7e5a6be68ef0aaf0ed7db6927c26c5ddbb61af`
+- Authorized Artifact: `.ai/reviews/REVIEW-081.md (b5edefc0cf)`
+- Base Main SHA: `(n/a)`
 - Branch: `ai/task-081`
 
 ## Files Changed
@@ -29,10 +29,10 @@ Implemented H3 Canonical Component Role Summaries and Evidence-Based Executor Te
 
 ## Diff Stat
 ```text
-src/aios_engineering/harness/__init__.py           |  44 ++
- src/aios_engineering/harness/role_tendencies.py    | 879 +++++++++++++++++++++
- .../harness/test_role_tendencies.py                | 417 ++++++++++
- 3 files changed, 1340 insertions(+)
+src/aios_engineering/harness/__init__.py           |   6 +
+ src/aios_engineering/harness/role_tendencies.py    |  44 +++-
+ .../harness/test_role_tendencies.py                | 287 +++++++++++++++++++--
+ 3 files changed, 310 insertions(+), 27 deletions(-)
 ```
 
 ## Tests
@@ -48,7 +48,7 @@ Exit code: 0
 ....ss....................................s............................. [ 17%]
 ........................................................................ [ 20%]
 ........................................................................ [ 23%]
-........................................................................ [ 26%]
+........................................................................ [ 25%]
 ........................................................................ [ 28%]
 ........................................................................ [ 31%]
 ........................................................................ [ 34%]
@@ -57,7 +57,7 @@ Exit code: 0
 ........................................................................ [ 43%]
 ........................................................................ [ 46%]
 ........................................................................ [ 49%]
-........................................................................ [ 52%]
+........................................................................ [ 51%]
 ........................................................................ [ 54%]
 ........................................................................ [ 57%]
 ........................................................................ [ 60%]
@@ -66,7 +66,7 @@ Exit code: 0
 ........................................................................ [ 69%]
 ........................................................................ [ 72%]
 ........................................................................ [ 75%]
-........................................................................ [ 78%]
+........................................................................ [ 77%]
 ........................................................................ [ 80%]
 ........................................................................ [ 83%]
 ........................................................................ [ 86%]
@@ -74,7 +74,7 @@ Exit code: 0
 ........................................................................ [ 92%]
 ........................................................................ [ 95%]
 ........................................................................ [ 98%]
-...........................................                              [100%]
+..............................................                           [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -377,7 +377,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-2484 passed, 7 skipped, 1540 warnings in 456.58s (0:07:36)
+2487 passed, 7 skipped, 1540 warnings in 450.68s (0:07:30)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -389,24 +389,21 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 TARGETED_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/aios_engineering/harness/test_role_tendencies.py tests/aios_engineering/harness/test_structural_experience_graph.py tests/aios_engineering/harness/test_roles.py -v
 Exit code: 0
-Result: 50 passed, 0 skipped, 0 failed
+Result: 53 passed, 0 skipped, 0 failed
 
 FULL_REPOSITORY_TESTS:
 Command: venv/Scripts/python.exe -m pytest tests/ -q
 Exit code: 0
-Result: 2484 passed, 7 skipped, 0 failed
+Result: 2487 passed, 7 skipped, 0 failed
 
 GIT_DIFF_CHECK:
 Command: git diff --check
 Exit code: 0
 Result: Clean
 
-H3_REQUIREMENT_BINDINGS:
-H3.R1_COMPONENT_ROLE_SUMMARIES: IMPLEMENTED
-H3.R1_GLOBAL_MUST_NOT_OWN_BOUNDARY: IMPLEMENTED (exact H0 negative authority set)
-H3.R2_BOUNDED_ROLE_AWARE_COMPOSITION: IMPLEMENTED (revalidates upstream contracts & cross-binding)
-H3.R3_EVIDENCE_BASED_EXECUTOR_TENDENCIES: IMPLEMENTED (TASK_EXECUTED_BY_EXECUTOR, TASK_TOUCHES_COMPONENT, TASK_HAS_REVIEW_FINDING)
-H3.R4_ADVISORY_ONLY_CONTRACT: IMPLEMENTED (zero authority, no routing/selection/scoring/blame)
+REVIEW_081_FINDINGS_REPAIR:
+B1_H3_SCALAR_COUNT_BOUNDEDNESS: RESOLVED (MAX_H3_SYMBOLS_PER_COMPONENT, MAX_H3_COMPONENT_RELATIONSHIPS, MAX_H3_UNOBSERVED_ROLE_FILES, coobserved_task_count <= observed_task_count)
+B2_MANDATORY_REGRESSION_MATRIX: RESOLVED (multi-executor on one task, order independence, duplicate identity rejection, all hard bounds, no business domain inference)
 AUTHORIZED_SCOPE_ONLY: YES
 H3_ROLE_TENDENCY_POLICY_VERSION: h3-role-tendency-v1
 H3_ROLE_TENDENCY_SCHEMA_VERSION: 1
@@ -419,4 +416,4 @@ STANDING_AUTO_MERGE_AUTHORIZATION: ENABLED
 WORKER_MERGE_AUTHORITY: NO
 
 ## Generated
-2026-08-24T12:49:04+07:00
+2026-08-24T13:24:21+07:00
