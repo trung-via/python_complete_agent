@@ -1,4 +1,5 @@
 # REVIEW-082 — H4 Canonical Knowledge Registry + Explicit Lifecycle
+PUBLISHER_PROFILE: CANONICAL_E4
 
 STATUS: CHANGES_REQUIRED
 APPROVED: NO
