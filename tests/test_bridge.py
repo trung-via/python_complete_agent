@@ -5522,3 +5522,34 @@ def test_task_032_portability_scope_validation_fails_closed_on_core_change_or_fo
     )
     with pytest.raises(SystemExit):
         bridge._validate_task_032_portability_scope(cfg, auth)
+
+
+def test_prepare_task_branch_run_fails_closed_when_stale_branch_not_descended_from_bound_base_main(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    """
+    Validates Finding B1 (TASK-086): A RUN task branch that is not descended from
+    the bound base_main_sha fails closed immediately instead of silently using a stale lineage.
+    """
+    cfg = {
+        "remote": "origin",
+        "task_branch_prefix": "ai/task-",
+        "base_branch": "main",
+    }
+
+    # Simulate existing branch that is not descended from bound_base_sha
+    monkeypatch.setattr(bridge, "current_branch", lambda: "main")
+    monkeypatch.setattr(bridge, "non_ai_dirty_paths", lambda: [])
+    monkeypatch.setattr(bridge, "git", lambda *args, **kwargs: None)
+    monkeypatch.setattr(bridge, "local_branch_exists", lambda b: True)
+    monkeypatch.setattr(bridge, "sync_existing_task_branch", lambda r, b: None)
+    monkeypatch.setattr(bridge, "is_git_ancestor", lambda anc, desc: False)
+
+    with pytest.raises(SystemExit):
+        bridge.prepare_task_branch(
+            cfg,
+            task_id=86,
+            action="RUN",
+            bound_base_sha="11967270857dd886e6e686a599bdd40e1d684619",
+        )

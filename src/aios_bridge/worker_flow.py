@@ -12,7 +12,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
-from typing import Callable, Sequence
+from typing import Callable
 
 
 class FixExecutionMode(str, Enum):
@@ -96,17 +96,17 @@ class WorkerFlowResult:
 
 
 class WorkerFlowCoordinator:
-    """Coordinates single-command worker transactions with automatic sync and mode routing."""
+    """Coordinates single-command worker transactions with mode routing."""
 
     def __init__(
         self,
         repo_root: Path,
         run_bridge_cmd_fn: Callable[[list[str]], int] | None = None,
-        review_resolver_fn: Callable[[int], str | None] | None = None,
+        load_auth_fn: Callable[[int], dict | None] | None = None,
     ) -> None:
         self.repo_root = repo_root
         self._run_bridge_cmd = run_bridge_cmd_fn or self._default_run_bridge_cmd
-        self._review_resolver = review_resolver_fn or self._default_resolve_review
+        self._load_auth = load_auth_fn or self._default_load_auth
 
     def _default_run_bridge_cmd(self, args: list[str]) -> int:
         bridge_py = self.repo_root / "bridge.py"
@@ -114,28 +114,12 @@ class WorkerFlowCoordinator:
         proc = subprocess.run(cmd, cwd=self.repo_root, shell=False)
         return proc.returncode
 
-    def _default_resolve_review(self, task_num: int) -> str | None:
-        local_path = self.repo_root / f".ai/reviews/REVIEW-{task_num:03d}.md"
-        if local_path.is_file():
-            try:
-                return local_path.read_text(encoding="utf-8")
-            except Exception:
-                pass
-
-        # Resolve from origin/ai-control or local artifact cache
+    def _default_load_auth(self, task_num: int) -> dict | None:
         try:
-            cmd = ["git", "show", f"origin/ai-control:.ai/reviews/REVIEW-{task_num:03d}.md"]
-            proc = subprocess.run(
-                cmd,
-                cwd=self.repo_root,
-                capture_output=True,
-                shell=False,
-            )
-            if proc.returncode == 0:
-                return proc.stdout.decode("utf-8")
+            from bridge import get_active_authorization
+            return get_active_authorization(task_num, "FIX")
         except Exception:
-            pass
-        return None
+            return None
 
     def sync(self) -> int:
         """Executes read-only control branch synchronization."""
@@ -179,19 +163,8 @@ class WorkerFlowCoordinator:
                 message=f"Synced status for {task_id}",
             )
 
-        # 2. RUN transaction: sync then handoff [then execute if codex]
+        # 2. RUN transaction: handoff [then execute if codex]
         if action == WorkerAction.RUN:
-            sync_code = self.sync()
-            if sync_code != 0:
-                return WorkerFlowResult(
-                    action=action.value,
-                    task_id=task_id,
-                    adapter=adapter.value,
-                    status="SYNC_FAILED",
-                    returncode=sync_code,
-                    message="Pre-authority sync failed for RUN",
-                )
-
             handoff_args = ["handoff", str(task_num), "--action", "run", "--executor", adapter.value]
             handoff_code = self._run_bridge_cmd(handoff_args)
             if handoff_code != 0:
@@ -236,32 +209,8 @@ class WorkerFlowCoordinator:
                     message=f"RUN {task_id} authorized for {adapter.value}",
                 )
 
-        # 3. FIX transaction: sync, resolve review mode, handoff, then appropriate continuation
+        # 3. FIX transaction: handoff, inspect authorized fix mode, then appropriate continuation
         if action == WorkerAction.FIX:
-            sync_code = self.sync()
-            if sync_code != 0:
-                return WorkerFlowResult(
-                    action=action.value,
-                    task_id=task_id,
-                    adapter=adapter.value,
-                    status="SYNC_FAILED",
-                    returncode=sync_code,
-                    message="Pre-authority sync failed for FIX",
-                )
-
-            review_content = self._review_resolver(task_num)
-            try:
-                fix_mode = extract_fix_execution_mode(review_content)
-            except ValueError as e:
-                return WorkerFlowResult(
-                    action=action.value,
-                    task_id=task_id,
-                    adapter=adapter.value,
-                    status="INVALID_FIX_MODE",
-                    returncode=1,
-                    message=str(e),
-                )
-
             handoff_args = ["handoff", str(task_num), "--action", "fix", "--executor", adapter.value]
             handoff_code = self._run_bridge_cmd(handoff_args)
             if handoff_code != 0:
@@ -270,14 +219,38 @@ class WorkerFlowCoordinator:
                     task_id=task_id,
                     adapter=adapter.value,
                     status="HANDOFF_FAILED",
-                    fix_execution_mode=fix_mode.value,
                     returncode=handoff_code,
                     message="Handoff failed for FIX",
                 )
 
-            # Route by fix mode
+            # Load the exact authorized fix execution mode frozen by Bridge handoff
+            auth = self._load_auth(task_num)
+            if not auth or auth.get("status") != "ACTIVE" or auth.get("action", "").upper() != "FIX":
+                return WorkerFlowResult(
+                    action=action.value,
+                    task_id=task_id,
+                    adapter=adapter.value,
+                    status="AUTH_INVALID",
+                    returncode=1,
+                    message="Active authorization missing or invalid post-handoff",
+                )
+
+            mode_raw = auth.get("fix_execution_mode", FixExecutionMode.IMPLEMENTATION.value)
+            try:
+                fix_mode = FixExecutionMode(mode_raw)
+            except ValueError as exc:
+                return WorkerFlowResult(
+                    action=action.value,
+                    task_id=task_id,
+                    adapter=adapter.value,
+                    status="INVALID_FIX_MODE",
+                    returncode=1,
+                    message=f"Invalid authorized FIX_EXECUTION_MODE '{mode_raw}': {exc}",
+                )
+
+            # Route continuation strictly based on exact authorized fix_mode
             if fix_mode == FixExecutionMode.EVIDENCE_REFRESH:
-                # Evidence Refresh: skip bounded executor, certify and publish directly
+                # Evidence Refresh: skip bounded executor, certify canonical suite, publish directly
                 publish_args = [
                     "publish",
                     str(task_num),

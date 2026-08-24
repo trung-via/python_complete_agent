@@ -91,8 +91,8 @@ def test_status_transaction_syncs_and_checks_pending_non_authorizing(tmp_path: P
     assert invoked_cmds == [["sync"], ["pending"]]
 
 
-def test_run_without_status_auto_syncs_and_executes_codex(tmp_path: Path) -> None:
-    """Proof: RUN_WITHOUT_STATUS_AUTO_SYNCS: PASS."""
+def test_run_executes_handoff_without_redundant_pre_sync_codex(tmp_path: Path) -> None:
+    """Proof: RUN_WITHOUT_STATUS_AUTO_SYNCS: PASS & RUN_NO_REDUNDANT_PRE_SYNC: PASS."""
     invoked_cmds: list[list[str]] = []
 
     def fake_run_bridge_cmd(args: list[str]) -> int:
@@ -114,14 +114,14 @@ def test_run_without_status_auto_syncs_and_executes_codex(tmp_path: Path) -> Non
     assert result.status == "PUBLISHED"
     assert result.executor_invocations == 1
     assert result.returncode == 0
+    # Handoff directly without redundant pre-sync!
     assert invoked_cmds == [
-        ["sync"],
         ["handoff", "86", "--action", "run", "--executor", "codex"],
         ["execute", "86"],
     ]
 
 
-def test_run_antigravity_auto_syncs_and_stops_at_handoff(tmp_path: Path) -> None:
+def test_run_antigravity_stops_at_handoff(tmp_path: Path) -> None:
     """Proof: IMPLEMENTATION_MODE_ANTIGRAVITY_CONTINUATION_PRESERVED: PASS."""
     invoked_cmds: list[list[str]] = []
 
@@ -145,31 +145,29 @@ def test_run_antigravity_auto_syncs_and_stops_at_handoff(tmp_path: Path) -> None
     assert result.executor_invocations == 0
     assert result.returncode == 0
     assert invoked_cmds == [
-        ["sync"],
         ["handoff", "86", "--action", "run", "--executor", "antigravity"],
     ]
 
 
-def test_fix_without_status_auto_syncs_and_re_resolves_latest_review(tmp_path: Path) -> None:
-    """Proof: FIX_WITHOUT_STATUS_AUTO_SYNCS: PASS & LATEST_REVIEW_REVISION_CONSUMED: PASS."""
+def test_fix_executes_handoff_without_redundant_pre_sync_implementation_codex(tmp_path: Path) -> None:
+    """Proof: FIX_WITHOUT_STATUS_AUTO_SYNCS: PASS & FIX_NO_REDUNDANT_PRE_SYNC: PASS & LATEST_EXACT_REVIEW_IS_SINGLE_MODE_AUTHORITY: PASS."""
     invoked_cmds: list[list[str]] = []
-    review_versions = [
-        "STATUS: CHANGES_REQUIRED\nFIX_EXECUTION_MODE: IMPLEMENTATION",
-        "STATUS: CHANGES_REQUIRED\nFIX_EXECUTION_MODE: IMPLEMENTATION\nREVIEW_ROUND: 2",
-    ]
 
     def fake_run_bridge_cmd(args: list[str]) -> int:
         invoked_cmds.append(args)
         return 0
 
-    def fake_review_resolver(task_num: int) -> str | None:
-        # Return latest revision (simulating sync pulling revision 2)
-        return review_versions[1]
+    def fake_load_auth(task_num: int) -> dict | None:
+        return {
+            "status": "ACTIVE",
+            "action": "FIX",
+            "fix_execution_mode": "IMPLEMENTATION",
+        }
 
     coordinator = WorkerFlowCoordinator(
         repo_root=tmp_path,
         run_bridge_cmd_fn=fake_run_bridge_cmd,
-        review_resolver_fn=fake_review_resolver,
+        load_auth_fn=fake_load_auth,
     )
     intent = WorkerIntent(
         action=WorkerAction.FIX,
@@ -184,20 +182,19 @@ def test_fix_without_status_auto_syncs_and_re_resolves_latest_review(tmp_path: P
     assert result.executor_invocations == 1
     assert result.returncode == 0
     assert invoked_cmds == [
-        ["sync"],
         ["handoff", "86", "--action", "fix", "--executor", "codex"],
         ["execute", "86"],
     ]
 
 
-def test_sync_failure_blocks_authority_and_handoff(tmp_path: Path) -> None:
+def test_handoff_failure_blocks_continuation(tmp_path: Path) -> None:
     """Proof: SYNC_FAILURE_PREVENTS_AUTHORIZATION: PASS."""
     invoked_cmds: list[list[str]] = []
 
     def fake_run_bridge_cmd(args: list[str]) -> int:
         invoked_cmds.append(args)
-        if args == ["sync"]:
-            return 1  # Sync fails (e.g. network/git error)
+        if args[:2] == ["handoff", "86"]:
+            return 1  # Handoff (pre-authority sync) fails
         return 0
 
     coordinator = WorkerFlowCoordinator(
@@ -212,27 +209,30 @@ def test_sync_failure_blocks_authority_and_handoff(tmp_path: Path) -> None:
     )
     result = coordinator.execute_transaction(intent)
 
-    assert result.status == "SYNC_FAILED"
+    assert result.status == "HANDOFF_FAILED"
     assert result.returncode == 1
-    # Crucial: handoff was never invoked because sync failed!
-    assert invoked_cmds == [["sync"]]
+    assert invoked_cmds == [["handoff", "86", "--action", "run", "--executor", "codex"]]
 
 
 def test_evidence_refresh_skips_executor_and_publishes_directly(tmp_path: Path) -> None:
-    """Proof: EVIDENCE_REFRESH_SKIPS_EXECUTOR: PASS & EVIDENCE_REFRESH_PUBLISHES_THROUGH_NORMAL_WORKER_SURFACE: PASS."""
+    """Proof: EVIDENCE_REFRESH_SKIPS_EXECUTOR: PASS & EVIDENCE_REFRESH_PUBLISHES_THROUGH_NORMAL_WORKER_SURFACE: PASS & COORDINATOR_MODE_EQUALS_AUTHORIZED_MODE: PASS."""
     invoked_cmds: list[list[str]] = []
 
     def fake_run_bridge_cmd(args: list[str]) -> int:
         invoked_cmds.append(args)
         return 0
 
-    def fake_review_resolver(task_num: int) -> str | None:
-        return "STATUS: CHANGES_REQUIRED\nFIX_EXECUTION_MODE: EVIDENCE_REFRESH"
+    def fake_load_auth(task_num: int) -> dict | None:
+        return {
+            "status": "ACTIVE",
+            "action": "FIX",
+            "fix_execution_mode": "EVIDENCE_REFRESH",
+        }
 
     coordinator = WorkerFlowCoordinator(
         repo_root=tmp_path,
         run_bridge_cmd_fn=fake_run_bridge_cmd,
-        review_resolver_fn=fake_review_resolver,
+        load_auth_fn=fake_load_auth,
     )
     intent = WorkerIntent(
         action=WorkerAction.FIX,
@@ -247,11 +247,42 @@ def test_evidence_refresh_skips_executor_and_publishes_directly(tmp_path: Path) 
     assert result.executor_invocations == 0  # EXECUTOR SKIPPED
     assert result.returncode == 0
 
-    assert len(invoked_cmds) == 3
-    assert invoked_cmds[0] == ["sync"]
-    assert invoked_cmds[1] == ["handoff", "86", "--action", "fix", "--executor", "codex"]
-    # Publish command invoked instead of execute!
-    assert invoked_cmds[2][0] == "publish"
-    assert invoked_cmds[2][1] == "86"
-    assert "--action" in invoked_cmds[2]
-    assert "fix" in invoked_cmds[2]
+    assert len(invoked_cmds) == 2
+    assert invoked_cmds[0] == ["handoff", "86", "--action", "fix", "--executor", "codex"]
+    # Publish command invoked directly instead of execute!
+    assert invoked_cmds[1][0] == "publish"
+    assert invoked_cmds[1][1] == "86"
+    assert "--action" in invoked_cmds[1]
+    assert "fix" in invoked_cmds[1]
+
+
+def test_fix_mode_drift_or_invalid_auth_fails_closed(tmp_path: Path) -> None:
+    """Proof: MODE_DRIFT_FAILS_CLOSED: PASS."""
+    def fake_run_bridge_cmd(args: list[str]) -> int:
+        return 0
+
+    # Test case 1: auth missing
+    coordinator = WorkerFlowCoordinator(
+        repo_root=tmp_path,
+        run_bridge_cmd_fn=fake_run_bridge_cmd,
+        load_auth_fn=lambda t: None,
+    )
+    intent = WorkerIntent(
+        action=WorkerAction.FIX,
+        task_id="TASK-086",
+        task_num=86,
+        adapter=WorkerAdapter.CODEX,
+    )
+    res = coordinator.execute_transaction(intent)
+    assert res.status == "AUTH_INVALID"
+    assert res.returncode == 1
+
+    # Test case 2: unknown fix execution mode in auth
+    coordinator_bad_mode = WorkerFlowCoordinator(
+        repo_root=tmp_path,
+        run_bridge_cmd_fn=fake_run_bridge_cmd,
+        load_auth_fn=lambda t: {"status": "ACTIVE", "action": "FIX", "fix_execution_mode": "CORRUPTED_MODE"},
+    )
+    res_bad = coordinator_bad_mode.execute_transaction(intent)
+    assert res_bad.status == "INVALID_FIX_MODE"
+    assert res_bad.returncode == 1

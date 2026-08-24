@@ -2396,12 +2396,24 @@ def sync_existing_task_branch(remote: str, branch: str):
     )
 
 
-def prepare_task_branch(cfg, task_id: int, action: str) -> str:
+def is_git_ancestor(ancestor_ref: str, descendant_ref: str) -> bool:
+    """Checks if ancestor_ref is an ancestor of descendant_ref."""
+    proc = _run_git_binary("merge-base", "--is-ancestor", ancestor_ref, descendant_ref)
+    return proc.returncode == 0
+
+
+def prepare_task_branch(
+    cfg,
+    task_id: int,
+    action: str,
+    bound_base_sha: str | None = None,
+) -> str:
     """
     Safely prepares and switches to the task branch.
     For RUN: Creates from synchronized canonical main or safely resumes.
     For FIX: Requires existing branch, fetches remote, and resumes without rebase.
-    Fails closed on local-ahead or diverged state when remote branch exists.
+    Fails closed on local-ahead or diverged state when remote branch exists, or if
+    an existing branch is not descended from bound_base_sha on RUN.
     """
     remote = cfg["remote"]
     branch = f"{cfg['task_branch_prefix']}{task_id:03d}"
@@ -2418,15 +2430,30 @@ def prepare_task_branch(cfg, task_id: int, action: str) -> str:
     if action.upper() == "RUN":
         if current_branch() == branch:
             sync_existing_task_branch(remote, branch)
+            if bound_base_sha and not is_git_ancestor(bound_base_sha, branch):
+                fail(
+                    f"Task branch '{branch}' is not descended from bound base main '{bound_base_sha}'. "
+                    "Realign or recreate task branch before RUN authorization."
+                )
             return branch
 
         if local_branch_exists(branch):
             sync_existing_task_branch(remote, branch)
+            if bound_base_sha and not is_git_ancestor(bound_base_sha, branch):
+                fail(
+                    f"Task branch '{branch}' is not descended from bound base main '{bound_base_sha}'. "
+                    "Realign or recreate task branch before RUN authorization."
+                )
             git("checkout", branch)
             return branch
 
         if branch_exists_remote(remote, branch):
             git("checkout", "-b", branch, "--track", f"{remote}/{branch}")
+            if bound_base_sha and not is_git_ancestor(bound_base_sha, branch):
+                fail(
+                    f"Task branch '{branch}' is not descended from bound base main '{bound_base_sha}'. "
+                    "Realign or recreate task branch before RUN authorization."
+                )
             return branch
 
         # Create new branch from synchronized canonical base
@@ -2707,7 +2734,7 @@ def cmd_handoff(args):
         clear_pending_events("TASK", task_id)
 
         base_main_sha = reconcile_local_main(cfg)
-        branch = prepare_task_branch(cfg, task_id, "RUN")
+        branch = prepare_task_branch(cfg, task_id, "RUN", bound_base_sha=base_main_sha)
 
         task_id_str = f"TASK-{task_id:03d}"
         ws_id = get_workspace_id()
@@ -5293,7 +5320,7 @@ Exit code: {test_rc}
     msg = args.message or f"TASK-{task_id:03d}: implementation ready for review"
     git("commit", "-m", msg)
     sha = git("rev-parse", "HEAD").stdout.strip()
-    git("push", "-u", cfg["remote"], branch)
+    git("push", "-u", "--force-with-lease", cfg["remote"], branch)
 
     # Release exact lease after push success (C22 / AIP-10)
     try:
