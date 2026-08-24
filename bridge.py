@@ -3579,8 +3579,11 @@ def cmd_execute(args):
 
             lease_ok = "lease_released: OK" in cleanup_diagnostics
             if lease_ok and auth_persisted:
+                outcome_val = getattr(diagnostic, "executor_outcome", "UNKNOWN")
+                final_msg_val = getattr(diagnostic, "final_agent_message_observed", "UNKNOWN")
                 blocked_msg = (
                     f"E4 execution blocked: CLEAN_NO_WORKTREE_DELTA; "
+                    f"executor_outcome={outcome_val}; final_agent_message_observed={final_msg_val}; "
                     f"diagnostic={diagnostic.code}; no publication, no retry, no reroute"
                 )
                 try:

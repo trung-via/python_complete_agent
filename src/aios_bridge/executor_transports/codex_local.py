@@ -28,12 +28,25 @@ from src.aios_bridge.continuity.executor_transport import (
 )
 
 
+from src.aios_bridge.executor_outcome import (
+    ALLOWED_FINAL_MESSAGE_OBSERVATION_STATUSES,
+    ALLOWED_OUTCOME_CODES,
+    ExecutorOutcomeCode,
+    FinalAgentMessageObservation,
+    extract_terminal_outcome_from_text,
+    parse_executor_outcome_code,
+    parse_final_agent_message_observation,
+    validate_activity_count,
+)
+
+
 CODEX_EXECUTOR_ID = "codex"
 CODEX_TRANSPORT_ID = "codex-local-v1"
 DEFAULT_CODEX_TIMEOUT_SECONDS = 1800
 MAX_CODEX_TIMEOUT_SECONDS = 7200
 
 MAX_CODEX_DIAGNOSTIC_SCAN_BYTES_PER_STREAM: int = 65536
+MAX_FINAL_MESSAGE_SCAN_BYTES: int = 65536
 MAX_CODEX_DIAGNOSTIC_EVENT_TYPES: int = 32
 MAX_SINGLE_EVENT_TYPE_LENGTH: int = 64
 MAX_DIAGNOSTIC_CODE_LENGTH: int = 64
@@ -193,6 +206,10 @@ class CodexTransportDiagnostic:
     stdout_non_json_line_count: int
     stdout_event_types: tuple[str, ...]
     last_stdout_event_type: str | None
+    executor_outcome: str = ExecutorOutcomeCode.UNKNOWN.value
+    final_agent_message_observed: str = FinalAgentMessageObservation.UNKNOWN.value
+    command_activity_count: int | str = "UNKNOWN"
+    file_change_activity_count: int | str = "UNKNOWN"
     schema_version: str = "1"
 
     def __post_init__(self) -> None:
@@ -252,9 +269,34 @@ class CodexTransportDiagnostic:
                     f"last_stdout_event_type must not contain control characters: {self.last_stdout_event_type!r}"
                 )
 
+        if self.executor_outcome not in ALLOWED_OUTCOME_CODES:
+            raise ContinuityStateValidationError(
+                f"executor_outcome must be one of {sorted(ALLOWED_OUTCOME_CODES)}: got {self.executor_outcome!r}"
+            )
+
+        if self.final_agent_message_observed not in ALLOWED_FINAL_MESSAGE_OBSERVATION_STATUSES:
+            raise ContinuityStateValidationError(
+                f"final_agent_message_observed must be one of {sorted(ALLOWED_FINAL_MESSAGE_OBSERVATION_STATUSES)}: got {self.final_agent_message_observed!r}"
+            )
+
+        object.__setattr__(
+            self,
+            "command_activity_count",
+            validate_activity_count(self.command_activity_count, "command_activity_count"),
+        )
+        object.__setattr__(
+            self,
+            "file_change_activity_count",
+            validate_activity_count(self.file_change_activity_count, "file_change_activity_count"),
+        )
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "code": self.code,
+            "command_activity_count": self.command_activity_count,
+            "executor_outcome": self.executor_outcome,
+            "file_change_activity_count": self.file_change_activity_count,
+            "final_agent_message_observed": self.final_agent_message_observed,
             "last_stdout_event_type": self.last_stdout_event_type,
             "schema_version": self.schema_version,
             "stderr_scan_truncated": self.stderr_scan_truncated,
@@ -424,6 +466,24 @@ def _read_bounded_stream(stream_file: Any) -> tuple[int, bytes, bytes, bool, boo
         return total_bytes, head_bytes, tail_bytes, False, True, True
 
 
+def _extract_text_from_content(content: Any) -> str:
+    """Safely extract plain text from JSON content (str or list of text dicts)."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for chunk in content:
+            if isinstance(chunk, str):
+                parts.append(chunk)
+            elif isinstance(chunk, dict):
+                if chunk.get("type") in ("text", "output", "message") and isinstance(chunk.get("text"), str):
+                    parts.append(chunk["text"])
+                elif isinstance(chunk.get("content"), str):
+                    parts.append(chunk["content"])
+        return "\n".join(parts)
+    return ""
+
+
 def _analyze_diagnostic_stream(
     stdout_file: Any,
     stderr_file: Any,
@@ -440,16 +500,26 @@ def _analyze_diagnostic_stream(
         last_event_type: str | None = None
         has_failure_event = False
 
+        agent_message_seen = False
+        final_agent_message_text: str | None = None
+        command_activity_count: int = 0
+        file_change_activity_count: int = 0
+        has_observable_activity_stream = False
+
         def _process_line(raw_line: bytes) -> None:
             nonlocal json_line_count, non_json_line_count, last_event_type, has_failure_event
+            nonlocal agent_message_seen, final_agent_message_text
+            nonlocal command_activity_count, file_change_activity_count, has_observable_activity_stream
+
             line = raw_line.strip()
             if not line:
                 return
             try:
                 decoded = line.decode("utf-8")
                 parsed = json.loads(decoded)
-                if isinstance(parsed, dict) and "type" in parsed:
-                    ev_type = parsed["type"]
+                if isinstance(parsed, dict):
+                    has_observable_activity_stream = True
+                    ev_type = parsed.get("type")
                     if (
                         isinstance(ev_type, str)
                         and ev_type
@@ -466,6 +536,50 @@ def _analyze_diagnostic_stream(
                         last_event_type = ev_type
                         if ev_type.lower() in _FAILURE_EVENT_TYPES:
                             has_failure_event = True
+
+                    # 1. Reasoning Guard: Check if event is reasoning/chain-of-thought
+                    item_dict = parsed.get("item") if isinstance(parsed.get("item"), dict) else {}
+                    item_type = str(item_dict.get("type", "")).lower()
+                    ev_type_str = str(ev_type or "").lower()
+
+                    is_reasoning = (
+                        ev_type_str in ("reasoning", "thinking", "thought", "chain_of_thought", "reasoning_content")
+                        or item_type in ("reasoning", "thinking", "thought", "chain_of_thought")
+                    )
+
+                    if not is_reasoning:
+                        # 2. Agent Message Identification: Assistant / Agent response
+                        role = str(item_dict.get("role") or parsed.get("role") or "").lower()
+                        is_agent_msg = (
+                            role == "assistant"
+                            or ev_type_str in ("agent_message", "assistant_message")
+                            or (ev_type_str in ("item.created", "item.completed", "turn.completed") and (role == "assistant" or item_type == "message"))
+                        )
+
+                        if is_agent_msg:
+                            msg_content = item_dict.get("content") or parsed.get("content") or item_dict.get("text") or parsed.get("text")
+                            extracted = _extract_text_from_content(msg_content)
+                            if extracted:
+                                agent_message_seen = True
+                                final_agent_message_text = extracted[:MAX_FINAL_MESSAGE_SCAN_BYTES]
+
+                    # 3. Activity Counting
+                    is_cmd = (
+                        ev_type_str in ("command", "command_execution", "exec_command", "tool_call", "function_call", "command_executed")
+                        or item_type in ("command", "command_execution", "exec_command", "function_call", "call")
+                        or "exec" in ev_type_str or "command" in ev_type_str or "exec" in item_type or "command" in item_type
+                    )
+                    if is_cmd:
+                        command_activity_count += 1
+
+                    is_file = (
+                        ev_type_str in ("file_change", "file_edited", "write_file", "edit_file", "patch_applied")
+                        or item_type in ("file_change", "file_edited", "file_diff")
+                        or "file" in ev_type_str or "patch" in ev_type_str or "file" in item_type or "patch" in item_type
+                    )
+                    if is_file:
+                        file_change_activity_count += 1
+
                     json_line_count += 1
                 else:
                     json_line_count += 1
@@ -501,6 +615,19 @@ def _analyze_diagnostic_stream(
         else:
             code = CodexDiagnosticCode.UNKNOWN_OUTPUT_SHAPE.value
 
+        if agent_message_seen:
+            final_msg_obs = FinalAgentMessageObservation.YES.value
+            outcome_code = extract_terminal_outcome_from_text(final_agent_message_text).value
+        elif json_line_count > 0:
+            final_msg_obs = FinalAgentMessageObservation.NO.value
+            outcome_code = ExecutorOutcomeCode.UNKNOWN.value
+        else:
+            final_msg_obs = FinalAgentMessageObservation.UNKNOWN.value
+            outcome_code = ExecutorOutcomeCode.UNKNOWN.value
+
+        cmd_count: int | str = command_activity_count if has_observable_activity_stream else "UNKNOWN"
+        file_count: int | str = file_change_activity_count if has_observable_activity_stream else "UNKNOWN"
+
         return CodexTransportDiagnostic(
             code=code,
             stdout_total_bytes=total_out,
@@ -511,6 +638,10 @@ def _analyze_diagnostic_stream(
             stdout_non_json_line_count=non_json_line_count,
             stdout_event_types=tuple(event_types),
             last_stdout_event_type=last_event_type,
+            executor_outcome=outcome_code,
+            final_agent_message_observed=final_msg_obs,
+            command_activity_count=cmd_count,
+            file_change_activity_count=file_count,
         )
     except Exception:
         return CodexTransportDiagnostic(
@@ -523,6 +654,10 @@ def _analyze_diagnostic_stream(
             stdout_non_json_line_count=0,
             stdout_event_types=(),
             last_stdout_event_type=None,
+            executor_outcome=ExecutorOutcomeCode.UNKNOWN.value,
+            final_agent_message_observed=FinalAgentMessageObservation.UNKNOWN.value,
+            command_activity_count="UNKNOWN",
+            file_change_activity_count="UNKNOWN",
         )
 
 

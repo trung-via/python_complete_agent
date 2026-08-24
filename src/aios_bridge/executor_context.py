@@ -56,7 +56,16 @@ THIN EXECUTOR RULES
 - Do not mutate Bridge authorization, lease, dispatch, failover, or hot-handoff state.
 - Do not commit, push, publish RESULT, or merge.
 - Run only executor-side targeted tests authorized by the control artifacts.
-- Stop after bounded implementation/testing and report files changed, test results, and blockers to the caller."""
+- Stop after bounded implementation/testing and report files changed, test results, and blockers to the caller.
+
+TERMINAL OUTCOME MARKER
+In your final response to the caller, you MUST output exactly one terminal marker line:
+  AIOS_EXECUTOR_OUTCOME: IMPLEMENTED | BLOCKED | NO_WORK_REQUIRED | INSTRUCTION_CONFLICT | UNKNOWN
+- IMPLEMENTED: implementation delta was intentionally produced.
+- BLOCKED: task cannot be completed within current authorized constraints.
+- NO_WORK_REQUIRED: requested work is already satisfied.
+- INSTRUCTION_CONFLICT: contradictory or unexecutable instructions detected.
+- UNKNOWN: none of the above can be stated safely."""
 
 
 def _validation_error(message: str) -> ContinuityStateValidationError:

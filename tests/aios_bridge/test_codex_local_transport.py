@@ -813,6 +813,10 @@ def test_diagnostic_dataclass_immutability_and_validation() -> None:
     d = diag.to_dict()
     assert d == {
         "code": "JSON_EVENT_STREAM",
+        "command_activity_count": "UNKNOWN",
+        "executor_outcome": "UNKNOWN",
+        "file_change_activity_count": "UNKNOWN",
+        "final_agent_message_observed": "UNKNOWN",
         "last_stdout_event_type": "item.completed",
         "schema_version": "1",
         "stderr_scan_truncated": False,
@@ -1358,3 +1362,116 @@ def test_diagnostic_stream_read_strictly_bounded_to_budget_bytes() -> None:
             assert len(tail) == 32767
             # Total bytes read across head and tail chunk is exactly 65536
             assert stream.total_bytes_read == 65536
+
+
+# --- TASK-088 SYNTHETIC REGRESSION TESTS ---
+
+
+def test_codex_outcome_observability_implemented(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    events = [
+        json.dumps({"type": "turn.started"}),
+        json.dumps({"type": "command_execution", "name": "git_status"}),
+        json.dumps({"type": "file_change", "path": "src/module.py"}),
+        json.dumps({"type": "message", "role": "assistant", "content": "Done work.\nAIOS_EXECUTOR_OUTCOME: IMPLEMENTED"}),
+    ]
+    stdout_bytes = ("\n".join(events) + "\n").encode("utf-8")
+    process = _FakeProcess(returncode=0, stdout_bytes=stdout_bytes)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+
+    diag = outcome.diagnostic
+    assert diag.executor_outcome == "IMPLEMENTED"
+    assert diag.final_agent_message_observed == "YES"
+    assert diag.command_activity_count == 1
+    assert diag.file_change_activity_count == 1
+
+
+def test_codex_outcome_observability_blocked(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    events = [
+        json.dumps({"type": "message", "role": "assistant", "content": "Cannot complete work.\nAIOS_EXECUTOR_OUTCOME: BLOCKED"}),
+    ]
+    stdout_bytes = ("\n".join(events) + "\n").encode("utf-8")
+    process = _FakeProcess(returncode=0, stdout_bytes=stdout_bytes)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+
+    diag = outcome.diagnostic
+    assert diag.executor_outcome == "BLOCKED"
+    assert diag.final_agent_message_observed == "YES"
+
+
+def test_codex_outcome_observability_no_work_required(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    events = [
+        json.dumps({"type": "message", "role": "assistant", "content": "Work already done.\nAIOS_EXECUTOR_OUTCOME: NO_WORK_REQUIRED"}),
+    ]
+    stdout_bytes = ("\n".join(events) + "\n").encode("utf-8")
+    process = _FakeProcess(returncode=0, stdout_bytes=stdout_bytes)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+
+    diag = outcome.diagnostic
+    assert diag.executor_outcome == "NO_WORK_REQUIRED"
+    assert diag.final_agent_message_observed == "YES"
+
+
+def test_codex_outcome_observability_instruction_conflict(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    events = [
+        json.dumps({"type": "message", "role": "assistant", "content": "Conflicting instructions.\nAIOS_EXECUTOR_OUTCOME: INSTRUCTION_CONFLICT"}),
+    ]
+    stdout_bytes = ("\n".join(events) + "\n").encode("utf-8")
+    process = _FakeProcess(returncode=0, stdout_bytes=stdout_bytes)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+
+    diag = outcome.diagnostic
+    assert diag.executor_outcome == "INSTRUCTION_CONFLICT"
+    assert diag.final_agent_message_observed == "YES"
+
+
+def test_codex_outcome_observability_no_terminal_marker(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    events = [
+        json.dumps({"type": "message", "role": "assistant", "content": "Finished response without explicit marker."}),
+    ]
+    stdout_bytes = ("\n".join(events) + "\n").encode("utf-8")
+    process = _FakeProcess(returncode=0, stdout_bytes=stdout_bytes)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+
+    diag = outcome.diagnostic
+    assert diag.executor_outcome == "UNKNOWN"
+    assert diag.final_agent_message_observed == "YES"
+
+
+def test_codex_outcome_observability_reasoning_like_content_ignored(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    events = [
+        json.dumps({"type": "reasoning", "content": "Thinking about AIOS_EXECUTOR_OUTCOME: IMPLEMENTED"}),
+        json.dumps({"type": "message", "role": "assistant", "content": "Actual final response without marker."}),
+    ]
+    stdout_bytes = ("\n".join(events) + "\n").encode("utf-8")
+    process = _FakeProcess(returncode=0, stdout_bytes=stdout_bytes)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+
+    diag = outcome.diagnostic
+    assert diag.executor_outcome == "UNKNOWN"
+    assert diag.final_agent_message_observed == "YES"
+
+
+def test_codex_outcome_observability_non_final_message_ignored(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    events = [
+        json.dumps({"type": "message", "role": "assistant", "content": "Drafting...\nAIOS_EXECUTOR_OUTCOME: IMPLEMENTED"}),
+        json.dumps({"type": "message", "role": "assistant", "content": "Final turn: I am actually blocked.\nAIOS_EXECUTOR_OUTCOME: BLOCKED"}),
+    ]
+    stdout_bytes = ("\n".join(events) + "\n").encode("utf-8")
+    process = _FakeProcess(returncode=0, stdout_bytes=stdout_bytes)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+
+    diag = outcome.diagnostic
+    assert diag.executor_outcome == "BLOCKED"
+    assert diag.final_agent_message_observed == "YES"
+
+
+def test_codex_outcome_observability_unobservable_activity_stays_unknown(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    stdout_bytes = b"non json text stream output\n"
+    process = _FakeProcess(returncode=0, stdout_bytes=stdout_bytes)
+    outcome, _, _ = _invoke_with_diagnostic_process(monkeypatch, tmp_path, process)
+
+    diag = outcome.diagnostic
+    assert diag.executor_outcome == "UNKNOWN"
+    assert diag.final_agent_message_observed == "UNKNOWN"
+    assert diag.command_activity_count == "UNKNOWN"
+    assert diag.file_change_activity_count == "UNKNOWN"

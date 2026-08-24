@@ -936,6 +936,8 @@ def test_clean_noop_exited_zero_classified_blocked_and_releases_lease(monkeypatc
     assert last_state[0] == "EXECUTION_BLOCKED"
     msg = last_state[1]
     assert "CLEAN_NO_WORKTREE_DELTA" in msg
+    assert "executor_outcome=" in msg
+    assert "final_agent_message_observed=" in msg
     assert "diagnostic=JSON_EVENT_STREAM" in msg
     assert "no publication, no retry, no reroute" in msg
 
