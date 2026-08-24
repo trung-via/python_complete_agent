@@ -28,6 +28,7 @@ from src.aios_engineering.harness import (
     MAX_H3_COMPONENT_RELATIONSHIPS,
     MAX_H3_COMPONENT_SUMMARIES,
     MAX_H3_EXECUTOR_PROFILES,
+    MAX_H3_FINGERPRINT_PAYLOAD_BYTES,
     MAX_H3_MEMBER_FILES_PER_COMPONENT,
     MAX_H3_OBSERVED_TASKS_PER_EXECUTOR,
     MAX_H3_REVIEW_FINDINGS_PER_EXECUTOR,
@@ -495,22 +496,19 @@ def test_duplicate_identity_rejection(tmp_path: Path):
     result = fixture["result"]
     comp = result.component_summaries[0]
     prof = result.executor_profiles[0]
-
-    # 1. Duplicate member file path in ComponentRoleSummary
     dup_file = comp.member_files[0]
+    obs = prof.component_observations[0]
+
+    # --- 1. Direct dataclass replace duplicates ---
     with pytest.raises(HarnessValidationError, match="duplicate member file path"):
         replace(comp, member_files=(dup_file, dup_file))
 
-    # 2. Duplicate observed role in ComponentRoleSummary
     with pytest.raises(HarnessValidationError, match="duplicate observed role"):
         replace(comp, observed_roles=(ArtifactRole.SOURCE_IMPLEMENTATION, ArtifactRole.SOURCE_IMPLEMENTATION))
 
-    # 3. Duplicate task in ExecutorTendencyProfile
     with pytest.raises(HarnessValidationError, match="duplicate observed task"):
         replace(prof, observed_tasks=("TASK-081", "TASK-081"), observed_task_count=2)
 
-    # 4. Duplicate component observation in ExecutorTendencyProfile
-    obs = prof.component_observations[0]
     with pytest.raises(HarnessValidationError, match="duplicate component observation"):
         replace(
             prof,
@@ -518,7 +516,6 @@ def test_duplicate_identity_rejection(tmp_path: Path):
             coobserved_component_ids=(obs.component_id, obs.component_id),
         )
 
-    # 5. Duplicate review finding in ExecutorTendencyProfile
     with pytest.raises(HarnessValidationError, match="duplicate finding ID"):
         replace(
             prof,
@@ -526,13 +523,80 @@ def test_duplicate_identity_rejection(tmp_path: Path):
             coobserved_review_finding_count=2,
         )
 
-    # 6. Duplicate component summary in Result
     with pytest.raises(HarnessValidationError, match="duplicate component summary"):
         replace(result, component_summaries=(comp, comp))
 
-    # 7. Duplicate executor profile in Result
     with pytest.raises(HarnessValidationError, match="duplicate executor profile"):
         replace(result, executor_profiles=(prof, prof))
+
+    # --- 2. Public factory create(...) duplicate fail-closed checks ---
+    with pytest.raises(HarnessValidationError, match="duplicate member file path"):
+        ComponentRoleSummary.create(
+            component_id=comp.component_id,
+            path=comp.path,
+            kind=comp.kind,
+            member_files=(dup_file, dup_file),
+            observed_roles=(),
+            symbol_count=0,
+            inbound_component_count=0,
+            outbound_component_count=0,
+        )
+
+    with pytest.raises(HarnessValidationError, match="duplicate observed role"):
+        ComponentRoleSummary.create(
+            component_id=comp.component_id,
+            path=comp.path,
+            kind=comp.kind,
+            member_files=(dup_file,),
+            observed_roles=(ArtifactRole.SOURCE_IMPLEMENTATION, ArtifactRole.SOURCE_IMPLEMENTATION),
+            symbol_count=0,
+            inbound_component_count=0,
+            outbound_component_count=0,
+        )
+
+    with pytest.raises(HarnessValidationError, match="duplicate observed task"):
+        ExecutorTendencyProfile.create(
+            executor_id=prof.executor_id,
+            observed_tasks=("TASK-081", "TASK-081"),
+            component_observations=(),
+            coobserved_review_finding_ids=(),
+        )
+
+    with pytest.raises(HarnessValidationError, match="duplicate component observation"):
+        ExecutorTendencyProfile.create(
+            executor_id=prof.executor_id,
+            observed_tasks=("TASK-081",),
+            component_observations=(obs, obs),
+            coobserved_review_finding_ids=(),
+        )
+
+    with pytest.raises(HarnessValidationError, match="duplicate finding ID"):
+        ExecutorTendencyProfile.create(
+            executor_id=prof.executor_id,
+            observed_tasks=("TASK-081",),
+            component_observations=(),
+            coobserved_review_finding_ids=("review-finding:1", "review-finding:1"),
+        )
+
+    with pytest.raises(HarnessValidationError, match="duplicate component summary"):
+        RepositoryRoleTendencyResult.create(
+            snapshot=result.snapshot,
+            h2_graph_fingerprint=result.h2_graph_fingerprint,
+            role_summary_fingerprint=result.role_summary_fingerprint,
+            component_summaries=(comp, comp),
+            executor_profiles=result.executor_profiles,
+            unobserved_role_file_count=0,
+        )
+
+    with pytest.raises(HarnessValidationError, match="duplicate executor profile"):
+        RepositoryRoleTendencyResult.create(
+            snapshot=result.snapshot,
+            h2_graph_fingerprint=result.h2_graph_fingerprint,
+            role_summary_fingerprint=result.role_summary_fingerprint,
+            component_summaries=result.component_summaries,
+            executor_profiles=(prof, prof),
+            unobserved_role_file_count=0,
+        )
 
 
 def test_all_hard_bounds_and_bool_as_int_rejection(
@@ -543,7 +607,6 @@ def test_all_hard_bounds_and_bool_as_int_rejection(
     result = fixture["result"]
     comp = result.component_summaries[0]
     prof = result.executor_profiles[0]
-    obs = prof.component_observations[0]
 
     # 1. Bool as int rejection on all scalar fields
     with pytest.raises(HarnessValidationError, match="symbol_count must be an exact integer, not bool"):
@@ -588,7 +651,10 @@ def test_all_hard_bounds_and_bool_as_int_rejection(
         replace(comp, outbound_component_count=MAX_H3_COMPONENT_RELATIONSHIPS + 1)
 
     with pytest.raises(RepositoryRoleTendencyBoundError, match="coobserved_task_count .* exceeds hard limit"):
-        ExecutorComponentObservation(component_id="component:PYTHON_PACKAGE:pkg", coobserved_task_count=MAX_H3_OBSERVED_TASKS_PER_EXECUTOR + 1)
+        ExecutorComponentObservation(
+            component_id="component:PYTHON_PACKAGE:pkg",
+            coobserved_task_count=MAX_H3_OBSERVED_TASKS_PER_EXECUTOR + 1,
+        )
 
     with pytest.raises(RepositoryRoleTendencyBoundError, match="unobserved_role_file_count .* exceeds hard limit"):
         replace(result, unobserved_role_file_count=MAX_H3_UNOBSERVED_ROLE_FILES + 1)
@@ -598,17 +664,87 @@ def test_all_hard_bounds_and_bool_as_int_rejection(
     with pytest.raises(HarnessValidationError, match="cannot exceed"):
         replace(prof, component_observations=(big_obs,), coobserved_component_ids=(big_obs.component_id,))
 
-    # 5. Cardinality bound constants
-    monkeypatch.setattr(role_tendencies_module, "MAX_H3_COMPONENT_SUMMARIES", 1)
-    with pytest.raises(RepositoryRoleTendencyBoundError, match="component_summaries exceeds hard limit"):
-        RepositoryRoleTendencyResult.create(
-            snapshot=result.snapshot,
-            h2_graph_fingerprint=result.h2_graph_fingerprint,
-            role_summary_fingerprint=result.role_summary_fingerprint,
-            component_summaries=result.component_summaries,
-            executor_profiles=result.executor_profiles,
-            unobserved_role_file_count=0,
+    # 5. Boundary & overflow test for EVERY hard-bound family:
+    # A. MAX_H3_COMPONENT_SUMMARIES
+    with monkeypatch.context() as m:
+        m.setattr(role_tendencies_module, "MAX_H3_COMPONENT_SUMMARIES", 1)
+        with pytest.raises(RepositoryRoleTendencyBoundError, match="component_summaries exceeds hard limit"):
+            replace(result, component_summaries=(result.component_summaries[0], result.component_summaries[1]))
+
+    # B. MAX_H3_MEMBER_FILES_PER_COMPONENT
+    with monkeypatch.context() as m:
+        m.setattr(role_tendencies_module, "MAX_H3_MEMBER_FILES_PER_COMPONENT", 1)
+        with pytest.raises(RepositoryRoleTendencyBoundError, match="member file count .* exceeds hard limit"):
+            ComponentRoleSummary.create(
+                component_id=comp.component_id,
+                path=comp.path,
+                kind=comp.kind,
+                member_files=(
+                    ComponentMemberFile(path="src/a.py", blob_sha="a" * 40, observed_role=None),
+                    ComponentMemberFile(path="src/b.py", blob_sha="b" * 40, observed_role=None),
+                ),
+                observed_roles=(),
+                symbol_count=0,
+                inbound_component_count=0,
+                outbound_component_count=0,
+            )
+
+    # C. MAX_H3_ROLES_PER_COMPONENT
+    with monkeypatch.context() as m:
+        m.setattr(role_tendencies_module, "MAX_H3_ROLES_PER_COMPONENT", 1)
+        with pytest.raises(RepositoryRoleTendencyBoundError, match="observed roles count .* exceeds hard limit"):
+            ComponentRoleSummary.create(
+                component_id=comp.component_id,
+                path=comp.path,
+                kind=comp.kind,
+                member_files=(comp.member_files[0],),
+                observed_roles=(ArtifactRole.SOURCE_IMPLEMENTATION, ArtifactRole.EXECUTABLE_ENTRYPOINT),
+                symbol_count=0,
+                inbound_component_count=0,
+                outbound_component_count=0,
+            )
+
+    # D. MAX_H3_EXECUTOR_PROFILES
+    with monkeypatch.context() as m:
+        m.setattr(role_tendencies_module, "MAX_H3_EXECUTOR_PROFILES", 1)
+        prof2 = ExecutorTendencyProfile.create(
+            executor_id="codex",
+            observed_tasks=("TASK-081",),
+            component_observations=(),
+            coobserved_review_finding_ids=(),
         )
+        with pytest.raises(RepositoryRoleTendencyBoundError, match="executor_profiles exceeds hard limit"):
+            replace(result, executor_profiles=(prof, prof2))
+
+    # E. MAX_H3_OBSERVED_TASKS_PER_EXECUTOR
+    with monkeypatch.context() as m:
+        m.setattr(role_tendencies_module, "MAX_H3_OBSERVED_TASKS_PER_EXECUTOR", 1)
+        with pytest.raises(RepositoryRoleTendencyBoundError, match="observed_task_count .* exceeds hard limit"):
+            replace(prof, observed_tasks=("TASK-081", "TASK-082"), observed_task_count=2)
+
+    # F. MAX_H3_COMPONENT_OBSERVATIONS_PER_EXECUTOR
+    with monkeypatch.context() as m:
+        m.setattr(role_tendencies_module, "MAX_H3_COMPONENT_OBSERVATIONS_PER_EXECUTOR", 1)
+        obs1 = ExecutorComponentObservation(component_id="component:PYTHON_PACKAGE:a", coobserved_task_count=1)
+        obs2 = ExecutorComponentObservation(component_id="component:PYTHON_PACKAGE:b", coobserved_task_count=1)
+        with pytest.raises(RepositoryRoleTendencyBoundError, match="component_observations count exceeds hard limit"):
+            replace(prof, component_observations=(obs1, obs2), coobserved_component_ids=(obs1.component_id, obs2.component_id))
+
+    # G. MAX_H3_REVIEW_FINDINGS_PER_EXECUTOR
+    with monkeypatch.context() as m:
+        m.setattr(role_tendencies_module, "MAX_H3_REVIEW_FINDINGS_PER_EXECUTOR", 1)
+        with pytest.raises(RepositoryRoleTendencyBoundError, match="coobserved_review_finding_count .* exceeds hard limit"):
+            replace(
+                prof,
+                coobserved_review_finding_ids=("review-finding:1", "review-finding:2"),
+                coobserved_review_finding_count=2,
+            )
+
+    # H. MAX_H3_FINGERPRINT_PAYLOAD_BYTES
+    with monkeypatch.context() as m:
+        m.setattr(role_tendencies_module, "MAX_H3_FINGERPRINT_PAYLOAD_BYTES", 10)
+        with pytest.raises(RepositoryRoleTendencyBoundError, match="payload bytes .* exceeds hard limit"):
+            role_tendencies_module._bounded_fingerprint({"key": "a_long_value_that_exceeds_10_bytes"})
 
 
 def test_tamper_evidence_on_components_profiles_and_result(tmp_path: Path):

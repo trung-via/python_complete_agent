@@ -12,27 +12,25 @@ HOT_HANDOFF: NO
 ```
 
 ## Summary
-Fixed REVIEW-081 findings B1 and B2: enforced explicit hard limits on all scalar/count surfaces (MAX_H3_SYMBOLS_PER_COMPONENT, MAX_H3_COMPONENT_RELATIONSHIPS, MAX_H3_UNOBSERVED_ROLE_FILES, MAX_H3_OBSERVED_TASKS_PER_EXECUTOR) and enforced coobserved_task_count <= observed_task_count invariant inside ExecutorTendencyProfile; expanded comprehensive regression test matrix with exact multi-executor one-task preservation, order independence, duplicate identity rejection, boundary/overflow checks for all bound constants, and non-inference of business domain roles from paths (53 targeted passed, 2487 full repo passed).
+Fixed REVIEW-081 round 2 finding B3: eliminated silent deduplication in all public create(...) factories (ComponentRoleSummary.create, ExecutorTendencyProfile.create, RepositoryRoleTendencyResult.create) to fail closed on duplicate member file paths, observed roles, tasks, component observations, review finding IDs, component summaries, or executor profiles; added comprehensive factory-level duplicate regression tests; completed full boundary and overflow regression matrix for every hard-bound family including MAX_H3_MEMBER_FILES_PER_COMPONENT, MAX_H3_ROLES_PER_COMPONENT, MAX_H3_EXECUTOR_PROFILES, MAX_H3_OBSERVED_TASKS_PER_EXECUTOR, MAX_H3_COMPONENT_OBSERVATIONS_PER_EXECUTOR, MAX_H3_REVIEW_FINDINGS_PER_EXECUTOR, MAX_H3_FINGERPRINT_PAYLOAD_BYTES (53 targeted passed, 2487 full repo passed).
 
 ## Task Metadata
 - Task: `TASK-081`
 - Action: `FIX`
 - Executor: `antigravity`
-- Authorized Artifact: `.ai/reviews/REVIEW-081.md (b5edefc0cf)`
+- Authorized Artifact: `.ai/reviews/REVIEW-081.md (b1cdaeb302)`
 - Base Main SHA: `(n/a)`
 - Branch: `ai/task-081`
 
 ## Files Changed
-- src/aios_engineering/harness/__init__.py
 - src/aios_engineering/harness/role_tendencies.py
 - tests/aios_engineering/harness/test_role_tendencies.py
 
 ## Diff Stat
 ```text
-src/aios_engineering/harness/__init__.py           |   6 +
- src/aios_engineering/harness/role_tendencies.py    |  44 +++-
- .../harness/test_role_tendencies.py                | 287 +++++++++++++++++++--
- 3 files changed, 310 insertions(+), 27 deletions(-)
+src/aios_engineering/harness/role_tendencies.py    |  82 +++++++++-
+ .../harness/test_role_tendencies.py                | 178 ++++++++++++++++++---
+ 2 files changed, 233 insertions(+), 27 deletions(-)
 ```
 
 ## Tests
@@ -377,7 +375,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-2487 passed, 7 skipped, 1540 warnings in 450.68s (0:07:30)
+2487 passed, 7 skipped, 1540 warnings in 446.13s (0:07:26)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -401,9 +399,11 @@ Command: git diff --check
 Exit code: 0
 Result: Clean
 
-REVIEW_081_FINDINGS_REPAIR:
-B1_H3_SCALAR_COUNT_BOUNDEDNESS: RESOLVED (MAX_H3_SYMBOLS_PER_COMPONENT, MAX_H3_COMPONENT_RELATIONSHIPS, MAX_H3_UNOBSERVED_ROLE_FILES, coobserved_task_count <= observed_task_count)
-B2_MANDATORY_REGRESSION_MATRIX: RESOLVED (multi-executor on one task, order independence, duplicate identity rejection, all hard bounds, no business domain inference)
+REVIEW_081_ROUND_2_FINDINGS_REPAIR:
+B3_FACTORY_DUPLICATE_FAIL_CLOSED_AND_FULL_BOUND_MATRIX: RESOLVED
+- Public create() factories reject duplicates fail-closed (no silent set() deduplication).
+- Factory-level duplicate regression tests added for all contracts.
+- Explicit boundary and overflow tests implemented for ALL H3 hard-bound families.
 AUTHORIZED_SCOPE_ONLY: YES
 H3_ROLE_TENDENCY_POLICY_VERSION: h3-role-tendency-v1
 H3_ROLE_TENDENCY_SCHEMA_VERSION: 1
@@ -416,4 +416,4 @@ STANDING_AUTO_MERGE_AUTHORIZATION: ENABLED
 WORKER_MERGE_AUTHORITY: NO
 
 ## Generated
-2026-08-24T13:24:21+07:00
+2026-08-24T13:57:43+07:00

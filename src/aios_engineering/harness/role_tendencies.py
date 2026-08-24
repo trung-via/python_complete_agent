@@ -278,8 +278,28 @@ class ComponentRoleSummary:
         inbound_component_count: int,
         outbound_component_count: int,
     ) -> "ComponentRoleSummary":
+        seen_member_paths: set[str] = set()
+        for mf in member_files:
+            if not isinstance(mf, ComponentMemberFile):
+                raise HarnessValidationError(
+                    f"member_files must contain ComponentMemberFile: got {mf!r}"
+                )
+            if mf.path in seen_member_paths:
+                raise HarnessValidationError(f"duplicate member file path: {mf.path}")
+            seen_member_paths.add(mf.path)
+
+        seen_roles: set[ArtifactRole] = set()
+        for r in observed_roles:
+            if type(r) is not ArtifactRole:
+                raise HarnessValidationError(
+                    f"observed_roles must contain ArtifactRole: got {r!r}"
+                )
+            if r in seen_roles:
+                raise HarnessValidationError(f"duplicate observed role: {r.value}")
+            seen_roles.add(r)
+
         sorted_files = tuple(sorted(member_files, key=lambda f: f.path))
-        sorted_roles = tuple(sorted(set(r for r in observed_roles if r is not None), key=lambda r: r.value))
+        sorted_roles = tuple(sorted(observed_roles, key=lambda r: r.value))
         fingerprint = _bounded_fingerprint(
             _component_role_summary_payload(
                 component_id=component_id,
@@ -477,10 +497,35 @@ class ExecutorTendencyProfile:
         component_observations: Sequence[ExecutorComponentObservation],
         coobserved_review_finding_ids: Sequence[str],
     ) -> "ExecutorTendencyProfile":
-        sorted_tasks = tuple(sorted(set(observed_tasks)))
+        seen_tasks: set[str] = set()
+        for t in observed_tasks:
+            _validate_task_id(t)
+            if t in seen_tasks:
+                raise HarnessValidationError(f"duplicate observed task: {t}")
+            seen_tasks.add(t)
+
+        seen_comp_obs: set[str] = set()
+        for obs in component_observations:
+            if not isinstance(obs, ExecutorComponentObservation):
+                raise HarnessValidationError(
+                    f"component_observations must contain ExecutorComponentObservation: got {obs!r}"
+                )
+            if obs.component_id in seen_comp_obs:
+                raise HarnessValidationError(f"duplicate component observation: {obs.component_id}")
+            seen_comp_obs.add(obs.component_id)
+
+        seen_findings: set[str] = set()
+        for f in coobserved_review_finding_ids:
+            if type(f) is not str or not f:
+                raise HarnessValidationError("finding ID must be non-empty str")
+            if f in seen_findings:
+                raise HarnessValidationError(f"duplicate finding ID: {f}")
+            seen_findings.add(f)
+
+        sorted_tasks = tuple(sorted(observed_tasks))
         sorted_comp_obs = tuple(sorted(component_observations, key=lambda c: c.component_id))
         coobserved_comp_ids = tuple(c.component_id for c in sorted_comp_obs)
-        sorted_finding_ids = tuple(sorted(set(coobserved_review_finding_ids)))
+        sorted_finding_ids = tuple(sorted(coobserved_review_finding_ids))
         fingerprint = _bounded_fingerprint(
             _executor_profile_payload(
                 executor_id=executor_id,
@@ -625,6 +670,26 @@ class RepositoryRoleTendencyResult:
         executor_profiles: Sequence[ExecutorTendencyProfile],
         unobserved_role_file_count: int,
     ) -> "RepositoryRoleTendencyResult":
+        seen_comps: set[str] = set()
+        for c in component_summaries:
+            if not isinstance(c, ComponentRoleSummary):
+                raise HarnessValidationError(
+                    f"component_summaries must contain ComponentRoleSummary: got {c!r}"
+                )
+            if c.component_id in seen_comps:
+                raise HarnessValidationError(f"duplicate component summary: {c.component_id}")
+            seen_comps.add(c.component_id)
+
+        seen_profs: set[str] = set()
+        for p in executor_profiles:
+            if not isinstance(p, ExecutorTendencyProfile):
+                raise HarnessValidationError(
+                    f"executor_profiles must contain ExecutorTendencyProfile: got {p!r}"
+                )
+            if p.executor_id in seen_profs:
+                raise HarnessValidationError(f"duplicate executor profile: {p.executor_id}")
+            seen_profs.add(p.executor_id)
+
         sorted_comps = tuple(sorted(component_summaries, key=lambda c: c.component_id))
         sorted_profs = tuple(sorted(executor_profiles, key=lambda p: p.executor_id))
         fingerprint = _bounded_fingerprint(
@@ -782,13 +847,18 @@ def summarize_repository_roles_and_executor_tendencies(
     component_summaries: list[ComponentRoleSummary] = []
     for component in h2_graph.components:
         files = component_member_files.get(component.component_id, [])
-        observed_roles = [f.observed_role for f in files if f.observed_role is not None]
+        observed_roles_set: list[ArtifactRole] = []
+        seen_roles: set[ArtifactRole] = set()
+        for f in files:
+            if f.observed_role is not None and f.observed_role not in seen_roles:
+                seen_roles.add(f.observed_role)
+                observed_roles_set.append(f.observed_role)
         summary = ComponentRoleSummary.create(
             component_id=component.component_id,
             path=component.path,
             kind=component.kind,
             member_files=files,
-            observed_roles=observed_roles,
+            observed_roles=observed_roles_set,
             symbol_count=component_symbol_counts.get(component.component_id, 0),
             inbound_component_count=inbound_import_counts.get(component.component_id, 0),
             outbound_component_count=outbound_import_counts.get(component.component_id, 0),
@@ -835,7 +905,7 @@ def summarize_repository_roles_and_executor_tendencies(
             ExecutorComponentObservation(
                 component_id=comp_id, coobserved_task_count=count
             )
-            for comp_id, count in comp_counts.items()
+            for comp_id, count in sorted(comp_counts.items())
         ]
         profile = ExecutorTendencyProfile.create(
             executor_id=executor_id,
