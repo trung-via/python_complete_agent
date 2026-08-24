@@ -5,12 +5,13 @@ STATUS: PASS
 APPROVED: YES
 AUTO_MERGE_ELIGIBLE: YES
 MERGE_AUTHORIZED: YES
-MERGED_TO_MAIN: NO
+MERGED_TO_MAIN: YES
 
 TASK_ID: TASK-086
 REVIEW_ROUND: 3
 REVIEWED_TASK_HEAD_SHA: 90b381d3be78b68a8e7b25c42c66e539486a44e2
 REVIEWED_BASE_MAIN_SHA: 11967270857dd886e6e686a599bdd40e1d684619
+MERGED_MAIN_SHA: 90b381d3be78b68a8e7b25c42c66e539486a44e2
 TASK_ARTIFACT_BLOB_SHA: 92d184f824f7dd31d538097e93284c92fd3ad916
 RESULT_BLOB_SHA: 3baa05cda926d469a85fdc92ef23947f3a67b5a5
 EXECUTOR_ID: antigravity
@@ -29,13 +30,14 @@ TASK_087_PREREQUISITE_ELIGIBLE: YES
 P2_P3_AUTHORIZED: NO
 H5_H8_AUTHORIZED: NO
 
-## Reviewed Snapshot
+## Final Snapshot
 
 ```text
 HEAD: 90b381d3be78b68a8e7b25c42c66e539486a44e2
-MAIN: 11967270857dd886e6e686a599bdd40e1d684619
-LINEAGE: AHEAD 3 / BEHIND 0
-MERGE_BASE: 11967270857dd886e6e686a599bdd40e1d684619
+MAIN: 90b381d3be78b68a8e7b25c42c66e539486a44e2
+POST_MERGE_IDENTITY: IDENTICAL
+AHEAD: 0
+BEHIND: 0
 TARGETED: 263 passed, 0 skipped, 0 failed
 FULL_CANONICAL: 2588 passed, 7 skipped, 0 failed
 AIOS_MANAGED_T2_EXECUTION_COUNT: 1
@@ -56,11 +58,11 @@ B5_FIX_MODE_FAIL_CLOSED_HARDENING: PASS
 
 ### B4 acceptance
 
-Bridge handoff persists the exact `REVIEWED_TASK_HEAD_SHA` into FIX authorization. For `EVIDENCE_REFRESH`, `cmd_publish` fails before certification unless the authorization is ACTIVE FIX, the current branch is the exact task branch, the current HEAD equals the bound reviewed head, and the worktree is clean. The existing helper name `non_ai_dirty_paths()` is historical; its current implementation treats every dirty worktree path as blocking, including `.ai/**`. Regression coverage proves dirty-worktree and head-drift paths never reach test certification, while the exact clean reviewed-head path proceeds.
+Bridge handoff persists the exact `REVIEWED_TASK_HEAD_SHA` into FIX authorization. For `EVIDENCE_REFRESH`, `cmd_publish` fails before certification unless the authorization is ACTIVE FIX, the current branch is the exact task branch, the current HEAD equals the bound reviewed head, and the worktree is clean. The helper name `non_ai_dirty_paths()` is historical; its current implementation treats every dirty worktree path as blocking, including `.ai/**`. Regression coverage proves dirty-worktree and head-drift paths never reach test certification, while the exact clean reviewed-head path proceeds.
 
 ### B5 acceptance
 
-`extract_fix_execution_mode()` now rejects every multiple-marker case, including duplicate identical markers. Bridge still normalizes a review with no mode marker to `IMPLEMENTATION` before persisting authorization. The coordinator then requires the persisted `fix_execution_mode` field to be present; missing or unknown authorization mode fails closed.
+`extract_fix_execution_mode()` rejects every multiple-marker case, including duplicate identical markers. Bridge normalizes a review with no mode marker to `IMPLEMENTATION` before persisting authorization. The coordinator requires the persisted `fix_execution_mode` field to be present; missing or unknown authorization mode fails closed.
 
 ## Preserved Invariants
 
@@ -84,8 +86,8 @@ H5_H8_NOT_OPENED: PASS
 ```text
 TASK-086: PASS
 APPROVED: YES
-MERGE_AUTHORIZED: YES
+MERGED_TO_MAIN: YES
 BLOCKERS_REMAINING: 0
 TASK PASS != P1 COMPLETE
-NEXT: FAST-FORWARD MAIN TO EXACT REVIEWED HEAD, THEN AUTHOR TASK-087 ON THE NEW EXACT MAIN
+NEXT: AUTHOR TASK-087 ON EXACT MAIN 90b381d3be78b68a8e7b25c42c66e539486a44e2
 ```
