@@ -6,7 +6,7 @@ CLASS: L2 — AIOS BRIDGE LEAN EXECUTION / P1 LEAN REVIEW FOUNDATION
 MILESTONE: P1
 CAPABILITY_ID: P1_UNIFIED_VALIDATION_CAPABILITY_BATCH
 EXECUTOR_MODE: DUAL_EXECUTOR_ALLOWED
-RECOMMENDED_EXECUTOR: antigravity
+RECOMMENDED_EXECUTOR: codex
 PAID_API_CALL_ALLOWED: NO
 AUTO_RETRY_ALLOWED: NO
 AUTO_REROUTE_ALLOWED: NO
@@ -25,7 +25,9 @@ MAIN_SHA: 90b381d3be78b68a8e7b25c42c66e539486a44e2
 TARGET_BRANCH: ai/task-089
 TASK_086: PASS_MERGED
 ROADMAP_V1_2: LOCKED_REGISTERED
+ADR_064_APPROVAL_SOURCE: YES
 ADR_064_ACTIVATION_GATE: SATISFIED
+ADR_065_ACTIVE_ACTIVATION_AUTHORITY: YES
 TASK_087: RESERVED_NOT_EXECUTED
 P1_FORMAL_COMPLETION: NO
 P2_P3_STATUS: NOT_AUTHORIZED
@@ -34,13 +36,15 @@ H5_H8_STATUS: NOT_AUTHORIZED
 
 ## Machine-Readable E4 Inputs
 
-EXECUTOR_CONTEXT_REFS_JSON: [{"path":".ai/roadmaps/AIOS-BRIDGE-LEAN-EXECUTION-v1.2.md","blob_sha":"41bf467f3dd4fc8aea165ac65c37e0e2a5a3ef5c"},{"path":".ai/roadmaps/AIOS-BRIDGE-LEAN-EXECUTION-v1.2.completions.json","blob_sha":"6b5fb5f99ec17cacca632e3b7a1953131b82c9b7"},{"path":".ai/roadmaps/CANONICAL-ROADMAP-REGISTRY-v1.json","blob_sha":"09180853439a383bb459094cb96fa2bd705afdd4"},{"path":".ai/decisions/ADR-064-AIOS-LEAN-REVIEW-PIPELINE-CONTROLLED-EVOLUTION.md","blob_sha":"af3581e47d010cd52014a7d7352bb10f6e8b21bb"},{"path":".ai/decisions/ADR-065-AIOS-LEAN-REVIEW-PIPELINE-ACTIVATION-BOUNDED-SLICES.md","blob_sha":"947b3ec5b63ddd628838a533822e37499a837a74"},{"path":".ai/reviews/REVIEW-086.md","blob_sha":"4e3d0258755e52536a5125d7a4eebbba88546483"}]
+EXECUTOR_CONTEXT_REFS_JSON: [{"path":".ai/roadmaps/AIOS-BRIDGE-LEAN-EXECUTION-v1.2.md","blob_sha":"41bf467f3dd4fc8aea165ac65c37e0e2a5a3ef5c"},{"path":".ai/roadmaps/AIOS-BRIDGE-LEAN-EXECUTION-v1.2.completions.json","blob_sha":"6b5fb5f99ec17cacca632e3b7a1953131b82c9b7"},{"path":".ai/roadmaps/CANONICAL-ROADMAP-REGISTRY-v1.json","blob_sha":"09180853439a383bb459094cb96fa2bd705afdd4"},{"path":".ai/decisions/ADR-065-AIOS-LEAN-REVIEW-PIPELINE-ACTIVATION-BOUNDED-SLICES.md","blob_sha":"947b3ec5b63ddd628838a533822e37499a837a74"}]
 EXECUTOR_ALLOWED_PATHS_JSON: ["src/aios_bridge/review_pipeline.py","src/aios_bridge/certification_job.py","tests/aios_bridge/test_review_pipeline.py","tests/aios_bridge/test_certification_job.py"]
-DISPATCH_EXECUTOR_POLICY_JSON: {"allow_paid_api":false,"candidates":[{"capacity_class":"SUBSCRIPTION","executor_id":"antigravity","preference_rank":0,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["RUN"]},{"capacity_class":"SUBSCRIPTION","executor_id":"codex","preference_rank":1,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["RUN"]}],"operation":"RUN","required_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"]}
+DISPATCH_EXECUTOR_POLICY_JSON: {"allow_paid_api":false,"candidates":[{"capacity_class":"SUBSCRIPTION","executor_id":"codex","preference_rank":0,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["RUN"]},{"capacity_class":"SUBSCRIPTION","executor_id":"antigravity","preference_rank":1,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["RUN"]}],"operation":"RUN","required_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"]}
 
 ## Purpose
 
 Create the small provider-neutral deterministic contract foundation required by ADR-064 before changing the live Bridge review/certification flow.
+
+ADR-064 is the Human-approved architectural source. ADR-065 is the active post-TASK-086 activation/decomposition authority for this executor run. Historical pre-activation wording or prior-review NEXT directives are not executor instructions for TASK-089.
 
 This task is intentionally a foundation slice. It MUST NOT cut over publication, change T2 ownership, or implement TASK-087. The next Lean Review integration task will be authored only after TASK-089 PASS/merge and will bind that exact new main.
 
