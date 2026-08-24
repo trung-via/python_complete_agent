@@ -17,7 +17,6 @@ from src.aios_bridge.runtime_dispatch import (
     parse_executor_dispatch_policy_marker,
 )
 from src.aios_bridge.roadmap_governance import (
-    DEFAULT_ROADMAP_REGISTRY,
     RoadmapPreflightDecision,
     RoadmapRegistryEntry,
     RoadmapTaskBinding,
@@ -242,7 +241,7 @@ def preflight_executable_artifact(
     selected_executor: str,
     require_explicit_profile: bool = True,
     roadmap_resolver: Callable[[str, str], bytes] | None = None,
-    roadmap_registry: Mapping[tuple[str, str], RoadmapRegistryEntry] = DEFAULT_ROADMAP_REGISTRY,
+    roadmap_registry: Mapping[tuple[str, str], RoadmapRegistryEntry] | None = None,
     roadmap_migration_approved: bool = False,
     roadmap_task_content: str | None = None,
     roadmap_task_work_path: str | None = None,

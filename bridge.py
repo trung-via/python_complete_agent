@@ -90,8 +90,11 @@ from src.aios_bridge.review_merge import (
     parse_review_header,
 )
 from src.aios_bridge.roadmap_governance import (
+    CANONICAL_ROADMAP_REGISTRY_PATH,
     DEFAULT_ROADMAP_REGISTRY,
+    git_blob_sha,
     parse_canonical_roadmap,
+    parse_canonical_roadmap_registry,
     parse_roadmap_task_binding,
     task_requires_roadmap_governance,
     validate_task_binding,
@@ -193,6 +196,7 @@ INBOUND_PREFIXES = (
     ".ai/reviews/",
     ".ai/decisions/",
     ".ai/context/",
+    ".ai/roadmaps/",
 )
 
 
@@ -880,6 +884,68 @@ def resolve_exact_control_artifact_bytes(ref: str, path: str) -> bytes:
     return read_git_blob_bytes(ref, path)
 
 
+class SynchronizedControlArtifactUnavailableError(ContinuityStateValidationError):
+    """Exact synchronized control evidence is absent, not malformed or drifted."""
+
+
+def resolve_synchronized_control_artifact_bytes(ref: str, path: str) -> bytes:
+    """Resolve exact cached bytes bound to synchronized frozen-control evidence."""
+    try:
+        expected_blob_sha = resolve_git_blob_sha(ref, path)
+    except ContinuityStateValidationError as exc:
+        raise SynchronizedControlArtifactUnavailableError(
+            f"Synchronized control artifact is unavailable: {path}"
+        ) from exc
+    paths = get_runtime_paths()
+    seen_path = paths.get("seen")
+    if not isinstance(seen_path, Path):
+        raise SynchronizedControlArtifactUnavailableError(
+            "Synchronized control artifact evidence path is unavailable"
+        )
+    try:
+        seen = json.loads(seen_path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise SynchronizedControlArtifactUnavailableError(
+            "Synchronized control artifact evidence is unavailable"
+        ) from exc
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ContinuityStateValidationError(
+            "Synchronized control artifact evidence is malformed"
+        ) from exc
+    if type(seen) is not dict:
+        raise ContinuityStateValidationError(
+            "Synchronized control artifact evidence must be an exact object"
+        )
+    if path not in seen:
+        raise SynchronizedControlArtifactUnavailableError(
+            f"Synchronized control artifact evidence is unavailable: {path}"
+        )
+    if seen[path] != expected_blob_sha:
+        raise ContinuityStateValidationError(
+            f"Synchronized control artifact evidence drift: {path}"
+        )
+    cached_path = get_artifact_path(path)
+    try:
+        exact_bytes = cached_path.read_bytes()
+    except OSError as exc:
+        raise SynchronizedControlArtifactUnavailableError(
+            f"Synchronized control artifact cache is unavailable: {path}"
+        ) from exc
+    if git_blob_sha(exact_bytes) != expected_blob_sha:
+        raise ContinuityStateValidationError(
+            f"Synchronized control artifact cache drift: {path}"
+        )
+    return exact_bytes
+
+
+def resolve_canonical_roadmap_registry(ref: str):
+    """Parse the registry from exact synchronized frozen-control evidence."""
+    registry_bytes = resolve_synchronized_control_artifact_bytes(
+        ref, CANONICAL_ROADMAP_REGISTRY_PATH
+    )
+    return parse_canonical_roadmap_registry(registry_bytes)
+
+
 def resolve_e4_control_snapshot(cfg: dict, auth: dict) -> dict:
     """Freeze and validate one exact control commit for E4 launch."""
     fetch_control(cfg)
@@ -936,6 +1002,13 @@ def resolve_e4_control_snapshot(cfg: dict, auth: dict) -> dict:
             ) from exc
 
     executor_id = auth.get("executor_id")
+    roadmap_content = roadmap_task_content if auth_operation is ExecutionOperation.FIX else work_content
+    governed = task_requires_roadmap_governance(roadmap_content) or (
+        "ROADMAP_BINDING_JSON:" in roadmap_content
+    )
+    roadmap_registry = (
+        resolve_canonical_roadmap_registry(control_commit_sha) if governed else None
+    )
     preflight = preflight_executable_artifact(
         work_content,
         work_path=work_path,
@@ -945,6 +1018,7 @@ def resolve_e4_control_snapshot(cfg: dict, auth: dict) -> dict:
         roadmap_resolver=lambda path, blob_sha: resolve_exact_roadmap_bytes(
             control_commit_sha, path, blob_sha
         ),
+        roadmap_registry=roadmap_registry,
         roadmap_task_content=roadmap_task_content,
         roadmap_task_work_path=roadmap_task_work_path,
         roadmap_task_blob_sha=roadmap_task_blob_sha,
@@ -2559,6 +2633,9 @@ def cmd_handoff(args):
     def completion_bytes(path: str) -> bytes:
         return resolve_exact_control_artifact_bytes(control_commit(), path)
 
+    def roadmap_registry():
+        return resolve_canonical_roadmap_registry(control_commit())
+
     if action == "RUN":
         artifact_rel = f".ai/tasks/TASK-{task_id:03d}.md"
         blob_sha = get_remote_blob_sha(cfg, artifact_rel)
@@ -2598,6 +2675,7 @@ def cmd_handoff(args):
                 operation=ExecutionOperation.RUN,
                 selected_executor=selected_executor,
                 roadmap_resolver=roadmap_bytes,
+                roadmap_registry=roadmap_registry() if governed_task else None,
                 milestone_completion_resolver=completion_bytes,
             )
         except Exception as exc:
@@ -2719,6 +2797,7 @@ def cmd_handoff(args):
                 operation=ExecutionOperation.FIX,
                 selected_executor=selected_executor,
                 roadmap_resolver=roadmap_bytes,
+                roadmap_registry=roadmap_registry() if governed_task else None,
                 roadmap_task_content=task_content,
                 roadmap_task_work_path=task_artifact_rel,
                 roadmap_task_blob_sha=task_blob_sha,
@@ -2934,24 +3013,51 @@ def sync_once(verbose=True):
     seen = load_json(paths["seen"], {})
     changed = []
     for path, blob_sha in list_remote_inbound(cfg):
-        if seen.get(path) == blob_sha:
-            continue
-
-        content = read_remote_file(cfg, path)
         dest = get_artifact_path(path)
+        if seen.get(path) == blob_sha:
+            if not path.startswith(".ai/roadmaps/"):
+                continue
+            try:
+                if git_blob_sha(dest.read_bytes()) == blob_sha:
+                    continue
+            except OSError:
+                pass
+
+        exact_bytes = None
+        if path.startswith(".ai/roadmaps/"):
+            exact_bytes = read_git_blob_bytes(remote_ref(cfg), path)
+            if git_blob_sha(exact_bytes) != blob_sha:
+                raise ContinuityStateValidationError(
+                    f"Synchronized roadmap artifact blob drift: {path}"
+                )
+            try:
+                content = exact_bytes.decode("utf-8")
+            except UnicodeDecodeError as exc:
+                raise ContinuityStateValidationError(
+                    f"Synchronized roadmap artifact must be strict UTF-8: {path}"
+                ) from exc
+        else:
+            content = read_remote_file(cfg, path)
         dest.parent.mkdir(parents=True, exist_ok=True)
 
         task_id = parse_task_id(path)
         if (
             dest.exists()
-            and dest.read_text(encoding="utf-8", errors="replace") != content
+            and (
+                dest.read_bytes() != exact_bytes
+                if exact_bytes is not None
+                else dest.read_text(encoding="utf-8", errors="replace") != content
+            )
         ):
             if task_id and ("/results/" in path or "/reviews/" in path):
                 archive_local(dest, task_id)
             elif task_id and "/reviews/" in path:
                 archive_local(dest, task_id)
 
-        dest.write_text(content, encoding="utf-8")
+        if exact_bytes is not None:
+            dest.write_bytes(exact_bytes)
+        else:
+            dest.write_text(content, encoding="utf-8")
         notification = None
 
         if task_id and path.startswith(".ai/tasks/"):
@@ -5315,9 +5421,46 @@ def cmd_merge_reviewed(args):
             sys.exit(1)
         try:
             task_roadmap_binding = parse_roadmap_task_binding(task_text)
-            registration = DEFAULT_ROADMAP_REGISTRY.get(
-                (task_roadmap_binding.roadmap_id, task_roadmap_binding.roadmap_version)
+            preliminary_input = ReviewedMergeInput(
+                task_id=task_id,
+                review_status=review_data["status"],
+                review_approved=review_data["approved"],
+                auto_merge_eligible=review_data["auto_merge_eligible"],
+                reviewed_task_head_sha=review_data["reviewed_task_head_sha"],
+                reviewed_base_main_sha=review_data["reviewed_base_main_sha"],
+                current_task_head_sha=current_task_head_sha,
+                current_main_sha=current_main_sha,
+                merge_base_sha=merge_base_sha,
+                ahead_by=ahead_by,
+                behind_by=behind_by,
+                roadmap_governed=True,
+                roadmap_audit=review_data.get("roadmap_audit"),
+                task_roadmap_binding=task_roadmap_binding,
+                current_roadmap=None,
             )
+            preliminary_decision = evaluate_merge_gate(preliminary_input)
+            if preliminary_decision.reason is not MergeGateReason.ROADMAP_CURRENT_DRIFT:
+                print(
+                    f"[MERGE_GATE] {preliminary_decision.reason.value}: "
+                    f"{preliminary_decision.message}"
+                )
+                sys.exit(1)
+
+            roadmap_identity = (
+                task_roadmap_binding.roadmap_id,
+                task_roadmap_binding.roadmap_version,
+            )
+            try:
+                registry = resolve_canonical_roadmap_registry(control_commit_sha)
+            except SynchronizedControlArtifactUnavailableError:
+                registration = DEFAULT_ROADMAP_REGISTRY.get(roadmap_identity)
+                if registration is None:
+                    raise ContinuityStateValidationError(
+                        "Canonical roadmap registry is unavailable and task-bound "
+                        "roadmap has no legacy compatibility registration"
+                    )
+            else:
+                registration = registry.get(roadmap_identity)
             if registration is None:
                 raise ContinuityStateValidationError("Task-bound roadmap is not registered")
             exact_roadmap_bytes = resolve_exact_roadmap_bytes(

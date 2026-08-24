@@ -11,6 +11,7 @@ from enum import Enum
 import hashlib
 import json
 import re
+from types import MappingProxyType
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from src.aios_bridge.continuity.errors import ContinuityStateValidationError
@@ -18,6 +19,7 @@ from src.aios_bridge.continuity.errors import ContinuityStateValidationError
 
 ROADMAP_FINGERPRINT_ALGORITHM_VERSION = "roadmap-sha256-v1"
 ROADMAP_BINDING_MARKER = "ROADMAP_BINDING_JSON:"
+CANONICAL_ROADMAP_REGISTRY_PATH = ".ai/roadmaps/CANONICAL-ROADMAP-REGISTRY-v1.json"
 
 H_SERIES_ROADMAP_ID = "AIOS-ENGINEERING-H-SERIES"
 H_SERIES_ROADMAP_VERSION = "1.0"
@@ -30,11 +32,16 @@ MAX_BINDING_STRING_CHARS = 512
 MAX_EVIDENCE_CHARS = 2048
 MAX_COMPLETION_RECORDS_BYTES = 131072
 MAX_COMPLETION_RECORDS = 64
+MAX_ROADMAP_REGISTRY_BYTES = 131072
+MAX_ROADMAP_REGISTRY_ENTRIES = 128
 
 _BLOB_SHA_RE = re.compile(r"\A[0-9a-f]{40}\Z")
 _FINGERPRINT_RE = re.compile(r"\A[0-9a-f]{64}\Z")
 _IDENTITY_RE = re.compile(r"\A[A-Z0-9][A-Z0-9_.-]{0,127}\Z")
 _VERSION_RE = re.compile(r"\A[0-9][A-Za-z0-9_.-]{0,63}\Z")
+_ROADMAP_ARTIFACT_PATH_RE = re.compile(
+    r"\A\.ai/roadmaps/[A-Za-z0-9][A-Za-z0-9._/-]{0,223}\.md\Z"
+)
 _MILESTONE_RE = re.compile(r"\A[A-Z][A-Z0-9_.-]{0,63}\Z")
 _H_MILESTONE_RE = re.compile(r"\AH(?:0|[1-9][0-9]*)\Z")
 _CAPABILITY_RE = re.compile(r"\A[A-Z][A-Z0-9_]{1,127}\Z")
@@ -153,7 +160,13 @@ class RoadmapRegistryEntry:
             raise RoadmapGovernanceError("Malformed roadmap_id")
         if type(self.roadmap_version) is not str or _VERSION_RE.fullmatch(self.roadmap_version) is None:
             raise RoadmapGovernanceError("Malformed roadmap_version")
-        if type(self.artifact_path) is not str or not self.artifact_path or self.artifact_path != self.artifact_path.strip():
+        if (
+            type(self.artifact_path) is not str
+            or _ROADMAP_ARTIFACT_PATH_RE.fullmatch(self.artifact_path) is None
+            or "//" in self.artifact_path
+            or "/./" in self.artifact_path
+            or "/../" in self.artifact_path
+        ):
             raise RoadmapGovernanceError("Malformed artifact_path")
         if type(self.roadmap_blob_sha) is not str or _BLOB_SHA_RE.fullmatch(self.roadmap_blob_sha) is None:
             raise RoadmapGovernanceError("Malformed roadmap_blob_sha")
@@ -167,6 +180,94 @@ DEFAULT_ROADMAP_REGISTRY: Mapping[tuple[str, str], RoadmapRegistryEntry] = {
         roadmap_blob_sha=H_SERIES_ROADMAP_BLOB_SHA,
     )
 }
+
+
+def parse_canonical_roadmap_registry(
+    exact_bytes: bytes,
+) -> Mapping[tuple[str, str], RoadmapRegistryEntry]:
+    """Strictly parse the bounded canonical control-plane roadmap registry."""
+    if type(exact_bytes) is not bytes or not exact_bytes:
+        raise RoadmapGovernanceError("Canonical roadmap registry must be exact non-empty bytes")
+    if len(exact_bytes) > MAX_ROADMAP_REGISTRY_BYTES:
+        raise RoadmapGovernanceError("Canonical roadmap registry exceeds bounded serialized size")
+    try:
+        payload = exact_bytes.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise RoadmapGovernanceError("Canonical roadmap registry must be strict UTF-8") from exc
+
+    def pairs_hook(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if type(key) is not str or key in result:
+                raise RoadmapGovernanceError(
+                    f"Duplicate canonical roadmap registry field {key!r}"
+                )
+            result[key] = value
+        return result
+
+    try:
+        data = json.loads(payload, object_pairs_hook=pairs_hook)
+    except RoadmapGovernanceError:
+        raise
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise RoadmapGovernanceError(f"Malformed canonical roadmap registry: {exc}") from exc
+    if type(data) is not dict:
+        raise RoadmapGovernanceError("Canonical roadmap registry root must be a strict object")
+    envelope_keys = {"schema_version", "authority", "entries"}
+    if set(data) != envelope_keys:
+        missing = sorted(envelope_keys - set(data))
+        extra = sorted(set(data) - envelope_keys)
+        raise RoadmapGovernanceError(
+            f"Canonical roadmap registry keys must be exact; missing={missing}, extra={extra}"
+        )
+    if type(data["schema_version"]) is not str or data["schema_version"] != "1":
+        raise RoadmapGovernanceError("Unsupported canonical roadmap registry schema_version")
+    if type(data["authority"]) is not str or data["authority"] != "CANONICAL":
+        raise RoadmapGovernanceError("Canonical roadmap registry authority must be exact CANONICAL")
+    entries = data["entries"]
+    if type(entries) is not list or len(entries) > MAX_ROADMAP_REGISTRY_ENTRIES:
+        raise RoadmapGovernanceError("Canonical roadmap registry entries must be a bounded JSON list")
+
+    entry_keys = {"roadmap_id", "roadmap_version", "artifact_path", "roadmap_blob_sha"}
+    parsed: dict[tuple[str, str], RoadmapRegistryEntry] = {}
+    artifact_paths: set[str] = set()
+    artifact_blobs: set[str] = set()
+    for index, item in enumerate(entries):
+        if type(item) is not dict or set(item) != entry_keys:
+            missing = sorted(entry_keys - set(item)) if type(item) is dict else sorted(entry_keys)
+            extra = sorted(set(item) - entry_keys) if type(item) is dict else []
+            raise RoadmapGovernanceError(
+                f"Canonical roadmap registry entry {index} keys must be exact; "
+                f"missing={missing}, extra={extra}"
+            )
+        if any(type(item[field]) is not str for field in entry_keys):
+            raise RoadmapGovernanceError(
+                f"Canonical roadmap registry entry {index} scalars must be exact strings"
+            )
+        try:
+            entry = RoadmapRegistryEntry(
+                roadmap_id=item["roadmap_id"],
+                roadmap_version=item["roadmap_version"],
+                artifact_path=item["artifact_path"],
+                roadmap_blob_sha=item["roadmap_blob_sha"],
+            )
+        except RoadmapGovernanceError as exc:
+            raise RoadmapGovernanceError(
+                f"Malformed canonical roadmap registry entry {index}: {exc}"
+            ) from exc
+        identity = (entry.roadmap_id, entry.roadmap_version)
+        if identity in parsed:
+            raise RoadmapGovernanceError(
+                f"Duplicate canonical roadmap registry identity {identity!r}"
+            )
+        if entry.artifact_path in artifact_paths or entry.roadmap_blob_sha in artifact_blobs:
+            raise RoadmapGovernanceError(
+                f"Duplicate or conflicting canonical roadmap artifact identity at entry {index}"
+            )
+        parsed[identity] = entry
+        artifact_paths.add(entry.artifact_path)
+        artifact_blobs.add(entry.roadmap_blob_sha)
+    return MappingProxyType(parsed)
 
 
 @dataclass(frozen=True)
@@ -887,7 +988,7 @@ def evaluate_roadmap_preflight(
     *,
     context_refs: Sequence[object],
     roadmap_resolver: Callable[[str, str], bytes] | None,
-    registry: Mapping[tuple[str, str], RoadmapRegistryEntry] = DEFAULT_ROADMAP_REGISTRY,
+    registry: Mapping[tuple[str, str], RoadmapRegistryEntry] | None = None,
     migration_approved: bool = False,
 ) -> RoadmapPreflightDecision:
     """Resolve and validate governed task binding without creating authority."""
@@ -902,6 +1003,10 @@ def evaluate_roadmap_preflight(
         )
     try:
         binding = parse_roadmap_task_binding(task_text)
+        if registry is None:
+            raise RoadmapGovernanceError(
+                "Canonical roadmap registry is required for governed task"
+            )
         registration = registry.get((binding.roadmap_id, binding.roadmap_version))
         if registration is None:
             raise RoadmapGovernanceError(
@@ -1195,6 +1300,8 @@ def detect_task_roadmap_drift(
 
 __all__ = [
     "ROADMAP_FINGERPRINT_ALGORITHM_VERSION", "ROADMAP_BINDING_MARKER",
+    "CANONICAL_ROADMAP_REGISTRY_PATH", "MAX_ROADMAP_REGISTRY_BYTES",
+    "MAX_ROADMAP_REGISTRY_ENTRIES",
     "H_SERIES_ROADMAP_ID", "H_SERIES_ROADMAP_VERSION", "H_SERIES_ROADMAP_PATH",
     "H_SERIES_ROADMAP_BLOB_SHA", "DEFAULT_ROADMAP_REGISTRY",
     "RoadmapGovernanceError", "RoadmapStatus", "RoadmapChangeClass",
@@ -1202,6 +1309,7 @@ __all__ = [
     "RoadmapRegistryEntry", "RoadmapTaskBinding", "MilestoneCompletionRecord",
     "RoadmapPreflightDecision", "RoadmapEvolutionRequest", "RoadmapDriftFinding",
     "git_blob_sha", "roadmap_fingerprint", "parse_canonical_roadmap",
+    "parse_canonical_roadmap_registry",
     "parse_roadmap_task_binding", "task_header_fields", "claimed_h_milestones",
     "task_requires_roadmap_governance", "requirement_bindings_fingerprint",
     "validate_task_binding", "evaluate_roadmap_preflight", "require_roadmap_preflight",

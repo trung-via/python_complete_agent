@@ -13,11 +13,15 @@ import bridge
 from src.aios_bridge.continuity.errors import ContinuityStateValidationError
 from src.aios_bridge.continuity.executor import ExecutionOperation
 from src.aios_bridge.roadmap_governance import (
+    CANONICAL_ROADMAP_REGISTRY_PATH,
+    DEFAULT_ROADMAP_REGISTRY,
     H_SERIES_ROADMAP_BLOB_SHA,
     H_SERIES_ROADMAP_ID,
     H_SERIES_ROADMAP_PATH,
     H_SERIES_ROADMAP_VERSION,
     ROADMAP_FINGERPRINT_ALGORITHM_VERSION,
+    MAX_ROADMAP_REGISTRY_BYTES,
+    MAX_ROADMAP_REGISTRY_ENTRIES,
     MilestoneCompletionRecord,
     RoadmapChangeClass,
     RoadmapEvolutionRequest,
@@ -32,6 +36,7 @@ from src.aios_bridge.roadmap_governance import (
     may_open_milestone,
     milestone_completion_artifact_path,
     parse_canonical_roadmap,
+    parse_canonical_roadmap_registry,
     parse_milestone_completion_records,
     parse_roadmap_task_binding,
     roadmap_fingerprint,
@@ -58,6 +63,24 @@ ROADMAP_BYTES = subprocess.run(
     stdout=subprocess.PIPE,
 ).stdout
 ROADMAP_SHA256 = "449dd8bfa4867e74723a1e4a3f619779aebc0c77845a702491bef178a8bc4ce6"
+REGISTRY_BLOB_SHA = "52f4f24a6b0af719886c6524ade8e19f8cc8984c"
+REGISTRY_BYTES = subprocess.run(
+    ["git", "cat-file", "blob", REGISTRY_BLOB_SHA],
+    check=True,
+    stdout=subprocess.PIPE,
+).stdout
+LEAN_ROADMAP_PATH = ".ai/roadmaps/AIOS-BRIDGE-LEAN-EXECUTION-v1.1.md"
+LEAN_ROADMAP_BLOB_SHA = "cae51de4db517dd452c260076a1daa521c1e3a4c"
+LEAN_ROADMAP_BYTES = subprocess.run(
+    ["git", "cat-file", "blob", LEAN_ROADMAP_BLOB_SHA],
+    check=True,
+    stdout=subprocess.PIPE,
+).stdout
+TASK_083_BYTES = subprocess.run(
+    ["git", "cat-file", "blob", "fff8fb673707391e2129cf06f0c7c898c68b22cd"],
+    check=True,
+    stdout=subprocess.PIPE,
+).stdout
 
 
 def _parse_bytes(payload: bytes = ROADMAP_BYTES, *, path: str = H_SERIES_ROADMAP_PATH):
@@ -115,6 +138,308 @@ def _resolver(path: str, blob_sha: str) -> bytes:
     assert path == H_SERIES_ROADMAP_PATH
     assert blob_sha == H_SERIES_ROADMAP_BLOB_SHA
     return ROADMAP_BYTES
+
+
+def _canonical_registry():
+    return parse_canonical_roadmap_registry(REGISTRY_BYTES)
+
+
+def _canonical_resolver(path: str, blob_sha: str) -> bytes:
+    artifacts = {
+        (H_SERIES_ROADMAP_PATH, H_SERIES_ROADMAP_BLOB_SHA): ROADMAP_BYTES,
+        (LEAN_ROADMAP_PATH, LEAN_ROADMAP_BLOB_SHA): LEAN_ROADMAP_BYTES,
+    }
+    return artifacts[(path, blob_sha)]
+
+
+def _registry_payload() -> dict:
+    return json.loads(REGISTRY_BYTES.decode("utf-8"))
+
+
+def _registry_bytes(payload: object) -> bytes:
+    return json.dumps(payload, separators=(",", ":")).encode("utf-8")
+
+
+def test_canonical_registry_valid_manifest_and_roadmap_resolution() -> None:
+    registry = _canonical_registry()
+    assert tuple(registry) == (
+        ("AIOS-ENGINEERING-H-SERIES", "1.0"),
+        ("AIOS-BRIDGE-LEAN-EXECUTION", "1.1"),
+    )
+    for identity in registry:
+        entry = registry[identity]
+        roadmap = parse_canonical_roadmap(
+            _canonical_resolver(entry.artifact_path, entry.roadmap_blob_sha),
+            artifact_path=entry.artifact_path,
+            expected_blob_sha=entry.roadmap_blob_sha,
+        )
+        assert (roadmap.roadmap_id, roadmap.roadmap_version) == identity
+
+
+@pytest.mark.parametrize(
+    "mutation,error",
+    [
+        (lambda data: {**data, "unexpected": True}, "keys must be exact"),
+        (
+            lambda data: {**data, "entries": [{
+                key: value
+                for key, value in data["entries"][0].items()
+                if key != "roadmap_blob_sha"
+            }]},
+            "keys must be exact",
+        ),
+        (lambda data: {**data, "entries": "not-a-list"}, "bounded JSON list"),
+        (lambda data: {**data, "authority": "canonical"}, "exact CANONICAL"),
+        (lambda data: {**data, "schema_version": 1}, "schema_version"),
+        (
+            lambda data: {**data, "entries": [{**data["entries"][0], "roadmap_id": 1}]},
+            "scalars must be exact strings",
+        ),
+        (
+            lambda data: {**data, "entries": [{**data["entries"][0], "artifact_path": "../roadmap.md"}]},
+            "Malformed canonical roadmap registry entry",
+        ),
+        (
+            lambda data: {**data, "entries": [{**data["entries"][0], "roadmap_blob_sha": "ABC"}]},
+            "Malformed canonical roadmap registry entry",
+        ),
+    ],
+)
+def test_canonical_registry_rejects_unknown_missing_and_malformed_fields(
+    mutation, error: str
+) -> None:
+    with pytest.raises(RoadmapGovernanceError, match=error):
+        parse_canonical_roadmap_registry(_registry_bytes(mutation(_registry_payload())))
+
+
+def test_canonical_registry_rejects_duplicate_identity_and_artifact_conflicts() -> None:
+    payload = _registry_payload()
+    payload["entries"].append(dict(payload["entries"][0]))
+    with pytest.raises(RoadmapGovernanceError, match="Duplicate canonical roadmap registry identity"):
+        parse_canonical_roadmap_registry(_registry_bytes(payload))
+
+    payload = _registry_payload()
+    payload["entries"][1]["artifact_path"] = payload["entries"][0]["artifact_path"]
+    with pytest.raises(RoadmapGovernanceError, match="artifact identity"):
+        parse_canonical_roadmap_registry(_registry_bytes(payload))
+
+
+def test_canonical_registry_hard_bounds_and_duplicate_json_fields() -> None:
+    with pytest.raises(RoadmapGovernanceError, match="bounded serialized size"):
+        parse_canonical_roadmap_registry(b" " * (MAX_ROADMAP_REGISTRY_BYTES + 1))
+
+    entries = [
+        {
+            "roadmap_id": f"ROADMAP-{index}",
+            "roadmap_version": "1.0",
+            "artifact_path": f".ai/roadmaps/ROADMAP-{index}.md",
+            "roadmap_blob_sha": f"{index + 1:040x}",
+        }
+        for index in range(MAX_ROADMAP_REGISTRY_ENTRIES + 1)
+    ]
+    with pytest.raises(RoadmapGovernanceError, match="bounded JSON list"):
+        parse_canonical_roadmap_registry(_registry_bytes({
+            "schema_version": "1", "authority": "CANONICAL", "entries": entries
+        }))
+
+    duplicate_field = (
+        b'{"schema_version":"1","authority":"CANONICAL","authority":"CANONICAL","entries":[]}'
+    )
+    with pytest.raises(RoadmapGovernanceError, match="Duplicate canonical roadmap registry field"):
+        parse_canonical_roadmap_registry(duplicate_field)
+
+
+def test_task_083_normal_preflight_uses_registry_without_task_specific_bypass() -> None:
+    task = TASK_083_BYTES.decode("utf-8")
+    registry = _canonical_registry()
+    result = preflight_executable_artifact(
+        task,
+        work_path=".ai/tasks/TASK-083.md",
+        operation=ExecutionOperation.RUN,
+        selected_executor="antigravity",
+        roadmap_resolver=_canonical_resolver,
+        roadmap_registry=registry,
+    )
+    assert result.roadmap_decision is not None
+    assert result.roadmap_decision.reason is RoadmapPreflightReason.ROADMAP_BINDING_VALID
+    assert result.roadmap_decision.binding.roadmap_id == "AIOS-BRIDGE-LEAN-EXECUTION"
+
+    renamed = task.replace("TASK-083", "TASK-999")
+    renamed_result = preflight_executable_artifact(
+        renamed,
+        work_path=".ai/tasks/TASK-999.md",
+        operation=ExecutionOperation.RUN,
+        selected_executor="antigravity",
+        roadmap_resolver=_canonical_resolver,
+        roadmap_registry=registry,
+    )
+    assert renamed_result.roadmap_decision.reason is RoadmapPreflightReason.ROADMAP_BINDING_VALID
+    source = inspect.getsource(preflight_executable_artifact)
+    assert "TASK-083" not in source
+
+
+def test_governed_preflight_missing_malformed_unknown_registry_and_blob_fail_closed() -> None:
+    task = TASK_083_BYTES.decode("utf-8")
+    kwargs = {
+        "work_path": ".ai/tasks/TASK-083.md",
+        "operation": ExecutionOperation.RUN,
+        "selected_executor": "antigravity",
+        "roadmap_resolver": _canonical_resolver,
+    }
+    with pytest.raises(ExecutableArtifactPreflightError, match="registry is required"):
+        preflight_executable_artifact(task, **kwargs)
+    with pytest.raises(RoadmapGovernanceError, match="Malformed canonical roadmap registry"):
+        parse_canonical_roadmap_registry(b"{not-json")
+
+    registry = dict(_canonical_registry())
+    registry.pop(("AIOS-BRIDGE-LEAN-EXECUTION", "1.1"))
+    with pytest.raises(ExecutableArtifactPreflightError, match="is not registered"):
+        preflight_executable_artifact(task, roadmap_registry=registry, **kwargs)
+
+    entry = _canonical_registry()[("AIOS-BRIDGE-LEAN-EXECUTION", "1.1")]
+    registry[("AIOS-BRIDGE-LEAN-EXECUTION", "1.1")] = replace(
+        entry, roadmap_blob_sha="0" * 40
+    )
+    with pytest.raises(ExecutableArtifactPreflightError, match="registered roadmap blob"):
+        preflight_executable_artifact(task, roadmap_registry=registry, **kwargs)
+
+
+def test_bridge_registry_resolution_reads_exact_frozen_control_artifact(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        bridge,
+        "resolve_synchronized_control_artifact_bytes",
+        lambda ref, path: observed.append((ref, path)) or REGISTRY_BYTES,
+    )
+    registry = bridge.resolve_canonical_roadmap_registry("c" * 40)
+    assert observed == [("c" * 40, CANONICAL_ROADMAP_REGISTRY_PATH)]
+    assert ("AIOS-BRIDGE-LEAN-EXECUTION", "1.1") in registry
+
+    monkeypatch.setattr(
+        bridge, "resolve_synchronized_control_artifact_bytes", lambda ref, path: b"{not-json"
+    )
+    with pytest.raises(RoadmapGovernanceError, match="Malformed canonical roadmap registry"):
+        bridge.resolve_canonical_roadmap_registry("c" * 40)
+
+    monkeypatch.setattr(
+        bridge,
+        "resolve_synchronized_control_artifact_bytes",
+        lambda ref, path: (_ for _ in ()).throw(
+            ContinuityStateValidationError("registry missing")
+        ),
+    )
+    with pytest.raises(ContinuityStateValidationError, match="registry missing"):
+        bridge.resolve_canonical_roadmap_registry("c" * 40)
+
+
+@pytest.mark.parametrize(
+    "case",
+    ("missing_evidence", "missing_cache", "cache_drift", "malformed_evidence"),
+)
+def test_bridge_registry_cache_resolution_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    case: str,
+) -> None:
+    seen_path = tmp_path / "seen.json"
+    cache_path = tmp_path / "artifacts" / CANONICAL_ROADMAP_REGISTRY_PATH
+    cache_path.parent.mkdir(parents=True)
+    expected_blob = git_blob_sha(REGISTRY_BYTES)
+    seen_path.write_text(
+        json.dumps({CANONICAL_ROADMAP_REGISTRY_PATH: expected_blob}),
+        encoding="utf-8",
+    )
+    cache_path.write_bytes(REGISTRY_BYTES)
+    monkeypatch.setattr(bridge, "resolve_git_blob_sha", lambda ref, path: expected_blob)
+    monkeypatch.setattr(
+        bridge,
+        "get_runtime_paths",
+        lambda repo_root=None: {"seen": seen_path},
+    )
+    monkeypatch.setattr(bridge, "get_artifact_path", lambda path: cache_path)
+
+    if case == "missing_evidence":
+        seen_path.write_text("{}", encoding="utf-8")
+    elif case == "missing_cache":
+        cache_path.unlink()
+    elif case == "malformed_evidence":
+        seen_path.write_text("{not-json", encoding="utf-8")
+    else:
+        cache_path.write_bytes(REGISTRY_BYTES + b"\n")
+
+    with pytest.raises(ContinuityStateValidationError) as excinfo:
+        bridge.resolve_canonical_roadmap_registry("c" * 40)
+    if case in {"cache_drift", "malformed_evidence"}:
+        assert not isinstance(
+            excinfo.value, bridge.SynchronizedControlArtifactUnavailableError
+        )
+
+
+def test_bridge_registry_cache_resolution_accepts_exact_synchronized_bytes(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    seen_path = tmp_path / "seen.json"
+    cache_path = tmp_path / "artifacts" / CANONICAL_ROADMAP_REGISTRY_PATH
+    cache_path.parent.mkdir(parents=True)
+    expected_blob = git_blob_sha(REGISTRY_BYTES)
+    seen_path.write_text(
+        json.dumps({CANONICAL_ROADMAP_REGISTRY_PATH: expected_blob}),
+        encoding="utf-8",
+    )
+    cache_path.write_bytes(REGISTRY_BYTES)
+    monkeypatch.setattr(bridge, "resolve_git_blob_sha", lambda ref, path: expected_blob)
+    monkeypatch.setattr(
+        bridge,
+        "get_runtime_paths",
+        lambda repo_root=None: {"seen": seen_path},
+    )
+    monkeypatch.setattr(bridge, "get_artifact_path", lambda path: cache_path)
+
+    registry = bridge.resolve_canonical_roadmap_registry("c" * 40)
+    assert ("AIOS-BRIDGE-LEAN-EXECUTION", "1.1") in registry
+
+
+def test_bridge_sync_caches_registry_as_exact_control_blob(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    runtime = tmp_path / "runtime"
+    seen_path = runtime / "seen.json"
+    cache_path = runtime / "artifacts" / CANONICAL_ROADMAP_REGISTRY_PATH
+    expected_blob = git_blob_sha(REGISTRY_BYTES)
+    monkeypatch.setattr(bridge, "ensure_git", lambda: None)
+    monkeypatch.setattr(bridge, "ensure_dirs", lambda: None)
+    monkeypatch.setattr(
+        bridge,
+        "load_config",
+        lambda: {"remote": "origin", "control_branch": "ai-control"},
+    )
+    monkeypatch.setattr(bridge, "fetch_control", lambda cfg: None)
+    monkeypatch.setattr(
+        bridge,
+        "list_remote_inbound",
+        lambda cfg: [(CANONICAL_ROADMAP_REGISTRY_PATH, expected_blob)],
+    )
+    monkeypatch.setattr(
+        bridge,
+        "read_git_blob_bytes",
+        lambda ref, path: REGISTRY_BYTES,
+    )
+    monkeypatch.setattr(
+        bridge,
+        "get_runtime_paths",
+        lambda repo_root=None: {"seen": seen_path},
+    )
+    monkeypatch.setattr(bridge, "get_artifact_path", lambda path: cache_path)
+
+    assert bridge.sync_once(verbose=False) == [CANONICAL_ROADMAP_REGISTRY_PATH]
+    assert cache_path.read_bytes() == REGISTRY_BYTES
+    assert json.loads(seen_path.read_text(encoding="utf-8")) == {
+        CANONICAL_ROADMAP_REGISTRY_PATH: expected_blob
+    }
 
 
 def _complete(roadmap, milestone: str) -> MilestoneCompletionRecord:
@@ -298,6 +623,7 @@ def test_h_series_missing_binding_and_undeclared_h9_fail_closed() -> None:
         _task(None),
         context_refs=({"path": H_SERIES_ROADMAP_PATH, "blob_sha": H_SERIES_ROADMAP_BLOB_SHA},),
         roadmap_resolver=_resolver,
+        registry=DEFAULT_ROADMAP_REGISTRY,
     )
     assert decision.allowed is False
     assert decision.reason is RoadmapPreflightReason.ROADMAP_BINDING_FAILED
@@ -308,6 +634,7 @@ def test_h_series_missing_binding_and_undeclared_h9_fail_closed() -> None:
         _task(h9, milestone="H9"),
         context_refs=({"path": H_SERIES_ROADMAP_PATH, "blob_sha": H_SERIES_ROADMAP_BLOB_SHA},),
         roadmap_resolver=_resolver,
+        registry=DEFAULT_ROADMAP_REGISTRY,
     )
     assert decision.allowed is False
     assert "undeclared H milestone" in decision.message.lower() or "Undeclared roadmap milestone" in decision.message
@@ -322,6 +649,7 @@ def test_exact_task_binding_and_authoring_integration_pass() -> None:
         task,
         context_refs=({"path": H_SERIES_ROADMAP_PATH, "blob_sha": H_SERIES_ROADMAP_BLOB_SHA},),
         roadmap_resolver=_resolver,
+        registry=DEFAULT_ROADMAP_REGISTRY,
     )
     assert decision.allowed is True
     assert decision.reason is RoadmapPreflightReason.ROADMAP_BINDING_VALID
@@ -332,6 +660,7 @@ def test_exact_task_binding_and_authoring_integration_pass() -> None:
         operation=ExecutionOperation.RUN,
         selected_executor="codex",
         roadmap_resolver=_resolver,
+        roadmap_registry=DEFAULT_ROADMAP_REGISTRY,
     )
     assert result.roadmap_decision is not None
     assert result.roadmap_decision.allowed is True
@@ -344,6 +673,7 @@ def test_governed_authoring_requires_exact_roadmap_resolver() -> None:
             work_path=".ai/tasks/TASK-100.md",
             operation=ExecutionOperation.RUN,
             selected_executor="codex",
+            roadmap_registry=DEFAULT_ROADMAP_REGISTRY,
         )
 
 
@@ -362,6 +692,7 @@ def test_task_binding_drift_rejected(binding_change: dict, message: str) -> None
         _task(binding),
         context_refs=({"path": H_SERIES_ROADMAP_PATH, "blob_sha": H_SERIES_ROADMAP_BLOB_SHA},),
         roadmap_resolver=_resolver,
+        registry=DEFAULT_ROADMAP_REGISTRY,
     )
     assert decision.allowed is False
     assert message.lower() in decision.message.lower()
@@ -444,6 +775,7 @@ def test_authoring_requires_authoritative_completion_artifact_for_later_mileston
             operation=ExecutionOperation.RUN,
             selected_executor="codex",
             roadmap_resolver=_resolver,
+            roadmap_registry=DEFAULT_ROADMAP_REGISTRY,
         )
 
     completion_path = milestone_completion_artifact_path(roadmap)
@@ -453,6 +785,7 @@ def test_authoring_requires_authoritative_completion_artifact_for_later_mileston
         operation=ExecutionOperation.RUN,
         selected_executor="codex",
         roadmap_resolver=_resolver,
+        roadmap_registry=DEFAULT_ROADMAP_REGISTRY,
         milestone_completion_resolver=lambda path: (
             _completion_artifact(roadmap, (_complete(roadmap, "H0"),))
             if path == completion_path
@@ -535,6 +868,11 @@ def test_bridge_run_and_e4_paths_reject_missing_authoritative_progression(
         lambda ref, path: task.encode("utf-8") if path.endswith("TASK-100.md") else ROADMAP_BYTES,
     )
     monkeypatch.setattr(bridge, "resolve_exact_roadmap_bytes", lambda ref, path, blob: ROADMAP_BYTES)
+    monkeypatch.setattr(
+        bridge,
+        "resolve_synchronized_control_artifact_bytes",
+        lambda ref, path: REGISTRY_BYTES,
+    )
     monkeypatch.setattr(
         bridge,
         "resolve_exact_control_artifact_bytes",
@@ -634,9 +972,18 @@ def test_bridge_governed_fix_uses_exact_original_task_evidence(
     monkeypatch.setattr(
         bridge,
         "read_git_blob_bytes",
-        lambda ref, path: review.encode("utf-8") if path.endswith("REVIEW-100.md") else task.encode("utf-8"),
+        lambda ref, path: (
+            review.encode("utf-8")
+            if path.endswith("REVIEW-100.md")
+            else task.encode("utf-8")
+        ),
     )
     monkeypatch.setattr(bridge, "resolve_exact_roadmap_bytes", lambda ref, path, blob: ROADMAP_BYTES)
+    monkeypatch.setattr(
+        bridge,
+        "resolve_synchronized_control_artifact_bytes",
+        lambda ref, path: REGISTRY_BYTES,
+    )
     monkeypatch.setattr(
         bridge,
         "get_artifact_path",
