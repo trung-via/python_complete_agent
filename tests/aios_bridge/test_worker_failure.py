@@ -110,22 +110,69 @@ def test_productive_nonzero_requires_preserved_authorized_delta() -> None:
     assert ev_in_scope.failure_class == WorkerFailureClass.PRODUCTIVE_NONZERO_RECOVERY_CANDIDATE
     assert ev_in_scope.next_action == WorkerNextAction.RECOVERY_REQUIRED_PRESERVED_DELTA
 
-    # Out of scope delta -> fails closed to recovery required
-    ev_out_of_scope = classify_worker_failure(
-        terminal_status="EXITED_NONZERO",
-        pre_head_sha=HEAD_A,
-        post_head_sha=HEAD_A,
-        dirty_paths=("src/unauthorized.py",),
-        allowed_paths=allowed,
-        is_known_stopped=True,
-    )
-    assert ev_out_of_scope.failure_class == WorkerFailureClass.DIRTY_TIMEOUT_RECOVERY_REQUIRED
-    assert ev_out_of_scope.next_action == WorkerNextAction.RECOVERY_REQUIRED_PRESERVED_DELTA
+    # Out of scope delta -> fails closed by raising WorkerFailureError
+    with pytest.raises(WorkerFailureError):
+        classify_worker_failure(
+            terminal_status="EXITED_NONZERO",
+            pre_head_sha=HEAD_A,
+            post_head_sha=HEAD_A,
+            dirty_paths=("src/unauthorized.py",),
+            allowed_paths=allowed,
+            is_known_stopped=True,
+        )
+
+
+def test_is_known_stopped_false_fails_closed() -> None:
+    """B1 proof: is_known_stopped=False must fail closed."""
+    with pytest.raises(WorkerFailureError):
+        classify_worker_failure(
+            terminal_status="TIMED_OUT",
+            pre_head_sha=HEAD_A,
+            post_head_sha=HEAD_A,
+            dirty_paths=(),
+            is_known_stopped=False,
+        )
+
+
+def test_unknown_terminal_status_fails_closed() -> None:
+    """B1 proof: unknown or arbitrary terminal status must fail closed."""
+    with pytest.raises(WorkerFailureError):
+        classify_worker_failure(
+            terminal_status="UNKNOWN_STATUS",
+            pre_head_sha=HEAD_A,
+            post_head_sha=HEAD_A,
+            dirty_paths=(),
+            is_known_stopped=True,
+        )
+
+
+def test_missing_scope_evidence_on_exited_nonzero_fails_closed() -> None:
+    """B1 proof: EXITED_NONZERO with non-zero delta but missing allowed_paths fails closed."""
+    with pytest.raises(WorkerFailureError):
+        classify_worker_failure(
+            terminal_status="EXITED_NONZERO",
+            pre_head_sha=HEAD_A,
+            post_head_sha=HEAD_A,
+            dirty_paths=("bridge.py",),
+            allowed_paths=None,
+            is_known_stopped=True,
+        )
+
+
+def test_exited_zero_with_worktree_delta_fails_closed() -> None:
+    """B1 proof: EXITED_ZERO with non-zero worktree delta is not a failure class."""
+    with pytest.raises(WorkerFailureError):
+        classify_worker_failure(
+            terminal_status="EXITED_ZERO",
+            pre_head_sha=HEAD_A,
+            post_head_sha=HEAD_A,
+            dirty_paths=("bridge.py",),
+            is_known_stopped=True,
+        )
 
 
 def test_one_machine_next_action_per_blocked_classification_and_human_text_derived() -> None:
     """Proof: ONE_MACHINE_NEXT_ACTION_PER_BLOCKED_CLASSIFICATION & HUMAN_TEXT_DERIVED_FROM_MACHINE_NEXT_ACTION."""
-    # Every failure class maps to exactly one next action
     for fc in WorkerFailureClass:
         na = FAILURE_CLASS_TO_NEXT_ACTION[fc]
         assert na in WorkerNextAction
@@ -135,7 +182,6 @@ def test_one_machine_next_action_per_blocked_classification_and_human_text_deriv
 
 def test_codex_antigravity_classification_policy_parity() -> None:
     """Proof: CODEX_ANTIGRAVITY_CLASSIFICATION_POLICY_PARITY."""
-    # The classification function is completely pure and provider-neutral
     ev_ag = classify_worker_failure(
         terminal_status="EXITED_ZERO",
         pre_head_sha=HEAD_A,
@@ -174,6 +220,36 @@ def test_worker_failure_evidence_round_trip_and_validation() -> None:
         )
 
 
+def test_coercion_and_extra_fields_rejected_in_from_dict() -> None:
+    """B3 proof: Coercion and extra fields must be rejected in from_dict."""
+    valid_d = classify_worker_failure(
+        terminal_status="TIMED_OUT",
+        pre_head_sha=HEAD_A,
+        post_head_sha=HEAD_A,
+        dirty_paths=(),
+    ).to_dict()
+
+    # Extra field rejected
+    with pytest.raises(WorkerFailureError):
+        WorkerFailureEvidence.from_dict({**valid_d, "extra_field": "injected"})
+
+    # String bool "false" rejected (no coercion)
+    with pytest.raises(WorkerFailureError):
+        WorkerFailureEvidence.from_dict({**valid_d, "zero_worktree_delta": "false"})
+
+    # Non-list dirty_paths rejected
+    with pytest.raises(WorkerFailureError):
+        WorkerFailureEvidence.from_dict({**valid_d, "dirty_paths": "bridge.py"})
+
+    # Human guidance mismatch rejected
+    with pytest.raises(WorkerFailureError):
+        WorkerFailureEvidence.from_dict({**valid_d, "human_guidance": "Tampered text"})
+
+    # Inconsistent failure_class and terminal_status rejected
+    with pytest.raises(WorkerFailureError):
+        WorkerFailureEvidence.from_dict({**valid_d, "terminal_status": "EXITED_ZERO"})
+
+
 def test_clean_timeout_no_result_publication_and_no_retry_reroute() -> None:
     """Proof: CLEAN_TIMEOUT_NO_RESULT_PUBLICATION & AUTO_RETRY: NO & AUTO_REROUTE: NO."""
     evidence = classify_worker_failure(
@@ -182,7 +258,6 @@ def test_clean_timeout_no_result_publication_and_no_retry_reroute() -> None:
         post_head_sha=HEAD_A,
         dirty_paths=(),
     )
-    # The next action requires explicit human decision, never auto retry / reroute
     assert evidence.next_action == WorkerNextAction.HUMAN_DECISION_REQUIRED_CLEAN_TIMEOUT
     assert "retry" not in evidence.human_guidance.lower()
     assert "reroute" not in evidence.human_guidance.lower()

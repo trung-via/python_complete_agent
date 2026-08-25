@@ -3683,7 +3683,23 @@ def is_productive_nonzero_recovery_candidate(
 
 
 
-def _e4_operational_failure(task_id: int, status: str, message: str) -> None:
+def _e4_operational_failure(
+    task_id: int,
+    status: str,
+    message: str,
+    worker_failure_evidence: WorkerFailureEvidence | None = None,
+) -> None:
+    if worker_failure_evidence is not None:
+        try:
+            auth = load_authorization(task_id)
+            if auth:
+                updated_auth = {
+                    **auth,
+                    "worker_failure_evidence": worker_failure_evidence.to_dict(),
+                }
+                save_authorization(task_id, updated_auth)
+        except Exception:
+            pass
     try:
         update_state(task_id, status, message)
     except Exception as state_error:
@@ -4153,25 +4169,34 @@ def cmd_execute(args):
                 f"E4 productive non-zero recovery criteria not met; diagnostic={diagnostic.code}; work preserved",
             )
     else:
-        failure_evidence = classify_worker_failure(
-            terminal_status=receipt.status.value,
-            pre_head_sha=pre_head_sha,
-            post_head_sha=post_head_sha,
-            dirty_paths=dirty_paths,
-            allowed_paths=snapshot.get("allowed_paths"),
-            is_known_stopped=True,
-            executor_outcome=getattr(diagnostic, "executor_outcome", "UNKNOWN"),
-            final_agent_message_observed=getattr(diagnostic, "final_agent_message_observed", "UNKNOWN"),
-            diagnostic_code=diagnostic.code,
-        )
-        blocked_status = (
-            "EXECUTION_BLOCKED"
-            if receipt.status is InvocationStatus.FAILED_TO_START and not dirty_paths
-            else "RECOVERY_REQUIRED"
-        )
+        failure_evidence = None
+        try:
+            failure_evidence = classify_worker_failure(
+                terminal_status=receipt.status.value,
+                pre_head_sha=pre_head_sha,
+                post_head_sha=post_head_sha,
+                dirty_paths=dirty_paths,
+                allowed_paths=snapshot.get("allowed_paths"),
+                is_known_stopped=True,
+                executor_outcome=getattr(diagnostic, "executor_outcome", "UNKNOWN"),
+                final_agent_message_observed=getattr(diagnostic, "final_agent_message_observed", "UNKNOWN"),
+                diagnostic_code=diagnostic.code,
+            )
+        except Exception:
+            failure_evidence = None
+
+        if receipt.status is InvocationStatus.TIMED_OUT and (pre_head_sha == post_head_sha and not dirty_paths):
+            blocked_status = "EXECUTION_BLOCKED"
+        elif receipt.status is InvocationStatus.FAILED_TO_START and not dirty_paths:
+            blocked_status = "EXECUTION_BLOCKED"
+        else:
+            blocked_status = "RECOVERY_REQUIRED"
+
+        class_suffix = f" ({failure_evidence.failure_class.value})" if failure_evidence else ""
+        next_action_suffix = f"; next_action={failure_evidence.next_action.value}" if failure_evidence else ""
         err_msg = (
-            f"E4 transport ended with {receipt.status.value} ({failure_evidence.failure_class.value}); "
-            f"next_action={failure_evidence.next_action.value}; "
+            f"E4 transport ended with {receipt.status.value}{class_suffix}"
+            f"{next_action_suffix}; "
             f"error={receipt.error_code}; diagnostic={diagnostic.code}; "
             f"no publication and no retry"
         )
@@ -4179,6 +4204,7 @@ def cmd_execute(args):
             task_num,
             blocked_status,
             err_msg,
+            worker_failure_evidence=failure_evidence,
         )
 
 

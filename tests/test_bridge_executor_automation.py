@@ -1773,3 +1773,54 @@ def test_real_cmd_publish_post_test_auth_mutation_blocks_with_work_preserved(mon
     state = bridge.load_json(runtime / "state" / "CURRENT_STATE.json")
     assert state["status"] == "RECOVERY_REQUIRED"
     assert "E4 authorization or lease binding drifted during test execution" in state["next_step"]
+
+
+def test_clean_timeout_persists_evidence_blocks_publication_and_sets_blocked_state(monkeypatch, tmp_path):
+    """Integration proof: CLEAN_TIMEOUT_NO_RESULT_PUBLICATION & structured evidence persistence."""
+    auth, _, calls = make_execute_environment(monkeypatch, tmp_path, status=InvocationStatus.TIMED_OUT)
+    monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ())
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+
+    assert calls["invoke"] == 1
+    assert calls["publish"] == []
+    last_state = calls["state"][-1]
+    assert last_state[0] == "EXECUTION_BLOCKED"
+    assert "CLEAN_TIMEOUT" in last_state[1]
+    assert "HUMAN_DECISION_REQUIRED_CLEAN_TIMEOUT" in last_state[1]
+
+    # Verify structured evidence persisted into authorization
+    assert len(calls["auth_saved"]) >= 1
+    _, saved_auth = calls["auth_saved"][-1]
+    assert "worker_failure_evidence" in saved_auth
+    ev = saved_auth["worker_failure_evidence"]
+    assert ev["failure_class"] == "CLEAN_TIMEOUT"
+    assert ev["next_action"] == "HUMAN_DECISION_REQUIRED_CLEAN_TIMEOUT"
+    assert ev["zero_worktree_delta"] is True
+
+
+def test_dirty_timeout_persists_evidence_and_preserves_worktree(monkeypatch, tmp_path):
+    """Integration proof: DIRTY_TIMEOUT_BLOCKS_FRESH_EXECUTOR_START & DIRTY_TIMEOUT_DOES_NOT_AUTO_RESET_STASH_COMMIT."""
+    auth, _, calls = make_execute_environment(monkeypatch, tmp_path, status=InvocationStatus.TIMED_OUT)
+    monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ("bridge.py",))
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+
+    assert calls["invoke"] == 1
+    assert calls["publish"] == []
+    # Lease is retained, state is RECOVERY_REQUIRED
+    last_state = calls["state"][-1]
+    assert last_state[0] == "RECOVERY_REQUIRED"
+    assert "DIRTY_TIMEOUT_RECOVERY_REQUIRED" in last_state[1]
+    assert "RECOVERY_REQUIRED_PRESERVED_DELTA" in last_state[1]
+
+    # Verify structured evidence persisted into authorization
+    assert len(calls["auth_saved"]) >= 1
+    _, saved_auth = calls["auth_saved"][-1]
+    assert "worker_failure_evidence" in saved_auth
+    ev = saved_auth["worker_failure_evidence"]
+    assert ev["failure_class"] == "DIRTY_TIMEOUT_RECOVERY_REQUIRED"
+    assert ev["next_action"] == "RECOVERY_REQUIRED_PRESERVED_DELTA"
+    assert ev["zero_worktree_delta"] is False

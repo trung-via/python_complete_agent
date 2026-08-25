@@ -147,7 +147,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if result.returncode != 0:
         if result.failure_class:
             print(
-                f"\nAIOS_WORKER_STATUS: BLOCKED\n"
+                f"\nAIOS_WORKER_STATUS: {result.status}\n"
                 f"TASK_ID: {task_id}\n"
                 f"ACTION: {action}\n"
                 f"EXECUTOR: {args.adapter}\n"

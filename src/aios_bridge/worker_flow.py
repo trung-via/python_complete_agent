@@ -17,6 +17,8 @@ from typing import Callable
 from src.aios_bridge.worker_failure import (
     NEXT_ACTION_TO_HUMAN_TEXT,
     WorkerFailureClass,
+    WorkerFailureError,
+    WorkerFailureEvidence,
     WorkerNextAction,
 )
 
@@ -193,22 +195,37 @@ class WorkerFlowCoordinator:
                     human_guidance = None
                     if auth:
                         if "worker_failure_evidence" in auth:
-                            fe = auth["worker_failure_evidence"]
-                            failure_class = fe.get("failure_class")
-                            next_action = fe.get("next_action")
-                            human_guidance = fe.get("human_guidance")
+                            try:
+                                ev = WorkerFailureEvidence.from_dict(auth["worker_failure_evidence"])
+                                failure_class = ev.failure_class.value
+                                next_action = ev.next_action.value
+                                human_guidance = ev.human_guidance
+                            except Exception:
+                                failure_class = None
+                                next_action = None
+                                human_guidance = None
                         elif "blocked_execution_evidence" in auth:
                             be = auth["blocked_execution_evidence"]
-                            reason = be.get("blocked_reason_code")
-                            if reason == "CLEAN_NO_WORKTREE_DELTA":
+                            if isinstance(be, dict) and be.get("blocked_reason_code") == "CLEAN_NO_WORKTREE_DELTA":
                                 failure_class = WorkerFailureClass.CLEAN_NO_WORKTREE_DELTA.value
                                 next_action = WorkerNextAction.HUMAN_SELECT_REPLACEMENT_EXECUTOR_IF_PROVEN_SAFE.value
                                 human_guidance = NEXT_ACTION_TO_HUMAN_TEXT[WorkerNextAction.HUMAN_SELECT_REPLACEMENT_EXECUTOR_IF_PROVEN_SAFE]
+
+                    flow_status = (
+                        "BLOCKED"
+                        if failure_class in (
+                            WorkerFailureClass.CLEAN_NO_WORKTREE_DELTA.value,
+                            WorkerFailureClass.CLEAN_TIMEOUT.value,
+                        )
+                        else "RECOVERY_REQUIRED"
+                        if failure_class
+                        else "EXECUTION_FAILED"
+                    )
                     return WorkerFlowResult(
                         action=action.value,
                         task_id=task_id,
                         adapter=adapter.value,
-                        status="BLOCKED" if failure_class else "EXECUTION_FAILED",
+                        status=flow_status,
                         failure_class=failure_class,
                         next_action=next_action,
                         human_guidance=human_guidance,
@@ -335,22 +352,37 @@ class WorkerFlowCoordinator:
                         human_guidance = None
                         if auth:
                             if "worker_failure_evidence" in auth:
-                                fe = auth["worker_failure_evidence"]
-                                failure_class = fe.get("failure_class")
-                                next_action = fe.get("next_action")
-                                human_guidance = fe.get("human_guidance")
+                                try:
+                                    ev = WorkerFailureEvidence.from_dict(auth["worker_failure_evidence"])
+                                    failure_class = ev.failure_class.value
+                                    next_action = ev.next_action.value
+                                    human_guidance = ev.human_guidance
+                                except Exception:
+                                    failure_class = None
+                                    next_action = None
+                                    human_guidance = None
                             elif "blocked_execution_evidence" in auth:
                                 be = auth["blocked_execution_evidence"]
-                                reason = be.get("blocked_reason_code")
-                                if reason == "CLEAN_NO_WORKTREE_DELTA":
+                                if isinstance(be, dict) and be.get("blocked_reason_code") == "CLEAN_NO_WORKTREE_DELTA":
                                     failure_class = WorkerFailureClass.CLEAN_NO_WORKTREE_DELTA.value
                                     next_action = WorkerNextAction.HUMAN_SELECT_REPLACEMENT_EXECUTOR_IF_PROVEN_SAFE.value
                                     human_guidance = NEXT_ACTION_TO_HUMAN_TEXT[WorkerNextAction.HUMAN_SELECT_REPLACEMENT_EXECUTOR_IF_PROVEN_SAFE]
+
+                        flow_status = (
+                            "BLOCKED"
+                            if failure_class in (
+                                WorkerFailureClass.CLEAN_NO_WORKTREE_DELTA.value,
+                                WorkerFailureClass.CLEAN_TIMEOUT.value,
+                            )
+                            else "RECOVERY_REQUIRED"
+                            if failure_class
+                            else "EXECUTION_FAILED"
+                        )
                         return WorkerFlowResult(
                             action=action.value,
                             task_id=task_id,
                             adapter=adapter.value,
-                            status="BLOCKED" if failure_class else "EXECUTION_FAILED",
+                            status=flow_status,
                             failure_class=failure_class,
                             next_action=next_action,
                             human_guidance=human_guidance,
