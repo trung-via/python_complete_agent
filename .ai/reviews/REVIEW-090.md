@@ -1,19 +1,19 @@
 # REVIEW-090 — Review-First Certification + Deterministic Certification Job Integration
 PUBLISHER_PROFILE: CANONICAL_E4
-STATUS: CHANGES_REQUIRED
-APPROVED: NO
-AUTO_MERGE_ELIGIBLE: NO
-MERGE_AUTHORIZED: NO
+STATUS: PASS
+APPROVED: YES
+AUTO_MERGE_ELIGIBLE: YES
+MERGE_AUTHORIZED: YES
 MERGED_TO_MAIN: NO
 TASK_ID: TASK-090
-REVIEW_ROUND: 1
-REVIEWED_TASK_HEAD_SHA: 770dcbcf366fece68a379e7c59d5ef0e7773a615
+REVIEW_ROUND: 2
+REVIEWED_TASK_HEAD_SHA: 5a609040030a140c0b10be58f4c351dc17cbfb23
 REVIEWED_BASE_MAIN_SHA: bb4a30775c2deb2a37ebe763d1a74ce7e64d6ebe
 TASK_ARTIFACT_BLOB_SHA: c2c633af4d7261667420908bb2d2c1eebb4e54c0
-RESULT_BLOB_SHA: 5fc9ae1c96153d00d269b69546237aa7ac13bfd1
+RESULT_BLOB_SHA: b1841f3d6a5ef154d719873b2bf3381b4c227f0b
 EXECUTOR_ID: codex
-BLOCKERS_REMAINING: 3
-CODE_AUDIT: CHANGES_REQUIRED
+BLOCKERS_REMAINING: 0
+CODE_AUDIT: PASS
 CANONICAL_TESTS: PASS
 ROADMAP_AUDIT: PASS
 ROADMAP_ID: AIOS-BRIDGE-LEAN-EXECUTION
@@ -23,133 +23,92 @@ ROADMAP_FINGERPRINT: 89c9372c074ecb43778705f07c6fded67e4af7833c0feb72a92a9ae2e73
 MILESTONE: P1
 CAPABILITY_ID: P1_UNIFIED_VALIDATION_CAPABILITY_BATCH
 REQUIREMENT_BINDINGS_FINGERPRINT: 1a6b8cbcc76247d72de8ae1a11234a4b9a019fadeb31189cac353ccd36f06466
-FIX_EXECUTION_MODE: IMPLEMENTATION
 TASK_087_PREREQUISITE_ELIGIBLE: NO
 P1_FORMAL_COMPLETION: NO
 P2_P3_AUTHORIZED: NO
 H5_H8_AUTHORIZED: NO
-EXECUTOR_CONTEXT_REFS_JSON: [{"path":".ai/tasks/TASK-090.md","blob_sha":"c2c633af4d7261667420908bb2d2c1eebb4e54c0"}]
-EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py","src/aios_bridge/certification_job.py","tests/aios_bridge/test_certification_job.py","tests/aios_bridge/test_lean_review_integration.py"]
-DISPATCH_EXECUTOR_POLICY_JSON: {"allow_paid_api":false,"candidates":[{"capacity_class":"SUBSCRIPTION","executor_id":"codex","preference_rank":0,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]},{"capacity_class":"SUBSCRIPTION","executor_id":"antigravity","preference_rank":1,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]}],"operation":"FIX","required_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"]}
 
 ## Snapshot
 
 ```text
-HEAD: 770dcbcf366fece68a379e7c59d5ef0e7773a615
+HEAD: 5a609040030a140c0b10be58f4c351dc17cbfb23
+PREVIOUS_REVIEWED_HEAD: 770dcbcf366fece68a379e7c59d5ef0e7773a615
 BASE_MAIN: bb4a30775c2deb2a37ebe763d1a74ce7e64d6ebe
 MERGE_BASE: bb4a30775c2deb2a37ebe763d1a74ce7e64d6ebe
-AHEAD: 1
+AHEAD: 2
 BEHIND: 0
+FIX_DELTA_COMMITS: 1
 SCOPE_DRIFT: NO
 AIOS_MANAGED_T2_EXECUTION_COUNT: 1
 AIOS_MANAGED_T2_DUPLICATION_DETECTED: NO
-FULL_CANONICAL: 2659 passed, 7 skipped, 0 failed
+FULL_CANONICAL: 2664 passed, 7 skipped, 0 failed
 ```
 
-## Accepted / Do Not Reopen Without Regression
+## Delta + Impact Review
 
-The following surfaces are accepted for this round and should remain protected unless the FIX touches them or tests prove regression:
+Round 2 reviewed only the FIX delta from `770dcbcf...` to `5a609040...` plus its impact envelope around candidate publication evidence and deterministic certification authority. The FIX touched exactly the four authorized implementation/test paths plus the regenerated RESULT artifact. Previously accepted Slice B surfaces were not reopened without regression evidence.
+
+## Finding Closure
+
+### B1 — CLOSED: deferred T2 no longer looks executed
+
+Review-first candidate publication now renders deferred full-canonical work through a dedicated tests-result block. A deferred T2 records:
 
 ```text
-A1 task pipeline mode is explicit opt-in with legacy compatibility
-A2 fenced mode examples do not activate review-first
+Execution status: NOT_EXECUTED (DEFERRED_TO_CERTIFY_REVIEWED)
+```
+
+and does not render an observed `Exit code: 0`. Legacy executed-test output retains its normal exit-code evidence. Regression coverage checks both behaviors.
+
+### B2 — CLOSED: post-T2 exact-subject/trust revalidation gates PASS
+
+`cmd_certify_reviewed()` now performs a second deterministic certification preflight after the blocking T2 returns. The post-T2 path rechecks the local exact candidate/worktree and authoritative remote task/main/review/roadmap conditions, then compares the observed certification contract against the pre-T2 expected subject. Any drift converts the terminal certification to non-authoritative `CERTIFICATION_FAILED`; no automatic retry or reroute is created.
+
+Regression coverage proves both local/worktree and authoritative-identity drift cannot create certification PASS authority after a green T2 process.
+
+### B3 — CLOSED: terminal result digest is verified, not decorative
+
+`require_valid_terminal_result_digest()` recomputes the deterministic digest from the persisted bounded terminal facts and requires exact equality. `CertificationJob.from_dict()` invokes this verification and `_load_certification_job()` also consumes only verified terminal jobs. Corrupted 64-hex digest evidence is therefore rejected before FINAL_PASS / merge authority can consume it.
+
+Regression coverage proves a valid terminal job is accepted and a mismatched digest fails closed.
+
+## Accepted / Preserved Surfaces
+
+The FIX did not regress the previously accepted Slice B contracts:
+
+```text
+A1 explicit review-first opt-in with legacy compatibility
+A2 fenced examples do not activate review-first
 A3 TASK-090 itself remains pre-cutover legacy
 A4 candidate publication can defer certification-owned T2
-A5 semantic acceptance is non-authoritative
-A6 certify-reviewed is provider-neutral
-A7 existing exact PASS is idempotent and does not rerun T2
+A5 semantic acceptance remains non-authoritative
+A6 certify-reviewed remains provider-neutral
+A7 existing exact PASS remains idempotent with T2 rerun count 0
 A8 exact FAILED job forbids automatic retry
-A9 different candidate job fails closed
-A10 merge-reviewed derives FINAL_PASS before calling the existing merge gate
-A11 roadmap/reviewed-head/base/fast-forward safety remains in the existing gate
-A12 no model/executor polling counters are permitted in certification jobs
-A13 raw T2 stdout is not persisted into the job record
-A14 EVIDENCE_REFRESH cannot bypass semantic acceptance in review-first mode
+A9 different candidate certification job fails closed
+A10 merge-reviewed derives FINAL_PASS before existing merge gate
+A11 roadmap/reviewed-head/base/fast-forward merge safety remains preserved
+A12 certification wait contract requires zero model/executor completion polls
+A13 raw T2 stdout is not persisted in certification job state
+A14 review-first EVIDENCE_REFRESH cannot bypass semantic acceptance
 A15 TASK-087 remains reserved
 ```
 
-## Blocking Findings
+## Validation / Roadmap Audit
 
-### B1 — Deferred T2 is still rendered with a false success-looking exit code
+Latest RESULT-090 records `ACTION: FIX`, executor `codex`, exact full-canonical owner `CERTIFICATION_BOUNDARY`, expected/actual AIOS-managed T2 count `1`, and duplication `NO`. Full canonical completed with `2664 passed, 7 skipped, 0 failed`.
 
-For review-first candidate publication, `cmd_publish()` correctly defers a supplied full-canonical command and records AIOS-managed T2 count 0. However `test_rc` remains initialized to `0`, and RESULT rendering still writes the original full-suite command together with `Exit code: 0` even though that command was never executed.
+TASK-090 is intentionally the pre-cutover implementation task, so this FIX still completed under legacy certify-on-publish semantics. This does not invalidate Slice B; after TASK-090 merges, future tasks explicitly opting into `REVIEW_FIRST_CERTIFICATION` may use semantic-review-first certification.
 
-This conflicts with TASK-090's requirement to record certification as deferred rather than falsely claim it occurred. The manifest is correct, but the human-facing Tests section creates contradictory evidence.
-
-Required repair:
-
-```text
-DEFERRED_T2_COMMAND -> MUST NOT HAVE EXECUTED_EXIT_CODE_0
-RESULT must distinguish NOT_EXECUTED/DEFERRED from an observed process exit code
-candidate-stage authoritative T2 count remains 0
-legacy mode output remains unchanged
-```
-
-Add a behavioral regression that executes the review-first candidate publication path with a supplied full-suite command and proves the generated RESULT cannot be interpreted as an executed successful T2.
-
-### B2 — Certification can become PASS without post-T2 exact-subject revalidation
-
-`_preflight_certify_reviewed()` proves exact task head/base/main/roadmap/local branch/worktree before T2 starts. `cmd_certify_reviewed()` then runs a long full suite and immediately persists `CERTIFICATION_PASS` from the process return code. It does not revalidate the exact candidate/worktree/control identity after the T2 wait.
-
-During a 5–8 minute certification window, local HEAD/worktree or authoritative refs can drift. In particular, tests could run against a mutated worktree while the job remains bound to the preflight candidate SHA. `merge-reviewed` later rechecks remote merge safety, but that cannot prove the executed T2 actually observed the exact candidate throughout certification.
-
-Required repair:
-
-```text
-T2 return
--> deterministic post-T2 trust revalidation
--> exact local branch/head still candidate
--> worktree still clean
--> remote task head/main still exact reviewed subject
--> authoritative task/review/roadmap binding still exact
--> only then CERTIFICATION_PASS authority may persist
-```
-
-If post-T2 subject/trust evidence drifted, persist no PASS authority and do not retry/reroute automatically. Reuse existing fail-closed trust helpers where practical rather than inventing a second permissive path.
-
-Add behavioral regression coverage that mutates at least local worktree/head and one authoritative remote identity between preflight and terminalization and proves PASS cannot be created.
-
-### B3 — `terminal_result_digest` is not verified when certification authority is loaded/consumed
-
-`build_terminal_result_digest()` deterministically hashes bounded terminal facts, but `CertificationJob.from_dict()` currently only validates that `terminal_result_digest` is a lowercase 64-hex string. `_load_certification_job()` and `merge-reviewed` do not recompute the digest from the job's terminal facts before accepting `CERTIFICATION_PASS`.
-
-Therefore the digest is presently decorative rather than verified machine evidence: a malformed/corrupted terminal record can carry any 64-hex digest and still satisfy finalization if the other fields are internally plausible.
-
-Required repair:
-
-```text
-PASS/FAILED job load or authority consumption
--> recompute terminal digest from canonical bounded terminal facts
--> exact equality required
--> mismatch => fail closed
-```
-
-Prefer implementing one pure verification helper in `certification_job.py` and invoking it from the load/authority path. Add regression tests for valid digest acceptance and mismatched digest rejection before FINAL_PASS/merge authority.
-
-## Validation / Scope Audit
-
-Observed diff is restricted to TASK-090's authorized implementation paths plus generated RESULT. Main remains the exact bound base and task branch is one commit ahead / zero behind.
-
-Canonical suite evidence is green and AIOS-managed T2 executed exactly once for TASK-090's pre-cutover publication. This evidence is accepted and MUST NOT be rerun merely to address prose; the FIX must run only targeted/impact tests during executor work, with final canonical certification remaining owned by the existing TASK-090 publication boundary.
-
-## FIX Contract
-
-Close B1–B3 only. Do not implement Slice C, Slice D, TASK-087, Proof Carry-Forward orchestration, guardrail promotion, risk-router live routing, or certification supersession beyond what is strictly necessary to fail closed on the current exact certification subject.
-
-Required targeted tests include at minimum:
-
-```text
-venv\Scripts\python.exe -m pytest tests/aios_bridge/test_certification_job.py tests/aios_bridge/test_lean_review_integration.py -q
-```
-
-Run additional bounded impacted tests only if required by the changed surfaces. Do not run `pytest tests/ -q` as executor T0/T1 work.
+Canonical Lean Execution roadmap v1.2 remains `LOCKED / CANONICAL` and the exact task requirement binding remains `P1.R6 + P1.R9`. TASK-090 PASS does not complete P1 and does not authorize TASK-087, P2/P3, or H5-H8.
 
 ## Decision
 
 ```text
-TASK-090: CHANGES_REQUIRED
-OPEN: B1 B2 B3
-MERGE: NO
-NEXT: $aios-worker FIX TASK-090
+TASK-090: PASS
+BLOCKERS: 0
+MERGE: ELIGIBLE THROUGH DETERMINISTIC merge-reviewed GATE ONLY
+NEXT_AFTER_MERGE: ADR-065 SLICE C — PROOF CARRY-FORWARD / INVALIDATION / DELTA+IMPACT INTEGRATION
 TASK_087: DO_NOT_RUN
+P1_COMPLETE: NO
 ```
