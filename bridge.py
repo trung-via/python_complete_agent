@@ -2953,6 +2953,16 @@ def cmd_handoff(args):
                 f"TASK-{task_id:03d} authorized for execution by {selected_executor}",
             )
             cmd_context(args)
+        except SystemExit as e:
+            try:
+                _rollback_proven_pre_start_failure(task_id, auth_record, acquired_lease, e)
+            except Exception as rollback_exc:
+                update_state(
+                    task_id,
+                    "RECOVERY_REQUIRED",
+                    f"Handoff pre-start failure rollback failed: {rollback_exc}",
+                )
+            raise
         except Exception as e:
             try:
                 _rollback_proven_pre_start_failure(task_id, auth_record, acquired_lease, e)
@@ -3051,13 +3061,20 @@ def cmd_handoff(args):
 
         review_head_match = re.search(r"^REVIEWED_TASK_HEAD_SHA:\s*([0-9a-fA-F]{40})", content, re.MULTILINE)
         reviewed_task_head = review_head_match.group(1).lower() if review_head_match else None
+        review_base_match = re.search(r"^REVIEWED_BASE_MAIN_SHA:\s*([0-9a-fA-F]{40})", content, re.MULTILINE)
+        reviewed_base_main = (
+            review_base_match.group(1).lower()
+            if review_base_match
+            else None
+        )
 
         try:
             fix_review_mode = parse_fix_review_mode(content)
             if fix_review_mode is FixReviewMode.PROOF_REUSE_DELTA_IMPACT:
-                reviewed_task_head = parse_review_header(content)[
-                    "reviewed_task_head_sha"
-                ]
+                parsed_hdr = parse_review_header(content)
+                reviewed_task_head = parsed_hdr["reviewed_task_head_sha"]
+                if parsed_hdr.get("reviewed_base_main_sha"):
+                    reviewed_base_main = parsed_hdr["reviewed_base_main_sha"]
             fix_context_pack = parse_fix_context_pack(
                 content,
                 reviewed_task_head_sha=reviewed_task_head or "",
@@ -3091,6 +3108,8 @@ def cmd_handoff(args):
         ws_id = get_workspace_id()
 
         prior_auth, is_failover = _validate_and_classify_fix_prior_auth(task_id, selected_executor)
+        if reviewed_base_main is None and prior_auth:
+            reviewed_base_main = prior_auth.get("base_main_sha")
         blocked_replacement = None
         if prior_auth.get("status") == "EXECUTION_BLOCKED":
             blocked_replacement = _require_explicit_blocked_replacement(
@@ -3174,6 +3193,7 @@ def cmd_handoff(args):
                     "status": "ACTIVE",
                     "fix_execution_mode": fix_execution_mode.value,
                     "reviewed_task_head_sha": reviewed_task_head,
+                    "base_main_sha": reviewed_base_main,
                     "executor_id": acquired_lease.executor_id,
                     "lease_id": acquired_lease.lease_id,
                     "lease_fingerprint": acquired_lease.fingerprint(),
@@ -3203,6 +3223,16 @@ def cmd_handoff(args):
                     f"FIX TASK-{task_id:03d} authorized for failover execution by {selected_executor}",
                 )
                 cmd_context(args)
+            except SystemExit as e:
+                try:
+                    _rollback_proven_pre_start_failure(task_id, auth_record, acquired_lease, e)
+                except Exception as rollback_exc:
+                    update_state(
+                        task_id,
+                        "RECOVERY_REQUIRED",
+                        f"Failover handoff pre-start failure rollback failed: {rollback_exc}",
+                    )
+                raise
             except Exception as e:
                 try:
                     _rollback_proven_pre_start_failure(task_id, auth_record, acquired_lease, e)
@@ -3241,6 +3271,7 @@ def cmd_handoff(args):
                 "status": "ACTIVE",
                 "fix_execution_mode": fix_execution_mode.value,
                 "reviewed_task_head_sha": reviewed_task_head,
+                "base_main_sha": reviewed_base_main,
                 "executor_id": acquired_lease.executor_id,
                 "lease_id": acquired_lease.lease_id,
                 "lease_fingerprint": acquired_lease.fingerprint(),
@@ -3276,6 +3307,16 @@ def cmd_handoff(args):
                     f"FIX TASK-{task_id:03d} authorized for execution by {selected_executor}",
                 )
                 cmd_context(args)
+            except SystemExit as e:
+                try:
+                    _rollback_proven_pre_start_failure(task_id, auth_record, acquired_lease, e)
+                except Exception as rollback_exc:
+                    update_state(
+                        task_id,
+                        "RECOVERY_REQUIRED",
+                        f"Handoff pre-start failure rollback failed: {rollback_exc}",
+                    )
+                raise
             except Exception as e:
                 try:
                     _rollback_proven_pre_start_failure(task_id, auth_record, acquired_lease, e)
