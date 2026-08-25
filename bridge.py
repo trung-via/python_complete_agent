@@ -2800,8 +2800,6 @@ def cmd_handoff(args):
     selected_executor = validate_runtime_executor_id(raw_executor)
 
     fetch_control(cfg)
-    paths = get_runtime_paths()
-    pre_start_prior_state = copy.deepcopy(load_json(paths["state"], None))
     frozen_control_commit: str | None = None
 
     def control_commit() -> str:
@@ -2876,9 +2874,10 @@ def cmd_handoff(args):
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(content, encoding="utf-8")
 
-        seen = load_json(paths["seen"], {})
+        runtime_paths = get_runtime_paths()
+        seen = load_json(runtime_paths["seen"], {})
         seen[artifact_rel] = blob_sha
-        save_json(paths["seen"], seen)
+        save_json(runtime_paths["seen"], seen)
 
         clear_pending_events("TASK", task_id)
 
@@ -2899,6 +2898,12 @@ def cmd_handoff(args):
 
         task_id_str = f"TASK-{task_id:03d}"
         ws_id = get_workspace_id()
+        paths = get_runtime_paths()
+        pre_start_prior_state = (
+            copy.deepcopy(load_json(paths["state"], None))
+            if "state" in paths
+            else None
+        )
         lease_candidate = build_executor_lease_candidate(
             task_id=task_id_str,
             workspace_id=ws_id,
@@ -3055,9 +3060,10 @@ def cmd_handoff(args):
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(content, encoding="utf-8")
 
-        seen = load_json(paths["seen"], {})
+        runtime_paths = get_runtime_paths()
+        seen = load_json(runtime_paths["seen"], {})
         seen[artifact_rel] = blob_sha
-        save_json(paths["seen"], seen)
+        save_json(runtime_paths["seen"], seen)
 
         review_head_match = re.search(r"^REVIEWED_TASK_HEAD_SHA:\s*([0-9a-fA-F]{40})", content, re.MULTILINE)
         reviewed_task_head = review_head_match.group(1).lower() if review_head_match else None
@@ -3143,6 +3149,12 @@ def cmd_handoff(args):
             prior_auth_backup = copy.deepcopy(prior_auth)
 
             # Acquire replacement lease
+            paths = get_runtime_paths()
+            pre_start_prior_state = (
+                copy.deepcopy(load_json(paths["state"], None))
+                if "state" in paths
+                else None
+            )
             replacement_lease_candidate = build_executor_lease_candidate(
                 task_id=task_id_str,
                 workspace_id=ws_id,
@@ -3246,6 +3258,12 @@ def cmd_handoff(args):
 
         else:
             # Ordinary Same-Executor FIX Activation (C23)
+            paths = get_runtime_paths()
+            pre_start_prior_state = (
+                copy.deepcopy(load_json(paths["state"], None))
+                if "state" in paths
+                else None
+            )
             lease_candidate = build_executor_lease_candidate(
                 task_id=task_id_str,
                 workspace_id=ws_id,

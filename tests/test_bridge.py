@@ -6209,3 +6209,43 @@ def test_fix_handoff_and_result_emit_exact_reviewed_base_main_sha(
 
     assert len(auth_saved) == 1
     assert auth_saved[0]["base_main_sha"] == expected_base_main
+
+
+def test_governance_and_authoring_failures_occur_before_pre_start_state_capture(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    """Proof: GOVERNANCE_FAILURE_OCCURS_BEFORE_PRE_START_STATE_CAPTURE and TASK_AUTHORING_FAILURE_OCCURS_BEFORE_PRE_START_STATE_CAPTURE."""
+    cfg = {"remote": "origin", "task_branch_prefix": "ai/task-", "control_branch": "ai-control", "base_branch": "main"}
+    task_content = "TASK_ID: TASK-999\nROADMAP_BINDING_JSON: {}\n"
+
+    state_read_calls = []
+
+    monkeypatch.setattr(bridge, "ensure_git", lambda: None)
+    monkeypatch.setattr(bridge, "ensure_dirs", lambda: None)
+    monkeypatch.setattr(bridge, "load_config", lambda: cfg)
+    monkeypatch.setattr(bridge, "fetch_control", lambda c: None)
+    monkeypatch.setattr(bridge, "get_remote_blob_sha", lambda c, p: "a" * 40)
+    monkeypatch.setattr(bridge, "read_remote_file", lambda c, p: task_content)
+    monkeypatch.setattr(bridge, "resolve_control_commit_sha", lambda c: "c" * 40)
+    monkeypatch.setattr(bridge, "resolve_git_blob_sha", lambda ref, p: "a" * 40)
+    monkeypatch.setattr(bridge, "read_git_blob_bytes", lambda ref, p: task_content.encode("utf-8"))
+
+    # Force governance preflight failure
+    def fail_governance(*a, **k):
+        raise RuntimeError("Governance validation failed")
+    monkeypatch.setattr(bridge, "preflight_executable_artifact", fail_governance)
+
+    # Runtime path does NOT have state, simulating minimal mocked environment
+    runtime = tmp_path / "runtime"
+    runtime.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(bridge, "get_runtime_paths", lambda repo_root=None: {
+        "root": runtime,
+        "seen": runtime / "seen.json",
+    })
+
+    args = type("Args", (), {"task_id": 999, "action": "run", "executor": "antigravity"})()
+    with pytest.raises(SystemExit):
+        bridge.cmd_handoff(args)
+
+    assert state_read_calls == []
