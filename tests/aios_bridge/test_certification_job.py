@@ -9,6 +9,9 @@ from src.aios_bridge.certification_job import (
     CertificationJobStatus,
     CertificationWaitContract,
     LongRunningWaitOwner,
+    build_candidate_fingerprint,
+    build_certification_command_identity,
+    build_terminal_result_digest,
     certification_candidate_matches,
     require_exact_certification_candidate,
     transition_certification_job,
@@ -37,6 +40,17 @@ def job(**overrides):
     }
     values.update(overrides)
     return CertificationJob(**values)
+
+
+def terminal_evidence(status):
+    succeeded = status is CertificationJobStatus.CERTIFICATION_PASS
+    return {
+        "completed_at": "2026-08-25T00:00:01Z",
+        "aios_managed_t2_execution_count": 1,
+        "t2_exit_status": 0 if succeeded else 1,
+        "t2_succeeded": succeeded,
+        "duration_seconds": 1.0,
+    }
 
 
 def test_certification_job_state_machine_is_closed_and_immutable():
@@ -91,6 +105,7 @@ def test_certification_lifecycle_reaches_pass_only_from_running():
         running,
         CertificationJobStatus.CERTIFICATION_PASS,
         terminal_result_digest=RESULT_DIGEST,
+        **terminal_evidence(CertificationJobStatus.CERTIFICATION_PASS),
     )
     assert passed.creates_certification_authority is True
     assert pending.creates_certification_authority is False
@@ -112,6 +127,11 @@ def test_terminal_state_reentry_fails_closed(terminal_status):
             None
             if terminal_status is CertificationJobStatus.SUPERSEDED
             else RESULT_DIGEST
+        ),
+        **(
+            {}
+            if terminal_status is CertificationJobStatus.SUPERSEDED
+            else terminal_evidence(terminal_status)
         ),
     )
     with pytest.raises(CertificationContractError, match="invalid certification transition"):
@@ -145,6 +165,7 @@ def test_failed_certification_requires_terminal_result_digest():
         running,
         CertificationJobStatus.CERTIFICATION_FAILED,
         terminal_result_digest=RESULT_DIGEST,
+        **terminal_evidence(CertificationJobStatus.CERTIFICATION_FAILED),
     )
     assert failed.terminal_result_digest == RESULT_DIGEST
     assert failed.creates_certification_authority is False
@@ -218,3 +239,41 @@ def test_wait_contract_rejects_provider_or_polling_semantics():
             provider_specific_semantics=False,
             future_executor_compatible=True,
         )
+
+
+def test_candidate_fingerprint_and_command_identity_are_exact_and_deterministic():
+    identity = build_certification_command_identity("python -m pytest tests/ -q")
+    kwargs = {
+        "task_id": "TASK-090",
+        "candidate_head_sha": SHA_A,
+        "base_main_sha": SHA_B,
+        "task_artifact_blob_sha": "c" * 40,
+        "roadmap_fingerprint": FP_B,
+        "validation_profile": ValidationProfile.CONTROL_PLANE_STRICT_COMPAT,
+        "certification_command_identity": identity,
+    }
+    assert build_candidate_fingerprint(**kwargs) == build_candidate_fingerprint(**kwargs)
+    assert build_candidate_fingerprint(
+        **{**kwargs, "candidate_head_sha": SHA_B}
+    ) != build_candidate_fingerprint(**kwargs)
+
+
+def test_terminal_digest_contains_only_bounded_facts_and_job_round_trips():
+    digest = build_terminal_result_digest(
+        status=CertificationJobStatus.CERTIFICATION_PASS,
+        t2_exit_status=0,
+        t2_succeeded=True,
+        duration_seconds=2.5,
+        aios_managed_t2_execution_count=1,
+    )
+    passed = job(
+        status=CertificationJobStatus.CERTIFICATION_PASS,
+        started_at="2026-08-25T00:00:00Z",
+        terminal_result_digest=digest,
+        **terminal_evidence(CertificationJobStatus.CERTIFICATION_PASS),
+    )
+    payload = passed.to_dict()
+    assert CertificationJob.from_dict(payload) == passed
+    assert payload["aios_managed_t2_execution_count"] == 1
+    assert payload["t2_succeeded"] is True
+    assert not any("stdout" in key for key in payload)

@@ -15,6 +15,8 @@ from src.aios_bridge.validation import (
     classify_validation_command,
     executor_commands_for_plan,
     require_certification_for_publication,
+    require_review_first_candidate_publication,
+    review_first_candidate_test_command,
     validation_owner,
     validation_plan_for_task,
 )
@@ -226,3 +228,47 @@ def test_observed_executor_ad_hoc_t2_is_a_policy_violation():
             item,
             full_suite_succeeded=True,
         )
+
+
+def test_review_first_candidate_publication_requires_zero_aios_managed_t2():
+    candidate = evidence(
+        full_suite_execution_count=0,
+        full_suite_duration_seconds=None,
+    )
+    require_review_first_candidate_publication(
+        CONTROL_PLANE_STRICT_COMPAT_PLAN,
+        candidate,
+    )
+    with pytest.raises(ContinuityStateValidationError, match="execute zero"):
+        require_review_first_candidate_publication(
+            CONTROL_PLANE_STRICT_COMPAT_PLAN,
+            evidence(),
+        )
+
+
+def test_review_first_candidate_rejects_observed_early_ad_hoc_t2():
+    with pytest.raises(ContinuityStateValidationError, match="early ad-hoc T2"):
+        require_review_first_candidate_publication(
+            CONTROL_PLANE_STRICT_COMPAT_PLAN,
+            evidence(
+                full_suite_execution_count=0,
+                full_suite_duration_seconds=None,
+                executor_ad_hoc_t2_observability=ExecutorAdHocT2Observability.OBSERVED,
+                executor_ad_hoc_t2_execution_count=1,
+            ),
+        )
+
+
+def test_review_first_candidate_defers_full_t2_but_retains_targeted_command():
+    full = "python -m pytest tests/ -q"
+    targeted = "python -m pytest tests/aios_bridge/test_validation.py -q"
+    assert review_first_candidate_test_command(
+        full, CONTROL_PLANE_STRICT_COMPAT_PLAN
+    ) == (None, True)
+    assert review_first_candidate_test_command(
+        targeted, CONTROL_PLANE_STRICT_COMPAT_PLAN
+    ) == (targeted, False)
+    compound = f"{targeted} && {full}"
+    assert review_first_candidate_test_command(
+        compound, CONTROL_PLANE_STRICT_COMPAT_PLAN
+    ) == (None, True)

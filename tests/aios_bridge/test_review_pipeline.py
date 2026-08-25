@@ -16,12 +16,17 @@ from src.aios_bridge.review_pipeline import (
     ReviewState,
     RiskEvidence,
     RiskTaskClass,
+    TaskPipelineMode,
+    derive_review_first_final_state,
     evaluate_proof_carry_forward,
     review_state_creates_merge_authority,
     route_review_effort,
+    parse_task_pipeline_mode,
     transition_finding_status,
     transition_review_state,
 )
+from src.aios_bridge.certification_job import CertificationJob, CertificationJobStatus
+from src.aios_bridge.validation import ValidationProfile
 
 
 FP_A = "a" * 64
@@ -304,3 +309,79 @@ def test_risk_evidence_is_finite_and_rejects_duplicate_path_classes():
                 ChangedPathClass.TESTS,
             )
         )
+
+
+def test_pipeline_mode_missing_is_legacy_and_exact_opt_in_activates():
+    assert parse_task_pipeline_mode("# TASK-091\n") is (
+        TaskPipelineMode.LEGACY_CERTIFY_ON_PUBLISH
+    )
+    assert parse_task_pipeline_mode(
+        "# TASK-091\nREVIEW_PIPELINE_MODE: REVIEW_FIRST_CERTIFICATION\n",
+        task_id="TASK-091",
+    ) is TaskPipelineMode.REVIEW_FIRST_CERTIFICATION
+
+
+@pytest.mark.parametrize(
+    "content",
+    (
+        "REVIEW_PIPELINE_MODE: REVIEW_FIRST_CERTIFICATION\n"
+        "REVIEW_PIPELINE_MODE: REVIEW_FIRST_CERTIFICATION\n",
+        "REVIEW_PIPELINE_MODE: FUTURE_MODE\n",
+        "REVIEW_PIPELINE_MODE: LEGACY_CERTIFY_ON_PUBLISH\n",
+    ),
+)
+def test_pipeline_mode_duplicate_or_unknown_fails_closed(content):
+    with pytest.raises(ReviewContractError):
+        parse_task_pipeline_mode(content, task_id="TASK-091")
+
+
+def test_fenced_pipeline_example_does_not_activate_and_task_090_stays_legacy():
+    fenced = """# TASK-090
+```text
+REVIEW_PIPELINE_MODE: REVIEW_FIRST_CERTIFICATION
+```
+"""
+    assert parse_task_pipeline_mode(fenced, task_id="TASK-090") is (
+        TaskPipelineMode.LEGACY_CERTIFY_ON_PUBLISH
+    )
+    assert parse_task_pipeline_mode(
+        "REVIEW_PIPELINE_MODE: REVIEW_FIRST_CERTIFICATION\n",
+        task_id="TASK-090",
+    ) is TaskPipelineMode.LEGACY_CERTIFY_ON_PUBLISH
+
+
+def test_final_pass_requires_exact_certification_pass_binding():
+    passed = CertificationJob(
+        job_id="cert-task-091-a",
+        task_id="TASK-091",
+        candidate_head_sha=SHA_A,
+        candidate_fingerprint=FP_A,
+        validation_profile=ValidationProfile.CONTROL_PLANE_STRICT_COMPAT,
+        certification_command_identity="sha256:" + "d" * 64,
+        status=CertificationJobStatus.CERTIFICATION_PASS,
+        started_at="2026-08-25T00:00:00Z",
+        completed_at="2026-08-25T00:00:01Z",
+        terminal_result_digest="e" * 64,
+        aios_managed_t2_execution_count=1,
+        t2_exit_status=0,
+        t2_succeeded=True,
+        duration_seconds=1.0,
+    )
+    kwargs = {
+        "task_id": "TASK-091",
+        "review_state": ReviewState.SEMANTICALLY_ACCEPTED_PENDING_T2,
+        "approved": True,
+        "auto_merge_eligible": True,
+        "certification_job": passed,
+        "candidate_head_sha": SHA_A,
+        "candidate_fingerprint": FP_A,
+        "validation_profile": ValidationProfile.CONTROL_PLANE_STRICT_COMPAT,
+        "certification_command_identity": "sha256:" + "d" * 64,
+    }
+    assert derive_review_first_final_state(**kwargs) is ReviewState.FINAL_PASS
+    with pytest.raises(ReviewContractError, match="identity mismatch"):
+        derive_review_first_final_state(
+            **{**kwargs, "candidate_fingerprint": FP_B}
+        )
+    with pytest.raises(ReviewContractError, match="requires APPROVED YES"):
+        derive_review_first_final_state(**{**kwargs, "approved": False})

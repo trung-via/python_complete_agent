@@ -89,6 +89,22 @@ from src.aios_bridge.review_merge import (
     evaluate_merge_gate,
     parse_review_header,
 )
+from src.aios_bridge.review_pipeline import (
+    ReviewState,
+    TaskPipelineMode,
+    derive_review_first_final_state,
+    parse_task_pipeline_mode,
+)
+from src.aios_bridge.certification_job import (
+    CertificationPreflightEvidence,
+    CertificationJob,
+    CertificationJobStatus,
+    build_candidate_fingerprint,
+    build_certification_command_identity,
+    build_terminal_result_digest,
+    require_certification_preflight,
+    transition_certification_job,
+)
 from src.aios_bridge.roadmap_governance import (
     CANONICAL_ROADMAP_REGISTRY_PATH,
     DEFAULT_ROADMAP_REGISTRY,
@@ -132,6 +148,8 @@ from src.aios_bridge.validation import (
     certification_commands_for_plan,
     classify_validation_command,
     require_certification_for_publication,
+    require_review_first_candidate_publication,
+    review_first_candidate_test_command,
     validation_plan_for_task,
 )
 
@@ -305,6 +323,7 @@ def get_runtime_paths(repo_root: Path | None = None):
         "hot_handoff": rdir / "hot_handoff",
         "dispatch_capacity": rdir / "dispatch" / "capacity",
         "executor_automation": rdir / "executor_automation",
+        "certification_jobs": rdir / "certification_jobs",
     }
 
 
@@ -517,6 +536,7 @@ def ensure_dirs():
         "history",
         "leases",
         "paid_api_grants",
+        "certification_jobs",
     ):
         paths[key].mkdir(parents=True, exist_ok=True)
     paths["state"].parent.mkdir(parents=True, exist_ok=True)
@@ -2722,6 +2742,13 @@ def cmd_handoff(args):
         except Exception as exc:
             fail(f"Executable task artifact preflight failed: {exc}")
         validation_plan = validation_plan_for_task(content)
+        try:
+            pipeline_mode = parse_task_pipeline_mode(
+                content,
+                task_id=f"TASK-{task_id:03d}",
+            )
+        except Exception as exc:
+            fail(f"Task review pipeline mode preflight failed: {exc}")
 
         dest = get_artifact_path(artifact_rel)
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -2768,6 +2795,7 @@ def cmd_handoff(args):
             "lease_fingerprint": acquired_lease.fingerprint(),
             "workspace_id": acquired_lease.workspace_id,
             "execution_fingerprint": acquired_lease.execution_fingerprint,
+            "review_pipeline_mode": pipeline_mode.value,
         }
         if validation_plan is not None:
             auth_record["validation_plan"] = validation_plan.to_dict()
@@ -2850,6 +2878,13 @@ def cmd_handoff(args):
         except Exception as exc:
             fail(f"Executable review artifact preflight failed: {exc}")
         validation_plan = validation_plan_for_task(task_content)
+        try:
+            pipeline_mode = parse_task_pipeline_mode(
+                task_content,
+                task_id=f"TASK-{task_id:03d}",
+            )
+        except Exception as exc:
+            fail(f"Task review pipeline mode preflight failed: {exc}")
 
         try:
             fix_execution_mode = extract_fix_execution_mode(content)
@@ -2951,6 +2986,7 @@ def cmd_handoff(args):
                     "lease_fingerprint": acquired_lease.fingerprint(),
                     "workspace_id": acquired_lease.workspace_id,
                     "execution_fingerprint": acquired_lease.execution_fingerprint,
+                    "review_pipeline_mode": pipeline_mode.value,
                     "failover_source_lease": source_lease.to_dict(),
                     "failover_proof": failover_proof.to_dict(),
                     "failover_proof_fingerprint": failover_proof.fingerprint(),
@@ -3031,6 +3067,7 @@ def cmd_handoff(args):
                 "lease_fingerprint": acquired_lease.fingerprint(),
                 "workspace_id": acquired_lease.workspace_id,
                 "execution_fingerprint": acquired_lease.execution_fingerprint,
+                "review_pipeline_mode": pipeline_mode.value,
             }
             if validation_plan is not None:
                 auth_record["validation_plan"] = validation_plan.to_dict()
@@ -3149,6 +3186,18 @@ def sync_once(verbose=True):
                     "AIOS: REVIEW mới",
                     f"REVIEW-{task_id:03d} yêu cầu sửa đổi (CHANGES_REQUIRED). "
                     f"Dùng `/aios-worker FIX TASK-{task_id:03d}` để sửa.",
+                    cfg.get("windows_popup", True),
+                )
+            elif review_status == "SEMANTICALLY_ACCEPTED_PENDING_T2":
+                clear_pending_events("REVIEW", task_id)
+                update_state(
+                    task_id,
+                    "SEMANTICALLY_ACCEPTED_PENDING_T2",
+                    f"Run deterministic certify-reviewed for exact TASK-{task_id:03d} candidate",
+                )
+                notification = (
+                    "AIOS: Semantic review accepted",
+                    f"REVIEW-{task_id:03d} is conditionally accepted; run certify-reviewed.",
                     cfg.get("windows_popup", True),
                 )
             elif review_status == "APPROVED":
@@ -4820,6 +4869,17 @@ def cmd_publish(args):
                 "supplied validation plan does not match handoff-bound evidence"
             )
         validation_plan = bound_validation_plan
+        pipeline_mode = TaskPipelineMode(
+            auth.get(
+                "review_pipeline_mode",
+                TaskPipelineMode.LEGACY_CERTIFY_ON_PUBLISH.value,
+            )
+        )
+        review_first = pipeline_mode is TaskPipelineMode.REVIEW_FIRST_CERTIFICATION
+        if review_first and validation_plan is None:
+            raise ContinuityStateValidationError(
+                "review-first publication requires an exact validation plan"
+            )
     except Exception as exc:
         fail(f"Validation plan preflight failed before certification: {exc}")
 
@@ -4856,6 +4916,10 @@ def cmd_publish(args):
 
     # Finding B4 Guard: EVIDENCE_REFRESH must enforce clean exact reviewed head before tests/publication
     if auth.get("fix_execution_mode") == "EVIDENCE_REFRESH":
+        if review_first:
+            fail(
+                "Review-first EVIDENCE_REFRESH cannot execute the legacy pre-certification T2 continuation"
+            )
         if auth.get("action") != "FIX":
             fail("EVIDENCE_REFRESH requires ACTIVE FIX authorization")
         if branch != expected:
@@ -4989,10 +5053,20 @@ def cmd_publish(args):
     test_rc = 0
     validation_evidence = None
     observed_test_duration = None
-    if args.test:
-        print(f"[TEST] {args.test}")
+    publication_test_command = args.test
+    certification_deferred = False
+    if review_first:
+        publication_test_command, certification_deferred = (
+            review_first_candidate_test_command(args.test, validation_plan)
+        )
+    if certification_deferred:
+        test_output = "(full canonical certification deferred to certify-reviewed)"
+        raw_test_output = test_output
+        print(f"[TEST][DEFERRED_TO_CERTIFY_REVIEWED] {args.test}")
+    elif publication_test_command:
+        print(f"[TEST] {publication_test_command}")
         test_started = time.monotonic()
-        p = run(args.test, check=False, capture=True, shell=True)
+        p = run(publication_test_command, check=False, capture=True, shell=True)
         observed_test_duration = time.monotonic() - test_started
         test_rc = p.returncode
         raw_test_output = (
@@ -5013,8 +5087,8 @@ def cmd_publish(args):
     if validation_plan is not None:
         try:
             observed_tier = (
-                classify_validation_command(args.test)
-                if args.test
+                classify_validation_command(publication_test_command)
+                if publication_test_command
                 else None
             )
             validation_evidence = ValidationEvidence(
@@ -5041,13 +5115,19 @@ def cmd_publish(args):
                 ),
                 executor_ad_hoc_t2_execution_count=None,
             )
-            require_certification_for_publication(
-                validation_plan,
-                validation_evidence,
-                full_suite_succeeded=(
-                    test_rc == 0 and observed_tier is ValidationTier.T2_FULL_CANONICAL
-                ),
-            )
+            if review_first:
+                require_review_first_candidate_publication(
+                    validation_plan,
+                    validation_evidence,
+                )
+            else:
+                require_certification_for_publication(
+                    validation_plan,
+                    validation_evidence,
+                    full_suite_succeeded=(
+                        test_rc == 0 and observed_tier is ValidationTier.T2_FULL_CANONICAL
+                    ),
+                )
         except Exception as exc:
             failure_state = getattr(args, "failure_state", None) or "CHANGES_REQUIRED"
             update_state(task_id, failure_state, f"Validation certification denied publication: {exc}")
@@ -5266,14 +5346,23 @@ EXECUTOR_ID: {active_exec}
 
     if validation_evidence is not None:
         manifest_content += f"\n{_validation_result_manifest(validation_evidence)}"
+    if review_first:
+        manifest_content += "\nCERTIFICATION_DEFERRED: YES"
+        manifest_content += "\nSEMANTIC_REVIEW_REQUIRED: YES"
+        manifest_content += "\nCANDIDATE_STAGE_AIOS_MANAGED_T2_EXECUTION_COUNT: 0"
 
     if proof_progress_block:
         manifest_content += f"\n{proof_progress_block.rstrip()}"
 
+    result_status = (
+        ReviewState.READY_FOR_SEMANTIC_REVIEW.value
+        if review_first
+        else "READY_FOR_REVIEW"
+    )
     result_content = (
         f"""# RESULT-{task_id:03d}
 
-STATUS: READY_FOR_REVIEW
+STATUS: {result_status}
 
 ## Review Manifest
 ```yaml
@@ -5361,8 +5450,12 @@ Exit code: {test_rc}
 
     update_state(
         task_id,
-        "IN_REVIEW",
-        f"Published {sha}; ask ChatGPT to review TASK-{task_id:03d}",
+        result_status if review_first else "IN_REVIEW",
+        (
+            f"Published semantic-review candidate {sha}; ask ChatGPT to review TASK-{task_id:03d}"
+            if review_first
+            else f"Published {sha}; ask ChatGPT to review TASK-{task_id:03d}"
+        ),
     )
 
     print("\n[PUBLISHED]")
@@ -5371,6 +5464,409 @@ Exit code: {test_rc}
     print(f"SHA:    {sha}")
     print("\nTiếp theo trong ChatGPT chỉ cần nói:")
     print(f'  "Review TASK-{task_id:03d}"')
+
+
+# ---------------------------------------------------------------------------
+# Review-first deterministic certification boundary
+# ---------------------------------------------------------------------------
+
+
+def _canonical_full_suite_command() -> str:
+    relative = Path("venv/Scripts/python.exe") if os.name == "nt" else Path("venv/bin/python")
+    interpreter = (PROJECT / relative).resolve()
+    if not interpreter.is_file():
+        raise ContinuityStateValidationError(
+            "repository virtual-environment interpreter is required for certification"
+        )
+    argv = [str(interpreter), "-m", "pytest", "tests/", "-q"]
+    return subprocess.list2cmdline(argv) if os.name == "nt" else shlex.join(argv)
+
+
+def _certification_job_path(task_num: int) -> Path:
+    return (
+        get_runtime_paths()["certification_jobs"]
+        / f"TASK-{task_num:03d}"
+        / "job.json"
+    )
+
+
+def _load_certification_job(task_num: int) -> CertificationJob | None:
+    path = _certification_job_path(task_num)
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return CertificationJob.from_dict(data)
+    except Exception as exc:
+        raise ContinuityStateValidationError(
+            f"certification job is malformed or unreadable: {exc}"
+        ) from exc
+
+
+def _save_certification_job(task_num: int, job: CertificationJob) -> None:
+    if type(job) is not CertificationJob:
+        raise ContinuityStateValidationError("certification job must be exact")
+    save_json(_certification_job_path(task_num), job.to_dict())
+
+
+def _resolve_current_task_roadmap(
+    *,
+    control_commit_sha: str,
+    task_path: str,
+    task_text: str,
+):
+    binding = parse_roadmap_task_binding(task_text)
+    identity = (binding.roadmap_id, binding.roadmap_version)
+    try:
+        registry = resolve_canonical_roadmap_registry(control_commit_sha)
+    except SynchronizedControlArtifactUnavailableError:
+        registration = DEFAULT_ROADMAP_REGISTRY.get(identity)
+        if registration is None:
+            raise ContinuityStateValidationError(
+                "task-bound roadmap has no exact compatibility registration"
+            )
+    else:
+        registration = registry.get(identity)
+    if registration is None:
+        raise ContinuityStateValidationError("task-bound roadmap is not registered")
+    roadmap_bytes = resolve_exact_roadmap_bytes(
+        control_commit_sha,
+        registration.artifact_path,
+        registration.roadmap_blob_sha,
+    )
+    current = parse_canonical_roadmap(
+        roadmap_bytes,
+        artifact_path=registration.artifact_path,
+        expected_blob_sha=registration.roadmap_blob_sha,
+    )
+    markers = parse_executor_automation_markers(task_text, work_path=task_path)
+    validate_task_binding(
+        task_text,
+        binding,
+        current,
+        context_refs=markers.context_refs,
+    )
+    return binding, current
+
+
+def _review_first_candidate_contract(
+    *,
+    task_id: str,
+    task_text: str,
+    task_artifact_blob_sha: str,
+    candidate_head_sha: str,
+    base_main_sha: str,
+    roadmap_fingerprint: str,
+) -> tuple[ValidationPlan, str, str, str]:
+    mode = parse_task_pipeline_mode(task_text, task_id=task_id)
+    if mode is not TaskPipelineMode.REVIEW_FIRST_CERTIFICATION:
+        raise ContinuityStateValidationError(
+            "certify-reviewed requires REVIEW_FIRST_CERTIFICATION mode"
+        )
+    plan = validation_plan_for_task(task_text)
+    if plan is None:
+        raise ContinuityStateValidationError(
+            "review-first certification requires an exact validation plan"
+        )
+    command = _canonical_full_suite_command()
+    commands = certification_commands_for_plan((command,), plan)
+    if len(commands) != 1:
+        raise ContinuityStateValidationError(
+            "review-first certification must resolve exactly one T2 command"
+        )
+    command_identity = build_certification_command_identity(commands[0])
+    fingerprint = build_candidate_fingerprint(
+        task_id=task_id,
+        candidate_head_sha=candidate_head_sha,
+        base_main_sha=base_main_sha,
+        task_artifact_blob_sha=task_artifact_blob_sha,
+        roadmap_fingerprint=roadmap_fingerprint,
+        validation_profile=plan.profile_id,
+        certification_command_identity=command_identity,
+    )
+    return plan, commands[0], command_identity, fingerprint
+
+
+def _preflight_certify_reviewed(task_num: int) -> dict[str, object]:
+    ensure_git()
+    cfg = load_config()
+    remote = str(cfg.get("remote", "origin") or "origin")
+    base_branch = str(cfg.get("base_branch", "main") or "main")
+    control_branch = str(cfg.get("control_branch", "ai-control") or "ai-control")
+    prefix = str(cfg.get("task_branch_prefix", "ai/task-") or "ai/task-")
+    task_id = f"TASK-{task_num:03d}"
+    task_branch = f"{prefix}{task_num:03d}"
+
+    fetched = git("fetch", remote, control_branch, base_branch, task_branch, check=False)
+    if fetched.returncode != 0:
+        raise ContinuityStateValidationError(
+            f"failed to fetch exact certification refs: {fetched.stderr.strip()}"
+        )
+    control_ref = f"refs/remotes/{remote}/{control_branch}"
+    control = git("rev-parse", control_ref, check=False)
+    control_commit_sha = control.stdout.strip().lower()
+    if control.returncode != 0 or re.fullmatch(r"[0-9a-f]{40}", control_commit_sha) is None:
+        raise ContinuityStateValidationError("cannot freeze authoritative control commit")
+
+    task_path = f".ai/tasks/TASK-{task_num:03d}.md"
+    task_blob_proc = git("rev-parse", f"{control_commit_sha}:{task_path}", check=False)
+    task_blob_sha = task_blob_proc.stdout.strip().lower()
+    task_proc = git("show", f"{control_commit_sha}:{task_path}", check=False)
+    if (
+        task_blob_proc.returncode != 0
+        or re.fullmatch(r"[0-9a-f]{40}", task_blob_sha) is None
+        or task_proc.returncode != 0
+        or not task_proc.stdout.strip()
+    ):
+        raise ContinuityStateValidationError("canonical task is missing on frozen control")
+    task_text = task_proc.stdout
+    if parse_task_pipeline_mode(task_text, task_id=task_id) is not (
+        TaskPipelineMode.REVIEW_FIRST_CERTIFICATION
+    ):
+        raise ContinuityStateValidationError("task is not in review-first mode")
+
+    review_path = f".ai/reviews/REVIEW-{task_num:03d}.md"
+    review_proc = git("show", f"{control_commit_sha}:{review_path}", check=False)
+    if review_proc.returncode != 0 or not review_proc.stdout.strip():
+        raise ContinuityStateValidationError("authoritative semantic review is missing")
+    review_data = parse_review_header(review_proc.stdout)
+    if (
+        review_data["status"] != ReviewState.SEMANTICALLY_ACCEPTED_PENDING_T2.value
+        or review_data["approved"] is not True
+        or review_data["auto_merge_eligible"] is not True
+    ):
+        raise ContinuityStateValidationError(
+            "certification requires exact semantic acceptance, approval, and eligibility"
+        )
+    if review_data.get("task_artifact_blob_sha") != task_blob_sha:
+        raise ContinuityStateValidationError(
+            "semantic review task artifact blob does not match frozen canonical task"
+        )
+
+    main_proc = git("rev-parse", f"refs/remotes/{remote}/{base_branch}", check=False)
+    task_head_proc = git("rev-parse", f"refs/remotes/{remote}/{task_branch}", check=False)
+    current_main_sha = main_proc.stdout.strip().lower()
+    current_task_head_sha = task_head_proc.stdout.strip().lower()
+    if main_proc.returncode != 0 or task_head_proc.returncode != 0:
+        raise ContinuityStateValidationError("cannot resolve exact remote candidate identity")
+    if current_task_head_sha != review_data["reviewed_task_head_sha"]:
+        raise ContinuityStateValidationError("reviewed task head drifted before T2")
+    if current_main_sha != review_data["reviewed_base_main_sha"]:
+        raise ContinuityStateValidationError("reviewed base main drifted before T2")
+    local_branch_name = current_branch()
+    if local_branch_name != task_branch:
+        raise ContinuityStateValidationError("local current branch is not the exact task branch")
+    local_head_sha = observe_e4_head()
+    if local_head_sha != current_task_head_sha:
+        raise ContinuityStateValidationError("local HEAD is not the exact reviewed candidate")
+    worktree_clean = is_worktree_clean()
+    if not worktree_clean:
+        raise ContinuityStateValidationError("certification requires a clean worktree")
+
+    merge_base_proc = git(
+        "merge-base",
+        f"refs/remotes/{remote}/{base_branch}",
+        "HEAD",
+        check=False,
+    )
+    counts_proc = git(
+        "rev-list",
+        "--left-right",
+        "--count",
+        f"refs/remotes/{remote}/{base_branch}...HEAD",
+        check=False,
+    )
+    if merge_base_proc.returncode != 0 or counts_proc.returncode != 0:
+        raise ContinuityStateValidationError("cannot resolve certification ancestry")
+    merge_base_sha = merge_base_proc.stdout.strip().lower()
+    parts = counts_proc.stdout.strip().split()
+    if len(parts) != 2:
+        raise ContinuityStateValidationError("malformed certification ancestry counts")
+    behind_by, ahead_by = (int(parts[0]), int(parts[1]))
+    if behind_by != 0 or merge_base_sha != current_main_sha:
+        raise ContinuityStateValidationError("candidate is behind or not based on current main")
+
+    binding, current_roadmap = _resolve_current_task_roadmap(
+        control_commit_sha=control_commit_sha,
+        task_path=task_path,
+        task_text=task_text,
+    )
+    gate = evaluate_merge_gate(
+        ReviewedMergeInput(
+            task_id=task_id,
+            review_status="PASS",
+            review_approved=review_data["approved"],
+            auto_merge_eligible=review_data["auto_merge_eligible"],
+            reviewed_task_head_sha=review_data["reviewed_task_head_sha"],
+            reviewed_base_main_sha=review_data["reviewed_base_main_sha"],
+            current_task_head_sha=current_task_head_sha,
+            current_main_sha=current_main_sha,
+            merge_base_sha=merge_base_sha,
+            ahead_by=ahead_by,
+            behind_by=behind_by,
+            roadmap_governed=True,
+            roadmap_audit=review_data.get("roadmap_audit"),
+            task_roadmap_binding=binding,
+            current_roadmap=current_roadmap,
+        )
+    )
+    if not gate.eligible:
+        raise ContinuityStateValidationError(
+            f"certification preflight rejected by existing merge safety gate: {gate.reason.value}"
+        )
+
+    plan, command, command_identity, candidate_fingerprint = (
+        _review_first_candidate_contract(
+            task_id=task_id,
+            task_text=task_text,
+            task_artifact_blob_sha=task_blob_sha,
+            candidate_head_sha=current_task_head_sha,
+            base_main_sha=current_main_sha,
+            roadmap_fingerprint=binding.roadmap_fingerprint,
+        )
+    )
+    require_certification_preflight(
+        CertificationPreflightEvidence(
+            task_exists=True,
+            review_first_mode=True,
+            review_status=review_data["status"],
+            review_approved=review_data["approved"],
+            auto_merge_eligible=review_data["auto_merge_eligible"],
+            reviewed_task_head_sha=review_data["reviewed_task_head_sha"],
+            reviewed_base_main_sha=review_data["reviewed_base_main_sha"],
+            remote_task_head_sha=current_task_head_sha,
+            remote_main_sha=current_main_sha,
+            local_branch=local_branch_name,
+            expected_task_branch=task_branch,
+            local_head_sha=local_head_sha,
+            worktree_clean=worktree_clean,
+            merge_base_sha=merge_base_sha,
+            behind_by=behind_by,
+            roadmap_valid=gate.eligible,
+            certification_owned_t2_count=1,
+        )
+    )
+    return {
+        "task_id": task_id,
+        "candidate_head_sha": current_task_head_sha,
+        "candidate_fingerprint": candidate_fingerprint,
+        "validation_plan": plan,
+        "command": command,
+        "command_identity": command_identity,
+    }
+
+
+def cmd_certify_reviewed(args):
+    """Run one exact blocking T2 job with no model/executor completion polling."""
+    task_num = args.task_id
+    try:
+        context = _preflight_certify_reviewed(task_num)
+        existing = _load_certification_job(task_num)
+    except Exception as exc:
+        fail(f"CERTIFY_REVIEWED_PREFLIGHT_FAILED: {exc}")
+
+    task_id = context["task_id"]
+    candidate_head_sha = context["candidate_head_sha"]
+    candidate_fingerprint = context["candidate_fingerprint"]
+    plan = context["validation_plan"]
+    command = context["command"]
+    command_identity = context["command_identity"]
+    assert isinstance(plan, ValidationPlan)
+
+    if existing is not None:
+        exact = (
+            existing.task_id == task_id
+            and existing.candidate_head_sha == candidate_head_sha
+            and existing.candidate_fingerprint == candidate_fingerprint
+            and existing.validation_profile is plan.profile_id
+            and existing.certification_command_identity == command_identity
+        )
+        if not exact:
+            fail("Existing certification job is bound to a different candidate")
+        if existing.status is CertificationJobStatus.CERTIFICATION_PASS:
+            print(
+                f"[CERTIFICATION_PASS][EXISTING] {task_id} {candidate_head_sha}; T2 rerun count=0"
+            )
+            return existing
+        if existing.status is CertificationJobStatus.CERTIFICATION_FAILED:
+            fail("Existing exact certification FAILED; automatic retry is forbidden")
+        fail(
+            f"Existing exact certification is {existing.status.value}; second T2 is forbidden"
+        )
+
+    pending = CertificationJob(
+        job_id=f"cert-{str(task_id).lower()}-{str(candidate_fingerprint)[:16]}",
+        task_id=str(task_id),
+        candidate_head_sha=str(candidate_head_sha),
+        candidate_fingerprint=str(candidate_fingerprint),
+        validation_profile=plan.profile_id,
+        certification_command_identity=str(command_identity),
+        status=CertificationJobStatus.CERTIFICATION_PENDING,
+    )
+    try:
+        _save_certification_job(task_num, pending)
+        running = transition_certification_job(
+            pending,
+            CertificationJobStatus.CERTIFICATION_RUNNING,
+            started_at=now(),
+        )
+        _save_certification_job(task_num, running)
+    except Exception as exc:
+        fail(f"Unable to persist exact certification job before T2: {exc}")
+
+    print(f"[CERTIFICATION_T2] {command}")
+    started = time.monotonic()
+    try:
+        proc = run(command, check=False, capture=True, shell=True)
+    except Exception as exc:
+        fail(f"T2 process launch/wait failed; job remains RUNNING and cannot retry: {exc}")
+    duration = round(time.monotonic() - started, 6)
+    succeeded = proc.returncode == 0
+    terminal_status = (
+        CertificationJobStatus.CERTIFICATION_PASS
+        if succeeded
+        else CertificationJobStatus.CERTIFICATION_FAILED
+    )
+    digest = build_terminal_result_digest(
+        status=terminal_status,
+        t2_exit_status=proc.returncode,
+        t2_succeeded=succeeded,
+        duration_seconds=duration,
+        aios_managed_t2_execution_count=1,
+    )
+    terminal = transition_certification_job(
+        running,
+        terminal_status,
+        completed_at=now(),
+        terminal_result_digest=digest,
+        t2_exit_status=proc.returncode,
+        t2_succeeded=succeeded,
+        duration_seconds=duration,
+    )
+    try:
+        _save_certification_job(task_num, terminal)
+    except Exception as exc:
+        fail(f"T2 completed but terminal certification evidence could not persist: {exc}")
+
+    if not succeeded:
+        update_state(
+            task_num,
+            "CERTIFICATION_FAILED",
+            "Exact candidate T2 failed; no automatic retry or reroute",
+        )
+        output = ((proc.stdout or "") + ("\n" + proc.stderr if proc.stderr else "")).strip()
+        if output:
+            print(output[-30000:])
+        fail("CERTIFICATION_FAILED; merge authority was not created")
+    update_state(
+        task_num,
+        "CERTIFIED",
+        f"Merge-reviewed exact certified candidate {candidate_head_sha}",
+    )
+    print(
+        f"[CERTIFICATION_PASS] {task_id} {candidate_head_sha}; AIOS-managed T2 execution count=1"
+    )
+    return terminal
 
 
 # ---------------------------------------------------------------------------
@@ -5624,6 +6120,50 @@ def cmd_merge_reviewed(args):
     roadmap_governed = task_requires_roadmap_governance(task_text) or (
         "ROADMAP_BINDING_JSON:" in task_text
     )
+    try:
+        pipeline_mode = parse_task_pipeline_mode(task_text, task_id=task_id)
+    except Exception as exc:
+        print(f"[MERGE_GATE] REVIEW_HEAD_INVALID: Invalid task pipeline mode: {exc}")
+        sys.exit(1)
+    if pipeline_mode is TaskPipelineMode.REVIEW_FIRST_CERTIFICATION:
+        try:
+            identity_binding = parse_roadmap_task_binding(task_text)
+            plan, _, command_identity, candidate_fingerprint = (
+                _review_first_candidate_contract(
+                    task_id=task_id,
+                    task_text=task_text,
+                    task_artifact_blob_sha=canonical_task_blob_sha,
+                    candidate_head_sha=review_data["reviewed_task_head_sha"],
+                    base_main_sha=review_data["reviewed_base_main_sha"],
+                    roadmap_fingerprint=identity_binding.roadmap_fingerprint,
+                )
+            )
+            certification_job = _load_certification_job(task_num)
+            if certification_job is None:
+                raise ContinuityStateValidationError(
+                    "review-first merge requires an exact certification job"
+                )
+            final_state = derive_review_first_final_state(
+                task_id=task_id,
+                review_state=ReviewState(review_data["status"]),
+                approved=review_data["approved"],
+                auto_merge_eligible=review_data["auto_merge_eligible"],
+                certification_job=certification_job,
+                candidate_head_sha=review_data["reviewed_task_head_sha"],
+                candidate_fingerprint=candidate_fingerprint,
+                validation_profile=plan.profile_id,
+                certification_command_identity=command_identity,
+            )
+            if final_state is not ReviewState.FINAL_PASS:
+                raise ContinuityStateValidationError(
+                    "review-first authority did not derive FINAL_PASS"
+                )
+            review_data = {**review_data, "status": "PASS"}
+        except Exception as exc:
+            print(
+                f"[MERGE_GATE] REVIEW_NOT_PASS: Review-first finalization denied: {exc}"
+            )
+            sys.exit(1)
     if roadmap_governed:
         if review_data.get("task_artifact_blob_sha") != canonical_task_blob_sha:
             print(
@@ -5972,6 +6512,13 @@ def build_parser():
     s.add_argument("--lease-id", required=True)
     s.add_argument("--confirm-stopped", action="store_true")
     s.set_defaults(func=cmd_lease_release)
+
+    s = sub.add_parser(
+        "certify-reviewed",
+        help="Run exactly one deterministic full-canonical job for an exact semantically accepted candidate",
+    )
+    s.add_argument("task_id", type=int)
+    s.set_defaults(func=cmd_certify_reviewed)
 
     s = sub.add_parser(
         "merge-reviewed",

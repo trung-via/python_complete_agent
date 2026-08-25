@@ -6,7 +6,14 @@ from enum import Enum
 import re
 from typing import Any
 
+from src.aios_bridge.certification_job import (
+    CertificationContractError,
+    CertificationJob,
+    CertificationJobStatus,
+    require_exact_certification_candidate,
+)
 from src.aios_bridge.continuity.errors import ContinuityStateValidationError
+from src.aios_bridge.validation import ValidationProfile
 
 
 _IDENTIFIER_RE = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\Z")
@@ -16,6 +23,7 @@ _TOKEN_RE = re.compile(r"\A[A-Z][A-Z0-9_]{0,63}\Z")
 _MAX_PATH_CLASSES = 16
 _MAX_SURFACES = 64
 _MAX_PROOF_IDS = 64
+_PIPELINE_MODE_MARKER = "REVIEW_PIPELINE_MODE:"
 
 
 class ReviewContractError(ContinuityStateValidationError):
@@ -42,6 +50,54 @@ def _require_round(value: object, name: str) -> int:
     if type(value) is not int or value < 1:
         raise _error(f"{name} must be an exact positive integer")
     return value
+
+
+class TaskPipelineMode(str, Enum):
+    LEGACY_CERTIFY_ON_PUBLISH = "LEGACY_CERTIFY_ON_PUBLISH"
+    REVIEW_FIRST_CERTIFICATION = "REVIEW_FIRST_CERTIFICATION"
+
+
+def parse_task_pipeline_mode(
+    task_content: str,
+    *,
+    task_id: str | None = None,
+) -> TaskPipelineMode:
+    """Parse one exact top-level opt-in marker while ignoring fenced examples."""
+    if type(task_content) is not str:
+        raise _error("task_content must be exact text")
+    if task_id is not None and (
+        type(task_id) is not str or re.fullmatch(r"TASK-\d+", task_id) is None
+    ):
+        raise _error("task_id must match exact TASK-<digits> or be None")
+
+    values: list[str] = []
+    fence: str | None = None
+    for line in task_content.splitlines():
+        stripped = line.lstrip()
+        fence_match = re.match(r"(`{3,}|~{3,})", stripped)
+        if fence_match:
+            token = fence_match.group(1)
+            if fence is None:
+                fence = token[0]
+            elif token[0] == fence:
+                fence = None
+            continue
+        if fence is None and line.startswith(_PIPELINE_MODE_MARKER):
+            values.append(line[len(_PIPELINE_MODE_MARKER) :].strip())
+
+    if not values:
+        return TaskPipelineMode.LEGACY_CERTIFY_ON_PUBLISH
+    if len(values) != 1:
+        raise _error("task must contain at most one top-level REVIEW_PIPELINE_MODE marker")
+    try:
+        parsed = TaskPipelineMode(values[0])
+    except ValueError as exc:
+        raise _error(f"unknown REVIEW_PIPELINE_MODE: {values[0]!r}") from exc
+    if parsed is TaskPipelineMode.LEGACY_CERTIFY_ON_PUBLISH:
+        raise _error("legacy compatibility is selected only by a missing mode marker")
+    if task_id == "TASK-090":
+        return TaskPipelineMode.LEGACY_CERTIFY_ON_PUBLISH
+    return parsed
 
 
 class ReviewState(str, Enum):
@@ -93,6 +149,54 @@ def review_state_creates_merge_authority(state: ReviewState) -> bool:
     if type(state) is not ReviewState:
         raise _error("state must be an exact ReviewState")
     return state is ReviewState.FINAL_PASS
+
+
+def derive_review_first_final_state(
+    *,
+    task_id: str,
+    review_state: ReviewState,
+    approved: bool,
+    auto_merge_eligible: bool,
+    certification_job: CertificationJob,
+    candidate_head_sha: str,
+    candidate_fingerprint: str,
+    validation_profile: ValidationProfile,
+    certification_command_identity: str,
+) -> ReviewState:
+    """Derive FINAL_PASS only from exact semantic acceptance plus exact PASS evidence."""
+    if review_state is not ReviewState.SEMANTICALLY_ACCEPTED_PENDING_T2:
+        raise _error("review-first finalization requires semantic acceptance pending T2")
+    if type(approved) is not bool or not approved:
+        raise _error("review-first finalization requires APPROVED YES")
+    if type(auto_merge_eligible) is not bool or not auto_merge_eligible:
+        raise _error("review-first finalization requires AUTO_MERGE_ELIGIBLE YES")
+    if type(task_id) is not str or re.fullmatch(r"TASK-\d+", task_id) is None:
+        raise _error("task_id must match exact TASK-<digits>")
+    if certification_job.task_id != task_id:
+        raise _error("certification job task identity mismatch")
+    if type(validation_profile) is not ValidationProfile:
+        raise _error("validation_profile must be an exact ValidationProfile")
+    if (
+        type(certification_command_identity) is not str
+        or not certification_command_identity
+        or certification_command_identity != certification_command_identity.strip()
+    ):
+        raise _error("certification_command_identity must be exact non-empty text")
+    try:
+        require_exact_certification_candidate(
+            certification_job,
+            candidate_head_sha,
+            candidate_fingerprint,
+        )
+    except CertificationContractError as exc:
+        raise _error(str(exc)) from exc
+    if certification_job.status is not CertificationJobStatus.CERTIFICATION_PASS:
+        raise _error("FINAL_PASS requires exact CERTIFICATION_PASS evidence")
+    if certification_job.validation_profile is not validation_profile:
+        raise _error("certification validation profile mismatch")
+    if certification_job.certification_command_identity != certification_command_identity:
+        raise _error("certification command identity mismatch")
+    return ReviewState.FINAL_PASS
 
 
 class FindingStatus(str, Enum):

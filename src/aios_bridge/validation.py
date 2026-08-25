@@ -162,7 +162,7 @@ def classify_validation_command(command: str) -> ValidationTier:
     if type(command) is not str or not command.strip():
         raise _error("validation command must be exact non-empty text")
     normalized = command.replace("\\", "/")
-    if _FULL_SUITE_RE.search(normalized) and not re.search(r"tests/[^\s'\"]+", normalized):
+    if _FULL_SUITE_RE.search(normalized):
         return ValidationTier.T2_FULL_CANONICAL
     return ValidationTier.T1_TARGETED_IMPACT
 
@@ -207,6 +207,23 @@ def certification_commands_for_plan(
     if actual_count != expected_count:
         raise _error("AIOS-managed certification must schedule T2 exactly once")
     return tuple(retained)
+
+
+def review_first_candidate_test_command(
+    command: str | None,
+    plan: ValidationPlan,
+) -> tuple[str | None, bool]:
+    """Defer a legacy T2 command while retaining a bounded candidate-stage T1."""
+    if type(plan) is not ValidationPlan:
+        raise _error("plan must be an exact ValidationPlan")
+    if command is None:
+        return None, False
+    tier = classify_validation_command(command)
+    if tier in plan.certification_test_tiers:
+        return None, True
+    if tier not in plan.executor_test_tiers:
+        raise _error("candidate publication command has no exact validation owner")
+    return command, False
 
 
 @dataclass(frozen=True)
@@ -359,6 +376,29 @@ def require_certification_for_publication(
         raise _error("full canonical certification was not executed exactly once")
 
 
+def require_review_first_candidate_publication(
+    plan: ValidationPlan,
+    evidence: ValidationEvidence,
+) -> None:
+    """Prove candidate publication deferred every AIOS-managed T2 execution."""
+    if type(plan) is not ValidationPlan or type(evidence) is not ValidationEvidence:
+        raise _error("review-first candidate publication requires exact plan and evidence")
+    if evidence.validation_profile is not plan.profile_id:
+        raise _error("validation evidence profile does not match the plan")
+    if evidence.expected_full_suite_execution_count != plan.expected_full_suite_execution_count:
+        raise _error("validation evidence expected count does not match the final plan")
+    if evidence.aios_managed_t2_execution_count != 0:
+        raise _error("review-first candidate publication must execute zero AIOS-managed T2")
+    if evidence.aios_managed_t2_duplication_detected:
+        raise _error("AIOS_MANAGED_T2_DUPLICATION_DETECTED")
+    if (
+        evidence.executor_ad_hoc_t2_observability
+        is ExecutorAdHocT2Observability.OBSERVED
+        and evidence.executor_ad_hoc_t2_execution_count
+    ):
+        raise _error("review-first candidate publication observed an early ad-hoc T2")
+
+
 __all__ = [
     "CONTROL_PLANE_STRICT_COMPAT_PLAN",
     "ExecutorAdHocT2Observability",
@@ -371,6 +411,8 @@ __all__ = [
     "certification_commands_for_plan",
     "executor_commands_for_plan",
     "require_certification_for_publication",
+    "require_review_first_candidate_publication",
+    "review_first_candidate_test_command",
     "validation_owner",
     "validation_plan_for_task",
 ]
