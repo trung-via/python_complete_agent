@@ -35,7 +35,13 @@ from src.aios_bridge.executor_context import (
     ContextArtifactRole,
     ExecutorAuthorizationBinding,
     ExecutorContextPack,
+    augment_executor_context_pack_for_fix,
     build_executor_context_pack,
+)
+from src.aios_bridge.fix_review import (
+    FixContextPack,
+    analyze_fix_impact,
+    canonical_proof_fingerprint,
 )
 
 
@@ -561,3 +567,46 @@ def test_context_pack_creates_no_new_authority() -> None:
     assert b"AUTO_RETRY" not in payload
     assert b"AUTO_REROUTE" not in payload
     assert b"PAID_API" not in payload
+
+
+def test_slice_c_fix_context_is_content_addressed_bounded_and_provider_neutral() -> None:
+    fixture = _fixture(ExecutionOperation.FIX)
+    base = fixture.build()
+    subject_blob = "1" * 40
+    dependency_blob = "2" * 40
+    data = {
+        "schema_version": "1",
+        "previous_reviewed_head_sha": fixture.request.expected_task_head_sha,
+        "impact_confidence": "KNOWN",
+        "open_finding_ids": ["finding-1"],
+        "affected_paths": ["src/fix.py"],
+        "protected_accepted_paths": ["src/subject.py"],
+        "required_test_paths": ["tests/test_fix.py"],
+        "unknown_impact_fallback_test_paths": ["tests/test_fallback.py"],
+        "proof_bindings": [{
+            "proof_id": "proof-1",
+            "subject": "accepted surface",
+            "subject_paths": ["src/subject.py"],
+            "dependency_paths": ["src/dependency.py"],
+            "subject_fingerprint": canonical_proof_fingerprint({"src/subject.py": subject_blob}),
+            "dependency_fingerprint": canonical_proof_fingerprint({"src/dependency.py": dependency_blob}),
+            "evidence_fingerprint": "e" * 64,
+            "source_review_round": 1,
+            "status": "VALID",
+            "test_paths": ["tests/test_proof.py"],
+        }],
+    }
+    fix_pack = FixContextPack.from_dict(data)
+    blobs = {"src/subject.py": subject_blob, "src/dependency.py": dependency_blob}
+    analysis = analyze_fix_impact(
+        fix_pack,
+        current_head_sha=fixture.request.expected_task_head_sha,
+        previous_blob_resolver=lambda _head, path: blobs.get(path),
+        current_blob_resolver=lambda _head, path: blobs.get(path),
+    )
+    augmented = augment_executor_context_pack_for_fix(base, fix_pack, analysis)
+    assert b"FIX CONTEXT PACK BEGIN" in augmented.payload
+    assert b"codex" not in augmented.payload.split(b"FIX CONTEXT PACK BEGIN", 1)[1].lower()
+    assert b"antigravity" not in augmented.payload.split(b"FIX CONTEXT PACK BEGIN", 1)[1].lower()
+    assert augmented.invocation.payload_sha256 == hashlib.sha256(augmented.payload).hexdigest()
+    assert augmented.manifest == base.manifest

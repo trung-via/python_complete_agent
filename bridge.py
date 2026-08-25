@@ -74,6 +74,14 @@ from src.aios_bridge.executor_automation import (
     validate_executor_worktree_delta,
 )
 from src.aios_bridge.executor_context import ExecutorAuthorizationBinding
+from src.aios_bridge.fix_review import (
+    FixContextPack,
+    FixReviewMode,
+    analyze_fix_impact,
+    delta_impact_evidence,
+    parse_fix_context_pack,
+    parse_fix_review_mode,
+)
 from src.aios_bridge.task_authoring import (
     ExecutableArtifactPreflight,
     ExecutableArtifactPreflightError,
@@ -875,6 +883,25 @@ def resolve_git_blob_sha(ref: str, path: str) -> str:
             f"Resolved Git object was not an exact blob: {path}"
         )
     return value
+
+
+def _slice_c_git_blob_resolver(ref: str, path: str) -> str | None:
+    try:
+        return resolve_git_blob_sha(ref, path)
+    except ContinuityStateValidationError:
+        return None
+
+
+def _slice_c_worktree_blob_resolver(_ref: str, path: str) -> str | None:
+    """Resolve the exact filter-aware Git blob identity of a worktree path."""
+    proc = _run_git_binary("hash-object", f"--path={path}", "--", path)
+    if proc.returncode != 0:
+        return None
+    try:
+        value = proc.stdout.decode("ascii").strip()
+    except UnicodeDecodeError:
+        return None
+    return value if re.fullmatch(r"[0-9a-f]{40}", value) else None
 
 
 def read_git_blob_bytes(ref: str, path: str) -> bytes:
@@ -2903,9 +2930,41 @@ def cmd_handoff(args):
         review_head_match = re.search(r"^REVIEWED_TASK_HEAD_SHA:\s*([0-9a-fA-F]{40})", content, re.MULTILINE)
         reviewed_task_head = review_head_match.group(1).lower() if review_head_match else None
 
+        try:
+            fix_review_mode = parse_fix_review_mode(content)
+            if fix_review_mode is FixReviewMode.PROOF_REUSE_DELTA_IMPACT:
+                reviewed_task_head = parse_review_header(content)[
+                    "reviewed_task_head_sha"
+                ]
+            fix_context_pack = parse_fix_context_pack(
+                content,
+                reviewed_task_head_sha=reviewed_task_head or "",
+            )
+            if (
+                fix_review_mode is FixReviewMode.PROOF_REUSE_DELTA_IMPACT
+                and pipeline_mode is not TaskPipelineMode.REVIEW_FIRST_CERTIFICATION
+            ):
+                raise ContinuityStateValidationError(
+                    "Slice-C FIX mode requires REVIEW_FIRST_CERTIFICATION task mode"
+                )
+        except Exception as exc:
+            fail(f"Slice-C FIX review preflight failed: {exc}")
+
         clear_pending_events("REVIEW", task_id)
 
         branch = prepare_task_branch(cfg, task_id, "FIX")
+        fix_impact_analysis = None
+        if fix_context_pack is not None:
+            try:
+                fix_impact_analysis = analyze_fix_impact(
+                    fix_context_pack,
+                    current_head_sha=observe_e4_head(),
+                    previous_blob_resolver=_slice_c_git_blob_resolver,
+                    current_blob_resolver=_slice_c_git_blob_resolver,
+                    actual_changed_paths=(),
+                )
+            except Exception as exc:
+                fail(f"Slice-C previous proof validation failed before lease acquisition: {exc}")
         task_id_str = f"TASK-{task_id:03d}"
         ws_id = get_workspace_id()
 
@@ -2988,12 +3047,16 @@ def cmd_handoff(args):
                     "workspace_id": acquired_lease.workspace_id,
                     "execution_fingerprint": acquired_lease.execution_fingerprint,
                     "review_pipeline_mode": pipeline_mode.value,
+                    "fix_review_mode": fix_review_mode.value,
                     "failover_source_lease": source_lease.to_dict(),
                     "failover_proof": failover_proof.to_dict(),
                     "failover_proof_fingerprint": failover_proof.fingerprint(),
                 }
                 if validation_plan is not None:
                     auth_record["validation_plan"] = validation_plan.to_dict()
+                if fix_context_pack is not None and fix_impact_analysis is not None:
+                    auth_record["fix_context_pack"] = fix_context_pack.to_dict()
+                    auth_record["fix_impact_analysis"] = fix_impact_analysis.to_dict()
                 save_authorization(task_id, auth_record)
                 auth_saved = True
 
@@ -3069,11 +3132,15 @@ def cmd_handoff(args):
                 "workspace_id": acquired_lease.workspace_id,
                 "execution_fingerprint": acquired_lease.execution_fingerprint,
                 "review_pipeline_mode": pipeline_mode.value,
+                "fix_review_mode": fix_review_mode.value,
             }
             if validation_plan is not None:
                 auth_record["validation_plan"] = validation_plan.to_dict()
             if prior_auth and prior_auth.get("published_sha"):
                 auth_record["prior_published_sha"] = prior_auth["published_sha"]
+            if fix_context_pack is not None and fix_impact_analysis is not None:
+                auth_record["fix_context_pack"] = fix_context_pack.to_dict()
+                auth_record["fix_impact_analysis"] = fix_impact_analysis.to_dict()
 
             try:
                 save_authorization(task_id, auth_record)
@@ -3514,6 +3581,25 @@ def cmd_execute(args):
             supported_operations=candidate.supported_operations,
             supported_capabilities=candidate.supported_capabilities,
         )
+        fix_context_pack = None
+        fix_impact_analysis = None
+        if "fix_context_pack" in auth or "fix_impact_analysis" in auth:
+            if operation is not ExecutionOperation.FIX:
+                raise ContinuityStateValidationError(
+                    "Slice-C evidence is valid only for FIX execution"
+                )
+            fix_context_pack = FixContextPack.from_dict(auth.get("fix_context_pack"))
+            fix_impact_analysis = analyze_fix_impact(
+                fix_context_pack,
+                current_head_sha=pre_head_sha,
+                previous_blob_resolver=_slice_c_git_blob_resolver,
+                current_blob_resolver=_slice_c_git_blob_resolver,
+                actual_changed_paths=(),
+            )
+            if fix_impact_analysis.to_dict() != auth.get("fix_impact_analysis"):
+                raise ContinuityStateValidationError(
+                    "Slice-C handoff analysis does not match exact Git evidence"
+                )
         launch = build_executor_automation_launch_plan(
             task_id=task_id,
             operation=operation,
@@ -3531,6 +3617,8 @@ def cmd_execute(args):
             authorization_binding=binding,
             artifact_payloads=snapshot["artifact_payloads"],
             transport_id=CODEX_TRANSPORT_ID,
+            fix_context_pack=fix_context_pack,
+            fix_impact_analysis=fix_impact_analysis,
         )
         auth_plan_data = auth.get("validation_plan")
         auth_plan = (
@@ -3795,6 +3883,22 @@ def cmd_execute(args):
                 f"E4 AIOS-managed certification scheduling failed; no publication: {exc}",
             )
     is_productive_recovery = receipt.status is InvocationStatus.EXITED_NONZERO
+    post_fix_impact_analysis = None
+    if fix_context_pack is not None:
+        try:
+            post_fix_impact_analysis = analyze_fix_impact(
+                fix_context_pack,
+                current_head_sha=pre_head_sha,
+                previous_blob_resolver=_slice_c_git_blob_resolver,
+                current_blob_resolver=_slice_c_worktree_blob_resolver,
+                actual_changed_paths=verified_dirty_paths,
+            )
+        except Exception as exc:
+            _e4_operational_failure(
+                task_num,
+                "RECOVERY_REQUIRED",
+                f"Slice-C actual delta analysis failed; work preserved: {exc}",
+            )
     if is_productive_recovery:
         transport_lines = (
             f"E4_TRANSPORT_STATUS: {receipt.status.value}",
@@ -3849,6 +3953,8 @@ def cmd_execute(args):
         pre_head_sha=pre_head_sha,
         pre_branch=pre_branch,
         validation_plan=launch.validation_plan,
+        fix_context_pack=fix_context_pack,
+        fix_impact_analysis=post_fix_impact_analysis,
     )
     cmd_publish(publish_args)
 
@@ -4842,9 +4948,18 @@ def _publication_tests_result_block(
     test_output: str,
     test_rc: int,
     certification_deferred: bool,
+    executed_candidate_command: str | None = None,
 ) -> str:
     """Render observed execution separately from review-first deferred T2."""
     command = requested_command or "(not supplied)"
+    if certification_deferred and executed_candidate_command:
+        return f"""Candidate T1 command: `{executed_candidate_command}`
+Exit code: {test_rc}
+Final T2 status: NOT_EXECUTED (DEFERRED_TO_CERTIFY_REVIEWED)
+
+```text
+{test_output}
+```"""
     if certification_deferred:
         return f"""Command: `{command}`
 Execution status: NOT_EXECUTED (DEFERRED_TO_CERTIFY_REVIEWED)
@@ -4858,6 +4973,21 @@ Exit code: {test_rc}
 ```text
 {test_output}
 ```"""
+
+
+def _slice_c_targeted_test_command(test_paths: tuple[str, ...]) -> str | None:
+    """Build the sole bounded Slice-C pytest T1 command, never a canonical T2."""
+    if type(test_paths) is not tuple:
+        raise ContinuityStateValidationError("Slice-C test paths must be an exact tuple")
+    if not test_paths:
+        return None
+    if any(type(path) is not str or not path.startswith("tests/") for path in test_paths):
+        raise ContinuityStateValidationError("Slice-C tests must live under tests/")
+    interpreter = (
+        Path("venv/Scripts/python.exe") if os.name == "nt" else Path("venv/bin/python")
+    )
+    argv = [str(interpreter), "-m", "pytest", *test_paths, "-q"]
+    return subprocess.list2cmdline(argv) if os.name == "nt" else shlex.join(argv)
 
 
 def cmd_publish(args):
@@ -5073,6 +5203,36 @@ def cmd_publish(args):
     elif task_id == 32:
         _validate_task_032_portability_scope(cfg, auth)
 
+    slice_c_pack = None
+    slice_c_analysis = None
+    if "fix_context_pack" in auth or auth.get("fix_review_mode") == FixReviewMode.PROOF_REUSE_DELTA_IMPACT.value:
+        try:
+            if auth.get("action") != "FIX" or not review_first:
+                raise ContinuityStateValidationError(
+                    "Slice-C publication requires review-first FIX authorization"
+                )
+            slice_c_pack = FixContextPack.from_dict(auth.get("fix_context_pack"))
+            observed_analysis = analyze_fix_impact(
+                slice_c_pack,
+                current_head_sha=pre_test_head,
+                previous_blob_resolver=_slice_c_git_blob_resolver,
+                current_blob_resolver=_slice_c_worktree_blob_resolver,
+                actual_changed_paths=collect_e4_dirty_paths(),
+            )
+            supplied_analysis = getattr(args, "fix_impact_analysis", None)
+            if supplied_analysis is not None and supplied_analysis != observed_analysis:
+                raise ContinuityStateValidationError(
+                    "supplied Slice-C impact evidence does not match actual worktree delta"
+                )
+            supplied_pack = getattr(args, "fix_context_pack", None)
+            if supplied_pack is not None and supplied_pack != slice_c_pack:
+                raise ContinuityStateValidationError(
+                    "supplied Slice-C pack does not match handoff-bound evidence"
+                )
+            slice_c_analysis = observed_analysis
+        except Exception as exc:
+            fail(f"Slice-C publication preflight failed: {exc}")
+
     test_output = "(no test command supplied)"
     raw_test_output = test_output
     test_rc = 0
@@ -5084,7 +5244,12 @@ def cmd_publish(args):
         publication_test_command, certification_deferred = (
             review_first_candidate_test_command(args.test, validation_plan)
         )
-    if certification_deferred:
+    if slice_c_analysis is not None:
+        certification_deferred = True
+        publication_test_command = _slice_c_targeted_test_command(
+            slice_c_analysis.selected_test_paths
+        )
+    if certification_deferred and not publication_test_command:
         test_output = "(full canonical certification deferred to certify-reviewed)"
         raw_test_output = test_output
         print(f"[TEST][DEFERRED_TO_CERTIFY_REVIEWED] {args.test}")
@@ -5127,14 +5292,19 @@ def cmd_publish(args):
                 expected_full_suite_execution_count=(
                     validation_plan.expected_full_suite_execution_count
                 ),
-                # Executor T0/T1 activity is outside the certification event stream.
-                targeted_test_execution_count=None,
+                targeted_test_execution_count=(
+                    1 if observed_tier is ValidationTier.T1_TARGETED_IMPACT else None
+                ),
                 full_suite_duration_seconds=(
                     observed_test_duration
                     if observed_tier is ValidationTier.T2_FULL_CANONICAL
                     else None
                 ),
-                targeted_test_duration_seconds=None,
+                targeted_test_duration_seconds=(
+                    observed_test_duration
+                    if observed_tier is ValidationTier.T1_TARGETED_IMPACT
+                    else None
+                ),
                 executor_ad_hoc_t2_observability=(
                     ExecutorAdHocT2Observability.UNAVAILABLE
                 ),
@@ -5389,7 +5559,25 @@ EXECUTOR_ID: {active_exec}
         test_output=test_output,
         test_rc=test_rc,
         certification_deferred=certification_deferred,
+        executed_candidate_command=(
+            publication_test_command if slice_c_analysis is not None else None
+        ),
     )
+    slice_c_evidence_block = ""
+    if slice_c_analysis is not None:
+        evidence = delta_impact_evidence(
+            slice_c_analysis,
+            selected_test_status=(
+                "PASS" if slice_c_analysis.selected_test_paths else "NOT_REQUIRED"
+            ),
+        )
+        slice_c_evidence_block = f"""
+
+## Delta + Impact Evidence
+```json
+{json.dumps(evidence, sort_keys=True, separators=(',', ':'))}
+```
+"""
     result_content = (
         f"""# RESULT-{task_id:03d}
 
@@ -5432,6 +5620,7 @@ STATUS: {result_status}
 ```json
 {json.dumps(validation_evidence.to_dict(), sort_keys=True, separators=(',', ':')) if validation_evidence is not None else '(legacy task; no P0 validation plan bound)'}
 ```
+{slice_c_evidence_block}
 
 ## Risks / Notes
 {args.notes or '(none supplied)'}

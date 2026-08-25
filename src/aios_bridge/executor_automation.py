@@ -42,8 +42,10 @@ from src.aios_bridge.continuity.state import (
 from src.aios_bridge.executor_context import (
     ExecutorAuthorizationBinding,
     ExecutorContextPack,
+    augment_executor_context_pack_for_fix,
     build_executor_context_pack,
 )
+from src.aios_bridge.fix_review import FixContextPack, FixImpactAnalysis
 from src.aios_bridge.validation import ValidationPlan, validation_plan_for_task
 
 
@@ -240,6 +242,8 @@ def build_executor_automation_launch_plan(
     authorization_binding: ExecutorAuthorizationBinding,
     artifact_payloads: Mapping[str, bytes],
     transport_id: str,
+    fix_context_pack: FixContextPack | None = None,
+    fix_impact_analysis: FixImpactAnalysis | None = None,
 ) -> ExecutorAutomationLaunchPlan:
     """Build and validate the deterministic M1/M4/E3 launch plan without I/O."""
     if type(operation) is not ExecutionOperation:
@@ -377,6 +381,18 @@ def build_executor_automation_launch_plan(
         invocation_id=ids.invocation_id,
         transport_id=transport_id,
     )
+    if (fix_context_pack is None) != (fix_impact_analysis is None):
+        raise _error("Slice-C FIX context pack and impact analysis must be supplied together")
+    if fix_context_pack is not None:
+        if operation is not ExecutionOperation.FIX:
+            raise _error("Slice-C context is valid only for FIX launch plans")
+        if type(fix_context_pack) is not FixContextPack or type(fix_impact_analysis) is not FixImpactAnalysis:
+            raise _error("Slice-C launch evidence must use exact contract types")
+        context_pack = augment_executor_context_pack_for_fix(
+            context_pack,
+            fix_context_pack,
+            fix_impact_analysis,
+        )
     task_payload = artifact_payloads[task_ref.path]
     try:
         task_content = task_payload.decode("utf-8")

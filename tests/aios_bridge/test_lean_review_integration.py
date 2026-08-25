@@ -23,7 +23,9 @@ from src.aios_bridge.review_pipeline import (
 )
 from src.aios_bridge.validation import (
     CONTROL_PLANE_STRICT_COMPAT_PLAN,
+    ValidationTier,
     ValidationProfile,
+    classify_validation_command,
 )
 
 
@@ -348,6 +350,23 @@ def test_review_first_deferred_t2_result_has_no_executed_success_exit_code():
         certification_deferred=False,
     )
     assert "Exit code: 0" in legacy
+
+
+def test_slice_c_publication_runs_only_bounded_t1_and_keeps_t2_deferred():
+    command = bridge._slice_c_targeted_test_command(
+        ("tests/aios_bridge/test_fix_review.py",)
+    )
+    assert classify_validation_command(command) is ValidationTier.T1_TARGETED_IMPACT
+    block = bridge._publication_tests_result_block(
+        requested_command=COMMAND,
+        executed_candidate_command=command,
+        test_output="1 passed",
+        test_rc=0,
+        certification_deferred=True,
+    )
+    assert "Candidate T1 command" in block
+    assert "Exit code: 0" in block
+    assert "Final T2 status: NOT_EXECUTED (DEFERRED_TO_CERTIFY_REVIEWED)" in block
 
 
 def test_slice_scope_does_not_implement_reserved_task_087():

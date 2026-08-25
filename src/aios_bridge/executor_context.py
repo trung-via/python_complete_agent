@@ -1,7 +1,7 @@
 """Pure bounded Executor context-pack composition (ADR-031 / E3)."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 import hashlib
 import json
@@ -27,6 +27,11 @@ from src.aios_bridge.continuity.lease import (
     validate_executor_lease_binding,
 )
 from src.aios_bridge.continuity.state import ArtifactRef, SCHEMA_VERSION
+from src.aios_bridge.fix_review import (
+    FixContextPack,
+    FixImpactAnalysis,
+    render_fix_executor_context,
+)
 
 
 CONTEXT_FORMAT_VERSION = "aios-executor-context-v1"
@@ -626,6 +631,32 @@ def build_executor_context_pack(
     )
 
 
+def augment_executor_context_pack_for_fix(
+    context_pack: ExecutorContextPack,
+    fix_context_pack: FixContextPack,
+    fix_impact_analysis: FixImpactAnalysis,
+) -> ExecutorContextPack:
+    """Append one validated provider-neutral Slice-C section to a FIX invocation."""
+    if type(context_pack) is not ExecutorContextPack:
+        raise _validation_error("context_pack must be an exact ExecutorContextPack")
+    if context_pack.manifest.operation is not ExecutionOperation.FIX:
+        raise _validation_error("Slice-C context augmentation is valid only for FIX")
+    suffix = b"AIOS_EXECUTOR_CONTEXT_PACK_END\n"
+    if not context_pack.payload.endswith(suffix):
+        raise _validation_error("executor context pack terminal marker is invalid")
+    section = render_fix_executor_context(fix_context_pack, fix_impact_analysis)
+    payload = context_pack.payload[: -len(suffix)] + section + suffix
+    if len(payload) > MAX_CONTEXT_PACK_BYTES or len(payload) > MAX_INVOCATION_PAYLOAD_BYTES:
+        raise _validation_error("Slice-C augmented context exceeds transport bounds")
+    invocation = replace(
+        context_pack.invocation,
+        payload_sha256=hashlib.sha256(payload).hexdigest(),
+        payload_size_bytes=len(payload),
+    )
+    validate_invocation_payload(invocation, payload)
+    return ExecutorContextPack(context_pack.manifest, payload, invocation)
+
+
 __all__ = [
     "ACTIVE_AUTHORIZATION_STATUS",
     "CONTEXT_FORMAT_VERSION",
@@ -639,5 +670,6 @@ __all__ = [
     "ExecutorAuthorizationBinding",
     "ExecutorContextManifest",
     "ExecutorContextPack",
+    "augment_executor_context_pack_for_fix",
     "build_executor_context_pack",
 ]
