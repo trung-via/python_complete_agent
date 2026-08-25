@@ -35,6 +35,9 @@ P2_P3_AUTHORIZED: NO
 H5_H8_AUTHORIZED: NO
 FIX_REVIEW_MODE: PROOF_REUSE_DELTA_IMPACT
 FIX_CONTEXT_PACK_JSON: {"schema_version":"1","previous_reviewed_head_sha":"5a4a57fde7d9244799bde67d4f29eb91acd6eb2d","impact_confidence":"KNOWN","open_finding_ids":["B1_REVIEW_STATE_AUTHORITY","B2_PROGRESSIVE_MEMBERSHIP_REBIND"],"affected_paths":["src/aios_bridge/capability_batch.py","src/aios_bridge/integration_lane.py","tests/aios_bridge/test_capability_batch.py","tests/aios_bridge/test_integration_lane.py"],"protected_accepted_paths":[],"required_test_paths":["tests/aios_bridge/test_capability_batch.py","tests/aios_bridge/test_integration_lane.py"],"unknown_impact_fallback_test_paths":["tests/aios_bridge/test_validation.py","tests/aios_bridge/test_lean_review_integration.py","tests/aios_bridge/test_capability_batch.py","tests/aios_bridge/test_integration_lane.py"],"proof_bindings":[]}
+EXECUTOR_CONTEXT_REFS_JSON: [{"path":".ai/tasks/TASK-094.md","blob_sha":"b7e47372bdf576327f427cf584aa5389ed7905df"},{"path":".ai/decisions/ADR-066-AIOS-P1-CAPABILITY-BATCH-INTEGRATION-LANE-CONTRACT-LOCK.md","blob_sha":"e69abac52a773f13b251e27807fd08aac7715a84"},{"path":".ai/decisions/ADR-067-AIOS-P0-P3-LEAN-REVIEW-RECONCILIATION.md","blob_sha":"fcd2f4ebb7b50c237dc357d0a68aa98d89bc132b"},{"path":".ai/roadmaps/AIOS-BRIDGE-LEAN-EXECUTION-v1.2.md","blob_sha":"41bf467f3dd4fc8aea165ac65c37e0e2a5a3ef5c"},{"path":".ai/roadmaps/AIOS-BRIDGE-LEAN-EXECUTION-v1.2.completions.json","blob_sha":"6b5fb5f99ec17cacca632e3b7a1953131b82c9b7"},{"path":".ai/roadmaps/CANONICAL-ROADMAP-REGISTRY-v1.json","blob_sha":"09180853439a383bb459094cb96fa2bd705afdd4"}]
+EXECUTOR_ALLOWED_PATHS_JSON: ["src/aios_bridge/capability_batch.py","src/aios_bridge/integration_lane.py","tests/aios_bridge/test_capability_batch.py","tests/aios_bridge/test_integration_lane.py"]
+DISPATCH_EXECUTOR_POLICY_JSON: {"allow_paid_api":false,"candidates":[{"capacity_class":"SUBSCRIPTION","executor_id":"codex","preference_rank":0,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]},{"capacity_class":"SUBSCRIPTION","executor_id":"antigravity","preference_rank":1,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]}],"operation":"FIX","required_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"]}
 
 ## Snapshot
 
@@ -51,56 +54,26 @@ TARGETED_TEST_STATUS: NOT_REQUIRED
 VALIDATION_PROFILE: CONTROL_PLANE_STRICT
 ```
 
-Candidate scope is bounded and useful. It adds only pure capability-batch/lane contracts and their tests; it does not alter Bridge execution, certification job, reviewed-head merge gate, or PRODUCT_DELIVERY_FAST end-to-end admission. The implementation is therefore preserved and reviewed rather than discarded.
+Candidate is preserved. It adds bounded pure capability-batch/lane contracts and tests only; it has not opened PRODUCT_DELIVERY_FAST end-to-end execution, certification, or main-merge authority.
 
-The post-TASK-093 P0–P3 / Lean Review reconciliation audit found two semantic defects that prevent this candidate from satisfying P1.R2/P1.R3 as an operational foundation. Both defects are already inside TASK-094 authority and can be repaired without implementing TASK-095.
+## B1 — OPEN — Fast-Lane Review Authority Must Not Be Fabricated
 
-## B1 — OPEN — Fabricated Fast-Lane Review State Is Not Authoritative
+`integration_lane.py` currently treats the free-form token `SEMANTICALLY_ACCEPTED_PENDING_INTEGRATION` as semantic-review authority even though that state is not part of the authoritative Lean Review `ReviewState`.
 
-### Finding
-
-`integration_lane.py` requires the free-form string:
+Required repair within TASK-094 scope:
 
 ```text
-SEMANTICALLY_ACCEPTED_PENDING_INTEGRATION
-```
-
-and tests manufacture the same string as successful review evidence.
-
-The current authoritative Lean Review `ReviewState` does not contain that state; its semantic-acceptance state is `SEMANTICALLY_ACCEPTED_PENDING_T2`. Therefore TASK-094 currently treats a future, non-authoritative token as if it were a machine review-state authority.
-
-This violates the task requirement that lane integration consume deterministic semantic-review evidence and the Lean invariant that machine-derived authority must have one authoritative source.
-
-### Required repair
-
-TASK-094 MUST NOT modify the canonical Lean Review state machine or implement TASK-095 profile-aware review routing. Instead, within current allowed scope, make the lane foundation consume bounded semantic-acceptance evidence supplied by a deterministic caller without inventing a new ReviewState token.
-
-Equivalent acceptable contract:
-
-```text
-semantic_acceptance_valid: exact bool
+semantic_acceptance_valid: exact bool supplied by deterministic caller
 reviewed_task_head_sha: exact SHA
 reviewed head == current task branch head
-semantic acceptance creates FINAL_PASS: NO
-semantic acceptance creates main merge authority: NO
+false/unknown/malformed semantic acceptance -> fail closed
+lane advancement -> no FINAL_PASS authority
+lane advancement -> no main merge authority
 ```
 
-Exact field/class naming may differ.
+Do not modify `src/aios_bridge/review_pipeline.py` in this FIX. Profile-aware ReviewState integration remains TASK-095 work.
 
-Required properties:
-
-```text
-free-form review status cannot create lane authority
-false/unknown/malformed semantic acceptance fails closed
-reviewed head mismatch fails closed
-lane advancement still creates no FINAL_PASS
-lane advancement still creates no main merge authority
-TASK-095 remains owner of future profile-aware ReviewState integration
-```
-
-Do not add `SEMANTICALLY_ACCEPTED_PENDING_INTEGRATION` to `review_pipeline.py` in this FIX; that file is outside TASK-094 allowed implementation scope and end-to-end state integration belongs to TASK-095.
-
-### Required proofs
+Required proofs:
 
 ```text
 NO_FABRICATED_FAST_REVIEW_STATE_AUTHORITY: PASS
@@ -111,39 +84,22 @@ LANE_ADVANCE_FINAL_PASS_AUTHORITY: NO
 LANE_ADVANCE_MAIN_MERGE_AUTHORITY: NO
 ```
 
-## B2 — OPEN — Multi-Task Batch Membership Is Not Realizable Across Unknown Future Lane Heads
+## B2 — OPEN — Progressive Multi-Task Membership + Lane Rebind
 
-### Finding
+The current manifest requires future members to know exact `bound_lane_base_sha` before predecessor reviewed heads exist, and collapses every member version into the whole manifest version. A manifest revision changes its fingerprint while the lane remains bound to the prior fingerprint, so the multi-task sequence is not yet realizable.
 
-`TaskMembershipBinding` currently requires every member to carry an exact `bound_lane_base_sha` at manifest construction, and the manifest requires every member's `membership_version` to equal the whole `manifest_version`.
-
-This works for a one-task batch and for tests that pre-supply a synthetic second-task base SHA, but it does not implement the real P1.R2/P1.R3 sequence:
+Required repair:
 
 ```text
-TASK-A base = current lane head   -> known
-TASK-A reviewed/integrated head   -> created later
-TASK-B base = TASK-A integrated head -> not knowable when initial batch opens
-```
-
-The code has `require_valid_membership_revision()`, but a manifest revision changes the manifest fingerprint while the lane remains bound to the previous fingerprint. There is no deterministic lane-to-revised-manifest rebind contract. In addition, forcing all unchanged members to acquire the new manifest version would rewrite the identity of an already integrated prefix merely because a later task is added.
-
-Therefore the candidate has not yet proven a realizable multi-task progressive batch.
-
-### Required repair
-
-Implement progressive authorized manifest revision and exact lane-manifest rebind within the existing pure modules.
-
-Required semantics:
-
-```text
-manifest v1 admits TASK-A bound to exact current lane head
+manifest v1 admits TASK-A bound to current lane head
 TASK-A integrates
-manifest v2 preserves integrated TASK-A exactly and admits TASK-B bound to new current lane head
-lane rebinds from manifest-v1 fingerprint to manifest-v2 fingerprint only through a pure fail-closed transition
-TASK-B can then become the next task
+manifest v2 preserves integrated TASK-A exactly
+manifest v2 admits TASK-B bound to the now-known current lane head
+pure deterministic lane-manifest rebind changes only manifest authority binding
+TASK-B becomes the next admissible member
 ```
 
-Integrated prefix must be immutable across revisions:
+Integrated prefix must remain immutable across manifest revisions:
 
 ```text
 task_id unchanged
@@ -152,28 +108,12 @@ scope fingerprint unchanged
 expected branch unchanged
 bound lane base unchanged
 membership position unchanged
-per-member authority version unchanged unless that member is separately re-authorized
+unchanged member authority version unchanged
 ```
 
-Whole `manifest_version` and per-member `membership_version` MUST no longer be collapsed into the same meaning. An unchanged integrated member must not be rewritten solely because the manifest envelope advances.
+`manifest_version` and `membership_version` are distinct. A lane-manifest rebind must require exact batch/roadmap/capability/base/lane identity, previous fingerprint binding, next manifest version, immutable integrated prefix, and next member base equal to current lane head. It must not move lane head or create FINAL_PASS, certification, or main-merge authority.
 
-A pure lane-manifest rebind must require at minimum:
-
-```text
-same batch/roadmap/capability/base-main/lane-ref identity
-candidate manifest version == previous + 1
-lane currently binds previous manifest fingerprint
-integrated_task_ids exactly equal preserved immutable prefix
-candidate preserves that prefix
-next newly admitted member, when present, binds exact current lane head
-lane head unchanged by rebind
-integrated history unchanged by rebind
-no FINAL_PASS / certification / main merge authority created
-```
-
-No Git command, rebase, merge, cherry-pick, squash, reset, automatic conflict resolution, executor membership mutation, or TASK-095 certification behavior may be added.
-
-### Required proofs
+Required proofs:
 
 ```text
 MULTI_TASK_PROGRESSIVE_MEMBERSHIP_REALIZABLE: PASS
@@ -191,43 +131,30 @@ REBINDS_CREATE_NO_MAIN_MERGE_AUTHORITY: PASS
 
 ## Accepted / Protected Surfaces
 
-The following Round-1 surfaces are accepted and should remain protected unless the FIX necessarily touches their exact subject/dependencies:
-
 ```text
-A1 Capability batch and lane modules remain pure: no filesystem, Git, certification, or main-merge side effects.
-A2 Closed batch/lane enums fail closed on malformed or authority-skipping transitions.
-A3 Exact lowercase SHA/fingerprint validation and closed serialization remain intact.
-A4 Batch membership never replaces independent TASK artifact/scope authority.
-A5 Candidate task T2 remains 0 under Review-First.
-A6 Impact confidence UNKNOWN is rejected for fast-lane integration evidence.
-A7 Publication trust, scope validity, lease absence, main-base identity and fast-forwardability remain required deterministic facts.
-A8 Lane advancement creates neither task FINAL_PASS nor main merge authority.
-A9 PRODUCT_DELIVERY_FAST end-to-end admission remains blocked until TASK-095.
-A10 CONTROL_PLANE_STRICT behavior from TASK-093 is not modified.
-A11 P1 is not declared complete; P2/P3 and H5-H8 remain unopened.
+A1 batch/lane modules remain pure: no filesystem, Git, certification, or main-merge side effects
+A2 closed schemas/enums remain strict and fail-closed
+A3 exact SHA/fingerprint validation remains intact
+A4 batch membership never replaces independent TASK artifact/scope authority
+A5 candidate-stage T2 remains 0
+A6 UNKNOWN impact remains rejected for fast-lane integration
+A7 publication trust, scope, lease absence, main-base identity, and fast-forwardability remain required
+A8 lane advancement creates neither FINAL_PASS nor main merge authority
+A9 PRODUCT_DELIVERY_FAST end-to-end admission remains blocked until TASK-095
+A10 CONTROL_PLANE_STRICT behavior is not modified
+A11 P1 remains incomplete; P2/P3 and H5-H8 remain unopened
 ```
 
-## Delta + Impact Requirements For FIX
+## Delta + Impact FIX Boundary
 
-FIX should remain bounded primarily to:
-
-```text
-src/aios_bridge/capability_batch.py
-src/aios_bridge/integration_lane.py
-tests/aios_bridge/test_capability_batch.py
-tests/aios_bridge/test_integration_lane.py
-```
-
-If deterministic impact analysis proves a required change in another TASK-094-allowed path, it may be touched only within the original task authority. Do not touch `src/aios_bridge/review_pipeline.py`; doing so would widen this FIX into TASK-095 semantics.
-
-Required targeted test floor:
+FIX write scope is deliberately narrowed to the four paths in `EXECUTOR_ALLOWED_PATHS_JSON`. Required targeted floor:
 
 ```text
 pytest tests/aios_bridge/test_capability_batch.py -q
 pytest tests/aios_bridge/test_integration_lane.py -q
 ```
 
-If impact becomes UNKNOWN or escapes the bounded surfaces, expand to the fallback tests in `FIX_CONTEXT_PACK_JSON` and report the impact expansion. Candidate-stage AIOS-managed T2 must remain 0.
+If deterministic impact becomes UNKNOWN, use the fallback test set from `FIX_CONTEXT_PACK_JSON`; do not widen write authority. Candidate-stage AIOS-managed T2 must remain 0.
 
 ## Semantic Decision
 
@@ -246,4 +173,4 @@ TASK_095_AUTHORIZED: NO
 NEXT: $aios-worker FIX TASK-094
 ```
 
-The review is bound to exact candidate `5a4a57fde7d9244799bde67d4f29eb91acd6eb2d` and base main `46a567bfd134fa0737ac0b93058ef1cd93d386ee`. Any candidate-head or base-main drift supersedes this review subject. Full canonical T2 is forbidden until both blockers are closed by semantic review.
+This is an executable-authoring repair of the same Round-1 semantic review, not a new semantic review round. The review remains bound to exact candidate `5a4a57fde7d9244799bde67d4f29eb91acd6eb2d` and base main `46a567bfd134fa0737ac0b93058ef1cd93d386ee`. Full canonical T2 remains forbidden until both blockers close.
