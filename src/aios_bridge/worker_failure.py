@@ -38,6 +38,13 @@ _VALID_TERMINAL_STATUSES = frozenset({
     "INTERRUPTED",
 })
 
+_CLEAN_NOOP_COMPATIBLE_STATUSES = frozenset({
+    "EXITED_ZERO",
+    "FAILED_TO_START",
+    "INTERRUPTED",
+    "EXITED_NONZERO",
+})
+
 
 class WorkerFailureClass(str, Enum):
     """Closed vocabulary of worker failure classifications."""
@@ -135,11 +142,32 @@ class WorkerFailureEvidence:
         _validate_sha(self.pre_head_sha, "pre_head_sha")
         _validate_sha(self.post_head_sha, "post_head_sha")
         _validate_token(self.terminal_status, "terminal_status")
+        if self.terminal_status not in _VALID_TERMINAL_STATUSES:
+            raise WorkerFailureError(f"Unsupported or unknown terminal_status '{self.terminal_status}'")
         _validate_token(self.diagnostic_code, "diagnostic_code")
         if type(self.zero_worktree_delta) is not bool:
             raise WorkerFailureError("zero_worktree_delta must be a bool")
         if type(self.is_known_stopped) is not bool or self.is_known_stopped is not True:
             raise WorkerFailureError("is_known_stopped must be exact True bool")
+
+        expected_zero = (self.pre_head_sha == self.post_head_sha and len(self.dirty_paths) == 0)
+        if self.zero_worktree_delta != expected_zero:
+            raise WorkerFailureError("zero_worktree_delta inconsistent with pre/post SHA and dirty paths")
+
+        if self.failure_class == WorkerFailureClass.CLEAN_NO_WORKTREE_DELTA:
+            if not self.zero_worktree_delta:
+                raise WorkerFailureError("CLEAN_NO_WORKTREE_DELTA requires zero_worktree_delta is True")
+            if self.terminal_status not in _CLEAN_NOOP_COMPATIBLE_STATUSES or self.terminal_status == "TIMED_OUT":
+                raise WorkerFailureError(f"CLEAN_NO_WORKTREE_DELTA incompatible with terminal_status '{self.terminal_status}'")
+        elif self.failure_class == WorkerFailureClass.CLEAN_TIMEOUT:
+            if self.terminal_status != "TIMED_OUT" or not self.zero_worktree_delta:
+                raise WorkerFailureError("CLEAN_TIMEOUT requires TIMED_OUT and zero_worktree_delta is True")
+        elif self.failure_class == WorkerFailureClass.DIRTY_TIMEOUT_RECOVERY_REQUIRED:
+            if self.terminal_status != "TIMED_OUT" or self.zero_worktree_delta:
+                raise WorkerFailureError("DIRTY_TIMEOUT_RECOVERY_REQUIRED requires TIMED_OUT and non-zero worktree delta")
+        elif self.failure_class == WorkerFailureClass.PRODUCTIVE_NONZERO_RECOVERY_CANDIDATE:
+            if self.terminal_status != "EXITED_NONZERO" or self.zero_worktree_delta:
+                raise WorkerFailureError("PRODUCTIVE_NONZERO_RECOVERY_CANDIDATE requires EXITED_NONZERO and non-zero worktree delta")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -195,6 +223,10 @@ class WorkerFailureEvidence:
         if data["is_known_stopped"] is not True:
             raise WorkerFailureError("is_known_stopped must be exact True")
 
+        term_status = _validate_token(data["terminal_status"], "terminal_status")
+        if term_status not in _VALID_TERMINAL_STATUSES:
+            raise WorkerFailureError(f"Unsupported or unknown terminal_status '{term_status}'")
+
         try:
             fc = WorkerFailureClass(data["failure_class"])
         except ValueError:
@@ -215,7 +247,6 @@ class WorkerFailureEvidence:
 
         pre_head = _validate_sha(data["pre_head_sha"], "pre_head_sha")
         post_head = _validate_sha(data["post_head_sha"], "post_head_sha")
-        term_status = _validate_token(data["terminal_status"], "terminal_status")
         diag_code = _validate_token(data["diagnostic_code"], "diagnostic_code")
 
         dirty_paths = tuple(data["dirty_paths"])
@@ -224,14 +255,20 @@ class WorkerFailureEvidence:
         if zero_delta != expected_zero:
             raise WorkerFailureError("zero_worktree_delta inconsistent with pre/post SHA and dirty paths")
 
-        if fc == WorkerFailureClass.CLEAN_NO_WORKTREE_DELTA and not zero_delta:
-            raise WorkerFailureError("CLEAN_NO_WORKTREE_DELTA requires zero_worktree_delta is True")
-        if fc == WorkerFailureClass.CLEAN_TIMEOUT and (term_status != "TIMED_OUT" or not zero_delta):
-            raise WorkerFailureError("CLEAN_TIMEOUT requires TIMED_OUT and zero_worktree_delta is True")
-        if fc == WorkerFailureClass.DIRTY_TIMEOUT_RECOVERY_REQUIRED and (term_status != "TIMED_OUT" or zero_delta):
-            raise WorkerFailureError("DIRTY_TIMEOUT_RECOVERY_REQUIRED requires TIMED_OUT and non-zero worktree delta")
-        if fc == WorkerFailureClass.PRODUCTIVE_NONZERO_RECOVERY_CANDIDATE and (term_status != "EXITED_NONZERO" or zero_delta):
-            raise WorkerFailureError("PRODUCTIVE_NONZERO_RECOVERY_CANDIDATE requires EXITED_NONZERO and non-zero worktree delta")
+        if fc == WorkerFailureClass.CLEAN_NO_WORKTREE_DELTA:
+            if not zero_delta:
+                raise WorkerFailureError("CLEAN_NO_WORKTREE_DELTA requires zero_worktree_delta is True")
+            if term_status not in _CLEAN_NOOP_COMPATIBLE_STATUSES or term_status == "TIMED_OUT":
+                raise WorkerFailureError(f"CLEAN_NO_WORKTREE_DELTA incompatible with terminal_status '{term_status}'")
+        elif fc == WorkerFailureClass.CLEAN_TIMEOUT:
+            if term_status != "TIMED_OUT" or not zero_delta:
+                raise WorkerFailureError("CLEAN_TIMEOUT requires TIMED_OUT and zero_worktree_delta is True")
+        elif fc == WorkerFailureClass.DIRTY_TIMEOUT_RECOVERY_REQUIRED:
+            if term_status != "TIMED_OUT" or zero_delta:
+                raise WorkerFailureError("DIRTY_TIMEOUT_RECOVERY_REQUIRED requires TIMED_OUT and non-zero worktree delta")
+        elif fc == WorkerFailureClass.PRODUCTIVE_NONZERO_RECOVERY_CANDIDATE:
+            if term_status != "EXITED_NONZERO" or zero_delta:
+                raise WorkerFailureError("PRODUCTIVE_NONZERO_RECOVERY_CANDIDATE requires EXITED_NONZERO and non-zero worktree delta")
 
         return cls(
             failure_class=fc,
@@ -307,7 +344,7 @@ def classify_worker_failure(
         else:
             failure_class = WorkerFailureClass.DIRTY_TIMEOUT_RECOVERY_REQUIRED
     elif zero_delta:
-        if term_status in ("EXITED_ZERO", "FAILED_TO_START", "INTERRUPTED", "EXITED_NONZERO"):
+        if term_status in _CLEAN_NOOP_COMPATIBLE_STATUSES:
             failure_class = WorkerFailureClass.CLEAN_NO_WORKTREE_DELTA
         else:
             raise WorkerFailureError(f"Cannot classify zero delta for terminal status '{term_status}'")

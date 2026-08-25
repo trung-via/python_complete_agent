@@ -4168,6 +4168,29 @@ def cmd_execute(args):
                 "RECOVERY_REQUIRED",
                 f"E4 productive non-zero recovery criteria not met; diagnostic={diagnostic.code}; work preserved",
             )
+
+        failure_evidence = classify_worker_failure(
+            terminal_status="EXITED_NONZERO",
+            pre_head_sha=pre_head_sha,
+            post_head_sha=post_head_sha,
+            dirty_paths=verified_dirty_paths,
+            allowed_paths=snapshot["allowed_paths"],
+            is_known_stopped=True,
+            executor_outcome=getattr(diagnostic, "executor_outcome", "UNKNOWN"),
+            final_agent_message_observed=getattr(diagnostic, "final_agent_message_observed", "UNKNOWN"),
+            diagnostic_code=diagnostic.code,
+        )
+        err_msg = (
+            f"E4 execution blocked: {failure_evidence.failure_class.value}; "
+            f"next_action={failure_evidence.next_action.value}; "
+            f"diagnostic={diagnostic.code}; work preserved; no publication, no retry, no reroute"
+        )
+        _e4_operational_failure(
+            task_num,
+            "RECOVERY_REQUIRED",
+            err_msg,
+            worker_failure_evidence=failure_evidence,
+        )
     else:
         failure_evidence = None
         try:

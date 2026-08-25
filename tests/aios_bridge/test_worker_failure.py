@@ -250,6 +250,24 @@ def test_coercion_and_extra_fields_rejected_in_from_dict() -> None:
         WorkerFailureEvidence.from_dict({**valid_d, "terminal_status": "EXITED_ZERO"})
 
 
+def test_clean_no_worktree_delta_rejects_timed_out_and_unsupported_terminal_tokens() -> None:
+    """B3 proof: CLEAN_NO_WORKTREE_DELTA + TIMED_OUT / unsupported terminal token -> REJECT."""
+    clean_noop_d = classify_worker_failure(
+        terminal_status="EXITED_ZERO",
+        pre_head_sha=HEAD_A,
+        post_head_sha=HEAD_A,
+        dirty_paths=(),
+    ).to_dict()
+
+    # CLEAN_NO_WORKTREE_DELTA + TIMED_OUT -> REJECT
+    with pytest.raises(WorkerFailureError, match="incompatible with terminal_status 'TIMED_OUT'"):
+        WorkerFailureEvidence.from_dict({**clean_noop_d, "terminal_status": "TIMED_OUT"})
+
+    # CLEAN_NO_WORKTREE_DELTA + unsupported terminal token -> REJECT
+    with pytest.raises(WorkerFailureError, match="Unsupported or unknown terminal_status 'UNSUPPORTED_STATUS'"):
+        WorkerFailureEvidence.from_dict({**clean_noop_d, "terminal_status": "UNSUPPORTED_STATUS"})
+
+
 def test_clean_timeout_no_result_publication_and_no_retry_reroute() -> None:
     """Proof: CLEAN_TIMEOUT_NO_RESULT_PUBLICATION & AUTO_RETRY: NO & AUTO_REROUTE: NO."""
     evidence = classify_worker_failure(

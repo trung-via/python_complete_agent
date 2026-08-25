@@ -1348,26 +1348,35 @@ def test_is_productive_nonzero_recovery_candidate_predicate():
 
 
 
-def test_productive_nonzero_exact_scope_and_green_suite_publishes_for_review(monkeypatch, tmp_path):
-    _, _, calls = make_execute_environment(
+def test_valid_productive_nonzero_persists_evidence_sets_recovery_required_and_does_not_publish(monkeypatch, tmp_path):
+    """Integration proof for B2: VALID_PRODUCTIVE_NONZERO -> structured failure_class PRODUCTIVE_NONZERO_RECOVERY_CANDIDATE, exactly one next_action RECOVERY_REQUIRED_PRESERVED_DELTA, state RECOVERY_REQUIRED, preserved delta, no publication, no automatic retry/reroute."""
+    auth, _, calls = make_execute_environment(
         monkeypatch, tmp_path, status=InvocationStatus.EXITED_NONZERO
     )
     monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ("bridge.py",))
 
-    res = bridge.cmd_execute(execute_args())
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
+
     assert calls["invoke"] == 1
-    assert len(calls["publish"]) == 1
-    pub_arg = calls["publish"][0]
-    assert pub_arg.failure_state == "RECOVERY_REQUIRED"
-    assert "E4_TRANSPORT_STATUS: EXITED_NONZERO" in pub_arg.notes
-    assert "E4_TRANSPORT_ERROR: CODEX_EXIT_NONZERO" in pub_arg.notes
-    assert "E4_TRANSPORT_DIAGNOSTIC: JSON_ERROR_EVENT" in pub_arg.notes
-    assert "E4_PRODUCTIVE_NONZERO_RECOVERY: YES" in pub_arg.notes
-    assert "EXECUTOR_RERUN: NO" in pub_arg.notes
-    assert "E4_ALLOWED_SCOPE_VERIFIED: PASS" in pub_arg.notes
-    assert "E4_PUBLICATION_TRUST_VERIFIED: PASS" in pub_arg.notes
-    assert "productive non-zero recovery" in pub_arg.summary
-    assert res.implementation_sha == "e" * 40
+    assert calls["publish"] == []  # No publication!
+
+    # State is RECOVERY_REQUIRED
+    last_state = calls["state"][-1]
+    assert last_state[0] == "RECOVERY_REQUIRED"
+    assert "PRODUCTIVE_NONZERO_RECOVERY_CANDIDATE" in last_state[1]
+    assert "RECOVERY_REQUIRED_PRESERVED_DELTA" in last_state[1]
+
+    # Verify structured evidence persisted into authorization
+    assert len(calls["auth_saved"]) >= 1
+    _, saved_auth = calls["auth_saved"][-1]
+    assert "worker_failure_evidence" in saved_auth
+    ev = saved_auth["worker_failure_evidence"]
+    assert ev["failure_class"] == "PRODUCTIVE_NONZERO_RECOVERY_CANDIDATE"
+    assert ev["next_action"] == "RECOVERY_REQUIRED_PRESERVED_DELTA"
+    assert ev["zero_worktree_delta"] is False
+    assert ev["terminal_status"] == "EXITED_NONZERO"
+    assert ev["dirty_paths"] == ["bridge.py"]
 
 
 def test_normal_exited_zero_passes_changes_required_failure_state(monkeypatch, tmp_path):
@@ -1490,10 +1499,12 @@ def test_productive_nonzero_contract_order_exact_scope_validator_runs_before_pre
     monkeypatch.setattr(bridge, "validate_executor_worktree_delta", tracked_validate)
     monkeypatch.setattr(bridge, "is_productive_nonzero_recovery_candidate", tracked_predicate)
 
-    res = bridge.cmd_execute(execute_args())
+    with pytest.raises(SystemExit):
+        bridge.cmd_execute(execute_args())
     assert call_order == ["validate_executor_worktree_delta", "is_productive_nonzero_recovery_candidate"]
     assert calls["invoke"] == 1
-    assert len(calls["publish"]) == 1
+    assert calls["publish"] == []
+    assert calls["state"][-1][0] == "RECOVERY_REQUIRED"
 
 
 def test_productive_nonzero_exact_scope_failure_blocks_before_predicate(monkeypatch, tmp_path):
