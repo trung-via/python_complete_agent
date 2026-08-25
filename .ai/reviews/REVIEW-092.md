@@ -1,20 +1,20 @@
 # REVIEW-092 — Lean Review Slice D: Compact Evidence, Supersession, Guardrail Learning & Blocked Recovery
 PUBLISHER_PROFILE: CANONICAL_E4
-STATUS: CHANGES_REQUIRED
-APPROVED: NO
-AUTO_MERGE_ELIGIBLE: NO
+STATUS: SEMANTICALLY_ACCEPTED_PENDING_T2
+APPROVED: YES
+AUTO_MERGE_ELIGIBLE: YES
 MERGE_AUTHORIZED: NO
 MERGED_TO_MAIN: NO
 TASK_ID: TASK-092
-REVIEW_ROUND: 2
-REVIEWED_TASK_HEAD_SHA: fce4526170213ae67db607bad3568330f4a12ca6
+REVIEW_ROUND: 3
+REVIEWED_TASK_HEAD_SHA: b6c060fed441437b859c56ff37578b5c1dcfa990
 REVIEWED_BASE_MAIN_SHA: 5570e64bec7522caf6b4ebda3b2f34ec45a11ebf
 TASK_ARTIFACT_BLOB_SHA: 8031684cf59cc6259b8d870b0ceacd47a7d767c3
-RESULT_BLOB_SHA: 09a8ad1c333f480a3d4776949b68ae6f7df9c585
+RESULT_BLOB_SHA: dee382e96ffef001fc573996a2d79393b6d84752
 EXECUTOR_ID: antigravity
-BLOCKERS_REMAINING: 2
-CODE_AUDIT: CHANGES_REQUIRED
-CANONICAL_TESTS: DEFERRED_PENDING_SEMANTIC_ACCEPTANCE
+BLOCKERS_REMAINING: 0
+CODE_AUDIT: PASS
+CANONICAL_TESTS: PENDING_CERTIFICATION
 ROADMAP_AUDIT: PASS
 ROADMAP_ID: AIOS-BRIDGE-LEAN-EXECUTION
 ROADMAP_VERSION: 1.2
@@ -23,128 +23,92 @@ ROADMAP_FINGERPRINT: 89c9372c074ecb43778705f07c6fded67e4af7833c0feb72a92a9ae2e73
 MILESTONE: P1
 CAPABILITY_ID: P1_UNIFIED_VALIDATION_CAPABILITY_BATCH
 REQUIREMENT_BINDINGS_FINGERPRINT: 82ada616254ac56f89c78c05c9c01f4707b923aa4db8804ed5a18067a3e05ec3
-FIX_EXECUTION_MODE: IMPLEMENTATION
 TASK_087_PREREQUISITE_ELIGIBLE: NO
 P1_FORMAL_COMPLETION: NO
 P2_P3_AUTHORIZED: NO
 H5_H8_AUTHORIZED: NO
-EXECUTOR_CONTEXT_REFS_JSON: [{"path":".ai/tasks/TASK-092.md","blob_sha":"8031684cf59cc6259b8d870b0ceacd47a7d767c3"}]
-EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py","tests/aios_bridge/test_lean_review_integration.py","tests/test_bridge_executor_automation.py","tests/test_bridge.py"]
-DISPATCH_EXECUTOR_POLICY_JSON: {"allow_paid_api":false,"candidates":[{"capacity_class":"SUBSCRIPTION","executor_id":"antigravity","preference_rank":0,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]},{"capacity_class":"SUBSCRIPTION","executor_id":"codex","preference_rank":1,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]}],"operation":"FIX","required_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"]}
-
-FIX_REVIEW_MODE: PROOF_REUSE_DELTA_IMPACT
-FIX_CONTEXT_PACK_JSON: {"schema_version":"1","previous_reviewed_head_sha":"fce4526170213ae67db607bad3568330f4a12ca6","impact_confidence":"KNOWN","open_finding_ids":["B1","B3"],"affected_paths":["bridge.py","tests/aios_bridge/test_lean_review_integration.py","tests/test_bridge_executor_automation.py","tests/test_bridge.py"],"protected_accepted_paths":["src/aios_bridge/result_evidence.py","src/aios_bridge/certification_job.py","src/aios_bridge/blocked_recovery.py","src/aios_bridge/review_learning.py","src/aios_bridge/review_pipeline.py","tests/aios_bridge/test_result_evidence.py","tests/aios_bridge/test_blocked_recovery.py","tests/aios_bridge/test_review_learning.py","tests/aios_bridge/test_review_pipeline.py"],"required_test_paths":["tests/aios_bridge/test_result_evidence.py","tests/aios_bridge/test_lean_review_integration.py","tests/test_bridge_executor_automation.py","tests/test_bridge.py"],"unknown_impact_fallback_test_paths":["tests/aios_bridge/test_result_evidence.py","tests/aios_bridge/test_lean_review_integration.py","tests/aios_bridge/test_certification_job.py","tests/test_bridge_executor_automation.py","tests/test_bridge.py"],"proof_bindings":[]}
 
 ## Snapshot
 
 ```text
-HEAD: fce4526170213ae67db607bad3568330f4a12ca6
-PREVIOUS_REVIEWED_HEAD: 65abd6f6f39c6103a29d925f618927f22de42aa0
+HEAD: b6c060fed441437b859c56ff37578b5c1dcfa990
+PREVIOUS_REVIEWED_HEAD: fce4526170213ae67db607bad3568330f4a12ca6
 BASE_MAIN: 5570e64bec7522caf6b4ebda3b2f34ec45a11ebf
-FIX_DELTA_COMMITS: 1
+MERGE_BASE: 5570e64bec7522caf6b4ebda3b2f34ec45a11ebf
+AHEAD_FROM_PREVIOUS_REVIEW: 1
+AHEAD_FROM_MAIN: 3
+BEHIND_MAIN: 0
+MAIN_DRIFT: NO
 CANDIDATE_STAGE_AIOS_MANAGED_T2_EXECUTION_COUNT: 0
 CERTIFICATION_DEFERRED: YES
-LATEST_EXECUTOR: antigravity
 ```
 
-Round 2 is a Delta + Impact review. B2 and the accepted parts of B1/B3 are closed and MUST NOT be reopened unless this bounded FIX touches or regresses them.
+Round 3 is a Delta + Impact semantic review of the two remaining Round-2 repairs. Previously accepted B2 and protected Slice-D surfaces remain closed because this FIX changes only `bridge.py`, its focused bridge regression tests, and regenerated RESULT evidence.
 
-## Closed Findings
+## Finding Closure
 
-### B2 — CLOSED
+### B1 — CLOSED
 
-Stale terminal PASS/FAILED for a different candidate is now archived as non-current provenance and the new exact candidate may create its own PENDING job. Exact current PASS remains idempotent; exact current FAILED remains non-retryable; stale RUNNING still fails closed without invented cancellation.
-
-### B1a — CLOSED: compact-head role and parser strictness
-
-Schema v2 preserves the TASK-required `candidate_head_sha`, explicitly classifies it as `PRE_PUBLICATION_CONTENT_HEAD`, binds final published-head authority externally, ignores fenced authority markers, rejects duplicate JSON keys, and retains one compact machine source.
-
-### B3a — CLOSED: normal Exception-path rollback and live blocked replacement
-
-The successful Antigravity FIX proves the explicit-Human blocked-executor replacement path can recover from the prior Codex clean no-op. Handoff context construction is now inside the post-acquire transaction, and ordinary Python exceptions trigger deterministic lease/auth/state rollback.
-
-## Remaining Blocking Findings
-
-### B1 — Exact FIX base-main evidence is being degraded to UNKNOWN even though the exact base is available
-
-The live compact RESULT for this candidate records:
+Compact RESULT schema v2 still preserves TASK-092's required `candidate_head_sha`, explicitly classifies it as `PRE_PUBLICATION_CONTENT_HEAD`, and keeps final published-head authority external through Git/ref + REVIEW/certification/merge exact-head checks. The current FIX RESULT now also records the exact governed review base:
 
 ```text
-base_main_sha = UNKNOWN
+base_main_sha = 5570e64bec7522caf6b4ebda3b2f34ec45a11ebf
+candidate_head_sha = fce4526170213ae67db607bad3568330f4a12ca6
+candidate_head_role = PRE_PUBLICATION_CONTENT_HEAD
+published_head_binding = EXTERNAL_GIT_COMMIT
 ```
 
-But this FIX is bound by the authoritative review to exact base main `5570e64bec7522caf6b4ebda3b2f34ec45a11ebf`. The task allows UNKNOWN only when the value is unavailable by contract; for governed review-first FIX it is available from the exact review/base binding.
+The embedded candidate head is therefore non-self-referential and no longer mislabels the final published commit. The schema/parser hardening from Round 1 remains protected: exactly one unfenced authority marker, duplicate JSON keys rejected, and closed schema fields.
 
-Required repair:
+### B3 — CLOSED
+
+`cmd_handoff()` now covers both ordinary exceptions and canonical `SystemExit` emitted by `bridge.fail()` across RUN, same-executor FIX, and failover FIX post-acquire/pre-start context boundaries. On a `SystemExit`, Bridge calls `_rollback_proven_pre_start_failure()` before re-raising, so the newly acquired lease is released and prior authorization/state is restored/read-back verified while the executor is still provably not started.
+
+Focused regressions exercise `bridge.fail()`/`SystemExit`, restoration of prior authorization/state, and both Antigravity and Codex no-stale-lease behavior. Existing uncertain-start behavior remains fail-closed through `RECOVERY_REQUIRED`; this repair creates no retry or reroute authority.
+
+## Delta / Impact Audit
+
+The Round-3 FIX is exactly one commit on previous reviewed head `fce45261...` and modifies implementation/test surfaces only within the Round-2 affected envelope:
 
 ```text
-RUN compact evidence -> exact handoff-bound base_main_sha
-FIX compact evidence -> exact REVIEWED_BASE_MAIN_SHA / equivalent validated bound base
-UNKNOWN -> only when the lifecycle genuinely has no exact base by contract
+bridge.py
+tests/test_bridge.py
 ```
 
-Do not change ResultEvidence schema v2. Propagate the exact already-validated base into FIX authorization/publication evidence. Add a behavioral regression proving review-first FIX RESULT emits the exact reviewed base rather than UNKNOWN.
+`RESULT-092.md` is regenerated by the publication boundary. Protected `result_evidence.py`, certification-job contracts, blocked-recovery contracts, finding/risk/guardrail learning, review lifecycle, roadmap authority and exact-head merge semantics were not reopened by the implementation delta.
 
-### B3 — Handoff rollback misses SystemExit-class deterministic failures and therefore can still leak a pre-start lease
-
-The new handoff transaction currently wraps `cmd_context(args)` with `except Exception`. However Bridge's canonical `fail()` terminates by raising `SystemExit`, which is not an `Exception`. `cmd_context()` calls `current_branch()`, and `current_branch()` uses checked Git; a deterministic Git failure reaches `fail()` and can therefore escape the rollback handler even though no executor has started.
-
-Required repair:
+The current RESULT is the live compact-evidence proof for this FIX:
 
 ```text
-post-acquire pre-start deterministic CLI failure (SystemExit included)
-+ executor provably not started
--> release exact newly acquired lease
--> restore prior authorization/state
--> read-back verify
--> then re-raise/fail
-
-KeyboardInterrupt / uncertain start state
--> do not silently classify as safe deterministic rollback
+executor_id: antigravity
+targeted_test_status: PASS
+publication_trust_status: VERIFIED
+base_main_sha: 5570e64bec7522caf6b4ebda3b2f34ec45a11ebf
+candidate_stage_aios_managed_t2_execution_count: 0
+certification_deferred: true
+semantic_review_required: true
 ```
 
-Do not broadly swallow BaseException. Handle the Bridge's intentional SystemExit failure channel explicitly, alongside normal Exception failures.
+No raw pytest output, transport stream, final-agent prose, or model reasoning is persisted in the authoritative RESULT.
 
-Required regressions must exercise real handoff behavior:
+## Semantic Decision
 
-```text
-HANDOFF_CONTEXT_SYSTEMEXIT_BEFORE_START_RELEASES_NEW_LEASE
-HANDOFF_CONTEXT_SYSTEMEXIT_RESTORES_PRIOR_AUTH_AND_STATE
-ANTIGRAVITY_SYSTEMEXIT_PRE_START_HAS_NO_STALE_LEASE
-CODEX_SYSTEMEXIT_PRE_START_HAS_NO_STALE_LEASE
-NORMAL_EXCEPTION_PRE_START_ROLLBACK_REMAINS_GREEN
-NO_AUTO_RETRY_OR_REROUTE
-```
-
-## Protected Accepted Surfaces
+All known Slice-D blockers are closed. This acceptance is NON-AUTHORITATIVE for merge until exact-candidate certification completes.
 
 ```text
-compact ResultEvidence schema-v2 field contract and strict parser
-certification supersession / exact-pass idempotency / exact-failed no-retry
-finding lifecycle + risk evidence
-bounded guardrail-promotion recommendation
-structured clean-no-op blocker evidence
-explicit-Human blocked-executor replacement
-proof-reuse + Delta/Impact semantics
-review-first T2=0 candidate publication
-roadmap v1.2 / scope / lease / publication-trust / exact-head merge safety
-TASK-087, P2/P3 and H5-H8 remain unopened
-```
-
-## Validation
-
-Use only Slice-C selected impacted T1. Full canonical T2 remains forbidden until B1 and B3 close and semantic acceptance is issued.
-
-## Decision
-
-```text
-TASK-092: CHANGES_REQUIRED
-OPEN: B1 B3
-CLOSED: B2 B1a B3a
-FINAL_T2_NOW: NO
-CERTIFICATION_NOW: NO
-MERGE: NO
-NEXT: FIX TASK-092 using the latest Round-2 review
+TASK-092: SEMANTICALLY_ACCEPTED_PENDING_T2
+OPEN_BLOCKERS: 0
+FINAL_T2_NOW: YES — via provider-neutral bridge.py certify-reviewed 92 only
+MERGE_NOW: NO
 TASK_087: DO_NOT_RUN
 P1_FORMAL_COMPLETION: NO
+```
+
+Next deterministic boundary:
+
+```text
+bridge.py certify-reviewed 92
+  -> full canonical T2 exactly once for b6c060fed441437b859c56ff37578b5c1dcfa990
+  -> exact post-T2 subject/trust revalidation
+  -> CERTIFICATION_PASS required before merge-reviewed 92
 ```
