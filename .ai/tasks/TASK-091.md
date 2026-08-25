@@ -59,7 +59,7 @@ No full canonical T2 is authorized during RUN/FIX candidate publication for TASK
 ## Machine-Readable E4 Inputs
 
 EXECUTOR_CONTEXT_REFS_JSON: [{"path":".ai/roadmaps/AIOS-BRIDGE-LEAN-EXECUTION-v1.2.md","blob_sha":"41bf467f3dd4fc8aea165ac65c37e0e2a5a3ef5c"},{"path":".ai/roadmaps/AIOS-BRIDGE-LEAN-EXECUTION-v1.2.completions.json","blob_sha":"6b5fb5f99ec17cacca632e3b7a1953131b82c9b7"},{"path":".ai/roadmaps/CANONICAL-ROADMAP-REGISTRY-v1.json","blob_sha":"09180853439a383bb459094cb96fa2bd705afdd4"},{"path":".ai/decisions/ADR-065-AIOS-LEAN-REVIEW-PIPELINE-ACTIVATION-BOUNDED-SLICES.md","blob_sha":"947b3ec5b63ddd628838a533822e37499a837a74"}]
-EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py","src/aios_bridge/fix_review.py","src/aios_bridge/review_pipeline.py","src/aios_bridge/executor_context.py","src/aios_bridge/executor_automation.py","tests/aios_bridge/test_fix_review.py","tests/aios_bridge/test_review_pipeline.py","tests/aios_bridge/test_executor_context.py","tests/aios_bridge/test_executor_automation.py","tests/aios_bridge/test_lean_review_integration.py"]
+EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py","src/aios_bridge/fix_review.py","src/aios_bridge/review_pipeline.py","src/aios_bridge/executor_context.py","src/aios_bridge/executor_automation.py","tests/aios_bridge/test_fix_review.py","tests/aios_bridge/test_review_pipeline.py","tests/aios_bridge/test_executor_context_pack.py","tests/aios_bridge/test_executor_automation.py","tests/aios_bridge/test_lean_review_integration.py"]
 DISPATCH_EXECUTOR_POLICY_JSON: {"allow_paid_api":false,"candidates":[{"capacity_class":"SUBSCRIPTION","executor_id":"codex","preference_rank":0,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["RUN"]},{"capacity_class":"SUBSCRIPTION","executor_id":"antigravity","preference_rank":1,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["RUN"]}],"operation":"RUN","required_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"]}
 
 ## Purpose
@@ -352,7 +352,7 @@ TASK_087_NOT_IMPLEMENTED: PASS
 At minimum run:
 
 ```text
-venv\Scripts\python.exe -m pytest tests/aios_bridge/test_fix_review.py tests/aios_bridge/test_review_pipeline.py tests/aios_bridge/test_executor_context.py tests/aios_bridge/test_executor_automation.py tests/aios_bridge/test_lean_review_integration.py -q
+venv\Scripts\python.exe -m pytest tests/aios_bridge/test_fix_review.py tests/aios_bridge/test_review_pipeline.py tests/aios_bridge/test_executor_context_pack.py tests/aios_bridge/test_executor_automation.py tests/aios_bridge/test_lean_review_integration.py -q
 ```
 
 Run additional bounded impacted tests if implementation touches an existing shared helper.
