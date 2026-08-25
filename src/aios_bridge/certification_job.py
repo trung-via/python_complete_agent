@@ -309,9 +309,11 @@ class CertificationJob:
                 or self.duration_seconds is None
             ):
                 raise _error("terminal certification requires complete bounded T2 evidence")
-            expected_success = self.status is CertificationJobStatus.CERTIFICATION_PASS
-            if self.t2_succeeded is not expected_success:
-                raise _error("terminal status and T2 success fact disagree")
+            if (
+                self.status is CertificationJobStatus.CERTIFICATION_PASS
+                and not self.t2_succeeded
+            ):
+                raise _error("passing certification requires successful T2 evidence")
             if (self.t2_exit_status == 0) is not self.t2_succeeded:
                 raise _error("T2 exit status and success fact disagree")
         elif any(
@@ -372,7 +374,7 @@ class CertificationJob:
         if type(data) is not dict or set(data) != fields:
             raise _error("CertificationJob must contain the exact bounded field set")
         try:
-            return cls(
+            job = cls(
                 job_id=data["job_id"],
                 task_id=data["task_id"],
                 candidate_head_sha=data["candidate_head_sha"],
@@ -392,6 +394,7 @@ class CertificationJob:
                 model_poll_count=data["model_poll_count"],
                 executor_poll_count=data["executor_poll_count"],
             )
+            return require_valid_terminal_result_digest(job)
         except (TypeError, ValueError) as exc:
             raise _error(f"malformed CertificationJob: {exc}") from exc
 
@@ -492,6 +495,33 @@ def build_terminal_result_digest(
     }
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def require_valid_terminal_result_digest(job: CertificationJob) -> CertificationJob:
+    """Fail closed unless persisted terminal facts match their exact digest."""
+    if type(job) is not CertificationJob:
+        raise _error("job must be an exact CertificationJob")
+    if job.status not in {
+        CertificationJobStatus.CERTIFICATION_PASS,
+        CertificationJobStatus.CERTIFICATION_FAILED,
+    }:
+        return job
+    if (
+        job.t2_exit_status is None
+        or job.t2_succeeded is None
+        or job.duration_seconds is None
+    ):
+        raise _error("terminal digest verification requires complete bounded facts")
+    expected = build_terminal_result_digest(
+        status=job.status,
+        t2_exit_status=job.t2_exit_status,
+        t2_succeeded=job.t2_succeeded,
+        duration_seconds=job.duration_seconds,
+        aios_managed_t2_execution_count=job.aios_managed_t2_execution_count,
+    )
+    if job.terminal_result_digest != expected:
+        raise _error("terminal_result_digest does not match bounded terminal facts")
+    return job
 
 
 def require_exact_certification_candidate(

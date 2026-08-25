@@ -103,6 +103,7 @@ from src.aios_bridge.certification_job import (
     build_certification_command_identity,
     build_terminal_result_digest,
     require_certification_preflight,
+    require_valid_terminal_result_digest,
     transition_certification_job,
 )
 from src.aios_bridge.roadmap_governance import (
@@ -4835,6 +4836,30 @@ def _validation_result_manifest(evidence: ValidationEvidence) -> str:
     )
 
 
+def _publication_tests_result_block(
+    *,
+    requested_command: str | None,
+    test_output: str,
+    test_rc: int,
+    certification_deferred: bool,
+) -> str:
+    """Render observed execution separately from review-first deferred T2."""
+    command = requested_command or "(not supplied)"
+    if certification_deferred:
+        return f"""Command: `{command}`
+Execution status: NOT_EXECUTED (DEFERRED_TO_CERTIFY_REVIEWED)
+
+```text
+{test_output}
+```"""
+    return f"""Command: `{command}`
+Exit code: {test_rc}
+
+```text
+{test_output}
+```"""
+
+
 def cmd_publish(args):
     ensure_git()
     cfg = load_config()
@@ -5359,6 +5384,12 @@ EXECUTOR_ID: {active_exec}
         if review_first
         else "READY_FOR_REVIEW"
     )
+    tests_result_block = _publication_tests_result_block(
+        requested_command=args.test,
+        test_output=test_output,
+        test_rc=test_rc,
+        certification_deferred=certification_deferred,
+    )
     result_content = (
         f"""# RESULT-{task_id:03d}
 
@@ -5395,12 +5426,7 @@ STATUS: {result_status}
 ```
 
 ## Tests
-Command: `{args.test or '(not supplied)'}`
-Exit code: {test_rc}
-
-```text
-{test_output}
-```
+{tests_result_block}
 
 ## Validation Evidence
 ```json
@@ -5496,7 +5522,7 @@ def _load_certification_job(task_num: int) -> CertificationJob | None:
         return None
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-        return CertificationJob.from_dict(data)
+        return require_valid_terminal_result_digest(CertificationJob.from_dict(data))
     except Exception as exc:
         raise ContinuityStateValidationError(
             f"certification job is malformed or unreadable: {exc}"
@@ -5756,6 +5782,26 @@ def _preflight_certify_reviewed(task_num: int) -> dict[str, object]:
     }
 
 
+def _post_t2_revalidate_certification_subject(
+    task_num: int,
+    expected: dict[str, object],
+) -> None:
+    """Re-run all trust checks and require the exact pre-T2 subject binding."""
+    observed = _preflight_certify_reviewed(task_num)
+    exact_keys = (
+        "task_id",
+        "candidate_head_sha",
+        "candidate_fingerprint",
+        "validation_plan",
+        "command",
+        "command_identity",
+    )
+    if any(observed.get(key) != expected.get(key) for key in exact_keys):
+        raise ContinuityStateValidationError(
+            "exact certification subject changed while T2 was running"
+        )
+
+
 def cmd_certify_reviewed(args):
     """Run one exact blocking T2 job with no model/executor completion polling."""
     task_num = args.task_id
@@ -5821,7 +5867,13 @@ def cmd_certify_reviewed(args):
     except Exception as exc:
         fail(f"T2 process launch/wait failed; job remains RUNNING and cannot retry: {exc}")
     duration = round(time.monotonic() - started, 6)
-    succeeded = proc.returncode == 0
+    t2_succeeded = proc.returncode == 0
+    post_t2_trust_error = None
+    try:
+        _post_t2_revalidate_certification_subject(task_num, context)
+    except Exception as exc:
+        post_t2_trust_error = exc
+    succeeded = t2_succeeded and post_t2_trust_error is None
     terminal_status = (
         CertificationJobStatus.CERTIFICATION_PASS
         if succeeded
@@ -5830,7 +5882,7 @@ def cmd_certify_reviewed(args):
     digest = build_terminal_result_digest(
         status=terminal_status,
         t2_exit_status=proc.returncode,
-        t2_succeeded=succeeded,
+        t2_succeeded=t2_succeeded,
         duration_seconds=duration,
         aios_managed_t2_execution_count=1,
     )
@@ -5840,7 +5892,7 @@ def cmd_certify_reviewed(args):
         completed_at=now(),
         terminal_result_digest=digest,
         t2_exit_status=proc.returncode,
-        t2_succeeded=succeeded,
+        t2_succeeded=t2_succeeded,
         duration_seconds=duration,
     )
     try:
@@ -5852,11 +5904,20 @@ def cmd_certify_reviewed(args):
         update_state(
             task_num,
             "CERTIFICATION_FAILED",
-            "Exact candidate T2 failed; no automatic retry or reroute",
+            (
+                "Post-T2 exact subject/trust revalidation failed; no automatic retry or reroute"
+                if post_t2_trust_error is not None
+                else "Exact candidate T2 failed; no automatic retry or reroute"
+            ),
         )
         output = ((proc.stdout or "") + ("\n" + proc.stderr if proc.stderr else "")).strip()
         if output:
             print(output[-30000:])
+        if post_t2_trust_error is not None:
+            fail(
+                "CERTIFICATION_FAILED after post-T2 subject/trust drift; "
+                f"merge authority was not created: {post_t2_trust_error}"
+            )
         fail("CERTIFICATION_FAILED; merge authority was not created")
     update_state(
         task_num,

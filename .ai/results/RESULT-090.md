@@ -5,7 +5,7 @@ STATUS: READY_FOR_REVIEW
 ## Review Manifest
 ```yaml
 TASK_ID: TASK-090
-ACTION: RUN
+ACTION: FIX
 EXECUTOR_ID: codex
 EXECUTOR_FAILOVER: NO
 HOT_HANDOFF: NO
@@ -18,7 +18,7 @@ EXECUTOR_AD_HOC_T2_OBSERVABILITY: UNAVAILABLE
 EXECUTOR_AD_HOC_T2_EXECUTION_COUNT: UNKNOWN
 GLOBAL_T2_EXECUTION_COUNT: UNKNOWN
 TARGETED_TEST_EXECUTION_COUNT: UNKNOWN
-FULL_SUITE_DURATION_SECONDS: 436.0556118000022
+FULL_SUITE_DURATION_SECONDS: 306.5121098999989
 TARGETED_TEST_DURATION_SECONDS: UNKNOWN
 ```
 
@@ -27,33 +27,25 @@ Implementation completed by codex through E4 approved automatic execution; pendi
 
 ## Task Metadata
 - Task: `TASK-090`
-- Action: `RUN`
+- Action: `FIX`
 - Executor: `codex`
-- Authorized Artifact: `.ai/tasks/TASK-090.md (c2c633af4d)`
-- Base Main SHA: `bb4a30775c2deb2a37ebe763d1a74ce7e64d6ebe`
+- Authorized Artifact: `.ai/reviews/REVIEW-090.md (1f7f75f3b9)`
+- Base Main SHA: `(n/a)`
 - Branch: `ai/task-090`
 
 ## Files Changed
 - bridge.py
 - src/aios_bridge/certification_job.py
-- src/aios_bridge/review_pipeline.py
-- src/aios_bridge/validation.py
 - tests/aios_bridge/test_certification_job.py
 - tests/aios_bridge/test_lean_review_integration.py
-- tests/aios_bridge/test_review_pipeline.py
-- tests/aios_bridge/test_validation.py
 
 ## Diff Stat
 ```text
-bridge.py                                         | 577 +++++++++++++++++++++-
- src/aios_bridge/certification_job.py              | 283 ++++++++++-
- src/aios_bridge/review_pipeline.py                | 104 ++++
- src/aios_bridge/validation.py                     |  44 +-
- tests/aios_bridge/test_certification_job.py       |  59 +++
- tests/aios_bridge/test_lean_review_integration.py | 271 ++++++++++
- tests/aios_bridge/test_review_pipeline.py         |  81 +++
- tests/aios_bridge/test_validation.py              |  46 ++
- 8 files changed, 1443 insertions(+), 22 deletions(-)
+bridge.py                                         |  83 ++++++++++++++---
+ src/aios_bridge/certification_job.py              |  38 +++++++-
+ tests/aios_bridge/test_certification_job.py       |  39 +++++++-
+ tests/aios_bridge/test_lean_review_integration.py | 107 ++++++++++++++++++++--
+ 4 files changed, 239 insertions(+), 28 deletions(-)
 ```
 
 ## Tests
@@ -70,35 +62,35 @@ Exit code: 0
 ........................................................................ [ 18%]
 ........................................................................ [ 21%]
 ........................................................................ [ 24%]
-........................................................................ [ 27%]
+........................................................................ [ 26%]
 ........................................................................ [ 29%]
 ........................................................................ [ 32%]
-....................................................................ss.. [ 35%]
-....................................s................................... [ 37%]
+........................................................................ [ 35%]
+.ss......................................s.............................. [ 37%]
 ........................................................................ [ 40%]
 ........................................................................ [ 43%]
 ........................................................................ [ 45%]
 ........................................................................ [ 48%]
 ........................................................................ [ 51%]
-........................................................................ [ 54%]
+........................................................................ [ 53%]
 ........................................................................ [ 56%]
 ........................................................................ [ 59%]
-........................................................................ [ 62%]
+........................................................................ [ 61%]
 ........................................................................ [ 64%]
 ........................................................................ [ 67%]
 ........................................................................ [ 70%]
 ........................................................................ [ 72%]
 ........................................................................ [ 75%]
 ........................................................................ [ 78%]
-........................................................................ [ 81%]
+........................................................................ [ 80%]
 ........................................................................ [ 83%]
 ........................................................................ [ 86%]
-........................................................................ [ 89%]
+........................................................................ [ 88%]
 ........................................................................ [ 91%]
 ........................................................................ [ 94%]
 ........................................................................ [ 97%]
 ........................................................................ [ 99%]
-..                                                                       [100%]
+.......                                                                  [100%]
 ============================== warnings summary ===============================
 tests/aios_bridge/continuity/test_brain.py::test_valid_neutral_brain_request_and_result_round_trip
   C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:1153: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
@@ -401,7 +393,7 @@ tests/integration/test_phase6_bootstrap.py: 18 warnings
     return self.get_arguments_schema().schema()
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-2659 passed, 7 skipped, 1540 warnings in 423.23s (0:07:03)
+2664 passed, 7 skipped, 1540 warnings in 293.54s (0:04:53)
 
 C:\Users\TRUNG\.gemini\antigravity\scratch\python_complete_agent\venv\Lib\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
 The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
@@ -411,20 +403,20 @@ The event loop scope for asynchronous fixtures will default to the fixture cachi
 
 ## Validation Evidence
 ```json
-{"action":"RUN","aios_managed_t2_duplication_detected":false,"aios_managed_t2_execution_count":1,"evidence_scope":"AIOS_MANAGED_VALIDATION_AND_EXECUTOR_AD_HOC_BOUNDARY","executor_ad_hoc_t2_execution_count":"UNKNOWN","executor_ad_hoc_t2_observability":"UNAVAILABLE","executor_id":"codex","expected_aios_managed_t2_execution_count":1,"full_canonical_owner":"CERTIFICATION_BOUNDARY","full_suite_duration_seconds":436.0556118000022,"global_t2_execution_count":"UNKNOWN","targeted_test_duration_seconds":"UNKNOWN","targeted_test_execution_count":"UNKNOWN","task_id":"TASK-090","validation_profile":"CONTROL_PLANE_STRICT_COMPAT"}
+{"action":"FIX","aios_managed_t2_duplication_detected":false,"aios_managed_t2_execution_count":1,"evidence_scope":"AIOS_MANAGED_VALIDATION_AND_EXECUTOR_AD_HOC_BOUNDARY","executor_ad_hoc_t2_execution_count":"UNKNOWN","executor_ad_hoc_t2_observability":"UNAVAILABLE","executor_id":"codex","expected_aios_managed_t2_execution_count":1,"full_canonical_owner":"CERTIFICATION_BOUNDARY","full_suite_duration_seconds":306.5121098999989,"global_t2_execution_count":"UNKNOWN","targeted_test_duration_seconds":"UNKNOWN","targeted_test_execution_count":"UNKNOWN","task_id":"TASK-090","validation_profile":"CONTROL_PLANE_STRICT_COMPAT"}
 ```
 
 ## Risks / Notes
 E4_AUTO_EXECUTION: YES
-E4_CONTROL_COMMIT_SHA: 93a9e453b0a34ded652a437817532d1bfbf4948a
-E4_CONTEXT_MANIFEST_FINGERPRINT: 9a0571db55340f14fc312b6a9240d190a3c612028f4260521148b8f1f95e87aa
-E4_INVOCATION_FINGERPRINT: 9adc042a1d428b9f36239b68ddac65dfcc7989b7a07774dce6cde76b324594ed
-E4_INVOCATION_RECEIPT_FINGERPRINT: 6beacb52d191b312debffacfe8a03a5c50b6ec226cd630efa678b7cd68bdd5af
+E4_CONTROL_COMMIT_SHA: 1ffbb2612b75f191da55ed623aceffcede7e93df
+E4_CONTEXT_MANIFEST_FINGERPRINT: 537c4efa6a7eb0d57e5604f06bf5f6f894d7475fea5bec5a771a5cf54d51a289
+E4_INVOCATION_FINGERPRINT: 7e667e9cc66d5535478233afd23fbd60d6fa3c0ae2e46b5ffd52a66df81b5955
+E4_INVOCATION_RECEIPT_FINGERPRINT: 27ace94973c1b9bed976d40e5a6c284ef35f91ff53153935e88b41295777cf7b
 E4_TRANSPORT_STATUS: EXITED_ZERO
-E4_PRE_EXECUTION_HEAD: bb4a30775c2deb2a37ebe763d1a74ce7e64d6ebe
+E4_PRE_EXECUTION_HEAD: 770dcbcf366fece68a379e7c59d5ef0e7773a615
 E4_ALLOWED_SCOPE_VERIFIED: PASS
 E4_PUBLICATION_TRUST_VERIFIED: PASS
-E4_DIRTY_PATH_COUNT: 8
+E4_DIRTY_PATH_COUNT: 4
 
 ## Generated
-2026-08-25T07:27:17+07:00
+2026-08-25T07:53:50+07:00

@@ -13,6 +13,7 @@ from src.aios_bridge.certification_job import (
     CertificationPreflightEvidence,
     build_candidate_fingerprint,
     build_certification_command_identity,
+    build_terminal_result_digest,
     require_certification_preflight,
 )
 from src.aios_bridge.review_pipeline import (
@@ -92,13 +93,23 @@ def passed_job(**overrides):
         "status": CertificationJobStatus.CERTIFICATION_PASS,
         "started_at": "2026-08-25T00:00:00Z",
         "completed_at": "2026-08-25T00:00:01Z",
-        "terminal_result_digest": "e" * 64,
+        "terminal_result_digest": None,
         "aios_managed_t2_execution_count": 1,
         "t2_exit_status": 0,
         "t2_succeeded": True,
         "duration_seconds": 1.0,
     }
     values.update(overrides)
+    if values["terminal_result_digest"] is None:
+        values["terminal_result_digest"] = build_terminal_result_digest(
+            status=values["status"],
+            t2_exit_status=values["t2_exit_status"],
+            t2_succeeded=values["t2_succeeded"],
+            duration_seconds=values["duration_seconds"],
+            aios_managed_t2_execution_count=values[
+                "aios_managed_t2_execution_count"
+            ],
+        )
     return CertificationJob(**values)
 
 
@@ -162,6 +173,50 @@ def test_certification_job_runs_t2_exactly_once_is_idempotent_and_persists_no_st
     assert CERTIFICATION_WAIT_CONTRACT.executor_completion_polling_required is False
 
 
+@pytest.mark.parametrize(
+    "post_t2_error",
+    (
+        "certification requires a clean worktree",
+        "reviewed task head drifted after T2",
+    ),
+)
+def test_post_t2_local_or_authoritative_drift_cannot_create_pass(
+    tmp_path, monkeypatch, post_t2_error
+):
+    job_path = tmp_path / "runtime" / "TASK-091" / "job.json"
+    preflight_calls = 0
+
+    def preflight_then_drift(_):
+        nonlocal preflight_calls
+        preflight_calls += 1
+        if preflight_calls == 1:
+            return certification_context()
+        raise bridge.ContinuityStateValidationError(post_t2_error)
+
+    monkeypatch.setattr(bridge, "_preflight_certify_reviewed", preflight_then_drift)
+    monkeypatch.setattr(bridge, "_certification_job_path", lambda _: job_path)
+    monkeypatch.setattr(bridge, "update_state", lambda *args: None)
+    monkeypatch.setattr(bridge, "now", lambda: "2026-08-25T00:00:00Z")
+    monkeypatch.setattr(
+        bridge,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout="", stderr=""),
+    )
+
+    with pytest.raises(SystemExit):
+        bridge.cmd_certify_reviewed(SimpleNamespace(task_id=91))
+
+    terminal = CertificationJob.from_dict(
+        json.loads(job_path.read_text(encoding="utf-8"))
+    )
+    assert preflight_calls == 2
+    assert terminal.status is CertificationJobStatus.CERTIFICATION_FAILED
+    assert terminal.t2_exit_status == 0
+    assert terminal.t2_succeeded is True
+    assert terminal.aios_managed_t2_execution_count == 1
+    assert terminal.creates_certification_authority is False
+
+
 def test_failed_certification_has_no_automatic_retry_or_merge_authority(
     tmp_path, monkeypatch
 ):
@@ -207,6 +262,25 @@ def test_existing_job_for_different_candidate_fails_without_t2(tmp_path, monkeyp
         bridge.cmd_certify_reviewed(SimpleNamespace(task_id=91))
 
 
+def test_loaded_pass_digest_mismatch_is_rejected_before_authority(tmp_path, monkeypatch):
+    job_path = tmp_path / "runtime" / "TASK-091" / "job.json"
+    job_path.parent.mkdir(parents=True)
+    monkeypatch.setattr(bridge, "_certification_job_path", lambda _: job_path)
+    valid = passed_job().to_dict()
+    job_path.write_text(json.dumps(valid), encoding="utf-8")
+    assert bridge._load_certification_job(91) == passed_job()
+
+    job_path.write_text(
+        json.dumps({**valid, "terminal_result_digest": "0" * 64}),
+        encoding="utf-8",
+    )
+    with pytest.raises(
+        bridge.ContinuityStateValidationError,
+        match="terminal_result_digest does not match",
+    ):
+        bridge._load_certification_job(91)
+
+
 def test_semantic_acceptance_or_failed_certification_cannot_derive_final_pass():
     kwargs = {
         "task_id": "TASK-091",
@@ -218,13 +292,10 @@ def test_semantic_acceptance_or_failed_certification_cannot_derive_final_pass():
         "validation_profile": ValidationProfile.CONTROL_PLANE_STRICT_COMPAT,
         "certification_command_identity": COMMAND_ID,
     }
-    failed = CertificationJob.from_dict(
-        {
-            **passed_job().to_dict(),
-            "status": CertificationJobStatus.CERTIFICATION_FAILED.value,
-            "t2_exit_status": 1,
-            "t2_succeeded": False,
-        }
+    failed = passed_job(
+        status=CertificationJobStatus.CERTIFICATION_FAILED,
+        t2_exit_status=1,
+        t2_succeeded=False,
     )
     with pytest.raises(ReviewContractError, match="CERTIFICATION_PASS"):
         derive_review_first_final_state(certification_job=failed, **kwargs)
@@ -257,6 +328,26 @@ def test_publication_integration_preserves_legacy_and_defers_review_first_t2():
     assert "READY_FOR_SEMANTIC_REVIEW" in source
     assert "DEFERRED_TO_CERTIFY_REVIEWED" in source
     assert "Review-first EVIDENCE_REFRESH" in source
+
+
+def test_review_first_deferred_t2_result_has_no_executed_success_exit_code():
+    block = bridge._publication_tests_result_block(
+        requested_command=COMMAND,
+        test_output="(full canonical certification deferred to certify-reviewed)",
+        test_rc=0,
+        certification_deferred=True,
+    )
+    assert f"Command: `{COMMAND}`" in block
+    assert "Execution status: NOT_EXECUTED (DEFERRED_TO_CERTIFY_REVIEWED)" in block
+    assert "Exit code:" not in block
+
+    legacy = bridge._publication_tests_result_block(
+        requested_command=COMMAND,
+        test_output="passed",
+        test_rc=0,
+        certification_deferred=False,
+    )
+    assert "Exit code: 0" in legacy
 
 
 def test_slice_scope_does_not_implement_reserved_task_087():

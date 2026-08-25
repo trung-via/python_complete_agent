@@ -14,6 +14,7 @@ from src.aios_bridge.certification_job import (
     build_terminal_result_digest,
     certification_candidate_matches,
     require_exact_certification_candidate,
+    require_valid_terminal_result_digest,
     transition_certification_job,
 )
 from src.aios_bridge.validation import ValidationProfile
@@ -259,21 +260,49 @@ def test_candidate_fingerprint_and_command_identity_are_exact_and_deterministic(
 
 
 def test_terminal_digest_contains_only_bounded_facts_and_job_round_trips():
+    evidence = terminal_evidence(CertificationJobStatus.CERTIFICATION_PASS)
     digest = build_terminal_result_digest(
         status=CertificationJobStatus.CERTIFICATION_PASS,
-        t2_exit_status=0,
-        t2_succeeded=True,
-        duration_seconds=2.5,
-        aios_managed_t2_execution_count=1,
+        t2_exit_status=evidence["t2_exit_status"],
+        t2_succeeded=evidence["t2_succeeded"],
+        duration_seconds=evidence["duration_seconds"],
+        aios_managed_t2_execution_count=evidence[
+            "aios_managed_t2_execution_count"
+        ],
     )
     passed = job(
         status=CertificationJobStatus.CERTIFICATION_PASS,
         started_at="2026-08-25T00:00:00Z",
         terminal_result_digest=digest,
-        **terminal_evidence(CertificationJobStatus.CERTIFICATION_PASS),
+        **evidence,
     )
     payload = passed.to_dict()
     assert CertificationJob.from_dict(payload) == passed
     assert payload["aios_managed_t2_execution_count"] == 1
     assert payload["t2_succeeded"] is True
     assert not any("stdout" in key for key in payload)
+
+
+def test_terminal_digest_is_verified_before_loaded_authority_is_accepted():
+    evidence = terminal_evidence(CertificationJobStatus.CERTIFICATION_PASS)
+    digest = build_terminal_result_digest(
+        status=CertificationJobStatus.CERTIFICATION_PASS,
+        t2_exit_status=evidence["t2_exit_status"],
+        t2_succeeded=evidence["t2_succeeded"],
+        duration_seconds=evidence["duration_seconds"],
+        aios_managed_t2_execution_count=evidence[
+            "aios_managed_t2_execution_count"
+        ],
+    )
+    passed = job(
+        status=CertificationJobStatus.CERTIFICATION_PASS,
+        started_at="2026-08-25T00:00:00Z",
+        terminal_result_digest=digest,
+        **evidence,
+    )
+    assert require_valid_terminal_result_digest(passed) is passed
+    assert CertificationJob.from_dict(passed.to_dict()) == passed
+
+    corrupted = {**passed.to_dict(), "terminal_result_digest": "0" * 64}
+    with pytest.raises(CertificationContractError, match="does not match"):
+        CertificationJob.from_dict(corrupted)
