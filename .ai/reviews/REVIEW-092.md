@@ -35,6 +35,18 @@ DISPATCH_EXECUTOR_POLICY_JSON: {"allow_paid_api":false,"candidates":[{"capacity_
 FIX_REVIEW_MODE: PROOF_REUSE_DELTA_IMPACT
 FIX_CONTEXT_PACK_JSON: {"schema_version":"1","previous_reviewed_head_sha":"65abd6f6f39c6103a29d925f618927f22de42aa0","impact_confidence":"KNOWN","open_finding_ids":["B1","B2","B3"],"affected_paths":["bridge.py","src/aios_bridge/result_evidence.py","tests/aios_bridge/test_result_evidence.py","tests/aios_bridge/test_lean_review_integration.py","tests/test_bridge_executor_automation.py","tests/test_bridge.py"],"protected_accepted_paths":["src/aios_bridge/blocked_recovery.py","src/aios_bridge/review_learning.py","src/aios_bridge/review_pipeline.py","tests/aios_bridge/test_blocked_recovery.py","tests/aios_bridge/test_review_learning.py","tests/aios_bridge/test_review_pipeline.py"],"required_test_paths":["tests/aios_bridge/test_result_evidence.py","tests/aios_bridge/test_lean_review_integration.py","tests/test_bridge_executor_automation.py","tests/test_bridge.py"],"unknown_impact_fallback_test_paths":["tests/aios_bridge/test_result_evidence.py","tests/aios_bridge/test_lean_review_integration.py","tests/aios_bridge/test_certification_job.py","tests/test_bridge_executor_automation.py","tests/test_bridge.py"],"proof_bindings":[]}
 
+## Authoring Correction After Clean No-Op
+
+The previous wording of B1 was too broad: it could be read as authorizing removal or replacement of TASK-092's required `candidate_head_sha` field. That conflicts with the canonical TASK artifact. This revision is an authoring correction only; the reviewed candidate head, blocker set, scope, roadmap binding, and review round remain unchanged.
+
+Normative precedence for this FIX:
+
+```text
+TASK-092 authority is unchanged.
+REVIEW-092 may narrow/clarify implementation but MUST NOT remove a TASK-required evidence field.
+The executor MUST preserve candidate_head_sha in the compact RESULT schema.
+```
+
 ## Snapshot
 
 ```text
@@ -47,49 +59,50 @@ CANDIDATE_STAGE_AIOS_MANAGED_T2_EXECUTION_COUNT: 0
 CERTIFICATION_DEFERRED: YES
 ```
 
-Round 1 is the semantic blocker sweep for Slice D. Final canonical T2 remains forbidden until all blockers close and this review becomes `SEMANTICALLY_ACCEPTED_PENDING_T2`.
-
 ## Blocking Findings
 
-### B1 — Compact RESULT subject identity is self-referential / currently misbound, and the authority parser is not truly top-level strict
+### B1 — Compact RESULT candidate-head semantics are ambiguous and parser strictness is incomplete
 
-`cmd_publish()` constructs `ResultEvidence` before RESULT is written and before the publication commit is created. It assigns `candidate_head_sha=post_test_head`, then writes/stages RESULT, commits, and only afterwards obtains the actual published SHA. Therefore the serialized `candidate_head_sha` identifies the pre-publication parent, not the reviewed/published commit containing the RESULT.
+`cmd_publish()` creates RESULT evidence before the publication commit exists. Therefore a normal Git commit cannot embed its own final commit SHA. TASK-092 nevertheless requires the machine schema to retain the `candidate_head_sha` field.
 
-Do not try to solve this by predicting or iterating a Git commit SHA. A commit cannot safely contain its own final SHA as ordinary content because that creates a content-addressed self-reference.
-
-Required repair:
+Required repair — preserve TASK authority exactly:
 
 ```text
-RESULT machine evidence must never label the pre-publication parent as the final candidate head.
-Exact reviewed-head authority remains externally bound by Git/ref + REVIEWED_TASK_HEAD_SHA.
-The compact RESULT must use a non-self-referential candidate identity contract.
+KEEP candidate_head_sha as a required exact lowercase 40-hex field.
+For review-first embedded RESULT schema v2, define candidate_head_sha as the exact PRE_PUBLICATION_CONTENT_HEAD known before RESULT generation.
+ADD a closed role/binding discriminator, for example:
+  candidate_head_role = PRE_PUBLICATION_CONTENT_HEAD
+  published_head_binding = EXTERNAL_GIT_COMMIT
+The embedded RESULT MUST NOT claim candidate_head_sha is the final published/reviewed branch head.
+Exact final reviewed-head authority remains externally bound by Git/ref + REVIEWED_TASK_HEAD_SHA + certification/merge checks.
+Any parser/caller needing final-head validation must accept/use the externally observed published head rather than equating it to the embedded pre-publication content head.
 ```
 
-Use a bounded versioned schema such as:
+Equivalent bounded names are acceptable, but `candidate_head_sha` MUST remain present. Do not rename/remove it. Do not predict/iterate a self-referential Git SHA. Do not weaken exact-head review, certification, or merge authority.
+
+Also harden `parse_result_evidence()`:
 
 ```text
-candidate_parent_sha = exact pre-publication HEAD
-candidate_head_binding = EXTERNAL_GIT_COMMIT
-candidate_content_fingerprint = deterministic fingerprint over the bounded candidate evidence/content subject excluding the RESULT self-reference
+RESULT_EVIDENCE_JSON inside fenced examples is not authority.
+Exactly one unfenced top-level RESULT_EVIDENCE_JSON marker is required.
+Duplicate JSON object keys fail closed.
+Unknown schema fields fail closed according to the selected version.
 ```
-
-Equivalent naming is acceptable if the semantics are exact. The parser/caller must accept the externally observed published head as the reviewed subject where exact-head verification is needed. Do not weaken existing REVIEW/certification/merge exact-head checks.
-
-Also harden `parse_result_evidence()` so `RESULT_EVIDENCE_JSON:` is accepted only as the single true top-level authority marker; a marker inside a fenced example/body must not become authority. Strict JSON parsing must reject duplicate object keys rather than silently taking the last value.
 
 Required regressions:
 
 ```text
-COMPACT_RESULT_NEVER_MISLABELS_PARENT_AS_FINAL_HEAD
-COMPACT_RESULT_EXTERNAL_HEAD_BINDING_PRESERVES_EXACT_REVIEW_AUTHORITY
+COMPACT_RESULT_PRESERVES_TASK_REQUIRED_CANDIDATE_HEAD_SHA
+COMPACT_RESULT_EXPLICITLY_CLASSIFIES_CANDIDATE_HEAD_AS_PREPUBLICATION_CONTENT_HEAD
+EXTERNAL_PUBLISHED_HEAD_REMAINS_EXACT_REVIEW_AUTHORITY
 FENCED_RESULT_EVIDENCE_MARKER_IS_NOT_AUTHORITY
 DUPLICATE_JSON_KEY_FAILS_CLOSED
 REVIEW_FIRST_RESULT_HAS_ONE_MACHINE_AUTHORITY
 ```
 
-### B2 — Stale terminal certification becomes a permanent dead-end for a legitimate new candidate
+### B2 — Stale terminal certification must become non-current provenance, not a permanent dead-end
 
-`cmd_certify_reviewed()` correctly detects that an existing certification job belongs to a different candidate. A stale PENDING job is transitioned to SUPERSEDED and the new candidate can proceed. But a stale terminal PASS/FAILED job is archived and then the command fails while leaving the same stale terminal `job.json` as the current pointer. The next call loads it again and fails again. A new FIX candidate can therefore never obtain its own certification after an older terminal job exists for the same task.
+Current `cmd_certify_reviewed()` archives a stale terminal PASS/FAILED for a different candidate but leaves it in the current `job.json` slot and fails. Repeating the command reloads the same stale terminal job forever.
 
 Required repair:
 
@@ -97,13 +110,11 @@ Required repair:
 exact current PASS -> idempotent return; T2 rerun = 0
 exact current FAILED -> fail; no automatic retry
 stale PENDING -> SUPERSEDED + archive/non-current -> new candidate may create PENDING
-stale PASS/FAILED -> archive as immutable non-current provenance -> clear/replace current pointer -> new candidate may create its own PENDING
-stale RUNNING -> no invented cancellation; fail closed / recovery until safe terminal handling
+stale PASS/FAILED -> archive immutable terminal evidence -> remove/replace only the CURRENT pointer -> new candidate may create its own PENDING
+stale RUNNING -> no invented cancellation; fail closed / recovery until safe handling
 ```
 
-Do not mutate a terminal PASS/FAILED into a transition its contract forbids. Preserve it exactly in history, but it must cease to be the current authority pointer after candidate supersession. Old PASS must never authorize the new head, and old FAILED must not prohibit certification of a different exact candidate.
-
-Update the existing integration test that currently expects every different-candidate terminal job to block forever.
+Do not mutate terminal PASS/FAILED into an invalid lifecycle transition. Preserve immutable history. Old PASS creates zero authority for a new head; old FAILED does not permanently prohibit a different candidate from certification.
 
 Required regressions:
 
@@ -116,28 +127,28 @@ EXACT_PASS_REMAINS_IDEMPOTENT_WITH_ZERO_SECOND_T2
 STALE_RUNNING_REMAINS_FAIL_CLOSED_WITHOUT_FAKE_CANCELLATION
 ```
 
-### B3 — Pre-start lease rollback is Codex-execute-only; handoff can still leak a lease before any executor starts
+### B3 — Provider-neutral handoff pre-start failures must roll back the newly acquired lease
 
-The new `_rollback_proven_pre_start_failure()` is called from Codex `cmd_execute()` pre-invocation validation. However `cmd_handoff()` still acquires a lease, persists ACTIVE authorization, updates state, and then calls `cmd_context(args)` with no rollback wrapper. If context construction/rendering fails there, the executor has not started, yet the lease/auth can remain active — the same stale-lease failure class Slice D was intended to close, including the Antigravity path.
+`_rollback_proven_pre_start_failure()` currently protects Codex `cmd_execute()` pre-invocation validation. `cmd_handoff()` can still acquire a lease, persist ACTIVE authorization/state, then fail during final context construction/rendering while no executor has started.
 
 Required repair:
 
 ```text
 validate everything possible before lease acquisition
 then acquire/persist lease
-then perform any unavoidable post-acquire pre-start step
-if that step fails AND executor is provably not started:
-    release exact new lease
+then perform unavoidable post-acquire pre-start work
+if that work fails AND executor is provably not started:
+    release exact newly acquired lease
     restore exact prior authorization/state
-    prove read-back
+    read-back verify restoration
     no stale lease
 if start state is uncertain:
     RECOVERY_REQUIRED; no unsafe auto-release
 ```
 
-At minimum, the final handoff context/rendering boundary must be covered for both Codex and Antigravity. Prefer one shared provider-neutral pre-start transaction boundary rather than duplicating recovery logic.
+At minimum cover the final `cmd_context(args)` handoff boundary for both Codex and Antigravity. Prefer one shared provider-neutral transaction wrapper. This mechanism creates no retry/reroute authority.
 
-Required regression must exercise the real `cmd_handoff()` post-acquire failure path, not `_rollback_proven_pre_start_failure()` in isolation:
+Required regressions must exercise real `cmd_handoff()` behavior:
 
 ```text
 HANDOFF_CONTEXT_FAILURE_BEFORE_START_RELEASES_NEW_LEASE
@@ -152,49 +163,26 @@ NO_AUTO_RETRY_OR_REROUTE
 
 ```text
 A1 Review-first publication remains T2=0 before semantic acceptance.
-A2 Compact ResultEvidence has a bounded exact schema, canonical JSON and no raw model/executor reasoning fields.
-A3 FindingRegistry reuses the closed FindingRecord lifecycle and binds exact review round/head.
-A4 Risk evidence remains deterministic and can produce CRITICAL_SECOND_REVIEW evidence without auto-invoking a model.
-A5 Guardrail promotion is recommendation-only; no repository mutation or authority expansion.
-A6 Structured CLEAN_NO_WORKTREE_DELTA blocker evidence contains bounded facts and no raw final-agent prose/reasoning.
-A7 Blocked-executor replacement requires explicit Human selection, a different executor, zero delta, exact head, clean worktree and no active lease; it does not fake CONSUMED or synthesize a source RESULT.
-A8 Existing allowed-path, roadmap v1.2, lease and publication trust gates remain fail-closed.
-A9 Review-first exact-head merge safety and terminal digest verification remain intact.
-A10 TASK-087, P2/P3 and H5-H8 remain unopened.
+A2 FindingRegistry reuses the closed FindingRecord lifecycle and binds exact review round/head.
+A3 Risk evidence remains deterministic; CRITICAL_SECOND_REVIEW evidence does not auto-invoke a model.
+A4 Guardrail promotion remains recommendation-only with zero repository mutation/authority expansion.
+A5 Structured CLEAN_NO_WORKTREE_DELTA evidence remains bounded and contains no raw final-agent reasoning.
+A6 Blocked-executor replacement remains explicit-Human-only, different-executor-only, zero-delta, exact-head, clean-worktree and no-active-lease.
+A7 Existing allowed-path, roadmap v1.2, lease, publication-trust and exact-head merge gates remain fail-closed.
+A8 TASK-087, P2/P3 and H5-H8 remain unopened.
 ```
 
-The fact that TASK-092's own RESULT was emitted in the pre-Slice-D legacy review-first format is not itself a blocker: the publishing process was already running the pre-change Bridge code. The FIX candidate must be published by the newly loaded code and therefore becomes the first useful live proof of the corrected compact RESULT path.
+## FIX Execution Guidance
 
-## Delta / Impact FIX Contract
+This REVIEW is complete normative FIX guidance for B1-B3. The executor does not need to infer any alternate authority from historical reviews. TASK-092 remains the sole task/scope authority.
 
-This review intentionally activates Slice C for TASK-092's FIX round.
+The failed Codex attempt produced zero worktree delta and no new candidate. Therefore REVIEW_ROUND and REVIEWED_TASK_HEAD_SHA remain unchanged.
 
-```text
-FIX_REVIEW_MODE: PROOF_REUSE_DELTA_IMPACT
-impact confidence: KNOWN
-open findings: B1 B2 B3
-proof_bindings: empty (no unsupported proof carry-forward claims)
-protected accepted surfaces: review learning + finding/risk contracts + blocked-recovery pure contract
-required T1: compact-result + lean-review integration + bridge automation/bridge tests
-unknown fallback: same plus certification-job contract tests
-```
+Because the prior Codex attempt is now an `EXECUTION_BLOCKED` clean no-op, do NOT silently retry/reroute. Any replacement executor must be selected explicitly by Human and must pass TASK-092's BLOCKED_EXECUTOR_REPLACEMENT preflight.
 
-Actual changes escaping the declared affected envelope must expand impact fail-conservatively. Existing TASK write scope remains the hard authority boundary; this pack never expands it.
+## Validation
 
-## Validation / Scope Audit
-
-Candidate `65abd6f6...` is one commit ahead of exact main `5570e64b...`, behind count zero. The implementation changed eight authorized files plus generated RESULT; no TASK-087/P2/P3/H5-H8 scope was opened.
-
-Candidate publication correctly deferred final certification:
-
-```text
-STATUS: READY_FOR_SEMANTIC_REVIEW
-AIOS_MANAGED_T2_EXECUTION_COUNT: 0
-CERTIFICATION_DEFERRED: YES
-SEMANTIC_REVIEW_REQUIRED: YES
-```
-
-Do not run `certify-reviewed 92` while B1-B3 remain open.
+Run only bounded impacted T1 selected by Slice-C. Do not run full canonical T2 during FIX publication. `certify-reviewed 92` remains forbidden until B1-B3 close and semantic acceptance is issued.
 
 ## Decision
 
@@ -204,7 +192,7 @@ OPEN: B1 B2 B3
 FINAL_T2_NOW: NO
 CERTIFICATION_NOW: NO
 MERGE: NO
-NEXT: $aios-worker FIX TASK-092
+NEXT: explicit Human replacement executor after clean-no-op blocker, then FIX TASK-092
 TASK_087: DO_NOT_RUN
 P1_FORMAL_COMPLETION: NO
 ```
