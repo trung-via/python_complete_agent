@@ -15,6 +15,7 @@ from src.aios_bridge.certification_job import (
     build_certification_command_identity,
     build_terminal_result_digest,
     require_certification_preflight,
+    transition_certification_job,
 )
 from src.aios_bridge.review_pipeline import (
     ReviewContractError,
@@ -245,7 +246,8 @@ def test_failed_certification_has_no_automatic_retry_or_merge_authority(
     assert failed.creates_certification_authority is False
 
 
-def test_existing_job_for_different_candidate_fails_without_t2(tmp_path, monkeypatch):
+def test_stale_terminal_pass_archived_then_new_candidate_can_certify(tmp_path, monkeypatch):
+    """Proof: STALE_TERMINAL_PASS_ARCHIVED_THEN_NEW_CANDIDATE_CAN_CERTIFY and OLD_CERT_PASS_CANNOT_AUTHORIZE_NEW_HEAD."""
     job_path = tmp_path / "runtime" / "TASK-091" / "job.json"
     job_path.parent.mkdir(parents=True)
     job_path.write_text(json.dumps(passed_job().to_dict()), encoding="utf-8")
@@ -255,10 +257,90 @@ def test_existing_job_for_different_candidate_fails_without_t2(tmp_path, monkeyp
         lambda _: certification_context(head="c" * 40),
     )
     monkeypatch.setattr(bridge, "_certification_job_path", lambda _: job_path)
+    monkeypatch.setattr(bridge, "update_state", lambda *args: None)
+    monkeypatch.setattr(bridge, "now", lambda: "2026-08-25T00:00:00Z")
+
+    calls = []
+    def run_new_candidate(*args, **kwargs):
+        calls.append(args[0])
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(bridge, "run", run_new_candidate)
+    certified = bridge.cmd_certify_reviewed(SimpleNamespace(task_id=91))
+
+    assert calls == [COMMAND]
+    assert certified.candidate_head_sha == "c" * 40
+    assert certified.status is CertificationJobStatus.CERTIFICATION_PASS
+    # Archive history contains old pass
+    history_files = list((job_path.parent / "history").glob("*.json"))
+    assert len(history_files) == 1
+    assert "CERTIFICATION_PASS" in history_files[0].name
+
+
+def test_stale_terminal_failed_archived_then_new_candidate_can_certify(tmp_path, monkeypatch):
+    """Proof: STALE_TERMINAL_FAILED_ARCHIVED_THEN_NEW_CANDIDATE_CAN_CERTIFY."""
+    job_path = tmp_path / "runtime" / "TASK-091" / "job.json"
+    job_path.parent.mkdir(parents=True)
+    failed = passed_job(
+        status=CertificationJobStatus.CERTIFICATION_FAILED,
+        t2_exit_status=1,
+        t2_succeeded=False,
+    )
+    job_path.write_text(json.dumps(failed.to_dict()), encoding="utf-8")
+    monkeypatch.setattr(
+        bridge,
+        "_preflight_certify_reviewed",
+        lambda _: certification_context(head="d" * 40),
+    )
+    monkeypatch.setattr(bridge, "_certification_job_path", lambda _: job_path)
+    monkeypatch.setattr(bridge, "update_state", lambda *args: None)
+    monkeypatch.setattr(bridge, "now", lambda: "2026-08-25T00:00:00Z")
+
+    calls = []
+    def run_new_candidate(*args, **kwargs):
+        calls.append(args[0])
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(bridge, "run", run_new_candidate)
+    certified = bridge.cmd_certify_reviewed(SimpleNamespace(task_id=91))
+
+    assert calls == [COMMAND]
+    assert certified.candidate_head_sha == "d" * 40
+    assert certified.status is CertificationJobStatus.CERTIFICATION_PASS
+    history_files = list((job_path.parent / "history").glob("*.json"))
+    assert len(history_files) == 1
+    assert "CERTIFICATION_FAILED" in history_files[0].name
+
+
+def test_stale_running_remains_fail_closed_without_fake_cancellation(tmp_path, monkeypatch):
+    """Proof: STALE_RUNNING_REMAINS_FAIL_CLOSED_WITHOUT_FAKE_CANCELLATION."""
+    job_path = tmp_path / "runtime" / "TASK-091" / "job.json"
+    job_path.parent.mkdir(parents=True)
+    pending_job = CertificationJob(
+        job_id="cert-task-091-running",
+        task_id="TASK-091",
+        candidate_head_sha="a" * 40,
+        candidate_fingerprint="f" * 64,
+        validation_profile=ValidationProfile.CONTROL_PLANE_STRICT_COMPAT,
+        certification_command_identity=COMMAND_ID,
+        status=CertificationJobStatus.CERTIFICATION_PENDING,
+    )
+    running_job = transition_certification_job(
+        pending_job,
+        CertificationJobStatus.CERTIFICATION_RUNNING,
+        started_at="2026-08-25T00:00:00Z",
+    )
+    job_path.write_text(json.dumps(running_job.to_dict()), encoding="utf-8")
+    monkeypatch.setattr(
+        bridge,
+        "_preflight_certify_reviewed",
+        lambda _: certification_context(head="e" * 40),
+    )
+    monkeypatch.setattr(bridge, "_certification_job_path", lambda _: job_path)
     monkeypatch.setattr(
         bridge,
         "run",
-        lambda *args, **kwargs: pytest.fail("T2 must not run for a different candidate"),
+        lambda *args, **kwargs: pytest.fail("T2 must not run when stale job is RUNNING"),
     )
     with pytest.raises(SystemExit):
         bridge.cmd_certify_reviewed(SimpleNamespace(task_id=91))

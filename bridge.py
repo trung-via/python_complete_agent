@@ -2801,7 +2801,7 @@ def cmd_handoff(args):
 
     fetch_control(cfg)
     paths = get_runtime_paths()
-    pre_start_prior_state = load_json(paths["state"], None)
+    pre_start_prior_state = copy.deepcopy(load_json(paths["state"], None))
     frozen_control_commit: str | None = None
 
     def control_commit() -> str:
@@ -2947,18 +2947,22 @@ def cmd_handoff(args):
         auth_record["pre_start_prior_state"] = pre_start_prior_state
         try:
             save_authorization(task_id, auth_record)
+            update_state(
+                task_id,
+                "IN_PROGRESS",
+                f"TASK-{task_id:03d} authorized for execution by {selected_executor}",
+            )
+            cmd_context(args)
         except Exception as e:
             try:
-                store.release(acquired_lease)
-            except Exception:
-                pass
-            fail(f"Lưu authorization thất bại sau khi acquire lease: {e}")
-
-        update_state(
-            task_id,
-            "IN_PROGRESS",
-            f"TASK-{task_id:03d} authorized for execution by {selected_executor}",
-        )
+                _rollback_proven_pre_start_failure(task_id, auth_record, acquired_lease, e)
+            except Exception as rollback_exc:
+                update_state(
+                    task_id,
+                    "RECOVERY_REQUIRED",
+                    f"Handoff pre-start failure rollback failed: {rollback_exc}",
+                )
+            fail(f"Lưu authorization/state hoặc xuất context thất bại sau khi acquire lease: {e}")
 
     elif action == "FIX":
         artifact_rel = f".ai/reviews/REVIEW-{task_id:03d}.md"
@@ -3183,56 +3187,32 @@ def cmd_handoff(args):
                 }
                 if validation_plan is not None:
                     auth_record["validation_plan"] = validation_plan.to_dict()
-                auth_record["pre_start_prior_authorization"] = {
-                    key: value
-                    for key, value in prior_auth.items()
-                    if key != "pre_start_prior_authorization"
-                }
-                auth_record["pre_start_prior_state"] = pre_start_prior_state
                 if fix_context_pack is not None and fix_impact_analysis is not None:
                     auth_record["fix_context_pack"] = fix_context_pack.to_dict()
                     auth_record["fix_impact_analysis"] = fix_impact_analysis.to_dict()
+                auth_record["pre_start_prior_authorization"] = {
+                    key: value
+                    for key, value in prior_auth_backup.items()
+                    if key != "pre_start_prior_authorization"
+                }
+                auth_record["pre_start_prior_state"] = pre_start_prior_state
                 save_authorization(task_id, auth_record)
-                auth_saved = True
-
                 update_state(
                     task_id,
                     "CHANGES_REQUIRED",
                     f"FIX TASK-{task_id:03d} authorized for failover execution by {selected_executor}",
                 )
+                cmd_context(args)
             except Exception as e:
-                rollback_diagnostics = []
                 try:
-                    store.release(acquired_lease)
-                    rollback_diagnostics.append("replacement_lease_released: OK")
-                except Exception as rel_err:
-                    rollback_diagnostics.append(f"replacement_lease_release_failed: {rel_err}")
-
-                auth_restored = False
-                if auth_saved:
-                    try:
-                        save_authorization(task_id, prior_auth_backup)
-                        rollback_diagnostics.append("prior_auth_restored: OK")
-                        auth_restored = True
-                    except Exception as auth_err:
-                        rollback_diagnostics.append(f"prior_auth_restore_failed: {auth_err}")
-                else:
-                    auth_restored = True
-
-                lease_released = "replacement_lease_released: OK" in rollback_diagnostics
-                state_label = "PENDING_APPROVAL" if (lease_released and auth_restored) else "RECOVERY_REQUIRED"
-                try:
+                    _rollback_proven_pre_start_failure(task_id, auth_record, acquired_lease, e)
+                except Exception as rollback_exc:
                     update_state(
                         task_id,
-                        state_label,
-                        f"Failover handoff activation failed post-acquire ({e}); recovery: {'; '.join(rollback_diagnostics)}",
+                        "RECOVERY_REQUIRED",
+                        f"Failover handoff pre-start failure rollback failed: {rollback_exc}",
                     )
-                    rollback_diagnostics.append(f"state_updated: {state_label}")
-                except Exception as se:
-                    rollback_diagnostics.append(f"state_update_failed: {se}")
-
-                diag_str = f" [Rollback diagnostics: {'; '.join(rollback_diagnostics)}]"
-                fail(f"Kích hoạt failover handoff thất bại sau khi chiếm lease: {e}{diag_str}")
+                fail(f"Kích hoạt failover handoff thất bại sau khi chiếm lease: {e}")
 
         else:
             # Ordinary Same-Executor FIX Activation (C23)
@@ -3290,24 +3270,25 @@ def cmd_handoff(args):
 
             try:
                 save_authorization(task_id, auth_record)
+                update_state(
+                    task_id,
+                    "CHANGES_REQUIRED",
+                    f"FIX TASK-{task_id:03d} authorized for execution by {selected_executor}",
+                )
+                cmd_context(args)
             except Exception as e:
                 try:
-                    store.release(acquired_lease)
-                except Exception:
-                    pass
-                fail(f"Lưu authorization thất bại sau khi acquire lease: {e}")
-
-            update_state(
-                task_id,
-                "CHANGES_REQUIRED",
-                f"FIX TASK-{task_id:03d} authorized for execution by {selected_executor}",
-            )
+                    _rollback_proven_pre_start_failure(task_id, auth_record, acquired_lease, e)
+                except Exception as rollback_exc:
+                    update_state(
+                        task_id,
+                        "RECOVERY_REQUIRED",
+                        f"Handoff pre-start failure rollback failed: {rollback_exc}",
+                    )
+                fail(f"Lưu authorization/state hoặc xuất context thất bại sau khi acquire lease: {e}")
 
     else:
         fail(f"Hành động không hợp lệ: {action}")
-
-    # Output context JSON for worker
-    cmd_context(args)
 
 
 # ---------------------------------------------------------------------------
@@ -5877,12 +5858,14 @@ EXECUTOR_ID: {active_exec}
 """
     if review_first:
         compact_evidence = ResultEvidence(
-            schema_version="1",
+            schema_version="2",
             task_id=f"TASK-{task_id:03d}",
             action=action_label,
             executor_id=active_exec,
             pipeline_mode=TaskPipelineMode.REVIEW_FIRST_CERTIFICATION.value,
             candidate_head_sha=post_test_head,
+            candidate_head_role="PRE_PUBLICATION_CONTENT_HEAD",
+            published_head_binding="EXTERNAL_GIT_COMMIT",
             base_main_sha=(
                 base_main_label
                 if re.fullmatch(r"[0-9a-f]{40}", str(base_main_label))
@@ -6393,13 +6376,7 @@ def cmd_certify_reviewed(args):
                 _archive_certification_job(task_num, stale)
             except Exception as exc:
                 fail(f"Unable to retain stale certification as superseded provenance: {exc}")
-            if existing.status is CertificationJobStatus.CERTIFICATION_PENDING:
-                existing = None
-            else:
-                fail(
-                    "Stale terminal certification was retained as non-current provenance; "
-                    "it cannot authorize or implicitly certify the new candidate"
-                )
+            existing = None
         if existing is None:
             pass
         elif existing.status is CertificationJobStatus.CERTIFICATION_PASS:

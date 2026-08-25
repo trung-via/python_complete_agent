@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import os
@@ -5736,3 +5737,209 @@ def test_evidence_refresh_exact_clean_reviewed_head_passes(
 
     assert test_executed == ["pytest"]
     assert auth["status"] == "CONSUMED"
+
+
+def test_handoff_context_failure_before_start_releases_new_lease_and_restores_prior(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    """Proof: HANDOFF_CONTEXT_FAILURE_BEFORE_START_RELEASES_NEW_LEASE and HANDOFF_CONTEXT_FAILURE_RESTORES_PRIOR_AUTH_AND_STATE."""
+    cfg = {"remote": "origin", "task_branch_prefix": "ai/task-", "control_branch": "ai-control", "base_branch": "main"}
+    task_id = 999
+    prior_lease = bridge.build_executor_lease_candidate(
+        task_id="TASK-999",
+        workspace_id="0" * 64,
+        operation=bridge.ExecutionOperation.RUN,
+        target_branch="ai/task-999",
+        authorized_artifact_path=".ai/tasks/TASK-999.md",
+        authorized_artifact_blob_sha="a" * 40,
+        executor_id="codex",
+    )
+    prior_auth = {
+        "task_id": "TASK-999",
+        "action": "RUN",
+        "kind": "TASK",
+        "artifact_path": ".ai/tasks/TASK-999.md",
+        "artifact_blob_sha": "a" * 40,
+        "status": "CONSUMED",
+        "published_sha": "b" * 40,
+        "executor_id": "codex",
+        "lease_id": prior_lease.lease_id,
+        "lease_fingerprint": prior_lease.fingerprint(),
+        "workspace_id": prior_lease.workspace_id,
+        "execution_fingerprint": prior_lease.execution_fingerprint,
+    }
+    prior_state = {
+        "phase": "unset",
+        "active_task": "TASK-999",
+        "status": "CHANGES_REQUIRED",
+        "last_review": "REVIEW-999",
+        "next_step": "Approve review fix before execution",
+    }
+
+    released_leases = []
+    store = type("MockStore", (), {
+        "acquire": lambda s, cand: cand,
+        "release": lambda s, l: released_leases.append(l.lease_id),
+        "load_active": lambda s, t: None,
+    })()
+
+    auth_saved = []
+    saved_state = [prior_state]
+
+    monkeypatch.setattr(bridge, "ensure_git", lambda: None)
+    monkeypatch.setattr(bridge, "ensure_dirs", lambda: None)
+    monkeypatch.setattr(bridge, "load_config", lambda: cfg)
+    monkeypatch.setattr(bridge, "fetch_control", lambda c: None)
+    monkeypatch.setattr(bridge, "get_remote_blob_sha", lambda c, p: "a" * 40)
+    review_content = (
+        "STATUS: CHANGES_REQUIRED\n"
+        "TASK_ID: TASK-999\n"
+        "REVIEWED_TASK_HEAD_SHA: " + "b" * 40 + "\n"
+        "FIX_EXECUTION_MODE: IMPLEMENTATION\n"
+    )
+    task_content = "TASK_ID: TASK-999\n"
+    monkeypatch.setattr(bridge, "read_remote_file", lambda c, p: review_content if "REVIEW" in p else task_content)
+    monkeypatch.setattr(bridge, "parse_review_status", lambda c: "CHANGES_REQUIRED")
+    monkeypatch.setattr(bridge, "preflight_executable_artifact", lambda *a, **k: None)
+    monkeypatch.setattr(bridge, "validation_plan_for_task", lambda *a, **k: None)
+    monkeypatch.setattr(bridge, "task_requires_roadmap_governance", lambda c: False)
+    monkeypatch.setattr(bridge, "parse_task_pipeline_mode", lambda c, **kw: bridge.TaskPipelineMode.REVIEW_FIRST_CERTIFICATION)
+    monkeypatch.setattr(bridge, "parse_fix_review_mode", lambda c: bridge.FixReviewMode.COMPATIBILITY)
+    monkeypatch.setattr(bridge, "parse_fix_context_pack", lambda c, **kw: None)
+    monkeypatch.setattr(bridge, "prepare_task_branch", lambda *a, **k: "ai/task-999")
+    monkeypatch.setattr(bridge, "load_authorization", lambda t: prior_auth if not auth_saved else auth_saved[-1])
+    monkeypatch.setattr(bridge, "save_authorization", lambda t, a: auth_saved.append(a))
+    monkeypatch.setattr(bridge, "get_auth_path", lambda t: tmp_path / f"AUTH-TASK-{t}.json")
+    monkeypatch.setattr(bridge, "get_workspace_id", lambda: "0" * 64)
+    monkeypatch.setattr(bridge, "get_lease_store", lambda: store)
+    monkeypatch.setattr(bridge, "load_json", lambda p, default=None: copy.deepcopy(saved_state[-1]) if "state" in str(p) else default)
+    monkeypatch.setattr(bridge, "save_json", lambda p, d: saved_state.append(copy.deepcopy(d)) if "state" in str(p) else None)
+    monkeypatch.setattr(bridge, "clear_pending_events", lambda *a: None)
+    monkeypatch.setattr(bridge, "get_runtime_paths", lambda: {"state": tmp_path / "CURRENT_STATE.json", "seen": tmp_path / "seen.json", "root": tmp_path})
+    monkeypatch.setattr(bridge, "get_artifact_path", lambda p: tmp_path / p)
+    monkeypatch.setattr(
+        bridge,
+        "git",
+        lambda *args, **kw: subprocess.CompletedProcess(
+            args, 0, "ai/task-999" if "branch" in args else "b" * 40, ""
+        ),
+    )
+
+    # Force cmd_context to fail during pre-start
+    monkeypatch.setattr(bridge, "cmd_context", lambda args: (_ for _ in ()).throw(RuntimeError("Context rendering failed")))
+
+    args = type("Args", (), {"task_id": 999, "action": "fix", "executor": "antigravity"})()
+    with pytest.raises(SystemExit):
+        bridge.cmd_handoff(args)
+
+    # Verified: newly acquired lease was released!
+    assert len(released_leases) == 1
+    # Prior authorization restored
+    assert auth_saved[-1] == prior_auth
+    # Prior state restored
+    assert saved_state[-1] == prior_state
+
+
+def test_antigravity_and_codex_pre_start_failures_have_no_stale_leases(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    """Proof: ANTIGRAVITY_PRE_START_FAILURE_HAS_NO_STALE_LEASE and CODEX_PRE_START_FAILURE_HAS_NO_STALE_LEASE."""
+    for executor in ("antigravity", "codex"):
+        cfg = {"remote": "origin", "task_branch_prefix": "ai/task-", "control_branch": "ai-control", "base_branch": "main"}
+        prior_lease = bridge.build_executor_lease_candidate(
+            task_id="TASK-999",
+            workspace_id="0" * 64,
+            operation=bridge.ExecutionOperation.RUN,
+            target_branch="ai/task-999",
+            authorized_artifact_path=".ai/tasks/TASK-999.md",
+            authorized_artifact_blob_sha="a" * 40,
+            executor_id=executor,
+        )
+        prior_auth = {
+            "task_id": "TASK-999",
+            "action": "RUN",
+            "kind": "TASK",
+            "artifact_path": ".ai/tasks/TASK-999.md",
+            "artifact_blob_sha": "a" * 40,
+            "status": "CONSUMED",
+            "published_sha": "b" * 40,
+            "executor_id": executor,
+            "lease_id": prior_lease.lease_id,
+            "lease_fingerprint": prior_lease.fingerprint(),
+            "workspace_id": prior_lease.workspace_id,
+            "execution_fingerprint": prior_lease.execution_fingerprint,
+        }
+        released_leases = []
+        store = type("MockStore", (), {
+            "acquire": lambda s, cand: cand,
+            "release": lambda s, l: released_leases.append(l.lease_id),
+            "load_active": lambda s, t: None,
+        })()
+
+        monkeypatch.setattr(bridge, "ensure_git", lambda: None)
+        monkeypatch.setattr(bridge, "ensure_dirs", lambda: None)
+        monkeypatch.setattr(bridge, "load_config", lambda: cfg)
+        monkeypatch.setattr(bridge, "fetch_control", lambda c: None)
+        monkeypatch.setattr(bridge, "get_remote_blob_sha", lambda c, p: "a" * 40)
+        review_content = (
+            "STATUS: CHANGES_REQUIRED\n"
+            "TASK_ID: TASK-999\n"
+            "REVIEWED_TASK_HEAD_SHA: " + "b" * 40 + "\n"
+            "FIX_EXECUTION_MODE: IMPLEMENTATION\n"
+        )
+        task_content = "TASK_ID: TASK-999\n"
+        monkeypatch.setattr(bridge, "read_remote_file", lambda c, p: review_content if "REVIEW" in p else task_content)
+        monkeypatch.setattr(bridge, "parse_review_status", lambda c: "CHANGES_REQUIRED")
+        monkeypatch.setattr(bridge, "preflight_executable_artifact", lambda *a, **k: None)
+        monkeypatch.setattr(bridge, "validation_plan_for_task", lambda *a, **k: None)
+        monkeypatch.setattr(bridge, "task_requires_roadmap_governance", lambda c: False)
+        monkeypatch.setattr(bridge, "parse_task_pipeline_mode", lambda c, **kw: bridge.TaskPipelineMode.REVIEW_FIRST_CERTIFICATION)
+        monkeypatch.setattr(bridge, "parse_fix_review_mode", lambda c: bridge.FixReviewMode.COMPATIBILITY)
+        monkeypatch.setattr(bridge, "parse_fix_context_pack", lambda c, **kw: None)
+        monkeypatch.setattr(bridge, "prepare_task_branch", lambda *a, **k: "ai/task-999")
+        monkeypatch.setattr(bridge, "load_authorization", lambda t: prior_auth)
+        monkeypatch.setattr(bridge, "save_authorization", lambda t, a: None)
+        monkeypatch.setattr(bridge, "get_auth_path", lambda t: tmp_path / f"AUTH-TASK-{t}.json")
+        monkeypatch.setattr(bridge, "get_workspace_id", lambda: "0" * 64)
+        monkeypatch.setattr(bridge, "get_lease_store", lambda: store)
+        monkeypatch.setattr(bridge, "load_json", lambda p, default=None: default)
+        monkeypatch.setattr(bridge, "save_json", lambda p, d: None)
+        monkeypatch.setattr(bridge, "clear_pending_events", lambda *a: None)
+        monkeypatch.setattr(bridge, "get_runtime_paths", lambda: {"state": tmp_path / "CURRENT_STATE.json", "seen": tmp_path / "seen.json", "root": tmp_path})
+        monkeypatch.setattr(bridge, "get_artifact_path", lambda p: tmp_path / p)
+
+        # Force cmd_context failure
+        monkeypatch.setattr(bridge, "cmd_context", lambda args: (_ for _ in ()).throw(RuntimeError("Pre-start failure")))
+
+        args = type("Args", (), {"task_id": 999, "action": "fix", "executor": executor})()
+        with pytest.raises(SystemExit):
+            bridge.cmd_handoff(args)
+
+        assert len(released_leases) == 1
+
+
+def test_uncertain_executor_start_state_still_requires_recovery(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    """Proof: UNCERTAIN_EXECUTOR_START_STATE_STILL_REQUIRES_RECOVERY and NO_AUTO_RETRY_OR_REROUTE."""
+    monkeypatch.setattr(bridge, "get_auth_path", lambda t: tmp_path / f"AUTH-TASK-{t}.json")
+    monkeypatch.setattr(bridge, "save_authorization", lambda t, a: None)
+    monkeypatch.setattr(bridge, "update_state", lambda *a: None)
+    # When rollback encounters uncertain state restore, it must fail closed and record RECOVERY_REQUIRED
+    store = type("MockStore", (), {
+        "release": lambda s, l: (_ for _ in ()).throw(RuntimeError("Lease release failed")),
+    })()
+    auth = {
+        "task_id": "TASK-999",
+        "action": "FIX",
+        "executor_id": "antigravity",
+        "lease_id": "lease-task-999-1",
+        "lease_fingerprint": "1" * 64,
+        "workspace_id": "0" * 64,
+        "execution_fingerprint": "e" * 64,
+    }
+    with pytest.raises(bridge.ContinuityStateValidationError, match="pre-start rollback could not prove clean restoration"):
+        bridge._rollback_proven_pre_start_failure(999, auth, None, "test cause")

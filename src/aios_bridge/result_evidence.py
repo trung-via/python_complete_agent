@@ -12,7 +12,7 @@ from src.aios_bridge.continuity.errors import ContinuityStateValidationError
 
 
 RESULT_EVIDENCE_MARKER = "RESULT_EVIDENCE_JSON:"
-RESULT_EVIDENCE_SCHEMA_VERSION = "1"
+RESULT_EVIDENCE_SCHEMA_VERSION = "2"
 _TASK_RE = re.compile(r"\ATASK-\d+\Z")
 _SHA_RE = re.compile(r"\A[0-9a-f]{40}\Z")
 _TOKEN_RE = re.compile(r"\A[A-Z][A-Z0-9_]{0,63}\Z")
@@ -99,12 +99,14 @@ class ResultEvidence:
     publication_trust_status: str
     transport_status: str
     actual_changed_paths: tuple[str, ...]
+    candidate_head_role: str = "PRE_PUBLICATION_CONTENT_HEAD"
+    published_head_binding: str = "EXTERNAL_GIT_COMMIT"
     slice_c_impact_evidence: Mapping[str, Any] | None = None
     review_risk_evidence: Mapping[str, Any] | None = None
     blocked_execution_evidence: Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
-        if self.schema_version != RESULT_EVIDENCE_SCHEMA_VERSION:
+        if self.schema_version not in {"1", "2"}:
             raise _error("unsupported RESULT evidence schema_version")
         if type(self.task_id) is not str or _TASK_RE.fullmatch(self.task_id) is None:
             raise _error("task_id must match exact TASK-<digits>")
@@ -116,6 +118,11 @@ class ResultEvidence:
             raise _error("compact RESULT evidence is authority-safe only for review-first mode")
         if type(self.candidate_head_sha) is not str or _SHA_RE.fullmatch(self.candidate_head_sha) is None:
             raise _error("candidate_head_sha must be an exact lowercase 40-hex SHA")
+        if self.schema_version == "2":
+            if self.candidate_head_role != "PRE_PUBLICATION_CONTENT_HEAD":
+                raise _error("candidate_head_role must be PRE_PUBLICATION_CONTENT_HEAD")
+            if self.published_head_binding != "EXTERNAL_GIT_COMMIT":
+                raise _error("published_head_binding must be EXTERNAL_GIT_COMMIT")
         if self.base_main_sha != "UNKNOWN" and (
             type(self.base_main_sha) is not str or _SHA_RE.fullmatch(self.base_main_sha) is None
         ):
@@ -152,7 +159,7 @@ class ResultEvidence:
             raise _error("a published review candidate cannot also be a blocked execution")
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        data: dict[str, Any] = {
             "action": self.action,
             "actual_changed_paths": list(self.actual_changed_paths),
             "base_main_sha": self.base_main_sha,
@@ -173,6 +180,10 @@ class ResultEvidence:
             "transport_status": self.transport_status,
             "validation_profile": self.validation_profile,
         }
+        if self.schema_version == "2":
+            data["candidate_head_role"] = self.candidate_head_role
+            data["published_head_binding"] = self.published_head_binding
+        return data
 
     def canonical_json(self) -> str:
         return json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
@@ -185,44 +196,121 @@ class ResultEvidence:
 
     @classmethod
     def from_dict(cls, data: object) -> "ResultEvidence":
-        fields = {
-            "action", "actual_changed_paths", "base_main_sha", "blocked_execution_evidence",
-            "candidate_head_sha", "candidate_stage_aios_managed_t2_execution_count",
-            "certification_deferred", "executor_id", "full_canonical_owner", "pipeline_mode",
-            "publication_trust_status", "review_risk_evidence", "schema_version",
-            "semantic_review_required", "slice_c_impact_evidence", "targeted_test_status",
-            "task_id", "transport_status", "validation_profile",
-        }
-        if type(data) is not dict or set(data) != fields:
-            raise _error("RESULT evidence must contain the exact schema-v1 field set")
-        if type(data["actual_changed_paths"]) is not list:
-            raise _error("actual_changed_paths must be an exact JSON list")
-        return cls(
-            schema_version=data["schema_version"], task_id=data["task_id"], action=data["action"],
-            executor_id=data["executor_id"], pipeline_mode=data["pipeline_mode"],
-            candidate_head_sha=data["candidate_head_sha"], base_main_sha=data["base_main_sha"],
-            validation_profile=data["validation_profile"], full_canonical_owner=data["full_canonical_owner"],
-            candidate_stage_aios_managed_t2_execution_count=data["candidate_stage_aios_managed_t2_execution_count"],
-            certification_deferred=data["certification_deferred"],
-            semantic_review_required=data["semantic_review_required"],
-            targeted_test_status=data["targeted_test_status"],
-            publication_trust_status=data["publication_trust_status"],
-            transport_status=data["transport_status"], actual_changed_paths=tuple(data["actual_changed_paths"]),
-            slice_c_impact_evidence=data["slice_c_impact_evidence"],
-            review_risk_evidence=data["review_risk_evidence"],
-            blocked_execution_evidence=data["blocked_execution_evidence"],
-        )
+        if type(data) is not dict:
+            raise _error("RESULT evidence must be a dictionary")
+        schema_version = data.get("schema_version")
+        if schema_version == "2":
+            fields = {
+                "action", "actual_changed_paths", "base_main_sha", "blocked_execution_evidence",
+                "candidate_head_role", "candidate_head_sha",
+                "candidate_stage_aios_managed_t2_execution_count", "certification_deferred",
+                "executor_id", "full_canonical_owner", "pipeline_mode", "publication_trust_status",
+                "published_head_binding", "review_risk_evidence", "schema_version",
+                "semantic_review_required", "slice_c_impact_evidence", "targeted_test_status",
+                "task_id", "transport_status", "validation_profile",
+            }
+            if set(data) != fields:
+                raise _error("RESULT evidence must contain the exact schema-v2 field set")
+            if type(data["actual_changed_paths"]) is not list:
+                raise _error("actual_changed_paths must be an exact JSON list")
+            return cls(
+                schema_version=data["schema_version"], task_id=data["task_id"], action=data["action"],
+                executor_id=data["executor_id"], pipeline_mode=data["pipeline_mode"],
+                candidate_head_sha=data["candidate_head_sha"], base_main_sha=data["base_main_sha"],
+                validation_profile=data["validation_profile"], full_canonical_owner=data["full_canonical_owner"],
+                candidate_stage_aios_managed_t2_execution_count=data["candidate_stage_aios_managed_t2_execution_count"],
+                certification_deferred=data["certification_deferred"],
+                semantic_review_required=data["semantic_review_required"],
+                targeted_test_status=data["targeted_test_status"],
+                publication_trust_status=data["publication_trust_status"],
+                transport_status=data["transport_status"], actual_changed_paths=tuple(data["actual_changed_paths"]),
+                candidate_head_role=data["candidate_head_role"],
+                published_head_binding=data["published_head_binding"],
+                slice_c_impact_evidence=data["slice_c_impact_evidence"],
+                review_risk_evidence=data["review_risk_evidence"],
+                blocked_execution_evidence=data["blocked_execution_evidence"],
+            )
+        elif schema_version == "1":
+            fields_v1 = {
+                "action", "actual_changed_paths", "base_main_sha", "blocked_execution_evidence",
+                "candidate_head_sha", "candidate_stage_aios_managed_t2_execution_count",
+                "certification_deferred", "executor_id", "full_canonical_owner", "pipeline_mode",
+                "publication_trust_status", "review_risk_evidence", "schema_version",
+                "semantic_review_required", "slice_c_impact_evidence", "targeted_test_status",
+                "task_id", "transport_status", "validation_profile",
+            }
+            if set(data) != fields_v1:
+                raise _error("RESULT evidence must contain the exact schema-v1 field set")
+            if type(data["actual_changed_paths"]) is not list:
+                raise _error("actual_changed_paths must be an exact JSON list")
+            return cls(
+                schema_version=data["schema_version"], task_id=data["task_id"], action=data["action"],
+                executor_id=data["executor_id"], pipeline_mode=data["pipeline_mode"],
+                candidate_head_sha=data["candidate_head_sha"], base_main_sha=data["base_main_sha"],
+                validation_profile=data["validation_profile"], full_canonical_owner=data["full_canonical_owner"],
+                candidate_stage_aios_managed_t2_execution_count=data["candidate_stage_aios_managed_t2_execution_count"],
+                certification_deferred=data["certification_deferred"],
+                semantic_review_required=data["semantic_review_required"],
+                targeted_test_status=data["targeted_test_status"],
+                publication_trust_status=data["publication_trust_status"],
+                transport_status=data["transport_status"], actual_changed_paths=tuple(data["actual_changed_paths"]),
+                slice_c_impact_evidence=data["slice_c_impact_evidence"],
+                review_risk_evidence=data["review_risk_evidence"],
+                blocked_execution_evidence=data["blocked_execution_evidence"],
+            )
+        else:
+            raise _error("unsupported RESULT evidence schema_version")
+
+
+def _reject_duplicate_keys_dict(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for key, val in pairs:
+        if key in out:
+            raise _error(f"duplicate JSON key {key!r}")
+        out[key] = val
+    return out
 
 
 def parse_result_evidence(result_text: str) -> ResultEvidence:
     """Parse exactly one authoritative top-level marker from a RESULT artifact."""
     if type(result_text) is not str:
         raise _error("result_text must be exact text")
-    payloads = [line[len(RESULT_EVIDENCE_MARKER):].strip() for line in result_text.splitlines() if line.startswith(RESULT_EVIDENCE_MARKER)]
-    if len(payloads) != 1:
-        raise _error(f"RESULT must contain exactly one {RESULT_EVIDENCE_MARKER} marker")
+
+    lines = result_text.splitlines()
+    in_fence = False
+    fence_char = ""
+    fence_len = 0
+    unfenced_payloads: list[str] = []
+
+    for line in lines:
+        stripped = line.strip()
+        if not in_fence:
+            if stripped.startswith("```") or stripped.startswith("~~~"):
+                fence_char = stripped[0]
+                run = 0
+                while run < len(stripped) and stripped[run] == fence_char:
+                    run += 1
+                in_fence = True
+                fence_len = run
+                continue
+            if line.startswith(RESULT_EVIDENCE_MARKER):
+                unfenced_payloads.append(line[len(RESULT_EVIDENCE_MARKER):].strip())
+        else:
+            if stripped.startswith(fence_char * fence_len):
+                run = 0
+                while run < len(stripped) and stripped[run] == fence_char:
+                    run += 1
+                if run >= fence_len and not stripped[run:].strip():
+                    in_fence = False
+                    fence_char = ""
+                    fence_len = 0
+                    continue
+
+    if len(unfenced_payloads) != 1:
+        raise _error(f"RESULT must contain exactly one unfenced {RESULT_EVIDENCE_MARKER} marker")
+
     try:
-        data = json.loads(payloads[0])
+        data = json.loads(unfenced_payloads[0], object_pairs_hook=_reject_duplicate_keys_dict)
     except (TypeError, ValueError) as exc:
         raise _error(f"malformed RESULT_EVIDENCE_JSON: {exc}") from exc
     return ResultEvidence.from_dict(data)
