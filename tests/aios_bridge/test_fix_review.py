@@ -114,6 +114,18 @@ def test_shorter_inner_fence_does_not_close_valid_outer_fence():
     assert parse_fix_context_pack(content, reviewed_task_head_sha=HEAD) is None
 
 
+def test_fence_with_trailing_text_does_not_close_valid_outer_fence():
+    content = (
+        "````markdown\n"
+        "````not-a-closing-fence\n"
+        "FIX_REVIEW_MODE: PROOF_REUSE_DELTA_IMPACT\n"
+        f"{FIX_CONTEXT_PACK_MARKER} {{}}\n"
+        "````\n"
+    )
+    assert parse_fix_review_mode(content) is FixReviewMode.COMPATIBILITY
+    assert parse_fix_context_pack(content, reviewed_task_head_sha=HEAD) is None
+
+
 def test_fix_pack_is_strict_bounded_and_round_trips():
     parsed = parse_fix_context_pack(review(), reviewed_task_head_sha=HEAD)
     assert parsed == pack()

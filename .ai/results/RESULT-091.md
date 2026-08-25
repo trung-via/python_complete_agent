@@ -32,23 +32,19 @@ Implementation completed by codex through E4 approved automatic execution; pendi
 - Task: `TASK-091`
 - Action: `FIX`
 - Executor: `codex`
-- Authorized Artifact: `.ai/reviews/REVIEW-091.md (7ffcae7725)`
+- Authorized Artifact: `.ai/reviews/REVIEW-091.md (6f607bc312)`
 - Base Main SHA: `(n/a)`
 - Branch: `ai/task-091`
 
 ## Files Changed
-- bridge.py
 - src/aios_bridge/fix_review.py
 - tests/aios_bridge/test_fix_review.py
-- tests/aios_bridge/test_lean_review_integration.py
 
 ## Diff Stat
 ```text
-bridge.py                                         | 98 ++++++++++++++++++++++-
- src/aios_bridge/fix_review.py                     | 19 +++--
- tests/aios_bridge/test_fix_review.py              | 54 +++++++++++++
- tests/aios_bridge/test_lean_review_integration.py | 32 ++++++++
- 4 files changed, 196 insertions(+), 7 deletions(-)
+src/aios_bridge/fix_review.py        |  6 +++++-
+ tests/aios_bridge/test_fix_review.py | 12 ++++++++++++
+ 2 files changed, 17 insertions(+), 1 deletion(-)
 ```
 
 ## Tests
@@ -67,15 +63,15 @@ Execution status: NOT_EXECUTED (DEFERRED_TO_CERTIFY_REVIEWED)
 
 ## Risks / Notes
 E4_AUTO_EXECUTION: YES
-E4_CONTROL_COMMIT_SHA: 777e6f4f29e700a4e258be9e4a2a4127da849e22
-E4_CONTEXT_MANIFEST_FINGERPRINT: 9c200a82ba2de217728ab6632d939489210da84977c47e4e5d51e2c530a1712d
-E4_INVOCATION_FINGERPRINT: bdb295a84ceeade9c1cdbda1f3fd0d14b4e6222c49f6016c90a60ab3ede3b071
-E4_INVOCATION_RECEIPT_FINGERPRINT: e4742b0353a2458045d9c03b6ab2e19139b90efc1236bc6a044070614773f3e0
+E4_CONTROL_COMMIT_SHA: 112f47afaad2a308a7123ee834ede52e31741c1c
+E4_CONTEXT_MANIFEST_FINGERPRINT: 5e48615fc987dab9b75c5fa0647df642045ed5aa6fd57dabbe2da4a9a884e80c
+E4_INVOCATION_FINGERPRINT: 9492ec5794d1a9b5e410b7640da6aac6ca53779b41798fb9c8f3b34e427ff8ce
+E4_INVOCATION_RECEIPT_FINGERPRINT: 9e1753ab4eebf754be7200c635825bb132965c54ffb02363926e471d513f64f7
 E4_TRANSPORT_STATUS: EXITED_ZERO
-E4_PRE_EXECUTION_HEAD: b1aa4bd9e7532fed0dca8abe384c63a1e781f5a7
+E4_PRE_EXECUTION_HEAD: 74727d4cc97fd8ea53e10f5bc5ac4e9ca81a8c71
 E4_ALLOWED_SCOPE_VERIFIED: PASS
 E4_PUBLICATION_TRUST_VERIFIED: PASS
-E4_DIRTY_PATH_COUNT: 4
+E4_DIRTY_PATH_COUNT: 2
 
 ## Generated
-2026-08-25T09:03:49+07:00
+2026-08-25T09:25:04+07:00

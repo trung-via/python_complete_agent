@@ -67,7 +67,11 @@ def _top_level_values(content: str, marker: str) -> list[str]:
             token = run[0]
             if fence is None:
                 fence = (token, len(run))
-            elif fence[0] == token and len(run) >= fence[1]:
+            elif (
+                fence[0] == token
+                and len(run) >= fence[1]
+                and stripped[len(run) :].strip() == ""
+            ):
                 fence = None
             continue
         if fence is None and line.startswith(marker):
