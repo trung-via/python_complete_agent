@@ -145,7 +145,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     result = coordinator.execute_transaction(intent)
 
     if result.returncode != 0:
-        if result.message:
+        if result.failure_class:
+            print(
+                f"\nAIOS_WORKER_STATUS: BLOCKED\n"
+                f"TASK_ID: {task_id}\n"
+                f"ACTION: {action}\n"
+                f"EXECUTOR: {args.adapter}\n"
+                f"FAILURE_CLASS: {result.failure_class}\n"
+                f"NEXT_ACTION: {result.next_action}\n"
+                f"GUIDANCE: {result.human_guidance}",
+                file=sys.stderr,
+            )
+        elif result.message:
             print(f"[ERROR] {result.message}", file=sys.stderr)
         return result.returncode
 

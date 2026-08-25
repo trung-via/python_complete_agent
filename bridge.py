@@ -80,6 +80,14 @@ from src.aios_bridge.blocked_recovery import (
     BlockedReplacementPreflight,
     require_blocked_executor_replacement,
 )
+from src.aios_bridge.worker_failure import (
+    WorkerFailureClass,
+    WorkerNextAction,
+    WorkerFailureEvidence,
+    classify_worker_failure,
+    FAILURE_CLASS_TO_NEXT_ACTION,
+    NEXT_ACTION_TO_HUMAN_TEXT,
+)
 from src.aios_bridge.fix_review import (
     FixContextPack,
     FixImpactAnalysis,
@@ -4016,6 +4024,17 @@ def cmd_execute(args):
             auth_persisted = False
             outcome_val = getattr(diagnostic, "executor_outcome", "UNKNOWN")
             final_msg_val = getattr(diagnostic, "final_agent_message_observed", "UNKNOWN")
+            failure_evidence = classify_worker_failure(
+                terminal_status="EXITED_ZERO",
+                pre_head_sha=pre_head_sha,
+                post_head_sha=post_head_sha,
+                dirty_paths=dirty_paths,
+                allowed_paths=snapshot.get("allowed_paths"),
+                is_known_stopped=True,
+                executor_outcome=outcome_val,
+                final_agent_message_observed=final_msg_val,
+                diagnostic_code=diagnostic.code,
+            )
             blocker = BlockedExecutionEvidence(
                 blocked_reason_code=BLOCKED_REASON_CLEAN_NO_WORKTREE_DELTA,
                 blocked_executor_id=auth["executor_id"],
@@ -4031,6 +4050,7 @@ def cmd_execute(args):
                 **auth,
                 "status": "EXECUTION_BLOCKED",
                 "blocked_execution_evidence": blocker.to_dict(),
+                "worker_failure_evidence": failure_evidence.to_dict(),
             }
             try:
                 save_authorization(task_num, expected_blocked_auth)
@@ -4046,7 +4066,8 @@ def cmd_execute(args):
             lease_ok = "lease_released: OK" in cleanup_diagnostics
             if lease_ok and auth_persisted:
                 blocked_msg = (
-                    f"E4 execution blocked: CLEAN_NO_WORKTREE_DELTA; "
+                    f"E4 execution blocked: {failure_evidence.failure_class.value}; "
+                    f"next_action={failure_evidence.next_action.value}; "
                     f"executor_outcome={outcome_val}; final_agent_message_observed={final_msg_val}; "
                     f"diagnostic={diagnostic.code}; no publication, no retry, no reroute"
                 )
@@ -4132,13 +4153,25 @@ def cmd_execute(args):
                 f"E4 productive non-zero recovery criteria not met; diagnostic={diagnostic.code}; work preserved",
             )
     else:
+        failure_evidence = classify_worker_failure(
+            terminal_status=receipt.status.value,
+            pre_head_sha=pre_head_sha,
+            post_head_sha=post_head_sha,
+            dirty_paths=dirty_paths,
+            allowed_paths=snapshot.get("allowed_paths"),
+            is_known_stopped=True,
+            executor_outcome=getattr(diagnostic, "executor_outcome", "UNKNOWN"),
+            final_agent_message_observed=getattr(diagnostic, "final_agent_message_observed", "UNKNOWN"),
+            diagnostic_code=diagnostic.code,
+        )
         blocked_status = (
             "EXECUTION_BLOCKED"
             if receipt.status is InvocationStatus.FAILED_TO_START and not dirty_paths
             else "RECOVERY_REQUIRED"
         )
         err_msg = (
-            f"E4 transport ended with {receipt.status.value}; "
+            f"E4 transport ended with {receipt.status.value} ({failure_evidence.failure_class.value}); "
+            f"next_action={failure_evidence.next_action.value}; "
             f"error={receipt.error_code}; diagnostic={diagnostic.code}; "
             f"no publication and no retry"
         )

@@ -14,6 +14,12 @@ import subprocess
 import sys
 from typing import Callable
 
+from src.aios_bridge.worker_failure import (
+    NEXT_ACTION_TO_HUMAN_TEXT,
+    WorkerFailureClass,
+    WorkerNextAction,
+)
+
 
 class FixExecutionMode(str, Enum):
     """Closed execution mode for CHANGES_REQUIRED reviews."""
@@ -91,6 +97,9 @@ class WorkerFlowResult:
     executor_invocations: int = 0
     returncode: int = 0
     message: str = ""
+    failure_class: str | None = None
+    next_action: str | None = None
+    human_guidance: str | None = None
 
 
 class WorkerFlowCoordinator:
@@ -114,8 +123,8 @@ class WorkerFlowCoordinator:
 
     def _default_load_auth(self, task_num: int) -> dict | None:
         try:
-            from bridge import get_active_authorization
-            return get_active_authorization(task_num, "FIX")
+            from bridge import get_active_authorization, load_authorization
+            return get_active_authorization(task_num, "FIX") or load_authorization(task_num)
         except Exception:
             return None
 
@@ -178,11 +187,31 @@ class WorkerFlowCoordinator:
             if adapter == WorkerAdapter.CODEX:
                 exec_code = self._run_bridge_cmd(["execute", str(task_num)])
                 if exec_code != 0:
+                    auth = self._load_auth(task_num)
+                    failure_class = None
+                    next_action = None
+                    human_guidance = None
+                    if auth:
+                        if "worker_failure_evidence" in auth:
+                            fe = auth["worker_failure_evidence"]
+                            failure_class = fe.get("failure_class")
+                            next_action = fe.get("next_action")
+                            human_guidance = fe.get("human_guidance")
+                        elif "blocked_execution_evidence" in auth:
+                            be = auth["blocked_execution_evidence"]
+                            reason = be.get("blocked_reason_code")
+                            if reason == "CLEAN_NO_WORKTREE_DELTA":
+                                failure_class = WorkerFailureClass.CLEAN_NO_WORKTREE_DELTA.value
+                                next_action = WorkerNextAction.HUMAN_SELECT_REPLACEMENT_EXECUTOR_IF_PROVEN_SAFE.value
+                                human_guidance = NEXT_ACTION_TO_HUMAN_TEXT[WorkerNextAction.HUMAN_SELECT_REPLACEMENT_EXECUTOR_IF_PROVEN_SAFE]
                     return WorkerFlowResult(
                         action=action.value,
                         task_id=task_id,
                         adapter=adapter.value,
-                        status="EXECUTION_FAILED",
+                        status="BLOCKED" if failure_class else "EXECUTION_FAILED",
+                        failure_class=failure_class,
+                        next_action=next_action,
+                        human_guidance=human_guidance,
                         executor_invocations=1,
                         returncode=exec_code,
                         message="Codex execution failed for RUN",
@@ -300,11 +329,31 @@ class WorkerFlowCoordinator:
                 if adapter == WorkerAdapter.CODEX:
                     exec_code = self._run_bridge_cmd(["execute", str(task_num)])
                     if exec_code != 0:
+                        auth = self._load_auth(task_num)
+                        failure_class = None
+                        next_action = None
+                        human_guidance = None
+                        if auth:
+                            if "worker_failure_evidence" in auth:
+                                fe = auth["worker_failure_evidence"]
+                                failure_class = fe.get("failure_class")
+                                next_action = fe.get("next_action")
+                                human_guidance = fe.get("human_guidance")
+                            elif "blocked_execution_evidence" in auth:
+                                be = auth["blocked_execution_evidence"]
+                                reason = be.get("blocked_reason_code")
+                                if reason == "CLEAN_NO_WORKTREE_DELTA":
+                                    failure_class = WorkerFailureClass.CLEAN_NO_WORKTREE_DELTA.value
+                                    next_action = WorkerNextAction.HUMAN_SELECT_REPLACEMENT_EXECUTOR_IF_PROVEN_SAFE.value
+                                    human_guidance = NEXT_ACTION_TO_HUMAN_TEXT[WorkerNextAction.HUMAN_SELECT_REPLACEMENT_EXECUTOR_IF_PROVEN_SAFE]
                         return WorkerFlowResult(
                             action=action.value,
                             task_id=task_id,
                             adapter=adapter.value,
-                            status="EXECUTION_FAILED",
+                            status="BLOCKED" if failure_class else "EXECUTION_FAILED",
+                            failure_class=failure_class,
+                            next_action=next_action,
+                            human_guidance=human_guidance,
                             fix_execution_mode=fix_mode.value,
                             executor_invocations=1,
                             returncode=exec_code,
