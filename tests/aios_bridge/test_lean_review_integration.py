@@ -24,6 +24,7 @@ from src.aios_bridge.review_pipeline import (
 )
 from src.aios_bridge.validation import (
     CONTROL_PLANE_STRICT_COMPAT_PLAN,
+    CONTROL_PLANE_STRICT_PLAN,
     ValidationTier,
     ValidationProfile,
     classify_validation_command,
@@ -403,6 +404,54 @@ def test_exact_pass_finalization_feeds_existing_merge_gate_without_duplicate_mer
         "evaluate_merge_gate"
     )
     assert "git(\"push\"" in source
+
+
+def test_explicit_strict_identity_reaches_exact_single_t2_finalization():
+    fingerprint = build_candidate_fingerprint(
+        task_id="TASK-093",
+        candidate_head_sha=SHA_A,
+        base_main_sha=SHA_B,
+        task_artifact_blob_sha="c" * 40,
+        roadmap_fingerprint="d" * 64,
+        validation_profile=ValidationProfile.CONTROL_PLANE_STRICT,
+        certification_command_identity=COMMAND_ID,
+    )
+    digest = build_terminal_result_digest(
+        status=CertificationJobStatus.CERTIFICATION_PASS,
+        t2_exit_status=0,
+        t2_succeeded=True,
+        duration_seconds=1.0,
+        aios_managed_t2_execution_count=1,
+    )
+    job = CertificationJob(
+        job_id="cert-task-093-strict",
+        task_id="TASK-093",
+        candidate_head_sha=SHA_A,
+        candidate_fingerprint=fingerprint,
+        validation_profile=ValidationProfile.CONTROL_PLANE_STRICT,
+        certification_command_identity=COMMAND_ID,
+        status=CertificationJobStatus.CERTIFICATION_PASS,
+        started_at="2026-08-25T00:00:00Z",
+        completed_at="2026-08-25T00:00:01Z",
+        terminal_result_digest=digest,
+        aios_managed_t2_execution_count=1,
+        t2_exit_status=0,
+        t2_succeeded=True,
+        duration_seconds=1.0,
+    )
+    state = derive_review_first_final_state(
+        task_id="TASK-093",
+        review_state=ReviewState.SEMANTICALLY_ACCEPTED_PENDING_T2,
+        approved=True,
+        auto_merge_eligible=True,
+        certification_job=job,
+        candidate_head_sha=SHA_A,
+        candidate_fingerprint=fingerprint,
+        validation_profile=CONTROL_PLANE_STRICT_PLAN.profile_id,
+        certification_command_identity=COMMAND_ID,
+    )
+    assert state is ReviewState.FINAL_PASS
+    assert job.aios_managed_t2_execution_count == 1
 
 
 def test_publication_integration_preserves_legacy_and_defers_review_first_t2():

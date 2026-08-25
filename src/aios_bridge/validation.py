@@ -25,6 +25,8 @@ class ValidationOwner(str, Enum):
 
 class ValidationProfile(str, Enum):
     CONTROL_PLANE_STRICT_COMPAT = "CONTROL_PLANE_STRICT_COMPAT"
+    CONTROL_PLANE_STRICT = "CONTROL_PLANE_STRICT"
+    PRODUCT_DELIVERY_FAST = "PRODUCT_DELIVERY_FAST"
 
 
 class ExecutorAdHocT2Observability(str, Enum):
@@ -39,6 +41,7 @@ _CANONICAL_OWNERS = {
     ValidationTier.T3_RELEASE: ValidationOwner.RELEASE_BOUNDARY,
 }
 _ROADMAP_BINDING_MARKER = "ROADMAP_BINDING_JSON:"
+_VALIDATION_PROFILE_MARKER = "VALIDATION_PROFILE:"
 _LEAN_ROADMAP_ID = "AIOS-BRIDGE-LEAN-EXECUTION"
 _FULL_SUITE_RE = re.compile(
     r"(?:^|\s)(?:python(?:\.exe)?\s+-m\s+)?pytest\s+['\"]?tests/?['\"]?(?=\s|$)",
@@ -67,6 +70,11 @@ class ValidationPlan:
     def __post_init__(self) -> None:
         if type(self.profile_id) is not ValidationProfile:
             raise _error("profile_id must be an exact ValidationProfile")
+        if self.profile_id is ValidationProfile.PRODUCT_DELIVERY_FAST:
+            raise _error(
+                "PRODUCT_DELIVERY_FAST admission blocked: missing "
+                "capability-batch/integration-lane authority"
+            )
         for name, tiers in (
             ("executor_test_tiers", self.executor_test_tiers),
             ("certification_test_tiers", self.certification_test_tiers),
@@ -87,7 +95,7 @@ class ValidationPlan:
         if type(self.expected_full_suite_execution_count) is not int:
             raise _error("expected_full_suite_execution_count must be an exact integer")
         if self.expected_full_suite_execution_count != 1:
-            raise _error("strict compatibility requires exactly one full-suite execution")
+            raise _error("strict validation requires exactly one full-suite execution")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -133,29 +141,229 @@ CONTROL_PLANE_STRICT_COMPAT_PLAN = ValidationPlan(
     expected_full_suite_execution_count=1,
 )
 
+CONTROL_PLANE_STRICT_PLAN = ValidationPlan(
+    profile_id=ValidationProfile.CONTROL_PLANE_STRICT,
+    executor_test_tiers=(
+        ValidationTier.T0_MICRO,
+        ValidationTier.T1_TARGETED_IMPACT,
+    ),
+    certification_test_tiers=(ValidationTier.T2_FULL_CANONICAL,),
+    diff_check_required=True,
+    expected_full_suite_execution_count=1,
+)
 
-def validation_plan_for_task(task_content: str) -> ValidationPlan | None:
-    """Resolve P0 semantics from the exact roadmap binding; legacy tasks stay unchanged."""
+
+@dataclass(frozen=True)
+class ValidationProfilePolicy:
+    """Closed P1 profile metadata; admission authority remains external."""
+
+    profile_id: ValidationProfile
+    task_level_t0_t1_required: bool
+    task_level_review_first_semantic_review_required: bool
+    task_level_final_t2: bool
+    capability_level_final_t2_required: bool
+    diff_check_required: bool
+    known_impact_required: bool
+    direct_task_main_merge_allowed: bool
+    capability_batch_authority_required: bool
+    integration_lane_authority_required: bool
+    executable_without_capability_authority: bool
+
+    def __post_init__(self) -> None:
+        if type(self.profile_id) is not ValidationProfile:
+            raise _error("profile_id must be an exact ValidationProfile")
+        for name in (
+            "task_level_t0_t1_required",
+            "task_level_review_first_semantic_review_required",
+            "task_level_final_t2",
+            "capability_level_final_t2_required",
+            "diff_check_required",
+            "known_impact_required",
+            "direct_task_main_merge_allowed",
+            "capability_batch_authority_required",
+            "integration_lane_authority_required",
+            "executable_without_capability_authority",
+        ):
+            if type(getattr(self, name)) is not bool:
+                raise _error(f"{name} must be an exact bool")
+
+    def to_dict(self) -> dict[str, bool | str]:
+        return {
+            "capability_batch_authority_required": self.capability_batch_authority_required,
+            "capability_level_final_t2_required": self.capability_level_final_t2_required,
+            "diff_check_required": self.diff_check_required,
+            "direct_task_main_merge_allowed": self.direct_task_main_merge_allowed,
+            "executable_without_capability_authority": (
+                self.executable_without_capability_authority
+            ),
+            "integration_lane_authority_required": self.integration_lane_authority_required,
+            "known_impact_required": self.known_impact_required,
+            "profile_id": self.profile_id.value,
+            "task_level_final_t2": self.task_level_final_t2,
+            "task_level_review_first_semantic_review_required": (
+                self.task_level_review_first_semantic_review_required
+            ),
+            "task_level_t0_t1_required": self.task_level_t0_t1_required,
+        }
+
+
+CONTROL_PLANE_STRICT_COMPAT_POLICY = ValidationProfilePolicy(
+    profile_id=ValidationProfile.CONTROL_PLANE_STRICT_COMPAT,
+    task_level_t0_t1_required=True,
+    task_level_review_first_semantic_review_required=True,
+    task_level_final_t2=True,
+    capability_level_final_t2_required=False,
+    diff_check_required=True,
+    known_impact_required=False,
+    direct_task_main_merge_allowed=True,
+    capability_batch_authority_required=False,
+    integration_lane_authority_required=False,
+    executable_without_capability_authority=True,
+)
+
+CONTROL_PLANE_STRICT_POLICY = ValidationProfilePolicy(
+    profile_id=ValidationProfile.CONTROL_PLANE_STRICT,
+    task_level_t0_t1_required=True,
+    task_level_review_first_semantic_review_required=True,
+    task_level_final_t2=True,
+    capability_level_final_t2_required=False,
+    diff_check_required=True,
+    known_impact_required=False,
+    direct_task_main_merge_allowed=True,
+    capability_batch_authority_required=False,
+    integration_lane_authority_required=False,
+    executable_without_capability_authority=True,
+)
+
+PRODUCT_DELIVERY_FAST_POLICY = ValidationProfilePolicy(
+    profile_id=ValidationProfile.PRODUCT_DELIVERY_FAST,
+    task_level_t0_t1_required=True,
+    task_level_review_first_semantic_review_required=True,
+    task_level_final_t2=False,
+    capability_level_final_t2_required=True,
+    diff_check_required=True,
+    known_impact_required=True,
+    direct_task_main_merge_allowed=False,
+    capability_batch_authority_required=True,
+    integration_lane_authority_required=True,
+    executable_without_capability_authority=False,
+)
+
+_PROFILE_POLICIES = {
+    ValidationProfile.CONTROL_PLANE_STRICT_COMPAT: CONTROL_PLANE_STRICT_COMPAT_POLICY,
+    ValidationProfile.CONTROL_PLANE_STRICT: CONTROL_PLANE_STRICT_POLICY,
+    ValidationProfile.PRODUCT_DELIVERY_FAST: PRODUCT_DELIVERY_FAST_POLICY,
+}
+
+
+def validation_policy_for_profile(profile: ValidationProfile) -> ValidationProfilePolicy:
+    if type(profile) is not ValidationProfile:
+        raise _error("profile must be an exact ValidationProfile")
+    return _PROFILE_POLICIES[profile]
+
+
+def _top_level_lines(content: str) -> list[str]:
+    """Return lines outside Markdown backtick/tilde fences."""
+    lines: list[str] = []
+    fence: tuple[str, int] | None = None
+    for line in content.splitlines():
+        stripped = line.lstrip()
+        match = re.match(r"(`{3,}|~{3,})", stripped)
+        if match:
+            run = match.group(1)
+            token = run[0]
+            if fence is None:
+                fence = (token, len(run))
+            elif (
+                fence[0] == token
+                and len(run) >= fence[1]
+                and stripped[len(run) :].strip() == ""
+            ):
+                fence = None
+            continue
+        if fence is None:
+            lines.append(line)
+    return lines
+
+
+def _top_level_marker_values(lines: Sequence[str], marker: str) -> list[str]:
+    return [
+        line[len(marker) :].strip()
+        for line in lines
+        if line.startswith(marker)
+    ]
+
+
+def validation_profile_for_task(task_content: str) -> ValidationProfile | None:
+    """Resolve only explicit profile authority, preserving Lean historical identity."""
     if type(task_content) is not str:
         raise _error("task_content must be exact text")
-    values = [
-        line[len(_ROADMAP_BINDING_MARKER) :].strip()
-        for line in task_content.splitlines()
-        if line.startswith(_ROADMAP_BINDING_MARKER)
+
+    top_level_lines = _top_level_lines(task_content)
+    profile_declarations = [
+        line
+        for line in top_level_lines
+        if re.match(r"VALIDATION_PROFILE(?:\s|:|$)", line)
     ]
-    if not values:
+    profile_values = _top_level_marker_values(
+        top_level_lines, _VALIDATION_PROFILE_MARKER
+    )
+    if len(profile_declarations) != len(profile_values):
+        raise _error("Malformed top-level VALIDATION_PROFILE marker")
+    if len(profile_values) > 1:
+        raise _error("Task must contain at most one top-level VALIDATION_PROFILE marker")
+    if profile_values:
+        value = profile_values[0]
+        if not value:
+            raise _error("VALIDATION_PROFILE marker must not be empty")
+        try:
+            return ValidationProfile(value)
+        except ValueError as exc:
+            raise _error(f"Unknown VALIDATION_PROFILE: {value!r}") from exc
+
+    roadmap_values = _top_level_marker_values(
+        top_level_lines, _ROADMAP_BINDING_MARKER
+    )
+    if not roadmap_values:
         return None
-    if len(values) != 1:
+    if len(roadmap_values) != 1:
         raise _error("Task must contain at most one ROADMAP_BINDING_JSON marker")
     try:
-        binding = json.loads(values[0])
+        binding = json.loads(roadmap_values[0])
     except (TypeError, ValueError) as exc:
-        raise _error(f"Malformed roadmap binding while resolving validation plan: {exc}") from exc
+        raise _error(
+            f"Malformed roadmap binding while resolving validation profile: {exc}"
+        ) from exc
     if type(binding) is not dict:
         raise _error("Roadmap binding must be a JSON object")
     if binding.get("roadmap_id") != _LEAN_ROADMAP_ID:
         return None
-    return CONTROL_PLANE_STRICT_COMPAT_PLAN
+    return ValidationProfile.CONTROL_PLANE_STRICT_COMPAT
+
+
+def validation_plan_for_task(task_content: str) -> ValidationPlan | None:
+    """Resolve an executable plan while fast admission remains unavailable."""
+    profile = validation_profile_for_task(task_content)
+    if profile is None:
+        return None
+    if profile is ValidationProfile.CONTROL_PLANE_STRICT_COMPAT:
+        return CONTROL_PLANE_STRICT_COMPAT_PLAN
+    if profile is ValidationProfile.CONTROL_PLANE_STRICT:
+        return CONTROL_PLANE_STRICT_PLAN
+    raise _error(
+        "PRODUCT_DELIVERY_FAST admission blocked: missing "
+        "capability-batch/integration-lane authority"
+    )
+
+
+def product_delivery_fast_impact_is_eligible(impact_confidence: object) -> bool:
+    """Conservative adapter to the existing closed Slice-C impact vocabulary."""
+    from src.aios_bridge.review_pipeline import ImpactConfidence
+
+    return (
+        type(impact_confidence) is ImpactConfidence
+        and impact_confidence is ImpactConfidence.KNOWN
+    )
 
 
 def classify_validation_command(command: str) -> ValidationTier:
@@ -400,19 +608,27 @@ def require_review_first_candidate_publication(
 
 
 __all__ = [
+    "CONTROL_PLANE_STRICT_COMPAT_POLICY",
     "CONTROL_PLANE_STRICT_COMPAT_PLAN",
+    "CONTROL_PLANE_STRICT_POLICY",
+    "CONTROL_PLANE_STRICT_PLAN",
     "ExecutorAdHocT2Observability",
+    "PRODUCT_DELIVERY_FAST_POLICY",
     "ValidationEvidence",
     "ValidationOwner",
     "ValidationPlan",
     "ValidationProfile",
+    "ValidationProfilePolicy",
     "ValidationTier",
     "classify_validation_command",
     "certification_commands_for_plan",
     "executor_commands_for_plan",
+    "product_delivery_fast_impact_is_eligible",
     "require_certification_for_publication",
     "require_review_first_candidate_publication",
     "review_first_candidate_test_command",
     "validation_owner",
     "validation_plan_for_task",
+    "validation_policy_for_profile",
+    "validation_profile_for_task",
 ]

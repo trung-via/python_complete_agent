@@ -54,6 +54,12 @@ def test_compact_result_preserves_task_required_candidate_head_sha():
         make_evidence(candidate_head_sha="invalid")
 
 
+def test_compact_result_accepts_explicit_control_plane_strict_identity():
+    evidence = make_evidence(validation_profile="CONTROL_PLANE_STRICT")
+    parsed = parse_result_evidence(evidence.render_marker())
+    assert parsed.validation_profile == "CONTROL_PLANE_STRICT"
+
+
 def test_compact_result_explicitly_classifies_candidate_head_as_prepublication_content_head():
     """Proof: COMPACT_RESULT_EXPLICITLY_CLASSIFIES_CANDIDATE_HEAD_AS_PREPUBLICATION_CONTENT_HEAD."""
     evidence = make_evidence()
