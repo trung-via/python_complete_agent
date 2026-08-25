@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from enum import Enum
+import hashlib
+import json
 import re
 from typing import Any
 
@@ -600,3 +602,125 @@ def route_review_effort(evidence: RiskEvidence) -> ReviewEffort:
     if evidence.task_class is RiskTaskClass.LOW_BOUNDED_NON_CRITICAL:
         return ReviewEffort.FAST
     return ReviewEffort.STANDARD
+
+
+@dataclass(frozen=True, slots=True)
+class FindingRegistry:
+    """One exact-head, exact-round semantic-review finding registry."""
+
+    finding_records: tuple[FindingRecord, ...]
+    review_round: int
+    candidate_head_sha: str
+    review_effort: ReviewEffort
+    risk_evidence: RiskEvidence
+
+    def __post_init__(self) -> None:
+        if type(self.finding_records) is not tuple or len(self.finding_records) > 128:
+            raise _error("finding_records must be an exact bounded tuple")
+        if any(type(item) is not FindingRecord for item in self.finding_records):
+            raise _error("finding_records must contain exact FindingRecord values")
+        ids = [item.finding_id for item in self.finding_records]
+        if len(set(ids)) != len(ids):
+            raise _error("finding registry entries must be duplicate-free by finding_id")
+        if tuple(sorted(ids)) != tuple(ids):
+            raise _error("finding registry records must be canonically sorted by finding_id")
+        _require_round(self.review_round, "review_round")
+        if type(self.candidate_head_sha) is not str or _SHA_RE.fullmatch(self.candidate_head_sha) is None:
+            raise _error("candidate_head_sha must be an exact lowercase 40-hex SHA")
+        if type(self.review_effort) is not ReviewEffort:
+            raise _error("review_effort must be an exact ReviewEffort")
+        if type(self.risk_evidence) is not RiskEvidence:
+            raise _error("risk_evidence must be exact RiskEvidence")
+        if self.review_effort is not route_review_effort(self.risk_evidence):
+            raise _error("review_effort must equal deterministic risk router output")
+        for finding in self.finding_records:
+            if finding.introduced_review_round > self.review_round:
+                raise _error("finding introduction cannot be later than registry review_round")
+            if (
+                finding.closure_review_round is not None
+                and finding.closure_review_round > self.review_round
+            ):
+                raise _error("finding closure cannot be later than registry review_round")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "candidate_head_sha": self.candidate_head_sha,
+            "finding_records": [item.to_dict() for item in self.finding_records],
+            "review_effort": self.review_effort.value,
+            "review_round": self.review_round,
+            "risk_evidence": self.risk_evidence.to_dict(),
+        }
+
+    def canonical_json(self) -> str:
+        return json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":"))
+
+    def fingerprint(self) -> str:
+        return hashlib.sha256(self.canonical_json().encode("utf-8")).hexdigest()
+
+    @classmethod
+    def from_dict(cls, data: object) -> "FindingRegistry":
+        fields = {
+            "candidate_head_sha",
+            "finding_records",
+            "review_effort",
+            "review_round",
+            "risk_evidence",
+        }
+        if type(data) is not dict or set(data) != fields:
+            raise _error("FindingRegistry must contain the exact bounded field set")
+        if type(data["finding_records"]) is not list:
+            raise _error("finding_records must be an exact JSON list")
+        try:
+            return cls(
+                finding_records=tuple(
+                    FindingRecord.from_dict(item) for item in data["finding_records"]
+                ),
+                review_round=data["review_round"],
+                candidate_head_sha=data["candidate_head_sha"],
+                review_effort=ReviewEffort(data["review_effort"]),
+                risk_evidence=RiskEvidence.from_dict(data["risk_evidence"]),
+            )
+        except (TypeError, ValueError) as exc:
+            raise _error(f"malformed FindingRegistry: {exc}") from exc
+
+
+def transition_registry_finding(
+    registry: FindingRegistry,
+    finding_id: str,
+    target: FindingStatus,
+    *,
+    candidate_head_sha: str,
+    review_round: int,
+    reopen_evidence: bool = False,
+    fixed_by_sha: str | None = None,
+    closure_review_round: int | None = None,
+) -> FindingRegistry:
+    """Transition one finding while rebinding the registry to the exact new review subject."""
+    if type(registry) is not FindingRegistry:
+        raise _error("registry must be an exact FindingRegistry")
+    _require_identifier(finding_id, "finding_id")
+    _require_round(review_round, "review_round")
+    if review_round < registry.review_round:
+        raise _error("review_round cannot move backwards")
+    if type(candidate_head_sha) is not str or _SHA_RE.fullmatch(candidate_head_sha) is None:
+        raise _error("candidate_head_sha must be an exact lowercase 40-hex SHA")
+    matches = [item for item in registry.finding_records if item.finding_id == finding_id]
+    if len(matches) != 1:
+        raise _error("finding_id must resolve exactly once in the registry")
+    updated = transition_finding_status(
+        matches[0],
+        target,
+        reopen_evidence=reopen_evidence,
+        fixed_by_sha=fixed_by_sha,
+        closure_review_round=closure_review_round,
+    )
+    records = tuple(
+        updated if item.finding_id == finding_id else item
+        for item in registry.finding_records
+    )
+    return replace(
+        registry,
+        finding_records=records,
+        review_round=review_round,
+        candidate_head_sha=candidate_head_sha,
+    )

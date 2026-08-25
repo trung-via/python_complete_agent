@@ -74,6 +74,12 @@ from src.aios_bridge.executor_automation import (
     validate_executor_worktree_delta,
 )
 from src.aios_bridge.executor_context import ExecutorAuthorizationBinding
+from src.aios_bridge.blocked_recovery import (
+    BLOCKED_REASON_CLEAN_NO_WORKTREE_DELTA,
+    BlockedExecutionEvidence,
+    BlockedReplacementPreflight,
+    require_blocked_executor_replacement,
+)
 from src.aios_bridge.fix_review import (
     FixContextPack,
     FixImpactAnalysis,
@@ -105,6 +111,7 @@ from src.aios_bridge.review_pipeline import (
     derive_review_first_final_state,
     parse_task_pipeline_mode,
 )
+from src.aios_bridge.result_evidence import ResultEvidence
 from src.aios_bridge.certification_job import (
     CertificationPreflightEvidence,
     CertificationJob,
@@ -2614,6 +2621,50 @@ def _validate_and_classify_fix_prior_auth(
     return prior_auth, is_failover
 
 
+def _require_explicit_blocked_replacement(
+    *,
+    cfg: dict,
+    task_id: int,
+    branch: str,
+    prior_auth: dict,
+    selected_executor: str,
+    explicit_executor: bool,
+    reviewed_task_head_sha: str | None = None,
+) -> BlockedExecutionEvidence:
+    """Validate the separate Human-only clean-no-op replacement transition."""
+    try:
+        blocker = BlockedExecutionEvidence.from_dict(
+            prior_auth.get("blocked_execution_evidence")
+        )
+        active_lease = get_lease_store().load_active(f"TASK-{task_id:03d}")
+        local_head = observe_e4_head()
+        remote_ref_name = f"refs/remotes/{cfg['remote']}/{branch}"
+        remote_proc = git("rev-parse", remote_ref_name, check=False)
+        remote_head = (
+            remote_proc.stdout.strip().lower()
+            if remote_proc.returncode == 0 and remote_proc.stdout.strip()
+            else None
+        )
+        require_blocked_executor_replacement(
+            BlockedReplacementPreflight(
+                prior_authorization_status=prior_auth.get("status"),
+                blocker=blocker,
+                replacement_executor_id=selected_executor,
+                explicit_human_selection=explicit_executor,
+                active_lease_present=active_lease is not None,
+                expected_task_branch=branch,
+                current_branch=current_branch(),
+                worktree_clean=is_worktree_clean(),
+                current_head_sha=local_head,
+                remote_head_sha=remote_head,
+                reviewed_task_head_sha=reviewed_task_head_sha,
+            )
+        )
+    except Exception as exc:
+        fail(f"BLOCKED_EXECUTOR_REPLACEMENT preflight failed closed: {exc}")
+    return blocker
+
+
 def _validate_stable_failover_preconditions(
     cfg: dict,
     task_id: int,
@@ -2750,6 +2801,7 @@ def cmd_handoff(args):
 
     fetch_control(cfg)
     paths = get_runtime_paths()
+    pre_start_prior_state = load_json(paths["state"], None)
     frozen_control_commit: str | None = None
 
     def control_commit() -> str:
@@ -2833,6 +2885,18 @@ def cmd_handoff(args):
         base_main_sha = reconcile_local_main(cfg)
         branch = prepare_task_branch(cfg, task_id, "RUN", bound_base_sha=base_main_sha)
 
+        prior_auth = load_authorization(task_id)
+        blocked_replacement = None
+        if prior_auth is not None and prior_auth.get("status") == "EXECUTION_BLOCKED":
+            blocked_replacement = _require_explicit_blocked_replacement(
+                cfg=cfg,
+                task_id=task_id,
+                branch=branch,
+                prior_auth=prior_auth,
+                selected_executor=selected_executor,
+                explicit_executor=explicit_executor,
+            )
+
         task_id_str = f"TASK-{task_id:03d}"
         ws_id = get_workspace_id()
         lease_candidate = build_executor_lease_candidate(
@@ -2867,8 +2931,20 @@ def cmd_handoff(args):
             "execution_fingerprint": acquired_lease.execution_fingerprint,
             "review_pipeline_mode": pipeline_mode.value,
         }
+        if blocked_replacement is not None:
+            auth_record["blocked_executor_replacement"] = {
+                "explicit_human_selection": True,
+                "source_blocker": blocked_replacement.to_dict(),
+            }
         if validation_plan is not None:
             auth_record["validation_plan"] = validation_plan.to_dict()
+        if prior_auth is not None:
+            auth_record["pre_start_prior_authorization"] = {
+                key: value
+                for key, value in prior_auth.items()
+                if key != "pre_start_prior_authorization"
+            }
+        auth_record["pre_start_prior_state"] = pre_start_prior_state
         try:
             save_authorization(task_id, auth_record)
         except Exception as e:
@@ -3011,10 +3087,21 @@ def cmd_handoff(args):
         ws_id = get_workspace_id()
 
         prior_auth, is_failover = _validate_and_classify_fix_prior_auth(task_id, selected_executor)
+        blocked_replacement = None
+        if prior_auth.get("status") == "EXECUTION_BLOCKED":
+            blocked_replacement = _require_explicit_blocked_replacement(
+                cfg=cfg,
+                task_id=task_id,
+                branch=branch,
+                prior_auth=prior_auth,
+                selected_executor=selected_executor,
+                explicit_executor=explicit_executor,
+                reviewed_task_head_sha=reviewed_task_head,
+            )
 
         store = get_lease_store()
 
-        if is_failover:
+        if is_failover and blocked_replacement is None:
             # M6 Stable-Boundary Executor Failover Activation (C12 - C17 / R1-1..R1-5)
             source_lease, source_published_sha, source_result_ref, review_ref = (
                 _validate_stable_failover_preconditions(
@@ -3096,6 +3183,12 @@ def cmd_handoff(args):
                 }
                 if validation_plan is not None:
                     auth_record["validation_plan"] = validation_plan.to_dict()
+                auth_record["pre_start_prior_authorization"] = {
+                    key: value
+                    for key, value in prior_auth.items()
+                    if key != "pre_start_prior_authorization"
+                }
+                auth_record["pre_start_prior_state"] = pre_start_prior_state
                 if fix_context_pack is not None and fix_impact_analysis is not None:
                     auth_record["fix_context_pack"] = fix_context_pack.to_dict()
                     auth_record["fix_impact_analysis"] = fix_impact_analysis.to_dict()
@@ -3178,11 +3271,22 @@ def cmd_handoff(args):
             }
             if validation_plan is not None:
                 auth_record["validation_plan"] = validation_plan.to_dict()
+            auth_record["pre_start_prior_authorization"] = {
+                key: value
+                for key, value in prior_auth.items()
+                if key != "pre_start_prior_authorization"
+            }
+            auth_record["pre_start_prior_state"] = pre_start_prior_state
             if prior_auth and prior_auth.get("published_sha"):
                 auth_record["prior_published_sha"] = prior_auth["published_sha"]
             if fix_context_pack is not None and fix_impact_analysis is not None:
                 auth_record["fix_context_pack"] = fix_context_pack.to_dict()
                 auth_record["fix_impact_analysis"] = fix_impact_analysis.to_dict()
+            if blocked_replacement is not None:
+                auth_record["blocked_executor_replacement"] = {
+                    "explicit_human_selection": True,
+                    "source_blocker": blocked_replacement.to_dict(),
+                }
 
             try:
                 save_authorization(task_id, auth_record)
@@ -3563,6 +3667,64 @@ def _resolve_e4_main_sha(cfg: dict) -> str:
     return sha
 
 
+def _rollback_proven_pre_start_failure(
+    task_num: int,
+    active_auth: dict,
+    expected_lease: ExecutorLease | None,
+    cause: object,
+) -> None:
+    """Release a newly acquired lease when the executor provably never started."""
+    diagnostics: list[str] = []
+    try:
+        lease = expected_lease or reconstruct_expected_executor_lease(active_auth)
+        get_lease_store().release(lease)
+        diagnostics.append("lease_released")
+    except Exception as exc:
+        diagnostics.append(f"lease_release_failed={exc}")
+
+    prior = active_auth.get("pre_start_prior_authorization")
+    auth_restored = False
+    try:
+        if prior is None:
+            get_auth_path(task_num).unlink(missing_ok=True)
+            auth_restored = not get_auth_path(task_num).exists()
+        elif type(prior) is dict and prior.get("status") != "ACTIVE":
+            save_authorization(task_num, prior)
+            auth_restored = load_authorization(task_num) == prior
+        else:
+            raise ContinuityStateValidationError(
+                "pre-start prior authorization is malformed or ACTIVE"
+            )
+        diagnostics.append("authorization_restored")
+    except Exception as exc:
+        diagnostics.append(f"authorization_restore_failed={exc}")
+
+    safe = "lease_released" in diagnostics and auth_restored
+    prior_state = active_auth.get("pre_start_prior_state")
+    try:
+        if safe and type(prior_state) is dict:
+            save_json(get_runtime_paths()["state"], prior_state)
+            if load_json(get_runtime_paths()["state"], None) != prior_state:
+                raise ContinuityStateValidationError("prior state read-back mismatch")
+        else:
+            update_state(
+                task_num,
+                "PENDING_APPROVAL" if safe else "RECOVERY_REQUIRED",
+                (
+                    f"PRE_START_FAILURE; executor provably not started; authorization restored: {cause}"
+                    if safe
+                    else f"PRE_START_FAILURE rollback uncertain; recovery required: {cause}; {'; '.join(diagnostics)}"
+                ),
+            )
+    except Exception as exc:
+        diagnostics.append(f"state_restore_failed={exc}")
+        safe = False
+    if not safe:
+        raise ContinuityStateValidationError(
+            "pre-start rollback could not prove clean restoration: " + "; ".join(diagnostics)
+        )
+
+
 def cmd_execute(args):
     """Run one already-authorized Codex E4 execution and auto-publish on exact success."""
     ensure_git()
@@ -3585,6 +3747,7 @@ def cmd_execute(args):
     if not is_worktree_clean():
         fail("E4 requires a clean worktree before Codex invocation")
 
+    expected_lease = None
     try:
         operation = ExecutionOperation(auth.get("action"))
         expected_lease = reconstruct_expected_executor_lease(auth)
@@ -3673,34 +3836,57 @@ def cmd_execute(args):
                 "authorization validation plan does not match exact task evidence"
             )
         publication_trust = capture_e4_publication_trust_snapshot(cfg["remote"])
-    except SystemExit:
+    except SystemExit as exc:
+        try:
+            _rollback_proven_pre_start_failure(task_num, auth, expected_lease, exc)
+        except Exception as rollback_exc:
+            _e4_operational_failure(
+                task_num,
+                "RECOVERY_REQUIRED",
+                f"E4 pre-start failure rollback failed: {rollback_exc}",
+            )
         raise
     except Exception as exc:
-        fail(f"E4 pre-invocation validation failed: {exc}")
+        try:
+            _rollback_proven_pre_start_failure(task_num, auth, expected_lease, exc)
+        except Exception as rollback_exc:
+            _e4_operational_failure(
+                task_num,
+                "RECOVERY_REQUIRED",
+                f"E4 pre-start failure rollback failed: {rollback_exc}",
+            )
+        fail(f"E4 pre-invocation validation failed; lease rolled back before executor start: {exc}")
 
     transport = CodexLocalTransport(
         PROJECT,
         codex_executable=args.codex_executable,
         timeout_seconds=args.timeout_seconds,
     )
-    if hasattr(transport, "invoke_with_diagnostic"):
-        outcome = transport.invoke_with_diagnostic(
-            launch.context_pack.invocation, launch.context_pack.payload
-        )
-        receipt = outcome.receipt
-        diagnostic = outcome.diagnostic
-    else:
-        receipt = transport.invoke(launch.context_pack.invocation, launch.context_pack.payload)
-        diagnostic = CodexTransportDiagnostic(
-            code="EMPTY_OUTPUT",
-            stdout_total_bytes=0,
-            stderr_total_bytes=0,
-            stdout_scan_truncated=False,
-            stderr_scan_truncated=False,
-            stdout_json_line_count=0,
-            stdout_non_json_line_count=0,
-            stdout_event_types=(),
-            last_stdout_event_type=None,
+    try:
+        if hasattr(transport, "invoke_with_diagnostic"):
+            outcome = transport.invoke_with_diagnostic(
+                launch.context_pack.invocation, launch.context_pack.payload
+            )
+            receipt = outcome.receipt
+            diagnostic = outcome.diagnostic
+        else:
+            receipt = transport.invoke(launch.context_pack.invocation, launch.context_pack.payload)
+            diagnostic = CodexTransportDiagnostic(
+                code="EMPTY_OUTPUT",
+                stdout_total_bytes=0,
+                stderr_total_bytes=0,
+                stdout_scan_truncated=False,
+                stderr_scan_truncated=False,
+                stdout_json_line_count=0,
+                stdout_non_json_line_count=0,
+                stdout_event_types=(),
+                last_stdout_event_type=None,
+            )
+    except Exception as exc:
+        _e4_operational_failure(
+            task_num,
+            "RECOVERY_REQUIRED",
+            f"E4 executor start/completion state is uncertain; lease retained; no retry or reroute: {exc}",
         )
 
     publication_trust_valid = False
@@ -3788,7 +3974,24 @@ def cmd_execute(args):
                 cleanup_diagnostics.append(f"lease_release_failed: {le}")
 
             auth_persisted = False
-            expected_blocked_auth = {**auth, "status": "EXECUTION_BLOCKED"}
+            outcome_val = getattr(diagnostic, "executor_outcome", "UNKNOWN")
+            final_msg_val = getattr(diagnostic, "final_agent_message_observed", "UNKNOWN")
+            blocker = BlockedExecutionEvidence(
+                blocked_reason_code=BLOCKED_REASON_CLEAN_NO_WORKTREE_DELTA,
+                blocked_executor_id=auth["executor_id"],
+                blocked_operation=operation,
+                blocked_head_sha=pre_head_sha,
+                blocked_at=now(),
+                executor_outcome=outcome_val,
+                final_agent_message_observed=final_msg_val,
+                diagnostic_code=diagnostic.code,
+                zero_worktree_delta=True,
+            )
+            expected_blocked_auth = {
+                **auth,
+                "status": "EXECUTION_BLOCKED",
+                "blocked_execution_evidence": blocker.to_dict(),
+            }
             try:
                 save_authorization(task_num, expected_blocked_auth)
                 read_auth = load_authorization(task_num)
@@ -3802,8 +4005,6 @@ def cmd_execute(args):
 
             lease_ok = "lease_released: OK" in cleanup_diagnostics
             if lease_ok and auth_persisted:
-                outcome_val = getattr(diagnostic, "executor_outcome", "UNKNOWN")
-                final_msg_val = getattr(diagnostic, "final_agent_message_observed", "UNKNOWN")
                 blocked_msg = (
                     f"E4 execution blocked: CLEAN_NO_WORKTREE_DELTA; "
                     f"executor_outcome={outcome_val}; final_agent_message_observed={final_msg_val}; "
@@ -5674,7 +5875,60 @@ EXECUTOR_ID: {active_exec}
 {json.dumps(evidence, sort_keys=True, separators=(',', ':'))}
 ```
 """
-    result_content = (
+    if review_first:
+        compact_evidence = ResultEvidence(
+            schema_version="1",
+            task_id=f"TASK-{task_id:03d}",
+            action=action_label,
+            executor_id=active_exec,
+            pipeline_mode=TaskPipelineMode.REVIEW_FIRST_CERTIFICATION.value,
+            candidate_head_sha=post_test_head,
+            base_main_sha=(
+                base_main_label
+                if re.fullmatch(r"[0-9a-f]{40}", str(base_main_label))
+                else "UNKNOWN"
+            ),
+            validation_profile=(
+                validation_evidence.validation_profile.value
+                if validation_evidence is not None
+                else "LEGACY"
+            ),
+            full_canonical_owner="CERTIFICATION_BOUNDARY",
+            candidate_stage_aios_managed_t2_execution_count=0,
+            certification_deferred=True,
+            semantic_review_required=True,
+            targeted_test_status=(
+                "PASS" if publication_test_command is not None and test_rc == 0 else "NOT_REQUIRED"
+            ),
+            publication_trust_status="VERIFIED",
+            transport_status="COMPLETED",
+            actual_changed_paths=tuple(sorted(set(files))),
+            slice_c_impact_evidence=(evidence if slice_c_analysis is not None else None),
+            review_risk_evidence=None,
+            blocked_execution_evidence=None,
+        )
+        result_content = f"""# RESULT-{task_id:03d}
+
+{compact_evidence.render_marker()}
+
+## Non-Authoritative Human Summary
+
+This section is derived from `RESULT_EVIDENCE_JSON`; the JSON marker above is the sole machine authority.
+
+- Candidate stage: `{result_status}`
+- Task / action / executor: `{compact_evidence.task_id}` / `{compact_evidence.action}` / `{compact_evidence.executor_id}`
+- Candidate-stage AIOS-managed T2 count: `0`; final certification is deferred to `certify-reviewed`.
+- Targeted validation: `{compact_evidence.targeted_test_status}`
+- Changed paths: `{len(compact_evidence.actual_changed_paths)}`
+- Evidence fingerprint: `{compact_evidence.fingerprint()}`
+
+No raw pytest output, transport stream, final-agent prose, or model reasoning is persisted in this review-first RESULT.
+
+## Generated
+{now()}
+"""
+    else:
+        result_content = (
         f"""# RESULT-{task_id:03d}
 
 STATUS: {result_status}
@@ -5724,7 +5978,7 @@ STATUS: {result_status}
 ## Generated
 {now()}
 """
-    )
+        )
     result.write_text(result_content, encoding="utf-8")
 
     git("add", "-A")
@@ -5818,6 +6072,18 @@ def _save_certification_job(task_num: int, job: CertificationJob) -> None:
     if type(job) is not CertificationJob:
         raise ContinuityStateValidationError("certification job must be exact")
     save_json(_certification_job_path(task_num), job.to_dict())
+
+
+def _archive_certification_job(task_num: int, job: CertificationJob) -> None:
+    """Retain stale certification only as non-current provenance."""
+    if type(job) is not CertificationJob:
+        raise ContinuityStateValidationError("certification job must be exact")
+    history_path = (
+        _certification_job_path(task_num).parent
+        / "history"
+        / f"{job.job_id}-{job.status.value}.json"
+    )
+    save_json(history_path, job.to_dict())
 
 
 def _resolve_current_task_roadmap(
@@ -6113,17 +6379,40 @@ def cmd_certify_reviewed(args):
             and existing.certification_command_identity == command_identity
         )
         if not exact:
-            fail("Existing certification job is bound to a different candidate")
-        if existing.status is CertificationJobStatus.CERTIFICATION_PASS:
+            if existing.status is CertificationJobStatus.CERTIFICATION_RUNNING:
+                fail(
+                    "Existing certification is RUNNING for a different candidate; "
+                    "safe cancellation is unavailable and the lease/job remains for recovery"
+                )
+            try:
+                stale = existing
+                if existing.status is CertificationJobStatus.CERTIFICATION_PENDING:
+                    stale = transition_certification_job(
+                        existing, CertificationJobStatus.SUPERSEDED
+                    )
+                _archive_certification_job(task_num, stale)
+            except Exception as exc:
+                fail(f"Unable to retain stale certification as superseded provenance: {exc}")
+            if existing.status is CertificationJobStatus.CERTIFICATION_PENDING:
+                existing = None
+            else:
+                fail(
+                    "Stale terminal certification was retained as non-current provenance; "
+                    "it cannot authorize or implicitly certify the new candidate"
+                )
+        if existing is None:
+            pass
+        elif existing.status is CertificationJobStatus.CERTIFICATION_PASS:
             print(
                 f"[CERTIFICATION_PASS][EXISTING] {task_id} {candidate_head_sha}; T2 rerun count=0"
             )
             return existing
-        if existing.status is CertificationJobStatus.CERTIFICATION_FAILED:
+        elif existing.status is CertificationJobStatus.CERTIFICATION_FAILED:
             fail("Existing exact certification FAILED; automatic retry is forbidden")
-        fail(
-            f"Existing exact certification is {existing.status.value}; second T2 is forbidden"
-        )
+        elif existing is not None:
+            fail(
+                f"Existing exact certification is {existing.status.value}; second T2 is forbidden"
+            )
 
     pending = CertificationJob(
         job_id=f"cert-{str(task_id).lower()}-{str(candidate_fingerprint)[:16]}",
