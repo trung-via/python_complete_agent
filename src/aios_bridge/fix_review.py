@@ -58,15 +58,16 @@ def _top_level_values(content: str, marker: str) -> list[str]:
     if type(content) is not str:
         raise _error("review content must be exact text")
     values: list[str] = []
-    fence: str | None = None
+    fence: tuple[str, int] | None = None
     for line in content.splitlines():
         stripped = line.lstrip()
         match = re.match(r"(`{3,}|~{3,})", stripped)
         if match:
-            token = match.group(1)[0]
+            run = match.group(1)
+            token = run[0]
             if fence is None:
-                fence = token
-            elif fence == token:
+                fence = (token, len(run))
+            elif fence[0] == token and len(run) >= fence[1]:
                 fence = None
             continue
         if fence is None and line.startswith(marker):
@@ -445,7 +446,8 @@ def analyze_fix_impact(
         decision = evaluate_proof_carry_forward(proof, current_subject, current_dependency)
         if (
             decision is ProofCarryForwardDecision.CARRY_FORWARD_ALLOWED
-            and set(actual) & set((*binding.subject_paths, *binding.dependency_paths))
+            and set(actual)
+            & set((*binding.subject_paths, *binding.dependency_paths, *binding.test_paths))
         ):
             decision = ProofCarryForwardDecision.INVALIDATE
         decisions.append((proof.proof_id, decision.value))
@@ -472,7 +474,12 @@ def analyze_fix_impact(
         unknown = True
     protected_unchanged = not bool(set(actual) & set(pack.protected_accepted_paths))
     if unknown:
-        selected = tuple(sorted(pack.unknown_impact_fallback_test_paths))
+        selected = tuple(
+            sorted(
+                set(pack.unknown_impact_fallback_test_paths)
+                | set(invalidated_tests)
+            )
+        )
         confidence = ImpactConfidence.UNKNOWN
     else:
         selected = tuple(sorted(set(pack.required_test_paths) | set(invalidated_tests)))

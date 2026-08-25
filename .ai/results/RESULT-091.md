@@ -5,7 +5,7 @@ STATUS: READY_FOR_SEMANTIC_REVIEW
 ## Review Manifest
 ```yaml
 TASK_ID: TASK-091
-ACTION: RUN
+ACTION: FIX
 EXECUTOR_ID: codex
 EXECUTOR_FAILOVER: NO
 HOT_HANDOFF: NO
@@ -30,31 +30,25 @@ Implementation completed by codex through E4 approved automatic execution; pendi
 
 ## Task Metadata
 - Task: `TASK-091`
-- Action: `RUN`
+- Action: `FIX`
 - Executor: `codex`
-- Authorized Artifact: `.ai/tasks/TASK-091.md (86cd8ded4a)`
-- Base Main SHA: `5a609040030a140c0b10be58f4c351dc17cbfb23`
+- Authorized Artifact: `.ai/reviews/REVIEW-091.md (7ffcae7725)`
+- Base Main SHA: `(n/a)`
 - Branch: `ai/task-091`
 
 ## Files Changed
 - bridge.py
-- src/aios_bridge/executor_automation.py
-- src/aios_bridge/executor_context.py
 - src/aios_bridge/fix_review.py
-- tests/aios_bridge/test_executor_context_pack.py
 - tests/aios_bridge/test_fix_review.py
 - tests/aios_bridge/test_lean_review_integration.py
 
 ## Diff Stat
 ```text
-bridge.py                                         | 197 +++++++-
- src/aios_bridge/executor_automation.py            |  16 +
- src/aios_bridge/executor_context.py               |  34 +-
- src/aios_bridge/fix_review.py                     | 544 ++++++++++++++++++++++
- tests/aios_bridge/test_executor_context_pack.py   |  49 ++
- tests/aios_bridge/test_fix_review.py              | 293 ++++++++++++
- tests/aios_bridge/test_lean_review_integration.py |  19 +
- 7 files changed, 1147 insertions(+), 5 deletions(-)
+bridge.py                                         | 98 ++++++++++++++++++++++-
+ src/aios_bridge/fix_review.py                     | 19 +++--
+ tests/aios_bridge/test_fix_review.py              | 54 +++++++++++++
+ tests/aios_bridge/test_lean_review_integration.py | 32 ++++++++
+ 4 files changed, 196 insertions(+), 7 deletions(-)
 ```
 
 ## Tests
@@ -67,20 +61,21 @@ Execution status: NOT_EXECUTED (DEFERRED_TO_CERTIFY_REVIEWED)
 
 ## Validation Evidence
 ```json
-{"action":"RUN","aios_managed_t2_duplication_detected":false,"aios_managed_t2_execution_count":0,"evidence_scope":"AIOS_MANAGED_VALIDATION_AND_EXECUTOR_AD_HOC_BOUNDARY","executor_ad_hoc_t2_execution_count":"UNKNOWN","executor_ad_hoc_t2_observability":"UNAVAILABLE","executor_id":"codex","expected_aios_managed_t2_execution_count":1,"full_canonical_owner":"CERTIFICATION_BOUNDARY","full_suite_duration_seconds":"UNKNOWN","global_t2_execution_count":"UNKNOWN","targeted_test_duration_seconds":"UNKNOWN","targeted_test_execution_count":"UNKNOWN","task_id":"TASK-091","validation_profile":"CONTROL_PLANE_STRICT_COMPAT"}
+{"action":"FIX","aios_managed_t2_duplication_detected":false,"aios_managed_t2_execution_count":0,"evidence_scope":"AIOS_MANAGED_VALIDATION_AND_EXECUTOR_AD_HOC_BOUNDARY","executor_ad_hoc_t2_execution_count":"UNKNOWN","executor_ad_hoc_t2_observability":"UNAVAILABLE","executor_id":"codex","expected_aios_managed_t2_execution_count":1,"full_canonical_owner":"CERTIFICATION_BOUNDARY","full_suite_duration_seconds":"UNKNOWN","global_t2_execution_count":"UNKNOWN","targeted_test_duration_seconds":"UNKNOWN","targeted_test_execution_count":"UNKNOWN","task_id":"TASK-091","validation_profile":"CONTROL_PLANE_STRICT_COMPAT"}
 ```
+
 
 ## Risks / Notes
 E4_AUTO_EXECUTION: YES
-E4_CONTROL_COMMIT_SHA: 20f0b24bfac7b0a5e6c7e2c98022463073dbe406
-E4_CONTEXT_MANIFEST_FINGERPRINT: d4e069909813dac10d3e7b458738e422f0639848f1c62a43f75358f8035acb4d
-E4_INVOCATION_FINGERPRINT: d60fe40fe36362c75ed21dcdd7c34377a2bc8944aed80bca883972cf93f5926e
-E4_INVOCATION_RECEIPT_FINGERPRINT: deeb42085b1c2bce22cd751b7f34f53aeafd0369ad09e81e021ca61a5aed251e
+E4_CONTROL_COMMIT_SHA: 777e6f4f29e700a4e258be9e4a2a4127da849e22
+E4_CONTEXT_MANIFEST_FINGERPRINT: 9c200a82ba2de217728ab6632d939489210da84977c47e4e5d51e2c530a1712d
+E4_INVOCATION_FINGERPRINT: bdb295a84ceeade9c1cdbda1f3fd0d14b4e6222c49f6016c90a60ab3ede3b071
+E4_INVOCATION_RECEIPT_FINGERPRINT: e4742b0353a2458045d9c03b6ab2e19139b90efc1236bc6a044070614773f3e0
 E4_TRANSPORT_STATUS: EXITED_ZERO
-E4_PRE_EXECUTION_HEAD: 5a609040030a140c0b10be58f4c351dc17cbfb23
+E4_PRE_EXECUTION_HEAD: b1aa4bd9e7532fed0dca8abe384c63a1e781f5a7
 E4_ALLOWED_SCOPE_VERIFIED: PASS
 E4_PUBLICATION_TRUST_VERIFIED: PASS
-E4_DIRTY_PATH_COUNT: 7
+E4_DIRTY_PATH_COUNT: 4
 
 ## Generated
-2026-08-25T08:25:56+07:00
+2026-08-25T09:03:49+07:00

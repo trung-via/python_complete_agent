@@ -76,11 +76,13 @@ from src.aios_bridge.executor_automation import (
 from src.aios_bridge.executor_context import ExecutorAuthorizationBinding
 from src.aios_bridge.fix_review import (
     FixContextPack,
+    FixImpactAnalysis,
     FixReviewMode,
     analyze_fix_impact,
     delta_impact_evidence,
     parse_fix_context_pack,
     parse_fix_review_mode,
+    render_fix_executor_context,
 )
 from src.aios_bridge.task_authoring import (
     ExecutableArtifactPreflight,
@@ -902,6 +904,46 @@ def _slice_c_worktree_blob_resolver(_ref: str, path: str) -> str | None:
     except UnicodeDecodeError:
         return None
     return value if re.fullmatch(r"[0-9a-f]{40}", value) else None
+
+
+def _capture_slice_c_candidate_snapshot(paths: tuple[str, ...]) -> str:
+    """Fingerprint exact worktree content/status before or after targeted T1."""
+    if type(paths) is not tuple or any(type(path) is not str or not path for path in paths):
+        raise ContinuityStateValidationError(
+            "Slice-C candidate snapshot paths must be an exact tuple of paths"
+        )
+    if tuple(sorted(set(paths))) != paths:
+        raise ContinuityStateValidationError(
+            "Slice-C candidate snapshot paths must be sorted and duplicate-free"
+        )
+    status = _run_git_binary("status", "--porcelain=v2", "-z", "--", *paths)
+    if status.returncode != 0:
+        raise ContinuityStateValidationError(
+            "Unable to capture Slice-C candidate status evidence"
+        )
+    blobs = [
+        [path, _slice_c_worktree_blob_resolver("", path) or "MISSING"]
+        for path in paths
+    ]
+    payload = (
+        status.stdout
+        + b"\0"
+        + json.dumps(blobs, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    )
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _require_slice_c_candidate_unchanged(
+    before_paths: tuple[str, ...],
+    before_snapshot: str,
+    after_paths: tuple[str, ...],
+    after_snapshot: str,
+) -> None:
+    """Fail closed if targeted T1 changes the candidate described by impact evidence."""
+    if before_paths != after_paths or before_snapshot != after_snapshot:
+        raise ContinuityStateValidationError(
+            "Targeted T1 mutated the tracked candidate after Slice-C impact analysis"
+        )
 
 
 def read_git_blob_bytes(ref: str, path: str) -> bytes:
@@ -4494,6 +4536,17 @@ def cmd_hot_handoff_activate(args):
     print(f"Chạy `bridge.py context {task_id}` trước mutation đầu tiên.")
 
 
+def _interactive_fix_context_for_auth(auth: object) -> str | None:
+    """Expose validated Slice-C guidance only on the interactive worker surface."""
+    if not isinstance(auth, dict) or auth.get("executor_id") != "antigravity":
+        return None
+    if "fix_context_pack" not in auth and "fix_impact_analysis" not in auth:
+        return None
+    fix_pack = FixContextPack.from_dict(auth.get("fix_context_pack"))
+    fix_analysis = FixImpactAnalysis.from_dict(auth.get("fix_impact_analysis"))
+    return render_fix_executor_context(fix_pack, fix_analysis).decode("utf-8")
+
+
 def cmd_context(args):
     cfg = load_config()
     task_id = args.task_id
@@ -4543,6 +4596,8 @@ def cmd_context(args):
     except Exception:
         pass
 
+    interactive_fix_context = _interactive_fix_context_for_auth(auth)
+
     data = {
         "task_id": f"TASK-{task_id:03d}",
         "approved_event": event,
@@ -4557,6 +4612,7 @@ def cmd_context(args):
         "roadmap": str(roadmap),
         "runtime_dir": str(paths["root"]),
         "state_file": str(paths["state"]),
+        "interactive_fix_context": interactive_fix_context,
     }
     print(json.dumps(data, ensure_ascii=False, indent=2))
 
@@ -5205,6 +5261,8 @@ def cmd_publish(args):
 
     slice_c_pack = None
     slice_c_analysis = None
+    slice_c_pre_test_paths = None
+    slice_c_pre_test_snapshot = None
     if "fix_context_pack" in auth or auth.get("fix_review_mode") == FixReviewMode.PROOF_REUSE_DELTA_IMPACT.value:
         try:
             if auth.get("action") != "FIX" or not review_first:
@@ -5212,12 +5270,13 @@ def cmd_publish(args):
                     "Slice-C publication requires review-first FIX authorization"
                 )
             slice_c_pack = FixContextPack.from_dict(auth.get("fix_context_pack"))
+            slice_c_pre_test_paths = collect_e4_dirty_paths()
             observed_analysis = analyze_fix_impact(
                 slice_c_pack,
                 current_head_sha=pre_test_head,
                 previous_blob_resolver=_slice_c_git_blob_resolver,
                 current_blob_resolver=_slice_c_worktree_blob_resolver,
-                actual_changed_paths=collect_e4_dirty_paths(),
+                actual_changed_paths=slice_c_pre_test_paths,
             )
             supplied_analysis = getattr(args, "fix_impact_analysis", None)
             if supplied_analysis is not None and supplied_analysis != observed_analysis:
@@ -5230,6 +5289,9 @@ def cmd_publish(args):
                     "supplied Slice-C pack does not match handoff-bound evidence"
                 )
             slice_c_analysis = observed_analysis
+            slice_c_pre_test_snapshot = _capture_slice_c_candidate_snapshot(
+                slice_c_pre_test_paths
+            )
         except Exception as exc:
             fail(f"Slice-C publication preflight failed: {exc}")
 
@@ -5369,6 +5431,40 @@ def cmd_publish(args):
             f"Task branch HEAD drifted from '{pre_test_head}' to '{post_test_head}' during test execution; work preserved",
             code=1,
         )
+
+    if slice_c_analysis is not None:
+        try:
+            final_dirty_paths = collect_e4_dirty_paths()
+            final_snapshot = _capture_slice_c_candidate_snapshot(final_dirty_paths)
+            _require_slice_c_candidate_unchanged(
+                slice_c_pre_test_paths,
+                slice_c_pre_test_snapshot,
+                final_dirty_paths,
+                final_snapshot,
+            )
+            final_analysis = analyze_fix_impact(
+                slice_c_pack,
+                current_head_sha=post_test_head,
+                previous_blob_resolver=_slice_c_git_blob_resolver,
+                current_blob_resolver=_slice_c_worktree_blob_resolver,
+                actual_changed_paths=final_dirty_paths,
+            )
+            if final_analysis != slice_c_analysis:
+                raise ContinuityStateValidationError(
+                    "Final Slice-C impact evidence differs from pre-T1 test selection"
+                )
+            slice_c_analysis = final_analysis
+        except Exception as exc:
+            failure_state = getattr(args, "failure_state", None) or "RECOVERY_REQUIRED"
+            update_state(
+                task_id,
+                failure_state,
+                f"Targeted T1 changed Slice-C candidate evidence; work preserved: {exc}",
+            )
+            fail(
+                f"Targeted T1 changed Slice-C candidate evidence; work preserved: {exc}",
+                code=1,
+            )
 
     try:
         post_test_auth = get_active_authorization(task_id)

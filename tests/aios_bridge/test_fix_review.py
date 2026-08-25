@@ -3,6 +3,7 @@ import json
 
 import pytest
 
+import bridge
 from src.aios_bridge.fix_review import (
     FIX_CONTEXT_PACK_MARKER,
     FixContextPack,
@@ -100,6 +101,19 @@ def test_fenced_fix_mode_example_does_not_activate():
     assert parse_fix_review_mode(content) is FixReviewMode.COMPATIBILITY
 
 
+def test_shorter_inner_fence_does_not_close_valid_outer_fence():
+    content = (
+        "````markdown\n"
+        "```text\n"
+        "FIX_REVIEW_MODE: PROOF_REUSE_DELTA_IMPACT\n"
+        f"{FIX_CONTEXT_PACK_MARKER} {{}}\n"
+        "```\n"
+        "````\n"
+    )
+    assert parse_fix_review_mode(content) is FixReviewMode.COMPATIBILITY
+    assert parse_fix_context_pack(content, reviewed_task_head_sha=HEAD) is None
+
+
 def test_fix_pack_is_strict_bounded_and_round_trips():
     parsed = parse_fix_context_pack(review(), reviewed_task_head_sha=HEAD)
     assert parsed == pack()
@@ -191,6 +205,25 @@ def test_actual_proof_surface_delta_invalidates_even_when_blob_identity_is_uncha
     assert analysis.carried_forward_proof_ids == ()
 
 
+def test_changed_bound_test_path_invalidates_proof_and_selects_its_t1():
+    data = pack_data()
+    data["affected_paths"].append("tests/test_proof.py")
+    exact = {"src/subject.py": BLOB_A, "src/dependency.py": BLOB_B}
+    analysis = analyze_fix_impact(
+        FixContextPack.from_dict(data),
+        current_head_sha=HEAD,
+        previous_blob_resolver=resolver(exact),
+        current_blob_resolver=resolver(exact),
+        actual_changed_paths=("tests/test_proof.py",),
+    )
+    assert analysis.carried_forward_proof_ids == ()
+    assert analysis.invalidated_proof_ids == ("proof-1",)
+    assert analysis.selected_test_paths == (
+        "tests/test_fix.py",
+        "tests/test_proof.py",
+    )
+
+
 def test_reviewer_fingerprint_is_recomputed_and_mismatch_fails_closed():
     previous = {"src/subject.py": BLOB_C, "src/dependency.py": BLOB_B}
     with pytest.raises(FixReviewContractError, match="reviewer subject fingerprint mismatch"):
@@ -276,6 +309,27 @@ def test_fix_context_is_bounded_provider_neutral_and_retains_source_identity():
     assert b"antigravity" not in rendered.lower()
     assert pack().proof_bindings[0].proof.source_review_round == 2
     assert pack().proof_bindings[0].proof.evidence_fingerprint == EVIDENCE
+
+
+def test_antigravity_handoff_receives_same_semantic_fix_context_as_codex_pack():
+    exact = {"src/subject.py": BLOB_A, "src/dependency.py": BLOB_B}
+    fix_pack = pack()
+    analysis = analyze_fix_impact(
+        fix_pack,
+        current_head_sha=HEAD,
+        previous_blob_resolver=resolver(exact),
+        current_blob_resolver=resolver(exact),
+    )
+    auth = {
+        "executor_id": "antigravity",
+        "fix_context_pack": fix_pack.to_dict(),
+        "fix_impact_analysis": analysis.to_dict(),
+    }
+    assert bridge._interactive_fix_context_for_auth(auth).encode("utf-8") == (
+        render_fix_executor_context(fix_pack, analysis)
+    )
+    auth["executor_id"] = "codex"
+    assert bridge._interactive_fix_context_for_auth(auth) is None
 
 
 def test_delta_impact_evidence_is_compact_machine_readable():

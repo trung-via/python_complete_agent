@@ -369,6 +369,38 @@ def test_slice_c_publication_runs_only_bounded_t1_and_keeps_t2_deferred():
     assert "Final T2 status: NOT_EXECUTED (DEFERRED_TO_CERTIFY_REVIEWED)" in block
 
 
+def test_slice_c_rejects_candidate_mutation_during_targeted_t1():
+    with pytest.raises(
+        bridge.ContinuityStateValidationError,
+        match="Targeted T1 mutated the tracked candidate",
+    ):
+        bridge._require_slice_c_candidate_unchanged(
+            ("bridge.py",),
+            "a" * 64,
+            ("bridge.py",),
+            "b" * 64,
+        )
+
+
+def test_slice_c_publish_recomputes_final_impact_after_t1():
+    source = inspect.getsource(bridge.cmd_publish)
+    assert source.index("final_dirty_paths = collect_e4_dirty_paths()") > source.index(
+        "run(publication_test_command"
+    )
+    assert "_require_slice_c_candidate_unchanged" in source
+    assert "final_analysis = analyze_fix_impact" in source
+
+
+def test_antigravity_context_surface_uses_same_validated_fix_renderer():
+    source = inspect.getsource(bridge.cmd_context)
+    helper = inspect.getsource(bridge._interactive_fix_context_for_auth)
+    assert 'auth.get("executor_id") != "antigravity"' in helper
+    assert "FixContextPack.from_dict" in helper
+    assert "FixImpactAnalysis.from_dict" in helper
+    assert "render_fix_executor_context" in helper
+    assert '"interactive_fix_context": interactive_fix_context' in source
+
+
 def test_slice_scope_does_not_implement_reserved_task_087():
     combined = "\n".join(
         inspect.getsource(item)
