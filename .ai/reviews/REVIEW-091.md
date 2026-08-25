@@ -1,20 +1,20 @@
 # REVIEW-091 — FIX Proof Carry-Forward + Invalidation + Delta/Impact Review Integration
 PUBLISHER_PROFILE: CANONICAL_E4
-STATUS: CHANGES_REQUIRED
-APPROVED: NO
-AUTO_MERGE_ELIGIBLE: NO
+STATUS: SEMANTICALLY_ACCEPTED_PENDING_T2
+APPROVED: YES
+AUTO_MERGE_ELIGIBLE: YES
 MERGE_AUTHORIZED: NO
 MERGED_TO_MAIN: NO
 TASK_ID: TASK-091
-REVIEW_ROUND: 2
-REVIEWED_TASK_HEAD_SHA: 74727d4cc97fd8ea53e10f5bc5ac4e9ca81a8c71
+REVIEW_ROUND: 3
+REVIEWED_TASK_HEAD_SHA: 5570e64bec7522caf6b4ebda3b2f34ec45a11ebf
 REVIEWED_BASE_MAIN_SHA: 5a609040030a140c0b10be58f4c351dc17cbfb23
 TASK_ARTIFACT_BLOB_SHA: 86cd8ded4a3d8cdf6b571098242a8f0f28aba38b
-RESULT_BLOB_SHA: 36f33fb657d9f288277954b1146173b9e4b31704
+RESULT_BLOB_SHA: b322f72ad3fc353b661f60d76b1fde7dc3320f6c
 EXECUTOR_ID: codex
-BLOCKERS_REMAINING: 1
-CODE_AUDIT: CHANGES_REQUIRED
-CANONICAL_TESTS: DEFERRED_PENDING_SEMANTIC_ACCEPTANCE
+BLOCKERS_REMAINING: 0
+CODE_AUDIT: PASS
+CANONICAL_TESTS: PENDING_CERTIFICATION
 ROADMAP_AUDIT: PASS
 ROADMAP_ID: AIOS-BRIDGE-LEAN-EXECUTION
 ROADMAP_VERSION: 1.2
@@ -23,107 +23,92 @@ ROADMAP_FINGERPRINT: 89c9372c074ecb43778705f07c6fded67e4af7833c0feb72a92a9ae2e73
 MILESTONE: P1
 CAPABILITY_ID: P1_UNIFIED_VALIDATION_CAPABILITY_BATCH
 REQUIREMENT_BINDINGS_FINGERPRINT: 11ed8d59df71c670f5264eff4f7fb6756828a0c83090b36d3998b21b1047c694
-FIX_EXECUTION_MODE: IMPLEMENTATION
 TASK_087_PREREQUISITE_ELIGIBLE: NO
 P1_FORMAL_COMPLETION: NO
 P2_P3_AUTHORIZED: NO
 H5_H8_AUTHORIZED: NO
-EXECUTOR_CONTEXT_REFS_JSON: [{"path":".ai/tasks/TASK-091.md","blob_sha":"86cd8ded4a3d8cdf6b571098242a8f0f28aba38b"}]
-EXECUTOR_ALLOWED_PATHS_JSON: ["src/aios_bridge/fix_review.py","tests/aios_bridge/test_fix_review.py"]
-DISPATCH_EXECUTOR_POLICY_JSON: {"allow_paid_api":false,"candidates":[{"capacity_class":"SUBSCRIPTION","executor_id":"codex","preference_rank":0,"supported_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"],"supported_operations":["FIX"]}],"operation":"FIX","required_capabilities":["FILESYSTEM_WRITE","LOCAL_GIT","REPOSITORY_READ","SHELL","TEST_EXECUTION"]}
 
 ## Snapshot
 
 ```text
-HEAD: 74727d4cc97fd8ea53e10f5bc5ac4e9ca81a8c71
-PREVIOUS_REVIEWED_HEAD: b1aa4bd9e7532fed0dca8abe384c63a1e781f5a7
+HEAD: 5570e64bec7522caf6b4ebda3b2f34ec45a11ebf
+PREVIOUS_REVIEWED_HEAD: 74727d4cc97fd8ea53e10f5bc5ac4e9ca81a8c71
 BASE_MAIN: 5a609040030a140c0b10be58f4c351dc17cbfb23
 MERGE_BASE: 5a609040030a140c0b10be58f4c351dc17cbfb23
-AHEAD: 2
-BEHIND: 0
+AHEAD_FROM_PREVIOUS_REVIEW: 1
+MAIN_DRIFT: NO
 CANDIDATE_STAGE_AIOS_MANAGED_T2_EXECUTION_COUNT: 0
 CERTIFICATION_DEFERRED: YES
 ```
 
-This is a corrected Round-2 review. The candidate did not change. The previous B3 finding is withdrawn after tracing the real handoff call path: `cmd_handoff()` already invokes `cmd_context(args)` automatically on successful handoff, so the validated `interactive_fix_context` added by the candidate is emitted on the worker-visible Antigravity handoff stdout path without requiring the Antigravity workflow to invoke `bridge.py context` separately.
+Round 3 is a Delta + Impact semantic review of the sole remaining B4 repair. Previously accepted B1-B3 and A1-A10 remain protected because this FIX changed only the fenced-marker parser and its focused regression test.
 
-## Closed Findings
+## Finding Closure
+
+### B4 — CLOSED
+
+`_top_level_values()` now closes an active Markdown fence only when all three deterministic conditions hold:
 
 ```text
-B1 CLOSED — bound proof test/evidence path changes invalidate proof and select its T1.
-B2 CLOSED — targeted T1 cannot mutate the candidate without fail-closed rejection; final impact is recomputed.
-B3 CLOSED — successful Antigravity handoff automatically reaches cmd_context output; derived FIX Context Pack is therefore delivered on the existing handoff stdout surface.
+same delimiter character
+AND closing run length >= opening run length
+AND remainder after the delimiter run is whitespace-only
 ```
 
-B3 closure does not weaken the workflow rule forbidding a separate manual `bridge.py context` invocation. The delivery is internal to the existing handoff call path.
+A same-length-or-longer delimiter followed by non-whitespace content remains fenced content. The new regression uses a four-backtick outer fence, a four-backtick line with trailing text, then Slice-C authority markers; neither mode nor context activates. Existing shorter-inner-fence behavior remains intact.
 
-## Sole Blocking Finding
+## Delta / Impact Audit
 
-### B4 — fenced-marker parser accepts a non-closing fence line as a closing delimiter
-
-`src/aios_bridge/fix_review.py::_top_level_values()` correctly remembers the opening delimiter character and run length, but while already inside a fence it still closes whenever the line begins with the same delimiter and run length >= the opening length. It does not require the remainder of the candidate closing line to be whitespace-only.
-
-Exact required repair:
+The Round-3 FIX is exactly one commit on previous reviewed head `74727d4c...` and changes only:
 
 ```text
-WHEN fence is open:
-  run = leading backtick/tilde run
-  remainder = text after that run
-
-  close ONLY IF:
-    run delimiter == opening delimiter
-    AND len(run) >= opening length
-    AND remainder.strip() == ""
-
-  otherwise remain inside the fence
+src/aios_bridge/fix_review.py
+tests/aios_bridge/test_fix_review.py
 ```
 
-Do not redesign the parser and do not touch Bridge/worker flow for this FIX.
+No accepted authority, publication, certification, merge, roadmap, executor-context, or provider-neutral delivery surface was touched by this FIX. B1-B3 remain closed.
 
-Required regression in `tests/aios_bridge/test_fix_review.py`:
+The latest RESULT correctly preserves Review-First semantics:
 
 ```text
-outer fence: four backticks
-inside line: four backticks followed by non-whitespace text
-then FIX_REVIEW_MODE and FIX_CONTEXT_PACK_JSON markers
-then real four-backtick closing fence
-
-EXPECTED:
-parse_fix_review_mode(...) == COMPATIBILITY
-parse_fix_context_pack(...) == None
+STATUS: READY_FOR_SEMANTIC_REVIEW
+AIOS_MANAGED_T2_EXECUTION_COUNT: 0
+AIOS_MANAGED_T2_DUPLICATION_DETECTED: NO
+CERTIFICATION_DEFERRED: YES
+SEMANTIC_REVIEW_REQUIRED: YES
 ```
 
-Also preserve the existing tests for simple triple-backtick, tilde, and shorter-inner-fence cases.
+The RESULT does not provide machine-observed targeted-test execution evidence for this compatibility FIX round. This does not create merge authority: semantic acceptance remains explicitly non-authoritative and the exact candidate must now pass the sole mandatory certification-owned full canonical T2 before FINAL_PASS can be derived.
 
-## Protected Accepted Surfaces
-
-Do not reopen or modify B1-B3 or previously accepted A1-A10. This FIX is parser-only.
-
-## Validation Contract
-
-Run only:
+## Accepted / Protected Surfaces
 
 ```text
-venv\Scripts\python.exe -m pytest tests/aios_bridge/test_fix_review.py -q
+A1 Explicit Slice-C opt-in with compatibility default.
+A2 Strict bounded FIX Context Pack schema and exact prior-head binding.
+A3 Previous proof fingerprints recomputed from exact Git blob evidence.
+A4 Missing/unresolvable proof evidence becomes UNKNOWN.
+A5 Subject/dependency/test evidence changes invalidate proof; unchanged VALID proof carries forward.
+A6 Unknown/escaped impact expands testing conservatively.
+A7 Existing allowed-path authority remains independent and fail-closed.
+A8 Codex receives bounded provider-neutral derived FIX pack.
+A9 Antigravity handoff exposes the same validated derived FIX Context Pack through the existing handoff -> cmd_context stdout boundary.
+A10 Pre/post targeted-T1 candidate identity fails closed on mutation.
+A11 Review-first candidate publication remains T2=0.
+A12 Certification remains exact-candidate, exactly-once, provider-neutral and no-model-polling.
+A13 Existing reviewed-head merge gate remains the only merge authority boundary.
+A14 TASK-087 remains reserved; P2/P3 and H5-H8 remain unauthorized.
 ```
 
-Do not run `pytest tests/ -q`. Candidate-stage T2 must remain 0. Final canonical T2 remains owned only by `certify-reviewed` after semantic acceptance.
-
-## Operational Note
-
-The prior Codex clean no-op left runtime authorization at `EXECUTION_BLOCKED`. Switching to Antigravity is therefore correctly rejected by the existing stable-failover contract, which requires a prior `CONSUMED` published boundary. This corrected FIX intentionally uses the same executor (`codex`) and is a new explicit Human invocation, not automatic retry/reroute.
-
-Do not manually mutate authorization status to `CONSUMED`; the blocked lease did not publish the prior candidate and must not be represented as if it did.
-
-## Decision
+## Semantic Decision
 
 ```text
-TASK-091: CHANGES_REQUIRED
-CLOSED: B1 B2 B3
-OPEN: B4
-FINAL_T2_NOW: NO
-CERTIFICATION_NOW: NO
-MERGE: NO
-NEXT: $aios-worker FIX TASK-091
+TASK-091: SEMANTICALLY_ACCEPTED_PENDING_T2
+SEMANTIC_BLOCKERS: 0
+APPROVED: YES
+FINAL_PASS: NO
+MERGE_AUTHORIZED: NO
+NEXT: bridge.py certify-reviewed 91
 TASK_087: DO_NOT_RUN
 ```
+
+Semantic acceptance is bound to exact candidate `5570e64bec7522caf6b4ebda3b2f34ec45a11ebf`. Any candidate-head or base-main drift invalidates this acceptance for certification purposes. Final PASS may be derived only after certification-owned T2 passes exactly once on this exact candidate.
