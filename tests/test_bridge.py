@@ -88,7 +88,7 @@ def _make_e4_test_task_content(task_id: int, action: str = "RUN", executor: str 
 PUBLISHER_PROFILE: CANONICAL_E4
 
 EXECUTOR_CONTEXT_REFS_JSON: [{{"path": ".ai/decisions/ADR-001.md", "blob_sha": "{"a"*40}"}}]
-EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py", "fix.txt", "change_a.txt", "change_b.txt", "change_cc_repair.txt", "change_ag_repair.txt", "change_antigravity_repair.txt", "change_codex_repair.txt"]
+EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py", "fix.txt", "change_a.txt", "change_b.txt", "change_cc_repair.txt", "change_ag_repair.txt", "change_antigravity_repair.txt", "change_codex_repair.txt", "tests/test_bridge.py", "tests/test_bridge_executor_automation.py"]
 DISPATCH_EXECUTOR_POLICY_JSON: {json.dumps(policy)}
 """
 
@@ -938,6 +938,15 @@ def test_publish_consumes_active_authorization_and_creates_result_with_test_evid
 
             bridge.fetch_control = lambda cfg: None
             bridge.get_remote_blob_sha = lambda cfg, path: "c" * 40 if "tasks" in path else None
+            bridge.capture_e4_publication_trust_snapshot = lambda r: "snap"
+            bridge.verify_e4_publication_trust_snapshot = lambda snap: None
+            task_6_text = (
+                'PUBLISHER_PROFILE: CANONICAL_E4\n'
+                'EXECUTOR_CONTEXT_REFS_JSON: [{"path": ".ai/decisions/ADR-001.md", "blob_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]\n'
+                'EXECUTOR_ALLOWED_PATHS_JSON: ["app.py", "tests/test_bridge.py", "tests/test_bridge_executor_automation.py"]\n'
+                'DISPATCH_EXECUTOR_POLICY_JSON: {"operation":"RUN","candidates":[{"executor_id":"antigravity","supported_operations":["RUN"],"supported_capabilities":[]}],"required_capabilities":[]}'
+            )
+            bridge.read_remote_file = lambda cfg, path: task_6_text
 
             # Mock git push
             bridge.git = lambda *args, **kw: (
@@ -3074,6 +3083,9 @@ def test_cmd_publish_failover_revalidation_and_result_manifest():
                     else old_git(*args, **kw)
                 )
             )
+            bridge.capture_e4_publication_trust_snapshot = lambda r: "snap"
+            bridge.verify_e4_publication_trust_snapshot = lambda s: None
+            bridge.read_remote_file = lambda cfg, path: _make_e4_test_task_content(30, "FIX", "codex")
 
             try:
                 bridge.cmd_publish(
@@ -4175,6 +4187,8 @@ def test_cmd_publish_task_030_proof_progress_manifest_generation():
             bridge.fetch_control = lambda cfg: None
             bridge.get_remote_blob_sha = lambda cfg, path: review_blob
             bridge.read_remote_file = lambda cfg, path: _make_e4_test_task_content(30, "FIX", "codex")
+            bridge.capture_e4_publication_trust_snapshot = lambda r: "snap"
+            bridge.verify_e4_publication_trust_snapshot = lambda s: None
 
             bridge.git = lambda *args, **kw: (
                 type("Res", (), {"returncode": 0, "stdout": "", "stderr": ""})()
@@ -4699,6 +4713,8 @@ def test_cmd_publish_task_031_proof_progress_manifest_generation():
             bridge.fetch_control = lambda cfg: None
             bridge.get_remote_blob_sha = lambda cfg, path: review_blob
             bridge.read_remote_file = lambda cfg, path: _make_e4_test_task_content(31, "FIX", "claude-code")
+            bridge.capture_e4_publication_trust_snapshot = lambda r: "snap"
+            bridge.verify_e4_publication_trust_snapshot = lambda s: None
 
             bridge.git = lambda *args, **kw: (
                 type("Res", (), {"returncode": 0, "stdout": "", "stderr": ""})()
@@ -5346,11 +5362,13 @@ def test_cmd_publish_task_032_proof_progress_manifest_generation(tmp_path: Path,
     monkeypatch.setattr(bridge, "get_lease_store", lambda: DummyStore())
     monkeypatch.setattr(bridge, "reconstruct_expected_executor_lease", lambda auth: None)
     monkeypatch.setattr(bridge, "get_remote_blob_sha", lambda cfg, path: "d" * 40 if path == ".ai/tasks/TASK-032.md" else None)
+    monkeypatch.setattr(bridge, "read_remote_file", lambda cfg, path: _make_e4_test_task_content(32, "RUN", "antigravity"))
 
     # Case 1: Initial RUN (S0)
     auth_run = {
         "task_id": "TASK-032",
         "action": "RUN",
+        "status": "ACTIVE",
         "executor_id": "antigravity",
         "lease_id": "lease-task-032-123456",
         "lease_fingerprint": "a" * 64,
@@ -5689,6 +5707,7 @@ def test_evidence_refresh_exact_clean_reviewed_head_passes(
     auth = {
         "task_id": "TASK-086",
         "action": "FIX",
+        "status": "ACTIVE",
         "fix_execution_mode": "EVIDENCE_REFRESH",
         "artifact_path": ".ai/reviews/REVIEW-086.md",
         "artifact_blob_sha": "a" * 40,
@@ -5713,7 +5732,15 @@ def test_evidence_refresh_exact_clean_reviewed_head_passes(
     })())
     monkeypatch.setattr(bridge, "fetch_control", lambda c: None)
     monkeypatch.setattr(bridge, "get_remote_blob_sha", lambda c, p: "a" * 40)
-    monkeypatch.setattr(bridge, "read_remote_file", lambda c, p: "STATUS: CHANGES_REQUIRED\n")
+    mock_art = (
+        'STATUS: CHANGES_REQUIRED\n'
+        'EXECUTOR_CONTEXT_REFS_JSON: [{"path": ".ai/decisions/ADR-001.md", "blob_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]\n'
+        'EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py", "tests/test_bridge.py", "tests/test_bridge_executor_automation.py"]\n'
+        'DISPATCH_EXECUTOR_POLICY_JSON: {"operation":"FIX","candidates":[{"executor_id":"antigravity","supported_operations":["FIX"],"supported_capabilities":[]}],"required_capabilities":[]}'
+    )
+    monkeypatch.setattr(bridge, "read_remote_file", lambda c, p: mock_art)
+    monkeypatch.setattr(bridge, "capture_e4_publication_trust_snapshot", lambda r: "snap")
+    monkeypatch.setattr(bridge, "verify_e4_publication_trust_snapshot", lambda s: None)
     # Head exactly matches reviewed "b"*40
     monkeypatch.setattr(bridge, "observe_e4_head", lambda: "b" * 40)
     monkeypatch.setattr(bridge, "non_ai_dirty_paths", lambda: [])
@@ -6415,3 +6442,160 @@ def test_interactive_publish_captures_trust_and_rejects_git_admin_drift(monkeypa
     args = SimpleNamespace(task_id=97)
     with pytest.raises(SystemExit):
         bridge._slim_cmd_publish_compat(args)
+
+
+def test_interactive_publish_rejects_missing_control_blob(monkeypatch):
+    """Proof: B097.1 — Missing artifact blob SHA on control branch fails closed."""
+    monkeypatch.setattr(bridge, "ensure_git", lambda: None)
+    monkeypatch.setattr(bridge, "load_config", lambda: {"task_branch_prefix": "ai/task-"})
+    monkeypatch.setattr(bridge, "current_branch", lambda: "ai/task-097")
+
+    auth = {
+        "status": "ACTIVE",
+        "action": "RUN",
+        "executor_id": "antigravity",
+        "artifact_path": ".ai/tasks/TASK-097.md",
+        "artifact_blob_sha": "a" * 40,
+    }
+    monkeypatch.setattr(bridge, "get_active_authorization", lambda task_id: auth)
+    monkeypatch.setattr(bridge, "get_lease_store", lambda: type("Store", (), {"require_active": lambda s, l: None})())
+    monkeypatch.setattr(bridge, "reconstruct_expected_executor_lease", lambda a: "lease-97")
+    monkeypatch.setattr(bridge, "fetch_control", lambda cfg: None)
+    # Missing blob lookup
+    monkeypatch.setattr(bridge, "get_remote_blob_sha", lambda cfg, path: None)
+
+    args = SimpleNamespace(task_id=97)
+    with pytest.raises(SystemExit):
+        bridge._slim_cmd_publish_compat(args)
+
+
+def test_interactive_publish_rejects_unreadable_artifact(monkeypatch):
+    """Proof: B097.1 — Unreadable/empty authorized artifact fails closed."""
+    monkeypatch.setattr(bridge, "ensure_git", lambda: None)
+    monkeypatch.setattr(bridge, "load_config", lambda: {"task_branch_prefix": "ai/task-"})
+    monkeypatch.setattr(bridge, "current_branch", lambda: "ai/task-097")
+
+    auth = {
+        "status": "ACTIVE",
+        "action": "RUN",
+        "executor_id": "antigravity",
+        "artifact_path": ".ai/tasks/TASK-097.md",
+        "artifact_blob_sha": "a" * 40,
+    }
+    monkeypatch.setattr(bridge, "get_active_authorization", lambda task_id: auth)
+    monkeypatch.setattr(bridge, "get_lease_store", lambda: type("Store", (), {"require_active": lambda s, l: None})())
+    monkeypatch.setattr(bridge, "reconstruct_expected_executor_lease", lambda a: "lease-97")
+    monkeypatch.setattr(bridge, "fetch_control", lambda cfg: None)
+    monkeypatch.setattr(bridge, "get_remote_blob_sha", lambda cfg, path: "a" * 40)
+    monkeypatch.setattr(bridge, "read_remote_file", lambda cfg, path: "")
+
+    args = SimpleNamespace(task_id=97)
+    with pytest.raises(SystemExit):
+        bridge._slim_cmd_publish_compat(args)
+
+
+def test_interactive_publish_rejects_malformed_allowed_paths_json(monkeypatch):
+    """Proof: B097.1 — Malformed EXECUTOR_ALLOWED_PATHS_JSON fails closed."""
+    monkeypatch.setattr(bridge, "ensure_git", lambda: None)
+    monkeypatch.setattr(bridge, "load_config", lambda: {"task_branch_prefix": "ai/task-"})
+    monkeypatch.setattr(bridge, "current_branch", lambda: "ai/task-097")
+
+    auth = {
+        "status": "ACTIVE",
+        "action": "RUN",
+        "executor_id": "antigravity",
+        "artifact_path": ".ai/tasks/TASK-097.md",
+        "artifact_blob_sha": "a" * 40,
+    }
+    monkeypatch.setattr(bridge, "get_active_authorization", lambda task_id: auth)
+    monkeypatch.setattr(bridge, "get_lease_store", lambda: type("Store", (), {"require_active": lambda s, l: None})())
+    monkeypatch.setattr(bridge, "reconstruct_expected_executor_lease", lambda a: "lease-97")
+    monkeypatch.setattr(bridge, "fetch_control", lambda cfg: None)
+    monkeypatch.setattr(bridge, "get_remote_blob_sha", lambda cfg, path: "a" * 40)
+
+    malformed_content = (
+        'PUBLISHER_PROFILE: CANONICAL_E4\n'
+        'EXECUTOR_CONTEXT_REFS_JSON: [{"path": ".ai/decisions/ADR-001.md", "blob_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]\n'
+        'EXECUTOR_ALLOWED_PATHS_JSON: [NOT_VALID_JSON}\n'
+        'DISPATCH_EXECUTOR_POLICY_JSON: {"operation":"RUN","candidates":[{"executor_id":"antigravity","supported_operations":["RUN"],"supported_capabilities":[]}],"required_capabilities":[]}'
+    )
+    monkeypatch.setattr(bridge, "read_remote_file", lambda cfg, path: malformed_content)
+
+    args = SimpleNamespace(task_id=97)
+    with pytest.raises(SystemExit):
+        bridge._slim_cmd_publish_compat(args)
+
+
+def test_interactive_publish_rejects_absent_scope_evidence(monkeypatch):
+    """Proof: B097.1 — Missing EXECUTOR_ALLOWED_PATHS_JSON fails closed without auth fallback."""
+    monkeypatch.setattr(bridge, "ensure_git", lambda: None)
+    monkeypatch.setattr(bridge, "load_config", lambda: {"task_branch_prefix": "ai/task-"})
+    monkeypatch.setattr(bridge, "current_branch", lambda: "ai/task-097")
+
+    auth = {
+        "status": "ACTIVE",
+        "action": "RUN",
+        "executor_id": "antigravity",
+        "artifact_path": ".ai/tasks/TASK-097.md",
+        "artifact_blob_sha": "a" * 40,
+        "allowed_paths": ["bridge.py"],  # Auth allowed_paths MUST NOT be accepted as scope authority
+    }
+    monkeypatch.setattr(bridge, "get_active_authorization", lambda task_id: auth)
+    monkeypatch.setattr(bridge, "get_lease_store", lambda: type("Store", (), {"require_active": lambda s, l: None})())
+    monkeypatch.setattr(bridge, "reconstruct_expected_executor_lease", lambda a: "lease-97")
+    monkeypatch.setattr(bridge, "fetch_control", lambda cfg: None)
+    monkeypatch.setattr(bridge, "get_remote_blob_sha", lambda cfg, path: "a" * 40)
+
+    no_scope_content = (
+        'PUBLISHER_PROFILE: CANONICAL_E4\n'
+        'EXECUTOR_CONTEXT_REFS_JSON: [{"path": ".ai/decisions/ADR-001.md", "blob_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]\n'
+        'DISPATCH_EXECUTOR_POLICY_JSON: {"operation":"RUN","candidates":[{"executor_id":"antigravity","supported_operations":["RUN"],"supported_capabilities":[]}],"required_capabilities":[]}'
+    )
+    monkeypatch.setattr(bridge, "read_remote_file", lambda cfg, path: no_scope_content)
+
+    args = SimpleNamespace(task_id=97)
+    with pytest.raises(SystemExit):
+        bridge._slim_cmd_publish_compat(args)
+
+
+def test_interactive_publish_rejects_missing_remote_trust_capture(monkeypatch):
+    """Proof: B097.2 — Publication trust capture failure fails closed with zero legacy publish/commit/push."""
+    monkeypatch.setattr(bridge, "ensure_git", lambda: None)
+    monkeypatch.setattr(bridge, "load_config", lambda: {"task_branch_prefix": "ai/task-"})
+    monkeypatch.setattr(bridge, "current_branch", lambda: "ai/task-097")
+
+    auth = {
+        "status": "ACTIVE",
+        "action": "RUN",
+        "executor_id": "antigravity",
+        "artifact_path": ".ai/tasks/TASK-097.md",
+        "artifact_blob_sha": "a" * 40,
+    }
+    monkeypatch.setattr(bridge, "get_active_authorization", lambda task_id: auth)
+    monkeypatch.setattr(bridge, "get_lease_store", lambda: type("Store", (), {"require_active": lambda s, l: None})())
+    monkeypatch.setattr(bridge, "reconstruct_expected_executor_lease", lambda a: "lease-97")
+    monkeypatch.setattr(bridge, "fetch_control", lambda cfg: None)
+    monkeypatch.setattr(bridge, "get_remote_blob_sha", lambda cfg, path: "a" * 40)
+
+    task_content = (
+        'PUBLISHER_PROFILE: CANONICAL_E4\n'
+        'EXECUTOR_CONTEXT_REFS_JSON: [{"path": ".ai/decisions/ADR-001.md", "blob_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]\n'
+        'EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py"]\n'
+        'DISPATCH_EXECUTOR_POLICY_JSON: {"operation":"RUN","candidates":[{"executor_id":"antigravity","supported_operations":["RUN"],"supported_capabilities":[]}],"required_capabilities":[]}'
+    )
+    monkeypatch.setattr(bridge, "read_remote_file", lambda cfg, path: task_content)
+    monkeypatch.setattr(bridge, "collect_e4_dirty_paths", lambda: ["bridge.py"])
+
+    # Remote trust capture fails (e.g. no remote / git remote get-url failure)
+    def fake_capture_trust(remote):
+        raise bridge.ContinuityStateValidationError(f"E4 Git observation failed: remote get-url --all {remote} (exit=2)")
+    monkeypatch.setattr(bridge, "capture_e4_publication_trust_snapshot", fake_capture_trust)
+
+    legacy_called = []
+    monkeypatch.setattr(bridge, "_legacy_cmd_publish", lambda a: legacy_called.append(a))
+
+    args = SimpleNamespace(task_id=97)
+    with pytest.raises(SystemExit):
+        bridge._slim_cmd_publish_compat(args)
+
+    assert len(legacy_called) == 0

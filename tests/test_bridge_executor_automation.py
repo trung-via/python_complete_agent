@@ -1585,11 +1585,14 @@ def _setup_real_publish_repo(monkeypatch, tmp_path, *, action="FIX", task_id=43)
 
     monkeypatch.setattr(bridge, "fetch_control", lambda c: None)
     monkeypatch.setattr(bridge, "get_remote_blob_sha", lambda c, path: "a" * 40)
-    monkeypatch.setattr(
-        bridge,
-        "read_remote_file",
-        lambda c, path: "STATUS: CHANGES_REQUIRED\n" if action == "FIX" else "STATUS: ACTIVE\n",
+    task_content = (
+        'PUBLISHER_PROFILE: CANONICAL_E4\n'
+        'STATUS: CHANGES_REQUIRED\n'
+        'EXECUTOR_CONTEXT_REFS_JSON: [{"path": ".ai/decisions/ADR-001.md", "blob_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]\n'
+        'EXECUTOR_ALLOWED_PATHS_JSON: ["bridge.py", "tests/test_bridge.py", "tests/test_bridge_executor_automation.py"]\n'
+        'DISPATCH_EXECUTOR_POLICY_JSON: {"operation":"FIX","candidates":[{"executor_id":"antigravity","supported_operations":["FIX"],"supported_capabilities":[]}],"required_capabilities":[]}'
     )
+    monkeypatch.setattr(bridge, "read_remote_file", lambda c, path: task_content)
 
     return repo, auth, lease, runtime
 

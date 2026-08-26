@@ -144,7 +144,7 @@ def _slim_cmd_publish_compat(args):
 
     # 2. Require exact ACTIVE authorization
     auth = get_active_authorization(task_id)
-    if not auth:
+    if not auth or auth.get("status") != "ACTIVE":
         fail(
             f"Không có ACTIVE authorization cho TASK-{task_id:03d}. "
             f"Cần chạy `/aios-worker RUN TASK-{task_id:03d}` hoặc `/aios-worker FIX TASK-{task_id:03d}` trước khi publish."
@@ -158,7 +158,7 @@ def _slim_cmd_publish_compat(args):
     except Exception as exc:
         fail(f"Xác thực active executor lease thất bại trước khi publish: {exc}")
 
-    # 4. Resolve allowed_paths ONLY from machine-verified control snapshot
+    # 4. Resolve allowed_paths ONLY from exact machine-verified control snapshot (B097.1)
     fetch_control(cfg)
     artifact_path = auth.get("artifact_path")
     expected_blob = auth.get("artifact_blob_sha")
@@ -166,58 +166,56 @@ def _slim_cmd_publish_compat(args):
         fail("Authorization lacks exact work binding")
 
     current_blob = get_remote_blob_sha(cfg, artifact_path)
-    if current_blob and current_blob != expected_blob:
+    if not current_blob:
+        fail(f"Artifact '{artifact_path}' missing from control branch snapshot.")
+    if current_blob != expected_blob:
         fail(f"Artifact '{artifact_path}' đã thay đổi trên control branch kể từ lúc handoff. Cần chạy lại `/aios-worker {auth['action']} TASK-{task_id:03d}`.")
 
     try:
-        artifact_text = read_remote_file(cfg, artifact_path) or ""
-    except Exception:
-        artifact_text = ""
+        artifact_text = read_remote_file(cfg, artifact_path)
+        if not artifact_text or type(artifact_text) is not str:
+            fail(f"Authorized artifact '{artifact_path}' is empty or unreadable from control snapshot.")
+    except Exception as exc:
+        fail(f"Failed to read authorized artifact '{artifact_path}' from control snapshot: {exc}")
 
     allowed_paths = None
     if "EXECUTOR_ALLOWED_PATHS_JSON:" in artifact_text:
         try:
             markers = parse_executor_automation_markers(artifact_text, work_path=artifact_path)
             allowed_paths = tuple(markers.allowed_paths)
-        except Exception:
-            pass
-
-    if allowed_paths is None and auth.get("action") == "FIX" and auth.get("task_artifact_path"):
+        except Exception as exc:
+            fail(f"Malformed EXECUTOR_ALLOWED_PATHS_JSON in control snapshot: {exc}")
+    elif auth.get("action") == "FIX" and auth.get("task_artifact_path"):
         try:
-            task_text = read_remote_file(cfg, auth.get("task_artifact_path")) or ""
-            if "EXECUTOR_ALLOWED_PATHS_JSON:" in task_text:
+            task_text = read_remote_file(cfg, auth.get("task_artifact_path"))
+            if task_text and "EXECUTOR_ALLOWED_PATHS_JSON:" in task_text:
                 markers = parse_executor_automation_markers(task_text, work_path=auth.get("task_artifact_path"))
                 allowed_paths = tuple(markers.allowed_paths)
-        except Exception:
-            pass
-
-    if allowed_paths is None and "hot_handoff" in auth and isinstance(auth["hot_handoff"], dict) and "allowed_paths" in auth["hot_handoff"]:
+        except Exception as exc:
+            fail(f"Malformed task EXECUTOR_ALLOWED_PATHS_JSON in control snapshot: {exc}")
+    elif "hot_handoff" in auth and isinstance(auth["hot_handoff"], dict) and "allowed_paths" in auth["hot_handoff"]:
         allowed_paths = tuple(auth["hot_handoff"]["allowed_paths"])
 
-    if allowed_paths is None and "allowed_paths" in auth and isinstance(auth["allowed_paths"], (list, tuple)):
-        allowed_paths = tuple(auth["allowed_paths"])
+    if not allowed_paths or not isinstance(allowed_paths, (tuple, list)):
+        fail("Machine-verified allowed_paths evidence missing or invalid in control snapshot")
 
     # 5. Pre-test dirty paths validation against machine-derived allowed_paths
-    if allowed_paths is not None:
-        current_dirty = collect_e4_dirty_paths()
-        if current_dirty:
-            disallowed = [p for p in current_dirty if p not in allowed_paths]
-            if disallowed:
-                fail(f"Interactive publication rejected: dirty paths {disallowed} outside machine-verified allowed_paths {list(allowed_paths)}")
-            # Pass machine-derived allowed_paths to legacy publish so post-test scope gate runs
-            setattr(args, "allowed_paths", allowed_paths)
+    current_dirty = collect_e4_dirty_paths()
+    if current_dirty:
+        disallowed = [p for p in current_dirty if p not in allowed_paths]
+        if disallowed:
+            fail(f"Interactive publication rejected: dirty paths {disallowed} outside machine-verified allowed_paths {list(allowed_paths)}")
+        # Pass exact machine-derived allowed_paths to legacy publish so post-test scope gate runs
+        setattr(args, "allowed_paths", allowed_paths)
 
-    # 6. Capture & verify pre-test publication trust via existing primitives
+    # 6. Capture & verify pre-test publication trust via existing primitives (B097.2)
     try:
         trust_remote = cfg.get("remote", "origin")
         trust_snapshot = capture_e4_publication_trust_snapshot(trust_remote)
         verify_e4_publication_trust_snapshot(trust_snapshot)
         setattr(args, "publication_trust_snapshot", trust_snapshot)
     except Exception as exc:
-        if "remote get-url" in str(exc) or "No such remote" in str(exc):
-            pass
-        else:
-            fail(f"Publication trust preflight failed before tests: {exc}")
+        fail(f"Publication trust preflight failed before tests: {exc}")
 
     return _legacy_cmd_publish(args)
 
