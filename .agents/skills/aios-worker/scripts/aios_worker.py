@@ -172,7 +172,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"TASK_ID: {task_id}\n"
             f"ACTION: {action}\n"
             f"EXECUTOR: {args.adapter}\n"
-            f"NEXT: continue in the authorized Antigravity worker session"
+            f"NEXT: continue in the authorized {args.adapter} worker session"
         )
     elif result.status == "PUBLISHED":
         print(

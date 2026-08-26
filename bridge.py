@@ -125,10 +125,108 @@ def _slim_cmd_context_compat(args):
     return _slim_cmd_context(args)
 
 
+_legacy_cmd_publish = cmd_publish
+
+
+def _slim_cmd_publish_compat(args):
+    """Machine-derived interactive publication scope & trust preflight (ADR-067 / TASK-097)."""
+    ensure_git()
+    cfg = load_config()
+    cfg.setdefault("remote", "origin")
+    cfg.setdefault("control_branch", "main")
+    task_id = args.task_id
+
+    # 1. Require exact task branch
+    expected_branch = f"{cfg['task_branch_prefix']}{task_id:03d}"
+    branch = current_branch()
+    if branch != expected_branch:
+        fail(f"Publish chỉ được phép trên task branch '{expected_branch}', hiện tại là '{branch}'.")
+
+    # 2. Require exact ACTIVE authorization
+    auth = get_active_authorization(task_id)
+    if not auth:
+        fail(
+            f"Không có ACTIVE authorization cho TASK-{task_id:03d}. "
+            f"Cần chạy `/aios-worker RUN TASK-{task_id:03d}` hoặc `/aios-worker FIX TASK-{task_id:03d}` trước khi publish."
+        )
+
+    # 3. Require exact active executor lease
+    try:
+        expected_lease = reconstruct_expected_executor_lease(auth)
+        store = get_lease_store()
+        store.require_active(expected_lease)
+    except Exception as exc:
+        fail(f"Xác thực active executor lease thất bại trước khi publish: {exc}")
+
+    # 4. Resolve allowed_paths ONLY from machine-verified control snapshot
+    fetch_control(cfg)
+    artifact_path = auth.get("artifact_path")
+    expected_blob = auth.get("artifact_blob_sha")
+    if not isinstance(artifact_path, str) or not isinstance(expected_blob, str):
+        fail("Authorization lacks exact work binding")
+
+    current_blob = get_remote_blob_sha(cfg, artifact_path)
+    if current_blob and current_blob != expected_blob:
+        fail(f"Artifact '{artifact_path}' đã thay đổi trên control branch kể từ lúc handoff. Cần chạy lại `/aios-worker {auth['action']} TASK-{task_id:03d}`.")
+
+    try:
+        artifact_text = read_remote_file(cfg, artifact_path) or ""
+    except Exception:
+        artifact_text = ""
+
+    allowed_paths = None
+    if "EXECUTOR_ALLOWED_PATHS_JSON:" in artifact_text:
+        try:
+            markers = parse_executor_automation_markers(artifact_text, work_path=artifact_path)
+            allowed_paths = tuple(markers.allowed_paths)
+        except Exception:
+            pass
+
+    if allowed_paths is None and auth.get("action") == "FIX" and auth.get("task_artifact_path"):
+        try:
+            task_text = read_remote_file(cfg, auth.get("task_artifact_path")) or ""
+            if "EXECUTOR_ALLOWED_PATHS_JSON:" in task_text:
+                markers = parse_executor_automation_markers(task_text, work_path=auth.get("task_artifact_path"))
+                allowed_paths = tuple(markers.allowed_paths)
+        except Exception:
+            pass
+
+    if allowed_paths is None and "hot_handoff" in auth and isinstance(auth["hot_handoff"], dict) and "allowed_paths" in auth["hot_handoff"]:
+        allowed_paths = tuple(auth["hot_handoff"]["allowed_paths"])
+
+    if allowed_paths is None and "allowed_paths" in auth and isinstance(auth["allowed_paths"], (list, tuple)):
+        allowed_paths = tuple(auth["allowed_paths"])
+
+    # 5. Pre-test dirty paths validation against machine-derived allowed_paths
+    if allowed_paths is not None:
+        current_dirty = collect_e4_dirty_paths()
+        if current_dirty:
+            disallowed = [p for p in current_dirty if p not in allowed_paths]
+            if disallowed:
+                fail(f"Interactive publication rejected: dirty paths {disallowed} outside machine-verified allowed_paths {list(allowed_paths)}")
+            # Pass machine-derived allowed_paths to legacy publish so post-test scope gate runs
+            setattr(args, "allowed_paths", allowed_paths)
+
+    # 6. Capture & verify pre-test publication trust via existing primitives
+    try:
+        trust_remote = cfg.get("remote", "origin")
+        trust_snapshot = capture_e4_publication_trust_snapshot(trust_remote)
+        verify_e4_publication_trust_snapshot(trust_snapshot)
+        setattr(args, "publication_trust_snapshot", trust_snapshot)
+    except Exception as exc:
+        if "remote get-url" in str(exc) or "No such remote" in str(exc):
+            pass
+        else:
+            fail(f"Publication trust preflight failed before tests: {exc}")
+
+    return _legacy_cmd_publish(args)
+
+
 resolve_e4_control_snapshot = _authority_gated_resolve_e4_control_snapshot
 _post_t2_revalidate_certification_subject = _compat_post_t2_revalidate_certification_subject
 _executor_context._render_payload = _stable_framed_render_payload
 cmd_context = _slim_cmd_context_compat
+cmd_publish = _slim_cmd_publish_compat
 
 if _THIS_MODULE_NAME == "__main__":
     main()

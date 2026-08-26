@@ -173,31 +173,23 @@ class TestCodexRunFix:
         expected = [sys.executable, str(self.fake_root / "bridge.py"), "handoff", "48", "--action", "run", "--executor", "codex"]
         assert calls[0]["cmd"] == expected
 
-    def test_codex_run_exact_second_argv_is_execute(self):
-        _, calls = self._codex_run_with_codes("RUN", [0, 0])
-        expected = [sys.executable, str(self.fake_root / "bridge.py"), "execute", "48"]
-        assert calls[1]["cmd"] == expected
-
-    def test_codex_run_exactly_two_calls(self):
-        _, calls = self._codex_run_with_codes("RUN", [0, 0])
-        assert len(calls) == 2
+    def test_codex_run_invokes_handoff_only_no_execute(self):
+        _, calls = self._codex_run_with_codes("RUN", [0])
+        assert len(calls) == 1
+        assert calls[0]["cmd"] == [sys.executable, str(self.fake_root / "bridge.py"), "handoff", "48", "--action", "run", "--executor", "codex"]
 
     def test_exact_argv_fails_if_extra_token_appended(self):
-        _, calls = self._codex_run_with_codes("RUN", [0, 0])
+        _, calls = self._codex_run_with_codes("RUN", [0])
         expected_with_extra = [sys.executable, str(self.fake_root / "bridge.py"), "handoff", "48", "--action", "run", "--executor", "codex", "--extra-injected-flag"]
         assert calls[0]["cmd"] != expected_with_extra
 
-    def test_codex_fix_exact_handoff_and_execute(self):
-        _, calls = self._codex_run_with_codes("FIX", [0, 0])
+    def test_codex_fix_exact_handoff_only(self):
+        _, calls = self._codex_run_with_codes("FIX", [0])
+        assert len(calls) == 1
         assert calls[0]["cmd"] == [sys.executable, str(self.fake_root / "bridge.py"), "handoff", "48", "--action", "fix", "--executor", "codex"]
-        assert calls[1]["cmd"] == [sys.executable, str(self.fake_root / "bridge.py"), "execute", "48"]
-
-    def test_codex_fix_exactly_two_calls(self):
-        _, calls = self._codex_run_with_codes("FIX", [0, 0])
-        assert len(calls) == 2
 
     def test_every_bridge_child_uses_sys_executable_list_argv_no_shell_exact_cwd(self):
-        _, calls = self._codex_run_with_codes("RUN", [0, 0])
+        _, calls = self._codex_run_with_codes("RUN", [0])
         for c in calls:
             assert c["cmd"][0] == sys.executable
             assert c["cmd"][1] == str(self.fake_root / "bridge.py")
@@ -206,24 +198,51 @@ class TestCodexRunFix:
             assert str(c["kwargs"].get("cwd", "")) == str(self.fake_root)
 
     def test_subprocess_shell_is_false(self):
-        mock_run = make_mock_run([0, 0])
+        mock_run = make_mock_run([0])
         with patch("subprocess.run", side_effect=mock_run), \
              patch.object(aw, "get_repo_root", return_value=self.fake_root):
             aw.main(["RUN", "TASK-1", "--adapter", "codex"])
         for c in mock_run.calls_made:
             assert c["kwargs"].get("shell", False) is False
 
-    def test_handoff_nonzero_prevents_execute(self):
+    def test_handoff_nonzero_fails_closed(self):
         returncode, calls = self._codex_run_with_codes("RUN", [1])
         assert returncode == 1 and len(calls) == 1 and calls[0]["cmd"][2] == "handoff"
-
-    def test_execute_nonzero_returned_and_not_retried(self):
-        returncode, calls = self._codex_run_with_codes("RUN", [0, 2])
-        assert returncode == 2 and len(calls) == 2
 
     def test_no_fallback_on_failure(self):
         _, calls = self._codex_run_with_codes("RUN", [1])
         assert len(calls) == 1
+
+
+class TestAuthorizedGuidanceBindsAdapter:
+    """Proof: CODEX_AUTHORIZED_GUIDANCE_BINDS_CODEX & ANTIGRAVITY_AUTHORIZED_GUIDANCE_BINDS_ANTIGRAVITY & CROSS_SURFACE_GUIDANCE_CONFUSION: NONE."""
+
+    @pytest.fixture(autouse=True)
+    def mock_repo_root(self, tmp_path):
+        (tmp_path / "bridge.py").write_text("# fake bridge")
+        self.fake_root = tmp_path
+
+    def test_codex_authorized_guidance_binds_codex(self, capsys):
+        mock_run = make_mock_run([0])
+        with patch("subprocess.run", side_effect=mock_run), \
+             patch.object(aw, "get_repo_root", return_value=self.fake_root):
+            code = aw.main(["RUN", "TASK-096", "--adapter", "codex"])
+
+        captured = capsys.readouterr().out
+        assert code == 0
+        assert "NEXT: continue in the authorized codex worker session" in captured
+        assert "Antigravity" not in captured
+
+    def test_antigravity_authorized_guidance_binds_antigravity(self, capsys):
+        mock_run = make_mock_run([0])
+        with patch("subprocess.run", side_effect=mock_run), \
+             patch.object(aw, "get_repo_root", return_value=self.fake_root):
+            code = aw.main(["RUN", "TASK-096", "--adapter", "antigravity"])
+
+        captured = capsys.readouterr().out
+        assert code == 0
+        assert "NEXT: continue in the authorized antigravity worker session" in captured
+        assert "codex worker session" not in captured
 
 
 # ===========================================================================
@@ -594,19 +613,19 @@ class TestCodexRunFixHandoffThenExecute:
         self.fake_root = tmp_path
 
     def _run_codex(self, action: str):
-        mock_run = make_mock_run([0, 0])
+        mock_run = make_mock_run([0])
         with patch("subprocess.run", side_effect=mock_run), \
              patch.object(aw, "get_repo_root", return_value=self.fake_root):
             code = aw.main([action, "TASK-60", "--adapter", "codex"])
         return code, mock_run.calls_made
 
-    def test_codex_run_calls_handoff_then_execute(self):
+    def test_codex_run_calls_handoff_only(self):
         _, calls = self._run_codex("RUN")
-        assert len(calls) == 2 and calls[0]["cmd"][2] == "handoff" and calls[1]["cmd"][2] == "execute"
+        assert len(calls) == 1 and calls[0]["cmd"][2] == "handoff"
 
-    def test_codex_fix_calls_handoff_then_execute(self):
+    def test_codex_fix_calls_handoff_only(self):
         _, calls = self._run_codex("FIX")
-        assert len(calls) == 2 and calls[0]["cmd"][2] == "handoff" and calls[1]["cmd"][2] == "execute"
+        assert len(calls) == 1 and calls[0]["cmd"][2] == "handoff"
 
     def test_codex_run_handoff_uses_codex_executor(self):
         _, calls = self._run_codex("RUN")

@@ -130,13 +130,12 @@ def test_run_executes_handoff_without_redundant_pre_sync_codex(tmp_path: Path) -
     )
     result = coordinator.execute_transaction(intent)
 
-    assert result.status == "PUBLISHED"
-    assert result.executor_invocations == 1
+    assert result.status == "AUTHORIZED"
+    assert result.executor_invocations == 0
     assert result.returncode == 0
-    # Handoff directly without redundant pre-sync!
+    # Handoff directly without redundant pre-sync or nested execute!
     assert invoked_cmds == [
         ["handoff", "86", "--action", "run", "--executor", "codex"],
-        ["execute", "86"],
     ]
 
 
@@ -196,13 +195,12 @@ def test_fix_executes_handoff_without_redundant_pre_sync_implementation_codex(tm
     )
     result = coordinator.execute_transaction(intent)
 
-    assert result.status == "PUBLISHED"
+    assert result.status == "AUTHORIZED"
     assert result.fix_execution_mode == "IMPLEMENTATION"
-    assert result.executor_invocations == 1
+    assert result.executor_invocations == 0
     assert result.returncode == 0
     assert invoked_cmds == [
         ["handoff", "86", "--action", "fix", "--executor", "codex"],
-        ["execute", "86"],
     ]
 
 
@@ -317,82 +315,31 @@ def test_fix_mode_drift_or_invalid_auth_fails_closed(tmp_path: Path) -> None:
     assert res_bad.returncode == 1
 
 
-def test_run_codex_execution_failure_surfaces_machine_failure_class_and_next_action(tmp_path: Path) -> None:
-    """Proof: ONE_MACHINE_NEXT_ACTION_PER_BLOCKED_CLASSIFICATION & structured failure delivery."""
-    def fake_run_bridge_cmd(args: list[str]) -> int:
-        if args[:2] == ["execute", "87"]:
-            return 1  # Execution failed
-        return 0
-
-    def fake_load_auth(task_num: int) -> dict | None:
-        return {
-            "status": "EXECUTION_BLOCKED",
-            "action": "RUN",
-            "worker_failure_evidence": {
-                "failure_class": "CLEAN_TIMEOUT",
-                "next_action": "HUMAN_DECISION_REQUIRED_CLEAN_TIMEOUT",
-                "human_guidance": "Human decision required: clean timeout observed without worktree modifications",
-                "pre_head_sha": "a" * 40,
-                "post_head_sha": "a" * 40,
-                "dirty_paths": [],
-                "zero_worktree_delta": True,
-                "terminal_status": "TIMED_OUT",
-                "diagnostic_code": "JSON_EVENT_STREAM",
-                "is_known_stopped": True,
-                "executor_outcome": "TIMED_OUT",
-                "final_agent_message_observed": "NO",
-            },
-        }
-
-    coordinator = WorkerFlowCoordinator(
-        repo_root=tmp_path,
-        run_bridge_cmd_fn=fake_run_bridge_cmd,
-        load_auth_fn=fake_load_auth,
-    )
-    intent = WorkerIntent(
-        action=WorkerAction.RUN,
-        task_id="TASK-087",
-        task_num=87,
-        adapter=WorkerAdapter.CODEX,
-    )
-    res = coordinator.execute_transaction(intent)
-    assert res.status == "BLOCKED"
-    assert res.failure_class == "CLEAN_TIMEOUT"
-    assert res.next_action == "HUMAN_DECISION_REQUIRED_CLEAN_TIMEOUT"
-    assert res.human_guidance == "Human decision required: clean timeout observed without worktree modifications"
-    assert res.returncode == 1
+def test_codex_skill_no_longer_requires_nested_executor() -> None:
+    """Proof: CODEX_SKILL_NO_LONGER_REQUIRES_NESTED_EXECUTOR."""
+    skill_path = Path(".agents/skills/aios-worker/SKILL.md")
+    assert skill_path.exists()
+    text = skill_path.read_text(encoding="utf-8")
+    assert "Bridge does **not** launch a" in text or "nested child executor process" in text
+    assert "DO NOT edit implementation or test files" not in text
+    assert "DO NOT call `bridge.py publish` directly" not in text
 
 
-def test_tampered_worker_failure_evidence_in_auth_fails_closed(tmp_path: Path) -> None:
-    """Proof: Tampered/malformed failure evidence in auth fails closed to EXECUTION_FAILED without fabricated class."""
-    def fake_run_bridge_cmd(args: list[str]) -> int:
-        if args[:2] == ["execute", "87"]:
-            return 1
-        return 0
+def test_codex_skill_still_forbids_merge_and_auto_reroute() -> None:
+    """Proof: CODEX_SKILL_STILL_FORBIDS_MERGE_AND_AUTO_REROUTE."""
+    skill_path = Path(".agents/skills/aios-worker/SKILL.md")
+    text = skill_path.read_text(encoding="utf-8")
+    assert "authorize or perform branch merge" in text
+    assert "perform automatic retries or rerouting upon failure" in text
+    assert "--adapter antigravity" in text
+    assert "forbidden" in text.lower()
 
-    def fake_load_auth(task_num: int) -> dict | None:
-        return {
-            "status": "EXECUTION_BLOCKED",
-            "action": "RUN",
-            "worker_failure_evidence": {
-                "failure_class": "CLEAN_TIMEOUT",
-                "next_action": "INVALID_NEXT_ACTION",  # Tampered
-            },
-        }
 
-    coordinator = WorkerFlowCoordinator(
-        repo_root=tmp_path,
-        run_bridge_cmd_fn=fake_run_bridge_cmd,
-        load_auth_fn=fake_load_auth,
-    )
-    intent = WorkerIntent(
-        action=WorkerAction.RUN,
-        task_id="TASK-087",
-        task_num=87,
-        adapter=WorkerAdapter.CODEX,
-    )
-    res = coordinator.execute_transaction(intent)
-    assert res.status == "EXECUTION_FAILED"
-    assert res.failure_class is None
-    assert res.next_action is None
-    assert res.returncode == 1
+def test_task_authoring_unchanged() -> None:
+    """Proof: TASK_AUTHORING_UNCHANGED."""
+    task_auth_path = Path("src/aios_bridge/task_authoring.py")
+    assert task_auth_path.exists()
+    text = task_auth_path.read_text(encoding="utf-8")
+    # Verify task_authoring has not been relaxed with FIX fallback hacks
+    assert "automation_content = content" not in text
+    assert "policy_content = content" not in text
