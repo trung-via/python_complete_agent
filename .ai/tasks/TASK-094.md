@@ -26,7 +26,7 @@ ROADMAP_BINDING_JSON: {"roadmap_id":"AIOS-BRIDGE-LEAN-EXECUTION","roadmap_versio
 ## Exact Baseline
 
 ```text
-MAIN_SHA: 46a567bfd134fa0737ac0b93058ef1cd93d386ee
+MAIN_SHA: 3fe6332f291bae373d0dbd458583f0231705e72d
 TARGET_BRANCH: ai/task-094
 TASK_093: PASS_CERTIFIED_MERGED
 ADR_066: ACCEPTED
@@ -270,7 +270,7 @@ publication trust valid
 scope / allowed paths valid
 no active or uncertain executor lease
 current lane head == task bound lane base SHA
-main current SHA == batch base_main_sha for initial P1 implementation
+main current SHA == batch.base_main_sha for initial P1 implementation
 reviewed task head is a descendant suitable for exact fast-forward lane advancement
 ```
 
