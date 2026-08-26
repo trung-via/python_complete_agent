@@ -214,6 +214,37 @@ class TestCodexRunFix:
         assert len(calls) == 1
 
 
+class TestAuthorizedGuidanceBindsAdapter:
+    """Proof: CODEX_AUTHORIZED_GUIDANCE_BINDS_CODEX & ANTIGRAVITY_AUTHORIZED_GUIDANCE_BINDS_ANTIGRAVITY & CROSS_SURFACE_GUIDANCE_CONFUSION: NONE."""
+
+    @pytest.fixture(autouse=True)
+    def mock_repo_root(self, tmp_path):
+        (tmp_path / "bridge.py").write_text("# fake bridge")
+        self.fake_root = tmp_path
+
+    def test_codex_authorized_guidance_binds_codex(self, capsys):
+        mock_run = make_mock_run([0])
+        with patch("subprocess.run", side_effect=mock_run), \
+             patch.object(aw, "get_repo_root", return_value=self.fake_root):
+            code = aw.main(["RUN", "TASK-096", "--adapter", "codex"])
+
+        captured = capsys.readouterr().out
+        assert code == 0
+        assert "NEXT: continue in the authorized codex worker session" in captured
+        assert "Antigravity" not in captured
+
+    def test_antigravity_authorized_guidance_binds_antigravity(self, capsys):
+        mock_run = make_mock_run([0])
+        with patch("subprocess.run", side_effect=mock_run), \
+             patch.object(aw, "get_repo_root", return_value=self.fake_root):
+            code = aw.main(["RUN", "TASK-096", "--adapter", "antigravity"])
+
+        captured = capsys.readouterr().out
+        assert code == 0
+        assert "NEXT: continue in the authorized antigravity worker session" in captured
+        assert "codex worker session" not in captured
+
+
 # ===========================================================================
 # 11. Antigravity RUN/FIX invokes handoff only (never execute)
 # ===========================================================================

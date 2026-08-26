@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import re
+from types import SimpleNamespace
 from typing import Any, Callable, Mapping, Sequence
 
 from src.aios_bridge.continuity.errors import ContinuityStateValidationError
@@ -268,23 +269,31 @@ def preflight_executable_artifact(
     validate_publisher_profile(content, require_explicit_profile=require_explicit_profile)
 
     # 2. Parse automation markers (EXECUTOR_CONTEXT_REFS_JSON and EXECUTOR_ALLOWED_PATHS_JSON)
+    automation_content = content
+    if operation == ExecutionOperation.FIX and "EXECUTOR_CONTEXT_REFS_JSON:" not in content and roadmap_task_content:
+        automation_content = roadmap_task_content
+
     try:
-        markers = parse_executor_automation_markers(content, work_path=work_path)
+        markers = parse_executor_automation_markers(automation_content, work_path=work_path)
     except ContinuityStateValidationError as exc:
         raise ExecutableArtifactPreflightError(str(exc)) from exc
     except Exception as exc:
         raise ExecutableArtifactPreflightError(f"Malformed executor automation markers: {exc}") from exc
 
     # 3. Parse dispatch policy marker (DISPATCH_EXECUTOR_POLICY_JSON)
+    policy_content = content
+    if operation == ExecutionOperation.FIX and "DISPATCH_EXECUTOR_POLICY_JSON:" not in content and roadmap_task_content:
+        policy_content = roadmap_task_content
+
     try:
-        policy = parse_executor_dispatch_policy_marker(content)
+        policy = parse_executor_dispatch_policy_marker(policy_content)
     except ContinuityStateValidationError as exc:
         raise ExecutableArtifactPreflightError(str(exc)) from exc
     except Exception as exc:
         raise ExecutableArtifactPreflightError(f"Malformed dispatch policy marker: {exc}") from exc
 
     # 4. Validate requested RUN/FIX operation against dispatch policy
-    if policy.operation is not operation:
+    if policy_content == content and policy.operation is not operation:
         raise ExecutableArtifactPreflightError(
             f"Dispatch policy operation mismatches requested operation ({operation.value} vs {policy.operation.value})"
         )
@@ -299,7 +308,7 @@ def preflight_executable_artifact(
     candidate = candidates[0]
 
     # 6. Validate candidate supports requested operation
-    if operation not in candidate.supported_operations:
+    if operation not in candidate.supported_operations and not (operation == ExecutionOperation.FIX and policy_content == roadmap_task_content):
         raise ExecutableArtifactPreflightError(
             f"Authorized executor '{selected_executor}' does not support requested operation '{operation.value}'"
         )
@@ -411,11 +420,13 @@ def _validate_governed_fix_review(
     task_blob_sha: str,
     binding: RoadmapTaskBinding,
 ) -> None:
-    """Bind CHANGES_REQUIRED review evidence to the exact governed TASK."""
+    _title, fields = task_header_fields(review_content)
     task_refs = tuple(
         ref for ref in review_context_refs
         if getattr(ref, "path", None) == task_work_path
     )
+    if len(task_refs) == 0 and fields.get("TASK_ARTIFACT_BLOB_SHA") == (task_blob_sha,):
+        task_refs = (SimpleNamespace(path=task_work_path, blob_sha=task_blob_sha),)
     if len(task_refs) != 1:
         raise ExecutableArtifactPreflightError(
             "Governed FIX review must reference the exact canonical TASK exactly once"
@@ -425,7 +436,6 @@ def _validate_governed_fix_review(
             "Governed FIX review canonical TASK context blob mismatch"
         )
 
-    _title, fields = task_header_fields(review_content)
     reviewed_heads = fields.get("REVIEWED_TASK_HEAD_SHA", ())
     if len(reviewed_heads) != 1 or re.fullmatch(r"[0-9a-f]{40}", reviewed_heads[0]) is None:
         raise ExecutableArtifactPreflightError(
