@@ -6,11 +6,11 @@ AUTO_MERGE_ELIGIBLE: YES
 MERGE_AUTHORIZED: NO
 MERGED_TO_MAIN: NO
 TASK_ID: TASK-094
-REVIEW_ROUND: 2
-REVIEWED_TASK_HEAD_SHA: 19f963d50c937691a5a19b2a57c0099cc2e4efe1
-REVIEWED_BASE_MAIN_SHA: 46a567bfd134fa0737ac0b93058ef1cd93d386ee
-TASK_ARTIFACT_BLOB_SHA: b7e47372bdf576327f427cf584aa5389ed7905df
-RESULT_BLOB_SHA: 149a66bc0e825709d7dddc51ee24c258c46cdb7c
+REVIEW_ROUND: 3
+REVIEWED_TASK_HEAD_SHA: 558e666cc5808f5574862feaa8562a7d8c70e86f
+REVIEWED_BASE_MAIN_SHA: 3fe6332f291bae373d0dbd458583f0231705e72d
+TASK_ARTIFACT_BLOB_SHA: 9a6e40d1c704fcfc0e82006d552c5745fd363d8c
+RESULT_BLOB_SHA: a8d79dcc03bd63f2dc87e048ad78dd3b6132e25a
 EXECUTOR_ID: codex
 BLOCKERS_REMAINING: 0
 CODE_AUDIT: PASS
@@ -36,133 +36,91 @@ H5_H8_AUTHORIZED: NO
 ## Snapshot
 
 ```text
-HEAD: 19f963d50c937691a5a19b2a57c0099cc2e4efe1
-PREVIOUS_REVIEWED_HEAD: 5a4a57fde7d9244799bde67d4f29eb91acd6eb2d
-BASE_MAIN: 46a567bfd134fa0737ac0b93058ef1cd93d386ee
-MERGE_BASE: 46a567bfd134fa0737ac0b93058ef1cd93d386ee
-AHEAD_FROM_PREVIOUS_REVIEW: 1
+HEAD: 558e666cc5808f5574862feaa8562a7d8c70e86f
+PRE_PUBLICATION_CONTENT_HEAD: 4e7e75313c6784004561e9a800f70970c7bbdb6d
+PREVIOUS_SEMANTICALLY_ACCEPTED_HEAD: 19f963d50c937691a5a19b2a57c0099cc2e4efe1
+BASE_MAIN: 3fe6332f291bae373d0dbd458583f0231705e72d
+MERGE_BASE: 3fe6332f291bae373d0dbd458583f0231705e72d
 AHEAD_FROM_MAIN: 2
 BEHIND_MAIN: 0
 MAIN_DRIFT: NO
 CANDIDATE_STAGE_AIOS_MANAGED_T2_EXECUTION_COUNT: 0
 CERTIFICATION_DEFERRED: YES
 TARGETED_TEST_STATUS: PASS
-SLICE_C_IMPACT_CONFIDENCE: KNOWN
-PROTECTED_ACCEPTED_PATHS_UNCHANGED: YES
+PUBLICATION_TRUST: VERIFIED
 VALIDATION_PROFILE: CONTROL_PLANE_STRICT
 ```
 
-Round 2 is a Delta + Impact review of the two reconciliation findings opened in Round 1 under ADR-067. The FIX is exactly one commit on the previous reviewed head, changes only the four bounded capability-batch/lane implementation and test paths, reports KNOWN impact with no expansion, and keeps candidate-stage AIOS-managed T2 at zero.
+## Round-3 Review Scope
 
-## Finding Closure
+Round 3 is a bounded revalidation review after the Human-authorized Slim AIOS R0/R1 baseline change superseded the Round-2 base-main identity. It does not reinterpret the TASK-094 semantics and does not reopen the already-closed B1/B2 findings.
 
-### B1 — CLOSED — Fast-lane semantic acceptance no longer fabricates ReviewState authority
+The reviewed implementation was mechanically rebased from the previously accepted TASK-094 content onto exact Slim baseline `3fe6332f291bae373d0dbd458583f0231705e72d`. The refreshed TASK artifact changes the exact baseline binding only; roadmap v1.2, capability identity, requirement bindings, allowed scope, and TASK-095/P2/P3/H5-H8 boundaries remain unchanged.
 
-The FIX removes the free-form `review_status == SEMANTICALLY_ACCEPTED_PENDING_INTEGRATION` authority token from the lane preflight contract.
+## Rebase Equivalence Audit
 
-The lane foundation now consumes bounded evidence:
-
-```text
-semantic_acceptance_valid: exact bool
-reviewed_task_head_sha: exact SHA
-reviewed_task_head_sha == task_branch_head_sha
-```
-
-`LaneIntegrationPreflightEvidence.__post_init__()` requires `semantic_acceptance_valid` to be an exact bool, so strings, integers, null-like values, and invented future ReviewState tokens cannot create authority. `require_lane_integration_preflight()` rejects false semantic acceptance and independently binds the reviewed head to the exact task branch head.
-
-The FIX does not modify `review_pipeline.py`, does not add a new canonical ReviewState, and does not implement TASK-095 profile-aware review routing. Lane state still exposes `creates_final_pass_authority == False` and `creates_main_merge_authority == False`.
-
-New tests prove false and malformed semantic acceptance fail closed while the existing exact-head advancement test preserves non-final authority semantics.
-
-### B2 — CLOSED — Progressive multi-task membership and exact lane-manifest rebind are realizable
-
-The manifest no longer requires every member's `membership_version` to equal the whole `manifest_version`. This separates batch-envelope revision from per-member authority identity and allows unchanged integrated members to retain their exact prior version.
-
-The new pure `rebind_lane_manifest()` contract implements the required progressive sequence:
-
-```text
-manifest v1 + TASK-A bound to current lane head
--> TASK-A integrates
--> manifest v2 preserves integrated TASK-A exactly
-   and appends/revises next member bound to the now-known lane head
--> lane rebinds only its manifest fingerprint
--> TASK-B becomes the exact next task
-```
-
-The rebind fails closed unless:
-
-```text
-lane exactly binds previous manifest fingerprint
-lane is INTEGRATING
-main still equals exact batch base_main_sha
-candidate is a valid next manifest revision
-integrated task IDs exactly match the previous manifest prefix
-candidate preserves the integrated prefix exactly
-next admitted member binds exact current lane head
-```
-
-The transition returns a lane with the same `current_lane_head_sha`, the same integrated history, and only the candidate manifest fingerprint changed. It performs no Git, merge, rebase, cherry-pick, reset, certification, FINAL_PASS, or main-merge operation.
-
-Tests prove a real TASK-A -> manifest-v2 -> TASK-B binding sequence, preservation of the old member version, new manifest fingerprint binding, rejection of stale lane identity, rejection of mutated integrated prefix, rejection of a misbound next member, and absence of FINAL_PASS/main-merge authority.
-
-## Delta / Impact Audit
-
-Round-2 implementation delta is bounded to:
+The four implementation/test blobs at Round-2 accepted head `19f963d50c937691a5a19b2a57c0099cc2e4efe1` and current reviewed head `558e666cc5808f5574862feaa8562a7d8c70e86f` are byte-identical:
 
 ```text
 src/aios_bridge/capability_batch.py
+  blob: 8edc489b00e6e4e4883b921570db1dea6c6b133d
+
 src/aios_bridge/integration_lane.py
+  blob: a75531516994feb02da715f74779a14666b4a297
+
 tests/aios_bridge/test_capability_batch.py
+  blob: 5339f823163972843d9f2bae22693b924340ebdb
+
 tests/aios_bridge/test_integration_lane.py
+  blob: 6b9310850af457f3e76a542f67b22d004e6762f1
 ```
 
-The publication boundary separately refreshes `.ai/results/RESULT-094.md`.
+Therefore the Round-2 semantic conclusions remain applicable to the implementation content: capability-batch authority remains separate from task authority; progressive manifest revision preserves integrated-prefix authority; semantic acceptance evidence remains an exact bool plus exact reviewed-head binding; lane advancement creates neither FINAL_PASS nor main-merge authority; and PRODUCT_DELIVERY_FAST remains blocked pending TASK-095.
 
-Machine RESULT evidence reports:
+## Fresh Publication / Validation Evidence
+
+Fresh `RESULT-094` on the Slim baseline reports:
 
 ```text
-ACTION: FIX
+ACTION: RUN
 EXECUTOR: codex
+BASE_MAIN_SHA: 3fe6332f291bae373d0dbd458583f0231705e72d
+PRE_PUBLICATION_CONTENT_HEAD: 4e7e75313c6784004561e9a800f70970c7bbdb6d
 TARGETED_TEST_STATUS: PASS
-SLICE_C_IMPACT_CONFIDENCE: KNOWN
-IMPACT_SCOPE_EXPANDED: NO
-PROTECTED_ACCEPTED_PATHS_UNCHANGED: YES
-SELECTED_TESTS:
-  tests/aios_bridge/test_capability_batch.py
-  tests/aios_bridge/test_integration_lane.py
+PUBLICATION_TRUST_STATUS: VERIFIED
+TRANSPORT_STATUS: COMPLETED
 CANDIDATE_STAGE_AIOS_MANAGED_T2_EXECUTION_COUNT: 0
 CERTIFICATION_DEFERRED: YES
-PUBLICATION_TRUST: VERIFIED
+ACTUAL_CHANGED_PATHS: 4 bounded implementation/test paths
 ```
 
-No previously accepted Bridge, validation-profile, review-state-machine, certification-job, merge-gate, worker-failure, roadmap-governance, or executor-authority implementation file was changed by the FIX. Broader repository regression authority therefore remains the certification-owned full canonical T2.
+The publication commit `558e666cc5808f5574862feaa8562a7d8c70e86f` adds only `.ai/results/RESULT-094.md` on top of the rebased content head. Current task branch is ahead of main by two commits, behind by zero, with exact merge base equal to the reviewed base main.
+
+Focused revalidation on the exact rebased content completed successfully before publication; full canonical T2 remains intentionally unexecuted at candidate stage and is owned solely by the certification boundary.
 
 ## Accepted / Protected Surfaces
 
 ```text
-A1 Capability batch and integration lane remain pure deterministic contracts with no filesystem/Git/main-merge side effects.
-A2 Batch/lane schemas and lifecycle transitions remain closed and fail-conservative.
-A3 Exact SHA/fingerprint validation and canonical serialization remain intact.
-A4 Independent TASK artifact/scope authority is not replaced or widened by batch membership.
-A5 Progressive manifest revision preserves integrated-prefix authority exactly.
-A6 Whole-manifest version and unchanged member authority version remain distinct.
-A7 Lane-manifest rebind preserves lane head and integrated history and creates no final authority.
-A8 Semantic acceptance evidence is bounded exact bool, not a fabricated/free-form ReviewState token.
-A9 Reviewed task head, task branch head, lane base, manifest fingerprint, roadmap identity, publication trust, scope, lease absence, main base, fast-forwardability and KNOWN impact remain deterministic integration gates.
-A10 Candidate-stage T2 remains zero under Review-First.
-A11 PRODUCT_DELIVERY_FAST end-to-end admission remains fail-closed until TASK-095.
-A12 CONTROL_PLANE_STRICT task-local T2 semantics remain unchanged.
-A13 P1 is not complete; TASK-095, Python Agent pilot, P2/P3 and H5-H8 remain unauthorized.
+A1 Round-2 B1/B2 closures remain valid because implementation/test blobs are unchanged.
+A2 Capability batch and integration lane remain pure deterministic contracts with no Git/main-merge side effects.
+A3 Independent TASK authority is not replaced or widened by batch membership.
+A4 Progressive manifest revision and exact lane-manifest rebind semantics remain intact.
+A5 Semantic acceptance cannot be fabricated from free-form ReviewState text.
+A6 Main drift, stale manifest/lane identity, active-or-uncertain lease, unknown impact, invalid publication trust, wrong task order, and non-fast-forward advancement remain fail-closed.
+A7 Candidate-stage T2 remains zero under Review-First.
+A8 CONTROL_PLANE_STRICT task certification remains unchanged by TASK-094.
+A9 PRODUCT_DELIVERY_FAST end-to-end admission remains fail-closed until TASK-095.
+A10 P1 is not complete; TASK-095, Python Agent pilot, P2/P3 and H5-H8 remain unauthorized.
 ```
 
 ## Semantic Decision
 
 ```text
 TASK-094: SEMANTICALLY_ACCEPTED_PENDING_T2
-REVIEW_ROUND: 2
+REVIEW_ROUND: 3
 SEMANTIC_BLOCKERS: 0
-B1: CLOSED
-B2: CLOSED
+REBASE_EQUIVALENCE: PASS
+FRESH_PUBLICATION_EVIDENCE: PASS
 APPROVED: YES
 FINAL_PASS: NO
 MERGE_AUTHORIZED: NO
@@ -172,4 +130,4 @@ TASK_095_AUTHORIZED: NO
 NEXT: bridge.py certify-reviewed 94
 ```
 
-Semantic acceptance is bound to exact candidate `19f963d50c937691a5a19b2a57c0099cc2e4efe1` and exact base main `46a567bfd134fa0737ac0b93058ef1cd93d386ee`. Any candidate-head or base-main drift supersedes this acceptance. Final PASS may be derived only after the certification-owned full canonical T2 passes exactly once on this exact candidate.
+Semantic acceptance is bound to exact candidate `558e666cc5808f5574862feaa8562a7d8c70e86f`, exact base main `3fe6332f291bae373d0dbd458583f0231705e72d`, exact refreshed TASK blob `9a6e40d1c704fcfc0e82006d552c5745fd363d8c`, and exact RESULT blob `a8d79dcc03bd63f2dc87e048ad78dd3b6132e25a`. Any candidate-head, base-main, TASK-artifact, RESULT, roadmap, or command-identity drift supersedes this acceptance. Final PASS may be derived only after the certification-owned full canonical T2 passes exactly once for this exact accepted candidate.
