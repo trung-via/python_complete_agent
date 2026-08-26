@@ -1,6 +1,6 @@
 # TASK-095 — P1 Impact Admission + Capability Certification + Capability Main Merge
 
-STATUS: READY
+STATUS: BLOCKED
 PUBLISHER_PROFILE: CANONICAL_E4
 CLASS: L3 — AIOS BRIDGE LEAN EXECUTION / P1 FAST DELIVERY FINALIZATION
 MILESTONE: P1
@@ -13,6 +13,9 @@ AUTO_RETRY_ALLOWED: NO
 AUTO_REROUTE_ALLOWED: NO
 P1_CONTRACT_ADR: ADR-066
 TASK_094_PREREQUISITE: PASS_CERTIFIED_MERGED
+BLOCKED_BY_TASK: TASK-096
+BLOCK_REASON: CODEX_INTERACTIVE_EXECUTOR_PARITY_RECOVERY_REQUIRED
+TASK_095_RESUME_AUTHORIZED: NO
 P1_FORMAL_COMPLETION: NO
 PYTHON_AGENT_FAST_LANE_PILOT_AUTHORIZED: NO
 P2_P3_AUTHORIZED: NO
@@ -21,12 +24,21 @@ REVIEW_PIPELINE_MODE: REVIEW_FIRST_CERTIFICATION
 
 ROADMAP_BINDING_JSON: {"roadmap_id":"AIOS-BRIDGE-LEAN-EXECUTION","roadmap_version":"1.2","roadmap_blob_sha":"41bf467f3dd4fc8aea165ac65c37e0e2a5a3ef5c","roadmap_fingerprint":"89c9372c074ecb43778705f07c6fded67e4af7833c0feb72a92a9ae2e737c612","roadmap_fingerprint_algorithm_version":"roadmap-sha256-v1","milestone":"P1","capability_id":"P1_UNIFIED_VALIDATION_CAPABILITY_BATCH","requirement_bindings":["P1.R3","P1.R4","P1.R6","P1.R9"],"scope_in":["deterministic PRODUCT_DELIVERY_FAST admission from exact batch/lane/task authority and KNOWN impact","task-level fast validation with zero task-level T2","operational exact-head linear lane integration","capability-level exact-head T2 certification with supersession","capability-certified fast-forward-only main merge","strict/compat regression preservation"],"scope_out":["Python Agent pilot","P1 completion","parallel DAG","automatic rebase/conflict resolution/retry/reroute","persistent executor session","P2","P3","H5-H8","roadmap mutation","Slim R2 cleanup"]}
 
+## Blocking recovery gate
+
+TASK-095 MUST NOT execute while `TASK_095_RESUME_AUTHORIZED: NO`.
+
+Observed Codex execution reliability on the exact baseline produced two consecutive zero-product attempts, including one orphaned ACTIVE lease/authorization recovery and one structured `CLEAN_NO_WORKTREE_DELTA`. Human authority therefore requires TASK-096 (ADR-067) to restore Codex interactive executor parity before this task resumes.
+
+After TASK-096 PASS/certification/merge, TASK-095 must be rebound to the new exact main and explicitly returned to READY. No automatic resume, retry, reroute, or baseline rewrite is authorized.
+
 ## Exact baseline
 
 ```text
 MAIN_SHA: 558e666cc5808f5574862feaa8562a7d8c70e86f
 TARGET_BRANCH: ai/task-095
 TASK_094: PASS_CERTIFIED_MERGED
+TASK_096: REQUIRED_BEFORE_RESUME
 ROADMAP_V1_2: LOCKED_REGISTERED
 ADR_066: ACCEPTED
 CONTROL_PLANE_STRICT: IMPLEMENTED
@@ -179,7 +191,10 @@ H5_H8_NOT_OPENED: PASS
 ## Delivery lifecycle
 
 ```text
-Codex RUN -> T0/T1 -> publish(T2=0) -> ChatGPT review
+BLOCKED until TASK-096 PASS/certified/merged
+-> rebind TASK-095 to new exact main
+-> explicit Human resume
+-> Codex direct-interactive RUN -> T0/T1 -> publish(T2=0) -> ChatGPT review
 -> certify-reviewed 95 (TASK-095 T2 exactly once)
 -> merge-reviewed 95
 -> only then Python Agent fast-lane pilot
