@@ -200,10 +200,8 @@ def _identity_snapshot(
 
 
 def _interactive_context(bridge: Any, args: Any) -> None:
-    """No duplicate Codex context; small semantic-only Antigravity context."""
+    """Small semantic-only interactive context for authorized sessions."""
     auth = bridge.load_authorization(args.task_id)
-    if isinstance(auth, dict) and auth.get("executor_id") == "codex":
-        return
 
     preflight = _captured_preflight.get(id(bridge))
     allowed = list(preflight.markers.allowed_paths) if preflight is not None else []

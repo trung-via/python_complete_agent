@@ -40,8 +40,10 @@ Where `TASK-N` is the exact user-supplied task identifier (e.g. `TASK-048`).
 
 ## Operator Role and Boundaries
 
-The visible Codex session is the operator UI. For RUN/FIX, Bridge E2/E4 launches the bounded executor
-Codex process; the visible session must not duplicate the implementation work.
+The visible Codex session is the operator UI and the implementation executor.
+For RUN/FIX implementation mode, this skill performs handoff via Bridge adapter, receives `AUTHORIZED`,
+and continues implementation in the **same** interactive Codex session — Bridge does **not** launch a
+nested child executor process for normal Codex runs.
 
 ### Strict Execution Constraints
 
@@ -56,17 +58,19 @@ When this skill is invoked:
    If the repository venv interpreter is absent, fail immediately and notify the Human
    rather than silently selecting an unknown interpreter.
 5. **DO NOT** use `--adapter antigravity`. Using `--adapter antigravity` from this skill is **forbidden**.
-6. **DO NOT** edit implementation or test files in the parent Codex session.
-7. **DO NOT** manually read, parse, or reconstruct `TASK-*.md`, `ADR-*.md`, or blueprints as executor context.
-8. **DO NOT** run `bridge.py context`.
-9. **DO NOT** invoke raw `codex` or `codex exec` directly.
-10. **DO NOT** call `bridge.py approve` directly.
-11. **DO NOT** call `bridge.py publish` directly.
-12. **DO NOT** perform automatic retries or rerouting upon failure.
-13. **DO NOT** authorize or perform branch merge (worker executors NEVER merge;
+6. **DO NOT** invoke raw `codex` or `codex exec` directly.
+7. **DO NOT** call `bridge.py approve` directly.
+8. **DO NOT** call `bridge.py execute` directly.
+9. **DO NOT** perform automatic retries or rerouting upon failure.
+10. **DO NOT** authorize or perform branch merge (worker executors NEVER merge;
     the ChatGPT review boundary may auto-merge after PASS under ADR-042 standing Human authorization).
-14. **DO NOT** delegate or reroute to the Antigravity `/aios-worker` workflow.
-15. On successful execution, instruct the Human:
+11. **DO NOT** delegate or reroute to the Antigravity `/aios-worker` workflow.
+12. After successful handoff (`AUTHORIZED`), inspect the compact interactive context emitted by handoff.
+13. Read only the exact authorized `TASK-*.md`/`REVIEW-*.md` plus bounded semantic refs exposed by Bridge.
+14. Edit only authorized paths in `allowed_paths`.
+15. Run bounded targeted T0/T1 tests.
+16. Invoke existing canonical Bridge publish (`python bridge.py publish N ...`) using exact active authorization and targeted test command.
+17. On task completion and Bridge publication, instruct the Human:
     ```text
     Review TASK-N in ChatGPT
     ```
@@ -75,17 +79,19 @@ When this skill is invoked:
 
 ### RUN TASK-N
 
-Executes a single-command transactional task run via Bridge (automatically synchronizes, performs handoff, and executes bounded Codex run without requiring prior STATUS):
+Authorizes a new task run via Bridge handoff in a single-command transaction (automatically synchronizes before handoff, without requiring prior STATUS):
 
 ```powershell
 .\venv\Scripts\python.exe .agents/skills/aios-worker/scripts/aios_worker.py RUN TASK-N --adapter codex
 ```
 
+After handoff succeeds (`AUTHORIZED`), implementation continues in this Codex session.
+
 ### FIX TASK-N
 
-Executes a single-command transactional fix on an active review via Bridge (automatically synchronizes latest exact review, inspects closed `FIX_EXECUTION_MODE`, and routes accordingly):
+Authorizes and processes a fix run on an active review via Bridge in a single-command transaction:
 
-- **IMPLEMENTATION mode (default)**: performs handoff and executes bounded Codex run.
+- **IMPLEMENTATION mode (default)**: performs handoff and continues fix implementation in this Codex session upon receiving `AUTHORIZED`.
 - **EVIDENCE_REFRESH mode**: performs handoff, skips executor invocation, certifies canonical test suite, and republishes RESULT directly.
 
 ```powershell

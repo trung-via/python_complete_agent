@@ -110,8 +110,8 @@ def test_status_transaction_syncs_and_checks_pending_non_authorizing(tmp_path: P
     assert invoked_cmds == [["sync"], ["pending"]]
 
 
-def test_run_executes_handoff_without_redundant_pre_sync_codex(tmp_path: Path) -> None:
-    """Proof: RUN_WITHOUT_STATUS_AUTO_SYNCS: PASS & RUN_NO_REDUNDANT_PRE_SYNC: PASS."""
+def test_codex_run_handoff_returns_authorized_with_executor_invocations_0(tmp_path: Path) -> None:
+    """Proof: CODEX_RUN_HANDOFF_RETURNS_AUTHORIZED_WITH_EXECUTOR_INVOCATIONS_0 & CODEX_RUN_DOES_NOT_CALL_BRIDGE_EXECUTE."""
     invoked_cmds: list[list[str]] = []
 
     def fake_run_bridge_cmd(args: list[str]) -> int:
@@ -124,24 +124,23 @@ def test_run_executes_handoff_without_redundant_pre_sync_codex(tmp_path: Path) -
     )
     intent = WorkerIntent(
         action=WorkerAction.RUN,
-        task_id="TASK-086",
-        task_num=86,
+        task_id="TASK-096",
+        task_num=96,
         adapter=WorkerAdapter.CODEX,
     )
     result = coordinator.execute_transaction(intent)
 
-    assert result.status == "PUBLISHED"
-    assert result.executor_invocations == 1
+    assert result.status == "AUTHORIZED"
+    assert result.executor_invocations == 0
     assert result.returncode == 0
-    # Handoff directly without redundant pre-sync!
+    # Handoff directly without bridge execute!
     assert invoked_cmds == [
-        ["handoff", "86", "--action", "run", "--executor", "codex"],
-        ["execute", "86"],
+        ["handoff", "96", "--action", "run", "--executor", "codex"],
     ]
 
 
 def test_run_antigravity_stops_at_handoff(tmp_path: Path) -> None:
-    """Proof: IMPLEMENTATION_MODE_ANTIGRAVITY_CONTINUATION_PRESERVED: PASS."""
+    """Proof: ANTIGRAVITY_RUN_BEHAVIOR_UNCHANGED."""
     invoked_cmds: list[list[str]] = []
 
     def fake_run_bridge_cmd(args: list[str]) -> int:
@@ -154,8 +153,8 @@ def test_run_antigravity_stops_at_handoff(tmp_path: Path) -> None:
     )
     intent = WorkerIntent(
         action=WorkerAction.RUN,
-        task_id="TASK-086",
-        task_num=86,
+        task_id="TASK-096",
+        task_num=96,
         adapter=WorkerAdapter.ANTIGRAVITY,
     )
     result = coordinator.execute_transaction(intent)
@@ -164,12 +163,12 @@ def test_run_antigravity_stops_at_handoff(tmp_path: Path) -> None:
     assert result.executor_invocations == 0
     assert result.returncode == 0
     assert invoked_cmds == [
-        ["handoff", "86", "--action", "run", "--executor", "antigravity"],
+        ["handoff", "96", "--action", "run", "--executor", "antigravity"],
     ]
 
 
-def test_fix_executes_handoff_without_redundant_pre_sync_implementation_codex(tmp_path: Path) -> None:
-    """Proof: FIX_WITHOUT_STATUS_AUTO_SYNCS: PASS & FIX_NO_REDUNDANT_PRE_SYNC: PASS & LATEST_EXACT_REVIEW_IS_SINGLE_MODE_AUTHORITY: PASS."""
+def test_codex_fix_implementation_returns_authorized_with_executor_invocations_0(tmp_path: Path) -> None:
+    """Proof: CODEX_FIX_IMPLEMENTATION_RETURNS_AUTHORIZED_WITH_EXECUTOR_INVOCATIONS_0 & CODEX_FIX_IMPLEMENTATION_DOES_NOT_CALL_BRIDGE_EXECUTE."""
     invoked_cmds: list[list[str]] = []
 
     def fake_run_bridge_cmd(args: list[str]) -> int:
@@ -190,19 +189,18 @@ def test_fix_executes_handoff_without_redundant_pre_sync_implementation_codex(tm
     )
     intent = WorkerIntent(
         action=WorkerAction.FIX,
-        task_id="TASK-086",
-        task_num=86,
+        task_id="TASK-096",
+        task_num=96,
         adapter=WorkerAdapter.CODEX,
     )
     result = coordinator.execute_transaction(intent)
 
-    assert result.status == "PUBLISHED"
+    assert result.status == "AUTHORIZED"
     assert result.fix_execution_mode == "IMPLEMENTATION"
-    assert result.executor_invocations == 1
+    assert result.executor_invocations == 0
     assert result.returncode == 0
     assert invoked_cmds == [
-        ["handoff", "86", "--action", "fix", "--executor", "codex"],
-        ["execute", "86"],
+        ["handoff", "96", "--action", "fix", "--executor", "codex"],
     ]
 
 
@@ -317,82 +315,21 @@ def test_fix_mode_drift_or_invalid_auth_fails_closed(tmp_path: Path) -> None:
     assert res_bad.returncode == 1
 
 
-def test_run_codex_execution_failure_surfaces_machine_failure_class_and_next_action(tmp_path: Path) -> None:
-    """Proof: ONE_MACHINE_NEXT_ACTION_PER_BLOCKED_CLASSIFICATION & structured failure delivery."""
-    def fake_run_bridge_cmd(args: list[str]) -> int:
-        if args[:2] == ["execute", "87"]:
-            return 1  # Execution failed
-        return 0
-
-    def fake_load_auth(task_num: int) -> dict | None:
-        return {
-            "status": "EXECUTION_BLOCKED",
-            "action": "RUN",
-            "worker_failure_evidence": {
-                "failure_class": "CLEAN_TIMEOUT",
-                "next_action": "HUMAN_DECISION_REQUIRED_CLEAN_TIMEOUT",
-                "human_guidance": "Human decision required: clean timeout observed without worktree modifications",
-                "pre_head_sha": "a" * 40,
-                "post_head_sha": "a" * 40,
-                "dirty_paths": [],
-                "zero_worktree_delta": True,
-                "terminal_status": "TIMED_OUT",
-                "diagnostic_code": "JSON_EVENT_STREAM",
-                "is_known_stopped": True,
-                "executor_outcome": "TIMED_OUT",
-                "final_agent_message_observed": "NO",
-            },
-        }
-
-    coordinator = WorkerFlowCoordinator(
-        repo_root=tmp_path,
-        run_bridge_cmd_fn=fake_run_bridge_cmd,
-        load_auth_fn=fake_load_auth,
-    )
-    intent = WorkerIntent(
-        action=WorkerAction.RUN,
-        task_id="TASK-087",
-        task_num=87,
-        adapter=WorkerAdapter.CODEX,
-    )
-    res = coordinator.execute_transaction(intent)
-    assert res.status == "BLOCKED"
-    assert res.failure_class == "CLEAN_TIMEOUT"
-    assert res.next_action == "HUMAN_DECISION_REQUIRED_CLEAN_TIMEOUT"
-    assert res.human_guidance == "Human decision required: clean timeout observed without worktree modifications"
-    assert res.returncode == 1
+def test_codex_skill_no_longer_requires_nested_executor() -> None:
+    """Proof: CODEX_SKILL_NO_LONGER_REQUIRES_NESTED_EXECUTOR."""
+    skill_path = Path(".agents/skills/aios-worker/SKILL.md")
+    assert skill_path.exists()
+    text = skill_path.read_text(encoding="utf-8")
+    assert "Bridge does **not** launch a\nnested child executor process" in text or "Bridge does **not** launch a" in text
+    assert "DO NOT edit implementation or test files" not in text
+    assert "DO NOT call `bridge.py publish` directly" not in text
 
 
-def test_tampered_worker_failure_evidence_in_auth_fails_closed(tmp_path: Path) -> None:
-    """Proof: Tampered/malformed failure evidence in auth fails closed to EXECUTION_FAILED without fabricated class."""
-    def fake_run_bridge_cmd(args: list[str]) -> int:
-        if args[:2] == ["execute", "87"]:
-            return 1
-        return 0
-
-    def fake_load_auth(task_num: int) -> dict | None:
-        return {
-            "status": "EXECUTION_BLOCKED",
-            "action": "RUN",
-            "worker_failure_evidence": {
-                "failure_class": "CLEAN_TIMEOUT",
-                "next_action": "INVALID_NEXT_ACTION",  # Tampered
-            },
-        }
-
-    coordinator = WorkerFlowCoordinator(
-        repo_root=tmp_path,
-        run_bridge_cmd_fn=fake_run_bridge_cmd,
-        load_auth_fn=fake_load_auth,
-    )
-    intent = WorkerIntent(
-        action=WorkerAction.RUN,
-        task_id="TASK-087",
-        task_num=87,
-        adapter=WorkerAdapter.CODEX,
-    )
-    res = coordinator.execute_transaction(intent)
-    assert res.status == "EXECUTION_FAILED"
-    assert res.failure_class is None
-    assert res.next_action is None
-    assert res.returncode == 1
+def test_codex_skill_still_forbids_merge_and_auto_reroute() -> None:
+    """Proof: CODEX_SKILL_STILL_FORBIDS_MERGE_AND_AUTO_REROUTE."""
+    skill_path = Path(".agents/skills/aios-worker/SKILL.md")
+    text = skill_path.read_text(encoding="utf-8")
+    assert "authorize or perform branch merge" in text
+    assert "perform automatic retries or rerouting upon failure" in text
+    assert "--adapter antigravity" in text
+    assert "forbidden" in text.lower()

@@ -172,7 +172,7 @@ class WorkerFlowCoordinator:
                 message=f"Synced status for {task_id}",
             )
 
-        # 2. RUN transaction: handoff [then execute if codex]
+        # 2. RUN transaction: handoff (both adapters return AUTHORIZED to visible session)
         if action == WorkerAction.RUN:
             handoff_args = ["handoff", str(task_num), "--action", "run", "--executor", adapter.value]
             handoff_code = self._run_bridge_cmd(handoff_args)
@@ -186,72 +186,15 @@ class WorkerFlowCoordinator:
                     message="Handoff failed for RUN",
                 )
 
-            if adapter == WorkerAdapter.CODEX:
-                exec_code = self._run_bridge_cmd(["execute", str(task_num)])
-                if exec_code != 0:
-                    auth = self._load_auth(task_num)
-                    failure_class = None
-                    next_action = None
-                    human_guidance = None
-                    if auth:
-                        if "worker_failure_evidence" in auth:
-                            try:
-                                ev = WorkerFailureEvidence.from_dict(auth["worker_failure_evidence"])
-                                failure_class = ev.failure_class.value
-                                next_action = ev.next_action.value
-                                human_guidance = ev.human_guidance
-                            except Exception:
-                                failure_class = None
-                                next_action = None
-                                human_guidance = None
-                        elif "blocked_execution_evidence" in auth:
-                            be = auth["blocked_execution_evidence"]
-                            if isinstance(be, dict) and be.get("blocked_reason_code") == "CLEAN_NO_WORKTREE_DELTA":
-                                failure_class = WorkerFailureClass.CLEAN_NO_WORKTREE_DELTA.value
-                                next_action = WorkerNextAction.HUMAN_SELECT_REPLACEMENT_EXECUTOR_IF_PROVEN_SAFE.value
-                                human_guidance = NEXT_ACTION_TO_HUMAN_TEXT[WorkerNextAction.HUMAN_SELECT_REPLACEMENT_EXECUTOR_IF_PROVEN_SAFE]
-
-                    flow_status = (
-                        "BLOCKED"
-                        if failure_class in (
-                            WorkerFailureClass.CLEAN_NO_WORKTREE_DELTA.value,
-                            WorkerFailureClass.CLEAN_TIMEOUT.value,
-                        )
-                        else "RECOVERY_REQUIRED"
-                        if failure_class
-                        else "EXECUTION_FAILED"
-                    )
-                    return WorkerFlowResult(
-                        action=action.value,
-                        task_id=task_id,
-                        adapter=adapter.value,
-                        status=flow_status,
-                        failure_class=failure_class,
-                        next_action=next_action,
-                        human_guidance=human_guidance,
-                        executor_invocations=1,
-                        returncode=exec_code,
-                        message="Codex execution failed for RUN",
-                    )
-                return WorkerFlowResult(
-                    action=action.value,
-                    task_id=task_id,
-                    adapter=adapter.value,
-                    status="PUBLISHED",
-                    executor_invocations=1,
-                    returncode=0,
-                    message=f"RUN {task_id} completed and published",
-                )
-            else:
-                return WorkerFlowResult(
-                    action=action.value,
-                    task_id=task_id,
-                    adapter=adapter.value,
-                    status="AUTHORIZED",
-                    executor_invocations=0,
-                    returncode=0,
-                    message=f"RUN {task_id} authorized for {adapter.value}",
-                )
+            return WorkerFlowResult(
+                action=action.value,
+                task_id=task_id,
+                adapter=adapter.value,
+                status="AUTHORIZED",
+                executor_invocations=0,
+                returncode=0,
+                message=f"RUN {task_id} authorized for {adapter.value}",
+            )
 
         # 3. FIX transaction: handoff, inspect authorized fix mode, then appropriate continuation
         if action == WorkerAction.FIX:
@@ -342,76 +285,17 @@ class WorkerFlowCoordinator:
                     message=f"EVIDENCE_REFRESH {task_id} certified and published",
                 )
             else:
-                # IMPLEMENTATION mode
-                if adapter == WorkerAdapter.CODEX:
-                    exec_code = self._run_bridge_cmd(["execute", str(task_num)])
-                    if exec_code != 0:
-                        auth = self._load_auth(task_num)
-                        failure_class = None
-                        next_action = None
-                        human_guidance = None
-                        if auth:
-                            if "worker_failure_evidence" in auth:
-                                try:
-                                    ev = WorkerFailureEvidence.from_dict(auth["worker_failure_evidence"])
-                                    failure_class = ev.failure_class.value
-                                    next_action = ev.next_action.value
-                                    human_guidance = ev.human_guidance
-                                except Exception:
-                                    failure_class = None
-                                    next_action = None
-                                    human_guidance = None
-                            elif "blocked_execution_evidence" in auth:
-                                be = auth["blocked_execution_evidence"]
-                                if isinstance(be, dict) and be.get("blocked_reason_code") == "CLEAN_NO_WORKTREE_DELTA":
-                                    failure_class = WorkerFailureClass.CLEAN_NO_WORKTREE_DELTA.value
-                                    next_action = WorkerNextAction.HUMAN_SELECT_REPLACEMENT_EXECUTOR_IF_PROVEN_SAFE.value
-                                    human_guidance = NEXT_ACTION_TO_HUMAN_TEXT[WorkerNextAction.HUMAN_SELECT_REPLACEMENT_EXECUTOR_IF_PROVEN_SAFE]
-
-                        flow_status = (
-                            "BLOCKED"
-                            if failure_class in (
-                                WorkerFailureClass.CLEAN_NO_WORKTREE_DELTA.value,
-                                WorkerFailureClass.CLEAN_TIMEOUT.value,
-                            )
-                            else "RECOVERY_REQUIRED"
-                            if failure_class
-                            else "EXECUTION_FAILED"
-                        )
-                        return WorkerFlowResult(
-                            action=action.value,
-                            task_id=task_id,
-                            adapter=adapter.value,
-                            status=flow_status,
-                            failure_class=failure_class,
-                            next_action=next_action,
-                            human_guidance=human_guidance,
-                            fix_execution_mode=fix_mode.value,
-                            executor_invocations=1,
-                            returncode=exec_code,
-                            message="Codex execution failed for FIX",
-                        )
-                    return WorkerFlowResult(
-                        action=action.value,
-                        task_id=task_id,
-                        adapter=adapter.value,
-                        status="PUBLISHED",
-                        fix_execution_mode=fix_mode.value,
-                        executor_invocations=1,
-                        returncode=0,
-                        message=f"FIX {task_id} completed and published",
-                    )
-                else:
-                    return WorkerFlowResult(
-                        action=action.value,
-                        task_id=task_id,
-                        adapter=adapter.value,
-                        status="AUTHORIZED",
-                        fix_execution_mode=fix_mode.value,
-                        executor_invocations=0,
-                        returncode=0,
-                        message=f"FIX {task_id} authorized for {adapter.value}",
-                    )
+                # IMPLEMENTATION mode (both adapters return AUTHORIZED to visible session)
+                return WorkerFlowResult(
+                    action=action.value,
+                    task_id=task_id,
+                    adapter=adapter.value,
+                    status="AUTHORIZED",
+                    fix_execution_mode=fix_mode.value,
+                    executor_invocations=0,
+                    returncode=0,
+                    message=f"FIX {task_id} authorized for {adapter.value}",
+                )
 
         return WorkerFlowResult(
             action=str(action),

@@ -61,7 +61,7 @@ Neither Antigravity nor Codex owns or persists task state locally. All state is 
 ### RUN TASK-N
 
 - **Purpose**: Authorize and execute a fresh task run.
-- **Codex Flow**: Invokes `bridge.py handoff N --action run --executor codex`, then `bridge.py execute N` to launch the automated E2/E4 execution process.
+- **Codex Flow**: Invokes `bridge.py handoff N --action run --executor codex` (handoff only). Execution continues in the interactive Codex session; Bridge does **not** launch a separate executor process for normal Codex runs.
 - **Antigravity Flow**: Invokes `bridge.py handoff N --action run --executor antigravity` (handoff only). Execution continues in the interactive Antigravity session; Bridge does **not** launch a separate executor process.
 - **Completion**: Once published, the operator returns to ChatGPT for independent review.
 
@@ -123,4 +123,3 @@ To ensure unambiguous discovery and reliable tool parsing across all AI environm
   - Antigravity workflow: `.agents/workflows/aios-worker.md`
   - Codex skill: `.agents/skills/aios-worker/SKILL.md`
 - **Scope Isolation**: Surface files are dedicated to operator protocol translation and must never duplicate implementation logic.
-
