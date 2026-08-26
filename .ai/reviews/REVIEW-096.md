@@ -8,13 +8,13 @@ MERGE_AUTHORIZED: NO
 MERGED_TO_MAIN: NO
 FINAL_PASS: NO
 TASK_ID: TASK-096
-REVIEW_ROUND: 1
-REVIEWED_TASK_HEAD_SHA: c1c5cd882e092fd6f894feb37eb56765e3169cb7
+REVIEW_ROUND: 2
+REVIEWED_TASK_HEAD_SHA: 6ce4df02bb37deb08b005b0c7a193adac7eabb0c
 REVIEWED_BASE_MAIN_SHA: 558e666cc5808f5574862feaa8562a7d8c70e86f
 TASK_ARTIFACT_BLOB_SHA: c3581ea89cb937314fa97c10b7124e844ffba080
-RESULT_BLOB_SHA: dd083bb22b383d9275b192ff8bb66428d5dbd2a7
+RESULT_BLOB_SHA: 3e5df8e56c66bb96294e43dc2f0b8350ca5f54fd
 EXECUTOR_ID: antigravity
-BLOCKERS_REMAINING: 1
+BLOCKERS_REMAINING: 2
 CODE_AUDIT: CHANGES_REQUIRED
 CANONICAL_TESTS: NOT_RUN_AT_REVIEW
 ROADMAP_AUDIT: PASS
@@ -26,75 +26,56 @@ MILESTONE: P1
 CAPABILITY_ID: P1_UNIFIED_VALIDATION_CAPABILITY_BATCH
 RECONCILIATION_ADR: ADR-067
 RECONCILIATION_ADR_BLOB_SHA: db17c1b3f4a359c97f2dd59b8c90f7b7acdd7810
-FIX_EXECUTION_MODE: IMPLEMENTATION
+SUPERSEDED_BY_TASK: TASK-097
 TASK_095_RESUME_AUTHORIZED: NO
 PYTHON_AGENT_FAST_LANE_PILOT_AUTHORIZED: NO
 P2_P3_AUTHORIZED: NO
 H5_H8_AUTHORIZED: NO
 
-## Review summary
+## Round-2 findings
 
-The core recovery direction is correct and materially achieves the intended architecture:
+### B096.1 — Cross-surface AUTHORIZED guidance — CLOSED
 
-- normal Codex RUN no longer invokes `bridge.py execute`;
-- normal Codex FIX/IMPLEMENTATION no longer invokes nested execution;
-- both Codex and Antigravity return `AUTHORIZED` with `executor_invocations=0`;
-- handoff still invokes `cmd_context(args)`, so the visible session receives the compact Slim interactive context;
-- Codex compact context is no longer suppressed;
-- machine-only roadmap prose remains omitted;
-- legacy `CodexLocalTransport` remains available but is not the normal worker happy path;
-- targeted validation is reported PASS and candidate-stage T2 count remains 0.
-
-One blocker remains before Codex can be used as the real TASK-095 smoke proof.
-
-## Finding B096.1 — AUTHORIZED adapter guidance is hard-coded to Antigravity
-
-Severity: BLOCKING
-
-The shared adapter `.agents/skills/aios-worker/scripts/aios_worker.py` still prints this line for every `AUTHORIZED` result:
+The focused adapter change correctly binds the continuation message to the explicitly selected adapter:
 
 ```text
-NEXT: continue in the authorized Antigravity worker session
+codex       -> NEXT: continue in the authorized codex worker session
+antigravity -> NEXT: continue in the authorized antigravity worker session
 ```
 
-That output is wrong when `--adapter codex` was explicitly selected. It violates the locked cross-surface identity contract and can instruct the visible Codex worker to hand work to the wrong surface immediately after successful authorization.
+Focused tests were added for both outputs.
 
-### Required fix
+### B096.2 — Unauthorized task_authoring mutation — BLOCKING
 
-Make the `AUTHORIZED` continuation guidance provider-neutral and exact to the selected adapter, for example:
+The FIX commit also changes `src/aios_bridge/task_authoring.py`, which is not in TASK-096 `EXECUTOR_ALLOWED_PATHS_JSON`.
+
+This mutation was introduced to compensate for a malformed Round-1 REVIEW authored by ChatGPT: that REVIEW omitted the executable FIX machine markers required by the baseline Bridge (`EXECUTOR_CONTEXT_REFS_JSON`, `EXECUTOR_ALLOWED_PATHS_JSON`, and a FIX dispatch policy). The correct recovery is to author canonical REVIEW markers, not weaken task-authoring preflight or widen TASK authority.
+
+Because the candidate now contains an out-of-scope committed mutation, it is not eligible for semantic acceptance.
+
+### B096.3 — Interactive publish does not derive exact task allowed paths — BLOCKING
+
+The parity architecture removes normal Codex execution through the nested `bridge.py execute` gate. That old gate enforced `validate_executor_worktree_delta(... allowed_paths=snapshot["allowed_paths"])` before publication.
+
+Normal interactive `bridge.py publish` currently validates dirty-path scope only when `args.allowed_paths` is already supplied (or hot-handoff metadata supplies it). The Codex/Antigravity interactive worker flow does not supply machine-bound `allowed_paths`; therefore direct interactive publication can commit a path outside TASK scope. The presence of `src/aios_bridge/task_authoring.py` in the published RESULT proves this gap is operational, not theoretical.
+
+Required recovery:
 
 ```text
-NEXT: continue in the authorized codex worker session
+interactive publish
+-> require exact ACTIVE authorization + ACTIVE exact lease
+-> derive exact control snapshot from that authorization
+-> take allowed_paths only from machine-verified snapshot
+-> validate dirty paths before commit/push
+-> fail closed on missing/drifted scope evidence
 ```
 
-for Codex and:
+Do not accept model/caller-provided scope as authority. Do not modify `legacy_bridge.py`.
 
-```text
-NEXT: continue in the authorized antigravity worker session
-```
+## Decision
 
-for Antigravity.
+TASK-096 candidate is rejected and superseded by a clean replacement TASK-097 from exact certified main `558e666cc5808f5574862feaa8562a7d8c70e86f`.
 
-Do not infer or substitute another executor. Do not introduce retry/reroute behavior.
+Do not run `FIX TASK-096` again. Do not certify or merge TASK-096.
 
-Add focused tests at the adapter/control-surface level proving both outputs bind to the explicitly selected adapter and that Codex output never contains the Antigravity continuation string.
-
-## Non-blocking note
-
-Some comments/test module prose still describe the historical Codex `handoff -> execute` behavior. These are not runtime blockers, but if touched by the focused fix they should be aligned to the new parity model without widening scope.
-
-## Re-review acceptance
-
-```text
-CODEX_AUTHORIZED_GUIDANCE_BINDS_CODEX: PASS
-ANTIGRAVITY_AUTHORIZED_GUIDANCE_BINDS_ANTIGRAVITY: PASS
-CROSS_SURFACE_GUIDANCE_CONFUSION: NONE
-NORMAL_CODEX_NESTED_EXECUTE: REMOVED
-CODEX_INTERACTIVE_IMPLEMENTATION: ENABLED
-CODEX_COMPACT_CONTEXT: ENABLED
-AUTO_RETRY: NO
-AUTO_REROUTE: NO
-TASK_095_RESUME_AUTHORIZED: NO
-```
-
-After the focused FIX is republished, semantic re-review is required. Full canonical T2 remains deferred to `certify-reviewed 96` only after semantic acceptance.
+TASK-097 must reimplement the accepted parity changes from clean main, include the adapter-guidance fix, and add machine-derived interactive publication scope enforcement while preserving all existing authorization/lease/review/certification boundaries.
