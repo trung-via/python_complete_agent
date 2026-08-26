@@ -9,3 +9,10 @@ token.json
 data/
 *.png
 *.html
+
+# Runtime/scratch state must never become repository authority.
+/checkpoints.jsonl
+/checkpoints.jsonl.lock
+/completed.txt
+/classes.txt
+/shopee_pdp.json
