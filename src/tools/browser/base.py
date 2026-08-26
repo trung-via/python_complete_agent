@@ -17,7 +17,7 @@ class BaseBrowserTool(BaseTool, ABC):
         self.browser_manager = browser_manager
         
     def get_schema(self) -> dict:
-        return self.get_arguments_schema().schema()
+        return self.get_arguments_schema().model_json_schema()
         
     async def execute(self, call: ToolCall, context: Dict[str, Any]) -> ToolResult:
         session = await self.browser_manager.get_or_create_session(call.run_id)

@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 @dataclass(frozen=True)
 class ImageCandidate:
@@ -60,7 +60,9 @@ class ImageArtifact:
     height: int
     source_url: str
     storage_key: str
-    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    created_at: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
+    )
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
