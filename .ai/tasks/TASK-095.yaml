@@ -1,0 +1,118 @@
+task_id: TASK-095
+revision: 1
+
+goal: >
+  Implement Phase 6 M2.3 deterministic candidate ranking and shortlist core
+  on top of the existing Product Intelligence snapshot, normalization, and
+  WinningProductScorer contracts.
+
+problem: >
+  The repository can discover Shopee candidates and deterministically score
+  one ProductCandidateSnapshot, but it has no canonical layer that evaluates
+  a bounded candidate collection, orders candidates reproducibly, and returns
+  a shortlist suitable for later human approval. Without this layer,
+  Product Intelligence cannot turn wide discovery into an auditable ranked
+  set for selective deep ingestion.
+
+assumptions:
+  - ProductCandidateSnapshot is the canonical marketplace observation contract.
+  - WinningProductScorer.score_snapshot is the existing scoring authority.
+  - evaluated_at must be explicit so ranking is reproducible.
+  - Ranking is platform-neutral.
+  - Human approval and ingestion queue mutation belong to a later milestone.
+
+scope:
+  inspect:
+    - src/product_intelligence/models.py
+    - src/product_intelligence/normalizer.py
+    - src/product_intelligence/scoring.py
+    - src/product_intelligence/policy.py
+    - src/product_intelligence/discovery.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_models.py
+    - tests/product_intelligence/test_scoring.py
+    - tests/product_intelligence/test_discovery_contract.py
+    - docs/PHASE_6_M2_PRODUCT_INTELLIGENCE.md
+  modify:
+    - src/product_intelligence/ranking.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_ranking.py
+    - docs/PHASE_6_M2_RANKING.md
+
+non_goals:
+  - Change WinningProductScorer formulas or scoring weights.
+  - Change SnapshotNormalizer semantics.
+  - Modify Shopee DOM extraction.
+  - Implement TikTok discovery.
+  - Call an LLM.
+  - Perform network or browser operations.
+  - Write to tasks.txt or completed.txt.
+  - Start deep ingestion.
+  - Upload anything to Google Drive.
+  - Build a web or desktop UI.
+  - Modify legacy AIOS Bridge code.
+  - Modify AIOS-renew.
+
+constraints:
+  hard:
+    - Ranking must be pure and deterministic.
+    - evaluated_at must be explicitly supplied and may not default to wall-clock time.
+    - Existing WinningProductScorer must remain the scoring authority; ranking must not duplicate or reinterpret its scoring formulas.
+    - Every ranked entry must preserve the canonical candidate identity and its WinningProductScore.
+    - Candidate input must be bounded.
+    - shortlist size must be explicitly bounded and validated.
+    - Duplicate candidate_id values must fail closed rather than be silently collapsed or arbitrarily ranked.
+    - Ranking order must be deterministic and independent of input ordering when score values tie.
+    - Canonical ordering must use final_score descending first.
+    - Remaining ties must be resolved deterministically using explicit stable fields; candidate_id must provide the final deterministic tie-break.
+    - Unknown or missing marketplace signals must retain existing scorer semantics and must not be converted to zero market facts.
+    - Ranking must produce zero network, filesystem, browser, Drive, queue, or LLM side effects.
+    - No candidate may be automatically approved for ingestion.
+    - Existing discovery, normalization, scoring, and ingestion behavior must remain unchanged.
+
+acceptance:
+  - id: AC1
+    condition: >
+      A bounded sequence of ProductCandidateSnapshot values can be evaluated
+      at one explicit evaluated_at timestamp and returned as immutable ranked
+      candidate results containing the original candidate identity and its
+      WinningProductScore.
+  - id: AC2
+    condition: >
+      Results are ordered deterministically by final_score descending, then
+      deterministic secondary score/confidence fields, with candidate_id as
+      the final stable tie-break so identical inputs produce identical order
+      regardless of original candidate ordering.
+  - id: AC3
+    condition: >
+      A caller can request a bounded top-N shortlist without mutating or
+      approving any candidate and without writing to the autonomous queue.
+  - id: AC4
+    condition: >
+      Duplicate candidate_id values, invalid shortlist bounds, missing
+      evaluated_at, and invalid input bounds fail explicitly before producing
+      an ambiguous shortlist.
+  - id: AC5
+    condition: >
+      Ranking delegates candidate evaluation to WinningProductScorer and does
+      not duplicate, change, or bypass the existing scoring policy.
+  - id: AC6
+    condition: >
+      Sparse candidates preserve current missing-data/confidence semantics;
+      ranking never fabricates commission, velocity, competition, semantic,
+      or other unobserved market signals.
+  - id: AC7
+    condition: >
+      The ranking module performs zero network, browser, LLM, filesystem,
+      Google Drive, and queue side effects.
+  - id: AC8
+    condition: >
+      Regression tests prove deterministic ties, reversed-input stability,
+      top-N behavior, duplicate rejection, invalid bounds, sparse candidates,
+      and preservation of the scorer result.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; pytest tests/product_intelligence -q'
+    - git diff --check
+    - git status --porcelain
