@@ -1,26 +1,29 @@
 task_id: TASK-097
-revision: 6
+revision: 7
 
 goal: >
-  Eliminate the remaining Antigravity command-resolution ambiguity by moving the
-  Antigravity operator surface to a fresh repository-owned slash-command namespace
-  that can only dispatch the shared pinned AIOS-renew launcher, while turning the
-  contaminated legacy /aios-worker namespace into a fail-closed deprecation stub.
+  Complete the Antigravity hard-namespace cutover and update the shared worker
+  surface to the production-certified AIOS-renew v0.1.3 candidate commit, while
+  preserving the existing launcher/bootstrap/publication contract.
 
 problem: >
   Production evidence showed that invoking /aios-worker from Antigravity could still
   resolve a stale/legacy workflow and execute bridge.py even though main contains the
-  migrated AIOS-renew workflow. Because slash-command resolution happens before the
-  repository launcher can enforce kernel provenance, reusing the same historical
-  Antigravity command name is not a reliable safety boundary. The fix must make a
-  stale/old branch or cached workflow fail closed rather than silently enter legacy
-  AIOS Bridge execution.
+  migrated AIOS-renew workflow. A fresh Antigravity namespace is still required.
+  Since TASK-097 revision 6 was authored, AIOS-renew also advanced from the old v0.1.2
+  pin to the v0.1.3 candidate after fixing Runtime-owned verification/evidence and
+  passing a real Codex self-host certification. The Python Agent worker surface must
+  therefore bind to that exact new kernel commit before Antigravity certification.
 
 assumptions:
-  - AIOS-renew authoritative v0.1.2 commit remains
-    2ee57fd87316fdf8eb52a77777c51dff6d023214 and stays frozen.
-  - The shared launcher .agents/skills/aios-worker/scripts/aios_worker.py and Codex
-    $aios-worker path passed production certification and are not part of this fix.
+  - AIOS-renew authoritative v0.1.3 candidate commit is
+    9255a3a38cef87976d6bcead90c2017de6f1c1bb.
+  - AIOS-renew RUN-028-003 provided real Codex production evidence for that candidate;
+    final v0.1.3 freeze/tag remains pending real Antigravity certification.
+  - The shared launcher already owns deterministic bootstrap, PEP 610 provenance
+    validation, exact immutable pin enforcement, and guarded post-PASS publication.
+  - The shared launcher Codex path already selects its certified Codex sandbox policy;
+    this task must not change that policy.
   - Antigravity maps repository workflow filenames to slash-command names.
   - >
     A fresh command name that does not exist in legacy branches/caches provides a
@@ -31,7 +34,9 @@ assumptions:
 scope:
   inspect:
     - .agents/workflows/aios-worker.md
+    - .agents/workflows/aios-renew-worker.md
     - .agents/skills/aios-worker/SKILL.md
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
     - .agents/skills/aios-worker/scripts/aios_worker.py
     - tests/aios_bridge/test_aios_worker_control_surface.py
     - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
@@ -39,20 +44,35 @@ scope:
   modify:
     - .agents/workflows/aios-worker.md
     - .agents/workflows/aios-renew-worker.md
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
     - tests/aios_bridge/test_aios_worker_control_surface.py
     - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
 
 non_goals:
-  - Modify AIOS-renew source, pin, runtime bootstrap, publication, or kernel semantics.
-  - Modify the shared launcher or Codex $aios-worker skill.
+  - Modify AIOS-renew source or kernel semantics.
+  - Change shared launcher behavior beyond replacing the exact authoritative AIOS-renew
+    commit pin and the directly corresponding provenance/test/documentation references.
+  - Change bootstrap host resolution, runtime layout, PEP 610 provenance policy,
+    publication policy, Codex sandbox policy, or FIX lineage behavior.
   - Modify bridge.py, src/aios_bridge, Product Intelligence, TASK-098, or product code.
   - Delete legacy history or rewrite old branches.
   - Add retries, rerouting, branch checkout, merge, rebase, reset, stash, clean, or a
     second Git coordination policy.
   - Make the visible Antigravity session implement product tasks.
+  - Execute or publish TASK-098 in this task.
 
 constraints:
   hard:
+    - The worker dependency pin and launcher AUTHORITATIVE_COMMIT must both equal
+      9255a3a38cef87976d6bcead90c2017de6f1c1bb exactly.
+    - The requirements file must remain a single immutable direct-VCS pin to
+      https://github.com/trung-via/AIOS-renew.git at that exact commit.
+    - Existing bootstrap behavior must continue to reject stale runtime provenance and
+      deterministically rebuild the dedicated Git-dir worker runtime when the installed
+      AIOS-renew commit does not match the authoritative pin.
+    - No launcher behavior other than the authoritative pin/provenance constant may
+      change.
     - The new canonical Antigravity command must be /aios-renew-worker and must be
       defined only by .agents/workflows/aios-renew-worker.md.
     - /aios-renew-worker RUN TASK-N must dispatch exactly once to the checked-in
@@ -75,53 +95,64 @@ constraints:
       shared launcher.
     - The new /aios-renew-worker workflow must contain no operational reference to
       any legacy Bridge execution path.
-    - Codex $aios-worker behavior, shared launcher code, AIOS-renew pin, bootstrap
-      runtime, publication logic, and TASK-098 must remain byte-for-byte unchanged.
-    - Documentation must state that Antigravity uses /aios-renew-worker from now on,
-      /aios-worker is permanently retired/fail-closed, and a fresh/reloaded
-      Antigravity session on main is required before first use.
-    - No implementation/publish action may occur for TASK-098 in this task.
+    - Documentation must state that both worker surfaces use AIOS-renew commit
+      9255a3a38cef87976d6bcead90c2017de6f1c1bb, Antigravity uses
+      /aios-renew-worker from now on, /aios-worker is permanently retired/fail-closed,
+      and a fresh/reloaded Antigravity session on main is required before first use.
+    - TASK-098 must remain byte-for-byte unchanged and must not be executed or
+      published by this task.
 
 acceptance:
   - id: AC1
     condition: >
+      The repository-owned worker dependency file and launcher provenance constant
+      both bind exactly to AIOS-renew commit
+      9255a3a38cef87976d6bcead90c2017de6f1c1bb, with no old active-kernel pin left in
+      the worker control surface.
+  - id: AC2
+    condition: >
+      Tests prove stale worker-runtime provenance is rejected and the existing
+      deterministic bootstrap path remains responsible for installing the exact new
+      pin; no bootstrap or publication semantics change.
+  - id: AC3
+    condition: >
       A fresh Antigravity session on main exposes /aios-renew-worker as the only
       active Antigravity execution surface and its RUN command delegates exactly once
       to the shared launcher with executor antigravity.
-  - id: AC2
+  - id: AC4
     condition: >
       The old /aios-worker workflow is a pure fail-closed deprecation stub with zero
       command execution and cannot invoke the launcher or any legacy Bridge path.
-  - id: AC3
+  - id: AC5
     condition: >
       Tests prove /aios-renew-worker RUN/FIX/STATUS preserve the revision-4 launcher
-      contract, including deterministic bootstrap-host resolution and one dispatch.
-  - id: AC4
+      contract, including deterministic bootstrap-host resolution, one dispatch, and
+      guarded post-PASS publication.
+  - id: AC6
     condition: >
       Tests fail if the new workflow references bridge.py, src.aios_bridge,
       WorkerFlowCoordinator, --adapter, raw agy, or visible-session implementation.
-  - id: AC5
-    condition: >
-      Tests prove the deprecated /aios-worker workflow has no executable command
-      surface and emits the deterministic deprecation reason/replacement namespace.
-  - id: AC6
-    condition: >
-      Codex $aios-worker, shared launcher, AIOS-renew pin/runtime/publication, product
-      code, and TASK-098 are unchanged.
   - id: AC7
     condition: >
-      Documentation records the hard namespace cutover and explains that stale
-      Antigravity branches/caches lacking /aios-renew-worker fail closed instead of
-      falling back to legacy /aios-worker semantics.
+      Documentation records the exact v0.1.3 candidate pin and hard namespace cutover,
+      explaining that stale Antigravity branches/caches lacking /aios-renew-worker fail
+      closed instead of falling back to legacy /aios-worker semantics.
   - id: AC8
     condition: >
-      After this task passes, TASK-098 remains the first production certification run
-      and must be invoked only with /aios-renew-worker RUN TASK-098.
+      Product code and TASK-098 are unchanged; no TASK-098 implementation or
+      publication occurs during this task.
+  - id: AC9
+    condition: >
+      After TASK-097 passes semantic review, TASK-098 remains the first real
+      Antigravity production certification and is invoked only with
+      /aios-renew-worker RUN TASK-098.
 
 verification:
   required:
     - '$env:PYTHONPATH = ".;src"; pytest tests/aios_bridge/test_aios_worker_control_surface.py -q'
     - 'git grep -n -E "bridge\\.py|src\\.aios_bridge|WorkerFlowCoordinator|--adapter|agy --print" -- .agents/workflows/aios-renew-worker.md; if ($LASTEXITCODE -eq 0) { exit 1 } elseif ($LASTEXITCODE -eq 1) { exit 0 } else { exit $LASTEXITCODE }'
     - '$old = Get-Content .agents/workflows/aios-worker.md -Raw; if ($old -notmatch "ANTIGRAVITY_SURFACE_DEPRECATED" -or $old -notmatch "/aios-renew-worker") { exit 1 }; if ($old -match "aios_worker\\.py|bridge\\.py|src\\.aios_bridge|WorkerFlowCoordinator|--adapter|agy") { exit 1 }'
+    - '$pin = "9255a3a38cef87976d6bcead90c2017de6f1c1bb"; $req = (Get-Content .agents/skills/aios-worker/requirements-aios-renew.txt -Raw).Trim(); if ($req -ne "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@$pin") { exit 1 }; $launcher = Get-Content .agents/skills/aios-worker/scripts/aios_worker.py -Raw; if ($launcher -notmatch ([regex]::Escape("AUTHORITATIVE_COMMIT = `"$pin`""))) { exit 1 }'
+    - 'git grep -n "2ee57fd87316fdf8eb52a77777c51dff6d023214" -- .agents/skills/aios-worker/requirements-aios-renew.txt .agents/skills/aios-worker/scripts/aios_worker.py tests/aios_bridge/test_aios_worker_control_surface.py docs/AIOS_UNIFIED_WORKER_WORKFLOW.md .agents/workflows/aios-worker.md .agents/workflows/aios-renew-worker.md; if ($LASTEXITCODE -eq 0) { exit 1 } elseif ($LASTEXITCODE -eq 1) { exit 0 } else { exit $LASTEXITCODE }'
     - 'git diff --check'
     - 'git status --porcelain'
