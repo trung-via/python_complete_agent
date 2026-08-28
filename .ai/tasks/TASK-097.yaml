@@ -1,260 +1,126 @@
 task_id: TASK-097
-revision: 4
+revision: 5
 
 goal: >
-  Replace the active repository-owned Codex $aios-worker and Antigravity
-  /aios-worker execution surfaces so both delegate exclusively to the frozen
-  AIOS-renew kernel, with no active execution dependency on the legacy AIOS
-  Bridge control plane and no manual PowerShell/Git push step in a successful
-  normal RUN.
+  Eliminate the remaining Antigravity command-resolution ambiguity by moving the
+  Antigravity operator surface to a fresh repository-owned slash-command namespace
+  that can only dispatch the shared pinned AIOS-renew launcher, while turning the
+  contaminated legacy /aios-worker namespace into a fail-closed deprecation stub.
 
 problem: >
-  The current Python Agent worker surfaces must be migrated from legacy
-  AIOS Bridge execution to AIOS-renew without creating a second orchestration
-  layer. Revision 3 exposed two real integration defects during certification:
-  publication compared against a pre-kernel local HEAD even though AIOS-renew
-  PRIMARY may synchronize upstream before capturing its canonical base_sha, and
-  the visible worker surface invoked the launcher through bare `python`, which
-  is not available on every Codex/Antigravity operator PATH. Revision 4 closes
-  both defects while keeping AIOS-renew frozen and authoritative.
+  Production evidence showed that invoking /aios-worker from Antigravity could still
+  resolve a stale/legacy workflow and execute bridge.py even though main contains the
+  migrated AIOS-renew workflow. Because slash-command resolution happens before the
+  repository launcher can enforce kernel provenance, reusing the same historical
+  Antigravity command name is not a reliable safety boundary. The fix must make a
+  stale/old branch or cached workflow fail closed rather than silently enter legacy
+  AIOS Bridge execution.
 
 assumptions:
-  - AIOS-renew authoritative v0.1.2 commit is
-    2ee57fd87316fdf8eb52a77777c51dff6d023214.
-  - AIOS-renew remains frozen; this task modifies only Python Agent integration.
-  - The visible Codex/Antigravity session is an operator UI, not a second
-    implementation executor.
-  - A repository-local Python product virtualenv, if present, may be used only as
-    a bootstrap host interpreter to start the worker launcher; it is never the
-    authoritative AIOS-renew runtime and its installed packages are irrelevant.
-  - A repository-local untracked worker runtime may live under the Git-dir AIOS
-    state area and may install only the exact pinned AIOS-renew dependency.
-  - Codex and Antigravity surfaces may differ only in selected executor identity;
-    semantic TASK/RUN/RESULT/EVIDENCE behavior must come from the same AIOS-renew
-    kernel.
-  - Legacy bridge.py and src/aios_bridge may remain in repository history/source
-    for archival compatibility, but must not be reachable from active
-    $aios-worker or /aios-worker RUN/FIX/STATUS paths.
-  - Canonical REVIEW/REMEDIATION artifacts, when available locally, live outside
-    the product worktree under Git-dir AIOS state. Cloud-to-local review artifact
-    transport is a separate concern and is not invented in this migration.
-  - Repository-owned skill/workflow definitions may be cached by an already-open
-    operator session; migration certification therefore uses a fresh/reloaded
-    Codex or Antigravity session after the migration commit is present.
+  - AIOS-renew authoritative v0.1.2 commit remains
+    2ee57fd87316fdf8eb52a77777c51dff6d023214 and stays frozen.
+  - The shared launcher .agents/skills/aios-worker/scripts/aios_worker.py and Codex
+    $aios-worker path passed production certification and are not part of this fix.
+  - Antigravity maps repository workflow filenames to slash-command names.
+  - A fresh command name that does not exist in legacy branches/caches provides a
+    fail-closed namespace boundary: stale environments cannot accidentally execute
+    old semantics under the new name.
+  - TASK-098 remains pending and must not be modified or executed by this task.
 
 scope:
   inspect:
-    - .agents/skills/aios-worker/SKILL.md
     - .agents/workflows/aios-worker.md
+    - .agents/skills/aios-worker/SKILL.md
     - .agents/skills/aios-worker/scripts/aios_worker.py
-    - src/aios_bridge/worker_flow.py
-    - bridge.py
-    - requirements.txt
-    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
     - tests/aios_bridge/test_aios_worker_control_surface.py
-    - .ai/tasks/TASK-096.yaml
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - .ai/tasks/TASK-098.yaml
   modify:
-    - .agents/skills/aios-worker/SKILL.md
     - .agents/workflows/aios-worker.md
-    - .agents/skills/aios-worker/scripts/aios_worker.py
-    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/workflows/aios-renew-worker.md
     - tests/aios_bridge/test_aios_worker_control_surface.py
     - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
 
 non_goals:
-  - Modify AIOS-renew source or kernel semantics.
-  - Add AIOS-renew to the Python Agent product/runtime requirements.txt.
-  - Treat the product virtualenv as the AIOS-renew runtime or install AIOS-renew
-    into that product virtualenv.
-  - Reintroduce planning, review, scoring, retry policy, or state authority in the
-    worker surface.
-  - Delete legacy AIOS Bridge history wholesale.
-  - Run Codex and Antigravity for the same execution.
-  - Auto-reroute from one executor to the other.
-  - Auto-retry failed AIOS executions.
-  - Merge, rebase, reset, checkout, stash, clean, or otherwise add a second Git
-    coordination policy beside AIOS-renew.
-  - Change Product Intelligence or Phase 6 product behavior.
-  - Make the visible Codex or Antigravity session perform product implementation;
-    AIOS-renew remains responsible for invoking the selected executor adapter.
-  - Invent a new cloud control branch or replacement AIOS Bridge to transport
-    REVIEW/REMEDIATION artifacts. FIX must fail closed if exact local lineage is
-    absent or ambiguous.
+  - Modify AIOS-renew source, pin, runtime bootstrap, publication, or kernel semantics.
+  - Modify the shared launcher or Codex $aios-worker skill.
+  - Modify bridge.py, src/aios_bridge, Product Intelligence, TASK-098, or product code.
+  - Delete legacy history or rewrite old branches.
+  - Add retries, rerouting, branch checkout, merge, rebase, reset, stash, clean, or a
+    second Git coordination policy.
+  - Make the visible Antigravity session implement product tasks.
 
 constraints:
   hard:
-    - Active RUN execution from both worker surfaces must enter AIOS-renew and no
-      active RUN path may import src.aios_bridge, invoke bridge.py, or use
-      WorkerFlowCoordinator.
-    - .agents/skills/aios-worker/requirements-aios-renew.txt must contain exactly
-      one active dependency line binding AIOS-renew to the authoritative source
-      and commit:
-      "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@2ee57fd87316fdf8eb52a77777c51dff6d023214".
-      No floating branch, tag, package-only version, alternate repository, or
-      additional worker dependency is permitted.
-    - The active surface must not require a globally installed `aios` executable,
-      a preinstalled `aios_renew` package, a machine-specific absolute path, or a
-      bare `python` command specifically. Before creating any AIOS RUN, the
-      surface must deterministically resolve one Python 3.11+ bootstrap host.
-    - Bootstrap-host resolution is environment discovery, not executor retry. It
-      may probe a fixed documented candidate order without invoking AIOS-renew:
-      on Windows, repository-local `venv/Scripts/python.exe` first when present,
-      then `py -3.11`, then `python3`, then `python`; on POSIX, repository-local
-      `venv/bin/python` first when present, then `python3`, then `python`. The
-      first candidate proven to be Python 3.11+ is selected and the launcher is
-      invoked exactly once. If no candidate qualifies, fail closed before an AIOS
-      RUN and report BOOTSTRAP_INTERPRETER_UNAVAILABLE.
-    - A repository product virtualenv selected above is only the process used to
-      start the launcher. The launcher must still create/validate its separate
-      worker-runtime under Git-dir AIOS state and must never import AIOS-renew
-      from or install AIOS-renew into the product virtualenv.
-    - Before invoking AIOS-renew, the launcher must deterministically ensure a
-      repository-local untracked worker runtime under the repository Git-dir AIOS
-      state area. If absent or not provably bound to the authoritative commit, it
-      may bootstrap that runtime by installing only the exact worker dependency.
-      Bootstrap failure must fail closed before creating an AIOS RUN.
-    - Worker-runtime bootstrap must be serialized with a dedicated bootstrap lock
-      separate from AIOS-renew operator.lock. Concurrent first-use invocations
-      must not install into the same runtime simultaneously and the outer launcher
-      must never acquire/hold kernel operator.lock around an AIOS-renew call.
-    - Runtime provenance must be checked from installed distribution metadata
-      (PEP 610 direct_url metadata or an equivalently immutable source record) and
-      must resolve to the exact authoritative repository+commit; stale, global,
-      alternate-source, or unverifiable AIOS-renew installs must never be used.
-    - Runtime bootstrap must be one-time/idempotent for an already valid pinned
-      runtime and must not run pip/install commands on every worker invocation.
-      An incomplete/invalid runtime from a crashed bootstrap must be treated as
-      invalid and deterministically rebuilt under the bootstrap lock.
-    - RUN TASK-N from the Codex surface must select executor=codex exactly once;
-      RUN TASK-N from the Antigravity surface must select executor=antigravity
-      exactly once.
-    - Both surfaces must pass the Python Agent repository root explicitly or
-      deterministically to AIOS-renew; they must never execute AIOS-renew against
-      the AIOS-renew source repository itself.
-    - Codex RUN must preserve the canonical sandbox choice danger-full-access
-      currently required by the proven Python Agent AIOS flow; the UI surface may
-      expose no second sandbox policy.
-    - The visible Codex and Antigravity operator sessions must not edit product
-      implementation/test files themselves after dispatch; implementation belongs
-      to the one executor invoked by AIOS-renew.
-    - STATUS must be read-only with respect to the product worktree, product Git
-      branch/ref, TASK, RUN/RESULT semantics, publication, and executor authority.
-      It may initialize/validate the dedicated untracked worker runtime because
-      that is environment bootstrap, but it must not fetch/sync the product
-      branch, authorize, execute, push, modify TASK, interpret RESULT lineage as a
-      reviewer, or invoke an executor. STATUS should delegate to AIOS-renew
-      describe_task/task semantics rather than invent a second run-status model.
-    - FIX must delegate to AIOS-renew run_remediation/remediate semantics only. The
-      launcher may locate local REVIEW/REMEDIATION artifacts only by canonical
-      filename/content fields and current immutable SHA. If one exact lineage
-      cannot be resolved uniquely, including DELTA prior-review lineage, fail
-      closed rather than infer or fall back to legacy Bridge behavior.
-    - No worker surface may manually reconstruct TASK semantics, execute task
-      verification independently of AIOS-renew, synthesize RESULT/EVIDENCE, or
-      become a second reviewer.
-    - No automatic retry or executor rerouting is allowed after an AIOS error.
-    - Legacy bridge.py and src/aios_bridge may remain physically present but the
-      active worker script, Codex skill, and Antigravity workflow must contain no
-      operational instruction to call them.
-    - Publication decisions must use the canonical immutable execution baseline
-      returned by AIOS-renew, never a local HEAD sampled before invoking the
-      kernel. For PRIMARY RUN, parse exactly one valid `base_sha` and one valid
-      `head_sha` from the canonical `AIOS RUN PASS` summary. For remediation,
-      parse the corresponding canonical immutable baseline (`reviewed_sha`) and
-      `head_sha` from `AIOS REMEDIATION PASS`. Missing, duplicate, malformed, or
-      inconsistent canonical summary fields must fail closed before publication.
-    - A successful RUN/FIX whose canonical baseline differs from canonical
-      head_sha must be published automatically after AIOS-renew PASS. Publication
-      may occur only when the worktree is clean, local HEAD equals canonical
-      head_sha, the attached branch has configured remote+merge upstream, and the
-      push is an explicit normal non-force push of HEAD to that exact upstream
-      ref. No merge/rebase/reset/checkout/stash/clean/force is allowed.
-    - If canonical baseline equals canonical head_sha, including PRIMARY sync-only
-      or other no-op/evidence-only completion, publication must be NOT_REQUIRED
-      and must issue zero push commands even if the pre-run local HEAD differed.
-    - If AIOS-renew returns an error, the launcher must not push anything.
-    - If AIOS-renew PASSes but publication fails, report AIOS PASS and publication
-      failure as distinct states; do not invalidate/rewrite the canonical RESULT,
-      do not retry AIOS, and preserve repository state for explicit recovery.
-    - Existing AIOS-renew PRIMARY sync and remediation no-sync semantics remain
-      authoritative and must not be duplicated in this integration layer.
-    - Existing Product Agent tests outside the integration surface must remain
-      unchanged.
+    - The new canonical Antigravity command must be /aios-renew-worker and must be
+      defined only by .agents/workflows/aios-renew-worker.md.
+    - /aios-renew-worker RUN TASK-N must dispatch exactly once to the checked-in
+      shared launcher .agents/skills/aios-worker/scripts/aios_worker.py with
+      --executor antigravity and no other executor or adapter path.
+    - /aios-renew-worker FIX and STATUS must preserve the same shared-launcher
+      semantics already certified by TASK-097 revision 4.
+    - The new workflow must use the existing deterministic Python 3.11+ bootstrap
+      host resolution contract and must not invoke raw agy, bridge.py,
+      src.aios_bridge, WorkerFlowCoordinator, --adapter, or product implementation.
+    - The visible Antigravity session is operator UI only. After dispatch it must not
+      inspect TASK implementation context, edit product files, execute verification,
+      synthesize evidence, review semantics, retry, reroute, or continue coding.
+    - The historical /aios-worker workflow on main must become a fail-closed
+      deprecation stub. It must execute zero shell/Python/Git/launcher commands and
+      must only report ANTIGRAVITY_SURFACE_DEPRECATED plus the exact replacement
+      command namespace /aios-renew-worker.
+    - The deprecated /aios-worker workflow must contain no operational reference to
+      bridge.py, src.aios_bridge, WorkerFlowCoordinator, --adapter, raw agy, or the
+      shared launcher.
+    - The new /aios-renew-worker workflow must contain no operational reference to
+      any legacy Bridge execution path.
+    - Codex $aios-worker behavior, shared launcher code, AIOS-renew pin, bootstrap
+      runtime, publication logic, and TASK-098 must remain byte-for-byte unchanged.
+    - Documentation must state that Antigravity uses /aios-renew-worker from now on,
+      /aios-worker is permanently retired/fail-closed, and a fresh/reloaded
+      Antigravity session on main is required before first use.
+    - No implementation/publish action may occur for TASK-098 in this task.
 
 acceptance:
   - id: AC1
     condition: >
-      $aios-worker RUN TASK-N enters the exact pinned AIOS-renew kernel with
-      executor codex, explicit Python Agent repo root, danger-full-access sandbox,
-      and no legacy bridge.py/src.aios_bridge execution dependency.
+      A fresh Antigravity session on main exposes /aios-renew-worker as the only
+      active Antigravity execution surface and its RUN command delegates exactly once
+      to the shared launcher with executor antigravity.
   - id: AC2
     condition: >
-      /aios-worker RUN TASK-N enters the same exact pinned AIOS-renew kernel with
-      executor antigravity and no legacy bridge.py/src.aios_bridge execution
-      dependency; the visible Antigravity session does not implement the task.
+      The old /aios-worker workflow is a pure fail-closed deprecation stub with zero
+      command execution and cannot invoke the launcher or any legacy Bridge path.
   - id: AC3
     condition: >
-      A fresh worker surface with no preinstalled AIOS-renew and no bare `python`
-      command can deterministically resolve a Python 3.11+ bootstrap host from the
-      documented candidate order, create one repository-local untracked pinned
-      runtime, prove repository+commit provenance, serialize concurrent bootstrap
-      safely, and reuse the runtime without reinstalling.
+      Tests prove /aios-renew-worker RUN/FIX/STATUS preserve the revision-4 launcher
+      contract, including deterministic bootstrap-host resolution and one dispatch.
   - id: AC4
     condition: >
-      The integration is repository-portable: it does not require global PATH
-      `aios`, bare PATH `python`, C:\\TOOL\\Projects, or mutation of Python Agent
-      product requirements/virtualenv; use of a repository venv is bootstrap-host
-      only and never AIOS runtime authority.
+      Tests fail if the new workflow references bridge.py, src.aios_bridge,
+      WorkerFlowCoordinator, --adapter, raw agy, or visible-session implementation.
   - id: AC5
     condition: >
-      Codex and Antigravity surface tests prove identical semantic routing except
-      for executor identity and the fixed Codex sandbox argument, with one and
-      only one AIOS-renew invocation and no outer-session implementation work.
+      Tests prove the deprecated /aios-worker workflow has no executable command
+      surface and emits the deterministic deprecation reason/replacement namespace.
   - id: AC6
     condition: >
-      STATUS is non-authorizing/read-only for product state and FIX either calls
-      exact AIOS-renew remediation lineage or deterministically fails closed when
-      lineage is ambiguous/missing; neither falls back to old Bridge.
+      Codex $aios-worker, shared launcher, AIOS-renew pin/runtime/publication, product
+      code, and TASK-098 are unchanged.
   - id: AC7
     condition: >
-      Tests fail if the active worker launcher imports src.aios_bridge, calls
-      bridge.py, references WorkerFlowCoordinator, uses --adapter routing, invokes
-      raw task implementation logic, or performs task verification outside
-      AIOS-renew.
+      Documentation records the hard namespace cutover and explains that stale
+      Antigravity branches/caches lacking /aios-renew-worker fail closed instead of
+      falling back to legacy /aios-worker semantics.
   - id: AC8
     condition: >
-      Publication uses canonical AIOS PASS baseline/head fields: canonical
-      base==head causes zero push even when pre-run local HEAD differed because of
-      PRIMARY synchronization; canonical base!=head causes exactly one guarded
-      normal non-force push after clean/head/upstream checks. AIOS failure causes
-      zero push and publication failure is distinct without rerunning AIOS.
-  - id: AC9
-    condition: >
-      Existing legacy Bridge files may remain archived/inactive; docs show
-      AIOS-renew as the sole active execution kernel for both worker surfaces,
-      state TASK-096 remains pending until migration certification, describe the
-      bootstrap-host resolution order, and require a fresh/reloaded operator
-      session before exercising the migrated surface.
-  - id: AC10
-    condition: >
-      A bounded unit/integration test proves one RUN request produces one
-      AIOS-renew call with exact task ID, repository root, executor identity and
-      Codex sandbox; bootstrap is not repeated for a valid runtime and no retry,
-      reroute, duplicate executor invocation, or legacy execution occurs.
-  - id: AC11
-    condition: >
-      Unit tests cover bootstrap-host resolution with bare python unavailable,
-      Python-version rejection, fresh runtime bootstrap, exact immutable pin,
-      bootstrap serialization/incomplete-runtime recovery, provenance mismatch,
-      canonical PASS summary parsing, sync-only/no-op zero-push behavior,
-      advancing guarded publication, publication-failure preservation, STATUS
-      read-only, unique FIX lineage, ambiguous/missing FIX fail-closed, and DELTA
-      prior-review fail-closed behavior.
+      After this task passes, TASK-098 remains the first production certification run
+      and must be invoked only with /aios-renew-worker RUN TASK-098.
 
 verification:
   required:
     - '$env:PYTHONPATH = ".;src"; pytest tests/aios_bridge/test_aios_worker_control_surface.py -q'
-    - 'git grep -n -E "src\\.aios_bridge|bridge\\.py|WorkerFlowCoordinator|--adapter" -- .agents/skills/aios-worker/SKILL.md .agents/workflows/aios-worker.md .agents/skills/aios-worker/scripts/aios_worker.py; if ($LASTEXITCODE -eq 0) { exit 1 } elseif ($LASTEXITCODE -eq 1) { exit 0 } else { exit $LASTEXITCODE }'
-    - '$pin = Get-Content .agents/skills/aios-worker/requirements-aios-renew.txt -Raw; if ($pin.Trim() -ne "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@2ee57fd87316fdf8eb52a77777c51dff6d023214") { exit 1 }'
-    - git diff --check
-    - git status --porcelain
+    - 'git grep -n -E "bridge\\.py|src\\.aios_bridge|WorkerFlowCoordinator|--adapter|agy --print" -- .agents/workflows/aios-renew-worker.md; if ($LASTEXITCODE -eq 0) { exit 1 } elseif ($LASTEXITCODE -eq 1) { exit 0 } else { exit $LASTEXITCODE }'
+    - '$old = Get-Content .agents/workflows/aios-worker.md -Raw; if ($old -notmatch "ANTIGRAVITY_SURFACE_DEPRECATED" -or $old -notmatch "/aios-renew-worker") { exit 1 }; if ($old -match "aios_worker\\.py|bridge\\.py|src\\.aios_bridge|WorkerFlowCoordinator|--adapter|agy") { exit 1 }'
+    - 'git diff --check'
+    - 'git status --porcelain'
