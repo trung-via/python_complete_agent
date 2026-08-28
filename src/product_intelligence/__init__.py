@@ -57,6 +57,16 @@ from src.product_intelligence.adapters.shopee_parsing import (
     parse_shopee_review_count,
     parse_shopee_sold_count,
 )
+from src.product_intelligence.adapters.tiktok_parsing import (
+    build_tiktok_candidate_id,
+    build_tiktok_search_url,
+    extract_tiktok_product_id,
+    parse_tiktok_discount_percent,
+    parse_tiktok_price,
+    parse_tiktok_rating,
+    parse_tiktok_review_count,
+    parse_tiktok_sold_count,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -108,4 +118,12 @@ __all__ = [
     "extract_shopee_product_id",
     "build_shopee_candidate_id",
     "build_shopee_search_url",
+    "parse_tiktok_price",
+    "parse_tiktok_sold_count",
+    "parse_tiktok_rating",
+    "parse_tiktok_review_count",
+    "parse_tiktok_discount_percent",
+    "extract_tiktok_product_id",
+    "build_tiktok_candidate_id",
+    "build_tiktok_search_url",
 ]
