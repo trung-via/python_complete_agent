@@ -1,6 +1,10 @@
 # AIOS Unified Worker Workflow
 
-This document describes the unified AIOS worker control surface defined in ADR-037 and implemented in TASK-048, with UI identity hardening applied in TASK-060.
+As of TASK-097 revision 3, the repository-owned Codex and Antigravity worker
+surfaces delegate exclusively to the frozen AIOS-renew kernel at commit
+`2ee57fd87316fdf8eb52a77777c51dff6d023214`. Legacy AIOS Bridge source remains
+archived in this repository, but it is inactive and unreachable from these
+RUN/FIX/STATUS surfaces.
 
 ---
 
@@ -16,14 +20,17 @@ STATUS TASK-N
 
 ### UI Surface Parity
 
-Depending on the environment in which the Human operator is working, the protocol is invoked via thin UI adapters that are **physically separate** surface files:
+The protocol is invoked through physically separate, thin operator files:
 
 | Environment | Explicit Invocation Command | Surface File | Selected Executor |
 |:---|:---|:---|:---|
 | **Antigravity** | `/aios-worker RUN TASK-N` | `.agents/workflows/aios-worker.md` | `antigravity` |
 | **Codex** | `$aios-worker RUN TASK-N` | `.agents/skills/aios-worker/SKILL.md` | `codex` |
 
-Both UI adapters delegate 100% of authorization, lease management, state transitions, and publication to **AIOS Bridge** via the shared `aios_worker.py` adapter script.
+Both surfaces call the same `aios_worker.py` launcher. The selected executor is
+the only semantic difference. TASK/RUN/RESULT/EVIDENCE, synchronization,
+executor invocation, review validation, and remediation behavior all come from
+the same pinned AIOS-renew distribution.
 
 ---
 
@@ -32,27 +39,35 @@ Both UI adapters delegate 100% of authorization, lease management, state transit
 Each UI surface is permanently bound to a single executor identity. **No cross-surface reroute, inference, or substitution is allowed.**
 
 ```text
-/aios-worker  -> .agents/workflows/aios-worker.md  -> --adapter antigravity -> executor_id = antigravity
-$aios-worker  -> .agents/skills/aios-worker/SKILL.md -> --adapter codex     -> executor_id = codex
+/aios-worker  -> .agents/workflows/aios-worker.md   -> executor antigravity -> AIOS-renew
+$aios-worker  -> .agents/skills/aios-worker/SKILL.md -> executor codex       -> AIOS-renew
 ```
 
-The two surface files are physically separate to prevent any AI tool from resolving the wrong surface. Antigravity must always select `--adapter antigravity`; Codex must always select `--adapter codex`.
+The two surface files are physically separate to prevent an operator tool from
+selecting the wrong identity. Neither surface may retry with or reroute to the
+other executor.
 
 ---
 
-## 3. Shared State Architecture
+## 3. Dedicated Pinned Runtime and Shared State
 
-Neither Antigravity nor Codex owns or persists task state locally. All state is strictly centralized:
+The launcher does not depend on a global `aios` executable, a preinstalled
+`aios_renew` import, the Python Agent product virtualenv, or a machine-specific
+source checkout. On first use, any Python 3.11+ bootstrap interpreter creates a
+dedicated runtime below `<git-dir>/aios/worker-runtime` and installs exactly the
+one immutable dependency in
+`.agents/skills/aios-worker/requirements-aios-renew.txt`.
 
-1. **GitHub `origin/ai-control`**: Canonical tasks, reviews, and architecture decisions.
-2. **AIOS Bridge Runtime**: Local filesystem state for authorization events, active executor leases, and workspace verification.
-3. **Task Branch**: Local and remote git branches (`ai/task-N`).
+Every invocation validates installed PEP 610 direct-source metadata against the
+authoritative repository and commit. A dedicated `worker-bootstrap.lock`
+serializes concurrent first use and is separate from the kernel's
+`operator.lock`. Valid runtimes are reused without reinstalling; incomplete,
+stale, alternate-source, or unverifiable runtimes are rebuilt fail-closed before
+an AIOS RUN can exist.
 
-### Synchronization Invariants
-
-- Switching between Antigravity and Codex does **not** create a new task state or dual state store.
-- Any attempt to run or fix a task while an incompatible lease is held or after authorization has been consumed is rejected fail-closed by Bridge.
-- The UI adapter is a thin front end; it cannot manufacture authorization or bypass Bridge verification.
+AIOS-renew owns local RUN, handoff, RESULT, and operator-lock state below the
+Git-dir AIOS area. Switching between Codex and Antigravity does not create a
+second semantic state store.
 
 ---
 
@@ -60,30 +75,57 @@ Neither Antigravity nor Codex owns or persists task state locally. All state is 
 
 ### RUN TASK-N
 
-- **Purpose**: Authorize and execute a fresh task run.
-- **Codex Flow**: Invokes `bridge.py handoff N --action run --executor codex`, then `bridge.py execute N` to launch the automated E2/E4 execution process.
-- **Antigravity Flow**: Invokes `bridge.py handoff N --action run --executor antigravity` (handoff only). Execution continues in the interactive Antigravity session; Bridge does **not** launch a separate executor process.
-- **Completion**: Once published, the operator returns to ChatGPT for independent review.
+- **Codex**: Calls AIOS-renew `run` once with the exact TASK ID, explicit Python
+  Agent repository root, executor `codex`, and sandbox `danger-full-access`.
+- **Antigravity**: Calls the same AIOS-renew `run` once with executor
+  `antigravity`; the visible operator session does not implement the task.
+- **Authority**: AIOS-renew retains PRIMARY synchronization, task parsing,
+  execution, verification evidence, RESULT validation, and PASS authority.
+- **Failure**: There is no automatic retry or executor reroute.
 
 ### FIX TASK-N
 
-- **Purpose**: Authorize and execute a fix cycle after a review requests changes.
-- **Prerequisite**: An authoritative `REVIEW-*.md` with `STATUS: CHANGES_REQUIRED` must be present and verified by Bridge.
-- **Flow**: Follows the same pattern as `RUN`, validating review state before execution.
+- **Purpose**: Execute one canonical narrow remediation, never rerun the original
+  TASK as an inferred fix.
+- **Local transport boundary**: REVIEW files live under
+  `<git-dir>/aios/reviews`; REMEDIATION files live under
+  `<git-dir>/aios/remediations`.
+- **Resolution**: The launcher accepts only one canonical filename/content match
+  for the requested TASK and current immutable HEAD. DELTA review lineage must
+  resolve to one prior REVIEW. Missing or ambiguous lineage fails closed.
+- **Authority**: The launcher passes those exact paths to AIOS-renew `remediate`;
+  AIOS-renew performs all semantic validation and execution.
 
 ### STATUS TASK-N
 
-- **Purpose**: Synchronize control plane artifacts and view pending work.
-- **Behavior**: Runs `bridge.py sync` followed by `bridge.py pending`. Identical behavior on both surfaces.
-- **Safety**: `STATUS` is strictly non-authorizing. It never acquires leases, never triggers executor processes, and never modifies task state.
+- **Behavior**: Calls AIOS-renew `task`/`describe_task` semantics for the exact
+  stored TASK.
+- **Safety**: STATUS may validate/bootstrap the untracked worker runtime, but is
+  read-only for the product worktree, branch/ref, TASK, RUN/RESULT state,
+  publication, and executor authority. It does not fetch, synchronize, review,
+  execute, or push product state.
 
 ---
 
-## 5. Review & Merge Boundaries
+## 5. PASS Publication, Review, and Merge Boundaries
+
+After a successful RUN/FIX that advances HEAD, the launcher publishes exactly
+once with a normal non-force push of `HEAD` to the attached branch's configured
+remote+merge ref. Publication requires all of the following:
+
+1. AIOS-renew returned a canonical PASS summary.
+2. The worktree is clean.
+3. Local HEAD exactly equals the summary `head_sha`.
+4. HEAD advanced from the pre-execution SHA.
+5. The attached branch has a configured remote and `refs/heads/...` merge ref.
+
+AIOS failure causes zero push. A no-op or evidence-only PASS that does not
+advance HEAD causes zero push. Publication failure is reported separately from
+AIOS PASS, does not rerun AIOS, and does not rewrite the canonical RESULT.
 
 ### Independent Review Loop
 
-After a worker finishes execution and publishes to `ai/task-N`, the operator prompts ChatGPT:
+After a worker finishes and the launcher publishes, the operator prompts ChatGPT:
 
 ```text
 Review TASK-N
@@ -93,23 +135,21 @@ ChatGPT performs an independent semantic audit and emits `REVIEW-N.md` with eith
 
 ### Merge Boundary
 
-`MERGE` is **never** a worker command and is intentionally omitted from both the skill and the workflow:
+`MERGE` is never a worker command:
 
 - Worker executors **NEVER** merge code into `main`.
-- Under ADR-042 standing Human authorization, the ChatGPT review boundary executes the deterministic lean auto-merge transaction immediately after a valid `PASS` audit without requiring a separate second Human merge command.
 - Workers stop immediately after publication and instruct the Human operator to review the task in ChatGPT (`Review TASK-N in ChatGPT`).
 
 ---
 
-## 6. Elimination of Routine Manual PowerShell Sequences
+## 6. Single-Command Operator Flow
 
-Prior to TASK-048, operating Codex required manual multi-step PowerShell sequences (`sync -> pending -> approve -> execute -> publish`).
-
-With the unified `aios-worker` control surface:
-
-- **Antigravity Routine Operation**: Human simply enters `/aios-worker RUN TASK-N` in Antigravity.
-- **Codex Routine Operation**: Human simply enters `$aios-worker RUN TASK-N` in Codex.
-- **PowerShell Role**: Direct PowerShell commands remain available exclusively for system diagnosis, recovery, and offline bootstrapping.
+- **Antigravity**: The Human enters `/aios-worker RUN TASK-N`.
+- **Codex**: The Human enters `$aios-worker RUN TASK-N`.
+- **Completion**: Successful advancing PASS includes guarded publication; no
+  routine manual Git push step remains before ChatGPT review.
+- **Recovery**: A distinct publication failure preserves the valid AIOS result
+  and repository state for explicit Human-directed recovery.
 
 ---
 
@@ -124,3 +164,13 @@ To ensure unambiguous discovery and reliable tool parsing across all AI environm
   - Codex skill: `.agents/skills/aios-worker/SKILL.md`
 - **Scope Isolation**: Surface files are dedicated to operator protocol translation and must never duplicate implementation logic.
 
+## 8. Migration Certification Boundary
+
+Repository-owned skill/workflow files may be cached by an already-open operator
+session. After the TASK-097 migration commit is present, start a fresh or
+explicitly reloaded Codex/Antigravity session before exercising the migrated
+surface.
+
+TASK-096 remains pending and must not be executed or treated as completed until
+this TASK-097 migration is certified. TASK-097 does not change Product
+Intelligence or any TASK-096 product scope.

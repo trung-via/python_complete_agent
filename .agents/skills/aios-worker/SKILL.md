@@ -3,16 +3,16 @@
 name: aios-worker
 description: >
   Codex-only $aios-worker skill. Operates the AIOS worker protocol
-  (RUN TASK-N, FIX TASK-N, STATUS TASK-N) through the repository-owned AIOS
-  Bridge control surface with executor identity codex.
+  (RUN TASK-N, FIX TASK-N, STATUS TASK-N) through the exact pinned AIOS-renew
+  kernel with executor identity codex.
   THIS SKILL IS THE CODEX $aios-worker SURFACE ONLY.
   It must never serve the Antigravity /aios-worker surface.
 ---
 
-# AIOS Worker Operator Skill — Codex Surface
+# AIOS-renew Worker Operator Skill — Codex Surface
 
 **Surface:** Codex `$aios-worker` skill invocation only.
-**Executor identity:** `codex` — passed as `--adapter codex` to the shared adapter.
+**Executor identity:** `codex` — passed as `--executor codex` to the shared launcher.
 
 > This skill is the **Codex-exclusive** operator surface.
 > The Antigravity `/aios-worker` surface is `.agents/workflows/aios-worker.md` — a physically separate file.
@@ -22,11 +22,12 @@ description: >
 ## Locked Identity Contract
 
 ```text
-$aios-worker  -> Codex skill          -> --adapter codex       -> executor_id = codex
-/aios-worker  -> Antigravity workflow -> --adapter antigravity -> executor_id = antigravity
+$aios-worker  -> Codex skill          -> executor codex       -> AIOS-renew
+/aios-worker  -> Antigravity workflow -> executor antigravity -> AIOS-renew
 ```
 
-Cross-surface identity confusion is **forbidden**. This skill must never use `--adapter antigravity`.
+Cross-surface identity confusion is **forbidden**. This skill must never select
+the Antigravity executor.
 
 ## Explicit Invocation
 
@@ -40,8 +41,10 @@ Where `TASK-N` is the exact user-supplied task identifier (e.g. `TASK-048`).
 
 ## Operator Role and Boundaries
 
-The visible Codex session is the operator UI. For RUN/FIX, Bridge E2/E4 launches the bounded executor
-Codex process; the visible session must not duplicate the implementation work.
+The visible Codex session is only the operator UI. For RUN/FIX, the pinned
+AIOS-renew kernel launches the one bounded Codex executor. The visible session
+must not inspect the TASK as implementation context, edit product files, execute
+verification, synthesize evidence, or duplicate the implementation work.
 
 ### Strict Execution Constraints
 
@@ -51,22 +54,20 @@ When this skill is invoked:
 2. Treat invocation of this Codex skill as explicit Human selection of executor `codex`.
 3. Echo the requested task ID, action, and selected executor (`codex`).
 4. Invoke the checked-in shared adapter script `.agents/skills/aios-worker/scripts/aios_worker.py`
-   with **`--adapter codex`** using the repository virtual environment interpreter
-   (`venv/Scripts/python.exe` on Windows or `venv/bin/python` on POSIX).
-   If the repository venv interpreter is absent, fail immediately and notify the Human
-   rather than silently selecting an unknown interpreter.
-5. **DO NOT** use `--adapter antigravity`. Using `--adapter antigravity` from this skill is **forbidden**.
+   with **`--executor codex`** using an available Python 3.11+ bootstrap
+   interpreter. The launcher creates and proves its separate repository-local
+   pinned runtime; do not require the product virtualenv or a global `aios` command.
+5. **DO NOT** select the Antigravity executor from this skill.
 6. **DO NOT** edit implementation or test files in the parent Codex session.
-7. **DO NOT** manually read, parse, or reconstruct `TASK-*.md`, `ADR-*.md`, or blueprints as executor context.
-8. **DO NOT** run `bridge.py context`.
-9. **DO NOT** invoke raw `codex` or `codex exec` directly.
-10. **DO NOT** call `bridge.py approve` directly.
-11. **DO NOT** call `bridge.py publish` directly.
-12. **DO NOT** perform automatic retries or rerouting upon failure.
-13. **DO NOT** authorize or perform branch merge (worker executors NEVER merge;
-    the ChatGPT review boundary may auto-merge after PASS under ADR-042 standing Human authorization).
-14. **DO NOT** delegate or reroute to the Antigravity `/aios-worker` workflow.
-15. On successful execution, instruct the Human:
+7. **DO NOT** manually reconstruct TASK, RESULT, EVIDENCE, REVIEW, or REMEDIATION semantics.
+8. **DO NOT** invoke raw `codex` or `codex exec` directly.
+9. **DO NOT** perform automatic retries or executor rerouting upon failure.
+10. **DO NOT** authorize or perform branch merge. Publication is the launcher's
+    guarded normal push to the already-configured upstream after AIOS-renew PASS.
+11. **DO NOT** delegate or reroute to the Antigravity `/aios-worker` workflow.
+12. Reload or start a fresh Codex session after the migration commit so this
+    repository-owned skill is not served from a stale cache.
+13. On successful execution and publication, instruct the Human:
     ```text
     Review TASK-N in ChatGPT
     ```
@@ -75,29 +76,29 @@ When this skill is invoked:
 
 ### RUN TASK-N
 
-Executes a single-command transactional task run via Bridge (automatically synchronizes, performs handoff, and executes bounded Codex run without requiring prior STATUS):
+Delegates one primary execution to AIOS-renew and publishes an advancing PASS:
 
 ```powershell
-.\venv\Scripts\python.exe .agents/skills/aios-worker/scripts/aios_worker.py RUN TASK-N --adapter codex
+python .agents/skills/aios-worker/scripts/aios_worker.py RUN TASK-N --executor codex
 ```
 
 ### FIX TASK-N
 
-Executes a single-command transactional fix on an active review via Bridge (automatically synchronizes latest exact review, inspects closed `FIX_EXECUTION_MODE`, and routes accordingly):
-
-- **IMPLEMENTATION mode (default)**: performs handoff and executes bounded Codex run.
-- **EVIDENCE_REFRESH mode**: performs handoff, skips executor invocation, certifies canonical test suite, and republishes RESULT directly.
+Resolves one exact local canonical REVIEW/REMEDIATION lineage and delegates only
+AIOS-renew remediation semantics. Missing, ambiguous, or invalid lineage fails closed.
 
 ```powershell
-.\venv\Scripts\python.exe .agents/skills/aios-worker/scripts/aios_worker.py FIX TASK-N --adapter codex
+python .agents/skills/aios-worker/scripts/aios_worker.py FIX TASK-N --executor codex
 ```
 
 ### STATUS TASK-N
 
-Synchronizes control plane artifacts and displays pending tasks non-destructively:
+Delegates to AIOS-renew task description semantics. STATUS is read-only for the
+product worktree, branch, TASK/RUN state, publication, and executor authority.
 
 ```powershell
-.\venv\Scripts\python.exe .agents/skills/aios-worker/scripts/aios_worker.py STATUS TASK-N --adapter codex
+python .agents/skills/aios-worker/scripts/aios_worker.py STATUS TASK-N --executor codex
 ```
 
-STATUS is diagnostic/non-authorizing and is not a prerequisite for RUN or FIX.
+STATUS may initialize the dedicated untracked worker runtime but must not invoke
+an executor or become a second status/review authority.

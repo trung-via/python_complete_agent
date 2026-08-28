@@ -1,727 +1,733 @@
-"""Test suite for the Unified AIOS Worker Control Surface (TASK-048 / ADR-037 / TASK-060).
-
-Tests:
- 1. Canonical RUN/FIX/STATUS TASK IDs parse correctly
- 2. Malformed action rejected
- 3. Malformed TASK IDs rejected
- 4. Unknown adapter rejected
- 5. Codex RUN invokes exact handoff argv then exact execute argv
- 6. Codex FIX invokes exact fix handoff then execute
- 7. Every Bridge child uses sys.executable, exact repo bridge.py, list argv, shell=False, exact repo cwd
- 8. Handoff nonzero prevents execute
- 9. Execute nonzero is returned and never retried
-10. No fallback/reroute command occurs
-11. Antigravity RUN/FIX invokes handoff only and never execute
-12. STATUS invokes sync then pending only
-13. STATUS sync failure prevents pending
-14. STATUS never invokes handoff/approve/execute/publish/codex
-15. Script never invokes bridge.py publish
-16. Script never invokes bridge.py approve
-17. Script never invokes raw codex/codex exec
-18. MERGE is rejected
-19. SKILL.md exists with exact name: aios-worker (Codex surface)
-20. Skill text includes RUN/FIX/STATUS triggers
-21. Skill forbids parent-session implementation duplication
-22. Skill routes RUN/FIX through adapter with --adapter codex
-23. Skill forbids context/approve/publish/direct codex exec/retry/merge
-24. Docs state Antigravity/Codex parity and shared Bridge state
-25. No network or external API call exists in adapter
-26. [TASK-060] ANTIGRAVITY_WORKFLOW_EXISTS
-27. [TASK-060] ANTIGRAVITY_BINDS_ONLY_ADAPTER_ANTIGRAVITY
-28. [TASK-060] ANTIGRAVITY_FORBIDS_CODEX_ROUTE
-29. [TASK-060] CODEX_SKILL_BINDS_ONLY_ADAPTER_CODEX
-30. [TASK-060] CODEX_SKILL_NOT_ANTIGRAVITY_SURFACE
-31. [TASK-060] ANTIGRAVITY_RUN_FIX_HANDOFF_ONLY
-32. [TASK-060] CODEX_RUN_FIX_HANDOFF_THEN_EXECUTE
-33. [TASK-060] STATUS_NON_AUTHORIZING_BOTH_SURFACES
-34. [TASK-060] NO_RETRY_REROUTE_MERGE (both surfaces)
-# [TASK-060 FIX] Full test suite and format verification
-"""
+"""TASK-097 revision 3 certification for the AIOS-renew worker surface."""
 from __future__ import annotations
 
-import sys
+import json
 from pathlib import Path
-from typing import Any
-from unittest.mock import MagicMock, patch
+import subprocess
+import sys
+import threading
+from unittest.mock import MagicMock
 
 import pytest
 
-# ---------------------------------------------------------------------------
-# Locate repo root and import the adapter module
-# ---------------------------------------------------------------------------
+
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 SKILL_DIR = REPO_ROOT / ".agents" / "skills" / "aios-worker"
-WORKFLOW_DIR = REPO_ROOT / ".agents" / "workflows"
-ADAPTER_SCRIPT = SKILL_DIR / "scripts" / "aios_worker.py"
+SCRIPT = SKILL_DIR / "scripts" / "aios_worker.py"
+PIN_FILE = SKILL_DIR / "requirements-aios-renew.txt"
 SKILL_FILE = SKILL_DIR / "SKILL.md"
-WORKFLOW_FILE = WORKFLOW_DIR / "aios-worker.md"
+WORKFLOW_FILE = REPO_ROOT / ".agents" / "workflows" / "aios-worker.md"
 DOCS_FILE = REPO_ROOT / "docs" / "AIOS_UNIFIED_WORKER_WORKFLOW.md"
-BRIDGE_PY = REPO_ROOT / "bridge.py"
+BASE_SHA = "1" * 40
+HEAD_SHA = "2" * 40
 
-if str(ADAPTER_SCRIPT.parent) not in sys.path:
-    sys.path.insert(0, str(ADAPTER_SCRIPT.parent))
+if str(SCRIPT.parent) not in sys.path:
+    sys.path.insert(0, str(SCRIPT.parent))
 
 import aios_worker as aw  # noqa: E402
 
 
-# ---------------------------------------------------------------------------
-# Helper: build a mock subprocess.run that records calls
-# ---------------------------------------------------------------------------
-
-def make_mock_run(return_codes: list[int]):
-    codes = list(return_codes)
-    calls_made: list[dict[str, Any]] = []
-
-    def fake_run(cmd, **kwargs):
-        code = codes.pop(0) if codes else 0
-        calls_made.append({"cmd": list(cmd), "kwargs": kwargs})
-        m = MagicMock()
-        m.returncode = code
-        return m
-
-    fake_run.calls_made = calls_made  # type: ignore[attr-defined]
-    return fake_run
+def done(
+    command=(),
+    *,
+    returncode: int = 0,
+    stdout: str = "",
+    stderr: str = "",
+):
+    return subprocess.CompletedProcess(command, returncode, stdout, stderr)
 
 
-@pytest.fixture(autouse=True)
-def mock_active_fix_auth(monkeypatch):
-    from src.aios_bridge.worker_flow import WorkerFlowCoordinator
-    monkeypatch.setattr(
-        WorkerFlowCoordinator,
-        "_default_load_auth",
-        lambda self, task_num: {
-            "status": "ACTIVE",
-            "action": "FIX",
-            "fix_execution_mode": "IMPLEMENTATION",
-        },
+def direct_url(*, url: str | None = None, commit: str | None = None) -> str:
+    return json.dumps(
+        {
+            "url": url or aw.AUTHORITATIVE_REPOSITORY,
+            "vcs_info": {
+                "vcs": "git",
+                "commit_id": commit or aw.AUTHORITATIVE_COMMIT,
+                "requested_revision": commit or aw.AUTHORITATIVE_COMMIT,
+            },
+        }
     )
 
 
-# ===========================================================================
-# 1-4. Parsing / Validation
-# ===========================================================================
-
-class TestParsing:
-    @pytest.mark.parametrize("task_str,expected_num", [
-        ("TASK-1", 1), ("TASK-48", 48), ("TASK-048", 48), ("TASK-999", 999), ("TASK-1000", 1000),
-    ])
-    def test_canonical_task_ids_parse(self, task_str, expected_num):
-        task_id, task_num = aw.parse_task_id(task_str)
-        assert task_id == task_str and task_num == expected_num
-
-    @pytest.mark.parametrize("bad_task", [
-        "TASK-0", "task-48", "TASK48", "TASK-", "TASK--48", "TASK-48x", "TASK- 48", "48", "", "TASK-abc",
-    ])
-    def test_malformed_task_ids_rejected(self, bad_task):
-        with pytest.raises(ValueError):
-            aw.parse_task_id(bad_task)
-
-    @pytest.mark.parametrize("action", ["RUN", "FIX", "STATUS"])
-    def test_canonical_actions_accepted(self, action, tmp_path):
-        (tmp_path / "bridge.py").write_text("# fake")
-        with patch.object(aw, "get_repo_root", return_value=tmp_path), \
-             patch.object(aw, "run_bridge_command", return_value=0):
-            code = aw.main([action, "TASK-1", "--adapter", "antigravity"])
-        assert code == 0
-
-    @pytest.mark.parametrize("bad_action", ["run", "fix", "MERGE", "START", "DEPLOY", ""])
-    def test_malformed_actions_rejected(self, bad_action):
-        with patch.object(aw, "get_repo_root", return_value=REPO_ROOT), \
-             patch.object(aw, "run_bridge_command", return_value=0):
-            code = aw.main([bad_action, "TASK-1", "--adapter", "codex"])
-        assert code != 0
-
-    def test_unknown_adapter_rejected(self):
-        assert aw.main(["RUN", "TASK-1", "--adapter", "unknown_ui"]) != 0
-
-    def test_merge_rejected(self):
-        with patch.object(aw, "get_repo_root", return_value=REPO_ROOT), \
-             patch.object(aw, "run_bridge_command", return_value=0):
-            assert aw.main(["MERGE", "TASK-1", "--adapter", "codex"]) != 0
-
-    @pytest.mark.parametrize("padded_task", [
-        " TASK-48", "TASK-48 ", " TASK-48 ", "\tTASK-48", "TASK-48\n",
-    ])
-    def test_whitespace_padded_task_ids_rejected(self, padded_task):
-        with pytest.raises(ValueError):
-            aw.parse_task_id(padded_task)
-
-
-# ===========================================================================
-# 5-10. Codex RUN and FIX exact argv contract (ADR-061 Transactional Flow)
-# ===========================================================================
-
-class TestCodexRunFix:
-    @pytest.fixture(autouse=True)
-    def mock_repo_root(self, tmp_path):
-        (tmp_path / "bridge.py").write_text("# fake bridge")
-        reviews_dir = tmp_path / ".ai" / "reviews"
-        reviews_dir.mkdir(parents=True, exist_ok=True)
-        (reviews_dir / "REVIEW-048.md").write_text("STATUS: CHANGES_REQUIRED\nFIX_EXECUTION_MODE: IMPLEMENTATION\n")
-        (reviews_dir / "REVIEW-060.md").write_text("STATUS: CHANGES_REQUIRED\nFIX_EXECUTION_MODE: IMPLEMENTATION\n")
-        self.fake_root = tmp_path
-
-    def _codex_run_with_codes(self, action: str, codes: list[int]):
-        mock_run = make_mock_run(codes)
-        with patch("subprocess.run", side_effect=mock_run), \
-             patch.object(aw, "get_repo_root", return_value=self.fake_root):
-            code = aw.main([action, "TASK-48", "--adapter", "codex"])
-        return code, mock_run.calls_made
-
-    def test_codex_run_exact_first_argv_is_handoff(self):
-        _, calls = self._codex_run_with_codes("RUN", [0, 0])
-        expected = [sys.executable, str(self.fake_root / "bridge.py"), "handoff", "48", "--action", "run", "--executor", "codex"]
-        assert calls[0]["cmd"] == expected
-
-    def test_codex_run_exact_second_argv_is_execute(self):
-        _, calls = self._codex_run_with_codes("RUN", [0, 0])
-        expected = [sys.executable, str(self.fake_root / "bridge.py"), "execute", "48"]
-        assert calls[1]["cmd"] == expected
-
-    def test_codex_run_exactly_two_calls(self):
-        _, calls = self._codex_run_with_codes("RUN", [0, 0])
-        assert len(calls) == 2
-
-    def test_exact_argv_fails_if_extra_token_appended(self):
-        _, calls = self._codex_run_with_codes("RUN", [0, 0])
-        expected_with_extra = [sys.executable, str(self.fake_root / "bridge.py"), "handoff", "48", "--action", "run", "--executor", "codex", "--extra-injected-flag"]
-        assert calls[0]["cmd"] != expected_with_extra
-
-    def test_codex_fix_exact_handoff_and_execute(self):
-        _, calls = self._codex_run_with_codes("FIX", [0, 0])
-        assert calls[0]["cmd"] == [sys.executable, str(self.fake_root / "bridge.py"), "handoff", "48", "--action", "fix", "--executor", "codex"]
-        assert calls[1]["cmd"] == [sys.executable, str(self.fake_root / "bridge.py"), "execute", "48"]
-
-    def test_codex_fix_exactly_two_calls(self):
-        _, calls = self._codex_run_with_codes("FIX", [0, 0])
-        assert len(calls) == 2
-
-    def test_every_bridge_child_uses_sys_executable_list_argv_no_shell_exact_cwd(self):
-        _, calls = self._codex_run_with_codes("RUN", [0, 0])
-        for c in calls:
-            assert c["cmd"][0] == sys.executable
-            assert c["cmd"][1] == str(self.fake_root / "bridge.py")
-            assert isinstance(c["cmd"], list)
-            assert c["kwargs"].get("shell", False) is False
-            assert str(c["kwargs"].get("cwd", "")) == str(self.fake_root)
-
-    def test_subprocess_shell_is_false(self):
-        mock_run = make_mock_run([0, 0])
-        with patch("subprocess.run", side_effect=mock_run), \
-             patch.object(aw, "get_repo_root", return_value=self.fake_root):
-            aw.main(["RUN", "TASK-1", "--adapter", "codex"])
-        for c in mock_run.calls_made:
-            assert c["kwargs"].get("shell", False) is False
-
-    def test_handoff_nonzero_prevents_execute(self):
-        returncode, calls = self._codex_run_with_codes("RUN", [1])
-        assert returncode == 1 and len(calls) == 1 and calls[0]["cmd"][2] == "handoff"
-
-    def test_execute_nonzero_returned_and_not_retried(self):
-        returncode, calls = self._codex_run_with_codes("RUN", [0, 2])
-        assert returncode == 2 and len(calls) == 2
-
-    def test_no_fallback_on_failure(self):
-        _, calls = self._codex_run_with_codes("RUN", [1])
-        assert len(calls) == 1
-
-
-# ===========================================================================
-# 11. Antigravity RUN/FIX invokes handoff only (never execute)
-# ===========================================================================
-
-class TestAntigravityAdapter:
-    @pytest.fixture(autouse=True)
-    def mock_repo_root(self, tmp_path):
-        (tmp_path / "bridge.py").write_text("# fake")
-        reviews_dir = tmp_path / ".ai" / "reviews"
-        reviews_dir.mkdir(parents=True, exist_ok=True)
-        (reviews_dir / "REVIEW-048.md").write_text("STATUS: CHANGES_REQUIRED\nFIX_EXECUTION_MODE: IMPLEMENTATION\n")
-        (reviews_dir / "REVIEW-060.md").write_text("STATUS: CHANGES_REQUIRED\nFIX_EXECUTION_MODE: IMPLEMENTATION\n")
-        self.fake_root = tmp_path
-
-    def _antigravity_run_with_codes(self, action: str, codes: list[int]):
-        mock_run = make_mock_run(codes)
-        with patch("subprocess.run", side_effect=mock_run), \
-             patch.object(aw, "get_repo_root", return_value=self.fake_root):
-            code = aw.main([action, "TASK-48", "--adapter", "antigravity"])
-        return code, mock_run.calls_made
-
-    def test_antigravity_run_exact_argv_and_one_call(self):
-        code, calls = self._antigravity_run_with_codes("RUN", [0])
-        assert len(calls) == 1
-        expected = [sys.executable, str(self.fake_root / "bridge.py"), "handoff", "48", "--action", "run", "--executor", "antigravity"]
-        assert calls[0]["cmd"] == expected and code == 0
-
-    def test_antigravity_fix_exact_argv_and_one_call(self):
-        code, calls = self._antigravity_run_with_codes("FIX", [0])
-        assert len(calls) == 1
-        expected = [sys.executable, str(self.fake_root / "bridge.py"), "handoff", "48", "--action", "fix", "--executor", "antigravity"]
-        assert calls[0]["cmd"] == expected and code == 0
-
-    def test_antigravity_execute_never_called_regardless_of_handoff_success(self):
-        _, calls = self._antigravity_run_with_codes("RUN", [0])
-        assert len(calls) == 1 and calls[0]["cmd"][2] == "handoff"
-
-
-# ===========================================================================
-# 12-14. STATUS non-authorizing contract
-# ===========================================================================
-
-class TestStatusAdapter:
-    @pytest.fixture(autouse=True)
-    def mock_repo_root(self, tmp_path):
-        (tmp_path / "bridge.py").write_text("# fake")
-        self.fake_root = tmp_path
-
-    def _status_run(self, codes: list[int], adapter: str = "codex"):
-        mock_run = make_mock_run(codes)
-        with patch("subprocess.run", side_effect=mock_run), \
-             patch.object(aw, "get_repo_root", return_value=self.fake_root):
-            code = aw.main(["STATUS", "TASK-1", "--adapter", adapter])
-        return code, mock_run.calls_made
-
-    def test_status_exact_sync_argv(self):
-        _, calls = self._status_run([0, 0])
-        assert calls[0]["cmd"] == [sys.executable, str(self.fake_root / "bridge.py"), "sync"]
-
-    def test_status_exact_pending_argv(self):
-        _, calls = self._status_run([0, 0])
-        assert calls[1]["cmd"] == [sys.executable, str(self.fake_root / "bridge.py"), "pending"]
-
-    def test_status_exactly_two_calls(self):
-        code, calls = self._status_run([0, 0])
-        assert len(calls) == 2 and code == 0
-
-    def test_status_sync_failure_prevents_pending(self):
-        code, calls = self._status_run([1])
-        assert code == 1 and len(calls) == 1
-
-    def test_status_never_invokes_handoff(self):
-        _, calls = self._status_run([0, 0])
-        for c in calls:
-            assert c["cmd"][2] in ("sync", "pending")
-
-    def test_status_works_with_antigravity_adapter_too(self):
-        code, calls = self._status_run([0, 0], adapter="antigravity")
-        assert len(calls) == 2 and calls[0]["cmd"][2] == "sync" and calls[1]["cmd"][2] == "pending"
-
-
-# ===========================================================================
-# 15-17. Forbidden commands never invoked
-# ===========================================================================
-
-class TestForbiddenCommands:
-    @pytest.fixture(autouse=True)
-    def mock_repo_root(self, tmp_path):
-        (tmp_path / "bridge.py").write_text("# fake")
-        self.fake_root = tmp_path
-
-    def _run_all_adapters(self, action: str, task: str = "TASK-1"):
-        all_calls = []
-        for adapter in ("codex", "antigravity"):
-            mock_run = make_mock_run([0, 0, 0])
-            with patch("subprocess.run", side_effect=mock_run), \
-                 patch.object(aw, "get_repo_root", return_value=self.fake_root):
-                aw.main([action, task, "--adapter", adapter])
-            all_calls.extend(mock_run.calls_made)
-        return all_calls
-
-    def test_script_never_invokes_publish(self):
-        for action in ("RUN", "FIX", "STATUS"):
-            for c in self._run_all_adapters(action):
-                assert "publish" not in c["cmd"]
-
-    def test_script_never_invokes_approve(self):
-        for action in ("RUN", "FIX", "STATUS"):
-            for c in self._run_all_adapters(action):
-                assert "approve" not in c["cmd"]
-
-    def test_script_never_invokes_raw_codex(self):
-        for action in ("RUN", "FIX", "STATUS"):
-            for c in self._run_all_adapters(action):
-                assert c["cmd"][0] != "codex"
-                assert not c["cmd"][1].endswith("codex") and not c["cmd"][1].endswith("codex.exe")
-
-
-# ===========================================================================
-# 18. MERGE rejected
-# ===========================================================================
-
-def test_merge_is_rejected():
-    with patch.object(aw, "get_repo_root", return_value=REPO_ROOT), \
-         patch.object(aw, "run_bridge_command", return_value=0) as mock_bridge:
-        code = aw.main(["MERGE", "TASK-1", "--adapter", "codex"])
-    assert code != 0
-    mock_bridge.assert_not_called()
-
-
-# ===========================================================================
-# 19-23. SKILL.md content assertions (Codex surface)
-# ===========================================================================
-
-class TestSkillFile:
-    @pytest.fixture(scope="class")
-    def skill_text(self):
-        assert SKILL_FILE.exists()
-        return SKILL_FILE.read_text(encoding="utf-8")
-
-    def test_skill_md_exists_with_correct_name(self, skill_text):
-        assert "name: aios-worker" in skill_text
-
-    def test_skill_includes_run_trigger(self, skill_text):
-        assert "RUN TASK-" in skill_text
-
-    def test_skill_includes_fix_trigger(self, skill_text):
-        assert "FIX TASK-" in skill_text
-
-    def test_skill_includes_status_trigger(self, skill_text):
-        assert "STATUS TASK-" in skill_text
-
-    def test_skill_forbids_parent_session_implementation_duplication(self, skill_text):
-        assert any(kw in skill_text.lower() for kw in ("must not duplicate", "not duplicate", "operator ui"))
-
-    def test_skill_routes_through_adapter_codex(self, skill_text):
-        assert "--adapter codex" in skill_text
-
-    def test_skill_forbids_bridge_context(self, skill_text):
-        assert "bridge.py context" in skill_text or "context" in skill_text.lower()
-
-    def test_skill_forbids_bridge_approve(self, skill_text):
-        assert "approve" in skill_text.lower()
-
-    def test_skill_forbids_bridge_publish(self, skill_text):
-        assert "publish" in skill_text.lower()
-
-    def test_skill_forbids_retry(self, skill_text):
-        assert "retry" in skill_text.lower() or "retries" in skill_text.lower()
-
-    def test_skill_forbids_merge(self, skill_text):
-        assert "merge" in skill_text.lower() or "MERGE" in skill_text
-
-
-# ===========================================================================
-# 24. Documentation assertions
-# ===========================================================================
-
-class TestDocumentation:
-    @pytest.fixture(scope="class")
-    def docs_text(self):
-        assert DOCS_FILE.exists()
-        return DOCS_FILE.read_text(encoding="utf-8")
-
-    def test_docs_state_antigravity_parity(self, docs_text):
-        assert "Antigravity" in docs_text or "antigravity" in docs_text
-
-    def test_docs_state_codex_parity(self, docs_text):
-        assert "Codex" in docs_text or "codex" in docs_text
-
-    def test_docs_mention_shared_bridge_state(self, docs_text):
-        assert any(kw in docs_text.lower() for kw in ("shared", "bridge state", "single", "centralized"))
-
-    def test_docs_mention_run_fix_status(self, docs_text):
-        assert "RUN" in docs_text and "FIX" in docs_text and "STATUS" in docs_text
-
-    def test_docs_mention_review_loop(self, docs_text):
-        assert any(kw in docs_text.lower() for kw in ("review", "chatgpt", "chat"))
-
-    def test_docs_mention_merge_boundary(self, docs_text):
-        assert "merge" in docs_text.lower() or "MERGE" in docs_text
-
-    def test_docs_mention_switching_ui_does_not_create_new_state(self, docs_text):
-        assert any(kw in docs_text.lower() for kw in ("switching", "switch", "not create a new", "not create new"))
-
-
-# ===========================================================================
-# 25. No network or external API call
-# ===========================================================================
-
-def test_no_network_or_external_api_in_adapter():
-    source = ADAPTER_SCRIPT.read_text(encoding="utf-8")
-    for forbidden in ["import requests", "import httpx", "import urllib.request", "import urllib3", "import aiohttp", "import socket", "openai", "anthropic"]:
-        assert forbidden not in source
-
-
-# ===========================================================================
-# 26-34. TASK-060 Identity Hardening Tests
-# ===========================================================================
-
-class TestAntigravityWorkflowExists:
-    """Test 26: ANTIGRAVITY_WORKFLOW_EXISTS"""
-
-    def test_workflow_file_exists(self):
-        assert WORKFLOW_FILE.exists(), f"Antigravity workflow not found at {WORKFLOW_FILE}"
-
-    def test_workflow_file_is_not_skill_file(self):
-        assert WORKFLOW_FILE.resolve() != SKILL_FILE.resolve()
-
-
-class TestAntigravityBindsOnlyAdapterAntigravity:
-    """Test 27: ANTIGRAVITY_BINDS_ONLY_ADAPTER_ANTIGRAVITY"""
-
-    @pytest.fixture(scope="class")
-    def workflow_text(self):
-        assert WORKFLOW_FILE.exists()
-        return WORKFLOW_FILE.read_text(encoding="utf-8")
-
-    def test_workflow_contains_adapter_antigravity(self, workflow_text):
-        assert "--adapter antigravity" in workflow_text
-
-    def test_workflow_name_is_aios_worker(self, workflow_text):
-        assert "name: aios-worker" in workflow_text
-
-    def test_workflow_includes_run_trigger(self, workflow_text):
-        assert "RUN TASK-" in workflow_text
-
-    def test_workflow_includes_fix_trigger(self, workflow_text):
-        assert "FIX TASK-" in workflow_text
-
-    def test_workflow_includes_status_trigger(self, workflow_text):
-        assert "STATUS TASK-" in workflow_text
-
-
-class TestAntigravityForbidsCodexRoute:
-    """Test 28: ANTIGRAVITY_FORBIDS_CODEX_ROUTE"""
-
-    @pytest.fixture(scope="class")
-    def workflow_text(self):
-        assert WORKFLOW_FILE.exists()
-        return WORKFLOW_FILE.read_text(encoding="utf-8")
-
-    def test_workflow_explicitly_forbids_adapter_codex(self, workflow_text):
-        assert any(phrase in workflow_text.lower() for phrase in ("forbidden", "never use", "must never use"))
-
-    def test_workflow_forbids_retry_and_reroute(self, workflow_text):
-        assert "retry" in workflow_text.lower() or "reroute" in workflow_text.lower() or "rerouting" in workflow_text.lower()
-
-    def test_workflow_forbids_merge(self, workflow_text):
-        assert "merge" in workflow_text.lower() or "MERGE" in workflow_text
-
-    def test_workflow_forbids_approve(self, workflow_text):
-        assert "approve" in workflow_text.lower()
-
-    def test_workflow_forbids_publish(self, workflow_text):
-        assert "publish" in workflow_text.lower()
-
-
-class TestCodexSkillBindsOnlyAdapterCodex:
-    """Test 29: CODEX_SKILL_BINDS_ONLY_ADAPTER_CODEX"""
-
-    @pytest.fixture(scope="class")
-    def skill_text(self):
-        assert SKILL_FILE.exists()
-        return SKILL_FILE.read_text(encoding="utf-8")
-
-    def test_skill_contains_adapter_codex(self, skill_text):
-        assert "--adapter codex" in skill_text
-
-    def test_skill_does_not_invoke_adapter_antigravity_in_commands(self, skill_text):
-        powershell_lines_with_wrong_adapter = [
-            line for line in skill_text.splitlines()
-            if "--adapter antigravity" in line and "aios_worker.py" in line
+def make_layout(tmp_path: Path) -> aw.RuntimeLayout:
+    state = tmp_path / ".git" / "aios"
+    requirements = tmp_path / "requirements-aios-renew.txt"
+    requirements.write_text(aw.PIN_LINE + "\n", encoding="utf-8")
+    return aw.RuntimeLayout(
+        state_root=state,
+        runtime=state / "worker-runtime",
+        bootstrap_lock=state / "worker-bootstrap.lock",
+        requirements=requirements,
+    )
+
+
+def write_review(
+    layout: aw.RuntimeLayout,
+    *,
+    review_id: str = "REVIEW-097-001",
+    sha: str = HEAD_SHA,
+    mode: str = "PRIMARY",
+    finding: str = "R1",
+    prior_finding: str | None = None,
+) -> Path:
+    path = layout.state_root / "reviews" / f"{review_id}.yaml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    prior = "" if prior_finding is None else f"prior_finding_id: {prior_finding}\n"
+    path.write_text(
+        f"""review_id: {review_id}
+reviewed_sha: {sha}
+mode: {mode}
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: FAIL
+findings:
+  - id: {finding}
+    basis: AC1
+    action: CODE_FIX
+    location: example.py
+    issue: issue
+    expected: expected
+{prior}""",
+        encoding="utf-8",
+    )
+    return path
+
+
+def write_remediation(
+    layout: aw.RuntimeLayout,
+    *,
+    finding: str = "R1",
+    sha: str = HEAD_SHA,
+    suffix: str | None = None,
+) -> Path:
+    name = suffix or finding
+    path = layout.state_root / "remediations" / f"REMEDIATION-097-{name}.yaml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        f"""finding_id: {finding}
+action: CODE_FIX
+reviewed_sha: {sha}
+modification_scope: [example.py]
+affected_verification: [git diff --check]
+""",
+        encoding="utf-8",
+    )
+    return path
+
+
+class TestImmutableRuntimePin:
+    def test_dependency_file_is_exactly_one_active_immutable_pin(self):
+        active = [
+            line.strip()
+            for line in PIN_FILE.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
         ]
-        assert not powershell_lines_with_wrong_adapter
+        assert active == [aw.PIN_LINE]
+        assert active == [
+            "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
+            "2ee57fd87316fdf8eb52a77777c51dff6d023214"
+        ]
 
+    def test_authoritative_pep610_metadata_is_accepted(self):
+        assert aw.provenance_is_authoritative(json.loads(direct_url()))
 
-class TestCodexSkillNotAntigravitySurface:
-    """Test 30: CODEX_SKILL_NOT_ANTIGRAVITY_SURFACE"""
-
-    @pytest.fixture(scope="class")
-    def skill_text(self):
-        assert SKILL_FILE.exists()
-        return SKILL_FILE.read_text(encoding="utf-8")
-
-    def test_skill_declares_codex_only_surface(self, skill_text):
-        assert any(phrase in skill_text for phrase in ("Codex-only", "Codex surface", "Codex `$aios-worker`", "$aios-worker"))
-
-    def test_skill_explicitly_excludes_antigravity_surface(self, skill_text):
-        assert any(phrase in skill_text for phrase in (
-            "must never serve the Antigravity",
-            "never serve Antigravity",
-            "not serve the Antigravity",
-        ))
-
-    def test_skill_references_workflow_as_antigravity_surface(self, skill_text):
-        assert ".agents/workflows/aios-worker.md" in skill_text or "workflows/aios-worker" in skill_text
-
-
-class TestAntigravityRunFixHandoffOnly:
-    """Test 31: ANTIGRAVITY_RUN_FIX_HANDOFF_ONLY"""
-
-    @pytest.fixture(autouse=True)
-    def mock_repo_root(self, tmp_path):
-        (tmp_path / "bridge.py").write_text("# fake")
-        reviews_dir = tmp_path / ".ai" / "reviews"
-        reviews_dir.mkdir(parents=True, exist_ok=True)
-        (reviews_dir / "REVIEW-048.md").write_text("STATUS: CHANGES_REQUIRED\nFIX_EXECUTION_MODE: IMPLEMENTATION\n")
-        (reviews_dir / "REVIEW-060.md").write_text("STATUS: CHANGES_REQUIRED\nFIX_EXECUTION_MODE: IMPLEMENTATION\n")
-        self.fake_root = tmp_path
-
-    def _run_antigravity(self, action: str):
-        mock_run = make_mock_run([0, 0])
-        with patch("subprocess.run", side_effect=mock_run), \
-             patch.object(aw, "get_repo_root", return_value=self.fake_root):
-            code = aw.main([action, "TASK-60", "--adapter", "antigravity"])
-        return code, mock_run.calls_made
-
-    def test_antigravity_run_never_calls_execute(self):
-        _, calls = self._run_antigravity("RUN")
-        assert not [c for c in calls if "execute" in c["cmd"]]
-
-    def test_antigravity_fix_never_calls_execute(self):
-        _, calls = self._run_antigravity("FIX")
-        assert not [c for c in calls if "execute" in c["cmd"]]
-
-    def test_antigravity_run_exactly_one_subprocess_call(self):
-        _, calls = self._run_antigravity("RUN")
-        assert len(calls) == 1
-
-    def test_antigravity_fix_exactly_one_subprocess_call(self):
-        _, calls = self._run_antigravity("FIX")
-        assert len(calls) == 1
-
-
-class TestCodexRunFixHandoffThenExecute:
-    """Test 32: CODEX_RUN_FIX_HANDOFF_THEN_EXECUTE"""
-
-    @pytest.fixture(autouse=True)
-    def mock_repo_root(self, tmp_path):
-        (tmp_path / "bridge.py").write_text("# fake")
-        reviews_dir = tmp_path / ".ai" / "reviews"
-        reviews_dir.mkdir(parents=True, exist_ok=True)
-        (reviews_dir / "REVIEW-048.md").write_text("STATUS: CHANGES_REQUIRED\nFIX_EXECUTION_MODE: IMPLEMENTATION\n")
-        (reviews_dir / "REVIEW-060.md").write_text("STATUS: CHANGES_REQUIRED\nFIX_EXECUTION_MODE: IMPLEMENTATION\n")
-        self.fake_root = tmp_path
-
-    def _run_codex(self, action: str):
-        mock_run = make_mock_run([0, 0])
-        with patch("subprocess.run", side_effect=mock_run), \
-             patch.object(aw, "get_repo_root", return_value=self.fake_root):
-            code = aw.main([action, "TASK-60", "--adapter", "codex"])
-        return code, mock_run.calls_made
-
-    def test_codex_run_calls_handoff_then_execute(self):
-        _, calls = self._run_codex("RUN")
-        assert len(calls) == 2 and calls[0]["cmd"][2] == "handoff" and calls[1]["cmd"][2] == "execute"
-
-    def test_codex_fix_calls_handoff_then_execute(self):
-        _, calls = self._run_codex("FIX")
-        assert len(calls) == 2 and calls[0]["cmd"][2] == "handoff" and calls[1]["cmd"][2] == "execute"
-
-    def test_codex_run_handoff_uses_codex_executor(self):
-        _, calls = self._run_codex("RUN")
-        idx = calls[0]["cmd"].index("--executor")
-        assert calls[0]["cmd"][idx + 1] == "codex"
-
-    def test_codex_fix_handoff_uses_codex_executor(self):
-        _, calls = self._run_codex("FIX")
-        idx = calls[0]["cmd"].index("--executor")
-        assert calls[0]["cmd"][idx + 1] == "codex"
-
-
-class TestStatusNonAuthorizing:
-    """Test 33: STATUS_NON_AUTHORIZING_BOTH_SURFACES"""
-
-    @pytest.fixture(autouse=True)
-    def mock_repo_root(self, tmp_path):
-        (tmp_path / "bridge.py").write_text("# fake")
-        self.fake_root = tmp_path
-
-    def _status_run(self, adapter: str):
-        mock_run = make_mock_run([0, 0])
-        with patch("subprocess.run", side_effect=mock_run), \
-             patch.object(aw, "get_repo_root", return_value=self.fake_root):
-            code = aw.main(["STATUS", "TASK-1", "--adapter", adapter])
-        return code, mock_run.calls_made
-
-    def test_status_codex_is_non_authorizing(self):
-        _, calls = self._status_run("codex")
-        for c in calls:
-            assert c["cmd"][2] not in ("handoff", "execute", "approve", "publish")
-
-    def test_status_antigravity_is_non_authorizing(self):
-        _, calls = self._status_run("antigravity")
-        for c in calls:
-            assert c["cmd"][2] not in ("handoff", "execute", "approve", "publish")
-
-    def test_status_both_surfaces_produce_identical_subprocess_calls(self):
-        _, codex_calls = self._status_run("codex")
-        _, agv_calls = self._status_run("antigravity")
-        assert [c["cmd"][2] for c in codex_calls] == [c["cmd"][2] for c in agv_calls] == ["sync", "pending"]
-
-
-class TestNoRetryRerouteMerge:
-    """Test 34: NO_RETRY_REROUTE_MERGE"""
-
-    @pytest.fixture(autouse=True)
-    def mock_repo_root(self, tmp_path):
-        (tmp_path / "bridge.py").write_text("# fake")
-        self.fake_root = tmp_path
-
-    def test_codex_run_failure_does_not_retry(self):
-        mock_run = make_mock_run([1])
-        with patch("subprocess.run", side_effect=mock_run), \
-             patch.object(aw, "get_repo_root", return_value=self.fake_root):
-            code = aw.main(["RUN", "TASK-1", "--adapter", "codex"])
-        assert code != 0 and len(mock_run.calls_made) == 1
-
-    def test_antigravity_run_failure_does_not_retry(self):
-        mock_run = make_mock_run([1])
-        with patch("subprocess.run", side_effect=mock_run), \
-             patch.object(aw, "get_repo_root", return_value=self.fake_root):
-            code = aw.main(["RUN", "TASK-1", "--adapter", "antigravity"])
-        assert code != 0 and len(mock_run.calls_made) == 1
-
-    def test_merge_rejected_codex(self):
-        with patch.object(aw, "get_repo_root", return_value=self.fake_root), \
-             patch.object(aw, "run_bridge_command", return_value=0) as mock_bridge:
-            code = aw.main(["MERGE", "TASK-1", "--adapter", "codex"])
-        assert code != 0
-        mock_bridge.assert_not_called()
-
-    def test_merge_rejected_antigravity(self):
-        with patch.object(aw, "get_repo_root", return_value=self.fake_root), \
-             patch.object(aw, "run_bridge_command", return_value=0) as mock_bridge:
-            code = aw.main(["MERGE", "TASK-1", "--adapter", "antigravity"])
-        assert code != 0
-        mock_bridge.assert_not_called()
-
-
-# ===========================================================================
-# B1 Regression (TASK-060 FIX): No BOM, frontmatter starts with b'---\n'
-# ===========================================================================
-
-class TestSurfaceFileFrontmatterNoBOM:
-    """B1 Regression: Both surface files must begin with b"---\n" with no UTF-8 BOM."""
-
-    def test_workflow_file_no_bom(self):
-        raw = WORKFLOW_FILE.read_bytes()
-        assert not raw.startswith(b'\xef\xbb\xbf'), (
-            f'workflow must not have BOM. First 6 bytes: {raw[:6]!r}'
+    @pytest.mark.parametrize(
+        ("url", "commit"),
+        [
+            ("https://github.com/other/AIOS-renew.git", aw.AUTHORITATIVE_COMMIT),
+            (aw.AUTHORITATIVE_REPOSITORY, "3" * 40),
+            ("file:///C:/AIOS-renew", aw.AUTHORITATIVE_COMMIT),
+        ],
+    )
+    def test_alternate_or_stale_provenance_is_rejected(self, url, commit):
+        assert not aw.provenance_is_authoritative(
+            json.loads(direct_url(url=url, commit=commit))
         )
 
-    def test_workflow_file_starts_with_frontmatter_delimiter(self):
-        raw = WORKFLOW_FILE.read_bytes()
-        assert raw.startswith(b'---\n'), (
-            f"workflow must start with exactly b'---\\n' (LF, no CRLF, no BOM). First 6 bytes: {raw[:6]!r}"
+    def test_runtime_validation_reads_distribution_direct_url(self, tmp_path):
+        python = tmp_path / "python"
+        python.touch()
+        calls = []
+
+        def runner(command, **kwargs):
+            calls.append((command, kwargs))
+            return done(command, stdout=direct_url())
+
+        assert aw.runtime_is_authoritative(python, runner=runner)
+        assert calls == [
+            (
+                (str(python), "-c", aw.PROVENANCE_PROGRAM),
+                {
+                    "cwd": None,
+                    "capture_output": True,
+                    "text": True,
+                    "check": False,
+                },
+            )
+        ]
+
+    def test_unverifiable_runtime_is_rejected(self, tmp_path):
+        python = tmp_path / "python"
+        python.touch()
+        assert not aw.runtime_is_authoritative(
+            python,
+            runner=lambda command, **kwargs: done(command, stdout="not-json"),
         )
 
-    def test_skill_file_no_bom(self):
-        raw = SKILL_FILE.read_bytes()
-        assert not raw.startswith(b'\xef\xbb\xbf'), (
-            f'SKILL.md must not have BOM. First 6 bytes: {raw[:6]!r}'
+
+class TestRuntimeBootstrap:
+    def test_valid_runtime_is_reused_without_install(self, tmp_path, monkeypatch):
+        layout = make_layout(tmp_path)
+        python = aw.runtime_python(layout.runtime)
+        python.parent.mkdir(parents=True)
+        python.touch()
+        monkeypatch.setattr(aw, "runtime_is_authoritative", lambda *a, **k: True)
+        runner = MagicMock(side_effect=AssertionError("bootstrap command not expected"))
+
+        assert aw.ensure_runtime(layout, runner=runner) == python
+        runner.assert_not_called()
+
+    def test_fresh_runtime_bootstrap_installs_only_requirements_pin(
+        self, tmp_path, monkeypatch
+    ):
+        layout = make_layout(tmp_path)
+        checks = iter([False, True, True])
+        monkeypatch.setattr(
+            aw,
+            "runtime_is_authoritative",
+            lambda *args, **kwargs: next(checks),
+        )
+        calls = []
+
+        def runner(command, **kwargs):
+            command = tuple(command)
+            calls.append(command)
+            if command[1:3] == ("-m", "venv"):
+                python = aw.runtime_python(Path(command[-1]))
+                python.parent.mkdir(parents=True)
+                python.touch()
+            return done(command)
+
+        python = aw.ensure_runtime(layout, runner=runner)
+        pip_calls = [call for call in calls if "pip" in call]
+        assert python == aw.runtime_python(layout.runtime)
+        assert python.is_file()
+        assert pip_calls == [
+            (
+                str(aw.runtime_python(layout.state_root / f"worker-runtime.bootstrap-{aw.os.getpid()}")),
+                "-m",
+                "pip",
+                "install",
+                "--disable-pip-version-check",
+                "--no-input",
+                "--requirement",
+                str(layout.requirements),
+            )
+        ]
+
+    def test_incomplete_runtime_is_rebuilt_atomically(self, tmp_path, monkeypatch):
+        layout = make_layout(tmp_path)
+        layout.runtime.mkdir(parents=True)
+        (layout.runtime / "incomplete.txt").write_text("partial", encoding="utf-8")
+        checks = iter([False, True, True])
+        monkeypatch.setattr(
+            aw,
+            "runtime_is_authoritative",
+            lambda *args, **kwargs: next(checks),
         )
 
-    def test_skill_file_starts_with_frontmatter_delimiter(self):
-        raw = SKILL_FILE.read_bytes()
-        assert raw.startswith(b'---\n'), (
-            f"SKILL.md must start with exactly b'---\\n' (LF, no CRLF, no BOM). First 6 bytes: {raw[:6]!r}"
+        def runner(command, **kwargs):
+            command = tuple(command)
+            if command[1:3] == ("-m", "venv"):
+                python = aw.runtime_python(Path(command[-1]))
+                python.parent.mkdir(parents=True)
+                python.touch()
+            return done(command)
+
+        aw.ensure_runtime(layout, runner=runner)
+        assert aw.runtime_python(layout.runtime).is_file()
+        assert not (layout.runtime / "incomplete.txt").exists()
+
+    def test_concurrent_first_use_is_serialized_and_installs_once(self, tmp_path):
+        layout = make_layout(tmp_path)
+        installed = False
+        calls = []
+        calls_lock = threading.Lock()
+
+        def runner(command, **kwargs):
+            nonlocal installed
+            command = tuple(command)
+            with calls_lock:
+                calls.append(command)
+            if command[1:3] == ("-m", "venv"):
+                python = aw.runtime_python(Path(command[-1]))
+                python.parent.mkdir(parents=True)
+                python.touch()
+                return done(command)
+            if "pip" in command:
+                installed = True
+                return done(command)
+            if len(command) > 1 and command[1] == "-c":
+                return done(command, returncode=0 if installed else 1, stdout=direct_url())
+            return done(command)
+
+        results = []
+
+        def bootstrap():
+            results.append(aw.ensure_runtime(layout, runner=runner))
+
+        threads = [threading.Thread(target=bootstrap) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=10)
+
+        assert len(results) == 2
+        assert results[0] == results[1] == aw.runtime_python(layout.runtime)
+        assert len([call for call in calls if "pip" in call]) == 1
+        assert layout.bootstrap_lock.name == "worker-bootstrap.lock"
+        assert layout.bootstrap_lock != layout.state_root / "operator.lock"
+
+    def test_bootstrap_failure_occurs_before_any_kernel_invocation(
+        self, tmp_path, monkeypatch
+    ):
+        repo = tmp_path
+        layout = make_layout(tmp_path)
+        monkeypatch.setattr(aw, "get_repo_root", lambda: repo)
+        monkeypatch.setattr(aw, "runtime_layout", lambda value: layout)
+        monkeypatch.setattr(
+            aw,
+            "ensure_runtime",
+            MagicMock(side_effect=aw.BootstrapError("install failed")),
+        )
+        kernel = MagicMock()
+        monkeypatch.setattr(aw, "invoke_kernel", kernel)
+
+        assert aw.main(["RUN", "TASK-097", "--executor", "codex"]) == 1
+        kernel.assert_not_called()
+
+
+class TestKernelRouting:
+    @pytest.mark.parametrize("task_id", ["TASK-1", "TASK-097", "TASK-1000"])
+    def test_positive_canonical_task_ids_allow_padding(self, task_id):
+        assert aw.parse_task_id(task_id)[0] == task_id
+
+    @pytest.mark.parametrize("task_id", ["TASK-0", "task-097", "TASK-", "TASK--1"])
+    def test_noncanonical_or_zero_task_ids_fail_closed(self, task_id):
+        with pytest.raises(aw.WorkerSurfaceError):
+            aw.parse_task_id(task_id)
+
+    def test_codex_run_exact_command(self, tmp_path):
+        python = tmp_path / "python"
+        command = aw.kernel_command(
+            python,
+            action="RUN",
+            task_id="TASK-097",
+            executor="codex",
+            repo=tmp_path,
+        )
+        assert command == (
+            str(python),
+            "-m",
+            "aios_renew.operator",
+            "run",
+            "TASK-097",
+            "--executor",
+            "codex",
+            "--repo",
+            str(tmp_path),
+            "--codex-sandbox",
+            "danger-full-access",
         )
 
-    def test_workflow_raw_bytes_contain_adapter_antigravity(self):
-        raw = WORKFLOW_FILE.read_bytes()
-        assert b'--adapter antigravity' in raw
+    def test_antigravity_run_differs_only_by_executor_and_sandbox(self, tmp_path):
+        python = tmp_path / "python"
+        codex = aw.kernel_command(
+            python,
+            action="RUN",
+            task_id="TASK-097",
+            executor="codex",
+            repo=tmp_path,
+        )
+        antigravity = aw.kernel_command(
+            python,
+            action="RUN",
+            task_id="TASK-097",
+            executor="antigravity",
+            repo=tmp_path,
+        )
+        assert antigravity == codex[:-2][:6] + ("antigravity",) + codex[7:-2]
+        assert "danger-full-access" not in antigravity
 
-    def test_skill_raw_bytes_contain_adapter_codex(self):
-        raw = SKILL_FILE.read_bytes()
-        assert b'--adapter codex' in raw
+    def test_status_delegates_to_task_description_without_executor(self, tmp_path):
+        command = aw.kernel_command(
+            tmp_path / "python",
+            action="STATUS",
+            task_id="TASK-097",
+            executor="codex",
+            repo=tmp_path,
+        )
+        assert command[3:] == ("task", "TASK-097", "--repo", str(tmp_path))
+        assert "--executor" not in command
+        assert "push" not in command
+
+    def test_one_run_request_invokes_kernel_exactly_once(self, tmp_path, monkeypatch):
+        layout = make_layout(tmp_path)
+        python = tmp_path / "worker-python"
+        kernel = MagicMock(return_value=done(stdout=f"AIOS RUN PASS\nhead_sha: {HEAD_SHA}\n"))
+        publication = MagicMock(
+            return_value=aw.PublicationResult(status="PUSHED", head_sha=HEAD_SHA)
+        )
+        monkeypatch.setattr(aw, "get_repo_root", lambda: tmp_path)
+        monkeypatch.setattr(aw, "runtime_layout", lambda repo: layout)
+        monkeypatch.setattr(aw, "ensure_runtime", lambda value: python)
+        monkeypatch.setattr(aw, "invoke_kernel", kernel)
+        monkeypatch.setattr(aw, "_git", lambda *args, **kwargs: BASE_SHA)
+        monkeypatch.setattr(aw, "publish_after_pass", publication)
+
+        assert aw.main(["RUN", "TASK-097", "--executor", "codex"]) == 0
+        kernel.assert_called_once_with(
+            (
+                str(python),
+                "-m",
+                "aios_renew.operator",
+                "run",
+                "TASK-097",
+                "--executor",
+                "codex",
+                "--repo",
+                str(tmp_path),
+                "--codex-sandbox",
+                "danger-full-access",
+            ),
+            repo=tmp_path,
+        )
+        publication.assert_called_once_with(
+            tmp_path,
+            base_sha=BASE_SHA,
+            result_head_sha=HEAD_SHA,
+        )
+
+    def test_aios_failure_is_not_retried_or_published(self, tmp_path, monkeypatch):
+        layout = make_layout(tmp_path)
+        kernel = MagicMock(return_value=done(returncode=7, stderr="AIOS ERROR\n"))
+        publication = MagicMock()
+        monkeypatch.setattr(aw, "get_repo_root", lambda: tmp_path)
+        monkeypatch.setattr(aw, "runtime_layout", lambda repo: layout)
+        monkeypatch.setattr(aw, "ensure_runtime", lambda value: tmp_path / "python")
+        monkeypatch.setattr(aw, "invoke_kernel", kernel)
+        monkeypatch.setattr(aw, "_git", lambda *args, **kwargs: BASE_SHA)
+        monkeypatch.setattr(aw, "publish_after_pass", publication)
+
+        assert aw.main(["RUN", "TASK-097", "--executor", "codex"]) == 7
+        assert kernel.call_count == 1
+        publication.assert_not_called()
+
+    def test_status_does_not_read_head_resolve_lineage_or_publish(
+        self, tmp_path, monkeypatch
+    ):
+        layout = make_layout(tmp_path)
+        kernel = MagicMock(return_value=done(stdout="TASK-097\n"))
+        monkeypatch.setattr(aw, "get_repo_root", lambda: tmp_path)
+        monkeypatch.setattr(aw, "runtime_layout", lambda repo: layout)
+        monkeypatch.setattr(aw, "ensure_runtime", lambda value: tmp_path / "python")
+        monkeypatch.setattr(aw, "invoke_kernel", kernel)
+        git = MagicMock(side_effect=AssertionError("STATUS must not inspect Git state"))
+        lineage = MagicMock(side_effect=AssertionError("STATUS must not resolve FIX"))
+        publish = MagicMock(side_effect=AssertionError("STATUS must not publish"))
+        monkeypatch.setattr(aw, "_git", git)
+        monkeypatch.setattr(aw, "resolve_fix_lineage", lineage)
+        monkeypatch.setattr(aw, "publish_after_pass", publish)
+
+        assert aw.main(["STATUS", "TASK-097", "--executor", "codex"]) == 0
+        kernel.assert_called_once()
+        git.assert_not_called()
+        lineage.assert_not_called()
+        publish.assert_not_called()
+
+
+class TestFixLineage:
+    def test_unique_primary_lineage_resolves(self, tmp_path):
+        layout = make_layout(tmp_path)
+        review = write_review(layout)
+        remediation = write_remediation(layout)
+        lineage = aw.resolve_fix_lineage(
+            tmp_path,
+            layout,
+            "TASK-097",
+            "097",
+            runner=lambda *args, **kwargs: done(stdout=HEAD_SHA + "\n"),
+        )
+        assert lineage == aw.FixLineage(review, remediation)
+
+    @pytest.mark.parametrize("missing", ["review", "remediation"])
+    def test_missing_lineage_fails_closed(self, tmp_path, missing):
+        layout = make_layout(tmp_path)
+        if missing != "review":
+            write_review(layout)
+        if missing != "remediation":
+            write_remediation(layout)
+        with pytest.raises(aw.LineageError, match="exactly one canonical"):
+            aw.resolve_fix_lineage(
+                tmp_path,
+                layout,
+                "TASK-097",
+                "097",
+                runner=lambda *args, **kwargs: done(stdout=HEAD_SHA + "\n"),
+            )
+
+    def test_ambiguous_current_review_fails_closed(self, tmp_path):
+        layout = make_layout(tmp_path)
+        write_review(layout, review_id="REVIEW-097-001", finding="R1")
+        write_review(layout, review_id="REVIEW-097-002", finding="R2")
+        write_remediation(layout)
+        with pytest.raises(aw.LineageError, match="exactly one canonical.*REVIEW"):
+            aw.resolve_fix_lineage(
+                tmp_path,
+                layout,
+                "TASK-097",
+                "097",
+                runner=lambda *args, **kwargs: done(stdout=HEAD_SHA + "\n"),
+            )
+
+    def test_noncanonical_remediation_filename_is_ignored(self, tmp_path):
+        layout = make_layout(tmp_path)
+        write_review(layout)
+        write_remediation(layout, suffix="wrong-name")
+        with pytest.raises(aw.LineageError, match="exactly one canonical REMEDIATION"):
+            aw.resolve_fix_lineage(
+                tmp_path,
+                layout,
+                "TASK-097",
+                "097",
+                runner=lambda *args, **kwargs: done(stdout=HEAD_SHA + "\n"),
+            )
+
+    def test_delta_review_resolves_one_prior_review(self, tmp_path):
+        layout = make_layout(tmp_path)
+        prior = write_review(
+            layout,
+            review_id="REVIEW-097-001",
+            sha=BASE_SHA,
+            finding="R1",
+        )
+        current = write_review(
+            layout,
+            review_id="REVIEW-097-002",
+            mode="DELTA",
+            finding="R2",
+            prior_finding="R1",
+        )
+        remediation = write_remediation(layout, finding="R2")
+        lineage = aw.resolve_fix_lineage(
+            tmp_path,
+            layout,
+            "TASK-097",
+            "097",
+            runner=lambda *args, **kwargs: done(stdout=HEAD_SHA + "\n"),
+        )
+        assert lineage == aw.FixLineage(current, remediation, prior)
+        command = aw.kernel_command(
+            tmp_path / "python",
+            action="FIX",
+            task_id="TASK-097",
+            executor="codex",
+            repo=tmp_path,
+            lineage=lineage,
+        )
+        assert command.count("--prior-review") == 1
+        assert command[command.index("--prior-review") + 1] == str(prior)
+
+    def test_delta_missing_prior_review_fails_closed(self, tmp_path):
+        layout = make_layout(tmp_path)
+        write_review(
+            layout,
+            review_id="REVIEW-097-002",
+            mode="DELTA",
+            finding="R2",
+            prior_finding="R1",
+        )
+        write_remediation(layout, finding="R2")
+        with pytest.raises(aw.LineageError, match="prior lineage"):
+            aw.resolve_fix_lineage(
+                tmp_path,
+                layout,
+                "TASK-097",
+                "097",
+                runner=lambda *args, **kwargs: done(stdout=HEAD_SHA + "\n"),
+            )
+
+
+class TestGuardedPublication:
+    def publication_runner(self, *, push_code=0, dirty=False, head=HEAD_SHA):
+        calls = []
+
+        def runner(command, **kwargs):
+            command = tuple(command)
+            calls.append(command)
+            tail = command[3:]
+            if tail == ("status", "--porcelain"):
+                return done(command, stdout=" M dirty.py\n" if dirty else "")
+            if tail == ("rev-parse", "HEAD"):
+                return done(command, stdout=head + "\n")
+            if tail == ("symbolic-ref", "--quiet", "--short", "HEAD"):
+                return done(command, stdout="migration/aios-renew-surface\n")
+            if tail == (
+                "config",
+                "--get",
+                "branch.migration/aios-renew-surface.remote",
+            ):
+                return done(command, stdout="origin\n")
+            if tail == (
+                "config",
+                "--get",
+                "branch.migration/aios-renew-surface.merge",
+            ):
+                return done(command, stdout="refs/heads/migration/aios-renew-surface\n")
+            if tail[:2] == ("push", "origin"):
+                return done(command, returncode=push_code, stderr="push failed")
+            raise AssertionError(command)
+
+        return runner, calls
+
+    def test_advancing_pass_pushes_exact_upstream_once_without_force(self, tmp_path):
+        runner, calls = self.publication_runner()
+        result = aw.publish_after_pass(
+            tmp_path,
+            base_sha=BASE_SHA,
+            result_head_sha=HEAD_SHA,
+            runner=runner,
+        )
+        pushes = [call for call in calls if "push" in call]
+        assert result == aw.PublicationResult("PUSHED", HEAD_SHA)
+        assert pushes == [
+            (
+                "git",
+                "-C",
+                str(tmp_path),
+                "push",
+                "origin",
+                "HEAD:refs/heads/migration/aios-renew-surface",
+            )
+        ]
+        assert all("--force" not in call and "-f" not in call for call in pushes)
+
+    def test_noop_pass_does_not_push(self, tmp_path):
+        runner, calls = self.publication_runner(head=BASE_SHA)
+        result = aw.publish_after_pass(
+            tmp_path,
+            base_sha=BASE_SHA,
+            result_head_sha=BASE_SHA,
+            runner=runner,
+        )
+        assert result.status == "NOT_REQUIRED"
+        assert not [call for call in calls if "push" in call]
+
+    def test_dirty_or_head_mismatch_prevents_push(self, tmp_path):
+        dirty_runner, dirty_calls = self.publication_runner(dirty=True)
+        with pytest.raises(aw.PublicationError, match="dirty"):
+            aw.publish_after_pass(
+                tmp_path,
+                base_sha=BASE_SHA,
+                result_head_sha=HEAD_SHA,
+                runner=dirty_runner,
+            )
+        assert not [call for call in dirty_calls if "push" in call]
+
+        mismatch_runner, mismatch_calls = self.publication_runner(head="3" * 40)
+        with pytest.raises(aw.PublicationError, match="does not equal"):
+            aw.publish_after_pass(
+                tmp_path,
+                base_sha=BASE_SHA,
+                result_head_sha=HEAD_SHA,
+                runner=mismatch_runner,
+            )
+        assert not [call for call in mismatch_calls if "push" in call]
+
+    def test_push_failure_is_distinct_and_not_retried(self, tmp_path):
+        runner, calls = self.publication_runner(push_code=1)
+        with pytest.raises(aw.PublicationError, match="normal upstream push failed"):
+            aw.publish_after_pass(
+                tmp_path,
+                base_sha=BASE_SHA,
+                result_head_sha=HEAD_SHA,
+                runner=runner,
+            )
+        assert len([call for call in calls if "push" in call]) == 1
+
+    def test_main_reports_aios_pass_and_publication_failure_separately(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        layout = make_layout(tmp_path)
+        kernel = MagicMock(return_value=done(stdout=f"AIOS RUN PASS\nhead_sha: {HEAD_SHA}\n"))
+        monkeypatch.setattr(aw, "get_repo_root", lambda: tmp_path)
+        monkeypatch.setattr(aw, "runtime_layout", lambda repo: layout)
+        monkeypatch.setattr(aw, "ensure_runtime", lambda value: tmp_path / "python")
+        monkeypatch.setattr(aw, "_git", lambda *args, **kwargs: BASE_SHA)
+        monkeypatch.setattr(aw, "invoke_kernel", kernel)
+        monkeypatch.setattr(
+            aw,
+            "publish_after_pass",
+            MagicMock(side_effect=aw.PublicationError("network unavailable")),
+        )
+
+        assert aw.main(["RUN", "TASK-097", "--executor", "codex"]) == 2
+        captured = capsys.readouterr()
+        assert "AIOS RUN PASS" in captured.out
+        assert "AIOS_STATUS: PASS" in captured.err
+        assert "PUBLICATION_STATUS: FAILED" in captured.err
+        assert kernel.call_count == 1
+
+
+class TestSurfaceAndDocumentation:
+    def test_active_launcher_has_no_legacy_execution_tokens(self):
+        source = SCRIPT.read_text(encoding="utf-8")
+        for forbidden in (
+            "src.aios_bridge",
+            "bridge.py",
+            "WorkerFlowCoordinator",
+            "--adapter",
+        ):
+            assert forbidden not in source
+        assert "pytest" not in source
+        assert "aios_renew.operator" in source
+
+    def test_surface_files_bind_only_their_executor_and_same_launcher(self):
+        skill = SKILL_FILE.read_text(encoding="utf-8")
+        workflow = WORKFLOW_FILE.read_text(encoding="utf-8")
+        assert "--executor codex" in skill
+        assert "--executor antigravity" not in skill
+        assert "--executor antigravity" in workflow
+        assert "--executor codex" not in workflow
+        assert "scripts/aios_worker.py" in skill
+        assert "scripts/aios_worker.py" in workflow
+        assert "must not" in skill.lower() and "implementation" in skill.lower()
+        assert "must not" in workflow.lower() and "implementation" in workflow.lower()
+
+    def test_surface_files_are_lf_frontmatter_without_bom(self):
+        for path in (SKILL_FILE, WORKFLOW_FILE):
+            raw = path.read_bytes()
+            assert raw.startswith(b"---\n")
+            assert not raw.startswith(b"\xef\xbb\xbf")
+            assert b"\r\n" not in raw
+
+    def test_docs_name_sole_kernel_runtime_publication_and_migration_boundary(self):
+        text = DOCS_FILE.read_text(encoding="utf-8")
+        assert "delegate exclusively" in text
+        assert aw.AUTHORITATIVE_COMMIT in text
+        assert "worker-bootstrap.lock" in text
+        assert "PEP 610" in text
+        assert "normal non-force push" in text
+        assert "fresh or\nexplicitly reloaded" in text
+        assert "TASK-096 remains pending" in text
+        assert "archived" in text and "inactive" in text
+
+    def test_product_requirements_and_task_096_are_not_modified_by_task_097(self):
+        task = (REPO_ROOT / ".ai" / "tasks" / "TASK-097.yaml").read_text(
+            encoding="utf-8"
+        )
+        assert "requirements.txt" not in task.split("modify:", 1)[1].split(
+            "non_goals:", 1
+        )[0]
+        assert (REPO_ROOT / ".ai" / "tasks" / "TASK-096.yaml").is_file()
