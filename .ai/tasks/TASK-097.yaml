@@ -1,5 +1,5 @@
 task_id: TASK-097
-revision: 3
+revision: 4
 
 goal: >
   Replace the active repository-owned Codex $aios-worker and Antigravity
@@ -9,15 +9,14 @@ goal: >
   normal RUN.
 
 problem: >
-  The current Python Agent worker surfaces still route RUN/FIX/STATUS through
-  .agents/skills/aios-worker/scripts/aios_worker.py -> src.aios_bridge.worker_flow
-  -> bridge.py. This creates an obsolete second execution pipeline beside
-  AIOS-renew and prevents Codex surfaces that do not expose the global aios CLI
-  from using the canonical kernel. Earlier migration drafts also left material
-  gaps: a product requirements.txt pin would not prove the interpreter actually
-  used by the worker is running the authoritative kernel, concurrent first-run
-  bootstrap could corrupt a shared runtime, and optional post-PASS push would
-  still leave a manual publication step before ChatGPT review.
+  The current Python Agent worker surfaces must be migrated from legacy
+  AIOS Bridge execution to AIOS-renew without creating a second orchestration
+  layer. Revision 3 exposed two real integration defects during certification:
+  publication compared against a pre-kernel local HEAD even though AIOS-renew
+  PRIMARY may synchronize upstream before capturing its canonical base_sha, and
+  the visible worker surface invoked the launcher through bare `python`, which
+  is not available on every Codex/Antigravity operator PATH. Revision 4 closes
+  both defects while keeping AIOS-renew frozen and authoritative.
 
 assumptions:
   - AIOS-renew authoritative v0.1.2 commit is
@@ -25,8 +24,9 @@ assumptions:
   - AIOS-renew remains frozen; this task modifies only Python Agent integration.
   - The visible Codex/Antigravity session is an operator UI, not a second
     implementation executor.
-  - The bootstrap Python interpreter used to start the repository-owned worker
-    script need not already contain AIOS-renew.
+  - A repository-local Python product virtualenv, if present, may be used only as
+    a bootstrap host interpreter to start the worker launcher; it is never the
+    authoritative AIOS-renew runtime and its installed packages are irrelevant.
   - A repository-local untracked worker runtime may live under the Git-dir AIOS
     state area and may install only the exact pinned AIOS-renew dependency.
   - Codex and Antigravity surfaces may differ only in selected executor identity;
@@ -64,6 +64,8 @@ scope:
 non_goals:
   - Modify AIOS-renew source or kernel semantics.
   - Add AIOS-renew to the Python Agent product/runtime requirements.txt.
+  - Treat the product virtualenv as the AIOS-renew runtime or install AIOS-renew
+    into that product virtualenv.
   - Reintroduce planning, review, scoring, retry policy, or state authority in the
     worker surface.
   - Delete legacy AIOS Bridge history wholesale.
@@ -73,8 +75,8 @@ non_goals:
   - Merge, rebase, reset, checkout, stash, clean, or otherwise add a second Git
     coordination policy beside AIOS-renew.
   - Change Product Intelligence or Phase 6 product behavior.
-  - Make the visible Antigravity session perform implementation after handoff;
-    AIOS-renew remains responsible for invoking its Antigravity executor adapter.
+  - Make the visible Codex or Antigravity session perform product implementation;
+    AIOS-renew remains responsible for invoking the selected executor adapter.
   - Invent a new cloud control branch or replacement AIOS Bridge to transport
     REVIEW/REMEDIATION artifacts. FIX must fail closed if exact local lineage is
     absent or ambiguous.
@@ -90,24 +92,35 @@ constraints:
       "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@2ee57fd87316fdf8eb52a77777c51dff6d023214".
       No floating branch, tag, package-only version, alternate repository, or
       additional worker dependency is permitted.
-    - The worker launcher must not depend on a globally installed aios executable,
-      a preinstalled aios_renew package, the Python Agent product virtualenv, or a
-      machine-specific absolute path such as C:\\TOOL\\Projects.
+    - The active surface must not require a globally installed `aios` executable,
+      a preinstalled `aios_renew` package, a machine-specific absolute path, or a
+      bare `python` command specifically. Before creating any AIOS RUN, the
+      surface must deterministically resolve one Python 3.11+ bootstrap host.
+    - Bootstrap-host resolution is environment discovery, not executor retry. It
+      may probe a fixed documented candidate order without invoking AIOS-renew:
+      on Windows, repository-local `venv/Scripts/python.exe` first when present,
+      then `py -3.11`, then `python3`, then `python`; on POSIX, repository-local
+      `venv/bin/python` first when present, then `python3`, then `python`. The
+      first candidate proven to be Python 3.11+ is selected and the launcher is
+      invoked exactly once. If no candidate qualifies, fail closed before an AIOS
+      RUN and report BOOTSTRAP_INTERPRETER_UNAVAILABLE.
+    - A repository product virtualenv selected above is only the process used to
+      start the launcher. The launcher must still create/validate its separate
+      worker-runtime under Git-dir AIOS state and must never import AIOS-renew
+      from or install AIOS-renew into the product virtualenv.
     - Before invoking AIOS-renew, the launcher must deterministically ensure a
       repository-local untracked worker runtime under the repository Git-dir AIOS
       state area. If absent or not provably bound to the authoritative commit, it
       may bootstrap that runtime by installing only the exact worker dependency.
       Bootstrap failure must fail closed before creating an AIOS RUN.
     - Worker-runtime bootstrap must be serialized with a dedicated bootstrap lock
-      that is separate from AIOS-renew operator.lock. Concurrent first-use
-      invocations must not install into the same runtime simultaneously and the
-      outer launcher must never acquire/hold the kernel operator.lock around an
-      AIOS-renew call.
+      separate from AIOS-renew operator.lock. Concurrent first-use invocations
+      must not install into the same runtime simultaneously and the outer launcher
+      must never acquire/hold kernel operator.lock around an AIOS-renew call.
     - Runtime provenance must be checked from installed distribution metadata
       (PEP 610 direct_url metadata or an equivalently immutable source record) and
-      must resolve to the exact authoritative repository+commit; a stale, global,
-      alternate-source, or unverifiable AIOS-renew install must never be used
-      silently.
+      must resolve to the exact authoritative repository+commit; stale, global,
+      alternate-source, or unverifiable AIOS-renew installs must never be used.
     - Runtime bootstrap must be one-time/idempotent for an already valid pinned
       runtime and must not run pip/install commands on every worker invocation.
       An incomplete/invalid runtime from a crashed bootstrap must be treated as
@@ -143,18 +156,26 @@ constraints:
     - Legacy bridge.py and src/aios_bridge may remain physically present but the
       active worker script, Codex skill, and Antigravity workflow must contain no
       operational instruction to call them.
-    - A successful RUN/FIX with repository HEAD advancement must be published
-      automatically after AIOS-renew PASS. Publication may occur only when the
-      worktree is clean, local HEAD equals the canonical AIOS summary/result
-      head_sha, the attached branch has a configured remote+merge upstream, and
-      the push is an explicit normal non-force push of HEAD to that exact upstream
+    - Publication decisions must use the canonical immutable execution baseline
+      returned by AIOS-renew, never a local HEAD sampled before invoking the
+      kernel. For PRIMARY RUN, parse exactly one valid `base_sha` and one valid
+      `head_sha` from the canonical `AIOS RUN PASS` summary. For remediation,
+      parse the corresponding canonical immutable baseline (`reviewed_sha`) and
+      `head_sha` from `AIOS REMEDIATION PASS`. Missing, duplicate, malformed, or
+      inconsistent canonical summary fields must fail closed before publication.
+    - A successful RUN/FIX whose canonical baseline differs from canonical
+      head_sha must be published automatically after AIOS-renew PASS. Publication
+      may occur only when the worktree is clean, local HEAD equals canonical
+      head_sha, the attached branch has configured remote+merge upstream, and the
+      push is an explicit normal non-force push of HEAD to that exact upstream
       ref. No merge/rebase/reset/checkout/stash/clean/force is allowed.
+    - If canonical baseline equals canonical head_sha, including PRIMARY sync-only
+      or other no-op/evidence-only completion, publication must be NOT_REQUIRED
+      and must issue zero push commands even if the pre-run local HEAD differed.
     - If AIOS-renew returns an error, the launcher must not push anything.
     - If AIOS-renew PASSes but publication fails, report AIOS PASS and publication
       failure as distinct states; do not invalidate/rewrite the canonical RESULT,
       do not retry AIOS, and preserve repository state for explicit recovery.
-    - A PASS that does not advance HEAD, including evidence-only/no-op completion,
-      must not create a meaningless push attempt.
     - Existing AIOS-renew PRIMARY sync and remediation no-sync semantics remain
       authoritative and must not be duplicated in this integration layer.
     - Existing Product Agent tests outside the integration surface must remain
@@ -173,16 +194,17 @@ acceptance:
       dependency; the visible Antigravity session does not implement the task.
   - id: AC3
     condition: >
-      A fresh worker surface with no preinstalled AIOS-renew can bootstrap one
-      repository-local untracked runtime from the exact immutable worker pin,
-      prove repository+commit provenance, serialize concurrent bootstrap safely,
-      and reuse the valid runtime on later invocations without reinstalling;
-      incomplete/stale/unverifiable runtimes are never used.
+      A fresh worker surface with no preinstalled AIOS-renew and no bare `python`
+      command can deterministically resolve a Python 3.11+ bootstrap host from the
+      documented candidate order, create one repository-local untracked pinned
+      runtime, prove repository+commit provenance, serialize concurrent bootstrap
+      safely, and reuse the runtime without reinstalling.
   - id: AC4
     condition: >
       The integration is repository-portable: it does not require global PATH
-      aios, C:\\TOOL\\Projects, or mutation of the Python Agent product
-      requirements/virtualenv.
+      `aios`, bare PATH `python`, C:\\TOOL\\Projects, or mutation of Python Agent
+      product requirements/virtualenv; use of a repository venv is bootstrap-host
+      only and never AIOS runtime authority.
   - id: AC5
     condition: >
       Codex and Antigravity surface tests prove identical semantic routing except
@@ -201,17 +223,18 @@ acceptance:
       AIOS-renew.
   - id: AC8
     condition: >
-      After an AIOS-renew PASS that advances HEAD, the launcher performs exactly
-      one normal non-force publication to the configured upstream only after
-      clean/head/upstream checks; AIOS failure performs zero push; publication
-      failure is reported distinctly without rerunning AIOS or rewriting RESULT.
+      Publication uses canonical AIOS PASS baseline/head fields: canonical
+      base==head causes zero push even when pre-run local HEAD differed because of
+      PRIMARY synchronization; canonical base!=head causes exactly one guarded
+      normal non-force push after clean/head/upstream checks. AIOS failure causes
+      zero push and publication failure is distinct without rerunning AIOS.
   - id: AC9
     condition: >
-      Existing legacy Bridge files may remain as archived source but are clearly
-      documented as inactive; docs show AIOS-renew as the sole active execution
-      kernel for both worker surfaces, state that TASK-096 remains pending until
-      this migration is certified, and require a fresh/reloaded operator session
-      before exercising the migrated repository-owned surface.
+      Existing legacy Bridge files may remain archived/inactive; docs show
+      AIOS-renew as the sole active execution kernel for both worker surfaces,
+      state TASK-096 remains pending until migration certification, describe the
+      bootstrap-host resolution order, and require a fresh/reloaded operator
+      session before exercising the migrated surface.
   - id: AC10
     condition: >
       A bounded unit/integration test proves one RUN request produces one
@@ -220,11 +243,12 @@ acceptance:
       reroute, duplicate executor invocation, or legacy execution occurs.
   - id: AC11
     condition: >
-      Unit tests cover fresh runtime bootstrap, exact immutable repository+commit
-      dependency pin, bootstrap serialization/incomplete-runtime recovery,
-      provenance mismatch handling, successful automatic publication, no push on
-      AIOS failure/no-op PASS, publication failure preservation, STATUS read-only,
-      unique FIX lineage resolution, ambiguous/missing FIX fail-closed, and DELTA
+      Unit tests cover bootstrap-host resolution with bare python unavailable,
+      Python-version rejection, fresh runtime bootstrap, exact immutable pin,
+      bootstrap serialization/incomplete-runtime recovery, provenance mismatch,
+      canonical PASS summary parsing, sync-only/no-op zero-push behavior,
+      advancing guarded publication, publication-failure preservation, STATUS
+      read-only, unique FIX lineage, ambiguous/missing FIX fail-closed, and DELTA
       prior-review fail-closed behavior.
 
 verification:
