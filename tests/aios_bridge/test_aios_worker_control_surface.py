@@ -1,6 +1,7 @@
-"""TASK-097 revision 3 certification for the AIOS-renew worker surface."""
+"""TASK-097 revision 7 certification for the AIOS-renew worker surfaces."""
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -16,7 +17,8 @@ SKILL_DIR = REPO_ROOT / ".agents" / "skills" / "aios-worker"
 SCRIPT = SKILL_DIR / "scripts" / "aios_worker.py"
 PIN_FILE = SKILL_DIR / "requirements-aios-renew.txt"
 SKILL_FILE = SKILL_DIR / "SKILL.md"
-WORKFLOW_FILE = REPO_ROOT / ".agents" / "workflows" / "aios-worker.md"
+WORKFLOW_FILE = REPO_ROOT / ".agents" / "workflows" / "aios-renew-worker.md"
+DEPRECATED_WORKFLOW_FILE = REPO_ROOT / ".agents" / "workflows" / "aios-worker.md"
 DOCS_FILE = REPO_ROOT / "docs" / "AIOS_UNIFIED_WORKER_WORKFLOW.md"
 BASE_SHA = "1" * 40
 HEAD_SHA = "2" * 40
@@ -126,7 +128,7 @@ class TestImmutableRuntimePin:
         assert active == [aw.PIN_LINE]
         assert active == [
             "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
-            "2ee57fd87316fdf8eb52a77777c51dff6d023214"
+            "9255a3a38cef87976d6bcead90c2017de6f1c1bb"
         ]
 
     def test_authoritative_pep610_metadata_is_accepted(self):
@@ -136,6 +138,10 @@ class TestImmutableRuntimePin:
         ("url", "commit"),
         [
             ("https://github.com/other/AIOS-renew.git", aw.AUTHORITATIVE_COMMIT),
+            (
+                aw.AUTHORITATIVE_REPOSITORY,
+                "2ee57fd87316fdf8eb52a77777c51dff6d023214",
+            ),
             (aw.AUTHORITATIVE_REPOSITORY, "3" * 40),
             ("file:///C:/AIOS-renew", aw.AUTHORITATIVE_COMMIT),
         ],
@@ -906,7 +912,7 @@ class TestSurfaceAndDocumentation:
         assert "pytest" not in source
         assert "aios_renew.operator" in source
 
-    def test_surface_files_bind_only_their_executor_and_same_launcher(self):
+    def test_active_surfaces_bind_only_their_executor_and_same_launcher(self):
         skill = SKILL_FILE.read_text(encoding="utf-8")
         workflow = WORKFLOW_FILE.read_text(encoding="utf-8")
         assert "--executor codex" in skill
@@ -917,6 +923,54 @@ class TestSurfaceAndDocumentation:
         assert "scripts/aios_worker.py" in workflow
         assert "must not" in skill.lower() and "implementation" in skill.lower()
         assert "must not" in workflow.lower() and "implementation" in workflow.lower()
+
+    def test_renew_workflow_is_the_only_active_antigravity_surface(self):
+        workflow = WORKFLOW_FILE.read_text(encoding="utf-8")
+        assert "name: aios-renew-worker" in workflow
+        assert "/aios-renew-worker RUN TASK-N" in workflow
+        assert "/aios-worker RUN TASK-N" not in workflow
+        for action in ("RUN", "FIX", "STATUS"):
+            command = (
+                ".agents/skills/aios-worker/scripts/aios_worker.py "
+                f"{action} TASK-N --executor antigravity"
+            )
+            assert workflow.count(command) == 1
+
+    def test_renew_workflow_has_no_legacy_or_visible_session_execution(self):
+        workflow = WORKFLOW_FILE.read_text(encoding="utf-8")
+        for forbidden in (
+            "bridge.py",
+            "src.aios_bridge",
+            "WorkerFlowCoordinator",
+            "--adapter",
+            "`agy`",
+            " agy ",
+        ):
+            assert forbidden not in workflow
+        assert "operator UI only" in workflow
+        assert "After dispatch, stop" in workflow
+        assert "execute verification" in workflow
+        assert "continue coding" in workflow
+
+    def test_deprecated_workflow_is_a_pure_fail_closed_stub(self):
+        text = DEPRECATED_WORKFLOW_FILE.read_text(encoding="utf-8")
+        body = text.split("---\n", 2)[2].strip().splitlines()
+        assert body == ["ANTIGRAVITY_SURFACE_DEPRECATED", "", "`/aios-renew-worker`"]
+        for forbidden in (
+            "scripts/aios_worker.py",
+            "bridge.py",
+            "src.aios_bridge",
+            "WorkerFlowCoordinator",
+            "--adapter",
+            "--executor",
+            "powershell",
+            "python",
+            "git ",
+            " RUN ",
+            " FIX ",
+            " STATUS ",
+        ):
+            assert forbidden.lower() not in text.lower()
 
     @pytest.mark.parametrize("surface", [SKILL_FILE, WORKFLOW_FILE])
     def test_surfaces_resolve_bootstrap_host_without_requiring_bare_python(
@@ -939,7 +993,7 @@ class TestSurfaceAndDocumentation:
         assert ".git/aios/worker-runtime" in text
 
     def test_surface_files_are_lf_frontmatter_without_bom(self):
-        for path in (SKILL_FILE, WORKFLOW_FILE):
+        for path in (SKILL_FILE, WORKFLOW_FILE, DEPRECATED_WORKFLOW_FILE):
             raw = path.read_bytes()
             assert raw.startswith(b"---\n")
             assert not raw.startswith(b"\xef\xbb\xbf")
@@ -958,14 +1012,19 @@ class TestSurfaceAndDocumentation:
         assert "`base_sha`" in text and "`reviewed_sha`" in text
         assert "never uses a\nlocal HEAD sampled before" in text
         assert "fresh or\nexplicitly reloaded" in text
-        assert "TASK-096 remains pending" in text
+        assert "/aios-renew-worker RUN TASK-098" in text
+        assert "/aios-worker` is permanently retired" in text
+        assert "fail closed" in text
         assert "archived" in text and "inactive" in text
 
-    def test_product_requirements_and_task_096_are_not_modified_by_task_097(self):
+    def test_product_requirements_and_task_098_are_not_modified_by_task_097(self):
         task = (REPO_ROOT / ".ai" / "tasks" / "TASK-097.yaml").read_text(
             encoding="utf-8"
         )
         assert "requirements.txt" not in task.split("modify:", 1)[1].split(
             "non_goals:", 1
         )[0]
-        assert (REPO_ROOT / ".ai" / "tasks" / "TASK-096.yaml").is_file()
+        task_098 = (REPO_ROOT / ".ai" / "tasks" / "TASK-098.yaml").read_bytes()
+        assert hashlib.sha256(task_098).hexdigest() == (
+            "8a03cf36ab90f4696efa07e7dab9181256e7622aa13669272111946c7035896f"
+        )

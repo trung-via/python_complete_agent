@@ -1,8 +1,8 @@
 # AIOS Unified Worker Workflow
 
-As of TASK-097 revision 3, the repository-owned Codex and Antigravity worker
-surfaces delegate exclusively to the frozen AIOS-renew kernel at commit
-`2ee57fd87316fdf8eb52a77777c51dff6d023214`. Legacy AIOS Bridge source remains
+As of TASK-097 revision 7, the repository-owned Codex and Antigravity worker
+surfaces delegate exclusively to the AIOS-renew v0.1.3 candidate at commit
+`9255a3a38cef87976d6bcead90c2017de6f1c1bb`. Legacy AIOS Bridge source remains
 archived in this repository, but it is inactive and unreachable from these
 RUN/FIX/STATUS surfaces.
 
@@ -24,7 +24,7 @@ The protocol is invoked through physically separate, thin operator files:
 
 | Environment | Explicit Invocation Command | Surface File | Selected Executor |
 |:---|:---|:---|:---|
-| **Antigravity** | `/aios-worker RUN TASK-N` | `.agents/workflows/aios-worker.md` | `antigravity` |
+| **Antigravity** | `/aios-renew-worker RUN TASK-N` | `.agents/workflows/aios-renew-worker.md` | `antigravity` |
 | **Codex** | `$aios-worker RUN TASK-N` | `.agents/skills/aios-worker/SKILL.md` | `codex` |
 
 Both surfaces call the same `aios_worker.py` launcher. The selected executor is
@@ -39,7 +39,7 @@ the same pinned AIOS-renew distribution.
 Each UI surface is permanently bound to a single executor identity. **No cross-surface reroute, inference, or substitution is allowed.**
 
 ```text
-/aios-worker  -> .agents/workflows/aios-worker.md   -> executor antigravity -> AIOS-renew
+/aios-renew-worker -> .agents/workflows/aios-renew-worker.md -> executor antigravity -> AIOS-renew
 $aios-worker  -> .agents/skills/aios-worker/SKILL.md -> executor codex       -> AIOS-renew
 ```
 
@@ -165,7 +165,7 @@ ChatGPT performs an independent semantic audit and emits `REVIEW-N.md` with eith
 
 ## 6. Single-Command Operator Flow
 
-- **Antigravity**: The Human enters `/aios-worker RUN TASK-N`.
+- **Antigravity**: The Human enters `/aios-renew-worker RUN TASK-N`.
 - **Codex**: The Human enters `$aios-worker RUN TASK-N`.
 - **Completion**: Successful advancing PASS includes guarded publication; no
   routine manual Git push step remains before ChatGPT review.
@@ -181,17 +181,25 @@ To ensure unambiguous discovery and reliable tool parsing across all AI environm
 - **Encoding**: UTF-8 strictly without BOM (`\xef\xbb\xbf`).
 - **Frontmatter Delimiter**: Frontmatter must begin at byte 0 with `b"---\n"` (LF).
 - **Physical Separation**:
-  - Antigravity workflow: `.agents/workflows/aios-worker.md`
+  - Active Antigravity workflow: `.agents/workflows/aios-renew-worker.md`
+  - Retired Antigravity stub: `.agents/workflows/aios-worker.md`
   - Codex skill: `.agents/skills/aios-worker/SKILL.md`
 - **Scope Isolation**: Surface files are dedicated to operator protocol translation and must never duplicate implementation logic.
 
 ## 8. Migration Certification Boundary
 
 Repository-owned skill/workflow files may be cached by an already-open operator
-session. After the TASK-097 migration commit is present, start a fresh or
+session. After the TASK-097 migration commit is present on `main`, start a fresh or
 explicitly reloaded Codex/Antigravity session before exercising the migrated
 surface.
 
-TASK-096 remains pending and must not be executed or treated as completed until
-this TASK-097 migration is certified. TASK-097 does not change Product
-Intelligence or any TASK-096 product scope.
+This is a hard namespace cutover. Antigravity uses `/aios-renew-worker` from now
+on; `/aios-worker` is permanently retired and fail-closed. Stale Antigravity
+branches or caches that do not expose `/aios-renew-worker` fail closed instead of
+falling back to legacy `/aios-worker` semantics.
+
+Both active worker surfaces use exactly AIOS-renew commit
+`9255a3a38cef87976d6bcead90c2017de6f1c1bb`. TASK-098 remains pending as the
+first real Antigravity production certification. It must not be executed or
+published by TASK-097 and, after TASK-097 passes semantic review, may be invoked
+only with `/aios-renew-worker RUN TASK-098`.
