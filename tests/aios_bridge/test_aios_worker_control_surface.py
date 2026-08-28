@@ -138,10 +138,7 @@ class TestImmutableRuntimePin:
         ("url", "commit"),
         [
             ("https://github.com/other/AIOS-renew.git", aw.AUTHORITATIVE_COMMIT),
-            (
-                aw.AUTHORITATIVE_REPOSITORY,
-                "2ee57fd87316fdf8eb52a77777c51dff6d023214",
-            ),
+            (aw.AUTHORITATIVE_REPOSITORY, "4" * 40),
             (aw.AUTHORITATIVE_REPOSITORY, "3" * 40),
             ("file:///C:/AIOS-renew", aw.AUTHORITATIVE_COMMIT),
         ],
