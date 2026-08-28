@@ -1,0 +1,155 @@
+task_id: TASK-098
+revision: 1
+
+goal: >
+  Complete the second marketplace discovery adapter for Phase 6 M2.2 by adding
+  bounded TikTok Shop candidate discovery that produces canonical
+  ProductCandidateSnapshot values without entering deep ingestion.
+
+problem: >
+  Product Intelligence currently has a Shopee discovery adapter but no TikTok
+  discovery adapter. TikTok deep ingestion already exists elsewhere in the
+  product-source pipeline, but M2 still lacks a cheap-and-wide TikTok search
+  collector. Without it, cross-platform candidate ranking and human approval are
+  incomplete and TikTok products can only enter the system through expensive
+  direct ingestion.
+
+assumptions:
+  - DiscoveryRequest, DiscoveryBatch, ProductDiscoveryAdapter, and
+    ProductCandidateSnapshot remain the canonical M2 discovery contracts.
+  - Existing TikTok deep-ingestion code may be inspected for stable product URL
+    identity patterns but must not be invoked by discovery.
+  - TikTok listing/search DOM is platform-specific and belongs only inside the
+    TikTok discovery adapter boundary.
+  - Missing listing-card signals remain None; discovery never fabricates zeros or
+    derives velocity from one observation.
+  - V1 discovery is browser-backed, bounded to the existing request limits, and
+    testable entirely with injected fake pages without live network access.
+
+scope:
+  inspect:
+    - src/product_intelligence/discovery.py
+    - src/product_intelligence/models.py
+    - src/product_intelligence/adapters/shopee.py
+    - src/product_intelligence/adapters/shopee_parsing.py
+    - src/product_source/platforms/tiktok.py
+    - src/tools/tiktok_scrape_tool.py
+    - tests/product_intelligence/test_discovery_contract.py
+    - tests/product_intelligence/test_shopee_discovery.py
+    - tests/product_intelligence/test_shopee_parsing.py
+    - docs/PHASE_6_M2_DISCOVERY.md
+    - docs/PHASE_6_M2_PRODUCT_INTELLIGENCE.md
+  modify:
+    - src/product_intelligence/adapters/tiktok.py
+    - src/product_intelligence/adapters/tiktok_parsing.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_tiktok_discovery.py
+    - tests/product_intelligence/test_tiktok_parsing.py
+    - docs/PHASE_6_M2_TIKTOK_DISCOVERY.md
+
+non_goals:
+  - Modify Shopee discovery semantics.
+  - Modify scoring, ranking, approval, or M1 queue semantics.
+  - Navigate into product detail pages during discovery.
+  - Invoke TikTokSourceExtractor, TikTokScrapeTool, Source Pack extraction,
+    OriginalMediaDownloader, Google Drive, AgentController, or an LLM.
+  - Download images or video.
+  - Add persistence, queue mutation, approval, or deep-ingestion side effects.
+  - Implement creator/video trend crawling or velocity history in this task.
+  - Modify AIOS-renew or worker-surface integration.
+
+constraints:
+  hard:
+    - TikTokDiscoveryAdapter must implement ProductDiscoveryAdapter and return
+      DiscoveryBatch(platform="tiktok", ...).
+    - Discovery must use only an injected browser/page dependency and bounded
+      listing/search-page extraction; it must not enter product detail pages.
+    - Existing DiscoveryRequest max_candidates and max_pages limits remain the
+      sole discovery bounds and must be obeyed exactly.
+    - Candidate identity must be deterministic. Prefer a stable TikTok product
+      ID when extractable from supported product URL forms; otherwise use a
+      deterministic cryptographic fingerprint of the normalized URL. Python
+      process-randomized hash() is forbidden.
+    - Product-ID extraction must support the stable URL forms already recognized
+      by the existing TikTok product-source boundary, including /product/<id>,
+      /item/<id>, and itemId=<id> when present.
+    - Search/listing URL construction for the same DiscoveryRequest must be
+      deterministic, must URL-encode the query, and must not introduce unbounded
+      scrolling or pagination.
+    - Deduplicate by candidate_id while preserving first-seen order and
+      first-seen metadata.
+    - Map only fields actually available on a listing card. Unknown price,
+      original_price, discount_percent, sold_count, rating, review_count,
+      shop_name, affiliate metrics, creator metrics, video metrics, competition
+      metrics, and all velocity fields must remain None rather than being
+      fabricated.
+    - Parsing helpers for price, sold count, rating, review count, discount,
+      product ID, candidate ID, and search URL must be pure and deterministic.
+    - Malformed or out-of-range scalar text must return None rather than raising
+      or coercing invalid data to zero.
+    - A malformed card may be skipped without aborting valid sibling cards.
+    - Invalid DiscoveryRequest or missing browser dependency must fail before
+      navigation.
+    - First-page navigation/evaluation failure must fail closed with the existing
+      discovery error taxonomy rather than returning a fake successful empty
+      batch.
+    - An active TikTok captcha/security/challenge surface must raise
+      DiscoveryBlockedError.
+    - A verified true-empty search may return an empty batch with a deterministic
+      TRUE_EMPTY_SEARCH diagnostic.
+    - Failure after at least one successful page may return a bounded partial
+      batch with a deterministic partial-failure diagnostic.
+    - Discovery performs zero queue, filesystem persistence, Drive, downloader,
+      LLM, scoring, ranking, approval, or AgentController side effects.
+    - Public Product Intelligence exports must expose TikTokDiscoveryAdapter and
+      only the parsing helpers intentionally documented as public.
+    - Existing Shopee discovery and all existing Product Intelligence tests must
+      remain unchanged in behavior.
+
+acceptance:
+  - id: AC1
+    condition: >
+      TikTokDiscoveryAdapter satisfies ProductDiscoveryAdapter and returns a
+      bounded TikTok DiscoveryBatch containing canonical ProductCandidateSnapshot
+      values from injected listing-card data.
+  - id: AC2
+    condition: >
+      TikTok product URL parsing and candidate identity are deterministic across
+      supported /product/<id>, /item/<id>, itemId=<id>, and URL-fingerprint
+      fallback cases.
+  - id: AC3
+    condition: >
+      Listing scalar parsing is deterministic, localized common k/K and decimal
+      forms are handled where applicable, malformed/out-of-range values become
+      None, and missing signals are never fabricated as zero.
+  - id: AC4
+    condition: >
+      Candidate collection obeys max_candidates/max_pages, deduplicates by
+      candidate_id with first-seen order, skips malformed cards, and never
+      navigates product detail pages.
+  - id: AC5
+    condition: >
+      Invalid request/dependency, first-page navigation/evaluation failure,
+      active anti-bot challenge, true-empty search, and later-page partial failure
+      all follow the canonical discovery error/diagnostic semantics.
+  - id: AC6
+    condition: >
+      Tests prove TikTok discovery has zero deep-ingestion, downloader, Drive,
+      queue, LLM, scoring, ranking, approval, or AgentController side effects.
+  - id: AC7
+    condition: >
+      Product Intelligence exports TikTokDiscoveryAdapter and documented TikTok
+      parsing helpers without changing Shopee behavior or creating a second
+      discovery contract.
+  - id: AC8
+    condition: >
+      Regression tests cover deterministic search URL construction, identity,
+      scalar parsing, bounded multi-page collection, deduplication, malformed-card
+      skip, true empty, blocked page, first-page failure, later-page partial
+      failure, cleanup, and preservation of existing Product Intelligence tests.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; pytest tests/product_intelligence -q'
+    - git diff --check
+    - git status --porcelain
