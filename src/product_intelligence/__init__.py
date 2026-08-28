@@ -23,6 +23,16 @@ from src.product_intelligence.models import (
 from src.product_intelligence.normalizer import SnapshotNormalizer
 from src.product_intelligence.policy import ScoringPolicy
 from src.product_intelligence.scoring import WinningProductScorer
+from src.product_intelligence.ranking import (
+    MAX_RANKING_CANDIDATES,
+    MAX_SHORTLIST_SIZE,
+    MIN_RANKING_CANDIDATES,
+    MIN_SHORTLIST_SIZE,
+    CandidateRanker,
+    CandidateRankingError,
+    RankedCandidate,
+    rank_candidates,
+)
 from src.product_intelligence.adapters.shopee import ShopeeDiscoveryAdapter
 from src.product_intelligence.adapters.shopee_parsing import (
     build_shopee_candidate_id,
@@ -50,6 +60,14 @@ __all__ = [
     "ScoringPolicy",
     "SnapshotNormalizer",
     "WinningProductScorer",
+    "RankedCandidate",
+    "CandidateRanker",
+    "CandidateRankingError",
+    "rank_candidates",
+    "MIN_RANKING_CANDIDATES",
+    "MAX_RANKING_CANDIDATES",
+    "MIN_SHORTLIST_SIZE",
+    "MAX_SHORTLIST_SIZE",
     "DiscoveryRequest",
     "DiscoveryBatch",
     "ProductDiscoveryAdapter",
