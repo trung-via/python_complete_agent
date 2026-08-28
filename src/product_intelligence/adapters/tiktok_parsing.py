@@ -20,13 +20,13 @@ def parse_tiktok_price(text: Optional[str]) -> Optional[float]:
         return None
 
     # If price range (e.g. "₫150.000 - ₫200.000" or "150k - 200k" or "10.00 - 20.00"), take the first part
-    if " - " in cleaned or ("-" in cleaned and not cleaned.startswith("-")):
-        parts = cleaned.split("-", 1)
+    if " - " in cleaned:
+        parts = cleaned.split(" - ", 1)
         if len(parts) == 2 and parts[0].strip():
             cleaned = parts[0].strip()
 
-    # Reject explicitly negative numbers
-    if cleaned.startswith("-"):
+    # Reject any explicitly negative price (e.g. "-150", "-150k", "₫-150.000", "Price: -150k", "-$19.99", "$-19.99")
+    if re.search(r"-\s*[\$₫đ£€¥]?\s*\d", cleaned) or re.search(r"[\$₫đ£€¥]\s*-\s*\d", cleaned) or re.search(r"(?:^|[^\w\d])-\s*[\d]", cleaned):
         return None
 
     # Handle 'tr' or 'triệu' or 'm' / 'mil' suffix (e.g. "1.5tr", "1,5 triệu", "1.5m")
@@ -52,8 +52,8 @@ def parse_tiktok_price(text: Optional[str]) -> Optional[float]:
     # Remove currency symbols, common currency codes, and whitespace
     cleaned = re.sub(r"[₫đvnd$£€¥\s]", "", cleaned)
 
-    # If starts with negative sign after cleanup
-    if cleaned.startswith("-"):
+    # If starts with negative sign or contains hyphen after cleanup
+    if cleaned.startswith("-") or "-" in cleaned:
         return None
 
     if not cleaned:
@@ -102,7 +102,11 @@ def parse_tiktok_sold_count(text: Optional[str]) -> Optional[int]:
         return None
 
     cleaned = text.strip().lower()
-    if not cleaned or cleaned.startswith("-"):
+    if not cleaned:
+        return None
+
+    # Reject any explicitly negative sold count (e.g. "Đã bán -1200", "-5", "Sold -1.5k")
+    if re.search(r"-\s*\d", cleaned):
         return None
 
     # Match number with 'k' or 'K' multiplier (e.g. "1.2k", "1,2k", "10k+")
@@ -148,7 +152,11 @@ def parse_tiktok_rating(text: Optional[str]) -> Optional[float]:
         return None
 
     cleaned = text.strip().lower()
-    if not cleaned or cleaned.startswith("-"):
+    if not cleaned:
+        return None
+
+    # Reject negative ratings (e.g. "-4.8", "Rating: -4.8", "-4.5/5")
+    if re.search(r"-\s*\d", cleaned):
         return None
 
     # Match rating number (e.g. "4.8" or "4,8" or "4.8/5")
@@ -174,7 +182,11 @@ def parse_tiktok_review_count(text: Optional[str]) -> Optional[int]:
         return None
 
     cleaned = text.strip().lower()
-    if not cleaned or cleaned.startswith("-"):
+    if not cleaned:
+        return None
+
+    # Reject negative review counts (e.g. "(-350)", "-350 reviews", "Đánh giá: -1.2k")
+    if re.search(r"-\s*\d", cleaned):
         return None
 
     # Match within parentheses or standalone with 'k'
@@ -233,7 +245,7 @@ def extract_tiktok_product_id(
     Handles URL patterns:
       - '/product/{id}'
       - '/item/{id}'
-      - 'itemId={id}'
+      - 'itemId={id}', 'item_id={id}', 'product_id={id}', 'productId={id}'
     """
     if item_id_attr and item_id_attr.strip().isdigit():
         return item_id_attr.strip()
@@ -251,8 +263,8 @@ def extract_tiktok_product_id(
     if m2:
         return m2.group(1)
 
-    # Pattern 3: itemId={id}
-    m3 = re.search(r"itemId=(\d+)", url_or_href)
+    # Pattern 3: itemId={id} or item_id={id} or product_id={id} or productId={id}
+    m3 = re.search(r"(?:itemId|item_id|product_id|productId)=(\d+)", url_or_href, re.IGNORECASE)
     if m3:
         return m3.group(1)
 
@@ -262,14 +274,19 @@ def extract_tiktok_product_id(
 def build_tiktok_candidate_id(source_product_id: Optional[str], url: str) -> str:
     """
     Generates a deterministic candidate ID.
-    Prefers 'tiktok_{source_product_id}' when available, otherwise derives a SHA-256 fingerprint.
+    Prefers 'tiktok_{source_product_id}' when available, otherwise extracts a product ID discoverable from the URL,
+    and otherwise derives a SHA-256 fingerprint from the URL with fragments removed.
     Never uses Python's process-randomized hash().
     """
     if source_product_id:
         return f"tiktok_{source_product_id}"
 
-    # Normalize URL by removing fragments and query parameters, and stripping whitespace / trailing slashes
-    clean_url = url.strip().split("#")[0].split("?")[0].rstrip("/")
+    extracted_id = extract_tiktok_product_id(url)
+    if extracted_id:
+        return f"tiktok_{extracted_id}"
+
+    # Normalize URL by removing fragments and stripping whitespace / trailing slashes
+    clean_url = url.strip().split("#")[0].rstrip("/")
     digest = hashlib.sha256(clean_url.encode("utf-8")).hexdigest()[:16]
     return f"tiktok_url_{digest}"
 
@@ -277,12 +294,13 @@ def build_tiktok_candidate_id(source_product_id: Optional[str], url: str) -> str
 def build_tiktok_search_url(query: str, page: int = 1, locale: str = "vi-VN") -> str:
     """
     Builds a deterministic URL-encoded TikTok Shop search URL.
-    Validates that query is non-empty and page is a bounded positive integer (page >= 1).
+    Validates that query is non-empty string and page is a positive integer (page >= 1).
+    Rejects bool, float, zero, negative, and other non-integer values.
     Raises ValueError on invalid inputs.
     """
-    if not query or not query.strip():
-        raise ValueError("Search query must be non-empty.")
-    if page < 1:
+    if not isinstance(query, str) or not query.strip():
+        raise ValueError("Search query must be a non-empty string.")
+    if isinstance(page, bool) or not isinstance(page, int) or page < 1:
         raise ValueError("Page must be a positive integer >= 1.")
 
     encoded_query = urllib.parse.quote_plus(query.strip())
