@@ -1,0 +1,158 @@
+task_id: TASK-097
+revision: 1
+
+goal: >
+  Replace the active repository-owned Codex $aios-worker and Antigravity
+  /aios-worker execution surfaces so both delegate exclusively to the frozen
+  AIOS-renew kernel, with no active execution dependency on the legacy AIOS
+  Bridge control plane.
+
+problem: >
+  The current Python Agent worker surfaces still route RUN/FIX/STATUS through
+  .agents/skills/aios-worker/scripts/aios_worker.py -> src.aios_bridge.worker_flow
+  -> bridge.py. This creates an obsolete second execution pipeline beside
+  AIOS-renew and prevents Codex surfaces that do not expose the global aios CLI
+  from using the canonical kernel. The migration must make AIOS-renew the sole
+  active execution authority while preserving Codex/Antigravity executor
+  identity and keeping the visible UI surface thin.
+
+assumptions:
+  - AIOS-renew v0.1.2 authoritative commit is
+    2ee57fd87316fdf8eb52a77777c51dff6d023214.
+  - AIOS-renew remains frozen; this task modifies only Python Agent integration.
+  - The repository virtual environment is the canonical interpreter for the
+    repository-owned worker surfaces.
+  - Codex and Antigravity surfaces may differ only in selected executor identity;
+    semantic TASK/RUN/RESULT/EVIDENCE behavior must come from the same AIOS-renew
+    kernel.
+  - Legacy bridge.py and src/aios_bridge may remain in repository history/source
+    for archival compatibility, but must not be reachable from active
+    $aios-worker or /aios-worker RUN/FIX/STATUS paths.
+
+scope:
+  inspect:
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-worker.md
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - src/aios_bridge/worker_flow.py
+    - bridge.py
+    - requirements.txt
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+  modify:
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-worker.md
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - requirements.txt
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+
+non_goals:
+  - Modify AIOS-renew source or kernel semantics.
+  - Reintroduce planning, review, scoring, retry policy, or state authority in the
+    worker surface.
+  - Delete legacy AIOS Bridge history wholesale.
+  - Run Codex and Antigravity for the same execution.
+  - Auto-reroute from one executor to the other.
+  - Auto-retry failed AIOS executions.
+  - Merge, rebase, reset, checkout, stash, clean, or otherwise add a second Git
+    coordination policy beside AIOS-renew.
+  - Change Product Intelligence or Phase 6 product behavior.
+
+constraints:
+  hard:
+    - Active RUN execution from both worker surfaces must enter AIOS-renew and no
+      active RUN path may import src.aios_bridge, invoke bridge.py, or use
+      WorkerFlowCoordinator.
+    - Python Agent must pin AIOS-renew to exact authoritative commit
+      2ee57fd87316fdf8eb52a77777c51dff6d023214 rather than an unbounded branch or
+      floating version.
+    - The repository-owned launcher must not depend on a globally installed aios
+      executable or a machine-specific absolute path such as C:\\TOOL\\Projects.
+    - The launcher must use the repository interpreter/environment and invoke the
+      pinned AIOS-renew Python package or its canonical entrypoint directly.
+    - RUN TASK-N from the Codex surface must select executor=codex exactly once;
+      RUN TASK-N from the Antigravity surface must select executor=antigravity
+      exactly once.
+    - Both surfaces must pass the Python Agent repository root explicitly or
+      deterministically to AIOS-renew; they must never execute AIOS-renew against
+      the AIOS-renew source repository itself.
+    - Codex RUN must preserve the canonical sandbox choice danger-full-access
+      currently required by the proven Python Agent AIOS flow; the UI surface may
+      expose no second sandbox policy.
+    - STATUS must be read-only and must not authorize, execute, push, modify TASK,
+      or invoke an executor.
+    - FIX must delegate to AIOS-renew remediation semantics only. If the exact
+      review/remediation lineage required by AIOS-renew cannot be resolved
+      uniquely and deterministically, fail closed rather than infer or fall back
+      to legacy Bridge behavior.
+    - No worker surface may manually reconstruct TASK semantics, execute task
+      verification independently of AIOS-renew, synthesize RESULT/EVIDENCE, or
+      become a second reviewer.
+    - No automatic retry or executor rerouting is allowed after an AIOS error.
+    - Legacy bridge.py and src/aios_bridge may remain physically present but the
+      active worker script, Codex skill, and Antigravity workflow must contain no
+      operational instruction to call them.
+    - Successful canonical RUN/FIX publication to GitHub, if implemented by this
+      surface, must occur only after AIOS-renew returns PASS, repository state is
+      clean, local HEAD equals the canonical RESULT head_sha, the current branch
+      has its configured upstream, and the push is a normal non-force push to
+      that exact upstream. Failure to publish must be reported separately and
+      must never rewrite the already-valid AIOS RESULT.
+    - Existing AIOS-renew PRIMARY sync and remediation no-sync semantics remain
+      authoritative and must not be duplicated in this integration layer.
+    - Existing Product Agent tests outside the integration surface must remain
+      unchanged.
+
+acceptance:
+  - id: AC1
+    condition: >
+      $aios-worker RUN TASK-N enters the pinned AIOS-renew kernel with executor
+      codex and no legacy bridge.py/src.aios_bridge execution dependency.
+  - id: AC2
+    condition: >
+      /aios-worker RUN TASK-N enters the same pinned AIOS-renew kernel with
+      executor antigravity and no legacy bridge.py/src.aios_bridge execution
+      dependency.
+  - id: AC3
+    condition: >
+      The integration is repository-portable: it uses the repository environment
+      and exact AIOS-renew commit pin, not a global PATH dependency or local
+      machine absolute path.
+  - id: AC4
+    condition: >
+      Codex and Antigravity surface tests prove identical semantic routing except
+      for executor identity and Codex sandbox argument.
+  - id: AC5
+    condition: >
+      STATUS is non-authorizing/read-only, and FIX either calls exact AIOS-renew
+      remediation lineage or deterministically fails closed when lineage is
+      ambiguous/missing; neither falls back to old Bridge.
+  - id: AC6
+    condition: >
+      Tests fail if the active worker launcher imports src.aios_bridge, calls
+      bridge.py, references WorkerFlowCoordinator, uses --adapter routing, or
+      invokes raw implementation logic outside AIOS-renew.
+  - id: AC7
+    condition: >
+      Existing legacy Bridge files may remain as archived source but are clearly
+      documented as inactive; docs show AIOS-renew as the sole active kernel for
+      both worker surfaces.
+  - id: AC8
+    condition: >
+      A bounded integration test proves one RUN request produces one AIOS-renew
+      invocation with the exact task ID, repository root, executor identity, and
+      expected Codex sandbox, with no duplicate executor invocation, retry, or
+      reroute.
+  - id: AC9
+    condition: >
+      If post-PASS GitHub publication is provided, tests prove it happens only
+      after validated PASS/clean/head/upstream checks, never force-pushes, and a
+      publication failure is distinct from AIOS execution failure.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; pytest tests/aios_bridge/test_aios_worker_control_surface.py -q'
+    - 'git grep -n -E "src\\.aios_bridge|bridge\\.py|WorkerFlowCoordinator|--adapter" -- .agents/skills/aios-worker/SKILL.md .agents/workflows/aios-worker.md .agents/skills/aios-worker/scripts/aios_worker.py; if ($LASTEXITCODE -eq 0) { exit 1 } elseif ($LASTEXITCODE -eq 1) { exit 0 } else { exit $LASTEXITCODE }'
+    - git diff --check
+    - git status --porcelain
