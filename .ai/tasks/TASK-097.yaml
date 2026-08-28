@@ -1,5 +1,5 @@
 task_id: TASK-097
-revision: 2
+revision: 3
 
 goal: >
   Replace the active repository-owned Codex $aios-worker and Antigravity
@@ -13,10 +13,11 @@ problem: >
   .agents/skills/aios-worker/scripts/aios_worker.py -> src.aios_bridge.worker_flow
   -> bridge.py. This creates an obsolete second execution pipeline beside
   AIOS-renew and prevents Codex surfaces that do not expose the global aios CLI
-  from using the canonical kernel. Revision 1 also left two material gaps: a
-  requirements.txt pin alone would not guarantee AIOS-renew is installed in the
-  interpreter actually used by a worker surface, and post-PASS push was optional,
-  which would still leave a manual publication step before ChatGPT review.
+  from using the canonical kernel. Earlier migration drafts also left material
+  gaps: a product requirements.txt pin would not prove the interpreter actually
+  used by the worker is running the authoritative kernel, concurrent first-run
+  bootstrap could corrupt a shared runtime, and optional post-PASS push would
+  still leave a manual publication step before ChatGPT review.
 
 assumptions:
   - AIOS-renew authoritative v0.1.2 commit is
@@ -37,6 +38,9 @@ assumptions:
   - Canonical REVIEW/REMEDIATION artifacts, when available locally, live outside
     the product worktree under Git-dir AIOS state. Cloud-to-local review artifact
     transport is a separate concern and is not invented in this migration.
+  - Repository-owned skill/workflow definitions may be cached by an already-open
+    operator session; migration certification therefore uses a fresh/reloaded
+    Codex or Antigravity session after the migration commit is present.
 
 scope:
   inspect:
@@ -80,9 +84,12 @@ constraints:
     - Active RUN execution from both worker surfaces must enter AIOS-renew and no
       active RUN path may import src.aios_bridge, invoke bridge.py, or use
       WorkerFlowCoordinator.
-    - The worker-owned dependency file must pin AIOS-renew to exact authoritative
-      commit 2ee57fd87316fdf8eb52a77777c51dff6d023214 rather than an unbounded
-      branch, floating tag, or package version.
+    - .agents/skills/aios-worker/requirements-aios-renew.txt must contain exactly
+      one active dependency line binding AIOS-renew to the authoritative source
+      and commit:
+      "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@2ee57fd87316fdf8eb52a77777c51dff6d023214".
+      No floating branch, tag, package-only version, alternate repository, or
+      additional worker dependency is permitted.
     - The worker launcher must not depend on a globally installed aios executable,
       a preinstalled aios_renew package, the Python Agent product virtualenv, or a
       machine-specific absolute path such as C:\\TOOL\\Projects.
@@ -91,12 +98,20 @@ constraints:
       state area. If absent or not provably bound to the authoritative commit, it
       may bootstrap that runtime by installing only the exact worker dependency.
       Bootstrap failure must fail closed before creating an AIOS RUN.
+    - Worker-runtime bootstrap must be serialized with a dedicated bootstrap lock
+      that is separate from AIOS-renew operator.lock. Concurrent first-use
+      invocations must not install into the same runtime simultaneously and the
+      outer launcher must never acquire/hold the kernel operator.lock around an
+      AIOS-renew call.
     - Runtime provenance must be checked from installed distribution metadata
       (PEP 610 direct_url metadata or an equivalently immutable source record) and
-      must resolve to the exact authoritative commit/source; a stale, global, or
-      unverifiable AIOS-renew install must never be used silently.
+      must resolve to the exact authoritative repository+commit; a stale, global,
+      alternate-source, or unverifiable AIOS-renew install must never be used
+      silently.
     - Runtime bootstrap must be one-time/idempotent for an already valid pinned
       runtime and must not run pip/install commands on every worker invocation.
+      An incomplete/invalid runtime from a crashed bootstrap must be treated as
+      invalid and deterministically rebuilt under the bootstrap lock.
     - RUN TASK-N from the Codex surface must select executor=codex exactly once;
       RUN TASK-N from the Antigravity surface must select executor=antigravity
       exactly once.
@@ -109,9 +124,13 @@ constraints:
     - The visible Codex and Antigravity operator sessions must not edit product
       implementation/test files themselves after dispatch; implementation belongs
       to the one executor invoked by AIOS-renew.
-    - STATUS must be read-only and may use AIOS-renew describe_task/task semantics;
-      it must not fetch/sync the product branch, authorize, execute, push, modify
-      TASK, inspect/interpret RESULT lineage as a reviewer, or invoke an executor.
+    - STATUS must be read-only with respect to the product worktree, product Git
+      branch/ref, TASK, RUN/RESULT semantics, publication, and executor authority.
+      It may initialize/validate the dedicated untracked worker runtime because
+      that is environment bootstrap, but it must not fetch/sync the product
+      branch, authorize, execute, push, modify TASK, interpret RESULT lineage as a
+      reviewer, or invoke an executor. STATUS should delegate to AIOS-renew
+      describe_task/task semantics rather than invent a second run-status model.
     - FIX must delegate to AIOS-renew run_remediation/remediate semantics only. The
       launcher may locate local REVIEW/REMEDIATION artifacts only by canonical
       filename/content fields and current immutable SHA. If one exact lineage
@@ -156,8 +175,9 @@ acceptance:
     condition: >
       A fresh worker surface with no preinstalled AIOS-renew can bootstrap one
       repository-local untracked runtime from the exact immutable worker pin,
-      prove its provenance, and reuse it on later invocations without reinstalling;
-      stale/unverifiable runtimes fail closed or are deterministically rebuilt.
+      prove repository+commit provenance, serialize concurrent bootstrap safely,
+      and reuse the valid runtime on later invocations without reinstalling;
+      incomplete/stale/unverifiable runtimes are never used.
   - id: AC4
     condition: >
       The integration is repository-portable: it does not require global PATH
@@ -170,9 +190,9 @@ acceptance:
       only one AIOS-renew invocation and no outer-session implementation work.
   - id: AC6
     condition: >
-      STATUS is non-authorizing/read-only and FIX either calls exact AIOS-renew
-      remediation lineage or deterministically fails closed when lineage is
-      ambiguous/missing; neither falls back to old Bridge.
+      STATUS is non-authorizing/read-only for product state and FIX either calls
+      exact AIOS-renew remediation lineage or deterministically fails closed when
+      lineage is ambiguous/missing; neither falls back to old Bridge.
   - id: AC7
     condition: >
       Tests fail if the active worker launcher imports src.aios_bridge, calls
@@ -189,8 +209,9 @@ acceptance:
     condition: >
       Existing legacy Bridge files may remain as archived source but are clearly
       documented as inactive; docs show AIOS-renew as the sole active execution
-      kernel for both worker surfaces and explicitly state that TASK-096 remains
-      pending until this migration is certified.
+      kernel for both worker surfaces, state that TASK-096 remains pending until
+      this migration is certified, and require a fresh/reloaded operator session
+      before exercising the migrated repository-owned surface.
   - id: AC10
     condition: >
       A bounded unit/integration test proves one RUN request produces one
@@ -199,7 +220,8 @@ acceptance:
       reroute, duplicate executor invocation, or legacy execution occurs.
   - id: AC11
     condition: >
-      Unit tests cover fresh runtime bootstrap, exact immutable dependency pin,
+      Unit tests cover fresh runtime bootstrap, exact immutable repository+commit
+      dependency pin, bootstrap serialization/incomplete-runtime recovery,
       provenance mismatch handling, successful automatic publication, no push on
       AIOS failure/no-op PASS, publication failure preservation, STATUS read-only,
       unique FIX lineage resolution, ambiguous/missing FIX fail-closed, and DELTA
@@ -209,6 +231,6 @@ verification:
   required:
     - '$env:PYTHONPATH = ".;src"; pytest tests/aios_bridge/test_aios_worker_control_surface.py -q'
     - 'git grep -n -E "src\\.aios_bridge|bridge\\.py|WorkerFlowCoordinator|--adapter" -- .agents/skills/aios-worker/SKILL.md .agents/workflows/aios-worker.md .agents/skills/aios-worker/scripts/aios_worker.py; if ($LASTEXITCODE -eq 0) { exit 1 } elseif ($LASTEXITCODE -eq 1) { exit 0 } else { exit $LASTEXITCODE }'
-    - 'Select-String -Path .agents/skills/aios-worker/requirements-aios-renew.txt -SimpleMatch "2ee57fd87316fdf8eb52a77777c51dff6d023214" | ForEach-Object { $_.Line }; if (-not $?) { exit 1 }'
+    - '$pin = Get-Content .agents/skills/aios-worker/requirements-aios-renew.txt -Raw; if ($pin.Trim() -ne "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@2ee57fd87316fdf8eb52a77777c51dff6d023214") { exit 1 }'
     - git diff --check
     - git status --porcelain
