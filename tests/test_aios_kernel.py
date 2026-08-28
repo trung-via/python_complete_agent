@@ -1,4 +1,4 @@
-"""Integration tests and contract proofs for AIOS Bridge Kernel v1 (ADR-068 / TASK-098)."""
+"""Integration tests and contract proofs for AIOS Bridge Kernel v1 (ADR-068 / TASK-098 / REVIEW-098)."""
 
 import pytest
 import subprocess
@@ -19,6 +19,25 @@ def test_kernel_proof_no_model_launch_command():
         assert "auto_reroute" not in content
 
 
+def test_kernel_proof_worker_script_repo_root_exact():
+    """Proof: KERNEL_WORKER_REPO_ROOT: EXACT (B098.5)."""
+    from importlib import import_module
+    import sys
+
+    script_path = Path(".agents/skills/aios-kernel-worker/scripts/aios_kernel_worker.py")
+    assert script_path.exists()
+
+    # Test find_repo_root logic
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("aios_kernel_worker", str(script_path))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    resolved_root = mod.repo_root
+    assert (resolved_root / "aios_kernel.py").exists() or (resolved_root / "bridge.py").exists()
+    assert resolved_root.name != ".agents"
+
+
 def test_kernel_proof_run_fix_downstream_codepath_same(tmp_path, monkeypatch):
     """Proof: RUN_FIX_DOWNSTREAM_CODEPATH: SAME."""
     # Both RUN and FIX use complete_kernel_task without branching logic
@@ -26,14 +45,15 @@ def test_kernel_proof_run_fix_downstream_codepath_same(tmp_path, monkeypatch):
         task_id="TASK-098", action="RUN", executor_id="antigravity",
         base_main_sha="a"*40, target_branch="ai/task-098", authorized_artifact_sha="b"*40,
         allowed_paths=["aios_kernel.py"], allowed_paths_fingerprint=compute_fingerprint(["aios_kernel.py"]),
-        verify_command_fingerprint=compute_fingerprint({"t0": ["pytest"]}), verify_commands={"t0": ["pytest"]},
+        verify_command_fingerprint=compute_fingerprint({"t0": ["pytest"], "t1": ["pytest"]}), verify_commands={"t0": ["pytest"], "t1": ["pytest"]},
         pre_execution_head="c"*40, status="AUTHORIZED"
     )
     rec_fix = KernelTaskRecord(
         task_id="TASK-098", action="FIX", executor_id="antigravity",
         base_main_sha="a"*40, target_branch="ai/task-098", authorized_artifact_sha="b"*40,
+        review_sha="r"*40,
         allowed_paths=["aios_kernel.py"], allowed_paths_fingerprint=compute_fingerprint(["aios_kernel.py"]),
-        verify_command_fingerprint=compute_fingerprint({"t0": ["pytest"]}), verify_commands={"t0": ["pytest"]},
+        verify_command_fingerprint=compute_fingerprint({"t0": ["pytest"], "t1": ["pytest"]}), verify_commands={"t0": ["pytest"], "t1": ["pytest"]},
         pre_execution_head="c"*40, status="AUTHORIZED"
     )
 
@@ -44,7 +64,14 @@ def test_kernel_proof_run_fix_downstream_codepath_same(tmp_path, monkeypatch):
     monkeypatch.setattr(gitops, "capture_publication_trust", lambda r, cwd: {"remote": r})
     monkeypatch.setattr(gitops, "verify_publication_trust", lambda s, cwd: None)
     monkeypatch.setattr(publish, "run_kernel_verify", lambda rec, root: publish.KernelVerifyResult(True, 0, True, True, "pass"))
-    monkeypatch.setattr(gitops, "git_cmd", lambda args, cwd=None, check=True: type("Res", (), {"returncode": 0, "stdout": "", "stderr": ""})())
+
+    def mock_git_cmd(args, cwd=None, check=True):
+        if "rev-parse" in args and "TASK-098.md" in args[-1]:
+            return type("Res", (), {"returncode": 0, "stdout": "b" * 40 + "\n", "stderr": ""})()
+        if "rev-parse" in args and "REVIEW-098.md" in args[-1]:
+            return type("Res", (), {"returncode": 0, "stdout": "r" * 40 + "\n", "stderr": ""})()
+        return type("Res", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+    monkeypatch.setattr(gitops, "git_cmd", mock_git_cmd)
 
     save_task_record(rec_run, repo_root=tmp_path)
     res_run = complete_kernel_task("TASK-098", repo_root=tmp_path)
@@ -59,7 +86,7 @@ def test_kernel_proof_default_old_worker_surfaces_changed_no():
     """Proof: DEFAULT_OLD_WORKER_SURFACES_CHANGED: NO & LEGACY_BRIDGE_CHANGED: NO."""
     old_skill = Path(".agents/skills/aios-worker/SKILL.md")
     old_workflow = Path(".agents/workflows/aios-worker.md")
-    
+
     assert old_skill.exists()
     assert old_workflow.exists()
 

@@ -1,4 +1,4 @@
-"""Tests for AIOS Bridge Kernel v1 Deterministic VERIFY Pipeline (ADR-068 / TASK-098)."""
+"""Tests for AIOS Bridge Kernel v1 Deterministic VERIFY Pipeline (ADR-068 / TASK-098 / B098.2)."""
 
 import pytest
 import subprocess
@@ -97,3 +97,28 @@ def test_run_kernel_verify_t0_failure_stops_before_t1(tmp_path, monkeypatch):
     assert len(t1_calls) == 0
     assert res.t0_executed is True
     assert res.t1_executed is False
+
+
+def test_run_kernel_verify_missing_t0_or_t1_fails(tmp_path):
+    """Proof: FALSE_TIER_PASS_EVIDENCE: FORBIDDEN (B098.2)."""
+    record_no_t0 = KernelTaskRecord(
+        task_id="TASK-098", action="RUN", executor_id="antigravity",
+        base_main_sha="a"*40, target_branch="ai/task-098", authorized_artifact_sha="b"*40,
+        allowed_paths=["aios_kernel.py"], allowed_paths_fingerprint="fp1",
+        verify_command_fingerprint="fp2", verify_commands={"t1": ["pytest"]},
+        pre_execution_head="c"*40, status="AUTHORIZED"
+    )
+    res_no_t0 = run_kernel_verify(record_no_t0, repo_root=tmp_path)
+    assert res_no_t0.passed is False
+    assert res_no_t0.t0_executed is False
+
+    record_no_t1 = KernelTaskRecord(
+        task_id="TASK-098", action="RUN", executor_id="antigravity",
+        base_main_sha="a"*40, target_branch="ai/task-098", authorized_artifact_sha="b"*40,
+        allowed_paths=["aios_kernel.py"], allowed_paths_fingerprint="fp1",
+        verify_command_fingerprint="fp2", verify_commands={"t0": ["pytest"]},
+        pre_execution_head="c"*40, status="AUTHORIZED"
+    )
+    res_no_t1 = run_kernel_verify(record_no_t1, repo_root=tmp_path)
+    assert res_no_t1.passed is False
+    assert res_no_t1.t1_executed is False

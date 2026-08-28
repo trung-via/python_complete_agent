@@ -1,16 +1,16 @@
-"""Tests for AIOS Bridge Kernel v1 PUBLISH Pipeline (ADR-068 / TASK-098)."""
+"""Tests for AIOS Bridge Kernel v1 PUBLISH Pipeline (ADR-068 / TASK-098 / B098.3 / B098.4)."""
 
 import pytest
 import subprocess
 from pathlib import Path
 
-from src.aios_bridge.kernel.model import KernelTaskRecord, save_task_record, compute_fingerprint, KernelStatus
+from src.aios_bridge.kernel.model import KernelTaskRecord, save_task_record, load_task_record, compute_fingerprint, KernelStatus
 from src.aios_bridge.kernel.publish import complete_kernel_task, KernelPublishError
 from src.aios_bridge.kernel import gitops, publish
 
 
-def test_complete_empty_delta_rejected_before_test(tmp_path, monkeypatch):
-    """Proof: EMPTY_DELTA_COMPLETE_REJECTED_BEFORE_TEST: PASS."""
+def test_complete_empty_delta_rejected_and_terminalizes_blocked(tmp_path, monkeypatch):
+    """Proof: EMPTY_DELTA_COMPLETE_REJECTED_BEFORE_TEST: PASS & ALL_COMPLETE_FAILURES_TERMINALIZE_BLOCKED: PASS (B098.3)."""
     record = KernelTaskRecord(
         task_id="TASK-098",
         action="RUN",
@@ -20,8 +20,8 @@ def test_complete_empty_delta_rejected_before_test(tmp_path, monkeypatch):
         authorized_artifact_sha="b" * 40,
         allowed_paths=["aios_kernel.py"],
         allowed_paths_fingerprint=compute_fingerprint(["aios_kernel.py"]),
-        verify_command_fingerprint=compute_fingerprint({"t0": ["pytest"]}),
-        verify_commands={"t0": ["pytest"]},
+        verify_command_fingerprint=compute_fingerprint({"t0": ["pytest"], "t1": ["pytest"]}),
+        verify_commands={"t0": ["pytest"], "t1": ["pytest"]},
         pre_execution_head="c" * 40,
         status="AUTHORIZED",
     )
@@ -33,14 +33,20 @@ def test_complete_empty_delta_rejected_before_test(tmp_path, monkeypatch):
     test_ran = []
     monkeypatch.setattr(publish, "run_kernel_verify", lambda rec, root: test_ran.append(True))
 
-    with pytest.raises(KernelPublishError, match="Executor produced no worktree delta"):
-        complete_kernel_task("TASK-098", repo_root=tmp_path)
+    res = complete_kernel_task("TASK-098", repo_root=tmp_path)
 
+    assert res.success is False
+    assert res.status == KernelStatus.BLOCKED.value
+    assert "Executor produced no worktree delta" in (res.error or "")
     assert len(test_ran) == 0
 
+    # Verify atomic stored record status is BLOCKED (no orphan AUTHORIZED)
+    loaded = load_task_record("TASK-098", repo_root=tmp_path)
+    assert loaded.status == KernelStatus.BLOCKED.value
 
-def test_complete_out_of_scope_rejected_before_test(tmp_path, monkeypatch):
-    """Proof: OUT_OF_SCOPE_COMPLETE_REJECTED_BEFORE_TEST: PASS."""
+
+def test_complete_out_of_scope_rejected_and_terminalizes_blocked(tmp_path, monkeypatch):
+    """Proof: OUT_OF_SCOPE_COMPLETE_REJECTED_BEFORE_TEST: PASS & ALL_COMPLETE_FAILURES_TERMINALIZE_BLOCKED: PASS (B098.3)."""
     record = KernelTaskRecord(
         task_id="TASK-098",
         action="RUN",
@@ -50,24 +56,28 @@ def test_complete_out_of_scope_rejected_before_test(tmp_path, monkeypatch):
         authorized_artifact_sha="b" * 40,
         allowed_paths=["aios_kernel.py"],
         allowed_paths_fingerprint=compute_fingerprint(["aios_kernel.py"]),
-        verify_command_fingerprint=compute_fingerprint({"t0": ["pytest"]}),
-        verify_commands={"t0": ["pytest"]},
+        verify_command_fingerprint=compute_fingerprint({"t0": ["pytest"], "t1": ["pytest"]}),
+        verify_commands={"t0": ["pytest"], "t1": ["pytest"]},
         pre_execution_head="c" * 40,
         status="AUTHORIZED",
     )
     save_task_record(record, repo_root=tmp_path)
 
     monkeypatch.setattr(gitops, "get_current_branch", lambda cwd: "ai/task-098")
-    # Dirty file outside allowed_paths
     monkeypatch.setattr(gitops, "collect_worktree_changed_paths", lambda pre, cwd: ["aios_kernel.py", "unauthorized.py"])
 
     test_ran = []
     monkeypatch.setattr(publish, "run_kernel_verify", lambda rec, root: test_ran.append(True))
 
-    with pytest.raises(KernelPublishError, match="outside authorized allowed_paths"):
-        complete_kernel_task("TASK-098", repo_root=tmp_path)
+    res = complete_kernel_task("TASK-098", repo_root=tmp_path)
 
+    assert res.success is False
+    assert res.status == KernelStatus.BLOCKED.value
+    assert "outside authorized allowed_paths" in (res.error or "")
     assert len(test_ran) == 0
+
+    loaded = load_task_record("TASK-098", repo_root=tmp_path)
+    assert loaded.status == KernelStatus.BLOCKED.value
 
 
 def test_complete_verify_failure_blocks_with_zero_commit_push(tmp_path, monkeypatch):
@@ -81,8 +91,8 @@ def test_complete_verify_failure_blocks_with_zero_commit_push(tmp_path, monkeypa
         authorized_artifact_sha="b" * 40,
         allowed_paths=["aios_kernel.py"],
         allowed_paths_fingerprint=compute_fingerprint(["aios_kernel.py"]),
-        verify_command_fingerprint=compute_fingerprint({"t0": ["pytest"]}),
-        verify_commands={"t0": ["pytest"]},
+        verify_command_fingerprint=compute_fingerprint({"t0": ["pytest"], "t1": ["pytest"]}),
+        verify_commands={"t0": ["pytest"], "t1": ["pytest"]},
         pre_execution_head="c" * 40,
         status="AUTHORIZED",
     )
@@ -94,19 +104,28 @@ def test_complete_verify_failure_blocks_with_zero_commit_push(tmp_path, monkeypa
     monkeypatch.setattr(gitops, "capture_publication_trust", lambda r, cwd: {"remote": r})
     monkeypatch.setattr(gitops, "verify_publication_trust", lambda s, cwd: None)
 
+    def mock_git_cmd(args, cwd=None, check=True):
+        if "rev-parse" in args and "TASK-098.md" in args[-1]:
+            return type("Res", (), {"returncode": 0, "stdout": "b" * 40 + "\n", "stderr": ""})()
+        return type("Res", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+
+    monkeypatch.setattr(gitops, "git_cmd", mock_git_cmd)
+
     # Verification fails
     failed_vr = publish.KernelVerifyResult(passed=False, exit_code=1, t0_executed=True, t1_executed=False, output="fail")
     monkeypatch.setattr(publish, "run_kernel_verify", lambda rec, root: failed_vr)
 
     git_commits = []
     git_pushes = []
-    def mock_git_cmd(args, cwd=None, check=True):
+    def track_git_cmd(args, cwd=None, check=True):
         if "commit" in args:
             git_commits.append(args)
         if "push" in args:
             git_pushes.append(args)
+        if "rev-parse" in args and "TASK-098.md" in args[-1]:
+            return type("Res", (), {"returncode": 0, "stdout": "b" * 40 + "\n", "stderr": ""})()
         return type("Res", (), {"returncode": 0, "stdout": "", "stderr": ""})()
-    monkeypatch.setattr(gitops, "git_cmd", mock_git_cmd)
+    monkeypatch.setattr(gitops, "git_cmd", track_git_cmd)
 
     res = complete_kernel_task("TASK-098", repo_root=tmp_path)
 
@@ -115,9 +134,12 @@ def test_complete_verify_failure_blocks_with_zero_commit_push(tmp_path, monkeypa
     assert len(git_commits) == 0
     assert len(git_pushes) == 0
 
+    loaded = load_task_record("TASK-098", repo_root=tmp_path)
+    assert loaded.status == KernelStatus.BLOCKED.value
 
-def test_complete_verify_pass_publishes_once(tmp_path, monkeypatch):
-    """Proof: PUBLISH_COMMIT_COUNT: 1 & PUBLISH_PUSH_COUNT: 1 & PUBLISH_REMOTE_HEAD_POST_VERIFY: PASS."""
+
+def test_complete_verify_pass_publishes_once_with_targeted_staging(tmp_path, monkeypatch):
+    """Proof: PUBLISH_COMMIT_COUNT: 1 & PUBLISH_PUSH_COUNT: 1 & UNRESTRICTED_GIT_ADD_DOT: REMOVED (B098.4)."""
     record = KernelTaskRecord(
         task_id="TASK-098",
         action="RUN",
@@ -127,8 +149,8 @@ def test_complete_verify_pass_publishes_once(tmp_path, monkeypatch):
         authorized_artifact_sha="b" * 40,
         allowed_paths=["aios_kernel.py"],
         allowed_paths_fingerprint=compute_fingerprint(["aios_kernel.py"]),
-        verify_command_fingerprint=compute_fingerprint({"t0": ["pytest"]}),
-        verify_commands={"t0": ["pytest"]},
+        verify_command_fingerprint=compute_fingerprint({"t0": ["pytest"], "t1": ["pytest"]}),
+        verify_commands={"t0": ["pytest"], "t1": ["pytest"]},
         pre_execution_head="c" * 40,
         status="AUTHORIZED",
     )
@@ -144,13 +166,18 @@ def test_complete_verify_pass_publishes_once(tmp_path, monkeypatch):
     pass_vr = publish.KernelVerifyResult(passed=True, exit_code=0, t0_executed=True, t1_executed=True, output="pass")
     monkeypatch.setattr(publish, "run_kernel_verify", lambda rec, root: pass_vr)
 
+    staged_args = []
     git_commits = []
     git_pushes = []
     def mock_git_cmd(args, cwd=None, check=True):
+        if "add" in args:
+            staged_args.append(args)
         if "commit" in args:
             git_commits.append(args)
         if "push" in args:
             git_pushes.append(args)
+        if "rev-parse" in args and "TASK-098.md" in args[-1]:
+            return type("Res", (), {"returncode": 0, "stdout": "b" * 40 + "\n", "stderr": ""})()
         return type("Res", (), {"returncode": 0, "stdout": "", "stderr": ""})()
     monkeypatch.setattr(gitops, "git_cmd", mock_git_cmd)
 
@@ -161,3 +188,9 @@ def test_complete_verify_pass_publishes_once(tmp_path, monkeypatch):
     assert res.published_head_sha == "pub_head_98"
     assert len(git_commits) == 1
     assert len(git_pushes) == 1
+
+    # Verify staging was targeted, not git add .
+    assert len(staged_args) == 1
+    assert "." not in staged_args[0]
+    assert "aios_kernel.py" in staged_args[0]
+    assert ".ai/results/RESULT-098.md" in staged_args[0]

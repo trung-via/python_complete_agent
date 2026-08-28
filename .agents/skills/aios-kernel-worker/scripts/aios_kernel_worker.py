@@ -6,8 +6,17 @@ import json
 import sys
 from pathlib import Path
 
-# Ensure src is importable
-repo_root = Path(__file__).resolve().parents[3]
+
+def find_repo_root(start: Path) -> Path:
+    """Deterministically resolves the repository root from script path."""
+    cur = start.resolve()
+    for parent in [cur] + list(cur.parents):
+        if (parent / ".git").exists() or (parent / "bridge.py").exists() or (parent / "aios_kernel.py").exists():
+            return parent
+    return cur.parents[4]
+
+
+repo_root = find_repo_root(Path(__file__))
 if str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
 
@@ -21,7 +30,7 @@ def main():
     parser = argparse.ArgumentParser(prog="aios-kernel-worker", description="AIOS Kernel Worker Surface Adapter")
     parser.add_argument("action", choices=["RUN", "FIX", "STATUS", "COMPLETE", "CANCEL", "run", "fix", "status", "complete", "cancel"])
     parser.add_argument("task_id", help="Task ID (e.g. TASK-098 or 98)")
-    parser.add_argument("--adapter", choices=["codex", "antigravity"], default="antigravity", help="Worker adapter surface")
+    parser.add_argument("--adapter", "--executor", dest="adapter", choices=["codex", "antigravity"], default="antigravity", help="Worker adapter surface")
 
     args = parser.parse_args()
 

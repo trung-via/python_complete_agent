@@ -21,9 +21,8 @@ class KernelVerifyResult:
 def run_command_array(cmd_array: List[str], cwd: Path) -> subprocess.CompletedProcess:
     """Executes a command array synchronously using foreground process waiting."""
     if not cmd_array:
-        return subprocess.CompletedProcess(cmd_array, 0, "", "")
+        return subprocess.CompletedProcess(cmd_array, 1, "", "Empty command array")
 
-    # On Windows, resolve python.exe if specified as venv/Scripts/python.exe
     exec_cmd = list(cmd_array)
     first = exec_cmd[0]
     if "/" in first or "\\" in first:
@@ -52,38 +51,55 @@ def run_kernel_verify(record: KernelTaskRecord, repo_root: Optional[Path] = None
     t0_executed = False
     t1_executed = False
 
+    # B098.2: Require both T0 and T1 to be present and non-empty
+    if not t0_cmd or not isinstance(t0_cmd, list):
+        return KernelVerifyResult(
+            passed=False,
+            exit_code=1,
+            t0_executed=False,
+            t1_executed=False,
+            output="VERIFY failed: missing or empty T0 verification command array",
+        )
+
+    if not t1_cmd or not isinstance(t1_cmd, list):
+        return KernelVerifyResult(
+            passed=False,
+            exit_code=1,
+            t0_executed=False,
+            t1_executed=False,
+            output="VERIFY failed: missing or empty T1 verification command array",
+        )
+
     # 1. Execute T0 exactly once
-    if t0_cmd:
-        t0_executed = True
-        res0 = run_command_array(t0_cmd, repo_root)
-        output_lines.append(f"=== T0 Output (exit={res0.returncode}) ===\n{res0.stdout}\n{res0.stderr}")
-        if res0.returncode != 0:
-            return KernelVerifyResult(
-                passed=False,
-                exit_code=res0.returncode,
-                t0_executed=True,
-                t1_executed=False,
-                output="\n".join(output_lines),
-            )
+    t0_executed = True
+    res0 = run_command_array(t0_cmd, repo_root)
+    output_lines.append(f"=== T0 Output (exit={res0.returncode}) ===\n{res0.stdout}\n{res0.stderr}")
+    if res0.returncode != 0:
+        return KernelVerifyResult(
+            passed=False,
+            exit_code=res0.returncode,
+            t0_executed=True,
+            t1_executed=False,
+            output="\n".join(output_lines),
+        )
 
     # 2. Execute T1 exactly once (only after T0 passes)
-    if t1_cmd:
-        t1_executed = True
-        res1 = run_command_array(t1_cmd, repo_root)
-        output_lines.append(f"=== T1 Output (exit={res1.returncode}) ===\n{res1.stdout}\n{res1.stderr}")
-        if res1.returncode != 0:
-            return KernelVerifyResult(
-                passed=False,
-                exit_code=res1.returncode,
-                t0_executed=t0_executed,
-                t1_executed=True,
-                output="\n".join(output_lines),
-            )
+    t1_executed = True
+    res1 = run_command_array(t1_cmd, repo_root)
+    output_lines.append(f"=== T1 Output (exit={res1.returncode}) ===\n{res1.stdout}\n{res1.stderr}")
+    if res1.returncode != 0:
+        return KernelVerifyResult(
+            passed=False,
+            exit_code=res1.returncode,
+            t0_executed=True,
+            t1_executed=True,
+            output="\n".join(output_lines),
+        )
 
     return KernelVerifyResult(
         passed=True,
         exit_code=0,
-        t0_executed=t0_executed,
-        t1_executed=t1_executed,
+        t0_executed=True,
+        t1_executed=True,
         output="\n".join(output_lines),
     )

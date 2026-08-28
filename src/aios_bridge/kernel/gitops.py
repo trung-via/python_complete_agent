@@ -79,7 +79,7 @@ def capture_publication_trust(remote: str = "origin", cwd: Optional[Path] = None
     url_res = git_cmd(["remote", "get-url", "--all", remote], cwd=cwd, check=False)
     if url_res.returncode != 0:
         raise KernelGitError(f"E4 Git observation failed: remote get-url --all {remote} (exit={url_res.returncode})")
-    
+
     url = url_res.stdout.strip()
     if not url:
         raise KernelGitError(f"E4 Git observation failed: remote {remote} URL is empty")
