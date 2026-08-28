@@ -1,0 +1,118 @@
+task_id: TASK-096
+revision: 1
+
+goal: >
+  Implement Phase 6 M2.4 as an explicit human approval boundary that converts
+  a ranked candidate into one deterministic Phase 6 M1 ingestion-queue task
+  only after an explicit human APPROVE decision.
+
+problem: >
+  Product Intelligence can now discover, score, rank, and shortlist candidates,
+  but there is no canonical bridge from an advisory RankedCandidate to the
+  existing tasks.txt ingestion queue. Without an explicit approval contract,
+  later automation could accidentally turn a score or decision band into
+  ingestion authority. M2.4 must preserve human control while making approved
+  candidates enqueueable in a deterministic, idempotent, auditable way.
+
+assumptions:
+  - RankedCandidate from Phase 6 M2.3 is the canonical ranked input.
+  - WinningProductScore and decision bands remain advisory only.
+  - Phase 6 M1 consumes one non-empty task string per tasks.txt line.
+  - The canonical deep-ingestion prompt for this bridge is derived from the
+    approved candidate URL and must be deterministic.
+  - The V1 queue is single-process and file-backed; distributed queue locking is
+    outside this milestone.
+
+scope:
+  inspect:
+    - src/product_intelligence/ranking.py
+    - src/product_intelligence/models.py
+    - src/product_intelligence/__init__.py
+    - src/agent_controller.py
+    - tests/integration/test_phase6_bootstrap.py
+    - docs/PHASE_6_BOOTSTRAP.md
+    - docs/PHASE_6_M2_PRODUCT_INTELLIGENCE.md
+    - docs/PHASE_6_M2_RANKING.md
+  modify:
+    - src/product_intelligence/approval.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_approval.py
+    - docs/PHASE_6_M2_APPROVAL.md
+
+non_goals:
+  - Build a web, desktop, or terminal UI.
+  - Auto-approve candidates based on final_score, confidence, or DecisionBand.
+  - Change scoring, normalization, ranking, or discovery semantics.
+  - Change AgentController autonomous-loop semantics.
+  - Start AgentController or execute deep ingestion from the approval bridge.
+  - Modify completed.txt.
+  - Add network, browser, LLM, Google Drive, or marketplace operations.
+  - Implement distributed queue concurrency or an external message broker.
+  - Implement TikTok discovery.
+  - Modify AIOS-renew.
+
+constraints:
+  hard:
+    - Approval authority must be explicit human input; no score, confidence, rank position, or decision band may imply APPROVE.
+    - The approval contract must support at least APPROVE and REJECT decisions.
+    - Every approval decision must require an explicit non-empty actor identifier and an explicit timezone-aware decided_at timestamp; wall-clock defaults are forbidden.
+    - An immutable approval record must preserve the exact RankedCandidate identity and WinningProductScore used at decision time.
+    - REJECT must produce zero queue mutation.
+    - Only an explicit APPROVE record may be converted into an ingestion queue task.
+    - The ingestion task string must be deterministic and derived from the approved candidate URL without LLM interpretation.
+    - The queue bridge must append at most one canonical task line for the same approved ingestion task.
+    - If the canonical task is already present in tasks.txt, enqueue must be an idempotent no-op rather than duplicate the line.
+    - If the canonical task is already present in completed.txt, enqueue must be an idempotent no-op and must not requeue completed work.
+    - The bridge may read tasks.txt and completed.txt but must never modify completed.txt.
+    - A successful append must use UTF-8 and be flushed and fsynced before reporting success.
+    - Invalid decision data, invalid ranked input, missing actor, missing/non-timezone-aware decided_at, or malformed candidate URL must fail before any queue write.
+    - Queue mutation must not start AgentController, call an executor, perform ingestion, or invoke any network/browser/LLM/Drive side effect.
+    - Existing Phase 6 M1 queue processing, M2.2 discovery, M2.1 scoring, and M2.3 ranking behavior must remain unchanged.
+    - Public Product Intelligence exports must expose the approval boundary without creating a second scoring or ranking authority.
+
+acceptance:
+  - id: AC1
+    condition: >
+      A RankedCandidate can be converted into an immutable approval record only
+      from an explicit APPROVE or REJECT decision with explicit actor and
+      timezone-aware decided_at, while preserving the exact ranked candidate and
+      score used for the decision.
+  - id: AC2
+    condition: >
+      RECOMMENDED, NEEDS_REVIEW, score thresholds, confidence, and rank position
+      remain advisory and never auto-create an APPROVE decision or queue write.
+  - id: AC3
+    condition: >
+      REJECT causes zero filesystem mutation and cannot be converted into an
+      ingestion queue task.
+  - id: AC4
+    condition: >
+      APPROVE deterministically produces the canonical Phase 6 M1 ingestion task
+      for the candidate URL and can append exactly one non-comment, non-blank
+      UTF-8 task line to tasks.txt without starting ingestion.
+  - id: AC5
+    condition: >
+      Re-enqueueing an already queued task or a task already listed in
+      completed.txt is an explicit idempotent no-op; completed.txt is never
+      modified by this bridge.
+  - id: AC6
+    condition: >
+      Successful queue append flushes and fsyncs before success is returned, and
+      invalid inputs fail before any write.
+  - id: AC7
+    condition: >
+      Approval and queue bridging perform zero network, browser, LLM, Google
+      Drive, scoring, ranking, discovery, or AgentController execution side effects.
+  - id: AC8
+    condition: >
+      Regression tests cover explicit approve/reject, advisory-score non-authority,
+      deterministic task construction, first append, queued duplicate, completed
+      duplicate, invalid actor/timestamp/URL, zero mutation on reject/error, and
+      preservation of RankedCandidate/WinningProductScore identity.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; pytest tests/product_intelligence -q'
+    - '$env:PYTHONPATH = ".;src"; pytest tests/integration/test_phase6_bootstrap.py -q'
+    - git diff --check
+    - git status --porcelain
