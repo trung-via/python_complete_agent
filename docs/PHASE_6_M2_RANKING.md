@@ -18,6 +18,7 @@ network, browser, LLM, filesystem, Drive, approval, ingestion, or queue behavior
 
 Validation completes before scoring begins. Invalid requests raise
 `CandidateRankingError`; duplicate identities are never collapsed.
+Duplicate detection is bounded and linear in the supplied candidate count.
 
 Each result is a frozen `RankedCandidate` containing the original snapshot and
 the exact `WinningProductScore` returned by

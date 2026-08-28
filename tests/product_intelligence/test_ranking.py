@@ -133,3 +133,41 @@ def test_ranked_entry_preserves_snapshot_identity_and_exact_scorer_result() -> N
     assert ranked.candidate is candidate
     assert ranked.candidate_id == candidate.candidate_id
     assert ranked.score == expected
+
+
+def test_ranking_delegates_every_evaluation_to_score_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidates = (_snapshot("candidate-b"), _snapshot("candidate-a"))
+    expected_scores = {
+        candidate.candidate_id: WinningProductScorer.score_snapshot(
+            candidate, evaluated_at=EVALUATED_AT
+        )
+        for candidate in candidates
+    }
+    calls: list[tuple[ProductCandidateSnapshot, datetime, object]] = []
+
+    def record_score_snapshot(
+        _scorer_cls: type[WinningProductScorer],
+        snapshot: ProductCandidateSnapshot,
+        evaluated_at: datetime,
+        semantic_signals: object = None,
+        policy: object = None,
+    ) -> object:
+        calls.append((snapshot, evaluated_at, policy))
+        return expected_scores[snapshot.candidate_id]
+
+    monkeypatch.setattr(
+        WinningProductScorer, "score_snapshot", classmethod(record_score_snapshot)
+    )
+
+    result = CandidateRanker.rank(candidates, evaluated_at=EVALUATED_AT)
+
+    assert calls == [
+        (candidates[0], EVALUATED_AT, None),
+        (candidates[1], EVALUATED_AT, None),
+    ]
+    assert tuple(entry.score for entry in result) == (
+        expected_scores["candidate-a"],
+        expected_scores["candidate-b"],
+    )

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, Sequence, Tuple
+from typing import Optional, Sequence, Set, Tuple
 
 from src.product_intelligence.models import ProductCandidateSnapshot, WinningProductScore
 from src.product_intelligence.policy import ScoringPolicy
@@ -83,16 +83,16 @@ class CandidateRanker:
                 )
             result_size = shortlist_size
 
-        candidate_ids = [candidate.candidate_id for candidate in candidates]
-        duplicate_ids = sorted(
-            candidate_id
-            for candidate_id in set(candidate_ids)
-            if candidate_ids.count(candidate_id) > 1
-        )
+        seen_candidate_ids: Set[str] = set()
+        duplicate_ids: Set[str] = set()
+        for candidate in candidates:
+            if candidate.candidate_id in seen_candidate_ids:
+                duplicate_ids.add(candidate.candidate_id)
+            seen_candidate_ids.add(candidate.candidate_id)
         if duplicate_ids:
             raise CandidateRankingError(
                 "duplicate candidate_id values are not allowed: "
-                + ", ".join(duplicate_ids)
+                + ", ".join(sorted(duplicate_ids))
             )
 
         ranked = tuple(
