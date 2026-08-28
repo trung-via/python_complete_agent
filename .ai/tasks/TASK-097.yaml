@@ -1,5 +1,5 @@
 task_id: TASK-097
-revision: 5
+revision: 6
 
 goal: >
   Eliminate the remaining Antigravity command-resolution ambiguity by moving the
@@ -22,8 +22,9 @@ assumptions:
   - The shared launcher .agents/skills/aios-worker/scripts/aios_worker.py and Codex
     $aios-worker path passed production certification and are not part of this fix.
   - Antigravity maps repository workflow filenames to slash-command names.
-  - A fresh command name that does not exist in legacy branches/caches provides a
-    fail-closed namespace boundary: stale environments cannot accidentally execute
+  - >
+    A fresh command name that does not exist in legacy branches/caches provides a
+    fail-closed namespace boundary; stale environments cannot accidentally execute
     old semantics under the new name.
   - TASK-098 remains pending and must not be modified or executed by this task.
 
