@@ -33,6 +33,19 @@ from src.product_intelligence.ranking import (
     RankedCandidate,
     rank_candidates,
 )
+from src.product_intelligence.approval import (
+    INGESTION_TASK_PREFIX,
+    ApprovalDecision,
+    ApprovalError,
+    ApprovalRecord,
+    EnqueueOutcome,
+    EnqueueResult,
+    build_approved_ingestion_task,
+    build_ingestion_task,
+    create_approval_record,
+    enqueue_approval,
+    enqueue_approved_candidate,
+)
 from src.product_intelligence.adapters.shopee import ShopeeDiscoveryAdapter
 from src.product_intelligence.adapters.shopee_parsing import (
     build_shopee_candidate_id,
@@ -68,6 +81,17 @@ __all__ = [
     "MAX_RANKING_CANDIDATES",
     "MIN_SHORTLIST_SIZE",
     "MAX_SHORTLIST_SIZE",
+    "INGESTION_TASK_PREFIX",
+    "ApprovalDecision",
+    "ApprovalError",
+    "ApprovalRecord",
+    "EnqueueOutcome",
+    "EnqueueResult",
+    "create_approval_record",
+    "build_ingestion_task",
+    "build_approved_ingestion_task",
+    "enqueue_approval",
+    "enqueue_approved_candidate",
     "DiscoveryRequest",
     "DiscoveryBatch",
     "ProductDiscoveryAdapter",
