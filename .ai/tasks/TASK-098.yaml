@@ -1,5 +1,5 @@
 task_id: TASK-098
-revision: 2
+revision: 3
 
 goal: >
   Add the pure deterministic TikTok discovery parsing and identity core needed
@@ -10,7 +10,7 @@ problem: >
   Product Intelligence already has Shopee parsing/identity primitives and TikTok
   deep-ingestion code, but no TikTok discovery parsing core. The first real
   Antigravity run should advance the product while remaining narrow enough to
-  certify the migrated /aios-worker -> AIOS-renew -> Antigravity path without
+  certify the migrated /aios-renew-worker -> AIOS-renew -> Antigravity path without
   conflating executor parity with a broad browser-adapter implementation.
 
 assumptions:
@@ -50,7 +50,8 @@ constraints:
   hard:
     - All new helpers must be pure and deterministic with zero filesystem,
       network, browser, queue, Drive, LLM, scorer, ranker, or wall-clock side effects.
-    - Product-ID extraction must support the stable URL forms already recognized
+    - >
+      Product-ID extraction must support the stable URL forms already recognized
       by the TikTok product-source boundary: /product/<id>, /item/<id>, and
       itemId=<id> when present.
     - Candidate identity must prefer a stable TikTok product ID when available;
