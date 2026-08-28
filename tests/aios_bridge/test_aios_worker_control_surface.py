@@ -308,6 +308,77 @@ class TestRuntimeBootstrap:
         kernel.assert_not_called()
 
 
+class TestBootstrapHostResolution:
+    def test_windows_candidates_are_in_exact_documented_order(self, tmp_path):
+        repository_python = tmp_path / "venv" / "Scripts" / "python.exe"
+        repository_python.parent.mkdir(parents=True)
+        repository_python.touch()
+        assert aw.bootstrap_host_candidates(tmp_path, platform="nt") == (
+            (str(repository_python),),
+            ("py", "-3.11"),
+            ("python3",),
+            ("python",),
+        )
+
+    def test_posix_candidates_are_in_exact_documented_order(self, tmp_path):
+        repository_python = tmp_path / "venv" / "bin" / "python"
+        repository_python.parent.mkdir(parents=True)
+        repository_python.touch()
+        assert aw.bootstrap_host_candidates(tmp_path, platform="posix") == (
+            (str(repository_python),),
+            ("python3",),
+            ("python",),
+        )
+
+    def test_bare_python_unavailable_still_selects_python3_once(self, tmp_path):
+        calls = []
+
+        def runner(command, **kwargs):
+            calls.append((tuple(command), kwargs))
+            if tuple(command[:2]) == ("py", "-3.11"):
+                raise FileNotFoundError("py unavailable")
+            if command[0] == "python3":
+                return done(command)
+            raise AssertionError("bare python must not be required after python3 succeeds")
+
+        selected = aw.resolve_bootstrap_host(
+            tmp_path,
+            platform="nt",
+            runner=runner,
+        )
+        assert selected == ("python3",)
+        assert [call[0][0] for call in calls] == ["py", "python3"]
+        assert all(call[0][-2:] == ("-c", aw.BOOTSTRAP_HOST_PROBE) for call in calls)
+
+    def test_old_repository_python_is_rejected_before_py311(self, tmp_path):
+        repository_python = tmp_path / "venv" / "Scripts" / "python.exe"
+        repository_python.parent.mkdir(parents=True)
+        repository_python.touch()
+        calls = []
+
+        def runner(command, **kwargs):
+            calls.append(tuple(command))
+            return done(command, returncode=1 if command[0] == str(repository_python) else 0)
+
+        selected = aw.resolve_bootstrap_host(tmp_path, platform="nt", runner=runner)
+        assert selected == ("py", "-3.11")
+        assert [call[:-2] for call in calls] == [
+            (str(repository_python),),
+            ("py", "-3.11"),
+        ]
+
+    def test_no_python311_candidate_fails_closed_with_exact_reason(self, tmp_path):
+        with pytest.raises(
+            aw.BootstrapError,
+            match="^BOOTSTRAP_INTERPRETER_UNAVAILABLE$",
+        ):
+            aw.resolve_bootstrap_host(
+                tmp_path,
+                platform="posix",
+                runner=lambda command, **kwargs: done(command, returncode=1),
+            )
+
+
 class TestKernelRouting:
     @pytest.mark.parametrize("task_id", ["TASK-1", "TASK-097", "TASK-1000"])
     def test_positive_canonical_task_ids_allow_padding(self, task_id):
@@ -375,7 +446,11 @@ class TestKernelRouting:
     def test_one_run_request_invokes_kernel_exactly_once(self, tmp_path, monkeypatch):
         layout = make_layout(tmp_path)
         python = tmp_path / "worker-python"
-        kernel = MagicMock(return_value=done(stdout=f"AIOS RUN PASS\nhead_sha: {HEAD_SHA}\n"))
+        kernel = MagicMock(
+            return_value=done(
+                stdout=f"AIOS RUN PASS\nbase_sha: {BASE_SHA}\nhead_sha: {HEAD_SHA}\n"
+            )
+        )
         publication = MagicMock(
             return_value=aw.PublicationResult(status="PUSHED", head_sha=HEAD_SHA)
         )
@@ -383,7 +458,6 @@ class TestKernelRouting:
         monkeypatch.setattr(aw, "runtime_layout", lambda repo: layout)
         monkeypatch.setattr(aw, "ensure_runtime", lambda value: python)
         monkeypatch.setattr(aw, "invoke_kernel", kernel)
-        monkeypatch.setattr(aw, "_git", lambda *args, **kwargs: BASE_SHA)
         monkeypatch.setattr(aw, "publish_after_pass", publication)
 
         assert aw.main(["RUN", "TASK-097", "--executor", "codex"]) == 0
@@ -405,8 +479,44 @@ class TestKernelRouting:
         )
         publication.assert_called_once_with(
             tmp_path,
-            base_sha=BASE_SHA,
+            canonical_baseline_sha=BASE_SHA,
             result_head_sha=HEAD_SHA,
+        )
+
+    def test_primary_sync_only_uses_canonical_base_and_never_samples_prehead(
+        self, tmp_path, monkeypatch
+    ):
+        layout = make_layout(tmp_path)
+        synchronized_sha = "4" * 40
+        kernel = MagicMock(
+            return_value=done(
+                stdout=(
+                    "AIOS RUN PASS\n"
+                    f"base_sha: {synchronized_sha}\n"
+                    f"head_sha: {synchronized_sha}\n"
+                )
+            )
+        )
+        publication = MagicMock(
+            return_value=aw.PublicationResult("NOT_REQUIRED", synchronized_sha)
+        )
+        monkeypatch.setattr(aw, "get_repo_root", lambda: tmp_path)
+        monkeypatch.setattr(aw, "runtime_layout", lambda repo: layout)
+        monkeypatch.setattr(aw, "ensure_runtime", lambda value: tmp_path / "worker-python")
+        monkeypatch.setattr(aw, "invoke_kernel", kernel)
+        monkeypatch.setattr(
+            aw,
+            "_git",
+            MagicMock(side_effect=AssertionError("pre-run local HEAD A must not be sampled")),
+        )
+        monkeypatch.setattr(aw, "publish_after_pass", publication)
+
+        assert aw.main(["RUN", "TASK-097", "--executor", "codex"]) == 0
+        kernel.assert_called_once()
+        publication.assert_called_once_with(
+            tmp_path,
+            canonical_baseline_sha=synchronized_sha,
+            result_head_sha=synchronized_sha,
         )
 
     def test_aios_failure_is_not_retried_or_published(self, tmp_path, monkeypatch):
@@ -417,12 +527,44 @@ class TestKernelRouting:
         monkeypatch.setattr(aw, "runtime_layout", lambda repo: layout)
         monkeypatch.setattr(aw, "ensure_runtime", lambda value: tmp_path / "python")
         monkeypatch.setattr(aw, "invoke_kernel", kernel)
-        monkeypatch.setattr(aw, "_git", lambda *args, **kwargs: BASE_SHA)
         monkeypatch.setattr(aw, "publish_after_pass", publication)
 
         assert aw.main(["RUN", "TASK-097", "--executor", "codex"]) == 7
         assert kernel.call_count == 1
         publication.assert_not_called()
+
+    def test_remediation_publication_uses_reviewed_sha_from_summary_and_lineage(
+        self, tmp_path, monkeypatch
+    ):
+        layout = make_layout(tmp_path)
+        review = tmp_path / "REVIEW-097-001.yaml"
+        remediation = tmp_path / "REMEDIATION-097-R1.yaml"
+        lineage = aw.FixLineage(review, remediation, BASE_SHA)
+        kernel = MagicMock(
+            return_value=done(
+                stdout=(
+                    "AIOS REMEDIATION PASS\n"
+                    f"reviewed_sha: {BASE_SHA}\n"
+                    f"head_sha: {HEAD_SHA}\n"
+                )
+            )
+        )
+        publication = MagicMock(
+            return_value=aw.PublicationResult("PUSHED", HEAD_SHA)
+        )
+        monkeypatch.setattr(aw, "get_repo_root", lambda: tmp_path)
+        monkeypatch.setattr(aw, "runtime_layout", lambda repo: layout)
+        monkeypatch.setattr(aw, "ensure_runtime", lambda value: tmp_path / "worker-python")
+        monkeypatch.setattr(aw, "resolve_fix_lineage", lambda *args: lineage)
+        monkeypatch.setattr(aw, "invoke_kernel", kernel)
+        monkeypatch.setattr(aw, "publish_after_pass", publication)
+
+        assert aw.main(["FIX", "TASK-097", "--executor", "codex"]) == 0
+        publication.assert_called_once_with(
+            tmp_path,
+            canonical_baseline_sha=BASE_SHA,
+            result_head_sha=HEAD_SHA,
+        )
 
     def test_status_does_not_read_head_resolve_lineage_or_publish(
         self, tmp_path, monkeypatch
@@ -459,7 +601,7 @@ class TestFixLineage:
             "097",
             runner=lambda *args, **kwargs: done(stdout=HEAD_SHA + "\n"),
         )
-        assert lineage == aw.FixLineage(review, remediation)
+        assert lineage == aw.FixLineage(review, remediation, HEAD_SHA)
 
     @pytest.mark.parametrize("missing", ["review", "remediation"])
     def test_missing_lineage_fails_closed(self, tmp_path, missing):
@@ -527,7 +669,7 @@ class TestFixLineage:
             "097",
             runner=lambda *args, **kwargs: done(stdout=HEAD_SHA + "\n"),
         )
-        assert lineage == aw.FixLineage(current, remediation, prior)
+        assert lineage == aw.FixLineage(current, remediation, HEAD_SHA, prior)
         command = aw.kernel_command(
             tmp_path / "python",
             action="FIX",
@@ -556,6 +698,74 @@ class TestFixLineage:
                 "TASK-097",
                 "097",
                 runner=lambda *args, **kwargs: done(stdout=HEAD_SHA + "\n"),
+            )
+
+
+class TestCanonicalPassSummary:
+    def test_primary_uses_exact_base_and_head(self):
+        summary = aw.canonical_pass_summary(
+            "RUN",
+            f"AIOS RUN PASS\nbase_sha: {BASE_SHA}\nhead_sha: {HEAD_SHA}\n",
+        )
+        assert summary == aw.CanonicalPassSummary("base_sha", BASE_SHA, HEAD_SHA)
+
+    def test_remediation_uses_exact_reviewed_and_head_bound_to_lineage(self):
+        summary = aw.canonical_pass_summary(
+            "FIX",
+            (
+                "AIOS REMEDIATION PASS\n"
+                f"reviewed_sha: {BASE_SHA}\n"
+                f"head_sha: {HEAD_SHA}\n"
+            ),
+            expected_baseline_sha=BASE_SHA,
+        )
+        assert summary == aw.CanonicalPassSummary(
+            "reviewed_sha", BASE_SHA, HEAD_SHA
+        )
+
+    @pytest.mark.parametrize(
+        "stdout",
+        [
+            f"AIOS RUN PASS\nhead_sha: {HEAD_SHA}\n",
+            (
+                f"AIOS RUN PASS\nbase_sha: {BASE_SHA}\n"
+                f"base_sha: {BASE_SHA}\nhead_sha: {HEAD_SHA}\n"
+            ),
+            (
+                f"AIOS RUN PASS\nbase_sha: {BASE_SHA}\n"
+                f"base_sha:not-canonical\nhead_sha: {HEAD_SHA}\n"
+            ),
+            f"AIOS RUN PASS\nbase_sha: not-a-sha\nhead_sha: {HEAD_SHA}\n",
+            (
+                f"AIOS RUN PASS\nbase_sha: {BASE_SHA}\n"
+                f"head_sha: {HEAD_SHA}\nhead_sha: {HEAD_SHA}\n"
+            ),
+            (
+                f"AIOS RUN PASS\nAIOS RUN PASS\n"
+                f"base_sha: {BASE_SHA}\nhead_sha: {HEAD_SHA}\n"
+            ),
+            (
+                f"AIOS RUN PASS\nbase_sha: {BASE_SHA}\n"
+                f"reviewed_sha: {BASE_SHA}\nhead_sha: {HEAD_SHA}\n"
+            ),
+        ],
+    )
+    def test_missing_duplicate_malformed_or_inconsistent_primary_fails_closed(
+        self, stdout
+    ):
+        with pytest.raises(aw.PublicationError):
+            aw.canonical_pass_summary("RUN", stdout)
+
+    def test_remediation_summary_must_match_resolved_lineage(self):
+        with pytest.raises(aw.PublicationError, match="canonical remediation lineage"):
+            aw.canonical_pass_summary(
+                "FIX",
+                (
+                    "AIOS REMEDIATION PASS\n"
+                    f"reviewed_sha: {BASE_SHA}\n"
+                    f"head_sha: {HEAD_SHA}\n"
+                ),
+                expected_baseline_sha="5" * 40,
             )
 
 
@@ -591,11 +801,11 @@ class TestGuardedPublication:
 
         return runner, calls
 
-    def test_advancing_pass_pushes_exact_upstream_once_without_force(self, tmp_path):
+    def test_canonical_base_b_to_head_c_pushes_exactly_once(self, tmp_path):
         runner, calls = self.publication_runner()
         result = aw.publish_after_pass(
             tmp_path,
-            base_sha=BASE_SHA,
+            canonical_baseline_sha=BASE_SHA,
             result_head_sha=HEAD_SHA,
             runner=runner,
         )
@@ -613,11 +823,11 @@ class TestGuardedPublication:
         ]
         assert all("--force" not in call and "-f" not in call for call in pushes)
 
-    def test_noop_pass_does_not_push(self, tmp_path):
+    def test_canonical_base_b_equals_head_b_issues_zero_push(self, tmp_path):
         runner, calls = self.publication_runner(head=BASE_SHA)
         result = aw.publish_after_pass(
             tmp_path,
-            base_sha=BASE_SHA,
+            canonical_baseline_sha=BASE_SHA,
             result_head_sha=BASE_SHA,
             runner=runner,
         )
@@ -629,7 +839,7 @@ class TestGuardedPublication:
         with pytest.raises(aw.PublicationError, match="dirty"):
             aw.publish_after_pass(
                 tmp_path,
-                base_sha=BASE_SHA,
+                canonical_baseline_sha=BASE_SHA,
                 result_head_sha=HEAD_SHA,
                 runner=dirty_runner,
             )
@@ -639,7 +849,7 @@ class TestGuardedPublication:
         with pytest.raises(aw.PublicationError, match="does not equal"):
             aw.publish_after_pass(
                 tmp_path,
-                base_sha=BASE_SHA,
+                canonical_baseline_sha=BASE_SHA,
                 result_head_sha=HEAD_SHA,
                 runner=mismatch_runner,
             )
@@ -650,7 +860,7 @@ class TestGuardedPublication:
         with pytest.raises(aw.PublicationError, match="normal upstream push failed"):
             aw.publish_after_pass(
                 tmp_path,
-                base_sha=BASE_SHA,
+                canonical_baseline_sha=BASE_SHA,
                 result_head_sha=HEAD_SHA,
                 runner=runner,
             )
@@ -660,11 +870,14 @@ class TestGuardedPublication:
         self, tmp_path, monkeypatch, capsys
     ):
         layout = make_layout(tmp_path)
-        kernel = MagicMock(return_value=done(stdout=f"AIOS RUN PASS\nhead_sha: {HEAD_SHA}\n"))
+        kernel = MagicMock(
+            return_value=done(
+                stdout=f"AIOS RUN PASS\nbase_sha: {BASE_SHA}\nhead_sha: {HEAD_SHA}\n"
+            )
+        )
         monkeypatch.setattr(aw, "get_repo_root", lambda: tmp_path)
         monkeypatch.setattr(aw, "runtime_layout", lambda repo: layout)
         monkeypatch.setattr(aw, "ensure_runtime", lambda value: tmp_path / "python")
-        monkeypatch.setattr(aw, "_git", lambda *args, **kwargs: BASE_SHA)
         monkeypatch.setattr(aw, "invoke_kernel", kernel)
         monkeypatch.setattr(
             aw,
@@ -705,6 +918,26 @@ class TestSurfaceAndDocumentation:
         assert "must not" in skill.lower() and "implementation" in skill.lower()
         assert "must not" in workflow.lower() and "implementation" in workflow.lower()
 
+    @pytest.mark.parametrize("surface", [SKILL_FILE, WORKFLOW_FILE])
+    def test_surfaces_resolve_bootstrap_host_without_requiring_bare_python(
+        self, surface
+    ):
+        text = surface.read_text(encoding="utf-8")
+        windows_order = [
+            "venv/Scripts/python.exe",
+            "py -3.11",
+            "python3",
+            "then `python`",
+        ]
+        positions = [text.index(token) for token in windows_order]
+        assert positions == sorted(positions)
+        assert "venv/bin/python" in text
+        assert aw.BOOTSTRAP_HOST_PROBE in text
+        assert "BOOTSTRAP_INTERPRETER_UNAVAILABLE" in text
+        assert "invoke the launcher exactly once" in text.lower()
+        assert "python .agents/skills/aios-worker/scripts/aios_worker.py" not in text
+        assert ".git/aios/worker-runtime" in text
+
     def test_surface_files_are_lf_frontmatter_without_bom(self):
         for path in (SKILL_FILE, WORKFLOW_FILE):
             raw = path.read_bytes()
@@ -719,6 +952,11 @@ class TestSurfaceAndDocumentation:
         assert "worker-bootstrap.lock" in text
         assert "PEP 610" in text
         assert "normal non-force push" in text
+        assert "bare `python`" in text
+        assert "venv/Scripts/python.exe" in text
+        assert "BOOTSTRAP_INTERPRETER_UNAVAILABLE" in text
+        assert "`base_sha`" in text and "`reviewed_sha`" in text
+        assert "never uses a\nlocal HEAD sampled before" in text
         assert "fresh or\nexplicitly reloaded" in text
         assert "TASK-096 remains pending" in text
         assert "archived" in text and "inactive" in text

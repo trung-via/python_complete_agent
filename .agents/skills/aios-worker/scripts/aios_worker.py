@@ -43,6 +43,9 @@ if not value:
     raise SystemExit(1)
 sys.stdout.write(value)
 """
+BOOTSTRAP_HOST_PROBE = (
+    "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)"
+)
 
 
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
@@ -76,7 +79,15 @@ class RuntimeLayout:
 class FixLineage:
     review: Path
     remediation: Path
+    reviewed_sha: str
     prior_review: Path | None = None
+
+
+@dataclass(frozen=True)
+class CanonicalPassSummary:
+    baseline_field: str
+    baseline_sha: str
+    head_sha: str
 
 
 @dataclass(frozen=True)
@@ -151,6 +162,54 @@ def parse_task_id(raw_task: str) -> tuple[str, str]:
             f"invalid task ID {raw_task!r}; expected canonical TASK-<positive digits>"
         )
     return raw_task, match.group(1)
+
+
+def bootstrap_host_candidates(
+    repo: Path,
+    *,
+    platform: str | None = None,
+) -> tuple[tuple[str, ...], ...]:
+    """Return the documented bootstrap-host argv candidates in fixed order."""
+
+    selected_platform = os.name if platform is None else platform
+    if selected_platform == "nt":
+        repository_python = repo / "venv" / "Scripts" / "python.exe"
+        candidates: list[tuple[str, ...]] = []
+        if repository_python.is_file():
+            candidates.append((str(repository_python),))
+        candidates.extend((("py", "-3.11"), ("python3",), ("python",)))
+        return tuple(candidates)
+
+    repository_python = repo / "venv" / "bin" / "python"
+    candidates = []
+    if repository_python.is_file():
+        candidates.append((str(repository_python),))
+    candidates.extend((("python3",), ("python",)))
+    return tuple(candidates)
+
+
+def resolve_bootstrap_host(
+    repo: Path,
+    *,
+    platform: str | None = None,
+    runner: CommandRunner = subprocess.run,
+) -> tuple[str, ...]:
+    """Select the first fixed candidate proven to be Python 3.11 or newer."""
+
+    for candidate in bootstrap_host_candidates(repo, platform=platform):
+        try:
+            completed = runner(
+                (*candidate, "-c", BOOTSTRAP_HOST_PROBE),
+                cwd=str(repo),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except OSError:
+            continue
+        if completed.returncode == 0:
+            return candidate
+    raise BootstrapError("BOOTSTRAP_INTERPRETER_UNAVAILABLE")
 
 
 def _run(
@@ -448,6 +507,7 @@ def resolve_fix_lineage(
     return FixLineage(
         review=review_path,
         remediation=remediation_matches[0],
+        reviewed_sha=reviewed_sha,
         prior_review=prior_review,
     )
 
@@ -508,25 +568,57 @@ def invoke_kernel(
     return _run(command, cwd=repo, runner=runner)
 
 
-def canonical_pass_head(action: str, stdout: str) -> str:
+def _unique_summary_sha(lines: list[str], field: str) -> str:
+    field_lines = [line for line in lines if line.startswith(f"{field}:")]
+    if len(field_lines) != 1 or not field_lines[0].startswith(f"{field}: "):
+        raise PublicationError(
+            f"AIOS PASS summary requires exactly one valid {field}"
+        )
+    value = field_lines[0].removeprefix(f"{field}: ")
+    if SHA_PATTERN.fullmatch(value) is None:
+        raise PublicationError(
+            f"AIOS PASS summary requires exactly one valid {field}"
+        )
+    return value
+
+
+def canonical_pass_summary(
+    action: str,
+    stdout: str,
+    *,
+    expected_baseline_sha: str | None = None,
+) -> CanonicalPassSummary:
+    if action not in ("RUN", "FIX"):
+        raise PublicationError(f"unsupported PASS summary action: {action}")
     banner = "AIOS RUN PASS" if action == "RUN" else "AIOS REMEDIATION PASS"
+    other_banner = "AIOS REMEDIATION PASS" if action == "RUN" else "AIOS RUN PASS"
     lines = stdout.splitlines()
-    if banner not in lines:
-        raise PublicationError("AIOS returned success without a canonical PASS summary")
-    heads = [
-        line.removeprefix("head_sha: ")
-        for line in lines
-        if line.startswith("head_sha: ")
-    ]
-    if len(heads) != 1 or SHA_PATTERN.fullmatch(heads[0]) is None:
-        raise PublicationError("AIOS PASS summary has no unique canonical head_sha")
-    return heads[0]
+    if lines.count(banner) != 1 or other_banner in lines:
+        raise PublicationError("AIOS returned no unique canonical PASS summary")
+
+    baseline_field = "base_sha" if action == "RUN" else "reviewed_sha"
+    unexpected_field = "reviewed_sha" if action == "RUN" else "base_sha"
+    if any(line.startswith(f"{unexpected_field}:") for line in lines):
+        raise PublicationError(
+            f"AIOS PASS summary contains inconsistent {unexpected_field}"
+        )
+    baseline_sha = _unique_summary_sha(lines, baseline_field)
+    head_sha = _unique_summary_sha(lines, "head_sha")
+    if expected_baseline_sha is not None and baseline_sha != expected_baseline_sha:
+        raise PublicationError(
+            f"AIOS PASS {baseline_field} does not match canonical remediation lineage"
+        )
+    return CanonicalPassSummary(
+        baseline_field=baseline_field,
+        baseline_sha=baseline_sha,
+        head_sha=head_sha,
+    )
 
 
 def publish_after_pass(
     repo: Path,
     *,
-    base_sha: str,
+    canonical_baseline_sha: str,
     result_head_sha: str,
     runner: CommandRunner = subprocess.run,
 ) -> PublicationResult:
@@ -538,7 +630,7 @@ def publish_after_pass(
         local_head = _git(repo, "rev-parse", "HEAD", runner=runner)
         if local_head != result_head_sha:
             raise PublicationError("local HEAD does not equal canonical AIOS head_sha")
-        if local_head == base_sha:
+        if local_head == canonical_baseline_sha:
             return PublicationResult(status="NOT_REQUIRED", head_sha=local_head)
 
         branch = _git(
@@ -601,6 +693,8 @@ def _parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     try:
+        if sys.version_info < (3, 11):
+            raise BootstrapError("BOOTSTRAP_INTERPRETER_UNAVAILABLE")
         args = _parser().parse_args(argv)
         task_id, task_number = parse_task_id(args.task_id)
         repo = get_repo_root()
@@ -629,18 +723,26 @@ def main(argv: Sequence[str] | None = None) -> int:
             _emit_completed(completed)
             return completed.returncode
 
-        base_sha = _git(repo, "rev-parse", "HEAD")
         completed = invoke_kernel(command, repo=repo)
         _emit_completed(completed)
         if completed.returncode != 0:
             return completed.returncode
 
-        result_head = canonical_pass_head(args.action, completed.stdout)
         try:
+            expected_baseline = (
+                lineage.reviewed_sha
+                if args.action == "FIX" and lineage is not None
+                else None
+            )
+            summary = canonical_pass_summary(
+                args.action,
+                completed.stdout,
+                expected_baseline_sha=expected_baseline,
+            )
             publication = publish_after_pass(
                 repo,
-                base_sha=base_sha,
-                result_head_sha=result_head,
+                canonical_baseline_sha=summary.baseline_sha,
+                result_head_sha=summary.head_sha,
             )
         except PublicationError as exc:
             print("AIOS_STATUS: PASS", file=sys.stderr)

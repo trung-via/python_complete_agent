@@ -52,10 +52,23 @@ other executor.
 ## 3. Dedicated Pinned Runtime and Shared State
 
 The launcher does not depend on a global `aios` executable, a preinstalled
-`aios_renew` import, the Python Agent product virtualenv, or a machine-specific
-source checkout. On first use, any Python 3.11+ bootstrap interpreter creates a
-dedicated runtime below `<git-dir>/aios/worker-runtime` and installs exactly the
-one immutable dependency in
+`aios_renew` import, a bare `python` command, or a machine-specific source
+checkout. Before dispatch, each surface probes the same fixed Python 3.11+ host
+order:
+
+- Windows: repository `venv/Scripts/python.exe` when present, `py -3.11`,
+  `python3`, `python`.
+- POSIX: repository `venv/bin/python` when present, `python3`, `python`.
+
+Each candidate receives only the fixed version probe. The first successful
+candidate starts the launcher exactly once; if none qualifies, the surface
+reports `BOOTSTRAP_INTERPRETER_UNAVAILABLE` before creating an AIOS RUN. A
+repository product virtualenv is permitted only as this bootstrap host. Its
+packages are irrelevant and AIOS-renew is never installed into or imported from
+it.
+
+On first use, the selected host creates a dedicated runtime below
+`<git-dir>/aios/worker-runtime` and installs exactly the one immutable dependency in
 `.agents/skills/aios-worker/requirements-aios-renew.txt`.
 
 Every invocation validates installed PEP 610 direct-source metadata against the
@@ -109,19 +122,27 @@ second semantic state store.
 
 ## 5. PASS Publication, Review, and Merge Boundaries
 
-After a successful RUN/FIX that advances HEAD, the launcher publishes exactly
-once with a normal non-force push of `HEAD` to the attached branch's configured
-remote+merge ref. Publication requires all of the following:
+After a successful RUN/FIX whose canonical AIOS baseline differs from canonical
+head, the launcher publishes exactly once with a normal non-force push of `HEAD`
+to the attached branch's configured remote+merge ref. The launcher never uses a
+local HEAD sampled before the kernel call as the execution baseline.
 
-1. AIOS-renew returned a canonical PASS summary.
-2. The worktree is clean.
-3. Local HEAD exactly equals the summary `head_sha`.
-4. HEAD advanced from the pre-execution SHA.
-5. The attached branch has a configured remote and `refs/heads/...` merge ref.
+For PRIMARY RUN it requires exactly one valid `base_sha` and one valid
+`head_sha` in one `AIOS RUN PASS` summary. For remediation it requires exactly
+one valid `reviewed_sha` and one valid `head_sha` in one
+`AIOS REMEDIATION PASS` summary, and `reviewed_sha` must equal the resolved local
+canonical lineage. Missing, duplicate, malformed, mixed, or inconsistent fields
+fail closed before publication. Publication additionally requires:
 
-AIOS failure causes zero push. A no-op or evidence-only PASS that does not
-advance HEAD causes zero push. Publication failure is reported separately from
-AIOS PASS, does not rerun AIOS, and does not rewrite the canonical RESULT.
+1. The worktree is clean.
+2. Local HEAD exactly equals the canonical summary `head_sha`.
+3. Canonical baseline and `head_sha` differ.
+4. The attached branch has a configured remote and `refs/heads/...` merge ref.
+
+AIOS failure causes zero push. Canonical baseline equal to `head_sha` causes zero
+push even when PRIMARY synchronization moved local HEAD before the executor ran.
+Publication failure is reported separately from AIOS PASS, does not rerun AIOS,
+and does not rewrite the canonical RESULT.
 
 ### Independent Review Loop
 

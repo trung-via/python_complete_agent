@@ -53,9 +53,10 @@ When this workflow is invoked:
 2. Treat invocation of this Antigravity workflow as explicit Human selection of executor `antigravity`.
 3. Echo the requested task ID, action, and selected executor (`antigravity`).
 4. Invoke the checked-in shared adapter script `.agents/skills/aios-worker/scripts/aios_worker.py`
-   with **`--executor antigravity`** using an available Python 3.11+ bootstrap
-   interpreter. The launcher creates and proves its separate repository-local
-   pinned runtime; do not require the product virtualenv or a global `aios` command.
+   with **`--executor antigravity`** using the deterministic Python 3.11+
+   bootstrap-host resolution contract below. Invoke the launcher exactly once
+   after probing. The launcher creates and proves its separate repository-local
+   pinned runtime; the bootstrap host is never AIOS-renew runtime authority.
 5. **DO NOT** select the Codex executor from this workflow.
 6. **DO NOT** invoke raw `codex`, `codex exec`, or `agy` directly.
 7. **DO NOT** manually reconstruct TASK, RESULT, EVIDENCE, REVIEW, or REMEDIATION semantics.
@@ -71,6 +72,29 @@ When this workflow is invoked:
     Review TASK-N in ChatGPT
     ```
 
+## Deterministic Bootstrap-Host Resolution
+
+Resolve the repository root first. Probe candidate argv in this exact order;
+probing is environment discovery and must never invoke AIOS-renew:
+
+- Windows: repository-local `venv/Scripts/python.exe` when present, then
+  `py -3.11`, then `python3`, then `python`.
+- POSIX: repository-local `venv/bin/python` when present, then `python3`, then
+  `python`.
+
+For each candidate, execute only this version probe:
+
+```text
+<candidate argv> -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)"
+```
+
+Select the first candidate returning zero, append the launcher/action arguments,
+and invoke the launcher exactly once. A missing command or nonzero probe advances
+to the next documented candidate. If none qualifies, stop before dispatch and
+report exactly `BOOTSTRAP_INTERPRETER_UNAVAILABLE`. Do not install AIOS-renew in
+the selected bootstrap host; AIOS-renew runs only from the launcher's separate
+`.git/aios/worker-runtime`.
+
 ## Command Details
 
 ### RUN TASK-N
@@ -78,7 +102,7 @@ When this workflow is invoked:
 Delegates one primary execution to AIOS-renew and publishes an advancing PASS:
 
 ```powershell
-python .agents/skills/aios-worker/scripts/aios_worker.py RUN TASK-N --executor antigravity
+<resolved bootstrap-host argv> .agents/skills/aios-worker/scripts/aios_worker.py RUN TASK-N --executor antigravity
 ```
 
 ### FIX TASK-N
@@ -87,7 +111,7 @@ Resolves one exact local canonical REVIEW/REMEDIATION lineage and delegates only
 AIOS-renew remediation semantics. Missing, ambiguous, or invalid lineage fails closed.
 
 ```powershell
-python .agents/skills/aios-worker/scripts/aios_worker.py FIX TASK-N --executor antigravity
+<resolved bootstrap-host argv> .agents/skills/aios-worker/scripts/aios_worker.py FIX TASK-N --executor antigravity
 ```
 
 ### STATUS TASK-N
@@ -96,7 +120,7 @@ Delegates to AIOS-renew task description semantics. STATUS is read-only for the
 product worktree, branch, TASK/RUN state, publication, and executor authority.
 
 ```powershell
-python .agents/skills/aios-worker/scripts/aios_worker.py STATUS TASK-N --executor antigravity
+<resolved bootstrap-host argv> .agents/skills/aios-worker/scripts/aios_worker.py STATUS TASK-N --executor antigravity
 ```
 
 STATUS may initialize the dedicated untracked worker runtime but must not invoke
