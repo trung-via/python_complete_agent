@@ -1,0 +1,167 @@
+task_id: TASK-106
+revision: 1
+
+goal: >
+  Add deterministic post-PASS GitHub review-candidate export to the current
+  repository-owned AIOS worker launcher so future successful RUN/FIX executions
+  expose their implementation HEAD and exact canonical Runtime artifacts to
+  ChatGPT without Human copy/paste, while preserving AIOS-renew authority
+  boundaries and leaving inbound REVIEW/REMEDIATION transport to TASK-104.
+
+problem: >
+  TASK-105 cannot be semantically reviewed from GitHub because the current worker
+  launcher intentionally leaves successful implementation HEAD, RUN, RESULT, and
+  EVIDENCE local. GitHub currently contains only the TASK artifact. This is not a
+  TASK-105 implementation defect; it is the missing outbound half of the review
+  transport described by TASK-104. Because TASK-104 also contains the later
+  inbound REVIEW/REMEDIATION transport and is paused until the worker kernel is
+  synchronized, the bootstrap cycle must be broken by implementing only the
+  outbound post-PASS transport first, without reviving the legacy Bridge or
+  changing Runtime/executor semantics.
+
+assumptions:
+  - Current Python Agent canonical main before this task is
+    f955d691d729be62ba2e1b01e25ed7c641dfeb23.
+  - The active worker is still pinned to AIOS-renew
+    f68ea27583ec6dcd4324e77d6b29a36a246be745 until TASK-105 is reviewed and
+    published.
+  - TASK-105 is not publication-authorized and any local RUN-105 candidate is
+    disposable/re-runnable after this transport bootstrap is published.
+  - ChatGPT remains the sole Brain and semantic Reviewer.
+  - Local .git/aios remains the authoritative Runtime state store.
+  - GitHub is transport/storage only.
+  - TASK-104 remains the owner of the full bidirectional transport contract and
+    will later add REVIEW/REMEDIATION import plus remaining transport behavior.
+
+scope:
+  inspect:
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - .ai/tasks/TASK-104.yaml
+    - .ai/tasks/TASK-105.yaml
+  modify:
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+
+non_goals:
+  - Modify AIOS-renew source, schemas, verification, adapter, remediation, or
+    publication semantics.
+  - Modify the active AIOS-renew pin; TASK-105 owns that synchronization.
+  - Modify TASK-104, TASK-105, Product Intelligence, or unrelated repository
+    surfaces.
+  - Import REVIEW or REMEDIATION from GitHub; that remains TASK-104 work.
+  - Add a permanent new Human command or second worker surface.
+  - Let Codex or Antigravity push or become transport authority.
+  - Push or merge product main.
+  - Modify, revive, call, migrate, or depend on bridge.py, src/aios_bridge, or
+    the archived legacy Bridge control plane.
+  - Add retry, reroute, fallback, polling, watcher, daemon, GitHub Actions, or a
+    second orchestration layer.
+  - Perform semantic review or infer REVIEW PASS from Runtime PASS.
+
+constraints:
+  hard:
+    - Export must be performed only by the shared repository-owned launcher after
+      one canonical AIOS RUN PASS or AIOS REMEDIATION PASS has completed.
+    - No review ref or control artifact may be exported on Runtime failure,
+      structural failure, verification failure, STATUS, or pre-PASS state.
+    - The implementation review ref must be exactly
+      refs/heads/aios/review/<RUN_ID> and must point exactly to canonical
+      ResultPackage.result.head_sha, with no metadata commit on top.
+    - Exact persisted canonical RUN JSON and exact persisted canonical
+      ResultPackage JSON must be transported without executor rewriting or
+      semantic summarization.
+    - Transport metadata must live on a separate namespaced control ref, never on
+      product main and never on the implementation review ref.
+    - Use a deterministic control ref of
+      refs/heads/aios/control/<RUN_ID> containing a small manifest plus exact
+      run.json and result.json artifacts.
+    - The manifest may contain only pointer/identity fields required to recover
+      minimum-sufficient review context: task_id, task_revision, task_ref_sha,
+      run_id, execution_kind, base_or_reviewed_sha, head_sha,
+      implementation_ref, run_artifact_path, and result_artifact_path.
+    - The manifest must not embed TASK text, ResultPackage content, executor
+      reasoning, chat history, or raw verification logs.
+    - Product HEAD and worktree cleanliness proven by AIOS-renew must remain
+      unchanged by export.
+    - Existing remote review/control refs are immutable by identity: identical
+      re-export is idempotent; any different existing target/content fails closed.
+    - No force push, rebase, automatic retry, conflict resolution, or fallback is
+      allowed.
+    - The launcher may push only the two namespaced non-publication refs required
+      for the candidate; it must never update origin/main.
+    - The same export path must serve Codex and Antigravity; no executor-specific
+      transport implementation is allowed.
+    - STATUS remains read-only and must never export or mutate remote transport
+      state.
+    - The normal RUN/FIX operator command remains single-command: after canonical
+      PASS, export happens automatically before the launcher tells the Human to
+      review in ChatGPT.
+    - The bootstrap implementation must expose one internal deterministic export
+      function callable directly for the TASK-106 self-bootstrap only; it must
+      not add a permanent user-facing EXPORT action.
+    - Because TASK-106 itself begins under the old launcher process, its own first
+      RUN cannot automatically execute code that did not exist when that process
+      started. After RUN-106 PASS, one explicit one-time bootstrap call of the
+      newly implemented internal export function is permitted solely to export
+      RUN-106 for semantic review. Future RUN/FIX operations must not need this
+      bootstrap call.
+    - Canonical verification must fail closed under the pre-TASK-036 f68 worker
+      wrapper by explicitly propagating LASTEXITCODE for native Windows commands.
+    - Verification must independently prove that the new outbound export function
+      and the aios/review + aios/control ref contract exist, so a pure no-op cannot
+      pass merely because baseline worker tests pass.
+    - Do not push from executor execution; namespaced transport push belongs to
+      the shared launcher/operator transport only after canonical PASS.
+
+acceptance:
+  - id: AC1
+    condition: >
+      A successful canonical RUN or FIX automatically invokes one shared
+      executor-neutral outbound transport step after Runtime PASS and before the
+      final review instruction.
+  - id: AC2
+    condition: >
+      The implementation review ref points exactly to canonical head_sha and the
+      separate control ref exposes exact canonical run.json and result.json plus
+      a minimum-sufficient pointer manifest without moving main.
+  - id: AC3
+    condition: >
+      Export is absent on STATUS and every non-PASS path, and product HEAD plus
+      worktree state are unchanged by successful export.
+  - id: AC4
+    condition: >
+      Re-export of the identical candidate is idempotent while any conflicting
+      existing review/control identity fails closed without force, retry, rebase,
+      fallback, or publication.
+  - id: AC5
+    condition: >
+      Codex and Antigravity use the exact same shared transport implementation;
+      executors themselves never push or receive transport metadata as semantic
+      input.
+  - id: AC6
+    condition: >
+      Focused deterministic tests cover successful export, no export before PASS,
+      STATUS no-op, idempotency, conflicting remote state, exact head binding,
+      exact canonical artifact bytes, and unchanged product HEAD/worktree.
+  - id: AC7
+    condition: >
+      An internal bootstrap-only export entry point can export an already-passed
+      local RUN such as RUN-106 without introducing a permanent Human-facing
+      command, enabling TASK-106 itself to be reviewed once and eliminating this
+      manual review-candidate gap for subsequent RUN/FIX operations.
+  - id: AC8
+    condition: >
+      No AIOS-renew pin, TASK-104/TASK-105 semantics, Product Intelligence,
+      publication authority, inbound REVIEW/REMEDIATION transport, or legacy
+      Bridge behavior is changed.
+
+verification:
+  required:
+    - 'python -c "from pathlib import Path; s=Path(''.agents/skills/aios-worker/scripts/aios_worker.py'').read_text(encoding=''utf-8''); required=(''export_review_candidate'',''aios/review/'',''aios/control/''); raise SystemExit(0 if all(x in s for x in required) else 1)"; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - '$env:PYTHONPATH = ".;src"; pytest tests/aios_bridge/test_aios_worker_control_surface.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git status --porcelain'
