@@ -1,5 +1,5 @@
 task_id: TASK-106
-revision: 1
+revision: 2
 
 goal: >
   Add deterministic post-PASS GitHub review-candidate export to the current
@@ -21,7 +21,7 @@ problem: >
 
 assumptions:
   - Current Python Agent canonical main before this task is
-    f955d691d729be62ba2e1b01e25ed7c641dfeb23.
+    f955d691d729be62ba2e1b01e25ed7c641dfeb23 plus this TASK-106 artifact.
   - The active worker is still pinned to AIOS-renew
     f68ea27583ec6dcd4324e77d6b29a36a246be745 until TASK-105 is reviewed and
     published.
@@ -68,6 +68,10 @@ constraints:
       one canonical AIOS RUN PASS or AIOS REMEDIATION PASS has completed.
     - No review ref or control artifact may be exported on Runtime failure,
       structural failure, verification failure, STATUS, or pre-PASS state.
+    - The launcher must obtain RUN identity and the exact persisted ResultPackage
+      path from the canonical PASS output produced by the kernel; it must not
+      select the newest file in .git/aios, guess a RUN ID, or scan ambiguous
+      candidates.
     - The implementation review ref must be exactly
       refs/heads/aios/review/<RUN_ID> and must point exactly to canonical
       ResultPackage.result.head_sha, with no metadata commit on top.
@@ -100,20 +104,27 @@ constraints:
     - The normal RUN/FIX operator command remains single-command: after canonical
       PASS, export happens automatically before the launcher tells the Human to
       review in ChatGPT.
-    - The bootstrap implementation must expose one internal deterministic export
-      function callable directly for the TASK-106 self-bootstrap only; it must
-      not add a permanent user-facing EXPORT action.
+    - Implement one internal function with the exact callable contract
+      export_review_candidate(repo: Path, run_id: str, *, runner=...); the
+      function must resolve and validate only that exact persisted RUN and exact
+      canonical ResultPackage, then perform the deterministic namespaced export.
+    - export_review_candidate must fail closed if RUN/result files are missing,
+      malformed, disagree on run/task/head identity, or if current product HEAD
+      does not equal canonical result.head_sha at export time.
+    - The function is internal transport API only and must not be added to
+      ALLOWED_ACTIONS or exposed as a permanent RUN/FIX/STATUS peer.
     - Because TASK-106 itself begins under the old launcher process, its own first
       RUN cannot automatically execute code that did not exist when that process
-      started. After RUN-106 PASS, one explicit one-time bootstrap call of the
-      newly implemented internal export function is permitted solely to export
-      RUN-106 for semantic review. Future RUN/FIX operations must not need this
-      bootstrap call.
+      started. After RUN-106 PASS, one explicit one-time bootstrap invocation of
+      export_review_candidate(Path.cwd(), "RUN-106-001") is permitted solely to
+      export RUN-106 for semantic review. Future RUN/FIX operations must not need
+      this bootstrap invocation.
     - Canonical verification must fail closed under the pre-TASK-036 f68 worker
       wrapper by explicitly propagating LASTEXITCODE for native Windows commands.
-    - Verification must independently prove that the new outbound export function
-      and the aios/review + aios/control ref contract exist, so a pure no-op cannot
-      pass merely because baseline worker tests pass.
+    - Verification must independently prove that export_review_candidate exists,
+      ALLOWED_ACTIONS remains exactly RUN/FIX/STATUS, and the aios/review plus
+      aios/control ref contract exists, so a pure no-op cannot pass merely because
+      baseline worker tests pass.
     - Do not push from executor execution; namespaced transport push belongs to
       the shared launcher/operator transport only after canonical PASS.
 
@@ -122,7 +133,8 @@ acceptance:
     condition: >
       A successful canonical RUN or FIX automatically invokes one shared
       executor-neutral outbound transport step after Runtime PASS and before the
-      final review instruction.
+      final review instruction, using the exact RUN identity returned by that
+      canonical invocation.
   - id: AC2
     condition: >
       The implementation review ref points exactly to canonical head_sha and the
@@ -146,13 +158,15 @@ acceptance:
     condition: >
       Focused deterministic tests cover successful export, no export before PASS,
       STATUS no-op, idempotency, conflicting remote state, exact head binding,
-      exact canonical artifact bytes, and unchanged product HEAD/worktree.
+      exact canonical artifact bytes, unchanged product HEAD/worktree, and
+      rejection of missing/ambiguous/mismatched local artifacts.
   - id: AC7
     condition: >
-      An internal bootstrap-only export entry point can export an already-passed
-      local RUN such as RUN-106 without introducing a permanent Human-facing
-      command, enabling TASK-106 itself to be reviewed once and eliminating this
-      manual review-candidate gap for subsequent RUN/FIX operations.
+      The exact internal bootstrap call
+      export_review_candidate(Path.cwd(), "RUN-106-001") can export an
+      already-passed RUN-106 without introducing a permanent Human-facing action,
+      enabling TASK-106 itself to be reviewed once and eliminating this manual
+      review-candidate gap for subsequent RUN/FIX operations.
   - id: AC8
     condition: >
       No AIOS-renew pin, TASK-104/TASK-105 semantics, Product Intelligence,
@@ -161,7 +175,7 @@ acceptance:
 
 verification:
   required:
-    - 'python -c "from pathlib import Path; s=Path(''.agents/skills/aios-worker/scripts/aios_worker.py'').read_text(encoding=''utf-8''); required=(''export_review_candidate'',''aios/review/'',''aios/control/''); raise SystemExit(0 if all(x in s for x in required) else 1)"; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'python -c "from pathlib import Path; import ast; s=Path(''.agents/skills/aios-worker/scripts/aios_worker.py'').read_text(encoding=''utf-8''); m=ast.parse(s); names={n.name for n in m.body if isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef))}; ok=''export_review_candidate'' in names and ''aios/review/'' in s and ''aios/control/'' in s and ''ALLOWED_ACTIONS = (\"FIX\", \"RUN\", \"STATUS\")'' in s; raise SystemExit(0 if ok else 1)"; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
     - '$env:PYTHONPATH = ".;src"; pytest tests/aios_bridge/test_aios_worker_control_surface.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
     - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
     - 'git status --porcelain'
