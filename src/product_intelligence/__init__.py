@@ -68,6 +68,14 @@ from src.product_intelligence.adapters.tiktok_parsing import (
     parse_tiktok_review_count,
     parse_tiktok_sold_count,
 )
+from src.product_intelligence.orchestration import (
+    DiscoveryOrchestrator,
+    OrchestrationError,
+    OrchestrationInvalidRequestError,
+    OrchestrationResult,
+    PlatformDiscoveryPlan,
+    orchestrate_discovery,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -128,4 +136,10 @@ __all__ = [
     "extract_tiktok_product_id",
     "build_tiktok_candidate_id",
     "build_tiktok_search_url",
+    "PlatformDiscoveryPlan",
+    "OrchestrationResult",
+    "DiscoveryOrchestrator",
+    "OrchestrationError",
+    "OrchestrationInvalidRequestError",
+    "orchestrate_discovery",
 ]
