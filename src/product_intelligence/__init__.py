@@ -47,6 +47,7 @@ from src.product_intelligence.approval import (
     enqueue_approved_candidate,
 )
 from src.product_intelligence.adapters.shopee import ShopeeDiscoveryAdapter
+from src.product_intelligence.adapters.tiktok import TikTokDiscoveryAdapter
 from src.product_intelligence.adapters.shopee_parsing import (
     build_shopee_candidate_id,
     build_shopee_search_url,
@@ -110,6 +111,7 @@ __all__ = [
     "DiscoveryNavigationError",
     "DiscoveryBlockedError",
     "ShopeeDiscoveryAdapter",
+    "TikTokDiscoveryAdapter",
     "parse_shopee_price",
     "parse_shopee_sold_count",
     "parse_shopee_rating",
