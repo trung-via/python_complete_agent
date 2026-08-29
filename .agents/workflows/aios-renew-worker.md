@@ -41,9 +41,10 @@ synthesize evidence, review semantics, retry, reroute, or continue coding.
    requested action, exact task ID, and `--executor antigravity`.
 5. Do not invoke an executor directly, retry, reroute, or select another executor.
 6. Do not reconstruct TASK, RESULT, EVIDENCE, REVIEW, or REMEDIATION semantics.
-7. Do not authorize or perform a branch merge. Guarded post-PASS publication is
-   owned by the shared launcher.
-8. After dispatch, stop. On successful execution and publication, report:
+7. Do not perform publication, push, or branch merge. Successful RUN/FIX leaves
+   the implementation commit local for ChatGPT semantic review. Guarded publication
+   occurs only after explicit semantic REVIEW PASS.
+8. After dispatch, stop. On successful canonical AIOS PASS, report:
 
    ```text
    Review TASK-N in ChatGPT
@@ -76,8 +77,7 @@ provides runtime authority; AIOS-renew runs only from the launcher's separate
 
 ### RUN TASK-N
 
-Delegates one primary execution to AIOS-renew and permits guarded publication
-only after canonical PASS:
+Delegates one primary execution to AIOS-renew and leaves HEAD local for semantic review:
 
 ```powershell
 <resolved bootstrap-host argv> .agents/skills/aios-worker/scripts/aios_worker.py RUN TASK-N --executor antigravity
@@ -86,7 +86,8 @@ only after canonical PASS:
 ### FIX TASK-N
 
 Resolves one exact local canonical REVIEW/REMEDIATION lineage and delegates only
-AIOS-renew remediation semantics. Missing, ambiguous, or invalid lineage fails closed:
+AIOS-renew remediation semantics. Missing, ambiguous, or invalid lineage fails closed.
+Leaves HEAD local for semantic review:
 
 ```powershell
 <resolved bootstrap-host argv> .agents/skills/aios-worker/scripts/aios_worker.py FIX TASK-N --executor antigravity

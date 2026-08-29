@@ -1,8 +1,8 @@
 # AIOS Unified Worker Workflow
 
-As of TASK-097 revision 7, the repository-owned Codex and Antigravity worker
-surfaces delegate exclusively to the AIOS-renew v0.1.3 candidate at commit
-`9255a3a38cef87976d6bcead90c2017de6f1c1bb`. Legacy AIOS Bridge source remains
+As of TASK-099 revision 1, the repository-owned Codex and Antigravity worker
+surfaces delegate exclusively to the released AIOS-renew v0.1.3 kernel at commit
+`6e2fab2cb1fc32e2002d41f3d21e4019a8844e1a`. Legacy AIOS Bridge source remains
 archived in this repository, but it is inactive and unreachable from these
 RUN/FIX/STATUS surfaces.
 
@@ -120,46 +120,31 @@ second semantic state store.
 
 ---
 
-## 5. PASS Publication, Review, and Merge Boundaries
+## 5. Review-Before-Publication and Merge Boundaries
 
-After a successful RUN/FIX whose canonical AIOS baseline differs from canonical
-head, the launcher publishes exactly once with a normal non-force push of `HEAD`
-to the attached branch's configured remote+merge ref. The launcher never uses a
-local HEAD sampled before the kernel call as the execution baseline.
-
-For PRIMARY RUN it requires exactly one valid `base_sha` and one valid
-`head_sha` in one `AIOS RUN PASS` summary. For remediation it requires exactly
-one valid `reviewed_sha` and one valid `head_sha` in one
-`AIOS REMEDIATION PASS` summary, and `reviewed_sha` must equal the resolved local
-canonical lineage. Missing, duplicate, malformed, mixed, or inconsistent fields
-fail closed before publication. Publication additionally requires:
-
-1. The worktree is clean.
-2. Local HEAD exactly equals the canonical summary `head_sha`.
-3. Canonical baseline and `head_sha` differ.
-4. The attached branch has a configured remote and `refs/heads/...` merge ref.
-
-AIOS failure causes zero push. Canonical baseline equal to `head_sha` causes zero
-push even when PRIMARY synchronization moved local HEAD before the executor ran.
-Publication failure is reported separately from AIOS PASS, does not rerun AIOS,
-and does not rewrite the canonical RESULT.
+Successful RUN/FIX executions leave the resulting implementation commit local
+at `HEAD` for independent semantic review and perform zero automatic push.
+The launcher reports `REVIEW_CANDIDATE_HEAD` and directs the operator to ChatGPT.
 
 ### Independent Review Loop
 
-After a worker finishes and the launcher publishes, the operator prompts ChatGPT:
+After canonical AIOS PASS, the operator prompts ChatGPT:
 
 ```text
 Review TASK-N
 ```
 
-ChatGPT performs an independent semantic audit and emits `REVIEW-N.md` with either `PASS` or `CHANGES_REQUIRED`.
+ChatGPT performs an independent semantic audit and emits a canonical REVIEW
+artifact with verdict `PASS` or `CHANGES_REQUIRED`.
 
-### Merge Boundary
+### Publication and Merge Boundary
 
-`MERGE` is never a worker command:
-
-- Worker executors **NEVER** merge code into `main`.
-- Workers stop immediately after publication and instruct the Human operator to review the task in ChatGPT (`Review TASK-N in ChatGPT`).
+- **Guarded Publication**: Publication occurs only after explicit semantic
+  `REVIEW PASS` through an operator-controlled action outside the worker launcher.
+- **Merge Boundary**: `MERGE` is never a worker command:
+  - Worker executors **NEVER** merge code into `main`.
+  - Worker surfaces stop immediately after canonical PASS and instruct the Human
+    operator to review the task in ChatGPT (`Review TASK-N in ChatGPT`).
 
 ---
 
@@ -167,10 +152,7 @@ ChatGPT performs an independent semantic audit and emits `REVIEW-N.md` with eith
 
 - **Antigravity**: The Human enters `/aios-renew-worker RUN TASK-N`.
 - **Codex**: The Human enters `$aios-worker RUN TASK-N`.
-- **Completion**: Successful advancing PASS includes guarded publication; no
-  routine manual Git push step remains before ChatGPT review.
-- **Recovery**: A distinct publication failure preserves the valid AIOS result
-  and repository state for explicit Human-directed recovery.
+- **Sequence**: AIOS PASS -> ChatGPT semantic review -> explicit guarded publication only after REVIEW PASS.
 
 ---
 
@@ -189,7 +171,7 @@ To ensure unambiguous discovery and reliable tool parsing across all AI environm
 ## 8. Migration Certification Boundary
 
 Repository-owned skill/workflow files may be cached by an already-open operator
-session. After the TASK-097 migration commit is present on `main`, start a fresh or
+session. After changes are present on `main`, start a fresh or
 explicitly reloaded Codex/Antigravity session before exercising the migrated
 surface.
 
@@ -199,7 +181,4 @@ branches or caches that do not expose `/aios-renew-worker` fail closed instead o
 falling back to legacy `/aios-worker` semantics.
 
 Both active worker surfaces use exactly AIOS-renew commit
-`9255a3a38cef87976d6bcead90c2017de6f1c1bb`. TASK-098 remains pending as the
-first real Antigravity production certification. It must not be executed or
-published by TASK-097 and, after TASK-097 passes semantic review, may be invoked
-only with `/aios-renew-worker RUN TASK-098`.
+`6e2fab2cb1fc32e2002d41f3d21e4019a8844e1a`.

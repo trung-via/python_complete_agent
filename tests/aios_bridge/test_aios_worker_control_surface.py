@@ -128,7 +128,7 @@ class TestImmutableRuntimePin:
         assert active == [aw.PIN_LINE]
         assert active == [
             "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
-            "9255a3a38cef87976d6bcead90c2017de6f1c1bb"
+            "6e2fab2cb1fc32e2002d41f3d21e4019a8844e1a"
         ]
 
     def test_authoritative_pep610_metadata_is_accepted(self):
@@ -138,6 +138,7 @@ class TestImmutableRuntimePin:
         ("url", "commit"),
         [
             ("https://github.com/other/AIOS-renew.git", aw.AUTHORITATIVE_COMMIT),
+            (aw.AUTHORITATIVE_REPOSITORY, "9255a3a38cef87976d6bcead90c2017de6f1c1bb"),
             (aw.AUTHORITATIVE_REPOSITORY, "4" * 40),
             (aw.AUTHORITATIVE_REPOSITORY, "3" * 40),
             ("file:///C:/AIOS-renew", aw.AUTHORITATIVE_COMMIT),
@@ -446,7 +447,9 @@ class TestKernelRouting:
         assert "--executor" not in command
         assert "push" not in command
 
-    def test_one_run_request_invokes_kernel_exactly_once(self, tmp_path, monkeypatch):
+    def test_one_run_request_invokes_kernel_exactly_once_and_leaves_head_local(
+        self, tmp_path, monkeypatch, capsys
+    ):
         layout = make_layout(tmp_path)
         python = tmp_path / "worker-python"
         kernel = MagicMock(
@@ -454,14 +457,12 @@ class TestKernelRouting:
                 stdout=f"AIOS RUN PASS\nbase_sha: {BASE_SHA}\nhead_sha: {HEAD_SHA}\n"
             )
         )
-        publication = MagicMock(
-            return_value=aw.PublicationResult(status="PUSHED", head_sha=HEAD_SHA)
-        )
+        git = MagicMock(side_effect=AssertionError("git push must not be invoked"))
         monkeypatch.setattr(aw, "get_repo_root", lambda: tmp_path)
         monkeypatch.setattr(aw, "runtime_layout", lambda repo: layout)
         monkeypatch.setattr(aw, "ensure_runtime", lambda value: python)
         monkeypatch.setattr(aw, "invoke_kernel", kernel)
-        monkeypatch.setattr(aw, "publish_after_pass", publication)
+        monkeypatch.setattr(aw, "_git", git)
 
         assert aw.main(["RUN", "TASK-097", "--executor", "codex"]) == 0
         kernel.assert_called_once_with(
@@ -480,14 +481,13 @@ class TestKernelRouting:
             ),
             repo=tmp_path,
         )
-        publication.assert_called_once_with(
-            tmp_path,
-            canonical_baseline_sha=BASE_SHA,
-            result_head_sha=HEAD_SHA,
-        )
+        git.assert_not_called()
+        captured = capsys.readouterr()
+        assert f"REVIEW_CANDIDATE_HEAD: {HEAD_SHA}" in captured.out
+        assert "NEXT: Review TASK-097 in ChatGPT" in captured.out
 
     def test_primary_sync_only_uses_canonical_base_and_never_samples_prehead(
-        self, tmp_path, monkeypatch
+        self, tmp_path, monkeypatch, capsys
     ):
         layout = make_layout(tmp_path)
         synchronized_sha = "4" * 40
@@ -500,9 +500,6 @@ class TestKernelRouting:
                 )
             )
         )
-        publication = MagicMock(
-            return_value=aw.PublicationResult("NOT_REQUIRED", synchronized_sha)
-        )
         monkeypatch.setattr(aw, "get_repo_root", lambda: tmp_path)
         monkeypatch.setattr(aw, "runtime_layout", lambda repo: layout)
         monkeypatch.setattr(aw, "ensure_runtime", lambda value: tmp_path / "worker-python")
@@ -512,32 +509,28 @@ class TestKernelRouting:
             "_git",
             MagicMock(side_effect=AssertionError("pre-run local HEAD A must not be sampled")),
         )
-        monkeypatch.setattr(aw, "publish_after_pass", publication)
 
         assert aw.main(["RUN", "TASK-097", "--executor", "codex"]) == 0
         kernel.assert_called_once()
-        publication.assert_called_once_with(
-            tmp_path,
-            canonical_baseline_sha=synchronized_sha,
-            result_head_sha=synchronized_sha,
-        )
+        captured = capsys.readouterr()
+        assert f"REVIEW_CANDIDATE_HEAD: {synchronized_sha}" in captured.out
 
-    def test_aios_failure_is_not_retried_or_published(self, tmp_path, monkeypatch):
+    def test_aios_failure_is_not_retried(self, tmp_path, monkeypatch):
         layout = make_layout(tmp_path)
         kernel = MagicMock(return_value=done(returncode=7, stderr="AIOS ERROR\n"))
-        publication = MagicMock()
+        git = MagicMock(side_effect=AssertionError("git push must not be invoked on failure"))
         monkeypatch.setattr(aw, "get_repo_root", lambda: tmp_path)
         monkeypatch.setattr(aw, "runtime_layout", lambda repo: layout)
         monkeypatch.setattr(aw, "ensure_runtime", lambda value: tmp_path / "python")
         monkeypatch.setattr(aw, "invoke_kernel", kernel)
-        monkeypatch.setattr(aw, "publish_after_pass", publication)
+        monkeypatch.setattr(aw, "_git", git)
 
         assert aw.main(["RUN", "TASK-097", "--executor", "codex"]) == 7
         assert kernel.call_count == 1
-        publication.assert_not_called()
+        git.assert_not_called()
 
-    def test_remediation_publication_uses_reviewed_sha_from_summary_and_lineage(
-        self, tmp_path, monkeypatch
+    def test_remediation_pass_reports_candidate_head_without_push(
+        self, tmp_path, monkeypatch, capsys
     ):
         layout = make_layout(tmp_path)
         review = tmp_path / "REVIEW-097-001.yaml"
@@ -552,24 +545,21 @@ class TestKernelRouting:
                 )
             )
         )
-        publication = MagicMock(
-            return_value=aw.PublicationResult("PUSHED", HEAD_SHA)
-        )
+        git = MagicMock(side_effect=AssertionError("git push must not be invoked"))
         monkeypatch.setattr(aw, "get_repo_root", lambda: tmp_path)
         monkeypatch.setattr(aw, "runtime_layout", lambda repo: layout)
         monkeypatch.setattr(aw, "ensure_runtime", lambda value: tmp_path / "worker-python")
         monkeypatch.setattr(aw, "resolve_fix_lineage", lambda *args: lineage)
         monkeypatch.setattr(aw, "invoke_kernel", kernel)
-        monkeypatch.setattr(aw, "publish_after_pass", publication)
+        monkeypatch.setattr(aw, "_git", git)
 
         assert aw.main(["FIX", "TASK-097", "--executor", "codex"]) == 0
-        publication.assert_called_once_with(
-            tmp_path,
-            canonical_baseline_sha=BASE_SHA,
-            result_head_sha=HEAD_SHA,
-        )
+        git.assert_not_called()
+        captured = capsys.readouterr()
+        assert f"REVIEW_CANDIDATE_HEAD: {HEAD_SHA}" in captured.out
+        assert "NEXT: Review TASK-097 in ChatGPT" in captured.out
 
-    def test_status_does_not_read_head_resolve_lineage_or_publish(
+    def test_status_does_not_read_head_resolve_lineage_or_push(
         self, tmp_path, monkeypatch
     ):
         layout = make_layout(tmp_path)
@@ -580,16 +570,13 @@ class TestKernelRouting:
         monkeypatch.setattr(aw, "invoke_kernel", kernel)
         git = MagicMock(side_effect=AssertionError("STATUS must not inspect Git state"))
         lineage = MagicMock(side_effect=AssertionError("STATUS must not resolve FIX"))
-        publish = MagicMock(side_effect=AssertionError("STATUS must not publish"))
         monkeypatch.setattr(aw, "_git", git)
         monkeypatch.setattr(aw, "resolve_fix_lineage", lineage)
-        monkeypatch.setattr(aw, "publish_after_pass", publish)
 
         assert aw.main(["STATUS", "TASK-097", "--executor", "codex"]) == 0
         kernel.assert_called_once()
         git.assert_not_called()
         lineage.assert_not_called()
-        publish.assert_not_called()
 
 
 class TestFixLineage:
@@ -756,11 +743,11 @@ class TestCanonicalPassSummary:
     def test_missing_duplicate_malformed_or_inconsistent_primary_fails_closed(
         self, stdout
     ):
-        with pytest.raises(aw.PublicationError):
+        with pytest.raises(aw.WorkerSurfaceError):
             aw.canonical_pass_summary("RUN", stdout)
 
     def test_remediation_summary_must_match_resolved_lineage(self):
-        with pytest.raises(aw.PublicationError, match="canonical remediation lineage"):
+        with pytest.raises(aw.WorkerSurfaceError, match="canonical remediation lineage"):
             aw.canonical_pass_summary(
                 "FIX",
                 (
@@ -772,130 +759,6 @@ class TestCanonicalPassSummary:
             )
 
 
-class TestGuardedPublication:
-    def publication_runner(self, *, push_code=0, dirty=False, head=HEAD_SHA):
-        calls = []
-
-        def runner(command, **kwargs):
-            command = tuple(command)
-            calls.append(command)
-            tail = command[3:]
-            if tail == ("status", "--porcelain"):
-                return done(command, stdout=" M dirty.py\n" if dirty else "")
-            if tail == ("rev-parse", "HEAD"):
-                return done(command, stdout=head + "\n")
-            if tail == ("symbolic-ref", "--quiet", "--short", "HEAD"):
-                return done(command, stdout="migration/aios-renew-surface\n")
-            if tail == (
-                "config",
-                "--get",
-                "branch.migration/aios-renew-surface.remote",
-            ):
-                return done(command, stdout="origin\n")
-            if tail == (
-                "config",
-                "--get",
-                "branch.migration/aios-renew-surface.merge",
-            ):
-                return done(command, stdout="refs/heads/migration/aios-renew-surface\n")
-            if tail[:2] == ("push", "origin"):
-                return done(command, returncode=push_code, stderr="push failed")
-            raise AssertionError(command)
-
-        return runner, calls
-
-    def test_canonical_base_b_to_head_c_pushes_exactly_once(self, tmp_path):
-        runner, calls = self.publication_runner()
-        result = aw.publish_after_pass(
-            tmp_path,
-            canonical_baseline_sha=BASE_SHA,
-            result_head_sha=HEAD_SHA,
-            runner=runner,
-        )
-        pushes = [call for call in calls if "push" in call]
-        assert result == aw.PublicationResult("PUSHED", HEAD_SHA)
-        assert pushes == [
-            (
-                "git",
-                "-C",
-                str(tmp_path),
-                "push",
-                "origin",
-                "HEAD:refs/heads/migration/aios-renew-surface",
-            )
-        ]
-        assert all("--force" not in call and "-f" not in call for call in pushes)
-
-    def test_canonical_base_b_equals_head_b_issues_zero_push(self, tmp_path):
-        runner, calls = self.publication_runner(head=BASE_SHA)
-        result = aw.publish_after_pass(
-            tmp_path,
-            canonical_baseline_sha=BASE_SHA,
-            result_head_sha=BASE_SHA,
-            runner=runner,
-        )
-        assert result.status == "NOT_REQUIRED"
-        assert not [call for call in calls if "push" in call]
-
-    def test_dirty_or_head_mismatch_prevents_push(self, tmp_path):
-        dirty_runner, dirty_calls = self.publication_runner(dirty=True)
-        with pytest.raises(aw.PublicationError, match="dirty"):
-            aw.publish_after_pass(
-                tmp_path,
-                canonical_baseline_sha=BASE_SHA,
-                result_head_sha=HEAD_SHA,
-                runner=dirty_runner,
-            )
-        assert not [call for call in dirty_calls if "push" in call]
-
-        mismatch_runner, mismatch_calls = self.publication_runner(head="3" * 40)
-        with pytest.raises(aw.PublicationError, match="does not equal"):
-            aw.publish_after_pass(
-                tmp_path,
-                canonical_baseline_sha=BASE_SHA,
-                result_head_sha=HEAD_SHA,
-                runner=mismatch_runner,
-            )
-        assert not [call for call in mismatch_calls if "push" in call]
-
-    def test_push_failure_is_distinct_and_not_retried(self, tmp_path):
-        runner, calls = self.publication_runner(push_code=1)
-        with pytest.raises(aw.PublicationError, match="normal upstream push failed"):
-            aw.publish_after_pass(
-                tmp_path,
-                canonical_baseline_sha=BASE_SHA,
-                result_head_sha=HEAD_SHA,
-                runner=runner,
-            )
-        assert len([call for call in calls if "push" in call]) == 1
-
-    def test_main_reports_aios_pass_and_publication_failure_separately(
-        self, tmp_path, monkeypatch, capsys
-    ):
-        layout = make_layout(tmp_path)
-        kernel = MagicMock(
-            return_value=done(
-                stdout=f"AIOS RUN PASS\nbase_sha: {BASE_SHA}\nhead_sha: {HEAD_SHA}\n"
-            )
-        )
-        monkeypatch.setattr(aw, "get_repo_root", lambda: tmp_path)
-        monkeypatch.setattr(aw, "runtime_layout", lambda repo: layout)
-        monkeypatch.setattr(aw, "ensure_runtime", lambda value: tmp_path / "python")
-        monkeypatch.setattr(aw, "invoke_kernel", kernel)
-        monkeypatch.setattr(
-            aw,
-            "publish_after_pass",
-            MagicMock(side_effect=aw.PublicationError("network unavailable")),
-        )
-
-        assert aw.main(["RUN", "TASK-097", "--executor", "codex"]) == 2
-        captured = capsys.readouterr()
-        assert "AIOS RUN PASS" in captured.out
-        assert "AIOS_STATUS: PASS" in captured.err
-        assert "PUBLICATION_STATUS: FAILED" in captured.err
-        assert kernel.call_count == 1
-
-
 class TestSurfaceAndDocumentation:
     def test_active_launcher_has_no_legacy_execution_tokens(self):
         source = SCRIPT.read_text(encoding="utf-8")
@@ -904,6 +767,7 @@ class TestSurfaceAndDocumentation:
             "bridge.py",
             "WorkerFlowCoordinator",
             "--adapter",
+            "publish_after_pass",
         ):
             assert forbidden not in source
         assert "pytest" not in source
@@ -1002,26 +866,18 @@ class TestSurfaceAndDocumentation:
         assert aw.AUTHORITATIVE_COMMIT in text
         assert "worker-bootstrap.lock" in text
         assert "PEP 610" in text
-        assert "normal non-force push" in text
         assert "bare `python`" in text
         assert "venv/Scripts/python.exe" in text
         assert "BOOTSTRAP_INTERPRETER_UNAVAILABLE" in text
-        assert "`base_sha`" in text and "`reviewed_sha`" in text
-        assert "never uses a\nlocal HEAD sampled before" in text
         assert "fresh or\nexplicitly reloaded" in text
-        assert "/aios-renew-worker RUN TASK-098" in text
         assert "/aios-worker` is permanently retired" in text
         assert "fail closed" in text
         assert "archived" in text and "inactive" in text
+        assert "Review-Before-Publication" in text
 
-    def test_product_requirements_and_task_098_are_not_modified_by_task_097(self):
-        task = (REPO_ROOT / ".ai" / "tasks" / "TASK-097.yaml").read_text(
-            encoding="utf-8"
-        )
-        assert "requirements.txt" not in task.split("modify:", 1)[1].split(
-            "non_goals:", 1
-        )[0]
+    def test_product_requirements_and_task_098_are_not_modified(self):
         task_098 = (REPO_ROOT / ".ai" / "tasks" / "TASK-098.yaml").read_bytes()
         assert hashlib.sha256(task_098).hexdigest() == (
             "8a03cf36ab90f4696efa07e7dab9181256e7622aa13669272111946c7035896f"
         )
+

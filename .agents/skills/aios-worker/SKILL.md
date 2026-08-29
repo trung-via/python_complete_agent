@@ -6,7 +6,7 @@ description: >
   (RUN TASK-N, FIX TASK-N, STATUS TASK-N) through the exact pinned AIOS-renew
   kernel with executor identity codex.
   THIS SKILL IS THE CODEX $aios-worker SURFACE ONLY.
-  It must never serve the Antigravity /aios-worker surface.
+  It must never serve the Antigravity /aios-renew-worker surface.
 ---
 
 # AIOS-renew Worker Operator Skill — Codex Surface
@@ -15,15 +15,15 @@ description: >
 **Executor identity:** `codex` — passed as `--executor codex` to the shared launcher.
 
 > This skill is the **Codex-exclusive** operator surface.
-> The Antigravity `/aios-worker` surface is `.agents/workflows/aios-worker.md` — a physically separate file.
+> The active Antigravity surface is `/aios-renew-worker` (`.agents/workflows/aios-renew-worker.md`) — a physically separate file.
+> The historical Antigravity `/aios-worker` namespace is permanently retired and fail-closed.
 > Neither surface may infer, reroute, or substitute the other executor.
-> This skill must **never** serve the Antigravity `/aios-worker` slash command.
 
 ## Locked Identity Contract
 
 ```text
-$aios-worker  -> Codex skill          -> executor codex       -> AIOS-renew
-/aios-worker  -> Antigravity workflow -> executor antigravity -> AIOS-renew
+$aios-worker        -> Codex skill          -> executor codex       -> AIOS-renew
+/aios-renew-worker  -> Antigravity workflow -> executor antigravity -> AIOS-renew
 ```
 
 Cross-surface identity confusion is **forbidden**. This skill must never select
@@ -63,12 +63,13 @@ When this skill is invoked:
 7. **DO NOT** manually reconstruct TASK, RESULT, EVIDENCE, REVIEW, or REMEDIATION semantics.
 8. **DO NOT** invoke raw `codex` or `codex exec` directly.
 9. **DO NOT** perform automatic retries or executor rerouting upon failure.
-10. **DO NOT** authorize or perform branch merge. Publication is the launcher's
-    guarded normal push to the already-configured upstream after AIOS-renew PASS.
-11. **DO NOT** delegate or reroute to the Antigravity `/aios-worker` workflow.
+10. **DO NOT** perform publication, push, or branch merge. Successful RUN/FIX leaves
+    the advancing implementation commit local for ChatGPT semantic review.
+    Guarded publication occurs only after explicit semantic REVIEW PASS.
+11. **DO NOT** delegate or reroute to the Antigravity `/aios-renew-worker` workflow.
 12. Reload or start a fresh Codex session after the migration commit so this
     repository-owned skill is not served from a stale cache.
-13. On successful execution and publication, instruct the Human:
+13. On successful canonical AIOS PASS, instruct the Human:
     ```text
     Review TASK-N in ChatGPT
     ```
@@ -100,7 +101,7 @@ the selected bootstrap host; AIOS-renew runs only from the launcher's separate
 
 ### RUN TASK-N
 
-Delegates one primary execution to AIOS-renew and publishes an advancing PASS:
+Delegates one primary execution to AIOS-renew and leaves HEAD local for semantic review:
 
 ```powershell
 <resolved bootstrap-host argv> .agents/skills/aios-worker/scripts/aios_worker.py RUN TASK-N --executor codex
@@ -110,6 +111,7 @@ Delegates one primary execution to AIOS-renew and publishes an advancing PASS:
 
 Resolves one exact local canonical REVIEW/REMEDIATION lineage and delegates only
 AIOS-renew remediation semantics. Missing, ambiguous, or invalid lineage fails closed.
+Leaves HEAD local for semantic review:
 
 ```powershell
 <resolved bootstrap-host argv> .agents/skills/aios-worker/scripts/aios_worker.py FIX TASK-N --executor codex

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Repository-owned launcher for the frozen AIOS-renew worker kernel.
 
-This file owns environment bootstrap and guarded post-PASS publication only.
+This file owns environment bootstrap and operator protocol translation only.
 TASK, RUN, RESULT, EVIDENCE, review, remediation, and executor semantics remain
 inside the pinned AIOS-renew distribution.
 """
@@ -19,7 +19,7 @@ import sys
 from typing import BinaryIO, Callable, Sequence
 
 
-AUTHORITATIVE_COMMIT = "9255a3a38cef87976d6bcead90c2017de6f1c1bb"
+AUTHORITATIVE_COMMIT = "6e2fab2cb1fc32e2002d41f3d21e4019a8844e1a"
 AUTHORITATIVE_REPOSITORY = "https://github.com/trung-via/AIOS-renew.git"
 PIN_LINE = (
     "aios-renew @ git+"
@@ -29,7 +29,6 @@ TASK_PATTERN = re.compile(r"^TASK-([0-9]+)\Z")
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}\Z")
 ALLOWED_ACTIONS = ("FIX", "RUN", "STATUS")
 ALLOWED_EXECUTORS = ("antigravity", "codex")
-PUBLICATION_FAILURE = 2
 PROVENANCE_PROGRAM = """\
 import importlib.metadata
 import sys
@@ -63,10 +62,6 @@ class LineageError(WorkerSurfaceError):
     """A unique canonical remediation lineage could not be resolved."""
 
 
-class PublicationError(WorkerSurfaceError):
-    """Canonical AIOS execution passed but guarded publication failed."""
-
-
 @dataclass(frozen=True)
 class RuntimeLayout:
     state_root: Path
@@ -87,12 +82,6 @@ class FixLineage:
 class CanonicalPassSummary:
     baseline_field: str
     baseline_sha: str
-    head_sha: str
-
-
-@dataclass(frozen=True)
-class PublicationResult:
-    status: str
     head_sha: str
 
 
@@ -571,12 +560,12 @@ def invoke_kernel(
 def _unique_summary_sha(lines: list[str], field: str) -> str:
     field_lines = [line for line in lines if line.startswith(f"{field}:")]
     if len(field_lines) != 1 or not field_lines[0].startswith(f"{field}: "):
-        raise PublicationError(
+        raise WorkerSurfaceError(
             f"AIOS PASS summary requires exactly one valid {field}"
         )
     value = field_lines[0].removeprefix(f"{field}: ")
     if SHA_PATTERN.fullmatch(value) is None:
-        raise PublicationError(
+        raise WorkerSurfaceError(
             f"AIOS PASS summary requires exactly one valid {field}"
         )
     return value
@@ -589,23 +578,23 @@ def canonical_pass_summary(
     expected_baseline_sha: str | None = None,
 ) -> CanonicalPassSummary:
     if action not in ("RUN", "FIX"):
-        raise PublicationError(f"unsupported PASS summary action: {action}")
+        raise WorkerSurfaceError(f"unsupported PASS summary action: {action}")
     banner = "AIOS RUN PASS" if action == "RUN" else "AIOS REMEDIATION PASS"
     other_banner = "AIOS REMEDIATION PASS" if action == "RUN" else "AIOS RUN PASS"
     lines = stdout.splitlines()
     if lines.count(banner) != 1 or other_banner in lines:
-        raise PublicationError("AIOS returned no unique canonical PASS summary")
+        raise WorkerSurfaceError("AIOS returned no unique canonical PASS summary")
 
     baseline_field = "base_sha" if action == "RUN" else "reviewed_sha"
     unexpected_field = "reviewed_sha" if action == "RUN" else "base_sha"
     if any(line.startswith(f"{unexpected_field}:") for line in lines):
-        raise PublicationError(
+        raise WorkerSurfaceError(
             f"AIOS PASS summary contains inconsistent {unexpected_field}"
         )
     baseline_sha = _unique_summary_sha(lines, baseline_field)
     head_sha = _unique_summary_sha(lines, "head_sha")
     if expected_baseline_sha is not None and baseline_sha != expected_baseline_sha:
-        raise PublicationError(
+        raise WorkerSurfaceError(
             f"AIOS PASS {baseline_field} does not match canonical remediation lineage"
         )
     return CanonicalPassSummary(
@@ -613,63 +602,6 @@ def canonical_pass_summary(
         baseline_sha=baseline_sha,
         head_sha=head_sha,
     )
-
-
-def publish_after_pass(
-    repo: Path,
-    *,
-    canonical_baseline_sha: str,
-    result_head_sha: str,
-    runner: CommandRunner = subprocess.run,
-) -> PublicationResult:
-    """Perform the sole permitted normal push after validating PASS state."""
-
-    try:
-        if _git(repo, "status", "--porcelain", runner=runner):
-            raise PublicationError("worktree is dirty after AIOS PASS")
-        local_head = _git(repo, "rev-parse", "HEAD", runner=runner)
-        if local_head != result_head_sha:
-            raise PublicationError("local HEAD does not equal canonical AIOS head_sha")
-        if local_head == canonical_baseline_sha:
-            return PublicationResult(status="NOT_REQUIRED", head_sha=local_head)
-
-        branch = _git(
-            repo,
-            "symbolic-ref",
-            "--quiet",
-            "--short",
-            "HEAD",
-            runner=runner,
-        )
-        remote = _git(
-            repo,
-            "config",
-            "--get",
-            f"branch.{branch}.remote",
-            runner=runner,
-        )
-        merge_ref = _git(
-            repo,
-            "config",
-            "--get",
-            f"branch.{branch}.merge",
-            runner=runner,
-        )
-        if not remote or not merge_ref.startswith("refs/heads/"):
-            raise PublicationError("attached branch has no valid remote+merge upstream")
-
-        pushed = _run(
-            ("git", "-C", str(repo), "push", remote, f"HEAD:{merge_ref}"),
-            runner=runner,
-        )
-        if pushed.returncode != 0:
-            detail = pushed.stderr.strip() or pushed.stdout.strip()
-            raise PublicationError(f"normal upstream push failed: {detail}")
-        return PublicationResult(status="PUSHED", head_sha=local_head)
-    except PublicationError:
-        raise
-    except WorkerSurfaceError as exc:
-        raise PublicationError(str(exc)) from exc
 
 
 def _emit_completed(completed: subprocess.CompletedProcess[str]) -> None:
@@ -728,30 +660,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         if completed.returncode != 0:
             return completed.returncode
 
-        try:
-            expected_baseline = (
-                lineage.reviewed_sha
-                if args.action == "FIX" and lineage is not None
-                else None
-            )
-            summary = canonical_pass_summary(
-                args.action,
-                completed.stdout,
-                expected_baseline_sha=expected_baseline,
-            )
-            publication = publish_after_pass(
-                repo,
-                canonical_baseline_sha=summary.baseline_sha,
-                result_head_sha=summary.head_sha,
-            )
-        except PublicationError as exc:
-            print("AIOS_STATUS: PASS", file=sys.stderr)
-            print("PUBLICATION_STATUS: FAILED", file=sys.stderr)
-            print(f"PUBLICATION_ERROR: {exc}", file=sys.stderr)
-            return PUBLICATION_FAILURE
+        expected_baseline = (
+            lineage.reviewed_sha
+            if args.action == "FIX" and lineage is not None
+            else None
+        )
+        summary = canonical_pass_summary(
+            args.action,
+            completed.stdout,
+            expected_baseline_sha=expected_baseline,
+        )
 
-        print(f"PUBLICATION_STATUS: {publication.status}")
-        print(f"PUBLISHED_HEAD: {publication.head_sha}")
+        print(f"REVIEW_CANDIDATE_HEAD: {summary.head_sha}")
         print(f"NEXT: Review {task_id} in ChatGPT")
         return 0
     except SystemExit as exc:
