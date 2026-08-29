@@ -1,0 +1,173 @@
+task_id: TASK-103
+revision: 1
+
+goal: >
+  Add the first platform-neutral Product Intelligence vertical slice that
+  composes multiple existing discovery adapters into one bounded deterministic
+  candidate set and delegates that set to the existing CandidateRanker to
+  produce an immutable cross-platform shortlist.
+
+problem: >
+  Shopee and TikTok browser-backed discovery adapters now exist, and deterministic
+  scoring/ranking plus explicit human approval already exist as separate
+  Product Intelligence cores. However there is no canonical composition layer
+  joining multiple marketplace discovery results to ranking. Without that
+  boundary, M2 components are individually correct but there is no auditable
+  cross-platform discovery-to-shortlist flow.
+
+assumptions:
+  - Current canonical repository baseline is
+    31d0478e130f8c8eafc18653f4e11e69c00b1e1a.
+  - ShopeeDiscoveryAdapter and TikTokDiscoveryAdapter already implement
+    ProductDiscoveryAdapter.
+  - DiscoveryBatch and ProductCandidateSnapshot remain the canonical discovery
+    outputs.
+  - CandidateRanker and rank_candidates remain the only ranking authority.
+  - WinningProductScorer remains the only scoring authority.
+  - Human approval remains a separate explicit boundary.
+  - Cross-marketplace entity resolution belongs to M3 and is not part of this task.
+
+scope:
+  inspect:
+    - src/product_intelligence/discovery.py
+    - src/product_intelligence/ranking.py
+    - src/product_intelligence/scoring.py
+    - src/product_intelligence/policy.py
+    - src/product_intelligence/approval.py
+    - src/product_intelligence/adapters/shopee.py
+    - src/product_intelligence/adapters/tiktok.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_ranking.py
+    - tests/product_intelligence/test_shopee_discovery.py
+    - tests/product_intelligence/test_tiktok_discovery.py
+    - docs/PHASE_6_M2_PRODUCT_INTELLIGENCE.md
+    - docs/PHASE_6_M2_RANKING.md
+    - docs/PHASE_6_M2_APPROVAL.md
+
+  modify:
+    - src/product_intelligence/orchestration.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_orchestration.py
+    - docs/PHASE_6_M2_VERTICAL_SLICE.md
+
+non_goals:
+  - Change Shopee or TikTok extraction or parsing behavior.
+  - Change ProductCandidateSnapshot or DiscoveryBatch.
+  - Change normalization, scoring formulas, scoring weights, confidence, or
+    ranking order.
+  - Perform cross-platform product or entity resolution.
+  - Deduplicate Shopee and TikTok listings merely because titles, brands, or
+    models appear similar.
+  - Auto-approve or reject candidates.
+  - Write to tasks.txt or completed.txt.
+  - Start AgentController or deep ingestion.
+  - Download media or upload to Google Drive.
+  - Invoke an LLM.
+  - Add a UI.
+  - Modify AIOS-renew or worker control-plane files.
+
+constraints:
+  hard:
+    - The orchestration layer must use injected ProductDiscoveryAdapter
+      dependencies only and must not create another browser lifecycle authority.
+    - Multiple platform discovery plans must execute in explicit deterministic
+      caller-supplied order.
+    - Every plan must use an existing DiscoveryRequest.
+    - The aggregate declared candidate budget across plans must not exceed the
+      existing CandidateRanker maximum of 100 candidates.
+    - All plans in one cross-platform run must represent the same normalized
+      search query.
+    - Platform identifiers in plans must be unique.
+    - A returned DiscoveryBatch platform must match the platform declared for
+      its plan.
+    - Candidate platform identity must remain intact.
+    - Candidate IDs must never be silently collapsed across batches.
+    - Duplicate candidate_id values in the aggregate must fail closed before
+      ranking.
+    - Cross-platform physical-product equivalence must not be inferred.
+    - observed_at and evaluated_at must be explicit timezone-aware timestamps;
+      no wall-clock defaults.
+    - Discovery errors raised by an adapter must not be silently converted into
+      success or an empty batch.
+    - A valid partial DiscoveryBatch produced by an adapter may remain a valid
+      input to ranking with its diagnostics preserved.
+    - If all valid discovery batches contain zero candidates, orchestration must
+      return a deterministic empty shortlist without fabricating candidates or
+      invoking ranking on an invalid zero-candidate input.
+    - When candidates exist, orchestration must delegate ranking unchanged to
+      CandidateRanker or rank_candidates.
+    - shortlist_size must retain the existing ranking contract and bounds.
+    - The immutable orchestration result must preserve the original
+      DiscoveryBatch objects and the RankedCandidate results used for the
+      shortlist.
+    - The orchestration layer must perform zero approval, queue, ingestion,
+      Drive, LLM, or external side effects.
+    - Do not push from executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      A deterministic platform-neutral orchestration contract can accept an
+      ordered set of injected discovery plans and produce one immutable result
+      containing the exact per-platform DiscoveryBatch values and one ranked
+      shortlist.
+
+  - id: AC2
+    condition: >
+      A Shopee fake adapter and TikTok fake adapter can participate in the same
+      run using the same normalized query while preserving each platform's
+      candidate identity and discovery diagnostics.
+
+  - id: AC3
+    condition: >
+      Aggregate candidate budgeting is validated before browser or discovery
+      work; declared per-platform max_candidates values whose total exceeds 100
+      fail explicitly.
+
+  - id: AC4
+    condition: >
+      Duplicate platform plans, mismatched returned batch platform, mismatched
+      query, duplicate aggregate candidate_id, invalid timestamps, and invalid
+      shortlist bounds fail deterministically rather than being silently
+      repaired.
+
+  - id: AC5
+    condition: >
+      When candidates exist, the orchestration layer delegates ranking to the
+      existing CandidateRanker or rank_candidates authority without duplicating,
+      modifying, or bypassing scoring or ranking semantics.
+
+  - id: AC6
+    condition: >
+      A true-empty result from all participating platforms produces a
+      deterministic empty shortlist while preserving the original empty
+      DiscoveryBatch diagnostics and without calling the ranker with zero
+      candidates.
+
+  - id: AC7
+    condition: >
+      Adapter-raised DiscoveryError, DiscoveryBlockedError, or
+      DiscoveryNavigationError remains fail-closed and is not masked as a valid
+      empty or partial cross-platform result.
+
+  - id: AC8
+    condition: >
+      Cross-platform listings are not entity-resolved or semantically merged;
+      physical-product equivalence remains explicitly deferred to M3.
+
+  - id: AC9
+    condition: >
+      Tests use deterministic fake discovery adapters and prove zero live
+      network, browser creation, LLM, approval, queue, ingestion, or Drive side
+      effects from the orchestration layer.
+
+  - id: AC10
+    condition: >
+      Product Intelligence regression verification passes and the new
+      documentation records the complete M2 discovery-to-shortlist boundary.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; pytest tests/product_intelligence -q'
+    - 'git diff --check'
+    - 'git status --porcelain'
