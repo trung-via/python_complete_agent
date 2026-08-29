@@ -87,7 +87,8 @@ constraints:
     - Use a deterministic control ref of
       refs/heads/aios/control/<RUN_ID> containing a small manifest plus exact
       run.json and result.json artifacts.
-    - The manifest may contain only pointer/identity fields required to recover
+    - >
+      The manifest may contain only pointer/identity fields required to recover
       minimum-sufficient review context: task_id, task_revision, task_ref_sha,
       run_id, execution_kind, base_or_reviewed_sha, head_sha,
       implementation_ref, run_artifact_path, and result_artifact_path.
@@ -101,7 +102,8 @@ constraints:
       reasoning, chat history, or raw verification logs.
     - Product HEAD and worktree cleanliness proven by AIOS-renew must remain
       unchanged by export.
-    - Existing remote review/control refs are immutable by identity: identical
+    - >
+      Existing remote review/control refs are immutable by identity: identical
       re-export is idempotent; any different existing target/content fails closed.
     - Publication of the implementation review ref and its matching control ref
       must be atomic. The launcher must use one atomic remote ref update, such as
@@ -119,10 +121,12 @@ constraints:
       transport implementation is allowed.
     - STATUS remains read-only and must never export or mutate remote transport
       state.
-    - The normal RUN/FIX operator command remains single-command: after canonical
+    - >
+      The normal RUN/FIX operator command remains single-command: after canonical
       PASS, export happens automatically before the launcher tells the Human to
       review in ChatGPT.
-    - Implement one internal function with the exact callable contract
+    - >
+      Implement one internal function with the exact callable contract
       export_review_candidate(repo: Path, run_id: str, *, runner=...); the
       function must resolve and validate only that exact persisted RUN and exact
       canonical ResultPackage, then perform the deterministic namespaced export.
