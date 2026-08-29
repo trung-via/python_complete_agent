@@ -1,0 +1,175 @@
+task_id: TASK-104
+revision: 1
+
+goal: >
+  Replace the manual Human copy/paste transport used around AIOS-renew review
+  handoff with a deterministic GitHub transport for canonical post-RUN/FIX review
+  candidates and canonical REVIEW/REMEDIATION import, while preserving the
+  frozen AIOS-renew kernel, existing RUN/FIX semantics, executor neutrality,
+  narrow remediation, and review-before-publication authority boundaries.
+
+problem: >
+  The current worker already receives canonical TASKs through repository sync and
+  delegates RUN/FIX to the pinned AIOS-renew kernel, but after a successful RUN or
+  FIX the implementation HEAD and canonical Runtime RESULT/EVIDENCE remain local.
+  ChatGPT therefore cannot perform the required semantic review without Human
+  copy/paste or uploaded text. In the opposite direction, ChatGPT-authored REVIEW
+  and REMEDIATION artifacts also require manual materialization into local
+  .git/aios state before FIX. This makes the Human act as a transport bus even
+  though the semantic authorities and deterministic kernel behavior are already
+  correct.
+
+assumptions:
+  - Current canonical repository baseline is e8fe3d9c999325d84bcbd206ecc7395ccfa80d78.
+  - The worker runtime remains pinned to AIOS-renew commit f68ea27583ec6dcd4324e77d6b29a36a246be745.
+  - Canonical TASK input remains .ai/tasks/TASK-N.yaml on the product repository main branch and PRIMARY RUN keeps the existing upstream synchronization behavior.
+  - ChatGPT remains the sole Brain and semantic Reviewer; GitHub is transport/storage only.
+  - Codex and Antigravity continue to receive one shared semantic TASK or narrow REMEDIATION through the existing AIOS-renew adapters.
+  - Local .git/aios remains the authoritative Runtime state store; GitHub transport artifacts are remote mirrors or references, not a second Runtime authority.
+  - Repository Git authentication already permits the existing operator environment to fetch and push explicitly namespaced non-publication refs.
+  - Publication to main remains a separate Human-controlled concern and is not part of this task.
+
+scope:
+  inspect:
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+
+  modify:
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+
+non_goals:
+  - Modify the AIOS-renew package, frozen kernel, pinned kernel commit, canonical TASK/RUN/RESULT/EVIDENCE/REVIEW/REMEDIATION schemas, or Runtime verification semantics.
+  - Modify, revive, call, migrate, or depend on the legacy AIOS Bridge, bridge.py, src/aios_bridge, or archived Bridge control plane.
+  - Let Codex or Antigravity directly read GitHub control artifacts as implementation instructions.
+  - Let Codex or Antigravity push, publish, merge, force-update remote refs, or become transport authority.
+  - Add a planner, reviewer, verifier agent, router, watcher, daemon, polling loop, message broker, GitHub Actions workflow, retry, reroute, fallback, or autonomous recovery path.
+  - Add automatic semantic review or infer PASS from Runtime verification success.
+  - Add guarded publication or move origin/main after implementation review.
+  - Copy chat history, executor reasoning, full repository context, or raw console output into executor prompts.
+  - Require ChatGPT to duplicate the canonical TASK, RESULT, or EVIDENCE content inside REVIEW or REMEDIATION artifacts.
+
+constraints:
+  hard:
+    - GitHub must act only as deterministic transport between existing authorities; it must not become a second orchestrator, semantic reviewer, executor, or Runtime state authority.
+    - The PRIMARY Brain-to-AIOS input contract remains the existing canonical TASK schema only. Transport metadata, executor identity, RUN identity, execution SHA, review refs, and implementation plans must not be added to TASK.
+    - The same canonical TASK and the same transport behavior must serve both Codex and Antigravity through the shared worker launcher; no executor-specific GitHub handoff implementation is allowed.
+    - Existing AIOS-renew adapter behavior must remain authoritative for executor input. PRIMARY executor context must continue excluding canonical verification commands, and FIX executor context must continue excluding affected-verification commands.
+    - GitHub control or review transport data must never be appended wholesale to executor context. The executor receives only the existing kernel-generated TASK/RUN or narrow RemediationExecution semantic input.
+    - Review transport may begin only after one successful canonical AIOS RUN PASS or AIOS REMEDIATION PASS. No implementation ref, review candidate, RESULT, EVIDENCE, or raw verification output may be exported before Runtime has completed its canonical post-execution gates and verification.
+    - The remote implementation review ref for a candidate must point exactly to the canonical RESULT.head_sha. It must not add a metadata commit on top of that implementation HEAD.
+    - Implementation review refs must use an explicitly namespaced non-publication ref such as aios/review/RUN-NNN-NNN and must never update, merge, or force-update main.
+    - Each RUN/FIX review candidate must be immutable by identity: re-export of the same run and same bytes/SHA may be idempotent, but an existing candidate/ref with different content or head must fail closed.
+    - Review transport must preserve exact canonical Runtime artifacts instead of asking the executor to rewrite or summarize them. At minimum the exact persisted RUN record and exact persisted canonical ResultPackage must be remotely addressable for each candidate.
+    - The review candidate manifest must remain a small deterministic pointer envelope, not a second semantic artifact. It may identify task_id, task_revision, immutable task_ref_sha, run_id, execution kind, base/reviewed SHA, head_sha, implementation review ref, canonical RUN artifact ref, canonical ResultPackage ref, and separately addressable raw-evidence refs, but must not duplicate the canonical TASK or canonical ResultPackage bodies.
+    - ChatGPT PRIMARY review context must be recoverable from GitHub as minimum sufficient context: immutable TASK at the execution-bound ref, canonical RUN, canonical ResultPackage with compact EVIDENCE summaries, and the actual base/reviewed-SHA to head-SHA implementation delta. Full repository scans and raw evidence loading are not default review inputs.
+    - Canonical raw verification outputs may be transported as separately addressable immutable artifacts so ChatGPT can escalate when compact evidence is insufficient, but raw output must not be embedded in the review manifest or preloaded into normal review context.
+    - Raw verification transport must preserve content identity and must not be semantically summarized, filtered, or rewritten by Codex or Antigravity.
+    - ChatGPT semantic review remains the only source of REVIEW verdicts and findings. Runtime PASS must never be treated as semantic REVIEW PASS.
+    - For a PASS semantic review, ChatGPT materializes only the canonical REVIEW artifact. For CHANGES_REQUIRED, ChatGPT may record multiple findings in REVIEW but exactly one active REMEDIATION for the current reviewed HEAD may be materialized for FIX at a time.
+    - REVIEW and REMEDIATION remote artifacts must live only in the namespaced GitHub control transport, never on product main and never as commits on top of the implementation review ref.
+    - Before FIX invokes the pinned kernel, the shared worker launcher must deterministically fetch/import the exact remote canonical REVIEW plus the one active REMEDIATION matching current HEAD into local .git/aios/reviews and .git/aios/remediations without modifying the product worktree.
+    - REVIEW/REMEDIATION import must fail closed on missing, ambiguous, malformed, conflicting, or SHA-mismatched lineage and must not silently overwrite a different local artifact with the same canonical identity.
+    - Existing local resolve_fix_lineage and pinned-kernel validate_review/validate_remediation behavior remain authoritative after import; the transport layer must not reinterpret or weaken lineage validation.
+    - DELTA review continuity must remain unchanged. After one FIX, only that finding, its REMEDIATION, the reviewed_sha-to-head_sha delta, the new canonical RESULT, and affected canonical EVIDENCE are default review inputs; unaffected prior review conclusions are reused unless the remediation invalidates them.
+    - The transport layer must not rerun PRIMARY execution, repeat unaffected verification, perform semantic review, or create a hidden second task during FIX.
+    - STATUS remains non-authorizing and must not invoke an executor, export a review candidate, import FIX lineage, mutate product Git state, or become a transport synchronization command.
+    - Deterministic GitHub transport operations may push only the explicitly namespaced review/control refs required by this contract. This transport permission belongs to the shared operator launcher after canonical PASS, not to the selected executor and not to the visible Codex/Antigravity implementation session.
+    - Transport updates to a shared control ref must be fast-forward/idempotent and fail closed on conflicting concurrent remote state; no automatic retry, force-push, rebase, or conflict resolution is allowed.
+    - Product worktree HEAD and cleanliness proven by AIOS-renew must remain unchanged by review export and REVIEW/REMEDIATION import.
+    - No new semantic data should be sent merely because GitHub transport exists. GitHub replaces Human copy/paste transport; it must not increase the semantic context received by Brain, Executor, Runtime, or Reviewer.
+
+acceptance:
+  - id: AC1
+    condition: >
+      PRIMARY RUN input remains one canonical executor-neutral TASK from
+      .ai/tasks with no transport metadata or executor identity added, and the
+      existing pinned AIOS-renew Runtime remains the sole creator of RUN
+      identity, execution SHA binding, and executor-facing input.
+
+  - id: AC2
+    condition: >
+      After successful canonical RUN PASS and REMEDIATION PASS, the shared
+      launcher can deterministically expose an immutable GitHub review candidate
+      whose implementation ref points exactly to canonical RESULT.head_sha and
+      whose remote transport includes the exact canonical RUN and ResultPackage
+      artifacts without moving product main.
+
+  - id: AC3
+    condition: >
+      The review candidate manifest is minimum-sufficient pointer metadata rather
+      than duplicated semantic content, binds the immutable TASK execution ref,
+      RUN identity, base/reviewed SHA, head SHA, implementation ref, canonical RUN
+      artifact, and canonical ResultPackage artifact, and does not embed TASK,
+      ResultPackage, executor reasoning, or raw verification logs.
+
+  - id: AC4
+    condition: >
+      Canonical raw verification outputs are separately addressable for optional
+      Reviewer escalation without being preloaded into normal PRIMARY or DELTA
+      review context, and their transport does not rely on executor-generated
+      summaries or rewritten evidence.
+
+  - id: AC5
+    condition: >
+      Review export is performed only by deterministic shared operator transport
+      after canonical AIOS PASS; Codex and Antigravity remain explicitly unable
+      to push or publish, and both executor surfaces use identical transport
+      semantics with no executor-specific GitHub path.
+
+  - id: AC6
+    condition: >
+      ChatGPT can perform a PRIMARY semantic review from GitHub using only the
+      immutable TASK ref, canonical RUN, canonical ResultPackage/EVIDENCE
+      summaries, and actual implementation delta, while raw evidence and extra
+      repository context remain on-demand rather than default inputs.
+
+  - id: AC7
+    condition: >
+      ChatGPT-authored canonical REVIEW and, when needed, exactly one active
+      REMEDIATION can be stored in namespaced GitHub control transport and then
+      deterministically imported before FIX into local .git/aios review and
+      remediation stores without changing the product worktree.
+
+  - id: AC8
+    condition: >
+      FIX continues through the existing AIOS-renew remediation path and local
+      lineage validation, receives only the narrow canonical remediation semantic
+      input, runs affected verification only through Runtime, and does not rerun
+      the original TASK or preload unrelated review history.
+
+  - id: AC9
+    condition: >
+      Repeated identical transport is idempotent while conflicting existing
+      review refs, candidate artifacts, REVIEW/REMEDIATION identities, remote
+      control state, ambiguous lineage, or SHA mismatch fail closed without
+      retry, force-push, rebase, fallback, publication, or hidden recovery.
+
+  - id: AC10
+    condition: >
+      Focused deterministic tests prove both Codex and Antigravity retain one
+      shared worker control plane, transport occurs only after canonical PASS,
+      STATUS remains read-only/non-authorizing, product HEAD/worktree are not
+      changed by transport, legacy AIOS Bridge paths are not used, and the manual
+      Human copy/paste review handoff is no longer required for the supported
+      RUN-to-review and review-to-FIX flow.
+
+  - id: AC11
+    condition: >
+      Documentation locks the three directional input contracts: Brain-to-AIOS
+      is canonical TASK only; Runtime-to-Reviewer is immutable TASK ref plus
+      canonical RUN/ResultPackage and exact delta with raw evidence on demand;
+      Reviewer-to-AIOS FIX is canonical REVIEW plus one active narrow
+      REMEDIATION only. The documentation explicitly preserves ChatGPT as sole
+      Brain/Reviewer, Runtime verification authority, one active executor, and
+      publication outside this task.
+
+verification:
+  required:
+    - python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py -q
