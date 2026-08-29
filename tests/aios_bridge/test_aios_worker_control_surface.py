@@ -128,7 +128,7 @@ class TestImmutableRuntimePin:
         assert active == [aw.PIN_LINE]
         assert active == [
             "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
-            "6e2fab2cb1fc32e2002d41f3d21e4019a8844e1a"
+            "f68ea27583ec6dcd4324e77d6b29a36a246be745"
         ]
 
     def test_authoritative_pep610_metadata_is_accepted(self):
@@ -252,6 +252,41 @@ class TestRuntimeBootstrap:
         aw.ensure_runtime(layout, runner=runner)
         assert aw.runtime_python(layout.runtime).is_file()
         assert not (layout.runtime / "incomplete.txt").exists()
+
+    def test_stale_runtime_is_detected_and_synchronized_to_target_commit(
+        self, tmp_path, monkeypatch
+    ):
+        layout = make_layout(tmp_path)
+        old_python = aw.runtime_python(layout.runtime)
+        old_python.parent.mkdir(parents=True)
+        old_python.touch()
+        (layout.runtime / "marker.txt").write_text("old-state", encoding="utf-8")
+
+        stale_commit = "6e2fab2cb1fc32e2002d41f3d21e4019a8844e1a"
+        calls = []
+
+        def runner(command, **kwargs):
+            cmd = tuple(command)
+            calls.append(cmd)
+            if cmd[1:3] == ("-m", "venv"):
+                staging_python = aw.runtime_python(Path(cmd[-1]))
+                staging_python.parent.mkdir(parents=True)
+                staging_python.touch()
+                return done(command)
+            if cmd[-2:] == ("-c", aw.PROVENANCE_PROGRAM):
+                exec_path = Path(cmd[0])
+                if exec_path == old_python:
+                    return done(command, stdout=direct_url(commit=stale_commit))
+                return done(command, stdout=direct_url(commit=aw.AUTHORITATIVE_COMMIT))
+            return done(command)
+
+        final_python = aw.ensure_runtime(layout, runner=runner)
+        assert final_python == aw.runtime_python(layout.runtime)
+        assert final_python.is_file()
+        assert not (layout.runtime / "marker.txt").exists()
+        pip_calls = [c for c in calls if "pip" in c]
+        assert len(pip_calls) == 1
+        assert pip_calls[0][-1] == str(layout.requirements)
 
     def test_concurrent_first_use_is_serialized_and_installs_once(self, tmp_path):
         layout = make_layout(tmp_path)
