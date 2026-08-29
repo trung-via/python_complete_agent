@@ -381,11 +381,12 @@ async def test_ac5_delegates_to_candidate_ranker_without_modifying_semantics(
     )
 
     ranker_called = False
+    original_rank = CandidateRanker.rank
 
     def monitored_rank(*args: object, **kwargs: object) -> Tuple[RankedCandidate, ...]:
         nonlocal ranker_called
         ranker_called = True
-        return CandidateRanker.rank(*args, **kwargs)  # type: ignore[arg-type]
+        return original_rank(*args, **kwargs)  # type: ignore[arg-type]
 
     monkeypatch.setattr(CandidateRanker, "rank", monitored_rank)
 
