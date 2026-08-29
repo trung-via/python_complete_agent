@@ -34,8 +34,8 @@ Multiple plans execute strictly in caller-supplied order.
 
 ### 2. Validation Before Execution (Fail-Closed)
 Before calling any discovery adapter:
+- `observed_at` is required and must be timezone-aware (no wall-clock defaults);
 - `evaluated_at` is required and must be timezone-aware (no wall-clock defaults);
-- `observed_at`, if supplied, must be timezone-aware;
 - Plan platform identifiers must be unique across the run;
 - All plans must target the same search query;
 - The sum of `max_candidates` across all plans must not exceed the global limit of 100 (`MAX_RANKING_CANDIDATES`);
@@ -69,6 +69,7 @@ from src.product_intelligence import (
     TikTokDiscoveryAdapter,
 )
 
+observed_at = datetime.now(timezone.utc)
 evaluated_at = datetime.now(timezone.utc)
 
 plans = (
@@ -86,6 +87,7 @@ plans = (
 
 result = await DiscoveryOrchestrator.orchestrate(
     plans,
+    observed_at=observed_at,
     evaluated_at=evaluated_at,
     shortlist_size=10,
 )

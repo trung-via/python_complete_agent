@@ -184,7 +184,7 @@ async def test_ac3_budget_validation_fails_before_adapter_execution() -> None:
     )
 
     with pytest.raises(OrchestrationInvalidRequestError, match="Aggregate candidate budget exceeds maximum"):
-        await DiscoveryOrchestrator.orchestrate(plans, evaluated_at=EVALUATED_AT)
+        await DiscoveryOrchestrator.orchestrate(plans, observed_at=OBSERVED_AT, evaluated_at=EVALUATED_AT)
 
     assert len(shopee_adapter.discover_calls) == 0
     assert len(tiktok_adapter.discover_calls) == 0
@@ -209,7 +209,7 @@ async def test_ac4_duplicate_platform_plans_fail() -> None:
     )
 
     with pytest.raises(OrchestrationInvalidRequestError, match="Duplicate platform"):
-        await DiscoveryOrchestrator.orchestrate(plans, evaluated_at=EVALUATED_AT)
+        await DiscoveryOrchestrator.orchestrate(plans, observed_at=OBSERVED_AT, evaluated_at=EVALUATED_AT)
 
 
 @pytest.mark.asyncio
@@ -231,7 +231,7 @@ async def test_ac4_query_mismatch_across_plans_fails() -> None:
     )
 
     with pytest.raises(OrchestrationInvalidRequestError, match="matching search queries"):
-        await DiscoveryOrchestrator.orchestrate(plans, evaluated_at=EVALUATED_AT)
+        await DiscoveryOrchestrator.orchestrate(plans, observed_at=OBSERVED_AT, evaluated_at=EVALUATED_AT)
 
 
 @pytest.mark.asyncio
@@ -246,7 +246,7 @@ async def test_ac4_mismatched_returned_batch_platform_fails() -> None:
     )
 
     with pytest.raises(OrchestrationError, match="DiscoveryBatch platform mismatch"):
-        await DiscoveryOrchestrator.orchestrate(plans, evaluated_at=EVALUATED_AT)
+        await DiscoveryOrchestrator.orchestrate(plans, observed_at=OBSERVED_AT, evaluated_at=EVALUATED_AT)
 
 
 @pytest.mark.asyncio
@@ -261,7 +261,7 @@ async def test_ac4_mismatched_returned_batch_query_fails() -> None:
     )
 
     with pytest.raises(OrchestrationError, match="DiscoveryBatch query mismatch"):
-        await DiscoveryOrchestrator.orchestrate(plans, evaluated_at=EVALUATED_AT)
+        await DiscoveryOrchestrator.orchestrate(plans, observed_at=OBSERVED_AT, evaluated_at=EVALUATED_AT)
 
 
 @pytest.mark.asyncio
@@ -277,7 +277,7 @@ async def test_ac4_candidate_platform_mismatch_fails() -> None:
     )
 
     with pytest.raises(OrchestrationError, match="Candidate platform mismatch"):
-        await DiscoveryOrchestrator.orchestrate(plans, evaluated_at=EVALUATED_AT)
+        await DiscoveryOrchestrator.orchestrate(plans, observed_at=OBSERVED_AT, evaluated_at=EVALUATED_AT)
 
 
 @pytest.mark.asyncio
@@ -302,7 +302,7 @@ async def test_ac4_duplicate_aggregate_candidate_id_fails() -> None:
     )
 
     with pytest.raises(OrchestrationError, match="Duplicate candidate_id"):
-        await DiscoveryOrchestrator.orchestrate(plans, evaluated_at=EVALUATED_AT)
+        await DiscoveryOrchestrator.orchestrate(plans, observed_at=OBSERVED_AT, evaluated_at=EVALUATED_AT)
 
 
 @pytest.mark.asyncio
@@ -320,6 +320,7 @@ async def test_ac4_invalid_shortlist_bounds_fail_before_discovery(shortlist_size
     with pytest.raises(OrchestrationInvalidRequestError, match="shortlist_size"):
         await DiscoveryOrchestrator.orchestrate(
             plans,
+            observed_at=OBSERVED_AT,
             evaluated_at=EVALUATED_AT,
             shortlist_size=shortlist_size,  # type: ignore[arg-type]
         )
@@ -337,18 +338,23 @@ async def test_ac4_invalid_timestamps_fail() -> None:
         ),
     )
 
-    # Missing evaluated_at
-    with pytest.raises(OrchestrationInvalidRequestError, match="evaluated_at"):
-        await DiscoveryOrchestrator.orchestrate(plans, evaluated_at=None)  # type: ignore[arg-type]
-
-    # Naive evaluated_at
     naive_dt = datetime(2026, 8, 29, 12, 0)
-    with pytest.raises(OrchestrationInvalidRequestError, match="timezone-aware"):
-        await DiscoveryOrchestrator.orchestrate(plans, evaluated_at=naive_dt)
+
+    # Missing observed_at
+    with pytest.raises(OrchestrationInvalidRequestError, match="observed_at"):
+        await DiscoveryOrchestrator.orchestrate(plans, observed_at=None, evaluated_at=EVALUATED_AT)  # type: ignore[arg-type]
 
     # Naive observed_at
     with pytest.raises(OrchestrationInvalidRequestError, match="timezone-aware"):
-        await DiscoveryOrchestrator.orchestrate(plans, evaluated_at=EVALUATED_AT, observed_at=naive_dt)
+        await DiscoveryOrchestrator.orchestrate(plans, observed_at=naive_dt, evaluated_at=EVALUATED_AT)
+
+    # Missing evaluated_at
+    with pytest.raises(OrchestrationInvalidRequestError, match="evaluated_at"):
+        await DiscoveryOrchestrator.orchestrate(plans, observed_at=OBSERVED_AT, evaluated_at=None)  # type: ignore[arg-type]
+
+    # Naive evaluated_at
+    with pytest.raises(OrchestrationInvalidRequestError, match="timezone-aware"):
+        await DiscoveryOrchestrator.orchestrate(plans, observed_at=OBSERVED_AT, evaluated_at=naive_dt)
 
 
 @pytest.mark.asyncio
@@ -385,6 +391,7 @@ async def test_ac5_delegates_to_candidate_ranker_without_modifying_semantics(
 
     result = await DiscoveryOrchestrator.orchestrate(
         plans,
+        observed_at=OBSERVED_AT,
         evaluated_at=EVALUATED_AT,
         shortlist_size=1,
     )
@@ -421,6 +428,7 @@ async def test_ac6_true_empty_across_all_platforms_returns_empty_shortlist_witho
 
     result = await DiscoveryOrchestrator.orchestrate(
         plans,
+        observed_at=OBSERVED_AT,
         evaluated_at=EVALUATED_AT,
         shortlist_size=5,
     )
@@ -449,7 +457,7 @@ async def test_ac7_adapter_raised_discovery_errors_remain_fail_closed(
     )
 
     with pytest.raises(error_cls, match="Platform failure"):
-        await DiscoveryOrchestrator.orchestrate(plans, evaluated_at=EVALUATED_AT)
+        await DiscoveryOrchestrator.orchestrate(plans, observed_at=OBSERVED_AT, evaluated_at=EVALUATED_AT)
 
 
 @pytest.mark.asyncio
@@ -484,7 +492,7 @@ async def test_ac8_cross_platform_listings_are_not_entity_resolved() -> None:
         ),
     )
 
-    result = await DiscoveryOrchestrator.orchestrate(plans, evaluated_at=EVALUATED_AT)
+    result = await DiscoveryOrchestrator.orchestrate(plans, observed_at=OBSERVED_AT, evaluated_at=EVALUATED_AT)
 
     assert len(result.shortlist) == 2
     ids = [entry.candidate_id for entry in result.shortlist]
@@ -510,7 +518,7 @@ async def test_ac9_deterministic_orchestration_result_to_dict() -> None:
         ),
     )
 
-    result = await DiscoveryOrchestrator.orchestrate(plans, evaluated_at=EVALUATED_AT)
+    result = await DiscoveryOrchestrator.orchestrate(plans, observed_at=OBSERVED_AT, evaluated_at=EVALUATED_AT)
     serialized = result.to_dict()
 
     assert serialized["total_candidates_discovered"] == 1

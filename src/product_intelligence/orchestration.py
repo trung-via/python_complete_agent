@@ -84,8 +84,8 @@ class DiscoveryOrchestrator:
         cls,
         plans: Sequence[PlatformDiscoveryPlan],
         *,
+        observed_at: datetime,
         evaluated_at: datetime,
-        observed_at: Optional[datetime] = None,
         shortlist_size: Optional[int] = None,
         policy: Optional[ScoringPolicy] = None,
     ) -> OrchestrationResult:
@@ -94,14 +94,15 @@ class DiscoveryOrchestrator:
         validates the aggregate candidate set, and delegates ranking to CandidateRanker.
         """
         # Validate timestamp requirements
+        if observed_at is None:
+            raise OrchestrationInvalidRequestError("observed_at timestamp is required for deterministic orchestration")
+        if not isinstance(observed_at, datetime) or observed_at.tzinfo is None or observed_at.tzinfo.utcoffset(observed_at) is None:
+            raise OrchestrationInvalidRequestError("observed_at must be an explicit timezone-aware datetime")
+
         if evaluated_at is None:
             raise OrchestrationInvalidRequestError("evaluated_at timestamp is required for deterministic orchestration")
         if not isinstance(evaluated_at, datetime) or evaluated_at.tzinfo is None or evaluated_at.tzinfo.utcoffset(evaluated_at) is None:
             raise OrchestrationInvalidRequestError("evaluated_at must be an explicit timezone-aware datetime")
-
-        if observed_at is not None:
-            if not isinstance(observed_at, datetime) or observed_at.tzinfo is None or observed_at.tzinfo.utcoffset(observed_at) is None:
-                raise OrchestrationInvalidRequestError("observed_at must be an explicit timezone-aware datetime")
 
         # Validate plans collection
         if not plans:
@@ -214,8 +215,8 @@ class DiscoveryOrchestrator:
 async def orchestrate_discovery(
     plans: Sequence[PlatformDiscoveryPlan],
     *,
+    observed_at: datetime,
     evaluated_at: datetime,
-    observed_at: Optional[datetime] = None,
     shortlist_size: Optional[int] = None,
     policy: Optional[ScoringPolicy] = None,
 ) -> OrchestrationResult:
@@ -224,8 +225,8 @@ async def orchestrate_discovery(
     """
     return await DiscoveryOrchestrator.orchestrate(
         plans,
-        evaluated_at=evaluated_at,
         observed_at=observed_at,
+        evaluated_at=evaluated_at,
         shortlist_size=shortlist_size,
         policy=policy,
     )
