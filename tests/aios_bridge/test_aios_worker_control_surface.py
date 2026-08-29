@@ -264,8 +264,10 @@ class TestRuntimeBootstrap:
 
         stale_commit = "6e2fab2cb1fc32e2002d41f3d21e4019a8844e1a"
         calls = []
+        replaced = False
 
         def runner(command, **kwargs):
+            nonlocal replaced
             cmd = tuple(command)
             calls.append(cmd)
             if cmd[1:3] == ("-m", "venv"):
@@ -273,9 +275,11 @@ class TestRuntimeBootstrap:
                 staging_python.parent.mkdir(parents=True)
                 staging_python.touch()
                 return done(command)
+            if "pip" in cmd:
+                replaced = True
+                return done(command)
             if cmd[-2:] == ("-c", aw.PROVENANCE_PROGRAM):
-                exec_path = Path(cmd[0])
-                if exec_path == old_python:
+                if not replaced:
                     return done(command, stdout=direct_url(commit=stale_commit))
                 return done(command, stdout=direct_url(commit=aw.AUTHORITATIVE_COMMIT))
             return done(command)

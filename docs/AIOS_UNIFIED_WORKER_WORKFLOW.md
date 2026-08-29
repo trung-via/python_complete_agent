@@ -1,8 +1,8 @@
 # AIOS Unified Worker Workflow
 
-As of TASK-099 revision 1, the repository-owned Codex and Antigravity worker
-surfaces delegate exclusively to the released AIOS-renew v0.1.3 kernel at commit
-`6e2fab2cb1fc32e2002d41f3d21e4019a8844e1a`. Legacy AIOS Bridge source remains
+As of TASK-101 revision 1, the repository-owned Codex and Antigravity worker
+surfaces delegate exclusively to the released AIOS-renew UTF-8 kernel at commit
+`f68ea27583ec6dcd4324e77d6b29a36a246be745`. Legacy AIOS Bridge source remains
 archived in this repository, but it is inactive and unreachable from these
 RUN/FIX/STATUS surfaces.
 
@@ -181,4 +181,4 @@ branches or caches that do not expose `/aios-renew-worker` fail closed instead o
 falling back to legacy `/aios-worker` semantics.
 
 Both active worker surfaces use exactly AIOS-renew commit
-`6e2fab2cb1fc32e2002d41f3d21e4019a8844e1a`.
+`f68ea27583ec6dcd4324e77d6b29a36a246be745`.
