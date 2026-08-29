@@ -1,0 +1,107 @@
+task_id: TASK-105
+revision: 1
+
+goal: >
+  Synchronize the Python Agent repository-owned AIOS worker runtime from the
+  stale AIOS-renew commit f68ea27583ec6dcd4324e77d6b29a36a246be745 to the
+  reviewed and published kernel commit
+  3e69e499de692bc6d1dde426d27247da07e6404f, which contains both the Windows
+  native verification exit-code repair and the fail-closed PRIMARY mutation
+  no-op guard required before TASK-104 is tested again.
+
+problem: >
+  Python Agent still declares and bootstraps AIOS-renew from commit
+  f68ea27583ec6dcd4324e77d6b29a36a246be745. Since then AIOS-renew TASK-036
+  published deterministic Windows native exit-code propagation and TASK-035
+  published the PRIMARY mutation no-op guard at
+  3e69e499de692bc6d1dde426d27247da07e6404f. TASK-104 must not be re-run on the
+  stale kernel because the old Runtime can accept a mutation-bearing no-op and
+  can misreport a failing native Windows verification process as successful.
+
+assumptions:
+  - AIOS-renew commit 3e69e499de692bc6d1dde426d27247da07e6404f is semantically reviewed and published on AIOS-renew main.
+  - Current Python Agent canonical main before this task is baf917b56f14fb08799bb0511208d11cbdfb9e2d.
+  - The current worker declaration and launcher authoritative commit are both f68ea27583ec6dcd4324e77d6b29a36a246be745.
+  - TASK-104 remains paused during this runtime synchronization and must not be implemented, fixed, or re-run by this task.
+  - Product Intelligence behavior remains unchanged.
+  - The legacy AIOS Bridge remains archived and must not be modified, revived, called, or depended on.
+
+scope:
+  inspect:
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+    - .ai/tasks/TASK-104.yaml
+  modify:
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+
+non_goals:
+  - Modify TASK-104 or any TASK-104 implementation candidate, RESULT, review ref, or historical failed RUN artifact.
+  - Implement GitHub review transport from TASK-104.
+  - Modify Product Intelligence implementation or tests.
+  - Modify AIOS-renew source code.
+  - Modify, revive, call, migrate, or depend on bridge.py, src/aios_bridge, or the archived legacy Bridge control plane.
+  - Change executor semantics, semantic review authority, verification ownership, remediation semantics, or publication authority.
+  - Redesign the worker launcher or add a second runtime source of truth.
+  - Add retry, fallback, reroute, polling, watcher, daemon, or autonomous recovery.
+  - Push from executor execution.
+
+constraints:
+  hard:
+    - Pin AIOS-renew exactly to commit 3e69e499de692bc6d1dde426d27247da07e6404f.
+    - The requirements declaration and aios_worker.py AUTHORITATIVE_COMMIT must agree exactly.
+    - No stale f68ea27583ec6dcd4324e77d6b29a36a246be745 control-plane pin may remain in active worker declaration, launcher authority, or assertions that define the current required Runtime identity.
+    - The launcher must continue to deterministically detect a dedicated Runtime installed from a different AIOS-renew commit as stale and synchronize it to the exact declared commit before invoking the worker.
+    - Runtime provenance must remain inspectable through installed package metadata and direct_url.json.
+    - RUN, FIX, and STATUS must continue through the same repository-owned launcher and dedicated Runtime.
+    - Preserve executor neutrality between Codex and Antigravity.
+    - Preserve fail-closed behavior, semantic-review-before-publication, and Human publication authority.
+    - Do not change GitHub transport semantics or implement TASK-104 as part of this synchronization.
+    - Because this synchronization is executed by the older f68 kernel, canonical verification commands that invoke native Windows processes must explicitly propagate LASTEXITCODE so the known pre-TASK-036 wrapper defect cannot create a false verification PASS for TASK-105 itself.
+    - Verification must independently assert that both active worker pin surfaces contain the new immutable target SHA, so an implementation no-op cannot satisfy this task merely because stale worker tests still pass.
+    - Keep the change limited to the three authorized files and do not modify documentation unless a later dedicated task requires it.
+    - Do not push from executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      requirements-aios-renew.txt pins AIOS-renew exactly to
+      3e69e499de692bc6d1dde426d27247da07e6404f.
+  - id: AC2
+    condition: >
+      aios_worker.py uses the same exact commit as AUTHORITATIVE_COMMIT and no
+      stale f68ea27583ec6dcd4324e77d6b29a36a246be745 active Runtime authority
+      remains.
+  - id: AC3
+    condition: >
+      The launcher continues to detect stale installed Runtime provenance and
+      synchronizes to the exact declared commit before worker invocation.
+  - id: AC4
+    condition: >
+      Focused deterministic control-surface tests prove exact target SHA and
+      stale-runtime synchronization without network-dependent test behavior.
+  - id: AC5
+    condition: >
+      RUN, FIX, STATUS, executor selection, semantic review boundary, and
+      publication boundary behavior remain unchanged.
+  - id: AC6
+    condition: >
+      TASK-104, Product Intelligence, legacy Bridge code, and all unrelated
+      repository surfaces remain unchanged.
+  - id: AC7
+    condition: >
+      Canonical verification for this bootstrap synchronization fails closed on
+      a stale/no-op pin and on any nonzero native pytest or git diff exit code,
+      even though the execution begins under the pre-TASK-036 worker kernel.
+
+verification:
+  required:
+    - 'python -c "from pathlib import Path; t=''3e69e499de692bc6d1dde426d27247da07e6404f''; r=Path(''.agents/skills/aios-worker/requirements-aios-renew.txt'').read_text(encoding=''utf-8''); s=Path(''.agents/skills/aios-worker/scripts/aios_worker.py'').read_text(encoding=''utf-8''); raise SystemExit(0 if t in r and t in s else 1)"; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - '$env:PYTHONPATH = ".;src"; pytest tests/aios_bridge/test_aios_worker_control_surface.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git status --porcelain'
