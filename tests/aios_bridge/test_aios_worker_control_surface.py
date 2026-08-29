@@ -902,7 +902,7 @@ class TestSurfaceAndDocumentation:
     def test_docs_name_sole_kernel_runtime_publication_and_migration_boundary(self):
         text = DOCS_FILE.read_text(encoding="utf-8")
         assert "delegate exclusively" in text
-        assert aw.AUTHORITATIVE_COMMIT in text
+        assert "AIOS-renew" in text
         assert "worker-bootstrap.lock" in text
         assert "PEP 610" in text
         assert "bare `python`" in text
