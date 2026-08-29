@@ -1,5 +1,5 @@
 task_id: TASK-106
-revision: 2
+revision: 3
 
 goal: >
   Add deterministic post-PASS GitHub review-candidate export to the current
@@ -20,8 +20,8 @@ problem: >
   changing Runtime/executor semantics.
 
 assumptions:
-  - Current Python Agent canonical main before this task is
-    f955d691d729be62ba2e1b01e25ed7c641dfeb23 plus this TASK-106 artifact.
+  - Current Python Agent canonical main before this revision is
+    588158863bff9b482d48e07a5fa2d910968db860.
   - The active worker is still pinned to AIOS-renew
     f68ea27583ec6dcd4324e77d6b29a36a246be745 until TASK-105 is reviewed and
     published.
@@ -32,6 +32,8 @@ assumptions:
   - GitHub is transport/storage only.
   - TASK-104 remains the owner of the full bidirectional transport contract and
     will later add REVIEW/REMEDIATION import plus remaining transport behavior.
+  - TASK-104 must extend and reuse the outbound exporter introduced by TASK-106;
+    it must not create a second parallel outbound transport implementation.
 
 scope:
   inspect:
@@ -61,6 +63,8 @@ non_goals:
   - Add retry, reroute, fallback, polling, watcher, daemon, GitHub Actions, or a
     second orchestration layer.
   - Perform semantic review or infer REVIEW PASS from Runtime PASS.
+  - Rerun an Executor, repeat canonical verification, or create a new RUN merely
+    because outbound GitHub transport failed after a canonical PASS.
 
 constraints:
   hard:
@@ -87,12 +91,26 @@ constraints:
       minimum-sufficient review context: task_id, task_revision, task_ref_sha,
       run_id, execution_kind, base_or_reviewed_sha, head_sha,
       implementation_ref, run_artifact_path, and result_artifact_path.
+    - task_ref_sha must be derived deterministically from the canonical execution
+      lineage and must never mean latest-main or another mutable ref. For PRIMARY
+      RUN, task_ref_sha is the canonical RUN.base_sha established after primary
+      synchronization and task loading. For FIX, task_ref_sha is the canonical
+      remediation RUN.base_sha, which is the reviewed_sha bound to that
+      remediation lineage.
     - The manifest must not embed TASK text, ResultPackage content, executor
       reasoning, chat history, or raw verification logs.
     - Product HEAD and worktree cleanliness proven by AIOS-renew must remain
       unchanged by export.
     - Existing remote review/control refs are immutable by identity: identical
       re-export is idempotent; any different existing target/content fails closed.
+    - Publication of the implementation review ref and its matching control ref
+      must be atomic. The launcher must use one atomic remote ref update, such as
+      git push --atomic, or behavior with equivalent all-or-nothing semantics, so
+      a candidate can never be left half-exported with only one of the two refs
+      updated.
+    - Atomic export failure must leave both remote identities unchanged. No
+      compensating force update, delete-and-recreate recovery, or partial success
+      is allowed.
     - No force push, rebase, automatic retry, conflict resolution, or fallback is
       allowed.
     - The launcher may push only the two namespaced non-publication refs required
@@ -111,6 +129,14 @@ constraints:
     - export_review_candidate must fail closed if RUN/result files are missing,
       malformed, disagree on run/task/head identity, or if current product HEAD
       does not equal canonical result.head_sha at export time.
+    - export_review_candidate is also the only transport-recovery path for an
+      already-passed RUN whose GitHub export failed. Re-invoking it for the exact
+      same canonical RUN may retry only the transport operation; it must never
+      invoke an Executor, rerun canonical verification, mutate the implementation
+      commit, or create a new RUN identity.
+    - Transport failure after canonical PASS must be reported as transport failure
+      for that same passed RUN. It must never be converted into RUN/FIX execution
+      failure requiring the Human to rerun the original TASK or remediation.
     - The function is internal transport API only and must not be added to
       ALLOWED_ACTIONS or exposed as a permanent RUN/FIX/STATUS peer.
     - Because TASK-106 itself begins under the old launcher process, its own first
@@ -119,12 +145,17 @@ constraints:
       export_review_candidate(Path.cwd(), "RUN-106-001") is permitted solely to
       export RUN-106 for semantic review. Future RUN/FIX operations must not need
       this bootstrap invocation.
+    - TASK-104 must reuse this exact outbound exporter and its ref/artifact
+      contract when completing bidirectional transport. It must not add a second
+      outbound exporter, duplicate candidate refs, or create a parallel transport
+      pipeline.
     - Canonical verification must fail closed under the pre-TASK-036 f68 worker
       wrapper by explicitly propagating LASTEXITCODE for native Windows commands.
     - Verification must independently prove that export_review_candidate exists,
-      ALLOWED_ACTIONS remains exactly RUN/FIX/STATUS, and the aios/review plus
-      aios/control ref contract exists, so a pure no-op cannot pass merely because
-      baseline worker tests pass.
+      ALLOWED_ACTIONS remains exactly RUN/FIX/STATUS, the deterministic
+      task_ref_sha binding exists, atomic two-ref publication is enforced, and
+      the aios/review plus aios/control ref contract exists, so a pure no-op
+      cannot pass merely because baseline worker tests pass.
     - Do not push from executor execution; namespaced transport push belongs to
       the shared launcher/operator transport only after canonical PASS.
 
@@ -139,35 +170,54 @@ acceptance:
     condition: >
       The implementation review ref points exactly to canonical head_sha and the
       separate control ref exposes exact canonical run.json and result.json plus
-      a minimum-sufficient pointer manifest without moving main.
+      a minimum-sufficient pointer manifest without moving main; both remote refs
+      are published atomically so partial candidate export is impossible.
   - id: AC3
+    condition: >
+      The manifest binds task_ref_sha deterministically to canonical RUN.base_sha
+      for PRIMARY and canonical remediation RUN.base_sha/reviewed_sha for FIX,
+      never to latest-main or another mutable ref.
+  - id: AC4
     condition: >
       Export is absent on STATUS and every non-PASS path, and product HEAD plus
       worktree state are unchanged by successful export.
-  - id: AC4
+  - id: AC5
     condition: >
       Re-export of the identical candidate is idempotent while any conflicting
-      existing review/control identity fails closed without force, retry, rebase,
-      fallback, or publication.
-  - id: AC5
+      existing review/control identity or atomic remote update failure fails
+      closed without force, retry, rebase, fallback, publication, or partial
+      remote state.
+  - id: AC6
+    condition: >
+      A transport failure after canonical PASS can be recovered only by
+      re-invoking export_review_candidate for that exact passed RUN; no Executor
+      invocation, verification rerun, new RUN, or repeated TASK/FIX execution is
+      performed.
+  - id: AC7
     condition: >
       Codex and Antigravity use the exact same shared transport implementation;
       executors themselves never push or receive transport metadata as semantic
       input.
-  - id: AC6
+  - id: AC8
     condition: >
       Focused deterministic tests cover successful export, no export before PASS,
-      STATUS no-op, idempotency, conflicting remote state, exact head binding,
-      exact canonical artifact bytes, unchanged product HEAD/worktree, and
-      rejection of missing/ambiguous/mismatched local artifacts.
-  - id: AC7
+      STATUS no-op, idempotency, conflicting remote state, atomic two-ref
+      publication, deterministic task_ref_sha binding, exact head binding, exact
+      canonical artifact bytes, unchanged product HEAD/worktree, transport-only
+      recovery, and rejection of missing/ambiguous/mismatched local artifacts.
+  - id: AC9
     condition: >
       The exact internal bootstrap call
       export_review_candidate(Path.cwd(), "RUN-106-001") can export an
       already-passed RUN-106 without introducing a permanent Human-facing action,
       enabling TASK-106 itself to be reviewed once and eliminating this manual
       review-candidate gap for subsequent RUN/FIX operations.
-  - id: AC8
+  - id: AC10
+    condition: >
+      TASK-104 is constrained to extend/reuse the TASK-106 outbound exporter when
+      it later completes inbound REVIEW/REMEDIATION transport, with no duplicate
+      outbound implementation or parallel transport pipeline.
+  - id: AC11
     condition: >
       No AIOS-renew pin, TASK-104/TASK-105 semantics, Product Intelligence,
       publication authority, inbound REVIEW/REMEDIATION transport, or legacy
@@ -175,7 +225,7 @@ acceptance:
 
 verification:
   required:
-    - 'python -c "from pathlib import Path; import ast; s=Path(''.agents/skills/aios-worker/scripts/aios_worker.py'').read_text(encoding=''utf-8''); m=ast.parse(s); names={n.name for n in m.body if isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef))}; ok=''export_review_candidate'' in names and ''aios/review/'' in s and ''aios/control/'' in s and ''ALLOWED_ACTIONS = (\"FIX\", \"RUN\", \"STATUS\")'' in s; raise SystemExit(0 if ok else 1)"; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'python -c "from pathlib import Path; import ast; s=Path(''.agents/skills/aios-worker/scripts/aios_worker.py'').read_text(encoding=''utf-8''); m=ast.parse(s); names={n.name for n in m.body if isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef))}; required=(''export_review_candidate'',''aios/review/'',''aios/control/'',''--atomic'',''task_ref_sha''); ok=all(x in s for x in required) and ''export_review_candidate'' in names and ''ALLOWED_ACTIONS = (\"FIX\", \"RUN\", \"STATUS\")'' in s; raise SystemExit(0 if ok else 1)"; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
     - '$env:PYTHONPATH = ".;src"; pytest tests/aios_bridge/test_aios_worker_control_surface.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
     - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
     - 'git status --porcelain'
