@@ -65,10 +65,18 @@ constraints:
     - Review transport may begin only after one successful canonical AIOS RUN PASS or AIOS REMEDIATION PASS. No implementation ref, review candidate, RESULT, EVIDENCE, or raw verification output may be exported before Runtime has completed its canonical post-execution gates and verification.
     - The remote implementation review ref for a candidate must point exactly to the canonical RESULT.head_sha. It must not add a metadata commit on top of that implementation HEAD.
     - Implementation review refs must use an explicitly namespaced non-publication ref such as aios/review/RUN-NNN-NNN and must never update, merge, or force-update main.
-    - Each RUN/FIX review candidate must be immutable by identity: re-export of the same run and same bytes/SHA may be idempotent, but an existing candidate/ref with different content or head must fail closed.
+    - >
+      Each RUN/FIX review candidate must be immutable by identity: re-export of
+      the same run and same bytes/SHA may be idempotent, but an existing
+      candidate/ref with different content or head must fail closed.
     - Review transport must preserve exact canonical Runtime artifacts instead of asking the executor to rewrite or summarize them. At minimum the exact persisted RUN record and exact persisted canonical ResultPackage must be remotely addressable for each candidate.
     - The review candidate manifest must remain a small deterministic pointer envelope, not a second semantic artifact. It may identify task_id, task_revision, immutable task_ref_sha, run_id, execution kind, base/reviewed SHA, head_sha, implementation review ref, canonical RUN artifact ref, canonical ResultPackage ref, and separately addressable raw-evidence refs, but must not duplicate the canonical TASK or canonical ResultPackage bodies.
-    - ChatGPT PRIMARY review context must be recoverable from GitHub as minimum sufficient context: immutable TASK at the execution-bound ref, canonical RUN, canonical ResultPackage with compact EVIDENCE summaries, and the actual base/reviewed-SHA to head-SHA implementation delta. Full repository scans and raw evidence loading are not default review inputs.
+    - >
+      ChatGPT PRIMARY review context must be recoverable from GitHub as minimum
+      sufficient context: immutable TASK at the execution-bound ref, canonical
+      RUN, canonical ResultPackage with compact EVIDENCE summaries, and the
+      actual base/reviewed-SHA to head-SHA implementation delta. Full repository
+      scans and raw evidence loading are not default review inputs.
     - Canonical raw verification outputs may be transported as separately addressable immutable artifacts so ChatGPT can escalate when compact evidence is insufficient, but raw output must not be embedded in the review manifest or preloaded into normal review context.
     - Raw verification transport must preserve content identity and must not be semantically summarized, filtered, or rewritten by Codex or Antigravity.
     - ChatGPT semantic review remains the only source of REVIEW verdicts and findings. Runtime PASS must never be treated as semantic REVIEW PASS.
