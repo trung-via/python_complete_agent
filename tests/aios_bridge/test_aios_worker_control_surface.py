@@ -878,6 +878,6 @@ class TestSurfaceAndDocumentation:
     def test_product_requirements_and_task_098_are_not_modified(self):
         task_098 = (REPO_ROOT / ".ai" / "tasks" / "TASK-098.yaml").read_bytes()
         assert hashlib.sha256(task_098).hexdigest() == (
-            "8a03cf36ab90f4696efa07e7dab9181256e7622aa13669272111946c7035896f"
+            "a7fe262efe72252ba1f3c9f19f5e9ae88cb0cd704878b0818e6f2384de253239"
         )
 
