@@ -1,0 +1,96 @@
+task_id: TASK-107
+revision: 1
+
+goal: >
+  After a canonical AIOS RUN or REMEDIATION PASS, automatically expose the exact
+  review candidate plus the exact persisted RUN and canonical ResultPackage on
+  GitHub so ChatGPT can perform semantic review without Human copy/paste.
+
+problem: >
+  The AIOS-renew execution, verification, ResultPackage, semantic-review, and
+  narrow-remediation contracts already work, but successful RUN/FIX artifacts
+  remain local. The Human must currently push the candidate and manually provide
+  Runtime artifacts to ChatGPT. Remove only that transport step without changing
+  AIOS-renew authority or execution semantics.
+
+assumptions:
+  - The existing AIOS-renew kernel remains the authority for TASK parsing, RUN
+    identity, executor handoff, verification, EVIDENCE, ResultPackage, REVIEW,
+    and REMEDIATION semantics.
+  - GitHub is transport/storage only; ChatGPT remains the semantic Reviewer.
+  - The shared repository-owned worker launcher is the common surface for Codex
+    and Antigravity.
+
+scope:
+  inspect:
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+  modify:
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+
+non_goals:
+  - Modify AIOS-renew kernel source, schemas, verification, executor adapters,
+    REVIEW, REMEDIATION, or publication semantics.
+  - Modify TASK-104, TASK-105, TASK-106, Product Intelligence, or legacy Bridge.
+  - Add a planner, reviewer agent, watcher, daemon, polling loop, retry system,
+    manifest schema, raw-evidence transport, or second orchestration layer.
+  - Import REVIEW or REMEDIATION from GitHub.
+  - Let Codex or Antigravity push or publish.
+  - Update, merge, or publish product main.
+
+constraints:
+  hard:
+    - Transport occurs only after the existing kernel has returned canonical PASS
+      for one RUN or one REMEDIATION execution.
+    - The shared launcher must use the exact run_id, head_sha, persisted RUN path,
+      and persisted ResultPackage path belonging to that canonical PASS; it must
+      not guess or select the newest local artifact.
+    - Expose the implementation candidate as refs/heads/aios/review/<RUN_ID>
+      pointing exactly to the canonical PASS head_sha.
+    - Expose the exact persisted RUN JSON and exact persisted canonical
+      ResultPackage JSON on refs/heads/aios/artifacts/<RUN_ID> at fixed paths
+      .ai/transport/run.json and .ai/transport/result.json.
+    - Transport must preserve the persisted RUN and ResultPackage contents; do
+      not ask the executor to rewrite or summarize them.
+    - Transport must not change product HEAD, product worktree contents, or
+      origin/main.
+    - No transport occurs for STATUS or any non-PASS execution path.
+    - The same shared transport behavior must apply to Codex and Antigravity.
+    - Executor execution itself must remain push-free; the post-PASS shared
+      launcher performs transport only after Runtime authority is complete.
+    - Do not force-push. A remote conflict must fail closed.
+    - If transport fails after canonical PASS, report transport failure for that
+      already-passed RUN and do not automatically rerun the Executor, the TASK,
+      REMEDIATION, or canonical verification.
+    - Keep implementation choices internal to the Executor; verification must
+      test observable transport behavior rather than source-code spelling or
+      helper layout.
+
+acceptance:
+  - id: AC1
+    condition: >
+      After canonical RUN PASS, GitHub exposes aios/review/<RUN_ID> at exact
+      head_sha and aios/artifacts/<RUN_ID> containing exact run.json and
+      result.json at the fixed transport paths.
+  - id: AC2
+    condition: >
+      After canonical REMEDIATION PASS, the same shared transport contract is
+      used with that remediation RUN identity and canonical ResultPackage.
+  - id: AC3
+    condition: >
+      STATUS and every non-PASS execution path perform no GitHub transport.
+  - id: AC4
+    condition: >
+      Successful transport leaves product HEAD and worktree unchanged and never
+      updates origin/main or lets the selected executor push.
+  - id: AC5
+    condition: >
+      Focused behavioral tests prove exact candidate binding, exact persisted
+      RUN/ResultPackage transport, RUN and FIX parity, no transport before PASS,
+      no STATUS transport, no main publication, and fail-closed remote conflict.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
