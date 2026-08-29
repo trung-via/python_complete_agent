@@ -1,0 +1,123 @@
+task_id: TASK-099
+revision: 1
+
+goal: >
+  Align the Python Agent repository-owned AIOS worker control plane with the
+  released AIOS-renew v0.1.3 kernel and restore the semantic-review-before-
+  publication boundary for both supported executor surfaces.
+
+problem: >
+  The active worker launcher still pins the earlier AIOS-renew candidate commit
+  9255a3a38cef87976d6bcead90c2017de6f1c1bb, whose installed package metadata is
+  version 0.1.0 and which predates the released v0.1.3 hardening. The same launcher
+  also performs a normal upstream push immediately after canonical AIOS PASS and
+  only then asks for ChatGPT semantic review. TASK-098 demonstrated that this
+  ordering can publish an implementation before semantic review identifies a
+  required remediation. The active worker surfaces must use the released kernel
+  and stop before publication so review remains an independent gate.
+
+assumptions:
+  - The authoritative released AIOS-renew v0.1.3 commit is
+    6e2fab2cb1fc32e2002d41f3d21e4019a8844e1a.
+  - The AIOS-renew repository/source itself is outside this task and remains
+    frozen at v0.1.3.
+  - The existing dedicated worker-runtime bootstrap/provenance mechanism remains
+    the single runtime mechanism; changing the immutable pin should make a stale
+    generated runtime fail provenance and rebuild on the next worker invocation.
+  - Semantic review remains owned by ChatGPT after canonical AIOS PASS.
+  - Publication after semantic REVIEW PASS remains an explicit guarded operator
+    action outside the worker launcher; this task does not add a new publication
+    command, merge command, or second review authority.
+  - Codex and Antigravity remain executor-neutral implementations of the same
+    TASK contract and remain selected only by their explicit separate surfaces.
+
+scope:
+  inspect:
+    - .agents/workflows/aios-worker.md
+    - .ai/tasks/TASK-097.yaml
+    - .ai/tasks/TASK-098.yaml
+  modify:
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+
+non_goals:
+  - Modify AIOS-renew source code, tag v0.1.3, or its frozen architecture.
+  - Modify Product Intelligence, Shopee, TikTok product logic, browser adapters,
+    AgentController, product-source ingestion, Google Drive, scoring, ranking,
+    approval, or queue behavior.
+  - Reactivate legacy AIOS Bridge execution paths or legacy Antigravity
+    /aios-worker semantics.
+  - Add retry, reroute, fallback, distributed coordination, automatic semantic
+    review, automatic post-review publication, branch merge, or force push.
+  - Add a second runtime, second state store, or second TASK/RESULT authority.
+
+constraints:
+  hard:
+    - The exact immutable AIOS-renew dependency/provenance commit must be
+      6e2fab2cb1fc32e2002d41f3d21e4019a8844e1a and no active worker surface may
+      retain 9255a3a38cef87976d6bcead90c2017de6f1c1bb as authoritative runtime.
+    - The existing PEP 610 source+commit provenance validation and atomic stale-
+      runtime replacement behavior must remain fail-closed.
+    - RUN and FIX may invoke the pinned AIOS-renew kernel exactly once per operator
+      request, but the repository-owned launcher must not execute git push or any
+      equivalent publication after AIOS PASS.
+    - An advancing RUN/FIX PASS must leave the implementation commit local for
+      semantic review and expose enough deterministic output for the Human/Brain
+      to identify the review candidate HEAD without inventing a second RESULT.
+    - A non-advancing PASS must also perform zero push.
+    - STATUS remains read-only for product worktree/ref/publication semantics and
+      must not invoke an executor.
+    - Antigravity remains only /aios-renew-worker -> executor antigravity; the
+      retired /aios-worker Antigravity namespace must remain fail-closed.
+    - Codex remains only $aios-worker -> executor codex. Codex documentation must
+      not identify the retired Antigravity /aios-worker surface as active.
+    - Neither surface may retry, reroute, substitute executors, reconstruct
+      semantic review, or instruct an executor to push.
+    - Active documentation must describe review-before-publication rather than
+      publication-before-review.
+
+acceptance:
+  - id: AC1
+    condition: >
+      The checked-in immutable dependency pin and launcher provenance authority
+      both identify exactly AIOS-renew commit
+      6e2fab2cb1fc32e2002d41f3d21e4019a8844e1a, and regression tests reject the
+      former 9255a3a38cef87976d6bcead90c2017de6f1c1bb runtime as stale.
+  - id: AC2
+    condition: >
+      Existing worker-runtime provenance/bootstrap behavior reuses a valid v0.1.3
+      runtime and atomically rebuilds a stale/unverifiable runtime without adding
+      another runtime path or state authority.
+  - id: AC3
+    condition: >
+      Successful RUN/FIX canonical PASS performs zero git push in the launcher;
+      an advancing PASS leaves HEAD local for ChatGPT review and reports the
+      canonical review candidate HEAD, while a non-advancing PASS also performs
+      zero publication.
+  - id: AC4
+    condition: >
+      STATUS remains read-only and RUN/FIX continue to invoke exactly one pinned
+      AIOS-renew operation with the explicitly selected executor, with no retry,
+      reroute, fallback, merge, or executor-side publication.
+  - id: AC5
+    condition: >
+      Active Codex and Antigravity surface documentation consistently binds
+      $aios-worker to codex and /aios-renew-worker to antigravity, keeps the
+      retired Antigravity /aios-worker namespace inactive, and documents the
+      sequence AIOS PASS -> ChatGPT semantic review -> explicit guarded
+      publication only after REVIEW PASS.
+  - id: AC6
+    condition: >
+      Regression coverage proves the final v0.1.3 pin/provenance contract,
+      stale-runtime rejection, zero pre-review push for RUN/FIX, unchanged STATUS
+      safety, and executor-surface identity isolation.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; pytest tests/aios_bridge/test_aios_worker_control_surface.py -q'
+    - git diff --check
+    - git status --porcelain
