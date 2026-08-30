@@ -76,6 +76,18 @@ from src.product_intelligence.orchestration import (
     PlatformDiscoveryPlan,
     orchestrate_discovery,
 )
+from src.product_intelligence.entity_resolution import (
+    EntityRelationship,
+    EntityResolutionResult,
+    ProductEntityResolutionResult,
+    ProductEntityResolver,
+    ProductRelationship,
+    ResolutionEvidence,
+    SourceObservationIdentity,
+    resolve_product_entities,
+    resolve_product_source_packs,
+    resolve_products,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -142,4 +154,14 @@ __all__ = [
     "OrchestrationError",
     "OrchestrationInvalidRequestError",
     "orchestrate_discovery",
+    "ProductRelationship",
+    "EntityRelationship",
+    "SourceObservationIdentity",
+    "ResolutionEvidence",
+    "EntityResolutionResult",
+    "ProductEntityResolutionResult",
+    "ProductEntityResolver",
+    "resolve_product_entities",
+    "resolve_product_source_packs",
+    "resolve_products",
 ]
