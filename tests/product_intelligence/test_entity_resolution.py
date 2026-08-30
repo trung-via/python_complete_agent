@@ -1,4 +1,4 @@
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, replace
 from datetime import datetime, timezone
 
 import pytest
@@ -34,6 +34,20 @@ def test_cross_platform_exact_variant_is_immutable_and_symmetric():
     assert result.left.source_pack_id == left.source_pack_id
     with pytest.raises(FrozenInstanceError):
         result.confidence = 0.0
+
+
+def test_repeated_listing_observations_keep_distinct_identity_and_symmetric_decision():
+    earlier = pack("11", facts=identity_facts())
+    later = replace(earlier, observed_at=datetime(2026, 1, 2, tzinfo=timezone.utc))
+
+    result = resolve_products(earlier, later)
+    reverse = resolve_products(later, earlier)
+
+    assert result.left.source_pack_id == result.right.source_pack_id
+    assert result.left.observed_at != result.right.observed_at
+    assert result.left == reverse.right
+    assert result.right == reverse.left
+    assert (result.relationship, result.confidence) == (reverse.relationship, reverse.confidence)
 
 
 def test_same_family_different_variant_and_missing_variant():

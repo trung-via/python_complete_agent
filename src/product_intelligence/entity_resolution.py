@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from typing import Iterable, Optional
 
@@ -29,10 +30,17 @@ class SourceObservationIdentity:
     platform: str
     source_product_id: Optional[str]
     product_url: str
+    observed_at: datetime
 
     @classmethod
     def from_pack(cls, pack: ProductSourcePack) -> "SourceObservationIdentity":
-        return cls(pack.source_pack_id, pack.platform, pack.source_product_id, pack.product_url)
+        return cls(
+            pack.source_pack_id,
+            pack.platform,
+            pack.source_product_id,
+            pack.product_url,
+            pack.observed_at,
+        )
 
 
 @dataclass(frozen=True)
