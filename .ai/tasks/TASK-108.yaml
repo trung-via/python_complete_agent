@@ -1,5 +1,5 @@
 task_id: TASK-108
-revision: 1
+revision: 2
 
 goal: >
   Add the first M3 cross-listing Product Entity Resolution core that compares
@@ -71,8 +71,9 @@ constraints:
       mutating either input.
     - Resolution must be deterministic for the same input values and must not
       depend on wall-clock time, external state, network, browser, or an LLM.
-    - The canonical relationship outcomes are exactly:
-      EXACT_VARIANT_MATCH, SAME_PRODUCT_FAMILY, DIFFERENT_PRODUCT, and UNCERTAIN.
+    - >
+      The canonical relationship outcomes are exactly: EXACT_VARIANT_MATCH,
+      SAME_PRODUCT_FAMILY, DIFFERENT_PRODUCT, and UNCERTAIN.
     - EXACT_VARIANT_MATCH means the available evidence supports both the same
       product family and the same materially sellable variant; missing variant
       evidence must not be silently treated as an exact match.
