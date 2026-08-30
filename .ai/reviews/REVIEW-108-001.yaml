@@ -1,0 +1,35 @@
+review_id: REVIEW-108-001
+reviewed_sha: 1a6f06189de68bf4beca6d173a99a0945b5b00e2
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: PASS
+  AC3: PASS
+  AC4: PASS
+  AC5: PASS
+  AC6: PASS
+  AC7: PASS
+  AC8: FAIL
+  AC9: PASS
+  AC10: PASS
+findings:
+  - id: F1
+    basis: AC8
+    action: CODE_FIX
+    location: src/product_intelligence/entity_resolution.py::SourceObservationIdentity
+    issue: >
+      The resolution result preserves listing identity but does not preserve the
+      exact ProductSourcePack observation identity. SourceObservationIdentity
+      contains source_pack_id, platform, source_product_id, and product_url, but
+      omits observed_at or an equivalent immutable observation fingerprint.
+      source_pack_id is stable for repeated observations of the same marketplace
+      listing, so two source packs collected at different times can produce
+      indistinguishable result bindings even though their facts or media may
+      differ. A downstream catalog therefore cannot bind the resolution decision
+      to the exact two observations that were evaluated.
+    expected: >
+      Preserve enough immutable observation identity in each result-side binding
+      to distinguish repeated ProductSourcePack observations of the same listing
+      while keeping pairwise relationship and confidence symmetric when input
+      order is reversed. Do not change ProductSourcePack or introduce persistence.
