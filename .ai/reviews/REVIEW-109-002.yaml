@@ -1,0 +1,36 @@
+review_id: REVIEW-109-002
+reviewed_sha: 57838ad7c9c31173baa72b59e78a7f6d89b71327
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: PASS
+  AC3: PASS
+  AC4: FAIL
+  AC5: PASS
+  AC6: PASS
+  AC7: PASS
+  AC8: PASS
+  AC9: PASS
+  AC10: PASS
+  AC11: PASS
+findings:
+  - id: F1
+    basis: AC4
+    action: CODE_FIX
+    location: src/product_intelligence/entity_resolution_graph.py:_find_positive_path/_find_conflicts
+    issue: >
+      Conflict diagnostics are not fully permutation-invariant when the same
+      contradictory pair is connected by more than one equally short positive
+      product-family path. The BFS path choice follows adjacency insertion order,
+      and adjacency insertion order follows the caller's observation order, so
+      permuting the same semantic observation set can change positive_path and
+      affected_identities even though all pairwise decisions are unchanged.
+    expected: >
+      Make the reported consistency diagnostic for a contradictory pair
+      semantically invariant to input permutation, including cases with multiple
+      equally valid positive paths, without changing pairwise resolution
+      semantics, inventing transitive relationships, or introducing clustering.
+      Add focused regression coverage with at least two competing positive paths
+      to the same direct DIFFERENT_PRODUCT pair and prove equivalent diagnostics
+      across input permutations.
