@@ -1,0 +1,178 @@
+task_id: TASK-108
+revision: 1
+
+goal: >
+  Add the first M3 cross-listing Product Entity Resolution core that compares
+  two canonical ProductSourcePack observations and deterministically returns an
+  immutable, auditable relationship result distinguishing exact variant match,
+  same product family, different product, or insufficient evidence.
+
+problem: >
+  M2 intentionally preserves marketplace listings as independent candidates,
+  while deep ingestion now produces provenance-bearing ProductSourcePack values.
+  There is no canonical contract that can determine whether two source packs
+  represent the same sellable variant, different variants of the same product
+  family, different products, or an unresolved identity. Without this boundary,
+  a future persistent catalog or knowledge layer cannot safely aggregate facts,
+  media, demand, or content evidence across marketplaces.
+
+assumptions:
+  - Current canonical repository baseline is
+    bd2f84707fed8c7cf94bdcd064b4f50d42484224.
+  - ProductSourcePack remains the canonical deep-ingestion observation contract.
+  - Marketplace listing identity remains distinct from canonical product-family
+    identity and from variant identity.
+  - Missing source facts remain unknown and must not be converted into negative
+    evidence or fabricated values.
+  - Cross-listing entity resolution begins M3; persistent catalog storage,
+    evidence aggregation, retrieval, and RAG belong to later M3 milestones.
+  - model_sku and other observed identifiers are not automatically global
+    manufacturer identifiers unless their available evidence supports that
+    interpretation.
+
+scope:
+  inspect:
+    - src/product_source/models.py
+    - src/product_source/platforms/shopee.py
+    - src/product_source/platforms/tiktok.py
+    - src/product_intelligence/models.py
+    - src/product_intelligence/orchestration.py
+    - src/product_intelligence/__init__.py
+    - docs/PHASE_6_PRODUCT_SOURCE_PACK.md
+    - docs/PHASE_6_M2_PRODUCT_INTELLIGENCE.md
+    - docs/PHASE_6_M2_VERTICAL_SLICE.md
+
+  modify:
+    - src/product_intelligence/entity_resolution.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_entity_resolution.py
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+
+non_goals:
+  - Modify Shopee or TikTok discovery, parsing, browser, extraction, captcha, or
+    source-pack collection behavior.
+  - Change ProductSourcePack, ProductFact, OriginalMediaRef, or existing M2
+    scoring/ranking contracts.
+  - Create or mutate a persistent product catalog, database, canonical product
+    IDs, cluster graph, merge table, or knowledge store.
+  - Resolve more than one pair of source observations in one operation.
+  - Automatically merge listings, variants, facts, media, scores, or demand.
+  - Treat seller identity or marketplace identity as physical-product identity.
+  - Treat matching images alone as proof of product identity.
+  - Require an LLM, embedding model, network call, browser session, Drive access,
+    or other external service.
+  - Add RAG, semantic retrieval, UI, queueing, autonomous approval, or content
+    generation.
+  - Modify AIOS-renew or legacy Bridge/control-plane code.
+
+constraints:
+  hard:
+    - The resolution core must accept two ProductSourcePack observations without
+      mutating either input.
+    - Resolution must be deterministic for the same input values and must not
+      depend on wall-clock time, external state, network, browser, or an LLM.
+    - The canonical relationship outcomes are exactly:
+      EXACT_VARIANT_MATCH, SAME_PRODUCT_FAMILY, DIFFERENT_PRODUCT, and UNCERTAIN.
+    - EXACT_VARIANT_MATCH means the available evidence supports both the same
+      product family and the same materially sellable variant; missing variant
+      evidence must not be silently treated as an exact match.
+    - SAME_PRODUCT_FAMILY means the available evidence supports one product
+      family while the observations are known to differ by variant or do not
+      provide enough variant evidence for an exact-variant conclusion.
+    - DIFFERENT_PRODUCT means reliable identity evidence supports different
+      product families or materially different sellable composition such as a
+      single item versus an explicit multipack or bundle.
+    - UNCERTAIN is a valid non-error outcome when evidence is insufficient,
+      ambiguous, or materially conflicting without a reliable identity decision.
+    - Platform difference, seller difference, URL difference, and
+      source_product_id difference must not by themselves imply
+      DIFFERENT_PRODUCT.
+    - Equality of marketplace-specific IDs across different platforms must not
+      by itself imply product equivalence.
+    - model_sku or similarly named observed fields must not by field name alone
+      be promoted to a globally authoritative manufacturer identifier.
+    - Missing brand, model, variant, specification, or media evidence must remain
+      missing rather than becoming a match or contradiction.
+    - Exact media SHA-256 equality or perceptual-media similarity may be
+      supporting evidence only and must not by itself establish product identity.
+    - Reliable identity contradictions must not be overridden merely by a larger
+      quantity of weak similarity evidence.
+    - The immutable resolution result must expose the chosen relationship, a
+      deterministic confidence value bounded to [0.0, 1.0], and compact
+      auditable reason/evidence information sufficient to explain the outcome.
+    - The result must preserve the identities of both source observations so a
+      downstream catalog can bind the decision to the exact inputs.
+    - This task must perform zero catalog mutation, persistence, aggregation,
+      approval, queue, ingestion, Drive, LLM, network, or browser side effects.
+    - Do not push from executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      A platform-neutral immutable entity-resolution contract can compare two
+      ProductSourcePack values and return exactly one of EXACT_VARIANT_MATCH,
+      SAME_PRODUCT_FAMILY, DIFFERENT_PRODUCT, or UNCERTAIN together with bounded
+      deterministic confidence and auditable reasons/evidence.
+
+  - id: AC2
+    condition: >
+      Two observations with reliable evidence for the same product family and
+      the same observed sellable variant resolve to EXACT_VARIANT_MATCH even when
+      marketplace, seller, URL, or marketplace listing ID differ.
+
+  - id: AC3
+    condition: >
+      Two observations with reliable evidence for the same product family but
+      different observed variant attributes such as color, capacity, size, or
+      another materially sellable configuration resolve to SAME_PRODUCT_FAMILY,
+      not EXACT_VARIANT_MATCH or DIFFERENT_PRODUCT.
+
+  - id: AC4
+    condition: >
+      Reliable conflicting product-family identity evidence, or an explicit
+      materially different sellable composition such as single-item versus
+      multipack/bundle, resolves to DIFFERENT_PRODUCT and is not overridden by
+      weak title, description, or media similarity.
+
+  - id: AC5
+    condition: >
+      Sparse or ambiguous observations with only weak similarity, including
+      image similarity without reliable identity evidence, resolve to UNCERTAIN
+      rather than being force-merged.
+
+  - id: AC6
+    condition: >
+      Missing fields remain unknown: absence of brand, model, variant,
+      specifications, or media neither fabricates positive evidence nor creates
+      a contradiction, and missing variant evidence cannot produce an exact
+      variant match by default.
+
+  - id: AC7
+    condition: >
+      Marketplace-specific source_product_id or model_sku-like values are not
+      treated as globally authoritative solely because their text matches across
+      platforms or because of the field name used by an extractor.
+
+  - id: AC8
+    condition: >
+      Reversing input order produces the same semantic relationship and
+      confidence for the same pair, while preserving which two source
+      observations were evaluated.
+
+  - id: AC9
+    condition: >
+      Focused deterministic tests cover exact-variant, same-family/different-
+      variant, different-product, bundle/multipack conflict, sparse/uncertain,
+      weak-media-only, identifier-namespace, missing-evidence, and cross-platform
+      cases with zero live external side effects.
+
+  - id: AC10
+    condition: >
+      Documentation records the M3 identity boundary among marketplace listing,
+      canonical product family, and sellable variant, and explicitly defers
+      persistent catalog mutation, evidence aggregation, and RAG to later work.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_entity_resolution.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
