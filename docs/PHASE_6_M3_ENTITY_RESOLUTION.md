@@ -29,8 +29,30 @@ The result retains both source observation identities, bounded confidence,
 reason codes, and compact evidence. Reversing inputs preserves relationship and
 confidence; left/right observation bindings follow the caller's input order.
 
+## Multi-Observation Resolution Graph
+
+Evaluating collections of 2 to 100 `ProductSourcePack` observations operates through
+the `resolve_multi_observations` boundary:
+
+1. **Exact Pairwise Evaluation**: Delegates to `resolve_product_entities` for each of
+   the $N \times (N - 1) / 2$ unordered pairs without independently recreating pairwise
+   semantics or deriving aggregate confidence.
+2. **Deterministic Pre-Validation**: Input cardinality (2 to 100) and exact
+   `SourceObservationIdentity` uniqueness are verified prior to pairwise evaluation.
+   Observations sharing `source_pack_id` but with different `observed_at` timestamps
+   remain valid distinct observations.
+3. **Auditable Product-Family Consistency Conflicts**: When observations connected
+   through a path of positive product-family relationships (`EXACT_VARIANT_MATCH` or
+   `SAME_PRODUCT_FAMILY`) also contain a direct `DIFFERENT_PRODUCT` pairwise decision,
+   the graph records an auditable `ProductFamilyConsistencyConflict` preserving the
+   contradictory pair, positive path evidence, and affected observation identities.
+4. **UNCERTAIN Boundary**: `UNCERTAIN` relationships do not establish positive family
+   connectivity or trigger consistency conflicts.
+5. **Conflict Isolation Without Repair**: Consistency diagnostics never repair, merge,
+   cluster, or rewrite observations or pairwise results.
+
 ## Deferred M3 work
 
-Persistent canonical IDs and catalog mutation, multi-observation evidence
-aggregation, clustering/merge approval, retrieval, and RAG are explicitly
-deferred to later M3 milestones.
+Clustering, merge approval, canonical product IDs, persistent catalog mutation,
+evidence aggregation, retrieval, and RAG are explicitly deferred to later M3 milestones.
+

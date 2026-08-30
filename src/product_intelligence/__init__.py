@@ -88,6 +88,21 @@ from src.product_intelligence.entity_resolution import (
     resolve_product_source_packs,
     resolve_products,
 )
+from src.product_intelligence.entity_resolution_graph import (
+    MAX_OBSERVATIONS,
+    MIN_OBSERVATIONS,
+    MultiObservationEntityResolver,
+    MultiObservationGraph,
+    MultiObservationResolutionError,
+    MultiObservationResolutionGraph,
+    PairwiseConflictEvidence,
+    ProductFamilyConsistencyConflict,
+    ProductObservationConflict,
+    ProductObservationGraph,
+    resolve_multi_observations,
+    resolve_product_graph,
+    resolve_product_observation_graph,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -164,4 +179,17 @@ __all__ = [
     "resolve_product_entities",
     "resolve_product_source_packs",
     "resolve_products",
+    "MIN_OBSERVATIONS",
+    "MAX_OBSERVATIONS",
+    "MultiObservationResolutionError",
+    "PairwiseConflictEvidence",
+    "ProductFamilyConsistencyConflict",
+    "ProductObservationConflict",
+    "MultiObservationResolutionGraph",
+    "MultiObservationGraph",
+    "ProductObservationGraph",
+    "MultiObservationEntityResolver",
+    "resolve_multi_observations",
+    "resolve_product_observation_graph",
+    "resolve_product_graph",
 ]
