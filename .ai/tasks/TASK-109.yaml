@@ -1,0 +1,207 @@
+task_id: TASK-109
+revision: 1
+
+goal: >
+  Add the first bounded, platform-neutral M3 multi-observation resolution layer
+  that evaluates a collection of ProductSourcePack observations through the
+  existing pairwise entity-resolution authority, preserves every pairwise
+  decision and its evidence, and reports auditable product-family consistency
+  conflicts without clustering, merging, assigning canonical product identity,
+  or persisting catalog state.
+
+problem: >
+  TASK-108 established deterministic identity resolution for exactly two source
+  observations, but a future product catalog must reason over more than one pair
+  without assuming that pairwise relationships are safely transitive. Multiple
+  pairwise decisions can form a positive same-family chain while another direct
+  pair contains reliable DIFFERENT_PRODUCT evidence. Automatically collapsing
+  such observations into a product cluster would destroy contradictory evidence
+  and could merge different physical products. M3 therefore needs a bounded,
+  immutable multi-observation boundary that preserves all pairwise evidence and
+  exposes these consistency conflicts before any clustering or catalog mutation
+  is permitted.
+
+assumptions:
+  - >
+    Current canonical repository baseline is
+    56bcbcbad6eb55bcf5dc20e00f43b6d0b82160ad.
+  - ProductSourcePack remains the canonical deep-ingestion observation contract.
+  - >
+    SourceObservationIdentity, including observed_at, remains the canonical
+    identity of the exact observation evaluated by entity resolution.
+  - >
+    resolve_product_entities and its existing public aliases remain the sole
+    semantic authority for pairwise product relationships.
+  - >
+    The canonical pairwise outcomes remain EXACT_VARIANT_MATCH,
+    SAME_PRODUCT_FAMILY, DIFFERENT_PRODUCT, and UNCERTAIN.
+  - >
+    Pairwise confidence describes its existing pairwise decision only and is not
+    a cluster probability or catalog confidence.
+  - >
+    Persistent canonical IDs, clustering, merge approval, catalog mutation,
+    evidence aggregation, retrieval, and RAG remain later M3 work.
+
+scope:
+  inspect:
+    - .ai/tasks/TASK-108.yaml
+    - src/product_source/models.py
+    - src/product_intelligence/entity_resolution.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_entity_resolution.py
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+
+  modify:
+    - src/product_intelligence/entity_resolution_graph.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_entity_resolution_graph.py
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+
+non_goals:
+  - Change ProductSourcePack or SourceObservationIdentity semantics.
+  - Change TASK-108 pairwise relationship, confidence, evidence, or precedence semantics.
+  - Reimplement or independently score pairwise product identity.
+  - Create canonical product-family IDs, variant IDs, cluster IDs, or catalog records.
+  - Automatically merge, collapse, deduplicate, or rewrite source observations.
+  - Merge or aggregate ProductFact, media, demand, score, or marketplace data.
+  - Produce aggregate product, family, graph, or cluster confidence.
+  - Perform clustering or propose an authoritative merge.
+  - Add human merge approval or autonomous merge policy.
+  - Add persistence, database tables, files, Google Drive writes, or knowledge-store mutation.
+  - Add retrieval, embeddings, RAG, LLM inference, browser access, or network access.
+  - Change discovery, ranking, scoring, approval, ingestion, or marketplace extraction behavior.
+  - Modify AIOS-renew or legacy Bridge/control-plane behavior.
+
+constraints:
+  hard:
+    - >
+      The multi-observation operation must accept at least 2 and at most 100
+      ProductSourcePack observations in one bounded evaluation.
+    - >
+      Exact duplicate SourceObservationIdentity values in one evaluation must
+      fail deterministically rather than being silently collapsed.
+    - >
+      Observations that share source_pack_id but differ in observed_at remain
+      distinct valid observations and must not be rejected merely because the
+      source_pack_id text matches.
+    - >
+      Input cardinality and duplicate-observation validity must be established
+      before pairwise resolution begins.
+    - >
+      Every unordered pair of valid observations must be evaluated exactly once
+      through the existing pairwise entity-resolution authority, producing
+      exactly N * (N - 1) / 2 preserved pairwise results.
+    - >
+      The multi-observation layer must not duplicate, replace, reinterpret, or
+      silently repair the existing pairwise relationship decision.
+    - >
+      The resulting immutable multi-observation value must preserve the exact
+      source observation identities and the pairwise relationship, confidence,
+      reasons, and evidence returned for every evaluated pair.
+    - >
+      Reordering the same set of observations must not change the semantic set
+      of observations, pairwise decisions, or reported consistency conflicts.
+    - >
+      EXACT_VARIANT_MATCH and SAME_PRODUCT_FAMILY are positive product-family
+      relationships for consistency analysis. UNCERTAIN is neither positive nor
+      negative family evidence and must not itself create connectivity or a
+      consistency conflict.
+    - >
+      A product-family consistency conflict must be reported when observations
+      connected through one or more positive product-family pairwise
+      relationships also contain a direct DIFFERENT_PRODUCT relationship within
+      that positively connected set.
+    - >
+      Every reported consistency conflict must retain enough contributing
+      pairwise identities/results to audit both the positive family connection
+      and the contradictory direct DIFFERENT_PRODUCT evidence.
+    - >
+      Consistency diagnostics must not modify any pairwise result, infer a new
+      transitive pair relationship, create a product cluster, or choose which
+      conflicting evidence is correct.
+    - >
+      No aggregate confidence may be derived by averaging, multiplying,
+      maximizing, or otherwise combining pairwise confidence values.
+    - >
+      The operation must be deterministic and side-effect-free for the same
+      input values, with zero wall-clock, filesystem mutation, persistence,
+      network, browser, Drive, LLM, or external-service dependency.
+    - Do not push from executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      A platform-neutral immutable multi-observation contract accepts between
+      2 and 100 ProductSourcePack observations and returns their exact
+      observation identities, complete pairwise resolution set, and auditable
+      consistency diagnostics without catalog or source mutation.
+
+  - id: AC2
+    condition: >
+      For N valid unique observations, the layer delegates exactly once to the
+      existing pairwise entity-resolution authority for each unordered pair and
+      preserves exactly N * (N - 1) / 2 pairwise results without independently
+      recreating pairwise identity semantics.
+
+  - id: AC3
+    condition: >
+      Two identical SourceObservationIdentity values in one input fail
+      deterministically before pairwise evaluation, while two observations with
+      the same source_pack_id and different observed_at values remain distinct
+      valid observations.
+
+  - id: AC4
+    condition: >
+      Permuting input order produces the same semantic observation set, pairwise
+      decisions, pairwise confidence/evidence, and consistency diagnostics.
+
+  - id: AC5
+    condition: >
+      Every pairwise result preserves the relationship, confidence, reasons,
+      evidence, and both SourceObservationIdentity values supplied by the
+      existing pairwise resolver without being rewritten or aggregated.
+
+  - id: AC6
+    condition: >
+      When A and B have a positive product-family relationship, B and C have a
+      positive product-family relationship, and A and C resolve directly to
+      DIFFERENT_PRODUCT, the multi-observation result reports an auditable
+      product-family consistency conflict referencing the contributing
+      pairwise results and does not merge or repair the observations.
+
+  - id: AC7
+    condition: >
+      UNCERTAIN relationships do not create positive family connectivity or
+      consistency conflicts; a chain that depends on an UNCERTAIN pair is not
+      treated as evidence that its endpoints belong to one product family.
+
+  - id: AC8
+    condition: >
+      A fully consistent set of positive family relationships returns no
+      product-family consistency conflict, and the absence of conflict does not
+      create a cluster, canonical product ID, or inferred transitive pair result.
+
+  - id: AC9
+    condition: >
+      Invalid cardinality below 2 or above 100 and duplicate exact observation
+      identity fail deterministically without partial pairwise work, external
+      side effects, or fabricated results.
+
+  - id: AC10
+    condition: >
+      Focused deterministic tests cover bounded cardinality, exact pair count,
+      single pairwise delegation, repeated-listing observations at different
+      observed_at values, duplicate observation rejection, input permutation,
+      consistent positive-family sets, positive-chain/direct-difference
+      conflicts, UNCERTAIN boundaries, and zero live external side effects.
+
+  - id: AC11
+    condition: >
+      M3 documentation describes the multi-observation resolution graph as a
+      read-only evidence and conflict boundary between pairwise resolution and
+      later clustering/catalog work, and explicitly defers clustering, merge
+      approval, canonical IDs, persistence, aggregation, retrieval, and RAG.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_entity_resolution.py tests/product_intelligence/test_entity_resolution_graph.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
