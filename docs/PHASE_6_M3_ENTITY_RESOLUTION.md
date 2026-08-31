@@ -206,8 +206,8 @@ profile aggregation, persistence, or external operation. It makes no catalog
 claim about global or per-family ID uniqueness, ID reuse, one-time admission,
 idempotent insertion, cross-record member exclusivity, or future-exhaustive
 membership. Those in-memory registration-integrity claims belong only to TASK-118;
-canonical serialization, durable persistence, profile aggregation, retrieval, and
-RAG remain deferred to later milestones.
+durable persistence, profile aggregation, retrieval, and RAG remain deferred to
+later milestones.
 
 ## Canonical Catalog Integrity
 
@@ -230,14 +230,38 @@ variant partition or a different-variant relationship from unassigned membership
 
 This boundary is append-only and performs no upstream admission, resolution,
 grouping, evidence projection, Human decision creation, identity generation,
-profile aggregation, serialization, persistence, or external work. Canonical
-serialization, durable storage including SQLite, transactions, reopen and recovery,
-migrations, identity evolution, profile aggregation, deterministic retrieval, and
-RAG are explicitly deferred to later milestones.
+profile aggregation, persistence, or external work.
+
+## Canonical Catalog Snapshot Representation
+
+TASK-119 is the representation and trusted-rehydration authority for one exact
+TASK-118 catalog snapshot. `encode_canonical_catalog` emits deterministic,
+versioned canonical UTF-8 JSON. Families retain their members, complete pair
+evidence, and Human approval provenance. Variants refer by index to their source
+family, source-family members, and source-family pair evidence, including direct
+exact evidence, exactness-gap witnesses, and selected pair evidence. The snapshot
+therefore records one bounded value graph rather than recursively duplicating its
+lineage.
+
+`decode_canonical_catalog` accepts only the exact canonical V1 byte
+representation. It fails closed for malformed or alternate JSON, invalid schema
+or fields, invalid scalar values, broken indexes, and inconsistent retained
+lineage. Decoding privately rebuilds the already-admitted proposal structures;
+it does not run resolution, grouping, projection, proposal discovery, or Human
+decision factories. Reconstructed families and evidence values are reused by
+variant lineage, then families and variants pass in canonical order through the
+TASK-118 registration operations. TASK-118 remains the sole catalog-integrity
+authority.
+
+This codec is pure in-memory representation only. Canonical form detects malformed,
+non-canonical, or internally inconsistent snapshots but does not authenticate a
+snapshot against a malicious party. It provides no filesystem or SQLite storage,
+transaction/concurrency policy, crash recovery, backup, migration, signing, MAC,
+encryption, profile aggregation, retrieval index, embedding, or RAG behavior.
 
 ## Deferred M3 work
 
-Autonomous merge policy, family-ID allocation, canonical serialization, durable
-storage/SQLite, transactions, reopen/recovery, migrations, identity evolution,
-variant profile aggregation, deterministic retrieval, and RAG are explicitly
-deferred to later M3 milestones.
+Autonomous merge policy, family-ID allocation, durable storage/SQLite,
+transactions, reopen/recovery, migrations, cryptographic authenticity, identity
+evolution, variant profile aggregation, deterministic retrieval, and RAG are
+explicitly deferred to later M3 milestones.

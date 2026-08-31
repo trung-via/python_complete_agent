@@ -161,6 +161,13 @@ from src.product_intelligence.canonical_catalog import (
     register_canonical_family,
     register_canonical_variant,
 )
+from src.product_intelligence.canonical_catalog_codec import (
+    CANONICAL_CATALOG_SCHEMA,
+    CANONICAL_CATALOG_SCHEMA_VERSION,
+    CanonicalCatalogCodecError,
+    decode_canonical_catalog,
+    encode_canonical_catalog,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -294,4 +301,9 @@ __all__ = [
     "create_empty_canonical_catalog",
     "register_canonical_family",
     "register_canonical_variant",
+    "CANONICAL_CATALOG_SCHEMA",
+    "CANONICAL_CATALOG_SCHEMA_VERSION",
+    "CanonicalCatalogCodecError",
+    "decode_canonical_catalog",
+    "encode_canonical_catalog",
 ]

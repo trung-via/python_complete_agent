@@ -192,9 +192,68 @@ def create_family_merge_proposal(
             "graph contains malformed or duplicated induced pair evidence"
         )
 
-    return FamilyMergeProposal(
+    return _build_family_merge_proposal(
         members=group.members,
         pair_evidence=tuple(pair_evidence),
+    )
+
+
+def _rehydrate_family_merge_proposal(
+    *,
+    members: tuple[SourceObservationIdentity, ...],
+    pair_evidence: tuple[FamilyMergePairEvidence, ...],
+) -> FamilyMergeProposal:
+    """Rehydrate one already-admitted proposal without upstream inference.
+
+    This deliberately private entry point exists only for the canonical snapshot
+    codec.  It shares the structural builder used by the public graph-backed path
+    while leaving the anti-forgery dataclass boundary intact.
+    """
+
+    return _build_family_merge_proposal(
+        members=members,
+        pair_evidence=pair_evidence,
+    )
+
+
+def _build_family_merge_proposal(
+    *,
+    members: tuple[SourceObservationIdentity, ...],
+    pair_evidence: tuple[FamilyMergePairEvidence, ...],
+) -> FamilyMergeProposal:
+    if type(members) is not tuple or len(members) < 2:
+        raise FamilyMergeApprovalError(
+            "proposal members must be an explicit tuple of at least two observations"
+        )
+    if any(type(member) is not SourceObservationIdentity for member in members):
+        raise FamilyMergeApprovalError(
+            "proposal members must be exact SourceObservationIdentity values"
+        )
+    if len(set(members)) != len(members):
+        raise FamilyMergeApprovalError("proposal members must be unique")
+    if type(pair_evidence) is not tuple:
+        raise FamilyMergeApprovalError("proposal pair evidence must be an exact tuple")
+
+    expected_endpoints = tuple(
+        (members[left], members[right])
+        for left in range(len(members))
+        for right in range(left + 1, len(members))
+    )
+    if len(pair_evidence) != len(expected_endpoints):
+        raise FamilyMergeApprovalError("proposal is not evidence-complete")
+    for pair, (left, right) in zip(pair_evidence, expected_endpoints):
+        if type(pair) is not FamilyMergePairEvidence:
+            raise FamilyMergeApprovalError(
+                "proposal pair evidence must contain exact FamilyMergePairEvidence values"
+            )
+        if pair.left is not left or pair.right is not right:
+            raise FamilyMergeApprovalError(
+                "proposal pair evidence must follow canonical member-pair order"
+            )
+
+    return FamilyMergeProposal(
+        members=members,
+        pair_evidence=pair_evidence,
         _lineage=_PROPOSAL_LINEAGE,
     )
 

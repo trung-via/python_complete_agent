@@ -173,10 +173,100 @@ def create_sellable_variant_proposal(
             "proposal must retain exactly one direct exact value for every selected pair"
         )
 
-    return SellableVariantProposal(
+    return _build_sellable_variant_proposal(
         projection=projection,
         members=canonical_members,
         pair_evidence=tuple(selected_pair_evidence),
+    )
+
+
+def _rehydrate_sellable_variant_proposal(
+    *,
+    projection: SellableVariantEvidenceProjection,
+    members: tuple[SourceObservationIdentity, ...],
+    pair_evidence: tuple[FamilyMergePairEvidence, ...],
+) -> SellableVariantProposal:
+    """Rehydrate retained proposal lineage without projecting or discovering it."""
+
+    return _build_sellable_variant_proposal(
+        projection=projection,
+        members=members,
+        pair_evidence=pair_evidence,
+    )
+
+
+def _build_sellable_variant_proposal(
+    *,
+    projection: SellableVariantEvidenceProjection,
+    members: tuple[SourceObservationIdentity, ...],
+    pair_evidence: tuple[FamilyMergePairEvidence, ...],
+) -> SellableVariantProposal:
+    if type(projection) is not SellableVariantEvidenceProjection:
+        raise SellableVariantApprovalError(
+            "proposal projection must be an exact SellableVariantEvidenceProjection"
+        )
+    family = projection.source_family
+    if type(family) is not CanonicalProductFamily:
+        raise SellableVariantApprovalError(
+            "proposal projection must retain an exact canonical source family"
+        )
+    if type(members) is not tuple or not members:
+        raise SellableVariantApprovalError(
+            "proposal members must be an explicit non-empty tuple"
+        )
+    if type(pair_evidence) is not tuple:
+        raise SellableVariantApprovalError(
+            "proposal pair evidence must be an exact tuple"
+        )
+
+    family_positions = {member: position for position, member in enumerate(family.members)}
+    if len(family_positions) != len(family.members):
+        raise SellableVariantApprovalError("canonical family members must be unique")
+    try:
+        member_positions = tuple(family_positions[member] for member in members)
+    except (KeyError, TypeError) as exc:
+        raise SellableVariantApprovalError(
+            "every proposal member must belong to the canonical family"
+        ) from exc
+    if len(set(member_positions)) != len(member_positions):
+        raise SellableVariantApprovalError("proposal members must be unique")
+    if member_positions != tuple(sorted(member_positions)):
+        raise SellableVariantApprovalError(
+            "proposal members must follow canonical source-family order"
+        )
+    if any(members[index] is not family.members[position] for index, position in enumerate(member_positions)):
+        raise SellableVariantApprovalError(
+            "proposal members must reuse source-family observation values"
+        )
+
+    exact_pairs = _index_direct_exact_evidence(projection, family_positions)
+    selected_positions = set(member_positions)
+    for left, right in exact_pairs:
+        if (left in selected_positions) != (right in selected_positions):
+            raise SellableVariantApprovalError(
+                "selected members must be closed under direct exact edges"
+            )
+
+    expected_pairs = tuple(
+        exact_pairs[(left, right)]
+        for offset, left in enumerate(member_positions)
+        for right in member_positions[offset + 1 :]
+        if (left, right) in exact_pairs
+    )
+    expected_pair_count = len(members) * (len(members) - 1) // 2
+    if len(expected_pairs) != expected_pair_count or len(pair_evidence) != expected_pair_count:
+        raise SellableVariantApprovalError(
+            "every selected pair must have preserved direct exact evidence"
+        )
+    if any(actual is not expected for actual, expected in zip(pair_evidence, expected_pairs)):
+        raise SellableVariantApprovalError(
+            "proposal pair evidence must reuse source-family evidence in canonical order"
+        )
+
+    return SellableVariantProposal(
+        projection=projection,
+        members=members,
+        pair_evidence=pair_evidence,
         _lineage=_PROPOSAL_LINEAGE,
     )
 
