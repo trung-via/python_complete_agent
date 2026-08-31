@@ -1,0 +1,31 @@
+review_id: REVIEW-111-003
+reviewed_sha: ab08b9809a9a7e1141c2dc6dc5e6cab823c95903
+mode: DELTA
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC7: FAIL
+findings:
+  - id: F1R2
+    basis: AC7
+    action: CODE_FIX
+    location: src/product_intelligence/entity_grouping.py:_identity_canonical_key/group_resolution_graph
+    issue: >
+      RUN-111-003 again produced no remediation delta for the prior F1R1/F1
+      continuity. Its canonical ResultPackage reports changed_files: [] and a
+      head_sha equal to the previously reviewed SHA
+      ab08b9809a9a7e1141c2dc6dc5e6cab823c95903. Therefore the implementation
+      still maps source_product_id=None and source_product_id="" to the same
+      canonical sort component via `source_product_id or ""`, and the required
+      permutation regression for these two valid distinct identities is still
+      absent.
+    expected: >
+      Complete the existing F1 continuity by making the canonical identity sort
+      key injective over the exact SourceObservationIdentity fields admitted by
+      TASK-109, preserving None distinctly from the empty string. Add a focused
+      regression using two valid distinct observations whose identities differ
+      only by source_product_id=None versus source_product_id="" and prove that
+      reversed/permuted input yields identical provisional group ordering. The
+      remediation must create an actual implementation/test delta within the
+      authorized files and must not change TASK-108/TASK-109 semantics, conflict
+      authority, grouping scope, or add merge/catalog authority.
+prior_finding_id: F1R1
