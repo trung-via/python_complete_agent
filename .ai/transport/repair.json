@@ -1,0 +1,20 @@
+{
+  "repair_id": "REPAIR-119-004",
+  "failed_run_id": "RUN-119-004",
+  "failed_head_sha": "bfbea5f194ebba9e993c3b123a5c2e2928bbb7ce",
+  "task": {
+    "id": "TASK-119",
+    "revision": 1
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "tests/product_intelligence/test_canonical_catalog_codec.py"
+  ],
+  "instructions": [
+    "Continue from the exact failed_head_sha of RUN-119-004. The authorized correction is fully specified below; do not return a no-change result and do not modify product implementation.",
+    "In test_equivalent_aware_instants_and_independent_construction_are_identical_bytes, replace the exact final assertion `assert text.endswith(\"}\") and \"\\n\" not in text and \" \" not in text` with a canonical-format assertion that preserves spaces inside JSON string values.",
+    "Use the already imported json module and compare the emitted text against compact deterministic JSON produced from json.loads(text) with exactly ensure_ascii=False, allow_nan=False, separators=(\",\", \":\"), and sort_keys=True. Retain the existing UTC timestamp assertion and separately retain the no-trailing-newline/end-brace check. This validates absence of insignificant formatting whitespace without banning significant ordinary spaces in retained string values.",
+    "Modify only tests/product_intelligence/test_canonical_catalog_codec.py, commit the non-empty correction delta, and bind the structural ResultPackage to the new HEAD. Do not change canonical_catalog_codec.py, public APIs, docs, task artifacts, opaque-string semantics, or unrelated tests. Runtime owns the original TASK-119 canonical verification."
+  ],
+  "constraints": []
+}
