@@ -1,0 +1,175 @@
+task_id: TASK-117
+revision: 1
+
+goal: >
+  Add a bounded, deterministic canonical sellable-variant admission boundary.
+  The boundary must admit exactly one existing TASK-116 Human-approved
+  SellableVariantDecisionRecord under one explicit caller-supplied opaque
+  variant_id, bind the resulting immutable canonical variant intrinsically to the
+  exact approved proposal and its exact CanonicalProductFamily lineage, and stop
+  before catalog persistence, ID uniqueness/reuse policy, profile aggregation,
+  retrieval, or RAG.
+
+problem: >
+  TASK-116 can establish an explicit Human APPROVE over one exact sellable-variant
+  proposal, but it intentionally creates no canonical variant identity. The next
+  milestone must convert only that exact approval lineage into a canonical variant
+  identity without accepting a second family/family_id/member/evidence input that
+  could diverge from the approved lineage. It must also avoid pretending to know
+  catalog-wide uniqueness, one-time admission, persistent membership, or future
+  completeness because those require global persistent state and belong to the
+  later catalog milestone.
+
+assumptions:
+  - Current canonical python_complete_agent main baseline is ed024be7d44cb081a0410e7549f1739561a0a529.
+  - TASK-114 CanonicalProductFamily is the canonical product-family identity boundary.
+  - TASK-115 remains the sole sellable-variant evidence/diagnostic authority.
+  - TASK-116 preserves one exact SellableVariantProposal and explicit Human APPROVE or REJECT.
+  - TASK-116 APPROVE authorizes only later admission of that exact proposal inside its exact source family.
+  - Persistent catalog uniqueness, reuse, idempotency, cross-record integrity, profile aggregation, retrieval, and RAG remain later milestones.
+
+scope:
+  inspect:
+    - .ai/tasks/TASK-114.yaml
+    - .ai/tasks/TASK-115.yaml
+    - .ai/tasks/TASK-116.yaml
+    - src/product_intelligence/canonical_family.py
+    - src/product_intelligence/sellable_variant_evidence.py
+    - src/product_intelligence/sellable_variant_approval.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_canonical_family.py
+    - tests/product_intelligence/test_sellable_variant_evidence.py
+    - tests/product_intelligence/test_sellable_variant_approval.py
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+  modify:
+    - src/product_intelligence/canonical_variant.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_canonical_variant.py
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+
+non_goals:
+  - Modify TASK-114, TASK-115, or TASK-116 semantics.
+  - Accept CanonicalProductFamily, family_id, members, proposal, projection, pair evidence, source packs, graph, or resolver inputs separately from the decision record.
+  - Re-run or recreate TASK-115 evidence projection or TASK-116 proposal/decision semantics.
+  - Generate, allocate, hash, normalize, prefix, parse, infer, or derive variant_id.
+  - Establish global or per-family variant_id uniqueness, reuse, reservation, one-time admission, idempotent insertion, collision handling, or cross-record member exclusivity.
+  - Treat approved members as permanently exhaustive for future observations.
+  - Add variant profile fields or aggregate confidence.
+  - Persist catalog state or add database, filesystem, network, browser, Drive, queue, LLM, embeddings, retrieval, or RAG behavior.
+
+constraints:
+  hard:
+    - >
+      The public admission operation must accept exactly one existing
+      SellableVariantDecisionRecord plus one keyword-only explicit variant_id and
+      expose no family, family_id, members, projection, evidence, or alternate
+      lineage parameter.
+    - >
+      The decision record must be the exact TASK-116 type and contain explicit
+      SellableVariantDecision.APPROVE. REJECT, wrong types, substitutes, or implicit
+      approval paths fail closed.
+    - >
+      variant_id must be an explicit opaque non-empty single-line NUL-free string
+      with no leading/trailing whitespace and must be preserved exactly.
+    - >
+      Admission must not parse, normalize, trim, hash, prefix, generate, or derive
+      variant_id; clock, random/UUID, Python hash, environment, filesystem, and
+      external services must not influence it.
+    - >
+      CanonicalSellableVariant must be immutable and directly constructible only
+      through the canonical admission factory; forged direct construction fails closed.
+    - >
+      The canonical record must store only explicit variant identity and the exact
+      approved TASK-116 decision lineage as primary authority. source_family,
+      family_id, members, proposal, and Human provenance may be exposed only as
+      read-only derived views from that exact lineage.
+    - >
+      source_family must resolve by exact object identity to
+      decision_record.proposal.source_family; family_id must derive only from that
+      family; members must derive exactly from decision_record.proposal.members.
+    - >
+      Singleton and multi-member APPROVED proposals must both admit without
+      fabricated evidence or profile information.
+    - >
+      Admission must preserve the exact SellableVariantDecisionRecord object and all
+      proposal/projection/evidence lineage reachable through it without copying,
+      rewriting, synthesis, aggregation, or inference.
+    - >
+      Admission must perform zero TASK-115 projection calls, TASK-116 proposal or
+      decision factory calls, TASK-114 family admission calls, resolver/grouping work,
+      profile aggregation, persistence, or external effects.
+    - >
+      Admission must not claim global/per-family uniqueness, one-time admission,
+      member exclusivity across future records, or future-exhaustive membership.
+    - >
+      The public canonical variant schema must expose no canonical profile,
+      aggregate confidence, persistence/catalog handle, retrieval key, partition
+      completeness flag, or mutation authority.
+    - Do not push from executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      A public create_canonical_sellable_variant-style operation accepts exactly one
+      exact SellableVariantDecisionRecord and one keyword-only explicit variant_id,
+      with no family/family_id/member/projection/evidence argument or alternate path.
+  - id: AC2
+    condition: >
+      Explicit APPROVE admits; REJECT, wrong decision-record types, or substitutes
+      fail closed before canonical variant construction.
+  - id: AC3
+    condition: >
+      variant_id validation requires a non-empty single-line NUL-free string with no
+      leading/trailing whitespace and preserves valid IDs exactly without generation,
+      normalization, hashing, parsing, prefixing, or derivation.
+  - id: AC4
+    condition: >
+      CanonicalSellableVariant retains the exact approved decision record and derives
+      source_family by exact object identity from approval.proposal.source_family,
+      with family_id derived only from that exact source family and no independent
+      caller-supplied family authority.
+  - id: AC5
+    condition: >
+      members are exposed exactly from approval.proposal.members in canonical TASK-116
+      order; singleton and multi-member approved proposals both admit without
+      fabricated evidence, profile, or partition semantics.
+  - id: AC6
+    condition: >
+      Direct construction or forged substitutes cannot create a canonical
+      CanonicalSellableVariant outside the admission factory boundary.
+  - id: AC7
+    condition: >
+      Admission preserves exact TASK-116/TASK-115/TASK-114 provenance by object
+      lineage and performs no copying, rewriting, aggregation, or inferred relationship changes.
+  - id: AC8
+    condition: >
+      Admission performs zero TASK-115 projection, TASK-116 factory, TASK-114 family
+      admission, resolver/grouping, identity generation, profile aggregation,
+      persistence, or external work.
+  - id: AC9
+    condition: >
+      The admission API makes no claim or enforcement of global/per-family variant_id
+      uniqueness, ID reuse, one-time admission, cross-record member exclusivity,
+      persistent insertion, or future-exhaustive membership; these remain TASK-118 concerns.
+  - id: AC10
+    condition: >
+      The public canonical variant schema exposes no color/size/capacity/SKU/media or
+      other canonical profile, aggregate confidence, catalog/persistence handle,
+      retrieval key, complete-partition flag, or mutation authority.
+  - id: AC11
+    condition: >
+      Focused deterministic regressions cover APPROVE/REJECT, no family argument,
+      valid/invalid opaque IDs, singleton and multi-member admission, exact lineage
+      preservation, immutable anti-forgery construction, zero upstream re-execution,
+      zero external side effects, and repeated semantically identical construction.
+  - id: AC12
+    condition: >
+      M3 documentation records canonical sellable-variant admission as the narrow
+      identity-binding boundary after TASK-116 Human APPROVE and explicitly defers
+      persistent catalog uniqueness/reuse/idempotency/cross-record integrity, profile
+      aggregation, retrieval, and RAG.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_canonical_family.py tests/product_intelligence/test_sellable_variant_evidence.py tests/product_intelligence/test_sellable_variant_approval.py tests/product_intelligence/test_canonical_variant.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
