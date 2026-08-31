@@ -1,0 +1,24 @@
+{
+  "repair_id": "REPAIR-110-001",
+  "failed_run_id": "RUN-110-001",
+  "failed_head_sha": "ba024bc17fe6da4456eb68673dabf43336f5af8e",
+  "task": {
+    "id": "TASK-110",
+    "revision": 1
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    ".agents/skills/aios-worker/requirements-aios-renew.txt",
+    ".agents/skills/aios-worker/scripts/aios_worker.py",
+    ".agents/skills/aios-worker/SKILL.md",
+    ".agents/workflows/aios-renew-worker.md",
+    "docs/AIOS_UNIFIED_WORKER_WORKFLOW.md",
+    "tests/aios_bridge/test_aios_worker_control_surface.py"
+  ],
+  "instructions": [
+    "Complete the original TASK-110 implementation from failed_head_sha without widening scope or changing TASK semantics.",
+    "Correct the structural ResultPackage completion contract: every claims[].satisfies entry must reference only actual TASK-110 acceptance criterion IDs AC1 through AC11; TASK-110 itself is not an acceptance criterion.",
+    "Do not retry, reroute, push, merge, or introduce worker-side lineage, sandbox, mutation-capability, review, or publication authority beyond TASK-110."
+  ],
+  "constraints": []
+}
