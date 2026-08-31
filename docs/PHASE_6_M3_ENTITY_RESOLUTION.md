@@ -321,11 +321,39 @@ This boundary locates lexical evidence only. It does not select preferred produc
 truth from conflicting evidence, approve or admit identities, mutate profiles,
 persist or index a corpus, use embeddings or models, or perform external work.
 M2 `CandidateRanker` remains the separate winning-product business-ranking
-authority. RAG document and context construction remain deferred to TASK-123.
+authority. Grounded RAG context packaging is owned by TASK-123.
+
+## Canonical Grounded RAG Context Packaging
+
+TASK-123 adds a pure, deterministic, bounded context packaging boundary over
+existing TASK-121 `CanonicalVariantProfile` evidence and TASK-122 lexical
+retrieval. `build_canonical_rag_context` accepts a caller question and explicit
+`retrieval_query` separately, delegating retrieval to TASK-122 exactly once with
+the specified `max_hits` limit. It accepts no precomputed or forged hits.
+
+All selected hit headers and TASK-122 retrieval witnesses are mandatory context.
+Supplemental `OBSERVATION`, `FACT`, and `MEDIA` evidence blocks follow canonical
+member and evidence traversal within each hit profile. Supplemental blocks are
+admitted whole in canonical order only as long as the complete rendered context
+fits within the caller's UTF-8 byte budget (`max_context_utf8_bytes`). No
+retained question, query, witness, or evidence string is partially truncated.
+Mandatory-context overflow fails closed, while supplemental omission records
+deterministic `truncated` and `omitted_evidence_blocks` metadata.
+
+`render_canonical_rag_context` produces deterministic compact UTF-8 JSON under
+schema `canonical_variant_rag_context` version 1. The rendered structure marks
+source evidence as untrusted data and non-authoritative instructions, and excludes
+transport-only URLs, internal product/pack IDs, hashes, and filenames.
+
+This boundary performs zero model invocation, answer synthesis, prompt formatting,
+embedding, reranking, indexing, SQLite/filesystem/network/browser operations, or
+product-truth reconciliation. Conflicting and duplicate evidence remain plural.
+TASK-121 owns evidence projection, TASK-122 owns lexical retrieval, and TASK-123
+owns deterministic grounded context packaging only; model invocation and answer
+synthesis remain future consumers outside this task.
 
 ## Deferred M3 work
 
 Autonomous merge policy, family-ID allocation, migrations, cryptographic
-authenticity, identity evolution, product-truth reconciliation, and RAG/context
-construction are explicitly deferred to later M3 milestones, with TASK-123 as
-the next RAG/context-construction boundary.
+authenticity, identity evolution, product-truth reconciliation, model-driven
+answer synthesis, and prompt generation are explicitly deferred to later milestones.

@@ -192,6 +192,15 @@ from src.product_intelligence.canonical_retrieval import (
     CanonicalVariantRetrievalHit,
     retrieve_canonical_variant_profiles,
 )
+from src.product_intelligence.canonical_rag_context import (
+    CanonicalRagContext,
+    CanonicalRagContextError,
+    CanonicalRagEvidenceBlock,
+    CanonicalRagEvidenceKind,
+    CanonicalRagHitContext,
+    build_canonical_rag_context,
+    render_canonical_rag_context,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -348,4 +357,11 @@ __all__ = [
     "CanonicalRetrievalWitness",
     "CanonicalVariantRetrievalHit",
     "retrieve_canonical_variant_profiles",
+    "CanonicalRagContextError",
+    "CanonicalRagEvidenceKind",
+    "CanonicalRagEvidenceBlock",
+    "CanonicalRagHitContext",
+    "CanonicalRagContext",
+    "build_canonical_rag_context",
+    "render_canonical_rag_context",
 ]
