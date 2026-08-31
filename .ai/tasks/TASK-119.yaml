@@ -1,0 +1,217 @@
+task_id: TASK-119
+revision: 1
+
+goal: >
+  Add a bounded, deterministic, versioned canonical snapshot codec for the existing
+  TASK-118 CanonicalCatalogState. The codec must encode one valid canonical catalog
+  into exact canonical UTF-8 JSON bytes and decode only exact canonical V1 bytes back
+  into a value-equal canonical catalog while preserving family/variant approval and
+  evidence lineage. Decoding must rehydrate trusted persisted canonical values without
+  re-running entity resolution, grouping, evidence projection, Human proposal/decision
+  workflows, or changing TASK-118 integrity semantics. Filesystem/SQLite durability,
+  transactions, recovery, migrations, profile aggregation, retrieval, and RAG remain
+  later milestones.
+
+problem: >
+  TASK-118 is the sole in-memory authority for catalog uniqueness, idempotency,
+  observation exclusivity, and family-before-variant integrity, but its canonical
+  values contain deep immutable approval/evidence lineage and anti-forgery proposal
+  boundaries. Naive dataclass serialization would duplicate family/evidence objects,
+  lose internal aliasing, or require bypassing/re-running upstream semantic factories
+  after restart. M3 therefore needs an explicit canonical representation plus a narrow
+  trusted rehydration path that reconstructs the already-admitted value graph, restores
+  reference relationships, and finally passes reconstructed families/variants through
+  TASK-118 registration as the catalog-integrity authority.
+
+assumptions:
+  - Current canonical python_complete_agent main baseline is d4f8d1857bfa5bf6b4a3f6b38060fe98186721f0.
+  - TASK-118 CanonicalCatalogState and registration operations remain the sole catalog-integrity authority.
+  - TASK-114 and TASK-117 canonical IDs remain opaque values and are not reallocated by the codec.
+  - Canonical family/variant records retain only the already-admitted lineage available in current domain objects; the codec does not reconstruct discarded upstream graphs/source packs.
+  - A decoded catalog is required to be value-equal to its encoded source, not Python-object-identical across a process boundary.
+  - Internal aliasing among reconstructed family pair evidence, variant projection evidence, exactness-gap evidence, and selected pair evidence is part of the canonical lineage and must be restored.
+  - Snapshot authenticity against a malicious party is outside this codec boundary; strict canonical decoding detects malformed, non-canonical, inconsistent, or corrupted representations but does not provide cryptographic provenance/authentication.
+  - Durable SQLite/storage, transaction/concurrency policy, crash recovery, schema migration, cryptographic signing/MAC, profile aggregation, retrieval, and RAG remain later milestones.
+
+scope:
+  inspect:
+    - .ai/tasks/TASK-112.yaml
+    - .ai/tasks/TASK-114.yaml
+    - .ai/tasks/TASK-115.yaml
+    - .ai/tasks/TASK-116.yaml
+    - .ai/tasks/TASK-117.yaml
+    - .ai/tasks/TASK-118.yaml
+    - src/product_intelligence/entity_resolution.py
+    - src/product_intelligence/canonical_family.py
+    - src/product_intelligence/sellable_variant_evidence.py
+    - src/product_intelligence/canonical_variant.py
+    - src/product_intelligence/canonical_catalog.py
+    - tests/product_intelligence/test_family_merge_approval.py
+    - tests/product_intelligence/test_sellable_variant_approval.py
+    - tests/product_intelligence/test_canonical_catalog.py
+  modify:
+    - src/product_intelligence/canonical_catalog_codec.py
+    - src/product_intelligence/family_merge_approval.py
+    - src/product_intelligence/sellable_variant_approval.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_canonical_catalog_codec.py
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+
+non_goals:
+  - Modify TASK-108 through TASK-118 public semantics or catalog conflict/uniqueness rules.
+  - Re-run entity resolution, multi-observation resolution, grouping, family proposal discovery, sellable-variant evidence projection, proposal discovery, or Human decision creation during decode.
+  - Reconstruct source packs, provisional graphs/groups, or other upstream state not retained by canonical family/variant records.
+  - Add a public proposal-rehydration or anti-forgery bypass API.
+  - Generate, normalize, hash, prefix, parse, or replace family_id or variant_id.
+  - Add filesystem I/O, SQLite/database behavior, locks, transactions, concurrent writers, crash recovery, backup, migration, schema upgrade, or persistent mutation APIs.
+  - Add pickle or another executable/object-native serialization format.
+  - Add cryptographic signing, HMAC, encryption, or claim that canonical JSON proves external authenticity.
+  - Add profile aggregation, retrieval indexes, embeddings, LLM, RAG, network, browser, Drive, queue, clock-driven identity, or random/UUID behavior.
+
+constraints:
+  hard:
+    - >
+      Expose exactly one public codec error, CanonicalCatalogCodecError; exact public
+      schema constants CANONICAL_CATALOG_SCHEMA and CANONICAL_CATALOG_SCHEMA_VERSION;
+      and public encode_canonical_catalog(catalog) -> bytes and
+      decode_canonical_catalog(payload) -> CanonicalCatalogState operations.
+    - >
+      CANONICAL_CATALOG_SCHEMA must identify this canonical catalog representation and
+      V1 decode must accept exactly CANONICAL_CATALOG_SCHEMA_VERSION == 1. Unknown or
+      missing schema/version values fail closed; no automatic migration or fallback.
+    - >
+      Encoding accepts only an exact CanonicalCatalogState and returns deterministic
+      UTF-8 JSON bytes with no BOM, no trailing newline, no insignificant whitespace,
+      deterministic object-key ordering, deterministic list ordering from canonical
+      domain order, strict finite JSON numbers, and exact preservation of ordinary
+      string code points without ID/actor/URL/evidence normalization.
+    - >
+      The canonical snapshot must be reference-based rather than recursively duplicating
+      the domain object graph. Family pair evidence must reference family member indexes;
+      variants must reference their source family and source-family member/pair indexes;
+      projection direct-exact evidence, exactness-gap direct/witness evidence, and
+      selected pair evidence must reference the corresponding retained source-family
+      pair evidence values rather than encode independent copies.
+    - >
+      Every timezone-aware datetime retained by the canonical value graph must have one
+      deterministic wire representation normalized to UTC with fixed microsecond
+      precision and an explicit Z suffix. Decode must return timezone-aware UTC datetime
+      values that remain value-equal to the original aware datetime instants.
+    - >
+      Decode accepts bytes only, uses strict UTF-8/JSON parsing, rejects BOM, duplicate
+      object keys, non-finite numbers, unknown/missing fields, wrong container/scalar
+      types, invalid enums/datetimes, non-canonical ordering, invalid indexes,
+      duplicate/out-of-range references, broken family/variant bindings, and any
+      representation that cannot reconstruct the exact retained canonical lineage.
+    - >
+      Successful decode must satisfy encode_canonical_catalog(decoded_catalog) ==
+      original_payload byte-for-byte. A parseable but non-canonical alternate encoding
+      must fail closed rather than be silently normalized.
+    - >
+      Rehydration of FamilyMergeProposal and SellableVariantProposal may use only narrow
+      private, non-exported helpers in their owning modules. Those helpers must share
+      the same internal structural/invariant builder used by normal public proposal
+      construction after upstream eligibility has been established; they must not
+      create a second public semantic authority or re-run upstream discovery/inference.
+    - >
+      Existing public TASK-112 and TASK-116 proposal factories and decisions must keep
+      their current behavior. The narrow internal refactor needed for trusted
+      rehydration must preserve all existing regression behavior and anti-forgery
+      direct-construction protections.
+    - >
+      Reconstructed family members and FamilyMergePairEvidence values must be created
+      once per retained family snapshot and reused by reconstructed family approval
+      lineage. Variant projection direct_exact_evidence, exactness_gaps/witness paths,
+      proposal pair_evidence, and member tuples must reference those reconstructed
+      source-family values consistently rather than independent duplicate copies.
+    - >
+      Decode must reconstruct approved family/variant decisions and canonical identities
+      from retained canonical snapshot fields only. It must not call entity resolution,
+      grouping, project_sellable_variant_evidence, create_family_merge_proposal,
+      create_sellable_variant_proposal, or Human decision factories as a way to
+      reinterpret the historical evidence.
+    - >
+      Final decoded catalog construction must start from create_empty_canonical_catalog
+      and register reconstructed families then variants through TASK-118 public
+      registration operations in canonical order. The codec must not direct-construct
+      CanonicalCatalogState or duplicate TASK-118 uniqueness/collision semantics.
+    - >
+      The codec must be pure and deterministic: zero filesystem/database/network access,
+      zero environment reads, zero current-time dependence, zero random/UUID use, and no
+      mutation of the input catalog or retained canonical values.
+    - Do not push from executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Public exports provide CanonicalCatalogCodecError, exact V1 schema constants,
+      encode_canonical_catalog, and decode_canonical_catalog, with no public trusted-
+      rehydration or storage API.
+  - id: AC2
+    condition: >
+      The empty TASK-118 catalog encodes to one deterministic canonical UTF-8 JSON byte
+      sequence and round-trips to a value-equal new CanonicalCatalogState; re-encoding
+      the decoded value reproduces identical bytes.
+  - id: AC3
+    condition: >
+      A catalog containing canonical families round-trips all opaque IDs, member values,
+      approval decisions/actors/times, pair relationships/confidence/reasons/evidence,
+      canonical order, and reconstructed family lineage without object-identity claims
+      across the process boundary.
+  - id: AC4
+    condition: >
+      A catalog containing singleton and multi-member canonical variants round-trips
+      variant approval/proposal/projection/exactness-gap lineage and restores internal
+      member/pair-evidence aliasing against each reconstructed source family rather than
+      creating divergent evidence copies.
+  - id: AC5
+    condition: >
+      Value-equal canonical catalogs, including values constructed independently or by
+      different valid insertion orders and aware datetimes representing the same
+      instant, produce exactly identical canonical bytes.
+  - id: AC6
+    condition: >
+      Canonical bytes use exact V1 schema/field sets, deterministic object/list order,
+      UTF-8 without BOM/trailing newline/insignificant whitespace, fixed UTC datetime
+      representation, finite numbers only, and no normalization of opaque strings.
+  - id: AC7
+    condition: >
+      Decode fails closed for invalid UTF-8/JSON, duplicate keys, BOM, trailing or
+      non-canonical representation, unknown/missing schema or fields, unsupported
+      versions, invalid enums/datetimes/numbers, and wrong scalar/container types.
+  - id: AC8
+    condition: >
+      Decode fails closed for invalid member/pair/family indexes, duplicate or
+      out-of-range references, mismatched pair endpoints, broken variant source-family
+      references, invalid projection/gap/selected-evidence references, or other retained
+      lineage inconsistencies.
+  - id: AC9
+    condition: >
+      Successful decode satisfies both decoded == original semantic catalog for encoded
+      valid inputs and encode(decoded) == original canonical payload byte-for-byte,
+      while decoded objects are independently reconstructed values rather than the
+      original Python object instances.
+  - id: AC10
+    condition: >
+      Decode performs zero resolver/grouping/projector/public-proposal-factory/Human-
+      decision-factory calls and reconstructs final catalog state only through
+      create_empty_canonical_catalog plus TASK-118 family/variant registration, so
+      TASK-118 remains the sole catalog-integrity authority.
+  - id: AC11
+    condition: >
+      Private rehydration helpers are non-exported, retain direct-construction
+      anti-forgery behavior, share internal proposal structural/invariant construction
+      with the normal public paths, and existing TASK-112/TASK-116 regression suites
+      remain unchanged semantically.
+  - id: AC12
+    condition: >
+      Focused regressions prove deterministic/pure behavior, strict fail-closed decode,
+      evidence/reference preservation, and zero filesystem/SQLite/external work; M3
+      documentation records TASK-119 as representation/rehydration authority only and
+      explicitly defers durable SQLite storage, transactions/recovery/migrations,
+      cryptographic authenticity, profile aggregation, retrieval, and RAG.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_family_merge_approval.py tests/product_intelligence/test_canonical_family.py tests/product_intelligence/test_sellable_variant_evidence.py tests/product_intelligence/test_sellable_variant_approval.py tests/product_intelligence/test_canonical_variant.py tests/product_intelligence/test_canonical_catalog.py tests/product_intelligence/test_canonical_catalog_codec.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
