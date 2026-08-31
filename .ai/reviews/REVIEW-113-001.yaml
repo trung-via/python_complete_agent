@@ -1,0 +1,40 @@
+review_id: REVIEW-113-001
+reviewed_sha: 035760fb832e4bc95e1207552cd2bc5cb42b062c
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: PASS
+  AC3: PASS
+  AC4: PASS
+  AC5: PASS
+  AC6: PASS
+  AC7: PASS
+  AC8: FAIL
+  AC9: PASS
+  AC10: PASS
+  AC11: PASS
+findings:
+  - id: F1
+    basis: AC8
+    action: CODE_FIX
+    location: .agents/skills/aios-worker/scripts/aios_worker.py:main/canonical_pass_summary
+    issue: >
+      REPAIR PASS parsing validates that the kernel-rendered failed_run field is
+      syntactically a canonical RUN identifier, but it does not bind that field
+      to the exact failed RUN target explicitly supplied by the Human for this
+      worker invocation. A request for RUN-113-001 can therefore accept a unique
+      otherwise-valid AIOS REPAIR PASS summary that reports failed_run:
+      RUN-999-001, emit REVIEW_CANDIDATE_HEAD, and instruct review as though the
+      requested continuation succeeded. This violates the fail-closed requirement
+      for inconsistent REPAIR PASS summary fields.
+    expected: >
+      After parsing a successful REPAIR summary, require the summary.failed_run
+      value to equal the exact validated REPAIR target passed to the launcher.
+      A mismatch must fail closed before REVIEW_CANDIDATE_HEAD or NEXT output and
+      without retrying or invoking the kernel again. Do not infer TASK identity
+      from the RUN identifier; continue to use only the explicit task field from
+      the kernel summary for the review instruction. Add focused regression
+      coverage for a syntactically valid but mismatched failed_run summary while
+      preserving the existing valid REPAIR, malformed-summary, RUN/FIX/STATUS,
+      one-invocation, no-push, and executor-separation behavior.
