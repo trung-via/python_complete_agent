@@ -137,6 +137,16 @@ from src.product_intelligence.sellable_variant_evidence import (
     create_sellable_variant_evidence_projection,
     project_sellable_variant_evidence,
 )
+from src.product_intelligence.sellable_variant_approval import (
+    SellableVariantApprovalError,
+    SellableVariantDecision,
+    SellableVariantDecisionRecord,
+    SellableVariantProposal,
+    create_sellable_variant_decision,
+    create_sellable_variant_decision_record,
+    create_sellable_variant_proposal,
+    record_sellable_variant_decision,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -252,4 +262,12 @@ __all__ = [
     "SellableVariantExactnessGap",
     "create_sellable_variant_evidence_projection",
     "project_sellable_variant_evidence",
+    "SellableVariantApprovalError",
+    "SellableVariantDecision",
+    "SellableVariantDecisionRecord",
+    "SellableVariantProposal",
+    "create_sellable_variant_decision",
+    "create_sellable_variant_decision_record",
+    "create_sellable_variant_proposal",
+    "record_sellable_variant_decision",
 ]

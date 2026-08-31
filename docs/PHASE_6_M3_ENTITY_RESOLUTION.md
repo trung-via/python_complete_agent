@@ -137,13 +137,51 @@ then canonical by admitted member order. This connectivity is diagnostic only: i
 does not infer an exact endpoint relationship or create a variant group, component,
 identity, confidence, recommendation, or state.
 
-Explicit sellable-variant proposal and Human decision, canonical variant identity,
-variant profile aggregation, persistent catalog mutation, retrieval, and RAG remain
-deferred to later milestones.
+The projection itself creates no sellable-variant proposal or Human decision.
+
+## Explicit Sellable-Variant Proposal and Human Decision
+
+`create_sellable_variant_proposal` is the bounded review boundary inside exactly
+one existing `CanonicalProductFamily`. The caller must explicitly supply a
+non-empty member tuple; the operation does not discover, enumerate, rank,
+partition, cluster, or recommend candidate variants. Caller order is normalized
+to the exact admitted family-member order.
+
+The operation calls `project_sellable_variant_evidence(family)` exactly once and
+retains that exact immutable projection as its sole variant-evidence lineage. A
+multi-member selection is eligible only when every unordered internal pair has
+its preserved **direct** `EXACT_VARIANT_MATCH` `FamilyMergePairEvidence` object.
+Exact connectivity through another member is never substituted for a direct
+edge. The resulting proposal retains exactly $N \times (N - 1) / 2$ original pair
+objects by identity, without copying, inference, rewriting, or confidence
+aggregation.
+
+Eligibility also requires exact-edge closure: no direct exact edge may connect a
+selected member to an unselected member of the source family. Consequently, an
+A-B exact, B-C exact, A-C non-exact gap cannot be bypassed by overlapping A-B or
+B-C proposals. The full triple fails its direct all-pairs requirement, while
+every proper exact-connected subset fails closure. A singleton is eligible only
+when it has no direct exact edge to another family member, and its proposal
+retains an empty pair-evidence tuple. Thus an isolated C may be proposed
+explicitly alongside a separate closed A-B exact pair without implying a family
+partition or automatically creating either proposal.
+
+`create_sellable_variant_decision_record` separately requires one exact canonical
+proposal, an explicit `APPROVE` or `REJECT`, a non-empty single-line NUL-free Human
+actor, and an explicit timezone-aware decision time. `APPROVE` authorizes no more
+than a future milestone admitting those exact members as one canonical sellable
+variant within that exact source family. `REJECT` grants no admission authority.
+Neither decision states that unselected members are different variants, completes
+the family's partition, or makes current membership exhaustive for future
+observations.
+
+Proposal and decision construction create no identity or profile, re-run no
+resolution/grouping/family admission, mutate no catalog, persist no state, and
+perform no external work.
 
 ## Deferred M3 work
 
 Autonomous merge policy, family-ID allocation and catalog-wide uniqueness,
-explicit sellable-variant proposal and Human decision, canonical sellable-variant
-identity, variant profile aggregation, persistent catalog mutation, retrieval, and
-RAG are explicitly deferred to later M3 milestones.
+canonical sellable-variant identity, variant profile aggregation, persistent
+catalog mutation, retrieval, and RAG are explicitly deferred to later M3
+milestones.
