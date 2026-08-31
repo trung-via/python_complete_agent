@@ -1,0 +1,43 @@
+review_id: REVIEW-111-001
+reviewed_sha: ab08b9809a9a7e1141c2dc6dc5e6cab823c95903
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: PASS
+  AC3: PASS
+  AC4: PASS
+  AC5: PASS
+  AC6: PASS
+  AC7: FAIL
+  AC8: PASS
+  AC9: PASS
+  AC10: PASS
+findings:
+  - id: F1
+    basis: AC7
+    action: CODE_FIX
+    location: src/product_intelligence/entity_grouping.py:_identity_canonical_key/group_resolution_graph
+    issue: >
+      Canonical ordering is not fully permutation-invariant for every valid
+      SourceObservationIdentity admitted by the existing TASK-109 graph contract.
+      _identity_canonical_key collapses source_product_id=None and
+      source_product_id="" to the same sort value via `source_product_id or ""`.
+      ProductSourcePack does not forbid an empty source_product_id, and TASK-109
+      rejects only exact duplicate SourceObservationIdentity values, so two
+      observations that are otherwise identical but differ only by None versus
+      the empty string are valid distinct identities. If such observations are
+      disconnected singletons, both the member/group sort keys collide and
+      Python's stable sort preserves their caller-derived order, allowing an
+      input permutation to change the outer provisional group order.
+    expected: >
+      Make the canonical identity ordering injective over the exact
+      SourceObservationIdentity fields that can differ for valid TASK-109
+      observations, so semantically equivalent input permutations produce
+      identical member and group ordering. Preserve None distinctly from an
+      empty string rather than normalizing both to the same key. Add focused
+      regression coverage using two valid distinct observations whose identities
+      differ only by source_product_id=None versus source_product_id="", and prove
+      identical grouping output across reversed/permuted input without changing
+      TASK-108/TASK-109 resolution semantics, conflict authority, or grouping
+      scope.
