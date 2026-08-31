@@ -1,0 +1,23 @@
+{
+  "repair_id": "REPAIR-114-001",
+  "failed_run_id": "RUN-114-001",
+  "failed_head_sha": "f193e3171164b656ab158248857d8df33e32f673",
+  "task": {
+    "id": "TASK-114",
+    "revision": 1
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "src/product_intelligence/canonical_family.py",
+    "src/product_intelligence/__init__.py",
+    "tests/product_intelligence/test_canonical_family.py",
+    "docs/PHASE_6_M3_ENTITY_RESOLUTION.md"
+  ],
+  "instructions": [
+    "Complete the original TASK-114 implementation from failed_head_sha without widening scope or changing TASK semantics.",
+    "RUN-114-001 failed at COMPLETION_GATE with no implementation delta because the Codex executor reported `AIOS ERROR: another AIOS run is active in this repository`. Treat the current repair invocation as the sole AIOS Runtime authority: do not invoke `$aios-worker`, `aios_renew.operator`, another RUN/FIX/REPAIR command, or any nested AIOS worker/operator from inside the executor session.",
+    "Implement TASK-114 directly within its canonical modification scope, run only the verification commanded by the Runtime, and return unresolved as empty only after the bounded canonical-family admission implementation and evidence are complete.",
+    "Preserve the audited TASK-114 boundary: consume only an existing explicit Human APPROVE FamilyMergeDecisionRecord plus explicit opaque caller-supplied family_id; preserve exact members and approval provenance; no generated identity, no resolver/grouping/proposal re-execution, no sellable-variant identity, no persistence/catalog mutation, no canonical profile aggregation, and no executor push/merge/publication."
+  ],
+  "constraints": []
+}
