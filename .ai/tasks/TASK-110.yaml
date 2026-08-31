@@ -1,0 +1,196 @@
+task_id: TASK-110
+revision: 1
+
+goal: >
+  Synchronize the repository-owned Codex and Antigravity worker surfaces with the
+  currently approved AIOS-renew kernel, preserving the immutable pinned-runtime
+  model while making the worker a thinner deterministic UI: RUN and STATUS must
+  delegate without worker-owned native capability selection, and FIX must carry
+  one explicit Human-supplied finding identifier into AIOS-renew remote canonical
+  remediation resolution instead of resolving REVIEW/REMEDIATION lineage locally.
+
+problem: >
+  The active Python Agent worker launcher still pins an older AIOS-renew commit,
+  performs local REVIEW/REMEDIATION discovery for FIX, and adds a Codex sandbox
+  argument that the current kernel no longer exposes because mutation capability
+  is now resolved inside AIOS Runtime. The current approved kernel at
+  b5ce283232587c66144a68f842e3b196d7cf2601 already owns remote canonical
+  remediation lineage resolution through an explicit finding identifier and
+  owns native mutation-capability selection. Keeping the old worker behavior
+  duplicates deterministic authority and can make the worker command surface
+  incompatible with the pinned kernel. The worker must be synchronized without
+  following a moving branch or becoming a second orchestration layer.
+
+assumptions:
+  - >
+    Current canonical repository baseline is
+    8832d27c760b1b345916c63684d765202ab8fa13.
+  - >
+    The approved AIOS-renew consumer kernel for this synchronization is exactly
+    b5ce283232587c66144a68f842e3b196d7cf2601.
+  - >
+    Immutable source+commit pinning, PEP 610 provenance validation, dedicated
+    worker-runtime bootstrap, and stale-runtime replacement remain authoritative.
+  - >
+    AIOS-renew now resolves Codex and Antigravity mutation capability before the
+    native Executor invocation; the worker must not independently select native
+    sandbox or permission policy.
+  - >
+    AIOS-renew now supports canonical remote remediation execution from TASK,
+    finding identifier, selected Executor, and repository location without local
+    REVIEW/REMEDIATION artifact paths.
+  - >
+    Human execution authorization, ChatGPT semantic review, and guarded
+    publication after semantic PASS remain unchanged.
+
+scope:
+  inspect:
+    - .ai/tasks/TASK-099.yaml
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - .agents/workflows/aios-worker.md
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+
+  modify:
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+
+non_goals:
+  - Modify AIOS-renew source code or replace its immutable contracts.
+  - Modify Product Intelligence, entity resolution, marketplace adapters, browser automation, scoring, ranking, ingestion, Drive, or other product behavior.
+  - Follow AIOS-renew main, a tag, or any moving ref automatically at runtime.
+  - Add automatic kernel upgrades, polling, watchers, queues, or background synchronization.
+  - Add retry, reroute, fallback, executor substitution, planner, router, or second execution authority.
+  - Allow the worker to infer a remediation finding when the Human did not supply one.
+  - Recreate remote REVIEW/REMEDIATION lineage resolution in the worker.
+  - Change REVIEW, REMEDIATION, affected-verification, DELTA-review, or publication semantics.
+  - Reactivate the retired Antigravity /aios-worker namespace.
+  - Add worker-side push, merge, semantic review, or publication.
+
+constraints:
+  hard:
+    - >
+      The active immutable dependency pin and launcher provenance authority must
+      identify exactly AIOS-renew commit
+      b5ce283232587c66144a68f842e3b196d7cf2601. The worker must not track a moving
+      branch or accept another source/commit as authoritative.
+    - >
+      Existing PEP 610 source+commit provenance validation and atomic stale-runtime
+      replacement must remain fail closed; a runtime pinned to the previous worker
+      kernel must be treated as stale and rebuilt before dispatch.
+    - >
+      RUN must preserve the exact Human task identifier and selected surface
+      executor and delegate to the pinned AIOS-renew run boundary without adding
+      worker-owned Codex sandbox, permission, or mutation-capability arguments.
+    - >
+      FIX must require one explicit Human-supplied finding identifier in addition
+      to the task identifier. The worker must preserve that exact finding value and
+      delegate through the pinned AIOS-renew remediation boundary using finding-based
+      canonical remote lineage resolution.
+    - >
+      The active FIX path must not require, select, infer, materialize, or pass local
+      REVIEW, REMEDIATION, prior-review, reviewed-SHA, modification-scope, or
+      affected-verification inputs solely to reconstruct canonical remediation lineage.
+    - >
+      The worker must not choose a finding from current HEAD, local artifacts,
+      branch ordering, timestamps, latest/newest heuristics, or any semantic inference.
+    - >
+      Codex and Antigravity must expose the same semantic RUN/FIX/STATUS protocol;
+      their only execution difference is the executor identity fixed by the separate
+      surface. Codex remains $aios-worker and Antigravity remains /aios-renew-worker.
+    - >
+      FIX surface syntax must make the finding explicit, for example
+      `FIX TASK-N FINDING-ID`; omission of the finding must fail before kernel
+      invocation rather than falling back to the legacy inferred/local-lineage path.
+    - >
+      Each admitted RUN or FIX request may invoke the pinned AIOS-renew kernel at
+      most once. Worker parsing, bootstrap, provenance, or kernel failure must not
+      cause retry, reroute, fallback, or invocation of another Executor.
+    - >
+      STATUS remains read-only for product implementation, executor authority,
+      publication, and remediation lineage and must not invoke an Executor.
+    - >
+      Successful RUN/FIX continues to leave the implementation commit local for
+      independent ChatGPT semantic review and performs zero worker-side push or merge.
+    - >
+      The retired Antigravity /aios-worker workflow remains inactive and must not be
+      modified into an alternate active execution surface.
+    - Do not push from executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      The checked-in dependency pin and launcher provenance authority both identify
+      exactly AIOS-renew commit b5ce283232587c66144a68f842e3b196d7cf2601,
+      and regression coverage proves the previous worker kernel is rejected as stale.
+
+  - id: AC2
+    condition: >
+      A valid worker runtime for the new immutable pin is reused, while an older or
+      unverifiable runtime is deterministically rebuilt through the existing single
+      dedicated worker-runtime path without creating another runtime or state store.
+
+  - id: AC3
+    condition: >
+      Codex RUN delegates to the pinned AIOS-renew run command with TASK, executor,
+      and repository context only and no obsolete worker-owned Codex sandbox,
+      permission, or mutation-capability argument.
+
+  - id: AC4
+    condition: >
+      Antigravity RUN uses the same semantic command contract as Codex RUN and differs
+      only by the surface-bound executor identity, with no worker-side retry or reroute.
+
+  - id: AC5
+    condition: >
+      Codex and Antigravity FIX surfaces require an explicit finding identifier, and
+      one accepted FIX request delegates exactly once to AIOS-renew remediation using
+      the exact TASK, finding, executor, and repository values supplied by the surface.
+
+  - id: AC6
+    condition: >
+      The active FIX path does not resolve local REVIEW/REMEDIATION lineage, infer a
+      finding, inspect current HEAD to select a finding, or pass local REVIEW,
+      REMEDIATION, prior-review, sandbox, scope, or verification authority to the kernel.
+
+  - id: AC7
+    condition: >
+      A FIX request without a finding fails closed before kernel invocation, and an
+      AIOS-renew remote-lineage failure is surfaced without worker-side retry,
+      fallback, artifact reconstruction, or Executor substitution.
+
+  - id: AC8
+    condition: >
+      STATUS remains read-only and does not resolve remediation lineage, sample
+      implementation HEAD for remediation selection, invoke an Executor, or publish.
+
+  - id: AC9
+    condition: >
+      Active Codex and Antigravity documentation consistently shows
+      `$aios-worker FIX TASK-N FINDING-ID` and
+      `/aios-renew-worker FIX TASK-N FINDING-ID`, documents the exact immutable kernel
+      pin, and retains review-before-publication and namespace isolation.
+
+  - id: AC10
+    condition: >
+      Existing RUN/FIX post-PASS behavior still reports the review candidate for
+      ChatGPT semantic review and performs zero automatic push, merge, semantic review,
+      or publication.
+
+  - id: AC11
+    condition: >
+      Regression tests prove the new pin/provenance contract, stale-runtime rebuild,
+      sandbox-free RUN delegation, explicit-finding FIX translation, zero local-lineage
+      authority in the active FIX path, missing-finding failure, one kernel invocation,
+      STATUS safety, executor-surface identity isolation, and zero pre-review push.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
