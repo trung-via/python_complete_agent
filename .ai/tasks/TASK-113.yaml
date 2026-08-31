@@ -1,0 +1,218 @@
+task_id: TASK-113
+revision: 1
+
+goal: >
+  Extend the repository-owned unified AIOS worker control surface with an exact
+  Human-authorized REPAIR entry for pre-PASS failed RUNs, and repin the worker
+  runtime to the published AIOS-renew kernel
+  59b31ede597d4a27b848771522672705a021abe4, so both Codex and Antigravity can
+  delegate one canonical REPAIR through the same pinned runtime without raw
+  Python kernel commands, worker-owned lineage inference, retry, reroute, or
+  publication authority.
+
+problem: >
+  The current repository worker surfaces expose only RUN, FIX, and STATUS even
+  though the canonical AIOS-renew kernel already owns the REPAIR command and
+  remote REPAIR-lineage resolution. After a pre-PASS failure, the Human is
+  therefore forced outside the unified worker surface and may have to invoke
+  `python -m aios_renew.operator repair ...` manually. That bypasses the
+  repository-owned bootstrap/pinned-runtime path and exposed a Windows PATH
+  failure in a real TASK continuation. The worker must add only a thin REPAIR
+  protocol translation while preserving kernel authority and exact executor
+  identity.
+
+assumptions:
+  - >
+    Current canonical python_complete_agent baseline is
+    1f2cc8131e36db4667b28026eae5cc8724b6aa28.
+  - >
+    Canonical AIOS-renew main has published R1/R3 at exact commit
+    59b31ede597d4a27b848771522672705a021abe4.
+  - >
+    That kernel already supports
+    `aios_renew.operator repair FAILED_RUN_ID --executor {codex,antigravity} --repo REPO`
+    and owns failure-state validation, canonical remote REPAIR lookup, repair
+    contract validation, one-Executor execution, verification, failure handling,
+    ResultPackage persistence, and review transport.
+  - >
+    AIOS-renew RepairSummary canonically renders a unique `AIOS REPAIR PASS`
+    banner and explicit `task`, `failed_run`, `run`, `executor`,
+    `failed_head_sha`, and `head_sha` fields.
+  - >
+    The checked-in shared launcher remains the only repository-owned translation
+    layer used by both the Codex `$aios-worker` skill and Antigravity
+    `/aios-renew-worker` workflow.
+
+scope:
+  inspect:
+    - .ai/tasks/TASK-110.yaml
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+
+  modify:
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+
+non_goals:
+  - Change Product Intelligence, entity resolution, family approval, scraping, ingestion, catalog, or application behavior.
+  - Change AIOS-renew kernel implementation in this repository.
+  - Reimplement REPAIR lineage lookup, failure validation, repair contract validation, scope authority, verification, or ResultPackage semantics in the worker.
+  - Let the worker author, discover, choose, edit, or infer a REPAIR artifact.
+  - Infer TASK identity from the failed RUN identifier for review instructions.
+  - Accept a TASK identifier as the REPAIR target.
+  - Add automatic repair after a failed RUN.
+  - Add retry, reroute, fallback, executor substitution, planner, watcher, polling, queue, or background execution.
+  - Change RUN, FIX, or STATUS kernel semantics.
+  - Change Codex versus Antigravity executor ownership or allow one visible surface to invoke the other executor.
+  - Let the visible worker session inspect implementation context, edit product files, execute canonical verification, synthesize evidence, review semantics, push, merge, or publish.
+  - Add raw `python -m aios_renew.operator repair` as the normal Human workflow.
+
+constraints:
+  hard:
+    - >
+      The immutable AIOS-renew dependency pin and the launcher's authoritative
+      commit constant must both reference exactly
+      59b31ede597d4a27b848771522672705a021abe4; installed runtime PEP 610
+      provenance must continue to fail closed on any other source or commit.
+    - >
+      The supported visible protocol becomes exactly RUN TASK-N, FIX TASK-N
+      FINDING-ID, REPAIR RUN-N-NNN, and STATUS TASK-N. REPAIR must take one
+      explicit failed RUN identifier and no TASK identifier or finding identifier.
+    - >
+      The launcher must validate REPAIR targets as canonical failed RUN IDs before
+      kernel invocation. Malformed or missing REPAIR targets must fail closed
+      without invoking AIOS-renew. Validation must not query or interpret Runtime
+      state and must not infer TASK identity from the RUN string.
+    - >
+      A valid REPAIR request must translate to exactly one invocation of the
+      pinned kernel equivalent to
+      `<pinned-python> -m aios_renew.operator repair FAILED_RUN_ID --executor EXECUTOR --repo REPO`.
+    - >
+      The worker must not pass `--repair`, a TASK id, failed_head_sha,
+      modification_scope, instructions, constraints, verification commands, or
+      any locally reconstructed lineage into kernel REPAIR mode.
+    - >
+      The Codex `$aios-worker` REPAIR surface must always select executor `codex`;
+      the Antigravity `/aios-renew-worker` REPAIR surface must always select
+      executor `antigravity`. Their kernel command shapes must differ only by
+      this explicit executor identity.
+    - >
+      One Human REPAIR request may invoke the pinned kernel no more than once.
+      Nonzero kernel return, bootstrap failure, lineage failure, Executor failure,
+      verification failure, or completion-gate failure must not trigger retry,
+      reroute, fallback, another Executor, or a second kernel invocation.
+    - >
+      REPAIR must reuse the existing repository-owned bootstrap-host and dedicated
+      `.git/aios/worker-runtime` mechanism. The Human-facing normal flow must not
+      require a globally PATH-resolvable bare `python` command to invoke the
+      AIOS-renew kernel.
+    - >
+      Successful REPAIR handling must accept only one unique canonical
+      `AIOS REPAIR PASS` summary. It must validate the explicit failed_run,
+      failed_head_sha, head_sha, and task fields needed by the worker response and
+      fail closed on missing, malformed, duplicate, or inconsistent PASS summary
+      fields.
+    - >
+      After canonical REPAIR PASS, the worker must surface the exact kernel
+      `head_sha` as REVIEW_CANDIDATE_HEAD and instruct `Review TASK-N in ChatGPT`
+      using the explicit TASK identity rendered by the kernel summary, never by
+      parsing or guessing from FAILED_RUN_ID.
+    - >
+      Existing RUN and FIX PASS-summary parsing must remain strict and unchanged
+      in meaning; STATUS remains read-only and must not become a repair/status
+      lineage authority.
+    - >
+      The visible Codex and Antigravity operator sessions remain UI-only. They
+      must not inspect TASK implementation context, FAILURE/REPAIR artifacts,
+      implementation files, or Git history in order to perform REPAIR beyond the
+      documented bootstrap-host probe and shared-launcher invocation.
+    - >
+      Neither worker surface nor shared launcher may push, merge, publish,
+      perform semantic review, create REVIEW/REMEDIATION/REPAIR artifacts, or
+      mutate canonical AIOS operational state outside what the pinned kernel
+      itself owns.
+
+acceptance:
+  - id: AC1
+    condition: >
+      The repository worker dependency file, launcher authoritative commit, and
+      runtime provenance tests bind exactly to AIOS-renew commit
+      59b31ede597d4a27b848771522672705a021abe4 and reject the previous or any
+      alternate kernel commit.
+
+  - id: AC2
+    condition: >
+      Both documented Human surfaces expose exactly `REPAIR RUN-N-NNN` in
+      addition to the existing RUN, FIX, and STATUS forms, with Codex fixed to
+      executor codex and Antigravity fixed to executor antigravity.
+
+  - id: AC3
+    condition: >
+      The shared launcher parses a valid canonical failed RUN identifier for
+      REPAIR, rejects missing or malformed REPAIR targets before kernel
+      invocation, and does not treat REPAIR input as a TASK or finding id.
+
+  - id: AC4
+    condition: >
+      For each executor, one REPAIR request builds exactly one pinned-kernel
+      command containing `repair FAILED_RUN_ID --executor EXECUTOR --repo REPO`
+      and containing none of `--repair`, TASK id, finding id, failed-head,
+      scope, constraints, instructions, or verification authority.
+
+  - id: AC5
+    condition: >
+      Codex and Antigravity REPAIR routing is executor-neutral and command-identical
+      except for the explicit executor value; no surface can select, infer,
+      reroute to, or substitute the other executor.
+
+  - id: AC6
+    condition: >
+      REPAIR uses the same exact dedicated pinned worker runtime as RUN/FIX/STATUS;
+      normal REPAIR documentation and tests require no raw global
+      `python -m aios_renew.operator repair` invocation and preserve existing
+      deterministic bootstrap-host fallback behavior.
+
+  - id: AC7
+    condition: >
+      Any kernel or bootstrap failure returns failure after at most one admitted
+      kernel invocation and performs no retry, reroute, fallback execution,
+      publication, or worker-owned continuation.
+
+  - id: AC8
+    condition: >
+      A unique valid `AIOS REPAIR PASS` summary is parsed fail-closed, including
+      exact TASK identity, failed RUN, failed head SHA, and candidate head SHA;
+      malformed, duplicated, missing, or inconsistent REPAIR PASS summary fields
+      are rejected rather than guessed.
+
+  - id: AC9
+    condition: >
+      On successful REPAIR the worker prints REVIEW_CANDIDATE_HEAD equal to the
+      exact kernel head_sha and `NEXT: Review TASK-N in ChatGPT` using the exact
+      kernel-rendered task field rather than deriving TASK-N from FAILED_RUN_ID.
+
+  - id: AC10
+    condition: >
+      Existing RUN TASK-N, FIX TASK-N FINDING-ID, and STATUS TASK-N behavior,
+      strict PASS parsing, one-kernel-invocation rule, no-push rule, executor
+      separation, bootstrap/provenance behavior, and current tests continue
+      without semantic regression.
+
+  - id: AC11
+    condition: >
+      Documentation consistently describes REPAIR as a Human-authorized thin
+      delegation to the pinned AIOS-renew kernel, with the kernel owning remote
+      REPAIR lookup and all failure/repair semantics, and explicitly forbids the
+      worker from inspecting or reconstructing repair lineage.
+
+verification:
+  required:
+    - python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py -q
