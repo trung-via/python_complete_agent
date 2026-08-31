@@ -219,8 +219,42 @@ def test_missing_duplicate_and_nonmember_induced_pairs_fail_closed():
         + (pair(group.members[0], outsider, ProductRelationship.UNCERTAIN, 0.1, "OUT"),),
     )
     nonmember_group = canonical_positive_group(nonmember)
-    with pytest.raises(FamilyMergeApprovalError, match="non-member endpoint"):
+    with pytest.raises(FamilyMergeApprovalError, match="pairwise result endpoints must belong to graph observations"):
         create_family_merge_proposal(nonmember, nonmember_group)
+
+
+def test_proposal_succeeds_in_multi_group_graph_with_exact_induced_evidence():
+    a, b, c, d = identity("a"), identity("b"), identity("c"), identity("d")
+    graph = MultiObservationResolutionGraph(
+        observations=(a, b, c, d),
+        pairwise_results=(
+            pair(a, b, ProductRelationship.SAME_PRODUCT_FAMILY, 0.9, "AB"),
+            pair(b, c, ProductRelationship.EXACT_VARIANT_MATCH, 0.95, "BC"),
+            pair(a, c, ProductRelationship.SAME_PRODUCT_FAMILY, 0.85, "AC"),
+            pair(a, d, ProductRelationship.DIFFERENT_PRODUCT, 0.99, "AD"),
+            pair(b, d, ProductRelationship.DIFFERENT_PRODUCT, 0.99, "BD"),
+            pair(c, d, ProductRelationship.DIFFERENT_PRODUCT, 0.99, "CD"),
+        ),
+        conflicts=(),
+    )
+    grouping = group_resolution_graph(graph)
+    assert len(grouping.groups) == 2
+    pos_group = next(
+        g for g in grouping.groups if g.status is ProvisionalGroupStatus.POSITIVE_CONNECTED
+    )
+    assert len(pos_group.members) == 3
+    assert set(pos_group.members) == {a, b, c}
+
+    proposal = create_family_merge_proposal(graph, pos_group)
+    assert isinstance(proposal, FamilyMergeProposal)
+    assert proposal.members is pos_group.members
+    assert proposal.member_count == 3
+    # N * (N - 1) / 2 = 3 * 2 / 2 = 3 pair evidence entries
+    assert len(proposal.pair_evidence) == 3
+    for p in proposal.pair_evidence:
+        assert p.left in pos_group.members
+        assert p.right in pos_group.members
+        assert p.left != d and p.right != d
 
 
 def test_explicit_approve_and_reject_preserve_exact_proposal():

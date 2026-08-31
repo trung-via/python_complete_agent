@@ -130,6 +130,7 @@ def create_family_merge_proposal(
     if len(member_positions) != len(group.members):
         raise FamilyMergeApprovalError("canonical group members must be unique")
 
+    observation_identities = set(graph.observations)
     induced_results: dict[tuple[int, int], list[EntityResolutionResult]] = {}
     for result in graph.pairwise_results:
         if not isinstance(result, EntityResolutionResult):
@@ -142,15 +143,18 @@ def create_family_merge_proposal(
             raise FamilyMergeApprovalError(
                 "graph pairwise result endpoints must be SourceObservationIdentity values"
             )
+        if (
+            result.left not in observation_identities
+            or result.right not in observation_identities
+        ):
+            raise FamilyMergeApprovalError(
+                "pairwise result endpoints must belong to graph observations"
+            )
 
         left_position = member_positions.get(result.left)
         right_position = member_positions.get(result.right)
-        if left_position is None and right_position is None:
-            continue
         if left_position is None or right_position is None:
-            raise FamilyMergeApprovalError(
-                "induced pair evidence references a non-member endpoint"
-            )
+            continue
         if left_position == right_position:
             raise FamilyMergeApprovalError(
                 "induced pair evidence must reference two distinct members"
