@@ -103,6 +103,16 @@ from src.product_intelligence.entity_resolution_graph import (
     resolve_product_graph,
     resolve_product_observation_graph,
 )
+from src.product_intelligence.entity_grouping import (
+    ProductFamilyGrouper,
+    ProvisionalGroupingResult,
+    ProvisionalGroupStatus,
+    ProvisionalProductFamilyGroup,
+    group_multi_observations,
+    group_product_graph,
+    group_product_resolution_graph,
+    group_resolution_graph,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -192,4 +202,12 @@ __all__ = [
     "resolve_multi_observations",
     "resolve_product_observation_graph",
     "resolve_product_graph",
+    "ProvisionalGroupStatus",
+    "ProvisionalProductFamilyGroup",
+    "ProvisionalGroupingResult",
+    "group_resolution_graph",
+    "group_product_resolution_graph",
+    "group_product_graph",
+    "group_multi_observations",
+    "ProductFamilyGrouper",
 ]

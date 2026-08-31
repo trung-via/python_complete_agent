@@ -51,8 +51,31 @@ the `resolve_multi_observations` boundary:
 5. **Conflict Isolation Without Repair**: Consistency diagnostics never repair, merge,
    cluster, or rewrite observations or pairwise results.
 
+## Provisional Product-Family Grouping
+
+Partitioning an existing `MultiObservationResolutionGraph` operates through the
+`group_resolution_graph` projection boundary:
+
+1. **Pure Projection Over Existing Graph**: Accepts exactly one `MultiObservationResolutionGraph`
+   and executes zero additional pairwise or multi-observation entity resolution calls.
+2. **Positive-Family Connectivity Partition**: Groups are derived exclusively from positive
+   pairwise relationships (`EXACT_VARIANT_MATCH` and `SAME_PRODUCT_FAMILY`). `UNCERTAIN` and
+   `DIFFERENT_PRODUCT` edges never bridge components.
+3. **Exact Invariant Partitioning**: Every `SourceObservationIdentity` in `graph.observations`
+   appears in exactly one provisional group; no observations are dropped, duplicated, or merged.
+4. **Provisional Statuses**:
+   - `SINGLETON`: Exactly one observation in the component.
+   - `POSITIVE_CONNECTED`: Two or more observations connected by positive edges with zero consistency conflicts.
+   - `CONFLICTED`: Two or more observations containing one or more existing `ProductFamilyConsistencyConflict` values from the graph.
+5. **Conflict Preservation**: Existing graph conflicts are retained on the respective group without
+   repair, suppression, or winner-selection.
+6. **Deterministic & Immutable**: Group membership, member ordering, and outer group order are strictly
+   canonical and permutation-invariant.
+
 ## Deferred M3 work
 
-Clustering, merge approval, canonical product IDs, persistent catalog mutation,
-evidence aggregation, retrieval, and RAG are explicitly deferred to later M3 milestones.
+Merge proposal, human merge approval, autonomous merge policy, canonical product-family IDs,
+sellable variant IDs, persistent catalog mutation, evidence aggregation, retrieval, and RAG are
+explicitly deferred to later M3 milestones.
+
 
