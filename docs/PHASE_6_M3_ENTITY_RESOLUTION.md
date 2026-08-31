@@ -96,9 +96,31 @@ treat that exact member set as one canonical family; `REJECT` records only the H
 decision. Neither operation re-runs entity resolution, assigns identity, rewrites
 evidence, merges observations, persists data, or performs an external side effect.
 
+## Canonical Product-Family Admission
+
+`create_canonical_family` is the narrow identity admission boundary after Human
+review. It accepts exactly one existing `FamilyMergeDecisionRecord` whose decision
+is explicit `APPROVE` and one explicit caller-supplied `family_id`. `REJECT`, a
+different record type, or any implicit approval path fails closed.
+
+The family ID is opaque and is preserved exactly. It must be a non-empty,
+single-line, NUL-free string with no leading or trailing whitespace; the boundary
+does not parse, normalize, hash, prefix, generate, or establish catalog-wide
+uniqueness for it. The immutable `CanonicalProductFamily` retains the exact
+`proposal.members` tuple and the exact decision record as approval provenance, so
+the Human actor and timestamp and every relationship, confidence, reason, and
+`ResolutionEvidence` value remain auditable without recomputation.
+
+Admission performs no pairwise or multi-observation resolution, grouping, proposal
+construction, profile aggregation, sellable-variant assignment, persistence, or
+catalog mutation. In particular, preserved `SAME_PRODUCT_FAMILY`,
+`EXACT_VARIANT_MATCH`, and `UNCERTAIN` evidence is not rewritten or promoted into
+transitive sellable-variant truth. Family-ID allocation and reuse, singleton
+admission, canonical profile construction, sellable-variant identity, and catalog
+persistence remain later concerns.
+
 ## Deferred M3 work
 
-Autonomous merge policy, canonical product-family IDs, sellable variant IDs,
-persistent catalog mutation, evidence aggregation, retrieval, and RAG are explicitly
-deferred to later M3 milestones.
-
+Autonomous merge policy, family-ID allocation and catalog-wide uniqueness,
+sellable variant IDs, persistent catalog mutation, evidence aggregation, retrieval,
+and RAG are explicitly deferred to later M3 milestones.

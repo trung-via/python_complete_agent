@@ -124,6 +124,11 @@ from src.product_intelligence.family_merge_approval import (
     create_family_merge_proposal,
     record_family_merge_decision,
 )
+from src.product_intelligence.canonical_family import (
+    CanonicalFamilyAdmissionError,
+    CanonicalProductFamily,
+    create_canonical_family,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -230,4 +235,7 @@ __all__ = [
     "create_family_merge_decision_record",
     "create_family_merge_decision",
     "record_family_merge_decision",
+    "CanonicalFamilyAdmissionError",
+    "CanonicalProductFamily",
+    "create_canonical_family",
 ]
