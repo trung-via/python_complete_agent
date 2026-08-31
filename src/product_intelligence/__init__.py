@@ -129,6 +129,14 @@ from src.product_intelligence.canonical_family import (
     CanonicalProductFamily,
     create_canonical_family,
 )
+from src.product_intelligence.sellable_variant_evidence import (
+    ExactnessGap,
+    SellableVariantEvidenceError,
+    SellableVariantEvidenceProjection,
+    SellableVariantExactnessGap,
+    create_sellable_variant_evidence_projection,
+    project_sellable_variant_evidence,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -238,4 +246,10 @@ __all__ = [
     "CanonicalFamilyAdmissionError",
     "CanonicalProductFamily",
     "create_canonical_family",
+    "ExactnessGap",
+    "SellableVariantEvidenceError",
+    "SellableVariantEvidenceProjection",
+    "SellableVariantExactnessGap",
+    "create_sellable_variant_evidence_projection",
+    "project_sellable_variant_evidence",
 ]

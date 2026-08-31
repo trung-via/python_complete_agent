@@ -119,8 +119,31 @@ transitive sellable-variant truth. Family-ID allocation and reuse, singleton
 admission, canonical profile construction, sellable-variant identity, and catalog
 persistence remain later concerns.
 
+## Sellable-Variant Evidence Projection
+
+`project_sellable_variant_evidence` is a read-only evidence and diagnostic
+boundary after canonical family admission. It accepts exactly one existing
+`CanonicalProductFamily` and reads only the exact `FamilyMergePairEvidence`
+objects retained through `family.approval.proposal.pair_evidence`. It neither
+accepts nor reconstructs source packs, graphs, provisional groups, proposals, or
+resolution inputs.
+
+The immutable projection preserves as direct exact evidence exactly those pair
+objects whose relationship is `EXACT_VARIANT_MATCH`. Other direct relationships
+remain authoritative and unchanged. If a non-exact endpoint pair is connected
+by direct exact edges, one exactness-gap diagnostic preserves that non-exact pair
+and a deterministic all-exact witness path. The witness is shortest by edge count,
+then canonical by admitted member order. This connectivity is diagnostic only: it
+does not infer an exact endpoint relationship or create a variant group, component,
+identity, confidence, recommendation, or state.
+
+Explicit sellable-variant proposal and Human decision, canonical variant identity,
+variant profile aggregation, persistent catalog mutation, retrieval, and RAG remain
+deferred to later milestones.
+
 ## Deferred M3 work
 
 Autonomous merge policy, family-ID allocation and catalog-wide uniqueness,
-sellable variant IDs, persistent catalog mutation, evidence aggregation, retrieval,
-and RAG are explicitly deferred to later M3 milestones.
+explicit sellable-variant proposal and Human decision, canonical sellable-variant
+identity, variant profile aggregation, persistent catalog mutation, retrieval, and
+RAG are explicitly deferred to later M3 milestones.
