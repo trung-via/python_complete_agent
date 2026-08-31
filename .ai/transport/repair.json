@@ -1,0 +1,20 @@
+{
+  "repair_id": "REPAIR-123-002",
+  "failed_run_id": "RUN-123-002",
+  "failed_head_sha": "e29b340268328463ba8154586962af760f971a4f",
+  "task": {
+    "id": "TASK-123",
+    "revision": 1
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "tests/product_intelligence/test_canonical_rag_context.py"
+  ],
+  "instructions": [
+    "Continue from the exact failed_head_sha of RUN-123-002. Preserve the production F1 implementation already present in src/product_intelligence/canonical_rag_context.py; this repair is only for the invalid regression-test fixture that caused Runtime verification to fail.",
+    "In test_rendering_deterministic_across_value_equal_observed_at_offsets, each OriginalMediaRef fixture must satisfy the existing ProductSourcePack model contract. Add an explicit valid ordinal to the OriginalMediaRef constructions used by the independently reconstructed value-equal contexts; use a deterministic nonnegative value such as ordinal=0 consistently for the equivalent fixtures.",
+    "Do not alter the semantic purpose of the regression: the independently reconstructed contexts must still use timezone-aware observed_at values that denote the same instant at different offsets and must require identical rendered JSON and UTF-8 bytes.",
+    "Modify only tests/product_intelligence/test_canonical_rag_context.py, commit a non-empty correction delta, and bind the structural ResultPackage to the new HEAD. Do not change canonical_rag_context.py, TASK-121/TASK-122 behavior, public APIs, docs, task/review/remediation artifacts, byte-budget semantics, citation ordering, evidence whitelist, or unrelated tests. Runtime owns the original TASK-123 canonical verification."
+  ],
+  "constraints": []
+}
