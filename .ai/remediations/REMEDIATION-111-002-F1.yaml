@@ -1,0 +1,9 @@
+finding_id: F1
+action: CODE_FIX
+reviewed_sha: ab08b9809a9a7e1141c2dc6dc5e6cab823c95903
+modification_scope:
+  - src/product_intelligence/entity_grouping.py
+  - tests/product_intelligence/test_entity_grouping.py
+affected_verification:
+  - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_entity_grouping.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+constraints: []
