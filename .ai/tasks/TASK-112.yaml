@@ -1,0 +1,255 @@
+task_id: TASK-112
+revision: 1
+
+goal: >
+  Add the next bounded, platform-neutral M3 human-decision boundary that converts
+  one exact canonical TASK-111 POSITIVE_CONNECTED provisional family group plus
+  its existing TASK-109 graph evidence into an immutable, evidence-complete family
+  merge proposal, and records an explicit Human APPROVE or REJECT decision without
+  re-running entity resolution, rewriting pairwise evidence, creating canonical
+  identity, performing an actual merge, or mutating catalog state.
+
+problem: >
+  TASK-111 can now organize an existing TASK-109 resolution graph into provisional
+  positive-connected groups, but positive connectivity is not transitive product
+  truth: a valid group may still contain direct UNCERTAIN pairwise relationships.
+  Letting a Human approve only a member list would hide material uncertainty and
+  could accidentally promote graph connectivity into authoritative same-family
+  evidence. Conversely, requiring every pair to be positive would make Human
+  approval redundant and prevent an explicit Human from adjudicating a bounded
+  evidence-complete proposal. TASK-112 must therefore bind each approvable group
+  back to the exact preserved TASK-109 pairwise evidence for every unordered member
+  pair, present that evidence canonically and permutation-invariantly, reject
+  singleton/conflicted groups, and record only an explicit Human decision. The
+  decision may authorize later canonical-family creation for that exact member set,
+  but TASK-112 itself must not merge observations, rewrite relationships, assign
+  IDs, persist a catalog, or infer missing pairwise truth.
+
+assumptions:
+  - >
+    Current canonical repository baseline is
+    44f3b7ebad6f00180795e431469dc662e83be137.
+  - >
+    MultiObservationResolutionGraph from TASK-109 remains the canonical bounded
+    evidence container and preserves every unordered pairwise EntityResolutionResult
+    plus any ProductFamilyConsistencyConflict diagnostics.
+  - >
+    ProvisionalProductFamilyGroup and group_resolution_graph from TASK-111 remain
+    the sole provisional-grouping authority; TASK-112 must not recreate grouping
+    semantics independently.
+  - >
+    TASK-108 remains the sole semantic authority for pairwise relationship,
+    confidence, reasons, and ResolutionEvidence values. TASK-112 may canonicalize
+    presentation orientation/order only; it must not recompute or reinterpret
+    those values.
+  - >
+    A POSITIVE_CONNECTED TASK-111 group can legitimately contain direct UNCERTAIN
+    pairs. UNCERTAIN remains unresolved evidence and must remain visible to the
+    Human rather than being upgraded, suppressed, or treated as a negative edge.
+  - >
+    A TASK-111 CONFLICTED group already contains TASK-109 contradictory evidence
+    and is not approvable in this milestone. Conflict adjudication/repair remains
+    separate later work.
+  - >
+    Explicit Human decision fields should follow the proven TASK-096 pattern:
+    APPROVE/REJECT only, a non-empty actor identifier, and an explicit timezone-aware
+    decided_at with no wall-clock default.
+  - >
+    Canonical product-family IDs, sellable variant IDs, catalog persistence,
+    evidence aggregation, retrieval, RAG, and autonomous merge policy remain later
+    M3 work.
+
+scope:
+  inspect:
+    - .ai/tasks/TASK-096.yaml
+    - .ai/tasks/TASK-108.yaml
+    - .ai/tasks/TASK-109.yaml
+    - .ai/tasks/TASK-111.yaml
+    - src/product_intelligence/approval.py
+    - src/product_intelligence/entity_resolution.py
+    - src/product_intelligence/entity_resolution_graph.py
+    - src/product_intelligence/entity_grouping.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_approval.py
+    - tests/product_intelligence/test_entity_resolution.py
+    - tests/product_intelligence/test_entity_resolution_graph.py
+    - tests/product_intelligence/test_entity_grouping.py
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+
+  modify:
+    - src/product_intelligence/family_merge_approval.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_family_merge_approval.py
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+
+non_goals:
+  - Change ProductSourcePack, SourceObservationIdentity, or TASK-108 pairwise semantics.
+  - Change TASK-109 graph construction, pairwise evaluation, conflict detection, or diagnostics.
+  - Change TASK-111 grouping connectivity, statuses, canonical member ordering, or conflict projection.
+  - Accept ProductSourcePack inputs or re-run pairwise/multi-observation entity resolution.
+  - Infer transitive SAME_PRODUCT_FAMILY or EXACT_VARIANT_MATCH relationships.
+  - Require all member pairs to be positive before a Human may review a POSITIVE_CONNECTED proposal.
+  - Suppress, upgrade, downgrade, or reinterpret UNCERTAIN pairwise evidence.
+  - Allow SINGLETON or CONFLICTED groups to become approvable proposals.
+  - Repair/split conflicted groups or allow Human approval to override TASK-109 conflict diagnostics.
+  - Create proposal IDs, group IDs, canonical family/product IDs, sellable variant IDs, or catalog records.
+  - Create aggregate merge confidence, group confidence, score, ranking, or automated merge recommendation.
+  - Perform an actual merge, deduplication mutation, identity creation, or catalog write.
+  - Persist approval records to files, databases, queues, Google Drive, or external stores.
+  - Add autonomous approval/merge policy, LLM adjudication, embeddings, retrieval, RAG, browser, network, or external-service calls.
+  - Change discovery, scoring, ranking, M2 approval, ingestion, or marketplace extraction behavior.
+  - Modify AIOS-renew, worker control-plane files, or legacy Bridge behavior.
+
+constraints:
+  hard:
+    - >
+      The proposal operation must consume one existing MultiObservationResolutionGraph
+      and one ProvisionalProductFamilyGroup and must never accept ProductSourcePack
+      values as an alternate path.
+    - >
+      The supplied group must match exactly one canonical group produced by the
+      existing TASK-111 group_resolution_graph(graph) projection for the same graph;
+      forged, stale, absent, duplicated, or non-canonical group values must fail
+      closed before a proposal is returned.
+    - >
+      Only a canonical TASK-111 group whose status is POSITIVE_CONNECTED and whose
+      conflict tuple is empty may become a FamilyMergeProposal. SINGLETON and
+      CONFLICTED groups must fail closed and cannot be Human-approved in TASK-112.
+    - >
+      Proposal creation must never call resolve_product_entities,
+      resolve_multi_observations, MultiObservationEntityResolver.resolve, or any
+      equivalent TASK-108/TASK-109 re-execution authority. Calling the existing
+      deterministic TASK-111 grouping projection solely to validate exact group
+      lineage is permitted and must not recreate grouping semantics independently.
+    - >
+      For a proposal containing N members, the proposal must expose exactly
+      N*(N-1)/2 pair evidence values: one and only one for every unordered pair of
+      proposal members, with no pair omitted or duplicated.
+    - >
+      Each proposal pair evidence value must preserve exactly the corresponding
+      TASK-108 relationship, confidence, reasons, and ResolutionEvidence values from
+      the TASK-109 graph. TASK-112 may only canonicalize left/right presentation and
+      outer pair ordering.
+    - >
+      UNCERTAIN pairwise evidence inside an otherwise POSITIVE_CONNECTED group must
+      remain explicit in the proposal and must not block proposal creation by itself.
+      It may proceed past this boundary only through an explicit Human APPROVE.
+    - >
+      Pair endpoints must be oriented according to the canonical TASK-111 member
+      ordering and the complete pair sequence must be deterministically ordered by
+      those member positions, so equivalent graph/input permutations yield
+      semantically identical FamilyMergeProposal values even though TASK-108 raw
+      left/right bindings follow caller order.
+    - >
+      Proposal creation must fail closed if the graph does not contain exactly one
+      preserved pairwise result for every unordered pair of the canonical group
+      members or if any pairwise result references a malformed/non-member endpoint
+      for the induced proposal evidence.
+    - >
+      FamilyMergeProposal, its pair evidence values, and the Human decision record
+      must be immutable.
+    - >
+      The Human decision contract must support exactly explicit APPROVE and REJECT
+      decisions and require an explicit non-empty single-line actor identifier plus
+      an explicit timezone-aware decided_at datetime; wall-clock defaults and
+      implicit actor values are forbidden.
+    - >
+      No proposal status, positive connectivity, pairwise relationship, confidence,
+      reason, evidence code, member count, or other machine-derived value may
+      automatically create or imply an APPROVE decision.
+    - >
+      An APPROVE decision means only that the Human authorizes a later milestone to
+      treat the exact proposal member set as one canonical product family. It must
+      not rewrite any preserved pairwise relationship, assert exact-variant
+      equivalence, create canonical identity, or perform any merge/catalog mutation.
+    - >
+      A REJECT decision records only the explicit Human decision and must not mutate,
+      split, repair, or rewrite the proposal, graph, group, or any external state.
+    - >
+      TASK-112 must expose no proposal_id, group_id, family_id, product_id,
+      variant_id, merge_confidence, aggregate confidence, automatic merge flag, or
+      persistent catalog authority.
+    - >
+      TASK-112 must be deterministic and side-effect-free for the same graph/group
+      and explicit Human inputs, with zero filesystem mutation, persistence,
+      database, queue, network, browser, Drive, LLM, scoring, ranking, ingestion,
+      catalog-write, or external-service side effects.
+    - Do not push from executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      An immutable platform-neutral FamilyMergeProposal can be created only from one
+      existing MultiObservationResolutionGraph plus one exact canonical TASK-111
+      POSITIVE_CONNECTED group from that graph, without accepting source packs or
+      invoking TASK-108/TASK-109 entity-resolution execution again.
+
+  - id: AC2
+    condition: >
+      Proposal creation fails closed for SINGLETON, CONFLICTED, forged, stale,
+      absent, duplicated, or otherwise non-canonical group inputs before producing
+      an approvable proposal; TASK-109 conflicts are never repaired, suppressed, or
+      Human-overridden by this boundary.
+
+  - id: AC3
+    condition: >
+      A proposal preserves the exact canonical TASK-111 member tuple and exposes
+      exactly N*(N-1)/2 induced pair evidence values, with one and only one value for
+      every unordered member pair and no omitted or duplicated pair.
+
+  - id: AC4
+    condition: >
+      Every proposal pair evidence value preserves the exact TASK-108 relationship,
+      confidence, reasons, and ResolutionEvidence from the corresponding TASK-109
+      result, including direct UNCERTAIN pairs; no pairwise semantic value is
+      recomputed, aggregated, upgraded, downgraded, or rewritten.
+
+  - id: AC5
+    condition: >
+      Pair endpoints and the complete pair sequence are canonically presented from
+      TASK-111 member order, so reversing/permuting equivalent source observation
+      input before TASK-109 evaluation produces semantically identical merge
+      proposals despite raw TASK-108 left/right caller orientation.
+
+  - id: AC6
+    condition: >
+      An immutable Human decision record can be created only from an exact
+      FamilyMergeProposal plus explicit APPROVE or REJECT, explicit non-empty
+      single-line actor, and explicit timezone-aware decided_at; invalid/missing
+      decision data fails before any result is returned and no wall-clock default is
+      used.
+
+  - id: AC7
+    condition: >
+      Positive connectivity, confidence, relationship values, reasons, evidence,
+      member count, or proposal construction never auto-create APPROVE. A proposal
+      containing one or more UNCERTAIN pairs remains approvable only through an
+      explicit Human APPROVE decision.
+
+  - id: AC8
+    condition: >
+      APPROVE authorizes only future canonical product-family identity creation for
+      the exact proposal member set and does not rewrite pairwise relationships,
+      infer transitive truth, assert exact-variant equivalence, merge observations,
+      assign IDs, or mutate a catalog; REJECT likewise records only the decision.
+
+  - id: AC9
+    condition: >
+      The public TASK-112 API exposes no proposal/group/family/product/variant ID,
+      aggregate or merge confidence, automated merge recommendation, persistence,
+      queueing, filesystem write, network/browser/Drive/LLM/scoring/ranking/
+      ingestion/catalog mutation, or external-service side effect.
+
+  - id: AC10
+    condition: >
+      Focused deterministic regression tests cover an approvable positive-connected
+      group containing an internal UNCERTAIN pair, complete N*(N-1)/2 pair matrix,
+      exact evidence preservation, canonical pair orientation/order across input
+      permutations, singleton rejection, conflicted-group rejection, forged/stale
+      group rejection, malformed/missing/duplicate induced-pair failure, explicit
+      APPROVE/REJECT, actor/timestamp validation, immutability, zero entity-resolution
+      re-execution, and zero side effects.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_entity_resolution.py tests/product_intelligence/test_entity_resolution_graph.py tests/product_intelligence/test_entity_grouping.py tests/product_intelligence/test_family_merge_approval.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
