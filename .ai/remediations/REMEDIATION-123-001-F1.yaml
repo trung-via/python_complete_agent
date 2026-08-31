@@ -7,8 +7,4 @@ modification_scope:
 affected_verification:
   - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_canonical_profile.py tests/product_intelligence/test_canonical_retrieval.py tests/product_intelligence/test_canonical_rag_context.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
   - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
-constraints:
-  - Canonicalize model-facing observed_at rendering to one stable representation for value-equal timezone-aware instants, consistently for retrieval witnesses and OBSERVATION/FACT/MEDIA supplemental blocks.
-  - Preserve the exact TASK-121/TASK-122 source objects retained by the context; do not mutate SourceObservationIdentity, CanonicalVariantProfile, retrieval hits, witnesses, or source evidence.
-  - Add focused regression coverage proving independently reconstructed value-equal contexts with equivalent aware instants at different UTC offsets render identical JSON and UTF-8 bytes.
-  - Do not modify TASK-121 profile construction, TASK-122 retrieval semantics, public TASK-123 schema/exports, evidence whitelist, citation ordering, byte-budget semantics, or unrelated code/tests/docs.
+constraints: []
