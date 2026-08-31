@@ -1,2 +1,239 @@
 task_id: TASK-120
 revision: 1
+
+goal: >
+  Add a bounded durable SQLite adapter for the existing TASK-118 canonical catalog
+  using the exact TASK-119 canonical snapshot bytes as the only persisted catalog
+  payload. The adapter must provide deterministic create, reopen/load, and atomic
+  family/variant registration operations while preserving TASK-118 as the sole
+  catalog-integrity authority and TASK-119 as the sole canonical representation and
+  trusted-rehydration authority. SQLite owns durability and transaction boundaries
+  only; normalized SQL domain tables, migration, retry, profile aggregation,
+  retrieval, and RAG remain later concerns.
+
+problem: >
+  TASK-118 provides immutable append-only catalog semantics only in memory, while
+  TASK-119 provides a strict deterministic byte representation but intentionally
+  performs no filesystem or database work. A durable Product Intelligence catalog now
+  needs one crash-safe local storage boundary without duplicating family/variant
+  uniqueness, observation exclusivity, lineage validation, or canonical JSON semantics
+  in SQL. A normalized relational model would create a second catalog authority and
+  duplicate the retained evidence graph. The durable adapter therefore must persist
+  exactly one TASK-119 canonical BLOB snapshot and perform every read-modify-write
+  registration through TASK-119 decode/encode plus TASK-118 registration inside one
+  SQLite transaction.
+
+assumptions:
+  - Current canonical python_complete_agent main baseline before TASK-120 authoring is e52bb2f8e579408b983dbb7cf85d91d92beb3eb9.
+  - TASK-118 CanonicalCatalogState and register_canonical_family/register_canonical_variant remain the sole catalog-integrity authority.
+  - TASK-119 encode_canonical_catalog/decode_canonical_catalog remain the sole canonical snapshot representation and rehydration authority.
+  - Python standard-library sqlite3 is available; no third-party database dependency is required.
+  - The TASK-120 store contains one catalog snapshot only; history, event sourcing, backups, replication, and multi-catalog tenancy are outside this milestone.
+  - SQLite transaction durability is relied upon for recovery of the last committed snapshot after an interrupted or failed write; TASK-120 does not implement an independent recovery log.
+  - Canonical snapshot authenticity against a malicious party remains outside scope; SQLite storage does not add signing, MAC, or encryption semantics.
+
+scope:
+  inspect:
+    - .ai/tasks/TASK-118.yaml
+    - .ai/tasks/TASK-119.yaml
+    - src/product_intelligence/canonical_catalog.py
+    - src/product_intelligence/canonical_catalog_codec.py
+    - src/product_intelligence/canonical_family.py
+    - src/product_intelligence/canonical_variant.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_canonical_catalog.py
+    - tests/product_intelligence/test_canonical_catalog_codec.py
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+    - requirements.txt
+  modify:
+    - src/product_intelligence/canonical_catalog_sqlite.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_canonical_catalog_sqlite.py
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+
+non_goals:
+  - Modify TASK-118 catalog uniqueness, collision, idempotency, family-before-variant, or observation-exclusivity semantics.
+  - Modify TASK-119 canonical JSON schema, encoding, decoding, rehydration, datetime, aliasing, or canonicality semantics.
+  - Add normalized SQL families, variants, members, approvals, evidence, lineage, uniqueness, or relationship tables.
+  - Add SQL constraints intended to reproduce family_id, variant_id, lineage-reuse, observation-overlap, or family-before-variant business rules.
+  - Add a public arbitrary save/replace/upsert catalog API, raw payload write API, raw SQL API, exposed sqlite3 connection, update/delete/merge/reassignment authority, or identity evolution.
+  - Auto-create a missing database during load, auto-reinitialize an invalid/corrupt store, overwrite an existing path during create, or silently reset any failure to an empty catalog.
+  - Add automatic schema migration, codec migration, storage-version upgrade, fallback decoding, backup, restore, replication, event sourcing, history, compaction, or garbage collection.
+  - Add hidden retry, polling, sleep, exponential backoff, queueing, background writer, or executor coordination for SQLite lock contention.
+  - Add WAL/checkpoint policy, multi-process scheduler, distributed locking, network database, cloud storage, browser, Drive, queue, clock-generated metadata, random, or UUID behavior.
+  - Add cryptographic signing, HMAC, encryption, malicious-tamper authenticity claims, profile aggregation, retrieval indexes, embeddings, LLM, or RAG.
+  - Add any new requirement to requirements.txt.
+
+constraints:
+  hard:
+    - >
+      Expose exactly one new public storage error CanonicalCatalogStorageError,
+      one public SQLITE_CATALOG_STORAGE_VERSION constant equal to 1, and four public
+      operations: create_sqlite_canonical_catalog(database_path) ->
+      CanonicalCatalogState, load_sqlite_canonical_catalog(database_path) ->
+      CanonicalCatalogState, register_sqlite_canonical_family(database_path, family)
+      -> CatalogRegistrationResult, and register_sqlite_canonical_variant(database_path,
+      variant) -> CatalogRegistrationResult. No arbitrary save/replace/upsert/raw-payload
+      or connection API is public.
+    - >
+      Use only Python standard-library sqlite3 for database access. requirements.txt
+      must remain unchanged and no database ORM/driver dependency may be added.
+    - >
+      The V1 SQLite layout contains exactly one user-defined table named
+      canonical_catalog_snapshot and exactly one row. The table stores singleton = 1,
+      storage_version = SQLITE_CATALOG_STORAGE_VERSION, and one BLOB payload. The
+      payload is opaque to TASK-120 and must be produced/consumed only through TASK-119
+      encode_canonical_catalog/decode_canonical_catalog.
+    - >
+      The table must enforce singleton = 1, storage_version = 1, and BLOB storage type
+      at the SQLite schema level, but it must contain no family/variant/member/evidence
+      columns or business-integrity uniqueness constraints. TASK-120 must not parse,
+      inspect, normalize, or reconstruct canonical JSON fields itself.
+    - >
+      create_sqlite_canonical_catalog must fail closed if database_path already exists
+      and must never overwrite, truncate, migrate, or reinitialize an existing path.
+      Creation must initialize the single row from
+      encode_canonical_catalog(create_empty_canonical_catalog()) within one explicit
+      SQLite write transaction and return the corresponding empty canonical catalog.
+    - >
+      load_sqlite_canonical_catalog must fail closed if database_path does not already
+      exist and must open the existing SQLite store without allowing sqlite3's default
+      create-on-connect behavior to create a new file. It must strictly validate the V1
+      storage layout/version/single-row/BLOB contract and return only
+      decode_canonical_catalog(stored_payload).
+    - >
+      V1 storage validation must fail closed for missing/extra user tables, views,
+      triggers, or indexes; missing/extra columns; wrong column/storage contract;
+      zero/multiple snapshot rows; singleton other than 1; storage version other than
+      1; non-BLOB payload; invalid SQLite database contents; or other layout ambiguity.
+      SQLite internal objects whose names are reserved by SQLite are not user schema.
+      No invalid store may be reset to empty or silently repaired.
+    - >
+      CanonicalCatalogCodecError from TASK-119 must remain distinguishable and may
+      propagate when the stored BLOB is not a valid canonical snapshot.
+      CanonicalCatalogIntegrityError from TASK-118 must remain distinguishable and may
+      propagate for domain registration conflicts. CanonicalCatalogStorageError is for
+      path/SQLite/storage-layout/lock/transaction failures and must not erase those two
+      upstream authority error categories.
+    - >
+      Durable family registration must begin an explicit SQLite write transaction,
+      load and TASK-119-decode the current snapshot, call exactly TASK-118
+      register_canonical_family on that reconstructed catalog and the supplied exact
+      CanonicalProductFamily, and make no independent family-ID, lineage, member-overlap,
+      or other catalog-integrity decision in TASK-120.
+    - >
+      Durable variant registration must begin an explicit SQLite write transaction,
+      load and TASK-119-decode the current snapshot, call exactly TASK-118
+      register_canonical_variant on that reconstructed catalog and the supplied exact
+      CanonicalSellableVariant, and make no independent variant-ID, family-binding,
+      lineage, member-overlap, or other catalog-integrity decision in TASK-120.
+    - >
+      A registration result with CatalogRegistrationStatus.ALREADY_PRESENT must perform
+      zero durable payload update and return the TASK-118 semantic result. A result with
+      CatalogRegistrationStatus.INSERTED must encode result.catalog exactly once through
+      TASK-119 and replace the singleton payload within the same transaction before
+      COMMIT.
+    - >
+      Each read-modify-write registration must acquire the SQLite writer reservation
+      before reading the snapshot, using explicit BEGIN IMMEDIATE or behavior proven
+      equivalent, so two writers cannot both read the same committed snapshot and lose
+      one update. Lock contention must fail closed immediately or without a hidden retry
+      loop; TASK-120 must not sleep, poll, back off, reroute, or retry automatically.
+    - >
+      Writer connections must request SQLite synchronous FULL durability before the
+      write transaction. TASK-120 must not enable or require WAL mode, checkpoint
+      management, or a custom journal/recovery protocol at this milestone.
+    - >
+      Every create or registration operation must use explicit transaction ownership:
+      COMMIT only after all required validation/registration/encoding/write steps
+      succeed; any exception before successful COMMIT must cause ROLLBACK/best-effort
+      rollback and leave the last committed snapshot recoverable on reopen. No partial
+      canonical state may be exposed as a successful durable result.
+    - >
+      Reopening the database through a fresh connection after committed registrations
+      must reconstruct a value-equal CanonicalCatalogState through TASK-119. No Python
+      object-identity claim is made across reopen; all TASK-119 retained lineage and
+      aliasing guarantees remain delegated to its decoder.
+    - >
+      TASK-120 must not modify canonical_catalog.py or canonical_catalog_codec.py,
+      duplicate their private logic, call upstream resolver/grouping/proposal/projector
+      workflows, generate identities, or add profile/retrieval behavior.
+    - Do not push from executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Public exports add only CanonicalCatalogStorageError,
+      SQLITE_CATALOG_STORAGE_VERSION == 1, create_sqlite_canonical_catalog,
+      load_sqlite_canonical_catalog, register_sqlite_canonical_family, and
+      register_sqlite_canonical_variant for TASK-120 storage behavior, with no public
+      raw-save/upsert/payload/SQL/connection surface and no dependency change.
+  - id: AC2
+    condition: >
+      Creating a new store at a non-existing path atomically creates the exact V1
+      singleton schema/row using TASK-119 encoding of TASK-118's empty catalog and
+      returns that empty canonical catalog; attempting create at an existing path fails
+      closed without altering the existing file.
+  - id: AC3
+    condition: >
+      Loading requires a pre-existing path, never implicitly creates a database, strictly
+      validates the V1 SQLite layout/version/single-row/BLOB contract, decodes only via
+      TASK-119, and reopening through a fresh connection returns a value-equal canonical
+      catalog whose canonical bytes match the stored payload.
+  - id: AC4
+    condition: >
+      Durable family registration performs one transactional load/decode -> TASK-118
+      register_canonical_family -> conditional TASK-119 encode/update flow, preserving
+      exact TASK-118 INSERTED/ALREADY_PRESENT/conflict semantics without SQL-domain
+      duplication.
+  - id: AC5
+    condition: >
+      Durable variant registration performs one transactional load/decode -> TASK-118
+      register_canonical_variant -> conditional TASK-119 encode/update flow, preserving
+      exact TASK-118 family-before-variant, INSERTED/ALREADY_PRESENT, collision,
+      lineage, and observation-exclusivity semantics without SQL-domain duplication.
+  - id: AC6
+    condition: >
+      Re-registering a value-equal existing family or variant returns
+      ALREADY_PRESENT and performs zero durable payload UPDATE; the stored BLOB remains
+      byte-identical before and after the no-op registration.
+  - id: AC7
+    condition: >
+      TASK-118 CanonicalCatalogIntegrityError conflicts and TASK-119
+      CanonicalCatalogCodecError decode failures remain distinguishable, cause no
+      committed payload change, and are not collapsed into CanonicalCatalogStorageError.
+  - id: AC8
+    condition: >
+      Explicit transaction tests prove that failure after transaction start but before
+      successful COMMIT leaves the previous committed snapshot loadable after reopen;
+      successful INSERTED registration commits the complete new canonical BLOB atomically.
+  - id: AC9
+    condition: >
+      Missing databases, corrupt/non-SQLite files, wrong/ambiguous user schema, wrong
+      storage version, wrong row count/singleton, and non-BLOB payloads fail closed as
+      storage failures without auto-create, reinitialize, migration, or silent repair.
+  - id: AC10
+    condition: >
+      Two-writer contention is bounded by acquiring the writer reservation before the
+      read-modify-write cycle; a held competing write transaction causes the second
+      durable registration to fail closed rather than stale-read, lost-update, retry,
+      sleep, poll, or switch journal/concurrency strategy.
+  - id: AC11
+    condition: >
+      The implementation contains no normalized family/variant/evidence SQL tables,
+      no SQL business-integrity authority, no arbitrary snapshot replacement, no WAL
+      requirement, no migration/backup/history/replication, and no upstream inference,
+      identity generation, profile aggregation, retrieval, embedding, LLM, or RAG work.
+  - id: AC12
+    condition: >
+      Focused regressions cover create/load/reopen, family and variant INSERTED paths,
+      exact ALREADY_PRESENT no-write behavior, domain/codec/storage failures, strict V1
+      schema validation, rollback/atomicity, lock contention, and authority delegation;
+      M3 documentation records TASK-120 as durability/transaction authority only while
+      TASK-118 remains catalog-integrity authority and TASK-119 remains canonical-byte
+      and rehydration authority.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_canonical_catalog.py tests/product_intelligence/test_canonical_catalog_codec.py tests/product_intelligence/test_canonical_catalog_sqlite.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
