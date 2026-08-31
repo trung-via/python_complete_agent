@@ -3,7 +3,7 @@
 name: aios-renew-worker
 description: >
   Antigravity-only /aios-renew-worker workflow. Operates the AIOS worker
-  protocol (RUN TASK-N, FIX TASK-N, STATUS TASK-N) through the exact pinned
+  protocol (RUN TASK-N, FIX TASK-N FINDING-ID, STATUS TASK-N) through the exact pinned
   AIOS-renew kernel with executor identity antigravity.
 ---
 
@@ -19,11 +19,12 @@ Codex worker surface or infer, reroute, or substitute another executor.
 
 ```text
 /aios-renew-worker RUN TASK-N
-/aios-renew-worker FIX TASK-N
+/aios-renew-worker FIX TASK-N FINDING-ID
 /aios-renew-worker STATUS TASK-N
 ```
 
-`TASK-N` is the exact user-supplied task identifier.
+`TASK-N` is the exact user-supplied task identifier. `FINDING-ID` is the exact
+Human-supplied remediation finding identifier.
 
 ## Operator Boundary
 
@@ -33,7 +34,8 @@ synthesize evidence, review semantics, retry, reroute, or continue coding.
 
 ## Strict Execution Contract
 
-1. Parse the exact Human command (`RUN TASK-N`, `FIX TASK-N`, or `STATUS TASK-N`).
+1. Parse the exact Human command (`RUN TASK-N`, `FIX TASK-N FINDING-ID`, or
+   `STATUS TASK-N`). Missing FIX finding identifiers fail before kernel invocation.
 2. Echo the requested task ID, action, and selected executor (`antigravity`).
 3. Resolve the deterministic Python 3.11+ bootstrap host described below.
 4. Invoke the checked-in shared launcher
@@ -83,14 +85,16 @@ Delegates one primary execution to AIOS-renew and leaves HEAD local for semantic
 <resolved bootstrap-host argv> .agents/skills/aios-worker/scripts/aios_worker.py RUN TASK-N --executor antigravity
 ```
 
-### FIX TASK-N
+### FIX TASK-N FINDING-ID
 
-Resolves one exact local canonical REVIEW/REMEDIATION lineage and delegates only
-AIOS-renew remediation semantics. Missing, ambiguous, or invalid lineage fails closed.
-Leaves HEAD local for semantic review:
+Delegates the exact task and Human-supplied finding identifier once to AIOS-renew,
+which owns canonical remote remediation lineage resolution. The worker does not
+inspect HEAD or local REVIEW/REMEDIATION artifacts, infer a finding, or pass local
+lineage, sandbox, scope, or verification authority. Missing finding identifiers
+fail before kernel invocation. Leaves HEAD local for semantic review:
 
 ```powershell
-<resolved bootstrap-host argv> .agents/skills/aios-worker/scripts/aios_worker.py FIX TASK-N --executor antigravity
+<resolved bootstrap-host argv> .agents/skills/aios-worker/scripts/aios_worker.py FIX TASK-N FINDING-ID --executor antigravity
 ```
 
 ### STATUS TASK-N
@@ -104,3 +108,10 @@ product worktree, branch, TASK/RUN state, publication, and executor authority:
 
 STATUS may initialize the dedicated untracked worker runtime but must not invoke
 an executor or become a second status or review authority.
+
+## Immutable Kernel Pin
+
+The only authoritative AIOS-renew kernel is commit
+`b5ce283232587c66144a68f842e3b196d7cf2601`. The launcher validates both the
+checked-in dependency pin and installed PEP 610 source+commit provenance and
+atomically replaces stale or unverifiable worker runtimes.

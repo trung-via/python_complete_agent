@@ -1,8 +1,8 @@
 # AIOS Unified Worker Workflow
 
-As of TASK-099 revision 1, the repository-owned Codex and Antigravity worker
-surfaces delegate exclusively to the released AIOS-renew v0.1.3 kernel at commit
-`6e2fab2cb1fc32e2002d41f3d21e4019a8844e1a`. Legacy AIOS Bridge source remains
+As of TASK-110 revision 1, the repository-owned Codex and Antigravity worker
+surfaces delegate exclusively to the immutable AIOS-renew kernel at commit
+`b5ce283232587c66144a68f842e3b196d7cf2601`. Legacy AIOS Bridge source remains
 archived in this repository, but it is inactive and unreachable from these
 RUN/FIX/STATUS surfaces.
 
@@ -14,7 +14,7 @@ AIOS defines a single unified semantic protocol for Human operators across all s
 
 ```text
 RUN TASK-N
-FIX TASK-N
+FIX TASK-N FINDING-ID
 STATUS TASK-N
 ```
 
@@ -29,7 +29,8 @@ The protocol is invoked through physically separate, thin operator files:
 
 Both surfaces call the same `aios_worker.py` launcher. The selected executor is
 the only semantic difference. TASK/RUN/RESULT/EVIDENCE, synchronization,
-executor invocation, review validation, and remediation behavior all come from
+executor invocation, review validation, and canonical remote remediation lineage
+resolution all come from
 the same pinned AIOS-renew distribution.
 
 ---
@@ -89,25 +90,27 @@ second semantic state store.
 ### RUN TASK-N
 
 - **Codex**: Calls AIOS-renew `run` once with the exact TASK ID, explicit Python
-  Agent repository root, executor `codex`, and sandbox `danger-full-access`.
+  Agent repository root, and executor `codex`. AIOS-renew owns native mutation
+  capability selection; the worker passes no sandbox or permission argument.
 - **Antigravity**: Calls the same AIOS-renew `run` once with executor
   `antigravity`; the visible operator session does not implement the task.
 - **Authority**: AIOS-renew retains PRIMARY synchronization, task parsing,
   execution, verification evidence, RESULT validation, and PASS authority.
 - **Failure**: There is no automatic retry or executor reroute.
 
-### FIX TASK-N
+### FIX TASK-N FINDING-ID
 
 - **Purpose**: Execute one canonical narrow remediation, never rerun the original
   TASK as an inferred fix.
-- **Local transport boundary**: REVIEW files live under
-  `<git-dir>/aios/reviews`; REMEDIATION files live under
-  `<git-dir>/aios/remediations`.
-- **Resolution**: The launcher accepts only one canonical filename/content match
-  for the requested TASK and current immutable HEAD. DELTA review lineage must
-  resolve to one prior REVIEW. Missing or ambiguous lineage fails closed.
-- **Authority**: The launcher passes those exact paths to AIOS-renew `remediate`;
-  AIOS-renew performs all semantic validation and execution.
+- **Input**: Both surfaces require one explicit Human-supplied `FINDING-ID` and
+  preserve that exact value together with the exact TASK and bound executor.
+- **Failure**: Missing finding input fails before kernel invocation. Kernel
+  remote-lineage failures are surfaced unchanged without retry, fallback,
+  artifact reconstruction, or executor substitution.
+- **Authority**: AIOS-renew resolves canonical remediation lineage remotely from
+  TASK and finding. The launcher does not inspect HEAD, infer a finding, resolve
+  or materialize local REVIEW/REMEDIATION lineage, or pass prior-review, sandbox,
+  scope, affected-verification, or reviewed-SHA authority.
 
 ### STATUS TASK-N
 
@@ -181,4 +184,4 @@ branches or caches that do not expose `/aios-renew-worker` fail closed instead o
 falling back to legacy `/aios-worker` semantics.
 
 Both active worker surfaces use exactly AIOS-renew commit
-`6e2fab2cb1fc32e2002d41f3d21e4019a8844e1a`.
+`b5ce283232587c66144a68f842e3b196d7cf2601`.

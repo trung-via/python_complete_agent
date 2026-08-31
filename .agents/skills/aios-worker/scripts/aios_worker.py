@@ -19,7 +19,7 @@ import sys
 from typing import BinaryIO, Callable, Sequence
 
 
-AUTHORITATIVE_COMMIT = "f68ea27583ec6dcd4324e77d6b29a36a246be745"
+AUTHORITATIVE_COMMIT = "b5ce283232587c66144a68f842e3b196d7cf2601"
 AUTHORITATIVE_REPOSITORY = "https://github.com/trung-via/AIOS-renew.git"
 PIN_LINE = (
     "aios-renew @ git+"
@@ -58,24 +58,12 @@ class BootstrapError(WorkerSurfaceError):
     """The dedicated worker runtime could not be proven or created."""
 
 
-class LineageError(WorkerSurfaceError):
-    """A unique canonical remediation lineage could not be resolved."""
-
-
 @dataclass(frozen=True)
 class RuntimeLayout:
     state_root: Path
     runtime: Path
     bootstrap_lock: Path
     requirements: Path
-
-
-@dataclass(frozen=True)
-class FixLineage:
-    review: Path
-    remediation: Path
-    reviewed_sha: str
-    prior_review: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -376,131 +364,6 @@ def ensure_runtime(
         raise BootstrapError(f"worker runtime bootstrap lock failed: {exc}") from exc
 
 
-def _top_level_scalar(source: str, key: str) -> str | None:
-    pattern = re.compile(rf"^{re.escape(key)}:[ \t]*(.*?)[ \t]*$", re.MULTILINE)
-    match = pattern.search(source)
-    if match is None:
-        return None
-    value = match.group(1).strip()
-    if not value or value in ("|", ">", "null", "~"):
-        return None
-    if value.startswith('"') and value.endswith('"'):
-        try:
-            decoded = json.loads(value)
-        except json.JSONDecodeError:
-            return None
-        return decoded if isinstance(decoded, str) else None
-    if value.startswith("'") and value.endswith("'"):
-        return value[1:-1].replace("''", "'")
-    return value.split(" #", 1)[0].strip()
-
-
-def _review_finding_ids(source: str) -> tuple[str, ...]:
-    values = re.findall(
-        r"^[ \t]+-[ \t]+id:[ \t]*([^#\r\n]+?)\s*$",
-        source,
-        re.MULTILINE,
-    )
-    return tuple(value.strip().strip("'\"") for value in values)
-
-
-def resolve_fix_lineage(
-    repo: Path,
-    layout: RuntimeLayout,
-    task_id: str,
-    task_number: str,
-    *,
-    runner: CommandRunner = subprocess.run,
-) -> FixLineage:
-    """Locate one exact local REVIEW/REMEDIATION lineage for current HEAD."""
-
-    current_sha = _git(repo, "rev-parse", "HEAD", runner=runner)
-    review_dir = layout.state_root / "reviews"
-    remediation_dir = layout.state_root / "remediations"
-    review_records: list[
-        tuple[Path, str, str, str, tuple[str, ...], str | None]
-    ] = []
-
-    for path in sorted(review_dir.glob(f"REVIEW-{task_number}-*.yaml")):
-        try:
-            source = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeError):
-            continue
-        review_id = _top_level_scalar(source, "review_id")
-        reviewed_sha = _top_level_scalar(source, "reviewed_sha")
-        mode = _top_level_scalar(source, "mode")
-        verdict = _top_level_scalar(source, "verdict")
-        if (
-            review_id != path.stem
-            or not review_id.startswith(f"REVIEW-{task_number}-")
-            or reviewed_sha is None
-            or mode not in ("PRIMARY", "DELTA")
-            or verdict is None
-        ):
-            continue
-        review_records.append(
-            (
-                path,
-                reviewed_sha,
-                mode,
-                verdict,
-                _review_finding_ids(source),
-                _top_level_scalar(source, "prior_finding_id"),
-            )
-        )
-
-    current_reviews = [
-        record
-        for record in review_records
-        if record[1] == current_sha and record[3] == "CHANGES_REQUIRED"
-    ]
-    if len(current_reviews) != 1:
-        raise LineageError(
-            f"FIX requires exactly one canonical CHANGES_REQUIRED REVIEW for {task_id} at current HEAD"
-        )
-
-    review_path, reviewed_sha, mode, _, finding_ids, prior_finding_id = (
-        current_reviews[0]
-    )
-    remediation_matches: list[Path] = []
-    for path in sorted(remediation_dir.glob(f"REMEDIATION-{task_number}-*.yaml")):
-        try:
-            source = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeError):
-            continue
-        finding_id = _top_level_scalar(source, "finding_id")
-        if (
-            finding_id in finding_ids
-            and _top_level_scalar(source, "reviewed_sha") == reviewed_sha
-            and path.stem == f"REMEDIATION-{task_number}-{finding_id}"
-        ):
-            remediation_matches.append(path)
-    if len(remediation_matches) != 1:
-        raise LineageError(
-            f"FIX requires exactly one canonical REMEDIATION for {task_id} at current HEAD"
-        )
-
-    prior_review: Path | None = None
-    if mode == "DELTA":
-        if prior_finding_id is None:
-            raise LineageError("DELTA REVIEW is missing prior_finding_id")
-        prior_matches = [
-            record[0]
-            for record in review_records
-            if record[0] != review_path and prior_finding_id in record[4]
-        ]
-        if len(prior_matches) != 1:
-            raise LineageError("DELTA REVIEW prior lineage is missing or ambiguous")
-        prior_review = prior_matches[0]
-
-    return FixLineage(
-        review=review_path,
-        remediation=remediation_matches[0],
-        reviewed_sha=reviewed_sha,
-        prior_review=prior_review,
-    )
-
-
 def kernel_command(
     python: Path,
     *,
@@ -508,7 +371,7 @@ def kernel_command(
     task_id: str,
     executor: str,
     repo: Path,
-    lineage: FixLineage | None = None,
+    finding_id: str | None = None,
 ) -> tuple[str, ...]:
     base = (str(python), "-m", "aios_renew.operator")
     if action == "STATUS":
@@ -524,25 +387,19 @@ def kernel_command(
             str(repo),
         )
     else:
-        if lineage is None:
-            raise LineageError("FIX requires canonical review/remediation lineage")
+        if finding_id is None:
+            raise WorkerSurfaceError("FIX requires an explicit finding identifier")
         command = (
             *base,
             "remediate",
             task_id,
-            "--review",
-            str(lineage.review),
-            "--remediation",
-            str(lineage.remediation),
+            "--finding",
+            finding_id,
             "--executor",
             executor,
             "--repo",
             str(repo),
         )
-        if lineage.prior_review is not None:
-            command = (*command, "--prior-review", str(lineage.prior_review))
-    if executor == "codex":
-        command = (*command, "--codex-sandbox", "danger-full-access")
     return command
 
 
@@ -574,8 +431,6 @@ def _unique_summary_sha(lines: list[str], field: str) -> str:
 def canonical_pass_summary(
     action: str,
     stdout: str,
-    *,
-    expected_baseline_sha: str | None = None,
 ) -> CanonicalPassSummary:
     if action not in ("RUN", "FIX"):
         raise WorkerSurfaceError(f"unsupported PASS summary action: {action}")
@@ -593,10 +448,6 @@ def canonical_pass_summary(
         )
     baseline_sha = _unique_summary_sha(lines, baseline_field)
     head_sha = _unique_summary_sha(lines, "head_sha")
-    if expected_baseline_sha is not None and baseline_sha != expected_baseline_sha:
-        raise WorkerSurfaceError(
-            f"AIOS PASS {baseline_field} does not match canonical remediation lineage"
-        )
     return CanonicalPassSummary(
         baseline_field=baseline_field,
         baseline_sha=baseline_sha,
@@ -619,6 +470,7 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="aios_worker.py")
     parser.add_argument("action", choices=ALLOWED_ACTIONS)
     parser.add_argument("task_id")
+    parser.add_argument("finding_id", nargs="?")
     parser.add_argument("--executor", required=True, choices=ALLOWED_EXECUTORS)
     return parser
 
@@ -628,26 +480,25 @@ def main(argv: Sequence[str] | None = None) -> int:
         if sys.version_info < (3, 11):
             raise BootstrapError("BOOTSTRAP_INTERPRETER_UNAVAILABLE")
         args = _parser().parse_args(argv)
-        task_id, task_number = parse_task_id(args.task_id)
+        task_id, _ = parse_task_id(args.task_id)
+        if args.action == "FIX":
+            if args.finding_id is None:
+                raise WorkerSurfaceError("FIX requires an explicit finding identifier")
+        elif args.finding_id is not None:
+            raise WorkerSurfaceError(
+                f"{args.action} does not accept a finding identifier"
+            )
         repo = get_repo_root()
         layout = runtime_layout(repo)
         python = ensure_runtime(layout)
 
-        lineage = None
-        if args.action == "FIX":
-            lineage = resolve_fix_lineage(
-                repo,
-                layout,
-                task_id,
-                task_number,
-            )
         command = kernel_command(
             python,
             action=args.action,
             task_id=task_id,
             executor=args.executor,
             repo=repo,
-            lineage=lineage,
+            finding_id=args.finding_id,
         )
 
         if args.action == "STATUS":
@@ -660,15 +511,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         if completed.returncode != 0:
             return completed.returncode
 
-        expected_baseline = (
-            lineage.reviewed_sha
-            if args.action == "FIX" and lineage is not None
-            else None
-        )
         summary = canonical_pass_summary(
             args.action,
             completed.stdout,
-            expected_baseline_sha=expected_baseline,
         )
 
         print(f"REVIEW_CANDIDATE_HEAD: {summary.head_sha}")

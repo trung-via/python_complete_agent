@@ -1,4 +1,4 @@
-"""TASK-097 revision 7 certification for the AIOS-renew worker surfaces."""
+"""TASK-110 revision 1 certification for the AIOS-renew worker surfaces."""
 from __future__ import annotations
 
 import hashlib
@@ -64,60 +64,6 @@ def make_layout(tmp_path: Path) -> aw.RuntimeLayout:
     )
 
 
-def write_review(
-    layout: aw.RuntimeLayout,
-    *,
-    review_id: str = "REVIEW-097-001",
-    sha: str = HEAD_SHA,
-    mode: str = "PRIMARY",
-    finding: str = "R1",
-    prior_finding: str | None = None,
-) -> Path:
-    path = layout.state_root / "reviews" / f"{review_id}.yaml"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    prior = "" if prior_finding is None else f"prior_finding_id: {prior_finding}\n"
-    path.write_text(
-        f"""review_id: {review_id}
-reviewed_sha: {sha}
-mode: {mode}
-verdict: CHANGES_REQUIRED
-acceptance:
-  AC1: FAIL
-findings:
-  - id: {finding}
-    basis: AC1
-    action: CODE_FIX
-    location: example.py
-    issue: issue
-    expected: expected
-{prior}""",
-        encoding="utf-8",
-    )
-    return path
-
-
-def write_remediation(
-    layout: aw.RuntimeLayout,
-    *,
-    finding: str = "R1",
-    sha: str = HEAD_SHA,
-    suffix: str | None = None,
-) -> Path:
-    name = suffix or finding
-    path = layout.state_root / "remediations" / f"REMEDIATION-097-{name}.yaml"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        f"""finding_id: {finding}
-action: CODE_FIX
-reviewed_sha: {sha}
-modification_scope: [example.py]
-affected_verification: [git diff --check]
-""",
-        encoding="utf-8",
-    )
-    return path
-
-
 class TestImmutableRuntimePin:
     def test_dependency_file_is_exactly_one_active_immutable_pin(self):
         active = [
@@ -128,7 +74,7 @@ class TestImmutableRuntimePin:
         assert active == [aw.PIN_LINE]
         assert active == [
             "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
-            "f68ea27583ec6dcd4324e77d6b29a36a246be745"
+            "b5ce283232587c66144a68f842e3b196d7cf2601"
         ]
 
     def test_authoritative_pep610_metadata_is_accepted(self):
@@ -262,7 +208,7 @@ class TestRuntimeBootstrap:
         old_python.touch()
         (layout.runtime / "marker.txt").write_text("old-state", encoding="utf-8")
 
-        stale_commit = "6e2fab2cb1fc32e2002d41f3d21e4019a8844e1a"
+        stale_commit = "f68ea27583ec6dcd4324e77d6b29a36a246be745"
         calls = []
         replaced = False
 
@@ -451,11 +397,10 @@ class TestKernelRouting:
             "codex",
             "--repo",
             str(tmp_path),
-            "--codex-sandbox",
-            "danger-full-access",
         )
+        assert "sandbox" not in " ".join(command).lower()
 
-    def test_antigravity_run_differs_only_by_executor_and_sandbox(self, tmp_path):
+    def test_antigravity_run_differs_only_by_executor(self, tmp_path):
         python = tmp_path / "python"
         codex = aw.kernel_command(
             python,
@@ -471,8 +416,51 @@ class TestKernelRouting:
             executor="antigravity",
             repo=tmp_path,
         )
-        assert antigravity == codex[:-2][:6] + ("antigravity",) + codex[7:-2]
-        assert "danger-full-access" not in antigravity
+        assert antigravity == codex[:6] + ("antigravity",) + codex[7:]
+        assert "sandbox" not in " ".join(codex + antigravity).lower()
+
+    @pytest.mark.parametrize("executor", ["codex", "antigravity"])
+    def test_fix_delegates_exact_finding_without_local_lineage(self, tmp_path, executor):
+        command = aw.kernel_command(
+            tmp_path / "python",
+            action="FIX",
+            task_id="TASK-110",
+            finding_id="FINDING-EXACT-7",
+            executor=executor,
+            repo=tmp_path,
+        )
+        assert command == (
+            str(tmp_path / "python"),
+            "-m",
+            "aios_renew.operator",
+            "remediate",
+            "TASK-110",
+            "--finding",
+            "FINDING-EXACT-7",
+            "--executor",
+            executor,
+            "--repo",
+            str(tmp_path),
+        )
+        for forbidden in (
+            "--review",
+            "--remediation",
+            "--prior-review",
+            "--codex-sandbox",
+            "--scope",
+            "--affected-verification",
+        ):
+            assert forbidden not in command
+
+    def test_kernel_command_rejects_fix_without_finding(self, tmp_path):
+        with pytest.raises(aw.WorkerSurfaceError, match="explicit finding"):
+            aw.kernel_command(
+                tmp_path / "python",
+                action="FIX",
+                task_id="TASK-110",
+                executor="codex",
+                repo=tmp_path,
+            )
 
     def test_status_delegates_to_task_description_without_executor(self, tmp_path):
         command = aw.kernel_command(
@@ -515,8 +503,6 @@ class TestKernelRouting:
                 "codex",
                 "--repo",
                 str(tmp_path),
-                "--codex-sandbox",
-                "danger-full-access",
             ),
             repo=tmp_path,
         )
@@ -572,9 +558,6 @@ class TestKernelRouting:
         self, tmp_path, monkeypatch, capsys
     ):
         layout = make_layout(tmp_path)
-        review = tmp_path / "REVIEW-097-001.yaml"
-        remediation = tmp_path / "REMEDIATION-097-R1.yaml"
-        lineage = aw.FixLineage(review, remediation, BASE_SHA)
         kernel = MagicMock(
             return_value=done(
                 stdout=(
@@ -588,11 +571,28 @@ class TestKernelRouting:
         monkeypatch.setattr(aw, "get_repo_root", lambda: tmp_path)
         monkeypatch.setattr(aw, "runtime_layout", lambda repo: layout)
         monkeypatch.setattr(aw, "ensure_runtime", lambda value: tmp_path / "worker-python")
-        monkeypatch.setattr(aw, "resolve_fix_lineage", lambda *args: lineage)
         monkeypatch.setattr(aw, "invoke_kernel", kernel)
         monkeypatch.setattr(aw, "_git", git)
 
-        assert aw.main(["FIX", "TASK-097", "--executor", "codex"]) == 0
+        assert aw.main(
+            ["FIX", "TASK-097", "FINDING-R1", "--executor", "codex"]
+        ) == 0
+        kernel.assert_called_once_with(
+            (
+                str(tmp_path / "worker-python"),
+                "-m",
+                "aios_renew.operator",
+                "remediate",
+                "TASK-097",
+                "--finding",
+                "FINDING-R1",
+                "--executor",
+                "codex",
+                "--repo",
+                str(tmp_path),
+            ),
+            repo=tmp_path,
+        )
         git.assert_not_called()
         captured = capsys.readouterr()
         assert f"REVIEW_CANDIDATE_HEAD: {HEAD_SHA}" in captured.out
@@ -608,126 +608,39 @@ class TestKernelRouting:
         monkeypatch.setattr(aw, "ensure_runtime", lambda value: tmp_path / "python")
         monkeypatch.setattr(aw, "invoke_kernel", kernel)
         git = MagicMock(side_effect=AssertionError("STATUS must not inspect Git state"))
-        lineage = MagicMock(side_effect=AssertionError("STATUS must not resolve FIX"))
         monkeypatch.setattr(aw, "_git", git)
-        monkeypatch.setattr(aw, "resolve_fix_lineage", lineage)
 
         assert aw.main(["STATUS", "TASK-097", "--executor", "codex"]) == 0
         kernel.assert_called_once()
         git.assert_not_called()
-        lineage.assert_not_called()
 
+    def test_missing_fix_finding_fails_before_runtime_or_kernel(self, monkeypatch):
+        repo = MagicMock(side_effect=AssertionError("repo must not be resolved"))
+        runtime = MagicMock(side_effect=AssertionError("runtime must not be used"))
+        kernel = MagicMock(side_effect=AssertionError("kernel must not be invoked"))
+        monkeypatch.setattr(aw, "get_repo_root", repo)
+        monkeypatch.setattr(aw, "ensure_runtime", runtime)
+        monkeypatch.setattr(aw, "invoke_kernel", kernel)
 
-class TestFixLineage:
-    def test_unique_primary_lineage_resolves(self, tmp_path):
+        assert aw.main(["FIX", "TASK-110", "--executor", "codex"]) == 1
+        repo.assert_not_called()
+        runtime.assert_not_called()
+        kernel.assert_not_called()
+
+    def test_remote_lineage_failure_is_surfaced_without_retry(self, tmp_path, monkeypatch):
         layout = make_layout(tmp_path)
-        review = write_review(layout)
-        remediation = write_remediation(layout)
-        lineage = aw.resolve_fix_lineage(
-            tmp_path,
-            layout,
-            "TASK-097",
-            "097",
-            runner=lambda *args, **kwargs: done(stdout=HEAD_SHA + "\n"),
+        kernel = MagicMock(
+            return_value=done(returncode=9, stderr="REMOTE LINEAGE NOT FOUND\n")
         )
-        assert lineage == aw.FixLineage(review, remediation, HEAD_SHA)
+        monkeypatch.setattr(aw, "get_repo_root", lambda: tmp_path)
+        monkeypatch.setattr(aw, "runtime_layout", lambda repo: layout)
+        monkeypatch.setattr(aw, "ensure_runtime", lambda value: tmp_path / "python")
+        monkeypatch.setattr(aw, "invoke_kernel", kernel)
 
-    @pytest.mark.parametrize("missing", ["review", "remediation"])
-    def test_missing_lineage_fails_closed(self, tmp_path, missing):
-        layout = make_layout(tmp_path)
-        if missing != "review":
-            write_review(layout)
-        if missing != "remediation":
-            write_remediation(layout)
-        with pytest.raises(aw.LineageError, match="exactly one canonical"):
-            aw.resolve_fix_lineage(
-                tmp_path,
-                layout,
-                "TASK-097",
-                "097",
-                runner=lambda *args, **kwargs: done(stdout=HEAD_SHA + "\n"),
-            )
-
-    def test_ambiguous_current_review_fails_closed(self, tmp_path):
-        layout = make_layout(tmp_path)
-        write_review(layout, review_id="REVIEW-097-001", finding="R1")
-        write_review(layout, review_id="REVIEW-097-002", finding="R2")
-        write_remediation(layout)
-        with pytest.raises(aw.LineageError, match="exactly one canonical.*REVIEW"):
-            aw.resolve_fix_lineage(
-                tmp_path,
-                layout,
-                "TASK-097",
-                "097",
-                runner=lambda *args, **kwargs: done(stdout=HEAD_SHA + "\n"),
-            )
-
-    def test_noncanonical_remediation_filename_is_ignored(self, tmp_path):
-        layout = make_layout(tmp_path)
-        write_review(layout)
-        write_remediation(layout, suffix="wrong-name")
-        with pytest.raises(aw.LineageError, match="exactly one canonical REMEDIATION"):
-            aw.resolve_fix_lineage(
-                tmp_path,
-                layout,
-                "TASK-097",
-                "097",
-                runner=lambda *args, **kwargs: done(stdout=HEAD_SHA + "\n"),
-            )
-
-    def test_delta_review_resolves_one_prior_review(self, tmp_path):
-        layout = make_layout(tmp_path)
-        prior = write_review(
-            layout,
-            review_id="REVIEW-097-001",
-            sha=BASE_SHA,
-            finding="R1",
-        )
-        current = write_review(
-            layout,
-            review_id="REVIEW-097-002",
-            mode="DELTA",
-            finding="R2",
-            prior_finding="R1",
-        )
-        remediation = write_remediation(layout, finding="R2")
-        lineage = aw.resolve_fix_lineage(
-            tmp_path,
-            layout,
-            "TASK-097",
-            "097",
-            runner=lambda *args, **kwargs: done(stdout=HEAD_SHA + "\n"),
-        )
-        assert lineage == aw.FixLineage(current, remediation, HEAD_SHA, prior)
-        command = aw.kernel_command(
-            tmp_path / "python",
-            action="FIX",
-            task_id="TASK-097",
-            executor="codex",
-            repo=tmp_path,
-            lineage=lineage,
-        )
-        assert command.count("--prior-review") == 1
-        assert command[command.index("--prior-review") + 1] == str(prior)
-
-    def test_delta_missing_prior_review_fails_closed(self, tmp_path):
-        layout = make_layout(tmp_path)
-        write_review(
-            layout,
-            review_id="REVIEW-097-002",
-            mode="DELTA",
-            finding="R2",
-            prior_finding="R1",
-        )
-        write_remediation(layout, finding="R2")
-        with pytest.raises(aw.LineageError, match="prior lineage"):
-            aw.resolve_fix_lineage(
-                tmp_path,
-                layout,
-                "TASK-097",
-                "097",
-                runner=lambda *args, **kwargs: done(stdout=HEAD_SHA + "\n"),
-            )
+        assert aw.main(
+            ["FIX", "TASK-110", "FINDING-MISSING", "--executor", "antigravity"]
+        ) == 9
+        kernel.assert_called_once()
 
 
 class TestCanonicalPassSummary:
@@ -738,7 +651,7 @@ class TestCanonicalPassSummary:
         )
         assert summary == aw.CanonicalPassSummary("base_sha", BASE_SHA, HEAD_SHA)
 
-    def test_remediation_uses_exact_reviewed_and_head_bound_to_lineage(self):
+    def test_remediation_uses_exact_kernel_reviewed_and_head(self):
         summary = aw.canonical_pass_summary(
             "FIX",
             (
@@ -746,7 +659,6 @@ class TestCanonicalPassSummary:
                 f"reviewed_sha: {BASE_SHA}\n"
                 f"head_sha: {HEAD_SHA}\n"
             ),
-            expected_baseline_sha=BASE_SHA,
         )
         assert summary == aw.CanonicalPassSummary(
             "reviewed_sha", BASE_SHA, HEAD_SHA
@@ -785,19 +697,6 @@ class TestCanonicalPassSummary:
         with pytest.raises(aw.WorkerSurfaceError):
             aw.canonical_pass_summary("RUN", stdout)
 
-    def test_remediation_summary_must_match_resolved_lineage(self):
-        with pytest.raises(aw.WorkerSurfaceError, match="canonical remediation lineage"):
-            aw.canonical_pass_summary(
-                "FIX",
-                (
-                    "AIOS REMEDIATION PASS\n"
-                    f"reviewed_sha: {BASE_SHA}\n"
-                    f"head_sha: {HEAD_SHA}\n"
-                ),
-                expected_baseline_sha="5" * 40,
-            )
-
-
 class TestSurfaceAndDocumentation:
     def test_active_launcher_has_no_legacy_execution_tokens(self):
         source = SCRIPT.read_text(encoding="utf-8")
@@ -807,6 +706,13 @@ class TestSurfaceAndDocumentation:
             "WorkerFlowCoordinator",
             "--adapter",
             "publish_after_pass",
+            "FixLineage",
+            "resolve_fix_lineage",
+            "_review_finding_ids",
+            "--codex-sandbox",
+            "--review",
+            "--remediation",
+            "--prior-review",
         ):
             assert forbidden not in source
         assert "pytest" not in source
@@ -823,18 +729,27 @@ class TestSurfaceAndDocumentation:
         assert "scripts/aios_worker.py" in workflow
         assert "must not" in skill.lower() and "implementation" in skill.lower()
         assert "must not" in workflow.lower() and "implementation" in workflow.lower()
+        assert "$aios-worker FIX TASK-N FINDING-ID" in skill
+        assert "/aios-renew-worker FIX TASK-N FINDING-ID" in workflow
+        assert aw.AUTHORITATIVE_COMMIT in skill
+        assert aw.AUTHORITATIVE_COMMIT in workflow
 
     def test_renew_workflow_is_the_only_active_antigravity_surface(self):
         workflow = WORKFLOW_FILE.read_text(encoding="utf-8")
         assert "name: aios-renew-worker" in workflow
         assert "/aios-renew-worker RUN TASK-N" in workflow
         assert "/aios-worker RUN TASK-N" not in workflow
-        for action in ("RUN", "FIX", "STATUS"):
+        for action in ("RUN", "STATUS"):
             command = (
                 ".agents/skills/aios-worker/scripts/aios_worker.py "
                 f"{action} TASK-N --executor antigravity"
             )
             assert workflow.count(command) == 1
+        fix_command = (
+            ".agents/skills/aios-worker/scripts/aios_worker.py "
+            "FIX TASK-N FINDING-ID --executor antigravity"
+        )
+        assert workflow.count(fix_command) == 1
 
     def test_renew_workflow_has_no_legacy_or_visible_session_execution(self):
         workflow = WORKFLOW_FILE.read_text(encoding="utf-8")
@@ -913,10 +828,13 @@ class TestSurfaceAndDocumentation:
         assert "fail closed" in text
         assert "archived" in text and "inactive" in text
         assert "Review-Before-Publication" in text
+        assert aw.AUTHORITATIVE_COMMIT in text
+        assert "FIX TASK-N FINDING-ID" in text
+        assert "canonical remediation lineage remotely" in text
+        assert "passes no sandbox or permission argument" in text
 
     def test_product_requirements_and_task_098_are_not_modified(self):
         task_098 = (REPO_ROOT / ".ai" / "tasks" / "TASK-098.yaml").read_bytes()
         assert hashlib.sha256(task_098).hexdigest() == (
             "a7fe262efe72252ba1f3c9f19f5e9ae88cb0cd704878b0818e6f2384de253239"
         )
-
