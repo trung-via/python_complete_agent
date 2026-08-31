@@ -115,9 +115,9 @@ Admission performs no pairwise or multi-observation resolution, grouping, propos
 construction, profile aggregation, sellable-variant assignment, persistence, or
 catalog mutation. In particular, preserved `SAME_PRODUCT_FAMILY`,
 `EXACT_VARIANT_MATCH`, and `UNCERTAIN` evidence is not rewritten or promoted into
-transitive sellable-variant truth. Family-ID allocation and reuse, singleton
-admission, canonical profile construction, sellable-variant identity, and catalog
-persistence remain later concerns.
+transitive sellable-variant truth. Family-ID allocation, singleton admission,
+canonical profile construction, sellable-variant identity, and catalog persistence
+remain later concerns; catalog-wide registration reuse is owned only by TASK-118.
 
 ## Sellable-Variant Evidence Projection
 
@@ -205,13 +205,39 @@ construction, family admission, resolver or grouping work, identity generation,
 profile aggregation, persistence, or external operation. It makes no catalog
 claim about global or per-family ID uniqueness, ID reuse, one-time admission,
 idempotent insertion, cross-record member exclusivity, or future-exhaustive
-membership. Persistent catalog uniqueness, reuse and idempotency policy,
-cross-record integrity, profile aggregation, retrieval, and RAG remain deferred
-to later milestones.
+membership. Those in-memory registration-integrity claims belong only to TASK-118;
+canonical serialization, durable persistence, profile aggregation, retrieval, and
+RAG remain deferred to later milestones.
+
+## Canonical Catalog Integrity
+
+TASK-118 is the sole canonical catalog integrity authority. Its
+`CanonicalCatalogState` is an immutable, in-memory snapshot whose exact admitted
+families and sellable variants are ordered by their opaque IDs. Separate pure
+registration operations enforce family and variant ID uniqueness, reject reuse of
+one admission lineage under a different ID, and ensure one source observation is
+not assigned to distinct families or distinct variants. Re-registering the same
+value, including independently reconstructed value-equal lineage, is an explicit
+`ALREADY_PRESENT` no-op that returns the unchanged catalog; a successful new
+registration returns `INSERTED` with a new catalog snapshot.
+
+Variant registration requires its exact value-equal source family to have already
+been registered under the same family ID. It never admits that family
+automatically and never rewrites the variant's identity, approval, family, members,
+or evidence lineage. Families may remain without variants, and their members may
+remain partially or wholly unassigned. The catalog does not infer a complete
+variant partition or a different-variant relationship from unassigned membership.
+
+This boundary is append-only and performs no upstream admission, resolution,
+grouping, evidence projection, Human decision creation, identity generation,
+profile aggregation, serialization, persistence, or external work. Canonical
+serialization, durable storage including SQLite, transactions, reopen and recovery,
+migrations, identity evolution, profile aggregation, deterministic retrieval, and
+RAG are explicitly deferred to later milestones.
 
 ## Deferred M3 work
 
-Autonomous merge policy, family-ID allocation and catalog-wide uniqueness,
-variant-ID catalog uniqueness and reuse policy, idempotent persistent insertion,
-cross-record integrity, variant profile aggregation, persistent catalog mutation,
-retrieval, and RAG are explicitly deferred to later M3 milestones.
+Autonomous merge policy, family-ID allocation, canonical serialization, durable
+storage/SQLite, transactions, reopen/recovery, migrations, identity evolution,
+variant profile aggregation, deterministic retrieval, and RAG are explicitly
+deferred to later M3 milestones.

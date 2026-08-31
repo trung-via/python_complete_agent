@@ -152,6 +152,15 @@ from src.product_intelligence.canonical_variant import (
     CanonicalVariantAdmissionError,
     create_canonical_sellable_variant,
 )
+from src.product_intelligence.canonical_catalog import (
+    CanonicalCatalogIntegrityError,
+    CanonicalCatalogState,
+    CatalogRegistrationResult,
+    CatalogRegistrationStatus,
+    create_empty_canonical_catalog,
+    register_canonical_family,
+    register_canonical_variant,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -278,4 +287,11 @@ __all__ = [
     "CanonicalSellableVariant",
     "CanonicalVariantAdmissionError",
     "create_canonical_sellable_variant",
+    "CanonicalCatalogIntegrityError",
+    "CanonicalCatalogState",
+    "CatalogRegistrationResult",
+    "CatalogRegistrationStatus",
+    "create_empty_canonical_catalog",
+    "register_canonical_family",
+    "register_canonical_variant",
 ]
