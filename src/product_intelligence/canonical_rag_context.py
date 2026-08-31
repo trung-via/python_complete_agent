@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import Enum
 import json
 
@@ -247,6 +248,12 @@ def build_canonical_rag_context(
     )
 
 
+def _canonical_observed_at(dt: datetime) -> str:
+    if not isinstance(dt, datetime) or dt.tzinfo is None:
+        raise CanonicalRagContextError("observed_at must be an aware datetime")
+    return dt.astimezone(timezone.utc).isoformat()
+
+
 def _serialize_evidence_block(block: CanonicalRagEvidenceBlock) -> dict:
     source = block.source_evidence
     if block.kind is CanonicalRagEvidenceKind.OBSERVATION:
@@ -255,7 +262,7 @@ def _serialize_evidence_block(block: CanonicalRagEvidenceBlock) -> dict:
             "citation_id": block.citation_id,
             "kind": block.kind.value,
             "platform": source.member.platform,
-            "observed_at": source.member.observed_at.isoformat(),
+            "observed_at": _canonical_observed_at(source.member.observed_at),
             "title": source.title,
             "shop_name": source.shop_name,
             "brand": source.brand,
@@ -268,7 +275,7 @@ def _serialize_evidence_block(block: CanonicalRagEvidenceBlock) -> dict:
             "citation_id": block.citation_id,
             "kind": block.kind.value,
             "platform": source.member.platform,
-            "observed_at": source.member.observed_at.isoformat(),
+            "observed_at": _canonical_observed_at(source.member.observed_at),
             "key": source.fact.key,
             "value": source.fact.value,
             "unit": source.fact.unit,
@@ -281,7 +288,7 @@ def _serialize_evidence_block(block: CanonicalRagEvidenceBlock) -> dict:
             "citation_id": block.citation_id,
             "kind": block.kind.value,
             "platform": source.member.platform,
-            "observed_at": source.member.observed_at.isoformat(),
+            "observed_at": _canonical_observed_at(source.member.observed_at),
             "role": source.media.role.value,
             "provenance": source.media.provenance.value,
             "ordinal": source.media.ordinal,
@@ -313,7 +320,7 @@ def render_canonical_rag_context(context: CanonicalRagContext) -> str:
                     "value": witness.value,
                     "normalized_query_terms": list(witness.normalized_query_terms),
                     "platform": witness_source.member.platform,
-                    "observed_at": witness_source.member.observed_at.isoformat(),
+                    "observed_at": _canonical_observed_at(witness_source.member.observed_at),
                 }
             )
 

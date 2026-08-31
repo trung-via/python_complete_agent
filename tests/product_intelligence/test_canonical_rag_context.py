@@ -1,7 +1,7 @@
 """Focused regressions for TASK-123 canonical RAG context packaging."""
 
 from dataclasses import FrozenInstanceError
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 from unittest.mock import patch
 
@@ -550,3 +550,159 @@ def test_repeated_determinism_and_no_io():
 
     assert r1 == r2
     assert ctx1 == ctx2
+
+
+def test_rendering_deterministic_across_value_equal_observed_at_offsets():
+    # Construct two value-equal sets of objects with aware datetimes denoting the same instant with different offsets
+    dt_utc = datetime(2026, 8, 31, 0, 0, 0, tzinfo=timezone.utc)
+    dt_p7 = datetime(2026, 8, 31, 7, 0, 0, tzinfo=timezone(timedelta(hours=7)))
+    dt_m4 = datetime(2026, 8, 30, 20, 0, 0, tzinfo=timezone(timedelta(hours=-4)))
+
+    assert dt_utc == dt_p7 == dt_m4
+
+    m1 = SourceObservationIdentity(
+        source_pack_id="pack-1",
+        platform="Shopee",
+        source_product_id="prod-1",
+        product_url="https://example.com/p/1",
+        observed_at=dt_utc,
+    )
+    m2 = SourceObservationIdentity(
+        source_pack_id="pack-1",
+        platform="Shopee",
+        source_product_id="prod-1",
+        product_url="https://example.com/p/1",
+        observed_at=dt_p7,
+    )
+    m3 = SourceObservationIdentity(
+        source_pack_id="pack-1",
+        platform="Shopee",
+        source_product_id="prod-1",
+        product_url="https://example.com/p/1",
+        observed_at=dt_m4,
+    )
+
+    assert m1 == m2 == m3
+
+    obs1 = CanonicalProfileObservation(
+        member=m1,
+        collector="c",
+        title="Laptop Title",
+        shop_name="Shop",
+        brand="Brand",
+        model_sku="SKU-1",
+        description_text="Desc",
+    )
+    obs2 = CanonicalProfileObservation(
+        member=m2,
+        collector="c",
+        title="Laptop Title",
+        shop_name="Shop",
+        brand="Brand",
+        model_sku="SKU-1",
+        description_text="Desc",
+    )
+    obs3 = CanonicalProfileObservation(
+        member=m3,
+        collector="c",
+        title="Laptop Title",
+        shop_name="Shop",
+        brand="Brand",
+        model_sku="SKU-1",
+        description_text="Desc",
+    )
+
+    fact1 = CanonicalProfileFactEvidence(
+        member=m1,
+        fact=ProductFact(key="RAM", value="16GB", source_section="S", provenance="P"),
+    )
+    fact2 = CanonicalProfileFactEvidence(
+        member=m2,
+        fact=ProductFact(key="RAM", value="16GB", source_section="S", provenance="P"),
+    )
+    fact3 = CanonicalProfileFactEvidence(
+        member=m3,
+        fact=ProductFact(key="RAM", value="16GB", source_section="S", provenance="P"),
+    )
+
+    media1 = CanonicalProfileMediaEvidence(
+        member=m1,
+        media=OriginalMediaRef(
+            source_url="https://media.example.com/1.jpg",
+            platform="Shopee",
+            role=MediaRole.PRIMARY,
+            provenance=MediaProvenance.STRUCTURED_PRODUCT_DATA,
+        ),
+    )
+    media2 = CanonicalProfileMediaEvidence(
+        member=m2,
+        media=OriginalMediaRef(
+            source_url="https://media.example.com/1.jpg",
+            platform="Shopee",
+            role=MediaRole.PRIMARY,
+            provenance=MediaProvenance.STRUCTURED_PRODUCT_DATA,
+        ),
+    )
+    media3 = CanonicalProfileMediaEvidence(
+        member=m3,
+        media=OriginalMediaRef(
+            source_url="https://media.example.com/1.jpg",
+            platform="Shopee",
+            role=MediaRole.PRIMARY,
+            provenance=MediaProvenance.STRUCTURED_PRODUCT_DATA,
+        ),
+    )
+
+    prof1 = CanonicalVariantProfile(
+        variant_id="var-1",
+        family_id="fam-1",
+        members=(m1,),
+        observations=(obs1,),
+        fact_evidence=(fact1,),
+        media_evidence=(media1,),
+    )
+    prof2 = CanonicalVariantProfile(
+        variant_id="var-1",
+        family_id="fam-1",
+        members=(m2,),
+        observations=(obs2,),
+        fact_evidence=(fact2,),
+        media_evidence=(media2,),
+    )
+    prof3 = CanonicalVariantProfile(
+        variant_id="var-1",
+        family_id="fam-1",
+        members=(m3,),
+        observations=(obs3,),
+        fact_evidence=(fact3,),
+        media_evidence=(media3,),
+    )
+
+    assert prof1 == prof2 == prof3
+
+    ctx1 = build_canonical_rag_context([prof1], question="What is RAM?", retrieval_query="Laptop RAM")
+    ctx2 = build_canonical_rag_context([prof2], question="What is RAM?", retrieval_query="Laptop RAM")
+    ctx3 = build_canonical_rag_context([prof3], question="What is RAM?", retrieval_query="Laptop RAM")
+
+    # Contexts are value-equal
+    assert ctx1 == ctx2 == ctx3
+
+    # Retained objects in context are exact and unmutated
+    assert ctx1.hits[0].hit.profile.members[0].observed_at is dt_utc
+    assert ctx2.hits[0].hit.profile.members[0].observed_at is dt_p7
+    assert ctx3.hits[0].hit.profile.members[0].observed_at is dt_m4
+
+    # Rendered JSON string and UTF-8 bytes are strictly identical
+    r1 = render_canonical_rag_context(ctx1)
+    r2 = render_canonical_rag_context(ctx2)
+    r3 = render_canonical_rag_context(ctx3)
+
+    assert r1 == r2 == r3
+    assert r1.encode("utf-8") == r2.encode("utf-8") == r3.encode("utf-8")
+
+    parsed = json.loads(r1)
+    assert parsed["hits"][0]["retrieval_witnesses"][0]["observed_at"] == "2026-08-31T00:00:00+00:00"
+    assert parsed["hits"][0]["supplemental_evidence"][0]["observed_at"] == "2026-08-31T00:00:00+00:00"
+    assert parsed["hits"][0]["supplemental_evidence"][1]["observed_at"] == "2026-08-31T00:00:00+00:00"
+    assert parsed["hits"][0]["supplemental_evidence"][2]["observed_at"] == "2026-08-31T00:00:00+00:00"
+
