@@ -179,9 +179,39 @@ Proposal and decision construction create no identity or profile, re-run no
 resolution/grouping/family admission, mutate no catalog, persist no state, and
 perform no external work.
 
+## Canonical Sellable-Variant Admission
+
+`create_canonical_sellable_variant` is the narrow identity-binding boundary
+after TASK-116 Human review. It accepts exactly one existing
+`SellableVariantDecisionRecord` whose decision is explicit `APPROVE` and one
+keyword-only, caller-supplied `variant_id`. `REJECT`, a different record type,
+or an implicit approval path fails closed. No family, family ID, member,
+proposal, projection, or evidence input is accepted separately, so none can
+diverge from the approved lineage.
+
+The variant ID is opaque and is preserved exactly. It must be a non-empty,
+single-line, NUL-free string with no leading or trailing whitespace; admission
+does not parse, normalize, hash, prefix, generate, or derive it. The immutable
+`CanonicalSellableVariant` stores only that explicit identity and the exact
+TASK-116 approval record. Its proposal, source family, family ID, members, and
+Human provenance are read-only views reached through that same record. Thus the
+source family is the exact `approval.proposal.source_family` object and members
+remain the exact TASK-116 tuple, whether an approved proposal is a singleton or
+contains multiple members. All TASK-114, TASK-115, and TASK-116 objects remain
+unchanged and auditable by object lineage.
+
+Admission performs no evidence projection, variant proposal or decision
+construction, family admission, resolver or grouping work, identity generation,
+profile aggregation, persistence, or external operation. It makes no catalog
+claim about global or per-family ID uniqueness, ID reuse, one-time admission,
+idempotent insertion, cross-record member exclusivity, or future-exhaustive
+membership. Persistent catalog uniqueness, reuse and idempotency policy,
+cross-record integrity, profile aggregation, retrieval, and RAG remain deferred
+to later milestones.
+
 ## Deferred M3 work
 
 Autonomous merge policy, family-ID allocation and catalog-wide uniqueness,
-canonical sellable-variant identity, variant profile aggregation, persistent
-catalog mutation, retrieval, and RAG are explicitly deferred to later M3
-milestones.
+variant-ID catalog uniqueness and reuse policy, idempotent persistent insertion,
+cross-record integrity, variant profile aggregation, persistent catalog mutation,
+retrieval, and RAG are explicitly deferred to later M3 milestones.

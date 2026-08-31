@@ -147,6 +147,11 @@ from src.product_intelligence.sellable_variant_approval import (
     create_sellable_variant_proposal,
     record_sellable_variant_decision,
 )
+from src.product_intelligence.canonical_variant import (
+    CanonicalSellableVariant,
+    CanonicalVariantAdmissionError,
+    create_canonical_sellable_variant,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -270,4 +275,7 @@ __all__ = [
     "create_sellable_variant_decision_record",
     "create_sellable_variant_proposal",
     "record_sellable_variant_decision",
+    "CanonicalSellableVariant",
+    "CanonicalVariantAdmissionError",
+    "create_canonical_sellable_variant",
 ]
