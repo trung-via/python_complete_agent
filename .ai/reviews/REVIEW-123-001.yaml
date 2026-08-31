@@ -1,0 +1,41 @@
+review_id: REVIEW-123-001
+reviewed_sha: e959631179347522c371e2c139f197e62243ac5a
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: PASS
+  AC3: PASS
+  AC4: PASS
+  AC5: PASS
+  AC6: PASS
+  AC7: PASS
+  AC8: PASS
+  AC9: FAIL
+  AC10: PASS
+  AC11: PASS
+  AC12: PASS
+findings:
+  - id: F1
+    basis: AC9
+    action: CODE_FIX
+    location: src/product_intelligence/canonical_rag_context.py:_serialize_evidence_block/render_canonical_rag_context
+    issue: >
+      TASK-123 renders source observation timestamps with observed_at.isoformat(),
+      preserving the caller's timezone offset representation. SourceObservationIdentity
+      stores observed_at verbatim and does not canonicalize it. Python timezone-aware
+      datetime equality is instant-based, so independently reconstructed TASK-121/TASK-123
+      values can be value-equal while representing the same instant with different UTC
+      offsets. Those value-equal contexts then render different observed_at strings and
+      therefore different JSON bytes, violating the hard requirement that rendering be
+      deterministic across value-equal context reconstruction and AC9's deterministic
+      compact JSON contract.
+    expected: >
+      Canonicalize observed_at only at the TASK-123 model-facing rendering boundary to one
+      stable instant representation, consistently for retrieval witnesses and all
+      OBSERVATION/FACT/MEDIA supplemental blocks, without mutating or replacing the exact
+      TASK-121/TASK-122 source objects retained in the context. Add a focused regression
+      using independently reconstructed value-equal contexts whose aware observed_at
+      values denote the same instant with different offsets and require identical rendered
+      JSON/UTF-8 bytes. Preserve all existing schema, whitelist, byte-budget, citation,
+      provenance, conflict-preservation, no-model/no-I/O, and exact-string behavior.
