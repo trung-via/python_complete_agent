@@ -176,6 +176,14 @@ from src.product_intelligence.canonical_catalog_sqlite import (
     register_sqlite_canonical_family,
     register_sqlite_canonical_variant,
 )
+from src.product_intelligence.canonical_profile import (
+    CanonicalProfileFactEvidence,
+    CanonicalProfileMediaEvidence,
+    CanonicalProfileObservation,
+    CanonicalVariantProfile,
+    CanonicalVariantProfileError,
+    build_canonical_variant_profile,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -320,4 +328,10 @@ __all__ = [
     "load_sqlite_canonical_catalog",
     "register_sqlite_canonical_family",
     "register_sqlite_canonical_variant",
+    "CanonicalVariantProfileError",
+    "CanonicalProfileObservation",
+    "CanonicalProfileFactEvidence",
+    "CanonicalProfileMediaEvidence",
+    "CanonicalVariantProfile",
+    "build_canonical_variant_profile",
 ]

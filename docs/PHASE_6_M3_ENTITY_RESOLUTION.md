@@ -282,8 +282,32 @@ There are no normalized family, variant, member, evidence, or lineage SQL tables
 no arbitrary snapshot replacement API; and no retry loop, WAL policy, migration,
 history, backup, replication, identity generation, profile, retrieval, or RAG work.
 
+## Canonical Variant Evidence Profile
+
+TASK-121 adds a pure, read-only evidence projection for one already-registered
+canonical sellable variant. `build_canonical_variant_profile` accepts the exact
+TASK-118 `CanonicalCatalogState`, locates one variant by its exact opaque ID, and
+requires exactly one caller-supplied `ProductSourcePack` for every registered
+variant member. Binding uses `SourceObservationIdentity.from_pack(pack)` equality,
+while every projected observation, fact, and media item reuses the corresponding
+registered canonical member as its evidence-lineage identity.
+
+The profile follows registered variant-member order regardless of source-pack
+input order. Within each member it preserves the source pack's descriptive values
+exactly, including `None` and conflicting values, and retains every original
+`ProductFact` and `OriginalMediaRef` in its source tuple order. It performs no
+normalization, deduplication, conflict reconciliation, media selection or
+processing, ranking, resolver/grouping/admission workflow, persistence, or
+external operation. Conflicting evidence deliberately remains plural; the profile
+defines no preferred, best, latest, majority, or averaged product truth.
+
+This profile is only an evidence-preserving projection, not a product-truth
+authority, durable storage layer, retrieval index, or RAG document. TASK-118
+remains the catalog-integrity authority, TASK-119 remains the canonical-byte
+authority, and TASK-120 remains the durability and transaction authority.
+
 ## Deferred M3 work
 
 Autonomous merge policy, family-ID allocation, migrations, cryptographic
-authenticity, identity evolution, variant profile aggregation, deterministic
+authenticity, identity evolution, product-truth reconciliation, deterministic
 retrieval, and RAG are explicitly deferred to later M3 milestones.
