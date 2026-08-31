@@ -1,0 +1,20 @@
+{
+  "repair_id": "REPAIR-119-002",
+  "failed_run_id": "RUN-119-002",
+  "failed_head_sha": "bfbea5f194ebba9e993c3b123a5c2e2928bbb7ce",
+  "task": {
+    "id": "TASK-119",
+    "revision": 1
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "tests/product_intelligence/test_canonical_catalog_codec.py"
+  ],
+  "instructions": [
+    "Continue from the exact failed_head_sha of RUN-119-002. The prior CODE_FIX repair made no source/test commit and was rejected because HEAD did not advance; this continuation must perform the already-authorized narrow test correction and commit it.",
+    "Modify only test_equivalent_aware_instants_and_independent_construction_are_identical_bytes in tests/product_intelligence/test_canonical_catalog_codec.py so it verifies absence of insignificant JSON formatting whitespace without rejecting ordinary space code points preserved inside JSON string values.",
+    "Do not change canonical_catalog_codec.py or any other product implementation, public API, documentation, task artifact, or unrelated test. Preserve the original TASK-119 opaque-string contract exactly; strings containing leading, trailing, or embedded spaces remain unchanged when they are valid retained canonical values.",
+    "The repair must produce a non-empty committed delta from failed_head_sha, limited to the authorized test file. Runtime remains responsible for executing the original TASK-119 canonical verification after the repair commit; do not reroute or restart TASK-119 as a fresh RUN."
+  ],
+  "constraints": []
+}
