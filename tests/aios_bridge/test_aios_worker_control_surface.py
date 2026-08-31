@@ -725,6 +725,40 @@ class TestKernelRouting:
         assert f"REVIEW_CANDIDATE_HEAD: {HEAD_SHA}" in captured.out
         assert "NEXT: Review TASK-113 in ChatGPT" in captured.out
 
+    def test_repair_pass_rejects_mismatched_failed_run_summary(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        layout = make_layout(tmp_path)
+        kernel = MagicMock(
+            return_value=done(
+                stdout=(
+                    "AIOS REPAIR PASS\n"
+                    "task: TASK-113\n"
+                    "failed_run: RUN-999-001\n"
+                    "run: RUN-113-002\n"
+                    "executor: codex\n"
+                    f"failed_head_sha: {FAILED_HEAD_SHA}\n"
+                    f"head_sha: {HEAD_SHA}\n"
+                )
+            )
+        )
+        git = MagicMock(side_effect=AssertionError("git push must not be invoked"))
+        monkeypatch.setattr(aw, "get_repo_root", lambda: tmp_path)
+        monkeypatch.setattr(aw, "runtime_layout", lambda repo: layout)
+        monkeypatch.setattr(aw, "ensure_runtime", lambda value: tmp_path / "worker-python")
+        monkeypatch.setattr(aw, "invoke_kernel", kernel)
+        monkeypatch.setattr(aw, "_git", git)
+
+        assert aw.main(
+            ["REPAIR", "RUN-113-001", "--executor", "codex"]
+        ) == 1
+        assert kernel.call_count == 1
+        git.assert_not_called()
+        captured = capsys.readouterr()
+        assert "REVIEW_CANDIDATE_HEAD" not in captured.out
+        assert "NEXT" not in captured.out
+        assert "does not match requested target" in captured.err
+
     def test_repair_rejects_task_or_finding_as_target(self, monkeypatch):
         repo = MagicMock(side_effect=AssertionError("repo must not be resolved"))
         kernel = MagicMock(side_effect=AssertionError("kernel must not be invoked"))

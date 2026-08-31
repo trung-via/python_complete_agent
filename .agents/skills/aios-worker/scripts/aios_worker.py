@@ -579,6 +579,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             completed.stdout,
         )
 
+        if args.action == "REPAIR" and summary.failed_run != target:
+            raise WorkerSurfaceError(
+                f"AIOS REPAIR PASS summary failed_run {summary.failed_run!r} does not match requested target {target!r}"
+            )
+
         review_task = summary.task_id if args.action == "REPAIR" and summary.task_id else target
 
         print(f"REVIEW_CANDIDATE_HEAD: {summary.head_sha}")
