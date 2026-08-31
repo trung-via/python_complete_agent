@@ -1,0 +1,20 @@
+{
+  "repair_id": "REPAIR-119-003",
+  "failed_run_id": "RUN-119-003",
+  "failed_head_sha": "bfbea5f194ebba9e993c3b123a5c2e2928bbb7ce",
+  "task": {
+    "id": "TASK-119",
+    "revision": 1
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "tests/product_intelligence/test_canonical_catalog_codec.py"
+  ],
+  "instructions": [
+    "Continue from the exact failed_head_sha of RUN-119-003. Two prior CODE_FIX continuations produced no committed delta; a no-change response is not authorized because the original failing assertion remains present. Make the already-authorized narrow test correction and commit it so HEAD advances.",
+    "In test_equivalent_aware_instants_and_independent_construction_are_identical_bytes, remove the assertion that forbids every ordinary space character from the encoded JSON text. Ordinary spaces inside retained JSON string values are significant data and must remain allowed by TASK-119.",
+    "Replace that over-broad check with a structural canonical-format check that distinguishes insignificant JSON formatting whitespace from spaces inside strings. The test already imports json; it may parse the payload and compare it against compact deterministic json.dumps output using the codec's canonical key/separator behavior, while retaining the existing UTC timestamp and no-trailing-newline checks.",
+    "Modify only tests/product_intelligence/test_canonical_catalog_codec.py. Do not change canonical_catalog_codec.py, public APIs, documentation, task artifacts, opaque-string semantics, or unrelated tests. The repair must produce a non-empty committed delta from failed_head_sha; Runtime will execute the original TASK-119 verification afterward."
+  ],
+  "constraints": []
+}
