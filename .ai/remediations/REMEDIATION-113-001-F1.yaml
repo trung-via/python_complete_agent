@@ -1,0 +1,9 @@
+finding_id: F1
+action: CODE_FIX
+reviewed_sha: 035760fb832e4bc95e1207552cd2bc5cb42b062c
+modification_scope:
+  - .agents/skills/aios-worker/scripts/aios_worker.py
+  - tests/aios_bridge/test_aios_worker_control_surface.py
+affected_verification:
+  - python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py -q
+constraints: []
