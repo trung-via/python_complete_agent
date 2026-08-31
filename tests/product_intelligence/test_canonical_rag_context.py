@@ -632,6 +632,7 @@ def test_rendering_deterministic_across_value_equal_observed_at_offsets():
             platform="Shopee",
             role=MediaRole.PRIMARY,
             provenance=MediaProvenance.STRUCTURED_PRODUCT_DATA,
+            ordinal=0,
         ),
     )
     media2 = CanonicalProfileMediaEvidence(
@@ -641,6 +642,7 @@ def test_rendering_deterministic_across_value_equal_observed_at_offsets():
             platform="Shopee",
             role=MediaRole.PRIMARY,
             provenance=MediaProvenance.STRUCTURED_PRODUCT_DATA,
+            ordinal=0,
         ),
     )
     media3 = CanonicalProfileMediaEvidence(
@@ -650,6 +652,7 @@ def test_rendering_deterministic_across_value_equal_observed_at_offsets():
             platform="Shopee",
             role=MediaRole.PRIMARY,
             provenance=MediaProvenance.STRUCTURED_PRODUCT_DATA,
+            ordinal=0,
         ),
     )
 
