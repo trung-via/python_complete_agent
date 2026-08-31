@@ -1,0 +1,30 @@
+review_id: REVIEW-112-003
+reviewed_sha: ab8a77c800de62283845ba763cb7edf706fa63d0
+mode: DELTA
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: FAIL
+findings:
+  - id: F1R1
+    basis: AC1
+    action: CODE_FIX
+    location: src/product_intelligence/family_merge_approval.py:create_family_merge_proposal
+    issue: >
+      RUN-112-003 did not remediate prior finding F1. Its canonical ResultPackage
+      reports changed_files: [] and head_sha equal to the previously reviewed SHA
+      ab8a77c800de62283845ba763cb7edf706fa63d0, so the implementation still treats
+      normal TASK-109 cross-group pairwise results as malformed whenever exactly one
+      endpoint belongs to the selected canonical POSITIVE_CONNECTED group. The
+      affected test suite passes because no implementation/test delta for the
+      required multi-group regression was created.
+    expected: >
+      Complete prior finding F1 by collecting induced proposal evidence only from
+      pairwise results whose two endpoints are members of the selected canonical
+      group. Normal cross-group results between valid graph.observations must be
+      ignored for that proposal, while missing or duplicate induced member pairs and
+      pairwise endpoints not belonging to graph.observations must still fail closed.
+      Add the focused regression with one approvable POSITIVE_CONNECTED group and at
+      least one observation in another provisional group, proving proposal creation
+      succeeds with exactly the selected group's N*(N-1)/2 evidence. Keep the fix
+      within family_merge_approval.py and its focused test file.
+prior_finding_id: F1
