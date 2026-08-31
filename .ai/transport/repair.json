@@ -1,0 +1,22 @@
+{
+  "repair_id": "REPAIR-112-001",
+  "failed_run_id": "RUN-112-001",
+  "failed_head_sha": "a113c2cb759d0263c811eb14fc4eef0551a38187",
+  "task": {
+    "id": "TASK-112",
+    "revision": 1
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "src/product_intelligence/family_merge_approval.py",
+    "src/product_intelligence/__init__.py",
+    "tests/product_intelligence/test_family_merge_approval.py",
+    "docs/PHASE_6_M3_ENTITY_RESOLUTION.md"
+  ],
+  "instructions": [
+    "Complete the original TASK-112 implementation from failed_head_sha without widening scope or changing TASK semantics.",
+    "RUN-112-001 failed at COMPLETION_GATE because the executor ResultPackage contained unresolved items and produced no candidate delta. Do not clear or suppress a legitimate unresolved condition merely to satisfy the gate; return unresolved as empty only after the TASK-112 implementation, required tests, and evidence are actually complete.",
+    "Preserve the audited TASK-112 authority boundary: evidence-complete proposal over existing TASK-109 graph plus canonical TASK-111 POSITIVE_CONNECTED group, explicit Human APPROVE/REJECT only, no pairwise re-execution, no conflict override, no canonical family/product/variant IDs, no actual merge, no persistence/catalog mutation, and no executor push/merge/publication."
+  ],
+  "constraints": []
+}
