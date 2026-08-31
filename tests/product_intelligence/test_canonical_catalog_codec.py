@@ -136,7 +136,14 @@ def test_equivalent_aware_instants_and_independent_construction_are_identical_by
     assert encode_canonical_catalog(second) == encode_canonical_catalog(first)
     text = encode_canonical_catalog(first).decode("utf-8")
     assert "2026-08-31T08:45:12.123456Z" in text
-    assert text.endswith("}") and "\n" not in text and " " not in text
+    assert text == json.dumps(
+        json.loads(text),
+        ensure_ascii=False,
+        allow_nan=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    assert text.endswith("}") and not text.endswith("\n")
 
 
 @pytest.mark.parametrize(
