@@ -1,0 +1,9 @@
+finding_id: F1R1
+action: CODE_FIX
+reviewed_sha: ab8a77c800de62283845ba763cb7edf706fa63d0
+modification_scope:
+  - src/product_intelligence/family_merge_approval.py
+  - tests/product_intelligence/test_family_merge_approval.py
+affected_verification:
+  - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_family_merge_approval.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+constraints: []
