@@ -1,0 +1,19 @@
+{
+  "repair_id": "REPAIR-114-002",
+  "failed_run_id": "RUN-114-002",
+  "failed_head_sha": "49e01d6a9c77842e7c0ad576f5c3b552a87795b3",
+  "task": {
+    "id": "TASK-114",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Preserve the exact failed_head_sha implementation state from RUN-114-002. Do not modify or commit any product, test, documentation, task, or control-plane file during this NO_CHANGE repair.",
+    "RUN-114-002 failed only because its structural ResultPackage used a repair identifier as claim acceptance lineage: `REPAIR-114-001-COMMIT references unknown acceptance criteria: REPAIR-114-001`. Return one canonical structural ResultPackage for the complete original TASK-114 delta at the unchanged failed head.",
+    "Every claim.satisfies value must reference only actual TASK-114 acceptance IDs AC1 through AC10 that the claim supports. Do not use REPAIR IDs, RUN IDs, claim IDs, task IDs, or invented acceptance identifiers in satisfies.",
+    "Return empty root evidence and empty claim.evidence as required by the REPAIR handoff. Do not run canonical verification yourself; Runtime owns original TASK-114 verification and evidence persistence.",
+    "Preserve the original TASK-114 semantic boundary exactly: explicit Human APPROVE plus explicit opaque caller-supplied family_id; exact approved members and provenance; no generated identity, resolver/grouping/proposal re-execution, sellable-variant identity, persistence/catalog mutation, profile aggregation, or external side effects."
+  ],
+  "constraints": []
+}
