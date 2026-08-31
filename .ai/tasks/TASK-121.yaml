@@ -1,0 +1,231 @@
+task_id: TASK-121
+revision: 1
+
+goal: >
+  Add one pure deterministic evidence-preserving profile projection for an
+  already-registered canonical sellable variant. The projection must bind the
+  exact TASK-117 canonical variant lineage from TASK-118 catalog state to the
+  exact ProductSourcePack observations supplied by the caller, preserve
+  descriptive fields, facts, media, and provenance without inventing a single
+  reconciled product truth, and remain independent of SQLite, retrieval, RAG,
+  browser work, network access, LLM inference, or media processing.
+
+problem: >
+  TASK-118 through TASK-120 now provide canonical family/variant identity,
+  catalog integrity, canonical snapshot bytes, and durable SQLite storage, but
+  the canonical catalog intentionally retains only approved identity/evidence
+  lineage rather than the richer ProductSourcePack fields needed by downstream
+  Product Intelligence. Title, shop, brand, model/SKU, description, facts, and
+  media still live on ProductSourcePack. A profile layer is therefore needed,
+  but it must not infer missing truth, normalize conflicting marketplace values,
+  join unrelated ranking candidates heuristically, or create a second entity
+  resolution authority. TASK-121 must be a read-only projection over one
+  registered canonical variant plus exactly its corresponding source packs.
+
+assumptions:
+  - Current canonical python_complete_agent main baseline before TASK-121 authoring is 4c5e0eb9ff23d21c099ecf11c49c2422424bd339.
+  - TASK-118 CanonicalCatalogState remains the sole authority for which canonical families and variants are registered.
+  - TASK-117 CanonicalSellableVariant.members remains the exact Human-approved sellable-variant observation membership.
+  - SourceObservationIdentity.from_pack(pack) is the exact binding representation between ProductSourcePack and canonical observation identity.
+  - ProductSourcePack is already an immutable observation value containing title, shop_name, brand, model_sku, description_text, ProductFact tuples, and OriginalMediaRef tuples.
+  - ProductSourcePack serialization/deserialization is not a canonical rehydration authority for this task; callers supply exact ProductSourcePack values directly.
+  - Conflicting values across observations are valid evidence and must be retained rather than reconciled by this milestone.
+
+scope:
+  inspect:
+    - .ai/tasks/TASK-117.yaml
+    - .ai/tasks/TASK-118.yaml
+    - src/product_intelligence/canonical_catalog.py
+    - src/product_intelligence/canonical_variant.py
+    - src/product_intelligence/entity_resolution.py
+    - src/product_intelligence/__init__.py
+    - src/product_source/models.py
+    - src/product_source/serialization.py
+    - tests/product_intelligence/test_canonical_catalog.py
+    - tests/product_intelligence/test_canonical_variant.py
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+  modify:
+    - src/product_intelligence/canonical_profile.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_canonical_profile.py
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+
+non_goals:
+  - Modify TASK-117 canonical variant admission, TASK-118 catalog registration/integrity, TASK-119 codec, or TASK-120 SQLite semantics.
+  - Modify canonical_catalog.py, canonical_variant.py, canonical_family.py, entity-resolution/grouping/approval/projection modules, or product_source models/serialization.
+  - Create a canonical family-level profile, family-wide truth synthesis, variant reassignment, identity generation, or identity evolution.
+  - Select a best title, best brand, best model, best description, hero image, preferred seller, preferred platform, latest observation, majority value, average value, or other reconciled truth.
+  - Normalize, trim, case-fold, canonicalize, deduplicate, merge, average, score, rank, or otherwise reinterpret descriptive strings, facts, descriptions, media, or provenance.
+  - Call resolve_product_entities, entity grouping, evidence projection, proposal factories, Human decision factories, canonical admission factories, or catalog registration during profile construction.
+  - Join ProductCandidateSnapshot, WinningProductScore, ranking/discovery state, price/sold/rating/commission signals, or any candidate_id namespace to canonical variants.
+  - Read or write SQLite/filesystem/JSON, browser state, Google Drive, network APIs, environment configuration, system clock, random state, UUIDs, queues, caches, or background jobs.
+  - Download, hash, deduplicate, crop, enhance, transform, upload, or otherwise process media bytes.
+  - Add embeddings, indexes, search, retrieval, LLM inference, prompt construction, context selection, or RAG.
+  - Add profile persistence, profile codec, profile migration, mutable update/merge APIs, or cache invalidation.
+
+constraints:
+  hard:
+    - >
+      Expose exactly these new TASK-121 public names from product_intelligence:
+      CanonicalVariantProfileError, CanonicalProfileObservation,
+      CanonicalProfileFactEvidence, CanonicalProfileMediaEvidence,
+      CanonicalVariantProfile, and build_canonical_variant_profile. Do not add
+      profile persistence, mutation, selection-policy, retrieval, or raw-dict APIs.
+    - >
+      build_canonical_variant_profile(catalog, *, variant_id, source_packs) must
+      require an exact CanonicalCatalogState and locate exactly one registered
+      CanonicalSellableVariant whose opaque variant_id equals the supplied string.
+      The function must use the registered catalog variant as authority and must
+      not accept an unregistered external variant object as an alternative input.
+    - >
+      A missing variant_id, duplicate impossible catalog match, invalid catalog
+      type, invalid variant_id input, or otherwise ambiguous registered-variant
+      lookup must fail closed with CanonicalVariantProfileError and must never
+      normalize or rewrite the caller's identifier to make it match.
+    - >
+      source_packs must contain exact ProductSourcePack values only. For every
+      registered variant member there must be exactly one supplied pack whose
+      SourceObservationIdentity.from_pack(pack) is value-equal to that exact
+      canonical member, and there must be no extra, duplicate, or unmatched
+      source-pack observation identities. Missing, extra, duplicate, or wrong
+      bindings fail closed before producing a profile.
+    - >
+      Profile construction must order observations by the registered variant's
+      canonical members tuple, not caller source_packs order. Permuting an
+      otherwise identical source_packs input sequence must produce a value-equal
+      CanonicalVariantProfile.
+    - >
+      CanonicalProfileObservation must retain the exact canonical
+      SourceObservationIdentity member plus the corresponding source observation's
+      collector, title, shop_name, brand, model_sku, and description_text values
+      without trimming, normalization, case folding, conflict resolution, or
+      inferred filling. Optional values remain None when absent.
+    - >
+      CanonicalProfileFactEvidence must bind one exact canonical observation member
+      to one exact ProductFact from its corresponding ProductSourcePack. Preserve
+      ProductFact key, value, unit, source_section, provenance, and source tuple
+      order exactly; do not canonicalize keys/units/values or collapse equal-looking
+      facts from distinct observations.
+    - >
+      CanonicalProfileMediaEvidence must bind one exact canonical observation member
+      to one exact OriginalMediaRef from its corresponding ProductSourcePack.
+      Preserve source_url, platform, role, provenance, ordinal, alt_text,
+      variant_label, content_type, byte_size, sha256_hash, perceptual_hash, and
+      local_filename semantics exactly; do not download, deduplicate, select, or
+      reorder media independently of the source observation.
+    - >
+      CanonicalVariantProfile must be immutable and expose the exact registered
+      variant_id, family_id, registered variant members, deterministic observation
+      tuple, deterministic flattened fact-evidence tuple, and deterministic
+      flattened media-evidence tuple. The profile is an evidence projection only;
+      it must not expose synthesized best_* or canonical descriptive truth fields.
+    - >
+      Reuse the registered canonical member objects in produced observation/fact/media
+      evidence bindings when possible after equality matching rather than creating
+      an independent identity authority. Root value equality is the semantic
+      requirement; internal identity reuse for the same canonical member should be
+      regression-tested as an evidence-lineage property.
+    - >
+      Flattened fact evidence ordering must be: registered variant member order,
+      then that matching ProductSourcePack.facts tuple order. Flattened media
+      evidence ordering must be: registered variant member order, then that matching
+      ProductSourcePack.media tuple order. Do not globally sort by strings, hashes,
+      URLs, or platform.
+    - >
+      Conflicting descriptive values and conflicting ProductFact values across
+      observations must remain simultaneously present in the profile. TASK-121
+      must not choose latest, majority, first, highest-confidence, normalized-equal,
+      or averaged truth, and must not create conflict-resolution warnings that imply
+      one value is preferred over another.
+    - >
+      Profile construction must be pure deterministic computation over supplied
+      values: zero filesystem, SQLite, network, browser, environment, clock, random,
+      UUID, subprocess, executor, model, or external side effects.
+    - >
+      Do not call TASK-108+ resolver/grouping/approval/admission/projection workflows
+      or TASK-118 registration functions from build_canonical_variant_profile.
+      Existing canonical lineage must be consumed, not recomputed.
+    - >
+      TASK-121 must not alter source ProductSourcePack objects, canonical catalog
+      state, registered family/variant objects, or any retained approval/evidence
+      lineage. Repeated calls with value-equal inputs must return value-equal output.
+    - >
+      Documentation must state clearly that TASK-121 profile is an
+      evidence-preserving projection for one canonical sellable variant, not a
+      product-truth authority, retrieval index, RAG document, or durable storage
+      layer. TASK-118 remains catalog-integrity authority; TASK-119 canonical-byte
+      authority; TASK-120 durability/transaction authority.
+    - Do not push from executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Public exports add exactly the bounded TASK-121 profile error, four immutable
+      profile value types, and build_canonical_variant_profile, with no persistence,
+      mutation, reconciliation, retrieval, or raw-dict profile API.
+  - id: AC2
+    condition: >
+      Profile construction accepts only an exact CanonicalCatalogState and resolves
+      one already-registered variant by exact opaque variant_id without modifying
+      TASK-118 or admitting/reconstructing canonical identities.
+  - id: AC3
+    condition: >
+      Exact one-to-one ProductSourcePack binding is enforced through
+      SourceObservationIdentity.from_pack(pack) == registered variant member;
+      missing, extra, duplicate, unmatched, or non-ProductSourcePack inputs fail
+      closed before profile creation.
+  - id: AC4
+    condition: >
+      Source-pack input permutation does not change the resulting value: profile
+      observations follow registered variant member order and retain the exact
+      canonical member objects for internal evidence binding.
+  - id: AC5
+    condition: >
+      Observation projection preserves collector, title, shop_name, brand,
+      model_sku, and description_text exactly, including None and conflicting
+      cross-observation values, with no normalization or preferred-truth field.
+  - id: AC6
+    condition: >
+      Every ProductFact is retained exactly with its canonical source member and
+      original per-pack tuple order; key/value/unit/source_section/provenance remain
+      unchanged and equal-looking or conflicting facts from different observations
+      are not collapsed or reconciled.
+  - id: AC7
+    condition: >
+      Every OriginalMediaRef is retained exactly with its canonical source member
+      and original per-pack tuple order; all role/provenance/ordinal/metadata fields
+      remain unchanged and no media selection, download, transform, or dedup occurs.
+  - id: AC8
+    condition: >
+      CanonicalVariantProfile exposes only evidence-preserving registered identity,
+      members, observations, fact evidence, and media evidence; conflicting evidence
+      remains plural and no synthesized best/latest/majority/average truth is created.
+  - id: AC9
+    condition: >
+      Successful profile construction performs zero resolver, grouping, approval,
+      evidence-projection, canonical-admission, catalog-registration, SQLite,
+      filesystem, network, browser, clock, random, UUID, ranking, retrieval, LLM,
+      embedding, or RAG work.
+  - id: AC10
+    condition: >
+      Repeated construction from the same/value-equal catalog and source-pack values
+      is deterministic and value-equal, leaves every input unchanged, and preserves
+      internal canonical-member identity reuse across observation/fact/media evidence.
+  - id: AC11
+    condition: >
+      Existing TASK-117/TASK-118 canonical variant/catalog behavior remains unchanged;
+      canonical_catalog.py, canonical_variant.py, product_source models/serialization,
+      TASK-119 codec, and TASK-120 SQLite adapter receive no implementation changes.
+  - id: AC12
+    condition: >
+      Focused regressions cover registered/unregistered lookup, exact one-to-one
+      source binding, missing/extra/duplicate/wrong packs, input permutation,
+      descriptive conflicts, fact/media provenance and ordering, identity reuse,
+      deterministic repeated calls, and no-upstream/no-I/O behavior; M3 docs record
+      TASK-121 as evidence projection only and leave deterministic retrieval/RAG for
+      later tasks.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_canonical_variant.py tests/product_intelligence/test_canonical_catalog.py tests/product_intelligence/test_canonical_profile.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
