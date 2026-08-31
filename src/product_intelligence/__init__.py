@@ -168,6 +168,14 @@ from src.product_intelligence.canonical_catalog_codec import (
     decode_canonical_catalog,
     encode_canonical_catalog,
 )
+from src.product_intelligence.canonical_catalog_sqlite import (
+    SQLITE_CATALOG_STORAGE_VERSION,
+    CanonicalCatalogStorageError,
+    create_sqlite_canonical_catalog,
+    load_sqlite_canonical_catalog,
+    register_sqlite_canonical_family,
+    register_sqlite_canonical_variant,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -306,4 +314,10 @@ __all__ = [
     "CanonicalCatalogCodecError",
     "decode_canonical_catalog",
     "encode_canonical_catalog",
+    "CanonicalCatalogStorageError",
+    "SQLITE_CATALOG_STORAGE_VERSION",
+    "create_sqlite_canonical_catalog",
+    "load_sqlite_canonical_catalog",
+    "register_sqlite_canonical_family",
+    "register_sqlite_canonical_variant",
 ]

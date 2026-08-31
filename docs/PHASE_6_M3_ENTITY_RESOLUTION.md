@@ -255,13 +255,35 @@ authority.
 
 This codec is pure in-memory representation only. Canonical form detects malformed,
 non-canonical, or internally inconsistent snapshots but does not authenticate a
-snapshot against a malicious party. It provides no filesystem or SQLite storage,
-transaction/concurrency policy, crash recovery, backup, migration, signing, MAC,
-encryption, profile aggregation, retrieval index, embedding, or RAG behavior.
+snapshot against a malicious party. It provides no transaction/concurrency policy,
+backup, migration, signing, MAC, encryption, profile aggregation, retrieval index,
+embedding, or RAG behavior.
+
+## Durable Canonical Catalog Snapshot
+
+TASK-120 is the durability and transaction authority for exactly one local SQLite
+catalog snapshot. Its V1 store has one schema-constrained singleton row and keeps
+the TASK-119 canonical bytes as one opaque BLOB. Creating a store publishes an
+empty canonical snapshot without overwriting an existing path; loading strictly
+rejects missing, corrupt, version-mismatched, or ambiguous stores rather than
+creating, migrating, or repairing them.
+
+Durable family and variant registration reserves the SQLite writer before reading,
+decodes the current snapshot through TASK-119, delegates the exact registration to
+TASK-118, and updates the BLOB only for `INSERTED`. `ALREADY_PRESENT` commits no
+payload update. Each successful insertion writes and commits the complete new
+canonical BLOB in one transaction; codec and catalog-integrity failures remain the
+distinct TASK-119 and TASK-118 errors and roll back the transaction. SQLite owns
+only bounded local durability, writer contention, and recovery of the last committed
+snapshot. TASK-118 remains the sole catalog-integrity authority, and TASK-119 remains
+the sole canonical-byte and trusted-rehydration authority.
+
+There are no normalized family, variant, member, evidence, or lineage SQL tables;
+no arbitrary snapshot replacement API; and no retry loop, WAL policy, migration,
+history, backup, replication, identity generation, profile, retrieval, or RAG work.
 
 ## Deferred M3 work
 
-Autonomous merge policy, family-ID allocation, durable storage/SQLite,
-transactions, reopen/recovery, migrations, cryptographic authenticity, identity
-evolution, variant profile aggregation, deterministic retrieval, and RAG are
-explicitly deferred to later M3 milestones.
+Autonomous merge policy, family-ID allocation, migrations, cryptographic
+authenticity, identity evolution, variant profile aggregation, deterministic
+retrieval, and RAG are explicitly deferred to later M3 milestones.
