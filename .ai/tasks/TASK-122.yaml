@@ -1,0 +1,244 @@
+task_id: TASK-122
+revision: 1
+
+goal: >
+  Add one pure deterministic lexical retrieval boundary over existing TASK-121
+  CanonicalVariantProfile values. Retrieval must conservatively match caller queries
+  against a fixed bounded set of evidence-bearing profile fields, require all normalized
+  query terms, return explainable evidence witnesses and deterministic hit ordering,
+  and remain independent of M2 winning-product ranking, SQLite/index persistence,
+  embeddings, LLM inference, network access, or RAG context construction.
+
+problem: >
+  TASK-121 now projects rich source evidence onto already-registered canonical sellable
+  variants, but downstream consumers still lack a deterministic way to locate which
+  canonical profiles contain evidence relevant to a textual query. Existing M2
+  CandidateRanker answers a different business question over ProductCandidateSnapshot
+  values and must not become canonical knowledge retrieval. Introducing vector search,
+  FTS/BM25, LLM scoring, or a durable index now would add model/index lifecycle and
+  synchronization semantics before the canonical retrieval contract is known. TASK-122
+  therefore defines a bounded in-memory lexical retrieval primitive whose result can be
+  explained entirely by exact TASK-121 evidence values and later consumed by TASK-123
+  without asserting product truth.
+
+assumptions:
+  - Current canonical python_complete_agent main baseline before TASK-122 authoring is a6692a1808559e4a30b07289cedffd0d0a864ef6.
+  - TASK-121 CanonicalVariantProfile remains the evidence-preserving projection authority for one registered canonical sellable variant.
+  - TASK-121 profile observations, fact evidence, media evidence, member ordering, and exact source values remain unchanged inputs to this task.
+  - M2 ProductCandidateSnapshot/WinningProductScore/CandidateRanker remain business discovery/ranking authorities only and are not canonical profile retrieval inputs.
+  - Retrieval is allowed to perform transient query/search normalization for matching as long as it never mutates or replaces retained TASK-121 evidence values.
+  - A lexical hit means only that all query terms are evidenced by the supplied profile under this contract; it does not mean the hit is the best product, the true product, or semantically equivalent to an unstated concept.
+
+scope:
+  inspect:
+    - .ai/tasks/TASK-121.yaml
+    - src/product_intelligence/canonical_profile.py
+    - src/product_intelligence/ranking.py
+    - src/product_intelligence/scoring.py
+    - src/product_intelligence/models.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_canonical_profile.py
+    - tests/product_intelligence/test_ranking.py
+    - docs/PHASE_6_M2_RANKING.md
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+  modify:
+    - src/product_intelligence/canonical_retrieval.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_canonical_retrieval.py
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+
+non_goals:
+  - Modify TASK-121 profile construction, TASK-118 catalog integrity, TASK-119 codec, TASK-120 SQLite durability, or any earlier entity-resolution/approval/admission semantics.
+  - Modify ProductCandidateSnapshot, WinningProductScore, CandidateRanker, ScoringPolicy, WinningProductScorer, discovery, approval, or winning-product ranking behavior.
+  - Score or prioritize products using price, sales, ratings, commission, freshness, confidence, business policy, marketplace popularity, or candidate ranking state.
+  - Read TASK-120 SQLite directly, persist profiles, create an index table, FTS table, inverted-index file, cache, snapshot, migration, or index synchronization mechanism.
+  - Add SQLite FTS5, BM25, TF-IDF, edit distance, fuzzy search, stemming, lemmatization, synonyms, transliteration, accent stripping, semantic similarity, embeddings, vector databases, ANN search, or model-based reranking.
+  - Add OpenAI or other embedding/model dependencies, network APIs, filesystem access, browser work, environment access, clock/random/UUID behavior, subprocesses, background jobs, or queues.
+  - Construct prompts, RAG documents, chunks, context windows, citations for an LLM, answer synthesis, summarization, or model invocation.
+  - Create, normalize, reconcile, deduplicate, rank, or select a preferred product truth from conflicting TASK-121 evidence.
+  - Search opaque family_id/variant_id, source_pack_id, source_product_id, product URLs, media URLs, hashes, local filenames, collectors, fact provenance, or source_section as full-text evidence fields.
+  - Add mutable retrieval state, profile mutation, update/delete APIs, or a public raw normalized-index representation.
+
+constraints:
+  hard:
+    - >
+      Expose exactly these new TASK-122 public names from product_intelligence:
+      CanonicalProfileRetrievalError, CanonicalRetrievalField,
+      CanonicalRetrievalMatchClass, CanonicalRetrievalWitness,
+      CanonicalVariantRetrievalHit, and retrieve_canonical_variant_profiles.
+      Do not add public ranking scores, index/storage APIs, embedding APIs, query planners,
+      or raw normalized-corpus APIs.
+    - >
+      retrieve_canonical_variant_profiles(profiles, *, query, limit=10) must accept an
+      iterable containing exact CanonicalVariantProfile values only. Empty corpus is
+      valid and returns an empty tuple. Any non-profile member fails closed with
+      CanonicalProfileRetrievalError. Duplicate variant_id values in the supplied corpus
+      fail closed even when the duplicate profiles are value-equal; retrieval must not
+      silently deduplicate or become a catalog authority.
+    - >
+      query must be an exact str. Search normalization is transient only: apply Unicode
+      NFKC, then casefold, then replace every maximal run of characters for which
+      str.isalnum() is false with one separator, collapse separators, and tokenize on
+      those separators. Do not strip accents, transliterate, stem, lemmatize, synonym-
+      expand, fuzzy-match, or write normalized values back into profiles or witnesses.
+      A query yielding zero normalized tokens fails closed. Bound a query to at most 12
+      normalized tokens so witness selection remains deterministic and bounded.
+    - >
+      limit must be an exact int with bool rejected and must be in the inclusive range
+      1..100. The function returns at most limit hits after canonical ordering. A valid
+      query with no matching profile returns an empty tuple rather than an exception.
+    - >
+      Search exactly these evidence fields and no others. For each
+      CanonicalProfileObservation: member.platform, title, shop_name, brand, model_sku,
+      description_text. For each CanonicalProfileFactEvidence: fact.key, fact.value,
+      fact.unit. For each CanonicalProfileMediaEvidence: media.alt_text,
+      media.variant_label. None values contribute no searchable field. Collector,
+      opaque IDs, source URLs, hashes, local filenames, fact source_section/provenance,
+      and other profile/object fields are not searchable in TASK-122.
+    - >
+      Canonical evidence-field traversal must be deterministic and rooted in TASK-121
+      lineage: iterate profile.members in their registered order; for each member,
+      traverse its matching observation searchable fields in this fixed order:
+      PLATFORM, TITLE, SHOP_NAME, BRAND, MODEL_SKU, DESCRIPTION_TEXT; then traverse that
+      member's fact evidence in existing TASK-121 tuple order with FACT_KEY, FACT_VALUE,
+      FACT_UNIT; then that member's media evidence in existing TASK-121 tuple order with
+      MEDIA_ALT_TEXT, MEDIA_VARIANT_LABEL. Do not globally reorder evidence by strings,
+      platform, URL, hash, or caller corpus order.
+    - >
+      All normalized query terms are required for a profile hit. Coverage may come from
+      one field or multiple searchable fields of the same profile. OR-only partial
+      matches do not produce a hit. Repeated normalized query terms do not require
+      multiple evidence occurrences for coverage; phrase classification still uses the
+      complete normalized query token sequence in caller order.
+    - >
+      CanonicalRetrievalMatchClass must contain exactly four ordered semantic classes:
+      EXACT_VALUE, PHRASE, SINGLE_FIELD_ALL_TERMS, CROSS_FIELD_ALL_TERMS. EXACT_VALUE
+      applies when one searchable field's complete normalized token sequence equals the
+      complete normalized query token sequence. PHRASE applies when the complete query
+      token sequence occurs contiguously inside one field but is not EXACT_VALUE.
+      SINGLE_FIELD_ALL_TERMS applies when one field covers every distinct query term but
+      neither stronger class applies. CROSS_FIELD_ALL_TERMS applies only when the union
+      of searchable fields covers every distinct query term and no single field does.
+    - >
+      Do not assign or expose a numeric relevance score. Order hits first by match-class
+      strength in the exact order EXACT_VALUE, PHRASE, SINGLE_FIELD_ALL_TERMS,
+      CROSS_FIELD_ALL_TERMS and then by the exact opaque profile.variant_id using Python
+      code-point string ordering as the deterministic tie-breaker. Input corpus
+      permutation must not change hits, hit order, match classes, or witnesses.
+    - >
+      CanonicalRetrievalField must represent only the fixed searchable fields enumerated
+      above. CanonicalRetrievalWitness must retain the exact TASK-121 source evidence
+      object that supplied the field (CanonicalProfileObservation,
+      CanonicalProfileFactEvidence, or CanonicalProfileMediaEvidence), the retrieval
+      field enum, the exact original string value, and the normalized query terms that
+      this field witnesses. Never replace witness.value with normalized text and never
+      fabricate evidence detached from a TASK-121 source object.
+    - >
+      For EXACT_VALUE, PHRASE, and SINGLE_FIELD_ALL_TERMS, return exactly one witness:
+      the first canonical traversal field that establishes the strongest selected match
+      class. For CROSS_FIELD_ALL_TERMS, return a deterministic minimum-cardinality set
+      of searchable fields whose combined normalized tokens cover all distinct query
+      terms. If several minimum sets exist, choose the lexicographically earliest tuple
+      of canonical traversal positions. The 12-token query bound must be used to keep
+      exact minimum witness selection bounded; do not substitute heuristic relevance or
+      a non-deterministic set-cover implementation.
+    - >
+      CanonicalVariantRetrievalHit must retain the exact supplied
+      CanonicalVariantProfile object, the selected CanonicalRetrievalMatchClass, and the
+      deterministic witness tuple. The profile object must be reused rather than copied,
+      rebuilt, normalized, or reduced. Retrieval creates no new canonical identity and
+      makes no truth, approval, ranking, or admission claim.
+    - >
+      Conflicting TASK-121 evidence remains simultaneously searchable and may contribute
+      witnesses. Retrieval must not prefer latest, majority, normalized-equal, first
+      marketplace, highest confidence, or any other truth policy. A hit states only that
+      its exact evidence satisfies lexical query coverage under TASK-122.
+    - >
+      Retrieval must be pure deterministic in-memory computation over supplied values:
+      zero calls to CandidateRanker/WinningProductScorer, entity resolver/grouping/
+      approval/admission/catalog registration, SQLite/filesystem/network/browser,
+      environment, clock, random, UUID, subprocess, embeddings, model inference, or RAG
+      construction. No second ranking/retrieval authority may be introduced.
+    - >
+      Do not modify canonical_profile.py, ranking.py, scoring.py, models.py,
+      canonical_catalog*.py, product_source models/serialization, or earlier M3 modules.
+      Documentation must state TASK-122 is lexical evidence retrieval only, M2 ranking
+      remains winning-product business ranking, and TASK-123 remains the future RAG/
+      context-construction boundary.
+    - Do not push from executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Public exports add exactly the bounded TASK-122 retrieval error, field enum,
+      four-class match enum, witness value, hit value, and
+      retrieve_canonical_variant_profiles function, with no score/index/storage/
+      embedding/RAG API.
+  - id: AC2
+    condition: >
+      Retrieval accepts exact CanonicalVariantProfile corpus values only, permits an
+      empty corpus, rejects non-profile entries and duplicate variant_id corpus entries,
+      validates exact query/limit inputs, and treats valid no-match queries as an empty
+      result.
+  - id: AC3
+    condition: >
+      Search normalization is deterministic NFKC + casefold + Unicode-alphanumeric
+      tokenization only, remains transient, rejects token-empty or over-12-token queries,
+      and performs no accent stripping, transliteration, stemming, fuzzy matching, or
+      mutation of retained profile evidence.
+  - id: AC4
+    condition: >
+      Searchable evidence is limited exactly to platform/title/shop/brand/model/
+      description, fact key/value/unit, and media alt_text/variant_label, traversed by
+      canonical TASK-121 member/evidence order; opaque IDs, URLs, hashes, collectors,
+      provenance, source_section, and ranking signals cannot create hits.
+  - id: AC5
+    condition: >
+      Every hit requires coverage of all distinct normalized query terms; partial OR
+      coverage is rejected, while terms may be covered across multiple exact TASK-121
+      evidence fields of the same profile.
+  - id: AC6
+    condition: >
+      EXACT_VALUE, PHRASE, SINGLE_FIELD_ALL_TERMS, and CROSS_FIELD_ALL_TERMS are
+      classified with the specified precedence and no numeric relevance score or M2
+      business-ranking signal is created or consumed.
+  - id: AC7
+    condition: >
+      Hit ordering is deterministic by match-class strength then exact opaque variant_id,
+      respects limit after ordering, and is invariant to caller profile-corpus order.
+  - id: AC8
+    condition: >
+      EXACT/PHRASE/SINGLE_FIELD hits retain the first canonical proving field as one
+      witness; CROSS_FIELD hits retain the deterministic minimum-cardinality witness set
+      with canonical-position tie-breaking, and every witness preserves the exact
+      TASK-121 source evidence object and exact original field value.
+  - id: AC9
+    condition: >
+      Each CanonicalVariantRetrievalHit reuses the exact supplied profile object, leaves
+      all profiles/evidence unchanged, and repeated calls with value-equal inputs return
+      value-equal deterministic outputs without creating canonical identity or truth.
+  - id: AC10
+    condition: >
+      Conflicting descriptive/fact/media evidence remains plural and searchable; lexical
+      matching never selects a preferred/latest/majority/average product truth and never
+      converts a retrieval match into an approval, ranking, or semantic-equivalence claim.
+  - id: AC11
+    condition: >
+      Successful retrieval performs zero CandidateRanker/scorer, resolver/grouping/
+      approval/admission/registration, SQLite/index/filesystem/network/browser,
+      clock/random/UUID, embedding/vector, LLM, or RAG work; ranking.py, scoring.py,
+      canonical_profile.py, and all earlier canonical modules remain unchanged.
+  - id: AC12
+    condition: >
+      Focused regressions cover normalization, invalid query/limit, empty/duplicate/
+      invalid corpus, searchable/non-searchable fields, AND coverage, all four match
+      classes, canonical ordering/limit, corpus permutation, exact witness provenance,
+      minimum CROSS_FIELD witness tie-breaking, profile identity reuse, conflicting
+      evidence, repeated determinism, and no-ranking/no-I/O/no-model behavior; M3 docs
+      record TASK-122 as deterministic lexical evidence retrieval and defer RAG/context
+      construction to TASK-123.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_canonical_profile.py tests/product_intelligence/test_canonical_retrieval.py tests/product_intelligence/test_ranking.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
