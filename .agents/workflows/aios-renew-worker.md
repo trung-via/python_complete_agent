@@ -3,7 +3,7 @@
 name: aios-renew-worker
 description: >
   Antigravity-only /aios-renew-worker workflow. Operates the AIOS worker
-  protocol (RUN TASK-N, FIX TASK-N FINDING-ID, STATUS TASK-N) through the exact pinned
+  protocol (RUN TASK-N, FIX TASK-N FINDING-ID, REPAIR RUN-N-NNN, STATUS TASK-N) through the exact pinned
   AIOS-renew kernel with executor identity antigravity.
 ---
 
@@ -20,30 +20,34 @@ Codex worker surface or infer, reroute, or substitute another executor.
 ```text
 /aios-renew-worker RUN TASK-N
 /aios-renew-worker FIX TASK-N FINDING-ID
+/aios-renew-worker REPAIR RUN-N-NNN
 /aios-renew-worker STATUS TASK-N
 ```
 
 `TASK-N` is the exact user-supplied task identifier. `FINDING-ID` is the exact
-Human-supplied remediation finding identifier.
+Human-supplied remediation finding identifier. `RUN-N-NNN` is the exact Human-supplied
+failed run identifier.
 
 ## Operator Boundary
 
 The visible Antigravity session is operator UI only. After dispatch it must not
-inspect TASK implementation context, edit product files, execute verification,
-synthesize evidence, review semantics, retry, reroute, or continue coding.
+inspect TASK implementation context, inspect or reconstruct repair lineage,
+edit product files, execute verification, synthesize evidence, review semantics,
+retry, reroute, or continue coding.
 
 ## Strict Execution Contract
 
-1. Parse the exact Human command (`RUN TASK-N`, `FIX TASK-N FINDING-ID`, or
-   `STATUS TASK-N`). Missing FIX finding identifiers fail before kernel invocation.
-2. Echo the requested task ID, action, and selected executor (`antigravity`).
+1. Parse the exact Human command (`RUN TASK-N`, `FIX TASK-N FINDING-ID`,
+   `REPAIR RUN-N-NNN`, or `STATUS TASK-N`). Missing FIX finding identifiers or missing/malformed
+   REPAIR targets fail before kernel invocation.
+2. Echo the requested task ID / run ID, action, and selected executor (`antigravity`).
 3. Resolve the deterministic Python 3.11+ bootstrap host described below.
 4. Invoke the checked-in shared launcher
    `.agents/skills/aios-worker/scripts/aios_worker.py` exactly once with the
-   requested action, exact task ID, and `--executor antigravity`.
+   requested action, exact task ID or run ID, and `--executor antigravity`.
 5. Do not invoke an executor directly, retry, reroute, or select another executor.
-6. Do not reconstruct TASK, RESULT, EVIDENCE, REVIEW, or REMEDIATION semantics.
-7. Do not perform publication, push, or branch merge. Successful RUN/FIX leaves
+6. Do not reconstruct TASK, RESULT, EVIDENCE, REVIEW, REMEDIATION, or REPAIR semantics/lineage.
+7. Do not perform publication, push, or branch merge. Successful RUN/FIX/REPAIR leaves
    the implementation commit local for ChatGPT semantic review. Guarded publication
    occurs only after explicit semantic REVIEW PASS.
 8. After dispatch, stop. On successful canonical AIOS PASS, report:
@@ -97,6 +101,18 @@ fail before kernel invocation. Leaves HEAD local for semantic review:
 <resolved bootstrap-host argv> .agents/skills/aios-worker/scripts/aios_worker.py FIX TASK-N FINDING-ID --executor antigravity
 ```
 
+### REPAIR RUN-N-NNN
+
+Delegates the exact failed run identifier once to AIOS-renew, which owns remote
+REPAIR lookup and all failure/repair semantics. The worker is explicitly forbidden from
+inspecting or reconstructing repair lineage, passing `--repair`, TASK ID, failed-head,
+scope, constraints, instructions, or verification authority. Missing or malformed
+failed run identifiers fail before kernel invocation. Leaves candidate HEAD local for semantic review:
+
+```powershell
+<resolved bootstrap-host argv> .agents/skills/aios-worker/scripts/aios_worker.py REPAIR RUN-N-NNN --executor antigravity
+```
+
 ### STATUS TASK-N
 
 Delegates to AIOS-renew task-description semantics. STATUS is read-only for the
@@ -112,6 +128,6 @@ an executor or become a second status or review authority.
 ## Immutable Kernel Pin
 
 The only authoritative AIOS-renew kernel is commit
-`b5ce283232587c66144a68f842e3b196d7cf2601`. The launcher validates both the
+`59b31ede597d4a27b848771522672705a021abe4`. The launcher validates both the
 checked-in dependency pin and installed PEP 610 source+commit provenance and
 atomically replaces stale or unverifiable worker runtimes.

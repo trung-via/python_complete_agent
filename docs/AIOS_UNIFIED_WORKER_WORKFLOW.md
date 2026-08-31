@@ -1,10 +1,10 @@
 # AIOS Unified Worker Workflow
 
-As of TASK-110 revision 1, the repository-owned Codex and Antigravity worker
+As of TASK-113 revision 1, the repository-owned Codex and Antigravity worker
 surfaces delegate exclusively to the immutable AIOS-renew kernel at commit
-`b5ce283232587c66144a68f842e3b196d7cf2601`. Legacy AIOS Bridge source remains
+`59b31ede597d4a27b848771522672705a021abe4`. Legacy AIOS Bridge source remains
 archived in this repository, but it is inactive and unreachable from these
-RUN/FIX/STATUS surfaces.
+RUN/FIX/REPAIR/STATUS surfaces.
 
 ---
 
@@ -15,6 +15,7 @@ AIOS defines a single unified semantic protocol for Human operators across all s
 ```text
 RUN TASK-N
 FIX TASK-N FINDING-ID
+REPAIR RUN-N-NNN
 STATUS TASK-N
 ```
 
@@ -29,9 +30,8 @@ The protocol is invoked through physically separate, thin operator files:
 
 Both surfaces call the same `aios_worker.py` launcher. The selected executor is
 the only semantic difference. TASK/RUN/RESULT/EVIDENCE, synchronization,
-executor invocation, review validation, and canonical remote remediation lineage
-resolution all come from
-the same pinned AIOS-renew distribution.
+executor invocation, review validation, canonical remote remediation lineage
+resolution, and remote REPAIR lookup all come from the same pinned AIOS-renew distribution.
 
 ---
 
@@ -112,6 +112,21 @@ second semantic state store.
   or materialize local REVIEW/REMEDIATION lineage, or pass prior-review, sandbox,
   scope, affected-verification, or reviewed-SHA authority.
 
+### REPAIR RUN-N-NNN
+
+- **Purpose**: Human-authorized thin delegation to the pinned AIOS-renew kernel
+  for pre-PASS failed RUNs.
+- **Input**: Both surfaces require one explicit Human-supplied `RUN-N-NNN` failed
+  RUN identifier and validate canonical format before kernel invocation.
+- **Safety**: The worker is explicitly forbidden from inspecting or reconstructing
+  repair lineage, passing `--repair`, TASK ID, failed-head, scope, constraints,
+  instructions, or verification authority.
+- **Failure**: Nonzero return, bootstrap failure, lineage failure, Executor failure,
+  verification failure, or completion-gate failure fails closed without retry, reroute,
+  fallback, or second kernel invocation.
+- **Authority**: The AIOS-renew kernel owns remote REPAIR lookup, failure validation,
+  repair contract validation, one-Executor execution, verification, and ResultPackage persistence.
+
 ### STATUS TASK-N
 
 - **Behavior**: Calls AIOS-renew `task`/`describe_task` semantics for the exact
@@ -125,7 +140,7 @@ second semantic state store.
 
 ## 5. Review-Before-Publication and Merge Boundaries
 
-Successful RUN/FIX executions leave the resulting implementation commit local
+Successful RUN/FIX/REPAIR executions leave the resulting implementation commit local
 at `HEAD` for independent semantic review and perform zero automatic push.
 The launcher reports `REVIEW_CANDIDATE_HEAD` and directs the operator to ChatGPT.
 
@@ -184,4 +199,4 @@ branches or caches that do not expose `/aios-renew-worker` fail closed instead o
 falling back to legacy `/aios-worker` semantics.
 
 Both active worker surfaces use exactly AIOS-renew commit
-`b5ce283232587c66144a68f842e3b196d7cf2601`.
+`59b31ede597d4a27b848771522672705a021abe4`.

@@ -3,7 +3,7 @@
 name: aios-worker
 description: >
   Codex-only $aios-worker skill. Operates the AIOS worker protocol
-  (RUN TASK-N, FIX TASK-N FINDING-ID, STATUS TASK-N) through the exact pinned AIOS-renew
+  (RUN TASK-N, FIX TASK-N FINDING-ID, REPAIR RUN-N-NNN, STATUS TASK-N) through the exact pinned AIOS-renew
   kernel with executor identity codex.
   THIS SKILL IS THE CODEX $aios-worker SURFACE ONLY.
   It must never serve the Antigravity /aios-renew-worker surface.
@@ -34,27 +34,30 @@ the Antigravity executor.
 ```text
 $aios-worker RUN TASK-N
 $aios-worker FIX TASK-N FINDING-ID
+$aios-worker REPAIR RUN-N-NNN
 $aios-worker STATUS TASK-N
 ```
 
-Where `TASK-N` is the exact user-supplied task identifier (e.g. `TASK-048`)
-and `FINDING-ID` is the exact Human-supplied remediation finding identifier.
+Where `TASK-N` is the exact user-supplied task identifier (e.g. `TASK-048`),
+`FINDING-ID` is the exact Human-supplied remediation finding identifier,
+and `RUN-N-NNN` is the exact Human-supplied failed run identifier.
 
 ## Operator Role and Boundaries
 
-The visible Codex session is only the operator UI. For RUN/FIX, the pinned
+The visible Codex session is only the operator UI. For RUN/FIX/REPAIR, the pinned
 AIOS-renew kernel launches the one bounded Codex executor. The visible session
-must not inspect the TASK as implementation context, edit product files, execute
-verification, synthesize evidence, or duplicate the implementation work.
+must not inspect the TASK as implementation context, inspect or reconstruct repair lineage,
+edit product files, execute verification, synthesize evidence, or duplicate the implementation work.
 
 ### Strict Execution Constraints
 
 When this skill is invoked:
 
-1. Parse the exact Human command (`RUN TASK-N`, `FIX TASK-N FINDING-ID`, or
-   `STATUS TASK-N`). Missing FIX finding identifiers fail before kernel invocation.
+1. Parse the exact Human command (`RUN TASK-N`, `FIX TASK-N FINDING-ID`,
+   `REPAIR RUN-N-NNN`, or `STATUS TASK-N`). Missing FIX finding identifiers or missing/malformed
+   REPAIR targets fail before kernel invocation.
 2. Treat invocation of this Codex skill as explicit Human selection of executor `codex`.
-3. Echo the requested task ID, action, and selected executor (`codex`).
+3. Echo the requested task ID / run ID, action, and selected executor (`codex`).
 4. Invoke the checked-in shared adapter script `.agents/skills/aios-worker/scripts/aios_worker.py`
    with **`--executor codex`** using the deterministic Python 3.11+ bootstrap-host
    resolution contract below. Invoke the launcher exactly once after probing.
@@ -62,10 +65,10 @@ When this skill is invoked:
    the bootstrap host is never AIOS-renew runtime authority.
 5. **DO NOT** select the Antigravity executor from this skill.
 6. **DO NOT** edit implementation or test files in the parent Codex session.
-7. **DO NOT** manually reconstruct TASK, RESULT, EVIDENCE, REVIEW, or REMEDIATION semantics.
+7. **DO NOT** manually reconstruct TASK, RESULT, EVIDENCE, REVIEW, REMEDIATION, or REPAIR semantics/lineage.
 8. **DO NOT** invoke raw `codex` or `codex exec` directly.
 9. **DO NOT** perform automatic retries or executor rerouting upon failure.
-10. **DO NOT** perform publication, push, or branch merge. Successful RUN/FIX leaves
+10. **DO NOT** perform publication, push, or branch merge. Successful RUN/FIX/REPAIR leaves
     the advancing implementation commit local for ChatGPT semantic review.
     Guarded publication occurs only after explicit semantic REVIEW PASS.
 11. **DO NOT** delegate or reroute to the Antigravity `/aios-renew-worker` workflow.
@@ -121,6 +124,18 @@ fail before kernel invocation. Leaves HEAD local for semantic review:
 <resolved bootstrap-host argv> .agents/skills/aios-worker/scripts/aios_worker.py FIX TASK-N FINDING-ID --executor codex
 ```
 
+### REPAIR RUN-N-NNN
+
+Delegates the exact failed run identifier once to AIOS-renew, which owns remote
+REPAIR lookup and all failure/repair semantics. The worker is explicitly forbidden from
+inspecting or reconstructing repair lineage, passing `--repair`, TASK ID, failed-head,
+scope, constraints, instructions, or verification authority. Missing or malformed
+failed run identifiers fail before kernel invocation. Leaves candidate HEAD local for semantic review:
+
+```powershell
+<resolved bootstrap-host argv> .agents/skills/aios-worker/scripts/aios_worker.py REPAIR RUN-N-NNN --executor codex
+```
+
 ### STATUS TASK-N
 
 Delegates to AIOS-renew task description semantics. STATUS is read-only for the
@@ -136,6 +151,6 @@ an executor or become a second status/review authority.
 ## Immutable Kernel Pin
 
 The only authoritative AIOS-renew kernel is commit
-`b5ce283232587c66144a68f842e3b196d7cf2601`. The launcher validates both the
+`59b31ede597d4a27b848771522672705a021abe4`. The launcher validates both the
 checked-in dependency pin and installed PEP 610 source+commit provenance and
 atomically replaces stale or unverifiable worker runtimes.

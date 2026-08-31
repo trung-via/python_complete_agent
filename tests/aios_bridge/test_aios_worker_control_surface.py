@@ -1,4 +1,4 @@
-"""TASK-110 revision 1 certification for the AIOS-renew worker surfaces."""
+"""TASK-113 revision 1 certification for the AIOS-renew worker surfaces."""
 from __future__ import annotations
 
 import hashlib
@@ -22,6 +22,7 @@ DEPRECATED_WORKFLOW_FILE = REPO_ROOT / ".agents" / "workflows" / "aios-worker.md
 DOCS_FILE = REPO_ROOT / "docs" / "AIOS_UNIFIED_WORKER_WORKFLOW.md"
 BASE_SHA = "1" * 40
 HEAD_SHA = "2" * 40
+FAILED_HEAD_SHA = "3" * 40
 
 if str(SCRIPT.parent) not in sys.path:
     sys.path.insert(0, str(SCRIPT.parent))
@@ -74,7 +75,7 @@ class TestImmutableRuntimePin:
         assert active == [aw.PIN_LINE]
         assert active == [
             "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
-            "b5ce283232587c66144a68f842e3b196d7cf2601"
+            "59b31ede597d4a27b848771522672705a021abe4"
         ]
 
     def test_authoritative_pep610_metadata_is_accepted(self):
@@ -378,12 +379,21 @@ class TestKernelRouting:
         with pytest.raises(aw.WorkerSurfaceError):
             aw.parse_task_id(task_id)
 
+    @pytest.mark.parametrize("run_id", ["RUN-1-001", "RUN-097-002", "RUN-113-001"])
+    def test_positive_canonical_run_ids(self, run_id):
+        assert aw.parse_run_id(run_id) == run_id
+
+    @pytest.mark.parametrize("run_id", ["RUN-0-001", "RUN-1-000", "run-113-001", "TASK-113", "RUN-", "RUN-1"])
+    def test_noncanonical_or_zero_run_ids_fail_closed(self, run_id):
+        with pytest.raises(aw.WorkerSurfaceError):
+            aw.parse_run_id(run_id)
+
     def test_codex_run_exact_command(self, tmp_path):
         python = tmp_path / "python"
         command = aw.kernel_command(
             python,
             action="RUN",
-            task_id="TASK-097",
+            target="TASK-097",
             executor="codex",
             repo=tmp_path,
         )
@@ -405,14 +415,14 @@ class TestKernelRouting:
         codex = aw.kernel_command(
             python,
             action="RUN",
-            task_id="TASK-097",
+            target="TASK-097",
             executor="codex",
             repo=tmp_path,
         )
         antigravity = aw.kernel_command(
             python,
             action="RUN",
-            task_id="TASK-097",
+            target="TASK-097",
             executor="antigravity",
             repo=tmp_path,
         )
@@ -424,7 +434,7 @@ class TestKernelRouting:
         command = aw.kernel_command(
             tmp_path / "python",
             action="FIX",
-            task_id="TASK-110",
+            target="TASK-110",
             finding_id="FINDING-EXACT-7",
             executor=executor,
             repo=tmp_path,
@@ -452,12 +462,83 @@ class TestKernelRouting:
         ):
             assert forbidden not in command
 
+    @pytest.mark.parametrize("executor", ["codex", "antigravity"])
+    def test_repair_delegates_exact_run_without_local_lineage(self, tmp_path, executor):
+        command = aw.kernel_command(
+            tmp_path / "python",
+            action="REPAIR",
+            target="RUN-110-001",
+            executor=executor,
+            repo=tmp_path,
+        )
+        assert command == (
+            str(tmp_path / "python"),
+            "-m",
+            "aios_renew.operator",
+            "repair",
+            "RUN-110-001",
+            "--executor",
+            executor,
+            "--repo",
+            str(tmp_path),
+        )
+        for forbidden in (
+            "--repair",
+            "TASK-",
+            "--finding",
+            "--failed-head",
+            "--scope",
+            "--constraints",
+            "--instructions",
+            "--verification",
+        ):
+            assert forbidden not in command
+
+    def test_codex_and_antigravity_repair_differ_only_by_executor(self, tmp_path):
+        python = tmp_path / "python"
+        codex = aw.kernel_command(
+            python,
+            action="REPAIR",
+            target="RUN-113-001",
+            executor="codex",
+            repo=tmp_path,
+        )
+        antigravity = aw.kernel_command(
+            python,
+            action="REPAIR",
+            target="RUN-113-001",
+            executor="antigravity",
+            repo=tmp_path,
+        )
+        assert codex == (
+            str(python),
+            "-m",
+            "aios_renew.operator",
+            "repair",
+            "RUN-113-001",
+            "--executor",
+            "codex",
+            "--repo",
+            str(tmp_path),
+        )
+        assert antigravity == (
+            str(python),
+            "-m",
+            "aios_renew.operator",
+            "repair",
+            "RUN-113-001",
+            "--executor",
+            "antigravity",
+            "--repo",
+            str(tmp_path),
+        )
+
     def test_kernel_command_rejects_fix_without_finding(self, tmp_path):
         with pytest.raises(aw.WorkerSurfaceError, match="explicit finding"):
             aw.kernel_command(
                 tmp_path / "python",
                 action="FIX",
-                task_id="TASK-110",
+                target="TASK-110",
                 executor="codex",
                 repo=tmp_path,
             )
@@ -466,7 +547,7 @@ class TestKernelRouting:
         command = aw.kernel_command(
             tmp_path / "python",
             action="STATUS",
-            task_id="TASK-097",
+            target="TASK-097",
             executor="codex",
             repo=tmp_path,
         )
@@ -598,6 +679,63 @@ class TestKernelRouting:
         assert f"REVIEW_CANDIDATE_HEAD: {HEAD_SHA}" in captured.out
         assert "NEXT: Review TASK-097 in ChatGPT" in captured.out
 
+    def test_repair_pass_reports_candidate_head_and_next_task_from_kernel(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        layout = make_layout(tmp_path)
+        kernel = MagicMock(
+            return_value=done(
+                stdout=(
+                    "AIOS REPAIR PASS\n"
+                    "task: TASK-113\n"
+                    "failed_run: RUN-113-001\n"
+                    "run: RUN-113-002\n"
+                    "executor: codex\n"
+                    f"failed_head_sha: {FAILED_HEAD_SHA}\n"
+                    f"head_sha: {HEAD_SHA}\n"
+                )
+            )
+        )
+        git = MagicMock(side_effect=AssertionError("git push must not be invoked"))
+        monkeypatch.setattr(aw, "get_repo_root", lambda: tmp_path)
+        monkeypatch.setattr(aw, "runtime_layout", lambda repo: layout)
+        monkeypatch.setattr(aw, "ensure_runtime", lambda value: tmp_path / "worker-python")
+        monkeypatch.setattr(aw, "invoke_kernel", kernel)
+        monkeypatch.setattr(aw, "_git", git)
+
+        assert aw.main(
+            ["REPAIR", "RUN-113-001", "--executor", "codex"]
+        ) == 0
+        kernel.assert_called_once_with(
+            (
+                str(tmp_path / "worker-python"),
+                "-m",
+                "aios_renew.operator",
+                "repair",
+                "RUN-113-001",
+                "--executor",
+                "codex",
+                "--repo",
+                str(tmp_path),
+            ),
+            repo=tmp_path,
+        )
+        git.assert_not_called()
+        captured = capsys.readouterr()
+        assert f"REVIEW_CANDIDATE_HEAD: {HEAD_SHA}" in captured.out
+        assert "NEXT: Review TASK-113 in ChatGPT" in captured.out
+
+    def test_repair_rejects_task_or_finding_as_target(self, monkeypatch):
+        repo = MagicMock(side_effect=AssertionError("repo must not be resolved"))
+        kernel = MagicMock(side_effect=AssertionError("kernel must not be invoked"))
+        monkeypatch.setattr(aw, "get_repo_root", repo)
+        monkeypatch.setattr(aw, "invoke_kernel", kernel)
+
+        assert aw.main(["REPAIR", "TASK-113", "--executor", "codex"]) == 1
+        assert aw.main(["REPAIR", "RUN-113-001", "FINDING-1", "--executor", "codex"]) == 1
+        repo.assert_not_called()
+        kernel.assert_not_called()
+
     def test_status_does_not_read_head_resolve_lineage_or_push(
         self, tmp_path, monkeypatch
     ):
@@ -664,6 +802,27 @@ class TestCanonicalPassSummary:
             "reviewed_sha", BASE_SHA, HEAD_SHA
         )
 
+    def test_repair_uses_exact_kernel_fields(self):
+        summary = aw.canonical_pass_summary(
+            "REPAIR",
+            (
+                "AIOS REPAIR PASS\n"
+                "task: TASK-113\n"
+                "failed_run: RUN-113-001\n"
+                "run: RUN-113-002\n"
+                "executor: antigravity\n"
+                f"failed_head_sha: {FAILED_HEAD_SHA}\n"
+                f"head_sha: {HEAD_SHA}\n"
+            ),
+        )
+        assert summary == aw.CanonicalPassSummary(
+            baseline_field="failed_head_sha",
+            baseline_sha=FAILED_HEAD_SHA,
+            head_sha=HEAD_SHA,
+            task_id="TASK-113",
+            failed_run="RUN-113-001",
+        )
+
     @pytest.mark.parametrize(
         "stdout",
         [
@@ -689,13 +848,42 @@ class TestCanonicalPassSummary:
                 f"AIOS RUN PASS\nbase_sha: {BASE_SHA}\n"
                 f"reviewed_sha: {BASE_SHA}\nhead_sha: {HEAD_SHA}\n"
             ),
+            (
+                "AIOS REPAIR PASS\n"
+                "task: TASK-113\n"
+                "failed_run: RUN-113-001\n"
+                "head_sha: " + HEAD_SHA + "\n"
+            ),
+            (
+                "AIOS REPAIR PASS\n"
+                "task: TASK-113\n"
+                "failed_run: invalid-run\n"
+                "failed_head_sha: " + FAILED_HEAD_SHA + "\n"
+                "head_sha: " + HEAD_SHA + "\n"
+            ),
+            (
+                "AIOS REPAIR PASS\n"
+                "task: invalid-task\n"
+                "failed_run: RUN-113-001\n"
+                "failed_head_sha: " + FAILED_HEAD_SHA + "\n"
+                "head_sha: " + HEAD_SHA + "\n"
+            ),
+            (
+                "AIOS REPAIR PASS\n"
+                "task: TASK-113\n"
+                "failed_run: RUN-113-001\n"
+                "failed_head_sha: " + FAILED_HEAD_SHA + "\n"
+                "base_sha: " + BASE_SHA + "\n"
+                "head_sha: " + HEAD_SHA + "\n"
+            ),
         ],
     )
-    def test_missing_duplicate_malformed_or_inconsistent_primary_fails_closed(
+    def test_missing_duplicate_malformed_or_inconsistent_fails_closed(
         self, stdout
     ):
+        action = "REPAIR" if "AIOS REPAIR PASS" in stdout else "RUN"
         with pytest.raises(aw.WorkerSurfaceError):
-            aw.canonical_pass_summary("RUN", stdout)
+            aw.canonical_pass_summary(action, stdout)
 
 class TestSurfaceAndDocumentation:
     def test_active_launcher_has_no_legacy_execution_tokens(self):
@@ -730,7 +918,9 @@ class TestSurfaceAndDocumentation:
         assert "must not" in skill.lower() and "implementation" in skill.lower()
         assert "must not" in workflow.lower() and "implementation" in workflow.lower()
         assert "$aios-worker FIX TASK-N FINDING-ID" in skill
+        assert "$aios-worker REPAIR RUN-N-NNN" in skill
         assert "/aios-renew-worker FIX TASK-N FINDING-ID" in workflow
+        assert "/aios-renew-worker REPAIR RUN-N-NNN" in workflow
         assert aw.AUTHORITATIVE_COMMIT in skill
         assert aw.AUTHORITATIVE_COMMIT in workflow
 
@@ -750,6 +940,11 @@ class TestSurfaceAndDocumentation:
             "FIX TASK-N FINDING-ID --executor antigravity"
         )
         assert workflow.count(fix_command) == 1
+        repair_command = (
+            ".agents/skills/aios-worker/scripts/aios_worker.py "
+            "REPAIR RUN-N-NNN --executor antigravity"
+        )
+        assert workflow.count(repair_command) == 1
 
     def test_renew_workflow_has_no_legacy_or_visible_session_execution(self):
         workflow = WORKFLOW_FILE.read_text(encoding="utf-8")

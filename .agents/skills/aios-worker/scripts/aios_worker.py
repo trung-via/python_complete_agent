@@ -19,15 +19,16 @@ import sys
 from typing import BinaryIO, Callable, Sequence
 
 
-AUTHORITATIVE_COMMIT = "b5ce283232587c66144a68f842e3b196d7cf2601"
+AUTHORITATIVE_COMMIT = "59b31ede597d4a27b848771522672705a021abe4"
 AUTHORITATIVE_REPOSITORY = "https://github.com/trung-via/AIOS-renew.git"
 PIN_LINE = (
     "aios-renew @ git+"
     f"{AUTHORITATIVE_REPOSITORY}@{AUTHORITATIVE_COMMIT}"
 )
 TASK_PATTERN = re.compile(r"^TASK-([0-9]+)\Z")
+RUN_ID_PATTERN = re.compile(r"^RUN-([0-9]+)-([0-9]+)\Z")
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}\Z")
-ALLOWED_ACTIONS = ("FIX", "RUN", "STATUS")
+ALLOWED_ACTIONS = ("FIX", "REPAIR", "RUN", "STATUS")
 ALLOWED_EXECUTORS = ("antigravity", "codex")
 PROVENANCE_PROGRAM = """\
 import importlib.metadata
@@ -71,6 +72,8 @@ class CanonicalPassSummary:
     baseline_field: str
     baseline_sha: str
     head_sha: str
+    task_id: str | None = None
+    failed_run: str | None = None
 
 
 class BootstrapLock:
@@ -139,6 +142,19 @@ def parse_task_id(raw_task: str) -> tuple[str, str]:
             f"invalid task ID {raw_task!r}; expected canonical TASK-<positive digits>"
         )
     return raw_task, match.group(1)
+
+
+def parse_run_id(raw_run_id: str) -> str:
+    match = RUN_ID_PATTERN.fullmatch(raw_run_id)
+    if (
+        match is None
+        or int(match.group(1)) <= 0
+        or int(match.group(2)) <= 0
+    ):
+        raise WorkerSurfaceError(
+            f"invalid run ID {raw_run_id!r}; expected canonical RUN-<positive task id>-<positive run digits>"
+        )
+    return raw_run_id
 
 
 def bootstrap_host_candidates(
@@ -368,39 +384,47 @@ def kernel_command(
     python: Path,
     *,
     action: str,
-    task_id: str,
+    target: str,
     executor: str,
     repo: Path,
     finding_id: str | None = None,
 ) -> tuple[str, ...]:
     base = (str(python), "-m", "aios_renew.operator")
     if action == "STATUS":
-        return (*base, "task", task_id, "--repo", str(repo))
+        return (*base, "task", target, "--repo", str(repo))
     if action == "RUN":
-        command = (
+        return (
             *base,
             "run",
-            task_id,
+            target,
             "--executor",
             executor,
             "--repo",
             str(repo),
         )
-    else:
-        if finding_id is None:
-            raise WorkerSurfaceError("FIX requires an explicit finding identifier")
-        command = (
+    if action == "REPAIR":
+        return (
             *base,
-            "remediate",
-            task_id,
-            "--finding",
-            finding_id,
+            "repair",
+            target,
             "--executor",
             executor,
             "--repo",
             str(repo),
         )
-    return command
+    if finding_id is None:
+        raise WorkerSurfaceError("FIX requires an explicit finding identifier")
+    return (
+        *base,
+        "remediate",
+        target,
+        "--finding",
+        finding_id,
+        "--executor",
+        executor,
+        "--repo",
+        str(repo),
+    )
 
 
 def invoke_kernel(
@@ -414,13 +438,17 @@ def invoke_kernel(
     return _run(command, cwd=repo, runner=runner)
 
 
-def _unique_summary_sha(lines: list[str], field: str) -> str:
+def _unique_summary_field(lines: list[str], field: str) -> str:
     field_lines = [line for line in lines if line.startswith(f"{field}:")]
     if len(field_lines) != 1 or not field_lines[0].startswith(f"{field}: "):
         raise WorkerSurfaceError(
             f"AIOS PASS summary requires exactly one valid {field}"
         )
-    value = field_lines[0].removeprefix(f"{field}: ")
+    return field_lines[0].removeprefix(f"{field}: ").strip()
+
+
+def _unique_summary_sha(lines: list[str], field: str) -> str:
+    value = _unique_summary_field(lines, field)
     if SHA_PATTERN.fullmatch(value) is None:
         raise WorkerSurfaceError(
             f"AIOS PASS summary requires exactly one valid {field}"
@@ -432,19 +460,47 @@ def canonical_pass_summary(
     action: str,
     stdout: str,
 ) -> CanonicalPassSummary:
-    if action not in ("RUN", "FIX"):
+    if action not in ("RUN", "FIX", "REPAIR"):
         raise WorkerSurfaceError(f"unsupported PASS summary action: {action}")
-    banner = "AIOS RUN PASS" if action == "RUN" else "AIOS REMEDIATION PASS"
-    other_banner = "AIOS REMEDIATION PASS" if action == "RUN" else "AIOS RUN PASS"
+
+    all_banners = {
+        "RUN": "AIOS RUN PASS",
+        "FIX": "AIOS REMEDIATION PASS",
+        "REPAIR": "AIOS REPAIR PASS",
+    }
+    banner = all_banners[action]
+    other_banners = [b for a, b in all_banners.items() if a != action]
+
     lines = stdout.splitlines()
-    if lines.count(banner) != 1 or other_banner in lines:
+    if lines.count(banner) != 1 or any(ob in lines for ob in other_banners):
         raise WorkerSurfaceError("AIOS returned no unique canonical PASS summary")
 
+    if action == "REPAIR":
+        if any(line.startswith("base_sha:") or line.startswith("reviewed_sha:") for line in lines):
+            raise WorkerSurfaceError("AIOS PASS summary contains unexpected SHA field for REPAIR")
+        failed_run = _unique_summary_field(lines, "failed_run")
+        parse_run_id(failed_run)
+        task_id = _unique_summary_field(lines, "task")
+        parse_task_id(task_id)
+        failed_head_sha = _unique_summary_sha(lines, "failed_head_sha")
+        head_sha = _unique_summary_sha(lines, "head_sha")
+        return CanonicalPassSummary(
+            baseline_field="failed_head_sha",
+            baseline_sha=failed_head_sha,
+            head_sha=head_sha,
+            task_id=task_id,
+            failed_run=failed_run,
+        )
+
     baseline_field = "base_sha" if action == "RUN" else "reviewed_sha"
-    unexpected_field = "reviewed_sha" if action == "RUN" else "base_sha"
-    if any(line.startswith(f"{unexpected_field}:") for line in lines):
+    unexpected_fields = [
+        "failed_head_sha",
+        "failed_run",
+        "reviewed_sha" if action == "RUN" else "base_sha",
+    ]
+    if any(any(line.startswith(f"{f}:") for line in lines) for f in unexpected_fields):
         raise WorkerSurfaceError(
-            f"AIOS PASS summary contains inconsistent {unexpected_field}"
+            "AIOS PASS summary contains inconsistent fields"
         )
     baseline_sha = _unique_summary_sha(lines, baseline_field)
     head_sha = _unique_summary_sha(lines, "head_sha")
@@ -469,7 +525,7 @@ def _emit_completed(completed: subprocess.CompletedProcess[str]) -> None:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="aios_worker.py")
     parser.add_argument("action", choices=ALLOWED_ACTIONS)
-    parser.add_argument("task_id")
+    parser.add_argument("target")
     parser.add_argument("finding_id", nargs="?")
     parser.add_argument("--executor", required=True, choices=ALLOWED_EXECUTORS)
     return parser
@@ -480,14 +536,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         if sys.version_info < (3, 11):
             raise BootstrapError("BOOTSTRAP_INTERPRETER_UNAVAILABLE")
         args = _parser().parse_args(argv)
-        task_id, _ = parse_task_id(args.task_id)
-        if args.action == "FIX":
-            if args.finding_id is None:
-                raise WorkerSurfaceError("FIX requires an explicit finding identifier")
-        elif args.finding_id is not None:
-            raise WorkerSurfaceError(
-                f"{args.action} does not accept a finding identifier"
-            )
+        if args.action == "REPAIR":
+            target = parse_run_id(args.target)
+            if args.finding_id is not None:
+                raise WorkerSurfaceError(
+                    "REPAIR does not accept a finding identifier"
+                )
+        else:
+            target, _ = parse_task_id(args.target)
+            if args.action == "FIX":
+                if args.finding_id is None:
+                    raise WorkerSurfaceError("FIX requires an explicit finding identifier")
+            elif args.finding_id is not None:
+                raise WorkerSurfaceError(
+                    f"{args.action} does not accept a finding identifier"
+                )
         repo = get_repo_root()
         layout = runtime_layout(repo)
         python = ensure_runtime(layout)
@@ -495,7 +558,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         command = kernel_command(
             python,
             action=args.action,
-            task_id=task_id,
+            target=target,
             executor=args.executor,
             repo=repo,
             finding_id=args.finding_id,
@@ -516,8 +579,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             completed.stdout,
         )
 
+        review_task = summary.task_id if args.action == "REPAIR" and summary.task_id else target
+
         print(f"REVIEW_CANDIDATE_HEAD: {summary.head_sha}")
-        print(f"NEXT: Review {task_id} in ChatGPT")
+        print(f"NEXT: Review {review_task} in ChatGPT")
         return 0
     except SystemExit as exc:
         return exc.code if isinstance(exc.code, int) else 1
