@@ -98,13 +98,19 @@ def _validate_observations(observations: Sequence[ProductSourcePack]) -> tuple[S
 
 
 def _to_conflict_evidence(res: EntityResolutionResult) -> PairwiseConflictEvidence:
+    left, right = sorted((res.left, res.right), key=_identity_sort_key)
     return PairwiseConflictEvidence(
-        left=res.left,
-        right=res.right,
+        left=left,
+        right=right,
         relationship=res.relationship,
         confidence=res.confidence,
         reasons=res.reasons,
     )
+
+
+def _identity_sort_key(identity: SourceObservationIdentity) -> str:
+    """Return a stable ordering key for canonical conflict diagnostics."""
+    return repr(identity)
 
 
 def _find_positive_path(
@@ -112,7 +118,7 @@ def _find_positive_path(
     target: SourceObservationIdentity,
     adj: dict[SourceObservationIdentity, list[tuple[SourceObservationIdentity, EntityResolutionResult]]],
 ) -> Optional[list[EntityResolutionResult]]:
-    """BFS to find shortest path of positive pairwise relationships between start and target."""
+    """Find the canonical shortest positive path between start and target."""
     queue: deque[tuple[SourceObservationIdentity, list[EntityResolutionResult]]] = deque([(start, [])])
     visited: set[SourceObservationIdentity] = {start}
 
@@ -146,32 +152,42 @@ def _find_conflicts(
             adj[res.left].append((res.right, res))
             adj[res.right].append((res.left, res))
 
+    for neighbors in adj.values():
+        neighbors.sort(key=lambda item: _identity_sort_key(item[0]))
+
     conflicts: list[ProductFamilyConsistencyConflict] = []
 
-    for res in pairwise_results:
-        if res.relationship is ProductRelationship.DIFFERENT_PRODUCT:
-            u, v = res.left, res.right
-            path = _find_positive_path(u, v, adj)
-            if path is not None:
-                positive_path_evidence = tuple(_to_conflict_evidence(edge) for edge in path)
-                nodes_in_path: list[SourceObservationIdentity] = [u]
-                curr = u
-                for edge in path:
-                    nxt = edge.right if edge.left == curr else edge.left
-                    nodes_in_path.append(nxt)
-                    curr = nxt
+    contradictory_results = sorted(
+        (res for res in pairwise_results if res.relationship is ProductRelationship.DIFFERENT_PRODUCT),
+        key=lambda res: tuple(
+            _identity_sort_key(identity)
+            for identity in sorted((res.left, res.right), key=_identity_sort_key)
+        ),
+    )
 
-                conflict = ProductFamilyConsistencyConflict(
-                    conflict_type="POSITIVE_FAMILY_CHAIN_CONTRADICTS_DIFFERENT_PRODUCT",
-                    contradictory_pair=_to_conflict_evidence(res),
-                    positive_path=positive_path_evidence,
-                    affected_identities=tuple(nodes_in_path),
-                    detail=(
-                        f"Observations {u.source_pack_id} and {v.source_pack_id} have a direct DIFFERENT_PRODUCT "
-                        f"relationship but are connected by a {len(path)}-hop positive product-family chain."
-                    ),
-                )
-                conflicts.append(conflict)
+    for res in contradictory_results:
+        u, v = sorted((res.left, res.right), key=_identity_sort_key)
+        path = _find_positive_path(u, v, adj)
+        if path is not None:
+            positive_path_evidence = tuple(_to_conflict_evidence(edge) for edge in path)
+            nodes_in_path: list[SourceObservationIdentity] = [u]
+            curr = u
+            for edge in path:
+                nxt = edge.right if edge.left == curr else edge.left
+                nodes_in_path.append(nxt)
+                curr = nxt
+
+            conflict = ProductFamilyConsistencyConflict(
+                conflict_type="POSITIVE_FAMILY_CHAIN_CONTRADICTS_DIFFERENT_PRODUCT",
+                contradictory_pair=_to_conflict_evidence(res),
+                positive_path=positive_path_evidence,
+                affected_identities=tuple(nodes_in_path),
+                detail=(
+                    f"Observations {u.source_pack_id} and {v.source_pack_id} have a direct DIFFERENT_PRODUCT "
+                    f"relationship but are connected by a {len(path)}-hop positive product-family chain."
+                ),
+            )
+            conflicts.append(conflict)
 
     return tuple(conflicts)
 

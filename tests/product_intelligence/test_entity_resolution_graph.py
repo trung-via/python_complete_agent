@@ -136,6 +136,48 @@ def test_input_permutation_produces_consistent_semantics_and_diagnostics():
         assert len(path_pairs) == 2
 
 
+def test_competing_positive_paths_produce_identical_diagnostics_across_permutations():
+    observed_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    shared_facts = (fact("Brand", "Acme"), fact("Model", "Phone X"))
+    single = pack(
+        "100",
+        observed_at=observed_at,
+        title="Acme Phone X single unit",
+        facts=shared_facts,
+    )
+    via_lower_identity = pack(
+        "200",
+        observed_at=observed_at,
+        title="Acme Phone X",
+        facts=shared_facts,
+    )
+    via_higher_identity = pack(
+        "300",
+        observed_at=observed_at,
+        title="Acme Phone X standard",
+        facts=shared_facts,
+    )
+    multipack = pack(
+        "400",
+        observed_at=observed_at,
+        title="Acme Phone X 3 pack",
+        facts=shared_facts,
+    )
+
+    observations = [single, via_lower_identity, via_higher_identity, multipack]
+    baseline = resolve_multi_observations(observations).conflicts
+
+    assert len(baseline) == 1
+    assert tuple(identity.source_pack_id for identity in baseline[0].affected_identities) == (
+        single.source_pack_id,
+        via_lower_identity.source_pack_id,
+        multipack.source_pack_id,
+    )
+
+    for permutation in itertools.permutations(observations):
+        assert resolve_multi_observations(permutation).conflicts == baseline
+
+
 def test_consistent_positive_family_has_no_conflict():
     p1 = pack("1", facts=identity_facts(color="Black"))
     p2 = pack("2", facts=identity_facts(color="White"))
