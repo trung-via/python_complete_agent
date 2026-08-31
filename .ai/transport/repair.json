@@ -1,0 +1,20 @@
+{
+  "repair_id": "REPAIR-119-001",
+  "failed_run_id": "RUN-119-001",
+  "failed_head_sha": "bfbea5f194ebba9e993c3b123a5c2e2928bbb7ce",
+  "task": {
+    "id": "TASK-119",
+    "revision": 1
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "tests/product_intelligence/test_canonical_catalog_codec.py"
+  ],
+  "instructions": [
+    "Continue from the exact failed_head_sha of RUN-119-001 and make only the narrow correction required for the failing TASK-119 codec regression. Do not change product implementation, public API, documentation, task artifacts, or unrelated tests.",
+    "Correct test_equivalent_aware_instants_and_independent_construction_are_identical_bytes so the test verifies the TASK-119 requirement of no insignificant JSON whitespace without forbidding ordinary space code points that are legitimately preserved inside JSON string values.",
+    "Preserve the original TASK-119 opaque-string contract exactly: source_pack_id, platform, URLs, actors, evidence strings, family_id, and variant_id must not be trimmed, normalized, case-folded, or otherwise rewritten merely to satisfy a whitespace assertion.",
+    "Keep the canonical encoder behavior unchanged unless the existing failing assertion demonstrates an actual TASK-119 contract violation; this repair is authorized only to correct the over-broad regression assertion. Runtime remains responsible for executing the original TASK-119 canonical verification after the repair commit."
+  ],
+  "constraints": []
+}
