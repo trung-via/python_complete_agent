@@ -1,0 +1,235 @@
+task_id: TASK-116
+revision: 1
+
+goal: >
+  Add a bounded, deterministic, evidence-complete Human decision boundary for
+  explicit sellable-variant proposals inside exactly one existing TASK-114
+  CanonicalProductFamily. A proposed member subset may proceed only when every
+  unordered pair inside the subset is preserved direct EXACT_VARIANT_MATCH
+  evidence and no preserved direct EXACT_VARIANT_MATCH edge leaves the subset,
+  so exactness gaps cannot be bypassed through overlapping smaller proposals.
+  The boundary must support valid isolated singletons, preserve exact TASK-115
+  evidence lineage, require explicit Human APPROVE or REJECT, and stop before
+  canonical variant identity, profile aggregation, persistence, or catalog mutation.
+
+problem: >
+  TASK-115 establishes a read-only sellable-variant evidence projection and makes
+  unsafe exact transitivity visible through exactness-gap diagnostics, but it
+  intentionally creates no variant group, proposal, Human decision, or identity.
+  Requiring only that every selected internal pair be EXACT is insufficient: for
+  A-B EXACT, B-C EXACT, A-C UNCERTAIN, separate proposals {A,B} and {B,C} would each
+  pass internally while overlapping on B and effectively bypassing the exactness
+  gap. M3 therefore needs an explicit proposal boundary that is both internally
+  all-pairs DIRECT EXACT and externally closed under direct EXACT edges, followed
+  by an explicit Human decision that authorizes only a later canonical-variant
+  admission milestone for that exact proposal lineage.
+
+assumptions:
+  - >
+    Current canonical python_complete_agent main baseline is
+    e9d24a8fd009614ba47a0a78f1ced8ff35a19580.
+  - >
+    TASK-114 CanonicalProductFamily remains the canonical admitted product-family
+    identity and preserves exact member order plus TASK-112 Human approval provenance.
+  - >
+    TASK-115 project_sellable_variant_evidence remains the sole downstream
+    sellable-variant evidence/diagnostic authority over a canonical family.
+  - >
+    Direct proven same-variant evidence means exactly preserved
+    ProductRelationship.EXACT_VARIANT_MATCH; SAME_PRODUCT_FAMILY, UNCERTAIN, and
+    DIFFERENT_PRODUCT are not exact-variant proof.
+  - >
+    TASK-115 exactness gaps are diagnostics only and must not be repaired by
+    transitive inference, grouping, or proposal overlap.
+  - >
+    Canonical variant IDs, variant profile aggregation, persistent catalog state,
+    retrieval, and RAG remain later milestones.
+
+scope:
+  inspect:
+    - .ai/tasks/TASK-112.yaml
+    - .ai/tasks/TASK-114.yaml
+    - .ai/tasks/TASK-115.yaml
+    - src/product_intelligence/entity_resolution.py
+    - src/product_intelligence/family_merge_approval.py
+    - src/product_intelligence/canonical_family.py
+    - src/product_intelligence/sellable_variant_evidence.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_family_merge_approval.py
+    - tests/product_intelligence/test_canonical_family.py
+    - tests/product_intelligence/test_sellable_variant_evidence.py
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+
+  modify:
+    - src/product_intelligence/sellable_variant_approval.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_sellable_variant_approval.py
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+
+non_goals:
+  - Modify TASK-108 pairwise relationship or evidence semantics.
+  - Modify TASK-109 graph/conflict semantics, TASK-111 family grouping, TASK-112 family approval, TASK-114 family admission, or TASK-115 evidence projection semantics.
+  - Accept ProductSourcePack, graph, provisional group, raw pairwise results, or a caller-constructed SellableVariantEvidenceProjection as the public proposal source.
+  - Automatically discover, enumerate, rank, partition, cluster, or recommend sellable-variant groups.
+  - Treat EXACT_VARIANT_MATCH as transitively authoritative.
+  - Treat SAME_PRODUCT_FAMILY as proof of either same variant or different variant.
+  - Permit overlapping proposals to bypass a TASK-115 exactness gap.
+  - Generate, allocate, accept, or persist variant_id, group_id, proposal_id, catalog ID, or any other canonical identity.
+  - Choose canonical color, capacity, size, voltage, edition, bundle composition, SKU, title, media, or other profile fields.
+  - Aggregate or derive confidence across pairwise evidence.
+  - Persist proposal/decision/catalog state or add database, filesystem, network, browser, Drive, queue, LLM, retrieval, embeddings, or RAG behavior.
+
+constraints:
+  hard:
+    - >
+      The public proposal operation must accept exactly one existing
+      CanonicalProductFamily plus one explicit non-empty selected member tuple.
+      Wrong family types, empty selections, duplicate selected members, or members
+      not belonging to that exact family must fail closed.
+    - >
+      Proposal construction must call the existing TASK-115
+      project_sellable_variant_evidence(family) exactly once as its sole variant
+      evidence authority. It must not accept a projection from the caller and must
+      not recreate TASK-115 relationship or exactness-gap semantics independently.
+    - >
+      Selected member order in the resulting proposal must be canonicalized to the
+      exact TASK-114 family.members order, independent of caller selection order.
+    - >
+      For every unordered pair of two or more selected members, the exact preserved
+      direct FamilyMergePairEvidence reachable through the TASK-115 projection must
+      have relationship EXACT_VARIANT_MATCH. SAME_PRODUCT_FAMILY, UNCERTAIN, or
+      DIFFERENT_PRODUCT for any selected pair must fail closed; exact connectivity
+      through other members is never a substitute.
+    - >
+      Exact-edge closure is mandatory: no selected member may have a preserved direct
+      EXACT_VARIANT_MATCH edge to any unselected member of the same canonical family.
+      If any such edge exists, proposal construction must fail closed rather than
+      allowing overlapping or partial exact-connected proposals.
+    - >
+      A singleton selection is valid only when its sole member has no preserved direct
+      EXACT_VARIANT_MATCH edge to any other family member. Singleton validity must not
+      fabricate pair evidence, confidence, or a variant profile.
+    - >
+      In the A-B EXACT, B-C EXACT, A-C non-exact exactness-gap pattern, proposals
+      {A,B,C}, {A,B}, {B,C}, and each singleton A/B/C must all fail closed: the full
+      set violates all-pairs DIRECT EXACT and every proper subset violates exact-edge
+      closure.
+    - >
+      A valid example such as A-B EXACT with C having no direct EXACT edge to A or B
+      must permit explicit proposal {A,B} and explicit singleton proposal {C}, while
+      still performing zero automatic group discovery.
+    - >
+      The immutable SellableVariantProposal must retain the exact TASK-115 projection
+      produced during construction, the canonical selected member tuple, and exactly
+      the preserved direct EXACT FamilyMergePairEvidence objects for all selected
+      unordered pairs. Multi-member proposals must contain exactly N*(N-1)/2 such
+      objects; singleton proposals contain an empty pair-evidence tuple.
+    - >
+      Proposal evidence must preserve object identity and original relationship,
+      confidence, reasons, ResolutionEvidence, endpoints, and family provenance. No
+      copied, rewritten, synthetic, inferred, or aggregate evidence is permitted.
+    - >
+      SellableVariantProposal must be immutable and fail closed against direct forged
+      construction outside the canonical proposal factory boundary.
+    - >
+      Human decision authority must be represented by a separate immutable
+      SellableVariantDecision enum with exactly APPROVE and REJECT and a separate
+      SellableVariantDecisionRecord containing the exact proposal, explicit actor,
+      and explicit timezone-aware decided_at.
+    - >
+      Decision creation must require an exact canonical SellableVariantProposal,
+      explicit enum decision, non-empty single-line NUL-free actor, and timezone-aware
+      datetime. It must never synthesize actor, time, decision, approval, or IDs.
+    - >
+      APPROVE authorizes only a future milestone to admit the exact approved proposal
+      member tuple as one canonical sellable variant inside its exact source family.
+      REJECT records only Human rejection. Neither decision may create variant identity,
+      profile, persistence, catalog state, or rewrite relationships for selected or
+      unselected members.
+    - >
+      Approval must not assert that unselected family members are different variants,
+      complete the family's variant partition, or make current membership permanently
+      exhaustive for future observations.
+    - >
+      Proposal and decision operations must be deterministic, immutable, and
+      side-effect-free with zero wall-clock reads, random/UUID generation, environment
+      dependency, filesystem/catalog mutation, network, browser, Drive, LLM, queue,
+      retrieval, or other external effects.
+    - Do not push from executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      A public proposal operation accepts one exact CanonicalProductFamily and one
+      explicit non-empty selected member tuple, rejects wrong/empty/duplicate/outside
+      selections, canonicalizes selected order to family order, and uses TASK-115
+      projection exactly once as its sole variant evidence authority.
+  - id: AC2
+    condition: >
+      Every unordered pair in a valid multi-member proposal is supported by its exact
+      preserved direct EXACT_VARIANT_MATCH FamilyMergePairEvidence object; any selected
+      SAME_PRODUCT_FAMILY, UNCERTAIN, or DIFFERENT_PRODUCT pair fails closed even when
+      the endpoints are connected through other exact edges.
+  - id: AC3
+    condition: >
+      Proposal construction enforces exact-edge closure: any direct EXACT_VARIANT_MATCH
+      edge from a selected member to an unselected family member fails closed, preventing
+      partial or overlapping exact-connected proposals.
+  - id: AC4
+    condition: >
+      For A-B EXACT, B-C EXACT, A-C UNCERTAIN or SAME_PRODUCT_FAMILY, the full triple,
+      both exact pairs as two-member selections, and each singleton selection all fail
+      closed rather than bypassing the TASK-115 exactness gap.
+  - id: AC5
+    condition: >
+      For A-B direct EXACT with isolated C, explicit {A,B} is a valid proposal and
+      explicit {C} is a valid singleton proposal; the system does not automatically
+      discover, enumerate, rank, or create either proposal.
+  - id: AC6
+    condition: >
+      A valid proposal is immutable, retains the exact internally constructed TASK-115
+      projection and canonical source-family lineage, preserves exact selected members,
+      and preserves exact direct pair-evidence objects by identity with N*(N-1)/2 pair
+      values for N>1 and zero pair values for a singleton.
+  - id: AC7
+    condition: >
+      Direct construction or forged substitutes cannot create a canonical
+      SellableVariantProposal outside the proposal factory boundary.
+  - id: AC8
+    condition: >
+      A separate immutable SellableVariantDecisionRecord records exactly one explicit
+      APPROVE or REJECT over one exact canonical proposal with a non-empty single-line
+      actor and timezone-aware decided_at; invalid decision/proposal/actor/time values
+      fail closed.
+  - id: AC9
+    condition: >
+      APPROVE grants no more authority than future canonical variant admission for the
+      exact approved members within the exact source family; REJECT grants none, and
+      neither result creates IDs, profiles, persistence, catalog mutation, aggregate
+      confidence, or inferred relationships for selected or unselected members.
+  - id: AC10
+    condition: >
+      Proposal and decision construction perform zero pairwise/multi-observation
+      resolution, family grouping, family proposal/admission re-execution, TASK-115
+      semantic reimplementation, identity generation, profile aggregation, persistence,
+      network, browser, Drive, LLM, queue, retrieval, or external side effects beyond
+      the single required TASK-115 projection call during proposal construction.
+  - id: AC11
+    condition: >
+      Focused deterministic regressions cover wrong/empty/duplicate/outside selection,
+      canonical member ordering, all-pairs direct-exact proof, non-exact rejection,
+      exact-edge closure, exactness-gap bypass prevention, isolated singleton behavior,
+      evidence object identity, immutable/anti-forgery proposal behavior, explicit Human
+      APPROVE/REJECT validation, zero unintended upstream/external work, and repeated
+      deterministic construction.
+  - id: AC12
+    condition: >
+      M3 documentation records the explicit sellable-variant proposal and Human decision
+      boundary, explains all-pairs DIRECT EXACT plus exact-edge closure and singleton
+      semantics, and explicitly defers canonical variant identity, profile aggregation,
+      persistent catalog mutation, retrieval, and RAG.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_family_merge_approval.py tests/product_intelligence/test_canonical_family.py tests/product_intelligence/test_sellable_variant_evidence.py tests/product_intelligence/test_sellable_variant_approval.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
