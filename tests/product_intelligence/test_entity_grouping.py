@@ -243,3 +243,43 @@ def test_type_error_on_invalid_input():
     with pytest.raises(TypeError, match="MultiObservationResolutionGraph"):
         group_resolution_graph("invalid_input")
 
+
+def test_permutation_regression_distinct_source_product_id_none_vs_empty():
+    """Prove that distinct observations differing only by source_product_id=None vs '' yield identical group ordering when permuted."""
+    t0 = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    p_none = ProductSourcePack(
+        source_pack_id="pack_shared",
+        platform="shopee",
+        product_url="https://shopee.example/item",
+        source_product_id=None,
+        observed_at=t0,
+        collector="test",
+        facts=identity_facts(brand="Alpha", model="One"),
+    )
+    p_empty = ProductSourcePack(
+        source_pack_id="pack_shared",
+        platform="shopee",
+        product_url="https://shopee.example/item",
+        source_product_id="",
+        observed_at=t0,
+        collector="test",
+        facts=identity_facts(brand="Beta", model="Two"),
+    )
+
+    id_none = SourceObservationIdentity.from_pack(p_none)
+    id_empty = SourceObservationIdentity.from_pack(p_empty)
+    assert id_none != id_empty
+
+    # Forward permutation
+    graph_fwd = resolve_multi_observations([p_none, p_empty])
+    res_fwd = group_resolution_graph(graph_fwd)
+
+    # Reversed permutation
+    graph_rev = resolve_multi_observations([p_empty, p_none])
+    res_rev = group_resolution_graph(graph_rev)
+
+    assert res_fwd.group_count == 2
+    assert res_rev.group_count == 2
+    assert res_fwd.groups == res_rev.groups
+
+

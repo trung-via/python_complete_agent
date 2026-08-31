@@ -70,6 +70,7 @@ def _identity_canonical_key(identity: SourceObservationIdentity) -> tuple:
     return (
         identity.source_pack_id,
         identity.platform,
+        identity.source_product_id is not None,
         identity.source_product_id or "",
         identity.product_url,
         identity.observed_at.isoformat() if identity.observed_at else "",
