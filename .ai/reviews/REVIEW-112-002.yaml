@@ -1,0 +1,41 @@
+review_id: REVIEW-112-002
+reviewed_sha: ab8a77c800de62283845ba763cb7edf706fa63d0
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: FAIL
+  AC2: PASS
+  AC3: PASS
+  AC4: PASS
+  AC5: PASS
+  AC6: PASS
+  AC7: PASS
+  AC8: PASS
+  AC9: PASS
+  AC10: PASS
+findings:
+  - id: F1
+    basis: AC1
+    action: CODE_FIX
+    location: src/product_intelligence/family_merge_approval.py:create_family_merge_proposal
+    issue: >
+      A valid canonical TASK-111 POSITIVE_CONNECTED group cannot be proposed when
+      its TASK-109 graph contains any observation in another provisional group.
+      TASK-109 preserves pairwise results for every unordered observation pair, so
+      cross-group results with one endpoint inside the selected group and one
+      endpoint in another valid graph group are normal graph evidence. The current
+      induced-result scan raises `induced pair evidence references a non-member
+      endpoint` whenever exactly one endpoint is outside the selected group, which
+      incorrectly treats normal cross-group pairwise results as malformed induced
+      evidence. As a result, create_family_merge_proposal works only when the
+      selected group contains all graph observations, violating AC1 for otherwise
+      valid canonical graph/group inputs.
+    expected: >
+      Restrict proposal evidence collection to pairwise results whose two endpoints
+      are both members of the selected canonical group. Normal cross-group results
+      between valid graph observations must be ignored for this proposal, while
+      missing or duplicate induced member pairs and truly malformed endpoints not
+      belonging to graph.observations must still fail closed. Add a focused
+      regression with one approvable POSITIVE_CONNECTED group plus at least one
+      observation in another provisional group and prove proposal creation succeeds
+      with exactly the selected group's induced N*(N-1)/2 evidence only.
