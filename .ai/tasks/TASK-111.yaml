@@ -1,0 +1,210 @@
+task_id: TASK-111
+revision: 1
+
+goal: >
+  Add the next bounded, platform-neutral M3 projection layer that accepts one
+  existing MultiObservationResolutionGraph from TASK-109 and deterministically
+  partitions its observation identities into immutable provisional product-family
+  groups using only existing positive-family connectivity, while preserving
+  TASK-109 conflict visibility and without re-running pairwise entity resolution,
+  inferring transitive pair relationships, approving merges, assigning canonical
+  identity, deriving aggregate confidence, or mutating catalog state.
+
+problem: >
+  TASK-109 now preserves every pairwise entity-resolution decision and reports
+  auditable product-family consistency conflicts across a bounded set of source
+  observations. Later M3 catalog work needs a deterministic way to organize that
+  already-computed graph into provisional family-oriented groups before any merge
+  approval or canonical identity is allowed. Re-running ProductSourcePack pairwise
+  resolution would repeat unchanged O(N^2) work and create a second resolution
+  authority, while treating positive connectivity as an authoritative merge would
+  incorrectly promote transitive graph structure into product truth. TASK-111 must
+  therefore be a pure read-only projection over the existing graph: it partitions
+  observations by positive connectivity, marks groups containing existing graph
+  conflicts as conflicted, preserves singleton observations, and creates no new
+  product identity or merge authority.
+
+assumptions:
+  - >
+    Current canonical repository baseline is
+    e941768e4b5fcabffd4e90fdac70d2f05f830b6a.
+  - >
+    MultiObservationResolutionGraph from TASK-109 remains the canonical bounded
+    multi-observation input and already contains exact SourceObservationIdentity
+    values, complete pairwise results, and canonical conflict diagnostics.
+  - >
+    resolve_product_entities and TASK-108 remain the sole semantic authority for
+    pairwise product relationships; TASK-111 must consume their preserved results
+    only through the TASK-109 graph.
+  - >
+    EXACT_VARIANT_MATCH and SAME_PRODUCT_FAMILY remain the only positive
+    product-family relationships for graph connectivity.
+  - >
+    UNCERTAIN remains neither positive nor negative family evidence and must not
+    create connectivity.
+  - >
+    ProductFamilyConsistencyConflict from TASK-109 remains the sole authority for
+    detecting/reporting positive-chain versus direct-DIFFERENT_PRODUCT conflicts.
+  - >
+    Merge proposal, human merge approval, canonical product-family IDs, sellable
+    variant IDs, catalog persistence, evidence aggregation, retrieval, and RAG
+    remain later M3 work.
+
+scope:
+  inspect:
+    - .ai/tasks/TASK-108.yaml
+    - .ai/tasks/TASK-109.yaml
+    - src/product_intelligence/entity_resolution.py
+    - src/product_intelligence/entity_resolution_graph.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_entity_resolution.py
+    - tests/product_intelligence/test_entity_resolution_graph.py
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+
+  modify:
+    - src/product_intelligence/entity_grouping.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_entity_grouping.py
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+
+non_goals:
+  - Change ProductSourcePack, SourceObservationIdentity, or pairwise relationship semantics.
+  - Change TASK-108 pairwise confidence, reasons, evidence, precedence, or resolver behavior.
+  - Change TASK-109 graph construction, pairwise evaluation, conflict detection, or conflict diagnostics.
+  - Accept ProductSourcePack inputs and re-run entity resolution in the grouping layer.
+  - Infer or materialize new transitive pair relationships.
+  - Treat absence of a conflict as proof that every pair inside a group is SAME_PRODUCT_FAMILY.
+  - Create cluster IDs, group IDs, canonical family IDs, canonical product IDs, variant IDs, or catalog records.
+  - Add mergeability flags, automatic merge policy, merge proposal, human merge approval, or autonomous merge.
+  - Aggregate or rewrite ProductFact, media, marketplace metrics, ranking, score, or pairwise confidence.
+  - Produce group, family, catalog, or aggregate confidence values.
+  - Add persistence, files, database mutation, queue mutation, Google Drive writes, or knowledge-store writes.
+  - Add embeddings, retrieval, RAG, LLM inference, browser access, network access, or external-service calls.
+  - Change discovery, scoring, ranking, approval, ingestion, or marketplace extraction behavior.
+  - Modify AIOS-renew, worker control-plane files, or legacy Bridge behavior.
+
+constraints:
+  hard:
+    - >
+      The public grouping operation must accept exactly one existing
+      MultiObservationResolutionGraph and must not accept ProductSourcePack values
+      as an alternate path that could trigger pairwise re-evaluation.
+    - >
+      The grouping layer must never call resolve_product_entities,
+      resolve_multi_observations, MultiObservationEntityResolver.resolve, or any
+      equivalent pairwise/multi-observation re-execution authority.
+    - >
+      Provisional connectivity must be derived only from pairwise results whose
+      relationship is EXACT_VARIANT_MATCH or SAME_PRODUCT_FAMILY.
+    - >
+      UNCERTAIN and DIFFERENT_PRODUCT pairwise results must never create, bridge,
+      or union provisional groups.
+    - >
+      Every SourceObservationIdentity in graph.observations must appear in exactly
+      one provisional group; no observation may be dropped, duplicated, rewritten,
+      or silently collapsed.
+    - >
+      A component containing exactly one observation must have status SINGLETON.
+    - >
+      A component containing two or more observations connected by one or more
+      positive-family edges and containing no existing TASK-109 consistency
+      conflict must have status POSITIVE_CONNECTED. This status means graph
+      connectivity only and must not assert an inferred transitive pairwise
+      SAME_PRODUCT_FAMILY relationship.
+    - >
+      A positive-connected component that contains one or more existing
+      ProductFamilyConsistencyConflict values from the input graph must have status
+      CONFLICTED and must retain the relevant existing conflict diagnostics.
+    - >
+      The grouping layer must not independently recompute conflict semantics from
+      pairwise results, repair a conflict, choose which evidence is correct, split a
+      component to hide a conflict, or reinterpret TASK-109 conflict diagnostics.
+    - >
+      Group members must be presented in one deterministic canonical ordering based
+      on the exact SourceObservationIdentity fields, and the outer group sequence
+      must be deterministically ordered from canonical member tuples.
+    - >
+      Permuting the same semantic observation set before TASK-109 evaluation must
+      produce semantically identical provisional groups, member ordering, statuses,
+      and conflict projection at TASK-111.
+    - >
+      Provisional group values and the outer grouping result must be immutable.
+    - >
+      The grouping output must not contain group_id, cluster_id, family_id,
+      product_id, variant_id, mergeable, approved, score, or aggregate confidence
+      authority.
+    - >
+      TASK-111 must be deterministic and side-effect-free for the same input graph,
+      with zero wall-clock, filesystem mutation, persistence, network, browser,
+      Drive, queue, LLM, scoring, ranking, approval, or ingestion side effects.
+    - Do not push from executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      A platform-neutral immutable grouping contract accepts one existing
+      MultiObservationResolutionGraph and returns immutable provisional groups
+      without accepting source packs or invoking pairwise or multi-observation
+      entity resolution again.
+
+  - id: AC2
+    condition: >
+      Provisional connected components are derived exclusively from existing
+      EXACT_VARIANT_MATCH and SAME_PRODUCT_FAMILY pairwise edges in the input graph,
+      with no independently recreated identity semantics.
+
+  - id: AC3
+    condition: >
+      The resulting groups form an exact partition of graph.observations: every
+      SourceObservationIdentity appears exactly once, no identity is dropped or
+      duplicated, and different groups are disjoint.
+
+  - id: AC4
+    condition: >
+      A one-member component is SINGLETON; a two-or-more-member positive component
+      with no existing graph conflict is POSITIVE_CONNECTED; and a positive
+      component containing one or more existing TASK-109 conflicts is CONFLICTED.
+
+  - id: AC5
+    condition: >
+      UNCERTAIN and DIFFERENT_PRODUCT pairwise decisions do not create or bridge
+      provisional connectivity, including cases where an otherwise isolated
+      observation remains a singleton.
+
+  - id: AC6
+    condition: >
+      CONFLICTED groups preserve the relevant ProductFamilyConsistencyConflict
+      values already present on the TASK-109 graph and do not repair, recompute,
+      suppress, split around, or choose a winner for contradictory evidence.
+
+  - id: AC7
+    condition: >
+      Reordering the same semantic observation set produces identical provisional
+      group membership, canonical member ordering, group ordering, statuses, and
+      conflict projection; positive connectivity never materializes an inferred
+      transitive pairwise relationship.
+
+  - id: AC8
+    condition: >
+      Tests prove TASK-111 performs zero calls to the TASK-108 pairwise resolver or
+      TASK-109 multi-observation resolver and derives no aggregate confidence,
+      score, mergeability, or canonical identity authority.
+
+  - id: AC9
+    condition: >
+      The public grouping API performs zero filesystem mutation, persistence,
+      network, browser, Drive, queue, LLM, scoring, ranking, approval, ingestion,
+      catalog write, or external-service side effects and exposes no group/product/
+      family/variant identifier or approval field.
+
+  - id: AC10
+    condition: >
+      Focused deterministic regression tests cover a positive-connected family,
+      singleton observations, UNCERTAIN boundaries, direct DIFFERENT_PRODUCT
+      isolation, a conflicted positive component, multiple disjoint groups, exact
+      partition invariants, permutation invariance, immutability, canonical output
+      ordering, conflict preservation, and zero entity-resolution re-execution.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_entity_resolution.py tests/product_intelligence/test_entity_resolution_graph.py tests/product_intelligence/test_entity_grouping.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
