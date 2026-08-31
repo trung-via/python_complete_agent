@@ -72,10 +72,33 @@ Partitioning an existing `MultiObservationResolutionGraph` operates through the
 6. **Deterministic & Immutable**: Group membership, member ordering, and outer group order are strictly
    canonical and permutation-invariant.
 
+## Evidence-Complete Family Merge Approval
+
+`create_family_merge_proposal` adds a Human review boundary over existing graph
+evidence. It accepts exactly one `MultiObservationResolutionGraph` and one exact
+canonical `POSITIVE_CONNECTED` group returned by `group_resolution_graph` for that
+graph. `SINGLETON`, `CONFLICTED`, forged, stale, absent, and otherwise non-canonical
+groups fail closed. Existing conflicts cannot be suppressed or Human-overridden at
+this boundary.
+
+The immutable `FamilyMergeProposal` retains the canonical TASK-111 member tuple and
+exactly $N \times (N - 1) / 2$ `FamilyMergePairEvidence` values. Each value copies the
+corresponding TASK-109 result's relationship, confidence, reasons, and
+`ResolutionEvidence` unchanged. Only endpoint orientation and outer pair ordering
+are canonicalized from member order. In particular, a direct `UNCERTAIN` pair stays
+visible inside a positive-connected proposal; connectivity is never promoted to
+transitive pairwise truth.
+
+`create_family_merge_decision_record` requires an explicit `APPROVE` or `REJECT`, a
+non-empty single-line actor, and a timezone-aware `decided_at`. Proposal construction
+never creates or implies approval. `APPROVE` authorizes only a future milestone to
+treat that exact member set as one canonical family; `REJECT` records only the Human
+decision. Neither operation re-runs entity resolution, assigns identity, rewrites
+evidence, merges observations, persists data, or performs an external side effect.
+
 ## Deferred M3 work
 
-Merge proposal, human merge approval, autonomous merge policy, canonical product-family IDs,
-sellable variant IDs, persistent catalog mutation, evidence aggregation, retrieval, and RAG are
-explicitly deferred to later M3 milestones.
-
+Autonomous merge policy, canonical product-family IDs, sellable variant IDs,
+persistent catalog mutation, evidence aggregation, retrieval, and RAG are explicitly
+deferred to later M3 milestones.
 

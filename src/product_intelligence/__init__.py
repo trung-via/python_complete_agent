@@ -113,6 +113,17 @@ from src.product_intelligence.entity_grouping import (
     group_product_resolution_graph,
     group_resolution_graph,
 )
+from src.product_intelligence.family_merge_approval import (
+    FamilyMergeApprovalError,
+    FamilyMergeDecision,
+    FamilyMergeDecisionRecord,
+    FamilyMergePairEvidence,
+    FamilyMergeProposal,
+    create_family_merge_decision,
+    create_family_merge_decision_record,
+    create_family_merge_proposal,
+    record_family_merge_decision,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -210,4 +221,13 @@ __all__ = [
     "group_product_graph",
     "group_multi_observations",
     "ProductFamilyGrouper",
+    "FamilyMergeApprovalError",
+    "FamilyMergeDecision",
+    "FamilyMergeDecisionRecord",
+    "FamilyMergePairEvidence",
+    "FamilyMergeProposal",
+    "create_family_merge_proposal",
+    "create_family_merge_decision_record",
+    "create_family_merge_decision",
+    "record_family_merge_decision",
 ]
