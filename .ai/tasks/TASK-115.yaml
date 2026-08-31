@@ -1,0 +1,241 @@
+task_id: TASK-115
+revision: 1
+
+goal: >
+  Add a bounded, deterministic, read-only sellable-variant evidence projection
+  over exactly one existing TASK-114 CanonicalProductFamily. The projection must
+  expose only preserved direct EXACT_VARIANT_MATCH evidence and auditable gaps
+  where exact-match connectivity exists through one or more direct exact edges
+  but the endpoints' own preserved direct relationship is not exact, without
+  inferring transitive variant truth, creating variant groups or IDs, re-running
+  entity resolution, aggregating confidence, or mutating/persisting catalog state.
+
+problem: >
+  TASK-114 establishes canonical product-family identity but intentionally does
+  not assign sellable variants. TASK-108 can prove that an individual pair is an
+  EXACT_VARIANT_MATCH, while TASK-109 explicitly rejects unsafe transitive
+  reasoning across pairwise decisions. A downstream variant layer therefore
+  needs a narrow evidence boundary before any Human variant proposal or variant
+  identity admission. In particular, A-B EXACT and B-C EXACT must not silently
+  promote A-C to exact when A-C is directly SAME_PRODUCT_FAMILY or UNCERTAIN.
+  The next milestone must preserve direct pairwise truth, surface such exactness
+  gaps for audit, and stop before grouping, proposal approval, identity, profile,
+  or persistence authority.
+
+assumptions:
+  - >
+    Current canonical python_complete_agent main baseline is
+    49e01d6a9c77842e7c0ad576f5c3b552a87795b3.
+  - >
+    TASK-108 remains the sole pairwise relationship authority. Its canonical
+    outcomes remain EXACT_VARIANT_MATCH, SAME_PRODUCT_FAMILY, DIFFERENT_PRODUCT,
+    and UNCERTAIN.
+  - >
+    EXACT_VARIANT_MATCH is direct affirmative evidence that one evaluated pair is
+    the same observed sellable variant. SAME_PRODUCT_FAMILY is not equivalent to
+    different variant because it may also mean variant evidence is insufficient.
+  - >
+    TASK-109 preserves direct pairwise truth and establishes that pairwise product
+    relationships must not be treated as safely transitive.
+  - >
+    TASK-112 FamilyMergeProposal preserves exactly one direct pair-evidence value
+    for every unordered pair in the approved family member set, including the
+    original relationship, confidence, reasons, and ResolutionEvidence.
+  - >
+    TASK-114 CanonicalProductFamily preserves the exact approved member tuple and
+    the exact TASK-112 Human approval record as provenance.
+  - >
+    Explicit variant merge proposal/Human decision, canonical variant identity,
+    variant profile aggregation, persistent catalog mutation, retrieval, and RAG
+    remain later milestones.
+
+scope:
+  inspect:
+    - .ai/tasks/TASK-108.yaml
+    - .ai/tasks/TASK-109.yaml
+    - .ai/tasks/TASK-111.yaml
+    - .ai/tasks/TASK-112.yaml
+    - .ai/tasks/TASK-114.yaml
+    - src/product_intelligence/entity_resolution.py
+    - src/product_intelligence/family_merge_approval.py
+    - src/product_intelligence/canonical_family.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_family_merge_approval.py
+    - tests/product_intelligence/test_canonical_family.py
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+
+  modify:
+    - src/product_intelligence/sellable_variant_evidence.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_sellable_variant_evidence.py
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+
+non_goals:
+  - Modify TASK-108 pairwise relationship, confidence, precedence, or evidence semantics.
+  - Modify TASK-109 graph/conflict semantics or TASK-111 grouping semantics.
+  - Modify TASK-112 Human family approval or TASK-114 canonical family admission semantics.
+  - Accept ProductSourcePack, graph, provisional group, resolver, arbitrary member collection, or raw pairwise result collection as the public projection input.
+  - Re-run pairwise resolution, multi-observation resolution, family grouping, family proposal construction, or family admission.
+  - Infer that EXACT_VARIANT_MATCH is transitive.
+  - Treat SAME_PRODUCT_FAMILY as proof of either same variant or different variant.
+  - Treat UNCERTAIN as positive or negative variant identity evidence.
+  - Create connected-component variant groups, candidate variant groups, maximal cliques, overlapping-group selection, cluster IDs, group IDs, proposal IDs, or merge recommendations.
+  - Generate, allocate, accept, or persist a variant_id.
+  - Choose canonical color, capacity, size, voltage, edition, bundle composition, SKU, title, media, or any other variant/profile field.
+  - Aggregate, average, multiply, maximize, minimize, or otherwise combine pairwise confidence values.
+  - Add Human approval, autonomous merge policy, persistence, database/filesystem catalog writes, network, browser, Drive, LLM, queue, retrieval, embeddings, or RAG behavior.
+
+constraints:
+  hard:
+    - >
+      The public projection boundary must consume exactly one existing
+      CanonicalProductFamily and no second semantic input. Wrong input types or
+      substitutes must fail closed.
+    - >
+      The projection must derive all variant evidence exclusively from the exact
+      FamilyMergePairEvidence values already reachable through
+      family.approval.proposal.pair_evidence. It must not reconstruct evidence
+      from ProductSourcePack or call any resolver/grouping/proposal/admission
+      operation.
+    - >
+      A pair is direct proven same-variant evidence if and only if that exact
+      preserved pair's relationship is ProductRelationship.EXACT_VARIANT_MATCH.
+      SAME_PRODUCT_FAMILY, UNCERTAIN, and DIFFERENT_PRODUCT must never be promoted
+      to direct exact evidence by connectivity, confidence, reasons, media, or any
+      other signal.
+    - >
+      The projection may analyze connectivity formed only by direct preserved
+      EXACT_VARIANT_MATCH edges for diagnostics, but it must never expose such
+      connectivity as a canonical variant group, component identity, cluster, or
+      inferred pair relationship.
+    - >
+      For every unordered endpoint pair that is connected by one or more direct
+      EXACT_VARIANT_MATCH edges while its own preserved direct relationship is not
+      EXACT_VARIANT_MATCH, the projection must emit exactly one immutable
+      exactness-gap diagnostic. The endpoint pair's original direct evidence must
+      remain unchanged and authoritative.
+    - >
+      Every exactness-gap diagnostic must retain the exact preserved non-exact
+      direct FamilyMergePairEvidence object and one deterministic witness path made
+      only from exact preserved FamilyMergePairEvidence objects. It must not create
+      a synthetic relationship, synthetic confidence, or copied/reworded evidence.
+    - >
+      If multiple exact witness paths exist, witness selection must be deterministic
+      from the canonical TASK-114 member order: prefer the fewest exact edges, then
+      break any remaining tie by canonical member-position order. Witness-path
+      selection is diagnostic only and conveys no ranking or confidence.
+    - >
+      Direct exact pairs in the projection must retain the exact existing
+      FamilyMergePairEvidence objects rather than rewritten copies. All original
+      relationships, confidence values, reasons, and ResolutionEvidence remain
+      auditable through the exact TASK-112/TASK-114 provenance.
+    - >
+      Output ordering must be deterministic from the canonical TASK-114 member
+      order. Permuting internal traversal or pair-evidence iteration must not alter
+      the semantic projection.
+    - >
+      A fully direct-exact clique has no exactness gaps. A chain such as A-B EXACT,
+      B-C EXACT, A-C UNCERTAIN or SAME_PRODUCT_FAMILY must retain A-C as non-exact
+      and report one A-C exactness gap rather than grouping A, B, and C as one
+      variant.
+    - >
+      A family with direct exact evidence that does not connect a non-exact pair
+      through an all-exact path must not fabricate an exactness gap for that pair.
+    - >
+      The public projection result may expose only the exact source family,
+      preserved direct exact-pair evidence, exactness-gap diagnostics, and trivial
+      read-only counts. It must not expose variant_id, variant groups/components,
+      aggregate confidence, canonical profile fields, persistence handles, catalog
+      authority, or merge/approval decisions.
+    - >
+      The projection and diagnostics must be immutable, deterministic, and
+      side-effect-free. No wall clock, random/UUID source, Python hash identity,
+      environment state, filesystem state, global mutable registry, network, or
+      external service may influence the result.
+    - >
+      No operation in this task may mutate CanonicalProductFamily,
+      FamilyMergeDecisionRecord, FamilyMergeProposal, FamilyMergePairEvidence,
+      SourceObservationIdentity, or any source/catalog/external state.
+
+acceptance:
+  - id: AC1
+    condition: >
+      A public platform-neutral operation accepts exactly one valid
+      CanonicalProductFamily and returns one immutable sellable-variant evidence
+      projection without requiring graph, ProductSourcePack, resolver, grouping,
+      proposal, identity, profile, or persistence inputs.
+
+  - id: AC2
+    condition: >
+      The projection identifies as direct exact evidence exactly those preserved
+      family pair-evidence values whose relationship is EXACT_VARIANT_MATCH and
+      retains those exact existing evidence objects unchanged.
+
+  - id: AC3
+    condition: >
+      SAME_PRODUCT_FAMILY, UNCERTAIN, and DIFFERENT_PRODUCT pair evidence is never
+      classified or rewritten as direct same-variant proof, regardless of exact
+      connectivity elsewhere in the family or pairwise confidence values.
+
+  - id: AC4
+    condition: >
+      For A-B EXACT, B-C EXACT, and direct A-C UNCERTAIN, the projection preserves
+      A-C as UNCERTAIN and emits exactly one A-C exactness gap containing the exact
+      A-C direct evidence plus a deterministic all-exact witness path; it does not
+      infer A-C EXACT or create a variant group.
+
+  - id: AC5
+    condition: >
+      The same exactness-gap behavior applies when the direct endpoint relation is
+      SAME_PRODUCT_FAMILY, without interpreting whether that relationship means a
+      known different variant or insufficient variant evidence.
+
+  - id: AC6
+    condition: >
+      A member set whose every unordered pair is directly EXACT_VARIANT_MATCH has
+      zero exactness gaps, while absence of a gap does not create a variant ID,
+      canonical variant record, merge recommendation, or persisted state.
+
+  - id: AC7
+    condition: >
+      A non-exact pair that has no all-exact path connecting its endpoints produces
+      no fabricated exactness-gap diagnostic.
+
+  - id: AC8
+    condition: >
+      When multiple all-exact witness paths exist for one gap, the selected witness
+      is deterministic: shortest by exact-edge count and then canonical by TASK-114
+      member-position order. Repeated construction yields semantically identical
+      projection values.
+
+  - id: AC9
+    condition: >
+      The operation performs zero calls to TASK-108 resolution, TASK-109 graph
+      resolution, TASK-111 grouping, TASK-112 proposal construction, or TASK-114
+      family admission and performs zero profile aggregation, persistence, network,
+      browser, Drive, LLM, queue, retrieval, or other external side effects.
+
+  - id: AC10
+    condition: >
+      The public projection schema exposes no variant_id, product/variant group or
+      component ID, aggregate confidence, canonical variant profile, Human decision,
+      auto-merge recommendation, persistence handle, or catalog mutation authority.
+
+  - id: AC11
+    condition: >
+      Focused regressions cover exact-pair preservation by object identity,
+      SAME_PRODUCT_FAMILY/UNCERTAIN non-promotion, exact-chain/direct-nonexact gaps,
+      no-gap all-exact cliques, no fabricated gaps without exact connectivity,
+      deterministic multiple-path witness selection, immutable/deterministic output,
+      wrong-input failure, zero upstream re-execution, and zero external side effects.
+
+  - id: AC12
+    condition: >
+      M3 documentation records the sellable-variant evidence projection as a
+      read-only evidence/diagnostic boundary after canonical family admission and
+      explicitly defers explicit variant proposal/Human decision, canonical variant
+      identity, profile aggregation, persistent catalog mutation, retrieval, and RAG.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_family_merge_approval.py tests/product_intelligence/test_canonical_family.py tests/product_intelligence/test_sellable_variant_evidence.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
