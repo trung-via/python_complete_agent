@@ -5,12 +5,12 @@ verdict: CHANGES_REQUIRED
 acceptance:
   AC7: FAIL
 findings:
-  - id: F1
+  - id: F1R1
     basis: AC7
     action: CODE_FIX
     location: src/product_intelligence/entity_grouping.py:_identity_canonical_key/group_resolution_graph
     issue: >
-      RUN-111-002 did not remediate the prior F1. Its canonical ResultPackage
+      RUN-111-002 did not remediate prior finding F1. Its canonical ResultPackage
       reports changed_files: [] and head_sha equal to the previously reviewed
       SHA ab08b9809a9a7e1141c2dc6dc5e6cab823c95903, so the implementation still
       canonicalizes source_product_id with `source_product_id or ""` and therefore
@@ -18,10 +18,11 @@ findings:
       the same ordering key. The affected test suite passes only because the
       required None-versus-empty-string permutation regression was not added.
     expected: >
-      Make the canonical identity ordering injective over exact
-      SourceObservationIdentity fields by preserving None distinctly from the
-      empty string, and add the focused regression required by REVIEW-111-001/F1
-      proving identical provisional group output across reversed/permuted input.
-      Keep the fix within entity_grouping.py and test_entity_grouping.py and do
-      not change TASK-108/TASK-109 semantics, conflict authority, or grouping scope.
+      Complete prior finding F1 by making the canonical identity ordering
+      injective over exact SourceObservationIdentity fields, preserving None
+      distinctly from the empty string, and adding the focused regression required
+      by REVIEW-111-001/F1 proving identical provisional group output across
+      reversed/permuted input. Keep the fix within entity_grouping.py and
+      test_entity_grouping.py and do not change TASK-108/TASK-109 semantics,
+      conflict authority, or grouping scope.
 prior_finding_id: F1
