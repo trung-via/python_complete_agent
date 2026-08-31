@@ -306,8 +306,26 @@ authority, durable storage layer, retrieval index, or RAG document. TASK-118
 remains the catalog-integrity authority, TASK-119 remains the canonical-byte
 authority, and TASK-120 remains the durability and transaction authority.
 
+## Canonical Profile Lexical Retrieval
+
+TASK-122 adds pure, deterministic, in-memory lexical evidence retrieval over
+caller-supplied TASK-121 `CanonicalVariantProfile` values. It applies transient
+Unicode NFKC, case folding, and Unicode-alphanumeric tokenization to a bounded
+query and to an explicit set of descriptive, fact, and media evidence fields.
+Every result requires all distinct query terms and retains exact source evidence
+objects and original field values as witnesses. Match classes and exact opaque
+variant IDs provide deterministic ordering; no numeric relevance or business
+signal participates.
+
+This boundary locates lexical evidence only. It does not select preferred product
+truth from conflicting evidence, approve or admit identities, mutate profiles,
+persist or index a corpus, use embeddings or models, or perform external work.
+M2 `CandidateRanker` remains the separate winning-product business-ranking
+authority. RAG document and context construction remain deferred to TASK-123.
+
 ## Deferred M3 work
 
 Autonomous merge policy, family-ID allocation, migrations, cryptographic
-authenticity, identity evolution, product-truth reconciliation, deterministic
-retrieval, and RAG are explicitly deferred to later M3 milestones.
+authenticity, identity evolution, product-truth reconciliation, and RAG/context
+construction are explicitly deferred to later M3 milestones, with TASK-123 as
+the next RAG/context-construction boundary.

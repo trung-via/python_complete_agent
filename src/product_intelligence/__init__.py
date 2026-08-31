@@ -184,6 +184,14 @@ from src.product_intelligence.canonical_profile import (
     CanonicalVariantProfileError,
     build_canonical_variant_profile,
 )
+from src.product_intelligence.canonical_retrieval import (
+    CanonicalProfileRetrievalError,
+    CanonicalRetrievalField,
+    CanonicalRetrievalMatchClass,
+    CanonicalRetrievalWitness,
+    CanonicalVariantRetrievalHit,
+    retrieve_canonical_variant_profiles,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -334,4 +342,10 @@ __all__ = [
     "CanonicalProfileMediaEvidence",
     "CanonicalVariantProfile",
     "build_canonical_variant_profile",
+    "CanonicalProfileRetrievalError",
+    "CanonicalRetrievalField",
+    "CanonicalRetrievalMatchClass",
+    "CanonicalRetrievalWitness",
+    "CanonicalVariantRetrievalHit",
+    "retrieve_canonical_variant_profiles",
 ]
