@@ -1,0 +1,19 @@
+{
+  "repair_id": "REPAIR-125-003",
+  "failed_run_id": "RUN-125-003",
+  "failed_head_sha": "11fa6d596434f6fd3ee100b2bb481c4a2093b8bd",
+  "task": {
+    "id": "TASK-125",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue from the exact failed_head_sha of RUN-125-003 and preserve the committed TASK-125 candidate byte-for-byte. RUN-125-003 failed before Codex dispatch because the repository-owned worker runtime could not open or create .git/aios/worker-bootstrap.lock due to an operating-system permission denial; no product mutation occurred.",
+    "Do not modify, recommit, revert, rewrite, or otherwise change product source, tests, documentation, TASK, worker, or AIOS files. This repair exists only to preserve canonical failed-run continuity after the local worker-runtime permission issue is corrected outside the product delta.",
+    "Once the worker runtime can bootstrap normally, emit the corrected complete structural ResultPackage for the unchanged HEAD. Every claims[].satisfies entry must reference only TASK-125 acceptance IDs AC1 through AC12. REPAIR IDs, RUN IDs, TASK IDs, claim IDs, prose labels, and other non-acceptance tokens must not appear in satisfies.",
+    "Preserve complete TASK-125 acceptance coverage and evidence semantics, bind result.head_sha to the unchanged failed_head_sha, and report the original TASK-125 changed_files across the root TASK baseline as required by canonical repair continuity.",
+    "Runtime owns the exact TASK-125 verification gates. Do not reroute executor, widen scope, introduce M4 behavior, push, or merge product source."
+  ],
+  "constraints": []
+}
