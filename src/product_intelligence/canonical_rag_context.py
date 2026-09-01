@@ -219,14 +219,17 @@ def build_canonical_rag_context(
                 truncated=tentative_omitted > 0,
                 omitted_evidence_blocks=tentative_omitted,
             )
-            try:
-                rendered_text = render_canonical_rag_context(tentative_context)
-                rendered_len = len(rendered_text.encode("utf-8"))
-                if rendered_len <= max_context_utf8_bytes:
-                    admitted_per_hit[hit_idx].append(candidate_block)
-                    admitted_count += 1
-            except CanonicalRagContextError:
-                pass
+            rendered_dict = _render_canonical_rag_context_dict(tentative_context)
+            rendered_json = json.dumps(
+                rendered_dict,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            rendered_len = len(rendered_json.encode("utf-8"))
+            if rendered_len <= max_context_utf8_bytes:
+                admitted_per_hit[hit_idx].append(candidate_block)
+                admitted_count += 1
 
     final_hits = tuple(
         CanonicalRagHitContext(
@@ -299,9 +302,7 @@ def _serialize_evidence_block(block: CanonicalRagEvidenceBlock) -> dict:
     raise CanonicalRagContextError(f"unknown evidence kind: {block.kind}")
 
 
-def render_canonical_rag_context(context: CanonicalRagContext) -> str:
-    """Render an exact CanonicalRagContext as deterministic compact JSON."""
-
+def _render_canonical_rag_context_dict(context: CanonicalRagContext) -> dict:
     if type(context) is not CanonicalRagContext:
         raise CanonicalRagContextError("context must be an exact CanonicalRagContext")
 
@@ -340,7 +341,7 @@ def render_canonical_rag_context(context: CanonicalRagContext) -> str:
             }
         )
 
-    root = {
+    return {
         "schema": _CANONICAL_RAG_SCHEMA,
         "version": _CANONICAL_RAG_VERSION,
         "question": context.question,
@@ -357,6 +358,12 @@ def render_canonical_rag_context(context: CanonicalRagContext) -> str:
         },
         "hits": rendered_hits,
     }
+
+
+def render_canonical_rag_context(context: CanonicalRagContext) -> str:
+    """Render an exact CanonicalRagContext as deterministic compact JSON."""
+
+    root = _render_canonical_rag_context_dict(context)
 
     rendered_json = json.dumps(
         root,

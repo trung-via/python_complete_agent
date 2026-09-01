@@ -348,9 +348,14 @@ transport-only URLs, internal product/pack IDs, hashes, and filenames.
 This boundary performs zero model invocation, answer synthesis, prompt formatting,
 embedding, reranking, indexing, SQLite/filesystem/network/browser operations, or
 product-truth reconciliation. Conflicting and duplicate evidence remain plural.
-TASK-121 owns evidence projection, TASK-122 owns lexical retrieval, and TASK-123
-owns deterministic grounded context packaging only; model invocation and answer
-synthesis remain future consumers outside this task.
+TASK-124 hardens the packing boundary to ensure truthful truncation semantics:
+omitted evidence blocks reflect only UTF-8 byte-budget pressure, whereas non-renderable
+or malformed evidence (such as naive timestamps) fails closed with
+`CanonicalRagContextError`. TASK-124 adds no product-truth reconciliation,
+prompt-injection immunity, model reasoning, answer synthesis, or external execution.
+TASK-121 owns evidence projection, TASK-122 owns lexical retrieval, and TASK-123/TASK-124
+own deterministic grounded context packaging and packing integrity only; model invocation
+and answer synthesis remain future consumers outside this task.
 
 ## Deferred M3 work
 

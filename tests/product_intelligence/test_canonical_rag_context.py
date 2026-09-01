@@ -709,3 +709,105 @@ def test_rendering_deterministic_across_value_equal_observed_at_offsets():
     assert parsed["hits"][0]["supplemental_evidence"][1]["observed_at"] == "2026-08-31T00:00:00+00:00"
     assert parsed["hits"][0]["supplemental_evidence"][2]["observed_at"] == "2026-08-31T00:00:00+00:00"
 
+
+def test_supplemental_naive_datetime_fails_closed():
+    # AC4: A retrieval hit whose matching witness is valid but whose otherwise eligible
+    # supplemental evidence contains a naive observed_at fails construction with CanonicalRagContextError
+    # rather than returning truncated=true or incrementing omitted_evidence_blocks.
+    m_valid = make_member("valid", platform="Shopee")
+    m_naive = SourceObservationIdentity(
+        source_pack_id="pack-naive",
+        platform="Lazada",
+        source_product_id="prod-naive",
+        product_url="https://example.com/p/naive",
+        observed_at=datetime(2026, 8, 31, 12, 0, 0),  # Naive datetime
+    )
+
+    obs_valid = CanonicalProfileObservation(
+        member=m_valid,
+        collector="c",
+        title="Valid Title Match",
+        shop_name="Shop",
+        brand="Brand",
+        model_sku="SKU-1",
+        description_text="Desc",
+    )
+    obs_naive = CanonicalProfileObservation(
+        member=m_naive,
+        collector="c",
+        title="Naive Title Match",
+        shop_name="Shop",
+        brand="Brand",
+        model_sku="SKU-2",
+        description_text="Desc",
+    )
+
+    prof = CanonicalVariantProfile(
+        variant_id="var-naive",
+        family_id="fam-1",
+        members=(m_valid, m_naive),
+        observations=(obs_valid, obs_naive),
+        fact_evidence=(),
+        media_evidence=(),
+    )
+
+    with pytest.raises(CanonicalRagContextError) as excinfo:
+        build_canonical_rag_context(
+            [prof],
+            question="What is this?",
+            retrieval_query="Valid",
+            max_context_utf8_bytes=32768,
+        )
+    assert "observed_at must be an aware datetime" in str(excinfo.value)
+
+
+def test_invalid_and_oversized_supplemental_fails_closed():
+    # AC5: A non-renderable supplemental block still fails closed when its serialized content
+    # would also be too large for the current remaining budget, proving validity is not
+    # bypassed merely because the block could have been omitted for size.
+    m_valid = make_member("valid", platform="Shopee")
+    m_naive = SourceObservationIdentity(
+        source_pack_id="pack-naive",
+        platform="Lazada",
+        source_product_id="prod-naive",
+        product_url="https://example.com/p/naive",
+        observed_at=datetime(2026, 8, 31, 12, 0, 0),  # Naive datetime
+    )
+
+    obs_valid = CanonicalProfileObservation(
+        member=m_valid,
+        collector="c",
+        title="Valid Title Match",
+        shop_name="Shop",
+        brand="Brand",
+        model_sku="SKU-1",
+        description_text="Desc",
+    )
+    # Huge naive observation that would exceed a small byte budget
+    obs_naive_huge = CanonicalProfileObservation(
+        member=m_naive,
+        collector="c",
+        title="Naive Title " + "Z" * 10000,
+        shop_name="Shop",
+        brand="Brand",
+        model_sku="SKU-2",
+        description_text="Desc " + "Z" * 10000,
+    )
+
+    prof = CanonicalVariantProfile(
+        variant_id="var-naive-huge",
+        family_id="fam-1",
+        members=(m_valid, m_naive),
+        observations=(obs_valid, obs_naive_huge),
+        fact_evidence=(),
+        media_evidence=(),
+    )
+
+    with pytest.raises(CanonicalRagContextError) as excinfo:
+        build_canonical_rag_context(
+            [prof],
+            question="What is this?",
+            retrieval_query="Valid",
+            max_context_utf8_bytes=4096,
+        )
+    assert "observed_at must be an aware datetime" in str(excinfo.value)
