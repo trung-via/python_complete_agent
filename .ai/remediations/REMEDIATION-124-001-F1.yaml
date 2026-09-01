@@ -1,0 +1,10 @@
+finding_id: F1
+action: CODE_FIX
+reviewed_sha: 88f82ad2b54c30e77685ef8e9b796d67c9bc825a
+modification_scope:
+  - src/product_intelligence/canonical_rag_context.py
+  - tests/product_intelligence/test_canonical_rag_context.py
+affected_verification:
+  - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_canonical_profile.py tests/product_intelligence/test_canonical_retrieval.py tests/product_intelligence/test_canonical_rag_context.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+  - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+constraints: []
