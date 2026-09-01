@@ -1,0 +1,20 @@
+{
+  "repair_id": "REPAIR-124-002",
+  "failed_run_id": "RUN-124-002",
+  "failed_head_sha": "b2586c7054a53aeaee401580263f4c2c56be6b9a",
+  "task": {
+    "id": "TASK-124",
+    "revision": 1
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "tests/product_intelligence/test_canonical_rag_context.py"
+  ],
+  "instructions": [
+    "Continue from the exact failed_head_sha of RUN-124-002. Preserve the production F1 implementation already present in src/product_intelligence/canonical_rag_context.py; this repair is only for the invalid regression-test fixture that caused Runtime verification to fail.",
+    "In test_supplemental_non_json_serializable_value_fails_closed, do not place the non-JSON-serializable bytes value in OriginalMediaRef.alt_text or variant_label because TASK-122 lexical retrieval intentionally scans those fields before TASK-124 serialization. Keep retrieval-visible media fields valid strings or None, and place the bytes value in a whitelisted TASK-123 rendered field that TASK-122 does not search, specifically OriginalMediaRef.content_type. This must allow the valid retrieval witness to be created and then exercise the TASK-124 canonical JSON serialization boundary.",
+    "Retain the regression assertion that build_canonical_rag_context raises CanonicalRagContextError through the canonical serialization boundary rather than raw TypeError or truncating/omitting the block. Do not weaken the semantic purpose of F1 and do not change production behavior to accommodate the test.",
+    "Modify only tests/product_intelligence/test_canonical_rag_context.py, commit a non-empty correction delta, and bind the structural ResultPackage to the new HEAD. Do not change canonical_rag_context.py, canonical_retrieval.py, upstream models, public APIs, docs, schema/version, byte-budget semantics, citation ordering, evidence whitelist, or unrelated tests. Runtime owns the original TASK-124 canonical verification."
+  ],
+  "constraints": []
+}
