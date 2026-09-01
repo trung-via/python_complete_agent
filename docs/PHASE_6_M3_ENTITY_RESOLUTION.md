@@ -357,8 +357,33 @@ TASK-121 owns evidence projection, TASK-122 owns lexical retrieval, and TASK-123
 own deterministic grounded context packaging and packing integrity only; model invocation
 and answer synthesis remain future consumers outside this task.
 
-## Deferred M3 work
+## M3 Persistent Knowledge Restart Boundary
 
-Autonomous merge policy, family-ID allocation, migrations, cryptographic
-authenticity, identity evolution, product-truth reconciliation, model-driven
-answer synthesis, and prompt generation are explicitly deferred to later milestones.
+TASK-125 closes the last M3 persistence gap without adding a second knowledge
+store. The TASK-120 SQLite catalog reloads canonical identity and approval
+lineage through the TASK-119 codec. Persisted V1 Product Source Pack manifests
+reload independently through the strict typed operation owned by
+`product_source.serialization`. TASK-121 then binds those exact observations to
+the registered variant before TASK-122 lexical retrieval and TASK-123/TASK-124
+grounded context construction and rendering. The path is deterministic local
+rehydration and projection only; it does not move source facts or media into the
+catalog snapshot or create a profile, retrieval, or RAG persistence format.
+
+This completes the Phase 6 M3 boundary: cross-listing entity resolution, a
+persistent canonical product catalog, and a restart-capable grounded RAG
+knowledge base. M3 completion does not grant any downstream consumer authority
+to reconcile conflicting evidence or create product truth.
+
+## Post-M3 Deferred Capabilities
+
+The following are explicitly post-M3 capabilities, not unfinished M3 blockers:
+autonomous merge policy; family and variant ID allocation; singleton automation;
+schema/data migrations; cryptographic authenticity, signing, or encryption;
+identity and membership evolution; product-truth reconciliation or preferred
+evidence selection; model-driven answer synthesis; and provider-specific prompt
+generation. Embeddings, vector search, application orchestration, and model
+invocation are also outside M3.
+
+The next boundary is **Phase 6 M4 — Grounded Product Intelligence Application
+Layer**. M4 consumes M3 canonical knowledge but must not replace or weaken M3
+product-truth, identity, catalog, retrieval, or grounded-context authority.
