@@ -1,0 +1,196 @@
+task_id: TASK-124
+revision: 1
+
+goal: >
+  Harden the TASK-123 deterministic grounded RAG-context boundary so supplemental
+  evidence is omitted only for exact UTF-8 byte-budget pressure, while malformed or
+  non-renderable canonical evidence fails closed with CanonicalRagContextError instead
+  of being silently reclassified as truncation. Preserve TASK-123 public APIs, schema
+  version, retrieval semantics, evidence ordering, citation addressing, byte-budget
+  rules, and zero-model/zero-I/O boundary unchanged.
+
+problem: >
+  TASK-123 currently tests each supplemental block by rendering a tentative context and
+  catching CanonicalRagContextError broadly. That exception represents both expected
+  budget overflow and genuine evidence/render integrity failures. A supplemental block
+  whose source cannot be canonically rendered, for example because observed_at is a
+  naive datetime, can therefore be silently skipped and counted in
+  omitted_evidence_blocks as if it merely did not fit the byte budget. This makes
+  truncated=true ambiguous: downstream consumers cannot distinguish normal bounded
+  context packing from invalid evidence that disappeared. Before any model-facing
+  consumer is introduced, TASK-124 must restore one precise invariant: truncation means
+  byte-budget omission only; data/render failure remains an error.
+
+assumptions:
+  - >
+    Current canonical python_complete_agent main baseline before TASK-124 authoring is
+    8868ac00d4f3cfadfe242d139e4309365c8c3db9.
+  - >
+    TASK-121 remains the canonical variant evidence-projection authority, TASK-122
+    remains the sole lexical-retrieval authority, and TASK-123 remains the grounded
+    context schema and packing authority.
+  - >
+    CanonicalRagContextError intentionally covers both construction and rendering
+    failures at the public boundary, but internal packing must not infer the cause of an
+    error from exception text.
+  - >
+    ProductSourcePack and SourceObservationIdentity currently do not establish a global
+    timezone-awareness validation guarantee, so TASK-123 must fail safely when a
+    model-facing observed_at value is not canonically renderable.
+  - >
+    TASK-124 is a hardening milestone before model invocation or grounded-answer
+    synthesis; it does not add either capability.
+
+scope:
+  inspect:
+    - .ai/tasks/TASK-121.yaml
+    - .ai/tasks/TASK-122.yaml
+    - .ai/tasks/TASK-123.yaml
+    - src/product_intelligence/canonical_profile.py
+    - src/product_intelligence/canonical_retrieval.py
+    - src/product_intelligence/canonical_rag_context.py
+    - src/product_source/models.py
+    - tests/product_intelligence/test_canonical_rag_context.py
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+
+  modify:
+    - src/product_intelligence/canonical_rag_context.py
+    - tests/product_intelligence/test_canonical_rag_context.py
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+
+non_goals:
+  - Add or rename public product_intelligence exports.
+  - Change CanonicalRagContext, CanonicalRagHitContext, CanonicalRagEvidenceBlock, or CanonicalRagEvidenceKind public fields or semantics.
+  - Change schema canonical_variant_rag_context version 1 or add a new rendered field, error code, truncation reason, warning list, or diagnostic payload.
+  - Modify TASK-121 profile construction or TASK-122 lexical normalization, matching, witnesses, hit ordering, or limits.
+  - Add validation to ProductSourcePack, SourceObservationIdentity, upstream entity resolution, catalog admission, or persistence as a substitute for fail-closed RAG rendering.
+  - Derive, rewrite, expand, or normalize question or retrieval_query.
+  - Change canonical supplemental evidence traversal, citation IDs, greedy packing order, witness preservation, conflict preservation, or whole-block omission semantics.
+  - Add preferred-truth selection, confidence, majority/latest policy, deduplication, reranking, semantic retrieval, embeddings, vector search, FTS, BM25, or indexes.
+  - Add prompt construction, provider-specific formatting, tokenizers, token estimates, model invocation, answer synthesis, citation generation by a model, or response validation.
+  - Add filesystem, SQLite, network, browser, environment, clock, random, UUID, subprocess, queue, cache, or background work.
+  - Optimize packing for maximum number of blocks, reorder later smaller blocks ahead of earlier canonical blocks, or reconsider previously omitted blocks.
+
+constraints:
+  hard:
+    - >
+      Preserve exactly the TASK-123 public API surface. TASK-124 must not add new public
+      names to product_intelligence and must not change any existing call signature or
+      returned public dataclass shape.
+    - >
+      Preserve the exact rendered schema canonical_variant_rag_context version 1,
+      ensure_ascii=False, sort_keys=True, separators=(",", ":"), no BOM, and no trailing
+      newline. Valid TASK-123 contexts must remain byte-for-byte deterministic under the
+      same values and budget.
+    - >
+      truncated=true and omitted_evidence_blocks>0 must mean only that otherwise
+      canonically renderable supplemental evidence blocks were omitted because admitting
+      those whole blocks under the existing canonical packing order would exceed
+      max_context_utf8_bytes. No structural, evidence, datetime, enum, encoding, or
+      rendering-integrity failure may be converted into truncation metadata.
+    - >
+      Supplemental candidate evaluation must distinguish exact rendered byte size from
+      render validity without parsing, matching, or branching on CanonicalRagContextError
+      message text. Budget overflow is a size decision; other render failures are errors.
+    - >
+      The builder must fail closed with CanonicalRagContextError when mandatory or
+      supplemental model-facing evidence cannot be canonically rendered. A non-renderable
+      supplemental block must abort construction even if omitting that block would allow
+      the remaining context to fit the byte budget.
+    - >
+      In particular, a supplemental evidence object whose SourceObservationIdentity has
+      a naive observed_at datetime must not be silently omitted as budget truncation.
+      Timezone-aware datetimes representing the same instant through different offsets
+      must continue to serialize through the existing UTC canonicalization semantics.
+    - >
+      Valid oversized supplemental blocks must retain existing whole-block omission
+      behavior: no partial evidence field or string truncation, canonical candidate order
+      unchanged, truncated=true, and omitted_evidence_blocks equal to the exact number of
+      valid eligible blocks not admitted.
+    - >
+      Mandatory context overflow must retain existing fail-closed behavior and must not
+      drop hits, retrieval witnesses, question text, retrieval_query, or required fields.
+    - >
+      retrieve_canonical_variant_profiles must still be invoked exactly once with the
+      caller-supplied profiles, exact retrieval_query, and limit=max_hits. TASK-124 must
+      not precompute, rerun, or independently reproduce TASK-122 matching.
+    - >
+      Exact TASK-122 hit/profile/witness/source-evidence identity reuse and exact TASK-121
+      supplemental source-object identity reuse must remain unchanged. Equal-looking and
+      conflicting evidence remain plural and no value-based deduplication is introduced.
+    - >
+      Evidence whitelist and untrusted-data policy remain exactly TASK-123 semantics.
+      Transport-only URLs, pack/product IDs, hashes, filenames, and unrestricted source
+      fields remain excluded from rendered evidence.
+    - >
+      Any internal rendering or byte-measurement helper introduced to separate validity
+      from budget enforcement must remain private, pure, deterministic, and use the same
+      canonical JSON representation as render_canonical_rag_context; no second schema or
+      approximate byte estimator is allowed.
+    - >
+      Do not use broad exception swallowing around supplemental packing. Unexpected or
+      invalid render state must remain visible as the existing canonical error boundary,
+      not be treated as a packing miss.
+    - >
+      Documentation must state that TASK-124 only makes truncation semantics truthful;
+      it does not add product-truth reconciliation, prompt-injection immunity, model
+      reasoning, answer synthesis, or external execution.
+    - Do not push from executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      TASK-124 changes no public product_intelligence API, no TASK-123 public dataclass
+      fields, no builder/renderer signatures, and no canonical RAG schema/version.
+  - id: AC2
+    condition: >
+      A canonically valid context that fit before TASK-124 renders byte-for-byte the same
+      deterministic compact JSON after TASK-124 under the same values and byte budget.
+  - id: AC3
+    condition: >
+      Supplemental packing no longer catches a general CanonicalRagContextError and
+      silently treats every such failure as omission; byte-budget rejection is decided
+      independently from render/integrity failure without exception-message parsing.
+  - id: AC4
+    condition: >
+      A retrieval hit whose matching witness is valid but whose otherwise eligible
+      supplemental evidence contains a naive observed_at fails construction with
+      CanonicalRagContextError rather than returning truncated=true or incrementing
+      omitted_evidence_blocks.
+  - id: AC5
+    condition: >
+      A non-renderable supplemental block still fails closed when its serialized content
+      would also be too large for the current remaining budget, proving validity is not
+      bypassed merely because the block could have been omitted for size.
+  - id: AC6
+    condition: >
+      Timezone-aware observed_at values continue to canonicalize to UTC and value-equal
+      instants represented with different offsets continue to produce identical rendered
+      JSON where all other values are equal.
+  - id: AC7
+    condition: >
+      Valid oversized supplemental evidence remains omitted whole in exact existing
+      canonical order, with no partial truncation and exact truncated /
+      omitted_evidence_blocks metadata.
+  - id: AC8
+    condition: >
+      Mandatory-context overflow behavior remains fail-closed, all retrieval witnesses
+      remain mandatory, and TASK-122 delegation still occurs exactly once with unchanged
+      retrieval semantics.
+  - id: AC9
+    condition: >
+      Exact hit/profile/witness/source-evidence identity, supplemental evidence identity,
+      conflict plurality, evidence whitelist, citation addressing, and evidence_policy
+      behavior remain unchanged from TASK-123.
+  - id: AC10
+    condition: >
+      Focused regressions cover valid budget omission, naive-datetime supplemental failure,
+      invalid-and-oversized supplemental failure, mandatory overflow, UTC offset-equivalent
+      determinism, exact renderer bytes for valid contexts, exactly-once retrieval, and
+      preservation of no-model/no-I/O behavior; documentation records TASK-124 as packing
+      integrity hardening only.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_canonical_profile.py tests/product_intelligence/test_canonical_retrieval.py tests/product_intelligence/test_canonical_rag_context.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
