@@ -1,0 +1,8 @@
+finding_id: F1
+action: CODE_FIX
+reviewed_sha: 11fa6d596434f6fd3ee100b2bb481c4a2093b8bd
+modification_scope:
+  - docs/PHASE_6_M3_COMPLETION.md
+affected_verification:
+  - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+constraints: []
