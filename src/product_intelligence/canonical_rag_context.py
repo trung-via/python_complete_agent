@@ -219,14 +219,7 @@ def build_canonical_rag_context(
                 truncated=tentative_omitted > 0,
                 omitted_evidence_blocks=tentative_omitted,
             )
-            rendered_dict = _render_canonical_rag_context_dict(tentative_context)
-            rendered_json = json.dumps(
-                rendered_dict,
-                ensure_ascii=False,
-                sort_keys=True,
-                separators=(",", ":"),
-            )
-            rendered_len = len(rendered_json.encode("utf-8"))
+            rendered_json, rendered_len = _serialize_canonical_rag_context(tentative_context)
             if rendered_len <= max_context_utf8_bytes:
                 admitted_per_hit[hit_idx].append(candidate_block)
                 admitted_count += 1
@@ -360,19 +353,33 @@ def _render_canonical_rag_context_dict(context: CanonicalRagContext) -> dict:
     }
 
 
+def _serialize_canonical_rag_context(context: CanonicalRagContext) -> tuple[str, int]:
+    root = _render_canonical_rag_context_dict(context)
+    try:
+        rendered_json = json.dumps(
+            root,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    except (TypeError, ValueError) as exc:
+        raise CanonicalRagContextError(f"JSON serialization failed: {exc}") from exc
+    except Exception as exc:
+        raise CanonicalRagContextError(f"serialization failed: {exc}") from exc
+
+    try:
+        rendered_bytes = rendered_json.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise CanonicalRagContextError(f"UTF-8 encoding failed: {exc}") from exc
+
+    return rendered_json, len(rendered_bytes)
+
+
 def render_canonical_rag_context(context: CanonicalRagContext) -> str:
     """Render an exact CanonicalRagContext as deterministic compact JSON."""
 
-    root = _render_canonical_rag_context_dict(context)
+    rendered_json, rendered_bytes = _serialize_canonical_rag_context(context)
 
-    rendered_json = json.dumps(
-        root,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    )
-
-    rendered_bytes = len(rendered_json.encode("utf-8"))
     if rendered_bytes > context.max_context_utf8_bytes:
         raise CanonicalRagContextError(
             f"Rendered context size ({rendered_bytes} bytes) exceeds budget ({context.max_context_utf8_bytes} bytes)"

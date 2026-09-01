@@ -811,3 +811,50 @@ def test_invalid_and_oversized_supplemental_fails_closed():
             max_context_utf8_bytes=4096,
         )
     assert "observed_at must be an aware datetime" in str(excinfo.value)
+
+
+def test_supplemental_non_json_serializable_value_fails_closed():
+    # AC3 / Remediation F1: Valid retrieval hit with supplemental whitelisted field
+    # containing non-JSON-serializable value (e.g. bytes) raises CanonicalRagContextError
+    # rather than TypeError or truncating/omitting the block.
+    m_valid = make_member("valid", platform="Shopee")
+    obs_valid = CanonicalProfileObservation(
+        member=m_valid,
+        collector="c",
+        title="Valid Title Match",
+        shop_name="Shop",
+        brand="Brand",
+        model_sku="SKU-1",
+        description_text="Desc",
+    )
+    # Media evidence with non-JSON-serializable bytes in whitelisted field alt_text
+    media_invalid = CanonicalProfileMediaEvidence(
+        member=m_valid,
+        media=OriginalMediaRef(
+            source_url="https://example.com/img.png",
+            platform="Shopee",
+            role=MediaRole.PRIMARY,
+            provenance=MediaProvenance.STRUCTURED_PRODUCT_DATA,
+            ordinal=1,
+            alt_text=b"raw-bytes-not-json-serializable",  # type: ignore
+        ),
+    )
+
+    prof = CanonicalVariantProfile(
+        variant_id="var-invalid-json",
+        family_id="fam-1",
+        members=(m_valid,),
+        observations=(obs_valid,),
+        fact_evidence=(),
+        media_evidence=(media_invalid,),
+    )
+
+    with pytest.raises(CanonicalRagContextError) as excinfo:
+        build_canonical_rag_context(
+            [prof],
+            question="What is this?",
+            retrieval_query="Valid",
+            max_context_utf8_bytes=32768,
+        )
+    assert "JSON serialization failed" in str(excinfo.value)
+
