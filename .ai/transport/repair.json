@@ -1,0 +1,27 @@
+{
+  "repair_id": "REPAIR-125-001",
+  "failed_run_id": "RUN-125-001",
+  "failed_head_sha": "d47ed9c048cacd152452cf2a7054c662e1043c82",
+  "task": {
+    "id": "TASK-125",
+    "revision": 1
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "src/product_source/serialization.py",
+    "src/product_source/__init__.py",
+    "tests/product_source/test_source_pack_serialization.py",
+    "tests/product_intelligence/test_m3_persistent_knowledge_restart.py",
+    "docs/PHASE_6_PRODUCT_SOURCE_PACK.md",
+    "docs/PHASE_6_M3_ENTITY_RESOLUTION.md",
+    "docs/PHASE_6_M3_COMPLETION.md"
+  ],
+  "instructions": [
+    "Continue the original TASK-125 from the exact unchanged failed_head_sha of RUN-125-001. The primary RUN failed before TASK-125 was dispatched because another repository AIOS run held the operator lock, so there is no prior implementation delta to preserve or narrow around.",
+    "Implement the original TASK-125 contract exactly as written, using only its existing scope.modify paths and existing semantic authorities. This REPAIR is continuity for the failed primary run, not a new task, not a redesign, and not permission to widen M3 or introduce M4 behavior.",
+    "Preserve deserialize_source_pack(path) as the existing raw-dict compatibility API and add the explicit strict typed ProductSourcePack rehydration path under src/product_source/serialization.py rather than creating a second evidence codec, persistence store, profile store, retrieval store, or RAG authority.",
+    "Complete the restart-style M3 integration proof and the phase-completion documentation required by TASK-125. Runtime verification remains the exact TASK-125 verification contract, including the one phase-level tests/product_intelligence gate and git diff --check.",
+    "Do not reroute to another executor, do not modify AIOS-renew or worker surfaces, do not push/merge product source, and bind the structural ResultPackage to the committed repair candidate HEAD with complete TASK-125 acceptance claims/evidence."
+  ],
+  "constraints": []
+}
