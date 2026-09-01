@@ -1,0 +1,19 @@
+{
+  "repair_id": "REPAIR-125-004",
+  "failed_run_id": "RUN-125-004",
+  "failed_head_sha": "11fa6d596434f6fd3ee100b2bb481c4a2093b8bd",
+  "task": {
+    "id": "TASK-125",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue from the exact failed_head_sha of RUN-125-004 and preserve the committed TASK-125 candidate byte-for-byte. RUN-125-004 is a structural completion-package failure only: the canonical operator rejected Result.changed_files because the returned list did not describe the complete original TASK-125 delta.",
+    "Do not modify, recommit, revert, rewrite, or otherwise change any product source, test, documentation, TASK, worker, AIOS, or runtime file. This is a NO_CHANGE continuation and result.head_sha must remain exactly 11fa6d596434f6fd3ee100b2bb481c4a2093b8bd.",
+    "Return Result.changed_files as exactly these seven repository-relative paths, representing the complete original TASK-125 delta from root baseline d47ed9c048cacd152452cf2a7054c662e1043c82 to the unchanged candidate HEAD: docs/PHASE_6_M3_COMPLETION.md; docs/PHASE_6_M3_ENTITY_RESOLUTION.md; docs/PHASE_6_PRODUCT_SOURCE_PACK.md; src/product_source/__init__.py; src/product_source/serialization.py; tests/product_intelligence/test_m3_persistent_knowledge_restart.py; tests/product_source/test_source_pack_serialization.py. Do not return an empty changed_files list and do not include .ai transport/repair artifacts or any other path.",
+    "Return a complete structural ResultPackage for the original TASK-125 acceptance contract. Every claims[].satisfies entry must contain only actual TASK-125 acceptance IDs AC1 through AC12; no REPAIR ID, RUN ID, TASK ID, claim ID, prose label, or other token may appear in satisfies. Root evidence and every claim.evidence remain empty for Runtime-owned verification, and result.unresolved must be empty unless a real unresolved TASK-125 condition exists.",
+    "Preserve the existing candidate implementation and all prior TASK-125 semantic intent. Runtime owns the exact original TASK-125 verification gates. Do not reroute executor, widen scope, introduce M4 behavior, push, merge, or perform any product mutation."
+  ],
+  "constraints": []
+}
