@@ -1,0 +1,300 @@
+task_id: TASK-125
+revision: 1
+
+goal: >
+  Close Phase 6 M3 by adding one strict deterministic typed rehydration path to the
+  existing Product Source Pack serialization authority, so a persisted source_pack.json
+  can be reconstructed as an exact immutable ProductSourcePack suitable for the existing
+  TASK-121 canonical profile boundary after process restart. Prove the restart-style
+  knowledge path from persisted source evidence plus TASK-120 SQLite catalog through
+  TASK-121 profile, TASK-122 retrieval, and TASK-123/TASK-124 grounded RAG context, then
+  record Phase 6 M3 completion without changing any existing Product Intelligence
+  semantic authority.
+
+problem: >
+  Phase 6 M3 now provides cross-listing entity resolution, Human-approved canonical
+  family/variant identity, catalog integrity, canonical snapshot bytes, durable SQLite
+  catalog storage, evidence-preserving variant profiles, lexical retrieval, and grounded
+  RAG-context packaging. However, ProductSourcePack persistence predates M3 and the
+  existing deserialize_source_pack(path) returns only a raw dict rather than a typed
+  ProductSourcePack. TASK-121 intentionally accepts exact ProductSourcePack values only.
+  After a process restart, the canonical catalog can be reloaded from SQLite but the rich
+  persisted source evidence has no strict typed rehydration path back into TASK-121.
+  This leaves the persistent RAG knowledge-base path incomplete even though every
+  downstream M3 boundary is implemented. TASK-125 must close only that gap, reuse the
+  existing product_source.serialization ownership instead of introducing a second
+  evidence store/codec authority, and certify M3 as a completed Product Knowledge Base
+  milestone.
+
+assumptions:
+  - >
+    Current canonical python_complete_agent main baseline before TASK-125 authoring is
+    f9dd068690c78ad7c8e2399701d60a46daa5c02d.
+  - >
+    ProductSourcePack, ProductFact, OriginalMediaRef, MediaRole, and MediaProvenance in
+    src/product_source/models.py remain the canonical source-evidence value contracts.
+  - >
+    src/product_source/serialization.py remains the existing persistence/manifest
+    authority for Product Source Pack JSON and must be extended rather than bypassed by
+    a new M3 profile/RAG persistence format.
+  - >
+    Existing serialize_source_pack(pack, output_dir) behavior and source_pack.json V1
+    layout are already used by the Product Source Pack pipeline and must remain backward
+    compatible unless strict validation requires rejecting malformed persisted data.
+  - >
+    TASK-118 remains the sole canonical catalog-integrity authority; TASK-119 remains
+    the sole canonical catalog byte/rehydration authority; TASK-120 remains the sole
+    durable canonical-catalog SQLite/transaction authority.
+  - >
+    TASK-121 remains the sole canonical variant evidence-profile projection authority;
+    TASK-122 remains the sole lexical retrieval authority; TASK-123/TASK-124 remain the
+    sole grounded RAG context packaging/packing-integrity authority.
+  - >
+    Model invocation, answer synthesis, product-truth reconciliation, prompt generation,
+    embeddings/vector search, autonomous merge policy, identity evolution, migrations,
+    and cryptographic authenticity remain outside TASK-125 and outside the M3 completion
+    gate.
+
+scope:
+  inspect:
+    - .ai/tasks/TASK-108.yaml
+    - .ai/tasks/TASK-118.yaml
+    - .ai/tasks/TASK-119.yaml
+    - .ai/tasks/TASK-120.yaml
+    - .ai/tasks/TASK-121.yaml
+    - .ai/tasks/TASK-122.yaml
+    - .ai/tasks/TASK-123.yaml
+    - .ai/tasks/TASK-124.yaml
+    - src/product_source/models.py
+    - src/product_source/serialization.py
+    - src/product_source/__init__.py
+    - src/product_intelligence/canonical_catalog_sqlite.py
+    - src/product_intelligence/canonical_profile.py
+    - src/product_intelligence/canonical_retrieval.py
+    - src/product_intelligence/canonical_rag_context.py
+    - tests/product_intelligence/test_canonical_catalog_sqlite.py
+    - tests/product_intelligence/test_canonical_profile.py
+    - tests/product_intelligence/test_canonical_retrieval.py
+    - tests/product_intelligence/test_canonical_rag_context.py
+    - docs/PHASE_6_PRODUCT_SOURCE_PACK.md
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+
+  modify:
+    - src/product_source/serialization.py
+    - src/product_source/__init__.py
+    - tests/product_source/test_source_pack_serialization.py
+    - tests/product_intelligence/test_m3_persistent_knowledge_restart.py
+    - docs/PHASE_6_PRODUCT_SOURCE_PACK.md
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+    - docs/PHASE_6_M3_COMPLETION.md
+
+non_goals:
+  - Modify ProductSourcePack, ProductFact, OriginalMediaRef, MediaRole, MediaProvenance,
+    SourceObservationIdentity, or other existing domain model semantics merely to make
+    persisted data easier to decode.
+  - Modify TASK-108 through TASK-124 public semantics, signatures, schemas, ordering,
+    identity, approval, catalog, codec, SQLite, profile, retrieval, or RAG behavior.
+  - Add a second ProductSourcePack manifest format, M3 evidence database, canonical
+    profile persistence format, RAG document store, cache, index store, or shadow catalog.
+  - Move ProductSourcePack evidence into TASK-120 canonical catalog SQLite storage.
+  - Store ProductSourcePack facts/media redundantly inside CanonicalCatalogState or the
+    TASK-119 canonical catalog snapshot.
+  - Add normalized SQL tables for source evidence, profiles, retrieval documents, or RAG
+    contexts.
+  - Add filesystem discovery, directory scanning, Drive listing, network download,
+    browser work, marketplace extraction, media processing, queueing, background jobs,
+    cache invalidation, retry, polling, or watcher behavior.
+  - Add model invocation, answer synthesis, provider-specific prompt construction,
+    embeddings, vector databases, FTS/BM25, reranking, semantic retrieval, or query
+    expansion.
+  - Add product-truth reconciliation, preferred/latest/majority evidence selection,
+    family/variant identity evolution, automatic Human approval replacement, autonomous
+    merge policy, ID allocation, migrations, cryptographic signing/MAC/encryption,
+    backup, replication, or history.
+  - Modify AgentController, main.py, GDrive configuration, tasks.txt runtime behavior,
+    AIOS-renew, repository-owned worker surfaces, or legacy AIOS Bridge/Harness code.
+  - Introduce Phase 6 M4 application/model-consumer behavior in this task.
+
+constraints:
+  hard:
+    - >
+      Extend the existing src/product_source/serialization.py ownership rather than
+      creating another source-pack codec/storage authority. The public typed rehydration
+      operation must read exactly one existing source_pack.json-compatible manifest and
+      return one exact immutable ProductSourcePack.
+    - >
+      Preserve existing serialize_source_pack(pack, output_dir) behavior and persisted V1
+      source_pack.json field meanings. TASK-125 must not silently change the meaning,
+      normalization, sanitization, ordering, or omission policy of currently serialized
+      ProductSourcePack evidence.
+    - >
+      Existing deserialize_source_pack(path) behavior must not be silently repurposed in
+      a way that breaks callers expecting its current raw-dict contract. Add a clearly
+      named typed rehydration API or preserve backward compatibility through an equally
+      explicit compatibility boundary; do not make one function ambiguously return dict
+      in some cases and ProductSourcePack in others.
+    - >
+      Typed rehydration must fail closed for non-object JSON roots, missing/unknown schema
+      version, unknown top-level fields, missing required ProductSourcePack fields, wrong
+      scalar/container types, invalid enum values, malformed facts/media entries,
+      duplicate object keys, invalid datetime values, invalid URLs, invalid ordinal/
+      byte-size/hash metadata, or any representation that cannot reconstruct a valid
+      ProductSourcePack under the existing domain invariants.
+    - >
+      The accepted persisted manifest schema remains exactly the Product Source Pack V1
+      representation emitted by serialize_source_pack. The decoder must not invent
+      defaults for missing observed facts or source metadata, infer absent brand/model/
+      variant values, normalize conflicting evidence, or repair malformed input.
+    - >
+      observed_at must rehydrate to an explicit timezone-aware datetime representing the
+      exact persisted instant. Naive/ambiguous datetime representations fail closed.
+      Do not read the current clock or synthesize a timezone.
+    - >
+      facts must rehydrate in exact persisted tuple order to ProductFact values with
+      exact key, value, unit, source_section, and provenance semantics. Equal-looking or
+      conflicting facts remain distinct and in source order.
+    - >
+      media must rehydrate in exact persisted tuple order to OriginalMediaRef values,
+      restoring MediaRole and MediaProvenance enums plus exact ordinal, alt_text,
+      variant_label, content_type, byte_size, sha256_hash, perceptual_hash, and
+      local_filename values. Equal-looking media entries must not be deduplicated,
+      reordered, downloaded, hashed, transformed, or selected during decode.
+    - >
+      Rehydration must preserve source_pack_id, platform, product_url, collector, title,
+      source_product_id, shop_name, brand, model_sku, description_text, diagnostic_codes,
+      facts, and media semantics exactly as persisted subject only to existing
+      ProductSourcePack constructor invariants. No new canonical product identity or
+      cross-listing relationship may be inferred from the manifest.
+    - >
+      Round-trip regression must prove that for representative valid ProductSourcePack
+      values supported by the V1 manifest, serialize -> typed rehydrate produces a
+      value-equivalent ProductSourcePack and preserves evidence ordering/provenance. If
+      URL sanitization intentionally changes persisted URL text, tests must assert the
+      canonical persisted/sanitized semantics rather than claim impossible pre-write
+      object identity.
+    - >
+      The typed rehydration path must be deterministic and bounded local I/O only: zero
+      network, browser, Drive, database, model, embedding, subprocess, environment,
+      random/UUID, clock, queue, retry, or background work.
+    - >
+      Add one restart-style integration regression that creates/persists representative
+      source-pack manifests, creates a TASK-120 SQLite canonical catalog containing a
+      registered family/variant lineage matching those observation identities, closes all
+      in-memory construction scope, reloads the catalog through TASK-120, rehydrates the
+      source packs only through the new product_source.serialization typed API, and then
+      successfully executes existing TASK-121 profile -> TASK-122 retrieval ->
+      TASK-123/TASK-124 grounded context construction/rendering.
+    - >
+      The restart-style regression must consume existing public M3 APIs rather than
+      reimplementing catalog/profile/retrieval/RAG semantics. It must perform zero live
+      marketplace, browser, Drive, network, or model operations and must not monkeypatch
+      M3 internals to bypass their normal public validation boundaries.
+    - >
+      The restart-style regression must prove evidence lineage survives persistence at
+      the semantic/value level required across a process boundary. It must not require
+      Python object identity between pre-persist and post-rehydrate ProductSourcePack
+      objects.
+    - >
+      Phase-level certification must run the complete tests/product_intelligence suite
+      once after the narrow implementation is green, in addition to focused Product
+      Source Pack serialization/restart tests. This is a phase-transition health gate,
+      not a new rule to rerun the full subsystem after every future FIX/REPAIR.
+    - >
+      docs/PHASE_6_M3_COMPLETION.md must record the completed M3 boundary as cross-listing
+      entity resolution + persistent canonical product catalog + grounded RAG knowledge
+      base, list TASK-108 through TASK-125 authority ownership, record the exact
+      verification commands/results supplied by execution evidence, and state that M3
+      is complete only if all TASK-125 acceptance criteria and the phase-level subsystem
+      regression pass.
+    - >
+      docs/PHASE_6_M3_ENTITY_RESOLUTION.md must replace or clarify the ambiguous
+      "Deferred M3 work" heading so autonomous merge policy, ID allocation, migrations,
+      cryptographic authenticity, identity evolution, product-truth reconciliation,
+      model-driven answer synthesis, and prompt generation are explicitly post-M3
+      deferred capabilities and do not reopen the completed M3 boundary.
+    - >
+      Completion documentation must define the next phase boundary as Phase 6 M4 —
+      Grounded Product Intelligence Application Layer, consuming M3 canonical knowledge
+      without changing M3 product-truth, identity, retrieval, or RAG-context authority.
+      TASK-125 must not implement M4 behavior.
+    - Do not push from executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      product_source.serialization exposes one explicit typed ProductSourcePack
+      rehydration API under the existing source-pack persistence authority while
+      preserving the existing raw-dict deserialize compatibility contract and existing
+      serialize_source_pack behavior.
+  - id: AC2
+    condition: >
+      A representative valid ProductSourcePack V1 manifest rehydrates to one immutable
+      value-equivalent ProductSourcePack with timezone-aware observed_at and exact ordered
+      ProductFact, OriginalMediaRef, enum, provenance, diagnostic, and descriptive
+      evidence semantics subject only to the existing persisted URL-sanitization policy.
+  - id: AC3
+    condition: >
+      Typed rehydration strictly rejects malformed/non-canonical persisted source-pack
+      data including bad root/schema/fields/types/datetime/enums/facts/media/metadata and
+      performs no silent repair, inferred filling, normalization, deduplication, or
+      external work.
+  - id: AC4
+    condition: >
+      Round-trip and ordering regressions prove valid persisted facts/media/conflicts stay
+      plural and ordered, optional None values remain absent/None as represented by V1,
+      and repeated typed rehydration of identical persisted bytes is deterministic and
+      value-equal.
+  - id: AC5
+    condition: >
+      Existing Product Source Pack serialization compatibility remains intact: existing
+      serialize_source_pack output schema/meaning and raw deserialize_source_pack dict
+      behavior do not change unexpectedly, and no second manifest/profile/RAG persistence
+      format is introduced.
+  - id: AC6
+    condition: >
+      A restart-style no-network integration regression proves that after catalog/source
+      persistence and fresh reload, TASK-120 catalog load + typed ProductSourcePack
+      rehydration + TASK-121 canonical profile construction succeeds using only existing
+      public authorities and exact canonical observation bindings.
+  - id: AC7
+    condition: >
+      The same restart-style regression continues through TASK-122 lexical retrieval and
+      TASK-123/TASK-124 grounded context build/render, producing deterministic grounded
+      context without model invocation, browser/network/Drive work, new retrieval
+      semantics, or product-truth reconciliation.
+  - id: AC8
+    condition: >
+      TASK-118 catalog integrity, TASK-119 canonical catalog codec, TASK-120 SQLite,
+      TASK-121 profile, TASK-122 retrieval, and TASK-123/TASK-124 RAG public semantics and
+      implementation files remain unchanged except where tests/docs consume their public
+      APIs; no upstream authority is duplicated or weakened.
+  - id: AC9
+    condition: >
+      Focused verification covers typed source-pack decode, strict failure cases,
+      serialization compatibility, deterministic evidence ordering, and restart-style M3
+      knowledge reconstruction; git diff --check passes.
+  - id: AC10
+    condition: >
+      The complete tests/product_intelligence suite passes once on the final TASK-125
+      candidate as the M3 phase-transition regression gate, without converting this
+      phase-level gate into a mandatory full-suite rerun for every future narrow FIX or
+      REPAIR.
+  - id: AC11
+    condition: >
+      docs/PHASE_6_M3_COMPLETION.md records the M3 completion scope, exact authority map,
+      verification evidence, source candidate SHA supplied by the execution result, known
+      post-M3 deferrals, and the Phase 6 M4 application-layer boundary; no M4 behavior is
+      implemented in TASK-125.
+  - id: AC12
+    condition: >
+      M3 documentation no longer ambiguously treats autonomous merge, ID allocation,
+      migrations, cryptographic authenticity, identity evolution, product-truth
+      reconciliation, model answer synthesis, or prompt generation as unfinished M3
+      blockers; they are explicitly classified as post-M3 deferred capabilities.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_source/test_source_pack_serialization.py tests/product_intelligence/test_m3_persistent_knowledge_restart.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
