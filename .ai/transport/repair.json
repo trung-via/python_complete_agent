@@ -1,0 +1,19 @@
+{
+  "repair_id": "REPAIR-125-002",
+  "failed_run_id": "RUN-125-002",
+  "failed_head_sha": "11fa6d596434f6fd3ee100b2bb481c4a2093b8bd",
+  "task": {
+    "id": "TASK-125",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue from the exact failed_head_sha of RUN-125-002 and preserve the committed TASK-125 implementation candidate byte-for-byte. RUN-125-002 failed only at canonical ResultPackage validation because claim C6 referenced REPAIR-125-001 as though it were an acceptance criterion.",
+    "Do not modify, recommit, revert, rewrite, or otherwise change any product source, test, documentation, TASK, worker, or AIOS file. This is a structural completion-package repair only.",
+    "Emit a corrected complete structural ResultPackage for the unchanged HEAD. Every claims[].satisfies entry must reference only actual TASK-125 acceptance IDs AC1 through AC12. Remove any REPAIR ID, RUN ID, TASK ID, claim ID, prose label, or other non-acceptance token from satisfies. In particular, REPAIR-125-001 must not appear in any satisfies list.",
+    "Preserve the original TASK-125 acceptance coverage and evidence semantics; do not weaken, omit, invent, or reinterpret acceptance criteria merely to pass structural validation. Bind result.head_sha to the unchanged failed_head_sha and report the original TASK-125 changed_files across the root TASK baseline as required by the canonical repair contract.",
+    "Runtime owns the exact original TASK-125 verification gates. Do not reroute executors, do not invoke model/application behavior outside TASK-125, and do not push or merge product source."
+  ],
+  "constraints": []
+}
