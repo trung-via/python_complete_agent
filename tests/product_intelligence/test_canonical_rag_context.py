@@ -827,7 +827,7 @@ def test_supplemental_non_json_serializable_value_fails_closed():
         model_sku="SKU-1",
         description_text="Desc",
     )
-    # Media evidence with non-JSON-serializable bytes in whitelisted field alt_text
+    # Media evidence with non-JSON-serializable bytes in whitelisted field content_type
     media_invalid = CanonicalProfileMediaEvidence(
         member=m_valid,
         media=OriginalMediaRef(
@@ -836,7 +836,7 @@ def test_supplemental_non_json_serializable_value_fails_closed():
             role=MediaRole.PRIMARY,
             provenance=MediaProvenance.STRUCTURED_PRODUCT_DATA,
             ordinal=1,
-            alt_text=b"raw-bytes-not-json-serializable",  # type: ignore
+            content_type=b"image/png-raw-bytes",  # type: ignore
         ),
     )
 
