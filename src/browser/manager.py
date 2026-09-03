@@ -5,7 +5,8 @@ from src.browser.models import BrowserConfig
 class BrowserManager(Protocol):
     """
     Manages the lifecycle of BrowserSessions for autonomous agent runs.
-    Ensures that each run_id gets an isolated session.
+    Caches a session per run_id. Resource isolation depends on the implementation
+    mode: launched contexts are isolated; CDP sessions may borrow the same page.
     """
     
     async def get_or_create_session(self, run_id: str, config: Optional[BrowserConfig] = None) -> BrowserSession:

@@ -16,11 +16,11 @@ class BrowserSession(Protocol):
         ...
 
     async def start(self) -> None:
-        """Starts the browser, context, and a default page."""
+        """Acquires a browser, context, and page according to the selected mode."""
         ...
 
     async def close(self) -> None:
-        """Closes the browser session and frees all resources."""
+        """Releases owned resources; borrowed browser resources remain open."""
         ...
 
     async def navigate(self, url: str) -> None:
@@ -58,8 +58,9 @@ class BrowserSession(Protocol):
         """
         ...
 
-    async def evaluate(self, script: str) -> Any:
+    async def evaluate(self, script: str, arg: Any = None) -> Any:
         """
         Evaluates a JavaScript expression or function in the context of the current page.
+        Passes arg unchanged as the optional argument to that expression/function.
         """
         ...

@@ -48,6 +48,74 @@ Environment variables (stored in `.env` or system environment):
 - `GDRIVE_FOLDER_ID`: Target Google Drive folder ID for scraped/watermarked media.
 - `credentials.json`: OAuth2 credentials for Google Drive integrator.
 
+### Production browser attachment (TASK-126)
+
+The default `AgentController` explicitly constructs
+`PlaywrightBrowserManager(cdp_endpoint="http://127.0.0.1:9222")`. Attachment is
+lazy: the first `get_or_create_session(run_id)` calls
+`chromium.connect_over_cdp` with that endpoint and a finite **30,000 ms connection
+timeout**. Controller construction/start does not attach or certify browser
+availability, login, or marketplace access.
+
+The operator must start the dedicated persistent Chrome profile, retain any
+required login, and leave an open tab. A session borrows exactly
+`browser.contexts[0]` and the first non-closed page in that context's existing
+page order. Startup neither navigates nor launches a browser or creates a
+context/page. A page in a later context cannot replace a missing page in the
+first context. Subsequent explicit browser operations may navigate the borrowed
+tab. Per-session `BrowserConfig` cannot switch this manager back to launch mode;
+CDP rejects non-Chromium types and does not apply headless, executable, viewport,
+or user-agent launch settings to borrowed resources. Operation timeouts still
+use `BrowserConfig.timeout_seconds`.
+
+Each run retains its cached session; repeated/concurrent acquisition for the
+same healthy run attaches once. **Different CDP sessions can share the same
+context and page, so browser work must be sequential across runs/consumers.**
+The per-run lock only serializes acquisition/close for that run. There is no
+context isolation, page allocation, cross-run scheduling, or automatic
+reconnection in this mode.
+
+Shutdown (`close_session`, `close_all`, or controller `stop`) removes only that
+session's listeners and stops its owned Playwright connection. It leaves the
+operator's Chrome process, borrowed context/page, and persistent profile open
+and unchanged by cleanup. Partial attachment failure uses the same ownership
+boundary. Closing one session does not close another session's borrowed page.
+
+Connection refusal/timeout, missing context/open page, and disconnection fail
+closed through the existing browser errors, without a fallback launch. Failed
+startup is not cached. Disconnected sessions become `CRASHED`; cached
+`CLOSED`/`CRASHED` sessions are rejected rather than silently replaced. The
+operator must restore the endpoint and an open tab (and login if needed), then
+explicitly close/remove any failed cached session or restart the controller
+before requesting another session. Chrome startup/restart, profile management,
+login, and manual marketplace checks remain operator responsibilities.
+
+### Explicit isolation path
+
+`PlaywrightBrowserManager()` and direct
+`PlaywrightBrowserSession(run_id, BrowserConfig())` retain launch mode. Each
+session launches its configured browser and creates a fresh context/page;
+browser type, headless mode, executable path, viewport, user agent, and operation
+timeout settings retain their prior behavior. Closing releases the owned
+context, browser, and Playwright resources.
+
+To use this mode with a controller, inject it explicitly:
+
+```python
+isolated_manager = PlaywrightBrowserManager()
+agent = AgentController(browser_manager=isolated_manager)
+```
+
+An injected manager retains its identity and selected behavior. There is no
+environment-based or test-based mode detection. Both session contracts support
+`evaluate(script)`, `evaluate(script, arg)`, and `evaluate(script, arg=value)`;
+the argument is forwarded unchanged via Playwright's `arg` keyword.
+
+TASK-126's regressions use a mocked Playwright attachment boundary and isolated
+headless Chromium with local/in-memory DOM fixtures and blocked incidental
+requests. They do not establish live Shopee success, TASK-125 M3 completion, or
+M4 capability.
+
 ---
 
 ## 3. Autonomous File Queue Semantics (`tasks.txt` / `completed.txt`)

@@ -17,6 +17,7 @@ from src.core.retry import RetryPolicy
 from src.core.tool_registry import ToolRegistry
 from src.core.types import ToolCall, ToolResult, ToolStatus
 from src.providers.base import LLMProvider, LLMResponse, ProviderToolCall
+from src.integrations.playwright.manager import PlaywrightBrowserManager
 from src.tools.shopee_scrape_tool import ShopeeScrapeTool
 from src.tools.tiktok_scrape_tool import TikTokScrapeTool
 from tests.support.fault_injection import FaultyLLMProvider
@@ -144,6 +145,53 @@ def test_main_entry_point_references_valid_canonical_methods() -> None:
     assert hasattr(AgentController, "shutdown")
     assert hasattr(AgentController, "run")
     assert hasattr(AgentController, "run_autonomous_loop")
+
+
+def test_default_controller_explicitly_selects_production_cdp(tmp_path: Any, monkeypatch) -> None:
+    from unittest.mock import Mock
+
+    # Constructor wiring only: no Playwright startup, model calls, or Drive auth.
+    factory = Mock(wraps=PlaywrightBrowserManager)
+    monkeypatch.setattr("src.agent_controller.PlaywrightBrowserManager", factory)
+    controller = AgentController(
+        db_path=str(tmp_path / "checkpoints.jsonl"),
+        idempotency_path=str(tmp_path / "idempotency.jsonl"),
+        llm_provider=FaultyLLMProvider([]),
+        image_processor=FakeImageProcessor(),
+        gdrive=FakeGDrive(),
+    )
+    factory.assert_called_once_with(cdp_endpoint="http://127.0.0.1:9222")
+    assert type(controller.browser_manager) is PlaywrightBrowserManager
+    assert controller.browser_manager._cdp_endpoint == "http://127.0.0.1:9222"
+    assert controller.browser_manager._sessions == {}
+    assert controller.tool_context["browser"] is controller.browser_manager
+    assert controller.tool_context["browser_manager"] is controller.browser_manager
+
+
+@pytest.mark.parametrize("falsey", [False, True])
+def test_controller_preserves_explicit_isolated_manager(tmp_path: Any, monkeypatch, falsey: bool) -> None:
+    from unittest.mock import Mock
+
+    class FalseyManager(PlaywrightBrowserManager):
+        def __bool__(self):
+            return False
+
+    manager = FalseyManager() if falsey else PlaywrightBrowserManager()
+    factory = Mock(side_effect=AssertionError("Injected manager must be retained"))
+    monkeypatch.setattr("src.agent_controller.PlaywrightBrowserManager", factory)
+    controller = AgentController(
+        db_path=str(tmp_path / "checkpoints.jsonl"),
+        idempotency_path=str(tmp_path / "idempotency.jsonl"),
+        llm_provider=FaultyLLMProvider([]),
+        image_processor=FakeImageProcessor(),
+        gdrive=FakeGDrive(),
+        browser_manager=manager,
+    )
+    factory.assert_not_called()
+    assert controller.browser_manager is manager
+    assert controller.tool_context["browser"] is manager
+    assert controller.tool_context["browser_manager"] is manager
+    assert manager._cdp_endpoint is None
 
 
 @pytest.mark.asyncio

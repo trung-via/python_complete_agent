@@ -12,7 +12,9 @@ from src.integrations.playwright.session import PlaywrightBrowserSession
 logger = logging.getLogger(__name__)
 
 class PlaywrightBrowserManager(BrowserManager):
-    def __init__(self):
+    def __init__(self, cdp_endpoint: Optional[str] = None):
+        # Mode belongs to the manager, not the per-session launch configuration.
+        self._cdp_endpoint = cdp_endpoint
         self._sessions: Dict[str, BrowserSession] = {}
         self._locks: Dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
 
@@ -26,7 +28,7 @@ class PlaywrightBrowserManager(BrowserManager):
                 
             logger.info(f"Creating new PlaywrightBrowserSession for run {run_id}")
             config = config or BrowserConfig()
-            session = PlaywrightBrowserSession(run_id, config)
+            session = PlaywrightBrowserSession(run_id, config, cdp_endpoint=self._cdp_endpoint)
             await session.start()
             self._sessions[run_id] = session
             return session
@@ -41,6 +43,5 @@ class PlaywrightBrowserManager(BrowserManager):
             
     async def close_all(self) -> None:
         logger.info(f"Closing all {len(self._sessions)} active browser sessions.")
-        for run_id, session in list(self._sessions.items()):
-            await session.close()
-        self._sessions.clear()
+        for run_id in list(self._sessions):
+            await self.close_session(run_id)

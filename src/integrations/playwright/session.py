@@ -21,9 +21,14 @@ from src.browser.errors import (
 logger = logging.getLogger(__name__)
 
 class PlaywrightBrowserSession(BrowserSession):
-    def __init__(self, run_id: str, config: BrowserConfig):
+    CDP_CONNECTION_TIMEOUT_MS = 30_000
+
+    def __init__(self, run_id: str, config: BrowserConfig, cdp_endpoint: Optional[str] = None):
         self._run_id = run_id
         self._config = config
+        self._cdp_endpoint = cdp_endpoint
+        self._owns_browser_resources = cdp_endpoint is None
+        self._listeners = []
         self._state = BrowserState.UNINITIALIZED
         
         self._playwright: Optional[Playwright] = None
@@ -38,6 +43,12 @@ class PlaywrightBrowserSession(BrowserSession):
 
     @property
     def state(self) -> BrowserState:
+        # Also check synchronously when a manager consults its cache, in case the
+        # disconnect event has not yet been dispatched.
+        if (self._cdp_endpoint is not None
+                and self._state in (BrowserState.READY, BrowserState.BUSY)
+                and self._browser is not None and not self._browser.is_connected()):
+            self._on_disconnected()
         return self._state
 
     @property
@@ -51,67 +62,117 @@ class PlaywrightBrowserSession(BrowserSession):
 
         self._state = BrowserState.STARTING
         try:
+            if self._cdp_endpoint is not None and self._config.browser_type != "chromium":
+                raise BrowserContextError("CDP attachment requires browser_type='chromium'.")
             self._playwright = await async_playwright().start()
-            
-            browser_type = getattr(self._playwright, self._config.browser_type)
-            
-            launch_args = {
-                "headless": self._config.headless,
-            }
-            if self._config.executable_path:
-                launch_args["executable_path"] = self._config.executable_path
-                
-            self._browser = await browser_type.launch(**launch_args)
-            
-            context_args = {
-                "viewport": {"width": self._config.viewport_width, "height": self._config.viewport_height}
-            }
-            if self._config.user_agent:
-                context_args["user_agent"] = self._config.user_agent
-                
-            self._context = await self._browser.new_context(**context_args)
-            self._page = await self._context.new_page()
-            
-            # Setup crash listeners
-            self._page.on("crash", self._on_crash)
+
+            if self._cdp_endpoint is not None:
+                self._browser = await self._playwright.chromium.connect_over_cdp(
+                    self._cdp_endpoint, timeout=self.CDP_CONNECTION_TIMEOUT_MS
+                )
+                self._listen(self._browser, "disconnected", self._on_disconnected)
+                if not self._browser.contexts:
+                    raise BrowserContextError("CDP browser has no existing context; open a Chrome tab before retrying.")
+                self._context = self._browser.contexts[0]
+                self._page = next((page for page in self._context.pages if not page.is_closed()), None)
+                if self._page is None:
+                    raise BrowserContextError("CDP first context has no open page; open a Chrome tab before retrying.")
+            else:
+                browser_type = getattr(self._playwright, self._config.browser_type)
+                launch_args = {"headless": self._config.headless}
+                if self._config.executable_path:
+                    launch_args["executable_path"] = self._config.executable_path
+                self._browser = await browser_type.launch(**launch_args)
+                context_args = {
+                    "viewport": {"width": self._config.viewport_width, "height": self._config.viewport_height}
+                }
+                if self._config.user_agent:
+                    context_args["user_agent"] = self._config.user_agent
+                self._context = await self._browser.new_context(**context_args)
+                self._page = await self._context.new_page()
+
+            self._listen(self._page, "crash", self._on_crash)
+            if self._cdp_endpoint is not None:
+                if not self._browser.is_connected() or self._state == BrowserState.CRASHED:
+                    raise BrowserContextError("CDP browser disconnected during attachment.")
+                if self._page.is_closed():
+                    raise BrowserContextError("CDP page closed during attachment.")
             
             self._state = BrowserState.READY
             logger.info(f"Playwright session started for run {self._run_id}.")
-        except Exception as e:
+        except asyncio.CancelledError:
+            await self._release_resources()
             self._state = BrowserState.CRASHED
-            raise BrowserContextError(f"Failed to start Playwright: {e}")
+            raise
+        except Exception as e:
+            await self._release_resources()
+            self._state = BrowserState.CRASHED
+            if self._cdp_endpoint is not None:
+                raise BrowserContextError(
+                    f"Failed to attach Playwright to CDP {self._cdp_endpoint}: {e}. "
+                    "Ensure the operator-managed Chrome endpoint and an existing tab are available; "
+                    "no browser was launched."
+                ) from e
+            raise BrowserContextError(f"Failed to start Playwright: {e}") from e
+
+    def _listen(self, emitter, event, callback):
+        self._listeners.append((emitter, event, callback))
+        emitter.on(event, callback)
+
+    def _on_disconnected(self, *args):
+        if self._state not in (BrowserState.CLOSING, BrowserState.CLOSED):
+            self._state = BrowserState.CRASHED
 
     def _on_crash(self, page: Page):
         logger.error(f"Page crashed in session {self._run_id}")
         self._state = BrowserState.CRASHED
 
     def _check_ready(self):
-        if self._state == BrowserState.CRASHED:
+        if self.state == BrowserState.CRASHED:
             raise BrowserContextError("Browser session has crashed.")
         if self._state != BrowserState.READY and self._state != BrowserState.BUSY:
             raise BrowserNotStartedError()
         if not self._page or self._page.is_closed():
             raise PageClosedError()
 
+    async def _release_resources(self) -> None:
+        for emitter, event, callback in self._listeners:
+            try:
+                emitter.remove_listener(event, callback)
+            except Exception as e:
+                logger.warning(f"Error removing Playwright session listener: {e}")
+        self._listeners.clear()
+
+        # Each session owns its Playwright connection. CDP browser/context/page
+        # are borrowed; stopping the connection must not close those resources.
+        cleanup = []
+        if self._owns_browser_resources:
+            if self._context is not None:
+                cleanup.append(self._context.close)
+            if self._browser is not None:
+                cleanup.append(self._browser.close)
+        if self._playwright is not None:
+            cleanup.append(self._playwright.stop)
+        for release in cleanup:
+            try:
+                await release()
+            except Exception as e:
+                # Continue releasing other owned resources, including after a
+                # partial start; cleanup must not replace the original error.
+                logger.warning(f"Error while releasing Playwright resource: {e}")
+        self._context = None
+        self._browser = None
+        self._playwright = None
+        self._page = None
+        self._element_cache.clear()
+
     async def close(self) -> None:
+        if self._state == BrowserState.CLOSED:
+            return
         self._state = BrowserState.CLOSING
-        try:
-            if self._context:
-                await self._context.close()
-            if self._browser:
-                await self._browser.close()
-            if self._playwright:
-                await self._playwright.stop()
-        except Exception as e:
-            logger.warning(f"Error while closing Playwright session: {e}")
-        finally:
-            self._context = None
-            self._browser = None
-            self._playwright = None
-            self._page = None
-            self._element_cache.clear()
-            self._state = BrowserState.CLOSED
-            logger.info(f"Playwright session closed for run {self._run_id}.")
+        await self._release_resources()
+        self._state = BrowserState.CLOSED
+        logger.info(f"Playwright session closed for run {self._run_id}.")
 
     async def navigate(self, url: str) -> None:
         self._check_ready()
@@ -233,11 +294,11 @@ class PlaywrightBrowserSession(BrowserSession):
             if self._state != BrowserState.CRASHED:
                 self._state = BrowserState.READY
 
-    async def evaluate(self, script: str) -> Any:
+    async def evaluate(self, script: str, arg: Any = None) -> Any:
         self._check_ready()
         self._state = BrowserState.BUSY
         try:
-            return await self._page.evaluate(script)
+            return await self._page.evaluate(script, arg=arg)
         except PlaywrightError as e:
             raise BrowserContextError(f"Failed to evaluate script: {e}")
         finally:
