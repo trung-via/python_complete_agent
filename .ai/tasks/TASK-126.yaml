@@ -1,0 +1,208 @@
+task_id: TASK-126
+revision: 1
+
+goal: >
+  Integrate the existing persistent Chrome at http://127.0.0.1:9222 into the
+  production BrowserManager path and repair the BrowserSession evaluate(script,
+  arg) contract. Reuse the attached browser's existing context and page, fail
+  closed when attachment is unavailable, and retain the existing launch-based
+  path for isolated tests and explicitly injected isolated consumers.
+
+problem: >
+  AgentController currently constructs PlaywrightBrowserManager(), whose sessions
+  always launch a new browser and create a new context/page. That path cannot use
+  the operator's already authenticated persistent Chrome profile. Separately,
+  ShopeeSourceExtractor calls evaluate(script, product_id), while BrowserSession
+  and PlaywrightBrowserSession accept only script. Permissive extractor fakes and
+  tests calling raw Playwright Page.evaluate conceal this production contract gap.
+
+assumptions:
+  - >
+    Authoring baseline is python_complete_agent main
+    d47ed9c048cacd152452cf2a7054c662e1043c82, confirmed against origin/main.
+    The largest authored TASK and remote TASK/RUN identifier observed is 125.
+    TASK-126 is an independent browser integration/regression task; it neither
+    implements nor certifies TASK-125 M3 completion or any M4 capability.
+  - >
+    TASK-010 owns AgentController production wiring/lifecycle; TASK-012 owns the
+    existing public evaluate capability and Shopee discovery integration;
+    TASK-013 owns ProductSourcePack and marketplace extraction semantics.
+    Their older contracts are archived on origin/ai-control; current source and
+    docs/PHASE_6_BOOTSTRAP.md and docs/PHASE_6_PRODUCT_SOURCE_PACK.md remain the
+    implementation authority. Do not reactivate the legacy AIOS Bridge.
+  - >
+    The operator has confirmed that the dedicated Chrome profile retains Shopee
+    login after restart. Chrome startup, login, and any manual verification remain
+    operator responsibilities. This report is context, not automated test evidence.
+  - >
+    The active execution kernel remains the exact repository pin
+    59b31ede597d4a27b848771522672705a021abe4. Do not modify its version, launcher,
+    execution gates, synchronization, or review/publication semantics.
+
+scope:
+  inspect:
+    - src/browser/models.py
+    - src/browser/errors.py
+    - src/browser/manager.py
+    - src/browser/session.py
+    - src/integrations/playwright/manager.py
+    - src/integrations/playwright/session.py
+    - src/agent_controller.py
+    - main.py
+    - src/product_source/platforms/shopee.py
+    - src/product_source/platforms/tiktok.py
+    - src/product_source/models.py
+    - src/tools/browser/navigate.py
+    - src/tools/shopee_scrape_tool.py
+    - tests/integration/test_browser_tools.py
+    - tests/integration/test_phase6_bootstrap.py
+    - tests/product_source/test_shopee_source_extractor.py
+    - tests/product_source/test_tiktok_source_extractor.py
+    - tests/product_source/test_extractor_dom_fixtures.py
+    - tests/product_source/test_scrape_tool_compat.py
+    - docs/PHASE_6_BOOTSTRAP.md
+    - docs/PHASE_6_PRODUCT_SOURCE_PACK.md
+  modify:
+    - src/browser/manager.py
+    - src/browser/session.py
+    - src/integrations/playwright/manager.py
+    - src/integrations/playwright/session.py
+    - src/agent_controller.py
+    - tests/integration/test_browser_cdp.py
+    - tests/integration/test_phase6_bootstrap.py
+    - docs/PHASE_6_BOOTSTRAP.md
+
+non_goals:
+  - Change Shopee/TikTok extraction scripts, selectors, identity matching, media filtering, or ProductSourcePack semantics.
+  - Change product intelligence, persistence, catalog, retrieval, RAG, ranking, or approval semantics.
+  - Change AgentLoop, queue processing, retries, readiness gates, idempotency, or tool result/error contracts.
+  - Launch or restart production Chrome, copy/export cookies, manage profiles, automate login, or bypass verification.
+  - Add browser pools, scheduling, page-allocation policies, automatic reconnection, or concurrent shared-page orchestration.
+  - Add environment-dependent mode detection, pytest detection, dependencies, or an alternative browser manager authority.
+  - Modify AIOS artifacts or implementation outside the exact authorized modification paths; push or merge from the executor.
+
+constraints:
+  hard:
+    - >
+      Add an explicit optional CDP endpoint selection to the existing Playwright
+      manager/session boundary. Preserve the existing no-argument manager and
+      direct session launch behavior for isolation. AgentController's default
+      production manager must explicitly select http://127.0.0.1:9222; an injected
+      browser_manager must retain its existing behavior and identity. Per-session
+      BrowserConfig values must not silently disable CDP on that production manager.
+    - >
+      The CDP path must call chromium.connect_over_cdp with that endpoint and a
+      finite connection timeout, then reuse browser.contexts[0] and the first
+      non-closed page in that context's existing page order. Do not navigate on
+      start. Do not call launch, launch_persistent_context, new_context, or new_page
+      in the CDP path. Missing context or an empty/all-closed page list is an
+      explicit BrowserContextError, not authority to create replacements.
+    - >
+      Reject non-Chromium configuration in CDP mode explicitly. Attachment failure,
+      timeout, missing context/page, or disconnection must never fall back to a
+      browser launch, manufacture READY state, or cache a failed session. Surface
+      actionable failure through existing browser errors and preserve existing
+      error/state behavior for operations unrelated to attachment.
+    - >
+      Keep the manager's per-run cache/locking behavior: repeated and concurrent
+      get_or_create_session calls for the same healthy run return the same session
+      and attach once. Existing closed/crashed session handling must not silently
+      restart or replace sessions. Different CDP sessions borrow the persistent
+      browser resources; do not claim browser-context isolation for this mode or
+      introduce a new cross-run scheduling/concurrency framework.
+    - >
+      Resource ownership must distinguish launched resources from borrowed CDP
+      resources. close_session, close_all, repeated close, and partial-start cleanup
+      must release owned Playwright connections/listeners without closing the
+      persistent Chrome process, borrowed context, or borrowed page. Remove only
+      listeners installed by that session. Observe CDP disconnection so a cached
+      disconnected session cannot remain usable as READY. Cleanup must not mask
+      the original attach error. Preserve full cleanup for launch-owned resources.
+    - >
+      Preserve launch mode's browser_type, headless, executable_path, viewport,
+      user_agent, timeout and new-context/new-page behavior. Do not reconfigure
+      borrowed context/page using launch-only BrowserConfig settings, clear browser
+      state, or touch the persistent profile filesystem.
+    - >
+      BrowserSession and PlaywrightBrowserSession must accept one optional evaluate
+      argument both positionally and by keyword, while keeping evaluate(script)
+      valid. Forward the supplied value unchanged to Page.evaluate using its arg
+      keyword. Preserve None, False, 0, empty string, lists, and dictionaries; do not
+      drop falsey arguments, stringify them, or interpolate them into JavaScript.
+      Preserve return values, readiness checks, BUSY/READY/CRASHED behavior and
+      PlaywrightError-to-BrowserContextError translation.
+    - >
+      Regression tests must traverse real PlaywrightBrowserManager and
+      PlaywrightBrowserSession code, mocking only the lower Playwright boundary for
+      deterministic CDP lifecycle tests. Make forbidden launch/context/page creation
+      observable failures. Include the default AgentController wiring test with
+      external dependencies injected/mocked and an injected-manager preservation test.
+    - >
+      Prove ShopeeSourceExtractor.extract -> manager -> real session.evaluate ->
+      Page.evaluate passes the exact extraction script and product_id. Add a local
+      DOM fixture regression executing the unchanged Shopee script through the real
+      session wrapper in isolated launch mode, including matching versus mismatched
+      structured product identity. Do not replace session.evaluate with a permissive
+      fake or call raw Page.evaluate as the sole compatibility evidence.
+    - >
+      Verification must not attach to the operator's live Chrome or visit live
+      marketplaces, invoke models, download source media, or access Drive. Real
+      browser tests use isolated headless Chromium and in-memory/local DOM fixtures;
+      block incidental external requests. Required tests must execute, not be
+      skipped or marked xfail to obtain PASS.
+    - >
+      Update production bootstrap documentation with the exact endpoint, explicit
+      production/isolation selection, existing-context/page requirement, ownership
+      on shutdown, sequential shared-page limitation, and fail-closed operator
+      recovery. No claim of live Shopee success or M3 completion without evidence.
+    - >
+      Executor work remains local for independent semantic review. No push, merge,
+      retry of PRIMARY, kernel change, or self-authored semantic REVIEW PASS is
+      authorized by this TASK. Runtime-owned evidence is not semantic review.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Default AgentController production wiring selects CDP 9222 through the existing
+      manager; explicit injection and launch-based isolated consumers remain intact.
+  - id: AC2
+    condition: >
+      CDP startup attaches once, reuses the exact first existing context and first
+      open existing page, performs no navigation or resource creation, and repeated
+      same-run acquisition returns the same session without a second attachment/launch.
+  - id: AC3
+    condition: >
+      Tests prove attach refusal/timeout, unsupported browser type, missing context,
+      no usable page and disconnected sessions fail closed, with no fallback launch,
+      failed cache entry, or falsely usable READY session.
+  - id: AC4
+    condition: >
+      Tests prove normal/repeated close, close_all, partial-start failure and listener
+      cleanup preserve borrowed Chrome/context/page and release owned resources;
+      closing one CDP session does not close another session's borrowed resources.
+  - id: AC5
+    condition: >
+      Isolation tests prove chromium.launch and fresh context/page remain available,
+      launch configuration is forwarded as before, and launch-owned resources close.
+  - id: AC6
+    condition: >
+      Both evaluate contracts accept optional positional/keyword arg; tests prove
+      unchanged forwarding of strings, None, False, zero, empty string, list and dict,
+      one-argument compatibility, return values and existing error/state behavior.
+  - id: AC7
+    condition: >
+      A real manager/session Shopee extractor regression forwards script/product_id
+      end to end, and isolated local DOM tests through the real session wrapper prove
+      unchanged target-product identity filtering and source-pack extraction semantics.
+  - id: AC8
+    condition: >
+      Required focused browser/bootstrap/extractor/discovery regressions and git
+      diff --check pass without live session access, test skips, or out-of-scope
+      changes. Documentation precisely describes the new production attachment
+      boundary and retained isolation path.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; & .\venv\Scripts\python.exe -m pytest tests/integration/test_browser_cdp.py tests/integration/test_browser_tools.py tests/integration/test_phase6_bootstrap.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - '$env:PYTHONPATH = ".;src"; & .\venv\Scripts\python.exe -m pytest tests/product_source/test_shopee_source_extractor.py tests/product_source/test_tiktok_source_extractor.py tests/product_source/test_scrape_tool_compat.py tests/product_source/test_extractor_dom_fixtures.py tests/product_intelligence/test_shopee_discovery.py tests/product_intelligence/test_tiktok_discovery.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
