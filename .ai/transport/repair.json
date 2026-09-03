@@ -1,0 +1,19 @@
+{
+  "repair_id": "REPAIR-126-001",
+  "failed_run_id": "RUN-126-001",
+  "failed_head_sha": "54bd044704e189f3bba2bd170d7c0a464c696253",
+  "task": {
+    "id": "TASK-126",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Repair only the structural ResultPackage completion failure recorded for RUN-126-001: its executor marked future Runtime verification as unresolved. Preserve the exact committed candidate at 54bd044704e189f3bba2bd170d7c0a464c696253. Do not edit product, test, task, documentation, Git refs, or operational artifacts; do not create a commit.",
+    "Inspect the original TASK and existing candidate through the normal executor boundary. Return truthful structural claims covering the original acceptance criteria only to the extent supported by the existing implementation and tests. Claims must describe implemented behavior and available regression coverage, not assert that unexecuted tests passed. If a genuine implementation or coverage gap is found, preserve it as unresolved and fail closed; this NO_CHANGE repair grants no code correction authority.",
+    "Return the complete original TASK changed-file set relative to the root baseline 10696f386765e6198aec783bdfdc8acba088feee, with head_sha equal to the unchanged failed candidate. Use the normal native structural ResultPackage contract. Do not rewrite or submit a previously stored package as a substitute for executor inspection.",
+    "Runtime owns execution of all original TASK-126 verification commands after structural completion gates. The executor must not run verification, generate evidence, fabricate test results, or add claim evidence references; both structural package evidence and claim evidence references remain empty. Pending Runtime-owned verification alone is not an implementation unresolved item. Retain any actual unresolved blocker truthfully.",
+    "Do not launch or attach to the operator's live Chrome, access live marketplaces or external product services, broaden the TASK, rerun PRIMARY, modify the AIOS kernel or pin, publish an implementation candidate, merge, or claim semantic REVIEW PASS. Preserve all original TASK constraints and let the unmodified Runtime decide canonical verification and completion."
+  ],
+  "constraints": []
+}
