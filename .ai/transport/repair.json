@@ -1,0 +1,21 @@
+{
+  "repair_id": "REPAIR-125-008",
+  "failed_run_id": "RUN-125-008",
+  "failed_head_sha": "1f7d63aefcb8bcc56b44a8df563a51518068ac2c",
+  "task": {
+    "id": "TASK-125",
+    "revision": 1
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "docs/PHASE_6_M3_COMPLETION.md"
+  ],
+  "instructions": [
+    "Continue only the failed TASK-125 F1 / AC11 repair lineage from RUN-125-008. Preserve the existing TASK-125 implementation and the current failed committed state 1f7d63aefcb8bcc56b44a8df563a51518068ac2c; do not restart PRIMARY, rediscover M3, or modify product code/tests.",
+    "RUN-125-008 failed at the completion gate because RESULT.changed_files did not equal the authoritative Git delta from the original TASK root base. For the repaired ResultPackage, changed_files must describe the complete TASK-125 source delta, not only this narrow repair delta. The exact expected path set is: docs/PHASE_6_M3_COMPLETION.md; docs/PHASE_6_M3_ENTITY_RESOLUTION.md; docs/PHASE_6_PRODUCT_SOURCE_PACK.md; src/product_source/__init__.py; src/product_source/serialization.py; tests/product_intelligence/test_m3_persistent_knowledge_restart.py; tests/product_source/test_source_pack_serialization.py. Do not include .ai transport/repair artifacts in ResultPackage.changed_files.",
+    "Modify only docs/PHASE_6_M3_COMPLETION.md to preserve the existing RUN-125-005 evidence record while correcting its command text to the exact immutable historical command strings from canonical RUN-125-005. V001 command must be exactly: $env:PYTHONPATH = \".;src\"; python -m pytest tests/product_source/test_source_pack_serialization.py tests/product_intelligence/test_m3_persistent_knowledge_restart.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }. V002 command must be exactly: $env:PYTHONPATH = \".;src\"; python -m pytest tests/product_intelligence -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }. V003 command must be exactly: git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }.",
+    "Keep the exact historical evidence bindings and summaries unchanged: RUN-125-005-V001 = 45 passed in 5.11s; RUN-125-005-V002 = 298 passed in 0.72s; RUN-125-005-V003 = verification passed; subject/source candidate SHA = 11fa6d596434f6fd3ee100b2bb481c4a2093b8bd. Do not replace these historical strings with equivalent PowerShell syntax and do not fabricate new historical results.",
+    "Preserve all other M3 completion text, authority map, post-M3 deferrals, M4 boundary, and all files outside docs/PHASE_6_M3_COMPLETION.md byte-for-byte. Commit one non-empty correction delta. Return a complete ResultPackage bound to the new committed HEAD with unresolved empty and with changed_files equal to the full seven-path TASK-125 root delta listed above. Do not push, merge, reroute executor, or create a new TASK."
+  ],
+  "constraints": []
+}
