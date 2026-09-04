@@ -49,14 +49,19 @@ exists.
 
 The canonical runtime owns execution and evidence for the complete original
 TASK-125 delta. The repair executor does not rerun these commands or manufacture
-their outcomes. M3 is complete only when the runtime records PASS for each exact
-gate on the final candidate reported as `ResultPackage.result.head_sha`:
+their outcomes. Canonical `RUN-125-005` verified the TASK-125 implementation candidate
+SHA `11fa6d596434f6fd3ee100b2bb481c4a2093b8bd` with the following exact immutable runtime
+evidence:
 
-```text
-python -m pytest tests/product_source/test_source_pack_serialization.py tests/product_intelligence/test_m3_persistent_knowledge_restart.py
-python -m pytest tests/product_intelligence
-git diff --check
-```
+- **Evidence ID**: `RUN-125-005-V001`
+  - **Command**: `$env:PYTHONPATH='src'; python -m pytest -q tests/product_source/test_source_pack_serialization.py tests/product_intelligence/test_m3_persistent_knowledge_restart.py; if (-not $?) { exit 1 }`
+  - **Summary**: `45 passed in 5.11s`
+- **Evidence ID**: `RUN-125-005-V002`
+  - **Command**: `$env:PYTHONPATH='src'; python -m pytest -q tests/product_intelligence; if (-not $?) { exit 1 }`
+  - **Summary**: `298 passed in 0.72s`
+- **Evidence ID**: `RUN-125-005-V003`
+  - **Command**: `git diff --check; if (-not $?) { exit 1 }`
+  - **Summary**: `verification passed`
 
 The first command covers typed decode, strict rejection, raw-dict and serialized
 V1 compatibility, deterministic ordering, URL-sanitized round trips, and the
@@ -64,10 +69,10 @@ restart proof. The second command is the one-time M3 phase-transition subsystem
 gate. It does not establish a rule that every later narrow FIX or REPAIR must run
 the complete subsystem suite. The third command is the final whitespace gate.
 
-Source candidate: the exact committed SHA in the canonical execution result's
-`ResultPackage.result.head_sha`. Verification results: the runtime-owned results
-for the three commands above. A missing, unresolved, or non-PASS runtime result
-means this completion declaration is not effective.
+Source candidate: `11fa6d596434f6fd3ee100b2bb481c4a2093b8bd` verified in canonical
+`RUN-125-005`. Verification results: the runtime-owned results for the three commands
+above. A missing, unresolved, or non-PASS runtime result means this completion
+declaration is not effective.
 
 ## Post-M3 Deferrals and M4 Boundary
 
