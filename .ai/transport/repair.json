@@ -1,0 +1,21 @@
+{
+  "repair_id": "REPAIR-125-007",
+  "failed_run_id": "RUN-125-007",
+  "failed_head_sha": "11fa6d596434f6fd3ee100b2bb481c4a2093b8bd",
+  "task": {
+    "id": "TASK-125",
+    "revision": 1
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "docs/PHASE_6_M3_COMPLETION.md"
+  ],
+  "instructions": [
+    "Continue only the preserved TASK-125 F1 / AC11 documentation correction after failed RUN-125-007. Do not rerun, rediscover, or modify the original TASK-125 implementation. RUN-125-007 failed at the completion gate without advancing HEAD and without repository mutation, so the preserved semantic finding remains unchanged.",
+    "Modify only docs/PHASE_6_M3_COMPLETION.md. In the Phase-Completion Verification Record, explicitly record canonical RUN-125-005, the runtime-verified TASK-125 implementation candidate SHA 11fa6d596434f6fd3ee100b2bb481c4a2093b8bd, and the exact immutable runtime evidence already produced by RUN-125-005.",
+    "Record the exact three canonical verification command strings from RUN-125-005, including the PowerShell PYTHONPATH assignments, -q flags, and exit guards, together with their evidence IDs and exact PASS summaries: RUN-125-005-V001 = 45 passed in 5.11s; RUN-125-005-V002 = 298 passed in 0.72s; RUN-125-005-V003 = verification passed. Do not rerun or fabricate those historical verification results.",
+    "Preserve the existing M3 authority map, completed boundary, post-M3 deferrals, M4 boundary, and all product code/tests byte-for-byte. Do not change any other file, semantic authority, TASK, worker, AIOS, or runtime behavior.",
+    "Commit one non-empty documentation correction delta and bind the repair ResultPackage to the new committed HEAD. This repair exists only to restore failed-run continuity for the preserved F1 finding; do not widen scope, reroute executor, push, merge, restart PRIMARY, or create a new TASK."
+  ],
+  "constraints": []
+}
