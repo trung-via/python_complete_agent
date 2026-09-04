@@ -54,13 +54,13 @@ SHA `11fa6d596434f6fd3ee100b2bb481c4a2093b8bd` with the following exact immutabl
 evidence:
 
 - **Evidence ID**: `RUN-125-005-V001`
-  - **Command**: `$env:PYTHONPATH='src'; python -m pytest -q tests/product_source/test_source_pack_serialization.py tests/product_intelligence/test_m3_persistent_knowledge_restart.py; if (-not $?) { exit 1 }`
+  - **Command**: `$env:PYTHONPATH = ".;src"; python -m pytest tests/product_source/test_source_pack_serialization.py tests/product_intelligence/test_m3_persistent_knowledge_restart.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }`
   - **Summary**: `45 passed in 5.11s`
 - **Evidence ID**: `RUN-125-005-V002`
-  - **Command**: `$env:PYTHONPATH='src'; python -m pytest -q tests/product_intelligence; if (-not $?) { exit 1 }`
+  - **Command**: `$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }`
   - **Summary**: `298 passed in 0.72s`
 - **Evidence ID**: `RUN-125-005-V003`
-  - **Command**: `git diff --check; if (-not $?) { exit 1 }`
+  - **Command**: `git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }`
   - **Summary**: `verification passed`
 
 The first command covers typed decode, strict rejection, raw-dict and serialized
