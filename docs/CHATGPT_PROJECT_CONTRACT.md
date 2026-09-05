@@ -154,6 +154,39 @@ Do not substitute FIX for REPAIR.
 Do not substitute REPAIR for FIX.  
 Do not restart PRIMARY after narrow correction.
 
+### Brain REPAIR action preflight
+
+Before authoring any REPAIR, the Brain must read the exact canonical FAILURE/candidate facts and classify the required continuation **before** invoking a worker. When action semantics have not already been reconciled in the current chat, the Brain must inspect the exact pinned AIOS-renew runtime rather than infer semantics from memory or current upstream main.
+
+The classification is:
+
+1. **CONTINUATION_ONLY**
+   - No concrete repository defect requiring mutation has been established.
+   - Typical evidence includes executor interruption, transport/control failure, or another non-product failure while the candidate remains clean, repairable, transportable, and within scope.
+   - Verification may not yet have run, or there is otherwise no verification/review evidence proving a source/test/doc correction is required.
+   - Author `NO_CHANGE` REPAIR with an empty modification scope when supported by the exact pinned runtime.
+   - Preserve the exact failed candidate HEAD and use REPAIR to continue canonical verification/completion only.
+
+2. **CODE_CORRECTION_REQUIRED**
+   - A concrete defect requiring repository mutation is already established by canonical failure/verification evidence.
+   - Author `CODE_FIX` REPAIR only with the minimum non-empty correction scope necessary for that defect.
+   - The correction must produce a real committed delta descending from the exact failed head.
+
+3. **RUNTIME_OR_LINEAGE_DEFECT**
+   - The failure indicates AIOS/runtime/control-plane behavior, ambiguous lineage, an untransportable candidate, stale recovery assumptions, or another condition not safely correctable as product code.
+   - Do not fabricate either a CODE_FIX or a product mutation.
+   - Audit the recovery boundary and use Cross-project Escalation when the pinned AIOS runtime is the probable defect owner.
+
+REPAIR action selection is fail-closed:
+
+- Never choose `CODE_FIX` merely to keep open the possibility of editing later.
+- Never pair `CODE_FIX` with instructions such as “do not edit if verification passes”, “verify unchanged candidate first”, or any other intended zero-delta continuation.
+- The pinned Runtime may enforce the REPAIR mutation gate before Runtime-owned verification. Therefore a candidate that merely needs verification continuation must use `NO_CHANGE`; `CODE_FIX` cannot be used as a speculative verify-then-maybe-edit container.
+- Never manufacture an empty/no-op/format-only commit solely to satisfy a `CODE_FIX` HEAD-advance gate.
+- If a `NO_CHANGE` REPAIR reaches verification and verification then proves a concrete defect, preserve that failed RUN as canonical evidence and author the **next** REPAIR as `CODE_FIX` against that new failed RUN.
+- Preserve the executor identity selected by the failed lineage unless explicit canonical Human intent requires a different boundary; never silently reroute during REPAIR.
+- REPAIR instructions, action, and modification scope must agree with one another. If they are semantically contradictory, do not invoke a worker until the REPAIR contract is corrected.
+
 ## 9. Review Semantics
 
 ### PRIMARY review
@@ -205,7 +238,8 @@ For a new ChatGPT chat:
 5. Determine last published implementation.
 6. Determine next authored TASK, if any.
 7. Inspect active RUN / FAILURE / REVIEW / FIX / REPAIR lineage only when relevant.
-8. Produce SYNC CHECKPOINT.
+8. When a failed RUN needs REPAIR and REPAIR action semantics are not already reconciled in the current chat, inspect the exact pinned AIOS runtime before selecting `NO_CHANGE`, `CODE_FIX`, or any successor action vocabulary.
+9. Produce SYNC CHECKPOINT.
 
 Expected checkpoint:
 
