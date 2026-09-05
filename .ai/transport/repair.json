@@ -1,0 +1,18 @@
+{
+  "repair_id": "REPAIR-135-002",
+  "failed_run_id": "RUN-135-002",
+  "failed_head_sha": "7b9b2a1c09c86da734191063029a17296cd6eaf5",
+  "task": {
+    "id": "TASK-135",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue only from the exact failed candidate 7b9b2a1c09c86da734191063029a17296cd6eaf5 for RUN-135-002. Preserve the complete correction lineage RUN-135-001 -> RUN-135-002 and the existing TASK-135 product candidate; do not restart PRIMARY, reroute executors, or rebuild the task from main.",
+    "RUN-135-002 failed only because the prior REPAIR was misclassified as CODE_FIX while intentionally producing no source delta. This continuation is explicitly NO_CHANGE. Do not modify repository source, tests, docs, TASK files, worker files, or AIOS/runtime control-plane files. HEAD must remain exactly 7b9b2a1c09c86da734191063029a17296cd6eaf5.",
+    "Run exactly the original TASK-135 Runtime-owned verification commands against the unchanged failed candidate. If verification fails, preserve that failure as canonical evidence; do not self-author a new correction inside this NO_CHANGE continuation.",
+    "Return a structural REPAIR result for the full TASK candidate lineage from original root base d85bbdde6c3e5e4cfd8bdfacb09b010fc83e300d through unchanged head 7b9b2a1c09c86da734191063029a17296cd6eaf5. Do not claim semantic REVIEW PASS, publish, retry, fallback, or reroute."
+  ],
+  "constraints": []
+}
