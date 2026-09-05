@@ -1,0 +1,38 @@
+review_id: REVIEW-129-001
+reviewed_sha: fadb78bff9a9f238f7b0255ad986198c13d75dc3
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: PASS
+  AC3: PASS
+  AC4: PASS
+  AC5: PASS
+  AC6: PASS
+  AC7: PASS
+  AC8: PASS
+  AC9: FAIL
+  AC10: PASS
+findings:
+  - id: F1
+    basis: AC9
+    action: CODE_FIX
+    location: docs/PHASE_6_M4_GROUNDED_ANSWER.md:Exact Authority Map
+    issue: >
+      The new M4 documentation misstates existing canonical authority. It attributes
+      M2 discovery/scoring/ranking/approval to TASK-101..TASK-107 even though the
+      canonical CandidateRanker authority is TASK-095 and the Human approval boundary
+      is TASK-096. More importantly, it states that M3 owns canonical product truth.
+      Canonical M3 intentionally preserves conflicting evidence and explicitly defers
+      preferred/latest/majority product-truth reconciliation. TASK-129 is required to
+      leave M2 scoring/ranking/approval and M3 knowledge/retrieval/context authorities
+      unchanged, so this wording creates an incorrect authority map for later M4 work.
+    expected: >
+      Modify only docs/PHASE_6_M4_GROUNDED_ANSWER.md. Correct the M2 authority wording
+      by naming the actual existing scoring/ranking/approval authorities without the
+      incorrect TASK-101..TASK-107 range. Replace the M3 product-truth claim with the
+      canonical boundary: M3 owns canonical family/variant identity and catalog
+      persistence plus evidence-preserving profiles, lexical retrieval, and grounded
+      context packaging; conflicting evidence remains plural and product-truth
+      reconciliation or preferred/latest/majority selection remains deferred. Do not
+      modify product code, tests, public APIs, or any M3 semantics.
