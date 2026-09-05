@@ -1,0 +1,215 @@
+task_id: TASK-132
+revision: 1
+
+goal: >
+  Implement Phase 6 M4.3 as one bounded Product Intelligence model-invocation adapter
+  that maps an exact TASK-131 GroundedPromptPackage to the existing generic LLMProvider
+  boundary, performs exactly one tool-free provider call, and returns one syntax-validated
+  model payload for later TASK-129 GroundedAnswer construction, without using AgentLoop,
+  duplicating prompt semantics, retrying/rerouting, or creating product-truth authority.
+
+problem: >
+  TASK-131 established deterministic provider-neutral prompt packaging but deliberately
+  stopped before model invocation. The repository already has a generic LLMProvider and
+  unified LLMMessage types, while the existing AgentLoop is an autonomous tool/retry/
+  checkpoint execution loop for operational agents and is not the M4 grounded-QA runtime.
+  M4 now needs one narrow integration edge that translates the exact GroundedPromptPackage
+  into the existing provider message contract, invokes exactly one provider call with no
+  tools, rejects malformed or tool-calling responses fail-closed, and exposes only a
+  syntax-validated payload. Final context-local citation, leaf-minimum, limitation-bound,
+  answer-text, and product-grounding validation remains exclusively TASK-129 authority.
+
+assumptions:
+  - >
+    Canonical Python Agent main at authoring is
+    6fe4d2a67719f81bd3d5495ba5bc33e977471917, the auto-published TASK-131 source
+    candidate after REVIEW-131-001 PRIMARY PASS.
+  - >
+    The authoritative AIOS dependency remains exactly
+    aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@67db82bf19d63f25721d06aabb82d850db8b78d4.
+  - >
+    TASK-123/TASK-124 remain sole authority for canonical grounded-context construction
+    and rendering. TASK-129 remains sole authority for GroundedAnswer and final structural
+    validation against an exact context. TASK-131 remains sole authority for system
+    instruction, user-prompt framing, and response-schema prompt semantics.
+  - >
+    src/providers/base.py LLMProvider is the existing generic provider execution boundary;
+    TASK-132 must reuse it rather than introduce ProductModelProvider, RagModelProvider,
+    another provider protocol, or provider-specific SDK coupling.
+  - >
+    src/agent/messages.py LLMMessage and MessageRole are existing transport types. TASK-132
+    may map TASK-131 strings to those types at this integration edge, but M4 domain modules
+    such as grounded_prompt.py and grounded_answer.py remain independent of provider/agent
+    transport classes.
+  - >
+    src/agent/loop.py AgentLoop owns autonomous iterative tool execution, budgets,
+    checkpointing, cancellation, retries/continuation semantics, and tool-call handling.
+    TASK-132 must not route grounded QA through AgentLoop or duplicate any of those semantics.
+  - >
+    Product-truth reconciliation, preferred/latest/majority evidence selection, semantic
+    entailment, factual correctness, hallucination detection, query planning, persistent
+    application orchestration, and live-provider certification remain deferred.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_6_M4_GROUNDED_ANSWER.md
+    - docs/PHASE_6_M4_GROUNDED_PROMPT.md
+    - .ai/tasks/TASK-129.yaml
+    - .ai/tasks/TASK-131.yaml
+    - src/product_intelligence/grounded_answer.py
+    - src/product_intelligence/grounded_prompt.py
+    - src/product_intelligence/__init__.py
+    - src/providers/base.py
+    - src/agent/messages.py
+    - src/agent/loop.py
+
+  modify:
+    - src/product_intelligence/grounded_invocation.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_grounded_invocation.py
+    - docs/PHASE_6_M4_GROUNDED_INVOCATION.md
+
+non_goals:
+  - Modify GroundedPromptPackage, TASK-131 prompt strings, response-schema JSON, canonical
+    RAG context, retrieval, profiles, catalog, Product Source Pack, M2 ranking/approval, or
+    TASK-129 GroundedAnswer semantics.
+  - Add another provider protocol, provider factory, model registry, model-selection policy,
+    Gemini/OpenAI/Anthropic-specific adapter, API key handling, environment configuration,
+    JSON mode, response_format, tool/function schema, temperature, token budget, streaming,
+    retry, fallback, rerouting, circuit breaker, or provider failover.
+  - Use AgentLoop, AgentController, ToolExecutor, ToolRegistry, checkpoints, run budgets,
+    browser tools, scraping, Drive, queues, background workers, persistence, SQLite, or
+    filesystem/network calls beyond the one injected LLMProvider.generate invocation.
+  - Invoke any live provider in tests or require network credentials.
+  - Construct GroundedAnswer, call create_grounded_answer, validate context-local citation
+    existence, enforce leaf-citation minima, limitation count/length, answer-text byte bounds,
+    semantic entailment, factual truth, hallucination freedom, or conflict truth.
+  - Reconcile evidence or choose preferred/latest/majority values; model output must not
+    mutate or become canonical product knowledge.
+  - Derive a retrieval query, rebuild prompts, alter question bytes, or interpret evidence
+    outside the exact TASK-131 GroundedPromptPackage.
+
+constraints:
+  hard:
+    - >
+      Add exactly one new integration module src/product_intelligence/grounded_invocation.py.
+      It must expose exactly these new public names from that module and
+      src/product_intelligence/__init__.py: GroundedInvocationError,
+      GroundedModelPayload, invoke_grounded_model.
+    - >
+      GroundedModelPayload must be a frozen dataclass with exactly four fields in this
+      order: status, answer_text, citation_ids, limitations. status must use the existing
+      TASK-129 GroundedAnswerStatus enum rather than introducing another status enum;
+      citation_ids and limitations must be tuples of strings preserving model order.
+      This payload is explicitly syntax-validated transport data, not a GroundedAnswer and
+      not proof of context-local citation validity or semantic grounding.
+    - >
+      The only invocation entry point is async
+      invoke_grounded_model(package, provider). package must be an exact
+      GroundedPromptPackage and subclasses/coercions must fail closed. provider must be
+      consumed only through the existing LLMProvider.generate contract; do not define a
+      second Protocol or require a concrete provider implementation.
+    - >
+      The adapter must construct exactly two new LLMMessage values in this order:
+      MessageRole.SYSTEM with content exactly package.system_instruction, then
+      MessageRole.USER with content exactly package.user_prompt. It must add no assistant,
+      tool, hidden instruction, metadata policy, rewritten question, provider-specific
+      wrapper, or evidence interpolation.
+    - >
+      The adapter must call provider.generate exactly once with those two messages and an
+      empty tools list. There is no AgentLoop, second call, retry, repair, fallback,
+      reroute, continuation, tool execution, or hidden model invocation. Provider
+      exceptions must fail closed as GroundedInvocationError with causal chaining
+      preserved; asyncio cancellation must not be converted into retry behavior.
+    - >
+      A provider response containing any tool call must fail closed as
+      GroundedInvocationError even when content is otherwise valid. TASK-132 never executes,
+      accepts, or follows tool calls. Missing/non-string content must fail closed.
+    - >
+      Response content must parse as exactly one JSON value whose root is an object with
+      exactly these keys and no extras: status, answer_text, citation_ids, limitations.
+      Invalid JSON, non-object roots, missing keys, extra keys, non-string status or
+      answer_text, non-array citation_ids/limitations, non-string array items, or a status
+      value outside the existing GroundedAnswerStatus values must fail closed.
+    - >
+      On syntactically valid content, map status to the existing GroundedAnswerStatus and
+      convert citation_ids/limitations arrays to tuples preserving exact decoded string
+      values and order. Do not strip, normalize, deduplicate, sort, rewrite, truncate, or
+      semantically interpret answer_text, citations, or limitations.
+    - >
+      TASK-132 syntax validation must stop at the TASK-131 response-schema boundary. It
+      must NOT duplicate TASK-129 final validation: blank/oversized answer_text,
+      duplicate/fabricated/cross-context citations, hit-header-only leaf minima,
+      conflicting/insufficient limitation requirements, limitation bounds, or contextual
+      citation resolution are deliberately left for later create_grounded_answer use.
+    - >
+      The integration module may import only the existing provider/message transport types
+      required for the one call plus TASK-129 GroundedAnswerStatus and TASK-131
+      GroundedPromptPackage. It must not import AgentLoop, AgentController, tool execution,
+      browser, storage, AIOS external-brain infrastructure, or provider-specific modules.
+    - >
+      Documentation must lock the authority chain precisely: TASK-123/124 own grounded
+      context; TASK-129 owns final GroundedAnswer structural validation; TASK-131 owns
+      prompt semantics; TASK-132 owns only one-shot LLMProvider transport plus syntactic
+      response-shape parsing. The next application-service milestone will compose these
+      authorities and is the first place allowed to call create_grounded_answer on the
+      returned payload.
+    - >
+      Documentation must not claim prompt-injection immunity, semantic entailment,
+      factual correctness, hallucination freedom, conflict resolution, or canonical
+      product truth. A syntactically valid model payload may still fail TASK-129 final
+      validation and must not be treated as trusted product knowledge.
+    - >
+      Focused tests must use deterministic fake providers only and prove exact one-call
+      behavior, exact two-message mapping, tools=[], provider-exception causal failure,
+      rejection of tool calls, strict JSON/root/key/type/status syntax checks, order/byte
+      preservation of accepted decoded strings, reuse of GroundedAnswerStatus, no
+      GroundedAnswer construction, and no AgentLoop/provider-specific dependency.
+    - Do not push from Executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      grounded_invocation.py and src/product_intelligence/__init__.py expose exactly the
+      three new public names GroundedInvocationError, GroundedModelPayload, and
+      invoke_grounded_model without introducing a second provider protocol or status enum.
+  - id: AC2
+    condition: >
+      GroundedModelPayload is frozen with exactly status, answer_text, citation_ids,
+      limitations; it reuses GroundedAnswerStatus and represents syntax-validated model
+      transport only, not final grounded-answer authority.
+  - id: AC3
+    condition: >
+      invoke_grounded_model accepts only exact GroundedPromptPackage, maps it to exactly
+      SYSTEM(package.system_instruction) then USER(package.user_prompt), and invokes the
+      injected existing LLMProvider exactly once with tools=[] and no AgentLoop/tool path.
+  - id: AC4
+    condition: >
+      Provider exceptions, missing/non-string content, or any returned tool call fail
+      closed without retry/reroute, with provider exception cause preserved.
+  - id: AC5
+    condition: >
+      Response parsing accepts only one JSON object with exactly the four TASK-131 schema
+      keys and exact syntactic types/status values; malformed JSON, wrong root, missing/
+      extra keys, wrong scalar/array/item types, and unknown status fail closed.
+  - id: AC6
+    condition: >
+      Accepted payload values preserve decoded answer/citation/limitation strings and
+      array order without normalization, while status maps to the existing
+      GroundedAnswerStatus and arrays map deterministically to tuples.
+  - id: AC7
+    condition: >
+      TASK-132 does not construct GroundedAnswer or duplicate TASK-129 context-local,
+      leaf-minimum, text-bound, limitation-bound, or semantic validation; M2/M3 and
+      deferred product-truth reconciliation remain unchanged.
+  - id: AC8
+    condition: >
+      Focused offline fake-provider tests and documentation certify AC1-AC7, existing
+      TASK-129/TASK-131 focused tests remain passing, and git diff integrity passes with
+      no live provider/network call.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_grounded_answer.py tests/product_intelligence/test_grounded_prompt.py tests/product_intelligence/test_grounded_invocation.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
