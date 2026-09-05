@@ -212,6 +212,11 @@ from src.product_intelligence.grounded_prompt import (
     GroundedPromptPackage,
     build_grounded_prompt_package,
 )
+from src.product_intelligence.grounded_invocation import (
+    GroundedInvocationError,
+    GroundedModelPayload,
+    invoke_grounded_model,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -382,4 +387,7 @@ __all__ = [
     "GroundedPromptError",
     "GroundedPromptPackage",
     "build_grounded_prompt_package",
+    "GroundedInvocationError",
+    "GroundedModelPayload",
+    "invoke_grounded_model",
 ]
