@@ -1,0 +1,45 @@
+review_id: REVIEW-137-001
+reviewed_sha: b91df98d0f7b737acfd58643c29ea18e67d1ce35
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: FAIL
+  AC3: PASS
+  AC4: PASS
+  AC5: PASS
+  AC6: PASS
+  AC7: PASS
+  AC8: PASS
+findings:
+  - id: F1
+    basis: AC2 and browser-contract consistency
+    action: CODE_FIX
+    location: src/integrations/playwright/session.py; src/browser/manager.py; src/browser/session.py; tests/integration/test_browser_cdp.py
+    issue: >
+      TASK-137 requires CDP attachment to use a finite timeout derived from the existing
+      BrowserConfig timeout authority. The candidate forwards
+      `self._config.timeout_seconds * 1000` directly to `connect_over_cdp`; therefore a
+      caller-supplied BrowserConfig(timeout_seconds=0) becomes Playwright `timeout=0`,
+      whose API semantics disable the connection timeout rather than bounding it. The
+      focused regression covers positive/default timeout values but does not cover zero
+      or negative values, so the fail-closed finite-timeout contract is not actually
+      enforced. In the same browser contract, the public BrowserManager protocol still
+      states that every run_id receives an "isolated session", and BrowserSession.start
+      still says it starts a browser/context/page. Those statements are no longer true
+      for the new CDP mode, which intentionally borrows an operator-owned context/page
+      and may share that page across per-run session objects. Leaving the old protocol
+      wording creates a second, contradictory contract for future callers.
+    expected: >
+      Keep TASK-137 behavior and authority unchanged, but make CDP attachment fail closed
+      before starting/connecting when the configured timeout cannot produce a positive
+      bounded connection timeout (at minimum reject zero and negative timeout_seconds in
+      CDP mode), while preserving existing launch-mode behavior. Add focused deterministic
+      regression coverage proving non-positive CDP timeout values cannot reach
+      connect_over_cdp and do not create/cache a session. Update the existing
+      BrowserManager/BrowserSession protocol documentation only as needed to state that
+      run_id caching is not browser-context/page isolation in CDP mode and that start may
+      attach to and borrow existing resources; retain the launch-mode isolation semantics.
+      Do not change extraction, discovery, Product Source Pack, M2/M3/M4, retry/fallback,
+      CDP endpoint selection, resource ownership, evaluate forwarding, or publication
+      behavior.
