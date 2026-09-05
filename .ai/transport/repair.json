@@ -1,0 +1,19 @@
+{
+  "repair_id": "REPAIR-137-002",
+  "failed_run_id": "RUN-137-002",
+  "failed_head_sha": "91a20e5c898fc63856631cc79bd0bd924c3b6d8b",
+  "task": {
+    "id": "TASK-137",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue only from the exact failed correction candidate 91a20e5c898fc63856631cc79bd0bd924c3b6d8b for RUN-137-002. Preserve the existing TASK-137 lineage RUN-137-001 -> REVIEW-137-001/F1 -> RUN-137-002; do not restart PRIMARY, rerun FIX, reroute executors, or rebuild the task from main.",
+    "RUN-137-002 failed at the Runtime completion gate before verification because the remediation structural RESULT contained claims, while remediation RESULT claims must be empty. This failure does not establish a new product-code defect. This continuation is explicitly NO_CHANGE: do not modify source, tests, docs, TASK files, worker files, or AIOS/runtime control-plane files, and keep HEAD exactly 91a20e5c898fc63856631cc79bd0bd924c3b6d8b.",
+    "Because this invocation is a REPAIR continuation, return a structural task-level ResultPackage for the complete TASK-137 candidate lineage from original TASK root ff0a61f34e0ce5f69a961e04d873b2d6cb4c8d0b through unchanged head 91a20e5c898fc63856631cc79bd0bd924c3b6d8b. The structural RESULT must have unresolved empty, must declare the complete TASK-137 changed_files truth, and must contain claims satisfying AC1 through AC8 with empty claim evidence references; executor structural evidence must remain empty so Runtime can own verification evidence.",
+    "Run no ad-hoc replacement verification. Allow the pinned Runtime to execute exactly the original TASK-137 verification commands against the unchanged candidate. If Runtime verification fails, preserve that failure as canonical evidence and do not self-author a source correction inside this NO_CHANGE continuation.",
+    "Do not claim semantic REVIEW PASS, publish, retry, fallback, or reroute. Return only the structural REPAIR result required for Runtime completion."
+  ],
+  "constraints": []
+}
