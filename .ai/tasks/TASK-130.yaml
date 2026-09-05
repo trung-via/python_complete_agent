@@ -1,0 +1,194 @@
+task_id: TASK-130
+revision: 1
+
+goal: >
+  Remove the remaining Human publication handoff in Python Agent by wiring the
+  repository-native GitHub Actions trigger required to invoke the already-pinned
+  AIOS-renew automatic publication authority after ChatGPT semantic REVIEW PASS.
+  Python Agent must not reimplement publication semantics: the workflow must install
+  the exact AIOS-renew dependency from the repository-owned immutable pin and delegate
+  publication to python -m aios_renew.publication for the exact review-decision event.
+
+problem: >
+  Python Agent is pinned to AIOS-renew 67db82bf19d63f25721d06aabb82d850db8b78d4,
+  whose TASK-063 implementation already owns deterministic automatic publication of a
+  canonical PASS review decision. That upstream capability includes publication.py and
+  an aios/review-decision/** GitHub Actions workflow, but package pinning does not copy
+  repository workflow files into downstream repositories. Python Agent therefore
+  exports RUN/FIX candidates and ChatGPT review-decision refs correctly, yet no GitHub
+  Actions run is created and main does not advance automatically. The missing boundary
+  is downstream trigger wiring only, not another publication implementation.
+
+assumptions:
+  - >
+    Canonical Python Agent main at authoring is
+    852fd58561332f19f429f7fc03cfda162e534e06, the reviewed TASK-129 FIX source
+    candidate published by one bootstrap fast-forward after REVIEW-129-002 DELTA PASS.
+  - >
+    The authoritative AIOS dependency remains exactly
+    aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@67db82bf19d63f25721d06aabb82d850db8b78d4.
+  - >
+    AIOS-renew TASK-063 revision 3 is the sole publication semantic authority at that
+    pin. Its publication gate validates canonical review-decision, RUN/RESULT,
+    remediation lineage when applicable, exact reviewed SHA, fast-forward ancestry,
+    exact-SHA lease race protection, idempotence, and fail-closed behavior.
+  - >
+    Python Agent TASK-107/TASK-104 lineage already owns outbound review-candidate
+    transport and inbound REVIEW/REMEDIATION transport. TASK-130 must reuse those refs
+    and must not create another candidate/review transport pipeline.
+  - >
+    ChatGPT remains the sole semantic Reviewer. Automatic publication begins only after
+    ChatGPT has materialized a canonical PASS review decision on
+    aios/review-decision/<RUN_ID>.
+  - >
+    M4 Product Intelligence semantics are unaffected. TASK-130 is a bounded control-plane
+    integration inserted before the next M4 domain milestone; prompt packaging and later
+    M4 capabilities remain deferred to subsequent tasks.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - .ai/tasks/TASK-104.yaml
+    - .ai/tasks/TASK-107.yaml
+    - .ai/tasks/TASK-127.yaml
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+    - upstream AIOS-renew TASK-063 revision 3 at the exact pinned commit
+    - upstream .github/workflows/aios-auto-publish.yml at the exact pinned commit
+    - upstream src/aios_renew/publication.py at the exact pinned commit
+
+  modify:
+    - .github/workflows/aios-auto-publish.yml
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - tests/aios_bridge/test_aios_auto_publish_workflow.py
+
+non_goals:
+  - Modify src/product_intelligence, Product Source Pack, catalog, retrieval, grounded
+    context, GroundedAnswer, M2 scoring/ranking/approval, browser, scraper, or AgentController.
+  - Modify AIOS-renew source, publication.py, review.py, review_transport.py, schemas,
+    Runtime, dispatcher, adapters, or upstream repository workflows.
+  - Change the Python Agent AIOS-renew pin or launcher authoritative commit.
+  - Copy or reimplement publication validation, ancestry checks, exact-SHA lease logic,
+    remediation validation, ResultPackage validation, REVIEW validation, or Git push
+    logic inside Python Agent scripts or tests.
+  - Add a Human-facing PUBLISH command, worker PUBLISH action, raw AIOS CLI guidance,
+    manual git push guidance, merge command, second publication script, GitHub App,
+    daemon, watcher, polling loop, retry, fallback, or alternate publication path.
+  - Let Codex or Antigravity publish, push main, generate semantic REVIEW, or infer PASS
+    from Runtime verification.
+  - Publish CHANGES_REQUIRED/BLOCKED decisions, review metadata commits, artifacts refs,
+    remediation metadata, or anything other than the exact reviewed source candidate.
+  - Rerun canonical verification or an Executor merely for publication.
+  - Change TASK-129 implementation or review lineage.
+
+constraints:
+  hard:
+    - >
+      Add exactly one repository-native workflow at
+      .github/workflows/aios-auto-publish.yml. It must trigger only on push to
+      aios/review-decision/** and must request only contents: write repository
+      permission required for guarded main publication.
+    - >
+      The workflow must bind execution to the exact review-decision event commit. It must
+      checkout github.sha (or the equivalent event-bound SHA) with full history sufficient
+      for publication ancestry validation; it must not checkout mutable latest main as the
+      decision authority.
+    - >
+      Because Python Agent does not contain the AIOS-renew package source, the workflow
+      must provision Python 3.11+ and install AIOS-renew only through the checked-in exact
+      dependency file .agents/skills/aios-worker/requirements-aios-renew.txt. It must not
+      install from AIOS-renew main, a floating tag/branch/version, PyPI latest, another URL,
+      or a duplicated hard-coded alternate pin.
+    - >
+      The workflow must derive RUN_ID only from the canonical
+      refs/heads/aios/review-decision/<RUN_ID> event namespace and then invoke the pinned
+      authority as python -m aios_renew.publication with the current repository, origin,
+      that exact RUN_ID, and the exact event decision SHA.
+    - >
+      Python Agent workflow code must remain a thin trigger/adapter. It may validate the
+      expected review-decision ref prefix before delegation but must not duplicate or
+      reinterpret REVIEW verdict, RUN/RESULT/remediation lineage, reviewed SHA, ancestry,
+      race, idempotence, or mutation semantics already owned by pinned
+      aios_renew.publication.
+    - >
+      Do not add any direct git push to refs/heads/main, --force, --force-with-lease,
+      merge, rebase, reset, cherry-pick, retry loop, fallback publication, or alternate
+      candidate selection to the downstream workflow. Main mutation must occur only inside
+      the pinned aios_renew.publication authority.
+    - >
+      Worker launcher and executor behavior remain unchanged. RUN/FIX/REPAIR stay
+      push-free implementation operations; after canonical PASS they expose the candidate
+      for ChatGPT review and stop. Automatic publication is a repository event occurring
+      only after ChatGPT emits a PASS review-decision ref.
+    - >
+      Documentation must replace the obsolete Human publication handoff with the exact
+      flow: AIOS PASS -> ChatGPT semantic review -> canonical PASS review-decision ref ->
+      repository-native workflow -> pinned AIOS publication gate -> exact source candidate
+      fast-forward to main. There is no Human PUBLISH command in the normal path.
+    - >
+      Documentation must preserve the distinction between runtime PASS and semantic REVIEW
+      PASS, and must state that CHANGES_REQUIRED continues to produce FIX lineage rather
+      than publication.
+    - >
+      Codex and Antigravity surface documentation must remain executor-specific only for
+      execution selection. Both must describe the same post-review auto-publication
+      behavior and neither may claim publication authority for the executor or worker.
+    - >
+      Focused tests must prove the checked-in workflow trigger, event-SHA binding, exact
+      requirements-pin installation path, pinned publication-module delegation, absence of
+      direct main push/retry/fallback logic, and aligned Human-facing documentation. Tests
+      must not exercise live GitHub publication or mutate remote main.
+    - >
+      No existing worker-control-surface implementation file, Python Agent product source,
+      AIOS pin, or TASK-129 source is modified by this integration.
+    - Do not push from Executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Python Agent contains .github/workflows/aios-auto-publish.yml triggered only by
+      aios/review-decision/** pushes, with contents: write and event-bound checkout using
+      the exact review-decision SHA plus sufficient history for ancestry validation.
+  - id: AC2
+    condition: >
+      The workflow provisions Python 3.11+ and installs AIOS-renew solely from
+      .agents/skills/aios-worker/requirements-aios-renew.txt, which remains pinned exactly
+      to 67db82bf19d63f25721d06aabb82d850db8b78d4; no floating or duplicate runtime source
+      is introduced.
+  - id: AC3
+    condition: >
+      The workflow derives the source RUN only from the canonical review-decision ref and
+      delegates exactly once to python -m aios_renew.publication with repository origin,
+      exact RUN_ID, and exact event decision SHA.
+  - id: AC4
+    condition: >
+      No downstream publication semantics are duplicated: the workflow contains no direct
+      main push, force/lease logic, semantic REVIEW interpretation, ResultPackage/remediation
+      parsing, ancestry implementation, retry, fallback, merge, rebase, or alternate
+      candidate selection.
+  - id: AC5
+    condition: >
+      Codex skill, Antigravity workflow, and unified worker documentation consistently
+      state that workers remain push-free and stop after Runtime PASS, ChatGPT remains the
+      sole semantic Reviewer, and a canonical PASS review-decision automatically triggers
+      the pinned publication gate with no Human publication command.
+  - id: AC6
+    condition: >
+      Documentation explicitly states that CHANGES_REQUIRED does not publish and continues
+      through narrow FIX lineage, while semantic PASS publishes only the exact reviewed
+      source candidate and never review-decision/artifact/remediation metadata commits.
+  - id: AC7
+    condition: >
+      Focused deterministic tests certify AC1-AC6 without live remote mutation, and git
+      diff integrity passes. Existing Python Agent Product Intelligence and worker launcher
+      implementation remain byte-unchanged.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/aios_bridge/test_aios_auto_publish_workflow.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
