@@ -222,6 +222,10 @@ from src.product_intelligence.grounded_query_planning import (
     GroundedQueryPlanningError,
     plan_grounded_retrieval_query,
 )
+from src.product_intelligence.persistent_grounded_qa import (
+    PersistentGroundedQaError,
+    answer_persisted_grounded_question,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -398,4 +402,6 @@ __all__ = [
     "answer_grounded_context",
     "GroundedQueryPlanningError",
     "plan_grounded_retrieval_query",
+    "PersistentGroundedQaError",
+    "answer_persisted_grounded_question",
 ]
