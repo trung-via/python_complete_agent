@@ -1,0 +1,20 @@
+{
+  "repair_id": "REPAIR-125-009",
+  "failed_run_id": "RUN-125-009",
+  "failed_head_sha": "bde5ac1e781254920ec7bb6bdb3246e1a758ebb1",
+  "task": {
+    "id": "TASK-125",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue only the existing TASK-125 F1 / AC11 correction lineage from RUN-125-009. Preserve the exact failed committed state bde5ac1e781254920ec7bb6bdb3246e1a758ebb1 byte-for-byte. Do not edit product code, tests, documentation, TASK files, worker files, dependency pins, Git refs, or operational artifacts, and do not create a source commit.",
+    "RUN-125-009 failed at COMPLETION_GATE only because the historical pinned Runtime rejected RESULT.changed_files. The committed candidate already contains the intended F1 correction: docs/PHASE_6_M3_COMPLETION.md records the exact immutable RUN-125-005 command strings while preserving the original evidence IDs, PASS summaries, source candidate SHA, authority map, post-M3 deferrals, and M4 boundary. Treat this as a structural/runtime recovery, not a new semantic code-fix request.",
+    "Use the currently admitted Runtime's canonical REPAIR semantics. The worker and Executor must not reconstruct continuation lineage, root_base_sha, failed_head_sha authority, historical workspace identity, or the complete TASK changed-file set. Runtime owns those facts and derives canonical TASK changed_files from immutable lineage while independently enforcing this NO_CHANGE repair scope.",
+    "Return a truthful structural ResultPackage for the unchanged candidate with head_sha equal to bde5ac1e781254920ec7bb6bdb3246e1a758ebb1 and no implementation unresolved items. Do not fabricate evidence, rerun verification inside the Executor, or claim new semantic work. Runtime owns canonical verification after repository/completion gates and binds any new verification evidence to the exact unchanged subject SHA.",
+    "Historical recovery must use the current control-plane Runtime out-of-tree while the isolated historical subject remains at the exact failed lineage. Do not bootstrap from the historical tree's old AIOS pin and do not insert TASK-127 pin-migration/control-plane commits into the TASK-125 candidate lineage.",
+    "Do not rerun TASK-125 PRIMARY, do not switch executor, do not retry or reroute, and do not merge, rebase, cherry-pick, reset current main, publish, or otherwise reconcile the recovered historical candidate in this REPAIR. After a successful REPAIR, semantic review is limited to repair continuity plus preservation of F1; any publication ancestry reconciliation is a separate downstream step."
+  ],
+  "constraints": []
+}
