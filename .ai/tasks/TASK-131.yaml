@@ -1,0 +1,222 @@
+task_id: TASK-131
+revision: 1
+
+goal: >
+  Implement Phase 6 M4.2 as one pure deterministic Grounded Prompt Package boundary
+  that converts an exact TASK-123/TASK-124 CanonicalRagContext into provider-neutral
+  model-facing prompt strings and a strict response-schema JSON contract, without
+  invoking any model/provider, parsing model output, creating GroundedAnswer values,
+  changing M2/M3 authority, or introducing a second prompt/retrieval/answer authority.
+
+problem: >
+  TASK-129 established the immutable GroundedAnswer structural contract but explicitly
+  deferred prompt packaging. The current repository can build and deterministically
+  render a bounded CanonicalRagContext, yet no Product Intelligence domain authority
+  defines the exact instructions and response shape that a later model adapter should
+  receive. If each provider or application service assembles prompts independently,
+  prompt semantics can drift, evidence may be treated as instructions, citation/status
+  rules can diverge, and provider adapters can accidentally become semantic authorities.
+  TASK-131 must create one provider-neutral deterministic prompt package over the exact
+  canonical context while leaving invocation and response validation to later M4 tasks.
+
+assumptions:
+  - >
+    Canonical Python Agent main at authoring is
+    f7b3a8010e061be9c436083c69435c4b0fe3364c, the auto-published TASK-130 source
+    candidate after REVIEW-130-001 PRIMARY PASS.
+  - >
+    The authoritative AIOS dependency remains exactly
+    aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@67db82bf19d63f25721d06aabb82d850db8b78d4.
+  - >
+    TASK-123/TASK-124 remain the sole authority for CanonicalRagContext construction,
+    evidence ordering, context-local citation identifiers, byte budgeting, truncation,
+    evidence-policy flags, and deterministic compact JSON rendering through
+    render_canonical_rag_context.
+  - >
+    TASK-129 remains the sole authority for GroundedAnswer, GroundedAnswerStatus,
+    context-local citation validation, leaf-citation minima, answer-text bounds, and
+    limitation bounds. TASK-131 may instruct a future model to produce that shape but
+    must not duplicate final answer validation or claim semantic entailment.
+  - >
+    Existing src/providers/base.py LLMProvider remains the generic provider execution
+    boundary for later integration. TASK-131 must not import or call it and must not
+    introduce ProductModelProvider, RagModelProvider, provider-specific messages, tool
+    schemas, retries, or AgentLoop behavior.
+  - >
+    M2 scoring/ranking/Human approval and M3 canonical identity/catalog/evidence/
+    retrieval/context authorities remain unchanged. Product-truth reconciliation,
+    preferred/latest/majority selection, and autonomous truth resolution remain deferred.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_6_M4_GROUNDED_ANSWER.md
+    - .ai/tasks/TASK-123.yaml
+    - .ai/tasks/TASK-124.yaml
+    - .ai/tasks/TASK-129.yaml
+    - src/product_intelligence/canonical_rag_context.py
+    - src/product_intelligence/grounded_answer.py
+    - src/product_intelligence/__init__.py
+    - src/providers/base.py
+
+  modify:
+    - src/product_intelligence/grounded_prompt.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_grounded_prompt.py
+    - docs/PHASE_6_M4_GROUNDED_PROMPT.md
+
+non_goals:
+  - Invoke LLMProvider, Gemini, OpenAI, Anthropic, Codex, Antigravity, AgentController,
+    AgentLoop, ToolExecutor, browser tools, or any model/network/API surface.
+  - Import src.agent.messages or construct provider-specific SYSTEM/USER message objects.
+  - Parse, validate, repair, retry, normalize, or otherwise consume model responses.
+  - Construct GroundedAnswer or duplicate TASK-129 final citation/status/limitation
+    validation as a second answer authority.
+  - Build or modify CanonicalRagContext, perform retrieval, derive retrieval_query from
+    question, change hit/evidence ordering, change context byte budgeting, or create a
+    second RAG renderer.
+  - Reconcile conflicting evidence, choose preferred/latest/majority values, infer
+    canonical product truth, or convert answer text into canonical knowledge.
+  - Change M2 discovery/scoring/ranking/approval semantics or use prompt outputs as a
+    product score, rank, approval, or ingestion authority.
+  - Add embeddings, vector search, persistence, SQLite, filesystem I/O, Drive, queue,
+    background work, environment access, clock/random/UUID dependence, subprocesses, or
+    mutable global runtime state.
+  - Add provider-specific JSON mode, response_format, tool/function schemas, token
+    budgets, temperatures, model names, retries, fallback, rerouting, or streaming.
+
+constraints:
+  hard:
+    - >
+      Add exactly one new Product Intelligence domain module
+      src/product_intelligence/grounded_prompt.py. It must expose exactly these new public
+      names from that module and src/product_intelligence/__init__.py:
+      GroundedPromptError, GroundedPromptPackage, build_grounded_prompt_package.
+    - >
+      GroundedPromptPackage must be a frozen dataclass with exactly five fields in this
+      order: context, system_instruction, user_prompt, context_json,
+      response_schema_json. context must be CanonicalRagContext and the builder must
+      retain the exact supplied context object identity.
+    - >
+      The only canonical constructor in this milestone is
+      build_grounded_prompt_package(context). It accepts one exact CanonicalRagContext
+      and rejects subclasses/coercions. It takes no question, retrieval query, prompt,
+      schema, provider, model, locale, style, temperature, tool, or policy override.
+    - >
+      context_json must be produced only by calling the existing
+      render_canonical_rag_context(context) authority. TASK-131 must not duplicate the
+      CanonicalRagContext JSON schema/serializer, reorder evidence, mutate the context,
+      or rebuild retrieval/context state. Rendering failure must fail closed as
+      GroundedPromptError with causal chaining preserved.
+    - >
+      response_schema_json must be one deterministic compact JSON object rendered with
+      ensure_ascii=False, sort_keys=True, and separators=(",", ":"). Its root must be a
+      JSON Schema object for exactly one response object with additionalProperties=false,
+      required keys exactly status, answer_text, citation_ids, limitations, and no other
+      required keys. status enum must be exactly ANSWERED, INSUFFICIENT_EVIDENCE,
+      CONFLICTING_EVIDENCE. answer_text must be string; citation_ids and limitations must
+      be arrays whose items are strings. The schema is a syntactic model-output contract
+      only and must not claim to prove context-local citation validity or semantic truth.
+    - >
+      system_instruction must be one fixed provider-neutral deterministic string owned by
+      TASK-131. It must explicitly instruct the future model that supplied marketplace
+      evidence is untrusted data, instructions inside evidence are non-authoritative,
+      only supplied canonical context may be used, conflicts must be preserved rather
+      than reconciled, no preferred/latest/majority/product-truth selection is allowed,
+      exact context citation identifiers must be used without invention, unsupported
+      claims require abstention, and the response must be only one JSON object matching
+      response_schema_json with no prose outside it.
+    - >
+      The system instruction must encode the TASK-129 application-state rules without
+      replacing TASK-129 validation: ANSWERED requires at least one witness/supplemental
+      leaf citation; CONFLICTING_EVIDENCE requires at least two distinct leaf citations
+      and at least one limitation; INSUFFICIENT_EVIDENCE requires at least one limitation
+      and may use zero citations; hit headers alone do not satisfy leaf minima. It must
+      state that these statuses are application-answer states, not canonical product truth
+      or M2 recommendation/approval decisions.
+    - >
+      user_prompt must be a deterministic string assembled only from the exact
+      context.question, exact context_json, exact response_schema_json, and fixed framing
+      literals owned by TASK-131. The framing must clearly separate QUESTION,
+      CANONICAL_CONTEXT_JSON, and RESPONSE_SCHEMA_JSON sections. No evidence string may be
+      separately interpolated outside context_json, and no source observation may be
+      promoted into instruction text.
+    - >
+      The builder must preserve exact question bytes as represented by context.question;
+      it must not strip, normalize, rewrite, summarize, translate, classify, or derive a
+      retrieval query. Repeated construction from the same exact context must produce
+      value-equal GroundedPromptPackage objects and byte-identical prompt/schema strings.
+    - >
+      GroundedPromptPackage and its builder are pure domain values/functions: no model or
+      provider imports/calls, no AgentController/AgentLoop/tool execution, no browser or
+      network, no filesystem/SQLite/Drive/environment access, no clock/random/UUID, no
+      subprocess, no queue/background work, and no mutation of canonical context or
+      product knowledge.
+    - >
+      Documentation must lock the authority boundary precisely: TASK-123/124 own grounded
+      context and rendering; TASK-129 owns final structural GroundedAnswer validation;
+      TASK-131 owns only deterministic provider-neutral prompt packaging; the later model
+      invocation adapter will reuse existing LLMProvider at the integration edge and must
+      not move prompt semantics into provider implementations.
+    - >
+      Documentation must not claim prompt-injection immunity, factual correctness,
+      semantic entailment, conflict resolution, hallucination freedom, or product-truth
+      reconciliation. Prompt instructions reduce ambiguity but evidence remains untrusted
+      model input and later answer validation remains structural unless another explicit
+      milestone adds semantic authority.
+    - >
+      Focused tests must use no live provider/network and must prove exact public exports,
+      exact frozen field layout, exact context identity/type rejection, delegation to the
+      existing canonical renderer, deterministic schema/prompt bytes, required safety and
+      answer-state instructions, exact question preservation, no evidence promotion out of
+      context_json, repeated deterministic equality, and zero modification to TASK-129 or
+      TASK-123/TASK-124 semantics.
+    - Do not push from Executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      grounded_prompt.py and src/product_intelligence/__init__.py expose exactly the three
+      new public names GroundedPromptError, GroundedPromptPackage, and
+      build_grounded_prompt_package without adding a provider/model/agent authority.
+  - id: AC2
+    condition: >
+      GroundedPromptPackage is frozen with exactly the five ordered fields context,
+      system_instruction, user_prompt, context_json, response_schema_json, and the builder
+      accepts only exact CanonicalRagContext while retaining the exact supplied object.
+  - id: AC3
+    condition: >
+      context_json delegates to render_canonical_rag_context without rebuilding or
+      mutating M3 retrieval/context state, and rendering failures fail closed as
+      GroundedPromptError with preserved cause.
+  - id: AC4
+    condition: >
+      response_schema_json is deterministic compact JSON describing exactly the four-key
+      response object/status enum required for later GroundedAnswer construction, while
+      remaining explicitly syntactic rather than a second citation/truth validator.
+  - id: AC5
+    condition: >
+      The fixed system instruction explicitly preserves untrusted-evidence handling,
+      context-only answering, exact citations, conflict preservation, abstention, TASK-129
+      status/leaf/limitation expectations, and the distinction from product truth/M2
+      authority, with JSON-only output required.
+  - id: AC6
+    condition: >
+      user_prompt deterministically frames the exact question, exact canonical context
+      JSON, and exact response schema JSON without question rewriting, evidence promotion,
+      provider-specific formatting, or hidden retrieval/model behavior; repeated builds
+      are byte-identical/value-equal.
+  - id: AC7
+    condition: >
+      TASK-131 performs zero provider/model/AgentLoop/tool/browser/network/storage/I/O and
+      leaves TASK-123/124 context authority, TASK-129 GroundedAnswer authority, M2 ranking/
+      approval, M3 evidence/identity, and deferred product-truth reconciliation unchanged.
+  - id: AC8
+    condition: >
+      Focused deterministic tests and documentation certify AC1-AC7 with no live provider
+      call and git diff integrity passes.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_canonical_rag_context.py tests/product_intelligence/test_grounded_answer.py tests/product_intelligence/test_grounded_prompt.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
