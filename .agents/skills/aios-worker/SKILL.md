@@ -68,9 +68,17 @@ When this skill is invoked:
 7. **DO NOT** manually reconstruct TASK, RESULT, EVIDENCE, REVIEW, REMEDIATION, or REPAIR semantics/lineage.
 8. **DO NOT** invoke raw `codex` or `codex exec` directly.
 9. **DO NOT** perform automatic retries or executor rerouting upon failure.
-10. **DO NOT** perform publication, push, or branch merge. Successful RUN/FIX/REPAIR leaves
-    the advancing implementation commit local for ChatGPT semantic review.
-    Guarded publication occurs only after explicit semantic REVIEW PASS.
+10. **DO NOT** perform publication, push, or branch merge. Workers remain push-free and
+    stop after Runtime PASS. Successful RUN/FIX/REPAIR exposes the candidate for ChatGPT
+    semantic review and stops; ChatGPT remains the sole semantic Reviewer.
+    Publication is an automatic repository event triggered only after ChatGPT emits a
+    canonical PASS review-decision ref (`refs/heads/aios/review-decision/<RUN_ID>`), which
+    triggers the repository-native publication workflow (`.github/workflows/aios-auto-publish.yml`)
+    and delegates to the pinned AIOS-renew publication gate (`python -m aios_renew.publication`).
+    The exact flow is: AIOS PASS -> ChatGPT semantic review -> canonical PASS review-decision ref -> repository-native workflow -> pinned AIOS publication gate -> exact source candidate fast-forward to main.
+    There is no Human PUBLISH command in the normal path.
+    A review verdict of CHANGES_REQUIRED does not publish and continues through narrow FIX lineage.
+    Semantic PASS publishes only the exact reviewed source candidate and never review-decision, artifact, or remediation metadata commits.
 11. **DO NOT** delegate or reroute to the Antigravity `/aios-renew-worker` workflow.
 12. Reload or start a fresh Codex session after the migration commit so this
     repository-owned skill is not served from a stale cache.

@@ -1,0 +1,51 @@
+name: AIOS auto-publish reviewed candidate
+
+"on":
+  push:
+    branches:
+      - "aios/review-decision/**"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: aios-auto-publish-main
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out event-bound publication gate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Set up Python 3.11+
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pinned AIOS-renew
+        run: |
+          python -m pip install --no-input -r .agents/skills/aios-worker/requirements-aios-renew.txt
+
+      - name: Publish exact reviewed candidate
+        env:
+          AIOS_DECISION_REF: ${{ github.ref }}
+          AIOS_DECISION_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          prefix="refs/heads/aios/review-decision/"
+          if [[ "$AIOS_DECISION_REF" != "$prefix"* ]]; then
+            echo "Unexpected publication ref: $AIOS_DECISION_REF" >&2
+            exit 1
+          fi
+          run_id="${AIOS_DECISION_REF#"$prefix"}"
+          python -m aios_renew.publication \
+            --repo . \
+            --remote origin \
+            --run-id "$run_id" \
+            --decision-sha "$AIOS_DECISION_SHA"

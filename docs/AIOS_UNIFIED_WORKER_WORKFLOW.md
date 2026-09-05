@@ -147,10 +147,11 @@ second semantic state store.
 
 ---
 
-## 5. Review-Before-Publication and Merge Boundaries
+## 5. Review-Before-Publication and Automatic Publication Boundaries
 
-Successful RUN/FIX/REPAIR executions leave the resulting implementation commit local
-at `HEAD` for independent semantic review and perform zero automatic push.
+Successful RUN/FIX/REPAIR executions remain push-free implementation operations.
+After Runtime PASS, they leave the candidate commit local at `HEAD` (or expose it via
+transport) for independent semantic review and stop.
 The launcher reports `REVIEW_CANDIDATE_HEAD` and directs the operator to ChatGPT.
 
 ### Independent Review Loop
@@ -161,15 +162,27 @@ After canonical AIOS PASS, the operator prompts ChatGPT:
 Review TASK-N
 ```
 
-ChatGPT performs an independent semantic audit and emits a canonical REVIEW
-artifact with verdict `PASS` or `CHANGES_REQUIRED`.
+ChatGPT remains the sole semantic Reviewer. It performs an independent semantic audit
+and emits a canonical REVIEW artifact with verdict `PASS` or `CHANGES_REQUIRED`.
 
-### Publication and Merge Boundary
+Runtime PASS proves only internal task verification; it is distinct from semantic REVIEW PASS,
+which evaluates architectural alignment and task fulfillment.
+A review verdict of CHANGES_REQUIRED does not publish and continues through narrow FIX lineage.
 
-- **Guarded Publication**: Publication occurs only after explicit semantic
-  `REVIEW PASS` through an operator-controlled action outside the worker launcher.
+### Automatic Publication Gate
+
+- **Automatic Publication Flow**:
+  `AIOS PASS -> ChatGPT semantic review -> canonical PASS review-decision ref -> repository-native workflow -> pinned AIOS publication gate -> exact source candidate fast-forward to main`
+- **No Human Publication Command**: There is no Human PUBLISH command in the normal path.
+  Automatic publication is a repository event occurring only after ChatGPT materializes a canonical PASS
+  review-decision ref at `refs/heads/aios/review-decision/<RUN_ID>`.
+- **Repository-Native Workflow**: Pushing the review-decision ref triggers `.github/workflows/aios-auto-publish.yml`,
+  which provisions Python 3.11+, installs AIOS-renew from `.agents/skills/aios-worker/requirements-aios-renew.txt`,
+  and delegates to `python -m aios_renew.publication`.
+- **Candidate Purity**: Semantic PASS publishes only the exact reviewed source candidate fast-forwarded to `main`,
+  and never review-decision, artifact, or remediation metadata commits.
 - **Merge Boundary**: `MERGE` is never a worker command:
-  - Worker executors **NEVER** merge code into `main`.
+  - Worker executors **NEVER** merge code into `main` or claim publication authority.
   - Worker surfaces stop immediately after canonical PASS and instruct the Human
     operator to review the task in ChatGPT (`Review TASK-N in ChatGPT`).
 
@@ -179,7 +192,7 @@ artifact with verdict `PASS` or `CHANGES_REQUIRED`.
 
 - **Antigravity**: The Human enters `/aios-renew-worker RUN TASK-N`.
 - **Codex**: The Human enters `$aios-worker RUN TASK-N`.
-- **Sequence**: AIOS PASS -> ChatGPT semantic review -> explicit guarded publication only after REVIEW PASS.
+- **Sequence**: `AIOS PASS -> ChatGPT semantic review -> canonical PASS review-decision ref -> repository-native workflow -> pinned AIOS publication gate -> exact source candidate fast-forward to main`.
 
 ---
 
