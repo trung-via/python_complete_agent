@@ -1,0 +1,250 @@
+task_id: TASK-129
+revision: 1
+
+goal: >
+  Begin Phase 6 M4 by adding one pure, deterministic Grounded Answer domain contract over
+  the existing TASK-123/TASK-124 CanonicalRagContext authority. The new boundary must bind
+  an application answer to the exact supplied canonical context, validate only structural
+  answer/citation/abstention invariants, preserve context-local provenance addresses, and
+  fail closed on invalid references or malformed application values. TASK-129 must invoke
+  no model, provider, AgentLoop, browser, storage, network, ranking, retrieval, or product-
+  truth reconciliation behavior.
+
+problem: >
+  Phase 6 M3 now provides restart-capable canonical product knowledge, deterministic lexical
+  retrieval, and a bounded grounded RAG context for future model consumers, but there is no
+  Product Intelligence application-domain value representing the result of answering a
+  question from that context. Allowing a future provider adapter to return arbitrary text
+  directly would erase the distinction between canonical knowledge and model output, make
+  citation references unverifiable, and encourage provider-specific answer semantics.
+  TASK-129 therefore owns only the first M4 application contract: an immutable GroundedAnswer
+  that retains the exact CanonicalRagContext, an explicit application answer status, exact
+  answer text, ordered context-local citation references, and ordered limitations. It must
+  validate structural grounding without claiming that code can prove semantic entailment.
+
+assumptions:
+  - >
+    Canonical Python Agent main immediately before TASK-129 authoring is
+    3df1b0ea34124adc02c0e8c8282681c78073e959, where TASK-128 has published the reviewed
+    TASK-125 Phase 6 M3 completion state onto the TASK-127 control-plane lineage.
+  - >
+    TASK-121 remains the sole canonical variant evidence-projection authority, TASK-122
+    remains the sole lexical-retrieval authority, and TASK-123/TASK-124 remain the sole
+    grounded-context schema, provenance-addressing, packing, rendering, and truncation-
+    integrity authority.
+  - >
+    M2 WinningProductScorer/CandidateRanker remain the business scoring/ranking authority;
+    an M4 grounded answer status, citation, limitation, or answer text must not become a
+    second winning-product score, rank, recommendation, or ingestion approval authority.
+  - >
+    M2.4 Human approval remains the only authority that converts advisory ranking into an
+    ingestion decision. TASK-129 creates no admission, queue, automation, or action authority.
+  - >
+    The existing src/providers LLMProvider contract and AgentController/AgentLoop runtime are
+    operational/model execution infrastructure, not TASK-129 domain authority. M4 model
+    invocation and orchestration are later milestones.
+  - >
+    Legacy src/aios_bridge/external_brain code is not Product Intelligence model authority and
+    must not be imported or reactivated by TASK-129.
+  - >
+    A GroundedAnswer is model/application output bound to canonical evidence; it is never
+    canonical product truth. Structural citation validation cannot by itself establish that
+    every natural-language claim is semantically entailed by the cited evidence.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_6_M3_COMPLETION.md
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+    - docs/PHASE_6_M2_PRODUCT_INTELLIGENCE.md
+    - docs/PHASE_6_M2_RANKING.md
+    - docs/PHASE_6_M2_APPROVAL.md
+    - .ai/tasks/TASK-121.yaml
+    - .ai/tasks/TASK-122.yaml
+    - .ai/tasks/TASK-123.yaml
+    - .ai/tasks/TASK-124.yaml
+    - src/product_intelligence/canonical_profile.py
+    - src/product_intelligence/canonical_retrieval.py
+    - src/product_intelligence/canonical_rag_context.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_canonical_rag_context.py
+    - src/providers/base.py
+    - src/agent_controller.py
+
+  modify:
+    - src/product_intelligence/grounded_answer.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_grounded_answer.py
+    - docs/PHASE_6_M4_GROUNDED_ANSWER.md
+
+non_goals:
+  - Modify CanonicalRagContext, CanonicalRagHitContext, CanonicalRagEvidenceBlock,
+    CanonicalRagEvidenceKind, canonical RAG schema/version, context rendering, evidence
+    whitelist, byte-budget packing, truncation semantics, or retrieval delegation.
+  - Modify TASK-121 profile construction, TASK-122 lexical normalization/matching/order,
+    TASK-118 catalog integrity, TASK-119 codec, TASK-120 SQLite durability, entity resolution,
+    family/variant identity, approval, or admission semantics.
+  - Reconcile conflicting evidence into a preferred/latest/majority/canonical product truth,
+    infer one authoritative fact, mutate canonical knowledge, or persist model output back into
+    the catalog, source pack, profile, retrieval layer, or grounded context.
+  - Score, rank, shortlist, recommend, approve, enqueue, or trigger ingestion for products.
+    TASK-129 must not create a second M2 scoring/ranking/approval authority.
+  - Invoke Gemini, OpenAI, Claude, MiniMax, local models, LLMProvider.generate, AgentLoop,
+    AgentController.run, tool calling, browser/network, filesystem, SQLite, Drive, environment,
+    clock, random, UUID, subprocess, queue, cache, or background work.
+  - Import or reuse src/aios_bridge/external_brain as Product Intelligence model/application
+    infrastructure.
+  - Build prompts, provider messages, provider-specific schemas, response parsing, JSON repair,
+    retries, timeouts, model selection, usage accounting, or live-provider tests.
+  - Derive or rewrite retrieval_query from question, add query planning, embeddings, vector
+    search, FTS, BM25, semantic similarity, reranking, or retrieval indexes.
+  - Claim automated semantic entailment verification, factual correctness certification,
+    hallucination detection, prompt-injection immunity, or truthfulness guarantees from
+    citation existence alone.
+  - Add UI, CLI, HTTP endpoints, dashboards, persistence, answer history, analytics, or a new
+    application service/orchestrator.
+
+constraints:
+  hard:
+    - >
+      Add exactly one new Product Intelligence implementation module,
+      src/product_intelligence/grounded_answer.py, as the sole TASK-129 authority. Do not
+      modify earlier M3 implementation modules. Public exports may change only through
+      src/product_intelligence/__init__.py.
+    - >
+      Expose exactly these new public names from product_intelligence:
+      GroundedAnswerError, GroundedAnswerStatus, GroundedAnswer, and
+      create_grounded_answer. Do not add provider, prompt, parser, service, ranking, truth,
+      storage, or orchestration APIs in TASK-129.
+    - >
+      GroundedAnswerStatus must contain exactly ANSWERED, INSUFFICIENT_EVIDENCE, and
+      CONFLICTING_EVIDENCE. These are application-answer states only. They must not alter
+      canonical evidence, constitute product-truth resolution, or imply an M2 business
+      recommendation/approval decision.
+    - >
+      GroundedAnswer must be an immutable value containing exactly: context
+      (CanonicalRagContext), status (GroundedAnswerStatus), answer_text (str), citation_ids
+      (tuple[str, ...]), and limitations (tuple[str, ...]). It must retain the exact supplied
+      CanonicalRagContext object; do not copy, rebuild, rerun retrieval, or render a replacement
+      context as the stored authority.
+    - >
+      create_grounded_answer(context, *, status, answer_text, citation_ids=(), limitations=())
+      must require context to be an exact CanonicalRagContext and status to be an exact
+      GroundedAnswerStatus. It must require answer_text to be an exact str containing at least
+      one non-whitespace code point, preserve it byte-for-byte, and reject an answer whose
+      UTF-8 representation exceeds 32768 bytes. bool/subclass/coercion acceptance must not
+      weaken exact-type validation.
+    - >
+      citation_ids must be an exact tuple of exact str values. Every citation ID must be
+      non-empty, unique, preserved in caller order, and resolve to an address actually present
+      in the exact supplied context: a retained hit citation_id, a retrieval-witness address
+      derived from that hit as <hit>-W001... in exact witness order, or a retained supplemental
+      evidence block citation_id. References to omitted evidence, another context, arbitrary
+      source IDs/URLs, fabricated H/W/E addresses, or duplicate IDs must fail closed.
+    - >
+      TASK-129 may derive the valid citation-address set only from the supplied
+      CanonicalRagContext structure and existing TASK-123/TASK-124 addressing semantics. It
+      must not parse evidence text, source URLs, product IDs, values, or timestamps to infer
+      grounding, and must not independently implement retrieval or context-building semantics.
+    - >
+      Define a leaf citation as a retrieval-witness address or retained supplemental evidence
+      citation address, not a hit-header citation alone. ANSWERED requires at least one valid
+      leaf citation. CONFLICTING_EVIDENCE requires at least two distinct valid leaf citations.
+      INSUFFICIENT_EVIDENCE permits zero or more valid citations because a legitimate
+      abstention may occur with no retained hits or with some evidence that is still
+      insufficient. Hit-level citations may accompany leaf citations but cannot satisfy these
+      minimum grounding requirements by themselves.
+    - >
+      limitations must be an exact tuple of exact str values, preserve caller order, contain no
+      empty/whitespace-only item, contain at most 16 items, and each item must encode to at most
+      2048 UTF-8 bytes. Do not normalize, sort, deduplicate, summarize, or interpret limitation
+      text. INSUFFICIENT_EVIDENCE and CONFLICTING_EVIDENCE each require at least one limitation;
+      ANSWERED may use an empty limitations tuple.
+    - >
+      Successful construction must remain pure deterministic in-memory validation. It must not
+      call a provider/model, AgentLoop, tool executor, browser, network, filesystem, SQLite,
+      environment, clock, random, UUID, queue, background task, or any upstream catalog/entity
+      mutation path.
+    - >
+      GroundedAnswer construction validates only structural binding: exact context identity,
+      status/value shape, bounded text, valid context-local citations, leaf-citation minimums,
+      and limitation requirements. Documentation and code must explicitly avoid claiming that
+      this proves semantic entailment, factual correctness, conflict truth, completeness, or
+      hallucination freedom.
+    - >
+      Evidence remains untrusted data under TASK-123/TASK-124. TASK-129 must never execute,
+      interpolate into executable instructions, or grant authority to evidence strings or
+      answer text. It adds no prompt-injection immunity claim and no instruction-execution
+      semantics.
+    - >
+      Documentation must establish the Phase 6 M4 authority map at this boundary: M3 owns
+      canonical knowledge/retrieval/context; M2 owns business score/rank/approval; TASK-129 owns
+      only immutable grounded-answer structural binding. It must record later M4 deferrals for
+      deterministic prompt packaging, model invocation adapter, QA service, query planning,
+      restart-capable application orchestration, and M4 vertical-slice certification.
+    - >
+      TASK-129 verification must stay focused on the new contract plus direct TASK-123/TASK-124
+      context dependency. Do not run browser/live provider/Drive suites or the full repository
+      solely for this bounded pure-domain milestone.
+    - Do not push from executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Public Product Intelligence exports add exactly GroundedAnswerError,
+      GroundedAnswerStatus, GroundedAnswer, and create_grounded_answer, with no prompt,
+      provider, parser, service, storage, ranking, truth-resolution, or orchestration API.
+  - id: AC2
+    condition: >
+      GroundedAnswerStatus contains exactly ANSWERED, INSUFFICIENT_EVIDENCE, and
+      CONFLICTING_EVIDENCE, and docs state these are application states rather than canonical
+      product truth or M2 recommendation/approval states.
+  - id: AC3
+    condition: >
+      GroundedAnswer is frozen/immutable, contains exactly the five required fields, and
+      retains the exact supplied CanonicalRagContext object without copying, rebuilding, or
+      rerunning retrieval/context construction.
+  - id: AC4
+    condition: >
+      create_grounded_answer strictly validates exact context/status/value types, nonblank
+      answer_text, the 32768-byte UTF-8 answer bound, and preserves accepted answer text exactly.
+  - id: AC5
+    condition: >
+      Citation validation accepts only unique context-local hit, witness, and retained
+      supplemental-evidence addresses from the exact supplied context; fabricated, duplicate,
+      cross-context, omitted-evidence, malformed, or otherwise non-resolving references fail
+      closed while accepted citation order is preserved.
+  - id: AC6
+    condition: >
+      ANSWERED requires at least one valid witness/evidence leaf citation;
+      CONFLICTING_EVIDENCE requires at least two distinct valid leaf citations; hit headers
+      alone cannot satisfy those rules; INSUFFICIENT_EVIDENCE permits zero valid citations.
+  - id: AC7
+    condition: >
+      limitations are bounded immutable ordered strings; non-answer statuses require at least
+      one limitation, invalid/blank/oversized/excess items fail closed, and ANSWERED may have no
+      limitations.
+  - id: AC8
+    condition: >
+      Tests prove citation addresses remain scoped to the supplied context, supplemental
+      evidence omitted by M3 byte budgeting cannot be cited, equal-looking/conflicting source
+      values are not deduplicated or interpreted, and answer construction does not mutate the
+      canonical context or any source evidence.
+  - id: AC9
+    condition: >
+      Successful construction performs zero provider/model/AgentLoop/tool/browser/network/
+      filesystem/SQLite/Drive/environment/clock/random/UUID/subprocess/queue/background work
+      and leaves M2 scoring/ranking/approval plus M3 knowledge/retrieval/context authorities
+      unchanged.
+  - id: AC10
+    condition: >
+      Focused regressions cover all three statuses, exact context identity retention, exact
+      answer preservation, UTF-8 bounds, hit/witness/evidence citation resolution, duplicate
+      and fabricated citations, leaf minimums, no-hit abstention, limitation bounds,
+      immutability, repeated determinism, no-I/O/no-model behavior, and documentation records
+      TASK-129 as structural grounding only with no semantic-entailment guarantee.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_canonical_rag_context.py tests/product_intelligence/test_grounded_answer.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
