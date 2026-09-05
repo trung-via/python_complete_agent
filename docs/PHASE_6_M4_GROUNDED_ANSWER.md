@@ -111,12 +111,23 @@ An immutable frozen dataclass containing exactly five fields:
 
 ---
 
-## 7. Deferred M4 Capabilities
+## 7. Durable M4 Milestone Status
 
-The following capabilities are explicitly deferred to later Phase 6 M4 milestones:
-- Deterministic prompt packaging for provider models.
-- LLM provider integration adapters (`LLMProvider` execution).
-- Model-driven QA service and question answering workflow.
-- Question rewriting and retrieval query planning.
-- Restart-capable application orchestration and persistence.
-- Phase 6 M4 end-to-end vertical-slice certification.
+TASK-129 originally deferred six capabilities so that each could receive one
+bounded owner. The roadmap is now mapped without changing TASK-129's answer
+contract or structural-grounding authority:
+
+| Original deferred capability | Milestone owner and status |
+| --- | --- |
+| Deterministic prompt packaging for provider models | TASK-131 implements deterministic provider-neutral prompt packaging. |
+| Generic `LLMProvider` invocation | TASK-132 implements exactly-one generic provider invocation and syntactic response parsing. |
+| Grounded QA service and question-answering composition | TASK-133 implements context-to-answer composition while preserving TASK-129 final validation. |
+| Natural-question retrieval-query planning | TASK-134 implements deterministic lexical `retrieval_query` planning. |
+| Restart-capable persistent application orchestration | TASK-135 implements the persisted-catalog and explicit-manifest application boundary. |
+| M4 end-to-end vertical-slice certification | TASK-136 records and certifies the existing TASK-135 offline vertical slice, effective only after canonical Runtime PASS and semantic review PASS. |
+
+When both TASK-136 gates PASS, TASK-131 through TASK-136 close every item in the
+original TASK-129 M4 deferred roadmap. Certification is then not an ambiguous
+open M4 item. TASK-136 adds no runtime behavior and does not alter the
+`GroundedAnswer` data, status, citation, limitation, or validation semantics in
+this document.

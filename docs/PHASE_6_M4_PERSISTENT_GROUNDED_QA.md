@@ -28,6 +28,21 @@ The authority chain across persisted knowledge, query planning, retrieval, and g
 
 TASK-135 adds zero persistence mechanisms, storage formats, identity schemas, retrieval methods, prompt packages, or answer types.
 
+## TASK-136 completion relationship
+
+TASK-135 remains the sole persistent grounded-QA runtime composition authority.
+Its existing deterministic fake-provider restart integration is the Phase 6 M4
+vertical-slice certification subject. TASK-136 adds no source module, public API,
+test duplicate, persistence, retrieval, provider, prompt, answer, startup, or
+composition semantics. It only records M4 closure and requires canonical
+Runtime PASS plus semantic review PASS before that closure becomes effective.
+
+The offline certification exercises the generic `LLMProvider` protocol with a
+deterministic fake. It does not certify live-provider accounts, credentials,
+networks, models, model quality, provider-specific behavior, semantic
+entailment, factual truth, completeness, hallucination freedom, product-truth
+reconciliation, or recommendation/approval authority.
+
 ## Canonical startup and execution sequence
 
 The application entry point performs exactly this sequence:
@@ -73,3 +88,12 @@ Predecessor exceptions and cancellation propagate without being caught, wrapped,
 - **No recommendation or approval authority**: Returned answers are structured grounded QA responses, not M2 purchase recommendations or human approval decisions.
 - **No live-provider certification**: Provider certification and live networking remain deferred; tests use deterministic fakes and offline mocks.
 - **No mutations or writes**: Execution performs zero catalog writes, manifest writes, directory creations, or state mutations.
+
+Automatic manifest/filesystem/Drive discovery, HTTP/API/CLI presentation,
+background serving, caches/registries, semantic/vector retrieval,
+product-truth reconciliation, preferred/latest/majority selection, autonomous
+recommendation/approval, identity evolution, and migrations are post-M4 future
+work rather than unfinished TASK-135 or M4 blockers. The next Product
+Intelligence boundary remains intentionally undecided pending a fresh post-M4
+Brain audit; TASK-136 assigns no future semantic authority and invents no later
+phase architecture.
