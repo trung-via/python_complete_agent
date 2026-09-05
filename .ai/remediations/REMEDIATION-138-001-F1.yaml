@@ -1,0 +1,10 @@
+finding_id: F1
+action: CODE_FIX
+reviewed_sha: 96a6c29c496bb059b3720a34d1880301313837d0
+modification_scope:
+  - src/product_intelligence/source_evidence_intake.py
+  - tests/product_intelligence/test_source_evidence_intake.py
+affected_verification:
+  - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_source_evidence_intake.py tests/product_source/test_source_pack_serialization.py tests/product_intelligence/test_m3_persistent_knowledge_restart.py tests/product_intelligence/test_persistent_grounded_qa.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+  - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+constraints: []
