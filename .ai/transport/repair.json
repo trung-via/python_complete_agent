@@ -1,0 +1,20 @@
+{
+  "repair_id": "REPAIR-136-001",
+  "failed_run_id": "RUN-136-001",
+  "failed_head_sha": "f57fd9fed3f12042366ab884aa3f0151e23b0d8f",
+  "task": {
+    "id": "TASK-136",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue only from the exact failed candidate f57fd9fed3f12042366ab884aa3f0151e23b0d8f for RUN-136-001. Preserve executor identity codex and the existing TASK-136 documentation candidate; do not restart PRIMARY, reroute executors, or rebuild the task from main.",
+    "RUN-136-001 failed at the pinned Runtime completion gate solely because executor structural RESULT.unresolved contained the process-status note that canonical Runtime verification and semantic review were still pending. Pending Runtime verification or later ChatGPT semantic review is not an unresolved implementation defect and must not be reported in RESULT.unresolved. No repository defect requiring mutation has been established.",
+    "This continuation is explicitly NO_CHANGE. Do not modify source, tests, documentation, TASK files, worker files, AIOS/runtime files, or any repository path. HEAD must remain exactly f57fd9fed3f12042366ab884aa3f0151e23b0d8f. Do not manufacture an empty/no-op/format-only commit.",
+    "Emit the structural TASK-136 Result for the unchanged candidate with claims covering the TASK acceptance criteria and with unresolved empty unless there is a concrete implementation defect already present in the unchanged candidate. Do not classify Runtime-owned verification, ChatGPT semantic review, or publication as unresolved work.",
+    "Allow the pinned Runtime to execute exactly the original TASK-136 verification commands against the unchanged candidate. If verification proves a concrete defect, preserve that new failed RUN as canonical evidence and stop; do not self-author a code/document correction inside this NO_CHANGE continuation.",
+    "Return only structural execution evidence for Runtime completion. Do not claim semantic review PASS, M4 completion before the required gates pass, publication, retry, fallback, or reroute."
+  ],
+  "constraints": []
+}
