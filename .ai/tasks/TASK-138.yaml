@@ -1,0 +1,277 @@
+task_id: TASK-138
+revision: 1
+
+goal: >
+  Implement post-M4 P2 Source Evidence Intake as one bounded deterministic local-filesystem
+  application boundary that discovers persisted V1 Product Source Pack manifests only under
+  explicit caller-supplied root directories, typed-rehydrates every discovered manifest
+  exclusively through the existing TASK-125 authority, and returns one immutable aligned
+  inventory of exact manifest paths plus ProductSourcePack values suitable for existing M3
+  resolution workflows and TASK-135 persistent grounded QA without introducing a second
+  codec, registry store, identity authority, catalog authority, or automatic admission path.
+
+problem: >
+  TASK-137 closed the live acquisition/browser foundation and existing Shopee/TikTok scrape
+  tools already persist source_pack.json under deterministic local source-pack directories
+  and return manifest_path. TASK-125 can strictly rehydrate one explicit persisted manifest,
+  M3 accepts ProductSourcePack observations, and TASK-135 can reconstruct persistent grounded
+  QA from explicit manifest paths. What remains missing is the narrow application boundary
+  that deterministically locates those local persisted manifests inside explicitly configured
+  roots and presents the same discovered set in both downstream-compatible forms. Callers
+  currently have to duplicate directory walking, ordering, alias handling, duplicate-evidence
+  handling, and manifest-path collection themselves. TASK-138 must own only that bounded
+  discovery/inventory gap and must preserve all existing evidence, identity, catalog, and
+  grounded-QA semantics.
+
+assumptions:
+  - >
+    Canonical Python Agent main immediately before TASK-138 authoring is
+    4cd23ed46a6a53d8d356a7933b7de09e75739ca0. Its parent governance commit
+    8512c30f9dd7f79841fd5ad23d51982c637cd570 hardens Brain review/publication handling,
+    and TASK-137 source candidate 91a20e5c898fc63856631cc79bd0bd924c3b6d8b is the
+    published P1 Live Acquisition Foundation implementation.
+  - >
+    The authoritative AIOS dependency remains exactly
+    aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@67db82bf19d63f25721d06aabb82d850db8b78d4.
+  - >
+    docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md is canonical and identifies P2 Source
+    Evidence Intake as the current boundary. P3 Human-Governed Knowledge Update, P4 live
+    provider certification, P5 presentation, and P6 quality/scale remain future work.
+  - >
+    src/product_source/serialization.py and TASK-125 deserialize_product_source_pack remain
+    the sole Product Source Pack V1 JSON/typed-rehydration authority. TASK-138 may call that
+    API but must not parse, validate, repair, normalize, or rewrite manifest JSON itself.
+  - >
+    SourceObservationIdentity.from_pack remains the sole exact source-observation identity
+    projection used by M3. TASK-138 may use exact projected equality only to reject duplicate
+    observations in an intake batch; it must not infer or normalize identity fields.
+  - >
+    TASK-108/109 and successors remain sole entity-resolution/grouping authority. TASK-118/
+    119/120 remain sole canonical catalog/persistence authority. TASK-135 remains persistent
+    grounded-QA authority and intentionally requires explicit manifest paths rather than
+    performing discovery itself.
+  - >
+    Existing Shopee/TikTok scrape tools persist local manifests under an output root such as
+    data/source_packs/<platform>/<source_pack_id>/source_pack.json. Google Drive publication
+    is a separate existing side effect; P2 is local-filesystem intake only and does not list
+    or download Drive content.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/PHASE_6_PRODUCT_SOURCE_PACK.md
+    - docs/PHASE_6_M3_COMPLETION.md
+    - docs/PHASE_6_M4_PERSISTENT_GROUNDED_QA.md
+    - .ai/tasks/TASK-108.yaml
+    - .ai/tasks/TASK-109.yaml
+    - .ai/tasks/TASK-125.yaml
+    - .ai/tasks/TASK-135.yaml
+    - .ai/tasks/TASK-137.yaml
+    - src/product_source/models.py
+    - src/product_source/serialization.py
+    - src/product_source/__init__.py
+    - src/tools/shopee_scrape_tool.py
+    - src/tools/tiktok_scrape_tool.py
+    - src/product_intelligence/entity_resolution.py
+    - src/product_intelligence/entity_resolution_graph.py
+    - src/product_intelligence/persistent_grounded_qa.py
+    - src/product_intelligence/__init__.py
+    - tests/product_source/test_source_pack_serialization.py
+    - tests/product_intelligence/test_m3_persistent_knowledge_restart.py
+    - tests/product_intelligence/test_persistent_grounded_qa.py
+
+  modify:
+    - src/product_intelligence/source_evidence_intake.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_source_evidence_intake.py
+    - docs/POST_M4_P2_SOURCE_EVIDENCE_INTAKE.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+
+non_goals:
+  - Modify ProductSourcePack, ProductFact, OriginalMediaRef, serialization schema, V1 JSON
+    field meanings, serialize_source_pack, deserialize_source_pack, or
+    deserialize_product_source_pack semantics.
+  - Read or parse source_pack.json directly in the new intake module, introduce another JSON
+    codec, repair malformed manifests, infer defaults, mutate evidence, rewrite manifests,
+    hash media, inspect original media bytes, or verify cryptographic authenticity.
+  - Add a persistent source-pack registry, SQLite table, index database, cache, watcher,
+    daemon, background scan, polling loop, queue, event bus, or shadow evidence store.
+  - Enumerate Google Drive, download remote manifests, access marketplaces, use browser/CDP,
+    call models/providers, perform HTTP/network I/O, or modify Shopee/TikTok scrape tools.
+  - Infer product family/variant identity, rerun or replace M3 entity semantics inside intake,
+    rank products, choose preferred/latest/majority evidence, reconcile product truth, or
+    auto-approve/auto-admit canonical families or variants.
+  - Modify canonical catalog state, SQLite, family/variant decisions, canonical profiles,
+    lexical retrieval, RAG context, prompt, provider invocation, GroundedAnswer, or TASK-135
+    persistent grounded-QA semantics.
+  - Add CLI/API/server presentation, environment-variable configuration, global singleton
+    registries, browser automation, retry/fallback, or production scheduling.
+  - Change AIOS pin, worker surfaces, publication workflow, or historical TASK-126/TASK-137
+    lineage.
+
+constraints:
+  hard:
+    - >
+      Add exactly one new module src/product_intelligence/source_evidence_intake.py and
+      expose exactly three new public names from that module and from product_intelligence:
+      SourceEvidenceIntakeError, SourceEvidenceInventory, and
+      intake_product_source_evidence. The actual module namespace, not merely __all__, must
+      contain no other non-underscore public dependency names; import implementation
+      dependencies through private aliases.
+    - >
+      SourceEvidenceInventory must be an immutable/frozen result value containing exactly
+      two aligned tuples in this order: manifest_paths: tuple[str, ...] and
+      source_packs: tuple[ProductSourcePack, ...]. The two tuples must always have equal
+      length and item N in source_packs must be the typed value rehydrated from item N in
+      manifest_paths. Do not add identity, catalog, ranking, approval, profile, retrieval,
+      or answer fields to the inventory.
+    - >
+      The public operation must be synchronous and have the semantic signature
+      intake_product_source_evidence(roots) -> SourceEvidenceInventory. Materialize roots
+      exactly once. Reject an outer str/bytes value and reject root members that are not
+      exact non-empty str values with SourceEvidenceIntakeError. Relative root paths are
+      allowed and are interpreted only by normal local filesystem path resolution; do not
+      expand environment variables or read configuration implicitly.
+    - >
+      Resolve each supplied root to one existing canonical absolute filesystem directory
+      before scanning. A missing path, non-directory root, inaccessible root, excessive
+      configured-root count, or filesystem condition that prevents safe bounded discovery
+      must fail closed with SourceEvidenceIntakeError. Equivalent duplicate roots after
+      canonical resolution may be collapsed; caller root ordering must not affect results.
+    - >
+      Discovery is recursive only beneath the resolved configured roots and may select only
+      regular files whose basename is exactly source_pack.json. Do not inspect arbitrary
+      JSON files, guess alternate manifest names, scan parent/sibling directories outside
+      the configured roots, follow directory symlinks outside a root, or enumerate the
+      whole working tree by default.
+    - >
+      Canonical discovered manifest paths must be absolute resolved path strings. Reject a
+      source_pack.json filesystem symlink rather than following it as evidence, and fail
+      closed if a candidate cannot be proven to remain within a configured resolved root.
+      The same canonical manifest reached through overlapping roots must appear only once.
+    - >
+      Bound the intake batch with private implementation limits for configured roots and
+      discovered manifests so an accidental broad root cannot produce an unbounded result.
+      The limits are intake-safety policy only and must not become Product Source Pack or M3
+      observation semantics. Exceeding a limit raises SourceEvidenceIntakeError before any
+      partial inventory is returned.
+    - >
+      Sort the unique canonical manifest paths deterministically using a platform-appropriate
+      canonical filesystem string key (for example normcase of the resolved absolute path)
+      with a stable tie-breaker. Filesystem enumeration order, root creation order, and
+      caller root permutation must not change manifest_paths or source_packs ordering for
+      the same persisted filesystem state.
+    - >
+      After discovery/order is finalized, call the existing TASK-125
+      deserialize_product_source_pack(path) exactly once for each canonical manifest path
+      in inventory order and use the exact returned ProductSourcePack object in the aligned
+      source_packs tuple. Do not call raw deserialize_source_pack, json.load/open for
+      manifest content, or construct/copy/reduce ProductSourcePack values.
+    - >
+      Manifest decode/validation failures owned by TASK-125 must propagate unchanged rather
+      than being converted into invented evidence or silently skipped. SourceEvidenceIntakeError
+      is reserved for intake input/discovery/alias/limit/duplicate-observation failures.
+      Intake is atomic: if any selected manifest cannot be rehydrated, return no partial
+      SourceEvidenceInventory.
+    - >
+      After typed rehydration, derive each exact source identity only through
+      SourceObservationIdentity.from_pack(pack) for duplicate detection. If two distinct
+      canonical manifest files project to the same exact SourceObservationIdentity, fail
+      closed with SourceEvidenceIntakeError. Do not reject distinct historical observations
+      merely because source_pack_id or marketplace product id happens to match when the
+      full existing SourceObservationIdentity differs.
+    - >
+      An empty valid root set or configured roots containing no source_pack.json manifests
+      returns SourceEvidenceInventory(manifest_paths=(), source_packs=()) without inventing
+      placeholder evidence. No directory or manifest is created as a side effect.
+    - >
+      The operation is read-only bounded local I/O. It performs zero writes, catalog access,
+      SQLite, Drive, browser, network, model/provider, subprocess, clock, random/UUID,
+      queueing, retry, polling, or background work. It must not call M3 resolution/grouping,
+      TASK-135 grounded QA, or any Human approval/admission operation itself.
+    - >
+      Focused regression must create representative valid manifests only through existing
+      serialize_source_pack, then prove recursive exact-name discovery, root-order and
+      filesystem-enumeration determinism, canonical absolute path output, aligned typed
+      rehydration, overlapping-root deduplication, empty intake, invalid root/input failure,
+      symlink fail-closed behavior, configured-root/manifest bounds, strict decoder failure
+      propagation, and duplicate exact SourceObservationIdentity rejection.
+    - >
+      Compatibility regression must prove inventory.source_packs can be passed unchanged to
+      existing M3 multi-observation resolution and inventory.manifest_paths has the exact
+      tuple[str, ...] shape accepted by TASK-135, while the intake implementation itself
+      never calls those downstream authorities. Do not monkeypatch M3/TASK-135 to redefine
+      their validation semantics.
+    - >
+      Documentation must state the authority boundary exactly: scrape tools/serialization
+      own creation and V1 persistence; TASK-125 owns typed rehydration; TASK-138 owns only
+      configured-root discovery plus immutable aligned inventory; SourceObservationIdentity
+      owns exact source identity projection; M3 owns resolution/Human-governed canonical
+      admission; TASK-135 owns persistent grounded QA from explicit manifest paths.
+    - >
+      Update docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md so P2 is marked CLOSED only by the
+      TASK-138 implementation boundary and P3 becomes the next architecture boundary. Do
+      not author or implement P3 inside TASK-138.
+    - Do not push from executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      source_evidence_intake.py and product_intelligence expose exactly
+      SourceEvidenceIntakeError, SourceEvidenceInventory, and
+      intake_product_source_evidence for TASK-138, with no additional public namespace
+      leakage or duplicate storage/service authority.
+  - id: AC2
+    condition: >
+      SourceEvidenceInventory is frozen and contains exactly aligned manifest_paths and
+      source_packs tuples, with each typed pack being the exact TASK-125 rehydration result
+      for the manifest at the same index.
+  - id: AC3
+    condition: >
+      Explicit exact-string root inputs are materialized once, resolved to existing local
+      directories, bounded, and scanned recursively only beneath those roots for exact
+      regular-file basename source_pack.json; invalid/missing/non-directory/unsafe roots
+      fail closed and no implicit whole-tree/Drive/network discovery occurs.
+  - id: AC4
+    condition: >
+      Canonical manifest output paths are resolved absolute strings, symlink manifest or
+      out-of-root alias cases fail closed, overlapping-root duplicates collapse to one
+      canonical path, and manifest/root limits prevent an unbounded returned inventory.
+  - id: AC5
+    condition: >
+      For identical persisted filesystem state, root permutation and filesystem creation/
+      enumeration order produce value-equal manifest_paths and source_packs ordering under
+      deterministic canonical path sorting.
+  - id: AC6
+    condition: >
+      Every selected manifest is passed exactly once to TASK-125
+      deserialize_product_source_pack after ordering is finalized; decoder failures
+      propagate unchanged, no manifest is parsed/repaired/skipped by intake, and failure is
+      atomic with no partial inventory result.
+  - id: AC7
+    condition: >
+      Duplicate detection uses only exact SourceObservationIdentity.from_pack equality:
+      duplicate exact observations in distinct manifest files fail closed while distinct
+      observations sharing only partial identifiers remain separate evidence values.
+  - id: AC8
+    condition: >
+      Inventory source_packs are directly consumable by the existing M3 multi-observation
+      resolution API and inventory manifest_paths are directly suitable as TASK-135 explicit
+      source_pack_paths, without TASK-138 calling resolution, catalog admission, grounded QA,
+      provider, or product-truth logic itself.
+  - id: AC9
+    condition: >
+      TASK-138 performs only bounded read-only local discovery/rehydration, introduces no
+      writes/registry DB/cache/watcher/background/network/Drive/browser/model/subprocess/
+      clock/random behavior, and changes no Product Source Pack, M3, or M4 semantic owner.
+  - id: AC10
+    condition: >
+      Focused Product Source Pack, M3 restart, persistent grounded-QA, and new intake
+      regressions pass; git diff --check passes; documentation records P2 authority and
+      advances the canonical roadmap to P3 without implementing P3.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_source_evidence_intake.py tests/product_source/test_source_pack_serialization.py tests/product_intelligence/test_m3_persistent_knowledge_restart.py tests/product_intelligence/test_persistent_grounded_qa.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
