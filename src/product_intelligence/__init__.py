@@ -231,6 +231,11 @@ from src.product_intelligence.source_evidence_intake import (
     SourceEvidenceInventory,
     intake_product_source_evidence,
 )
+from src.product_intelligence.family_review_planning import (
+    FamilyKnowledgeReviewPlan,
+    FamilyKnowledgeReviewPlanningError,
+    plan_family_knowledge_review,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -412,4 +417,7 @@ __all__ = [
     "SourceEvidenceIntakeError",
     "SourceEvidenceInventory",
     "intake_product_source_evidence",
+    "FamilyKnowledgeReviewPlanningError",
+    "FamilyKnowledgeReviewPlan",
+    "plan_family_knowledge_review",
 ]

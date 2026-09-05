@@ -1,6 +1,6 @@
 # Post-M4 Product Intelligence Roadmap — Live Product Enablement
 
-Status: canonical post-M4 architecture roadmap after TASK-138 P2 closure
+Status: canonical post-M4 architecture roadmap; P3 IN PROGRESS after TASK-139 P3.1 closure
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
 ## 1. Starting point
@@ -54,11 +54,21 @@ Required outcome:
 
 P2 owns only **bounded manifest discovery + deterministic immutable intake inventory**. Product Source Pack schema/rehydration remains TASK-125 authority; source identity remains existing M3 authority; catalog/admission remains existing Human-governed M3 authority.
 
-### P3 — Human-Governed Knowledge Update Workflow — CURRENT
+### P3 — Human-Governed Knowledge Update Workflow — IN PROGRESS
 
 Compose existing M3 authorities into an application workflow that takes newly ingested typed source observations through existing resolution/grouping/proposal boundaries, exposes required Human family/variant decisions, and persists only explicitly approved canonical admissions through TASK-118/119/120 authority.
 
 This layer must orchestrate existing boundaries; it must not replace Human approval, auto-generate canonical IDs unless a separate explicit authority is designed, reconcile product truth, or create a second catalog/persistence model.
+
+P3.1 Family Review Planning is closed by TASK-139. It composes one exact TASK-138
+inventory through TASK-109 resolution, TASK-111 grouping, and TASK-112 actionable
+proposal construction while retaining all groups for Human review. It creates no
+Human decision, canonical family or variant, ID, catalog mutation, or durable write.
+
+The next unimplemented P3 sub-boundary is explicit Human family decision followed
+by durable family admission through existing M3 authorities. Caller-supplied opaque
+`family_id` remains required by TASK-114; ID allocation remains deferred. Later
+sellable-variant Human review/decision and durable admission remain separately staged.
 
 ### P4 — Live Grounded-QA Provider Certification
 
@@ -89,7 +99,10 @@ These are not blockers for P1-P5 and must each receive a separate authority audi
 
 P1 is closed by TASK-137. P2 is closed by TASK-138: persisted Product Source Pack evidence is now discoverable through an explicit-root, bounded local intake, and current downstream consumers can receive either typed `ProductSourcePack` values or the aligned explicit manifest paths without duplicating filesystem discovery.
 
-P3 is the immediate current architecture boundary. It may compose newly ingested observations with existing M3 resolution, proposal, Human decision, admission, and persistence authorities, but it must not implement automatic admission or create new identity, catalog, or product-truth semantics.
+P3 is in progress. TASK-139 closes P3.1 family review planning only. The immediate
+next sub-boundary is explicit Human family decision plus durable family admission;
+it must preserve existing TASK-112/114/118/119/120 authority and must not implement
+automatic admission or create new identity, catalog, or product-truth semantics.
 
 ## 4. Authority invariants
 
