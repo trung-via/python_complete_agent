@@ -12,6 +12,7 @@ from .models import (
     SourcePackNavigationError,
 )
 from .extractor import ProductSourceExtractor, OriginalMediaDownloader
+from .serialization import deserialize_product_source_pack
 
 __all__ = [
     "ProductFact",
@@ -25,4 +26,5 @@ __all__ = [
     "SourcePackNavigationError",
     "ProductSourceExtractor",
     "OriginalMediaDownloader",
+    "deserialize_product_source_pack",
 ]

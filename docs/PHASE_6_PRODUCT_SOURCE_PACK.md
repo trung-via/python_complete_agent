@@ -153,6 +153,25 @@ Google Drive Root /
 - Manifests contain **no** raw HTML, cookies, access tokens, credentials, or embedded base64 image data.
 - If Google Drive uploads encounter partial network failures, `ToolStatus.PARTIAL_SUCCESS` is honestly reported with uploaded file counts.
 
+### V1 Manifest Rehydration
+
+`src.product_source.serialization` remains the single Product Source Pack JSON
+authority. `serialize_source_pack` continues to emit the existing V1
+`source_pack.json` layout, and `deserialize_source_pack` continues to return the
+historical raw dictionary for compatibility. Callers that require an immutable
+domain value after restart use `deserialize_product_source_pack(path)`.
+
+Typed rehydration accepts exactly one complete V1 manifest and reconstructs
+`ProductSourcePack`, ordered `ProductFact` values, ordered `OriginalMediaRef`
+values, media enums, provenance, diagnostics, optional `None` values, and the
+explicit timezone-aware observation instant. It rejects duplicate JSON keys,
+unknown or missing fields, alternate schema versions, wrong JSON types,
+non-canonical datetimes, invalid URLs/enums/ordinals/byte sizes/hashes, and values
+that violate the existing domain invariants. It performs no repair,
+normalization, inference, deduplication, download, discovery, database, browser,
+network, clock, random, model, or background work. Persisted URL text retains the
+existing secret/tracking-query sanitization policy applied during serialization.
+
 ---
 
 ## 8. Platform DOM Fragility & Isolation Strategy
