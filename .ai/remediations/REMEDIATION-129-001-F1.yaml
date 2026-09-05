@@ -1,0 +1,8 @@
+finding_id: F1
+action: CODE_FIX
+reviewed_sha: fadb78bff9a9f238f7b0255ad986198c13d75dc3
+modification_scope:
+  - docs/PHASE_6_M4_GROUNDED_ANSWER.md
+affected_verification:
+  - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+constraints: []
