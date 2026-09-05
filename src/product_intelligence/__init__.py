@@ -207,6 +207,11 @@ from src.product_intelligence.grounded_answer import (
     GroundedAnswerStatus,
     create_grounded_answer,
 )
+from src.product_intelligence.grounded_prompt import (
+    GroundedPromptError,
+    GroundedPromptPackage,
+    build_grounded_prompt_package,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -374,4 +379,7 @@ __all__ = [
     "GroundedAnswerStatus",
     "GroundedAnswer",
     "create_grounded_answer",
+    "GroundedPromptError",
+    "GroundedPromptPackage",
+    "build_grounded_prompt_package",
 ]
