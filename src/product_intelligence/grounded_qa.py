@@ -4,8 +4,6 @@ TASK-133 owns only the one-pass call order across the existing context, prompt,
 invocation, and final-answer authorities. It adds no validation or policy.
 """
 
-from __future__ import annotations
-
 import src.product_intelligence.canonical_rag_context as _canonical_rag_context
 import src.product_intelligence.grounded_answer as _grounded_answer
 import src.product_intelligence.grounded_invocation as _grounded_invocation

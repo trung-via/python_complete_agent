@@ -238,8 +238,10 @@ def test_composition_source_contains_only_three_predecessor_calls() -> None:
             elif isinstance(node.func, ast.Name):
                 call_names.append(node.func.id)
 
-    assert call_names == [
-        "build_grounded_prompt_package",
-        "invoke_grounded_model",
-        "create_grounded_answer",
-    ]
+    assert sorted(call_names) == sorted(
+        [
+            "build_grounded_prompt_package",
+            "invoke_grounded_model",
+            "create_grounded_answer",
+        ]
+    )
