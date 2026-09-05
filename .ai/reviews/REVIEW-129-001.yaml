@@ -1,0 +1,44 @@
+review_id: REVIEW-129-001
+task_id: TASK-129
+run_id: RUN-129-001
+reviewed_sha: fadb78bff9a9f238f7b0255ad986198c13d75dc3
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+
+acceptance:
+  AC1: PASS
+  AC2: PASS
+  AC3: PASS
+  AC4: PASS
+  AC5: PASS
+  AC6: PASS
+  AC7: PASS
+  AC8: PASS
+  AC9: FAIL
+  AC10: PASS
+
+findings:
+  - id: F1
+    severity: MEDIUM
+    title: M4 documentation misstates canonical M2/M3 authority
+    finding: >
+      docs/PHASE_6_M4_GROUNDED_ANSWER.md contains an incorrect authority map. It attributes
+      M2 discovery/scoring/ranking/approval to TASK-101..TASK-107 even though canonical
+      CandidateRanker is TASK-095 and the Human approval boundary is TASK-096. More
+      importantly, it states that M3 "owns canonical product truth and evidence storage".
+      Canonical M3 intentionally preserves conflicting evidence and defers product-truth
+      reconciliation; TASK-129 is forbidden from redefining that boundary. This wording can
+      mislead later M4 tasks into treating M3 evidence as already reconciled truth.
+    required_change: >
+      Modify only docs/PHASE_6_M4_GROUNDED_ANSWER.md. Correct the M2 authority attribution
+      (prefer naming the existing scoring/ranking/approval authorities or the accurate task
+      lineage rather than the incorrect TASK-101..TASK-107 range). Replace the M3 authority
+      statement with wording consistent with canonical M3: M3 owns canonical family/variant
+      identity and catalog persistence plus evidence-preserving profiles, lexical retrieval,
+      and grounded-context packaging; conflicting evidence remains plural and product-truth
+      reconciliation/preferred-latest-majority selection remains deferred. Do not change
+      product code, tests, public APIs, or M3 semantics.
+    review_scope: >
+      FIX review must inspect only the F1 documentation delta. Do not rerun the TASK-129
+      PRIMARY implementation and do not reopen passing code semantics unless the fix changes
+      them unexpectedly.
