@@ -111,6 +111,12 @@ def test_public_surface_and_exports_are_bounded():
         "GroundedQueryPlanningError",
         "plan_grounded_retrieval_query",
     ]
+    assert {
+        name for name in vars(query_planning_module) if not name.startswith("_")
+    } == {
+        "GroundedQueryPlanningError",
+        "plan_grounded_retrieval_query",
+    }
     assert issubclass(GroundedQueryPlanningError, ValueError)
     assert getattr(product_intelligence_module, "GroundedQueryPlanningError") is GroundedQueryPlanningError
     assert getattr(product_intelligence_module, "plan_grounded_retrieval_query") is plan_grounded_retrieval_query
@@ -185,7 +191,7 @@ def test_candidate_generation_and_evaluation_order():
     """AC3 & AC4: Evaluates candidate spans length 1..12 descending, then ascending start with limit=2."""
     probed_candidates: list[str] = []
 
-    real_retrieve = query_planning_module.retrieve_canonical_variant_profiles
+    real_retrieve = query_planning_module._retrieve_canonical_variant_profiles
 
     def spy_retrieve(profiles, *, query, limit):
         probed_candidates.append(query)
@@ -195,7 +201,7 @@ def test_candidate_generation_and_evaluation_order():
 
     question = "one two three four"
     with patch(
-        "src.product_intelligence.grounded_query_planning.retrieve_canonical_variant_profiles",
+        "src.product_intelligence.grounded_query_planning._retrieve_canonical_variant_profiles",
         side_effect=spy_retrieve,
     ):
         plan_grounded_retrieval_query((), question=question)
@@ -229,7 +235,7 @@ def test_candidate_span_length_capped_at_12():
 
     question = " ".join(f"tok{i}" for i in range(15))
     with patch(
-        "src.product_intelligence.grounded_query_planning.retrieve_canonical_variant_profiles",
+        "src.product_intelligence.grounded_query_planning._retrieve_canonical_variant_profiles",
         side_effect=fake_retrieve,
     ):
         with pytest.raises(GroundedQueryPlanningError, match="exceeds 12 tokens"):
@@ -302,7 +308,7 @@ def test_immediate_return_on_first_identity_bearing_candidate():
     probed: list[str] = []
     p = _profile("v1", title="Alpha Beta Gamma")
 
-    real_retrieve = query_planning_module.retrieve_canonical_variant_profiles
+    real_retrieve = query_planning_module._retrieve_canonical_variant_profiles
 
     def spy_retrieve(profiles, *, query, limit):
         probed.append(query)
@@ -315,7 +321,7 @@ def test_immediate_return_on_first_identity_bearing_candidate():
     # Length 3: "find Alpha Beta" -> 0 hits, "Alpha Beta Gamma" -> 1 hit on TITLE (class 1)!
     # Evaluation stops immediately at "Alpha Beta Gamma" and does not probe remaining spans.
     with patch(
-        "src.product_intelligence.grounded_query_planning.retrieve_canonical_variant_profiles",
+        "src.product_intelligence.grounded_query_planning._retrieve_canonical_variant_profiles",
         side_effect=spy_retrieve,
     ):
         res = plan_grounded_retrieval_query((p,), question=q)

@@ -5,18 +5,12 @@ natural-language question and canonical profile corpus using only bounded
 contiguous lexical spans and TASK-122 retrieval probes.
 """
 
-from __future__ import annotations
-
-from collections.abc import Iterable
-from typing import TYPE_CHECKING
+from collections.abc import Iterable as _Iterable
 
 from src.product_intelligence.canonical_retrieval import (
-    CanonicalRetrievalField,
-    retrieve_canonical_variant_profiles,
+    CanonicalRetrievalField as _CanonicalRetrievalField,
+    retrieve_canonical_variant_profiles as _retrieve_canonical_variant_profiles,
 )
-
-if TYPE_CHECKING:
-    from src.product_intelligence.canonical_profile import CanonicalVariantProfile
 
 
 class GroundedQueryPlanningError(ValueError):
@@ -25,10 +19,10 @@ class GroundedQueryPlanningError(ValueError):
 
 _IDENTITY_WITNESS_FIELDS = frozenset(
     {
-        CanonicalRetrievalField.TITLE,
-        CanonicalRetrievalField.BRAND,
-        CanonicalRetrievalField.MODEL_SKU,
-        CanonicalRetrievalField.MEDIA_VARIANT_LABEL,
+        _CanonicalRetrievalField.TITLE,
+        _CanonicalRetrievalField.BRAND,
+        _CanonicalRetrievalField.MODEL_SKU,
+        _CanonicalRetrievalField.MEDIA_VARIANT_LABEL,
     }
 )
 
@@ -39,7 +33,7 @@ _PROBE_LIMIT = 2
 
 
 def plan_grounded_retrieval_query(
-    profiles: Iterable[CanonicalVariantProfile],
+    profiles: _Iterable[object],
     *,
     question: str,
 ) -> str:
@@ -69,7 +63,7 @@ def plan_grounded_retrieval_query(
         corpus = tuple(profiles)
     except TypeError:
         first_candidate = " ".join(tokens[: min(len(tokens), _MAX_SPAN_TOKENS)])
-        retrieve_canonical_variant_profiles(
+        _retrieve_canonical_variant_profiles(
             profiles, query=first_candidate, limit=_PROBE_LIMIT
         )
         raise
@@ -81,7 +75,7 @@ def plan_grounded_retrieval_query(
     for span_len in range(max_span_len, 0, -1):
         for start in range(len(tokens) - span_len + 1):
             candidate = " ".join(tokens[start : start + span_len])
-            hits = retrieve_canonical_variant_profiles(
+            hits = _retrieve_canonical_variant_profiles(
                 corpus, query=candidate, limit=_PROBE_LIMIT
             )
             hit_count = len(hits)
