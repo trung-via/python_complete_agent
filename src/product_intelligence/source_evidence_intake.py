@@ -55,6 +55,15 @@ def _path_key(path: str) -> tuple[str, str]:
     return (_os.path.normcase(path), path)
 
 
+def _retain_path_representative(
+    paths_by_key: dict[str, str], canonical_path: str
+) -> None:
+    filesystem_key = _os.path.normcase(canonical_path)
+    current = paths_by_key.get(filesystem_key)
+    if current is None or _path_key(canonical_path) < _path_key(current):
+        paths_by_key[filesystem_key] = canonical_path
+
+
 def _is_within(path: str, root: str) -> bool:
     try:
         common = _os.path.commonpath((path, root))
@@ -102,7 +111,7 @@ def _resolve_roots(roots: _Iterable[str]) -> tuple[str, ...]:
             raise SourceEvidenceIntakeError(
                 "configured root cannot be inspected safely"
             ) from exc
-        canonical_by_key.setdefault(_os.path.normcase(canonical_root), canonical_root)
+        _retain_path_representative(canonical_by_key, canonical_root)
 
     return tuple(sorted(canonical_by_key.values(), key=_path_key))
 
@@ -167,9 +176,7 @@ def _discover_manifests(roots: tuple[str, ...]) -> tuple[str, ...]:
                         raise SourceEvidenceIntakeError(
                             "manifest candidate escapes its configured root"
                         )
-                    manifests_by_key.setdefault(
-                        _os.path.normcase(canonical_manifest), canonical_manifest
-                    )
+                    _retain_path_representative(manifests_by_key, canonical_manifest)
                     if len(manifests_by_key) > _MAX_DISCOVERED_MANIFESTS:
                         raise SourceEvidenceIntakeError("manifest limit exceeded")
         except SourceEvidenceIntakeError:

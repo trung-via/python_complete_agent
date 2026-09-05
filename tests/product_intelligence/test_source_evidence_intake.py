@@ -126,6 +126,32 @@ def test_overlapping_and_equivalent_roots_collapse_canonical_manifest(tmp_path):
     assert len(inventory.source_packs) == 1
 
 
+def test_case_equivalent_root_spelling_is_independent_of_root_order(
+    tmp_path, monkeypatch
+):
+    mixed_case_root = tmp_path / "CaseRoot"
+    lower_case_root = tmp_path / "caseroot"
+    _persist(mixed_case_root, "evidence", _pack("one"))
+    if not lower_case_root.exists():
+        _persist(lower_case_root, "evidence", _pack("one"))
+
+    monkeypatch.setattr(
+        source_evidence_intake._os.path,
+        "normcase",
+        lambda path: os.fspath(path).replace("\\", "/").casefold(),
+    )
+
+    forward = intake_product_source_evidence(
+        (str(mixed_case_root), str(lower_case_root))
+    )
+    reverse = intake_product_source_evidence(
+        (str(lower_case_root), str(mixed_case_root))
+    )
+
+    assert forward == reverse
+    assert len(forward.manifest_paths) == 1
+
+
 def test_empty_input_and_empty_roots_return_empty_inventory(tmp_path):
     assert intake_product_source_evidence(()) == SourceEvidenceInventory((), ())
     assert intake_product_source_evidence((str(tmp_path),)) == SourceEvidenceInventory(
