@@ -1,0 +1,284 @@
+task_id: TASK-139
+revision: 1
+
+goal: >
+  Implement post-M4 P3.1 Family Review Planning as one bounded deterministic application
+  composition boundary over the already-published P2 and M3 authorities. The operation
+  must accept exactly one existing TASK-138 SourceEvidenceInventory, pass its exact typed
+  ProductSourcePack tuple once through TASK-109 multi-observation resolution, pass the
+  exact resulting graph once through TASK-111 grouping, create TASK-112 family merge
+  proposals only for canonical conflict-free POSITIVE_CONNECTED groups, and return one
+  immutable lineage-preserving review plan that exposes the exact inventory, graph,
+  groups, and actionable proposals for subsequent explicit Human review. TASK-139 must
+  not record a Human decision, allocate or accept canonical IDs, admit family/variant
+  identities, mutate or persist catalog state, or implement later P3 decision/admission
+  behavior.
+
+problem: >
+  TASK-138 closed deterministic local evidence intake and now returns aligned exact
+  manifest paths plus typed ProductSourcePack values. M3 already owns pairwise/multi-
+  observation resolution, provisional family grouping, evidence-complete family merge
+  proposals, explicit Human decisions, canonical family/variant admission, catalog
+  integrity, and SQLite durability. What remains missing at the start of P3 is a narrow
+  application boundary that composes the first three review-preparation authorities so a
+  caller does not have to manually reproduce resolve -> group -> proposal call ordering
+  or accidentally hide SINGLETON/CONFLICTED groups. This task must close only that
+  planning gap. Human decision capture and durable canonical admission remain separate
+  later P3 boundaries because combining them here would collapse established M3
+  authorities and would require identity/persistence inputs that are intentionally absent
+  from TASK-139.
+
+assumptions:
+  - >
+    Canonical Python Agent main immediately before TASK-139 authoring is
+    ffbaa7584dc0d41cd03ace2d8706e0fec992fa66, the published TASK-138 final source
+    candidate after REVIEW-138-002 DELTA PASS.
+  - >
+    The authoritative AIOS dependency remains exactly
+    aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@67db82bf19d63f25721d06aabb82d850db8b78d4.
+  - >
+    docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md is canonical: P1 and P2 are closed and
+    P3 Human-Governed Knowledge Update Workflow is the current architecture boundary.
+  - >
+    TASK-138 SourceEvidenceInventory remains the sole P2 aligned local evidence-inventory
+    value. TASK-139 may consume its source_packs tuple unchanged but must not rediscover
+    manifests, deserialize source_pack.json, or create another intake representation.
+  - >
+    TASK-109 resolve_multi_observations remains the sole bounded multi-observation graph
+    authority; TASK-111 group_resolution_graph remains the sole provisional family-
+    grouping authority; TASK-112 create_family_merge_proposal remains the sole evidence-
+    complete family proposal authority and explicit Human family decision authority.
+  - >
+    TASK-114 remains canonical family admission from explicit Human APPROVE plus explicit
+    caller-supplied opaque family_id. TASK-115/116/117 remain sellable-variant evidence,
+    proposal/Human-decision, and canonical-variant admission authorities respectively.
+    TASK-118/119/120 remain catalog integrity, canonical catalog bytes, and SQLite
+    durability authorities respectively.
+  - >
+    Family/variant ID allocation, identity evolution or membership extension, conflict
+    adjudication, product-truth reconciliation, automatic merge/approval, and variant
+    auto-discovery remain deferred and must not be smuggled into P3.1.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_M4_P2_SOURCE_EVIDENCE_INTAKE.md
+    - docs/PHASE_6_M3_COMPLETION.md
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+    - .ai/tasks/TASK-109.yaml
+    - .ai/tasks/TASK-111.yaml
+    - .ai/tasks/TASK-112.yaml
+    - .ai/tasks/TASK-114.yaml
+    - .ai/tasks/TASK-116.yaml
+    - .ai/tasks/TASK-117.yaml
+    - .ai/tasks/TASK-118.yaml
+    - .ai/tasks/TASK-120.yaml
+    - .ai/tasks/TASK-138.yaml
+    - src/product_intelligence/source_evidence_intake.py
+    - src/product_intelligence/entity_resolution_graph.py
+    - src/product_intelligence/entity_grouping.py
+    - src/product_intelligence/family_merge_approval.py
+    - src/product_intelligence/canonical_family.py
+    - src/product_intelligence/sellable_variant_approval.py
+    - src/product_intelligence/canonical_variant.py
+    - src/product_intelligence/canonical_catalog.py
+    - src/product_intelligence/canonical_catalog_sqlite.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_source_evidence_intake.py
+    - tests/product_intelligence/test_entity_resolution_graph.py
+    - tests/product_intelligence/test_entity_grouping.py
+    - tests/product_intelligence/test_family_merge_approval.py
+
+  modify:
+    - src/product_intelligence/family_review_planning.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_family_review_planning.py
+    - docs/POST_M4_P3_HUMAN_GOVERNED_KNOWLEDGE_UPDATE.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+
+non_goals:
+  - Modify TASK-138 intake semantics, ProductSourcePack serialization/rehydration, or
+    source evidence contents.
+  - Modify TASK-108/109 pairwise or graph relationship/conflict semantics.
+  - Modify TASK-111 grouping connectivity, status, conflict, member ordering, or
+    canonical-group semantics.
+  - Modify TASK-112 proposal evidence, Human family decision, actor, timestamp, or
+    approval semantics.
+  - Reimplement pairwise resolution, multi-observation resolution, grouping, conflict
+    detection, pair-evidence construction, or proposal validation inside TASK-139.
+  - Create a family or variant Human decision record, choose APPROVE/REJECT, infer Human
+    intent, or automatically approve/reject any group or proposal.
+  - Accept, generate, allocate, normalize, hash, infer, reserve, or persist family_id,
+    variant_id, proposal_id, group_id, product_id, or any canonical identity.
+  - Call TASK-114 family admission, TASK-115 variant evidence projection, TASK-116
+    sellable-variant proposal/decision, TASK-117 variant admission, TASK-118 catalog
+    registration, TASK-119 codec, or TASK-120 SQLite operations.
+  - Read/write SQLite, filesystem manifests, Google Drive, browser/CDP, marketplace,
+    network, model/provider, queue, environment configuration, clock, random/UUID,
+    subprocess, watcher, retry, polling, or background work.
+  - Resolve how a new observation extends an already-admitted canonical family or variant;
+    identity evolution/membership extension remains deferred and catalog integrity must
+    continue to fail closed under its existing rules.
+  - Repair or split CONFLICTED groups, canonicalize SINGLETON groups, or convert either
+    status into an approvable family proposal.
+  - Automatically discover or recommend sellable-variant member selections.
+  - Reconcile preferred/latest/majority evidence or product truth.
+  - Close all of P3, mark P3 complete, implement P4/P5/P6, or invent a Phase 6 M5.
+  - Change AIOS pin, worker surfaces, publication workflow, or prior RUN/REVIEW lineage.
+
+constraints:
+  hard:
+    - >
+      Add exactly one new module src/product_intelligence/family_review_planning.py and
+      expose exactly three new public names from that module and from product_intelligence:
+      FamilyKnowledgeReviewPlanningError, FamilyKnowledgeReviewPlan, and
+      plan_family_knowledge_review. The actual module namespace, not merely __all__, must
+      contain no other non-underscore public dependency names; implementation imports must
+      use private aliases.
+    - >
+      FamilyKnowledgeReviewPlan must be immutable and canonical-factory-only. Direct
+      forged construction outside plan_family_knowledge_review must fail closed. It must
+      contain exactly four fields in this order: inventory, graph, groups, proposals.
+      inventory must be the exact input SourceEvidenceInventory object; graph must be the
+      exact TASK-109 result; groups must be the exact tuple returned by TASK-111; proposals
+      must contain only exact TASK-112 FamilyMergeProposal results.
+    - >
+      The public operation must be synchronous with semantic signature
+      plan_family_knowledge_review(inventory: SourceEvidenceInventory) ->
+      FamilyKnowledgeReviewPlan. It must require the exact TASK-138 inventory type and
+      expose no alternate roots, paths, raw ProductSourcePack iterable, graph, grouping,
+      resolver, proposal factory, catalog, or database parameter.
+    - >
+      TASK-139 must pass inventory.source_packs unchanged to resolve_multi_observations
+      exactly once and retain the exact returned MultiObservationResolutionGraph. It must
+      not copy/reorder/filter/deduplicate source packs, derive identities itself, call the
+      pairwise resolver directly, or inspect relationship semantics to reproduce TASK-109.
+    - >
+      TASK-139 must pass the exact graph once to group_resolution_graph and retain exactly
+      grouping.groups as the plan groups tuple in canonical TASK-111 order. It must not
+      independently construct groups, sort members, infer connectivity, suppress
+      conflicts, or omit SINGLETON/CONFLICTED groups from plan visibility.
+    - >
+      Proposal eligibility must be delegated to existing TASK-111/TASK-112 semantics.
+      Iterate groups only in exact TASK-111 order. For each group whose status is exactly
+      ProvisionalGroupStatus.POSITIVE_CONNECTED and whose conflict tuple is empty, call
+      create_family_merge_proposal(graph, group) exactly once and retain the exact returned
+      proposal. Do not call the proposal factory for SINGLETON or CONFLICTED groups.
+    - >
+      The plan proposals tuple must preserve the relative TASK-111 group order of the
+      actionable groups. Proposal N must correspond by exact member tuple to the Nth
+      conflict-free POSITIVE_CONNECTED group when non-actionable groups are filtered out.
+      No proposal may be copied, reconstructed, merged, ranked, assigned confidence, or
+      annotated with a machine approval recommendation.
+    - >
+      SINGLETON and CONFLICTED groups are valid review-plan contents and must remain visible
+      through plan.groups even though they produce no family merge proposal in TASK-139.
+      Their presence must not cause automatic repair, singleton admission, conflict
+      override, or synthetic proposal creation.
+    - >
+      An input inventory whose source_packs cardinality or values violate TASK-109 input
+      requirements must fail through the existing TASK-109 error authority. TASK-139 must
+      not silently special-case zero/one observation into a synthetic graph/group. Existing
+      TASK-109/TASK-111/TASK-112 errors must propagate unchanged except that wrong TASK-138
+      inventory type or a structurally impossible composition result may raise
+      FamilyKnowledgeReviewPlanningError.
+    - >
+      Successful planning is pure application composition only. It must perform zero
+      Human decision construction, canonical family/variant admission, ID allocation,
+      catalog load/registration, SQLite/codec calls, persistence, filesystem discovery,
+      browser/network/Drive/model/provider work, clock/random/UUID, queueing, retries,
+      polling, or background work.
+    - >
+      Focused tests must prove exact three-name module namespace, immutable anti-forgery
+      plan construction, exact input inventory retention by identity, exact-once TASK-109
+      and TASK-111 delegation, exact source_packs forwarding, visibility of SINGLETON and
+      CONFLICTED groups, exact-once TASK-112 proposal creation only for actionable groups,
+      canonical proposal ordering/mapping, upstream-error propagation, and absence of
+      Human decision/admission/catalog/persistence/external calls.
+    - >
+      Add one compatibility regression starting from a real TASK-138
+      SourceEvidenceInventory built from manifests created only through existing
+      serialize_source_pack, then prove the resulting actionable FamilyMergeProposal is an
+      exact value accepted unchanged by existing TASK-112 Human decision construction.
+      The regression must stop before creating a canonical family or touching SQLite and
+      must not weaken TASK-112 validation.
+    - >
+      docs/POST_M4_P3_HUMAN_GOVERNED_KNOWLEDGE_UPDATE.md must define P3 as a staged Human-
+      governed composition boundary rather than one new semantic authority. It must record
+      P3.1 as family review planning only and explicitly separate later family decision +
+      durable admission and sellable-variant Human review/decision + durable admission.
+      It must state that caller-supplied opaque family_id/variant_id remain required by
+      TASK-114/TASK-117 and that ID allocation is still deferred.
+    - >
+      Update docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md to mark P3 as IN PROGRESS with
+      P3.1 Family Review Planning closed only by the TASK-139 implementation boundary, and
+      identify explicit Human family decision + durable family admission as the next P3
+      sub-boundary. Do not mark P3 CLOSED and do not author or implement that next
+      sub-boundary inside TASK-139.
+    - Do not push from Executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      family_review_planning.py and product_intelligence expose exactly
+      FamilyKnowledgeReviewPlanningError, FamilyKnowledgeReviewPlan, and
+      plan_family_knowledge_review for TASK-139, with no additional public namespace or
+      competing resolution/grouping/proposal/service authority.
+  - id: AC2
+    condition: >
+      FamilyKnowledgeReviewPlan is immutable, cannot be validly forged through direct
+      construction, contains exactly inventory/graph/groups/proposals, and retains the
+      exact input SourceEvidenceInventory object and exact predecessor result objects.
+  - id: AC3
+    condition: >
+      Planning accepts only one exact TASK-138 SourceEvidenceInventory, forwards its exact
+      source_packs tuple unchanged to TASK-109 resolve_multi_observations exactly once, and
+      retains the exact returned graph without alternate source-pack, resolver, or identity
+      handling.
+  - id: AC4
+    condition: >
+      The exact TASK-109 graph is passed once to TASK-111 group_resolution_graph and the
+      plan preserves exactly grouping.groups in TASK-111 order, including SINGLETON and
+      CONFLICTED groups without suppression, repair, reclassification, or synthetic
+      admission.
+  - id: AC5
+    condition: >
+      TASK-112 create_family_merge_proposal is called exactly once for every and only
+      conflict-free POSITIVE_CONNECTED canonical group, receives the exact graph/group,
+      and its exact proposal object is retained in plan.proposals in corresponding
+      TASK-111 group order.
+  - id: AC6
+    condition: >
+      Planning creates no FamilyMergeDecisionRecord or other Human decision, no canonical
+      family/variant identity, no family_id/variant_id, no sellable-variant proposal, and no
+      catalog/SQLite/persistence mutation; all later P3 Human/admission authority remains
+      with existing TASK-112/114/116/117/118/120 boundaries.
+  - id: AC7
+    condition: >
+      Existing TASK-109/TASK-111/TASK-112 input/semantic failures propagate without
+      silent repair or alternate semantics; zero/one-observation inventories are not
+      converted into synthetic canonical groups, and wrong inventory type fails closed as
+      a TASK-139 planning-input error.
+  - id: AC8
+    condition: >
+      A real P2 inventory created from serialized Product Source Packs can flow through
+      TASK-139 to an exact actionable TASK-112 FamilyMergeProposal that existing TASK-112
+      decision construction accepts unchanged, with no family admission or durable write.
+  - id: AC9
+    condition: >
+      TASK-139 performs only deterministic in-memory composition after receiving the P2
+      inventory and contains no filesystem discovery, manifest decode, browser/network/
+      Drive/model/provider, database/catalog, clock/random, queue/retry/background, ID
+      allocation, product-truth reconciliation, or automatic approval behavior.
+  - id: AC10
+    condition: >
+      Focused predecessor and TASK-139 regressions pass, git diff --check passes, P3
+      documentation records the staged authority map, and the canonical roadmap marks P3
+      IN PROGRESS/P3.1 closed while leaving explicit Human family decision + durable
+      admission as the next unimplemented P3 boundary.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_family_review_planning.py tests/product_intelligence/test_source_evidence_intake.py tests/product_intelligence/test_entity_resolution_graph.py tests/product_intelligence/test_entity_grouping.py tests/product_intelligence/test_family_merge_approval.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
