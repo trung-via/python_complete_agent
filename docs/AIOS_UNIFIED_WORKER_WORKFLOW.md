@@ -1,8 +1,8 @@
 # AIOS Unified Worker Workflow
 
-As of TASK-113 revision 1, the repository-owned Codex and Antigravity worker
+As of TASK-127 revision 1, the repository-owned Codex and Antigravity worker
 surfaces delegate exclusively to the immutable AIOS-renew kernel at commit
-`59b31ede597d4a27b848771522672705a021abe4`. Legacy AIOS Bridge source remains
+`67db82bf19d63f25721d06aabb82d850db8b78d4`. Legacy AIOS Bridge source remains
 archived in this repository, but it is inactive and unreachable from these
 RUN/FIX/REPAIR/STATUS surfaces.
 
@@ -121,6 +121,15 @@ second semantic state store.
 - **Safety**: The worker is explicitly forbidden from inspecting or reconstructing
   repair lineage, passing `--repair`, TASK ID, failed-head, scope, constraints,
   instructions, or verification authority.
+- **Historical Recovery**: Historical recovery is Runtime-owned under the pinned
+  kernel: AIOS-renew admits historical repair execution when the current control
+  checkout differs from an immutable `failed_head_sha`, preserving the current
+  checkout unchanged, isolating the exact historical failed subject, and executing
+  without bootstrapping from the historical tree's old worker pin. Candidate
+  ancestry is preserved from the exact failed head; a recovered candidate is not
+  silently rebased or merged onto an already-advanced main, and any required
+  publication reconciliation is a separate canonical downstream task rather than
+  worker behavior.
 - **Failure**: Nonzero return, bootstrap failure, lineage failure, Executor failure,
   verification failure, or completion-gate failure fails closed without retry, reroute,
   fallback, or second kernel invocation.
@@ -199,4 +208,4 @@ branches or caches that do not expose `/aios-renew-worker` fail closed instead o
 falling back to legacy `/aios-worker` semantics.
 
 Both active worker surfaces use exactly AIOS-renew commit
-`59b31ede597d4a27b848771522672705a021abe4`.
+`67db82bf19d63f25721d06aabb82d850db8b78d4`.

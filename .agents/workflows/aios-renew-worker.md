@@ -113,6 +113,14 @@ failed run identifiers fail before kernel invocation. Leaves candidate HEAD loca
 <resolved bootstrap-host argv> .agents/skills/aios-worker/scripts/aios_worker.py REPAIR RUN-N-NNN --executor antigravity
 ```
 
+Historical recovery is Runtime-owned under the pinned kernel: AIOS-renew admits
+historical repair execution when the current control checkout differs from an immutable
+`failed_head_sha`, preserving the current checkout unchanged, isolating the exact
+historical failed subject, and executing without bootstrapping from the historical tree's
+old worker pin. Candidate ancestry is preserved from the exact failed head; a recovered
+candidate is not silently rebased or merged onto an already-advanced main, and any required
+publication reconciliation is a separate canonical downstream task rather than worker behavior.
+
 ### STATUS TASK-N
 
 Delegates to AIOS-renew task-description semantics. STATUS is read-only for the
@@ -128,6 +136,6 @@ an executor or become a second status or review authority.
 ## Immutable Kernel Pin
 
 The only authoritative AIOS-renew kernel is commit
-`59b31ede597d4a27b848771522672705a021abe4`. The launcher validates both the
+`67db82bf19d63f25721d06aabb82d850db8b78d4`. The launcher validates both the
 checked-in dependency pin and installed PEP 610 source+commit provenance and
 atomically replaces stale or unverifiable worker runtimes.

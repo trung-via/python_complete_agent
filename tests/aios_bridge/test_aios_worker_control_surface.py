@@ -75,7 +75,7 @@ class TestImmutableRuntimePin:
         assert active == [aw.PIN_LINE]
         assert active == [
             "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
-            "59b31ede597d4a27b848771522672705a021abe4"
+            "67db82bf19d63f25721d06aabb82d850db8b78d4"
         ]
 
     def test_authoritative_pep610_metadata_is_accepted(self):
@@ -85,6 +85,7 @@ class TestImmutableRuntimePin:
         ("url", "commit"),
         [
             ("https://github.com/other/AIOS-renew.git", aw.AUTHORITATIVE_COMMIT),
+            (aw.AUTHORITATIVE_REPOSITORY, "59b31ede597d4a27b848771522672705a021abe4"),
             (aw.AUTHORITATIVE_REPOSITORY, "9255a3a38cef87976d6bcead90c2017de6f1c1bb"),
             (aw.AUTHORITATIVE_REPOSITORY, "4" * 40),
             (aw.AUTHORITATIVE_REPOSITORY, "3" * 40),
@@ -209,7 +210,7 @@ class TestRuntimeBootstrap:
         old_python.touch()
         (layout.runtime / "marker.txt").write_text("old-state", encoding="utf-8")
 
-        stale_commit = "f68ea27583ec6dcd4324e77d6b29a36a246be745"
+        stale_commit = "59b31ede597d4a27b848771522672705a021abe4"
         calls = []
         replaced = False
 
@@ -487,12 +488,56 @@ class TestKernelRouting:
             "TASK-",
             "--finding",
             "--failed-head",
+            "--failed-head-sha",
+            "--root-base-sha",
+            "--historical-workspace",
             "--scope",
             "--constraints",
             "--instructions",
             "--verification",
         ):
             assert forbidden not in command
+
+    def test_repair_does_not_require_worker_to_checkout_failed_head_or_supply_scope(
+        self, tmp_path, monkeypatch
+    ):
+        layout = make_layout(tmp_path)
+        kernel = MagicMock(
+            return_value=done(
+                stdout=(
+                    "AIOS REPAIR PASS\n"
+                    "task: TASK-125\n"
+                    "failed_run: RUN-125-009\n"
+                    "run: RUN-125-010\n"
+                    "executor: codex\n"
+                    f"failed_head_sha: {FAILED_HEAD_SHA}\n"
+                    f"head_sha: {HEAD_SHA}\n"
+                )
+            )
+        )
+        git = MagicMock(side_effect=AssertionError("git checkout/push must not be called"))
+        monkeypatch.setattr(aw, "get_repo_root", lambda: tmp_path)
+        monkeypatch.setattr(aw, "runtime_layout", lambda repo: layout)
+        monkeypatch.setattr(aw, "ensure_runtime", lambda value: tmp_path / "worker-python")
+        monkeypatch.setattr(aw, "invoke_kernel", kernel)
+        monkeypatch.setattr(aw, "_git", git)
+
+        assert aw.main(["REPAIR", "RUN-125-009", "--executor", "codex"]) == 0
+        kernel.assert_called_once_with(
+            (
+                str(tmp_path / "worker-python"),
+                "-m",
+                "aios_renew.operator",
+                "repair",
+                "RUN-125-009",
+                "--executor",
+                "codex",
+                "--repo",
+                str(tmp_path),
+            ),
+            repo=tmp_path,
+        )
+        git.assert_not_called()
 
     def test_codex_and_antigravity_repair_differ_only_by_executor(self, tmp_path):
         python = tmp_path / "python"
@@ -1061,6 +1106,9 @@ class TestSurfaceAndDocumentation:
         assert "FIX TASK-N FINDING-ID" in text
         assert "canonical remediation lineage remotely" in text
         assert "passes no sandbox or permission argument" in text
+        assert "Historical recovery is Runtime-owned" in text
+        assert "isolating the exact historical failed subject" in text
+        assert "publication reconciliation is a separate canonical downstream task" in text
 
     def test_product_requirements_and_task_098_are_not_modified(self):
         task_098 = (REPO_ROOT / ".ai" / "tasks" / "TASK-098.yaml").read_bytes()
