@@ -201,6 +201,12 @@ from src.product_intelligence.canonical_rag_context import (
     build_canonical_rag_context,
     render_canonical_rag_context,
 )
+from src.product_intelligence.grounded_answer import (
+    GroundedAnswer,
+    GroundedAnswerError,
+    GroundedAnswerStatus,
+    create_grounded_answer,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -364,4 +370,8 @@ __all__ = [
     "CanonicalRagContext",
     "build_canonical_rag_context",
     "render_canonical_rag_context",
+    "GroundedAnswerError",
+    "GroundedAnswerStatus",
+    "GroundedAnswer",
+    "create_grounded_answer",
 ]
