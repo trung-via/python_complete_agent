@@ -9,6 +9,4 @@ modification_scope:
 affected_verification:
   - '$env:PYTHONPATH = ".;src"; python -m pytest tests/integration/test_browser_cdp.py tests/integration/test_browser_tools.py tests/integration/test_phase6_bootstrap.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
   - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
-constraints:
-  - Preserve launch-mode behavior and all already-passing TASK-137 CDP/evaluate semantics.
-  - Do not modify extraction, discovery, Product Source Pack, M2/M3/M4, AgentController endpoint selection, AIOS, or publication behavior.
+constraints: []
