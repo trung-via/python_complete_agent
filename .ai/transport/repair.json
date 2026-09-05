@@ -1,0 +1,21 @@
+{
+  "repair_id": "REPAIR-133-001",
+  "failed_run_id": "RUN-133-001",
+  "failed_head_sha": "e786e931c0da454ab46f880fe275439727423a44",
+  "task": {
+    "id": "TASK-133",
+    "revision": 1
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "src/product_intelligence/grounded_qa.py",
+    "tests/product_intelligence/test_grounded_qa.py"
+  ],
+  "instructions": [
+    "Continue only from the exact failed candidate e786e931c0da454ab46f880fe275439727423a44 for RUN-133-001. Preserve the existing TASK-133 composition implementation and all predecessor authority boundaries; do not restart PRIMARY or broaden scope.",
+    "Fix AC1 narrowly by removing the unnecessary `from __future__ import annotations` statement from src/product_intelligence/grounded_qa.py so the module exposes no unintended public `annotations` name. Do not otherwise change answer_grounded_context behavior, imports, signature, call order, forwarding, or error propagation.",
+    "Fix the static-source test narrowly: tests/product_intelligence/test_grounded_qa.py must not infer execution order from ast.walk(), because ast.walk traversal order is not execution order. Preserve the existing runtime monkeypatch test as the proof of build -> invoke -> create execution order. Make the static test prove only that answer_grounded_context contains exactly one call to each allowed predecessor API and no additional calls, or use a statement-order-aware AST check if chosen; do not weaken the TASK-133 requirement.",
+    "Run only the original TASK-133 Runtime-owned verification commands. Return a structural REPAIR result for the full TASK candidate lineage from the original root base through the repaired head; do not claim semantic REVIEW PASS, publish, retry, reroute, or alter AIOS/runtime control-plane files."
+  ],
+  "constraints": []
+}
