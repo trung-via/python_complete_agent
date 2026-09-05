@@ -218,6 +218,10 @@ from src.product_intelligence.grounded_invocation import (
     invoke_grounded_model,
 )
 from src.product_intelligence.grounded_qa import answer_grounded_context
+from src.product_intelligence.grounded_query_planning import (
+    GroundedQueryPlanningError,
+    plan_grounded_retrieval_query,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -392,4 +396,6 @@ __all__ = [
     "GroundedModelPayload",
     "invoke_grounded_model",
     "answer_grounded_context",
+    "GroundedQueryPlanningError",
+    "plan_grounded_retrieval_query",
 ]

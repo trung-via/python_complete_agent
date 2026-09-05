@@ -35,7 +35,7 @@ A payload may satisfy TASK-132 syntax rules yet violate TASK-129 structural grou
 
 ## Deferred and non-authoritative behavior
 
-The caller must supply an already-built `CanonicalRagContext`. Question-to-retrieval-query planning and persisted-knowledge application startup remain later milestones. TASK-133 performs no retrieval, context construction, prompt reconstruction, JSON parsing, provider-specific behavior, storage, or product-truth reconciliation.
+The caller must supply an already-built `CanonicalRagContext`. Question-to-retrieval-query planning is established in Phase 6 M4.5 (`plan_grounded_retrieval_query` in TASK-134), while persisted-knowledge application startup remains a later milestone. TASK-133 performs no retrieval, context construction, prompt reconstruction, JSON parsing, provider-specific behavior, storage, or product-truth reconciliation.
 
 A structurally valid `GroundedAnswer` is an application answer, not canonical product truth and not an M2 recommendation or approval decision. TASK-133 does not establish semantic entailment, factual correctness, hallucination freedom, conflict resolution, prompt-injection immunity, completeness, or product-truth reconciliation.
 
