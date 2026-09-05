@@ -217,6 +217,7 @@ from src.product_intelligence.grounded_invocation import (
     GroundedModelPayload,
     invoke_grounded_model,
 )
+from src.product_intelligence.grounded_qa import answer_grounded_context
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -390,4 +391,5 @@ __all__ = [
     "GroundedInvocationError",
     "GroundedModelPayload",
     "invoke_grounded_model",
+    "answer_grounded_context",
 ]
