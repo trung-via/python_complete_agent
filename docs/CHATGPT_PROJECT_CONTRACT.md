@@ -199,6 +199,28 @@ Review only prior finding/repair delta plus directly introduced defect risk.
 
 Do not re-review the entire task after every correction.
 
+### REPAIR after failed FIX
+
+A REPAIR that continues a failed FIX remains a **DELTA semantic review** of the preserved finding/correction continuity; it does not become a new PRIMARY review merely because the Runtime operation is REPAIR.
+
+Before materializing the review-decision for this lineage, the Brain must reconcile the review metadata with the **exact pinned AIOS publication validator** when the lineage shape differs from an ordinary successful FIX.
+
+For the current pinned Runtime:
+
+- Preserve the finding lineage through the canonical prior REVIEW, REMEDIATION, failed FIX RUN/FAILURE, REPAIR authorization, and successful REPAIR RUN artifacts.
+- Do not add `prior_finding_id` to the final REPAIR review-decision unless the exact publication validator can resolve a canonical `prior_review` for that source run.
+- If the validator cannot resolve such a `prior_review`, keep `mode: DELTA`, record only the acceptance criterion actually re-reviewed, omit `prior_finding_id`, and rely on the canonical lineage artifacts for finding continuity.
+- Never change the source candidate or rerun verification merely to make review-decision metadata publishable.
+- A publication-schema mismatch is control-plane metadata work, not a new product finding.
+
+### Review/remediation authoring preflight
+
+Before invoking FIX or publishing a DELTA decision, fail closed on structural metadata:
+
+- every finding `basis` must be an exact acceptance ID supported by the relevant review contract;
+- remediation `constraints` must be empty or an exact allowed subset of the TASK hard constraints under the pinned Runtime contract; do not paraphrase new Human intent into remediation constraints;
+- nonstandard lineage such as REPAIR-after-FIX must be checked against the exact pinned publication semantics before materializing the final review-decision.
+
 ## 10. Publication
 
 After semantic PASS, publish the reviewed source candidate only.
@@ -239,7 +261,8 @@ For a new ChatGPT chat:
 6. Determine next authored TASK, if any.
 7. Inspect active RUN / FAILURE / REVIEW / FIX / REPAIR lineage only when relevant.
 8. When a failed RUN needs REPAIR and REPAIR action semantics are not already reconciled in the current chat, inspect the exact pinned AIOS runtime before selecting `NO_CHANGE`, `CODE_FIX`, or any successor action vocabulary.
-9. Produce SYNC CHECKPOINT.
+9. When review/publication follows a nonstandard lineage such as REPAIR-after-FIX, inspect the exact pinned publication semantics before materializing review-decision fields that depend on prior-review resolution.
+10. Produce SYNC CHECKPOINT.
 
 Expected checkpoint:
 
