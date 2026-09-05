@@ -13,7 +13,7 @@ acceptance:
   AC8: PASS
 findings:
   - id: F1
-    basis: AC2 and browser-contract consistency
+    basis: AC2
     action: CODE_FIX
     location: src/integrations/playwright/session.py; src/browser/manager.py; src/browser/session.py; tests/integration/test_browser_cdp.py
     issue: >
