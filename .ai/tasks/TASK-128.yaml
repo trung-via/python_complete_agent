@@ -1,0 +1,223 @@
+task_id: TASK-128
+revision: 1
+
+goal: >
+  Reconcile the semantically PASS historical TASK-125 source candidate onto the current
+  canonical Python Agent main after TASK-127 advanced the repository control plane, by
+  producing one publication-ready descendant of the AIOS-admitted TASK-128 run base whose
+  TASK-125-owned product/source/test/documentation file contents are byte-identical to the
+  reviewed historical candidate bde5ac1e781254920ec7bb6bdb3246e1a758ebb1 while preserving
+  the current TASK-127 worker migration unchanged. This is publication ancestry
+  reconciliation only; it must introduce no new Product Intelligence semantics and must
+  not rerun or reinterpret TASK-125.
+
+problem: >
+  TASK-125 completed its product semantics in canonical RUN-125-005 at candidate
+  11fa6d596434f6fd3ee100b2bb481c4a2093b8bd. REVIEW-125-001 passed AC1-AC10 and AC12 and
+  raised only F1 on AC11 completion-document evidence recording. The correction lineage
+  ended at bde5ac1e781254920ec7bb6bdb3246e1a758ebb1, which changes only the exact command
+  strings in docs/PHASE_6_M3_COMPLETION.md relative to its parent. Historical RUN-125-009
+  then failed only at COMPLETION_GATE with RESULT.changed_files mismatch. After TASK-127
+  migrated Python Agent to the reviewed AIOS-renew historical-REPAIR runtime, canonical
+  RUN-125-010 recovered that exact unchanged historical subject, verified the focused
+  TASK-125 gates (45 passed), the complete tests/product_intelligence gate (298 passed),
+  and git diff --check, and returned no unresolved items. REVIEW-125-002 is DELTA PASS for
+  F1 / AC11 on the same bde5ac1e... source candidate.
+  However current Python Agent main has already advanced through TASK-127 from the shared
+  ancestor d47ed9c048cacd152452cf2a7054c662e1043c82, so the reviewed historical TASK-125
+  candidate is not a descendant of current main and cannot be published directly under
+  the project publication contract. TASK-128 must reconcile only this ancestry boundary.
+
+assumptions:
+  - >
+    Canonical Python Agent main immediately before TASK-128 authoring is
+    f7ed91eb818ec060a9af718020ba738f43e24872.
+  - >
+    Current repository AIOS-renew pin is exactly
+    67db82bf19d63f25721d06aabb82d850db8b78d4 and TASK-127 owns that worker dependency,
+    launcher, documentation, and certification boundary.
+  - >
+    Historical TASK-125 root base and the pre-TASK-127 common ancestor are exactly
+    d47ed9c048cacd152452cf2a7054c662e1043c82.
+  - >
+    Historical TASK-125 final reviewed source candidate is exactly
+    bde5ac1e781254920ec7bb6bdb3246e1a758ebb1 and descends from d47ed9c... through the
+    original implementation and F1 correction lineage.
+  - >
+    REVIEW-125-001 is PRIMARY CHANGES_REQUIRED only for F1 / AC11; AC1-AC10 and AC12 are
+    already PASS. REVIEW-125-002 is DELTA PASS for F1 / AC11 on bde5ac1e... with no
+    findings. TASK-128 does not reopen either review scope.
+  - >
+    RUN-125-010 is a successful NO_CHANGE historical REPAIR of RUN-125-009 and binds new
+    runtime verification evidence to the unchanged subject SHA bde5ac1e....
+  - >
+    The canonical diff from d47ed9c... to pre-authoring main f7ed91... is confined to
+    TASK-127 worker/control-surface files and .ai/tasks/TASK-127.yaml. None of those files
+    overlap the seven TASK-125 source candidate files.
+  - >
+    docs/CHATGPT_PROJECT_CONTRACT.md remains authoritative: after PASS publish only the
+    reviewed source candidate, never a review-decision/artifact/failure branch commit.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - .ai/tasks/TASK-125.yaml
+    - .ai/tasks/TASK-127.yaml
+    - docs/PHASE_6_M3_COMPLETION.md
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+    - docs/PHASE_6_PRODUCT_SOURCE_PACK.md
+    - src/product_source/__init__.py
+    - src/product_source/serialization.py
+    - tests/product_intelligence/test_m3_persistent_knowledge_restart.py
+    - tests/product_source/test_source_pack_serialization.py
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+
+  modify:
+    - docs/PHASE_6_M3_COMPLETION.md
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+    - docs/PHASE_6_PRODUCT_SOURCE_PACK.md
+    - src/product_source/__init__.py
+    - src/product_source/serialization.py
+    - tests/product_intelligence/test_m3_persistent_knowledge_restart.py
+    - tests/product_source/test_source_pack_serialization.py
+
+non_goals:
+  - Reimplement, improve, refactor, clean up, optimize, or otherwise semantically change
+    any TASK-125 Product Intelligence or Product Source Pack behavior.
+  - Modify TASK-108 through TASK-125 semantics, contracts, authority ownership, public APIs,
+    identity rules, catalog rules, persistence rules, profile rules, retrieval rules, or
+    grounded RAG rules.
+  - Reopen REVIEW-125-001 beyond the already-preserved F1 correction or create a new
+    semantic finding against already-PASS AC1-AC10/AC12 absent a directly introduced
+    TASK-128 reconciliation defect.
+  - Rerun TASK-125 PRIMARY, run a new TASK-125 FIX, run another TASK-125 REPAIR, or create
+    replacement TASK-125 implementation/evidence lineage.
+  - Modify the current AIOS-renew dependency pin, worker launcher, Antigravity/Codex worker
+    surfaces, TASK-127 documentation, or worker certification tests.
+  - Reimplement AIOS-renew historical repair, changed-files authority, lineage recovery,
+    publication, or review logic in Python Agent.
+  - Merge, publish, copy, or otherwise place REVIEW-125-002, REVIEW-125-001, failure
+    artifacts, result artifacts, repair metadata, or review-decision commits onto main.
+  - Add Phase 6 M4 application behavior, model invocation, answer synthesis, product-truth
+    reconciliation, embeddings, vector search, ranking, autonomous merge policy, ID
+    allocation, migrations, authenticity, identity evolution, browser work, or scraping.
+  - Add a new persistence format, profile store, retrieval store, RAG store, shadow
+    catalog, compatibility shim, migration layer, or duplicate semantic authority.
+  - Treat publication reconciliation as permission to modify unrelated current-main files.
+  - Push, merge, or publish main from Executor execution.
+
+constraints:
+  hard:
+    - >
+      The AIOS-admitted RUN base for TASK-128 must be the canonical current main containing
+      this TASK-128 contract and the already-published TASK-127 migration. The resulting
+      source candidate must be a clean descendant of that admitted base and therefore be
+      publication-ancestry compatible with current main.
+    - >
+      The complete implementation changed-file set relative to the TASK-128 admitted RUN
+      base must be exactly the seven files listed in scope.modify. No eighth implementation
+      file is permitted.
+    - >
+      At final candidate HEAD, each of the seven scope.modify files must be byte-identical
+      to the same path at historical reviewed TASK-125 candidate
+      bde5ac1e781254920ec7bb6bdb3246e1a758ebb1. TASK-128 may reconcile ancestry but may not
+      reinterpret, regenerate, reformat, normalize, reorder, or improve those contents.
+    - >
+      The current TASK-127-controlled files must remain byte-identical to pre-TASK-128
+      canonical main f7ed91eb818ec060a9af718020ba738f43e24872 for the following paths:
+      .agents/skills/aios-worker/requirements-aios-renew.txt,
+      .agents/skills/aios-worker/scripts/aios_worker.py,
+      .agents/skills/aios-worker/SKILL.md,
+      .agents/workflows/aios-renew-worker.md,
+      docs/AIOS_UNIFIED_WORKER_WORKFLOW.md, and
+      tests/aios_bridge/test_aios_worker_control_surface.py.
+    - >
+      TASK-128 must preserve .ai/tasks/TASK-127.yaml and the current AIOS pin exactly. It
+      must not copy historical worker files or the old historical AIOS pin from the
+      TASK-125 branch into the reconciled candidate.
+    - >
+      The historical candidate commit bde5ac1e... remains immutable evidence. Do not reset,
+      force-move, amend, rewrite, or otherwise mutate it or its historical branches.
+    - >
+      The reconciliation mechanism is implementation detail owned by the Executor. The
+      TASK contract specifies the final ancestry, exact file content, and preservation
+      invariants; it does not create a new repository merge/rebase/cherry-pick semantic
+      authority. Whatever mechanism is chosen must yield the exact bounded final state and
+      must not include review/failure/artifact metadata in the source candidate.
+    - >
+      Do not manufacture new TASK-125 verification evidence or replace the immutable
+      RUN-125-005/RUN-125-010 evidence recorded for TASK-125. The byte-identical source
+      content is already semantically certified; TASK-128 verification is structural
+      reconciliation proof, not a second M3 phase gate.
+    - >
+      Do not rerun the 45-test focused TASK-125 gate or the 298-test complete
+      tests/product_intelligence phase gate solely for reconciliation. Those gates already
+      passed on the exact byte content being transplanted and current-main TASK-127 changes
+      are disjoint worker/control-plane files. A future run may execute them only if the
+      final seven-file byte-equivalence invariant cannot be proven or if canonical state
+      materially changes before execution.
+    - >
+      Review TASK-128 as a reconciliation/integration delta: verify admitted-base ancestry,
+      exact seven-file byte equivalence to bde5ac1e..., preservation of TASK-127 current-main
+      files, exact changed-file scope, clean state, and supplied structural verification.
+      Do not perform a fresh PRIMARY semantic review of TASK-125.
+    - >
+      After TASK-128 PASS, publication authority may publish only the TASK-128 source
+      candidate descendant. Never publish REVIEW-125-002, aios/review/RUN-125-010,
+      aios/artifacts/RUN-125-010, historical failure/repair branches, or the TASK-128
+      review-decision commit.
+    - Do not push from executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      The final TASK-128 source candidate is a clean descendant of the AIOS-admitted
+      current-main run base containing TASK-127 and this TASK-128 contract, with no
+      publication ancestry divergence remaining for the reconciled source candidate.
+  - id: AC2
+    condition: >
+      The candidate implementation changed-file set is exactly the seven TASK-125 files in
+      scope.modify and contains no review, failure, repair, artifact, worker, task-contract,
+      AIOS-kernel, or unrelated product files.
+  - id: AC3
+    condition: >
+      All seven reconciled files are byte-identical at candidate HEAD to their exact values
+      at bde5ac1e781254920ec7bb6bdb3246e1a758ebb1.
+  - id: AC4
+    condition: >
+      The six current TASK-127-controlled worker/documentation/certification files listed in
+      constraints remain byte-identical to f7ed91eb818ec060a9af718020ba738f43e24872,
+      and the repository AIOS pin remains exactly
+      67db82bf19d63f25721d06aabb82d850db8b78d4.
+  - id: AC5
+    condition: >
+      No TASK-125 semantic authority is changed or duplicated: typed Product Source Pack
+      rehydration, restart proof, M3 completion documentation, identity/catalog/profile/
+      retrieval/RAG boundaries, and post-M3 deferrals are exactly those already reviewed
+      on the historical candidate.
+  - id: AC6
+    condition: >
+      No TASK-125 PRIMARY/FIX/REPAIR is rerun and no new TASK-125 semantic verification
+      evidence is fabricated; TASK-128 uses structural byte-equivalence and ancestry
+      evidence for reconciliation.
+  - id: AC7
+    condition: >
+      Historical TASK-125 branches/commits and all review/failure/artifact metadata remain
+      untouched and outside the source candidate; current main is not reset or rewritten by
+      Executor execution.
+  - id: AC8
+    condition: >
+      Structural verification proves exact seven-file equivalence to bde5ac1e..., exact
+      preservation of TASK-127-controlled files from f7ed91..., and git diff --check passes
+      on the final candidate.
+
+verification:
+  required:
+    - 'git diff --exit-code bde5ac1e781254920ec7bb6bdb3246e1a758ebb1 HEAD -- docs/PHASE_6_M3_COMPLETION.md docs/PHASE_6_M3_ENTITY_RESOLUTION.md docs/PHASE_6_PRODUCT_SOURCE_PACK.md src/product_source/__init__.py src/product_source/serialization.py tests/product_intelligence/test_m3_persistent_knowledge_restart.py tests/product_source/test_source_pack_serialization.py; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --exit-code f7ed91eb818ec060a9af718020ba738f43e24872 HEAD -- .agents/skills/aios-worker/requirements-aios-renew.txt .agents/skills/aios-worker/scripts/aios_worker.py .agents/skills/aios-worker/SKILL.md .agents/workflows/aios-renew-worker.md docs/AIOS_UNIFIED_WORKER_WORKFLOW.md tests/aios_bridge/test_aios_worker_control_surface.py; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
