@@ -57,19 +57,26 @@ class PlaywrightBrowserSession(BrowserSession):
             logger.warning(f"Session {self._run_id} is already starting or ready.")
             return
 
-        self._state = BrowserState.STARTING
-        try:
-            if self._borrowed_resources and self._config.browser_type != "chromium":
+        cdp_timeout_ms: Optional[int] = None
+        if self._borrowed_resources:
+            if self._config.browser_type != "chromium":
                 raise BrowserContextError(
                     "CDP mode supports only the Chromium browser type."
                 )
+            cdp_timeout_ms = self._config.timeout_seconds * 1000
+            if cdp_timeout_ms <= 0:
+                raise BrowserContextError(
+                    "CDP mode requires timeout_seconds to produce a positive connection timeout."
+                )
 
+        self._state = BrowserState.STARTING
+        try:
             self._playwright = await async_playwright().start()
 
             if self._borrowed_resources:
                 self._browser = await self._playwright.chromium.connect_over_cdp(
                     self._cdp_endpoint,
-                    timeout=self._config.timeout_seconds * 1000,
+                    timeout=cdp_timeout_ms,
                 )
                 contexts = self._browser.contexts
                 if not contexts:

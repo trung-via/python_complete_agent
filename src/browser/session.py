@@ -19,7 +19,12 @@ class BrowserSession(Protocol):
         ...
 
     async def start(self) -> None:
-        """Starts the browser, context, and a default page."""
+        """
+        Starts the session.
+
+        Launch mode creates an isolated browser context and default page. CDP mode
+        may instead attach to a browser and borrow an existing context and page.
+        """
         ...
 
     async def close(self) -> None:

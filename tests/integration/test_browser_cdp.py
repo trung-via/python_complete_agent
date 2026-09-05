@@ -201,6 +201,29 @@ async def test_cdp_rejects_non_chromium_without_connecting_or_caching(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("timeout_seconds", [0, -1])
+async def test_cdp_rejects_non_positive_timeout_without_starting_connecting_or_caching(
+    monkeypatch: pytest.MonkeyPatch,
+    timeout_seconds: int,
+) -> None:
+    browser = FakeBrowser([FakeContext([FakePage()])])
+    chromium = FakeChromium(cdp_browser=browser)
+    _, starter = install_playwright(monkeypatch, chromium)
+    manager = PlaywrightBrowserManager(cdp_endpoint=ENDPOINT)
+
+    with pytest.raises(BrowserContextError, match="positive connection timeout"):
+        await manager.get_or_create_session(
+            "invalid-timeout",
+            BrowserConfig(timeout_seconds=timeout_seconds),
+        )
+
+    assert starter.start_count == 0
+    assert chromium.connect_calls == []
+    assert chromium.launch_calls == []
+    assert "invalid-timeout" not in manager._sessions
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "failure",
     [ConnectionRefusedError("refused"), TimeoutError("timed out")],
