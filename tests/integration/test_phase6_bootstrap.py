@@ -8,6 +8,7 @@ import pytest
 
 import main
 from src.agent_controller import AgentController
+from src.agent_controller import DEFAULT_PRODUCTION_CDP_ENDPOINT
 from src.agent.policy import RunPolicy
 from src.agent.production_readiness import ReadinessStatus
 from src.core.checkpoint import CheckpointManager
@@ -19,6 +20,7 @@ from src.core.types import ToolCall, ToolResult, ToolStatus
 from src.providers.base import LLMProvider, LLMResponse, ProviderToolCall
 from src.tools.shopee_scrape_tool import ShopeeScrapeTool
 from src.tools.tiktok_scrape_tool import TikTokScrapeTool
+from src.integrations.playwright.manager import PlaywrightBrowserManager
 from tests.support.fault_injection import FaultyLLMProvider
 
 
@@ -56,6 +58,41 @@ class FakeBrowserManager:
     async def close_all(self) -> None:
         self.closed = True
         self.close_count += 1
+
+
+def test_agent_controller_default_browser_uses_production_cdp_endpoint(tmp_path: Any) -> None:
+    controller = AgentController(
+        db_path=str(tmp_path / "checkpoints.jsonl"),
+        idempotency_path=str(tmp_path / "idempotency.jsonl"),
+        llm_provider=FaultyLLMProvider([]),
+        image_processor=FakeImageProcessor(),  # type: ignore[arg-type]
+        gdrive=FakeGDrive(),  # type: ignore[arg-type]
+        tool_registry=ToolRegistry(),
+    )
+
+    assert isinstance(controller.browser_manager, PlaywrightBrowserManager)
+    assert controller.browser_manager.cdp_endpoint == DEFAULT_PRODUCTION_CDP_ENDPOINT
+
+
+def test_agent_controller_preserves_explicit_browser_manager_identity(tmp_path: Any) -> None:
+    class FalseyBrowserManager(FakeBrowserManager):
+        def __bool__(self) -> bool:
+            return False
+
+    injected = FalseyBrowserManager()
+    controller = AgentController(
+        db_path=str(tmp_path / "checkpoints.jsonl"),
+        idempotency_path=str(tmp_path / "idempotency.jsonl"),
+        llm_provider=FaultyLLMProvider([]),
+        browser_manager=injected,  # type: ignore[arg-type]
+        image_processor=FakeImageProcessor(),  # type: ignore[arg-type]
+        gdrive=FakeGDrive(),  # type: ignore[arg-type]
+        tool_registry=ToolRegistry(),
+    )
+
+    assert controller.browser_manager is injected
+    assert controller.tool_context["browser"] is injected
+    assert controller.tool_context["browser_manager"] is injected
 
 
 class FakeImageProcessor:

@@ -12,9 +12,15 @@ from src.integrations.playwright.session import PlaywrightBrowserSession
 logger = logging.getLogger(__name__)
 
 class PlaywrightBrowserManager(BrowserManager):
-    def __init__(self):
+    def __init__(self, cdp_endpoint: Optional[str] = None):
+        self._cdp_endpoint = cdp_endpoint
         self._sessions: Dict[str, BrowserSession] = {}
         self._locks: Dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
+
+    @property
+    def cdp_endpoint(self) -> Optional[str]:
+        """Endpoint selected for CDP attachment, or ``None`` for launch mode."""
+        return self._cdp_endpoint
 
     async def get_or_create_session(self, run_id: str, config: Optional[BrowserConfig] = None) -> BrowserSession:
         async with self._locks[run_id]:
@@ -26,7 +32,11 @@ class PlaywrightBrowserManager(BrowserManager):
                 
             logger.info(f"Creating new PlaywrightBrowserSession for run {run_id}")
             config = config or BrowserConfig()
-            session = PlaywrightBrowserSession(run_id, config)
+            session = PlaywrightBrowserSession(
+                run_id,
+                config,
+                cdp_endpoint=self._cdp_endpoint,
+            )
             await session.start()
             self._sessions[run_id] = session
             return session

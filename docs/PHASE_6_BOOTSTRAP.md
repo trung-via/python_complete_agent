@@ -48,6 +48,36 @@ Environment variables (stored in `.env` or system environment):
 - `GDRIVE_FOLDER_ID`: Target Google Drive folder ID for scraped/watermarked media.
 - `credentials.json`: OAuth2 credentials for Google Drive integrator.
 
+### Authenticated browser boundary
+
+The production `AgentController` explicitly constructs its browser manager in
+Chromium CDP mode with the exact endpoint `http://127.0.0.1:9222`. The operator
+is responsible for starting persistent Chrome with remote debugging enabled at
+that endpoint and authenticating the required marketplace session before the
+agent starts. This boundary does not automate login, profile setup, CAPTCHA, or
+any other authentication step.
+
+CDP startup is deliberately fail closed. It requires the connected browser to
+already contain at least one context and requires that context's page list to
+contain a non-closed page. The agent borrows the first context and the first
+non-closed page in their existing order. A refused or timed-out connection,
+unsupported non-Chromium configuration, missing context, missing usable page,
+or later browser/page disconnection fails the browser session. Production never
+falls back to launching a separate browser and never creates or navigates a page
+during attachment.
+
+The persistent Chrome process, selected context, and selected page remain
+operator-owned. Agent cleanup removes only its listeners and stops its own
+Playwright connection; it never closes those borrowed resources. Runs are
+sequential and share the selected page, so the operator must avoid concurrently
+driving that page while agent work is active.
+
+`PlaywrightBrowserManager()` with no CDP endpoint remains the isolated launch
+path for tests and callers that intentionally need an agent-owned browser,
+context, and page. Its cleanup continues to close those launch-owned resources.
+Passing an explicit browser manager to `AgentController` preserves that exact
+manager and its selected mode.
+
 ---
 
 ## 3. Autonomous File Queue Semantics (`tasks.txt` / `completed.txt`)
@@ -115,4 +145,8 @@ Scraper tools (`ShopeeScrapeTool`, `TikTokScrapeTool`) validate only genuinely r
 1. **Timeout Scope**: `RunPolicy.timeout_seconds` applies per individual task execution run, not across the entire multi-task queue invocation.
 2. **Preflight Scope**: `ProductionReadinessChecker` evaluates local configuration, policy, and storage health; it does not make live network requests to Google Drive or Gemini APIs during preflight.
 3. **Queue Scope**: The V1 queue is file-backed and bounded to a single process; it is not a distributed multi-worker scheduler.
-4. **Milestone Boundary**: **Product Intelligence (winning product discovery, scoring, knowledge base) is the next milestone (Phase 6 M2/M3)** and is intentionally not included in TASK-010.
+4. **Milestone Boundary**: M2 through M4 remain closed and unchanged. This
+   post-M4 bootstrap extension establishes only the P1 live-acquisition browser
+   transport boundary; source-evidence intake, governed knowledge updates, live
+   provider certification, presentation, and quality/scale work remain separate
+   future boundaries.

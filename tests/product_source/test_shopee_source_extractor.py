@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from src.product_source.models import (
@@ -10,6 +12,9 @@ from src.product_source.models import (
     SourcePackExtractionError,
 )
 from src.product_source.platforms.shopee import ShopeeSourceExtractor
+from src.product_source.platforms.shopee import _SHOPEE_EXTRACTION_SCRIPT
+from src.integrations.playwright.manager import PlaywrightBrowserManager
+import src.integrations.playwright.session as playwright_session_module
 
 
 class FakeSession:
@@ -255,6 +260,62 @@ async def test_shopee_extractor_with_strict_browser_manager():
     assert pack.model_sku == "SKU-200"
     assert manager.received_run_id == "custom_run_shopee"
     assert session.navigated_url == "https://shopee.vn/product/100/200"
+
+
+@pytest.mark.asyncio
+async def test_shopee_extractor_forwards_product_id_through_real_playwright_wrapper(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """The current manager/session wrapper preserves extractor script and arg semantics."""
+    eval_data = {
+        "structured": {
+            "title": "Wrapped Product",
+            "product_id": "200",
+            "images": ["https://cf.shopee.vn/file/wrapped.jpg"],
+            "specs": [],
+        },
+        "gallery": [],
+        "variants": [],
+        "description_media": [],
+        "fallback_media": [],
+        "blocked": False,
+    }
+    page = MagicMock()
+    page.is_closed.return_value = False
+    page.goto = AsyncMock()
+    page.evaluate = AsyncMock(return_value=eval_data)
+    context = MagicMock()
+    context.pages = [page]
+    browser = MagicMock()
+    browser.contexts = [context]
+    browser.is_connected.return_value = True
+    chromium = MagicMock()
+    chromium.connect_over_cdp = AsyncMock(return_value=browser)
+    playwright = SimpleNamespace(chromium=chromium, stop=AsyncMock())
+    starter = SimpleNamespace(start=AsyncMock(return_value=playwright))
+    monkeypatch.setattr(
+        playwright_session_module,
+        "async_playwright",
+        lambda: starter,
+    )
+    manager = PlaywrightBrowserManager(cdp_endpoint="http://127.0.0.1:9222")
+    extractor = ShopeeSourceExtractor(browser=manager)
+
+    pack = await extractor.extract(
+        "https://shopee.vn/product/100/200",
+        run_id="wrapped-shopee",
+    )
+
+    page.goto.assert_awaited_once_with(
+        "https://shopee.vn/product/100/200",
+        timeout=30000,
+    )
+    page.evaluate.assert_awaited_once_with(_SHOPEE_EXTRACTION_SCRIPT, "200")
+    assert pack.source_product_id == "200"
+    assert pack.title == "Wrapped Product"
+    assert [item.source_url for item in pack.media] == [
+        "https://cf.shopee.vn/file/wrapped.jpg"
+    ]
 
 
 @pytest.mark.asyncio

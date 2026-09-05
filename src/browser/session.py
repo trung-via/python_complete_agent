@@ -1,6 +1,9 @@
 from typing import Protocol, Optional, List, Dict, Any
 from src.browser.models import BrowserState, LocatorSpec, BrowserElement
 
+
+EVALUATE_ARG_UNSET = object()
+
 class BrowserSession(Protocol):
     """
     Protocol defining the atomic browser capabilities exposed to the Agent.
@@ -58,8 +61,10 @@ class BrowserSession(Protocol):
         """
         ...
 
-    async def evaluate(self, script: str) -> Any:
+    async def evaluate(self, script: str, arg: Any = EVALUATE_ARG_UNSET) -> Any:
         """
-        Evaluates a JavaScript expression or function in the context of the current page.
+        Evaluates JavaScript in the current page, optionally passing one argument.
+
+        Omitting ``arg`` is distinct from explicitly passing ``None``.
         """
         ...

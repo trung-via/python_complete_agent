@@ -36,6 +36,8 @@ from src.tools.tiktok_scrape_tool import TikTokScrapeTool
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_PRODUCTION_CDP_ENDPOINT = "http://127.0.0.1:9222"
+
 
 class AgentController:
     """
@@ -71,7 +73,11 @@ class AgentController:
             db_path=idempotency_path,
         )
 
-        self.browser_manager = browser_manager or PlaywrightBrowserManager()
+        self.browser_manager = (
+            browser_manager
+            if browser_manager is not None
+            else PlaywrightBrowserManager(cdp_endpoint=DEFAULT_PRODUCTION_CDP_ENDPOINT)
+        )
         self.image_processor = image_processor or ImageProcessor()
         self.gdrive = gdrive or GDriveIntegrator("credentials.json")
         self.gdrive_folder_id = gdrive_folder_id or os.environ.get(
