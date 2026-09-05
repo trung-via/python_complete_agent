@@ -1,0 +1,41 @@
+review_id: REVIEW-138-001
+reviewed_sha: 96a6c29c496bb059b3720a34d1880301313837d0
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: PASS
+  AC3: PASS
+  AC4: PASS
+  AC5: FAIL
+  AC6: PASS
+  AC7: PASS
+  AC8: PASS
+  AC9: PASS
+  AC10: PASS
+findings:
+  - id: F1
+    basis: AC5
+    action: CODE_FIX
+    location: src/product_intelligence/source_evidence_intake.py; tests/product_intelligence/test_source_evidence_intake.py
+    issue: >
+      TASK-138 requires root permutation and filesystem aliasing to be deterministic on the
+      platform's canonical filesystem key. The candidate deduplicates equivalent canonical
+      roots and manifests with normcase(...) keys but retains the first raw resolved path via
+      dict.setdefault(...). On a case-insensitive filesystem, two caller spellings of the
+      same physical root/path that differ only by case can map to the same normcase key while
+      preserving different path strings. Because setdefault keeps whichever spelling is
+      encountered first, permuting caller roots can change the representative root and then
+      the emitted manifest_paths text, even though the persisted filesystem state is the
+      same. The focused regression covers overlap and '..' aliases but not case-equivalent
+      aliases, so AC5's root-order independence is not fully enforced.
+    expected: >
+      Preserve TASK-138 authority and behavior, but make the representative canonical root
+      and manifest path selected for equivalent platform filesystem keys independent of
+      caller/enumeration order. Use a deterministic representative/tie-breaker rather than
+      first-seen setdefault semantics, while keeping absolute resolved paths, overlap
+      deduplication, symlink fail-closed behavior, bounded discovery, exact TASK-125
+      rehydration, and all M3/M4 boundaries unchanged. Add a focused regression that proves
+      equivalent case spellings on a case-insensitive filesystem key cannot change the
+      returned inventory when root order is reversed; the test may simulate the platform
+      key behavior deterministically where the host filesystem is case-sensitive.
