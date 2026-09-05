@@ -1,0 +1,9 @@
+review_id: REVIEW-133-001
+reviewed_sha: 83bdce3186c045a099b3ddd30f6da58741a0dc7c
+mode: DELTA
+verdict: PASS
+acceptance:
+  AC1: PASS
+  AC2: PASS
+  AC8: PASS
+findings: []
