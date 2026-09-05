@@ -1,0 +1,209 @@
+task_id: TASK-127
+revision: 1
+
+goal: >
+  Migrate the repository-owned unified AIOS worker from the currently pinned
+  AIOS-renew commit 59b31ede597d4a27b848771522672705a021abe4 to the exact
+  semantically reviewed and published historical-REPAIR recovery runtime
+  67db82bf19d63f25721d06aabb82d850db8b78d4, while preserving the existing thin
+  RUN/FIX/REPAIR/STATUS Human-facing worker protocol, executor identity separation,
+  bootstrap/provenance fail-closed behavior, and Python Agent product/publication
+  authority. Certify only the downstream dependency migration; do not execute any
+  existing historical REPAIR in this TASK.
+
+problem: >
+  Python Agent remains pinned to AIOS-renew 59b31ede597d4a27b848771522672705a021abe4.
+  TASK-125 is blocked at historical RUN-125-009, whose exact failed_head_sha is
+  bde5ac1e781254920ec7bb6bdb3246e1a758ebb1 and whose old completion failure is
+  RESULT.changed_files mismatch. AIOS-renew TASK-057 corrected REPAIR changed-files
+  authority and TASK-058 revision 2 added Runtime-owned historical REPAIR recovery,
+  including isolated historical subject execution when the current control checkout
+  differs from failed_head_sha. TASK-058 final DELTA review passed on
+  67db82bf19d63f25721d06aabb82d850db8b78d4, which is the current published AIOS-renew
+  main observed at authoring. Python Agent cannot consume those fixes until its own
+  repository-owned immutable dependency pin, launcher authority, documentation, and
+  certification tests advance together. This migration must not itself rerun or repair
+  TASK-125 or the independent browser TASK-126, and must not copy AIOS kernel logic into
+  the downstream worker.
+
+assumptions:
+  - >
+    Current canonical python_complete_agent main at authoring is
+    d47ed9c048cacd152452cf2a7054c662e1043c82.
+  - >
+    docs/CHATGPT_PROJECT_CONTRACT.md remains authoritative: AIOS-renew is an execution
+    substrate, and an upstream improvement does not exist for Python Agent until this
+    repository explicitly updates and certifies its exact pin.
+  - >
+    TASK-113 owns the repository worker pin/bootstrap/REPAIR control surface. TASK-127
+    extends that exact authority through a dependency migration; it does not introduce
+    another worker, launcher, runtime state store, or repair-lineage authority.
+  - >
+    AIOS-renew TASK-058 final reviewed source candidate is
+    67db82bf19d63f25721d06aabb82d850db8b78d4. Canonical RUN-058-008 verification on that
+    SHA recorded 185 passing operator/review-transport tests plus git diff --check, and
+    REVIEW-058-002 is DELTA PASS with no findings.
+  - >
+    The TASK-127 PRIMARY invocation itself starts through the currently pinned old
+    runtime 59b31ede597d4a27b848771522672705a021abe4. The new runtime becomes active only
+    on a later worker invocation after the TASK-127 source candidate is semantically
+    reviewed and published, at which point bootstrap/provenance validation must rebuild
+    any stale dedicated worker runtime to the new exact pin.
+  - >
+    Canonical Python Agent RUN-125-009 remains a repairable historical TASK-125 revision
+    1 failure with failed_head_sha bde5ac1e781254920ec7bb6bdb3246e1a758ebb1.
+    Canonical RUN-126-002 is an independent repairable TASK-126 browser-integration
+    failure. Neither failure is resolved by this migration alone.
+  - >
+    AIOS-renew TASK-063 automatic publication is implemented through repository-native
+    workflow files in the AIOS-renew repository. Merely pinning the Python package does
+    not install that workflow into Python Agent. Python Agent publication remains owned
+    by its own repository/project contract unless a later explicit downstream task
+    changes it.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - .ai/tasks/TASK-113.yaml
+    - .ai/tasks/TASK-125.yaml
+    - .ai/tasks/TASK-126.yaml
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+  modify:
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+
+non_goals:
+  - Modify Product Intelligence, Product Source Pack, catalog, persistence, retrieval, RAG, ranking, approval, browser, scraper, or AgentController implementation.
+  - Modify TASK-125, TASK-126, their source candidates, reviews, failures, repair contracts, or historical commits.
+  - Execute REPAIR RUN-125-009, REPAIR RUN-126-002, rerun TASK-125 PRIMARY, rerun TASK-126 PRIMARY, or create replacement implementation candidates in this TASK.
+  - Reimplement AIOS-renew TASK-057 or TASK-058 logic in Python Agent worker code.
+  - Let the worker resolve continuation chains, failed_head_sha, root_base_sha, historical TASK contracts, remote failure artifacts, or isolated historical workspaces.
+  - Add raw AIOS CLI, direct package entry-point calls, manual artifact courier steps, retry, fallback, reroute, executor substitution, or automatic repair selection to the Human workflow.
+  - Add Python Agent repository-native automatic publication, copy AIOS-renew .github workflows, or change the current Python Agent review/publication policy.
+  - Treat historical recovery success as automatic permission to publish a historical candidate over an advanced main. Publication ancestry/reconciliation remains a separate downstream concern.
+  - Push, merge, publish, or mutate main from Executor execution.
+
+constraints:
+  hard:
+    - >
+      The active dependency file must contain exactly one non-comment pin and it must be
+      exactly: aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@67db82bf19d63f25721d06aabb82d850db8b78d4
+    - >
+      .agents/skills/aios-worker/scripts/aios_worker.py AUTHORITATIVE_COMMIT and derived
+      PIN_LINE must bind exactly the same 67db82bf19d63f25721d06aabb82d850db8b78d4
+      commit and the existing authoritative repository URL. No floating branch, tag,
+      current-main lookup, version range, alternate source, or environment override may
+      choose the kernel.
+    - >
+      Existing dedicated <git-dir>/aios/worker-runtime bootstrap remains authoritative.
+      Installed PEP 610 provenance from the old pin or any alternate source/commit must
+      fail validation and cause the existing atomic stale-runtime replacement path to
+      install only the checked-in new requirements pin before any later kernel invocation.
+    - >
+      The visible protocol remains exactly RUN TASK-N, FIX TASK-N FINDING-ID, REPAIR
+      RUN-N-NNN, and STATUS TASK-N. Kernel command shapes, target parsing, strict PASS
+      summary parsing, one-kernel-invocation behavior, and no-push worker behavior must
+      remain unchanged except for consuming the new pinned distribution.
+    - >
+      Codex surface remains permanently bound to executor codex and Antigravity surface
+      remains permanently bound to executor antigravity. No task, failure, runtime state,
+      or model condition may reroute or substitute executor identity.
+    - >
+      Historical REPAIR remains a thin worker delegation. The worker may pass only the
+      explicit failed RUN identifier, selected executor, and repository root through the
+      existing kernel command. It must not inspect current HEAD versus failed_head_sha,
+      create or select a historical workspace, reconstruct lineage, or locally infer a
+      TASK/root/correction scope. Those behaviors belong exclusively to the pinned
+      AIOS-renew Runtime.
+    - >
+      Documentation must state that the new pin includes Runtime-owned historical REPAIR
+      admission for a current control checkout whose HEAD differs from an immutable
+      failed_head_sha, while the current checkout remains unchanged and the historical
+      subject remains isolated. Documentation must not claim that the worker itself owns
+      that capability.
+    - >
+      Documentation must also state the downstream publication boundary precisely:
+      historical recovery preserves candidate ancestry from the exact failed head and
+      does not itself make that candidate a fast-forward descendant of any control-plane
+      migration commit already published to main. If main has advanced, publication
+      ancestry/reconciliation must be handled by a separate canonical downstream task;
+      the worker must not merge, rebase, cherry-pick, or rewrite the historical candidate.
+    - >
+      Do not add AIOS-renew TASK-063 repository workflow files or otherwise enable new
+      Python Agent auto-publication behavior in this migration. Existing Python Agent
+      semantic review and source-candidate publication authority remain unchanged.
+    - >
+      Certification tests must update the exact expected pin, launcher provenance, stale
+      runtime replacement target, and old-pin rejection. Existing RUN/FIX/REPAIR/STATUS,
+      bootstrap host selection, strict parsing, executor separation, one-invocation,
+      no-push, and worker-thinness regressions must continue to pass.
+    - >
+      Add regression assertions that the documented historical recovery path does not
+      require the worker to checkout failed_head_sha or supply failed-head/root/scope
+      arguments and that REPAIR kernel command construction remains the same thin
+      delegation under the new pin.
+    - >
+      This TASK must not invoke any existing historical Python Agent REPAIR as part of
+      verification. Verification is limited to deterministic worker-control-surface
+      certification plus git diff integrity; consumption of TASK-058 begins only after
+      this migration is semantically reviewed and published.
+    - Do not push from executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      The dependency file, launcher authoritative commit, derived pin string, worker
+      documentation, and certification expectations all reference exactly AIOS-renew
+      67db82bf19d63f25721d06aabb82d850db8b78d4 and reject the prior
+      59b31ede597d4a27b848771522672705a021abe4 pin as stale provenance.
+  - id: AC2
+    condition: >
+      Deterministic bootstrap regressions prove a worker runtime carrying the old or
+      alternate provenance is not reused and is atomically synchronized to the new exact
+      pin using only requirements-aios-renew.txt, while an already-authoritative new
+      runtime is reused without reinstall.
+  - id: AC3
+    condition: >
+      RUN, FIX, REPAIR, and STATUS control-surface parsing/routing remain unchanged in
+      meaning, with exactly one pinned-kernel invocation, exact executor identity, strict
+      canonical summary parsing, and no worker-owned retry/reroute/publication authority.
+  - id: AC4
+    condition: >
+      REPAIR remains one thin command delegation for an explicit failed RUN and passes no
+      failed_head_sha, root_base_sha, TASK guess, repair scope, constraints, verification,
+      historical-workspace, or locally reconstructed lineage authority to the kernel.
+  - id: AC5
+    condition: >
+      Documentation correctly records that historical recovery is Runtime-owned in the
+      new pin, preserves the current control checkout, isolates the exact historical
+      failed subject, and does not bootstrap from the historical tree's old worker pin.
+  - id: AC6
+    condition: >
+      Documentation explicitly preserves the publication boundary: a recovered
+      historical candidate is not silently rebased/merged onto an already-advanced main,
+      and any required publication reconciliation is a separate canonical downstream
+      task rather than worker behavior.
+  - id: AC7
+    condition: >
+      No Product Intelligence, browser, TASK-125/TASK-126 implementation, historical
+      RUN/FAILURE/REPAIR artifact, Python Agent auto-publication workflow, or AIOS kernel
+      source is changed by TASK-127.
+  - id: AC8
+    condition: >
+      The complete repository-owned worker certification suite passes under the migrated
+      source tree and git diff --check passes, with no live historical REPAIR execution
+      performed as part of TASK-127 verification.
+
+verification:
+  required:
+    - 'python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py -q'
+    - 'git diff --check'
