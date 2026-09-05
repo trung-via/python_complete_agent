@@ -1,0 +1,1 @@
+{"base_sha":"96a6c29c496bb059b3720a34d1880301313837d0","durations":{"admitted_run_seconds":106.73987270000362,"executor_seconds":106.61124079999718,"verification_seconds":null},"executor":"codex","executor_invoked":true,"kind":"RUN_OBSERVATION","operation":"REMEDIATION","run_id":"RUN-138-002","task":{"id":"TASK-138","revision":1},"terminal_kind":"FAILURE","token_usage":null}
