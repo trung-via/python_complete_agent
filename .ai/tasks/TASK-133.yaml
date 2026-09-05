@@ -1,0 +1,213 @@
+task_id: TASK-133
+revision: 1
+
+goal: >
+  Implement Phase 6 M4.4 as one minimal Grounded QA Application Service that composes
+  an exact TASK-123/TASK-124 CanonicalRagContext through the existing TASK-131 prompt
+  package, TASK-132 one-shot model invocation, and TASK-129 final GroundedAnswer
+  validation, returning one canonical GroundedAnswer without introducing new prompt,
+  provider, response, retrieval, answer, ranking, or product-truth authority.
+
+problem: >
+  M4 now has four deliberately separated authorities: canonical grounded context,
+  immutable GroundedAnswer validation, deterministic prompt packaging, and one-shot
+  generic provider invocation. What is still missing is one canonical application path
+  that composes those authorities in the required order. Without that path, callers can
+  bypass TASK-129 final validation, call providers directly, rebuild prompts, or create
+  competing orchestration semantics. TASK-133 must therefore add only the minimal
+  composition boundary from one exact CanonicalRagContext to one GroundedAnswer and
+  preserve every predecessor's authority unchanged.
+
+assumptions:
+  - >
+    Canonical Python Agent main at authoring is
+    37333dce2109f61e4778ec4d0a5aef38f8ebf50f, the auto-published TASK-132 source
+    candidate after REVIEW-132-001 PRIMARY PASS.
+  - >
+    The authoritative AIOS dependency remains exactly
+    aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@67db82bf19d63f25721d06aabb82d850db8b78d4.
+  - >
+    TASK-123/TASK-124 remain the sole authority for CanonicalRagContext construction,
+    lexical retrieval delegation, evidence ordering, citation addressing, context byte
+    budgeting, truncation, and deterministic rendering.
+  - >
+    TASK-129 remains the sole authority for GroundedAnswer, GroundedAnswerStatus,
+    context-local citation resolution, leaf-citation minima, answer-text bounds, and
+    limitation bounds through create_grounded_answer.
+  - >
+    TASK-131 remains the sole authority for deterministic provider-neutral prompt
+    packaging and response-schema prompt semantics through build_grounded_prompt_package.
+  - >
+    TASK-132 remains the sole authority for exact SYSTEM/USER message mapping, one-shot
+    LLMProvider.generate(..., tools=[]), tool-call rejection, provider failure handling,
+    and syntactic model-payload parsing through invoke_grounded_model.
+  - >
+    Query planning, automatic question-to-retrieval-query derivation, persisted-catalog
+    application startup, live-provider certification, semantic entailment verification,
+    product-truth reconciliation, and end-user/API presentation remain deferred.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_6_M4_GROUNDED_ANSWER.md
+    - docs/PHASE_6_M4_GROUNDED_PROMPT.md
+    - docs/PHASE_6_M4_GROUNDED_INVOCATION.md
+    - .ai/tasks/TASK-123.yaml
+    - .ai/tasks/TASK-124.yaml
+    - .ai/tasks/TASK-129.yaml
+    - .ai/tasks/TASK-131.yaml
+    - .ai/tasks/TASK-132.yaml
+    - src/product_intelligence/canonical_rag_context.py
+    - src/product_intelligence/grounded_answer.py
+    - src/product_intelligence/grounded_prompt.py
+    - src/product_intelligence/grounded_invocation.py
+    - src/product_intelligence/__init__.py
+    - src/providers/base.py
+
+  modify:
+    - src/product_intelligence/grounded_qa.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_grounded_qa.py
+    - docs/PHASE_6_M4_GROUNDED_QA.md
+
+non_goals:
+  - Build CanonicalRagContext from profiles, call retrieval directly, derive or rewrite a
+    retrieval_query, modify max_hits/context budgets, or add another context builder.
+  - Modify or duplicate TASK-131 system instructions, user-prompt framing, response-schema
+    JSON, or any prompt/provider-specific policy.
+  - Call LLMProvider.generate directly, construct LLMMessage values, use AgentLoop,
+    AgentController, tools, browser, checkpoints, budgets, retries, fallback, rerouting,
+    timeouts, streaming, model selection, or provider-specific SDK behavior.
+  - Parse model JSON, validate syntactic model response shape, execute tool calls, or add a
+    second GroundedModelPayload authority.
+  - Reimplement or pre-validate TASK-129 answer invariants. In particular, do not resolve
+    citations, enforce leaf minima, text bounds, limitation bounds, conflict state rules,
+    or deduplicate/normalize answer fields outside create_grounded_answer.
+  - Catch and reclassify predecessor errors into a new application error taxonomy.
+  - Prove semantic entailment, factual correctness, hallucination freedom, conflict truth,
+    prompt-injection immunity, completeness, or canonical product truth.
+  - Reconcile preferred/latest/majority evidence or mutate model output into canonical
+    product knowledge.
+  - Change M2 scoring/ranking/Human approval semantics or use GroundedAnswer as product
+    recommendation/approval authority.
+  - Load/save SQLite, filesystem, Drive, queues, caches, environment configuration, or
+    perform any I/O beyond the single provider call already owned by TASK-132.
+  - Invoke a live provider in tests or require network credentials.
+
+constraints:
+  hard:
+    - >
+      Add exactly one new application-composition module
+      src/product_intelligence/grounded_qa.py. It must expose exactly one new public name
+      from that module and src/product_intelligence/__init__.py:
+      answer_grounded_context.
+    - >
+      The only new entry point is async answer_grounded_context(context, provider) ->
+      GroundedAnswer. It accepts one CanonicalRagContext plus the injected existing
+      LLMProvider boundary and returns the exact GroundedAnswer produced by TASK-129.
+      Do not add a service class, result wrapper, second status enum, second answer type,
+      policy object, configuration object, cache, or new public error type.
+    - >
+      The function must compose predecessor authorities in exactly this order and exactly
+      once each: package = build_grounded_prompt_package(context); payload = await
+      invoke_grounded_model(package, provider); answer = create_grounded_answer(context,
+      status=payload.status, answer_text=payload.answer_text,
+      citation_ids=payload.citation_ids, limitations=payload.limitations); return answer.
+      No step may be skipped, repeated, reordered, or replaced by duplicated local logic.
+    - >
+      The exact original context object supplied by the caller must be passed unchanged to
+      build_grounded_prompt_package and later to create_grounded_answer. Do not copy,
+      reconstruct, serialize/deserialize, mutate, or substitute package.context as a new
+      authority. The returned GroundedAnswer must therefore retain the exact caller-supplied
+      context identity through TASK-129.
+    - >
+      The exact GroundedPromptPackage returned by TASK-131 must be passed unchanged to
+      TASK-132. The exact GroundedModelPayload fields returned by TASK-132 must be passed
+      unchanged to TASK-129. Do not strip, normalize, deduplicate, sort, truncate,
+      reinterpret, repair, or replace status, answer_text, citation_ids, or limitations.
+    - >
+      TASK-133 must not catch/wrap predecessor semantic/runtime exceptions. GroundedPromptError,
+      GroundedInvocationError, GroundedAnswerError, asyncio cancellation, and provider
+      failures already represented through TASK-132 must propagate according to their
+      existing authorities. A failure in any stage must short-circuit all later stages;
+      there is no retry, fallback, reroute, repair, or second model call.
+    - >
+      A model payload that passes TASK-132 syntax validation but violates TASK-129 final
+      structural grounding must fail at create_grounded_answer with the existing
+      GroundedAnswerError. TASK-133 must not convert such a failure into a successful
+      answer, alternate status, empty fallback answer, or limitation rewrite.
+    - >
+      grounded_qa.py may import only the predecessor Product Intelligence APIs required
+      for composition plus the existing LLMProvider type for the function signature. It
+      must not import LLMMessage/MessageRole, AgentLoop, AgentController, tool execution,
+      provider-specific modules, browser/network clients, storage, AIOS external-brain
+      infrastructure, JSON parsing, retrieval implementations, or canonical persistence.
+    - >
+      Documentation must define TASK-133 as composition authority only: TASK-123/124 own
+      context, TASK-129 owns final GroundedAnswer structural validation, TASK-131 owns
+      prompt semantics, TASK-132 owns provider transport/syntax parsing, and TASK-133 owns
+      only the canonical call order that returns the validated GroundedAnswer.
+    - >
+      Documentation must state that TASK-133 begins from an already-constructed exact
+      CanonicalRagContext. Question-to-retrieval-query planning and persisted knowledge
+      startup remain later milestones and must not be smuggled into this service.
+    - >
+      Documentation must not claim semantic entailment, factual correctness, hallucination
+      freedom, conflict resolution, prompt-injection immunity, or product-truth
+      reconciliation. A structurally valid GroundedAnswer remains an application answer,
+      not canonical product truth or an M2 recommendation/approval decision.
+    - >
+      Focused tests must use deterministic fakes/monkeypatching and no live provider. They
+      must prove exact public API, exact one-pass predecessor call order/count, exact object
+      identity/value forwarding, unchanged exception propagation and short-circuiting,
+      successful return of the exact TASK-129 GroundedAnswer, rejection by TASK-129 of a
+      syntax-valid but structurally invalid model payload, and absence of direct provider,
+      AgentLoop, retrieval, prompt-rebuild, or duplicate-validation logic.
+    - Do not push from Executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      grounded_qa.py and src/product_intelligence/__init__.py add exactly one new public
+      API, async answer_grounded_context(context, provider), with no new service/result/
+      error/status/policy authority.
+  - id: AC2
+    condition: >
+      answer_grounded_context invokes build_grounded_prompt_package exactly once with the
+      exact caller context, invoke_grounded_model exactly once with the exact package and
+      provider, then create_grounded_answer exactly once with the exact original context
+      and exact payload fields, in that order.
+  - id: AC3
+    condition: >
+      Successful composition returns the exact GroundedAnswer produced by TASK-129 and
+      preserves caller context identity plus exact payload text/citation/limitation values
+      without normalization or copying semantics.
+  - id: AC4
+    condition: >
+      Predecessor failures and asyncio cancellation propagate under their existing error
+      authorities, later stages are not executed after an earlier failure, and TASK-133
+      performs no retry/fallback/reroute/second provider call.
+  - id: AC5
+    condition: >
+      A TASK-132 syntax-valid payload that violates TASK-129 structural grounding fails
+      through create_grounded_answer rather than being repaired, reclassified, or accepted
+      by TASK-133.
+  - id: AC6
+    condition: >
+      TASK-133 contains no direct provider.generate/message construction, AgentLoop/tool
+      path, retrieval/context construction, JSON parsing, prompt reconstruction, storage,
+      or provider-specific behavior.
+  - id: AC7
+    condition: >
+      Existing TASK-123/124, TASK-129, TASK-131, TASK-132, M2, and M3 authorities remain
+      unchanged; model output cannot become canonical product truth and query planning/
+      persistence remain deferred.
+  - id: AC8
+    condition: >
+      Focused offline tests and documentation certify AC1-AC7, predecessor M4 focused tests
+      remain passing, and git diff integrity passes with no live provider/network call.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_grounded_answer.py tests/product_intelligence/test_grounded_prompt.py tests/product_intelligence/test_grounded_invocation.py tests/product_intelligence/test_grounded_qa.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
