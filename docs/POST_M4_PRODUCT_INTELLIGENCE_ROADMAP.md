@@ -1,6 +1,6 @@
 # Post-M4 Product Intelligence Roadmap — Live Product Enablement
 
-Status: canonical post-M4 architecture roadmap after TASK-137 P1 closure  
+Status: canonical post-M4 architecture roadmap after TASK-138 P2 closure
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
 ## 1. Starting point
@@ -9,7 +9,7 @@ Phase 6 M4 is canonically complete at the TASK-136 reviewed source candidate. TA
 
 The completed application core can reconstruct canonical knowledge after restart and answer a natural-language question through deterministic query planning, canonical grounded context, a generic `LLMProvider`, and validated `GroundedAnswer`.
 
-The current product problem is now the boundary between persisted live acquisition evidence and the already-built M3/M4 core. Existing Shopee/TikTok scrape tools already persist V1 `source_pack.json` manifests under deterministic local source-pack directories and return each exact `manifest_path`, but callers must still manually locate those manifests before they can use TASK-125 typed rehydration, M3 resolution, or TASK-135 persistent grounded QA.
+TASK-138 subsequently closed the boundary between persisted live acquisition evidence and the already-built M3/M4 core. Existing Shopee/TikTok scrape tools persist V1 `source_pack.json` manifests under deterministic local source-pack directories, and the P2 intake now locates those manifests only beneath explicit local roots and returns the discovered set as aligned paths and typed packs.
 
 Current repository evidence establishes:
 
@@ -39,9 +39,9 @@ Outcome:
 
 This remains a browser/runtime integration authority only. It creates no Product Intelligence identity, ranking, evidence, catalog, retrieval, prompt, provider, or answer authority.
 
-### P2 — Source Evidence Intake — CURRENT
+### P2 — Source Evidence Intake — CLOSED
 
-Add one bounded deterministic local-filesystem intake surface for persisted V1 Product Source Pack manifests produced by existing scrape tools.
+TASK-138 completed this boundary by adding one bounded deterministic local-filesystem intake surface for persisted V1 Product Source Pack manifests produced by existing scrape tools.
 
 Required outcome:
 
@@ -54,7 +54,7 @@ Required outcome:
 
 P2 owns only **bounded manifest discovery + deterministic immutable intake inventory**. Product Source Pack schema/rehydration remains TASK-125 authority; source identity remains existing M3 authority; catalog/admission remains existing Human-governed M3 authority.
 
-### P3 — Human-Governed Knowledge Update Workflow
+### P3 — Human-Governed Knowledge Update Workflow — CURRENT
 
 Compose existing M3 authorities into an application workflow that takes newly ingested typed source observations through existing resolution/grouping/proposal boundaries, exposes required Human family/variant decisions, and persists only explicitly approved canonical admissions through TASK-118/119/120 authority.
 
@@ -87,9 +87,9 @@ These are not blockers for P1-P5 and must each receive a separate authority audi
 
 ## 3. Priority decision
 
-P1 is closed by TASK-137. P2 is the immediate current boundary because persisted Product Source Pack evidence already exists locally, while current downstream consumers either require typed `ProductSourcePack` values or explicit manifest paths and no current authority owns bounded filesystem discovery/inventory.
+P1 is closed by TASK-137. P2 is closed by TASK-138: persisted Product Source Pack evidence is now discoverable through an explicit-root, bounded local intake, and current downstream consumers can receive either typed `ProductSourcePack` values or the aligned explicit manifest paths without duplicating filesystem discovery.
 
-P2 therefore closes a concrete composition gap without reopening browser extraction, Product Source Pack serialization, M3 identity/catalog semantics, or M4 grounded-QA semantics.
+P3 is the immediate current architecture boundary. It may compose newly ingested observations with existing M3 resolution, proposal, Human decision, admission, and persistence authorities, but it must not implement automatic admission or create new identity, catalog, or product-truth semantics.
 
 ## 4. Authority invariants
 

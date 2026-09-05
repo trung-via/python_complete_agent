@@ -226,6 +226,11 @@ from src.product_intelligence.persistent_grounded_qa import (
     PersistentGroundedQaError,
     answer_persisted_grounded_question,
 )
+from src.product_intelligence.source_evidence_intake import (
+    SourceEvidenceIntakeError,
+    SourceEvidenceInventory,
+    intake_product_source_evidence,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -404,4 +409,7 @@ __all__ = [
     "plan_grounded_retrieval_query",
     "PersistentGroundedQaError",
     "answer_persisted_grounded_question",
+    "SourceEvidenceIntakeError",
+    "SourceEvidenceInventory",
+    "intake_product_source_evidence",
 ]
