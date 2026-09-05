@@ -1,0 +1,244 @@
+task_id: TASK-134
+revision: 1
+
+goal: >
+  Implement Phase 6 M4.5 as one bounded deterministic query-planning boundary that
+  derives one explicit TASK-122-compatible retrieval_query from a caller's natural-language
+  question and the supplied canonical profile corpus, using only bounded lexical-span
+  probes through the existing TASK-122 retrieval authority. The planner must not add
+  model inference, stop-word semantics, product ranking, direct profile searching, or a
+  second retrieval implementation.
+
+problem: >
+  TASK-123 deliberately requires callers to provide question and retrieval_query
+  separately because TASK-122 uses conservative all-term lexical matching. TASK-133 now
+  provides canonical grounded-QA composition once a CanonicalRagContext already exists,
+  but application callers still have to manually invent retrieval_query. Passing the
+  whole natural-language question often includes grammatical words that make TASK-122
+  return no hits, while adding a language-specific stop-word list, direct profile-field
+  search, an LLM planner, or a second lexical matcher would introduce competing
+  semantics. TASK-134 therefore owns only deterministic selection of a bounded contiguous
+  lexical span from the question, with every corpus probe delegated to TASK-122.
+
+assumptions:
+  - >
+    Canonical Python Agent main at authoring is
+    83bdce3186c045a099b3ddd30f6da58741a0dc7c, the auto-published repaired TASK-133
+    source candidate after REVIEW-133-001 DELTA PASS.
+  - >
+    The authoritative AIOS dependency remains exactly
+    aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@67db82bf19d63f25721d06aabb82d850db8b78d4.
+  - >
+    TASK-121 remains the evidence-preserving CanonicalVariantProfile projection authority.
+    TASK-122 remains the sole lexical retrieval normalization, matching, witness, and hit
+    ordering authority. TASK-123/TASK-124 remain the sole CanonicalRagContext construction
+    and rendering authority. TASK-133 remains the sole grounded-QA composition authority.
+  - >
+    Query planning is allowed to choose which caller-question span should be supplied to
+    TASK-122, but a chosen query is not evidence, product identity, ranking, approval, or
+    product truth.
+  - >
+    Persisted-catalog application startup, automatic profile loading, end-user/API
+    presentation, semantic/vector retrieval, live-provider certification, and product-truth
+    reconciliation remain deferred.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+    - docs/PHASE_6_M4_GROUNDED_QA.md
+    - .ai/tasks/TASK-121.yaml
+    - .ai/tasks/TASK-122.yaml
+    - .ai/tasks/TASK-123.yaml
+    - .ai/tasks/TASK-133.yaml
+    - src/product_intelligence/canonical_profile.py
+    - src/product_intelligence/canonical_retrieval.py
+    - src/product_intelligence/canonical_rag_context.py
+    - src/product_intelligence/grounded_qa.py
+    - src/product_intelligence/__init__.py
+
+  modify:
+    - src/product_intelligence/grounded_query_planning.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_grounded_query_planning.py
+    - docs/PHASE_6_M4_QUERY_PLANNING.md
+    - docs/PHASE_6_M4_GROUNDED_QA.md
+
+non_goals:
+  - Modify TASK-122 retrieval normalization, searchable fields, match classes, witness
+    selection, hit ordering, limits, or public retrieval result types.
+  - Modify TASK-123/TASK-124 context construction/rendering, TASK-129 answer validation,
+    TASK-131 prompt semantics, TASK-132 invocation, or TASK-133 composition behavior.
+  - Search CanonicalVariantProfile fields directly or reconstruct TASK-122 searchable-field
+    traversal, query normalization, match classification, witnesses, or ranking locally.
+  - Add a language-specific stop-word list, stemming, lemmatization, synonyms,
+    transliteration, accent stripping, fuzzy matching, regex entity extraction, NER, an
+    LLM query planner, embeddings, vector search, BM25/FTS, semantic reranking, or model
+    inference.
+  - Select, rank, approve, reconcile, or mutate products/evidence. Candidate-query
+    preference is query-planning policy only and must not become M2 ranking or canonical
+    product identity/truth authority.
+  - Return, persist, cache, or reuse TASK-122 hits as canonical context input; TASK-123 must
+    still perform its own exactly-once canonical retrieval when later given the selected
+    retrieval_query.
+  - Load SQLite, filesystem, Drive, network, browser, environment, clock, random, UUID,
+    subprocess, queues, background workers, or provider SDKs.
+  - Add a planner service class, planner configuration object, query-score type, numeric
+    score, confidence value, product selection result, or provider/model dependency.
+
+constraints:
+  hard:
+    - >
+      Add exactly one new module src/product_intelligence/grounded_query_planning.py and
+      expose exactly two new public names from that module and
+      src/product_intelligence/__init__.py: GroundedQueryPlanningError and
+      plan_grounded_retrieval_query.
+    - >
+      plan_grounded_retrieval_query(profiles, *, question) -> str is a synchronous pure
+      in-memory planner. question must be an exact str, contain at least one non-whitespace
+      character, and be at most 4096 UTF-8 bytes. Invalid question input fails closed with
+      GroundedQueryPlanningError.
+    - >
+      The planner may materialize the supplied profiles iterable once into a tuple solely
+      so the same exact caller objects can be probed repeatedly. It must not copy, rebuild,
+      normalize, sort, deduplicate, inspect, or mutate profile/evidence values. Corpus
+      validity, duplicate variant_id handling, and lexical matching remain TASK-122
+      authority and any CanonicalProfileRetrievalError from TASK-122 must propagate
+      unchanged rather than be reclassified by TASK-134.
+    - >
+      Planner lexical segmentation is limited to locating candidate spans in the question:
+      scan the exact question left-to-right and retain maximal runs of characters for
+      which str.isalnum() is true, preserving each retained run's original string bytes and
+      order. This segmentation must not perform NFKC, casefold, accent stripping,
+      transliteration, stemming, synonym expansion, stop-word deletion, or any local
+      emulation of TASK-122 query normalization. A question producing zero such runs fails
+      closed. Bound planning to at most 24 lexical runs; longer questions fail closed
+      rather than being silently truncated.
+    - >
+      Candidate queries are exactly contiguous question-token spans of length 1..12,
+      rendered only by joining their original retained token strings with one ASCII space.
+      Generate/evaluate candidates by descending span length, then ascending start position.
+      Do not reorder tokens, form non-contiguous bags of words, drop interior terms, rewrite
+      spelling/case, or fabricate tokens not present in the question.
+    - >
+      Every corpus-aware candidate probe must call the existing
+      retrieve_canonical_variant_profiles with the exact materialized corpus, candidate
+      query, and limit=2. TASK-134 must not call any private TASK-122 helper and must not
+      reproduce TASK-122 matching logic. limit=2 is used only to distinguish zero hits,
+      exactly one hit, and multiple hits; the planner must not interpret hit count as a
+      product score.
+    - >
+      A candidate with exactly one hit is identity-bearing only when at least one exact
+      TASK-122 witness on that hit has CanonicalRetrievalField equal to TITLE, BRAND,
+      MODEL_SKU, or MEDIA_VARIANT_LABEL. These existing witness fields are planner hints
+      only; they do not create or change canonical product identity. Do not inspect source
+      strings, profile ids, fact values, match-class strength, business signals, recency,
+      confidence, marketplace, or any product attribute to choose a query.
+    - >
+      Select the retrieval query using exactly this deterministic preference order:
+      (1) exactly-one-hit identity-bearing candidate; (2) exactly-one-hit candidate of any
+      witness field; (3) candidate with two returned hits, representing multiple matches.
+      Within the same preference class choose the candidate with more lexical runs, then
+      the earlier start position. Because candidate generation already follows that order,
+      the first candidate observed in a class is its canonical representative. The first
+      exactly-one-hit identity-bearing candidate may be returned immediately because no
+      later candidate can outrank it under this contract.
+    - >
+      Zero-hit candidates are not evidence of failure and are never returned merely because
+      they were probed. If no candidate span produces any hit and the complete question
+      contains at most 12 lexical runs, return the complete lexical question formed by
+      joining all retained runs with one ASCII space. This deliberate fallback lets
+      TASK-123/TASK-122 later produce an empty grounded context so TASK-129 can represent
+      insufficient evidence. If no candidate produces a hit and the question contains more
+      than 12 lexical runs, fail closed with GroundedQueryPlanningError rather than choose
+      an arbitrary truncated/subset fallback.
+    - >
+      Empty profile corpus is valid. It follows the same no-hit fallback rule without
+      inventing evidence. For the same question and value-equal valid corpus, including any
+      permutation of corpus order, the returned retrieval_query must be identical because
+      TASK-122 ordering is already corpus-order invariant and TASK-134 must not use caller
+      corpus order as a tie-breaker.
+    - >
+      TASK-134 must return only the selected retrieval_query string. It must not expose
+      candidate lists, TASK-122 hits, selected profile ids, query scores, match confidence,
+      evidence, or hidden planner state. The output string is transient application input
+      for TASK-123, not persisted knowledge or canonical identity.
+    - >
+      The module may import only the existing CanonicalRetrievalField and
+      retrieve_canonical_variant_profiles APIs plus standard-library typing/collections
+      needed for bounded iteration. It must not import canonical profile implementation
+      internals for direct searching, ranking/scoring, context/prompt/answer/provider/
+      AgentLoop/tool modules, storage, or provider-specific code.
+    - >
+      Documentation must record the exact authority chain: TASK-122 owns every retrieval
+      probe; TASK-134 owns only deterministic query-span selection; TASK-123 later performs
+      the one canonical retrieval that becomes context; TASK-133 still begins from an
+      already-built context and remains unchanged. Repeated planning probes are transient
+      and are never reused as context evidence.
+    - >
+      Documentation must not claim semantic understanding, entity recognition, factual
+      correctness, optimal retrieval, hallucination freedom, product truth, recommendation,
+      approval, or prompt-injection immunity. V1 planning is deliberately lexical and
+      conservative; an empty downstream retrieval remains a valid insufficient-evidence
+      outcome.
+    - >
+      Focused tests must use only deterministic in-memory profiles and monkeypatching where
+      useful. They must prove exact public API, input bounds, original-run segmentation,
+      contiguous 1..12 span generation/order, exact TASK-122 delegation with limit=2,
+      preference ordering, identity-witness hint behavior, no-hit fallback, >12-token
+      no-hit failure, empty corpus behavior, propagation of CanonicalProfileRetrievalError,
+      corpus-permutation determinism, no direct profile searching, and no model/I/O path.
+    - Do not push from Executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      grounded_query_planning.py and product_intelligence exports add exactly
+      GroundedQueryPlanningError and plan_grounded_retrieval_query, with no planner result,
+      score, configuration, provider, model, or product-selection authority.
+  - id: AC2
+    condition: >
+      The planner validates exact nonblank <=4096-byte question input, segments only
+      maximal original str.isalnum() runs in source order, rejects zero-run or >24-run
+      questions, and performs no local TASK-122 normalization or stop-word semantics.
+  - id: AC3
+    condition: >
+      Candidate queries are only contiguous original-token spans of length 1..12, evaluated
+      by descending length then ascending start, with no reordering, non-contiguous term
+      selection, spelling/case rewrite, or fabricated tokens.
+  - id: AC4
+    condition: >
+      Every corpus-aware candidate evaluation delegates to
+      retrieve_canonical_variant_profiles(corpus, query=candidate, limit=2), uses no private
+      retrieval helper/direct profile search, and lets CanonicalProfileRetrievalError
+      propagate under TASK-122 authority.
+  - id: AC5
+    condition: >
+      Query selection follows exactly unique identity-bearing > unique any-field > multiple,
+      then longer span > earlier start; identity-bearing means only an existing witness
+      field in TITLE/BRAND/MODEL_SKU/MEDIA_VARIANT_LABEL and creates no identity/truth claim.
+  - id: AC6
+    condition: >
+      If every candidate is a no-hit and question length is <=12 lexical runs, planner
+      returns the complete lexical question as fallback; if every candidate is a no-hit and
+      question length is >12, it fails closed without arbitrary truncation or hidden term
+      deletion.
+  - id: AC7
+    condition: >
+      Empty corpus, repeated calls, and corpus permutations are deterministic; planner
+      neither mutates inputs nor returns/reuses TASK-122 hits as context evidence.
+  - id: AC8
+    condition: >
+      TASK-121/122/123/124/129/131/132/133, M2 ranking/approval, and M3 product/evidence
+      authority remain unchanged; planner performs no model/provider/AgentLoop, direct
+      product ranking, storage, network, browser, environment, clock/random/UUID, or
+      product-truth reconciliation work.
+  - id: AC9
+    condition: >
+      Focused offline regressions and documentation certify AC1-AC8, existing TASK-122,
+      TASK-123, and TASK-133 focused tests remain passing, and git diff integrity passes.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_canonical_retrieval.py tests/product_intelligence/test_canonical_rag_context.py tests/product_intelligence/test_grounded_query_planning.py tests/product_intelligence/test_grounded_qa.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
