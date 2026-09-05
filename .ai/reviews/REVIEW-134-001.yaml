@@ -1,0 +1,41 @@
+review_id: REVIEW-134-001
+reviewed_sha: a6f2011e38b530a8e6b2b829ddfa4bb7974264bd
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: FAIL
+  AC2: PASS
+  AC3: PASS
+  AC4: PASS
+  AC5: PASS
+  AC6: PASS
+  AC7: PASS
+  AC8: PASS
+  AC9: PASS
+findings:
+  - id: F1
+    basis: AC1
+    action: CODE_FIX
+    location: src/product_intelligence/grounded_query_planning.py:module public/import surface
+    issue: >
+      TASK-134 requires grounded_query_planning.py itself to expose exactly two public
+      names: GroundedQueryPlanningError and plan_grounded_retrieval_query. The candidate
+      sets __all__ correctly, but it also binds additional non-underscore module names
+      through `from __future__ import annotations`, `Iterable`, `TYPE_CHECKING`,
+      `CanonicalRetrievalField`, and `retrieve_canonical_variant_profiles`. This repeats
+      the exact public-module leakage class corrected in TASK-133. The module also imports
+      CanonicalVariantProfile from canonical_profile under TYPE_CHECKING even though the
+      TASK-134 import boundary permits only the two existing TASK-122 public retrieval
+      APIs plus standard-library typing/collections support.
+    expected: >
+      Modify only src/product_intelligence/grounded_query_planning.py and its focused
+      test file. Make the module's non-underscore public surface exactly
+      GroundedQueryPlanningError and plan_grounded_retrieval_query by removing the
+      unnecessary future import and making implementation dependencies private aliases
+      (or otherwise non-public) without changing planner behavior. Remove the
+      canonical_profile TYPE_CHECKING import so the module depends only on the permitted
+      TASK-122 public retrieval APIs plus standard-library typing/collections support.
+      Add a focused regression that inspects the actual module namespace, not only
+      __all__, and proves no extra public names leak. Preserve all TASK-134 query
+      segmentation, probe delegation, preference, fallback, error propagation, and
+      authority semantics unchanged.
