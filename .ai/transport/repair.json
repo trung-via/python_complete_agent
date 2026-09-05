@@ -1,0 +1,19 @@
+{
+  "repair_id": "REPAIR-138-002",
+  "failed_run_id": "RUN-138-002",
+  "failed_head_sha": "ffbaa7584dc0d41cd03ace2d8706e0fec992fa66",
+  "task": {
+    "id": "TASK-138",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue only from the exact failed FIX candidate ffbaa7584dc0d41cd03ace2d8706e0fec992fa66 for RUN-138-002. Preserve the existing TASK-138 lineage RUN-138-001 -> REVIEW-138-001/F1 -> RUN-138-002; do not restart PRIMARY, rerun FIX, reroute executors, or rebuild the task from main.",
+    "RUN-138-002 failed at the Runtime completion gate before verification because the remediation structural RESULT contained claims, while remediation RESULT claims must be empty. This failure does not establish a new product-code defect. This continuation is explicitly NO_CHANGE: do not modify source, tests, docs, TASK files, worker files, or AIOS/runtime control-plane files, and keep HEAD exactly ffbaa7584dc0d41cd03ace2d8706e0fec992fa66.",
+    "Because this invocation is a REPAIR continuation, return a structural task-level ResultPackage for the complete TASK-138 candidate lineage from original TASK root c05285a7dcec184736935f9900183df5dde40c9d through unchanged head ffbaa7584dc0d41cd03ace2d8706e0fec992fa66. The structural RESULT must have unresolved empty, must declare the complete TASK-138 changed_files truth as docs/POST_M4_P2_SOURCE_EVIDENCE_INTAKE.md, docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md, src/product_intelligence/__init__.py, src/product_intelligence/source_evidence_intake.py, and tests/product_intelligence/test_source_evidence_intake.py, and must contain claims satisfying AC1 through AC10 with empty claim evidence references; executor structural evidence must remain empty so Runtime can own verification evidence.",
+    "Run no ad-hoc replacement verification. Allow the pinned Runtime to execute exactly the original TASK-138 verification commands against the unchanged candidate. If Runtime verification fails, preserve that failure as canonical evidence and do not self-author a source correction inside this NO_CHANGE continuation.",
+    "Do not claim semantic REVIEW PASS, publish, retry, fallback, or reroute. Return only the structural REPAIR result required for Runtime completion."
+  ],
+  "constraints": []
+}
