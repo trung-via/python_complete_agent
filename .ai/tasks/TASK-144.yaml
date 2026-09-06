@@ -1,0 +1,299 @@
+task_id: TASK-144
+revision: 1
+
+goal: >
+  Complete post-M4 P4 live provider certification through a supported Google Cloud
+  Application Default Credentials path by extending the repository's existing single
+  GeminiProvider with an explicit Vertex AI backend mode and adding one credentialed
+  live grounded-QA certification through the unchanged TASK-135 -> TASK-133 -> TASK-132
+  -> TASK-129 chain. Preserve the existing Gemini Developer API/API-key mode as the
+  default compatibility path, introduce no automatic fallback/reroute, and close P4 only
+  after the exact TASK-144 Runtime and ChatGPT semantic-review gates PASS.
+
+problem: >
+  TASK-142 closed P4.1 by modernizing the existing GeminiProvider to google-genai==2.22.0
+  and certifying its generic transport offline. TASK-143 then attempted the P4.2 live proof
+  through the Gemini Developer API/API-key path, but repeated canonical RUNs remained
+  blocked by external provider/authentication availability while the candidate stayed
+  clean and all focused offline regressions passed. The TASK-143 lineage is therefore
+  parked and must not be blindly retried or mutated. Current Google documentation supports
+  Gemini 3.8 Flash on the Google Cloud global endpoint with Application Default
+  Credentials, and the exact google-genai 2.22.0 source supports ADC in explicit Vertex AI
+  mode while its non-Vertex Gemini Developer API mode still requires an API key. P4 can
+  therefore proceed through the same GeminiProvider and same generic M4 authority chain by
+  adding one explicit Vertex AI ADC transport mode rather than waiting indefinitely for the
+  Developer API auth-key blocker or introducing a second provider.
+
+assumptions:
+  - >
+    Canonical Python Agent main immediately before TASK-144 authoring is
+    af6c144ce42020903446b1f2313fe49106b5f66d, the TASK-143 authoring commit. TASK-143 has
+    no reviewed/published source candidate; its latest parked failure lineage ends at
+    RUN-143-007 with exact failed candidate 273f24d115cf116aeddadaaad9afb4990eb43bcd.
+  - >
+    The authoritative AIOS dependency remains exactly
+    aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@67db82bf19d63f25721d06aabb82d850db8b78d4.
+  - >
+    P1, P2, and P3 are CLOSED. P4 is CURRENT / IN PROGRESS. TASK-142/P4.1 is CLOSED;
+    P5 has not advanced.
+  - >
+    src/providers/base.py LLMProvider, LLMResponse, and ProviderToolCall remain the sole
+    generic provider transport contract. src/providers/gemini.py GeminiProvider remains
+    the sole concrete Gemini adapter and the only provider implementation changed here.
+  - >
+    TASK-129 remains sole GroundedAnswer structural-validation authority; TASK-131 remains
+    prompt/schema-framing authority; TASK-132 remains exactly-one generic provider
+    invocation plus syntactic response parsing; TASK-133 remains context-to-answer
+    composition; TASK-134 remains retrieval-query planning; TASK-135 remains persistent
+    grounded-QA startup/composition.
+  - >
+    Exact google-genai==2.22.0 supports explicit Vertex AI construction with
+    vertexai=True plus project/location and can obtain Google credentials through ADC.
+    Its non-Vertex Gemini Developer API path still requires an API key, so TASK-144 must
+    not pretend that genai.Client(credentials=...) is an equivalent supported direct
+    Developer API path under this exact repository dependency.
+  - >
+    Gemini 3.8 Flash is GA on the Google Cloud global endpoint. TASK-144 fixes the live
+    certification subject to model gemini-3.8-flash and location global; this is a bounded
+    certification configuration, not model-selection or regional-routing authority.
+  - >
+    Human/environment setup of Google Cloud ADC, project access, billing, enabled Google
+    Cloud API, and IAM remains an external prerequisite. Repository code must not create,
+    download, refresh-store, or persist OAuth client secrets/tokens itself.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_M4_P4_LIVE_PROVIDER_CERTIFICATION.md
+    - docs/PHASE_6_M4_COMPLETION.md
+    - .ai/tasks/TASK-129.yaml
+    - .ai/tasks/TASK-132.yaml
+    - .ai/tasks/TASK-135.yaml
+    - .ai/tasks/TASK-142.yaml
+    - .ai/tasks/TASK-143.yaml
+    - src/providers/base.py
+    - src/providers/gemini.py
+    - src/product_intelligence/grounded_answer.py
+    - src/product_intelligence/grounded_invocation.py
+    - src/product_intelligence/persistent_grounded_qa.py
+    - src/product_intelligence/canonical_catalog_sqlite.py
+    - src/product_intelligence/family_merge_approval.py
+    - src/product_intelligence/canonical_family.py
+    - src/product_intelligence/sellable_variant_approval.py
+    - src/product_intelligence/canonical_variant.py
+    - src/product_source/models.py
+    - src/product_source/serialization.py
+    - tests/providers/test_gemini_provider.py
+    - tests/product_intelligence/test_grounded_invocation.py
+    - tests/product_intelligence/test_persistent_grounded_qa.py
+    - requirements.txt
+    - .env.example
+
+  modify:
+    - src/providers/gemini.py
+    - tests/providers/test_gemini_provider.py
+    - tests/integration/test_live_grounded_qa_gemini_vertex_adc.py
+    - .env.example
+    - docs/POST_M4_P4_LIVE_PROVIDER_CERTIFICATION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+
+non_goals:
+  - Modify LLMProvider, LLMResponse, ProviderToolCall, TASK-129/131/132/133/134/135
+    semantics, M2/M3 authorities, retrieval, grounded prompt schema, answer validation,
+    catalog semantics, or Product Source Pack semantics.
+  - Introduce GeminiProviderV2, a second provider protocol, provider router, model registry,
+    automatic API-key-to-ADC fallback, retry, failover, reroute, circuit breaker, model
+    discovery, dynamic model selection, quota scheduler, or background provider service.
+  - Implement a custom OAuth browser flow, read client_secret.json/token.json directly,
+    persist refresh/access tokens, call gcloud from production code, call Google IAM APIs,
+    or create/manage service accounts or Cloud projects from the repository.
+  - Implement direct REST transport to generativelanguage.googleapis.com or
+    aiplatform.googleapis.com, replace google-genai, upgrade its pinned version, or add a
+    second Google SDK transport merely for certification.
+  - Repair, restart, publish, rewrite, cherry-pick, or otherwise mutate the parked TASK-143
+    candidate/branches. TASK-143 remains historical external-provider evidence.
+  - Add response_format/JSON-mode policy, provider-managed tool execution, AgentLoop,
+    streaming, multimodal behavior, thinking-level policy, sampling policy, semantic
+    caching, prompt caching, or Product Intelligence-specific parsing inside GeminiProvider.
+  - Use browser/CDP, live Shopee/TikTok acquisition, Drive, production catalog/source-pack
+    files, queues, or external marketplace data in the live certification fixture.
+  - Treat a successful live response as factual truth, semantic entailment, product truth,
+    provider reliability/SLA, hallucination immunity, recommendation, ranking, or approval.
+  - Implement P5 beyond a documentation state transition that becomes effective only after
+    TASK-144 Runtime PASS and ChatGPT semantic-review PASS on the same source candidate.
+  - Change AIOS dependency pin, worker surfaces, publication workflow, or executor identity.
+
+constraints:
+  hard:
+    - >
+      Preserve GeminiProvider as the existing single concrete Gemini adapter. Extend its
+      keyword-only constructor with one explicit backend selector and only the minimum
+      Vertex configuration needed by that selector. The exact accepted backend values must
+      be "developer_api" and "vertex_ai". Default backend must remain "developer_api" so
+      existing no-argument AgentController behavior is unchanged. Invalid backend values
+      fail closed before Google client construction.
+    - >
+      Developer API mode must preserve TASK-142 semantics: explicit api_key has authority
+      over GEMINI_API_KEY; model_name precedence remains explicit value -> GEMINI_MODEL_NAME
+      -> gemini-3.8-flash; missing/placeholder API key fails before client/network; and the
+      Google client must be constructed with vertexai=False explicitly so machine
+      GOOGLE_GENAI_USE_VERTEXAI/enterprise environment cannot silently reroute this mode.
+    - >
+      Vertex AI mode must be explicit and must never be entered because Developer API
+      authentication failed. In vertex_ai mode, an explicitly supplied api_key is invalid
+      and must fail closed before client construction. GEMINI_API_KEY/GOOGLE_API_KEY values
+      present in the process environment must not become the selected repository credential
+      path for this mode. Project resolution is explicit project argument first, otherwise
+      GOOGLE_CLOUD_PROJECT; it must be a non-empty exact string. Location resolution is
+      explicit location argument first, otherwise non-empty GOOGLE_CLOUD_LOCATION, otherwise
+      the exact default "global". Empty/whitespace explicit project/location values fail
+      closed rather than silently falling back.
+    - >
+      Vertex AI mode must construct the existing google-genai Client exactly in explicit
+      Vertex mode with vertexai=True, the resolved project, and resolved location, and no
+      api_key or repository-created credentials object. ADC discovery/refresh remains the
+      Google SDK/google-auth authority. GeminiProvider must not inspect ADC files, invoke
+      gcloud, read OAuth client secrets, store tokens, or create credentials itself.
+    - >
+      Both backend modes must continue to use the same existing message translation,
+      manual function declaration, response mapping, LLMResponse/ProviderToolCall output,
+      cancellation handling, and AgentException LLM_PROVIDER_ERROR boundary. No Product
+      Intelligence response parsing or tool execution may be added to either backend.
+    - >
+      Each LLMProvider.generate call must still make exactly one async
+      client.aio.models.generate_content request and zero model-list/discovery requests.
+      GeminiProvider itself performs no retry/fallback/reroute. A Vertex ADC/auth/project/
+      IAM/API/network/model failure remains one provider-availability failure with original
+      exception preserved as cause and no credential/token/project-specific raw payload
+      rendered by repository logs/errors.
+    - >
+      Offline provider tests must isolate google-genai Client completely and prove: default
+      developer_api compatibility; explicit vertexai=False in Developer API mode; invalid
+      backend fail-before-client; Developer API API-key precedence and existing failure
+      behavior; vertex_ai exact Client kwargs; project/location precedence and global
+      default; explicit API key rejected in vertex mode; process GEMINI_API_KEY presence
+      does not cause provider-selected API-key mode when backend is vertex_ai; exactly one
+      async generate_content call; existing message/tool/response/error/cancellation
+      regressions remain passing; and zero live network occurs in this offline command.
+    - >
+      .env.example may add only placeholder/non-secret Google Cloud configuration needed to
+      document the optional Vertex ADC path, including GOOGLE_CLOUD_PROJECT and
+      GOOGLE_CLOUD_LOCATION=global. It must retain the existing Developer API example and
+      must not contain a real project id, account identifier, OAuth client id/secret,
+      access token, refresh token, credential path, or live certification outcome.
+    - >
+      Add exactly one certification-only module
+      tests/integration/test_live_grounded_qa_gemini_vertex_adc.py. It must build a minimal,
+      deterministic catalog and Product Source Pack evidence only under pytest tmp_path
+      through existing canonical constructors/serialization/TASK-120 registration APIs,
+      with at least one admitted sellable variant and non-empty grounded evidence. It must
+      not use production data or external product acquisition.
+    - >
+      The live certification must instantiate the exact existing GeminiProvider with
+      backend="vertex_ai", model_name="gemini-3.8-flash", and location="global". Project
+      must come only through the provider's explicit/environment configuration boundary;
+      the test must not read gcloud files or credential/token files itself. It must make
+      exactly one application call to answer_persisted_grounded_question(...) and must not
+      call provider.generate, invoke_grounded_model, genai.Client, model listing, REST, or
+      any other network/provider entry point directly.
+    - >
+      The live test must not skip, xfail, retry, fallback, or silently pass when ADC is
+      absent/expired, project is missing, Vertex/Generative AI API is disabled, IAM denies
+      access, billing/quota/network/model availability fails, or the model response fails
+      TASK-132/TASK-129 structural validation. Provider availability must be reported only
+      as a sanitized high-level category; downstream GroundedInvocationError not caused by
+      LLM_PROVIDER_ERROR and GroundedAnswerError must remain distinguishable categories.
+      No raw Google exception payload, access token, credential path, project identifier,
+      prompt/context, response body, response id, or usage metadata may enter canonical
+      pytest output.
+    - >
+      Successful certification requires an exact GroundedAnswer returned by the unchanged
+      TASK-135 -> TASK-133 -> TASK-132 -> TASK-129 chain with non-empty canonical context.
+      Do not assert exact model wording, citation choice, or answer status beyond existing
+      TASK-129 authority.
+    - >
+      The Executor must not manually/ad-hoc invoke the live certification request while
+      editing. The only live request admitted for TASK-144 execution is the one run by the
+      pinned Runtime through the exact required live verification command after candidate
+      commit. Offline verification remains network-free.
+    - >
+      Update docs/POST_M4_P4_LIVE_PROVIDER_CERTIFICATION.md to record: TASK-143 Developer
+      API/API-key certification remains parked as external-provider/auth evidence; TASK-144
+      introduces the supported explicit Vertex AI ADC route through the same GeminiProvider;
+      no fallback/reroute exists between modes; Human must preconfigure ADC/project/API/IAM
+      outside repository code; and P4 closes only after TASK-144 Runtime + semantic-review
+      PASS. Do not represent the parked TASK-143 candidate as published source.
+    - >
+      Update docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md consistently. On the TASK-144
+      candidate, documentation may state P4 CLOSED and P5 CURRENT only conditionally upon
+      the same candidate receiving canonical Runtime PASS and ChatGPT semantic-review PASS.
+      The source implementation must not implement P5. If TASK-144 fails, P4 remains
+      IN PROGRESS and P5 remains not current.
+    - >
+      Keep requirements.txt unchanged unless deterministic implementation proves an already
+      missing dependency required by the exact google-genai==2.22.0 Vertex ADC path. Do not
+      upgrade google-genai or add a second Gemini/Vertex SDK in this task. Any dependency
+      change outside the declared modify scope is forbidden and must instead block for Brain
+      re-audit.
+    - Do not push from Executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      GeminiProvider remains the sole concrete Gemini adapter and adds only exact explicit
+      developer_api/vertex_ai backend selection, with developer_api remaining the default
+      and no router/fallback/second provider authority.
+  - id: AC2
+    condition: >
+      Developer API mode preserves TASK-142 API-key/model behavior and constructs
+      google-genai with vertexai=False explicitly; invalid/missing API-key configuration
+      still fails closed before network.
+  - id: AC3
+    condition: >
+      Vertex AI mode resolves only project/location configuration, rejects an explicit
+      api_key, constructs google-genai with vertexai=True plus exact project/location and no
+      repository-created credentials object, and delegates ADC discovery/refresh entirely
+      to the Google SDK/google-auth boundary.
+  - id: AC4
+    condition: >
+      Both modes retain one-request async generation, existing message/tool/response
+      transport semantics, causal provider-error conversion, cancellation propagation, and
+      zero provider retry/fallback/reroute/model discovery.
+  - id: AC5
+    condition: >
+      Focused deterministic offline tests prove AC1-AC4 including project/location
+      precedence, global default, environmental API-key non-selection in vertex mode, and
+      all existing TASK-142/TASK-132/TASK-135 regressions without live network.
+  - id: AC6
+    condition: >
+      The new Vertex ADC live fixture is deterministic/tmp_path-only, uses existing M3/M4
+      authorities, and makes exactly one credentialed call only through TASK-135 with the
+      same GeminiProvider bound to vertex_ai/global/gemini-3.8-flash.
+  - id: AC7
+    condition: >
+      Missing/invalid ADC, project/API/IAM/billing/quota/network/model availability fail
+      closed as sanitized provider availability; TASK-132 invocation/response-structure and
+      TASK-129 GroundedAnswer structural failures remain distinct and none trigger a second
+      request or model-output repair.
+  - id: AC8
+    condition: >
+      A successful live call returns an exact TASK-129 GroundedAnswer with non-empty
+      canonical context through the unchanged M4 chain, without asserting factual truth,
+      semantic quality, exact wording/status, or persisting/printing live output.
+  - id: AC9
+    condition: >
+      Documentation accurately records the parked TASK-143 Developer API lineage and the
+      TASK-144 Vertex ADC path without claiming TASK-143 publication, automatic credential
+      fallback, provider SLA, or Product Intelligence truth authority.
+  - id: AC10
+    condition: >
+      After and only after canonical TASK-144 Runtime PASS plus ChatGPT semantic-review PASS
+      on the same source candidate, P4 is CLOSED and P5 Human-Facing Product Intelligence
+      Surface becomes CURRENT; TASK-144 itself implements no P5 behavior.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/providers/test_gemini_provider.py tests/product_intelligence/test_grounded_invocation.py tests/product_intelligence/test_persistent_grounded_qa.py tests/integration/test_phase6_bootstrap.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/integration/test_live_grounded_qa_gemini_vertex_adc.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
