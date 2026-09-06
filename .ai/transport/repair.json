@@ -1,0 +1,19 @@
+{
+  "repair_id": "REPAIR-143-007",
+  "failed_run_id": "RUN-143-007",
+  "failed_head_sha": "273f24d115cf116aeddadaaad9afb4990eb43bcd",
+  "task": {
+    "id": "TASK-143",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue only from the exact failed candidate 273f24d115cf116aeddadaaad9afb4990eb43bcd for RUN-143-007 and preserve Codex executor identity and the complete prior TASK-143 repair lineage. Do not restart PRIMARY, reroute executors, or rebuild from current main.",
+    "RUN-143-007 failed during the single credentialed live verification request with the sanitized provider-availability category 'Gemini provider unavailable'. The candidate remains clean, unchanged, repairable, transportable, and all 54 offline regressions passed. No product-code, test, documentation, or TASK defect is established by this failure. This continuation is NO_CHANGE; do not modify source, tests, docs, TASK files, worker files, provider configuration, model selection, or AIOS/runtime files.",
+    "Before invoking this continuation, the Human must resolve the external Gemini authentication/provider availability prerequisite and confirm a credential path that is accepted by the Gemini Developer API. Do not issue ad-hoc provider requests from the executor, do not print or persist credentials, and do not rely on another blind retry as diagnosis.",
+    "Do not manually probe the Gemini API, list models, retry, fallback, reroute, change gemini-3.8-flash, or make any extra network request during executor work. Once the external provider prerequisite is confirmed, return only the structural REPAIR result with unresolved empty and allow the pinned Runtime alone to execute the exact TASK-143 required verification commands, including the one admitted live request.",
+    "If the Runtime live verification fails again, preserve the resulting new FAILURE exactly for Brain classification; do not self-author a code correction or widen scope. Do not claim semantic REVIEW PASS or publish."
+  ],
+  "constraints": []
+}
