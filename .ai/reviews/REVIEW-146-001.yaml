@@ -1,10 +1,7 @@
 review_id: REVIEW-146-001
-task_id: TASK-146
-run_id: RUN-146-001
 reviewed_sha: 524fe5bb05488a7aa799888a4021c20eb7b6b898
 mode: PRIMARY
 verdict: CHANGES_REQUIRED
-
 acceptance:
   AC1: PASS
   AC2: FAIL
@@ -16,29 +13,23 @@ acceptance:
   AC8: PASS
   AC9: PASS
   AC10: PASS
-
 findings:
   - id: F1
     basis: AC2
-    severity: MEDIUM
-    title: discover silently accepts duplicate single-occurrence Human controls
-    finding: >
-      TASK-146 requires exactly one --query and exactly one --cdp-endpoint for discover,
-      while only --platform is explicitly repeatable; it also defines one optional
-      --shortlist-size control. The implementation uses argparse's default store action for
-      --query, --cdp-endpoint, and --shortlist-size. Supplying any of those options more than
-      once is therefore accepted and the last value silently overwrites the earlier Human
-      value. This violates the exact Human-input boundary and allows conflicting query/CDP
-      selections to be resolved implicitly by the CLI instead of failing closed.
-    required_change: >
-      Modify only src/product_intelligence/cli.py and focused CLI tests as needed. Make the
-      discover parser reject repeated occurrences of --query and --cdp-endpoint, and reject
-      repeated --shortlist-size when supplied, with argparse-style exit code 2. Preserve
-      repeated --platform exactly as the sole repeatable discover control and preserve all
-      existing TASK-145 behavior, orchestration composition, cleanup, error handling, docs,
-      and M2/browser authorities. Add focused regression tests proving duplicate single-value
-      discover options fail closed and ordered repeated --platform continues to work.
-    review_scope: >
-      FIX review must inspect only the F1 parser/test delta and directly introduced regression
-      risk. Do not rerun or redesign the TASK-146 PRIMARY implementation and do not reopen the
-      already-passing discovery/orchestration/browser semantics unless the fix changes them.
+    action: CODE_FIX
+    location: src/product_intelligence/cli.py:_parser discover arguments
+    issue: >
+      The discover parser accepts repeated occurrences of single-value Human controls
+      --query, --cdp-endpoint, and --shortlist-size because argparse's default store
+      action silently keeps the last supplied value. TASK-146 requires exactly one
+      --query and exactly one --cdp-endpoint, allows --shortlist-size only as one
+      optional control, and reserves repetition only for --platform. Silent overwrite
+      therefore violates the exact Human-input and fail-closed boundary in AC2.
+    expected: >
+      Modify only src/product_intelligence/cli.py and
+      tests/product_intelligence/test_product_intelligence_cli.py as needed. Make
+      discover reject repeated --query, repeated --cdp-endpoint, and repeated
+      --shortlist-size with argparse-style exit code 2. Preserve ordered repeated
+      --platform as the sole repeatable discover control and preserve all other
+      TASK-146 behavior and authorities unchanged. Add focused regression tests for
+      these duplicate-option cases.
