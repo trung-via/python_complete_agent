@@ -2,7 +2,7 @@
 
 Status: canonical post-M4 architecture roadmap; P3 CLOSED by TASK-139 P3.1,
 TASK-140 P3.2, and TASK-141 P3.3; P4 Live Grounded-QA Provider Certification is
-CURRENT and IN PROGRESS, with TASK-142 establishing P4.1 only
+CURRENT, with TASK-143 P4.2 closure conditional on Runtime and semantic-review PASS
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
 ## 1. Starting point
@@ -92,7 +92,7 @@ product-truth reconciliation, durable REJECT history, or autonomous approval.
 Those remain deferred non-blocking future work. P4 Live Grounded-QA Provider
 Certification is now the next current post-M4 boundary.
 
-### P4 — Live Grounded-QA Provider Certification — CURRENT / IN PROGRESS
+### P4 — Live Grounded-QA Provider Certification — CURRENT / CONDITIONAL CLOSURE
 
 Certify the already-complete M4 generic provider path against an explicit production provider configuration. If the existing provider adapter requires modernization, that adapter work must remain provider-specific and must not change TASK-129/131/132/133/134/135 semantics.
 
@@ -105,13 +105,24 @@ manual tool-declaration, and response transport offline. It does not establish
 provider account, credential, quota, network, model availability, or a live
 grounded answer, and it does not close P4.
 
-P4.2 credentialed live grounded-QA certification is the immediate next P4 stage.
-It must prove one live call through TASK-135 -> TASK-133 -> TASK-132 using the
-existing `GeminiProvider`, and report provider availability separately from
-TASK-132/TASK-129 grounded structural validation. P4.2 must not invent retry,
-fallback, provider-selection, or model-selection policy.
+P4.2 is the TASK-143 credentialed live grounded-QA certification candidate. Its
+temporary deterministic fixture exercises exactly one application call through
+TASK-135 -> TASK-133 -> TASK-132 using the existing `GeminiProvider` explicitly
+bound to `gemini-3.8-flash`. Credential access remains inside the provider's
+existing environment boundary. Canonical evidence exposes only pytest outcome and
+sanitized provider-availability versus TASK-132/TASK-129 structural-failure
+categories; it does not expose secrets, raw provider diagnostics, prompts, context,
+or live response content. There is no retry, fallback, repair request, reroute,
+provider selection, or dynamic model selection.
 
-### P5 — Human-Facing Product Intelligence Surface
+P4 closes only after canonical TASK-143 Runtime verification and ChatGPT semantic
+review both PASS on the same source candidate. When both gates PASS, P4 becomes
+CLOSED and P5 becomes CURRENT. Until then P4 remains CURRENT. This conditional
+transition implements no P5 behavior and certifies no provider reliability/SLA,
+factual truth, semantic entailment, hallucination freedom, prompt-injection immunity,
+canonical product truth, recommendation, ranking, or approval authority.
+
+### P5 — Human-Facing Product Intelligence Surface — NEXT / CONDITIONALLY CURRENT
 
 Add a thin CLI/API/application presentation boundary over the existing discovery, ranking, approval, evidence-intake, canonical-knowledge, and grounded-QA services.
 
@@ -140,9 +151,12 @@ sellable-variant review, Human decision, and durable admission while preserving
 TASK-115/116/117/118/119/120 authority. M3 remains the sole identity, catalog,
 persistence, and evidence authority; P3 remains application composition rather
 than a replacement semantic layer. P4 Live Grounded-QA Provider Certification is
-CURRENT and IN PROGRESS. TASK-142 establishes P4.1 provider transport foundation
-only; separate P4.2 credentialed live grounded-QA certification is the immediate
-next stage. P4 is not closed, and P5 has not advanced.
+CURRENT. TASK-142 establishes the P4.1 provider transport foundation, and TASK-143
+supplies the P4.2 one-call credentialed certification candidate. P4 closure and the
+advance of P5 to CURRENT become effective only after the canonical Runtime and
+ChatGPT semantic-review gates both PASS on the exact TASK-143 source candidate. No
+P5 implementation or provider-reliability, factual-truth, product-truth, or semantic-
+entailment guarantee is claimed by this roadmap transition.
 
 ## 4. Authority invariants
 

@@ -1,8 +1,8 @@
 # Post-M4 P4 Live Grounded-QA Provider Certification
 
-Status: **P4 IN PROGRESS**  
-Current stage: **P4.1 production-provider foundation — TASK-142**  
-Next stage: **P4.2 separate credentialed live grounded-QA certification**
+Status: **P4.2 CERTIFICATION CANDIDATE — closure is conditional**  
+Current stage: **P4.2 credentialed live grounded-QA certification — TASK-143**  
+Next stage after both TASK-143 gates PASS: **P5 Human-Facing Product Intelligence Surface**
 
 ## P4.1 boundary
 
@@ -67,16 +67,64 @@ grounded structural validity, factual correctness, product truth, or end-to-end 
 certification. Conversely, a provider availability failure supplies no conclusion
 about the offline-grounded structural validators.
 
-## P4.2 next stage
+## P4.2 certification boundary
 
-P4 remains IN PROGRESS. P4.2 must separately prove one credentialed live call through
-the existing application chain:
+TASK-143 adds one certification-only integration harness. It constructs a minimal,
+deterministic Product Source Pack fixture and non-empty canonical catalog entirely
+under pytest's temporary directory, using the existing serialization, identity,
+approval, canonical-construction, and TASK-120 SQLite registration authorities. It
+does not use production data, browser state, Drive, live marketplace acquisition, or
+network-fetched evidence.
+
+The harness explicitly constructs `GeminiProvider(model_name="gemini-3.8-flash")`,
+so `GEMINI_MODEL_NAME` on the caller machine cannot change the certification subject.
+It does not read a credential itself: `GEMINI_API_KEY` enters only through the existing
+provider environment boundary. No secret file, dotenv file, key store, or credential
+API is consulted.
+
+The harness makes exactly one application call through the existing chain:
 
 `TASK-135 -> TASK-133 -> TASK-132 -> existing GeminiProvider`
 
-That certification must use the existing TASK-142 adapter and must separately report
-provider availability and the downstream grounded structural result. Credentials and
-account identifiers must not enter repository artifacts, logs, fixtures, or evidence.
-P4.2 is not authority to add retries, fallback, provider rerouting, dynamic model
-selection, provider-managed tool execution, or a new Product Intelligence parser.
-Any such policy would require a separate explicit task.
+The call starts at `answer_persisted_grounded_question(...)`; the harness never invokes
+`provider.generate`, TASK-132, or the Google SDK directly. It has no retry, fallback,
+reroute, output repair, dynamic model selection, or second request. A successful call
+must return an exact TASK-129 `GroundedAnswer` with non-empty canonical context. The
+test asserts only existing TASK-129 structure, not model wording, citation choice, or
+one particular answer status.
+
+## Evidence hygiene and fail-closed reporting
+
+The live response body, prompt, rendered context, usage metadata, response ID, and
+credential are neither printed nor persisted. Normal success evidence is therefore
+only pytest's PASS summary.
+
+Failure reporting retains three decision-relevant categories while suppressing raw
+provider diagnostics:
+
+- a TASK-132 `GroundedInvocationError` whose causal chain contains the existing
+  `AgentException(code="LLM_PROVIDER_ERROR")` is reported only as **Gemini provider
+  unavailable**; this covers missing, placeholder, invalid, or unauthorized credentials
+  and account, quota, network, service, or selected-model unavailability;
+- other `GroundedInvocationError` values remain **grounded invocation or response
+  structure invalid**, preserving TASK-132 authority; and
+- `GroundedAnswerError` remains **grounded answer structure invalid**, preserving
+  TASK-129 authority.
+
+None of these failures is skipped, xfailed, converted to PASS, repaired, or retried.
+The test-only categorization creates no production exception taxonomy. Sanitized
+canonical failure output contains no raw SDK exception, authorization material,
+account/project identifier, request header, or provider payload.
+
+## Conditional P4 closure
+
+P4 is not declared closed by this source change alone. Closure becomes effective only
+when canonical TASK-143 Runtime verification and ChatGPT semantic review both PASS on
+the same source candidate. At that point P4 is CLOSED and P5 Human-Facing Product
+Intelligence Surface becomes CURRENT; TASK-143 itself implements no P5 surface.
+
+This certification establishes only one credentialed structural interoperability
+result under the certified conditions. It does not guarantee provider reliability or
+an SLA, factual correctness, semantic entailment, completeness, hallucination freedom,
+prompt-injection immunity, canonical product truth, conflict reconciliation, ranking,
+recommendation, or autonomous approval.
