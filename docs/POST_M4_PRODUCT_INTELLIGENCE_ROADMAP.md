@@ -1,7 +1,7 @@
 # Post-M4 Product Intelligence Roadmap — Live Product Enablement
 
 Status: canonical post-M4 architecture roadmap; P1-P4 CLOSED; P5 CURRENT / IN
-PROGRESS; P5.1 CLOSED; TASK-146 is the P5.2 candidate
+PROGRESS; P5.1 and P5.2 CLOSED; TASK-147 is the P5.3a candidate
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
 ## 1. Starting point
@@ -141,16 +141,26 @@ TASK-135 persistent grounded QA through one Human-explicit existing
 registration, evidence write, answer persistence, provider routing, retry, or
 fallback authority.
 
-P5.2 is the TASK-146 candidate: extending the Product Intelligence CLI with
-one live discovery and deterministic shortlist command (`discover`) composing
-the existing P1 PlaywrightBrowserManager CDP runtime, existing Shopee/TikTok
-adapters, and existing M2 DiscoveryOrchestrator / CandidateRanker vertical slice
-without introducing a second browser, discovery, scoring, ranking, approval, or
-ingestion authority. P5.2 becomes CLOSED only after canonical Runtime PASS plus
-ChatGPT semantic review PASS on the same TASK-146 candidate.
+P5.2 is CLOSED by published TASK-146 after canonical Runtime PASS and ChatGPT
+semantic-review PASS were recorded for the candidate: extending the Product
+Intelligence CLI with one live discovery and deterministic shortlist command
+(`discover`) composing the existing P1 PlaywrightBrowserManager CDP runtime,
+existing Shopee/TikTok adapters, and existing M2 DiscoveryOrchestrator /
+CandidateRanker vertical slice without introducing a second browser, discovery,
+scoring, ranking, approval, or ingestion authority.
 
-P5.3 explicit Human action and mutation remains the remaining unimplemented P5
-boundary. Overall P5 stays CURRENT / IN PROGRESS, and P6 must not advance.
+The remaining P5.3 boundary is refined into:
+
+- P5.3a live-shortlist Human decision + TASK-096 M1 queue bridge (TASK-147 candidate):
+  extending the Product Intelligence CLI with one bounded in-process review/action
+  command (`decide`) that runs live discovery, renders the exact shortlist preview,
+  accepts explicit Human position and APPROVE/REJECT action during that same
+  invocation, and delegates the exact RankedCandidate object to TASK-096
+  approval/queue authorities without persisting shortlists or reconstructing candidates.
+- P5.3b family decision / durable admission presentation over TASK-139 / TASK-140 (unimplemented).
+- P5.3c sellable-variant review / decision / durable admission presentation over TASK-141 (unimplemented).
+
+Overall P5 stays CURRENT / IN PROGRESS after TASK-147, and P6 must not advance.
 
 ### P6 — Quality and Scale Enhancements
 
@@ -180,11 +190,12 @@ unpublished, and published TASK-144 certified the explicit Vertex AI ADC route.
 Canonical Runtime PASS and ChatGPT semantic-review PASS on that same TASK-144
 source candidate closed P4. P5 is therefore CURRENT / IN PROGRESS. Published
 TASK-145 closed P5.1 after canonical Runtime PASS and ChatGPT semantic-review
-PASS on its candidate. TASK-146 is the P5.2 live discovery + deterministic shortlist
-candidate and closes P5.2 only after its own canonical Runtime PASS plus ChatGPT
-semantic-review PASS on the same candidate. P5.3 explicit Human action/mutation
-remains the remaining unimplemented P5 boundary; overall P5 stays CURRENT / IN
-PROGRESS, and P6 does not advance.
+PASS on its candidate. Published TASK-146 closed P5.2 after canonical Runtime PASS
+and ChatGPT semantic-review PASS on its candidate. TASK-147 is the P5.3a candidate
+(live-shortlist Human decision + TASK-096 M1 queue bridge); P5.3b family
+decision/durable admission presentation and P5.3c sellable-variant review/decision/durable
+admission presentation remain unimplemented. Overall P5 stays CURRENT / IN
+PROGRESS after TASK-147, and P6 does not advance.
 
 ## 4. Authority invariants
 

@@ -12,10 +12,19 @@ from types import SimpleNamespace
 
 import pytest
 
+from dataclasses import replace
 from src.core.errors import AgentException
 from src.product_intelligence import cli
 from src.product_intelligence.adapters.shopee import ShopeeDiscoveryAdapter
 from src.product_intelligence.adapters.tiktok import TikTokDiscoveryAdapter
+from src.product_intelligence.approval import (
+    ApprovalDecision,
+    ApprovalError,
+    EnqueueOutcome,
+    EnqueueResult,
+    create_approval_record,
+    enqueue_approval,
+)
 from src.product_intelligence.discovery import (
     DiscoveryBlockedError,
     DiscoveryError,
@@ -24,12 +33,19 @@ from src.product_intelligence.discovery import (
     DiscoveryRequest,
 )
 from src.product_intelligence.grounded_answer import GroundedAnswerStatus
+from src.product_intelligence.models import (
+    DecisionBand,
+    ProductCandidateSnapshot,
+    WinningProductScore,
+)
 from src.product_intelligence.orchestration import (
     OrchestrationError,
     OrchestrationInvalidRequestError,
     OrchestrationResult,
     PlatformDiscoveryPlan,
 )
+from src.product_intelligence.ranking import RankedCandidate
+from src.product_intelligence.scoring import WinningProductScorer
 from src.product_intelligence.source_evidence_intake import SourceEvidenceInventory
 from src.product_source.models import ProductSourcePack
 
@@ -68,6 +84,7 @@ def test_import_is_side_effect_free(monkeypatch, capsys):
     import src.integrations.playwright.manager as playwright_manager
     import src.product_intelligence.adapters.shopee as shopee_adapter
     import src.product_intelligence.adapters.tiktok as tiktok_adapter
+    import src.product_intelligence.approval as approval
     import src.product_intelligence.canonical_catalog_sqlite as catalog_sqlite
     import src.product_intelligence.orchestration as orchestration
     import src.product_intelligence.persistent_grounded_qa as persistent_qa
@@ -84,6 +101,8 @@ def test_import_is_side_effect_free(monkeypatch, capsys):
         scoped.setattr(shopee_adapter, "ShopeeDiscoveryAdapter", forbidden)
         scoped.setattr(tiktok_adapter, "TikTokDiscoveryAdapter", forbidden)
         scoped.setattr(orchestration, "orchestrate_discovery", forbidden)
+        scoped.setattr(approval, "create_approval_record", forbidden)
+        scoped.setattr(approval, "enqueue_approval", forbidden)
         importlib.reload(cli)
         captured = capsys.readouterr()
         assert captured.out == captured.err == ""
@@ -97,7 +116,13 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
         for action in parser._actions
         if action.__class__.__name__ == "_SubParsersAction"
     )
-    assert tuple(subparsers.choices) == ("evidence", "catalog", "ask", "discover")
+    assert tuple(subparsers.choices) == (
+        "evidence",
+        "catalog",
+        "ask",
+        "discover",
+        "decide",
+    )
     assert {
         name: {
             option
@@ -123,6 +148,16 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
             "--platform",
             "--cdp-endpoint",
             "--shortlist-size",
+        },
+        "decide": {
+            "-h",
+            "--help",
+            "--query",
+            "--platform",
+            "--cdp-endpoint",
+            "--shortlist-size",
+            "--actor",
+            "--decided-at",
         },
     }
 
@@ -193,6 +228,159 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
             "5",
             "--shortlist-size",
             "10",
+        ],
+        ["decide"],
+        ["decide", "--query", "q"],
+        ["decide", "--actor", "reviewer"],
+        ["decide", "--decided-at", "2026-09-06T12:00:00Z"],
+        [
+            "decide",
+            "--query",
+            "q",
+            "--platform",
+            "shopee",
+            "--cdp-endpoint",
+            "http://127.0.0.1:9222",
+        ],
+        [
+            "decide",
+            "--query",
+            "q",
+            "--platform",
+            "shopee",
+            "--cdp-endpoint",
+            "http://127.0.0.1:9222",
+            "--actor",
+            "reviewer",
+        ],
+        [
+            "decide",
+            "--query",
+            "q",
+            "--platform",
+            "shopee",
+            "--cdp-endpoint",
+            "http://127.0.0.1:9222",
+            "--decided-at",
+            "2026-09-06T12:00:00Z",
+        ],
+        [
+            "decide",
+            "--query",
+            "q",
+            "--platform",
+            "invalid",
+            "--cdp-endpoint",
+            "http://127.0.0.1:9222",
+            "--actor",
+            "reviewer",
+            "--decided-at",
+            "2026-09-06T12:00:00Z",
+        ],
+        [
+            "decide",
+            "--query",
+            "q",
+            "--platform",
+            "shopee",
+            "--cdp-endpoint",
+            "http://127.0.0.1:9222",
+            "--shortlist-size",
+            "invalid_int",
+            "--actor",
+            "reviewer",
+            "--decided-at",
+            "2026-09-06T12:00:00Z",
+        ],
+        [
+            "decide",
+            "--query",
+            "q",
+            "--platform",
+            "shopee",
+            "--cdp-endpoint",
+            "http://127.0.0.1:9222",
+            "--actor",
+            "reviewer",
+            "--decided-at",
+            "not-a-datetime",
+        ],
+        [
+            "decide",
+            "--query",
+            "q1",
+            "--query",
+            "q2",
+            "--platform",
+            "shopee",
+            "--cdp-endpoint",
+            "http://127.0.0.1:9222",
+            "--actor",
+            "reviewer",
+            "--decided-at",
+            "2026-09-06T12:00:00Z",
+        ],
+        [
+            "decide",
+            "--query",
+            "q",
+            "--platform",
+            "shopee",
+            "--cdp-endpoint",
+            "http://127.0.0.1:9222",
+            "--cdp-endpoint",
+            "http://127.0.0.1:9223",
+            "--actor",
+            "reviewer",
+            "--decided-at",
+            "2026-09-06T12:00:00Z",
+        ],
+        [
+            "decide",
+            "--query",
+            "q",
+            "--platform",
+            "shopee",
+            "--cdp-endpoint",
+            "http://127.0.0.1:9222",
+            "--shortlist-size",
+            "5",
+            "--shortlist-size",
+            "10",
+            "--actor",
+            "reviewer",
+            "--decided-at",
+            "2026-09-06T12:00:00Z",
+        ],
+        [
+            "decide",
+            "--query",
+            "q",
+            "--platform",
+            "shopee",
+            "--cdp-endpoint",
+            "http://127.0.0.1:9222",
+            "--actor",
+            "reviewer1",
+            "--actor",
+            "reviewer2",
+            "--decided-at",
+            "2026-09-06T12:00:00Z",
+        ],
+        [
+            "decide",
+            "--query",
+            "q",
+            "--platform",
+            "shopee",
+            "--cdp-endpoint",
+            "http://127.0.0.1:9222",
+            "--actor",
+            "reviewer",
+            "--decided-at",
+            "2026-09-06T12:00:00Z",
+            "--decided-at",
+            "2026-09-06T13:00:00Z",
         ],
     )
     for argv in invalid:
@@ -434,7 +622,6 @@ def test_cli_source_has_no_mutation_ranking_or_direct_provider_authority():
     forbidden_modules = {
         "src.agent_controller",
         "src.agent_loop",
-        "src.product_intelligence.approval",
         "src.product_intelligence.ranking",
         "src.product_source.serialization",
         "playwright",
@@ -443,7 +630,12 @@ def test_cli_source_has_no_mutation_ranking_or_direct_provider_authority():
     }
     assert imported_modules.isdisjoint(forbidden_modules)
     assert "register_sqlite" not in source
-    assert "enqueue" not in source
+    assert "build_ingestion_task" not in source
+    assert "build_approved_ingestion_task" not in source
+    assert "tasks.txt" not in source
+    assert "completed.txt" not in source
+    assert "open(" not in source
+    assert "fsync" not in source
     assert ".generate(" not in source
     assert "google.genai" not in source
     assert "AgentController" not in source
@@ -913,3 +1105,957 @@ def test_discover_rejects_repeated_single_value_options(duplicate_args, capsys):
     captured = capsys.readouterr()
     assert opt_flag in captured.err
     assert "cannot be repeated" in captured.err
+
+
+def _make_candidate(
+    candidate_id: str = "shopee:123:456",
+    platform: str = "shopee",
+    url: str = "https://shopee.vn/canonical-product-i.123.456",
+    title: str = "Canonical product",
+    decision_band: DecisionBand | None = None,
+) -> RankedCandidate:
+    observed = datetime(2026, 9, 6, 12, 0, tzinfo=timezone.utc)
+    candidate = ProductCandidateSnapshot(
+        candidate_id=candidate_id,
+        platform=platform,
+        url=url,
+        observed_at=observed,
+        title=title,
+        sold_count=50_000,
+        review_count=5_000,
+        rating=4.9,
+        affiliate_commission_rate=20.0,
+        discount_percent=40.0,
+        sales_velocity=100.0,
+        creator_velocity=10.0,
+        creator_count=1,
+        similar_listing_count=1,
+    )
+    score = WinningProductScorer.score_snapshot(candidate, evaluated_at=observed)
+    if decision_band is not None:
+        score = replace(score, decision_band=decision_band)
+    return RankedCandidate(candidate=candidate, score=score)
+
+
+def _make_orchestration_result(
+    candidates: tuple[RankedCandidate, ...],
+) -> OrchestrationResult:
+    return OrchestrationResult(
+        batches=(),
+        shortlist=candidates,
+    )
+
+
+def _fake_orchestrator(result):
+    async def _orchestrate(*args, **kwargs):
+        return result
+
+    return _orchestrate
+
+
+@pytest.mark.parametrize(
+    "duplicate_args",
+    [
+        ["--query", "first_query", "--query", "second_query"],
+        [
+            "--cdp-endpoint",
+            "http://127.0.0.1:9222",
+            "--cdp-endpoint",
+            "http://127.0.0.1:9223",
+        ],
+        ["--shortlist-size", "5", "--shortlist-size", "10"],
+        ["--actor", "user1", "--actor", "user2"],
+        [
+            "--decided-at",
+            "2026-09-06T12:00:00Z",
+            "--decided-at",
+            "2026-09-06T13:00:00Z",
+        ],
+    ],
+)
+def test_decide_rejects_repeated_single_value_options(duplicate_args, capsys):
+    parser = cli._parser()
+    base_args = [
+        "decide",
+        "--query",
+        "valid_query",
+        "--platform",
+        "shopee",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+        "--actor",
+        "test-actor",
+        "--decided-at",
+        "2026-09-06T12:00:00Z",
+    ]
+    opt_flag = duplicate_args[0]
+    filtered_base = []
+    i = 0
+    while i < len(base_args):
+        if base_args[i] == opt_flag:
+            i += 2
+        else:
+            filtered_base.append(base_args[i])
+            i += 1
+    argv = filtered_base + duplicate_args
+
+    with pytest.raises(SystemExit) as exc_info:
+        parser.parse_args(argv)
+    assert exc_info.value.code == 2
+
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(argv)
+    assert exc_info.value.code == 2
+    captured = capsys.readouterr()
+    assert opt_flag in captured.err
+    assert "cannot be repeated" in captured.err
+
+
+def test_decide_performs_shared_discovery_and_cleanup_before_human_interaction(
+    monkeypatch, capsys
+):
+    events: list[str] = []
+    created_managers: list[_FakeBrowserManager] = []
+
+    class _TracingBrowserManager(_FakeBrowserManager):
+        async def close_all(self):
+            events.append("close_all")
+            await super().close_all()
+
+    def fake_manager_factory(cdp_endpoint=None):
+        mgr = _TracingBrowserManager(cdp_endpoint=cdp_endpoint)
+        created_managers.append(mgr)
+        return mgr
+
+    candidate = _make_candidate()
+    dummy_result = _make_orchestration_result((candidate,))
+
+    async def fake_orchestrate(*args, **kwargs):
+        events.append("orchestrate")
+        return dummy_result
+
+    class _TracingStdin:
+        def __init__(self):
+            self.lines = ["1\n", "APPROVE\n"]
+
+        def readline(self):
+            events.append("stdin_readline")
+            return self.lines.pop(0) if self.lines else ""
+
+    real_create_approval = cli._create_approval_record
+
+    def tracing_create_approval(*args, **kwargs):
+        events.append("create_approval")
+        return real_create_approval(*args, **kwargs)
+
+    real_enqueue_approval = cli._enqueue_approval
+
+    def tracing_enqueue_approval(*args, **kwargs):
+        events.append("enqueue_approval")
+        return EnqueueResult(task="task", outcome=EnqueueOutcome.ENQUEUED)
+
+    monkeypatch.setattr(cli, "_PlaywrightBrowserManager", fake_manager_factory)
+    monkeypatch.setattr(cli, "_orchestrate_discovery", fake_orchestrate)
+    monkeypatch.setattr(cli._sys, "stdin", _TracingStdin())
+    monkeypatch.setattr(cli, "_create_approval_record", tracing_create_approval)
+    monkeypatch.setattr(cli, "_enqueue_approval", tracing_enqueue_approval)
+
+    argv = [
+        "decide",
+        "--query",
+        "valid_query",
+        "--platform",
+        "shopee",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+        "--actor",
+        "test-actor",
+        "--decided-at",
+        "2026-09-06T12:00:00Z",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 0
+    assert events == [
+        "orchestrate",
+        "close_all",
+        "stdin_readline",
+        "stdin_readline",
+        "create_approval",
+        "enqueue_approval",
+    ]
+
+
+def test_decide_renders_exact_preview_to_stderr_before_input(monkeypatch, capsys):
+    c1 = _make_candidate(
+        candidate_id="shopee:1", url="https://shopee.vn/p1", title="Product 1"
+    )
+    c2 = _make_candidate(
+        candidate_id="tiktok:2",
+        platform="tiktok",
+        url="https://tiktok.com/p2",
+        title="Product 2",
+    )
+    dummy_result = _make_orchestration_result((c1, c2))
+
+    async def fake_orchestrate(*args, **kwargs):
+        return dummy_result
+
+    monkeypatch.setattr(
+        cli,
+        "_PlaywrightBrowserManager",
+        lambda cdp_endpoint=None: _FakeBrowserManager(cdp_endpoint),
+    )
+    monkeypatch.setattr(cli, "_orchestrate_discovery", fake_orchestrate)
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("1\nAPPROVE\n"))
+    monkeypatch.setattr(
+        cli,
+        "_enqueue_approval",
+        lambda record: EnqueueResult(task="task", outcome=EnqueueOutcome.ENQUEUED),
+    )
+
+    argv = [
+        "decide",
+        "--query",
+        "test",
+        "--platform",
+        "shopee",
+        "--platform",
+        "tiktok",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+        "--actor",
+        "test-actor",
+        "--decided-at",
+        "2026-09-06T12:00:00Z",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    preview = json.loads(captured.err)
+    assert preview == dummy_result.to_dict()
+    assert preview["shortlist_count"] == 2
+    assert preview["shortlist"][0]["candidate"]["candidate_id"] == "shopee:1"
+    assert preview["shortlist"][1]["candidate"]["candidate_id"] == "tiktok:2"
+
+
+def test_decide_human_position_selects_exact_ranked_candidate_by_identity(
+    monkeypatch, capsys
+):
+    c1 = _make_candidate(
+        candidate_id="shopee:1", url="https://shopee.vn/p1", title="Product 1"
+    )
+    c2 = _make_candidate(
+        candidate_id="tiktok:2",
+        platform="tiktok",
+        url="https://tiktok.com/p2",
+        title="Product 2",
+    )
+    dummy_result = _make_orchestration_result((c1, c2))
+    passed_candidates: list[RankedCandidate] = []
+
+    def spy_create_approval_record(ranked_candidate, **kwargs):
+        passed_candidates.append(ranked_candidate)
+        return create_approval_record(ranked_candidate, **kwargs)
+
+    monkeypatch.setattr(
+        cli,
+        "_PlaywrightBrowserManager",
+        lambda cdp_endpoint=None: _FakeBrowserManager(cdp_endpoint),
+    )
+    monkeypatch.setattr(
+        cli, "_orchestrate_discovery", _fake_orchestrator(dummy_result)
+    )
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("2\nAPPROVE\n"))
+    monkeypatch.setattr(cli, "_create_approval_record", spy_create_approval_record)
+    monkeypatch.setattr(
+        cli,
+        "_enqueue_approval",
+        lambda record: EnqueueResult(task="task", outcome=EnqueueOutcome.ENQUEUED),
+    )
+
+    argv = [
+        "decide",
+        "--query",
+        "test",
+        "--platform",
+        "shopee",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+        "--actor",
+        "test-actor",
+        "--decided-at",
+        "2026-09-06T12:00:00Z",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 0
+    assert len(passed_candidates) == 1
+    assert passed_candidates[0] is c2
+    assert passed_candidates[0] is not c1
+
+    captured = capsys.readouterr()
+    doc = json.loads(captured.out)
+    assert (
+        doc["approval"]["ranked_candidate"]["candidate"]["candidate_id"] == "tiktok:2"
+    )
+
+
+def test_decide_forwards_approve_actor_and_parsed_decided_at_to_task_096_and_enqueues_once(
+    monkeypatch, capsys
+):
+    c1 = _make_candidate(
+        candidate_id="shopee:1", url="https://shopee.vn/p1", title="Product 1"
+    )
+    dummy_result = _make_orchestration_result((c1,))
+    approval_calls: list[dict[str, object]] = []
+    enqueue_calls: list[object] = []
+
+    def spy_create_approval(ranked, *, decision, actor, decided_at):
+        approval_calls.append(
+            {
+                "ranked": ranked,
+                "decision": decision,
+                "actor": actor,
+                "decided_at": decided_at,
+            }
+        )
+        return create_approval_record(
+            ranked, decision=decision, actor=actor, decided_at=decided_at
+        )
+
+    def spy_enqueue(record):
+        enqueue_calls.append(record)
+        return EnqueueResult(
+            task="Scrape product images from https://shopee.vn/p1",
+            outcome=EnqueueOutcome.ENQUEUED,
+        )
+
+    monkeypatch.setattr(
+        cli,
+        "_PlaywrightBrowserManager",
+        lambda cdp_endpoint=None: _FakeBrowserManager(cdp_endpoint),
+    )
+    monkeypatch.setattr(
+        cli, "_orchestrate_discovery", _fake_orchestrator(dummy_result)
+    )
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("1\nAPPROVE\n"))
+    monkeypatch.setattr(cli, "_create_approval_record", spy_create_approval)
+    monkeypatch.setattr(cli, "_enqueue_approval", spy_enqueue)
+
+    argv = [
+        "decide",
+        "--query",
+        "test",
+        "--platform",
+        "shopee",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+        "--actor",
+        "senior-operator@example.com",
+        "--decided-at",
+        "2026-09-06T14:30:00+07:00",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 0
+    assert len(approval_calls) == 1
+    assert approval_calls[0]["ranked"] is c1
+    assert approval_calls[0]["decision"] == ApprovalDecision.APPROVE
+    assert approval_calls[0]["actor"] == "senior-operator@example.com"
+    assert approval_calls[0]["decided_at"] == datetime.fromisoformat(
+        "2026-09-06T14:30:00+07:00"
+    )
+    assert len(enqueue_calls) == 1
+
+    captured = capsys.readouterr()
+    doc = json.loads(captured.out)
+    assert list(doc.keys()) == ["approval", "queue"]
+    assert doc["approval"] == {
+        "decision": "APPROVE",
+        "actor": "senior-operator@example.com",
+        "decided_at": "2026-09-06T14:30:00+07:00",
+        "ranked_candidate": {
+            "candidate": c1.candidate.to_dict(),
+            "score": c1.score.to_dict(),
+        },
+    }
+    assert doc["queue"] == {
+        "task": "Scrape product images from https://shopee.vn/p1",
+        "outcome": "ENQUEUED",
+    }
+
+
+def test_decide_reject_makes_zero_enqueue_calls_and_returns_queue_null(
+    monkeypatch, capsys
+):
+    c1 = _make_candidate(
+        candidate_id="shopee:1", url="https://shopee.vn/p1", title="Product 1"
+    )
+    dummy_result = _make_orchestration_result((c1,))
+    enqueue_calls: list[object] = []
+
+    monkeypatch.setattr(
+        cli,
+        "_PlaywrightBrowserManager",
+        lambda cdp_endpoint=None: _FakeBrowserManager(cdp_endpoint),
+    )
+    monkeypatch.setattr(
+        cli, "_orchestrate_discovery", _fake_orchestrator(dummy_result)
+    )
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("1\nREJECT\n"))
+    monkeypatch.setattr(
+        cli, "_enqueue_approval", lambda record: enqueue_calls.append(record)
+    )
+
+    argv = [
+        "decide",
+        "--query",
+        "test",
+        "--platform",
+        "shopee",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+        "--actor",
+        "rejector@example.com",
+        "--decided-at",
+        "2026-09-06T12:00:00Z",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 0
+    assert len(enqueue_calls) == 0
+
+    captured = capsys.readouterr()
+    doc = json.loads(captured.out)
+    assert list(doc.keys()) == ["approval", "queue"]
+    assert doc["approval"]["decision"] == "REJECT"
+    assert doc["approval"]["actor"] == "rejector@example.com"
+    assert doc["queue"] is None
+
+
+def test_decide_no_score_rank_auto_authority(monkeypatch, capsys):
+    hold_candidate = _make_candidate(
+        candidate_id="shopee:low",
+        url="https://shopee.vn/low",
+        decision_band=DecisionBand.HOLD,
+    )
+    recommended_candidate = _make_candidate(
+        candidate_id="shopee:high",
+        url="https://shopee.vn/high",
+        decision_band=DecisionBand.RECOMMENDED,
+    )
+    dummy_result = _make_orchestration_result((hold_candidate, recommended_candidate))
+
+    monkeypatch.setattr(
+        cli,
+        "_PlaywrightBrowserManager",
+        lambda cdp_endpoint=None: _FakeBrowserManager(cdp_endpoint),
+    )
+    monkeypatch.setattr(
+        cli, "_orchestrate_discovery", _fake_orchestrator(dummy_result)
+    )
+    monkeypatch.setattr(
+        cli,
+        "_enqueue_approval",
+        lambda record: EnqueueResult(task="task", outcome=EnqueueOutcome.ENQUEUED),
+    )
+
+    # Human approves the HOLD candidate
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("1\nAPPROVE\n"))
+    argv1 = [
+        "decide",
+        "--query",
+        "test",
+        "--platform",
+        "shopee",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+        "--actor",
+        "human",
+        "--decided-at",
+        "2026-09-06T12:00:00Z",
+    ]
+    assert cli.main(argv1) == 0
+    doc1 = json.loads(capsys.readouterr().out)
+    assert (
+        doc1["approval"]["ranked_candidate"]["score"]["decision_band"]
+        == "HOLD"
+    )
+    assert doc1["approval"]["decision"] == "APPROVE"
+    assert doc1["queue"] is not None
+
+    # Human rejects the RECOMMENDED candidate
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("2\nREJECT\n"))
+    assert cli.main(argv1) == 0
+    doc2 = json.loads(capsys.readouterr().out)
+    assert (
+        doc2["approval"]["ranked_candidate"]["score"]["decision_band"]
+        == "RECOMMENDED"
+    )
+    assert doc2["approval"]["decision"] == "REJECT"
+    assert doc2["queue"] is None
+
+
+def test_decide_empty_shortlist_fails_closed_before_interaction_or_approval(
+    monkeypatch, capsys
+):
+    dummy_result = _make_orchestration_result(())
+    approval_called = False
+
+    def forbidden_approval(*args, **kwargs):
+        nonlocal approval_called
+        approval_called = True
+        raise AssertionError("Approval should not be called")
+
+    monkeypatch.setattr(
+        cli,
+        "_PlaywrightBrowserManager",
+        lambda cdp_endpoint=None: _FakeBrowserManager(cdp_endpoint),
+    )
+    monkeypatch.setattr(
+        cli, "_orchestrate_discovery", _fake_orchestrator(dummy_result)
+    )
+    monkeypatch.setattr(cli, "_create_approval_record", forbidden_approval)
+
+    argv = [
+        "decide",
+        "--query",
+        "test",
+        "--platform",
+        "shopee",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+        "--actor",
+        "test-actor",
+        "--decided-at",
+        "2026-09-06T12:00:00Z",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 1
+    assert not approval_called
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    err_doc = json.loads(captured.err)
+    assert err_doc == {
+        "error": {
+            "type": "ValueError",
+            "message": "Discovery shortlist is empty",
+        }
+    }
+    assert "Traceback" not in captured.err
+
+
+def test_decide_discovery_and_cleanup_failures_fail_closed(monkeypatch, capsys):
+    mgr = _FakeBrowserManager()
+    mgr.close_all_exc = AgentException("CDP disconnect failed", code="CLOSE_FAIL")
+
+    async def fail_discovery(*args, **kwargs):
+        raise DiscoveryError("Marketplace rate limit")
+
+    monkeypatch.setattr(cli, "_PlaywrightBrowserManager", lambda *args, **kwargs: mgr)
+    monkeypatch.setattr(cli, "_orchestrate_discovery", fail_discovery)
+
+    argv = [
+        "decide",
+        "--query",
+        "test",
+        "--platform",
+        "shopee",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+        "--actor",
+        "test-actor",
+        "--decided-at",
+        "2026-09-06T12:00:00Z",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    err_doc = json.loads(captured.err)
+    assert err_doc == {
+        "error": {
+            "type": "DiscoveryError",
+            "message": "Marketplace rate limit",
+        }
+    }
+    assert mgr.close_all_calls == 1
+
+
+@pytest.mark.parametrize(
+    "stdin_content, expected_msg",
+    [
+        ("", "missing shortlist position"),
+        ("1\n", "missing decision token"),
+    ],
+)
+def test_decide_eof_fails_closed(stdin_content, expected_msg, monkeypatch, capsys):
+    candidate = _make_candidate()
+    dummy_result = _make_orchestration_result((candidate,))
+
+    monkeypatch.setattr(
+        cli,
+        "_PlaywrightBrowserManager",
+        lambda cdp_endpoint=None: _FakeBrowserManager(cdp_endpoint),
+    )
+    monkeypatch.setattr(
+        cli, "_orchestrate_discovery", _fake_orchestrator(dummy_result)
+    )
+    monkeypatch.setattr(cli._sys, "stdin", StringIO(stdin_content))
+
+    argv = [
+        "decide",
+        "--query",
+        "test",
+        "--platform",
+        "shopee",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+        "--actor",
+        "test-actor",
+        "--decided-at",
+        "2026-09-06T12:00:00Z",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "error" in captured.err
+    assert expected_msg in captured.err
+
+
+@pytest.mark.parametrize(
+    "invalid_pos",
+    [
+        "0\n",
+        "-1\n",
+        "2\n",
+        "abc\n",
+        "1.0\n",
+        "1 2\n",
+        " 1 \n",
+        "\n",
+    ],
+)
+def test_decide_invalid_position_inputs_fail_closed(invalid_pos, monkeypatch, capsys):
+    candidate = _make_candidate()
+    dummy_result = _make_orchestration_result((candidate,))
+    approval_called = False
+
+    def forbidden_approval(*args, **kwargs):
+        nonlocal approval_called
+        approval_called = True
+
+    monkeypatch.setattr(
+        cli,
+        "_PlaywrightBrowserManager",
+        lambda cdp_endpoint=None: _FakeBrowserManager(cdp_endpoint),
+    )
+    monkeypatch.setattr(
+        cli, "_orchestrate_discovery", _fake_orchestrator(dummy_result)
+    )
+    monkeypatch.setattr(cli._sys, "stdin", StringIO(f"{invalid_pos}APPROVE\n"))
+    monkeypatch.setattr(cli, "_create_approval_record", forbidden_approval)
+
+    argv = [
+        "decide",
+        "--query",
+        "test",
+        "--platform",
+        "shopee",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+        "--actor",
+        "test-actor",
+        "--decided-at",
+        "2026-09-06T12:00:00Z",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 1
+    assert not approval_called
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "error" in captured.err
+    assert "ValueError" in captured.err
+
+
+@pytest.mark.parametrize(
+    "invalid_decision",
+    [
+        "approve\n",
+        "MAYBE\n",
+        "APPROVE extra\n",
+        " APPROVE\n",
+        "APPROVE \n",
+        "1\n",
+        "\n",
+    ],
+)
+def test_decide_invalid_decision_token_fails_closed(
+    invalid_decision, monkeypatch, capsys
+):
+    candidate = _make_candidate()
+    dummy_result = _make_orchestration_result((candidate,))
+    approval_called = False
+
+    def forbidden_approval(*args, **kwargs):
+        nonlocal approval_called
+        approval_called = True
+
+    monkeypatch.setattr(
+        cli,
+        "_PlaywrightBrowserManager",
+        lambda cdp_endpoint=None: _FakeBrowserManager(cdp_endpoint),
+    )
+    monkeypatch.setattr(
+        cli, "_orchestrate_discovery", _fake_orchestrator(dummy_result)
+    )
+    monkeypatch.setattr(cli._sys, "stdin", StringIO(f"1\n{invalid_decision}"))
+    monkeypatch.setattr(cli, "_create_approval_record", forbidden_approval)
+
+    argv = [
+        "decide",
+        "--query",
+        "test",
+        "--platform",
+        "shopee",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+        "--actor",
+        "test-actor",
+        "--decided-at",
+        "2026-09-06T12:00:00Z",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 1
+    assert not approval_called
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "error" in captured.err
+    assert "ValueError" in captured.err
+
+
+def test_decide_approval_error_timezone_naive_fails_sanitized(monkeypatch, capsys):
+    candidate = _make_candidate()
+    dummy_result = _make_orchestration_result((candidate,))
+
+    monkeypatch.setattr(
+        cli,
+        "_PlaywrightBrowserManager",
+        lambda cdp_endpoint=None: _FakeBrowserManager(cdp_endpoint),
+    )
+    monkeypatch.setattr(
+        cli, "_orchestrate_discovery", _fake_orchestrator(dummy_result)
+    )
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("1\nAPPROVE\n"))
+
+    argv = [
+        "decide",
+        "--query",
+        "test",
+        "--platform",
+        "shopee",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+        "--actor",
+        "test-actor",
+        "--decided-at",
+        "2026-09-06T12:00:00",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "ApprovalError" in captured.err
+    assert "timezone-aware" in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_decide_queue_oserror_fails_sanitized(monkeypatch, capsys):
+    candidate = _make_candidate()
+    dummy_result = _make_orchestration_result((candidate,))
+
+    def failing_enqueue(record):
+        raise OSError("Disk write failed")
+
+    monkeypatch.setattr(
+        cli,
+        "_PlaywrightBrowserManager",
+        lambda cdp_endpoint=None: _FakeBrowserManager(cdp_endpoint),
+    )
+    monkeypatch.setattr(
+        cli, "_orchestrate_discovery", _fake_orchestrator(dummy_result)
+    )
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("1\nAPPROVE\n"))
+    monkeypatch.setattr(cli, "_enqueue_approval", failing_enqueue)
+
+    argv = [
+        "decide",
+        "--query",
+        "test",
+        "--platform",
+        "shopee",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+        "--actor",
+        "test-actor",
+        "--decided-at",
+        "2026-09-06T12:00:00Z",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "OSError" in captured.err
+    assert "Disk write failed" in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_decide_preserves_enqueue_outcome_already_completed(monkeypatch, capsys):
+    candidate = _make_candidate()
+    dummy_result = _make_orchestration_result((candidate,))
+
+    monkeypatch.setattr(
+        cli,
+        "_PlaywrightBrowserManager",
+        lambda cdp_endpoint=None: _FakeBrowserManager(cdp_endpoint),
+    )
+    monkeypatch.setattr(
+        cli, "_orchestrate_discovery", _fake_orchestrator(dummy_result)
+    )
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("1\nAPPROVE\n"))
+    monkeypatch.setattr(
+        cli,
+        "_enqueue_approval",
+        lambda record: EnqueueResult(
+            task="Scrape product images from https://shopee.vn/canonical-product-i.123.456",
+            outcome=EnqueueOutcome.ALREADY_COMPLETED,
+        ),
+    )
+
+    argv = [
+        "decide",
+        "--query",
+        "test",
+        "--platform",
+        "shopee",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+        "--actor",
+        "test-actor",
+        "--decided-at",
+        "2026-09-06T12:00:00Z",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    doc = json.loads(captured.out)
+    assert doc["queue"] == {
+        "task": "Scrape product images from https://shopee.vn/canonical-product-i.123.456",
+        "outcome": "ALREADY_COMPLETED",
+    }
+
+
+def test_decide_real_task_096_approve_enqueue_and_idempotency_regression(
+    tmp_path, monkeypatch, capsys
+):
+    monkeypatch.chdir(tmp_path)
+    candidate = _make_candidate()
+    dummy_result = _make_orchestration_result((candidate,))
+
+    monkeypatch.setattr(
+        cli,
+        "_PlaywrightBrowserManager",
+        lambda cdp_endpoint=None: _FakeBrowserManager(cdp_endpoint),
+    )
+    monkeypatch.setattr(
+        cli, "_orchestrate_discovery", _fake_orchestrator(dummy_result)
+    )
+
+    argv = [
+        "decide",
+        "--query",
+        "test",
+        "--platform",
+        "shopee",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+        "--actor",
+        "real-operator@example.com",
+        "--decided-at",
+        "2026-09-06T12:00:00Z",
+    ]
+
+    # First run: explicit APPROVE creates tasks.txt
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("1\nAPPROVE\n"))
+    exit_code = cli.main(argv)
+    assert exit_code == 0
+
+    captured = capsys.readouterr()
+    doc = json.loads(captured.out)
+    expected_task = (
+        "Scrape product images from https://shopee.vn/canonical-product-i.123.456"
+    )
+    assert doc["approval"]["decision"] == "APPROVE"
+    assert doc["queue"]["task"] == expected_task
+    assert doc["queue"]["outcome"] == "ENQUEUED"
+
+    tasks_path = tmp_path / "tasks.txt"
+    completed_path = tmp_path / "completed.txt"
+    assert tasks_path.exists()
+    assert tasks_path.read_text(encoding="utf-8") == f"{expected_task}\n"
+    assert not completed_path.exists()
+
+    # Second run: repeated APPROVE returns ALREADY_QUEUED without duplicate
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("1\nAPPROVE\n"))
+    exit_code = cli.main(argv)
+    assert exit_code == 0
+
+    captured = capsys.readouterr()
+    doc2 = json.loads(captured.out)
+    assert doc2["queue"]["outcome"] == "ALREADY_QUEUED"
+    assert tasks_path.read_text(encoding="utf-8") == f"{expected_task}\n"
+    assert not completed_path.exists()
+
+
+def test_decide_real_task_096_reject_no_queue_mutation_regression(
+    tmp_path, monkeypatch, capsys
+):
+    monkeypatch.chdir(tmp_path)
+    candidate = _make_candidate()
+    dummy_result = _make_orchestration_result((candidate,))
+
+    monkeypatch.setattr(
+        cli,
+        "_PlaywrightBrowserManager",
+        lambda cdp_endpoint=None: _FakeBrowserManager(cdp_endpoint),
+    )
+    monkeypatch.setattr(
+        cli, "_orchestrate_discovery", _fake_orchestrator(dummy_result)
+    )
+
+    argv = [
+        "decide",
+        "--query",
+        "test",
+        "--platform",
+        "shopee",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+        "--actor",
+        "real-rejector@example.com",
+        "--decided-at",
+        "2026-09-06T12:00:00Z",
+    ]
+
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("1\nREJECT\n"))
+    exit_code = cli.main(argv)
+    assert exit_code == 0
+
+    captured = capsys.readouterr()
+    doc = json.loads(captured.out)
+    assert doc["approval"]["decision"] == "REJECT"
+    assert doc["queue"] is None
+
+    tasks_path = tmp_path / "tasks.txt"
+    completed_path = tmp_path / "completed.txt"
+    assert not tasks_path.exists()
+    assert not completed_path.exists()

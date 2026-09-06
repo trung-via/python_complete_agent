@@ -1,7 +1,7 @@
 # Post-M4 P5 Human-Facing Product Intelligence Surface
 
 Status: **P5 CURRENT / IN PROGRESS**  
-Current candidate: **TASK-146 P5.2 live discovery + deterministic shortlist surface**
+Current candidate: **TASK-147 P5.3a live shortlist Human decision + M1 queue bridge**
 
 ## Stage boundary
 
@@ -15,15 +15,18 @@ Published TASK-145 closed P5.1 by supplying the initial Product Intelligence CLI
 at `src/product_intelligence/cli.py` for read-only inspection (`evidence`,
 `catalog`, `ask`).
 
-TASK-146 extends that same CLI with the P5.2 candidate `discover` operation,
-composing existing P1 PlaywrightBrowserManager CDP runtime, existing Shopee/TikTok
-discovery adapters, and existing M2 DiscoveryOrchestrator / CandidateRanker
-vertical slice without introducing a second browser, discovery, scoring, ranking,
-approval, or ingestion authority.
+Published TASK-146 closed P5.2 by extending that same CLI with the `discover`
+operation, composing existing P1 PlaywrightBrowserManager CDP runtime, existing
+Shopee/TikTok discovery adapters, and existing M2 DiscoveryOrchestrator /
+CandidateRanker vertical slice without introducing a second browser, discovery,
+scoring, ranking, approval, or ingestion authority.
 
-P5.2 is closed on the TASK-146 candidate only after canonical Runtime PASS and
-ChatGPT semantic-review PASS are both recorded for that same candidate. Until
-then it remains a candidate within P5, and overall P5 remains in progress.
+TASK-147 introduces the P5.3a candidate `decide` operation to that same CLI,
+providing an in-process Human review/action boundary over the live discovery
+shortlist and delegating approved candidates to the existing TASK-096 M1 queue
+bridge without reconstructing candidates or creating persistent review stores.
+
+Overall P5 remains CURRENT / IN PROGRESS, and P6 is not current.
 
 ## P5.1 read-only operations — CLOSED
 
@@ -56,9 +59,9 @@ boundaries. The CLI has no credential, model, project, location, retry,
 fallback, or provider-routing option. It does not persist answers or mutate
 evidence or catalog state.
 
-## P5.2 live discovery + deterministic shortlist surface — CANDIDATE (TASK-146)
+## P5.2 live discovery + deterministic shortlist surface — CLOSED
 
-TASK-146 adds the fourth operation to `src/product_intelligence/cli.py`:
+Published TASK-146 added the fourth operation to `src/product_intelligence/cli.py`:
 
 - `discover` requires an exact Human search `--query`, one or more repeated
   Human-selected `--platform` arguments (`shopee` or `tiktok` in caller order),
@@ -78,16 +81,58 @@ Placeholder discover example using explicit placeholder CDP endpoint:
 python -m src.product_intelligence.cli discover --query "bình giữ nhiệt inox" --platform shopee --platform tiktok --cdp-endpoint http://127.0.0.1:9222 --shortlist-size 5
 ```
 
-P5.2 is a live-capable composition surface, but TASK-146 deterministic
-verification is entirely offline (mocked CDP / unit tests) and does not certify
-marketplace availability, login state, captcha freedom, selector freshness, or
-ranking quality.
+P5.2 is a live-capable composition surface, but deterministic verification is
+entirely offline (mocked CDP / unit tests) and does not certify marketplace
+availability, login state, captcha freedom, selector freshness, or ranking
+quality.
+
+## P5.3a live shortlist Human decision + M1 queue bridge — CANDIDATE (TASK-147)
+
+TASK-147 adds the fifth operation to `src/product_intelligence/cli.py`:
+
+- `decide` requires the exact bounded discovery inputs (`--query`, one or more
+  repeated `--platform` (`shopee` / `tiktok`), `--cdp-endpoint`, optional
+  `--shortlist-size`), plus explicit Human identity and timestamp representation
+  (`--actor`, `--decided-at` in ISO-8601 format).
+- It reuses the canonical private live-discovery helper shared with `discover`,
+  completing browser cleanup before any Human interaction begins.
+- If discovery or cleanup fails, or if the returned shortlist is empty, execution
+  fails closed with zero approval records created and zero queue mutations.
+- After successful discovery and cleanup, `decide` renders exactly one current
+  review preview to `stderr` using `OrchestrationResult.to_dict()` without
+  reordering, filtering, rescoring, or summarizing. The preview is presentation
+  only and is never persisted.
+- Only the fresh shortlist displayed inside the same `decide` invocation is
+  eligible for that decision; prior `discover` JSON is advisory presentation
+  only and cannot be rehydrated into approval authority.
+- Following the preview, `decide` reads exactly two bounded lines from `stdin`:
+  first a 1-based shortlist position, then an exact decision token `APPROVE` or
+  `REJECT`. Any EOF, malformed/non-decimal/out-of-range position, extra tokens,
+  or non-matching decision fails closed before approval or queue interaction.
+- The selected position forwards the exact existing `RankedCandidate` object by
+  identity to TASK-096 `create_approval_record` exactly once. Machine scores,
+  decision bands, or candidate fields never infer or modify the Human decision.
+- For `REJECT`: zero enqueue calls and zero queue filesystem access occur; the
+  output document contains `queue: null`.
+- For `APPROVE`: delegates exactly once to TASK-096 `enqueue_approval` with default
+  queue paths, preserving canonical task construction, idempotency, append
+  durability, and completed-file semantics unchanged.
+- Successful stdout output is exactly one JSON document with top-level keys
+  `approval` and `queue`.
+
+Placeholder decide example using explicit placeholder CDP endpoint:
+
+```powershell
+python -m src.product_intelligence.cli decide --query "bình giữ nhiệt inox" --platform shopee --platform tiktok --cdp-endpoint http://127.0.0.1:9222 --shortlist-size 5 --actor "operator@example.com" --decided-at "2026-09-06T12:00:00Z"
+```
 
 ## Unimplemented later stages
 
-P5.3 explicit Human action and mutation remains a separate, unimplemented
-boundary. No P5.1 or P5.2 command approves, admits, enqueues, registers, writes,
-or otherwise changes Product Intelligence canonical state.
+Later P5.3 stages remain unimplemented:
 
-P5.2 candidate verification does not close overall P5. P5 remains CURRENT / IN
-PROGRESS, and P6 is not current.
+- P5.3b family decision / durable admission presentation over TASK-139 / TASK-140.
+- P5.3c sellable-variant review / decision / durable admission presentation over TASK-141.
+
+No command in P5.1, P5.2, or P5.3a creates persistent shortlist history, performs
+family/variant admission, mutates the catalog, or triggers background ingestion.
+Overall P5 remains CURRENT / IN PROGRESS after TASK-147, and P6 is not current.

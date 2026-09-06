@@ -19,6 +19,12 @@ from src.product_intelligence.adapters.shopee import (
 from src.product_intelligence.adapters.tiktok import (
     TikTokDiscoveryAdapter as _TikTokDiscoveryAdapter,
 )
+from src.product_intelligence.approval import (
+    ApprovalDecision as _ApprovalDecision,
+    ApprovalError as _ApprovalError,
+    create_approval_record as _create_approval_record,
+    enqueue_approval as _enqueue_approval,
+)
 from src.product_intelligence.canonical_catalog_sqlite import (
     CanonicalCatalogStorageError as _CanonicalCatalogStorageError,
     load_sqlite_canonical_catalog as _load_sqlite_canonical_catalog,
@@ -32,6 +38,7 @@ from src.product_intelligence.grounded_invocation import (
 )
 from src.product_intelligence.orchestration import (
     OrchestrationError as _OrchestrationError,
+    OrchestrationResult as _OrchestrationResult,
     PlatformDiscoveryPlan as _PlatformDiscoveryPlan,
     orchestrate_discovery as _orchestrate_discovery,
 )
@@ -53,6 +60,7 @@ _KNOWN_APPLICATION_ERRORS = (
     _GroundedInvocationError,
     _DiscoveryError,
     _OrchestrationError,
+    _ApprovalError,
     _AgentException,
     OSError,
     ValueError,
@@ -72,6 +80,15 @@ class _UniqueStoreAction(_argparse.Action):
             raise _argparse.ArgumentError(self, "cannot be repeated")
         seen.add(self.dest)
         setattr(namespace, self.dest, values)
+
+
+def _parse_iso_datetime(value: str) -> _datetime:
+    try:
+        return _datetime.fromisoformat(value)
+    except (ValueError, TypeError) as exc:
+        raise _argparse.ArgumentTypeError(
+            f"Invalid ISO-8601 datetime: {value!r}"
+        ) from exc
 
 
 def _parser() -> _argparse.ArgumentParser:
@@ -142,6 +159,49 @@ def _parser() -> _argparse.ArgumentParser:
         default=None,
         help="Optional maximum shortlist count.",
     )
+    decide = commands.add_parser(
+        "decide",
+        help="Discover, review shortlist candidates, and record one human decision.",
+    )
+    decide.add_argument(
+        "--query",
+        action=_UniqueStoreAction,
+        required=True,
+        help="Discovery search query.",
+    )
+    decide.add_argument(
+        "--platform",
+        action="append",
+        required=True,
+        choices=("shopee", "tiktok"),
+        help="Marketplace platform (repeat for multiple platforms).",
+    )
+    decide.add_argument(
+        "--cdp-endpoint",
+        action=_UniqueStoreAction,
+        required=True,
+        help="Explicit CDP endpoint URL.",
+    )
+    decide.add_argument(
+        "--shortlist-size",
+        action=_UniqueStoreAction,
+        type=int,
+        default=None,
+        help="Optional maximum shortlist count.",
+    )
+    decide.add_argument(
+        "--actor",
+        action=_UniqueStoreAction,
+        required=True,
+        help="Explicit human actor identifier.",
+    )
+    decide.add_argument(
+        "--decided-at",
+        action=_UniqueStoreAction,
+        required=True,
+        type=_parse_iso_datetime,
+        help="Explicit ISO-8601 decided timestamp.",
+    )
     return parser
 
 
@@ -207,8 +267,13 @@ async def _ask_document(arguments: _argparse.Namespace) -> dict[str, object]:
     }
 
 
-async def _discover_document(arguments: _argparse.Namespace) -> dict[str, object]:
-    browser_manager = _PlaywrightBrowserManager(cdp_endpoint=arguments.cdp_endpoint)
+async def _run_live_discovery(
+    cdp_endpoint: str,
+    query: str,
+    platforms: list[str],
+    shortlist_size: _Optional[int] = None,
+) -> _OrchestrationResult:
+    browser_manager = _PlaywrightBrowserManager(cdp_endpoint=cdp_endpoint)
     orchestration_error: _Optional[BaseException] = None
     try:
         plans = tuple(
@@ -219,18 +284,17 @@ async def _discover_document(arguments: _argparse.Namespace) -> dict[str, object
                     if platform == "shopee"
                     else _TikTokDiscoveryAdapter(browser=browser_manager)
                 ),
-                request=_DiscoveryRequest(query=arguments.query),
+                request=_DiscoveryRequest(query=query),
             )
-            for platform in arguments.platform
+            for platform in platforms
         )
         now = _datetime.now(_timezone.utc)
-        result = await _orchestrate_discovery(
+        return await _orchestrate_discovery(
             plans,
             observed_at=now,
             evaluated_at=now,
-            shortlist_size=arguments.shortlist_size,
+            shortlist_size=shortlist_size,
         )
-        return result.to_dict()
     except BaseException as error:
         orchestration_error = error
         raise
@@ -240,6 +304,83 @@ async def _discover_document(arguments: _argparse.Namespace) -> dict[str, object
         except Exception:
             if orchestration_error is None:
                 raise
+
+
+async def _discover_document(arguments: _argparse.Namespace) -> dict[str, object]:
+    result = await _run_live_discovery(
+        cdp_endpoint=arguments.cdp_endpoint,
+        query=arguments.query,
+        platforms=arguments.platform,
+        shortlist_size=arguments.shortlist_size,
+    )
+    return result.to_dict()
+
+
+async def _decide_document(arguments: _argparse.Namespace) -> dict[str, object]:
+    result = await _run_live_discovery(
+        cdp_endpoint=arguments.cdp_endpoint,
+        query=arguments.query,
+        platforms=arguments.platform,
+        shortlist_size=arguments.shortlist_size,
+    )
+    if not result.shortlist:
+        raise ValueError("Discovery shortlist is empty")
+
+    _write_json(result.to_dict(), _sys.stderr)
+
+    raw_position = _sys.stdin.readline()
+    if not raw_position:
+        raise ValueError("Unexpected end of input: missing shortlist position")
+    position_text = raw_position.rstrip("\r\n")
+    if not position_text.isdigit():
+        raise ValueError(f"Invalid shortlist position: {position_text!r}")
+    position = int(position_text)
+    if not (1 <= position <= len(result.shortlist)):
+        raise ValueError(
+            f"Shortlist position out of range: {position} (expected 1..{len(result.shortlist)})"
+        )
+
+    raw_decision = _sys.stdin.readline()
+    if not raw_decision:
+        raise ValueError("Unexpected end of input: missing decision token")
+    decision_text = raw_decision.rstrip("\r\n")
+    if decision_text not in ("APPROVE", "REJECT"):
+        raise ValueError(f"Invalid decision token: {decision_text!r}")
+
+    selected_candidate = result.shortlist[position - 1]
+    decision = (
+        _ApprovalDecision.APPROVE
+        if decision_text == "APPROVE"
+        else _ApprovalDecision.REJECT
+    )
+    record = _create_approval_record(
+        selected_candidate,
+        decision=decision,
+        actor=arguments.actor,
+        decided_at=arguments.decided_at,
+    )
+
+    if decision is _ApprovalDecision.APPROVE:
+        enqueue_result = _enqueue_approval(record)
+        queue_document: _Optional[dict[str, object]] = {
+            "task": enqueue_result.task,
+            "outcome": enqueue_result.outcome.value,
+        }
+    else:
+        queue_document = None
+
+    return {
+        "approval": {
+            "decision": record.decision.value,
+            "actor": record.actor,
+            "decided_at": record.decided_at.isoformat(),
+            "ranked_candidate": {
+                "candidate": record.ranked_candidate.candidate.to_dict(),
+                "score": record.ranked_candidate.score.to_dict(),
+            },
+        },
+        "queue": queue_document,
+    }
 
 
 def _write_json(document: dict[str, object], stream) -> None:
@@ -270,6 +411,8 @@ def main(argv=None) -> int:
             document = _asyncio.run(_ask_document(arguments))
         elif arguments.command == "discover":
             document = _asyncio.run(_discover_document(arguments))
+        elif arguments.command == "decide":
+            document = _asyncio.run(_decide_document(arguments))
         else:
             raise ValueError(f"Unknown command: {arguments.command}")
     except _KNOWN_APPLICATION_ERRORS as error:
