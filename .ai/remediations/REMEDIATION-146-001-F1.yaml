@@ -1,0 +1,11 @@
+finding_id: F1
+action: CODE_FIX
+reviewed_sha: 524fe5bb05488a7aa799888a4021c20eb7b6b898
+modification_scope:
+  - src/product_intelligence/cli.py
+  - tests/product_intelligence/test_product_intelligence_cli.py
+affected_verification:
+  - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_product_intelligence_cli.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+  - '$env:PYTHONPATH = ".;src"; python -m src.product_intelligence.cli --help *> $null; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+  - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+constraints: []
