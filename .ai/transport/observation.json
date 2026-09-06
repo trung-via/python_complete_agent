@@ -1,0 +1,1 @@
+{"base_sha":"df947c4f9167023e44420ea0c07ef5985944096f","durations":{"admitted_run_seconds":49.21322479999799,"executor_seconds":44.77330139999685,"verification_seconds":4.248543800000334},"executor":"codex","executor_invoked":true,"kind":"RUN_OBSERVATION","operation":"REPAIR","run_id":"RUN-142-002","task":{"id":"TASK-142","revision":1},"terminal_kind":"RESULT","token_usage":null}
