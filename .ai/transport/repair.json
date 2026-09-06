@@ -1,0 +1,19 @@
+{
+  "repair_id": "REPAIR-143-001",
+  "failed_run_id": "RUN-143-001",
+  "failed_head_sha": "273f24d115cf116aeddadaaad9afb4990eb43bcd",
+  "task": {
+    "id": "TASK-143",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue only from the exact failed TASK-143 candidate 273f24d115cf116aeddadaaad9afb4990eb43bcd for RUN-143-001. Preserve the existing Codex executor identity and failed candidate lineage; do not restart PRIMARY, reroute executors, rebuild the task from main, or modify repository content.",
+    "RUN-143-001 reached Runtime verification. All offline focused verification passed, while the single credentialed live certification failed only with the sanitized category 'Gemini provider unavailable'. The Human has confirmed that GEMINI_API_KEY was not configured in the execution environment. This establishes an external credential/availability precondition failure, not a concrete repository source/test/doc defect requiring mutation.",
+    "This continuation is explicitly NO_CHANGE. Keep the product candidate HEAD exactly 273f24d115cf116aeddadaaad9afb4990eb43bcd and do not modify tests, docs, provider code, TASK files, worker files, credentials, or AIOS/runtime files. Do not commit any API key or live provider output.",
+    "After the Human configures a valid GEMINI_API_KEY in the parent process environment, allow the pinned Runtime to execute exactly the original TASK-143 verification commands. The live certification command must make only the one credentialed request already admitted by TASK-143; do not manually preflight the live API, retry, fallback, reroute, or issue an extra provider request.",
+    "If the live verification still fails because of authentication, quota, network, model availability, response structure, or GroundedAnswer validation, preserve that new failure as canonical evidence and do not self-author a source correction inside this NO_CHANGE continuation. Do not claim semantic REVIEW PASS or publication."
+  ],
+  "constraints": []
+}
