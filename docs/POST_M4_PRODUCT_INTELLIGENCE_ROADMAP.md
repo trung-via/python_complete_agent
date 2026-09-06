@@ -1,9 +1,7 @@
 # Post-M4 Product Intelligence Roadmap — Live Product Enablement
 
-Status: canonical post-M4 architecture roadmap; P3 CLOSED by TASK-139 P3.1,
-TASK-140 P3.2, and TASK-141 P3.3; on the TASK-144 candidate, P4 becomes CLOSED
-and P5 becomes CURRENT only after canonical Runtime PASS and ChatGPT
-semantic-review PASS are both recorded for that same candidate
+Status: canonical post-M4 architecture roadmap; P1-P4 CLOSED; P5 CURRENT / IN
+PROGRESS; TASK-145 is the P5.1 read-only CLI candidate
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
 ## 1. Starting point
@@ -90,10 +88,10 @@ mutation or independent durable-history authority.
 P3 closure does not claim family or variant ID allocation, identity evolution
 or membership extension, conflict repair or singleton family admission,
 product-truth reconciliation, durable REJECT history, or autonomous approval.
-Those remain deferred non-blocking future work. P4 Live Grounded-QA Provider
-Certification is now the next current post-M4 boundary.
+Those remain deferred non-blocking future work. Published TASK-144 subsequently
+closed P4, and P5 Human-Facing Product Intelligence Surface is current.
 
-### P4 — Live Grounded-QA Provider Certification — CURRENT / IN PROGRESS
+### P4 — Live Grounded-QA Provider Certification — CLOSED
 
 Certify the already-complete M4 generic provider path against an explicit production provider configuration. If the existing provider adapter requires modernization, that adapter work must remain provider-specific and must not change TASK-129/131/132/133/134/135 semantics.
 
@@ -122,18 +120,30 @@ call proves only transport availability plus the existing structural contracts;
 it does not claim factual truth, semantic quality, provider SLA, or Product
 Intelligence truth authority.
 
-P4 is CLOSED only if canonical TASK-144 Runtime and ChatGPT semantic review both
-PASS the same source candidate. Otherwise P4 remains CURRENT / IN PROGRESS.
+Published TASK-144 passed canonical Runtime verification and ChatGPT semantic
+review on the same source candidate, closing P4. This closure advances only the
+roadmap boundary; it does not broaden provider or Product Intelligence truth
+authority.
 
-### P5 — Human-Facing Product Intelligence Surface
+### P5 — Human-Facing Product Intelligence Surface — CURRENT / IN PROGRESS
 
-Add a thin CLI/API/application presentation boundary over the existing discovery, ranking, approval, evidence-intake, canonical-knowledge, and grounded-QA services.
+Add thin presentation boundaries over the existing Product Intelligence
+authorities without collapsing read-only inspection, live discovery, and
+Human-governed mutation into one operation.
 
 Presentation must not become a new semantic authority. It may expose state and invoke canonical operations, but may not silently rank, approve, merge, reconcile, or rewrite evidence.
 
-P5 becomes CURRENT only after canonical TASK-144 Runtime PASS and ChatGPT
-semantic-review PASS on the same source candidate. TASK-144 implements no P5
-behavior.
+P5.1 is the TASK-145 candidate: one read-only CLI over TASK-138 persisted
+evidence intake, TASK-120 canonical catalog loading, and TASK-135 persistent
+grounded QA through one Human-explicit existing `GeminiProvider` backend. It
+adds no discovery, ranking, approval, admission, registration, evidence write,
+answer persistence, provider routing, retry, or fallback authority.
+
+P5.1 becomes CLOSED only after canonical TASK-145 Runtime PASS and ChatGPT
+semantic-review PASS are both recorded for the same source candidate. Overall
+P5 remains CURRENT / IN PROGRESS after P5.1 closure. P5.2 live discovery plus
+deterministic shortlist and P5.3 explicit Human action/mutation are separate,
+unimplemented boundaries.
 
 ### P6 — Quality and Scale Enhancements
 
@@ -157,13 +167,15 @@ family decision plus durable family admission, and TASK-141 closes P3.3 explicit
 sellable-variant review, Human decision, and durable admission while preserving
 TASK-115/116/117/118/119/120 authority. M3 remains the sole identity, catalog,
 persistence, and evidence authority; P3 remains application composition rather
-than a replacement semantic layer. TASK-142 establishes the P4.1 provider
+than a replacement semantic layer. TASK-142 established the P4.1 provider
 transport foundation, TASK-143's Developer API live lineage remains parked and
-unpublished, and TASK-144 adds the explicit Vertex AI ADC certification route.
-On this candidate, P4 is CLOSED and P5 is CURRENT only after canonical TASK-144
-Runtime PASS and ChatGPT semantic-review PASS are both recorded for the same
-source candidate. If either gate does not pass, P4 remains IN PROGRESS and P5 is
-not current.
+unpublished, and published TASK-144 certified the explicit Vertex AI ADC route.
+Canonical Runtime PASS and ChatGPT semantic-review PASS on that same TASK-144
+source candidate closed P4. P5 is therefore CURRENT / IN PROGRESS. TASK-145 is
+the P5.1 read-only CLI candidate and closes P5.1 only after its own canonical
+Runtime PASS plus ChatGPT semantic-review PASS on the same candidate; P5.2 and
+P5.3 remain unimplemented, overall P5 stays in progress, and P6 does not
+advance.
 
 ## 4. Authority invariants
 
