@@ -1,0 +1,1 @@
+{"error":{"message":"canonical remote remediation lineage not found","type":"OperatorError"},"executor_invoked":false,"finding_id":"F1","kind":"ADMISSION_FAILURE","operation":"REMEDIATION","phase":"REMOTE_LINEAGE_RESOLUTION","requested_executor":"antigravity","task":{"id":"TASK-146","revision":1}}
