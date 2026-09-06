@@ -1,0 +1,19 @@
+{
+  "repair_id": "REPAIR-143-005",
+  "failed_run_id": "RUN-143-005",
+  "failed_head_sha": "273f24d115cf116aeddadaaad9afb4990eb43bcd",
+  "task": {
+    "id": "TASK-143",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue only from exact failed candidate 273f24d115cf116aeddadaaad9afb4990eb43bcd for RUN-143-005, preserving Codex executor identity and the complete TASK-143 repair lineage. Do not restart PRIMARY, reroute executors, or rebuild from current main.",
+    "RUN-143-005 reached canonical live verification. Offline regressions passed, but the single live TASK-135 -> TASK-133 -> TASK-132 -> GeminiProvider request failed under the existing sanitized provider-availability category. Candidate changed_files is empty and there is no evidence of a source/test/doc defect. This continuation is NO_CHANGE; do not modify source, tests, docs, task, worker, provider, model selection, or runtime files.",
+    "Before this REPAIR is invoked, Human must resolve the external Gemini credential/project availability prerequisite using Google AI Studio or the associated project controls. Use a non-leaked, active key accepted by the Gemini API and preserve the exact certification model gemini-3.8-flash. Do not perform ad-hoc provider calls, model-list calls, retries, fallback, rerouting, or manual live verification during executor work.",
+    "For the actual invocation, launch Codex from a parent PowerShell process where the intended GEMINI_API_KEY is already loaded. Do not use a separately launched Codex app that may not inherit that session environment. Do not print, persist, serialize, or inspect the credential value.",
+    "Once the external prerequisite is resolved, return the structural REPAIR result with unresolved empty and allow only the pinned Runtime verification command to make the single admitted live request. If that live verification fails again, preserve the new FAILURE exactly for Brain classification and do not self-author code correction or retry."
+  ],
+  "constraints": []
+}
