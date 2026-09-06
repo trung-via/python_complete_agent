@@ -60,6 +60,20 @@ _KNOWN_APPLICATION_ERRORS = (
 _MAX_ERROR_MESSAGE_UTF8_BYTES = 2048
 
 
+class _UniqueStoreAction(_argparse.Action):
+    """Store option value while rejecting repeated occurrences."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        seen = getattr(namespace, "_seen_unique_actions", None)
+        if seen is None:
+            seen = set()
+            setattr(namespace, "_seen_unique_actions", seen)
+        if self.dest in seen:
+            raise _argparse.ArgumentError(self, "cannot be repeated")
+        seen.add(self.dest)
+        setattr(namespace, self.dest, values)
+
+
 def _parser() -> _argparse.ArgumentParser:
     parser = _argparse.ArgumentParser(
         prog="python -m src.product_intelligence.cli",
@@ -102,7 +116,12 @@ def _parser() -> _argparse.ArgumentParser:
     discover = commands.add_parser(
         "discover", help="Discover and rank candidate products across marketplaces."
     )
-    discover.add_argument("--query", required=True, help="Discovery search query.")
+    discover.add_argument(
+        "--query",
+        action=_UniqueStoreAction,
+        required=True,
+        help="Discovery search query.",
+    )
     discover.add_argument(
         "--platform",
         action="append",
@@ -111,10 +130,14 @@ def _parser() -> _argparse.ArgumentParser:
         help="Marketplace platform (repeat for multiple platforms).",
     )
     discover.add_argument(
-        "--cdp-endpoint", required=True, help="Explicit CDP endpoint URL."
+        "--cdp-endpoint",
+        action=_UniqueStoreAction,
+        required=True,
+        help="Explicit CDP endpoint URL.",
     )
     discover.add_argument(
         "--shortlist-size",
+        action=_UniqueStoreAction,
         type=int,
         default=None,
         help="Optional maximum shortlist count.",

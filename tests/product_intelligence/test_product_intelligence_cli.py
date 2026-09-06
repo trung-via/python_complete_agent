@@ -159,6 +159,41 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
             "--shortlist-size",
             "invalid_int",
         ],
+        [
+            "discover",
+            "--query",
+            "q1",
+            "--query",
+            "q2",
+            "--platform",
+            "shopee",
+            "--cdp-endpoint",
+            "http://127.0.0.1:9222",
+        ],
+        [
+            "discover",
+            "--query",
+            "q",
+            "--platform",
+            "shopee",
+            "--cdp-endpoint",
+            "http://127.0.0.1:9222",
+            "--cdp-endpoint",
+            "http://127.0.0.1:9223",
+        ],
+        [
+            "discover",
+            "--query",
+            "q",
+            "--platform",
+            "shopee",
+            "--cdp-endpoint",
+            "http://127.0.0.1:9222",
+            "--shortlist-size",
+            "5",
+            "--shortlist-size",
+            "10",
+        ],
     )
     for argv in invalid:
         with pytest.raises(SystemExit) as error:
@@ -831,3 +866,50 @@ def test_discover_unexpected_error_is_generic(monkeypatch, capsys):
     assert "Traceback" not in captured.err
     assert len(created_managers) == 1
     assert created_managers[0].close_all_calls == 1
+
+
+@pytest.mark.parametrize(
+    "duplicate_args",
+    [
+        ["--query", "first_query", "--query", "second_query"],
+        [
+            "--cdp-endpoint",
+            "http://127.0.0.1:9222",
+            "--cdp-endpoint",
+            "http://127.0.0.1:9223",
+        ],
+        ["--shortlist-size", "5", "--shortlist-size", "10"],
+    ],
+)
+def test_discover_rejects_repeated_single_value_options(duplicate_args, capsys):
+    parser = cli._parser()
+    base_args = [
+        "discover",
+        "--query",
+        "valid_query",
+        "--platform",
+        "shopee",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+    ]
+    opt_flag = duplicate_args[0]
+    filtered_base = []
+    i = 0
+    while i < len(base_args):
+        if base_args[i] == opt_flag:
+            i += 2
+        else:
+            filtered_base.append(base_args[i])
+            i += 1
+    argv = filtered_base + duplicate_args
+
+    with pytest.raises(SystemExit) as exc_info:
+        parser.parse_args(argv)
+    assert exc_info.value.code == 2
+
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(argv)
+    assert exc_info.value.code == 2
+    captured = capsys.readouterr()
+    assert opt_flag in captured.err
+    assert "cannot be repeated" in captured.err
