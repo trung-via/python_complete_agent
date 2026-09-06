@@ -1,0 +1,310 @@
+task_id: TASK-147
+revision: 1
+
+goal: >
+  Implement post-M4 P5.3a Live Shortlist Human Decision + M1 Queue Bridge by extending
+  the existing Product Intelligence CLI with one bounded Human-facing `decide` operation.
+  The operation must run the already-published TASK-146 live discovery/orchestration path,
+  present the exact current shortlist to the Human, accept one explicit Human selection and
+  APPROVE/REJECT decision during that same process invocation, then delegate the exact
+  selected RankedCandidate object to the existing TASK-096 approval authority. Only an
+  explicit APPROVE may be delegated once to TASK-096 enqueue_approval; REJECT must create
+  no queue mutation. TASK-147 must not create a persistent shortlist/review store, reconstruct
+  RankedCandidate from prior JSON, auto-approve, redefine ranking/approval/queue semantics,
+  start ingestion, or implement P5.3b/P5.3c family/variant mutation presentation.
+
+problem: >
+  TASK-146 now closes P5.2 and gives Humans a live `discover` command that returns the
+  canonical OrchestrationResult JSON, while TASK-096 already owns explicit Human
+  APPROVE/REJECT and the deterministic M1 queue bridge. A naive separate `approve`
+  command over prior `discover` JSON would require reconstructing or persisting a
+  RankedCandidate outside existing authority and could let a later process act on stale
+  discovery state. P5.3a therefore needs an in-process Human review/action boundary:
+  perform one fresh discovery, show that exact shortlist, keep the typed
+  OrchestrationResult in memory, let the Human select one current shortlist position,
+  and pass the exact selected RankedCandidate object to TASK-096. This adds presentation
+  and interaction only; ranking remains M2 authority and approval/queue mutation remains
+  TASK-096 authority.
+
+assumptions:
+  - >
+    Canonical Python Agent main immediately before TASK-147 authoring is
+    99f30e5a0b29e8f84589d2974a83207b05f191e7, the published TASK-146 FIX source
+    candidate after REVIEW-146-002 DELTA PASS. P1-P4 are CLOSED; P5 is CURRENT /
+    IN PROGRESS; P5.1 and P5.2 are CLOSED.
+  - >
+    The authoritative AIOS dependency remains exactly
+    aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@67db82bf19d63f25721d06aabb82d850db8b78d4.
+  - >
+    TASK-146 cli.py remains the sole Product Intelligence Human-facing CLI module and
+    its `discover` composition over TASK-137 browser/CDP, existing Shopee/TikTok
+    adapters, DiscoveryRequest, DiscoveryOrchestrator, and CandidateRanker remains the
+    sole live discovery-to-shortlist presentation path.
+  - >
+    TASK-096 approval.py remains the sole M2 Human approval and M1 queue bridge
+    authority. create_approval_record owns RankedCandidate/decision/actor/decided_at
+    validation; enqueue_approval owns canonical task construction, tasks.txt/completed.txt
+    path defaults, idempotency, append durability, and queue mutation. TASK-147 must
+    delegate rather than reproduce those semantics.
+  - >
+    TASK-096 ApprovalRecord is intentionally in-memory and there is no canonical
+    persistent shortlist or approval-history codec. TASK-147 must not invent one merely
+    to support a second-process decision command.
+  - >
+    Existing P3 family/variant Human decision and durable admission authorities remain
+    TASK-139/TASK-140/TASK-141. Presenting those authorities through the CLI is deferred
+    to P5.3b/P5.3c and is not part of TASK-147.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_M4_P5_HUMAN_FACING_SURFACE.md
+    - docs/PHASE_6_M2_APPROVAL.md
+    - .ai/tasks/TASK-096.yaml
+    - .ai/tasks/TASK-137.yaml
+    - .ai/tasks/TASK-140.yaml
+    - .ai/tasks/TASK-141.yaml
+    - .ai/tasks/TASK-145.yaml
+    - .ai/tasks/TASK-146.yaml
+    - src/product_intelligence/cli.py
+    - src/product_intelligence/approval.py
+    - src/product_intelligence/orchestration.py
+    - src/product_intelligence/ranking.py
+    - src/product_intelligence/models.py
+    - src/product_intelligence/adapters/shopee.py
+    - src/product_intelligence/adapters/tiktok.py
+    - src/integrations/playwright/manager.py
+    - tests/product_intelligence/test_product_intelligence_cli.py
+    - tests/product_intelligence/test_approval.py
+    - tests/product_intelligence/test_orchestration.py
+    - tests/product_intelligence/test_ranking.py
+    - tests/product_intelligence/test_shopee_discovery.py
+    - tests/product_intelligence/test_tiktok_discovery.py
+    - tests/integration/test_browser_cdp.py
+    - tests/integration/test_phase6_bootstrap.py
+
+  modify:
+    - src/product_intelligence/cli.py
+    - tests/product_intelligence/test_product_intelligence_cli.py
+    - docs/POST_M4_P5_HUMAN_FACING_SURFACE.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+
+non_goals:
+  - Modify approval.py, ApprovalRecord, ApprovalDecision, EnqueueResult, queue task text,
+    queue path defaults, idempotency, fsync, completed-file behavior, or TASK-096 validation.
+  - Modify ProductCandidateSnapshot, RankedCandidate, WinningProductScore,
+    DiscoveryRequest, DiscoveryBatch, OrchestrationResult, DiscoveryOrchestrator,
+    CandidateRanker, WinningProductScorer, scoring policy, decision bands, or tie-breaks.
+  - Modify PlaywrightBrowserManager/Session, Shopee/TikTok adapters, browser/CDP lifecycle,
+    selectors, marketplace extraction, retry/fallback, login, captcha, or anti-bot behavior.
+  - Persist or serialize a shortlist, RankedCandidate, approval review session, pending Human
+    decision, ApprovalRecord, or REJECT history to a new file/table/database/JSON artifact.
+  - Rehydrate or reconstruct a RankedCandidate from a prior `discover` JSON document,
+    candidate URL, candidate_id, score payload, rank number, or caller-supplied fields.
+  - Allow a prior `discover` invocation to authorize a later `decide` invocation without
+    showing the fresh in-process shortlist used by that later decision.
+  - Auto-select a shortlist member, infer APPROVE/REJECT from rank, score, confidence,
+    DecisionBand, platform, URL, or any machine signal.
+  - Start AgentController, execute ingestion, call an executor, wait for queue completion,
+    modify completed.txt, or add queue worker/background/scheduler behavior.
+  - Add custom tasks/completed queue path controls to P5.3a; TASK-096 canonical defaults
+    remain authoritative for this Human-facing bridge.
+  - Add family planning/decision/admission, sellable-variant review/decision/admission,
+    catalog registration, evidence mutation, provider/LLM calls, Drive work, or P6 behavior.
+  - Change AIOS pin, worker surfaces, publication workflow, or prior RUN/REVIEW lineage.
+
+constraints:
+  hard:
+    - >
+      Extend only src/product_intelligence/cli.py as the Human-facing Product Intelligence
+      command surface. The CLI must expose exactly five operations: existing `evidence`,
+      `catalog`, `ask`, `discover`, plus new `decide`, with no aliases. Existing TASK-145
+      and TASK-146 command signatures, stdout/error behavior, discovery composition, and
+      semantics must remain unchanged.
+    - >
+      `decide` must expose exactly the TASK-146 discovery controls plus the minimum explicit
+      TASK-096 Human identity/time controls: exactly one `--query`, one or more repeated
+      `--platform` values with choices exactly `shopee`/`tiktok`, exactly one
+      `--cdp-endpoint`, optional one `--shortlist-size`, exactly one `--actor`, and exactly
+      one `--decided-at`. No decision, candidate, score, rank, queue-path, approval-policy,
+      ingestion-start, provider, credential, retry, or persistence flag is permitted.
+      Repeated `--platform` remains the sole repeatable decide control; every other decide
+      option must reject repeated occurrences with argparse-style exit code 2.
+    - >
+      `--decided-at` is a CLI representation boundary only. It must parse one ISO-8601
+      datetime string into a datetime value without adding a wall-clock default and without
+      independently enforcing TASK-096 timezone-awareness or other approval semantics.
+      Syntactically invalid datetime text may fail as argparse input; a syntactically valid
+      but timezone-naive datetime must reach TASK-096 create_approval_record and fail only
+      under existing ApprovalError authority.
+    - >
+      Refactor only private CLI composition as needed so `discover` and `decide` reuse one
+      canonical private live-discovery helper that returns the exact typed
+      OrchestrationResult after TASK-146 browser cleanup has completed. Each invocation
+      must still construct exactly one PlaywrightBrowserManager, preserve exact Human
+      platform order, create the same existing adapters/DiscoveryRequest/PlatformDiscoveryPlan
+      objects, capture one timezone-aware UTC timestamp once, call orchestrate_discovery
+      exactly once, and attempt close_all exactly once. TASK-147 must not duplicate a second
+      discovery implementation or change TASK-146 cleanup/error precedence.
+    - >
+      `discover` must continue to return exactly OrchestrationResult.to_dict() on stdout.
+      `decide` must not begin Human interaction unless live discovery and browser cleanup
+      both succeed and the returned shortlist is non-empty. Empty shortlist, discovery
+      failure, orchestration failure, or cleanup failure must cause zero approval and zero
+      queue calls.
+    - >
+      For `decide`, after successful cleanup and before reading Human action, render exactly
+      one current review preview to stderr using the existing OrchestrationResult.to_dict()
+      representation without reordering, filtering, rescoring, summarizing, or adding
+      recommendation/approval semantics. The preview is presentation only and must not be
+      persisted. Existing four commands must retain empty stderr on success.
+    - >
+      After rendering the exact current preview, `decide` must read exactly two bounded
+      Human input lines from stdin in this order: first a 1-based shortlist position, then
+      an exact decision token `APPROVE` or `REJECT`. Fixed prompts may be written to stderr.
+      EOF, malformed/non-decimal/out-of-range position, extra semantic tokens, or any
+      decision other than exact APPROVE/REJECT must fail closed before create_approval_record
+      and before any queue access. No default position or decision is permitted.
+    - >
+      A valid Human shortlist position may only select the exact RankedCandidate object
+      already stored at that position in the current OrchestrationResult.shortlist tuple.
+      TASK-147 must not copy, reconstruct, deserialize, re-rank, search by URL/candidate_id,
+      or create a new RankedCandidate. The selected exact object must be forwarded unchanged
+      to TASK-096 create_approval_record exactly once together with the explicit
+      ApprovalDecision mapped from the exact Human token, the exact Human `actor` string,
+      and the parsed `decided_at` datetime object.
+    - >
+      TASK-147 must not inspect final_score, confidence, decision band, candidate fields,
+      platform, URL, or shortlist position to infer or modify the Human decision. The only
+      decision authority is the exact Human APPROVE/REJECT token delegated to TASK-096.
+      ApprovalError and all existing TASK-096 validation errors must propagate into the
+      existing bounded sanitized CLI error surface without cause-chain/traceback leakage.
+    - >
+      For exact Human REJECT, return the exact ApprovalRecord projection described below
+      and perform zero enqueue_approval calls and zero queue filesystem access through
+      TASK-147. REJECT must not be converted into a successful queue no-op status and must
+      not be persisted independently.
+    - >
+      For exact Human APPROVE, call existing TASK-096 enqueue_approval exactly once with
+      the exact ApprovalRecord returned by create_approval_record and no queue-path
+      overrides, thereby retaining TASK-096 tasks.txt/completed.txt defaults and all queue
+      semantics. TASK-147 must not call build_ingestion_task/build_approved_ingestion_task,
+      open queue files, construct task text, inspect duplicate queues, fsync, start
+      AgentController, retry, or reinterpret ENQUEUED/ALREADY_QUEUED/ALREADY_COMPLETED.
+    - >
+      Successful `decide` stdout must be exactly one JSON document with exactly two
+      top-level keys in this order: `approval` and `queue`. `approval` must contain exactly
+      `decision`, `actor`, `decided_at`, and `ranked_candidate`; ranked_candidate must
+      contain exactly the selected existing candidate.to_dict() result and score.to_dict()
+      result without added/recomputed fields. For REJECT, `queue` must be null. For APPROVE,
+      `queue` must contain exactly `task` and `outcome` projected unchanged from the exact
+      TASK-096 EnqueueResult, with outcome rendered as its enum value. Do not add a new
+      approval status, boolean authorization flag, recommendation label, or persistence
+      claim.
+    - >
+      Existing bounded CLI error handling remains authoritative. Add ApprovalError to the
+      known application-error boundary. Interactive input/selection representation failures
+      may use a bounded ValueError path but must expose no traceback/cause chain and must
+      occur before approval/queue mutation. Unexpected exceptions remain generic.
+    - >
+      Module import must remain side-effect-free: importing cli.py must not create a browser,
+      capture time, read stdin, render prompts, call discovery/approval/enqueue, touch queue
+      files, or mutate Product Intelligence state.
+    - >
+      Focused offline tests must prove exactly five commands and exact decide flags; duplicate
+      single-value decide options fail code 2 while ordered repeated platform remains valid;
+      discover behavior is unchanged; decide performs one shared discovery/cleanup before
+      interaction; exact preview order is preserved; Human position selects the exact
+      RankedCandidate object by identity; exact APPROVE/REJECT/actor/parsed datetime are
+      forwarded once to TASK-096; no score/rank auto-authority exists; REJECT makes zero
+      enqueue calls; APPROVE makes exactly one enqueue call with no path overrides; exact
+      EnqueueOutcome pass-through; empty shortlist/EOF/invalid input/ApprovalError/queue
+      error fail closed; no RankedCandidate reconstruction or persistent review state exists;
+      and import remains side-effect-free.
+    - >
+      Add one compatibility regression using real TASK-096 approval/queue code with a
+      synthetic in-memory OrchestrationResult and temporary working directory: explicit
+      Human APPROVE through the CLI must append exactly one canonical task to default
+      tasks.txt, a repeated approval of the same exact product must return
+      ALREADY_QUEUED without duplication, and completed.txt must remain unmodified.
+      The regression must use no live browser/network and must not start AgentController.
+    - >
+      Add one real REJECT compatibility regression proving an exact current shortlist
+      member can be explicitly rejected through TASK-096, returns queue null, and creates
+      or modifies neither tasks.txt nor completed.txt.
+    - >
+      Update docs/POST_M4_P5_HUMAN_FACING_SURFACE.md to mark published TASK-146 P5.2
+      CLOSED, document `decide` as P5.3a candidate, explain that only the fresh shortlist
+      displayed inside the same decide invocation is eligible for that decision, and state
+      that prior discover JSON is advisory presentation only and cannot be rehydrated into
+      approval authority.
+    - >
+      Update docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md to mark P5.2 CLOSED by published
+      TASK-146 and refine the remaining P5.3 boundary into: P5.3a live-shortlist Human
+      decision + TASK-096 M1 queue bridge (TASK-147 candidate), P5.3b family decision/durable
+      admission presentation over TASK-139/140, and P5.3c sellable-variant review/decision/
+      durable admission presentation over TASK-141. Overall P5 remains CURRENT / IN PROGRESS
+      after TASK-147 and P6 must not advance.
+    - Do not push from Executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      The existing Product Intelligence CLI remains the sole Human-facing CLI and exposes
+      exactly evidence/catalog/ask/discover/decide, preserving all TASK-145/TASK-146
+      signatures and behavior while adding no second UI, API, service, or executable.
+  - id: AC2
+    condition: >
+      decide accepts only the exact bounded discovery inputs plus explicit actor and
+      ISO-8601 decided_at representation, rejects duplicate single-value controls, and
+      introduces no queue-path, score/policy, automatic decision, persistence, provider,
+      ingestion-start, or alternate authority controls.
+  - id: AC3
+    condition: >
+      decide reuses the TASK-146 live discovery composition exactly once, completes
+      browser cleanup before Human action, renders the exact current OrchestrationResult
+      preview, and never acts when discovery/cleanup fails or shortlist is empty.
+  - id: AC4
+    condition: >
+      The Human supplies one exact current 1-based shortlist position and exact
+      APPROVE/REJECT after seeing that preview; invalid/EOF input fails before approval
+      or queue mutation, and no machine score/rank/decision band can imply a decision.
+  - id: AC5
+    condition: >
+      The selected position forwards the exact existing RankedCandidate object by identity
+      to TASK-096 create_approval_record exactly once with exact Human decision/actor and
+      parsed decided_at, with no reconstruction, serialization, stale prior-discover state,
+      or duplicate approval validation authority.
+  - id: AC6
+    condition: >
+      REJECT performs zero enqueue/queue mutation; APPROVE delegates exactly once to existing
+      enqueue_approval with no path override, preserving TASK-096 canonical queue task,
+      idempotency, durability, completed-file, and no-ingestion-start semantics unchanged.
+  - id: AC7
+    condition: >
+      Successful decide output is exactly the bounded approval/queue JSON projection of
+      existing TASK-096 objects, while ApprovalError, interactive representation errors,
+      queue errors, known application errors, and unexpected errors retain bounded sanitized
+      handling with no traceback/cause leakage.
+  - id: AC8
+    condition: >
+      TASK-147 creates no persistent shortlist/review/approval state, no RankedCandidate
+      codec, no direct queue/filesystem implementation, no AgentController execution, no
+      family/variant/catalog mutation, no provider/Drive/background work, and no P6 behavior.
+  - id: AC9
+    condition: >
+      Focused offline tests plus real TASK-096 temporary-directory regressions prove exact
+      object lineage, explicit Human control, APPROVE enqueue/idempotency, REJECT no-write,
+      existing discover regressions, and M2/browser authority preservation without live
+      marketplace/CDP access.
+  - id: AC10
+    condition: >
+      Documentation records P5.2 CLOSED by published TASK-146, P5.3a as TASK-147 candidate,
+      P5.3b/P5.3c still unimplemented, overall P5 CURRENT / IN PROGRESS, and P6 not current.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_product_intelligence_cli.py tests/product_intelligence/test_approval.py tests/product_intelligence/test_orchestration.py tests/product_intelligence/test_ranking.py tests/product_intelligence/test_shopee_discovery.py tests/product_intelligence/test_tiktok_discovery.py tests/integration/test_browser_cdp.py tests/integration/test_phase6_bootstrap.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - '$env:PYTHONPATH = ".;src"; python -m src.product_intelligence.cli --help *> $null; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
