@@ -1,0 +1,212 @@
+task_id: TASK-143
+revision: 1
+
+goal: >
+  Complete post-M4 P4.2 Credentialed Live Grounded-QA Certification by adding one
+  bounded certification-only integration harness that exercises exactly one live Gemini
+  request through the already-owned TASK-135 -> TASK-133 -> TASK-132 path using the
+  existing TASK-142 GeminiProvider, while preserving all M3/M4 semantics, keeping secrets
+  out of repository/evidence, distinguishing provider availability from downstream
+  grounded structural validation, and adding no retry/fallback/provider-selection policy.
+
+problem: >
+  P4.1/TASK-142 modernized and offline-certified the repository's existing GeminiProvider,
+  but P4 remains open because no canonical evidence proves that the complete persistent
+  grounded-QA application path can reach the configured production Gemini model with a
+  real credential/network request and return a TASK-129 structurally valid GroundedAnswer.
+  The live proof must remain a certification boundary only. It must not modify provider,
+  prompt, invocation, answer, retrieval, catalog, identity, or evidence semantics, and it
+  must not leak a credential or raw provider diagnostic into canonical Runtime evidence.
+
+assumptions:
+  - >
+    Canonical Python Agent main immediately before TASK-143 authoring is
+    670b8c0c295f86008745ac302c7cedf9027d39a7, the published TASK-142 source candidate
+    after REVIEW-142-001 DELTA PASS. P1/P2/P3 are CLOSED; P4 is CURRENT / IN PROGRESS;
+    P4.1 is CLOSED and P4.2 is the immediate next stage.
+  - >
+    The authoritative AIOS dependency remains exactly
+    aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@67db82bf19d63f25721d06aabb82d850db8b78d4.
+  - >
+    TASK-120/125/121/134/123/131/132/129/133/135 remain the exact M3/M4 authority chain.
+    TASK-143 is certification only and must not transfer or duplicate any semantic owner.
+  - >
+    TASK-142 GeminiProvider is the existing single concrete Gemini adapter over the
+    unchanged generic LLMProvider contract. Its selected certification model is exactly
+    gemini-3.8-flash. P4.2 must use that adapter rather than direct google-genai calls.
+  - >
+    A successful live structural answer does not prove factual truth, semantic entailment,
+    hallucination freedom, product-truth reconciliation, model quality, recommendation,
+    ranking, or approval authority.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_M4_P4_LIVE_PROVIDER_CERTIFICATION.md
+    - docs/PHASE_6_M4_COMPLETION.md
+    - .ai/tasks/TASK-129.yaml
+    - .ai/tasks/TASK-132.yaml
+    - .ai/tasks/TASK-135.yaml
+    - .ai/tasks/TASK-142.yaml
+    - src/providers/base.py
+    - src/providers/gemini.py
+    - src/product_intelligence/grounded_answer.py
+    - src/product_intelligence/grounded_invocation.py
+    - src/product_intelligence/persistent_grounded_qa.py
+    - tests/product_intelligence/test_persistent_grounded_qa.py
+
+  modify:
+    - tests/integration/test_live_grounded_qa_gemini.py
+    - docs/POST_M4_P4_LIVE_PROVIDER_CERTIFICATION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+
+non_goals:
+  - Modify GeminiProvider, LLMProvider, google-genai dependency/configuration, model default,
+    TASK-129/131/132/133/134/135 code, or any M2/M3 product implementation.
+  - Call google-genai directly, create a second provider adapter/protocol, add response JSON
+    parsing, response_format/JSON-mode policy, tool execution, AgentLoop, retry, fallback,
+    reroute, circuit breaker, model discovery, dynamic model selection, or quota policy.
+  - Use browser/CDP, Shopee/TikTok live acquisition, Drive, external product URLs, queues,
+    background services, production catalog files, or production Product Source Pack files.
+  - Persist live model output, create answer history, update canonical product knowledge,
+    reconcile conflicting evidence, or treat model output as product truth.
+  - Commit, print, snapshot, serialize, log, or include GEMINI_API_KEY, account identifiers,
+    raw authorization headers, or raw provider exception payloads in repository/Runtime
+    evidence.
+  - Make more than one credentialed provider request in canonical TASK-143 verification.
+  - Implement P5. TASK-143 may advance the roadmap to P5 only after its own Runtime and
+    semantic-review gates PASS.
+
+constraints:
+  hard:
+    - >
+      Add exactly one certification-only test module
+      tests/integration/test_live_grounded_qa_gemini.py. It must not add or export a
+      production API, service, provider abstraction, configuration object, store, or
+      reusable product semantic helper.
+    - >
+      The live harness must construct its complete catalog and Product Source Pack evidence
+      only under pytest tmp_path using existing canonical constructors/serialization and
+      TASK-120 registration APIs. The fixture must be deterministic, minimal, and contain
+      at least one registered canonical sellable variant with non-empty grounded evidence.
+      It must not reuse a production SQLite database, production manifests, browser data,
+      Drive data, or network-fetched marketplace evidence.
+    - >
+      The harness must instantiate the existing GeminiProvider and explicitly bind the
+      certification model to gemini-3.8-flash so caller-machine GEMINI_MODEL_NAME cannot
+      silently change the certified subject. GEMINI_API_KEY may come only from the process
+      environment through the existing provider configuration boundary; the test must not
+      read secret files, dotenv files, key stores, GitHub secrets APIs, or hard-code any
+      credential value.
+    - >
+      The harness must make exactly one application call to
+      answer_persisted_grounded_question(...) with the temporary TASK-120 SQLite database,
+      exact persisted Product Source Pack manifest paths, one fixed natural-language
+      question grounded in the fixture evidence, and the exact existing GeminiProvider.
+      It must not call provider.generate, TASK-132 invoke_grounded_model, google-genai, or
+      any other model/network entry point directly, and it must contain no loop/retry/
+      fallback/reroute around the call.
+    - >
+      The live test must not skip, xfail, or silently pass when GEMINI_API_KEY is absent,
+      placeholder, invalid, unauthorized, quota-blocked, network-blocked, or when
+      gemini-3.8-flash is unavailable. Such conditions mean P4.2 is not certified and the
+      canonical verification must fail closed.
+    - >
+      Provider availability failures must be reported to pytest/canonical evidence only as
+      a sanitized high-level certification category. When TASK-132 raises
+      GroundedInvocationError whose causal chain contains the existing AgentException with
+      code LLM_PROVIDER_ERROR, the harness must fail without rendering the raw chained SDK
+      exception, credential, request headers, account/project identifiers, or provider
+      payload. This reporting rule is test-only evidence hygiene and must not create a new
+      production exception taxonomy.
+    - >
+      GroundedInvocationError not attributable to the provider-availability cause above
+      must remain distinguishable as a grounded invocation/response-structure failure;
+      GroundedAnswerError must remain distinguishable as TASK-129 final structural
+      validation failure. The harness may sanitize the displayed failure message but must
+      not catch either class and convert it to PASS or repair/retry model output.
+    - >
+      Successful certification requires the exact return value from TASK-135 to be an
+      exact GroundedAnswer produced by the existing chain, with a non-empty canonical
+      context for the deterministic fixture. Do not require an exact answer string, exact
+      citation selection, or a specific ANSWERED/INSUFFICIENT_EVIDENCE/CONFLICTING_EVIDENCE
+      status beyond what TASK-129 already validates. P4.2 certifies structural live
+      interoperability, not semantic answer quality.
+    - >
+      No live provider response body, prompt text, canonical context JSON, usage metadata,
+      response id, exception payload, or credential may be printed by the successful test.
+      Canonical evidence should contain only normal pytest PASS summary. Failure messages
+      must remain sanitized to the minimum category needed to decide provider availability
+      versus grounded structural failure.
+    - >
+      The Executor must not manually/ad-hoc run the live certification test while editing.
+      The only credentialed request admitted for TASK-143 is the one executed by the pinned
+      Runtime through the exact required live verification command after the candidate is
+      committed. Offline focused verification may run normally and must make zero network
+      requests.
+    - >
+      Existing focused TASK-142 provider tests and TASK-132/TASK-135 regressions must remain
+      passing unchanged. TASK-143 must not edit those tests to accommodate live behavior.
+    - >
+      Update docs/POST_M4_P4_LIVE_PROVIDER_CERTIFICATION.md to record the exact P4.2
+      certification boundary, evidence hygiene, one-call semantics, and failure-class
+      distinction. It may state P4 CLOSED only conditionally: closure becomes effective
+      only after canonical TASK-143 Runtime PASS and ChatGPT semantic-review PASS on the
+      same source candidate.
+    - >
+      Update docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md consistently. Once both TASK-143
+      gates PASS, P4 is CLOSED and P5 Human-Facing Product Intelligence Surface becomes
+      CURRENT. Do not claim provider reliability/SLA, factual truth, prompt-injection
+      immunity, semantic entailment, product truth, autonomous approval, retry/fallback,
+      or any P5 implementation.
+    - Do not push from Executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      TASK-143 adds only the certification test plus P4/roadmap documentation and changes
+      no production provider, M3, M4, dependency, configuration, or semantic-authority code.
+  - id: AC2
+    condition: >
+      The live fixture is deterministic and temporary, constructs persisted source evidence
+      and a non-empty canonical catalog only through existing authorities, and uses no
+      production data/browser/Drive/network acquisition.
+  - id: AC3
+    condition: >
+      The certification uses the existing GeminiProvider explicitly bound to
+      gemini-3.8-flash, obtains its credential only through the existing environment
+      boundary, and makes exactly one live application call only through TASK-135 with no
+      direct provider/SDK invocation, retry, fallback, or reroute.
+  - id: AC4
+    condition: >
+      Missing/invalid credential, provider account/quota/network/model unavailability fail
+      closed as sanitized provider-availability certification failure and cannot leak raw
+      SDK diagnostics or secret/account values into canonical pytest evidence.
+  - id: AC5
+    condition: >
+      TASK-132 invocation/response-structure failures and TASK-129 GroundedAnswer structural
+      failures remain semantically distinct from provider availability, are never converted
+      to PASS, and trigger no model-output repair or second request.
+  - id: AC6
+    condition: >
+      A successful live call returns an exact TASK-129 GroundedAnswer through
+      TASK-135 -> TASK-133 -> TASK-132 with a non-empty canonical context, without asserting
+      model wording/status quality beyond existing TASK-129 structural authority and without
+      persisting or printing live response content.
+  - id: AC7
+    condition: >
+      Existing TASK-142 provider and TASK-132/TASK-135 focused offline regressions remain
+      passing unchanged and zero live network is used by that offline verification.
+  - id: AC8
+    condition: >
+      P4 documentation accurately records one-call credentialed certification, secret-safe
+      evidence, failure-boundary distinction, and conditional P4 closure; after Runtime +
+      semantic-review PASS the roadmap makes P5 CURRENT without implementing P5 or claiming
+      factual/product-truth/provider-reliability guarantees.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/providers/test_gemini_provider.py tests/product_intelligence/test_grounded_invocation.py tests/product_intelligence/test_persistent_grounded_qa.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/integration/test_live_grounded_qa_gemini.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
