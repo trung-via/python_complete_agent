@@ -1,0 +1,19 @@
+{
+  "repair_id": "REPAIR-143-003",
+  "failed_run_id": "RUN-143-003",
+  "failed_head_sha": "273f24d115cf116aeddadaaad9afb4990eb43bcd",
+  "task": {
+    "id": "TASK-143",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue only from the exact failed candidate 273f24d115cf116aeddadaaad9afb4990eb43bcd for RUN-143-003. Preserve the TASK-143 repair lineage and Codex executor identity; do not restart PRIMARY, reroute executors, or rebuild from current main.",
+    "RUN-143-003 reached canonical Runtime verification. Offline regressions passed, and the single live TASK-143 integration test failed only with the sanitized provider-availability category after GeminiProvider attempted the request. This establishes no product-code, test, documentation, or TASK defect. This continuation is explicitly NO_CHANGE: do not modify source, tests, docs, TASK files, worker files, or AIOS/runtime files, and keep HEAD exactly 273f24d115cf116aeddadaaad9afb4990eb43bcd.",
+    "Before this REPAIR is executed, the Human must establish an active non-leaked Gemini API credential/project state outside repository state. Do not perform an ad-hoc provider request, model-list request, retry, fallback, reroute, or other network probe during executor work. Do not print or serialize credentials or raw SDK diagnostics.",
+    "Once the external provider prerequisite is corrected, return the structural REPAIR result with unresolved empty and allow the pinned Runtime alone to execute the exact TASK-143 verification commands. If live verification fails again, preserve the new FAILURE exactly for Brain classification and do not self-author source correction or retry.",
+    "Do not claim semantic REVIEW PASS or publish. Return only the structural REPAIR result required for Runtime completion."
+  ],
+  "constraints": []
+}
