@@ -2,7 +2,7 @@
 
 Status: canonical post-M4 architecture roadmap; P3 CLOSED by TASK-139 P3.1,
 TASK-140 P3.2, and TASK-141 P3.3; P4 Live Grounded-QA Provider Certification is
-the next current boundary
+CURRENT and IN PROGRESS, with TASK-142 establishing P4.1 only
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
 ## 1. Starting point
@@ -92,11 +92,24 @@ product-truth reconciliation, durable REJECT history, or autonomous approval.
 Those remain deferred non-blocking future work. P4 Live Grounded-QA Provider
 Certification is now the next current post-M4 boundary.
 
-### P4 — Live Grounded-QA Provider Certification
+### P4 — Live Grounded-QA Provider Certification — CURRENT / IN PROGRESS
 
 Certify the already-complete M4 generic provider path against an explicit production provider configuration. If the existing provider adapter requires modernization, that adapter work must remain provider-specific and must not change TASK-129/131/132/133/134/135 semantics.
 
 Certification must distinguish provider/network/account availability from grounded-answer structural correctness. Retry/fallback/model-selection policy requires separate explicit authority if ever added.
+
+P4.1 is the TASK-142 production-provider foundation only. It modernizes the
+existing single `GeminiProvider` to the pinned `google-genai` transport, preserves
+the generic `LLMProvider` contract and M4 authority chain, and proves message,
+manual tool-declaration, and response transport offline. It does not establish
+provider account, credential, quota, network, model availability, or a live
+grounded answer, and it does not close P4.
+
+P4.2 credentialed live grounded-QA certification is the immediate next P4 stage.
+It must prove one live call through TASK-135 -> TASK-133 -> TASK-132 using the
+existing `GeminiProvider`, and report provider availability separately from
+TASK-132/TASK-129 grounded structural validation. P4.2 must not invent retry,
+fallback, provider-selection, or model-selection policy.
 
 ### P5 — Human-Facing Product Intelligence Surface
 
@@ -126,8 +139,10 @@ family decision plus durable family admission, and TASK-141 closes P3.3 explicit
 sellable-variant review, Human decision, and durable admission while preserving
 TASK-115/116/117/118/119/120 authority. M3 remains the sole identity, catalog,
 persistence, and evidence authority; P3 remains application composition rather
-than a replacement semantic layer. P4 Live Grounded-QA Provider Certification
-is the next current post-M4 boundary.
+than a replacement semantic layer. P4 Live Grounded-QA Provider Certification is
+CURRENT and IN PROGRESS. TASK-142 establishes P4.1 provider transport foundation
+only; separate P4.2 credentialed live grounded-QA certification is the immediate
+next stage. P4 is not closed, and P5 has not advanced.
 
 ## 4. Authority invariants
 
