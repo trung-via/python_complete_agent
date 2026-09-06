@@ -1,0 +1,19 @@
+{
+  "repair_id": "REPAIR-143-004",
+  "failed_run_id": "RUN-143-004",
+  "failed_head_sha": "273f24d115cf116aeddadaaad9afb4990eb43bcd",
+  "task": {
+    "id": "TASK-143",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue only from exact failed candidate 273f24d115cf116aeddadaaad9afb4990eb43bcd for RUN-143-004 and preserve the TASK-143 repair lineage and Codex executor identity. Do not restart PRIMARY, reroute executors, or rebuild from current main.",
+    "RUN-143-004 changed no files. Offline focused verification passed and only the single live Gemini certification command failed with the sanitized provider-availability category. This establishes no product-code, test, documentation, or TASK defect. This continuation is explicitly NO_CHANGE; keep HEAD unchanged and do not modify repository files.",
+    "Before invoking this REPAIR, the Human must use a Codex process that was launched from the same parent PowerShell session after GEMINI_API_KEY was loaded there, or otherwise ensure the Codex process environment already contains the valid non-placeholder credential. Do not use a separately launched Codex app that may not inherit that session environment.",
+    "Do not perform ad-hoc Gemini requests, credential probes, model-list calls, retries, fallback, rerouting, or source correction during executor work. Return a structural REPAIR result with unresolved empty and allow the pinned Runtime alone to execute the exact TASK-143 verification, including its single admitted live request.",
+    "If the Runtime live verification fails again, preserve the new FAILURE exactly for Brain classification. Do not self-repair model selection, retry the request, or widen scope."
+  ],
+  "constraints": []
+}
