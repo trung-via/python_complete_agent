@@ -1,0 +1,1 @@
+{"error":{"message":"contract-invalid canonical lineage at refs/heads/aios/remediation/RUN-146-001-F1: findings[0].action is required","type":"OperatorError"},"executor_invoked":false,"finding_id":"F1","kind":"ADMISSION_FAILURE","operation":"REMEDIATION","phase":"CANONICAL_CONTRACT_ADMISSION","requested_executor":"antigravity","task":{"id":"TASK-146","revision":1}}
