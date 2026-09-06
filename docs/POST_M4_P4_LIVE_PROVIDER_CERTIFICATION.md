@@ -1,82 +1,68 @@
 # Post-M4 P4 Live Grounded-QA Provider Certification
 
-Status: **P4 IN PROGRESS**  
-Current stage: **P4.1 production-provider foundation — TASK-142**  
-Next stage: **P4.2 separate credentialed live grounded-QA certification**
+Status: **TASK-144 CANDIDATE — P4 closes only after the gates below pass**  
+Certification route: **explicit Vertex AI mode with Application Default Credentials**
 
-## P4.1 boundary
+## Certification lineage
 
-TASK-142 establishes only the production transport foundation for the repository's
-existing `GeminiProvider`. It replaces the legacy Gemini SDK with the pinned
-`google-genai==2.22.0` client, fixes `gemini-3.8-flash` as this adapter's default,
-and proves the generic message, manual-function-declaration, and response mappings
-offline.
+TASK-142 established the production transport foundation for the repository's
+single concrete `GeminiProvider` using `google-genai==2.22.0`. TASK-143 attempted
+the separate live certification through the Gemini Developer API/API-key route.
+That lineage remains parked as external-provider/authentication evidence; its
+failed candidate was not reviewed or published as source.
 
-`LLMProvider`, `LLMResponse`, and `ProviderToolCall` remain the sole generic provider
-transport contract. `GeminiProvider` remains the single concrete default Gemini
-adapter used by `AgentController`. P4.1 adds no second protocol, grounded-only
-provider, model registry, router, retry, fallback, or provider-selection policy.
-The adapter transports provider text and manual function calls only. It does not
-execute tools or interpret Product Intelligence response meaning.
+TASK-144 adds the supported Vertex AI ADC route to the same `GeminiProvider`.
+The two exact modes are explicit:
 
-P4.1 does not certify a provider account, credential, quota, network path, selected
-model availability, live response quality, or a live `GroundedAnswer`. Its tests use
-an isolated offline Google transport.
+- `developer_api` remains the default and uses the existing API-key behavior;
+- `vertex_ai` uses an explicit Google Cloud project and location and delegates
+  credential discovery and refresh to the Google SDK/google-auth ADC boundary.
 
-## Preserved M4 authority chain
+There is no authentication fallback, retry, failover, or reroute between these
+modes. A failure in one mode never selects the other.
 
-TASK-142 changes none of the following authorities:
+## Human-owned Vertex prerequisites
 
-1. TASK-120 loads the canonical SQLite catalog.
-2. TASK-125 rehydrates caller-supplied persisted Product Source Pack evidence, and
-   `SourceObservationIdentity` supplies the exact source-identity projection.
-3. TASK-121 builds canonical variant profiles.
-4. TASK-134 plans the `retrieval_query`.
-5. TASK-123 performs canonical retrieval and builds the grounded context.
-6. TASK-131 owns grounded prompt and response-schema framing.
-7. TASK-132 owns exactly one generic, tool-free provider invocation and syntactic
-   parsing of the provider response.
-8. TASK-129 remains the sole `GroundedAnswer` structural-validation authority.
-9. TASK-133 composes prompt, provider invocation, and validated answer from an exact
-   context.
-10. TASK-135 owns only persistent startup and the predecessor call order.
+Before Runtime executes the live certification, a Human must configure ADC and
+the Google Cloud project outside repository code. The Human is also responsible
+for the enabled Vertex/Generative AI API, applicable IAM access, billing/quota,
+and network availability. Repository code does not read credential files, run
+`gcloud`, create credentials, or persist access or refresh tokens.
 
-TASK-142 supplies the provider-specific transport beneath TASK-132. It does not parse
-the TASK-131 JSON contract, construct an answer, validate citations, infer status or
-limitations, reconcile product truth, or modify the TASK-129/131/132/133/134/135
-semantics.
+`.env.example` documents only the optional project and `global` location
+configuration. It contains no real account or project identifier, OAuth value,
+token, or credential path.
 
-## Failure-boundary distinction
+## Preserved provider and M4 boundaries
 
-Provider availability and grounded structural validation are separate failure
-classes:
+`LLMProvider`, `LLMResponse`, and `ProviderToolCall` remain the generic transport
+contract, and `GeminiProvider` remains the sole concrete Gemini adapter. Both
+backend modes preserve the same message translation, manual function declaration,
+single async generation request, response mapping, cancellation propagation, and
+causal provider-error conversion. Neither mode lists models, retries, executes
+tools, parses Product Intelligence output, or selects another provider or model.
 
-- missing or placeholder credentials fail locally as `LLM_PROVIDER_ERROR` before a
-  Google client request;
-- provider account, authentication, quota, network, service, or model-availability
-  failures arise at the Google transport boundary and are preserved under
-  `LLM_PROVIDER_ERROR` with their cause;
-- malformed provider JSON or a response that violates TASK-132's exact syntactic
-  payload contract is a `GroundedInvocationError` owned by TASK-132;
-- context-local citation, leaf-minimum, answer-text, limitation-bound, and final
-  grounded-answer structural failures remain TASK-129 `GroundedAnswerError`
-  authority.
+The live fixture makes one application call through the unchanged authority
+chain:
 
-A successful provider request proves availability only. It does not by itself prove
-grounded structural validity, factual correctness, product truth, or end-to-end live
-certification. Conversely, a provider availability failure supplies no conclusion
-about the offline-grounded structural validators.
+`TASK-135 -> TASK-133 -> TASK-132 -> GeminiProvider -> Vertex AI ADC`
 
-## P4.2 next stage
+TASK-132 continues to own the one generic invocation and response syntax. TASK-129
+continues to own final `GroundedAnswer` structural validation. Provider
+availability, invocation/response-structure failure, and final grounded-answer
+failure remain distinct sanitized certification categories.
 
-P4 remains IN PROGRESS. P4.2 must separately prove one credentialed live call through
-the existing application chain:
+## What a successful call proves
 
-`TASK-135 -> TASK-133 -> TASK-132 -> existing GeminiProvider`
+A passing live fixture proves that this candidate returned an exact TASK-129
+`GroundedAnswer` with non-empty canonical context through the unchanged M4 chain.
+It does not establish factual truth, semantic quality, exact wording, provider
+SLA, model reliability, Product Intelligence truth authority, recommendation, or
+approval. The fixture does not persist or print live model output.
 
-That certification must use the existing TASK-142 adapter and must separately report
-provider availability and the downstream grounded structural result. Credentials and
-account identifiers must not enter repository artifacts, logs, fixtures, or evidence.
-P4.2 is not authority to add retries, fallback, provider rerouting, dynamic model
-selection, provider-managed tool execution, or a new Product Intelligence parser.
-Any such policy would require a separate explicit task.
+## P4 closure gate
+
+P4 becomes **CLOSED**, and P5 Human-Facing Product Intelligence Surface becomes
+**CURRENT**, only after canonical TASK-144 Runtime PASS and ChatGPT semantic-review
+PASS are both recorded for the same source candidate. Until both gates pass, P4
+remains **IN PROGRESS** and P5 has not advanced. TASK-144 implements no P5 behavior.

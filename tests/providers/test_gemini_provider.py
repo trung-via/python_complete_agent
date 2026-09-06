@@ -13,7 +13,11 @@ from google.genai import types
 from src.agent.messages import AssistantToolCall, LLMMessage, MessageRole
 from src.core.errors import AgentException
 import src.providers.gemini as gemini_module
-from src.providers.gemini import DEFAULT_GEMINI_MODEL, GeminiProvider
+from src.providers.gemini import (
+    DEFAULT_GEMINI_MODEL,
+    DEFAULT_VERTEX_LOCATION,
+    GeminiProvider,
+)
 
 
 OFFLINE_API_KEY = "offline-valid-value"
@@ -35,11 +39,15 @@ class FakeModels:
 class FakeClientFactory:
     def __init__(self, response: Any = None, error: BaseException | None = None) -> None:
         self.models = FakeModels(response=response, error=error)
-        self.api_keys: list[str] = []
+        self.client_kwargs: list[dict[str, Any]] = []
 
-    def __call__(self, *, api_key: str) -> Any:
-        self.api_keys.append(api_key)
+    def __call__(self, **kwargs: Any) -> Any:
+        self.client_kwargs.append(kwargs)
         return SimpleNamespace(aio=SimpleNamespace(models=self.models))
+
+    @property
+    def api_keys(self) -> list[str]:
+        return [kwargs["api_key"] for kwargs in self.client_kwargs]
 
 
 def response_with_parts(*parts: types.Part) -> types.GenerateContentResponse:
@@ -80,7 +88,10 @@ def test_dependency_and_example_configuration_are_exact() -> None:
     example = (repository / ".env.example").read_text(encoding="utf-8")
     assert "GEMINI_API_KEY=your_gemini_api_key_here" in example
     assert "GEMINI_MODEL_NAME=gemini-3.8-flash" in example
+    assert "GOOGLE_CLOUD_PROJECT=your_google_cloud_project_here" in example
+    assert "GOOGLE_CLOUD_LOCATION=global" in example
     assert DEFAULT_GEMINI_MODEL == "gemini-3.8-flash"
+    assert DEFAULT_VERTEX_LOCATION == "global"
 
 
 @pytest.mark.asyncio
@@ -94,12 +105,16 @@ async def test_explicit_configuration_precedes_environment(monkeypatch: pytest.M
     await provider.generate(task_132_messages(), [])
 
     assert factory.api_keys == [OFFLINE_API_KEY]
+    assert factory.client_kwargs == [
+        {"api_key": OFFLINE_API_KEY, "vertexai": False}
+    ]
     assert factory.models.calls[0]["model"] == "opaque-model"
 
 
 @pytest.mark.asyncio
 async def test_environment_fallback_and_exact_default_model(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GEMINI_API_KEY", OFFLINE_API_KEY)
+    monkeypatch.setenv("GOOGLE_GENAI_USE_VERTEXAI", "true")
     monkeypatch.delenv("GEMINI_MODEL_NAME", raising=False)
     factory = FakeClientFactory(response_with_parts(types.Part(text="ok")))
     monkeypatch.setattr(gemini_module.genai, "Client", factory)
@@ -108,6 +123,9 @@ async def test_environment_fallback_and_exact_default_model(monkeypatch: pytest.
     await provider.generate(task_132_messages(), [])
 
     assert factory.api_keys == [OFFLINE_API_KEY]
+    assert factory.client_kwargs == [
+        {"api_key": OFFLINE_API_KEY, "vertexai": False}
+    ]
     assert factory.models.calls[0]["model"] == "gemini-3.8-flash"
 
 
@@ -362,3 +380,175 @@ async def test_unsupported_message_shape_fails_before_client(
     assert exc_info.value.code == "LLM_PROVIDER_ERROR"
     assert factory.api_keys == []
     assert factory.models.calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("backend", ["vertex", "DEVELOPER_API", "", None, []])
+async def test_invalid_backend_fails_before_client(
+    monkeypatch: pytest.MonkeyPatch,
+    backend: Any,
+) -> None:
+    calls = 0
+
+    def forbidden_client(**kwargs: Any) -> Any:
+        nonlocal calls
+        calls += 1
+        raise AssertionError("client construction is forbidden")
+
+    monkeypatch.setattr(gemini_module.genai, "Client", forbidden_client)
+
+    with pytest.raises(AgentException) as exc_info:
+        await GeminiProvider(
+            backend=backend, api_key=OFFLINE_API_KEY
+        ).generate(task_132_messages(), [])
+
+    assert exc_info.value.code == "LLM_PROVIDER_ERROR"
+    assert exc_info.value.retryable is False
+    assert calls == 0
+
+
+@pytest.mark.asyncio
+async def test_vertex_explicit_configuration_precedes_environment_and_ignores_api_keys(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "ignored-environment-project")
+    monkeypatch.setenv("GOOGLE_CLOUD_LOCATION", "ignored-environment-location")
+    monkeypatch.setenv("GEMINI_API_KEY", "ignored-gemini-key")
+    monkeypatch.setenv("GOOGLE_API_KEY", "ignored-google-key")
+    factory = FakeClientFactory(response_with_parts(types.Part(text="ok")))
+    monkeypatch.setattr(gemini_module.genai, "Client", factory)
+
+    result = await GeminiProvider(
+        backend="vertex_ai",
+        project="explicit-project",
+        location="explicit-location",
+        model_name="opaque-model",
+    ).generate(task_132_messages(), [])
+
+    assert factory.client_kwargs == [
+        {
+            "vertexai": True,
+            "project": "explicit-project",
+            "location": "explicit-location",
+        }
+    ]
+    assert len(factory.models.calls) == 1
+    assert factory.models.calls[0]["model"] == "opaque-model"
+    assert result.content == "ok"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("environment_location", [None, "", "   "])
+async def test_vertex_environment_project_and_global_location_default(
+    monkeypatch: pytest.MonkeyPatch,
+    environment_location: str | None,
+) -> None:
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "environment-project")
+    if environment_location is None:
+        monkeypatch.delenv("GOOGLE_CLOUD_LOCATION", raising=False)
+    else:
+        monkeypatch.setenv("GOOGLE_CLOUD_LOCATION", environment_location)
+    factory = FakeClientFactory(response_with_parts(types.Part(text="ok")))
+    monkeypatch.setattr(gemini_module.genai, "Client", factory)
+
+    await GeminiProvider(backend="vertex_ai").generate(task_132_messages(), [])
+
+    assert factory.client_kwargs == [
+        {
+            "vertexai": True,
+            "project": "environment-project",
+            "location": "global",
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_vertex_environment_location_is_selected(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "environment-project")
+    monkeypatch.setenv("GOOGLE_CLOUD_LOCATION", "environment-location")
+    factory = FakeClientFactory(response_with_parts(types.Part(text="ok")))
+    monkeypatch.setattr(gemini_module.genai, "Client", factory)
+
+    await GeminiProvider(backend="vertex_ai").generate(task_132_messages(), [])
+
+    assert factory.client_kwargs[0]["location"] == "environment-location"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("provider_kwargs", "environment"),
+    [
+        ({"api_key": "explicit-key"}, {"GOOGLE_CLOUD_PROJECT": "project"}),
+        ({"project": ""}, {"GOOGLE_CLOUD_PROJECT": "ignored"}),
+        ({"project": "   "}, {"GOOGLE_CLOUD_PROJECT": "ignored"}),
+        ({"location": ""}, {"GOOGLE_CLOUD_PROJECT": "project"}),
+        ({"location": "   "}, {"GOOGLE_CLOUD_PROJECT": "project"}),
+        ({}, {}),
+    ],
+)
+async def test_invalid_vertex_configuration_fails_before_client(
+    monkeypatch: pytest.MonkeyPatch,
+    provider_kwargs: dict[str, Any],
+    environment: dict[str, str],
+) -> None:
+    monkeypatch.delenv("GOOGLE_CLOUD_PROJECT", raising=False)
+    monkeypatch.delenv("GOOGLE_CLOUD_LOCATION", raising=False)
+    for name, value in environment.items():
+        monkeypatch.setenv(name, value)
+    calls = 0
+
+    def forbidden_client(**kwargs: Any) -> Any:
+        nonlocal calls
+        calls += 1
+        raise AssertionError("client construction is forbidden")
+
+    monkeypatch.setattr(gemini_module.genai, "Client", forbidden_client)
+
+    with pytest.raises(AgentException) as exc_info:
+        await GeminiProvider(
+            backend="vertex_ai", **provider_kwargs
+        ).generate(task_132_messages(), [])
+
+    assert exc_info.value.code == "LLM_PROVIDER_ERROR"
+    assert exc_info.value.retryable is False
+    assert calls == 0
+
+
+@pytest.mark.asyncio
+async def test_vertex_provider_error_preserves_cause_without_retry(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    cause = RuntimeError("sensitive provider payload")
+    factory = FakeClientFactory(error=cause)
+    monkeypatch.setattr(gemini_module.genai, "Client", factory)
+
+    with pytest.raises(AgentException) as exc_info:
+        await GeminiProvider(
+            backend="vertex_ai", project="opaque-project"
+        ).generate(task_132_messages(), [])
+
+    assert exc_info.value.code == "LLM_PROVIDER_ERROR"
+    assert exc_info.value.__cause__ is cause
+    assert len(factory.models.calls) == 1
+    assert "sensitive provider payload" not in str(exc_info.value)
+    assert "sensitive provider payload" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_vertex_cancellation_propagates_without_conversion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cancellation = asyncio.CancelledError("vertex cancellation")
+    factory = FakeClientFactory(error=cancellation)
+    monkeypatch.setattr(gemini_module.genai, "Client", factory)
+
+    with pytest.raises(asyncio.CancelledError) as exc_info:
+        await GeminiProvider(
+            backend="vertex_ai", project="opaque-project"
+        ).generate(task_132_messages(), [])
+
+    assert exc_info.value is cancellation
+    assert len(factory.models.calls) == 1

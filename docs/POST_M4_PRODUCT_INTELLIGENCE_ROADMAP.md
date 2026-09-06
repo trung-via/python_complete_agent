@@ -1,8 +1,9 @@
 # Post-M4 Product Intelligence Roadmap — Live Product Enablement
 
 Status: canonical post-M4 architecture roadmap; P3 CLOSED by TASK-139 P3.1,
-TASK-140 P3.2, and TASK-141 P3.3; P4 Live Grounded-QA Provider Certification is
-CURRENT and IN PROGRESS, with TASK-142 establishing P4.1 only
+TASK-140 P3.2, and TASK-141 P3.3; on the TASK-144 candidate, P4 becomes CLOSED
+and P5 becomes CURRENT only after canonical Runtime PASS and ChatGPT
+semantic-review PASS are both recorded for that same candidate
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
 ## 1. Starting point
@@ -105,17 +106,34 @@ manual tool-declaration, and response transport offline. It does not establish
 provider account, credential, quota, network, model availability, or a live
 grounded answer, and it does not close P4.
 
-P4.2 credentialed live grounded-QA certification is the immediate next P4 stage.
-It must prove one live call through TASK-135 -> TASK-133 -> TASK-132 using the
-existing `GeminiProvider`, and report provider availability separately from
-TASK-132/TASK-129 grounded structural validation. P4.2 must not invent retry,
-fallback, provider-selection, or model-selection policy.
+TASK-143's Developer API/API-key certification lineage remains parked as
+external-provider/authentication evidence and was not published as source.
+TASK-144 supplies P4.2 through the same `GeminiProvider` in explicit `vertex_ai`
+mode, with ADC owned by the Google SDK/google-auth boundary. Human operators
+preconfigure ADC, project, API, IAM, billing/quota, and network access outside
+repository code. No fallback or reroute exists between `developer_api` and
+`vertex_ai`.
+
+TASK-144 certifies one live call through TASK-135 -> TASK-133 -> TASK-132 using
+the existing provider and reports provider availability separately from
+TASK-132/TASK-129 grounded structural validation. It adds no retry, fallback,
+provider selection, model discovery, or model-selection policy. A successful
+call proves only transport availability plus the existing structural contracts;
+it does not claim factual truth, semantic quality, provider SLA, or Product
+Intelligence truth authority.
+
+P4 is CLOSED only if canonical TASK-144 Runtime and ChatGPT semantic review both
+PASS the same source candidate. Otherwise P4 remains CURRENT / IN PROGRESS.
 
 ### P5 — Human-Facing Product Intelligence Surface
 
 Add a thin CLI/API/application presentation boundary over the existing discovery, ranking, approval, evidence-intake, canonical-knowledge, and grounded-QA services.
 
 Presentation must not become a new semantic authority. It may expose state and invoke canonical operations, but may not silently rank, approve, merge, reconcile, or rewrite evidence.
+
+P5 becomes CURRENT only after canonical TASK-144 Runtime PASS and ChatGPT
+semantic-review PASS on the same source candidate. TASK-144 implements no P5
+behavior.
 
 ### P6 — Quality and Scale Enhancements
 
@@ -139,10 +157,13 @@ family decision plus durable family admission, and TASK-141 closes P3.3 explicit
 sellable-variant review, Human decision, and durable admission while preserving
 TASK-115/116/117/118/119/120 authority. M3 remains the sole identity, catalog,
 persistence, and evidence authority; P3 remains application composition rather
-than a replacement semantic layer. P4 Live Grounded-QA Provider Certification is
-CURRENT and IN PROGRESS. TASK-142 establishes P4.1 provider transport foundation
-only; separate P4.2 credentialed live grounded-QA certification is the immediate
-next stage. P4 is not closed, and P5 has not advanced.
+than a replacement semantic layer. TASK-142 establishes the P4.1 provider
+transport foundation, TASK-143's Developer API live lineage remains parked and
+unpublished, and TASK-144 adds the explicit Vertex AI ADC certification route.
+On this candidate, P4 is CLOSED and P5 is CURRENT only after canonical TASK-144
+Runtime PASS and ChatGPT semantic-review PASS are both recorded for the same
+source candidate. If either gate does not pass, P4 remains IN PROGRESS and P5 is
+not current.
 
 ## 4. Authority invariants
 

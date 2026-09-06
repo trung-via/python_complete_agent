@@ -18,6 +18,10 @@ from src.providers.base import LLMProvider, LLMResponse, ProviderToolCall
 logger = logging.getLogger(__name__)
 
 DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"
+DEFAULT_VERTEX_LOCATION = "global"
+_DEVELOPER_API_BACKEND = "developer_api"
+_VERTEX_AI_BACKEND = "vertex_ai"
+_SUPPORTED_BACKENDS = frozenset({_DEVELOPER_API_BACKEND, _VERTEX_AI_BACKEND})
 _PLACEHOLDER_API_KEYS = frozenset(
     {
         "placeholder",
@@ -40,10 +44,23 @@ class GeminiProvider(LLMProvider):
         *,
         api_key: str | None = None,
         model_name: str | None = None,
+        backend: str = _DEVELOPER_API_BACKEND,
+        project: str | None = None,
+        location: str | None = None,
     ) -> None:
+        self._backend = backend
+        self._explicit_api_key = api_key
         self._api_key = (
-            api_key if api_key is not None else os.environ.get("GEMINI_API_KEY")
+            (
+                api_key
+                if api_key is not None
+                else os.environ.get("GEMINI_API_KEY")
+            )
+            if backend == _DEVELOPER_API_BACKEND
+            else None
         )
+        self._project = project
+        self._location = location
 
         if model_name is not None:
             self.model_name = model_name
@@ -61,14 +78,14 @@ class GeminiProvider(LLMProvider):
         tools: List[dict],
     ) -> LLMResponse:
         """Make one async request and map only generic provider transport values."""
-        api_key = self._validated_api_key()
+        client_kwargs = self._validated_client_kwargs()
         if not isinstance(self.model_name, str) or not self.model_name.strip():
             raise _configuration_error("Gemini model configuration is missing or invalid.")
 
         try:
             system_instruction, contents = self._translate_messages(messages)
             config = self._build_config(system_instruction, tools)
-            client = genai.Client(api_key=api_key)
+            client = genai.Client(**client_kwargs)
             response = await client.aio.models.generate_content(
                 model=self.model_name,
                 contents=contents,
@@ -86,6 +103,44 @@ class GeminiProvider(LLMProvider):
                 code="LLM_PROVIDER_ERROR",
                 retryable=True,
             ) from exc
+
+    def _validated_client_kwargs(self) -> dict[str, Any]:
+        if type(self._backend) is not str or self._backend not in _SUPPORTED_BACKENDS:
+            raise _configuration_error("Gemini backend configuration is invalid.")
+
+        if self._backend == _DEVELOPER_API_BACKEND:
+            return {"api_key": self._validated_api_key(), "vertexai": False}
+
+        if self._explicit_api_key is not None:
+            raise _configuration_error(
+                "Gemini API credentials are invalid for the Vertex AI backend."
+            )
+
+        project = (
+            self._project
+            if self._project is not None
+            else os.environ.get("GOOGLE_CLOUD_PROJECT")
+        )
+        if type(project) is not str or not project.strip():
+            raise _configuration_error(
+                "Google Cloud project configuration is missing or invalid."
+            )
+
+        if self._location is not None:
+            location = self._location
+        else:
+            environment_location = os.environ.get("GOOGLE_CLOUD_LOCATION")
+            location = (
+                environment_location
+                if environment_location is not None and environment_location.strip()
+                else DEFAULT_VERTEX_LOCATION
+            )
+        if type(location) is not str or not location.strip():
+            raise _configuration_error(
+                "Google Cloud location configuration is missing or invalid."
+            )
+
+        return {"vertexai": True, "project": project, "location": location}
 
     def _validated_api_key(self) -> str:
         if not isinstance(self._api_key, str):
