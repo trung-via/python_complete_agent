@@ -236,6 +236,12 @@ from src.product_intelligence.family_review_planning import (
     FamilyKnowledgeReviewPlanningError,
     plan_family_knowledge_review,
 )
+from src.product_intelligence.family_decision_admission import (
+    DurableFamilyAdmissionResult,
+    FamilyDecisionAdmissionError,
+    durably_admit_planned_family,
+    record_planned_family_decision,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -420,4 +426,8 @@ __all__ = [
     "FamilyKnowledgeReviewPlanningError",
     "FamilyKnowledgeReviewPlan",
     "plan_family_knowledge_review",
+    "FamilyDecisionAdmissionError",
+    "DurableFamilyAdmissionResult",
+    "record_planned_family_decision",
+    "durably_admit_planned_family",
 ]

@@ -1,6 +1,7 @@
 # Post-M4 Product Intelligence Roadmap — Live Product Enablement
 
-Status: canonical post-M4 architecture roadmap; P3 IN PROGRESS after TASK-139 P3.1 closure
+Status: canonical post-M4 architecture roadmap; P3 IN PROGRESS after TASK-139
+P3.1 and TASK-140 P3.2 closure
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
 ## 1. Starting point
@@ -65,10 +66,16 @@ inventory through TASK-109 resolution, TASK-111 grouping, and TASK-112 actionabl
 proposal construction while retaining all groups for Human review. It creates no
 Human decision, canonical family or variant, ID, catalog mutation, or durable write.
 
-The next unimplemented P3 sub-boundary is explicit Human family decision followed
-by durable family admission through existing M3 authorities. Caller-supplied opaque
-`family_id` remains required by TASK-114; ID allocation remains deferred. Later
-sellable-variant Human review/decision and durable admission remain separately staged.
+P3.2 Family Decision + Durable Admission is closed by TASK-140. It binds an
+explicit Human decision to one exact proposal retained by a P3.1 plan, delegates
+decision semantics to TASK-112, family admission and caller-supplied opaque
+`family_id` semantics to TASK-114, catalog integrity to TASK-118, codec semantics
+to TASK-119, and SQLite durability to TASK-120. A `REJECT` has no independent
+durable history authority and cannot mutate the catalog through this boundary.
+
+The immediate next unimplemented P3 sub-boundary is sellable-variant Human review,
+decision, and durable variant admission. TASK-117 continues to own admission under
+a caller-supplied opaque `variant_id`; ID allocation remains deferred.
 
 ### P4 — Live Grounded-QA Provider Certification
 
@@ -99,10 +106,11 @@ These are not blockers for P1-P5 and must each receive a separate authority audi
 
 P1 is closed by TASK-137. P2 is closed by TASK-138: persisted Product Source Pack evidence is now discoverable through an explicit-root, bounded local intake, and current downstream consumers can receive either typed `ProductSourcePack` values or the aligned explicit manifest paths without duplicating filesystem discovery.
 
-P3 is in progress. TASK-139 closes P3.1 family review planning only. The immediate
-next sub-boundary is explicit Human family decision plus durable family admission;
-it must preserve existing TASK-112/114/118/119/120 authority and must not implement
-automatic admission or create new identity, catalog, or product-truth semantics.
+P3 is in progress. TASK-139 closes P3.1 family review planning and TASK-140 closes
+P3.2 family decision plus durable family admission while preserving existing
+TASK-112/114/118/119/120 authority. The immediate next sub-boundary is
+sellable-variant Human review, decision, and durable variant admission with the
+caller-supplied opaque `variant_id` still owned by TASK-117.
 
 ## 4. Authority invariants
 
