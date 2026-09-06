@@ -1,0 +1,19 @@
+{
+  "repair_id": "REPAIR-143-002",
+  "failed_run_id": "RUN-143-002",
+  "failed_head_sha": "273f24d115cf116aeddadaaad9afb4990eb43bcd",
+  "task": {
+    "id": "TASK-143",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue only from the exact failed REPAIR candidate 273f24d115cf116aeddadaaad9afb4990eb43bcd for RUN-143-002. Preserve the TASK-143 lineage RUN-143-001 -> REPAIR-143-001 -> RUN-143-002 and preserve Codex executor identity; do not restart PRIMARY, reroute executors, or rebuild from current main.",
+    "RUN-143-002 failed at the Runtime completion gate before any verification command ran. The executor returned unresolved items stating that canonical live verification remained pending a valid GEMINI_API_KEY in the parent process environment. This establishes no product-code, test, documentation, or TASK defect. This continuation is explicitly NO_CHANGE: do not modify source, tests, docs, TASK files, worker files, or AIOS/runtime files, and keep HEAD exactly 273f24d115cf116aeddadaaad9afb4990eb43bcd.",
+    "For this invocation the Human must launch the Codex worker from a parent process environment that already contains a non-empty, non-placeholder GEMINI_API_KEY. Do not perform an ad-hoc provider request, model-list request, credential probe, retry, fallback, or any other network check during executor work. Do not print or serialize the credential. Once the environment prerequisite is present, return the structural REPAIR result with unresolved empty and allow the pinned Runtime alone to execute the exact TASK-143 verification commands, including the single admitted credentialed live certification request.",
+    "Do not claim provider availability before Runtime verification. If the Runtime live verification fails, preserve the resulting new FAILURE exactly for Brain classification; do not self-author a source correction, retry the live request, change model selection, or widen scope.",
+    "Do not claim semantic REVIEW PASS or publish. Return only the structural REPAIR result required for Runtime completion."
+  ],
+  "constraints": []
+}
