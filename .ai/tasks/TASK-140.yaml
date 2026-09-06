@@ -1,0 +1,335 @@
+task_id: TASK-140
+revision: 1
+
+goal: >
+  Implement post-M4 P3.2 Family Decision + Durable Admission as one bounded
+  application-composition boundary over the already-published TASK-139 and existing
+  M3 Human/admission/persistence authorities. The new boundary must let a caller record
+  one explicit Human family decision only for an exact actionable proposal retained by
+  one existing TASK-139 FamilyKnowledgeReviewPlan, then, in a separate explicit call,
+  durably admit only an APPROVE decision through TASK-114 canonical family creation and
+  TASK-120 SQLite family registration. TASK-140 must not redefine Human decision
+  semantics, validate or generate canonical IDs independently, duplicate TASK-118
+  catalog integrity, call TASK-119 codec directly, auto-create a catalog, auto-approve,
+  persist REJECT decisions independently, or implement sellable-variant P3 behavior.
+
+problem: >
+  TASK-139 closes P3.1 by producing an immutable review plan containing exact
+  TASK-112 FamilyMergeProposal objects, but the caller still has to manually bridge
+  proposal -> Human decision -> canonical family -> durable catalog registration.
+  Those semantics already have explicit owners: TASK-112 records APPROVE/REJECT,
+  TASK-114 admits one approved decision under a caller-supplied opaque family_id,
+  TASK-118 owns catalog integrity, TASK-119 owns canonical bytes, and TASK-120 owns
+  SQLite durability/transactions. P3.2 therefore needs only a thin application
+  composition surface that binds the Human action to an exact proposal from the
+  current review plan and delegates the later approved admission chain without
+  creating a second approval, identity, catalog, codec, or persistence authority.
+
+assumptions:
+  - >
+    Canonical Python Agent main immediately before TASK-140 authoring is
+    f08b6f5ad416666e42fa04f3507b2150e07a0885, the published TASK-139 source
+    candidate after REVIEW-139-001 PRIMARY PASS.
+  - >
+    The authoritative AIOS dependency remains exactly
+    aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@67db82bf19d63f25721d06aabb82d850db8b78d4.
+  - >
+    docs/POST_M4_P3_HUMAN_GOVERNED_KNOWLEDGE_UPDATE.md and
+    docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md are canonical: P3 is IN PROGRESS,
+    P3.1 is closed by TASK-139, and explicit Human family decision followed by durable
+    family admission is the immediate next P3 sub-boundary.
+  - >
+    TASK-139 FamilyKnowledgeReviewPlan remains the sole P3.1 planning value and retains
+    the exact actionable FamilyMergeProposal objects presented for Human review.
+  - >
+    TASK-112 create_family_merge_decision_record remains the sole Human family decision
+    authority. TASK-140 may verify only that the selected proposal is the exact object
+    retained by the supplied plan, then must forward proposal/decision/actor/decided_at
+    unchanged to TASK-112.
+  - >
+    TASK-114 create_canonical_family remains the sole canonical family admission
+    authority and continues to require one explicit caller-supplied opaque family_id.
+    TASK-140 must not pre-normalize, generate, hash, parse, reserve, or otherwise
+    reinterpret that ID.
+  - >
+    TASK-118 remains the sole catalog-integrity authority; TASK-119 remains the sole
+    canonical catalog byte/rehydration authority; TASK-120
+    register_sqlite_canonical_family remains the sole durable family-registration and
+    SQLite transaction boundary. TASK-140 must call TASK-120 rather than reproducing
+    load/register/encode/write behavior.
+  - >
+    Existing M3 intentionally has no independent durable Human-decision history store.
+    A REJECT decision therefore remains an in-memory exact TASK-112 record at this
+    boundary and must not cause catalog mutation or introduce a new rejection store.
+  - >
+    Family ID allocation, identity evolution/membership extension, conflict repair,
+    singleton canonicalization, product-truth reconciliation, automatic approval, and
+    all sellable-variant P3 stages remain deferred.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_M4_P3_HUMAN_GOVERNED_KNOWLEDGE_UPDATE.md
+    - docs/PHASE_6_M3_COMPLETION.md
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+    - .ai/tasks/TASK-112.yaml
+    - .ai/tasks/TASK-114.yaml
+    - .ai/tasks/TASK-118.yaml
+    - .ai/tasks/TASK-119.yaml
+    - .ai/tasks/TASK-120.yaml
+    - .ai/tasks/TASK-139.yaml
+    - src/product_intelligence/family_review_planning.py
+    - src/product_intelligence/family_merge_approval.py
+    - src/product_intelligence/canonical_family.py
+    - src/product_intelligence/canonical_catalog.py
+    - src/product_intelligence/canonical_catalog_codec.py
+    - src/product_intelligence/canonical_catalog_sqlite.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_family_review_planning.py
+    - tests/product_intelligence/test_family_merge_approval.py
+    - tests/product_intelligence/test_canonical_family.py
+    - tests/product_intelligence/test_canonical_catalog.py
+    - tests/product_intelligence/test_canonical_catalog_codec.py
+    - tests/product_intelligence/test_canonical_catalog_sqlite.py
+    - tests/product_intelligence/test_m3_persistent_knowledge_restart.py
+
+  modify:
+    - src/product_intelligence/family_decision_admission.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_family_decision_admission.py
+    - docs/POST_M4_P3_HUMAN_GOVERNED_KNOWLEDGE_UPDATE.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+
+non_goals:
+  - Modify TASK-139 planning semantics, group/proposal ordering, or plan construction.
+  - Modify TASK-112 proposal or Human APPROVE/REJECT, actor, timestamp, evidence, or
+    validation semantics.
+  - Modify TASK-114 family_id validation, canonical family schema, admission semantics,
+    or approval lineage.
+  - Modify TASK-118 catalog uniqueness, lineage collision, observation exclusivity,
+    idempotency, or append-only semantics.
+  - Modify TASK-119 canonical snapshot schema, encoding, decoding, or rehydration.
+  - Modify TASK-120 SQLite schema, transaction, durability, lock, load, or registration
+    semantics.
+  - Re-run TASK-109 resolution, TASK-111 grouping, or TASK-112 proposal construction.
+  - Accept a raw ProductSourcePack collection, graph, provisional group, arbitrary
+    proposal collection, catalog state, codec payload, sqlite3 connection, or alternate
+    planning/admission authority.
+  - Auto-select a proposal, auto-create a Human decision, infer APPROVE/REJECT, or let
+    machine evidence imply approval.
+  - Generate, allocate, normalize, trim, hash, prefix, suffix, infer, reserve, or persist
+    a family_id outside existing TASK-114/TASK-118/TASK-120 semantics.
+  - Auto-create a missing SQLite catalog, auto-reinitialize an invalid catalog, retry a
+    failed SQLite registration, or add background/queue/watcher behavior.
+  - Persist REJECT decisions to a new file/table/store, create a decision-history model,
+    or claim that a REJECT survives process restart.
+  - Create or admit sellable variants, choose selected variant members, call TASK-115,
+    TASK-116, TASK-117, or register_sqlite_canonical_variant.
+  - Repair CONFLICTED groups, admit SINGLETON groups, extend existing canonical family
+    membership, or implement identity evolution.
+  - Reconcile product truth, select preferred/latest/majority evidence, rank proposals,
+    or add merge confidence/recommendation.
+  - Add browser/CDP, marketplace, Google Drive, network, LLM/provider, clock defaults,
+    random/UUID generation, subprocess, retry, polling, or background work.
+  - Close all of P3, implement P4/P5/P6, or invent a new phase authority.
+  - Change AIOS pin, worker surfaces, publication workflow, or prior RUN/REVIEW lineage.
+
+constraints:
+  hard:
+    - >
+      Add exactly one new module src/product_intelligence/family_decision_admission.py
+      and expose exactly four TASK-140 public names from that module and from
+      product_intelligence: FamilyDecisionAdmissionError,
+      DurableFamilyAdmissionResult, record_planned_family_decision, and
+      durably_admit_planned_family. The actual module namespace, not merely __all__,
+      must contain no other non-underscore public dependency names; implementation
+      imports must use private aliases.
+    - >
+      record_planned_family_decision must be synchronous with semantic signature
+      record_planned_family_decision(plan: FamilyKnowledgeReviewPlan,
+      proposal: FamilyMergeProposal, *, decision: FamilyMergeDecision, actor: str,
+      decided_at: datetime) -> FamilyMergeDecisionRecord. It must require the exact
+      TASK-139 plan type and exact TASK-112 proposal type and expose no graph, group,
+      source-pack, resolver, proposal-factory, family_id, catalog, or database input.
+    - >
+      Before delegating the Human decision, record_planned_family_decision must prove
+      that proposal is retained by exact object identity exactly once in
+      plan.proposals. A proposal from another plan, a value-equal reconstructed/stale
+      proposal, a proposal absent from the plan, or a forged/wrong type must fail closed
+      with FamilyDecisionAdmissionError. TASK-140 must not compare evidence to recreate
+      proposal eligibility or rerun planning to establish membership.
+    - >
+      For a valid exact plan/proposal lineage, record_planned_family_decision must call
+      existing TASK-112 create_family_merge_decision_record exactly once with the exact
+      proposal and the caller-supplied decision, actor, and decided_at unchanged. It
+      must return the exact FamilyMergeDecisionRecord object returned by TASK-112.
+      TASK-140 must not independently validate/normalize decision, actor, or time and
+      must allow FamilyMergeApprovalError or other TASK-112 errors to propagate
+      unchanged.
+    - >
+      durably_admit_planned_family must be synchronous with semantic signature
+      durably_admit_planned_family(plan: FamilyKnowledgeReviewPlan,
+      decision_record: FamilyMergeDecisionRecord, *, family_id: str,
+      database_path: os.PathLike[str] | str) -> DurableFamilyAdmissionResult. It must
+      require the exact TASK-139 plan type and exact TASK-112 decision-record type and
+      expose no graph, group, source-pack, raw catalog, codec payload, connection, or
+      alternate persistence input.
+    - >
+      Before admission, durably_admit_planned_family must prove that
+      decision_record.proposal is retained by exact object identity exactly once in
+      plan.proposals. A decision over a proposal from another/stale plan, an absent
+      proposal, or structurally impossible lineage must fail closed with
+      FamilyDecisionAdmissionError before TASK-114/TASK-120 calls. It must not recreate
+      or reinterpret TASK-112 proposal/decision semantics.
+    - >
+      After exact plan lineage is established, durably_admit_planned_family must call
+      TASK-114 create_canonical_family exactly once with the exact decision_record and
+      caller-supplied family_id unchanged. It must not inspect proposal evidence,
+      independently test APPROVE/REJECT, validate family_id itself, generate an ID, or
+      substitute another admission path. REJECT and invalid family_id must fail only
+      through the existing TASK-114 authority, whose error must propagate unchanged.
+    - >
+      TASK-120 register_sqlite_canonical_family must be called exactly once and only
+      after TASK-114 successfully returns one exact CanonicalProductFamily. The exact
+      caller-supplied database_path and exact family object must be forwarded unchanged.
+      TASK-140 must not call create_sqlite_canonical_catalog, load_sqlite_canonical_catalog,
+      TASK-118 register_canonical_family, TASK-119 encode/decode, sqlite3, or any storage
+      primitive directly.
+    - >
+      If TASK-114 fails, TASK-120 must not be called. If TASK-120 fails, the exception
+      category from TASK-118/TASK-119/TASK-120 must propagate unchanged and TASK-140
+      must not retry, reroute, create another family, mutate the decision, or claim a
+      durable success. TASK-140 owns no transaction/recovery semantics beyond the one
+      delegated TASK-120 call.
+    - >
+      DurableFamilyAdmissionResult must be an immutable canonical-factory-only
+      application result that cannot be validly direct-constructed. It must contain
+      exactly three fields in this order: decision_record, family, registration. The
+      values must be the exact TASK-112 decision record supplied to admission, the exact
+      TASK-114 CanonicalProductFamily returned by admission, and the exact TASK-120
+      CatalogRegistrationResult returned by durable registration. It creates no new
+      registration status or persistence claim.
+    - >
+      Successful durable admission may return either TASK-118/TASK-120 INSERTED or
+      ALREADY_PRESENT exactly as returned by TASK-120. TASK-140 must not reinterpret,
+      collapse, upgrade, downgrade, or replace that registration status and must not
+      claim Python object identity for a value-equal family already persisted across a
+      prior decode/reopen boundary.
+    - >
+      REJECT remains a valid output of record_planned_family_decision but has no durable
+      side effect in TASK-140. Calling durably_admit_planned_family with that exact
+      REJECT record must reach TASK-114 once, fail under TASK-114 approval semantics,
+      perform zero TASK-120 calls, and leave any existing catalog unchanged. TASK-140
+      must not create a rejection table/file/store or silently convert REJECT to a
+      successful no-op registration status.
+    - >
+      Focused tests must prove exact four-name module namespace, exact plan/proposal
+      identity membership, exact-once TASK-112 decision delegation, exact unchanged
+      Human field forwarding, no duplicate TASK-112 validation, exact TASK-114 then
+      TASK-120 call order, exact family_id/database_path forwarding, immutable
+      anti-forgery DurableFamilyAdmissionResult, INSERTED and ALREADY_PRESENT pass-through,
+      REJECT no-write behavior, upstream error propagation, and absence of resolver,
+      grouping, proposal, codec, catalog-integrity, sqlite3, variant, external, retry,
+      clock, or ID-generation work in TASK-140.
+    - >
+      Add one real compatibility regression that starts from a real TASK-139
+      FamilyKnowledgeReviewPlan, records explicit Human APPROVE through TASK-140,
+      creates a pre-existing canonical SQLite catalog only through TASK-120's existing
+      create_sqlite_canonical_catalog, durably admits the family through TASK-140, then
+      reopens only through TASK-120 load_sqlite_canonical_catalog and proves the
+      persisted family is value-equal with preserved Human/proposal evidence lineage.
+      The regression must not create a variant or invoke TASK-115/116/117.
+    - >
+      Add one real REJECT regression from a real TASK-139 proposal proving TASK-140
+      returns the exact TASK-112 REJECT decision, durably_admit_planned_family fails via
+      existing TASK-114, and canonical SQLite bytes/catalog remain unchanged across the
+      failed admission attempt.
+    - >
+      Update docs/POST_M4_P3_HUMAN_GOVERNED_KNOWLEDGE_UPDATE.md to mark P3.2 Family
+      Decision + Durable Admission CLOSED only by the TASK-140 implementation boundary,
+      explicitly preserve TASK-112/114/118/119/120 ownership, state that REJECT has no
+      independent durable history authority, and identify sellable-variant Human
+      review/decision + durable variant admission as the next P3 stage.
+    - >
+      Update docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md to keep P3 IN PROGRESS, record
+      P3.1 and P3.2 as closed boundaries, and identify sellable-variant Human review,
+      decision, and durable variant admission as the immediate next unimplemented P3
+      sub-boundary. Do not mark P3 CLOSED and do not implement that next stage in
+      TASK-140.
+    - Do not push from Executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      family_decision_admission.py and product_intelligence expose exactly
+      FamilyDecisionAdmissionError, DurableFamilyAdmissionResult,
+      record_planned_family_decision, and durably_admit_planned_family for TASK-140,
+      with no additional public approval/identity/catalog/codec/storage authority.
+  - id: AC2
+    condition: >
+      record_planned_family_decision accepts only an exact TASK-139 plan plus an exact
+      TASK-112 proposal retained by object identity exactly once in plan.proposals;
+      cross-plan/stale/absent/wrong proposal lineage fails closed before Human decision
+      delegation.
+  - id: AC3
+    condition: >
+      Valid planned decision recording calls TASK-112 create_family_merge_decision_record
+      exactly once and returns its exact FamilyMergeDecisionRecord while forwarding the
+      proposal, explicit APPROVE/REJECT, actor, and timezone-aware decided_at unchanged
+      and delegating all Human-field semantics/errors to TASK-112.
+  - id: AC4
+    condition: >
+      durably_admit_planned_family accepts only an exact TASK-139 plan and exact TASK-112
+      decision whose exact proposal belongs to that plan, then delegates exactly once to
+      TASK-114 with the exact decision and caller-supplied opaque family_id; it performs
+      no independent APPROVE or ID validation/generation.
+  - id: AC5
+    condition: >
+      After successful TASK-114 admission, TASK-140 forwards the exact resulting family
+      and exact database_path to TASK-120 register_sqlite_canonical_family exactly once,
+      with no direct TASK-118 registration, TASK-119 codec, SQLite primitive, store
+      creation/load, retry, or alternate persistence path.
+  - id: AC6
+    condition: >
+      DurableFamilyAdmissionResult is immutable and anti-forgery, contains exactly
+      decision_record/family/registration, preserves those exact predecessor objects,
+      and passes through TASK-120 INSERTED or ALREADY_PRESENT without new status or
+      object-identity claims across reopen.
+  - id: AC7
+    condition: >
+      Explicit REJECT remains a valid exact TASK-112 decision record from the planning
+      workflow; durable admission of that REJECT reaches TASK-114, fails under existing
+      approval semantics, performs zero TASK-120 calls, creates no rejection persistence,
+      and leaves an existing durable catalog unchanged.
+  - id: AC8
+    condition: >
+      TASK-112, TASK-114, TASK-118, TASK-119, and TASK-120 errors retain their existing
+      categories and propagate unchanged; TASK-140 performs no retry/reroute/fallback,
+      does not convert failures into success/no-op statuses, and never mutates decision,
+      family, catalog, or source evidence to recover.
+  - id: AC9
+    condition: >
+      A real TASK-139 plan can flow through explicit Human APPROVE -> TASK-114 family
+      admission -> TASK-120 durable registration, and reopening the catalog through
+      TASK-120 reconstructs a value-equal family with the exact semantic Human/proposal
+      evidence lineage preserved, without variant creation or new semantic authority.
+  - id: AC10
+    condition: >
+      TASK-140 performs no resolution/grouping/proposal construction, ProductSourcePack
+      intake, decision inference, family ID allocation, catalog-integrity reimplementation,
+      codec work, direct SQLite work, variant review/admission, browser/network/Drive/
+      model/provider, clock default, random/UUID, queue/retry/background behavior, or
+      product-truth reconciliation.
+  - id: AC11
+    condition: >
+      Focused predecessor and TASK-140 regressions pass and git diff --check passes;
+      documentation records P3.2 as a closed composition boundary while P3 remains IN
+      PROGRESS and the next unimplemented stage is sellable-variant Human review/decision
+      plus durable variant admission with caller-supplied opaque variant_id still owned
+      by TASK-117.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_family_decision_admission.py tests/product_intelligence/test_family_review_planning.py tests/product_intelligence/test_family_merge_approval.py tests/product_intelligence/test_canonical_family.py tests/product_intelligence/test_canonical_catalog.py tests/product_intelligence/test_canonical_catalog_codec.py tests/product_intelligence/test_canonical_catalog_sqlite.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
