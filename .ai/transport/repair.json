@@ -1,0 +1,21 @@
+{
+  "repair_id": "REPAIR-142-001",
+  "failed_run_id": "RUN-142-001",
+  "failed_head_sha": "df947c4f9167023e44420ea0c07ef5985944096f",
+  "task": {
+    "id": "TASK-142",
+    "revision": 1
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "tests/providers/test_gemini_provider.py"
+  ],
+  "instructions": [
+    "Continue only from the exact failed PRIMARY candidate df947c4f9167023e44420ea0c07ef5985944096f for RUN-142-001. Preserve the TASK-142 lineage and Codex executor identity; do not restart PRIMARY, reroute executors, or rebuild from current main.",
+    "RUN-142-001 reached Runtime verification and failed exactly one test: test_task_132_transport_uses_one_async_request_and_no_tools expected gemini-3.8-flash while the execution environment supplied GEMINI_MODEL_NAME=gemini-flash-lite-latest. TASK-142 explicitly requires environment fallback when model_name is absent, so the provider implementation behavior is correct and the concrete defect is nondeterministic test isolation.",
+    "Make the minimum real correction only in tests/providers/test_gemini_provider.py. Ensure test_task_132_transport_uses_one_async_request_and_no_tools isolates GEMINI_MODEL_NAME before constructing GeminiProvider without an explicit model_name, so its repository-default assertion is deterministic and cannot inherit machine/user environment configuration. Do not change src/providers/gemini.py, requirements.txt, .env.example, documentation, TASK files, or AIOS/runtime files.",
+    "Do not weaken or remove the repository-default assertion merely to make the test pass, and do not change the required environment-fallback semantics. Existing dedicated tests for explicit configuration precedence, environment fallback, and exact default model must remain intact.",
+    "After the real correction commit, allow the pinned Runtime to execute the original TASK-142 verification commands. Do not substitute ad-hoc verification, retry/fallback behavior, live Gemini calls, or credentials. Return only the structural REPAIR result required for Runtime completion."
+  ],
+  "constraints": []
+}
