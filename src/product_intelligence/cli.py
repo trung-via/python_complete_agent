@@ -33,6 +33,31 @@ from src.product_intelligence.discovery import (
     DiscoveryError as _DiscoveryError,
     DiscoveryRequest as _DiscoveryRequest,
 )
+from src.product_intelligence.entity_grouping import (
+    ProvisionalProductFamilyGroup as _ProvisionalProductFamilyGroup,
+)
+from src.product_intelligence.entity_resolution import (
+    SourceObservationIdentity as _SourceObservationIdentity,
+)
+from src.product_intelligence.entity_resolution_graph import (
+    PairwiseConflictEvidence as _PairwiseConflictEvidence,
+    ProductFamilyConsistencyConflict as _ProductFamilyConsistencyConflict,
+)
+from src.product_intelligence.family_decision_admission import (
+    FamilyDecisionAdmissionError as _FamilyDecisionAdmissionError,
+    durably_admit_planned_family as _durably_admit_planned_family,
+    record_planned_family_decision as _record_planned_family_decision,
+)
+from src.product_intelligence.family_merge_approval import (
+    FamilyMergeDecision as _FamilyMergeDecision,
+    FamilyMergePairEvidence as _FamilyMergePairEvidence,
+    FamilyMergeProposal as _FamilyMergeProposal,
+)
+from src.product_intelligence.family_review_planning import (
+    FamilyKnowledgeReviewPlan as _FamilyKnowledgeReviewPlan,
+    FamilyKnowledgeReviewPlanningError as _FamilyKnowledgeReviewPlanningError,
+    plan_family_knowledge_review as _plan_family_knowledge_review,
+)
 from src.product_intelligence.grounded_invocation import (
     GroundedInvocationError as _GroundedInvocationError,
 )
@@ -61,6 +86,8 @@ _KNOWN_APPLICATION_ERRORS = (
     _DiscoveryError,
     _OrchestrationError,
     _ApprovalError,
+    _FamilyKnowledgeReviewPlanningError,
+    _FamilyDecisionAdmissionError,
     _AgentException,
     OSError,
     ValueError,
@@ -196,6 +223,35 @@ def _parser() -> _argparse.ArgumentParser:
         help="Explicit human actor identifier.",
     )
     decide.add_argument(
+        "--decided-at",
+        action=_UniqueStoreAction,
+        required=True,
+        type=_parse_iso_datetime,
+        help="Explicit ISO-8601 decided timestamp.",
+    )
+    family_decide = commands.add_parser(
+        "family-decide",
+        help="Review provisional product families and record one human decision.",
+    )
+    family_decide.add_argument(
+        "--root",
+        action="append",
+        required=True,
+        help="Explicit local evidence root (repeat for multiple roots).",
+    )
+    family_decide.add_argument(
+        "--database",
+        action=_UniqueStoreAction,
+        required=True,
+        help="Canonical catalog database.",
+    )
+    family_decide.add_argument(
+        "--actor",
+        action=_UniqueStoreAction,
+        required=True,
+        help="Explicit human actor identifier.",
+    )
+    family_decide.add_argument(
         "--decided-at",
         action=_UniqueStoreAction,
         required=True,
@@ -383,6 +439,210 @@ async def _decide_document(arguments: _argparse.Namespace) -> dict[str, object]:
     }
 
 
+def _observation_identity_document(
+    identity: _SourceObservationIdentity,
+) -> dict[str, object]:
+    return {
+        "source_pack_id": identity.source_pack_id,
+        "platform": identity.platform,
+        "source_product_id": identity.source_product_id,
+        "product_url": identity.product_url,
+        "observed_at": (
+            identity.observed_at.isoformat()
+            if hasattr(identity.observed_at, "isoformat")
+            else str(identity.observed_at)
+        ),
+    }
+
+
+def _pair_evidence_document(
+    pair: _FamilyMergePairEvidence,
+) -> dict[str, object]:
+    return {
+        "left": _observation_identity_document(pair.left),
+        "right": _observation_identity_document(pair.right),
+        "relationship": (
+            pair.relationship.value
+            if hasattr(pair.relationship, "value")
+            else str(pair.relationship)
+        ),
+        "confidence": pair.confidence,
+        "reasons": list(pair.reasons),
+        "evidence": [
+            {
+                "code": item.code,
+                "detail": item.detail,
+            }
+            for item in pair.evidence
+        ],
+    }
+
+
+def _conflict_pair_document(
+    pair: _PairwiseConflictEvidence,
+) -> dict[str, object]:
+    return {
+        "left": _observation_identity_document(pair.left),
+        "right": _observation_identity_document(pair.right),
+        "relationship": (
+            pair.relationship.value
+            if hasattr(pair.relationship, "value")
+            else str(pair.relationship)
+        ),
+        "confidence": pair.confidence,
+        "reasons": list(pair.reasons),
+    }
+
+
+def _conflict_document(conflict: object) -> object:
+    if isinstance(conflict, _ProductFamilyConsistencyConflict):
+        return {
+            "conflict_type": conflict.conflict_type,
+            "contradictory_pair": _conflict_pair_document(
+                conflict.contradictory_pair
+            ),
+            "positive_path": [
+                _conflict_pair_document(item)
+                for item in conflict.positive_path
+            ],
+            "affected_identities": [
+                _observation_identity_document(item)
+                for item in conflict.affected_identities
+            ],
+            "detail": conflict.detail,
+        }
+    if hasattr(conflict, "__dict__"):
+        return {
+            k: str(v)
+            for k, v in vars(conflict).items()
+            if not k.startswith("_")
+        }
+    return str(conflict)
+
+
+def _group_document(group: _ProvisionalProductFamilyGroup) -> dict[str, object]:
+    return {
+        "status": (
+            group.status.value
+            if hasattr(group.status, "value")
+            else str(group.status)
+        ),
+        "members": [
+            _observation_identity_document(member)
+            for member in group.members
+        ],
+        "conflicts": [
+            _conflict_document(conflict)
+            for conflict in group.conflicts
+        ],
+    }
+
+
+def _proposal_document(proposal: _FamilyMergeProposal) -> dict[str, object]:
+    return {
+        "members": [
+            _observation_identity_document(member)
+            for member in proposal.members
+        ],
+        "pair_evidence": [
+            _pair_evidence_document(pair)
+            for pair in proposal.pair_evidence
+        ],
+    }
+
+
+def _preview_document(plan: _FamilyKnowledgeReviewPlan) -> dict[str, object]:
+    return {
+        "groups": [
+            _group_document(group) for group in plan.groups
+        ],
+        "proposals": [
+            _proposal_document(proposal) for proposal in plan.proposals
+        ],
+    }
+
+
+def _family_decide_document(arguments: _argparse.Namespace) -> dict[str, object]:
+    inventory = _intake_product_source_evidence(arguments.root)
+    plan = _plan_family_knowledge_review(inventory)
+
+    _write_json(_preview_document(plan), _sys.stderr)
+
+    if not plan.proposals:
+        raise ValueError("No actionable family merge proposals in review plan")
+
+    raw_position = _sys.stdin.readline()
+    if not raw_position:
+        raise ValueError("Unexpected end of input: missing proposal position")
+    position_text = raw_position.rstrip("\r\n")
+    if not position_text.isdigit():
+        raise ValueError(f"Invalid proposal position: {position_text!r}")
+    position = int(position_text)
+    if not (1 <= position <= len(plan.proposals)):
+        raise ValueError(
+            f"Proposal position out of range: {position} (expected 1..{len(plan.proposals)})"
+        )
+
+    raw_decision = _sys.stdin.readline()
+    if not raw_decision:
+        raise ValueError("Unexpected end of input: missing decision token")
+    decision_text = raw_decision.rstrip("\r\n")
+    if decision_text not in ("APPROVE", "REJECT"):
+        raise ValueError(f"Invalid decision token: {decision_text!r}")
+
+    selected_proposal = plan.proposals[position - 1]
+    decision = (
+        _FamilyMergeDecision.APPROVE
+        if decision_text == "APPROVE"
+        else _FamilyMergeDecision.REJECT
+    )
+    decision_record = _record_planned_family_decision(
+        plan,
+        selected_proposal,
+        decision=decision,
+        actor=arguments.actor,
+        decided_at=arguments.decided_at,
+    )
+
+    if decision is _FamilyMergeDecision.REJECT:
+        admission_document = None
+    else:
+        raw_family_id = _sys.stdin.readline()
+        if not raw_family_id:
+            raise ValueError("Unexpected end of input: missing family_id")
+        if raw_family_id.endswith("\r\n"):
+            family_id = raw_family_id[:-2]
+        elif raw_family_id.endswith("\n") or raw_family_id.endswith("\r"):
+            family_id = raw_family_id[:-1]
+        else:
+            family_id = raw_family_id
+
+        admission_result = _durably_admit_planned_family(
+            plan,
+            decision_record,
+            family_id=family_id,
+            database_path=arguments.database,
+        )
+        admission_document = {
+            "family_id": admission_result.family.family_id,
+            "member_source_pack_ids": [
+                member.source_pack_id
+                for member in admission_result.family.members
+            ],
+            "registration_status": admission_result.registration.status.value,
+        }
+
+    return {
+        "decision": {
+            "decision": decision_record.decision.value,
+            "actor": decision_record.actor,
+            "decided_at": decision_record.decided_at.isoformat(),
+            "proposal": _proposal_document(decision_record.proposal),
+        },
+        "admission": admission_document,
+    }
+
+
 def _write_json(document: dict[str, object], stream) -> None:
     _json.dump(document, stream, ensure_ascii=False, indent=2)
     stream.write("\n")
@@ -413,6 +673,8 @@ def main(argv=None) -> int:
             document = _asyncio.run(_discover_document(arguments))
         elif arguments.command == "decide":
             document = _asyncio.run(_decide_document(arguments))
+        elif arguments.command == "family-decide":
+            document = _family_decide_document(arguments)
         else:
             raise ValueError(f"Unknown command: {arguments.command}")
     except _KNOWN_APPLICATION_ERRORS as error:

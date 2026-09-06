@@ -8,6 +8,7 @@ import importlib
 from io import StringIO
 import json
 from pathlib import Path
+import re
 from types import SimpleNamespace
 
 import pytest
@@ -46,8 +47,55 @@ from src.product_intelligence.orchestration import (
 )
 from src.product_intelligence.ranking import RankedCandidate
 from src.product_intelligence.scoring import WinningProductScorer
-from src.product_intelligence.source_evidence_intake import SourceEvidenceInventory
-from src.product_source.models import ProductSourcePack
+from src.product_intelligence.source_evidence_intake import (
+    SourceEvidenceIntakeError,
+    SourceEvidenceInventory,
+)
+from src.product_intelligence.canonical_catalog import CatalogRegistrationStatus
+from src.product_intelligence.canonical_catalog_sqlite import (
+    CanonicalCatalogStorageError,
+    create_sqlite_canonical_catalog,
+    load_sqlite_canonical_catalog,
+)
+from src.product_intelligence.canonical_family import (
+    CanonicalFamilyAdmissionError,
+)
+from src.product_intelligence.entity_grouping import (
+    ProvisionalGroupingResult,
+    ProvisionalGroupStatus,
+    ProvisionalProductFamilyGroup,
+)
+from src.product_intelligence.entity_resolution import (
+    EntityResolutionResult,
+    ProductRelationship,
+    ResolutionEvidence,
+    SourceObservationIdentity,
+)
+from src.product_intelligence.entity_resolution_graph import (
+    MultiObservationResolutionGraph,
+    PairwiseConflictEvidence,
+    ProductFamilyConsistencyConflict,
+)
+from src.product_intelligence.family_decision_admission import (
+    DurableFamilyAdmissionResult,
+    FamilyDecisionAdmissionError,
+    _DURABLE_ADMISSION,
+)
+from src.product_intelligence.family_merge_approval import (
+    FamilyMergeApprovalError,
+    FamilyMergeDecision,
+    FamilyMergeDecisionRecord,
+    FamilyMergePairEvidence,
+    FamilyMergeProposal,
+    create_family_merge_proposal,
+)
+from src.product_intelligence.family_review_planning import (
+    FamilyKnowledgeReviewPlan,
+    FamilyKnowledgeReviewPlanningError,
+    plan_family_knowledge_review,
+)
+from src.product_source.models import ProductFact, ProductSourcePack
+from src.product_source.serialization import serialize_source_pack
 
 
 def _pack(name: str, observed_hour: int) -> ProductSourcePack:
@@ -86,6 +134,8 @@ def test_import_is_side_effect_free(monkeypatch, capsys):
     import src.product_intelligence.adapters.tiktok as tiktok_adapter
     import src.product_intelligence.approval as approval
     import src.product_intelligence.canonical_catalog_sqlite as catalog_sqlite
+    import src.product_intelligence.family_decision_admission as decision_admission
+    import src.product_intelligence.family_review_planning as review_planning
     import src.product_intelligence.orchestration as orchestration
     import src.product_intelligence.persistent_grounded_qa as persistent_qa
     import src.product_intelligence.source_evidence_intake as evidence_intake
@@ -103,6 +153,9 @@ def test_import_is_side_effect_free(monkeypatch, capsys):
         scoped.setattr(orchestration, "orchestrate_discovery", forbidden)
         scoped.setattr(approval, "create_approval_record", forbidden)
         scoped.setattr(approval, "enqueue_approval", forbidden)
+        scoped.setattr(review_planning, "plan_family_knowledge_review", forbidden)
+        scoped.setattr(decision_admission, "record_planned_family_decision", forbidden)
+        scoped.setattr(decision_admission, "durably_admit_planned_family", forbidden)
         importlib.reload(cli)
         captured = capsys.readouterr()
         assert captured.out == captured.err == ""
@@ -122,6 +175,7 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
         "ask",
         "discover",
         "decide",
+        "family-decide",
     )
     assert {
         name: {
@@ -156,6 +210,14 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
             "--platform",
             "--cdp-endpoint",
             "--shortlist-size",
+            "--actor",
+            "--decided-at",
+        },
+        "family-decide": {
+            "-h",
+            "--help",
+            "--root",
+            "--database",
             "--actor",
             "--decided-at",
         },
@@ -382,6 +444,22 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
             "--decided-at",
             "2026-09-06T13:00:00Z",
         ],
+        ["family-decide"],
+        ["family-decide", "--root", "r"],
+        ["family-decide", "--database", "db"],
+        ["family-decide", "--actor", "act"],
+        ["family-decide", "--decided-at", "2026-09-06T12:00:00Z"],
+        ["family-decide", "--root", "r", "--database", "db", "--actor", "act"],
+        ["family-decide", "--root", "r", "--database", "db", "--decided-at", "2026-09-06T12:00:00Z"],
+        ["family-decide", "--root", "r", "--actor", "act", "--decided-at", "2026-09-06T12:00:00Z"],
+        ["family-decide", "--database", "db", "--actor", "act", "--decided-at", "2026-09-06T12:00:00Z"],
+        ["family-decide", "--root", "r", "--database", "db", "--actor", "act", "--decided-at", "not-a-datetime"],
+        ["family-decide", "--root", "r", "--database", "db1", "--database", "db2", "--actor", "act", "--decided-at", "2026-09-06T12:00:00Z"],
+        ["family-decide", "--root", "r", "--database", "db", "--actor", "act1", "--actor", "act2", "--decided-at", "2026-09-06T12:00:00Z"],
+        ["family-decide", "--root", "r", "--database", "db", "--actor", "act", "--decided-at", "2026-09-06T12:00:00Z", "--decided-at", "2026-09-06T13:00:00Z"],
+        ["family-decide", "--root", "r", "--database", "db", "--actor", "act", "--decided-at", "2026-09-06T12:00:00Z", "--family-id", "f1"],
+        ["family-decide", "--root", "r", "--database", "db", "--actor", "act", "--decided-at", "2026-09-06T12:00:00Z", "--decision", "APPROVE"],
+        ["family-decide", "--root", "r", "--database", "db", "--actor", "act", "--decided-at", "2026-09-06T12:00:00Z", "--proposal", "1"],
     )
     for argv in invalid:
         with pytest.raises(SystemExit) as error:
@@ -403,6 +481,27 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
             ]
         )
     assert error.value.code == 2
+
+    parsed = parser.parse_args(
+        [
+            "family-decide",
+            "--root",
+            "root1",
+            "--root",
+            "root2",
+            "--database",
+            "cat.db",
+            "--actor",
+            "operator",
+            "--decided-at",
+            "2026-09-06T12:00:00+00:00",
+        ]
+    )
+    assert parsed.command == "family-decide"
+    assert parsed.root == ["root1", "root2"]
+    assert parsed.database == "cat.db"
+    assert parsed.actor == "operator"
+    assert parsed.decided_at == datetime(2026, 9, 6, 12, 0, tzinfo=timezone.utc)
 
 
 def test_evidence_delegates_once_and_preserves_aligned_inventory(monkeypatch, capsys):
@@ -2059,3 +2158,668 @@ def test_decide_real_task_096_reject_no_queue_mutation_regression(
     completed_path = tmp_path / "completed.txt"
     assert not tasks_path.exists()
     assert not completed_path.exists()
+
+
+def _make_family_plan(*, suffix: str = "", include_singleton: bool = False):
+    facts = (
+        ProductFact("Brand", "Acme", "specifications", "structured"),
+        ProductFact("Model", "Phone X", "specifications", "structured"),
+        ProductFact("Color", "Black", "specifications", "structured"),
+    )
+    packs = [
+        ProductSourcePack(
+            source_pack_id=f"pack-shopee{suffix}",
+            platform="shopee",
+            product_url=f"https://shopee.example/item{suffix}",
+            source_product_id=f"item-shopee{suffix}",
+            observed_at=datetime(2026, 9, 1, 10, 0, tzinfo=timezone.utc),
+            collector="test",
+            facts=facts,
+        ),
+        ProductSourcePack(
+            source_pack_id=f"pack-tiktok{suffix}",
+            platform="tiktok",
+            product_url=f"https://tiktok.example/item{suffix}",
+            source_product_id=f"item-tiktok{suffix}",
+            observed_at=datetime(2026, 9, 2, 10, 0, tzinfo=timezone.utc),
+            collector="test",
+            facts=facts,
+        ),
+    ]
+    if include_singleton:
+        packs.append(
+            ProductSourcePack(
+                source_pack_id=f"pack-singleton{suffix}",
+                platform="shopee",
+                product_url=f"https://shopee.example/single{suffix}",
+                source_product_id=f"item-single{suffix}",
+                observed_at=datetime(2026, 9, 3, 10, 0, tzinfo=timezone.utc),
+                collector="test",
+                facts=(ProductFact("Brand", "OtherBrand", "specifications", "structured"),),
+            )
+        )
+    inventory = SourceEvidenceInventory(
+        tuple(f"manifest-{i}{suffix}" for i in range(len(packs))),
+        tuple(packs),
+    )
+    plan = plan_family_knowledge_review(inventory)
+    assert len(plan.proposals) == 1
+    return plan
+
+
+def _decode_json_documents(text: str) -> list[dict]:
+    decoder = json.JSONDecoder()
+    pos = 0
+    docs = []
+    while pos < len(text):
+        match = re.search(r"\S", text[pos:])
+        if not match:
+            break
+        pos += match.start()
+        doc, end = decoder.raw_decode(text, idx=pos)
+        docs.append(doc)
+        pos = end
+    return docs
+
+
+def _make_zero_proposal_plan():
+    packs = (
+        ProductSourcePack(
+            source_pack_id="pack-a",
+            platform="shopee",
+            product_url="https://shopee.example/a",
+            source_product_id="item-a",
+            observed_at=datetime(2026, 9, 3, 10, 0, tzinfo=timezone.utc),
+            collector="test",
+            facts=(ProductFact("Brand", "Acme", "specifications", "structured"),),
+        ),
+        ProductSourcePack(
+            source_pack_id="pack-b",
+            platform="shopee",
+            product_url="https://shopee.example/b",
+            source_product_id="item-b",
+            observed_at=datetime(2026, 9, 4, 10, 0, tzinfo=timezone.utc),
+            collector="test",
+            facts=(ProductFact("Brand", "OtherBrand", "specifications", "structured"),),
+        ),
+    )
+    inventory = SourceEvidenceInventory(("manifest-0", "manifest-1"), packs)
+    plan = plan_family_knowledge_review(inventory)
+    assert len(plan.proposals) == 0
+    assert len(plan.groups) == 2
+    assert all(g.status == ProvisionalGroupStatus.SINGLETON for g in plan.groups)
+    return plan
+
+
+def test_family_decide_offline_approve_delegation_lineage_and_preview(monkeypatch, capsys):
+    plan = _make_family_plan(include_singleton=True)
+    intake_calls = []
+    planning_calls = []
+    decision_calls = []
+    admission_calls = []
+
+    def fake_intake(roots):
+        intake_calls.append(list(roots))
+        return plan.inventory
+
+    def fake_planning(inv):
+        planning_calls.append(inv)
+        return plan
+
+    orig_record_decision = cli._record_planned_family_decision
+
+    def recorded_decision(p, prop, *, decision, actor, decided_at):
+        decision_calls.append((p, prop, decision, actor, decided_at))
+        return orig_record_decision(p, prop, decision=decision, actor=actor, decided_at=decided_at)
+
+    orig_durably_admit = cli._durably_admit_planned_family
+
+    def recorded_admit(p, record, *, family_id, database_path):
+        admission_calls.append((p, record, family_id, database_path))
+        # Return a dummy DurableFamilyAdmissionResult using the real decision record
+        from src.product_intelligence.canonical_family import create_canonical_family
+        from src.product_intelligence.canonical_catalog import (
+            CatalogRegistrationResult,
+            CatalogRegistrationStatus,
+            create_empty_canonical_catalog,
+            register_canonical_family,
+        )
+        fam = create_canonical_family(record, family_id=family_id)
+        reg = register_canonical_family(create_empty_canonical_catalog(), fam)
+        return DurableFamilyAdmissionResult(
+            decision_record=record,
+            family=fam,
+            registration=reg,
+            _lineage=_DURABLE_ADMISSION,
+        )
+
+    monkeypatch.setattr(cli, "_intake_product_source_evidence", fake_intake)
+    monkeypatch.setattr(cli, "_plan_family_knowledge_review", fake_planning)
+    monkeypatch.setattr(cli, "_record_planned_family_decision", recorded_decision)
+    monkeypatch.setattr(cli, "_durably_admit_planned_family", recorded_admit)
+
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("1\nAPPROVE\ncanonical-fam-1\n"))
+
+    argv = [
+        "family-decide",
+        "--root",
+        "/path/root-a",
+        "--root",
+        "/path/root-b",
+        "--database",
+        "sqlite:///test.db",
+        "--actor",
+        "reviewer-alice@example.com",
+        "--decided-at",
+        "2026-09-06T12:00:00+00:00",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 0
+
+    # Delegation checks
+    assert len(intake_calls) == 1
+    assert intake_calls[0] == ["/path/root-a", "/path/root-b"]
+    assert len(planning_calls) == 1
+    assert planning_calls[0] is plan.inventory
+
+    # Preview check on stderr
+    captured = capsys.readouterr()
+    preview = json.loads(captured.err)
+    assert list(preview.keys()) == ["groups", "proposals"]
+    assert len(preview["groups"]) == len(plan.groups)
+    assert [g["status"] for g in preview["groups"]] == [g.status.value for g in plan.groups]
+    # Check proposal projection in preview
+    assert len(preview["proposals"]) == 1
+    proposal_doc = preview["proposals"][0]
+    assert len(proposal_doc["members"]) == 2
+    assert len(proposal_doc["pair_evidence"]) == 1
+    pair = proposal_doc["pair_evidence"][0]
+    assert "left" in pair and "right" in pair
+    assert "relationship" in pair and "confidence" in pair
+    assert "reasons" in pair and "evidence" in pair
+    assert pair["evidence"][0]["code"] is not None
+
+    # Decision call check: exact proposal object identity
+    assert len(decision_calls) == 1
+    dec_plan, dec_prop, dec_decision, dec_actor, dec_time = decision_calls[0]
+    assert dec_plan is plan
+    assert dec_prop is plan.proposals[0]
+    assert dec_decision is FamilyMergeDecision.APPROVE
+    assert dec_actor == "reviewer-alice@example.com"
+    assert dec_time == datetime(2026, 9, 6, 12, 0, tzinfo=timezone.utc)
+
+    # Admission call check
+    assert len(admission_calls) == 1
+    adm_plan, adm_rec, adm_fam_id, adm_db = admission_calls[0]
+    assert adm_plan is plan
+    assert adm_rec.proposal is plan.proposals[0]
+    assert adm_fam_id == "canonical-fam-1"
+    assert adm_db == "sqlite:///test.db"
+
+    # Stdout check
+    doc = json.loads(captured.out)
+    assert list(doc.keys()) == ["decision", "admission"]
+    assert doc["decision"]["decision"] == "APPROVE"
+    assert doc["decision"]["actor"] == "reviewer-alice@example.com"
+    assert doc["decision"]["decided_at"] == "2026-09-06T12:00:00+00:00"
+    assert doc["decision"]["proposal"] == proposal_doc
+
+    assert doc["admission"]["family_id"] == "canonical-fam-1"
+    assert doc["admission"]["member_source_pack_ids"] == [
+        m.source_pack_id for m in plan.proposals[0].members
+    ]
+    assert doc["admission"]["registration_status"] == "INSERTED"
+
+
+def test_family_decide_offline_reject_no_family_id_and_no_durable_call(monkeypatch, capsys):
+    plan = _make_family_plan()
+
+    monkeypatch.setattr(cli, "_intake_product_source_evidence", lambda roots: plan.inventory)
+    monkeypatch.setattr(cli, "_plan_family_knowledge_review", lambda inv: plan)
+
+    def forbidden_admit(*args, **kwargs):
+        raise AssertionError("durably_admit_planned_family must not be called on REJECT")
+
+    monkeypatch.setattr(cli, "_durably_admit_planned_family", forbidden_admit)
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("1\nREJECT\n"))
+
+    argv = [
+        "family-decide",
+        "--root",
+        "/path/root-a",
+        "--database",
+        "sqlite:///test.db",
+        "--actor",
+        "rejector@example.com",
+        "--decided-at",
+        "2026-09-06T12:00:00+00:00",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 0
+
+    captured = capsys.readouterr()
+    doc = json.loads(captured.out)
+    assert list(doc.keys()) == ["decision", "admission"]
+    assert doc["decision"]["decision"] == "REJECT"
+    assert doc["decision"]["actor"] == "rejector@example.com"
+    assert doc["admission"] is None
+
+
+def test_family_decide_zero_proposals_shows_preview_and_fails_before_stdin(monkeypatch, capsys):
+    plan = _make_zero_proposal_plan()
+
+    monkeypatch.setattr(cli, "_intake_product_source_evidence", lambda roots: plan.inventory)
+    monkeypatch.setattr(cli, "_plan_family_knowledge_review", lambda inv: plan)
+
+    def forbidden_decision(*args, **kwargs):
+        raise AssertionError("record_planned_family_decision must not be called when zero proposals")
+
+    monkeypatch.setattr(cli, "_record_planned_family_decision", forbidden_decision)
+    # Stdin should never be read
+    def forbidden_readline():
+        raise AssertionError("stdin must not be read when zero proposals")
+
+    monkeypatch.setattr(cli._sys.stdin, "readline", forbidden_readline)
+
+    argv = [
+        "family-decide",
+        "--root",
+        "/path/root-a",
+        "--database",
+        "sqlite:///test.db",
+        "--actor",
+        "operator@example.com",
+        "--decided-at",
+        "2026-09-06T12:00:00+00:00",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 1
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    # Preview must still be rendered before error
+    lines = captured.err.strip().split("\n")
+    # stderr contains preview JSON followed by error JSON
+    assert "SINGLETON" in captured.err
+    assert "No actionable family merge proposals in review plan" in captured.err
+    assert "Traceback" not in captured.err
+
+
+@pytest.mark.parametrize(
+    "stdin_content, expected_error_fragment",
+    [
+        ("", "Unexpected end of input: missing proposal position"),
+        ("abc\n", "Invalid proposal position: 'abc'"),
+        ("0\n", "Proposal position out of range: 0"),
+        ("2\n", "Proposal position out of range: 2"),
+        (" 1\n", "Invalid proposal position: ' 1'"),
+        ("1 \n", "Invalid proposal position: '1 '"),
+        ("1 extra\n", "Invalid proposal position: '1 extra'"),
+        ("1\n", "Unexpected end of input: missing decision token"),
+        ("1\nMAYBE\n", "Invalid decision token: 'MAYBE'"),
+        ("1\napprove\n", "Invalid decision token: 'approve'"),
+        ("1\n APPROVE\n", "Invalid decision token: ' APPROVE'"),
+        ("1\nAPPROVE \n", "Invalid decision token: 'APPROVE '"),
+        ("1\nAPPROVE now\n", "Invalid decision token: 'APPROVE now'"),
+        ("1\nAPPROVE\n", "Unexpected end of input: missing family_id"),
+    ],
+)
+def test_family_decide_input_validation_failures(
+    stdin_content, expected_error_fragment, monkeypatch, capsys
+):
+    plan = _make_family_plan()
+    monkeypatch.setattr(cli, "_intake_product_source_evidence", lambda roots: plan.inventory)
+    monkeypatch.setattr(cli, "_plan_family_knowledge_review", lambda inv: plan)
+
+    argv = [
+        "family-decide",
+        "--root",
+        "/path/root-a",
+        "--database",
+        "sqlite:///test.db",
+        "--actor",
+        "operator@example.com",
+        "--decided-at",
+        "2026-09-06T12:00:00+00:00",
+    ]
+    monkeypatch.setattr(cli._sys, "stdin", StringIO(stdin_content))
+    exit_code = cli.main(argv)
+    assert exit_code == 1
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert expected_error_fragment in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_family_decide_family_id_whitespace_not_trimmed_by_cli(monkeypatch, capsys):
+    plan = _make_family_plan()
+    monkeypatch.setattr(cli, "_intake_product_source_evidence", lambda roots: plan.inventory)
+    monkeypatch.setattr(cli, "_plan_family_knowledge_review", lambda inv: plan)
+
+    received_family_id = None
+    orig_durably_admit = cli._durably_admit_planned_family
+
+    def inspect_admit(p, record, *, family_id, database_path):
+        nonlocal received_family_id
+        received_family_id = family_id
+        return orig_durably_admit(p, record, family_id=family_id, database_path=database_path)
+
+    monkeypatch.setattr(cli, "_durably_admit_planned_family", inspect_admit)
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("1\nAPPROVE\n  has-spaces  \n"))
+
+    argv = [
+        "family-decide",
+        "--root",
+        "/path/root-a",
+        "--database",
+        "sqlite:///test.db",
+        "--actor",
+        "operator@example.com",
+        "--decided-at",
+        "2026-09-06T12:00:00+00:00",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 1
+    # Check that CLI forwarded untrimmed string
+    assert received_family_id == "  has-spaces  "
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    docs = _decode_json_documents(captured.err)
+    assert len(docs) == 2
+    err_doc = docs[1]
+    assert err_doc["error"]["type"] == "CanonicalFamilyAdmissionError"
+    assert "whitespace" in err_doc["error"]["message"]
+    assert "Traceback" not in captured.err
+
+
+def test_family_decide_already_present_registration_status_pass_through(monkeypatch, capsys):
+    plan = _make_family_plan()
+    monkeypatch.setattr(cli, "_intake_product_source_evidence", lambda roots: plan.inventory)
+    monkeypatch.setattr(cli, "_plan_family_knowledge_review", lambda inv: plan)
+
+    def fake_admit(p, record, *, family_id, database_path):
+        from src.product_intelligence.canonical_family import create_canonical_family
+        from src.product_intelligence.canonical_catalog import (
+            CatalogRegistrationResult,
+            CatalogRegistrationStatus,
+            create_empty_canonical_catalog,
+            register_canonical_family,
+        )
+        fam = create_canonical_family(record, family_id=family_id)
+        cat = create_empty_canonical_catalog()
+        # Create a result with ALREADY_PRESENT status
+        result = CatalogRegistrationResult(catalog=cat, status=CatalogRegistrationStatus.ALREADY_PRESENT)
+        return DurableFamilyAdmissionResult(
+            decision_record=record,
+            family=fam,
+            registration=result,
+            _lineage=_DURABLE_ADMISSION,
+        )
+
+    monkeypatch.setattr(cli, "_durably_admit_planned_family", fake_admit)
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("1\nAPPROVE\ncanonical-fam-1\n"))
+
+    argv = [
+        "family-decide",
+        "--root",
+        "/path/root-a",
+        "--database",
+        "sqlite:///test.db",
+        "--actor",
+        "operator@example.com",
+        "--decided-at",
+        "2026-09-06T12:00:00+00:00",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 0
+
+    captured = capsys.readouterr()
+    doc = json.loads(captured.out)
+    assert doc["admission"]["registration_status"] == "ALREADY_PRESENT"
+
+
+def test_family_decide_upstream_errors_sanitized(monkeypatch, capsys):
+    # 1. Intake error
+    def fail_intake(roots):
+        raise SourceEvidenceIntakeError("Unreadable root directory")
+
+    monkeypatch.setattr(cli, "_intake_product_source_evidence", fail_intake)
+
+    argv = [
+        "family-decide",
+        "--root",
+        "/invalid/root",
+        "--database",
+        "test.db",
+        "--actor",
+        "operator",
+        "--decided-at",
+        "2026-09-06T12:00:00+00:00",
+    ]
+    assert cli.main(argv) == 1
+    captured = capsys.readouterr()
+    assert "SourceEvidenceIntakeError" in captured.err
+    assert "Unreadable root directory" in captured.err
+    assert "Traceback" not in captured.err
+
+    # 2. Planning error
+    plan = _make_family_plan()
+    monkeypatch.setattr(cli, "_intake_product_source_evidence", lambda roots: plan.inventory)
+
+    def fail_planning(inv):
+        raise FamilyKnowledgeReviewPlanningError("Corrupt observation graph")
+
+    monkeypatch.setattr(cli, "_plan_family_knowledge_review", fail_planning)
+    assert cli.main(argv) == 1
+    captured = capsys.readouterr()
+    assert "FamilyKnowledgeReviewPlanningError" in captured.err
+    assert "Corrupt observation graph" in captured.err
+    assert "Traceback" not in captured.err
+
+    # 3. Timezone-naive datetime fails in TASK-112 decision authority
+    monkeypatch.setattr(cli, "_plan_family_knowledge_review", lambda inv: plan)
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("1\nAPPROVE\ncanonical-fam-1\n"))
+    argv_naive = [
+        "family-decide",
+        "--root",
+        "/path/root",
+        "--database",
+        "test.db",
+        "--actor",
+        "operator",
+        "--decided-at",
+        "2026-09-06T12:00:00",  # Naive ISO datetime
+    ]
+    assert cli.main(argv_naive) == 1
+    captured = capsys.readouterr()
+    assert "FamilyMergeApprovalError" in captured.err
+    assert "timezone-aware" in captured.err
+    assert "Traceback" not in captured.err
+
+    # 4. Storage error on non-existent database during durable admission
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("1\nAPPROVE\ncanonical-fam-1\n"))
+    argv_nonexistent_db = [
+        "family-decide",
+        "--root",
+        "/path/root",
+        "--database",
+        "/nonexistent/directory/database.sqlite3",
+        "--actor",
+        "operator",
+        "--decided-at",
+        "2026-09-06T12:00:00+00:00",
+    ]
+    assert cli.main(argv_nonexistent_db) == 1
+    captured = capsys.readouterr()
+    assert "CanonicalCatalogStorageError" in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_family_decide_real_approve_durable_registration_and_reopen_regression(tmp_path, capsys):
+    # Persist real source packs in tmp_path
+    evidence_root = tmp_path / "evidence"
+    evidence_root.mkdir()
+    facts = (
+        ProductFact("Brand", "Acme", "specifications", "structured"),
+        ProductFact("Model", "Phone X", "specifications", "structured"),
+        ProductFact("Color", "Black", "specifications", "structured"),
+    )
+    pack1 = ProductSourcePack(
+        source_pack_id="pack-shopee-real",
+        platform="shopee",
+        product_url="https://shopee.example/real-item",
+        source_product_id="real-shopee-123",
+        observed_at=datetime(2026, 9, 1, 10, 0, tzinfo=timezone.utc),
+        collector="test-collector",
+        facts=facts,
+    )
+    pack2 = ProductSourcePack(
+        source_pack_id="pack-tiktok-real",
+        platform="tiktok",
+        product_url="https://tiktok.example/real-item",
+        source_product_id="real-tiktok-456",
+        observed_at=datetime(2026, 9, 2, 10, 0, tzinfo=timezone.utc),
+        collector="test-collector",
+        facts=facts,
+    )
+    serialize_source_pack(pack1, str(evidence_root / "dir1"))
+    serialize_source_pack(pack2, str(evidence_root / "dir2"))
+
+    # Create pre-existing canonical SQLite catalog via TASK-120 authority
+    db_path = str(tmp_path / "catalog.sqlite3")
+    create_sqlite_canonical_catalog(db_path)
+
+    # Provide stdin for APPROVE with explicit family_id
+    import sys
+    orig_stdin = sys.stdin
+    sys.stdin = StringIO("1\nAPPROVE\ncanonical-family-real-1\n")
+    try:
+        argv = [
+            "family-decide",
+            "--root",
+            str(evidence_root),
+            "--database",
+            db_path,
+            "--actor",
+            "real-human-operator@example.com",
+            "--decided-at",
+            "2026-09-06T14:30:00+00:00",
+        ]
+        exit_code = cli.main(argv)
+        assert exit_code == 0
+    finally:
+        sys.stdin = orig_stdin
+
+    captured = capsys.readouterr()
+    doc = json.loads(captured.out)
+    assert doc["decision"]["decision"] == "APPROVE"
+    assert doc["decision"]["actor"] == "real-human-operator@example.com"
+    assert doc["decision"]["decided_at"] == "2026-09-06T14:30:00+00:00"
+    assert doc["admission"]["family_id"] == "canonical-family-real-1"
+    assert doc["admission"]["member_source_pack_ids"] == ["pack-shopee-real", "pack-tiktok-real"]
+    assert doc["admission"]["registration_status"] == "INSERTED"
+
+    # Reopen the SQLite catalog to verify durable persistence and preserved lineage
+    reopened = load_sqlite_canonical_catalog(db_path)
+    assert len(reopened.families) == 1
+    saved_family = reopened.families[0]
+    assert saved_family.family_id == "canonical-family-real-1"
+    assert saved_family.approval.actor == "real-human-operator@example.com"
+    assert saved_family.approval.decision == FamilyMergeDecision.APPROVE
+    assert saved_family.approval.decided_at == datetime(2026, 9, 6, 14, 30, tzinfo=timezone.utc)
+    assert tuple(m.source_pack_id for m in saved_family.members) == ("pack-shopee-real", "pack-tiktok-real")
+
+
+def test_family_decide_real_reject_no_write_regression(tmp_path, capsys):
+    # Persist real source packs in tmp_path
+    evidence_root = tmp_path / "evidence"
+    evidence_root.mkdir()
+    facts = (
+        ProductFact("Brand", "Acme", "specifications", "structured"),
+        ProductFact("Model", "Phone X", "specifications", "structured"),
+        ProductFact("Color", "Black", "specifications", "structured"),
+    )
+    pack1 = ProductSourcePack(
+        source_pack_id="pack-shopee-reject",
+        platform="shopee",
+        product_url="https://shopee.example/reject-item",
+        source_product_id="reject-shopee-123",
+        observed_at=datetime(2026, 9, 1, 10, 0, tzinfo=timezone.utc),
+        collector="test-collector",
+        facts=facts,
+    )
+    pack2 = ProductSourcePack(
+        source_pack_id="pack-tiktok-reject",
+        platform="tiktok",
+        product_url="https://tiktok.example/reject-item",
+        source_product_id="reject-tiktok-456",
+        observed_at=datetime(2026, 9, 2, 10, 0, tzinfo=timezone.utc),
+        collector="test-collector",
+        facts=facts,
+    )
+    serialize_source_pack(pack1, str(evidence_root / "dir1"))
+    serialize_source_pack(pack2, str(evidence_root / "dir2"))
+
+    # Create pre-existing canonical SQLite catalog via TASK-120 authority
+    db_path = str(tmp_path / "catalog.sqlite3")
+    create_sqlite_canonical_catalog(db_path)
+    bytes_before = Path(db_path).read_bytes()
+
+    # Provide stdin for REJECT (no family_id line)
+    import sys
+    orig_stdin = sys.stdin
+    sys.stdin = StringIO("1\nREJECT\n")
+    try:
+        argv = [
+            "family-decide",
+            "--root",
+            str(evidence_root),
+            "--database",
+            db_path,
+            "--actor",
+            "real-human-rejector@example.com",
+            "--decided-at",
+            "2026-09-06T15:00:00+00:00",
+        ]
+        exit_code = cli.main(argv)
+        assert exit_code == 0
+    finally:
+        sys.stdin = orig_stdin
+
+    captured = capsys.readouterr()
+    doc = json.loads(captured.out)
+    assert doc["decision"]["decision"] == "REJECT"
+    assert doc["decision"]["actor"] == "real-human-rejector@example.com"
+    assert doc["admission"] is None
+
+    # Prove database bytes are identical and reopened catalog has 0 families
+    bytes_after = Path(db_path).read_bytes()
+    assert bytes_after == bytes_before
+    reopened = load_sqlite_canonical_catalog(db_path)
+    assert len(reopened.families) == 0
+
+
+def test_family_decide_source_has_no_direct_task_109_111_112_114_118_119_120_semantic_authority():
+    source = Path(cli.__file__).read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    imported_names = {
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
+    }
+    forbidden_semantic_functions = {
+        "resolve_product_entities",
+        "resolve_multi_observations",
+        "group_resolution_graph",
+        "create_family_merge_proposal",
+        "create_canonical_family",
+        "register_canonical_family",
+        "create_empty_canonical_catalog",
+        "create_sqlite_canonical_catalog",
+        "register_sqlite_canonical_family",
+    }
+    assert imported_names.isdisjoint(forbidden_semantic_functions)
+    assert "sqlite3" not in source

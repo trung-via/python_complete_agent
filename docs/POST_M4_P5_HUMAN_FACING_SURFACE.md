@@ -1,7 +1,7 @@
 # Post-M4 P5 Human-Facing Product Intelligence Surface
 
 Status: **P5 CURRENT / IN PROGRESS**  
-Current candidate: **TASK-147 P5.3a live shortlist Human decision + M1 queue bridge**
+Current candidate: **TASK-148 P5.3b Human family decision + durable admission presentation**
 
 ## Stage boundary
 
@@ -21,10 +21,16 @@ Shopee/TikTok discovery adapters, and existing M2 DiscoveryOrchestrator /
 CandidateRanker vertical slice without introducing a second browser, discovery,
 scoring, ranking, approval, or ingestion authority.
 
-TASK-147 introduces the P5.3a candidate `decide` operation to that same CLI,
+Published TASK-147 closed P5.3a by adding the `decide` operation to that same CLI,
 providing an in-process Human review/action boundary over the live discovery
 shortlist and delegating approved candidates to the existing TASK-096 M1 queue
 bridge without reconstructing candidates or creating persistent review stores.
+
+TASK-148 introduces the P5.3b candidate `family-decide` operation to that same
+CLI, providing an in-process Human review, selection, and durable admission
+boundary over persisted source evidence and canonical SQLite storage via
+TASK-138, TASK-139, and TASK-140 without reconstructing proposals or creating
+persistent review stores.
 
 Overall P5 remains CURRENT / IN PROGRESS, and P6 is not current.
 
@@ -86,9 +92,9 @@ entirely offline (mocked CDP / unit tests) and does not certify marketplace
 availability, login state, captcha freedom, selector freshness, or ranking
 quality.
 
-## P5.3a live shortlist Human decision + M1 queue bridge — CANDIDATE (TASK-147)
+## P5.3a live shortlist Human decision + M1 queue bridge — CLOSED
 
-TASK-147 adds the fifth operation to `src/product_intelligence/cli.py`:
+Published TASK-147 closed P5.3a by adding the fifth operation to `src/product_intelligence/cli.py`:
 
 - `decide` requires the exact bounded discovery inputs (`--query`, one or more
   repeated `--platform` (`shopee` / `tiktok`), `--cdp-endpoint`, optional
@@ -126,13 +132,58 @@ Placeholder decide example using explicit placeholder CDP endpoint:
 python -m src.product_intelligence.cli decide --query "bình giữ nhiệt inox" --platform shopee --platform tiktok --cdp-endpoint http://127.0.0.1:9222 --shortlist-size 5 --actor "operator@example.com" --decided-at "2026-09-06T12:00:00Z"
 ```
 
+## P5.3b Human family decision + durable admission presentation — CANDIDATE (TASK-148)
+
+TASK-148 adds the sixth operation to `src/product_intelligence/cli.py`:
+
+- `family-decide` requires one or more repeated Human-supplied `--root` paths,
+  exactly one `--database` path, exactly one `--actor` string, and exactly one
+  `--decided-at` ISO-8601 timestamp.
+- It calls TASK-138 `intake_product_source_evidence` exactly once with the root
+  list, then TASK-139 `plan_family_knowledge_review` exactly once with the returned
+  inventory.
+- If intake or planning fails, execution fails closed with zero Human interaction,
+  zero decisions recorded, and zero database mutations.
+- After planning succeeds, `family-decide` renders exactly one current review
+  preview to `stderr` derived only from the exact `FamilyKnowledgeReviewPlan`,
+  exposing all provisional groups in canonical order (including `SINGLETON` and
+  `CONFLICTED` diagnostics) and all proposals in exact tuple order with their
+  members and pairwise evidence (relationship, confidence, reasons, codes, details)
+  without rescoring, filtering, or recommendation.
+- Only the exact current in-process TASK-139 proposal shown in that invocation is
+  eligible for Human decision; prior JSON cannot be rehydrated into decision/admission
+  authority.
+- If planning yields zero actionable proposals, the preview is rendered to `stderr`
+  so non-actionable groups remain visible, and execution fails closed before
+  reading `stdin` and before TASK-140 calls.
+- Following the preview, `family-decide` reads exactly two initial bounded lines
+  from `stdin`: first a 1-based proposal position within `plan.proposals`, then an
+  exact decision token `APPROVE` or `REJECT`.
+- The selected position forwards the exact existing `FamilyMergeProposal` object
+  by identity to TASK-140 `record_planned_family_decision` exactly once.
+- For `REJECT`: zero `family_id` read, zero durable admission or database access
+  occur; output document contains `admission: null`.
+- For `APPROVE`: reads exactly one additional line from `stdin` containing caller-supplied
+  `family_id` (stripping only terminal CR/LF, preserving whitespace for upstream
+  validation). It forwards that exact `family_id`, the exact current plan, the
+  exact decision record, and the exact `--database` string to TASK-140
+  `durably_admit_planned_family` exactly once.
+- Successful stdout output is exactly one JSON document with top-level keys
+  `decision` and `admission`. For `APPROVE`, `admission` contains `family_id`,
+  `member_source_pack_ids`, and `registration_status`.
+
+Placeholder family-decide example:
+
+```powershell
+python -m src.product_intelligence.cli family-decide --root .\local-evidence --database .\state\canonical-catalog.sqlite3 --actor "operator@example.com" --decided-at "2026-09-06T12:00:00Z"
+```
+
 ## Unimplemented later stages
 
 Later P5.3 stages remain unimplemented:
 
-- P5.3b family decision / durable admission presentation over TASK-139 / TASK-140.
 - P5.3c sellable-variant review / decision / durable admission presentation over TASK-141.
 
-No command in P5.1, P5.2, or P5.3a creates persistent shortlist history, performs
-family/variant admission, mutates the catalog, or triggers background ingestion.
-Overall P5 remains CURRENT / IN PROGRESS after TASK-147, and P6 is not current.
+No command in P5.1, P5.2, P5.3a, or P5.3b creates persistent review or proposal history
+outside canonical SQLite catalog admission, or triggers background ingestion.
+Overall P5 remains CURRENT / IN PROGRESS after TASK-148, and P6 is not current.

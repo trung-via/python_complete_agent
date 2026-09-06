@@ -1,7 +1,7 @@
 # Post-M4 Product Intelligence Roadmap — Live Product Enablement
 
 Status: canonical post-M4 architecture roadmap; P1-P4 CLOSED; P5 CURRENT / IN
-PROGRESS; P5.1 and P5.2 CLOSED; TASK-147 is the P5.3a candidate
+PROGRESS; P5.1, P5.2, and P5.3a CLOSED; TASK-148 is the P5.3b candidate
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
 ## 1. Starting point
@@ -151,16 +151,25 @@ scoring, ranking, approval, or ingestion authority.
 
 The remaining P5.3 boundary is refined into:
 
-- P5.3a live-shortlist Human decision + TASK-096 M1 queue bridge (TASK-147 candidate):
-  extending the Product Intelligence CLI with one bounded in-process review/action
+- P5.3a live-shortlist Human decision + TASK-096 M1 queue bridge is CLOSED by
+  published TASK-147 after canonical Runtime PASS and ChatGPT semantic-review
+  PASS: extending the Product Intelligence CLI with one bounded in-process review/action
   command (`decide`) that runs live discovery, renders the exact shortlist preview,
   accepts explicit Human position and APPROVE/REJECT action during that same
   invocation, and delegates the exact RankedCandidate object to TASK-096
   approval/queue authorities without persisting shortlists or reconstructing candidates.
-- P5.3b family decision / durable admission presentation over TASK-139 / TASK-140 (unimplemented).
+- P5.3b family decision / durable admission presentation over TASK-139 / TASK-140
+  (TASK-148 candidate): extending the Product Intelligence CLI with one bounded
+  in-process review/selection/action command (`family-decide`) that intakes persisted
+  source evidence through TASK-138, prepares one in-memory review plan through
+  TASK-139, renders the exact plan preview, accepts explicit Human proposal selection
+  and APPROVE/REJECT action during that same invocation, delegates the exact selected
+  FamilyMergeProposal to TASK-140 record_planned_family_decision, and, only for
+  explicit APPROVE, accepts a caller-supplied family_id and durably admits the family
+  into a pre-existing SQLite catalog through TASK-140 durably_admit_planned_family.
 - P5.3c sellable-variant review / decision / durable admission presentation over TASK-141 (unimplemented).
 
-Overall P5 stays CURRENT / IN PROGRESS after TASK-147, and P6 must not advance.
+Overall P5 stays CURRENT / IN PROGRESS after TASK-148, and P6 must not advance.
 
 ### P6 — Quality and Scale Enhancements
 
@@ -191,11 +200,13 @@ Canonical Runtime PASS and ChatGPT semantic-review PASS on that same TASK-144
 source candidate closed P4. P5 is therefore CURRENT / IN PROGRESS. Published
 TASK-145 closed P5.1 after canonical Runtime PASS and ChatGPT semantic-review
 PASS on its candidate. Published TASK-146 closed P5.2 after canonical Runtime PASS
-and ChatGPT semantic-review PASS on its candidate. TASK-147 is the P5.3a candidate
-(live-shortlist Human decision + TASK-096 M1 queue bridge); P5.3b family
-decision/durable admission presentation and P5.3c sellable-variant review/decision/durable
-admission presentation remain unimplemented. Overall P5 stays CURRENT / IN
-PROGRESS after TASK-147, and P6 does not advance.
+and ChatGPT semantic-review PASS on its candidate. Published TASK-147 closed P5.3a
+after canonical Runtime PASS and ChatGPT semantic-review PASS on its candidate
+(live-shortlist Human decision + TASK-096 M1 queue bridge). TASK-148 is the P5.3b
+candidate (family decision/durable admission presentation over TASK-138/139/140);
+P5.3c sellable-variant review/decision/durable admission presentation remains
+unimplemented. Overall P5 stays CURRENT / IN PROGRESS after TASK-148, and P6 does not
+advance.
 
 ## 4. Authority invariants
 
