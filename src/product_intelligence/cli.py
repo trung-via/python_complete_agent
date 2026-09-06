@@ -4,20 +4,40 @@ from __future__ import annotations
 
 import argparse as _argparse
 import asyncio as _asyncio
+from datetime import datetime as _datetime, timezone as _timezone
 import json as _json
 import sys as _sys
+from typing import Optional as _Optional
 
 from src.core.errors import AgentException as _AgentException
+from src.integrations.playwright.manager import (
+    PlaywrightBrowserManager as _PlaywrightBrowserManager,
+)
+from src.product_intelligence.adapters.shopee import (
+    ShopeeDiscoveryAdapter as _ShopeeDiscoveryAdapter,
+)
+from src.product_intelligence.adapters.tiktok import (
+    TikTokDiscoveryAdapter as _TikTokDiscoveryAdapter,
+)
 from src.product_intelligence.canonical_catalog_sqlite import (
     CanonicalCatalogStorageError as _CanonicalCatalogStorageError,
     load_sqlite_canonical_catalog as _load_sqlite_canonical_catalog,
 )
-from src.product_intelligence.persistent_grounded_qa import (
-    PersistentGroundedQaError as _PersistentGroundedQaError,
-    answer_persisted_grounded_question as _answer_persisted_grounded_question,
+from src.product_intelligence.discovery import (
+    DiscoveryError as _DiscoveryError,
+    DiscoveryRequest as _DiscoveryRequest,
 )
 from src.product_intelligence.grounded_invocation import (
     GroundedInvocationError as _GroundedInvocationError,
+)
+from src.product_intelligence.orchestration import (
+    OrchestrationError as _OrchestrationError,
+    PlatformDiscoveryPlan as _PlatformDiscoveryPlan,
+    orchestrate_discovery as _orchestrate_discovery,
+)
+from src.product_intelligence.persistent_grounded_qa import (
+    PersistentGroundedQaError as _PersistentGroundedQaError,
+    answer_persisted_grounded_question as _answer_persisted_grounded_question,
 )
 from src.product_intelligence.source_evidence_intake import (
     SourceEvidenceIntakeError as _SourceEvidenceIntakeError,
@@ -31,6 +51,8 @@ _KNOWN_APPLICATION_ERRORS = (
     _CanonicalCatalogStorageError,
     _PersistentGroundedQaError,
     _GroundedInvocationError,
+    _DiscoveryError,
+    _OrchestrationError,
     _AgentException,
     OSError,
     ValueError,
@@ -76,6 +98,26 @@ def _parser() -> _argparse.ArgumentParser:
         required=True,
         choices=("developer_api", "vertex_ai"),
         help="Human-selected Gemini backend.",
+    )
+    discover = commands.add_parser(
+        "discover", help="Discover and rank candidate products across marketplaces."
+    )
+    discover.add_argument("--query", required=True, help="Discovery search query.")
+    discover.add_argument(
+        "--platform",
+        action="append",
+        required=True,
+        choices=("shopee", "tiktok"),
+        help="Marketplace platform (repeat for multiple platforms).",
+    )
+    discover.add_argument(
+        "--cdp-endpoint", required=True, help="Explicit CDP endpoint URL."
+    )
+    discover.add_argument(
+        "--shortlist-size",
+        type=int,
+        default=None,
+        help="Optional maximum shortlist count.",
     )
     return parser
 
@@ -142,6 +184,41 @@ async def _ask_document(arguments: _argparse.Namespace) -> dict[str, object]:
     }
 
 
+async def _discover_document(arguments: _argparse.Namespace) -> dict[str, object]:
+    browser_manager = _PlaywrightBrowserManager(cdp_endpoint=arguments.cdp_endpoint)
+    orchestration_error: _Optional[BaseException] = None
+    try:
+        plans = tuple(
+            _PlatformDiscoveryPlan(
+                platform=platform,
+                adapter=(
+                    _ShopeeDiscoveryAdapter(browser=browser_manager)
+                    if platform == "shopee"
+                    else _TikTokDiscoveryAdapter(browser=browser_manager)
+                ),
+                request=_DiscoveryRequest(query=arguments.query),
+            )
+            for platform in arguments.platform
+        )
+        now = _datetime.now(_timezone.utc)
+        result = await _orchestrate_discovery(
+            plans,
+            observed_at=now,
+            evaluated_at=now,
+            shortlist_size=arguments.shortlist_size,
+        )
+        return result.to_dict()
+    except BaseException as error:
+        orchestration_error = error
+        raise
+    finally:
+        try:
+            await browser_manager.close_all()
+        except Exception:
+            if orchestration_error is None:
+                raise
+
+
 def _write_json(document: dict[str, object], stream) -> None:
     _json.dump(document, stream, ensure_ascii=False, indent=2)
     stream.write("\n")
@@ -166,8 +243,12 @@ def main(argv=None) -> int:
             document = _evidence_document(arguments.root)
         elif arguments.command == "catalog":
             document = _catalog_document(arguments.database)
-        else:
+        elif arguments.command == "ask":
             document = _asyncio.run(_ask_document(arguments))
+        elif arguments.command == "discover":
+            document = _asyncio.run(_discover_document(arguments))
+        else:
+            raise ValueError(f"Unknown command: {arguments.command}")
     except _KNOWN_APPLICATION_ERRORS as error:
         _write_json(
             {

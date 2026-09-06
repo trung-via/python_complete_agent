@@ -14,7 +14,22 @@ import pytest
 
 from src.core.errors import AgentException
 from src.product_intelligence import cli
+from src.product_intelligence.adapters.shopee import ShopeeDiscoveryAdapter
+from src.product_intelligence.adapters.tiktok import TikTokDiscoveryAdapter
+from src.product_intelligence.discovery import (
+    DiscoveryBlockedError,
+    DiscoveryError,
+    DiscoveryInvalidRequestError,
+    DiscoveryNavigationError,
+    DiscoveryRequest,
+)
 from src.product_intelligence.grounded_answer import GroundedAnswerStatus
+from src.product_intelligence.orchestration import (
+    OrchestrationError,
+    OrchestrationInvalidRequestError,
+    OrchestrationResult,
+    PlatformDiscoveryPlan,
+)
 from src.product_intelligence.source_evidence_intake import SourceEvidenceInventory
 from src.product_source.models import ProductSourcePack
 
@@ -50,7 +65,11 @@ def test_success_renderer_is_deterministic_human_readable_json():
 
 
 def test_import_is_side_effect_free(monkeypatch, capsys):
+    import src.integrations.playwright.manager as playwright_manager
+    import src.product_intelligence.adapters.shopee as shopee_adapter
+    import src.product_intelligence.adapters.tiktok as tiktok_adapter
     import src.product_intelligence.canonical_catalog_sqlite as catalog_sqlite
+    import src.product_intelligence.orchestration as orchestration
     import src.product_intelligence.persistent_grounded_qa as persistent_qa
     import src.product_intelligence.source_evidence_intake as evidence_intake
     import src.providers.gemini as gemini
@@ -61,6 +80,10 @@ def test_import_is_side_effect_free(monkeypatch, capsys):
         scoped.setattr(catalog_sqlite, "load_sqlite_canonical_catalog", forbidden)
         scoped.setattr(persistent_qa, "answer_persisted_grounded_question", forbidden)
         scoped.setattr(gemini, "GeminiProvider", forbidden)
+        scoped.setattr(playwright_manager, "PlaywrightBrowserManager", forbidden)
+        scoped.setattr(shopee_adapter, "ShopeeDiscoveryAdapter", forbidden)
+        scoped.setattr(tiktok_adapter, "TikTokDiscoveryAdapter", forbidden)
+        scoped.setattr(orchestration, "orchestrate_discovery", forbidden)
         importlib.reload(cli)
         captured = capsys.readouterr()
         assert captured.out == captured.err == ""
@@ -74,7 +97,7 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
         for action in parser._actions
         if action.__class__.__name__ == "_SubParsersAction"
     )
-    assert tuple(subparsers.choices) == ("evidence", "catalog", "ask")
+    assert tuple(subparsers.choices) == ("evidence", "catalog", "ask", "discover")
     assert {
         name: {
             option
@@ -93,6 +116,14 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
             "--question",
             "--backend",
         },
+        "discover": {
+            "-h",
+            "--help",
+            "--query",
+            "--platform",
+            "--cdp-endpoint",
+            "--shortlist-size",
+        },
     }
 
     invalid = (
@@ -101,6 +132,33 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
         ["evidence"],
         ["catalog"],
         ["ask", "--database", "db", "--root", "root", "--question", "q"],
+        ["discover"],
+        ["discover", "--query", "q"],
+        ["discover", "--platform", "shopee"],
+        ["discover", "--cdp-endpoint", "http://127.0.0.1:9222"],
+        ["discover", "--query", "q", "--platform", "shopee"],
+        ["discover", "--query", "q", "--cdp-endpoint", "http://127.0.0.1:9222"],
+        ["discover", "--platform", "shopee", "--cdp-endpoint", "http://127.0.0.1:9222"],
+        [
+            "discover",
+            "--query",
+            "q",
+            "--platform",
+            "invalid",
+            "--cdp-endpoint",
+            "http://127.0.0.1:9222",
+        ],
+        [
+            "discover",
+            "--query",
+            "q",
+            "--platform",
+            "shopee",
+            "--cdp-endpoint",
+            "http://127.0.0.1:9222",
+            "--shortlist-size",
+            "invalid_int",
+        ],
     )
     for argv in invalid:
         with pytest.raises(SystemExit) as error:
@@ -330,7 +388,7 @@ def test_unexpected_error_is_generic(monkeypatch, capsys):
     assert "Traceback" not in captured.err
 
 
-def test_cli_source_has_no_mutation_discovery_or_direct_provider_authority():
+def test_cli_source_has_no_mutation_ranking_or_direct_provider_authority():
     source = Path(cli.__file__).read_text(encoding="utf-8")
     tree = ast.parse(source)
     imported_modules = {
@@ -342,9 +400,11 @@ def test_cli_source_has_no_mutation_discovery_or_direct_provider_authority():
         "src.agent_controller",
         "src.agent_loop",
         "src.product_intelligence.approval",
-        "src.product_intelligence.discovery",
         "src.product_intelligence.ranking",
         "src.product_source.serialization",
+        "playwright",
+        "playwright.async_api",
+        "playwright.sync_api",
     }
     assert imported_modules.isdisjoint(forbidden_modules)
     assert "register_sqlite" not in source
@@ -352,3 +412,422 @@ def test_cli_source_has_no_mutation_discovery_or_direct_provider_authority():
     assert ".generate(" not in source
     assert "google.genai" not in source
     assert "AgentController" not in source
+    assert "AgentLoop" not in source
+    assert "CandidateRanker" not in source
+    assert "rank_candidates" not in source
+    assert "WinningProductScorer" not in source
+    assert "SnapshotNormalizer" not in source
+    assert "playwright.async_api" not in source
+    assert "playwright.sync_api" not in source
+
+
+class _FakeBrowserManager:
+    def __init__(self, cdp_endpoint: str | None = None):
+        self.cdp_endpoint = cdp_endpoint
+        self.close_all_calls = 0
+        self.close_all_exc: Exception | None = None
+
+    async def close_all(self):
+        self.close_all_calls += 1
+        if self.close_all_exc:
+            raise self.close_all_exc
+
+
+def test_discover_delegates_once_preserves_order_and_outputs_result_dict(
+    monkeypatch, capsys
+):
+    created_managers: list[_FakeBrowserManager] = []
+
+    def fake_manager_factory(cdp_endpoint=None):
+        mgr = _FakeBrowserManager(cdp_endpoint=cdp_endpoint)
+        created_managers.append(mgr)
+        return mgr
+
+    captured_orchestration: dict[str, object] = {}
+    dummy_result = SimpleNamespace(
+        to_dict=lambda: {
+            "batches": [
+                {
+                    "platform": "tiktok",
+                    "candidates": [],
+                    "pages_examined": 1,
+                    "raw_items_seen": 0,
+                    "diagnostic_codes": [],
+                },
+                {
+                    "platform": "shopee",
+                    "candidates": [],
+                    "pages_examined": 1,
+                    "raw_items_seen": 0,
+                    "diagnostic_codes": [],
+                },
+            ],
+            "shortlist": [],
+            "total_candidates_discovered": 0,
+            "shortlist_count": 0,
+        }
+    )
+
+    async def fake_orchestrate(
+        plans, *, observed_at, evaluated_at, shortlist_size=None, policy=None
+    ):
+        captured_orchestration["plans"] = plans
+        captured_orchestration["observed_at"] = observed_at
+        captured_orchestration["evaluated_at"] = evaluated_at
+        captured_orchestration["shortlist_size"] = shortlist_size
+        captured_orchestration["policy"] = policy
+        return dummy_result
+
+    import src.product_intelligence.ranking as ranking_mod
+    import src.product_intelligence.scoring as scoring_mod
+    forbidden = lambda *args, **kwargs: pytest.fail("CLI called unauthorized M2 API directly")
+    monkeypatch.setattr(ranking_mod.CandidateRanker, "rank", forbidden)
+    monkeypatch.setattr(scoring_mod.WinningProductScorer, "score", forbidden)
+    monkeypatch.setattr(ShopeeDiscoveryAdapter, "discover", forbidden)
+    monkeypatch.setattr(TikTokDiscoveryAdapter, "discover", forbidden)
+
+    monkeypatch.setattr(cli, "_PlaywrightBrowserManager", fake_manager_factory)
+    monkeypatch.setattr(cli, "_orchestrate_discovery", fake_orchestrate)
+
+    argv = [
+        "discover",
+        "--query",
+        "bình giữ nhiệt",
+        "--platform",
+        "tiktok",
+        "--platform",
+        "shopee",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+        "--shortlist-size",
+        "5",
+    ]
+    exit_code = cli.main(argv)
+    document, error_output = _read_output(capsys)
+
+    assert exit_code == 0
+    assert error_output == ""
+    assert document == dummy_result.to_dict()
+
+    # Manager assertions
+    assert len(created_managers) == 1
+    manager = created_managers[0]
+    assert manager.cdp_endpoint == "http://127.0.0.1:9222"
+    assert manager.close_all_calls == 1
+
+    # Orchestration plan assertions
+    plans = captured_orchestration["plans"]
+    assert isinstance(plans, tuple)
+    assert len(plans) == 2
+    assert plans[0].platform == "tiktok"
+    assert isinstance(plans[0].adapter, TikTokDiscoveryAdapter)
+    assert plans[0].adapter._browser is manager
+    assert plans[0].request.query == "bình giữ nhiệt"
+    assert plans[0].request.max_candidates == 50
+    assert plans[0].request.max_pages == 1
+    assert plans[0].request.locale == "vi-VN"
+
+    assert plans[1].platform == "shopee"
+    assert isinstance(plans[1].adapter, ShopeeDiscoveryAdapter)
+    assert plans[1].adapter._browser is manager
+    assert plans[1].request.query == "bình giữ nhiệt"
+    assert plans[1].request.max_candidates == 50
+    assert plans[1].request.max_pages == 1
+    assert plans[1].request.locale == "vi-VN"
+
+    # Timestamp assertions
+    observed_at = captured_orchestration["observed_at"]
+    evaluated_at = captured_orchestration["evaluated_at"]
+    assert isinstance(observed_at, datetime)
+    assert observed_at.tzinfo == timezone.utc
+    assert observed_at is evaluated_at  # exact same datetime object identity
+
+    # Shortlist size and policy assertions
+    assert captured_orchestration["shortlist_size"] == 5
+    assert captured_orchestration["policy"] is None
+
+
+def test_discover_shortlist_size_omitted_passes_none(monkeypatch, capsys):
+    captured_orchestration: dict[str, object] = {}
+    dummy_result = SimpleNamespace(to_dict=lambda: {"batches": [], "shortlist": []})
+
+    async def fake_orchestrate(
+        plans, *, observed_at, evaluated_at, shortlist_size=None, policy=None
+    ):
+        captured_orchestration["shortlist_size"] = shortlist_size
+        return dummy_result
+
+    monkeypatch.setattr(
+        cli,
+        "_PlaywrightBrowserManager",
+        lambda cdp_endpoint=None: _FakeBrowserManager(cdp_endpoint),
+    )
+    monkeypatch.setattr(cli, "_orchestrate_discovery", fake_orchestrate)
+
+    argv = [
+        "discover",
+        "--query",
+        "áo sơ mi",
+        "--platform",
+        "shopee",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 0
+    assert captured_orchestration["shortlist_size"] is None
+
+
+def test_discover_duplicate_platform_propagates_to_orchestrator_and_fails_closed(
+    capsys,
+):
+    argv = [
+        "discover",
+        "--query",
+        "áo len",
+        "--platform",
+        "shopee",
+        "--platform",
+        "shopee",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    error_doc = json.loads(captured.err)
+    assert error_doc == {
+        "error": {
+            "type": "OrchestrationInvalidRequestError",
+            "message": "Duplicate platform in discovery plans: 'shopee'",
+        }
+    }
+    assert "Traceback" not in captured.err
+
+
+@pytest.mark.parametrize(
+    "error_instance, expected_type, expected_msg",
+    [
+        (DiscoveryError("Discovery failed"), "DiscoveryError", "Discovery failed"),
+        (
+            DiscoveryBlockedError("Captcha challenge"),
+            "DiscoveryBlockedError",
+            "Captcha challenge",
+        ),
+        (
+            DiscoveryNavigationError("Page timeout"),
+            "DiscoveryNavigationError",
+            "Page timeout",
+        ),
+        (
+            DiscoveryInvalidRequestError("Query too short"),
+            "DiscoveryInvalidRequestError",
+            "Query too short",
+        ),
+        (
+            OrchestrationError("Orchestration broke"),
+            "OrchestrationError",
+            "Orchestration broke",
+        ),
+        (
+            OrchestrationInvalidRequestError("Invalid plan"),
+            "OrchestrationInvalidRequestError",
+            "Invalid plan",
+        ),
+        (
+            AgentException("Browser crashed", code="CRASH"),
+            "AgentException",
+            "Browser crashed",
+        ),
+    ],
+)
+def test_discover_known_errors_are_sanitized_and_clean_up(
+    error_instance, expected_type, expected_msg, monkeypatch, capsys
+):
+    created_managers: list[_FakeBrowserManager] = []
+
+    def fake_manager_factory(cdp_endpoint=None):
+        mgr = _FakeBrowserManager(cdp_endpoint=cdp_endpoint)
+        created_managers.append(mgr)
+        return mgr
+
+    async def failing_orchestrate(*args, **kwargs):
+        raise error_instance
+
+    monkeypatch.setattr(cli, "_PlaywrightBrowserManager", fake_manager_factory)
+    monkeypatch.setattr(cli, "_orchestrate_discovery", failing_orchestrate)
+
+    argv = [
+        "discover",
+        "--query",
+        "test",
+        "--platform",
+        "shopee",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    error_doc = json.loads(captured.err)
+    assert error_doc == {
+        "error": {
+            "type": expected_type,
+            "message": expected_msg,
+        }
+    }
+    assert "Traceback" not in captured.err
+    assert len(created_managers) == 1
+    assert created_managers[0].close_all_calls == 1
+
+
+def test_discover_cleanup_failure_does_not_mask_orchestration_error(
+    monkeypatch, capsys
+):
+    created_managers: list[_FakeBrowserManager] = []
+
+    def fake_manager_factory(cdp_endpoint=None):
+        mgr = _FakeBrowserManager(cdp_endpoint=cdp_endpoint)
+        mgr.close_all_exc = RuntimeError("Secret browser socket cleanup leak")
+        created_managers.append(mgr)
+        return mgr
+
+    async def failing_orchestrate(*args, **kwargs):
+        raise DiscoveryError("Primary discovery error message")
+
+    monkeypatch.setattr(cli, "_PlaywrightBrowserManager", fake_manager_factory)
+    monkeypatch.setattr(cli, "_orchestrate_discovery", failing_orchestrate)
+
+    argv = [
+        "discover",
+        "--query",
+        "test",
+        "--platform",
+        "tiktok",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    error_doc = json.loads(captured.err)
+    assert error_doc == {
+        "error": {
+            "type": "DiscoveryError",
+            "message": "Primary discovery error message",
+        }
+    }
+    assert "Secret browser socket cleanup leak" not in captured.err
+    assert "Traceback" not in captured.err
+    assert created_managers[0].close_all_calls == 1
+
+
+def test_discover_cleanup_failure_after_successful_orchestration_fails_closed(
+    monkeypatch, capsys
+):
+    created_managers: list[_FakeBrowserManager] = []
+
+    def fake_manager_factory(cdp_endpoint=None):
+        mgr = _FakeBrowserManager(cdp_endpoint=cdp_endpoint)
+        mgr.close_all_exc = AgentException(
+            "CDP session disconnect failure", code="BROWSER_CLOSE_FAILED"
+        )
+        created_managers.append(mgr)
+        return mgr
+
+    dummy_result = SimpleNamespace(to_dict=lambda: {"batches": [], "shortlist": []})
+
+    async def success_orchestrate(*args, **kwargs):
+        return dummy_result
+
+    monkeypatch.setattr(cli, "_PlaywrightBrowserManager", fake_manager_factory)
+    monkeypatch.setattr(cli, "_orchestrate_discovery", success_orchestrate)
+
+    argv = [
+        "discover",
+        "--query",
+        "test",
+        "--platform",
+        "shopee",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    error_doc = json.loads(captured.err)
+    assert error_doc == {
+        "error": {
+            "type": "AgentException",
+            "message": "CDP session disconnect failure",
+        }
+    }
+    assert "Traceback" not in captured.err
+
+
+def test_discover_empty_query_fails_closed(capsys):
+    argv = [
+        "discover",
+        "--query",
+        "   ",
+        "--platform",
+        "shopee",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    error_doc = json.loads(captured.err)
+    assert error_doc == {
+        "error": {
+            "type": "DiscoveryInvalidRequestError",
+            "message": "Discovery query cannot be empty or whitespace only",
+        }
+    }
+    assert "Traceback" not in captured.err
+
+
+def test_discover_unexpected_error_is_generic(monkeypatch, capsys):
+    created_managers: list[_FakeBrowserManager] = []
+
+    def fake_manager_factory(cdp_endpoint=None):
+        mgr = _FakeBrowserManager(cdp_endpoint=cdp_endpoint)
+        created_managers.append(mgr)
+        return mgr
+
+    async def failing_orchestrate(*args, **kwargs):
+        raise RuntimeError("sensitive internal failure")
+
+    monkeypatch.setattr(cli, "_PlaywrightBrowserManager", fake_manager_factory)
+    monkeypatch.setattr(cli, "_orchestrate_discovery", failing_orchestrate)
+
+    argv = [
+        "discover",
+        "--query",
+        "test",
+        "--platform",
+        "shopee",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    error_doc = json.loads(captured.err)
+    assert error_doc == {
+        "error": {
+            "type": "UnexpectedError",
+            "message": "An unexpected error occurred.",
+        }
+    }
+    assert "sensitive internal failure" not in captured.err
+    assert "Traceback" not in captured.err
+    assert len(created_managers) == 1
+    assert created_managers[0].close_all_calls == 1
