@@ -180,6 +180,7 @@ async def test_task_132_transport_uses_one_async_request_and_no_tools(
 ) -> None:
     factory = FakeClientFactory(response_with_parts(types.Part(text="first")))
     monkeypatch.setattr(gemini_module.genai, "Client", factory)
+    monkeypatch.delenv("GEMINI_MODEL_NAME", raising=False)
 
     result = await GeminiProvider(api_key=OFFLINE_API_KEY).generate(
         task_132_messages(), []
