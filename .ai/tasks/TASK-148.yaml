@@ -1,0 +1,327 @@
+task_id: TASK-148
+revision: 1
+
+goal: >
+  Implement post-M4 P5.3b Human Family Decision + Durable Admission Presentation by
+  extending the existing Product Intelligence CLI with one bounded `family-decide`
+  operation. The operation must intake persisted evidence through TASK-138, build one
+  exact in-memory TASK-139 FamilyKnowledgeReviewPlan, render that exact current plan for
+  Human review, accept one explicit Human proposal selection plus APPROVE/REJECT during
+  the same process invocation, delegate the exact selected FamilyMergeProposal object to
+  TASK-140 record_planned_family_decision, and, only for explicit APPROVE, accept one
+  caller-supplied opaque family_id and delegate durable admission exactly once through
+  TASK-140 durably_admit_planned_family. TASK-148 must not persist/reconstruct review
+  plans or proposals, infer a family decision, generate/normalize family IDs, duplicate
+  TASK-112/114/118/119/120 semantics, auto-create a catalog, or implement P5.3c variant
+  presentation.
+
+problem: >
+  Published TASK-147 closes P5.3a and proves the Human-facing CLI can preserve exact
+  in-process review-object lineage rather than reconstructing authority from prior JSON.
+  P5.3b has the same architectural requirement. TASK-139 creates an immutable
+  FamilyKnowledgeReviewPlan retaining exact TASK-112 proposal objects, while TASK-140
+  permits a Human decision only for an exact proposal retained by that exact plan and
+  permits durable admission only through TASK-114 then TASK-120. A naive later-process
+  family approval command over serialized preview data would either reconstruct a
+  FamilyMergeProposal or introduce a new persistent review authority. P5.3b therefore
+  must compose intake -> planning -> preview -> Human selection -> TASK-140 decision ->
+  optional TASK-140 durable admission in one invocation, while retaining every existing
+  semantic owner unchanged.
+
+assumptions:
+  - >
+    Canonical Python Agent main immediately before TASK-148 authoring is
+    762420c1166625cb4bfe7de2c71b9b1ccac8f7a0, the published TASK-147 source candidate
+    after REVIEW-147-001 PRIMARY PASS. P1-P4 are CLOSED; P5 is CURRENT / IN PROGRESS;
+    P5.1, P5.2, and P5.3a are CLOSED; P5.3b is the immediate next boundary.
+  - >
+    The authoritative AIOS dependency remains exactly
+    aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@67db82bf19d63f25721d06aabb82d850db8b78d4.
+  - >
+    src/product_intelligence/cli.py remains the sole Product Intelligence Human-facing CLI
+    module. TASK-145/TASK-146/TASK-147 command behavior remains authoritative and must not
+    be reopened by TASK-148.
+  - >
+    TASK-138 intake_product_source_evidence remains the sole bounded persisted-evidence
+    intake authority. TASK-148 may pass explicit Human roots once and consume the returned
+    exact SourceEvidenceInventory; it may not scan files independently or rehydrate source
+    packs through another codec.
+  - >
+    TASK-139 plan_family_knowledge_review remains the sole P3.1 application composition
+    that produces FamilyKnowledgeReviewPlan and the exact actionable TASK-112 proposal
+    tuple while retaining every provisional group, including SINGLETON and CONFLICTED.
+  - >
+    TASK-140 record_planned_family_decision and durably_admit_planned_family remain the
+    sole P3.2 application composition authority. TASK-112 owns Human family decision
+    semantics, TASK-114 owns explicit approved family admission plus opaque family_id
+    validation, TASK-118 owns catalog integrity, TASK-119 owns catalog codec semantics,
+    and TASK-120 owns SQLite durability/transactions.
+  - >
+    A REJECT remains an in-memory TASK-112 decision with no durable history authority.
+    TASK-148 must not invent a rejection store or successful durable no-op for REJECT.
+  - >
+    TASK-141 remains the P3.3 sellable-variant review/decision/admission authority. Its
+    Human-facing presentation remains P5.3c and is outside TASK-148.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_M4_P5_HUMAN_FACING_SURFACE.md
+    - docs/POST_M4_P3_HUMAN_GOVERNED_KNOWLEDGE_UPDATE.md
+    - .ai/tasks/TASK-138.yaml
+    - .ai/tasks/TASK-139.yaml
+    - .ai/tasks/TASK-140.yaml
+    - .ai/tasks/TASK-141.yaml
+    - .ai/tasks/TASK-147.yaml
+    - src/product_intelligence/cli.py
+    - src/product_intelligence/source_evidence_intake.py
+    - src/product_intelligence/family_review_planning.py
+    - src/product_intelligence/family_merge_approval.py
+    - src/product_intelligence/family_decision_admission.py
+    - src/product_intelligence/canonical_family.py
+    - src/product_intelligence/canonical_catalog.py
+    - src/product_intelligence/canonical_catalog_sqlite.py
+    - src/product_intelligence/entity_grouping.py
+    - src/product_intelligence/entity_resolution.py
+    - src/product_intelligence/entity_resolution_graph.py
+    - tests/product_intelligence/test_product_intelligence_cli.py
+    - tests/product_intelligence/test_source_evidence_intake.py
+    - tests/product_intelligence/test_family_review_planning.py
+    - tests/product_intelligence/test_family_decision_admission.py
+
+  modify:
+    - src/product_intelligence/cli.py
+    - tests/product_intelligence/test_product_intelligence_cli.py
+    - docs/POST_M4_P5_HUMAN_FACING_SURFACE.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+
+non_goals:
+  - Modify TASK-138 filesystem discovery, source-pack rehydration, root bounding, ordering,
+    alias rejection, duplicate observation, or manifest inventory semantics.
+  - Modify TASK-109 resolution, TASK-111 grouping, TASK-112 proposal/Human decision,
+    TASK-114 canonical family admission/family_id, TASK-118 catalog integrity, TASK-119
+    codec, or TASK-120 SQLite semantics.
+  - Modify TASK-139 planning or TASK-140 decision/admission modules or public APIs.
+  - Persist or serialize FamilyKnowledgeReviewPlan, FamilyMergeProposal, pending decision,
+    Human REJECT history, or another review/session token to files, JSON, SQLite, queue,
+    cache, registry, or any new store.
+  - Rehydrate/reconstruct a FamilyMergeProposal from preview JSON, member identities,
+    source_pack_id values, group number, evidence values, caller fields, or prior CLI output.
+  - Allow prior `evidence`, `catalog`, or any future prior `family-decide` output to authorize
+    a later family decision without rebuilding and displaying the exact current in-process
+    TASK-139 plan used for that decision.
+  - Auto-select an actionable proposal, infer APPROVE/REJECT from group status, confidence,
+    relationship, member count, conflict state, evidence, platform, or any machine signal.
+  - Generate, normalize, trim, hash, prefix, suffix, infer, reserve, look up, or persist a
+    family_id outside TASK-114/TASK-118/TASK-120 semantics.
+  - Auto-create a missing SQLite catalog, auto-reinitialize invalid/corrupt storage, retry or
+    reroute failed registration, call sqlite3 directly, or add storage recovery policy.
+  - Add family_id as a required CLI flag before the Human decision; REJECT must not require
+    an admission-only identifier.
+  - Add variant review/member selection/decision/admission, variant_id handling, product
+    truth reconciliation, identity evolution, conflict repair, singleton family admission,
+    durable rejection history, provider/LLM/Drive/network/browser/background work, or P6.
+  - Change AIOS pin, worker surfaces, auto-publication, or prior RUN/REVIEW lineage.
+
+constraints:
+  hard:
+    - >
+      Extend only src/product_intelligence/cli.py as the Human-facing command surface. The
+      CLI must expose exactly six operations: existing evidence/catalog/ask/discover/decide
+      plus new `family-decide`, with no alias, second executable, service, API server, or
+      alternate Human-facing entry point. Existing TASK-145/TASK-146/TASK-147 signatures,
+      stdout/stderr behavior, live discovery, approval, and queue semantics must remain
+      unchanged.
+    - >
+      `family-decide` must expose exactly these CLI controls: one or more repeated `--root`
+      values, exactly one `--database`, exactly one `--actor`, and exactly one
+      `--decided-at`. Repeated `--root` is the sole repeatable family-decide option. Every
+      other family-decide option must reject repeated occurrences with argparse-style exit
+      code 2. No proposal/group position, decision, family_id, catalog-creation, retry,
+      authority, model/provider, or variant control may be passed as a command-line flag.
+    - >
+      Reuse the existing private ISO-8601 representation parser from TASK-147 for
+      `--decided-at`. Syntactically invalid datetime text may fail as argparse input, but a
+      syntactically valid timezone-naive datetime must be forwarded unchanged to TASK-140
+      and fail only through the existing TASK-112 Human-decision authority. TASK-148 must
+      not add a wall-clock default or duplicate timezone validation.
+    - >
+      `family-decide` must call TASK-138 intake_product_source_evidence exactly once with
+      the Human-supplied root list unchanged, then call TASK-139
+      plan_family_knowledge_review exactly once with the exact SourceEvidenceInventory
+      object returned by intake. No source pack tuple may be copied/reconstructed for an
+      alternate planning path, and TASK-148 must not call TASK-109/TASK-111/TASK-112
+      proposal creation directly.
+    - >
+      After successful planning and before reading any Human action, render exactly one
+      bounded current family-review preview to stderr derived only from the exact
+      FamilyKnowledgeReviewPlan. The preview must preserve canonical plan order and expose
+      every plan.groups entry, not only actionable groups, including each group's exact
+      status, exact member identities in order, and existing conflict diagnostics when
+      present. It must also expose plan.proposals in exact tuple order with each proposal's
+      exact member identities and existing pair evidence (relationship, confidence, reasons,
+      and evidence codes/details) without rescoring, summarizing, filtering, recommendation,
+      inferred labels, or a copied approval status. The preview is presentation only and
+      must never be persisted or used to reconstruct authority.
+    - >
+      If intake or planning fails, no preview-derived Human interaction, family decision,
+      database access, or durable admission may occur. If planning succeeds with zero
+      actionable plan.proposals, the current plan preview may still be rendered so that
+      SINGLETON/CONFLICTED state remains visible, but the operation must then fail closed
+      before reading stdin and before TASK-140 calls.
+    - >
+      When at least one actionable proposal exists, after rendering the preview read exactly
+      two initial bounded Human input lines from stdin in this order: first a 1-based
+      proposal position within plan.proposals, then an exact decision token APPROVE or
+      REJECT. EOF, malformed/non-decimal/out-of-range position, whitespace-decorated or
+      otherwise non-exact decision token, or extra semantic tokens on either line must fail
+      before TASK-140 decision creation and before any database access. No default proposal
+      or decision is permitted.
+    - >
+      A valid proposal position may select only the exact FamilyMergeProposal object already
+      stored at that position in the current plan.proposals tuple. TASK-148 must not copy,
+      reconstruct, deserialize, value-match, search by member IDs, rerun planning, or create
+      a new proposal. Map the exact Human decision token only to existing
+      FamilyMergeDecision.APPROVE/REJECT and call TASK-140 record_planned_family_decision
+      exactly once with the exact plan, exact selected proposal, exact actor string, and
+      exact parsed decided_at object unchanged. TASK-148 must not independently validate or
+      normalize actor/time/proposal semantics; upstream errors propagate to the existing
+      bounded CLI error surface.
+    - >
+      For exact Human REJECT, do not read a family_id line, do not call
+      durably_admit_planned_family, do not touch/open/validate the database path, and return
+      a bounded success document whose admission value is null. REJECT must not create a
+      family, registration status, durable rejection record, or successful persistence no-op.
+    - >
+      For exact Human APPROVE only, after TASK-140 returns the exact APPROVE decision record,
+      read exactly one additional Human stdin line containing caller-supplied family_id.
+      EOF is a bounded input error. Strip only the terminal CR/LF framing; do not trim,
+      normalize, validate, generate, rewrite, or infer the family_id. Forward that exact
+      family_id string, the exact current plan, the exact decision record, and the exact
+      Human `--database` string unchanged to TASK-140 durably_admit_planned_family exactly
+      once. Family ID validation must occur only through TASK-114; database/catalog
+      validation and persistence must occur only through TASK-120/TASK-118/TASK-119.
+    - >
+      TASK-148 must not pre-open or pre-validate the database, call
+      create_sqlite_canonical_catalog/load_sqlite_canonical_catalog/register_sqlite_canonical_family,
+      call create_canonical_family, call TASK-118/TASK-119 directly, use sqlite3 or filesystem
+      storage primitives, retry/reroute admission, or reinterpret INSERTED/ALREADY_PRESENT.
+      A missing/invalid database or catalog conflict must fail only through existing upstream
+      authorities after explicit APPROVE and family_id input.
+    - >
+      Successful `family-decide` stdout must be exactly one JSON document with exactly two
+      top-level keys in this order: `decision` and `admission`. `decision` must contain
+      exactly decision, actor, decided_at, and proposal. The proposal projection must be the
+      same bounded exact proposal representation used in the current preview, not a
+      reconstructed semantic value. For REJECT, `admission` must be null. For APPROVE,
+      `admission` must contain exactly family_id, member_source_pack_ids, and
+      registration_status projected from the exact TASK-140 DurableFamilyAdmissionResult;
+      registration_status must be the existing TASK-118/TASK-120 enum value unchanged. Do
+      not add authorization booleans, recommendation labels, inferred product truth,
+      persistence claims beyond the returned registration status, or shadow IDs.
+    - >
+      Existing bounded CLI error handling remains authoritative: known application/domain
+      ValueError/OSError categories must emit bounded sanitized JSON on stderr with exit 1
+      and no traceback/cause leakage; unexpected exceptions remain generic. Importing cli.py
+      must remain side-effect-free and must not scan roots, plan review, read stdin, inspect
+      databases, capture time, or mutate canonical state.
+    - >
+      Focused offline tests must prove exactly six commands and exact family-decide flags;
+      duplicate database/actor/decided-at options fail argparse code 2 while repeated root
+      order is preserved; intake and planning are each delegated exactly once; preview
+      includes all groups plus actionable proposals in canonical order; zero-proposal plans
+      show current state then fail before stdin; proposal selection preserves exact object
+      identity; APPROVE/REJECT/actor/parsed datetime are forwarded unchanged once to
+      TASK-140; REJECT reads no family_id and performs zero durable/database calls; APPROVE
+      reads exactly one family_id after the decision and forwards family_id/database unchanged
+      once; whitespace in family_id is not trimmed by TASK-148; INSERTED and
+      ALREADY_PRESENT pass through unchanged; upstream decision/admission/storage errors are
+      sanitized; no proposal reconstruction or persistent review state exists; existing five
+      commands remain regression-compatible; and import remains side-effect-free.
+    - >
+      Add one real compatibility regression over existing TASK-138/TASK-139/TASK-140
+      authorities using temporary local persisted source evidence and a pre-existing SQLite
+      catalog created only through TASK-120's existing create_sqlite_canonical_catalog. The
+      evidence must yield at least one real actionable family proposal. Explicit Human
+      APPROVE through family-decide must create the exact TASK-112 decision, admit the family
+      through TASK-114 only via TASK-140, register durably through TASK-120, return INSERTED,
+      and a canonical TASK-120 reopen must prove the persisted family value and preserved
+      Human/proposal lineage. The CLI must not call TASK-109/111/112/114/118/119/120 directly
+      for semantic work other than through TASK-138/139/140.
+    - >
+      Add one real REJECT regression over a real TASK-139 plan and pre-existing canonical
+      SQLite catalog proving the exact TASK-112 REJECT decision is returned, no family_id is
+      read, no TASK-140 durable admission occurs, and database bytes/catalog remain unchanged.
+    - >
+      Update docs/POST_M4_P5_HUMAN_FACING_SURFACE.md to mark published TASK-147 P5.3a CLOSED,
+      document family-decide as the P5.3b candidate, state that only the exact current
+      in-process TASK-139 proposal shown in that invocation is eligible for Human decision,
+      and state that prior JSON cannot be rehydrated into decision/admission authority.
+    - >
+      Update docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md to mark P5.3a CLOSED by published
+      TASK-147, record TASK-148 as the P5.3b family decision/durable admission presentation
+      candidate over TASK-138/139/140, keep P5.3c sellable-variant presentation unimplemented,
+      keep overall P5 CURRENT / IN PROGRESS, and do not advance P6.
+    - Do not push from Executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      The existing Product Intelligence CLI remains the sole Human-facing CLI and exposes
+      exactly evidence/catalog/ask/discover/decide/family-decide, preserving all published
+      TASK-145/TASK-146/TASK-147 behavior and adding no alternate UI or semantic authority.
+  - id: AC2
+    condition: >
+      family-decide accepts only explicit roots plus database/actor/ISO decided-at controls,
+      rejects duplicate single-value options, preserves repeated root order, and introduces
+      no proposal/decision/family_id/catalog-creation/retry/variant authority flags.
+  - id: AC3
+    condition: >
+      family-decide delegates exactly once to TASK-138 intake and exactly once to TASK-139
+      planning, preserves the exact returned plan, renders all groups and exact actionable
+      proposals/evidence in canonical order, and never begins Human action after intake or
+      planning failure.
+  - id: AC4
+    condition: >
+      The Human selects one exact current 1-based proposal and exact APPROVE/REJECT after
+      seeing the current plan; zero actionable proposals or invalid/EOF inputs fail before
+      TASK-140 decision/database work and no machine evidence can imply a decision.
+  - id: AC5
+    condition: >
+      The selected exact FamilyMergeProposal object is forwarded by identity with the exact
+      current plan, explicit decision, actor, and parsed decided_at to TASK-140
+      record_planned_family_decision exactly once, without reconstruction or duplicate
+      TASK-112 validation authority.
+  - id: AC6
+    condition: >
+      REJECT performs zero family_id read and zero durable/database mutation; APPROVE alone
+      reads one exact family_id and delegates exactly once to TASK-140
+      durably_admit_planned_family with exact plan/decision/family_id/database inputs,
+      preserving TASK-114/118/119/120 authority and registration status unchanged.
+  - id: AC7
+    condition: >
+      Successful output is exactly the bounded decision/admission projection, while Human
+      representation errors and existing planning/decision/admission/catalog/storage errors
+      retain bounded sanitized CLI handling with no traceback/cause leakage.
+  - id: AC8
+    condition: >
+      TASK-148 creates no persistent review/proposal/REJECT state, no FamilyMergeProposal
+      codec, no second ID/catalog/persistence authority, no auto-create/retry, no variant or
+      product-truth work, and no external/background/P6 behavior.
+  - id: AC9
+    condition: >
+      Focused tests and real compatibility regressions prove exact object lineage, all-group
+      visibility, explicit Human control, real APPROVE durable registration and reopen,
+      REJECT no-write behavior, exact registration-status pass-through, and regression safety
+      for existing CLI commands without live marketplace/provider dependencies.
+  - id: AC10
+    condition: >
+      Documentation records P5.3a CLOSED by published TASK-147, P5.3b as TASK-148 candidate,
+      P5.3c still unimplemented, overall P5 CURRENT / IN PROGRESS, and P6 not current.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_product_intelligence_cli.py tests/product_intelligence/test_source_evidence_intake.py tests/product_intelligence/test_family_review_planning.py tests/product_intelligence/test_family_decision_admission.py tests/product_intelligence/test_family_merge_approval.py tests/product_intelligence/test_canonical_family.py tests/product_intelligence/test_canonical_catalog.py tests/product_intelligence/test_canonical_catalog_sqlite.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - '$env:PYTHONPATH = ".;src"; python -m src.product_intelligence.cli --help *> $null; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
