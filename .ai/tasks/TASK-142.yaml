@@ -1,0 +1,247 @@
+task_id: TASK-142
+revision: 1
+
+goal: >
+  Implement post-M4 P4.1 Production Gemini Provider Foundation by modernizing the
+  repository's existing GeminiProvider from the legacy google-generativeai SDK to the
+  current google-genai SDK while preserving the existing generic LLMProvider boundary.
+  The task must establish one explicit, testable, provider-specific production transport
+  configuration that can later be used by a separate credentialed P4.2 live grounded-QA
+  certification, without changing TASK-129/131/132/133/134/135 Product Intelligence
+  semantics, adding retry/fallback/model-selection policy, or performing any live network
+  call in canonical TASK-142 verification.
+
+problem: >
+  P3 is closed and the canonical post-M4 roadmap names P4 Live Grounded-QA Provider
+  Certification as current. M4 already proves the complete persistent grounded-QA path
+  against an injected generic LLMProvider, but only with a deterministic offline fake.
+  The repository's only concrete default provider is GeminiProvider. It still imports
+  google.generativeai from google-generativeai==0.8.3, defaults internally to the stale
+  gemini-1.5-pro-latest string, while .env.example currently names gemini-3.6-flash.
+  A live certification built on that inconsistent legacy transport would certify the
+  wrong boundary. P4 must first modernize the existing concrete adapter itself, keep
+  LLMProvider as the sole generic provider protocol, and prove its message/tool/response
+  transport contract offline before any credentialed provider call is admitted.
+
+assumptions:
+  - >
+    Canonical Python Agent main immediately before TASK-142 authoring is
+    2505efb5e6f9dc71df8facb3e5b94a64f9441e59, the published TASK-141 source candidate
+    after REVIEW-141-001 PRIMARY PASS; P3 is CLOSED and P4 is current.
+  - >
+    The authoritative AIOS dependency remains exactly
+    aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@67db82bf19d63f25721d06aabb82d850db8b78d4.
+  - >
+    TASK-129 remains sole GroundedAnswer structural-validation authority; TASK-131
+    remains sole grounded prompt/schema-framing authority; TASK-132 remains sole
+    exactly-one generic tool-free provider invocation plus syntactic response parsing;
+    TASK-133 remains context-to-answer composition; TASK-134 remains retrieval-query
+    planning; TASK-135 remains persistent grounded-QA startup/composition.
+  - >
+    src/providers/base.py LLMProvider, LLMResponse, and ProviderToolCall remain the sole
+    generic provider transport contract. TASK-142 may modernize only the existing
+    src/providers/gemini.py concrete implementation and must not introduce another
+    Protocol, Product Intelligence provider abstraction, model registry, router, or
+    failover layer.
+  - >
+    AgentController currently constructs GeminiProvider() when no LLMProvider is injected.
+    No-argument construction therefore remains a compatibility boundary and continues to
+    use explicit environment configuration when caller arguments are absent.
+  - >
+    Current external provider audit on 2026-09-06 establishes google-genai 2.22.0 as the
+    selected repository dependency and gemini-3.8-flash as the selected default Gemini
+    Developer API model for this provider foundation. These are one concrete production
+    configuration, not a general model-selection policy.
+  - >
+    Google GenAI SDK supports asynchronous generate_content through client.aio and manual
+    function declarations. Automatic Python function execution must never be enabled by
+    this adapter because AgentLoop/ToolExecutor, not the provider SDK, owns tool execution.
+  - >
+    P4.2 credentialed live grounded-QA certification remains a later task. TASK-142 must
+    not claim provider account, API key, quota, network, model availability, live response
+    quality, or end-to-end live GroundedAnswer certification.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/PHASE_6_M4_COMPLETION.md
+    - .ai/tasks/TASK-132.yaml
+    - .ai/tasks/TASK-135.yaml
+    - src/providers/base.py
+    - src/providers/gemini.py
+    - src/agent/messages.py
+    - src/agent/loop.py
+    - src/agent_controller.py
+    - src/product_intelligence/grounded_invocation.py
+    - src/product_intelligence/persistent_grounded_qa.py
+    - requirements.txt
+    - .env.example
+
+  modify:
+    - src/providers/gemini.py
+    - requirements.txt
+    - .env.example
+    - tests/providers/test_gemini_provider.py
+    - docs/POST_M4_P4_LIVE_PROVIDER_CERTIFICATION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+
+non_goals:
+  - Modify src/providers/base.py LLMProvider, LLMResponse, or ProviderToolCall semantics.
+  - Add another provider protocol, provider router, model registry, fallback provider,
+    provider failover, retry loop, circuit breaker, quota scheduler, cache, queue, or
+    background provider service.
+  - Modify TASK-129 GroundedAnswer, TASK-131 prompt strings/schema semantics, TASK-132
+    exactly-one invocation/parsing, TASK-133 grounded-QA composition, TASK-134 retrieval
+    planning, TASK-135 persistent startup, or any M2/M3 authority.
+  - Add Product Intelligence JSON schema enforcement inside GeminiProvider or teach it the
+    TASK-131 four-key response contract. Provider-specific transport must not become a
+    second grounded-response parser.
+  - Automatically execute provider function calls, invoke Python tools from the SDK,
+    route through MCP/server-side tools, AgentLoop retries, browser, Drive, search, code
+    execution, or any provider-managed tool loop.
+  - Add streaming, multimodal generation, Interactions API application semantics, semantic
+    caching, prompt caching, safety-policy overrides, thinking-budget policy, token-budget
+    policy, temperature policy, or response-format policy in this task.
+  - Perform a real Gemini API call in tests or verification; require GEMINI_API_KEY for
+    TASK-142 PASS; write credentials/secrets to repository artifacts, logs, exception
+    messages, fixtures, snapshots, or docs.
+  - Claim P4 CLOSED. P4.2 live certification remains required after TASK-142 PASS.
+  - Change AIOS dependency pin, worker surfaces, publication workflow, browser runtime,
+    product evidence, identity, catalog, approval, retrieval, or product-truth semantics.
+
+constraints:
+  hard:
+    - >
+      requirements.txt must remove the legacy google-generativeai dependency and pin
+      exactly google-genai==2.22.0. No second Gemini SDK may remain in the dependency file.
+    - >
+      src/providers/gemini.py must continue to expose the existing GeminiProvider class
+      implementing the existing LLMProvider.generate(messages, tools) async contract and
+      return the existing LLMResponse/ProviderToolCall values. Do not rename the provider,
+      create GeminiProviderV2, or create a parallel grounded-only provider.
+    - >
+      GeminiProvider construction must support explicit keyword-only api_key and model_name
+      values while preserving no-argument AgentController compatibility. For each field,
+      an explicit caller value has authority over environment configuration. When absent,
+      api_key may come only from GEMINI_API_KEY and model_name may come only from
+      GEMINI_MODEL_NAME, otherwise the exact repository default model is
+      gemini-3.8-flash. Valid model strings are opaque provider configuration and must not
+      be parsed, ranked, auto-upgraded, or selected dynamically.
+    - >
+      Missing, empty, whitespace-only, or placeholder GEMINI_API_KEY must fail closed on
+      generation before any Google client/network invocation. It must raise the existing
+      AgentException with code LLM_PROVIDER_ERROR and must not include the credential value
+      in logs, messages, details, repr-derived diagnostics, or chained text. Construction
+      itself may remain lazy so AgentController can be instantiated without a credential.
+    - >
+      Replace google.generativeai usage only with the current google-genai client surface.
+      The provider's asynchronous generation path must use exactly one Google GenAI async
+      generate_content request per LLMProvider.generate call. The adapter itself must not
+      retry, resend, fallback, reroute, or make model-list/discovery calls.
+    - >
+      SYSTEM messages must be represented only as provider system instruction. USER,
+      ASSISTANT, and TOOL history must be translated to the corresponding google-genai
+      content/part representation without rewriting message content. Existing assistant
+      tool calls and tool responses must remain representable for AgentLoop compatibility.
+      Wrong/unsupported message shapes must fail closed rather than silently dropping
+      semantic content.
+    - >
+      Generic tools supplied through LLMProvider.generate must be translated as manual
+      function declarations only. The Google GenAI SDK automatic function-calling facility
+      must be explicitly disabled whenever tools are present so the SDK cannot execute or
+      continue tool calls itself. With tools=[], no tool declaration may be synthesized.
+    - >
+      Provider response mapping must preserve text content in provider order and map any
+      returned manual function calls to existing ProviderToolCall values without executing
+      them. The adapter may use only provider-supplied call identity when present; if the
+      SDK omits call identity, retain the existing repository compatibility behavior without
+      introducing a Product Intelligence identity authority. TASK-142 must not interpret
+      grounded citations/status/limitations or parse provider JSON.
+    - >
+      Provider SDK/client exceptions must be converted to the existing AgentException code
+      LLM_PROVIDER_ERROR with the original exception as cause and retryable=True, but the
+      adapter must perform zero retries itself. asyncio cancellation must propagate without
+      conversion into provider retry behavior. Error text must not leak api_key.
+    - >
+      .env.example must align GEMINI_MODEL_NAME with gemini-3.8-flash and must continue to
+      use only a placeholder API key. No real secret, project id, account identifier, or
+      live certification outcome may be committed.
+    - >
+      Offline tests must isolate all Google transport. They must prove explicit argument
+      precedence over environment values, environment fallback, exact default model,
+      missing/placeholder credential fail-before-client behavior, exact one-request async
+      transport, SYSTEM/USER mapping used by TASK-132, representative ASSISTANT/TOOL
+      history preservation, tools=[] behavior, manual function declaration conversion,
+      automatic function-calling disabled with tools, text/tool-call response mapping,
+      provider error causal conversion, cancellation propagation, and zero live network.
+    - >
+      Add docs/POST_M4_P4_LIVE_PROVIDER_CERTIFICATION.md recording P4 as IN PROGRESS and
+      P4.1 as the provider-transport foundation only. The document must preserve the exact
+      M4 authority chain and state that P4.2 must separately prove one credentialed live
+      call through TASK-135 -> TASK-133 -> TASK-132 using this existing GeminiProvider.
+      It must explicitly distinguish provider/account/network/model availability failures
+      from GroundedInvocation/GroundedAnswer structural failures and must not define retry,
+      fallback, or provider-selection policy.
+    - >
+      Update docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md so P4 remains CURRENT/IN PROGRESS,
+      records TASK-142 as P4.1 provider foundation only after this task's acceptance passes,
+      and names credentialed live grounded-QA certification as the immediate next P4 stage.
+      Do not mark P4 CLOSED and do not advance P5 in TASK-142.
+    - >
+      Existing focused M4 tests must remain passing without modification, proving the
+      provider modernization did not change TASK-132 or TASK-135 semantics. AgentController
+      construction/bootstrap regressions relevant to no-argument GeminiProvider
+      compatibility must also remain passing.
+    - Do not push from Executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      requirements.txt contains exactly google-genai==2.22.0 as the Gemini SDK dependency,
+      contains no google-generativeai dependency, and .env.example names
+      gemini-3.8-flash with no real credential.
+  - id: AC2
+    condition: >
+      Existing GeminiProvider remains the single concrete default Gemini adapter over the
+      unchanged LLMProvider contract, supports explicit api_key/model_name precedence plus
+      environment fallback and exact gemini-3.8-flash default, and introduces no second
+      provider protocol/router/model-selection authority.
+  - id: AC3
+    condition: >
+      Missing/placeholder credentials fail closed before any client/network request with
+      existing LLM_PROVIDER_ERROR semantics and no secret leakage, while valid generation
+      makes exactly one async google-genai generate_content request and performs no retry,
+      model discovery, fallback, or reroute.
+  - id: AC4
+    condition: >
+      SYSTEM/USER transport required by TASK-132 is preserved exactly, representative
+      ASSISTANT/TOOL history remains representable, and supplied tool schemas become only
+      manual Google function declarations with automatic SDK function execution explicitly
+      disabled; tools=[] creates no provider tool declaration.
+  - id: AC5
+    condition: >
+      Provider text and manual function-call responses map only to existing LLMResponse and
+      ProviderToolCall transport values without tool execution, grounded JSON parsing,
+      citation/status interpretation, answer construction, or Product Intelligence truth.
+  - id: AC6
+    condition: >
+      Google provider failures preserve causal chaining under existing LLM_PROVIDER_ERROR
+      without adapter retries, asyncio cancellation propagates, and credentials are absent
+      from logs/error text/test fixtures.
+  - id: AC7
+    condition: >
+      Deterministic offline provider tests prove AC1-AC6 without any live Gemini request,
+      and existing TASK-132/TASK-135 focused regressions plus relevant AgentController
+      bootstrap tests remain passing unchanged.
+  - id: AC8
+    condition: >
+      P4 documentation records TASK-142 only as P4.1 production-provider foundation,
+      preserves TASK-129/131/132/133/134/135 authority, distinguishes provider availability
+      from grounded structural validation, leaves P4 IN PROGRESS, and identifies separate
+      credentialed live certification as the next stage.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/providers/test_gemini_provider.py tests/product_intelligence/test_grounded_invocation.py tests/product_intelligence/test_persistent_grounded_qa.py tests/integration/test_phase6_bootstrap.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
