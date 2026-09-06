@@ -242,6 +242,14 @@ from src.product_intelligence.family_decision_admission import (
     durably_admit_planned_family,
     record_planned_family_decision,
 )
+from src.product_intelligence.sellable_variant_review_admission import (
+    DurableSellableVariantAdmissionResult,
+    SellableVariantReview,
+    SellableVariantWorkflowError,
+    durably_admit_reviewed_sellable_variant,
+    prepare_sellable_variant_review,
+    record_reviewed_sellable_variant_decision,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -430,4 +438,10 @@ __all__ = [
     "DurableFamilyAdmissionResult",
     "record_planned_family_decision",
     "durably_admit_planned_family",
+    "SellableVariantWorkflowError",
+    "SellableVariantReview",
+    "DurableSellableVariantAdmissionResult",
+    "prepare_sellable_variant_review",
+    "record_reviewed_sellable_variant_decision",
+    "durably_admit_reviewed_sellable_variant",
 ]

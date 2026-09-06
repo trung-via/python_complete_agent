@@ -1,7 +1,8 @@
 # Post-M4 Product Intelligence Roadmap — Live Product Enablement
 
-Status: canonical post-M4 architecture roadmap; P3 IN PROGRESS after TASK-139
-P3.1 and TASK-140 P3.2 closure
+Status: canonical post-M4 architecture roadmap; P3 CLOSED by TASK-139 P3.1,
+TASK-140 P3.2, and TASK-141 P3.3; P4 Live Grounded-QA Provider Certification is
+the next current boundary
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
 ## 1. Starting point
@@ -55,7 +56,7 @@ Required outcome:
 
 P2 owns only **bounded manifest discovery + deterministic immutable intake inventory**. Product Source Pack schema/rehydration remains TASK-125 authority; source identity remains existing M3 authority; catalog/admission remains existing Human-governed M3 authority.
 
-### P3 — Human-Governed Knowledge Update Workflow — IN PROGRESS
+### P3 — Human-Governed Knowledge Update Workflow — CLOSED
 
 Compose existing M3 authorities into an application workflow that takes newly ingested typed source observations through existing resolution/grouping/proposal boundaries, exposes required Human family/variant decisions, and persists only explicitly approved canonical admissions through TASK-118/119/120 authority.
 
@@ -73,9 +74,23 @@ decision semantics to TASK-112, family admission and caller-supplied opaque
 to TASK-119, and SQLite durability to TASK-120. A `REJECT` has no independent
 durable history authority and cannot mutate the catalog through this boundary.
 
-The immediate next unimplemented P3 sub-boundary is sellable-variant Human review,
-decision, and durable variant admission. TASK-117 continues to own admission under
-a caller-supplied opaque `variant_id`; ID allocation remains deferred.
+P3.3 Sellable-Variant Review + Durable Admission is closed by TASK-141. It wraps
+the exact TASK-116 proposal in a factory-only Human review value, delegates the
+explicit Human decision unchanged to TASK-116, proves exact proposal object
+lineage, then delegates canonical admission with the caller-supplied opaque
+`variant_id` to TASK-117 and durable registration to TASK-120. TASK-115 remains
+the sole sellable-variant evidence and diagnostic authority; TASK-116 remains
+the sole selection/proposal/Human-decision authority; TASK-117 remains the sole
+canonical variant-admission and variant-ID validation authority; and
+TASK-118/119/120 retain catalog integrity, codec/rehydration, and SQLite
+transaction/durability authority respectively. Variant `REJECT` has no durable
+mutation or independent durable-history authority.
+
+P3 closure does not claim family or variant ID allocation, identity evolution
+or membership extension, conflict repair or singleton family admission,
+product-truth reconciliation, durable REJECT history, or autonomous approval.
+Those remain deferred non-blocking future work. P4 Live Grounded-QA Provider
+Certification is now the next current post-M4 boundary.
 
 ### P4 — Live Grounded-QA Provider Certification
 
@@ -106,11 +121,13 @@ These are not blockers for P1-P5 and must each receive a separate authority audi
 
 P1 is closed by TASK-137. P2 is closed by TASK-138: persisted Product Source Pack evidence is now discoverable through an explicit-root, bounded local intake, and current downstream consumers can receive either typed `ProductSourcePack` values or the aligned explicit manifest paths without duplicating filesystem discovery.
 
-P3 is in progress. TASK-139 closes P3.1 family review planning and TASK-140 closes
-P3.2 family decision plus durable family admission while preserving existing
-TASK-112/114/118/119/120 authority. The immediate next sub-boundary is
-sellable-variant Human review, decision, and durable variant admission with the
-caller-supplied opaque `variant_id` still owned by TASK-117.
+P3 is closed. TASK-139 closes P3.1 family review planning, TASK-140 closes P3.2
+family decision plus durable family admission, and TASK-141 closes P3.3 explicit
+sellable-variant review, Human decision, and durable admission while preserving
+TASK-115/116/117/118/119/120 authority. M3 remains the sole identity, catalog,
+persistence, and evidence authority; P3 remains application composition rather
+than a replacement semantic layer. P4 Live Grounded-QA Provider Certification
+is the next current post-M4 boundary.
 
 ## 4. Authority invariants
 

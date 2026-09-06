@@ -1,7 +1,8 @@
 # Post-M4 P3 Human-Governed Knowledge Update Workflow
 
-Status: **IN PROGRESS**; P3.1 family review planning and P3.2 family decision
-plus durable admission are closed by TASK-139 and TASK-140 respectively.
+Status: **CLOSED**; P3.1 family review planning, P3.2 family decision plus
+durable admission, and P3.3 sellable-variant review plus durable admission are
+closed by TASK-139, TASK-140, and TASK-141 respectively.
 
 ## Boundary
 
@@ -39,17 +40,36 @@ An explicit `REJECT` remains a valid in-memory TASK-112 decision record, but can
 pass TASK-114 admission and has no durable catalog side effect. P3.2 introduces no
 independent durable Human-decision history authority.
 
-### Next P3 stage — not implemented by TASK-140
+### P3.3 — Sellable-variant review + durable admission — CLOSED
 
-The immediate next stage is sellable-variant Human review and decision followed
-by durable variant admission through TASK-115, TASK-116, TASK-117, TASK-118,
-TASK-119, and TASK-120. TASK-117 continues to own admission under an explicit
-caller-supplied opaque `variant_id`.
+TASK-141 accepts one exact admitted canonical family and one explicit
+caller-selected member tuple. It delegates proposal construction unchanged to
+TASK-116 and retains that exact proposal in an immutable, factory-only Human
+review value. Member selection remains explicit: TASK-141 never discovers,
+ranks, repairs, or recommends a variant set. TASK-115 remains the sole evidence
+and exactness-diagnostic authority, and TASK-116 remains the sole selection,
+closure, singleton, proposal, and Human variant-decision authority.
 
-Family and variant ID allocation remains deferred. P3 does not infer Human intent,
-automatically approve proposals, reconcile product truth, repair conflicts, admit
-singletons, extend existing identities, or introduce another catalog or persistence
-model.
+Decision recording delegates the exact reviewed proposal and explicit Human
+`APPROVE` or `REJECT`, actor, and timezone-aware decision time to TASK-116. A
+separate durable-admission call proves exact proposal object lineage, then
+delegates the exact decision and caller-supplied opaque `variant_id` to TASK-117
+and the exact admitted variant and database path to TASK-120. TASK-117 remains
+the sole canonical variant-admission and variant-ID validation authority;
+TASK-118 remains the sole catalog-integrity authority; TASK-119 remains the sole
+catalog codec/rehydration authority; and TASK-120 remains the sole SQLite
+transaction and durability authority.
+
+An explicit variant `REJECT` remains an exact in-memory TASK-116 decision record,
+fails admission only through TASK-117, and creates no durable variant mutation.
+TASK-141 adds no independent durable REJECT-history authority.
+
+P3 is closed as an application-composition boundary, not a replacement semantic
+layer. Family and variant ID allocation, identity evolution or membership
+extension, conflict repair and singleton family admission, product-truth
+reconciliation, durable REJECT history, and autonomous approval remain deferred
+non-blocking future work. The next current post-M4 boundary is P4 Live
+Grounded-QA Provider Certification.
 
 ## Staged authority map
 
@@ -58,6 +78,6 @@ model.
 | P3.1 planning | Exact TASK-138 inventory | TASK-109 → TASK-111 → TASK-112 proposal construction | In-memory review plan only |
 | P3.2 family decision | Exact planned family proposal + explicit Human fields | TASK-140 composition → TASK-112 | Human decision record only |
 | P3.2 family admission | Exact planned decision + caller-supplied opaque `family_id` | TASK-140 composition → TASK-114 → TASK-118/TASK-119/TASK-120 | Canonical family and durable registration result |
-| Variant review and decision | Admitted family + explicit member selection and Human fields | TASK-115/TASK-116 | Evidence, proposal, and Human decision |
-| Variant admission | Approved decision + caller-supplied opaque `variant_id` | TASK-117 | Canonical variant value |
-| Durable registration | Exact admitted values | TASK-118/TASK-119/TASK-120 | Validated catalog/SQLite mutation |
+| P3.3 variant review and decision | Exact admitted family + explicit member selection and Human fields | TASK-141 composition → TASK-115/TASK-116 | Exact proposal review and Human decision record only |
+| P3.3 variant admission | Exact reviewed APPROVE + caller-supplied opaque `variant_id` | TASK-141 composition → TASK-117 | Canonical variant value |
+| P3.3 durable registration | Exact admitted variant + exact database path | TASK-141 composition → TASK-118/TASK-119/TASK-120 | Validated catalog/SQLite mutation and unchanged registration status |
