@@ -159,17 +159,27 @@ The remaining P5.3 boundary is refined into:
   invocation, and delegates the exact RankedCandidate object to TASK-096
   approval/queue authorities without persisting shortlists or reconstructing candidates.
 - P5.3b family decision / durable admission presentation over TASK-139 / TASK-140
-  (TASK-148 candidate): extending the Product Intelligence CLI with one bounded
-  in-process review/selection/action command (`family-decide`) that intakes persisted
-  source evidence through TASK-138, prepares one in-memory review plan through
-  TASK-139, renders the exact plan preview, accepts explicit Human proposal selection
-  and APPROVE/REJECT action during that same invocation, delegates the exact selected
-  FamilyMergeProposal to TASK-140 record_planned_family_decision, and, only for
-  explicit APPROVE, accepts a caller-supplied family_id and durably admits the family
-  into a pre-existing SQLite catalog through TASK-140 durably_admit_planned_family.
-- P5.3c sellable-variant review / decision / durable admission presentation over TASK-141 (unimplemented).
+  is CLOSED by published TASK-148 after canonical Runtime PASS and ChatGPT semantic-review
+  PASS: extending the Product Intelligence CLI with one bounded in-process review/selection/action
+  command (`family-decide`) that intakes persisted source evidence through TASK-138, prepares
+  one in-memory review plan through TASK-139, renders the exact plan preview, accepts
+  explicit Human proposal selection and APPROVE/REJECT action during that same invocation,
+  delegates the exact selected FamilyMergeProposal to TASK-140 record_planned_family_decision,
+  and, only for explicit APPROVE, accepts a caller-supplied family_id and durably admits
+  the family into a pre-existing SQLite catalog through TASK-140 durably_admit_planned_family.
+- P5.3c sellable-variant review / decision / durable admission presentation over TASK-141
+  (TASK-149 candidate): extending the Product Intelligence CLI with one bounded
+  in-process review/selection/action command (`variant-decide`) that loads one pre-existing
+  canonical catalog through TASK-120, resolves one Human-specified existing family by exact
+  family_id, renders that exact current family for Human member selection, maps explicit
+  1-based member positions only to exact member objects from that family, prepares review
+  through TASK-141, renders the exact proposal preview, accepts explicit Human APPROVE/REJECT
+  action, and, only for explicit APPROVE, accepts a caller-supplied variant_id and durably admits
+  the variant through TASK-141.
 
-Overall P5 stays CURRENT / IN PROGRESS after TASK-148, and P6 must not advance.
+If and only if TASK-149 Runtime verification and semantic acceptance all pass, P5
+Human-Facing Product Intelligence Surface is CLOSED. P6 remains NEXT / unimplemented and
+must not advance without a separate post-P5 architecture audit.
 
 ### P6 — Quality and Scale Enhancements
 
@@ -202,11 +212,13 @@ TASK-145 closed P5.1 after canonical Runtime PASS and ChatGPT semantic-review
 PASS on its candidate. Published TASK-146 closed P5.2 after canonical Runtime PASS
 and ChatGPT semantic-review PASS on its candidate. Published TASK-147 closed P5.3a
 after canonical Runtime PASS and ChatGPT semantic-review PASS on its candidate
-(live-shortlist Human decision + TASK-096 M1 queue bridge). TASK-148 is the P5.3b
-candidate (family decision/durable admission presentation over TASK-138/139/140);
-P5.3c sellable-variant review/decision/durable admission presentation remains
-unimplemented. Overall P5 stays CURRENT / IN PROGRESS after TASK-148, and P6 does not
-advance.
+(live-shortlist Human decision + TASK-096 M1 queue bridge). Published TASK-148 closed
+P5.3b after canonical Runtime PASS and ChatGPT semantic-review PASS on its candidate
+(family decision/durable admission presentation over TASK-138/139/140). TASK-149 is the
+P5.3c candidate (sellable-variant review/decision/durable admission presentation over
+TASK-141). If and only if TASK-149 Runtime verification and semantic acceptance all pass,
+P5 Human-Facing Product Intelligence Surface is CLOSED. P6 remains NEXT / unimplemented
+pending a separate post-P5 architecture audit.
 
 ## 4. Authority invariants
 

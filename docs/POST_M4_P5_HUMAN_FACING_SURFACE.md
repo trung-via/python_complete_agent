@@ -1,7 +1,7 @@
 # Post-M4 P5 Human-Facing Product Intelligence Surface
 
-Status: **P5 CURRENT / IN PROGRESS**  
-Current candidate: **TASK-148 P5.3b Human family decision + durable admission presentation**
+Status: **P5 CANDIDATE COMPLETION (PENDING RUNTIME / ACCEPTANCE PASS)**
+Current candidate: **TASK-149 P5.3c Human sellable-variant review + decision + durable admission presentation**
 
 ## Stage boundary
 
@@ -26,13 +26,23 @@ providing an in-process Human review/action boundary over the live discovery
 shortlist and delegating approved candidates to the existing TASK-096 M1 queue
 bridge without reconstructing candidates or creating persistent review stores.
 
-TASK-148 introduces the P5.3b candidate `family-decide` operation to that same
-CLI, providing an in-process Human review, selection, and durable admission
+Published TASK-148 closed P5.3b by extending that same CLI with the `family-decide`
+operation, providing an in-process Human review, selection, and durable admission
 boundary over persisted source evidence and canonical SQLite storage via
 TASK-138, TASK-139, and TASK-140 without reconstructing proposals or creating
 persistent review stores.
 
-Overall P5 remains CURRENT / IN PROGRESS, and P6 is not current.
+TASK-149 introduces the P5.3c candidate `variant-decide` operation to that same
+CLI, providing an in-process Human review, explicit member selection, decision,
+and durable admission boundary over persisted canonical SQLite storage via
+TASK-120 and TASK-141 without reconstructing proposals, discovering/ranking
+variant groups, or creating persistent review stores.
+
+Human member selection is explicit and no variant-group discovery/ranking exists;
+only the exact current in-process TASK-141 review may authorize that decision.
+If and only if TASK-149 Runtime verification and semantic acceptance all pass,
+P5 Human-Facing Product Intelligence Surface is CLOSED. P6 remains NEXT /
+unimplemented pending a separate post-P5 architecture audit.
 
 ## P5.1 read-only operations — CLOSED
 
@@ -132,9 +142,9 @@ Placeholder decide example using explicit placeholder CDP endpoint:
 python -m src.product_intelligence.cli decide --query "bình giữ nhiệt inox" --platform shopee --platform tiktok --cdp-endpoint http://127.0.0.1:9222 --shortlist-size 5 --actor "operator@example.com" --decided-at "2026-09-06T12:00:00Z"
 ```
 
-## P5.3b Human family decision + durable admission presentation — CANDIDATE (TASK-148)
+## P5.3b Human family decision + durable admission presentation — CLOSED
 
-TASK-148 adds the sixth operation to `src/product_intelligence/cli.py`:
+Published TASK-148 closed P5.3b by adding the sixth operation to `src/product_intelligence/cli.py`:
 
 - `family-decide` requires one or more repeated Human-supplied `--root` paths,
   exactly one `--database` path, exactly one `--actor` string, and exactly one
@@ -178,12 +188,70 @@ Placeholder family-decide example:
 python -m src.product_intelligence.cli family-decide --root .\local-evidence --database .\state\canonical-catalog.sqlite3 --actor "operator@example.com" --decided-at "2026-09-06T12:00:00Z"
 ```
 
-## Unimplemented later stages
+## P5.3c Human sellable-variant review + decision + durable admission presentation — CANDIDATE (TASK-149)
 
-Later P5.3 stages remain unimplemented:
+TASK-149 adds the seventh operation to `src/product_intelligence/cli.py`:
 
-- P5.3c sellable-variant review / decision / durable admission presentation over TASK-141.
+- `variant-decide` requires exactly one `--database` path, exactly one
+  `--family-id` string, exactly one `--actor` string, and exactly one
+  `--decided-at` ISO-8601 timestamp. Duplicate occurrences fail closed with
+  argparse exit code 2.
+- It calls TASK-120 `load_sqlite_canonical_catalog` exactly once with the exact
+  Human-supplied `--database` path unchanged, resolving one and only one current
+  canonical family by exact string equality with `--family-id` against `catalog.families`.
+  Zero matches or ambiguous multiple matches fail closed.
+- After resolving the exact current family and before reading Human member selection,
+  `variant-decide` renders exactly one bounded family preview to `stderr` exposing
+  the exact `family_id` and all family members in canonical family order using the
+  bounded `SourceObservationIdentity` representation already introduced in TASK-148,
+  without scoring, clustering, recommending, or inferring variant groups.
+- Following the family preview, `variant-decide` reads exactly one Human
+  member-selection line from `stdin`. The representation must be one or more
+  comma-separated 1-based decimal positions without whitespace, signs, ranges,
+  wildcard, JSON, or extra tokens. Human position order and duplicates are
+  preserved when mapping to exact `family.members` objects; no local variant
+  eligibility validation occurs.
+- It calls TASK-141 `prepare_sellable_variant_review` exactly once with the exact
+  loaded `CanonicalProductFamily` and the exact selected-member tuple. All variant
+  eligibility, exact-edge closure, direct-exact matching, singleton proposals, and
+  duplicate handling remain delegated solely to TASK-141 / TASK-116.
+- After successful review preparation and before reading a Human decision,
+  `variant-decide` renders exactly one bounded review preview to `stderr` derived
+  only from the exact returned `SellableVariantReview.proposal`, exposing source
+  `family_id`, members, and pair evidence (relationship, confidence, reasons, codes,
+  details) without reconstructing proposals, scoring, or persisting the preview.
+- Only the exact current in-process TASK-141 review prepared in that invocation is
+  eligible for Human decision. Following the review preview, `variant-decide`
+  reads exactly one additional line from `stdin` containing exact `APPROVE` or
+  `REJECT`.
+- It maps the decision token to `SellableVariantDecision` and calls TASK-141
+  `record_reviewed_sellable_variant_decision` exactly once with the exact current
+  review, actor, and parsed decided-at timestamp unchanged.
+- For `REJECT`: zero `variant_id` line is read, zero durable admission or SQLite
+  mutation occurs, and the output document contains `admission: null`.
+- For `APPROVE`: reads exactly one additional line from `stdin` containing
+  caller-supplied `variant_id` (stripping only terminal CR/LF, preserving whitespace
+  for upstream TASK-117 validation). It delegates durable admission exactly once
+  through TASK-141 `durably_admit_reviewed_sellable_variant` with the exact review,
+  exact decision record, exact variant_id, and exact database path.
+- Successful stdout output is exactly one JSON document with top-level keys
+  `decision` and `admission`. For `APPROVE`, `admission` contains `variant_id`,
+  `family_id`, `member_source_pack_ids`, and `registration_status`.
+- Upstream and application errors remain bounded and sanitized JSON on stderr with
+  exit 1 and no traceback.
 
-No command in P5.1, P5.2, P5.3a, or P5.3b creates persistent review or proposal history
-outside canonical SQLite catalog admission, or triggers background ingestion.
-Overall P5 remains CURRENT / IN PROGRESS after TASK-148, and P6 is not current.
+Placeholder variant-decide example:
+
+```powershell
+python -m src.product_intelligence.cli variant-decide --database .\state\canonical-catalog.sqlite3 --family-id "canonical-family-123" --actor "operator@example.com" --decided-at "2026-09-06T12:00:00Z"
+```
+
+## Stage completion
+
+With TASK-149 P5.3c, all seven operations (`evidence`, `catalog`, `ask`, `discover`,
+`decide`, `family-decide`, `variant-decide`) across P5.1, P5.2, P5.3a, P5.3b, and
+P5.3c are implemented.
+
+Only after full TASK-149 Runtime verification and semantic acceptance PASS is P5
+Human-Facing Product Intelligence Surface CLOSED. P6 remains NEXT / unimplemented
+pending a separate post-P5 architecture audit.

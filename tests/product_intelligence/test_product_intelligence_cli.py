@@ -51,7 +51,10 @@ from src.product_intelligence.source_evidence_intake import (
     SourceEvidenceIntakeError,
     SourceEvidenceInventory,
 )
-from src.product_intelligence.canonical_catalog import CatalogRegistrationStatus
+from src.product_intelligence.canonical_catalog import (
+    CatalogRegistrationResult,
+    CatalogRegistrationStatus,
+)
 from src.product_intelligence.canonical_catalog_sqlite import (
     CanonicalCatalogStorageError,
     create_sqlite_canonical_catalog,
@@ -59,6 +62,23 @@ from src.product_intelligence.canonical_catalog_sqlite import (
 )
 from src.product_intelligence.canonical_family import (
     CanonicalFamilyAdmissionError,
+)
+from src.product_intelligence.canonical_variant import (
+    CanonicalSellableVariant,
+    CanonicalVariantAdmissionError,
+)
+from src.product_intelligence.sellable_variant_approval import (
+    SellableVariantApprovalError,
+    SellableVariantDecision,
+    SellableVariantDecisionRecord,
+    SellableVariantProposal,
+)
+from src.product_intelligence.sellable_variant_review_admission import (
+    DurableSellableVariantAdmissionResult,
+    SellableVariantReview,
+    SellableVariantWorkflowError,
+    _DURABLE_ADMISSION_FACTORY,
+    _REVIEW_FACTORY,
 )
 from src.product_intelligence.entity_grouping import (
     ProvisionalGroupingResult,
@@ -80,6 +100,8 @@ from src.product_intelligence.family_decision_admission import (
     DurableFamilyAdmissionResult,
     FamilyDecisionAdmissionError,
     _DURABLE_ADMISSION,
+    durably_admit_planned_family,
+    record_planned_family_decision,
 )
 from src.product_intelligence.family_merge_approval import (
     FamilyMergeApprovalError,
@@ -138,6 +160,7 @@ def test_import_is_side_effect_free(monkeypatch, capsys):
     import src.product_intelligence.family_review_planning as review_planning
     import src.product_intelligence.orchestration as orchestration
     import src.product_intelligence.persistent_grounded_qa as persistent_qa
+    import src.product_intelligence.sellable_variant_review_admission as variant_admission
     import src.product_intelligence.source_evidence_intake as evidence_intake
     import src.providers.gemini as gemini
 
@@ -156,6 +179,9 @@ def test_import_is_side_effect_free(monkeypatch, capsys):
         scoped.setattr(review_planning, "plan_family_knowledge_review", forbidden)
         scoped.setattr(decision_admission, "record_planned_family_decision", forbidden)
         scoped.setattr(decision_admission, "durably_admit_planned_family", forbidden)
+        scoped.setattr(variant_admission, "prepare_sellable_variant_review", forbidden)
+        scoped.setattr(variant_admission, "record_reviewed_sellable_variant_decision", forbidden)
+        scoped.setattr(variant_admission, "durably_admit_reviewed_sellable_variant", forbidden)
         importlib.reload(cli)
         captured = capsys.readouterr()
         assert captured.out == captured.err == ""
@@ -176,6 +202,7 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
         "discover",
         "decide",
         "family-decide",
+        "variant-decide",
     )
     assert {
         name: {
@@ -218,6 +245,14 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
             "--help",
             "--root",
             "--database",
+            "--actor",
+            "--decided-at",
+        },
+        "variant-decide": {
+            "-h",
+            "--help",
+            "--database",
+            "--family-id",
             "--actor",
             "--decided-at",
         },
@@ -460,6 +495,23 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
         ["family-decide", "--root", "r", "--database", "db", "--actor", "act", "--decided-at", "2026-09-06T12:00:00Z", "--family-id", "f1"],
         ["family-decide", "--root", "r", "--database", "db", "--actor", "act", "--decided-at", "2026-09-06T12:00:00Z", "--decision", "APPROVE"],
         ["family-decide", "--root", "r", "--database", "db", "--actor", "act", "--decided-at", "2026-09-06T12:00:00Z", "--proposal", "1"],
+        ["variant-decide"],
+        ["variant-decide", "--database", "db"],
+        ["variant-decide", "--family-id", "fam1"],
+        ["variant-decide", "--actor", "act"],
+        ["variant-decide", "--decided-at", "2026-09-06T12:00:00Z"],
+        ["variant-decide", "--database", "db", "--family-id", "fam1", "--actor", "act"],
+        ["variant-decide", "--database", "db", "--family-id", "fam1", "--decided-at", "2026-09-06T12:00:00Z"],
+        ["variant-decide", "--database", "db", "--actor", "act", "--decided-at", "2026-09-06T12:00:00Z"],
+        ["variant-decide", "--family-id", "fam1", "--actor", "act", "--decided-at", "2026-09-06T12:00:00Z"],
+        ["variant-decide", "--database", "db", "--family-id", "fam1", "--actor", "act", "--decided-at", "not-a-datetime"],
+        ["variant-decide", "--database", "db1", "--database", "db2", "--family-id", "fam1", "--actor", "act", "--decided-at", "2026-09-06T12:00:00Z"],
+        ["variant-decide", "--database", "db", "--family-id", "fam1", "--family-id", "fam2", "--actor", "act", "--decided-at", "2026-09-06T12:00:00Z"],
+        ["variant-decide", "--database", "db", "--family-id", "fam1", "--actor", "act1", "--actor", "act2", "--decided-at", "2026-09-06T12:00:00Z"],
+        ["variant-decide", "--database", "db", "--family-id", "fam1", "--actor", "act", "--decided-at", "2026-09-06T12:00:00Z", "--decided-at", "2026-09-06T13:00:00Z"],
+        ["variant-decide", "--database", "db", "--family-id", "fam1", "--actor", "act", "--decided-at", "2026-09-06T12:00:00Z", "--variant-id", "v1"],
+        ["variant-decide", "--database", "db", "--family-id", "fam1", "--actor", "act", "--decided-at", "2026-09-06T12:00:00Z", "--decision", "APPROVE"],
+        ["variant-decide", "--database", "db", "--family-id", "fam1", "--actor", "act", "--decided-at", "2026-09-06T12:00:00Z", "--member-positions", "1,2"],
     )
     for argv in invalid:
         with pytest.raises(SystemExit) as error:
@@ -502,6 +554,25 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
     assert parsed.database == "cat.db"
     assert parsed.actor == "operator"
     assert parsed.decided_at == datetime(2026, 9, 6, 12, 0, tzinfo=timezone.utc)
+
+    parsed_variant = parser.parse_args(
+        [
+            "variant-decide",
+            "--database",
+            "cat.db",
+            "--family-id",
+            "fam-123",
+            "--actor",
+            "operator",
+            "--decided-at",
+            "2026-09-06T12:00:00+00:00",
+        ]
+    )
+    assert parsed_variant.command == "variant-decide"
+    assert parsed_variant.database == "cat.db"
+    assert parsed_variant.family_id == "fam-123"
+    assert parsed_variant.actor == "operator"
+    assert parsed_variant.decided_at == datetime(2026, 9, 6, 12, 0, tzinfo=timezone.utc)
 
 
 def test_evidence_delegates_once_and_preserves_aligned_inventory(monkeypatch, capsys):
@@ -2820,6 +2891,791 @@ def test_family_decide_source_has_no_direct_task_109_111_112_114_118_119_120_sem
         "create_empty_canonical_catalog",
         "create_sqlite_canonical_catalog",
         "register_sqlite_canonical_family",
+    }
+    assert imported_names.isdisjoint(forbidden_semantic_functions)
+    assert "sqlite3" not in source
+
+
+def _admit_family_for_variant(database_path, *, suffix=""):
+    facts = (
+        ProductFact("Brand", "Acme", "specifications", "structured"),
+        ProductFact("Model", "Phone X", "specifications", "structured"),
+        ProductFact("Color", "Black", "specifications", "structured"),
+    )
+    packs = tuple(
+        ProductSourcePack(
+            source_pack_id=f"task-149-{platform}{suffix}",
+            platform=platform,
+            product_url=f"https://{platform}.example/item{suffix}",
+            source_product_id=f"item-{platform}{suffix}",
+            observed_at=datetime(2026, 9, index, tzinfo=timezone.utc),
+            collector="task-149-test",
+            facts=facts,
+        )
+        for index, platform in enumerate(("shopee", "tiktok"), start=1)
+    )
+    inventory = SourceEvidenceInventory(
+        tuple(f"manifest-{index}{suffix}" for index in range(2)),
+        packs,
+    )
+    plan = plan_family_knowledge_review(inventory)
+    assert len(plan.proposals) == 1
+    family_decision = record_planned_family_decision(
+        plan,
+        plan.proposals[0],
+        decision=FamilyMergeDecision.APPROVE,
+        actor="family-reviewer",
+        decided_at=datetime(2026, 9, 6, 9, 30, tzinfo=timezone.utc),
+    )
+    admitted = durably_admit_planned_family(
+        plan,
+        family_decision,
+        family_id=f"family-task-149{suffix}",
+        database_path=database_path,
+    )
+    return admitted.family
+
+
+def test_variant_decide_offline_flow_approve_inserted(monkeypatch, capsys):
+    from unittest.mock import MagicMock
+
+    # Setup mock catalog with one family
+    mock_member1 = SourceObservationIdentity(
+        source_pack_id="pack-m1",
+        platform="shopee",
+        source_product_id="sp-1",
+        product_url="https://shopee.example/1",
+        observed_at=datetime(2026, 9, 1, 10, 0, tzinfo=timezone.utc),
+    )
+    mock_member2 = SourceObservationIdentity(
+        source_pack_id="pack-m2",
+        platform="tiktok",
+        source_product_id="tt-2",
+        product_url="https://tiktok.example/2",
+        observed_at=datetime(2026, 9, 2, 10, 0, tzinfo=timezone.utc),
+    )
+    mock_family = SimpleNamespace(
+        family_id="canonical-fam-1",
+        members=(mock_member1, mock_member2),
+    )
+    mock_catalog = SimpleNamespace(families=[mock_family], variants=[])
+
+    load_catalog_calls = []
+    def mock_load(db):
+        load_catalog_calls.append(db)
+        return mock_catalog
+
+    prepare_calls = []
+    mock_pair_evidence = FamilyMergePairEvidence(
+        left=mock_member1,
+        right=mock_member2,
+        relationship=ProductRelationship.EXACT_VARIANT_MATCH,
+        confidence=1.0,
+        reasons=("Identical specs",),
+        evidence=(),
+    )
+    mock_proposal = SimpleNamespace(
+        source_family=mock_family,
+        members=(mock_member1, mock_member2),
+        pair_evidence=(mock_pair_evidence,),
+    )
+    mock_review = SimpleNamespace(proposal=mock_proposal)
+
+    def mock_prepare(fam, members):
+        prepare_calls.append((fam, members))
+        return mock_review
+
+    decision_calls = []
+    mock_decision_record = SimpleNamespace(
+        proposal=mock_proposal,
+        decision=SellableVariantDecision.APPROVE,
+        actor="variant-reviewer@example.com",
+        decided_at=datetime(2026, 9, 6, 12, 0, tzinfo=timezone.utc),
+    )
+    def mock_record_decision(rev, *, decision, actor, decided_at):
+        decision_calls.append((rev, decision, actor, decided_at))
+        return mock_decision_record
+
+    admit_calls = []
+    mock_variant = SimpleNamespace(
+        variant_id="var-123",
+        family_id="canonical-fam-1",
+        members=(mock_member1, mock_member2),
+    )
+    mock_registration = SimpleNamespace(status=CatalogRegistrationStatus.INSERTED)
+    mock_admission_result = SimpleNamespace(
+        decision_record=mock_decision_record,
+        variant=mock_variant,
+        registration=mock_registration,
+    )
+    def mock_durably_admit(rev, dec_rec, *, variant_id, database_path):
+        admit_calls.append((rev, dec_rec, variant_id, database_path))
+        return mock_admission_result
+
+    monkeypatch.setattr(cli, "_load_sqlite_canonical_catalog", mock_load)
+    monkeypatch.setattr(cli, "_prepare_sellable_variant_review", mock_prepare)
+    monkeypatch.setattr(cli, "_record_reviewed_sellable_variant_decision", mock_record_decision)
+    monkeypatch.setattr(cli, "_durably_admit_reviewed_sellable_variant", mock_durably_admit)
+
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("1,2\nAPPROVE\nvar-123\n"))
+
+    argv = [
+        "variant-decide",
+        "--database",
+        "sqlite:///catalog.db",
+        "--family-id",
+        "canonical-fam-1",
+        "--actor",
+        "variant-reviewer@example.com",
+        "--decided-at",
+        "2026-09-06T12:00:00+00:00",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 0
+
+    assert len(load_catalog_calls) == 1
+    assert load_catalog_calls[0] == "sqlite:///catalog.db"
+
+    assert len(prepare_calls) == 1
+    assert prepare_calls[0][0] is mock_family
+    assert prepare_calls[0][1] == (mock_member1, mock_member2)
+
+    assert len(decision_calls) == 1
+    assert decision_calls[0][0] is mock_review
+    assert decision_calls[0][1] is SellableVariantDecision.APPROVE
+    assert decision_calls[0][2] == "variant-reviewer@example.com"
+    assert decision_calls[0][3] == datetime(2026, 9, 6, 12, 0, tzinfo=timezone.utc)
+
+    assert len(admit_calls) == 1
+    assert admit_calls[0][0] is mock_review
+    assert admit_calls[0][1] is mock_decision_record
+    assert admit_calls[0][2] == "var-123"
+    assert admit_calls[0][3] == "sqlite:///catalog.db"
+
+    captured = capsys.readouterr()
+    # Check stderr contains both previews
+    stderr_lines = captured.err.strip().split("\n")
+    # Both family preview and review preview were output to stderr
+    assert "canonical-fam-1" in captured.err
+    assert "pack-m1" in captured.err
+
+    doc = json.loads(captured.out)
+    assert list(doc.keys()) == ["decision", "admission"]
+    assert doc["decision"]["decision"] == "APPROVE"
+    assert doc["decision"]["actor"] == "variant-reviewer@example.com"
+    assert doc["decision"]["decided_at"] == "2026-09-06T12:00:00+00:00"
+    assert doc["decision"]["proposal"]["family_id"] == "canonical-fam-1"
+    assert len(doc["decision"]["proposal"]["members"]) == 2
+    assert len(doc["decision"]["proposal"]["pair_evidence"]) == 1
+
+    assert doc["admission"]["variant_id"] == "var-123"
+    assert doc["admission"]["family_id"] == "canonical-fam-1"
+    assert doc["admission"]["member_source_pack_ids"] == ["pack-m1", "pack-m2"]
+    assert doc["admission"]["registration_status"] == "INSERTED"
+
+
+def test_variant_decide_offline_flow_approve_already_present(monkeypatch, capsys):
+    mock_member = SourceObservationIdentity(
+        source_pack_id="pack-single",
+        platform="shopee",
+        source_product_id="sp-1",
+        product_url="https://shopee.example/1",
+        observed_at=datetime(2026, 9, 1, 10, 0, tzinfo=timezone.utc),
+    )
+    mock_family = SimpleNamespace(
+        family_id="canonical-fam-2",
+        members=(mock_member,),
+    )
+    mock_catalog = SimpleNamespace(families=[mock_family], variants=[])
+
+    mock_proposal = SimpleNamespace(
+        source_family=mock_family,
+        members=(mock_member,),
+        pair_evidence=(),
+    )
+    mock_review = SimpleNamespace(proposal=mock_proposal)
+    mock_decision_record = SimpleNamespace(
+        proposal=mock_proposal,
+        decision=SellableVariantDecision.APPROVE,
+        actor="reviewer",
+        decided_at=datetime(2026, 9, 6, 12, 0, tzinfo=timezone.utc),
+    )
+    mock_variant = SimpleNamespace(
+        variant_id="var-existing",
+        family_id="canonical-fam-2",
+        members=(mock_member,),
+    )
+    mock_registration = SimpleNamespace(status=CatalogRegistrationStatus.ALREADY_PRESENT)
+    mock_admission_result = SimpleNamespace(
+        decision_record=mock_decision_record,
+        variant=mock_variant,
+        registration=mock_registration,
+    )
+
+    monkeypatch.setattr(cli, "_load_sqlite_canonical_catalog", lambda db: mock_catalog)
+    monkeypatch.setattr(cli, "_prepare_sellable_variant_review", lambda f, m: mock_review)
+    monkeypatch.setattr(cli, "_record_reviewed_sellable_variant_decision", lambda r, **kw: mock_decision_record)
+    monkeypatch.setattr(cli, "_durably_admit_reviewed_sellable_variant", lambda r, d, **kw: mock_admission_result)
+
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("1\nAPPROVE\nvar-existing\n"))
+
+    argv = [
+        "variant-decide",
+        "--database",
+        "sqlite:///catalog.db",
+        "--family-id",
+        "canonical-fam-2",
+        "--actor",
+        "reviewer",
+        "--decided-at",
+        "2026-09-06T12:00:00+00:00",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 0
+
+    captured = capsys.readouterr()
+    doc = json.loads(captured.out)
+    assert doc["admission"]["registration_status"] == "ALREADY_PRESENT"
+
+
+def test_variant_decide_offline_flow_reject(monkeypatch, capsys):
+    mock_member = SourceObservationIdentity(
+        source_pack_id="pack-single",
+        platform="shopee",
+        source_product_id="sp-1",
+        product_url="https://shopee.example/1",
+        observed_at=datetime(2026, 9, 1, 10, 0, tzinfo=timezone.utc),
+    )
+    mock_family = SimpleNamespace(
+        family_id="canonical-fam-3",
+        members=(mock_member,),
+    )
+    mock_catalog = SimpleNamespace(families=[mock_family], variants=[])
+
+    mock_proposal = SimpleNamespace(
+        source_family=mock_family,
+        members=(mock_member,),
+        pair_evidence=(),
+    )
+    mock_review = SimpleNamespace(proposal=mock_proposal)
+    mock_decision_record = SimpleNamespace(
+        proposal=mock_proposal,
+        decision=SellableVariantDecision.REJECT,
+        actor="rejector",
+        decided_at=datetime(2026, 9, 6, 12, 0, tzinfo=timezone.utc),
+    )
+
+    admit_calls = []
+    monkeypatch.setattr(cli, "_load_sqlite_canonical_catalog", lambda db: mock_catalog)
+    monkeypatch.setattr(cli, "_prepare_sellable_variant_review", lambda f, m: mock_review)
+    monkeypatch.setattr(cli, "_record_reviewed_sellable_variant_decision", lambda r, **kw: mock_decision_record)
+    monkeypatch.setattr(cli, "_durably_admit_reviewed_sellable_variant", lambda *a, **kw: admit_calls.append(a))
+
+    # Note: REJECT provides NO variant_id line
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("1\nREJECT\n"))
+
+    argv = [
+        "variant-decide",
+        "--database",
+        "sqlite:///catalog.db",
+        "--family-id",
+        "canonical-fam-3",
+        "--actor",
+        "rejector",
+        "--decided-at",
+        "2026-09-06T12:00:00+00:00",
+    ]
+    exit_code = cli.main(argv)
+    assert exit_code == 0
+
+    # Zero durable admission calls
+    assert len(admit_calls) == 0
+
+    captured = capsys.readouterr()
+    doc = json.loads(captured.out)
+    assert doc["decision"]["decision"] == "REJECT"
+    assert doc["admission"] is None
+
+
+def test_variant_decide_exact_family_matching_fail_closed(monkeypatch, capsys):
+    mock_family = SimpleNamespace(
+        family_id="canonical-fam-target",
+        members=(),
+    )
+    mock_catalog = SimpleNamespace(families=[mock_family], variants=[])
+    monkeypatch.setattr(cli, "_load_sqlite_canonical_catalog", lambda db: mock_catalog)
+
+    # 1. Zero matches
+    argv_missing = [
+        "variant-decide",
+        "--database",
+        "sqlite:///catalog.db",
+        "--family-id",
+        "canonical-fam-nonexistent",
+        "--actor",
+        "reviewer",
+        "--decided-at",
+        "2026-09-06T12:00:00+00:00",
+    ]
+    assert cli.main(argv_missing) == 1
+    captured = capsys.readouterr()
+    assert "Canonical family not found" in captured.err
+    assert "Traceback" not in captured.err
+
+    # 2. Ambiguous matches (>1 matches)
+    mock_catalog_ambiguous = SimpleNamespace(
+        families=[mock_family, mock_family],
+        variants=[],
+    )
+    monkeypatch.setattr(cli, "_load_sqlite_canonical_catalog", lambda db: mock_catalog_ambiguous)
+    argv_ambiguous = [
+        "variant-decide",
+        "--database",
+        "sqlite:///catalog.db",
+        "--family-id",
+        "canonical-fam-target",
+        "--actor",
+        "reviewer",
+        "--decided-at",
+        "2026-09-06T12:00:00+00:00",
+    ]
+    assert cli.main(argv_ambiguous) == 1
+    captured = capsys.readouterr()
+    assert "Structural catalog ambiguity" in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_variant_decide_preserves_caller_order_and_duplicates(monkeypatch, capsys):
+    mock_member1 = SourceObservationIdentity(
+        source_pack_id="pack-1",
+        platform="shopee",
+        source_product_id="sp-1",
+        product_url="https://shopee.example/1",
+        observed_at=datetime(2026, 9, 1, 10, 0, tzinfo=timezone.utc),
+    )
+    mock_member2 = SourceObservationIdentity(
+        source_pack_id="pack-2",
+        platform="tiktok",
+        source_product_id="tt-2",
+        product_url="https://tiktok.example/2",
+        observed_at=datetime(2026, 9, 2, 10, 0, tzinfo=timezone.utc),
+    )
+    mock_family = SimpleNamespace(
+        family_id="fam-order",
+        members=(mock_member1, mock_member2),
+    )
+    mock_catalog = SimpleNamespace(families=[mock_family], variants=[])
+
+    received_members_tuple = []
+    def mock_prepare(fam, members):
+        received_members_tuple.append(members)
+        mock_prop = SimpleNamespace(source_family=fam, members=members, pair_evidence=())
+        return SimpleNamespace(proposal=mock_prop)
+
+    monkeypatch.setattr(cli, "_load_sqlite_canonical_catalog", lambda db: mock_catalog)
+    monkeypatch.setattr(cli, "_prepare_sellable_variant_review", mock_prepare)
+    monkeypatch.setattr(
+        cli,
+        "_record_reviewed_sellable_variant_decision",
+        lambda r, **kw: SimpleNamespace(
+            proposal=r.proposal,
+            decision=kw["decision"],
+            actor=kw["actor"],
+            decided_at=kw["decided_at"],
+        ),
+    )
+
+    # Human specifies "2,1,2" (order reversed and duplicate position 2)
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("2,1,2\nREJECT\n"))
+
+    argv = [
+        "variant-decide",
+        "--database",
+        "sqlite:///catalog.db",
+        "--family-id",
+        "fam-order",
+        "--actor",
+        "reviewer",
+        "--decided-at",
+        "2026-09-06T12:00:00+00:00",
+    ]
+    assert cli.main(argv) == 0
+
+    assert len(received_members_tuple) == 1
+    selected = received_members_tuple[0]
+    assert len(selected) == 3
+    assert selected[0] is mock_member2
+    assert selected[1] is mock_member1
+    assert selected[2] is mock_member2
+
+
+def test_variant_decide_stdin_member_positions_syntax_errors(monkeypatch, capsys):
+    mock_member = SourceObservationIdentity(
+        source_pack_id="pack-1",
+        platform="shopee",
+        source_product_id="sp-1",
+        product_url="https://shopee.example/1",
+        observed_at=datetime(2026, 9, 1, 10, 0, tzinfo=timezone.utc),
+    )
+    mock_family = SimpleNamespace(
+        family_id="fam-syntax",
+        members=(mock_member, mock_member),
+    )
+    mock_catalog = SimpleNamespace(families=[mock_family], variants=[])
+    monkeypatch.setattr(cli, "_load_sqlite_canonical_catalog", lambda db: mock_catalog)
+
+    prepare_called = []
+    monkeypatch.setattr(cli, "_prepare_sellable_variant_review", lambda *a: prepare_called.append(a))
+
+    invalid_inputs = [
+        "",  # EOF
+        "\n",  # Empty
+        " \n",  # Whitespace only
+        " 1\n",  # Leading space
+        "1 \n",  # Trailing space
+        "1, 2\n",  # Space after comma
+        "1,\n",  # Trailing comma
+        ",1\n",  # Leading comma
+        "1,,2\n",  # Double comma
+        "0\n",  # Zero (1-based required)
+        "3\n",  # Out of range (family has 2 members)
+        "-1\n",  # Negative
+        "+1\n",  # Explicit plus sign
+        "1-2\n",  # Range syntax
+        "*\n",  # Wildcard
+        "[1, 2]\n",  # JSON array
+        "one\n",  # Words
+        "1,a\n",  # Alphanumeric
+    ]
+
+    argv = [
+        "variant-decide",
+        "--database",
+        "sqlite:///catalog.db",
+        "--family-id",
+        "fam-syntax",
+        "--actor",
+        "reviewer",
+        "--decided-at",
+        "2026-09-06T12:00:00+00:00",
+    ]
+
+    for bad_input in invalid_inputs:
+        monkeypatch.setattr(cli._sys, "stdin", StringIO(bad_input))
+        exit_code = cli.main(argv)
+        assert exit_code == 1
+        captured = capsys.readouterr()
+        assert "error" in captured.err
+        assert "Traceback" not in captured.err
+        assert len(prepare_called) == 0
+
+
+def test_variant_decide_stdin_decision_syntax_errors(monkeypatch, capsys):
+    mock_member = SourceObservationIdentity(
+        source_pack_id="pack-1",
+        platform="shopee",
+        source_product_id="sp-1",
+        product_url="https://shopee.example/1",
+        observed_at=datetime(2026, 9, 1, 10, 0, tzinfo=timezone.utc),
+    )
+    mock_family = SimpleNamespace(
+        family_id="fam-dec-syntax",
+        members=(mock_member,),
+    )
+    mock_catalog = SimpleNamespace(families=[mock_family], variants=[])
+    mock_prop = SimpleNamespace(source_family=mock_family, members=(mock_member,), pair_evidence=())
+    mock_review = SimpleNamespace(proposal=mock_prop)
+
+    monkeypatch.setattr(cli, "_load_sqlite_canonical_catalog", lambda db: mock_catalog)
+    monkeypatch.setattr(cli, "_prepare_sellable_variant_review", lambda f, m: mock_review)
+
+    record_called = []
+    monkeypatch.setattr(cli, "_record_reviewed_sellable_variant_decision", lambda *a, **kw: record_called.append(a))
+
+    invalid_decisions = [
+        "1\n",  # EOF on decision
+        "1\napprove\n",  # Lowercase
+        "1\nreject\n",  # Lowercase
+        "1\n APPROVE\n",  # Leading whitespace
+        "1\nAPPROVE \n",  # Trailing whitespace
+        "1\nAPPROVE extra\n",  # Extra token
+        "1\nMAYBE\n",  # Unknown token
+        "1\nYES\n",  # Unknown token
+    ]
+
+    argv = [
+        "variant-decide",
+        "--database",
+        "sqlite:///catalog.db",
+        "--family-id",
+        "fam-dec-syntax",
+        "--actor",
+        "reviewer",
+        "--decided-at",
+        "2026-09-06T12:00:00+00:00",
+    ]
+
+    for bad_input in invalid_decisions:
+        monkeypatch.setattr(cli._sys, "stdin", StringIO(bad_input))
+        exit_code = cli.main(argv)
+        assert exit_code == 1
+        captured = capsys.readouterr()
+        assert "error" in captured.err
+        assert "Traceback" not in captured.err
+        assert len(record_called) == 0
+
+
+def test_variant_decide_stdin_variant_id_syntax_errors_and_whitespace_preservation(monkeypatch, capsys):
+    mock_member = SourceObservationIdentity(
+        source_pack_id="pack-1",
+        platform="shopee",
+        source_product_id="sp-1",
+        product_url="https://shopee.example/1",
+        observed_at=datetime(2026, 9, 1, 10, 0, tzinfo=timezone.utc),
+    )
+    mock_family = SimpleNamespace(
+        family_id="fam-var-syntax",
+        members=(mock_member,),
+    )
+    mock_catalog = SimpleNamespace(families=[mock_family], variants=[])
+    mock_prop = SimpleNamespace(source_family=mock_family, members=(mock_member,), pair_evidence=())
+    mock_review = SimpleNamespace(proposal=mock_prop)
+    mock_decision_record = SimpleNamespace(
+        proposal=mock_prop,
+        decision=SellableVariantDecision.APPROVE,
+        actor="reviewer",
+        decided_at=datetime(2026, 9, 6, 12, 0, tzinfo=timezone.utc),
+    )
+
+    monkeypatch.setattr(cli, "_load_sqlite_canonical_catalog", lambda db: mock_catalog)
+    monkeypatch.setattr(cli, "_prepare_sellable_variant_review", lambda f, m: mock_review)
+    monkeypatch.setattr(cli, "_record_reviewed_sellable_variant_decision", lambda r, **kw: mock_decision_record)
+
+    argv = [
+        "variant-decide",
+        "--database",
+        "sqlite:///catalog.db",
+        "--family-id",
+        "fam-var-syntax",
+        "--actor",
+        "reviewer",
+        "--decided-at",
+        "2026-09-06T12:00:00+00:00",
+    ]
+
+    # 1. EOF on variant_id for APPROVE
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("1\nAPPROVE\n"))
+    assert cli.main(argv) == 1
+    captured = capsys.readouterr()
+    assert "missing variant_id" in captured.err
+
+    # 2. Whitespace preservation: variant_id with whitespace forwarded unchanged to durable admission
+    passed_variant_ids = []
+    def mock_durably_admit(rev, dec_rec, *, variant_id, database_path):
+        passed_variant_ids.append(variant_id)
+        # Simulate TASK-117 rejection for whitespace in variant_id
+        raise CanonicalVariantAdmissionError(f"Invalid variant_id: {variant_id!r}")
+
+    monkeypatch.setattr(cli, "_durably_admit_reviewed_sellable_variant", mock_durably_admit)
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("1\nAPPROVE\n  var-with-whitespace  \n"))
+    assert cli.main(argv) == 1
+    captured = capsys.readouterr()
+    assert "CanonicalVariantAdmissionError" in captured.err
+    assert "Traceback" not in captured.err
+    assert passed_variant_ids == ["  var-with-whitespace  "]
+
+
+def test_variant_decide_upstream_errors_sanitized(monkeypatch, capsys):
+    argv = [
+        "variant-decide",
+        "--database",
+        "sqlite:///catalog.db",
+        "--family-id",
+        "fam-err",
+        "--actor",
+        "reviewer",
+        "--decided-at",
+        "2026-09-06T12:00:00+00:00",
+    ]
+
+    # 1. CanonicalCatalogStorageError on load
+    def fail_load(db):
+        raise CanonicalCatalogStorageError("Corrupted database file")
+
+    monkeypatch.setattr(cli, "_load_sqlite_canonical_catalog", fail_load)
+    assert cli.main(argv) == 1
+    captured = capsys.readouterr()
+    assert "CanonicalCatalogStorageError" in captured.err
+    assert "Corrupted database file" in captured.err
+    assert "Traceback" not in captured.err
+
+    # 2. SellableVariantApprovalError on prepare
+    mock_member = SourceObservationIdentity(
+        source_pack_id="pack-1",
+        platform="shopee",
+        source_product_id="sp-1",
+        product_url="https://shopee.example/1",
+        observed_at=datetime(2026, 9, 1, 10, 0, tzinfo=timezone.utc),
+    )
+    mock_family = SimpleNamespace(family_id="fam-err", members=(mock_member,))
+    mock_catalog = SimpleNamespace(families=[mock_family], variants=[])
+    monkeypatch.setattr(cli, "_load_sqlite_canonical_catalog", lambda db: mock_catalog)
+
+    def fail_prepare(fam, members):
+        raise SellableVariantApprovalError("Selected members are not direct exact match")
+
+    monkeypatch.setattr(cli, "_prepare_sellable_variant_review", fail_prepare)
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("1\nAPPROVE\nvar-1\n"))
+    assert cli.main(argv) == 1
+    captured = capsys.readouterr()
+    assert "SellableVariantApprovalError" in captured.err
+    assert "Selected members are not direct exact match" in captured.err
+    assert "Traceback" not in captured.err
+
+    # 3. SellableVariantApprovalError on record decision
+    mock_prop = SimpleNamespace(source_family=mock_family, members=(mock_member,), pair_evidence=())
+    monkeypatch.setattr(cli, "_prepare_sellable_variant_review", lambda f, m: SimpleNamespace(proposal=mock_prop))
+
+    def fail_record(rev, **kw):
+        raise SellableVariantApprovalError("Invalid decided_at timezone")
+
+    monkeypatch.setattr(cli, "_record_reviewed_sellable_variant_decision", fail_record)
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("1\nAPPROVE\nvar-1\n"))
+    assert cli.main(argv) == 1
+    captured = capsys.readouterr()
+    assert "SellableVariantApprovalError" in captured.err
+    assert "Invalid decided_at timezone" in captured.err
+    assert "Traceback" not in captured.err
+
+    # 4. SellableVariantWorkflowError on durable admission
+    mock_decision_record = SimpleNamespace(
+        proposal=mock_prop,
+        decision=SellableVariantDecision.APPROVE,
+        actor="reviewer",
+        decided_at=datetime(2026, 9, 6, 12, 0, tzinfo=timezone.utc),
+    )
+    monkeypatch.setattr(cli, "_record_reviewed_sellable_variant_decision", lambda r, **kw: mock_decision_record)
+
+    def fail_admit(*a, **kw):
+        raise SellableVariantWorkflowError("Durable admission lineage broken")
+
+    monkeypatch.setattr(cli, "_durably_admit_reviewed_sellable_variant", fail_admit)
+    monkeypatch.setattr(cli._sys, "stdin", StringIO("1\nAPPROVE\nvar-1\n"))
+    assert cli.main(argv) == 1
+    captured = capsys.readouterr()
+    assert "SellableVariantWorkflowError" in captured.err
+    assert "Durable admission lineage broken" in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_variant_decide_real_approve_durable_registration_and_reopen_regression(tmp_path, capsys):
+    # Create SQLite catalog and admit one family via TASK-140/TASK-120 authority
+    db_path = str(tmp_path / "catalog.sqlite3")
+    create_sqlite_canonical_catalog(db_path)
+    family = _admit_family_for_variant(db_path)
+
+    # Provide stdin for APPROVE: member positions 1,2, decision APPROVE, variant_id
+    import sys
+    orig_stdin = sys.stdin
+    sys.stdin = StringIO("1,2\nAPPROVE\ncanonical-variant-real-1\n")
+    try:
+        argv = [
+            "variant-decide",
+            "--database",
+            db_path,
+            "--family-id",
+            family.family_id,
+            "--actor",
+            "real-variant-reviewer@example.com",
+            "--decided-at",
+            "2026-09-06T16:00:00+00:00",
+        ]
+        exit_code = cli.main(argv)
+        assert exit_code == 0
+    finally:
+        sys.stdin = orig_stdin
+
+    captured = capsys.readouterr()
+    doc = json.loads(captured.out)
+    assert doc["decision"]["decision"] == "APPROVE"
+    assert doc["decision"]["actor"] == "real-variant-reviewer@example.com"
+    assert doc["decision"]["decided_at"] == "2026-09-06T16:00:00+00:00"
+    assert doc["decision"]["proposal"]["family_id"] == family.family_id
+    assert doc["admission"]["variant_id"] == "canonical-variant-real-1"
+    assert doc["admission"]["family_id"] == family.family_id
+    assert doc["admission"]["member_source_pack_ids"] == ["task-149-shopee", "task-149-tiktok"]
+    assert doc["admission"]["registration_status"] == "INSERTED"
+
+    # Reopen the SQLite catalog via TASK-120 load_sqlite_canonical_catalog
+    reopened = load_sqlite_canonical_catalog(db_path)
+    assert len(reopened.variants) == 1
+    saved_variant = reopened.variants[0]
+    assert saved_variant.variant_id == "canonical-variant-real-1"
+    assert saved_variant.family_id == family.family_id
+    assert saved_variant.approval.actor == "real-variant-reviewer@example.com"
+    assert saved_variant.approval.decision == SellableVariantDecision.APPROVE
+    assert saved_variant.approval.decided_at == datetime(2026, 9, 6, 16, 0, tzinfo=timezone.utc)
+    assert tuple(m.source_pack_id for m in saved_variant.members) == ("task-149-shopee", "task-149-tiktok")
+    assert saved_variant.approval.proposal.source_family.family_id == family.family_id
+
+
+def test_variant_decide_real_reject_no_write_regression(tmp_path, capsys):
+    # Create SQLite catalog and admit one family via TASK-140/TASK-120 authority
+    db_path = str(tmp_path / "catalog.sqlite3")
+    create_sqlite_canonical_catalog(db_path)
+    family = _admit_family_for_variant(db_path)
+    bytes_before = Path(db_path).read_bytes()
+
+    # Provide stdin for REJECT (no variant_id line)
+    import sys
+    orig_stdin = sys.stdin
+    sys.stdin = StringIO("1,2\nREJECT\n")
+    try:
+        argv = [
+            "variant-decide",
+            "--database",
+            db_path,
+            "--family-id",
+            family.family_id,
+            "--actor",
+            "real-variant-rejector@example.com",
+            "--decided-at",
+            "2026-09-06T17:00:00+00:00",
+        ]
+        exit_code = cli.main(argv)
+        assert exit_code == 0
+    finally:
+        sys.stdin = orig_stdin
+
+    captured = capsys.readouterr()
+    doc = json.loads(captured.out)
+    assert doc["decision"]["decision"] == "REJECT"
+    assert doc["decision"]["actor"] == "real-variant-rejector@example.com"
+    assert doc["admission"] is None
+
+    # Prove database bytes are identical and reopened catalog has 0 variants
+    bytes_after = Path(db_path).read_bytes()
+    assert bytes_after == bytes_before
+    reopened = load_sqlite_canonical_catalog(db_path)
+    assert len(reopened.variants) == 0
+
+
+def test_variant_decide_source_has_no_direct_task_115_116_117_semantic_authority():
+    source = Path(cli.__file__).read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    imported_names = {
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
+    }
+    forbidden_semantic_functions = {
+        "project_sellable_variant_evidence",
+        "create_sellable_variant_proposal",
+        "create_sellable_variant_decision_record",
+        "create_canonical_sellable_variant",
+        "register_canonical_variant",
+        "register_sqlite_canonical_variant",
     }
     assert imported_names.isdisjoint(forbidden_semantic_functions)
     assert "sqlite3" not in source

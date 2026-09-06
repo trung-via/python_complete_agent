@@ -29,6 +29,12 @@ from src.product_intelligence.canonical_catalog_sqlite import (
     CanonicalCatalogStorageError as _CanonicalCatalogStorageError,
     load_sqlite_canonical_catalog as _load_sqlite_canonical_catalog,
 )
+from src.product_intelligence.canonical_family import (
+    CanonicalProductFamily as _CanonicalProductFamily,
+)
+from src.product_intelligence.canonical_variant import (
+    CanonicalVariantAdmissionError as _CanonicalVariantAdmissionError,
+)
 from src.product_intelligence.discovery import (
     DiscoveryError as _DiscoveryError,
     DiscoveryRequest as _DiscoveryRequest,
@@ -71,6 +77,17 @@ from src.product_intelligence.persistent_grounded_qa import (
     PersistentGroundedQaError as _PersistentGroundedQaError,
     answer_persisted_grounded_question as _answer_persisted_grounded_question,
 )
+from src.product_intelligence.sellable_variant_approval import (
+    SellableVariantApprovalError as _SellableVariantApprovalError,
+    SellableVariantDecision as _SellableVariantDecision,
+    SellableVariantProposal as _SellableVariantProposal,
+)
+from src.product_intelligence.sellable_variant_review_admission import (
+    SellableVariantWorkflowError as _SellableVariantWorkflowError,
+    durably_admit_reviewed_sellable_variant as _durably_admit_reviewed_sellable_variant,
+    prepare_sellable_variant_review as _prepare_sellable_variant_review,
+    record_reviewed_sellable_variant_decision as _record_reviewed_sellable_variant_decision,
+)
 from src.product_intelligence.source_evidence_intake import (
     SourceEvidenceIntakeError as _SourceEvidenceIntakeError,
     intake_product_source_evidence as _intake_product_source_evidence,
@@ -88,6 +105,9 @@ _KNOWN_APPLICATION_ERRORS = (
     _ApprovalError,
     _FamilyKnowledgeReviewPlanningError,
     _FamilyDecisionAdmissionError,
+    _SellableVariantApprovalError,
+    _SellableVariantWorkflowError,
+    _CanonicalVariantAdmissionError,
     _AgentException,
     OSError,
     ValueError,
@@ -252,6 +272,35 @@ def _parser() -> _argparse.ArgumentParser:
         help="Explicit human actor identifier.",
     )
     family_decide.add_argument(
+        "--decided-at",
+        action=_UniqueStoreAction,
+        required=True,
+        type=_parse_iso_datetime,
+        help="Explicit ISO-8601 decided timestamp.",
+    )
+    variant_decide = commands.add_parser(
+        "variant-decide",
+        help="Review and record one human decision for a sellable variant.",
+    )
+    variant_decide.add_argument(
+        "--database",
+        action=_UniqueStoreAction,
+        required=True,
+        help="Canonical catalog database.",
+    )
+    variant_decide.add_argument(
+        "--family-id",
+        action=_UniqueStoreAction,
+        required=True,
+        help="Canonical product family identifier.",
+    )
+    variant_decide.add_argument(
+        "--actor",
+        action=_UniqueStoreAction,
+        required=True,
+        help="Explicit human actor identifier.",
+    )
+    variant_decide.add_argument(
         "--decided-at",
         action=_UniqueStoreAction,
         required=True,
@@ -643,6 +692,144 @@ def _family_decide_document(arguments: _argparse.Namespace) -> dict[str, object]
     }
 
 
+def _family_preview_document(
+    family: _CanonicalProductFamily,
+) -> dict[str, object]:
+    return {
+        "family_id": family.family_id,
+        "members": [
+            _observation_identity_document(member)
+            for member in family.members
+        ],
+    }
+
+
+def _variant_proposal_document(
+    proposal: _SellableVariantProposal,
+) -> dict[str, object]:
+    return {
+        "family_id": proposal.source_family.family_id,
+        "members": [
+            _observation_identity_document(member)
+            for member in proposal.members
+        ],
+        "pair_evidence": [
+            _pair_evidence_document(pair)
+            for pair in proposal.pair_evidence
+        ],
+    }
+
+
+def _variant_decide_document(arguments: _argparse.Namespace) -> dict[str, object]:
+    catalog = _load_sqlite_canonical_catalog(arguments.database)
+    matching_families = [
+        family
+        for family in catalog.families
+        if family.family_id == arguments.family_id
+    ]
+    if len(matching_families) == 0:
+        raise ValueError(
+            f"Canonical family not found: {arguments.family_id!r}"
+        )
+    if len(matching_families) > 1:
+        raise ValueError(
+            f"Structural catalog ambiguity: multiple families found with family_id {arguments.family_id!r}"
+        )
+    family = matching_families[0]
+
+    _write_json(_family_preview_document(family), _sys.stderr)
+
+    raw_positions = _sys.stdin.readline()
+    if not raw_positions:
+        raise ValueError("Unexpected end of input: missing member selection")
+    if raw_positions.endswith("\r\n"):
+        positions_text = raw_positions[:-2]
+    elif raw_positions.endswith("\n") or raw_positions.endswith("\r"):
+        positions_text = raw_positions[:-1]
+    else:
+        positions_text = raw_positions
+
+    if not positions_text:
+        raise ValueError("Empty member selection")
+
+    tokens = positions_text.split(",")
+    positions: list[int] = []
+    for token in tokens:
+        if not (token.isascii() and token.isdigit()):
+            raise ValueError(f"Invalid member position: {token!r}")
+        pos = int(token)
+        if not (1 <= pos <= len(family.members)):
+            raise ValueError(
+                f"Member position out of range: {pos} (expected 1..{len(family.members)})"
+            )
+        positions.append(pos)
+
+    selected_members = tuple(family.members[pos - 1] for pos in positions)
+
+    review = _prepare_sellable_variant_review(family, selected_members)
+
+    proposal_doc = _variant_proposal_document(review.proposal)
+    _write_json(proposal_doc, _sys.stderr)
+
+    raw_decision = _sys.stdin.readline()
+    if not raw_decision:
+        raise ValueError("Unexpected end of input: missing decision token")
+    decision_text = raw_decision.rstrip("\r\n")
+    if decision_text not in ("APPROVE", "REJECT"):
+        raise ValueError(f"Invalid decision token: {decision_text!r}")
+
+    decision = (
+        _SellableVariantDecision.APPROVE
+        if decision_text == "APPROVE"
+        else _SellableVariantDecision.REJECT
+    )
+    decision_record = _record_reviewed_sellable_variant_decision(
+        review,
+        decision=decision,
+        actor=arguments.actor,
+        decided_at=arguments.decided_at,
+    )
+
+    if decision is _SellableVariantDecision.REJECT:
+        admission_document = None
+    else:
+        raw_variant_id = _sys.stdin.readline()
+        if not raw_variant_id:
+            raise ValueError("Unexpected end of input: missing variant_id")
+        if raw_variant_id.endswith("\r\n"):
+            variant_id = raw_variant_id[:-2]
+        elif raw_variant_id.endswith("\n") or raw_variant_id.endswith("\r"):
+            variant_id = raw_variant_id[:-1]
+        else:
+            variant_id = raw_variant_id
+
+        admission_result = _durably_admit_reviewed_sellable_variant(
+            review,
+            decision_record,
+            variant_id=variant_id,
+            database_path=arguments.database,
+        )
+        admission_document = {
+            "variant_id": admission_result.variant.variant_id,
+            "family_id": admission_result.variant.family_id,
+            "member_source_pack_ids": [
+                member.source_pack_id
+                for member in admission_result.variant.members
+            ],
+            "registration_status": admission_result.registration.status.value,
+        }
+
+    return {
+        "decision": {
+            "decision": decision_record.decision.value,
+            "actor": decision_record.actor,
+            "decided_at": decision_record.decided_at.isoformat(),
+            "proposal": proposal_doc,
+        },
+        "admission": admission_document,
+    }
+
+
 def _write_json(document: dict[str, object], stream) -> None:
     _json.dump(document, stream, ensure_ascii=False, indent=2)
     stream.write("\n")
@@ -675,6 +862,8 @@ def main(argv=None) -> int:
             document = _asyncio.run(_decide_document(arguments))
         elif arguments.command == "family-decide":
             document = _family_decide_document(arguments)
+        elif arguments.command == "variant-decide":
+            document = _variant_decide_document(arguments)
         else:
             raise ValueError(f"Unknown command: {arguments.command}")
     except _KNOWN_APPLICATION_ERRORS as error:
