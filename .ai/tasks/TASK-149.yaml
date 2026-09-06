@@ -1,0 +1,347 @@
+task_id: TASK-149
+revision: 1
+
+goal: >
+  Implement post-M4 P5.3c Human Sellable-Variant Review + Decision + Durable
+  Admission Presentation by extending the existing Product Intelligence CLI with
+  one bounded `variant-decide` operation. The operation must load one pre-existing
+  canonical catalog through TASK-120, resolve one Human-specified existing family by
+  exact family_id, render that exact current family for Human member selection, map
+  the Human-selected 1-based member positions only to the exact member objects from
+  that loaded family, delegate review preparation exactly once through TASK-141,
+  render the exact returned TASK-141 review proposal, record one explicit Human
+  APPROVE/REJECT exactly once through TASK-141, and, only for explicit APPROVE,
+  accept one caller-supplied opaque variant_id and delegate durable admission exactly
+  once through TASK-141. TASK-149 must not discover/rank/recommend variant groups,
+  call TASK-115/116/117 semantic operations directly, reconstruct a proposal from
+  JSON or prior output, generate/normalize IDs, duplicate TASK-118/119/120 semantics,
+  auto-create a catalog/family, persist REJECT history, or implement any P6 authority.
+
+problem: >
+  Published TASK-148 closes P5.3b, so the remaining Human-facing Product
+  Intelligence mutation surface is P5.3c. Existing TASK-141 already owns the
+  application composition over TASK-116 proposal/Human decision, TASK-117 canonical
+  variant admission, and TASK-120 durable registration, while TASK-115 remains the
+  variant evidence/diagnostic authority. The Human-facing gap is presentation and
+  explicit selection only. A CLI that enumerated candidate variant groups, inferred a
+  selection, reconstructed a SellableVariantProposal from prior JSON, or admitted a
+  later-process stale review would introduce a second variant-selection/review
+  authority. P5.3c must therefore preserve one in-process lineage: load exact current
+  family -> show exact members -> Human selects members -> TASK-141 exact review ->
+  show exact proposal -> Human decision -> optional TASK-141 durable admission.
+
+assumptions:
+  - >
+    Canonical Python Agent main immediately before TASK-149 authoring is
+    d561c71b5a8a433511050f2c122a2f45313aa0ab, the published TASK-148 source
+    candidate after REVIEW-148-001 PRIMARY PASS. P1-P4 are CLOSED; P5 is CURRENT /
+    IN PROGRESS; P5.1, P5.2, P5.3a, and P5.3b are CLOSED; P5.3c is the only remaining
+    P5 boundary.
+  - >
+    The authoritative AIOS dependency remains exactly
+    aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@67db82bf19d63f25721d06aabb82d850db8b78d4.
+  - >
+    src/product_intelligence/cli.py remains the sole Product Intelligence
+    Human-facing CLI. Published TASK-145/TASK-146/TASK-147/TASK-148 command behavior
+    remains authoritative and must not be reopened.
+  - >
+    TASK-120 load_sqlite_canonical_catalog remains the sole durable canonical-catalog
+    read boundary used here. TASK-118/119 retain catalog integrity and codec authority;
+    TASK-149 may inspect only the exact typed catalog returned by TASK-120.
+  - >
+    TASK-141 prepare_sellable_variant_review,
+    record_reviewed_sellable_variant_decision, and
+    durably_admit_reviewed_sellable_variant remain the sole P3.3 application
+    composition authority. TASK-149 must delegate to these public operations rather
+    than call TASK-115/116/117 semantic factories directly.
+  - >
+    TASK-116 remains the sole explicit member-selection eligibility,
+    direct-EXACT_VARIANT_MATCH, exact-edge closure, singleton proposal, evidence, and
+    Human variant-decision authority. Member tuple input may be explicit, but TASK-149
+    may not infer whether the tuple is a valid sellable variant.
+  - >
+    TASK-117 remains the sole canonical variant admission and caller-supplied opaque
+    variant_id validation authority. TASK-120 remains the sole SQLite transaction and
+    durable variant-registration authority.
+  - >
+    Variant REJECT remains an in-memory TASK-116 decision with no independent durable
+    history. Family/variant ID allocation, variant discovery/ranking, identity
+    evolution, product-truth reconciliation, durable REJECT history, and autonomous
+    approval remain deferred.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_M4_P5_HUMAN_FACING_SURFACE.md
+    - docs/POST_M4_P3_HUMAN_GOVERNED_KNOWLEDGE_UPDATE.md
+    - .ai/tasks/TASK-141.yaml
+    - .ai/tasks/TASK-145.yaml
+    - .ai/tasks/TASK-147.yaml
+    - .ai/tasks/TASK-148.yaml
+    - src/product_intelligence/cli.py
+    - src/product_intelligence/sellable_variant_review_admission.py
+    - src/product_intelligence/sellable_variant_approval.py
+    - src/product_intelligence/sellable_variant_evidence.py
+    - src/product_intelligence/canonical_variant.py
+    - src/product_intelligence/canonical_catalog.py
+    - src/product_intelligence/canonical_catalog_sqlite.py
+    - tests/product_intelligence/test_product_intelligence_cli.py
+    - tests/product_intelligence/test_sellable_variant_review_admission.py
+    - tests/product_intelligence/test_sellable_variant_approval.py
+    - tests/product_intelligence/test_canonical_variant.py
+    - tests/product_intelligence/test_canonical_catalog.py
+    - tests/product_intelligence/test_canonical_catalog_sqlite.py
+
+  modify:
+    - src/product_intelligence/cli.py
+    - tests/product_intelligence/test_product_intelligence_cli.py
+    - docs/POST_M4_P5_HUMAN_FACING_SURFACE.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+
+non_goals:
+  - Modify TASK-115 evidence projection, exactness-gap, witness, or direct-exact semantics.
+  - Modify TASK-116 proposal eligibility, member canonicalization, exact-edge closure,
+    singleton, Human decision, actor/time, evidence, or ordering semantics.
+  - Modify TASK-117 variant_id validation, canonical variant schema, admission semantics,
+    or approval lineage.
+  - Modify TASK-118 catalog integrity, TASK-119 codec/rehydration, or TASK-120 SQLite
+    schema/transaction/durability semantics.
+  - Modify TASK-141 review/decision/admission module or public API.
+  - Discover, enumerate, partition, cluster, score, rank, recommend, auto-select, or
+    auto-repair sellable-variant member sets.
+  - Call project_sellable_variant_evidence, create_sellable_variant_proposal,
+    create_sellable_variant_decision_record, create_canonical_sellable_variant,
+    register_canonical_variant, register_sqlite_canonical_variant, sqlite3, codec
+    encode/decode, or any alternate semantic/storage authority directly from CLI.
+  - Persist or serialize SellableVariantReview, SellableVariantProposal, pending Human
+    choice, or REJECT decision to a new file/table/cache/session/queue/store.
+  - Rehydrate/reconstruct a SellableVariantProposal from prior CLI JSON, source_pack_id,
+    member positions, pair evidence, family_id, variant_id, or caller-supplied fields.
+  - Let prior `catalog`, `family-decide`, or future prior `variant-decide` output authorize
+    a later decision without loading the current canonical catalog and preparing the exact
+    current in-process TASK-141 review used for that decision.
+  - Generate, normalize, trim, hash, prefix, suffix, reserve, look up, or otherwise infer
+    a variant_id outside TASK-117/TASK-118/TASK-120 semantics.
+  - Auto-create a missing SQLite catalog, auto-register a missing family, repair a stale
+    catalog, retry/reroute failed registration, or introduce transaction recovery policy.
+  - Add variant profile truth such as preferred color/size/capacity/SKU/media, aggregate
+    confidence, product truth, identity evolution, membership extension, conflict repair,
+    background ingestion, network/browser/provider/LLM/Drive work, or P6 behavior.
+  - Change AIOS pin, worker surfaces, auto-publication, or prior RUN/REVIEW lineage.
+
+constraints:
+  hard:
+    - >
+      Extend only src/product_intelligence/cli.py as the Human-facing command surface.
+      The CLI must expose exactly seven operations: existing
+      evidence/catalog/ask/discover/decide/family-decide plus new `variant-decide`, with
+      no alias, second executable, API/server, service, or alternate Human-facing entry
+      point. All existing six command signatures and semantics must remain unchanged.
+    - >
+      `variant-decide` must expose exactly these CLI controls: exactly one `--database`,
+      exactly one `--family-id`, exactly one `--actor`, and exactly one `--decided-at`.
+      None is repeatable; duplicate occurrences must fail with argparse-style exit code 2.
+      No member position, decision, variant_id, evidence, catalog-creation, retry,
+      ranking, provider, or P6 control may be a command-line flag.
+    - >
+      Reuse the existing TASK-147/TASK-148 private ISO-8601 representation parser for
+      `--decided-at`. Syntactically invalid representation may fail at argparse, while a
+      syntactically valid timezone-naive datetime must be forwarded unchanged and fail
+      only through existing TASK-116 Human-decision validation reached via TASK-141.
+      TASK-149 must not add clock defaults or duplicate timezone validation.
+    - >
+      `variant-decide` must call TASK-120 load_sqlite_canonical_catalog exactly once with
+      the exact Human-supplied `--database` string unchanged. It must then select one and
+      only one existing CanonicalProductFamily by exact string equality with the supplied
+      `--family-id` against catalog.families. Zero matches must fail closed; more than one
+      match must fail closed as structural catalog ambiguity. TASK-149 must not load the
+      catalog again, rehydrate another family, construct a family, or use value data from
+      prior CLI output as authority.
+    - >
+      After the exact current family is resolved and before reading Human member
+      selection, render exactly one bounded family preview to stderr. It must contain the
+      exact family_id and every family member in canonical family order using the existing
+      bounded SourceObservationIdentity representation already introduced by TASK-148.
+      The preview may expose position labels solely as 1-based presentation indexes but
+      must not score, cluster, recommend, infer variant groups, label likely variants, or
+      call TASK-115/TASK-116/TASK-141 while producing this initial family preview.
+    - >
+      After the family preview, read exactly one Human member-selection line from stdin.
+      The representation must be one or more comma-separated 1-based decimal positions
+      with no whitespace, signs, ranges, wildcard, JSON, names, IDs, or extra tokens.
+      EOF, empty input, malformed token, zero/out-of-range position, or unsupported syntax
+      must fail before TASK-141 review preparation. Preserve Human position order and
+      duplicates when mapping positions to an exact tuple of the already-loaded
+      family.members objects; do not sort, deduplicate, canonicalize, or validate variant
+      eligibility. Duplicate-member/closure/direct-exact/singleton validity must remain
+      TASK-116 authority through TASK-141.
+    - >
+      Call TASK-141 prepare_sellable_variant_review exactly once with the exact loaded
+      CanonicalProductFamily object and the exact selected-member tuple constructed only
+      from that family's existing member objects. Do not call TASK-115 or TASK-116
+      directly, do not rerun selection after failure, and do not reconstruct/copy member
+      identity values. Any TASK-141/TASK-116 selection/proposal error must propagate to
+      the existing bounded CLI error surface with zero decision or durable-admission calls.
+    - >
+      After successful TASK-141 review preparation and before reading a Human decision,
+      render exactly one bounded review preview to stderr derived only from the exact
+      returned SellableVariantReview.proposal. Preserve exact proposal member order and
+      exact pair-evidence order. The review preview must expose source family_id, member
+      identities, and pair evidence relationship/confidence/reasons/evidence codes/details
+      using existing TASK-148-compatible bounded projections. It must not reconstruct a
+      SellableVariantProposal, reinterpret TASK-115 diagnostics, add approval labels, infer
+      product truth, score/recommend the proposal, or persist the preview.
+    - >
+      Only the exact current SellableVariantReview prepared in this invocation is eligible
+      for Human decision. After rendering its review preview, read exactly one additional
+      Human line containing exact `APPROVE` or `REJECT`. EOF, lowercase, surrounding
+      whitespace, extra tokens, or any other value must fail before TASK-141 decision and
+      durable admission. No machine field, relationship, confidence, family identity,
+      existing variant, or proposal property may imply or change the Human decision.
+    - >
+      Map the exact Human decision token only to the existing SellableVariantDecision
+      enum and call TASK-141 record_reviewed_sellable_variant_decision exactly once with
+      the exact current SellableVariantReview plus caller-supplied actor and parsed
+      decided_at unchanged. TASK-149 must not independently validate/normalize actor,
+      timestamp, proposal evidence, or decision semantics; upstream errors propagate to
+      existing bounded CLI handling.
+    - >
+      For exact Human REJECT, do not read a variant_id line, do not call
+      durably_admit_reviewed_sellable_variant, and perform no catalog mutation. The earlier
+      TASK-120 catalog load is the only database interaction for REJECT. Successful output
+      must have `admission: null`; no rejection store, canonical variant, registration
+      result, successful no-op persistence status, or shadow authorization value may exist.
+    - >
+      For exact Human APPROVE only, after TASK-141 returns the exact APPROVE decision
+      record, read exactly one additional stdin line containing caller-supplied variant_id.
+      EOF is a bounded Human-input error. Strip only terminal CR/LF framing; do not trim,
+      normalize, validate, generate, rewrite, infer, or reserve the variant_id. Forward the
+      exact current review, exact TASK-141 decision record, exact variant_id string, and the
+      original exact `--database` string unchanged to TASK-141
+      durably_admit_reviewed_sellable_variant exactly once. Variant-ID validation must occur
+      only through TASK-117; catalog integrity/SQLite durability must remain TASK-118/119/120.
+    - >
+      TASK-149 must not pre-open the SQLite database outside the single TASK-120 load,
+      inspect storage primitives, call TASK-117/TASK-120 variant admission directly,
+      auto-register family state, retry/reroute admission, or reinterpret
+      INSERTED/ALREADY_PRESENT. Missing/invalid catalog, stale family, variant-ID conflict,
+      lineage conflict, observation overlap, and persistence errors must fail only through
+      existing typed authorities.
+    - >
+      Successful `variant-decide` stdout must be exactly one JSON document with exactly
+      two top-level keys in this order: `decision` and `admission`. `decision` must contain
+      exactly decision, actor, decided_at, and proposal, where proposal uses the same exact
+      bounded representation rendered in the current review preview. For REJECT,
+      `admission` is null. For APPROVE, `admission` must contain exactly variant_id,
+      family_id, member_source_pack_ids, and registration_status projected from the exact
+      TASK-141 DurableSellableVariantAdmissionResult, preserving existing registration enum
+      value unchanged. No inferred product/variant truth or new persistence claims may be added.
+    - >
+      Existing bounded CLI error handling remains authoritative: known application/domain
+      ValueError/OSError categories emit bounded sanitized JSON to stderr with exit 1 and
+      no traceback/cause leakage; unexpected exceptions remain generic. Importing cli.py
+      must remain side-effect-free and must not load a catalog, inspect family state, read
+      stdin, capture time, prepare a review, or mutate canonical state.
+    - >
+      Focused offline tests must prove exactly seven commands and exact variant-decide
+      flags; duplicate database/family-id/actor/decided-at options exit 2; catalog load is
+      exactly once with unchanged database input; exact family matching is fail-closed;
+      family preview occurs before stdin; malformed member-position syntax fails before
+      TASK-141; selected tuple preserves exact family-member object identity, caller order,
+      and duplicates; TASK-141 prepare is exactly once; review preview occurs before
+      decision; exact review object is forwarded to TASK-141 decision exactly once;
+      REJECT reads no variant_id and performs zero durable call; APPROVE reads exactly one
+      variant_id and forwards review/decision/variant_id/database unchanged once; whitespace
+      in variant_id is preserved for TASK-117 rejection; INSERTED/ALREADY_PRESENT pass
+      through unchanged; upstream errors are sanitized; prior six commands remain
+      regression-compatible; no direct TASK-115/116/117 semantic operation or sqlite3
+      authority appears in the CLI; import remains side-effect-free.
+    - >
+      Add one real compatibility regression using a pre-existing canonical SQLite catalog
+      containing at least one family admitted through existing TASK-140/TASK-120 authority
+      whose preserved evidence allows one explicit TASK-141 variant selection. Run the real
+      `variant-decide` CLI with explicit Human member positions, APPROVE, and variant_id;
+      prove TASK-141 creates the variant and TASK-120 registration returns INSERTED, then
+      reopen only through TASK-120 load_sqlite_canonical_catalog and prove persisted family,
+      variant, Human actor/time, exact member source_pack_id sequence, and approval/proposal
+      lineage remain value-equal to the admitted values. The CLI may not call TASK-115/116/117
+      directly for semantic work.
+    - >
+      Add one real REJECT regression over a pre-existing registered family and canonical
+      SQLite catalog proving a valid TASK-141 review can receive explicit Human REJECT,
+      no variant_id is read, no TASK-141 durable admission occurs, database bytes remain
+      identical, and reopened catalog contains no new variant.
+    - >
+      Update docs/POST_M4_P5_HUMAN_FACING_SURFACE.md to mark published TASK-148 P5.3b
+      CLOSED, document `variant-decide` as the TASK-149 P5.3c candidate, state that Human
+      member selection is explicit and no variant-group discovery/ranking exists, and state
+      that only the exact current in-process TASK-141 review may authorize that decision.
+    - >
+      Update docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md to mark P5.3b CLOSED by published
+      TASK-148 and record TASK-149 as the P5.3c candidate. If and only if TASK-149 Runtime
+      verification and semantic acceptance all pass, the candidate docs may state that
+      P5 Human-Facing Product Intelligence Surface is CLOSED. P6 must remain NEXT /
+      unimplemented and must not be started or granted new authority by TASK-149; a separate
+      post-P5 architecture audit is required before authoring any P6 task.
+    - Do not push from Executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      The existing Product Intelligence CLI remains the sole Human-facing surface and
+      exposes exactly seven operations, adding only `variant-decide` while preserving the
+      six published command contracts unchanged.
+  - id: AC2
+    condition: >
+      variant-decide accepts only exact database/family-id/actor/decided-at controls,
+      rejects repeated single-value options, loads the canonical catalog exactly once, and
+      resolves exactly one current canonical family by exact family_id without creating or
+      rehydrating alternate family authority.
+  - id: AC3
+    condition: >
+      The current family preview is rendered before member input; Human member selection is
+      explicit positional input mapped only to exact family.member objects, preserving
+      caller order/duplicates and delegating all variant eligibility to TASK-141/TASK-116.
+  - id: AC4
+    condition: >
+      TASK-141 prepare_sellable_variant_review is called exactly once with the exact family
+      and selected-member tuple, and only its exact returned review proposal is rendered for
+      Human review without variant-group discovery, ranking, reconstruction, or shadow evidence authority.
+  - id: AC5
+    condition: >
+      Exact APPROVE/REJECT is read only after the exact current review preview and is
+      delegated exactly once with exact review/actor/decided_at to TASK-141; no machine
+      signal can infer or modify the Human decision.
+  - id: AC6
+    condition: >
+      REJECT reads no variant_id and performs zero durable mutation; APPROVE alone reads one
+      exact variant_id and delegates exactly once through TASK-141 durable admission with
+      exact review/decision/variant_id/database inputs, preserving TASK-117/118/119/120 authority.
+  - id: AC7
+    condition: >
+      Successful stdout is exactly the bounded decision/admission projection; existing
+      registration status passes through unchanged and known Human/domain/storage errors
+      remain bounded/sanitized with no traceback or cause leakage.
+  - id: AC8
+    condition: >
+      TASK-149 introduces no persistent review/REJECT state, no proposal codec, no variant
+      discovery/ranking/auto-selection, no second identity/catalog/persistence authority,
+      no retry/auto-create behavior, no product-truth semantics, and no P6 capability.
+  - id: AC9
+    condition: >
+      Focused and real compatibility regressions prove exact object lineage, explicit member
+      selection, review-before-decision ordering, real APPROVE durable registration/reopen,
+      REJECT no-write behavior, registration-status pass-through, and regression safety for
+      existing commands without live marketplace/provider dependency.
+  - id: AC10
+    condition: >
+      Documentation records P5.3b CLOSED by published TASK-148, P5.3c as TASK-149 candidate,
+      and, only after full TASK-149 PASS, P5 as CLOSED while P6 remains NEXT/unimplemented
+      pending a separate architecture audit.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_product_intelligence_cli.py tests/product_intelligence/test_sellable_variant_review_admission.py tests/product_intelligence/test_sellable_variant_approval.py tests/product_intelligence/test_sellable_variant_evidence.py tests/product_intelligence/test_canonical_variant.py tests/product_intelligence/test_canonical_catalog.py tests/product_intelligence/test_canonical_catalog_sqlite.py tests/product_intelligence/test_family_decision_admission.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - '$env:PYTHONPATH = ".;src"; python -m src.product_intelligence.cli --help *> $null; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
