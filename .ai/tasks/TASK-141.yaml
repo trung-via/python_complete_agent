@@ -1,0 +1,344 @@
+task_id: TASK-141
+revision: 1
+
+goal: >
+  Implement post-M4 P3.3 Sellable-Variant Review + Durable Admission as the final
+  bounded P3 application-composition boundary over existing M3 authorities. The new
+  boundary must let a caller explicitly select members from one existing canonical
+  family, obtain one exact TASK-116 sellable-variant proposal as an immutable Human
+  review value, record an explicit Human APPROVE or REJECT only through TASK-116, and,
+  in a separate explicit call, durably admit only an APPROVE through TASK-117 canonical
+  variant admission and TASK-120 SQLite variant registration. TASK-141 must not
+  discover or rank variant groups, recreate TASK-115 evidence semantics, validate or
+  generate variant IDs independently, duplicate TASK-118 catalog integrity, call
+  TASK-119 codec directly, auto-create a catalog, auto-approve, persist REJECT decisions
+  independently, or add product-truth/identity-evolution semantics. A real P3 vertical
+  regression must prove the published P3.1 -> P3.2 -> P3.3 path; only if the full TASK
+  acceptance passes may P3 be documented CLOSED.
+
+problem: >
+  TASK-139 and TASK-140 now compose source evidence into explicit family review,
+  Human family decision, canonical family admission, and durable family registration.
+  Existing TASK-115/TASK-116/TASK-117 already own sellable-variant evidence,
+  explicit proposal/Human decision, and canonical variant identity respectively,
+  while TASK-118/TASK-119/TASK-120 own catalog integrity, canonical bytes, and SQLite
+  durability. The remaining P3 gap is therefore application composition only. The
+  Human must be able to inspect the exact TASK-116 proposal before deciding, and the
+  later durable path must preserve the exact reviewed proposal/decision lineage
+  without creating a second selection, approval, identity, catalog, codec, or
+  persistence authority.
+
+assumptions:
+  - >
+    Canonical Python Agent main immediately before TASK-141 authoring is
+    2c158bb3de00036c97c795e32c52c2b2a5177831, the published TASK-140 source
+    candidate after REVIEW-140-001 PRIMARY PASS.
+  - >
+    The authoritative AIOS dependency remains exactly
+    aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@67db82bf19d63f25721d06aabb82d850db8b78d4.
+  - >
+    docs/POST_M4_P3_HUMAN_GOVERNED_KNOWLEDGE_UPDATE.md and
+    docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md are canonical: P3.1 and P3.2 are
+    closed, while sellable-variant Human review/decision plus durable admission is the
+    immediate remaining P3 boundary.
+  - >
+    TASK-115 project_sellable_variant_evidence remains the sole sellable-variant
+    evidence/diagnostic authority and exactness gaps remain diagnostics only.
+  - >
+    TASK-116 create_sellable_variant_proposal remains the sole selection eligibility,
+    direct-exact evidence, exact-edge closure, singleton validity, proposal, and Human
+    variant-decision authority. TASK-141 must delegate to it rather than reproduce
+    those rules.
+  - >
+    TASK-117 create_canonical_sellable_variant remains the sole canonical variant
+    admission authority and continues to require one explicit caller-supplied opaque
+    variant_id.
+  - >
+    TASK-118 remains the sole catalog-integrity authority; TASK-119 remains the sole
+    canonical catalog byte/rehydration authority; TASK-120
+    register_sqlite_canonical_variant remains the sole durable variant-registration
+    and SQLite transaction boundary.
+  - >
+    Family and variant ID allocation, identity evolution/membership extension,
+    conflict repair, singleton family canonicalization, product-truth reconciliation,
+    automatic approval, preferred/latest/majority selection, and durable REJECT history
+    remain deferred.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_M4_P3_HUMAN_GOVERNED_KNOWLEDGE_UPDATE.md
+    - docs/PHASE_6_M3_COMPLETION.md
+    - docs/PHASE_6_M3_ENTITY_RESOLUTION.md
+    - .ai/tasks/TASK-115.yaml
+    - .ai/tasks/TASK-116.yaml
+    - .ai/tasks/TASK-117.yaml
+    - .ai/tasks/TASK-118.yaml
+    - .ai/tasks/TASK-119.yaml
+    - .ai/tasks/TASK-120.yaml
+    - .ai/tasks/TASK-139.yaml
+    - .ai/tasks/TASK-140.yaml
+    - src/product_intelligence/sellable_variant_evidence.py
+    - src/product_intelligence/sellable_variant_approval.py
+    - src/product_intelligence/canonical_variant.py
+    - src/product_intelligence/canonical_catalog.py
+    - src/product_intelligence/canonical_catalog_codec.py
+    - src/product_intelligence/canonical_catalog_sqlite.py
+    - src/product_intelligence/family_review_planning.py
+    - src/product_intelligence/family_decision_admission.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_sellable_variant_evidence.py
+    - tests/product_intelligence/test_sellable_variant_approval.py
+    - tests/product_intelligence/test_canonical_variant.py
+    - tests/product_intelligence/test_canonical_catalog.py
+    - tests/product_intelligence/test_canonical_catalog_sqlite.py
+    - tests/product_intelligence/test_family_review_planning.py
+    - tests/product_intelligence/test_family_decision_admission.py
+
+  modify:
+    - src/product_intelligence/sellable_variant_review_admission.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_sellable_variant_review_admission.py
+    - docs/POST_M4_P3_HUMAN_GOVERNED_KNOWLEDGE_UPDATE.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+
+non_goals:
+  - Modify TASK-115 evidence projection, exactness-gap, witness, or direct-exact semantics.
+  - Modify TASK-116 proposal eligibility, all-pairs direct-exact, exact-edge closure,
+    singleton, Human decision, actor, timestamp, evidence, or ordering semantics.
+  - Modify TASK-117 variant_id validation, canonical variant schema, admission semantics,
+    or approval lineage.
+  - Modify TASK-118 catalog uniqueness, lineage collision, observation exclusivity,
+    family-before-variant, idempotency, or append-only semantics.
+  - Modify TASK-119 canonical snapshot schema, encoding, decoding, or rehydration.
+  - Modify TASK-120 SQLite schema, transaction, durability, lock, load, or registration semantics.
+  - Accept ProductSourcePack, resolution graph, provisional family group, raw pairwise
+    evidence, caller-built TASK-115 projection, raw catalog state, codec payload,
+    sqlite3 connection, or alternate variant semantic authority.
+  - Automatically discover, enumerate, partition, cluster, rank, recommend, or select
+    sellable-variant member sets.
+  - Infer EXACT_VARIANT_MATCH transitively or repair/bypass TASK-115 exactness gaps.
+  - Generate, allocate, normalize, trim, hash, prefix, suffix, infer, reserve, or persist
+    a variant_id outside existing TASK-117/TASK-118/TASK-120 semantics.
+  - Auto-create a missing SQLite catalog, auto-register a missing source family,
+    auto-reinitialize an invalid catalog, retry failed SQLite registration, or add
+    background/queue/watcher behavior.
+  - Persist REJECT decisions to a new file/table/store or claim a REJECT survives restart.
+  - Add variant profile truth, canonical color/size/capacity/SKU/media, aggregate
+    confidence, retrieval, RAG, browser, marketplace, Drive, network, LLM/provider,
+    random/UUID generation, clock defaults, subprocess, retry, polling, or external work.
+  - Extend existing family/variant memberships, reassign observations, merge/delete
+    canonical identities, repair CONFLICTED groups, or canonicalize P3.1 SINGLETON groups.
+  - Implement P4/P5/P6 behavior or change AIOS pin/worker/publication control plane.
+
+constraints:
+  hard:
+    - >
+      Add exactly one new module
+      src/product_intelligence/sellable_variant_review_admission.py and expose exactly
+      six TASK-141 public names from that module and from product_intelligence:
+      SellableVariantWorkflowError, SellableVariantReview,
+      DurableSellableVariantAdmissionResult, prepare_sellable_variant_review,
+      record_reviewed_sellable_variant_decision, and
+      durably_admit_reviewed_sellable_variant. The actual module namespace, not merely
+      __all__, must contain no other non-underscore public dependency names;
+      implementation imports must use private aliases.
+    - >
+      prepare_sellable_variant_review must be synchronous with semantic signature
+      prepare_sellable_variant_review(family: CanonicalProductFamily,
+      selected_members: tuple[SourceObservationIdentity, ...]) -> SellableVariantReview.
+      It must forward the exact family object and exact caller-supplied selected member
+      tuple unchanged to existing TASK-116 create_sellable_variant_proposal exactly
+      once. TASK-141 must not call TASK-115 directly, enumerate candidate sets, reorder
+      or validate selections independently, or recreate direct-exact/closure/singleton
+      semantics. TASK-116 selection/proposal errors must propagate unchanged.
+    - >
+      After TASK-116 returns, prepare_sellable_variant_review may only fail closed on
+      structural lineage corruption: the returned value must be an exact
+      SellableVariantProposal and proposal.source_family must be the exact input family
+      by object identity. It must not reinterpret pair evidence or proposal validity.
+    - >
+      SellableVariantReview must be immutable and canonical-factory-only so forged
+      direct construction fails closed. It must contain exactly one dataclass field,
+      proposal, holding the exact TASK-116 SellableVariantProposal object produced by
+      prepare_sellable_variant_review. All family, projection, selected-member, and
+      evidence inspection remains reachable through that exact proposal rather than
+      copied into shadow fields.
+    - >
+      record_reviewed_sellable_variant_decision must be synchronous with semantic
+      signature record_reviewed_sellable_variant_decision(review: SellableVariantReview,
+      *, decision: SellableVariantDecision, actor: str, decided_at: datetime) ->
+      SellableVariantDecisionRecord. It must require the exact TASK-141 review type,
+      call existing TASK-116 create_sellable_variant_decision_record exactly once with
+      review.proposal and the caller-supplied decision, actor, and decided_at unchanged,
+      and return the exact TASK-116 decision object. TASK-141 must not independently
+      validate/normalize Human fields or infer a decision; TASK-116 errors propagate unchanged.
+    - >
+      durably_admit_reviewed_sellable_variant must be synchronous with semantic
+      signature durably_admit_reviewed_sellable_variant(review: SellableVariantReview,
+      decision_record: SellableVariantDecisionRecord, *, variant_id: str,
+      database_path: os.PathLike[str] | str) -> DurableSellableVariantAdmissionResult.
+      It must require exact TASK-141 review and TASK-116 decision-record types and expose
+      no separate family, family_id, selected-members, projection, evidence, raw catalog,
+      codec payload, connection, or alternate persistence input.
+    - >
+      Before admission, durably_admit_reviewed_sellable_variant must prove only exact
+      review lineage: decision_record.proposal must be review.proposal by object identity.
+      A decision over another/reconstructed/stale proposal or wrong type must fail
+      closed with SellableVariantWorkflowError before TASK-117/TASK-120 calls. It must
+      not compare evidence, recreate proposal eligibility, call TASK-115, or rerun TASK-116 proposal construction.
+    - >
+      After exact review lineage is established, durable admission must call TASK-117
+      create_canonical_sellable_variant exactly once with the exact decision_record and
+      caller-supplied variant_id unchanged. TASK-141 must not inspect APPROVE/REJECT,
+      validate variant_id, generate an ID, inspect source-family registration, or
+      substitute another admission path. REJECT and invalid variant_id must fail only
+      through TASK-117 and its error must propagate unchanged.
+    - >
+      TASK-120 register_sqlite_canonical_variant must be called exactly once and only
+      after TASK-117 successfully returns one exact CanonicalSellableVariant. The exact
+      caller-supplied database_path and exact variant object must be forwarded unchanged.
+      TASK-141 must not call create/load SQLite catalog, TASK-118 register_canonical_variant,
+      TASK-119 encode/decode, sqlite3, or any storage primitive directly.
+    - >
+      If TASK-117 fails, TASK-120 must not be called. If TASK-120 fails, the original
+      TASK-118/TASK-119/TASK-120 exception category must propagate unchanged and
+      TASK-141 must not retry, reroute, recreate a variant, mutate the decision, or
+      claim durable success. TASK-141 owns no transaction/recovery policy.
+    - >
+      DurableSellableVariantAdmissionResult must be immutable and canonical-factory-only
+      and contain exactly three fields in this order: decision_record, variant,
+      registration. They must be the exact TASK-116 decision supplied to admission,
+      exact TASK-117 CanonicalSellableVariant returned by admission, and exact TASK-120
+      CatalogRegistrationResult returned by durable registration. No new registration
+      status or persistence claim may be introduced.
+    - >
+      Successful durable admission must pass through TASK-118/TASK-120 INSERTED or
+      ALREADY_PRESENT exactly as returned. TASK-141 must not reinterpret or collapse
+      status and must not claim Python object identity for value-equal variants
+      reconstructed across SQLite reopen.
+    - >
+      REJECT remains a valid TASK-116 decision output but has no durable side effect in
+      TASK-141. Calling durable admission with the exact REJECT record must reach
+      TASK-117 once, fail under TASK-117 approval semantics, perform zero TASK-120 calls,
+      and leave the existing catalog unchanged. No rejection store or successful no-op
+      registration status may be created.
+    - >
+      Focused tests must prove exact six-name module namespace, immutable anti-forgery
+      review/result values, exact-once TASK-116 proposal delegation with unchanged
+      family/selected-members forwarding, exact-once TASK-116 decision delegation with
+      unchanged Human fields, exact proposal object lineage, TASK-117 then TASK-120 call
+      order, exact variant_id/database_path forwarding, INSERTED/ALREADY_PRESENT
+      pass-through, REJECT no-write behavior, upstream error propagation, and absence of
+      TASK-115 direct calls, proposal discovery/ranking, TASK-118/TASK-119/sqlite3,
+      identity generation, external work, retries, or variant-truth reimplementation.
+    - >
+      Add one real P3 vertical regression using an exact TASK-138-compatible
+      SourceEvidenceInventory whose two typed source packs resolve as direct
+      EXACT_VARIANT_MATCH: build the family review through TASK-139, create a pre-existing
+      canonical SQLite catalog only through TASK-120 create_sqlite_canonical_catalog,
+      record explicit Human family APPROVE and durably admit the family only through
+      TASK-140, prepare the explicit full-member sellable-variant review through TASK-141,
+      record explicit Human variant APPROVE through TASK-141, durably admit the variant
+      through TASK-141, reopen only through TASK-120 load_sqlite_canonical_catalog, and
+      prove value-equal family/variant records with preserved Human proposal/evidence
+      lineage. The regression must not call TASK-115/116/117 directly for the variant stage.
+    - >
+      Add one real variant REJECT regression from an existing registered canonical
+      family proving TASK-141 returns the exact TASK-116 REJECT decision, durable
+      admission fails through existing TASK-117, and canonical SQLite bytes/catalog
+      remain unchanged across the failed attempt.
+    - >
+      Update docs/POST_M4_P3_HUMAN_GOVERNED_KNOWLEDGE_UPDATE.md to record P3.3
+      Sellable-Variant Review + Durable Admission as CLOSED only by the TASK-141
+      implementation boundary, explicitly preserve TASK-115/116/117/118/119/120
+      ownership, state that member selection and Human decisions remain explicit and
+      variant_id remains caller-supplied, and state that REJECT has no independent
+      durable history authority.
+    - >
+      If and only if the TASK-141 P3 vertical regression and all acceptance criteria
+      pass, update docs/POST_M4_P3_HUMAN_GOVERNED_KNOWLEDGE_UPDATE.md and
+      docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md to mark P3 CLOSED and identify P4
+      Live Grounded-QA Provider Certification as the next current boundary. The P3
+      closure statement must explicitly retain deferred family/variant ID allocation,
+      identity evolution, conflict repair/singleton family admission, product-truth
+      reconciliation, durable REJECT history, and autonomous approval as non-blocking
+      future work rather than silently claiming those capabilities.
+    - Do not push from Executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      sellable_variant_review_admission.py and product_intelligence expose exactly the
+      six TASK-141 public names, with immutable factory-only SellableVariantReview and
+      DurableSellableVariantAdmissionResult values and no shadow variant semantic authority.
+  - id: AC2
+    condition: >
+      prepare_sellable_variant_review accepts one exact canonical family plus one
+      explicit selected-member tuple, calls TASK-116 proposal construction exactly once
+      with those exact inputs unchanged, returns a review retaining the exact proposal,
+      and delegates all selection/direct-exact/closure/singleton semantics and errors to TASK-116.
+  - id: AC3
+    condition: >
+      Human decision recording accepts only an exact TASK-141 review, calls TASK-116
+      decision construction exactly once with the exact reviewed proposal and explicit
+      APPROVE/REJECT, actor, and timezone-aware decided_at unchanged, and returns the
+      exact TASK-116 decision object without duplicate validation or implicit approval.
+  - id: AC4
+    condition: >
+      Durable admission accepts only an exact review plus an exact TASK-116 decision
+      whose proposal is that review's proposal by object identity; stale/cross-review/
+      reconstructed decision lineage fails closed before TASK-117/TASK-120.
+  - id: AC5
+    condition: >
+      Valid durable admission delegates exactly once to TASK-117 with the exact decision
+      and opaque caller-supplied variant_id, then exactly once to TASK-120 with the exact
+      database_path and exact admitted variant, returning exact decision/variant/
+      registration objects without direct TASK-118/TASK-119/SQLite work.
+  - id: AC6
+    condition: >
+      REJECT and invalid variant_id fail only through TASK-117 before TASK-120; TASK-120
+      domain/codec/storage failures propagate unchanged without retry/reroute, and
+      INSERTED/ALREADY_PRESENT registration status is passed through unchanged.
+  - id: AC7
+    condition: >
+      TASK-141 never discovers, enumerates, ranks, partitions, or recommends variant
+      member sets; never calls TASK-115 directly; never infers transitive exactness or
+      repairs exactness gaps; and never creates a second proposal/evidence/approval/ID/
+      catalog/codec/persistence authority.
+  - id: AC8
+    condition: >
+      The real APPROVE integration path proves TASK-138-compatible inventory -> TASK-139
+      family plan -> TASK-140 Human family APPROVE/durable admission -> TASK-141 exact
+      variant review/Human APPROVE/durable admission -> TASK-120 reopen, preserving
+      value-equal family/variant lineage and Human/evidence provenance after restart.
+  - id: AC9
+    condition: >
+      The real REJECT path proves one explicit variant REJECT creates no durable variant
+      mutation and leaves canonical SQLite bytes/catalog unchanged while preserving the
+      exact in-memory TASK-116 REJECT record.
+  - id: AC10
+    condition: >
+      Focused deterministic regressions cover public namespace, anti-forgery and
+      immutability, exact input/object forwarding, stale/cross-review lineage rejection,
+      exact delegation counts/order, Human-field and ID/path pass-through, status/error
+      propagation, zero direct lower-level authority duplication, and zero external/retry work.
+  - id: AC11
+    condition: >
+      Post-M4 P3 documentation records P3.1/TASK-139, P3.2/TASK-140, and
+      P3.3/TASK-141 authority composition accurately; if all TASK-141 acceptance passes,
+      P3 is marked CLOSED without claiming deferred ID allocation, identity evolution,
+      singleton/conflict repair, product-truth reconciliation, durable REJECT history,
+      or autonomous approval.
+  - id: AC12
+    condition: >
+      The canonical roadmap identifies P4 Live Grounded-QA Provider Certification as
+      the next current post-M4 boundary only after TASK-141 PASS, while M3 remains the
+      sole identity/catalog/persistence/evidence authority and P3 remains application
+      composition rather than a replacement semantic layer.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_sellable_variant_review_admission.py tests/product_intelligence/test_sellable_variant_evidence.py tests/product_intelligence/test_sellable_variant_approval.py tests/product_intelligence/test_canonical_variant.py tests/product_intelligence/test_family_review_planning.py tests/product_intelligence/test_family_decision_admission.py tests/product_intelligence/test_canonical_catalog.py tests/product_intelligence/test_canonical_catalog_codec.py tests/product_intelligence/test_canonical_catalog_sqlite.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
