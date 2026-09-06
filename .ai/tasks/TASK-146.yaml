@@ -1,0 +1,261 @@
+task_id: TASK-146
+revision: 1
+
+goal: >
+  Implement post-M4 P5.2 Live Discovery + Deterministic Shortlist Surface by extending the
+  existing TASK-145 Product Intelligence CLI with one bounded Human-facing `discover`
+  operation that composes the already-published P1 browser/CDP runtime, existing Shopee
+  and TikTok M2 discovery adapters, and the existing M2 DiscoveryOrchestrator / CandidateRanker
+  vertical slice without introducing a second browser, discovery, scoring, ranking,
+  approval, or ingestion authority.
+
+problem: >
+  P5.1 is canonically reviewed and published, giving Humans read-only evidence, catalog,
+  and grounded-QA commands. The repository already has production-capable Shopee/TikTok
+  discovery adapters and a platform-neutral orchestration layer that validates aggregate
+  discovery and delegates ranking to CandidateRanker, but there is still no Product
+  Intelligence Human-facing command that invokes that existing live discovery-to-shortlist
+  path. P5.2 should expose that vertical slice without folding Human approval/mutation into
+  discovery and without repurposing main.py / AgentController.
+
+assumptions:
+  - >
+    Canonical Python Agent main immediately before TASK-146 authoring is
+    ff5a0ec57f3d5cd87f87c2edb660487f667e5247, the reviewed and published TASK-145
+    source candidate. P1-P4 are CLOSED; P5 is CURRENT / IN PROGRESS; P5.1 is CLOSED.
+  - >
+    The authoritative AIOS dependency remains exactly
+    aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@67db82bf19d63f25721d06aabb82d850db8b78d4.
+  - >
+    TASK-137 PlaywrightBrowserManager / PlaywrightBrowserSession remain the only browser
+    runtime and CDP lifecycle authority. P5.2 must reuse them and must not implement CDP
+    connection, page ownership, retry, fallback, login, captcha bypass, or browser restart.
+  - >
+    Existing ShopeeDiscoveryAdapter and TikTokDiscoveryAdapter remain the platform-specific
+    discovery authorities. Existing DiscoveryRequest remains request validation/default
+    authority. Existing DiscoveryOrchestrator remains the cross-platform composition
+    authority and CandidateRanker / WinningProductScorer remain the sole ranking/scoring
+    authorities.
+  - >
+    TASK-145 cli.py remains the single Product Intelligence Human-facing CLI module.
+    TASK-146 extends that same surface; it must not create a second executable, API server,
+    alternate CLI module, or route through root main.py / AgentController / AgentLoop.
+  - >
+    P5.2 is read-only with respect to canonical Product Intelligence state. Explicit Human
+    approval/enqueue and family/variant mutation remain P5.3 and are not part of TASK-146.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_M4_P5_HUMAN_FACING_SURFACE.md
+    - docs/PHASE_6_M2_VERTICAL_SLICE.md
+    - docs/PHASE_6_M2_RANKING.md
+    - .ai/tasks/TASK-095.yaml
+    - .ai/tasks/TASK-137.yaml
+    - .ai/tasks/TASK-145.yaml
+    - src/product_intelligence/cli.py
+    - src/product_intelligence/discovery.py
+    - src/product_intelligence/orchestration.py
+    - src/product_intelligence/ranking.py
+    - src/product_intelligence/models.py
+    - src/product_intelligence/adapters/shopee.py
+    - src/product_intelligence/adapters/tiktok.py
+    - src/integrations/playwright/manager.py
+    - src/browser/errors.py
+    - tests/product_intelligence/test_product_intelligence_cli.py
+    - tests/product_intelligence/test_orchestration.py
+    - tests/product_intelligence/test_ranking.py
+    - tests/product_intelligence/test_shopee_discovery.py
+    - tests/product_intelligence/test_tiktok_discovery.py
+    - tests/integration/test_browser_cdp.py
+
+  modify:
+    - src/product_intelligence/cli.py
+    - tests/product_intelligence/test_product_intelligence_cli.py
+    - docs/POST_M4_P5_HUMAN_FACING_SURFACE.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+
+non_goals:
+  - Modify ProductCandidateSnapshot, DiscoveryRequest, DiscoveryBatch, Shopee/TikTok
+    extraction/parsing selectors, DiscoveryOrchestrator, CandidateRanker, WinningProductScorer,
+    scoring policy, tie-break rules, confidence semantics, or decision bands.
+  - Modify PlaywrightBrowserManager, PlaywrightBrowserSession, BrowserSession, BrowserConfig,
+    AgentController, AgentLoop, ToolExecutor, root main.py, tasks.txt, completed.txt, or M1
+    autonomous queue behavior.
+  - Add a second browser manager/session stack, raw Playwright usage, direct CDP connection,
+    automatic endpoint discovery, fallback from CDP to launch mode, reconnect/retry, browser
+    pool, login automation, captcha bypass, stealth behavior, or anti-bot circumvention.
+  - Add M2 Human approval, approval records, enqueue, ingestion start, Product Source Pack
+    extraction/persistence, Drive upload, P3 family/variant decision/admission, catalog
+    mutation, or answer persistence.
+  - Add provider/LLM calls, semantic reranking, vector retrieval, model-based recommendation,
+    preferred/latest/product-truth reconciliation, or any P6 behavior.
+  - Add HTTP/FastAPI/Flask, web UI, desktop UI, TUI framework, background daemon, scheduler,
+    plugin/MCP server, or another process/service authority.
+  - Expose cookies, tokens, credentials, browser profile paths, raw HTML, raw page content,
+    JavaScript extraction payloads, exception cause chains, or sensitive browser details.
+  - Implement P5.3, close overall P5, advance P6, change AIOS pin, worker surfaces, or
+    publication behavior.
+
+constraints:
+  hard:
+    - >
+      Extend only src/product_intelligence/cli.py as the Product Intelligence command surface.
+      The CLI must now expose exactly four operations: existing `evidence`, `catalog`, `ask`,
+      plus new `discover`, with no aliases. Existing TASK-145 command signatures and behavior
+      must remain unchanged.
+    - >
+      `discover` must require exactly one `--query`, one or more repeated `--platform` values,
+      and exactly one `--cdp-endpoint`. `--platform` choices are exactly `shopee` and `tiktok`.
+      Platform order is Human-supplied and must be preserved unchanged. No implicit/default
+      platform selection is permitted.
+    - >
+      `discover` may expose one optional `--shortlist-size` integer and no other Product
+      Intelligence control flags. It must not expose scoring weights/policy, max-pages,
+      max-candidates, locale, timestamps, browser type, launch mode, profile path, retry,
+      approval, queue, ingestion, provider/model, or credential flags. DiscoveryRequest
+      canonical defaults remain authoritative for max_candidates, max_pages, and locale.
+    - >
+      The CLI must construct exactly one existing PlaywrightBrowserManager with only
+      `cdp_endpoint=<exact Human value>`. It must not import or use raw Playwright APIs and
+      must not construct AgentController. The same exact manager object must be injected into
+      every selected existing platform adapter.
+    - >
+      For each Human-supplied platform value in exact order, construct exactly one existing
+      adapter of the corresponding type and exactly one existing DiscoveryRequest with only
+      `query=<exact Human query>`. Build exactly one PlatformDiscoveryPlan per platform using
+      the exact platform string, exact adapter object, and exact request object. Do not
+      independently trim, normalize, expand, rewrite, translate, dedupe, rank, or infer the
+      query/platform sequence.
+    - >
+      Duplicate platform values must not be silently deduped by the CLI. Preserve them into
+      the plan sequence and let existing DiscoveryOrchestrator validation fail closed before
+      discovery, retaining M2 orchestration authority.
+    - >
+      Capture one timezone-aware UTC wall-clock timestamp exactly once per `discover`
+      operation immediately before orchestration. Pass that same exact datetime object as
+      both `observed_at` and `evaluated_at` to existing orchestrate_discovery(...). This is an
+      application runtime observation boundary only; do not expose timestamp knobs or change
+      ranking freshness semantics.
+    - >
+      Call existing orchestrate_discovery(...) exactly once with the exact plan tuple, exact
+      captured timestamp for both observed_at/evaluated_at, and the Human `shortlist_size`
+      value unchanged (including None when omitted). Do not call adapter.discover,
+      CandidateRanker, rank_candidates, WinningProductScorer, SnapshotNormalizer, or scoring
+      policy APIs directly from the CLI.
+    - >
+      Successful `discover` output must be exactly one UTF-8 JSON document produced from the
+      existing OrchestrationResult.to_dict() representation without adding, removing,
+      renaming, sorting, recomputing, summarizing, or interpreting discovery/ranking fields.
+      Do not add recommendation/approval/truth labels beyond those already present in the
+      canonical returned representation.
+    - >
+      Browser-manager cleanup is owned by this CLI composition because it constructs the
+      manager. close_all() must be attempted exactly once after orchestration success or
+      failure. If orchestration raises, a cleanup failure must not replace or hide the
+      original exception. If orchestration succeeds but cleanup itself fails, fail closed
+      through existing sanitized CLI error handling. TASK-137 borrowed-resource semantics
+      remain authoritative; TASK-146 must not close browser/context/page directly.
+    - >
+      Existing TASK-145 success/error contract remains unchanged for all four commands:
+      success exit 0 with exactly one JSON stdout document; argparse syntax/required-argument
+      failures exit 2; known application/discovery/orchestration/browser failures exit 1
+      with one bounded top-level JSON stderr document and no traceback/cause chain; unexpected
+      failures remain generic. Add DiscoveryError and OrchestrationError to the known
+      sanitized error boundary without inspecting nested causes.
+    - >
+      Module import remains side-effect-free: importing cli.py must not create a browser
+      manager, attach CDP, construct adapters, capture wall-clock time, call discovery,
+      touch filesystem/catalog/provider state, or write stdout/stderr.
+    - >
+      TASK-146 must remain read-only with respect to Product Intelligence canonical state.
+      Tests must prove `discover` cannot call approval/enqueue, ingestion, source-pack
+      serialization, family/variant admission, catalog registration, grounded QA/provider,
+      AgentController/AgentLoop, browser raw APIs, or Drive surfaces.
+    - >
+      Focused tests must use no live network and must prove: exactly four parser operations;
+      Human-explicit platform/CDP requirements; exact platform-order preservation; exact one
+      manager construction; exact adapter/request/plan composition; one captured UTC timestamp
+      reused by identity for observed/evaluated values; exactly one orchestration call; no
+      direct ranking/scoring/discovery call; exact result.to_dict JSON passthrough; duplicate
+      platform propagation into orchestrator validation; close_all exactly once on success
+      and failure; original-error preservation when cleanup also fails; known discovery
+      error sanitization; import side-effect freedom; and TASK-145 command regressions.
+    - >
+      Existing M2 orchestration/ranking and Shopee/TikTok discovery regression suites plus
+      TASK-137 CDP lifecycle regressions must remain green. Verification must not connect to
+      live Shopee/TikTok or a real CDP endpoint.
+    - >
+      Update docs/POST_M4_P5_HUMAN_FACING_SURFACE.md to record published TASK-145 as P5.1
+      CLOSED and TASK-146 as the P5.2 candidate. Document a placeholder discover example
+      using `--query`, repeated Human-selected `--platform`, explicit placeholder CDP endpoint,
+      and optional shortlist size. State that P5.2 is live-capable composition but TASK-146
+      deterministic verification is offline and does not certify marketplace availability,
+      login state, captcha freedom, selector freshness, or ranking quality.
+    - >
+      Update docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md to record P5.1 CLOSED by published
+      TASK-145, P5.2 as TASK-146 candidate, and P5.3 explicit Human action/mutation as the
+      remaining unimplemented P5 boundary. P5 stays CURRENT / IN PROGRESS and P6 must not
+      advance. P5.2 becomes CLOSED only after canonical Runtime PASS plus ChatGPT semantic
+      review PASS on the same TASK-146 candidate.
+    - Do not push from Executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      The existing Product Intelligence CLI remains the sole CLI and exposes exactly
+      evidence/catalog/ask/discover; TASK-145 behavior is preserved and root main.py /
+      AgentController remain untouched.
+  - id: AC2
+    condition: >
+      `discover` requires exact Human query, one-or-more ordered shopee/tiktok platform
+      selections, and explicit CDP endpoint, while exposing only optional shortlist_size
+      beyond those required inputs and no implicit platform/browser/scoring/provider choice.
+  - id: AC3
+    condition: >
+      `discover` constructs exactly one existing PlaywrightBrowserManager and injects that
+      exact object into one existing adapter and one canonical DiscoveryRequest per selected
+      platform in Human order, with duplicate platforms preserved for existing orchestrator
+      fail-closed validation.
+  - id: AC4
+    condition: >
+      One timezone-aware UTC timestamp is captured exactly once and the exact same object is
+      supplied as observed_at and evaluated_at to exactly one existing orchestrate_discovery
+      call together with the exact plans and unchanged shortlist_size.
+  - id: AC5
+    condition: >
+      The CLI never calls adapters, CandidateRanker, scoring/normalization, or platform
+      parsing directly; M2 orchestration/ranking authority remains unchanged.
+  - id: AC6
+    condition: >
+      Successful discovery returns exit 0 and exactly the existing
+      OrchestrationResult.to_dict() JSON representation without new recommendation, truth,
+      approval, or ranking semantics.
+  - id: AC7
+    condition: >
+      The constructed browser manager is cleaned exactly once; orchestration failure remains
+      the primary error if cleanup also fails, while cleanup-only failure after successful
+      orchestration fails closed through the sanitized CLI boundary.
+  - id: AC8
+    condition: >
+      Discovery/orchestration/browser failures use the existing bounded sanitized error
+      surface with no traceback, nested cause, cookie/token/raw-page leakage; module import
+      remains side-effect-free.
+  - id: AC9
+    condition: >
+      TASK-146 performs no approval, enqueue, ingestion, evidence/catalog mutation,
+      family/variant admission, provider/grounded QA, AgentLoop, Drive, background service,
+      retry/fallback, or P5.3/P6 behavior; focused offline tests plus existing M2/CDP
+      regressions prove the boundary.
+  - id: AC10
+    condition: >
+      Documentation records P5.1 CLOSED, P5.2 as TASK-146 live-capable/offline-verified
+      discovery-shortlist presentation, P5.3 still unimplemented, overall P5 IN PROGRESS,
+      and P6 not current.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_product_intelligence_cli.py tests/product_intelligence/test_orchestration.py tests/product_intelligence/test_ranking.py tests/product_intelligence/test_shopee_discovery.py tests/product_intelligence/test_tiktok_discovery.py tests/integration/test_browser_cdp.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - '$env:PYTHONPATH = ".;src"; python -m src.product_intelligence.cli --help *> $null; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
