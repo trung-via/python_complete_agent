@@ -1,0 +1,258 @@
+task_id: TASK-145
+revision: 1
+
+goal: >
+  Implement post-M4 P5.1 Read-Only Product Intelligence CLI Foundation as one
+  Human-facing, deterministic command-line presentation boundary over already-published
+  Product Intelligence authorities. The CLI must expose persisted source-evidence
+  inspection, canonical catalog inspection, and grounded question answering without
+  introducing discovery/ranking/approval/admission behavior, mutating canonical state,
+  duplicating provider/application semantics, or repurposing the existing autonomous
+  main.py / AgentController surface.
+
+problem: >
+  TASK-144 is semantically reviewed, published, and has closed P4 by proving the live
+  TASK-135 -> TASK-133 -> TASK-132 -> TASK-129 path through the existing GeminiProvider
+  over Vertex AI ADC. P5 Human-Facing Product Intelligence Surface is therefore current.
+  The repository still has no Product Intelligence-specific Human CLI/API. Root main.py
+  is an older autonomous M1-style surface that starts AgentController and drains tasks.txt;
+  it owns a different execution boundary and must not become a mixed Product Intelligence
+  presentation authority. P5 should also not collapse read-only inspection, live
+  discovery/ranking, and Human-governed mutation into one large task. The clean first
+  boundary is a read-only CLI that makes persisted evidence, canonical catalog state, and
+  already-certified grounded QA directly usable while delegating every semantic decision
+  to its existing owner.
+
+assumptions:
+  - >
+    Canonical Python Agent main immediately before TASK-145 authoring is
+    6ece0164ee069d3e0af4904bfb60aad8178ecd16, the reviewed and published TASK-144
+    source candidate. P1, P2, P3, and P4 are CLOSED; P5 is CURRENT.
+  - >
+    The authoritative AIOS dependency remains exactly
+    aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@67db82bf19d63f25721d06aabb82d850db8b78d4.
+  - >
+    Root main.py plus AgentController remain the existing autonomous scraping/task-queue
+    surface. TASK-145 must not modify or wrap that surface and must not route Product
+    Intelligence commands through AgentLoop.
+  - >
+    TASK-138 source_evidence_intake remains the sole configured-root source_pack.json
+    discovery/typed-intake authority. TASK-120 canonical_catalog_sqlite remains the sole
+    SQLite durability/load authority. TASK-135 remains the sole persistent grounded-QA
+    startup/composition authority. TASK-129 remains GroundedAnswer structural authority.
+  - >
+    GeminiProvider remains the sole concrete Gemini adapter. TASK-145 may select one of its
+    already-existing explicit backend values only because the Human explicitly requests it;
+    it must not add provider routing, fallback, model selection, retry, or credential logic.
+  - >
+    P5 is staged. TASK-145 is P5.1 read-only persisted knowledge + grounded-QA
+    presentation only. Live discovery/ranking and explicit Human mutation surfaces remain
+    separate later P5 boundaries.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_M4_P4_LIVE_PROVIDER_CERTIFICATION.md
+    - docs/PHASE_6_M4_PERSISTENT_GROUNDED_QA.md
+    - .ai/tasks/TASK-120.yaml
+    - .ai/tasks/TASK-135.yaml
+    - .ai/tasks/TASK-138.yaml
+    - .ai/tasks/TASK-144.yaml
+    - main.py
+    - src/agent_controller.py
+    - src/product_intelligence/source_evidence_intake.py
+    - src/product_intelligence/canonical_catalog.py
+    - src/product_intelligence/canonical_catalog_sqlite.py
+    - src/product_intelligence/grounded_answer.py
+    - src/product_intelligence/grounded_invocation.py
+    - src/product_intelligence/persistent_grounded_qa.py
+    - src/providers/gemini.py
+
+  modify:
+    - src/product_intelligence/cli.py
+    - tests/product_intelligence/test_product_intelligence_cli.py
+    - docs/POST_M4_P5_HUMAN_FACING_SURFACE.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+
+non_goals:
+  - Modify main.py, AgentController, AgentLoop, ToolExecutor, tasks.txt, completed.txt,
+    browser/CDP lifecycle, Shopee/TikTok scraping, Drive integration, or M1 queue behavior.
+  - Add FastAPI/Flask, HTTP server, web UI, desktop UI, TUI framework, background daemon,
+    socket server, plugin protocol, MCP server, or another process/service authority.
+  - Add live discovery, Shopee/TikTok discovery adapters, CandidateRanker invocation,
+    scoring policy, shortlist generation, M2 approval/enqueue commands, P3 family/variant
+    decision/admission commands, catalog mutation, SQLite registration, or evidence writes.
+  - Create a new evidence scanner, Product Source Pack codec, catalog codec/store, retrieval
+    path, RAG context builder, prompt builder, grounded parser, GroundedAnswer wrapper, or
+    product-truth projection.
+  - Add provider router, provider registry, automatic backend selection, API-key-to-ADC
+    fallback, retry/failover, dynamic model selection, model-list discovery, credential
+    validation service, OAuth flow, gcloud invocation, or secret persistence.
+  - Accept API keys, access tokens, refresh tokens, credential files, OAuth client secrets,
+    or service-account JSON as command-line arguments.
+  - Print provider raw responses, raw exception causes, access tokens, API keys, ADC paths,
+    prompt packages, full model context, usage metadata, or provider response identifiers.
+  - Implement P5.2/P5.3, close P5, begin P6, or change AIOS worker/publication behavior.
+
+constraints:
+  hard:
+    - >
+      Add exactly one Product Intelligence CLI module at
+      src/product_intelligence/cli.py. It must be directly invokable from repository root as
+      `python -m src.product_intelligence.cli`. Do not modify root main.py and do not create
+      a second root-level executable script.
+    - >
+      Use only Python standard-library argparse/json plus existing repository modules. Do
+      not add a CLI framework dependency or modify requirements.txt. Importing the CLI
+      module must perform no filesystem scan, catalog read, provider construction, network
+      request, environment mutation, or stdout/stderr write.
+    - >
+      The CLI must expose exactly three P5.1 subcommands named `evidence`, `catalog`, and
+      `ask`, with no aliases. argparse help/version behavior may exist only as ordinary
+      parser behavior; it must not create a fourth Product Intelligence operation.
+    - >
+      `evidence` must require one or more explicit `--root` values, call existing
+      intake_product_source_evidence(...) exactly once with those roots in caller-supplied
+      order, and render only that returned SourceEvidenceInventory. It must not walk the
+      filesystem itself, deserialize manifests itself, sort/filter/dedupe independently,
+      derive identity independently, or mutate evidence.
+    - >
+      Successful `evidence` output must be one UTF-8 JSON document whose semantic content
+      is limited to the exact returned inventory order: `manifest_paths` plus aligned source
+      pack presentation records containing only source_pack_id, platform,
+      source_product_id, product_url, observed_at as ISO-8601 text, and title. The CLI must
+      not infer quality, truth, rank, preferred/latest evidence, family, or variant status.
+    - >
+      `catalog` must require exactly one `--database` value, call existing
+      load_sqlite_canonical_catalog(...) exactly once, and render only the returned exact
+      CanonicalCatalogState. Successful output must contain family_count, variant_count,
+      families, and variants. Each family presentation may contain only family_id and the
+      exact member source_pack_id sequence; each variant presentation may contain only
+      variant_id, exact family_id, and the exact member source_pack_id sequence. Do not
+      reconstruct approvals, re-register values, infer labels, inspect SQLite directly, or
+      create a second catalog projection authority beyond this bounded presentation view.
+    - >
+      `ask` must require exactly one `--database`, one or more explicit `--root`, one
+      `--question`, and one explicit `--backend` whose only accepted values are the existing
+      GeminiProvider backend values `developer_api` and `vertex_ai`. No backend default is
+      permitted at this Human-facing surface: the Human must select it explicitly.
+    - >
+      `ask` must call intake_product_source_evidence(...) exactly once, construct exactly
+      one existing GeminiProvider using only `backend=<Human value>` and no explicit API
+      key/model/project/location/credentials object, then call
+      answer_persisted_grounded_question(...) exactly once with the exact database argument,
+      exact inventory.manifest_paths tuple, exact question string, and that provider. It
+      must not call provider.generate, TASK-132, google-genai, catalog loading, manifest
+      deserialization, or retrieval/context/prompt functions directly.
+    - >
+      `ask` must expose no command-line flag for API key, token, credential path, model,
+      project, location, max_hits, context-byte budget, retry, fallback, temperature,
+      thinking, or provider routing. Existing GeminiProvider and TASK-135 defaults and
+      environment/configuration boundaries remain authoritative.
+    - >
+      Successful `ask` output must be one UTF-8 JSON document containing only exact
+      GroundedAnswer presentation fields: status as GroundedAnswerStatus.value,
+      answer_text unchanged, citation_ids in exact tuple order as a JSON array, and
+      limitations in exact tuple order as a JSON array. Do not persist the answer, include
+      the full CanonicalRagContext, infer truth/quality, rewrite model wording, resolve
+      citations to new claims, or create another answer schema.
+    - >
+      Successful commands return exit code 0 and write exactly one JSON document to stdout.
+      JSON rendering must be deterministic for identical returned values, human-readable,
+      UTF-8 safe, and must not depend on object repr, filesystem enumeration beyond TASK-138,
+      wall-clock time, randomness, locale-specific ordering, or terminal color support.
+    - >
+      argparse syntax/required-argument failures retain standard argparse exit code 2.
+      Known Product Intelligence/storage/grounded/provider-facing failures must return exit
+      code 1, write one bounded JSON error document to stderr, and never print a traceback
+      or exception cause chain. The error view may include only the top-level exception
+      class name and top-level message. Unexpected exceptions must return exit code 1 with
+      a generic non-sensitive error type/message and must not expose repr/cause/details.
+    - >
+      CLI error handling must never inspect or stringify nested provider causes. Tests must
+      prove a sensitive nested cause string does not appear on stdout/stderr. Do not add
+      logging configuration that would independently expose provider payloads.
+    - >
+      TASK-145 is read-only with respect to repository/product state. Tests must prove none
+      of the three commands call M2 approval/enqueue, TASK-112/114/116/117 admission,
+      TASK-118 registration, TASK-120 registration, source-pack serialization, browser,
+      Drive, discovery/ranking, or AgentController/AgentLoop surfaces.
+    - >
+      Focused tests must isolate network/provider transport. They must prove module import
+      side-effect freedom; exact parser operations/required args; exact delegation call
+      count and arguments for evidence/catalog/ask; Human-explicit backend selection;
+      deterministic success JSON shapes/order; status/citation/limitation preservation;
+      standard argparse exit 2; sanitized known/unknown error exit 1; no sensitive nested
+      cause leakage; and no P5.2/P5.3 mutation/discovery authority.
+    - >
+      Add docs/POST_M4_P5_HUMAN_FACING_SURFACE.md defining P5 as staged presentation,
+      recording P4 CLOSED by published TASK-144, P5 CURRENT, and P5.1 as read-only persisted
+      evidence/catalog/grounded-QA CLI only. Document example invocations for all three
+      commands without real secrets/project/account identifiers. Explicitly state that
+      P5.2 live discovery + deterministic shortlist and P5.3 explicit Human action/mutation
+      remain separate unimplemented boundaries.
+    - >
+      Update docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md to replace the now-satisfied
+      conditional TASK-144 wording with canonical P4 CLOSED / P5 CURRENT state. On the
+      TASK-145 candidate, record P5.1 as closed only conditionally after canonical Runtime
+      PASS plus ChatGPT semantic-review PASS on the same candidate; keep overall P5 IN
+      PROGRESS and do not advance P6.
+    - Do not push from Executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      A separate src/product_intelligence/cli.py is import-side-effect-free, invokable via
+      `python -m src.product_intelligence.cli`, exposes exactly evidence/catalog/ask, and
+      leaves root main.py / AgentController unchanged.
+  - id: AC2
+    condition: >
+      `evidence` delegates exactly once to TASK-138 intake using caller roots and renders
+      only the exact aligned inventory fields in deterministic order without independent
+      scanning, decoding, identity, ranking, or truth logic.
+  - id: AC3
+    condition: >
+      `catalog` delegates exactly once to TASK-120 load and renders only exact family/variant
+      counts, IDs, and member source_pack_id sequences without SQLite inspection,
+      reconstruction, inference, or mutation.
+  - id: AC4
+    condition: >
+      `ask` requires Human-explicit developer_api/vertex_ai selection, delegates intake
+      exactly once, constructs exactly one existing GeminiProvider with only that backend,
+      and invokes TASK-135 exactly once with the exact database, manifest tuple, question,
+      and provider.
+  - id: AC5
+    condition: >
+      `ask` preserves only exact GroundedAnswer status.value, answer_text, citation_ids, and
+      limitations in its deterministic JSON output and creates no new response/truth/citation
+      semantics.
+  - id: AC6
+    condition: >
+      The CLI exposes no credential/model/project/location/retry/fallback/provider-routing
+      flags, performs no direct provider/TASK-132/google-genai call, and introduces no
+      automatic provider selection or fallback.
+  - id: AC7
+    condition: >
+      Success uses exit 0 with exactly one JSON stdout document; argparse failures retain
+      exit 2; known application failures use sanitized top-level JSON stderr with exit 1;
+      unexpected failures are generic; tracebacks/nested causes/secrets are never emitted.
+  - id: AC8
+    condition: >
+      TASK-145 performs no Product Intelligence mutation, discovery, ranking, Human
+      approval/admission, queue/AgentLoop, browser, Drive, background, or service behavior.
+  - id: AC9
+    condition: >
+      Focused deterministic tests prove AC1-AC8 with zero live network and existing
+      TASK-138/TASK-120/TASK-135/GeminiProvider focused regressions remain passing.
+  - id: AC10
+    condition: >
+      Documentation records published TASK-144 as P4 closure, P5 as CURRENT / IN PROGRESS,
+      P5.1 as this read-only CLI boundary, and leaves P5.2 live discovery/shortlist and P5.3
+      explicit Human action/mutation unimplemented; P6 does not advance.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_product_intelligence_cli.py tests/product_intelligence/test_source_evidence_intake.py tests/product_intelligence/test_canonical_catalog_sqlite.py tests/product_intelligence/test_persistent_grounded_qa.py tests/providers/test_gemini_provider.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - '$env:PYTHONPATH = ".;src"; python -m src.product_intelligence.cli --help *> $null; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
