@@ -1,0 +1,19 @@
+{
+  "repair_id": "REPAIR-150-001",
+  "failed_run_id": "RUN-150-001",
+  "failed_head_sha": "cb79b3de3c606424632764f3cc24dd2c3925f0bc",
+  "task": {
+    "id": "TASK-150",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue only from the exact failed candidate cb79b3de3c606424632764f3cc24dd2c3925f0bc for RUN-150-001 and preserve Antigravity executor identity and the complete TASK-150 failure lineage. Do not restart PRIMARY, reroute executors, rebase onto current main, or rebuild the candidate.",
+    "RUN-150-001 failed only during the single admitted live verification because the configured CDP endpoint 127.0.0.1:9222 refused the connection and the certification emitted LIVE_CDP_UNAVAILABLE. The candidate is clean, transportable, repairable, remains within the four-file TASK-150 scope, and the full offline verification passed 113 tests. No production-code, test-contract, documentation, or TASK defect is established by this failure. This continuation is NO_CHANGE; do not modify source, tests, docs, TASK files, worker files, browser code, marketplace adapters, scraper tools, or AIOS/runtime files.",
+    "Before invoking this continuation, the Human must ensure the operator-owned authenticated Chromium is running with remote debugging on the exact configured CDP endpoint (default http://127.0.0.1:9222) and that the endpoint is reachable. Login/session preparation remains Human-owned; do not automate login, CAPTCHA handling, profile creation, or browser fallback.",
+    "Do not manually probe the marketplace, perform an extra discovery or scrape, retry, fallback, reroute, or make any ad-hoc live request during executor work. Return only the structural REPAIR result with unresolved empty and allow the pinned Runtime alone to execute the exact TASK-150 required verification commands, including the one admitted live marketplace attempt.",
+    "If Runtime live verification fails again for CDP, login/session, CAPTCHA/block, selector drift, empty discovery, acquisition/download, or source-pack validation, preserve the resulting new FAILURE exactly for Brain classification. Do not self-author a code correction, widen scope, claim semantic REVIEW PASS, or publish."
+  ],
+  "constraints": []
+}
