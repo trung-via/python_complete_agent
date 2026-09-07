@@ -1,0 +1,10 @@
+finding_id: F1
+action: CODE_FIX
+reviewed_sha: 0c89d31458435009e05b71044642405cf0b53510
+modification_scope:
+  - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+  - docs/POST_M4_P5_HUMAN_FACING_SURFACE.md
+  - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+affected_verification:
+  - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+constraints: []
