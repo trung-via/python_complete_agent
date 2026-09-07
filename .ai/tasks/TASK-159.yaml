@@ -1,0 +1,197 @@
+task_id: TASK-159
+revision: 1
+
+goal: >
+  Explicitly migrate the repository-owned unified AIOS worker from the currently pinned
+  AIOS-renew commit 3f2770be9752b800e21adfc05d57778dd9818c68 to the exact semantically
+  reviewed upstream TASK-077 source candidate
+  6893d44a3b8478cadb4bdceab6e671324a54d954, so Python Agent can consume the
+  historical-REPAIR remote snapshot hardening required to continue RUN-156-003 without
+  repeated remote ref discovery. Preserve the existing thin RUN/FIX/REPAIR/STATUS Human-facing
+  worker, exact executor identity, bootstrap/provenance fail-closed behavior, historical
+  failed-head/continuation lineage, no-retry/no-fallback/no-reroute semantics, and Python Agent
+  product/publication authority. Do not modify, rerun, repair, or replace TASK-156 product work
+  during this migration.
+
+problem: >
+  Python Agent main currently pins AIOS-renew at
+  3f2770be9752b800e21adfc05d57778dd9818c68, which includes TASK-076 and correctly
+  supports the intended NO_CHANGE continuation semantics for RUN-156-003. However, repeated
+  attempts to invoke the already-authored REPAIR-156-003 fail before new RUN admission inside
+  TASK-058 historical REPAIR remote-lineage recovery with only
+  `historical REPAIR lineage rejected: failed to query canonical refs from origin`.
+  Direct host Git, direct Codex-shell Git, repository-venv Python spawning Git, and the exact
+  pinned worker-runtime Python spawning the same task-scoped ls-remote query all succeeded,
+  while inspection of the pinned Runtime showed historical recovery performs multiple remote
+  ref queries whose count grows with chain length and collapses any nonzero query to one generic
+  error. AIOS-renew TASK-077 hardens the existing TASK-058 authority by acquiring one immutable
+  TASK-scoped ref snapshot for one historical-repair admission and preserving bounded transport
+  failure provenance without adding retry/fallback/reroute. TASK-077 is canonically PRIMARY PASS
+  and published at 6893d44a3b8478cadb4bdceab6e671324a54d954. Per Python Agent project
+  contract, this upstream fix is unavailable downstream until the exact pin is explicitly
+  migrated and certified here.
+
+assumptions:
+  - >
+    Current canonical python_complete_agent main at TASK-159 authoring is
+    265ad397ef61723c70bc65077c1772a3e34feddf, the published TASK-158 source candidate.
+  - >
+    The current downstream AIOS pin is exactly
+    3f2770be9752b800e21adfc05d57778dd9818c68 in the requirements pin and the
+    repository-owned launcher authoritative commit.
+  - >
+    AIOS-renew TASK-077 is canonical PRIMARY PASS at source candidate
+    6893d44a3b8478cadb4bdceab6e671324a54d954. RUN-077-001 reports 26 focused
+    tests passed and git diff --check PASS; REVIEW-077-001 is PRIMARY PASS with AC1-AC9 PASS.
+  - >
+    The interval from 3f2770be9752b800e21adfc05d57778dd9818c68 to
+    6893d44a3b8478cadb4bdceab6e671324a54d954 is exactly two commits: TASK-077
+    authoring plus the reviewed implementation. The implementation changes only AIOS-renew
+    historical-repair transport mechanics and focused tests.
+  - >
+    TASK-113 remains the repository-owned worker/bootstrap authority. TASK-157 and TASK-158
+    remain direct pin-migration precedents. TASK-159 extends only this existing authority and
+    creates no second launcher, runtime store, Human-facing protocol, or Product Intelligence
+    authority.
+  - >
+    TASK-156 remains active and unpublished. Canonical remote state still contains failures
+    RUN-156-001, RUN-156-002, RUN-156-003 and REPAIR-156-003, with no RUN-156-004 admitted.
+    Exact failed candidate d66faa95c8c03e1fe2d5f4c4c36b44b7fc9bc364 and all existing
+    continuation evidence must remain immutable during this migration. After TASK-159 is
+    reviewed PASS and published, Brain may separately continue REPAIR RUN-156-003.
+  - >
+    Product P6.0b remains the active certification objective. This migration is execution
+    substrate maintenance only and must not advance, close, or redefine P6.0b.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/tasks/TASK-113.yaml
+    - .ai/tasks/TASK-156.yaml
+    - .ai/tasks/TASK-158.yaml
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+  modify:
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+
+non_goals:
+  - Modify Product Intelligence, browser, discovery, scraper, persistence, catalog, retrieval,
+    family/variant admission, grounded-QA, roadmap product semantics, or any production Python module.
+  - Modify TASK-156, RUN-156-001/RUN-156-002/RUN-156-003 artifacts, REPAIR-156-003,
+    candidate d66faa95c8c03e1fe2d5f4c4c36b44b7fc9bc364, or any TASK-156 review/publication lineage.
+  - Execute, continue, rerun, repair, or verify TASK-156 as part of TASK-159 verification.
+  - Reimplement TASK-077 ref snapshot acquisition, historical-lineage reconstruction, remote
+    transport classification, duplicate-continuation detection, or fail-closed logic inside the
+    downstream worker, docs tooling, adapters, or tests.
+  - Add Git retry, reconnect, fallback remote, alternate transport, polling, backoff, reroute,
+    failover, or executor substitution in the Python Agent worker.
+  - Copy AIOS-renew transport implementation, remote status/approval workflows, publication code,
+    or expose any Human command beyond RUN/FIX/REPAIR/STATUS.
+  - Change Python Agent auto-publication workflow or publication authority.
+  - Push, merge, publish, or mutate main from Executor implementation execution.
+
+constraints:
+  hard:
+    - >
+      The active dependency file must contain exactly one non-comment pin and it must be exactly:
+      aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@6893d44a3b8478cadb4bdceab6e671324a54d954
+    - >
+      .agents/skills/aios-worker/scripts/aios_worker.py AUTHORITATIVE_COMMIT and derived PIN_LINE
+      must bind exactly the same 6893d44a3b8478cadb4bdceab6e671324a54d954 commit and
+      existing authoritative repository URL. No branch, tag, version range, current-main lookup,
+      alternate source, or environment override may select the kernel.
+    - >
+      Existing dedicated <git-dir>/aios/worker-runtime bootstrap remains authoritative. Installed
+      PEP 610 provenance from 3f2770be9752b800e21adfc05d57778dd9818c68 or any alternate
+      source/commit must fail validation and use the existing atomic stale-runtime replacement path
+      to install only the checked-in new pin. An already-authoritative
+      6893d44a3b8478cadb4bdceab6e671324a54d954 runtime must be reused without reinstall.
+    - >
+      The visible Human protocol remains exactly RUN TASK-N, FIX TASK-N FINDING-ID,
+      REPAIR RUN-N-NNN, and STATUS TASK-N. Parsing, target validation, strict canonical PASS-summary
+      parsing, no-push behavior, executor binding, and at-most-one pinned-kernel invocation remain
+      unchanged except for consuming the new distribution.
+    - >
+      Codex remains bound to executor codex and Antigravity remains bound to executor antigravity.
+      No TASK, runtime state, failure state, or network condition may silently reroute or substitute
+      executor identity.
+    - >
+      Worker REPAIR remains thin. TASK-058/TASK-077 historical-repair semantics are owned solely by
+      the pinned Runtime: one admission consumes one immutable task-scoped remote ref snapshot for
+      terminal/candidate identity, duplicate-continuation checks, and lineage reconstruction; a
+      nonzero snapshot query fails closed with bounded operational provenance; missing refs after a
+      successful query remain semantic lineage failures; no automatic retry/fallback/reroute is added.
+      None of this logic may be duplicated downstream.
+    - >
+      Documentation may explain the exact adopted TASK-077 behavior but must explicitly distinguish
+      Runtime authority from worker authority. The worker does not snapshot refs, classify Git
+      transport failures, reconstruct lineage, choose recovery policy, retry Git, or infer whether
+      TASK-156 should use NO_CHANGE versus CODE_FIX.
+    - >
+      Certification tests must update the exact expected pin, launcher provenance, stale-runtime
+      replacement target, and prior-pin rejection while preserving existing RUN/FIX/REPAIR/STATUS,
+      bootstrap-host, strict parsing, executor separation, one-invocation, no-push, and thin-worker
+      regressions. Add or update source-level guards only as necessary to prove TASK-077 authority
+      did not move into repository worker code.
+    - >
+      Migration verification must be deterministic and network-free with respect to Python Agent
+      product/provider behavior. Do not run TASK-156, REPAIR RUN-156-003, live marketplace discovery,
+      scraping, provider calls, or any product path merely to prove the dependency migration.
+    - Do not push from Executor implementation execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Dependency file, launcher authoritative commit, derived pin string, worker docs, and
+      certification expectations all reference exactly
+      6893d44a3b8478cadb4bdceab6e671324a54d954 and reject
+      3f2770be9752b800e21adfc05d57778dd9818c68 as stale provenance.
+  - id: AC2
+    condition: >
+      Bootstrap regressions prove stale/alternate worker runtime provenance is not reused and is
+      atomically synchronized to the exact new pin, while an already-authoritative new runtime is
+      reused without reinstall.
+  - id: AC3
+    condition: >
+      RUN, FIX, REPAIR, and STATUS retain unchanged Human-facing meaning, exact executor identity,
+      strict canonical summary parsing, at-most-one pinned-kernel invocation, and no worker-owned
+      retry/reroute/publication authority.
+  - id: AC4
+    condition: >
+      Worker REPAIR remains thin and contains no TASK-077 snapshot acquisition, remote transport
+      categorization, historical lineage traversal, duplicate-continuation policy, retry/fallback,
+      or repair-action decision logic; those behaviors are consumed solely through the exact pin.
+  - id: AC5
+    condition: >
+      Documentation accurately records the adopted TASK-077 behavior: historical REPAIR ref
+      discovery is consolidated into one immutable task-scoped snapshot per admission; nonzero
+      snapshot acquisition remains fail-closed with bounded operational provenance; successful but
+      incomplete snapshots remain lineage failures; there is no automatic retry/fallback/reroute.
+  - id: AC6
+    condition: >
+      No Product Intelligence file, TASK-156 source/artifact/repair lineage, Python Agent workflow,
+      publication implementation, or additional Human-facing command is changed or exposed.
+  - id: AC7
+    condition: >
+      TASK-156 remains paused on exact RUN-156-003 during migration, preserving candidate
+      d66faa95c8c03e1fe2d5f4c4c36b44b7fc9bc364 and existing failure/continuation evidence; no
+      RUN-156-004 is created by migration verification.
+  - id: AC8
+    condition: >
+      The complete repository-owned worker certification suite passes on the migrated source tree
+      and git diff --check passes without invoking TASK-156 or any live RUN/FIX/REPAIR.
+
+verification:
+  required:
+    - 'python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py -q'
+    - 'git diff --check'
