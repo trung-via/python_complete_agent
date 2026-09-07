@@ -1,0 +1,217 @@
+task_id: TASK-151
+revision: 2
+
+goal: >
+  Harden the existing ShopeeDiscoveryAdapter live search-surface readiness and card
+  extraction boundary after canonical RUN-150-005 proved that authenticated CDP attachment
+  and a Human-confirmed normal non-CAPTCHA Shopee surface can still yield zero extracted
+  listing cards. Preserve ShopeeDiscoveryAdapter as the sole Shopee discovery authority;
+  add no new browser, discovery, ranking, retry, approval, persistence, or Product
+  Intelligence truth owner.
+
+problem: >
+  TASK-150 is a certification-only task whose scope forbids production Python changes.
+  RUN-150-001 first failed because the CDP endpoint was unavailable. RUN-150-002 through
+  RUN-150-004 were not sufficient to establish a product defect because CAPTCHA/session
+  state was unresolved or the Runtime completed before the Human could finish the challenge.
+  Before RUN-150-005, the Human pre-resolved the Shopee challenge and confirmed this failure
+  was not caused by CAPTCHA. RUN-150-005 still failed in the exact same production discovery
+  boundary with LIVE_DISCOVERY_UNAVAILABLE and the exact diagnostic "No cards extracted on
+  page 1 and no empty-result marker found" while all 113 offline regressions passed and the
+  failed candidate remained unchanged, clean, repairable, and transportable. Inspection of
+  ShopeeDiscoveryAdapter shows that after navigation it performs one light scroll and then
+  evaluates the listing extraction script only once; it has no bounded readiness sampling
+  for client-rendered cards, and its primary card roots depend heavily on presentation
+  classes. M2 architecture explicitly owns Shopee DOM extraction inside this adapter, so the
+  correction belongs here rather than in TASK-150 certification code.
+
+assumptions:
+  - >
+    Canonical Python Agent main before TASK-151 revision 2 authoring is
+    e7629799f9ca87ec14a5ce37d9b32f9546f40775, the TASK-150 author commit. TASK-150 has not
+    passed or published. Its latest canonical failed continuation is RUN-150-005 with
+    failed_head_sha cb79b3de3c606424632764f3cc24dd2c3925f0bc and continuation_of RUN-150-004.
+  - >
+    The authoritative AIOS dependency remains exactly
+    aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@67db82bf19d63f25721d06aabb82d850db8b78d4.
+  - >
+    A transient TASK-151 revision 1 draft was previously authored from an incomplete
+    CAPTCHA diagnosis, was never RUN, produced no RUN/RESULT/REVIEW/publication lineage,
+    and canonical main was restored before execution. Revision 2 supersedes that withdrawn
+    draft and is the only current TASK-151 authority.
+  - >
+    ShopeeDiscoveryAdapter remains the existing platform-specific Shopee discovery and DOM
+    extraction authority. DiscoveryRequest, DiscoveryBatch, ProductCandidateSnapshot,
+    orchestration, CandidateRanker, PlaywrightBrowserManager, PlaywrightBrowserSession, and
+    browser/session lifecycle authorities remain unchanged.
+  - >
+    PHASE_6_M2_DISCOVERY.md explicitly isolates future marketplace DOM changes to the Shopee
+    adapter. This task is hardening of that existing authority, not a new capability owner.
+  - >
+    A bounded same-page readiness sample loop is synchronization of one already-admitted
+    discovery navigation, not a second marketplace request. It must not navigate again,
+    change query/platform, reopen the browser, retry a failed request, or bypass CAPTCHA.
+  - >
+    TASK-151 is a blocker correction only. It does not certify P6.0a. TASK-150 remains
+    canonical failed certification evidence. A separate successor live certification must
+    be authored from the published TASK-151 fixed main.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_6_M2_DISCOVERY.md
+    - docs/PHASE_6_M2_VERTICAL_SLICE.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - .ai/tasks/TASK-137.yaml
+    - .ai/tasks/TASK-146.yaml
+    - .ai/tasks/TASK-150.yaml
+    - src/product_intelligence/discovery.py
+    - src/product_intelligence/adapters/shopee.py
+    - src/product_intelligence/adapters/shopee_parsing.py
+    - src/product_intelligence/orchestration.py
+    - src/integrations/playwright/manager.py
+    - src/integrations/playwright/session.py
+    - tests/product_intelligence/test_shopee_discovery.py
+    - tests/product_intelligence/test_orchestration.py
+    - tests/product_intelligence/test_product_intelligence_cli.py
+    - tests/integration/test_browser_cdp.py
+
+  modify:
+    - src/product_intelligence/adapters/shopee.py
+    - tests/product_intelligence/test_shopee_discovery.py
+
+non_goals:
+  - Modify TASK-150 certification fixture, failure/repair refs, docs, or candidate.
+  - Modify TikTok discovery, discovery/orchestration contracts, ranking/scoring, CLI,
+    browser manager/session, Product Source Pack acquisition, serializers, Drive integration,
+    catalog/admission, grounded QA, or any P6.1+ capability.
+  - Add a second Shopee adapter, generic marketplace adapter, alternate HTTP/API scraper,
+    raw requests, browser launch fallback, reconnect loop, login automation, CAPTCHA solving,
+    stealth, proxy rotation, alternate query, alternate platform, or retry/reroute authority.
+  - Change search URL construction, ProductCandidateSnapshot schema, canonical parsing
+    semantics, ranking, score thresholds, DecisionBand behavior, approval/enqueue, Human
+    decision, or persistence.
+  - Add a live marketplace test to TASK-151 verification. Live proof belongs to the
+    successor P6.0a certification after this hardening is published.
+  - Treat a bounded readiness loop as permission to wait indefinitely for a Human challenge.
+    Explicit block/CAPTCHA states remain fail-closed and Human-owned.
+  - Modify AIOS-renew, the Python Agent AIOS pin, worker surfaces, or publication behavior.
+
+constraints:
+  hard:
+    - >
+      Keep ShopeeDiscoveryAdapter as the sole Shopee discovery implementation and preserve
+      its public constructor, discover(...) signature, DiscoveryRequest/DiscoveryBatch
+      contracts, exact candidate mapping authority, deduplication, max_candidates/max_pages
+      behavior, diagnostics, and error classes except for the minimum internal readiness /
+      extraction hardening required by this task.
+    - >
+      One Shopee page index must still perform exactly one page/session acquisition inherited
+      from the existing discover call and exactly one search navigation. Replace the immediate
+      one-shot post-navigation extraction assumption with a fixed bounded same-page readiness
+      sampling boundary. The boundary may evaluate the existing extraction state multiple
+      times on that same already-navigated page, but must perform no second goto/navigate,
+      no second page/session acquisition, no alternate query/platform, no browser reopen,
+      and no request retry/fallback.
+    - >
+      Use source-owned fixed readiness bounds only. Total readiness waiting after navigation
+      must be finite and no greater than 5 seconds in production behavior. Do not expose
+      readiness attempts, delay, timeout, selectors, or polling controls through the public
+      constructor, DiscoveryRequest, CLI, environment variables, or configuration files.
+    - >
+      Readiness terminates immediately when an extraction sample reports at least one item,
+      an explicit blocked/challenge state, or an explicit true-empty state. Explicit block
+      must continue to raise DiscoveryBlockedError; explicit true-empty must retain
+      TRUE_EMPTY_SEARCH semantics. If no terminal state appears within the fixed bound,
+      retain fail-closed DiscoveryNavigationError behavior and never reinterpret unknown /
+      unready state as a legitimate empty search.
+    - >
+      Any delay between readiness samples must use a standard asynchronous delay primitive
+      and be deterministic under tests. Focused tests must monkeypatch or inject at the
+      module-private boundary so they execute with zero real wall-clock sleep. Do not add a
+      public timing abstraction solely for tests.
+    - >
+      Harden SHOPEE_CARD_EXTRACTION_SCRIPT inside the existing adapter so exact product
+      anchors using already-supported canonical Shopee product URL forms, especially href
+      containing `-i.` and existing `/product/`, can serve as a fallback discovery root when
+      legacy presentation-only card container selectors are absent. Preserve first-seen DOM
+      order and deduplicate fallback roots by exact href before Python mapping. Do not perform
+      a global all-elements sweep or infer product identity from unrelated links.
+    - >
+      Fallback extraction must still require a usable product href plus a bounded title source
+      from the product anchor or its nearest product-card context, using existing name/title
+      nodes, img alt, aria-label, title attribute, or bounded anchor text. Do not fabricate
+      title, price, sold count, rating, review count, shop name, shop ID, item ID, or any
+      marketplace fact. Missing optional scalars remain None through existing parsers/mapping.
+    - >
+      Existing explicit block/CAPTCHA and true-empty detection remains authoritative and must
+      be evaluated on every readiness sample. Do not automate solving or suppress a detected
+      challenge. Human login/session preparation remains outside repository code.
+    - >
+      Preserve borrowed browser-resource semantics. The adapter may use the injected
+      page/session exactly as before and must not close operator-owned manager/context/page
+      beyond existing cleanup behavior for resources the adapter itself acquires through
+      new_page().
+    - >
+      Add focused offline tests proving: delayed client hydration succeeds after one or more
+      initial unready samples; readiness stops immediately on first successful item state;
+      delayed explicit blocked state raises DiscoveryBlockedError; delayed true-empty state
+      returns an empty batch with TRUE_EMPTY_SEARCH; bounded exhaustion raises
+      DiscoveryNavigationError; one discover call still performs exactly one navigation and
+      one page/session acquisition despite multiple readiness samples; no real sleep/network
+      occurs; prior mapping/dedupe/pagination/malformed-card/block/empty/navigation/manager/
+      cleanup behavior remains green.
+    - >
+      Add a deterministic unit/source assertion proving the extraction script contains the
+      product-anchor fallback for Shopee `-i.` URLs and retains `/product/` support without
+      depending solely on old presentation card root classes.
+    - >
+      Do not weaken RUN-150-005 evidence through skip/xfail/retry behavior, and do not change
+      TASK-150's live test. TASK-151 verification is fully offline and may not claim that
+      Shopee live availability or P6.0a certification has passed.
+    - Do not push from Executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Only src/product_intelligence/adapters/shopee.py and
+      tests/product_intelligence/test_shopee_discovery.py change; no second discovery,
+      browser, ranking, approval, persistence, or truth authority is introduced.
+  - id: AC2
+    condition: >
+      One Shopee discover page performs exactly one search navigation while using a fixed
+      bounded same-page readiness sampling loop instead of immediate one-shot extraction.
+  - id: AC3
+    condition: >
+      Readiness stops on items, explicit blocked state, or explicit true-empty state;
+      bounded exhaustion remains fail-closed and unknown state is never reclassified as a
+      legitimate empty search.
+  - id: AC4
+    condition: >
+      The existing extraction script supports a bounded product-anchor fallback using Shopee
+      `-i.` and `/product/` href forms, preserves first-seen order, and does not fabricate
+      product identity or optional marketplace facts.
+  - id: AC5
+    condition: >
+      Block/CAPTCHA, Human-owned login/session, browser ownership, DiscoveryRequest,
+      mapping/parsing, dedupe, pagination, diagnostics, and error-class semantics remain
+      owned by their existing modules and behavior.
+  - id: AC6
+    condition: >
+      Offline regressions prove delayed hydration success, delayed blocked/empty handling,
+      bounded exhaustion, exact one navigation, no real sleep/network, fallback-selector
+      presence, and preservation of prior Shopee discovery behavior.
+  - id: AC7
+    condition: >
+      TASK-151 verification performs no live marketplace/CDP request and makes no P6.0a
+      certification claim; RUN-150-005 remains canonical failed live evidence until a
+      successor certification runs on the published fix.
+  - id: AC8
+    condition: >
+      Required verification and git diff check pass with zero unresolved items and no changes
+      outside TASK-151 scope.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_shopee_discovery.py tests/product_intelligence/test_orchestration.py tests/product_intelligence/test_product_intelligence_cli.py tests/integration/test_browser_cdp.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
