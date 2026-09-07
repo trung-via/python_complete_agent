@@ -1,0 +1,21 @@
+{
+  "repair_id": "REPAIR-154-003",
+  "failed_run_id": "RUN-154-003",
+  "failed_head_sha": "d44a60636d02524afb729a67240bb7bbc4f65b88",
+  "task": {
+    "id": "TASK-154",
+    "revision": 1
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "tests/integration/test_live_product_source_acquisition.py"
+  ],
+  "instructions": [
+    "Continue only from the exact failed candidate d44a60636d02524afb729a67240bb7bbc4f65b88 for RUN-154-003 and preserve Antigravity executor identity plus RUN-154-001 -> RUN-154-002 -> RUN-154-003 repair continuity. Do not restart PRIMARY, rebase onto current main, rebuild the candidate, reroute executors, or modify production Python.",
+    "RUN-154-003 established the bounded subtype LIVE_DISCOVERY_ORCHESTRATION while the Human had already confirmed a normal authenticated Shopee listing surface. Inspection of the exact failed candidate shows the certification fixture calls orchestrate_discovery exactly once with shortlist_size=5. Canonical CandidateRanker requires shortlist_size not exceed the actual discovered candidate count and raises CandidateRankingError otherwise; orchestration wraps that as OrchestrationError. Because this certification needs only shortlist[0] and TASK-154 permits shortlist_size no greater than 5, a fixed shortlist_size of 5 can incorrectly fail an otherwise valid live route that discovers only one to four valid candidates.",
+    "Modify only tests/integration/test_live_product_source_acquisition.py so the single certification orchestration call uses shortlist_size=1 instead of 5. Preserve exactly one discovery/orchestration call, the same one-platform plan, max_pages=1, max_candidates<=20, the existing shortlist[0].candidate subject, and all previously added bounded discovery diagnostic classification. Do not inspect candidate count before ranking, do not add a second ranking call, retry, fallback, alternate query/platform, or any production change.",
+    "Preserve the existing LIVE_DISCOVERY_EMPTY behavior for a successfully returned empty shortlist. Do not weaken CandidateRanker or orchestration invariants; production ranking authority must remain unchanged. The repair corrects only the certification fixture's requested shortlist size so any non-empty valid discovery can provide exactly one certification subject.",
+    "After the candidate is committed, allow only the pinned Runtime to execute TASK-154 required verification. If live verification fails again, preserve the exact resulting bounded category for Brain classification and do not self-author further production changes."
+  ],
+  "constraints": []
+}
