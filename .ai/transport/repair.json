@@ -1,0 +1,19 @@
+{
+  "repair_id": "REPAIR-154-001",
+  "failed_run_id": "RUN-154-001",
+  "failed_head_sha": "ec16b100be14b12d4869bfb5103eb62bec1deb9e",
+  "task": {
+    "id": "TASK-154",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue only from the exact failed candidate ec16b100be14b12d4869bfb5103eb62bec1deb9e for RUN-154-001 and preserve Antigravity executor identity plus the canonical RUN-154-001 failure lineage. Do not restart PRIMARY, reroute executors, rebase onto current main, rebuild the candidate, or introduce source changes.",
+    "RUN-154-001 failed only during the admitted live verification. The offline verification passed 125 tests; the live module reported 17 passing tests and one sanitized LIVE_DISCOVERY_UNAVAILABLE failure; the candidate remained clean, in scope, repairable, and transportable. The certification fixture intentionally collapses multiple discovery-stage exception subtypes into bounded sanitized categories, so current canonical evidence does not establish a concrete production, selector, readiness, ranking, browser, scraper, persistence, or typed-rehydration defect requiring repository mutation.",
+    "Before invoking this continuation, the Human must ensure the exact operator-owned Chromium session at the configured CDP endpoint is already available, authenticated, free of any unresolved CAPTCHA/challenge, and visibly showing normal Shopee product listing cards for the default query 'bình giữ nhiệt inox'. Leave that browser session open for Runtime verification. Do not automate login, CAPTCHA solving, stealth, proxying, browser restart, or alternate routing.",
+    "Do not modify production source, tests, docs, TASK files, browser code, marketplace adapters, scraper tools, Product Source Pack code, or AIOS/runtime files. Return only the structural NO_CHANGE REPAIR result with unresolved empty and allow the pinned Runtime alone to execute the exact TASK-154 required verification commands.",
+    "If the Runtime live verification fails again after the Human confirms the prepared normal listing surface before invocation, preserve the new canonical FAILURE exactly for Brain classification. Do not self-author a code correction or widen scope from sanitized evidence alone."
+  ],
+  "constraints": []
+}
