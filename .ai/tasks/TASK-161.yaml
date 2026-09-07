@@ -1,0 +1,245 @@
+task_id: TASK-161
+revision: 1
+
+goal: >
+  Explicitly migrate the repository-owned unified AIOS worker from the currently pinned
+  AIOS-renew commit ba0cc66324fc2310812945a351bfc001a41f99f8 to the exact semantically
+  reviewed and published TASK-080 source candidate
+  32ace104c5cfaa1b7affbaa40157872b1f85147f, so Python Agent consumes both published
+  TASK-079 REMEDIATION structural-output hardening and TASK-080 REPAIR structural-output
+  hardening before continuing the preserved TASK-156/F1 lineage. Preserve the existing
+  thin RUN/FIX/REPAIR/STATUS Human-facing worker, exact executor identity,
+  bootstrap/provenance fail-closed behavior, Runtime-owned canonical lineage and
+  acceptance authority, no-retry/no-fallback/no-reroute semantics, and Python Agent
+  product/publication authority. Do not execute, repair, rerun, review, publish, or
+  otherwise mutate TASK-156 product work during this migration.
+
+problem: >
+  Python Agent main currently pins AIOS-renew at
+  ba0cc66324fc2310812945a351bfc001a41f99f8, the published TASK-078 source consumed by
+  TASK-160. Under that pin, historical FIX for TASK-156/F1 was successfully admitted and
+  produced clean in-scope correction candidate
+  38e087e6925b1e7bac81c0eddc8b4dbb8992ff25, but RUN-156-007 failed at COMPLETION_GATE
+  with `remediation RESULT claims must be empty`. Upstream AIOS TASK-079 corrected that
+  provider-native REMEDIATION schema mismatch. While certifying TASK-079, its CODE_FIX
+  REPAIR continuation RUN-079-002 exposed an analogous REPAIR structural mismatch: the
+  generic native schema allowed claims=[], while Runtime correctly required complete TASK
+  acceptance claims before verification. AIOS TASK-080 then added a repair-specific
+  structural schema that requires at least one claim, empty unresolved/root evidence,
+  and empty per-claim evidence while leaving dynamic complete acceptance coverage solely
+  to Runtime. TASK-079 is published in the lineage leading to TASK-080, and TASK-080 is
+  canonical PRIMARY PASS and published at
+  32ace104c5cfaa1b7affbaa40157872b1f85147f. Per Python Agent project contract, neither
+  upstream hardening exists downstream until this repository explicitly updates and
+  certifies its exact dependency pin.
+
+assumptions:
+  - >
+    Current canonical python_complete_agent main at TASK-161 authoring is
+    2f4202a00556673d486a37ac2266b5aabda1b70d, the published TASK-160 source candidate.
+  - >
+    The current downstream AIOS pin is exactly
+    ba0cc66324fc2310812945a351bfc001a41f99f8 in the requirements pin and repository-owned
+    launcher authoritative commit.
+  - >
+    AIOS-renew TASK-079 is canonical PRIMARY PASS and published at source candidate
+    4ee6e68ec1ad8fe92a26fcd3bcf4e12067c69600. It introduces a remediation-specific
+    native schema for both Codex and Antigravity that structurally requires empty root
+    evidence, empty result.claims, and empty result.unresolved while preserving Runtime
+    fail-closed completion authority.
+  - >
+    AIOS-renew TASK-080 is canonical PRIMARY PASS at source candidate
+    32ace104c5cfaa1b7affbaa40157872b1f85147f. RUN-080-001 reports 129 focused tests
+    passed plus git diff --check PASS; REVIEW-080-001 is PRIMARY PASS with AC1-AC7 PASS.
+  - >
+    The interval from ba0cc66324fc2310812945a351bfc001a41f99f8 to
+    32ace104c5cfaa1b7affbaa40157872b1f85147f is five commits and includes the published
+    TASK-079 and TASK-080 authoring/implementation lineage. The target pin is the exact
+    TASK-080 reviewed source candidate, not AIOS current-main-by-name or a moving ref.
+  - >
+    TASK-113 remains the repository-owned worker/bootstrap authority. TASK-157 through
+    TASK-160 remain direct pin-migration precedents. TASK-161 extends only that existing
+    authority and creates no second launcher, runtime store, schema validator, Product
+    Intelligence authority, remediation/repair resolver, or publication authority.
+  - >
+    TASK-156 remains active and unpublished. REVIEW-156-006 is PRIMARY CHANGES_REQUIRED
+    with only F1/AC10 failing on reviewed_sha
+    d66faa95c8c03e1fe2d5f4c4c36b44b7fc9bc364. REMEDIATION-156-006-F1 is CODE_FIX with
+    modification_scope exactly the two roadmap documents. RUN-156-007 is an admitted
+    REMEDIATION failure at COMPLETION_GATE with failed_head_sha
+    38e087e6925b1e7bac81c0eddc8b4dbb8992ff25; its candidate is clean, repairable,
+    transportable, and changed_files is exactly those two roadmap documents.
+  - >
+    P6.0b remains the active certification objective. This migration is execution
+    substrate maintenance only and must not claim TASK-156 F1 resolution, P6.0 closure,
+    P6.1 activation, or any Product Intelligence semantic change.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - .ai/tasks/TASK-113.yaml
+    - .ai/tasks/TASK-156.yaml
+    - .ai/tasks/TASK-160.yaml
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+  modify:
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+
+non_goals:
+  - Modify Product Intelligence, browser, discovery, scraper, persistence, catalog,
+    retrieval, family/variant admission, grounded-QA, roadmap product semantics, or any
+    production Python module.
+  - Modify TASK-156, REVIEW-156-006, REMEDIATION-156-006-F1, RUN-156-007, its FAILURE,
+    candidate 38e087e6925b1e7bac81c0eddc8b4dbb8992ff25, any REPAIR authorization, or any
+    TASK-156 review/publication lineage.
+  - Execute, continue, rerun, FIX, REPAIR, verify, review, or publish TASK-156 as part of
+    TASK-161 verification.
+  - Reimplement TASK-079 remediation-specific native schema validation, TASK-080
+    repair-specific native schema validation, Runtime acceptance coverage, structural
+    ResultPackage completion, or provider-native schema selection inside the downstream
+    worker, docs tooling, adapters, or tests.
+  - Change TASK-078 historical REMEDIATION/FIX subject isolation, TASK-058/TASK-077
+    historical REPAIR recovery, TASK-064 verification-only NO_CHANGE reuse, TASK-075
+    CODE_FIX reuse-bypass ordering, or any AIOS kernel semantics downstream.
+  - Add Git retry, reconnect, fallback remote, alternate transport, polling, backoff,
+    reroute, failover, executor substitution, automatic historical checkout, automatic
+    ResultPackage repair, or automatic publication integration in the Python Agent worker.
+  - Copy AIOS-renew adapter/runtime/operator implementation, expose raw internal AIOS
+    commands, or add any Human command beyond RUN/FIX/REPAIR/STATUS.
+  - Change Python Agent auto-publication workflow or publication authority.
+  - Push, merge, publish, or mutate main from Executor implementation execution.
+
+constraints:
+  hard:
+    - >
+      The active dependency file must contain exactly one non-comment pin and it must be exactly:
+      aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@32ace104c5cfaa1b7affbaa40157872b1f85147f
+  - >
+      .agents/skills/aios-worker/scripts/aios_worker.py AUTHORITATIVE_COMMIT and derived
+      PIN_LINE must bind exactly the same 32ace104c5cfaa1b7affbaa40157872b1f85147f
+      commit and existing authoritative repository URL. No branch, tag, version range,
+      current-main lookup, alternate source, or environment override may select the kernel.
+  - >
+      Existing dedicated <git-dir>/aios/worker-runtime bootstrap remains authoritative.
+      Installed PEP 610 provenance from ba0cc66324fc2310812945a351bfc001a41f99f8
+      or any alternate source/commit must fail validation and use the existing atomic
+      stale-runtime replacement path to install only the checked-in new pin. An already-
+      authoritative 32ace104c5cfaa1b7affbaa40157872b1f85147f runtime must be reused
+      without reinstall.
+  - >
+      The visible Human protocol remains exactly RUN TASK-N, FIX TASK-N FINDING-ID,
+      REPAIR RUN-N-NNN, and STATUS TASK-N. Parsing, target validation, strict canonical
+      PASS-summary parsing, no-push behavior, executor binding, and at-most-one pinned-
+      kernel invocation remain unchanged except for consuming the new distribution.
+  - >
+      Codex remains bound to executor codex and Antigravity remains bound to executor
+      antigravity. No TASK, runtime state, failure state, finding, historical candidate,
+      schema error, or network condition may silently reroute or substitute executor identity.
+  - >
+      Worker FIX remains thin. TASK-079 REMEDIATION structural-output hardening is owned
+      solely by the pinned native adapter/Runtime boundary: native REMEDIATION schema
+      prevents non-empty root evidence, claims, and unresolved from being schema-valid,
+      while Runtime retains fail-closed completion authority. The downstream worker must
+      not inspect, generate, strip, synthesize, or validate those ResultPackage arrays.
+  - >
+      Worker REPAIR remains thin. TASK-080 REPAIR structural-output hardening is owned
+      solely by the pinned native adapter/Runtime boundary: native REPAIR schema requires
+      at least one structurally valid claim, empty unresolved/root evidence/per-claim
+      evidence, while Runtime remains the sole authority for dynamic complete original
+      TASK acceptance coverage, canonical changed_files, verification, and EVIDENCE. The
+      downstream worker must not enumerate TASK acceptance IDs, generate per-TASK schemas,
+      synthesize claims, or perform structural ResultPackage repair.
+  - >
+      TASK-078 historical FIX subject isolation and TASK-058/TASK-077 historical REPAIR
+      recovery remain Runtime-owned. The worker does not load historical TASKs, create
+      isolated subjects, traverse remote review/failure lineage, decide historical versus
+      current-head execution, reconcile candidate equality, or infer repair policy.
+  - >
+      Verification-only NO_CHANGE reuse from TASK-064 and CODE_FIX dispatch ordering from
+      TASK-075 remain unchanged. This migration must not force an Executor on valid zero-
+      Executor reuse or make reusable-state logic a general worker admission gate.
+  - >
+      Documentation may explain the exact adopted TASK-079/TASK-080 behavior but must
+      explicitly distinguish adapter/Runtime authority from worker authority. No automatic
+      retry, alternate schema, second model call, output normalization, or executor switch
+      is introduced by the worker.
+  - >
+      The preserved RUN-156-007 candidate and failure are read-only migration context.
+      Migration verification must not create RUN-156-008, a new TASK-156 REPAIR, a new FIX,
+      or any mutation of the two roadmap documents. Continuing RUN-156-007 is a separate
+      post-migration Brain-authorized REPAIR action.
+  - >
+      Certification tests must update exact expected pin, launcher provenance,
+      stale-runtime replacement target, and prior-pin rejection while preserving existing
+      RUN/FIX/REPAIR/STATUS, bootstrap-host, strict parsing, executor separation,
+      one-invocation, no-push, and thin-worker regressions. Add source-level guards only as
+      necessary to prove TASK-079/TASK-080 schema authority did not move into worker code.
+  - >
+      Migration verification must be deterministic and network-free with respect to Python
+      Agent product/provider behavior. Do not run TASK-156, any FIX/REPAIR against it, live
+      marketplace discovery, scraping, provider calls, or any product path merely to prove
+      the dependency migration.
+  - Do not push from Executor implementation execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Dependency file, launcher authoritative commit, derived pin string, worker docs, and
+      certification expectations all reference exactly
+      32ace104c5cfaa1b7affbaa40157872b1f85147f and reject
+      ba0cc66324fc2310812945a351bfc001a41f99f8 as stale provenance.
+  - id: AC2
+    condition: >
+      Bootstrap regressions prove stale/alternate worker runtime provenance is not reused
+      and is atomically synchronized to the exact new pin, while an already-authoritative
+      new runtime is reused without reinstall.
+  - id: AC3
+    condition: >
+      RUN, FIX, REPAIR, and STATUS retain unchanged Human-facing meaning, exact executor
+      identity, strict canonical summary parsing, at-most-one pinned-kernel invocation,
+      and no worker-owned retry/reroute/publication authority.
+  - id: AC4
+    condition: >
+      Worker FIX remains thin and contains no REMEDIATION ResultPackage schema/path policy,
+      claims/unresolved/evidence normalization, historical TASK loading, isolated-subject
+      creation, reviewed-lineage traversal, or automatic retry/fallback logic; TASK-079
+      behavior is consumed solely through the exact pin.
+  - id: AC5
+    condition: >
+      Worker REPAIR remains thin and contains no REPAIR ResultPackage schema/path policy,
+      dynamic acceptance enumeration, per-TASK schema generation, claim synthesis,
+      structural output repair, reusable-candidate policy, or historical recovery logic;
+      TASK-080 and predecessor REPAIR behavior are consumed solely through the exact pin.
+  - id: AC6
+    condition: >
+      Documentation accurately records that native REMEDIATION now structurally rejects
+      the RUN-156-007 class of non-empty remediation claims and native REPAIR structurally
+      rejects the RUN-079-002 class of empty claims, while Runtime remains authoritative
+      for semantic acceptance coverage, changed_files, verification, EVIDENCE, lineage,
+      and publication. PRIMARY semantics remain unchanged.
+  - id: AC7
+    condition: >
+      No Product Intelligence file, TASK-156 source/review/remediation/RUN/FAILURE/repair
+      lineage, Python Agent publication implementation, or additional Human-facing command
+      is changed or exposed. No RUN-156-008 is created by migration verification.
+  - id: AC8
+    condition: >
+      The complete repository-owned worker certification suite passes on the migrated
+      source tree and git diff --check passes without invoking TASK-156 or any live
+      RUN/FIX/REPAIR operation.
+
+verification:
+  required:
+    - 'python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py -q'
+    - 'git diff --check'
