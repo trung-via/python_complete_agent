@@ -1,0 +1,20 @@
+{
+  "repair_id": "REPAIR-161-001",
+  "failed_run_id": "RUN-161-001",
+  "failed_head_sha": "69737efc1ed75718e396c76a7cc0c1d082ae53d0",
+  "task": {
+    "id": "TASK-161",
+    "revision": 1
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    ".agents/skills/aios-worker/SKILL.md",
+    ".agents/workflows/aios-renew-worker.md"
+  ],
+  "instructions": [
+    "Correct only the documentation wording defect proven by RUN-161-001 verification. In both worker-surface documents, ensure the exact contiguous literal `Runtime remains authoritative` appears in the TASK-079/TASK-080 adopted-boundary text instead of being split by a line break. Preserve the existing semantic meaning and all surrounding authority statements.",
+    "Do not modify the dependency pin, launcher, tests, Product Intelligence files, TASK-156 lineage, or any other file. The failed candidate already contains the intended TASK-161 migration; this repair is only the minimum documentation correction required by the observed regression.",
+    "Preserve executor identity codex, exact failed-head ancestry, thin RUN/FIX/REPAIR/STATUS worker behavior, no retry/fallback/reroute, and Runtime-owned semantic acceptance, changed_files, verification, EVIDENCE, lineage, and publication authority."
+  ],
+  "constraints": []
+}
