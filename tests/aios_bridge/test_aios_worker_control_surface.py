@@ -75,7 +75,7 @@ class TestImmutableRuntimePin:
         assert active == [aw.PIN_LINE]
         assert active == [
             "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
-            "14a1276d69665e7c371b6d56a95e50b992cbc7b3"
+            "d036324f3f9ab74ca3f217ed22e416313da71695"
         ]
 
     def test_authoritative_pep610_metadata_is_accepted(self):
@@ -85,6 +85,10 @@ class TestImmutableRuntimePin:
         ("url", "commit"),
         [
             ("https://github.com/other/AIOS-renew.git", aw.AUTHORITATIVE_COMMIT),
+            (
+                aw.AUTHORITATIVE_REPOSITORY,
+                "14a1276d69665e7c371b6d56a95e50b992cbc7b3",
+            ),
             (aw.AUTHORITATIVE_REPOSITORY, "67db82bf19d63f25721d06aabb82d850db8b78d4"),
             (aw.AUTHORITATIVE_REPOSITORY, "59b31ede597d4a27b848771522672705a021abe4"),
             (aw.AUTHORITATIVE_REPOSITORY, "9255a3a38cef87976d6bcead90c2017de6f1c1bb"),
@@ -130,16 +134,26 @@ class TestImmutableRuntimePin:
 
 
 class TestRuntimeBootstrap:
-    def test_valid_runtime_is_reused_without_install(self, tmp_path, monkeypatch):
+    def test_valid_runtime_is_reused_without_install(self, tmp_path):
         layout = make_layout(tmp_path)
         python = aw.runtime_python(layout.runtime)
         python.parent.mkdir(parents=True)
         python.touch()
-        monkeypatch.setattr(aw, "runtime_is_authoritative", lambda *a, **k: True)
-        runner = MagicMock(side_effect=AssertionError("bootstrap command not expected"))
+        calls = []
+
+        def runner(command, **kwargs):
+            command = tuple(command)
+            calls.append(command)
+            assert command == (str(python), "-c", aw.PROVENANCE_PROGRAM)
+            return done(
+                command,
+                stdout=direct_url(
+                    commit="d036324f3f9ab74ca3f217ed22e416313da71695"
+                ),
+            )
 
         assert aw.ensure_runtime(layout, runner=runner) == python
-        runner.assert_not_called()
+        assert calls == [(str(python), "-c", aw.PROVENANCE_PROGRAM)]
 
     def test_fresh_runtime_bootstrap_installs_only_requirements_pin(
         self, tmp_path, monkeypatch
@@ -211,7 +225,7 @@ class TestRuntimeBootstrap:
         old_python.touch()
         (layout.runtime / "marker.txt").write_text("old-state", encoding="utf-8")
 
-        stale_commit = "67db82bf19d63f25721d06aabb82d850db8b78d4"
+        stale_commit = "14a1276d69665e7c371b6d56a95e50b992cbc7b3"
         calls = []
         replaced = False
 
@@ -1142,5 +1156,25 @@ class TestSurfaceAndDocumentation:
             "recover-primary",
             "remediation_refs",
             "filter_lineage",
+        ):
+            assert forbidden not in source
+
+    def test_launcher_has_no_task_075_reuse_or_sidecar_decision_authority(self):
+        source = SCRIPT.read_text(encoding="utf-8")
+        for forbidden in (
+            "TASK-075",
+            "CODE_FIX",
+            "NO_CHANGE",
+            "pre-verification",
+            "pre_verification",
+            "reusable_sidecar",
+            "reusable_package",
+            "reuse_eligible",
+            "candidate.changed_files",
+            "continuation_changed_files",
+            "historical_failed_head",
+            "failed_head_checkout",
+            "git worktree",
+            "git show",
         ):
             assert forbidden not in source

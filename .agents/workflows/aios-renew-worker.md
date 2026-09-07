@@ -117,9 +117,15 @@ Missing finding identifiers fail before kernel invocation. Leaves HEAD local for
 
 Delegates the exact failed run identifier once to AIOS-renew, which owns remote
 REPAIR lookup and all failure/repair semantics. Worker REPAIR remains thin and does
-not implement TASK-064 fast-path decisions. Eligible NO_CHANGE verification-only
-continuation may invoke zero Executors only when the pinned Runtime proves all canonical
-reuse preconditions; any zero-Executor continuation is owned and evidenced by the pinned Runtime.
+not implement TASK-064 fast-path or TASK-075 authority-ordering decisions. Eligible
+NO_CHANGE verification-only continuation may invoke zero Executors only when the
+pinned Runtime proves all canonical reuse preconditions. Malformed or mismatched
+reusable state fails closed when an eligible NO_CHANGE request actually relies on
+reuse. CODE_FIX does not consult reuse-only sidecar or package validation and proceeds
+through normal exactly-one selected Executor REPAIR dispatch; canonical FAILURE, TASK,
+`failed_head_sha`, REPAIR, lineage, and completion gates remain intact. All reuse
+eligibility, sidecar decoding, candidate changed-files comparison, and historical
+failed-head reconstruction remain solely inside the pinned Runtime.
 The worker is explicitly forbidden from inspecting or reconstructing repair lineage,
 passing `--repair`, TASK ID, failed-head, scope, constraints, instructions, or verification
 authority. Missing or malformed failed run identifiers fail before kernel invocation.
@@ -151,7 +157,7 @@ an executor or become a second status or review authority.
 
 ## Adopted Upstream Capabilities and Boundaries
 
-Under the pinned commit `14a1276d69665e7c371b6d56a95e50b992cbc7b3`, Python Agent adopts:
+Under the pinned commit `d036324f3f9ab74ca3f217ed22e416313da71695`, Python Agent adopts:
 - **TASK-064**: Eligible NO_CHANGE verification-only continuation may invoke zero Executors
   only when the pinned Runtime proves all canonical reuse preconditions. The worker remains
   thin and makes no fast-path decisions.
@@ -162,16 +168,23 @@ Under the pinned commit `14a1276d69665e7c371b6d56a95e50b992cbc7b3`, Python Agent
 - **TASK-067**: Task/revision-scoped remediation lineage resolution prevents unrelated historical
   finding ids from poisoning current FIX admission. Consumed solely through the pinned kernel;
   the worker performs no repository-wide discovery or branch filtering.
+- **TASK-075**: Reuse-only state is authoritative only for an eligible verification-only
+  NO_CHANGE continuation. Such reuse remains fail-closed and may elide the Executor only
+  under existing Runtime preconditions. CODE_FIX bypasses reuse-only validation and follows
+  the ordinary exactly-one selected Executor REPAIR path with canonical lineage and completion
+  gates preserved. The worker contains none of this decision logic.
 
 Capabilities present in upstream history but **not** exposed by this downstream worker:
-- **TASK-066 / A1**: Although the target upstream commit contains TASK-066/A1 implementation
-  history, no AIOS-renew workflow files are copied, no self-hosted `wakeup` or `recover-primary`
-  or new worker command is exposed, and Python Agent's existing publication/automation authority
-  remains unchanged. The Human-facing worker surface remains strictly RUN, FIX, REPAIR, and STATUS.
+- **TASK-066 / TASK-068..TASK-074**: Although the exact package contains this intervening
+  Runtime history, no AIOS-renew workflow files, upstream remote approval/status workflow,
+  wakeup workflow, dispatch-reconciliation or publication implementation are copied. No
+  self-hosted `wakeup`, `recover-primary`, or other worker command is exposed, and Python
+  Agent's existing publication/automation authority remains unchanged. The Human-facing
+  worker surface remains strictly RUN, FIX, REPAIR, and STATUS.
 
 ## Immutable Kernel Pin
 
 The only authoritative AIOS-renew kernel is commit
-`14a1276d69665e7c371b6d56a95e50b992cbc7b3`. The launcher validates both the
+`d036324f3f9ab74ca3f217ed22e416313da71695`. The launcher validates both the
 checked-in dependency pin and installed PEP 610 source+commit provenance and
 atomically replaces stale or unverifiable worker runtimes.
