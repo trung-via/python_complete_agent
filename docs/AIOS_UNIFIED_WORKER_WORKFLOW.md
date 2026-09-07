@@ -1,8 +1,8 @@
 # AIOS Unified Worker Workflow
 
-As of TASK-159 revision 1, the repository-owned Codex and Antigravity worker
+As of TASK-160 revision 1, the repository-owned Codex and Antigravity worker
 surfaces delegate exclusively to the immutable AIOS-renew kernel at commit
-`6893d44a3b8478cadb4bdceab6e671324a54d954`. Legacy AIOS Bridge source remains
+`ba0cc66324fc2310812945a351bfc001a41f99f8`. Legacy AIOS Bridge source remains
 archived in this repository, but it is inactive and unreachable from these
 RUN/FIX/REPAIR/STATUS surfaces.
 
@@ -114,6 +114,22 @@ second semantic state store.
   remediation discovery or historical lineage filtering logic. The launcher does not inspect
   HEAD, infer a finding, resolve or materialize local REVIEW/REMEDIATION lineage, or pass
   prior-review, sandbox, scope, affected-verification, or reviewed-SHA authority.
+- **TASK-078 Historical Subject**: A valid canonical remote finding may bind one exact
+  historical TASK/revision, REVIEW, REMEDIATION, and `reviewed_sha`. When current control
+  HEAD differs from that SHA, the pinned Runtime may create one isolated subject beginning
+  exactly at `reviewed_sha` for one selected Executor. The current control checkout, branch,
+  index, and worktree remain unchanged, and the exact bound historical TASK/revision is
+  authoritative for the FIX. Current-head FIX behavior remains compatible.
+- **Historical Failure Boundary**: An admitted historical FIX failure is persisted as canonical
+  REMEDIATION failure and remains eligible for ordinary REPAIR continuity. A pre-admission
+  historical TASK or subject defect fails closed without a synthetic RUN. The worker does not
+  load historical TASK content, create subjects or worktrees, traverse reviewed lineage,
+  recover current-versus-reviewed SHA state, persist admitted failures, or decide remediation
+  policy.
+- **Publication Boundary**: Historical FIX success does not authorize automatic merge, rebase,
+  or cherry-pick onto current product main. Existing publication and integration authority
+  remains separate and fail-closed when the reviewed historical lineage diverges from current
+  main; the worker performs no publication integration.
 
 ### REPAIR RUN-N-NNN
 
@@ -140,7 +156,9 @@ second semantic state store.
   the TASK-075/TASK-076 behaviors are consumed solely through the exact pinned distribution.
   TASK-077 snapshot acquisition, Git transport classification, historical lineage traversal,
   duplicate-continuation policy, and recovery decisions are likewise absent from the repository
-  launcher.
+  launcher. TASK-078 historical TASK loading, reviewed-lineage resolution, isolated-subject
+  creation, admitted-failure persistence, and remediation/publication decisions are also
+  exclusively Runtime-owned and are not a second REPAIR path.
 - **Historical Recovery**: Historical recovery is Runtime-owned under the pinned
   kernel: AIOS-renew admits historical repair execution when the current control
   checkout differs from an immutable `failed_head_sha`, preserving the current
@@ -195,6 +213,13 @@ second semantic state store.
   fail-closed with bounded operational provenance, while a successful but incomplete snapshot
   remains a semantic lineage failure. The Runtime owns snapshot use and all repair decisions;
   there is no automatic retry, fallback, reroute, or worker-side transport policy.
+- **TASK-078 Historical-Remediation Subject**: Canonical remote FIX lineage may bind an exact
+  historical TASK/revision and `reviewed_sha`, then execute in a Runtime-owned isolated subject
+  while leaving the current control checkout unchanged. Admitted failures remain canonical and
+  REPAIR-continuable; pre-admission historical subject defects fail closed without a synthetic
+  RUN. Current-head FIX remains compatible, and historical success grants no automatic
+  publication integration. The worker owns none of the lineage, isolation, persistence, or
+  policy decisions.
 - **TASK-066 / TASK-068..TASK-074 Upstream Boundary**: Although the exact pinned package
   contains this intervening Runtime history, Python Agent does not adopt AIOS-renew workflow
   files, upstream remote approval/status workflow, wakeup workflow, dispatch-reconciliation,
@@ -278,5 +303,5 @@ branches or caches that do not expose `/aios-renew-worker` fail closed instead o
 falling back to legacy `/aios-worker` semantics.
 
 Both active worker surfaces use exactly AIOS-renew commit
-`6893d44a3b8478cadb4bdceab6e671324a54d954`. Installed provenance for the prior
-`3f2770be9752b800e21adfc05d57778dd9818c68` pin is stale and is atomically replaced.
+`ba0cc66324fc2310812945a351bfc001a41f99f8`. Installed provenance for the prior
+`6893d44a3b8478cadb4bdceab6e671324a54d954` pin is stale and is atomically replaced.

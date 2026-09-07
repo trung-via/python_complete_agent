@@ -136,6 +136,22 @@ Missing finding identifiers fail before kernel invocation. Leaves HEAD local for
 <resolved bootstrap-host argv> .agents/skills/aios-worker/scripts/aios_worker.py FIX TASK-N FINDING-ID --executor codex
 ```
 
+TASK-078 historical remediation is also solely Runtime-owned. A valid canonical remote finding
+binds one exact historical TASK/revision, REVIEW, REMEDIATION, and `reviewed_sha`.
+When the current control HEAD differs, the Runtime may execute one selected Executor in an
+isolated subject beginning exactly at `reviewed_sha`, while preserving the current control
+checkout, branch, index, and worktree unchanged. The bound historical TASK/revision remains
+authoritative for that FIX. An admitted execution failure is persisted as canonical
+REMEDIATION failure and remains eligible for ordinary REPAIR continuity; a pre-admission
+historical TASK or subject defect fails closed without a synthetic RUN. Current-head FIX
+behavior remains compatible.
+
+The worker does not load historical TASK content, create worktrees or subjects, traverse
+reviewed lineage, recover current-versus-reviewed SHA state, persist admitted failures,
+decide remediation policy, or integrate publication lineage. Successful historical FIX does
+not authorize automatic merge, rebase, or cherry-pick onto current product main; existing
+publication and integration authority remains separate and fail-closed when lineages diverge.
+
 ### REPAIR RUN-N-NNN
 
 Delegates the exact failed run identifier once to AIOS-renew, which owns remote
@@ -192,7 +208,7 @@ an executor or become a second status/review authority.
 
 ## Adopted Upstream Capabilities and Boundaries
 
-Under the pinned commit `6893d44a3b8478cadb4bdceab6e671324a54d954`, Python Agent adopts:
+Under the pinned commit `ba0cc66324fc2310812945a351bfc001a41f99f8`, Python Agent adopts:
 - **TASK-064**: Eligible NO_CHANGE verification-only continuation may invoke zero Executors
   only when the pinned Runtime proves all canonical reuse preconditions. The worker remains
   thin and makes no fast-path decisions.
@@ -220,6 +236,12 @@ Under the pinned commit `6893d44a3b8478cadb4bdceab6e671324a54d954`, Python Agent
   acquisition fails closed with bounded operational provenance; a successful but incomplete
   snapshot remains a semantic lineage failure. There is no automatic retry, fallback, or
   reroute, and the worker owns none of these decisions.
+- **TASK-078**: A canonical remote FIX finding may bind an exact historical TASK/revision and
+  execute in a Runtime-owned isolated subject beginning at the exact `reviewed_sha` while the
+  current control checkout remains unchanged. Admitted failures remain canonical and
+  REPAIR-continuable; pre-admission historical subject defects fail closed without a synthetic
+  RUN. Current-head FIX remains compatible, and historical success grants no automatic
+  publication integration. All lineage, isolation, persistence, and policy remain Runtime-owned.
 
 Capabilities present in upstream history but **not** exposed by this downstream worker:
 - **TASK-066 / TASK-068..TASK-074**: Although the exact package contains this intervening
@@ -232,7 +254,7 @@ Capabilities present in upstream history but **not** exposed by this downstream 
 ## Immutable Kernel Pin
 
 The only authoritative AIOS-renew kernel is commit
-`6893d44a3b8478cadb4bdceab6e671324a54d954`. Installed provenance for the prior
-`3f2770be9752b800e21adfc05d57778dd9818c68` pin is stale. The launcher validates both the
+`ba0cc66324fc2310812945a351bfc001a41f99f8`. Installed provenance for the prior
+`6893d44a3b8478cadb4bdceab6e671324a54d954` pin is stale. The launcher validates both the
 checked-in dependency pin and installed PEP 610 source+commit provenance and
 atomically replaces stale or unverifiable worker runtimes.

@@ -23,7 +23,7 @@ DOCS_FILE = REPO_ROOT / "docs" / "AIOS_UNIFIED_WORKER_WORKFLOW.md"
 BASE_SHA = "1" * 40
 HEAD_SHA = "2" * 40
 FAILED_HEAD_SHA = "3" * 40
-STALE_AUTHORITATIVE_COMMIT = "3f2770be9752b800e21adfc05d57778dd9818c68"
+STALE_AUTHORITATIVE_COMMIT = "6893d44a3b8478cadb4bdceab6e671324a54d954"
 
 if str(SCRIPT.parent) not in sys.path:
     sys.path.insert(0, str(SCRIPT.parent))
@@ -76,7 +76,7 @@ class TestImmutableRuntimePin:
         assert active == [aw.PIN_LINE]
         assert active == [
             "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
-            "6893d44a3b8478cadb4bdceab6e671324a54d954"
+            "ba0cc66324fc2310812945a351bfc001a41f99f8"
         ]
 
     def test_authoritative_pep610_metadata_is_accepted(self):
@@ -1154,6 +1154,7 @@ class TestSurfaceAndDocumentation:
             assert "TASK-075" in text
             assert "TASK-076" in text
             assert "TASK-077" in text
+            assert "TASK-078" in text
             assert "Result.changed_files" in text
             assert "candidate.changed_files" in text
             assert "distinct truths" in text
@@ -1169,6 +1170,21 @@ class TestSurfaceAndDocumentation:
             assert "TASK-066" in text
             assert "wakeup" in text
             assert "recover-primary" in text
+
+    def test_docs_record_runtime_owned_historical_fix_boundary(self):
+        for path in (SKILL_FILE, WORKFLOW_FILE, DOCS_FILE):
+            text = path.read_text(encoding="utf-8")
+            assert "canonical remote finding" in text
+            assert "historical TASK/revision" in text
+            assert "reviewed_sha" in text
+            assert "isolated subject" in text
+            assert "current control checkout" in text
+            assert "REPAIR-continuable" in text
+            assert "pre-admission" in text
+            assert "synthetic RUN" in text
+            assert "Current-head FIX" in text
+            assert "automatic merge" in text
+            assert "Runtime-owned" in text
 
     def test_launcher_remains_thin_without_token_telemetry_or_remediation_filtering(self):
         source = SCRIPT.read_text(encoding="utf-8")
@@ -1234,5 +1250,25 @@ class TestSurfaceAndDocumentation:
             "fallback_remote",
             "fallback",
             "reroute",
+        ):
+            assert forbidden not in source
+
+    def test_launcher_has_no_task_078_historical_fix_or_publication_authority(self):
+        source = SCRIPT.read_text(encoding="utf-8").lower()
+        for forbidden in (
+            "task-078",
+            "load_historical_task",
+            "historical_task_loader",
+            "historical_task_revision",
+            "reviewed_lineage",
+            "current_vs_reviewed",
+            "subject_worktree",
+            "isolated_subject",
+            "create_subject",
+            "admitted_failure",
+            "remediation_failure",
+            "publication_integration",
+            "integration_required",
+            "cherry-pick",
         ):
             assert forbidden not in source
