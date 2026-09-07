@@ -23,6 +23,7 @@ DOCS_FILE = REPO_ROOT / "docs" / "AIOS_UNIFIED_WORKER_WORKFLOW.md"
 BASE_SHA = "1" * 40
 HEAD_SHA = "2" * 40
 FAILED_HEAD_SHA = "3" * 40
+STALE_AUTHORITATIVE_COMMIT = "d036324f3f9ab74ca3f217ed22e416313da71695"
 
 if str(SCRIPT.parent) not in sys.path:
     sys.path.insert(0, str(SCRIPT.parent))
@@ -75,7 +76,7 @@ class TestImmutableRuntimePin:
         assert active == [aw.PIN_LINE]
         assert active == [
             "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
-            "d036324f3f9ab74ca3f217ed22e416313da71695"
+            "3f2770be9752b800e21adfc05d57778dd9818c68"
         ]
 
     def test_authoritative_pep610_metadata_is_accepted(self):
@@ -85,6 +86,10 @@ class TestImmutableRuntimePin:
         ("url", "commit"),
         [
             ("https://github.com/other/AIOS-renew.git", aw.AUTHORITATIVE_COMMIT),
+            (
+                aw.AUTHORITATIVE_REPOSITORY,
+                STALE_AUTHORITATIVE_COMMIT,
+            ),
             (
                 aw.AUTHORITATIVE_REPOSITORY,
                 "14a1276d69665e7c371b6d56a95e50b992cbc7b3",
@@ -147,9 +152,7 @@ class TestRuntimeBootstrap:
             assert command == (str(python), "-c", aw.PROVENANCE_PROGRAM)
             return done(
                 command,
-                stdout=direct_url(
-                    commit="d036324f3f9ab74ca3f217ed22e416313da71695"
-                ),
+                stdout=direct_url(commit=aw.AUTHORITATIVE_COMMIT),
             )
 
         assert aw.ensure_runtime(layout, runner=runner) == python
@@ -216,8 +219,15 @@ class TestRuntimeBootstrap:
         assert aw.runtime_python(layout.runtime).is_file()
         assert not (layout.runtime / "incomplete.txt").exists()
 
-    def test_stale_runtime_is_detected_and_synchronized_to_target_commit(
-        self, tmp_path, monkeypatch
+    @pytest.mark.parametrize(
+        ("stale_url", "stale_commit"),
+        [
+            (aw.AUTHORITATIVE_REPOSITORY, STALE_AUTHORITATIVE_COMMIT),
+            ("https://github.com/other/AIOS-renew.git", aw.AUTHORITATIVE_COMMIT),
+        ],
+    )
+    def test_stale_or_alternate_runtime_is_synchronized_to_target_commit(
+        self, tmp_path, stale_url, stale_commit
     ):
         layout = make_layout(tmp_path)
         old_python = aw.runtime_python(layout.runtime)
@@ -225,7 +235,6 @@ class TestRuntimeBootstrap:
         old_python.touch()
         (layout.runtime / "marker.txt").write_text("old-state", encoding="utf-8")
 
-        stale_commit = "14a1276d69665e7c371b6d56a95e50b992cbc7b3"
         calls = []
         replaced = False
 
@@ -243,7 +252,10 @@ class TestRuntimeBootstrap:
                 return done(command)
             if cmd[-2:] == ("-c", aw.PROVENANCE_PROGRAM):
                 if not replaced:
-                    return done(command, stdout=direct_url(commit=stale_commit))
+                    return done(
+                        command,
+                        stdout=direct_url(url=stale_url, commit=stale_commit),
+                    )
                 return done(command, stdout=direct_url(commit=aw.AUTHORITATIVE_COMMIT))
             return done(command)
 
@@ -1131,7 +1143,7 @@ class TestSurfaceAndDocumentation:
             "a7fe262efe72252ba1f3c9f19f5e9ae88cb0cd704878b0818e6f2384de253239"
         )
 
-    def test_docs_record_task_064_065_067_and_task_066_boundary(self):
+    def test_docs_record_adopted_runtime_capabilities_and_upstream_boundary(self):
         for path in (SKILL_FILE, WORKFLOW_FILE, DOCS_FILE):
             text = path.read_text(encoding="utf-8")
             assert "TASK-064" in text
@@ -1139,6 +1151,14 @@ class TestSurfaceAndDocumentation:
             assert "TASK-065" in text
             assert "token_usage" in text
             assert "TASK-067" in text
+            assert "TASK-075" in text
+            assert "TASK-076" in text
+            assert "Result.changed_files" in text
+            assert "candidate.changed_files" in text
+            assert "distinct truths" in text
+            assert "without Executor fallback" in text
+            assert STALE_AUTHORITATIVE_COMMIT in text
+            assert "stale" in text
             assert "TASK-066" in text
             assert "wakeup" in text
             assert "recover-primary" in text
@@ -1159,10 +1179,11 @@ class TestSurfaceAndDocumentation:
         ):
             assert forbidden not in source
 
-    def test_launcher_has_no_task_075_reuse_or_sidecar_decision_authority(self):
+    def test_launcher_has_no_task_075_or_task_076_reuse_decision_authority(self):
         source = SCRIPT.read_text(encoding="utf-8")
         for forbidden in (
             "TASK-075",
+            "TASK-076",
             "CODE_FIX",
             "NO_CHANGE",
             "pre-verification",
@@ -1172,6 +1193,11 @@ class TestSurfaceAndDocumentation:
             "reuse_eligible",
             "candidate.changed_files",
             "continuation_changed_files",
+            "Result.changed_files",
+            "correction-relative",
+            "root-relative",
+            "reconcile_changed_files",
+            "repair_action",
             "historical_failed_head",
             "failed_head_checkout",
             "git worktree",

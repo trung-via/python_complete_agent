@@ -117,15 +117,19 @@ Missing finding identifiers fail before kernel invocation. Leaves HEAD local for
 
 Delegates the exact failed run identifier once to AIOS-renew, which owns remote
 REPAIR lookup and all failure/repair semantics. Worker REPAIR remains thin and does
-not implement TASK-064 fast-path or TASK-075 authority-ordering decisions. Eligible
-NO_CHANGE verification-only continuation may invoke zero Executors only when the
-pinned Runtime proves all canonical reuse preconditions. Malformed or mismatched
-reusable state fails closed when an eligible NO_CHANGE request actually relies on
-reuse. CODE_FIX does not consult reuse-only sidecar or package validation and proceeds
-through normal exactly-one selected Executor REPAIR dispatch; canonical FAILURE, TASK,
-`failed_head_sha`, REPAIR, lineage, and completion gates remain intact. All reuse
-eligibility, sidecar decoding, candidate changed-files comparison, and historical
-failed-head reconstruction remain solely inside the pinned Runtime.
+not implement TASK-064 fast-path, TASK-075 authority-ordering, or TASK-076
+changed-files reconciliation decisions. For an eligible NO_CHANGE verification-only
+continuation, the pinned Runtime compares like-for-like canonical changed-files
+authority. Root-relative reusable `Result.changed_files` and correction-relative
+`FAILURE candidate.changed_files` remain distinct truths, so a valid reusable package
+is not rejected solely because the latter is narrower than the full TASK delta.
+Malformed or conflicting genuine reuse state still fails closed without Executor
+fallback. CODE_FIX does not consult reuse-only sidecar or package validation and
+proceeds through normal exactly-one selected Executor REPAIR dispatch; canonical
+FAILURE, TASK, `failed_head_sha`, REPAIR, lineage, and completion gates remain intact.
+All reuse eligibility, sidecar decoding, changed-files authority comparison, repair
+action policy, and historical failed-head reconstruction remain solely inside the
+pinned Runtime.
 The worker is explicitly forbidden from inspecting or reconstructing repair lineage,
 passing `--repair`, TASK ID, failed-head, scope, constraints, instructions, or verification
 authority. Missing or malformed failed run identifiers fail before kernel invocation.
@@ -157,7 +161,7 @@ an executor or become a second status or review authority.
 
 ## Adopted Upstream Capabilities and Boundaries
 
-Under the pinned commit `d036324f3f9ab74ca3f217ed22e416313da71695`, Python Agent adopts:
+Under the pinned commit `3f2770be9752b800e21adfc05d57778dd9818c68`, Python Agent adopts:
 - **TASK-064**: Eligible NO_CHANGE verification-only continuation may invoke zero Executors
   only when the pinned Runtime proves all canonical reuse preconditions. The worker remains
   thin and makes no fast-path decisions.
@@ -173,6 +177,12 @@ Under the pinned commit `d036324f3f9ab74ca3f217ed22e416313da71695`, Python Agent
   under existing Runtime preconditions. CODE_FIX bypasses reuse-only validation and follows
   the ordinary exactly-one selected Executor REPAIR path with canonical lineage and completion
   gates preserved. The worker contains none of this decision logic.
+- **TASK-076**: Valid eligible NO_CHANGE reuse compares like-for-like canonical changed-files
+  authority. The reusable package preserves root-relative full TASK `Result.changed_files`,
+  while FAILURE preserves correction-relative `candidate.changed_files`; their truthful
+  difference alone does not invalidate reuse. Genuine malformed or conflicting reuse state
+  remains fail-closed without Executor fallback. Zero-Executor reuse and every reconciliation
+  decision remain Runtime-owned and are not implemented by this worker.
 
 Capabilities present in upstream history but **not** exposed by this downstream worker:
 - **TASK-066 / TASK-068..TASK-074**: Although the exact package contains this intervening
@@ -185,6 +195,7 @@ Capabilities present in upstream history but **not** exposed by this downstream 
 ## Immutable Kernel Pin
 
 The only authoritative AIOS-renew kernel is commit
-`d036324f3f9ab74ca3f217ed22e416313da71695`. The launcher validates both the
+`3f2770be9752b800e21adfc05d57778dd9818c68`. Installed provenance for the prior
+`d036324f3f9ab74ca3f217ed22e416313da71695` pin is stale. The launcher validates both the
 checked-in dependency pin and installed PEP 610 source+commit provenance and
 atomically replaces stale or unverifiable worker runtimes.
