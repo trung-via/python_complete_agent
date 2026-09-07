@@ -23,7 +23,7 @@ DOCS_FILE = REPO_ROOT / "docs" / "AIOS_UNIFIED_WORKER_WORKFLOW.md"
 BASE_SHA = "1" * 40
 HEAD_SHA = "2" * 40
 FAILED_HEAD_SHA = "3" * 40
-STALE_AUTHORITATIVE_COMMIT = "d036324f3f9ab74ca3f217ed22e416313da71695"
+STALE_AUTHORITATIVE_COMMIT = "3f2770be9752b800e21adfc05d57778dd9818c68"
 
 if str(SCRIPT.parent) not in sys.path:
     sys.path.insert(0, str(SCRIPT.parent))
@@ -76,7 +76,7 @@ class TestImmutableRuntimePin:
         assert active == [aw.PIN_LINE]
         assert active == [
             "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
-            "3f2770be9752b800e21adfc05d57778dd9818c68"
+            "6893d44a3b8478cadb4bdceab6e671324a54d954"
         ]
 
     def test_authoritative_pep610_metadata_is_accepted(self):
@@ -1153,10 +1153,17 @@ class TestSurfaceAndDocumentation:
             assert "TASK-067" in text
             assert "TASK-075" in text
             assert "TASK-076" in text
+            assert "TASK-077" in text
             assert "Result.changed_files" in text
             assert "candidate.changed_files" in text
             assert "distinct truths" in text
             assert "without Executor fallback" in text
+            assert "one immutable task-scoped" in text.lower()
+            assert "bounded operational provenance" in text
+            assert "semantic lineage failure" in text
+            assert "no automatic retry" in text.lower()
+            assert "Git transport" in text
+            assert "duplicate-continuation checks" in text
             assert STALE_AUTHORITATIVE_COMMIT in text
             assert "stale" in text
             assert "TASK-066" in text
@@ -1202,5 +1209,30 @@ class TestSurfaceAndDocumentation:
             "failed_head_checkout",
             "git worktree",
             "git show",
+        ):
+            assert forbidden not in source
+
+    def test_launcher_has_no_task_077_snapshot_or_recovery_policy_authority(self):
+        source = SCRIPT.read_text(encoding="utf-8").lower()
+        for forbidden in (
+            "task-077",
+            "snapshot",
+            "ls-remote",
+            "ls_remote",
+            "ref_snapshot",
+            "snapshot_refs",
+            "transport",
+            "classify_transport",
+            "transport_failure",
+            "historical_lineage",
+            "duplicate_continuation",
+            "duplicate-continuation",
+            "lineage_traversal",
+            "repair_action",
+            "retry_git",
+            "retry",
+            "fallback_remote",
+            "fallback",
+            "reroute",
         ):
             assert forbidden not in source

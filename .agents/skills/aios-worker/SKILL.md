@@ -170,6 +170,14 @@ old worker pin. Candidate ancestry is preserved from the exact failed head; a re
 candidate is not silently rebased or merged onto an already-advanced main, and any required
 publication reconciliation is a separate canonical downstream task rather than worker behavior.
 
+TASK-077 remote discovery is also solely Runtime-owned. One historical REPAIR admission
+acquires one immutable task-scoped remote ref snapshot and uses that single snapshot for
+terminal and candidate identity, duplicate-continuation checks, and lineage reconstruction.
+A nonzero snapshot acquisition fails closed with bounded operational provenance. A successful
+snapshot that lacks required refs remains a semantic lineage failure. The worker does not
+acquire or refresh the snapshot, classify Git transport failures, traverse historical lineage,
+choose repair action, retry, fall back, or reroute.
+
 ### STATUS TASK-N
 
 Delegates to AIOS-renew task description semantics. STATUS is read-only for the
@@ -184,7 +192,7 @@ an executor or become a second status/review authority.
 
 ## Adopted Upstream Capabilities and Boundaries
 
-Under the pinned commit `3f2770be9752b800e21adfc05d57778dd9818c68`, Python Agent adopts:
+Under the pinned commit `6893d44a3b8478cadb4bdceab6e671324a54d954`, Python Agent adopts:
 - **TASK-064**: Eligible NO_CHANGE verification-only continuation may invoke zero Executors
   only when the pinned Runtime proves all canonical reuse preconditions. The worker remains
   thin and makes no fast-path decisions.
@@ -206,6 +214,12 @@ Under the pinned commit `3f2770be9752b800e21adfc05d57778dd9818c68`, Python Agent
   difference alone does not invalidate reuse. Genuine malformed or conflicting reuse state
   remains fail-closed without Executor fallback. Zero-Executor reuse and every reconciliation
   decision remain Runtime-owned and are not implemented by this worker.
+- **TASK-077**: Historical REPAIR remote ref discovery is consolidated into one immutable
+  task-scoped snapshot per admission. The Runtime uses it consistently for terminal and
+  candidate identity, duplicate-continuation checks, and lineage reconstruction. Nonzero
+  acquisition fails closed with bounded operational provenance; a successful but incomplete
+  snapshot remains a semantic lineage failure. There is no automatic retry, fallback, or
+  reroute, and the worker owns none of these decisions.
 
 Capabilities present in upstream history but **not** exposed by this downstream worker:
 - **TASK-066 / TASK-068..TASK-074**: Although the exact package contains this intervening
@@ -218,7 +232,7 @@ Capabilities present in upstream history but **not** exposed by this downstream 
 ## Immutable Kernel Pin
 
 The only authoritative AIOS-renew kernel is commit
-`3f2770be9752b800e21adfc05d57778dd9818c68`. Installed provenance for the prior
-`d036324f3f9ab74ca3f217ed22e416313da71695` pin is stale. The launcher validates both the
+`6893d44a3b8478cadb4bdceab6e671324a54d954`. Installed provenance for the prior
+`3f2770be9752b800e21adfc05d57778dd9818c68` pin is stale. The launcher validates both the
 checked-in dependency pin and installed PEP 610 source+commit provenance and
 atomically replaces stale or unverifiable worker runtimes.

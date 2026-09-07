@@ -1,8 +1,8 @@
 # AIOS Unified Worker Workflow
 
-As of TASK-158 revision 1, the repository-owned Codex and Antigravity worker
+As of TASK-159 revision 1, the repository-owned Codex and Antigravity worker
 surfaces delegate exclusively to the immutable AIOS-renew kernel at commit
-`3f2770be9752b800e21adfc05d57778dd9818c68`. Legacy AIOS Bridge source remains
+`6893d44a3b8478cadb4bdceab6e671324a54d954`. Legacy AIOS Bridge source remains
 archived in this repository, but it is inactive and unreachable from these
 RUN/FIX/REPAIR/STATUS surfaces.
 
@@ -137,8 +137,10 @@ second semantic state store.
   gates remain intact.
 - **Thin-Worker Boundary**: Reusable-sidecar decoding, changed-files authority comparison,
   NO_CHANGE eligibility, historical failed-head reconstruction, repair-action policy, and
-  the TASK-075/TASK-076 behaviors are consumed solely through the exact pinned distribution
-  and are absent from the repository launcher.
+  the TASK-075/TASK-076 behaviors are consumed solely through the exact pinned distribution.
+  TASK-077 snapshot acquisition, Git transport classification, historical lineage traversal,
+  duplicate-continuation policy, and recovery decisions are likewise absent from the repository
+  launcher.
 - **Historical Recovery**: Historical recovery is Runtime-owned under the pinned
   kernel: AIOS-renew admits historical repair execution when the current control
   checkout differs from an immutable `failed_head_sha`, preserving the current
@@ -148,6 +150,13 @@ second semantic state store.
   silently rebased or merged onto an already-advanced main, and any required
   publication reconciliation is a separate canonical downstream task rather than
   worker behavior.
+- **TASK-077 Remote Snapshot**: One historical REPAIR admission acquires one immutable
+  task-scoped remote ref snapshot inside the pinned Runtime. That single snapshot supplies
+  terminal and candidate identity, duplicate-continuation checks, and lineage reconstruction.
+  A nonzero acquisition fails closed with bounded operational provenance; after a successful
+  acquisition, missing required refs remain a semantic lineage failure. The worker does not
+  acquire or refresh snapshots, classify Git transport failures, traverse historical lineage,
+  choose repair action, retry, fall back, or reroute.
 - **Failure**: Nonzero return, bootstrap failure, lineage failure, Executor failure,
   verification failure, or completion-gate failure fails closed without retry, reroute,
   fallback, or second kernel invocation.
@@ -181,6 +190,11 @@ second semantic state store.
   `candidate.changed_files`; their truthful difference alone does not invalidate reuse.
   Genuine malformed or conflicting reuse state remains fail-closed without Executor fallback.
   Zero-Executor reuse and every reconciliation decision remain solely Runtime-owned.
+- **TASK-077 Historical-Repair Snapshot**: Historical REPAIR remote discovery is consolidated
+  into one immutable task-scoped snapshot per admission. Nonzero snapshot acquisition remains
+  fail-closed with bounded operational provenance, while a successful but incomplete snapshot
+  remains a semantic lineage failure. The Runtime owns snapshot use and all repair decisions;
+  there is no automatic retry, fallback, reroute, or worker-side transport policy.
 - **TASK-066 / TASK-068..TASK-074 Upstream Boundary**: Although the exact pinned package
   contains this intervening Runtime history, Python Agent does not adopt AIOS-renew workflow
   files, upstream remote approval/status workflow, wakeup workflow, dispatch-reconciliation,
@@ -264,5 +278,5 @@ branches or caches that do not expose `/aios-renew-worker` fail closed instead o
 falling back to legacy `/aios-worker` semantics.
 
 Both active worker surfaces use exactly AIOS-renew commit
-`3f2770be9752b800e21adfc05d57778dd9818c68`. Installed provenance for the prior
-`d036324f3f9ab74ca3f217ed22e416313da71695` pin is stale and is atomically replaced.
+`6893d44a3b8478cadb4bdceab6e671324a54d954`. Installed provenance for the prior
+`3f2770be9752b800e21adfc05d57778dd9818c68` pin is stale and is atomically replaced.
