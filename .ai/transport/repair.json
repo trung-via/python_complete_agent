@@ -1,0 +1,19 @@
+{
+  "repair_id": "REPAIR-150-004",
+  "failed_run_id": "RUN-150-004",
+  "failed_head_sha": "cb79b3de3c606424632764f3cc24dd2c3925f0bc",
+  "task": {
+    "id": "TASK-150",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue only from the exact failed candidate cb79b3de3c606424632764f3cc24dd2c3925f0bc for RUN-150-004 and preserve Antigravity executor identity plus the complete RUN-150-001 -> RUN-150-002 -> RUN-150-003 -> RUN-150-004 continuation lineage. Do not restart PRIMARY, reroute executors, rebase onto current main, or rebuild the candidate.",
+    "RUN-150-004 again failed only during the admitted live Shopee verification with LIVE_DISCOVERY_UNAVAILABLE while all 113 offline regressions passed and the candidate remained unchanged, clean, repairable, and transportable. Canonical runtime evidence shows the complete live test terminated in 3.11 seconds. Inspection of the exact failed candidate shows ShopeeDiscoveryAdapter waits only for navigation to domcontentloaded, performs one light scroll, then evaluates extraction immediately; the configured 30000 ms is only a navigation timeout and is not a CAPTCHA/Human wait. The Human reports successful CAPTCHA solving took about 5 seconds, after the Runtime had effectively already failed. Therefore RUN-150-004 does not establish a selector, readiness, scraper, test-contract, documentation, or TASK defect.",
+    "Before invoking this continuation, the Human must pre-resolve the Shopee CAPTCHA/challenge before Runtime starts. In the exact operator-owned Chromium profile connected at the configured CDP endpoint, navigate to the same default Shopee search surface for query 'bình giữ nhiệt inox', successfully complete any CAPTCHA/challenge, and confirm normal product listing cards are visible. Leave that authenticated browser session open. Do not depend on solving CAPTCHA after the Runtime begins because the current discovery path has no Human wait window.",
+    "Do not modify production source, tests, docs, TASK files, browser code, marketplace adapters, scraper tools, or AIOS/runtime files. Do not automate CAPTCHA solving, login, stealth, proxying, browser fallback, extra discovery, retry, alternate query/platform, or ad-hoc marketplace probing from executor work. Return only the structural REPAIR result with unresolved empty and allow the pinned Runtime alone to execute the exact TASK-150 required verification commands.",
+    "If Runtime live verification fails again after the Human confirms the exact search surface already shows normal product listing cards before invocation, preserve the new canonical FAILURE exactly for Brain classification. At that point the failure is suitable for evaluating a real readiness/selector/acquisition defect; do not self-author a correction or widen scope."
+  ],
+  "constraints": []
+}
