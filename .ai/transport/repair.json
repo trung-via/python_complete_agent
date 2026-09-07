@@ -1,0 +1,19 @@
+{
+  "repair_id": "REPAIR-150-002",
+  "failed_run_id": "RUN-150-002",
+  "failed_head_sha": "cb79b3de3c606424632764f3cc24dd2c3925f0bc",
+  "task": {
+    "id": "TASK-150",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue only from the exact failed candidate cb79b3de3c606424632764f3cc24dd2c3925f0bc for RUN-150-002 and preserve Antigravity executor identity plus the complete RUN-150-001 -> RUN-150-002 continuation lineage. Do not restart PRIMARY, reroute executors, rebase onto current main, or rebuild the candidate.",
+    "RUN-150-002 reached the live Shopee route after CDP was restored but failed with LIVE_DISCOVERY_UNAVAILABLE because no cards and no true-empty marker were observed. The Human subsequently confirmed that the operator-owned Shopee browser session still had an unresolved CAPTCHA during that Runtime verification. Therefore this failure does not establish a product-code, selector, readiness, test-contract, documentation, or TASK defect. This continuation is NO_CHANGE; do not modify production source, tests, docs, TASK files, browser code, marketplace adapters, scraper tools, or AIOS/runtime files.",
+    "Before invoking this continuation, the Human must resolve the visible Shopee CAPTCHA/challenge in the exact operator-owned Chromium profile connected at the configured CDP endpoint and leave the authenticated search surface usable. Login/session/CAPTCHA preparation remains Human-owned; do not automate CAPTCHA solving, login, profile creation, stealth, proxying, or browser fallback.",
+    "Do not manually probe the marketplace, issue an extra discovery/scrape request, retry inside executor work, change the query/platform, or reroute. Return only the structural REPAIR result with unresolved empty and allow the pinned Runtime alone to execute the exact TASK-150 required verification commands, including the one admitted live marketplace attempt.",
+    "If Runtime live verification fails again after the Human-confirmed CAPTCHA is resolved, preserve the new canonical FAILURE exactly for Brain classification. Do not infer a code correction from this authorization, widen scope, claim semantic REVIEW PASS, or publish."
+  ],
+  "constraints": []
+}
