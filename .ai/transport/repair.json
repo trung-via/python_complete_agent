@@ -1,0 +1,19 @@
+{
+  "repair_id": "REPAIR-156-003",
+  "failed_run_id": "RUN-156-003",
+  "failed_head_sha": "d66faa95c8c03e1fe2d5f4c4c36b44b7fc9bc364",
+  "task": {
+    "id": "TASK-156",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue only from the exact failed candidate d66faa95c8c03e1fe2d5f4c4c36b44b7fc9bc364 for RUN-156-003 and preserve the full RUN-156-001 -> RUN-156-002 -> RUN-156-003 continuation lineage plus Codex executor identity. Do not restart PRIMARY, reroute executors, rebase onto current main, rebuild the candidate, or introduce repository changes.",
+    "RUN-156-003 is the executor-backed CODE_FIX continuation authorized by REPAIR-156-002. TASK-075 correctly allowed ordinary Codex dispatch, the correction remained confined to tests/integration/test_live_real_evidence_canonical_qa.py, and canonical verification then passed the focused offline suite with 106 passed and 1 skipped while the live certification module reported 27 passed and one bounded LIVE_P6B_DISCOVERY_NAVIGATION failure. The candidate is clean, within scope, repairable, transportable, and no concrete production source defect has been established by that sanitized category alone.",
+    "This continuation is verification-only. Do not modify production source, tests, docs, TASK files, Product Intelligence authorities, marketplace adapters, browser/session code, scraper tools, discovery/ranking behavior, acquisition, intake, admission, persistence, retrieval, grounded-QA code, worker code, AIOS files, or publication workflow. Return only the structural NO_CHANGE REPAIR result and allow the exact pinned Runtime to reuse the valid preserved pre-verification candidate under TASK-076 like-for-like changed-files authority semantics.",
+    "Before invoking this continuation, the Human must ensure the operator-owned Chromium session at the configured CDP endpoint is available, authenticated, free of unresolved CAPTCHA/challenge, and visibly showing a normal marketplace surface for the configured TASK-156 query. Leave that session open for Runtime verification. Do not automate login, CAPTCHA solving, stealth, proxying, browser restart, retry, alternate query, or alternate platform routing.",
+    "If canonical verification fails again, preserve the new FAILURE exactly for Brain classification. Do not self-author a product correction, widen scope, retry, reroute, or infer a production defect from sanitized live evidence alone."
+  ],
+  "constraints": []
+}
