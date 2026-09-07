@@ -1,0 +1,38 @@
+review_id: REVIEW-156-006
+reviewed_sha: d66faa95c8c03e1fe2d5f4c4c36b44b7fc9bc364
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: PASS
+  AC3: PASS
+  AC4: PASS
+  AC5: PASS
+  AC6: PASS
+  AC7: PASS
+  AC8: PASS
+  AC9: PASS
+  AC10: FAIL
+findings:
+  - id: F1
+    basis: AC10
+    action: CODE_FIX
+    location: docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md; docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    issue: >
+      The candidate defines TASK-156 as the publication-stable P6.0b/P6.0 closure gate and states
+      that P6.0b/P6.0 are CLOSED if and only if TASK-156 canonical Runtime verification plus semantic
+      review PASS, with P6.1 becoming NEXT only after that same condition. However both roadmap files
+      also retain static present-state labels such as `P6 CURRENT / IN PROGRESS`, `P6.0 ... CURRENT /
+      IN PROGRESS`, and equivalent current-priority prose. RUN-156-006 has now satisfied Runtime
+      verification. If this exact candidate were given semantic PASS, those static labels would become
+      false immediately at publication time, contradicting the same documents' gate rule and violating
+      AC10's publication-stable wording requirement.
+    expected: >
+      Change only the two allowed roadmap documents so their P6.0/P6.1 status wording is logically
+      publication-stable across the review boundary: do not pre-claim semantic PASS before it exists,
+      but remove static labels that become stale when PASS is issued. Express P6.0b/P6.0 state and P6.1
+      NEXT state directly as consequences of the TASK-156 Runtime-plus-semantic-review gate (or an
+      equivalent conditional/gated formulation) everywhere the current status is stated. Preserve
+      TASK-154 P6.0a CLOSED, TASK-155 execution-substrate-only status, CERTIFY -> EVALUATE -> IMPROVE,
+      and all Product Intelligence authority/non-goal boundaries. Do not change the certification
+      fixture or any production Python.
