@@ -15,6 +15,7 @@ from typing import Any, Optional
 import pytest
 
 from src.browser.errors import BrowserError, BrowserSessionUnavailableError
+from src.core.errors import AgentException
 from src.core.types import ToolCall, ToolResult, ToolStatus
 from src.integrations.playwright.manager import PlaywrightBrowserManager
 from src.product_intelligence.adapters.shopee import ShopeeDiscoveryAdapter
@@ -156,6 +157,39 @@ def classify_discovery_failure(exc: BaseException) -> str:
     return "LIVE_DISCOVERY_UNAVAILABLE"
 
 
+def classify_acquisition_tool_result(result: ToolResult) -> str:
+    """Classify non-successful acquisition ToolResult to bounded sanitized category.
+
+    Preserves bounded acquisition-stage diagnostics without exposing raw
+    exception text, candidate/product URLs, HTML, page text, filenames,
+    cookies, headers, paths, or source-pack contents.
+    """
+    if result.error is not None:
+        code = getattr(result.error, "code", None)
+        if code == "EXTRACTION_BLOCKED":
+            return "LIVE_ACQUISITION_BLOCKED"
+        if code == "EXTRACTION_EMPTY":
+            return "LIVE_ACQUISITION_EXTRACTION"
+        if code == "DOWNLOAD_FAILED":
+            return "LIVE_ACQUISITION_DOWNLOAD"
+        if code == "UPLOAD_FAILED":
+            return "LIVE_ACQUISITION_UPLOAD"
+    if result.status == ToolStatus.PARTIAL_SUCCESS:
+        return "LIVE_ACQUISITION_PARTIAL"
+    return "LIVE_ACQUISITION_UNAVAILABLE"
+
+
+def classify_acquisition_exception(exc: BaseException) -> str:
+    """Classify acquisition-phase exception to bounded sanitized category.
+
+    Preserves stage diagnostics without exposing raw exception text,
+    URLs, HTML, page text, cookies, headers, paths, or other live data.
+    """
+    if _is_browser_or_cdp_error(exc):
+        return "LIVE_CDP_UNAVAILABLE"
+    return "LIVE_ACQUISITION_EXCEPTION"
+
+
 def _fail_sanitized(category: str) -> None:
     """Fail closed with bounded sanitized category without traceback or raw context."""
     raise pytest.fail.Exception(category, pytrace=False) from None
@@ -235,12 +269,10 @@ async def test_live_product_source_acquisition(tmp_path: Path) -> None:
         except pytest.fail.Exception:
             raise
         except Exception as exc:
-            if _is_browser_or_cdp_error(exc):
-                _fail_sanitized("LIVE_CDP_UNAVAILABLE")
-            _fail_sanitized("LIVE_ACQUISITION_UNAVAILABLE")
+            _fail_sanitized(classify_acquisition_exception(exc))
 
         if tool_result.status != ToolStatus.SUCCESS or tool_result.error is not None:
-            _fail_sanitized("LIVE_ACQUISITION_UNAVAILABLE")
+            _fail_sanitized(classify_acquisition_tool_result(tool_result))
 
         # Persistence & typed rehydration verification
         try:
@@ -487,4 +519,148 @@ def test_classify_discovery_failure_cause_precedence() -> None:
     assert category == "LIVE_DISCOVERY_NAVIGATION"
     assert "CDP" not in category
     assert "https://" not in category
+
+
+@pytest.mark.parametrize(
+    "status,error,expected_category",
+    [
+        (
+            ToolStatus.FAILURE,
+            AgentException("extraction blocked by anti-bot", code="EXTRACTION_BLOCKED"),
+            "LIVE_ACQUISITION_BLOCKED",
+        ),
+        (
+            ToolStatus.FAILURE,
+            AgentException("empty extraction results", code="EXTRACTION_EMPTY"),
+            "LIVE_ACQUISITION_EXTRACTION",
+        ),
+        (
+            ToolStatus.FAILURE,
+            AgentException("failed downloading media", code="DOWNLOAD_FAILED"),
+            "LIVE_ACQUISITION_DOWNLOAD",
+        ),
+        (
+            ToolStatus.FAILURE,
+            AgentException("failed uploading to Drive", code="UPLOAD_FAILED"),
+            "LIVE_ACQUISITION_UPLOAD",
+        ),
+        (
+            ToolStatus.PARTIAL_SUCCESS,
+            None,
+            "LIVE_ACQUISITION_PARTIAL",
+        ),
+        (
+            ToolStatus.FAILURE,
+            AgentException("unexpected error code", code="CUSTOM_UNKNOWN_CODE"),
+            "LIVE_ACQUISITION_UNAVAILABLE",
+        ),
+        (
+            ToolStatus.FAILURE,
+            None,
+            "LIVE_ACQUISITION_UNAVAILABLE",
+        ),
+    ],
+)
+def test_classify_acquisition_tool_result_mapping(
+    status: ToolStatus,
+    error: Optional[AgentException],
+    expected_category: str,
+) -> None:
+    result = ToolResult(
+        call_id="cert_call_test",
+        run_id="cert_run_test",
+        tool_name="shopee_scrape_tool",
+        status=status,
+        error=error,
+    )
+    assert classify_acquisition_tool_result(result) == expected_category
+
+
+@pytest.mark.parametrize(
+    "exc,expected_category",
+    [
+        (BrowserError("browser crashed"), "LIVE_CDP_UNAVAILABLE"),
+        (BrowserSessionUnavailableError("session unavailable"), "LIVE_CDP_UNAVAILABLE"),
+        (RuntimeError("CDP connection refused"), "LIVE_CDP_UNAVAILABLE"),
+        (RuntimeError("target closed unexpectedly"), "LIVE_CDP_UNAVAILABLE"),
+        (RuntimeError("unclassified scrape failure"), "LIVE_ACQUISITION_EXCEPTION"),
+        (ValueError("invalid tool argument"), "LIVE_ACQUISITION_EXCEPTION"),
+        (KeyError("missing context key"), "LIVE_ACQUISITION_EXCEPTION"),
+    ],
+)
+def test_classify_acquisition_exception_mapping(
+    exc: BaseException,
+    expected_category: str,
+) -> None:
+    assert classify_acquisition_exception(exc) == expected_category
+
+
+@pytest.mark.parametrize(
+    "error_code,expected_category",
+    [
+        ("EXTRACTION_BLOCKED", "LIVE_ACQUISITION_BLOCKED"),
+        ("EXTRACTION_EMPTY", "LIVE_ACQUISITION_EXTRACTION"),
+        ("DOWNLOAD_FAILED", "LIVE_ACQUISITION_DOWNLOAD"),
+        ("UPLOAD_FAILED", "LIVE_ACQUISITION_UPLOAD"),
+    ],
+)
+def test_classify_acquisition_tool_result_sanitization_no_leakage(
+    error_code: str,
+    expected_category: str,
+) -> None:
+    raw_sensitive_message = (
+        "LIVE_DATA_LEAK: url=https://shopee.vn/product/12345/67890?sp_atk=abc "
+        "cookie=SPC_EC=xyz; secret_token=tok_999; html=<div>Sensitive Title</div>; "
+        "filename=photo_001.jpg; path=C:\\Users\\TRUNG\\sensitive_path"
+    )
+    result = ToolResult(
+        call_id="cert_call_test",
+        run_id="cert_run_test",
+        tool_name="shopee_scrape_tool",
+        status=ToolStatus.FAILURE,
+        error=AgentException(raw_sensitive_message, code=error_code),
+    )
+    category = classify_acquisition_tool_result(result)
+
+    assert category == expected_category
+    assert "LIVE_DATA_LEAK" not in category
+    assert "https://" not in category
+    assert "12345" not in category
+    assert "cookie" not in category
+    assert "secret_token" not in category
+    assert "html" not in category
+    assert "photo_001" not in category
+    assert "sensitive" not in category
+
+    with pytest.raises(pytest.fail.Exception) as exc_info:
+        _fail_sanitized(category)
+
+    failure_message = exc_info.value.msg
+    assert failure_message == expected_category
+    assert raw_sensitive_message not in failure_message
+    assert "https://" not in str(exc_info.value)
+    assert "secret_token" not in str(exc_info.value)
+
+
+def test_classify_acquisition_exception_sanitization_no_leakage() -> None:
+    raw_sensitive_message = (
+        "LIVE_DATA_LEAK: url=https://shopee.vn/product/12345/67890?sp_atk=abc "
+        "cookie=SPC_EC=xyz; secret_token=tok_999; html=<div>Sensitive Title</div>"
+    )
+    exc = RuntimeError(raw_sensitive_message)
+    category = classify_acquisition_exception(exc)
+
+    assert category == "LIVE_ACQUISITION_EXCEPTION"
+    assert "LIVE_DATA_LEAK" not in category
+    assert "https://" not in category
+    assert "cookie" not in category
+
+    with pytest.raises(pytest.fail.Exception) as exc_info:
+        _fail_sanitized(category)
+
+    failure_message = exc_info.value.msg
+    assert failure_message == "LIVE_ACQUISITION_EXCEPTION"
+    assert raw_sensitive_message not in failure_message
+    assert "https://" not in str(exc_info.value)
+
 
