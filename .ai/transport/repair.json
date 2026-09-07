@@ -1,0 +1,17 @@
+{
+  "repair_id": "REPAIR-156-008",
+  "failed_run_id": "RUN-156-008",
+  "failed_head_sha": "38e087e6925b1e7bac81c0eddc8b4dbb8992ff25",
+  "task": {
+    "id": "TASK-156",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue exactly from failed candidate 38e087e6925b1e7bac81c0eddc8b4dbb8992ff25 without modifying repository files. RUN-156-008 reached canonical verification: the offline suite passed 106 tests with 1 skip, while the live certification failed only with the bounded category LIVE_P6B_DISCOVERY_NAVIGATION. This does not establish a repository defect requiring mutation.",
+    "Preserve the exact candidate HEAD and historical TASK-156/F1 lineage. The same certification implementation at source candidate d66faa95c8c03e1fe2d5f4c4c36b44b7fc9bc364 previously passed all 28 live tests, and the only committed change from that source to the current failed head is the two authorized roadmap documents for F1. Do not change the fixture, browser/discovery implementation, roadmap wording, production Python, dependency pin, or any other file.",
+    "Allow Runtime-owned verification/completion to decide the unchanged candidate after the Human-owned authenticated CDP session is ready. Preserve executor identity codex, no retry/fallback/reroute, zero mutation scope, and DELTA semantic-review continuity for F1 if Runtime PASS is achieved."
+  ],
+  "constraints": []
+}
