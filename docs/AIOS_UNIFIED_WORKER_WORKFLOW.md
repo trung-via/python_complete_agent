@@ -1,8 +1,8 @@
 # AIOS Unified Worker Workflow
 
-As of TASK-127 revision 1, the repository-owned Codex and Antigravity worker
+As of TASK-155 revision 1, the repository-owned Codex and Antigravity worker
 surfaces delegate exclusively to the immutable AIOS-renew kernel at commit
-`67db82bf19d63f25721d06aabb82d850db8b78d4`. Legacy AIOS Bridge source remains
+`14a1276d69665e7c371b6d56a95e50b992cbc7b3`. Legacy AIOS Bridge source remains
 archived in this repository, but it is inactive and unreachable from these
 RUN/FIX/REPAIR/STATUS surfaces.
 
@@ -108,9 +108,12 @@ second semantic state store.
   remote-lineage failures are surfaced unchanged without retry, fallback,
   artifact reconstruction, or executor substitution.
 - **Authority**: AIOS-renew resolves canonical remediation lineage remotely from
-  TASK and finding. The launcher does not inspect HEAD, infer a finding, resolve
-  or materialize local REVIEW/REMEDIATION lineage, or pass prior-review, sandbox,
-  scope, affected-verification, or reviewed-SHA authority.
+  TASK and finding with task/revision scoping (TASK-067). Unrelated historical finding ids
+  cannot poison current FIX admission. Consuming TASK-067 occurs solely through the
+  exact pinned AIOS distribution; the worker remains thin and contains no repository-wide
+  remediation discovery or historical lineage filtering logic. The launcher does not inspect
+  HEAD, infer a finding, resolve or materialize local REVIEW/REMEDIATION lineage, or pass
+  prior-review, sandbox, scope, affected-verification, or reviewed-SHA authority.
 
 ### REPAIR RUN-N-NNN
 
@@ -121,6 +124,10 @@ second semantic state store.
 - **Safety**: The worker is explicitly forbidden from inspecting or reconstructing
   repair lineage, passing `--repair`, TASK ID, failed-head, scope, constraints,
   instructions, or verification authority.
+- **TASK-064 Fast-Path Boundary**: Worker REPAIR remains thin and does not implement
+  TASK-064 fast-path decisions. Eligible NO_CHANGE verification-only continuation
+  may invoke zero Executors only when the pinned Runtime proves all canonical reuse preconditions.
+  Any zero-Executor continuation is owned and evidenced by the pinned Runtime.
 - **Historical Recovery**: Historical recovery is Runtime-owned under the pinned
   kernel: AIOS-renew admits historical repair execution when the current control
   checkout differs from an immutable `failed_head_sha`, preserving the current
@@ -144,6 +151,19 @@ second semantic state store.
   read-only for the product worktree, branch/ref, TASK, RUN/RESULT state,
   publication, and executor authority. It does not fetch, synchronize, review,
   execute, or push product state.
+
+### Operational Telemetry and Upstream Scope Boundaries
+
+- **TASK-065 Operational Telemetry**: Under the pinned kernel, same-invocation native Executor
+  operational telemetry (`token_usage`) may be recorded by the pinned Runtime's native adapters.
+  Worker code adds no token parsing or telemetry authority; `token_usage` is optional same-native-invocation
+  telemetry and may remain null when the native response does not expose a complete trusted counter
+  group. Telemetry is never treated as RESULT, EVIDENCE, review, routing, or acceptance authority.
+- **TASK-066 / A1 Upstream Boundary**: Although the target upstream commit `14a1276d69665e7c371b6d56a95e50b992cbc7b3`
+  contains TASK-066/A1 implementation history, Python Agent does not adopt AIOS-renew workflow files,
+  does not expose self-hosted `wakeup` or `recover-primary`, and exposes no new worker commands.
+  Python Agent's existing publication/automation authority remains unchanged, and the Human-facing worker
+  surface remains strictly RUN, FIX, REPAIR, and STATUS.
 
 ---
 
@@ -221,4 +241,4 @@ branches or caches that do not expose `/aios-renew-worker` fail closed instead o
 falling back to legacy `/aios-worker` semantics.
 
 Both active worker surfaces use exactly AIOS-renew commit
-`67db82bf19d63f25721d06aabb82d850db8b78d4`.
+`14a1276d69665e7c371b6d56a95e50b992cbc7b3`.

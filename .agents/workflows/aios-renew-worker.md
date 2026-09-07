@@ -100,10 +100,14 @@ Delegates one primary execution to AIOS-renew and leaves HEAD local for semantic
 ### FIX TASK-N FINDING-ID
 
 Delegates the exact task and Human-supplied finding identifier once to AIOS-renew,
-which owns canonical remote remediation lineage resolution. The worker does not
-inspect HEAD or local REVIEW/REMEDIATION artifacts, infer a finding, or pass local
-lineage, sandbox, scope, or verification authority. Missing finding identifiers
-fail before kernel invocation. Leaves HEAD local for semantic review:
+which owns canonical remote remediation lineage resolution. Consuming TASK-067 occurs
+solely through the exact pinned AIOS distribution: AIOS-renew resolves canonical
+remediation lineage with task/revision scoping, so unrelated historical finding ids
+cannot poison current FIX admission or require a Python Agent workaround or branch cleanup.
+Worker FIX remains thin and contains no repository-wide remediation discovery or historical
+lineage filtering logic. The worker does not inspect HEAD or local REVIEW/REMEDIATION
+artifacts, infer a finding, or pass local lineage, sandbox, scope, or verification authority.
+Missing finding identifiers fail before kernel invocation. Leaves HEAD local for semantic review:
 
 ```powershell
 <resolved bootstrap-host argv> .agents/skills/aios-worker/scripts/aios_worker.py FIX TASK-N FINDING-ID --executor antigravity
@@ -112,10 +116,14 @@ fail before kernel invocation. Leaves HEAD local for semantic review:
 ### REPAIR RUN-N-NNN
 
 Delegates the exact failed run identifier once to AIOS-renew, which owns remote
-REPAIR lookup and all failure/repair semantics. The worker is explicitly forbidden from
-inspecting or reconstructing repair lineage, passing `--repair`, TASK ID, failed-head,
-scope, constraints, instructions, or verification authority. Missing or malformed
-failed run identifiers fail before kernel invocation. Leaves candidate HEAD local for semantic review:
+REPAIR lookup and all failure/repair semantics. Worker REPAIR remains thin and does
+not implement TASK-064 fast-path decisions. Eligible NO_CHANGE verification-only
+continuation may invoke zero Executors only when the pinned Runtime proves all canonical
+reuse preconditions; any zero-Executor continuation is owned and evidenced by the pinned Runtime.
+The worker is explicitly forbidden from inspecting or reconstructing repair lineage,
+passing `--repair`, TASK ID, failed-head, scope, constraints, instructions, or verification
+authority. Missing or malformed failed run identifiers fail before kernel invocation.
+Leaves candidate HEAD local for semantic review:
 
 ```powershell
 <resolved bootstrap-host argv> .agents/skills/aios-worker/scripts/aios_worker.py REPAIR RUN-N-NNN --executor antigravity
@@ -141,9 +149,29 @@ product worktree, branch, TASK/RUN state, publication, and executor authority:
 STATUS may initialize the dedicated untracked worker runtime but must not invoke
 an executor or become a second status or review authority.
 
+## Adopted Upstream Capabilities and Boundaries
+
+Under the pinned commit `14a1276d69665e7c371b6d56a95e50b992cbc7b3`, Python Agent adopts:
+- **TASK-064**: Eligible NO_CHANGE verification-only continuation may invoke zero Executors
+  only when the pinned Runtime proves all canonical reuse preconditions. The worker remains
+  thin and makes no fast-path decisions.
+- **TASK-065**: Same-invocation native Executor operational telemetry (`token_usage`). Worker
+  code adds no token parsing or telemetry authority; `token_usage` is optional same-native-invocation
+  telemetry and may remain null when the native response does not expose a complete trusted
+  counter group. Telemetry is never treated as RESULT, EVIDENCE, review, routing, or acceptance authority.
+- **TASK-067**: Task/revision-scoped remediation lineage resolution prevents unrelated historical
+  finding ids from poisoning current FIX admission. Consumed solely through the pinned kernel;
+  the worker performs no repository-wide discovery or branch filtering.
+
+Capabilities present in upstream history but **not** exposed by this downstream worker:
+- **TASK-066 / A1**: Although the target upstream commit contains TASK-066/A1 implementation
+  history, no AIOS-renew workflow files are copied, no self-hosted `wakeup` or `recover-primary`
+  or new worker command is exposed, and Python Agent's existing publication/automation authority
+  remains unchanged. The Human-facing worker surface remains strictly RUN, FIX, REPAIR, and STATUS.
+
 ## Immutable Kernel Pin
 
 The only authoritative AIOS-renew kernel is commit
-`67db82bf19d63f25721d06aabb82d850db8b78d4`. The launcher validates both the
+`14a1276d69665e7c371b6d56a95e50b992cbc7b3`. The launcher validates both the
 checked-in dependency pin and installed PEP 610 source+commit provenance and
 atomically replaces stale or unverifiable worker runtimes.

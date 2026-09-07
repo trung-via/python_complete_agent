@@ -1,4 +1,4 @@
-"""TASK-113 revision 1 certification for the AIOS-renew worker surfaces."""
+"""Certification for the repository-owned AIOS-renew worker surfaces."""
 from __future__ import annotations
 
 import hashlib
@@ -75,7 +75,7 @@ class TestImmutableRuntimePin:
         assert active == [aw.PIN_LINE]
         assert active == [
             "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
-            "67db82bf19d63f25721d06aabb82d850db8b78d4"
+            "14a1276d69665e7c371b6d56a95e50b992cbc7b3"
         ]
 
     def test_authoritative_pep610_metadata_is_accepted(self):
@@ -85,6 +85,7 @@ class TestImmutableRuntimePin:
         ("url", "commit"),
         [
             ("https://github.com/other/AIOS-renew.git", aw.AUTHORITATIVE_COMMIT),
+            (aw.AUTHORITATIVE_REPOSITORY, "67db82bf19d63f25721d06aabb82d850db8b78d4"),
             (aw.AUTHORITATIVE_REPOSITORY, "59b31ede597d4a27b848771522672705a021abe4"),
             (aw.AUTHORITATIVE_REPOSITORY, "9255a3a38cef87976d6bcead90c2017de6f1c1bb"),
             (aw.AUTHORITATIVE_REPOSITORY, "4" * 40),
@@ -210,7 +211,7 @@ class TestRuntimeBootstrap:
         old_python.touch()
         (layout.runtime / "marker.txt").write_text("old-state", encoding="utf-8")
 
-        stale_commit = "59b31ede597d4a27b848771522672705a021abe4"
+        stale_commit = "67db82bf19d63f25721d06aabb82d850db8b78d4"
         calls = []
         replaced = False
 
@@ -1115,3 +1116,31 @@ class TestSurfaceAndDocumentation:
         assert hashlib.sha256(task_098).hexdigest() == (
             "a7fe262efe72252ba1f3c9f19f5e9ae88cb0cd704878b0818e6f2384de253239"
         )
+
+    def test_docs_record_task_064_065_067_and_task_066_boundary(self):
+        for path in (SKILL_FILE, WORKFLOW_FILE, DOCS_FILE):
+            text = path.read_text(encoding="utf-8")
+            assert "TASK-064" in text
+            assert "NO_CHANGE" in text
+            assert "TASK-065" in text
+            assert "token_usage" in text
+            assert "TASK-067" in text
+            assert "TASK-066" in text
+            assert "wakeup" in text
+            assert "recover-primary" in text
+
+    def test_launcher_remains_thin_without_token_telemetry_or_remediation_filtering(self):
+        source = SCRIPT.read_text(encoding="utf-8")
+        assert aw.ALLOWED_ACTIONS == ("FIX", "REPAIR", "RUN", "STATUS")
+        assert aw.ALLOWED_EXECUTORS == ("antigravity", "codex")
+        for forbidden in (
+            "token_usage",
+            "prompt_tokens",
+            "completion_tokens",
+            "wakeup",
+            "recover_primary",
+            "recover-primary",
+            "remediation_refs",
+            "filter_lineage",
+        ):
+            assert forbidden not in source
