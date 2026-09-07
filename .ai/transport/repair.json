@@ -1,0 +1,21 @@
+{
+  "repair_id": "REPAIR-154-004",
+  "failed_run_id": "RUN-154-004",
+  "failed_head_sha": "788ae28e314d2dcae3117d8cc7378a327fcd567c",
+  "task": {
+    "id": "TASK-154",
+    "revision": 1
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "tests/integration/test_live_product_source_acquisition.py"
+  ],
+  "instructions": [
+    "Continue only from the exact failed candidate 788ae28e314d2dcae3117d8cc7378a327fcd567c for RUN-154-004 and preserve Antigravity executor identity plus RUN-154-001 -> RUN-154-002 -> RUN-154-003 -> RUN-154-004 repair continuity. Do not restart PRIMARY, rebase onto current main, rebuild the candidate, reroute executors, or modify production Python.",
+    "RUN-154-004 proves the shortlist-size correction worked: live execution progressed beyond discovery/orchestration to the existing scrape-tool acquisition phase and then failed only as LIVE_ACQUISITION_UNAVAILABLE while 125 offline tests passed. The exact certification fixture currently collapses bounded existing ToolResult error codes and acquisition exceptions into that one category, so current canonical evidence does not yet identify whether the blocker is extraction, media download, upload publication, blocked product-page extraction, or an otherwise-unclassified acquisition exception.",
+    "Modify only tests/integration/test_live_product_source_acquisition.py to preserve bounded acquisition-stage diagnostics without exposing raw exception text, candidate/product URLs, HTML, page text, filenames, cookies, headers, paths, or source-pack contents. For ToolResult errors, map exact existing error.code values as follows: EXTRACTION_BLOCKED -> LIVE_ACQUISITION_BLOCKED; EXTRACTION_EMPTY -> LIVE_ACQUISITION_EXTRACTION; DOWNLOAD_FAILED -> LIVE_ACQUISITION_DOWNLOAD; UPLOAD_FAILED -> LIVE_ACQUISITION_UPLOAD. If ToolResult.status is PARTIAL_SUCCESS without one of those errors, emit LIVE_ACQUISITION_PARTIAL. Unknown ToolResult failures remain LIVE_ACQUISITION_UNAVAILABLE. Browser/CDP-classified thrown exceptions remain LIVE_CDP_UNAVAILABLE; other thrown acquisition exceptions may use LIVE_ACQUISITION_EXCEPTION. Never emit the raw error message.",
+    "Add narrow deterministic offline tests in the same integration module proving the ToolResult error-code/status mapping and proving raw error messages are not present in emitted categories. Preserve the exact live route, one manager, one discovery/orchestration call with shortlist_size=1, shortlist[0].candidate, exactly one matching scrape-tool execution, tmp_path confinement, in-memory Drive sink, persistence checks, TASK-125 rehydration, and all existing bounded discovery diagnostics. Do not add retries, fallback, alternate platform/query, ad-hoc probing, CAPTCHA automation, or any production change.",
+    "After committing the repair candidate, allow only the pinned Runtime to execute the exact TASK-154 verification commands. If live verification fails again, preserve the resulting bounded acquisition subtype for Brain classification. Do not self-author a production fix from executor work."
+  ],
+  "constraints": []
+}
