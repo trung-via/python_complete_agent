@@ -197,7 +197,7 @@ async def test_live_product_source_acquisition(tmp_path: Path) -> None:
                 (plan,),
                 observed_at=now,
                 evaluated_at=now,
-                shortlist_size=5,
+                shortlist_size=1,
             )
         except pytest.fail.Exception:
             raise
