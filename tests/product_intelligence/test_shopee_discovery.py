@@ -16,6 +16,15 @@ from src.product_intelligence.discovery import (
 from src.product_intelligence.models import ProductCandidateSnapshot
 
 
+@pytest.fixture(autouse=True)
+def no_real_readiness_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ensure all tests in this module execute with zero wall-clock sleep by default."""
+    async def _instant_sleep(_seconds: float) -> None:
+        return None
+
+    monkeypatch.setattr("src.product_intelligence.adapters.shopee._readiness_sleep", _instant_sleep)
+
+
 class FakePage:
     """Test fake for browser page emulation with configurable navigation and extraction returns."""
 
@@ -404,3 +413,243 @@ async def test_shopee_discovery_with_playwright_browser_context() -> None:
     assert len(batch.candidates) == 1
     assert batch.candidates[0].candidate_id == "shopee_99"
     assert page.closed is True  # Verify cleanup called on page created via new_page()
+
+
+@pytest.mark.asyncio
+async def test_shopee_discovery_delayed_hydration_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    obs_time = datetime(2026, 8, 16, 12, 0, 0, tzinfo=timezone.utc)
+    sleep_calls: List[float] = []
+
+    async def _record_sleep(seconds: float) -> None:
+        sleep_calls.append(seconds)
+
+    monkeypatch.setattr("src.product_intelligence.adapters.shopee._readiness_sleep", _record_sleep)
+
+    card_data = [{
+        "title": "Hydrated Keyboard",
+        "href": "/hydrated-i.1.888",
+        "price_text": "250k",
+        "item_id": "888",
+    }]
+    # First 2 attempts return empty items (hydrating), 3rd returns items
+    fake_page = FakePage(script_results=[
+        {"is_blocked": False, "is_empty": False, "items": []},
+        {"is_blocked": False, "is_empty": False, "items": []},
+        {"is_blocked": False, "is_empty": False, "items": card_data},
+    ])
+    adapter = ShopeeDiscoveryAdapter(browser=fake_page)
+
+    req = DiscoveryRequest(query="keyboard", max_candidates=5)
+    batch = await adapter.discover(req, observed_at=obs_time)
+
+    assert len(batch.candidates) == 1
+    assert batch.candidates[0].candidate_id == "shopee_888"
+    assert batch.candidates[0].title == "Hydrated Keyboard"
+    assert fake_page.call_count == 3
+    assert len(sleep_calls) == 2
+    assert sleep_calls == [0.5, 0.5]
+    assert len(fake_page.navigated_urls) == 1  # Exactly one navigation
+
+
+@pytest.mark.asyncio
+async def test_shopee_discovery_readiness_stops_immediately_on_first_item_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    obs_time = datetime(2026, 8, 16, 12, 0, 0, tzinfo=timezone.utc)
+    sleep_calls: List[float] = []
+
+    async def _record_sleep(seconds: float) -> None:
+        sleep_calls.append(seconds)
+
+    monkeypatch.setattr("src.product_intelligence.adapters.shopee._readiness_sleep", _record_sleep)
+
+    card_data = [{"title": "Instant Item", "href": "/instant-i.1.10", "item_id": "10"}]
+    # Multiple script results supplied, but only 1 should be evaluated
+    fake_page = FakePage(script_results=[
+        {"is_blocked": False, "is_empty": False, "items": card_data},
+        {"is_blocked": False, "is_empty": False, "items": []},
+    ])
+    adapter = ShopeeDiscoveryAdapter(browser=fake_page)
+
+    req = DiscoveryRequest(query="instant")
+    batch = await adapter.discover(req, observed_at=obs_time)
+
+    assert len(batch.candidates) == 1
+    assert fake_page.call_count == 1
+    assert len(sleep_calls) == 0  # Zero delays needed
+
+
+@pytest.mark.asyncio
+async def test_shopee_discovery_delayed_blocked_state_raises_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    sleep_calls: List[float] = []
+
+    async def _record_sleep(seconds: float) -> None:
+        sleep_calls.append(seconds)
+
+    monkeypatch.setattr("src.product_intelligence.adapters.shopee._readiness_sleep", _record_sleep)
+
+    fake_page = FakePage(script_results=[
+        {"is_blocked": False, "is_empty": False, "items": []},
+        {"is_blocked": True, "is_empty": False, "items": []},
+    ])
+    adapter = ShopeeDiscoveryAdapter(browser=fake_page)
+
+    req = DiscoveryRequest(query="shoes")
+    with pytest.raises(DiscoveryBlockedError, match="challenge or captcha"):
+        await adapter.discover(req)
+
+    assert fake_page.call_count == 2
+    assert len(sleep_calls) == 1
+    assert len(fake_page.navigated_urls) == 1
+
+
+@pytest.mark.asyncio
+async def test_shopee_discovery_delayed_true_empty_state_returns_empty_batch(monkeypatch: pytest.MonkeyPatch) -> None:
+    obs_time = datetime(2026, 8, 16, 12, 0, 0, tzinfo=timezone.utc)
+    sleep_calls: List[float] = []
+
+    async def _record_sleep(seconds: float) -> None:
+        sleep_calls.append(seconds)
+
+    monkeypatch.setattr("src.product_intelligence.adapters.shopee._readiness_sleep", _record_sleep)
+
+    fake_page = FakePage(script_results=[
+        {"is_blocked": False, "is_empty": False, "items": []},
+        {"is_blocked": False, "is_empty": True, "items": []},
+    ])
+    adapter = ShopeeDiscoveryAdapter(browser=fake_page)
+
+    req = DiscoveryRequest(query="nonexistent")
+    batch = await adapter.discover(req, observed_at=obs_time)
+
+    assert len(batch.candidates) == 0
+    assert "TRUE_EMPTY_SEARCH" in batch.diagnostic_codes
+    assert fake_page.call_count == 2
+    assert len(sleep_calls) == 1
+    assert len(fake_page.navigated_urls) == 1
+
+
+@pytest.mark.asyncio
+async def test_shopee_discovery_bounded_exhaustion_raises_navigation_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    sleep_calls: List[float] = []
+
+    async def _record_sleep(seconds: float) -> None:
+        sleep_calls.append(seconds)
+
+    monkeypatch.setattr("src.product_intelligence.adapters.shopee._readiness_sleep", _record_sleep)
+
+    fake_page = FakePage(script_results=[
+        {"is_blocked": False, "is_empty": False, "items": []}
+    ])
+    adapter = ShopeeDiscoveryAdapter(browser=fake_page)
+
+    req = DiscoveryRequest(query="exhaustion_test")
+    with pytest.raises(DiscoveryNavigationError, match="No cards extracted on page 1 and no empty-result marker found"):
+        await adapter.discover(req)
+
+    # Evaluates up to _READINESS_MAX_ATTEMPTS (10) and sleeps 9 times
+    assert fake_page.call_count == 10
+    assert len(sleep_calls) == 9
+    assert len(fake_page.navigated_urls) == 1  # Exactly one navigation despite 10 samples
+
+
+@pytest.mark.asyncio
+async def test_shopee_discovery_exact_one_navigation_and_acquisition_despite_multiple_samples() -> None:
+    obs_time = datetime(2026, 8, 16, 12, 0, 0, tzinfo=timezone.utc)
+    card_data = [{"title": "Widget", "href": "/widget-i.1.999", "item_id": "999"}]
+    session = FakeBrowserSession(
+        run_id="discovery_run",
+        script_results=[
+            {"is_blocked": False, "is_empty": False, "items": []},
+            {"is_blocked": False, "is_empty": False, "items": []},
+            {"is_blocked": False, "is_empty": False, "items": card_data},
+        ],
+    )
+    manager = FakeBrowserManager(session=session)
+    adapter = ShopeeDiscoveryAdapter(browser=manager)
+
+    req = DiscoveryRequest(query="widget", max_pages=1)
+    batch = await adapter.discover(req, observed_at=obs_time)
+
+    # Exactly one session acquisition
+    assert manager.requested_run_ids == ["discovery_run"]
+    # Exactly one navigation
+    assert len(session.navigated_urls) == 1
+    # 3 evaluate calls on that same page
+    assert session.call_count == 3
+    assert len(batch.candidates) == 1
+    assert batch.candidates[0].candidate_id == "shopee_999"
+
+
+def test_shopee_card_extraction_script_has_product_anchor_fallback() -> None:
+    from src.product_intelligence.adapters.shopee import SHOPEE_CARD_EXTRACTION_SCRIPT
+
+    # Script must support canonical product URL forms as fallback discovery roots
+    assert 'a[href*="-i."]' in SHOPEE_CARD_EXTRACTION_SCRIPT
+    assert 'a[href*="/product/"]' in SHOPEE_CARD_EXTRACTION_SCRIPT
+    assert "seenHrefs" in SHOPEE_CARD_EXTRACTION_SCRIPT
+    # Script must check bounded title sources
+    assert "aria-label" in SHOPEE_CARD_EXTRACTION_SCRIPT
+    assert "img[alt]" in SHOPEE_CARD_EXTRACTION_SCRIPT
+    # Script must retain primary container selectors
+    assert ".shopee-search-item-result__item" in SHOPEE_CARD_EXTRACTION_SCRIPT
+    assert "candidateAnchors" in SHOPEE_CARD_EXTRACTION_SCRIPT
+
+
+@pytest.mark.asyncio
+async def test_shopee_card_extraction_script_fallback_dom_execution() -> None:
+    from playwright.async_api import async_playwright
+    from src.product_intelligence.adapters.shopee import SHOPEE_CARD_EXTRACTION_SCRIPT
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        try:
+            page = await browser.new_page()
+
+            # HTML without legacy presentation card classes; products are modern anchors
+            html_content = """
+            <!DOCTYPE html>
+            <html><body>
+            <div class="main-content">
+                <div class="grid-item">
+                    <a href="/ao-thun-nam-cotton-i.12345.67890" aria-label="Ao Thun Nam Cotton">
+                        <img alt="Ao Thun Nam Cotton" src="thumb.jpg" />
+                        <span class="vioxXd">150.000</span>
+                        <span class="truncate">Da ban 1,2k</span>
+                        <span class="rating-stars">4.8</span>
+                    </a>
+                </div>
+                <!-- Duplicate anchor with same product URL (e.g. image link + text link) -->
+                <div class="grid-item">
+                    <a href="/ao-thun-nam-cotton-i.12345.67890">Ao Thun Nam Cotton Dup</a>
+                </div>
+                <div class="grid-item">
+                    <a href="/product/55555/99999" title="Quan Jean Slimfit">
+                        <span class="vioxXd">350.000</span>
+                    </a>
+                </div>
+                <!-- Non-product anchor should be ignored -->
+                <div class="footer">
+                    <a href="/help-center">Help Center</a>
+                </div>
+            </div>
+            </body></html>
+            """
+            await page.set_content(html_content)
+            result = await page.evaluate(SHOPEE_CARD_EXTRACTION_SCRIPT)
+
+            assert result["is_blocked"] is False
+            assert result["is_empty"] is False
+            items = result["items"]
+            assert len(items) == 2  # Duplicate ao-thun collapsed, help-center ignored
+            assert items[0]["title"] == "Ao Thun Nam Cotton"
+            assert items[0]["href"] == "/ao-thun-nam-cotton-i.12345.67890"
+            assert items[0]["price_text"] == "150.000"
+            assert items[0]["sold_text"] == "Da ban 1,2k"
+            assert items[0]["rating_text"] == "4.8"
+            assert items[0]["review_text"] is None
+
+            assert items[1]["title"] == "Quan Jean Slimfit"
+            assert items[1]["href"] == "/product/55555/99999"
+            assert items[1]["price_text"] == "350.000"
+            assert items[1]["sold_text"] is None
+        finally:
+            await browser.close()

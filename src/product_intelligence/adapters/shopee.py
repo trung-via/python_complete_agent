@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -27,16 +28,23 @@ from src.product_intelligence.models import ProductCandidateSnapshot
 
 logger = logging.getLogger(__name__)
 
+_READINESS_POLL_INTERVAL_SECONDS: float = 0.5
+_READINESS_MAX_ATTEMPTS: int = 10
+
+
+async def _readiness_sleep(seconds: float) -> None:
+    await asyncio.sleep(seconds)
+
 
 # Client-side extraction script for Shopee search/listing pages
 SHOPEE_CARD_EXTRACTION_SCRIPT = r"""() => {
     // 1. Check for Challenge / Captcha / Block Page Indicators
-    const title = document.title ? document.title.toLowerCase() : '';
+    const docTitle = document.title ? document.title.toLowerCase() : '';
     const bodyText = document.body ? document.body.innerText.toLowerCase() : '';
     const isBlocked = (
-        title.includes('robot') ||
-        title.includes('captcha') ||
-        title.includes('security verification') ||
+        docTitle.includes('robot') ||
+        docTitle.includes('captcha') ||
+        docTitle.includes('security verification') ||
         document.querySelector('.shopee-captcha, #challenge-running, .captcha_container, [data-sqe="captcha"]') !== null ||
         bodyText.includes('please verify you are human') ||
         bodyText.includes('xác minh bảo mật')
@@ -53,20 +61,48 @@ SHOPEE_CARD_EXTRACTION_SCRIPT = r"""() => {
         bodyText.includes('no results found')
     );
 
-    // 3. Extract Listing Cards
-    const cardElements = document.querySelectorAll(
-        '.shopee-search-item-result__item, [data-sqe="item"], div.col-xs-2-4, .shopee-search-item-result'
-    );
+    function extractCardData(card, fallbackAnchor) {
+        const linkEl = fallbackAnchor || (
+            (card.tagName && card.tagName.toLowerCase() === 'a')
+                ? card
+                : card.querySelector('a[data-sqe="link"], a[href*="/product/"], a[href*="-i."]')
+        );
+        const rawHref = linkEl ? linkEl.getAttribute('href') : (card.getAttribute ? card.getAttribute('href') : null);
+        const href = rawHref ? rawHref.trim() : null;
 
-    const items = [];
-    cardElements.forEach(card => {
-        // Link and Title
-        const linkEl = card.querySelector('a[data-sqe="link"], a[href*="/product/"], a[href*="-i."]');
-        const href = linkEl ? linkEl.getAttribute('href') : (card.tagName.toLowerCase() === 'a' ? card.getAttribute('href') : null);
-        
-        // Title element
-        const titleEl = card.querySelector('.CboxLq, [data-sqe="name"], .whitespace-normal, .line-clamp-2, img[alt]');
-        let title = titleEl ? (titleEl.innerText || titleEl.getAttribute('alt') || '') : '';
+        let title = '';
+        const titleEl = card.querySelector('.CboxLq, [data-sqe="name"], .whitespace-normal, .line-clamp-2');
+        if (titleEl && titleEl.innerText) {
+            title = titleEl.innerText;
+        }
+        if (!title.trim()) {
+            const imgEl = card.querySelector('img[alt]');
+            if (imgEl && imgEl.getAttribute('alt')) {
+                title = imgEl.getAttribute('alt');
+            }
+        }
+        if (!title.trim()) {
+            const ariaLabel = (card.getAttribute ? card.getAttribute('aria-label') : null)
+                || (linkEl && linkEl.getAttribute ? linkEl.getAttribute('aria-label') : null)
+                || (card.querySelector && card.querySelector('[aria-label]') ? card.querySelector('[aria-label]').getAttribute('aria-label') : null);
+            if (ariaLabel) {
+                title = ariaLabel;
+            }
+        }
+        if (!title.trim()) {
+            const titleAttr = (card.getAttribute ? card.getAttribute('title') : null)
+                || (linkEl && linkEl.getAttribute ? linkEl.getAttribute('title') : null)
+                || (card.querySelector && card.querySelector('[title]') ? card.querySelector('[title]').getAttribute('title') : null);
+            if (titleAttr) {
+                title = titleAttr;
+            }
+        }
+        if (!title.trim() && linkEl) {
+            const anchorText = (linkEl.innerText || '').trim();
+            if (anchorText) {
+                title = anchorText.slice(0, 300);
+            }
+        }
         title = title.trim();
 
         // Price elements
@@ -92,29 +128,79 @@ SHOPEE_CARD_EXTRACTION_SCRIPT = r"""() => {
         const shopText = shopEl ? shopEl.innerText : null;
 
         // Item ID attribute if exposed
-        const itemIdAttr = card.getAttribute('data-item-id') || (linkEl ? linkEl.getAttribute('data-item-id') : null);
-        const shopIdAttr = card.getAttribute('data-shop-id') || (linkEl ? linkEl.getAttribute('data-shop-id') : null);
+        const itemIdAttr = (card.getAttribute ? card.getAttribute('data-item-id') : null)
+            || (linkEl && linkEl.getAttribute ? linkEl.getAttribute('data-item-id') : null);
+        const shopIdAttr = (card.getAttribute ? card.getAttribute('data-shop-id') : null)
+            || (linkEl && linkEl.getAttribute ? linkEl.getAttribute('data-shop-id') : null);
 
         // Review count (often adjacent to rating or in parentheses)
         const reviewEl = card.querySelector('.shopee-rating-stars__reviews, .rating-reviews, [data-sqe="review"]');
         const reviewText = reviewEl ? reviewEl.innerText : null;
 
-        if (title || href) {
-            items.push({
-                title: title,
-                href: href,
-                price_text: priceText,
-                orig_price_text: origPriceText,
-                discount_text: discountText,
-                sold_text: soldText,
-                rating_text: ratingText,
-                review_text: reviewText,
-                shop_name: shopText,
-                item_id: itemIdAttr,
-                shop_id: shopIdAttr,
-            });
+        return {
+            title: title,
+            href: href,
+            price_text: priceText,
+            orig_price_text: origPriceText,
+            discount_text: discountText,
+            sold_text: soldText,
+            rating_text: ratingText,
+            review_text: reviewText,
+            shop_name: shopText,
+            item_id: itemIdAttr,
+            shop_id: shopIdAttr,
+        };
+    }
+
+    // 3. Extract Listing Cards using primary container selectors
+    const cardElements = document.querySelectorAll(
+        '.shopee-search-item-result__item, [data-sqe="item"], div.col-xs-2-4, .shopee-search-item-result'
+    );
+
+    const items = [];
+    cardElements.forEach(card => {
+        const item = extractCardData(card, null);
+        if (item && (item.title || item.href)) {
+            items.push(item);
         }
     });
+
+    // 4. Fallback: If legacy presentation-only card container selectors are absent,
+    // discover via exact product anchors using canonical Shopee product URL forms (-i. and /product/)
+    if (items.length === 0) {
+        const candidateAnchors = document.querySelectorAll('a[href*="-i."], a[href*="/product/"]');
+        const seenHrefs = new Set();
+
+        candidateAnchors.forEach(anchor => {
+            const rawHref = anchor.getAttribute('href');
+            if (!rawHref) return;
+            const cleanHref = rawHref.trim();
+            if (!cleanHref) return;
+            if (!cleanHref.includes('-i.') && !cleanHref.includes('/product/')) return;
+            if (seenHrefs.has(cleanHref)) return;
+            seenHrefs.add(cleanHref);
+
+            // Locate nearest product-card context bounded to this single product
+            let cardContext = anchor;
+            let parent = anchor.parentElement;
+            let depth = 0;
+            while (parent && parent !== document.body && parent !== document.documentElement && depth < 4) {
+                const productLinks = parent.querySelectorAll('a[href*="-i."], a[href*="/product/"]');
+                if (productLinks.length === 1) {
+                    cardContext = parent;
+                    parent = parent.parentElement;
+                    depth++;
+                } else {
+                    break;
+                }
+            }
+
+            const item = extractCardData(cardContext, anchor);
+            if (item && item.href && item.title) {
+                items.push(item);
+            }
+        });
+    }
 
     return {
         is_blocked: false,
@@ -193,31 +279,54 @@ class ShopeeDiscoveryAdapter(ProductDiscoveryAdapter):
                 except Exception:
                     pass
 
-                # Extract listing cards via script evaluation
-                try:
-                    extraction_data = await self._evaluate_script(
-                        page, SHOPEE_CARD_EXTRACTION_SCRIPT
-                    )
-                except Exception as eval_exc:
-                    if page_idx == 1:
-                        diagnostic_codes.append("PAGE_EVALUATION_FAILED")
-                        raise DiscoveryNavigationError(
-                            f"Failed to extract cards from Shopee page 1: {eval_exc}"
-                        ) from eval_exc
-                    else:
-                        diagnostic_codes.append("PARTIAL_EXTRACTION_EVAL_FAILED")
+                # Fixed bounded same-page readiness sampling boundary
+                extraction_data: Optional[Dict[str, Any]] = None
+                for attempt in range(1, _READINESS_MAX_ATTEMPTS + 1):
+                    try:
+                        extraction_data = await self._evaluate_script(
+                            page, SHOPEE_CARD_EXTRACTION_SCRIPT
+                        )
+                    except Exception as eval_exc:
+                        if attempt < _READINESS_MAX_ATTEMPTS:
+                            await _readiness_sleep(_READINESS_POLL_INTERVAL_SECONDS)
+                            continue
+                        if page_idx == 1:
+                            diagnostic_codes.append("PAGE_EVALUATION_FAILED")
+                            raise DiscoveryNavigationError(
+                                f"Failed to extract cards from Shopee page 1: {eval_exc}"
+                            ) from eval_exc
+                        else:
+                            diagnostic_codes.append("PARTIAL_EXTRACTION_EVAL_FAILED")
+                            break
+
+                    # Terminal state 1: Explicit blocked / challenge / captcha
+                    if extraction_data.get("is_blocked", False):
+                        diagnostic_codes.append("BLOCKED_PAGE_DETECTED")
+                        raise DiscoveryBlockedError(
+                            f"Shopee anti-bot challenge or captcha detected for query {request.query!r}"
+                        )
+
+                    # Terminal state 2: Explicit true empty search results
+                    if extraction_data.get("is_empty", False):
                         break
 
-                # Handle challenge / captcha block detection
-                if extraction_data.get("is_blocked", False):
-                    diagnostic_codes.append("BLOCKED_PAGE_DETECTED")
-                    raise DiscoveryBlockedError(
-                        f"Shopee anti-bot challenge or captcha detected for query {request.query!r}"
-                    )
+                    # Terminal state 3: At least one item extracted
+                    raw_cards = extraction_data.get("items", [])
+                    if raw_cards:
+                        break
+
+                    # Unready state: delay before next attempt if within bounds
+                    if attempt < _READINESS_MAX_ATTEMPTS:
+                        await _readiness_sleep(_READINESS_POLL_INTERVAL_SECONDS)
+
+                if extraction_data is None:
+                    # Occurs if evaluation failed on later page (page_idx > 1)
+                    break
 
                 # Handle true empty search results
-                if extraction_data.get("is_empty", False) and len(candidates) == 0:
-                    diagnostic_codes.append("TRUE_EMPTY_SEARCH")
+                if extraction_data.get("is_empty", False):
+                    if len(candidates) == 0:
+                        diagnostic_codes.append("TRUE_EMPTY_SEARCH")
                     break
 
                 raw_cards = extraction_data.get("items", [])
@@ -226,7 +335,9 @@ class ShopeeDiscoveryAdapter(ProductDiscoveryAdapter):
                 if not raw_cards:
                     if page_idx == 1:
                         diagnostic_codes.append("EXTRACTION_FAILED")
-                        raise DiscoveryNavigationError(f"No cards extracted on page 1 and no empty-result marker found for query {request.query!r}")
+                        raise DiscoveryNavigationError(
+                            f"No cards extracted on page 1 and no empty-result marker found for query {request.query!r}"
+                        )
                     else:
                         diagnostic_codes.append("PARTIAL_EXTRACTION_PAGE_FAILED")
                         break
