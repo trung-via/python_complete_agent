@@ -1,0 +1,37 @@
+review_id: REVIEW-153-001
+reviewed_sha: ed48d44cab8510e7c65eef81b4aa584054ca49b8
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: PASS
+  AC3: PASS
+  AC4: FAIL
+  AC5: PASS
+  AC6: PASS
+findings:
+  - id: F1
+    basis: AC4
+    action: CODE_FIX
+    location: src/product_intelligence/adapters/shopee.py:_map_card_to_snapshot
+    issue: >
+      TASK-153 is limited to null-safety while preserving existing Shopee identity and
+      mapping semantics and forbidding fabrication. The candidate uses str(...) coercion
+      for every non-None title, href, item_id, shop_name, and shop_id value. That is broader
+      than explicit JSON-null handling: a malformed non-string payload such as numeric title,
+      href, shop field, or item_id can be converted into a new textual marketplace value or
+      can alter source-product identity instead of remaining malformed/absent. In particular,
+      converting raw_item_id through str(...) changes the input domain of the existing
+      extract_shopee_product_id authority even though TASK-153 explicitly forbids changing
+      candidate identity construction.
+    expected: >
+      Keep the null-safety correction but remove generic non-string stringification. Trim and
+      preserve only actual string values. Missing/None/non-string title or href must be treated
+      as malformed required data and the card skipped; missing/None/non-string shop_name and
+      shop_id must remain None. Preserve item-id identity semantics by accepting only the
+      existing string attribute domain (None/non-string must not be stringified into a new
+      identity value), allowing the existing URL fallback to operate unchanged. Add narrow
+      regression coverage proving malformed non-string values are not fabricated while the
+      explicit-None cases from TASK-153 remain green. Do not change TASK-151 readiness,
+      extraction selectors, parsing helpers, orchestration, browser behavior, or any other
+      production module.
