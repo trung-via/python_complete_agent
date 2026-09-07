@@ -1,0 +1,19 @@
+{
+  "repair_id": "REPAIR-150-003",
+  "failed_run_id": "RUN-150-003",
+  "failed_head_sha": "cb79b3de3c606424632764f3cc24dd2c3925f0bc",
+  "task": {
+    "id": "TASK-150",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue only from the exact failed candidate cb79b3de3c606424632764f3cc24dd2c3925f0bc for RUN-150-003 and preserve Antigravity executor identity plus the complete RUN-150-001 -> RUN-150-002 -> RUN-150-003 continuation lineage. Do not restart PRIMARY, reroute executors, rebase onto current main, or rebuild the candidate.",
+    "RUN-150-003 again failed only during the admitted live Shopee verification with LIVE_DISCOVERY_UNAVAILABLE while all 113 offline regressions passed and the candidate remained unchanged, clean, repairable, and transportable. The Human explicitly confirmed that the visible Shopee CAPTCHA was answered incorrectly before this Runtime verification. Therefore this failure does not establish a product-code, selector, readiness, test-contract, documentation, or TASK defect. This continuation is NO_CHANGE; do not modify production source, tests, docs, TASK files, browser code, marketplace adapters, scraper tools, or AIOS/runtime files.",
+    "Before invoking this continuation, the Human must successfully resolve the visible Shopee CAPTCHA/challenge in the exact operator-owned Chromium profile connected at the configured CDP endpoint and confirm the browser has returned to a normal authenticated Shopee surface. Login/session/CAPTCHA preparation remains Human-owned; do not automate CAPTCHA solving, login, profile creation, stealth, proxying, or browser fallback.",
+    "Do not manually probe the marketplace, issue an extra discovery/scrape request, retry inside executor work, change the query/platform, or reroute. Return only the structural REPAIR result with unresolved empty and allow the pinned Runtime alone to execute the exact TASK-150 required verification commands, including the one admitted live marketplace attempt.",
+    "If Runtime live verification fails again after the Human confirms the CAPTCHA was successfully resolved and the normal Shopee surface is visible, preserve the new canonical FAILURE exactly for Brain classification. Do not infer a code correction from this authorization, widen scope, claim semantic REVIEW PASS, or publish."
+  ],
+  "constraints": []
+}
