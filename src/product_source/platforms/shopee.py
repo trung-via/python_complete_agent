@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from src.product_intelligence.adapters.shopee_parsing import extract_shopee_product_id
 from src.product_source.models import (
@@ -19,6 +20,14 @@ from src.product_source.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+_READINESS_POLL_INTERVAL_SECONDS: float = 0.5
+_READINESS_MAX_ATTEMPTS: int = 10
+
+
+async def _readiness_sleep(seconds: float) -> None:
+    await asyncio.sleep(seconds)
+
 
 _SHOPEE_EXTRACTION_SCRIPT = r"""
 (targetProductId) => {
@@ -437,6 +446,73 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
 """
 
 
+def _interpret_trusted_media(
+    data: Dict[str, Any],
+    product_id: str,
+) -> Tuple[List[OriginalMediaRef], Dict[str, Any], bool]:
+    """Apply the canonical trusted seller-product media acceptance semantics."""
+    seen_urls: Set[str] = set()
+    media_items: List[OriginalMediaRef] = []
+    ordinal = 0
+
+    def add_media(
+        url: str,
+        role: MediaRole,
+        provenance: MediaProvenance,
+        variant_label: Optional[str] = None,
+    ) -> None:
+        nonlocal ordinal
+        if not url or url in seen_urls:
+            return
+        if not (url.startswith("http://") or url.startswith("https://")):
+            return
+        seen_urls.add(url)
+        media_items.append(
+            OriginalMediaRef(
+                source_url=url,
+                platform="shopee",
+                role=role,
+                provenance=provenance,
+                ordinal=ordinal,
+                variant_label=variant_label,
+            )
+        )
+        ordinal += 1
+
+    structured = data.get("structured", {})
+    structured_matches = structured.get("product_id") == product_id
+
+    # Priority 1: Structured Product Data (ONLY when identity matches target product)
+    if structured_matches:
+        for url in structured.get("images", []):
+            add_media(url, MediaRole.PRIMARY, MediaProvenance.STRUCTURED_PRODUCT_DATA)
+
+    # Priority 2: Semantic Gallery
+    for url in data.get("gallery", []):
+        role = MediaRole.PRIMARY if not media_items else MediaRole.GALLERY
+        add_media(url, role, MediaProvenance.SEMANTIC_PRODUCT_GALLERY)
+
+    # Priority 2.5: Semantic Variants
+    for var_item in data.get("variants", []):
+        if isinstance(var_item, dict) and var_item.get("url"):
+            add_media(
+                var_item["url"],
+                MediaRole.VARIANT,
+                MediaProvenance.SEMANTIC_VARIANT_MEDIA,
+                variant_label=var_item.get("label"),
+            )
+
+    # Priority 3: Seller Description
+    for url in data.get("description_media", []):
+        add_media(url, MediaRole.SELLER_DESCRIPTION, MediaProvenance.SEMANTIC_SELLER_DESCRIPTION)
+
+    # Priority 4: Bounded Scoped Fallback
+    for url in data.get("fallback_media", []):
+        add_media(url, MediaRole.GALLERY, MediaProvenance.PLATFORM_SCOPED_FALLBACK)
+
+    return media_items, structured, structured_matches
+
+
 class ShopeeSourceExtractor:
     """Extracts canonical product source pack from Shopee product pages."""
 
@@ -496,85 +572,36 @@ class ShopeeSourceExtractor:
         except Exception as e:
             raise SourcePackExtractionError(f"Failed to acquire browser session for {product_url}: {e}") from e
 
-        try:
-            if hasattr(page, "evaluate") and callable(page.evaluate):
-                data = await page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, product_id)
-            else:
-                raise SourcePackExtractionError("Page object lacks evaluate capability")
-        except Exception as e:
-            raise SourcePackExtractionError(f"Failed to evaluate Shopee extraction script: {e}") from e
+        if not hasattr(page, "evaluate") or not callable(page.evaluate):
+            raise SourcePackExtractionError("Page object lacks evaluate capability")
 
-        if not data or not isinstance(data, dict):
-            raise SourcePackExtractionError("Extraction script returned invalid/empty data")
+        media_items: List[OriginalMediaRef]
+        structured: Dict[str, Any]
+        structured_matches: bool
+        for attempt in range(1, _READINESS_MAX_ATTEMPTS + 1):
+            try:
+                sample = await page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, product_id)
+            except Exception as e:
+                raise SourcePackExtractionError(f"Failed to evaluate Shopee extraction script: {e}") from e
 
-        if data.get("blocked"):
-            raise SourcePackBlockedError("Shopee anti-bot verification or captcha detected")
+            if not sample or not isinstance(sample, dict):
+                raise SourcePackExtractionError("Extraction script returned invalid/empty data")
 
-        source_pack_id = build_source_pack_id("shopee", product_id, product_url)
-        seen_urls: Set[str] = set()
-        media_items: List[OriginalMediaRef] = []
-        ordinal = 0
+            if sample.get("blocked"):
+                raise SourcePackBlockedError("Shopee anti-bot verification or captcha detected")
 
-        def add_media(
-            url: str,
-            role: MediaRole,
-            provenance: MediaProvenance,
-            variant_label: Optional[str] = None,
-        ) -> None:
-            nonlocal ordinal
-            if not url or url in seen_urls:
-                return
-            if not (url.startswith("http://") or url.startswith("https://")):
-                return
-            seen_urls.add(url)
-            media_items.append(
-                OriginalMediaRef(
-                    source_url=url,
-                    platform="shopee",
-                    role=role,
-                    provenance=provenance,
-                    ordinal=ordinal,
-                    variant_label=variant_label,
-                )
-            )
-            ordinal += 1
+            media_items, structured, structured_matches = _interpret_trusted_media(sample, product_id)
+            if media_items:
+                break
 
-        structured = data.get("structured", {})
-        structured_matches = (structured.get("product_id") == product_id)
-
-        # Priority 1: Structured Product Data (ONLY when identity matches target product)
-        if structured_matches:
-            for url in structured.get("images", []):
-                add_media(url, MediaRole.PRIMARY, MediaProvenance.STRUCTURED_PRODUCT_DATA)
-
-        # Priority 2: Semantic Gallery
-        for url in data.get("gallery", []):
-            role = MediaRole.PRIMARY if not media_items else MediaRole.GALLERY
-            add_media(url, role, MediaProvenance.SEMANTIC_PRODUCT_GALLERY)
-
-        # Priority 2.5: Semantic Variants
-        for var_item in data.get("variants", []):
-            if isinstance(var_item, dict) and var_item.get("url"):
-                add_media(
-                    var_item["url"],
-                    MediaRole.VARIANT,
-                    MediaProvenance.SEMANTIC_VARIANT_MEDIA,
-                    variant_label=var_item.get("label"),
-                )
-
-        # Priority 3: Seller Description
-        for url in data.get("description_media", []):
-            add_media(url, MediaRole.SELLER_DESCRIPTION, MediaProvenance.SEMANTIC_SELLER_DESCRIPTION)
-
-        # Priority 4: Bounded Scoped Fallback
-        for url in data.get("fallback_media", []):
-            add_media(url, MediaRole.GALLERY, MediaProvenance.PLATFORM_SCOPED_FALLBACK)
-
-        # Fail closed when no trusted media could be accepted
-        if not media_items:
+            if attempt < _READINESS_MAX_ATTEMPTS:
+                await _readiness_sleep(_READINESS_POLL_INTERVAL_SECONDS)
+        else:
             raise SourcePackExtractionError(
                 f"No trusted seller-product media could be extracted for Shopee product {product_id} ({product_url})"
             )
+
+        source_pack_id = build_source_pack_id("shopee", product_id, product_url)
 
         # Build facts
         facts: List[ProductFact] = []

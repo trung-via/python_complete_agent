@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 import pytest
@@ -18,21 +18,35 @@ import src.integrations.playwright.session as playwright_session_module
 
 
 class FakeSession:
-    def __init__(self, evaluate_data: Optional[Dict[str, Any]] = None, raise_on_eval: bool = False):
+    def __init__(
+        self,
+        evaluate_data: Optional[Dict[str, Any]] = None,
+        raise_on_eval: bool = False,
+        *,
+        evaluate_results: Optional[List[Any]] = None,
+    ):
         self.evaluate_data = evaluate_data
+        self.evaluate_results = list(evaluate_results) if evaluate_results is not None else None
         self.raise_on_eval = raise_on_eval
         self.navigated_url = None
+        self.navigation_count = 0
+        self.evaluate_count = 0
         self.evaluated_script = None
         self.evaluated_args = None
 
     async def navigate(self, url: str, **kwargs: Any) -> None:
         self.navigated_url = url
+        self.navigation_count += 1
 
     async def evaluate(self, script: str, *args: Any) -> Any:
         self.evaluated_script = script
         self.evaluated_args = args
+        result_index = self.evaluate_count
+        self.evaluate_count += 1
         if self.raise_on_eval:
             raise RuntimeError("Browser session evaluate failed")
+        if self.evaluate_results is not None:
+            return self.evaluate_results[min(result_index, len(self.evaluate_results) - 1)]
         return self.evaluate_data
 
 
@@ -41,12 +55,116 @@ class StrictFakeBrowserManager:
     def __init__(self, session: FakeSession):
         self._session = session
         self.received_run_id = None
+        self.acquisition_count = 0
 
     async def get_or_create_session(self, run_id: str, config: Optional[Any] = None) -> FakeSession:
         if not isinstance(run_id, str) or not run_id.strip():
             raise TypeError("run_id must be a non-empty string")
         self.received_run_id = run_id
+        self.acquisition_count += 1
         return self._session
+
+
+@pytest.fixture(autouse=True)
+def no_real_readiness_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _instant_sleep(_seconds: float) -> None:
+        return None
+
+    monkeypatch.setattr("src.product_source.platforms.shopee._readiness_sleep", _instant_sleep)
+
+
+def _media_empty_sample() -> Dict[str, Any]:
+    return {
+        "structured": {"title": "Hydrating Product", "product_id": "456789", "images": []},
+        "gallery": [],
+        "variants": [],
+        "description_media": [],
+        "fallback_media": [],
+        "blocked": False,
+    }
+
+
+def _ready_sample() -> Dict[str, Any]:
+    return {
+        "structured": {
+            "title": "Hydrated Product",
+            "product_id": "456789",
+            "images": ["https://cf.shopee.vn/file/hydrated.jpg"],
+            "specs": [],
+        },
+        "gallery": [],
+        "variants": [],
+        "description_media": [],
+        "fallback_media": [],
+        "blocked": False,
+    }
+
+
+@pytest.mark.asyncio
+async def test_shopee_extractor_delayed_hydration_uses_one_acquisition_and_navigation(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    sleep_calls: List[float] = []
+
+    async def _record_sleep(seconds: float) -> None:
+        sleep_calls.append(seconds)
+
+    monkeypatch.setattr("src.product_source.platforms.shopee._readiness_sleep", _record_sleep)
+    session = FakeSession(evaluate_results=[_media_empty_sample(), _media_empty_sample(), _ready_sample()])
+    manager = StrictFakeBrowserManager(session)
+    extractor = ShopeeSourceExtractor(browser=manager)
+
+    pack = await extractor.extract("https://shopee.vn/product/123/456789", run_id="hydration-run")
+
+    assert [item.source_url for item in pack.media] == ["https://cf.shopee.vn/file/hydrated.jpg"]
+    assert manager.acquisition_count == 1
+    assert session.navigation_count == 1
+    assert session.evaluate_count == 3
+    assert sleep_calls == [0.5, 0.5]
+    assert session.evaluated_script == _SHOPEE_EXTRACTION_SCRIPT
+    assert session.evaluated_args == ("456789",)
+
+
+@pytest.mark.asyncio
+async def test_shopee_extractor_first_ready_sample_terminates_immediately(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    sleep_calls: List[float] = []
+
+    async def _record_sleep(seconds: float) -> None:
+        sleep_calls.append(seconds)
+
+    monkeypatch.setattr("src.product_source.platforms.shopee._readiness_sleep", _record_sleep)
+    session = FakeSession(evaluate_results=[_ready_sample(), _media_empty_sample()])
+
+    pack = await ShopeeSourceExtractor(browser=session).extract("https://shopee.vn/product/123/456789")
+
+    assert pack.title == "Hydrated Product"
+    assert session.evaluate_count == 1
+    assert session.navigation_count == 1
+    assert sleep_calls == []
+
+
+@pytest.mark.asyncio
+async def test_shopee_extractor_delayed_blocked_state_terminates_immediately(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    sleep_calls: List[float] = []
+
+    async def _record_sleep(seconds: float) -> None:
+        sleep_calls.append(seconds)
+
+    monkeypatch.setattr("src.product_source.platforms.shopee._readiness_sleep", _record_sleep)
+    session = FakeSession(
+        evaluate_results=[_media_empty_sample(), {"blocked": True}, _ready_sample()]
+    )
+
+    with pytest.raises(SourcePackBlockedError):
+        await ShopeeSourceExtractor(browser=session).extract("https://shopee.vn/product/123/456789")
+
+    assert session.evaluate_count == 2
+    assert session.navigation_count == 1
+    assert sleep_calls == [0.5]
 
 
 @pytest.mark.asyncio
@@ -121,21 +239,67 @@ async def test_shopee_extractor_rejects_unrelated_structured_data_on_identity_mi
 
 
 @pytest.mark.asyncio
-async def test_shopee_extractor_fails_closed_when_no_media_found():
+async def test_shopee_extractor_fails_closed_when_no_media_found(
+    monkeypatch: pytest.MonkeyPatch,
+):
     """Exhausting all extraction paths without media raises SourcePackExtractionError."""
-    eval_data = {
-        "structured": {"title": "No Media Product", "product_id": "456789", "images": []},
-        "gallery": [],
-        "variants": [],
-        "description_media": [],
-        "fallback_media": [],
-        "blocked": False,
-    }
-    session = FakeSession(eval_data)
+    sleep_calls: List[float] = []
+
+    async def _record_sleep(seconds: float) -> None:
+        sleep_calls.append(seconds)
+
+    monkeypatch.setattr("src.product_source.platforms.shopee._readiness_sleep", _record_sleep)
+    session = FakeSession(_media_empty_sample())
     extractor = ShopeeSourceExtractor(browser=session)
 
     with pytest.raises(SourcePackExtractionError, match="No trusted seller-product media"):
         await extractor.extract("https://shopee.vn/product/123/456789")
+
+    assert session.evaluate_count == 10
+    assert session.navigation_count == 1
+    assert sleep_calls == [0.5] * 9
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("invalid_payload", [None, [], {}])
+async def test_shopee_extractor_invalid_payload_fails_without_retry(
+    invalid_payload: Any,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    sleep_calls: List[float] = []
+
+    async def _record_sleep(seconds: float) -> None:
+        sleep_calls.append(seconds)
+
+    monkeypatch.setattr("src.product_source.platforms.shopee._readiness_sleep", _record_sleep)
+    session = FakeSession(evaluate_results=[invalid_payload, _ready_sample()])
+
+    with pytest.raises(SourcePackExtractionError, match="invalid/empty data"):
+        await ShopeeSourceExtractor(browser=session).extract("https://shopee.vn/product/123/456789")
+
+    assert session.evaluate_count == 1
+    assert session.navigation_count == 1
+    assert sleep_calls == []
+
+
+@pytest.mark.asyncio
+async def test_shopee_extractor_evaluate_error_fails_without_retry(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    sleep_calls: List[float] = []
+
+    async def _record_sleep(seconds: float) -> None:
+        sleep_calls.append(seconds)
+
+    monkeypatch.setattr("src.product_source.platforms.shopee._readiness_sleep", _record_sleep)
+    session = FakeSession(_ready_sample(), raise_on_eval=True)
+
+    with pytest.raises(SourcePackExtractionError, match="Failed to evaluate Shopee extraction script"):
+        await ShopeeSourceExtractor(browser=session).extract("https://shopee.vn/product/123/456789")
+
+    assert session.evaluate_count == 1
+    assert session.navigation_count == 1
+    assert sleep_calls == []
 
 
 @pytest.mark.asyncio
