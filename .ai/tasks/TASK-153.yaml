@@ -1,0 +1,137 @@
+task_id: TASK-153
+revision: 1
+
+goal: >
+  Harden the existing ShopeeDiscoveryAdapter card-to-snapshot mapping boundary so valid
+  live extraction payloads containing explicit JSON null values cannot crash discovery.
+  Preserve ShopeeDiscoveryAdapter as the sole Shopee discovery authority and make no
+  changes to TASK-151 readiness/extraction semantics, ranking, browser lifecycle, Product
+  Source Pack acquisition, or Product Intelligence truth authority.
+
+problem: >
+  Published TASK-151 fixed Shopee live search readiness and product-anchor fallback.
+  Successor certification RUN-152-001 then progressed past the prior zero-card failure but
+  failed during live discovery with "'NoneType' object has no attribute 'strip'" while the
+  focused offline suite passed 121 tests. The failed TASK-152 candidate remained clean,
+  in-scope, repairable, and unpublished. Inspection of ShopeeDiscoveryAdapter shows
+  _map_card_to_snapshot calls .strip() directly on values returned by card_dict.get(...)
+  for required title/href and optional shop_name/shop_id. The extraction script may
+  legitimately emit JSON null for absent DOM attributes, so a valid sparse live card can
+  raise AttributeError before a ProductCandidateSnapshot is produced. The existing TikTok
+  adapter already demonstrates null-safe handling at the same mapping boundary.
+
+assumptions:
+  - >
+    Canonical main immediately before TASK-153 authoring is
+    55cc13ae4671131604d152bac2317c3f565af462, the TASK-152 author commit whose parent is
+    published TASK-151 source candidate 39f39df0efe23c0d18a7292a0b27f92f40a64832.
+  - >
+    RUN-152-001 is the latest canonical failed certification attempt. Its failed_head_sha is
+    f3836e8bac206e65dbe789633eec0f680220f6a6; offline verification passed 121 tests and live
+    verification failed with explicit AttributeError text followed by the sanitized outer
+    category LIVE_DISCOVERY_UNAVAILABLE.
+  - >
+    TASK-152 forbids production Python changes, so RUN-152-001 cannot be corrected by a
+    product-code REPAIR within TASK-152 correction authority. Its failed candidate must
+    remain historical certification evidence and must not be published or cherry-picked.
+  - >
+    ShopeeDiscoveryAdapter remains the existing Shopee discovery/mapping authority.
+    TASK-151 remains CLOSED and owns the current bounded readiness sampling and product-anchor
+    fallback behavior. This task is a narrow regression hardening inside the same adapter.
+  - >
+    The authoritative AIOS dependency remains exactly
+    aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@67db82bf19d63f25721d06aabb82d850db8b78d4.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_6_M2_DISCOVERY.md
+    - .ai/tasks/TASK-151.yaml
+    - .ai/tasks/TASK-152.yaml
+    - src/product_intelligence/adapters/shopee.py
+    - src/product_intelligence/adapters/tiktok.py
+    - src/product_intelligence/adapters/shopee_parsing.py
+    - tests/product_intelligence/test_shopee_discovery.py
+
+  modify:
+    - src/product_intelligence/adapters/shopee.py
+    - tests/product_intelligence/test_shopee_discovery.py
+
+non_goals:
+  - Modify TASK-152 certification fixture, docs, failure artifacts, or candidate.
+  - Modify TASK-151 readiness bounds, polling, block/empty behavior, anchor fallback,
+    extraction selectors, navigation count, page/session acquisition, or browser cleanup.
+  - Modify TikTok discovery, orchestration, ranking/scoring, CLI, approval/queue, scraper
+    tools, Product Source Pack extraction/serialization, Drive integration, catalog,
+    grounded QA, or AIOS-renew.
+  - Add retry, fallback, alternate query/platform, CAPTCHA automation, browser restart,
+    synthetic marketplace facts, or a second Shopee mapper/adapter.
+  - Add live marketplace verification. A new successor certification must run only after
+    this blocker is published.
+
+constraints:
+  hard:
+    - >
+      Keep _map_card_to_snapshot as the sole Shopee card mapping path. Do not create a second
+      mapper or change its public/caller-visible contract.
+    - >
+      Required title and href must tolerate explicit None without raising. Missing, None,
+      empty, or whitespace-only required values must continue to return None for that card
+      rather than fabricate text or URL data.
+    - >
+      Optional shop_name and shop_id must tolerate explicit None without raising. Missing,
+      None, empty, or whitespace-only optional values must remain None in the resulting
+      ProductCandidateSnapshot.
+    - >
+      For string values, preserve existing trimming behavior. Do not infer or fabricate
+      title, href, shop name, shop id, item id, price, sold count, rating, review count, or
+      any other marketplace fact from unrelated fields.
+    - >
+      Do not alter existing parse_shopee_* helpers, candidate identity construction,
+      deduplication, pagination, max-candidate behavior, diagnostics, error classes,
+      readiness sampling, extraction script, browser ownership, or navigation behavior.
+    - >
+      Add focused offline regression tests that exercise explicit None for optional
+      shop_name/shop_id on an otherwise valid card and prove discovery succeeds with those
+      snapshot fields equal to None.
+    - >
+      Add focused offline regression tests that exercise explicit None for required title or
+      href and prove the malformed card is skipped deterministically without AttributeError,
+      without fabricating a candidate, and without changing sibling-card behavior.
+    - >
+      Preserve all existing TASK-151 regression tests and prove the complete focused Shopee
+      discovery/orchestration/CLI/browser suite remains green with zero network or real sleep.
+    - Do not push from Executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Only src/product_intelligence/adapters/shopee.py and
+      tests/product_intelligence/test_shopee_discovery.py change.
+  - id: AC2
+    condition: >
+      Explicit None title/href values cannot raise AttributeError and malformed cards remain
+      deterministically skipped without fabricated candidates.
+  - id: AC3
+    condition: >
+      Explicit None shop_name/shop_id values cannot raise AttributeError and remain exact
+      None on otherwise valid ProductCandidateSnapshot values.
+  - id: AC4
+    condition: >
+      Existing Shopee parsing, identity, dedupe, pagination, diagnostics, readiness,
+      extraction fallback, browser ownership, navigation-count, and block/empty semantics
+      remain unchanged.
+  - id: AC5
+    condition: >
+      Focused offline regressions cover required and optional explicit-None payloads plus the
+      existing TASK-151 suite, with no live marketplace/CDP request and no real readiness
+      sleep.
+  - id: AC6
+    condition: >
+      Required verification and git diff check pass with zero unresolved items and no
+      changes outside TASK-153 scope.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_shopee_discovery.py tests/product_intelligence/test_orchestration.py tests/product_intelligence/test_product_intelligence_cli.py tests/integration/test_browser_cdp.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
