@@ -23,7 +23,7 @@ DOCS_FILE = REPO_ROOT / "docs" / "AIOS_UNIFIED_WORKER_WORKFLOW.md"
 BASE_SHA = "1" * 40
 HEAD_SHA = "2" * 40
 FAILED_HEAD_SHA = "3" * 40
-STALE_AUTHORITATIVE_COMMIT = "6893d44a3b8478cadb4bdceab6e671324a54d954"
+STALE_AUTHORITATIVE_COMMIT = "ba0cc66324fc2310812945a351bfc001a41f99f8"
 
 if str(SCRIPT.parent) not in sys.path:
     sys.path.insert(0, str(SCRIPT.parent))
@@ -76,7 +76,7 @@ class TestImmutableRuntimePin:
         assert active == [aw.PIN_LINE]
         assert active == [
             "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
-            "ba0cc66324fc2310812945a351bfc001a41f99f8"
+            "32ace104c5cfaa1b7affbaa40157872b1f85147f"
         ]
 
     def test_authoritative_pep610_metadata_is_accepted(self):
@@ -1185,6 +1185,47 @@ class TestSurfaceAndDocumentation:
             assert "Current-head FIX" in text
             assert "automatic merge" in text
             assert "Runtime-owned" in text
+
+    def test_docs_record_native_remediation_and_repair_schema_boundaries(self):
+        for path in (SKILL_FILE, WORKFLOW_FILE, DOCS_FILE):
+            text = path.read_text(encoding="utf-8")
+            assert "TASK-079" in text
+            assert "TASK-080" in text
+            assert "RUN-156-007 class" in text
+            assert "non-empty remediation claims" in text
+            assert "RUN-079-002 class" in text
+            assert "empty claims" in text
+            assert "PRIMARY semantics are unchanged" in text
+            assert "Runtime remains authoritative" in text
+            assert "dynamic complete original TASK acceptance coverage" in text
+            assert "canonical changed_files" in text
+            assert "verification, EVIDENCE" in text
+
+    def test_launcher_has_no_task_079_or_task_080_resultpackage_authority(self):
+        source = SCRIPT.read_text(encoding="utf-8").lower()
+        for forbidden in (
+            "task-079",
+            "task-080",
+            "resultpackage",
+            "acceptance_ids",
+            "acceptance_criteria",
+            "per_task_schema",
+            "remediation_schema",
+            "repair_schema",
+            "normalize_claims",
+            "synthesize_claims",
+            "structural_output_repair",
+            "reusable_candidate",
+            "load_historical_task",
+            "isolated_subject",
+            "reviewed_lineage",
+            "automatic_retry",
+            "claims",
+            "unresolved",
+            "root_evidence",
+            "claim_evidence",
+        ):
+            assert forbidden not in source
 
     def test_launcher_remains_thin_without_token_telemetry_or_remediation_filtering(self):
         source = SCRIPT.read_text(encoding="utf-8")

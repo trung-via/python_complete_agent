@@ -208,7 +208,7 @@ an executor or become a second status/review authority.
 
 ## Adopted Upstream Capabilities and Boundaries
 
-Under the pinned commit `ba0cc66324fc2310812945a351bfc001a41f99f8`, Python Agent adopts:
+Under the pinned commit `32ace104c5cfaa1b7affbaa40157872b1f85147f`, Python Agent adopts:
 - **TASK-064**: Eligible NO_CHANGE verification-only continuation may invoke zero Executors
   only when the pinned Runtime proves all canonical reuse preconditions. The worker remains
   thin and makes no fast-path decisions.
@@ -242,6 +242,19 @@ Under the pinned commit `ba0cc66324fc2310812945a351bfc001a41f99f8`, Python Agent
   REPAIR-continuable; pre-admission historical subject defects fail closed without a synthetic
   RUN. Current-head FIX remains compatible, and historical success grants no automatic
   publication integration. All lineage, isolation, persistence, and policy remain Runtime-owned.
+- **TASK-079**: Native REMEDIATION uses a remediation-specific structural schema that requires
+  empty root evidence, claims, and unresolved. It therefore rejects the RUN-156-007 class of
+  non-empty remediation claims before they can be structurally valid. The worker does not inspect,
+  generate, strip, normalize, synthesize, or validate these ResultPackage arrays. Runtime remains
+  authoritative for fail-closed completion, semantic acceptance coverage, changed_files,
+  verification, EVIDENCE, lineage, and publication. PRIMARY semantics are unchanged.
+- **TASK-080**: Native REPAIR uses a repair-specific structural schema that requires at least one
+  structurally valid claim plus empty unresolved, root evidence, and per-claim evidence. It
+  therefore rejects the RUN-079-002 class of empty claims before they can be structurally valid.
+  The worker does not enumerate TASK acceptance IDs, generate per-TASK schemas, synthesize claims,
+  repair output, or decide reusable-candidate or historical-recovery policy. Runtime remains
+  authoritative for dynamic complete original TASK acceptance coverage, canonical changed_files,
+  verification, EVIDENCE, lineage, and publication. PRIMARY semantics are unchanged.
 
 Capabilities present in upstream history but **not** exposed by this downstream worker:
 - **TASK-066 / TASK-068..TASK-074**: Although the exact package contains this intervening
@@ -254,7 +267,7 @@ Capabilities present in upstream history but **not** exposed by this downstream 
 ## Immutable Kernel Pin
 
 The only authoritative AIOS-renew kernel is commit
-`ba0cc66324fc2310812945a351bfc001a41f99f8`. Installed provenance for the prior
-`6893d44a3b8478cadb4bdceab6e671324a54d954` pin is stale. The launcher validates both the
+`32ace104c5cfaa1b7affbaa40157872b1f85147f`. Installed provenance for the prior
+`ba0cc66324fc2310812945a351bfc001a41f99f8` pin is stale. The launcher validates both the
 checked-in dependency pin and installed PEP 610 source+commit provenance and
 atomically replaces stale or unverifiable worker runtimes.

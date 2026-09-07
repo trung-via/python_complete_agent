@@ -1,8 +1,8 @@
 # AIOS Unified Worker Workflow
 
-As of TASK-160 revision 1, the repository-owned Codex and Antigravity worker
+As of TASK-161 revision 1, the repository-owned Codex and Antigravity worker
 surfaces delegate exclusively to the immutable AIOS-renew kernel at commit
-`ba0cc66324fc2310812945a351bfc001a41f99f8`. Legacy AIOS Bridge source remains
+`32ace104c5cfaa1b7affbaa40157872b1f85147f`. Legacy AIOS Bridge source remains
 archived in this repository, but it is inactive and unreachable from these
 RUN/FIX/REPAIR/STATUS surfaces.
 
@@ -220,6 +220,19 @@ second semantic state store.
   RUN. Current-head FIX remains compatible, and historical success grants no automatic
   publication integration. The worker owns none of the lineage, isolation, persistence, or
   policy decisions.
+- **TASK-079 Native REMEDIATION Structure**: The native remediation-specific schema requires
+  empty root evidence, claims, and unresolved, structurally rejecting the RUN-156-007 class of
+  non-empty remediation claims. The worker does not inspect, generate, strip, normalize,
+  synthesize, or validate these ResultPackage arrays. Runtime remains authoritative for
+  fail-closed completion, semantic acceptance coverage, changed_files, verification, EVIDENCE,
+  lineage, and publication. PRIMARY semantics are unchanged.
+- **TASK-080 Native REPAIR Structure**: The native repair-specific schema requires at least one
+  structurally valid claim and empty unresolved, root evidence, and per-claim evidence,
+  structurally rejecting the RUN-079-002 class of empty claims. The worker does not enumerate
+  TASK acceptance IDs, generate per-TASK schemas, synthesize claims, repair structural output,
+  or decide reusable-candidate or historical-recovery policy. Runtime remains authoritative for
+  dynamic complete original TASK acceptance coverage, canonical changed_files, verification,
+  EVIDENCE, lineage, and publication. PRIMARY semantics are unchanged.
 - **TASK-066 / TASK-068..TASK-074 Upstream Boundary**: Although the exact pinned package
   contains this intervening Runtime history, Python Agent does not adopt AIOS-renew workflow
   files, upstream remote approval/status workflow, wakeup workflow, dispatch-reconciliation,
@@ -303,5 +316,5 @@ branches or caches that do not expose `/aios-renew-worker` fail closed instead o
 falling back to legacy `/aios-worker` semantics.
 
 Both active worker surfaces use exactly AIOS-renew commit
-`ba0cc66324fc2310812945a351bfc001a41f99f8`. Installed provenance for the prior
-`6893d44a3b8478cadb4bdceab6e671324a54d954` pin is stale and is atomically replaced.
+`32ace104c5cfaa1b7affbaa40157872b1f85147f`. Installed provenance for the prior
+`ba0cc66324fc2310812945a351bfc001a41f99f8` pin is stale and is atomically replaced.
