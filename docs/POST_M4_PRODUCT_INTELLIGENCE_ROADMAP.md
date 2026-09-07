@@ -1,8 +1,8 @@
 # Post-M4 Product Intelligence Roadmap — Live Product Enablement
 
 Status: canonical post-M4 architecture roadmap; P1-P5 CLOSED; P6 CURRENT / IN
-PROGRESS (P6.0 IN PROGRESS; P6.0a conditionally closed upon TASK-154 Runtime +
-semantic review PASS; P6.0b NEXT)
+PROGRESS (P6.0a CLOSED; TASK-156 is the P6.0b / P6.0 closure gate; P6.1 becomes
+NEXT only after that gate passes)
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
 ## 1. Starting point
@@ -193,7 +193,7 @@ Phase 6 is explicitly ordered as a `certify -> evaluate -> improve` discipline:
 Certify live operational boundaries against real marketplace targets using operator-owned
 authenticated CDP sessions before building downstream quality or scale features. Full live
 production certification remains distinct from provider-only TASK-144.
-- **P6.0a Successor Live Marketplace Discovery -> Persisted Product Source Pack Certification (TASK-154 — conditionally closed upon Runtime + semantic PASS)**:
+- **P6.0a Successor Live Marketplace Discovery -> Persisted Product Source Pack Certification (TASK-154 — CLOSED)**:
   Re-established from published TASK-151 + TASK-153 hardened main. Certifies only one explicit current
   marketplace route (`shopee` or `tiktok`) discovering a candidate and persisting typed V1
   `ProductSourcePack` evidence beneath `tmp_path`, rehydrated via TASK-125.
@@ -203,14 +203,26 @@ production certification remains distinct from provider-only TASK-144.
   creating new semantic authority. TASK-154 itself certifies only one explicit current marketplace
   route through real local evidence. It does not claim both marketplaces, Google Drive, Human
   approval/queue, M3 admission, grounded QA, product truth, semantic retrieval, identity migration,
-  automation, or serving are certified. P6.0a is closed if and only if TASK-154 canonical Runtime
-  verification and semantic review both PASS; P6.0 remains IN PROGRESS with P6.0b NEXT.
-- **P6.0b Real-Evidence Canonical Knowledge + Grounded-QA Certification (NEXT / UNIMPLEMENTED / FUTURE)**:
-  Certifies downstream intake, admission, and grounded QA on real acquired marketplace evidence.
+  automation, or serving are certified. P6.0a is unambiguously CLOSED by published candidate
+  `27ec982a96619379e8e387f0e8781b9503be2c59` after RUN-154-005 Runtime PASS and
+  RUN-154-006 documentation DELTA PASS.
+- **TASK-155 Execution-Substrate Adoption — CLOSED / NOT A PRODUCT INTELLIGENCE MILESTONE**:
+  TASK-155 changes only the pinned AIOS-renew execution substrate and worker certification. It adds
+  no Product Intelligence capability, milestone, or semantic authority.
+- **P6.0b Real-Evidence Canonical Knowledge + Grounded-QA Certification (TASK-156 — CLOSURE GATE)**:
+  Certifies two genuine observations of one discovered listing through exact TASK-138 intake,
+  TASK-139/TASK-140 disposable family admission, two TASK-141 singleton-variant admissions,
+  TASK-120 SQLite durability, and TASK-135 persistent grounded QA with a deterministic zero-network
+  provider. Test-local APPROVE decisions and opaque IDs exercise existing Human-governed APIs only.
+  TASK-156 introduces no real Human production approval, product truth, production ID allocation,
+  semantic/vector retrieval, live-provider certification, autonomous review, cache, or serving
+  authority. P6.0b and P6.0 are CLOSED if and only if TASK-156 canonical Runtime verification and
+  semantic review both PASS; otherwise P6.0 remains IN PROGRESS.
 
-#### P6.1 Retrieval-Quality Evaluation / Baseline — UNIMPLEMENTED / FUTURE
+#### P6.1 Retrieval-Quality Evaluation / Baseline — NEXT ONLY AFTER TASK-156 PASSES
 Establish empirical retrieval benchmarks (precision, recall, citation accuracy) using the existing
 lexical retrieval baseline (TASK-122) on real product evidence before introducing any semantic retrieval.
+P6.1 becomes NEXT only after TASK-156 canonical Runtime verification and semantic review both PASS.
 
 #### P6.2 Conditional Semantic / Vector Retrieval or Reranking — UNIMPLEMENTED / FUTURE
 Introduce semantic/vector retrieval or reranking only if measured P6.1 evidence justifies it.
@@ -245,11 +257,13 @@ P6 is CURRENT / IN PROGRESS under the post-P5 quality and scale architecture aud
 (`docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md`). P6.0 Live Real-Evidence Certification is
 CURRENT / IN PROGRESS. Published TASK-151 hardened live Shopee discovery readiness and published
 TASK-153 hardened live Shopee card mapping. TASK-150 and TASK-152 remain failed historical
-certification evidence. TASK-154 executes the P6.0a successor certification (Live Marketplace
-Discovery -> Persisted Product Source Pack Certification) on the published TASK-151 + TASK-153
-hardened baseline. TASK-154 itself certifies only one explicit current marketplace route through
-real local evidence. P6.0a is closed if and only if TASK-154 canonical Runtime verification and
-semantic review both PASS; P6.0 remains IN PROGRESS with P6.0b NEXT.
+certification evidence. Published TASK-154 candidate
+`27ec982a96619379e8e387f0e8781b9503be2c59` unambiguously closes P6.0a after proving the
+one-route Live Marketplace Discovery -> Persisted Product Source Pack boundary. TASK-155 is closed
+execution-substrate adoption only, not a Product Intelligence milestone. TASK-156 is the P6.0b / P6.0
+closure gate. P6.0b and P6.0 are CLOSED if and only if TASK-156 canonical Runtime verification and
+semantic review both PASS; otherwise P6.0 remains IN PROGRESS. P6.1 becomes NEXT only after that
+condition is satisfied, preserving the canonical CERTIFY -> EVALUATE -> IMPROVE ordering.
 
 ## 4. Authority invariants
 

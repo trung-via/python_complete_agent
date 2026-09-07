@@ -1,6 +1,6 @@
 # Post-P5 P6 Quality and Scale Roadmap
 
-Status: **P6 CURRENT / IN PROGRESS (P6.0 IN PROGRESS; P6.0a conditionally closed upon TASK-154 Runtime + semantic review PASS; P6.0b NEXT)**
+Status: **P6 CURRENT / IN PROGRESS (P6.0a CLOSED; TASK-156 is the P6.0b / P6.0 closure gate; P6.1 becomes NEXT only after that gate passes)**
 Scope: Python Agent product architecture post-P5; AIOS-renew remains execution substrate only.
 
 ## 1. Canonical Post-P5 Architecture Audit
@@ -11,9 +11,10 @@ live discovery and shortlisting (`discover`), in-process live decision to ingest
 family decision and durable admission (`family-decide`), and sellable-variant review, decision,
 and durable admission (`variant-decide`).
 
-However, while P1 through P5 components operate correctly against deterministic test harnesses, the
-end-to-end acquisition pipeline has not yet achieved successful live certification on real marketplace
-listings to prove that live discovery produces genuine, persisted, typed `ProductSourcePack` evidence.
+P1 through P5 components operate correctly against deterministic test harnesses, and published TASK-154
+has now certified one live marketplace discovery-to-acquisition route producing genuine, persisted,
+typed `ProductSourcePack` evidence. The remaining P6.0 gap is downstream composition of real evidence
+through canonical knowledge admission and persistent grounded QA.
 
 Historical certification and blocker lineage:
 - **TASK-150**: Attempted P6.0a certification, but its candidate was never published. Execution lineage
@@ -32,10 +33,17 @@ Historical certification and blocker lineage:
   REVIEW-153-002 DELTA PASS, candidate `d8be80c1ea5edc1fca1c2c7c10919431f142d9c9`). It made `_map_card_to_snapshot`
   null-safe for required and optional fields without altering parsing or identity semantics.
 - Neither blocker correction (TASK-151 / TASK-153) creates a new semantic authority.
-- **TASK-154**: Executes the P6.0a successor certification re-establishing live marketplace discovery
-  to persisted `ProductSourcePack` certification on the published TASK-151 + TASK-153 hardened baseline.
-  P6.0a is closed if and only if TASK-154 canonical Runtime verification and semantic review both PASS;
-  P6.0 remains IN PROGRESS with P6.0b NEXT.
+- **TASK-154**: P6.0a is unambiguously CLOSED by published candidate
+  `27ec982a96619379e8e387f0e8781b9503be2c59`. RUN-154-005 proved the live marketplace
+  discovery-to-persisted-`ProductSourcePack` route, and RUN-154-006 closed the documentation
+  finding with DELTA PASS. Historical TASK-150 and TASK-152 failures remain preserved.
+- **TASK-155**: CLOSED execution-substrate adoption only. It updates the pinned AIOS-renew worker
+  substrate and certification and creates no Product Intelligence milestone or semantic authority.
+- **TASK-156**: The certification-only P6.0b gate composes two genuine observations of one discovered
+  listing through TASK-138 intake, TASK-139/TASK-140 family review and disposable admission,
+  TASK-141 singleton-variant admissions, TASK-120 SQLite durability, and TASK-135 persistent
+  grounded QA. P6.0b and P6.0 are CLOSED if and only if TASK-156 canonical Runtime verification
+  and semantic review both PASS; otherwise P6.0 remains IN PROGRESS.
 
 Attempting to introduce semantic retrieval, vector search, product-truth reconciliation, identity
 migrations, automated review, or background serving before acquiring and evaluating real evidence
@@ -56,7 +64,7 @@ authenticated CDP sessions before building quality or scale features on top of s
 Live full production certification remains distinct from provider-only TASK-144 (which verified
 only the Vertex AI LLM invocation transport).
 
-- **P6.0a Successor Live Marketplace Discovery -> Persisted Product Source Pack Certification (TASK-154 — conditionally closed upon Runtime + semantic PASS)**:
+- **P6.0a Successor Live Marketplace Discovery -> Persisted Product Source Pack Certification (TASK-154 — CLOSED)**:
   Re-establishes the first live evidence certification boundary from the published TASK-151 + TASK-153
   hardened main. Certifies that one explicit live marketplace route (`shopee` or `tiktok`) using the
   existing CDP browser manager, existing discovery adapter (with published TASK-151 readiness and
@@ -64,21 +72,28 @@ only the Vertex AI LLM invocation transport).
   listing and persist a valid, typed V1 `ProductSourcePack` locally beneath `tmp_path`. Rehydration is
   strictly verified through TASK-125 `deserialize_product_source_pack`. Google Drive publication is
   satisfied by a test-only zero-network Drive sink and is deliberately not certified. TASK-154 certifies
-  only one explicit marketplace route at a time. P6.0a is closed if and only if TASK-154 canonical
-  Runtime verification and semantic review both PASS; P6.0 remains IN PROGRESS with P6.0b NEXT.
-  Historical TASK-150 and TASK-152 remain preserved as historical failure evidence. Published
-  TASK-151 and TASK-153 remain narrow blocker corrections, not new semantic authorities.
+  only one explicit marketplace route at a time. P6.0a is CLOSED by published candidate
+  `27ec982a96619379e8e387f0e8781b9503be2c59`. Historical TASK-150 and TASK-152 remain
+  preserved as historical failure evidence. Published TASK-151 and TASK-153 remain narrow blocker
+  corrections, not new semantic authorities.
 
-- **P6.0b Real-Evidence Canonical Knowledge + Grounded-QA Certification (NEXT / UNIMPLEMENTED / FUTURE)**:
-  Certifies the downstream ingestion slice on real marketplace evidence: intaking real persisted
-  source packs via TASK-138, admitting them into canonical SQLite catalog state via P3 / M3,
-  and executing persistent grounded QA via TASK-135 against real evidence. P6.0 reaches CLOSED
-  status only after P6.0b certification is designed and successfully executed.
+- **P6.0b Real-Evidence Canonical Knowledge + Grounded-QA Certification (TASK-156 — CLOSURE GATE)**:
+  Certifies the downstream slice on real marketplace evidence: two genuine persisted observations
+  of the same discovered listing are intaken exactly once through TASK-138, reviewed and admitted
+  into a disposable TASK-120 SQLite catalog only through TASK-139/TASK-140, bound one observation
+  per explicit singleton variant only through TASK-141, and supplied by exact manifest paths to
+  TASK-135 with a deterministic zero-network provider. The test-local APPROVE decisions and opaque
+  IDs exercise published Human-governed APIs only; they are not real production Human decisions,
+  autonomous approval, production ID allocation, or a variant-discovery policy. TASK-156 adds no
+  product-truth, semantic/vector retrieval, live-provider certification, cache, or serving authority.
+  P6.0b and P6.0 are CLOSED if and only if TASK-156 canonical Runtime verification and semantic
+  review both PASS; otherwise P6.0 remains IN PROGRESS.
 
-### P6.1 Retrieval-Quality Evaluation / Baseline — UNIMPLEMENTED / FUTURE
+### P6.1 Retrieval-Quality Evaluation / Baseline — NEXT ONLY AFTER TASK-156 PASSES
 
 Establish rigorous, reproducible evaluation baselines for retrieval quality on real acquired
-product evidence before introducing any new retrieval paradigm.
+product evidence before introducing any new retrieval paradigm. P6.1 becomes NEXT only after
+TASK-156 canonical Runtime verification and semantic review both PASS.
 
 - Measure baseline precision, recall, and grounded-answer citation fidelity using the existing
   deterministic lexical retrieval engine (TASK-122).
@@ -107,7 +122,7 @@ or variant models).
   observation timestamp, or Human override).
 - Reconciled truth policies must remain decoupled from evidence capture: raw source pack facts
   must remain immutable and byte-preserving.
-- TASK-154 and P6.0 implement zero product-truth reconciliation.
+- TASK-154, TASK-156, and P6.0 implement zero product-truth reconciliation.
 
 ### P6.4 Identity Evolution and Migrations — UNIMPLEMENTED / FUTURE
 
@@ -150,8 +165,11 @@ workloads require them.
    - Human-facing presentation remains P5 authority.
 2. **Lineage Preservation**: TASK-150 (RUN-150-001..005) and TASK-152 (RUN-152-001) remain preserved
    as historical failure evidence; published TASK-151 and TASK-153 are recorded as prerequisite
-   blocker corrections; TASK-154 provides the P6.0a successor certification conditionally closed
-   upon Runtime plus semantic PASS, keeping P6.0 IN PROGRESS with P6.0b NEXT.
+   blocker corrections; published TASK-154 candidate
+   `27ec982a96619379e8e387f0e8781b9503be2c59` closes P6.0a. TASK-155 is execution-substrate
+   adoption only. TASK-156 is the P6.0b / P6.0 closure gate: both close if and only if its canonical
+   Runtime verification and semantic review PASS; otherwise P6.0 remains IN PROGRESS and P6.1 is
+   not yet NEXT.
 3. **Certification Isolation**: Live certification fixtures are certification-only modules
    (`tests/integration/`) and must never be imported by production Python code or define new APIs.
 4. **Fail-Closed Governance**: Live test fixtures must fail closed with sanitized error categories
