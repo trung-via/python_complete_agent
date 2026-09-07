@@ -1,0 +1,22 @@
+{
+  "repair_id": "REPAIR-156-002",
+  "failed_run_id": "RUN-156-002",
+  "failed_head_sha": "112a727ca8cde2a164b00c94122ded64d3b58f44",
+  "task": {
+    "id": "TASK-156",
+    "revision": 1
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "tests/integration/test_live_real_evidence_canonical_qa.py"
+  ],
+  "instructions": [
+    "Continue only from exact failed candidate 112a727ca8cde2a164b00c94122ded64d3b58f44 for RUN-156-002 and preserve Codex executor identity plus the RUN-156-001 -> RUN-156-002 repair lineage. Do not restart PRIMARY, reroute executor, rebase onto main, or modify production Python.",
+    "RUN-156-001 and its NO_CHANGE continuation RUN-156-002 both passed the full offline suite and failed only at live discovery with the same sanitized LIVE_P6B_DISCOVERY_UNAVAILABLE category. The current TASK-156 classifier collapses DiscoveryNavigationError, OrchestrationError, generic DiscoveryError, and browser/CDP-cause failures into that broad category, preventing deterministic diagnosis after repeated failure.",
+    "Modify only tests/integration/test_live_real_evidence_canonical_qa.py to adopt the already-published TASK-154 bounded class-level discovery diagnostic pattern: distinguish DiscoveryBlockedError, DiscoveryNavigationError, OrchestrationError, generic DiscoveryError, and browser/CDP unavailability without exposing raw exception text or external data. Preserve the existing LIVE_P6B_ prefix for TASK-156-specific discovery categories, except the existing shared LIVE_CDP_UNAVAILABLE category.",
+    "Add or update only pure/source-level classifier tests inside the same certification module proving the bounded categories and cause precedence. Do not change orchestrate_discovery call count, shortlist_size=1, query/platform/CDP configuration, browser/session behavior, adapters, readiness, extraction, ranking, acquisition, intake, P3 admission, grounded-QA flow, docs, or any production authority.",
+    "Do not inspect raw live exception messages in assertions and do not add logging that exposes URLs, HTML, cookies, headers, local paths, filenames, source-pack contents, or marketplace payloads. Any browser/CDP cause traversal must return only a bounded category.",
+    "After the narrow diagnostic change, allow the pinned Runtime alone to execute TASK-156 required verification. If live verification fails again, preserve the new canonical FAILURE exactly; the new category will determine whether the next action is environment/session handling or a narrow production blocker."
+  ],
+  "constraints": []
+}
