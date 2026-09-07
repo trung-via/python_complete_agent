@@ -1,0 +1,17 @@
+{
+  "repair_id": "REPAIR-160-001",
+  "failed_run_id": "RUN-160-001",
+  "failed_head_sha": "2f4202a00556673d486a37ac2266b5aabda1b70d",
+  "task": {
+    "id": "TASK-160",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue exactly from failed candidate 2f4202a00556673d486a37ac2266b5aabda1b70d without modifying repository files. RUN-160-001 failed at COMPLETION_GATE only because the structural ResultPackage did not satisfy AC8; canonical verification did not establish any source, test, documentation, worker, or pin defect.",
+    "Preserve the exact candidate HEAD and return one structurally complete ResultPackage for the unchanged TASK-160 candidate whose claims cover every TASK-160 acceptance criterion AC1 through AC8, including AC8 worker-certification and git-diff verification intent. Do not manufacture a commit, edit formatting, broaden scope, or change Product Intelligence/TASK-156 state merely to alter the ResultPackage.",
+    "Allow Runtime-owned completion and the canonical TASK-160 verification commands to decide the unchanged candidate. Preserve executor identity codex, the thin RUN/FIX/REPAIR/STATUS worker boundary, no retry/fallback/reroute, and no TASK-156 execution or mutation."
+  ],
+  "constraints": []
+}
