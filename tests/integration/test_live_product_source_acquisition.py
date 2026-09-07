@@ -23,11 +23,13 @@ from src.product_intelligence.discovery import (
     DiscoveryBatch,
     DiscoveryBlockedError,
     DiscoveryError,
+    DiscoveryInvalidRequestError,
     DiscoveryNavigationError,
     DiscoveryRequest,
 )
 from src.product_intelligence.orchestration import (
     OrchestrationError,
+    OrchestrationInvalidRequestError,
     PlatformDiscoveryPlan,
     orchestrate_discovery,
 )
@@ -135,6 +137,25 @@ def _is_browser_or_cdp_error(exc: BaseException) -> bool:
     return False
 
 
+def classify_discovery_failure(exc: BaseException) -> str:
+    """Classify discovery-phase exception to bounded sanitized category.
+
+    Preserves class-level diagnostics without exposing raw exception text,
+    URLs, HTML, page text, cookies, headers, paths, or other live data.
+    """
+    if isinstance(exc, DiscoveryBlockedError):
+        return "LIVE_DISCOVERY_BLOCKED"
+    if isinstance(exc, DiscoveryNavigationError):
+        return "LIVE_DISCOVERY_NAVIGATION"
+    if isinstance(exc, OrchestrationError):
+        return "LIVE_DISCOVERY_ORCHESTRATION"
+    if isinstance(exc, DiscoveryError):
+        return "LIVE_DISCOVERY_ERROR"
+    if _is_browser_or_cdp_error(exc):
+        return "LIVE_CDP_UNAVAILABLE"
+    return "LIVE_DISCOVERY_UNAVAILABLE"
+
+
 def _fail_sanitized(category: str) -> None:
     """Fail closed with bounded sanitized category without traceback or raw context."""
     raise pytest.fail.Exception(category, pytrace=False) from None
@@ -181,9 +202,7 @@ async def test_live_product_source_acquisition(tmp_path: Path) -> None:
         except pytest.fail.Exception:
             raise
         except Exception as exc:
-            if _is_browser_or_cdp_error(exc):
-                _fail_sanitized("LIVE_CDP_UNAVAILABLE")
-            _fail_sanitized("LIVE_DISCOVERY_UNAVAILABLE")
+            _fail_sanitized(classify_discovery_failure(exc))
 
         # Shortlist requirement
         if not orchestration_result.shortlist:
@@ -382,3 +401,90 @@ def test_certification_drive_sink() -> None:
         if not m.startswith("_") and callable(getattr(sink, m))
     }
     assert public_methods == {"get_or_create_folder", "upload_file"}
+
+
+@pytest.mark.parametrize(
+    "exc,expected_category",
+    [
+        (DiscoveryBlockedError("anti-bot captcha"), "LIVE_DISCOVERY_BLOCKED"),
+        (DiscoveryNavigationError("navigation timeout"), "LIVE_DISCOVERY_NAVIGATION"),
+        (OrchestrationError("orchestration candidate mismatch"), "LIVE_DISCOVERY_ORCHESTRATION"),
+        (OrchestrationInvalidRequestError("invalid discovery plan"), "LIVE_DISCOVERY_ORCHESTRATION"),
+        (DiscoveryError("generic discovery failure"), "LIVE_DISCOVERY_ERROR"),
+        (DiscoveryInvalidRequestError("empty search query"), "LIVE_DISCOVERY_ERROR"),
+        (BrowserError("browser crashed"), "LIVE_CDP_UNAVAILABLE"),
+        (BrowserSessionUnavailableError("session unavailable"), "LIVE_CDP_UNAVAILABLE"),
+        (RuntimeError("CDP connection refused"), "LIVE_CDP_UNAVAILABLE"),
+        (RuntimeError("target closed unexpectedly"), "LIVE_CDP_UNAVAILABLE"),
+        (AttributeError("'NoneType' object has no attribute 'strip'"), "LIVE_DISCOVERY_UNAVAILABLE"),
+        (KeyError("missing_field"), "LIVE_DISCOVERY_UNAVAILABLE"),
+        (ValueError("unhandled value error"), "LIVE_DISCOVERY_UNAVAILABLE"),
+    ],
+)
+def test_classify_discovery_failure_class_mapping(
+    exc: BaseException,
+    expected_category: str,
+) -> None:
+    assert classify_discovery_failure(exc) == expected_category
+
+
+@pytest.mark.parametrize(
+    "exc_factory,expected_category",
+    [
+        (lambda msg: DiscoveryBlockedError(msg), "LIVE_DISCOVERY_BLOCKED"),
+        (lambda msg: DiscoveryNavigationError(msg), "LIVE_DISCOVERY_NAVIGATION"),
+        (lambda msg: OrchestrationError(msg), "LIVE_DISCOVERY_ORCHESTRATION"),
+        (lambda msg: OrchestrationInvalidRequestError(msg), "LIVE_DISCOVERY_ORCHESTRATION"),
+        (lambda msg: DiscoveryError(msg), "LIVE_DISCOVERY_ERROR"),
+        (lambda msg: DiscoveryInvalidRequestError(msg), "LIVE_DISCOVERY_ERROR"),
+        (lambda msg: BrowserError(msg), "LIVE_CDP_UNAVAILABLE"),
+        (lambda msg: BrowserSessionUnavailableError(msg), "LIVE_CDP_UNAVAILABLE"),
+        (lambda msg: RuntimeError(f"CDP connection refused: {msg}"), "LIVE_CDP_UNAVAILABLE"),
+        (lambda msg: AttributeError(msg), "LIVE_DISCOVERY_UNAVAILABLE"),
+        (lambda msg: RuntimeError(msg), "LIVE_DISCOVERY_UNAVAILABLE"),
+    ],
+)
+def test_classify_discovery_failure_sanitization_no_leakage(
+    exc_factory: Any,
+    expected_category: str,
+) -> None:
+    raw_sensitive_message = (
+        "LIVE_DATA_LEAK: url=https://shopee.vn/product/12345/67890?sp_atk=abc "
+        "cookie=SPC_EC=xyz; secret_token=tok_999; html=<div>Sensitive Title</div>"
+    )
+    exc = exc_factory(raw_sensitive_message)
+    category = classify_discovery_failure(exc)
+
+    # 1. Exact expected bounded category returned
+    assert category == expected_category
+
+    # 2. No leaked information in the returned category string
+    assert "LIVE_DATA_LEAK" not in category
+    assert "https://" not in category
+    assert "12345" not in category
+    assert "cookie" not in category
+    assert "secret_token" not in category
+    assert "html" not in category
+
+    # 3. Emitted pytest failure exception contains only the sanitized category
+    with pytest.raises(pytest.fail.Exception) as exc_info:
+        _fail_sanitized(category)
+
+    failure_message = exc_info.value.msg
+    assert failure_message == expected_category
+    assert raw_sensitive_message not in failure_message
+    assert "https://" not in str(exc_info.value)
+    assert "secret_token" not in str(exc_info.value)
+
+
+def test_classify_discovery_failure_cause_precedence() -> None:
+    # A DiscoveryNavigationError that wraps a browser exception must classify as LIVE_DISCOVERY_NAVIGATION
+    cause = RuntimeError("CDP target closed at https://shopee.vn/secret_leak")
+    exc = DiscoveryNavigationError("Navigation failure")
+    exc.__cause__ = cause
+
+    category = classify_discovery_failure(exc)
+    assert category == "LIVE_DISCOVERY_NAVIGATION"
+    assert "CDP" not in category
+    assert "https://" not in category
+
