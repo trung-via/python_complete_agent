@@ -20,7 +20,7 @@ from typing import Any, Optional
 
 import pytest
 
-from src.browser.errors import BrowserError
+from src.browser.errors import BrowserError, BrowserSessionUnavailableError
 from src.core.errors import AgentException
 from src.core.types import ToolCall, ToolResult, ToolStatus
 from src.integrations.playwright.manager import PlaywrightBrowserManager
@@ -33,6 +33,7 @@ from src.product_intelligence.canonical_catalog_sqlite import (
 from src.product_intelligence.discovery import (
     DiscoveryBlockedError,
     DiscoveryError,
+    DiscoveryNavigationError,
     DiscoveryRequest,
 )
 from src.product_intelligence.entity_resolution import SourceObservationIdentity
@@ -183,15 +184,38 @@ class DeterministicCertificationProvider(LLMProvider):
         )
 
 
-def classify_discovery_failure(exc: BaseException) -> str:
-    """Map discovery failures by existing safe exception class only."""
+def _is_browser_or_cdp_error(exc: BaseException) -> bool:
+    """Recognize a browser/CDP failure chain without returning live details."""
 
-    if isinstance(exc, BrowserError):
-        return "LIVE_CDP_UNAVAILABLE"
+    current: Optional[BaseException] = exc
+    while current is not None:
+        if isinstance(current, (BrowserError, BrowserSessionUnavailableError)):
+            return True
+        message = str(current).lower()
+        if (
+            "connect" in message
+            or "cdp" in message
+            or "connection refused" in message
+            or "target closed" in message
+        ):
+            return True
+        current = current.__cause__ or current.__context__
+    return False
+
+
+def classify_discovery_failure(exc: BaseException) -> str:
+    """Map discovery failures to bounded class-level diagnostic categories."""
+
     if isinstance(exc, DiscoveryBlockedError):
         return "LIVE_P6B_DISCOVERY_BLOCKED"
-    if isinstance(exc, (DiscoveryError, OrchestrationError)):
-        return "LIVE_P6B_DISCOVERY_UNAVAILABLE"
+    if isinstance(exc, DiscoveryNavigationError):
+        return "LIVE_P6B_DISCOVERY_NAVIGATION"
+    if isinstance(exc, OrchestrationError):
+        return "LIVE_P6B_DISCOVERY_ORCHESTRATION"
+    if isinstance(exc, DiscoveryError):
+        return "LIVE_P6B_DISCOVERY_ERROR"
+    if _is_browser_or_cdp_error(exc):
+        return "LIVE_CDP_UNAVAILABLE"
     return "LIVE_P6B_DISCOVERY_UNAVAILABLE"
 
 
@@ -642,7 +666,15 @@ def test_acquisition_diagnostic_is_bounded_and_sanitized(
         ),
         (
             DiscoveryError("https://private.invalid token=private"),
-            "LIVE_P6B_DISCOVERY_UNAVAILABLE",
+            "LIVE_P6B_DISCOVERY_ERROR",
+        ),
+        (
+            DiscoveryNavigationError("https://private.invalid token=private"),
+            "LIVE_P6B_DISCOVERY_NAVIGATION",
+        ),
+        (
+            OrchestrationError("https://private.invalid token=private"),
+            "LIVE_P6B_DISCOVERY_ORCHESTRATION",
         ),
         (
             BrowserError("https://private.invalid token=private"),
@@ -662,6 +694,21 @@ def test_discovery_diagnostic_is_bounded_and_sanitized(
     assert category == expected
     assert "https://" not in category
     assert "token" not in category
+
+
+def test_discovery_diagnostic_browser_cause_and_class_precedence() -> None:
+    browser_cause = BrowserSessionUnavailableError()
+    unknown_wrapper = RuntimeError("bounded wrapper")
+    unknown_wrapper.__cause__ = browser_cause
+
+    assert classify_discovery_failure(unknown_wrapper) == "LIVE_CDP_UNAVAILABLE"
+
+    navigation = DiscoveryNavigationError("bounded navigation failure")
+    navigation.__cause__ = browser_cause
+    assert (
+        classify_discovery_failure(navigation)
+        == "LIVE_P6B_DISCOVERY_NAVIGATION"
+    )
 
 
 def test_live_route_source_uses_only_published_composition_boundaries() -> None:
