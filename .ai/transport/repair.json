@@ -1,0 +1,19 @@
+{
+  "repair_id": "REPAIR-156-005",
+  "failed_run_id": "RUN-156-005",
+  "failed_head_sha": "d66faa95c8c03e1fe2d5f4c4c36b44b7fc9bc364",
+  "task": {
+    "id": "TASK-156",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue only from the exact failed candidate d66faa95c8c03e1fe2d5f4c4c36b44b7fc9bc364 for RUN-156-005 and preserve the full RUN-156-001 -> RUN-156-002 -> RUN-156-003 -> RUN-156-004 -> RUN-156-005 continuation lineage plus Codex executor identity. Do not restart PRIMARY, reroute executors, rebase onto current main, rebuild the candidate, or introduce repository changes.",
+    "RUN-156-005 is a verification-only NO_CHANGE continuation of RUN-156-004. The focused offline verification again passed with 106 passed and 1 skipped, while the live certification module reported 27 passed and one bounded LIVE_P6B_DISCOVERY_NAVIGATION failure. The candidate remained clean with changed_files=[], descends_from_base=true, outside_task_scope=[], repairable=true, and transportable=true. No concrete production source defect is established by that bounded category alone.",
+    "The Human has now confirmed the Shopee CAPTCHA challenge was ultimately solved successfully and the operator-owned authenticated browser session is again usable. This continuation is verification-only. Do not modify production source, tests, docs, TASK files, Product Intelligence authorities, browser/session code, discovery/ranking behavior, acquisition, intake, admission, persistence, retrieval, grounded-QA code, worker code, AIOS files, or publication workflow.",
+    "Return only the structural NO_CHANGE REPAIR result and allow the exact currently pinned Runtime to reuse the preserved pre-verification candidate and execute canonical verification. Do not automate login, CAPTCHA solving, stealth, proxying, browser restart, alternate query, alternate platform routing, retry, fallback, or reroute.",
+    "If canonical verification fails again, preserve the new FAILURE exactly for Brain classification. Do not self-author a product correction, widen scope, retry, reroute, or infer a production defect from sanitized live evidence alone."
+  ],
+  "constraints": []
+}
