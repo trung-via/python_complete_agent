@@ -1,0 +1,21 @@
+{
+  "repair_id": "REPAIR-154-002",
+  "failed_run_id": "RUN-154-002",
+  "failed_head_sha": "ec16b100be14b12d4869bfb5103eb62bec1deb9e",
+  "task": {
+    "id": "TASK-154",
+    "revision": 1
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "tests/integration/test_live_product_source_acquisition.py"
+  ],
+  "instructions": [
+    "Continue only from the exact failed candidate ec16b100be14b12d4869bfb5103eb62bec1deb9e for RUN-154-002 and preserve Antigravity executor identity plus RUN-154-001 -> RUN-154-002 repair continuity. Do not restart PRIMARY, rebase onto current main, rebuild the candidate, reroute executors, or modify production Python.",
+    "The Human explicitly confirmed that before RUN-154-002 the authenticated Shopee session at the configured CDP endpoint showed a normal listing surface for the default query, yet the exact unchanged candidate again failed live discovery with LIVE_DISCOVERY_UNAVAILABLE while 125 offline tests passed. This makes the repeated discovery-stage failure actionable, but the current integration fixture collapses distinct safe discovery exception classes into one broad category and therefore does not provide enough canonical evidence to choose the correct production authority for a blocker fix.",
+    "Modify only tests/integration/test_live_product_source_acquisition.py to preserve bounded class-level discovery diagnostics without exposing raw exception text, URLs, HTML, page text, cookies, headers, paths, or other live data. DiscoveryBlockedError must fail as LIVE_DISCOVERY_BLOCKED; DiscoveryNavigationError must fail as LIVE_DISCOVERY_NAVIGATION; OrchestrationError must fail as LIVE_DISCOVERY_ORCHESTRATION; other DiscoveryError must fail as LIVE_DISCOVERY_ERROR; browser/CDP-classified failures must remain LIVE_CDP_UNAVAILABLE; only otherwise-unclassified exceptions may remain LIVE_DISCOVERY_UNAVAILABLE. Preserve LIVE_DISCOVERY_EMPTY for a successfully returned empty shortlist.",
+    "Add narrow deterministic offline tests in the same integration module proving the class-to-category mapping and that emitted categories contain no raw exception message. Do not change the live route, query/platform configuration, manager count, discovery count, shortlist choice, scrape execution, persistence, TASK-125 rehydration, Human/CAPTCHA policy, retry/fallback behavior, or any production module.",
+    "After the candidate is committed, allow only the pinned Runtime to execute TASK-154 required verification. If live verification fails again, preserve the exact new sanitized subtype for Brain classification; do not self-author any production correction from executor work."
+  ],
+  "constraints": []
+}
