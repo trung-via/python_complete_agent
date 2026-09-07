@@ -1,0 +1,9 @@
+finding_id: F1
+action: CODE_FIX
+reviewed_sha: d66faa95c8c03e1fe2d5f4c4c36b44b7fc9bc364
+modification_scope:
+  - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+  - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+affected_verification:
+  - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+constraints: []
