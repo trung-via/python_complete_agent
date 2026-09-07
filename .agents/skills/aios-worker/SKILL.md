@@ -245,15 +245,15 @@ Under the pinned commit `32ace104c5cfaa1b7affbaa40157872b1f85147f`, Python Agent
 - **TASK-079**: Native REMEDIATION uses a remediation-specific structural schema that requires
   empty root evidence, claims, and unresolved. It therefore rejects the RUN-156-007 class of
   non-empty remediation claims before they can be structurally valid. The worker does not inspect,
-  generate, strip, normalize, synthesize, or validate these ResultPackage arrays. Runtime remains
-  authoritative for fail-closed completion, semantic acceptance coverage, changed_files,
+  generate, strip, normalize, synthesize, or validate these ResultPackage arrays.
+  Runtime remains authoritative for fail-closed completion, semantic acceptance coverage, changed_files,
   verification, EVIDENCE, lineage, and publication. PRIMARY semantics are unchanged.
 - **TASK-080**: Native REPAIR uses a repair-specific structural schema that requires at least one
   structurally valid claim plus empty unresolved, root evidence, and per-claim evidence. It
   therefore rejects the RUN-079-002 class of empty claims before they can be structurally valid.
   The worker does not enumerate TASK acceptance IDs, generate per-TASK schemas, synthesize claims,
-  repair output, or decide reusable-candidate or historical-recovery policy. Runtime remains
-  authoritative for dynamic complete original TASK acceptance coverage, canonical changed_files,
+  repair output, or decide reusable-candidate or historical-recovery policy.
+  Runtime remains authoritative for dynamic complete original TASK acceptance coverage, canonical changed_files,
   verification, EVIDENCE, lineage, and publication. PRIMARY semantics are unchanged.
 
 Capabilities present in upstream history but **not** exposed by this downstream worker:
