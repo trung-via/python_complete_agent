@@ -444,6 +444,94 @@ def test_shopee_map_card_to_snapshot_null_safety_matrix() -> None:
     assert s3.shop_name == "Trimmed Shop"
     assert s3.shop_id == "77"
 
+    # Malformed non-string required fields (title, href) -> return None (card skipped)
+    assert adapter._map_card_to_snapshot({"title": 12345, "href": "/item-i.1.123"}, obs_time) is None
+    assert adapter._map_card_to_snapshot({"title": True, "href": "/item-i.1.123"}, obs_time) is None
+    assert adapter._map_card_to_snapshot({"title": ["Valid Title"], "href": "/item-i.1.123"}, obs_time) is None
+    assert adapter._map_card_to_snapshot({"title": "Valid Title", "href": 12345}, obs_time) is None
+    assert adapter._map_card_to_snapshot({"title": "Valid Title", "href": False}, obs_time) is None
+    assert adapter._map_card_to_snapshot({"title": "Valid Title", "href": {"url": "/p"}}, obs_time) is None
+
+    # Malformed non-string optional shop fields -> remain None
+    s4 = adapter._map_card_to_snapshot({
+        "title": "Valid Non-String Shop Item",
+        "href": "/item-i.1.999",
+        "shop_name": 12345,
+        "shop_id": 67890,
+    }, obs_time)
+    assert s4 is not None
+    assert s4.shop_name is None
+    assert s4.shop_id is None
+
+    s5 = adapter._map_card_to_snapshot({
+        "title": "Valid Boolean Shop Item",
+        "href": "/item-i.1.999",
+        "shop_name": True,
+        "shop_id": False,
+    }, obs_time)
+    assert s5 is not None
+    assert s5.shop_name is None
+    assert s5.shop_id is None
+
+    # Malformed non-string item_id -> not stringified into identity value, existing URL fallback operates unchanged
+    s6 = adapter._map_card_to_snapshot({
+        "title": "Valid Item With Numeric Item ID",
+        "href": "/item-i.1.123",
+        "item_id": 999,  # Non-string must not override URL source_product_id
+    }, obs_time)
+    assert s6 is not None
+    assert s6.source_product_id == "123"
+    assert s6.candidate_id == "shopee_123"
+
+    # Malformed non-string item_id without product ID in URL -> falls back to URL SHA-256 fingerprint, not fabricated
+    s7 = adapter._map_card_to_snapshot({
+        "title": "Valid Item Non-String Item ID No URL ID",
+        "href": "/category/landing-page",
+        "item_id": 999,
+    }, obs_time)
+    assert s7 is not None
+    assert s7.source_product_id is None
+    assert s7.candidate_id.startswith("shopee_url_")
+
+
+@pytest.mark.asyncio
+async def test_shopee_discovery_malformed_non_string_values_not_fabricated() -> None:
+    obs_time = datetime(2026, 8, 16, 12, 0, 0, tzinfo=timezone.utc)
+    card_data = [
+        # Numeric title -> skipped
+        {"title": 12345, "href": "/item-i.1.111", "item_id": "111"},
+        # Numeric href -> skipped
+        {"title": "Valid Title With Numeric Href", "href": 99999, "item_id": "222"},
+        # Boolean title and href -> skipped
+        {"title": True, "href": False, "item_id": "333"},
+        # Non-string shop fields and non-string item_id -> shop fields remain None, item_id falls back to URL
+        {
+            "title": "Item With Non-String Metadata",
+            "href": "/item-i.1.444",
+            "item_id": 99999,  # Numeric item_id must not be stringified
+            "shop_name": 12345,  # Numeric shop_name must remain None
+            "shop_id": 67890,    # Numeric shop_id must remain None
+            "price_text": "100.000₫",
+        },
+    ]
+
+    fake_page = FakePage(script_results=[{"is_blocked": False, "is_empty": False, "items": card_data}])
+    adapter = ShopeeDiscoveryAdapter(browser=fake_page)
+
+    req = DiscoveryRequest(query="non string test", max_candidates=10)
+    batch = await adapter.discover(req, observed_at=obs_time)
+
+    assert len(batch.candidates) == 1
+    assert batch.raw_items_seen == 4
+    c = batch.candidates[0]
+    assert c.candidate_id == "shopee_444"
+    assert c.source_product_id == "444"
+    assert c.title == "Item With Non-String Metadata"
+    assert c.url == "https://shopee.vn/item-i.1.444"
+    assert c.shop_name is None
+    assert c.shop_id is None
+    assert c.price == 100000.0
+
 
 @pytest.mark.asyncio
 async def test_shopee_discovery_true_empty_search_returns_empty_batch() -> None:
