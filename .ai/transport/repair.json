@@ -1,0 +1,19 @@
+{
+  "repair_id": "REPAIR-156-001",
+  "failed_run_id": "RUN-156-001",
+  "failed_head_sha": "112a727ca8cde2a164b00c94122ded64d3b58f44",
+  "task": {
+    "id": "TASK-156",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue only from the exact failed candidate 112a727ca8cde2a164b00c94122ded64d3b58f44 for RUN-156-001 and preserve Codex executor identity plus the canonical RUN-156-001 failure lineage. Do not restart PRIMARY, reroute executors, rebase onto current main, rebuild the candidate, or introduce source changes.",
+    "RUN-156-001 failed only during the admitted live verification. The focused offline verification passed 106 tests with 1 skip; the live certification module reported 24 passing tests and one sanitized LIVE_P6B_DISCOVERY_UNAVAILABLE failure; the candidate remained clean, in scope, repairable, and transportable. The TASK-156 contract explicitly permits this bounded discovery-stage category, and the failed candidate already uses shortlist_size=1. Current canonical evidence therefore does not establish a concrete production, fixture, ranking, browser, scraper, intake, admission, persistence, retrieval, or grounded-QA defect requiring repository mutation.",
+    "Before invoking this continuation, the Human must ensure the operator-owned Chromium session at the configured CDP endpoint is available, authenticated, free of unresolved CAPTCHA/challenge, and visibly showing normal marketplace product listings for the configured TASK-156 query. Leave that browser session open for Runtime verification. Do not automate login, CAPTCHA solving, stealth, proxying, browser restart, retry, alternate query, or alternate platform routing.",
+    "Do not modify production source, tests, docs, TASK files, Product Intelligence authorities, marketplace adapters, scraper tools, Product Source Pack code, or AIOS/runtime files. Return only the structural NO_CHANGE REPAIR result with unresolved empty and allow the pinned Runtime to continue the exact TASK-156 required verification from the preserved pre-verification candidate.",
+    "If live verification fails again after the Human confirms the prepared normal listing surface before invocation, preserve the new canonical FAILURE exactly for Brain classification. Do not self-author a code correction or widen scope from sanitized evidence alone."
+  ],
+  "constraints": []
+}
