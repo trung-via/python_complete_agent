@@ -1,0 +1,17 @@
+{
+  "repair_id": "REPAIR-156-007",
+  "failed_run_id": "RUN-156-007",
+  "failed_head_sha": "38e087e6925b1e7bac81c0eddc8b4dbb8992ff25",
+  "task": {
+    "id": "TASK-156",
+    "revision": 1
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue exactly from failed candidate 38e087e6925b1e7bac81c0eddc8b4dbb8992ff25 without modifying repository files. RUN-156-007 failed at REMEDIATION COMPLETION_GATE only because the remediation ResultPackage violated the structural contract by returning non-empty claims; the candidate is clean, repairable, transportable, descends from the reviewed source, and already contains the intended F1 roadmap correction in exactly the two authorized documents.",
+    "Preserve the exact candidate HEAD. Return one structurally valid REPAIR ResultPackage for the complete original TASK-156 contract: result.claims must be non-empty and collectively cover TASK-156 acceptance criteria AC1 through AC10, result.unresolved must be empty, root evidence must be empty, and every claim.evidence must be empty. Do not synthesize canonical verification evidence; Runtime owns verification and EVIDENCE.",
+    "Do not create a commit, edit formatting, change the roadmap wording, touch production Python or the certification fixture, rerun FIX, broaden scope, or mutate current product main. Allow Runtime-owned completion and canonical TASK-156 verification to decide the unchanged candidate. Preserve executor identity codex, exact failed-head/historical lineage, no retry/fallback/reroute, and the existing DELTA semantic-review continuity for F1 after successful REPAIR."
+  ],
+  "constraints": []
+}
