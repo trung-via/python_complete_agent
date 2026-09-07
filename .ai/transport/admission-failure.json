@@ -1,0 +1,1 @@
+{"error":{"message":"remote remediation lineage resolution failed: canonical source artifacts missing or ambiguous for RUN-111-002","type":"OperatorError"},"executor_invoked":false,"finding_id":"F1","kind":"ADMISSION_FAILURE","operation":"REMEDIATION","phase":"REMOTE_LINEAGE_RESOLUTION","requested_executor":"antigravity","task":{"id":"TASK-154","revision":1}}
