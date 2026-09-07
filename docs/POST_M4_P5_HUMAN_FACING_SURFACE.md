@@ -1,7 +1,7 @@
 # Post-M4 P5 Human-Facing Product Intelligence Surface
 
-Status: **P5 CANDIDATE COMPLETION (PENDING RUNTIME / ACCEPTANCE PASS)**
-Current candidate: **TASK-149 P5.3c Human sellable-variant review + decision + durable admission presentation**
+Status: **CLOSED**
+Published lineage: TASK-149 closed P5.3c and P5 Human-Facing Product Intelligence Surface
 
 ## Stage boundary
 
@@ -32,17 +32,17 @@ boundary over persisted source evidence and canonical SQLite storage via
 TASK-138, TASK-139, and TASK-140 without reconstructing proposals or creating
 persistent review stores.
 
-TASK-149 introduces the P5.3c candidate `variant-decide` operation to that same
-CLI, providing an in-process Human review, explicit member selection, decision,
+Published TASK-149 closed P5.3c by extending that same CLI with the `variant-decide`
+operation, providing an in-process Human review, explicit member selection, decision,
 and durable admission boundary over persisted canonical SQLite storage via
 TASK-120 and TASK-141 without reconstructing proposals, discovering/ranking
 variant groups, or creating persistent review stores.
 
 Human member selection is explicit and no variant-group discovery/ranking exists;
 only the exact current in-process TASK-141 review may authorize that decision.
-If and only if TASK-149 Runtime verification and semantic acceptance all pass,
-P5 Human-Facing Product Intelligence Surface is CLOSED. P6 remains NEXT /
-unimplemented pending a separate post-P5 architecture audit.
+Following canonical Runtime PASS and ChatGPT PRIMARY semantic PASS on candidate
+132deef99363ffce0c3162c5f59d1b1349563995, P5 Human-Facing Product Intelligence Surface
+is CLOSED. P6 is NEXT / CURRENT pending the post-P5 architecture audit.
 
 ## P5.1 read-only operations — CLOSED
 
@@ -188,9 +188,9 @@ Placeholder family-decide example:
 python -m src.product_intelligence.cli family-decide --root .\local-evidence --database .\state\canonical-catalog.sqlite3 --actor "operator@example.com" --decided-at "2026-09-06T12:00:00Z"
 ```
 
-## P5.3c Human sellable-variant review + decision + durable admission presentation — CANDIDATE (TASK-149)
+## P5.3c Human sellable-variant review + decision + durable admission presentation — CLOSED
 
-TASK-149 adds the seventh operation to `src/product_intelligence/cli.py`:
+Published TASK-149 closed P5.3c by adding the seventh operation to `src/product_intelligence/cli.py`:
 
 - `variant-decide` requires exactly one `--database` path, exactly one
   `--family-id` string, exactly one `--actor` string, and exactly one
@@ -248,10 +248,22 @@ python -m src.product_intelligence.cli variant-decide --database .\state\canonic
 
 ## Stage completion
 
-With TASK-149 P5.3c, all seven operations (`evidence`, `catalog`, `ask`, `discover`,
-`decide`, `family-decide`, `variant-decide`) across P5.1, P5.2, P5.3a, P5.3b, and
-P5.3c are implemented.
+With published TASK-149 P5.3c, all seven operations (`evidence`, `catalog`, `ask`,
+`discover`, `decide`, `family-decide`, `variant-decide`) across P5.1, P5.2, P5.3a,
+P5.3b, and P5.3c are implemented and closed.
 
-Only after full TASK-149 Runtime verification and semantic acceptance PASS is P5
-Human-Facing Product Intelligence Surface CLOSED. P6 remains NEXT / unimplemented
-pending a separate post-P5 architecture audit.
+Following canonical Runtime PASS and ChatGPT PRIMARY semantic PASS on candidate
+132deef99363ffce0c3162c5f59d1b1349563995, P5 Human-Facing Product Intelligence
+Surface is CLOSED. P6 is CURRENT / IN PROGRESS under the post-P5 architecture audit
+(`docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md`).
+
+## Post-P5 certification and hardening lineage
+
+- **TASK-150**: Preserved as failed historical certification evidence (RUN-150-001..005,
+  latest canonical failure RUN-150-005 with failed_head_sha cb79b3de3c606424632764f3cc24dd2c3925f0bc).
+- **TASK-151**: Recorded as published Shopee discovery blocker correction / discovery
+  hardening (closed by RUN-151-001 Runtime PASS, REVIEW-151-001 PRIMARY PASS, candidate
+  39f39df0efe23c0d18a7292a0b27f92f40a64832), without presenting either as a new semantic authority.
+- **TASK-152**: Represented only as the current successor certification (P6.0a)
+  re-establishing live discovery-to-persisted-source-pack certification on the published
+  TASK-151 fixed baseline.

@@ -1,7 +1,6 @@
 # Post-M4 Product Intelligence Roadmap — Live Product Enablement
 
-Status: canonical post-M4 architecture roadmap; P1-P4 CLOSED; P5 CURRENT / IN
-PROGRESS; P5.1, P5.2, and P5.3a CLOSED; TASK-148 is the P5.3b candidate
+Status: canonical post-M4 architecture roadmap; P1-P5 CLOSED; P6 CURRENT / IN PROGRESS; TASK-152 is the P6.0a candidate
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
 ## 1. Starting point
@@ -168,57 +167,84 @@ The remaining P5.3 boundary is refined into:
   and, only for explicit APPROVE, accepts a caller-supplied family_id and durably admits
   the family into a pre-existing SQLite catalog through TASK-140 durably_admit_planned_family.
 - P5.3c sellable-variant review / decision / durable admission presentation over TASK-141
-  (TASK-149 candidate): extending the Product Intelligence CLI with one bounded
-  in-process review/selection/action command (`variant-decide`) that loads one pre-existing
-  canonical catalog through TASK-120, resolves one Human-specified existing family by exact
-  family_id, renders that exact current family for Human member selection, maps explicit
-  1-based member positions only to exact member objects from that family, prepares review
-  through TASK-141, renders the exact proposal preview, accepts explicit Human APPROVE/REJECT
-  action, and, only for explicit APPROVE, accepts a caller-supplied variant_id and durably admits
-  the variant through TASK-141.
+  is CLOSED by published TASK-149 after canonical Runtime PASS and ChatGPT PRIMARY
+  semantic PASS on candidate 132deef99363ffce0c3162c5f59d1b1349563995: extending the
+  Product Intelligence CLI with one bounded in-process review/selection/action command
+  (`variant-decide`) that loads one pre-existing canonical catalog through TASK-120,
+  resolves one Human-specified existing family by exact family_id, renders that exact
+  current family for Human member selection, maps explicit 1-based member positions only
+  to exact member objects from that family, prepares review through TASK-141, renders the
+  exact proposal preview, accepts explicit Human APPROVE/REJECT action, and, only for
+  explicit APPROVE, accepts a caller-supplied variant_id and durably admits the variant
+  through TASK-141.
 
-If and only if TASK-149 Runtime verification and semantic acceptance all pass, P5
-Human-Facing Product Intelligence Surface is CLOSED. P6 remains NEXT / unimplemented and
-must not advance without a separate post-P5 architecture audit.
+Published TASK-149 closed P5.3c and P5 Human-Facing Product Intelligence Surface is
+CLOSED. P6 is CURRENT / IN PROGRESS under the post-P5 architecture audit.
 
-### P6 — Quality and Scale Enhancements
+### P6 — Quality and Scale Enhancements — CURRENT / IN PROGRESS
 
-Only after the live vertical slice is operating with real evidence should later work consider:
+Following the post-P5 architecture audit (recorded in `docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md`),
+Phase 6 is explicitly ordered as a `certify -> evaluate -> improve` discipline:
 
-- semantic/vector retrieval or reranking;
-- product-truth reconciliation and preferred/latest/majority selection;
-- identity evolution and migrations;
-- caches/registries and background serving;
-- higher-level automation around Human review;
-- live end-to-end production certification.
+#### P6.0 Live Real-Evidence Certification — CURRENT / IN PROGRESS
+Certify live operational boundaries against real marketplace targets using operator-owned
+authenticated CDP sessions before building downstream quality or scale features. Full live
+production certification remains distinct from provider-only TASK-144.
+- **P6.0a Successor Live Marketplace Discovery -> Persisted Product Source Pack Certification (CURRENT CANDIDATE — TASK-152)**:
+  Re-established from published TASK-151 fixed main. Certifies only one explicit current
+  marketplace route (`shopee` or `tiktok`) discovering a candidate and persisting typed V1
+  `ProductSourcePack` evidence beneath `tmp_path`, rehydrated via TASK-125.
+  Historical TASK-150 is superseded only as the active certification attempt; its failure
+  lineage (RUN-150-001..005) remains preserved as historical failure evidence. Published TASK-151
+  hardened Shopee discovery readiness to resolve the RUN-150-005 blocker. TASK-152 itself certifies
+  only one explicit current marketplace route through real local evidence. It does not claim both
+  marketplaces, Google Drive, Human approval/queue, M3 admission, grounded QA, product truth,
+  semantic retrieval, identity migration, automation, or serving are certified. P6.0 remains
+  IN PROGRESS until P6.0b is separately designed and certified.
+- **P6.0b Real-Evidence Canonical Knowledge + Grounded-QA Certification (UNIMPLEMENTED / FUTURE)**:
+  Certifies downstream intake, admission, and grounded QA on real acquired marketplace evidence.
 
-These are not blockers for P1-P5 and must each receive a separate authority audit before implementation.
+#### P6.1 Retrieval-Quality Evaluation / Baseline — UNIMPLEMENTED / FUTURE
+Establish empirical retrieval benchmarks (precision, recall, citation accuracy) using the existing
+lexical retrieval baseline (TASK-122) on real product evidence before introducing any semantic retrieval.
+
+#### P6.2 Conditional Semantic / Vector Retrieval or Reranking — UNIMPLEMENTED / FUTURE
+Introduce semantic/vector retrieval or reranking only if measured P6.1 evidence justifies it.
+Preserves SQLite catalog as the canonical store; vector indexes remain secondary and disposable.
+
+#### P6.3 Product-Truth Reconciliation — UNIMPLEMENTED / FUTURE
+Formulate a separate Human-governed policy authority for attribute reconciliation across observations
+(e.g., preferred/latest/majority selection rules).
+
+#### P6.4 Identity Evolution and Migrations — UNIMPLEMENTED / FUTURE
+Define a separate canonical-identity authority for entity lifecycle, merging, splitting, and schema
+migrations while preserving M3 integrity.
+
+#### P6.5 Higher-Level Human-Review Automation — UNIMPLEMENTED / FUTURE
+Introduce review triage assistance without removing or bypassing explicit Human approval authority.
+
+#### P6.6 Caches and Background Serving — UNIMPLEMENTED / FUTURE
+Implement performance caches and background serving infrastructure only after an observed operational
+workload requires them.
 
 ## 3. Priority decision
 
 P1 is closed by TASK-137. P2 is closed by TASK-138: persisted Product Source Pack evidence is now discoverable through an explicit-root, bounded local intake, and current downstream consumers can receive either typed `ProductSourcePack` values or the aligned explicit manifest paths without duplicating filesystem discovery.
 
-P3 is closed. TASK-139 closes P3.1 family review planning, TASK-140 closes P3.2
-family decision plus durable family admission, and TASK-141 closes P3.3 explicit
-sellable-variant review, Human decision, and durable admission while preserving
-TASK-115/116/117/118/119/120 authority. M3 remains the sole identity, catalog,
-persistence, and evidence authority; P3 remains application composition rather
-than a replacement semantic layer. TASK-142 established the P4.1 provider
-transport foundation, TASK-143's Developer API live lineage remains parked and
-unpublished, and published TASK-144 certified the explicit Vertex AI ADC route.
-Canonical Runtime PASS and ChatGPT semantic-review PASS on that same TASK-144
-source candidate closed P4. P5 is therefore CURRENT / IN PROGRESS. Published
-TASK-145 closed P5.1 after canonical Runtime PASS and ChatGPT semantic-review
-PASS on its candidate. Published TASK-146 closed P5.2 after canonical Runtime PASS
-and ChatGPT semantic-review PASS on its candidate. Published TASK-147 closed P5.3a
-after canonical Runtime PASS and ChatGPT semantic-review PASS on its candidate
-(live-shortlist Human decision + TASK-096 M1 queue bridge). Published TASK-148 closed
-P5.3b after canonical Runtime PASS and ChatGPT semantic-review PASS on its candidate
-(family decision/durable admission presentation over TASK-138/139/140). TASK-149 is the
-P5.3c candidate (sellable-variant review/decision/durable admission presentation over
-TASK-141). If and only if TASK-149 Runtime verification and semantic acceptance all pass,
-P5 Human-Facing Product Intelligence Surface is CLOSED. P6 remains NEXT / unimplemented
-pending a separate post-P5 architecture audit.
+P3 is closed (TASK-139, TASK-140, TASK-141). P4 is closed (TASK-142, TASK-144).
+P5 is CLOSED: published TASK-145 closed P5.1, published TASK-146 closed P5.2,
+published TASK-147 closed P5.3a, published TASK-148 closed P5.3b, and published
+TASK-149 closed P5.3c after canonical Runtime PASS and ChatGPT PRIMARY semantic PASS
+on source candidate 132deef99363ffce0c3162c5f59d1b1349563995.
+
+P6 is CURRENT / IN PROGRESS under the post-P5 quality and scale architecture audit
+(`docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md`). P6.0 Live Real-Evidence Certification is
+CURRENT. Published TASK-151 hardened live Shopee discovery readiness. TASK-150 remains
+failed historical certification evidence (RUN-150-001..005). TASK-152 is the current
+P6.0a successor candidate (Live Marketplace Discovery -> Persisted Product Source Pack
+Certification) on the published TASK-151 fixed baseline. TASK-152 itself certifies only
+one explicit current marketplace route through real local evidence. P6.0 remains IN PROGRESS
+pending separate P6.0b real-evidence knowledge/grounded-QA certification.
 
 ## 4. Authority invariants
 
