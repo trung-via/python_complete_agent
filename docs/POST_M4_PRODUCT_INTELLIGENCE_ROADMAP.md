@@ -1,8 +1,9 @@
 # Post-M4 Product Intelligence Roadmap — Live Product Enablement
 
-Status: canonical post-M4 architecture roadmap; P1-P5 CLOSED; P6 CURRENT / IN
-PROGRESS (P6.0a CLOSED; TASK-156 is the P6.0b / P6.0 closure gate; P6.1 becomes
-NEXT only after that gate passes)
+Status: canonical post-M4 architecture roadmap; P1-P5 CLOSED; P6.0a CLOSED;
+P6.0b / P6.0 are CLOSED if and only if TASK-156 canonical Runtime verification
+and semantic review both PASS, otherwise P6.0 remains IN PROGRESS; P6.1 is NEXT
+only after that same gate passes
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
 ## 1. Starting point
@@ -182,14 +183,15 @@ The remaining P5.3 boundary is refined into:
   through TASK-141.
 
 Published TASK-149 closed P5.3c and P5 Human-Facing Product Intelligence Surface is
-CLOSED. P6 is CURRENT / IN PROGRESS under the post-P5 architecture audit.
+CLOSED. Under the post-P5 architecture audit, P6.0 is CLOSED if and only if TASK-156
+canonical Runtime verification and semantic review both PASS; otherwise it remains IN PROGRESS.
 
-### P6 — Quality and Scale Enhancements — CURRENT / IN PROGRESS
+### P6 — Quality and Scale Enhancements — P6.0 STATE GATED BY TASK-156
 
 Following the post-P5 architecture audit (recorded in `docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md`),
 Phase 6 is explicitly ordered as a `certify -> evaluate -> improve` discipline:
 
-#### P6.0 Live Real-Evidence Certification — CURRENT / IN PROGRESS
+#### P6.0 Live Real-Evidence Certification — STATE GATED BY TASK-156
 Certify live operational boundaries against real marketplace targets using operator-owned
 authenticated CDP sessions before building downstream quality or scale features. Full live
 production certification remains distinct from provider-only TASK-144.
@@ -253,9 +255,10 @@ published TASK-147 closed P5.3a, published TASK-148 closed P5.3b, and published
 TASK-149 closed P5.3c after canonical Runtime PASS and ChatGPT PRIMARY semantic PASS
 on source candidate `132deef99363ffce0c3162c5f59d1b1349563995`.
 
-P6 is CURRENT / IN PROGRESS under the post-P5 quality and scale architecture audit
-(`docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md`). P6.0 Live Real-Evidence Certification is
-CURRENT / IN PROGRESS. Published TASK-151 hardened live Shopee discovery readiness and published
+Under the post-P5 quality and scale architecture audit
+(`docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md`), P6.0 Live Real-Evidence Certification is CLOSED if
+and only if TASK-156 canonical Runtime verification and semantic review both PASS; otherwise it
+remains IN PROGRESS. Published TASK-151 hardened live Shopee discovery readiness and published
 TASK-153 hardened live Shopee card mapping. TASK-150 and TASK-152 remain failed historical
 certification evidence. Published TASK-154 candidate
 `27ec982a96619379e8e387f0e8781b9503be2c59` unambiguously closes P6.0a after proving the

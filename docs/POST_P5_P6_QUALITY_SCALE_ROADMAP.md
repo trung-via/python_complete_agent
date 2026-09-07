@@ -1,6 +1,6 @@
 # Post-P5 P6 Quality and Scale Roadmap
 
-Status: **P6 CURRENT / IN PROGRESS (P6.0a CLOSED; TASK-156 is the P6.0b / P6.0 closure gate; P6.1 becomes NEXT only after that gate passes)**
+Status: **P6.0a CLOSED; P6.0b / P6.0 are CLOSED if and only if TASK-156 canonical Runtime verification and semantic review both PASS, otherwise P6.0 remains IN PROGRESS; P6.1 is NEXT only after that same gate passes**
 Scope: Python Agent product architecture post-P5; AIOS-renew remains execution substrate only.
 
 ## 1. Canonical Post-P5 Architecture Audit
@@ -56,7 +56,7 @@ CERTIFY  -->  EVALUATE  -->  IMPROVE
 
 ## 2. Ordered P6 Capability Boundaries
 
-### P6.0 Live Real-Evidence Certification — CURRENT / IN PROGRESS
+### P6.0 Live Real-Evidence Certification — STATE GATED BY TASK-156
 
 Certify live operational boundaries against real marketplace targets using operator-owned
 authenticated CDP sessions before building quality or scale features on top of simulated data.
