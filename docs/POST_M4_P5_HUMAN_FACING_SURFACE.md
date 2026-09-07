@@ -6,8 +6,8 @@ Published lineage: TASK-149 closed P5.3c and the entire P5 Human-Facing Product 
 ## Stage boundary
 
 Published TASK-144 closed P4 after canonical Runtime PASS and ChatGPT
-semantic-review PASS were recorded for the same source candidate. P5 is now the
-current post-M4 boundary, but it is deliberately staged: presentation of
+semantic-review PASS were recorded for the same source candidate. P5 established
+the post-M4 presentation boundary through deliberate staging: presentation of
 persisted state, live discovery and shortlisting, and Human-authorized mutation
 do not share one implicit authority.
 
@@ -271,6 +271,8 @@ Surface is CLOSED. P6 is CURRENT / IN PROGRESS under the post-P5 architecture au
 - **TASK-153**: Recorded as published Shopee card mapping blocker correction (closed by
   RUN-153-002 REMEDIATION PASS, REVIEW-153-002 DELTA PASS, candidate d8be80c1ea5edc1fca1c2c7c10919431f142d9c9),
   without presenting either as a new semantic authority.
-- **TASK-154**: Represented as the active P6.0a successor certification candidate
-  re-establishing live discovery-to-persisted-source-pack certification on the published
-  TASK-151 + TASK-153 hardened baseline.
+- **TASK-154**: Executes the P6.0a successor certification re-establishing live
+  discovery-to-persisted-source-pack certification on the published TASK-151 +
+  TASK-153 hardened baseline. P6.0a is closed if and only if TASK-154 canonical
+  Runtime verification and semantic review both PASS; P6.0 remains IN PROGRESS
+  with P6.0b NEXT.

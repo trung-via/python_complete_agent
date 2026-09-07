@@ -1,6 +1,6 @@
 # Post-P5 P6 Quality and Scale Roadmap
 
-Status: **P6 CURRENT / IN PROGRESS (P6.0a TASK-154 active candidate)**
+Status: **P6 CURRENT / IN PROGRESS (P6.0 IN PROGRESS; P6.0a conditionally closed upon TASK-154 Runtime + semantic review PASS; P6.0b NEXT)**
 Scope: Python Agent product architecture post-P5; AIOS-renew remains execution substrate only.
 
 ## 1. Canonical Post-P5 Architecture Audit
@@ -32,8 +32,10 @@ Historical certification and blocker lineage:
   REVIEW-153-002 DELTA PASS, candidate `d8be80c1ea5edc1fca1c2c7c10919431f142d9c9`). It made `_map_card_to_snapshot`
   null-safe for required and optional fields without altering parsing or identity semantics.
 - Neither blocker correction (TASK-151 / TASK-153) creates a new semantic authority.
-- **TASK-154**: The active P6.0a successor candidate re-establishing live marketplace discovery to
-  persisted `ProductSourcePack` certification on the published TASK-151 + TASK-153 hardened baseline.
+- **TASK-154**: Executes the P6.0a successor certification re-establishing live marketplace discovery
+  to persisted `ProductSourcePack` certification on the published TASK-151 + TASK-153 hardened baseline.
+  P6.0a is closed if and only if TASK-154 canonical Runtime verification and semantic review both PASS;
+  P6.0 remains IN PROGRESS with P6.0b NEXT.
 
 Attempting to introduce semantic retrieval, vector search, product-truth reconciliation, identity
 migrations, automated review, or background serving before acquiring and evaluating real evidence
@@ -54,7 +56,7 @@ authenticated CDP sessions before building quality or scale features on top of s
 Live full production certification remains distinct from provider-only TASK-144 (which verified
 only the Vertex AI LLM invocation transport).
 
-- **P6.0a Successor Live Marketplace Discovery -> Persisted Product Source Pack Certification (CURRENT CANDIDATE — TASK-154)**:
+- **P6.0a Successor Live Marketplace Discovery -> Persisted Product Source Pack Certification (TASK-154 — conditionally closed upon Runtime + semantic PASS)**:
   Re-establishes the first live evidence certification boundary from the published TASK-151 + TASK-153
   hardened main. Certifies that one explicit live marketplace route (`shopee` or `tiktok`) using the
   existing CDP browser manager, existing discovery adapter (with published TASK-151 readiness and
@@ -62,9 +64,10 @@ only the Vertex AI LLM invocation transport).
   listing and persist a valid, typed V1 `ProductSourcePack` locally beneath `tmp_path`. Rehydration is
   strictly verified through TASK-125 `deserialize_product_source_pack`. Google Drive publication is
   satisfied by a test-only zero-network Drive sink and is deliberately not certified. TASK-154 certifies
-  only one explicit marketplace route at a time; P6.0 remains IN PROGRESS upon TASK-154 completion
-  pending P6.0b. Historical TASK-150 and TASK-152 remain preserved as historical failure evidence.
-  Published TASK-151 and TASK-153 remain narrow blocker corrections, not new semantic authorities.
+  only one explicit marketplace route at a time. P6.0a is closed if and only if TASK-154 canonical
+  Runtime verification and semantic review both PASS; P6.0 remains IN PROGRESS with P6.0b NEXT.
+  Historical TASK-150 and TASK-152 remain preserved as historical failure evidence. Published
+  TASK-151 and TASK-153 remain narrow blocker corrections, not new semantic authorities.
 
 - **P6.0b Real-Evidence Canonical Knowledge + Grounded-QA Certification (NEXT / UNIMPLEMENTED / FUTURE)**:
   Certifies the downstream ingestion slice on real marketplace evidence: intaking real persisted
@@ -147,7 +150,8 @@ workloads require them.
    - Human-facing presentation remains P5 authority.
 2. **Lineage Preservation**: TASK-150 (RUN-150-001..005) and TASK-152 (RUN-152-001) remain preserved
    as historical failure evidence; published TASK-151 and TASK-153 are recorded as prerequisite
-   blocker corrections; TASK-154 is represented only as the current active successor certification.
+   blocker corrections; TASK-154 provides the P6.0a successor certification conditionally closed
+   upon Runtime plus semantic PASS, keeping P6.0 IN PROGRESS with P6.0b NEXT.
 3. **Certification Isolation**: Live certification fixtures are certification-only modules
    (`tests/integration/`) and must never be imported by production Python code or define new APIs.
 4. **Fail-Closed Governance**: Live test fixtures must fail closed with sanitized error categories
