@@ -294,6 +294,158 @@ async def test_shopee_discovery_malformed_cards_skipped_without_batch_failure() 
 
 
 @pytest.mark.asyncio
+async def test_shopee_discovery_explicit_none_optional_shop_fields_remain_none() -> None:
+    obs_time = datetime(2026, 8, 16, 12, 0, 0, tzinfo=timezone.utc)
+    card_data = [
+        {
+            "title": "Valid Item With Explicit Null Shop",
+            "href": "/item-i.1.777",
+            "price_text": "120.000₫",
+            "orig_price_text": None,
+            "discount_text": None,
+            "sold_text": "Đã bán 50",
+            "rating_text": "4.7",
+            "review_text": None,
+            "shop_name": None,  # Explicit None
+            "shop_id": None,    # Explicit None
+            "item_id": None,    # Explicit None (falls back to URL parsing)
+        },
+        {
+            "title": "Valid Item With Whitespace Shop",
+            "href": "/product/222/888",
+            "price_text": "220.000₫",
+            "orig_price_text": None,
+            "discount_text": None,
+            "sold_text": None,
+            "rating_text": None,
+            "review_text": None,
+            "shop_name": "   ",  # Whitespace-only string
+            "shop_id": "   ",    # Whitespace-only string
+            "item_id": "888",
+        },
+    ]
+
+    fake_page = FakePage(script_results=[{"is_blocked": False, "is_empty": False, "items": card_data}])
+    adapter = ShopeeDiscoveryAdapter(browser=fake_page)
+
+    req = DiscoveryRequest(query="null shop test", max_candidates=10)
+    batch = await adapter.discover(req, observed_at=obs_time)
+
+    assert len(batch.candidates) == 2
+    assert "DISCOVERY_SUCCESS" in batch.diagnostic_codes
+
+    c1 = batch.candidates[0]
+    assert c1.candidate_id == "shopee_777"
+    assert c1.title == "Valid Item With Explicit Null Shop"
+    assert c1.shop_name is None
+    assert c1.shop_id is None
+    assert c1.price == 120000.0
+
+    c2 = batch.candidates[1]
+    assert c2.candidate_id == "shopee_888"
+    assert c2.title == "Valid Item With Whitespace Shop"
+    assert c2.shop_name is None
+    assert c2.shop_id is None
+    assert c2.price == 220000.0
+
+
+@pytest.mark.asyncio
+async def test_shopee_discovery_explicit_none_required_fields_skipped_without_attribute_error() -> None:
+    obs_time = datetime(2026, 8, 16, 12, 0, 0, tzinfo=timezone.utc)
+    card_data = [
+        # Explicit None title with valid href
+        {"title": None, "href": "/product-i.1.101", "item_id": "101"},
+        # Explicit None href with valid title
+        {"title": "Valid Title Missing Href", "href": None, "item_id": "102"},
+        # Both explicit None
+        {"title": None, "href": None, "item_id": "103"},
+        # Whitespace-only title
+        {"title": "   ", "href": "/product-i.1.104", "item_id": "104"},
+        # Whitespace-only href
+        {"title": "Valid Title Whitespace Href", "href": "   ", "item_id": "105"},
+        # Sibling valid card must be extracted normally
+        {
+            "title": "Completely Valid Sibling Product",
+            "href": "/sibling-i.1.999",
+            "item_id": "999",
+            "price_text": "99.000₫",
+            "shop_name": "Sibling Store",
+            "shop_id": "1",
+        },
+    ]
+
+    fake_page = FakePage(script_results=[{"is_blocked": False, "is_empty": False, "items": card_data}])
+    adapter = ShopeeDiscoveryAdapter(browser=fake_page)
+
+    req = DiscoveryRequest(query="null required fields test", max_candidates=10)
+    # Must execute cleanly without raising AttributeError: 'NoneType' object has no attribute 'strip'
+    batch = await adapter.discover(req, observed_at=obs_time)
+
+    # Exactly the one valid sibling card should be in the batch
+    assert len(batch.candidates) == 1
+    assert batch.raw_items_seen == 6
+    assert batch.candidates[0].candidate_id == "shopee_999"
+    assert batch.candidates[0].title == "Completely Valid Sibling Product"
+    assert batch.candidates[0].url == "https://shopee.vn/sibling-i.1.999"
+    assert batch.candidates[0].shop_name == "Sibling Store"
+    assert batch.candidates[0].shop_id == "1"
+    assert "DISCOVERY_SUCCESS" in batch.diagnostic_codes
+
+
+def test_shopee_map_card_to_snapshot_null_safety_matrix() -> None:
+    obs_time = datetime(2026, 8, 16, 12, 0, 0, tzinfo=timezone.utc)
+    adapter = ShopeeDiscoveryAdapter()
+
+    # Required field None / empty / whitespace checks -> return None
+    assert adapter._map_card_to_snapshot({"title": None, "href": "/p"}, obs_time) is None
+    assert adapter._map_card_to_snapshot({"title": "T", "href": None}, obs_time) is None
+    assert adapter._map_card_to_snapshot({"title": None, "href": None}, obs_time) is None
+    assert adapter._map_card_to_snapshot({"title": "", "href": "/p"}, obs_time) is None
+    assert adapter._map_card_to_snapshot({"title": "T", "href": ""}, obs_time) is None
+    assert adapter._map_card_to_snapshot({"title": "   ", "href": "/p"}, obs_time) is None
+    assert adapter._map_card_to_snapshot({"title": "T", "href": "   "}, obs_time) is None
+    assert adapter._map_card_to_snapshot({}, obs_time) is None
+
+    # Optional field None / empty / whitespace checks -> remain None on snapshot
+    s1 = adapter._map_card_to_snapshot({
+        "title": "Title",
+        "href": "/item-i.1.123",
+        "shop_name": None,
+        "shop_id": None,
+    }, obs_time)
+    assert s1 is not None
+    assert s1.title == "Title"
+    assert s1.url == "https://shopee.vn/item-i.1.123"
+    assert s1.shop_name is None
+    assert s1.shop_id is None
+    assert s1.source_product_id == "123"
+    assert s1.candidate_id == "shopee_123"
+
+    s2 = adapter._map_card_to_snapshot({
+        "title": "Title 2",
+        "href": "/item-i.1.456",
+        "shop_name": "   ",
+        "shop_id": "   ",
+    }, obs_time)
+    assert s2 is not None
+    assert s2.shop_name is None
+    assert s2.shop_id is None
+
+    # Trimming check for string values
+    s3 = adapter._map_card_to_snapshot({
+        "title": "  Trimmed Title  ",
+        "href": "  /item-i.1.789  ",
+        "shop_name": "  Trimmed Shop  ",
+        "shop_id": "  77  ",
+    }, obs_time)
+    assert s3 is not None
+    assert s3.title == "Trimmed Title"
+    assert s3.url == "https://shopee.vn/item-i.1.789"
+    assert s3.shop_name == "Trimmed Shop"
+    assert s3.shop_id == "77"
+
+
+@pytest.mark.asyncio
 async def test_shopee_discovery_true_empty_search_returns_empty_batch() -> None:
     obs_time = datetime(2026, 8, 16, 12, 0, 0, tzinfo=timezone.utc)
     fake_page = FakePage(script_results=[{"is_blocked": False, "is_empty": True, "items": []}])

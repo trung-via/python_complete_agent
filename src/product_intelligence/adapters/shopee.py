@@ -391,8 +391,11 @@ class ShopeeDiscoveryAdapter(ProductDiscoveryAdapter):
         Pure deterministic mapping from extracted card fields to canonical ProductCandidateSnapshot.
         Returns None if required fields (title, url) cannot be resolved.
         """
-        title = card_dict.get("title", "").strip()
-        href = card_dict.get("href", "").strip()
+        title_val = card_dict.get("title")
+        title = str(title_val).strip() if title_val is not None else ""
+
+        href_val = card_dict.get("href")
+        href = str(href_val).strip() if href_val is not None else ""
 
         if not title or not href:
             return None
@@ -406,9 +409,11 @@ class ShopeeDiscoveryAdapter(ProductDiscoveryAdapter):
             url = href
 
         # Extract stable product/item ID
+        raw_item_id = card_dict.get("item_id")
+        item_id_str = str(raw_item_id).strip() if raw_item_id is not None else None
         source_product_id = extract_shopee_product_id(
             url_or_href=url,
-            item_id_attr=card_dict.get("item_id"),
+            item_id_attr=item_id_str,
         )
         candidate_id = build_shopee_candidate_id(source_product_id, url)
 
@@ -420,8 +425,13 @@ class ShopeeDiscoveryAdapter(ProductDiscoveryAdapter):
         rating = parse_shopee_rating(card_dict.get("rating_text"))
         review_count = parse_shopee_review_count(card_dict.get("review_text"))
 
-        shop_name = card_dict.get("shop_name", "").strip() or None
-        shop_id = card_dict.get("shop_id", "").strip() or None
+        raw_shop_name = card_dict.get("shop_name")
+        shop_name = str(raw_shop_name).strip() if raw_shop_name is not None else ""
+        shop_name = shop_name or None
+
+        raw_shop_id = card_dict.get("shop_id")
+        shop_id = str(raw_shop_id).strip() if raw_shop_id is not None else ""
+        shop_id = shop_id or None
 
         try:
             return ProductCandidateSnapshot(
