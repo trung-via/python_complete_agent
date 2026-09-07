@@ -1,0 +1,1 @@
+{"base_sha":"112a727ca8cde2a164b00c94122ded64d3b58f44","durations":{"admitted_run_seconds":31.508105000015348,"executor_seconds":null,"verification_seconds":31.3289775000012},"executor":"codex","executor_invoked":false,"kind":"RUN_OBSERVATION","operation":"REPAIR","run_id":"RUN-156-002","task":{"id":"TASK-156","revision":1},"terminal_kind":"FAILURE","token_usage":null}
