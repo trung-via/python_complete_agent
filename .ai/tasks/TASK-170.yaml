@@ -1,0 +1,269 @@
+task_id: TASK-170
+revision: 1
+
+goal: >
+  Close P6.1d Planner-Assisted Retrieval Stress Benchmark by replaying the exact six
+  Human-authored TASK-169 stress intents through the already-published TASK-134 query
+  planner and then the already-published TASK-164 retrieval-quality evaluator over the
+  same immutable TASK-168 real-evidence corpus. TASK-170 is benchmark/integration work
+  only: it must measure the current production planner-plus-lexical retrieval boundary
+  before any P6.2 semantic/vector authority is introduced, and it must change zero
+  production Python semantics.
+
+problem: >
+  Published TASK-169 established that raw TASK-122 lexical retrieval has a systematic
+  stress weakness on the six fixed paraphrase/attribute intents: 2 TP, 0 FP, 10 FN,
+  micro precision 1/1, and micro recall 1/6. That is strong evidence against relying on
+  raw all-term lexical matching alone, but it is not yet sufficient evidence that the
+  current production grounded-QA path requires embeddings or vector retrieval because
+  TASK-135 already invokes TASK-134 before TASK-123/TASK-122. TASK-134 deliberately
+  selects a bounded contiguous lexical span by probing only TASK-122, so it may recover
+  relevant evidence from a longer stress intent without creating semantic understanding.
+  Before authorizing a new P6.2 retrieval authority, TASK-170 must measure this existing
+  planner-assisted composition on the exact same Human labels and corpus. Low or high
+  metrics are empirical evidence, not TASK failure and not an automatic architecture
+  decision.
+
+assumptions:
+  - >
+    Canonical python_complete_agent main at TASK-170 authoring is
+    52d539aa1a2b880f488987cb07c46ea9347dcdcc, the published TASK-169 revision-2
+    source candidate after RUN-169-001 Runtime PASS and REVIEW-169-001 PRIMARY PASS.
+  - >
+    Published TASK-168 source candidate 0e6626a53c10609a1a7b282d7ca49af33e4d5573
+    remains the authoritative P6.1b real-evidence corpus and baseline. Published TASK-169
+    freezes the exact six Human stress intents/labels and raw TASK-122 stress snapshot.
+  - >
+    The authoritative AIOS dependency remains exactly
+    aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@32ace104c5cfaa1b7affbaa40157872b1f85147f.
+  - >
+    TASK-134 remains the sole deterministic natural-question to retrieval-query planning
+    authority. TASK-122 remains the sole lexical retrieval normalization/matching/witness
+    authority. TASK-164 remains the sole retrieval-quality evaluation authority.
+    TASK-138/139/140/141, TASK-116/117, TASK-120, and TASK-121 remain the published
+    evidence-intake, Human-governed admission, durability, and canonical-profile
+    authorities used to reconstruct the TASK-168 corpus.
+  - >
+    The six Human relevance labels and stress intent strings were fixed before TASK-169
+    retrieval execution. TASK-170 must reuse them byte-for-byte from the published
+    TASK-169 descriptor; planner output, retrieval hits, evidence, metrics, or executor
+    observations may not change them.
+  - >
+    P6.2 remains conditional. TASK-170 must not automatically authorize embeddings,
+    vector search, semantic reranking, query expansion, or declare the existing lexical
+    stack sufficient. A separate Brain/Human decision follows only after TASK-170 Runtime
+    PASS, semantic PASS, publication, and review of the measured planner-assisted results.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_6_M4_QUERY_PLANNING.md
+    - docs/PHASE_6_P6_1_RETRIEVAL_QUALITY_EVALUATION.md
+    - docs/PHASE_6_P6_1_REAL_EVIDENCE_BASELINE.md
+    - docs/PHASE_6_P6_1C_RETRIEVAL_STRESS_BENCHMARK.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - .ai/tasks/TASK-122.yaml
+    - .ai/tasks/TASK-134.yaml
+    - .ai/tasks/TASK-135.yaml
+    - .ai/tasks/TASK-164.yaml
+    - .ai/tasks/TASK-168.yaml
+    - .ai/tasks/TASK-169.yaml
+    - tests/fixtures/p6_1b_real_evidence/benchmark.json
+    - tests/fixtures/p6_1c_retrieval_stress/benchmark.json
+    - tests/integration/test_p6_1b_real_evidence_retrieval_baseline.py
+    - tests/integration/test_p6_1c_retrieval_stress_baseline.py
+    - src/product_intelligence/grounded_query_planning.py
+    - src/product_intelligence/canonical_retrieval.py
+    - src/product_intelligence/retrieval_quality_evaluation.py
+    - src/product_intelligence/persistent_grounded_qa.py
+
+  modify:
+    - tests/fixtures/p6_1d_planner_assisted_stress/benchmark.json
+    - tests/integration/test_p6_1d_planner_assisted_stress_baseline.py
+    - docs/PHASE_6_P6_1C_RETRIEVAL_STRESS_BENCHMARK.md
+    - docs/PHASE_6_P6_1D_PLANNER_ASSISTED_RETRIEVAL_STRESS.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+
+non_goals:
+  - Modify any production Python module, public API, dependency, AIOS pin, worker,
+    workflow, CLI, browser, discovery, ranking, scraper, ProductSourcePack, intake,
+    identity, approval/admission, catalog, persistence, canonical profile, lexical
+    retrieval, query-planning, RAG, prompt, provider, answer, or evaluator semantics.
+  - Modify, rewrite, normalize, relabel, regenerate, duplicate, or delete any file under
+    tests/fixtures/p6_1b_real_evidence or tests/fixtures/p6_1c_retrieval_stress.
+  - Change any of the six TASK-169 stress intent strings, their order, or their two
+    Human relevant_variant_ids after observing TASK-134 planner output or metrics.
+  - Add embeddings, vector indexes/databases, ANN, semantic reranking, BM25/FTS/TF-IDF,
+    synonym expansion, translation, fuzzy matching, LLM query rewriting/scoring, model
+    inference, or any alternate retrieval/query-planning implementation.
+  - Modify TASK-134 span generation, planner preference policy, probes, fallback,
+    identity-bearing witness hints, limits, or error semantics merely to improve results.
+  - Modify TASK-122 normalization, all-term matching, searchable fields, match classes,
+    witnesses, ordering, or limits merely to improve results.
+  - Add a metric threshold, target score, automatic quality pass/fail gate, weighted
+    metric, F1/NDCG/MRR, or automatic P6.2 activation/parking decision.
+  - Evaluate grounded-answer prose, citation fidelity, factual correctness, semantic
+    entailment, product truth, identity correctness, business ranking, or marketplace
+    quality in P6.1d.
+  - Acquire new live marketplace evidence, open browser/CDP, use external capture roots,
+    access Drive/network/provider accounts, read mutable environment state beyond
+    PYTHONPATH, or invoke any model/API.
+  - Open P6.3 product-truth reconciliation, P6.4 identity migration, P6.5 review
+    automation, or P6.6 serving/cache work.
+  - Push, merge, publish, or mutate main from Executor implementation execution.
+
+constraints:
+  hard:
+    - >
+      TASK-170 changes zero production Python. The only executable addition is
+      tests/integration/test_p6_1d_planner_assisted_stress_baseline.py; the only new
+      fixture is tests/fixtures/p6_1d_planner_assisted_stress/benchmark.json. No prior
+      fixture or production authority may be edited.
+    - >
+      P6.1d benchmark.json must bind the exact published TASK-169 stress descriptor by
+      repository-relative path tests/fixtures/p6_1c_retrieval_stress/benchmark.json and
+      exact SHA-256 of those published bytes. Runtime verification must also transitively
+      verify TASK-169's binding to the immutable TASK-168 benchmark/capture bundle/six
+      source manifests using the published provenance rules; do not copy source packs or
+      prior descriptors into the P6.1d fixture root.
+    - >
+      P6.1d benchmark.json must be deterministic compact UTF-8 JSON with schema
+      "p6_1d_planner_assisted_retrieval_stress", version 1, sort_keys=True,
+      separators=(",", ":"), no BOM, and exactly one trailing newline. It may contain
+      only source-stress provenance, evaluator limit, ordered case records with planner
+      input/output, and the exact measured TASK-164 lexical snapshot. It must contain no
+      raw source descriptions/media, external paths, secrets, environment values,
+      provider output, mutable timestamps, or model data.
+    - >
+      Derive exactly six P6.1d cases from the published TASK-169 descriptor in its exact
+      case order. For each TASK-169 case, the TASK-170 planner input question is exactly
+      that case's retrieval_query string, and relevant_variant_ids are copied exactly in
+      the same Human order. Do not use TASK-169's English benchmark question wrapper as
+      planner input and do not fabricate, normalize, translate, trim, or otherwise alter
+      the Human stress intent.
+    - >
+      For each of the six exact stress questions, invoke
+      plan_grounded_retrieval_query(profiles, question=question) exactly once after the
+      six canonical profiles have been reconstructed. Record the exact returned planned
+      query in the P6.1d descriptor. Do not call TASK-134 private helpers, inspect planner
+      candidate spans directly, emulate its selection algorithm, or provide precomputed
+      planner outputs.
+    - >
+      Reconstruct the exact six-profile TASK-168 corpus only through the same published
+      authority chain used by TASK-169: TASK-138 intake once per exact cohort root,
+      TASK-139/140 explicit family approval/admission, TASK-141/TASK-116 singleton
+      review/admission with the same fixed family/variant IDs and canonical member order,
+      TASK-120 SQLite reload, then TASK-121 profile projection with exact one-to-one
+      singleton source-pack binding. This remains test-only orchestration and creates no
+      production helper or alternate admission/profile authority.
+    - >
+      After all six planner outputs have been produced, construct exactly six TASK-164
+      RetrievalBenchmarkCase values in source case order. Each case uses a deterministic
+      P6.1d case_id p6-1d-001 through p6-1d-006, question equal to the exact original
+      stress intent, retrieval_query equal to the exact TASK-134 planned query, and the
+      exact unchanged TASK-169 relevant_variant_ids. Then call
+      evaluate_lexical_retrieval_quality exactly once for the six-case corpus with
+      limit=3. TASK-170 must not call TASK-122 directly for scoring or implement any local
+      matching/ranking semantics.
+    - >
+      Snapshot exact TASK-164 output in P6.1d benchmark.json: ordered TP/FP/FN variant
+      IDs for every case, exact Fraction precision/recall as [numerator, denominator],
+      aggregate TP/FP/FN counts, and exact micro_precision/micro_recall pairs. Normal
+      offline verification recomputes exact equality from committed evidence and current
+      published TASK-134/TASK-164 behavior.
+    - >
+      Poor metrics, zero-hit cases, planner fallbacks, unchanged planned queries, false
+      positives, or false negatives must not fail TASK-170 when they are the deterministic
+      current published result and are accurately snapshotted. TASK failure is only a
+      contract/provenance/composition/determinism/verification failure, never low quality.
+    - >
+      Add repeated-determinism regression that performs the complete test-only corpus
+      composition, six TASK-134 planner calls, and one TASK-164 evaluation twice using
+      fresh tmp_path SQLite catalogs, proving value-equal planner outputs and evaluation
+      reports while TASK-168/TASK-169 fixture bytes and the P6.1d descriptor remain
+      byte-identical.
+    - >
+      Normal Runtime verification must be fully offline and deterministic: zero
+      browser/CDP, marketplace, external capture root, Drive, network, provider/model,
+      clock, random/UUID, retry, sleep, or subprocess from benchmark code, and no
+      filesystem scanning outside the exact committed TASK-168 fixture roots plus the
+      exact published TASK-169 descriptor and tmp_path catalogs.
+    - >
+      docs/PHASE_6_P6_1C_RETRIEVAL_STRESS_BENCHMARK.md must be updated only for lifecycle:
+      TASK-169 revision 2 is CLOSED/PUBLISHED at candidate
+      52d539aa1a2b880f488987cb07c46ea9347dcdcc and P6.1c is CLOSED. Preserve the raw
+      TASK-122 stress values and interpretation unchanged.
+    - >
+      docs/PHASE_6_P6_1D_PLANNER_ASSISTED_RETRIEVAL_STRESS.md must report every exact
+      stress intent, exact TASK-134 selected query, per-case and micro TASK-164 metrics,
+      and explicitly explain the comparison boundary: P6.1c measures raw TASK-122 while
+      P6.1d measures the existing production planning composition TASK-134 -> TASK-122.
+      It must not claim semantic understanding merely because a shorter lexical span
+      recovers a hit.
+    - >
+      Update both canonical roadmaps consistently: TASK-168/P6.1b CLOSED/PUBLISHED;
+      TASK-169 revision 2/P6.1c CLOSED/PUBLISHED; P6.1d CURRENT with TASK-170 as the
+      planner-assisted closure candidate; P6.2 remains GATED / DECISION PENDING until
+      TASK-170 Runtime PASS, semantic PASS, publication, and separate Brain/Human review
+      of measured P6.1c plus P6.1d evidence; P6.3-P6.6 remain deferred/unimplemented.
+    - Do not push from Executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      TASK-170 changes only the new P6.1d descriptor, offline integration test, P6.1c
+      lifecycle doc, new P6.1d report, and two roadmaps; zero production Python or prior
+      semantic authority is modified or duplicated.
+  - id: AC2
+    condition: >
+      P6.1d binds immutably to the exact published TASK-169 descriptor and transitively
+      verifies the immutable TASK-168 benchmark/capture/source-manifest provenance without
+      copying or mutating prior fixture trees.
+  - id: AC3
+    condition: >
+      Exactly six planner inputs reuse the exact TASK-169 retrieval_query stress intents
+      and Human relevant_variant_ids in published order, with no post-result relabeling,
+      normalization, translation, or fabricated question content.
+  - id: AC4
+    condition: >
+      The exact six canonical profiles are reconstructed only through TASK-138,
+      TASK-139/140, TASK-141/TASK-116, TASK-120, and TASK-121 with the same family,
+      variant, and member semantics as TASK-168/TASK-169.
+  - id: AC5
+    condition: >
+      TASK-134 is invoked exactly once per stress question and solely owns planned-query
+      selection; TASK-170 does not inspect or reproduce planner internals and records each
+      exact returned planned query as empirical evidence.
+  - id: AC6
+    condition: >
+      After planning, scoring delegates exactly once to TASK-164 for all six derived cases
+      at limit=3, with TASK-122 reachable for scoring only through TASK-164 and no local or
+      alternate retrieval implementation.
+  - id: AC7
+    condition: >
+      P6.1d benchmark.json snapshots exact planner outputs plus per-case/aggregate
+      TP/FP/FN and Fraction precision/recall, and normal offline verification recomputes
+      exact equality from committed evidence and published authorities.
+  - id: AC8
+    condition: >
+      No metric threshold or automatic architecture decision exists: weak or strong
+      planner-assisted results are valid measured evidence, while P6.2 remains gated for
+      separate Brain/Human interpretation after publication.
+  - id: AC9
+    condition: >
+      Repeated complete offline execution is deterministic with fresh SQLite catalogs and
+      zero mutation of TASK-168/TASK-169/P6.1d fixture bytes, with no live, network,
+      provider, model, browser, or external-state work.
+  - id: AC10
+    condition: >
+      Phase documentation reports exact planner-assisted results and authority boundaries;
+      both roadmaps mark TASK-169/P6.1c CLOSED/PUBLISHED, TASK-170/P6.1d current closure
+      candidate, P6.2 decision-gated, and P6.3-P6.6 deferred; required focused tests and
+      git diff check pass with zero unresolved items and no changed files outside scope.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/integration/test_p6_1b_real_evidence_retrieval_baseline.py tests/integration/test_p6_1c_retrieval_stress_baseline.py tests/integration/test_p6_1d_planner_assisted_stress_baseline.py tests/product_intelligence/test_grounded_query_planning.py tests/product_intelligence/test_retrieval_quality_evaluation.py tests/product_intelligence/test_canonical_retrieval.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
