@@ -1,5 +1,5 @@
 task_id: TASK-168
-revision: 1
+revision: 2
 
 goal: >
   Close P6.1b Real-Evidence Benchmark Execution by freezing one exact Human-reviewed TASK-166
@@ -8,26 +8,32 @@ goal: >
   offline to snapshot exact lexical retrieval precision/recall and grounded citation-fidelity
   baseline evidence. TASK-168 is integration/benchmark work only: it changes zero production
   Python and introduces no new capture, retrieval, ranking, truth, provider, persistence,
-  admission, or benchmark-label authority.
+  admission, identity, or benchmark-label authority.
 
 problem: >
   TASK-164 closed P6.1a with a pure deterministic evaluator. TASK-165 attempted P6.1b but mixed
   mutable marketplace capture into AIOS implementation/verification and remains unpublished blocked
   historical evidence. Published TASK-166 moved capture to an external resumable Human-operated
-  boundary. Published TASK-167 then hardened Shopee search-surface provenance after the first READY
-  bundle was Human-rejected because query "chuột không dây" captured an unrelated lantern listing.
-  A second external TASK-166 READY bundle was captured after TASK-167 publication and has now passed
-  Human semantic review for all three fixed intents plus integrity review: exactly two observations
-  per cohort, relative manifest references, exact SHA-256 matches, platform shopee, one stable
-  source_product_id per cohort, and distinct observed_at values. The remaining P6.1b gap is to freeze
-  those exact reviewed bytes into repository test fixtures and measure the published lexical path
-  offline without allowing the executor to recapture, relabel, rewrite, or substitute evidence.
+  boundary. Published TASK-167 hardened Shopee search-surface provenance after the first READY bundle
+  was Human-rejected because query "chuột không dây" captured an unrelated lantern listing. A second
+  external TASK-166 READY bundle captured after TASK-167 publication passed Human semantic and
+  integrity review for all three fixed intents. TASK-168 revision 1 then failed canonically at
+  RUN-168-001 before committing any source delta because it incorrectly required each cohort's two
+  observations to be admitted as one full-member sellable variant. The accepted evidence resolves
+  each observation pair as SAME_PRODUCT_FAMILY, while TASK-116 explicitly forbids treating
+  SAME_PRODUCT_FAMILY as direct EXACT_VARIANT_MATCH proof. Revision 2 corrects only that Brain task
+  design defect: preserve one two-member family per cohort, but admit each observation as its own
+  explicit singleton sellable variant under existing TASK-116 semantics. This does not assert that
+  the two observations are different real-world variants; it merely refuses to collapse them into one
+  canonical variant without direct exact-variant evidence.
 
 assumptions:
   - >
-    Canonical python_complete_agent main at TASK-168 authoring is
-    fce417ff1309f68c89a830aecbfc66a30f93a031, the published TASK-167 source candidate after
-    RUN-167-001 Runtime PASS and REVIEW-167-001 PRIMARY PASS.
+    Canonical python_complete_agent main immediately before TASK-168 revision 2 is the revision-1
+    authoring state at 574c51bfe5535cae6f3bdcf2bc7d7b5c989ed98a. RUN-168-001 is preserved
+    canonical task-design failure evidence: failed_head_sha equals that base, changed_files is empty,
+    and the executor reported that all three cohort pairs resolve SAME_PRODUCT_FAMILY and cannot pass
+    TASK-116 full-member exact-variant eligibility.
   - >
     The authoritative AIOS dependency remains exactly
     aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@32ace104c5cfaa1b7affbaa40157872b1f85147f.
@@ -36,21 +42,22 @@ assumptions:
     sole lexical retrieval authority; TASK-123 remains canonical RAG-context authority; TASK-129
     remains GroundedAnswer structural authority; TASK-133 remains grounded-QA composition.
   - >
-    TASK-138 remains the sole configured-root persisted-evidence intake/typed-rehydration
-    composition over TASK-125. TASK-139/140/141 remain the sole P3 family/variant review, explicit
-    Human decision, and durable admission composition boundaries. TASK-120 remains SQLite durability;
-    TASK-121 remains canonical profile projection.
+    TASK-138 remains the sole configured-root persisted-evidence intake/typed-rehydration composition
+    over TASK-125. TASK-139/140/141 remain the sole P3 family/variant review, explicit Human decision,
+    and durable admission composition boundaries. TASK-116 remains the sole direct-exact/singleton
+    sellable-variant proposal authority. TASK-120 remains SQLite durability; TASK-121 remains canonical
+    profile projection.
   - >
     TASK-166 remains the sole external live-capture checkpoint/bundle authority. TASK-167 remains a
     closed Shopee search-surface hardening task. TASK-168 must not modify either implementation.
   - >
-    The rejected first READY bundle is historical operational evidence only and must never be
-    imported, repaired, merged, relabeled, or substituted. The accepted second READY bundle is the
-    only permitted implementation-time external source for TASK-168.
+    The rejected first READY bundle is historical operational evidence only and must never be imported,
+    repaired, merged, relabeled, or substituted. The accepted second READY bundle is the only permitted
+    implementation-time external source for TASK-168.
   - >
-    Human relevance labels are fixed before retrieval evaluation. The executor may not inspect
-    TASK-122 hits, profile evidence, business score, candidate title overlap, answer text, or computed
-    metrics to change benchmark labels or cohort ordering.
+    Human relevance labels are fixed before retrieval evaluation. The executor may not inspect TASK-122
+    hits, profile evidence, business score, candidate title overlap, answer text, or computed metrics to
+    change benchmark labels, cohort ordering, or singleton membership.
   - >
     P6.2 remains blocked regardless of metric values until TASK-168 Runtime PASS, semantic PASS,
     publication, and Brain/Human review of the resulting empirical baseline.
@@ -62,6 +69,10 @@ scope:
     - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
     - docs/PHASE_6_P6_1_RETRIEVAL_QUALITY_EVALUATION.md
     - docs/PHASE_6_P6_1_LIVE_CAPTURE_CHECKPOINT.md
+    - .ai/tasks/TASK-115.yaml
+    - .ai/tasks/TASK-116.yaml
+    - .ai/tasks/TASK-117.yaml
+    - .ai/tasks/TASK-118.yaml
     - .ai/tasks/TASK-120.yaml
     - .ai/tasks/TASK-121.yaml
     - .ai/tasks/TASK-122.yaml
@@ -107,22 +118,25 @@ scope:
 
 non_goals:
   - Modify any production Python module, dependency, AIOS pin, worker, workflow, browser, discovery,
-    ranker, scraper, ProductSourcePack, intake, entity, admission, catalog, profile, retrieval, RAG,
-    prompt, provider, answer, evaluator, or CLI implementation.
+    ranker, scraper, ProductSourcePack, intake, entity-resolution, admission, catalog, profile,
+    retrieval, RAG, prompt, provider, answer, evaluator, or CLI implementation.
   - Run Shopee/TikTok discovery, browser/CDP, scrape/acquisition, Drive upload, CAPTCHA handling, HTTP,
     network, provider-account, or marketplace work inside TASK-168 Runtime verification.
   - Reuse, repair, rewrite, import, or derive fixtures from the Human-rejected first READY bundle.
-  - Modify TASK-164 evaluator semantics, TASK-122 retrieval semantics, TASK-123 context semantics,
-    TASK-129 structural grounding, TASK-133 answer composition, or TASK-134 query planning.
+  - Modify TASK-116 exact-variant/singleton semantics, TASK-164 evaluator semantics, TASK-122 retrieval
+    semantics, TASK-123 context semantics, TASK-129 structural grounding, TASK-133 answer composition,
+    or TASK-134 query planning.
+  - Treat SAME_PRODUCT_FAMILY as proof of EXACT_VARIANT_MATCH or proof that two observations are
+    different sellable variants. Do not infer a real-world variant partition from singleton admission.
   - Add semantic/vector retrieval, embeddings, BM25/FTS/TF-IDF, fuzzy matching, synonym expansion,
     reranking, LLM retrieval scoring, query rewriting, fallback behavior, or a quality threshold.
   - Derive relevance labels from titles, evidence, retrieved hits, marketplace popularity, business
     score, provider output, answer text, or measured metrics.
-  - Add product-truth reconciliation, preferred/latest/majority evidence selection, identity
-    migration, family/variant membership evolution, autonomous approval, or a production benchmark store.
+  - Add product-truth reconciliation, preferred/latest/majority evidence selection, identity migration,
+    family/variant membership evolution, autonomous approval, or a production benchmark store.
   - Commit downloaded images/video, raw HTML, cookies, headers, credentials, browser profiles,
     checkpoint files, local absolute paths, transient output directories, or live execution logs.
-  - Treat low precision/recall/citation fidelity as a task failure or automatically authorize P6.2.
+  - Treat low precision/recall/citation fidelity as task failure or automatically authorize P6.2.
   - Push, merge, publish, or mutate main from Executor implementation execution.
 
 constraints:
@@ -143,56 +157,62 @@ constraints:
       recapture it. Require exact capture_bundle.json schema "product_intelligence_live_capture_bundle"
       version 1 with exactly three cohorts in this exact query order: "bình giữ nhiệt inox",
       "bàn phím cơ", "chuột không dây". Require exactly two ordered observation references per cohort,
-      nonblank candidate_id/title/product_url, and pairwise-distinct selected candidate URLs. Do not
-      perform any new semantic/title relevance judgment; Human acceptance is an input to this TASK.
+      nonblank candidate_id/title/product_url, and pairwise-distinct selected candidate URLs. Human
+      acceptance of those three titles is already an input; perform no new title-relevance selection.
     - >
       For every bundle observation, require manifest_path to be a safe relative path without traversal,
       resolve it strictly beneath PI_P6_1B_CAPTURE_ROOT, require a regular non-symlink source_pack.json,
       and require SHA-256 of exact persisted bytes to equal the bundle digest. Any mismatch fails closed;
       never search for a replacement manifest or repair the bundle.
     - >
-      Copy capture_bundle.json byte-for-byte to the fixture root. Copy the six manifest files
-      byte-for-byte into the six fixed case/observation target paths solely by cohort ordinal and
-      observation ordinal. Do not parse/rewrite/normalize/shorten/hand-edit any ProductSourcePack field.
-      Do not copy capture_checkpoint.json or media. benchmark.json may map each original bundle-relative
-      manifest path/digest to its deterministic fixture target but must contain no external absolute path.
+      Copy capture_bundle.json byte-for-byte to the fixture root. Copy the six manifest files byte-for-byte
+      into the six fixed case/observation target paths solely by cohort ordinal and observation ordinal.
+      Do not parse/rewrite/normalize/shorten/hand-edit any ProductSourcePack field. Do not copy
+      capture_checkpoint.json or media. benchmark.json may map each original bundle-relative manifest
+      path/digest to its deterministic fixture target but must contain no external absolute path.
     - >
       The committed capture_bundle.json plus six source_pack.json files are immutable benchmark input.
-      Normal verification must use only the repository fixture tree. It must prove each target
-      source_pack.json exact SHA-256 still matches the corresponding capture bundle record before any
-      benchmark composition. Fixture corruption must fail closed.
+      Normal verification must use only the repository fixture tree and prove each target source_pack.json
+      exact SHA-256 still matches the corresponding capture bundle record before benchmark composition.
     - >
       benchmark.json is the only benchmark descriptor and measured snapshot. It must be deterministic
-      compact UTF-8 JSON with schema "p6_1b_real_evidence_benchmark", version 1, sort_keys=True,
+      compact UTF-8 JSON with schema "p6_1b_real_evidence_benchmark", version 2, sort_keys=True,
       separators=(",", ":"), no BOM, and one trailing newline. It must contain the capture bundle
       fixture-relative filename and exact bundle SHA-256, fixed Human labels, exact source manifest
-      provenance/digests/fixture targets, and exact measured baseline values; never raw description/media
-      payloads, secrets, cookies, local absolute paths, or copied checkpoint state.
+      provenance/digests/fixture targets, the six fixed benchmark variant IDs below, and exact measured
+      baseline values; never raw description/media payloads, secrets, cookies, local absolute paths, or
+      copied checkpoint state.
+    - >
+      Create exactly these six benchmark variant IDs, preserving cohort order then canonical family member
+      order: "p6-benchmark-variant-001-001", "p6-benchmark-variant-001-002",
+      "p6-benchmark-variant-002-001", "p6-benchmark-variant-002-002",
+      "p6-benchmark-variant-003-001", "p6-benchmark-variant-003-002". These IDs are benchmark-local
+      caller-supplied opaque IDs under existing TASK-117 authority, not inferred marketplace identities.
     - >
       benchmark.json must define exactly four RetrievalBenchmarkCase values in this exact order:
       1) case_id "p6-1b-001", question
-         "Which frozen benchmark variant matches the Human intent bình giữ nhiệt inox?",
+         "Which frozen benchmark variants match the Human intent bình giữ nhiệt inox?",
          retrieval_query "bình giữ nhiệt inox", relevant_variant_ids
-         ("p6-benchmark-variant-001",);
+         ("p6-benchmark-variant-001-001", "p6-benchmark-variant-001-002");
       2) case_id "p6-1b-002", question
-         "Which frozen benchmark variant matches the Human intent bàn phím cơ?",
+         "Which frozen benchmark variants match the Human intent bàn phím cơ?",
          retrieval_query "bàn phím cơ", relevant_variant_ids
-         ("p6-benchmark-variant-002",);
+         ("p6-benchmark-variant-002-001", "p6-benchmark-variant-002-002");
       3) case_id "p6-1b-003", question
-         "Which frozen benchmark variant matches the Human intent chuột không dây?",
+         "Which frozen benchmark variants match the Human intent chuột không dây?",
          retrieval_query "chuột không dây", relevant_variant_ids
-         ("p6-benchmark-variant-003",);
+         ("p6-benchmark-variant-003-001", "p6-benchmark-variant-003-002");
       4) case_id "p6-1b-004", question
          "Which frozen benchmark variants contain persisted Shopee evidence?",
-         retrieval_query "shopee", relevant_variant_ids
-         ("p6-benchmark-variant-001", "p6-benchmark-variant-002",
-          "p6-benchmark-variant-003").
-      Evaluator limit is exactly 3 for every case. Labels and queries are frozen before metrics run.
+         retrieval_query "shopee", relevant_variant_ids equal all six benchmark variant IDs above in
+         that exact order. Evaluator limit is exactly 3 for every case. Labels and queries are frozen
+         before metrics run and encode cohort relevance only, not a claim that sibling singleton variants
+         are distinct real-world variants.
     - >
       Offline benchmark verification must call TASK-138 intake_product_source_evidence exactly once per
-      case cohort root, yielding exactly two manifest paths and two typed ProductSourcePack values per
-      cohort. Do not direct-parse or deserialize source_pack.json in benchmark-scoring code, construct
-      shadow packs, or create another manifest inventory.
+      cohort root, yielding exactly two manifest paths and two typed ProductSourcePack values per cohort.
+      Do not direct-parse or deserialize source_pack.json in benchmark-scoring code, construct shadow
+      packs, or create another manifest inventory.
     - >
       Build one disposable TASK-120 SQLite catalog under tmp_path. For each cohort in case order call
       TASK-139 plan_family_knowledge_review exactly once and require exactly one actionable
@@ -201,22 +221,31 @@ constraints:
       admit exact family IDs "p6-benchmark-family-001" through "p6-benchmark-family-003" only through
       TASK-140/TASK-120.
     - >
-      For each admitted family call TASK-141 prepare_sellable_variant_review exactly once with the
-      complete family.members tuple, never singleton fallback. Require existing TASK-116 semantics to
-      accept that exact full selection, record explicit variant APPROVE through TASK-141 with the same
-      actor/timestamp, and durably admit exact variant IDs "p6-benchmark-variant-001" through
-      "p6-benchmark-variant-003" through TASK-141/TASK-120. If existing semantics reject a cohort, fail
-      closed; do not split observations, alter labels, substitute evidence, or recapture inside TASK-168.
+      For each admitted two-member family, do not request a full-member sellable-variant proposal. Instead,
+      iterate family.members in exact canonical order and call TASK-141 prepare_sellable_variant_review
+      exactly once per member with the explicit singleton tuple (member,). This fixed singleton selection
+      is authorized by revision 2 because RUN-168-001 proved the sibling pair lacks direct
+      EXACT_VARIANT_MATCH evidence; do not inspect evidence fields or relationship scores to choose another
+      partition. Require each singleton proposal to succeed under existing TASK-116 singleton and
+      exact-edge-closure semantics, record explicit variant APPROVE through TASK-141 with the same
+      actor/timestamp, and durably admit the six exact variant IDs above through TASK-141/TASK-120. No
+      fallback, overlapping proposal, pair merge, relabel, evidence rewrite, or recapture is permitted.
     - >
-      Reload the completed SQLite catalog only through TASK-120. Build exactly three
+      Singleton admission in this benchmark is evidence-conservative canonicalization only. Documentation
+      and tests must state that it does not prove sibling observations are different real-world variants,
+      does not claim a complete family variant partition, and does not change TASK-116 semantics.
+    - >
+      Reload the completed SQLite catalog only through TASK-120. Build exactly six
       CanonicalVariantProfile values only through TASK-121 build_canonical_variant_profile in catalog
-      variant order, binding each variant only to its exact cohort ProductSourcePack pair. Do not direct-
-      construct profiles, copy/reduce evidence, or create another projection authority.
+      variant order. Each singleton registered variant must bind only to the one exact cohort
+      ProductSourcePack whose SourceObservationIdentity equals that sole registered member; no profile may
+      receive the sibling pack as extra evidence. Do not direct-construct profiles or create another
+      projection authority.
     - >
       Construct the four exact TASK-164 RetrievalBenchmarkCase values from benchmark.json and call
-      evaluate_lexical_retrieval_quality exactly once with the three-profile corpus and limit=3. Do not
-      call TASK-122 directly from benchmark-scoring code, precompute hits, add local matching, or apply a
-      metric threshold.
+      evaluate_lexical_retrieval_quality exactly once with the six-profile corpus and limit=3. Do not call
+      TASK-122 directly from benchmark-scoring code, precompute hits, add local matching, or apply a metric
+      threshold.
     - >
       Snapshot the exact lexical report in benchmark.json: each case's ordered TP/FP/FN variant IDs,
       precision/recall exact [numerator, denominator] pairs, aggregate TP/FP/FN counts, and exact
@@ -224,7 +253,7 @@ constraints:
       equality. The snapshot is empirical evidence, not a target and must never be edited to hide drift.
     - >
       For each RetrievalCaseEvaluation build exactly one TASK-123 CanonicalRagContext from the same exact
-      three profiles, case.question, case.retrieval_query, max_hits=3, and default byte budget. Instantiate
+      six profiles, case.question, case.retrieval_query, max_hits=3, and default byte budget. Instantiate
       a test-only deterministic zero-network provider with one explicit boolean has_hits=
       bool(rag_context.hits) decided before provider invocation. The provider may branch only on that
       explicit boolean: ANSWERED with citation ["H001-W001"] when true; INSUFFICIENT_EVIDENCE with zero
@@ -247,16 +276,17 @@ constraints:
       the same committed fixtures using fresh tmp_path catalogs and proves value-equal lexical report and
       citation-fidelity snapshot, with zero fixture mutation.
     - >
-      docs/PHASE_6_P6_1_REAL_EVIDENCE_BASELINE.md must report the exact measured values from benchmark.json
-      and clearly distinguish Human relevance labels, TASK-122 lexical behavior, TASK-164 metric semantics,
-      deterministic structural citation fidelity, and the absence of product-truth/semantic-entailment
-      claims. Low scores are valid findings and must be reported rather than hidden.
+      docs/PHASE_6_P6_1_REAL_EVIDENCE_BASELINE.md must report the exact measured values from benchmark.json,
+      explain why revision 1 failed without source mutation, document the revision-2 singleton benchmark
+      representation, and clearly distinguish Human cohort relevance, TASK-116 identity evidence,
+      TASK-122 lexical behavior, TASK-164 metric semantics, deterministic structural citation fidelity,
+      and the absence of product-truth/semantic-entailment claims. Low scores are valid findings.
     - >
       Update both canonical roadmaps consistently: TASK-166 and TASK-167 are CLOSED/published; the first
       READY bundle remains Human-rejected operational evidence; the second reviewed READY bundle is the
-      accepted P6.1b corpus source; TASK-168 is the current P6.1b closure candidate; P6.2 remains blocked
-      until TASK-168 Runtime PASS, semantic PASS, publication, and Brain/Human review of the measured
-      empirical baseline.
+      accepted P6.1b corpus source; RUN-168-001 is preserved task-design failure evidence with zero source
+      delta; TASK-168 revision 2 is the current P6.1b closure candidate; P6.2 remains blocked until TASK-168
+      Runtime PASS, semantic PASS, publication, and Brain/Human review of the measured empirical baseline.
     - Do not push from Executor execution.
 
 acceptance:
@@ -277,14 +307,16 @@ acceptance:
       ordering is preserved without metric-driven relabeling.
   - id: AC4
     condition: >
-      Offline composition uses TASK-138 exactly once per cohort, then existing TASK-139/140/141/120/121
-      authorities to create exactly three full-member benchmark variants under explicit fixed Human
-      decisions/IDs, with no shadow decode, identity, approval, admission, persistence, or profile path.
+      Offline composition uses TASK-138 exactly once per cohort, existing TASK-139/140 to create exactly
+      three two-member benchmark families, and existing TASK-141/TASK-116 singleton semantics to create
+      exactly six one-member benchmark variants in canonical family-member order under explicit fixed
+      Human decisions/IDs, with no full-member variant collapse, shadow identity, approval, admission,
+      persistence, or profile path.
   - id: AC5
     condition: >
-      The exact four frozen TASK-164 benchmark cases execute once against exactly three canonical profiles
-      with limit=3; TASK-122 remains reachable only through TASK-164 and no query/retrieval semantics or
-      quality threshold is added.
+      TASK-121 produces exactly six singleton canonical profiles with exact one-to-one source-pack binding;
+      the exact four frozen TASK-164 benchmark cases execute once against that six-profile corpus with
+      limit=3 and TASK-122 remains reachable only through TASK-164.
   - id: AC6
     condition: >
       benchmark.json snapshots exact per-case and aggregate TP/FP/FN plus Fraction precision/recall values,
@@ -301,9 +333,10 @@ acceptance:
       byte-identical.
   - id: AC9
     condition: >
-      Baseline documentation reports exact empirical metrics without claiming product truth, semantic
-      entailment, factual accuracy, or a quality threshold, and both roadmaps preserve the accepted/rejected
-      bundle lineage plus P6.2 block.
+      Baseline documentation reports exact empirical metrics, preserves RUN-168-001 as a contract-design
+      failure, and states explicitly that singleton benchmark variants do not prove sibling observations are
+      different real-world variants or create product truth; both roadmaps preserve accepted/rejected bundle
+      lineage plus the P6.2 block.
   - id: AC10
     condition: >
       Required focused predecessor/benchmark tests and git diff check pass with zero unresolved items and no
