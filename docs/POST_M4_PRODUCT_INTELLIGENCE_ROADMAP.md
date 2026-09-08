@@ -1,9 +1,9 @@
 # Post-M4 Product Intelligence Roadmap — Live Product Enablement
 
 Status: canonical post-M4 architecture roadmap; P1-P5 and P6.0 CLOSED. P6.1 is
-CURRENT (TASK-164 as P6.1a evaluation-contract gate, P6.1b NEXT for real-evidence
-benchmark execution). P6.2 is FUTURE / blocked until reviewed empirical P6.1b
-evidence exists.
+CURRENT (TASK-164 CLOSED as P6.1a; TASK-165 as P6.1b closure gate; P6.1 closure
+conditional on Runtime and semantic PASS). P6.2 is CONDITIONAL / BLOCKED pending
+Brain review of P6.1b baseline failure modes.
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
 ## 1. Starting point
@@ -223,16 +223,19 @@ production certification remains distinct from provider-only TASK-144.
 Establish empirical retrieval benchmarks (precision, recall, citation accuracy) using the existing
 lexical retrieval baseline (TASK-122) on real product evidence before introducing any semantic retrieval.
 P6.1 is split into two sequential sub-stages:
-- **P6.1a Evaluation Contract (TASK-164 — CURRENT)**: Establishes pure deterministic evaluation authority
+- **P6.1a Evaluation Contract (TASK-164 — CLOSED)**: Established pure deterministic evaluation authority
   over existing TASK-122 lexical retrieval and TASK-129 grounded answers, measuring explicit Human-authored
-  benchmark labels with exact Fraction arithmetic.
-- **P6.1b Real-Evidence Benchmark Execution — NEXT**: Executes the frozen P6.1a evaluator against a reviewed
-  real-evidence benchmark corpus of acquired marketplace evidence.
+  benchmark labels with exact Fraction arithmetic. Closed and published at candidate `ab80a746329cafa7f3cd316fb140c392644f3267`.
+- **P6.1b Real-Evidence Benchmark Execution (TASK-165 — CLOSURE GATE)**: Executes the frozen P6.1a evaluator against
+  a reviewed real-evidence benchmark corpus of acquired marketplace evidence (curating 3 Shopee cohorts, executing
+  offline integration testing via disposable SQLite intake and admission, and snapshotting exact lexical baseline
+  metrics and citation fidelities). P6.1 closure is conditional on canonical Runtime verification and semantic review PASS.
 
-#### P6.2 Conditional Semantic / Vector Retrieval or Reranking — FUTURE / BLOCKED UNTIL P6.1b EMPIRICAL EVIDENCE
-Introduce semantic/vector retrieval or reranking only if measured P6.1b empirical evidence justifies it.
-Blocked until reviewed empirical P6.1b evidence exists. Preserves SQLite catalog as the canonical store;
-vector indexes remain secondary and disposable.
+#### P6.2 Conditional Semantic / Vector Retrieval or Reranking — CONDITIONAL / BLOCKED
+P6.2 is a separate evidence-driven decision gate rather than an automatic next implementation.
+Brain and Human review of empirical P6.1b baseline failure modes (specifically lexical retrieval
+incompleteness on noisy discovery titles) must explicitly determine whether semantic retrieval or reranking
+is justified. Preserves SQLite catalog as the canonical store; vector indexes remain secondary and disposable.
 
 #### P6.3 Product-Truth Reconciliation — UNIMPLEMENTED / FUTURE
 Formulate a separate Human-governed policy authority for attribute reconciliation across observations
@@ -266,7 +269,9 @@ RUN-156-009 remains historical failed P6.0b evidence after discovery succeeded a
 failed with `LIVE_P6B_ACQUISITION_EXTRACTION`. Published TASK-162 is the narrow Shopee
 product-page readiness blocker correction. Published TASK-163 closed P6.0b and P6.0 after
 canonical Runtime verification and ChatGPT PRIMARY semantic review both passed. P6.1 is
-CURRENT (P6.1a TASK-164 evaluation contract; P6.1b NEXT for real benchmark execution).
+CURRENT (TASK-164 CLOSED as P6.1a; TASK-165 as P6.1b closure gate; P6.1 closure conditional
+on Runtime and semantic PASS). P6.2 is CONDITIONAL / BLOCKED pending Brain review of P6.1b
+baseline failure modes.
 
 ## 4. Authority invariants
 

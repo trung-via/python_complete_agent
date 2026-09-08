@@ -1,6 +1,6 @@
 # Post-P5 P6 Quality and Scale Roadmap
 
-Status: **P6.0 CLOSED (TASK-154 closed P6.0a; TASK-163 closed P6.0b). P6.1 CURRENT (TASK-164 closes P6.1a Evaluation Contract; P6.1b NEXT for real-evidence benchmark execution). P6.2 FUTURE / blocked until reviewed empirical P6.1b evidence exists.**
+Status: **P6.0 CLOSED (TASK-154 closed P6.0a; TASK-163 closed P6.0b). P6.1 CURRENT (TASK-164 CLOSED as P6.1a Evaluation Contract; TASK-165 as P6.1b closure gate; P6.1 closure conditional on Runtime and semantic PASS). P6.2 CONDITIONAL / BLOCKED as an evidence-driven decision gate pending Brain review of P6.1b baseline failure modes.**
 Scope: Python Agent product architecture post-P5; AIOS-renew remains execution substrate only.
 
 ## 1. Canonical Post-P5 Architecture Audit
@@ -52,6 +52,13 @@ Historical certification and blocker lineage:
   observations, then composed through TASK-138/139/140/141, TASK-120 SQLite durability, and TASK-135
   persistent grounded QA with a deterministic zero-network provider. With this passage, P6.0b and P6.0
   are CLOSED, and P6.1 is CURRENT.
+- **TASK-164**: CLOSED after canonical Runtime verification (RUN-164-001 PASS) and
+  ChatGPT PRIMARY semantic review (REVIEW-164-001 PASS) on candidate
+  `ab80a746329cafa7f3cd316fb140c392644f3267`. It established the pure deterministic retrieval-quality
+  and citation-fidelity evaluation contract (P6.1a).
+- **TASK-165**: Real-Evidence Benchmark Execution (P6.1b closure gate). Curates the frozen 3-cohort
+  Shopee benchmark corpus, executes offline integration testing over committed manifests via disposable
+  SQLite intake and admission, and snapshots exact lexical baseline metrics and citation fidelities.
 
 Attempting to introduce semantic retrieval, vector search, product-truth reconciliation, identity
 migrations, automated review, or background serving before acquiring and evaluating real evidence
@@ -99,22 +106,28 @@ Establish rigorous, reproducible evaluation baselines for retrieval quality on r
 product evidence before introducing any new retrieval paradigm.
 
 P6.1 is split into two sequential sub-stages:
-- **P6.1a Evaluation Contract (TASK-164 — CURRENT)**:
-  Establishes the pure deterministic evaluation authority over existing TASK-122 lexical retrieval
+- **P6.1a Evaluation Contract (TASK-164 — CLOSED)**:
+  Established the pure deterministic evaluation authority over existing TASK-122 lexical retrieval
   and TASK-129 grounded answers, defining `RetrievalBenchmarkCase`, `RetrievalCaseEvaluation`,
   `RetrievalQualityReport`, `GroundedCitationFidelity`, `evaluate_lexical_retrieval_quality`, and
   `evaluate_grounded_answer_citation_fidelity` in `src/product_intelligence/retrieval_quality_evaluation.py`.
   It measures explicit Human-authored benchmark labels using exact Fraction arithmetic, without
   changing retrieval, query planning, RAG context, answer semantics, ranking, canonical knowledge,
-  or product truth.
-- **P6.1b Real-Evidence Benchmark Execution — NEXT**:
-  Curates a gold-standard query and grounded-QA evaluation benchmark on real persisted product packs
-  and executes it against the frozen P6.1a evaluator to establish empirical lexical baseline metrics.
+  or product truth. Closed and published at candidate `ab80a746329cafa7f3cd316fb140c392644f3267`.
+- **P6.1b Real-Evidence Benchmark Execution (TASK-165 — CLOSURE GATE)**:
+  Curates a frozen 3-cohort Shopee benchmark corpus, executes offline integration testing over
+  committed `source_pack.json` manifests via disposable SQLite intake and admission, projects canonical
+  variant profiles, and snapshots exact lexical baseline metrics (micro-precision 1/1, micro-recall 5/6)
+  and citation fidelities in `tests/fixtures/p6_1b_real_evidence/benchmark.json` and
+  `docs/PHASE_6_P6_1_REAL_EVIDENCE_BASELINE.md`. P6.1 closure is conditional on canonical Runtime
+  verification and semantic review PASS.
 
-### P6.2 Conditional Semantic / Vector Retrieval or Reranking — FUTURE / BLOCKED UNTIL P6.1b EMPIRICAL EVIDENCE
+### P6.2 Conditional Semantic / Vector Retrieval or Reranking — CONDITIONAL / BLOCKED
 
-Introduce semantic retrieval (e.g., embeddings, vector index, ANN, semantic reranking) **only if**
-the measured P6.1b evaluation evidence justifies it. Blocked until reviewed empirical P6.1b evidence exists.
+P6.2 is a separate evidence-driven decision gate rather than an automatic next implementation.
+Brain and Human review of the empirical P6.1b baseline failure modes (specifically lexical retrieval
+incompleteness on noisy discovery titles such as in Case 3) must explicitly determine whether a specific
+retrieval improvement (e.g., embeddings, vector index, hybrid search, or reranking) is justified.
 
 - Any semantic index must remain a derivative, disposable secondary index; it must never become
   the canonical store of product knowledge or supersede SQLite durability (TASK-120).

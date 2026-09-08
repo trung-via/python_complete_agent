@@ -1,0 +1,40 @@
+{
+  "brand": null,
+  "collector": "shopee_source_v1",
+  "description_text": null,
+  "diagnostic_codes": [],
+  "facts": [
+    {
+      "key": "Option",
+      "provenance": "specifications",
+      "source_section": "attributes",
+      "unit": null,
+      "value": "Màu Đỏ, Màu Xanh"
+    }
+  ],
+  "media": [
+    {
+      "alt_text": null,
+      "byte_size": 850363,
+      "content_type": "image/jpeg",
+      "local_filename": "orig_000_761fe1f39c57.jpg",
+      "ordinal": 0,
+      "perceptual_hash": null,
+      "platform": "shopee",
+      "provenance": "STRUCTURED_PRODUCT_DATA",
+      "role": "PRIMARY",
+      "sha256_hash": "761fe1f39c57f91b424707c1891e927a7da5286527a64e9ad3a0e9fb09af7f54",
+      "source_url": "https://down-vn.img.susercontent.com/file/vn-11134207-7ras8-m1y43q66y37a89",
+      "variant_label": null
+    }
+  ],
+  "model_sku": null,
+  "observed_at": "2026-09-08T01:35:00+00:00",
+  "platform": "shopee",
+  "product_url": "https://shopee.vn/product-i.130176664.18680482120",
+  "schema_version": "1.0",
+  "shop_name": null,
+  "source_pack_id": "shopee_18680482120",
+  "source_product_id": "18680482120",
+  "title": "Bình Giữ Nhiệt Inox 304 Dung tích 300ml"
+}

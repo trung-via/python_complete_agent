@@ -1,0 +1,40 @@
+{
+  "brand": null,
+  "collector": "shopee_source_v1",
+  "description_text": null,
+  "diagnostic_codes": [],
+  "facts": [
+    {
+      "key": "Option",
+      "provenance": "specifications",
+      "source_section": "attributes",
+      "unit": null,
+      "value": "Đỏ, Vàng"
+    }
+  ],
+  "media": [
+    {
+      "alt_text": null,
+      "byte_size": 106102,
+      "content_type": "image/jpeg",
+      "local_filename": "orig_000_68c7c2dabe87.jpg",
+      "ordinal": 0,
+      "perceptual_hash": null,
+      "platform": "shopee",
+      "provenance": "STRUCTURED_PRODUCT_DATA",
+      "role": "PRIMARY",
+      "sha256_hash": "68c7c2dabe8718eca15eb536933dc1aa431d2aba734ce0a1b3a0a8e75f894891",
+      "source_url": "https://down-vn.img.susercontent.com/file/vn-11134207-7r98o-lx9jzmocxnoj59",
+      "variant_label": null
+    }
+  ],
+  "model_sku": null,
+  "observed_at": "2026-09-08T01:55:00+00:00",
+  "platform": "shopee",
+  "product_url": "https://shopee.vn/product-i.1661279114.29595660451",
+  "schema_version": "1.0",
+  "shop_name": null,
+  "source_pack_id": "shopee_29595660451",
+  "source_product_id": "29595660451",
+  "title": "(Bán Chạy) Đèn Lồng Lân Sư 2026 Điều Khiển Dây Kéo Sinh Động Thủ Công Đồ Chơi Trung Thu Cho Bé"
+}

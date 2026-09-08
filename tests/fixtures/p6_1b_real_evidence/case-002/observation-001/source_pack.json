@@ -1,0 +1,40 @@
+{
+  "brand": null,
+  "collector": "shopee_source_v1",
+  "description_text": null,
+  "diagnostic_codes": [],
+  "facts": [
+    {
+      "key": "Option",
+      "provenance": "specifications",
+      "source_section": "attributes",
+      "unit": null,
+      "value": "Trắng Xanh, Đen Xám"
+    }
+  ],
+  "media": [
+    {
+      "alt_text": null,
+      "byte_size": 204479,
+      "content_type": "image/jpeg",
+      "local_filename": "orig_000_3b4c97b70fef.jpg",
+      "ordinal": 0,
+      "perceptual_hash": null,
+      "platform": "shopee",
+      "provenance": "STRUCTURED_PRODUCT_DATA",
+      "role": "PRIMARY",
+      "sha256_hash": "3b4c97b70fefe9358bfd07c31365292cfc1bc686f4fffb79091a1a733009b7ee",
+      "source_url": "https://down-vn.img.susercontent.com/file/vn-11134207-7r98o-lsi50s1q45q9cb",
+      "variant_label": null
+    }
+  ],
+  "model_sku": null,
+  "observed_at": "2026-09-08T01:40:00+00:00",
+  "platform": "shopee",
+  "product_url": "https://shopee.vn/product-i.1327067723.23865249083",
+  "schema_version": "1.0",
+  "shop_name": null,
+  "source_pack_id": "shopee_23865249083",
+  "source_product_id": "23865249083",
+  "title": "Bàn phím cơ Gaming TEKKIN JK540 Full LED Bàn Phím Cao Cấp Dành Cho Game Thủ Văn Phòng"
+}
