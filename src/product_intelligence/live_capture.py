@@ -154,18 +154,40 @@ def _atomic_checkpoint(root: Path, state: dict[str, object]) -> None:
     if temporary.exists() or temporary.is_symlink():
         raise LiveCaptureError("Checkpoint atomic-write staging path already exists")
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-    descriptor = os.open(temporary, flags, 0o600)
+    descriptor: Optional[int] = None
+    staging_created = False
     try:
+        descriptor = os.open(temporary, flags, 0o600)
+        staging_created = True
         with os.fdopen(descriptor, "wb") as stream:
+            descriptor = None
             stream.write(_json_bytes(state))
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, destination)
+    except OSError as exc:
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+        if staging_created:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
+        raise LiveCaptureError("Capture checkpoint could not be updated") from exc
     except BaseException:
-        try:
-            temporary.unlink(missing_ok=True)
-        except OSError:
-            pass
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+        if staging_created:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
         raise
 
 
@@ -176,25 +198,34 @@ def _exclusive_bundle(root: Path, document: dict[str, object]) -> None:
     temporary = _safe_path(root, ".capture_bundle.json.tmp")
     if temporary.exists() or temporary.is_symlink():
         raise LiveCaptureError("Bundle atomic-write staging path already exists")
-    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    linked = False
+    descriptor: Optional[int] = None
+    staging_created = False
     try:
+        descriptor = os.open(
+            temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600
+        )
+        staging_created = True
         with os.fdopen(descriptor, "wb") as stream:
+            descriptor = None
             stream.write(_json_bytes(document))
             stream.flush()
             os.fsync(stream.fileno())
         os.link(temporary, destination)
-        linked = True
     except FileExistsError as exc:
         raise LiveCaptureError("Capture bundle already exists") from exc
     except OSError as exc:
         raise LiveCaptureError("Capture bundle could not be created") from exc
     finally:
-        try:
-            temporary.unlink(missing_ok=True)
-        except OSError:
-            if not linked:
-                raise LiveCaptureError("Bundle staging cleanup failed")
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+        if staging_created:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 def _initial_state(endpoint: str, queries: Sequence[str]) -> dict[str, object]:
@@ -322,7 +353,11 @@ def _validate_checkpoint(root: Path, document: object) -> dict[str, object]:
         manifest = _safe_path(root, record["manifest_path"], must_exist=True)
         if manifest.is_symlink() or not manifest.is_file():
             raise LiveCaptureError("Checkpoint manifest reference is invalid")
-        if hashlib.sha256(manifest.read_bytes()).hexdigest() != record["sha256"]:
+        try:
+            manifest_bytes = manifest.read_bytes()
+        except OSError as exc:
+            raise LiveCaptureError("Checkpoint manifest could not be read") from exc
+        if hashlib.sha256(manifest_bytes).hexdigest() != record["sha256"]:
             raise LiveCaptureError("Checkpoint manifest digest mismatch")
     document["cdp_endpoint"] = endpoint
     document["selected_candidate"] = candidate
@@ -375,45 +410,60 @@ async def run_live_capture(
     """Start or explicitly resume one external-root Shopee capture job."""
 
     endpoint = _validate_scalar(cdp_endpoint, "CDP endpoint")
-    root = _prepare_job_root(job_root)
+    try:
+        root = _prepare_job_root(job_root)
+    except OSError as exc:
+        raise LiveCaptureError("Job root could not be prepared") from exc
     manager_factory = manager_factory or PlaywrightBrowserManager
     tool_factory = tool_factory or ShopeeScrapeTool
     orchestration = orchestration or orchestrate_discovery
     now_factory = now_factory or (lambda: datetime.now(timezone.utc))
     initialized = False
-    if resume:
-        if queries is not None:
-            raise LiveCaptureError("Resume does not accept replacement queries")
-        state = _load_resume_state(root)
-        if state["status"] != LiveCaptureStatus.CHALLENGE_REQUIRED.value:
-            raise LiveCaptureError("Only a CHALLENGE_REQUIRED capture may be resumed")
-        initialized = True
-        existing_bundle = root / _BUNDLE_NAME
-        if existing_bundle.exists() or existing_bundle.is_symlink():
-            _mark(state, root, LiveCaptureStatus.FAILED, "TERMINAL_FAILURE")
-            raise LiveCaptureError("Capture bundle already exists")
-        if endpoint != state["cdp_endpoint"]:
-            _mark(state, root, LiveCaptureStatus.FAILED, "TERMINAL_FAILURE")
-            raise LiveCaptureError("CDP endpoint does not match the frozen capture endpoint")
-        state["status"] = LiveCaptureStatus.RUNNING.value
-        state["category"] = None
-        _atomic_checkpoint(root, state)
-    else:
-        if queries is None or isinstance(queries, (str, bytes)) or not (1 <= len(queries) <= _MAX_QUERIES):
-            raise LiveCaptureError("Fresh capture requires one or more queries")
-        frozen_queries = [_validate_scalar(query, "Query") for query in queries]
-        checkpoint = _safe_path(root, _CHECKPOINT_NAME)
-        bundle = _safe_path(root, _BUNDLE_NAME)
-        if checkpoint.exists() or checkpoint.is_symlink() or bundle.exists() or bundle.is_symlink():
-            raise LiveCaptureError("Fresh capture job root already contains capture state")
-        state = _initial_state(endpoint, frozen_queries)
-        _atomic_checkpoint(root, state)
-        initialized = True
-
+    state: Optional[dict[str, object]] = None
     manager = None
     operation_error: Optional[BaseException] = None
     outcome: Optional[LiveCaptureOutcome] = None
     try:
+        if resume:
+            if queries is not None:
+                raise LiveCaptureError("Resume does not accept replacement queries")
+            state = _load_resume_state(root)
+            if state["status"] != LiveCaptureStatus.CHALLENGE_REQUIRED.value:
+                raise LiveCaptureError("Only a CHALLENGE_REQUIRED capture may be resumed")
+            initialized = True
+            existing_bundle = _safe_path(root, _BUNDLE_NAME)
+            if existing_bundle.exists() or existing_bundle.is_symlink():
+                raise LiveCaptureError("Capture bundle already exists")
+            if endpoint != state["cdp_endpoint"]:
+                raise LiveCaptureError(
+                    "CDP endpoint does not match the frozen capture endpoint"
+                )
+            state["status"] = LiveCaptureStatus.RUNNING.value
+            state["category"] = None
+            _atomic_checkpoint(root, state)
+        else:
+            if (
+                queries is None
+                or isinstance(queries, (str, bytes))
+                or not (1 <= len(queries) <= _MAX_QUERIES)
+            ):
+                raise LiveCaptureError("Fresh capture requires one or more queries")
+            frozen_queries = [_validate_scalar(query, "Query") for query in queries]
+            checkpoint = _safe_path(root, _CHECKPOINT_NAME)
+            bundle = _safe_path(root, _BUNDLE_NAME)
+            if (
+                checkpoint.exists()
+                or checkpoint.is_symlink()
+                or bundle.exists()
+                or bundle.is_symlink()
+            ):
+                raise LiveCaptureError(
+                    "Fresh capture job root already contains capture state"
+                )
+            state = _initial_state(endpoint, frozen_queries)
+            _atomic_checkpoint(root, state)
+            initialized = True
+
         manager = manager_factory(cdp_endpoint=endpoint)
         tool = tool_factory()
         while state["query_position"] < len(state["queries"]):
@@ -540,7 +590,11 @@ async def run_live_capture(
                     operation_error = close_error
 
     if operation_error is not None:
-        if initialized and state.get("status") != LiveCaptureStatus.FAILED.value:
+        if (
+            initialized
+            and state is not None
+            and state.get("status") != LiveCaptureStatus.FAILED.value
+        ):
             try:
                 _mark(state, root, LiveCaptureStatus.FAILED, "TERMINAL_FAILURE")
             except BaseException:

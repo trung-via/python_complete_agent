@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+import src.product_intelligence.live_capture as live_capture_module
 from src.core.errors import AgentException
 from src.core.types import ToolResult, ToolStatus
 from src.product_intelligence.discovery import DiscoveryBlockedError
@@ -126,6 +128,7 @@ def test_ordered_capture_preserves_manifest_bytes_and_creates_immutable_bundle(t
     ]
     bundle_path = root / "capture_bundle.json"
     before = bundle_path.read_bytes()
+    checkpoint_before = (root / "capture_checkpoint.json").read_bytes()
     bundle = json.loads(before)
     assert bundle["schema"] == "product_intelligence_live_capture_bundle"
     assert [cohort["query"] for cohort in bundle["cohorts"]] == [" query A ", "query B"]
@@ -145,6 +148,7 @@ def test_ordered_capture_preserves_manifest_bytes_and_creates_immutable_bundle(t
             orchestration=_orchestration([]),
         ))
     assert bundle_path.read_bytes() == before
+    assert (root / "capture_checkpoint.json").read_bytes() == checkpoint_before
 
 
 @pytest.mark.parametrize("block_call,expected_phase,completed_calls", [
@@ -245,3 +249,277 @@ def test_repository_local_root_rejected_before_browser_work():
     with pytest.raises(LiveCaptureError):
         asyncio.run(_run(repository_root / "forbidden-capture", ["query"], _orchestration([])))
     assert _Manager.instances == []
+
+
+def test_initial_checkpoint_replace_failure_is_bounded_and_cleans_staging(
+    tmp_path, monkeypatch
+):
+    import asyncio
+
+    root = tmp_path / "capture-secret-root"
+    leaked = f"permission denied: {root.resolve()}"
+
+    def fail_replace(source, destination):
+        del source, destination
+        raise PermissionError(leaked)
+
+    monkeypatch.setattr(live_capture_module.os, "replace", fail_replace)
+    with pytest.raises(LiveCaptureError) as exc_info:
+        asyncio.run(_run(root, ["query"], _orchestration([])))
+
+    assert str(exc_info.value) == "Capture checkpoint could not be updated"
+    assert str(root.resolve()) not in str(exc_info.value)
+    assert not (root / ".capture_checkpoint.json.tmp").exists()
+    assert not (root / "capture_checkpoint.json").exists()
+    assert _Manager.instances == []
+
+
+def test_initial_checkpoint_open_failure_is_bounded_without_path_leak(
+    tmp_path, monkeypatch
+):
+    import asyncio
+
+    root = tmp_path / "open-secret-root"
+
+    def fail_open(path, flags, mode):
+        del flags, mode
+        raise PermissionError(f"cannot open {Path(path).resolve()}")
+
+    monkeypatch.setattr(live_capture_module.os, "open", fail_open)
+    with pytest.raises(LiveCaptureError) as exc_info:
+        asyncio.run(_run(root, ["query"], _orchestration([])))
+
+    assert str(exc_info.value) == "Capture checkpoint could not be updated"
+    assert str(root.resolve()) not in str(exc_info.value)
+    assert not (root / ".capture_checkpoint.json.tmp").exists()
+    assert not (root / "capture_checkpoint.json").exists()
+    assert _Manager.instances == []
+
+
+def test_resume_checkpoint_read_failure_is_bounded_without_path_leak(
+    tmp_path, monkeypatch
+):
+    import asyncio
+
+    root = tmp_path / "resume-secret-root"
+    asyncio.run(_run(root, ["query"], _orchestration([], blocked_query="query")))
+    checkpoint = root / "capture_checkpoint.json"
+    original_read_bytes = Path.read_bytes
+
+    def fail_checkpoint_read(path):
+        if path == checkpoint:
+            raise PermissionError(f"cannot read {checkpoint.resolve()}")
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", fail_checkpoint_read)
+    with pytest.raises(LiveCaptureError) as exc_info:
+        asyncio.run(run_live_capture(
+            job_root=root,
+            cdp_endpoint="http://127.0.0.1:9222",
+            resume=True,
+            manager_factory=_Manager,
+            tool_factory=_Tool,
+            orchestration=_orchestration([]),
+        ))
+
+    assert str(exc_info.value) == "Capture checkpoint is corrupt"
+    assert str(root.resolve()) not in str(exc_info.value)
+
+
+def test_resume_checkpoint_replace_failure_preserves_original_bounded_error(
+    tmp_path, monkeypatch
+):
+    import asyncio
+
+    root = tmp_path / "resume-update-secret-root"
+    asyncio.run(_run(root, ["query"], _orchestration([], blocked_query="query")))
+    replace_calls = 0
+
+    def fail_replace(source, destination):
+        nonlocal replace_calls
+        del source, destination
+        replace_calls += 1
+        raise PermissionError(f"cannot replace {root.resolve()}")
+
+    monkeypatch.setattr(live_capture_module.os, "replace", fail_replace)
+    with pytest.raises(LiveCaptureError) as exc_info:
+        asyncio.run(run_live_capture(
+            job_root=root,
+            cdp_endpoint="http://127.0.0.1:9222",
+            resume=True,
+            manager_factory=_Manager,
+            tool_factory=_Tool,
+            orchestration=_orchestration([]),
+        ))
+
+    assert str(exc_info.value) == "Capture checkpoint could not be updated"
+    assert str(root.resolve()) not in str(exc_info.value)
+    assert replace_calls == 2
+    assert not (root / ".capture_checkpoint.json.tmp").exists()
+    checkpoint = json.loads(
+        (root / "capture_checkpoint.json").read_text(encoding="utf-8")
+    )
+    assert checkpoint["status"] == "CHALLENGE_REQUIRED"
+
+
+def test_resume_manifest_read_failure_is_bounded_without_path_leak(
+    tmp_path, monkeypatch
+):
+    import asyncio
+
+    root = tmp_path / "manifest-secret-root"
+    _Tool.block_at = 2
+    asyncio.run(_run(root, ["query"], _orchestration([])))
+    original_read_bytes = Path.read_bytes
+
+    def fail_manifest_read(path):
+        if path.name == "source_pack.json":
+            raise PermissionError(f"cannot read {path.resolve()}")
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", fail_manifest_read)
+    with pytest.raises(LiveCaptureError) as exc_info:
+        asyncio.run(run_live_capture(
+            job_root=root,
+            cdp_endpoint="http://127.0.0.1:9222",
+            resume=True,
+            manager_factory=_Manager,
+            tool_factory=_Tool,
+            orchestration=_orchestration([]),
+        ))
+
+    assert str(exc_info.value) == "Checkpoint manifest could not be read"
+    assert str(root.resolve()) not in str(exc_info.value)
+
+
+def test_capture_artifact_read_failure_is_terminal_and_bounded(tmp_path, monkeypatch):
+    import asyncio
+
+    root = tmp_path / "artifact-secret-root"
+    original_read_bytes = Path.read_bytes
+
+    def fail_manifest_read(path):
+        if path.name == "source_pack.json":
+            raise PermissionError(
+                f"cannot read {path.resolve()} https://shopee.test/query"
+            )
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", fail_manifest_read)
+    with pytest.raises(LiveCaptureError) as exc_info:
+        asyncio.run(_run(root, ["query"], _orchestration([])))
+
+    assert str(exc_info.value) == "Live capture failed"
+    assert str(root.resolve()) not in str(exc_info.value)
+    checkpoint = json.loads(
+        (root / "capture_checkpoint.json").read_text(encoding="utf-8")
+    )
+    assert checkpoint["status"] == "FAILED"
+
+
+def test_bundle_creation_failure_cleans_staging_and_fails_closed(
+    tmp_path, monkeypatch
+):
+    import asyncio
+
+    root = tmp_path / "bundle-secret-root"
+
+    def fail_link(source, destination):
+        del source, destination
+        raise PermissionError(f"cannot create {root.resolve()}\\capture_bundle.json")
+
+    monkeypatch.setattr(live_capture_module.os, "link", fail_link)
+    with pytest.raises(LiveCaptureError) as exc_info:
+        asyncio.run(_run(root, ["query"], _orchestration([])))
+
+    assert str(exc_info.value) == "Capture bundle could not be created"
+    assert str(root.resolve()) not in str(exc_info.value)
+    assert not (root / ".capture_bundle.json.tmp").exists()
+    assert not (root / "capture_bundle.json").exists()
+    checkpoint = json.loads(
+        (root / "capture_checkpoint.json").read_text(encoding="utf-8")
+    )
+    assert checkpoint["status"] == "FAILED"
+
+
+def test_existing_bundle_is_not_overwritten_when_resumable_state_fails_closed(
+    tmp_path,
+):
+    import asyncio
+
+    root = tmp_path / "capture"
+    asyncio.run(_run(root, ["query"], _orchestration([], blocked_query="query")))
+    bundle = root / "capture_bundle.json"
+    sentinel = b"existing-bundle-must-not-change\n"
+    bundle.write_bytes(sentinel)
+
+    with pytest.raises(LiveCaptureError, match="Capture bundle already exists"):
+        asyncio.run(run_live_capture(
+            job_root=root,
+            cdp_endpoint="http://127.0.0.1:9222",
+            resume=True,
+            manager_factory=_Manager,
+            tool_factory=_Tool,
+            orchestration=_orchestration([]),
+        ))
+
+    assert bundle.read_bytes() == sentinel
+    checkpoint = json.loads(
+        (root / "capture_checkpoint.json").read_text(encoding="utf-8")
+    )
+    assert checkpoint["status"] == "FAILED"
+    assert checkpoint["category"] == "TERMINAL_FAILURE"
+
+
+def test_resume_rejects_lexical_manifest_escape(tmp_path):
+    import asyncio
+
+    root = tmp_path / "capture"
+    _Tool.block_at = 2
+    asyncio.run(_run(root, ["query"], _orchestration([])))
+    checkpoint_path = root / "capture_checkpoint.json"
+    checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    checkpoint["completed_observations"][0]["manifest_path"] = (
+        "../outside/source_pack.json"
+    )
+    checkpoint_path.write_text(json.dumps(checkpoint), encoding="utf-8")
+
+    with pytest.raises(LiveCaptureError, match="observation path is invalid"):
+        asyncio.run(run_live_capture(
+            job_root=root,
+            cdp_endpoint="http://127.0.0.1:9222",
+            resume=True,
+            manager_factory=_Manager,
+            tool_factory=_Tool,
+            orchestration=_orchestration([]),
+        ))
+
+
+def test_resume_rejects_symlink_manifest_escape(tmp_path):
+    import asyncio
+
+    root = tmp_path / "capture"
+    _Tool.block_at = 2
+    asyncio.run(_run(root, ["query"], _orchestration([])))
+    checkpoint_path = root / "capture_checkpoint.json"
+    checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    original_relative = checkpoint["completed_observations"][0]["manifest_path"]
+    manifest = root / original_relative
+    outside = tmp_path / "outside-source-pack.json"
+    outside.write_bytes(manifest.read_bytes())
+    manifest.unlink()
+    try:
+        os.symlink(outside, manifest)
+    except OSError as exc:
+        pytest.skip(f"symlink creation is unavailable: {type(exc).__name__}")
+    checkpoint_path.write_text(json.dumps(checkpoint), encoding="utf-8")
+
+    with pytest.raises(LiveCaptureError, match="escapes the job root"):
+        asyncio.run(run_live_capture(
+            job_root=root,
+            cdp_endpoint="http://127.0.0.1:9222",
+            resume=True,
+            manager_factory=_Manager,
+            tool_factory=_Tool,
+            orchestration=_orchestration([]),
+        ))

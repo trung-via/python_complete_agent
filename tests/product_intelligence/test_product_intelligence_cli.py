@@ -3698,6 +3698,8 @@ def test_capture_cli_fresh_and_resume_contracts(monkeypatch, capsys, tmp_path):
     )
 
     received = []
+    product_url = "https://shopee.test/product-secret?token=private"
+    source_pack_label = "source-pack-secret"
 
     async def fake_capture(**kwargs):
         received.append(kwargs)
@@ -3718,27 +3720,86 @@ def test_capture_cli_fresh_and_resume_contracts(monkeypatch, capsys, tmp_path):
         )
 
     monkeypatch.setattr(cli, "_run_live_capture", fake_capture)
+    job_root = tmp_path / "human-job-root-secret"
+    endpoint = "http://127.0.0.1:9222/devtools/browser/cdp-secret"
     assert cli.main([
-        "capture", "--job-root", str(tmp_path / "job"),
-        "--cdp-endpoint", "http://127.0.0.1:9222",
-        "--query", " exact one ", "--query", "exact two",
+        "capture", "--job-root", str(job_root),
+        "--cdp-endpoint", endpoint,
+        "--query", product_url, "--query", source_pack_label,
     ]) == 0
-    fresh = json.loads(capsys.readouterr().out)
+    fresh_rendered = capsys.readouterr()
+    fresh = json.loads(fresh_rendered.out)
+    assert fresh_rendered.err == ""
     assert fresh == {
         "status": "READY", "phase": "COMPLETE", "query_position": 1,
         "query_count": 2, "checkpoint": "capture_checkpoint.json",
         "bundle": "capture_bundle.json",
     }
-    assert received[0]["queries"] == [" exact one ", "exact two"]
+    assert str(job_root) not in fresh_rendered.out
+    assert endpoint not in fresh_rendered.out
+    assert product_url not in fresh_rendered.out
+    assert source_pack_label not in fresh_rendered.out
+    assert "source_pack" not in fresh_rendered.out
+    assert received[0]["queries"] == [product_url, source_pack_label]
 
     assert cli.main([
-        "capture", "--resume", "--job-root", str(tmp_path / "job"),
-        "--cdp-endpoint", "http://127.0.0.1:9222",
+        "capture", "--resume", "--job-root", str(job_root),
+        "--cdp-endpoint", endpoint,
     ]) == 0
-    resumed = json.loads(capsys.readouterr().out)
+    resumed_rendered = capsys.readouterr()
+    resumed = json.loads(resumed_rendered.out)
+    assert resumed_rendered.err == ""
     assert resumed["status"] == "CHALLENGE_REQUIRED"
     assert "bundle" not in resumed
+    assert str(job_root) not in resumed_rendered.out
+    assert endpoint not in resumed_rendered.out
     assert received[1]["queries"] is None
+
+
+def test_capture_cli_filesystem_error_is_bounded_without_capture_secret_leakage(
+    monkeypatch, capsys, tmp_path
+):
+    import src.product_intelligence.live_capture as live_capture_module
+
+    job_root = tmp_path / "human-job-root-secret"
+    endpoint = "http://127.0.0.1:9222/devtools/browser/cdp-secret"
+    product_url = "https://shopee.test/product-secret?token=private"
+    source_pack = job_root / "cohorts" / "source-pack-secret" / "source_pack.json"
+
+    def fail_replace(source, destination):
+        del source, destination
+        raise PermissionError(
+            f"denied {job_root.resolve()} {endpoint} {product_url} {source_pack}"
+        )
+
+    monkeypatch.setattr(live_capture_module.os, "replace", fail_replace)
+    assert cli.main([
+        "capture",
+        "--job-root",
+        str(job_root),
+        "--cdp-endpoint",
+        endpoint,
+        "--query",
+        product_url,
+    ]) == 1
+
+    rendered = capsys.readouterr()
+    assert rendered.out == ""
+    assert json.loads(rendered.err) == {
+        "error": {
+            "type": "LiveCaptureError",
+            "message": "Capture checkpoint could not be updated",
+        }
+    }
+    secrets = (
+        str(job_root),
+        str(job_root.resolve()),
+        endpoint,
+        product_url,
+        str(source_pack),
+    )
+    for secret in secrets:
+        assert secret not in rendered.err
 
 
 @pytest.mark.parametrize("argv", [
