@@ -1,0 +1,17 @@
+review_id: REVIEW-172-002
+reviewed_sha: bdf83bbfe35d4805986054b39c0392c25868296b
+mode: DELTA
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC4: PASS
+  AC3: FAIL
+findings:
+  - id: F2
+    basis: AC3
+    action: CODE_FIX
+    location: src/product_source/platforms/shopee.py; tests/product_source/test_extractor_dom_fixtures.py
+    issue: >
+      F1 is corrected on this delta: exact observed selected-variant group and option strings now survive DOM observation into ProductFact values while blank-only labels still fail closed. The separate PRIMARY finding F2 remains open and must be carried forward on the corrected candidate. When any explicit variation-group container is found, groupElements is still set only to those explicit containers, but the implementation does not prove that every discovered topOptionEl belongs to exactly one accepted group. A briefing containing one valid explicit group plus another plausible option cluster outside the explicit-group selector can therefore still mark selected_variants_complete=true from only the covered subset, emitting partial selected-variant evidence contrary to TASK-172 all-or-nothing semantics.
+    expected: >
+      Preserve the F1 exact-string correction unchanged. Before selected_variants_complete can become true, prove complete group coverage for every candidate option control discovered inside the positive product scope: every topOptionEl must belong to exactly one deterministically accepted variation group, with no uncovered or ambiguously covered options. If complete group distinction cannot be proven, emit selected_variants=[] and selected_variants_complete=false. Add a focused mixed-layout regression with one valid explicit group and one otherwise plausible uncovered/implicit option cluster proving the whole selected state fails closed. Preserve deterministic DOM group order, explicit-selection semantics, one navigation/readiness behavior, and all existing media/exclusion boundaries.
+prior_finding_id: F1
