@@ -474,10 +474,28 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
         }
 
         if (groupElements.length === 0) {
+            if (topOptionEls.length > 0) {
+                result.selected_variants = [];
+                result.selected_variants_complete = false;
+                break;
+            }
             continue;
         }
 
         let allGroupsValid = true;
+
+        // Before selected_variants_complete can become true, prove complete group coverage
+        // for every candidate option control discovered inside the positive product scope:
+        // every topOptionEl must belong to exactly one deterministically accepted variation group,
+        // with no uncovered or ambiguously covered options.
+        for (const opt of topOptionEls) {
+            const coveringGroups = groupElements.filter(grp => grp.contains(opt));
+            if (coveringGroups.length !== 1) {
+                allGroupsValid = false;
+                break;
+            }
+        }
+
         const observedGroups = [];
         const seenGroupLabels = new Set();
 
@@ -531,77 +549,79 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
             return target.textContent !== undefined && target.textContent !== null ? target.textContent : (target.innerText || '');
         };
 
-        for (const grp of groupElements) {
-            const grpOptions = topOptionEls.filter(opt => grp.contains(opt));
-            if (grpOptions.length === 0) {
-                allGroupsValid = false;
-                break;
-            }
-
-            let groupLabel = null;
-            const ariaLabel = grp.getAttribute('aria-label');
-            const dataLabel = grp.getAttribute('data-label');
-            if (ariaLabel !== null && ariaLabel.trim()) {
-                groupLabel = ariaLabel;
-            } else if (dataLabel !== null && dataLabel.trim()) {
-                groupLabel = dataLabel;
-            }
-
-            if (!groupLabel) {
-                const labelCandidates = Array.from(grp.querySelectorAll(
-                    'label, .group-label, [class*="variation-label"], [class*="group-label"], [class*="section-label"], [class*="title"], h1, h2, h3, h4, h5, ._826p0R, .kIo6pj, .G27FPf, span, div, p'
-                )).filter(el => {
-                    if (isExcluded(el)) return false;
-                    if (grpOptions.some(opt => opt.contains(el) || opt === el)) return false;
-                    if (grpOptions.some(opt => el.contains(opt))) return false;
-                    const txt = (el.textContent || el.innerText || '').trim();
-                    return Boolean(txt);
-                });
-
-                if (labelCandidates.length > 0) {
-                    const prio = labelCandidates.find(el => {
-                        const tag = (el.tagName || '').toLowerCase();
-                        const c = (el.className || '').toString().toLowerCase();
-                        return tag === 'label' || c.includes('label') || c.includes('title') || tag.startsWith('h');
-                    });
-                    const chosen = prio || labelCandidates[0];
-                    groupLabel = chosen.textContent !== undefined && chosen.textContent !== null ? chosen.textContent : (chosen.innerText || '');
+        if (allGroupsValid) {
+            for (const grp of groupElements) {
+                const grpOptions = topOptionEls.filter(opt => grp.contains(opt));
+                if (grpOptions.length === 0) {
+                    allGroupsValid = false;
+                    break;
                 }
-            }
 
-            if (!groupLabel || !groupLabel.trim()) {
-                allGroupsValid = false;
-                break;
-            }
+                let groupLabel = null;
+                const ariaLabel = grp.getAttribute('aria-label');
+                const dataLabel = grp.getAttribute('data-label');
+                if (ariaLabel !== null && ariaLabel.trim()) {
+                    groupLabel = ariaLabel;
+                } else if (dataLabel !== null && dataLabel.trim()) {
+                    groupLabel = dataLabel;
+                }
 
-            const trimmedGroupLabel = groupLabel.trim();
-            if (seenGroupLabels.has(trimmedGroupLabel)) {
-                // Duplicate/ambiguous group identity fails closed
-                allGroupsValid = false;
-                break;
-            }
-            seenGroupLabels.add(trimmedGroupLabel);
+                if (!groupLabel) {
+                    const labelCandidates = Array.from(grp.querySelectorAll(
+                        'label, .group-label, [class*="variation-label"], [class*="group-label"], [class*="section-label"], [class*="title"], h1, h2, h3, h4, h5, ._826p0R, .kIo6pj, .G27FPf, span, div, p'
+                    )).filter(el => {
+                        if (isExcluded(el)) return false;
+                        if (grpOptions.some(opt => opt.contains(el) || opt === el)) return false;
+                        if (grpOptions.some(opt => el.contains(opt))) return false;
+                        const txt = (el.textContent || el.innerText || '').trim();
+                        return Boolean(txt);
+                    });
 
-            const selectedOpts = grpOptions.filter(isOptionSelected);
-            // Exactly one selected option required per group
-            if (selectedOpts.length !== 1) {
-                allGroupsValid = false;
-                break;
-            }
+                    if (labelCandidates.length > 0) {
+                        const prio = labelCandidates.find(el => {
+                            const tag = (el.tagName || '').toLowerCase();
+                            const c = (el.className || '').toString().toLowerCase();
+                            return tag === 'label' || c.includes('label') || c.includes('title') || tag.startsWith('h');
+                        });
+                        const chosen = prio || labelCandidates[0];
+                        groupLabel = chosen.textContent !== undefined && chosen.textContent !== null ? chosen.textContent : (chosen.innerText || '');
+                    }
+                }
 
-            const selectedLabel = extractOptionLabel(selectedOpts[0]);
-            if (!selectedLabel || !selectedLabel.trim()) {
-                allGroupsValid = false;
-                break;
-            }
+                if (!groupLabel || !groupLabel.trim()) {
+                    allGroupsValid = false;
+                    break;
+                }
 
-            observedGroups.push({
-                group_label: groupLabel,
-                option_label: selectedLabel
-            });
+                const trimmedGroupLabel = groupLabel.trim();
+                if (seenGroupLabels.has(trimmedGroupLabel)) {
+                    // Duplicate/ambiguous group identity fails closed
+                    allGroupsValid = false;
+                    break;
+                }
+                seenGroupLabels.add(trimmedGroupLabel);
+
+                const selectedOpts = grpOptions.filter(isOptionSelected);
+                // Exactly one selected option required per group
+                if (selectedOpts.length !== 1) {
+                    allGroupsValid = false;
+                    break;
+                }
+
+                const selectedLabel = extractOptionLabel(selectedOpts[0]);
+                if (!selectedLabel || !selectedLabel.trim()) {
+                    allGroupsValid = false;
+                    break;
+                }
+
+                observedGroups.push({
+                    group_label: groupLabel,
+                    option_label: selectedLabel
+                });
+            }
         }
 
-        if (allGroupsValid && observedGroups.length > 0) {
+        if (allGroupsValid && observedGroups.length > 0 && observedGroups.length === groupElements.length) {
             result.selected_variants = observedGroups;
             result.selected_variants_complete = true;
             break;

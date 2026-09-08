@@ -1008,3 +1008,70 @@ async def test_shopee_dom_and_source_pack_blank_only_labels_fail_closed():
         await browser.close()
 
 
+@pytest.mark.asyncio
+async def test_shopee_dom_mixed_layout_uncovered_options_fails_closed():
+    """
+    Focused mixed-layout regression:
+    Proves that when a briefing contains one valid explicit group plus another plausible
+    uncovered/implicit option cluster outside the explicit-group selector, complete group
+    distinction cannot be proven, so the whole selected state fails closed
+    (selected_variants=[], selected_variants_complete=False, and 0 variant facts in ProductSourcePack)
+    rather than emitting partial selected-variant evidence.
+    """
+    html_mixed_layout = '''
+    <html>
+    <head>
+        <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "Product",
+            "name": "Mixed Layout Product",
+            "productID": "123456",
+            "url": "https://shopee.vn/product-i.100.123456",
+            "image": "https://cf.shopee.vn/file/main.jpg"
+        }
+        </script>
+    </head>
+    <body>
+        <div class="product-briefing">
+            <!-- Valid explicit group -->
+            <div class="product-variation-group" aria-label="Màu sắc">
+                <div class="group-label">Màu sắc</div>
+                <button class="product-variation product-variation--selected">Đen</button>
+                <button class="product-variation">Trắng</button>
+            </div>
+
+            <!-- Plausible uncovered/implicit option cluster outside explicit-group selector -->
+            <div class="uncovered-option-cluster">
+                <div class="cluster-label">Kích thước</div>
+                <button class="product-variation product-variation--selected">M</button>
+                <button class="product-variation">XL</button>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        from unittest.mock import AsyncMock
+        page.goto = AsyncMock()
+
+        await page.set_content(html_mixed_layout)
+
+        # 1. Verify DOM extraction fails closed
+        res = await page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, "123456")
+        assert res["selected_variants_complete"] is False
+        assert res["selected_variants"] == []
+
+        # 2. Verify ProductSourcePack extraction produces zero variant facts
+        extractor = ShopeeSourceExtractor(browser=page)
+        pack = await extractor.extract("https://shopee.vn/product/100/123456")
+        variant_facts = [f for f in pack.facts if f.key == "variant"]
+        assert len(variant_facts) == 0
+
+        await browser.close()
+
+
+
