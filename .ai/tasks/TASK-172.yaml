@@ -1,0 +1,244 @@
+task_id: TASK-172
+revision: 1
+
+goal: >
+  Open P6.3b with one narrow Shopee source-evidence hardening that preserves explicit,
+  complete selected-variant state from the already-navigated current product page into
+  existing ProductFact evidence, so the already-published TASK-108 resolver can decide
+  EXACT_VARIANT_MATCH when its existing rules are actually satisfied. TASK-172 must not
+  change ProductSourcePack schema, TASK-108 relationship semantics, TASK-171 truth
+  semantics, browser/session ownership, Human variant selection, or any downstream
+  identity/catalog/retrieval authority.
+
+problem: >
+  Published TASK-171 closed the P6.3a descriptive truth contract but current accepted
+  real-evidence fixtures do not contain a live multi-member exact-variant corpus. TASK-108
+  proves exact sellable-variant sameness only when a family-strength match is accompanied
+  by non-empty equal observed variant evidence. Current Shopee observations commonly retain
+  the same platform-scoped listing identity while facts are empty and variant media describe
+  the listing option catalogue rather than the currently selected sellable option; TASK-108
+  therefore correctly returns SAME_PRODUCT_FAMILY with insufficient variant evidence.
+  Building truth persistence, fact reconciliation, or downstream truth consumption before
+  closing this acquisition evidence gap would create architecture ahead of evidence. The
+  existing ShopeeSourceExtractor is already the sole product-page DOM/source authority and
+  ProductFact already provides a persisted evidence carrier. TASK-172 must extend only that
+  existing boundary with fail-closed selected-variant evidence.
+
+assumptions:
+  - >
+    Canonical python_complete_agent main at TASK-172 authoring is
+    3a33748905154b4822cfc164999e5c57780e67f2, the published TASK-171 source candidate
+    after RUN-171-001 Runtime PASS and REVIEW-171-001 PRIMARY PASS.
+  - >
+    The authoritative AIOS dependency remains exactly
+    aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@32ace104c5cfaa1b7affbaa40157872b1f85147f.
+  - >
+    TASK-162 preserves ShopeeSourceExtractor as the sole Shopee product-page source
+    extraction/DOM authority. TASK-125/Product Source Pack serialization remains the sole
+    persisted ProductSourcePack codec authority. TASK-108 remains the sole pairwise
+    relationship authority and its existing EXACT_VARIANT_MATCH/SAME_PRODUCT_FAMILY rules
+    must remain byte-for-byte semantically unchanged.
+  - >
+    TASK-171 remains the sole descriptive product-truth reconciliation authority. It consumes
+    only an existing CanonicalVariantProfile and must not be modified by TASK-172.
+  - >
+    Human/login/CAPTCHA ownership remains outside repository code. TASK-172 does not click,
+    choose, or mutate marketplace variation controls; it observes only explicit selected
+    state already rendered on the current product page.
+  - >
+    URL query values such as rModelId, vModelId, display_model_id, recommendation state, or
+    other marketplace query parameters are not yet repository-proven selected-variant truth
+    and must not be promoted into variant evidence by TASK-172.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_6_PRODUCT_SOURCE_PACK.md
+    - docs/PHASE_6_P6_3_PRODUCT_TRUTH_RECONCILIATION.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - .ai/tasks/TASK-108.yaml
+    - .ai/tasks/TASK-115.yaml
+    - .ai/tasks/TASK-116.yaml
+    - .ai/tasks/TASK-121.yaml
+    - .ai/tasks/TASK-125.yaml
+    - .ai/tasks/TASK-162.yaml
+    - .ai/tasks/TASK-171.yaml
+    - src/product_source/models.py
+    - src/product_source/serialization.py
+    - src/product_source/platforms/shopee.py
+    - src/product_intelligence/entity_resolution.py
+    - tests/product_source/test_shopee_source_extractor.py
+    - tests/product_source/test_extractor_dom_fixtures.py
+    - tests/product_source/test_scrape_tool_compat.py
+    - tests/product_intelligence/test_entity_resolution.py
+
+  modify:
+    - src/product_source/platforms/shopee.py
+    - tests/product_source/test_shopee_source_extractor.py
+    - tests/product_source/test_extractor_dom_fixtures.py
+    - docs/PHASE_6_PRODUCT_SOURCE_PACK.md
+    - docs/PHASE_6_P6_3_PRODUCT_TRUTH_RECONCILIATION.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+
+non_goals:
+  - Modify ProductSourcePack, ProductFact, OriginalMediaRef, serialization schema/version, or
+    any persisted V1 manifest field contract.
+  - Modify TASK-108 normalization, family-strength, variant-key, relationship, confidence,
+    precedence, evidence, reason, or exact-match semantics.
+  - Modify TASK-115/TASK-116 sellable-variant evidence/review, TASK-117/TASK-118 identity or
+    catalog authority, TASK-120 SQLite persistence, TASK-121 profiles, TASK-171 truth, or any
+    retrieval/RAG/ranking/provider/application semantics.
+  - Infer selected variant from product URL query parameters, source_product_id, model_sku,
+    title, description text, media similarity, image filename, recommendation metadata, or
+    marketplace-scoped IDs alone.
+  - Click, choose, cycle, auto-select, or otherwise mutate variation controls; navigate a
+    second URL; reopen/reconnect a browser; retry/reroute externally; solve CAPTCHA; or change
+    Human authentication/session ownership.
+  - Treat the listing's complete option catalogue or all VARIANT media labels as the selected
+    sellable variant.
+  - Emit partial selected-variant evidence when only some variation groups are proven selected.
+  - Add live marketplace verification to TASK-172. Live exact-variant/truth certification is a
+    separate successor after this blocker hardening is published.
+  - Add truth persistence, fact/media reconciliation, truth history, downstream truth
+    consumption, semantic/vector retrieval, identity migration, review automation, or caches.
+  - Push, merge, publish, or mutate main from Executor implementation execution.
+
+constraints:
+  hard:
+    - >
+      Keep ShopeeSourceExtractor as the sole Shopee source extraction implementation and
+      preserve its public constructor/extract signature, one page/session acquisition, one
+      navigation, current readiness bound, trusted media rules, media roles/provenance/order,
+      ProductSourcePack identity, optional metadata, exception classes, and existing facts as
+      an unchanged prefix of the final facts tuple.
+    - >
+      Extend only the module-private Shopee extraction result with selected-variant observation
+      state. DOM inspection must remain strictly inside an existing positively scoped current
+      product briefing container. Do not scan reviews, recommendations, global page sections,
+      unrelated cards, or generic whole-document option controls.
+    - >
+      Selected state must come only from explicit rendered selection markers on variation
+      controls already present on the current page, such as a bounded Shopee selected-option
+      class or explicit aria selected/checked/pressed state implemented by the focused extractor.
+      Hover/focus/disabled state, first option position, URL model parameters, image order, or
+      textual similarity must never count as selected state.
+    - >
+      Variant evidence is complete only when the extractor can deterministically enumerate one
+      or more bounded variation groups in canonical DOM first-appearance order and every group
+      has exactly one explicit selected option with a nonblank group label and nonblank selected
+      option label. Duplicate/ambiguous group identity, zero selected option, multiple selected
+      options, missing labels, or any unproven group makes the entire selected-variant evidence
+      incomplete. Incomplete state emits zero selected-variant ProductFact values rather than a
+      partial set.
+    - >
+      Accept selected-variant facts only when existing structured current-product identity
+      matching succeeds for the target product_id. A semantically scoped gallery alone may still
+      produce the existing ProductSourcePack, but it must not authorize selected-variant identity
+      evidence when structured identity does not match.
+    - >
+      When and only when selected-variant state is complete and identity-matched, append one
+      ProductFact per selected group after all pre-existing facts. Each appended fact must use
+      key exactly "variant", source_section exactly "selected_variant_controls", provenance
+      exactly "selected_variant_controls", unit=None, and a deterministic human-readable value
+      that includes both the exact observed group label and exact selected option label without
+      trimming/case-folding/accent-folding or semantic normalization. The formatting delimiter is
+      repository-owned representation only; the embedded observed strings must remain exact.
+    - >
+      The selected-variant fact tuple must preserve canonical group DOM order and be deterministic.
+      Do not deduplicate different groups merely because selected option labels are equal. If the
+      implementation cannot preserve group distinction safely, fail closed and emit no selected-
+      variant facts.
+    - >
+      TASK-172 must not locally classify identity. Focused compatibility regressions must prove
+      only that two value-equivalent ProductSourcePack observations from the same Shopee listing
+      with the same complete selected-variant fact set are classified by the unchanged public
+      TASK-108 resolver as EXACT_VARIANT_MATCH; changing one selected option yields the existing
+      SAME_PRODUCT_FAMILY variant-conflict behavior; and absent/incomplete selected state leaves
+      same-listing observations at SAME_PRODUCT_FAMILY for insufficient variant evidence.
+    - >
+      A product URL containing rModelId/vModelId/display_model_id or similar query values but no
+      complete explicit DOM selected state must produce zero selected-variant facts. Add a focused
+      regression so future code cannot silently promote those URL parameters into truth.
+    - >
+      Existing specification-table and structured Brand facts remain byte/value/order compatible;
+      selected-variant facts are additive only. Existing media catalogue extraction, including all
+      variant media and labels, remains unchanged and must not be narrowed to selected media.
+    - >
+      Keep TASK-162 readiness semantics unchanged: first media-ready accepted sample still ends
+      readiness sampling. TASK-172 must not introduce optional variant-specific polling, longer
+      waits, second navigation, or source extraction failure merely because selected-variant state
+      is unavailable.
+    - >
+      DOM fixture regressions must prove: one fully explicit multi-group selection is emitted in
+      deterministic group order; incomplete and ambiguous group selections are rejected as a
+      whole; selected controls outside the positive current-product scope are ignored; and existing
+      seller-media/review/recommendation exclusions remain intact.
+    - >
+      Documentation must state that selected-variant facts are observed source evidence only, not
+      canonical variant identity or product truth. TASK-108 still decides pairwise relationship;
+      TASK-116 still governs Human exact-variant admission; TASK-171 still reconciles descriptive
+      truth only after a canonical profile exists.
+    - >
+      Update lifecycle consistently: TASK-171/P6.3a CLOSED/PUBLISHED at candidate
+      3a33748905154b4822cfc164999e5c57780e67f2; P6.2 remains PARKED/reopenable; P6.3 is CURRENT
+      with TASK-172 as P6.3b selected-variant evidence hardening; live exact-variant/truth
+      certification remains downstream; P6.4-P6.6 remain deferred/unimplemented.
+    - Do not push from Executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      TASK-172 changes only ShopeeSourceExtractor internals, focused source/DOM regressions,
+      Product Source Pack/P6.3 docs, and the two canonical roadmaps; no schema, resolver, truth,
+      identity, catalog, persistence, retrieval, or browser authority is modified.
+  - id: AC2
+    condition: >
+      Selected-variant observation is derived only inside the positive current-product scope from
+      explicit selected controls; URL/query/model/listing/media heuristics cannot create it.
+  - id: AC3
+    condition: >
+      Variant evidence is all-or-nothing across all deterministically enumerated variation groups:
+      each group has exactly one explicit nonblank selected option and nonblank group label, or zero
+      selected-variant ProductFact values are emitted.
+  - id: AC4
+    condition: >
+      Complete identity-matched selected state appends deterministic ordered ProductFact values with
+      exact key/source_section/provenance contract and embedded exact observed group/option strings,
+      while every pre-existing fact and all media remain unchanged in semantics and order.
+  - id: AC5
+    condition: >
+      Structured identity mismatch, incomplete/ambiguous selected state, and model-like URL query
+      parameters without complete DOM proof all emit zero selected-variant facts without failing an
+      otherwise valid ProductSourcePack extraction.
+  - id: AC6
+    condition: >
+      Compatibility regressions prove unchanged TASK-108 returns EXACT_VARIANT_MATCH for same-listing
+      observations carrying equal complete selected-variant evidence, SAME_PRODUCT_FAMILY for a
+      differing selected option, and SAME_PRODUCT_FAMILY with insufficient variant evidence when
+      selected evidence is absent/incomplete.
+  - id: AC7
+    condition: >
+      One extraction still performs one page/session acquisition, one navigation, and existing bounded
+      media readiness only; no click, second navigation, variant-specific wait/retry, CAPTCHA handling,
+      network/API fallback, or Human selection automation is introduced.
+  - id: AC8
+    condition: >
+      Focused DOM fixtures prove positive-scope selection, deterministic multi-group order,
+      all-or-nothing ambiguity handling, out-of-scope exclusion, and preservation of existing UGC/
+      recommendation/media boundaries fully offline.
+  - id: AC9
+    condition: >
+      Documentation preserves evidence/identity/truth separation, marks TASK-171 P6.3a published,
+      TASK-172 P6.3b current hardening, keeps P6.2 parked/reopenable, and does not claim live
+      exact-variant or live product-truth certification.
+  - id: AC10
+    condition: >
+      Required verification and git diff check pass with zero unresolved items and no changed files
+      outside TASK-172 scope.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_source/test_shopee_source_extractor.py tests/product_source/test_extractor_dom_fixtures.py tests/product_source/test_scrape_tool_compat.py tests/product_intelligence/test_entity_resolution.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
