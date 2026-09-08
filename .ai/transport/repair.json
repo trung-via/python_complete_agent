@@ -1,0 +1,29 @@
+{
+  "repair_id": "REPAIR-165-004",
+  "failed_run_id": "RUN-165-004",
+  "failed_head_sha": "2a3e4ad98db5c625c46539e46290fa9f100ef407",
+  "task": {
+    "id": "TASK-165",
+    "revision": 1
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "tests/fixtures/p6_1b_real_evidence/benchmark.json",
+    "tests/fixtures/p6_1b_real_evidence/case-001/observation-001/source_pack.json",
+    "tests/fixtures/p6_1b_real_evidence/case-001/observation-002/source_pack.json",
+    "tests/fixtures/p6_1b_real_evidence/case-002/observation-001/source_pack.json",
+    "tests/fixtures/p6_1b_real_evidence/case-002/observation-002/source_pack.json",
+    "tests/fixtures/p6_1b_real_evidence/case-003/observation-001/source_pack.json",
+    "tests/fixtures/p6_1b_real_evidence/case-003/observation-002/source_pack.json",
+    "tests/integration/test_p6_1b_real_evidence_retrieval_baseline.py",
+    "docs/PHASE_6_P6_1_REAL_EVIDENCE_BASELINE.md"
+  ],
+  "instructions": [
+    "Continue exactly from failed remediation candidate 2a3e4ad98db5c625c46539e46290fa9f100ef407 and preserve REVIEW-165-003 finding F1. RUN-165-004 failed only because the Antigravity stream was interrupted before verification, but the failed candidate is not semantically complete enough for NO_CHANGE continuation.",
+    "Preserve the already-correct F1 changes that make offline cohort intake go only through TASK-138 on each cohort root exactly once, make the deterministic provider branch only on the explicit bool derived from rag_ctx.hits, and correctly characterize case-003 as upstream discovery/cohort-label mismatch rather than proven TASK-122 lexical deficiency.",
+    "Correct the remaining provenance defect by genuinely re-curating the three fixed Human intents through the TASK-165-authorized live TASK-146 discovery/ranking plus ShopeeScrapeTool path. Produce six actual planned acquisition observations, two per selected listing, and commit only the exact serializer-emitted source_pack.json values. Do not hand-edit, synthesize, round, replace, or regenerate observed_at or any other persisted source field merely to create distinct identities. The six failed-head timestamps clustered within roughly 0.325 seconds are not sufficient evidence of six full live acquisitions and must not be retained as provenance substitutes unless they are independently re-emitted by the required live path during this continuation.",
+    "After genuine curation, recompute benchmark.json from the exact resulting fixtures through the frozen TASK-138/139/140/141/121/164 pipeline. If the selected listings or lexical outcomes change, update the measured snapshot and baseline document to match the actual evidence without changing the fixed Human queries or relevant_variant_ids. Do not apply a quality threshold and do not authorize P6.2 automatically.",
+    "Keep production Python, TASK-164 evaluator semantics, TASK-165 Human labels, existing semantic authorities, worker/runtime files, and AIOS pin unchanged. Preserve executor identity antigravity. This is one canonical CODE_FIX REPAIR continuation of failed remediation RUN-165-004; do not rerun FIX F1, rerun TASK-165, retry outside this continuation, reroute, or switch executor. If the live path or Antigravity fails again, preserve the resulting canonical failure for Brain review."
+  ],
+  "constraints": []
+}
