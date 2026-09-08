@@ -200,6 +200,7 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
         "catalog",
         "ask",
         "discover",
+        "capture",
         "decide",
         "family-decide",
         "variant-decide",
@@ -229,6 +230,14 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
             "--platform",
             "--cdp-endpoint",
             "--shortlist-size",
+        },
+        "capture": {
+            "-h",
+            "--help",
+            "--job-root",
+            "--cdp-endpoint",
+            "--query",
+            "--resume",
         },
         "decide": {
             "-h",
