@@ -1,55 +1,48 @@
 task_id: TASK-164
-revision: 1
+revision: 2
 
 goal: >
   Begin P6.1 Retrieval-Quality Evaluation by adding one pure deterministic evaluation
   authority over the existing TASK-122 lexical retrieval and TASK-129 grounded-answer
-  structures. TASK-164 must measure an explicit Human-authored benchmark without changing
+  structures. TASK-164 measures explicit Human-authored benchmark labels without changing
   retrieval, query planning, RAG context, answer semantics, ranking, canonical knowledge,
-  or product truth. It establishes P6.1a evaluation contracts and exact baseline metrics;
-  real-marketplace benchmark execution remains the separate P6.1b successor.
+  or product truth. It closes only P6.1a Evaluation Contract; a separate P6.1b successor
+  will execute this frozen evaluator against real acquired marketplace evidence.
 
 problem: >
-  Published TASK-163 closed P6.0 live real-evidence certification, so the roadmap now
-  requires EVALUATE before any retrieval improvement. TASK-122 already owns deterministic
-  lexical matching, witnesses, hit ordering, and limits; TASK-123 owns grounded context;
+  Published TASK-163 closed P6.0 live real-evidence certification, so the canonical order is
+  now CERTIFY -> EVALUATE -> IMPROVE. TASK-122 already owns lexical normalization, matching,
+  witnesses, hit ordering, and limits; TASK-123 owns grounded context and citation addressing;
   TASK-129 owns structural grounded-answer/citation validity; TASK-134 owns natural-question
-  query planning; TASK-135 owns persistent grounded-QA composition. There is no authority
-  that compares TASK-122 outputs with an explicit benchmark truth set or quantifies whether
-  grounded-answer leaf citations point to benchmark-relevant retrieved variants. Adding
-  semantic/vector retrieval before this measurement boundary would violate the canonical
-  CERTIFY -> EVALUATE -> IMPROVE order. TASK-164 therefore adds only deterministic
-  evaluation values and functions over existing outputs. It does not improve or reinterpret
-  retrieval itself and does not claim semantic entailment or canonical product truth.
+  query planning; TASK-135 owns persistent grounded-QA composition. No authority currently
+  compares TASK-122 outputs with explicit benchmark relevance labels or quantifies whether
+  an already-valid GroundedAnswer cites benchmark-relevant retrieved variants. TASK-164 adds
+  only deterministic evaluation values and exact metrics over those existing public outputs.
 
 assumptions:
   - >
-    Canonical python_complete_agent main at TASK-164 authoring is
+    Canonical product baseline before TASK-164 authoring is
     fa2a49326be28422484db4a37c932681210d8060, the published TASK-163 source candidate.
   - >
     TASK-163 has canonical Runtime PASS through RUN-163-002 and PRIMARY semantic PASS
-    through REVIEW-163-002; therefore P6.0b and P6.0 are CLOSED and P6.1 is the current
-    architecture boundary.
+    through REVIEW-163-002; therefore P6.0b and P6.0 are CLOSED and P6.1 is current.
   - >
     The authoritative AIOS dependency is exactly
     aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@32ace104c5cfaa1b7affbaa40157872b1f85147f.
   - >
     TASK-121 remains canonical evidence-profile projection authority. TASK-122 remains the
-    sole lexical retrieval normalization, searchable-field, matching, witness, ordering,
-    and limit authority. TASK-123/TASK-124 remain canonical RAG context/addressing authority.
+    sole lexical retrieval authority. TASK-123/TASK-124 remain grounded-context/addressing
+    authority. TASK-129 remains grounded-answer structural authority and does not prove
+    semantic entailment. TASK-134 remains query-planning authority. TASK-135 remains
+    persistent grounded-QA startup/composition authority.
   - >
-    TASK-129 remains grounded-answer structural/citation authority and explicitly does not
-    prove semantic entailment. TASK-134 remains retrieval-query planning authority. TASK-135
-    remains persistent grounded-QA startup/composition authority. None is reopened here.
+    Human-authored relevant_variant_ids are benchmark annotations only. They are not
+    canonical product truth, entity identity, M2 business ranking, recommendation, approval,
+    or retained evidence mutation.
   - >
-    Human-authored benchmark labels are evaluation annotations only. A label that a variant
-    is relevant to one benchmark case is not canonical product truth, entity identity,
-    ranking, approval, recommendation, or a mutation of retained evidence.
-  - >
-    P6.1 must be split so measurement semantics are stable before collecting/using live
-    benchmark evidence: TASK-164 closes only P6.1a Evaluation Contract; P6.1b remains the
-    future real-evidence benchmark corpus/execution gate. P6.2 remains blocked until P6.1b
-    produces reviewed empirical evidence.
+    P6.1 is deliberately split: TASK-164 closes only P6.1a Evaluation Contract. P6.1b will
+    define and execute the reviewed real-evidence benchmark corpus. P6.2 remains forbidden
+    until P6.1b empirical evidence justifies a specific improvement.
 
 scope:
   inspect:
@@ -73,7 +66,6 @@ scope:
     - tests/product_intelligence/test_canonical_retrieval.py
     - tests/product_intelligence/test_canonical_rag_context.py
     - tests/product_intelligence/test_grounded_answer.py
-
   modify:
     - src/product_intelligence/retrieval_quality_evaluation.py
     - src/product_intelligence/__init__.py
@@ -83,224 +75,201 @@ scope:
     - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
 
 non_goals:
-  - Modify TASK-121 profile construction or any canonical evidence value.
-  - Modify TASK-122 retrieval normalization, searchable fields, all-term semantics, match
-    classes, witness selection, hit ordering, limits, public hit types, or implementation.
-  - Modify TASK-123/TASK-124 context construction, citation addressing, packing, rendering,
+  - Modify TASK-121 canonical profile construction or retained evidence.
+  - Modify TASK-122 normalization, searchable fields, all-term semantics, match classes,
+    witness selection, ordering, limits, public hit types, or implementation.
+  - Modify TASK-123/TASK-124 context construction, addressing, packing, rendering,
     truncation, evidence whitelist, or retrieval delegation.
-  - Modify TASK-129 grounded-answer statuses, structural citation validation, leaf-citation
-    rules, answer text, limitation semantics, or semantic-entailment boundary.
-  - Modify TASK-134 query planning, candidate spans, probe policy, selected retrieval_query,
-    or add an alternative planner.
-  - Modify TASK-135 persistence/startup composition or add another persistent QA service.
-  - Add semantic/vector retrieval, embeddings, BM25, FTS, TF-IDF, fuzzy matching, synonym
-    expansion, reranking, query expansion, LLM scoring, or a retrieval fallback.
-  - Add or change M2 winning-product scoring/ranking, shortlist, approval, queue, or business
-    quality semantics.
-  - Create product-truth reconciliation, preferred/latest/majority fact selection, identity
-    migration, canonical admission, or automatic Human approval.
-  - Acquire live marketplace evidence, open a browser/CDP session, read ProductSourcePack
-    manifests, load SQLite, scan files, use Drive, invoke a provider/model, or perform network
-    I/O. Those belong to P6.1b or existing authorities.
-  - Persist benchmark results, create an evaluation database/index, add dashboards, telemetry,
-    background jobs, caches, HTTP/CLI surfaces, or mutable global state.
-  - Define an expected natural-language answer, grade answer wording, claim factual correctness,
+  - Modify TASK-129 statuses, structural citation rules, answer text, limitations, or its
+    explicit no-semantic-entailment boundary.
+  - Modify TASK-134 query planning or TASK-135 persistent composition.
+  - Add semantic/vector retrieval, embeddings, BM25/FTS/TF-IDF, fuzzy matching, synonyms,
+    reranking, query expansion, LLM scoring, or retrieval fallback.
+  - Add or modify M2 scoring/ranking/approval/queue semantics.
+  - Add product-truth reconciliation, preferred/latest/majority fact selection, identity
+    migration, admission, or autonomous approval.
+  - Acquire live marketplace evidence, open browser/CDP, read manifests, load SQLite, scan
+    files, use Drive, invoke a provider/model, or perform network I/O. P6.1b owns real
+    benchmark execution; existing tasks retain acquisition/persistence/provider authority.
+  - Persist benchmark results, add evaluation databases/indexes, dashboards, HTTP/CLI,
+    telemetry, background jobs, caches, or mutable global state.
+  - Define expected natural-language answer wording, grade prose, claim factual correctness,
     detect hallucination, or infer semantic entailment from citation presence.
 
 constraints:
   hard:
     - >
-      Add exactly one new Product Intelligence implementation module
+      Add exactly one implementation module
       src/product_intelligence/retrieval_quality_evaluation.py. Expose exactly these new
       public names from that module and src/product_intelligence/__init__.py:
       RetrievalQualityEvaluationError, RetrievalBenchmarkCase,
       RetrievalCaseEvaluation, RetrievalQualityReport, GroundedCitationFidelity,
       evaluate_lexical_retrieval_quality, and
-      evaluate_grounded_answer_citation_fidelity. The actual module namespace must not leak
-      additional non-underscore implementation dependency names.
+      evaluate_grounded_answer_citation_fidelity. Import dependencies through private aliases
+      so the actual module namespace leaks no additional non-underscore public names.
     - >
-      RetrievalBenchmarkCase must be a frozen immutable value containing exactly:
-      case_id: str, question: str, retrieval_query: str, and
-      relevant_variant_ids: tuple[str, ...]. case_id must be an exact nonblank single-line
-      str of at most 128 UTF-8 bytes. question must be an exact nonblank str of at most
-      4096 UTF-8 bytes and is retained only for benchmark/citation binding. retrieval_query
-      must be an exact str and must be passed unchanged to TASK-122; TASK-164 must not
-      normalize, rewrite, plan, expand, stem, tokenize, or otherwise interpret it locally.
-      relevant_variant_ids must be an exact non-empty tuple of unique exact nonblank strs.
+      RetrievalBenchmarkCase must be frozen and contain exactly four fields: case_id,
+      question, retrieval_query, relevant_variant_ids. case_id must be an exact nonblank
+      single-line str of at most 128 UTF-8 bytes. question must be an exact nonblank str of
+      at most 4096 UTF-8 bytes. retrieval_query must be an exact str and must be passed
+      unchanged to TASK-122; TASK-164 performs no local normalization, tokenization, planning,
+      expansion, stemming, or interpretation. relevant_variant_ids must be an exact non-empty
+      tuple of unique exact nonblank str values, preserved in caller order.
     - >
-      Benchmark cases are Human-authored evaluation annotations only. TASK-164 may compare
-      exact canonical variant_id strings against relevant_variant_ids solely to score the
-      benchmark. It must not infer relevance from product evidence, business signals,
-      marketplace, recency, confidence, retrieval witnesses, model output, or query text,
-      and must never write benchmark labels into canonical catalog/evidence/profile state.
+      Benchmark relevance is explicit Human evaluation input only. TASK-164 may compare exact
+      profile.variant_id strings with relevant_variant_ids solely for scoring. It must not
+      infer benchmark relevance from evidence, marketplace, score, recency, confidence,
+      retrieval witnesses, answer text, or query text, and must never write labels into
+      canonical state.
     - >
       evaluate_lexical_retrieval_quality(profiles, cases, *, limit=10) must materialize the
-      supplied profiles iterable once and cases iterable once. It must require at least one
-      exact RetrievalBenchmarkCase, reject duplicate case_id values, and require limit to be
-      an exact int in TASK-122's inclusive range 1..100. It must not sort, mutate, copy, or
-      rebuild CanonicalVariantProfile values.
+      supplied profiles iterable exactly once and cases iterable exactly once. cases must be
+      a non-empty tuple of exact RetrievalBenchmarkCase values after materialization;
+      duplicate case_id values fail with RetrievalQualityEvaluationError. limit must be an
+      exact int with bool rejected and lie in TASK-122's inclusive range 1..100.
     - >
-      For every benchmark case, call retrieve_canonical_variant_profiles exactly once with
-      the exact materialized corpus, case.retrieval_query, and limit=limit. Do not call any
-      TASK-122 private helper, inspect searchable fields, reconstruct matching, accept
-      precomputed hits, or add a second retrieval path. CanonicalProfileRetrievalError and
-      other TASK-122 input errors must propagate unchanged rather than being reclassified as
-      evaluation errors.
+      On a successful evaluation, invoke retrieve_canonical_variant_profiles exactly once per
+      benchmark case with the same exact materialized corpus, query=case.retrieval_query, and
+      limit=limit. Do not call TASK-122 private helpers, inspect searchable fields, reproduce
+      normalization/matching, accept precomputed hits, or add another retrieval route.
+      CanonicalProfileRetrievalError and any TASK-122 corpus/query failure must propagate
+      unchanged rather than be collapsed into RetrievalQualityEvaluationError.
     - >
-      After the first successful TASK-122 delegation establishes a valid corpus, TASK-164
-      may read only exact profile.variant_id values for benchmark binding/scoring. Every
-      relevant_variant_id in every case must correspond to exactly one variant_id in that
-      materialized corpus; a benchmark case referring to an absent variant_id fails closed
-      with RetrievalQualityEvaluationError. Do not use opaque IDs as searchable text or as
-      retrieval tie-breakers beyond TASK-122's existing behavior.
+      Only after TASK-122 has successfully validated/delegated the corpus may TASK-164 inspect
+      exact profile.variant_id values for benchmark binding. Every relevant_variant_id in every
+      case must correspond to one variant_id in that validated corpus; absent gold IDs fail
+      closed with RetrievalQualityEvaluationError. Opaque IDs are labels only and must never
+      become searchable text or an additional retrieval/ranking signal.
     - >
-      RetrievalCaseEvaluation must be frozen and contain exactly: case (the exact supplied
-      RetrievalBenchmarkCase object), hits (the exact tuple returned by TASK-122),
-      true_positive_variant_ids, false_positive_variant_ids,
-      false_negative_variant_ids, precision, and recall. true positives and false positives
-      follow exact TASK-122 hit order. False negatives follow exact case.relevant_variant_ids
-      order. Do not reorder by score, evidence, marketplace, or strings beyond existing hit
-      order and explicit Human label order.
+      RetrievalCaseEvaluation must be frozen and contain exactly eight fields: case, limit,
+      hits, true_positive_variant_ids, false_positive_variant_ids,
+      false_negative_variant_ids, precision, recall. case is the exact supplied
+      RetrievalBenchmarkCase object; limit is the exact evaluator limit; hits is the exact
+      tuple returned by TASK-122. True positives and false positives preserve exact TASK-122
+      hit order. False negatives preserve exact case.relevant_variant_ids order.
     - >
-      precision and recall must use fractions.Fraction for exact deterministic metrics, not
-      floating-point approximation. For each case, precision is TP / retrieved_count; when
-      retrieved_count is zero and the non-empty gold set therefore has no true positives,
-      define precision as exact Fraction(0, 1). Recall is TP / relevant_count; relevant_count
-      is always non-zero by contract. No F1, NDCG, MRR, semantic score, confidence, weighted
-      relevance, graded relevance, or business metric is introduced by TASK-164.
+      precision and recall must be fractions.Fraction values, never floats. Per-case precision
+      is TP / retrieved_count; if retrieved_count is zero, precision is exactly Fraction(0, 1).
+      Recall is TP / relevant_count, whose denominator is always non-zero. TASK-164 introduces
+      no F1, NDCG, MRR, semantic score, confidence, graded relevance, weighted relevance, or
+      business metric.
     - >
-      RetrievalQualityReport must be frozen and contain exactly: limit,
-      case_evaluations, true_positive_count, false_positive_count,
-      false_negative_count, micro_precision, and micro_recall. case_evaluations preserve
-      exact caller case order. Aggregate counts are exact sums across cases. micro_precision
-      is total TP / (total TP + total FP), defined as Fraction(0, 1) when no hits were
-      retrieved across all cases. micro_recall is total TP / (total TP + total FN). No macro
-      averaging, weighting, confidence interval, threshold selection, or benchmark ranking
-      is added in this task.
+      RetrievalQualityReport must be frozen and contain exactly seven fields: limit,
+      case_evaluations, true_positive_count, false_positive_count, false_negative_count,
+      micro_precision, micro_recall. case_evaluations preserve caller case order. Counts are
+      exact sums across cases. micro_precision is total TP / (TP + FP), or Fraction(0, 1)
+      when no hits were retrieved. micro_recall is total TP / (TP + FN). Use exact Fraction
+      arithmetic only; add no macro averaging, thresholds, weighting, or benchmark ranking.
     - >
-      evaluate_grounded_answer_citation_fidelity(case_evaluation, answer) must accept exact
+      evaluate_grounded_answer_citation_fidelity(case_evaluation, answer) accepts exact
       RetrievalCaseEvaluation and exact GroundedAnswer values only. It must fail closed with
-      RetrievalQualityEvaluationError unless answer.context.question equals the benchmark
-      case question exactly, answer.context.retrieval_query equals case.retrieval_query
-      exactly, answer.context.max_hits equals the retrieval report/case limit represented by
-      the evaluation result, and the ordered TASK-123 context hit values are value-equal to
-      the exact TASK-122 hits retained by the case evaluation. If the public result shape
-      needs the limit for this binding, retain it on RetrievalCaseEvaluation and adjust the
-      field list above accordingly rather than infer it from hit count.
+      RetrievalQualityEvaluationError unless answer.context.question equals
+      case_evaluation.case.question exactly, answer.context.retrieval_query equals
+      case_evaluation.case.retrieval_query exactly, answer.context.max_hits equals
+      case_evaluation.limit exactly, and the ordered tuple of context_hit.hit values is
+      value-equal to case_evaluation.hits. It must not rerun retrieval or rebuild context.
     - >
-      Because citation binding must know the evaluation limit deterministically,
-      RetrievalCaseEvaluation must in fact contain exactly these eight fields:
-      case, limit, hits, true_positive_variant_ids, false_positive_variant_ids,
-      false_negative_variant_ids, precision, recall. limit is the exact evaluator limit
-      passed to TASK-122 for that case. No other hidden/public benchmark state is permitted.
+      Citation fidelity is structural benchmark relevance only. Derive leaf addresses only
+      from the exact public CanonicalRagContext structure using existing TASK-123/TASK-129
+      addressing: witness leaves are <hit citation_id>-W001... in exact witness order and
+      retained supplemental leaves use each block.citation_id. Map every answer leaf citation
+      to its parent hit's exact profile.variant_id. A leaf is benchmark-relevant iff that ID
+      is in case.relevant_variant_ids. Valid hit-header Hxxx citations are excluded from the
+      fidelity denominator because TASK-129 does not treat them as leaf grounding.
     - >
-      Citation fidelity is structural benchmark relevance only. Using existing TASK-123 /
-      TASK-129 addressing semantics, classify leaf citations as retrieval-witness addresses
-      Hxxx-Wxxx or retained supplemental evidence addresses Hxxx-Exxx. Map each leaf citation
-      to its parent context hit and therefore that hit's exact profile.variant_id. A leaf
-      citation is benchmark-relevant only when that variant_id is present in the case's
-      explicit relevant_variant_ids. Hit-header Hxxx citations are valid TASK-129 citations
-      but are not leaf citations and must be excluded from the fidelity denominator.
+      GroundedCitationFidelity must be frozen and contain exactly six fields:
+      case_evaluation, answer, leaf_citation_ids, relevant_leaf_citation_ids,
+      irrelevant_leaf_citation_ids, fidelity. answer is the exact supplied GroundedAnswer.
+      All citation tuples preserve answer.citation_ids order after the required filtering.
+      fidelity is Fraction(relevant_leaf_count, leaf_count) when at least one leaf exists and
+      None when there are zero leaf citations.
     - >
-      GroundedCitationFidelity must be frozen and contain exactly: case_evaluation,
-      answer (the exact supplied GroundedAnswer object), leaf_citation_ids,
-      relevant_leaf_citation_ids, irrelevant_leaf_citation_ids, and fidelity.
-      Preserve answer citation order in all three citation tuples. fidelity is
-      Fraction(relevant_leaf_count, leaf_count) when at least one leaf citation exists and
-      None when there are zero leaf citations. Do not interpret answer_text or source text,
-      grade entailment, inspect facts for correctness, or treat structural fidelity as a
-      truth/hallucination score.
+      TASK-164 must never interpret answer.answer_text or source evidence text, grade semantic
+      entailment, infer factual correctness, reopen omitted evidence, parse rendered RAG JSON,
+      fabricate citation blocks, or accept a citation not already structurally valid under
+      the exact GroundedAnswer.
     - >
-      TASK-164 may derive valid hit/witness/evidence citation addresses only from the exact
-      supplied CanonicalRagContext public structure and the addressing semantics already
-      owned by TASK-123/TASK-129. It must not parse rendered JSON, fabricate missing
-      citation blocks, reopen omitted evidence, rerun retrieval/context construction, or
-      accept citations that GroundedAnswer did not already structurally validate.
-    - >
-      Evaluation is pure deterministic in-memory computation after caller-supplied values
-      exist. Successful TASK-164 execution performs zero query planning, provider/model
-      invocation, prompt construction, answer generation, catalog/source persistence,
-      SQLite/filesystem/network/browser/Drive work, environment reads, clock/random/UUID,
-      subprocess, queue, cache, admission, product ranking, or product-truth reconciliation.
+      Successful evaluation is pure deterministic in-memory computation over caller-supplied
+      values plus exact TASK-122 delegation. It performs zero TASK-134 query planning,
+      provider/model invocation, prompt/answer generation, SQLite/filesystem/network/browser/
+      Drive work, environment reads, clock/random/UUID, subprocess, queue, cache, admission,
+      M2 ranking/scoring, evidence mutation, or product-truth reconciliation.
     - >
       Do not modify canonical_profile.py, canonical_retrieval.py,
       canonical_rag_context.py, grounded_answer.py, grounded_query_planning.py,
       persistent_grounded_qa.py, ranking/scoring, canonical catalog modules, ProductSourcePack
-      models/serialization, or any prior TASK implementation authority. TASK-164 is an
-      evaluator over their public values only.
+      models/serialization, or any prior authority. TASK-164 evaluates public values only.
     - >
-      Add docs/PHASE_6_P6_1_RETRIEVAL_QUALITY_EVALUATION.md defining P6.1a authority and
-      explicitly distinguishing benchmark relevance from canonical product truth, M2
-      business ranking, TASK-122 retrieval semantics, and semantic entailment. Update both
-      canonical post-M4/P6 roadmaps to record TASK-163/P6.0 as CLOSED, P6.1 as CURRENT,
-      TASK-164 as the P6.1a evaluation-contract gate, and P6.1b as NEXT for a real acquired
-      marketplace evidence benchmark using this frozen evaluator. P6.2 remains FUTURE and
-      forbidden until P6.1b empirical evidence justifies a specific improvement.
+      Add docs/PHASE_6_P6_1_RETRIEVAL_QUALITY_EVALUATION.md defining P6.1a and explicitly
+      separating benchmark relevance from canonical product truth, M2 business ranking,
+      TASK-122 retrieval semantics, and semantic entailment. Update both canonical roadmaps
+      to record TASK-163/P6.0 CLOSED, P6.1 CURRENT, TASK-164 as the P6.1a evaluation-contract
+      gate, P6.1b NEXT for real acquired marketplace evidence benchmark execution using this
+      evaluator, and P6.2 FUTURE/blocked until P6.1b empirical evidence justifies a specific
+      retrieval improvement.
     - >
-      Focused tests must cover exact module/public API, immutable benchmark values, invalid
-      labels/cases/limit, exact once-per-case TASK-122 delegation, TASK-122 error propagation,
-      absent gold variant rejection, hit-order-preserving TP/FP/FN, zero-hit precision,
-      exact Fraction metrics, micro aggregation, caller case order, corpus permutation
-      determinism inherited from TASK-122, context/case/limit/hit mismatch rejection,
-      witness/supplemental/hit-header citation classification, relevant/irrelevant citation
-      order, zero-leaf fidelity=None, no answer-text interpretation, repeated determinism,
-      and no model/I/O/retrieval reimplementation behavior.
+      Focused tests must cover exact module/public API, immutability and field shape, invalid
+      cases/labels/limit, duplicate case IDs, once-per-case TASK-122 delegation with one
+      materialized corpus, unchanged TASK-122 error propagation, absent gold-ID rejection,
+      hit-order TP/FP, Human-order FN, zero-hit precision, exact Fraction metrics, micro
+      aggregation, case-order preservation, corpus-permutation determinism inherited from
+      TASK-122, context/question/query/limit/hit mismatch rejection, witness/supplemental/
+      hit-header citation classification, relevant/irrelevant citation order, zero-leaf
+      fidelity=None, no answer-text interpretation, repeated determinism, and no forbidden
+      model/I/O/retrieval-reimplementation behavior.
     - Do not push from Executor execution.
 
 acceptance:
   - id: AC1
     condition: >
       TASK-164 adds exactly the bounded evaluation error, benchmark case, case/report/fidelity
-      immutable values and two evaluator functions, with no new retrieval, planner, provider,
-      storage, ranking, semantic-search, or truth-resolution API.
+      immutable values, and two evaluator functions, with no new retrieval, planner, provider,
+      persistence, ranking, semantic-search, or truth-resolution API.
   - id: AC2
     condition: >
-      RetrievalBenchmarkCase strictly validates exact bounded case/question/query values and
-      a non-empty unique tuple of Human-authored relevant variant IDs while preserving all
-      accepted strings/order exactly and assigning no canonical truth semantics to labels.
+      RetrievalBenchmarkCase strictly validates bounded exact case/question/query values and
+      non-empty unique Human relevant_variant_ids while preserving accepted strings/order and
+      assigning no canonical truth semantics to labels.
   - id: AC3
     condition: >
-      Lexical evaluation materializes inputs once, rejects duplicate case IDs/invalid limit,
-      delegates exactly once per case to TASK-122 with the exact corpus/query/limit, propagates
-      TASK-122 corpus/query failures unchanged, and never reconstructs lexical retrieval.
+      Lexical evaluation materializes inputs once, rejects invalid/duplicate cases and invalid
+      limit, delegates exactly once per case to TASK-122 with exact corpus/query/limit,
+      propagates TASK-122 failures unchanged, and never reimplements retrieval.
   - id: AC4
     condition: >
-      Gold variant IDs must bind to the validated corpus exactly; each case evaluation retains
-      the exact benchmark case, exact TASK-122 hits and limit, preserves TASK-122 hit order for
-      TP/FP, preserves Human label order for FN, and introduces no scoring/ranking beyond set
-      membership against explicit benchmark labels.
+      Gold IDs bind only to the validated corpus; each case result retains exact case, limit,
+      and TASK-122 hits, preserves hit order for TP/FP and Human label order for FN, and adds
+      no relevance source beyond explicit benchmark membership.
   - id: AC5
     condition: >
-      Per-case precision/recall and report micro precision/recall use exact Fraction arithmetic
-      with the specified zero-hit behavior, exact aggregate counts, exact caller case order,
-      and no additional metric or threshold policy.
+      Per-case and micro precision/recall use exact Fraction arithmetic with specified zero-hit
+      behavior, exact aggregate counts, exact caller case order, and no extra metric policy.
   - id: AC6
     condition: >
-      Citation-fidelity evaluation requires exact benchmark/question/query/limit and value-equal
-      retrieval-hit continuity between case evaluation and GroundedAnswer context before scoring;
-      mismatched or unrelated contexts fail closed rather than being compared heuristically.
+      Citation evaluation requires exact question/query/limit and value-equal TASK-122 hit
+      continuity between case evaluation and GroundedAnswer context; unrelated contexts fail
+      closed and evaluation never reruns retrieval/context construction.
   - id: AC7
     condition: >
-      Fidelity maps only already-valid TASK-129 leaf citation addresses to their TASK-123 parent
-      hit variant, excludes hit-header citations from the denominator, preserves answer citation
-      order, returns exact relevant/irrelevant leaf tuples, uses exact Fraction when leaves exist,
-      and returns None when no leaf citation exists.
+      Fidelity maps only already-valid leaf citations to parent hit variants, excludes hit
+      headers from its denominator, preserves answer citation order, returns exact relevant/
+      irrelevant leaf tuples, exact Fraction when leaves exist, and None when none exist.
   - id: AC8
     condition: >
-      TASK-164 never grades answer wording or semantic entailment, never treats citation presence
-      as factual correctness, and keeps Human benchmark relevance distinct from canonical product
-      truth, M2 ranking/approval, TASK-122 retrieval semantics, and TASK-129 structural grounding.
+      TASK-164 never grades answer wording or semantic entailment and keeps Human benchmark
+      relevance distinct from canonical product truth, M2 ranking/approval, TASK-122 retrieval
+      semantics, and TASK-129 structural grounding.
   - id: AC9
     condition: >
-      Successful evaluation is pure deterministic in-memory work with zero model/provider/query-
-      planning, storage/filesystem/SQLite/network/browser/Drive, environment, clock/random/UUID,
-      subprocess, admission, ranking/scoring, evidence mutation, or semantic/vector retrieval work;
-      all predecessor implementation modules remain unchanged.
+      Successful evaluation performs no model/provider/query-planning, persistence/filesystem/
+      SQLite/network/browser/Drive, environment, clock/random/UUID, subprocess, admission,
+      ranking/scoring, evidence mutation, or semantic/vector retrieval work, and predecessor
+      implementation modules remain unchanged.
   - id: AC10
     condition: >
-      Focused regressions pass and canonical roadmaps record P6.0 CLOSED after TASK-163, P6.1
-      CURRENT, TASK-164 as P6.1a evaluation-contract gate, P6.1b as the next real-evidence
-      benchmark execution, and P6.2 as blocked until empirical P6.1b evidence exists.
+      Focused regressions pass and canonical roadmaps record P6.0 CLOSED after TASK-163,
+      P6.1 CURRENT, TASK-164 as P6.1a, P6.1b as next real-evidence benchmark execution,
+      and P6.2 blocked until reviewed empirical P6.1b evidence exists.
 
 verification:
   required:
