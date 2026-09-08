@@ -14,7 +14,6 @@ from pathlib import Path
 import pytest
 
 from src.product_source.models import ProductSourcePack
-from src.product_source.serialization import deserialize_product_source_pack
 from src.product_intelligence.canonical_catalog_sqlite import (
     create_sqlite_canonical_catalog,
     load_sqlite_canonical_catalog,
@@ -69,25 +68,17 @@ _FIXED_TIMESTAMP = datetime(2026, 9, 8, 0, 0, tzinfo=timezone.utc)
 
 
 class _DeterministicZeroNetworkProvider(LLMProvider):
-    def __init__(self) -> None:
+    def __init__(self, *, has_hits: bool) -> None:
+        self._has_hits = bool(has_hits)
         self.generate_calls = 0
+
+    @property
+    def has_hits(self) -> bool:
+        return self._has_hits
 
     async def generate(self, messages, tools) -> LLMResponse:
         self.generate_calls += 1
-        prompt_text = ""
-        for m in messages:
-            if isinstance(m, dict):
-                prompt_text += m.get("content", "") + " "
-            elif hasattr(m, "content"):
-                prompt_text += str(m.content) + " "
-
-        has_hits = (
-            "H001-W001" in prompt_text
-            or "Retrieved Context:" in prompt_text
-            and "No retrieved product evidence" not in prompt_text
-        )
-
-        if has_hits:
+        if self._has_hits:
             content = json.dumps(
                 {
                     "status": "ANSWERED",
@@ -155,31 +146,6 @@ def test_benchmark_descriptor_schema_and_cases():
     ]
 
 
-def test_frozen_manifests_typed_rehydration_and_observation_identities():
-    doc = _load_benchmark_descriptor()
-    rehydrated_packs: list[ProductSourcePack] = []
-    identities: list[SourceObservationIdentity] = []
-
-    for cohort in doc["cohorts"]:
-        manifests = cohort["manifests"]
-        assert len(manifests) == 2
-        for rel_path in manifests:
-            manifest_file = _REPO_ROOT / rel_path
-            assert manifest_file.is_file()
-            pack = deserialize_product_source_pack(str(manifest_file))
-            assert pack.platform == "shopee"
-            assert pack.source_product_id == cohort["source_product_id"]
-            identity = SourceObservationIdentity.from_pack(pack)
-            assert identity.platform == "shopee"
-            assert identity.source_product_id == cohort["source_product_id"]
-            identities.append(identity)
-            rehydrated_packs.append(pack)
-
-    assert len(rehydrated_packs) == 6
-    assert len(identities) == 6
-    assert len(set(identities)) == 6, "All six observations must have pairwise distinct identities"
-
-
 @pytest.mark.asyncio
 async def test_offline_real_evidence_retrieval_baseline_exact_equality(tmp_path: Path):
     doc = _load_benchmark_descriptor()
@@ -188,17 +154,26 @@ async def test_offline_real_evidence_retrieval_baseline_exact_equality(tmp_path:
     db_path = tmp_path / "p6_1b_test_catalog.sqlite"
     create_sqlite_canonical_catalog(db_path)
 
+    all_identities: list[SourceObservationIdentity] = []
     cohort_packs: dict[int, tuple[ProductSourcePack, ...]] = {}
 
-    # Phase 1: Intake and durable admission into disposable SQLite
+    # Phase 1: Single-pass intake per cohort root and durable admission into disposable SQLite
     for cohort in doc["cohorts"]:
         cid = cohort["cohort_id"]
-        obs_dirs = tuple(
-            str((_REPO_ROOT / p).parent) for p in cohort["manifests"]
-        )
-        inventory = intake_product_source_evidence(obs_dirs)
+        cohort_root = _REPO_ROOT / cohort["case_dir"]
+        inventory = intake_product_source_evidence((str(cohort_root),))
         assert len(inventory.manifest_paths) == 2
         assert len(inventory.source_packs) == 2
+
+        for pack in inventory.source_packs:
+            assert isinstance(pack, ProductSourcePack)
+            assert pack.platform == "shopee"
+            assert pack.source_product_id == cohort["source_product_id"]
+            identity = SourceObservationIdentity.from_pack(pack)
+            assert identity.platform == "shopee"
+            assert identity.source_product_id == cohort["source_product_id"]
+            all_identities.append(identity)
+
         cohort_packs[cid] = inventory.source_packs
 
         # Family review planning and admission
@@ -237,6 +212,9 @@ async def test_offline_real_evidence_retrieval_baseline_exact_equality(tmp_path:
             database_path=db_path,
         )
         assert var_admission.variant.variant_id == f"p6-benchmark-variant-{cid:03d}"
+
+    assert len(all_identities) == 6
+    assert len(set(all_identities)) == 6, "All six observations must have pairwise distinct identities"
 
     # Phase 2: Catalog reload and canonical profile construction
     catalog = load_sqlite_canonical_catalog(db_path)
@@ -280,8 +258,6 @@ async def test_offline_real_evidence_retrieval_baseline_exact_equality(tmp_path:
     assert lexical_report.micro_recall == Fraction(*baseline["micro_recall"])
 
     # Phase 4: Grounded context, deterministic QA, citation fidelity
-    provider = _DeterministicZeroNetworkProvider()
-
     for ce, expected_ce in zip(lexical_report.case_evaluations, baseline["case_evaluations"]):
         assert ce.case.case_id == expected_ce["case_id"]
         assert [h.profile.variant_id for h in ce.hits] == expected_ce["retrieved_variant_ids"]
@@ -297,6 +273,8 @@ async def test_offline_real_evidence_retrieval_baseline_exact_equality(tmp_path:
             retrieval_query=ce.case.retrieval_query,
             max_hits=3,
         )
+
+        provider = _DeterministicZeroNetworkProvider(has_hits=bool(rag_ctx.hits))
 
         grounded_answer = await answer_grounded_context(
             rag_ctx,

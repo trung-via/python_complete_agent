@@ -63,20 +63,22 @@ The benchmark evaluates four fixed Human cases using exact `fractions.Fraction` 
 
 ## 4. Empirical Analysis & Failure Mode Characterization
 
-### 4.1 Case 3 Lexical Incompleteness Mode
-In `case-003`, the Human acquisition intent was `chuột không dây` (wireless mouse). The live marketplace discovery shortlisted candidate `29595660451` titled `"(Bán Chạy) Đèn Lồng Lân Sư 2026 Điều Khiển Dây Kéo Sinh Động Thủ Công Đồ Chơi Trung Thu Cho Bé"`. 
+### 4.1 Upstream Discovery / Cohort-Label Mismatch Characterization
 
-When TASK-122 lexical retrieval queries the profile corpus for `"chuột không dây"`, none of the normalized tokens match any field in the profile (title, brand, model_sku, facts, or descriptions). Consequently:
-- Zero hits are returned.
+In `case-003`, the Human acquisition intent was `chuột không dây` (wireless mouse). However, the marketplace discovery phase shortlisted candidate `29595660451` titled `"(Bán Chạy) Đèn Lồng Lân Sư 2026 Điều Khiển Dây Kéo Sinh Động Thủ Công Đồ Chơi Trung Thu Cho Bé"` (a festive decorative lantern toy).
+
+When admitted into the canonical catalog as `p6-benchmark-variant-003`, the resulting profile contains lantern product facts, title, and descriptions. When TASK-122 lexical retrieval queries the profile catalog for `"chuột không dây"`, none of the normalized query tokens appear in the lantern profile. Consequently:
+- Zero hits are returned for `case-003`.
 - Precision evaluates to `Fraction(0, 1)`.
 - Recall evaluates to `Fraction(0, 1)`.
-- RAG context contains zero evidence, prompting the deterministic provider to return `INSUFFICIENT_EVIDENCE` with empty citations.
+- RAG context contains zero retrieved evidence (`rag_ctx.hits == ()`), prompting the deterministic provider to return `INSUFFICIENT_EVIDENCE` with empty citations.
 - Citation fidelity correctly records `None`.
 
-**Significance**: This behavior is an authentic manifestation of real-world discovery-to-retrieval divergence:
-1. Live search ranking algorithms may return sponsored, promotional, or noisy items whose textual listing metadata lacks the user's explicit query terms.
-2. Lexical keyword matching (TASK-122) cannot bridge semantic divergence when there is zero lexical overlap between the query and candidate profile tokens.
-3. This is not a defect of the benchmark or evaluator; it is empirical evidence capturing genuine marketplace retrieval behavior.
+**Critical Distinction**: This empirical result is an **upstream discovery / cohort-label mismatch**, not a defect or deficiency of TASK-122 lexical retrieval:
+1. **Accurate Lexical Discrimination**: TASK-122 correctly rejected an irrelevant item. A wireless mouse query should not retrieve a children's lantern. Lexical retrieval performed as intended by filtering out ungrounded product records.
+2. **Fixed Cohort-Label Divergence**: Under the fixed benchmark contract, `p6-benchmark-variant-003` was designated the ground-truth relevant variant for `p6-1b-003` because it originated from the `chuột không dây` acquisition cohort, creating a label mismatch between the human intent and the underlying discovered evidence.
+3. **No Proven Lexical Deficiency**: This case does not isolate a lexical retrieval flaw (such as synonym mismatch, vocabulary mismatch, or morphological divergence).
+4. **P6.2 Is Not Automatically Authorized**: Because the zero-hit outcome stems from upstream marketplace discovery noise rather than a retrieval shortfall, it does not justify or authorize vector/semantic retrieval (P6.2). Any progression to P6.2 remains governed by the Brain decision gate and requires proven retrieval deficiencies over aligned discovery corpora.
 
 ---
 
@@ -88,7 +90,7 @@ To maintain strict architectural governance, the following boundaries are formal
 2. **Platform Specificity**: Measurements reflect the certified Shopee route only. No claims are made regarding TikTok Shop retrieval behavior, discovery quality, or catalog scale.
 3. **Separation from Product Truth**: Human relevance annotations (`relevant_variant_ids`) are benchmark evaluation inputs only. They do not constitute canonical product truth, entity resolution decisions, or catalog state.
 4. **Structural Grounding vs. Semantic Entailment**: Citation fidelity measures whether generated answers cite benchmark-relevant context addresses (`H001-W001`). It does **not** evaluate natural language answer fluency, hallucination, or factual veracity.
-5. **No Automatic Authorization of P6.2**: A recall of 5/6 does not automatically authorize semantic or vector retrieval (P6.2). Any P6.2 initiative remains a separate Brain decision gate based on whether the specific failure modes justify the operational overhead of embeddings, vector storage, and hybrid retrieval.
+5. **No Automatic Authorization of P6.2**: A recall of 5/6 does not automatically authorize semantic or vector retrieval (P6.2). The single false negative (`case-003`) is an upstream discovery/cohort-label mismatch, not a proven lexical retrieval deficiency. Any P6.2 initiative remains a separate Brain decision gate and is not automatically authorized by this baseline.
 
 ---
 
