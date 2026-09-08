@@ -1,8 +1,7 @@
 # P6.1d Planner-Assisted Retrieval Stress Benchmark
 
-Status: P6.1d is CURRENT with TASK-170 as its planner-assisted closure candidate.
-Runtime verification, semantic review, publication, and separate Brain/Human
-interpretation remain downstream gates.
+Status: TASK-170 and P6.1d are CLOSED / PUBLISHED at candidate
+`0781e0810d161ad1a4936c0e3ea31aada5704da1`; P6.1 is CLOSED.
 
 ## Immutable source and authority composition
 
@@ -55,7 +54,7 @@ entailment, or new product-truth authority.
 
 There is no metric threshold, automatic architecture decision, or automatic
 quality pass/fail gate. Weak or strong planner-assisted results are valid measured
-evidence. P6.2 remains GATED / DECISION PENDING until TASK-170 receives Runtime
-PASS, semantic PASS, and publication, followed by separate Brain/Human review of
-the published P6.1c and P6.1d evidence. P6.3-P6.6 remain deferred and
-unimplemented.
+evidence. Following publication and separate Brain/Human review, P6.2 is PARKED /
+NOT JUSTIFIED BY CURRENT EVIDENCE and remains reopenable if future evidence changes.
+P6.3 is CURRENT with TASK-171 as its P6.3a foundation; P6.4-P6.6 remain deferred
+and unimplemented.

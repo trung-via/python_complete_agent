@@ -1,15 +1,10 @@
 # Post-M4 Product Intelligence Roadmap — Live Product Enablement
 
-Status: canonical post-M4 architecture roadmap; P1-P5 and P6.0 CLOSED. P6.1 is
-CURRENT: TASK-165 is unpublished blocked evidence; TASK-166 and TASK-167 are CLOSED
-and published. The first external READY bundle remains Human-rejected operational
-evidence only; the second reviewed READY bundle is the accepted P6.1b corpus source.
-RUN-168-001 is preserved task-design failure evidence with zero source delta. TASK-168
-revision 2 / P6.1b and TASK-169 revision 2 / P6.1c are CLOSED / PUBLISHED.
-TASK-169 revision 1 remains unexecuted superseded authoring history. P6.1d is
-CURRENT with TASK-170 as its planner-assisted closure candidate. P6.2 is GATED /
-DECISION PENDING until TASK-170 Runtime PASS, semantic PASS, publication, and
-separate Brain/Human review of measured P6.1c plus P6.1d evidence. P6.3-P6.6 remain deferred.
+Status: canonical post-M4 architecture roadmap; P1-P5, P6.0, and P6.1 are CLOSED.
+TASK-170 / P6.1d is CLOSED / PUBLISHED at candidate
+`0781e0810d161ad1a4936c0e3ea31aada5704da1`. P6.2 is PARKED / NOT JUSTIFIED BY
+CURRENT EVIDENCE and remains reopenable from future evidence. P6.3 is CURRENT with
+TASK-171 as its P6.3a descriptive-field foundation. P6.4-P6.6 remain deferred.
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
 ## 1. Starting point
@@ -190,9 +185,9 @@ The remaining P5.3 boundary is refined into:
 
 Published TASK-149 closed P5.3c and P5 Human-Facing Product Intelligence Surface is
 CLOSED. Published TASK-154 closed P6.0a. Published TASK-163 closed P6.0b and P6.0.
-P6.1 is CURRENT.
+P6.1 is CLOSED / PUBLISHED.
 
-### P6 — Quality and Scale Enhancements — P6.0 CLOSED, P6.1 CURRENT
+### P6 — Quality and Scale Enhancements — P6.0/P6.1 CLOSED, P6.3 CURRENT
 
 Following the post-P5 architecture audit (recorded in `docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md`),
 Phase 6 is explicitly ordered as a `CERTIFY -> EVALUATE -> IMPROVE` discipline:
@@ -225,7 +220,7 @@ production certification remains distinct from provider-only TASK-144.
   Canonical Runtime verification (RUN-163-002 PASS) and ChatGPT PRIMARY semantic review (REVIEW-163-002 PASS)
   both passed on candidate `fa2a49326be28422484db4a37c932681210d8060`. P6.0b and P6.0 are CLOSED.
 
-#### P6.1 Retrieval-Quality Evaluation / Baseline — CURRENT
+#### P6.1 Retrieval-Quality Evaluation / Baseline — CLOSED / PUBLISHED
 Establish empirical retrieval benchmarks (precision, recall, citation accuracy) using the existing
 lexical retrieval baseline (TASK-122) on real product evidence before introducing any semantic retrieval.
 P6.1 now proceeds through these ordered gates:
@@ -261,24 +256,29 @@ P6.1 now proceeds through these ordered gates:
   `52d539aa1a2b880f488987cb07c46ea9347dcdcc`; P6.1c is CLOSED. TASK-169 revision
   1, which proposed opening P6.3, was never executed and remains superseded
   authoring history only.
-- **P6.1d Planner-Assisted Retrieval Stress Benchmark (TASK-170 — CURRENT CLOSURE CANDIDATE)**:
+- **P6.1d Planner-Assisted Retrieval Stress Benchmark (TASK-170 — CLOSED / PUBLISHED)**:
   Replays the exact six published TASK-169 stress intents once each through TASK-134,
   then evaluates all six planned queries in one TASK-164 call at `limit=3` over the
   immutable TASK-168 corpus. The measured snapshot is 12 TP, 0 FP, 0 FN, and micro
   precision and recall of 1/1. This measures the existing TASK-134 -> TASK-122
   composition without claiming semantic understanding or making an automatic
-  architecture decision.
+  architecture decision. TASK-170 is published at candidate
+  `0781e0810d161ad1a4936c0e3ea31aada5704da1`; P6.1d and P6.1 are CLOSED.
 
-#### P6.2 Conditional Semantic / Vector Retrieval or Reranking — GATED / DECISION PENDING
-Introduce semantic/vector retrieval or reranking only if separate Brain/Human interpretation of
-the published P6.1b, P6.1c, and P6.1d evidence justifies it. The decision remains gated until TASK-170
-Runtime PASS, semantic PASS, publication, and separate Brain/Human review of the measured P6.1c plus P6.1d snapshots. No
-metric threshold automatically opens P6.2 or declares lexical retrieval sufficient. SQLite remains
-the canonical store; any future vector index would remain secondary and disposable.
+#### P6.2 Conditional Semantic / Vector Retrieval or Reranking — PARKED / NOT JUSTIFIED BY CURRENT EVIDENCE
+Raw TASK-122 stress weakness was fully recovered by the existing production
+TASK-134 -> TASK-122 composition on the measured corpus: 12 TP, 0 FP, 0 FN and
+micro precision/recall of 1/1. Current evidence therefore does not justify a new
+semantic/vector authority. P6.2 remains reopenable if future evidence changes;
+parking it does not claim lexical retrieval is universally sufficient. SQLite
+remains the canonical store; any future vector index would remain secondary and disposable.
 
-#### P6.3 Product-Truth Reconciliation — UNIMPLEMENTED / FUTURE / DEFERRED
-Formulate a separate Human-governed policy authority for attribute reconciliation across observations
-(e.g., preferred/latest/majority selection rules).
+#### P6.3 Product-Truth Reconciliation — CURRENT (TASK-171 / P6.3a)
+TASK-171 opens only a Human-governed descriptive-field foundation over exact
+TASK-121 evidence. It resolves uncontested values, preserves unresolved conflicts,
+and permits only explicit Human selection of an existing exact source value. It
+adds no recency, majority, provenance, or other automatic preference; no fact/media
+reconciliation, persistence, downstream consumption, or live truth certification.
 
 #### P6.4 Identity Evolution and Migrations — UNIMPLEMENTED / FUTURE / DEFERRED
 Define a separate canonical-identity authority for entity lifecycle, merging, splitting, and schema
@@ -308,15 +308,12 @@ RUN-156-009 remains historical failed P6.0b evidence after discovery succeeded a
 failed with `LIVE_P6B_ACQUISITION_EXTRACTION`. Published TASK-162 is the narrow Shopee
 product-page readiness blocker correction. Published TASK-163 closed P6.0b and P6.0 after
 canonical Runtime verification and ChatGPT PRIMARY semantic review both passed. P6.1 is
-CURRENT: TASK-166 and TASK-167 are CLOSED and published; the first external READY bundle remains
-Human-rejected operational evidence, the second reviewed READY bundle is the accepted corpus source,
-TASK-168 revision 2 and P6.1b are CLOSED / PUBLISHED after RUN-168-001 preserved the
-revision-1 task-design failure with zero source delta. TASK-169 revision 1 is unexecuted
-superseded authoring history, while TASK-169 revision 2 and P6.1c are CLOSED / PUBLISHED
-at candidate `52d539aa1a2b880f488987cb07c46ea9347dcdcc`. P6.1d is CURRENT with TASK-170
-as its planner-assisted closure candidate. P6.2 remains GATED / DECISION PENDING until
-TASK-170 Runtime PASS, semantic PASS, publication, and separate Brain/Human review of
-the measured P6.1c plus P6.1d evidence.
+CLOSED / PUBLISHED through TASK-170 at candidate
+`0781e0810d161ad1a4936c0e3ea31aada5704da1`. P6.2 is PARKED / NOT JUSTIFIED BY
+CURRENT EVIDENCE because the existing TASK-134 -> TASK-122 composition fully
+recovered the measured raw TASK-122 stress weakness; it remains reopenable from
+future evidence. P6.3 is CURRENT with TASK-171 as its P6.3a descriptive-field
+foundation. P6.4-P6.6 remain deferred and unimplemented.
 TASK-165 remains unpublished blocked evidence from
 REVIEW-165-003 F1 and its failed remediation/repair continuation lineage.
 

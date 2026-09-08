@@ -1,6 +1,6 @@
 # Post-P5 P6 Quality and Scale Roadmap
 
-Status: **P6.0 CLOSED. P6.1 CURRENT: TASK-164 closed P6.1a; TASK-166 and TASK-167 are CLOSED and published; TASK-168 revision 2 / P6.1b and TASK-169 revision 2 / P6.1c are CLOSED / PUBLISHED. TASK-169 revision 1 remains unexecuted superseded authoring history. P6.1d is CURRENT with TASK-170 as its planner-assisted closure candidate. P6.2 is GATED / DECISION PENDING until TASK-170 Runtime PASS, semantic PASS, publication, and separate Brain/Human review of measured P6.1c plus P6.1d evidence. P6.3-P6.6 remain deferred.**
+Status: **P6.0 and P6.1 are CLOSED. TASK-170 / P6.1d is CLOSED / PUBLISHED at candidate `0781e0810d161ad1a4936c0e3ea31aada5704da1`. P6.2 is PARKED / NOT JUSTIFIED BY CURRENT EVIDENCE and remains reopenable from future evidence. P6.3 is CURRENT with TASK-171 as its P6.3a descriptive-field foundation. P6.4-P6.6 remain deferred.**
 Scope: Python Agent product architecture post-P5; AIOS-renew remains execution substrate only.
 
 ## 1. Canonical Post-P5 Architecture Audit
@@ -51,11 +51,12 @@ Historical certification and blocker lineage:
   selected by the existing discovery/ranking path, acquired twice as two planned persisted
   observations, then composed through TASK-138/139/140/141, TASK-120 SQLite durability, and TASK-135
   persistent grounded QA with a deterministic zero-network provider. With this passage, P6.0b and P6.0
-  are CLOSED, and P6.1 is CURRENT.
+  are CLOSED. TASK-170 subsequently closed P6.1 at published candidate
+  `0781e0810d161ad1a4936c0e3ea31aada5704da1`.
 
-Attempting to introduce semantic retrieval, vector search, product-truth reconciliation, identity
-migrations, automated review, or background serving before acquiring and evaluating real evidence
-would introduce architectural bloat without empirical justification.
+Introducing semantic retrieval, vector search, identity migrations, automated review,
+or background serving still requires its own empirical justification. P6.3a now opens
+the bounded descriptive truth foundation justified after the completed evaluation.
 
 Therefore, Phase 6 is canonically ordered into three sequential disciplines:
 ```
@@ -93,7 +94,7 @@ only the Vertex AI LLM invocation transport).
   and ChatGPT PRIMARY semantic review (REVIEW-163-002 PASS) both passed on candidate `fa2a49326be28422484db4a37c932681210d8060`.
   P6.0b and P6.0 are CLOSED.
 
-### P6.1 Retrieval-Quality Evaluation / Baseline — CURRENT
+### P6.1 Retrieval-Quality Evaluation / Baseline — CLOSED / PUBLISHED
 
 Establish rigorous, reproducible evaluation baselines for retrieval quality on real acquired
 product evidence before introducing any new retrieval paradigm.
@@ -138,21 +139,23 @@ P6.1 now proceeds through these ordered gates:
   `52d539aa1a2b880f488987cb07c46ea9347dcdcc`; P6.1c is CLOSED. TASK-169 revision
   1, which proposed opening P6.3, was never executed and remains superseded
   authoring history only.
-- **P6.1d Planner-Assisted Retrieval Stress Benchmark (TASK-170 — CURRENT CLOSURE CANDIDATE)**:
+- **P6.1d Planner-Assisted Retrieval Stress Benchmark (TASK-170 — CLOSED / PUBLISHED)**:
   Replays the exact six published TASK-169 stress intents once each through
   TASK-134, then evaluates all six exact planned queries in one TASK-164 call at
   `limit=3` over the immutable TASK-168 corpus. The measured snapshot is 12 TP,
   0 FP, 0 FN, and micro precision and recall of 1/1. This measures the existing
   TASK-134 -> TASK-122 composition without claiming semantic understanding or
-  making an automatic architecture decision.
+  making an automatic architecture decision. TASK-170 is published at candidate
+  `0781e0810d161ad1a4936c0e3ea31aada5704da1`; P6.1d and P6.1 are CLOSED.
 
-### P6.2 Conditional Semantic / Vector Retrieval or Reranking — GATED / DECISION PENDING
+### P6.2 Conditional Semantic / Vector Retrieval or Reranking — PARKED / NOT JUSTIFIED BY CURRENT EVIDENCE
 
-Introduce semantic retrieval (e.g., embeddings, vector index, ANN, semantic reranking) **only if**
-separate Brain/Human interpretation of the published P6.1b, P6.1c, and P6.1d evidence justifies it.
-The decision remains gated until TASK-170 Runtime PASS, semantic PASS, publication,
-and Brain/Human review of the measured P6.1c plus P6.1d snapshots. No metric
-threshold automatically opens P6.2 or declares lexical retrieval sufficient.
+Raw TASK-122 stress recall was 1/6, but the existing production TASK-134 -> TASK-122
+composition recovered 12 TP, 0 FP, 0 FN and micro precision/recall of 1/1 on the
+same measured corpus. Separate Brain/Human review therefore does not justify a new
+semantic/vector authority from current evidence. P6.2 is parked, not permanently
+rejected, and remains reopenable when new evidence demonstrates a need. No metric
+threshold declares lexical retrieval universally sufficient.
 
 - Any semantic index must remain a derivative, disposable secondary index; it must never become
   the canonical store of product knowledge or supersede SQLite durability (TASK-120).
@@ -160,17 +163,19 @@ threshold automatically opens P6.2 or declares lexical retrieval sufficient.
 - No vector database, external service, or background indexing daemon may be introduced without
   prior architectural authorization and evidence-backed necessity.
 
-### P6.3 Product-Truth Reconciliation — UNIMPLEMENTED / FUTURE / DEFERRED
+### P6.3 Product-Truth Reconciliation — CURRENT (TASK-171 / P6.3a)
 
-Formulate a separate, explicit Human-governed policy authority for reconciling conflicting product
-attributes across multiple source observations (e.g., conflicting titles, specifications, brands,
-or variant models).
+TASK-171 opens only the P6.3a descriptive-field foundation. It derives exact
+`title`, `shop_name`, `brand`, `model_sku`, and `description_text` options from one
+TASK-121 profile, resolves only uncontested exact evidence automatically, and
+requires an explicit Human source selection to resolve a genuine conflict.
 
-- Define deterministic conflict resolution rules (e.g., explicit provenance preference, latest
-  observation timestamp, or Human override).
-- Reconciled truth policies must remain decoupled from evidence capture: raw source pack facts
-  must remain immutable and byte-preserving.
-- TASK-154 and P6.0 implement zero product-truth reconciliation.
+- Exact evidence and canonical member lineage remain intact; unresolved conflicts
+  and partial truth are valid.
+- No recency, majority, provenance, ranking, model, or other automatic preference
+  is introduced.
+- P6.3a has no fact/media reconciliation, persistence, downstream consumption, or
+  live multi-member product-truth certification.
 
 ### P6.4 Identity Evolution and Migrations — UNIMPLEMENTED / FUTURE / DEFERRED
 
