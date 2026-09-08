@@ -1,0 +1,30 @@
+{
+  "repair_id": "REPAIR-165-005",
+  "failed_run_id": "RUN-165-005",
+  "failed_head_sha": "3a5fddb607deb0d801e4aceed1c8d6c6d0db433f",
+  "task": {
+    "id": "TASK-165",
+    "revision": 1
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "tests/fixtures/p6_1b_real_evidence/benchmark.json",
+    "tests/fixtures/p6_1b_real_evidence/case-001/observation-001/source_pack.json",
+    "tests/fixtures/p6_1b_real_evidence/case-001/observation-002/source_pack.json",
+    "tests/fixtures/p6_1b_real_evidence/case-002/observation-001/source_pack.json",
+    "tests/fixtures/p6_1b_real_evidence/case-002/observation-002/source_pack.json",
+    "tests/fixtures/p6_1b_real_evidence/case-003/observation-001/source_pack.json",
+    "tests/fixtures/p6_1b_real_evidence/case-003/observation-002/source_pack.json",
+    "tests/integration/test_p6_1b_real_evidence_retrieval_baseline.py",
+    "docs/PHASE_6_P6_1_REAL_EVIDENCE_BASELINE.md"
+  ],
+  "instructions": [
+    "Continue exactly from failed REPAIR candidate 3a5fddb607deb0d801e4aceed1c8d6c6d0db433f and preserve REVIEW-165-003 finding F1. RUN-165-005 again failed during Antigravity execution with stream interruption before verification; it did not establish a completed live recapture.",
+    "Preserve the already-correct F1 delta inherited from RUN-165-004: each cohort is rehydrated only through TASK-138 on the cohort root exactly once, the deterministic provider branches only on an explicit bool derived from rag_ctx.hits, and the baseline documentation distinguishes upstream discovery/cohort-label mismatch from proven TASK-122 lexical deficiency.",
+    "The six manifests at failed head 3a5fddb607deb0d801e4aceed1c8d6c6d0db433f reverted to the stale pre-TASK-165 observed_at sequence and therefore are not acceptable certification provenance. Re-curate all three fixed Human intents through the exact TASK-165-authorized live TASK-146 discovery/ranking plus ShopeeScrapeTool path using the currently available authenticated CDP browser session. Before acquisition, require that the existing authenticated session is usable through the existing browser authority; if authentication/session readiness is unavailable, fail closed rather than synthesize, rewrite, timestamp-adjust, or reuse stale fixtures.",
+    "For each fixed Human query, follow the original bounded discovery/selection rule and perform exactly two planned successful ShopeeScrapeTool acquisitions of the selected distinct listing. Commit only the exact serializer-emitted source_pack.json from those six genuine acquisitions, including untouched observed_at and every other persisted field. Do not manually edit timestamps, source identities, titles, media evidence, URLs, or labels.",
+    "After genuine recapture, recompute benchmark.json from the exact fixtures through the frozen TASK-138/139/140/141/121/164 pipeline and update the baseline document only as required by the measured evidence. Keep the four Human benchmark cases and relevant_variant_ids fixed. Do not apply a quality threshold or infer P6.2 authorization from the resulting score.",
+    "Keep production Python, TASK-164 evaluator semantics, existing semantic authorities, AIOS worker/runtime/pin, and executor identity antigravity unchanged. This is one canonical CODE_FIX REPAIR continuation of RUN-165-005; do not rerun TASK-165, rerun FIX F1, rerun REPAIR RUN-165-004, reroute, switch executor, or create an alternate live-capture path. If execution fails again, preserve that canonical failure for Brain review."
+  ],
+  "constraints": []
+}
