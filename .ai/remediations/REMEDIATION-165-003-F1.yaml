@@ -1,0 +1,17 @@
+finding_id: F1
+action: CODE_FIX
+reviewed_sha: 11f190e8e5866633f59fdda600a3f9748591804b
+modification_scope:
+  - tests/fixtures/p6_1b_real_evidence/benchmark.json
+  - tests/fixtures/p6_1b_real_evidence/case-001/observation-001/source_pack.json
+  - tests/fixtures/p6_1b_real_evidence/case-001/observation-002/source_pack.json
+  - tests/fixtures/p6_1b_real_evidence/case-002/observation-001/source_pack.json
+  - tests/fixtures/p6_1b_real_evidence/case-002/observation-002/source_pack.json
+  - tests/fixtures/p6_1b_real_evidence/case-003/observation-001/source_pack.json
+  - tests/fixtures/p6_1b_real_evidence/case-003/observation-002/source_pack.json
+  - tests/integration/test_p6_1b_real_evidence_retrieval_baseline.py
+  - docs/PHASE_6_P6_1_REAL_EVIDENCE_BASELINE.md
+affected_verification:
+  - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_retrieval_quality_evaluation.py tests/integration/test_p6_1b_real_evidence_retrieval_baseline.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+  - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+constraints: []
