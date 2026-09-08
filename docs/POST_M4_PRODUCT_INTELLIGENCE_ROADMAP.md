@@ -4,10 +4,12 @@ Status: canonical post-M4 architecture roadmap; P1-P5 and P6.0 CLOSED. P6.1 is
 CURRENT: TASK-165 is unpublished blocked evidence; TASK-166 and TASK-167 are CLOSED
 and published. The first external READY bundle remains Human-rejected operational
 evidence only; the second reviewed READY bundle is the accepted P6.1b corpus source.
-RUN-168-001 is preserved task-design failure evidence with zero source delta, and
-TASK-168 revision 2 is the current P6.1b closure candidate. P6.2 remains blocked
-until TASK-168 Runtime PASS, semantic PASS, publication, and Brain/Human review of
-the measured empirical baseline.
+RUN-168-001 is preserved task-design failure evidence with zero source delta. TASK-168
+revision 2 and P6.1b are CLOSED / PUBLISHED. TASK-169 revision 1 is preserved as
+unexecuted superseded authoring history; P6.1c is CURRENT with TASK-169 revision 2
+as its retrieval-stress closure candidate. P6.2 is GATED / DECISION PENDING until
+TASK-169 Runtime PASS, semantic PASS, publication, and separate Brain/Human review
+of the measured stress evidence. P6.3-P6.6 remain deferred.
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
 ## 1. Starting point
@@ -241,33 +243,42 @@ P6.1 now proceeds through these ordered gates:
   not P6.1b benchmark truth. TASK-167 narrowly hardens the existing TASK-151/TASK-153
   `ShopeeDiscoveryAdapter` search-surface provenance boundary without adding semantic relevance
   filtering or changing downstream business ranking.
-- **P6.1b Real-Evidence Benchmark Execution (TASK-168 revision 2 — CURRENT CLOSURE CANDIDATE)**:
+- **P6.1b Real-Evidence Benchmark Execution (TASK-168 revision 2 — CLOSED / PUBLISHED)**:
   The second reviewed READY bundle is the accepted corpus source. RUN-168-001 remains canonical
   task-design failure evidence with zero source delta: revision 1 wrongly required each
   `SAME_PRODUCT_FAMILY` pair to qualify as one full-member exact variant. Revision 2 preserves
   one two-member family per cohort and admits each canonical member as an explicit singleton
   benchmark variant, without claiming sibling real-world difference or changing TASK-116.
   Exact measured baseline values are documented in
-  `docs/PHASE_6_P6_1_REAL_EVIDENCE_BASELINE.md`.
+  `docs/PHASE_6_P6_1_REAL_EVIDENCE_BASELINE.md`. TASK-168 is published at
+  candidate `0e6626a53c10609a1a7b282d7ca49af33e4d5573`; P6.1b is CLOSED.
+- **P6.1c Retrieval Stress Benchmark (TASK-169 revision 2 — CURRENT CLOSURE CANDIDATE)**:
+  Reuses the immutable published TASK-168 corpus in place and submits six fixed
+  Human-authored paraphrase/attribute cases to TASK-164 exactly once with
+  `limit=3`. The exact measured lexical snapshot is 2 TP, 0 FP, 10 FN, micro
+  precision 1/1, and micro recall 1/6. It sets no threshold and makes no automatic
+  roadmap decision. TASK-169 revision 1, which proposed opening P6.3, was never
+  executed and remains superseded authoring history only.
 
-#### P6.2 Conditional Semantic / Vector Retrieval or Reranking — FUTURE / BLOCKED UNTIL P6.1b EMPIRICAL EVIDENCE
-Introduce semantic/vector retrieval or reranking only if measured P6.1b empirical evidence justifies it.
-Blocked until TASK-168 Runtime PASS, semantic PASS, publication, and Brain/Human review of the
-measured empirical baseline. Preserves SQLite catalog as the canonical store;
-vector indexes remain secondary and disposable.
+#### P6.2 Conditional Semantic / Vector Retrieval or Reranking — GATED / DECISION PENDING
+Introduce semantic/vector retrieval or reranking only if separate Brain/Human interpretation of
+the published P6.1b and P6.1c evidence justifies it. The decision remains gated until TASK-169
+Runtime PASS, semantic PASS, publication, and review of the exact measured stress snapshot. No
+metric threshold automatically opens P6.2 or declares lexical retrieval sufficient. SQLite remains
+the canonical store; any future vector index would remain secondary and disposable.
 
-#### P6.3 Product-Truth Reconciliation — UNIMPLEMENTED / FUTURE
+#### P6.3 Product-Truth Reconciliation — UNIMPLEMENTED / FUTURE / DEFERRED
 Formulate a separate Human-governed policy authority for attribute reconciliation across observations
 (e.g., preferred/latest/majority selection rules).
 
-#### P6.4 Identity Evolution and Migrations — UNIMPLEMENTED / FUTURE
+#### P6.4 Identity Evolution and Migrations — UNIMPLEMENTED / FUTURE / DEFERRED
 Define a separate canonical-identity authority for entity lifecycle, merging, splitting, and schema
 migrations while preserving M3 integrity.
 
-#### P6.5 Higher-Level Human-Review Automation — UNIMPLEMENTED / FUTURE
+#### P6.5 Higher-Level Human-Review Automation — UNIMPLEMENTED / FUTURE / DEFERRED
 Introduce review triage assistance without removing or bypassing explicit Human approval authority.
 
-#### P6.6 Caches and Background Serving — UNIMPLEMENTED / FUTURE
+#### P6.6 Caches and Background Serving — UNIMPLEMENTED / FUTURE / DEFERRED
 Implement performance caches and background serving infrastructure only after an observed operational
 workload requires them.
 
@@ -290,9 +301,11 @@ product-page readiness blocker correction. Published TASK-163 closed P6.0b and P
 canonical Runtime verification and ChatGPT PRIMARY semantic review both passed. P6.1 is
 CURRENT: TASK-166 and TASK-167 are CLOSED and published; the first external READY bundle remains
 Human-rejected operational evidence, the second reviewed READY bundle is the accepted corpus source,
-and TASK-168 revision 2 is the current P6.1b closure candidate after RUN-168-001 preserved the
-revision-1 task-design failure with zero source delta. P6.2 remains blocked until TASK-168 Runtime
-PASS, semantic PASS, publication, and Brain/Human review of the measured empirical baseline.
+TASK-168 revision 2 and P6.1b are CLOSED / PUBLISHED after RUN-168-001 preserved the
+revision-1 task-design failure with zero source delta. TASK-169 revision 1 is unexecuted
+superseded authoring history, while TASK-169 revision 2 is the current P6.1c stress-baseline
+closure candidate. P6.2 remains GATED / DECISION PENDING until TASK-169 Runtime PASS,
+semantic PASS, publication, and separate Brain/Human review of the measured stress evidence.
 TASK-165 remains unpublished blocked evidence from
 REVIEW-165-003 F1 and its failed remediation/repair continuation lineage.
 

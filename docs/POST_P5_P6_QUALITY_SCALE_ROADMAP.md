@@ -1,6 +1,6 @@
 # Post-P5 P6 Quality and Scale Roadmap
 
-Status: **P6.0 CLOSED. P6.1 CURRENT: TASK-164 closed P6.1a; TASK-165 is unpublished blocked evidence; TASK-166 and TASK-167 are CLOSED and published. The first external READY bundle remains Human-rejected operational evidence only; the second reviewed READY bundle is the accepted P6.1b corpus source. RUN-168-001 is preserved task-design failure evidence with zero source delta, and TASK-168 revision 2 is the current P6.1b closure candidate. P6.2 remains blocked until TASK-168 Runtime PASS, semantic PASS, publication, and Brain/Human review of the measured empirical baseline.**
+Status: **P6.0 CLOSED. P6.1 CURRENT: TASK-164 closed P6.1a; TASK-166 and TASK-167 are CLOSED and published; TASK-168 revision 2 and P6.1b are CLOSED / PUBLISHED. TASK-169 revision 1 is preserved as unexecuted superseded authoring history. P6.1c is CURRENT with TASK-169 revision 2 as its retrieval-stress closure candidate. P6.2 is GATED / DECISION PENDING until TASK-169 Runtime PASS, semantic PASS, publication, and separate Brain/Human review of the measured stress evidence. P6.3-P6.6 remain deferred.**
 Scope: Python Agent product architecture post-P5; AIOS-renew remains execution substrate only.
 
 ## 1. Canonical Post-P5 Architecture Audit
@@ -120,20 +120,30 @@ P6.1 now proceeds through these ordered gates:
   benchmark truth. TASK-167 narrowly hardens the existing TASK-151/TASK-153
   `ShopeeDiscoveryAdapter` search-surface provenance boundary; it adds no semantic relevance or
   business-ranking authority.
-- **P6.1b Real-Evidence Benchmark Execution (TASK-168 revision 2 — CURRENT CLOSURE CANDIDATE)**:
+- **P6.1b Real-Evidence Benchmark Execution (TASK-168 revision 2 — CLOSED / PUBLISHED)**:
   The second reviewed READY bundle is the accepted corpus source. RUN-168-001 remains canonical
   task-design failure evidence with zero source delta: revision 1 wrongly required each
   `SAME_PRODUCT_FAMILY` pair to qualify as one full-member exact variant. Revision 2 preserves
   one two-member family per cohort while representing each canonical member as an explicit
   singleton benchmark variant without claiming sibling real-world difference or changing TASK-116.
   The frozen TASK-164 evaluator records the measured empirical baseline in
-  `docs/PHASE_6_P6_1_REAL_EVIDENCE_BASELINE.md`.
+  `docs/PHASE_6_P6_1_REAL_EVIDENCE_BASELINE.md`. TASK-168 is published at
+  candidate `0e6626a53c10609a1a7b282d7ca49af33e4d5573`; P6.1b is CLOSED.
+- **P6.1c Retrieval Stress Benchmark (TASK-169 revision 2 — CURRENT CLOSURE CANDIDATE)**:
+  Reuses the immutable published TASK-168 corpus in place and sends six fixed
+  Human-authored paraphrase/attribute cases to TASK-164 exactly once with
+  `limit=3`. The measured lexical snapshot is 2 TP, 0 FP, 10 FN, micro precision
+  1/1, and micro recall 1/6. These values are observations without a threshold
+  or automatic roadmap decision. TASK-169 revision 1, which proposed opening
+  P6.3, was never executed and remains superseded authoring history only.
 
-### P6.2 Conditional Semantic / Vector Retrieval or Reranking — FUTURE / BLOCKED UNTIL P6.1b EMPIRICAL EVIDENCE
+### P6.2 Conditional Semantic / Vector Retrieval or Reranking — GATED / DECISION PENDING
 
 Introduce semantic retrieval (e.g., embeddings, vector index, ANN, semantic reranking) **only if**
-the measured P6.1b evaluation evidence justifies it. Blocked until TASK-168 Runtime PASS,
-semantic PASS, publication, and Brain/Human review of the measured empirical baseline.
+separate Brain/Human interpretation of the published P6.1b and P6.1c evidence justifies it.
+The decision remains gated until TASK-169 Runtime PASS, semantic PASS, publication,
+and Brain/Human review of the exact measured stress snapshot. No metric threshold
+automatically opens P6.2 or declares lexical retrieval sufficient.
 
 - Any semantic index must remain a derivative, disposable secondary index; it must never become
   the canonical store of product knowledge or supersede SQLite durability (TASK-120).
@@ -141,7 +151,7 @@ semantic PASS, publication, and Brain/Human review of the measured empirical bas
 - No vector database, external service, or background indexing daemon may be introduced without
   prior architectural authorization and evidence-backed necessity.
 
-### P6.3 Product-Truth Reconciliation — UNIMPLEMENTED / FUTURE
+### P6.3 Product-Truth Reconciliation — UNIMPLEMENTED / FUTURE / DEFERRED
 
 Formulate a separate, explicit Human-governed policy authority for reconciling conflicting product
 attributes across multiple source observations (e.g., conflicting titles, specifications, brands,
@@ -153,7 +163,7 @@ or variant models).
   must remain immutable and byte-preserving.
 - TASK-154 and P6.0 implement zero product-truth reconciliation.
 
-### P6.4 Identity Evolution and Migrations — UNIMPLEMENTED / FUTURE
+### P6.4 Identity Evolution and Migrations — UNIMPLEMENTED / FUTURE / DEFERRED
 
 Define a canonical identity evolution and schema migration authority for long-term catalog lifecycle.
 
@@ -163,7 +173,7 @@ Define a canonical identity evolution and schema migration authority for long-te
   databases.
 - Preserve existing M3 / TASK-117 / TASK-118 invariants.
 
-### P6.5 Higher-Level Human-Review Automation — UNIMPLEMENTED / FUTURE
+### P6.5 Higher-Level Human-Review Automation — UNIMPLEMENTED / FUTURE / DEFERRED
 
 Introduce higher-level automation to assist the Human review workflow without removing or diluting
 explicit Human approval authority.
@@ -173,7 +183,7 @@ explicit Human approval authority.
 - Autonomous approval remains strictly forbidden; every canonical admission must retain explicit
   Human actor attribution and immutable decision records (TASK-140, TASK-141).
 
-### P6.6 Caches and Background Serving — UNIMPLEMENTED / FUTURE
+### P6.6 Caches and Background Serving — UNIMPLEMENTED / FUTURE / DEFERRED
 
 Implement performance caching and background serving infrastructure only after observed operational
 workloads require them.

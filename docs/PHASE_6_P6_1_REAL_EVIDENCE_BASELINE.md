@@ -1,7 +1,7 @@
 # P6.1b Real-Evidence Retrieval Baseline
 
-Status: TASK-168 revision 2 implementation candidate. Runtime verification,
-semantic review, and publication remain downstream gates.
+Status: CLOSED / PUBLISHED by TASK-168 revision 2 at source candidate
+`0e6626a53c10609a1a7b282d7ca49af33e4d5573`.
 
 ## Frozen corpus
 
@@ -92,6 +92,6 @@ identity, or product truth.
 
 ## Downstream gate
 
-P6.2 remains blocked regardless of these metric values until TASK-168 receives
-Runtime PASS, ChatGPT semantic PASS, publication, and Brain/Human review of this
-measured empirical baseline.
+TASK-168 received Runtime PASS, ChatGPT semantic PASS, and publication. P6.2
+remains a separate Brain/Human decision gate; no value in this baseline opened
+semantic/vector work automatically.
