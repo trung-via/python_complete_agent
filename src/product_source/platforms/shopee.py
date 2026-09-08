@@ -518,11 +518,17 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
 
         const extractOptionLabel = (opt) => {
             if (!opt) return '';
-            let l = opt.getAttribute('aria-label') || opt.getAttribute('title') || '';
-            if (!l.trim()) {
-                l = opt.innerText || opt.textContent || '';
+            const ariaLabel = opt.getAttribute('aria-label');
+            if (ariaLabel !== null && ariaLabel.trim()) {
+                return ariaLabel;
             }
-            return l.trim();
+            const title = opt.getAttribute('title');
+            if (title !== null && title.trim()) {
+                return title;
+            }
+            const textEl = opt.querySelector ? opt.querySelector('span, div, p, label') : null;
+            const target = (textEl && (textEl.textContent || textEl.innerText || '').trim()) ? textEl : opt;
+            return target.textContent !== undefined && target.textContent !== null ? target.textContent : (target.innerText || '');
         };
 
         for (const grp of groupElements) {
@@ -533,10 +539,12 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
             }
 
             let groupLabel = null;
-            if (grp.getAttribute('aria-label')) {
-                groupLabel = grp.getAttribute('aria-label').trim();
-            } else if (grp.getAttribute('data-label')) {
-                groupLabel = grp.getAttribute('data-label').trim();
+            const ariaLabel = grp.getAttribute('aria-label');
+            const dataLabel = grp.getAttribute('data-label');
+            if (ariaLabel !== null && ariaLabel.trim()) {
+                groupLabel = ariaLabel;
+            } else if (dataLabel !== null && dataLabel.trim()) {
+                groupLabel = dataLabel;
             }
 
             if (!groupLabel) {
@@ -546,7 +554,7 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
                     if (isExcluded(el)) return false;
                     if (grpOptions.some(opt => opt.contains(el) || opt === el)) return false;
                     if (grpOptions.some(opt => el.contains(opt))) return false;
-                    const txt = (el.innerText || el.textContent || '').trim();
+                    const txt = (el.textContent || el.innerText || '').trim();
                     return Boolean(txt);
                 });
 
@@ -557,7 +565,7 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
                         return tag === 'label' || c.includes('label') || c.includes('title') || tag.startsWith('h');
                     });
                     const chosen = prio || labelCandidates[0];
-                    groupLabel = (chosen.innerText || chosen.textContent || '').trim();
+                    groupLabel = chosen.textContent !== undefined && chosen.textContent !== null ? chosen.textContent : (chosen.innerText || '');
                 }
             }
 
@@ -566,12 +574,13 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
                 break;
             }
 
-            if (seenGroupLabels.has(groupLabel)) {
+            const trimmedGroupLabel = groupLabel.trim();
+            if (seenGroupLabels.has(trimmedGroupLabel)) {
                 // Duplicate/ambiguous group identity fails closed
                 allGroupsValid = false;
                 break;
             }
-            seenGroupLabels.add(groupLabel);
+            seenGroupLabels.add(trimmedGroupLabel);
 
             const selectedOpts = grpOptions.filter(isOptionSelected);
             // Exactly one selected option required per group
@@ -855,10 +864,11 @@ class ShopeeSourceExtractor:
                 if not isinstance(o_lbl, str) or not o_lbl.strip():
                     is_valid = False
                     break
-                if g_lbl in seen_groups:
+                g_key = g_lbl.strip()
+                if g_key in seen_groups:
                     is_valid = False
                     break
-                seen_groups.add(g_lbl)
+                seen_groups.add(g_key)
 
             if is_valid and raw_variants:
                 for v in raw_variants:

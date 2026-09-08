@@ -863,3 +863,77 @@ async def test_task_108_compatibility_same_listing_insufficient_variant_evidence
     result_incomplete = resolve_product_entities(pack_with, pack_none1)
     assert result_incomplete.relationship is ProductRelationship.SAME_PRODUCT_FAMILY
     assert "insufficient variant evidence for exact match" in result_incomplete.reasons
+
+
+@pytest.mark.asyncio
+async def test_shopee_extractor_preserves_exact_whitespace_in_selected_variant_facts():
+    """Selected-variant ProductFact values embed exact raw group and option strings text-for-text without trimming."""
+    eval_data = {
+        "structured": {
+            "title": "Shopee Multi-Variant Product",
+            "product_id": "456789",
+            "images": ["https://cf.shopee.vn/file/main.jpg"],
+            "specs": [],
+        },
+        "gallery": [],
+        "variants": [],
+        "description_media": [],
+        "fallback_media": [],
+        "selected_variants": [
+            {"group_label": "  Attribute Group  ", "option_label": "  Attribute Option  "},
+            {"group_label": "  Rendered Group  ", "option_label": "  Rendered Option  "},
+        ],
+        "selected_variants_complete": True,
+        "blocked": False,
+    }
+    session = FakeSession(eval_data)
+    extractor = ShopeeSourceExtractor(browser=session)
+
+    pack = await extractor.extract("https://shopee.vn/product/123/456789")
+
+    variant_facts = [f for f in pack.facts if f.key == "variant"]
+    assert len(variant_facts) == 2
+    assert variant_facts[0].value == "  Attribute Group  :   Attribute Option  "
+    assert variant_facts[0].source_section == "selected_variant_controls"
+    assert variant_facts[0].provenance == "selected_variant_controls"
+    assert variant_facts[1].value == "  Rendered Group  :   Rendered Option  "
+    assert variant_facts[1].source_section == "selected_variant_controls"
+    assert variant_facts[1].provenance == "selected_variant_controls"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "invalid_variants",
+    [
+        [{"group_label": "   ", "option_label": "Valid Option"}],
+        [{"group_label": "Valid Group", "option_label": "   "}],
+        [{"group_label": "   ", "option_label": "   "}],
+        [{"group_label": "", "option_label": "Valid Option"}],
+        [{"group_label": "Valid Group", "option_label": ""}],
+    ],
+)
+async def test_shopee_extractor_blank_only_variant_labels_produce_zero_variant_facts(invalid_variants: Any):
+    """Blank-only or empty variant group/option labels fail closed and produce zero variant facts."""
+    eval_data = {
+        "structured": {
+            "title": "Shopee Multi-Variant Product",
+            "product_id": "456789",
+            "images": ["https://cf.shopee.vn/file/main.jpg"],
+            "specs": [],
+        },
+        "gallery": [],
+        "variants": [],
+        "description_media": [],
+        "fallback_media": [],
+        "selected_variants": invalid_variants,
+        "selected_variants_complete": True,
+        "blocked": False,
+    }
+    session = FakeSession(eval_data)
+    extractor = ShopeeSourceExtractor(browser=session)
+
+    pack = await extractor.extract("https://shopee.vn/product/123/456789")
+
+    variant_facts = [f for f in pack.facts if f.key == "variant"]
+    assert len(variant_facts) == 0
+

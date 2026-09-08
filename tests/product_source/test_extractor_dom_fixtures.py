@@ -1,7 +1,7 @@
 import pytest
 import asyncio
 from playwright.async_api import async_playwright
-from src.product_source.platforms.shopee import _SHOPEE_EXTRACTION_SCRIPT
+from src.product_source.platforms.shopee import ShopeeSourceExtractor, _SHOPEE_EXTRACTION_SCRIPT
 from src.product_source.platforms.tiktok import _TIKTOK_EXTRACTOR_JS
 
 @pytest.mark.asyncio
@@ -825,4 +825,186 @@ async def test_shopee_dom_preserves_variant_media_and_review_exclusions():
         # Review UGC excluded
         all_media = result["gallery"] + [v["url"] for v in result["variants"]] + result["description_media"] + result["fallback_media"]
         assert "https://cf.shopee.vn/file/review_ugc.jpg" not in all_media
+
+
+@pytest.mark.asyncio
+async def test_shopee_dom_and_source_pack_selected_variants_preserves_exact_whitespace():
+    """
+    Proves that the Shopee DOM extractor and ProductSourcePack preserve exact raw observed
+    group and option strings byte-for-byte in selected_variants and in resulting ProductFact values,
+    including both attribute-backed and rendered-text labels with leading and trailing whitespace.
+    """
+    html = '''
+    <html>
+    <head>
+        <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "Product",
+            "name": "Whitespace Product",
+            "productID": "123456",
+            "url": "https://shopee.vn/product-i.100.123456",
+            "image": "https://cf.shopee.vn/file/main.jpg"
+        }
+        </script>
+    </head>
+    <body>
+        <div class="product-briefing">
+            <!-- Group 1: Attribute-backed group label and option label with leading/trailing whitespace -->
+            <div class="product-variation-group" aria-label="  Attribute Group  ">
+                <div class="items">
+                    <button class="product-variation product-variation--selected" aria-label="  Attribute Option  ">
+                        Button Option 1
+                    </button>
+                    <button class="product-variation">Button Option 2</button>
+                </div>
+            </div>
+
+            <!-- Group 2: Rendered-text group label and option label with leading/trailing whitespace -->
+            <div class="product-variation-group">
+                <label class="group-label">  Rendered Group  </label>
+                <div class="items">
+                    <button class="product-variation" aria-selected="false">Rendered Opt 1</button>
+                    <button class="product-variation" aria-selected="true">  Rendered Option  </button>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.set_content(html)
+
+        # 1. Verify DOM extraction preserves exact whitespace text-for-text
+        result = await page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, "123456")
+        assert result["selected_variants_complete"] is True
+        assert len(result["selected_variants"]) == 2
+        assert result["selected_variants"][0] == {
+            "group_label": "  Attribute Group  ",
+            "option_label": "  Attribute Option  ",
+        }
+        assert result["selected_variants"][1] == {
+            "group_label": "  Rendered Group  ",
+            "option_label": "  Rendered Option  ",
+        }
+
+        # 2. Verify ProductSourcePack extraction embeds exact whitespace in ProductFact values
+        from unittest.mock import AsyncMock
+        page.goto = AsyncMock()
+        extractor = ShopeeSourceExtractor(browser=page)
+        pack = await extractor.extract("https://shopee.vn/product/100/123456")
+        variant_facts = [f for f in pack.facts if f.key == "variant"]
+        assert len(variant_facts) == 2
+        assert variant_facts[0].value == "  Attribute Group  :   Attribute Option  "
+        assert variant_facts[0].source_section == "selected_variant_controls"
+        assert variant_facts[1].value == "  Rendered Group  :   Rendered Option  "
+        assert variant_facts[1].source_section == "selected_variant_controls"
+
+        await browser.close()
+
+
+@pytest.mark.asyncio
+async def test_shopee_dom_and_source_pack_blank_only_labels_fail_closed():
+    """
+    Proves that blank-only group or option labels (both attribute-backed and rendered-text)
+    fail closed: selected_variants is empty, selected_variants_complete is False, and
+    zero variant facts are emitted in the ProductSourcePack.
+    """
+    # Case 1: Attribute-backed group label is whitespace-only
+    html_blank_attr_group = '''
+    <html>
+    <head>
+        <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "Product",
+            "name": "Blank Attr Group",
+            "productID": "123456",
+            "url": "https://shopee.vn/product-i.100.123456",
+            "image": "https://cf.shopee.vn/file/main.jpg"
+        }
+        </script>
+    </head>
+    <body>
+        <div class="product-briefing">
+            <div class="product-variation-group" aria-label="   ">
+                <button class="product-variation product-variation--selected">Valid Option</button>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+
+    # Case 2: Attribute-backed option label is whitespace-only
+    html_blank_attr_option = '''
+    <html>
+    <head>
+        <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "Product",
+            "name": "Blank Attr Option",
+            "productID": "123456",
+            "url": "https://shopee.vn/product-i.100.123456",
+            "image": "https://cf.shopee.vn/file/main.jpg"
+        }
+        </script>
+    </head>
+    <body>
+        <div class="product-briefing">
+            <div class="product-variation-group" aria-label="Valid Group">
+                <button class="product-variation product-variation--selected" aria-label="   ">   </button>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+
+    # Case 3: Rendered-text option label is whitespace-only
+    html_blank_rendered_option = '''
+    <html>
+    <head>
+        <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "Product",
+            "name": "Blank Rendered Option",
+            "productID": "123456",
+            "url": "https://shopee.vn/product-i.100.123456",
+            "image": "https://cf.shopee.vn/file/main.jpg"
+        }
+        </script>
+    </head>
+    <body>
+        <div class="product-briefing">
+            <div class="product-variation-group">
+                <div class="group-label">Valid Group</div>
+                <button class="product-variation product-variation--selected">   </button>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        from unittest.mock import AsyncMock
+        page.goto = AsyncMock()
+
+        for case_html in [html_blank_attr_group, html_blank_attr_option, html_blank_rendered_option]:
+            await page.set_content(case_html)
+            res = await page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, "123456")
+            assert res["selected_variants_complete"] is False
+            assert res["selected_variants"] == []
+
+            extractor = ShopeeSourceExtractor(browser=page)
+            pack = await extractor.extract("https://shopee.vn/product/100/123456")
+            variant_facts = [f for f in pack.facts if f.key == "variant"]
+            assert len(variant_facts) == 0
+
+        await browser.close()
+
 
