@@ -1,0 +1,18 @@
+{
+  "repair_id": "REPAIR-168-002",
+  "failed_run_id": "RUN-168-002",
+  "failed_head_sha": "b865ac3554bd7eed44df948597b132ef84de826d",
+  "task": {
+    "id": "TASK-168",
+    "revision": 2
+  },
+  "action": "NO_CHANGE",
+  "modification_scope": [],
+  "instructions": [
+    "Continue exactly from failed TASK-168 revision-2 candidate b865ac3554bd7eed44df948597b132ef84de826d. Preserve the repository byte-for-byte; this continuation authorizes no source, fixture, test, documentation, roadmap, task, worker, dependency, or runtime mutation.",
+    "RUN-168-002 failed at COMPLETION_GATE only because the selected Codex Executor process did not receive PI_P6_1B_CAPTURE_ROOT. No repository defect or verification failure has been established, changed_files is empty, and the failed candidate is clean, repairable, transportable, and exactly descends from the TASK-168 revision-2 base.",
+    "Use NO_CHANGE continuation semantics only. Do not fabricate an implementation delta, no-op commit, fixture import, task revision, recapture, relabel, or CODE_FIX in this repair. Preserve executor identity codex and exact failed-head lineage.",
+    "Allow Runtime-owned continuation/verification against the unchanged failed candidate. If deterministic verification subsequently establishes a concrete repository defect, preserve that resulting failed RUN as evidence and require a separate later CODE_FIX REPAIR scoped only to the proven defect."
+  ],
+  "constraints": []
+}
