@@ -1,6 +1,6 @@
 # Post-P5 P6 Quality and Scale Roadmap
 
-Status: **P6.0 CLOSED (TASK-154 closed P6.0a; TASK-163 closed P6.0b). P6.1 CURRENT (TASK-164 closes P6.1a Evaluation Contract; P6.1b NEXT for real-evidence benchmark execution). P6.2 FUTURE / blocked until reviewed empirical P6.1b evidence exists.**
+Status: **P6.0 CLOSED. P6.1 CURRENT: TASK-164 closed P6.1a; TASK-165 is unpublished blocked evidence; TASK-166 is the CURRENT live-capture blocker-hardening gate; a fresh P6.1b successor is NEXT only after TASK-166 publication and one reviewed READY external bundle. P6.2 remains blocked until reviewed empirical P6.1b metrics exist.**
 Scope: Python Agent product architecture post-P5; AIOS-renew remains execution substrate only.
 
 ## 1. Canonical Post-P5 Architecture Audit
@@ -98,8 +98,8 @@ only the Vertex AI LLM invocation transport).
 Establish rigorous, reproducible evaluation baselines for retrieval quality on real acquired
 product evidence before introducing any new retrieval paradigm.
 
-P6.1 is split into two sequential sub-stages:
-- **P6.1a Evaluation Contract (TASK-164 — CURRENT)**:
+P6.1 now proceeds through these ordered gates:
+- **P6.1a Evaluation Contract (TASK-164 — CLOSED)**:
   Establishes the pure deterministic evaluation authority over existing TASK-122 lexical retrieval
   and TASK-129 grounded answers, defining `RetrievalBenchmarkCase`, `RetrievalCaseEvaluation`,
   `RetrievalQualityReport`, `GroundedCitationFidelity`, `evaluate_lexical_retrieval_quality`, and
@@ -107,9 +107,16 @@ P6.1 is split into two sequential sub-stages:
   It measures explicit Human-authored benchmark labels using exact Fraction arithmetic, without
   changing retrieval, query planning, RAG context, answer semantics, ranking, canonical knowledge,
   or product truth.
-- **P6.1b Real-Evidence Benchmark Execution — NEXT**:
-  Curates a gold-standard query and grounded-QA evaluation benchmark on real persisted product packs
-  and executes it against the frozen P6.1a evaluator to establish empirical lexical baseline metrics.
+- **P6.1 Live-Capture Blocker Hardening (TASK-166 — CURRENT)**:
+  TASK-165 remains unpublished blocked P6.1b evidence. REVIEW-165-003 F1 and the failed
+  remediation/repair continuation lineage showed that mutable live marketplace interaction does not belong inside
+  deterministic AIOS engineering verification. TASK-166 adds the explicit external-root,
+  checkpoint/resume capture boundary documented in
+  `docs/PHASE_6_P6_1_LIVE_CAPTURE_CHECKPOINT.md`.
+- **P6.1b Real-Evidence Benchmark Execution — NEXT, FRESH SUCCESSOR**:
+  A fresh successor may consume a reviewed READY external capture bundle only after TASK-166
+  Runtime PASS, semantic PASS, and publication. It then executes the frozen P6.1a evaluator to
+  establish empirical lexical baseline metrics.
 
 ### P6.2 Conditional Semantic / Vector Retrieval or Reranking — FUTURE / BLOCKED UNTIL P6.1b EMPIRICAL EVIDENCE
 

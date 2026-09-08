@@ -3679,3 +3679,64 @@ def test_variant_decide_source_has_no_direct_task_115_116_117_semantic_authority
     }
     assert imported_names.isdisjoint(forbidden_semantic_functions)
     assert "sqlite3" not in source
+
+
+def test_capture_cli_fresh_and_resume_contracts(monkeypatch, capsys, tmp_path):
+    from src.product_intelligence.live_capture import (
+        LiveCaptureOutcome,
+        LiveCapturePhase,
+        LiveCaptureStatus,
+    )
+
+    received = []
+
+    async def fake_capture(**kwargs):
+        received.append(kwargs)
+        return LiveCaptureOutcome(
+            status=(
+                LiveCaptureStatus.CHALLENGE_REQUIRED
+                if kwargs["resume"]
+                else LiveCaptureStatus.READY
+            ),
+            phase=(
+                LiveCapturePhase.ACQUIRE_2
+                if kwargs["resume"]
+                else LiveCapturePhase.COMPLETE
+            ),
+            query_position=1,
+            query_count=2,
+            bundle_filename=None if kwargs["resume"] else "capture_bundle.json",
+        )
+
+    monkeypatch.setattr(cli, "_run_live_capture", fake_capture)
+    assert cli.main([
+        "capture", "--job-root", str(tmp_path / "job"),
+        "--cdp-endpoint", "http://127.0.0.1:9222",
+        "--query", " exact one ", "--query", "exact two",
+    ]) == 0
+    fresh = json.loads(capsys.readouterr().out)
+    assert fresh == {
+        "status": "READY", "phase": "COMPLETE", "query_position": 1,
+        "query_count": 2, "checkpoint": "capture_checkpoint.json",
+        "bundle": "capture_bundle.json",
+    }
+    assert received[0]["queries"] == [" exact one ", "exact two"]
+
+    assert cli.main([
+        "capture", "--resume", "--job-root", str(tmp_path / "job"),
+        "--cdp-endpoint", "http://127.0.0.1:9222",
+    ]) == 0
+    resumed = json.loads(capsys.readouterr().out)
+    assert resumed["status"] == "CHALLENGE_REQUIRED"
+    assert "bundle" not in resumed
+    assert received[1]["queries"] is None
+
+
+@pytest.mark.parametrize("argv", [
+    ["capture", "--job-root", "job", "--cdp-endpoint", "endpoint"],
+    ["capture", "--resume", "--job-root", "job", "--cdp-endpoint", "endpoint", "--query", "q"],
+])
+def test_capture_cli_mode_misuse_is_argparse_exit_2(argv):
+    with pytest.raises(SystemExit) as exc:
+        cli.main(argv)
+    assert exc.value.code == 2

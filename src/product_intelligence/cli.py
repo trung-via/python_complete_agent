@@ -1,4 +1,4 @@
-"""Read-only Human-facing presentation for persisted Product Intelligence."""
+"""Human-facing Product Intelligence command surface."""
 
 from __future__ import annotations
 
@@ -67,6 +67,10 @@ from src.product_intelligence.family_review_planning import (
 from src.product_intelligence.grounded_invocation import (
     GroundedInvocationError as _GroundedInvocationError,
 )
+from src.product_intelligence.live_capture import (
+    LiveCaptureError as _LiveCaptureError,
+    run_live_capture as _run_live_capture,
+)
 from src.product_intelligence.orchestration import (
     OrchestrationError as _OrchestrationError,
     OrchestrationResult as _OrchestrationResult,
@@ -108,6 +112,7 @@ _KNOWN_APPLICATION_ERRORS = (
     _SellableVariantApprovalError,
     _SellableVariantWorkflowError,
     _CanonicalVariantAdmissionError,
+    _LiveCaptureError,
     _AgentException,
     OSError,
     ValueError,
@@ -127,6 +132,32 @@ class _UniqueStoreAction(_argparse.Action):
             raise _argparse.ArgumentError(self, "cannot be repeated")
         seen.add(self.dest)
         setattr(namespace, self.dest, values)
+
+
+class _UniqueStoreTrueAction(_argparse.Action):
+    """Set a boolean option while rejecting repeated occurrences."""
+
+    def __init__(self, option_strings, dest, default=False, required=False, help=None):
+        super().__init__(
+            option_strings=option_strings,
+            dest=dest,
+            nargs=0,
+            const=True,
+            default=default,
+            required=required,
+            help=help,
+        )
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        del values
+        seen = getattr(namespace, "_seen_unique_actions", None)
+        if seen is None:
+            seen = set()
+            setattr(namespace, "_seen_unique_actions", seen)
+        if self.dest in seen:
+            raise _argparse.ArgumentError(self, "cannot be repeated")
+        seen.add(self.dest)
+        setattr(namespace, self.dest, True)
 
 
 def _parse_iso_datetime(value: str) -> _datetime:
@@ -205,6 +236,32 @@ def _parser() -> _argparse.ArgumentParser:
         type=int,
         default=None,
         help="Optional maximum shortlist count.",
+    )
+    capture = commands.add_parser(
+        "capture", help="Capture resumable Shopee source evidence to an external job root."
+    )
+    capture.add_argument(
+        "--job-root",
+        action=_UniqueStoreAction,
+        required=True,
+        help="Explicit external capture job root.",
+    )
+    capture.add_argument(
+        "--cdp-endpoint",
+        action=_UniqueStoreAction,
+        required=True,
+        help="Exact operator-owned Chromium CDP endpoint.",
+    )
+    capture.add_argument(
+        "--query",
+        action="append",
+        default=None,
+        help="Exact Human query (repeat in desired cohort order).",
+    )
+    capture.add_argument(
+        "--resume",
+        action=_UniqueStoreTrueAction,
+        help="Resume the exact unfinished phase from a challenge checkpoint.",
     )
     decide = commands.add_parser(
         "decide",
@@ -419,6 +476,16 @@ async def _discover_document(arguments: _argparse.Namespace) -> dict[str, object
         shortlist_size=arguments.shortlist_size,
     )
     return result.to_dict()
+
+
+async def _capture_document(arguments: _argparse.Namespace) -> dict[str, object]:
+    outcome = await _run_live_capture(
+        job_root=arguments.job_root,
+        cdp_endpoint=arguments.cdp_endpoint,
+        queries=None if arguments.resume else arguments.query,
+        resume=arguments.resume,
+    )
+    return outcome.to_document()
 
 
 async def _decide_document(arguments: _argparse.Namespace) -> dict[str, object]:
@@ -848,7 +915,13 @@ def _bounded_error_message(error: BaseException) -> str:
 def main(argv=None) -> int:
     """Parse one operation, execute it once, and render one JSON document."""
 
-    arguments = _parser().parse_args(argv)
+    parser = _parser()
+    arguments = parser.parse_args(argv)
+    if arguments.command == "capture":
+        if arguments.resume and arguments.query is not None:
+            parser.error("capture --resume forbids --query")
+        if not arguments.resume and not arguments.query:
+            parser.error("fresh capture requires one or more --query values")
     try:
         if arguments.command == "evidence":
             document = _evidence_document(arguments.root)
@@ -858,6 +931,8 @@ def main(argv=None) -> int:
             document = _asyncio.run(_ask_document(arguments))
         elif arguments.command == "discover":
             document = _asyncio.run(_discover_document(arguments))
+        elif arguments.command == "capture":
+            document = _asyncio.run(_capture_document(arguments))
         elif arguments.command == "decide":
             document = _asyncio.run(_decide_document(arguments))
         elif arguments.command == "family-decide":
