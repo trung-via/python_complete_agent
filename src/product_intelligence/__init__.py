@@ -250,6 +250,15 @@ from src.product_intelligence.sellable_variant_review_admission import (
     prepare_sellable_variant_review,
     record_reviewed_sellable_variant_decision,
 )
+from src.product_intelligence.retrieval_quality_evaluation import (
+    GroundedCitationFidelity,
+    RetrievalBenchmarkCase,
+    RetrievalCaseEvaluation,
+    RetrievalQualityEvaluationError,
+    RetrievalQualityReport,
+    evaluate_grounded_answer_citation_fidelity,
+    evaluate_lexical_retrieval_quality,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -444,4 +453,11 @@ __all__ = [
     "prepare_sellable_variant_review",
     "record_reviewed_sellable_variant_decision",
     "durably_admit_reviewed_sellable_variant",
+    "RetrievalQualityEvaluationError",
+    "RetrievalBenchmarkCase",
+    "RetrievalCaseEvaluation",
+    "RetrievalQualityReport",
+    "GroundedCitationFidelity",
+    "evaluate_lexical_retrieval_quality",
+    "evaluate_grounded_answer_citation_fidelity",
 ]

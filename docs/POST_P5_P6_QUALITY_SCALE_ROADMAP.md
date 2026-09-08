@@ -1,6 +1,6 @@
 # Post-P5 P6 Quality and Scale Roadmap
 
-Status: **P6.0a CLOSED. P6.0b and P6.0 are CLOSED if and only if TASK-163 canonical Runtime verification and semantic review both PASS; otherwise P6 remains IN PROGRESS. P6.1 is NEXT only after that gate passes.**
+Status: **P6.0 CLOSED (TASK-154 closed P6.0a; TASK-163 closed P6.0b). P6.1 CURRENT (TASK-164 closes P6.1a Evaluation Contract; P6.1b NEXT for real-evidence benchmark execution). P6.2 FUTURE / blocked until reviewed empirical P6.1b evidence exists.**
 Scope: Python Agent product architecture post-P5; AIOS-renew remains execution substrate only.
 
 ## 1. Canonical Post-P5 Architecture Audit
@@ -45,12 +45,13 @@ Historical certification and blocker lineage:
   correction at candidate `065124f0bc414eb0222db14c07179d66ddce946c`. Its bounded same-page
   readiness sampling remains production `ShopeeSourceExtractor` authority rather than certification
   fixture behavior.
-- **TASK-163**: Fresh current-main P6.0b closure gate. It certifies one current Shopee candidate
+- **TASK-163**: CLOSED after canonical Runtime verification (RUN-163-002 PASS) and
+  ChatGPT PRIMARY semantic review (REVIEW-163-002 PASS) on candidate
+  `fa2a49326be28422484db4a37c932681210d8060`. It certified one current Shopee candidate
   selected by the existing discovery/ranking path, acquired twice as two planned persisted
   observations, then composed through TASK-138/139/140/141, TASK-120 SQLite durability, and TASK-135
-  persistent grounded QA with a deterministic zero-network provider. P6.0b and P6.0 are CLOSED if
-  and only if TASK-163 canonical Runtime verification and semantic review both PASS; otherwise P6.0
-  remains IN PROGRESS. P6.1 is NEXT only after that same gate passes.
+  persistent grounded QA with a deterministic zero-network provider. With this passage, P6.0b and P6.0
+  are CLOSED, and P6.1 is CURRENT.
 
 Attempting to introduce semantic retrieval, vector search, product-truth reconciliation, identity
 migrations, automated review, or background serving before acquiring and evaluating real evidence
@@ -63,7 +64,7 @@ CERTIFY  -->  EVALUATE  -->  IMPROVE
 
 ## 2. Ordered P6 Capability Boundaries
 
-### P6.0 Live Real-Evidence Certification — TASK-163 CONDITIONAL CLOSURE GATE
+### P6.0 Live Real-Evidence Certification — CLOSED (TASK-154, TASK-163)
 
 Certify live operational boundaries against real marketplace targets using operator-owned
 authenticated CDP sessions before building quality or scale features on top of simulated data.
@@ -83,32 +84,37 @@ only the Vertex AI LLM invocation transport).
   Historical TASK-150 and TASK-152 remain preserved as historical failure evidence. Published
   TASK-151 and TASK-153 remain narrow blocker corrections, not new semantic authorities.
 
-- **P6.0b Real-Evidence Canonical Knowledge + Grounded-QA Certification (TASK-163 — CONDITIONAL CLOSURE GATE)**:
-  TASK-163 certifies the downstream composition slice on current real Shopee evidence: two planned
+- **P6.0b Real-Evidence Canonical Knowledge + Grounded-QA Certification (TASK-163 — CLOSED)**:
+  TASK-163 certified the downstream composition slice on current real Shopee evidence: two planned
   acquisitions of one discovered listing, one TASK-138 intake, one TASK-139 actionable family plan,
   explicit certification-local TASK-140 family approval/admission, two singleton TASK-141 variant
   approvals/admissions into disposable TASK-120 SQLite state, and one TASK-135 grounded-QA call from
-  the durable database plus exact persisted manifests. The provider is deterministic and zero-network,
-  so TASK-163 does not recertify provider availability. P6.0b and P6.0 close if and only if canonical
-  Runtime verification and semantic review both PASS on TASK-163; otherwise P6.0 remains IN PROGRESS.
-  It does not certify both marketplaces, Google Drive durability, provider availability, canonical
-  product truth, identity migration, autonomous review, or serving infrastructure.
+  the durable database plus exact persisted manifests. Canonical Runtime verification (RUN-163-002 PASS)
+  and ChatGPT PRIMARY semantic review (REVIEW-163-002 PASS) both passed on candidate `fa2a49326be28422484db4a37c932681210d8060`.
+  P6.0b and P6.0 are CLOSED.
 
-### P6.1 Retrieval-Quality Evaluation / Baseline — NEXT ONLY AFTER TASK-163 PASSES
+### P6.1 Retrieval-Quality Evaluation / Baseline — CURRENT
 
 Establish rigorous, reproducible evaluation baselines for retrieval quality on real acquired
 product evidence before introducing any new retrieval paradigm.
 
-- Measure baseline precision, recall, and grounded-answer citation fidelity using the existing
-  deterministic lexical retrieval engine (TASK-122).
-- Create gold-standard query and grounded-QA evaluation benchmarks on real persisted product packs.
-- Prohibit introducing semantic/vector retrieval before empirical evidence demonstrates measurable
-  deficiencies in lexical retrieval that vector search specifically remedies.
+P6.1 is split into two sequential sub-stages:
+- **P6.1a Evaluation Contract (TASK-164 — CURRENT)**:
+  Establishes the pure deterministic evaluation authority over existing TASK-122 lexical retrieval
+  and TASK-129 grounded answers, defining `RetrievalBenchmarkCase`, `RetrievalCaseEvaluation`,
+  `RetrievalQualityReport`, `GroundedCitationFidelity`, `evaluate_lexical_retrieval_quality`, and
+  `evaluate_grounded_answer_citation_fidelity` in `src/product_intelligence/retrieval_quality_evaluation.py`.
+  It measures explicit Human-authored benchmark labels using exact Fraction arithmetic, without
+  changing retrieval, query planning, RAG context, answer semantics, ranking, canonical knowledge,
+  or product truth.
+- **P6.1b Real-Evidence Benchmark Execution — NEXT**:
+  Curates a gold-standard query and grounded-QA evaluation benchmark on real persisted product packs
+  and executes it against the frozen P6.1a evaluator to establish empirical lexical baseline metrics.
 
-### P6.2 Conditional Semantic / Vector Retrieval or Reranking — UNIMPLEMENTED / FUTURE
+### P6.2 Conditional Semantic / Vector Retrieval or Reranking — FUTURE / BLOCKED UNTIL P6.1b EMPIRICAL EVIDENCE
 
 Introduce semantic retrieval (e.g., embeddings, vector index, ANN, semantic reranking) **only if**
-the measured P6.1 evaluation evidence justifies it.
+the measured P6.1b evaluation evidence justifies it. Blocked until reviewed empirical P6.1b evidence exists.
 
 - Any semantic index must remain a derivative, disposable secondary index; it must never become
   the canonical store of product knowledge or supersede SQLite durability (TASK-120).
