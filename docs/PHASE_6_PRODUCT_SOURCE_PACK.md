@@ -89,6 +89,12 @@ The canonical `ProductSourcePack` serves as the immutable data contract between 
 2. **No AI Inference**: Dimensions, brand, materials, or claims are never inferred from title strings, product images, or logos in this milestone.
 3. **Missing Facts Remain None**: Unobserved attributes are preserved as `None` rather than default placeholders.
 4. **Seller Claims as Claims**: Descriptive claims are attributed to `"description"` without normalizing or upgrading them to verified scientific assertions.
+5. **Selected-Variant Controls Observation (P6.3b / TASK-172)**:
+   - When explicit rendered variation controls inside the positive current-product briefing container exhibit complete, unambiguous selection across all deterministically enumerated variation groups and structured current-product identity matches, one `ProductFact` per group is appended after all specification and brand facts.
+   - Each fact uses key exactly `"variant"`, source_section exactly `"selected_variant_controls"`, provenance exactly `"selected_variant_controls"`, and `unit=None`.
+   - The value is a deterministic human-readable string (`{group_label}: {option_label}`) embedding exact observed strings without trimming, case-folding, accent-folding, or semantic normalization.
+   - All-or-nothing: zero selected options, multiple selections (ambiguity), missing/blank labels, duplicate group labels, or structured identity mismatch emit zero selected-variant facts. URL query parameters (e.g. `rModelId`, `vModelId`, `display_model_id`) are never promoted to variant facts without complete explicit DOM proof.
+   - Evidence/identity/truth separation: Selected-variant facts are observed source evidence only, not canonical variant identity or product truth. TASK-108 remains the sole pairwise relationship authority; TASK-116 governs Human exact-variant admission; TASK-171 reconciles descriptive product truth only after a canonical profile exists.
 
 ---
 

@@ -46,6 +46,8 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
         variants: [],
         description_media: [],
         fallback_media: [],
+        selected_variants: [],
+        selected_variants_complete: false,
         blocked: false
     };
 
@@ -401,6 +403,206 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
         }
     }
 
+    // PRIORITY 2.6: Selected-Variant Controls Observation
+    // Strictly scoped inside positive current-product briefing container only.
+    // Never scans reviews, ratings, recommendations, footer, header, or out-of-scope sections.
+    const rawBriefings = Array.from(document.querySelectorAll(
+        '.page-product__briefing, .product-briefing, [class*="product-briefing"], section.C21rQm'
+    )).filter(b => !isExcluded(b));
+
+    const topBriefings = rawBriefings.filter(b => !rawBriefings.some(other => other !== b && b.contains(other)));
+
+    for (const briefing of topBriefings) {
+        // Find all candidate option elements strictly inside this briefing container
+        const allOptionEls = Array.from(briefing.querySelectorAll(
+            'button.product-variation, .product-variation, [class*="variation-item"], [class*="variation-option"], [role="radio"]'
+        )).filter(el => {
+            if (isExcluded(el)) return false;
+            const tag = (el.tagName || '').toUpperCase();
+            if (tag === 'IMG' || tag === 'SVG' || tag === 'PICTURE') return false;
+            const cls = (el.className || '').toString();
+            if (cls.includes('group') || cls.includes('section') || cls.includes('wrapper') || cls.includes('container') || cls.includes('items')) return false;
+            return true;
+        });
+
+        // Filter out any element that contains another option element (keep leaf options)
+        const topOptionEls = allOptionEls.filter(el => {
+            return !allOptionEls.some(other => other !== el && el.contains(other));
+        });
+
+        if (topOptionEls.length === 0) {
+            continue;
+        }
+
+        // Detect group containers
+        // Strategy 1: Explicit group container elements
+        const explicitGroupContainers = Array.from(briefing.querySelectorAll(
+            '.product-variation-group, [class*="variation-group"], [class*="product-variation-group"], [class*="variation-section"], [role="radiogroup"]'
+        )).filter(gc => {
+            if (isExcluded(gc)) return false;
+            return topOptionEls.some(opt => gc.contains(opt));
+        });
+
+        const filteredGroupContainers = explicitGroupContainers.filter(gc => {
+            return !explicitGroupContainers.some(other => other !== gc && gc.contains(other));
+        });
+
+        let groupElements = [];
+        if (filteredGroupContainers.length > 0) {
+            groupElements = filteredGroupContainers;
+        } else {
+            // Strategy 2: Infer group container from options clustering
+            const seenContainers = [];
+            for (const opt of topOptionEls) {
+                let curr = opt.parentElement;
+                let bestGroupContainer = null;
+                while (curr && curr !== briefing) {
+                    if (isExcluded(curr)) break;
+                    const parent = curr.parentElement;
+                    if (parent === briefing || (parent && topOptionEls.some(o => parent.contains(o) && !curr.contains(o)))) {
+                        bestGroupContainer = curr;
+                        break;
+                    }
+                    curr = parent;
+                }
+                const container = bestGroupContainer || opt.parentElement;
+                if (container && !seenContainers.includes(container)) {
+                    seenContainers.push(container);
+                }
+            }
+            groupElements = seenContainers;
+        }
+
+        if (groupElements.length === 0) {
+            continue;
+        }
+
+        let allGroupsValid = true;
+        const observedGroups = [];
+        const seenGroupLabels = new Set();
+
+        const isOptionSelected = (opt) => {
+            if (!opt || isExcluded(opt)) return false;
+            const cls = (opt.className || '').toString();
+            const clsLower = cls.toLowerCase();
+            if (clsLower.includes('disabled') || opt.getAttribute('aria-disabled') === 'true' || opt.disabled) {
+                return false;
+            }
+            const ariaSel = opt.getAttribute('aria-selected');
+            if (ariaSel === 'true') return true;
+            if (ariaSel === 'false') return false;
+
+            const ariaChk = opt.getAttribute('aria-checked');
+            if (ariaChk === 'true') return true;
+            if (ariaChk === 'false') return false;
+
+            const ariaPress = opt.getAttribute('aria-pressed');
+            if (ariaPress === 'true') return true;
+            if (ariaPress === 'false') return false;
+
+            const checkedInput = opt.querySelector ? opt.querySelector('input:checked') : null;
+            if (checkedInput) return true;
+
+            if (
+                cls.includes('product-variation--selected') ||
+                cls.includes('product-variation-item--selected') ||
+                clsLower.includes('variation-item--selected') ||
+                clsLower.includes('variation-option--selected') ||
+                /\bproduct-variation[a-zA-Z0-9_-]*--selected\b/.test(cls) ||
+                /\bselected\b/.test(clsLower)
+            ) {
+                return true;
+            }
+            return false;
+        };
+
+        const extractOptionLabel = (opt) => {
+            if (!opt) return '';
+            let l = opt.getAttribute('aria-label') || opt.getAttribute('title') || '';
+            if (!l.trim()) {
+                l = opt.innerText || opt.textContent || '';
+            }
+            return l.trim();
+        };
+
+        for (const grp of groupElements) {
+            const grpOptions = topOptionEls.filter(opt => grp.contains(opt));
+            if (grpOptions.length === 0) {
+                allGroupsValid = false;
+                break;
+            }
+
+            let groupLabel = null;
+            if (grp.getAttribute('aria-label')) {
+                groupLabel = grp.getAttribute('aria-label').trim();
+            } else if (grp.getAttribute('data-label')) {
+                groupLabel = grp.getAttribute('data-label').trim();
+            }
+
+            if (!groupLabel) {
+                const labelCandidates = Array.from(grp.querySelectorAll(
+                    'label, .group-label, [class*="variation-label"], [class*="group-label"], [class*="section-label"], [class*="title"], h1, h2, h3, h4, h5, ._826p0R, .kIo6pj, .G27FPf, span, div, p'
+                )).filter(el => {
+                    if (isExcluded(el)) return false;
+                    if (grpOptions.some(opt => opt.contains(el) || opt === el)) return false;
+                    if (grpOptions.some(opt => el.contains(opt))) return false;
+                    const txt = (el.innerText || el.textContent || '').trim();
+                    return Boolean(txt);
+                });
+
+                if (labelCandidates.length > 0) {
+                    const prio = labelCandidates.find(el => {
+                        const tag = (el.tagName || '').toLowerCase();
+                        const c = (el.className || '').toString().toLowerCase();
+                        return tag === 'label' || c.includes('label') || c.includes('title') || tag.startsWith('h');
+                    });
+                    const chosen = prio || labelCandidates[0];
+                    groupLabel = (chosen.innerText || chosen.textContent || '').trim();
+                }
+            }
+
+            if (!groupLabel || !groupLabel.trim()) {
+                allGroupsValid = false;
+                break;
+            }
+
+            if (seenGroupLabels.has(groupLabel)) {
+                // Duplicate/ambiguous group identity fails closed
+                allGroupsValid = false;
+                break;
+            }
+            seenGroupLabels.add(groupLabel);
+
+            const selectedOpts = grpOptions.filter(isOptionSelected);
+            // Exactly one selected option required per group
+            if (selectedOpts.length !== 1) {
+                allGroupsValid = false;
+                break;
+            }
+
+            const selectedLabel = extractOptionLabel(selectedOpts[0]);
+            if (!selectedLabel || !selectedLabel.trim()) {
+                allGroupsValid = false;
+                break;
+            }
+
+            observedGroups.push({
+                group_label: groupLabel,
+                option_label: selectedLabel
+            });
+        }
+
+        if (allGroupsValid && observedGroups.length > 0) {
+            result.selected_variants = observedGroups;
+            result.selected_variants_complete = true;
+            break;
+        } else if (topOptionEls.length > 0) {
+            result.selected_variants = [];
+            result.selected_variants_complete = false;
+            break;
+        }
+    }
+
     // PRIORITY 3: Seller Description Media
     const descContainers = document.querySelectorAll(
         '.product-detail, .product-description, [class*="product-detail"], [class*="product-description"]'
@@ -578,9 +780,11 @@ class ShopeeSourceExtractor:
         media_items: List[OriginalMediaRef]
         structured: Dict[str, Any]
         structured_matches: bool
+        last_sample: Dict[str, Any] = {}
         for attempt in range(1, _READINESS_MAX_ATTEMPTS + 1):
             try:
                 sample = await page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, product_id)
+                last_sample = sample if isinstance(sample, dict) else {}
             except Exception as e:
                 raise SourcePackExtractionError(f"Failed to evaluate Shopee extraction script: {e}") from e
 
@@ -631,6 +835,42 @@ class ShopeeSourceExtractor:
                     provenance="structured_data",
                 )
             )
+
+        # Selected-variant facts (TASK-172)
+        # Constraint 4, 5, 6:
+        # Append selected-variant facts when and only when selected-variant state is complete and identity-matched
+        if structured_matches and last_sample.get("selected_variants_complete"):
+            raw_variants = last_sample.get("selected_variants") or []
+            is_valid = True
+            seen_groups: Set[str] = set()
+            for v in raw_variants:
+                if not isinstance(v, dict):
+                    is_valid = False
+                    break
+                g_lbl = v.get("group_label")
+                o_lbl = v.get("option_label")
+                if not isinstance(g_lbl, str) or not g_lbl.strip():
+                    is_valid = False
+                    break
+                if not isinstance(o_lbl, str) or not o_lbl.strip():
+                    is_valid = False
+                    break
+                if g_lbl in seen_groups:
+                    is_valid = False
+                    break
+                seen_groups.add(g_lbl)
+
+            if is_valid and raw_variants:
+                for v in raw_variants:
+                    facts.append(
+                        ProductFact(
+                            key="variant",
+                            value=f"{v['group_label']}: {v['option_label']}",
+                            source_section="selected_variant_controls",
+                            provenance="selected_variant_controls",
+                            unit=None,
+                        )
+                    )
 
         return ProductSourcePack(
             source_pack_id=source_pack_id,

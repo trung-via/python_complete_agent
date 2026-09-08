@@ -563,7 +563,266 @@ async def test_tiktok_dom_active_challenge_blocks_extraction():
         assert result["blocked"] is True
 
 
+@pytest.mark.asyncio
+async def test_shopee_dom_multi_group_selection_deterministic_order():
+    """
+    Proves that fully explicit multi-group selection inside positive current-product
+    scope is emitted in deterministic canonical DOM first-appearance order, with exact
+    observed group and selected option strings.
+    """
+    html = '''
+    <html>
+    <body>
+        <div class="product-briefing">
+            <div class="product-variation-group">
+                <div class="group-label">Màu sắc</div>
+                <div class="items">
+                    <button class="product-variation product-variation--selected">Đen</button>
+                    <button class="product-variation">Trắng</button>
+                </div>
+            </div>
+            <div class="product-variation-group">
+                <label class="group-label">Kích thước</label>
+                <div class="items">
+                    <button class="product-variation" aria-selected="false">M</button>
+                    <button class="product-variation" aria-selected="true">XL</button>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.set_content(html)
+
+        result = await page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, "123")
+        await browser.close()
+
+        assert result["selected_variants_complete"] is True
+        assert len(result["selected_variants"]) == 2
+        assert result["selected_variants"][0] == {"group_label": "Màu sắc", "option_label": "Đen"}
+        assert result["selected_variants"][1] == {"group_label": "Kích thước", "option_label": "XL"}
 
 
+@pytest.mark.asyncio
+async def test_shopee_dom_incomplete_group_selection_rejected_as_a_whole():
+    """
+    Proves all-or-nothing variation evidence: when one group is selected but another
+    group has zero selected options, the entire variation evidence is rejected.
+    """
+    html = '''
+    <html>
+    <body>
+        <div class="product-briefing">
+            <!-- Group 1 has 1 selected option -->
+            <div class="product-variation-group">
+                <div class="group-label">Màu sắc</div>
+                <button class="product-variation product-variation--selected">Đen</button>
+                <button class="product-variation">Trắng</button>
+            </div>
+            <!-- Group 2 has 0 selected options -->
+            <div class="product-variation-group">
+                <div class="group-label">Kích thước</div>
+                <button class="product-variation">M</button>
+                <button class="product-variation">XL</button>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.set_content(html)
 
+        result = await page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, "123")
+        await browser.close()
+
+        assert result["selected_variants_complete"] is False
+        assert result["selected_variants"] == []
+
+
+@pytest.mark.asyncio
+async def test_shopee_dom_ambiguous_group_selection_rejected_as_a_whole():
+    """
+    Proves that ambiguous group selections (multiple selected options in one group,
+    duplicate group labels, or blank labels) are rejected as a whole.
+    """
+    # Case A: Multiple selected options in one group
+    html_multi = '''
+    <html>
+    <body>
+        <div class="product-briefing">
+            <div class="product-variation-group">
+                <div class="group-label">Màu sắc</div>
+                <button class="product-variation product-variation--selected">Đen</button>
+                <button class="product-variation product-variation--selected">Trắng</button>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+    # Case B: Duplicate group identity
+    html_duplicate = '''
+    <html>
+    <body>
+        <div class="product-briefing">
+            <div class="product-variation-group">
+                <div class="group-label">Màu sắc</div>
+                <button class="product-variation product-variation--selected">Đen</button>
+            </div>
+            <div class="product-variation-group">
+                <div class="group-label">Màu sắc</div>
+                <button class="product-variation product-variation--selected">Trắng</button>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+    # Case C: Blank group label
+    html_blank_label = '''
+    <html>
+    <body>
+        <div class="product-briefing">
+            <div class="product-variation-group">
+                <div class="group-label">   </div>
+                <button class="product-variation product-variation--selected">Đen</button>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+
+        await page.set_content(html_multi)
+        result_multi = await page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, "123")
+        assert result_multi["selected_variants_complete"] is False
+        assert result_multi["selected_variants"] == []
+
+        await page.set_content(html_duplicate)
+        result_duplicate = await page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, "123")
+        assert result_duplicate["selected_variants_complete"] is False
+        assert result_duplicate["selected_variants"] == []
+
+        await page.set_content(html_blank_label)
+        result_blank = await page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, "123")
+        assert result_blank["selected_variants_complete"] is False
+        assert result_blank["selected_variants"] == []
+
+        await browser.close()
+
+
+@pytest.mark.asyncio
+async def test_shopee_dom_selected_controls_outside_positive_scope_ignored():
+    """
+    Proves that selected variation controls placed in reviews, recommendations,
+    headers, footers, or outside the briefing container are strictly ignored.
+    """
+    html = '''
+    <html>
+    <body>
+        <header>
+            <button class="product-variation product-variation--selected">Header Selected</button>
+        </header>
+
+        <!-- Product briefing with NO selected variation controls -->
+        <div class="product-briefing">
+            <div class="product-image-carousel">
+                <img src="https://cf.shopee.vn/file/gallery.jpg" />
+            </div>
+        </div>
+
+        <!-- Out-of-scope review section with selected buttons -->
+        <div class="product-reviews">
+            <div class="product-variation-group">
+                <div class="group-label">Review Variant</div>
+                <button class="product-variation product-variation--selected">Review Black</button>
+            </div>
+        </div>
+
+        <!-- Out-of-scope recommendations with selected buttons -->
+        <div class="similar-products">
+            <button class="product-variation product-variation--selected">Similar Blue</button>
+        </div>
+
+        <footer>
+            <button class="product-variation product-variation--selected">Footer Selected</button>
+        </footer>
+    </body>
+    </html>
+    '''
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.set_content(html)
+
+        result = await page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, "123")
+        await browser.close()
+
+        assert result["selected_variants_complete"] is False
+        assert result["selected_variants"] == []
+        assert "https://cf.shopee.vn/file/gallery.jpg" in result["gallery"]
+
+
+@pytest.mark.asyncio
+async def test_shopee_dom_preserves_variant_media_and_review_exclusions():
+    """
+    Proves that the listing option catalogue media (SEMANTIC_VARIANT_MEDIA) is extracted
+    in full, selected controls are observed, and review UGC is strictly excluded.
+    """
+    html = '''
+    <html>
+    <body>
+        <div class="product-briefing">
+            <div class="product-image-carousel">
+                <img src="https://cf.shopee.vn/file/main.jpg" />
+            </div>
+
+            <!-- Variation controls with media and selection -->
+            <div class="product-variation-group">
+                <div class="group-label">Màu sắc</div>
+                <div class="product-variation product-variation--selected">
+                    <img src="https://cf.shopee.vn/file/black_option.jpg" />
+                    <span>Đen</span>
+                </div>
+                <div class="product-variation">
+                    <img src="https://cf.shopee.vn/file/white_option.jpg" />
+                    <span>Trắng</span>
+                </div>
+            </div>
+
+            <!-- Review nested in briefing -->
+            <div class="product-ratings">
+                <img src="https://cf.shopee.vn/file/review_ugc.jpg" />
+                <button class="product-variation product-variation--selected">UGC</button>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.set_content(html)
+
+        result = await page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, "123")
+        await browser.close()
+
+        # Selected variant observed accurately
+        assert result["selected_variants_complete"] is True
+        assert result["selected_variants"] == [{"group_label": "Màu sắc", "option_label": "Đen"}]
+
+        # Both option media in catalogue are extracted
+        variant_urls = [v["url"] for v in result["variants"]]
+        assert "https://cf.shopee.vn/file/black_option.jpg" in variant_urls
+        assert "https://cf.shopee.vn/file/white_option.jpg" in variant_urls
+
+        # Review UGC excluded
+        all_media = result["gallery"] + [v["url"] for v in result["variants"]] + result["description_media"] + result["fallback_media"]
+        assert "https://cf.shopee.vn/file/review_ugc.jpg" not in all_media
 

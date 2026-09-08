@@ -1,6 +1,6 @@
 # Post-P5 P6 Quality and Scale Roadmap
 
-Status: **P6.0 and P6.1 are CLOSED. TASK-170 / P6.1d is CLOSED / PUBLISHED at candidate `0781e0810d161ad1a4936c0e3ea31aada5704da1`. P6.2 is PARKED / NOT JUSTIFIED BY CURRENT EVIDENCE and remains reopenable from future evidence. P6.3 is CURRENT with TASK-171 as its P6.3a descriptive-field foundation. P6.4-P6.6 remain deferred.**
+Status: **P6.0 and P6.1 are CLOSED. TASK-170 / P6.1d is CLOSED / PUBLISHED at candidate `0781e0810d161ad1a4936c0e3ea31aada5704da1`. P6.2 is PARKED / NOT JUSTIFIED BY CURRENT EVIDENCE and remains reopenable from future evidence. P6.3 is CURRENT with TASK-171 / P6.3a CLOSED / PUBLISHED at candidate `3a33748905154b4822cfc164999e5c57780e67f2`, and TASK-172 as P6.3b selected-variant evidence hardening. P6.4-P6.6 remain deferred.**
 Scope: Python Agent product architecture post-P5; AIOS-renew remains execution substrate only.
 
 ## 1. Canonical Post-P5 Architecture Audit
@@ -55,8 +55,8 @@ Historical certification and blocker lineage:
   `0781e0810d161ad1a4936c0e3ea31aada5704da1`.
 
 Introducing semantic retrieval, vector search, identity migrations, automated review,
-or background serving still requires its own empirical justification. P6.3a now opens
-the bounded descriptive truth foundation justified after the completed evaluation.
+or background serving still requires its own empirical justification. P6.3a established
+the bounded descriptive truth foundation and P6.3b hardens selected-variant source evidence.
 
 Therefore, Phase 6 is canonically ordered into three sequential disciplines:
 ```
@@ -163,18 +163,26 @@ threshold declares lexical retrieval universally sufficient.
 - No vector database, external service, or background indexing daemon may be introduced without
   prior architectural authorization and evidence-backed necessity.
 
-### P6.3 Product-Truth Reconciliation — CURRENT (TASK-171 / P6.3a)
+### P6.3 Product-Truth Reconciliation — CURRENT (TASK-171 / P6.3a, TASK-172 / P6.3b)
 
-TASK-171 opens only the P6.3a descriptive-field foundation. It derives exact
-`title`, `shop_name`, `brand`, `model_sku`, and `description_text` options from one
-TASK-121 profile, resolves only uncontested exact evidence automatically, and
-requires an explicit Human source selection to resolve a genuine conflict.
+TASK-171 / P6.3a is CLOSED and PUBLISHED at candidate `3a33748905154b4822cfc164999e5c57780e67f2`,
+establishing the Human-governed descriptive-field foundation over exact TASK-121
+evidence. It resolves uncontested values, preserves unresolved conflicts, and
+permits only explicit Human selection of an existing exact source value.
+
+TASK-172 opens P6.3b as narrow Shopee source-evidence hardening: observing explicit,
+complete selected-variant controls from the already-navigated current product page
+into existing `ProductFact` evidence without altering schema, resolver, truth,
+or downstream authorities.
 
 - Exact evidence and canonical member lineage remain intact; unresolved conflicts
   and partial truth are valid.
+- Selected-variant facts are observed source evidence only, not canonical variant identity or product truth.
+- TASK-108 remains the sole pairwise relationship authority; TASK-116 still governs Human exact-variant admission; TASK-171 still reconciles descriptive truth only after a canonical profile exists.
+- Live exact-variant and live product-truth certification remain downstream.
 - No recency, majority, provenance, ranking, model, or other automatic preference
   is introduced.
-- P6.3a has no fact/media reconciliation, persistence, downstream consumption, or
+- P6.3 has no fact/media reconciliation, persistence, downstream consumption, or
   live multi-member product-truth certification.
 
 ### P6.4 Identity Evolution and Migrations — UNIMPLEMENTED / FUTURE / DEFERRED

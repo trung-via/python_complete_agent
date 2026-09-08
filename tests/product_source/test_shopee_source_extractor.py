@@ -8,8 +8,13 @@ import pytest
 from src.product_source.models import (
     MediaProvenance,
     MediaRole,
+    ProductFact,
     SourcePackBlockedError,
     SourcePackExtractionError,
+)
+from src.product_intelligence.entity_resolution import (
+    ProductRelationship,
+    resolve_product_entities,
 )
 from src.product_source.platforms.shopee import ShopeeSourceExtractor
 from src.product_source.platforms.shopee import _SHOPEE_EXTRACTION_SCRIPT
@@ -533,3 +538,328 @@ async def test_shopee_js_script_excludes_reviews_by_container_provenance():
     assert "shop-review" in script
     assert "similar-products" in script
     assert "recommend" in script
+
+
+@pytest.mark.asyncio
+async def test_shopee_extractor_appends_selected_variant_facts_when_complete_and_identity_matched():
+    """Complete identity-matched selected-variant state appends ordered ProductFact values."""
+    eval_data = {
+        "structured": {
+            "title": "Shopee Multi-Variant Product",
+            "product_id": "456789",
+            "images": ["https://cf.shopee.vn/file/main.jpg"],
+            "brand": "BrandX",
+            "specs": [{"name": "Material", "value": "Cotton"}],
+        },
+        "gallery": [],
+        "variants": [],
+        "description_media": [],
+        "fallback_media": [],
+        "selected_variants": [
+            {"group_label": "Màu sắc", "option_label": "Đen"},
+            {"group_label": "Kích thước", "option_label": "XL"},
+        ],
+        "selected_variants_complete": True,
+        "blocked": False,
+    }
+    session = FakeSession(eval_data)
+    extractor = ShopeeSourceExtractor(browser=session)
+
+    pack = await extractor.extract("https://shopee.vn/product/123/456789")
+
+    # Facts prefix remains existing specification and brand facts in order
+    assert pack.facts[0] == ProductFact(
+        key="Material",
+        value="Cotton",
+        source_section="specification_table",
+        provenance="specification_table",
+    )
+    assert pack.facts[1] == ProductFact(
+        key="Brand",
+        value="BrandX",
+        source_section="structured_data",
+        provenance="structured_data",
+    )
+
+    # Selected-variant facts appended strictly in group DOM order
+    assert len(pack.facts) == 4
+    v1, v2 = pack.facts[2], pack.facts[3]
+    assert v1.key == "variant"
+    assert v1.value == "Màu sắc: Đen"
+    assert v1.source_section == "selected_variant_controls"
+    assert v1.provenance == "selected_variant_controls"
+    assert v1.unit is None
+
+    assert v2.key == "variant"
+    assert v2.value == "Kích thước: XL"
+    assert v2.source_section == "selected_variant_controls"
+    assert v2.provenance == "selected_variant_controls"
+    assert v2.unit is None
+
+
+@pytest.mark.asyncio
+async def test_shopee_extractor_zero_variant_facts_on_identity_mismatch():
+    """Structured identity mismatch produces zero selected-variant facts while pack extraction succeeds."""
+    eval_data = {
+        "structured": {
+            "title": "Mismatched Product",
+            "product_id": "999999",  # Does not match target 456789
+            "images": ["https://cf.shopee.vn/file/unrelated.jpg"],
+            "brand": "OtherBrand",
+            "specs": [{"name": "Material", "value": "Silk"}],
+        },
+        "gallery": ["https://cf.shopee.vn/file/actual_gallery.jpg"],
+        "variants": [],
+        "description_media": [],
+        "fallback_media": [],
+        "selected_variants": [
+            {"group_label": "Color", "option_label": "Blue"},
+        ],
+        "selected_variants_complete": True,
+        "blocked": False,
+    }
+    session = FakeSession(eval_data)
+    extractor = ShopeeSourceExtractor(browser=session)
+
+    pack = await extractor.extract("https://shopee.vn/product/123/456789")
+
+    # Gallery media extracted via fallback
+    assert len(pack.media) == 1
+    assert pack.media[0].source_url == "https://cf.shopee.vn/file/actual_gallery.jpg"
+
+    # Zero selected-variant facts emitted because structured identity does not match
+    variant_facts = [f for f in pack.facts if f.key == "variant"]
+    assert len(variant_facts) == 0
+
+
+@pytest.mark.asyncio
+async def test_shopee_extractor_zero_variant_facts_on_incomplete_or_ambiguous_state():
+    """Incomplete or ambiguous selected-variant state emits zero selected-variant facts."""
+    eval_data = {
+        "structured": {
+            "title": "Product with Incomplete Variants",
+            "product_id": "456789",
+            "images": ["https://cf.shopee.vn/file/main.jpg"],
+            "specs": [],
+        },
+        "gallery": [],
+        "variants": [],
+        "description_media": [],
+        "fallback_media": [],
+        "selected_variants": [],
+        "selected_variants_complete": False,
+        "blocked": False,
+    }
+    session = FakeSession(eval_data)
+    extractor = ShopeeSourceExtractor(browser=session)
+
+    pack = await extractor.extract("https://shopee.vn/product/123/456789")
+    variant_facts = [f for f in pack.facts if f.key == "variant"]
+    assert len(variant_facts) == 0
+
+
+@pytest.mark.asyncio
+async def test_shopee_extractor_url_model_query_params_produce_zero_variant_facts():
+    """URL model query parameters without complete DOM proof produce zero selected-variant facts."""
+    eval_data = {
+        "structured": {
+            "title": "URL Model Product",
+            "product_id": "456789",
+            "images": ["https://cf.shopee.vn/file/main.jpg"],
+            "specs": [],
+        },
+        "gallery": [],
+        "variants": [],
+        "description_media": [],
+        "fallback_media": [],
+        "selected_variants": [],
+        "selected_variants_complete": False,
+        "blocked": False,
+    }
+    session = FakeSession(eval_data)
+    extractor = ShopeeSourceExtractor(browser=session)
+
+    url_with_model_params = (
+        "https://shopee.vn/product/123/456789?rModelId=11111&vModelId=22222&display_model_id=33333"
+    )
+    pack = await extractor.extract(url_with_model_params)
+
+    variant_facts = [f for f in pack.facts if f.key == "variant"]
+    assert len(variant_facts) == 0
+    assert pack.model_sku is None
+
+
+@pytest.mark.asyncio
+async def test_shopee_extractor_preserves_equal_option_labels_across_distinct_groups():
+    """Distinct variation groups with identical option labels are preserved deterministically without deduplication."""
+    eval_data = {
+        "structured": {
+            "title": "Shopee Multi-Tone Product",
+            "product_id": "456789",
+            "images": ["https://cf.shopee.vn/file/main.jpg"],
+            "specs": [],
+        },
+        "gallery": [],
+        "variants": [],
+        "description_media": [],
+        "fallback_media": [],
+        "selected_variants": [
+            {"group_label": "Primary Color", "option_label": "Red"},
+            {"group_label": "Trim Color", "option_label": "Red"},
+        ],
+        "selected_variants_complete": True,
+        "blocked": False,
+    }
+    session = FakeSession(eval_data)
+    extractor = ShopeeSourceExtractor(browser=session)
+
+    pack = await extractor.extract("https://shopee.vn/product/123/456789")
+    variant_facts = [f for f in pack.facts if f.key == "variant"]
+    assert len(variant_facts) == 2
+    assert variant_facts[0].value == "Primary Color: Red"
+    assert variant_facts[1].value == "Trim Color: Red"
+
+
+@pytest.mark.asyncio
+async def test_task_108_compatibility_same_listing_with_complete_variant_evidence():
+    """Unchanged TASK-108 resolves EXACT_VARIANT_MATCH for same-listing observations carrying equal complete selected-variant evidence."""
+    eval_data = {
+        "structured": {
+            "title": "Shopee Phone Listing",
+            "product_id": "456789",
+            "images": ["https://cf.shopee.vn/file/main.jpg"],
+            "brand": "Acme",
+            "specs": [],
+        },
+        "gallery": [],
+        "variants": [],
+        "description_media": [],
+        "fallback_media": [],
+        "selected_variants": [
+            {"group_label": "Color", "option_label": "Black"},
+        ],
+        "selected_variants_complete": True,
+        "blocked": False,
+    }
+    session = FakeSession(eval_data)
+    extractor = ShopeeSourceExtractor(browser=session)
+
+    pack1 = await extractor.extract("https://shopee.vn/product/123/456789")
+    pack2 = await extractor.extract("https://shopee.vn/product/123/456789")
+
+    result = resolve_product_entities(pack1, pack2)
+    assert result.relationship is ProductRelationship.EXACT_VARIANT_MATCH
+    assert result.confidence >= 0.95
+    assert any(e.code == "VARIANT_MATCH" for e in result.evidence)
+
+
+@pytest.mark.asyncio
+async def test_task_108_compatibility_same_listing_differing_selected_option():
+    """Unchanged TASK-108 resolves SAME_PRODUCT_FAMILY with VARIANT_CONFLICT when one selected option differs."""
+    eval_data_black = {
+        "structured": {
+            "title": "Shopee Phone Listing",
+            "product_id": "456789",
+            "images": ["https://cf.shopee.vn/file/main.jpg"],
+            "brand": "Acme",
+            "specs": [],
+        },
+        "gallery": [],
+        "variants": [],
+        "description_media": [],
+        "fallback_media": [],
+        "selected_variants": [
+            {"group_label": "Color", "option_label": "Black"},
+        ],
+        "selected_variants_complete": True,
+        "blocked": False,
+    }
+    eval_data_white = {
+        "structured": {
+            "title": "Shopee Phone Listing",
+            "product_id": "456789",
+            "images": ["https://cf.shopee.vn/file/main.jpg"],
+            "brand": "Acme",
+            "specs": [],
+        },
+        "gallery": [],
+        "variants": [],
+        "description_media": [],
+        "fallback_media": [],
+        "selected_variants": [
+            {"group_label": "Color", "option_label": "White"},
+        ],
+        "selected_variants_complete": True,
+        "blocked": False,
+    }
+
+    pack_black = await ShopeeSourceExtractor(browser=FakeSession(eval_data_black)).extract(
+        "https://shopee.vn/product/123/456789"
+    )
+    pack_white = await ShopeeSourceExtractor(browser=FakeSession(eval_data_white)).extract(
+        "https://shopee.vn/product/123/456789"
+    )
+
+    result = resolve_product_entities(pack_black, pack_white)
+    assert result.relationship is ProductRelationship.SAME_PRODUCT_FAMILY
+    assert any(e.code == "VARIANT_CONFLICT" for e in result.evidence)
+    assert "different sellable variant" in result.reasons
+
+
+@pytest.mark.asyncio
+async def test_task_108_compatibility_same_listing_insufficient_variant_evidence_when_absent_or_incomplete():
+    """Unchanged TASK-108 resolves SAME_PRODUCT_FAMILY with insufficient variant evidence when selected evidence is absent or incomplete."""
+    eval_data_no_variants = {
+        "structured": {
+            "title": "Shopee Phone Listing",
+            "product_id": "456789",
+            "images": ["https://cf.shopee.vn/file/main.jpg"],
+            "brand": "Acme",
+            "specs": [],
+        },
+        "gallery": [],
+        "variants": [],
+        "description_media": [],
+        "fallback_media": [],
+        "selected_variants": [],
+        "selected_variants_complete": False,
+        "blocked": False,
+    }
+    eval_data_with_variant = {
+        "structured": {
+            "title": "Shopee Phone Listing",
+            "product_id": "456789",
+            "images": ["https://cf.shopee.vn/file/main.jpg"],
+            "brand": "Acme",
+            "specs": [],
+        },
+        "gallery": [],
+        "variants": [],
+        "description_media": [],
+        "fallback_media": [],
+        "selected_variants": [
+            {"group_label": "Color", "option_label": "Black"},
+        ],
+        "selected_variants_complete": True,
+        "blocked": False,
+    }
+
+    pack_none1 = await ShopeeSourceExtractor(browser=FakeSession(eval_data_no_variants)).extract(
+        "https://shopee.vn/product/123/456789"
+    )
+    pack_none2 = await ShopeeSourceExtractor(browser=FakeSession(eval_data_no_variants)).extract(
+        "https://shopee.vn/product/123/456789"
+    )
+    pack_with = await ShopeeSourceExtractor(browser=FakeSession(eval_data_with_variant)).extract(
+        "https://shopee.vn/product/123/456789"
+    )
+
+    # Both absent
+    result_both_absent = resolve_product_entities(pack_none1, pack_none2)
+    assert result_both_absent.relationship is ProductRelationship.SAME_PRODUCT_FAMILY
+    assert "insufficient variant evidence for exact match" in result_both_absent.reasons
+
+    # One present, one absent (incomplete pair)
+    result_incomplete = resolve_product_entities(pack_with, pack_none1)
+    assert result_incomplete.relationship is ProductRelationship.SAME_PRODUCT_FAMILY
+    assert "insufficient variant evidence for exact match" in result_incomplete.reasons
