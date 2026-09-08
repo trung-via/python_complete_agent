@@ -1,0 +1,251 @@
+task_id: TASK-169
+revision: 1
+
+goal: >
+  Open P6.3 with one pure deterministic Human-governed descriptive product-truth
+  reconciliation authority over an exact TASK-121 CanonicalVariantProfile. The
+  new authority must preserve every source value and canonical observation lineage,
+  automatically resolve only uncontested exact descriptive evidence, require an
+  explicit Human decision to select among genuinely conflicting exact values, and
+  otherwise leave the field unresolved. It must not mutate evidence, identity,
+  catalog state, retrieval, RAG, persistence, facts, media, or any prior authority.
+
+problem: >
+  Published TASK-168 closed P6.1b and established a real-evidence lexical baseline.
+  The three fixed product-intent cases each achieved exact precision 1 and recall 1;
+  the broad "shopee" case exposed only the expected limit=3 recall ceiling against
+  six relevant variants. Current evidence therefore does not justify activating
+  P6.2 semantic/vector retrieval or reranking. The next explicit roadmap gap is
+  P6.3 product-truth reconciliation. TASK-121 intentionally preserves conflicting
+  titles, shops, brands, model/SKU values, descriptions, facts, and media without
+  choosing preferred truth, so there is currently no product-truth authority.
+  TASK-169 must introduce the smallest safe first P6.3 authority: descriptive-field
+  reconciliation only, driven by exact evidence and explicit Human decisions when
+  conflicts exist.
+
+assumptions:
+  - >
+    Canonical python_complete_agent main at TASK-169 authoring is
+    0e6626a53c10609a1a7b282d7ca49af33e4d5573, the published TASK-168 source candidate
+    after RUN-168-004 Runtime PASS and REVIEW-168-004 PRIMARY PASS.
+  - >
+    The authoritative AIOS dependency remains exactly
+    aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@32ace104c5cfaa1b7affbaa40157872b1f85147f.
+  - >
+    TASK-121 remains the sole CanonicalVariantProfile evidence-preserving projection
+    authority. TASK-117/TASK-118 remain canonical identity/catalog authorities;
+    TASK-120 remains SQLite durability; TASK-122 remains lexical retrieval;
+    TASK-123 remains RAG-context authority; TASK-129/TASK-133 remain grounded-answer
+    and grounded-QA authorities.
+  - >
+    P6.2 is conditional rather than mandatory. The published P6.1b evidence does not
+    establish semantic mismatch requiring embeddings/vector retrieval, so P6.2 must
+    be recorded as PARKED / NOT JUSTIFIED BY CURRENT EVIDENCE rather than implemented
+    speculatively.
+  - >
+    Human governance for TASK-169 means a caller supplies explicit field decisions,
+    actor identity, and aware decision timestamps. Repository code must not read the
+    system clock or infer a Human preference from recency, majority, provenance,
+    marketplace, ranking, LLM output, or business signals.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_6_P6_1_REAL_EVIDENCE_BASELINE.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - .ai/tasks/TASK-117.yaml
+    - .ai/tasks/TASK-118.yaml
+    - .ai/tasks/TASK-120.yaml
+    - .ai/tasks/TASK-121.yaml
+    - .ai/tasks/TASK-122.yaml
+    - .ai/tasks/TASK-164.yaml
+    - src/product_intelligence/canonical_profile.py
+    - src/product_intelligence/canonical_catalog.py
+    - src/product_intelligence/canonical_variant.py
+    - src/product_intelligence/entity_resolution.py
+    - src/product_intelligence/canonical_retrieval.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_canonical_profile.py
+    - tests/product_intelligence/test_canonical_retrieval.py
+
+  modify:
+    - src/product_intelligence/canonical_truth.py
+    - src/product_intelligence/__init__.py
+    - tests/product_intelligence/test_canonical_truth.py
+    - docs/PHASE_6_P6_3_PRODUCT_TRUTH_RECONCILIATION.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+
+non_goals:
+  - Modify canonical_profile.py, canonical_catalog.py, canonical_variant.py,
+    canonical_retrieval.py, product_source models/serialization, entity resolution,
+    family/variant approval/admission, SQLite storage, RAG, grounded-QA, provider,
+    discovery, ranking, scraper, browser, CLI, worker, dependency, or AIOS runtime.
+  - Reconcile ProductFact values, media, hero images, seller choice, price, sold count,
+    rating, commission, marketplace ranking, source reliability, diagnostic codes,
+    or any field outside title, shop_name, brand, model_sku, and description_text.
+  - Add automatic latest-observation, majority-vote, provenance-preference, platform-
+    preference, confidence-score, business-score, lexical-score, semantic-score, LLM,
+    heuristic, fuzzy, normalized, case-folded, trimmed, or synthesized truth selection.
+  - Add persistence, truth-history database, mutable truth updates, schema migrations,
+    catalog columns, cache, background service, API/CLI workflow, autonomous approval,
+    or Human-review automation.
+  - Feed reconciled truth into TASK-122 retrieval, TASK-123 RAG context, grounded
+    prompts/answers, ranking, content generation, or any downstream production path.
+  - Activate P6.2 semantic/vector retrieval or infer that P6.2 can never be useful;
+    it remains parked until later evidence justifies reopening it.
+  - Claim that resolving descriptive evidence changes canonical family/variant
+    identity, source evidence, or objective real-world product truth beyond the
+    exact bounded Human decision represented by this authority.
+
+constraints:
+  hard:
+    - >
+      Add exactly one new production module, src/product_intelligence/canonical_truth.py,
+      as the sole TASK-169 descriptive truth authority. Export exactly these public
+      names from product_intelligence: CanonicalTruthError, CanonicalTruthField,
+      CanonicalTruthDecisionAction, CanonicalTruthDecision,
+      CanonicalTruthResolutionStatus, CanonicalTruthFieldResolution,
+      CanonicalVariantTruth, and reconcile_canonical_variant_truth.
+    - >
+      CanonicalTruthField must contain exactly TITLE, SHOP_NAME, BRAND, MODEL_SKU,
+      and DESCRIPTION_TEXT, mapped only to the corresponding exact TASK-121
+      CanonicalProfileObservation values. TASK-169 must not expose generic arbitrary
+      field names or facts/media through this authority.
+    - >
+      reconcile_canonical_variant_truth(profile, *, decisions=()) must require an
+      exact CanonicalVariantProfile and consume only that profile plus caller-supplied
+      CanonicalTruthDecision values. It must not accept Catalog state, ProductSourcePack,
+      raw dicts, candidate/ranking objects, or external values as alternate truth input.
+    - >
+      For each CanonicalTruthField, build deterministic exact-value evidence options
+      from profile.observations in canonical observation order. Ignore only Python None
+      as absent evidence. Do not trim, normalize, case-fold, canonicalize, deduplicate
+      by anything other than exact value equality, or reinterpret strings. When the
+      same exact non-None value appears in multiple observations, one option must retain
+      all exact supporting canonical member objects in profile order.
+    - >
+      Resolution semantics are fixed and exhaustive: zero non-None exact values yields
+      NO_EVIDENCE with value None; exactly one distinct non-None exact value yields
+      UNCONTESTED with that exact value and all exact supporting members; more than one
+      distinct exact value is a genuine conflict and yields UNRESOLVED unless one valid
+      Human decision resolves it.
+    - >
+      CanonicalTruthDecisionAction must contain exactly SELECT_SOURCE and
+      LEAVE_UNRESOLVED. Every CanonicalTruthDecision must identify exactly one
+      CanonicalTruthField, carry a nonblank actor string preserved byte-for-byte,
+      and carry a timezone-aware datetime supplied by the caller. No system clock,
+      default actor, UUID, random value, environment value, or implicit Human decision
+      may be generated by repository code.
+    - >
+      SELECT_SOURCE is valid only for a genuinely conflicting field and must reference
+      one exact SourceObservationIdentity member already present in the supplied profile.
+      That member's exact field value must be non-None and one of the conflict options.
+      The resulting HUMAN_SELECTED resolution must expose exactly that value and all
+      profile members carrying the same exact value. The caller may never supply or
+      synthesize an arbitrary replacement value.
+    - >
+      LEAVE_UNRESOLVED is valid only for a genuinely conflicting field and must not
+      select a member. It preserves UNRESOLVED with no resolved value while retaining
+      all exact evidence options plus the explicit Human decision record.
+    - >
+      At most one decision may target a field. Duplicate decisions, non-exact decision
+      types, decisions for NO_EVIDENCE or UNCONTESTED fields, SELECT_SOURCE with a
+      foreign/missing/None-valued member, LEAVE_UNRESOLVED carrying a member, invalid
+      actor, naive timestamp, or any incoherent decision must fail closed with
+      CanonicalTruthError before returning a truth value.
+    - >
+      CanonicalTruthFieldResolution must be immutable and retain the field, fixed
+      resolution status, resolved exact value or None, deterministic exact evidence
+      options/supporting canonical members, and the exact Human decision when one was
+      required. CanonicalVariantTruth must be immutable and retain the exact profile
+      variant_id, family_id, members, and one field resolution for every field in
+      CanonicalTruthField declaration order.
+    - >
+      Missing Human decisions for conflicting fields are valid and must leave those
+      fields UNRESOLVED; TASK-169 must support partial truth rather than inventing a
+      winner or failing merely because Human review is incomplete.
+    - >
+      Reconciliation must be pure deterministic computation. It must perform zero
+      filesystem, SQLite, network, browser, environment, clock, random, UUID,
+      subprocess, executor, model, retrieval, RAG, ranking, or persistence work and
+      must never mutate the supplied CanonicalVariantProfile, its observations,
+      canonical members, or any retained evidence object.
+    - >
+      Existing TASK-121 evidence preservation remains authoritative and unchanged.
+      Reconciled descriptive truth is a separate derivative Human-governed projection;
+      it does not erase, rewrite, normalize, collapse, or supersede conflicting source
+      evidence and does not change TASK-117/TASK-118 identity/catalog truth.
+    - >
+      Documentation must mark TASK-168/P6.1 as CLOSED/PUBLISHED; record the empirical
+      P6.1b result that exact product-intent lexical cases achieved precision/recall 1/1
+      while the broad shopee query's recall 1/2 is explained by limit=3 against six
+      relevant variants; mark P6.2 PARKED / NOT JUSTIFIED BY CURRENT EVIDENCE; mark
+      P6.3 CURRENT with TASK-169 as P6.3a; and leave P6.4-P6.6 future/unimplemented.
+    - >
+      The P6.3 phase document must state that TASK-169 covers descriptive fields only,
+      uses exact evidence plus explicit Human decisions, permits unresolved conflicts,
+      adds no automatic recency/majority/provenance policy, and does not yet persist or
+      feed reconciled truth into retrieval/RAG/content generation.
+    - Do not push from Executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      TASK-169 introduces only the bounded canonical_truth module/public exports,
+      focused tests, P6.3 documentation, and roadmap status updates; no prior
+      production authority is modified.
+  - id: AC2
+    condition: >
+      Exactly five descriptive fields are supported and their evidence options are
+      derived solely from exact TASK-121 observation values with canonical-order
+      member lineage and no string normalization or arbitrary value input.
+  - id: AC3
+    condition: >
+      NO_EVIDENCE, UNCONTESTED, HUMAN_SELECTED, and UNRESOLVED semantics follow the
+      fixed deterministic rules, including exact supporting-member retention.
+  - id: AC4
+    condition: >
+      Genuine conflicts remain UNRESOLVED without a Human decision; SELECT_SOURCE
+      can choose only exact existing source evidence and LEAVE_UNRESOLVED records an
+      explicit Human choice without fabricating truth.
+  - id: AC5
+    condition: >
+      Human decisions preserve exact field, action, actor, aware timestamp, and
+      selected canonical member when applicable, and all malformed/incoherent/
+      duplicate/foreign decision shapes fail closed.
+  - id: AC6
+    condition: >
+      CanonicalVariantTruth is immutable, deterministic, retains exact variant/family/
+      member lineage, contains one resolution per field in fixed order, and repeated
+      reconciliation from value-equal inputs returns value-equal output without
+      mutating inputs.
+  - id: AC7
+    condition: >
+      TASK-121 evidence remains fully intact and authoritative; TASK-169 performs no
+      fact/media reconciliation, identity/catalog mutation, persistence, retrieval,
+      RAG, ranking, provider, browser, network, or model work.
+  - id: AC8
+    condition: >
+      Focused regressions cover all-None, single observed value plus missing values,
+      repeated identical exact values, exact-string conflicts, unresolved conflict,
+      SELECT_SOURCE, LEAVE_UNRESOLVED, duplicate decisions, foreign member, None-valued
+      member, non-conflict decision, actor/timestamp validation, ordering, identity
+      reuse, determinism, and input immutability.
+  - id: AC9
+    condition: >
+      P6.3 documentation establishes the new derivative Human-governed descriptive
+      truth boundary without implying objective product truth, automatic preference,
+      fact/media reconciliation, persistence, or downstream consumption.
+  - id: AC10
+    condition: >
+      Both canonical roadmaps mark P6.1 CLOSED/PUBLISHED, P6.2 PARKED because current
+      measured evidence does not justify semantic/vector work, P6.3 CURRENT/TASK-169
+      P6.3a, and P6.4-P6.6 future; required tests and git diff check pass with zero
+      unresolved items and no changed files outside scope.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_canonical_profile.py tests/product_intelligence/test_canonical_truth.py tests/product_intelligence/test_canonical_retrieval.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
