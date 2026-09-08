@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -495,7 +494,9 @@ def test_resume_rejects_lexical_manifest_escape(tmp_path):
         ))
 
 
-def test_resume_rejects_symlink_manifest_escape(tmp_path):
+def test_resume_rejects_resolved_manifest_escape_without_browser_work(
+    tmp_path, monkeypatch
+):
     import asyncio
 
     root = tmp_path / "capture"
@@ -503,18 +504,21 @@ def test_resume_rejects_symlink_manifest_escape(tmp_path):
     asyncio.run(_run(root, ["query"], _orchestration([])))
     checkpoint_path = root / "capture_checkpoint.json"
     checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
-    original_relative = checkpoint["completed_observations"][0]["manifest_path"]
-    manifest = root / original_relative
-    outside = tmp_path / "outside-source-pack.json"
-    outside.write_bytes(manifest.read_bytes())
-    manifest.unlink()
-    try:
-        os.symlink(outside, manifest)
-    except OSError as exc:
-        pytest.skip(f"symlink creation is unavailable: {type(exc).__name__}")
-    checkpoint_path.write_text(json.dumps(checkpoint), encoding="utf-8")
+    manifest = root / checkpoint["completed_observations"][0]["manifest_path"]
+    outside = tmp_path / "outside-secret" / "source_pack.json"
+    original_resolve = Path.resolve
 
-    with pytest.raises(LiveCaptureError, match="escapes the job root"):
+    def resolve_manifest_outside(path, strict=False):
+        if path == manifest:
+            return outside
+        return original_resolve(path, strict=strict)
+
+    _Manager.instances = []
+    _Tool.instances = []
+    _Tool.calls = []
+    monkeypatch.setattr(Path, "resolve", resolve_manifest_outside)
+
+    with pytest.raises(LiveCaptureError, match="escapes the job root") as exc_info:
         asyncio.run(run_live_capture(
             job_root=root,
             cdp_endpoint="http://127.0.0.1:9222",
@@ -523,3 +527,9 @@ def test_resume_rejects_symlink_manifest_escape(tmp_path):
             tool_factory=_Tool,
             orchestration=_orchestration([]),
         ))
+
+    assert str(root) not in str(exc_info.value)
+    assert str(outside) not in str(exc_info.value)
+    assert _Manager.instances == []
+    assert _Tool.instances == []
+    assert _Tool.calls == []
