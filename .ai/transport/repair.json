@@ -1,0 +1,21 @@
+{
+  "repair_id": "REPAIR-166-001",
+  "failed_run_id": "RUN-166-001",
+  "failed_head_sha": "dfe6e1741fab86dab8ed1de99e6b83126206b387",
+  "task": {
+    "id": "TASK-166",
+    "revision": 2
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "tests/product_intelligence/test_product_intelligence_cli.py"
+  ],
+  "instructions": [
+    "Continue exactly from failed TASK-166 candidate dfe6e1741fab86dab8ed1de99e6b83126206b387. Preserve the implemented live_capture module, capture CLI behavior, docs, and all already-passing tests unchanged unless the authorized test correction itself requires a directly coupled expectation update inside tests/product_intelligence/test_product_intelligence_cli.py.",
+    "RUN-166-001 failed only during Runtime verification: 170 tests passed and one regression failed because test_parser_exposes_exact_commands_and_requires_arguments still asserted the pre-TASK-166 seven-command CLI even though TASK-166 explicitly requires adding exactly one new capture command. Correct that regression to include capture in the exact parser command order actually required by TASK-166 and include capture's exact allowed option set in the parser option map.",
+    "Keep the parser contract strict: fresh capture requires --job-root, --cdp-endpoint, and one-or-more --query values; resume mode uses --resume with --job-root and --cdp-endpoint and forbids replacement --query input. Do not weaken existing argparse misuse coverage, do not add aliases or extra capture controls, and do not change any pre-existing command behavior.",
+    "Do not modify production Python, live_capture sequencing, browser/CDP, discovery/ranking, ShopeeScrapeTool, ProductSourcePack, TASK-164 evaluator semantics, AIOS pin/runtime/worker surfaces, or documentation in this repair. The observed failure does not justify any such change.",
+    "Run the exact TASK-166 required verification commands and git diff check. This is the canonical CODE_FIX REPAIR continuation of RUN-166-001 using executor codex; do not rerun TASK-166 PRIMARY, do not reroute to Antigravity, and do not create a parallel FIX lineage."
+  ],
+  "constraints": []
+}
