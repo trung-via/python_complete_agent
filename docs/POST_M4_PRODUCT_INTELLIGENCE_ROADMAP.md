@@ -1,10 +1,12 @@
 # Post-M4 Product Intelligence Roadmap — Live Product Enablement
 
 Status: canonical post-M4 architecture roadmap; P1-P5 and P6.0 CLOSED. P6.1 is
-CURRENT: TASK-165 is unpublished blocked evidence and TASK-166 is the CURRENT
-live-capture blocker-hardening gate. A fresh P6.1b successor is NEXT only after
-TASK-166 publication and one reviewed READY external bundle. P6.2 remains blocked
-until reviewed empirical P6.1b metrics exist.
+CURRENT: TASK-165 is unpublished blocked evidence; TASK-166 is CLOSED and published,
+and its first external READY bundle is Human-rejected operational evidence only.
+TASK-167 is the CURRENT narrow Shopee discovery blocker. A fresh P6.1b successor is
+NEXT only after TASK-167 Runtime PASS, semantic PASS, publication, and a new
+Human-reviewed READY external bundle. P6.2 remains blocked until reviewed empirical
+P6.1b metrics exist.
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
 ## 1. Starting point
@@ -227,14 +229,20 @@ P6.1 now proceeds through these ordered gates:
 - **P6.1a Evaluation Contract (TASK-164 — CLOSED)**: Establishes pure deterministic evaluation authority
   over existing TASK-122 lexical retrieval and TASK-129 grounded answers, measuring explicit Human-authored
   benchmark labels with exact Fraction arithmetic.
-- **P6.1 Live-Capture Blocker Hardening (TASK-166 — CURRENT)**: TASK-165 remains unpublished
+- **P6.1 Live-Capture Blocker Hardening (TASK-166 — CLOSED / PUBLISHED)**: TASK-165 remains unpublished
   blocked P6.1b evidence. REVIEW-165-003 F1 and its failed remediation/repair continuation lineage established that
   live marketplace interaction inside AIOS engineering verification is the wrong operational
-  boundary. TASK-166 provides explicit external-root checkpoint/resume capture; CAPTCHA remains
+  boundary. TASK-166 provided explicit external-root checkpoint/resume capture; CAPTCHA remains
   Human-owned.
+- **P6.1 Shopee Search-Surface Discovery Hardening (TASK-167 — CURRENT)**: The first external
+  TASK-166 READY bundle was operationally successful but Human-rejected because exact query
+  `chuột không dây` mapped to an unrelated lantern listing. It remains operational evidence only,
+  not P6.1b benchmark truth. TASK-167 narrowly hardens the existing TASK-151/TASK-153
+  `ShopeeDiscoveryAdapter` search-surface provenance boundary without adding semantic relevance
+  filtering or changing downstream business ranking.
 - **P6.1b Real-Evidence Benchmark Execution — NEXT, FRESH SUCCESSOR**: May consume one reviewed
-  READY external bundle only after TASK-166 Runtime PASS, semantic PASS, and publication, then
-  executes the frozen P6.1a evaluator against that reviewed evidence.
+  new READY external bundle only after TASK-167 Runtime PASS, semantic PASS, publication, and
+  Human cohort review, then executes the frozen P6.1a evaluator against that reviewed evidence.
 
 #### P6.2 Conditional Semantic / Vector Retrieval or Reranking — FUTURE / BLOCKED UNTIL P6.1b EMPIRICAL EVIDENCE
 Introduce semantic/vector retrieval or reranking only if measured P6.1b empirical evidence justifies it.
@@ -273,8 +281,10 @@ RUN-156-009 remains historical failed P6.0b evidence after discovery succeeded a
 failed with `LIVE_P6B_ACQUISITION_EXTRACTION`. Published TASK-162 is the narrow Shopee
 product-page readiness blocker correction. Published TASK-163 closed P6.0b and P6.0 after
 canonical Runtime verification and ChatGPT PRIMARY semantic review both passed. P6.1 is
-CURRENT (TASK-166 blocker hardening; fresh P6.1b successor NEXT only after TASK-166 publication
-and one reviewed READY external bundle). TASK-165 remains unpublished blocked evidence from
+CURRENT (TASK-167 narrow Shopee discovery blocker hardening; fresh P6.1b successor NEXT only after
+TASK-167 Runtime PASS, semantic PASS, publication, and one new Human-reviewed READY external bundle).
+TASK-166 is CLOSED and published; its first external READY bundle is Human-rejected operational
+evidence only. TASK-165 remains unpublished blocked evidence from
 REVIEW-165-003 F1 and its failed remediation/repair continuation lineage.
 
 ## 4. Authority invariants

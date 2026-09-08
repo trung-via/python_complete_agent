@@ -1,6 +1,6 @@
 # Post-P5 P6 Quality and Scale Roadmap
 
-Status: **P6.0 CLOSED. P6.1 CURRENT: TASK-164 closed P6.1a; TASK-165 is unpublished blocked evidence; TASK-166 is the CURRENT live-capture blocker-hardening gate; a fresh P6.1b successor is NEXT only after TASK-166 publication and one reviewed READY external bundle. P6.2 remains blocked until reviewed empirical P6.1b metrics exist.**
+Status: **P6.0 CLOSED. P6.1 CURRENT: TASK-164 closed P6.1a; TASK-165 is unpublished blocked evidence; TASK-166 is CLOSED and published; its first external READY bundle is Human-rejected operational evidence only; TASK-167 is the CURRENT narrow Shopee discovery blocker. A fresh P6.1b successor is NEXT only after TASK-167 Runtime PASS, semantic PASS, publication, and a new Human-reviewed READY external bundle. P6.2 remains blocked until reviewed empirical P6.1b metrics exist.**
 Scope: Python Agent product architecture post-P5; AIOS-renew remains execution substrate only.
 
 ## 1. Canonical Post-P5 Architecture Audit
@@ -107,16 +107,23 @@ P6.1 now proceeds through these ordered gates:
   It measures explicit Human-authored benchmark labels using exact Fraction arithmetic, without
   changing retrieval, query planning, RAG context, answer semantics, ranking, canonical knowledge,
   or product truth.
-- **P6.1 Live-Capture Blocker Hardening (TASK-166 — CURRENT)**:
+- **P6.1 Live-Capture Blocker Hardening (TASK-166 — CLOSED / PUBLISHED)**:
   TASK-165 remains unpublished blocked P6.1b evidence. REVIEW-165-003 F1 and the failed
   remediation/repair continuation lineage showed that mutable live marketplace interaction does not belong inside
-  deterministic AIOS engineering verification. TASK-166 adds the explicit external-root,
+  deterministic AIOS engineering verification. TASK-166 added the explicit external-root,
   checkpoint/resume capture boundary documented in
   `docs/PHASE_6_P6_1_LIVE_CAPTURE_CHECKPOINT.md`.
+- **P6.1 Shopee Search-Surface Discovery Hardening (TASK-167 — CURRENT)**:
+  TASK-166 is CLOSED and published. Its first external READY bundle proved the external capture
+  operation, but Human cohort review rejected it because exact query `chuột không dây` mapped to
+  an unrelated lantern listing. That bundle remains operational evidence only and is not P6.1b
+  benchmark truth. TASK-167 narrowly hardens the existing TASK-151/TASK-153
+  `ShopeeDiscoveryAdapter` search-surface provenance boundary; it adds no semantic relevance or
+  business-ranking authority.
 - **P6.1b Real-Evidence Benchmark Execution — NEXT, FRESH SUCCESSOR**:
-  A fresh successor may consume a reviewed READY external capture bundle only after TASK-166
-  Runtime PASS, semantic PASS, and publication. It then executes the frozen P6.1a evaluator to
-  establish empirical lexical baseline metrics.
+  A fresh successor may consume a new Human-reviewed READY external capture bundle only after
+  TASK-167 Runtime PASS, semantic PASS, and publication. It then executes the frozen P6.1a
+  evaluator to establish empirical lexical baseline metrics.
 
 ### P6.2 Conditional Semantic / Vector Retrieval or Reranking — FUTURE / BLOCKED UNTIL P6.1b EMPIRICAL EVIDENCE
 

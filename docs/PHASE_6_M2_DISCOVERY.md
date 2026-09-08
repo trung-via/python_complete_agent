@@ -72,6 +72,15 @@ class ProductDiscoveryAdapter(Protocol):
 ### 3.1 Field Availability & Extraction Boundary
 The Shopee discovery adapter inspects search result listing cards only. It never navigates into individual product detail pages during discovery.
 
+The `.shopee-search-item-result` element is a search-surface provenance boundary, not an
+individual product card. Primary extraction iterates item-level roots in first-seen DOM order.
+When those roots are unavailable, canonical `-i.` and `/product/` anchor fallback is eligible
+only beneath the detected search-result surface. Product anchors in headers, footers,
+advertising, recommendations, carousels, or other unrelated modules are not discovery
+candidates and cannot terminate bounded readiness polling. This eligibility rule concerns
+DOM search-surface provenance only: it performs no query/title semantic or lexical filtering.
+Business scoring and ranking remain separate downstream M2.3 authorities.
+
 | Field | Availability on Search Card | Snapshot Status |
 | :--- | :--- | :--- |
 | `platform` | Known | `"shopee"` |

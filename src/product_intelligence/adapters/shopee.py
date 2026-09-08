@@ -152,10 +152,13 @@ SHOPEE_CARD_EXTRACTION_SCRIPT = r"""() => {
         };
     }
 
-    // 3. Extract Listing Cards using primary container selectors
-    const cardElements = document.querySelectorAll(
-        '.shopee-search-item-result__item, [data-sqe="item"], div.col-xs-2-4, .shopee-search-item-result'
-    );
+    // 3. Detect the search-result surface separately from its item-level cards.
+    // The broad surface is a provenance boundary, never an individual product card.
+    const searchSurface = document.querySelector('.shopee-search-item-result');
+    const itemCardSelector = '.shopee-search-item-result__item, [data-sqe="item"], div.col-xs-2-4';
+    const cardElements = searchSurface
+        ? searchSurface.querySelectorAll(itemCardSelector)
+        : document.querySelectorAll(itemCardSelector);
 
     const items = [];
     cardElements.forEach(card => {
@@ -165,10 +168,11 @@ SHOPEE_CARD_EXTRACTION_SCRIPT = r"""() => {
         }
     });
 
-    // 4. Fallback: If legacy presentation-only card container selectors are absent,
-    // discover via exact product anchors using canonical Shopee product URL forms (-i. and /product/)
-    if (items.length === 0) {
-        const candidateAnchors = document.querySelectorAll('a[href*="-i."], a[href*="/product/"]');
+    // 4. Fallback: If item-level card selectors are absent beneath a detected search
+    // surface, discover only anchors inside that surface. Product links elsewhere in
+    // the document are unrelated to this search and cannot make readiness terminal.
+    if (items.length === 0 && searchSurface) {
+        const candidateAnchors = searchSurface.querySelectorAll('a[href*="-i."], a[href*="/product/"]');
         const seenHrefs = new Set();
 
         candidateAnchors.forEach(anchor => {
@@ -184,7 +188,7 @@ SHOPEE_CARD_EXTRACTION_SCRIPT = r"""() => {
             let cardContext = anchor;
             let parent = anchor.parentElement;
             let depth = 0;
-            while (parent && parent !== document.body && parent !== document.documentElement && depth < 4) {
+            while (parent && parent !== searchSurface && depth < 4) {
                 const productLinks = parent.querySelectorAll('a[href*="-i."], a[href*="/product/"]');
                 if (productLinks.length === 1) {
                     cardContext = parent;

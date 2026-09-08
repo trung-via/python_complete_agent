@@ -692,6 +692,69 @@ async def test_shopee_discovery_delayed_hydration_success(monkeypatch: pytest.Mo
 
 
 @pytest.mark.asyncio
+async def test_shopee_discovery_ignores_unrelated_product_anchor_until_search_cards_hydrate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An out-of-surface product link cannot terminate same-page readiness."""
+    from playwright.async_api import async_playwright
+
+    obs_time = datetime(2026, 8, 16, 12, 0, 0, tzinfo=timezone.utc)
+    sleep_calls: List[float] = []
+
+    async def _record_sleep(seconds: float) -> None:
+        sleep_calls.append(seconds)
+
+    monkeypatch.setattr("src.product_intelligence.adapters.shopee._readiness_sleep", _record_sleep)
+
+    async with async_playwright() as playwright:
+        browser = await playwright.chromium.launch(headless=True)
+        try:
+            dom_page = await browser.new_page()
+            await dom_page.set_content(
+                '<a href="/unrelated-lantern-i.900.901" aria-label="Lantern">Lantern</a>'
+            )
+
+            class HydratingDomSession(FakeBrowserSession):
+                async def evaluate(self, script: str) -> Any:
+                    if "scrollBy" in script:
+                        return None
+                    result = await dom_page.evaluate(script)
+                    self.call_count += 1
+                    if self.call_count == 1:
+                        await dom_page.evaluate(
+                            """() => {
+                                const surface = document.createElement('div');
+                                surface.className = 'shopee-search-item-result';
+                                surface.innerHTML = `
+                                    <div class="shopee-search-item-result__item" data-item-id="456">
+                                        <a href="/hydrated-wireless-mouse-i.123.456">
+                                            <span data-sqe="name">Hydrated Wireless Mouse</span>
+                                        </a>
+                                    </div>`;
+                                document.body.appendChild(surface);
+                            }"""
+                        )
+                    return result
+
+            session = HydratingDomSession()
+            manager = FakeBrowserManager(session=session)
+            adapter = ShopeeDiscoveryAdapter(browser=manager)
+
+            batch = await adapter.discover(
+                DiscoveryRequest(query="chuột không dây", max_pages=1),
+                observed_at=obs_time,
+            )
+
+            assert [candidate.candidate_id for candidate in batch.candidates] == ["shopee_456"]
+            assert session.call_count == 2
+            assert sleep_calls == [0.5]
+            assert manager.requested_run_ids == ["discovery_run"]
+            assert len(session.navigated_urls) == 1
+        finally:
+            await browser.close()
+
+
+@pytest.mark.asyncio
 async def test_shopee_discovery_readiness_stops_immediately_on_first_item_state(monkeypatch: pytest.MonkeyPatch) -> None:
     obs_time = datetime(2026, 8, 16, 12, 0, 0, tzinfo=timezone.utc)
     sleep_calls: List[float] = []
@@ -819,10 +882,29 @@ async def test_shopee_discovery_exact_one_navigation_and_acquisition_despite_mul
     assert batch.candidates[0].candidate_id == "shopee_999"
 
 
-def test_shopee_card_extraction_script_has_product_anchor_fallback() -> None:
+def test_shopee_card_extraction_script_has_scoped_product_anchor_fallback() -> None:
     from src.product_intelligence.adapters.shopee import SHOPEE_CARD_EXTRACTION_SCRIPT
 
-    # Script must support canonical product URL forms as fallback discovery roots
+    # The broad search-result surface is a boundary, not an individual card root.
+    assert (
+        "const searchSurface = document.querySelector('.shopee-search-item-result');"
+        in SHOPEE_CARD_EXTRACTION_SCRIPT
+    )
+    assert (
+        "const itemCardSelector = "
+        "'.shopee-search-item-result__item, [data-sqe=\"item\"], div.col-xs-2-4';"
+        in SHOPEE_CARD_EXTRACTION_SCRIPT
+    )
+    assert "div.col-xs-2-4, .shopee-search-item-result" not in SHOPEE_CARD_EXTRACTION_SCRIPT
+    # Fallback anchors are bounded beneath that surface and retain both canonical URL forms.
+    assert (
+        "searchSurface.querySelectorAll('a[href*=\"-i.\"], a[href*=\"/product/\"]')"
+        in SHOPEE_CARD_EXTRACTION_SCRIPT
+    )
+    assert (
+        "document.querySelectorAll('a[href*=\"-i.\"], a[href*=\"/product/\"]')"
+        not in SHOPEE_CARD_EXTRACTION_SCRIPT
+    )
     assert 'a[href*="-i."]' in SHOPEE_CARD_EXTRACTION_SCRIPT
     assert 'a[href*="/product/"]' in SHOPEE_CARD_EXTRACTION_SCRIPT
     assert "seenHrefs" in SHOPEE_CARD_EXTRACTION_SCRIPT
@@ -844,11 +926,15 @@ async def test_shopee_card_extraction_script_fallback_dom_execution() -> None:
         try:
             page = await browser.new_page()
 
-            # HTML without legacy presentation card classes; products are modern anchors
+            # HTML without item-level card classes; products are modern anchors bounded
+            # by the explicit search-result surface.
             html_content = """
             <!DOCTYPE html>
             <html><body>
-            <div class="main-content">
+            <header>
+                <a href="/unrelated-lantern-i.900.901" aria-label="Unrelated Lantern">Lantern ad</a>
+            </header>
+            <div class="shopee-search-item-result">
                 <div class="grid-item">
                     <a href="/ao-thun-nam-cotton-i.12345.67890" aria-label="Ao Thun Nam Cotton">
                         <img alt="Ao Thun Nam Cotton" src="thumb.jpg" />
@@ -871,6 +957,9 @@ async def test_shopee_card_extraction_script_fallback_dom_execution() -> None:
                     <a href="/help-center">Help Center</a>
                 </div>
             </div>
+            <footer>
+                <a href="/product/902/903" title="Unrelated recommendation">Recommendation</a>
+            </footer>
             </body></html>
             """
             await page.set_content(html_content)
@@ -879,7 +968,7 @@ async def test_shopee_card_extraction_script_fallback_dom_execution() -> None:
             assert result["is_blocked"] is False
             assert result["is_empty"] is False
             items = result["items"]
-            assert len(items) == 2  # Duplicate ao-thun collapsed, help-center ignored
+            assert len(items) == 2  # Duplicate collapsed; unrelated global product anchors ignored
             assert items[0]["title"] == "Ao Thun Nam Cotton"
             assert items[0]["href"] == "/ao-thun-nam-cotton-i.12345.67890"
             assert items[0]["price_text"] == "150.000"
