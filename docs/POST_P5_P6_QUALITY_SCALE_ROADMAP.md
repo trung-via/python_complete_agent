@@ -1,6 +1,6 @@
 # Post-P5 P6 Quality and Scale Roadmap
 
-Status: **P6.0 CLOSED. P6.1 CURRENT: TASK-164 closed P6.1a; TASK-165 is unpublished blocked evidence; TASK-166 is CLOSED and published; its first external READY bundle is Human-rejected operational evidence only; TASK-167 is the CURRENT narrow Shopee discovery blocker. A fresh P6.1b successor is NEXT only after TASK-167 Runtime PASS, semantic PASS, publication, and a new Human-reviewed READY external bundle. P6.2 remains blocked until reviewed empirical P6.1b metrics exist.**
+Status: **P6.0 CLOSED. P6.1 CURRENT: TASK-164 closed P6.1a; TASK-165 is unpublished blocked evidence; TASK-166 and TASK-167 are CLOSED and published. The first external READY bundle remains Human-rejected operational evidence only; the second reviewed READY bundle is the accepted P6.1b corpus source. RUN-168-001 is preserved task-design failure evidence with zero source delta, and TASK-168 revision 2 is the current P6.1b closure candidate. P6.2 remains blocked until TASK-168 Runtime PASS, semantic PASS, publication, and Brain/Human review of the measured empirical baseline.**
 Scope: Python Agent product architecture post-P5; AIOS-renew remains execution substrate only.
 
 ## 1. Canonical Post-P5 Architecture Audit
@@ -113,22 +113,27 @@ P6.1 now proceeds through these ordered gates:
   deterministic AIOS engineering verification. TASK-166 added the explicit external-root,
   checkpoint/resume capture boundary documented in
   `docs/PHASE_6_P6_1_LIVE_CAPTURE_CHECKPOINT.md`.
-- **P6.1 Shopee Search-Surface Discovery Hardening (TASK-167 — CURRENT)**:
+- **P6.1 Shopee Search-Surface Discovery Hardening (TASK-167 — CLOSED / PUBLISHED)**:
   TASK-166 is CLOSED and published. Its first external READY bundle proved the external capture
   operation, but Human cohort review rejected it because exact query `chuột không dây` mapped to
   an unrelated lantern listing. That bundle remains operational evidence only and is not P6.1b
   benchmark truth. TASK-167 narrowly hardens the existing TASK-151/TASK-153
   `ShopeeDiscoveryAdapter` search-surface provenance boundary; it adds no semantic relevance or
   business-ranking authority.
-- **P6.1b Real-Evidence Benchmark Execution — NEXT, FRESH SUCCESSOR**:
-  A fresh successor may consume a new Human-reviewed READY external capture bundle only after
-  TASK-167 Runtime PASS, semantic PASS, and publication. It then executes the frozen P6.1a
-  evaluator to establish empirical lexical baseline metrics.
+- **P6.1b Real-Evidence Benchmark Execution (TASK-168 revision 2 — CURRENT CLOSURE CANDIDATE)**:
+  The second reviewed READY bundle is the accepted corpus source. RUN-168-001 remains canonical
+  task-design failure evidence with zero source delta: revision 1 wrongly required each
+  `SAME_PRODUCT_FAMILY` pair to qualify as one full-member exact variant. Revision 2 preserves
+  one two-member family per cohort while representing each canonical member as an explicit
+  singleton benchmark variant without claiming sibling real-world difference or changing TASK-116.
+  The frozen TASK-164 evaluator records the measured empirical baseline in
+  `docs/PHASE_6_P6_1_REAL_EVIDENCE_BASELINE.md`.
 
 ### P6.2 Conditional Semantic / Vector Retrieval or Reranking — FUTURE / BLOCKED UNTIL P6.1b EMPIRICAL EVIDENCE
 
 Introduce semantic retrieval (e.g., embeddings, vector index, ANN, semantic reranking) **only if**
-the measured P6.1b evaluation evidence justifies it. Blocked until reviewed empirical P6.1b evidence exists.
+the measured P6.1b evaluation evidence justifies it. Blocked until TASK-168 Runtime PASS,
+semantic PASS, publication, and Brain/Human review of the measured empirical baseline.
 
 - Any semantic index must remain a derivative, disposable secondary index; it must never become
   the canonical store of product knowledge or supersede SQLite durability (TASK-120).

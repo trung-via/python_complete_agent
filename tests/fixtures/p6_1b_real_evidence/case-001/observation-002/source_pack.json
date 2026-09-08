@@ -1,0 +1,76 @@
+{
+  "brand": null,
+  "collector": "shopee_source_v1",
+  "description_text": "Giữ nóng lạnh lâu – An tâm sử dụng cả ngày! 🌡️\nBình nước giữ nhiệt inox 304 nổi bật với khả năng giữ nhiệt hiệu quả, giúp nước luôn nóng hoặc lạnh trong thời gian dài. Chất liệu inox 304 an toàn, bền bỉ, không gỉ sét, đảm bảo sức khỏe cho người dùng. Thiết kế nhỏ gọn, dễ dàng mang theo khi đi học, đi làm hoặc du lịch.\n\nLựa chọn đa dạng – Phù hợp mọi nhu cầu 🎉\nSản phẩm có nhiều dung tích để bạn chọn: 600ml, 800ml, 1000ml và 1500ml. Ngoài ra, bạn có thể chọn màu bạc hoặc đen, với phiên bản có hoặc không đèn LED tiện lợi.\n\nTiện ích vượt trội – Sử dụng linh hoạt mọi lúc mọi nơi 🚶‍♂️\n- Nắp vặn chắc chắn, chống tràn hiệu quả.\n- Đế chống trượt giúp đặt bình chắc chắn trên mọi bề mặt.\n- Dễ dàng vệ sinh, phù hợp sử dụng hàng ngày.\n- Nhiều lựa chọn dung tích và màu sắc, đáp ứng mọi nhu cầu sử dụng.\n\nBình nước giữ nhiệt inox 304 – Sự lựa chọn hoàn hảo cho cuộc sống năng động của bạn!",
+  "diagnostic_codes": [
+    "UNSUPPORTED_CONTENT_TYPE: image/jpg for https://down-vn.img.susercontent.com/file/vn-11110105-7ras8-m291g3kgh4uf3d"
+  ],
+  "facts": [],
+  "media": [
+    {
+      "alt_text": null,
+      "byte_size": 202298,
+      "content_type": "image/jpeg",
+      "local_filename": "orig_000_73bcc7d1ca67.jpg",
+      "ordinal": 0,
+      "perceptual_hash": null,
+      "platform": "shopee",
+      "provenance": "STRUCTURED_PRODUCT_DATA",
+      "role": "PRIMARY",
+      "sha256_hash": "73bcc7d1ca6700728e65a5f5e83b645bc5580d9328883ca10e2aff464ccab287",
+      "source_url": "https://down-vn.img.susercontent.com/file/vn-11134207-7r98o-ll2zymz24ul9d2",
+      "variant_label": null
+    },
+    {
+      "alt_text": null,
+      "byte_size": 190111,
+      "content_type": "image/jpeg",
+      "local_filename": "orig_002_33c0eeb8c2da.jpg",
+      "ordinal": 2,
+      "perceptual_hash": null,
+      "platform": "shopee",
+      "provenance": "SEMANTIC_PRODUCT_GALLERY",
+      "role": "GALLERY",
+      "sha256_hash": "33c0eeb8c2dad2e7fc02ac9dd97b2affe2f1ab2d1ce2c3287988cbd4bd2c1db4",
+      "source_url": "https://down-vn.img.susercontent.com/file/vn-11134207-7r98o-lp3587pwafymf3",
+      "variant_label": null
+    },
+    {
+      "alt_text": null,
+      "byte_size": 930127,
+      "content_type": "image/jpeg",
+      "local_filename": "orig_003_8a59ede872f2.jpg",
+      "ordinal": 3,
+      "perceptual_hash": null,
+      "platform": "shopee",
+      "provenance": "SEMANTIC_PRODUCT_GALLERY",
+      "role": "GALLERY",
+      "sha256_hash": "8a59ede872f218781b8c197986bf6bfd7d3efe33b193c9a2c411ab5059d74e28",
+      "source_url": "https://down-vn.img.susercontent.com/file/vn-11134207-820l4-miabvyhoa13a32",
+      "variant_label": null
+    },
+    {
+      "alt_text": null,
+      "byte_size": 39785,
+      "content_type": "image/jpeg",
+      "local_filename": "orig_004_bc80f6dd10e6.jpg",
+      "ordinal": 4,
+      "perceptual_hash": null,
+      "platform": "shopee",
+      "provenance": "SEMANTIC_PRODUCT_GALLERY",
+      "role": "GALLERY",
+      "sha256_hash": "bc80f6dd10e69b29771b47ecff1ca3aefc6674565d6abb7488ec3cffb53dc7e8",
+      "source_url": "https://down-vn.img.susercontent.com/file/sg-11134201-7rdvr-mcq28e7jowu453",
+      "variant_label": null
+    }
+  ],
+  "model_sku": null,
+  "observed_at": "2026-09-08T12:32:18.669114+00:00",
+  "platform": "shopee",
+  "product_url": "https://shopee.vn/Bình-nước-giữ-nhiệt-600-1500ML-đa-năng-inox-304-có-dây-treo-ngăn-lọc-trà-i.225363282.22423833715?extraParams=%7B%22display_model_id%22%3A165826856928%2C%22model_selection_logic%22%3A3%7D&rModelId=165826856928&vItemId=51859953499&vModelId=370878837835&vShopId=1506174776",
+  "schema_version": "1.0",
+  "shop_name": null,
+  "source_pack_id": "shopee_22423833715",
+  "source_product_id": "22423833715",
+  "title": "Bình nước giữ nhiệt 600-1500ML đa năng inox 304 có dây treo, ngăn lọc trà"
+}

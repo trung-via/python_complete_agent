@@ -1,0 +1,76 @@
+{
+  "brand": null,
+  "collector": "shopee_source_v1",
+  "description_text": "Điểm nổi bật không thể bỏ qua 🎮\n- Bàn phím cơ gaming K550 V4 sở hữu hiệu ứng LED Rainbow đa sắc, mang đến trải nghiệm ánh sáng sống động và cá tính cho mọi góc làm việc hoặc chơi game.\n- Thiết kế TKL nhỏ gọn, chỉ 87 phím, giúp tiết kiệm không gian và dễ dàng di chuyển mọi nơi.\n- Tương thích với nhiều hệ điều hành phổ biến như Windows, Mac OS, cực kỳ tiện lợi cho mọi người dùng.\n\nCác phiên bản đa dạng cho bạn lựa chọn 🌈\n- Sản phẩm có nhiều màu sắc và phiên bản switch khác nhau như:\n + Đen - Red V4\n + Đen Trắng - Red V4\n + Trắng - Red V4\n + K660 Đen\n + K610 Cam xám red\n + K710 Xanh\n + K870 Xanh-Blue\n + K990 Đen - Blue Switch\n + Trắng đen - Red V4\n + Trắng đen V2 plus\n + K550 Trắng đen v2 PL\n\nThông tin hữu ích dành cho bạn 💡\n- Bàn phím hỗ trợ hot-swap, dễ dàng thay đổi switch theo ý thích.\n- Chống nước và bụi, bảo vệ thiết bị an toàn hơn khi sử dụng.\n- Phím Double Short giúp tháo lắp, vệ sinh và trang trí dễ dàng.\n- Mặt phím Laser khắc chống phai màu, đảm bảo độ bền lâu dài.\n- Kích thước nhỏ gọn, trọng lượng nhẹ, thuận tiện mang theo khi di chuyển.\n\nLựa chọn hoàn hảo cho game thủ và dân văn phòng muốn nâng cấp trải nghiệm gõ phím với sự sáng tạo và cá tính riêng!",
+  "diagnostic_codes": [
+    "UNSUPPORTED_CONTENT_TYPE: image/jpg for https://down-vn.img.susercontent.com/file/vn-11110105-7r98o-lv89zh8eyfpd9b"
+  ],
+  "facts": [],
+  "media": [
+    {
+      "alt_text": null,
+      "byte_size": 651444,
+      "content_type": "image/png",
+      "local_filename": "orig_000_c9e6e2a2d726.png",
+      "ordinal": 0,
+      "perceptual_hash": null,
+      "platform": "shopee",
+      "provenance": "STRUCTURED_PRODUCT_DATA",
+      "role": "PRIMARY",
+      "sha256_hash": "c9e6e2a2d726d7ce17c4b63b573af61a17f1f6c24427ce8d8ec4f714cdab4855",
+      "source_url": "https://down-vn.img.susercontent.com/file/sg-11134253-8262u-mm6hu694jg27c2",
+      "variant_label": null
+    },
+    {
+      "alt_text": null,
+      "byte_size": 663390,
+      "content_type": "image/png",
+      "local_filename": "orig_002_c81ae569efe2.png",
+      "ordinal": 2,
+      "perceptual_hash": null,
+      "platform": "shopee",
+      "provenance": "SEMANTIC_PRODUCT_GALLERY",
+      "role": "GALLERY",
+      "sha256_hash": "c81ae569efe2d6e65d00e239f27bedddd3879ffec3ea8814c92b3cc08769d64f",
+      "source_url": "https://down-vn.img.susercontent.com/file/sg-11134253-8260k-mm6f6sv1woaoa4",
+      "variant_label": null
+    },
+    {
+      "alt_text": null,
+      "byte_size": 166897,
+      "content_type": "image/jpeg",
+      "local_filename": "orig_003_2a3566e6db45.jpg",
+      "ordinal": 3,
+      "perceptual_hash": null,
+      "platform": "shopee",
+      "provenance": "SEMANTIC_PRODUCT_GALLERY",
+      "role": "GALLERY",
+      "sha256_hash": "2a3566e6db452ffd44e97418c139787ade7ea305d59400d361857449b0c1c94f",
+      "source_url": "https://down-vn.img.susercontent.com/file/37984c3359fcb15106197b72838c9040",
+      "variant_label": null
+    },
+    {
+      "alt_text": null,
+      "byte_size": 155728,
+      "content_type": "image/jpeg",
+      "local_filename": "orig_004_7895064641ff.jpg",
+      "ordinal": 4,
+      "perceptual_hash": null,
+      "platform": "shopee",
+      "provenance": "SEMANTIC_PRODUCT_GALLERY",
+      "role": "GALLERY",
+      "sha256_hash": "7895064641ff60dd217ce385c16ddec717a328515b259cab23e8b77add30d0a6",
+      "source_url": "https://down-vn.img.susercontent.com/file/3f9e8566ed468a104bcf81c7bd578d81",
+      "variant_label": null
+    }
+  ],
+  "model_sku": null,
+  "observed_at": "2026-09-08T12:32:39.108013+00:00",
+  "platform": "shopee",
+  "product_url": "https://shopee.vn/Bàn-Phím-Cơ-Gaming-K550-V4-LED-Rainbow-Đa-Sắc-Sáng-Đèn-i.131085332.10476729197?extraParams=%7B%22display_model_id%22%3A215528016762%2C%22model_selection_logic%22%3A3%7D&rModelId=215528016762&vItemId=41429457610&vModelId=365677653912&vShopId=1506174776",
+  "schema_version": "1.0",
+  "shop_name": null,
+  "source_pack_id": "shopee_10476729197",
+  "source_product_id": "10476729197",
+  "title": "Bàn Phím Cơ Gaming K550 V4 LED Rainbow Đa Sắc Sáng Đèn"
+}

@@ -1,12 +1,13 @@
 # Post-M4 Product Intelligence Roadmap — Live Product Enablement
 
 Status: canonical post-M4 architecture roadmap; P1-P5 and P6.0 CLOSED. P6.1 is
-CURRENT: TASK-165 is unpublished blocked evidence; TASK-166 is CLOSED and published,
-and its first external READY bundle is Human-rejected operational evidence only.
-TASK-167 is the CURRENT narrow Shopee discovery blocker. A fresh P6.1b successor is
-NEXT only after TASK-167 Runtime PASS, semantic PASS, publication, and a new
-Human-reviewed READY external bundle. P6.2 remains blocked until reviewed empirical
-P6.1b metrics exist.
+CURRENT: TASK-165 is unpublished blocked evidence; TASK-166 and TASK-167 are CLOSED
+and published. The first external READY bundle remains Human-rejected operational
+evidence only; the second reviewed READY bundle is the accepted P6.1b corpus source.
+RUN-168-001 is preserved task-design failure evidence with zero source delta, and
+TASK-168 revision 2 is the current P6.1b closure candidate. P6.2 remains blocked
+until TASK-168 Runtime PASS, semantic PASS, publication, and Brain/Human review of
+the measured empirical baseline.
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
 ## 1. Starting point
@@ -234,19 +235,25 @@ P6.1 now proceeds through these ordered gates:
   live marketplace interaction inside AIOS engineering verification is the wrong operational
   boundary. TASK-166 provided explicit external-root checkpoint/resume capture; CAPTCHA remains
   Human-owned.
-- **P6.1 Shopee Search-Surface Discovery Hardening (TASK-167 — CURRENT)**: The first external
+- **P6.1 Shopee Search-Surface Discovery Hardening (TASK-167 — CLOSED / PUBLISHED)**: The first external
   TASK-166 READY bundle was operationally successful but Human-rejected because exact query
   `chuột không dây` mapped to an unrelated lantern listing. It remains operational evidence only,
   not P6.1b benchmark truth. TASK-167 narrowly hardens the existing TASK-151/TASK-153
   `ShopeeDiscoveryAdapter` search-surface provenance boundary without adding semantic relevance
   filtering or changing downstream business ranking.
-- **P6.1b Real-Evidence Benchmark Execution — NEXT, FRESH SUCCESSOR**: May consume one reviewed
-  new READY external bundle only after TASK-167 Runtime PASS, semantic PASS, publication, and
-  Human cohort review, then executes the frozen P6.1a evaluator against that reviewed evidence.
+- **P6.1b Real-Evidence Benchmark Execution (TASK-168 revision 2 — CURRENT CLOSURE CANDIDATE)**:
+  The second reviewed READY bundle is the accepted corpus source. RUN-168-001 remains canonical
+  task-design failure evidence with zero source delta: revision 1 wrongly required each
+  `SAME_PRODUCT_FAMILY` pair to qualify as one full-member exact variant. Revision 2 preserves
+  one two-member family per cohort and admits each canonical member as an explicit singleton
+  benchmark variant, without claiming sibling real-world difference or changing TASK-116.
+  Exact measured baseline values are documented in
+  `docs/PHASE_6_P6_1_REAL_EVIDENCE_BASELINE.md`.
 
 #### P6.2 Conditional Semantic / Vector Retrieval or Reranking — FUTURE / BLOCKED UNTIL P6.1b EMPIRICAL EVIDENCE
 Introduce semantic/vector retrieval or reranking only if measured P6.1b empirical evidence justifies it.
-Blocked until reviewed empirical P6.1b evidence exists. Preserves SQLite catalog as the canonical store;
+Blocked until TASK-168 Runtime PASS, semantic PASS, publication, and Brain/Human review of the
+measured empirical baseline. Preserves SQLite catalog as the canonical store;
 vector indexes remain secondary and disposable.
 
 #### P6.3 Product-Truth Reconciliation — UNIMPLEMENTED / FUTURE
@@ -281,10 +288,12 @@ RUN-156-009 remains historical failed P6.0b evidence after discovery succeeded a
 failed with `LIVE_P6B_ACQUISITION_EXTRACTION`. Published TASK-162 is the narrow Shopee
 product-page readiness blocker correction. Published TASK-163 closed P6.0b and P6.0 after
 canonical Runtime verification and ChatGPT PRIMARY semantic review both passed. P6.1 is
-CURRENT (TASK-167 narrow Shopee discovery blocker hardening; fresh P6.1b successor NEXT only after
-TASK-167 Runtime PASS, semantic PASS, publication, and one new Human-reviewed READY external bundle).
-TASK-166 is CLOSED and published; its first external READY bundle is Human-rejected operational
-evidence only. TASK-165 remains unpublished blocked evidence from
+CURRENT: TASK-166 and TASK-167 are CLOSED and published; the first external READY bundle remains
+Human-rejected operational evidence, the second reviewed READY bundle is the accepted corpus source,
+and TASK-168 revision 2 is the current P6.1b closure candidate after RUN-168-001 preserved the
+revision-1 task-design failure with zero source delta. P6.2 remains blocked until TASK-168 Runtime
+PASS, semantic PASS, publication, and Brain/Human review of the measured empirical baseline.
+TASK-165 remains unpublished blocked evidence from
 REVIEW-165-003 F1 and its failed remediation/repair continuation lineage.
 
 ## 4. Authority invariants
