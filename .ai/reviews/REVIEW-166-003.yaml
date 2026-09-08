@@ -1,0 +1,18 @@
+review_id: REVIEW-166-003
+reviewed_sha: 492a0714d96d02676879015ff9c5245898f1c725
+mode: DELTA
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC5: PASS
+  AC8: PASS
+  AC9: FAIL
+findings:
+  - id: F1R1
+    basis: AC9
+    action: CODE_FIX
+    location: tests/product_intelligence/test_live_capture.py
+    issue: >
+      The F1 production/error-boundary correction is substantively in place: filesystem failures are now bounded behind LiveCaptureError, initialized failures preserve FAILED state where safely possible, and capture CLI output is covered against job-root/CDP/product/source-pack leakage. However, the required deterministic offline proof for symlink/path-escape rejection is still not established on the canonical verification host. The new symlink regression calls os.symlink(...) and executes pytest.skip(...) when Windows cannot create a symlink; RUN-166-003 therefore completed with 181 passed and 1 skipped. TASK-166 and REVIEW-166-002/F1 explicitly require deterministic offline regressions proving symlink/path escape rejection, so a platform-dependent skipped test does not close that acceptance boundary even though the implementation itself appears correct.
+    expected: >
+      Replace the platform-dependent symlink regression with a deterministic cross-platform offline proof that cannot skip on the canonical Windows host. Exercise the same resolved-path escape boundary used by production (for example via a controlled fake/mocked resolved target or another repository-safe deterministic mechanism) and prove an in-root lexical manifest reference that resolves outside the job root is rejected as LiveCaptureError without browser/tool work or path leakage. Keep the existing lexical '..' escape regression and all F1 filesystem/error-boundary tests unchanged and green. Do not modify production live_capture.py unless the deterministic regression exposes a real product defect.
+prior_finding_id: F1
