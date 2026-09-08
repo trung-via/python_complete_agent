@@ -1,0 +1,32 @@
+review_id: REVIEW-172-001
+reviewed_sha: 48e6f001a8cdf24fd43495968250fbe56e2fe4de
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: PASS
+  AC3: FAIL
+  AC4: FAIL
+  AC5: PASS
+  AC6: PASS
+  AC7: PASS
+  AC8: FAIL
+  AC9: PASS
+  AC10: PASS
+findings:
+  - id: F1
+    basis: AC4
+    action: CODE_FIX
+    location: src/product_source/platforms/shopee.py; tests/product_source/test_extractor_dom_fixtures.py; tests/product_source/test_shopee_source_extractor.py
+    issue: >
+      TASK-172 requires selected-variant ProductFact values to embed the exact observed group and option strings without trimming or normalization. The Shopee DOM extractor currently calls .trim() when reading aria/data group labels, fallback group text, and selected option labels, then stores those trimmed values in result.selected_variants. The Python layer therefore cannot recover the original observed strings and emits normalized-by-trimming ProductFact values. Existing tests use labels without leading/trailing whitespace, so Runtime verification does not detect this semantic loss.
+    expected: >
+      Preserve the raw observed group and selected-option strings byte/text-for-text in selected_variants and in the resulting ProductFact value. Trimming/strip may be used only on a temporary value to test whether a label is nonblank; it must not replace the retained observation. Add focused DOM and ProductSourcePack regressions using leading/trailing whitespace (including an attribute-backed label and a rendered-text label) proving the embedded strings remain exact while blank-only labels still fail closed. Do not change ProductFact schema, TASK-108 semantics, readiness, media, or any other authority.
+  - id: F2
+    basis: AC3
+    action: CODE_FIX
+    location: src/product_source/platforms/shopee.py; tests/product_source/test_extractor_dom_fixtures.py
+    issue: >
+      The all-or-nothing completeness gate can accept only a subset of rendered variation groups. When any explicit variation-group container is found, groupElements is set only to those explicit containers, but the implementation never verifies that every discovered topOptionEl belongs to exactly one accepted group. Therefore a briefing containing one valid explicit group plus another option cluster that does not match an explicit group selector can mark selected_variants_complete=true using only the explicit group, emitting partial variant evidence contrary to the TASK-172 fail-closed requirement. Existing DOM regressions cover zero/multiple selection and duplicate labels inside enumerated groups but do not cover mixed explicit/uncovered option groups.
+    expected: >
+      Before selected_variants_complete can become true, prove complete group coverage for every candidate option control discovered inside the positive product scope: every topOptionEl must belong to exactly one deterministically accepted variation group, with no uncovered or ambiguously covered options. If complete group distinction cannot be proven, emit selected_variants=[] and selected_variants_complete=false. Add a focused mixed-layout regression with one valid explicit group and one otherwise plausible uncovered/implicit option cluster proving the whole selected state fails closed. Preserve deterministic DOM group order, explicit-selection semantics, one navigation/readiness behavior, and all existing media/exclusion boundaries.
