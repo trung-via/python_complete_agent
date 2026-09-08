@@ -5,11 +5,11 @@ CURRENT: TASK-165 is unpublished blocked evidence; TASK-166 and TASK-167 are CLO
 and published. The first external READY bundle remains Human-rejected operational
 evidence only; the second reviewed READY bundle is the accepted P6.1b corpus source.
 RUN-168-001 is preserved task-design failure evidence with zero source delta. TASK-168
-revision 2 and P6.1b are CLOSED / PUBLISHED. TASK-169 revision 1 is preserved as
-unexecuted superseded authoring history; P6.1c is CURRENT with TASK-169 revision 2
-as its retrieval-stress closure candidate. P6.2 is GATED / DECISION PENDING until
-TASK-169 Runtime PASS, semantic PASS, publication, and separate Brain/Human review
-of the measured stress evidence. P6.3-P6.6 remain deferred.
+revision 2 / P6.1b and TASK-169 revision 2 / P6.1c are CLOSED / PUBLISHED.
+TASK-169 revision 1 remains unexecuted superseded authoring history. P6.1d is
+CURRENT with TASK-170 as its planner-assisted closure candidate. P6.2 is GATED /
+DECISION PENDING until TASK-170 Runtime PASS, semantic PASS, publication, and
+separate Brain/Human review of measured P6.1c plus P6.1d evidence. P6.3-P6.6 remain deferred.
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
 ## 1. Starting point
@@ -252,18 +252,27 @@ P6.1 now proceeds through these ordered gates:
   Exact measured baseline values are documented in
   `docs/PHASE_6_P6_1_REAL_EVIDENCE_BASELINE.md`. TASK-168 is published at
   candidate `0e6626a53c10609a1a7b282d7ca49af33e4d5573`; P6.1b is CLOSED.
-- **P6.1c Retrieval Stress Benchmark (TASK-169 revision 2 — CURRENT CLOSURE CANDIDATE)**:
+- **P6.1c Retrieval Stress Benchmark (TASK-169 revision 2 — CLOSED / PUBLISHED)**:
   Reuses the immutable published TASK-168 corpus in place and submits six fixed
   Human-authored paraphrase/attribute cases to TASK-164 exactly once with
   `limit=3`. The exact measured lexical snapshot is 2 TP, 0 FP, 10 FN, micro
   precision 1/1, and micro recall 1/6. It sets no threshold and makes no automatic
-  roadmap decision. TASK-169 revision 1, which proposed opening P6.3, was never
-  executed and remains superseded authoring history only.
+  roadmap decision. TASK-169 is published at candidate
+  `52d539aa1a2b880f488987cb07c46ea9347dcdcc`; P6.1c is CLOSED. TASK-169 revision
+  1, which proposed opening P6.3, was never executed and remains superseded
+  authoring history only.
+- **P6.1d Planner-Assisted Retrieval Stress Benchmark (TASK-170 — CURRENT CLOSURE CANDIDATE)**:
+  Replays the exact six published TASK-169 stress intents once each through TASK-134,
+  then evaluates all six planned queries in one TASK-164 call at `limit=3` over the
+  immutable TASK-168 corpus. The measured snapshot is 12 TP, 0 FP, 0 FN, and micro
+  precision and recall of 1/1. This measures the existing TASK-134 -> TASK-122
+  composition without claiming semantic understanding or making an automatic
+  architecture decision.
 
 #### P6.2 Conditional Semantic / Vector Retrieval or Reranking — GATED / DECISION PENDING
 Introduce semantic/vector retrieval or reranking only if separate Brain/Human interpretation of
-the published P6.1b and P6.1c evidence justifies it. The decision remains gated until TASK-169
-Runtime PASS, semantic PASS, publication, and review of the exact measured stress snapshot. No
+the published P6.1b, P6.1c, and P6.1d evidence justifies it. The decision remains gated until TASK-170
+Runtime PASS, semantic PASS, publication, and separate Brain/Human review of the measured P6.1c plus P6.1d snapshots. No
 metric threshold automatically opens P6.2 or declares lexical retrieval sufficient. SQLite remains
 the canonical store; any future vector index would remain secondary and disposable.
 
@@ -303,9 +312,11 @@ CURRENT: TASK-166 and TASK-167 are CLOSED and published; the first external READ
 Human-rejected operational evidence, the second reviewed READY bundle is the accepted corpus source,
 TASK-168 revision 2 and P6.1b are CLOSED / PUBLISHED after RUN-168-001 preserved the
 revision-1 task-design failure with zero source delta. TASK-169 revision 1 is unexecuted
-superseded authoring history, while TASK-169 revision 2 is the current P6.1c stress-baseline
-closure candidate. P6.2 remains GATED / DECISION PENDING until TASK-169 Runtime PASS,
-semantic PASS, publication, and separate Brain/Human review of the measured stress evidence.
+superseded authoring history, while TASK-169 revision 2 and P6.1c are CLOSED / PUBLISHED
+at candidate `52d539aa1a2b880f488987cb07c46ea9347dcdcc`. P6.1d is CURRENT with TASK-170
+as its planner-assisted closure candidate. P6.2 remains GATED / DECISION PENDING until
+TASK-170 Runtime PASS, semantic PASS, publication, and separate Brain/Human review of
+the measured P6.1c plus P6.1d evidence.
 TASK-165 remains unpublished blocked evidence from
 REVIEW-165-003 F1 and its failed remediation/repair continuation lineage.
 

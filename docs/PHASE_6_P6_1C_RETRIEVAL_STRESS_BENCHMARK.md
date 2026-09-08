@@ -1,8 +1,8 @@
 # P6.1c Retrieval Stress Benchmark
 
-Status: TASK-169 revision 2 implementation candidate. Runtime verification,
-semantic review, publication, and Brain/Human interpretation remain downstream
-gates.
+Status: TASK-169 revision 2 is CLOSED / PUBLISHED at candidate
+`52d539aa1a2b880f488987cb07c46ea9347dcdcc`; P6.1c is CLOSED. Brain/Human
+interpretation remains a downstream gate.
 
 ## Published source and fixed Human cases
 
@@ -69,8 +69,10 @@ product truth. TASK-122 remains the sole lexical retrieval authority and
 TASK-164 the sole quality evaluator.
 
 There is no score threshold, automatic pass/fail quality gate, or automatic
-roadmap decision. P6.2 remains GATED / DECISION PENDING until TASK-169 receives
-Runtime PASS, ChatGPT semantic PASS, and publication, followed by separate
-Brain/Human review of this measured evidence. Neither weak results nor strong
-results automatically authorize semantic/vector retrieval or declare lexical
-retrieval sufficient. P6.3-P6.6 remain deferred.
+roadmap decision. TASK-169 has received Runtime PASS and ChatGPT semantic PASS
+and is published, closing P6.1c. P6.2 remains GATED / DECISION PENDING while
+TASK-170 measures planner-assisted retrieval and awaits Runtime PASS, semantic
+PASS, publication, and separate Brain/Human review of the P6.1c plus P6.1d
+evidence. Neither weak results nor strong results automatically authorize
+semantic/vector retrieval or declare lexical retrieval sufficient. P6.3-P6.6
+remain deferred.
