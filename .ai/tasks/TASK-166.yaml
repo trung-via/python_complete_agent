@@ -1,64 +1,60 @@
 task_id: TASK-166
-revision: 1
+revision: 2
 
 goal: >
   Remove the live-marketplace bottleneck exposed while implementing P6.1b by adding one
   repository-owned, resumable Shopee live-capture composition boundary above the existing
   TASK-137 CDP browser lifecycle, TASK-146 discovery/ranking path, and ShopeeScrapeTool.
-  A detected Shopee CAPTCHA/challenge must become an explicit CHALLENGE_REQUIRED checkpoint
+  A detected Shopee CAPTCHA/challenge becomes an explicit CHALLENGE_REQUIRED checkpoint
   that preserves completed capture progress outside the repository and can be resumed by the
   Human after solving the challenge in the operator-owned Chrome session, instead of turning
   the surrounding AIOS engineering RUN into a live-interaction failure. TASK-166 must not
   automate login, solve or bypass CAPTCHA, create a second browser/discovery/scraper authority,
-  or perform any live marketplace work during its own verification.
+  or perform live marketplace work during its own Runtime verification.
 
 problem: >
   TASK-165 attempted to curate three real Shopee benchmark cohorts from inside one AIOS
-  engineering lineage. Its review exposed invalid fixture provenance, and subsequent F1 / REPAIR
-  continuations repeatedly depended on live discovery/acquisition while the Human observed that
-  Shopee could log out or present a new CAPTCHA even when Chrome 9222 was already open and a prior
-  challenge had been solved. RUN-165-004 and RUN-165-005 then terminated during Antigravity
-  execution before Runtime verification, while their failed candidates still did not establish
-  acceptable six-observation provenance. The architecture currently treats Shopee block/CAPTCHA
-  as terminal failure inside both discovery and source extraction, and TASK-137 only owns CDP
-  attachment/lifecycle; there is no repository-owned operational state that can checkpoint one
-  partially completed live capture, let the Human solve the marketplace challenge, and resume the
-  exact unfinished step without rerunning the surrounding AIOS TASK. This makes mutable browser
-  session state and marketplace anti-bot challenges an accidental engineering-run authority and
-  blocks reliable P6.1b evidence curation.
+  engineering lineage. Semantic review exposed invalid fixture provenance. Subsequent F1 /
+  REPAIR continuations still depended on live discovery/acquisition while the Human observed
+  that Shopee could log out or present a new CAPTCHA even when Chrome 9222 was already open and
+  a prior challenge had been solved. RUN-165-004 and RUN-165-005 then terminated during
+  Antigravity execution before Runtime verification, while their failed candidates still did
+  not establish acceptable six-observation provenance. Current discovery and extraction
+  authorities correctly treat CAPTCHA as fail-closed, and TASK-137 owns only CDP lifecycle;
+  no repository-owned operational state can checkpoint a partially completed live capture,
+  allow Human challenge resolution, and resume only the unfinished step. Mutable marketplace
+  session state therefore became an accidental engineering-run dependency and blocks reliable
+  P6.1b evidence curation.
 
 assumptions:
   - >
-    Canonical python_complete_agent main immediately before TASK-166 authoring is
+    Canonical python_complete_agent main immediately before TASK-166 revision 1 authoring was
     be34cdfe2410dbd09753875b8326c6bc16598645, the TASK-165 authoring commit on top of published
-    TASK-164 candidate ab80a746329cafa7f3cd316fb140c392644f3267. TASK-165 remains unpublished
-    and blocked; its current review finding F1 plus failed remediation/repair lineage are preserved
-    as evidence and must not be rerun or published by TASK-166.
+    TASK-164 candidate ab80a746329cafa7f3cd316fb140c392644f3267. Revision 2 reconciles the
+    TASK-166 contract before any TASK-166 RUN. TASK-165 remains unpublished and blocked; its
+    REVIEW-165-003 F1 and failed remediation/repair lineage remain preserved evidence.
   - >
     The authoritative AIOS dependency remains exactly
     aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@32ace104c5cfaa1b7affbaa40157872b1f85147f.
   - >
     TASK-137 PlaywrightBrowserManager / PlaywrightBrowserSession remain the sole CDP connection,
-    browser/session lifecycle, borrowed-resource ownership, and page-selection authority. TASK-166
-    consumes that existing manager and must not modify or duplicate it.
+    browser/session lifecycle, borrowed-resource ownership, and page-selection authority.
   - >
-    TASK-146 / M2 remain the sole discovery/orchestration/ranking authority. ShopeeDiscoveryAdapter
-    remains the sole Shopee search-surface implementation. TASK-151 readiness/block handling remains
-    inside that adapter and explicit DiscoveryBlockedError remains the canonical discovery challenge
-    signal.
+    TASK-146 / M2 remain the sole discovery/orchestration/ranking authority. TASK-151 remains
+    Shopee discovery same-page readiness/block authority and DiscoveryBlockedError is the
+    canonical discovery challenge signal.
   - >
-    ShopeeScrapeTool and ShopeeSourceExtractor remain the sole deep-acquisition/extraction path.
-    TASK-162 readiness/block handling remains inside ShopeeSourceExtractor, and ShopeeScrapeTool's
-    existing ToolResult error code EXTRACTION_BLOCKED remains the canonical acquisition challenge
-    signal. ProductSourcePack serialization remains unchanged.
+    ShopeeScrapeTool and ShopeeSourceExtractor remain the deep-acquisition/extraction path.
+    TASK-162 remains Shopee product-page readiness/block authority and existing ToolResult error
+    code EXTRACTION_BLOCKED is the canonical acquisition challenge signal.
   - >
     The Product Intelligence CLI remains the single Human-facing Python Agent command surface.
     TASK-166 may extend that same CLI with one capture operation but may not create another CLI,
     service, daemon, scheduler, browser worker, or background process authority.
   - >
-    P6.1a TASK-164 evaluator remains frozen. P6.1b is still blocked until real evidence can be
-    captured reproducibly. TASK-166 is a blocker-hardening task only; it does not itself complete
-    TASK-165, create benchmark labels, compute retrieval metrics, or authorize P6.2.
+    TASK-164 remains frozen P6.1a evaluation authority. TASK-166 is a blocker-hardening task;
+    it does not complete P6.1b, create benchmark labels, compute retrieval metrics, or authorize
+    P6.2.
 
 scope:
   inspect:
@@ -99,224 +95,200 @@ scope:
 
 non_goals:
   - Modify PlaywrightBrowserManager, PlaywrightBrowserSession, BrowserSession, BrowserConfig,
-    CDP endpoint selection, context/page ownership, page creation, reconnect/restart, browser pool,
-    profile handling, cookie APIs, or TASK-137 semantics.
-  - Modify Shopee/TikTok discovery adapters, DiscoveryRequest, DiscoveryBatch, orchestration,
-    CandidateRanker, WinningProductScorer, scoring policy, shortlist ordering, search URL behavior,
-    same-page readiness, CAPTCHA detection, or TASK-146/TASK-151 semantics.
-  - Modify ShopeeScrapeTool, ShopeeSourceExtractor, ProductSourcePack model/serialization,
-    media download/provenance, Google Drive production behavior, extraction readiness, block
-    detection, or TASK-162 semantics.
-  - Automate login, solve or bypass CAPTCHA, inject CAPTCHA tokens, use stealth, proxy rotation,
-    fingerprint spoofing, anti-bot circumvention, alternate HTTP/API scraping, retry loops,
-    browser restart, alternate marketplace, alternate query, or rerouting.
-  - Keep an AIOS executor process blocked waiting for Human interaction, add unbounded sleeps,
-    poll indefinitely for challenge completion, or make Runtime verification depend on live
-    Shopee/CDP/browser state.
-  - Commit capture outputs, downloaded media, source_pack.json, checkpoint files, cookies,
-    credentials, raw HTML, screenshots, browser profiles, local absolute paths, or runtime logs to
-    the repository as part of TASK-166.
-  - Complete TASK-165, repair its fixtures, compute P6.1b metrics, change TASK-164 evaluator,
+    CDP attachment/page ownership/page creation/reconnect/restart/profile/cookie semantics, or
+    create a second browser authority.
+  - Modify Shopee/TikTok discovery adapters, DiscoveryRequest/DiscoveryBatch, orchestration,
+    ranking/scoring, shortlist order, selectors, readiness, block detection, or create a second
+    discovery/ranking authority.
+  - Modify ShopeeScrapeTool, ShopeeSourceExtractor, ProductSourcePack, serialization, media
+    provenance/download semantics, production Google Drive behavior, extraction readiness, or
+    create a second scraper/evidence authority.
+  - Automate login, solve/bypass CAPTCHA, inject tokens, use stealth/proxy/fingerprint spoofing,
+    alternate HTTP/API scraping, automatic retry loops, browser restart, alternate marketplace,
+    alternate query, or rerouting.
+  - Keep an AIOS executor waiting for Human interaction, add unbounded sleeps/polling, or make
+    TASK-166 Runtime verification depend on live Shopee/CDP/browser state.
+  - Commit capture outputs, media, source packs, checkpoints, bundles, cookies, credentials, raw
+    HTML/screenshots/browser profiles/local absolute paths/runtime logs as TASK-166 source delta.
+  - Complete or publish TASK-165, repair its fixtures, change TASK-164, compute P6.1b metrics,
     introduce semantic/vector retrieval, or authorize P6.2.
-  - Add a second Product Intelligence executable, web API, MCP server, plugin, service, watcher,
-    scheduler, daemon, queue consumer, or persistent database authority.
+  - Add another Product Intelligence executable, API, MCP server, service, watcher, scheduler,
+    daemon, queue consumer, or persistent database authority.
   - Push, merge, publish, or mutate main from Executor implementation execution.
 
 constraints:
   hard:
     - >
       Add exactly one production composition module src/product_intelligence/live_capture.py.
-      It is the sole new authority introduced by TASK-166 and owns only resumable operational
-      sequencing/checkpoint state for bounded live Shopee capture. It must compose existing browser,
-      discovery/ranking, and ShopeeScrapeTool authorities rather than reimplementing any of them.
+      It is the sole new authority introduced by TASK-166 and owns only bounded resumable live
+      capture sequencing/checkpoint state while composing existing browser, discovery/ranking,
+      and ShopeeScrapeTool authorities.
     - >
-      Define one explicit capture state machine whose externally observable statuses are exactly
-      RUNNING, CHALLENGE_REQUIRED, READY, and FAILED. Its resumable phases are exactly DISCOVERY,
-      ACQUIRE_1, ACQUIRE_2, and COMPLETE for each Human query. A fresh capture job advances queries
-      in caller order. A checkpoint must preserve the exact current query index, phase, previously
-      selected candidate identity/URL when selection already occurred, and exact completed
-      observation manifest references so resume never repeats an already-successful acquisition.
+      Define statuses exactly RUNNING, CHALLENGE_REQUIRED, READY, FAILED and resumable phases
+      exactly DISCOVERY, ACQUIRE_1, ACQUIRE_2, COMPLETE. Fresh jobs advance exact Human queries
+      in caller order. Checkpoint state must preserve exact current query position, current phase,
+      selected candidate identity/URL/title when discovery already completed, and completed
+      observation manifest references so resume never repeats successful work.
     - >
-      A live capture job is Shopee-only in TASK-166. Fresh capture accepts one or more exact Human
-      query strings in caller order and one exact CDP endpoint. Queries must be non-empty,
-      single-line strings and are forwarded unchanged. Do not translate, normalize, expand,
-      reorder, dedupe, replace, or select easier queries.
+      TASK-166 capture is Shopee-only. Fresh capture accepts one-or-more exact nonblank single-line
+      Human queries in caller order and one exact nonblank CDP endpoint. Queries and endpoint are
+      frozen into checkpoint state before browser/network work and are never normalized, rewritten,
+      expanded, reordered, deduped, replaced, or inferred.
     - >
-      For each query, construct one existing DiscoveryRequest with max_pages=1 and
-      max_candidates<=20, one existing ShopeeDiscoveryAdapter using the exact shared browser
-      manager, one PlatformDiscoveryPlan, and call existing orchestrate_discovery exactly once per
-      successful DISCOVERY phase with shortlist_size<=3. Select the first ranked shortlist candidate
-      whose exact candidate URL is not already selected by an earlier query in the same job; do not
-      inspect score magnitude, DecisionBand, price, sales, rating, confidence, or retrieval results
-      to choose. If no distinct candidate exists, fail closed rather than alter queries or rediscover
-      automatically.
+      For each DISCOVERY phase construct one existing DiscoveryRequest with max_pages=1 and
+      max_candidates<=20, one existing ShopeeDiscoveryAdapter using the invocation's exact shared
+      browser manager, one PlatformDiscoveryPlan, and call existing orchestrate_discovery exactly
+      once per successfully completed DISCOVERY phase with shortlist_size<=3. Select the first
+      ranked shortlist candidate whose exact candidate URL was not selected by an earlier query.
+      Never inspect score magnitude, DecisionBand, price, sales, rating, confidence, or retrieval
+      results to choose. Empty/no-distinct shortlist fails closed without query change or automatic
+      rediscovery.
     - >
       Use exactly one PlaywrightBrowserManager per capture invocation, constructed with the exact
-      requested CDP endpoint, and reuse that exact manager for all discovery and acquisition work
-      performed during that invocation. Always attempt manager.close_all() exactly once before the
-      invocation returns or raises. TASK-137 borrowed-resource semantics must ensure this disconnects
-      Python Agent resources without closing the operator-owned Chromium/context/page.
+      requested CDP endpoint, and reuse that exact object for all work in that invocation. Always
+      attempt manager.close_all() exactly once before return/raise. TASK-137 borrowed-resource
+      semantics remain authoritative and operator-owned Chromium/context/page must stay open.
     - >
-      Use exactly one ShopeeScrapeTool instance per capture invocation. For each selected candidate,
-      perform exactly two planned successful acquisitions in order, represented by ACQUIRE_1 and
-      ACQUIRE_2. Use deterministic capture-local call_id/run_id strings derived only from the query
-      position and observation position; do not use random/UUID/clock values for job identity.
-      Completed ACQUIRE_1 must never be repeated after a later ACQUIRE_2 challenge or process restart.
+      Resume requires an existing valid CHALLENGE_REQUIRED checkpoint and the Human must provide
+      the exact same CDP endpoint frozen in that checkpoint. Mismatched endpoint fails before browser
+      work. Resume accepts no replacement queries and continues only the exact unfinished phase.
+      If the challenge remains, return CHALLENGE_REQUIRED again without advancing or corrupting state.
     - >
-      ShopeeScrapeTool requires a Drive dependency, but TASK-166 capture is local evidence staging.
-      live_capture.py may define one private minimal zero-network capture sink implementing only the
-      synchronous get_or_create_folder(name, parent_id=None) and upload_file(file_path, folder_id=None)
-      methods required by the existing tool. It must perform no network/auth/environment work, no
-      independent evidence transformation, and may only return deterministic truthy placeholders so
-      the existing scraper can persist its exact local source_pack.json and media bytes under the
-      capture job root. This sink is not a production Drive authority and must not be exported.
+      Use exactly one ShopeeScrapeTool instance per invocation. For each selected candidate perform
+      exactly two planned successful acquisitions in order as ACQUIRE_1 and ACQUIRE_2. Use
+      deterministic capture-local call_id/run_id strings derived only from query and observation
+      positions; no random/UUID/clock job identifiers. Resume never repeats a completed acquisition.
     - >
-      The capture job root is explicit Human input and must resolve outside the Git repository root.
-      Reject repository-root or repository-descendant job roots before browser/network work so a
-      challenge or canceled capture can never dirty the engineering worktree. All checkpoint,
-      capture media, source packs, and bundle artifacts must remain beneath that explicit external
-      job root; reject path escapes and symlink escapes.
+      Because ShopeeScrapeTool requires a Drive dependency while capture is local staging,
+      live_capture.py may define one private zero-network sink exposing only synchronous
+      get_or_create_folder(name, parent_id=None) and upload_file(file_path, folder_id=None). It
+      performs no network/auth/environment/independent evidence transformation and returns only
+      deterministic truthy placeholders. It is not exported and does not redefine Drive authority.
     - >
-      Persist one UTF-8 capture_checkpoint.json beneath the external job root using atomic
-      replace semantics. The checkpoint schema and version are fixed by TASK-166 and must contain
-      only bounded operational state: schema/version, status, exact query sequence, current query
-      position, current phase, completed cohort records, selected candidate_id/product URL/title
-      fields already returned by existing discovery, relative observation manifest paths, manifest
-      SHA-256 values, and one bounded challenge/error category. Never persist cookies, headers,
-      tokens, raw HTML/page text, screenshots, browser profile paths, exception tracebacks, or local
-      absolute paths.
+      The explicit Human job root must resolve outside the Git repository root. Reject repository
+      root/descendants before browser work. All checkpoint, bundle, source pack and media artifacts
+      remain beneath the external job root. Reject lexical path escape, resolved path escape and
+      symlink escape.
     - >
-      Catch only canonical challenge signals for resumable handling: DiscoveryBlockedError during
-      DISCOVERY and ShopeeScrapeTool ToolResult failure whose exact error code is EXTRACTION_BLOCKED
-      during acquisition. On either signal, atomically write status CHALLENGE_REQUIRED at the exact
-      unfinished phase, perform no automatic retry, no second navigation, no alternate query, and
-      return a normal capture outcome rather than raising an engineering failure. The Human remains
-      solely responsible for solving the challenge in the operator-owned browser before explicitly
-      invoking resume.
+      Persist exactly one UTF-8 capture_checkpoint.json beneath the job root using atomic
+      temp-write plus replace. Its fixed schema/version contains only: status, frozen exact CDP
+      endpoint, frozen exact query sequence, current query position/phase, completed cohort records,
+      selected candidate_id/product URL/title already returned by existing discovery, relative
+      observation manifest paths, exact SHA-256 values, and one bounded challenge/error category.
+      Never persist cookies, headers, tokens, raw HTML/page text, screenshots, browser profile paths,
+      exception tracebacks, or local absolute paths.
     - >
-      Resume must require an existing valid CHALLENGE_REQUIRED checkpoint and must use its exact
-      frozen queries/progress rather than accepting replacement queries. Resume reattaches through
-      a new invocation's single TASK-137 manager and continues only the exact unfinished phase.
-      If the marketplace still reports a challenge, return CHALLENGE_REQUIRED again without
-      corrupting or advancing checkpoint state. Resume may never repeat completed discovery after a
-      selected candidate is already checkpointed, and may never repeat a completed acquisition.
+      Catch only DiscoveryBlockedError during DISCOVERY and ShopeeScrapeTool FAILURE whose exact
+      error code is EXTRACTION_BLOCKED during acquisition as resumable challenge signals. On either,
+      atomically write CHALLENGE_REQUIRED at the exact unfinished phase, perform no automatic retry,
+      second navigation, alternate query or Human wait, and return a normal capture outcome. Human
+      remains solely responsible for solving the challenge before explicit resume.
     - >
-      Non-challenge discovery/navigation/orchestration failures, empty shortlist, no distinct
-      candidate, extraction-empty, download/upload/partial failures, invalid ToolResult, invalid
-      manifest path, checkpoint corruption, path escape, or inconsistent resume state must fail
-      closed as LiveCaptureError, persist bounded FAILED state when a checkpoint has already been
-      initialized, and must not be reclassified as Human-solvable challenge.
+      Non-challenge discovery/navigation/orchestration failure, empty/no-distinct shortlist,
+      extraction-empty, download/upload/partial failure, invalid ToolResult, invalid manifest,
+      checkpoint corruption, endpoint mismatch, path escape, or inconsistent resume state fails
+      closed as LiveCaptureError. If checkpoint initialization already occurred, persist bounded
+      FAILED state; never reclassify these failures as Human-solvable challenge.
     - >
-      After every acquisition success, require ToolStatus.SUCCESS, error is None, and exactly one
-      existing source_pack.json manifest path beneath that observation's capture output directory.
-      Compute SHA-256 from the exact persisted manifest bytes without parsing, rewriting, or
-      normalizing them. Store only a job-root-relative manifest path and digest in checkpoint state.
-      Do not mutate observed_at or any ProductSourcePack field to force identity distinctness.
+      After each acquisition success require exact ToolStatus.SUCCESS, error is None, and exactly
+      one existing source_pack.json beneath that observation output directory. Compute SHA-256 from
+      exact persisted bytes without parsing/normalizing/rewriting the manifest. Store only job-root-
+      relative path plus digest. Do not mutate observed_at or any ProductSourcePack field.
     - >
-      When all queries have two successful observations, atomically write one immutable
-      capture_bundle.json beneath the external job root and set status READY. The bundle must use
-      fixed schema "product_intelligence_live_capture_bundle", version 1, preserve exact query order,
-      selected candidate provenance, two ordered manifest-relative paths and SHA-256 values per
-      cohort, and no absolute paths or sensitive browser/session data. Once READY, subsequent resume
-      attempts must be rejected; TASK-166 does not import the bundle into Git.
+      When all queries have two successful observations, create exactly one
+      capture_bundle.json with fixed schema "product_intelligence_live_capture_bundle" and version 1,
+      preserving exact query order, selected-candidate provenance, and two ordered relative manifest
+      paths/SHA-256 values per cohort. Bundle contains no CDP endpoint, absolute paths, credentials or
+      session data. Creation is immutable/fail-closed: if capture_bundle.json already exists, do not
+      overwrite or rewrite it. Only after successful exclusive bundle creation may checkpoint status
+      advance to READY. READY jobs cannot be resumed and TASK-166 performs no Git import.
     - >
-      Extend the existing Product Intelligence CLI with exactly one new `capture` operation; do not
-      create a second CLI. Fresh mode requires --job-root, --cdp-endpoint, and one-or-more repeated
-      --query values. Resume mode is selected by exact --resume, requires --job-root and
-      --cdp-endpoint, and forbids --query so checkpoint state is authoritative. No platform,
-      shortlist, retry, wait, CAPTCHA, cookie, profile, Drive, browser-type, or ranking controls may
-      be exposed. Existing commands and their behavior remain unchanged.
+      Extend the existing Product Intelligence CLI with exactly one new `capture` operation. Fresh
+      mode requires --job-root, --cdp-endpoint, and one-or-more repeated --query. Resume mode is
+      exact --resume with --job-root and --cdp-endpoint and forbids --query. No platform, shortlist,
+      retry, wait, CAPTCHA, cookie, profile, Drive, browser-type, ranking or bundle-import controls.
+      Existing command behavior remains unchanged.
     - >
-      CLI capture success must emit exactly one JSON stdout document. READY and
-      CHALLENGE_REQUIRED are both valid operational outcomes with exit code 0 and must expose only
-      bounded status, job-root-independent phase/query-position information, and relative bundle or
-      checkpoint filenames. FAILED/non-challenge application errors use existing sanitized exit-1
-      handling with no traceback/cause chain. Argparse misuse remains exit 2. Never print product
-      URLs, cookies, raw marketplace text, local absolute paths, or source-pack contents to stdout or
-      stderr from the capture command.
+      CLI READY and CHALLENGE_REQUIRED are valid operational outcomes: exit 0 with exactly one
+      bounded JSON stdout document exposing status, phase/query-position information and only
+      relative checkpoint/bundle filenames. Never print CDP endpoint, product URL, source-pack
+      contents, raw marketplace text or local absolute paths. Non-challenge application errors remain
+      sanitized exit 1 without traceback/cause chain; argparse misuse remains exit 2.
     - >
-      TASK-166 verification is fully offline. Tests must inject deterministic fake browser manager,
-      orchestration, adapter/tool outcomes, filesystem manifests, and zero-network sink boundaries.
-      No test may connect to Chrome 9222, Shopee, TikTok, Google Drive, provider APIs, or any external
-      network; no test may require Human interaction or real sleep.
+      TASK-166 verification is fully offline. Tests inject deterministic fake manager,
+      orchestration/tool outcomes and local manifest bytes; no Chrome 9222, Shopee/TikTok, Google
+      Drive, provider API, external network, Human interaction or real sleep is permitted.
     - >
-      Focused tests must prove at minimum: fresh ordered multi-query capture; one manager/tool per
-      invocation; exact one discovery per successfully completed DISCOVERY phase; DISCOVERY challenge
-      checkpoint without exception; ACQUIRE_1 challenge checkpoint; ACQUIRE_2 challenge after a
-      completed first observation; resume from each phase without repeating completed work; repeated
-      challenge leaves the same unfinished phase; non-challenge failures are terminal; external-root
-      enforcement; path/symlink escape rejection; exact manifest SHA-256 preservation; atomic
-      checkpoint replacement behavior; READY bundle immutability; zero sensitive/absolute-path data
-      in checkpoint/bundle/CLI output; and unchanged existing CLI/discovery/scraper/CDP regressions.
+      Focused tests prove: ordered multi-query fresh capture; exact one manager/tool per invocation;
+      one discovery per completed DISCOVERY phase; DISCOVERY/ACQUIRE_1/ACQUIRE_2 challenge
+      checkpoints; resume without repeated completed work; same-endpoint enforcement; repeated
+      challenge stability; terminal non-challenge failures; external-root and symlink/path escape
+      rejection; exact manifest digest preservation; atomic checkpoint replacement; existing-bundle
+      no-overwrite; READY immutability; no sensitive/absolute-path CLI/checkpoint/bundle leakage; and
+      unchanged existing CLI/discovery/scraper/CDP regressions.
     - >
-      Add docs/PHASE_6_P6_1_LIVE_CAPTURE_CHECKPOINT.md documenting the operational boundary:
-      AIOS engineering RUNs remain deterministic/offline; live capture is an explicit Product
-      Intelligence operation outside AIOS verification; CAPTCHA remains Human-owned; challenge means
-      checkpoint-and-resume rather than automatic solving or engineering failure; capture artifacts
-      remain outside the repo; and a fresh P6.1b successor may consume a reviewed immutable bundle
-      only after TASK-166 publication.
+      Add docs/PHASE_6_P6_1_LIVE_CAPTURE_CHECKPOINT.md documenting: AIOS engineering RUNs stay
+      deterministic/offline; live capture is explicit Product Intelligence operation outside AIOS
+      verification; CAPTCHA remains Human-owned; challenge means checkpoint/resume rather than solve
+      or engineering failure; capture artifacts remain external; fresh P6.1b successor may consume a
+      reviewed READY bundle only after TASK-166 publication.
     - >
       Update both P6 roadmaps consistently. Record TASK-165 as unpublished P6.1b blocked evidence,
-      with REVIEW-165-003 F1 and subsequent failed remediation/repair lineage demonstrating that
-      implementation-time live capture inside an AIOS RUN is the wrong operational boundary. Record
-      TASK-166 as the CURRENT blocker-hardening gate. P6.1b remains open and a fresh successor is NEXT
-      only after TASK-166 Runtime PASS, semantic PASS, publication, and one READY external capture
-      bundle. P6.2 remains blocked until reviewed empirical P6.1b metrics exist.
+      REVIEW-165-003 F1 plus failed continuation lineage as evidence that live capture inside AIOS is
+      the wrong operational boundary, TASK-166 as CURRENT blocker-hardening gate, fresh P6.1b
+      successor NEXT only after TASK-166 Runtime PASS + semantic PASS + publication + one READY
+      external bundle, and P6.2 still blocked until reviewed empirical P6.1b metrics exist.
     - Do not push from Executor execution.
 
 acceptance:
   - id: AC1
     condition: >
-      TASK-166 introduces only one new live_capture composition authority plus one `capture` operation
-      on the existing Product Intelligence CLI; TASK-137 browser lifecycle, TASK-146 discovery/ranking,
-      TASK-151 readiness, TASK-162 extraction, ShopeeScrapeTool, ProductSourcePack, and TASK-164
-      evaluator semantics remain unchanged.
+      TASK-166 adds only one live_capture composition authority plus one capture operation on the
+      existing CLI while TASK-137, TASK-146, TASK-151, TASK-162, ShopeeScrapeTool,
+      ProductSourcePack and TASK-164 semantics remain unchanged.
   - id: AC2
     condition: >
-      Fresh capture validates an external non-repository job root and exact ordered Human queries
-      before live work, constructs exactly one existing CDP manager and one ShopeeScrapeTool per
-      invocation, and composes the existing discovery/orchestration path exactly once per completed
-      DISCOVERY phase without local ranking or alternate-query behavior.
+      Fresh capture freezes and validates external job root, exact ordered Human queries and exact
+      CDP endpoint before live work; each invocation constructs one existing manager and one
+      ShopeeScrapeTool and delegates discovery/ranking only through existing orchestration.
   - id: AC3
     condition: >
-      DiscoveryBlockedError and exact EXTRACTION_BLOCKED ToolResult are converted only into
-      CHALLENGE_REQUIRED checkpoint outcomes at the exact unfinished phase, with no automatic retry,
+      DiscoveryBlockedError and exact EXTRACTION_BLOCKED are the only challenge signals and become
+      CHALLENGE_REQUIRED at the exact unfinished phase with no automatic retry, Human wait,
       challenge solving, alternate navigation, or AIOS/runtime coupling.
   - id: AC4
     condition: >
-      Resume consumes only an existing valid CHALLENGE_REQUIRED checkpoint, preserves exact queries
-      and selected-candidate/progress state, continues only the unfinished phase, and never repeats a
-      completed acquisition or completed discovery with an already-selected candidate.
+      Resume requires the exact checkpoint-frozen CDP endpoint, accepts no replacement queries,
+      continues only the unfinished phase, and never repeats completed discovery with a selected
+      candidate or any completed acquisition.
   - id: AC5
     condition: >
-      All non-challenge failure classes remain fail-closed terminal LiveCaptureError/FAILED outcomes
-      and are never reclassified as resumable Human challenge.
+      All non-challenge failures remain terminal LiveCaptureError/FAILED and are never made resumable.
   - id: AC6
     condition: >
-      Every successful observation records exactly one existing manifest beneath the external job
-      root and preserves its exact bytes by relative path plus SHA-256 only, with no ProductSourcePack
-      field mutation, no repo-local capture output, and no path/symlink escape.
+      Successful observations preserve exact serializer-emitted manifest bytes by safe relative path
+      plus SHA-256 only, with no source field mutation, repo-local capture output or path escape.
   - id: AC7
     condition: >
-      Completion produces one immutable READY capture_bundle.json with fixed schema/version,
-      caller-order cohorts, selected-candidate provenance, two ordered manifest references/digests per
-      query, no sensitive/session data or absolute paths, and no automatic Git import.
+      Completion exclusively creates one immutable READY capture_bundle.json with fixed
+      schema/version, ordered cohort provenance and two manifest references/digests per query; an
+      existing bundle is never overwritten and no automatic Git import occurs.
   - id: AC8
     condition: >
-      Existing CLI gains only `capture`; fresh/resume argument contracts are exact, READY and
-      CHALLENGE_REQUIRED return one bounded JSON document with exit 0, application failures remain
-      sanitized exit 1, syntax failures exit 2, and all prior CLI commands remain unchanged.
+      Existing CLI gains only capture; fresh/resume argument contracts are exact, READY and
+      CHALLENGE_REQUIRED emit one bounded JSON document with exit 0, application errors remain
+      sanitized exit 1, syntax errors exit 2, and prior commands remain unchanged.
   - id: AC9
     condition: >
-      Deterministic offline tests prove fresh capture, checkpoint/resume across DISCOVERY/ACQUIRE_1/
-      ACQUIRE_2, repeated challenge stability, exact no-repeat continuity, root/path safety, exact
-      manifest digests, bundle immutability, one-manager/tool cleanup semantics, and zero live network,
-      browser, Drive, provider, Human wait, or real sleep.
+      Offline tests prove challenge/resume continuity at every phase, exact no-repeat behavior,
+      same-endpoint binding, root/path safety, manifest digests, atomic checkpointing, bundle
+      no-overwrite/immutability, cleanup semantics, and zero live browser/network/Drive/provider/
+      Human wait/real sleep.
   - id: AC10
     condition: >
-      Documentation and roadmaps explicitly separate live capture from AIOS engineering verification,
-      record TASK-165 as blocked/unpublished evidence, TASK-166 as the blocker correction, fresh P6.1b
-      successor only after a READY external bundle, and P6.2 still blocked pending reviewed metrics.
+      Documentation separates live capture from AIOS verification, records TASK-165 as blocked
+      unpublished evidence, TASK-166 as blocker correction, fresh P6.1b successor only after READY
+      bundle, and P6.2 still blocked pending reviewed metrics.
 
 verification:
   required:
