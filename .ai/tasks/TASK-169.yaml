@@ -1,251 +1,244 @@
 task_id: TASK-169
-revision: 1
+revision: 2
 
 goal: >
-  Open P6.3 with one pure deterministic Human-governed descriptive product-truth
-  reconciliation authority over an exact TASK-121 CanonicalVariantProfile. The
-  new authority must preserve every source value and canonical observation lineage,
-  automatically resolve only uncontested exact descriptive evidence, require an
-  explicit Human decision to select among genuinely conflicting exact values, and
-  otherwise leave the field unresolved. It must not mutate evidence, identity,
-  catalog state, retrieval, RAG, persistence, facts, media, or any prior authority.
+  Close P6.1c Retrieval Stress Benchmark by replaying the published TASK-168 real-evidence
+  corpus through the already-published TASK-164 evaluator using six fixed Human-authored
+  paraphrase/attribute queries that deliberately increase lexical distance from the original
+  listing wording. TASK-169 revision 2 is benchmark/integration work only: it must measure
+  exact current TASK-122 behavior without changing retrieval, canonical profiles, evidence,
+  identity, ranking, RAG, product truth, or any production Python authority.
 
 problem: >
-  Published TASK-168 closed P6.1b and established a real-evidence lexical baseline.
-  The three fixed product-intent cases each achieved exact precision 1 and recall 1;
-  the broad "shopee" case exposed only the expected limit=3 recall ceiling against
-  six relevant variants. Current evidence therefore does not justify activating
-  P6.2 semantic/vector retrieval or reranking. The next explicit roadmap gap is
-  P6.3 product-truth reconciliation. TASK-121 intentionally preserves conflicting
-  titles, shops, brands, model/SKU values, descriptions, facts, and media without
-  choosing preferred truth, so there is currently no product-truth authority.
-  TASK-169 must introduce the smallest safe first P6.3 authority: descriptive-field
-  reconciliation only, driven by exact evidence and explicit Human decisions when
-  conflicts exist.
+  Published TASK-168 closed P6.1b and showed exact precision/recall 1/1 for the three
+  near-exact product-intent queries, while the broad "shopee" query exposed only the expected
+  limit=3 recall ceiling against six relevant variants. That evidence is sufficient to reject
+  speculative immediate vector/semantic implementation, but it does not establish whether
+  current lexical retrieval remains adequate when Human intent is expressed through paraphrases,
+  mixed English/Vietnamese wording, or descriptive attributes that are not copied directly from
+  the listing title. TASK-169 revision 1 was authored in parallel to open P6.3 product-truth
+  reconciliation, but no RUN-169 was ever admitted. Current explicit Human intent supersedes that
+  unexecuted authoring decision: complete one narrow retrieval stress benchmark first, then let
+  Brain/Human review the empirical result before deciding whether P6.2 remains parked or deserves
+  a bounded improvement experiment. Revision 1 remains preserved in Git history only and must not
+  be executed.
 
 assumptions:
   - >
-    Canonical python_complete_agent main at TASK-169 authoring is
-    0e6626a53c10609a1a7b282d7ca49af33e4d5573, the published TASK-168 source candidate
-    after RUN-168-004 Runtime PASS and REVIEW-168-004 PRIMARY PASS.
+    Canonical python_complete_agent main immediately before TASK-169 revision 2 is
+    0a2c66fad53b0e4ee26ecef9ae4538a34777d205, whose only post-TASK-168 product-state change is
+    unexecuted TASK-169 revision-1 authoring. No RUN-169, RESULT, FAILURE, REVIEW, FIX, or REPAIR
+    lineage exists for revision 1.
+  - >
+    Published TASK-168 source candidate 0e6626a53c10609a1a7b282d7ca49af33e4d5573 remains the
+    authoritative P6.1b real-evidence baseline. Its fixture tree under
+    tests/fixtures/p6_1b_real_evidence is immutable published benchmark input.
   - >
     The authoritative AIOS dependency remains exactly
     aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@32ace104c5cfaa1b7affbaa40157872b1f85147f.
   - >
-    TASK-121 remains the sole CanonicalVariantProfile evidence-preserving projection
-    authority. TASK-117/TASK-118 remain canonical identity/catalog authorities;
-    TASK-120 remains SQLite durability; TASK-122 remains lexical retrieval;
-    TASK-123 remains RAG-context authority; TASK-129/TASK-133 remain grounded-answer
-    and grounded-QA authorities.
+    TASK-164 remains the sole retrieval-quality evaluator. TASK-122 remains the sole lexical
+    retrieval authority. TASK-138/139/140/141, TASK-116/117, TASK-120, and TASK-121 remain the
+    published evidence-intake, Human-governed family/variant admission, durability, and canonical
+    profile authorities used to replay the exact TASK-168 corpus.
   - >
-    P6.2 is conditional rather than mandatory. The published P6.1b evidence does not
-    establish semantic mismatch requiring embeddings/vector retrieval, so P6.2 must
-    be recorded as PARKED / NOT JUSTIFIED BY CURRENT EVIDENCE rather than implemented
-    speculatively.
+    Human stress-query relevance labels are fixed by current Human intent before any retrieval
+    result is inspected. Executor output, source title overlap, evidence contents, TASK-122 hits,
+    measured metrics, provider/model output, or business scores may not alter those labels.
   - >
-    Human governance for TASK-169 means a caller supplies explicit field decisions,
-    actor identity, and aware decision timestamps. Repository code must not read the
-    system clock or infer a Human preference from recency, majority, provenance,
-    marketplace, ranking, LLM output, or business signals.
+    P6.2 is conditional. TASK-169 must not automatically authorize semantic/vector work or declare
+    lexical retrieval sufficient. After TASK-169 Runtime PASS, semantic PASS, publication, and
+    Brain/Human review of the measured stress results, the roadmap decision is made separately.
 
 scope:
   inspect:
     - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_6_P6_1_RETRIEVAL_QUALITY_EVALUATION.md
     - docs/PHASE_6_P6_1_REAL_EVIDENCE_BASELINE.md
     - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
     - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - .ai/tasks/TASK-116.yaml
     - .ai/tasks/TASK-117.yaml
-    - .ai/tasks/TASK-118.yaml
     - .ai/tasks/TASK-120.yaml
     - .ai/tasks/TASK-121.yaml
     - .ai/tasks/TASK-122.yaml
+    - .ai/tasks/TASK-138.yaml
+    - .ai/tasks/TASK-139.yaml
+    - .ai/tasks/TASK-140.yaml
+    - .ai/tasks/TASK-141.yaml
     - .ai/tasks/TASK-164.yaml
+    - .ai/tasks/TASK-168.yaml
+    - tests/fixtures/p6_1b_real_evidence/benchmark.json
+    - tests/fixtures/p6_1b_real_evidence/capture_bundle.json
+    - tests/integration/test_p6_1b_real_evidence_retrieval_baseline.py
+    - src/product_intelligence/source_evidence_intake.py
+    - src/product_intelligence/family_review_planning.py
+    - src/product_intelligence/family_decision_admission.py
+    - src/product_intelligence/sellable_variant_review_admission.py
+    - src/product_intelligence/canonical_catalog_sqlite.py
     - src/product_intelligence/canonical_profile.py
-    - src/product_intelligence/canonical_catalog.py
-    - src/product_intelligence/canonical_variant.py
-    - src/product_intelligence/entity_resolution.py
     - src/product_intelligence/canonical_retrieval.py
-    - src/product_intelligence/__init__.py
-    - tests/product_intelligence/test_canonical_profile.py
-    - tests/product_intelligence/test_canonical_retrieval.py
+    - src/product_intelligence/retrieval_quality_evaluation.py
 
   modify:
-    - src/product_intelligence/canonical_truth.py
-    - src/product_intelligence/__init__.py
-    - tests/product_intelligence/test_canonical_truth.py
-    - docs/PHASE_6_P6_3_PRODUCT_TRUTH_RECONCILIATION.md
+    - tests/fixtures/p6_1c_retrieval_stress/benchmark.json
+    - tests/integration/test_p6_1c_retrieval_stress_baseline.py
+    - docs/PHASE_6_P6_1_REAL_EVIDENCE_BASELINE.md
+    - docs/PHASE_6_P6_1C_RETRIEVAL_STRESS_BENCHMARK.md
     - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
     - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
 
 non_goals:
-  - Modify canonical_profile.py, canonical_catalog.py, canonical_variant.py,
-    canonical_retrieval.py, product_source models/serialization, entity resolution,
-    family/variant approval/admission, SQLite storage, RAG, grounded-QA, provider,
-    discovery, ranking, scraper, browser, CLI, worker, dependency, or AIOS runtime.
-  - Reconcile ProductFact values, media, hero images, seller choice, price, sold count,
-    rating, commission, marketplace ranking, source reliability, diagnostic codes,
-    or any field outside title, shop_name, brand, model_sku, and description_text.
-  - Add automatic latest-observation, majority-vote, provenance-preference, platform-
-    preference, confidence-score, business-score, lexical-score, semantic-score, LLM,
-    heuristic, fuzzy, normalized, case-folded, trimmed, or synthesized truth selection.
-  - Add persistence, truth-history database, mutable truth updates, schema migrations,
-    catalog columns, cache, background service, API/CLI workflow, autonomous approval,
-    or Human-review automation.
-  - Feed reconciled truth into TASK-122 retrieval, TASK-123 RAG context, grounded
-    prompts/answers, ranking, content generation, or any downstream production path.
-  - Activate P6.2 semantic/vector retrieval or infer that P6.2 can never be useful;
-    it remains parked until later evidence justifies reopening it.
-  - Claim that resolving descriptive evidence changes canonical family/variant
-    identity, source evidence, or objective real-world product truth beyond the
-    exact bounded Human decision represented by this authority.
+  - Modify any production Python module, dependency, AIOS pin, worker, workflow, CLI, browser,
+    discovery, ranking, scraper, ProductSourcePack, intake, identity, approval/admission, catalog,
+    persistence, profile, lexical retrieval, RAG, prompt, provider, answer, or evaluator semantics.
+  - Modify, rewrite, normalize, relabel, regenerate, or duplicate any file under
+    tests/fixtures/p6_1b_real_evidence. TASK-168 published corpus bytes and baseline snapshot are
+    immutable source evidence for this stress benchmark.
+  - Acquire new Shopee/TikTok evidence, open browser/CDP, use the external TASK-166 capture root,
+    read environment-specific marketplace state, access Drive, invoke network/provider accounts,
+    or perform live I/O.
+  - Add embeddings, vector indexes/databases, ANN, semantic reranking, BM25/FTS/TF-IDF, fuzzy
+    matching, synonym expansion, query rewriting, LLM retrieval scoring, fallback behavior, or any
+    alternate retrieval implementation.
+  - Change TASK-122 limit/matching/normalization/searchable-field/witness/order behavior merely to
+    improve stress metrics.
+  - Add an acceptance threshold, target score, automatic pass/fail quality gate, weighted metric,
+    F1/NDCG/MRR, or an automatic P6.2 activation decision. Low retrieval scores are valid empirical
+    findings, not TASK failure.
+  - Evaluate grounded-answer prose, citation fidelity, semantic entailment, factual correctness,
+    product truth, business relevance, identity correctness, or marketplace quality in P6.1c.
+  - Open or implement P6.3 product-truth reconciliation in this revision. TASK-169 revision 1 is
+    superseded unexecuted authoring history only.
+  - Push, merge, publish, or mutate main from Executor implementation execution.
 
 constraints:
   hard:
     - >
-      Add exactly one new production module, src/product_intelligence/canonical_truth.py,
-      as the sole TASK-169 descriptive truth authority. Export exactly these public
-      names from product_intelligence: CanonicalTruthError, CanonicalTruthField,
-      CanonicalTruthDecisionAction, CanonicalTruthDecision,
-      CanonicalTruthResolutionStatus, CanonicalTruthFieldResolution,
-      CanonicalVariantTruth, and reconcile_canonical_variant_truth.
+      TASK-169 revision 2 changes zero production Python. The only executable addition is
+      tests/integration/test_p6_1c_retrieval_stress_baseline.py; the only new fixture is one
+      descriptor/snapshot file at tests/fixtures/p6_1c_retrieval_stress/benchmark.json.
     - >
-      CanonicalTruthField must contain exactly TITLE, SHOP_NAME, BRAND, MODEL_SKU,
-      and DESCRIPTION_TEXT, mapped only to the corresponding exact TASK-121
-      CanonicalProfileObservation values. TASK-169 must not expose generic arbitrary
-      field names or facts/media through this authority.
+      The published TASK-168 fixture tree is read-only benchmark input. Runtime verification must
+      fail if any file beneath tests/fixtures/p6_1b_real_evidence differs from its published
+      descriptor provenance. Do not copy those source packs into the P6.1c fixture root and do not
+      modify TASK-168 benchmark.json. P6.1c benchmark.json must record the exact SHA-256 of the
+      published TASK-168 benchmark.json bytes and the repository-relative source fixture path.
     - >
-      reconcile_canonical_variant_truth(profile, *, decisions=()) must require an
-      exact CanonicalVariantProfile and consume only that profile plus caller-supplied
-      CanonicalTruthDecision values. It must not accept Catalog state, ProductSourcePack,
-      raw dicts, candidate/ranking objects, or external values as alternate truth input.
+      P6.1c benchmark.json must be deterministic compact UTF-8 JSON with schema
+      "p6_1c_retrieval_stress_benchmark", version 1, sort_keys=True, separators=(",", ":"), no BOM,
+      and exactly one trailing newline. It must contain only source-baseline provenance, evaluator
+      limit, the six fixed Human stress cases, and the exact measured TASK-164 lexical snapshot.
+      It must contain no raw source descriptions/media, external paths, secrets, environment values,
+      provider output, or mutable timestamps.
     - >
-      For each CanonicalTruthField, build deterministic exact-value evidence options
-      from profile.observations in canonical observation order. Ignore only Python None
-      as absent evidence. Do not trim, normalize, case-fold, canonicalize, deduplicate
-      by anything other than exact value equality, or reinterpret strings. When the
-      same exact non-None value appears in multiple observations, one option must retain
-      all exact supporting canonical member objects in profile order.
+      Use evaluator limit exactly 3 for every case. Define exactly six RetrievalBenchmarkCase values
+      in this exact order, with these exact retrieval queries and Human relevance labels:
+      1) case_id "p6-1c-001", retrieval_query "bình nước thép không gỉ giữ nóng lạnh",
+         relevant_variant_ids ("p6-benchmark-variant-001-001", "p6-benchmark-variant-001-002");
+      2) case_id "p6-1c-002", retrieval_query "bình lớn có lọc trà mang đi làm",
+         relevant_variant_ids ("p6-benchmark-variant-001-001", "p6-benchmark-variant-001-002");
+      3) case_id "p6-1c-003", retrieval_query "keyboard gaming k550 nhiều màu",
+         relevant_variant_ids ("p6-benchmark-variant-002-001", "p6-benchmark-variant-002-002");
+      4) case_id "p6-1c-004", retrieval_query "bàn phím chơi game có đèn",
+         relevant_variant_ids ("p6-benchmark-variant-002-001", "p6-benchmark-variant-002-002");
+      5) case_id "p6-1c-005", retrieval_query "mouse bluetooth sạc lại cho laptop",
+         relevant_variant_ids ("p6-benchmark-variant-003-001", "p6-benchmark-variant-003-002");
+      6) case_id "p6-1c-006", retrieval_query "chuột dùng cho máy tính bảng android",
+         relevant_variant_ids ("p6-benchmark-variant-003-001", "p6-benchmark-variant-003-002").
+      Questions must be deterministic fixed strings describing the corresponding Human stress intent;
+      labels/query/order must not be changed after inspecting retrieval results.
     - >
-      Resolution semantics are fixed and exhaustive: zero non-None exact values yields
-      NO_EVIDENCE with value None; exactly one distinct non-None exact value yields
-      UNCONTESTED with that exact value and all exact supporting members; more than one
-      distinct exact value is a genuine conflict and yields UNRESOLVED unless one valid
-      Human decision resolves it.
+      Reconstruct the exact six-profile TASK-168 corpus only through published authorities. Replay
+      TASK-138 intake once per exact TASK-168 cohort root, TASK-139/140 explicit family approval/admission,
+      TASK-141/TASK-116 explicit singleton review/admission with the same fixed family/variant IDs and
+      canonical member ordering used by TASK-168, TASK-120 SQLite reload, then TASK-121 profile projection
+      with exact one-to-one singleton source-pack binding. This is test-only orchestration and must not
+      create a new production helper, shadow profile format, alternate admission path, or new authority.
     - >
-      CanonicalTruthDecisionAction must contain exactly SELECT_SOURCE and
-      LEAVE_UNRESOLVED. Every CanonicalTruthDecision must identify exactly one
-      CanonicalTruthField, carry a nonblank actor string preserved byte-for-byte,
-      and carry a timezone-aware datetime supplied by the caller. No system clock,
-      default actor, UUID, random value, environment value, or implicit Human decision
-      may be generated by repository code.
+      The stress benchmark must create the six exact TASK-164 RetrievalBenchmarkCase values from
+      benchmark.json and call evaluate_lexical_retrieval_quality exactly once with the six canonical
+      profiles and limit=3. Benchmark code must not call TASK-122 directly, inspect TASK-122 private
+      helpers/searchable fields, precompute hits, locally match tokens, or add another retrieval route.
     - >
-      SELECT_SOURCE is valid only for a genuinely conflicting field and must reference
-      one exact SourceObservationIdentity member already present in the supplied profile.
-      That member's exact field value must be non-None and one of the conflict options.
-      The resulting HUMAN_SELECTED resolution must expose exactly that value and all
-      profile members carrying the same exact value. The caller may never supply or
-      synthesize an arbitrary replacement value.
+      Snapshot exact TASK-164 output in P6.1c benchmark.json: ordered TP/FP/FN variant IDs for every
+      case, precision/recall as exact [numerator, denominator] pairs, aggregate TP/FP/FN counts, and exact
+      micro_precision/micro_recall pairs. Normal verification must recompute from committed TASK-168
+      evidence and require exact equality. The snapshot is empirical evidence and must not be edited to
+      hide or improve lexical weaknesses.
     - >
-      LEAVE_UNRESOLVED is valid only for a genuinely conflicting field and must not
-      select a member. It preserves UNRESOLVED with no resolved value while retaining
-      all exact evidence options plus the explicit Human decision record.
+      Poor metrics, zero-hit cases, false positives, or false negatives must not fail TASK-169 if they
+      are the deterministic current TASK-122 result and are accurately snapshotted. TASK failure is only
+      contract/provenance/composition/determinism/verification failure, never low retrieval quality.
     - >
-      At most one decision may target a field. Duplicate decisions, non-exact decision
-      types, decisions for NO_EVIDENCE or UNCONTESTED fields, SELECT_SOURCE with a
-      foreign/missing/None-valued member, LEAVE_UNRESOLVED carrying a member, invalid
-      actor, naive timestamp, or any incoherent decision must fail closed with
-      CanonicalTruthError before returning a truth value.
+      Add repeated-determinism regression that performs the complete test-only corpus composition and
+      stress evaluation twice using fresh tmp_path SQLite catalogs and proves value-equal reports while
+      both the published TASK-168 fixture tree and P6.1c descriptor remain byte-identical.
     - >
-      CanonicalTruthFieldResolution must be immutable and retain the field, fixed
-      resolution status, resolved exact value or None, deterministic exact evidence
-      options/supporting canonical members, and the exact Human decision when one was
-      required. CanonicalVariantTruth must be immutable and retain the exact profile
-      variant_id, family_id, members, and one field resolution for every field in
-      CanonicalTruthField declaration order.
+      Normal Runtime verification must be fully offline and deterministic: zero browser/CDP, marketplace,
+      external capture root, environment dependency other than PYTHONPATH, Drive, network, provider/model,
+      clock, random/UUID, retry, sleep, subprocess from benchmark code, or filesystem scanning outside
+      the exact committed TASK-168 fixture roots and tmp_path.
     - >
-      Missing Human decisions for conflicting fields are valid and must leave those
-      fields UNRESOLVED; TASK-169 must support partial truth rather than inventing a
-      winner or failing merely because Human review is incomplete.
+      docs/PHASE_6_P6_1_REAL_EVIDENCE_BASELINE.md must be updated only for lifecycle status: TASK-168 is
+      CLOSED/PUBLISHED and P6.1b is CLOSED. Preserve its empirical values and interpretation unchanged.
     - >
-      Reconciliation must be pure deterministic computation. It must perform zero
-      filesystem, SQLite, network, browser, environment, clock, random, UUID,
-      subprocess, executor, model, retrieval, RAG, ranking, or persistence work and
-      must never mutate the supplied CanonicalVariantProfile, its observations,
-      canonical members, or any retained evidence object.
+      docs/PHASE_6_P6_1C_RETRIEVAL_STRESS_BENCHMARK.md must report the exact measured six-case and micro
+      metrics, explain that Human labels were fixed before retrieval, distinguish lexical stress from
+      semantic/product-truth/business-quality evaluation, and state that no threshold automatically
+      authorizes P6.2. It must preserve TASK-122 and TASK-164 as the sole retrieval/evaluation authorities.
     - >
-      Existing TASK-121 evidence preservation remains authoritative and unchanged.
-      Reconciled descriptive truth is a separate derivative Human-governed projection;
-      it does not erase, rewrite, normalize, collapse, or supersede conflicting source
-      evidence and does not change TASK-117/TASK-118 identity/catalog truth.
-    - >
-      Documentation must mark TASK-168/P6.1 as CLOSED/PUBLISHED; record the empirical
-      P6.1b result that exact product-intent lexical cases achieved precision/recall 1/1
-      while the broad shopee query's recall 1/2 is explained by limit=3 against six
-      relevant variants; mark P6.2 PARKED / NOT JUSTIFIED BY CURRENT EVIDENCE; mark
-      P6.3 CURRENT with TASK-169 as P6.3a; and leave P6.4-P6.6 future/unimplemented.
-    - >
-      The P6.3 phase document must state that TASK-169 covers descriptive fields only,
-      uses exact evidence plus explicit Human decisions, permits unresolved conflicts,
-      adds no automatic recency/majority/provenance policy, and does not yet persist or
-      feed reconciled truth into retrieval/RAG/content generation.
+      Update both canonical roadmaps consistently: TASK-168/P6.1b CLOSED/PUBLISHED; TASK-169 revision 1
+      preserved as unexecuted superseded authoring history; P6.1c CURRENT with TASK-169 revision 2 as the
+      stress-baseline closure candidate; P6.2 GATED / DECISION PENDING until TASK-169 Runtime PASS,
+      semantic PASS, publication, and Brain/Human review of measured stress evidence; P6.3-P6.6 remain
+      future/deferred and no product-truth authority is yet opened.
     - Do not push from Executor execution.
 
 acceptance:
   - id: AC1
     condition: >
-      TASK-169 introduces only the bounded canonical_truth module/public exports,
-      focused tests, P6.3 documentation, and roadmap status updates; no prior
-      production authority is modified.
+      TASK-169 revision 2 changes only the new stress descriptor, offline integration test, lifecycle
+      docs, and two roadmaps; zero production Python or prior semantic authority is modified or duplicated.
   - id: AC2
     condition: >
-      Exactly five descriptive fields are supported and their evidence options are
-      derived solely from exact TASK-121 observation values with canonical-order
-      member lineage and no string normalization or arbitrary value input.
+      P6.1c binds immutably to the published TASK-168 benchmark/corpus, records and verifies exact source
+      SHA-256 provenance, reuses the existing source packs in place, and never imports live/external evidence.
   - id: AC3
     condition: >
-      NO_EVIDENCE, UNCONTESTED, HUMAN_SELECTED, and UNRESOLVED semantics follow the
-      fixed deterministic rules, including exact supporting-member retention.
+      Exactly six Human-authored stress cases use the fixed query/order/relevant-variant labels above with
+      limit=3, and labels are not derived or changed from retrieval/evidence/metrics.
   - id: AC4
     condition: >
-      Genuine conflicts remain UNRESOLVED without a Human decision; SELECT_SOURCE
-      can choose only exact existing source evidence and LEAVE_UNRESOLVED records an
-      explicit Human choice without fabricating truth.
+      The exact six canonical profiles are reconstructed only through TASK-138, TASK-139/140,
+      TASK-141/TASK-116, TASK-120, and TASK-121 with the same family/variant/member semantics as TASK-168.
   - id: AC5
     condition: >
-      Human decisions preserve exact field, action, actor, aware timestamp, and
-      selected canonical member when applicable, and all malformed/incoherent/
-      duplicate/foreign decision shapes fail closed.
+      Stress scoring delegates exactly once to TASK-164 for the six-case corpus; TASK-122 remains reachable
+      only through TASK-164 and no local/shadow retrieval or semantic matching exists.
   - id: AC6
     condition: >
-      CanonicalVariantTruth is immutable, deterministic, retains exact variant/family/
-      member lineage, contains one resolution per field in fixed order, and repeated
-      reconciliation from value-equal inputs returns value-equal output without
-      mutating inputs.
+      P6.1c benchmark.json snapshots exact per-case and aggregate TP/FP/FN plus Fraction precision/recall,
+      and normal offline verification recomputes exact equality from committed evidence.
   - id: AC7
     condition: >
-      TASK-121 evidence remains fully intact and authoritative; TASK-169 performs no
-      fact/media reconciliation, identity/catalog mutation, persistence, retrieval,
-      RAG, ranking, provider, browser, network, or model work.
+      No metric threshold or automatic roadmap decision exists: weak/zero lexical results are valid measured
+      evidence, while P6.2 remains gated pending separate Brain/Human interpretation after publication.
   - id: AC8
     condition: >
-      Focused regressions cover all-None, single observed value plus missing values,
-      repeated identical exact values, exact-string conflicts, unresolved conflict,
-      SELECT_SOURCE, LEAVE_UNRESOLVED, duplicate decisions, foreign member, None-valued
-      member, non-conflict decision, actor/timestamp validation, ordering, identity
-      reuse, determinism, and input immutability.
+      Repeated complete offline execution is deterministic with fresh SQLite catalogs and zero mutation of
+      TASK-168 fixtures or the P6.1c descriptor, with no live/external/provider/model/browser/network work.
   - id: AC9
     condition: >
-      P6.3 documentation establishes the new derivative Human-governed descriptive
-      truth boundary without implying objective product truth, automatic preference,
-      fact/media reconciliation, persistence, or downstream consumption.
+      Phase documentation reports exact stress metrics and authority boundaries; both roadmaps preserve
+      TASK-168 closure, TASK-169 rev1 superseded-unexecuted history, P6.1c current rev2, P6.2 decision gate,
+      and P6.3-P6.6 deferred state without opening product-truth or semantic-retrieval authority.
   - id: AC10
     condition: >
-      Both canonical roadmaps mark P6.1 CLOSED/PUBLISHED, P6.2 PARKED because current
-      measured evidence does not justify semantic/vector work, P6.3 CURRENT/TASK-169
-      P6.3a, and P6.4-P6.6 future; required tests and git diff check pass with zero
-      unresolved items and no changed files outside scope.
+      Required focused predecessor/baseline/stress tests and git diff check pass with zero unresolved items
+      and no changed files outside TASK-169 revision-2 modification scope.
 
 verification:
   required:
-    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_canonical_profile.py tests/product_intelligence/test_canonical_truth.py tests/product_intelligence/test_canonical_retrieval.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/integration/test_p6_1b_real_evidence_retrieval_baseline.py tests/integration/test_p6_1c_retrieval_stress_baseline.py tests/product_intelligence/test_retrieval_quality_evaluation.py tests/product_intelligence/test_source_evidence_intake.py tests/product_intelligence/test_canonical_retrieval.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
     - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
