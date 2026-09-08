@@ -1,0 +1,29 @@
+{
+  "repair_id": "REPAIR-165-002",
+  "failed_run_id": "RUN-165-002",
+  "failed_head_sha": "be34cdfe2410dbd09753875b8326c6bc16598645",
+  "task": {
+    "id": "TASK-165",
+    "revision": 1
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "tests/fixtures/p6_1b_real_evidence/benchmark.json",
+    "tests/fixtures/p6_1b_real_evidence/case-001/observation-001/source_pack.json",
+    "tests/fixtures/p6_1b_real_evidence/case-001/observation-002/source_pack.json",
+    "tests/fixtures/p6_1b_real_evidence/case-002/observation-001/source_pack.json",
+    "tests/fixtures/p6_1b_real_evidence/case-002/observation-002/source_pack.json",
+    "tests/fixtures/p6_1b_real_evidence/case-003/observation-001/source_pack.json",
+    "tests/fixtures/p6_1b_real_evidence/case-003/observation-002/source_pack.json",
+    "tests/integration/test_p6_1b_real_evidence_retrieval_baseline.py",
+    "docs/PHASE_6_P6_1_REAL_EVIDENCE_BASELINE.md",
+    "docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
+    "docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md"
+  ],
+  "instructions": [
+    "Continue TASK-165 from exact failed_head_sha be34cdfe2410dbd09753875b8326c6bc16598645. RUN-165-002 failed during Antigravity execution because the native CLI timed out waiting for a response; it produced no committed candidate delta and verification never ran. The failure does not establish a product-source defect, but completing the original TASK contract still requires the bounded mutation scope authorized here.",
+    "Implement only the original TASK-165 P6.1b contract. Preserve the four fixed Human benchmark cases and labels, the three exact Shopee acquisition intents, TASK-164 evaluator semantics, existing acquisition/intake/admission/profile/retrieval authorities, zero production-Python changes, and the offline deterministic benchmark boundary. Do not weaken or rewrite benchmark labels or metrics in response to observed retrieval outcomes.",
+    "Preserve executor identity antigravity. This is exactly one canonical CODE_FIX REPAIR continuation of RUN-165-002, not a rerun of TASK-165. Do not retry, reroute, switch executor, modify AIOS worker/runtime/pin, or broaden scope. If Antigravity times out or otherwise fails operationally again, preserve the resulting canonical failure for review rather than creating an alternate execution path."
+  ],
+  "constraints": []
+}
