@@ -8,10 +8,4 @@ modification_scope:
 affected_verification:
   - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_source/test_shopee_source_extractor.py tests/product_source/test_extractor_dom_fixtures.py tests/product_source/test_scrape_tool_compat.py tests/product_intelligence/test_entity_resolution.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
   - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
-constraints:
-  - >
-    Preserve raw observed group and selected-option strings exactly in retained selected-variant evidence; whitespace trimming may be used only for nonblank validation and must never replace the retained observation.
-  - >
-    Keep ProductFact schema, TASK-108 semantics, TASK-162 readiness, media extraction/provenance, browser/session ownership, and all other authorities unchanged.
-  - >
-    Add focused regressions proving leading/trailing whitespace survives from DOM observation into ProductFact values while blank-only labels still fail closed.
+constraints: []
