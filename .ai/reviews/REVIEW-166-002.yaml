@@ -1,0 +1,24 @@
+review_id: REVIEW-166-002
+reviewed_sha: 502be00817d119073f0e49efb7b15b959f878937
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: PASS
+  AC3: PASS
+  AC4: PASS
+  AC5: FAIL
+  AC6: PASS
+  AC7: PASS
+  AC8: FAIL
+  AC9: FAIL
+  AC10: PASS
+findings:
+  - id: F1
+    basis: AC5
+    action: CODE_FIX
+    location: src/product_intelligence/live_capture.py; tests/product_intelligence/test_live_capture.py; tests/product_intelligence/test_product_intelligence_cli.py
+    issue: >
+      The resumable capture state machine is broadly correct, but its terminal filesystem-error boundary is incomplete. Initial fresh/resume checkpoint work occurs before run_live_capture enters its main guarded operation, and _atomic_checkpoint opens its staging file before its own try block. Resume checkpoint validation can also read referenced manifest bytes outside an OSError-normalizing boundary. A PermissionError/OSError from these paths can therefore escape as raw OSError instead of the TASK-166-required LiveCaptureError/FAILED terminal outcome. Because the existing CLI intentionally treats OSError as a known application error and renders str(error), such an escaped filesystem error can include the Human external job-root absolute path, violating the capture-specific no-absolute-path/sanitized error contract. The focused TASK-166 tests also do not establish the hard-required atomic-checkpoint failure behavior, symlink/path-escape cases, existing-bundle no-overwrite on resumable state, or capture CLI absolute-path leakage boundary.
+    expected: >
+      Harden only the TASK-166 live-capture composition/error boundary so filesystem failures from checkpoint initialization/update, resume validation including manifest digest reads, bundle staging/creation, and directly coupled capture artifact operations are converted to bounded path-independent LiveCaptureError behavior. When checkpoint state has already been initialized, preserve fail-closed FAILED semantics where safely possible without masking the original bounded error; do not change canonical DiscoveryBlockedError/EXTRACTION_BLOCKED challenge classification, automatic-retry policy, browser/discovery/scraper authorities, or completed-work no-repeat semantics. Add deterministic offline regressions proving initial checkpoint write failure and resume manifest/checkpoint I/O failure cannot leak absolute paths, atomic checkpoint staging/replace cleanup, symlink/path escape rejection, existing bundle no-overwrite/READY immutability, and capture CLI success/error output contains no job-root/CDP/product-URL/source-pack leakage. Keep prior commands and all existing challenge/resume tests green.
