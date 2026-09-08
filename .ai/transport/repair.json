@@ -1,0 +1,33 @@
+{
+  "repair_id": "REPAIR-168-003",
+  "failed_run_id": "RUN-168-003",
+  "failed_head_sha": "b865ac3554bd7eed44df948597b132ef84de826d",
+  "task": {
+    "id": "TASK-168",
+    "revision": 2
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "tests/fixtures/p6_1b_real_evidence/capture_bundle.json",
+    "tests/fixtures/p6_1b_real_evidence/benchmark.json",
+    "tests/fixtures/p6_1b_real_evidence/case-001/observation-001/source_pack.json",
+    "tests/fixtures/p6_1b_real_evidence/case-001/observation-002/source_pack.json",
+    "tests/fixtures/p6_1b_real_evidence/case-002/observation-001/source_pack.json",
+    "tests/fixtures/p6_1b_real_evidence/case-002/observation-002/source_pack.json",
+    "tests/fixtures/p6_1b_real_evidence/case-003/observation-001/source_pack.json",
+    "tests/fixtures/p6_1b_real_evidence/case-003/observation-002/source_pack.json",
+    "tests/integration/test_p6_1b_real_evidence_retrieval_baseline.py",
+    "docs/PHASE_6_P6_1_REAL_EVIDENCE_BASELINE.md",
+    "docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
+    "docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md"
+  ],
+  "instructions": [
+    "Continue exactly from failed TASK-168 revision-2 candidate b865ac3554bd7eed44df948597b132ef84de826d. RUN-168-003 reached Runtime verification and failed because the required integration benchmark file does not exist; this is canonical evidence that the revision-2 benchmark/fixture/docs implementation has not yet been materialized.",
+    "Implement TASK-168 revision 2 within the exact authorized modification scope only. Freeze the already Human-reviewed accepted capture bundle and its six exact manifest bytes from PI_P6_1B_CAPTURE_ROOT, validate the TASK-168 schema/path/digest constraints, and never recapture, rewrite, normalize, relabel, or substitute evidence.",
+    "Preserve existing TASK-116 semantics exactly: each accepted cohort becomes one two-member canonical family, then each family member is reviewed/admitted as its own explicit singleton sellable variant in canonical family-member order. Do not request a full-member variant, do not treat SAME_PRODUCT_FAMILY as EXACT_VARIANT_MATCH, and do not claim sibling singleton variants are proven different real-world variants.",
+    "Build the offline benchmark only through the existing TASK-138, TASK-139/140/141, TASK-120, TASK-121, TASK-164, TASK-123, and TASK-133 authorities required by TASK-168 revision 2. Do not modify production Python, retrieval/ranking semantics, identity authorities, AIOS pin/runtime/worker surfaces, or the TASK contract.",
+    "The implementation-time external capture root is read-only and may be used only for the one-time exact fixture freeze. Normal Runtime verification must remain self-contained and pass with PI_P6_1B_CAPTURE_ROOT removed exactly as TASK-168 revision 2 specifies.",
+    "Run the exact TASK-168 revision-2 verification commands and preserve executor identity codex. This is the canonical CODE_FIX REPAIR continuation of RUN-168-003; do not rerun PRIMARY, do not create a parallel FIX lineage, and do not reroute to Antigravity."
+  ],
+  "constraints": []
+}
