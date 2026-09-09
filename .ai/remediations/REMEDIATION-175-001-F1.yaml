@@ -1,0 +1,10 @@
+finding_id: F1
+action: CODE_FIX
+reviewed_sha: 4d164109d394cc431f2c2fa1cfc3a6d3cfe4cfe6
+modification_scope:
+  - src/product_source/platforms/shopee.py
+  - tests/product_source/test_shopee_source_extractor.py
+affected_verification:
+  - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_source/test_shopee_source_extractor.py tests/product_source/test_extractor_dom_fixtures.py tests/product_source/test_scrape_tool_compat.py tests/integration/test_browser_cdp.py tests/product_intelligence/test_entity_resolution.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+  - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+constraints: []
