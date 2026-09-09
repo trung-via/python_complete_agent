@@ -29,6 +29,7 @@ class FakeSession:
         raise_on_eval: bool = False,
         *,
         evaluate_results: Optional[List[Any]] = None,
+        current_url: Any = None,
     ):
         self.evaluate_data = evaluate_data
         self.evaluate_results = list(evaluate_results) if evaluate_results is not None else None
@@ -38,6 +39,7 @@ class FakeSession:
         self.evaluate_count = 0
         self.evaluated_script = None
         self.evaluated_args = None
+        self.url = current_url
 
     async def navigate(self, url: str, **kwargs: Any) -> None:
         self.navigated_url = url
@@ -105,6 +107,26 @@ def _ready_sample() -> Dict[str, Any]:
     }
 
 
+def _selected_k550_sample() -> Dict[str, Any]:
+    return {
+        "structured": {
+            "title": "K550 Product",
+            "product_id": "10374101498",
+            "images": ["https://cf.shopee.vn/file/k550.jpg"],
+            "specs": [],
+        },
+        "gallery": [],
+        "variants": [],
+        "description_media": [],
+        "fallback_media": [],
+        "blocked": False,
+        "selected_variants_complete": True,
+        "selected_variants": [
+            {"group_label": "Model", "option_label": "K550 Trắng Red V4"},
+        ],
+    }
+
+
 @pytest.mark.asyncio
 async def test_shopee_extractor_delayed_hydration_uses_one_acquisition_and_navigation(
     monkeypatch: pytest.MonkeyPatch,
@@ -148,6 +170,136 @@ async def test_shopee_extractor_first_ready_sample_terminates_immediately(
     assert session.evaluate_count == 1
     assert session.navigation_count == 1
     assert sleep_calls == []
+
+
+@pytest.mark.asyncio
+async def test_shopee_extractor_preserves_rendered_same_target_selected_state_without_navigation():
+    class SelectionClearingSession(FakeSession):
+        async def navigate(self, url: str, **kwargs: Any) -> None:
+            await super().navigate(url, **kwargs)
+            self.evaluate_data = {
+                **_selected_k550_sample(),
+                "selected_variants_complete": False,
+                "selected_variants": [],
+            }
+
+    current_url = "https://shopee.vn/ban-phim-k550-i.12345.10374101498?display_model_id=987"
+    session = SelectionClearingSession(
+        _selected_k550_sample(),
+        current_url=current_url,
+    )
+    manager = StrictFakeBrowserManager(session)
+
+    pack = await ShopeeSourceExtractor(browser=manager).extract(
+        "https://shopee.vn/product/12345/10374101498",
+        run_id="same-target-continuity",
+    )
+
+    assert manager.acquisition_count == 1
+    assert session.navigation_count == 0
+    assert session.evaluate_count == 1
+    assert pack.facts == (
+        ProductFact(
+            key="variant",
+            value="Model: K550 Trắng Red V4",
+            source_section="selected_variant_controls",
+            provenance="selected_variant_controls",
+            unit=None,
+        ),
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "current_url",
+    [
+        "https://shopee.vn/old-slug-i.11.456789?display_model_id=1",
+        "https://shopee.vn/new-slug-i.99.456789?display_model_id=2",
+        "https://shopee.vn/item/456789?from=search",
+    ],
+)
+async def test_shopee_extractor_reuses_same_item_across_slug_and_query_differences(
+    current_url: str,
+):
+    session = FakeSession(_ready_sample(), current_url=current_url)
+    manager = StrictFakeBrowserManager(session)
+
+    pack = await ShopeeSourceExtractor(browser=manager).extract(
+        "https://shopee.vn/product/123/456789?campaign=target",
+        run_id="same-item-url-shape",
+    )
+
+    assert pack.source_product_id == "456789"
+    assert manager.acquisition_count == 1
+    assert session.navigation_count == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "current_url",
+    [
+        None,
+        "",
+        "about:blank",
+        "https://shopee.vn/search?keyword=456789",
+        "https://shopee.vn/product/123/999999",
+        "https://example.com/product/123/456789",
+        "https://[shopee.vn/product/123/456789",
+        "https://shopee.vn/verify/product/123/456789",
+        "https://shopee.vn/verify?itemid=456789",
+        "https://shopee.vn/search?next=https%3A%2F%2Fshopee.vn%2Fproduct%2F123%2F456789",
+    ],
+)
+async def test_shopee_extractor_unproven_current_location_navigates_exactly_once(
+    current_url: Any,
+):
+    target_url = "https://shopee.vn/product/123/456789?campaign=target"
+    session = FakeSession(_ready_sample(), current_url=current_url)
+    manager = StrictFakeBrowserManager(session)
+
+    await ShopeeSourceExtractor(browser=manager).extract(
+        target_url,
+        run_id="navigation-fallback",
+    )
+
+    assert manager.acquisition_count == 1
+    assert session.navigation_count == 1
+    assert session.navigated_url == target_url
+
+
+@pytest.mark.asyncio
+async def test_shopee_extractor_failed_current_location_probe_navigates_exactly_once():
+    class RaisingLocationSession(FakeSession):
+        @property
+        def url(self) -> str:
+            raise RuntimeError("location unavailable")
+
+        @url.setter
+        def url(self, _value: Any) -> None:
+            pass
+
+    target_url = "https://shopee.vn/product/123/456789"
+    session = RaisingLocationSession(_ready_sample())
+
+    await ShopeeSourceExtractor(browser=session).extract(target_url)
+
+    assert session.navigation_count == 1
+    assert session.navigated_url == target_url
+
+
+@pytest.mark.asyncio
+async def test_shopee_extractor_same_target_model_query_does_not_create_variant_fact():
+    session = FakeSession(
+        _ready_sample(),
+        current_url="https://shopee.vn/product/123/456789?display_model_id=777",
+    )
+
+    pack = await ShopeeSourceExtractor(browser=session).extract(
+        "https://shopee.vn/product/123/456789",
+    )
+
+    assert session.navigation_count == 0
+    assert not any(fact.key == "variant" for fact in pack.facts)
 
 
 @pytest.mark.asyncio
@@ -451,6 +603,7 @@ async def test_shopee_extractor_forwards_product_id_through_real_playwright_wrap
     }
     page = MagicMock()
     page.is_closed.return_value = False
+    page.url = "about:blank"
     page.goto = AsyncMock()
     page.evaluate = AsyncMock(return_value=eval_data)
     context = MagicMock()

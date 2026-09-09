@@ -5,6 +5,7 @@ import logging
 import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
+from urllib.parse import urlsplit
 
 from src.product_intelligence.adapters.shopee_parsing import extract_shopee_product_id
 from src.product_source.models import (
@@ -916,6 +917,58 @@ class ShopeeSourceExtractor:
         self.browser = browser
         self.collector_name = collector_name
 
+    @staticmethod
+    def _current_page_url(page: Any) -> Optional[str]:
+        """Read the acquired page location without evaluating or mutating the page."""
+        try:
+            current_url = page.url
+        except AttributeError:
+            try:
+                current_url = page._page.url
+            except Exception:
+                return None
+        except Exception:
+            return None
+
+        return current_url if isinstance(current_url, str) else None
+
+    @staticmethod
+    def _can_reuse_current_page(
+        current_url: Optional[str],
+        target_url: str,
+        target_product_id: str,
+    ) -> bool:
+        """Prove same-host product identity from the current URL path only."""
+        if not isinstance(current_url, str) or not current_url.strip():
+            return False
+
+        try:
+            current = urlsplit(current_url)
+            target = urlsplit(target_url)
+            if current.scheme.lower() not in {"http", "https"}:
+                return False
+            if target.scheme.lower() not in {"http", "https"}:
+                return False
+
+            current_host = (current.hostname or "").lower().rstrip(".")
+            target_host = (target.hostname or "").lower().rstrip(".")
+        except (TypeError, ValueError):
+            return False
+
+        if not current_host or current_host != target_host:
+            return False
+
+        path_segments = {
+            segment.casefold()
+            for segment in current.path.split("/")
+            if segment
+        }
+        if path_segments.intersection({"verify", "challenge", "captcha"}):
+            return False
+
+        current_product_id = extract_shopee_product_id(current.path)
+        return current_product_id == target_product_id
+
     async def _acquire_page(self, url: str, run_id: str) -> Any:
         b = self.browser
 
@@ -940,10 +993,19 @@ class ShopeeSourceExtractor:
         else:
             page = b
 
-        if hasattr(page, "navigate") and callable(page.navigate):
-            await page.navigate(url)
-        elif hasattr(page, "goto") and callable(page.goto):
-            await page.goto(url, wait_until="domcontentloaded")
+        current_url = self._current_page_url(page)
+        target_product_id = extract_shopee_product_id(url)
+        if not target_product_id or not self._can_reuse_current_page(
+            current_url,
+            url,
+            target_product_id,
+        ):
+            if hasattr(page, "navigate") and callable(page.navigate):
+                await page.navigate(url)
+            elif hasattr(page, "goto") and callable(page.goto):
+                await page.goto(url, wait_until="domcontentloaded")
+            else:
+                raise SourcePackExtractionError("Page object lacks navigation capability")
 
         return page
 
