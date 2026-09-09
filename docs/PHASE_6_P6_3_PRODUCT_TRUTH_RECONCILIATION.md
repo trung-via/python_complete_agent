@@ -1,9 +1,10 @@
 # P6.3 Product-Truth Reconciliation
 
 Status: P6.3 is CURRENT. TASK-171 / P6.3a is CLOSED / PUBLISHED at candidate
-`3a33748905154b4822cfc164999e5c57780e67f2`. TASK-172 opens P6.3b as narrow
-Shopee selected-variant evidence hardening. P6.2 remains PARKED / reopenable
-from future evidence. P6.4-P6.6 remain deferred.
+`3a33748905154b4822cfc164999e5c57780e67f2`. TASK-172 / P6.3b source hardening
+is CLOSED / PUBLISHED at `63525151e4dbb7a1c30454a301e3c0e20ae771e9`.
+TASK-173 is the current narrow P6.3b live-DOM compatibility blocker hardening.
+P6.2 remains PARKED / reopenable from future evidence. P6.4-P6.6 remain deferred.
 
 ## P6.3a authority boundary
 
@@ -30,14 +31,22 @@ does not trim, case-fold, accent-fold, normalize, fuzzily equate, synthesize, or
 replace source strings. Missing Human review is valid partial truth and never
 causes an inferred winner.
 
-## P6.3b selected-variant evidence hardening (TASK-172)
+## P6.3b selected-variant evidence hardening (TASK-172 / TASK-173)
 
-TASK-172 hardens source extraction by observing explicit, complete rendered
+Published TASK-172 hardens source extraction by observing explicit, complete rendered
 variation selection on the current product page strictly inside the positive
 current-product briefing scope and appending deterministic `ProductFact`
 instances with key `"variant"`, source_section `"selected_variant_controls"`,
 and provenance `"selected_variant_controls"` after existing specification and
 brand facts.
+
+TASK-173 preserves that contract while correcting one proven live-DOM compatibility
+blocker. An identity-matched `section.C21rQm` gallery child may expand only to the
+nearest bounded enclosing current-product scope needed to reach sibling details
+controls. Exact `selection-box-selected` and `selection-box-unselected` button tokens
+join the existing TASK-172 option families under the same deterministic complete-group
+coverage rule. Ambiguous or absent roots, gallery thumbnail masks, and lower-page or
+add-on content remain fail-closed or out of scope.
 
 Evidence, identity, and truth separation:
 - Selected-variant facts are observed source evidence only, not canonical variant
@@ -48,8 +57,8 @@ Evidence, identity, and truth separation:
   authority governing canonical variant admission.
 - TASK-171 reconciles descriptive product truth only after a canonical variant
   profile exists.
-- TASK-172 does not claim live exact-variant or live product-truth certification;
-  live certification remains downstream.
+- TASK-172 and TASK-173 do not claim live exact-variant or live product-truth
+  certification; live certification remains downstream.
 
 ## Explicit exclusions
 

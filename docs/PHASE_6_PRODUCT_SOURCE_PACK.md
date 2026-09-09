@@ -89,12 +89,14 @@ The canonical `ProductSourcePack` serves as the immutable data contract between 
 2. **No AI Inference**: Dimensions, brand, materials, or claims are never inferred from title strings, product images, or logos in this milestone.
 3. **Missing Facts Remain None**: Unobserved attributes are preserved as `None` rather than default placeholders.
 4. **Seller Claims as Claims**: Descriptive claims are attributed to `"description"` without normalizing or upgrading them to verified scientific assertions.
-5. **Selected-Variant Controls Observation (P6.3b / TASK-172)**:
-   - When explicit rendered variation controls inside the positive current-product briefing container exhibit complete, unambiguous selection across all deterministically enumerated variation groups and structured current-product identity matches, one `ProductFact` per group is appended after all specification and brand facts.
+5. **Selected-Variant Controls Observation (P6.3b / TASK-172 and TASK-173)**:
+   - TASK-172 source hardening is CLOSED / PUBLISHED at `63525151e4dbb7a1c30454a301e3c0e20ae771e9`. TASK-173 is the current narrow live-DOM compatibility blocker hardening; it retains the same evidence contract and adds no new authority.
+   - When explicit rendered variation controls inside the positive current-product scope exhibit complete, unambiguous selection across all deterministically enumerated variation groups and structured current-product identity matches, one `ProductFact` per group is appended after all specification and brand facts. A gallery-only `section.C21rQm` anchor may expand only to the nearest bounded enclosing current-product scope needed to reach sibling controls; missing or ambiguous roots fail closed.
+   - The published TASK-172 variation/radio controls and exact `selection-box-selected` / `selection-box-unselected` button class tokens share one all-or-nothing group coverage contract. Gallery thumbnail masks and lower-page/add-on controls remain outside this boundary.
    - Each fact uses key exactly `"variant"`, source_section exactly `"selected_variant_controls"`, provenance exactly `"selected_variant_controls"`, and `unit=None`.
    - The value is a deterministic human-readable string (`{group_label}: {option_label}`) embedding exact observed strings without trimming, case-folding, accent-folding, or semantic normalization.
    - All-or-nothing: zero selected options, multiple selections (ambiguity), missing/blank labels, duplicate group labels, or structured identity mismatch emit zero selected-variant facts. URL query parameters (e.g. `rModelId`, `vModelId`, `display_model_id`) are never promoted to variant facts without complete explicit DOM proof.
-   - Evidence/identity/truth separation: Selected-variant facts are observed source evidence only, not canonical variant identity or product truth. TASK-108 remains the sole pairwise relationship authority; TASK-116 governs Human exact-variant admission; TASK-171 reconciles descriptive product truth only after a canonical profile exists.
+   - Evidence/identity/truth separation: Selected-variant facts are observed source evidence only, not canonical variant identity or product truth. TASK-108 remains the sole pairwise relationship authority; TASK-116 governs Human exact-variant admission; TASK-171 reconciles descriptive product truth only after a canonical profile exists. Live exact-variant and product-truth certification remain downstream and are not claimed complete by TASK-173.
 
 ---
 

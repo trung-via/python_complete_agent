@@ -598,6 +598,54 @@ async def test_shopee_extractor_appends_selected_variant_facts_when_complete_and
 
 
 @pytest.mark.asyncio
+async def test_task_173_live_shape_appends_one_exact_variant_after_existing_fact_prefix():
+    """The accepted selection-box observation uses the unchanged TASK-172 fact contract."""
+    eval_data = {
+        "structured": {
+            "title": "TASK-173 Live Shape",
+            "product_id": "10374101498",
+            "images": ["https://cf.shopee.vn/file/task173-main.jpg"],
+            "brand": "Keychron",
+            "specs": [{"name": "Connection", "value": "Wireless"}],
+        },
+        "gallery": [],
+        "variants": [],
+        "description_media": [],
+        "fallback_media": [],
+        "selected_variants": [
+            {"group_label": "Model", "option_label": "K550 Trắng Red V4"},
+        ],
+        "selected_variants_complete": True,
+        "blocked": False,
+    }
+    pack = await ShopeeSourceExtractor(browser=FakeSession(eval_data)).extract(
+        "https://shopee.vn/product/222/10374101498"
+    )
+
+    assert pack.facts == (
+        ProductFact(
+            key="Connection",
+            value="Wireless",
+            source_section="specification_table",
+            provenance="specification_table",
+        ),
+        ProductFact(
+            key="Brand",
+            value="Keychron",
+            source_section="structured_data",
+            provenance="structured_data",
+        ),
+        ProductFact(
+            key="variant",
+            value="Model: K550 Trắng Red V4",
+            source_section="selected_variant_controls",
+            provenance="selected_variant_controls",
+            unit=None,
+        ),
+    )
+
+
+@pytest.mark.asyncio
 async def test_shopee_extractor_zero_variant_facts_on_identity_mismatch():
     """Structured identity mismatch produces zero selected-variant facts while pack extraction succeeds."""
     eval_data = {
@@ -936,4 +984,3 @@ async def test_shopee_extractor_blank_only_variant_labels_produce_zero_variant_f
 
     variant_facts = [f for f in pack.facts if f.key == "variant"]
     assert len(variant_facts) == 0
-

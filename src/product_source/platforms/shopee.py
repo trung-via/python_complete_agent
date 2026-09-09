@@ -404,20 +404,84 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
     }
 
     // PRIORITY 2.6: Selected-Variant Controls Observation
-    // Strictly scoped inside positive current-product briefing container only.
-    // Never scans reviews, ratings, recommendations, footer, header, or out-of-scope sections.
-    const rawBriefings = Array.from(document.querySelectorAll(
-        '.page-product__briefing, .product-briefing, [class*="product-briefing"], section.C21rQm'
+    // Start only from structured current-product identity and one positive product
+    // anchor. A gallery-only C21rQm anchor may expand to the nearest bounded ancestor
+    // containing sibling controls, but never to body/document or a generic page scope.
+    const optionSelector = [
+        'button.product-variation',
+        '.product-variation',
+        '[class*="variation-item"]',
+        '[class*="variation-option"]',
+        '[role="radio"]',
+        'button.selection-box-selected',
+        'button.selection-box-unselected'
+    ].join(', ');
+    const isVariantControlExcluded = (element) => {
+        if (!element || isExcluded(element)) return true;
+        return Boolean(
+            element.closest && element.closest(
+                '[class*="add-on"], [class*="addon"], [data-addon], [data-add-on]'
+            )
+        );
+    };
+    const hasVariantOption = (root) => Boolean(
+        root && Array.from(root.querySelectorAll(optionSelector)).some(
+            option => !isVariantControlExcluded(option)
+        )
+    );
+
+    const structuredIdentityMatches = Boolean(
+        targetProductId &&
+        result.structured.product_id &&
+        result.structured.product_id.toString() === targetProductId.toString()
+    );
+
+    let variantScope = null;
+    let variantScopeAmbiguous = false;
+    const stableBriefings = Array.from(document.querySelectorAll(
+        '.page-product__briefing, .product-briefing, [class*="product-briefing"]'
     )).filter(b => !isExcluded(b));
+    const outerStableBriefings = stableBriefings.filter(
+        b => !stableBriefings.some(other => other !== b && other.contains(b))
+    );
 
-    const topBriefings = rawBriefings.filter(b => !rawBriefings.some(other => other !== b && b.contains(other)));
+    if (outerStableBriefings.length === 1) {
+        // Preserve the published TASK-172 positive briefing scope.
+        variantScope = outerStableBriefings[0];
+    } else if (outerStableBriefings.length > 1) {
+        variantScopeAmbiguous = true;
+    } else if (structuredIdentityMatches) {
+        // TASK-173 expansion is available only from identity-matched C21rQm evidence.
+            const galleryAnchors = Array.from(document.querySelectorAll('section.C21rQm'))
+                .filter(b => !isExcluded(b));
+            const outerGalleryAnchors = galleryAnchors.filter(
+                b => !galleryAnchors.some(other => other !== b && other.contains(b))
+            );
 
-    for (const briefing of topBriefings) {
-        // Find all candidate option elements strictly inside this briefing container
-        const allOptionEls = Array.from(briefing.querySelectorAll(
-            'button.product-variation, .product-variation, [class*="variation-item"], [class*="variation-option"], [role="radio"]'
-        )).filter(el => {
-            if (isExcluded(el)) return false;
+            if (outerGalleryAnchors.length === 1) {
+                const galleryAnchor = outerGalleryAnchors[0];
+                if (hasVariantOption(galleryAnchor)) {
+                    variantScope = galleryAnchor;
+                } else {
+                    let curr = galleryAnchor.parentElement;
+                    for (let level = 0; level < 6 && curr && curr !== document.body; level++) {
+                        if (isExcluded(curr)) break;
+                        if (hasVariantOption(curr)) {
+                            variantScope = curr;
+                            break;
+                        }
+                        curr = curr.parentElement;
+                    }
+                }
+            } else if (outerGalleryAnchors.length > 1) {
+                variantScopeAmbiguous = true;
+            }
+    }
+
+    if (variantScope && !variantScopeAmbiguous) {
+        // Enumerate every supported option family in the one bounded product scope.
+        const allOptionEls = Array.from(variantScope.querySelectorAll(optionSelector)).filter(el => {
+            if (isVariantControlExcluded(el)) return false;
             const tag = (el.tagName || '').toUpperCase();
             if (tag === 'IMG' || tag === 'SVG' || tag === 'PICTURE') return false;
             const cls = (el.className || '').toString();
@@ -430,13 +494,9 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
             return !allOptionEls.some(other => other !== el && el.contains(other));
         });
 
-        if (topOptionEls.length === 0) {
-            continue;
-        }
-
         // Detect group containers
         // Strategy 1: Explicit group container elements
-        const explicitGroupContainers = Array.from(briefing.querySelectorAll(
+        const explicitGroupContainers = Array.from(variantScope.querySelectorAll(
             '.product-variation-group, [class*="variation-group"], [class*="product-variation-group"], [class*="variation-section"], [role="radiogroup"]'
         )).filter(gc => {
             if (isExcluded(gc)) return false;
@@ -447,52 +507,86 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
             return !explicitGroupContainers.some(other => other !== gc && gc.contains(other));
         });
 
-        let groupElements = [];
-        if (filteredGroupContainers.length > 0) {
-            groupElements = filteredGroupContainers;
-        } else {
-            // Strategy 2: Infer group container from options clustering
-            const seenContainers = [];
-            for (const opt of topOptionEls) {
-                let curr = opt.parentElement;
-                let bestGroupContainer = null;
-                while (curr && curr !== briefing) {
-                    if (isExcluded(curr)) break;
-                    const parent = curr.parentElement;
-                    if (parent === briefing || (parent && topOptionEls.some(o => parent.contains(o) && !curr.contains(o)))) {
-                        bestGroupContainer = curr;
-                        break;
-                    }
-                    curr = parent;
-                }
-                const container = bestGroupContainer || opt.parentElement;
-                if (container && !seenContainers.includes(container)) {
-                    seenContainers.push(container);
-                }
+        // Explicit and inferred groups form one candidate set. Inference chooses the
+        // nearest ancestor with human-readable label evidence outside option descendants,
+        // so an unlabeled inner button cluster cannot become a group by itself.
+        const groupElements = [...filteredGroupContainers];
+        let allGroupsValid = topOptionEls.length > 0;
+        const hasGroupLabelEvidence = (grp, grpOptions) => {
+            const ariaLabel = grp.getAttribute('aria-label');
+            const dataLabel = grp.getAttribute('data-label');
+            if ((ariaLabel !== null && ariaLabel.trim()) || (dataLabel !== null && dataLabel.trim())) {
+                return true;
             }
-            groupElements = seenContainers;
-        }
+            return Array.from(grp.querySelectorAll(
+                'label, .group-label, [class*="variation-label"], [class*="group-label"], [class*="section-label"], [class*="title"], h1, h2, h3, h4, h5, ._826p0R, .kIo6pj, .G27FPf, span, div, p'
+            )).some(el => {
+                if (isExcluded(el)) return false;
+                if (grpOptions.some(opt => opt.contains(el) || opt === el)) return false;
+                if (grpOptions.some(opt => el.contains(opt))) return false;
+                return Boolean((el.textContent || el.innerText || '').trim());
+            });
+        };
 
-        if (groupElements.length === 0) {
-            if (topOptionEls.length > 0) {
-                result.selected_variants = [];
-                result.selected_variants_complete = false;
-                break;
-            }
-            continue;
-        }
-
-        let allGroupsValid = true;
-
-        // Before selected_variants_complete can become true, prove complete group coverage
-        // for every candidate option control discovered inside the positive product scope:
-        // every topOptionEl must belong to exactly one deterministically accepted variation group,
-        // with no uncovered or ambiguously covered options.
         for (const opt of topOptionEls) {
-            const coveringGroups = groupElements.filter(grp => grp.contains(opt));
-            if (coveringGroups.length !== 1) {
+            const explicitCoverage = filteredGroupContainers.filter(grp => grp.contains(opt));
+            if (explicitCoverage.length > 1) {
                 allGroupsValid = false;
                 break;
+            }
+            if (explicitCoverage.length === 1) continue;
+
+            const isSelectionBoxCandidate = Boolean(
+                opt.classList && (
+                    opt.classList.contains('selection-box-selected') ||
+                    opt.classList.contains('selection-box-unselected')
+                )
+            );
+            if (filteredGroupContainers.length > 0 && !isSelectionBoxCandidate) {
+                // Preserve TASK-172 fail-closed behavior for legacy candidates left
+                // outside explicit legacy groups. TASK-173 inference expands only the
+                // newly supported selection-box family in a mixed control scope.
+                allGroupsValid = false;
+                break;
+            }
+
+            let curr = opt.parentElement;
+            let inferredGroup = null;
+            while (curr && curr !== variantScope) {
+                if (isExcluded(curr)) break;
+                const containedOptions = topOptionEls.filter(o => curr.contains(o));
+                if (containedOptions.length > 0 && hasGroupLabelEvidence(curr, containedOptions)) {
+                    inferredGroup = curr;
+                    break;
+                }
+                curr = curr.parentElement;
+            }
+
+            if (!inferredGroup) {
+                allGroupsValid = false;
+                break;
+            }
+            if (!groupElements.includes(inferredGroup)) {
+                groupElements.push(inferredGroup);
+            }
+        }
+
+        groupElements.sort((left, right) => {
+            if (left === right) return 0;
+            const position = left.compareDocumentPosition(right);
+            if (position & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+            if (position & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+            return 0;
+        });
+
+        // Every discovered option must belong to exactly one accepted group.
+        if (allGroupsValid) {
+            for (const opt of topOptionEls) {
+                const coveringGroups = groupElements.filter(grp => grp.contains(opt));
+                if (coveringGroups.length !== 1) {
+                    allGroupsValid = false;
+                    break;
+                }
             }
         }
 
@@ -520,6 +614,9 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
 
             const checkedInput = opt.querySelector ? opt.querySelector('input:checked') : null;
             if (checkedInput) return true;
+
+            if (opt.classList && opt.classList.contains('selection-box-selected')) return true;
+            if (opt.classList && opt.classList.contains('selection-box-unselected')) return false;
 
             if (
                 cls.includes('product-variation--selected') ||
@@ -624,11 +721,9 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
         if (allGroupsValid && observedGroups.length > 0 && observedGroups.length === groupElements.length) {
             result.selected_variants = observedGroups;
             result.selected_variants_complete = true;
-            break;
         } else if (topOptionEls.length > 0) {
             result.selected_variants = [];
             result.selected_variants_complete = false;
-            break;
         }
     }
 

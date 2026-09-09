@@ -1074,4 +1074,170 @@ async def test_shopee_dom_mixed_layout_uncovered_options_fails_closed():
         await browser.close()
 
 
+def _task_173_live_selection_box_html(
+    *,
+    selected_indexes=(1,),
+    group_label="Model",
+    structured_product_id="10374101498",
+    duplicate_product_root=False,
+    omit_product_root=False,
+):
+    """Minimum offline representation of the Human-observed 2026-09-09 PDP shape."""
+    options = ["K550 Đen", "K550 Trắng Red V4", "K550 Xanh", "K550 Hồng"]
+    buttons = "".join(
+        f'<button class="selection-box-{"selected" if index in selected_indexes else "unselected"}">{label}</button>'
+        for index, label in enumerate(options)
+    )
+    label_markup = "" if group_label is None else f"<div>{group_label}</div>"
+    card = f'''
+        <div data-current-product-card="true">
+            <section class="C21rQm">
+                <div class="product-image-carousel">
+                    <img src="https://cf.shopee.vn/file/task173-main.jpg" />
+                    <div class="thumbnail-selected-mask"></div>
+                    <div class="thumbnail-selected-mask">selected thumbnail</div>
+                </div>
+            </section>
+            <div data-current-product-details="true">
+                <div data-variation-row="true">
+                    {label_markup}
+                    <div data-option-cluster="true">{buttons}</div>
+                </div>
+            </div>
+        </div>
+    '''
+    rendered_card = "" if omit_product_root else card
+    duplicate = card if duplicate_product_root and not omit_product_root else ""
+    return f'''
+    <html>
+    <head>
+        <script type="application/ld+json">
+        {{
+            "@context": "https://schema.org",
+            "@type": "Product",
+            "name": "TASK-173 Live Shape",
+            "productID": "{structured_product_id}",
+            "url": "https://shopee.vn/product-i.222.{structured_product_id}",
+            "image": "https://cf.shopee.vn/file/task173-main.jpg"
+        }}
+        </script>
+    </head>
+    <body>
+        {rendered_card}
+        {duplicate}
+        <section class="addon-deals">
+            <div>Model</div>
+            <button class="selection-box-selected">Out-of-scope add-on</button>
+        </section>
+    </body>
+    </html>
+    '''
 
+
+@pytest.mark.asyncio
+async def test_task_173_live_selection_box_shape_observes_exact_selected_model_only():
+    """Gallery masks and lower-page selection-looking content never enter variant evidence."""
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.set_content(_task_173_live_selection_box_html())
+
+        result = await page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, "10374101498")
+        assert result["selected_variants_complete"] is True
+        assert result["selected_variants"] == [
+            {"group_label": "Model", "option_label": "K550 Trắng Red V4"}
+        ]
+
+        from unittest.mock import AsyncMock
+        page.goto = AsyncMock()
+        pack = await ShopeeSourceExtractor(browser=page).extract(
+            "https://shopee.vn/product/222/10374101498"
+        )
+        variant_facts = [fact for fact in pack.facts if fact.key == "variant"]
+        assert len(variant_facts) == 1
+        assert variant_facts[0].value == "Model: K550 Trắng Red V4"
+        assert variant_facts[0].source_section == "selected_variant_controls"
+        assert variant_facts[0].provenance == "selected_variant_controls"
+        assert variant_facts[0].unit is None
+
+        await browser.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "html_kwargs",
+    [
+        {"selected_indexes": ()},
+        {"selected_indexes": (0, 1)},
+        {"group_label": "   "},
+        {"group_label": None},
+        {"omit_product_root": True},
+        {"duplicate_product_root": True},
+        {"structured_product_id": "99999999999"},
+    ],
+    ids=[
+        "zero-selected",
+        "multiple-selected",
+        "blank-group-label",
+        "missing-group-label",
+        "missing-current-product-root",
+        "ambiguous-current-product-root",
+        "structured-identity-mismatch",
+    ],
+)
+async def test_task_173_live_selection_box_shape_fails_closed(html_kwargs):
+    """Incomplete, ambiguous, unlabeled, or identity-unanchored live shapes emit no observation."""
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.set_content(_task_173_live_selection_box_html(**html_kwargs))
+
+        result = await page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, "10374101498")
+        await browser.close()
+
+    assert result["selected_variants_complete"] is False
+    assert result["selected_variants"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("selection_box_class", ["selection-box-selected", "selection-box-unselected"])
+async def test_task_173_old_and_selection_box_controls_share_one_completeness_contract(
+    selection_box_class,
+):
+    """Coexisting control families are accepted or rejected together, never partially."""
+    html = f'''
+    <html>
+    <body>
+        <div class="product-briefing">
+            <div class="product-variation-group">
+                <div class="group-label">Color</div>
+                <button class="product-variation product-variation--selected">Black</button>
+                <button class="product-variation">White</button>
+            </div>
+            <div data-variation-row="true">
+                <div>Model</div>
+                <div data-option-cluster="true">
+                    <button class="{selection_box_class}">K550 Trắng Red V4</button>
+                    <button class="selection-box-unselected">K550 Xanh</button>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.set_content(html)
+        result = await page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, "10374101498")
+        await browser.close()
+
+    if selection_box_class == "selection-box-selected":
+        assert result["selected_variants_complete"] is True
+        assert result["selected_variants"] == [
+            {"group_label": "Color", "option_label": "Black"},
+            {"group_label": "Model", "option_label": "K550 Trắng Red V4"},
+        ]
+    else:
+        assert result["selected_variants_complete"] is False
+        assert result["selected_variants"] == []
