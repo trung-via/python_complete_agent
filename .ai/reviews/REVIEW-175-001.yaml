@@ -1,0 +1,46 @@
+review_id: REVIEW-175-001
+reviewed_sha: 4d164109d394cc431f2c2fa1cfc3a6d3cfe4cfe6
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: FAIL
+  AC3: PASS
+  AC4: FAIL
+  AC5: PASS
+  AC6: PASS
+  AC7: PASS
+  AC8: PASS
+  AC9: PASS
+findings:
+  - id: F1
+    basis: AC4
+    action: CODE_FIX
+    location: src/product_source/platforms/shopee.py; tests/product_source/test_shopee_source_extractor.py
+    issue: >
+      TASK-175 requires zero-navigation reuse only when the acquired current page is
+      deterministically proven to be the exact direct Shopee product target; search and
+      unrelated Shopee pages must remain unproven and perform one target navigation. The
+      new _can_reuse_current_page(...) predicate does not prove that direct-route shape.
+      After host equality and a small verify/challenge/captcha segment exclusion, it calls
+      extract_shopee_product_id(current.path) and accepts any matching item id. That existing
+      parser intentionally uses unanchored re.search patterns, so an unrelated/search path
+      that merely embeds a recognized token such as /search/foo-i.123.456789 or another
+      non-product path containing /product/123/456789 can falsely authorize reuse. The
+      predicate also proves only current_host == target_host; it never proves that the
+      matching host is actually the Shopee product host required by the TASK. Current
+      regressions cover a normal /search URL with the id only in query state, but not an
+      unrelated same-host path containing a recognized product-id pattern, so this false
+      positive remains untested. In that state the extractor can skip the required target
+      navigation and evaluate a non-product DOM while claiming same-target continuity.
+    expected: >
+      Keep the existing source-product-id parser as the item-id authority, but add a
+      fail-closed direct-product-route proof around it: the normalized current/target host
+      must be an accepted Shopee host and the current PATH itself must match one of the
+      supported direct product route shapes (-i.{shop_id}.{item_id}, exact
+      /product/{shop_id}/{item_id}, or exact /item/{item_id}) rather than merely containing
+      one of those substrings. Any search/unrelated/verification/challenge path, including one
+      that embeds a target-looking product token, must perform exactly one navigation to the
+      requested target URL. Add focused regressions for those same-host false-positive path
+      shapes while preserving the K550 zero-navigation continuity case, TASK-162 readiness,
+      selected-variant evidence semantics, and the 0-or-1 navigation invariant.
