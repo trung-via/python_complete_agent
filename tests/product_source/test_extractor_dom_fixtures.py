@@ -1103,6 +1103,10 @@ def _task_173_live_selection_box_html(
                     {label_markup}
                     <div data-option-cluster="true">{buttons}</div>
                 </div>
+                <div data-purchase-controls="true">
+                    <div>Quantity</div>
+                    <div>18 pieces available</div>
+                </div>
             </div>
         </div>
     '''
@@ -1197,6 +1201,29 @@ async def test_task_173_live_selection_box_shape_fails_closed(html_kwargs):
 
     assert result["selected_variants_complete"] is False
     assert result["selected_variants"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("group_label", [None, "   "], ids=["missing", "blank"])
+async def test_task_173_unlabelled_variation_row_ignores_surrounding_quantity_text(group_label):
+    """Quantity/stock siblings cannot label an otherwise unlabelled selection-box group."""
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.set_content(_task_173_live_selection_box_html(group_label=group_label))
+
+        result = await page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, "10374101498")
+        assert result["selected_variants"] == []
+        assert result["selected_variants_complete"] is False
+
+        from unittest.mock import AsyncMock
+        page.goto = AsyncMock()
+        pack = await ShopeeSourceExtractor(browser=page).extract(
+            "https://shopee.vn/product/222/10374101498"
+        )
+        assert [fact for fact in pack.facts if fact.key == "variant"] == []
+
+        await browser.close()
 
 
 @pytest.mark.asyncio

@@ -507,25 +507,50 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
             return !explicitGroupContainers.some(other => other !== gc && gc.contains(other));
         });
 
-        // Explicit and inferred groups form one candidate set. Inference chooses the
-        // nearest ancestor with human-readable label evidence outside option descendants,
-        // so an unlabeled inner button cluster cannot become a group by itself.
+        // Explicit and inferred groups form one candidate set. Selection-box inference is
+        // deliberately structural: the buttons must share one immediate option cluster,
+        // and that cluster must have one labelled sibling in its immediate parent row.
+        // This prevents unrelated text in higher product-detail ancestors from supplying
+        // either group evidence or the emitted group label.
         const groupElements = [...filteredGroupContainers];
+        const inferredGroupLabels = new Map();
         let allGroupsValid = topOptionEls.length > 0;
-        const hasGroupLabelEvidence = (grp, grpOptions) => {
+        const inferredSelectionBoxGroup = (opt) => {
+            const optionCluster = opt.parentElement;
+            const grp = optionCluster && optionCluster.parentElement;
+            if (!optionCluster || !grp || grp === variantScope || isExcluded(grp)) {
+                return null;
+            }
+
+            const grpOptions = topOptionEls.filter(candidate => grp.contains(candidate));
+            if (
+                grpOptions.length === 0 ||
+                grpOptions.some(candidate => !optionCluster.contains(candidate))
+            ) {
+                return null;
+            }
+
             const ariaLabel = grp.getAttribute('aria-label');
             const dataLabel = grp.getAttribute('data-label');
-            if ((ariaLabel !== null && ariaLabel.trim()) || (dataLabel !== null && dataLabel.trim())) {
-                return true;
+            if (ariaLabel !== null && ariaLabel.trim()) {
+                return { group: grp, label: ariaLabel };
             }
-            return Array.from(grp.querySelectorAll(
-                'label, .group-label, [class*="variation-label"], [class*="group-label"], [class*="section-label"], [class*="title"], h1, h2, h3, h4, h5, ._826p0R, .kIo6pj, .G27FPf, span, div, p'
-            )).some(el => {
-                if (isExcluded(el)) return false;
-                if (grpOptions.some(opt => opt.contains(el) || opt === el)) return false;
-                if (grpOptions.some(opt => el.contains(opt))) return false;
+            if (dataLabel !== null && dataLabel.trim()) {
+                return { group: grp, label: dataLabel };
+            }
+
+            const labelCandidates = Array.from(grp.children).filter(el => {
+                if (el === optionCluster || isExcluded(el)) return false;
+                if (grpOptions.some(candidate => el.contains(candidate))) return false;
                 return Boolean((el.textContent || el.innerText || '').trim());
             });
+
+            if (labelCandidates.length !== 1) return null;
+            const labelEl = labelCandidates[0];
+            const label = labelEl.textContent !== undefined && labelEl.textContent !== null
+                ? labelEl.textContent
+                : (labelEl.innerText || '');
+            return { group: grp, label };
         };
 
         for (const opt of topOptionEls) {
@@ -550,22 +575,18 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
                 break;
             }
 
-            let curr = opt.parentElement;
-            let inferredGroup = null;
-            while (curr && curr !== variantScope) {
-                if (isExcluded(curr)) break;
-                const containedOptions = topOptionEls.filter(o => curr.contains(o));
-                if (containedOptions.length > 0 && hasGroupLabelEvidence(curr, containedOptions)) {
-                    inferredGroup = curr;
-                    break;
-                }
-                curr = curr.parentElement;
-            }
-
-            if (!inferredGroup) {
+            const inferred = inferredSelectionBoxGroup(opt);
+            if (!inferred) {
                 allGroupsValid = false;
                 break;
             }
+            const inferredGroup = inferred.group;
+            const priorLabel = inferredGroupLabels.get(inferredGroup);
+            if (priorLabel !== undefined && priorLabel !== inferred.label) {
+                allGroupsValid = false;
+                break;
+            }
+            inferredGroupLabels.set(inferredGroup, inferred.label);
             if (!groupElements.includes(inferredGroup)) {
                 groupElements.push(inferredGroup);
             }
@@ -654,16 +675,16 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
                     break;
                 }
 
-                let groupLabel = null;
+                let groupLabel = inferredGroupLabels.get(grp) || null;
                 const ariaLabel = grp.getAttribute('aria-label');
                 const dataLabel = grp.getAttribute('data-label');
-                if (ariaLabel !== null && ariaLabel.trim()) {
+                if (!groupLabel && ariaLabel !== null && ariaLabel.trim()) {
                     groupLabel = ariaLabel;
-                } else if (dataLabel !== null && dataLabel.trim()) {
+                } else if (!groupLabel && dataLabel !== null && dataLabel.trim()) {
                     groupLabel = dataLabel;
                 }
 
-                if (!groupLabel) {
+                if (!groupLabel && !inferredGroupLabels.has(grp)) {
                     const labelCandidates = Array.from(grp.querySelectorAll(
                         'label, .group-label, [class*="variation-label"], [class*="group-label"], [class*="section-label"], [class*="title"], h1, h2, h3, h4, h5, ._826p0R, .kIo6pj, .G27FPf, span, div, p'
                     )).filter(el => {
