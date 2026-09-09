@@ -1,0 +1,44 @@
+review_id: REVIEW-173-001
+reviewed_sha: ac7a3429594cf174dedfa6ea8936652b894a9970
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: PASS
+  AC3: PASS
+  AC4: FAIL
+  AC5: FAIL
+  AC6: PASS
+  AC7: PASS
+  AC8: PASS
+  AC9: PASS
+findings:
+  - id: F1
+    basis: AC5
+    action: CODE_FIX
+    location: src/product_source/platforms/shopee.py; tests/product_source/test_extractor_dom_fixtures.py
+    issue: >
+      TASK-173 requires a missing or blank variation-group label to fail closed and explicitly
+      forbids Quantity/stock controls or unrelated content from becoming variation groups. The
+      new selection-box inference does not preserve that boundary. hasGroupLabelEvidence(...)
+      accepts any non-empty descendant span/div/p outside option descendants as group-label
+      evidence, and group-label extraction later uses the same broad fallback. For an uncovered
+      selection-box option, ancestor inference therefore keeps climbing until it finds arbitrary
+      surrounding text. In the real Shopee hierarchy that motivated TASK-173, the enclosing
+      details branch also contains Quantity/stock text. If the true Model label is missing or
+      blank, that unrelated text can make a higher ancestor look like a labelled variation group
+      and can be emitted as the group label instead of selected_variants remaining incomplete.
+      The current missing/blank-label regression does not detect this because its synthetic
+      product card omits the surrounding Quantity/stock sibling text that was present in the
+      captured live hierarchy. This also weakens AC4's deterministic labelled-group boundary.
+    expected: >
+      Keep exact selection-box-selected/selection-box-unselected support, but infer a
+      selection-box group only from a bounded ancestor that proves the actual label-plus-option-
+      cluster relationship; arbitrary non-option text in higher product-detail ancestors must not
+      qualify as group-label evidence or as the emitted group label. Add a focused offline
+      regression reproducing the live hierarchy with Quantity/stock text outside the variation
+      row, then remove or blank the Model label and prove selected_variants is empty and
+      selected_variants_complete is false (and therefore no selected-variant ProductFact can be
+      emitted). Preserve old TASK-172 controls, unified all-or-nothing option coverage, exact raw
+      label preservation, structured identity anchoring, TASK-162 readiness, media/browser
+      boundaries, and unchanged TASK-108 semantics. Do not hard-code observed minified classes.
