@@ -3,7 +3,9 @@
 Status: P6.3 is CURRENT. TASK-171 / P6.3a is CLOSED / PUBLISHED at candidate
 `3a33748905154b4822cfc164999e5c57780e67f2`. TASK-172 / P6.3b source hardening
 is CLOSED / PUBLISHED at `63525151e4dbb7a1c30454a301e3c0e20ae771e9`.
-TASK-173 is the current narrow P6.3b live-DOM compatibility blocker hardening.
+TASK-173 live-DOM hardening is CLOSED / PUBLISHED at
+`f91dfe0f900664c835fef86bdf5d6c75879dbbdc`. TASK-174 is the current narrow
+P6.3b structural-depth blocker hardening.
 P6.2 remains PARKED / reopenable from future evidence. P6.4-P6.6 remain deferred.
 
 ## P6.3a authority boundary
@@ -31,7 +33,7 @@ does not trim, case-fold, accent-fold, normalize, fuzzily equate, synthesize, or
 replace source strings. Missing Human review is valid partial truth and never
 causes an inferred winner.
 
-## P6.3b selected-variant evidence hardening (TASK-172 / TASK-173)
+## P6.3b selected-variant evidence hardening (TASK-172 through TASK-174)
 
 Published TASK-172 hardens source extraction by observing explicit, complete rendered
 variation selection on the current product page strictly inside the positive
@@ -48,6 +50,14 @@ join the existing TASK-172 option families under the same deterministic complete
 coverage rule. Ambiguous or absent roots, gallery thumbnail masks, and lower-page or
 add-on content remain fail-closed or out of scope.
 
+TASK-174 preserves the same private observation path and permits the immediate
+selection-box option cluster to pass through only a finite bounded chain of
+transparent option-bearing wrappers to the nearest structurally proven group.
+That group must expose exactly one accepted direct semantic label source and one
+option-bearing direct child branch. The observed direct `H2` label `"Model"` is
+accepted without a minified class; missing or blank labels, Quantity/stock,
+independent option branches, and unrelated higher headings remain fail-closed.
+
 Evidence, identity, and truth separation:
 - Selected-variant facts are observed source evidence only, not canonical variant
   identity or product truth.
@@ -57,7 +67,7 @@ Evidence, identity, and truth separation:
   authority governing canonical variant admission.
 - TASK-171 reconciles descriptive product truth only after a canonical variant
   profile exists.
-- TASK-172 and TASK-173 do not claim live exact-variant or live product-truth
+- TASK-172 through TASK-174 do not claim live exact-variant or live product-truth
   certification; live certification remains downstream.
 
 ## Explicit exclusions

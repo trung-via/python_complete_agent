@@ -1268,3 +1268,118 @@ async def test_task_173_old_and_selection_box_controls_share_one_completeness_co
     else:
         assert result["selected_variants_complete"] is False
         assert result["selected_variants"] == []
+
+
+def _task_174_nested_selection_box_html(
+    *,
+    group_label="Model",
+    extra_option_branch=False,
+    higher_heading=None,
+    generic_label=False,
+):
+    """Exact bounded wrapper hierarchy isolated by the post-TASK-173 live diagnostic."""
+    options = ["K550 Đen", "K550 Trắng Red V4", "K550 Xanh", "K550 Hồng"]
+    buttons = "".join(
+        f'<button class="selection-box-{"selected" if index == 1 else "unselected"}">{label}</button>'
+        for index, label in enumerate(options)
+    )
+    if group_label is None:
+        label_markup = ""
+    elif generic_label:
+        label_markup = f"<div>{group_label}</div>"
+    else:
+        label_markup = f"<h2>{group_label}</h2>"
+    extra_branch_markup = "" if not extra_option_branch else '''
+        <div data-independent-option-branch="true">
+            <button class="selection-box-unselected">Independent accessory option</button>
+        </div>
+    '''
+    higher_heading_markup = "" if higher_heading is None else f"<h1>{higher_heading}</h1>"
+    return f'''
+    <html>
+    <head>
+        <script type="application/ld+json">
+        {{
+            "@context": "https://schema.org",
+            "@type": "Product",
+            "name": "TASK-174 Nested Live Shape",
+            "productID": "10374101498",
+            "url": "https://shopee.vn/product-i.222.10374101498",
+            "image": "https://cf.shopee.vn/file/task174-main.jpg"
+        }}
+        </script>
+    </head>
+    <body>
+        <div data-current-product-card="true">
+            <section class="C21rQm">
+                <div class="product-image-carousel">
+                    <img src="https://cf.shopee.vn/file/task174-main.jpg" />
+                </div>
+            </section>
+            <div data-current-product-details="true">
+                {higher_heading_markup}
+                <section data-purchase-controls="true">
+                    <h2>Quantity</h2>
+                    <div>18 pieces available</div>
+                </section>
+                <section data-model-group="true">
+                    {label_markup}
+                    <div data-transparent-option-wrapper="true">
+                        <div data-option-cluster="true">{buttons}</div>
+                    </div>
+                    {extra_branch_markup}
+                </section>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+
+
+@pytest.mark.asyncio
+async def test_task_174_nested_selection_box_wrapper_observes_exact_selected_model():
+    """One transparent wrapper may separate the option cluster from its labelled SECTION."""
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.set_content(_task_174_nested_selection_box_html())
+
+        result = await page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, "10374101498")
+        await browser.close()
+
+    assert result["selected_variants_complete"] is True
+    assert result["selected_variants"] == [
+        {"group_label": "Model", "option_label": "K550 Trắng Red V4"}
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "html_kwargs",
+    [
+        {"group_label": None},
+        {"group_label": "   "},
+        {"group_label": None, "higher_heading": "Unrelated product heading"},
+        {"extra_option_branch": True},
+        {"generic_label": True},
+    ],
+    ids=[
+        "missing-model",
+        "blank-model",
+        "higher-heading-cannot-relabel",
+        "independent-option-branch",
+        "arbitrary-div-is-not-label-evidence",
+    ],
+)
+async def test_task_174_nested_selection_box_wrapper_fails_closed(html_kwargs):
+    """Only one directly labelled, single-option-branch SECTION is variant evidence."""
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.set_content(_task_174_nested_selection_box_html(**html_kwargs))
+
+        result = await page.evaluate(_SHOPEE_EXTRACTION_SCRIPT, "10374101498")
+        await browser.close()
+
+    assert result["selected_variants_complete"] is False
+    assert result["selected_variants"] == []

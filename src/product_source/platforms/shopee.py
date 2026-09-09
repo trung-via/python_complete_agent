@@ -509,48 +509,97 @@ _SHOPEE_EXTRACTION_SCRIPT = r"""
 
         // Explicit and inferred groups form one candidate set. Selection-box inference is
         // deliberately structural: the buttons must share one immediate option cluster,
-        // and that cluster must have one labelled sibling in its immediate parent row.
-        // This prevents unrelated text in higher product-detail ancestors from supplying
-        // either group evidence or the emitted group label.
+        // followed by at most a small bounded chain of transparent wrappers, before one
+        // nearest labelled semantic group. This prevents unrelated text in higher
+        // product-detail ancestors from supplying either group evidence or the emitted
+        // group label.
         const groupElements = [...filteredGroupContainers];
         const inferredGroupLabels = new Map();
         let allGroupsValid = topOptionEls.length > 0;
         const inferredSelectionBoxGroup = (opt) => {
             const optionCluster = opt.parentElement;
-            const grp = optionCluster && optionCluster.parentElement;
-            if (!optionCluster || !grp || grp === variantScope || isExcluded(grp)) {
-                return null;
-            }
+            if (!optionCluster || isExcluded(optionCluster)) return null;
 
-            const grpOptions = topOptionEls.filter(candidate => grp.contains(candidate));
-            if (
-                grpOptions.length === 0 ||
-                grpOptions.some(candidate => !optionCluster.contains(candidate))
-            ) {
-                return null;
-            }
+            const rawText = (el) => el.textContent !== undefined && el.textContent !== null
+                ? el.textContent
+                : (el.innerText || '');
+            const isSemanticLabelElement = (el) => {
+                const tag = (el.tagName || '').toUpperCase();
+                if (tag === 'LABEL' || /^H[1-6]$/.test(tag)) return true;
+                if ((el.getAttribute('role') || '').toLowerCase() === 'heading') return true;
+                const cls = (el.className || '').toString().toLowerCase();
+                return Boolean(
+                    cls.includes('group-label') ||
+                    cls.includes('variation-label') ||
+                    cls.includes('section-label')
+                );
+            };
 
-            const ariaLabel = grp.getAttribute('aria-label');
-            const dataLabel = grp.getAttribute('data-label');
-            if (ariaLabel !== null && ariaLabel.trim()) {
-                return { group: grp, label: ariaLabel };
-            }
-            if (dataLabel !== null && dataLabel.trim()) {
-                return { group: grp, label: dataLabel };
-            }
+            let grp = optionCluster.parentElement;
+            // TASK-174 admits only the proven shallow wrapper-depth variation. Four
+            // ancestors is finite, stays below variantScope, and covers the immediate
+            // row plus transparent wrappers without becoming a generic ancestor search.
+            for (let level = 0; level < 4 && grp && grp !== variantScope; level++) {
+                if (isExcluded(grp)) return null;
 
-            const labelCandidates = Array.from(grp.children).filter(el => {
-                if (el === optionCluster || isExcluded(el)) return false;
-                if (grpOptions.some(candidate => el.contains(candidate))) return false;
-                return Boolean((el.textContent || el.innerText || '').trim());
-            });
+                const grpOptions = topOptionEls.filter(candidate => grp.contains(candidate));
+                if (grpOptions.length === 0) return null;
 
-            if (labelCandidates.length !== 1) return null;
-            const labelEl = labelCandidates[0];
-            const label = labelEl.textContent !== undefined && labelEl.textContent !== null
-                ? labelEl.textContent
-                : (labelEl.innerText || '');
-            return { group: grp, label };
+                const optionBranches = Array.from(grp.children).filter(child =>
+                    grpOptions.some(candidate => child === candidate || child.contains(candidate))
+                );
+                // One direct option-bearing branch is required. A second independent
+                // branch makes this ancestor ambiguous and must fail closed.
+                if (optionBranches.length !== 1) return null;
+                const optionBranch = optionBranches[0];
+                if (grpOptions.some(candidate => !optionBranch.contains(candidate) && optionBranch !== candidate)) {
+                    return null;
+                }
+
+                const labelSources = [];
+                const ariaLabel = grp.getAttribute('aria-label');
+                const dataLabel = grp.getAttribute('data-label');
+                if (ariaLabel !== null && ariaLabel.trim()) labelSources.push(ariaLabel);
+                if (dataLabel !== null && dataLabel.trim()) labelSources.push(dataLabel);
+
+                const directTextChildren = Array.from(grp.children).filter(el => {
+                    if (el === optionBranch || isExcluded(el)) return false;
+                    if (grpOptions.some(candidate => el === candidate || el.contains(candidate))) return false;
+                    return Boolean(rawText(el).trim());
+                });
+                const semanticLabels = directTextChildren.filter(isSemanticLabelElement);
+                for (const labelEl of semanticLabels) labelSources.push(rawText(labelEl));
+
+                // Preserve TASK-173's explicitly marked variation-row contract while
+                // refusing arbitrary div/span/p text in newly traversed ancestors.
+                const hasLegacyDirectLabel = (
+                    semanticLabels.length === 0 &&
+                    grp.getAttribute('data-variation-row') === 'true' &&
+                    directTextChildren.length === 1
+                );
+                if (hasLegacyDirectLabel) {
+                    labelSources.push(rawText(directTextChildren[0]));
+                }
+
+                if (labelSources.length === 1) {
+                    const unrelatedDirectText = directTextChildren.filter(
+                        el => !semanticLabels.includes(el) && !hasLegacyDirectLabel
+                    );
+                    if (unrelatedDirectText.length > 0) return null;
+                    return { group: grp, label: labelSources[0] };
+                }
+                if (labelSources.length > 1) return null;
+
+                // SECTION is a semantic group boundary. If its own direct label is
+                // missing or blank, never climb above it to borrow another heading.
+                if ((grp.tagName || '').toUpperCase() === 'SECTION') return null;
+
+                // A transparent wrapper contributes no label or unrelated text and
+                // only carries the single option branch upward.
+                if (directTextChildren.length > 0) return null;
+                grp = grp.parentElement;
+            }
+            return null;
         };
 
         for (const opt of topOptionEls) {

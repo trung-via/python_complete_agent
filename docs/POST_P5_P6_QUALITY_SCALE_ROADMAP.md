@@ -1,6 +1,6 @@
 # Post-P5 P6 Quality and Scale Roadmap
 
-Status: **P6.0 and P6.1 are CLOSED. TASK-170 / P6.1d is CLOSED / PUBLISHED at candidate `0781e0810d161ad1a4936c0e3ea31aada5704da1`. P6.2 is PARKED / NOT JUSTIFIED BY CURRENT EVIDENCE and remains reopenable from future evidence. P6.3 is CURRENT with TASK-171 / P6.3a CLOSED / PUBLISHED at candidate `3a33748905154b4822cfc164999e5c57780e67f2`, TASK-172 / P6.3b source hardening CLOSED / PUBLISHED at `63525151e4dbb7a1c30454a301e3c0e20ae771e9`, and TASK-173 as the current narrow P6.3b live-DOM compatibility blocker hardening. P6.4-P6.6 remain deferred.**
+Status: **P6.0 and P6.1 are CLOSED. TASK-170 / P6.1d is CLOSED / PUBLISHED at candidate `0781e0810d161ad1a4936c0e3ea31aada5704da1`. P6.2 is PARKED / NOT JUSTIFIED BY CURRENT EVIDENCE and remains reopenable from future evidence. P6.3 is CURRENT with TASK-171 / P6.3a CLOSED / PUBLISHED at candidate `3a33748905154b4822cfc164999e5c57780e67f2`, TASK-172 / P6.3b source hardening CLOSED / PUBLISHED at `63525151e4dbb7a1c30454a301e3c0e20ae771e9`, TASK-173 live-DOM hardening CLOSED / PUBLISHED at `f91dfe0f900664c835fef86bdf5d6c75879dbbdc`, and TASK-174 as the current narrow P6.3b structural-depth blocker hardening. P6.4-P6.6 remain deferred.**
 Scope: Python Agent product architecture post-P5; AIOS-renew remains execution substrate only.
 
 ## 1. Canonical Post-P5 Architecture Audit
@@ -163,7 +163,7 @@ threshold declares lexical retrieval universally sufficient.
 - No vector database, external service, or background indexing daemon may be introduced without
   prior architectural authorization and evidence-backed necessity.
 
-### P6.3 Product-Truth Reconciliation — CURRENT (TASK-171 / P6.3a, TASK-172 and TASK-173 / P6.3b)
+### P6.3 Product-Truth Reconciliation — CURRENT (TASK-171 / P6.3a, TASK-172 through TASK-174 / P6.3b)
 
 TASK-171 / P6.3a is CLOSED and PUBLISHED at candidate `3a33748905154b4822cfc164999e5c57780e67f2`,
 establishing the Human-governed descriptive-field foundation over exact TASK-121
@@ -171,11 +171,12 @@ evidence. It resolves uncontested values, preserves unresolved conflicts, and
 permits only explicit Human selection of an existing exact source value.
 
 TASK-172 / P6.3b source hardening is CLOSED and PUBLISHED at candidate
-`63525151e4dbb7a1c30454a301e3c0e20ae771e9`. TASK-173 is the current narrow
-P6.3b live-DOM compatibility blocker hardening: it admits the proven selection-box
-control shape from one identity-anchored bounded current-product scope into the same
-existing `ProductFact` evidence boundary without altering schema, resolver, truth,
-or downstream authorities.
+`63525151e4dbb7a1c30454a301e3c0e20ae771e9`. TASK-173 live-DOM hardening is CLOSED
+and PUBLISHED at `f91dfe0f900664c835fef86bdf5d6c75879dbbdc`. TASK-174 is the current
+narrow P6.3b structural-depth blocker hardening: a selection-box option cluster may
+cross only a finite bounded transparent-wrapper chain to the nearest structurally
+proven direct semantic label-plus-option group, without altering schema, resolver,
+truth, or downstream authorities.
 
 - Exact evidence and canonical member lineage remain intact; unresolved conflicts
   and partial truth are valid.

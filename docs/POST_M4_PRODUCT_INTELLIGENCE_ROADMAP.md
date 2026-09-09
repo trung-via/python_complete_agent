@@ -7,7 +7,8 @@ CURRENT EVIDENCE and remains reopenable from future evidence. P6.3 is CURRENT wi
 TASK-171 / P6.3a CLOSED / PUBLISHED at candidate
 `3a33748905154b4822cfc164999e5c57780e67f2`, TASK-172 / P6.3b source hardening
 CLOSED / PUBLISHED at `63525151e4dbb7a1c30454a301e3c0e20ae771e9`, and TASK-173
-as the current narrow P6.3b live-DOM compatibility blocker hardening. P6.4-P6.6
+live-DOM hardening CLOSED / PUBLISHED at `f91dfe0f900664c835fef86bdf5d6c75879dbbdc`.
+TASK-174 is the current narrow P6.3b structural-depth blocker hardening. P6.4-P6.6
 remain deferred.
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
@@ -277,13 +278,15 @@ semantic/vector authority. P6.2 remains reopenable if future evidence changes;
 parking it does not claim lexical retrieval is universally sufficient. SQLite
 remains the canonical store; any future vector index would remain secondary and disposable.
 
-#### P6.3 Product-Truth Reconciliation — CURRENT (TASK-171 / P6.3a, TASK-172 and TASK-173 / P6.3b)
+#### P6.3 Product-Truth Reconciliation — CURRENT (TASK-171 / P6.3a, TASK-172 through TASK-174 / P6.3b)
 TASK-171 / P6.3a is CLOSED / PUBLISHED at candidate `3a33748905154b4822cfc164999e5c57780e67f2`,
 establishing the Human-governed descriptive-field foundation over exact TASK-121
 evidence. TASK-172 / P6.3b source hardening is CLOSED / PUBLISHED at candidate
-`63525151e4dbb7a1c30454a301e3c0e20ae771e9`. TASK-173 is the current narrow
-P6.3b live-DOM compatibility blocker hardening, admitting the proven selection-box
-shape only from an identity-anchored bounded current-product scope into the same
+`63525151e4dbb7a1c30454a301e3c0e20ae771e9`. TASK-173 live-DOM hardening is CLOSED /
+PUBLISHED at `f91dfe0f900664c835fef86bdf5d6c75879dbbdc`. TASK-174 is the current narrow
+P6.3b structural-depth blocker hardening, allowing a selection-box option cluster
+to traverse only a finite bounded transparent-wrapper chain to the nearest proven
+direct semantic label-plus-option group inside the same identity-anchored scope and
 `ProductFact` evidence boundary.
 Selected-variant facts are observed source evidence only; TASK-108 decides
 pairwise relationship, TASK-116 governs Human exact-variant admission, and
@@ -322,7 +325,7 @@ CLOSED / PUBLISHED through TASK-170 at candidate
 `0781e0810d161ad1a4936c0e3ea31aada5704da1`. P6.2 is PARKED / NOT JUSTIFIED BY
 CURRENT EVIDENCE because the existing TASK-134 -> TASK-122 composition fully
 recovered the measured raw TASK-122 stress weakness; it remains reopenable from
-future evidence. P6.3 is CURRENT with TASK-171 / P6.3a CLOSED / PUBLISHED at candidate `3a33748905154b4822cfc164999e5c57780e67f2`, TASK-172 / P6.3b source hardening CLOSED / PUBLISHED at `63525151e4dbb7a1c30454a301e3c0e20ae771e9`, and TASK-173 as the current narrow P6.3b live-DOM compatibility blocker hardening. P6.4-P6.6 remain deferred and unimplemented; live exact-variant and product-truth certification remain downstream.
+future evidence. P6.3 is CURRENT with TASK-171 / P6.3a CLOSED / PUBLISHED at candidate `3a33748905154b4822cfc164999e5c57780e67f2`, TASK-172 / P6.3b source hardening CLOSED / PUBLISHED at `63525151e4dbb7a1c30454a301e3c0e20ae771e9`, TASK-173 live-DOM hardening CLOSED / PUBLISHED at `f91dfe0f900664c835fef86bdf5d6c75879dbbdc`, and TASK-174 as the current narrow P6.3b structural-depth blocker hardening. P6.4-P6.6 remain deferred and unimplemented; live exact-variant and product-truth certification remain downstream.
 TASK-165 remains unpublished blocked evidence from
 REVIEW-165-003 F1 and its failed remediation/repair continuation lineage.
 
