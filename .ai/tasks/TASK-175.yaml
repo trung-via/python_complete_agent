@@ -56,11 +56,6 @@ assumptions:
     remain outside repository automation. TASK-175 preserves an already-rendered current-page state;
     it never clicks, chooses, restores, or infers a variant.
 
-classification: >
-  Narrow integration/regression hardening of the existing ShopeeSourceExtractor acquisition
-  boundary. It does not introduce a new browser, scraper, readiness, variant, identity, or truth
-  authority.
-
 scope:
   inspect:
     - docs/CHATGPT_PROJECT_CONTRACT.md
