@@ -1,0 +1,265 @@
+task_id: TASK-173
+revision: 1
+
+goal: >
+  Continue P6.3b with one narrow live-DOM compatibility hardening inside the existing
+  ShopeeSourceExtractor so explicit selected-variant state rendered by the current Shopee PDP
+  control shape can enter the already-published TASK-172 ProductFact evidence boundary. Preserve
+  TASK-172 selected-variant semantics, TASK-162 readiness semantics, TASK-108 relationship
+  authority, TASK-116 Human sellable-variant admission, TASK-171 descriptive truth authority,
+  ProductSourcePack schema, and browser/session ownership unchanged.
+
+problem: >
+  TASK-172 is published at source candidate 63525151e4dbb7a1c30454a301e3c0e20ae771e9 and
+  REVIEW-172-003 records DELTA PASS on that exact candidate. A subsequent Human-owned external
+  live capture on 2026-09-09, after the Human solved Shopee CAPTCHA and CDP 9222 was healthy,
+  reached READY for one real Shopee listing (source_product_id 10374101498), but both persisted
+  observations contained zero "variant" ProductFact values. Direct evaluation on the same live
+  page then proved structured current-product identity matched target product_id 10374101498 while
+  selected_variants_complete remained false even after the Human explicitly selected the sellable
+  option "K550 Trắng Red V4". A bounded DOM diagnostic established why: the existing positive
+  selector matched section.C21rQm in the left gallery column, while the real variation controls
+  were rendered in the sibling product-details branch under one group labelled "Model". The live
+  option controls are BUTTON elements carrying semantic class tokens selection-box-selected or
+  selection-box-unselected; exactly one button was selection-box-selected. The gallery separately
+  contains thumbnail-selected-mask elements, and lower-page add-on content contains variant-like
+  product text, so broad selected-class or whole-page scanning would create false product truth.
+  This task corrects only the existing ShopeeSourceExtractor DOM observation boundary using an
+  offline regression that reproduces the proven live shape; it is not live certification.
+
+assumptions:
+  - >
+    Canonical python_complete_agent main at TASK-173 authoring is
+    63525151e4dbb7a1c30454a301e3c0e20ae771e9, the published TASK-172 source candidate.
+  - >
+    Canonical REVIEW-172-003 on branch aios/review-decision/RUN-172-003 has
+    reviewed_sha 63525151e4dbb7a1c30454a301e3c0e20ae771e9, mode DELTA, verdict PASS,
+    prior_finding_id F2, and no findings.
+  - >
+    The authoritative AIOS dependency remains exactly
+    aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@32ace104c5cfaa1b7affbaa40157872b1f85147f.
+  - >
+    TASK-162 remains the sole Shopee product-page bounded readiness authority. TASK-173 must not
+    change the current first-trusted-media-ready termination rule, readiness attempt count/delay,
+    browser/session acquisition, navigation count, or CAPTCHA ownership.
+  - >
+    TASK-172 remains the sole selected-variant source-evidence semantic authority. This task is a
+    compatibility hardening of the same private extraction script, not a second variant-evidence
+    owner and not a redefinition of complete/explicit selected state.
+  - >
+    TASK-108 remains the sole pairwise ProductSourcePack relationship resolver; TASK-116 remains
+    the sole sellable-variant proposal/Human-decision authority; TASK-171 remains the sole
+    descriptive product-truth reconciliation authority.
+  - >
+    Human authentication, login, CAPTCHA solving, and any explicit marketplace selection remain
+    outside repository code. TASK-173 observes only already-rendered state and never clicks or
+    chooses an option.
+  - >
+    The 2026-09-09 live diagnostic is external operational evidence, not a repository fixture.
+    Executor verification must remain offline and encode only the minimum proven DOM shape needed
+    for deterministic regression coverage.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_6_PRODUCT_SOURCE_PACK.md
+    - docs/PHASE_6_P6_3_PRODUCT_TRUTH_RECONCILIATION.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - .ai/tasks/TASK-108.yaml
+    - .ai/tasks/TASK-116.yaml
+    - .ai/tasks/TASK-125.yaml
+    - .ai/tasks/TASK-162.yaml
+    - .ai/tasks/TASK-172.yaml
+    - src/product_source/models.py
+    - src/product_source/serialization.py
+    - src/product_source/platforms/shopee.py
+    - src/product_intelligence/entity_resolution.py
+    - tests/product_source/test_shopee_source_extractor.py
+    - tests/product_source/test_extractor_dom_fixtures.py
+    - tests/product_source/test_scrape_tool_compat.py
+    - tests/product_intelligence/test_entity_resolution.py
+
+  modify:
+    - src/product_source/platforms/shopee.py
+    - tests/product_source/test_shopee_source_extractor.py
+    - tests/product_source/test_extractor_dom_fixtures.py
+    - docs/PHASE_6_PRODUCT_SOURCE_PACK.md
+    - docs/PHASE_6_P6_3_PRODUCT_TRUTH_RECONCILIATION.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+
+non_goals:
+  - Modify ProductSourcePack, ProductFact, OriginalMediaRef, serialization schema/version, media
+    downloader, source_pack_id, source identity, or persisted manifest contracts.
+  - Modify TASK-108 normalization, relationship, confidence, precedence, variant-key, evidence, or
+    exact-match semantics; modify TASK-115/TASK-116/TASK-117 variant evidence/admission; modify
+    TASK-120 SQLite durability, TASK-121 profiles, TASK-171 truth, or any retrieval/RAG/ranking/
+    provider/application authority.
+  - Modify TASK-162 same-page readiness behavior, attempts, delay, first-media-ready termination,
+    page/session acquisition, navigation count, BrowserManager/BrowserSession/CDP lifecycle, or
+    ShopeeScrapeTool public result/error contracts.
+  - Add a second Shopee extractor, shared generic DOM authority, alternate browser/page, network/API
+    fallback, second navigation, retry/reroute, stealth/proxy behavior, login automation, CAPTCHA
+    solving, or marketplace-selection automation.
+  - Infer selected variant from display_model_id, rModelId, vModelId, URL/query state, product title,
+    model_sku, structured title, media labels, option order, first button position, price, quantity,
+    stock, image changes, recommendation state, or text similarity.
+  - Scan document/body/[role="main"]/generic .container or arbitrary section/button trees for
+    selected state. Do not broaden from positive inclusion to whole-page prune-after-scan logic.
+  - Treat thumbnail-selected-mask, gallery/carousel selected state, image selection, add-on deals,
+    bundle recommendations, related products, vouchers, reviews, ratings, or lower-page product
+    cards as sellable-variant evidence.
+  - Hard-code observed minified/hash-like live classes such as lK5dVS, zMC_pN, Lj3peW, wnyXtI,
+    AyT2xV, SQguX_, xvTkTc, vr0998, kr8eST, or similar unstable tokens as semantic selectors.
+  - Add live Shopee verification to AIOS Runtime execution. Post-publication Human-owned external
+    capture/certification remains a separate checkpoint.
+  - Rewrite, repair, rerun, or publish TASK-172 review/remediation lineage.
+  - Push, merge, publish, or mutate main from Executor implementation execution.
+
+constraints:
+  hard:
+    - >
+      Keep ShopeeSourceExtractor as the sole Shopee product-page source/DOM extraction authority and
+      preserve its public constructor/extract signature, exact one page/session acquisition, exact
+      one navigation, TASK-162 readiness bound/termination, trusted media rules, media roles/
+      provenance/order, ProductSourcePack identity, optional metadata, existing specification/Brand
+      facts, exception classes, and TASK-172 selected-variant ProductFact contract.
+    - >
+      Refine only the module-private positive current-product scope used by selected-variant
+      observation. Starting from existing identity-matched/positively anchored current-product
+      evidence, the extractor may deterministically expand to the nearest bounded enclosing current
+      product card/details scope necessary to reach sibling variation controls. It must fail closed
+      if the current-product root is absent or ambiguous. It must never fall back to document, body,
+      [role="main"], generic .container, or an unanchored whole-page section scan.
+    - >
+      section.C21rQm may remain a valid current-product gallery/media scope but must not be assumed to
+      be the complete variant-control scope when it is only a gallery child of a larger anchored
+      current-product card. Variant observation must remain isolated from that gallery branch and
+      from unrelated sibling/lower-page content.
+    - >
+      Extend candidate-option discovery only with deterministic semantic support for the proven live
+      Shopee control tokens selection-box-selected and selection-box-unselected, in addition to the
+      already-supported TASK-172 variation/radio controls. Match these as exact class tokens or an
+      equivalently narrow semantic predicate; do not accept arbitrary classes merely because they
+      contain "selected", "selection", "active", "box", or another broad substring.
+    - >
+      For the proven selection-box control family, selection-box-selected is explicit positive
+      selected state and selection-box-unselected is explicit non-selected state. Existing explicit
+      aria selected/checked/pressed, checked-input, and TASK-172 product-variation selected markers
+      remain supported. Gallery thumbnail-selected-mask and any non-candidate selected-looking node
+      must never become a variant option merely because TASK-172 selection detection recognizes a
+      selected token after candidate discovery.
+    - >
+      Preserve TASK-172 complete-group semantics. The extractor must deterministically enumerate one
+      or more variation groups in DOM first-appearance order, assign every candidate option to
+      exactly one accepted group, require exactly one explicit selected option per group, require a
+      nonblank exact group label and nonblank exact selected option label, reject duplicate/ambiguous
+      group identity, and emit zero selected-variant facts for any uncovered, multiply-covered,
+      zero-selected, multi-selected, or unlabeled group.
+    - >
+      Support the proven live group shape without relying on minified classes: a bounded group
+      ancestor contains a human-readable group label outside candidate option descendants (for the
+      captured case, exact label "Model") and a sibling/descendant cluster of selection-box option
+      buttons. Group inference must prefer the nearest deterministic ancestor that preserves the
+      label+option-cluster boundary and must not stop at an inner option cluster that has no group
+      label. Quantity/stock controls and unrelated buttons must not become variation groups.
+    - >
+      Old TASK-172 DOM shapes and the new selection-box shape may coexist. Candidate coverage and
+      all-or-nothing completeness apply across the unified bounded current-product variation scope;
+      introducing the new shape must not create a second independent group enumeration path that can
+      ignore uncovered options from the other supported shape.
+    - >
+      Preserve the existing structured current-product identity gate. A semantically scoped gallery
+      or current-product card without structured identity matching target product_id may still
+      produce existing media behavior but must emit zero selected-variant facts.
+    - >
+      When and only when complete identity-matched selected state is established, append one existing
+      TASK-172 ProductFact per group after the unchanged pre-existing facts prefix, with key exactly
+      "variant", source_section/provenance exactly "selected_variant_controls", unit=None, canonical
+      group DOM order, and a value embedding the exact observed group and selected-option strings
+      without trimming/case-folding/accent-folding/semantic normalization. Whitespace trimming may be
+      used only for blank/duplicate validity checks, not to rewrite emitted observed strings.
+    - >
+      Add an offline DOM regression that reproduces the minimum proven 2026-09-09 live shape: one
+      anchored current-product card with a left gallery child matching section.C21rQm, gallery
+      thumbnail-selected-mask nodes, a sibling details branch containing one group labelled "Model",
+      four BUTTON option controls using selection-box-selected/unselected class tokens, exactly the
+      second option selected, and unrelated add-on/recommendation content outside the bounded current
+      product card. The extractor must return selected_variants_complete=true and exactly one group
+      observation while ignoring gallery masks and out-of-scope variant-like content.
+    - >
+      Focused regressions for the same shape must also prove zero selected-variant evidence when no
+      selection-box option is selected, when more than one option is selected, when the group label
+      is blank/missing, when current-product root selection is ambiguous, or when structured identity
+      mismatches. Existing URL-model-parameter-without-DOM-proof rejection must remain green.
+    - >
+      Add a focused ProductSourcePack-level regression proving the accepted live-shaped DOM appends
+      exactly one variant ProductFact after all existing facts and preserves the exact observed group
+      and option strings. Existing TASK-172 compatibility regressions through unchanged TASK-108 must
+      remain green; TASK-173 must not add local identity classification.
+    - >
+      Keep verification fully offline/deterministic with no live Shopee/CDP 9222, Google Drive,
+      provider/model, clock-dependent sleep, or Human interaction. Do not persist raw live HTML,
+      cookies, tokens, account data, or the external diagnostic artifact into the repository.
+    - >
+      Update lifecycle documentation consistently: TASK-171/P6.3a remains CLOSED/PUBLISHED at
+      3a33748905154b4822cfc164999e5c57780e67f2; TASK-172/P6.3b source hardening is CLOSED/PUBLISHED at
+      63525151e4dbb7a1c30454a301e3c0e20ae771e9; TASK-173 is the current P6.3b live-DOM compatibility
+      blocker hardening; P6.2 remains PARKED/reopenable; live exact-variant/product-truth
+      certification remains downstream; P6.4-P6.6 remain deferred/unimplemented.
+    - Do not push from Executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      TASK-173 changes only ShopeeSourceExtractor internals, focused source/DOM regressions, Product
+      Source Pack/P6.3 documentation, and the two canonical roadmaps, with no new schema, browser,
+      readiness, resolver, identity, catalog, persistence, retrieval, or truth authority.
+  - id: AC2
+    condition: >
+      The minimum offline fixture reproducing the proven live Shopee product-card shape yields one
+      complete selected group labelled "Model" and the exact selection-box-selected option, while
+      section.C21rQm gallery thumbnail-selected-mask nodes and lower-page/add-on variant-like content
+      are ignored.
+  - id: AC3
+    condition: >
+      Positive-scope expansion is bounded and identity-anchored to the current product; ambiguous or
+      missing roots fail closed, and no document/body/[role="main"]/generic-container/global option
+      scan is introduced.
+  - id: AC4
+    condition: >
+      Existing TASK-172 option controls plus the new selection-box control family share one
+      deterministic all-or-nothing group coverage contract: every candidate belongs to exactly one
+      labelled group with exactly one explicit selected option, or zero selected-variant facts are
+      emitted.
+  - id: AC5
+    condition: >
+      Structured identity mismatch, blank/missing group label, zero/multiple selected options,
+      ambiguous current-product root, and model-like URL parameters without complete explicit DOM
+      proof all produce zero selected-variant ProductFact values without failing an otherwise valid
+      ProductSourcePack extraction.
+  - id: AC6
+    condition: >
+      Accepted complete live-shaped state appends exactly the existing TASK-172 variant ProductFact
+      contract after the unchanged existing fact prefix, preserving exact observed group/option
+      strings and leaving all media/readiness/identity behavior semantically unchanged.
+  - id: AC7
+    condition: >
+      Existing TASK-162 readiness, one acquisition/navigation, CAPTCHA/Human ownership, TASK-108
+      relationship regressions, TASK-172 old-shape fixtures, review/recommendation/media exclusions,
+      and scraper compatibility all remain green with no live external side effects.
+  - id: AC8
+    condition: >
+      Documentation marks TASK-172 source hardening published, TASK-173 as the current narrow P6.3b
+      live-DOM blocker hardening, P6.2 parked/reopenable, and live exact-variant/product-truth
+      certification still downstream rather than claimed complete.
+  - id: AC9
+    condition: >
+      Required verification and git diff check pass with zero unresolved items and no changed files
+      outside TASK-173 scope.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_source/test_shopee_source_extractor.py tests/product_source/test_extractor_dom_fixtures.py tests/product_source/test_scrape_tool_compat.py tests/product_intelligence/test_entity_resolution.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
