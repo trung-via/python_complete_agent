@@ -1,0 +1,161 @@
+task_id: TASK-178
+revision: 1
+
+goal: >
+  Reconcile the repository's stale TASK-130 auto-publication regression suite with the
+  current post-TASK-177 downstream AIOS integration boundary, without changing publication
+  behavior or any production/runtime surface. Remove historical snapshot assumptions that
+  incorrectly freeze the AIOS dependency pin, worker launcher bytes, requirements bytes, or
+  TASK-130 implementation scope forever, and retain only current structural publication
+  invariants. This small real maintenance task is also the designated downstream live proof
+  target for the newly adopted repository-owned CONTINUE Human surface; the live invocation
+  method is operational evidence and must not be reimplemented or inferred by Executor code.
+
+problem: >
+  `tests/aios_bridge/test_aios_auto_publish_workflow.py` still carries historical TASK-130
+  constants and assertions, including AIOS-renew commit 67db82bf19d63f25721d06aabb82d850db8b78d4,
+  base SHA b0ae093fcc31ba49e27d808de2ab0cb9e837aba4, launcher byte equality to that old base,
+  requirements byte equality to that old base, and a TASK-130-only changed-file allowlist.
+  Those were valid evidence for TASK-130 itself but are not durable current-state invariants.
+  TASK-177 legitimately migrated the checked-in AIOS dependency to
+  a607fb2cf1c57fe35a9a15504df0e98d28de2f5b and modified the launcher, so retaining the old
+  snapshot assertions makes the repository's persistent regression suite contradict an
+  explicitly reviewed and published migration even though the auto-publication workflow itself
+  remains unchanged. The suite must certify publication authority without duplicating the
+  worker-control suite's exact-pin ownership or freezing unrelated future worker migrations.
+
+assumptions:
+  - >
+    Canonical python_complete_agent main at TASK-178 authoring is
+    2ff1b4678c3f74310fdbbc220003e2a8b90cff61, the reviewed and published TASK-177 source
+    candidate. REVIEW-177-001 is PRIMARY PASS with no findings.
+  - >
+    The authoritative downstream AIOS dependency is exactly the checked-in pin
+    `aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@a607fb2cf1c57fe35a9a15504df0e98d28de2f5b`.
+    Exact source+commit provenance is already owned and certified by
+    `tests/aios_bridge/test_aios_worker_control_surface.py`; this task must not create a second
+    exact-pin authority inside the publication regression suite.
+  - >
+    `.github/workflows/aios-auto-publish.yml` remains the repository-owned publication surface.
+    It installs AIOS-renew solely from the checked-in requirements pin and delegates publication
+    once to `python -m aios_renew.publication`; TASK-178 does not redesign that workflow.
+  - >
+    TASK-177 established `$aios-worker CONTINUE TASK-N` and
+    `/aios-renew-worker CONTINUE TASK-N` as the normal downstream Human lifecycle surfaces.
+    TASK-178 is intentionally the first small real task designated for live execution through
+    exactly one of those surfaces. Whether the Human used CONTINUE is not product/test state and
+    must not be synthesized by the Executor; Brain closes the upstream Downstream Adoption
+    roadmap item only after observing the bounded Human-surface outcome plus canonical successful
+    TASK-178 RUN/RESULT/review/publication lineage.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - .ai/tasks/TASK-130.yaml
+    - .ai/tasks/TASK-177.yaml
+    - .github/workflows/aios-auto-publish.yml
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - tests/aios_bridge/test_aios_auto_publish_workflow.py
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+  modify:
+    - tests/aios_bridge/test_aios_auto_publish_workflow.py
+
+non_goals:
+  - Modify `.github/workflows/aios-auto-publish.yml`, any worker launcher/surface, dependency pin,
+    project contract, product code, Product Intelligence tests, Phase 6 roadmap, or AIOS-renew.
+  - Change semantic review, review-decision refs, source-only publication, ancestry validation,
+    publication concurrency, GitHub permissions, checkout behavior, or publication failure policy.
+  - Change or re-certify the exact AIOS-renew commit owned by the worker-control suite.
+  - Preserve obsolete TASK-130 task-execution assertions merely because they once served as
+    acceptance evidence. Historical TASK evidence remains in immutable TASK/RUN/RESULT/REVIEW lineage.
+  - Add lifecycle selection, CONTINUE parsing, Human-surface parsing, executor routing,
+    retry/fallback, polling, review, publication, or adoption-state mutation to tests or product code.
+  - Claim that TASK-178 execution itself proves the Human used CONTINUE. The live surface output
+    and canonical lineage are separate evidence evaluated by Brain after execution.
+  - Push, merge, publish, or mutate main from Executor implementation execution.
+
+constraints:
+  hard:
+    - >
+      Modify only `tests/aios_bridge/test_aios_auto_publish_workflow.py`. No other repository file
+      may change in the implementation candidate.
+    - >
+      Remove the historical `AUTHORITATIVE_COMMIT = 67db82...` and `BASE_SHA = b0ae...` coupling
+      from this persistent publication suite where those values are used as current-state truth.
+      Do not replace them with a new duplicated hard-coded `a607fb2...` publication-test authority.
+    - >
+      Preserve the durable publication invariant that the workflow installs AIOS-renew solely from
+      `.agents/skills/aios-worker/requirements-aios-renew.txt`, while the workflow itself contains no
+      floating/duplicated Git URL, direct AIOS package install, or embedded commit pin.
+    - >
+      The publication suite may verify that the requirements file contains exactly one immutable
+      git-source entry with a 40-lowercase-hex commit and the canonical AIOS-renew repository URL,
+      but exact downstream commit identity must remain certified by the worker-control suite rather
+      than duplicated here.
+    - >
+      Remove or replace historical byte-equality assertions for the launcher and requirements file
+      that compare current state to TASK-130's old base. Current publication tests may instead prove
+      that the publication workflow does not invoke the downstream worker launcher and that runtime
+      installation is sourced only through the checked-in requirements file.
+    - >
+      Remove or replace the persistent `git diff BASE_SHA` TASK-130 changed-file allowlist/product
+      untouched assertions. Candidate scope for TASK-178 is enforced by this TASK and Runtime
+      changed-files truth; a repository-wide unit test must not permanently reinterpret one old
+      TASK's base/scope as current governance.
+    - >
+      Preserve all still-current publication tests for trigger/ref binding, contents permission,
+      concurrency, event-bound full-history checkout, Python provisioning, single publication-module
+      delegation, no direct main push, no review/remediation parsing, no ancestry reimplementation,
+      no merge/rebase/retry/fallback, documentation alignment, executor-specific worker docs, and
+      line-ending/BOM integrity where those assertions remain current.
+    - >
+      Do not weaken publication safety to make the suite pass. Any assertion removed because it is
+      historical must be replaced when necessary by an equivalent current structural boundary test,
+      not by broad deletion of relevant safety coverage.
+    - >
+      Keep this task executor-neutral. The Human selects exactly one repository-owned worker surface
+      when invoking the live proof. Executor implementation must not detect, record, branch on, or
+      claim which Human surface launched it.
+    - Do not push from Executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      The auto-publication regression suite no longer treats TASK-130's historical AIOS commit,
+      base SHA, launcher bytes, requirements bytes, or changed-file allowlist as permanent
+      current-state truth, and it does not introduce the TASK-177 `a607fb2...` SHA as a new duplicated
+      exact-pin authority.
+  - id: AC2
+    condition: >
+      Publication regressions still prove that the workflow installs AIOS-renew only from the single
+      checked-in immutable requirements entry, the entry is structurally pinned to the canonical
+      AIOS-renew Git repository at one 40-hex commit, and the workflow itself contains no floating or
+      duplicate runtime source/pin.
+  - id: AC3
+    condition: >
+      Current structural regressions prove the publication workflow remains independent of the
+      downstream worker launcher and continues delegating publication exactly once through the
+      pinned publication module, without gaining task execution, lifecycle selection, review,
+      remediation, retry, routing, merge, rebase, or direct-main-push authority.
+  - id: AC4
+    condition: >
+      Existing still-current trigger, permission, checkout, concurrency, review-decision derivation,
+      documentation alignment, executor-separation, and UTF-8/LF integrity protections remain covered;
+      obsolete historical task-snapshot assertions are removed narrowly rather than replacing the
+      suite with weaker generic smoke tests.
+  - id: AC5
+    condition: >
+      `tests/aios_bridge/test_aios_auto_publish_workflow.py` and
+      `tests/aios_bridge/test_aios_worker_control_surface.py` pass together, proving the publication
+      suite and current exact-pin worker-control suite no longer contradict each other.
+  - id: AC6
+    condition: >
+      Runtime changed-files truth contains only
+      `tests/aios_bridge/test_aios_auto_publish_workflow.py`; `git diff --check` passes and RESULT has
+      no unresolved items.
+
+verification:
+  required:
+    - 'python -m pytest tests/aios_bridge/test_aios_auto_publish_workflow.py tests/aios_bridge/test_aios_worker_control_surface.py -q'
+    - 'git diff --check'
