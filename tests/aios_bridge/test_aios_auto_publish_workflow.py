@@ -141,7 +141,17 @@ class TestPythonProvisioningAndDependencyPin:
     def test_workflow_has_no_floating_or_duplicate_runtime_sources(self):
         raw = WORKFLOW_FILE.read_text(encoding="utf-8")
         assert re.search(r"(?<![0-9a-f])[0-9a-f]{40}(?![0-9a-f])", raw) is None
-        assert re.search(r"\bpip\s+install\b[^\n]*\baios-renew\b", raw) is None
+        raw_without_requirements_path = raw.replace(
+            ".agents/skills/aios-worker/requirements-aios-renew.txt",
+            "<checked-in-requirements>",
+        )
+        assert (
+            re.search(
+                r"\bpip\s+install\b[^\n]*\baios-renew\b",
+                raw_without_requirements_path,
+            )
+            is None
+        )
         for forbidden in (
             "git+https://",
             "aios-renew @",
