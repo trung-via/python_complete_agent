@@ -24,6 +24,10 @@ logger = logging.getLogger(__name__)
 
 _READINESS_POLL_INTERVAL_SECONDS: float = 0.5
 _READINESS_MAX_ATTEMPTS: int = 10
+_ACCEPTED_SHOPEE_PRODUCT_HOSTS = frozenset({"shopee.vn", "www.shopee.vn"})
+_DIRECT_SHOPEE_PRODUCT_PATH = re.compile(
+    r"(?:/[^/]+-i\.\d+\.\d+|/product/\d+/\d+|/item/\d+)"
+)
 
 
 async def _readiness_sleep(seconds: float) -> None:
@@ -955,15 +959,14 @@ class ShopeeSourceExtractor:
         except (TypeError, ValueError):
             return False
 
-        if not current_host or current_host != target_host:
+        if (
+            not current_host
+            or current_host != target_host
+            or current_host not in _ACCEPTED_SHOPEE_PRODUCT_HOSTS
+        ):
             return False
 
-        path_segments = {
-            segment.casefold()
-            for segment in current.path.split("/")
-            if segment
-        }
-        if path_segments.intersection({"verify", "challenge", "captcha"}):
+        if _DIRECT_SHOPEE_PRODUCT_PATH.fullmatch(current.path) is None:
             return False
 
         current_product_id = extract_shopee_product_id(current.path)

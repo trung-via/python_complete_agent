@@ -248,6 +248,11 @@ async def test_shopee_extractor_reuses_same_item_across_slug_and_query_differenc
         "https://shopee.vn/verify/product/123/456789",
         "https://shopee.vn/verify?itemid=456789",
         "https://shopee.vn/search?next=https%3A%2F%2Fshopee.vn%2Fproduct%2F123%2F456789",
+        "https://shopee.vn/search/foo-i.123.456789",
+        "https://shopee.vn/search/product/123/456789",
+        "https://shopee.vn/promotions/item/456789",
+        "https://shopee.vn/product/123/456789/reviews",
+        "https://shopee.vn/foo-i.123.456789/reviews",
     ],
 )
 async def test_shopee_extractor_unproven_current_location_navigates_exactly_once(
@@ -263,6 +268,17 @@ async def test_shopee_extractor_unproven_current_location_navigates_exactly_once
     )
 
     assert manager.acquisition_count == 1
+    assert session.navigation_count == 1
+    assert session.navigated_url == target_url
+
+
+@pytest.mark.asyncio
+async def test_shopee_extractor_unaccepted_same_host_product_route_navigates_exactly_once():
+    target_url = "https://example.com/product/123/456789"
+    session = FakeSession(_ready_sample(), current_url=target_url)
+
+    await ShopeeSourceExtractor(browser=session).extract(target_url)
+
     assert session.navigation_count == 1
     assert session.navigated_url == target_url
 
