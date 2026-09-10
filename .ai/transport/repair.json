@@ -1,0 +1,21 @@
+{
+  "repair_id": "REPAIR-179-001",
+  "failed_run_id": "RUN-179-001",
+  "failed_head_sha": "5c992d72935fa47c55b088c0240fe9cfb7758b3a",
+  "task": {
+    "id": "TASK-179",
+    "revision": 1
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "tests/aios_bridge/test_aios_worker_control_surface.py"
+  ],
+  "instructions": [
+    "Continue only from exact failed candidate 5c992d72935fa47c55b088c0240fe9cfb7758b3a for RUN-179-001. Preserve the already-valid pin migration to 883974be6ec5922ae57021b50a48c84a0014dbfa and all current documentation semantics; do not restart PRIMARY, rebase onto current main, change the target pin, alter worker behavior, reroute executors, or modify production/workflow files.",
+    "RUN-179-001 failed required verification because test_docs_record_task_088_boundary_without_claiming_downstream_adoption requires the exact contiguous prose substring `canonical local TASK file is absent`, while the semantically correct Markdown in at least one active worker document wraps whitespace between `file` and `is absent`. This is a formatting-sensitive regression assertion, not evidence that TASK-088 semantics are missing.",
+    "Correct only tests/aios_bridge/test_aios_worker_control_surface.py so the TASK-088 documentation assertion is insensitive to ordinary Markdown whitespace/line wrapping while still proving all required semantic phrases are present across SKILL_FILE, WORKFLOW_FILE, DOCS_FILE, and CONTRACT_FILE. Do not weaken the test into a generic TASK-088 mention check and do not delete the pending-Downstream-Adoption protection.",
+    "Keep all other TASK-179 bootstrap/provenance, exact-pin, CONTINUE/STATUS, RUN/FIX/REPAIR, executor-separation, no-retry/reroute, publication-boundary, and unchanged-surface regressions intact. No file other than tests/aios_bridge/test_aios_worker_control_surface.py may change in this repair.",
+    "After the correction is committed, allow only the pinned Runtime to execute TASK-179 required verification. If verification fails again, preserve that exact RUN/FAILURE evidence and do not self-author another retry, fallback, reroute, or unrelated correction."
+  ],
+  "constraints": []
+}
