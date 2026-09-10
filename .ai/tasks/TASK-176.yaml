@@ -117,7 +117,8 @@ non_goals:
   - Re-run live Shopee/CDP interaction inside deterministic AIOS verification or require network,
     Chrome 9222, CAPTCHA handling, Human interaction, Google Drive, provider API, or marketplace
     availability for TASK-176 completion.
-  - Broaden the proven live result beyond the explicit K550 listing source_product_id
+  - >
+    Broaden the proven live result beyond the explicit K550 listing source_product_id
     10374101498 and selected option "Model: K550 Trắng Red V4" exercised by the Human-owned
     checkpoint.
   - Claim that selected-variant ProductFact is canonical product truth by itself, that
