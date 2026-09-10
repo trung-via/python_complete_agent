@@ -19,7 +19,7 @@ import sys
 from typing import BinaryIO, Callable, Sequence
 
 
-AUTHORITATIVE_COMMIT = "a607fb2cf1c57fe35a9a15504df0e98d28de2f5b"
+AUTHORITATIVE_COMMIT = "883974be6ec5922ae57021b50a48c84a0014dbfa"
 AUTHORITATIVE_REPOSITORY = "https://github.com/trung-via/AIOS-renew.git"
 PIN_LINE = (
     "aios-renew @ git+"

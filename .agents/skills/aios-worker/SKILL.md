@@ -238,12 +238,19 @@ an executor or become a second status/review authority.
 
 ## Adopted Upstream Capabilities and Boundaries
 
-Under the pinned commit `a607fb2cf1c57fe35a9a15504df0e98d28de2f5b`, Python Agent adopts:
+Under the pinned commit `883974be6ec5922ae57021b50a48c84a0014dbfa`, Python Agent adopts:
 - **TASK-086**: Deterministic, read-only Unified State and Next Action through the
   public `state` operator surface. The worker neither copies nor caches the reducer.
 - **TASK-087**: One bounded Human continuation front door through the public `continue`
   operator surface. The pinned kernel alone selects the lifecycle operation and exact
   `executor_required` behavior; supplying `codex` does not force coding work.
+- **TASK-088**: For a syntactically valid requested TASK whose canonical local TASK file
+  is absent, pinned CONTINUE may perform the bounded TASK-062-governed pre-resolution
+  synchronization before Unified State loads the TASK, then derive state from the fresh
+  synchronized repository state. Existing local TASKs gain no automatic synchronization
+  path; `state` and STATUS remain read-only for product state; unsafe repository states
+  fail closed; and the worker adds no synchronization implementation, retry, reroute,
+  recursive continuation, or second lifecycle operation.
 - **TASK-064**: Eligible NO_CHANGE verification-only continuation may invoke zero Executors
   only when the pinned Runtime proves all canonical reuse preconditions. The worker remains
   thin and makes no fast-path decisions.
@@ -303,7 +310,12 @@ Capabilities present in upstream history but **not** exposed by this downstream 
 ## Immutable Kernel Pin
 
 The only authoritative AIOS-renew kernel is commit
-`a607fb2cf1c57fe35a9a15504df0e98d28de2f5b`. Installed provenance for the prior
-`32ace104c5cfaa1b7affbaa40157872b1f85147f` pin is stale. The launcher validates both the
+`883974be6ec5922ae57021b50a48c84a0014dbfa`. Installed provenance for the immediate-predecessor
+`a607fb2cf1c57fe35a9a15504df0e98d28de2f5b` pin, and every older pin including
+`32ace104c5cfaa1b7affbaa40157872b1f85147f`, is stale. The launcher validates both the
 checked-in dependency pin and installed PEP 610 source+commit provenance and
 atomically replaces stale or unverifiable worker runtimes.
+
+This pin migration does not prove a live stale-checkout CONTINUE or complete AIOS-renew
+Downstream Adoption. That proof remains pending a fresh downstream task authored and run
+after TASK-179 is published.

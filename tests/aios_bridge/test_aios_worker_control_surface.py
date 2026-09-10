@@ -24,7 +24,8 @@ CONTRACT_FILE = REPO_ROOT / "docs" / "CHATGPT_PROJECT_CONTRACT.md"
 BASE_SHA = "1" * 40
 HEAD_SHA = "2" * 40
 FAILED_HEAD_SHA = "3" * 40
-STALE_AUTHORITATIVE_COMMIT = "32ace104c5cfaa1b7affbaa40157872b1f85147f"
+IMMEDIATE_PREDECESSOR_COMMIT = "a607fb2cf1c57fe35a9a15504df0e98d28de2f5b"
+OLDER_STALE_AUTHORITATIVE_COMMIT = "32ace104c5cfaa1b7affbaa40157872b1f85147f"
 
 if str(SCRIPT.parent) not in sys.path:
     sys.path.insert(0, str(SCRIPT.parent))
@@ -75,10 +76,10 @@ class TestImmutableRuntimePin:
             if line.strip() and not line.lstrip().startswith("#")
         ]
         assert active == [aw.PIN_LINE]
-        assert aw.AUTHORITATIVE_COMMIT == "a607fb2cf1c57fe35a9a15504df0e98d28de2f5b"
+        assert aw.AUTHORITATIVE_COMMIT == "883974be6ec5922ae57021b50a48c84a0014dbfa"
         assert active == [
             "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
-            "a607fb2cf1c57fe35a9a15504df0e98d28de2f5b"
+            "883974be6ec5922ae57021b50a48c84a0014dbfa"
         ]
 
     def test_authoritative_pep610_metadata_is_accepted(self):
@@ -90,7 +91,11 @@ class TestImmutableRuntimePin:
             ("https://github.com/other/AIOS-renew.git", aw.AUTHORITATIVE_COMMIT),
             (
                 aw.AUTHORITATIVE_REPOSITORY,
-                STALE_AUTHORITATIVE_COMMIT,
+                IMMEDIATE_PREDECESSOR_COMMIT,
+            ),
+            (
+                aw.AUTHORITATIVE_REPOSITORY,
+                OLDER_STALE_AUTHORITATIVE_COMMIT,
             ),
             (
                 aw.AUTHORITATIVE_REPOSITORY,
@@ -224,7 +229,8 @@ class TestRuntimeBootstrap:
     @pytest.mark.parametrize(
         ("stale_url", "stale_commit"),
         [
-            (aw.AUTHORITATIVE_REPOSITORY, STALE_AUTHORITATIVE_COMMIT),
+            (aw.AUTHORITATIVE_REPOSITORY, IMMEDIATE_PREDECESSOR_COMMIT),
+            (aw.AUTHORITATIVE_REPOSITORY, OLDER_STALE_AUTHORITATIVE_COMMIT),
             ("https://github.com/other/AIOS-renew.git", aw.AUTHORITATIVE_COMMIT),
         ],
     )
@@ -1321,11 +1327,27 @@ class TestSurfaceAndDocumentation:
             assert "no automatic retry" in text.lower()
             assert "Git transport" in text
             assert "duplicate-continuation checks" in text
-            assert STALE_AUTHORITATIVE_COMMIT in text
+            assert IMMEDIATE_PREDECESSOR_COMMIT in text
+            assert OLDER_STALE_AUTHORITATIVE_COMMIT in text
             assert "stale" in text
             assert "TASK-066" in text
             assert "wakeup" in text
             assert "recover-primary" in text
+
+    def test_docs_record_task_088_boundary_without_claiming_downstream_adoption(self):
+        for path in (SKILL_FILE, WORKFLOW_FILE, DOCS_FILE, CONTRACT_FILE):
+            text = path.read_text(encoding="utf-8")
+            assert "TASK-088" in text
+            assert "syntactically valid requested TASK" in text
+            assert "canonical local TASK file is absent" in text
+            assert "TASK-062-governed pre-resolution synchronization" in text
+            assert "Existing local TASKs" in text
+            assert "STATUS remain read-only" in text
+            assert "unsafe repository states" in text
+            assert "second lifecycle operation" in text
+            assert "live stale-checkout CONTINUE" in text
+            assert "Downstream Adoption" in text
+            assert "remains pending" in text
 
     def test_docs_record_runtime_owned_historical_fix_boundary(self):
         for path in (SKILL_FILE, WORKFLOW_FILE, DOCS_FILE):

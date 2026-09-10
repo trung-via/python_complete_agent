@@ -36,12 +36,23 @@ Python Agent uses only the AIOS-renew version pinned by:
 .agents/skills/aios-worker/requirements-aios-renew.txt
 ```
 
-For TASK-177 that exact downstream authority is
-`a607fb2cf1c57fe35a9a15504df0e98d28de2f5b`. Python Agent adopts reviewed
-TASK-086 Unified State and TASK-087 Unified Human Surface only by pinning that
-source candidate and translating to its public `state` and `continue` operator
-surfaces. It does not copy AIOS-renew workflow files, create a second state machine,
-or automatically expose every upstream operator command.
+For TASK-179 that exact downstream authority is
+`883974be6ec5922ae57021b50a48c84a0014dbfa`. Python Agent adopts reviewed
+TASK-086 Unified State, TASK-087 Unified Human Surface, and TASK-088 missing-local-TASK
+pre-resolution only by pinning that source candidate and translating to its public
+`state` and `continue` operator surfaces. For a syntactically valid requested TASK whose
+canonical local TASK file is absent, pinned CONTINUE may use the bounded
+TASK-062-governed pre-resolution synchronization before Unified State loads the TASK,
+then derive state from fresh synchronized repository state. Existing local TASKs gain
+no automatic synchronization path; `state` and STATUS remain read-only for product
+state; unsafe repository states fail closed; and the downstream surfaces add no
+synchronization implementation, retry, reroute, recursive continuation, or second
+lifecycle operation. Python Agent does not copy AIOS-renew workflow files, create a
+second state machine, or automatically expose every upstream operator command.
+
+The immediate-predecessor `a607fb2cf1c57fe35a9a15504df0e98d28de2f5b`
+installation is stale after this migration and must be atomically replaced under the
+existing exact source-and-commit provenance boundary.
 
 The active runtime must never be inferred from current AIOS-renew main.
 
@@ -51,6 +62,10 @@ Repository-native semantic review and source-only publication remain separate fr
 execution. `.github/workflows/aios-auto-publish.yml` continues to consume the same
 checked-in requirements file and gains no review or publication authority from this
 migration.
+
+TASK-179 does not establish a live stale-checkout CONTINUE proof or complete AIOS-renew
+Downstream Adoption. That proof remains pending a fresh downstream task authored and run
+after TASK-179 is published.
 
 ## 4. Human-facing Worker Boundary
 
