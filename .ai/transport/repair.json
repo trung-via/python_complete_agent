@@ -1,0 +1,21 @@
+{
+  "repair_id": "REPAIR-178-001",
+  "failed_run_id": "RUN-178-001",
+  "failed_head_sha": "49306ecd3d32b169f93c9b5be1409e054aba3587",
+  "task": {
+    "id": "TASK-178",
+    "revision": 1
+  },
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "tests/aios_bridge/test_aios_auto_publish_workflow.py"
+  ],
+  "instructions": [
+    "Continue only from exact failed candidate 49306ecd3d32b169f93c9b5be1409e054aba3587 for RUN-178-001. Preserve the failed candidate's already-valid publication-regression cleanup; do not restart PRIMARY, rebase onto current main, change the AIOS dependency pin, alter worker surfaces, reroute executors, or modify production/workflow files.",
+    "RUN-178-001 failed Runtime verification because test_workflow_has_no_floating_or_duplicate_runtime_sources uses a pattern that treats the substring `aios-renew` inside the canonical requirements filename `.agents/skills/aios-worker/requirements-aios-renew.txt` as if the workflow directly installed or embedded the aios-renew package. The workflow's existing `python -m pip install --no-input -r <requirements file>` path is explicitly required by TASK-178 and must remain allowed.",
+    "Correct only the publication regression test so it distinguishes prohibited direct/floating/duplicated aios-renew package or Git-source installation from the permitted `pip install -r` use of the checked-in requirements file. Preserve the invariant that the workflow contains no direct AIOS git URL, embedded 40-hex pin, floating source, duplicate package source, or alternate direct aios-renew install. Do not weaken these checks broadly merely to make the test pass.",
+    "Keep all still-current TASK-178 structural publication protections and the worker-control exact-pin authority unchanged. The correction must remain confined to tests/aios_bridge/test_aios_auto_publish_workflow.py and must not modify `.github/workflows/aios-auto-publish.yml` or the checked-in dependency pin.",
+    "After the correction is committed, allow only the pinned Runtime to execute TASK-178 required verification. If verification fails again, preserve that exact RUN/FAILURE evidence and do not self-author another retry, fallback, reroute, or unrelated correction."
+  ],
+  "constraints": []
+}
