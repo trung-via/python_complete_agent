@@ -1,9 +1,9 @@
-"""Focused deterministic certification of AC1-AC7 for TASK-130 auto-publish workflow."""
+"""Durable structural certification of the AIOS auto-publication workflow."""
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
+import re
 import subprocess
 import pytest
 import yaml
@@ -22,8 +22,10 @@ LAUNCHER_FILE = (
     REPO_ROOT / ".agents" / "skills" / "aios-worker" / "scripts" / "aios_worker.py"
 )
 
-AUTHORITATIVE_COMMIT = "67db82bf19d63f25721d06aabb82d850db8b78d4"
-BASE_SHA = "b0ae093fcc31ba49e27d808de2ab0cb9e837aba4"
+CANONICAL_REQUIREMENT = re.compile(
+    r"aios-renew @ git\+https://github\.com/trung-via/AIOS-renew\.git@"
+    r"(?P<commit>[0-9a-f]{40})"
+)
 EXPECTED_FLOW = (
     "AIOS PASS -> ChatGPT semantic review -> canonical PASS review-decision ref -> "
     "repository-native workflow -> pinned AIOS publication gate -> exact source candidate fast-forward to main"
@@ -123,21 +125,26 @@ class TestPythonProvisioningAndDependencyPin:
         )
         assert "aios-renew==" not in install_cmd
 
-    def test_immutable_pin_file_points_to_authoritative_commit(self):
+    def test_pin_file_has_one_canonical_immutable_git_source(self):
         lines = [
             line.strip()
             for line in REQUIREMENTS_FILE.read_text(encoding="utf-8").splitlines()
-            if line.strip() and not line.startswith("#")
+            if line.strip() and not line.lstrip().startswith("#")
         ]
-        assert lines == [
-            f"aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@{AUTHORITATIVE_COMMIT}"
-        ]
+        assert len(lines) == 1
+        match = CANONICAL_REQUIREMENT.fullmatch(lines[0])
+        assert match is not None, (
+            "AIOS-renew must have exactly one canonical Git source pinned to a "
+            "lowercase 40-hex commit"
+        )
 
     def test_workflow_has_no_floating_or_duplicate_runtime_sources(self):
         raw = WORKFLOW_FILE.read_text(encoding="utf-8")
+        assert re.search(r"(?<![0-9a-f])[0-9a-f]{40}(?![0-9a-f])", raw) is None
+        assert re.search(r"\bpip\s+install\b[^\n]*\baios-renew\b", raw) is None
         for forbidden in (
             "git+https://",
-            AUTHORITATIVE_COMMIT,
+            "aios-renew @",
             "pypi.org",
             "pip install aios-renew",
             "pip install --upgrade aios-renew",
@@ -167,15 +174,15 @@ class TestPublicationDelegation:
 
     def test_derivation_logic_extracts_run_id_and_rejects_invalid_ref(self):
         prefix = "refs/heads/aios/review-decision/"
-        canonical_ref = "refs/heads/aios/review-decision/RUN-130-001"
+        canonical_ref = "refs/heads/aios/review-decision/RUN-999-001"
         assert canonical_ref.startswith(prefix)
         run_id = canonical_ref[len(prefix):]
-        assert run_id == "RUN-130-001"
+        assert run_id == "RUN-999-001"
 
         invalid_refs = [
             "refs/heads/main",
-            "refs/heads/aios/review/RUN-130-001",
-            "refs/heads/aios/artifacts/RUN-130-001",
+            "refs/heads/aios/review/RUN-999-001",
+            "refs/heads/aios/artifacts/RUN-999-001",
             "refs/heads/feature",
         ]
         for ref in invalid_refs:
@@ -222,6 +229,26 @@ class TestNoDuplicatedPublicationSemantics:
             "fallback",
         ):
             assert forbidden not in raw.lower(), f"Forbidden semantic found: {forbidden}"
+
+    def test_workflow_is_independent_of_worker_execution_and_routing(self):
+        raw = WORKFLOW_FILE.read_text(encoding="utf-8")
+        launcher_path = LAUNCHER_FILE.relative_to(REPO_ROOT).as_posix()
+        assert launcher_path not in raw
+        for forbidden in (
+            "aios_worker.py",
+            "aios_renew.operator",
+            "--executor",
+            "CONTINUE TASK-",
+            "STATUS TASK-",
+            "RUN TASK-",
+            "FIX TASK-",
+            "REPAIR RUN-",
+            "executor_required",
+            "routing",
+        ):
+            assert forbidden.lower() not in raw.lower(), (
+                f"Workflow must not gain worker lifecycle authority: {forbidden}"
+            )
 
 
 class TestDocumentationAlignment:
@@ -270,67 +297,10 @@ class TestDocumentationAlignment:
             assert "--executor codex" not in text
 
 
-class TestIntegrityAndUnchangedSurfaces:
-    """Certifies AC7: Existing Product Intelligence and launcher remain byte-unchanged."""
+class TestIntegrity:
+    """Certifies the current publication surfaces remain UTF-8/LF clean."""
 
-    def test_launcher_is_byte_unchanged_from_base(self):
-        current_bytes = LAUNCHER_FILE.read_bytes()
-        base_bytes = subprocess.run(
-            [
-                "git",
-                "show",
-                f"{BASE_SHA}:.agents/skills/aios-worker/scripts/aios_worker.py",
-            ],
-            capture_output=True,
-            check=True,
-        ).stdout
-        assert current_bytes == base_bytes
-
-    def test_product_intelligence_is_byte_unchanged_from_base(self):
-        code = subprocess.run(
-            ["git", "diff", "--exit-code", BASE_SHA, "--", "src/product_intelligence"],
-            capture_output=True,
-        ).returncode
-        assert code == 0, "Product Intelligence files must remain untouched"
-
-    def test_requirements_file_is_byte_unchanged_from_base(self):
-        current_bytes = REQUIREMENTS_FILE.read_bytes()
-        base_bytes = subprocess.run(
-            [
-                "git",
-                "show",
-                f"{BASE_SHA}:.agents/skills/aios-worker/requirements-aios-renew.txt",
-            ],
-            capture_output=True,
-            check=True,
-        ).stdout
-        assert current_bytes == base_bytes
-
-    def test_only_authorized_scope_modified(self):
-        diff_names = subprocess.run(
-            ["git", "diff", "--name-only", BASE_SHA],
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout.strip().splitlines()
-        untracked = subprocess.run(
-            ["git", "ls-files", "--others", "--exclude-standard"],
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout.strip().splitlines()
-        all_touched = set(filter(None, diff_names + untracked))
-        authorized = {
-            ".github/workflows/aios-auto-publish.yml",
-            ".agents/skills/aios-worker/SKILL.md",
-            ".agents/workflows/aios-renew-worker.md",
-            "docs/AIOS_UNIFIED_WORKER_WORKFLOW.md",
-            "tests/aios_bridge/test_aios_auto_publish_workflow.py",
-        }
-        outside = all_touched - authorized
-        assert not outside, f"Unauthorized files touched: {outside}"
-
-    def test_modified_and_added_files_have_lf_and_no_bom(self):
+    def test_publication_surfaces_have_lf_and_no_bom(self):
         for rel_path in (
             ".github/workflows/aios-auto-publish.yml",
             ".agents/skills/aios-worker/SKILL.md",
