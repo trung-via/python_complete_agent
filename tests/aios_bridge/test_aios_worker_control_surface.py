@@ -20,10 +20,11 @@ SKILL_FILE = SKILL_DIR / "SKILL.md"
 WORKFLOW_FILE = REPO_ROOT / ".agents" / "workflows" / "aios-renew-worker.md"
 DEPRECATED_WORKFLOW_FILE = REPO_ROOT / ".agents" / "workflows" / "aios-worker.md"
 DOCS_FILE = REPO_ROOT / "docs" / "AIOS_UNIFIED_WORKER_WORKFLOW.md"
+CONTRACT_FILE = REPO_ROOT / "docs" / "CHATGPT_PROJECT_CONTRACT.md"
 BASE_SHA = "1" * 40
 HEAD_SHA = "2" * 40
 FAILED_HEAD_SHA = "3" * 40
-STALE_AUTHORITATIVE_COMMIT = "ba0cc66324fc2310812945a351bfc001a41f99f8"
+STALE_AUTHORITATIVE_COMMIT = "32ace104c5cfaa1b7affbaa40157872b1f85147f"
 
 if str(SCRIPT.parent) not in sys.path:
     sys.path.insert(0, str(SCRIPT.parent))
@@ -74,9 +75,10 @@ class TestImmutableRuntimePin:
             if line.strip() and not line.lstrip().startswith("#")
         ]
         assert active == [aw.PIN_LINE]
+        assert aw.AUTHORITATIVE_COMMIT == "a607fb2cf1c57fe35a9a15504df0e98d28de2f5b"
         assert active == [
             "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
-            "32ace104c5cfaa1b7affbaa40157872b1f85147f"
+            "a607fb2cf1c57fe35a9a15504df0e98d28de2f5b"
         ]
 
     def test_authoritative_pep610_metadata_is_accepted(self):
@@ -458,6 +460,40 @@ class TestKernelRouting:
         assert "sandbox" not in " ".join(codex + antigravity).lower()
 
     @pytest.mark.parametrize("executor", ["codex", "antigravity"])
+    def test_continue_delegates_exactly_to_unified_human_surface(
+        self, tmp_path, executor
+    ):
+        command = aw.kernel_command(
+            tmp_path / "python",
+            action="CONTINUE",
+            target="TASK-087",
+            executor=executor,
+            repo=tmp_path,
+        )
+        assert command == (
+            str(tmp_path / "python"),
+            "-m",
+            "aios_renew.operator",
+            "continue",
+            "TASK-087",
+            "--executor",
+            executor,
+            "--repo",
+            str(tmp_path),
+        )
+        for forbidden in (
+            "state",
+            "--finding",
+            "--repair",
+            "--action",
+            "--wakeup",
+            "--recover-primary",
+            "--remediation-ref",
+            "--repair-ref",
+        ):
+            assert forbidden not in command
+
+    @pytest.mark.parametrize("executor", ["codex", "antigravity"])
     def test_fix_delegates_exact_finding_without_local_lineage(self, tmp_path, executor):
         command = aw.kernel_command(
             tmp_path / "python",
@@ -615,7 +651,7 @@ class TestKernelRouting:
                 repo=tmp_path,
             )
 
-    def test_status_delegates_to_task_description_without_executor(self, tmp_path):
+    def test_status_delegates_to_unified_state_without_executor(self, tmp_path):
         command = aw.kernel_command(
             tmp_path / "python",
             action="STATUS",
@@ -623,9 +659,79 @@ class TestKernelRouting:
             executor="codex",
             repo=tmp_path,
         )
-        assert command[3:] == ("task", "TASK-097", "--repo", str(tmp_path))
+        assert command[3:] == ("state", "TASK-097", "--repo", str(tmp_path))
         assert "--executor" not in command
+        assert "task" not in command[3:]
         assert "push" not in command
+
+    @pytest.mark.parametrize(
+        ("returncode", "stdout", "stderr"),
+        [
+            (0, "AIOS_HUMAN_SURFACE v1\nstatus: COMPLETED\n", ""),
+            (
+                0,
+                "AIOS_HUMAN_SURFACE v1\naction: NO_ACTION\nhandoff: REVIEWER\nexecutor_required: false\n",
+                "",
+            ),
+            (
+                0,
+                "AIOS_HUMAN_SURFACE v1\nstatus: BLOCKED\nexecutor_required: false\n",
+                "",
+            ),
+            (9, "AIOS_HUMAN_SURFACE v1\nstatus: FAILED\n", "delegated failure\n"),
+        ],
+    )
+    def test_continue_passes_through_one_bounded_kernel_result_without_followup(
+        self, tmp_path, monkeypatch, capsys, returncode, stdout, stderr
+    ):
+        layout = make_layout(tmp_path)
+        kernel = MagicMock(
+            return_value=done(returncode=returncode, stdout=stdout, stderr=stderr)
+        )
+        git = MagicMock(side_effect=AssertionError("CONTINUE must not inspect Git state"))
+        monkeypatch.setattr(aw, "get_repo_root", lambda: tmp_path)
+        monkeypatch.setattr(aw, "runtime_layout", lambda repo: layout)
+        monkeypatch.setattr(aw, "ensure_runtime", lambda value: tmp_path / "worker-python")
+        monkeypatch.setattr(aw, "invoke_kernel", kernel)
+        monkeypatch.setattr(aw, "_git", git)
+
+        assert aw.main(["CONTINUE", "TASK-087", "--executor", "codex"]) == returncode
+        kernel.assert_called_once_with(
+            (
+                str(tmp_path / "worker-python"),
+                "-m",
+                "aios_renew.operator",
+                "continue",
+                "TASK-087",
+                "--executor",
+                "codex",
+                "--repo",
+                str(tmp_path),
+            ),
+            repo=tmp_path,
+        )
+        git.assert_not_called()
+        captured = capsys.readouterr()
+        assert captured.out == stdout
+        assert captured.err == stderr
+        assert "REVIEW_CANDIDATE_HEAD" not in captured.out
+        assert "NEXT:" not in captured.out
+
+    def test_continue_rejects_non_task_or_selector_before_runtime(self, monkeypatch):
+        repo = MagicMock(side_effect=AssertionError("repo must not be resolved"))
+        runtime = MagicMock(side_effect=AssertionError("runtime must not be used"))
+        kernel = MagicMock(side_effect=AssertionError("kernel must not be invoked"))
+        monkeypatch.setattr(aw, "get_repo_root", repo)
+        monkeypatch.setattr(aw, "ensure_runtime", runtime)
+        monkeypatch.setattr(aw, "invoke_kernel", kernel)
+
+        assert aw.main(["CONTINUE", "RUN-087-001", "--executor", "codex"]) == 1
+        assert aw.main(
+            ["CONTINUE", "TASK-087", "FINDING-1", "--executor", "codex"]
+        ) == 1
+        repo.assert_not_called()
+        runtime.assert_not_called()
+        kernel.assert_not_called()
 
     def test_one_run_request_invokes_kernel_exactly_once_and_leaves_head_local(
         self, tmp_path, monkeypatch, capsys
@@ -843,10 +949,11 @@ class TestKernelRouting:
         kernel.assert_not_called()
 
     def test_status_does_not_read_head_resolve_lineage_or_push(
-        self, tmp_path, monkeypatch
+        self, tmp_path, monkeypatch, capsys
     ):
         layout = make_layout(tmp_path)
-        kernel = MagicMock(return_value=done(stdout="TASK-097\n"))
+        state_output = "AIOS_UNIFIED_STATE v1\ntask: TASK-097\naction: WAIT\n"
+        kernel = MagicMock(return_value=done(stdout=state_output))
         monkeypatch.setattr(aw, "get_repo_root", lambda: tmp_path)
         monkeypatch.setattr(aw, "runtime_layout", lambda repo: layout)
         monkeypatch.setattr(aw, "ensure_runtime", lambda value: tmp_path / "python")
@@ -855,8 +962,22 @@ class TestKernelRouting:
         monkeypatch.setattr(aw, "_git", git)
 
         assert aw.main(["STATUS", "TASK-097", "--executor", "codex"]) == 0
-        kernel.assert_called_once()
+        kernel.assert_called_once_with(
+            (
+                str(tmp_path / "python"),
+                "-m",
+                "aios_renew.operator",
+                "state",
+                "TASK-097",
+                "--repo",
+                str(tmp_path),
+            ),
+            repo=tmp_path,
+        )
         git.assert_not_called()
+        captured = capsys.readouterr()
+        assert captured.out == state_output
+        assert captured.err == ""
 
     def test_missing_fix_finding_fails_before_runtime_or_kernel(self, monkeypatch):
         repo = MagicMock(side_effect=AssertionError("repo must not be resolved"))
@@ -1023,8 +1144,12 @@ class TestSurfaceAndDocumentation:
         assert "scripts/aios_worker.py" in workflow
         assert "must not" in skill.lower() and "implementation" in skill.lower()
         assert "must not" in workflow.lower() and "implementation" in workflow.lower()
+        assert "$aios-worker CONTINUE TASK-N" in skill
+        assert "$aios-worker STATUS TASK-N" in skill
         assert "$aios-worker FIX TASK-N FINDING-ID" in skill
         assert "$aios-worker REPAIR RUN-N-NNN" in skill
+        assert "/aios-renew-worker CONTINUE TASK-N" in workflow
+        assert "/aios-renew-worker STATUS TASK-N" in workflow
         assert "/aios-renew-worker FIX TASK-N FINDING-ID" in workflow
         assert "/aios-renew-worker REPAIR RUN-N-NNN" in workflow
         assert aw.AUTHORITATIVE_COMMIT in skill
@@ -1033,9 +1158,9 @@ class TestSurfaceAndDocumentation:
     def test_renew_workflow_is_the_only_active_antigravity_surface(self):
         workflow = WORKFLOW_FILE.read_text(encoding="utf-8")
         assert "name: aios-renew-worker" in workflow
-        assert "/aios-renew-worker RUN TASK-N" in workflow
-        assert "/aios-worker RUN TASK-N" not in workflow
-        for action in ("RUN", "STATUS"):
+        assert "/aios-renew-worker CONTINUE TASK-N" in workflow
+        assert "/aios-worker CONTINUE TASK-N" not in workflow
+        for action in ("CONTINUE", "RUN", "STATUS"):
             command = (
                 ".agents/skills/aios-worker/scripts/aios_worker.py "
                 f"{action} TASK-N --executor antigravity"
@@ -1136,6 +1261,37 @@ class TestSurfaceAndDocumentation:
         assert "Historical recovery is Runtime-owned" in text
         assert "isolating the exact historical failed subject" in text
         assert "publication reconciliation is a separate canonical downstream task" in text
+        assert "TASK-086 Unified State" in text
+        assert "TASK-087 Unified Human Surface" in text
+        assert "AIOS_HUMAN_SURFACE" in text
+        assert "AIOS_UNIFIED_STATE" in text
+        assert "$aios-worker CONTINUE TASK-N" in text
+        assert "/aios-renew-worker CONTINUE TASK-N" in text
+
+    def test_project_contract_makes_continue_normal_and_preserves_authorities(self):
+        text = CONTRACT_FILE.read_text(encoding="utf-8")
+        assert "`CONTINUE TASK-N` is the normal Human lifecycle command" in text
+        assert "`STATUS TASK-N`" in text and "Unified State" in text
+        assert "explicit compatibility/debug escape hatches" in text
+        assert aw.AUTHORITATIVE_COMMIT in text
+        assert "raw `aios ...` commands" not in text
+        assert "implementation details" in text
+        assert "source-only publication" in text
+        assert ".github/workflows/aios-auto-publish.yml" in text
+        assert "gains no review or publication authority" in text
+
+    def test_continue_docs_leave_state_and_executor_required_to_pinned_kernel(self):
+        for path in (SKILL_FILE, WORKFLOW_FILE, DOCS_FILE, CONTRACT_FILE):
+            text = path.read_text(encoding="utf-8")
+            assert "CONTINUE TASK-N" in text
+            assert "STATUS TASK-N" in text
+            assert "executor_required" in text
+            assert "TASK-086" in text
+            assert "TASK-087" in text
+        docs = DOCS_FILE.read_text(encoding="utf-8")
+        assert "does not force Executor work" in docs
+        assert "does not call `state` first" in docs
+        assert "at most one pinned canonical operation" in docs
 
     def test_product_requirements_and_task_098_are_not_modified(self):
         task_098 = (REPO_ROOT / ".ai" / "tasks" / "TASK-098.yaml").read_bytes()
@@ -1229,7 +1385,7 @@ class TestSurfaceAndDocumentation:
 
     def test_launcher_remains_thin_without_token_telemetry_or_remediation_filtering(self):
         source = SCRIPT.read_text(encoding="utf-8")
-        assert aw.ALLOWED_ACTIONS == ("FIX", "REPAIR", "RUN", "STATUS")
+        assert aw.ALLOWED_ACTIONS == ("CONTINUE", "FIX", "REPAIR", "RUN", "STATUS")
         assert aw.ALLOWED_EXECUTORS == ("antigravity", "codex")
         for forbidden in (
             "token_usage",

@@ -36,20 +36,39 @@ Python Agent uses only the AIOS-renew version pinned by:
 .agents/skills/aios-worker/requirements-aios-renew.txt
 ```
 
+For TASK-177 that exact downstream authority is
+`a607fb2cf1c57fe35a9a15504df0e98d28de2f5b`. Python Agent adopts reviewed
+TASK-086 Unified State and TASK-087 Unified Human Surface only by pinning that
+source candidate and translating to its public `state` and `continue` operator
+surfaces. It does not copy AIOS-renew workflow files, create a second state machine,
+or automatically expose every upstream operator command.
+
 The active runtime must never be inferred from current AIOS-renew main.
 
 An AIOS-renew improvement does not exist for Python Agent until the Python Agent repository explicitly updates and certifies its pin.
+
+Repository-native semantic review and source-only publication remain separate from
+execution. `.github/workflows/aios-auto-publish.yml` continues to consume the same
+checked-in requirements file and gains no review or publication authority from this
+migration.
 
 ## 4. Human-facing Worker Boundary
 
 The unified semantic protocol is:
 
 ```text
+CONTINUE TASK-N
+STATUS TASK-N
 RUN TASK-N
 FIX TASK-N FINDING-ID
 REPAIR RUN-N-NNN
-STATUS TASK-N
 ```
+
+`CONTINUE TASK-N` is the normal Human lifecycle command. It delegates next-action
+selection solely to the exact pinned AIOS-renew Unified Human Surface. `STATUS TASK-N`
+is the read-only, versioned Unified State inspection command. RUN, FIX, and REPAIR
+remain explicit compatibility/debug escape hatches, not a normal requirement for the
+Human to reconstruct low-level lifecycle state or selectors.
 
 Antigravity surface:
 
@@ -64,6 +83,8 @@ $aios-worker ...
 ```
 
 The visible surface selects one executor identity and may not reroute to the other.
+That identity is Human selection available to the pinned kernel; it does not force a
+coding Executor for a canonical action whose `executor_required` value is false.
 
 Normal Human guidance must use these worker surfaces.
 
@@ -71,6 +92,8 @@ Internal commands such as:
 
 ```text
 aios run
+aios continue
+aios state
 aios remediate
 aios repair
 raw codex
@@ -79,6 +102,10 @@ manual local artifact courier
 ```
 
 are implementation details and must not be exposed unless explicitly debugging the AIOS integration layer.
+One CONTINUE surface invocation delegates at most one pinned canonical operation and
+passes through bounded `AIOS_HUMAN_SURFACE` output. The downstream launcher must not
+call state first, parse output to select another action, retry, reroute, poll, or
+recursively continue.
 
 ## 5. Product Architecture Authority
 
@@ -138,6 +165,22 @@ Never generate the next task only from a remembered roadmap.
 
 ## 8. Execution Semantics
 
+### Normal lifecycle
+
+Use worker `CONTINUE TASK-N`. Pinned TASK-086/TASK-087 Unified State and Next Action
+own exact lifecycle selection, handoff/no-action, blocked/done, transport/recovery,
+and `executor_required` semantics. Brain, Reviewer, and Publisher remain external
+authorities when the bounded Human surface requests those handoffs. A successful
+execution still stops for independent ChatGPT semantic review before source-only
+publication.
+
+Use worker `STATUS TASK-N` only to inspect bounded `AIOS_UNIFIED_STATE`. STATUS is
+read-only and invokes no coding Executor or mutating lifecycle operation.
+
+The explicit paths below are compatibility/debug escape hatches. They do not replace
+CONTINUE as normal guidance and do not grant the downstream layer lifecycle-selection
+authority.
+
 ### PRIMARY
 
 Use worker `RUN`.
@@ -154,7 +197,7 @@ Do not substitute FIX for REPAIR.
 Do not substitute REPAIR for FIX.  
 Do not restart PRIMARY after narrow correction.
 
-### Brain REPAIR action preflight
+### Brain REPAIR action preflight for the explicit debug path
 
 Before authoring any REPAIR, the Brain must read the exact canonical FAILURE/candidate facts and classify the required continuation **before** invoking a worker. When action semantics have not already been reconciled in the current chat, the Brain must inspect the exact pinned AIOS-renew runtime rather than infer semantics from memory or current upstream main.
 
@@ -260,9 +303,11 @@ For a new ChatGPT chat:
 5. Determine last published implementation.
 6. Determine next authored TASK, if any.
 7. Inspect active RUN / FAILURE / REVIEW / FIX / REPAIR lineage only when relevant.
-8. When a failed RUN needs REPAIR and REPAIR action semantics are not already reconciled in the current chat, inspect the exact pinned AIOS runtime before selecting `NO_CHANGE`, `CODE_FIX`, or any successor action vocabulary.
-9. When review/publication follows a nonstandard lineage such as REPAIR-after-FIX, inspect the exact pinned publication semantics before materializing review-decision fields that depend on prior-review resolution.
-10. Produce SYNC CHECKPOINT.
+8. Use the repository-owned `STATUS TASK-N` surface for read-only Unified State
+   inspection and `CONTINUE TASK-N` for the normal lifecycle step.
+9. When the explicit debug path requires REPAIR and action semantics are not already reconciled in the current chat, inspect the exact pinned AIOS runtime before selecting `NO_CHANGE`, `CODE_FIX`, or any successor action vocabulary.
+10. When review/publication follows a nonstandard lineage such as REPAIR-after-FIX, inspect the exact pinned publication semantics before materializing review-decision fields that depend on prior-review resolution.
+11. Produce SYNC CHECKPOINT.
 
 Expected checkpoint:
 

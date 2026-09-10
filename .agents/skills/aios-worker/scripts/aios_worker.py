@@ -19,7 +19,7 @@ import sys
 from typing import BinaryIO, Callable, Sequence
 
 
-AUTHORITATIVE_COMMIT = "32ace104c5cfaa1b7affbaa40157872b1f85147f"
+AUTHORITATIVE_COMMIT = "a607fb2cf1c57fe35a9a15504df0e98d28de2f5b"
 AUTHORITATIVE_REPOSITORY = "https://github.com/trung-via/AIOS-renew.git"
 PIN_LINE = (
     "aios-renew @ git+"
@@ -28,7 +28,7 @@ PIN_LINE = (
 TASK_PATTERN = re.compile(r"^TASK-([0-9]+)\Z")
 RUN_ID_PATTERN = re.compile(r"^RUN-([0-9]+)-([0-9]+)\Z")
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}\Z")
-ALLOWED_ACTIONS = ("FIX", "REPAIR", "RUN", "STATUS")
+ALLOWED_ACTIONS = ("CONTINUE", "FIX", "REPAIR", "RUN", "STATUS")
 ALLOWED_EXECUTORS = ("antigravity", "codex")
 PROVENANCE_PROGRAM = """\
 import importlib.metadata
@@ -391,7 +391,17 @@ def kernel_command(
 ) -> tuple[str, ...]:
     base = (str(python), "-m", "aios_renew.operator")
     if action == "STATUS":
-        return (*base, "task", target, "--repo", str(repo))
+        return (*base, "state", target, "--repo", str(repo))
+    if action == "CONTINUE":
+        return (
+            *base,
+            "continue",
+            target,
+            "--executor",
+            executor,
+            "--repo",
+            str(repo),
+        )
     if action == "RUN":
         return (
             *base,
@@ -564,7 +574,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             finding_id=args.finding_id,
         )
 
-        if args.action == "STATUS":
+        if args.action in ("CONTINUE", "STATUS"):
             completed = invoke_kernel(command, repo=repo)
             _emit_completed(completed)
             return completed.returncode

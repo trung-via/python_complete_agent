@@ -1,10 +1,10 @@
 # AIOS Unified Worker Workflow
 
-As of TASK-161 revision 1, the repository-owned Codex and Antigravity worker
+As of TASK-177 revision 1, the repository-owned Codex and Antigravity worker
 surfaces delegate exclusively to the immutable AIOS-renew kernel at commit
-`32ace104c5cfaa1b7affbaa40157872b1f85147f`. Legacy AIOS Bridge source remains
+`a607fb2cf1c57fe35a9a15504df0e98d28de2f5b`. Legacy AIOS Bridge source remains
 archived in this repository, but it is inactive and unreachable from these
-RUN/FIX/REPAIR/STATUS surfaces.
+CONTINUE/STATUS and explicit RUN/FIX/REPAIR surfaces.
 
 ---
 
@@ -13,11 +13,15 @@ RUN/FIX/REPAIR/STATUS surfaces.
 AIOS defines a single unified semantic protocol for Human operators across all supported AI environments:
 
 ```text
+CONTINUE TASK-N
+STATUS TASK-N
 RUN TASK-N
 FIX TASK-N FINDING-ID
 REPAIR RUN-N-NNN
-STATUS TASK-N
 ```
+
+CONTINUE is the normal Human lifecycle command. STATUS is read-only Unified State
+inspection. RUN, FIX, and REPAIR are retained as explicit compatibility/debug paths.
 
 ### UI Surface Parity
 
@@ -25,13 +29,16 @@ The protocol is invoked through physically separate, thin operator files:
 
 | Environment | Explicit Invocation Command | Surface File | Selected Executor |
 |:---|:---|:---|:---|
-| **Antigravity** | `/aios-renew-worker RUN TASK-N` | `.agents/workflows/aios-renew-worker.md` | `antigravity` |
-| **Codex** | `$aios-worker RUN TASK-N` | `.agents/skills/aios-worker/SKILL.md` | `codex` |
+| **Antigravity** | `/aios-renew-worker CONTINUE TASK-N` | `.agents/workflows/aios-renew-worker.md` | `antigravity` |
+| **Codex** | `$aios-worker CONTINUE TASK-N` | `.agents/skills/aios-worker/SKILL.md` | `codex` |
 
 Both surfaces call the same `aios_worker.py` launcher. The selected executor is
 the only semantic difference. TASK/RUN/RESULT/EVIDENCE, synchronization,
 executor invocation, review validation, canonical remote remediation lineage
 resolution, and remote REPAIR lookup all come from the same pinned AIOS-renew distribution.
+Supplying the surface-selected identity makes that Human choice available to the
+kernel; it does not force Executor work when the pinned Unified State action has
+`executor_required: false`.
 
 ---
 
@@ -77,7 +84,7 @@ authoritative repository and commit. A dedicated `worker-bootstrap.lock`
 serializes concurrent first use and is separate from the kernel's
 `operator.lock`. Valid runtimes are reused without reinstalling; incomplete,
 stale, alternate-source, or unverifiable runtimes are rebuilt fail-closed before
-an AIOS RUN can exist.
+an AIOS operator operation can exist.
 
 AIOS-renew owns local RUN, handoff, RESULT, and operator-lock state below the
 Git-dir AIOS area. Switching between Codex and Antigravity does not create a
@@ -86,6 +93,26 @@ second semantic state store.
 ---
 
 ## 4. Worker Operations
+
+### CONTINUE TASK-N — normal Human lifecycle path
+
+- **Codex**: Calls AIOS-renew `continue` once with the exact TASK ID, exact Python
+  Agent repository root, and executor `codex`.
+- **Antigravity**: Calls the same operator once with executor `antigravity`.
+- **Pass-through**: The launcher preserves the pinned kernel return code and bounded
+  `AIOS_HUMAN_SURFACE` output. It does not parse prose or state to authorize another
+  operation, synthesize failure/review state, retry, reroute, or call the kernel again.
+- **Unified Authority**: TASK-086 Unified State and TASK-087 Next Action remain solely
+  inside the pinned distribution. The downstream launcher does not call `state` first,
+  inspect refs/files/RUNs, reconstruct the action taxonomy, or expose internal selectors.
+- **Executor Semantics**: The selected surface identity is Human input available to the
+  kernel. WAIT, Brain/Reviewer/Publisher handoff, DONE/BLOCKED, transport/recovery, and
+  eligible verification-only NO_CHANGE paths do not acquire a coding Executor merely
+  because an executor-specific surface supplied its identity. Exact `executor_required`
+  and reuse decisions remain pinned AIOS-renew authority.
+
+The explicit RUN, FIX, and REPAIR operations below remain bounded operational escape
+hatches for compatibility and debugging; they are not the normal state-selection burden.
 
 ### RUN TASK-N
 
@@ -183,14 +210,24 @@ second semantic state store.
 
 ### STATUS TASK-N
 
-- **Behavior**: Calls AIOS-renew `task`/`describe_task` semantics for the exact
-  stored TASK.
+- **Behavior**: Calls AIOS-renew `state` exactly once for the exact TASK and passes
+  through its bounded, versioned `AIOS_UNIFIED_STATE` observation. STATUS is Unified
+  State inspection, not task description.
 - **Safety**: STATUS may validate/bootstrap the untracked worker runtime, but is
   read-only for the product worktree, branch/ref, TASK, RUN/RESULT state,
   publication, and executor authority. It does not fetch, synchronize, review,
   execute, or push product state.
 
 ### Operational Telemetry and Upstream Scope Boundaries
+
+- **TASK-086 Unified State**: Python Agent adopts the deterministic read-only lifecycle
+  reducer solely through the pinned public `state` operator surface. It does not copy,
+  cache, approximate, or independently interpret Unified State or Next Action.
+- **TASK-087 Unified Human Surface**: Python Agent adopts the bounded continuation front
+  door solely through the pinned public `continue` operator surface. One downstream
+  invocation delegates at most one pinned canonical operation; the launcher adds no
+  recommendation, ranking, memory, fallback, cross-surface substitution, polling, or
+  recursive continuation.
 
 - **TASK-065 Operational Telemetry**: Under the pinned kernel, same-invocation native Executor
   operational telemetry (`token_usage`) may be recorded by the pinned Runtime's native adapters.
@@ -237,8 +274,9 @@ second semantic state store.
   contains this intervening Runtime history, Python Agent does not adopt AIOS-renew workflow
   files, upstream remote approval/status workflow, wakeup workflow, dispatch-reconciliation,
   or publication implementation. It exposes no self-hosted `wakeup`, `recover-primary`, or
-  additional worker command. Python Agent's existing publication/automation authority remains
-  unchanged, and the Human-facing worker surface remains strictly RUN, FIX, REPAIR, and STATUS.
+  internal operator selector. Python Agent's existing publication/automation authority remains
+  unchanged. The Human-facing worker surface exposes normal CONTINUE/STATUS plus explicit
+  RUN/FIX/REPAIR compatibility/debug paths only.
 
 ---
 
@@ -283,10 +321,12 @@ A review verdict of CHANGES_REQUIRED does not publish and continues through narr
 
 ---
 
-## 6. Single-Command Operator Flow
+## 6. Normal Human Operator Flow
 
-- **Antigravity**: The Human enters `/aios-renew-worker RUN TASK-N`.
-- **Codex**: The Human enters `$aios-worker RUN TASK-N`.
+- **Antigravity**: The Human enters `/aios-renew-worker CONTINUE TASK-N`.
+- **Codex**: The Human enters `$aios-worker CONTINUE TASK-N`.
+- **Inspection**: The Human uses the corresponding `STATUS TASK-N` surface to inspect
+  versioned Unified State without mutation or Executor dispatch.
 - **Sequence**: `AIOS PASS -> ChatGPT semantic review -> canonical PASS review-decision ref -> repository-native workflow -> pinned AIOS publication gate -> exact source candidate fast-forward to main`.
 
 ---
@@ -316,5 +356,12 @@ branches or caches that do not expose `/aios-renew-worker` fail closed instead o
 falling back to legacy `/aios-worker` semantics.
 
 Both active worker surfaces use exactly AIOS-renew commit
-`32ace104c5cfaa1b7affbaa40157872b1f85147f`. Installed provenance for the prior
-`ba0cc66324fc2310812945a351bfc001a41f99f8` pin is stale and is atomically replaced.
+`a607fb2cf1c57fe35a9a15504df0e98d28de2f5b`. Installed provenance for the prior
+`32ace104c5cfaa1b7affbaa40157872b1f85147f` pin is stale and is atomically replaced.
+
+This is an exact-pin adoption boundary: Python Agent consumes reviewed TASK-086/TASK-087
+only through their public operator surfaces. It copies no AIOS-renew workflow files,
+creates no second lifecycle state machine, and does not automatically expose every
+upstream operator command. ChatGPT semantic review, source-only publication, and the
+existing repository-native publication workflow remain separate repository-owned
+authorities; raw `aios ...` commands are internal integration details in normal guidance.

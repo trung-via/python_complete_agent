@@ -3,7 +3,7 @@
 name: aios-renew-worker
 description: >
   Antigravity-only /aios-renew-worker workflow. Operates the AIOS worker
-  protocol (RUN TASK-N, FIX TASK-N FINDING-ID, REPAIR RUN-N-NNN, STATUS TASK-N) through the exact pinned
+  protocol (CONTINUE TASK-N, STATUS TASK-N, plus explicit RUN/FIX/REPAIR compatibility paths) through the exact pinned
   AIOS-renew kernel with executor identity antigravity.
 ---
 
@@ -18,10 +18,11 @@ Codex worker surface or infer, reroute, or substitute another executor.
 ## Explicit Invocation
 
 ```text
+/aios-renew-worker CONTINUE TASK-N
+/aios-renew-worker STATUS TASK-N
 /aios-renew-worker RUN TASK-N
 /aios-renew-worker FIX TASK-N FINDING-ID
 /aios-renew-worker REPAIR RUN-N-NNN
-/aios-renew-worker STATUS TASK-N
 ```
 
 `TASK-N` is the exact user-supplied task identifier. `FINDING-ID` is the exact
@@ -30,16 +31,19 @@ failed run identifier.
 
 ## Operator Boundary
 
-The visible Antigravity session is operator UI only. After dispatch it must not
+The visible Antigravity session is operator UI only. `CONTINUE TASK-N` is the normal
+Human lifecycle command; the pinned kernel alone decides the next canonical action
+and whether it requires a coding Executor. After dispatch the visible session must not
 inspect TASK implementation context, inspect or reconstruct repair lineage,
 edit product files, execute verification, synthesize evidence, review semantics,
 retry, reroute, or continue coding.
 
 ## Strict Execution Contract
 
-1. Parse the exact Human command (`RUN TASK-N`, `FIX TASK-N FINDING-ID`,
-   `REPAIR RUN-N-NNN`, or `STATUS TASK-N`). Missing FIX finding identifiers or missing/malformed
-   REPAIR targets fail before kernel invocation.
+1. Parse the exact Human command (`CONTINUE TASK-N`, `STATUS TASK-N`, `RUN TASK-N`,
+   `FIX TASK-N FINDING-ID`, or `REPAIR RUN-N-NNN`). CONTINUE and STATUS accept only one
+   canonical TASK target. Missing FIX finding identifiers or missing/malformed REPAIR targets
+   fail before kernel invocation.
 2. Echo the requested task ID / run ID, action, and selected executor (`antigravity`).
 3. Resolve the deterministic Python 3.11+ bootstrap host described below.
 4. Invoke the checked-in shared launcher
@@ -63,6 +67,13 @@ retry, reroute, or continue coding.
    ```text
    Review TASK-N in ChatGPT
    ```
+
+For CONTINUE and STATUS, pass through the pinned Human/Unified State surface output
+and return code. Do not parse that output to select another action, call `state` before
+CONTINUE, retry, or invoke the kernel a second time. The supplied `antigravity` identity
+is Human selection available to the kernel; it must not force an Executor when pinned
+`executor_required` semantics select WAIT, handoff, DONE/BLOCKED, transport/recovery,
+or an eligible verification-only NO_CHANGE path.
 
 ## Deterministic Bootstrap-Host Resolution
 
@@ -88,6 +99,23 @@ provides runtime authority; AIOS-renew runs only from the launcher's separate
 `.git/aios/worker-runtime`.
 
 ## Command Details
+
+### CONTINUE TASK-N — normal lifecycle command
+
+Delegates exactly once to the pinned Unified Human Surface with the exact repository
+root and Human-selected Antigravity identity. AIOS-renew TASK-086/TASK-087 exclusively
+owns Unified State, next-action selection, `executor_required`, NO_CHANGE reuse,
+handoff, recovery, and bounded `AIOS_HUMAN_SURFACE` output. This workflow does not
+inspect state, reconstruct an action, automatically continue, or synthesize a verdict.
+
+```powershell
+<resolved bootstrap-host argv> .agents/skills/aios-worker/scripts/aios_worker.py CONTINUE TASK-N --executor antigravity
+```
+
+RUN, FIX, and REPAIR below remain explicit compatibility/debug paths; they are not
+the normal Human state-selection burden. Brain, Reviewer, and Publisher handoffs remain
+external authorities. Raw `aios ...` and `python -m aios_renew.operator ...` commands
+are internal integration details, not normal downstream Human guidance.
 
 ### RUN TASK-N
 
@@ -173,8 +201,10 @@ choose repair action, retry, fall back, or reroute.
 
 ### STATUS TASK-N
 
-Delegates to AIOS-renew task-description semantics. STATUS is read-only for the
-product worktree, branch, TASK/RUN state, publication, and executor authority:
+Delegates exactly once to the pinned TASK-086 Unified State read-only boundary and
+passes through its versioned `AIOS_UNIFIED_STATE` output. STATUS does not use task
+description semantics and is read-only for the product worktree, branch, TASK/RUN
+state, publication, and executor authority:
 
 ```powershell
 <resolved bootstrap-host argv> .agents/skills/aios-worker/scripts/aios_worker.py STATUS TASK-N --executor antigravity
@@ -185,7 +215,12 @@ an executor or become a second status or review authority.
 
 ## Adopted Upstream Capabilities and Boundaries
 
-Under the pinned commit `32ace104c5cfaa1b7affbaa40157872b1f85147f`, Python Agent adopts:
+Under the pinned commit `a607fb2cf1c57fe35a9a15504df0e98d28de2f5b`, Python Agent adopts:
+- **TASK-086**: Deterministic, read-only Unified State and Next Action through the
+  public `state` operator surface. The workflow neither copies nor caches the reducer.
+- **TASK-087**: One bounded Human continuation front door through the public `continue`
+  operator surface. The pinned kernel alone selects the lifecycle operation and exact
+  `executor_required` behavior; supplying `antigravity` does not force coding work.
 - **TASK-064**: Eligible NO_CHANGE verification-only continuation may invoke zero Executors
   only when the pinned Runtime proves all canonical reuse preconditions. The worker remains
   thin and makes no fast-path decisions.
@@ -239,12 +274,13 @@ Capabilities present in upstream history but **not** exposed by this downstream 
   wakeup workflow, dispatch-reconciliation or publication implementation are copied. No
   self-hosted `wakeup`, `recover-primary`, or other worker command is exposed, and Python
   Agent's existing publication/automation authority remains unchanged. The Human-facing
-  worker surface remains strictly RUN, FIX, REPAIR, and STATUS.
+  worker surface exposes normal CONTINUE/STATUS plus explicit RUN/FIX/REPAIR
+  compatibility/debug paths only.
 
 ## Immutable Kernel Pin
 
 The only authoritative AIOS-renew kernel is commit
-`32ace104c5cfaa1b7affbaa40157872b1f85147f`. Installed provenance for the prior
-`ba0cc66324fc2310812945a351bfc001a41f99f8` pin is stale. The launcher validates both the
+`a607fb2cf1c57fe35a9a15504df0e98d28de2f5b`. Installed provenance for the prior
+`32ace104c5cfaa1b7affbaa40157872b1f85147f` pin is stale. The launcher validates both the
 checked-in dependency pin and installed PEP 610 source+commit provenance and
 atomically replaces stale or unverifiable worker runtimes.
