@@ -1,6 +1,6 @@
 # Post-P5 P6 Quality and Scale Roadmap
 
-Status: **P6.0 and P6.1 are CLOSED. TASK-170 / P6.1d is CLOSED / PUBLISHED at candidate `0781e0810d161ad1a4936c0e3ea31aada5704da1`. P6.2 is PARKED / NOT JUSTIFIED BY CURRENT EVIDENCE and remains reopenable from future evidence. P6.3 is CURRENT with TASK-171 / P6.3a CLOSED / PUBLISHED at candidate `3a33748905154b4822cfc164999e5c57780e67f2`, TASK-172 / P6.3b source hardening CLOSED / PUBLISHED at `63525151e4dbb7a1c30454a301e3c0e20ae771e9`, TASK-173 live-DOM hardening CLOSED / PUBLISHED at `f91dfe0f900664c835fef86bdf5d6c75879dbbdc`, TASK-174 structural-depth hardening CLOSED / PUBLISHED at `8c5a0b2a6a935c5bbecff5cde7b1a32956aa8d32`, and TASK-175 as the current narrow P6.3b acquisition-continuity blocker. P6.4-P6.6 remain deferred.**
+Status: **P6.0, P6.1, and P6.3 are CLOSED. TASK-170 / P6.1d is CLOSED / PUBLISHED at candidate `0781e0810d161ad1a4936c0e3ea31aada5704da1`. P6.2 is PARKED / NOT JUSTIFIED BY CURRENT EVIDENCE and remains reopenable from future evidence. P6.3 is CLOSED with TASK-171 / P6.3a CLOSED / PUBLISHED at candidate `3a33748905154b4822cfc164999e5c57780e67f2`, TASK-172 / P6.3b source hardening CLOSED / PUBLISHED at `63525151e4dbb7a1c30454a301e3c0e20ae771e9`, TASK-173 live-DOM hardening CLOSED / PUBLISHED at `f91dfe0f900664c835fef86bdf5d6c75879dbbdc`, TASK-174 structural-depth hardening CLOSED / PUBLISHED at `8c5a0b2a6a935c5bbecff5cde7b1a32956aa8d32`, TASK-175 same-target acquisition-continuity hardening CLOSED / PUBLISHED at candidate `61f78f8ac1cd14e6e110552ba638eb9ca149403f`, and TASK-176 recording the bounded K550 live certification passage. P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED pending a fresh architecture/value audit rather than automatically opening the next phase.**
 Scope: Python Agent product architecture post-P5; AIOS-renew remains execution substrate only.
 
 ## 1. Canonical Post-P5 Architecture Audit
@@ -55,8 +55,9 @@ Historical certification and blocker lineage:
   `0781e0810d161ad1a4936c0e3ea31aada5704da1`.
 
 Introducing semantic retrieval, vector search, identity migrations, automated review,
-or background serving still requires its own empirical justification. P6.3a established
-the bounded descriptive truth foundation and P6.3b hardens selected-variant source evidence.
+or background serving still requires its own empirical justification. P6.3 established
+the bounded descriptive truth foundation and certified the selected-variant source
+evidence composition on one explicit current Shopee listing.
 
 Therefore, Phase 6 is canonically ordered into three sequential disciplines:
 ```
@@ -163,7 +164,7 @@ threshold declares lexical retrieval universally sufficient.
 - No vector database, external service, or background indexing daemon may be introduced without
   prior architectural authorization and evidence-backed necessity.
 
-### P6.3 Product-Truth Reconciliation — CURRENT (TASK-171 / P6.3a, TASK-172 through TASK-175 / P6.3b)
+### P6.3 Product-Truth Reconciliation — CLOSED (TASK-171 / P6.3a, TASK-172 through TASK-175 / P6.3b, TASK-176)
 
 TASK-171 / P6.3a is CLOSED and PUBLISHED at candidate `3a33748905154b4822cfc164999e5c57780e67f2`,
 establishing the Human-governed descriptive-field foundation over exact TASK-121
@@ -174,22 +175,40 @@ TASK-172 / P6.3b source hardening is CLOSED and PUBLISHED at candidate
 `63525151e4dbb7a1c30454a301e3c0e20ae771e9`. TASK-173 live-DOM hardening is CLOSED
 and PUBLISHED at `f91dfe0f900664c835fef86bdf5d6c75879dbbdc`. TASK-174 structural-depth
 hardening is CLOSED and PUBLISHED at `8c5a0b2a6a935c5bbecff5cde7b1a32956aa8d32`.
-Its narrow Human-owned raw live recheck proved the DOM path observes the exact
-selected state when preservation holds. TASK-175 is the current acquisition-continuity
-blocker: same-host, same-current-path product identity may preserve the acquired page,
-while unproven locations retain one exact target navigation. It changes no schema,
-resolver, truth, or downstream authority.
+TASK-175 same-target acquisition-continuity hardening is CLOSED and PUBLISHED at candidate
+`61f78f8ac1cd14e6e110552ba638eb9ca149403f`, preserving an acquired page when host equality
+and current-path Shopee product identity prove the same source item while retaining one exact
+target navigation for unproven locations.
 
-- Exact evidence and canonical member lineage remain intact; unresolved conflicts
-  and partial truth are valid.
-- Selected-variant facts are observed source evidence only, not canonical variant identity or product truth.
-- TASK-108 remains the sole pairwise relationship authority; TASK-116 still governs Human exact-variant admission; TASK-171 still reconciles descriptive truth only after a canonical profile exists.
-- Live `ProductSourcePack`, end-to-end exact-variant, and live product-truth
-  certification remain incomplete pending a separate post-publication Human checkpoint.
-- No recency, majority, provenance, ranking, model, or other automatic preference
-  is introduced.
-- P6.3 has no fact/media reconciliation, persistence, downstream consumption, or
-  live multi-member product-truth certification.
+Following TASK-175 publication, the Human executed the external live checkpoint using the
+operator-owned authenticated Chromium/CDP session and one clean Shopee K550 page for
+`source_product_id 10374101498` with explicit rendered Human selection `"Model: K550 Trắng Red V4"`.
+Two distinct live `ProductSourcePack` observations preserved that exact selected-variant fact with
+distinct `observed_at` identities; TASK-108 returned `EXACT_VARIANT_MATCH`; the conflict-free
+two-member family and two-member TASK-116 sellable-variant proposal with one direct exact pair
+succeeded; in-memory canonical family/variant/catalog admission succeeded; TASK-121 built a
+two-member, two-observation profile retaining both variant facts; TASK-171 reconciliation completed;
+and the script reached exactly `P6.3 LIVE RESULT: PASS`. TASK-176 records this bounded live passage,
+closing P6.3.
+
+- Bounded certification boundary: certifies the exercised authority composition on one explicit
+  current Shopee K550 listing/variant under Human-owned authenticated CDP interaction. It does not
+  certify all Shopee DOMs, TikTok, cross-platform identity, objective real-world truth, fact/media
+  reconciliation, persistent truth history, downstream truth consumption, marketplace SLA, or
+  future seller-page stability.
+- Evidence, identity, and truth separation: Selected-variant facts are observed source evidence only,
+  not canonical variant identity or product truth.
+- TASK-108 remains the sole pairwise relationship authority; TASK-116 still governs Human
+  exact-variant admission; TASK-121 remains evidence projection; TASK-171 still reconciles
+  descriptive truth only after a canonical profile exists.
+- No recency, majority, provenance, ranking, model, or other automatic preference is introduced;
+  unresolved conflicts and partial truth remain valid.
+- P6.3 has no fact/media reconciliation, persistence, downstream consumption, or broad
+  multi-marketplace claims.
+- P6.3 is CLOSED. The next step is a fresh architecture/value audit across deferred P6.4 identity
+  evolution, P6.5 higher-level Human-review assistance, P6.6 cache/background serving, or a
+  separately justified Product Intelligence/Commerce roadmap extension. Closing P6.3 does not
+  authorize immediate P6.4 implementation.
 
 ### P6.4 Identity Evolution and Migrations — UNIMPLEMENTED / FUTURE / DEFERRED
 
