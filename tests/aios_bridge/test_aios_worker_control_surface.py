@@ -1337,17 +1337,18 @@ class TestSurfaceAndDocumentation:
     def test_docs_record_task_088_boundary_without_claiming_downstream_adoption(self):
         for path in (SKILL_FILE, WORKFLOW_FILE, DOCS_FILE, CONTRACT_FILE):
             text = path.read_text(encoding="utf-8")
-            assert "TASK-088" in text
-            assert "syntactically valid requested TASK" in text
-            assert "canonical local TASK file is absent" in text
-            assert "TASK-062-governed pre-resolution synchronization" in text
-            assert "Existing local TASKs" in text
-            assert "STATUS remain read-only" in text
-            assert "unsafe repository states" in text
-            assert "second lifecycle operation" in text
-            assert "live stale-checkout CONTINUE" in text
-            assert "Downstream Adoption" in text
-            assert "remains pending" in text
+            normalized_text = " ".join(text.split())
+            assert "TASK-088" in normalized_text
+            assert "syntactically valid requested TASK" in normalized_text
+            assert "canonical local TASK file is absent" in normalized_text
+            assert "TASK-062-governed pre-resolution synchronization" in normalized_text
+            assert "Existing local TASKs" in normalized_text
+            assert "STATUS remain read-only" in normalized_text
+            assert "unsafe repository states" in normalized_text
+            assert "second lifecycle operation" in normalized_text
+            assert "live stale-checkout CONTINUE" in normalized_text
+            assert "Downstream Adoption" in normalized_text
+            assert "remains pending" in normalized_text
 
     def test_docs_record_runtime_owned_historical_fix_boundary(self):
         for path in (SKILL_FILE, WORKFLOW_FILE, DOCS_FILE):
