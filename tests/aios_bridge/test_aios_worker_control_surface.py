@@ -1350,6 +1350,93 @@ class TestSurfaceAndDocumentation:
             assert "Downstream Adoption" in normalized_text
             assert "remains pending" in normalized_text
 
+    def test_runbook_defines_stale_checkout_continue_certification_protocol(self):
+        text = DOCS_FILE.read_text(encoding="utf-8")
+        section = text.split(
+            "## 9. Stale-Checkout CONTINUE Certification Protocol", maxsplit=1
+        )[1]
+        normalized = " ".join(section.split())
+
+        assert (
+            "downstream AIOS-renew pin "
+            "`883974be6ec5922ae57021b50a48c84a0014dbfa` already present"
+            in normalized
+        )
+        assert (
+            "Before the first invocation, record that the fresh proof TASK exists on "
+            "the canonical remote while `.ai/tasks/TASK-N.yaml` is absent from the "
+            "local checkout."
+            in normalized
+        )
+        assert (
+            "exact TASK ID, the canonical remote ref/commit containing it, the local "
+            "HEAD, and the local-missing path observation"
+            in normalized
+        )
+        assert (
+            "The Human then invokes exactly one repository-owned normal lifecycle "
+            "surface for that TASK: `$aios-worker CONTINUE TASK-N` for Codex or "
+            "`/aios-renew-worker CONTINUE TASK-N` for Antigravity."
+            in normalized
+        )
+
+    def test_runbook_rejects_manufactured_proof_and_requires_same_invocation_evidence(self):
+        text = DOCS_FILE.read_text(encoding="utf-8")
+        section = text.split(
+            "## 9. Stale-Checkout CONTINUE Certification Protocol", maxsplit=1
+        )[1]
+        normalized = " ".join(section.split())
+
+        assert (
+            "The Human must not manually pull, fetch-reset, or otherwise synchronize the "
+            "checkout, invoke a raw operator command, retry CONTINUE, switch executors, or "
+            "use any fallback, reroute, or recursive CONTINUE to manufacture a successful "
+            "proof."
+            in normalized
+        )
+        assert (
+            "If this first invocation does not pass the missing-TASK boundary, preserve "
+            "its output and repository observations as failure evidence to inspect. It "
+            "remains fail-closed and grants no permission for an automatic retry or reroute."
+            in normalized
+        )
+        assert (
+            "canonical AIOS lifecycle evidence from that same CONTINUE invocation"
+            in normalized
+        )
+        assert (
+            "show both the pinned pre-resolution synchronization passage for the missing "
+            "TASK and progress beyond missing-TASK resolution into the derived canonical "
+            "lifecycle action"
+            in normalized
+        )
+        assert (
+            "Executor-authored prose, this documentation, a documentation test, or a later "
+            "manual pull or repository synchronization is insufficient evidence."
+            in normalized
+        )
+
+    def test_runbook_preserves_task_088_authority_without_claiming_task_180_completion(self):
+        text = DOCS_FILE.read_text(encoding="utf-8")
+        section = text.split(
+            "## 9. Stale-Checkout CONTINUE Certification Protocol", maxsplit=1
+        )[1]
+        normalized = " ".join(section.split())
+
+        assert (
+            "only pinned Runtime rules may synchronize in the missing-local-TASK "
+            "CONTINUE pre-resolution path; existing local TASKs gain no generic auto-sync; "
+            "STATUS and `state` remain read-only for product state; unsafe repository "
+            "states fail closed; downstream code owns no Git synchronization; and one "
+            "CONTINUE invocation delegates at most one canonical lifecycle operation."
+            in normalized
+        )
+        assert (
+            "does not declare TASK-180 PASS or AIOS-renew Downstream Adoption complete"
+            in normalized
+        )
+        assert "Canonical Runtime and review artifacts remain the authority" in normalized
+
     def test_docs_record_runtime_owned_historical_fix_boundary(self):
         for path in (SKILL_FILE, WORKFLOW_FILE, DOCS_FILE):
             text = path.read_text(encoding="utf-8")

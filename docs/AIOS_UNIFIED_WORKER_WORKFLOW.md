@@ -377,3 +377,40 @@ authorities; raw `aios ...` commands are internal integration details in normal 
 TASK-179 does not establish a live stale-checkout CONTINUE proof or complete AIOS-renew
 Downstream Adoption. That operational proof remains pending a fresh downstream task
 authored and run after TASK-179 is published.
+
+## 9. Stale-Checkout CONTINUE Certification Protocol
+
+This certification applies only with the downstream AIOS-renew pin
+`883974be6ec5922ae57021b50a48c84a0014dbfa` already present. Before the first
+invocation, record that the fresh proof TASK exists on the canonical remote while
+`.ai/tasks/TASK-N.yaml` is absent from the local checkout. The record must bind the
+exact TASK ID, the canonical remote ref/commit containing it, the local HEAD, and
+the local-missing path observation. This remote-only TASK / local-missing TASK
+precondition must exist before CONTINUE; creating it through a preliminary local
+sync is not a certification.
+
+The Human then invokes exactly one repository-owned normal lifecycle surface for
+that TASK: `$aios-worker CONTINUE TASK-N` for Codex or
+`/aios-renew-worker CONTINUE TASK-N` for Antigravity. The Human must not manually
+pull, fetch-reset, or otherwise synchronize the checkout, invoke a raw operator
+command, retry CONTINUE, switch executors, or use any fallback, reroute, or recursive
+CONTINUE to manufacture a successful proof. If this first invocation does not pass
+the missing-TASK boundary, preserve its output and repository observations as
+failure evidence to inspect. It remains fail-closed and grants no permission for an
+automatic retry or reroute.
+
+A valid control-plane proof combines the pre-invocation record above with canonical
+AIOS lifecycle evidence from that same CONTINUE invocation. The lifecycle evidence
+must show both the pinned pre-resolution synchronization passage for the missing
+TASK and progress beyond missing-TASK resolution into the derived canonical
+lifecycle action. Executor-authored prose, this documentation, a documentation
+test, or a later manual pull or repository synchronization is insufficient evidence.
+
+TASK-088 boundaries remain unchanged: only pinned Runtime rules may synchronize in
+the missing-local-TASK CONTINUE pre-resolution path; existing local TASKs gain no
+generic auto-sync; STATUS and `state` remain read-only for product state; unsafe
+repository states fail closed; downstream code owns no Git synchronization; and
+one CONTINUE invocation delegates at most one canonical lifecycle operation. This
+protocol defines the certification procedure and evidence types; it does not declare
+TASK-180 PASS or AIOS-renew Downstream Adoption complete. Canonical Runtime and
+review artifacts remain the authority for those outcomes.
