@@ -97,6 +97,16 @@ def parse_shopee_sold_count(text: Optional[str]) -> Optional[int]:
     if not cleaned or cleaned.startswith("-"):
         return None
 
+    # Sold-volume parsing accepts a trusted bare count from a sold-specific DOM
+    # node, so explicit currency provenance must fail closed before numeric or
+    # multiplier parsing. Keep currency "đ" distinct from the phrase "đã bán".
+    if re.search(r"[₫$€£¥]", cleaned):
+        return None
+    if re.search(r"\b(?:vnd|vnđ|usd|eur)\b", cleaned):
+        return None
+    if re.search(r"(?:[\d.,]\s*đ(?:\s|$)|(?:^|\s)đ\s*[\d])", cleaned):
+        return None
+
     # Match number with 'k' or 'K' multiplier (e.g. "1.2k", "1,2k", "10k+")
     match_k = re.search(r"([\d.,]+)\s*k", cleaned)
     if match_k:

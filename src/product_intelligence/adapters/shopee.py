@@ -115,8 +115,9 @@ SHOPEE_CARD_EXTRACTION_SCRIPT = r"""() => {
         const discountEl = card.querySelector('.percent, ._1pZzF0, .discount-badge');
         const discountText = discountEl ? discountEl.innerText : null;
 
-        // Sold count
-        const soldEl = card.querySelector('.r6wKnM, ._2VI87d, [data-sqe="sold"], .truncate');
+        // Sold count is optional and requires sold-specific DOM provenance. Generic
+        // typography/layout nodes must never be treated as sales-volume evidence.
+        const soldEl = card.querySelector('.r6wKnM, ._2VI87d, [data-sqe="sold"]');
         const soldText = soldEl ? soldEl.innerText : null;
 
         // Rating

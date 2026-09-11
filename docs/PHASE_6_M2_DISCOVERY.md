@@ -90,7 +90,7 @@ Business scoring and ranking remain separate downstream M2.3 authorities.
 | `price` | Visible on card | Parsed VND float |
 | `original_price` | Visible on card if discounted | Parsed VND float (or `None`) |
 | `discount_percent` | Visible badge (e.g. `-25%`) | Parsed float $[0.0, 100.0]$ (or `None`) |
-| `sold_count` | Visible on card (e.g. `Đã bán 1.2k`) | Parsed integer count (or `None`) |
+| `sold_count` | Optional sold-specific evidence on card (e.g. `Đã bán 1.2k`) | Parsed integer count (or `None`) |
 | `rating` | Visible star rating (e.g. `4.8`) | Parsed float $[0.0, 5.0]$ (or `None`) |
 | `review_count` | Visible in parentheses | Parsed integer count (or `None`) |
 | `shop_name` | Visible on card | Extracted string (or `None`) |
@@ -120,6 +120,11 @@ Business scoring and ranking remain separate downstream M2.3 authorities.
 - Multiplier suffixes (`k`, `K`, `tr`, `triệu`) and Vietnamese decimal/thousand conventions are supported.
 - Malformed, unparseable, or out-of-range strings evaluate strictly to `None`, never converted to `0` or negative numbers.
 - A malformed field in one listing card does not discard valid sibling cards or abort the discovery batch.
+- Sold volume is optional marketplace evidence. Only the adapter's sold-specific selectors may
+  supply `sold_text`; generic visual, typography, layout, or truncation nodes are not sold
+  provenance. Missing or untrusted sold evidence remains `None` and is never inferred from
+  price, original price, or any neighboring numeric field. Explicit currency-marked text also
+  fails closed in the existing sold-count parser, while legitimate `đã bán` forms remain valid.
 
 ### 3.4 Failure & Anti-Bot Block Semantics
 - **Invalid Request**: Fails immediately (`DiscoveryInvalidRequestError`) before invoking the browser.

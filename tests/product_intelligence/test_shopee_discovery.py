@@ -223,6 +223,45 @@ async def test_shopee_discovery_successful_extraction_and_mapping() -> None:
 
 
 @pytest.mark.asyncio
+async def test_shopee_mapping_keeps_missing_sold_evidence_none_and_prices_separate() -> None:
+    obs_time = datetime(2026, 9, 11, 12, 0, 0, tzinfo=timezone.utc)
+    card_data = [
+        {
+            "title": "Price-only generic visual text",
+            "href": "/price-only-i.111.185",
+            "price_text": "₫590.000",
+            "orig_price_text": "₫690.000",
+            "sold_text": None,
+            "item_id": "185",
+        },
+        {
+            "title": "Trusted sold-specific text",
+            "href": "/trusted-sold-i.111.186",
+            "price_text": "₫175.000",
+            "orig_price_text": None,
+            "sold_text": "Đã bán 1,2k",
+            "item_id": "186",
+        },
+    ]
+    fake_page = FakePage(
+        script_results=[{"is_blocked": False, "is_empty": False, "items": card_data}]
+    )
+
+    batch = await ShopeeDiscoveryAdapter(browser=fake_page).discover(
+        DiscoveryRequest(query="price provenance", max_candidates=2, max_pages=1),
+        observed_at=obs_time,
+    )
+
+    price_only, trusted_sold = batch.candidates
+    assert price_only.price == 590000.0
+    assert price_only.original_price == 690000.0
+    assert price_only.sold_count is None
+    assert trusted_sold.price == 175000.0
+    assert trusted_sold.original_price is None
+    assert trusted_sold.sold_count == 1200
+
+
+@pytest.mark.asyncio
 async def test_shopee_discovery_deduplication_and_max_candidates_limit() -> None:
     obs_time = datetime(2026, 8, 16, 12, 0, 0, tzinfo=timezone.utc)
     # 4 items with duplicate item_id "222"
@@ -916,6 +955,25 @@ def test_shopee_card_extraction_script_has_scoped_product_anchor_fallback() -> N
     assert "candidateAnchors" in SHOPEE_CARD_EXTRACTION_SCRIPT
 
 
+def test_shopee_card_extraction_requires_sold_specific_dom_provenance() -> None:
+    from src.product_intelligence.adapters.shopee import SHOPEE_CARD_EXTRACTION_SCRIPT
+
+    # Source/DOM contract regression: a price-bearing generic truncation node is
+    # ineligible, so without one of these sold-specific nodes sold_text is null.
+    generic_price_only_card = '<span class="truncate">590.000₫</span>'
+    assert 'class="truncate"' in generic_price_only_card
+    assert (
+        "const soldEl = card.querySelector("
+        "'.r6wKnM, ._2VI87d, [data-sqe=\"sold\"]');"
+        in SHOPEE_CARD_EXTRACTION_SCRIPT
+    )
+    assert ".truncate" not in SHOPEE_CARD_EXTRACTION_SCRIPT
+    assert (
+        "const soldText = soldEl ? soldEl.innerText : null;"
+        in SHOPEE_CARD_EXTRACTION_SCRIPT
+    )
+
+
 @pytest.mark.asyncio
 async def test_shopee_card_extraction_script_fallback_dom_execution() -> None:
     from playwright.async_api import async_playwright
@@ -939,7 +997,7 @@ async def test_shopee_card_extraction_script_fallback_dom_execution() -> None:
                     <a href="/ao-thun-nam-cotton-i.12345.67890" aria-label="Ao Thun Nam Cotton">
                         <img alt="Ao Thun Nam Cotton" src="thumb.jpg" />
                         <span class="vioxXd">150.000</span>
-                        <span class="truncate">Da ban 1,2k</span>
+                        <span data-sqe="sold">Da ban 1,2k</span>
                         <span class="rating-stars">4.8</span>
                     </a>
                 </div>
@@ -950,6 +1008,7 @@ async def test_shopee_card_extraction_script_fallback_dom_execution() -> None:
                 <div class="grid-item">
                     <a href="/product/55555/99999" title="Quan Jean Slimfit">
                         <span class="vioxXd">350.000</span>
+                        <span class="truncate">350.000₫</span>
                     </a>
                 </div>
                 <!-- Non-product anchor should be ignored -->

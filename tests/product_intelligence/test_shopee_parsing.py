@@ -52,6 +52,7 @@ def test_parse_shopee_sold_count_various_formats() -> None:
     # Multiplier formats: k, K, tr, triệu
     assert parse_shopee_sold_count("Đã bán 1,2k") == 1200
     assert parse_shopee_sold_count("Đã bán 1.5k") == 1500
+    assert parse_shopee_sold_count("1.5k Đã bán") == 1500
     assert parse_shopee_sold_count("10k+ đã bán") == 10000
     assert parse_shopee_sold_count("Đã bán 1,5tr") == 1500000
     assert parse_shopee_sold_count("2 triệu đã bán") == 2000000
@@ -62,6 +63,30 @@ def test_parse_shopee_sold_count_various_formats() -> None:
     assert parse_shopee_sold_count("Chưa có lượt bán") is None
     assert parse_shopee_sold_count("0") is None
     assert parse_shopee_sold_count("-5") is None
+
+
+@pytest.mark.parametrize(
+    "price_text",
+    (
+        "₫590.000",
+        "590.000₫",
+        "590.000 đ",
+        "đ 590.000",
+        "590000 VND",
+        "VND 590000",
+        "1,2k VND",
+        "$590000",
+    ),
+)
+def test_parse_shopee_sold_count_rejects_explicit_currency_provenance(
+    price_text: str,
+) -> None:
+    assert parse_shopee_sold_count(price_text) is None
+
+
+def test_parse_shopee_sold_count_does_not_confuse_da_ban_with_currency_marker() -> None:
+    assert parse_shopee_sold_count("Đã bán 1,2k") == 1200
+    assert parse_shopee_sold_count("1200 đã bán") == 1200
 
 
 def test_parse_shopee_rating_various_formats() -> None:

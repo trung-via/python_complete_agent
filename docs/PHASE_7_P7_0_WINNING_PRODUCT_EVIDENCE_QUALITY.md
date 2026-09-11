@@ -1,10 +1,12 @@
 # Phase 7 P7.0 — Winning Product Evidence Quality
 
 Status: **P7 Commerce Opportunity Intelligence is selected by the post-P6
-architecture/value audit. P7.0 is the TASK-181 evaluation-contract gate and is
-not CLOSED until canonical Runtime PASS and ChatGPT semantic-review PASS exist
-for the same source candidate. A separate reviewed real-evidence coverage
-baseline is NEXT.**
+architecture/value audit. TASK-181/P7.0 is CLOSED / PUBLISHED at
+`9e835ed2c551c2fa3a8b66b82caa238bd41b152c`. TASK-182/RUN-182-006 is BLOCKED by
+semantic review because malformed Shopee sold evidence invalidates that attempted
+real-evidence baseline. TASK-185 is the narrow current prerequisite; a fresh P7.1
+baseline successor remains deferred until TASK-185 Runtime PASS, semantic PASS,
+and source-only publication.**
 
 ## 1. Audit decision
 
@@ -87,12 +89,20 @@ random, subprocess, queue, cache, admission, retrieval, or persistence work.
 
 ## 4. Measurement before improvement
 
-P7.0 freezes the evaluation contract; it does not improve coverage. Its immediate
-successor is a **separate real-evidence coverage baseline**: execute the reviewed
-frozen evaluator on a bounded cohort of reviewed real marketplace observations,
-record the cohort provenance and exact immutable report, and interpret that result
-under separate Human review. That successor must not acquire live marketplace
-evidence inside ordinary offline Runtime verification.
+P7.0 freezes the evaluation contract; it does not improve coverage. TASK-182 attempted
+the separate real-evidence coverage baseline, but semantic review BLOCKED
+RUN-182-006: malformed `sold_count` evidence made the frozen cohort untrustworthy.
+Candidate `94c4e5105e593b9136f186882daacb466c9a304d`, its fixture/test/docs delta,
+RUN/RESULT/FAILURE/REPAIR lineage, and REVIEW-182-006 remain immutable and
+unpublished; their measurements are not baseline truth. TASK-185 hardens only the
+existing Shopee evidence-input boundary and does not recapture or rewrite that cohort.
+
+A fresh P7.1 real-evidence baseline successor remains NEXT only after TASK-185 receives
+Runtime PASS, semantic PASS, and source-only publication. That successor must execute
+the reviewed frozen evaluator on a new bounded cohort of reviewed real marketplace
+observations, record the cohort provenance and exact immutable report, and interpret
+the result under separate Human review. It must not acquire live marketplace evidence
+inside ordinary offline Runtime verification.
 
 Only that baseline may justify a subsequent improvement proposal. Longitudinal
 momentum observations, commercial or affiliate evidence acquisition, competition
@@ -103,9 +113,10 @@ identity, persistence, retrieval, product-truth, and Human-authority boundaries.
 
 ## 5. Gate state
 
-TASK-181 is the P7.0 evaluation-contract gate. At task authoring and implementation
-time it remains open: source implementation alone does not close P7.0. Closure
-requires canonical Runtime PASS plus ChatGPT semantic-review PASS on the exact same
-source candidate. The separately reviewed real-evidence coverage baseline remains
-NEXT after that closure; no evidence-enrichment implementation is opened in
-advance.
+TASK-181/P7.0 is CLOSED / PUBLISHED at
+`9e835ed2c551c2fa3a8b66b82caa238bd41b152c`. TASK-182/RUN-182-006 remains
+semantically BLOCKED and unpublished. TASK-185 is production evidence-input
+hardening only: it establishes no P7.1 baseline, coverage rate, business value,
+winner, recommendation, or enrichment priority. The fresh baseline successor remains
+deferred until TASK-185 Runtime PASS, semantic PASS, and source-only publication; no
+evidence-enrichment implementation is opened in advance.
