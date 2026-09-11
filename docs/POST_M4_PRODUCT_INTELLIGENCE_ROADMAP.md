@@ -12,8 +12,11 @@ TASK-174 structural-depth hardening CLOSED / PUBLISHED at
 `8c5a0b2a6a935c5bbecff5cde7b1a32956aa8d32`, TASK-175 same-target
 acquisition-continuity hardening CLOSED / PUBLISHED at candidate
 `61f78f8ac1cd14e6e110552ba638eb9ca149403f`, and TASK-176 recording the bounded
-K550 live certification passage. P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED pending
-a fresh architecture/value audit rather than automatically opening the next phase.
+K550 live certification passage. The fresh architecture/value audit selects the separately
+justified P7 Commerce Opportunity Intelligence branch. TASK-181 is the open P7.0
+evaluation-contract gate and a separate real-evidence coverage baseline is NEXT. P6.4-P6.6
+remain DEFERRED / UNIMPLEMENTED, and P7.0 is not CLOSED before canonical Runtime and
+semantic-review PASS on the same source candidate.
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
 ## 1. Starting point
@@ -319,10 +322,9 @@ closing P6.3.
   unresolved conflicts and partial truth remain valid.
 - P6.3 has no fact/media reconciliation, persistence, downstream consumption, or broad
   multi-marketplace claims.
-- P6.3 is CLOSED. The next step is a fresh architecture/value audit across deferred P6.4 identity
-  evolution, P6.5 higher-level Human-review assistance, P6.6 cache/background serving, or a
-  separately justified Product Intelligence/Commerce roadmap extension. Closing P6.3 does not
-  authorize immediate P6.4 implementation.
+- P6.3 is CLOSED. The completed fresh architecture/value audit selects the separately justified
+  P7 Commerce Opportunity Intelligence extension, beginning with measurement of the existing M2
+  Winning Product evidence space. It does not authorize immediate P6.4 implementation.
 
 #### P6.4 Identity Evolution and Migrations — UNIMPLEMENTED / FUTURE / DEFERRED
 Define a separate canonical-identity authority for entity lifecycle, merging, splitting, and schema
@@ -334,6 +336,25 @@ Introduce review triage assistance without removing or bypassing explicit Human 
 #### P6.6 Caches and Background Serving — UNIMPLEMENTED / FUTURE / DEFERRED
 Implement performance caches and background serving infrastructure only after an observed operational
 workload requires them.
+
+### P7 — Commerce Opportunity Intelligence — SELECTED / NOT YET CLOSED
+
+The fresh architecture/value audit found no current retrieval, identity-migration,
+review-automation, or serving bottleneck that outranks the measurable undercoverage of the
+already-defined M2 Winning Product evidence model. P6.2 remains PARKED and reopenable from new
+evidence; P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
+
+- **P7.0 Winning Product Evidence-Coverage Evaluation (TASK-181 — OPEN GATE)** freezes one pure,
+  bounded evaluator over existing `WinningProductScorer` outputs. It adds measurement only and
+  changes no discovery, normalization, scoring, ranking, approval, persistence, retrieval, truth,
+  or collection authority. P7.0 remains open until canonical Runtime PASS and ChatGPT semantic
+  review PASS exist for the same source candidate.
+- **NEXT — separate real-evidence coverage baseline** applies the reviewed frozen evaluator to a
+  bounded cohort of reviewed real marketplace observations. TASK-181 claims no live coverage
+  percentage. Longitudinal momentum, commercial/affiliate evidence, competition evidence, and
+  semantic Contentability enrichment remain conditional on that later baseline.
+
+See `docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md` for the audit and boundary.
 
 ## 3. Priority decision
 
@@ -356,7 +377,7 @@ CLOSED / PUBLISHED through TASK-170 at candidate
 `0781e0810d161ad1a4936c0e3ea31aada5704da1`. P6.2 is PARKED / NOT JUSTIFIED BY
 CURRENT EVIDENCE because the existing TASK-134 -> TASK-122 composition fully
 recovered the measured raw TASK-122 stress weakness; it remains reopenable from
-future evidence. P6.3 is CLOSED with TASK-171 / P6.3a CLOSED / PUBLISHED at candidate `3a33748905154b4822cfc164999e5c57780e67f2`, TASK-172 / P6.3b source hardening CLOSED / PUBLISHED at `63525151e4dbb7a1c30454a301e3c0e20ae771e9`, TASK-173 live-DOM hardening CLOSED / PUBLISHED at `f91dfe0f900664c835fef86bdf5d6c75879dbbdc`, TASK-174 structural-depth hardening CLOSED / PUBLISHED at `8c5a0b2a6a935c5bbecff5cde7b1a32956aa8d32`, TASK-175 same-target acquisition-continuity hardening CLOSED / PUBLISHED at candidate `61f78f8ac1cd14e6e110552ba638eb9ca149403f`, and TASK-176 recording the bounded K550 live certification passage (`P6.3 LIVE RESULT: PASS`). P6.2 remains PARKED / reopenable from future evidence. P6.4-P6.6 remain deferred and unimplemented pending a fresh architecture/value audit across those boundaries or a separately justified Product Intelligence/Commerce roadmap extension; closing P6.3 does not authorize immediate P6.4 implementation.
+future evidence. P6.3 is CLOSED with TASK-171 / P6.3a CLOSED / PUBLISHED at candidate `3a33748905154b4822cfc164999e5c57780e67f2`, TASK-172 / P6.3b source hardening CLOSED / PUBLISHED at `63525151e4dbb7a1c30454a301e3c0e20ae771e9`, TASK-173 live-DOM hardening CLOSED / PUBLISHED at `f91dfe0f900664c835fef86bdf5d6c75879dbbdc`, TASK-174 structural-depth hardening CLOSED / PUBLISHED at `8c5a0b2a6a935c5bbecff5cde7b1a32956aa8d32`, TASK-175 same-target acquisition-continuity hardening CLOSED / PUBLISHED at candidate `61f78f8ac1cd14e6e110552ba638eb9ca149403f`, and TASK-176 recording the bounded K550 live certification passage (`P6.3 LIVE RESULT: PASS`). P6.2 remains PARKED / reopenable from future evidence. The completed fresh architecture/value audit selects the separately justified P7 Commerce Opportunity Intelligence branch instead of automatically opening P6.4. TASK-181 is the open P7.0 evaluation-contract gate and a separate real-evidence coverage baseline is NEXT. P6.4-P6.6 remain deferred and unimplemented; P7.0 is not CLOSED before canonical Runtime and ChatGPT semantic-review PASS on the same source candidate.
 TASK-165 remains unpublished blocked evidence from
 REVIEW-165-003 F1 and its failed remediation/repair continuation lineage.
 

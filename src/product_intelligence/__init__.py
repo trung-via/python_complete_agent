@@ -270,6 +270,12 @@ from src.product_intelligence.retrieval_quality_evaluation import (
     evaluate_grounded_answer_citation_fidelity,
     evaluate_lexical_retrieval_quality,
 )
+from src.product_intelligence.winning_product_quality_evaluation import (
+    CandidateWinningProductCoverage,
+    WinningProductCoverageReport,
+    WinningProductQualityEvaluationError,
+    evaluate_winning_product_coverage,
+)
 
 __all__ = [
     "ProductCandidateSnapshot",
@@ -480,4 +486,8 @@ __all__ = [
     "GroundedCitationFidelity",
     "evaluate_lexical_retrieval_quality",
     "evaluate_grounded_answer_citation_fidelity",
+    "WinningProductQualityEvaluationError",
+    "CandidateWinningProductCoverage",
+    "WinningProductCoverageReport",
+    "evaluate_winning_product_coverage",
 ]
