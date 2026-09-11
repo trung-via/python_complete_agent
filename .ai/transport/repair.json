@@ -1,0 +1,27 @@
+{
+  "repair_id": "REPAIR-186-001",
+  "failed_run_id": "RUN-186-001",
+  "failed_head_sha": "d47e80be3227fa0e0c56d2cc96708d8221d3822c",
+  "task": {
+    "id": "TASK-186",
+    "revision": 1
+  },
+  "action": "CONTINUE_IMPLEMENTATION",
+  "modification_scope": [
+    "tests/fixtures/p7_1_winning_product_coverage/baseline.json",
+    "tests/integration/test_p7_1_winning_product_coverage_baseline.py",
+    "docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md",
+    "docs/PHASE_7_P7_1_REAL_EVIDENCE_COVERAGE_BASELINE.md",
+    "docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
+    "docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md"
+  ],
+  "instructions": [
+    "Continue only the unfinished TASK-186 revision 1 implementation from exact failed RUN RUN-186-001 and failed_head_sha d47e80be3227fa0e0c56d2cc96708d8221d3822c. RUN-186-001 failed before repository mutation or Runtime verification because the Human-owned external Shopee session prerequisite had not been completed. Human has now explicitly confirmed that prerequisite was completed manually. This changed external/non-product condition is the new reason authorizing exactly one separately admitted CONTINUE_IMPLEMENTATION continuation. Do not restart PRIMARY and do not reclassify this continuation as CODE_FIX or NO_CHANGE.",
+    "Preserve RUN-186-001 as canonical failure evidence and preserve exact TASK revision, failed head, root lineage, and Codex executor identity. Do not reroute, automatically retry within the admitted run, recursively CONTINUE, discard the failure lineage, substitute a fresh task base, or treat the external session prerequisite as a Product Intelligence code defect.",
+    "Resume only the still-unfinished original TASK-186 bounded live capture and benchmark work. Because RUN-186-001 retained no accepted batch or repository mutation, this continuation may perform exactly one fresh DiscoveryBatch call per required query in the original order: `bình giữ nhiệt inox`, `bàn phím cơ`, `chuột không dây`; each remains DiscoveryRequest(query=<query>, max_candidates=5, max_pages=1, locale=\"vi-VN\") with explicit timezone-aware observed_at. The Executor must not probe, automate, bypass, solve, or wait for any Human-owned session challenge; if the session is again unusable, fail closed.",
+    "Preserve every original sampling gate: each batch must be shopee, exact query, pages_examined == 1, exactly five snapshots, unique candidate IDs within batch, and all fifteen IDs and URLs pairwise distinct across the cohort. If any batch is blocked, empty, short, duplicated, malformed, or otherwise invalid, terminalize truthfully without retrying inside the run, changing a query, adding pages, broadening max_candidates, selecting by score, substituting synthetic observations, using another discovery route, or reusing any TASK-182 candidate/fixture/report value.",
+    "Persist accepted Vietnamese marketplace projections directly through explicit UTF-8 file writing and do not depend on console/stdout round-trips for canonical fixture content. Freeze only exact DiscoveryBatch.to_dict() projections into the authorized baseline fixture and preserve TASK-186 compact deterministic JSON, provenance, lossless offline reconstruction, evaluated_at, one evaluate_winning_product_coverage call with policy=None, exact report projection, and no business-quality threshold or automatic enrichment decision.",
+    "Do not modify production Python, AIOS runtime/worker code, browser/session implementation, scoring/normalization/ranking/approval authorities, TASK-182 historical evidence, or any path outside modification_scope. A successful continuation must create a real committed non-empty in-scope descendant of the exact failed head, after which only the pinned Runtime performs the original TASK-186 canonical verification. If this continuation fails again, preserve the exact new RUN/FAILURE lineage and do not self-author another retry, fallback, reroute, repair, or fresh PRIMARY."
+  ],
+  "constraints": []
+}
