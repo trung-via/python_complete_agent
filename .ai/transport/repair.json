@@ -1,0 +1,21 @@
+{
+  "repair_id": "REPAIR-188-003",
+  "failed_run_id": "RUN-188-003",
+  "failed_head_sha": "2f30b408e5e2e8854c997afe8093dddd10010471",
+  "task": {"id": "TASK-188", "revision": 1},
+  "action": "CONTINUE_IMPLEMENTATION",
+  "modification_scope": [
+    "tests/fixtures/p7_1_winning_product_coverage/baseline.json",
+    "tests/integration/test_p7_1_winning_product_coverage_baseline.py",
+    "docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md",
+    "docs/PHASE_7_P7_1_REAL_EVIDENCE_COVERAGE_BASELINE.md",
+    "docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
+    "docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md"
+  ],
+  "instructions": [
+    "Continue only unfinished TASK-188 revision 1 work from exact failed RUN-188-003 and failed head 2f30b408e5e2e8854c997afe8093dddd10010471, preserving RUN-188-001 -> RUN-188-002 -> RUN-188-003 lineage. Human has explicitly confirmed the external authenticated-session prerequisite is now satisfied. This is one separately authorized CONTINUE_IMPLEMENTATION continuation; do not restart PRIMARY and do not reclassify as CODE_FIX or NO_CHANGE.",
+    "Preserve Codex executor identity and the original TASK-188 six-path modification scope. Resume only the unfinished bounded live-capture and baseline work under the original TASK-188 query, sampling, provenance, fixture, evaluator, and offline-verification constraints.",
+    "A successful continuation must create a real non-empty in-scope committed descendant of the exact failed head. Do not modify production Python, AIOS runtime/worker code, browser/session implementation, historical blocked evidence, or any path outside modification_scope."
+  ],
+  "constraints": []
+}
