@@ -1,0 +1,22 @@
+review_id: REVIEW-182-006
+reviewed_sha: 94c4e5105e593b9136f186882daacb466c9a304d
+mode: PRIMARY
+verdict: BLOCKED
+acceptance:
+  AC1: PASS
+  AC2: FAIL
+  AC3: PASS
+  AC4: PASS
+  AC5: PASS
+  AC6: FAIL
+  AC7: PASS
+  AC8: PASS
+findings:
+  - id: F1
+    basis: AC2
+    action: CODE_FIX
+    location: src/product_intelligence/adapters/shopee.py; tests/product_intelligence/test_shopee_discovery.py; tests/fixtures/p7_1_winning_product_coverage/baseline.json; tests/integration/test_p7_1_winning_product_coverage_baseline.py; docs/PHASE_7_P7_1_REAL_EVIDENCE_COVERAGE_BASELINE.md
+    issue: >
+      The frozen P7.1 cohort cannot be accepted as valid real-evidence coverage because its live Shopee snapshots contain a systematic sold-count extraction anomaly: all fifteen candidates persist sold_count exactly equal to the candidate price (for example 590000/590000, 175000/175000, 999000/999000, and 302001/302001). The current ShopeeDiscoveryAdapter sold-count selector includes the generic `.truncate` fallback, so on the current Shopee DOM it can select a price-bearing element and parse that monetary text as sold volume. SnapshotNormalizer treats every non-None sold_count as OBSERVED `sold_volume`, so the frozen report consequently marks DEMAND partial for all fifteen candidates and emits STRONG_DEMAND from evidence that is not semantically trustworthy. Runtime replay is deterministic, but deterministic replay of malformed marketplace evidence does not satisfy TASK-182 AC2's fail-closed malformed-capture boundary and cannot support AC6's claim of an exact measured real-evidence baseline.
+    expected: >
+      Do not publish or hand-edit the TASK-182 candidate, do not replace the suspicious sold_count values with None or reconstructed values, and do not recapture through the unchanged adapter. Correct the existing ShopeeDiscoveryAdapter sold-count extraction authority in a separate prerequisite product-hardening task with focused regression coverage proving that price text cannot be accepted as sold_count and that unavailable sold evidence remains None. TASK-182 itself cannot safely remediate that production defect because its contract requires zero production Python and exact pinned AIOS remediation validation forbids widening TASK.scope.modify. After the prerequisite adapter correction is reviewed and source-only published, author a fresh bounded real-evidence baseline successor on canonical main that performs new live capture under the corrected authority, freezes only exact DiscoveryBatch.to_dict() projections, and replays the published TASK-181 evaluator offline. Preserve TASK-182/RUN-182-006/REVIEW-182-006 as canonical blocked evidence; do not rerun PRIMARY or fabricate an in-scope FIX for this candidate.
