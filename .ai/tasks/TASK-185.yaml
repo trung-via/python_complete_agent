@@ -1,0 +1,235 @@
+task_id: TASK-185
+revision: 1
+
+goal: >
+  Harden the existing ShopeeDiscoveryAdapter sold-evidence extraction/parsing boundary so
+  generic visual price text cannot become ProductCandidateSnapshot.sold_count. Preserve
+  TASK-151/TASK-153/TASK-167 ShopeeDiscoveryAdapter as the sole Shopee discovery/DOM mapping
+  authority and preserve existing ProductCandidateSnapshot, normalization, scoring, ranking,
+  approval, browser/session, and Product Intelligence truth authorities. TASK-185 is the
+  prerequisite product hardening exposed by REVIEW-182-006 F1; it does not repair, recapture,
+  publish, or rewrite the blocked TASK-182 baseline candidate.
+
+problem: >
+  TASK-182 / P7.1 intentionally changed zero production Python and attempted to freeze one
+  bounded three-query, fifteen-candidate Shopee search-card cohort through the existing
+  ShopeeDiscoveryAdapter. RUN-182-006 reached canonical Runtime PASS at candidate
+  94c4e5105e593b9136f186882daacb466c9a304d, but PRIMARY semantic review found a systematic
+  evidence-integrity anomaly: all fifteen frozen candidates have sold_count exactly equal to
+  price, including 590000/590000, 175000/175000, 999000/999000, and 302001/302001. Current
+  SHOPEE_CARD_EXTRACTION_SCRIPT selects sold text with
+  `.r6wKnM, ._2VI87d, [data-sqe="sold"], .truncate`; the generic `.truncate` fallback can bind
+  a price-bearing visual node on the current Shopee DOM. parse_shopee_sold_count also accepts
+  broad numeric text, so price-like strings can survive into sold_count. SnapshotNormalizer
+  treats any non-None sold_count as OBSERVED sold_volume, which made the blocked baseline
+  report DEMAND partial coverage and STRONG_DEMAND for evidence that is not semantically
+  trustworthy. REVIEW-182-006 therefore BLOCKED publication. TASK-182 cannot fix the production
+  authority because its contract requires zero production Python and the exact pinned AIOS
+  remediation validator forbids widening TASK.scope.modify. The correction belongs in the
+  existing Shopee discovery/parsing authority before any fresh real-evidence baseline successor.
+
+assumptions:
+  - >
+    Canonical python_complete_agent main at TASK-185 authoring is
+    0e62d934b18d058e921ec6313b5a721d12888dfb. The active downstream AIOS dependency is exactly
+    aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@e72135cd5c5a1dec0d8374d9bb8994da5e458feb.
+  - >
+    TASK-182 revision 1 remains an unpublished benchmark task. RUN-182-006 produced candidate
+    94c4e5105e593b9136f186882daacb466c9a304d with Runtime PASS, but REVIEW-182-006 is PRIMARY
+    BLOCKED because the frozen sold_count evidence is malformed/untrustworthy. Neither the
+    candidate nor the review-decision commit is product main.
+  - >
+    TASK-151 owns bounded Shopee search readiness/product-anchor fallback, TASK-153 owns null-safe
+    Shopee card mapping hardening, and TASK-167 owns search-surface-bounded DOM eligibility.
+    ShopeeDiscoveryAdapter remains the sole Shopee search-card discovery/DOM extraction authority;
+    this task extends that same authority narrowly rather than introducing a second collector.
+  - >
+    src/product_intelligence/adapters/shopee_parsing.py remains the existing Shopee scalar parsing
+    authority. parse_shopee_sold_count may continue to support legitimate sold-specific text,
+    including localized multiplier and bare-count forms, but price/currency-marked text is not
+    valid sold-count evidence merely because it contains digits.
+  - >
+    SnapshotNormalizer and WinningProductScorer are downstream consumers and are not defective for
+    treating a non-None sold_count as observed evidence. TASK-185 must correct provenance at the
+    Shopee extraction/parsing boundary rather than add anomaly heuristics to normalization/scoring.
+  - >
+    A fresh P7.1 real-evidence baseline must be captured only after TASK-185 Runtime PASS, ChatGPT
+    semantic PASS, and source-only publication. The blocked TASK-182 fixture must never be edited
+    into apparent validity or reused as baseline truth.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_6_M2_DISCOVERY.md
+    - docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - .ai/tasks/TASK-151.yaml
+    - .ai/tasks/TASK-153.yaml
+    - .ai/tasks/TASK-167.yaml
+    - .ai/tasks/TASK-181.yaml
+    - .ai/tasks/TASK-182.yaml
+    - src/product_intelligence/adapters/shopee.py
+    - src/product_intelligence/adapters/shopee_parsing.py
+    - src/product_intelligence/models.py
+    - src/product_intelligence/normalizer.py
+    - src/product_intelligence/scoring.py
+    - tests/product_intelligence/test_shopee_discovery.py
+    - tests/product_intelligence/test_shopee_parsing.py
+    - tests/product_intelligence/test_orchestration.py
+    - tests/product_intelligence/test_ranking.py
+    - tests/product_intelligence/test_scoring.py
+
+  modify:
+    - src/product_intelligence/adapters/shopee.py
+    - src/product_intelligence/adapters/shopee_parsing.py
+    - tests/product_intelligence/test_shopee_discovery.py
+    - tests/product_intelligence/test_shopee_parsing.py
+    - docs/PHASE_6_M2_DISCOVERY.md
+    - docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+
+non_goals:
+  - Modify, delete, recapture, normalize, hand-edit, or publish the TASK-182 candidate, baseline
+    fixture, integration test, RUN/RESULT/FAILURE/REPAIR lineage, or REVIEW-182-006 decision.
+  - Add a live Shopee/CDP verification or require Human interaction during TASK-185 Runtime
+    verification. Live proof belongs to a later fresh baseline successor after publication.
+  - Modify ProductCandidateSnapshot schema, DiscoveryRequest, DiscoveryBatch, orchestration,
+    CandidateRanker, WinningProductScorer, SnapshotNormalizer, ScoringPolicy, DecisionBand,
+    recommendation/approval, persistence, catalog, retrieval, grounded QA, or product-truth semantics.
+  - Add a second Shopee adapter, second sold-count parser, generic marketplace parser, HTTP/API
+    scraper, alternate browser route, browser launch fallback, reconnect/retry, alternate query,
+    alternate platform, CAPTCHA solving/bypass, stealth, proxy rotation, or fallback evidence source.
+  - Infer sold volume from price, review count, rating, title, URL, rank, neighboring cards, score,
+    DOM position, or any unrelated marketplace field.
+  - Hard-code the blocked TASK-182 suspicious values as a suppression list or special-case candidate
+    IDs/queries. The correction must be provenance-semantic and general to the existing authority.
+  - Select a P7.2 evidence collector, enrichment strategy, business threshold, winner, approval rule,
+    or Commerce AI implementation direction. Governance/Product Direction work remains separate.
+  - Modify AIOS-renew, the Python Agent AIOS pin, worker surfaces, publication machinery, or Human
+    lifecycle commands.
+  - Push, merge, publish, or mutate main from Executor implementation execution.
+
+constraints:
+  hard:
+    - >
+      Keep ShopeeDiscoveryAdapter and SHOPEE_CARD_EXTRACTION_SCRIPT as the sole Shopee search-card
+      discovery/DOM extraction path. Keep parse_shopee_sold_count as the sole Shopee sold-count text
+      parser. Do not add parallel extraction, parser, post-hoc sanitizer, or downstream scoring guard.
+    - >
+      Remove the generic styling-only `.truncate` fallback from sold-count extraction. A DOM node may
+      supply sold_text only through a sold-specific selector/provenance already owned by the Shopee
+      adapter or an equally narrow sold-specific selector justified by current source semantics.
+      Generic typography/layout/truncation classes are not sufficient evidence of sold volume.
+    - >
+      Missing, unavailable, or untrusted sold evidence must remain null in the extraction payload and
+      None in ProductCandidateSnapshot.sold_count. Do not fabricate, derive, substitute, or copy price
+      or any neighboring numeric field into sold_count.
+    - >
+      Harden parse_shopee_sold_count so explicit price/currency-like text fails closed to None. At
+      minimum, strings carrying unambiguous Vietnamese currency provenance such as the `₫` symbol or
+      a standalone VND/currency marker adjacent to a numeric amount must not parse as sold volume.
+      The guard must distinguish the Vietnamese sold phrase `đã bán` from a currency `đ` token and
+      must not break legitimate localized sold-count text merely because the letter đ appears in `đã`.
+    - >
+      Preserve legitimate existing sold-count forms already covered by parsing authority, including
+      forms equivalent to `Đã bán 1,2k`, `1.5k Đã bán`, `Đã bán 1200`, localized `tr/triệu`
+      multipliers, and a trusted bare numeric count supplied by a sold-specific extraction node.
+      Do not change positive-count rounding/multiplier semantics except as required to reject
+      price/currency provenance.
+    - >
+      Do not use `sold_count == price` as the production rejection rule. Equality is evidence that
+      exposed this defect, not a universally impossible marketplace state. Correct the provenance
+      boundary so price text cannot enter sold_text/sold_count in the first place.
+    - >
+      Preserve TASK-151 readiness sampling, TASK-153 null-safe mapping, TASK-167 search-surface
+      scoping, product-anchor fallback, block/CAPTCHA detection, true-empty semantics, navigation
+      count, browser/page ownership, candidate identity, deduplication, max_candidates/max_pages,
+      diagnostics, and existing error classes unchanged except for the minimum sold-evidence change.
+    - >
+      Add deterministic source/DOM-contract regression proving a card with price text inside a generic
+      `.truncate` node and no sold-specific node yields sold_text null / sold_count None rather than
+      price-derived sold evidence. The test must not depend on a live Shopee page, network, browser
+      launch, wall-clock waiting, or current marketplace availability.
+    - >
+      Add focused mapping regressions proving: valid sold-specific text still maps to the expected
+      sold_count; missing sold-specific evidence remains None; sibling price/original-price extraction
+      remains unchanged; and the existing card mapping, readiness, scoped fallback, dedupe, pagination,
+      block/empty, manager/cleanup, and one-navigation regressions remain green.
+    - >
+      Add parser regressions proving explicit currency/price-like strings are rejected while all
+      previously legitimate sold-count forms remain accepted. Include at least one regression that
+      protects `đã bán` from being confused with the currency `đ` marker.
+    - >
+      Do not modify SnapshotNormalizer or WinningProductScorer to compensate for malformed upstream
+      data. Their existing behavior remains authoritative; the proof of this task is that untrusted
+      price text no longer arrives as non-None sold_count.
+    - >
+      Update docs/PHASE_6_M2_DISCOVERY.md to record the sold-evidence provenance rule inside the
+      existing Shopee adapter authority: sold volume is optional marketplace evidence, generic visual
+      text is not sold provenance, and absence must remain None rather than be inferred.
+    - >
+      Update docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md and both canonical product roadmaps
+      consistently: TASK-181/P7.0 is CLOSED/PUBLISHED at
+      9e835ed2c551c2fa3a8b66b82caa238bd41b152c; TASK-182/RUN-182-006 is BLOCKED by semantic review
+      because malformed sold evidence invalidates the real-evidence baseline; TASK-185 is the narrow
+      current prerequisite Shopee sold-evidence hardening; a fresh baseline successor remains NEXT
+      only after TASK-185 Runtime PASS + semantic PASS + source-only publication. Preserve P6.0/P6.1/
+      P6.3 CLOSED, P6.2 PARKED/reopenable, and P6.4-P6.6 DEFERRED/UNIMPLEMENTED.
+    - >
+      Do not claim that TASK-185 itself establishes a valid P7.1 baseline, marketplace coverage rate,
+      business value, winner, recommendation, or enrichment priority. It is production evidence-input
+      hardening only; the blocked TASK-182 measurements are not baseline truth.
+    - >
+      All TASK-185 Runtime verification is offline and deterministic. No browser/CDP, marketplace,
+      provider/LLM, Drive, external network, Human challenge, random, UUID, or live acquisition work
+      is permitted in verification.
+    - Do not push from Executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      TASK-185 changes only the eight authorized paths, preserves ShopeeDiscoveryAdapter and
+      parse_shopee_sold_count as the existing sole Shopee evidence authorities, and introduces no
+      second discovery, parser, normalization, scoring, ranking, approval, browser, or truth owner.
+  - id: AC2
+    condition: >
+      Generic `.truncate`/styling-only DOM provenance can no longer supply sold_text; absent or
+      untrusted sold-specific DOM evidence remains null/None and price extraction remains separate.
+  - id: AC3
+    condition: >
+      parse_shopee_sold_count rejects explicit price/currency-like text while preserving legitimate
+      sold-count formats, including Vietnamese `đã bán`, multiplier forms, and trusted bare counts.
+  - id: AC4
+    condition: >
+      Focused offline regressions prove the REVIEW-182-006 anomaly class is prevented without using
+      sold_count==price as a production heuristic, and prior TASK-151/TASK-153/TASK-167 Shopee
+      readiness, mapping, scoped-fallback, block/empty, navigation, dedupe, pagination and cleanup
+      behavior remains green.
+  - id: AC5
+    condition: >
+      ProductCandidateSnapshot, SnapshotNormalizer, WinningProductScorer, CandidateRanker,
+      DiscoveryRequest/DiscoveryBatch, browser/session, CAPTCHA, Human approval, and downstream
+      Product Intelligence semantics remain unchanged; no compensating downstream anomaly filter is
+      introduced.
+  - id: AC6
+    condition: >
+      Discovery documentation records the optional sold-evidence provenance/fail-closed boundary, and
+      P7.0 plus both product roadmaps record TASK-182 as semantic BLOCKED evidence, TASK-185 as the
+      narrow prerequisite, and a fresh real-evidence baseline successor as deferred until TASK-185
+      Runtime PASS + semantic PASS + source-only publication while preserving all existing P6 states.
+  - id: AC7
+    condition: >
+      TASK-182 candidate 94c4e5105e593b9136f186882daacb466c9a304d, its fixture/test/docs delta,
+      RUN/RESULT/FAILURE/REPAIR lineage, and REVIEW-182-006 remain immutable and unpublished; TASK-185
+      does not recapture or rewrite baseline evidence.
+  - id: AC8
+    condition: >
+      Required offline verification and git diff check pass with zero unresolved items and changed
+      files remain exactly within TASK-185 scope.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_shopee_parsing.py tests/product_intelligence/test_shopee_discovery.py tests/product_intelligence/test_orchestration.py tests/product_intelligence/test_ranking.py tests/product_intelligence/test_scoring.py tests/product_intelligence/test_product_intelligence_cli.py tests/integration/test_browser_cdp.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
