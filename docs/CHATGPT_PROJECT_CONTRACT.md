@@ -36,21 +36,25 @@ Python Agent uses only the AIOS-renew version pinned by:
 .agents/skills/aios-worker/requirements-aios-renew.txt
 ```
 
-For TASK-179 that exact downstream authority is
-`883974be6ec5922ae57021b50a48c84a0014dbfa`. Python Agent adopts reviewed
-TASK-086 Unified State, TASK-087 Unified Human Surface, and TASK-088 missing-local-TASK
-pre-resolution only by pinning that source candidate and translating to its public
-`state` and `continue` operator surfaces. For a syntactically valid requested TASK whose
+TASK-179 established the historical downstream authority
+`883974be6ec5922ae57021b50a48c84a0014dbfa`. TASK-183 migrates the active exact
+authority to `08e4a612377ac82be36061286a34138ea53ab0d1`. Python Agent adopts reviewed
+TASK-086 Unified State, TASK-087 Unified Human Surface, TASK-088 missing-local-TASK
+pre-resolution, TASK-089 `CONTINUE_IMPLEMENTATION`, and TASK-090 safe-publication
+compatibility only by pinning that source candidate and translating to its public
+operator surfaces. For a syntactically valid requested TASK whose
 canonical local TASK file is absent, pinned CONTINUE may use the bounded
 TASK-062-governed pre-resolution synchronization before Unified State loads the TASK,
 then derive state from fresh synchronized repository state. Existing local TASKs gain
 no automatic synchronization path; `state` and STATUS remain read-only for product
 state; unsafe repository states fail closed; and the downstream surfaces add no
 synchronization implementation, retry, reroute, recursive continuation, or second
-lifecycle operation. Python Agent does not copy AIOS-renew workflow files, create a
-second state machine, or automatically expose every upstream operator command.
+lifecycle operation. TASK-089 semantic selection, TASK-090 publication behavior, and
+all Runtime validation remain inside the pinned distribution. Python Agent does not
+copy AIOS-renew workflow files, create a second state machine, or automatically expose
+every upstream operator command.
 
-The immediate-predecessor `a607fb2cf1c57fe35a9a15504df0e98d28de2f5b`
+The immediate-predecessor `883974be6ec5922ae57021b50a48c84a0014dbfa`
 installation is stale after this migration and must be atomically replaced under the
 existing exact source-and-commit provenance boundary.
 
@@ -66,6 +70,9 @@ migration.
 TASK-179 does not establish a live stale-checkout CONTINUE proof or complete AIOS-renew
 Downstream Adoption. That proof remains pending a fresh downstream task authored and run
 after TASK-179 is published.
+
+TASK-183 migrates only the execution substrate. It does not continue TASK-182 or claim
+that TASK-182 has resumed, passed, been reviewed, or been published.
 
 ## 4. Human-facing Worker Boundary
 
@@ -218,30 +225,36 @@ Before authoring any REPAIR, the Brain must read the exact canonical FAILURE/can
 
 The classification is:
 
-1. **CONTINUATION_ONLY**
-   - No concrete repository defect requiring mutation has been established.
-   - Typical evidence includes executor interruption, transport/control failure, or another non-product failure while the candidate remains clean, repairable, transportable, and within scope.
-   - Verification may not yet have run, or there is otherwise no verification/review evidence proving a source/test/doc correction is required.
-   - Author `NO_CHANGE` REPAIR with an empty modification scope when supported by the exact pinned runtime.
-   - Preserve the exact failed candidate HEAD and use REPAIR to continue canonical verification/completion only.
+1. **NO_CHANGE**
+   - Use only for an eligible completed, unchanged candidate whose continuation requires zero repository mutation and only canonical verification/completion remains.
+   - Author `NO_CHANGE` REPAIR with an empty modification scope and preserve the exact failed candidate HEAD.
+   - Unfinished original implementation that still requires mutation is not `NO_CHANGE`, even when no defect has been established.
 
-2. **CODE_CORRECTION_REQUIRED**
-   - A concrete defect requiring repository mutation is already established by canonical failure/verification evidence.
-   - Author `CODE_FIX` REPAIR only with the minimum non-empty correction scope necessary for that defect.
+2. **CODE_FIX**
+   - Use only when canonical failure, verification, or review evidence has established a concrete product/code defect requiring repository correction.
+   - Author `CODE_FIX` REPAIR only with the minimum non-empty correction scope necessary for that established defect.
    - The correction must produce a real committed delta descending from the exact failed head.
 
-3. **RUNTIME_OR_LINEAGE_DEFECT**
-   - The failure indicates AIOS/runtime/control-plane behavior, ambiguous lineage, an untransportable candidate, stale recovery assumptions, or another condition not safely correctable as product code.
-   - Do not fabricate either a CODE_FIX or a product mutation.
+3. **CONTINUE_IMPLEMENTATION**
+   - Use only for an admitted, repairable, pre-verification failed RUN where the original implementation is unfinished, no product/code defect is asserted or established, and the remaining authorized work requires repository mutation.
+   - Human/Brain must have a new reason to permit another attempt because an external/Human non-defect prerequisite changed. Brain records that reason and authors the semantic action; neither Runtime nor a worker may probe the prerequisite or infer the action from diagnostic prose.
+   - Preserve the exact failed RUN, TASK revision, `failed_head_sha`, and root lineage. Author a non-empty explicit modification scope and select one explicit Executor.
+   - This is one separately authorized continuation, never an automatic retry, fresh PRIMARY, fallback, reroute, or recursive lifecycle call.
+
+4. **RUNTIME_OR_LINEAGE_DEFECT**
+   - Use when the failure indicates AIOS/runtime/control-plane behavior, ambiguous lineage, an untransportable candidate, stale recovery assumptions, or when none of `NO_CHANGE`, `CODE_FIX`, or `CONTINUE_IMPLEMENTATION` is safe.
+   - Do not fabricate a CODE_FIX, CONTINUE_IMPLEMENTATION, or product mutation.
    - Audit the recovery boundary and use Cross-project Escalation when the pinned AIOS runtime is the probable defect owner.
 
 REPAIR action selection is fail-closed:
 
 - Never choose `CODE_FIX` merely to keep open the possibility of editing later.
+- Never use `NO_CHANGE` for unfinished implementation or `CONTINUE_IMPLEMENTATION` for an established product/code defect.
 - Never pair `CODE_FIX` with instructions such as “do not edit if verification passes”, “verify unchanged candidate first”, or any other intended zero-delta continuation.
 - The pinned Runtime may enforce the REPAIR mutation gate before Runtime-owned verification. Therefore a candidate that merely needs verification continuation must use `NO_CHANGE`; `CODE_FIX` cannot be used as a speculative verify-then-maybe-edit container.
 - Never manufacture an empty/no-op/format-only commit solely to satisfy a `CODE_FIX` HEAD-advance gate.
 - If a `NO_CHANGE` REPAIR reaches verification and verification then proves a concrete defect, preserve that failed RUN as canonical evidence and author the **next** REPAIR as `CODE_FIX` against that new failed RUN.
+- Runtime validates the selected REPAIR structure and owns execution and verification; it does not select `CONTINUE_IMPLEMENTATION` semantically or probe an external/Human prerequisite.
 - Preserve the executor identity selected by the failed lineage unless explicit canonical Human intent requires a different boundary; never silently reroute during REPAIR.
 - REPAIR instructions, action, and modification scope must agree with one another. If they are semantically contradictory, do not invoke a worker until the REPAIR contract is corrected.
 

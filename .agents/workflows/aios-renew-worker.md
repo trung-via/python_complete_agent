@@ -171,6 +171,12 @@ Malformed or conflicting genuine reuse state still fails closed without Executor
 fallback. CODE_FIX does not consult reuse-only sidecar or package validation and
 proceeds through normal exactly-one selected Executor REPAIR dispatch; canonical
 FAILURE, TASK, `failed_head_sha`, REPAIR, lineage, and completion gates remain intact.
+For an admitted repairable pre-verification failure where original implementation is
+unfinished and authorized work still requires mutation, the pinned Runtime may consume
+a Brain-authored `CONTINUE_IMPLEMENTATION` REPAIR after a new external/Human reason
+permits one continuation. The workflow does not parse, select, infer, or implement that
+action and does not probe the changed prerequisite; the Human still invokes ordinary
+`CONTINUE TASK-N` or the explicit `REPAIR RUN-N-NNN` compatibility path.
 All reuse eligibility, sidecar decoding, changed-files authority comparison, repair
 action policy, and historical failed-head reconstruction remain solely inside the
 pinned Runtime.
@@ -215,7 +221,7 @@ an executor or become a second status or review authority.
 
 ## Adopted Upstream Capabilities and Boundaries
 
-Under the pinned commit `883974be6ec5922ae57021b50a48c84a0014dbfa`, Python Agent adopts:
+Under the pinned commit `08e4a612377ac82be36061286a34138ea53ab0d1`, Python Agent adopts:
 - **TASK-086**: Deterministic, read-only Unified State and Next Action through the
   public `state` operator surface. The workflow neither copies nor caches the reducer.
 - **TASK-087**: One bounded Human continuation front door through the public `continue`
@@ -274,6 +280,18 @@ Under the pinned commit `883974be6ec5922ae57021b50a48c84a0014dbfa`, Python Agent
   repair output, or decide reusable-candidate or historical-recovery policy.
   Runtime remains authoritative for dynamic complete original TASK acceptance coverage, canonical changed_files,
   verification, EVIDENCE, lineage, and publication. PRIMARY semantics are unchanged.
+- **TASK-089**: REPAIR may use the bounded `CONTINUE_IMPLEMENTATION` action only for an
+  admitted repairable pre-verification failed RUN whose original implementation is unfinished,
+  no product/code defect is asserted, remaining authorized work requires mutation, and a new
+  external/Human reason permits one separately authorized continuation. Exact failed RUN,
+  TASK revision, `failed_head_sha`/root lineage, non-empty explicit modification scope, and one
+  explicit Executor are preserved. Brain owns the semantic choice; Runtime validates and
+  executes it without probing the prerequisite. It is not automatic retry, fresh PRIMARY,
+  fallback, or reroute, and no parser, dispatcher, or state machine is added to this workflow.
+- **TASK-090**: Safe publication recognizes valid `CONTINUE_IMPLEMENTATION` lineage while
+  preserving review-before-publication and exact source-candidate publication. The capability
+  is consumed solely through the pinned distribution; Python Agent copies no Runtime or
+  publication implementation and its repository-native publication boundary remains unchanged.
 
 Capabilities present in upstream history but **not** exposed by this downstream worker:
 - **TASK-066 / TASK-068..TASK-074**: Although the exact package contains this intervening
@@ -287,8 +305,8 @@ Capabilities present in upstream history but **not** exposed by this downstream 
 ## Immutable Kernel Pin
 
 The only authoritative AIOS-renew kernel is commit
-`883974be6ec5922ae57021b50a48c84a0014dbfa`. Installed provenance for the immediate-predecessor
-`a607fb2cf1c57fe35a9a15504df0e98d28de2f5b` pin, and every older pin including
+`08e4a612377ac82be36061286a34138ea53ab0d1`. Installed provenance for the immediate-predecessor
+`883974be6ec5922ae57021b50a48c84a0014dbfa` pin, and every older pin including
 `32ace104c5cfaa1b7affbaa40157872b1f85147f`, is stale. The launcher validates both the
 checked-in dependency pin and installed PEP 610 source+commit provenance and
 atomically replaces stale or unverifiable worker runtimes.
@@ -296,3 +314,6 @@ atomically replaces stale or unverifiable worker runtimes.
 This pin migration does not prove a live stale-checkout CONTINUE or complete AIOS-renew
 Downstream Adoption. That proof remains pending a fresh downstream task authored and run
 after TASK-179 is published.
+
+TASK-183 migrates only the execution substrate. It does not continue TASK-182 or claim
+that TASK-182 has resumed, passed, been reviewed, or been published.
