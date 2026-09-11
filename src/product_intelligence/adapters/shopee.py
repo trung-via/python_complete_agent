@@ -153,18 +153,24 @@ SHOPEE_CARD_EXTRACTION_SCRIPT = r"""() => {
         };
     }
 
+    function isCanonicalProductHref(href) {
+        return Boolean(href && (href.includes('-i.') || href.includes('/product/')));
+    }
+
     // 3. Detect the search-result surface separately from its item-level cards.
-    // The broad surface is a provenance boundary, never an individual product card.
-    const searchSurface = document.querySelector('.shopee-search-item-result');
+    // Current Shopee variants may retain the item-list surface without the legacy
+    // wrapper. Both selectors are search-result boundaries, never product cards.
+    const searchSurfaceSelector = '.shopee-search-item-result, .shopee-search-item-result__items';
+    const searchSurface = document.querySelector(searchSurfaceSelector);
     const itemCardSelector = '.shopee-search-item-result__item, [data-sqe="item"], div.col-xs-2-4';
     const cardElements = searchSurface
         ? searchSurface.querySelectorAll(itemCardSelector)
-        : document.querySelectorAll(itemCardSelector);
+        : [];
 
     const items = [];
     cardElements.forEach(card => {
         const item = extractCardData(card, null);
-        if (item && (item.title || item.href)) {
+        if (item && item.title && isCanonicalProductHref(item.href)) {
             items.push(item);
         }
     });
@@ -201,7 +207,7 @@ SHOPEE_CARD_EXTRACTION_SCRIPT = r"""() => {
             }
 
             const item = extractCardData(cardContext, anchor);
-            if (item && item.href && item.title) {
+            if (item && item.title && isCanonicalProductHref(item.href)) {
                 items.push(item);
             }
         });

@@ -731,7 +731,7 @@ async def test_shopee_discovery_delayed_hydration_success(monkeypatch: pytest.Mo
 
 
 @pytest.mark.asyncio
-async def test_shopee_discovery_ignores_unrelated_product_anchor_until_search_cards_hydrate(
+async def test_shopee_discovery_current_dom_hydrates_after_unrelated_global_anchor(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """An out-of-surface product link cannot terminate same-page readiness."""
@@ -763,11 +763,11 @@ async def test_shopee_discovery_ignores_unrelated_product_anchor_until_search_ca
                         await dom_page.evaluate(
                             """() => {
                                 const surface = document.createElement('div');
-                                surface.className = 'shopee-search-item-result';
+                                surface.className = 'shopee-search-item-result__items';
                                 surface.innerHTML = `
-                                    <div class="shopee-search-item-result__item" data-item-id="456">
-                                        <a href="/hydrated-wireless-mouse-i.123.456">
-                                            <span data-sqe="name">Hydrated Wireless Mouse</span>
+                                    <div class="current-result-card" data-item-id="456">
+                                        <a href="/hydrated-inox-flask-i.123.456">
+                                            <img alt="Hydrated Inox Flask" src="flask.jpg" />
                                         </a>
                                     </div>`;
                                 document.body.appendChild(surface);
@@ -780,11 +780,12 @@ async def test_shopee_discovery_ignores_unrelated_product_anchor_until_search_ca
             adapter = ShopeeDiscoveryAdapter(browser=manager)
 
             batch = await adapter.discover(
-                DiscoveryRequest(query="chuột không dây", max_pages=1),
+                DiscoveryRequest(query="bình giữ nhiệt inox", max_pages=1),
                 observed_at=obs_time,
             )
 
             assert [candidate.candidate_id for candidate in batch.candidates] == ["shopee_456"]
+            assert [candidate.title for candidate in batch.candidates] == ["Hydrated Inox Flask"]
             assert session.call_count == 2
             assert sleep_calls == [0.5]
             assert manager.requested_run_ids == ["discovery_run"]
@@ -926,7 +927,12 @@ def test_shopee_card_extraction_script_has_scoped_product_anchor_fallback() -> N
 
     # The broad search-result surface is a boundary, not an individual card root.
     assert (
-        "const searchSurface = document.querySelector('.shopee-search-item-result');"
+        "const searchSurfaceSelector = "
+        "'.shopee-search-item-result, .shopee-search-item-result__items';"
+        in SHOPEE_CARD_EXTRACTION_SCRIPT
+    )
+    assert (
+        "const searchSurface = document.querySelector(searchSurfaceSelector);"
         in SHOPEE_CARD_EXTRACTION_SCRIPT
     )
     assert (
@@ -935,6 +941,8 @@ def test_shopee_card_extraction_script_has_scoped_product_anchor_fallback() -> N
         in SHOPEE_CARD_EXTRACTION_SCRIPT
     )
     assert "div.col-xs-2-4, .shopee-search-item-result" not in SHOPEE_CARD_EXTRACTION_SCRIPT
+    assert "searchSurface.querySelectorAll(itemCardSelector)" in SHOPEE_CARD_EXTRACTION_SCRIPT
+    assert "document.querySelectorAll(itemCardSelector)" not in SHOPEE_CARD_EXTRACTION_SCRIPT
     # Fallback anchors are bounded beneath that surface and retain both canonical URL forms.
     assert (
         "searchSurface.querySelectorAll('a[href*=\"-i.\"], a[href*=\"/product/\"]')"
@@ -947,6 +955,7 @@ def test_shopee_card_extraction_script_has_scoped_product_anchor_fallback() -> N
     assert 'a[href*="-i."]' in SHOPEE_CARD_EXTRACTION_SCRIPT
     assert 'a[href*="/product/"]' in SHOPEE_CARD_EXTRACTION_SCRIPT
     assert "seenHrefs" in SHOPEE_CARD_EXTRACTION_SCRIPT
+    assert "isCanonicalProductHref(item.href)" in SHOPEE_CARD_EXTRACTION_SCRIPT
     # Script must check bounded title sources
     assert "aria-label" in SHOPEE_CARD_EXTRACTION_SCRIPT
     assert "img[alt]" in SHOPEE_CARD_EXTRACTION_SCRIPT

@@ -4,9 +4,11 @@ Status: **P7 Commerce Opportunity Intelligence is selected by the post-P6
 architecture/value audit. TASK-181/P7.0 is CLOSED / PUBLISHED at
 `9e835ed2c551c2fa3a8b66b82caa238bd41b152c`. TASK-182/RUN-182-006 is BLOCKED by
 semantic review because malformed Shopee sold evidence invalidates that attempted
-real-evidence baseline. TASK-185 is the narrow current prerequisite; a fresh P7.1
-baseline successor remains deferred until TASK-185 Runtime PASS, semantic PASS,
-and source-only publication.**
+real-evidence baseline. TASK-185 is CLOSED / PUBLISHED at
+`6b03dc14f88ddb98baeb6ae726f0dd913b323ba1`. TASK-186/RUN-186-003 is BLOCKED /
+UNPUBLISHED by current Shopee live-DOM incompatibility, with no source candidate.
+TASK-187 is the narrow current prerequisite; a fresh P7.1 baseline successor requires
+TASK-187 Runtime PASS, semantic PASS, and source-only publication.**
 
 ## 1. Audit decision
 
@@ -97,9 +99,10 @@ RUN/RESULT/FAILURE/REPAIR lineage, and REVIEW-182-006 remain immutable and
 unpublished; their measurements are not baseline truth. TASK-185 hardens only the
 existing Shopee evidence-input boundary and does not recapture or rewrite that cohort.
 
-A fresh P7.1 real-evidence baseline successor remains NEXT only after TASK-185 receives
-Runtime PASS, semantic PASS, and source-only publication. That successor must execute
-the reviewed frozen evaluator on a new bounded cohort of reviewed real marketplace
+A fresh P7.1 real-evidence baseline successor remains NEXT only after TASK-187 receives
+Runtime PASS, semantic PASS, and source-only publication. It must be a new successor,
+not a continuation, repair, rehabilitation, or publication of TASK-186. That successor
+must execute the reviewed frozen evaluator on a new bounded cohort of reviewed real marketplace
 observations, record the cohort provenance and exact immutable report, and interpret
 the result under separate Human review. It must not acquire live marketplace evidence
 inside ordinary offline Runtime verification.
@@ -115,8 +118,11 @@ identity, persistence, retrieval, product-truth, and Human-authority boundaries.
 
 TASK-181/P7.0 is CLOSED / PUBLISHED at
 `9e835ed2c551c2fa3a8b66b82caa238bd41b152c`. TASK-182/RUN-182-006 remains
-semantically BLOCKED and unpublished. TASK-185 is production evidence-input
-hardening only: it establishes no P7.1 baseline, coverage rate, business value,
-winner, recommendation, or enrichment priority. The fresh baseline successor remains
-deferred until TASK-185 Runtime PASS, semantic PASS, and source-only publication; no
-evidence-enrichment implementation is opened in advance.
+semantically BLOCKED and unpublished. TASK-185 is CLOSED / PUBLISHED at
+`6b03dc14f88ddb98baeb6ae726f0dd913b323ba1`; it establishes no P7.1 baseline,
+coverage rate, business value, winner, recommendation, or enrichment priority.
+TASK-186/RUN-186-003 remains BLOCKED / UNPUBLISHED with no source candidate because
+current live Shopee result cards were not recognized. TASK-187 is the narrow discovery
+compatibility prerequisite. Only after its Runtime PASS, semantic PASS, and source-only
+publication may a fresh P7.1 successor be authored; TASK-186 must not be continued or
+rehabilitated, and no evidence-enrichment implementation is opened in advance.
