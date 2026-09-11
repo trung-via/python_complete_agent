@@ -1,0 +1,27 @@
+{
+  "repair_id": "REPAIR-188-001",
+  "failed_run_id": "RUN-188-001",
+  "failed_head_sha": "2f30b408e5e2e8854c997afe8093dddd10010471",
+  "task": {
+    "id": "TASK-188",
+    "revision": 1
+  },
+  "action": "CONTINUE_IMPLEMENTATION",
+  "modification_scope": [
+    "tests/fixtures/p7_1_winning_product_coverage/baseline.json",
+    "tests/integration/test_p7_1_winning_product_coverage_baseline.py",
+    "docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md",
+    "docs/PHASE_7_P7_1_REAL_EVIDENCE_COVERAGE_BASELINE.md",
+    "docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
+    "docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md"
+  ],
+  "instructions": [
+    "Continue only unfinished TASK-188 revision 1 work from exact failed RUN-188-001 and failed head 2f30b408e5e2e8854c997afe8093dddd10010471. Human has confirmed the external authenticated browser-session prerequisite is now satisfied. This is the sole new reason for one CONTINUE_IMPLEMENTATION admission. Do not restart PRIMARY and do not classify this as CODE_FIX or NO_CHANGE.",
+    "Preserve RUN-188-001, exact failed head, TASK revision, root lineage, and Codex executor identity. Do not reroute, recursively continue, or replace the failed lineage with a fresh task base.",
+    "Resume only the original TASK-188 bounded live-capture and baseline implementation. Because RUN-188-001 retained no accepted cohort and no repository mutation, perform one fresh DiscoveryBatch call for each required query in exact order: bình giữ nhiệt inox, bàn phím cơ, chuột không dây; each request remains max_candidates=5, max_pages=1, locale=vi-VN with explicit timezone-aware observed_at.",
+    "Preserve every TASK-188 sampling gate and fail closed on blocked, empty, short, duplicated, malformed, or otherwise invalid bounded results. Do not change queries, add pages, broaden limits, select by score, substitute synthetic observations, use another discovery route, or reuse TASK-182/TASK-186 cohort values.",
+    "On success, freeze only exact DiscoveryBatch public projections, write the fixture directly as canonical UTF-8, preserve lossless offline reconstruction, evaluated_at derivation, exactly one evaluate_winning_product_coverage call with policy=None, exact report projection, and no business-quality threshold or automatic enrichment decision.",
+    "Do not modify production Python, AIOS runtime or worker code, browser/session implementation, scoring/normalization/ranking/approval authorities, historical blocked evidence, or paths outside modification_scope. A successful continuation must create a real non-empty in-scope committed descendant of the exact failed head, then pinned Runtime performs canonical TASK-188 verification."
+  ],
+  "constraints": []
+}
