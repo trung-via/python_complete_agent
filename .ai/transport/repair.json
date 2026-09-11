@@ -1,0 +1,28 @@
+{
+  "repair_id": "REPAIR-182-005",
+  "failed_run_id": "RUN-182-005",
+  "failed_head_sha": "fa6aa4a6b686530c951dcb7aadb22e26655504fc",
+  "task": {
+    "id": "TASK-182",
+    "revision": 1
+  },
+  "action": "CONTINUE_IMPLEMENTATION",
+  "modification_scope": [
+    "tests/fixtures/p7_1_winning_product_coverage/baseline.json",
+    "tests/integration/test_p7_1_winning_product_coverage_baseline.py",
+    "docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md",
+    "docs/PHASE_7_P7_1_REAL_EVIDENCE_COVERAGE_BASELINE.md",
+    "docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
+    "docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md"
+  ],
+  "instructions": [
+    "Continue only the unfinished TASK-182 revision 1 implementation from exact failed RUN RUN-182-005 and failed_head_sha fa6aa4a6b686530c951dcb7aadb22e26655504fc. RUN-182-005 established that the three bounded live DiscoveryBatch calls completed and passed the cohort gates, but the exact projections were lost before repository mutation because a Windows console/stdout Unicode encoding path rejected Vietnamese text. No product/code defect is established. This identified non-product execution-path failure is the new reason authorizing exactly one separately admitted CONTINUE_IMPLEMENTATION continuation. Do not restart PRIMARY and do not reclassify this continuation as CODE_FIX or NO_CHANGE.",
+    "Preserve the full historical continuation chain RUN-182-001 -> RUN-182-002 -> RUN-182-003 -> RUN-182-004 -> RUN-182-005 and continue from RUN-182-005 only. Use the same explicit Codex executor identity. Do not reroute, automatically retry within the admitted run, recursively CONTINUE, substitute a fresh task base, discard prior FAILURE/REPAIR artifacts, or treat the execution-environment encoding issue as a Product Intelligence code mutation.",
+    "The process-local live batches from RUN-182-005 were not persisted exactly and are not canonical baseline evidence. Do not reconstruct, approximate, or reuse them from memory, prose, logs, screenshots, console fragments, or prior ResultPackage claims. This separately authorized continuation may perform one fresh bounded capture per required query solely because no exact frozen batch survived the prior failed run. Within this continuation there is exactly one DiscoveryBatch attempt for each query in the original order: `bình giữ nhiệt inox`, `bàn phím cơ`, `chuột không dây`; each request remains max_candidates=5, max_pages=1, locale=vi-VN with explicit timezone-aware observed_at.",
+    "Avoid any console/stdout round-trip for Vietnamese marketplace payloads. Persist the accepted exact DiscoveryBatch.to_dict() projections directly through an explicit UTF-8 file-writing path inside the authorized fixture workflow, using UTF-8 without BOM and the TASK-182 deterministic compact-JSON requirements. Do not depend on the Windows active code page, terminal encoder, PowerShell rendering, or print() output to preserve canonical marketplace strings. Do not modify production code, AIOS runtime/worker code, global machine settings, browser/session code, or repository encoding policy.",
+    "Preserve every original fail-closed sampling gate. If any fresh required batch is blocked, empty, short, duplicated, malformed, or otherwise invalid, terminalize this continuation truthfully rather than retrying inside the run, changing a query, adding pages, broadening max_candidates, selecting by score, substituting synthetic observations, or using another discovery route.",
+    "If the bounded live cohort is valid and exact projections are safely persisted, complete only the original TASK-182 authorized fixture, private offline integration test, P7.0/P7.1 documentation, and two roadmap updates. Preserve zero production Python, exact DiscoveryBatch.to_dict() freezing, lossless offline reconstruction, one evaluate_winning_product_coverage call over the exact fifteen-candidate cohort with policy=None, no business-quality threshold, and no automatic evidence-enrichment decision.",
+    "Do not modify any path outside modification_scope and do not change TASK-182, prior RUN/FAILURE/REPAIR artifacts, Product Intelligence production code, AIOS worker/runtime files, browser/session implementation, queries, scoring/ranking authority, or publication machinery. A successful continuation must create a real committed non-empty in-scope descendant of the exact failed head. After that commit, allow only the pinned Runtime to execute the original TASK-182 canonical verification exactly once. If this continuation fails again, preserve the exact new RUN/FAILURE lineage and do not self-author another retry, fallback, reroute, repair, or fresh PRIMARY."
+  ],
+  "constraints": []
+}
