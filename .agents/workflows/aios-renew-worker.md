@@ -221,7 +221,7 @@ an executor or become a second status or review authority.
 
 ## Adopted Upstream Capabilities and Boundaries
 
-Under the pinned commit `08e4a612377ac82be36061286a34138ea53ab0d1`, Python Agent adopts:
+Under the pinned commit `e72135cd5c5a1dec0d8374d9bb8994da5e458feb`, Python Agent adopts:
 - **TASK-086**: Deterministic, read-only Unified State and Next Action through the
   public `state` operator surface. The workflow neither copies nor caches the reducer.
 - **TASK-087**: One bounded Human continuation front door through the public `continue`
@@ -292,6 +292,16 @@ Under the pinned commit `08e4a612377ac82be36061286a34138ea53ab0d1`, Python Agent
   preserving review-before-publication and exact source-candidate publication. The capability
   is consumed solely through the pinned distribution; Python Agent copies no Runtime or
   publication implementation and its repository-native publication boundary remains unchanged.
+- **TASK-092**: The exact pinned Antigravity adapter is the native Executor instruction authority
+  for `CONTINUE_IMPLEMENTATION`. An admitted native Executor resumes the necessary bounded
+  unfinished original TASK work from the exact failed lineage, including bounded discovery/live
+  capture when that is part of the unfinished work, and must commit the permitted in-scope
+  implementation state on success. This grants no fresh PRIMARY, automatic retry, fallback,
+  reroute, scope widening, recursive continuation, semantic review, or Executor-owned canonical
+  verification or EVIDENCE authority. Brain still selects the semantic action, and Runtime still
+  owns lifecycle validation, completion, canonical verification, and EVIDENCE. The launcher
+  contains no local instruction parser, prompt implementation, repair dispatcher, or second state
+  machine.
 
 Capabilities present in upstream history but **not** exposed by this downstream worker:
 - **TASK-066 / TASK-068..TASK-074**: Although the exact package contains this intervening
@@ -305,8 +315,9 @@ Capabilities present in upstream history but **not** exposed by this downstream 
 ## Immutable Kernel Pin
 
 The only authoritative AIOS-renew kernel is commit
-`08e4a612377ac82be36061286a34138ea53ab0d1`. Installed provenance for the immediate-predecessor
-`883974be6ec5922ae57021b50a48c84a0014dbfa` pin, and every older pin including
+`e72135cd5c5a1dec0d8374d9bb8994da5e458feb`. Installed provenance for the immediate-predecessor
+`08e4a612377ac82be36061286a34138ea53ab0d1` pin, and every older pin including
+`883974be6ec5922ae57021b50a48c84a0014dbfa` and
 `32ace104c5cfaa1b7affbaa40157872b1f85147f`, is stale. The launcher validates both the
 checked-in dependency pin and installed PEP 610 source+commit provenance and
 atomically replaces stale or unverifiable worker runtimes.
@@ -315,5 +326,8 @@ This pin migration does not prove a live stale-checkout CONTINUE or complete AIO
 Downstream Adoption. That proof remains pending a fresh downstream task authored and run
 after TASK-179 is published.
 
-TASK-183 migrates only the execution substrate. It does not continue TASK-182 or claim
-that TASK-182 has resumed, passed, been reviewed, or been published.
+TASK-183 historically adopted TASK-089/TASK-090 at the predecessor pin. TASK-184 migrates
+only the execution substrate to reviewed TASK-092. It does not continue TASK-182 or claim
+that TASK-182 has resumed, passed, been reviewed, or been published. RUN-182-003 remains
+the canonical failed lineage under the predecessor adapter; only a later separately
+authorized continuation may act on it.

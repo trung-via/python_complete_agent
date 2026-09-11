@@ -1,8 +1,8 @@
 # AIOS Unified Worker Workflow
 
-As of TASK-183 revision 1, the repository-owned Codex and Antigravity worker
+As of TASK-184 revision 1, the repository-owned Codex and Antigravity worker
 surfaces delegate exclusively to the immutable AIOS-renew kernel at commit
-`08e4a612377ac82be36061286a34138ea53ab0d1`. Legacy AIOS Bridge source remains
+`e72135cd5c5a1dec0d8374d9bb8994da5e458feb`. Legacy AIOS Bridge source remains
 archived in this repository, but it is inactive and unreachable from these
 CONTINUE/STATUS and explicit RUN/FIX/REPAIR surfaces.
 
@@ -292,6 +292,16 @@ hatches for compatibility and debugging; they are not the normal state-selection
   semantic review and exact source-candidate publication. Python Agent adopts that compatibility
   solely through the immutable dependency; no Runtime, publication, or semantic-selection
   implementation moves into the launcher or worker surfaces.
+- **TASK-092 Native-Instruction Boundary**: The exact pinned Codex and Antigravity adapters,
+  not the downstream launcher, are the native Executor instruction authority for
+  `CONTINUE_IMPLEMENTATION`. An admitted Executor resumes necessary bounded unfinished original
+  TASK work from the exact failed lineage, including bounded discovery/live capture when it is
+  part of that unfinished work, and must commit the permitted in-scope implementation state on
+  success. This grants no fresh PRIMARY, automatic retry, fallback, reroute, scope widening,
+  recursive continuation, semantic review, or Executor-owned canonical verification or EVIDENCE
+  authority. Brain owns semantic classification; Runtime owns lifecycle validation, completion,
+  canonical verification, and EVIDENCE. The launcher contains no local action parser, native
+  prompt implementation, repair dispatcher, or second state machine.
 - **TASK-066 / TASK-068..TASK-074 Upstream Boundary**: Although the exact pinned package
   contains this intervening Runtime history, Python Agent does not adopt AIOS-renew workflow
   files, upstream remote approval/status workflow, wakeup workflow, dispatch-reconciliation,
@@ -378,12 +388,13 @@ branches or caches that do not expose `/aios-renew-worker` fail closed instead o
 falling back to legacy `/aios-worker` semantics.
 
 Both active worker surfaces use exactly AIOS-renew commit
-`08e4a612377ac82be36061286a34138ea53ab0d1`. Installed provenance for the immediate-predecessor
-`883974be6ec5922ae57021b50a48c84a0014dbfa` pin, and every older pin including
+`e72135cd5c5a1dec0d8374d9bb8994da5e458feb`. Installed provenance for the immediate-predecessor
+`08e4a612377ac82be36061286a34138ea53ab0d1` pin, and every older pin including
+`883974be6ec5922ae57021b50a48c84a0014dbfa` and
 `32ace104c5cfaa1b7affbaa40157872b1f85147f`, is stale and is atomically replaced.
 
 This is an exact-pin adoption boundary: Python Agent consumes reviewed TASK-086/TASK-087/TASK-088,
-TASK-089, and TASK-090
+TASK-089, TASK-090, and TASK-092
 only through their public operator surfaces. It copies no AIOS-renew workflow files,
 creates no second lifecycle state machine, and does not automatically expose every
 upstream operator command. ChatGPT semantic review, source-only publication, and the
@@ -394,13 +405,16 @@ TASK-179 does not establish a live stale-checkout CONTINUE proof or complete AIO
 Downstream Adoption. That operational proof remains pending a fresh downstream task
 authored and run after TASK-179 is published.
 
-TASK-183 migrates only the execution substrate. It does not continue TASK-182 or claim
-that TASK-182 has resumed, passed, been reviewed, or been published.
+TASK-183 historically adopted TASK-089/TASK-090 at the predecessor pin. TASK-184 migrates
+only the execution substrate to reviewed TASK-092. It does not continue TASK-182 or claim
+that TASK-182 has resumed, passed, been reviewed, or been published. RUN-182-003 remains
+the canonical failed lineage under the predecessor adapter; only a later separately
+authorized continuation may act on it.
 
 ## 9. Stale-Checkout CONTINUE Certification Protocol
 
 This certification applies only with the downstream AIOS-renew pin
-`08e4a612377ac82be36061286a34138ea53ab0d1` already present. Before the first
+`e72135cd5c5a1dec0d8374d9bb8994da5e458feb` already present. Before the first
 invocation, record that the fresh proof TASK exists on the canonical remote while
 `.ai/tasks/TASK-N.yaml` is absent from the local checkout. The record must bind the
 exact TASK ID, the canonical remote ref/commit containing it, the local HEAD, and

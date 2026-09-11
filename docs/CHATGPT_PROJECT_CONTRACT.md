@@ -37,8 +37,9 @@ Python Agent uses only the AIOS-renew version pinned by:
 ```
 
 TASK-179 established the historical downstream authority
-`883974be6ec5922ae57021b50a48c84a0014dbfa`. TASK-183 migrates the active exact
-authority to `08e4a612377ac82be36061286a34138ea53ab0d1`. Python Agent adopts reviewed
+`883974be6ec5922ae57021b50a48c84a0014dbfa`. TASK-183 migrated the prior exact
+authority to `08e4a612377ac82be36061286a34138ea53ab0d1`. TASK-184 migrates the active
+exact authority to `e72135cd5c5a1dec0d8374d9bb8994da5e458feb`. Python Agent adopts reviewed
 TASK-086 Unified State, TASK-087 Unified Human Surface, TASK-088 missing-local-TASK
 pre-resolution, TASK-089 `CONTINUE_IMPLEMENTATION`, and TASK-090 safe-publication
 compatibility only by pinning that source candidate and translating to its public
@@ -54,7 +55,18 @@ all Runtime validation remain inside the pinned distribution. Python Agent does 
 copy AIOS-renew workflow files, create a second state machine, or automatically expose
 every upstream operator command.
 
-The immediate-predecessor `883974be6ec5922ae57021b50a48c84a0014dbfa`
+TASK-092 is adopted only through the exact pin. Its Codex and Antigravity adapters are
+the native Executor instruction authority for `CONTINUE_IMPLEMENTATION`; the downstream
+launcher contains no local action parser, native prompt implementation, repair dispatcher,
+or second state machine. The admitted Executor resumes necessary bounded unfinished original
+TASK work from the exact failed lineage, including bounded discovery/live capture when part
+of that unfinished work, and must commit the permitted in-scope implementation state on
+success. This grants no fresh PRIMARY, automatic retry, fallback, reroute, scope widening,
+recursive continuation, semantic review, or Executor-owned canonical verification or
+EVIDENCE authority. Brain retains semantic classification, and Runtime retains lifecycle,
+completion, canonical verification, and EVIDENCE authority.
+
+The immediate-predecessor `08e4a612377ac82be36061286a34138ea53ab0d1`
 installation is stale after this migration and must be atomically replaced under the
 existing exact source-and-commit provenance boundary.
 
@@ -71,8 +83,11 @@ TASK-179 does not establish a live stale-checkout CONTINUE proof or complete AIO
 Downstream Adoption. That proof remains pending a fresh downstream task authored and run
 after TASK-179 is published.
 
-TASK-183 migrates only the execution substrate. It does not continue TASK-182 or claim
-that TASK-182 has resumed, passed, been reviewed, or been published.
+TASK-183 historically adopted TASK-089/TASK-090 at the predecessor pin. TASK-184 migrates
+only the execution substrate to reviewed TASK-092. It does not continue TASK-182 or claim
+that TASK-182 has resumed, passed, been reviewed, or been published. RUN-182-003 remains
+the canonical failed lineage under the predecessor adapter; only a later separately
+authorized continuation may act on it.
 
 ## 4. Human-facing Worker Boundary
 
@@ -239,7 +254,9 @@ The classification is:
    - Use only for an admitted, repairable, pre-verification failed RUN where the original implementation is unfinished, no product/code defect is asserted or established, and the remaining authorized work requires repository mutation.
    - Human/Brain must have a new reason to permit another attempt because an external/Human non-defect prerequisite changed. Brain records that reason and authors the semantic action; neither Runtime nor a worker may probe the prerequisite or infer the action from diagnostic prose.
    - Preserve the exact failed RUN, TASK revision, `failed_head_sha`, and root lineage. Author a non-empty explicit modification scope and select one explicit Executor.
+   - The selected native Executor resumes necessary bounded unfinished original TASK work, including discovery/live capture when part of that unfinished work, and must commit the permitted in-scope implementation state on success.
    - This is one separately authorized continuation, never an automatic retry, fresh PRIMARY, fallback, reroute, or recursive lifecycle call.
+   - It grants no scope widening, semantic review, or Executor-owned canonical verification or EVIDENCE authority.
 
 4. **RUNTIME_OR_LINEAGE_DEFECT**
    - Use when the failure indicates AIOS/runtime/control-plane behavior, ambiguous lineage, an untransportable candidate, stale recovery assumptions, or when none of `NO_CHANGE`, `CODE_FIX`, or `CONTINUE_IMPLEMENTATION` is safe.

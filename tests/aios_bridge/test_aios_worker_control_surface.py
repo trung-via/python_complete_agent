@@ -24,10 +24,11 @@ CONTRACT_FILE = REPO_ROOT / "docs" / "CHATGPT_PROJECT_CONTRACT.md"
 BASE_SHA = "1" * 40
 HEAD_SHA = "2" * 40
 FAILED_HEAD_SHA = "3" * 40
-IMMEDIATE_PREDECESSOR_COMMIT = "883974be6ec5922ae57021b50a48c84a0014dbfa"
-OLDER_STALE_AUTHORITATIVE_COMMIT = "32ace104c5cfaa1b7affbaa40157872b1f85147f"
+IMMEDIATE_PREDECESSOR_COMMIT = "08e4a612377ac82be36061286a34138ea53ab0d1"
+OLDER_STALE_AUTHORITATIVE_COMMIT = "883974be6ec5922ae57021b50a48c84a0014dbfa"
 TASK_089_SOURCE_CANDIDATE = "bb57147eac92475789d7809ed445d56535d5a009"
-LATER_ROADMAP_COMMIT = "51114be70fb672ed890ce22964eca4abf85019e7"
+TASK_092_REVIEW_DECISION_COMMIT = "18e7ed49c7393f199589bd241eede3e67d759aa1"
+LATER_ROADMAP_COMMIT = "410f0a87c86f3fef56802d23dc0b8cf22bb2c9f7"
 
 if str(SCRIPT.parent) not in sys.path:
     sys.path.insert(0, str(SCRIPT.parent))
@@ -78,10 +79,10 @@ class TestImmutableRuntimePin:
             if line.strip() and not line.lstrip().startswith("#")
         ]
         assert active == [aw.PIN_LINE]
-        assert aw.AUTHORITATIVE_COMMIT == "08e4a612377ac82be36061286a34138ea53ab0d1"
+        assert aw.AUTHORITATIVE_COMMIT == "e72135cd5c5a1dec0d8374d9bb8994da5e458feb"
         assert active == [
             "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
-            "08e4a612377ac82be36061286a34138ea53ab0d1"
+            "e72135cd5c5a1dec0d8374d9bb8994da5e458feb"
         ]
 
     def test_authoritative_pep610_metadata_is_accepted(self):
@@ -100,6 +101,7 @@ class TestImmutableRuntimePin:
                 OLDER_STALE_AUTHORITATIVE_COMMIT,
             ),
             (aw.AUTHORITATIVE_REPOSITORY, TASK_089_SOURCE_CANDIDATE),
+            (aw.AUTHORITATIVE_REPOSITORY, TASK_092_REVIEW_DECISION_COMMIT),
             (aw.AUTHORITATIVE_REPOSITORY, LATER_ROADMAP_COMMIT),
             (
                 aw.AUTHORITATIVE_REPOSITORY,
@@ -1278,6 +1280,10 @@ class TestSurfaceAndDocumentation:
         assert "TASK-089" in text
         assert "CONTINUE_IMPLEMENTATION" in text
         assert "TASK-090" in text
+        assert "TASK-092" in text
+        assert "bounded discovery/live capture" in text
+        assert "commit the permitted in-scope implementation state" in text
+        assert "Executor-owned canonical verification" in text
         assert "AIOS_HUMAN_SURFACE" in text
         assert "AIOS_UNIFIED_STATE" in text
         assert "$aios-worker CONTINUE TASK-N" in text
@@ -1297,6 +1303,28 @@ class TestSurfaceAndDocumentation:
         normalized = " ".join(text.split())
         assert "TASK-089 `CONTINUE_IMPLEMENTATION`" in normalized
         assert "TASK-090 safe-publication compatibility" in normalized
+
+    def test_active_docs_bind_task_092_native_instruction_boundary(self):
+        for path in (SKILL_FILE, WORKFLOW_FILE, DOCS_FILE, CONTRACT_FILE):
+            text = path.read_text(encoding="utf-8")
+            normalized = " ".join(text.split())
+
+            assert aw.AUTHORITATIVE_COMMIT in text
+            assert "TASK-092" in text
+            assert "bounded discovery/live capture" in normalized
+            assert "commit the permitted in-scope implementation state" in normalized
+            assert "fresh PRIMARY" in normalized
+            assert "scope widening" in normalized
+            assert "Executor-owned canonical verification" in normalized
+            assert "EVIDENCE" in text
+            assert (
+                f"Under the pinned commit `{IMMEDIATE_PREDECESSOR_COMMIT}`"
+                not in text
+            )
+
+        assert "immediate-predecessor `08e4a612377ac82be36061286a34138ea53ab0d1`" in (
+            CONTRACT_FILE.read_text(encoding="utf-8")
+        )
 
     def test_continue_docs_leave_state_and_executor_required_to_pinned_kernel(self):
         for path in (SKILL_FILE, WORKFLOW_FILE, DOCS_FILE, CONTRACT_FILE):
@@ -1332,6 +1360,7 @@ class TestSurfaceAndDocumentation:
             assert "TASK-089" in text
             assert "CONTINUE_IMPLEMENTATION" in text
             assert "TASK-090" in text
+            assert "TASK-092" in text
             assert "Result.changed_files" in text
             assert "candidate.changed_files" in text
             assert "distinct truths" in text
@@ -1398,7 +1427,7 @@ class TestSurfaceAndDocumentation:
 
         assert (
             "downstream AIOS-renew pin "
-            "`08e4a612377ac82be36061286a34138ea53ab0d1` already present"
+            "`e72135cd5c5a1dec0d8374d9bb8994da5e458feb` already present"
             in normalized
         )
         assert (
