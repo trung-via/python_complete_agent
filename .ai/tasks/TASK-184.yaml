@@ -1,0 +1,226 @@
+task_id: TASK-184
+revision: 1
+
+goal: >
+  Explicitly migrate Python Agent's repository-owned AIOS worker from the exact
+  currently pinned AIOS-renew source candidate
+  08e4a612377ac82be36061286a34138ea53ab0d1 to the exact reviewed and published
+  TASK-092 source candidate e72135cd5c5a1dec0d8374d9bb8994da5e458feb so
+  downstream Python Agent can consume the corrected native Executor instruction
+  semantics for `CONTINUE_IMPLEMENTATION` before any further continuation of preserved
+  TASK-182 / RUN-182-003 lineage. Preserve TASK-179/TASK-183 thin-worker bootstrap and
+  provenance authority, Unified State/Human Surface ownership, executor-specific Human
+  surfaces, exact dependency provenance, review-before-publication, and the one-operation
+  CONTINUE model. This TASK migrates and certifies the execution substrate only; it does
+  not itself continue, implement, review, or publish TASK-182.
+
+problem: >
+  Python Agent TASK-182 has preserved failure lineage RUN-182-001 -> RUN-182-002 ->
+  RUN-182-003. RUN-182-003 occurred after Human had solved the Shopee CAPTCHA and after
+  Python Agent had already adopted TASK-089/TASK-090 through exact pin
+  08e4a612377ac82be36061286a34138ea53ab0d1. The selected Codex Executor was admitted once,
+  but the candidate remained clean with changed_files=[] and Runtime verification never
+  started. Cross-project audit established that the pinned Codex and Antigravity REPAIR
+  native instructions still described only CODE_FIX/NO_CHANGE behavior and broadly
+  prohibited restarting PRIMARY discovery, while TASK-089 requires
+  CONTINUE_IMPLEMENTATION to resume unfinished original TASK implementation, including
+  bounded discovery/live-capture work when that work is part of the unfinished TASK, and
+  to produce a real committed in-scope delta. AIOS-renew TASK-092 closes exactly this
+  adapter instruction-boundary defect for both Executors. Python Agent must adopt the
+  exact reviewed TASK-092 source candidate before authoring or executing any continuation
+  from RUN-182-003.
+
+assumptions:
+  - >
+    Canonical python_complete_agent main at TASK-184 authoring is
+    40fa344ae3843cbee4635479358072ffa0e5c3c4, the published TASK-183 source candidate.
+    TASK-182 revision 1 remains unfinished and has no implementation candidate or semantic
+    review. Its latest canonical failure is RUN-182-003, continuation_of RUN-182-002,
+    failed_head_sha fa6aa4a6b686530c951dcb7aadb22e26655504fc, clean/repairable/
+    transportable, changed_files=[], with Runtime verification not started.
+  - >
+    The authoritative downstream AIOS dependency immediately before this migration is
+    exactly `aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@08e4a612377ac82be36061286a34138ea53ab0d1`.
+    Current/future AIOS-renew main is never inferred as downstream authority.
+  - >
+    Upstream AIOS-renew TASK-092 source candidate
+    e72135cd5c5a1dec0d8374d9bb8994da5e458feb is reviewed and published. RUN-092-001
+    Runtime PASS binds that exact SHA, reports 396 focused Codex/Antigravity/operator tests
+    passing plus `git diff --check`, covers AC1-AC8, and has unresolved=[].
+    REVIEW-092-001 is PRIMARY PASS for that same source candidate. The later AIOS-renew
+    roadmap commit 410f0a87c86f3fef56802d23dc0b8cf22bb2c9f7 is not the migration target.
+  - >
+    TASK-179 remains downstream authority for immutable AIOS dependency bootstrap,
+    dedicated `.git/aios/worker-runtime`, exact PEP 610 source+commit provenance,
+    fail-closed rebuild, thin launcher translation, and worker-control regression shape.
+    TASK-183 remains downstream authority for adopting TASK-089/TASK-090 three-action
+    REPAIR semantics and safe publication at exact pin 08e4a612377ac82be36061286a34138ea53ab0d1.
+    TASK-184 extends those authorities only by replacing the exact pin and documenting the
+    TASK-092 native-instruction compatibility correction; it creates no second lifecycle.
+  - >
+    TASK-092 changes only AIOS native Executor instructions/regressions. It does not change
+    CONTINUE_IMPLEMENTATION admission, Runtime completion, historical repair recovery,
+    Unified State, Unified Human Surface, safe publication, model defaults, timeout policy,
+    or downstream Product Intelligence semantics.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - .github/workflows/aios-auto-publish.yml
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+    - tests/aios_bridge/test_aios_auto_publish_workflow.py
+    - .ai/tasks/TASK-179.yaml
+    - .ai/tasks/TASK-183.yaml
+    - .ai/tasks/TASK-182.yaml
+  modify:
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+
+non_goals:
+  - Modify AIOS-renew itself, follow a floating AIOS branch/tag/main, or migrate beyond
+    exact reviewed source candidate e72135cd5c5a1dec0d8374d9bb8994da5e458feb.
+  - Modify TASK-182, RUN-182-001/RUN-182-002/RUN-182-003 immutable lineage, any existing
+    REPAIR artifact, failed_head_sha, Shopee queries, browser profile, CAPTCHA/session state,
+    Product Intelligence source/tests, Phase 7 roadmap, or baseline methodology.
+  - Author or execute a new TASK-182 CONTINUE_IMPLEMENTATION REPAIR, invoke live capture,
+    create baseline fixture, or claim TASK-182 has resumed, passed, been reviewed, or been
+    published.
+  - Reimplement, copy, parse, or approximate TASK-092 native prompt semantics inside the
+    Python Agent launcher. Python Agent consumes those semantics only through the exact pin.
+  - Add a new Human command such as RESUME or change normal lifecycle from
+    `CONTINUE TASK-N`; RUN/FIX/REPAIR remain compatibility/debug surfaces.
+  - Change executor selection, Codex/Antigravity model defaults, timeout/watchdog policy,
+    sandbox/edit authority, lease behavior, retry/fallback/reroute behavior, recursive
+    continuation, Runtime verification ownership, or publication semantics.
+  - Treat RUN-182-003 as a product/code defect, reclassify it as CODE_FIX/NO_CHANGE, discard
+    it with a fresh PRIMARY, or silently switch Executor.
+  - Modify `.github/workflows/aios-auto-publish.yml` or
+    `tests/aios_bridge/test_aios_auto_publish_workflow.py`; they must continue consuming
+    the checked-in immutable requirements source without a duplicate pin.
+  - Rewrite historical TASK-179/TASK-183 contracts to make the new pin appear retroactive.
+  - Push, merge, publish, or mutate main from Executor implementation execution.
+
+constraints:
+  hard:
+    - >
+      Change the only active downstream dependency pin to exactly
+      `aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@e72135cd5c5a1dec0d8374d9bb8994da5e458feb`
+      and change launcher `AUTHORITATIVE_COMMIT` to the same exact SHA. No floating ref,
+      duplicate source, TASK-092 review-decision commit 18e7ed49c7393f199589bd241eede3e67d759aa1,
+      later roadmap commit 410f0a87c86f3fef56802d23dc0b8cf22bb2c9f7, or current AIOS main is authoritative.
+    - >
+      Preserve TASK-179/TASK-183 dedicated runtime/provenance behavior. Any runtime installed
+      from immediate predecessor 08e4a612377ac82be36061286a34138ea53ab0d1, older commit,
+      alternate source, incomplete install, or unverifiable PEP 610 provenance must be
+      rejected and atomically rebuilt; only repository `trung-via/AIOS-renew` at exact
+      commit e72135cd5c5a1dec0d8374d9bb8994da5e458feb is authoritative after migration.
+    - >
+      Keep the shared launcher thin. Apart from replacing its exact immutable authority
+      constant, do not change TASK/RUN parsing, bootstrap mechanics, command mapping,
+      CONTINUE/STATUS pass-through, RUN/FIX/REPAIR summaries, executor selection, retry
+      policy, lifecycle logic, or add local CONTINUE_IMPLEMENTATION handling.
+    - >
+      Adopt TASK-092 behavior only through the pinned AIOS distribution. Python Agent must
+      not add a local action-aware native Executor prompt, local repair dispatcher, or second
+      state machine. The exact pinned Codex/Antigravity adapters remain native instruction
+      authority; Unified State/Human Surface and Runtime remain lifecycle/completion authority.
+    - >
+      Update active worker documentation and `docs/CHATGPT_PROJECT_CONTRACT.md` to record
+      TASK-184 migration to exact source e72135cd5c5a1dec0d8374d9bb8994da5e458feb and the
+      adopted TASK-092 boundary: CONTINUE_IMPLEMENTATION tells the selected native Executor
+      to resume unfinished original TASK work from exact failed lineage, including necessary
+      bounded discovery/live capture when part of that unfinished work, commit the permitted
+      in-scope implementation state on success, while fresh PRIMARY lineage, retry, reroute,
+      scope widening, recursive continuation, semantic review, and Executor-owned canonical
+      verification/EVIDENCE remain forbidden.
+    - >
+      Documentation must preserve the existing semantic classification from TASK-183:
+      NO_CHANGE remains eligible completed unchanged zero-mutation continuation; CODE_FIX
+      remains established product/code defect correction; CONTINUE_IMPLEMENTATION remains
+      unfinished repairable pre-verification implementation with no established product/code
+      defect, mutation required, and a Brain/Human-authorized new non-defect reason;
+      RUNTIME_OR_LINEAGE_DEFECT remains fail-closed when none is safe.
+    - >
+      Historical RUN-182-003 remains canonical downstream evidence of the old pinned adapter
+      instruction defect. This migration must not author the next REPAIR or claim that the
+      corrected pin retroactively changes that FAILURE. Only after TASK-184 Runtime PASS,
+      ChatGPT semantic PASS, and source-only publication may Brain separately classify and
+      authorize continuation from exact RUN-182-003.
+    - >
+      Active Codex and Antigravity skill/workflow surfaces remain physically separated and
+      one-operation bounded. Human normal workflow remains `$aios-worker CONTINUE TASK-N`
+      or `/aios-renew-worker CONTINUE TASK-N` on the selected surface. Do not expose raw
+      internal AIOS CLI as the normal workflow.
+    - >
+      Worker-control regressions must bind requirements and launcher constant to exact target
+      e72135cd5c5a1dec0d8374d9bb8994da5e458feb, classify immediate predecessor
+      08e4a612377ac82be36061286a34138ea53ab0d1 as stale provenance, preserve older-stale and
+      alternate-source/incomplete/unverifiable rejection, and preserve existing deterministic
+      bootstrap, action routing, one-invocation, executor separation, and no-retry/reroute
+      coverage. Regressions must also fail if active docs still describe 08e4a612377ac82be36061286a34138ea53ab0d1
+      as current authority or omit the adopted TASK-092 continuation-instruction boundary.
+    - >
+      `.github/workflows/aios-auto-publish.yml` and
+      `tests/aios_bridge/test_aios_auto_publish_workflow.py` remain unchanged. Safe
+      publication remains consumed from the pinned distribution; this migration introduces
+      no publication logic.
+    - Do not push from Executor implementation execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Checked-in requirements and launcher provenance bind exactly to AIOS-renew
+      e72135cd5c5a1dec0d8374d9bb8994da5e458feb with no floating/duplicate runtime authority,
+      and immediate predecessor 08e4a612377ac82be36061286a34138ea53ab0d1 is stale after
+      migration.
+  - id: AC2
+    condition: >
+      Deterministic bootstrap/provenance regressions prove exact target reuse and reject/
+      rebuild predecessor, older, alternate-source, incomplete, or unverifiable runtimes to
+      exact target without creating a second runtime authority.
+  - id: AC3
+    condition: >
+      Existing CONTINUE, STATUS, RUN, FIX, and REPAIR worker behavior remains structurally
+      unchanged: one pinned kernel invocation, exact selector validation, surface-bound
+      executor identity, canonical summaries where applicable, and no retry/fallback/reroute/
+      recursive lifecycle call. Launcher contains no local CONTINUE_IMPLEMENTATION parser or
+      native Executor prompt implementation.
+  - id: AC4
+    condition: >
+      Active worker and Brain-contract documentation consistently records exact pin
+      e72135cd5c5a1dec0d8374d9bb8994da5e458feb and TASK-092 adoption: a canonical
+      CONTINUE_IMPLEMENTATION native Executor may resume necessary bounded unfinished original
+      TASK work including discovery/live capture and must commit the permitted in-scope state
+      on success, without granting fresh PRIMARY/retry/reroute/scope-widening/verification
+      authority.
+  - id: AC5
+    condition: >
+      Existing TASK-183 NO_CHANGE/CODE_FIX/CONTINUE_IMPLEMENTATION/RUNTIME_OR_LINEAGE_DEFECT
+      Brain classification and exact failed-lineage preservation semantics remain intact and
+      are not duplicated in the launcher.
+  - id: AC6
+    condition: >
+      TASK-182 plus RUN-182-001/RUN-182-002/RUN-182-003 and existing REPAIR artifacts,
+      Product Intelligence code/tests, Phase 7 roadmap, auto-publication workflow/test, and
+      unrelated repository surfaces remain unchanged. This migration makes no claim that
+      TASK-182 has resumed, passed, been reviewed, or been published.
+  - id: AC7
+    condition: >
+      Focused worker-control plus existing auto-publication-boundary regressions and
+      `git diff --check` pass with unresolved=[] and no changed file outside the seven
+      authorized migration files.
+
+verification:
+  required:
+    - 'python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py tests/aios_bridge/test_aios_auto_publish_workflow.py -q'
+    - 'git diff --check'
