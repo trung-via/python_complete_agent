@@ -1,6 +1,6 @@
 # Post-P5 P6 Quality and Scale Roadmap
 
-Status: **P6.0, P6.1, and P6.3 are CLOSED. TASK-170 / P6.1d is CLOSED / PUBLISHED at candidate `0781e0810d161ad1a4936c0e3ea31aada5704da1`. P6.2 is PARKED / NOT JUSTIFIED BY CURRENT EVIDENCE and remains reopenable from future evidence. P6.3 is CLOSED with TASK-171 / P6.3a CLOSED / PUBLISHED at candidate `3a33748905154b4822cfc164999e5c57780e67f2`, TASK-172 / P6.3b source hardening CLOSED / PUBLISHED at `63525151e4dbb7a1c30454a301e3c0e20ae771e9`, TASK-173 live-DOM hardening CLOSED / PUBLISHED at `f91dfe0f900664c835fef86bdf5d6c75879dbbdc`, TASK-174 structural-depth hardening CLOSED / PUBLISHED at `8c5a0b2a6a935c5bbecff5cde7b1a32956aa8d32`, TASK-175 same-target acquisition-continuity hardening CLOSED / PUBLISHED at candidate `61f78f8ac1cd14e6e110552ba638eb9ca149403f`, and TASK-176 recording the bounded K550 live certification passage. The fresh architecture/value audit selects the separately justified P7 Commerce Opportunity Intelligence branch. TASK-181 is the open P7.0 evaluation-contract gate; a separate real-evidence coverage baseline is NEXT. P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED, and P7.0 is not CLOSED before canonical Runtime and semantic-review PASS on the same source candidate.**
+Status: **P6.0, P6.1, and P6.3 are CLOSED. TASK-170 / P6.1d is CLOSED / PUBLISHED at candidate `0781e0810d161ad1a4936c0e3ea31aada5704da1`. P6.2 is PARKED / NOT JUSTIFIED BY CURRENT EVIDENCE and remains reopenable from future evidence. P6.3 is CLOSED with TASK-171 / P6.3a CLOSED / PUBLISHED at candidate `3a33748905154b4822cfc164999e5c57780e67f2`, TASK-172 / P6.3b source hardening CLOSED / PUBLISHED at `63525151e4dbb7a1c30454a301e3c0e20ae771e9`, TASK-173 live-DOM hardening CLOSED / PUBLISHED at `f91dfe0f900664c835fef86bdf5d6c75879dbbdc`, TASK-174 structural-depth hardening CLOSED / PUBLISHED at `8c5a0b2a6a935c5bbecff5cde7b1a32956aa8d32`, TASK-175 same-target acquisition-continuity hardening CLOSED / PUBLISHED at candidate `61f78f8ac1cd14e6e110552ba638eb9ca149403f`, and TASK-176 recording the bounded K550 live certification passage. P7 Commerce Opportunity Intelligence is selected. TASK-181 / P7.0 is CLOSED / PUBLISHED at source candidate `9e835ed2c551c2fa3a8b66b82caa238bd41b152c` after RUN-181-001 Runtime PASS and REVIEW-181-001 semantic PASS. TASK-182 / P7.1 is the real-evidence coverage baseline gate. P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.**
 Scope: Python Agent product architecture post-P5; AIOS-renew remains execution substrate only.
 
 ## 1. Canonical Post-P5 Architecture Audit
@@ -239,26 +239,31 @@ workloads require them.
 - Maintain strict cache invalidation boundaries tied to SQLite catalog mutation transactions.
 - Zero cache or background server infrastructure is permitted during P6.0.
 
-### P7 Commerce Opportunity Intelligence — SELECTED / NOT YET CLOSED
+### P7 Commerce Opportunity Intelligence — P7.0 CLOSED; P7.1 BASELINE
 
 The fresh architecture/value audit found no current retrieval, identity-migration,
 review-automation, or serving bottleneck that outranks the measurable undercoverage of the
 already-defined M2 Winning Product evidence model. P6.2 therefore remains PARKED, and P6.4-P6.6
 remain DEFERRED / UNIMPLEMENTED.
 
-- **P7.0 Winning Product Evidence-Coverage Evaluation (TASK-181 — OPEN GATE)**: freeze one pure,
-  bounded evaluator over existing `WinningProductScorer` outputs. It measures scorer-emitted
-  category coverage and missing factual signals without changing discovery, normalization,
-  scoring, ranking, approval, persistence, retrieval, truth, or collection. TASK-181/P7.0 is not
-  CLOSED until canonical Runtime PASS and ChatGPT semantic-review PASS exist on the same source
-  candidate.
-- **NEXT — separate real-evidence coverage baseline**: after P7.0 closure, run the frozen evaluator
-  on reviewed real marketplace observations. No live coverage percentage is claimed by TASK-181,
-  and longitudinal, commercial/affiliate, competition, or semantic Contentability enrichment
-  remains conditional on that later baseline.
+- **P7.0 Winning Product Evidence-Coverage Evaluation (TASK-181 — CLOSED / PUBLISHED)**:
+  the pure bounded evaluator is published at source candidate
+  `9e835ed2c551c2fa3a8b66b82caa238bd41b152c` after RUN-181-001 canonical Runtime
+  PASS and REVIEW-181-001 ChatGPT semantic PASS. It measures scorer-emitted category
+  coverage and missing factual signals without changing discovery, normalization, scoring,
+  ranking, approval, persistence, retrieval, truth, or collection.
+- **P7.1 Real-Evidence Winning Product Coverage Baseline (TASK-182 — BASELINE WORK)**:
+  freeze one bounded three-query, fifteen-candidate Shopee search-card cohort and replay the
+  published TASK-181 evaluator deterministically offline. The measurement has no business-quality
+  threshold, winner, approval, or automatic enrichment decision.
+- **Post-baseline decision remains separate**: no longitudinal, affiliate/commercial,
+  competition, or semantic Contentability implementation is selected until the TASK-182 source
+  candidate has canonical Runtime PASS plus ChatGPT semantic-review PASS and the measured evidence
+  is separately interpreted by Brain/Human authority.
 
-The complete audit and P7.0 boundary are recorded in
-`docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md`.
+The P7.0 audit and P7.1 measured baseline are recorded in
+`docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md` and
+`docs/PHASE_7_P7_1_REAL_EVIDENCE_COVERAGE_BASELINE.md`.
 
 ## 3. Invariants and Authority Preservation
 

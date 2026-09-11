@@ -1,10 +1,9 @@
 # Phase 7 P7.0 — Winning Product Evidence Quality
 
-Status: **P7 Commerce Opportunity Intelligence is selected by the post-P6
-architecture/value audit. P7.0 is the TASK-181 evaluation-contract gate and is
-not CLOSED until canonical Runtime PASS and ChatGPT semantic-review PASS exist
-for the same source candidate. A separate reviewed real-evidence coverage
-baseline is NEXT.**
+Status: **CLOSED / PUBLISHED. TASK-181 received canonical Runtime PASS in
+RUN-181-001 and ChatGPT semantic-review PASS in REVIEW-181-001 on source
+candidate `9e835ed2c551c2fa3a8b66b82caa238bd41b152c`. TASK-182 / P7.1 is the
+separate real-evidence coverage baseline gate.**
 
 ## 1. Audit decision
 
@@ -88,11 +87,11 @@ random, subprocess, queue, cache, admission, retrieval, or persistence work.
 ## 4. Measurement before improvement
 
 P7.0 freezes the evaluation contract; it does not improve coverage. Its immediate
-successor is a **separate real-evidence coverage baseline**: execute the reviewed
-frozen evaluator on a bounded cohort of reviewed real marketplace observations,
-record the cohort provenance and exact immutable report, and interpret that result
-under separate Human review. That successor must not acquire live marketplace
-evidence inside ordinary offline Runtime verification.
+successor is TASK-182 / P7.1, a **separate real-evidence coverage baseline** that
+freezes one bounded Shopee search-card cohort, records its provenance and exact
+immutable report, and replays the published evaluator offline. Live marketplace
+capture is implementation-time curation only and is never part of ordinary
+offline Runtime verification.
 
 Only that baseline may justify a subsequent improvement proposal. Longitudinal
 momentum observations, commercial or affiliate evidence acquisition, competition
@@ -103,9 +102,14 @@ identity, persistence, retrieval, product-truth, and Human-authority boundaries.
 
 ## 5. Gate state
 
-TASK-181 is the P7.0 evaluation-contract gate. At task authoring and implementation
-time it remains open: source implementation alone does not close P7.0. Closure
-requires canonical Runtime PASS plus ChatGPT semantic-review PASS on the exact same
-source candidate. The separately reviewed real-evidence coverage baseline remains
-NEXT after that closure; no evidence-enrichment implementation is opened in
-advance.
+TASK-181 / P7.0 is CLOSED / PUBLISHED at source candidate
+`9e835ed2c551c2fa3a8b66b82caa238bd41b152c`: RUN-181-001 is the canonical
+Runtime PASS and REVIEW-181-001 is the semantic PASS. TASK-182 / P7.1 is the
+distinct real-evidence baseline gate; it does not rewrite TASK-181 evaluator
+semantics.
+
+No evidence-enrichment implementation is selected by P7.0 or automatically by
+P7.1 prevalence. A longitudinal, affiliate/commercial, competition, or semantic
+Contentability proposal requires the TASK-182 source candidate to receive both
+canonical Runtime PASS and ChatGPT semantic-review PASS, followed by a separate
+evidence-driven Brain/Human interpretation and decision.
