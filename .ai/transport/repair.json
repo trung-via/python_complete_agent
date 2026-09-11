@@ -1,0 +1,27 @@
+{
+  "repair_id": "REPAIR-182-004",
+  "failed_run_id": "RUN-182-004",
+  "failed_head_sha": "fa6aa4a6b686530c951dcb7aadb22e26655504fc",
+  "task": {
+    "id": "TASK-182",
+    "revision": 1
+  },
+  "action": "CONTINUE_IMPLEMENTATION",
+  "modification_scope": [
+    "tests/fixtures/p7_1_winning_product_coverage/baseline.json",
+    "tests/integration/test_p7_1_winning_product_coverage_baseline.py",
+    "docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md",
+    "docs/PHASE_7_P7_1_REAL_EVIDENCE_COVERAGE_BASELINE.md",
+    "docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
+    "docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md"
+  ],
+  "instructions": [
+    "Continue only the unfinished TASK-182 revision 1 implementation from exact failed RUN RUN-182-004 and failed_head_sha fa6aa4a6b686530c951dcb7aadb22e26655504fc. RUN-182-004 is preserved as a clean pre-verification continuation failure with no implementation candidate and changed_files=[]. Human has now explicitly confirmed that the external interactive prerequisite which blocked RUN-182-004 has been completed manually and the authenticated browser session is ready. This changed external/Human prerequisite is the new non-product, non-defect reason authorizing exactly one further CONTINUE_IMPLEMENTATION attempt. The Executor must not probe, automate, bypass, or alter that prerequisite. Do not restart PRIMARY and do not reclassify this continuation as CODE_FIX or NO_CHANGE.",
+    "Preserve the full historical continuation chain RUN-182-001 -> RUN-182-002 -> RUN-182-003 -> RUN-182-004 and continue from RUN-182-004 only. Use the same explicit Codex executor identity selected by the failed lineage. Do not reroute, automatically retry, recursively CONTINUE, substitute a fresh task base, discard historical FAILURE/REPAIR artifacts, or treat interactive session state as repository product code.",
+    "Resume the original TASK-182 implementation exactly as authored. The selected native Executor may perform the necessary bounded unfinished original implementation work, including the implementation-time live capture required by TASK-182. That live capture must use the existing operator-owned authenticated CDP path and existing ShopeeDiscoveryAdapter directly, with exactly one DiscoveryBatch attempt for each query in order: `bình giữ nhiệt inox`, `bàn phím cơ`, `chuột không dây`; each request remains max_candidates=5, max_pages=1, locale=vi-VN with explicit timezone-aware observed_at.",
+    "Preserve every original fail-closed sampling gate. If any required live batch is blocked, empty, short, duplicated, malformed, or otherwise invalid, terminalize this continuation truthfully rather than retrying, rerouting, changing a query, adding pages, broadening max_candidates, selecting by score, substituting synthetic observations, or using another discovery route.",
+    "If the bounded live cohort is valid, complete only the original TASK-182 authorized fixture, private offline integration test, P7.0/P7.1 documentation, and two roadmap updates. Preserve zero production Python, exact DiscoveryBatch.to_dict() freezing, lossless offline reconstruction, one evaluate_winning_product_coverage call over the exact fifteen-candidate cohort with policy=None, no business-quality threshold, and no automatic evidence-enrichment decision.",
+    "Do not modify any path outside modification_scope and do not change TASK-182, prior RUN/FAILURE/REPAIR artifacts, Product Intelligence production code, AIOS worker/runtime files, browser/session implementation, queries, scoring/ranking authority, or publication machinery. The implementation must produce a real committed non-empty in-scope descendant of the exact failed head when successful. After that implementation commit, allow only the pinned Runtime to execute the original TASK-182 canonical verification exactly once. If this continuation fails again, preserve that exact new RUN/FAILURE lineage and do not self-author another retry, fallback, reroute, repair, or fresh PRIMARY."
+  ],
+  "constraints": []
+}
