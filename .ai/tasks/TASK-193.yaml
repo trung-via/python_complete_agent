@@ -1,0 +1,62 @@
+task_id: TASK-193
+revision: 1
+
+goal: >
+  Reconcile Python Agent canonical roadmap after reviewed and source-published TASK-192, and make the roadmap regression transition-safe so future Brain planning updates can advance the unique NEXT pointer without making deterministic tests stale merely because the planned milestone changed. The resulting state returns the active planning flow to Python Agent Governance Foundation with Python Agent Manifesto as the unique next milestone, while preserving blocked upstream AIOS adoption items as visible non-blocking commitments.
+
+problem: >
+  TASK-192 is semantic PASS and exact reviewed source dcb7432abc58ed983e6c26d5456ace1423e49981 is now canonical main. Its roadmap state intentionally kept TASK-192 as NEXT until source publication and fresh Brain reconciliation. The focused governance regression currently hard-codes TASK-192 as NEXT, so directly advancing only the planning bookmark would make canonical tests fail for the intended roadmap transition. Perform one narrow atomic transition: record TASK-192 completion, activate Governance Foundation, select Manifesto as unique NEXT, retain TASK-101/TASK-103 blocked-upstream visibility, and make the regression validate durable sequencing invariants instead of one-time TASK-192 literals.
+
+assumptions:
+  - Canonical main at authoring is dcb7432abc58ed983e6c26d5456ace1423e49981, the exact source reviewed PASS by REVIEW-192-003 and now source-published.
+  - RUN-192-003 verification recorded 153 focused tests passed, git diff --check passed, and zero unresolved items.
+  - Current `.ai/roadmap-state.yaml` still records TASK-192 as NEXT by design, with return_to Python Agent Governance Foundation and visible not-done Governance commitments.
+  - Current `.ai/aios-adoption-state.yaml` already contains the reviewed TASK-192 adoption classifications and exact pin 2599202afedb0622e9e9bdc7b5a15f34da01cc27; this TASK does not revise it.
+  - Human has not superseded the agreed Governance Foundation order: Manifesto, Constitution, Python Agent Product Contract, then ChatGPT Project Contract reconciliation.
+
+scope:
+  inspect:
+    - .ai/roadmap-state.yaml
+    - .ai/aios-adoption-state.yaml
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - tests/aios_bridge/test_aios_governance_state.py
+    - .ai/tasks/TASK-192.yaml
+  modify:
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - Modify AIOS adoption state, dependency pin, worker launcher/docs, Safe Publisher, Runtime, Unified State/Human Surface, correction semantics, Executor selection, or upstream AIOS-renew state.
+  - Modify Product Intelligence, marketplace/browser/session behavior, P7 evidence, scoring, retrieval/RAG, persistence, provider/model, catalog, media, or Commerce AI features.
+  - Author Manifesto, Constitution, Product Contract, or Project Contract reconciliation inside this TASK.
+  - Treat TASK-101 or TASK-103 as adopted or make blocked upstream closure prevent Governance Foundation.
+  - Add automation, planner, second lifecycle reducer, retry/reroute, or roadmap auto-advance authority.
+  - Publish from Executor implementation execution.
+
+constraints:
+  hard:
+    - `.ai/roadmap-state.yaml` must mark TASK-192 AIOS downstream parity as DONE planning state with exact supporting source SHA dcb7432abc58ed983e6c26d5456ace1423e49981, while remaining explicitly non-engineering truth.
+    - The active track must become Python Agent Governance Foundation and the unique NEXT milestone must become Python Agent Manifesto; Constitution, Product Contract, and ChatGPT Project Contract reconciliation remain visible in that order.
+    - TASK-101 and TASK-103 remain BLOCKED_PENDING_UPSTREAM but are explicitly non-blocking for the current Governance Foundation track. Mutable AIOS main and unpublished candidates remain inadmissible.
+    - Pending strategic commitments may disappear only when canonical evidence marks them DONE or explicit Human intent canonically CANCELS or SUPERSEDES them.
+    - The roadmap regression must stop hard-coding TASK-192 as permanent NEXT and instead prove durable invariants: one active track, exactly one NEXT, NEXT represented in the pending Governance sequence, exact TASK-192 completion evidence, visible TASK-101/TASK-103 blockers, planning-state non-engineering-truth, and no Runtime/worker auto-advance authority.
+    - Do not weaken tests into YAML parse coverage; tests must fail if NEXT disappears/duplicates, Governance order is lost, TASK-192 completion evidence disappears, upstream blockers disappear, or auto-advance authority appears.
+    - Keep docs/CHATGPT_PROJECT_CONTRACT.md unchanged unless deterministic evidence proves the existing generic Brain Sync rule cannot consume the reconciled schema; any scope widening fails closed.
+    - No live GitHub, marketplace, browser/CDP, provider/LLM, Drive, wall-clock, random, or mutable external dependency in verification.
+
+acceptance:
+  - id: AC1
+    condition: `.ai/roadmap-state.yaml` records TASK-192 downstream parity DONE with exact source SHA dcb7432abc58ed983e6c26d5456ace1423e49981 and preserves planning/engineering-truth separation.
+  - id: AC2
+    condition: Governance Foundation is active and Python Agent Manifesto is the single NEXT milestone, followed visibly by Constitution, Product Contract, and Project Contract reconciliation.
+  - id: AC3
+    condition: TASK-101 and TASK-103 remain explicit BLOCKED_PENDING_UPSTREAM and non-blocking for current Governance Foundation; no unpublished or mutable upstream source is treated as adopted.
+  - id: AC4
+    condition: The governance regression validates durable sequencing and authority invariants rather than hard-coding TASK-192 as NEXT.
+  - id: AC5
+    condition: Only `.ai/roadmap-state.yaml` and `tests/aios_bridge/test_aios_governance_state.py` change; focused verification and git diff --check pass with zero unresolved items.
+
+verification:
+  required:
+    - 'python -m pytest tests/aios_bridge/test_aios_governance_state.py -q'
+    - 'git diff --check'
