@@ -1,6 +1,7 @@
 """Focused offline checks for cross-chat roadmap and AIOS-adoption planning state."""
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import yaml
@@ -14,6 +15,8 @@ PIN_FILE = (
 )
 EXPECTED_PIN = "2599202afedb0622e9e9bdc7b5a15f34da01cc27"
 TASK_192_SOURCE_SHA = "dcb7432abc58ed983e6c26d5456ace1423e49981"
+TASK_194_SOURCE_SHA = "e0d8998ee004fda80ca3fbc3de4eb0afb59160a5"
+GOVERNANCE_TRACK_ID = "PYTHON_AGENT_GOVERNANCE_FOUNDATION"
 GOVERNANCE_SEQUENCE = [
     "PYTHON_AGENT_MANIFESTO",
     "PYTHON_AGENT_CONSTITUTION",
@@ -66,7 +69,7 @@ def test_roadmap_has_one_active_track_and_transition_safe_governance_next():
     }
     assert state["product_checkpoint"]["task_id"] == "TASK-191"
     assert state["product_checkpoint"]["status"] == "DONE"
-    assert state["active_track"]["id"] == "PYTHON_AGENT_GOVERNANCE_FOUNDATION"
+    assert state["active_track"]["id"] == GOVERNANCE_TRACK_ID
     assert state["active_track"]["status"] == "ACTIVE"
     assert values_for_key(state, "status").count("ACTIVE") == 1
     assert state["roadmap_sources"] == [
@@ -76,15 +79,34 @@ def test_roadmap_has_one_active_track_and_transition_safe_governance_next():
     assert state["next"]["status"] == "NEXT"
     assert values_for_key(state, "status").count("NEXT") == 1
 
-    commitments = state["pending_commitments"]
-    commitment_ids = [item["id"] for item in commitments]
-    assert commitment_ids == GOVERNANCE_SEQUENCE
-    assert len(commitment_ids) == len(set(commitment_ids))
-    assert state["next"]["id"] in commitment_ids
-    assert all(item["status"] == "NOT_DONE" for item in commitments)
+    governance_completed = [
+        item
+        for item in state["completed_milestones"]
+        if item["track_id"] == GOVERNANCE_TRACK_ID
+    ]
+    completed_ids = [item["milestone_id"] for item in governance_completed]
+    pending = state["pending_commitments"]
+    pending_ids = [item["id"] for item in pending]
+    partitioned_ids = completed_ids + pending_ids
+
+    assert partitioned_ids == GOVERNANCE_SEQUENCE
+    assert len(partitioned_ids) == len(set(partitioned_ids))
+    assert all(item["status"] == "DONE" for item in governance_completed)
+    assert all(
+        re.fullmatch(r"TASK-\d+", item["task_id"])
+        for item in governance_completed
+    )
+    assert all(
+        re.fullmatch(r"[0-9a-f]{40}", item["source_sha"])
+        for item in governance_completed
+    )
+    assert pending
+    assert all(item["status"] == "NOT_DONE" for item in pending)
+    assert state["next"]["id"] == pending[0]["id"]
+    assert state["next"]["title"] == pending[0]["title"]
 
 
-def test_roadmap_records_task_192_completion_and_non_blocking_upstream_work():
+def test_roadmap_records_exact_completion_provenance_and_non_blocking_upstream_work():
     state = load_yaml(ROADMAP_FILE)
     completed = {
         item["task_id"]: item for item in state["completed_milestones"]
@@ -95,6 +117,14 @@ def test_roadmap_records_task_192_completion_and_non_blocking_upstream_work():
         "title": "Canonical downstream AIOS adoption baseline",
         "status": "DONE",
         "source_sha": TASK_192_SOURCE_SHA,
+    }
+    assert completed["TASK-194"] == {
+        "task_id": "TASK-194",
+        "track_id": GOVERNANCE_TRACK_ID,
+        "milestone_id": "PYTHON_AGENT_MANIFESTO",
+        "title": "Python Agent Manifesto",
+        "status": "DONE",
+        "source_sha": TASK_194_SOURCE_SHA,
     }
 
     upstream = state["pending_upstream_closure"]

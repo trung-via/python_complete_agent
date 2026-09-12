@@ -26,8 +26,8 @@ active_track:
   status: ACTIVE
 
 next:
-  id: PYTHON_AGENT_MANIFESTO
-  title: Python Agent Manifesto
+  id: PYTHON_AGENT_CONSTITUTION
+  title: Python Agent Constitution
   status: NEXT
   completion_gate: >-
     Remains NEXT until canonical evidence marks it DONE or explicit Human intent
@@ -40,6 +40,12 @@ completed_milestones:
     title: Canonical downstream AIOS adoption baseline
     status: DONE
     source_sha: dcb7432abc58ed983e6c26d5456ace1423e49981
+  - task_id: TASK-194
+    track_id: PYTHON_AGENT_GOVERNANCE_FOUNDATION
+    milestone_id: PYTHON_AGENT_MANIFESTO
+    title: Python Agent Manifesto
+    status: DONE
+    source_sha: e0d8998ee004fda80ca3fbc3de4eb0afb59160a5
 
 pending_upstream_closure:
   status: PENDING
@@ -56,9 +62,6 @@ pending_upstream_closure:
     roadmap state is reconciled; never follow mutable AIOS-renew main.
 
 pending_commitments:
-  - id: PYTHON_AGENT_MANIFESTO
-    title: Python Agent Manifesto
-    status: NOT_DONE
   - id: PYTHON_AGENT_CONSTITUTION
     title: Python Agent Constitution
     status: NOT_DONE
