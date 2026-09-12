@@ -1,0 +1,10 @@
+finding_id: F192-001
+action: CODE_FIX
+reviewed_sha: 575217dd7c31867ec808c636d94bd38c39115a9b
+modification_scope:
+  - .ai/aios-adoption-state.yaml
+  - tests/aios_bridge/test_aios_governance_state.py
+affected_verification:
+  - 'python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py tests/aios_bridge/test_aios_auto_publish_workflow.py tests/aios_bridge/test_aios_governance_state.py -q'
+  - 'git diff --check'
+constraints: []
