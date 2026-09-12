@@ -13,6 +13,13 @@ PIN_FILE = (
     REPO_ROOT / ".agents" / "skills" / "aios-worker" / "requirements-aios-renew.txt"
 )
 EXPECTED_PIN = "2599202afedb0622e9e9bdc7b5a15f34da01cc27"
+TASK_192_SOURCE_SHA = "dcb7432abc58ed983e6c26d5456ace1423e49981"
+GOVERNANCE_SEQUENCE = [
+    "PYTHON_AGENT_MANIFESTO",
+    "PYTHON_AGENT_CONSTITUTION",
+    "PYTHON_AGENT_PRODUCT_CONTRACT",
+    "CHATGPT_PROJECT_CONTRACT_RECONCILIATION",
+]
 
 
 def load_yaml(path: Path) -> dict:
@@ -35,7 +42,20 @@ def classification_for_task(state: dict, task_id: str) -> str:
     return matches[0]
 
 
-def test_roadmap_has_one_next_and_durable_governance_return():
+def values_for_key(value: object, key: str) -> list[object]:
+    matches: list[object] = []
+    if isinstance(value, dict):
+        for child_key, child_value in value.items():
+            if child_key == key:
+                matches.append(child_value)
+            matches.extend(values_for_key(child_value, key))
+    elif isinstance(value, list):
+        for child_value in value:
+            matches.extend(values_for_key(child_value, key))
+    return matches
+
+
+def test_roadmap_has_one_active_track_and_transition_safe_governance_next():
     state = load_yaml(ROADMAP_FILE)
     assert state["authority"] == {
         "owner": "BRAIN",
@@ -46,24 +66,52 @@ def test_roadmap_has_one_next_and_durable_governance_return():
     }
     assert state["product_checkpoint"]["task_id"] == "TASK-191"
     assert state["product_checkpoint"]["status"] == "DONE"
-    assert state["active_track"]["id"] == "AIOS_DOWNSTREAM_PARITY"
+    assert state["active_track"]["id"] == "PYTHON_AGENT_GOVERNANCE_FOUNDATION"
+    assert state["active_track"]["status"] == "ACTIVE"
+    assert values_for_key(state, "status").count("ACTIVE") == 1
     assert state["roadmap_sources"] == [
         "docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
         "docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
     ]
-    assert state["next"]["task_id"] == "TASK-192"
     assert state["next"]["status"] == "NEXT"
-    assert state["return_to"] == {
-        "id": "PYTHON_AGENT_GOVERNANCE_FOUNDATION",
-        "title": "Python Agent Governance Foundation",
-        "status": "PENDING_AFTER_ACTIVE_TRACK",
+    assert values_for_key(state, "status").count("NEXT") == 1
+
+    commitments = state["pending_commitments"]
+    commitment_ids = [item["id"] for item in commitments]
+    assert commitment_ids == GOVERNANCE_SEQUENCE
+    assert len(commitment_ids) == len(set(commitment_ids))
+    assert state["next"]["id"] in commitment_ids
+    assert all(item["status"] == "NOT_DONE" for item in commitments)
+
+
+def test_roadmap_records_task_192_completion_and_non_blocking_upstream_work():
+    state = load_yaml(ROADMAP_FILE)
+    completed = {
+        item["task_id"]: item for item in state["completed_milestones"]
     }
-    assert {item["id"]: item["status"] for item in state["pending_commitments"]} == {
-        "PYTHON_AGENT_MANIFESTO": "NOT_DONE",
-        "PYTHON_AGENT_CONSTITUTION": "NOT_DONE",
-        "PYTHON_AGENT_PRODUCT_CONTRACT": "NOT_DONE",
-        "CHATGPT_PROJECT_CONTRACT_RECONCILIATION": "NOT_DONE",
+    assert completed["TASK-192"] == {
+        "task_id": "TASK-192",
+        "track_id": "AIOS_DOWNSTREAM_PARITY",
+        "title": "Canonical downstream AIOS adoption baseline",
+        "status": "DONE",
+        "source_sha": TASK_192_SOURCE_SHA,
     }
+
+    upstream = state["pending_upstream_closure"]
+    assert upstream["blocking_current_track"] is False
+    assert [item["task_id"] for item in upstream["items"]] == [
+        "TASK-101",
+        "TASK-103",
+    ]
+    assert all(
+        item["status"] == "BLOCKED_PENDING_UPSTREAM"
+        and item["blocking_current_track"] is False
+        for item in upstream["items"]
+    )
+    assert "exact reviewed and source-published upstream candidate" in (
+        upstream["migration_gate"]
+    )
+    assert "never follow mutable AIOS-renew main" in upstream["migration_gate"]
 
 
 def test_adoption_registry_pin_audit_authority_and_classes_are_explicit():

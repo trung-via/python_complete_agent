@@ -20,34 +20,40 @@ product_checkpoint:
   status: DONE
 
 active_track:
-  id: AIOS_DOWNSTREAM_PARITY
-  title: AIOS downstream parity
+  id: PYTHON_AGENT_GOVERNANCE_FOUNDATION
+  title: Python Agent Governance Foundation
   priority_owner: HUMAN
   status: ACTIVE
 
 next:
-  task_id: TASK-192
-  title: Canonical downstream AIOS adoption baseline
+  id: PYTHON_AGENT_MANIFESTO
+  title: Python Agent Manifesto
   status: NEXT
   completion_gate: >-
-    Remains NEXT until canonical semantic PASS, source publication, and a fresh Brain
-    reconciliation update this planning bookmark.
+    Remains NEXT until canonical evidence marks it DONE or explicit Human intent
+    canonically marks it CANCELLED or SUPERSEDED and a fresh Brain reconciliation
+    advances this planning bookmark.
+
+completed_milestones:
+  - task_id: TASK-192
+    track_id: AIOS_DOWNSTREAM_PARITY
+    title: Canonical downstream AIOS adoption baseline
+    status: DONE
+    source_sha: dcb7432abc58ed983e6c26d5456ace1423e49981
 
 pending_upstream_closure:
   status: PENDING
+  blocking_current_track: false
   items:
     - task_id: TASK-101
       status: BLOCKED_PENDING_UPSTREAM
+      blocking_current_track: false
     - task_id: TASK-103
       status: BLOCKED_PENDING_UPSTREAM
+      blocking_current_track: false
   migration_gate: >-
     Adopt only an exact reviewed and source-published upstream candidate after upstream
     roadmap state is reconciled; never follow mutable AIOS-renew main.
-
-return_to:
-  id: PYTHON_AGENT_GOVERNANCE_FOUNDATION
-  title: Python Agent Governance Foundation
-  status: PENDING_AFTER_ACTIVE_TRACK
 
 pending_commitments:
   - id: PYTHON_AGENT_MANIFESTO
