@@ -1,0 +1,36 @@
+review_id: REVIEW-194-001
+reviewed_sha: 7b8ff86c2bf31fccc5d422177f000c65fd0939d6
+mode: PRIMARY
+verdict: BLOCKED
+acceptance:
+  AC1: FAIL
+  AC2: PASS
+  AC3: PASS
+  AC4: PASS
+  AC5: PASS
+  AC6: PASS
+  AC7: PASS
+  AC8: PASS
+findings:
+  - id: F1
+    basis: AC1
+    action: CODE_FIX
+    location: docs/PYTHON_AGENT_MANIFESTO.md#North-Star
+    issue: >
+      The North Star correctly keeps AIOS, executors, models, providers, browsers, runtimes,
+      and deployment tooling subordinate to Python Agent product semantics, but then states that
+      "none defines product meaning or authority." The second half is broader than TASK-194's
+      product/substrate boundary and conflicts with the current canonical Project Contract, which
+      explicitly assigns real operational authorities to Runtime (deterministic lifecycle,
+      verification, and evidence), the selected Executor (HOW for one admitted execution), the
+      Reviewer (semantic verdict), and the Publisher (publication). AIOS-renew is not Python Agent
+      product/domain architecture authority, but the execution substrate and its actors are not
+      authority-free. Leaving the sentence as written would let the Manifesto erase or contradict
+      existing operational authority while the same TASK explicitly forbids retroactively rewriting
+      published semantics.
+    expected: >
+      Narrow the North Star wording so it says these substrates do not define Python Agent product
+      meaning, domain architecture, or product-governance authority, while explicitly preserving
+      operational authorities already assigned by canonical contracts. Keep the fix confined to the
+      Manifesto wording (and only adjust the structural test if mechanically necessary); do not
+      redefine Runtime, Executor, Reviewer, Publisher, AIOS, or Product Intelligence authority.
