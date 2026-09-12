@@ -238,6 +238,7 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
             "--cdp-endpoint",
             "--query",
             "--resume",
+            "--rebind-session",
         },
         "decide": {
             "-h",

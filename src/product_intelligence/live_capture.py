@@ -728,7 +728,7 @@ async def run_live_capture(
             phase = LiveCapturePhase(state["phase"])
             if phase is LiveCapturePhase.DISCOVERY:
                 request = DiscoveryRequest(query=query, max_pages=1, max_candidates=20)
-                adapter = ShopeeDiscoveryAdapter(browser=manager)
+                adapter = ShopeeDiscoveryAdapter(browser=session)
                 plan = PlatformDiscoveryPlan(platform="shopee", adapter=adapter, request=request)
                 observed_at = now_factory()
                 try:
@@ -770,6 +770,7 @@ async def run_live_capture(
                     run_id=identifier,
                 ),
                 {
+                    "browser": session,
                     "browser_manager": manager,
                     "gdrive": _LocalDriveSink(),
                     "output_dir": str(output_directory),

@@ -55,6 +55,7 @@ class _Session:
         self.evaluate_error = evaluate_error
         self.binding_calls = 0
         self.evaluate_calls = []
+        self.navigated_urls = []
 
     async def browser_binding_digest(self):
         self.binding_calls += 1
@@ -62,11 +63,15 @@ class _Session:
             raise self.binding_error
         return self.binding_digest
 
-    async def evaluate(self, script):
+    async def evaluate(self, script, arg=None):
         self.evaluate_calls.append(script)
         if self.evaluate_error:
             raise self.evaluate_error
         return True
+
+    async def navigate(self, url):
+        self.navigated_urls.append(url)
+        return None
 
 
 class _Tool:
@@ -74,12 +79,14 @@ class _Tool:
     block_at = None
     fail_at = None
     calls = []
+    contexts = []
 
     def __init__(self):
         type(self).instances.append(self)
 
     async def execute(self, call, context):
         type(self).calls.append((call.call_id, call.arguments["url"]))
+        type(self).contexts.append(context)
         call_number = len(type(self).calls)
         if call_number == type(self).block_at:
             return ToolResult(
@@ -118,6 +125,7 @@ def _reset_fakes():
     _Manager.session_state = BrowserState.READY
     _Tool.instances = []
     _Tool.calls = []
+    _Tool.contexts = []
     _Tool.block_at = None
     _Tool.fail_at = None
 
@@ -750,3 +758,152 @@ def test_resume_rejects_resolved_manifest_escape_without_browser_work(
     assert _Manager.instances == []
     assert _Tool.instances == []
     assert _Tool.calls == []
+
+
+def test_fresh_capture_reuses_bound_session_and_rejects_silent_switch(tmp_path):
+    """AC5 regression: bound session must govern discovery and acquisition without silent switch."""
+    import asyncio
+    root = tmp_path / "capture"
+
+    class StrictSwitchingManager:
+        instances = []
+
+        def __init__(self, cdp_endpoint):
+            self.cdp_endpoint = cdp_endpoint
+            self.close_count = 0
+            self.bound_session = _Session("a" * 64)
+            self.requested_run_ids = []
+            type(self).instances.append(self)
+
+        async def get_or_create_session(self, run_id):
+            self.requested_run_ids.append(run_id)
+            if run_id == live_capture_module._BINDING_RUN_ID:
+                return self.bound_session
+            raise AssertionError(
+                f"Downstream operation requested independent session with run_id={run_id!r}"
+            )
+
+        async def close_all(self):
+            self.close_count += 1
+
+    seen_adapter_browsers = []
+
+    async def recording_orchestration(plans, **kwargs):
+        del kwargs
+        plan = plans[0]
+        seen_adapter_browsers.append(plan.adapter._browser)
+        candidate = SimpleNamespace(
+            candidate_id="cand-1",
+            url="https://shopee.test/item-1",
+            title="Item 1",
+        )
+        return SimpleNamespace(shortlist=(SimpleNamespace(candidate=candidate),))
+
+    outcome = asyncio.run(run_live_capture(
+        job_root=root,
+        cdp_endpoint="http://127.0.0.1:9222",
+        queries=["test query"],
+        manager_factory=StrictSwitchingManager,
+        tool_factory=_Tool,
+        orchestration=recording_orchestration,
+    ))
+
+    assert outcome.status is LiveCaptureStatus.READY
+    mgr = StrictSwitchingManager.instances[0]
+    assert mgr.requested_run_ids == [live_capture_module._BINDING_RUN_ID]
+    assert seen_adapter_browsers == [mgr.bound_session]
+    assert len(_Tool.contexts) == 2
+    for ctx in _Tool.contexts:
+        assert ctx["browser"] is mgr.bound_session
+        assert ctx["browser_manager"] is mgr
+    assert mgr.close_count == 1
+
+
+def test_resume_reuses_bound_session_and_rejects_silent_switch(tmp_path):
+    """AC5 regression: resumed operations must reuse bound session without creating new ones."""
+    import asyncio
+    root = tmp_path / "resume_capture"
+
+    class StrictSwitchingManager:
+        instances = []
+
+        def __init__(self, cdp_endpoint):
+            self.cdp_endpoint = cdp_endpoint
+            self.close_count = 0
+            self.bound_session = _Session("a" * 64)
+            self.requested_run_ids = []
+            type(self).instances.append(self)
+
+        async def get_or_create_session(self, run_id):
+            self.requested_run_ids.append(run_id)
+            if run_id == live_capture_module._BINDING_RUN_ID:
+                return self.bound_session
+            raise AssertionError(
+                f"Downstream operation requested independent session with run_id={run_id!r}"
+            )
+
+        async def close_all(self):
+            self.close_count += 1
+
+    _Tool.block_at = 1
+    first = asyncio.run(_run(root, ["query"], _orchestration([])))
+    assert first.status is LiveCaptureStatus.HUMAN_ACTION_REQUIRED
+    _Tool.block_at = None
+
+    resumed = asyncio.run(run_live_capture(
+        job_root=root,
+        cdp_endpoint="http://127.0.0.1:9222",
+        resume=True,
+        manager_factory=StrictSwitchingManager,
+        tool_factory=_Tool,
+        orchestration=_orchestration([]),
+    ))
+
+    assert resumed.status is LiveCaptureStatus.READY
+    mgr = StrictSwitchingManager.instances[-1]
+    assert mgr.requested_run_ids == [live_capture_module._BINDING_RUN_ID]
+    for ctx in _Tool.contexts[1:]:
+        assert ctx["browser"] is mgr.bound_session
+        assert ctx["browser_manager"] is mgr
+    assert mgr.close_count == 1
+
+
+def test_downstream_components_would_fail_if_given_manager_instead_of_bound_session():
+    """AC5 regression: proves ShopeeDiscoveryAdapter and ShopeeSourceExtractor acquire bound session."""
+    import asyncio
+    from src.product_intelligence.adapters.shopee import ShopeeDiscoveryAdapter
+    from src.product_source.platforms.shopee import ShopeeSourceExtractor
+
+    class StrictSwitchingManager:
+        def __init__(self):
+            self.bound_session = _Session("a" * 64)
+
+        async def get_or_create_session(self, run_id):
+            if run_id == live_capture_module._BINDING_RUN_ID:
+                return self.bound_session
+            raise AssertionError(
+                f"Downstream operation requested independent session with run_id={run_id!r}"
+            )
+
+    mgr = StrictSwitchingManager()
+
+    # 1. Given manager directly, ShopeeDiscoveryAdapter attempts to create independent session
+    adapter_with_mgr = ShopeeDiscoveryAdapter(browser=mgr)
+    with pytest.raises(AssertionError, match="discovery_run"):
+        asyncio.run(adapter_with_mgr._acquire_page())
+
+    # Given bound session, ShopeeDiscoveryAdapter reuses it cleanly
+    adapter_with_session = ShopeeDiscoveryAdapter(browser=mgr.bound_session)
+    page, cleanup = asyncio.run(adapter_with_session._acquire_page())
+    assert page is mgr.bound_session
+    assert cleanup is None
+
+    # 2. Given manager directly, ShopeeSourceExtractor attempts to create independent session
+    extractor_with_mgr = ShopeeSourceExtractor(browser=mgr)
+    with pytest.raises(AssertionError, match="test-run"):
+        asyncio.run(extractor_with_mgr._acquire_page("https://shopee.vn/product/123/456", "test-run"))
+
+    # Given bound session, ShopeeSourceExtractor reuses it cleanly
+    extractor_with_session = ShopeeSourceExtractor(browser=mgr.bound_session)
+    extractor_page = asyncio.run(extractor_with_session._acquire_page("https://shopee.vn/product/123/456", "test-run"))
+    assert extractor_page is mgr.bound_session
