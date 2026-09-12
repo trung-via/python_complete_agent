@@ -1,0 +1,9 @@
+finding_id: F1
+action: CODE_FIX
+reviewed_sha: 7b8ff86c2bf31fccc5d422177f000c65fd0939d6
+modification_scope:
+  - docs/PYTHON_AGENT_MANIFESTO.md
+affected_verification:
+  - 'python -m pytest tests/governance/test_python_agent_manifesto.py -q'
+  - 'git diff --check'
+constraints: []
