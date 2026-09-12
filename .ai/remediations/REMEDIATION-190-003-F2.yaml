@@ -1,0 +1,12 @@
+finding_id: F2
+action: CODE_FIX
+reviewed_sha: 5a05e18888339355b701b80bb2dcaca609680d22
+modification_scope:
+  - docs/PHASE_6_P6_1_LIVE_CAPTURE_CHECKPOINT.md
+  - docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md
+  - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+  - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+affected_verification:
+  - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_live_capture.py tests/product_intelligence/test_product_intelligence_cli.py tests/product_intelligence/test_shopee_discovery.py tests/product_intelligence/test_orchestration.py tests/product_source/test_scrape_tool_compat.py tests/integration/test_browser_cdp.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+  - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+constraints: []
