@@ -1,0 +1,20 @@
+review_id: REVIEW-190-003
+reviewed_sha: 5a05e18888339355b701b80bb2dcaca609680d22
+mode: DELTA
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC5: PASS
+  AC8: FAIL
+findings:
+  - id: F2
+    basis: AC8
+    action: CODE_FIX
+    location: docs/PHASE_6_P6_1_LIVE_CAPTURE_CHECKPOINT.md; docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md; docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md; docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    issue: >
+      RUN-190-003 closes F1 only and changes no documentation. The previously established F2 from
+      REVIEW-190-001 therefore remains unresolved and must be carried forward unchanged.
+    expected: >
+      Apply the exact documentation correction required by REVIEW-190-001 F2 while preserving the
+      now-passing F1 implementation unchanged. TASK-190 must remain staging-only and must not claim a
+      P7.1 baseline.
+prior_finding_id: F1
