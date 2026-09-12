@@ -26,8 +26,8 @@ active_track:
   status: ACTIVE
 
 next:
-  id: PYTHON_AGENT_CONSTITUTION
-  title: Python Agent Constitution
+  id: PYTHON_AGENT_PRODUCT_CONTRACT
+  title: Python Agent Product Contract
   status: NEXT
   completion_gate: >-
     Remains NEXT until canonical evidence marks it DONE or explicit Human intent
@@ -46,6 +46,12 @@ completed_milestones:
     title: Python Agent Manifesto
     status: DONE
     source_sha: e0d8998ee004fda80ca3fbc3de4eb0afb59160a5
+  - task_id: TASK-196
+    track_id: PYTHON_AGENT_GOVERNANCE_FOUNDATION
+    milestone_id: PYTHON_AGENT_CONSTITUTION
+    title: Python Agent Constitution
+    status: DONE
+    source_sha: 4f6d91858c93192f497342315c4650e30b0a2718
 
 pending_upstream_closure:
   status: PENDING
@@ -62,9 +68,6 @@ pending_upstream_closure:
     roadmap state is reconciled; never follow mutable AIOS-renew main.
 
 pending_commitments:
-  - id: PYTHON_AGENT_CONSTITUTION
-    title: Python Agent Constitution
-    status: NOT_DONE
   - id: PYTHON_AGENT_PRODUCT_CONTRACT
     title: Python Agent Product Contract
     status: NOT_DONE

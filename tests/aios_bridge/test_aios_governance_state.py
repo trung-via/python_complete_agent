@@ -16,6 +16,7 @@ PIN_FILE = (
 EXPECTED_PIN = "2599202afedb0622e9e9bdc7b5a15f34da01cc27"
 TASK_192_SOURCE_SHA = "dcb7432abc58ed983e6c26d5456ace1423e49981"
 TASK_194_SOURCE_SHA = "e0d8998ee004fda80ca3fbc3de4eb0afb59160a5"
+TASK_196_SOURCE_SHA = "4f6d91858c93192f497342315c4650e30b0a2718"
 GOVERNANCE_TRACK_ID = "PYTHON_AGENT_GOVERNANCE_FOUNDATION"
 GOVERNANCE_SEQUENCE = [
     "PYTHON_AGENT_MANIFESTO",
@@ -125,6 +126,14 @@ def test_roadmap_records_exact_completion_provenance_and_non_blocking_upstream_w
         "title": "Python Agent Manifesto",
         "status": "DONE",
         "source_sha": TASK_194_SOURCE_SHA,
+    }
+    assert completed["TASK-196"] == {
+        "task_id": "TASK-196",
+        "track_id": GOVERNANCE_TRACK_ID,
+        "milestone_id": "PYTHON_AGENT_CONSTITUTION",
+        "title": "Python Agent Constitution",
+        "status": "DONE",
+        "source_sha": TASK_196_SOURCE_SHA,
     }
 
     upstream = state["pending_upstream_closure"]
