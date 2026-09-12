@@ -305,8 +305,8 @@ Under the pinned commit `2599202afedb0622e9e9bdc7b5a15f34da01cc27`, Python Agent
 - **TASK-091 revision 2 / TASK-093..TASK-100 / TASK-102**: The published post-pin
   runtime and control-plane capability families are available solely through the exact pinned
   kernel. TASK-102 pre-observation synchronization remains Runtime-owned. This workflow adds
-  no synchronization engine, correction frontier, performance collector, lifecycle parser, or
-  new Human-facing Executor selection.
+  no synchronization engine, correction frontier, performance collector, lifecycle parser, and
+  no new Human-facing Executor selection.
 
 Capabilities present in upstream history but **not** exposed by this downstream worker:
 - **TASK-066 / TASK-068..TASK-074**: Although the exact package contains this intervening

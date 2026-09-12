@@ -306,7 +306,7 @@ hatches for compatibility and debugging; they are not the normal state-selection
   Published post-pin runtime and control-plane capability families are consumed only through
   the exact pinned kernel. TASK-102 pre-observation synchronization remains Runtime-owned.
   Downstream surfaces add no synchronization engine, correction frontier, performance
-  collector, lifecycle parser, or new Human-facing Executor selection.
+  collector, lifecycle parser, and no new Human-facing Executor selection.
 - **TASK-066 / TASK-068..TASK-074 Upstream Boundary**: Although the exact pinned package
   contains this intervening Runtime history, Python Agent does not adopt AIOS-renew workflow
   files, upstream remote approval/status workflow, wakeup workflow, dispatch-reconciliation,
