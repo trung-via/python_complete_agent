@@ -10,11 +10,13 @@ UNPUBLISHED by current Shopee live-DOM incompatibility, with no source candidate
 TASK-187 is CLOSED / PUBLISHED at `857e6b5d0009e9327e1a92d5f62b91432e28f150`.
 TASK-188/RUN-188-004 is BLOCKED / UNPUBLISHED with no source candidate; its live
 diagnostics are not baseline truth. TASK-189 is CLOSED / PUBLISHED at
-`9fa1b2583380e1b6378e5aba3d720c2e78a4b9d4`. TASK-190 provides only operational capture
-staging for the 3-query discovery cohort outside Git and runtime verification without
-establishing a P7.1 baseline; explicit post-publication Human review of one operator-staged
-READY `discovery_capture_bundle.json` is required before any offline P7.1 benchmark
-baseline successor task may be admitted.**
+`9fa1b2583380e1b6378e5aba3d720c2e78a4b9d4`. TASK-190 is CLOSED / PUBLISHED at
+`22d8837e5955ed78185426f293e874625a34d469`. Following completion of the required
+post-publication Human review gate accepting one READY `discovery_capture_bundle.json`,
+TASK-191 is the fresh offline P7.1 baseline successor: it freezes the accepted bundle
+byte-for-byte into immutable repository fixtures, losslessly reconstructs the exact
+fifteen-candidate cohort, and replays published TASK-181 `evaluate_winning_product_coverage`
+fully offline to record the deterministic measured baseline.**
 
 
 ## 1. Audit decision
@@ -108,21 +110,18 @@ existing Shopee evidence-input boundary and does not recapture or rewrite that c
 
 TASK-189 is CLOSED / PUBLISHED at `9fa1b2583380e1b6378e5aba3d720c2e78a4b9d4`.
 TASK-188/RUN-188-004 remains BLOCKED / UNPUBLISHED with no source candidate, and its diagnostic
-observations must not be reused or treated as baseline truth. TASK-190 provides only
-operational capture staging for the 3-query discovery cohort outside Git and runtime
-verification; it does not establish a P7.1 baseline. The baseline must be a new successor, not a
-continuation, repair, rehabilitation, or publication of TASK-186 or TASK-188.
+observations must not be reused or treated as baseline truth. TASK-190 is CLOSED / PUBLISHED
+at `22d8837e5955ed78185426f293e874625a34d469`, providing operational capture staging for the
+3-query discovery cohort outside Git and runtime verification.
 
-The post-publication Human review gate is explicit: a Human invokes the `p7-1-discovery-cohort`
-profile from an operator-owned authenticated CDP session, resolves any Human-owned access challenge,
-and reviews one READY `discovery_capture_bundle.json` for exact query, order, count, integrity, and
-relevance. Only after that explicit Human review may a fresh successor task freeze the accepted bundle
-into repository fixtures and replay TASK-181 fully offline. Rejected or blocked external bundles remain
-operational evidence and are permanently excluded from repaired baseline truth; they are never
-repaired or rehabilitated into baseline truth. That successor must execute the reviewed frozen evaluator
-on the reviewed real marketplace observations, record the cohort provenance and exact immutable
-report, and interpret the result under separate Human review. It must not acquire live
-marketplace evidence inside ordinary offline Runtime verification.
+The post-publication Human review gate completed and ACCEPTED exactly one READY
+`discovery_capture_bundle.json` (SHA-256 `aba1cdbc0a74d591a7da6c6dce11b9ae06bb7c16b0fe151490bb74da3efc465a`,
+byte count 16047) for exact query sequence, candidate count, integrity, and relevance.
+TASK-191 is the fresh offline P7.1 baseline successor: it freezes the accepted bundle byte-for-byte
+into repository fixtures and replays TASK-181 fully offline. Rejected or blocked predecessor
+bundles remain operational evidence and are permanently excluded from repaired baseline truth.
+The baseline records cohort provenance and the exact immutable report under separate Human review,
+without acquiring live marketplace evidence inside ordinary offline Runtime verification.
 
 Only that baseline may justify a subsequent improvement proposal. Longitudinal
 momentum observations, commercial or affiliate evidence acquisition, competition
@@ -142,13 +141,15 @@ TASK-186/RUN-186-003 remains BLOCKED / UNPUBLISHED with no source candidate beca
 current live Shopee result cards were not recognized. TASK-187 is CLOSED / PUBLISHED at
 `857e6b5d0009e9327e1a92d5f62b91432e28f150`. TASK-188/RUN-188-004 remains BLOCKED /
 UNPUBLISHED with no source candidate and no baseline truth. TASK-189 is CLOSED /
-PUBLISHED at `9fa1b2583380e1b6378e5aba3d720c2e78a4b9d4`. TASK-190 provides only
-operational capture staging for the 3-query discovery cohort outside Git and runtime
-verification, and does not claim a P7.1 baseline. The post-publication gate requires
-operator-owned authenticated CDP invocation, Human-owned challenge resolution, and Human review
-of one READY `discovery_capture_bundle.json` for exact query, order, count, integrity, and relevance;
-only an accepted bundle may be frozen into repository fixtures for offline TASK-181 replay in a fresh
-successor task, while rejected or blocked bundles remain external operational evidence and are never
-repaired into baseline truth. TASK-186 and TASK-188 must not be continued, repaired, or rehabilitated,
-diagnostic observations are not baseline truth, and no evidence-enrichment implementation
-is opened in advance.
+PUBLISHED at `9fa1b2583380e1b6378e5aba3d720c2e78a4b9d4`. TASK-190 is CLOSED /
+PUBLISHED at `22d8837e5955ed78185426f293e874625a34d469`. The post-publication
+Human review gate accepted one READY `discovery_capture_bundle.json` (SHA-256
+`aba1cdbc0a74d591a7da6c6dce11b9ae06bb7c16b0fe151490bb74da3efc465a`, byte count 16047),
+and TASK-191 is the fresh offline P7.1 baseline successor, freezing that accepted bundle
+into immutable repository fixtures and replaying TASK-181 offline to record the measured
+baseline. Predecessor TASK-182, TASK-186, and TASK-188 remain BLOCKED / UNPUBLISHED historical
+evidence and must not be continued, repaired, or rehabilitated. Diagnostic observations are
+not baseline truth, P6.2 remains PARKED, P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED, and no
+evidence-enrichment implementation is opened in advance or authorized before canonical
+Runtime PASS, ChatGPT semantic PASS, source-only publication, and separate Brain/Human
+interpretation of this measured baseline.
