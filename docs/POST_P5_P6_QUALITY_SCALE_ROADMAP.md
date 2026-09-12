@@ -1,6 +1,6 @@
 # Post-P5 P6 Quality and Scale Roadmap
 
-Status: **P6.0, P6.1, and P6.3 are CLOSED. TASK-170 / P6.1d is CLOSED / PUBLISHED at candidate `0781e0810d161ad1a4936c0e3ea31aada5704da1`. P6.2 is PARKED / NOT JUSTIFIED BY CURRENT EVIDENCE and remains reopenable from future evidence. P6.3 is CLOSED with TASK-171 / P6.3a CLOSED / PUBLISHED at candidate `3a33748905154b4822cfc164999e5c57780e67f2`, TASK-172 / P6.3b source hardening CLOSED / PUBLISHED at `63525151e4dbb7a1c30454a301e3c0e20ae771e9`, TASK-173 live-DOM hardening CLOSED / PUBLISHED at `f91dfe0f900664c835fef86bdf5d6c75879dbbdc`, TASK-174 structural-depth hardening CLOSED / PUBLISHED at `8c5a0b2a6a935c5bbecff5cde7b1a32956aa8d32`, TASK-175 same-target acquisition-continuity hardening CLOSED / PUBLISHED at candidate `61f78f8ac1cd14e6e110552ba638eb9ca149403f`, and TASK-176 recording the bounded K550 live certification passage. The fresh architecture/value audit selects the separately justified P7 Commerce Opportunity Intelligence branch. TASK-181/P7.0 is CLOSED / PUBLISHED at `9e835ed2c551c2fa3a8b66b82caa238bd41b152c`. TASK-182/RUN-182-006 remains BLOCKED / UNPUBLISHED. TASK-185 is CLOSED / PUBLISHED at `6b03dc14f88ddb98baeb6ae726f0dd913b323ba1`. TASK-186/RUN-186-003 is BLOCKED / UNPUBLISHED with no source candidate because of current Shopee live-DOM incompatibility. TASK-187 is the narrow prerequisite; a fresh P7.1 successor requires TASK-187 Runtime PASS, semantic PASS, and source-only publication. P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.**
+Status: **P6.0, P6.1, and P6.3 are CLOSED. TASK-170 / P6.1d is CLOSED / PUBLISHED at candidate `0781e0810d161ad1a4936c0e3ea31aada5704da1`. P6.2 is PARKED / NOT JUSTIFIED BY CURRENT EVIDENCE and remains reopenable from future evidence. P6.3 is CLOSED with TASK-171 / P6.3a CLOSED / PUBLISHED at candidate `3a33748905154b4822cfc164999e5c57780e67f2`, TASK-172 / P6.3b source hardening CLOSED / PUBLISHED at `63525151e4dbb7a1c30454a301e3c0e20ae771e9`, TASK-173 live-DOM hardening CLOSED / PUBLISHED at `f91dfe0f900664c835fef86bdf5d6c75879dbbdc`, TASK-174 structural-depth hardening CLOSED / PUBLISHED at `8c5a0b2a6a935c5bbecff5cde7b1a32956aa8d32`, TASK-175 same-target acquisition-continuity hardening CLOSED / PUBLISHED at candidate `61f78f8ac1cd14e6e110552ba638eb9ca149403f`, and TASK-176 recording the bounded K550 live certification passage. The fresh architecture/value audit selects the separately justified P7 Commerce Opportunity Intelligence branch. TASK-181/P7.0 is CLOSED / PUBLISHED at `9e835ed2c551c2fa3a8b66b82caa238bd41b152c`. TASK-182/RUN-182-006 remains BLOCKED / UNPUBLISHED. TASK-185 is CLOSED / PUBLISHED at `6b03dc14f88ddb98baeb6ae726f0dd913b323ba1`. TASK-186/RUN-186-003 is BLOCKED / UNPUBLISHED with no source candidate. TASK-187 is CLOSED / PUBLISHED at `857e6b5d0009e9327e1a92d5f62b91432e28f150`. TASK-188/RUN-188-004 is BLOCKED / UNPUBLISHED with no source candidate; its diagnostics are not baseline truth. TASK-189 is the current boundary-hardening prerequisite. Fresh P7.1 raw capture remains deferred until TASK-189 Runtime PASS, semantic PASS, and source-only publication. P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.**
 Scope: Python Agent product architecture post-P5; AIOS-renew remains execution substrate only.
 
 ## 1. Canonical Post-P5 Architecture Audit
@@ -260,13 +260,15 @@ remain DEFERRED / UNIMPLEMENTED.
 - **TASK-186 / RUN-186-003 — BLOCKED / UNPUBLISHED, no source candidate**: the attempted fresh
   baseline stopped because Human-visible current Shopee results were not recognized by the
   existing adapter.
-- **TASK-187 — current narrow prerequisite**: harden only the existing Shopee search-result DOM
-  recognition boundary while preserving TASK-151, TASK-153, TASK-167, and TASK-185 authority.
-- **NEXT — fresh P7.1 real-evidence coverage baseline successor**: only after TASK-187 Runtime
-  PASS, semantic PASS, and source-only publication, author a new successor to capture a reviewed
-  cohort and run the frozen evaluator. Do not continue, repair, or rehabilitate TASK-186. TASK-187
-  itself claims no baseline, coverage rate, value, winner, recommendation, or enrichment priority;
-  later enrichment remains conditional on fresh evidence.
+- **TASK-187 — CLOSED / PUBLISHED at `857e6b5d0009e9327e1a92d5f62b91432e28f150`**:
+  hardened only the existing Shopee search-result DOM recognition boundary.
+- **TASK-188 / RUN-188-004 — BLOCKED / UNPUBLISHED, no source candidate**: its diagnostic
+  observations are not baseline truth and grant no continuation authority.
+- **TASK-189 — current boundary-hardening prerequisite**: adds Session/Access Continuity V2
+  through the existing TASK-137 browser and TASK-166 capture authorities.
+- **NEXT — fresh P7.1 real-evidence coverage baseline successor**: only after TASK-189 Runtime
+  PASS, semantic PASS, and source-only publication, freshly capture a new reviewed cohort and run
+  the frozen evaluator. Do not continue, repair, or rehabilitate TASK-186 or TASK-188.
 
 The complete audit and P7.0 boundary are recorded in
 `docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md`.

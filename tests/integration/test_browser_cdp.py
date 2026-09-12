@@ -33,13 +33,17 @@ class FakeEmitter:
 
 
 class FakePage(FakeEmitter):
-    def __init__(self, *, closed: bool = False, evaluate_result: Any = None) -> None:
+    def __init__(
+        self, *, closed: bool = False, evaluate_result: Any = None,
+        target_id: str = "target-default",
+    ) -> None:
         super().__init__()
         self.closed = closed
         self.close_count = 0
         self.goto_calls: list[tuple[str, dict[str, Any]]] = []
         self.evaluate_calls: list[tuple[Any, ...]] = []
         self.evaluate_result = evaluate_result
+        self.target_id = target_id
 
     def is_closed(self) -> bool:
         return self.closed
@@ -56,11 +60,26 @@ class FakePage(FakeEmitter):
         return self.evaluate_result
 
 
+class FakeCDPSession:
+    def __init__(self, target_id: str) -> None:
+        self.target_id = target_id
+        self.send_calls: list[str] = []
+        self.detach_count = 0
+
+    async def send(self, method: str) -> dict[str, object]:
+        self.send_calls.append(method)
+        return {"targetInfo": {"targetId": self.target_id}}
+
+    async def detach(self) -> None:
+        self.detach_count += 1
+
+
 class FakeContext:
     def __init__(self, pages: Optional[list[FakePage]] = None) -> None:
         self.pages = pages or []
         self.close_count = 0
         self.new_page_count = 0
+        self.cdp_sessions: list[FakeCDPSession] = []
 
     async def new_page(self) -> FakePage:
         self.new_page_count += 1
@@ -70,6 +89,11 @@ class FakeContext:
 
     async def close(self) -> None:
         self.close_count += 1
+
+    async def new_cdp_session(self, page: FakePage) -> FakeCDPSession:
+        session = FakeCDPSession(page.target_id)
+        self.cdp_sessions.append(session)
+        return session
 
 
 class FakeBrowser(FakeEmitter):
@@ -178,6 +202,55 @@ async def test_cdp_attaches_once_and_borrows_first_context_and_open_page(
     assert browser.new_context_count == 0
     assert selected_context.new_page_count == 0
     assert selected_page.goto_calls == []
+
+
+@pytest.mark.asyncio
+async def test_cdp_binding_digest_is_stable_for_target_and_opaque_across_navigation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    page = FakePage(target_id="raw-sensitive-target-123")
+    context = FakeContext([page])
+    browser = FakeBrowser([context])
+    install_playwright(monkeypatch, FakeChromium(cdp_browser=browser))
+    session = await PlaywrightBrowserManager(cdp_endpoint=ENDPOINT).get_or_create_session(
+        "binding"
+    )
+
+    before = await session.browser_binding_digest()
+    await session.navigate("https://example.test/changed")
+    after = await session.browser_binding_digest()
+
+    assert before == after
+    assert len(before) == 64
+    assert before == before.lower()
+    assert "raw-sensitive-target-123" not in before
+    assert page.goto_calls == [("https://example.test/changed", {"timeout": 30000})]
+    assert [item.send_calls for item in context.cdp_sessions] == [
+        ["Target.getTargetInfo"], ["Target.getTargetInfo"]
+    ]
+    assert all(item.detach_count == 1 for item in context.cdp_sessions)
+
+
+@pytest.mark.asyncio
+async def test_cdp_binding_digest_changes_for_another_borrowed_page_target(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first_page = FakePage(target_id="target-one")
+    first_browser = FakeBrowser([FakeContext([first_page])])
+    install_playwright(monkeypatch, FakeChromium(cdp_browser=first_browser))
+    first = await PlaywrightBrowserManager(cdp_endpoint=ENDPOINT).get_or_create_session(
+        "first"
+    )
+    first_digest = await first.browser_binding_digest()
+
+    second_page = FakePage(target_id="target-two")
+    second_browser = FakeBrowser([FakeContext([second_page])])
+    install_playwright(monkeypatch, FakeChromium(cdp_browser=second_browser))
+    second = await PlaywrightBrowserManager(cdp_endpoint=ENDPOINT).get_or_create_session(
+        "second"
+    )
+
+    assert await second.browser_binding_digest() != first_digest
 
 
 @pytest.mark.asyncio

@@ -3705,7 +3705,7 @@ def test_capture_cli_fresh_and_resume_contracts(monkeypatch, capsys, tmp_path):
         received.append(kwargs)
         return LiveCaptureOutcome(
             status=(
-                LiveCaptureStatus.CHALLENGE_REQUIRED
+                LiveCaptureStatus.HUMAN_ACTION_REQUIRED
                 if kwargs["resume"]
                 else LiveCaptureStatus.READY
             ),
@@ -3749,11 +3749,20 @@ def test_capture_cli_fresh_and_resume_contracts(monkeypatch, capsys, tmp_path):
     resumed_rendered = capsys.readouterr()
     resumed = json.loads(resumed_rendered.out)
     assert resumed_rendered.err == ""
-    assert resumed["status"] == "CHALLENGE_REQUIRED"
+    assert resumed["status"] == "HUMAN_ACTION_REQUIRED"
     assert "bundle" not in resumed
     assert str(job_root) not in resumed_rendered.out
     assert endpoint not in resumed_rendered.out
     assert received[1]["queries"] is None
+    assert received[1]["rebind_session"] is False
+
+    assert cli.main([
+        "capture", "--resume", "--rebind-session", "--job-root", str(job_root),
+        "--cdp-endpoint", endpoint,
+    ]) == 0
+    rebound_rendered = capsys.readouterr()
+    assert endpoint not in rebound_rendered.out
+    assert received[2]["rebind_session"] is True
 
 
 def test_capture_cli_filesystem_error_is_bounded_without_capture_secret_leakage(

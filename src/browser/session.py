@@ -18,6 +18,10 @@ class BrowserSession(Protocol):
     def run_id(self) -> str:
         ...
 
+    async def browser_binding_digest(self) -> str:
+        """Return an opaque binding receipt for the currently borrowed page target."""
+        ...
+
     async def start(self) -> None:
         """
         Starts the session.

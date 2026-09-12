@@ -275,6 +275,16 @@ REPAIR action selection is fail-closed:
 - Preserve the executor identity selected by the failed lineage unless explicit canonical Human intent requires a different boundary; never silently reroute during REPAIR.
 - REPAIR instructions, action, and modification scope must agree with one another. If they are semantically contradictory, do not invoke a worker until the REPAIR contract is corrected.
 
+### Mutable live-evidence authoring boundary
+
+When mutable marketplace evidence can be staged through a repository-owned operational surface,
+engineering TASK implementation and Runtime verification consume reviewed, frozen evidence instead
+of requiring an Executor to acquire live marketplace evidence. Human access/session work belongs to
+that operational plane; deterministic implementation and verification belong to the engineering
+plane. `CONTINUE_IMPLEMENTATION` remains an exceptional recovery safety net, not the normal Human
+access/session workflow. Any exception requires explicit current Human intent and TASK-specific
+architecture justification.
+
 ## 9. Review Semantics
 
 ### PRIMARY review

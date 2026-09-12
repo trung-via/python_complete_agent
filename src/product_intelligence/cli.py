@@ -261,7 +261,12 @@ def _parser() -> _argparse.ArgumentParser:
     capture.add_argument(
         "--resume",
         action=_UniqueStoreTrueAction,
-        help="Resume the exact unfinished phase from a challenge checkpoint.",
+        help="Resume the exact unfinished phase from an operational checkpoint.",
+    )
+    capture.add_argument(
+        "--rebind-session",
+        action=_UniqueStoreTrueAction,
+        help="Explicitly bind a replacement session for a SESSION_LOST checkpoint.",
     )
     decide = commands.add_parser(
         "decide",
@@ -484,6 +489,7 @@ async def _capture_document(arguments: _argparse.Namespace) -> dict[str, object]
         cdp_endpoint=arguments.cdp_endpoint,
         queries=None if arguments.resume else arguments.query,
         resume=arguments.resume,
+        rebind_session=arguments.rebind_session,
     )
     return outcome.to_document()
 
@@ -922,6 +928,8 @@ def main(argv=None) -> int:
             parser.error("capture --resume forbids --query")
         if not arguments.resume and not arguments.query:
             parser.error("fresh capture requires one or more --query values")
+        if arguments.rebind_session and not arguments.resume:
+            parser.error("capture --rebind-session requires --resume")
     try:
         if arguments.command == "evidence":
             document = _evidence_document(arguments.root)

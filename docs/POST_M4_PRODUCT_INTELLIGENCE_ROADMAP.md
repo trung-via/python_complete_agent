@@ -18,8 +18,11 @@ justified P7 Commerce Opportunity Intelligence branch. TASK-181/P7.0 is CLOSED /
 UNPUBLISHED. TASK-185 is CLOSED / PUBLISHED at
 `6b03dc14f88ddb98baeb6ae726f0dd913b323ba1`. TASK-186/RUN-186-003 is BLOCKED /
 UNPUBLISHED with no source candidate because of current Shopee live-DOM incompatibility.
-TASK-187 is the narrow prerequisite; a fresh P7.1 successor requires TASK-187 Runtime PASS,
-semantic PASS, and source-only publication. P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
+TASK-187 is CLOSED / PUBLISHED at `857e6b5d0009e9327e1a92d5f62b91432e28f150`.
+TASK-188/RUN-188-004 is BLOCKED / UNPUBLISHED with no source candidate and its diagnostics
+are not baseline truth. TASK-189 is the current boundary-hardening prerequisite; fresh P7.1
+raw capture requires TASK-189 Runtime PASS, semantic PASS, and source-only publication.
+P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
 ## 1. Starting point
@@ -361,13 +364,15 @@ evidence; P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
   scoring, ranking, approval, or truth authority.
 - **TASK-186 / RUN-186-003 — BLOCKED / UNPUBLISHED, no source candidate** stopped because
   Human-visible current Shopee results were not recognized by the existing adapter.
-- **TASK-187 — current narrow prerequisite** hardens only that adapter's current search-result
-  DOM recognition boundary while preserving TASK-151, TASK-153, TASK-167, and TASK-185 authority.
-- **NEXT — fresh P7.1 real-evidence coverage baseline successor** remains deferred until TASK-187
-  Runtime PASS, semantic PASS, and source-only publication. It must be newly authored and capture a
-  new reviewed cohort; TASK-186 must not be continued, repaired, or rehabilitated. TASK-187
-  establishes no baseline, coverage rate, business value, winner, recommendation, or enrichment
-  priority. Later enrichment remains conditional on that fresh evidence.
+- **TASK-187 — CLOSED / PUBLISHED at `857e6b5d0009e9327e1a92d5f62b91432e28f150`** hardened
+  only the existing adapter's current search-result DOM recognition boundary.
+- **TASK-188 / RUN-188-004 — BLOCKED / UNPUBLISHED, no source candidate** produced diagnostic
+  observations that are not baseline truth and grant no continuation authority.
+- **TASK-189 — current boundary-hardening prerequisite** adds Session/Access Continuity V2 only
+  through the existing TASK-137 browser and TASK-166 capture authorities.
+- **NEXT — fresh P7.1 real-evidence coverage baseline successor** remains deferred until TASK-189
+  Runtime PASS, semantic PASS, and source-only publication. It must freshly capture and review a new
+  cohort; TASK-186 and TASK-188 must not be continued, repaired, or rehabilitated.
 
 See `docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md` for the audit and boundary.
 
@@ -392,7 +397,7 @@ CLOSED / PUBLISHED through TASK-170 at candidate
 `0781e0810d161ad1a4936c0e3ea31aada5704da1`. P6.2 is PARKED / NOT JUSTIFIED BY
 CURRENT EVIDENCE because the existing TASK-134 -> TASK-122 composition fully
 recovered the measured raw TASK-122 stress weakness; it remains reopenable from
-future evidence. P6.3 is CLOSED with TASK-171 / P6.3a CLOSED / PUBLISHED at candidate `3a33748905154b4822cfc164999e5c57780e67f2`, TASK-172 / P6.3b source hardening CLOSED / PUBLISHED at `63525151e4dbb7a1c30454a301e3c0e20ae771e9`, TASK-173 live-DOM hardening CLOSED / PUBLISHED at `f91dfe0f900664c835fef86bdf5d6c75879dbbdc`, TASK-174 structural-depth hardening CLOSED / PUBLISHED at `8c5a0b2a6a935c5bbecff5cde7b1a32956aa8d32`, TASK-175 same-target acquisition-continuity hardening CLOSED / PUBLISHED at candidate `61f78f8ac1cd14e6e110552ba638eb9ca149403f`, and TASK-176 recording the bounded K550 live certification passage (`P6.3 LIVE RESULT: PASS`). P6.2 remains PARKED / reopenable from future evidence. The completed fresh architecture/value audit selects the separately justified P7 Commerce Opportunity Intelligence branch instead of automatically opening P6.4. TASK-181/P7.0 is CLOSED / PUBLISHED at `9e835ed2c551c2fa3a8b66b82caa238bd41b152c`; TASK-182/RUN-182-006 remains BLOCKED / UNPUBLISHED; TASK-185 is CLOSED / PUBLISHED at `6b03dc14f88ddb98baeb6ae726f0dd913b323ba1`; TASK-186/RUN-186-003 remains BLOCKED / UNPUBLISHED with no source candidate; TASK-187 is the narrow current prerequisite; and a fresh P7.1 successor requires TASK-187 Runtime PASS, semantic PASS, and source-only publication rather than continuation or rehabilitation of TASK-186. P6.4-P6.6 remain deferred and unimplemented.
+future evidence. P6.3 is CLOSED with TASK-171 / P6.3a CLOSED / PUBLISHED at candidate `3a33748905154b4822cfc164999e5c57780e67f2`, TASK-172 / P6.3b source hardening CLOSED / PUBLISHED at `63525151e4dbb7a1c30454a301e3c0e20ae771e9`, TASK-173 live-DOM hardening CLOSED / PUBLISHED at `f91dfe0f900664c835fef86bdf5d6c75879dbbdc`, TASK-174 structural-depth hardening CLOSED / PUBLISHED at `8c5a0b2a6a935c5bbecff5cde7b1a32956aa8d32`, TASK-175 same-target acquisition-continuity hardening CLOSED / PUBLISHED at candidate `61f78f8ac1cd14e6e110552ba638eb9ca149403f`, and TASK-176 recording the bounded K550 live certification passage (`P6.3 LIVE RESULT: PASS`). P6.2 remains PARKED / reopenable from future evidence. The completed fresh architecture/value audit selects the separately justified P7 Commerce Opportunity Intelligence branch instead of automatically opening P6.4. TASK-181/P7.0 is CLOSED / PUBLISHED at `9e835ed2c551c2fa3a8b66b82caa238bd41b152c`; TASK-182/RUN-182-006 remains BLOCKED / UNPUBLISHED; TASK-185 is CLOSED / PUBLISHED at `6b03dc14f88ddb98baeb6ae726f0dd913b323ba1`; TASK-186/RUN-186-003 remains BLOCKED / UNPUBLISHED with no source candidate; TASK-187 is CLOSED / PUBLISHED at `857e6b5d0009e9327e1a92d5f62b91432e28f150`; TASK-188/RUN-188-004 remains BLOCKED / UNPUBLISHED with no source candidate and no baseline truth; TASK-189 is the current boundary-hardening prerequisite; and fresh P7.1 raw capture requires TASK-189 Runtime PASS, semantic PASS, and source-only publication. P6.4-P6.6 remain deferred and unimplemented.
 TASK-165 remains unpublished blocked evidence from
 REVIEW-165-003 F1 and its failed remediation/repair continuation lineage.
 

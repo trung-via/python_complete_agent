@@ -10,6 +10,8 @@ import pytest
 import src.product_intelligence.live_capture as live_capture_module
 from src.core.errors import AgentException
 from src.core.types import ToolResult, ToolStatus
+from src.browser.errors import BrowserContextError, PageClosedError
+from src.browser.models import BrowserState
 from src.product_intelligence.discovery import DiscoveryBlockedError
 from src.product_intelligence.live_capture import (
     LiveCaptureError,
@@ -21,14 +23,50 @@ from src.product_intelligence.live_capture import (
 
 class _Manager:
     instances = []
+    binding_digest = "a" * 64
+    binding_error = None
+    evaluate_error = None
+    session_state = BrowserState.READY
 
     def __init__(self, cdp_endpoint):
         self.cdp_endpoint = cdp_endpoint
         self.close_count = 0
+        self.session = _Session(
+            type(self).binding_digest,
+            binding_error=type(self).binding_error,
+            evaluate_error=type(self).evaluate_error,
+            state=type(self).session_state,
+        )
         type(self).instances.append(self)
+
+    async def get_or_create_session(self, run_id):
+        del run_id
+        return self.session
 
     async def close_all(self):
         self.close_count += 1
+
+
+class _Session:
+    def __init__(self, binding_digest, *, binding_error=None, evaluate_error=None, state=None):
+        self.state = state or BrowserState.READY
+        self.binding_digest = binding_digest
+        self.binding_error = binding_error
+        self.evaluate_error = evaluate_error
+        self.binding_calls = 0
+        self.evaluate_calls = []
+
+    async def browser_binding_digest(self):
+        self.binding_calls += 1
+        if self.binding_error:
+            raise self.binding_error
+        return self.binding_digest
+
+    async def evaluate(self, script):
+        self.evaluate_calls.append(script)
+        if self.evaluate_error:
+            raise self.evaluate_error
+        return True
 
 
 class _Tool:
@@ -74,6 +112,10 @@ class _Tool:
 @pytest.fixture(autouse=True)
 def _reset_fakes():
     _Manager.instances = []
+    _Manager.binding_digest = "a" * 64
+    _Manager.binding_error = None
+    _Manager.evaluate_error = None
+    _Manager.session_state = BrowserState.READY
     _Tool.instances = []
     _Tool.calls = []
     _Tool.block_at = None
@@ -128,6 +170,13 @@ def test_ordered_capture_preserves_manifest_bytes_and_creates_immutable_bundle(t
     bundle_path = root / "capture_bundle.json"
     before = bundle_path.read_bytes()
     checkpoint_before = (root / "capture_checkpoint.json").read_bytes()
+    checkpoint_document = json.loads(checkpoint_before)
+    assert checkpoint_document["version"] == 2
+    assert "cdp_endpoint" not in checkpoint_document
+    assert checkpoint_document["endpoint_digest"] == hashlib.sha256(
+        b"http://127.0.0.1:9222"
+    ).hexdigest()
+    assert checkpoint_document["browser_binding_digest"] == "a" * 64
     bundle = json.loads(before)
     assert bundle["schema"] == "product_intelligence_live_capture_bundle"
     assert [cohort["query"] for cohort in bundle["cohorts"]] == [" query A ", "query B"]
@@ -150,6 +199,27 @@ def test_ordered_capture_preserves_manifest_bytes_and_creates_immutable_bundle(t
     assert (root / "capture_checkpoint.json").read_bytes() == checkpoint_before
 
 
+def test_fresh_checkpoint_starts_new_then_session_ready_then_running(
+    tmp_path, monkeypatch
+):
+    import asyncio
+
+    statuses = []
+    original = live_capture_module._atomic_checkpoint
+
+    def trace(root, state):
+        statuses.append(state["status"])
+        original(root, state)
+
+    monkeypatch.setattr(live_capture_module, "_atomic_checkpoint", trace)
+    outcome = asyncio.run(_run(
+        tmp_path / "capture", ["query"], _orchestration([])
+    ))
+
+    assert outcome.status is LiveCaptureStatus.READY
+    assert statuses[:3] == ["NEW", "SESSION_READY", "RUNNING"]
+
+
 @pytest.mark.parametrize("block_call,expected_phase,completed_calls", [
     (1, "ACQUIRE_1", 0),
     (2, "ACQUIRE_2", 1),
@@ -163,7 +233,7 @@ def test_acquisition_challenge_resume_continues_only_unfinished_phase(
     _Tool.block_at = block_call
     first = asyncio.run(_run(root, ["query"], _orchestration(seen)))
     checkpoint = json.loads((root / "capture_checkpoint.json").read_text(encoding="utf-8"))
-    assert first.status is LiveCaptureStatus.CHALLENGE_REQUIRED
+    assert first.status is LiveCaptureStatus.HUMAN_ACTION_REQUIRED
     assert checkpoint["phase"] == expected_phase
     assert len(checkpoint["completed_observations"]) == completed_calls
     assert seen == ["query"]
@@ -190,7 +260,7 @@ def test_discovery_challenge_repeats_stably_without_wait_or_acquisition(tmp_path
     root = tmp_path / "capture"
     seen = []
     first = asyncio.run(_run(root, ["query"], _orchestration(seen, blocked_query="query")))
-    assert first.status is LiveCaptureStatus.CHALLENGE_REQUIRED
+    assert first.status is LiveCaptureStatus.HUMAN_ACTION_REQUIRED
     first_bytes = (root / "capture_checkpoint.json").read_bytes()
     second = asyncio.run(run_live_capture(
         job_root=root,
@@ -200,28 +270,175 @@ def test_discovery_challenge_repeats_stably_without_wait_or_acquisition(tmp_path
         tool_factory=_Tool,
         orchestration=_orchestration(seen, blocked_query="query"),
     ))
-    assert second.status is LiveCaptureStatus.CHALLENGE_REQUIRED
+    assert second.status is LiveCaptureStatus.HUMAN_ACTION_REQUIRED
     assert _Tool.calls == []
     assert seen == ["query", "query"]
     assert json.loads(first_bytes) == json.loads((root / "capture_checkpoint.json").read_bytes())
 
 
-def test_endpoint_mismatch_is_terminal_before_browser_work(tmp_path):
+def test_endpoint_mismatch_becomes_session_lost_before_browser_work(tmp_path):
     import asyncio
     root = tmp_path / "capture"
     asyncio.run(_run(root, ["query"], _orchestration([], blocked_query="query")))
     manager_count = len(_Manager.instances)
-    with pytest.raises(LiveCaptureError):
+    outcome = asyncio.run(run_live_capture(
+        job_root=root,
+        cdp_endpoint="http://127.0.0.1:9333",
+        resume=True,
+        manager_factory=_Manager,
+        tool_factory=_Tool,
+        orchestration=_orchestration([]),
+    ))
+    assert outcome.status is LiveCaptureStatus.SESSION_LOST
+    assert len(_Manager.instances) == manager_count
+    checkpoint = json.loads((root / "capture_checkpoint.json").read_bytes())
+    assert checkpoint["status"] == "SESSION_LOST"
+    assert "cdp_endpoint" not in checkpoint
+
+
+def test_binding_mismatch_stops_before_unfinished_operation_and_explicit_rebind_continues(
+    tmp_path,
+):
+    import asyncio
+
+    root = tmp_path / "capture"
+    seen = []
+    first = asyncio.run(_run(root, ["query"], _orchestration(seen, blocked_query="query")))
+    assert first.status is LiveCaptureStatus.HUMAN_ACTION_REQUIRED
+    _Manager.binding_digest = "b" * 64
+
+    lost = asyncio.run(run_live_capture(
+        job_root=root,
+        cdp_endpoint="http://127.0.0.1:9222",
+        resume=True,
+        manager_factory=_Manager,
+        tool_factory=_Tool,
+        orchestration=_orchestration(seen),
+    ))
+    assert lost.status is LiveCaptureStatus.SESSION_LOST
+    assert seen == ["query"]
+    assert _Tool.calls == []
+
+    resumed = asyncio.run(run_live_capture(
+        job_root=root,
+        cdp_endpoint="http://127.0.0.1:9333",
+        resume=True,
+        rebind_session=True,
+        manager_factory=_Manager,
+        tool_factory=_Tool,
+        orchestration=_orchestration(seen),
+    ))
+    assert resumed.status is LiveCaptureStatus.READY
+    assert seen == ["query", "query"]
+    checkpoint = json.loads((root / "capture_checkpoint.json").read_bytes())
+    assert "cdp_endpoint" not in checkpoint
+    assert checkpoint["endpoint_digest"] == hashlib.sha256(
+        b"http://127.0.0.1:9333"
+    ).hexdigest()
+    assert checkpoint["browser_binding_digest"] == "b" * 64
+
+
+def test_resume_verifies_once_before_exact_unfinished_phase(tmp_path, monkeypatch):
+    import asyncio
+
+    root = tmp_path / "capture"
+    _Tool.block_at = 2
+    asyncio.run(_run(root, ["query"], _orchestration([])))
+    prior_calls = list(_Tool.calls)
+    _Tool.block_at = None
+    statuses = []
+    original = live_capture_module._atomic_checkpoint
+
+    def trace(checkpoint_root, state):
+        statuses.append(state["status"])
+        original(checkpoint_root, state)
+
+    monkeypatch.setattr(live_capture_module, "_atomic_checkpoint", trace)
+    outcome = asyncio.run(run_live_capture(
+        job_root=root,
+        cdp_endpoint="http://127.0.0.1:9222",
+        resume=True,
+        manager_factory=_Manager,
+        tool_factory=_Tool,
+        orchestration=_orchestration([]),
+    ))
+
+    assert outcome.status is LiveCaptureStatus.READY
+    resume_session = _Manager.instances[-1].session
+    assert resume_session.evaluate_calls == ["() => true"]
+    assert statuses[:3] == ["VERIFY_SESSION", "SESSION_READY", "RUNNING"]
+    assert _Tool.calls.count(prior_calls[0]) == 1
+
+
+def test_resource_loss_is_resumable_but_ordinary_probe_failure_is_terminal(tmp_path):
+    import asyncio
+
+    lost_root = tmp_path / "lost"
+    asyncio.run(_run(lost_root, ["query"], _orchestration([], blocked_query="query")))
+    _Manager.evaluate_error = PageClosedError()
+    _Manager.session_state = BrowserState.CRASHED
+    lost = asyncio.run(run_live_capture(
+        job_root=lost_root,
+        cdp_endpoint="http://127.0.0.1:9222",
+        resume=True,
+        manager_factory=_Manager,
+        tool_factory=_Tool,
+        orchestration=_orchestration([]),
+    ))
+    assert lost.status is LiveCaptureStatus.SESSION_LOST
+
+    failed_root = tmp_path / "failed"
+    _Manager.evaluate_error = None
+    _Manager.session_state = BrowserState.READY
+    asyncio.run(_run(failed_root, ["query"], _orchestration([], blocked_query="query")))
+    _Manager.evaluate_error = BrowserContextError("ordinary probe failure")
+    with pytest.raises(LiveCaptureError, match="Live capture failed"):
         asyncio.run(run_live_capture(
-            job_root=root,
-            cdp_endpoint="http://127.0.0.1:9333",
+            job_root=failed_root,
+            cdp_endpoint="http://127.0.0.1:9222",
             resume=True,
             manager_factory=_Manager,
             tool_factory=_Tool,
             orchestration=_orchestration([]),
         ))
-    assert len(_Manager.instances) == manager_count
-    assert json.loads((root / "capture_checkpoint.json").read_bytes())["status"] == "FAILED"
+    assert json.loads((failed_root / "capture_checkpoint.json").read_bytes())["status"] == "FAILED"
+
+
+def test_valid_v1_challenge_upgrade_removes_raw_endpoint(tmp_path):
+    import asyncio
+
+    root = tmp_path / "capture"
+    endpoint = "http://127.0.0.1:9222/private"
+    asyncio.run(run_live_capture(
+        job_root=root,
+        cdp_endpoint=endpoint,
+        queries=["query"],
+        manager_factory=_Manager,
+        tool_factory=_Tool,
+        orchestration=_orchestration([], blocked_query="query"),
+    ))
+    checkpoint_path = root / "capture_checkpoint.json"
+    checkpoint = json.loads(checkpoint_path.read_bytes())
+    checkpoint["version"] = 1
+    checkpoint["status"] = "CHALLENGE_REQUIRED"
+    checkpoint["cdp_endpoint"] = endpoint
+    del checkpoint["endpoint_digest"]
+    del checkpoint["browser_binding_digest"]
+    checkpoint_path.write_text(json.dumps(checkpoint), encoding="utf-8")
+
+    outcome = asyncio.run(run_live_capture(
+        job_root=root,
+        cdp_endpoint=endpoint,
+        resume=True,
+        manager_factory=_Manager,
+        tool_factory=_Tool,
+        orchestration=_orchestration([]),
+    ))
+    assert outcome.status is LiveCaptureStatus.READY
+    upgraded = json.loads(checkpoint_path.read_bytes())
+    assert upgraded["version"] == 2
+    assert "cdp_endpoint" not in upgraded
+    assert endpoint not in checkpoint_path.read_text(encoding="utf-8")
 
 
 def test_non_challenge_tool_failure_is_terminal_and_not_resumable(tmp_path):
@@ -358,7 +575,7 @@ def test_resume_checkpoint_replace_failure_preserves_original_bounded_error(
     checkpoint = json.loads(
         (root / "capture_checkpoint.json").read_text(encoding="utf-8")
     )
-    assert checkpoint["status"] == "CHALLENGE_REQUIRED"
+    assert checkpoint["status"] == "HUMAN_ACTION_REQUIRED"
 
 
 def test_resume_manifest_read_failure_is_bounded_without_path_leak(

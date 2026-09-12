@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import hashlib
 import uuid
 from typing import Optional, Dict, Any, List, Tuple
 
@@ -51,6 +52,37 @@ class PlaywrightBrowserSession(BrowserSession):
     @property
     def run_id(self) -> str:
         return self._run_id
+
+    async def browser_binding_digest(self) -> str:
+        """Bind this session to its exact borrowed CDP page without exposing identity."""
+        self._check_ready()
+        if not self._borrowed_resources or self._context is None or self._page is None:
+            raise BrowserContextError(
+                "A browser binding digest is available only for a borrowed CDP page."
+            )
+        cdp_session = None
+        try:
+            cdp_session = await self._context.new_cdp_session(self._page)
+            response = await cdp_session.send("Target.getTargetInfo")
+            target_info = response.get("targetInfo") if isinstance(response, dict) else None
+            target_id = target_info.get("targetId") if isinstance(target_info, dict) else None
+            if not isinstance(target_id, str) or not target_id:
+                raise ValueError("missing target identity")
+            receipt = hashlib.sha256(
+                b"python-agent-playwright-cdp-target-v1\0" + target_id.encode("utf-8")
+            ).hexdigest()
+        except Exception as exc:
+            self._restore_operation_state()
+            raise BrowserContextError(
+                "Browser binding digest could not be established."
+            ) from exc
+        finally:
+            if cdp_session is not None:
+                try:
+                    await cdp_session.detach()
+                except Exception:
+                    pass
+        return receipt
 
     async def start(self) -> None:
         if self._state not in (BrowserState.UNINITIALIZED, BrowserState.CLOSED, BrowserState.CRASHED):

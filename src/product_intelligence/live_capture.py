@@ -16,6 +16,13 @@ from enum import Enum
 from pathlib import Path
 from typing import Callable, Optional, Sequence
 
+from src.browser.errors import (
+    BrowserContextError,
+    BrowserNotStartedError,
+    BrowserSessionUnavailableError,
+    PageClosedError,
+)
+from src.browser.models import BrowserState
 from src.core.types import ToolCall, ToolResult, ToolStatus
 from src.integrations.playwright.manager import PlaywrightBrowserManager
 from src.product_intelligence.adapters.shopee import ShopeeDiscoveryAdapter
@@ -31,8 +38,11 @@ _CHECKPOINT_NAME = "capture_checkpoint.json"
 _BUNDLE_NAME = "capture_bundle.json"
 _CHECKPOINT_SCHEMA = "product_intelligence_live_capture_checkpoint"
 _BUNDLE_SCHEMA = "product_intelligence_live_capture_bundle"
-_VERSION = 1
+_CHECKPOINT_VERSION = 2
+_BUNDLE_VERSION = 1
 _MAX_QUERIES = 100
+_BINDING_RUN_ID = "live-capture-session-binding"
+_LIVENESS_SCRIPT = "() => true"
 
 
 class LiveCaptureError(Exception):
@@ -40,8 +50,12 @@ class LiveCaptureError(Exception):
 
 
 class LiveCaptureStatus(str, Enum):
+    NEW = "NEW"
+    SESSION_READY = "SESSION_READY"
     RUNNING = "RUNNING"
-    CHALLENGE_REQUIRED = "CHALLENGE_REQUIRED"
+    HUMAN_ACTION_REQUIRED = "HUMAN_ACTION_REQUIRED"
+    VERIFY_SESSION = "VERIFY_SESSION"
+    SESSION_LOST = "SESSION_LOST"
     READY = "READY"
     FAILED = "FAILED"
 
@@ -231,9 +245,10 @@ def _exclusive_bundle(root: Path, document: dict[str, object]) -> None:
 def _initial_state(endpoint: str, queries: Sequence[str]) -> dict[str, object]:
     return {
         "schema": _CHECKPOINT_SCHEMA,
-        "version": _VERSION,
-        "status": LiveCaptureStatus.RUNNING.value,
-        "cdp_endpoint": endpoint,
+        "version": _CHECKPOINT_VERSION,
+        "status": LiveCaptureStatus.NEW.value,
+        "endpoint_digest": _digest_endpoint(endpoint),
+        "browser_binding_digest": None,
         "queries": list(queries),
         "query_position": 0,
         "phase": LiveCapturePhase.DISCOVERY.value,
@@ -242,6 +257,22 @@ def _initial_state(endpoint: str, queries: Sequence[str]) -> dict[str, object]:
         "completed_observations": [],
         "category": None,
     }
+
+
+def _digest_endpoint(endpoint: str) -> str:
+    return hashlib.sha256(endpoint.encode("utf-8")).hexdigest()
+
+
+def _validate_digest(value: object, label: str, *, allow_none: bool = False) -> Optional[str]:
+    if value is None and allow_none:
+        return None
+    if (
+        not isinstance(value, str)
+        or len(value) != 64
+        or any(character not in "0123456789abcdef" for character in value)
+    ):
+        raise LiveCaptureError(f"{label} is invalid")
+    return value
 
 
 def _validate_observation(value: object) -> dict[str, str]:
@@ -271,20 +302,52 @@ def _validate_candidate(value: object, *, allow_none: bool) -> Optional[dict[str
 
 
 def _validate_checkpoint(root: Path, document: object) -> dict[str, object]:
-    required = {
-        "schema", "version", "status", "cdp_endpoint", "queries", "query_position",
-        "phase", "completed_cohorts", "selected_candidate", "completed_observations", "category",
-    }
-    if not isinstance(document, dict) or set(document) != required:
+    if not isinstance(document, dict):
         raise LiveCaptureError("Capture checkpoint is corrupt")
-    if document["schema"] != _CHECKPOINT_SCHEMA or document["version"] != _VERSION:
+    version = document.get("version")
+    common = {
+        "schema", "version", "status", "queries", "query_position", "phase",
+        "completed_cohorts", "selected_candidate", "completed_observations", "category",
+    }
+    v1_required = common | {"cdp_endpoint"}
+    v2_required = common | {"endpoint_digest", "browser_binding_digest"}
+    if version == 1:
+        required = v1_required
+    elif version == _CHECKPOINT_VERSION:
+        required = v2_required
+    else:
+        raise LiveCaptureError("Capture checkpoint schema is unsupported")
+    if set(document) != required:
+        raise LiveCaptureError("Capture checkpoint is corrupt")
+    if document["schema"] != _CHECKPOINT_SCHEMA:
         raise LiveCaptureError("Capture checkpoint schema is unsupported")
     try:
-        status = LiveCaptureStatus(document["status"])
         phase = LiveCapturePhase(document["phase"])
     except (ValueError, TypeError) as exc:
         raise LiveCaptureError("Capture checkpoint state is invalid") from exc
-    endpoint = _validate_scalar(document["cdp_endpoint"], "Checkpoint CDP endpoint")
+    if version == 1:
+        status_value = document["status"]
+        if status_value not in {"RUNNING", "CHALLENGE_REQUIRED", "READY", "FAILED"}:
+            raise LiveCaptureError("Capture checkpoint state is invalid")
+        endpoint = _validate_scalar(document["cdp_endpoint"], "Checkpoint CDP endpoint")
+        endpoint_digest = _digest_endpoint(endpoint)
+        browser_binding_digest = None
+    else:
+        try:
+            status_value = LiveCaptureStatus(document["status"]).value
+        except (ValueError, TypeError) as exc:
+            raise LiveCaptureError("Capture checkpoint state is invalid") from exc
+        endpoint = None
+        endpoint_digest = _validate_digest(document["endpoint_digest"], "Checkpoint endpoint digest")
+        browser_binding_digest = _validate_digest(
+            document["browser_binding_digest"],
+            "Checkpoint browser binding digest",
+            allow_none=status_value in {
+                LiveCaptureStatus.NEW.value,
+                LiveCaptureStatus.SESSION_LOST.value,
+                LiveCaptureStatus.FAILED.value,
+            },
+        )
     queries = document["queries"]
     if not isinstance(queries, list) or not (1 <= len(queries) <= _MAX_QUERIES):
         raise LiveCaptureError("Capture checkpoint query sequence is invalid")
@@ -335,17 +398,30 @@ def _validate_checkpoint(root: Path, document: object) -> dict[str, object]:
         raise LiveCaptureError("Capture checkpoint completion position is inconsistent")
     if position == len(queries) and phase is not LiveCapturePhase.COMPLETE:
         raise LiveCaptureError("Capture checkpoint terminal position is inconsistent")
-    if status is LiveCaptureStatus.CHALLENGE_REQUIRED and document["category"] not in ("DISCOVERY_BLOCKED", "EXTRACTION_BLOCKED"):
-        raise LiveCaptureError("Capture checkpoint challenge category is invalid")
-    if status is LiveCaptureStatus.CHALLENGE_REQUIRED and phase is LiveCapturePhase.COMPLETE:
-        raise LiveCaptureError("Capture checkpoint challenge phase is invalid")
-    if status is LiveCaptureStatus.RUNNING and document["category"] is not None:
-        raise LiveCaptureError("Capture checkpoint running category is invalid")
-    if status is LiveCaptureStatus.FAILED and document["category"] != "TERMINAL_FAILURE":
+    human_required = status_value in {"CHALLENGE_REQUIRED", LiveCaptureStatus.HUMAN_ACTION_REQUIRED.value}
+    if human_required and document["category"] not in ("DISCOVERY_BLOCKED", "EXTRACTION_BLOCKED"):
+        raise LiveCaptureError("Capture checkpoint access-gate category is invalid")
+    if human_required and phase is LiveCapturePhase.COMPLETE:
+        raise LiveCaptureError("Capture checkpoint access-gate phase is invalid")
+    if status_value in {
+        "RUNNING", LiveCaptureStatus.NEW.value, LiveCaptureStatus.SESSION_READY.value,
+        LiveCaptureStatus.VERIFY_SESSION.value,
+    } and document["category"] is not None:
+        raise LiveCaptureError("Capture checkpoint operational category is invalid")
+    if status_value == LiveCaptureStatus.SESSION_LOST.value and document["category"] not in {
+        "ENDPOINT_MISMATCH", "BINDING_MISMATCH", "RESOURCE_LOST",
+    }:
+        raise LiveCaptureError("Capture checkpoint session-loss category is invalid")
+    if (
+        status_value == LiveCaptureStatus.SESSION_LOST.value
+        and phase is LiveCapturePhase.COMPLETE
+    ):
+        raise LiveCaptureError("Capture checkpoint session-loss phase is invalid")
+    if status_value == "FAILED" and document["category"] != "TERMINAL_FAILURE":
         raise LiveCaptureError("Capture checkpoint failure category is invalid")
-    if status is LiveCaptureStatus.READY and (phase is not LiveCapturePhase.COMPLETE or document["category"] is not None):
+    if status_value == "READY" and (phase is not LiveCapturePhase.COMPLETE or document["category"] is not None):
         raise LiveCaptureError("Capture checkpoint ready state is invalid")
-    if status is LiveCaptureStatus.READY:
+    if status_value == "READY":
         bundle = _safe_path(root, _BUNDLE_NAME, must_exist=True)
         if bundle.is_symlink() or not bundle.is_file():
             raise LiveCaptureError("Ready capture bundle is invalid")
@@ -359,7 +435,12 @@ def _validate_checkpoint(root: Path, document: object) -> dict[str, object]:
             raise LiveCaptureError("Checkpoint manifest could not be read") from exc
         if hashlib.sha256(manifest_bytes).hexdigest() != record["sha256"]:
             raise LiveCaptureError("Checkpoint manifest digest mismatch")
-    document["cdp_endpoint"] = endpoint
+    document["status"] = status_value
+    if version == 1:
+        document["_legacy_endpoint"] = endpoint
+    else:
+        document["endpoint_digest"] = endpoint_digest
+        document["browser_binding_digest"] = browser_binding_digest
     document["selected_candidate"] = candidate
     document["completed_observations"] = observations
     document["completed_cohorts"] = cohorts
@@ -396,12 +477,68 @@ def _outcome(state: dict[str, object], *, bundle: bool = False) -> LiveCaptureOu
     )
 
 
+def _v2_from_legacy(
+    state: dict[str, object], endpoint: str, binding_digest: Optional[str]
+) -> dict[str, object]:
+    return {
+        "schema": _CHECKPOINT_SCHEMA,
+        "version": _CHECKPOINT_VERSION,
+        "status": LiveCaptureStatus.VERIFY_SESSION.value,
+        "endpoint_digest": _digest_endpoint(endpoint),
+        "browser_binding_digest": binding_digest,
+        "queries": state["queries"],
+        "query_position": state["query_position"],
+        "phase": state["phase"],
+        "completed_cohorts": state["completed_cohorts"],
+        "selected_candidate": state["selected_candidate"],
+        "completed_observations": state["completed_observations"],
+        "category": None,
+    }
+
+
+def _session_resource_lost(error: BaseException, session: object = None) -> bool:
+    if isinstance(
+        error,
+        (BrowserNotStartedError, BrowserSessionUnavailableError, PageClosedError),
+    ):
+        return True
+    return (
+        isinstance(error, BrowserContextError)
+        and session is not None
+        and getattr(session, "state", None) in {BrowserState.CLOSED, BrowserState.CRASHED}
+    )
+
+
+def _tool_resource_lost(result: object) -> bool:
+    return (
+        isinstance(result, ToolResult)
+        and result.status is ToolStatus.FAILURE
+        and result.error is not None
+        and result.error.code in {
+            "BROWSER_NOT_STARTED", "BROWSER_SESSION_UNAVAILABLE", "PAGE_CLOSED",
+        }
+    )
+
+
+async def _binding_session(manager: object) -> tuple[object, str]:
+    session = await manager.get_or_create_session(_BINDING_RUN_ID)
+    digest = await session.browser_binding_digest()
+    validated = _validate_digest(digest, "Browser binding digest")
+    assert validated is not None
+    return session, validated
+
+
+async def _verify_session(session: object) -> None:
+    await session.evaluate(_LIVENESS_SCRIPT)
+
+
 async def run_live_capture(
     *,
     job_root: str | os.PathLike[str],
     cdp_endpoint: str,
     queries: Optional[Sequence[str]] = None,
     resume: bool = False,
+    rebind_session: bool = False,
     manager_factory: Optional[Callable[..., object]] = None,
     tool_factory: Optional[Callable[[], object]] = None,
     orchestration: Optional[Callable[..., object]] = None,
@@ -421,26 +558,131 @@ async def run_live_capture(
     initialized = False
     state: Optional[dict[str, object]] = None
     manager = None
+    session = None
     operation_error: Optional[BaseException] = None
     outcome: Optional[LiveCaptureOutcome] = None
     try:
+        if rebind_session and not resume:
+            raise LiveCaptureError("Session rebind requires resume")
         if resume:
             if queries is not None:
                 raise LiveCaptureError("Resume does not accept replacement queries")
             state = _load_resume_state(root)
-            if state["status"] != LiveCaptureStatus.CHALLENGE_REQUIRED.value:
-                raise LiveCaptureError("Only a CHALLENGE_REQUIRED capture may be resumed")
-            initialized = True
-            existing_bundle = _safe_path(root, _BUNDLE_NAME)
-            if existing_bundle.exists() or existing_bundle.is_symlink():
-                raise LiveCaptureError("Capture bundle already exists")
-            if endpoint != state["cdp_endpoint"]:
-                raise LiveCaptureError(
-                    "CDP endpoint does not match the frozen capture endpoint"
-                )
-            state["status"] = LiveCaptureStatus.RUNNING.value
-            state["category"] = None
-            _atomic_checkpoint(root, state)
+            if state["version"] == 1:
+                if state["status"] != "CHALLENGE_REQUIRED":
+                    raise LiveCaptureError(
+                        "Only a legacy CHALLENGE_REQUIRED capture may be upgraded"
+                    )
+                if rebind_session:
+                    raise LiveCaptureError("Legacy capture does not permit session rebind")
+                if endpoint != state["_legacy_endpoint"]:
+                    raise LiveCaptureError(
+                        "CDP endpoint does not match the legacy capture endpoint"
+                    )
+                initialized = True
+                existing_bundle = _safe_path(root, _BUNDLE_NAME)
+                if existing_bundle.exists() or existing_bundle.is_symlink():
+                    state = _v2_from_legacy(state, endpoint, None)
+                    raise LiveCaptureError("Capture bundle already exists")
+                manager = manager_factory(cdp_endpoint=endpoint)
+                try:
+                    session, binding_digest = await _binding_session(manager)
+                except (
+                    BrowserContextError,
+                    BrowserNotStartedError,
+                    BrowserSessionUnavailableError,
+                    PageClosedError,
+                ):
+                    state = _v2_from_legacy(state, endpoint, None)
+                    _mark(state, root, LiveCaptureStatus.SESSION_LOST, "RESOURCE_LOST")
+                    outcome = _outcome(state)
+                except BaseException:
+                    state = _v2_from_legacy(state, endpoint, None)
+                    _mark(state, root, LiveCaptureStatus.FAILED, "TERMINAL_FAILURE")
+                    raise
+                else:
+                    state = _v2_from_legacy(state, endpoint, binding_digest)
+                    _atomic_checkpoint(root, state)
+            else:
+                resumable = state["status"] in {
+                    LiveCaptureStatus.HUMAN_ACTION_REQUIRED.value,
+                    LiveCaptureStatus.SESSION_LOST.value,
+                }
+                if not resumable:
+                    raise LiveCaptureError(
+                        "Only HUMAN_ACTION_REQUIRED or SESSION_LOST may be resumed"
+                    )
+                if state["status"] == LiveCaptureStatus.SESSION_LOST.value:
+                    if not rebind_session:
+                        raise LiveCaptureError(
+                            "SESSION_LOST requires explicit session rebind"
+                        )
+                elif rebind_session:
+                    raise LiveCaptureError(
+                        "Session rebind is valid only for SESSION_LOST"
+                    )
+                initialized = True
+                existing_bundle = _safe_path(root, _BUNDLE_NAME)
+                if existing_bundle.exists() or existing_bundle.is_symlink():
+                    raise LiveCaptureError("Capture bundle already exists")
+                supplied_endpoint_digest = _digest_endpoint(endpoint)
+                if (
+                    not rebind_session
+                    and supplied_endpoint_digest != state["endpoint_digest"]
+                ):
+                    _mark(
+                        state, root, LiveCaptureStatus.SESSION_LOST,
+                        "ENDPOINT_MISMATCH",
+                    )
+                    outcome = _outcome(state)
+                else:
+                    manager = manager_factory(cdp_endpoint=endpoint)
+                    try:
+                        session, binding_digest = await _binding_session(manager)
+                    except (
+                        BrowserContextError,
+                        BrowserNotStartedError,
+                        BrowserSessionUnavailableError,
+                        PageClosedError,
+                    ):
+                        _mark(
+                            state, root, LiveCaptureStatus.SESSION_LOST,
+                            "RESOURCE_LOST",
+                        )
+                        outcome = _outcome(state)
+                    else:
+                        if (
+                            not rebind_session
+                            and binding_digest != state["browser_binding_digest"]
+                        ):
+                            _mark(
+                                state, root, LiveCaptureStatus.SESSION_LOST,
+                                "BINDING_MISMATCH",
+                            )
+                            outcome = _outcome(state)
+                        else:
+                            if rebind_session:
+                                state["endpoint_digest"] = supplied_endpoint_digest
+                                state["browser_binding_digest"] = binding_digest
+                            _mark(
+                                state, root, LiveCaptureStatus.VERIFY_SESSION, None
+                            )
+
+            if outcome is None:
+                try:
+                    await _verify_session(session)
+                except BaseException as error:
+                    if _session_resource_lost(error, session):
+                        _mark(
+                            state, root, LiveCaptureStatus.SESSION_LOST,
+                            "RESOURCE_LOST",
+                        )
+                        outcome = _outcome(state)
+                    else:
+                        raise
+                if outcome is None:
+                    _mark(state, root, LiveCaptureStatus.SESSION_READY, None)
+                    _mark(state, root, LiveCaptureStatus.RUNNING, None)
         else:
             if (
                 queries is None
@@ -463,10 +705,24 @@ async def run_live_capture(
             state = _initial_state(endpoint, frozen_queries)
             _atomic_checkpoint(root, state)
             initialized = True
+            manager = manager_factory(cdp_endpoint=endpoint)
+            try:
+                session, binding_digest = await _binding_session(manager)
+            except (
+                BrowserContextError,
+                BrowserNotStartedError,
+                BrowserSessionUnavailableError,
+                PageClosedError,
+            ):
+                _mark(state, root, LiveCaptureStatus.SESSION_LOST, "RESOURCE_LOST")
+                outcome = _outcome(state)
+            else:
+                state["browser_binding_digest"] = binding_digest
+                _mark(state, root, LiveCaptureStatus.SESSION_READY, None)
+                _mark(state, root, LiveCaptureStatus.RUNNING, None)
 
-        manager = manager_factory(cdp_endpoint=endpoint)
-        tool = tool_factory()
-        while state["query_position"] < len(state["queries"]):
+        tool = tool_factory() if outcome is None else None
+        while outcome is None and state["query_position"] < len(state["queries"]):
             position = state["query_position"]
             query = state["queries"][position]
             phase = LiveCapturePhase(state["phase"])
@@ -480,7 +736,7 @@ async def run_live_capture(
                         (plan,), observed_at=observed_at, evaluated_at=observed_at, shortlist_size=3
                     )
                 except DiscoveryBlockedError:
-                    _mark(state, root, LiveCaptureStatus.CHALLENGE_REQUIRED, "DISCOVERY_BLOCKED")
+                    _mark(state, root, LiveCaptureStatus.HUMAN_ACTION_REQUIRED, "DISCOVERY_BLOCKED")
                     outcome = _outcome(state)
                     break
                 prior_urls = {cohort["product_url"] for cohort in state["completed_cohorts"]}
@@ -525,7 +781,11 @@ async def run_live_capture(
                 and result.error is not None
                 and result.error.code == "EXTRACTION_BLOCKED"
             ):
-                _mark(state, root, LiveCaptureStatus.CHALLENGE_REQUIRED, "EXTRACTION_BLOCKED")
+                _mark(state, root, LiveCaptureStatus.HUMAN_ACTION_REQUIRED, "EXTRACTION_BLOCKED")
+                outcome = _outcome(state)
+                break
+            if _tool_resource_lost(result):
+                _mark(state, root, LiveCaptureStatus.SESSION_LOST, "RESOURCE_LOST")
                 outcome = _outcome(state)
                 break
             if not isinstance(result, ToolResult):
@@ -573,7 +833,7 @@ async def run_live_capture(
         if outcome is None:
             bundle_document = {
                 "schema": _BUNDLE_SCHEMA,
-                "version": _VERSION,
+                "version": _BUNDLE_VERSION,
                 "cohorts": state["completed_cohorts"],
             }
             _exclusive_bundle(root, bundle_document)
@@ -590,6 +850,22 @@ async def run_live_capture(
                     operation_error = close_error
 
     if operation_error is not None:
+        if (
+            initialized
+            and state is not None
+            and state.get("version") == _CHECKPOINT_VERSION
+            and state.get("status") == LiveCaptureStatus.RUNNING.value
+            and _session_resource_lost(operation_error, session)
+        ):
+            try:
+                _mark(
+                    state, root, LiveCaptureStatus.SESSION_LOST,
+                    "RESOURCE_LOST",
+                )
+            except BaseException:
+                pass
+            else:
+                return _outcome(state)
         if (
             initialized
             and state is not None
