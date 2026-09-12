@@ -1,7 +1,7 @@
 review_id: REVIEW-194-001
 reviewed_sha: 7b8ff86c2bf31fccc5d422177f000c65fd0939d6
 mode: PRIMARY
-verdict: BLOCKED
+verdict: CHANGES_REQUIRED
 acceptance:
   AC1: FAIL
   AC2: PASS
