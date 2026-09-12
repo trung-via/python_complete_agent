@@ -1,0 +1,152 @@
+task_id: TASK-195
+revision: 1
+
+goal: >
+  Reconcile the canonical Python Agent roadmap after reviewed and source-published TASK-194,
+  record the Python Agent Manifesto milestone as DONE with exact source provenance, advance the
+  unique Governance Foundation NEXT milestone to Python Agent Constitution, and make the focused
+  roadmap regression genuinely transition-safe across the remaining Governance Foundation
+  sequence without granting Runtime or workers any roadmap auto-advance authority.
+
+problem: >
+  TASK-194 is now semantically PASS and its exact reviewed source candidate
+  e0d8998ee004fda80ca3fbc3de4eb0afb59160a5 has been source-published to canonical main. The
+  current Brain-owned roadmap bookmark intentionally still shows Python Agent Manifesto as NEXT
+  and all four Governance Foundation commitments as NOT_DONE because TASK-194 forbade Executor
+  implementation from advancing planning state. The existing regression was improved by TASK-193
+  but still hard-codes all four Governance commitments as pending, so a correct post-Manifesto
+  transition would make that test stale. Perform one narrow reconciliation that records Manifesto
+  completion, advances Constitution to NEXT, and strengthens the regression around durable
+  sequence-partition invariants rather than the one-time pre-Manifesto state.
+
+assumptions:
+  - >
+    Canonical main at authoring is e0d8998ee004fda80ca3fbc3de4eb0afb59160a5, the exact
+    TASK-194 source candidate reviewed PASS after remediation F1 and source-published by the
+    repository-owned publication workflow.
+  - >
+    TASK-194 established `docs/PYTHON_AGENT_MANIFESTO.md` as the canonical Manifesto with the
+    durable Intelligence Doctrine and explicit Governance Foundation layering. This TASK does not
+    revise Manifesto semantics.
+  - >
+    `.ai/roadmap-state.yaml` is Brain-owned cross-chat planning state, explicitly not engineering
+    truth, and Runtime/worker state has no auto-advance authority.
+  - >
+    Human has not superseded the agreed Governance Foundation order: Manifesto, Constitution,
+    Python Agent Product Contract, then ChatGPT Project Contract reconciliation.
+  - >
+    The exact downstream AIOS runtime authority remains
+    `aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@2599202afedb0622e9e9bdc7b5a15f34da01cc27`.
+
+scope:
+  inspect:
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - .ai/tasks/TASK-193.yaml
+    - .ai/tasks/TASK-194.yaml
+  modify:
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - >
+    Author, draft, or define the Python Agent Constitution, Product Contract, or ChatGPT Project
+    Contract reconciliation in this TASK.
+  - >
+    Modify the Manifesto, Product Intelligence, marketplace/browser/session behavior, scoring,
+    retrieval/RAG, identity, persistence, Human approval, provider/model, media, distribution, or
+    Commerce Intelligence implementation.
+  - >
+    Modify AIOS adoption state, dependency pin, worker surfaces, Runtime, Unified State/Human
+    Surface, correction/repair/publication semantics, Executor selection, or upstream AIOS state.
+  - >
+    Mark TASK-101 or TASK-103 adopted, make them block Governance Foundation, or follow mutable
+    AIOS-renew main.
+  - >
+    Add a planner, automation loop, second lifecycle reducer, roadmap daemon, or any Runtime/worker
+    ability to advance Brain-owned planning state.
+  - >
+    Push, merge, publish, or mutate main from Executor implementation execution.
+
+constraints:
+  hard:
+    - >
+      `.ai/roadmap-state.yaml` must keep `PYTHON_AGENT_GOVERNANCE_FOUNDATION` as the sole ACTIVE
+      track and preserve `authority.owner: BRAIN`, `engineering_truth: false`,
+      `auto_advance_from_runtime_or_worker_state: false`, and `priority_change_owner: HUMAN`.
+    - >
+      Add an exact completed milestone for TASK-194 under the Governance Foundation with
+      `milestone_id: PYTHON_AGENT_MANIFESTO`, status DONE, title `Python Agent Manifesto`, and
+      source SHA `e0d8998ee004fda80ca3fbc3de4eb0afb59160a5`. Do not alter the existing TASK-192
+      completion record or the TASK-191 product checkpoint.
+    - >
+      The unique `next` milestone must become `PYTHON_AGENT_CONSTITUTION` / `Python Agent
+      Constitution` with status NEXT. Python Agent Manifesto must leave `pending_commitments`
+      because canonical evidence now marks it DONE.
+    - >
+      `pending_commitments` must contain exactly the remaining Governance Foundation suffix, in
+      order: `PYTHON_AGENT_CONSTITUTION`, `PYTHON_AGENT_PRODUCT_CONTRACT`,
+      `CHATGPT_PROJECT_CONTRACT_RECONCILIATION`, each with status NOT_DONE. No completed milestone
+      may remain duplicated in the pending set.
+    - >
+      TASK-101 and TASK-103 remain `BLOCKED_PENDING_UPSTREAM` and explicitly non-blocking for the
+      current Governance Foundation track. Their migration gate and exact-pin discipline remain
+      unchanged.
+    - >
+      Strengthen `tests/aios_bridge/test_aios_governance_state.py` so Governance sequencing is
+      transition-safe: the ordered Governance milestones already completed plus the ordered pending
+      commitments must form exactly the durable sequence
+      `PYTHON_AGENT_MANIFESTO -> PYTHON_AGENT_CONSTITUTION -> PYTHON_AGENT_PRODUCT_CONTRACT ->
+      CHATGPT_PROJECT_CONTRACT_RECONCILIATION`; there must be no duplicate IDs; every completed
+      Governance milestone must be DONE with canonical source provenance; every pending item must
+      be NOT_DONE; and `next.id` must equal the first pending Governance commitment.
+    - >
+      The focused regression must explicitly pin the exact TASK-194 Manifesto completion evidence
+      (`task_id: TASK-194`, `milestone_id: PYTHON_AGENT_MANIFESTO`, source SHA
+      `e0d8998ee004fda80ca3fbc3de4eb0afb59160a5`) while retaining exact TASK-192 completion evidence,
+      one ACTIVE track, one NEXT state, visible non-blocking TASK-101/TASK-103, and the no-auto-
+      advance planning authority boundary.
+    - >
+      Do not weaken the regression into YAML parse coverage or hard-code Constitution as a permanent
+      NEXT. It must remain valid when a later fresh Brain reconciliation legitimately moves another
+      Governance milestone from pending to completed using the same schema and invariants.
+    - >
+      Keep `docs/CHATGPT_PROJECT_CONTRACT.md`, `.ai/aios-adoption-state.yaml`, Manifesto, product
+      roadmaps, production source, and AIOS pin unchanged. Any discovered need to widen scope fails
+      closed for separate Brain review.
+    - >
+      Verification must be deterministic and offline: no GitHub/network, marketplace, browser/CDP,
+      provider/LLM, Drive, wall-clock, random/UUID, or mutable external state.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Roadmap state records TASK-194 / PYTHON_AGENT_MANIFESTO DONE with exact source SHA
+      e0d8998ee004fda80ca3fbc3de4eb0afb59160a5, preserves TASK-192 completion and TASK-191 product
+      checkpoint, and remains explicitly Brain-owned non-engineering planning state.
+  - id: AC2
+    condition: >
+      Governance Foundation remains the sole ACTIVE track, Constitution is the single NEXT
+      milestone, and the remaining pending Governance commitments are exactly Constitution,
+      Product Contract, and ChatGPT Project Contract reconciliation in order with no duplicate
+      completed/pending milestone.
+  - id: AC3
+    condition: >
+      TASK-101 and TASK-103 remain visible BLOCKED_PENDING_UPSTREAM and non-blocking for the current
+      track; exact-pin discipline and mutable-main rejection remain unchanged.
+  - id: AC4
+    condition: >
+      The focused roadmap regression proves a transition-safe completed-prefix plus pending-suffix
+      partition of the durable Governance sequence, exact TASK-194 and TASK-192 completion
+      provenance, exactly one ACTIVE/one NEXT, and no Runtime/worker roadmap auto-advance authority.
+  - id: AC5
+    condition: >
+      Only `.ai/roadmap-state.yaml` and `tests/aios_bridge/test_aios_governance_state.py` change;
+      required offline verification and `git diff --check` pass with zero unresolved items.
+
+verification:
+  required:
+    - 'python -m pytest tests/aios_bridge/test_aios_governance_state.py -q'
+    - 'git diff --check'
