@@ -1,0 +1,233 @@
+task_id: TASK-194
+revision: 1
+
+goal: >
+  Establish the canonical Python Agent Manifesto as the first milestone of the Python Agent
+  Governance Foundation. The Manifesto must define the product's durable mission, identity,
+  design values, and non-negotiable direction in a concise Brain/Human-readable form that can
+  guide future Product Intelligence and Commerce AI architecture without duplicating executable
+  governance, Runtime lifecycle, or existing domain authorities. It must make explicit what the
+  product is trying to become, what it refuses to compromise, and which principles later
+  Constitution/Product Contract work must preserve.
+
+problem: >
+  TASK-191 completed the P7.1 real-evidence baseline. TASK-192 then established canonical AIOS
+  downstream-adoption state and ported durable roadmap sequencing, and TASK-193 reconciled the
+  unique NEXT pointer back to Python Agent Governance Foundation with Python Agent Manifesto as
+  the first pending milestone. Python Agent already contains many important principles scattered
+  across CHATGPT_PROJECT_CONTRACT, Product Intelligence phase docs, evidence/truth boundaries,
+  Human approval flows, and roadmap decisions, but no single canonical product-level Manifesto
+  exists. Without one, future expansion into evidence enrichment, Media Intelligence,
+  Distribution Automation, and Commerce Operations can drift toward duplicated semantic
+  authorities, fabricated certainty, provider/executor coupling, automation-for-automation's-sake,
+  or premature scale. The Manifesto must consolidate product intent without becoming a second
+  Constitution, Product Contract, Brain operating contract, scoring policy, or Runtime policy.
+
+assumptions:
+  - >
+    Canonical python_complete_agent main at TASK-194 authoring is
+    9311ece44172390a46f2d5a6bea84aab839a3f4b. REVIEW-193-001 is PRIMARY PASS for that exact
+    source with AC1-AC5 PASS and no findings.
+  - >
+    `.ai/roadmap-state.yaml` is the current canonical Brain planning bookmark. It records
+    `PYTHON_AGENT_GOVERNANCE_FOUNDATION` as ACTIVE and `PYTHON_AGENT_MANIFESTO` as the unique NEXT
+    milestone, followed by Python Agent Constitution, Python Agent Product Contract, and ChatGPT
+    Project Contract reconciliation.
+  - >
+    The exact downstream AIOS runtime authority remains
+    `aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@2599202afedb0622e9e9bdc7b5a15f34da01cc27`.
+    AIOS-renew is execution substrate only and is not Python Agent product-governance authority.
+  - >
+    Existing Product Intelligence authorities remain canonical: evidence preservation is not
+    product-truth reconciliation; retrieval relevance is not product ranking; business ranking is
+    not entity identity; RAG context is not answer truth; Human approval/admission semantics remain
+    with their existing owners; and every new capability must have one explicit semantic owner.
+  - >
+    Human has not superseded the Governance Foundation sequence. The Manifesto is the current
+    milestone only. Constitution, Product Contract, and Project Contract reconciliation remain
+    separate later milestones and must not be prematurely authored or merged into this TASK.
+
+scope:
+  inspect:
+    - .ai/roadmap-state.yaml
+    - .ai/aios-adoption-state.yaml
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - docs/PHASE_6_M2_PRODUCT_INTELLIGENCE.md
+    - docs/PHASE_6_M2_DISCOVERY.md
+    - docs/PHASE_6_P6_3_PRODUCT_TRUTH_RECONCILIATION.md
+    - docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md
+    - docs/PHASE_7_P7_1_REAL_EVIDENCE_COVERAGE_BASELINE.md
+    - .ai/tasks/TASK-192.yaml
+    - .ai/tasks/TASK-193.yaml
+  modify:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - tests/governance/test_python_agent_manifesto.py
+
+non_goals:
+  - >
+    Modify production Python, Product Intelligence behavior, marketplace/browser/session logic,
+    discovery, scoring/ranking, Human approval, identity, persistence, retrieval/RAG, provider/model,
+    CLI, Media Intelligence, Distribution Automation, Commerce Operations, or any product Runtime.
+  - >
+    Modify AIOS dependency pin, AIOS adoption state, worker surfaces, Unified State/Human Surface,
+    Executor semantics, publication, correction, repair, synchronization, or any AIOS-renew
+    implementation.
+  - >
+    Author the Python Agent Constitution, Python Agent Product Contract, or ChatGPT Project Contract
+    reconciliation. Those remain distinct later Governance Foundation milestones.
+  - >
+    Define amendment procedure, conflict-resolution hierarchy, enforcement mechanics, formal role
+    permissions, publication protocol, lifecycle state machine, acceptance criteria for future
+    features, or executable policy. Those belong to Constitution/Product Contract/Project Contract
+    as appropriate.
+  - >
+    Define new Winning Product signals, weights, thresholds, recommendation semantics, winner labels,
+    automatic enrichment priorities, marketplace collection methods, or a P7.2 implementation.
+  - >
+    Treat the Manifesto as proof that any future capability is implemented, safe, reviewed,
+    published, or authorized.
+  - >
+    Copy AIOS-renew Manifesto/Constitution text or make AIOS governance the Python Agent product
+    authority. Python Agent may share sound engineering patterns but must own its own product
+    principles.
+  - >
+    Advance `.ai/roadmap-state.yaml` inside Executor implementation. Manifesto remains NEXT until
+    the exact TASK-194 source is semantically PASS, source-published, and a fresh Brain planning
+    reconciliation canonically marks it DONE and advances Constitution to NEXT.
+  - >
+    Push, merge, publish, or mutate main from Executor implementation execution.
+
+constraints:
+  hard:
+    - >
+      Add exactly one canonical product-governance document at
+      `docs/PYTHON_AGENT_MANIFESTO.md`. It must be concise enough for routine Brain/Human reading,
+      stable enough to outlive individual tasks/providers/executors, and independent from mutable
+      marketplace DOM details, current model names, exact AIOS task numbers, benchmark values, or
+      temporary implementation state.
+    - >
+      The Manifesto mission must define Python Agent as the Product Intelligence foundation of a
+      larger composable Commerce AI System: transform heterogeneous marketplace evidence into
+      trustworthy, auditable product intelligence that helps a Human make better commerce decisions,
+      while allowing later media/distribution/operations layers to compose over canonical outputs
+      without collapsing existing authorities.
+    - >
+      The Manifesto must explicitly state that Python Agent is the product and AIOS-renew is an
+      execution substrate, not product architecture authority. Product architecture must not become
+      semantically dependent on a specific Executor, LLM/provider, browser transport, or AIOS
+      implementation detail.
+    - >
+      The Manifesto must define exactly twelve stable principle IDs, `M1` through `M12`, in this exact
+      order and with these exact semantic responsibilities. The prose may be refined, but no principle
+      may be omitted, merged away, or given a second conflicting meaning:
+        M1 HUMAN_INTENT_SOVEREIGNTY — Human owns goals, priorities, mandate changes, and any approval
+        that existing product authority keeps Human-explicit; automation may assist but may not invent
+        a mandate.
+        M2 EVIDENCE_BEFORE_ASSERTION — marketplace/product claims must be grounded in attributable
+        evidence; unsupported facts remain unknown rather than guessed.
+        M3 UNCERTAINTY_IS_DATA — missing, stale, conflicting, ambiguous, or unavailable evidence must
+        remain explicit; never silently coerce absence to zero, certainty, or repaired truth.
+        M4 ONE_CAPABILITY_ONE_AUTHORITY — each semantic capability has one explicit owner; composition
+        extends existing owners rather than creating shadow identity, truth, ranking, retrieval,
+        approval, persistence, or evidence authorities.
+        M5 BOUNDARY_INTEGRITY — preserve the established distinctions that evidence preservation is
+        not product-truth reconciliation, retrieval relevance is not product ranking, business ranking
+        is not entity identity, RAG context is not answer truth, and recommendation is not Human
+        approval.
+        M6 DETERMINISTIC_AUDITABLE_CORE — canonical transformations and decisions that claim
+        determinism must be reproducible from explicit inputs/policy/time and leave inspectable
+        provenance/evidence for important mutations and conclusions.
+        M7 HUMAN_GOVERNED_CANONICAL_CHANGE — model/agent output is advisory until admitted through the
+        authority that owns canonical change; existing Human-governed admission/approval boundaries
+        must not be bypassed by convenience automation.
+        M8 REAL_EVIDENCE_BEFORE_OPTIMIZATION — certify real paths, measure a trustworthy baseline, then
+        improve; do not add scale, complexity, automation, or optimization merely because it is
+        technically available.
+        M9 EVIDENCE_ECONOMICS — prefer cheap/wide discovery before expensive/narrow acquisition,
+        collect deeper evidence only when justified by decision value, and preserve source/surface
+        provenance instead of pretending all signals are equally available.
+        M10 FAIL_CLOSED_NEVER_FABRICATE — when provenance, identity, session, contract, authority, or
+        required evidence is unsafe or ambiguous, stop or surface uncertainty rather than silently
+        guessing, synthesizing evidence, changing methodology, or routing through hidden fallback.
+        M11 PRODUCT_ABOVE_SUBSTRATE — Python Agent product semantics must survive changes in AIOS,
+        Executor, model/provider, browser/runtime, and deployment tooling; infrastructure serves the
+        product rather than defining it.
+        M12 COMMERCE_AI_BY_COMPOSITION — Product Intelligence is the trustworthy foundation; future
+        Media Intelligence, Distribution Automation, and Commerce Operations should compose over
+        canonical product/evidence outputs with explicit owners instead of becoming one opaque
+        autonomous monolith.
+    - >
+      The Manifesto must contain a clear anti-principles/refusal section stating at minimum that the
+      product rejects fabricated evidence, hidden or implicit approval, shadow semantic authorities,
+      provider/executor lock-in as product architecture, silent fallback across trust boundaries,
+      premature scaling without measured need, and autonomous mutation of canonical product truth
+      without an explicit owning authority.
+    - >
+      The Manifesto must define the intended Governance Foundation layering without implementing later
+      layers: Manifesto answers WHY / enduring product values; Constitution will answer hard governance,
+      authority, conflict and amendment rules; Product Contract will answer WHAT the product promises
+      and the durable architecture/domain boundaries; ChatGPT Project Contract will answer HOW the Brain
+      operates against repository/AIOS state. The Manifesto must state that it does not itself rewrite
+      prior published semantics or resolve conflicts retroactively; later canonical reconciliation is
+      required.
+    - >
+      The Manifesto must separate aspiration from current capability. It may state long-term Commerce AI
+      direction, but must not claim that Media, Distribution, autonomous optimization, livestream,
+      affiliate evidence, cross-platform coverage, or other future systems are already implemented or
+      authorized.
+    - >
+      Add `tests/governance/test_python_agent_manifesto.py` as a structural governance regression only.
+      It may verify UTF-8/no-BOM/LF-safe loading, canonical title/required sections, exactly one ordered
+      occurrence of M1..M12, absence of duplicate principle IDs, and the explicit four-layer governance
+      relationship. It must not duplicate manifesto prose, evaluate philosophical correctness, import
+      production modules, or become a second semantic authority for the principles.
+    - >
+      Do not modify `.ai/roadmap-state.yaml`, `.ai/aios-adoption-state.yaml`,
+      `docs/CHATGPT_PROJECT_CONTRACT.md`, product roadmaps, or production source in this TASK. Planning
+      advancement occurs only after semantic PASS/source publication through a fresh Brain-owned
+      reconciliation, preserving the TASK-192/TASK-193 no-auto-advance governance model.
+    - >
+      Verification must be deterministic and offline: no GitHub/network, browser/CDP, marketplace,
+      provider/LLM, Drive, environment-dependent product evidence, wall-clock, random/UUID, or mutable
+      external state.
+
+acceptance:
+  - id: AC1
+    condition: >
+      `docs/PYTHON_AGENT_MANIFESTO.md` exists as one canonical, concise Python Agent product Manifesto
+      whose mission and identity define Product Intelligence as the trustworthy foundation of a larger
+      composable Commerce AI System and keep AIOS-renew/infrastructure subordinate to product semantics.
+  - id: AC2
+    condition: >
+      The Manifesto contains exactly M1-M12 in order with the twelve Brain-authored semantic
+      responsibilities required by TASK-194, preserving Human intent, evidence/uncertainty, one-owner
+      architecture, boundary integrity, determinism/auditability, Human-governed canonical change,
+      measurement-before-improvement, evidence economics, fail-closed behavior, product/substrate
+      separation, and composable Commerce AI direction.
+  - id: AC3
+    condition: >
+      The Manifesto includes explicit anti-principles and clearly separates aspiration from implemented
+      capability, with no fabricated claims, hidden approval, shadow authority, silent trust-boundary
+      fallback, premature scale mandate, or autonomous canonical-truth mutation.
+  - id: AC4
+    condition: >
+      Governance layering is explicit and non-duplicative: Manifesto=WHY/values,
+      Constitution=hard governance/authority/conflict/amendment, Product Contract=product promises and
+      durable domain/architecture boundaries, Project Contract=Brain operating protocol. TASK-194 does
+      not implement or rewrite the later three layers.
+  - id: AC5
+    condition: >
+      The structural regression proves the Manifesto file/section/principle-ID shape without becoming
+      a second semantic authority; no production source, AIOS state/pin, roadmap state, Project Contract,
+      or product roadmap changes occur.
+  - id: AC6
+    condition: >
+      Required offline verification and git diff --check pass with zero unresolved items and changed-file
+      truth remains exactly within TASK-194 scope.modify.
+
+verification:
+  required:
+    - 'python -m pytest tests/governance/test_python_agent_manifesto.py -q'
+    - 'git diff --check'
