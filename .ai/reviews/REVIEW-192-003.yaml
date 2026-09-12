@@ -1,0 +1,8 @@
+review_id: REVIEW-192-003
+reviewed_sha: dcb7432abc58ed983e6c26d5456ace1423e49981
+mode: DELTA
+verdict: PASS
+acceptance:
+  AC3: PASS
+findings: []
+prior_finding_id: F192-001
