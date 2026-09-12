@@ -31,6 +31,7 @@ from src.product_intelligence.discovery import (
     DiscoveryBlockedError,
     DiscoveryRequest,
 )
+from src.product_intelligence.models import ProductCandidateSnapshot
 from src.product_intelligence.orchestration import (
     PlatformDiscoveryPlan,
     orchestrate_discovery,
@@ -287,6 +288,176 @@ def _initial_state(
     return state
 
 
+_DISCOVERY_BATCH_KEYS = frozenset({
+    "candidate_count",
+    "candidates",
+    "diagnostic_codes",
+    "observed_at",
+    "pages_examined",
+    "platform",
+    "query",
+    "raw_items_seen",
+})
+
+_CANDIDATE_KEYS = frozenset({
+    "candidate_id",
+    "platform",
+    "source_product_id",
+    "url",
+    "observed_at",
+    "collector",
+    "title",
+    "shop_id",
+    "shop_name",
+    "category",
+    "brand",
+    "model",
+    "price",
+    "original_price",
+    "discount_percent",
+    "sold_count",
+    "rating",
+    "review_count",
+    "affiliate_commission_rate",
+    "estimated_commission_value",
+    "creator_count",
+    "video_count",
+    "similar_listing_count",
+    "sales_velocity",
+    "review_velocity",
+    "creator_velocity",
+    "video_velocity",
+})
+
+
+def _validate_persisted_candidate(
+    candidate: object,
+    *,
+    batch_platform: str,
+) -> tuple[str, str]:
+    if not isinstance(candidate, dict):
+        raise LiveCaptureError("Capture checkpoint candidate snapshot is invalid")
+    if set(candidate) != _CANDIDATE_KEYS:
+        raise LiveCaptureError("Capture checkpoint candidate snapshot is invalid")
+
+    cid = candidate["candidate_id"]
+    if not isinstance(cid, str) or not cid:
+        raise LiveCaptureError("Capture checkpoint candidate_id is invalid")
+
+    platform = candidate["platform"]
+    if platform != "shopee" or platform != batch_platform:
+        raise LiveCaptureError("Capture checkpoint candidate platform is invalid")
+
+    url = candidate["url"]
+    if not isinstance(url, str) or not url:
+        raise LiveCaptureError("Capture checkpoint candidate url is invalid")
+
+    title = candidate["title"]
+    if not isinstance(title, str) or not title:
+        raise LiveCaptureError("Capture checkpoint candidate title is invalid")
+
+    collector = candidate["collector"]
+    if not isinstance(collector, str) or not collector:
+        raise LiveCaptureError("Capture checkpoint candidate collector is invalid")
+
+    observed_at_raw = candidate["observed_at"]
+    if not isinstance(observed_at_raw, str):
+        raise LiveCaptureError("Capture checkpoint candidate observed_at is invalid")
+    try:
+        cand_observed_at = datetime.fromisoformat(observed_at_raw)
+    except (ValueError, TypeError) as exc:
+        raise LiveCaptureError("Capture checkpoint candidate observed_at is invalid") from exc
+
+    for str_key in ("source_product_id", "shop_id", "shop_name", "category", "brand", "model"):
+        val = candidate[str_key]
+        if val is not None and not isinstance(val, str):
+            raise LiveCaptureError(f"Capture checkpoint candidate {str_key} is invalid")
+
+    for num_key in (
+        "price",
+        "original_price",
+        "estimated_commission_value",
+        "sales_velocity",
+        "review_velocity",
+        "creator_velocity",
+        "video_velocity",
+    ):
+        val = candidate[num_key]
+        if val is not None and (
+            isinstance(val, bool)
+            or not isinstance(val, (int, float))
+            or val < 0
+        ):
+            raise LiveCaptureError(f"Capture checkpoint candidate {num_key} is invalid")
+
+    for int_key in (
+        "sold_count",
+        "review_count",
+        "creator_count",
+        "video_count",
+        "similar_listing_count",
+    ):
+        val = candidate[int_key]
+        if val is not None and (
+            isinstance(val, bool)
+            or not isinstance(val, int)
+            or val < 0
+        ):
+            raise LiveCaptureError(f"Capture checkpoint candidate {int_key} is invalid")
+
+    for pct_key in ("discount_percent", "affiliate_commission_rate"):
+        val = candidate[pct_key]
+        if val is not None and (
+            isinstance(val, bool)
+            or not isinstance(val, (int, float))
+            or not (0.0 <= val <= 100.0)
+        ):
+            raise LiveCaptureError(f"Capture checkpoint candidate {pct_key} is invalid")
+
+    rating = candidate["rating"]
+    if rating is not None and (
+        isinstance(rating, bool)
+        or not isinstance(rating, (int, float))
+        or not (0.0 <= rating <= 5.0)
+    ):
+        raise LiveCaptureError("Capture checkpoint candidate rating is invalid")
+
+    try:
+        ProductCandidateSnapshot(
+            candidate_id=cid,
+            platform=platform,
+            url=url,
+            observed_at=cand_observed_at,
+            title=title,
+            source_product_id=candidate["source_product_id"],
+            collector=collector,
+            shop_id=candidate["shop_id"],
+            shop_name=candidate["shop_name"],
+            category=candidate["category"],
+            brand=candidate["brand"],
+            model=candidate["model"],
+            price=candidate["price"],
+            original_price=candidate["original_price"],
+            discount_percent=candidate["discount_percent"],
+            sold_count=candidate["sold_count"],
+            rating=candidate["rating"],
+            review_count=candidate["review_count"],
+            affiliate_commission_rate=candidate["affiliate_commission_rate"],
+            estimated_commission_value=candidate["estimated_commission_value"],
+            creator_count=candidate["creator_count"],
+            video_count=candidate["video_count"],
+            similar_listing_count=candidate["similar_listing_count"],
+            sales_velocity=candidate["sales_velocity"],
+            review_velocity=candidate["review_velocity"],
+            creator_velocity=candidate["creator_velocity"],
+            video_velocity=candidate["video_velocity"],
+        )
+    except (ValueError, TypeError) as exc:
+        raise LiveCaptureError(f"Capture checkpoint candidate snapshot is invalid: {exc}") from exc
+
+    return cid, url
+
+
 def _validate_persisted_discovery_batch(
     batch: object,
     *,
@@ -296,40 +467,45 @@ def _validate_persisted_discovery_batch(
 ) -> None:
     if not isinstance(batch, dict):
         raise LiveCaptureError("Capture checkpoint discovery batch is invalid")
-    expected_keys = {
-        "candidate_count",
-        "candidates",
-        "diagnostic_codes",
-        "observed_at",
-        "pages_examined",
-        "platform",
-        "query",
-        "raw_items_seen",
-    }
-    if set(batch) != expected_keys:
+    if set(batch) != _DISCOVERY_BATCH_KEYS:
         raise LiveCaptureError("Capture checkpoint discovery batch is invalid")
     if batch["platform"] != "shopee":
         raise LiveCaptureError("Capture checkpoint discovery batch platform is invalid")
     if batch["query"] != expected_query:
         raise LiveCaptureError("Capture checkpoint discovery batch query mismatch")
-    if batch["pages_examined"] != 1:
+
+    observed_at_raw = batch["observed_at"]
+    if not isinstance(observed_at_raw, str):
+        raise LiveCaptureError("Capture checkpoint discovery batch observed_at is invalid")
+    try:
+        datetime.fromisoformat(observed_at_raw)
+    except (ValueError, TypeError) as exc:
+        raise LiveCaptureError("Capture checkpoint discovery batch observed_at is invalid") from exc
+
+    pages_examined = batch["pages_examined"]
+    if isinstance(pages_examined, bool) or not isinstance(pages_examined, int) or pages_examined != 1:
         raise LiveCaptureError("Capture checkpoint discovery batch pages_examined is invalid")
-    if batch["candidate_count"] != 5:
+
+    raw_items_seen = batch["raw_items_seen"]
+    if isinstance(raw_items_seen, bool) or not isinstance(raw_items_seen, int) or raw_items_seen < 0:
+        raise LiveCaptureError("Capture checkpoint discovery batch raw_items_seen is invalid")
+
+    candidate_count = batch["candidate_count"]
+    if isinstance(candidate_count, bool) or not isinstance(candidate_count, int) or candidate_count != 5:
         raise LiveCaptureError("Capture checkpoint discovery batch candidate_count is invalid")
+
+    diagnostic_codes = batch["diagnostic_codes"]
+    if not isinstance(diagnostic_codes, list) or any(not isinstance(c, str) for c in diagnostic_codes):
+        raise LiveCaptureError("Capture checkpoint discovery batch diagnostic_codes is invalid")
+
     candidates = batch["candidates"]
     if not isinstance(candidates, list) or len(candidates) != 5:
         raise LiveCaptureError("Capture checkpoint discovery batch candidates are invalid")
+
     batch_ids: set[str] = set()
     batch_urls: set[str] = set()
     for candidate in candidates:
-        if not isinstance(candidate, dict):
-            raise LiveCaptureError("Capture checkpoint candidate snapshot is invalid")
-        cid = candidate.get("candidate_id")
-        url = candidate.get("url")
-        if not isinstance(cid, str) or not cid:
-            raise LiveCaptureError("Capture checkpoint candidate_id is invalid")
-        if not isinstance(url, str) or not url:
-            raise LiveCaptureError("Capture checkpoint candidate url is invalid")
+        cid, url = _validate_persisted_candidate(candidate, batch_platform=batch["platform"])
         if cid in batch_ids:
             raise LiveCaptureError("Capture checkpoint discovery batch has duplicate candidate ID")
         if url in batch_urls:
@@ -374,6 +550,8 @@ def _validate_live_discovery_batch(
     candidate_ids: list[str] = []
     candidate_urls: list[str] = []
     for candidate in batch.candidates:
+        if candidate.platform != "shopee":
+            raise LiveCaptureError(f"Discovery candidate platform is invalid: {candidate.platform!r}")
         cid = candidate.candidate_id
         url = candidate.url
         if not isinstance(cid, str) or not cid:

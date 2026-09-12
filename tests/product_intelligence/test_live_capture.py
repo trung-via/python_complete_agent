@@ -1371,3 +1371,123 @@ def test_profile_switching_rejected_on_resume(tmp_path):
     # Resuming without profile derives profile="p7-1-discovery-cohort"
     checkpoint = json.loads((discovery_root / "capture_checkpoint.json").read_bytes())
     assert checkpoint["profile"] == "p7-1-discovery-cohort"
+
+
+def test_discovery_cohort_resume_tampered_batch_after_human_action_fails_closed(tmp_path):
+    import asyncio
+    fixed_time = datetime(2026, 9, 12, 10, 0, 0, tzinfo=timezone.utc)
+    batches = {
+        q: _make_discovery_batch(q, idx, fixed_time)
+        for idx, q in enumerate(DISCOVERY_COHORT_QUERIES)
+    }
+
+    tamper_cases = [
+        ("extra_candidate_field", lambda b: b["candidates"][0].__setitem__("secret_token", "leaked_secret")),
+        ("wrong_candidate_platform", lambda b: b["candidates"][0].__setitem__("platform", "lazada")),
+        ("malformed_candidate_rating", lambda b: b["candidates"][0].__setitem__("rating", 99.0)),
+        ("malformed_candidate_observed_at", lambda b: b["candidates"][0].__setitem__("observed_at", "not-a-datetime")),
+        ("malformed_candidate_price", lambda b: b["candidates"][0].__setitem__("price", -10.0)),
+        ("malformed_batch_count", lambda b: b.__setitem__("candidate_count", 4)),
+        ("malformed_batch_pages", lambda b: b.__setitem__("pages_examined", 2)),
+        ("extra_batch_field", lambda b: b.__setitem__("injected_batch_field", "bad")),
+        ("malformed_batch_platform", lambda b: b.__setitem__("platform", "unsupported")),
+    ]
+
+    for case_name, mutator in tamper_cases:
+        root = tmp_path / f"tamper-human-action-{case_name}"
+        adapter1 = _FakeDiscoveryAdapter(
+            batches_by_query=batches,
+            block_queries=[DISCOVERY_COHORT_QUERIES[1]],
+        )
+        first_outcome = asyncio.run(run_live_capture(
+            job_root=root,
+            cdp_endpoint="http://127.0.0.1:9222",
+            queries=DISCOVERY_COHORT_QUERIES,
+            profile=PROFILE_P7_1_DISCOVERY_COHORT,
+            manager_factory=_Manager,
+            adapter_factory=lambda s: adapter1,
+            now_factory=lambda: fixed_time,
+        ))
+        assert first_outcome.status is LiveCaptureStatus.HUMAN_ACTION_REQUIRED
+
+        checkpoint_path = root / "capture_checkpoint.json"
+        checkpoint_data = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+        assert len(checkpoint_data["completed_batches"]) == 1
+
+        # Tamper the completed batch
+        mutator(checkpoint_data["completed_batches"][0])
+        checkpoint_path.write_text(json.dumps(checkpoint_data), encoding="utf-8")
+
+        adapter2 = _FakeDiscoveryAdapter(batches_by_query=batches)
+        with pytest.raises(LiveCaptureError):
+            asyncio.run(run_live_capture(
+                job_root=root,
+                cdp_endpoint="http://127.0.0.1:9222",
+                resume=True,
+                manager_factory=_Manager,
+                adapter_factory=lambda s: adapter2,
+                now_factory=lambda: fixed_time,
+            ))
+
+        # Prove resume performed no unfinished discovery and emitted no bundle
+        assert adapter2.calls == []
+        assert not (root / "discovery_capture_bundle.json").exists()
+
+
+def test_discovery_cohort_resume_tampered_batch_after_session_lost_fails_closed(tmp_path):
+    import asyncio
+    fixed_time = datetime(2026, 9, 12, 10, 0, 0, tzinfo=timezone.utc)
+    batches = {
+        q: _make_discovery_batch(q, idx, fixed_time)
+        for idx, q in enumerate(DISCOVERY_COHORT_QUERIES)
+    }
+
+    tamper_cases = [
+        ("extra_candidate_field", lambda b: b["candidates"][0].__setitem__("extra_field", "evil")),
+        ("wrong_candidate_platform", lambda b: b["candidates"][0].__setitem__("platform", "amazon")),
+        ("malformed_candidate_count", lambda b: b.__setitem__("candidate_count", 99)),
+        ("malformed_candidate_sold_count", lambda b: b["candidates"][0].__setitem__("sold_count", -1)),
+        ("malformed_diagnostic_codes", lambda b: b.__setitem__("diagnostic_codes", "invalid")),
+    ]
+
+    for case_name, mutator in tamper_cases:
+        root = tmp_path / f"tamper-session-lost-{case_name}"
+        adapter1 = _FakeDiscoveryAdapter(
+            batches_by_query=batches,
+            resource_lost_queries=[DISCOVERY_COHORT_QUERIES[1]],
+        )
+        first_outcome = asyncio.run(run_live_capture(
+            job_root=root,
+            cdp_endpoint="http://127.0.0.1:9222",
+            queries=DISCOVERY_COHORT_QUERIES,
+            profile=PROFILE_P7_1_DISCOVERY_COHORT,
+            manager_factory=_Manager,
+            adapter_factory=lambda s: adapter1,
+            now_factory=lambda: fixed_time,
+        ))
+        assert first_outcome.status is LiveCaptureStatus.SESSION_LOST
+
+        checkpoint_path = root / "capture_checkpoint.json"
+        checkpoint_data = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+        assert len(checkpoint_data["completed_batches"]) == 1
+
+        # Tamper the completed batch
+        mutator(checkpoint_data["completed_batches"][0])
+        checkpoint_path.write_text(json.dumps(checkpoint_data), encoding="utf-8")
+
+        adapter2 = _FakeDiscoveryAdapter(batches_by_query=batches)
+        _Manager.binding_digest = "c" * 64
+        with pytest.raises(LiveCaptureError):
+            asyncio.run(run_live_capture(
+                job_root=root,
+                cdp_endpoint="http://127.0.0.1:9333",
+                resume=True,
+                rebind_session=True,
+                manager_factory=_Manager,
+                adapter_factory=lambda s: adapter2,
+                now_factory=lambda: fixed_time,
+            ))
+
+        # Prove resume performed no unfinished discovery and emitted no bundle
+        assert adapter2.calls == []
+        assert not (root / "discovery_capture_bundle.json").exists()
