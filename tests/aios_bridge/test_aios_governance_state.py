@@ -87,16 +87,42 @@ def test_adoption_registry_pin_audit_authority_and_classes_are_explicit():
 
 def test_relevant_upstream_tasks_have_one_fail_closed_classification():
     state = load_yaml(ADOPTION_FILE)
-    assert classification_for_task(state, "TASK-083") == "PORT_GOVERNANCE"
-    for task_id in (
-        "TASK-086", "TASK-087", "TASK-089", "TASK-090", "TASK-091", "TASK-092",
-        "TASK-093", "TASK-094", "TASK-095", "TASK-096", "TASK-097", "TASK-098",
-        "TASK-099", "TASK-100", "TASK-102",
-    ):
-        assert classification_for_task(state, task_id) == "ADOPTED_BY_PIN"
-    assert classification_for_task(state, "TASK-101") == "BLOCKED_PENDING_UPSTREAM"
-    assert classification_for_task(state, "TASK-103") == "BLOCKED_PENDING_UPSTREAM"
+    expected_task_classes = {
+        **{
+            task_id: "ADOPTED_BY_PIN"
+            for task_id in (
+                "TASK-064", "TASK-065", "TASK-067", "TASK-075", "TASK-076",
+                "TASK-077", "TASK-078", "TASK-079", "TASK-080", "TASK-081",
+                "TASK-085", "TASK-086", "TASK-087", "TASK-088", "TASK-089",
+                "TASK-090", "TASK-091", "TASK-092", "TASK-093", "TASK-094",
+                "TASK-095", "TASK-096", "TASK-097", "TASK-098", "TASK-099",
+                "TASK-100", "TASK-102",
+            )
+        },
+        **{
+            task_id: "EXPLICITLY_NOT_APPLICABLE_OR_OPTIONAL"
+            for task_id in (
+                "TASK-066", "TASK-068", "TASK-069", "TASK-070", "TASK-071",
+                "TASK-072", "TASK-073", "TASK-074", "TASK-084",
+            )
+        },
+        "TASK-083": "PORT_GOVERNANCE",
+        "TASK-101": "BLOCKED_PENDING_UPSTREAM",
+        "TASK-103": "BLOCKED_PENDING_UPSTREAM",
+    }
+    classified_tasks = {
+        task_id: classification_for_task(state, task_id)
+        for task_id in expected_task_classes
+    }
+    assert classified_tasks == expected_task_classes
     families = indexed_families(state)
+    assert families["ADMISSION_FAILURE_V2_AND_CORRECTION_PREFLIGHT"] == {
+        "id": "ADMISSION_FAILURE_V2_AND_CORRECTION_PREFLIGHT",
+        "upstream_tasks": ["TASK-081", "TASK-085"],
+        "classification": "ADOPTED_BY_PIN",
+        "consumption": "PINNED_KERNEL_ONLY",
+        "boundary": "NO_DOWNSTREAM_CONTROL_PLANE_IMPLEMENTATION",
+    }
     assert families["PERFORMANCE_CLOSURE"]["source_published"] is False
     assert families["PERFORMANCE_CLOSURE"]["upstream_roadmap_reconciled"] is False
     assert families["AUTHORED_POST_CHECKPOINT_CAPABILITY"]["semantic_pass"] is False
@@ -104,6 +130,7 @@ def test_relevant_upstream_tasks_have_one_fail_closed_classification():
     assert families["OPTIONAL_OUTER_AUTOMATION"]["classification"] == (
         "EXPLICITLY_NOT_APPLICABLE_OR_OPTIONAL"
     )
+    assert "TASK-084" in families["OPTIONAL_OUTER_AUTOMATION"]["upstream_tasks"]
     assert families[
         "CONTINUE_IMPLEMENTATION_SAFE_PUBLICATION_AND_NATIVE_INSTRUCTIONS"
     ]["safe_publisher"] == "ACTIVE"

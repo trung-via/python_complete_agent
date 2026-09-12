@@ -42,6 +42,12 @@ capability_families:
     classification: ADOPTED_BY_PIN
     consumption: PINNED_KERNEL_ONLY
 
+  - id: ADMISSION_FAILURE_V2_AND_CORRECTION_PREFLIGHT
+    upstream_tasks: [TASK-081, TASK-085]
+    classification: ADOPTED_BY_PIN
+    consumption: PINNED_KERNEL_ONLY
+    boundary: NO_DOWNSTREAM_CONTROL_PLANE_IMPLEMENTATION
+
   - id: ROADMAP_SEQUENCING
     upstream_tasks: [TASK-083]
     classification: PORT_GOVERNANCE
@@ -107,12 +113,13 @@ capability_families:
     consumption: PINNED_KERNEL_ONLY
 
   - id: OPTIONAL_OUTER_AUTOMATION
-    upstream_tasks: [TASK-066, TASK-068, TASK-069, TASK-070, TASK-071, TASK-072, TASK-073, TASK-074]
+    upstream_tasks: [TASK-066, TASK-068, TASK-069, TASK-070, TASK-071, TASK-072, TASK-073, TASK-074, TASK-084]
     classification: EXPLICITLY_NOT_APPLICABLE_OR_OPTIONAL
     consumption: NOT_EXPOSED
     boundary: >-
-      No wakeup, approval, autonomous lane, upstream workflow, or dispatch automation is
-      introduced; Python Agent keeps its existing repository-owned publication workflow.
+      No A6 automated REVIEW-to-REMEDIATION wakeup, approval, autonomous lane, upstream
+      workflow, or dispatch automation is introduced; Python Agent keeps its existing
+      repository-owned publication workflow.
 
   - id: PERFORMANCE_CLOSURE
     upstream_tasks: [TASK-101]
