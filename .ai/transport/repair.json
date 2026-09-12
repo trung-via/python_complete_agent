@@ -1,0 +1,19 @@
+{
+  "repair_id": "REPAIR-189-001",
+  "failed_run_id": "RUN-189-001",
+  "failed_head_sha": "d3c022bf2185fd174b36e0fd9fa42c6081044bd1",
+  "task": {"id": "TASK-189", "revision": 1},
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "src/product_intelligence/live_capture.py",
+    "tests/product_intelligence/test_live_capture.py",
+    "tests/product_intelligence/test_product_intelligence_cli.py"
+  ],
+  "instructions": [
+    "Repair only RUN-189-001 from exact failed head d3c022bf2185fd174b36e0fd9fa42c6081044bd1. Preserve TASK-189 revision 1 and Codex executor identity. This is CODE_FIX for concrete defects established by Runtime verification and Brain audit; do not restart PRIMARY and do not widen into Shopee adapter, browser-manager, AIOS, P7 capture, or unrelated documentation work.",
+    "Fix AC5 session continuity: the opaque browser binding receipt must govern the exact BrowserSession used by unfinished marketplace operations. Reuse the already bound BrowserSession for Shopee discovery and deep acquisition instead of letting downstream components request independent manager sessions with other run_id values. Keep PlaywrightBrowserManager as lifecycle owner, keep existing page-selection semantics unchanged, keep exactly one manager/tool per invocation, and preserve discovery/extraction/product authorities. Add deterministic regression coverage that would fail if discovery or acquisition can silently switch to another manager-created session/page after binding.",
+    "Fix the Runtime verification regression by updating the existing exact CLI parser option assertion so capture includes the already implemented --rebind-session option. Do not change CLI behavior beyond TASK-189 contract.",
+    "Run the full TASK-189 required offline verification and git diff --check. A successful repair must produce a real in-scope committed descendant of the exact failed head with zero unresolved items and no live browser/marketplace/network work."
+  ],
+  "constraints": []
+}
