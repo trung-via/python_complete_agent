@@ -1,0 +1,292 @@
+task_id: TASK-196
+revision: 1
+
+goal: >
+  Establish the canonical Python Agent Constitution as the second milestone of the Python Agent
+  Governance Foundation. The Constitution must translate the published Manifesto's enduring values
+  into durable enforceable governance for mandate, authority, delegation, canonical mutation,
+  conflict/precedence, compliance, and amendment without becoming a second Product Contract, a
+  ChatGPT/AIOS operating manual, or a new runtime governance engine.
+
+problem: >
+  TASK-194 established the canonical Python Agent Manifesto and TASK-195 reconciled the roadmap so
+  Python Agent Constitution is the unique NEXT milestone. Existing product architecture already
+  preserves strong boundaries among Human approval, product truth, identity, persistence, ranking,
+  retrieval, Runtime lifecycle, execution, semantic review, and publication. However, the project
+  still lacks one canonical hard-governance layer that states who may decide or change what, how
+  bounded delegation works, why technical capability/write access does not imply authority, how a
+  single semantic owner is protected, how epistemic layers may or may not be promoted, how
+  governance/authority/evidence conflicts differ, and how the Constitution itself may be amended.
+  Without that layer, future autonomy or composition could silently widen mandates, turn tool
+  capability into authority, create shadow owners, or let lower-level contracts override durable
+  governance.
+
+assumptions:
+  - >
+    Canonical main at authoring is 3f0f81495eb919ddb921e779c5e923bce17d7396, the exact reviewed
+    and source-published TASK-195 candidate.
+  - >
+    `.ai/roadmap-state.yaml` records `PYTHON_AGENT_GOVERNANCE_FOUNDATION` as the sole ACTIVE track,
+    TASK-194 / `PYTHON_AGENT_MANIFESTO` as DONE with exact source SHA
+    e0d8998ee004fda80ca3fbc3de4eb0afb59160a5, and `PYTHON_AGENT_CONSTITUTION` as the unique NEXT
+    milestone.
+  - >
+    The canonical Manifesto at `docs/PYTHON_AGENT_MANIFESTO.md` is the interpretive WHY layer. It
+    defines Human mandate and bounded delegation, one-capability-one-authority, epistemic layer
+    integrity, safe action without fabrication, learning without rewriting history, and
+    product-above-substrate. This TASK translates only the governance consequences that belong in a
+    Constitution; it does not duplicate the Intelligence Doctrine or M1-M12 prose.
+  - >
+    The current `docs/CHATGPT_PROJECT_CONTRACT.md` remains the HOW/operating contract for Brain,
+    repository, review, publication, and pinned AIOS behavior. It is intentionally not reconciled in
+    this TASK; a later dedicated Governance Foundation milestone owns that reconciliation.
+  - >
+    The exact downstream AIOS runtime authority remains
+    `aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@2599202afedb0622e9e9bdc7b5a15f34da01cc27`.
+    AIOS-renew is execution substrate only, not Python Agent constitutional or product-domain
+    authority.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - .ai/roadmap-state.yaml
+    - .ai/aios-adoption-state.yaml
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - docs/POST_M4_P3_HUMAN_GOVERNED_KNOWLEDGE_UPDATE.md
+    - docs/PHASE_6_M4_GROUNDED_ANSWER.md
+    - docs/PHASE_6_P6_3_PRODUCT_TRUTH_RECONCILIATION.md
+    - .ai/tasks/TASK-194.yaml
+    - .ai/tasks/TASK-195.yaml
+  modify:
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - tests/governance/test_python_agent_constitution.py
+
+non_goals:
+  - >
+    Modify production Python, Product Intelligence behavior, marketplace/browser/session logic,
+    ranking/scoring, approval, identity, persistence, retrieval/RAG, product-truth reconciliation,
+    provider/model behavior, Media Intelligence, Distribution Intelligence, Commerce Operations, or
+    any commerce feature.
+  - >
+    Modify the Manifesto, Product Contract, ChatGPT Project Contract, roadmap state, AIOS adoption
+    state, dependency pin, worker surfaces, Runtime, Executor behavior, review/publication mechanics,
+    or upstream AIOS-renew state.
+  - >
+    Enumerate current product-domain owners in a way that duplicates the later Product Contract.
+    The Constitution defines the law that every semantic capability has one canonical owner; the
+    Product Contract later records durable product/domain promises and concrete domain boundaries.
+  - >
+    Hard-code ChatGPT, Codex, Antigravity, AIOS-renew, Gemini, marketplace names, current TASK/RUN
+    numbers, exact dependency SHAs, or current implementation modules as constitutional roles or
+    durable law.
+  - >
+    Build a `GovernanceRuntime`, authority resolver, policy engine, planner, daemon, second state
+    machine, permission service, or any new production enforcement subsystem.
+  - >
+    Grant new autonomous product-truth, approval, publication, roadmap, or canonical mutation
+    authority. The Constitution may define how bounded delegation can legitimately grant authority
+    later, but it does not itself widen current operational or domain authority.
+  - >
+    Treat ordinary conversational Human intent as an implicit mutation of canonical engineering or
+    domain state. Human mandate is sovereign, but canonical state changes still require the
+    applicable authorized governance/domain change path.
+  - >
+    Advance `.ai/roadmap-state.yaml` inside Executor implementation. Constitution remains NEXT until
+    exact TASK-196 source is semantically PASS, source-published, and a fresh Brain-owned roadmap
+    reconciliation records it DONE and advances Product Contract to NEXT.
+  - >
+    Push, merge, publish, or mutate main from Executor implementation execution.
+
+constraints:
+  hard:
+    - >
+      Add exactly one canonical Constitution document at `docs/PYTHON_AGENT_CONSTITUTION.md`. It
+      must be durable, provider/substrate-neutral, concise enough for routine Human/Brain review,
+      and written as enforceable governance rather than product philosophy, product requirements, or
+      operating instructions.
+    - >
+      The Constitution must explicitly preserve the four-layer Governance Foundation separation:
+      Manifesto = interpretive WHY; Constitution = highest enforceable Python Agent governance;
+      Product Contract = durable WHAT/product-domain promises and architecture boundaries; Project
+      Contract = HOW the Brain/repository/execution/review/publication system operates. The
+      Manifesto guides interpretation but is not an executable permission matrix. Lower layers may
+      refine but must not silently override higher enforceable governance.
+    - >
+      Human sovereignty must be formalized without creating an ad-hoc bypass. The Human Principal
+      retains ultimate mandate authority over product goals, priorities, risk appetite, delegation,
+      suspension, and constitutional amendment initiation. Ordinary Human intent may change mandate
+      immediately, but it must not silently rewrite canonical engineering/domain state or
+      retroactively legalize prior actions. Canonical changes take effect only through the relevant
+      admitted governance/domain mutation path.
+    - >
+      The Constitution must state the durable rule `CAPABILITY_IS_NOT_AUTHORITY`: possession of
+      tools, credentials, repository write access, model intelligence, execution ability, browser
+      access, data access, or technical ability never grants semantic, approval, publication,
+      roadmap, or canonical mutation authority by itself.
+    - >
+      Define exactly seven abstract constitutional role IDs, independent from current tools or
+      vendors, with non-overlapping authority responsibilities:
+        HUMAN_PRINCIPAL — mandate, priorities, risk envelope, delegation, suspension, amendment
+        initiation and explicit supersession intent.
+        ARCHITECT — semantic interpretation, architecture proposals, roadmap interpretation, and
+        task/contract authoring within Human mandate; no implicit execution, review, or publication
+        authority.
+        DOMAIN_AUTHORITY — the sole canonical semantic owner for one explicitly assigned product or
+        governance capability.
+        EXECUTION_RUNTIME — deterministic lifecycle/admission/verification/evidence mechanics
+        assigned by lower canonical contracts; no product mandate or domain-semantic ownership.
+        EXECUTOR — HOW for one exact admitted scope; no scope selection, semantic verdict,
+        publication, or self-expansion authority.
+        SEMANTIC_REVIEWER — independent semantic verdict for the admitted review scope; no source
+        mutation or publication authority merely from reviewing.
+        SOURCE_PUBLISHER — publication of the exact admitted/reviewed source candidate only; no
+        semantic review, execution, or product-authority creation.
+      One implementation may occupy multiple roles, but role co-location must not merge their
+      authorities; every action must remain attributable to the role whose authority permits it.
+    - >
+      Bounded delegation must be enforceable in principle. A delegation must identify an explicit
+      mandate/envelope sufficient to determine the delegated domain, permitted decisions/actions,
+      constraints or risk boundary, and any canonical mutation rights. Delegation is revocable and
+      prospective. A delegate may act inside its envelope but may never enlarge, reinterpret, or
+      delegate beyond that envelope without authority from the Human Principal or another explicitly
+      authorized delegator. Absence or ambiguity of delegation grants no autonomous authority.
+    - >
+      `ONE_CAPABILITY_ONE_AUTHORITY` must be constitutional law: every semantic capability has
+      exactly one canonical owner at one time. Composition, a new model, UI, database, agent,
+      provider, or automation layer does not create a second owner. Changing ownership requires an
+      explicit authority migration that names the capability, prior owner, successor owner, scope,
+      preserved invariants, and downstream impact; ambiguous or duplicate ownership fails closed for
+      canonical mutation until reconciled.
+    - >
+      Canonical mutation law must distinguish access from authority. Advisory/model/agent output,
+      evidence retrieval, execution output, test success, technical write permission, or possession
+      of a candidate must not silently become canonical product truth, approval, roadmap state,
+      review verdict, or published source. Mutation requires the authority that owns the target
+      state plus the applicable admitted change/publication boundary.
+    - >
+      Epistemic and decision boundaries from the Manifesto must become a compact constitutional law,
+      not duplicated doctrine prose: no artifact may be promoted from one semantic layer into a
+      stronger layer unless an explicit canonical authority owns that transformation. In
+      particular, evidence cannot silently become product truth, score/ranking cannot silently
+      become approval, recommendation cannot silently become decision/action, grounded context or
+      citations cannot silently become factual truth, and outcome evidence cannot rewrite historical
+      observations or prior decision context.
+    - >
+      Conflict handling must distinguish exactly three classes:
+        GOVERNANCE_CONFLICT — disagreement among canonical governance layers; higher enforceable
+        governance controls, while the Manifesto remains interpretive rather than executable law.
+        AUTHORITY_CONFLICT — two or more actors/components claim the same semantic ownership or a
+        mutation lacks a resolvable owner; canonical mutation fails closed until ownership is
+        reconciled.
+        EVIDENCE_CONFLICT — sources/observations disagree; no constitutional precedence, recency,
+        majority, model, or convenience rule selects a factual winner. The conflict remains evidence
+        until the owning domain reconciliation authority acts.
+    - >
+      The enforceable governance precedence must be durable and substrate-neutral. After
+      publication, the Constitution is the highest enforceable Python Agent governance layer;
+      Product Contract is subordinate to Constitution; Project/Operating Contract is subordinate to
+      Product Contract and Constitution; phase/architecture documentation is subordinate to those
+      contracts; TASK contracts are subordinate to all of the above; implementation and execution
+      evidence cannot amend higher governance. Manifesto remains the highest interpretive philosophy
+      and any deliberate constitutional departure from it requires explicit Human amendment intent
+      and corresponding Manifesto reconciliation rather than silent divergence.
+    - >
+      Substrate neutrality must be explicit: constitutional roles are abstract authorities, not
+      product/vendor identities. Lower contracts may bind concrete tools or models to roles, but tool
+      availability or substitution does not change constitutional authority. Composition never
+      transmits authority implicitly across component boundaries.
+    - >
+      Compliance/enforcement must remain governance-layer enforcement, not a new runtime product.
+      Brain/task design, semantic review, structural governance tests, and existing admitted
+      mutation/publication gates may enforce the Constitution. A constitutional violation blocks the
+      unsafe canonical mutation/publication path, but analysis under explicit uncertainty may
+      continue when no prohibited mutation or trust-boundary crossing occurs.
+    - >
+      Amendment must require: explicit Human Principal intent; a dedicated Constitution amendment
+      task/change; exact affected clauses and rationale; impact analysis for Product/Project
+      contracts and domain authorities; semantic review; source-only publication of the reviewed
+      amendment; and any required downstream reconciliation. Runtime, Executor, model, tool, or
+      lower contract may never self-amend the Constitution. Amendments are prospective and must not
+      rewrite history to make earlier unauthorized actions appear authorized. Emergency handling may
+      stop, suspend, contain, or revoke delegation, but there is no emergency bypass that silently
+      disables the Constitution.
+    - >
+      Include a short transition clause: current lower canonical contracts remain operational where
+      consistent with the Constitution; any apparent inconsistency discovered before the later
+      Product Contract or ChatGPT Project Contract reconciliation milestone fails closed for the
+      conflicting mutation/authority question and is recorded for that dedicated reconciliation,
+      rather than silently resolved by implementation convenience.
+    - >
+      Structure the Constitution as exactly ten ordered Articles with stable IDs and these semantic
+      responsibilities:
+        C1 CONSTITUTIONAL_SCOPE_AND_SUPREMACY
+        C2 CONSTITUTIONAL_ROLES
+        C3 HUMAN_SOVEREIGNTY_AND_BOUNDED_DELEGATION
+        C4 CANONICAL_STATE_AND_MUTATION_AUTHORITY
+        C5 ONE_CAPABILITY_ONE_AUTHORITY
+        C6 EPISTEMIC_AND_DECISION_BOUNDARY_LAW
+        C7 CONFLICT_PRECEDENCE_AND_FAIL_CLOSED
+        C8 COMPOSITION_AND_SUBSTRATE_NEUTRALITY
+        C9 COMPLIANCE_AND_ENFORCEMENT
+        C10 AMENDMENT_AND_TRANSITION
+      Prose may be refined, but no Article may be omitted, duplicated, reordered, or assigned a
+      conflicting meaning.
+    - >
+      Add `tests/governance/test_python_agent_constitution.py` as a structural governance regression
+      only. It may verify UTF-8/no-BOM/LF-safe loading, canonical title/required sections, exactly one
+      ordered occurrence of C1..C10, exactly one occurrence of the seven abstract role IDs,
+      Governance Foundation layer labels, conflict-class labels, `CAPABILITY_IS_NOT_AUTHORITY`,
+      `ONE_CAPABILITY_ONE_AUTHORITY`, and presence of amendment/transition sections. It must not
+      duplicate constitutional prose, implement a policy engine, infer permissions, import
+      production modules, or become a second semantic authority.
+    - >
+      Keep `docs/PYTHON_AGENT_MANIFESTO.md`, `docs/CHATGPT_PROJECT_CONTRACT.md`,
+      `.ai/roadmap-state.yaml`, `.ai/aios-adoption-state.yaml`, the AIOS pin, product roadmaps,
+      production source, and existing domain tests unchanged. Any discovered need to widen scope
+      fails closed for separate Brain review.
+    - >
+      Verification must be deterministic and offline: no GitHub/network, marketplace, browser/CDP,
+      provider/LLM, Drive, wall-clock, random/UUID, or mutable external state.
+
+acceptance:
+  - id: AC1
+    condition: >
+      `docs/PYTHON_AGENT_CONSTITUTION.md` exists as the single canonical Constitution and preserves
+      the four-layer Governance Foundation separation, Human mandate sovereignty without ad-hoc
+      canonical bypass, and Constitution as highest enforceable governance after publication.
+  - id: AC2
+    condition: >
+      The Constitution defines the seven abstract role IDs and preserves logical separation of
+      mandate, architecture, domain ownership, Runtime, Executor, semantic review, and publication;
+      capability/access does not imply authority and role co-location does not merge authority.
+  - id: AC3
+    condition: >
+      Bounded delegation, canonical mutation law, one-capability-one-authority, explicit authority
+      migration, and epistemic/decision promotion boundaries are enforceable at governance level
+      without granting new current autonomy or building a second runtime authority.
+  - id: AC4
+    condition: >
+      Governance, authority, and evidence conflicts are distinguished; durable precedence and
+      fail-closed behavior are explicit; provider/substrate composition cannot silently transmit or
+      create authority.
+  - id: AC5
+    condition: >
+      Amendment/compliance/transition rules require explicit Human-authorized auditable change,
+      forbid self-amendment and retroactive legalization, provide stop/suspend/containment without
+      an emergency bypass, and preserve later Product Contract/Project Contract reconciliation as
+      separate milestones.
+  - id: AC6
+    condition: >
+      The Constitution contains exactly C1..C10 in order and the structural governance regression
+      validates only durable structure/labels, not constitutional semantics or product behavior.
+  - id: AC7
+    condition: >
+      Only `docs/PYTHON_AGENT_CONSTITUTION.md` and
+      `tests/governance/test_python_agent_constitution.py` change; required offline verification and
+      `git diff --check` pass with zero unresolved items.
+
+verification:
+  required:
+    - 'python -m pytest tests/governance/test_python_agent_constitution.py -q'
+    - 'git diff --check'
