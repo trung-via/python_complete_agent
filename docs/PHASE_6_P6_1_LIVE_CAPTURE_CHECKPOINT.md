@@ -56,11 +56,16 @@ TASK-189 is published at candidate `9fa1b2583380e1b6378e5aba3d720c2e78a4b9d4`. T
 BLOCKED / UNPUBLISHED with no source candidate; its diagnostic observations are not baseline truth.
 
 TASK-190 provides only operational capture staging for the 3-query discovery cohort
-(`p7-1-discovery-cohort`) outside Git and runtime verification. It allows a Human operator to stage
-raw `DiscoveryBatch` evidence for the exact queries (`bình giữ nhiệt inox`, `bàn phím cơ`,
-`chuột không dây`) with 5 candidates per query (total 15 distinct candidates) and write an immutable
-`discovery_capture_bundle.json` upon reaching `READY`.
+(`p7-1-discovery-cohort`) outside Git and runtime verification; it does not establish a P7.1 baseline.
+It allows a Human operator to stage raw `DiscoveryBatch` evidence for the exact queries
+(`bình giữ nhiệt inox`, `bàn phím cơ`, `chuột không dây`) with 5 candidates per query (total 15 distinct
+candidates) and write an immutable `discovery_capture_bundle.json` upon reaching `READY`.
 
-Post-publication Human review gate: Human review of the externally staged
-`discovery_capture_bundle.json` is required before any P7.1 benchmark baseline successor task may
-be admitted. Live capture remains outside AIOS engineering execution and runtime verification.
+Post-publication Human review gate: The complete post-publication gate is explicit: a Human operator
+invokes the new profile from an operator-owned authenticated CDP session, resolves any Human-owned access
+challenge, and reviews one READY `discovery_capture_bundle.json` for exact query, order, count, integrity,
+and relevance. Only after that explicit review may a fresh successor task freeze the accepted bundle into
+repository fixtures and replay TASK-181 fully offline. Rejected or blocked external bundles remain
+external operational evidence and are permanently excluded from repaired baseline truth; they are never
+repaired or rehabilitated into baseline truth. TASK-190 itself establishes no P7.1 baseline, and live
+capture remains outside AIOS engineering execution and runtime verification.

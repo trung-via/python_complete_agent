@@ -22,9 +22,11 @@ TASK-187 is CLOSED / PUBLISHED at `857e6b5d0009e9327e1a92d5f62b91432e28f150`.
 TASK-188/RUN-188-004 is BLOCKED / UNPUBLISHED with no source candidate and its diagnostics
 are not baseline truth. TASK-189 is CLOSED / PUBLISHED at candidate `9fa1b2583380e1b6378e5aba3d720c2e78a4b9d4`.
 TASK-190 provides only operational capture staging for the 3-query discovery cohort outside Git
-and runtime verification; post-publication Human review of `discovery_capture_bundle.json` is
-required before any P7.1 benchmark baseline successor task may be admitted. P6.4-P6.6 remain
-DEFERRED / UNIMPLEMENTED.
+and runtime verification without establishing a P7.1 baseline; explicit post-publication Human review of
+one operator-staged READY `discovery_capture_bundle.json` (with accepted-bundle-only fixture freeze
+and permanent exclusion of rejected bundles from repaired baseline truth) is required before any offline
+P7.1 benchmark baseline successor task may be admitted. P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
+
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
 ## 1. Starting point
@@ -374,10 +376,15 @@ evidence; P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
   Continuity V2 only through the existing TASK-137 browser and TASK-166 capture authorities.
 - **TASK-190 — operational capture staging for P7.1 discovery cohort** adds one bounded `p7-1-discovery-cohort`
   profile to `live_capture.py` and CLI `capture` outside Git and runtime verification, staging 3 queries (5 items/query,
-  total 15 distinct candidates) and producing `discovery_capture_bundle.json`.
-- **NEXT — fresh P7.1 real-evidence coverage baseline successor** requires explicit post-publication Human
-  review of the externally staged `discovery_capture_bundle.json` before admission. It must run the frozen
-  evaluator on the reviewed cohort; TASK-186 and TASK-188 must not be continued, repaired, or rehabilitated.
+  total 15 distinct candidates) and producing `discovery_capture_bundle.json`. It does not establish a P7.1 baseline.
+- **NEXT — fresh P7.1 real-evidence coverage baseline successor** requires the explicit post-publication Human
+  review gate before admission: a Human invokes the new profile from an operator-owned authenticated CDP session,
+  resolves any Human-owned access challenge, and reviews one READY `discovery_capture_bundle.json` for exact query, order,
+  count, integrity, and relevance. Only after that review may a fresh successor task freeze the accepted bundle into
+  repository fixtures and replay TASK-181 fully offline. Rejected or blocked external bundles remain external operational
+  evidence and are permanently excluded from repaired baseline truth; TASK-186 and TASK-188 must not be continued, repaired,
+  or rehabilitated.
+
 
 See `docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md` for the audit and boundary.
 
@@ -402,7 +409,7 @@ CLOSED / PUBLISHED through TASK-170 at candidate
 `0781e0810d161ad1a4936c0e3ea31aada5704da1`. P6.2 is PARKED / NOT JUSTIFIED BY
 CURRENT EVIDENCE because the existing TASK-134 -> TASK-122 composition fully
 recovered the measured raw TASK-122 stress weakness; it remains reopenable from
-future evidence. P6.3 is CLOSED with TASK-171 / P6.3a CLOSED / PUBLISHED at candidate `3a33748905154b4822cfc164999e5c57780e67f2`, TASK-172 / P6.3b source hardening CLOSED / PUBLISHED at `63525151e4dbb7a1c30454a301e3c0e20ae771e9`, TASK-173 live-DOM hardening CLOSED / PUBLISHED at `f91dfe0f900664c835fef86bdf5d6c75879dbbdc`, TASK-174 structural-depth hardening CLOSED / PUBLISHED at `8c5a0b2a6a935c5bbecff5cde7b1a32956aa8d32`, TASK-175 same-target acquisition-continuity hardening CLOSED / PUBLISHED at candidate `61f78f8ac1cd14e6e110552ba638eb9ca149403f`, and TASK-176 recording the bounded K550 live certification passage (`P6.3 LIVE RESULT: PASS`). P6.2 remains PARKED / reopenable from future evidence. The completed fresh architecture/value audit selects the separately justified P7 Commerce Opportunity Intelligence branch instead of automatically opening P6.4. TASK-181/P7.0 is CLOSED / PUBLISHED at `9e835ed2c551c2fa3a8b66b82caa238bd41b152c`; TASK-182/RUN-182-006 remains BLOCKED / UNPUBLISHED; TASK-185 is CLOSED / PUBLISHED at `6b03dc14f88ddb98baeb6ae726f0dd913b323ba1`; TASK-186/RUN-186-003 remains BLOCKED / UNPUBLISHED with no source candidate; TASK-187 is CLOSED / PUBLISHED at `857e6b5d0009e9327e1a92d5f62b91432e28f150`; TASK-188/RUN-188-004 remains BLOCKED / UNPUBLISHED with no source candidate and no baseline truth; TASK-189 is CLOSED / PUBLISHED at candidate `9fa1b2583380e1b6378e5aba3d720c2e78a4b9d4`; TASK-190 provides only operational capture staging for the 3-query discovery cohort outside Git and runtime verification; post-publication Human review of `discovery_capture_bundle.json` is required before any P7.1 benchmark baseline successor task may be admitted; and P6.4-P6.6 remain deferred and unimplemented.
+future evidence. P6.3 is CLOSED with TASK-171 / P6.3a CLOSED / PUBLISHED at candidate `3a33748905154b4822cfc164999e5c57780e67f2`, TASK-172 / P6.3b source hardening CLOSED / PUBLISHED at `63525151e4dbb7a1c30454a301e3c0e20ae771e9`, TASK-173 live-DOM hardening CLOSED / PUBLISHED at `f91dfe0f900664c835fef86bdf5d6c75879dbbdc`, TASK-174 structural-depth hardening CLOSED / PUBLISHED at `8c5a0b2a6a935c5bbecff5cde7b1a32956aa8d32`, TASK-175 same-target acquisition-continuity hardening CLOSED / PUBLISHED at candidate `61f78f8ac1cd14e6e110552ba638eb9ca149403f`, and TASK-176 recording the bounded K550 live certification passage (`P6.3 LIVE RESULT: PASS`). P6.2 remains PARKED / reopenable from future evidence. The completed fresh architecture/value audit selects the separately justified P7 Commerce Opportunity Intelligence branch instead of automatically opening P6.4. TASK-181/P7.0 is CLOSED / PUBLISHED at `9e835ed2c551c2fa3a8b66b82caa238bd41b152c`; TASK-182/RUN-182-006 remains BLOCKED / UNPUBLISHED; TASK-185 is CLOSED / PUBLISHED at `6b03dc14f88ddb98baeb6ae726f0dd913b323ba1`; TASK-186/RUN-186-003 remains BLOCKED / UNPUBLISHED with no source candidate; TASK-187 is CLOSED / PUBLISHED at `857e6b5d0009e9327e1a92d5f62b91432e28f150`; TASK-188/RUN-188-004 remains BLOCKED / UNPUBLISHED with no source candidate and no baseline truth; TASK-189 is CLOSED / PUBLISHED at candidate `9fa1b2583380e1b6378e5aba3d720c2e78a4b9d4`; TASK-190 provides only operational capture staging for the 3-query discovery cohort outside Git and runtime verification without establishing a P7.1 baseline; explicit post-publication Human review of one operator-staged READY `discovery_capture_bundle.json` (with accepted-bundle-only fixture freeze and permanent exclusion of rejected bundles from repaired baseline truth) is required before any offline P7.1 benchmark baseline successor task may be admitted; and P6.4-P6.6 remain deferred and unimplemented.
 TASK-165 remains unpublished blocked evidence from
 REVIEW-165-003 F1 and its failed remediation/repair continuation lineage.
 

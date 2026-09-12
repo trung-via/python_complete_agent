@@ -11,9 +11,11 @@ TASK-187 is CLOSED / PUBLISHED at `857e6b5d0009e9327e1a92d5f62b91432e28f150`.
 TASK-188/RUN-188-004 is BLOCKED / UNPUBLISHED with no source candidate; its live
 diagnostics are not baseline truth. TASK-189 is CLOSED / PUBLISHED at
 `9fa1b2583380e1b6378e5aba3d720c2e78a4b9d4`. TASK-190 provides only operational capture
-staging for the 3-query discovery cohort outside Git and runtime verification; post-publication
-Human review of `discovery_capture_bundle.json` is required before any P7.1 benchmark
+staging for the 3-query discovery cohort outside Git and runtime verification without
+establishing a P7.1 baseline; explicit post-publication Human review of one operator-staged
+READY `discovery_capture_bundle.json` is required before any offline P7.1 benchmark
 baseline successor task may be admitted.**
+
 
 ## 1. Audit decision
 
@@ -108,10 +110,16 @@ TASK-189 is CLOSED / PUBLISHED at `9fa1b2583380e1b6378e5aba3d720c2e78a4b9d4`.
 TASK-188/RUN-188-004 remains BLOCKED / UNPUBLISHED with no source candidate, and its diagnostic
 observations must not be reused or treated as baseline truth. TASK-190 provides only
 operational capture staging for the 3-query discovery cohort outside Git and runtime
-verification. The baseline must be a new successor, not a continuation, repair,
-rehabilitation, or publication of TASK-186 or TASK-188. Only after post-publication Human
-review of the externally staged `discovery_capture_bundle.json` may a fresh P7.1 benchmark
-baseline successor task be admitted. That successor must execute the reviewed frozen evaluator
+verification; it does not establish a P7.1 baseline. The baseline must be a new successor, not a
+continuation, repair, rehabilitation, or publication of TASK-186 or TASK-188.
+
+The post-publication Human review gate is explicit: a Human invokes the `p7-1-discovery-cohort`
+profile from an operator-owned authenticated CDP session, resolves any Human-owned access challenge,
+and reviews one READY `discovery_capture_bundle.json` for exact query, order, count, integrity, and
+relevance. Only after that explicit Human review may a fresh successor task freeze the accepted bundle
+into repository fixtures and replay TASK-181 fully offline. Rejected or blocked external bundles remain
+operational evidence and are permanently excluded from repaired baseline truth; they are never
+repaired or rehabilitated into baseline truth. That successor must execute the reviewed frozen evaluator
 on the reviewed real marketplace observations, record the cohort provenance and exact immutable
 report, and interpret the result under separate Human review. It must not acquire live
 marketplace evidence inside ordinary offline Runtime verification.
@@ -136,8 +144,11 @@ current live Shopee result cards were not recognized. TASK-187 is CLOSED / PUBLI
 UNPUBLISHED with no source candidate and no baseline truth. TASK-189 is CLOSED /
 PUBLISHED at `9fa1b2583380e1b6378e5aba3d720c2e78a4b9d4`. TASK-190 provides only
 operational capture staging for the 3-query discovery cohort outside Git and runtime
-verification. Only after post-publication Human review of the externally staged
-`discovery_capture_bundle.json` may a fresh P7.1 benchmark baseline successor task be
-admitted; TASK-186 and TASK-188 must not be continued, repaired, or rehabilitated,
+verification, and does not claim a P7.1 baseline. The post-publication gate requires
+operator-owned authenticated CDP invocation, Human-owned challenge resolution, and Human review
+of one READY `discovery_capture_bundle.json` for exact query, order, count, integrity, and relevance;
+only an accepted bundle may be frozen into repository fixtures for offline TASK-181 replay in a fresh
+successor task, while rejected or blocked bundles remain external operational evidence and are never
+repaired into baseline truth. TASK-186 and TASK-188 must not be continued, repaired, or rehabilitated,
 diagnostic observations are not baseline truth, and no evidence-enrichment implementation
 is opened in advance.
