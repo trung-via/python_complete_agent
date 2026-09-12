@@ -1,0 +1,60 @@
+review_id: REVIEW-190-001
+reviewed_sha: aaced844e10d453963d05b7f27e84108d02e4b85
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: PASS
+  AC3: PASS
+  AC4: PASS
+  AC5: FAIL
+  AC6: PASS
+  AC7: PASS
+  AC8: FAIL
+  AC9: PASS
+findings:
+  - id: F1
+    basis: AC5
+    action: CODE_FIX
+    location: src/product_intelligence/live_capture.py; tests/product_intelligence/test_live_capture.py
+    issue: >
+      Fresh discovery capture stores each accepted batch through exact DiscoveryBatch.to_dict(),
+      but resume does not preserve that exact-public-projection guarantee. The persisted-batch
+      validator checks the DiscoveryBatch top-level key set and then checks only candidate_id and
+      url inside each candidate. It therefore accepts candidate dictionaries with fields that cannot
+      occur in ProductCandidateSnapshot.to_dict(), altered platform/shape metadata, or injected
+      operational/secret-like fields. A later resume copies state["completed_batches"] directly into
+      discovery_capture_bundle.json. Consequently a malformed or hand-edited operational checkpoint
+      can be promoted into READY marketplace evidence that is not an exact public DiscoveryBatch
+      projection and may contain fields forbidden from the READY bundle, violating TASK-190's
+      fail-closed malformed-evidence boundary and AC5.
+    expected: >
+      Make discovery-profile resume fail closed unless every persisted completed batch is structurally
+      an exact valid DiscoveryBatch.to_dict() public projection, including the exact
+      ProductCandidateSnapshot.to_dict() candidate shape and the profile's existing platform/query/
+      count/distinctness invariants, without normalizing, repairing, enriching, or rewriting captured
+      values. Add focused fully offline regressions that tamper a persisted completed batch between a
+      HUMAN_ACTION_REQUIRED or SESSION_LOST stop and resume (for example an extra candidate field,
+      wrong candidate platform, or malformed public-projection field) and prove resume performs no
+      unfinished discovery and emits no READY discovery bundle. Preserve V1/V2 source-pack behavior.
+  - id: F2
+    basis: AC8
+    action: CODE_FIX
+    location: docs/PHASE_6_P6_1_LIVE_CAPTURE_CHECKPOINT.md; docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md; docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md; docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    issue: >
+      The candidate correctly records TASK-189 as published, TASK-188 as blocked/unpublished, and
+      TASK-190 as operational staging only, but its post-publication Human-review wording is too
+      generic for the explicit TASK-190 gate. The documentation does not spell out that the Human
+      invokes the new profile from an operator-owned authenticated CDP session, resolves any
+      Human-owned access challenge, reviews one READY discovery_capture_bundle.json for exact
+      query/order/count/integrity/relevance, and only then allows a fresh successor to freeze the
+      accepted bundle into repository fixtures and replay TASK-181 fully offline. It also omits the
+      required rule that rejected or blocked external bundles remain operational evidence and are
+      never repaired into baseline truth.
+    expected: >
+      Update the canonical phase/roadmap documentation so the complete post-publication Human gate is
+      explicit: operator-owned authenticated CDP invocation, Human-owned challenge resolution, review
+      of one READY bundle for exact query/order/count/integrity/relevance, accepted-bundle-only fixture
+      freeze plus offline TASK-181 replay in a fresh successor, and permanent exclusion of rejected or
+      blocked bundles from repaired baseline truth. Do not claim that TASK-190 itself establishes a
+      P7.1 baseline.
