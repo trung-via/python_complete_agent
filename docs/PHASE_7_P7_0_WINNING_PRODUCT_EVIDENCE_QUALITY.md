@@ -9,8 +9,11 @@ real-evidence baseline. TASK-185 is CLOSED / PUBLISHED at
 UNPUBLISHED by current Shopee live-DOM incompatibility, with no source candidate.
 TASK-187 is CLOSED / PUBLISHED at `857e6b5d0009e9327e1a92d5f62b91432e28f150`.
 TASK-188/RUN-188-004 is BLOCKED / UNPUBLISHED with no source candidate; its live
-diagnostics are not baseline truth. TASK-189 is the current session/access boundary
-prerequisite, and fresh P7.1 raw capture remains deferred until TASK-189 publication.**
+diagnostics are not baseline truth. TASK-189 is CLOSED / PUBLISHED at
+`9fa1b2583380e1b6378e5aba3d720c2e78a4b9d4`. TASK-190 provides only operational capture
+staging for the 3-query discovery cohort outside Git and runtime verification; post-publication
+Human review of `discovery_capture_bundle.json` is required before any P7.1 benchmark
+baseline successor task may be admitted.**
 
 ## 1. Audit decision
 
@@ -101,15 +104,17 @@ RUN/RESULT/FAILURE/REPAIR lineage, and REVIEW-182-006 remain immutable and
 unpublished; their measurements are not baseline truth. TASK-185 hardens only the
 existing Shopee evidence-input boundary and does not recapture or rewrite that cohort.
 
-A fresh P7.1 real-evidence baseline successor remains deferred until TASK-189 receives
-Runtime PASS, semantic PASS, and source-only publication. TASK-188/RUN-188-004 remains
-BLOCKED / UNPUBLISHED with no source candidate, and its diagnostic observations must not
-be reused or treated as baseline truth. The baseline must be a new successor,
-not a continuation, repair, rehabilitation, or publication of TASK-186. That successor
-must execute the reviewed frozen evaluator on a new bounded cohort of reviewed real marketplace
-observations, record the cohort provenance and exact immutable report, and interpret
-the result under separate Human review. It must not acquire live marketplace evidence
-inside ordinary offline Runtime verification.
+TASK-189 is CLOSED / PUBLISHED at `9fa1b2583380e1b6378e5aba3d720c2e78a4b9d4`.
+TASK-188/RUN-188-004 remains BLOCKED / UNPUBLISHED with no source candidate, and its diagnostic
+observations must not be reused or treated as baseline truth. TASK-190 provides only
+operational capture staging for the 3-query discovery cohort outside Git and runtime
+verification. The baseline must be a new successor, not a continuation, repair,
+rehabilitation, or publication of TASK-186 or TASK-188. Only after post-publication Human
+review of the externally staged `discovery_capture_bundle.json` may a fresh P7.1 benchmark
+baseline successor task be admitted. That successor must execute the reviewed frozen evaluator
+on the reviewed real marketplace observations, record the cohort provenance and exact immutable
+report, and interpret the result under separate Human review. It must not acquire live
+marketplace evidence inside ordinary offline Runtime verification.
 
 Only that baseline may justify a subsequent improvement proposal. Longitudinal
 momentum observations, commercial or affiliate evidence acquisition, competition
@@ -128,8 +133,11 @@ coverage rate, business value, winner, recommendation, or enrichment priority.
 TASK-186/RUN-186-003 remains BLOCKED / UNPUBLISHED with no source candidate because
 current live Shopee result cards were not recognized. TASK-187 is CLOSED / PUBLISHED at
 `857e6b5d0009e9327e1a92d5f62b91432e28f150`. TASK-188/RUN-188-004 remains BLOCKED /
-UNPUBLISHED with no source candidate. TASK-189 is the current boundary-hardening
-prerequisite. Only after its Runtime PASS, semantic PASS, and source-only publication may
-fresh P7.1 raw capture begin; diagnostic observations are not baseline truth, TASK-186 and
-TASK-188 must not be continued or rehabilitated, and no evidence-enrichment implementation
+UNPUBLISHED with no source candidate and no baseline truth. TASK-189 is CLOSED /
+PUBLISHED at `9fa1b2583380e1b6378e5aba3d720c2e78a4b9d4`. TASK-190 provides only
+operational capture staging for the 3-query discovery cohort outside Git and runtime
+verification. Only after post-publication Human review of the externally staged
+`discovery_capture_bundle.json` may a fresh P7.1 benchmark baseline successor task be
+admitted; TASK-186 and TASK-188 must not be continued, repaired, or rehabilitated,
+diagnostic observations are not baseline truth, and no evidence-enrichment implementation
 is opened in advance.

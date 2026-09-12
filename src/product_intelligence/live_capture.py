@@ -26,7 +26,11 @@ from src.browser.models import BrowserState
 from src.core.types import ToolCall, ToolResult, ToolStatus
 from src.integrations.playwright.manager import PlaywrightBrowserManager
 from src.product_intelligence.adapters.shopee import ShopeeDiscoveryAdapter
-from src.product_intelligence.discovery import DiscoveryBlockedError, DiscoveryRequest
+from src.product_intelligence.discovery import (
+    DiscoveryBatch,
+    DiscoveryBlockedError,
+    DiscoveryRequest,
+)
 from src.product_intelligence.orchestration import (
     PlatformDiscoveryPlan,
     orchestrate_discovery,
@@ -34,12 +38,22 @@ from src.product_intelligence.orchestration import (
 from src.tools.shopee_scrape_tool import ShopeeScrapeTool
 
 
+PROFILE_P7_1_DISCOVERY_COHORT = "p7-1-discovery-cohort"
+DISCOVERY_COHORT_QUERIES = (
+    "bình giữ nhiệt inox",
+    "bàn phím cơ",
+    "chuột không dây",
+)
+
 _CHECKPOINT_NAME = "capture_checkpoint.json"
 _BUNDLE_NAME = "capture_bundle.json"
+_DISCOVERY_BUNDLE_NAME = "discovery_capture_bundle.json"
 _CHECKPOINT_SCHEMA = "product_intelligence_live_capture_checkpoint"
 _BUNDLE_SCHEMA = "product_intelligence_live_capture_bundle"
+_DISCOVERY_BUNDLE_SCHEMA = "product_intelligence_discovery_capture_bundle"
 _CHECKPOINT_VERSION = 2
 _BUNDLE_VERSION = 1
+_DISCOVERY_BUNDLE_VERSION = 1
 _MAX_QUERIES = 100
 _BINDING_RUN_ID = "live-capture-session-binding"
 _LIVENESS_SCRIPT = "() => true"
@@ -75,6 +89,7 @@ class LiveCaptureOutcome:
     query_count: int
     checkpoint_filename: str = _CHECKPOINT_NAME
     bundle_filename: Optional[str] = None
+    profile: Optional[str] = None
 
     def to_document(self) -> dict[str, object]:
         document: dict[str, object] = {
@@ -84,6 +99,8 @@ class LiveCaptureOutcome:
             "query_count": self.query_count,
             "checkpoint": self.checkpoint_filename,
         }
+        if self.profile is not None:
+            document["profile"] = self.profile
         if self.bundle_filename is not None:
             document["bundle"] = self.bundle_filename
         return document
@@ -205,11 +222,13 @@ def _atomic_checkpoint(root: Path, state: dict[str, object]) -> None:
         raise
 
 
-def _exclusive_bundle(root: Path, document: dict[str, object]) -> None:
-    destination = _safe_path(root, _BUNDLE_NAME)
+def _exclusive_bundle(
+    root: Path, document: dict[str, object], bundle_name: str = _BUNDLE_NAME
+) -> None:
+    destination = _safe_path(root, bundle_name)
     if destination.exists() or destination.is_symlink():
         raise LiveCaptureError("Capture bundle already exists")
-    temporary = _safe_path(root, ".capture_bundle.json.tmp")
+    temporary = _safe_path(root, f".{bundle_name}.tmp")
     if temporary.exists() or temporary.is_symlink():
         raise LiveCaptureError("Bundle atomic-write staging path already exists")
     descriptor: Optional[int] = None
@@ -242,8 +261,12 @@ def _exclusive_bundle(root: Path, document: dict[str, object]) -> None:
                 pass
 
 
-def _initial_state(endpoint: str, queries: Sequence[str]) -> dict[str, object]:
-    return {
+def _initial_state(
+    endpoint: str,
+    queries: Sequence[str],
+    profile: Optional[str] = None,
+) -> dict[str, object]:
+    state: dict[str, object] = {
         "schema": _CHECKPOINT_SCHEMA,
         "version": _CHECKPOINT_VERSION,
         "status": LiveCaptureStatus.NEW.value,
@@ -252,11 +275,135 @@ def _initial_state(endpoint: str, queries: Sequence[str]) -> dict[str, object]:
         "queries": list(queries),
         "query_position": 0,
         "phase": LiveCapturePhase.DISCOVERY.value,
-        "completed_cohorts": [],
-        "selected_candidate": None,
-        "completed_observations": [],
         "category": None,
     }
+    if profile == PROFILE_P7_1_DISCOVERY_COHORT:
+        state["profile"] = PROFILE_P7_1_DISCOVERY_COHORT
+        state["completed_batches"] = []
+    else:
+        state["completed_cohorts"] = []
+        state["selected_candidate"] = None
+        state["completed_observations"] = []
+    return state
+
+
+def _validate_persisted_discovery_batch(
+    batch: object,
+    *,
+    expected_query: str,
+    seen_ids: set[str],
+    seen_urls: set[str],
+) -> None:
+    if not isinstance(batch, dict):
+        raise LiveCaptureError("Capture checkpoint discovery batch is invalid")
+    expected_keys = {
+        "candidate_count",
+        "candidates",
+        "diagnostic_codes",
+        "observed_at",
+        "pages_examined",
+        "platform",
+        "query",
+        "raw_items_seen",
+    }
+    if set(batch) != expected_keys:
+        raise LiveCaptureError("Capture checkpoint discovery batch is invalid")
+    if batch["platform"] != "shopee":
+        raise LiveCaptureError("Capture checkpoint discovery batch platform is invalid")
+    if batch["query"] != expected_query:
+        raise LiveCaptureError("Capture checkpoint discovery batch query mismatch")
+    if batch["pages_examined"] != 1:
+        raise LiveCaptureError("Capture checkpoint discovery batch pages_examined is invalid")
+    if batch["candidate_count"] != 5:
+        raise LiveCaptureError("Capture checkpoint discovery batch candidate_count is invalid")
+    candidates = batch["candidates"]
+    if not isinstance(candidates, list) or len(candidates) != 5:
+        raise LiveCaptureError("Capture checkpoint discovery batch candidates are invalid")
+    batch_ids: set[str] = set()
+    batch_urls: set[str] = set()
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            raise LiveCaptureError("Capture checkpoint candidate snapshot is invalid")
+        cid = candidate.get("candidate_id")
+        url = candidate.get("url")
+        if not isinstance(cid, str) or not cid:
+            raise LiveCaptureError("Capture checkpoint candidate_id is invalid")
+        if not isinstance(url, str) or not url:
+            raise LiveCaptureError("Capture checkpoint candidate url is invalid")
+        if cid in batch_ids:
+            raise LiveCaptureError("Capture checkpoint discovery batch has duplicate candidate ID")
+        if url in batch_urls:
+            raise LiveCaptureError("Capture checkpoint discovery batch has duplicate candidate URL")
+        if cid in seen_ids:
+            raise LiveCaptureError(
+                "Capture checkpoint discovery batches have duplicate candidate ID across queries"
+            )
+        if url in seen_urls:
+            raise LiveCaptureError(
+                "Capture checkpoint discovery batches have duplicate candidate URL across queries"
+            )
+        batch_ids.add(cid)
+        batch_urls.add(url)
+    seen_ids.update(batch_ids)
+    seen_urls.update(batch_urls)
+
+
+def _validate_live_discovery_batch(
+    batch: object,
+    *,
+    expected_query: str,
+    completed_batches: list[dict[str, object]],
+) -> dict[str, object]:
+    if not isinstance(batch, DiscoveryBatch):
+        raise LiveCaptureError("Discovery returned an invalid batch")
+    if batch.platform != "shopee":
+        raise LiveCaptureError(f"Discovery returned unexpected platform: {batch.platform!r}")
+    if batch.query != expected_query:
+        raise LiveCaptureError(
+            f"Discovery query mismatch: expected {expected_query!r}, got {batch.query!r}"
+        )
+    if batch.pages_examined != 1:
+        raise LiveCaptureError(
+            f"Discovery pages_examined mismatch: expected 1, got {batch.pages_examined}"
+        )
+    if len(batch.candidates) != 5:
+        raise LiveCaptureError(
+            f"Discovery candidate count mismatch: expected 5, got {len(batch.candidates)}"
+        )
+
+    candidate_ids: list[str] = []
+    candidate_urls: list[str] = []
+    for candidate in batch.candidates:
+        cid = candidate.candidate_id
+        url = candidate.url
+        if not isinstance(cid, str) or not cid:
+            raise LiveCaptureError("Discovery candidate_id is invalid")
+        if not isinstance(url, str) or not url:
+            raise LiveCaptureError("Discovery candidate url is invalid")
+        candidate_ids.append(cid)
+        candidate_urls.append(url)
+
+    if len(set(candidate_ids)) != 5:
+        raise LiveCaptureError("Discovery batch contains duplicate candidate IDs within batch")
+    if len(set(candidate_urls)) != 5:
+        raise LiveCaptureError("Discovery batch contains duplicate candidate URLs within batch")
+
+    prior_ids = {
+        cand["candidate_id"]
+        for b in completed_batches
+        for cand in b["candidates"]
+    }
+    prior_urls = {
+        cand["url"]
+        for b in completed_batches
+        for cand in b["candidates"]
+    }
+    if any(cid in prior_ids for cid in candidate_ids):
+        raise LiveCaptureError("Discovery batch contains duplicate candidate ID across queries")
+    if any(curl in prior_urls for curl in candidate_urls):
+        raise LiveCaptureError("Discovery batch contains duplicate candidate URL across queries")
+
+    return batch.to_dict()
 
 
 def _digest_endpoint(endpoint: str) -> str:
@@ -305,26 +452,68 @@ def _validate_checkpoint(root: Path, document: object) -> dict[str, object]:
     if not isinstance(document, dict):
         raise LiveCaptureError("Capture checkpoint is corrupt")
     version = document.get("version")
-    common = {
-        "schema", "version", "status", "queries", "query_position", "phase",
-        "completed_cohorts", "selected_candidate", "completed_observations", "category",
-    }
-    v1_required = common | {"cdp_endpoint"}
-    v2_required = common | {"endpoint_digest", "browser_binding_digest"}
-    if version == 1:
-        required = v1_required
-    elif version == _CHECKPOINT_VERSION:
-        required = v2_required
+    profile = document.get("profile")
+
+    if profile is not None and profile != PROFILE_P7_1_DISCOVERY_COHORT:
+        raise LiveCaptureError("Capture checkpoint profile is unsupported")
+
+    if profile == PROFILE_P7_1_DISCOVERY_COHORT:
+        if version != _CHECKPOINT_VERSION:
+            raise LiveCaptureError("Capture checkpoint schema is unsupported")
+        discovery_required = {
+            "schema",
+            "version",
+            "status",
+            "queries",
+            "query_position",
+            "phase",
+            "category",
+            "endpoint_digest",
+            "browser_binding_digest",
+            "profile",
+            "completed_batches",
+        }
+        if set(document) != discovery_required:
+            raise LiveCaptureError("Capture checkpoint is corrupt")
     else:
-        raise LiveCaptureError("Capture checkpoint schema is unsupported")
-    if set(document) != required:
-        raise LiveCaptureError("Capture checkpoint is corrupt")
+        common = {
+            "schema",
+            "version",
+            "status",
+            "queries",
+            "query_position",
+            "phase",
+            "completed_cohorts",
+            "selected_candidate",
+            "completed_observations",
+            "category",
+        }
+        v1_required = common | {"cdp_endpoint"}
+        v2_required = common | {"endpoint_digest", "browser_binding_digest"}
+        if version == 1:
+            required = v1_required
+        elif version == _CHECKPOINT_VERSION:
+            required = v2_required
+        else:
+            raise LiveCaptureError("Capture checkpoint schema is unsupported")
+        if set(document) != required:
+            raise LiveCaptureError("Capture checkpoint is corrupt")
+
     if document["schema"] != _CHECKPOINT_SCHEMA:
         raise LiveCaptureError("Capture checkpoint schema is unsupported")
     try:
         phase = LiveCapturePhase(document["phase"])
     except (ValueError, TypeError) as exc:
         raise LiveCaptureError("Capture checkpoint state is invalid") from exc
+
+    if profile == PROFILE_P7_1_DISCOVERY_COHORT and phase not in (
+        LiveCapturePhase.DISCOVERY,
+        LiveCapturePhase.COMPLETE,
+    ):
+        raise LiveCaptureError(
+            "Capture checkpoint phase is invalid for discovery profile"
+        )
+
     if version == 1:
         status_value = document["status"]
         if status_value not in {"RUNNING", "CHALLENGE_REQUIRED", "READY", "FAILED"}:
@@ -348,14 +537,80 @@ def _validate_checkpoint(root: Path, document: object) -> dict[str, object]:
                 LiveCaptureStatus.FAILED.value,
             },
         )
+
     queries = document["queries"]
-    if not isinstance(queries, list) or not (1 <= len(queries) <= _MAX_QUERIES):
-        raise LiveCaptureError("Capture checkpoint query sequence is invalid")
-    for query in queries:
-        _validate_scalar(query, "Checkpoint query")
+    if profile == PROFILE_P7_1_DISCOVERY_COHORT:
+        if queries != list(DISCOVERY_COHORT_QUERIES):
+            raise LiveCaptureError("Capture checkpoint query sequence is invalid")
+    else:
+        if not isinstance(queries, list) or not (1 <= len(queries) <= _MAX_QUERIES):
+            raise LiveCaptureError("Capture checkpoint query sequence is invalid")
+        for query in queries:
+            _validate_scalar(query, "Checkpoint query")
+
     position = document["query_position"]
     if isinstance(position, bool) or not isinstance(position, int) or not (0 <= position <= len(queries)):
         raise LiveCaptureError("Capture checkpoint query position is invalid")
+
+    if phase is LiveCapturePhase.COMPLETE and position != len(queries):
+        raise LiveCaptureError("Capture checkpoint completion position is inconsistent")
+    if position == len(queries) and phase is not LiveCapturePhase.COMPLETE:
+        raise LiveCaptureError("Capture checkpoint terminal position is inconsistent")
+
+    human_required = status_value in {"CHALLENGE_REQUIRED", LiveCaptureStatus.HUMAN_ACTION_REQUIRED.value}
+    if profile == PROFILE_P7_1_DISCOVERY_COHORT:
+        if human_required and document["category"] != "DISCOVERY_BLOCKED":
+            raise LiveCaptureError("Capture checkpoint access-gate category is invalid")
+    else:
+        if human_required and document["category"] not in ("DISCOVERY_BLOCKED", "EXTRACTION_BLOCKED"):
+            raise LiveCaptureError("Capture checkpoint access-gate category is invalid")
+    if human_required and phase is LiveCapturePhase.COMPLETE:
+        raise LiveCaptureError("Capture checkpoint access-gate phase is invalid")
+    if status_value in {
+        "RUNNING", LiveCaptureStatus.NEW.value, LiveCaptureStatus.SESSION_READY.value,
+        LiveCaptureStatus.VERIFY_SESSION.value,
+    } and document["category"] is not None:
+        raise LiveCaptureError("Capture checkpoint operational category is invalid")
+    if status_value == LiveCaptureStatus.SESSION_LOST.value and document["category"] not in {
+        "ENDPOINT_MISMATCH", "BINDING_MISMATCH", "RESOURCE_LOST",
+    }:
+        raise LiveCaptureError("Capture checkpoint session-loss category is invalid")
+    if (
+        status_value == LiveCaptureStatus.SESSION_LOST.value
+        and phase is LiveCapturePhase.COMPLETE
+    ):
+        raise LiveCaptureError("Capture checkpoint session-loss phase is invalid")
+    if status_value == "FAILED" and document["category"] != "TERMINAL_FAILURE":
+        raise LiveCaptureError("Capture checkpoint failure category is invalid")
+    if status_value == "READY" and (phase is not LiveCapturePhase.COMPLETE or document["category"] is not None):
+        raise LiveCaptureError("Capture checkpoint ready state is invalid")
+
+    if status_value == "READY":
+        bundle_file = _DISCOVERY_BUNDLE_NAME if profile == PROFILE_P7_1_DISCOVERY_COHORT else _BUNDLE_NAME
+        bundle = _safe_path(root, bundle_file, must_exist=True)
+        if bundle.is_symlink() or not bundle.is_file():
+            raise LiveCaptureError("Ready capture bundle is invalid")
+
+    if profile == PROFILE_P7_1_DISCOVERY_COHORT:
+        batches_value = document["completed_batches"]
+        if not isinstance(batches_value, list) or len(batches_value) != position:
+            raise LiveCaptureError("Capture checkpoint discovery batches are inconsistent")
+        all_candidate_ids: set[str] = set()
+        all_urls: set[str] = set()
+        for index, batch in enumerate(batches_value):
+            _validate_persisted_discovery_batch(
+                batch,
+                expected_query=queries[index],
+                seen_ids=all_candidate_ids,
+                seen_urls=all_urls,
+            )
+        document["status"] = status_value
+        document["endpoint_digest"] = endpoint_digest
+        document["browser_binding_digest"] = browser_binding_digest
+        document["profile"] = profile
+        document["completed_batches"] = batches_value
+        return document
+
     candidate = _validate_candidate(document["selected_candidate"], allow_none=True)
     observations_value = document["completed_observations"]
     if not isinstance(observations_value, list) or len(observations_value) > 2:
@@ -394,37 +649,7 @@ def _validate_checkpoint(root: Path, document: object) -> dict[str, object]:
         raise LiveCaptureError("Capture checkpoint phase is missing its selected candidate")
     if len(observations) != expected_observations:
         raise LiveCaptureError("Capture checkpoint phase and observations are inconsistent")
-    if phase is LiveCapturePhase.COMPLETE and position != len(queries):
-        raise LiveCaptureError("Capture checkpoint completion position is inconsistent")
-    if position == len(queries) and phase is not LiveCapturePhase.COMPLETE:
-        raise LiveCaptureError("Capture checkpoint terminal position is inconsistent")
-    human_required = status_value in {"CHALLENGE_REQUIRED", LiveCaptureStatus.HUMAN_ACTION_REQUIRED.value}
-    if human_required and document["category"] not in ("DISCOVERY_BLOCKED", "EXTRACTION_BLOCKED"):
-        raise LiveCaptureError("Capture checkpoint access-gate category is invalid")
-    if human_required and phase is LiveCapturePhase.COMPLETE:
-        raise LiveCaptureError("Capture checkpoint access-gate phase is invalid")
-    if status_value in {
-        "RUNNING", LiveCaptureStatus.NEW.value, LiveCaptureStatus.SESSION_READY.value,
-        LiveCaptureStatus.VERIFY_SESSION.value,
-    } and document["category"] is not None:
-        raise LiveCaptureError("Capture checkpoint operational category is invalid")
-    if status_value == LiveCaptureStatus.SESSION_LOST.value and document["category"] not in {
-        "ENDPOINT_MISMATCH", "BINDING_MISMATCH", "RESOURCE_LOST",
-    }:
-        raise LiveCaptureError("Capture checkpoint session-loss category is invalid")
-    if (
-        status_value == LiveCaptureStatus.SESSION_LOST.value
-        and phase is LiveCapturePhase.COMPLETE
-    ):
-        raise LiveCaptureError("Capture checkpoint session-loss phase is invalid")
-    if status_value == "FAILED" and document["category"] != "TERMINAL_FAILURE":
-        raise LiveCaptureError("Capture checkpoint failure category is invalid")
-    if status_value == "READY" and (phase is not LiveCapturePhase.COMPLETE or document["category"] is not None):
-        raise LiveCaptureError("Capture checkpoint ready state is invalid")
-    if status_value == "READY":
-        bundle = _safe_path(root, _BUNDLE_NAME, must_exist=True)
-        if bundle.is_symlink() or not bundle.is_file():
-            raise LiveCaptureError("Ready capture bundle is invalid")
+
     for record in [*observations, *(item for cohort in cohorts for item in cohort["observations"])]:
         manifest = _safe_path(root, record["manifest_path"], must_exist=True)
         if manifest.is_symlink() or not manifest.is_file():
@@ -468,12 +693,22 @@ def _mark(state: dict[str, object], root: Path, status: LiveCaptureStatus, categ
 
 
 def _outcome(state: dict[str, object], *, bundle: bool = False) -> LiveCaptureOutcome:
+    profile = state.get("profile")
+    bundle_filename = None
+    if bundle:
+        bundle_filename = (
+            _DISCOVERY_BUNDLE_NAME
+            if profile == PROFILE_P7_1_DISCOVERY_COHORT
+            else _BUNDLE_NAME
+        )
     return LiveCaptureOutcome(
         status=LiveCaptureStatus(state["status"]),
         phase=LiveCapturePhase(state["phase"]),
         query_position=state["query_position"],
         query_count=len(state["queries"]),
-        bundle_filename=_BUNDLE_NAME if bundle else None,
+        checkpoint_filename=_CHECKPOINT_NAME,
+        bundle_filename=bundle_filename,
+        profile=profile,
     )
 
 
@@ -537,16 +772,20 @@ async def run_live_capture(
     job_root: str | os.PathLike[str],
     cdp_endpoint: str,
     queries: Optional[Sequence[str]] = None,
+    profile: Optional[str] = None,
     resume: bool = False,
     rebind_session: bool = False,
     manager_factory: Optional[Callable[..., object]] = None,
     tool_factory: Optional[Callable[[], object]] = None,
     orchestration: Optional[Callable[..., object]] = None,
+    adapter_factory: Optional[Callable[..., object]] = None,
     now_factory: Optional[Callable[[], datetime]] = None,
 ) -> LiveCaptureOutcome:
     """Start or explicitly resume one external-root Shopee capture job."""
 
     endpoint = _validate_scalar(cdp_endpoint, "CDP endpoint")
+    if profile is not None and profile != PROFILE_P7_1_DISCOVERY_COHORT:
+        raise LiveCaptureError(f"Unsupported capture profile: {profile}")
     try:
         root = _prepare_job_root(job_root)
     except OSError as exc:
@@ -568,7 +807,15 @@ async def run_live_capture(
             if queries is not None:
                 raise LiveCaptureError("Resume does not accept replacement queries")
             state = _load_resume_state(root)
+            checkpoint_profile = state.get("profile")
+            if profile is not None and profile != checkpoint_profile:
+                raise LiveCaptureError("Resume cannot switch capture profiles")
+            active_profile = checkpoint_profile
             if state["version"] == 1:
+                if active_profile == PROFILE_P7_1_DISCOVERY_COHORT:
+                    raise LiveCaptureError(
+                        "Legacy capture does not support discovery profile"
+                    )
                 if state["status"] != "CHALLENGE_REQUIRED":
                     raise LiveCaptureError(
                         "Only a legacy CHALLENGE_REQUIRED capture may be upgraded"
@@ -622,7 +869,12 @@ async def run_live_capture(
                         "Session rebind is valid only for SESSION_LOST"
                     )
                 initialized = True
-                existing_bundle = _safe_path(root, _BUNDLE_NAME)
+                expected_bundle_name = (
+                    _DISCOVERY_BUNDLE_NAME
+                    if active_profile == PROFILE_P7_1_DISCOVERY_COHORT
+                    else _BUNDLE_NAME
+                )
+                existing_bundle = _safe_path(root, expected_bundle_name)
                 if existing_bundle.exists() or existing_bundle.is_symlink():
                     raise LiveCaptureError("Capture bundle already exists")
                 supplied_endpoint_digest = _digest_endpoint(endpoint)
@@ -684,162 +936,267 @@ async def run_live_capture(
                     _mark(state, root, LiveCaptureStatus.SESSION_READY, None)
                     _mark(state, root, LiveCaptureStatus.RUNNING, None)
         else:
-            if (
-                queries is None
-                or isinstance(queries, (str, bytes))
-                or not (1 <= len(queries) <= _MAX_QUERIES)
-            ):
-                raise LiveCaptureError("Fresh capture requires one or more queries")
-            frozen_queries = [_validate_scalar(query, "Query") for query in queries]
-            checkpoint = _safe_path(root, _CHECKPOINT_NAME)
-            bundle = _safe_path(root, _BUNDLE_NAME)
-            if (
-                checkpoint.exists()
-                or checkpoint.is_symlink()
-                or bundle.exists()
-                or bundle.is_symlink()
-            ):
-                raise LiveCaptureError(
-                    "Fresh capture job root already contains capture state"
-                )
-            state = _initial_state(endpoint, frozen_queries)
-            _atomic_checkpoint(root, state)
-            initialized = True
-            manager = manager_factory(cdp_endpoint=endpoint)
-            try:
-                session, binding_digest = await _binding_session(manager)
-            except (
-                BrowserContextError,
-                BrowserNotStartedError,
-                BrowserSessionUnavailableError,
-                PageClosedError,
-            ):
-                _mark(state, root, LiveCaptureStatus.SESSION_LOST, "RESOURCE_LOST")
-                outcome = _outcome(state)
-            else:
-                state["browser_binding_digest"] = binding_digest
-                _mark(state, root, LiveCaptureStatus.SESSION_READY, None)
-                _mark(state, root, LiveCaptureStatus.RUNNING, None)
-
-        tool = tool_factory() if outcome is None else None
-        while outcome is None and state["query_position"] < len(state["queries"]):
-            position = state["query_position"]
-            query = state["queries"][position]
-            phase = LiveCapturePhase(state["phase"])
-            if phase is LiveCapturePhase.DISCOVERY:
-                request = DiscoveryRequest(query=query, max_pages=1, max_candidates=20)
-                adapter = ShopeeDiscoveryAdapter(browser=session)
-                plan = PlatformDiscoveryPlan(platform="shopee", adapter=adapter, request=request)
-                observed_at = now_factory()
-                try:
-                    result = await orchestration(
-                        (plan,), observed_at=observed_at, evaluated_at=observed_at, shortlist_size=3
+            active_profile = profile
+            if active_profile == PROFILE_P7_1_DISCOVERY_COHORT:
+                if (
+                    queries is None
+                    or isinstance(queries, (str, bytes))
+                    or list(queries) != list(DISCOVERY_COHORT_QUERIES)
+                ):
+                    raise LiveCaptureError(
+                        "Discovery cohort profile requires exactly the 3 benchmark queries in order"
                     )
+                frozen_queries = [_validate_scalar(query, "Query") for query in queries]
+                checkpoint = _safe_path(root, _CHECKPOINT_NAME)
+                bundle = _safe_path(root, _BUNDLE_NAME)
+                discovery_bundle = _safe_path(root, _DISCOVERY_BUNDLE_NAME)
+                if (
+                    checkpoint.exists()
+                    or checkpoint.is_symlink()
+                    or bundle.exists()
+                    or bundle.is_symlink()
+                    or discovery_bundle.exists()
+                    or discovery_bundle.is_symlink()
+                ):
+                    raise LiveCaptureError(
+                        "Fresh capture job root already contains capture state"
+                    )
+                state = _initial_state(endpoint, frozen_queries, profile=active_profile)
+                _atomic_checkpoint(root, state)
+                initialized = True
+                manager = manager_factory(cdp_endpoint=endpoint)
+                try:
+                    session, binding_digest = await _binding_session(manager)
+                except (
+                    BrowserContextError,
+                    BrowserNotStartedError,
+                    BrowserSessionUnavailableError,
+                    PageClosedError,
+                ):
+                    _mark(state, root, LiveCaptureStatus.SESSION_LOST, "RESOURCE_LOST")
+                    outcome = _outcome(state)
+                else:
+                    state["browser_binding_digest"] = binding_digest
+                    _mark(state, root, LiveCaptureStatus.SESSION_READY, None)
+                    _mark(state, root, LiveCaptureStatus.RUNNING, None)
+            else:
+                if (
+                    queries is None
+                    or isinstance(queries, (str, bytes))
+                    or not (1 <= len(queries) <= _MAX_QUERIES)
+                ):
+                    raise LiveCaptureError("Fresh capture requires one or more queries")
+                frozen_queries = [_validate_scalar(query, "Query") for query in queries]
+                checkpoint = _safe_path(root, _CHECKPOINT_NAME)
+                bundle = _safe_path(root, _BUNDLE_NAME)
+                discovery_bundle = _safe_path(root, _DISCOVERY_BUNDLE_NAME)
+                if (
+                    checkpoint.exists()
+                    or checkpoint.is_symlink()
+                    or bundle.exists()
+                    or bundle.is_symlink()
+                    or discovery_bundle.exists()
+                    or discovery_bundle.is_symlink()
+                ):
+                    raise LiveCaptureError(
+                        "Fresh capture job root already contains capture state"
+                    )
+                state = _initial_state(endpoint, frozen_queries, profile=None)
+                _atomic_checkpoint(root, state)
+                initialized = True
+                manager = manager_factory(cdp_endpoint=endpoint)
+                try:
+                    session, binding_digest = await _binding_session(manager)
+                except (
+                    BrowserContextError,
+                    BrowserNotStartedError,
+                    BrowserSessionUnavailableError,
+                    PageClosedError,
+                ):
+                    _mark(state, root, LiveCaptureStatus.SESSION_LOST, "RESOURCE_LOST")
+                    outcome = _outcome(state)
+                else:
+                    state["browser_binding_digest"] = binding_digest
+                    _mark(state, root, LiveCaptureStatus.SESSION_READY, None)
+                    _mark(state, root, LiveCaptureStatus.RUNNING, None)
+
+        if active_profile == PROFILE_P7_1_DISCOVERY_COHORT:
+            while outcome is None and state["query_position"] < len(state["queries"]):
+                position = state["query_position"]
+                query = state["queries"][position]
+                request = DiscoveryRequest(
+                    query=query,
+                    max_candidates=5,
+                    max_pages=1,
+                    locale="vi-VN",
+                )
+                observed_at = now_factory()
+                adapter = (
+                    adapter_factory(session)
+                    if adapter_factory is not None
+                    else ShopeeDiscoveryAdapter(browser=session)
+                )
+                try:
+                    batch = await adapter.discover(request, observed_at=observed_at)
                 except DiscoveryBlockedError:
-                    _mark(state, root, LiveCaptureStatus.HUMAN_ACTION_REQUIRED, "DISCOVERY_BLOCKED")
+                    _mark(
+                        state, root, LiveCaptureStatus.HUMAN_ACTION_REQUIRED, "DISCOVERY_BLOCKED"
+                    )
                     outcome = _outcome(state)
                     break
-                prior_urls = {cohort["product_url"] for cohort in state["completed_cohorts"]}
-                selected = next(
-                    (ranked.candidate for ranked in result.shortlist if ranked.candidate.url not in prior_urls),
-                    None,
+                except BaseException as error:
+                    if _session_resource_lost(error, session):
+                        _mark(
+                            state, root, LiveCaptureStatus.SESSION_LOST, "RESOURCE_LOST"
+                        )
+                        outcome = _outcome(state)
+                        break
+                    raise
+
+                batch_dict = _validate_live_discovery_batch(
+                    batch,
+                    expected_query=query,
+                    completed_batches=state["completed_batches"],
                 )
-                if selected is None:
-                    raise LiveCaptureError("Discovery returned no distinct shortlisted candidate")
-                state["selected_candidate"] = {
-                    "candidate_id": selected.candidate_id,
-                    "product_url": selected.url,
-                    "title": selected.title,
+                state["completed_batches"].append(batch_dict)
+                state["query_position"] += 1
+                state["phase"] = (
+                    LiveCapturePhase.COMPLETE.value
+                    if state["query_position"] == len(state["queries"])
+                    else LiveCapturePhase.DISCOVERY.value
+                )
+                _atomic_checkpoint(root, state)
+
+            if outcome is None:
+                bundle_document = {
+                    "batches": list(state["completed_batches"]),
+                    "queries": list(state["queries"]),
+                    "schema": _DISCOVERY_BUNDLE_SCHEMA,
+                    "version": _DISCOVERY_BUNDLE_VERSION,
                 }
-                state["phase"] = LiveCapturePhase.ACQUIRE_1.value
+                _exclusive_bundle(root, bundle_document, _DISCOVERY_BUNDLE_NAME)
+                _mark(state, root, LiveCaptureStatus.READY, None)
+                outcome = _outcome(state, bundle=True)
+        else:
+            tool = tool_factory() if outcome is None else None
+            while outcome is None and state["query_position"] < len(state["queries"]):
+                position = state["query_position"]
+                query = state["queries"][position]
+                phase = LiveCapturePhase(state["phase"])
+                if phase is LiveCapturePhase.DISCOVERY:
+                    request = DiscoveryRequest(query=query, max_pages=1, max_candidates=20)
+                    adapter = ShopeeDiscoveryAdapter(browser=session)
+                    plan = PlatformDiscoveryPlan(platform="shopee", adapter=adapter, request=request)
+                    observed_at = now_factory()
+                    try:
+                        result = await orchestration(
+                            (plan,), observed_at=observed_at, evaluated_at=observed_at, shortlist_size=3
+                        )
+                    except DiscoveryBlockedError:
+                        _mark(state, root, LiveCaptureStatus.HUMAN_ACTION_REQUIRED, "DISCOVERY_BLOCKED")
+                        outcome = _outcome(state)
+                        break
+                    prior_urls = {cohort["product_url"] for cohort in state["completed_cohorts"]}
+                    selected = next(
+                        (ranked.candidate for ranked in result.shortlist if ranked.candidate.url not in prior_urls),
+                        None,
+                    )
+                    if selected is None:
+                        raise LiveCaptureError("Discovery returned no distinct shortlisted candidate")
+                    state["selected_candidate"] = {
+                        "candidate_id": selected.candidate_id,
+                        "product_url": selected.url,
+                        "title": selected.title,
+                    }
+                    state["phase"] = LiveCapturePhase.ACQUIRE_1.value
+                    _atomic_checkpoint(root, state)
+                    phase = LiveCapturePhase.ACQUIRE_1
+
+                observation_number = 1 if phase is LiveCapturePhase.ACQUIRE_1 else 2
+                output_relative = f"cohorts/query-{position + 1:04d}/observation-{observation_number:04d}"
+                output_directory = _safe_path(root, output_relative)
+                output_directory.mkdir(parents=True, exist_ok=True)
+                if not _is_relative_to(output_directory.resolve(strict=True), root):
+                    raise LiveCaptureError("Observation output path escapes the job root")
+                identifier = f"live-capture-q{position + 1:04d}-o{observation_number:04d}"
+                result = await tool.execute(
+                    ToolCall(
+                        name="shopee_scrape",
+                        arguments={"url": state["selected_candidate"]["product_url"]},
+                        call_id=identifier,
+                        run_id=identifier,
+                    ),
+                    {
+                        "browser": session,
+                        "browser_manager": manager,
+                        "gdrive": _LocalDriveSink(),
+                        "output_dir": str(output_directory),
+                    },
+                )
+                if (
+                    isinstance(result, ToolResult)
+                    and result.status is ToolStatus.FAILURE
+                    and result.error is not None
+                    and result.error.code == "EXTRACTION_BLOCKED"
+                ):
+                    _mark(state, root, LiveCaptureStatus.HUMAN_ACTION_REQUIRED, "EXTRACTION_BLOCKED")
+                    outcome = _outcome(state)
+                    break
+                if _tool_resource_lost(result):
+                    _mark(state, root, LiveCaptureStatus.SESSION_LOST, "RESOURCE_LOST")
+                    outcome = _outcome(state)
+                    break
+                if not isinstance(result, ToolResult):
+                    raise LiveCaptureError("Acquisition returned an invalid result")
+                if result.status is not ToolStatus.SUCCESS or result.error is not None:
+                    raise LiveCaptureError("Acquisition failed")
+                manifests = list(output_directory.rglob("source_pack.json"))
+                if len(manifests) != 1:
+                    raise LiveCaptureError("Acquisition did not persist exactly one source manifest")
+                manifest = manifests[0]
+                if manifest.is_symlink() or not manifest.is_file():
+                    raise LiveCaptureError("Acquisition manifest is invalid")
+                resolved_manifest = manifest.resolve(strict=True)
+                if not _is_relative_to(resolved_manifest, root):
+                    raise LiveCaptureError("Acquisition manifest escapes the job root")
+                relative_manifest = resolved_manifest.relative_to(root).as_posix()
+                observation = {
+                    "manifest_path": relative_manifest,
+                    "sha256": hashlib.sha256(resolved_manifest.read_bytes()).hexdigest(),
+                }
+                state["completed_observations"].append(observation)
+                if observation_number == 1:
+                    state["phase"] = LiveCapturePhase.ACQUIRE_2.value
+                    _atomic_checkpoint(root, state)
+                    continue
+
+                candidate = state["selected_candidate"]
+                state["completed_cohorts"].append({
+                    "query": query,
+                    "candidate_id": candidate["candidate_id"],
+                    "product_url": candidate["product_url"],
+                    "title": candidate["title"],
+                    "observations": list(state["completed_observations"]),
+                })
+                state["query_position"] += 1
+                state["selected_candidate"] = None
+                state["completed_observations"] = []
+                state["phase"] = (
+                    LiveCapturePhase.COMPLETE.value
+                    if state["query_position"] == len(state["queries"])
+                    else LiveCapturePhase.DISCOVERY.value
+                )
                 _atomic_checkpoint(root, state)
-                phase = LiveCapturePhase.ACQUIRE_1
 
-            observation_number = 1 if phase is LiveCapturePhase.ACQUIRE_1 else 2
-            output_relative = f"cohorts/query-{position + 1:04d}/observation-{observation_number:04d}"
-            output_directory = _safe_path(root, output_relative)
-            output_directory.mkdir(parents=True, exist_ok=True)
-            if not _is_relative_to(output_directory.resolve(strict=True), root):
-                raise LiveCaptureError("Observation output path escapes the job root")
-            identifier = f"live-capture-q{position + 1:04d}-o{observation_number:04d}"
-            result = await tool.execute(
-                ToolCall(
-                    name="shopee_scrape",
-                    arguments={"url": state["selected_candidate"]["product_url"]},
-                    call_id=identifier,
-                    run_id=identifier,
-                ),
-                {
-                    "browser": session,
-                    "browser_manager": manager,
-                    "gdrive": _LocalDriveSink(),
-                    "output_dir": str(output_directory),
-                },
-            )
-            if (
-                isinstance(result, ToolResult)
-                and result.status is ToolStatus.FAILURE
-                and result.error is not None
-                and result.error.code == "EXTRACTION_BLOCKED"
-            ):
-                _mark(state, root, LiveCaptureStatus.HUMAN_ACTION_REQUIRED, "EXTRACTION_BLOCKED")
-                outcome = _outcome(state)
-                break
-            if _tool_resource_lost(result):
-                _mark(state, root, LiveCaptureStatus.SESSION_LOST, "RESOURCE_LOST")
-                outcome = _outcome(state)
-                break
-            if not isinstance(result, ToolResult):
-                raise LiveCaptureError("Acquisition returned an invalid result")
-            if result.status is not ToolStatus.SUCCESS or result.error is not None:
-                raise LiveCaptureError("Acquisition failed")
-            manifests = list(output_directory.rglob("source_pack.json"))
-            if len(manifests) != 1:
-                raise LiveCaptureError("Acquisition did not persist exactly one source manifest")
-            manifest = manifests[0]
-            if manifest.is_symlink() or not manifest.is_file():
-                raise LiveCaptureError("Acquisition manifest is invalid")
-            resolved_manifest = manifest.resolve(strict=True)
-            if not _is_relative_to(resolved_manifest, root):
-                raise LiveCaptureError("Acquisition manifest escapes the job root")
-            relative_manifest = resolved_manifest.relative_to(root).as_posix()
-            observation = {
-                "manifest_path": relative_manifest,
-                "sha256": hashlib.sha256(resolved_manifest.read_bytes()).hexdigest(),
-            }
-            state["completed_observations"].append(observation)
-            if observation_number == 1:
-                state["phase"] = LiveCapturePhase.ACQUIRE_2.value
-                _atomic_checkpoint(root, state)
-                continue
-
-            candidate = state["selected_candidate"]
-            state["completed_cohorts"].append({
-                "query": query,
-                "candidate_id": candidate["candidate_id"],
-                "product_url": candidate["product_url"],
-                "title": candidate["title"],
-                "observations": list(state["completed_observations"]),
-            })
-            state["query_position"] += 1
-            state["selected_candidate"] = None
-            state["completed_observations"] = []
-            state["phase"] = (
-                LiveCapturePhase.COMPLETE.value
-                if state["query_position"] == len(state["queries"])
-                else LiveCapturePhase.DISCOVERY.value
-            )
-            _atomic_checkpoint(root, state)
-
-        if outcome is None:
-            bundle_document = {
-                "schema": _BUNDLE_SCHEMA,
-                "version": _BUNDLE_VERSION,
-                "cohorts": state["completed_cohorts"],
-            }
-            _exclusive_bundle(root, bundle_document)
-            _mark(state, root, LiveCaptureStatus.READY, None)
-            outcome = _outcome(state, bundle=True)
+            if outcome is None:
+                bundle_document = {
+                    "schema": _BUNDLE_SCHEMA,
+                    "version": _BUNDLE_VERSION,
+                    "cohorts": state["completed_cohorts"],
+                }
+                _exclusive_bundle(root, bundle_document)
+                _mark(state, root, LiveCaptureStatus.READY, None)
+                outcome = _outcome(state, bundle=True)
     except BaseException as error:
         operation_error = error
     finally:
@@ -884,9 +1241,11 @@ async def run_live_capture(
 
 
 __all__ = [
+    "DISCOVERY_COHORT_QUERIES",
     "LiveCaptureError",
     "LiveCaptureOutcome",
     "LiveCapturePhase",
     "LiveCaptureStatus",
+    "PROFILE_P7_1_DISCOVERY_COHORT",
     "run_live_capture",
 ]

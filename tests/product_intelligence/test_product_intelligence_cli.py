@@ -236,6 +236,7 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
             "--help",
             "--job-root",
             "--cdp-endpoint",
+            "--profile",
             "--query",
             "--resume",
             "--rebind-session",
@@ -3815,8 +3816,124 @@ def test_capture_cli_filesystem_error_is_bounded_without_capture_secret_leakage(
 @pytest.mark.parametrize("argv", [
     ["capture", "--job-root", "job", "--cdp-endpoint", "endpoint"],
     ["capture", "--resume", "--job-root", "job", "--cdp-endpoint", "endpoint", "--query", "q"],
+    ["capture", "--job-root", "job", "--cdp-endpoint", "endpoint", "--profile", "invalid", "--query", "q"],
+    ["capture", "--job-root", "job", "--cdp-endpoint", "endpoint", "--profile", "p7-1-discovery-cohort", "--profile", "p7-1-discovery-cohort", "--query", "q"],
 ])
 def test_capture_cli_mode_misuse_is_argparse_exit_2(argv):
     with pytest.raises(SystemExit) as exc:
         cli.main(argv)
     assert exc.value.code == 2
+
+
+def test_capture_cli_discovery_cohort_contracts(monkeypatch, capsys, tmp_path):
+    from src.product_intelligence.live_capture import (
+        DISCOVERY_COHORT_QUERIES,
+        LiveCaptureOutcome,
+        LiveCapturePhase,
+        LiveCaptureStatus,
+    )
+
+    received = []
+
+    async def fake_capture(**kwargs):
+        received.append(kwargs)
+        return LiveCaptureOutcome(
+            status=(
+                LiveCaptureStatus.HUMAN_ACTION_REQUIRED
+                if kwargs["resume"]
+                else LiveCaptureStatus.READY
+            ),
+            phase=(
+                LiveCapturePhase.DISCOVERY
+                if kwargs["resume"]
+                else LiveCapturePhase.COMPLETE
+            ),
+            query_position=1 if kwargs["resume"] else 3,
+            query_count=3,
+            checkpoint_filename="capture_checkpoint.json",
+            bundle_filename=None if kwargs["resume"] else "discovery_capture_bundle.json",
+            profile="p7-1-discovery-cohort",
+        )
+
+    monkeypatch.setattr(cli, "_run_live_capture", fake_capture)
+    job_root = tmp_path / "cohort-root-secret"
+    endpoint = "http://127.0.0.1:9222/devtools/browser/cdp-secret"
+
+    # 1. Fresh discovery cohort run
+    argv = [
+        "capture",
+        "--job-root", str(job_root),
+        "--cdp-endpoint", endpoint,
+        "--profile", "p7-1-discovery-cohort",
+        "--query", DISCOVERY_COHORT_QUERIES[0],
+        "--query", DISCOVERY_COHORT_QUERIES[1],
+        "--query", DISCOVERY_COHORT_QUERIES[2],
+    ]
+    assert cli.main(argv) == 0
+    fresh_rendered = capsys.readouterr()
+    assert fresh_rendered.err == ""
+    fresh = json.loads(fresh_rendered.out)
+    assert fresh == {
+        "status": "READY",
+        "phase": "COMPLETE",
+        "query_position": 3,
+        "query_count": 3,
+        "checkpoint": "capture_checkpoint.json",
+        "profile": "p7-1-discovery-cohort",
+        "bundle": "discovery_capture_bundle.json",
+    }
+    assert str(job_root) not in fresh_rendered.out
+    assert endpoint not in fresh_rendered.out
+    assert received[0]["profile"] == "p7-1-discovery-cohort"
+    assert received[0]["queries"] == list(DISCOVERY_COHORT_QUERIES)
+
+    # 2. Resume discovery cohort run
+    resume_argv = [
+        "capture",
+        "--resume",
+        "--job-root", str(job_root),
+        "--cdp-endpoint", endpoint,
+    ]
+    assert cli.main(resume_argv) == 0
+    resumed_rendered = capsys.readouterr()
+    resumed = json.loads(resumed_rendered.out)
+    assert resumed["status"] == "HUMAN_ACTION_REQUIRED"
+    assert resumed["profile"] == "p7-1-discovery-cohort"
+    assert "bundle" not in resumed
+    assert received[1]["profile"] is None  # derived from checkpoint on resume
+    assert received[1]["queries"] is None
+
+
+def test_capture_cli_discovery_cohort_error_is_bounded_and_redacts_secrets(
+    monkeypatch, capsys, tmp_path
+):
+    from src.product_intelligence.live_capture import LiveCaptureError
+
+    job_root = tmp_path / "cohort-secret-root"
+    endpoint = "http://127.0.0.1:9222/devtools/browser/cdp-secret"
+
+    async def fail_capture(**kwargs):
+        del kwargs
+        raise LiveCaptureError(
+            "Resume cannot switch capture profiles"
+        )
+
+    monkeypatch.setattr(cli, "_run_live_capture", fail_capture)
+    argv = [
+        "capture",
+        "--resume",
+        "--profile", "p7-1-discovery-cohort",
+        "--job-root", str(job_root),
+        "--cdp-endpoint", endpoint,
+    ]
+    assert cli.main(argv) == 1
+    rendered = capsys.readouterr()
+    assert rendered.out == ""
+    assert json.loads(rendered.err) == {
+        "error": {
+            "type": "LiveCaptureError",
+            "message": "Resume cannot switch capture profiles",
+        }
+    }
+    assert str(job_root) not in rendered.err
+    assert endpoint not in rendered.err

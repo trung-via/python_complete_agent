@@ -3,7 +3,9 @@
 TASK-166 adds one explicit Product Intelligence `capture` operation for staging real Shopee
 evidence outside the repository. It composes the existing TASK-137 CDP manager, TASK-146
 discovery/ranking path, and `ShopeeScrapeTool`; it does not replace or extend any of those
-authorities. TASK-189 hardens only its session/access continuity checkpoint boundary.
+authorities. TASK-189 hardens only its session/access continuity checkpoint boundary at
+published candidate `9fa1b2583380e1b6378e5aba3d720c2e78a4b9d4`. TASK-190 adds one bounded
+`p7-1-discovery-cohort` profile to stage a fresh 3-query Shopee discovery cohort outside Git.
 
 AIOS engineering RUNs and their Runtime verification remain deterministic and offline. Live
 capture is a separate, Human-invoked Product Intelligence operation and is never a verification
@@ -47,3 +49,18 @@ lineage is the wrong operational boundary. TASK-166 is the blocker correction, n
 completion. Only after TASK-166 Runtime PASS, semantic PASS, publication, and Human review of one
 external READY bundle may a fresh P6.1b successor consume that bundle. P6.2 remains blocked until
 reviewed empirical P6.1b metrics exist.
+
+## P7.1 Discovery Cohort Staging Profile (TASK-190)
+
+TASK-189 is published at candidate `9fa1b2583380e1b6378e5aba3d720c2e78a4b9d4`. TASK-188 is
+BLOCKED / UNPUBLISHED with no source candidate; its diagnostic observations are not baseline truth.
+
+TASK-190 provides only operational capture staging for the 3-query discovery cohort
+(`p7-1-discovery-cohort`) outside Git and runtime verification. It allows a Human operator to stage
+raw `DiscoveryBatch` evidence for the exact queries (`bình giữ nhiệt inox`, `bàn phím cơ`,
+`chuột không dây`) with 5 candidates per query (total 15 distinct candidates) and write an immutable
+`discovery_capture_bundle.json` upon reaching `READY`.
+
+Post-publication Human review gate: Human review of the externally staged
+`discovery_capture_bundle.json` is required before any P7.1 benchmark baseline successor task may
+be admitted. Live capture remains outside AIOS engineering execution and runtime verification.

@@ -12,8 +12,12 @@ from src.core.errors import AgentException
 from src.core.types import ToolResult, ToolStatus
 from src.browser.errors import BrowserContextError, PageClosedError
 from src.browser.models import BrowserState
-from src.product_intelligence.discovery import DiscoveryBlockedError
+from datetime import datetime, timezone
+from src.product_intelligence.discovery import DiscoveryBatch, DiscoveryBlockedError
+from src.product_intelligence.models import ProductCandidateSnapshot
 from src.product_intelligence.live_capture import (
+    DISCOVERY_COHORT_QUERIES,
+    PROFILE_P7_1_DISCOVERY_COHORT,
     LiveCaptureError,
     LiveCapturePhase,
     LiveCaptureStatus,
@@ -907,3 +911,463 @@ def test_downstream_components_would_fail_if_given_manager_instead_of_bound_sess
     extractor_with_session = ShopeeSourceExtractor(browser=mgr.bound_session)
     extractor_page = asyncio.run(extractor_with_session._acquire_page("https://shopee.vn/product/123/456", "test-run"))
     assert extractor_page is mgr.bound_session
+
+
+def _make_candidate(candidate_id: str, query: str, index: int, observed_at: datetime) -> ProductCandidateSnapshot:
+    return ProductCandidateSnapshot(
+        candidate_id=candidate_id,
+        platform="shopee",
+        url=f"https://shopee.vn/product-{candidate_id}",
+        observed_at=observed_at,
+        title=f"Title {query} {index}",
+    )
+
+
+def _make_discovery_batch(
+    query: str,
+    query_idx: int,
+    observed_at: datetime,
+    count: int = 5,
+    candidate_id_prefix: str = "",
+    platform: str = "shopee",
+    pages_examined: int = 1,
+) -> DiscoveryBatch:
+    prefix = candidate_id_prefix or f"q{query_idx}"
+    candidates = tuple(
+        _make_candidate(f"{prefix}-c{i}", query, i, observed_at)
+        for i in range(count)
+    )
+    return DiscoveryBatch(
+        platform=platform,
+        query=query,
+        observed_at=observed_at,
+        candidates=candidates,
+        pages_examined=pages_examined,
+        raw_items_seen=count,
+        diagnostic_codes=(),
+    )
+
+
+class _FakeDiscoveryAdapter:
+    def __init__(self, batches_by_query=None, block_queries=None, resource_lost_queries=None):
+        self.batches_by_query = batches_by_query or {}
+        self.block_queries = set(block_queries or [])
+        self.resource_lost_queries = set(resource_lost_queries or [])
+        self.calls = []
+
+    async def discover(self, request, observed_at=None):
+        self.calls.append((request.query, request.max_candidates, request.max_pages, request.locale))
+        if request.query in self.block_queries:
+            raise DiscoveryBlockedError("Anti-bot challenge")
+        if request.query in self.resource_lost_queries:
+            raise PageClosedError("target page closed")
+        if request.query in self.batches_by_query:
+            return self.batches_by_query[request.query]
+        raise ValueError(f"No mock batch for query {request.query}")
+
+
+def test_discovery_cohort_opt_in_query_gate(tmp_path):
+    import asyncio
+    root = tmp_path / "cohort-query-gate"
+
+    # Missing/empty queries
+    with pytest.raises(LiveCaptureError, match="benchmark queries in order"):
+        asyncio.run(run_live_capture(
+            job_root=root,
+            cdp_endpoint="http://127.0.0.1:9222",
+            queries=[],
+            profile=PROFILE_P7_1_DISCOVERY_COHORT,
+            manager_factory=_Manager,
+        ))
+
+    # Reordered queries
+    with pytest.raises(LiveCaptureError, match="benchmark queries in order"):
+        asyncio.run(run_live_capture(
+            job_root=root,
+            cdp_endpoint="http://127.0.0.1:9222",
+            queries=["bàn phím cơ", "bình giữ nhiệt inox", "chuột không dây"],
+            profile=PROFILE_P7_1_DISCOVERY_COHORT,
+            manager_factory=_Manager,
+        ))
+
+    # Wrong queries / count
+    with pytest.raises(LiveCaptureError, match="benchmark queries in order"):
+        asyncio.run(run_live_capture(
+            job_root=root,
+            cdp_endpoint="http://127.0.0.1:9222",
+            queries=["bình giữ nhiệt inox", "chuột không dây"],
+            profile=PROFILE_P7_1_DISCOVERY_COHORT,
+            manager_factory=_Manager,
+        ))
+
+
+def test_discovery_cohort_happy_path_produces_deterministic_bundle_and_projections(tmp_path):
+    import asyncio
+    root = tmp_path / "cohort-happy-path"
+    fixed_time = datetime(2026, 9, 12, 10, 0, 0, tzinfo=timezone.utc)
+
+    batches = {
+        q: _make_discovery_batch(q, idx, fixed_time)
+        for idx, q in enumerate(DISCOVERY_COHORT_QUERIES)
+    }
+    adapter = _FakeDiscoveryAdapter(batches_by_query=batches)
+
+    outcome = asyncio.run(run_live_capture(
+        job_root=root,
+        cdp_endpoint="http://127.0.0.1:9222",
+        queries=DISCOVERY_COHORT_QUERIES,
+        profile=PROFILE_P7_1_DISCOVERY_COHORT,
+        manager_factory=_Manager,
+        adapter_factory=lambda session: adapter,
+        now_factory=lambda: fixed_time,
+    ))
+
+    assert outcome.status is LiveCaptureStatus.READY
+    assert outcome.phase is LiveCapturePhase.COMPLETE
+    assert outcome.query_position == 3
+    assert outcome.query_count == 3
+    assert outcome.profile == "p7-1-discovery-cohort"
+    assert outcome.bundle_filename == "discovery_capture_bundle.json"
+    assert outcome.to_document() == {
+        "status": "READY",
+        "phase": "COMPLETE",
+        "query_position": 3,
+        "query_count": 3,
+        "checkpoint": "capture_checkpoint.json",
+        "profile": "p7-1-discovery-cohort",
+        "bundle": "discovery_capture_bundle.json",
+    }
+
+    # Verify adapter called exactly once per query with exact arguments
+    assert adapter.calls == [
+        ("bình giữ nhiệt inox", 5, 1, "vi-VN"),
+        ("bàn phím cơ", 5, 1, "vi-VN"),
+        ("chuột không dây", 5, 1, "vi-VN"),
+    ]
+
+    # Verify ShopeeScrapeTool / ProductSourcePack NOT used
+    assert len(_Tool.instances) == 0
+    assert not (root / "cohorts").exists()
+    assert not (root / "capture_bundle.json").exists()
+
+    # Verify checkpoint
+    checkpoint_file = root / "capture_checkpoint.json"
+    checkpoint_doc = json.loads(checkpoint_file.read_bytes())
+    assert checkpoint_doc["version"] == 2
+    assert checkpoint_doc["profile"] == "p7-1-discovery-cohort"
+    assert checkpoint_doc["status"] == "READY"
+    assert checkpoint_doc["phase"] == "COMPLETE"
+    assert len(checkpoint_doc["completed_batches"]) == 3
+    assert "cdp_endpoint" not in checkpoint_doc
+    assert checkpoint_doc["endpoint_digest"] == hashlib.sha256(b"http://127.0.0.1:9222").hexdigest()
+    assert checkpoint_doc["browser_binding_digest"] == "a" * 64
+
+    # Verify bundle
+    bundle_file = root / "discovery_capture_bundle.json"
+    bundle_bytes = bundle_file.read_bytes()
+    assert not bundle_bytes.startswith(b"\xef\xbb\xbf")
+    assert bundle_bytes.endswith(b"\n")
+    bundle_doc = json.loads(bundle_bytes)
+    assert bundle_doc["schema"] == "product_intelligence_discovery_capture_bundle"
+    assert bundle_doc["version"] == 1
+    assert bundle_doc["queries"] == list(DISCOVERY_COHORT_QUERIES)
+    assert len(bundle_doc["batches"]) == 3
+    assert bundle_doc["batches"] == [batches[q].to_dict() for q in DISCOVERY_COHORT_QUERIES]
+
+    # Determinism: serialize again from same data produces identical bytes
+    expected_bytes = (
+        json.dumps(bundle_doc, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        + "\n"
+    ).encode("utf-8")
+    assert bundle_bytes == expected_bytes
+
+    # Redaction: no secrets in bundle
+    for forbidden in ("cdp_endpoint", "endpoint_digest", "browser_binding_digest", "http://127.0.0.1:9222"):
+        assert forbidden not in bundle_file.read_text(encoding="utf-8")
+
+
+def test_discovery_cohort_fails_closed_on_invalid_batches(tmp_path):
+    import asyncio
+    fixed_time = datetime(2026, 9, 12, 10, 0, 0, tzinfo=timezone.utc)
+
+    # 1. Short batch (< 5 candidates)
+    root = tmp_path / "short-batch"
+    batches = {
+        DISCOVERY_COHORT_QUERIES[0]: _make_discovery_batch(DISCOVERY_COHORT_QUERIES[0], 0, fixed_time, count=4),
+    }
+    with pytest.raises(LiveCaptureError, match="candidate count mismatch"):
+        asyncio.run(run_live_capture(
+            job_root=root,
+            cdp_endpoint="http://127.0.0.1:9222",
+            queries=DISCOVERY_COHORT_QUERIES,
+            profile=PROFILE_P7_1_DISCOVERY_COHORT,
+            manager_factory=_Manager,
+            adapter_factory=lambda s: _FakeDiscoveryAdapter(batches_by_query=batches),
+            now_factory=lambda: fixed_time,
+        ))
+    assert json.loads((root / "capture_checkpoint.json").read_bytes())["status"] == "FAILED"
+
+    # 2. Duplicate candidate_id within single batch
+    root = tmp_path / "dup-id-batch"
+    candidates = tuple(
+        _make_candidate("duplicate-id", DISCOVERY_COHORT_QUERIES[0], i, fixed_time)
+        for i in range(5)
+    )
+    dup_batch = DiscoveryBatch(
+        platform="shopee",
+        query=DISCOVERY_COHORT_QUERIES[0],
+        observed_at=fixed_time,
+        candidates=candidates,
+        pages_examined=1,
+        raw_items_seen=5,
+        diagnostic_codes=(),
+    )
+    with pytest.raises(LiveCaptureError, match="duplicate candidate IDs"):
+        asyncio.run(run_live_capture(
+            job_root=root,
+            cdp_endpoint="http://127.0.0.1:9222",
+            queries=DISCOVERY_COHORT_QUERIES,
+            profile=PROFILE_P7_1_DISCOVERY_COHORT,
+            manager_factory=_Manager,
+            adapter_factory=lambda s: _FakeDiscoveryAdapter(batches_by_query={DISCOVERY_COHORT_QUERIES[0]: dup_batch}),
+            now_factory=lambda: fixed_time,
+        ))
+
+    # 3. Duplicate candidate_id across batches
+    root = tmp_path / "dup-across-batches"
+    batch0 = _make_discovery_batch(DISCOVERY_COHORT_QUERIES[0], 0, fixed_time)
+    # batch1 reuses batch0 candidate id
+    dup_across = list(_make_discovery_batch(DISCOVERY_COHORT_QUERIES[1], 1, fixed_time).candidates)
+    dup_across[0] = batch0.candidates[0]
+    batch1 = DiscoveryBatch(
+        platform="shopee",
+        query=DISCOVERY_COHORT_QUERIES[1],
+        observed_at=fixed_time,
+        candidates=tuple(dup_across),
+        pages_examined=1,
+        raw_items_seen=5,
+        diagnostic_codes=(),
+    )
+    with pytest.raises(LiveCaptureError, match="duplicate candidate ID across queries"):
+        asyncio.run(run_live_capture(
+            job_root=root,
+            cdp_endpoint="http://127.0.0.1:9222",
+            queries=DISCOVERY_COHORT_QUERIES,
+            profile=PROFILE_P7_1_DISCOVERY_COHORT,
+            manager_factory=_Manager,
+            adapter_factory=lambda s: _FakeDiscoveryAdapter(batches_by_query={
+                DISCOVERY_COHORT_QUERIES[0]: batch0,
+                DISCOVERY_COHORT_QUERIES[1]: batch1,
+            }),
+            now_factory=lambda: fixed_time,
+        ))
+
+
+def test_discovery_cohort_access_gate_preserves_unfinished_query_and_resumes(tmp_path):
+    import asyncio
+    root = tmp_path / "cohort-access-gate"
+    fixed_time = datetime(2026, 9, 12, 10, 0, 0, tzinfo=timezone.utc)
+
+    batches = {
+        q: _make_discovery_batch(q, idx, fixed_time)
+        for idx, q in enumerate(DISCOVERY_COHORT_QUERIES)
+    }
+    # Query 1 is blocked
+    adapter1 = _FakeDiscoveryAdapter(
+        batches_by_query=batches,
+        block_queries=[DISCOVERY_COHORT_QUERIES[1]],
+    )
+
+    first_outcome = asyncio.run(run_live_capture(
+        job_root=root,
+        cdp_endpoint="http://127.0.0.1:9222",
+        queries=DISCOVERY_COHORT_QUERIES,
+        profile=PROFILE_P7_1_DISCOVERY_COHORT,
+        manager_factory=_Manager,
+        adapter_factory=lambda s: adapter1,
+        now_factory=lambda: fixed_time,
+    ))
+
+    assert first_outcome.status is LiveCaptureStatus.HUMAN_ACTION_REQUIRED
+    assert first_outcome.phase is LiveCapturePhase.DISCOVERY
+    assert first_outcome.query_position == 1
+    assert first_outcome.query_count == 3
+    assert first_outcome.bundle_filename is None
+
+    checkpoint = json.loads((root / "capture_checkpoint.json").read_bytes())
+    assert checkpoint["status"] == "HUMAN_ACTION_REQUIRED"
+    assert checkpoint["category"] == "DISCOVERY_BLOCKED"
+    assert checkpoint["query_position"] == 1
+    assert len(checkpoint["completed_batches"]) == 1
+    assert checkpoint["completed_batches"][0]["query"] == DISCOVERY_COHORT_QUERIES[0]
+
+    # Resume with challenge resolved
+    adapter2 = _FakeDiscoveryAdapter(batches_by_query=batches)
+    resumed_outcome = asyncio.run(run_live_capture(
+        job_root=root,
+        cdp_endpoint="http://127.0.0.1:9222",
+        resume=True,
+        manager_factory=_Manager,
+        adapter_factory=lambda s: adapter2,
+        now_factory=lambda: fixed_time,
+    ))
+
+    assert resumed_outcome.status is LiveCaptureStatus.READY
+    assert resumed_outcome.phase is LiveCapturePhase.COMPLETE
+    assert resumed_outcome.query_position == 3
+    # Batch 0 was NOT repeated on resume!
+    assert adapter2.calls == [
+        (DISCOVERY_COHORT_QUERIES[1], 5, 1, "vi-VN"),
+        (DISCOVERY_COHORT_QUERIES[2], 5, 1, "vi-VN"),
+    ]
+    bundle = json.loads((root / "discovery_capture_bundle.json").read_bytes())
+    assert len(bundle["batches"]) == 3
+
+
+def test_discovery_cohort_session_lost_and_explicit_rebind(tmp_path):
+    import asyncio
+    root = tmp_path / "cohort-session-lost"
+    fixed_time = datetime(2026, 9, 12, 10, 0, 0, tzinfo=timezone.utc)
+
+    batches = {
+        q: _make_discovery_batch(q, idx, fixed_time)
+        for idx, q in enumerate(DISCOVERY_COHORT_QUERIES)
+    }
+
+    # First run: query 1 encounters resource lost
+    adapter1 = _FakeDiscoveryAdapter(
+        batches_by_query=batches,
+        resource_lost_queries=[DISCOVERY_COHORT_QUERIES[1]],
+    )
+    first_outcome = asyncio.run(run_live_capture(
+        job_root=root,
+        cdp_endpoint="http://127.0.0.1:9222",
+        queries=DISCOVERY_COHORT_QUERIES,
+        profile=PROFILE_P7_1_DISCOVERY_COHORT,
+        manager_factory=_Manager,
+        adapter_factory=lambda s: adapter1,
+        now_factory=lambda: fixed_time,
+    ))
+
+    assert first_outcome.status is LiveCaptureStatus.SESSION_LOST
+    checkpoint = json.loads((root / "capture_checkpoint.json").read_bytes())
+    assert checkpoint["status"] == "SESSION_LOST"
+    assert checkpoint["category"] == "RESOURCE_LOST"
+    assert checkpoint["query_position"] == 1
+
+    # Resume without --rebind-session fails
+    with pytest.raises(LiveCaptureError, match="SESSION_LOST requires explicit session rebind"):
+        asyncio.run(run_live_capture(
+            job_root=root,
+            cdp_endpoint="http://127.0.0.1:9222",
+            resume=True,
+            rebind_session=False,
+            manager_factory=_Manager,
+        ))
+
+    # Resume with --rebind-session succeeds
+    _Manager.binding_digest = "b" * 64
+    adapter2 = _FakeDiscoveryAdapter(batches_by_query=batches)
+    resumed = asyncio.run(run_live_capture(
+        job_root=root,
+        cdp_endpoint="http://127.0.0.1:9333",
+        resume=True,
+        rebind_session=True,
+        manager_factory=_Manager,
+        adapter_factory=lambda s: adapter2,
+        now_factory=lambda: fixed_time,
+    ))
+
+    assert resumed.status is LiveCaptureStatus.READY
+    assert resumed.query_position == 3
+    # Exact unfinished query was continued, batch 0 not repeated
+    assert adapter2.calls == [
+        (DISCOVERY_COHORT_QUERIES[1], 5, 1, "vi-VN"),
+        (DISCOVERY_COHORT_QUERIES[2], 5, 1, "vi-VN"),
+    ]
+    # Checkpoint updated with new digests
+    checkpoint = json.loads((root / "capture_checkpoint.json").read_bytes())
+    assert checkpoint["endpoint_digest"] == hashlib.sha256(b"http://127.0.0.1:9333").hexdigest()
+    assert checkpoint["browser_binding_digest"] == "b" * 64
+
+
+def test_discovery_cohort_ready_bundle_immutability(tmp_path):
+    import asyncio
+    root = tmp_path / "cohort-immutable"
+    fixed_time = datetime(2026, 9, 12, 10, 0, 0, tzinfo=timezone.utc)
+    batches = {
+        q: _make_discovery_batch(q, idx, fixed_time)
+        for idx, q in enumerate(DISCOVERY_COHORT_QUERIES)
+    }
+
+    outcome = asyncio.run(run_live_capture(
+        job_root=root,
+        cdp_endpoint="http://127.0.0.1:9222",
+        queries=DISCOVERY_COHORT_QUERIES,
+        profile=PROFILE_P7_1_DISCOVERY_COHORT,
+        manager_factory=_Manager,
+        adapter_factory=lambda s: _FakeDiscoveryAdapter(batches_by_query=batches),
+        now_factory=lambda: fixed_time,
+    ))
+    assert outcome.status is LiveCaptureStatus.READY
+    bundle_bytes = (root / "discovery_capture_bundle.json").read_bytes()
+
+    # Fresh capture on existing root fails
+    with pytest.raises(LiveCaptureError, match="already contains capture state"):
+        asyncio.run(run_live_capture(
+            job_root=root,
+            cdp_endpoint="http://127.0.0.1:9222",
+            queries=DISCOVERY_COHORT_QUERIES,
+            profile=PROFILE_P7_1_DISCOVERY_COHORT,
+            manager_factory=_Manager,
+        ))
+
+    # Resume on READY root fails
+    with pytest.raises(LiveCaptureError, match="Only HUMAN_ACTION_REQUIRED or SESSION_LOST may be resumed"):
+        asyncio.run(run_live_capture(
+            job_root=root,
+            cdp_endpoint="http://127.0.0.1:9222",
+            resume=True,
+            manager_factory=_Manager,
+        ))
+
+    assert (root / "discovery_capture_bundle.json").read_bytes() == bundle_bytes
+
+
+def test_profile_switching_rejected_on_resume(tmp_path):
+    import asyncio
+    root = tmp_path / "cohort-switch-reject"
+    fixed_time = datetime(2026, 9, 12, 10, 0, 0, tzinfo=timezone.utc)
+
+    # 1. Source pack checkpoint resumed with discovery profile is rejected
+    source_root = tmp_path / "source-switch"
+    asyncio.run(run_live_capture(
+        job_root=source_root,
+        cdp_endpoint="http://127.0.0.1:9222",
+        queries=["query1"],
+        manager_factory=_Manager,
+        tool_factory=_Tool,
+        orchestration=_orchestration([], blocked_query="query1"),
+    ))
+    with pytest.raises(LiveCaptureError, match="Resume cannot switch capture profiles"):
+        asyncio.run(run_live_capture(
+            job_root=source_root,
+            cdp_endpoint="http://127.0.0.1:9222",
+            resume=True,
+            profile=PROFILE_P7_1_DISCOVERY_COHORT,
+            manager_factory=_Manager,
+        ))
+
+    # 2. Discovery checkpoint resumed with non-matching profile is rejected
+    discovery_root = tmp_path / "discovery-switch"
+    asyncio.run(run_live_capture(
+        job_root=discovery_root,
+        cdp_endpoint="http://127.0.0.1:9222",
+        queries=DISCOVERY_COHORT_QUERIES,
+        profile=PROFILE_P7_1_DISCOVERY_COHORT,
+        manager_factory=_Manager,
+        adapter_factory=lambda s: _FakeDiscoveryAdapter(block_queries=[DISCOVERY_COHORT_QUERIES[0]]),
+    ))
+    # Resuming without profile derives profile="p7-1-discovery-cohort"
+    checkpoint = json.loads((discovery_root / "capture_checkpoint.json").read_bytes())
+    assert checkpoint["profile"] == "p7-1-discovery-cohort"

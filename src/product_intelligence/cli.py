@@ -259,6 +259,13 @@ def _parser() -> _argparse.ArgumentParser:
         help="Exact Human query (repeat in desired cohort order).",
     )
     capture.add_argument(
+        "--profile",
+        action=_UniqueStoreAction,
+        choices=("p7-1-discovery-cohort",),
+        default=None,
+        help="Explicit capture profile (default: source-pack).",
+    )
+    capture.add_argument(
         "--resume",
         action=_UniqueStoreTrueAction,
         help="Resume the exact unfinished phase from an operational checkpoint.",
@@ -488,6 +495,7 @@ async def _capture_document(arguments: _argparse.Namespace) -> dict[str, object]
         job_root=arguments.job_root,
         cdp_endpoint=arguments.cdp_endpoint,
         queries=None if arguments.resume else arguments.query,
+        profile=arguments.profile,
         resume=arguments.resume,
         rebind_session=arguments.rebind_session,
     )
