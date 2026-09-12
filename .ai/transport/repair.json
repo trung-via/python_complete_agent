@@ -1,0 +1,19 @@
+{
+  "repair_id": "REPAIR-192-001",
+  "failed_run_id": "RUN-192-001",
+  "failed_head_sha": "e4a852f5a64376c6d8e9a8ea117e80fe04630f1a",
+  "task": {"id": "TASK-192", "revision": 1},
+  "action": "CODE_FIX",
+  "modification_scope": [
+    ".agents/skills/aios-worker/SKILL.md",
+    ".agents/workflows/aios-renew-worker.md",
+    "docs/AIOS_UNIFIED_WORKER_WORKFLOW.md"
+  ],
+  "instructions": [
+    "Repair only RUN-192-001 from exact failed head e4a852f5a64376c6d8e9a8ea117e80fe04630f1a. Preserve TASK-192 revision 1 and the Codex executor identity. This is CODE_FIX for the concrete documentation-contract defect established by Runtime verification; do not restart PRIMARY, do not discard the valid TASK-192 candidate, and do not widen into Product Intelligence, AIOS-renew upstream implementation, roadmap redesign, or unrelated worker behavior.",
+    "Fix the exact worker-documentation regression across all three authorized files. Each file must state the boundary using the exact phrase `no new Human-facing Executor selection` while preserving the intended meaning that TASK-091 revision 2 is available only inside the pinned kernel and TASK-192 does not expose a new Python Agent Human-facing Executor surface. Do not weaken or delete the regression assertion merely to make verification pass.",
+    "Preserve all already-valid RUN-192-001 candidate work unchanged unless a minimal edit is required for wording consistency. In particular, preserve the exact AIOS pin 2599202afedb0622e9e9bdc7b5a15f34da01cc27, the adoption registry, roadmap state, Brain Sync governance, thin-worker one-operation boundary, TASK-101/TASK-103 blocked-pending-upstream status, and Governance Foundation return target.",
+    "Run TASK-192 required verification exactly as authored. A successful repair must produce one real committed in-scope descendant of the exact failed head, with zero unresolved items; Runtime remains canonical verification/evidence authority."
+  ],
+  "constraints": []
+}
