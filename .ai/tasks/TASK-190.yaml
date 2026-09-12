@@ -1,0 +1,264 @@
+task_id: TASK-190
+revision: 1
+
+goal: >
+  Add one bounded P7.1 discovery-cohort operational profile to the existing TASK-166/TASK-189
+  repository-owned live-capture authority so a Human can stage a fresh three-query Shopee
+  DiscoveryBatch cohort outside Git without requiring an AIOS engineering Executor to perform live
+  marketplace work. Reuse TASK-137 browser/session authority, TASK-151/TASK-187 Shopee discovery
+  authority, and TASK-189 Session/Access Continuity V2 semantics. Produce one immutable READY
+  discovery bundle containing exact public DiscoveryBatch projections only. This task does not
+  execute the P7.1 baseline, does not call TASK-181 evaluation, and captures no live evidence during
+  implementation or Runtime verification.
+
+problem: >
+  TASK-188 attempted to combine live marketplace acquisition with engineering implementation and
+  ended BLOCKED / UNPUBLISHED at RUN-188-004 with no source candidate. TASK-189 corrected the
+  session/access boundary and current canonical main now contains its source plus the narrow AC5
+  session-continuity/CLI repair. However the existing TASK-166 READY capture bundle freezes one
+  selected product plus two deep ProductSourcePack observations per query; it does not preserve the
+  five exact search-card ProductCandidateSnapshot observations per query required by the TASK-181
+  P7.1 evidence-coverage methodology. Re-running TASK-188 inside an Executor would therefore violate
+  the new operational-plane versus engineering-plane contract. The missing capability is a bounded
+  Human-invoked discovery-cohort capture profile inside the existing capture owner, followed later by
+  a separate frozen-evidence benchmark task.
+
+assumptions:
+  - >
+    Canonical main immediately before TASK-190 authoring is
+    9fa1b2583380e1b6378e5aba3d720c2e78a4b9d4. It contains TASK-189 Session/Access Continuity V2
+    implementation plus the narrow AC5 session-continuity and CLI parser correction. TASK-190 treats
+    that source as the published operational prerequisite and must not reopen TASK-189 semantics.
+  - >
+    The exact Python Agent AIOS runtime authority remains
+    aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@e72135cd5c5a1dec0d8374d9bb8994da5e458feb.
+  - >
+    TASK-188/RUN-188-004 remains BLOCKED / UNPUBLISHED with no source candidate. Its diagnostic
+    observations are not baseline truth and must not be copied, rehabilitated, continued, repaired,
+    or used as implementation input.
+  - >
+    TASK-166 live_capture.py remains the sole repository-owned live-capture sequencing/checkpoint
+    authority. TASK-137 BrowserSession / PlaywrightBrowserSession remain the sole CDP lifecycle,
+    borrowed-resource, page-selection, binding and liveness authority. TASK-151/TASK-187
+    ShopeeDiscoveryAdapter remains the sole Shopee search observation authority.
+  - >
+    TASK-181 evaluate_winning_product_coverage remains the sole P7 cohort-level evidence-coverage
+    evaluator. ProductCandidateSnapshot and DiscoveryBatch remain marketplace observation contracts;
+    ranking, scoring, approval and product truth retain their existing separate authorities.
+  - >
+    The P7.1 benchmark sampling intents remain exactly `bình giữ nhiệt inox`, `bàn phím cơ`, and
+    `chuột không dây`. TASK-190 creates only the operational means to stage those raw observations;
+    acceptance of any concrete READY bundle remains a separate Human review step after publication.
+
+scope:
+  inspect:
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_6_P6_1_LIVE_CAPTURE_CHECKPOINT.md
+    - docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - .ai/tasks/TASK-151.yaml
+    - .ai/tasks/TASK-166.yaml
+    - .ai/tasks/TASK-168.yaml
+    - .ai/tasks/TASK-181.yaml
+    - .ai/tasks/TASK-188.yaml
+    - .ai/tasks/TASK-189.yaml
+    - src/browser/session.py
+    - src/integrations/playwright/session.py
+    - src/integrations/playwright/manager.py
+    - src/product_intelligence/discovery.py
+    - src/product_intelligence/models.py
+    - src/product_intelligence/adapters/shopee.py
+    - src/product_intelligence/live_capture.py
+    - src/product_intelligence/cli.py
+    - tests/product_intelligence/test_live_capture.py
+    - tests/product_intelligence/test_product_intelligence_cli.py
+    - tests/product_intelligence/test_shopee_discovery.py
+
+  modify:
+    - src/product_intelligence/live_capture.py
+    - src/product_intelligence/cli.py
+    - tests/product_intelligence/test_live_capture.py
+    - tests/product_intelligence/test_product_intelligence_cli.py
+    - docs/PHASE_6_P6_1_LIVE_CAPTURE_CHECKPOINT.md
+    - docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+
+non_goals:
+  - Modify BrowserSession, PlaywrightBrowserSession, PlaywrightBrowserManager, browser binding,
+    page-selection, connection, restart, navigation, borrowed-resource, close or liveness semantics.
+  - Modify Shopee selectors, parsing, readiness, access-gate detection, ProductCandidateSnapshot,
+    DiscoveryRequest, DiscoveryBatch, scoring, ranking, approval or product-truth semantics.
+  - Modify TASK-181 evaluator, WinningProductScorer, SnapshotNormalizer, ScoringPolicy,
+    CandidateRanker, persistence, retrieval/RAG, provider/model or any later enrichment authority.
+  - Change existing TASK-166 source-pack capture behavior, its capture_bundle.json V1 shape,
+    two-observation acquisition semantics, selected-candidate behavior, manifest hashing or READY
+    immutability.
+  - Add a second capture module, browser owner, discovery owner, access-gate detector, persistence
+    authority, daemon, service, scheduler, worker or executable outside the existing Product
+    Intelligence CLI/live_capture boundary.
+  - Freeze repository fixtures, import an external READY bundle into Git, run TASK-181 evaluation,
+    define a baseline metric, winner, threshold, recommendation or enrichment priority.
+  - Perform live Chrome/Shopee/TikTok/Drive/provider/network work during TASK-190 implementation or
+    Runtime verification.
+  - Generalize this profile to TikTok, cross-platform capture, arbitrary benchmark schemas or a
+    generic evidence-export framework.
+  - Continue, repair, publish or rehabilitate TASK-188; reuse TASK-188 diagnostic observations; or
+    treat diagnostics as baseline truth.
+  - Push, merge, publish or mutate main from Executor implementation execution.
+
+constraints:
+  hard:
+    - >
+      Preserve one-capability-one-owner. Extend only src/product_intelligence/live_capture.py as the
+      existing capture sequencing/checkpoint authority and src/product_intelligence/cli.py as the
+      existing Human-facing Python Agent command surface. Do not create a second capture/checkpoint
+      implementation or duplicate browser/discovery/access-gate semantics.
+    - >
+      Existing fresh/resume source-pack capture remains behaviorally backward compatible. Existing V1
+      legacy upgrade, V2 checkpoint validation/resume/rebind, capture_bundle.json schema/version,
+      acquisition phases, evidence hashing and READY immutability must remain unchanged for the
+      default source-pack mode.
+    - >
+      Add exactly one explicit opt-in capture profile named `p7-1-discovery-cohort` on the existing
+      `capture` CLI. The default when omitted remains existing source-pack capture. Resume must derive
+      the profile only from checkpoint state and must reject a CLI attempt to switch profiles.
+    - >
+      The new profile must reuse the TASK-189 endpoint digest, browser binding digest,
+      HUMAN_ACTION_REQUIRED, VERIFY_SESSION, SESSION_LOST, explicit --rebind-session, generic
+      liveness probe and fail-closed resource-loss behavior. It must not introduce a second session or
+      access-gate state machine, automatic retry, reload, navigation change or CAPTCHA handling path.
+    - >
+      Introduce only the minimum checkpoint schema extension necessary to bind the capture profile and
+      its completed discovery batches. Existing V2 source-pack checkpoints remain valid and retain
+      exact semantics. Any new-version checkpoint must persist no raw endpoint, raw browser/context/
+      page identity, credentials, cookies, absolute paths or exception traceback.
+    - >
+      For `p7-1-discovery-cohort`, the Human supplies exactly these three queries in this exact order:
+      `bình giữ nhiệt inox`, `bàn phím cơ`, `chuột không dây`. Reject missing, reordered, duplicated,
+      rewritten, additional or replacement queries before marketplace work. Resume accepts no
+      replacement queries.
+    - >
+      Execute exactly one existing ShopeeDiscoveryAdapter.discover call per successfully completed
+      query with exact DiscoveryRequest(query=<query>, max_candidates=5, max_pages=1,
+      locale="vi-VN") and one explicit timezone-aware observed_at from the existing capture time
+      boundary. Do not route this profile through scoring/ranking/shortlisting to decide which raw
+      observations are retained.
+    - >
+      Each accepted DiscoveryBatch must have platform `shopee`, the exact query, pages_examined == 1,
+      exactly five ProductCandidateSnapshot values, and no duplicate candidate_id within the batch.
+      Across all three completed batches, all fifteen candidate_id values and all fifteen URLs must be
+      pairwise distinct. Any blocked, empty, short, duplicate, malformed or otherwise invalid batch
+      fails closed without extra pages, changed queries, synthetic observations, historical reuse or
+      score-conditioned replacement.
+    - >
+      Preserve raw marketplace observations only through exact existing DiscoveryBatch.to_dict()
+      projections. Do not hand-edit, normalize, enrich, fill missing values, infer facts, rewrite
+      timestamps or reconstruct candidates during live capture.
+    - >
+      The profile uses the existing checkpoint status vocabulary exactly NEW, SESSION_READY, RUNNING,
+      HUMAN_ACTION_REQUIRED, VERIFY_SESSION, SESSION_LOST, READY, FAILED. Operational/session status
+      remains separate from marketplace work progress. Discovery-cohort work may use only DISCOVERY
+      and COMPLETE from the existing phase vocabulary; ACQUIRE_1 and ACQUIRE_2 remain source-pack-only
+      and must be rejected for this profile.
+    - >
+      After one accepted batch, atomically persist its exact public projection before advancing to the
+      next query. Resume continues only the exact unfinished query and never repeats a completed
+      discovery batch. An authoritative Shopee discovery access gate returns HUMAN_ACTION_REQUIRED at
+      the unfinished query without progress. Binding/resource loss follows TASK-189 SESSION_LOST
+      semantics with zero unfinished discovery calls after loss is established.
+    - >
+      Completion creates exactly one immutable external-root artifact named
+      `discovery_capture_bundle.json` with schema `product_intelligence_discovery_capture_bundle`,
+      version 1, the exact ordered three-query sequence and the exact ordered three
+      DiscoveryBatch.to_dict() projections. Serialize deterministic compact UTF-8 JSON with
+      sort_keys=True, separators=(",", ":"), no BOM and exactly one trailing newline. Create it
+      exclusively/fail closed; never overwrite or rewrite an existing bundle.
+    - >
+      discovery_capture_bundle.json contains no endpoint digest, browser binding digest, checkpoint
+      status, credentials, cookies, local absolute path, raw HTML, screenshot, media, ranking score,
+      shortlist, approval or evaluator output. The checkpoint remains operational state; the READY
+      bundle is immutable marketplace evidence projection.
+    - >
+      Existing source-pack capture still creates only capture_bundle.json. The new profile creates
+      only discovery_capture_bundle.json and must not instantiate ShopeeScrapeTool, acquire
+      ProductSourcePack observations, create media/source-pack directories or write capture_bundle.json.
+    - >
+      CLI output remains bounded to status, phase/query position, profile and relative READY bundle
+      filename. It must not expose endpoint/binding digests or candidate payloads. Existing CLI
+      arguments and output outside the opt-in profile remain compatible.
+    - >
+      Update phase/P7/roadmap documentation to record TASK-189 CLOSED / PUBLISHED at
+      9fa1b2583380e1b6378e5aba3d720c2e78a4b9d4, preserve TASK-188/RUN-188-004 as BLOCKED /
+      UNPUBLISHED with no source candidate, and record TASK-190 as the operational discovery-cohort
+      staging prerequisite. Do not claim a P7.1 baseline exists from TASK-190 itself.
+    - >
+      Documentation must state the post-publication gate explicitly: a Human invokes the new profile
+      in an operator-owned authenticated CDP session, resolves any Human-owned access challenge, and
+      reviews one READY discovery_capture_bundle.json for exact query/order/count/integrity/relevance.
+      Only after that review may a fresh successor task freeze the accepted bundle into repository
+      fixtures and replay TASK-181 fully offline. Rejected/blocked bundles remain external operational
+      evidence and are never repaired into baseline truth.
+    - >
+      TASK-190 verification is fully offline and deterministic. Use fake browser managers/sessions,
+      fake Shopee adapters or injected discovery seams, fixed aware timestamps and temporary external
+      roots only. No live browser, marketplace, provider, Drive, network, Human interaction, real sleep
+      or wall-clock dependence is permitted.
+    - >
+      Regressions prove at minimum: default source-pack behavior unchanged; opt-in profile exact query
+      gate; exact three 5-candidate batches; deterministic bundle bytes; public-projection fidelity;
+      no ranking/scrape-tool use; no duplicate IDs/URLs; access gate preserves unfinished query;
+      matching resume reuses TASK-189 continuity; mismatch/resource loss -> SESSION_LOST with zero
+      unfinished calls; explicit rebind resumes exact query; completed batches are never repeated;
+      READY bundle immutability; endpoint/session redaction; profile-switch rejection; V1/V2 source-pack
+      compatibility; and CLI parser/redaction behavior.
+    - Do not push from Executor execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      TASK-190 extends only the existing TASK-166/TASK-189 live-capture authority and existing CLI,
+      while TASK-137 browser/session and TASK-151/TASK-187 discovery authorities remain unchanged and
+      no second capture/access-gate owner is introduced.
+  - id: AC2
+    condition: >
+      Existing source-pack capture and V1/V2 resume behavior remain backward compatible, while one
+      explicit `p7-1-discovery-cohort` profile is bound immutably into its checkpoint state.
+  - id: AC3
+    condition: >
+      The new profile captures exactly the three fixed P7.1 queries, one page and five exact public
+      ProductCandidateSnapshot observations per query, with fifteen pairwise-distinct IDs/URLs and no
+      scoring/ranking/shortlist-conditioned evidence selection.
+  - id: AC4
+    condition: >
+      TASK-189 HUMAN_ACTION_REQUIRED / VERIFY_SESSION / SESSION_LOST / rebind continuity applies to
+      the new profile without duplicate session or access-gate semantics and resume never repeats a
+      completed discovery batch.
+  - id: AC5
+    condition: >
+      READY creates one immutable deterministic discovery_capture_bundle.json containing only the
+      ordered exact DiscoveryBatch public projections and no operational/session secrets, deep
+      acquisition artifacts, ranking output or evaluator output.
+  - id: AC6
+    condition: >
+      The discovery profile performs no ShopeeScrapeTool/ProductSourcePack acquisition and existing
+      source-pack capture performs no discovery-bundle behavior unless explicitly opted in.
+  - id: AC7
+    condition: >
+      CLI exposes the bounded profile without profile switching on resume or secret/payload leakage and
+      preserves behavior outside the new opt-in path.
+  - id: AC8
+    condition: >
+      Phase/P7/roadmap docs record TASK-189 published, TASK-188 blocked, TASK-190 operational staging
+      only, and require a separately Human-reviewed READY bundle before any offline P7.1 baseline
+      successor is authored/executed.
+  - id: AC9
+    condition: >
+      Required offline verification and git diff --check pass with zero unresolved items, zero live
+      marketplace/browser/network work, and changed files remain within TASK-190 scope.modify.
+
+verification:
+  required:
+    - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_live_capture.py tests/product_intelligence/test_product_intelligence_cli.py tests/product_intelligence/test_shopee_discovery.py tests/product_intelligence/test_orchestration.py tests/product_source/test_scrape_tool_compat.py tests/integration/test_browser_cdp.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
