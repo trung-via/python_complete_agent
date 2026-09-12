@@ -8,9 +8,24 @@ affected_verification:
   - '$env:PYTHONPATH = ".;src"; python -m pytest tests/product_intelligence/test_live_capture.py tests/product_intelligence/test_product_intelligence_cli.py tests/product_intelligence/test_shopee_discovery.py tests/product_intelligence/test_orchestration.py tests/product_source/test_scrape_tool_compat.py tests/integration/test_browser_cdp.py -q; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
   - 'git diff --check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
 constraints:
-  - Preserve discovery-profile resume as fail-closed: every persisted completed batch must structurally match the exact existing DiscoveryBatch.to_dict public projection, including exact ProductCandidateSnapshot.to_dict candidate shape and existing platform/query/count/distinctness invariants.
-  - Do not normalize, repair, enrich, infer, rewrite, or reconstruct persisted marketplace observations during validation or resume.
-  - Add focused offline tamper regressions proving malformed persisted completed batches are rejected before any unfinished discovery call and before any READY discovery_capture_bundle.json can be emitted.
-  - Preserve existing source-pack V1/V2 capture, resume, rebind, bundle, and READY semantics unchanged.
-  - Do not modify documentation or address REVIEW-190-001 F2 in this FIX; FIX review is limited to the F1 finding delta.
-  - No live browser, marketplace, provider, Drive, network, Human interaction, real sleep, or wall-clock dependence is permitted.
+  - >
+    Preserve discovery-profile resume as fail-closed so every persisted completed batch must
+    structurally match the exact existing DiscoveryBatch.to_dict public projection, including the
+    exact ProductCandidateSnapshot.to_dict candidate shape and the existing
+    platform/query/count/distinctness invariants.
+  - >
+    Do not normalize, repair, enrich, infer, rewrite, or reconstruct persisted marketplace
+    observations during validation or resume.
+  - >
+    Add focused offline tamper regressions proving malformed persisted completed batches are
+    rejected before any unfinished discovery call and before any READY
+    discovery_capture_bundle.json can be emitted.
+  - >
+    Preserve existing source-pack V1/V2 capture, resume, rebind, bundle, and READY semantics
+    unchanged.
+  - >
+    Do not modify documentation or address REVIEW-190-001 F2 in this FIX; FIX review is limited to
+    the F1 finding delta.
+  - >
+    No live browser, marketplace, provider, Drive, network, Human interaction, real sleep, or
+    wall-clock dependence is permitted.
