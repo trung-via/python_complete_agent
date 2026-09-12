@@ -1,0 +1,140 @@
+schema_version: 1
+kind: aios_downstream_adoption_state
+project: Python Agent
+
+authority:
+  owner: BRAIN
+  purpose: CROSS_CHAT_ADOPTION_PLANNING
+  engineering_truth: false
+  classification_does_not_prove:
+    - RUNTIME_PASS
+    - SOURCE_PUBLICATION
+    - DOWNSTREAM_CERTIFICATION
+
+downstream_pin:
+  repository: https://github.com/trung-via/AIOS-renew.git
+  commit: 2599202afedb0622e9e9bdc7b5a15f34da01cc27
+  policy: EXACT_REVIEWED_SOURCE_PUBLISHED_ONLY
+  source_published: true
+
+upstream_audit:
+  checkpoint: 7d0bbcbce4b1bfeaa47634f9069a8ae9ac44930c
+  through_authored_task: TASK-103
+  checkpoint_is_runtime_authority: false
+
+classification_vocabulary:
+  - ADOPTED_BY_PIN
+  - PORT_GOVERNANCE
+  - EXPLICITLY_NOT_APPLICABLE_OR_OPTIONAL
+  - BLOCKED_PENDING_UPSTREAM
+
+capability_families:
+  - id: K0_POST_K0_RUNTIME
+    upstream_tasks: [TASK-064, TASK-065, TASK-067, TASK-075, TASK-076, TASK-079, TASK-080]
+    classification: ADOPTED_BY_PIN
+    consumption: PINNED_KERNEL_ONLY
+    boundary: >-
+      Runtime authority, NO_CHANGE reuse, structural completion, telemetry, and related
+      post-K0 behavior are consumed from the exact pin and are not copied downstream.
+
+  - id: HISTORICAL_REPAIR_AND_REMEDIATION
+    upstream_tasks: [TASK-077, TASK-078]
+    classification: ADOPTED_BY_PIN
+    consumption: PINNED_KERNEL_ONLY
+
+  - id: ROADMAP_SEQUENCING
+    upstream_tasks: [TASK-083]
+    classification: PORT_GOVERNANCE
+    consumption: PYTHON_AGENT_BRAIN_STATE
+    implementation: .ai/roadmap-state.yaml
+
+  - id: UNIFIED_STATE_AND_HUMAN_SURFACE
+    upstream_tasks: [TASK-086, TASK-087]
+    classification: ADOPTED_BY_PIN
+    consumption: PUBLIC_OPERATOR_SURFACES
+
+  - id: CONTINUE_SYNCHRONIZATION
+    upstream_tasks: [TASK-088, TASK-102]
+    classification: ADOPTED_BY_PIN
+    consumption: PINNED_KERNEL_ONLY
+    boundary: NO_DOWNSTREAM_SYNC_ENGINE
+
+  - id: CONTINUE_IMPLEMENTATION_SAFE_PUBLICATION_AND_NATIVE_INSTRUCTIONS
+    upstream_tasks: [TASK-089, TASK-090, TASK-092]
+    classification: ADOPTED_BY_PIN
+    consumption: PINNED_KERNEL_ONLY
+    safe_publisher: ACTIVE
+    boundary: NO_DOWNSTREAM_CORRECTION_OR_PUBLICATION_STATE_MACHINE
+
+  - id: THIRD_EXECUTOR_BACKEND
+    upstream_tasks: [TASK-091]
+    upstream_revision: 2
+    classification: ADOPTED_BY_PIN
+    consumption: AVAILABLE_IN_PINNED_KERNEL
+    boundary: NO_NEW_PYTHON_AGENT_HUMAN_FACING_EXECUTOR_SURFACE
+
+  - id: PUBLISHED_POST_PIN_CONTROL_PLANE_TASK_093
+    upstream_tasks: [TASK-093]
+    classification: ADOPTED_BY_PIN
+    consumption: PINNED_KERNEL_ONLY
+  - id: PUBLISHED_POST_PIN_CONTROL_PLANE_TASK_094
+    upstream_tasks: [TASK-094]
+    classification: ADOPTED_BY_PIN
+    consumption: PINNED_KERNEL_ONLY
+  - id: PUBLISHED_POST_PIN_CONTROL_PLANE_TASK_095
+    upstream_tasks: [TASK-095]
+    classification: ADOPTED_BY_PIN
+    consumption: PINNED_KERNEL_ONLY
+  - id: PUBLISHED_POST_PIN_CONTROL_PLANE_TASK_096
+    upstream_tasks: [TASK-096]
+    classification: ADOPTED_BY_PIN
+    consumption: PINNED_KERNEL_ONLY
+  - id: PUBLISHED_POST_PIN_CONTROL_PLANE_TASK_097
+    upstream_tasks: [TASK-097]
+    classification: ADOPTED_BY_PIN
+    consumption: PINNED_KERNEL_ONLY
+  - id: PUBLISHED_POST_PIN_CONTROL_PLANE_TASK_098
+    upstream_tasks: [TASK-098]
+    classification: ADOPTED_BY_PIN
+    consumption: PINNED_KERNEL_ONLY
+  - id: PUBLISHED_POST_PIN_CONTROL_PLANE_TASK_099
+    upstream_tasks: [TASK-099]
+    classification: ADOPTED_BY_PIN
+    consumption: PINNED_KERNEL_ONLY
+  - id: PUBLISHED_POST_PIN_CONTROL_PLANE_TASK_100
+    upstream_tasks: [TASK-100]
+    classification: ADOPTED_BY_PIN
+    consumption: PINNED_KERNEL_ONLY
+
+  - id: OPTIONAL_OUTER_AUTOMATION
+    upstream_tasks: [TASK-066, TASK-068, TASK-069, TASK-070, TASK-071, TASK-072, TASK-073, TASK-074]
+    classification: EXPLICITLY_NOT_APPLICABLE_OR_OPTIONAL
+    consumption: NOT_EXPOSED
+    boundary: >-
+      No wakeup, approval, autonomous lane, upstream workflow, or dispatch automation is
+      introduced; Python Agent keeps its existing repository-owned publication workflow.
+
+  - id: PERFORMANCE_CLOSURE
+    upstream_tasks: [TASK-101]
+    classification: BLOCKED_PENDING_UPSTREAM
+    consumption: NOT_ADOPTED
+    reviewed_candidate: 575a3d7f0060b5a74dba1b44059097355a7d8a64
+    semantic_pass: true
+    source_published: false
+    upstream_roadmap_reconciled: false
+    gate: >-
+      The reviewed source candidate must be source-published and upstream roadmap state
+      reconciled before a future exact-pin migration.
+
+  - id: AUTHORED_POST_CHECKPOINT_CAPABILITY
+    upstream_tasks: [TASK-103]
+    classification: BLOCKED_PENDING_UPSTREAM
+    consumption: NOT_ADOPTED
+    authored_on_checkpoint: 7d0bbcbce4b1bfeaa47634f9069a8ae9ac44930c
+    semantic_pass: false
+    source_published: false
+    gate: SEMANTIC_PASS_AND_SOURCE_PUBLICATION_REQUIRED
+
+future_migration_policy: >-
+  Require an exact reviewed and source-published upstream candidate. Never infer adoption
+  from this registry, an unpublished candidate, review metadata, or current AIOS-renew main.

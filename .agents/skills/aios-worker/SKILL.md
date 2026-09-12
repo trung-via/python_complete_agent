@@ -244,7 +244,7 @@ an executor or become a second status/review authority.
 
 ## Adopted Upstream Capabilities and Boundaries
 
-Under the pinned commit `e72135cd5c5a1dec0d8374d9bb8994da5e458feb`, Python Agent adopts:
+Under the pinned commit `2599202afedb0622e9e9bdc7b5a15f34da01cc27`, Python Agent adopts:
 - **TASK-086**: Deterministic, read-only Unified State and Next Action through the
   public `state` operator surface. The worker neither copies nor caches the reducer.
 - **TASK-087**: One bounded Human continuation front door through the public `continue`
@@ -324,6 +324,11 @@ Under the pinned commit `e72135cd5c5a1dec0d8374d9bb8994da5e458feb`, Python Agent
   authority. Brain still selects the semantic action, and Runtime still owns lifecycle validation,
   completion, canonical verification, and EVIDENCE. The launcher contains no local instruction
   parser, prompt implementation, repair dispatcher, or second state machine.
+- **TASK-091 revision 2 / TASK-093..TASK-100 / TASK-102**: The published post-pin
+  runtime and control-plane capability families are available solely through the exact pinned
+  kernel. In particular, TASK-102 pre-observation synchronization remains Runtime-owned.
+  This worker adds no synchronization engine, correction frontier, performance collector,
+  lifecycle parser, or new Human-facing Executor selection.
 
 Capabilities present in upstream history but **not** exposed by this downstream worker:
 - **TASK-066 / TASK-068..TASK-074**: Although the exact package contains this intervening
@@ -337,8 +342,9 @@ Capabilities present in upstream history but **not** exposed by this downstream 
 ## Immutable Kernel Pin
 
 The only authoritative AIOS-renew kernel is commit
-`e72135cd5c5a1dec0d8374d9bb8994da5e458feb`. Installed provenance for the immediate-predecessor
-`08e4a612377ac82be36061286a34138ea53ab0d1` pin, and every older pin including
+`2599202afedb0622e9e9bdc7b5a15f34da01cc27`. Installed provenance for the immediate-predecessor
+`e72135cd5c5a1dec0d8374d9bb8994da5e458feb` pin, and every older pin including
+`08e4a612377ac82be36061286a34138ea53ab0d1`,
 `883974be6ec5922ae57021b50a48c84a0014dbfa` and
 `32ace104c5cfaa1b7affbaa40157872b1f85147f`, is stale. The launcher validates both the
 checked-in dependency pin and installed PEP 610 source+commit provenance and
@@ -353,3 +359,7 @@ only the execution substrate to reviewed TASK-092. It does not continue TASK-182
 that TASK-182 has resumed, passed, been reviewed, or been published. RUN-182-003 remains
 the canonical failed lineage under the predecessor adapter; only a later separately
 authorized continuation may act on it.
+
+TASK-192 advances only the exact execution substrate and records downstream governance.
+TASK-101 and TASK-103 remain blocked pending exact reviewed source publication; current
+AIOS-renew main and unpublished candidates are not admissible runtime authority.

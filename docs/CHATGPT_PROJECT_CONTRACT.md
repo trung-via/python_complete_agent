@@ -28,6 +28,13 @@ For current Python Agent truth use:
 
 Chat memory is advisory only.
 
+Authority remains separated: the Human owns intent and priority changes; the Brain
+owns roadmap/adoption interpretation and semantic TASK authoring; Runtime owns
+deterministic lifecycle, verification, and evidence; exactly one selected Executor
+owns HOW for one admitted execution; the Reviewer owns the semantic verdict; and the
+Publisher owns publication. Runtime or worker state must never auto-advance the Brain's
+roadmap or adoption planning state.
+
 ## 3. AIOS Runtime Authority
 
 Python Agent uses only the AIOS-renew version pinned by:
@@ -38,11 +45,14 @@ Python Agent uses only the AIOS-renew version pinned by:
 
 TASK-179 established the historical downstream authority
 `883974be6ec5922ae57021b50a48c84a0014dbfa`. TASK-183 migrated the prior exact
-authority to `08e4a612377ac82be36061286a34138ea53ab0d1`. TASK-184 migrates the active
-exact authority to `e72135cd5c5a1dec0d8374d9bb8994da5e458feb`. Python Agent adopts reviewed
-TASK-086 Unified State, TASK-087 Unified Human Surface, TASK-088 missing-local-TASK
-pre-resolution, TASK-089 `CONTINUE_IMPLEMENTATION`, and TASK-090 safe-publication
-compatibility only by pinning that source candidate and translating to its public
+authority to `08e4a612377ac82be36061286a34138ea53ab0d1`, TASK-184 migrated it to
+`e72135cd5c5a1dec0d8374d9bb8994da5e458feb`, and TASK-192 migrates the sole active
+authority to the reviewed, source-published commit
+`2599202afedb0622e9e9bdc7b5a15f34da01cc27`. Python Agent consumes established K0 and
+post-K0 Runtime behavior plus TASK-086 Unified State, TASK-087 Unified Human Surface,
+TASK-088 missing-local-TASK pre-resolution, TASK-089 `CONTINUE_IMPLEMENTATION`, TASK-090
+safe-publication compatibility, TASK-091 revision 2, TASK-092 native instructions,
+TASK-093 through TASK-100, and TASK-102 only through that exact pin and its public
 operator surfaces. For a syntactically valid requested TASK whose
 canonical local TASK file is absent, pinned CONTINUE may use the bounded
 TASK-062-governed pre-resolution synchronization before Unified State loads the TASK,
@@ -53,7 +63,8 @@ synchronization implementation, retry, reroute, recursive continuation, or secon
 lifecycle operation. TASK-089 semantic selection, TASK-090 publication behavior, and
 all Runtime validation remain inside the pinned distribution. Python Agent does not
 copy AIOS-renew workflow files, create a second state machine, or automatically expose
-every upstream operator command.
+every upstream operator command. In particular, availability of a third Executor backend
+inside the kernel creates no new Python Agent Human-facing Executor surface.
 
 TASK-092 is adopted only through the exact pin. Its Codex and Antigravity adapters are
 the native Executor instruction authority for `CONTINUE_IMPLEMENTATION`; the downstream
@@ -66,13 +77,21 @@ recursive continuation, semantic review, or Executor-owned canonical verificatio
 EVIDENCE authority. Brain retains semantic classification, and Runtime retains lifecycle,
 completion, canonical verification, and EVIDENCE authority.
 
-The immediate-predecessor `08e4a612377ac82be36061286a34138ea53ab0d1`
-installation is stale after this migration and must be atomically replaced under the
-existing exact source-and-commit provenance boundary.
+The immediate-predecessor `e72135cd5c5a1dec0d8374d9bb8994da5e458feb` installation is
+stale after this migration and must be atomically replaced under the existing exact
+source-and-commit provenance boundary.
 
 The active runtime must never be inferred from current AIOS-renew main.
 
 An AIOS-renew improvement does not exist for Python Agent until the Python Agent repository explicitly updates and certifies its pin.
+
+`.ai/aios-adoption-state.yaml` is the canonical Brain-readable adoption registry and
+`.ai/roadmap-state.yaml` is the canonical Python Agent planning bookmark. They are
+planning/governance state, not proof of Runtime PASS, source publication, or downstream
+certification. TASK-083 roadmap sequencing is ported as repository governance. TASK-101
+and TASK-103 remain `BLOCKED_PENDING_UPSTREAM`; neither may be treated as adopted until a
+future migration selects an exact reviewed, source-published candidate after reconciling
+upstream roadmap state. Mutable AIOS-renew main is never downstream pin authority.
 
 Repository-native semantic review and source-only publication remain separate from
 execution. `.github/workflows/aios-auto-publish.yml` continues to consume the same
@@ -354,15 +373,27 @@ For a new ChatGPT chat:
 1. Read this contract.
 2. Read current Python Agent main.
 3. Read current AIOS dependency pin.
-4. Read current phase document.
-5. Determine last published implementation.
-6. Determine next authored TASK, if any.
-7. Inspect active RUN / FAILURE / REVIEW / FIX / REPAIR lineage only when relevant.
-8. Use the repository-owned `STATUS TASK-N` surface for read-only Unified State
+4. Read `.ai/roadmap-state.yaml`.
+5. Read `.ai/aios-adoption-state.yaml`.
+6. Read the current Product Intelligence and phase roadmaps,
+   `docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md` and
+   `docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md`, including the current product/phase
+   document selected by those roadmaps.
+7. Reconcile the unique roadmap `next` pointer and every relevant adoption classification
+   with current main, the exact pin, and relevant immutable TASK/RUN/RESULT/FAILURE/REVIEW/
+   REMEDIATION/REPAIR and publication lineage.
+8. Determine the last published implementation and the unique next authored TASK, if any.
+9. Use the repository-owned `STATUS TASK-N` surface for read-only Unified State
    inspection and `CONTINUE TASK-N` for the normal lifecycle step.
-9. When the explicit debug path requires REPAIR and action semantics are not already reconciled in the current chat, inspect the exact pinned AIOS runtime before selecting `NO_CHANGE`, `CODE_FIX`, or any successor action vocabulary.
-10. When review/publication follows a nonstandard lineage such as REPAIR-after-FIX, inspect the exact pinned publication semantics before materializing review-decision fields that depend on prior-review resolution.
-11. Produce SYNC CHECKPOINT.
+10. When the explicit debug path requires REPAIR and action semantics are not already reconciled in the current chat, inspect the exact pinned AIOS runtime before selecting `NO_CHANGE`, `CODE_FIX`, or any successor action vocabulary.
+11. When review/publication follows a nonstandard lineage such as REPAIR-after-FIX, inspect the exact pinned publication semantics before materializing review-decision fields that depend on prior-review resolution.
+12. Produce SYNC CHECKPOINT.
+
+Generic Human intent such as "continue roadmap" resolves only from the reconciled single
+`next` pointer. It must never be inferred from the numerically latest TASK, Human memory,
+previous-chat context, or current AIOS-renew main. If either governance file is missing,
+malformed, ambiguous, or conflicts with engineering lineage, stop before roadmap selection
+or TASK authoring and report exactly `ROADMAP/ADOPTION SYNC BLOCKED`; do not guess.
 
 Expected checkpoint:
 
@@ -370,13 +401,16 @@ Expected checkpoint:
 PROJECT: Python Agent
 MAIN: <sha>
 AIOS PIN: <sha>
+ROADMAP NEXT: <task or none>
+RETURN TO: <milestone or none>
+ADOPTION AUDIT: <checkpoint>
 PHASE: <phase>
 LAST PUBLISHED: <task>
 AUTHORED NEXT TASK: <task or none>
 ACTIVE RUN: <run or none>
 ACTIVE FINDING: <finding or none>
 ACTIVE FAILURE: <run or none>
-STATE: READY | BLOCKED
+STATE: READY | ROADMAP/ADOPTION SYNC BLOCKED | BLOCKED
 ```
 
-Never infer these values solely from chat memory.
+Never infer these values solely from chat memory, the latest TASK, or Runtime/worker state.

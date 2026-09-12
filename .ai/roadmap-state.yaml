@@ -1,0 +1,69 @@
+schema_version: 1
+kind: python_agent_roadmap_state
+project: Python Agent
+
+authority:
+  owner: BRAIN
+  purpose: CROSS_CHAT_PLANNING_BOOKMARK
+  engineering_truth: false
+  auto_advance_from_runtime_or_worker_state: false
+  priority_change_owner: HUMAN
+
+roadmap_sources:
+  - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+  - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+
+product_checkpoint:
+  task_id: TASK-191
+  milestone: P7.1 Real-Evidence Winning Product Coverage Baseline
+  source_sha: 40da098b3b0dcf3d1994fc510dd55717b81a2f67
+  status: DONE
+
+active_track:
+  id: AIOS_DOWNSTREAM_PARITY
+  title: AIOS downstream parity
+  priority_owner: HUMAN
+  status: ACTIVE
+
+next:
+  task_id: TASK-192
+  title: Canonical downstream AIOS adoption baseline
+  status: NEXT
+  completion_gate: >-
+    Remains NEXT until canonical semantic PASS, source publication, and a fresh Brain
+    reconciliation update this planning bookmark.
+
+pending_upstream_closure:
+  status: PENDING
+  items:
+    - task_id: TASK-101
+      status: BLOCKED_PENDING_UPSTREAM
+    - task_id: TASK-103
+      status: BLOCKED_PENDING_UPSTREAM
+  migration_gate: >-
+    Adopt only an exact reviewed and source-published upstream candidate after upstream
+    roadmap state is reconciled; never follow mutable AIOS-renew main.
+
+return_to:
+  id: PYTHON_AGENT_GOVERNANCE_FOUNDATION
+  title: Python Agent Governance Foundation
+  status: PENDING_AFTER_ACTIVE_TRACK
+
+pending_commitments:
+  - id: PYTHON_AGENT_MANIFESTO
+    title: Python Agent Manifesto
+    status: NOT_DONE
+  - id: PYTHON_AGENT_CONSTITUTION
+    title: Python Agent Constitution
+    status: NOT_DONE
+  - id: PYTHON_AGENT_PRODUCT_CONTRACT
+    title: Python Agent Product Contract
+    status: NOT_DONE
+  - id: CHATGPT_PROJECT_CONTRACT_RECONCILIATION
+    title: ChatGPT Project Contract reconciliation
+    status: NOT_DONE
+
+commitment_removal_gate: >-
+  A pending commitment may leave this set only when canonical evidence marks it DONE
+  or explicit Human intent canonically marks it CANCELLED or SUPERSEDED. Planning state
+  alone never proves implementation completion.

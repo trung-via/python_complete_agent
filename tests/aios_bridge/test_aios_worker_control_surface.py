@@ -24,7 +24,8 @@ CONTRACT_FILE = REPO_ROOT / "docs" / "CHATGPT_PROJECT_CONTRACT.md"
 BASE_SHA = "1" * 40
 HEAD_SHA = "2" * 40
 FAILED_HEAD_SHA = "3" * 40
-IMMEDIATE_PREDECESSOR_COMMIT = "08e4a612377ac82be36061286a34138ea53ab0d1"
+IMMEDIATE_PREDECESSOR_COMMIT = "e72135cd5c5a1dec0d8374d9bb8994da5e458feb"
+LEGACY_PREDECESSOR_COMMIT = "08e4a612377ac82be36061286a34138ea53ab0d1"
 OLDER_STALE_AUTHORITATIVE_COMMIT = "883974be6ec5922ae57021b50a48c84a0014dbfa"
 TASK_089_SOURCE_CANDIDATE = "bb57147eac92475789d7809ed445d56535d5a009"
 TASK_092_REVIEW_DECISION_COMMIT = "18e7ed49c7393f199589bd241eede3e67d759aa1"
@@ -79,10 +80,10 @@ class TestImmutableRuntimePin:
             if line.strip() and not line.lstrip().startswith("#")
         ]
         assert active == [aw.PIN_LINE]
-        assert aw.AUTHORITATIVE_COMMIT == "e72135cd5c5a1dec0d8374d9bb8994da5e458feb"
+        assert aw.AUTHORITATIVE_COMMIT == "2599202afedb0622e9e9bdc7b5a15f34da01cc27"
         assert active == [
             "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
-            "e72135cd5c5a1dec0d8374d9bb8994da5e458feb"
+            "2599202afedb0622e9e9bdc7b5a15f34da01cc27"
         ]
 
     def test_authoritative_pep610_metadata_is_accepted(self):
@@ -95,6 +96,10 @@ class TestImmutableRuntimePin:
             (
                 aw.AUTHORITATIVE_REPOSITORY,
                 IMMEDIATE_PREDECESSOR_COMMIT,
+            ),
+            (
+                aw.AUTHORITATIVE_REPOSITORY,
+                LEGACY_PREDECESSOR_COMMIT,
             ),
             (
                 aw.AUTHORITATIVE_REPOSITORY,
@@ -1322,7 +1327,7 @@ class TestSurfaceAndDocumentation:
                 not in text
             )
 
-        assert "immediate-predecessor `08e4a612377ac82be36061286a34138ea53ab0d1`" in (
+        assert f"immediate-predecessor `{IMMEDIATE_PREDECESSOR_COMMIT}`" in (
             CONTRACT_FILE.read_text(encoding="utf-8")
         )
 
@@ -1361,6 +1366,12 @@ class TestSurfaceAndDocumentation:
             assert "CONTINUE_IMPLEMENTATION" in text
             assert "TASK-090" in text
             assert "TASK-092" in text
+            assert "TASK-091 revision 2" in text
+            assert "TASK-093" in text
+            assert "TASK-100" in text
+            assert "TASK-102" in text
+            assert "no synchronization engine" in text
+            assert "no new Human-facing Executor selection" in text
             assert "Result.changed_files" in text
             assert "candidate.changed_files" in text
             assert "distinct truths" in text
@@ -1427,7 +1438,7 @@ class TestSurfaceAndDocumentation:
 
         assert (
             "downstream AIOS-renew pin "
-            "`e72135cd5c5a1dec0d8374d9bb8994da5e458feb` already present"
+            "`2599202afedb0622e9e9bdc7b5a15f34da01cc27` already present"
             in normalized
         )
         assert (
