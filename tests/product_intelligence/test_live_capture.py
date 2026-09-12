@@ -1386,11 +1386,17 @@ def test_discovery_cohort_resume_tampered_batch_after_human_action_fails_closed(
         ("wrong_candidate_platform", lambda b: b["candidates"][0].__setitem__("platform", "lazada")),
         ("malformed_candidate_rating", lambda b: b["candidates"][0].__setitem__("rating", 99.0)),
         ("malformed_candidate_observed_at", lambda b: b["candidates"][0].__setitem__("observed_at", "not-a-datetime")),
+        ("parseable_non_canonical_candidate_observed_at_space", lambda b: b["candidates"][0].__setitem__("observed_at", "2026-09-12 10:00:00+00:00")),
+        ("parseable_non_canonical_candidate_observed_at_z", lambda b: b["candidates"][0].__setitem__("observed_at", "2026-09-12T10:00:00Z")),
+        ("naive_candidate_observed_at", lambda b: b["candidates"][0].__setitem__("observed_at", "2026-09-12T10:00:00")),
         ("malformed_candidate_price", lambda b: b["candidates"][0].__setitem__("price", -10.0)),
         ("malformed_batch_count", lambda b: b.__setitem__("candidate_count", 4)),
         ("malformed_batch_pages", lambda b: b.__setitem__("pages_examined", 2)),
         ("extra_batch_field", lambda b: b.__setitem__("injected_batch_field", "bad")),
         ("malformed_batch_platform", lambda b: b.__setitem__("platform", "unsupported")),
+        ("parseable_non_canonical_batch_observed_at_space", lambda b: b.__setitem__("observed_at", "2026-09-12 10:00:00+00:00")),
+        ("parseable_non_canonical_batch_observed_at_z", lambda b: b.__setitem__("observed_at", "2026-09-12T10:00:00Z")),
+        ("naive_batch_observed_at", lambda b: b.__setitem__("observed_at", "2026-09-12T10:00:00")),
     ]
 
     for case_name, mutator in tamper_cases:
@@ -1448,6 +1454,12 @@ def test_discovery_cohort_resume_tampered_batch_after_session_lost_fails_closed(
         ("malformed_candidate_count", lambda b: b.__setitem__("candidate_count", 99)),
         ("malformed_candidate_sold_count", lambda b: b["candidates"][0].__setitem__("sold_count", -1)),
         ("malformed_diagnostic_codes", lambda b: b.__setitem__("diagnostic_codes", "invalid")),
+        ("parseable_non_canonical_candidate_observed_at_space", lambda b: b["candidates"][0].__setitem__("observed_at", "2026-09-12 10:00:00+00:00")),
+        ("parseable_non_canonical_candidate_observed_at_z", lambda b: b["candidates"][0].__setitem__("observed_at", "2026-09-12T10:00:00Z")),
+        ("naive_candidate_observed_at", lambda b: b["candidates"][0].__setitem__("observed_at", "2026-09-12T10:00:00")),
+        ("parseable_non_canonical_batch_observed_at_space", lambda b: b.__setitem__("observed_at", "2026-09-12 10:00:00+00:00")),
+        ("parseable_non_canonical_batch_observed_at_z", lambda b: b.__setitem__("observed_at", "2026-09-12T10:00:00Z")),
+        ("naive_batch_observed_at", lambda b: b.__setitem__("observed_at", "2026-09-12T10:00:00")),
     ]
 
     for case_name, mutator in tamper_cases:

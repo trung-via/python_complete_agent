@@ -334,7 +334,7 @@ def _validate_persisted_candidate(
     candidate: object,
     *,
     batch_platform: str,
-) -> tuple[str, str]:
+) -> tuple[str, str, ProductCandidateSnapshot]:
     if not isinstance(candidate, dict):
         raise LiveCaptureError("Capture checkpoint candidate snapshot is invalid")
     if set(candidate) != _CANDIDATE_KEYS:
@@ -367,6 +367,11 @@ def _validate_persisted_candidate(
         cand_observed_at = datetime.fromisoformat(observed_at_raw)
     except (ValueError, TypeError) as exc:
         raise LiveCaptureError("Capture checkpoint candidate observed_at is invalid") from exc
+
+    if cand_observed_at.tzinfo is None or cand_observed_at.utcoffset() is None:
+        raise LiveCaptureError("Capture checkpoint candidate observed_at is invalid")
+    if cand_observed_at.isoformat() != observed_at_raw:
+        raise LiveCaptureError("Capture checkpoint candidate observed_at is invalid")
 
     for str_key in ("source_product_id", "shop_id", "shop_name", "category", "brand", "model"):
         val = candidate[str_key]
@@ -423,7 +428,7 @@ def _validate_persisted_candidate(
         raise LiveCaptureError("Capture checkpoint candidate rating is invalid")
 
     try:
-        ProductCandidateSnapshot(
+        snapshot = ProductCandidateSnapshot(
             candidate_id=cid,
             platform=platform,
             url=url,
@@ -455,7 +460,10 @@ def _validate_persisted_candidate(
     except (ValueError, TypeError) as exc:
         raise LiveCaptureError(f"Capture checkpoint candidate snapshot is invalid: {exc}") from exc
 
-    return cid, url
+    if snapshot.to_dict() != candidate:
+        raise LiveCaptureError("Capture checkpoint candidate snapshot is invalid")
+
+    return cid, url, snapshot
 
 
 def _validate_persisted_discovery_batch(
@@ -478,9 +486,14 @@ def _validate_persisted_discovery_batch(
     if not isinstance(observed_at_raw, str):
         raise LiveCaptureError("Capture checkpoint discovery batch observed_at is invalid")
     try:
-        datetime.fromisoformat(observed_at_raw)
+        batch_observed_at = datetime.fromisoformat(observed_at_raw)
     except (ValueError, TypeError) as exc:
         raise LiveCaptureError("Capture checkpoint discovery batch observed_at is invalid") from exc
+
+    if batch_observed_at.tzinfo is None or batch_observed_at.utcoffset() is None:
+        raise LiveCaptureError("Capture checkpoint discovery batch observed_at is invalid")
+    if batch_observed_at.isoformat() != observed_at_raw:
+        raise LiveCaptureError("Capture checkpoint discovery batch observed_at is invalid")
 
     pages_examined = batch["pages_examined"]
     if isinstance(pages_examined, bool) or not isinstance(pages_examined, int) or pages_examined != 1:
@@ -502,10 +515,11 @@ def _validate_persisted_discovery_batch(
     if not isinstance(candidates, list) or len(candidates) != 5:
         raise LiveCaptureError("Capture checkpoint discovery batch candidates are invalid")
 
+    batch_candidates: list[ProductCandidateSnapshot] = []
     batch_ids: set[str] = set()
     batch_urls: set[str] = set()
     for candidate in candidates:
-        cid, url = _validate_persisted_candidate(candidate, batch_platform=batch["platform"])
+        cid, url, snapshot = _validate_persisted_candidate(candidate, batch_platform=batch["platform"])
         if cid in batch_ids:
             raise LiveCaptureError("Capture checkpoint discovery batch has duplicate candidate ID")
         if url in batch_urls:
@@ -520,8 +534,25 @@ def _validate_persisted_discovery_batch(
             )
         batch_ids.add(cid)
         batch_urls.add(url)
+        batch_candidates.append(snapshot)
     seen_ids.update(batch_ids)
     seen_urls.update(batch_urls)
+
+    try:
+        reconstructed_batch = DiscoveryBatch(
+            platform=batch["platform"],
+            query=batch["query"],
+            observed_at=batch_observed_at,
+            candidates=tuple(batch_candidates),
+            pages_examined=pages_examined,
+            raw_items_seen=raw_items_seen,
+            diagnostic_codes=tuple(diagnostic_codes),
+        )
+    except (ValueError, TypeError) as exc:
+        raise LiveCaptureError(f"Capture checkpoint discovery batch is invalid: {exc}") from exc
+
+    if reconstructed_batch.to_dict() != batch:
+        raise LiveCaptureError("Capture checkpoint discovery batch is invalid")
 
 
 def _validate_live_discovery_batch(
@@ -538,6 +569,8 @@ def _validate_live_discovery_batch(
         raise LiveCaptureError(
             f"Discovery query mismatch: expected {expected_query!r}, got {batch.query!r}"
         )
+    if not isinstance(batch.observed_at, datetime) or batch.observed_at.tzinfo is None or batch.observed_at.utcoffset() is None:
+        raise LiveCaptureError("Discovery batch observed_at is invalid or naive")
     if batch.pages_examined != 1:
         raise LiveCaptureError(
             f"Discovery pages_examined mismatch: expected 1, got {batch.pages_examined}"
@@ -550,8 +583,12 @@ def _validate_live_discovery_batch(
     candidate_ids: list[str] = []
     candidate_urls: list[str] = []
     for candidate in batch.candidates:
+        if not isinstance(candidate, ProductCandidateSnapshot):
+            raise LiveCaptureError("Discovery candidate is invalid")
         if candidate.platform != "shopee":
             raise LiveCaptureError(f"Discovery candidate platform is invalid: {candidate.platform!r}")
+        if not isinstance(candidate.observed_at, datetime) or candidate.observed_at.tzinfo is None or candidate.observed_at.utcoffset() is None:
+            raise LiveCaptureError("Discovery candidate observed_at is invalid or naive")
         cid = candidate.candidate_id
         url = candidate.url
         if not isinstance(cid, str) or not cid:
