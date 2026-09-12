@@ -4,7 +4,7 @@
 
 Python Agent exists to reduce decision-relevant uncertainty in commerce. It transforms attributable observations into trustworthy knowledge and auditable intelligence so that the owning Human, or an authority legitimately delegated by that Human, can make better decisions.
 
-Success is not more data, more automation, a higher internal score, or greater autonomy. Success is clearer uncertainty, better-informed commitments, safer action, and learning that can be inspected over time. AIOS, executors, models, providers, browsers, runtimes, and deployment tools are subordinate substrates; none defines product meaning or authority.
+Success is not more data, more automation, a higher internal score, or greater autonomy. Success is clearer uncertainty, better-informed commitments, safer action, and learning that can be inspected over time. AIOS, executors, models, providers, browsers, runtimes, and deployment tools are subordinate substrates; none defines Python Agent product meaning, domain architecture, or product-governance authority. Operational authorities explicitly assigned by canonical contracts remain intact.
 
 ## Intelligence Doctrine
 
