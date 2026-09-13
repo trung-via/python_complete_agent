@@ -26,8 +26,8 @@ active_track:
   status: ACTIVE
 
 next:
-  id: PYTHON_AGENT_PRODUCT_CONTRACT
-  title: Python Agent Product Contract
+  id: CHATGPT_PROJECT_CONTRACT_RECONCILIATION
+  title: ChatGPT Project Contract reconciliation
   status: NEXT
   completion_gate: >-
     Remains NEXT until canonical evidence marks it DONE or explicit Human intent
@@ -52,6 +52,12 @@ completed_milestones:
     title: Python Agent Constitution
     status: DONE
     source_sha: 4f6d91858c93192f497342315c4650e30b0a2718
+  - task_id: TASK-199
+    track_id: PYTHON_AGENT_GOVERNANCE_FOUNDATION
+    milestone_id: PYTHON_AGENT_PRODUCT_CONTRACT
+    title: Python Agent Product Contract
+    status: DONE
+    source_sha: 702e85e9e77a556f3716717ccaa186919b1a9dab
 
 upstream_recovery:
   status: ADOPTED_BY_PIN
@@ -71,9 +77,6 @@ upstream_recovery:
     a pending commitment, or grant Runtime authority to mutate this Brain-owned bookmark.
 
 pending_commitments:
-  - id: PYTHON_AGENT_PRODUCT_CONTRACT
-    title: Python Agent Product Contract
-    status: NOT_DONE
   - id: CHATGPT_PROJECT_CONTRACT_RECONCILIATION
     title: ChatGPT Project Contract reconciliation
     status: NOT_DONE

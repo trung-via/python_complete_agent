@@ -18,6 +18,7 @@ UPSTREAM_PLANNING_CHECKPOINT = "df65e3f9468d1cc408739ebd89165880ea18afd7"
 TASK_192_SOURCE_SHA = "dcb7432abc58ed983e6c26d5456ace1423e49981"
 TASK_194_SOURCE_SHA = "e0d8998ee004fda80ca3fbc3de4eb0afb59160a5"
 TASK_196_SOURCE_SHA = "4f6d91858c93192f497342315c4650e30b0a2718"
+TASK_199_SOURCE_SHA = "702e85e9e77a556f3716717ccaa186919b1a9dab"
 GOVERNANCE_TRACK_ID = "PYTHON_AGENT_GOVERNANCE_FOUNDATION"
 GOVERNANCE_SEQUENCE = [
     "PYTHON_AGENT_MANIFESTO",
@@ -136,10 +137,20 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
         "status": "DONE",
         "source_sha": TASK_196_SOURCE_SHA,
     }
+    assert completed["TASK-199"] == {
+        "task_id": "TASK-199",
+        "track_id": GOVERNANCE_TRACK_ID,
+        "milestone_id": "PYTHON_AGENT_PRODUCT_CONTRACT",
+        "title": "Python Agent Product Contract",
+        "status": "DONE",
+        "source_sha": TASK_199_SOURCE_SHA,
+    }
 
     upstream = state["upstream_recovery"]
     assert upstream["status"] == "ADOPTED_BY_PIN"
     assert upstream["blocking_current_track"] is False
+    assert upstream["recovery_kind"] == "NON_PRODUCT_CONTROL_PLANE"
+    assert upstream["recovery_task"] == "TASK-198"
     assert [item["task_id"] for item in upstream["items"]] == [
         "TASK-101",
         "TASK-103",
@@ -149,11 +160,15 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
         and item["blocking_current_track"] is False
         for item in upstream["items"]
     )
-    assert upstream["recovery_kind"] == "NON_PRODUCT_CONTROL_PLANE"
+    assert upstream["downstream_pin"] == EXPECTED_PIN
     assert "does not advance" in upstream["roadmap_effect"]
-    pending = {item["id"]: item["status"] for item in state["pending_commitments"]}
-    assert pending["PYTHON_AGENT_PRODUCT_CONTRACT"] == "NOT_DONE"
-    assert pending["CHATGPT_PROJECT_CONTRACT_RECONCILIATION"] == "NOT_DONE"
+    assert state["pending_commitments"] == [
+        {
+            "id": "CHATGPT_PROJECT_CONTRACT_RECONCILIATION",
+            "title": "ChatGPT Project Contract reconciliation",
+            "status": "NOT_DONE",
+        }
+    ]
     assert state["authority"]["owner"] == "BRAIN"
     assert state["authority"]["auto_advance_from_runtime_or_worker_state"] is False
 
