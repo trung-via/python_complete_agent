@@ -1328,13 +1328,25 @@ class TestSurfaceAndDocumentation:
             assert "Executor-owned canonical verification" in normalized
             assert "EVIDENCE" in text
             assert (
+                f"Under the pinned commit `{TASK_102_ERA_COMMIT}`"
+                not in text
+            )
+            assert (
                 f"Under the pinned commit `{IMMEDIATE_PREDECESSOR_COMMIT}`"
                 not in text
             )
 
-        assert f"immediate-predecessor `{IMMEDIATE_PREDECESSOR_COMMIT}`" in (
-            CONTRACT_FILE.read_text(encoding="utf-8")
+        contract_text = CONTRACT_FILE.read_text(encoding="utf-8")
+        contract_normalized = " ".join(contract_text.split())
+        assert f"TASK-102-era `{TASK_102_ERA_COMMIT}`" in contract_text
+        assert (
+            f"The TASK-102-era `{TASK_102_ERA_COMMIT}` installation and every "
+            "older installation are stale"
+            in contract_normalized
         )
+        assert IMMEDIATE_PREDECESSOR_COMMIT in contract_text
+        assert OLDER_STALE_AUTHORITATIVE_COMMIT in contract_text
+        assert LEGACY_PREDECESSOR_COMMIT in contract_text
 
     def test_continue_docs_leave_state_and_executor_required_to_pinned_kernel(self):
         for path in (SKILL_FILE, WORKFLOW_FILE, DOCS_FILE, CONTRACT_FILE):
@@ -1387,6 +1399,7 @@ class TestSurfaceAndDocumentation:
             assert "no automatic retry" in text.lower()
             assert "Git transport" in text
             assert "duplicate-continuation checks" in text
+            assert TASK_102_ERA_COMMIT in text
             assert IMMEDIATE_PREDECESSOR_COMMIT in text
             assert OLDER_STALE_AUTHORITATIVE_COMMIT in text
             assert "stale" in text
