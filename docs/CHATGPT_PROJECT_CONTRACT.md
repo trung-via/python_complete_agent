@@ -12,28 +12,111 @@ Its long-term direction is Product Intelligence and the larger Commerce AI Syste
 AIOS-renew is the execution substrate used to implement this product.  
 AIOS-renew does not own Python Agent domain architecture.
 
-## 2. Authority Hierarchy
+## 2. Governance Foundation and Operating Model
 
-For current Python Agent truth use:
+### Governance Foundation Precedence
 
-1. Explicit current Human intent.
-2. Current canonical `python_complete_agent` repository state.
-3. Exact current phase / architecture documentation.
-4. Relevant TASK contracts and implementation authority.
-5. Exact AIOS RUN / RESULT / FAILURE / REVIEW / REMEDIATION / REPAIR lineage.
-6. This project contract.
-7. Project Instructions.
-8. Previous chats in this project.
-9. General model memory.
+The Governance Foundation has four distinct layers:
 
-Chat memory is advisory only.
+- **Manifesto = WHY:** the highest interpretive philosophy, expressing enduring values,
+  refusals, and direction. It guides interpretation but is not an executable permission
+  matrix.
+- **Constitution = highest enforceable governance:** the authority, delegation, mutation,
+  conflict, compliance, and amendment law governing Python Agent.
+- **Product Contract = WHAT:** durable product and domain promises and architecture
+  boundaries.
+- **Project Contract = HOW** (ChatGPT Project Contract = HOW): the operating mechanics for
+  the Brain, repository, execution, review, and publication system.
 
-Authority remains separated: the Human owns intent and priority changes; the Brain
-owns roadmap/adoption interpretation and semantic TASK authoring; Runtime owns
-deterministic lifecycle, verification, and evidence; exactly one selected Executor
-owns HOW for one admitted execution; the Reviewer owns the semantic verdict; and the
-Publisher owns publication. Runtime or worker state must never auto-advance the Brain's
-roadmap or adoption planning state.
+The ChatGPT Project Contract is subordinate to the Constitution and Product Contract and may
+not silently override them. Phase and architecture documentation is subordinate to these
+contracts, and TASK contracts are subordinate to every preceding enforceable layer.
+Implementation and execution evidence cannot amend higher governance. Lower layers may refine
+higher layers only without silently overriding them.
+
+### Three Operating Dimensions
+
+Rather than collapsing governance, intent, and repository state into a single mixed truth
+list, Python Agent distinguishes three separate questions without allowing any one category
+to silently override the others outside its authority:
+
+1. **Human Mandate:**
+   `HUMAN_PRINCIPAL` owns current mandate, priority, risk envelope, delegation, suspension,
+   amendment initiation, and explicit supersession intent. Human intent operates
+   prospectively; it does not silently rewrite canonical engineering or domain state, bypass
+   an admitted governance or domain mutation path, or retroactively authorize prior actions.
+   Canonical effects occur only through the relevant authorized path.
+
+2. **Governance Precedence:**
+   Governance conflicts follow the canonical Governance Foundation precedence:
+   Manifesto -> Constitution -> Product Contract -> ChatGPT Project Contract ->
+   phase/architecture documentation -> TASK contracts. Lower layers may refine higher layers
+   only without silently overriding them. Engineering evidence cannot amend higher governance.
+
+3. **Engineering-State Truth:**
+   Engineering-state truth is established by current canonical `python_complete_agent`
+   repository state plus exact immutable TASK/RUN/RESULT/FAILURE/REVIEW/REMEDIATION/REPAIR
+   and publication lineage.
+
+Chat memory, project instructions, previous chats, and general model memory are advisory only.
+They are never engineering-state truth, roadmap authority, or governance law.
+
+### Constitutional Roles and Operating Actors
+
+The seven constitutional roles map to current concrete operating actors without redefining
+the roles or introducing new authority:
+
+- `HUMAN_PRINCIPAL` -> Human.
+- `ARCHITECT` -> ChatGPT Brain while framing architecture, roadmap, and TASK contracts
+  within Human mandate.
+- `DOMAIN_AUTHORITY` -> each existing canonical product/governance semantic owner for an
+  explicitly assigned capability.
+- `EXECUTION_RUNTIME` -> pinned AIOS Runtime for deterministic lifecycle, admission,
+  verification, and evidence mechanics.
+- `EXECUTOR` -> exactly one selected Codex or Antigravity executor for an admitted scope.
+- `SEMANTIC_REVIEWER` -> ChatGPT while issuing the independent semantic verdict for an
+  admitted review scope.
+- `SOURCE_PUBLISHER` -> repository-owned source publisher for the exact admitted and reviewed
+  source candidate only.
+
+ChatGPT may occupy `ARCHITECT` and `SEMANTIC_REVIEWER` at different lifecycle stages, but
+co-location does not merge their authorities. Co-location must never grant implementation,
+execution, review-bypass, or publication power to ChatGPT. Every action must remain
+attributable to the role whose authority permits it. Runtime or worker state must never
+auto-advance the Brain's roadmap or adoption planning state.
+
+### Bounded Delegation and Authority Boundaries
+
+`CAPABILITY_IS_NOT_AUTHORITY` is operational law. Tool access, repository write capability,
+model intelligence, successful execution, evidence possession, upstream AIOS feature
+availability, or convenience never grants product truth, roadmap, semantic review, approval,
+publication, domain ownership, or canonical mutation authority.
+
+`ONE_CAPABILITY_ONE_AUTHORITY` is operational law: every proposed new semantic capability must
+resolve exactly one existing or explicitly migrated canonical owner before canonical mutation
+proceeds. Composition or introduction of a tool, model, interface, agent, runtime, or
+automation layer does not create a second owner.
+
+Bounded delegation requires that every delegated action remain strictly inside an explicit
+mandate or envelope and applicable mutation authority. Absent, ambiguous, or conflicting
+delegation fails closed for the affected canonical mutation. The Project Contract creates no
+general Human bypass around admitted governance or domain mutation paths.
+
+### Conflict Handling
+
+The Constitution's three conflict classes have fail-closed operating handling without
+inventing a second precedence system:
+
+- `GOVERNANCE_CONFLICT`: disagreement among canonical governance layers follows higher
+  enforceable governance (Constitution over Product Contract over Project Contract over
+  phase docs over TASK contracts).
+- `AUTHORITY_CONFLICT`: exists when multiple actors or components claim the same semantic
+  ownership, or a mutation has no resolvable owner. The affected canonical mutation fails
+  closed until ownership is reconciled.
+- `EVIDENCE_CONFLICT`: exists when sources or observations disagree. No recency, majority,
+  model, or convenience rule chooses factual truth unless the owning domain authority acts.
+  Evidence conflicts remain explicit evidence and are never converted into factual verdicts
+  or governance shortcuts.
 
 ## 3. AIOS Runtime Authority
 
@@ -193,7 +276,16 @@ recursively continue.
 
 ## 5. Product Architecture Authority
 
-Every capability must have one explicit owner.
+The Product Contract (`docs/PYTHON_AGENT_PRODUCT_CONTRACT.md`) is the sole durable product
+WHAT authority. Brain task design, review, and operating guidance must defer product and domain
+meaning to the Product Contract plus the existing lower canonical owner for the exact
+capability.
+
+This Project Contract governs operating mechanics (HOW) and does not redefine algorithms,
+schemas, truth, ranking, approval, identity, persistence, retrieval, evidence, intelligence,
+decision/action, outcome/learning, or other product semantics.
+
+Every capability must have one explicit owner (`ONE_CAPABILITY_ONE_AUTHORITY`).
 
 Before creating a new module/API/task, identify which previous TASK already owns adjacent semantics.
 
@@ -212,40 +304,49 @@ New tasks extend boundaries; they do not silently redefine earlier boundaries.
 
 ## 6. Evidence / Product Truth Separation
 
+Epistemic and decision boundaries established by the Constitution and Product Contract must
+be strictly preserved across all operating stages:
+
 Product observations may conflict.
 
-Evidence preservation is not product-truth reconciliation.
+Evidence preservation is not product-truth reconciliation (`EVIDENCE_IS_NOT_PRODUCT_TRUTH`,
+`EVIDENCE_CONFLICT`).
 
-Retrieval relevance is not product ranking.
+Retrieval relevance is not product ranking (`RETRIEVAL_IS_NOT_RANKING`).
 
 Business ranking is not entity identity.
 
-RAG context is not answer truth.
+RAG context is not answer truth (`CONTEXT_IS_NOT_TRUTH`).
 
 Model-generated output must never silently become canonical product truth.
 
-When designing future Product Intelligence layers, preserve these boundaries unless an explicit task introduces a new authority.
+When designing future Product Intelligence layers, preserve these boundaries unless an explicit
+task introduces a new authority. Evidence conflicts remain explicit evidence and are never
+converted into factual verdicts or governance shortcuts.
 
 ## 7. Task Design Audit
 
-Before authoring TASK-N:
+Before authoring or revising TASK-N:
 
 1. Read current main.
-2. Identify current phase/milestone.
-3. Identify the proposed new authority.
-4. Search repository docs/tasks/modules for that exact authority.
-5. Read direct predecessor TASK contracts.
-6. Read current implementation boundary.
-7. Check non-goals and deferred work.
+2. Read the full applicable Governance Foundation (`docs/PYTHON_AGENT_MANIFESTO.md`,
+   `docs/PYTHON_AGENT_CONSTITUTION.md`, `docs/PYTHON_AGENT_PRODUCT_CONTRACT.md`, and this contract).
+3. Identify current phase/milestone from roadmap state and canonical lineage.
+4. Identify the proposed new authority and exact current semantic owner (`ONE_CAPABILITY_ONE_AUTHORITY`).
+5. Search repository docs/tasks/modules for duplicate or overlapping authority.
+6. Read direct predecessor TASK contracts and non-goals/deferred work.
+7. Read current implementation boundary.
 8. Classify proposed work as:
    - new capability;
    - hardening;
    - regression;
    - integration;
-   - or duplicate.
-9. Only then author TASK-N.
+   - or duplicate / authority-conflicting work.
+9. Reject duplicate or authority-conflicting work (fails closed).
+10. Only then author or revise TASK-N.
 
-Never generate the next task only from a remembered roadmap.
+New Human intent is a new or revised TASK contract, not a FIX of unrelated lineage.
+Never generate the next task only from a remembered roadmap, chat memory, or mutable upstream AIOS main alone.
 
 ## 8. Execution Semantics
 
@@ -256,7 +357,7 @@ own exact lifecycle selection, handoff/no-action, blocked/done, transport/recove
 and `executor_required` semantics. Brain, Reviewer, and Publisher remain external
 authorities when the bounded Human surface requests those handoffs. A successful
 execution still stops for independent ChatGPT semantic review before source-only
-publication.
+publication. Runtime PASS is not semantic PASS.
 
 Use worker `STATUS TASK-N` only to inspect bounded `AIOS_UNIFIED_STATE`. STATUS is
 read-only and invokes no coding Executor or mutating lifecycle operation.
@@ -334,6 +435,9 @@ architecture justification.
 
 ## 9. Review Semantics
 
+Reviewer issues an independent semantic verdict for the admitted review scope. Runtime PASS is
+not semantic PASS. Reviewer verdict grants no source-mutation or publication authority.
+
 ### PRIMARY review
 
 Review TASK + candidate + evidence.
@@ -377,6 +481,7 @@ Never publish:
 - failure branch;
 - remediation metadata branch.
 
+Review-decision, artifact, failure, or remediation metadata must never be published as implementation.
 Do not rerun verification solely before publication if reviewed evidence remains valid.
 
 ## 11. Cross-project Escalation
@@ -392,15 +497,22 @@ If a Python Agent RUN exposes a probable AIOS-renew kernel defect:
 7. Return to Python Agent.
 8. Create a separate Python Agent migration/update task if the pinned kernel should advance.
 
-Never automatically propagate AIOS main changes into Python Agent.
+Preserve cross-project isolation: a probable AIOS kernel defect discovered from Python Agent
+must retain downstream evidence, be corrected under AIOS-renew authority, and require a
+separate explicit Python Agent migration before any new upstream source becomes downstream
+runtime authority. Never automatically propagate AIOS main changes into Python Agent.
 
 ## 12. Brain Sync Protocol
 
-For a new ChatGPT chat:
+For a new ChatGPT chat, before roadmap, TASK, review, repair, publication, or architecture decisions:
 
-1. Read this contract.
+1. Read the full Governance Foundation:
+   - `docs/PYTHON_AGENT_MANIFESTO.md`
+   - `docs/PYTHON_AGENT_CONSTITUTION.md`
+   - `docs/PYTHON_AGENT_PRODUCT_CONTRACT.md`
+   - `docs/CHATGPT_PROJECT_CONTRACT.md` (this contract)
 2. Read current Python Agent main.
-3. Read current AIOS dependency pin.
+3. Read current AIOS dependency pin (`.agents/skills/aios-worker/requirements-aios-renew.txt`).
 4. Read `.ai/roadmap-state.yaml`.
 5. Read `.ai/aios-adoption-state.yaml`.
 6. Read the current Product Intelligence and phase roadmaps,
@@ -416,6 +528,12 @@ For a new ChatGPT chat:
 10. When the explicit debug path requires REPAIR and action semantics are not already reconciled in the current chat, inspect the exact pinned AIOS runtime before selecting `NO_CHANGE`, `CODE_FIX`, or any successor action vocabulary.
 11. When review/publication follows a nonstandard lineage such as REPAIR-after-FIX, inspect the exact pinned publication semantics before materializing review-decision fields that depend on prior-review resolution.
 12. Produce SYNC CHECKPOINT.
+
+Brain Sync requires the full Governance Foundation, current main, the exact pin, and relevant
+canonical lineage before making semantic decisions. It must keep Human mandate, governance
+precedence, engineering-state truth, roadmap planning state, and adoption planning state
+distinct; conflicts fail closed rather than being guessed from chat memory or mutable upstream
+main.
 
 Generic Human intent such as "continue roadmap" resolves only from the reconciled single
 `next` pointer. It must never be inferred from the numerically latest TASK, Human memory,
