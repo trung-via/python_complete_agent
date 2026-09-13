@@ -1,0 +1,205 @@
+task_id: TASK-200
+revision: 1
+
+goal: >
+  Reconcile the canonical Python Agent Governance Foundation roadmap after the
+  reviewed and source-published Python Agent Product Contract. Record
+  PYTHON_AGENT_PRODUCT_CONTRACT as DONE with exact source provenance, advance
+  CHATGPT_PROJECT_CONTRACT_RECONCILIATION as the unique NEXT milestone, and
+  preserve Brain-owned, transition-safe roadmap sequencing without changing
+  product semantics, AIOS authority, or operating-contract content.
+
+problem: >
+  TASK-199 established the canonical Python Agent Product Contract at exact source
+  702e85e9e77a556f3716717ccaa186919b1a9dab. RUN-199-001 verified the candidate,
+  REVIEW-199-001 returned PRIMARY PASS with AC1-AC10 PASS and no findings, and the
+  reviewed source candidate is now canonical main. The roadmap intentionally still
+  records PYTHON_AGENT_PRODUCT_CONTRACT as NEXT because Executor, Runtime, review,
+  and publication are not authorized to auto-advance the Brain-owned planning
+  bookmark. A narrow post-publication reconciliation is therefore required before
+  the final Governance Foundation milestone,
+  CHATGPT_PROJECT_CONTRACT_RECONCILIATION, can become canonical NEXT.
+
+assumptions:
+  - >
+    Canonical python_complete_agent main at TASK authoring is
+    702e85e9e77a556f3716717ccaa186919b1a9dab, the exact reviewed and
+    source-published TASK-199 Product Contract candidate.
+  - >
+    TASK-199 / RUN-199-001 produced source candidate
+    702e85e9e77a556f3716717ccaa186919b1a9dab; REVIEW-199-001 is PRIMARY
+    PASS with AC1-AC10 PASS and no findings.
+  - >
+    docs/PYTHON_AGENT_MANIFESTO.md, docs/PYTHON_AGENT_CONSTITUTION.md, and
+    docs/PYTHON_AGENT_PRODUCT_CONTRACT.md are canonical Governance Foundation
+    layers WHY, highest enforceable governance, and WHAT respectively.
+  - >
+    .ai/roadmap-state.yaml remains Brain-owned non-engineering planning state and
+    currently records PYTHON_AGENT_PRODUCT_CONTRACT as unique NEXT, with
+    CHATGPT_PROJECT_CONTRACT_RECONCILIATION still NOT_DONE.
+  - >
+    TASK-198 recovery remains complete. The sole active downstream AIOS authority
+    remains a3b723b49cd65677f548c5694a52a6fc006a9e2a and is not modified by
+    this reconciliation.
+  - >
+    Current Human intent preserves the Governance Foundation order:
+    Manifesto -> Constitution -> Python Agent Product Contract ->
+    ChatGPT Project Contract reconciliation.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - .ai/roadmap-state.yaml
+    - .ai/aios-adoption-state.yaml
+    - .ai/tasks/TASK-194.yaml
+    - .ai/tasks/TASK-196.yaml
+    - .ai/tasks/TASK-197.yaml
+    - .ai/tasks/TASK-198.yaml
+    - .ai/tasks/TASK-199.yaml
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - tests/aios_bridge/test_aios_governance_state.py
+
+  modify:
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - >
+    Modify, reinterpret, or amend the Manifesto, Constitution, Product Contract,
+    or ChatGPT Project Contract. This TASK changes only the Brain planning
+    bookmark and its focused regression.
+  - >
+    Perform the ChatGPT Project Contract reconciliation itself. That remains the
+    next distinct semantic milestone after this reconciliation is reviewed and
+    source-published.
+  - >
+    Modify .ai/aios-adoption-state.yaml, the AIOS dependency pin, Brain ingress
+    carrier, Human worker surfaces, Runtime, Unified State, Executor selection,
+    remediation/repair semantics, publication workflow, or upstream AIOS-renew.
+  - >
+    Modify Product Intelligence production source, scoring/ranking, approval,
+    evidence, identity, persistence, retrieval/RAG, grounded-answer semantics,
+    product truth, hypothesis/intelligence behavior, outcome/learning behavior,
+    marketplace/browser/session behavior, provider/model behavior, Media
+    Intelligence, Distribution Intelligence, Commerce Operations, or any commerce
+    capability.
+  - >
+    Add a planner, governance runtime, daemon, automatic roadmap advancement,
+    second lifecycle reducer, retry, reroute, autonomous mutation mechanism, or
+    new authority.
+  - >
+    Push, publish, merge, or mutate canonical main from Executor implementation.
+
+constraints:
+  hard:
+    - >
+      Preserve roadmap authority exactly:
+      authority.owner BRAIN,
+      authority.purpose CROSS_CHAT_PLANNING_BOOKMARK,
+      engineering_truth false,
+      auto_advance_from_runtime_or_worker_state false,
+      and priority_change_owner HUMAN.
+    - >
+      Keep PYTHON_AGENT_GOVERNANCE_FOUNDATION as the sole ACTIVE track.
+    - >
+      Add exactly one new Governance Foundation completed milestone:
+      task_id TASK-199,
+      milestone_id PYTHON_AGENT_PRODUCT_CONTRACT,
+      title Python Agent Product Contract,
+      status DONE,
+      source_sha 702e85e9e77a556f3716717ccaa186919b1a9dab.
+    - >
+      Preserve TASK-194 / PYTHON_AGENT_MANIFESTO and TASK-196 /
+      PYTHON_AGENT_CONSTITUTION completion with their existing exact source
+      provenance, preserve TASK-192 downstream-parity completion, and preserve
+      TASK-191 product checkpoint unchanged.
+    - >
+      Set the unique next milestone to
+      CHATGPT_PROJECT_CONTRACT_RECONCILIATION /
+      ChatGPT Project Contract reconciliation with status NEXT.
+    - >
+      Remove PYTHON_AGENT_PRODUCT_CONTRACT from pending_commitments because exact
+      canonical reviewed source evidence proves it complete.
+    - >
+      pending_commitments must contain exactly one item:
+      CHATGPT_PROJECT_CONTRACT_RECONCILIATION with title
+      ChatGPT Project Contract reconciliation and status NOT_DONE.
+    - >
+      Preserve the current upstream_recovery block unchanged as TASK-198-owned
+      planning evidence, including status ADOPTED_BY_PIN, recovery_kind
+      NON_PRODUCT_CONTROL_PLANE, recovery_task TASK-198, TASK-101/TASK-103
+      ADOPTED_BY_PIN and non-blocking, exact downstream pin
+      a3b723b49cd65677f548c5694a52a6fc006a9e2a, and the rule that emergency
+      recovery does not advance Governance Foundation.
+    - >
+      Preserve the transition-safe Governance sequence invariant in
+      tests/aios_bridge/test_aios_governance_state.py: ordered completed
+      Governance milestones plus ordered pending commitments must equal exactly
+      PYTHON_AGENT_MANIFESTO -> PYTHON_AGENT_CONSTITUTION ->
+      PYTHON_AGENT_PRODUCT_CONTRACT ->
+      CHATGPT_PROJECT_CONTRACT_RECONCILIATION, with no duplicate IDs. Every
+      completed Governance milestone must be DONE with canonical task/source
+      provenance; every pending commitment must be NOT_DONE; while pending
+      commitments remain, next.id and next.title must equal the first pending
+      commitment. Do not hard-code ChatGPT Project Contract reconciliation as
+      permanently NEXT beyond this transition.
+    - >
+      Extend the focused regression to pin TASK-199 Product Contract completion
+      exactly: task_id TASK-199, track_id PYTHON_AGENT_GOVERNANCE_FOUNDATION,
+      milestone_id PYTHON_AGENT_PRODUCT_CONTRACT, title Python Agent Product
+      Contract, status DONE, source SHA
+      702e85e9e77a556f3716717ccaa186919b1a9dab.
+    - >
+      The focused regression must continue proving exact TASK-194, TASK-196, and
+      TASK-192 completion provenance, one ACTIVE track, one NEXT state, Brain-only
+      roadmap ownership, and the TASK-198 upstream_recovery facts including exact
+      downstream pin.
+    - >
+      Keep docs/PYTHON_AGENT_MANIFESTO.md, docs/PYTHON_AGENT_CONSTITUTION.md,
+      docs/PYTHON_AGENT_PRODUCT_CONTRACT.md, docs/CHATGPT_PROJECT_CONTRACT.md,
+      .ai/aios-adoption-state.yaml, AIOS pin, worker/Brain-ingress code, product
+      roadmaps, production source, and all other files unchanged. Any need to
+      widen scope fails closed for separate Brain review.
+    - >
+      Verification must be deterministic and offline with no GitHub/network,
+      marketplace, browser/CDP, provider/LLM, Drive, wall-clock, random/UUID, or
+      mutable external-state dependency.
+    - Do not push from Executor implementation execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Roadmap records TASK-199 / PYTHON_AGENT_PRODUCT_CONTRACT DONE with exact
+      source SHA 702e85e9e77a556f3716717ccaa186919b1a9dab, preserves prior
+      Governance completion and TASK-191 product checkpoint, and remains
+      explicitly Brain-owned non-engineering planning state.
+  - id: AC2
+    condition: >
+      Governance Foundation remains the sole ACTIVE track; ChatGPT Project
+      Contract reconciliation is the single NEXT milestone; pending commitments
+      contain exactly that milestone as NOT_DONE; no completed/pending Governance
+      milestone is duplicated.
+  - id: AC3
+    condition: >
+      TASK-198 upstream recovery and exact AIOS downstream pin remain unchanged
+      and non-blocking, with no control-plane recovery event gaining roadmap
+      auto-advance authority.
+  - id: AC4
+    condition: >
+      Focused governance regression preserves the transition-safe completed-prefix
+      plus pending-suffix invariant, pins exact TASK-199/TASK-196/TASK-194/TASK-192
+      provenance, proves one ACTIVE and one NEXT, and preserves no Runtime/worker
+      roadmap auto-advance authority.
+  - id: AC5
+    condition: >
+      Only .ai/roadmap-state.yaml and
+      tests/aios_bridge/test_aios_governance_state.py change; required deterministic
+      verification and git diff --check pass with zero unresolved items.
+
+verification:
+  required:
+    - 'python -m pytest tests/aios_bridge/test_aios_governance_state.py -q'
+    - 'git diff --check'
