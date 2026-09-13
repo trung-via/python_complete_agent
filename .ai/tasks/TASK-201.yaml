@@ -1,0 +1,242 @@
+task_id: TASK-201
+revision: 1
+
+goal: >
+  Migrate Python Agent's sole active AIOS-renew runtime authority from exact pin
+  a3b723b49cd65677f548c5694a52a6fc006a9e2a to the exact reviewed and
+  source-published AIOS-renew source
+  f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e, while preserving the thin
+  downstream worker architecture, Brain/Runtime/Executor/Reviewer/Publisher
+  authority separation, current Python Agent product semantics, and downstream
+  Governance Foundation roadmap ownership. Reconcile downstream adoption state
+  for the upstream capabilities introduced after the old pin without
+  automatically activating AIOS-renew repository-specific outer-automation
+  carriers in Python Agent.
+
+problem: >
+  Python Agent current canonical main
+  759bbeeb67e8761d21d6b8e9fe8d23b6e734a05d still pins AIOS-renew at
+  a3b723b49cd65677f548c5694a52a6fc006a9e2a. The Human now explicitly
+  prioritizes an AIOS migration before the current generic Governance Foundation
+  continuation. The exact desired runtime source is
+  f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e, which is the reviewed and
+  source-published TASK-113 source and descends from the current pin. AIOS-renew
+  later main e95d12122f35bf4e224dbbb28be1866c8250c069 only canonicalizes
+  TASK-109 revision 2 planning metadata and is not the reviewed runtime source
+  selected for this migration. Python Agent must therefore update its exact pin
+  explicitly rather than follow mutable upstream main, and must classify the
+  newly available post-pin AIOS capabilities without copying upstream
+  repository-specific workflows or creating duplicate control-plane authority.
+
+assumptions:
+  - >
+    Canonical Python Agent main at TASK-201 authoring is
+    759bbeeb67e8761d21d6b8e9fe8d23b6e734a05d. TASK-200 / RUN-200-001 has
+    completed the Product Contract roadmap reconciliation and the current
+    downstream roadmap records CHATGPT_PROJECT_CONTRACT_RECONCILIATION as the
+    unique NEXT Governance Foundation milestone.
+  - >
+    The current sole active downstream AIOS dependency and launcher provenance
+    are exactly a3b723b49cd65677f548c5694a52a6fc006a9e2a under policy
+    EXACT_REVIEWED_SOURCE_PUBLISHED_ONLY.
+  - >
+    AIOS-renew source f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e is exact
+    REVIEW-113-001 PRIMARY PASS source with AC1-AC8 PASS and no findings and is
+    source-published. It descends from the current Python Agent pin; canonical
+    comparison is ahead by 23 commits and behind by 0.
+  - >
+    AIOS-renew current main after TASK-109 revision-2 authoring is
+    e95d12122f35bf4e224dbbb28be1866c8250c069. That later commit is planning/TASK
+    metadata and is deliberately not the runtime target for this migration.
+  - >
+    Upstream TASK-106 is package-level Human-surface presentation hardening.
+    TASK-107, TASK-108, TASK-110, TASK-111, TASK-112, and TASK-113 also introduce
+    repository-specific GitHub Issue/wakeup/attention outer-automation surfaces.
+    Availability in the pinned package or upstream repository does not itself
+    activate those repository-specific carriers in Python Agent.
+  - >
+    Human intent explicitly inserts this migration ahead of generic
+    CHATGPT_PROJECT_CONTRACT_RECONCILIATION continuation. The migration does not
+    mark that Governance Foundation commitment DONE, CANCELLED, or SUPERSEDED.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - .ai/roadmap-state.yaml
+    - .ai/aios-adoption-state.yaml
+    - .ai/tasks/TASK-192.yaml
+    - .ai/tasks/TASK-198.yaml
+    - .ai/tasks/TASK-200.yaml
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/scripts/aios_brain_ingress.py
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - .github/workflows/aios-auto-publish.yml
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+    - tests/aios_bridge/test_aios_brain_ingress.py
+    - tests/aios_bridge/test_aios_auto_publish_workflow.py
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - .ai/aios-adoption-state.yaml
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+    - tests/aios_bridge/test_aios_brain_ingress.py
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - >
+    Pin to mutable AIOS-renew main, a branch, a tag, TASK-109 revision-2 authoring
+    commit e95d12122f35bf4e224dbbb28be1866c8250c069, or any source other than exact
+    reviewed/source-published f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e.
+  - >
+    Copy AIOS-renew Runtime, terminal-attention implementation, GitHub Issue
+    ingress/wakeup implementation, repair dispatch, remediation-intent logic,
+    publication state machine, or any other upstream control-plane implementation
+    into Python Agent.
+  - >
+    Add or activate Python Agent repository-specific versions of
+    aios-brain-ingress.yml, aios-brain-wakeup.yml,
+    aios-brain-repair-wakeup.yml, aios-approved-remediation-intent.yml,
+    aios-terminal-attention.yml, or their carrier policies. Such carrier adoption
+    requires a separate explicit downstream task.
+  - >
+    Change the Human-facing worker protocol, add a new Executor UX, expose upstream
+    operator commands automatically, or grant worker surfaces Brain, Reviewer,
+    Publisher, retry, reroute, or lifecycle-selection authority.
+  - >
+    Modify Product Intelligence source, commerce/domain semantics, marketplace or
+    browser/session behavior, scoring/ranking, persistence, retrieval/RAG,
+    evidence/product-truth semantics, provider/model behavior, Media Intelligence,
+    Distribution Intelligence, or Commerce Operations.
+  - >
+    Complete, cancel, supersede, or reinterpret
+    CHATGPT_PROJECT_CONTRACT_RECONCILIATION or any Governance Foundation semantic
+    commitment.
+  - >
+    Rewrite historical TASK/RUN/RESULT/FAILURE/REVIEW/REMEDIATION/REPAIR lineage,
+    including TASK-198 recovery or RUN-197 incident evidence.
+  - >
+    Add retry, fallback, reroute, daemon, planner, scheduler, poller, second
+    lifecycle reducer, autonomous migration, or automatic following of future
+    upstream main.
+  - >
+    Push, publish, merge, or mutate canonical main from Executor implementation.
+
+constraints:
+  hard:
+    - >
+      Replace the sole active downstream requirements pin and launcher
+      AUTHORITATIVE_COMMIT from
+      a3b723b49cd65677f548c5694a52a6fc006a9e2a to exactly
+      f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e. No floating ref or second active
+      runtime pin authority may exist.
+    - >
+      Preserve exact source-plus-commit bootstrap provenance. The worker and
+      Brain-only ingress carrier must continue to resolve and use the checked-in
+      pinned distribution, rejecting or rebuilding stale runtime state through the
+      existing bootstrap boundary rather than using ambient/global/mutable AIOS.
+    - >
+      Preserve the Human-facing protocol exactly:
+      CONTINUE TASK-N, STATUS TASK-N, RUN TASK-N, FIX TASK-N FINDING-ID, and
+      REPAIR RUN-N-NNN, with existing Codex and Antigravity selection boundaries.
+      No new Human-facing lifecycle operation is introduced.
+    - >
+      Keep .github/workflows/aios-auto-publish.yml unchanged. It remains the
+      downstream source-only publisher and must continue consuming the checked-in
+      exact requirements pin from the candidate/decision snapshot.
+    - >
+      Update .ai/aios-adoption-state.yaml so downstream_pin.commit is exactly
+      f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e and record an upstream audit
+      checkpoint that distinguishes the reviewed runtime target from later
+      AIOS-renew planning-only main movement.
+    - >
+      Reconcile every materially new post-old-pin capability family through
+      TASK-113. Package-level Human-surface hardening from TASK-106 may be recorded
+      as ADOPTED_BY_PIN. Repository-specific GitHub Issue/wakeup/publication
+      continuation/repair/remediation-intent/terminal-attention carrier surfaces
+      from TASK-107, TASK-108, TASK-110, TASK-111, TASK-112, and TASK-113 must be
+      explicitly classified as not automatically active downstream unless a
+      capability has a package-level compatibility behavior consumed by the pin.
+      In particular, TASK-113 package compatibility may exist while the downstream
+      [AIOS TERMINAL ATTENTION] Issue carrier remains inactive because Python Agent
+      does not contain the reviewed repository-specific workflow/policy surface.
+    - >
+      TASK-109 is upstream roadmap/planning authority only and is not a downstream
+      runtime capability. Do not classify its authored revision as runtime
+      adoption.
+    - >
+      Preserve all earlier adopted capability classifications and immutable
+      incident lineage unless exact new pin provenance supersedes only their
+      source commit. Do not erase TASK-192 or TASK-198 provenance.
+    - >
+      Reconcile .ai/roadmap-state.yaml only as required to record this explicit
+      non-product AIOS migration and the new exact active pin. Keep
+      PYTHON_AGENT_GOVERNANCE_FOUNDATION ACTIVE and
+      CHATGPT_PROJECT_CONTRACT_RECONCILIATION as the unique NEXT / NOT_DONE
+      commitment. Runtime, worker execution, or migration completion must not
+      auto-advance that Brain-owned roadmap.
+    - >
+      Documentation must state that f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e is
+      the exact downstream runtime authority after this migration and that future
+      AIOS-renew main changes remain irrelevant until another explicit reviewed
+      downstream migration.
+    - >
+      Verification must be deterministic and offline. No test may depend on live
+      GitHub, marketplace/browser/CDP, provider/LLM, Drive, wall-clock,
+      random/UUID, or mutable external state.
+    - >
+      Do not weaken, skip, xfail, or bypass existing worker, provenance,
+      Brain-ingress, publisher, roadmap, or adoption regression coverage.
+    - Do not push from Executor implementation execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Python Agent's only active AIOS requirements pin and launcher provenance are
+      exactly f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e; old pin
+      a3b723b49cd65677f548c5694a52a6fc006a9e2a is no longer active runtime
+      authority and no floating or duplicate pin exists.
+  - id: AC2
+    condition: >
+      Existing Codex/Antigravity worker surfaces and Brain-only ingress remain
+      thin delegates to the exact pinned distribution with unchanged Human
+      protocol, provenance enforcement, one-operation semantics, and no added
+      lifecycle/review/publication authority.
+  - id: AC3
+    condition: >
+      Adoption state records exact target pin and explicit post-pin capability
+      classification through TASK-113, distinguishing package-level adopted
+      behavior from upstream repository-specific outer automation that is not
+      automatically active in Python Agent.
+  - id: AC4
+    condition: >
+      Python Agent roadmap records the explicit non-product migration and new pin
+      without advancing Governance Foundation; CHATGPT_PROJECT_CONTRACT_RECONCILIATION
+      remains the unique NEXT and NOT_DONE commitment.
+  - id: AC5
+    condition: >
+      Existing downstream source-only auto-publication remains unchanged and
+      continues consuming the checked-in exact requirements pin; no upstream
+      review metadata or repository-specific carrier gains downstream publication
+      authority.
+  - id: AC6
+    condition: >
+      Product/domain source and historical lineage remain unchanged, all changed
+      files stay within TASK-201 scope, required deterministic verification and
+      git diff --check pass, and RESULT contains zero unresolved items.
+
+verification:
+  required:
+    - python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py tests/aios_bridge/test_aios_brain_ingress.py tests/aios_bridge/test_aios_auto_publish_workflow.py tests/aios_bridge/test_aios_governance_state.py -q
+    - git diff --check
