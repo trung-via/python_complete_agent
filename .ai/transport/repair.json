@@ -1,0 +1,17 @@
+{
+  "repair_id": "REPAIR-198-001",
+  "failed_run_id": "RUN-198-001",
+  "failed_head_sha": "c9c0978523a0df7928f6b860dd55e7e6691d9197",
+  "task": {"id": "TASK-198", "revision": 1},
+  "action": "CODE_FIX",
+  "modification_scope": [
+    "tests/aios_bridge/test_aios_worker_control_surface.py"
+  ],
+  "instructions": [
+    "Repair only RUN-198-001 from exact failed head c9c0978523a0df7928f6b860dd55e7e6691d9197. Preserve TASK-198 revision 1 and the Codex executor identity. This is CODE_FIX for the concrete regression-test defect established by Runtime verification; do not restart PRIMARY, discard the valid candidate, or widen scope.",
+    "Align the focused worker provenance regression with TASK-198 migration semantics. The newly authoritative downstream pin is a3b723b49cd65677f548c5694a52a6fc006a9e2a and the directly superseded TASK-102-era pin is 2599202afedb0622e9e9bdc7b5a15f34da01cc27. e72135cd5c5a1dec0d8374d9bb8994da5e458feb and older pins remain stale historical provenance. Do not require e72135cd5c5a1dec0d8374d9bb8994da5e458feb to remain the current immediate predecessor, and do not weaken or delete provenance coverage merely to make verification pass.",
+    "Modify only tests/aios_bridge/test_aios_worker_control_surface.py. Preserve all already-valid RUN-198-001 implementation, documentation, exact pin, Brain-ingress carrier, adoption state, roadmap state, incident evidence, and Human-facing worker semantics unchanged.",
+    "Run TASK-198 required verification exactly as authored. A successful repair must produce a real committed descendant of the exact failed head with zero unresolved items; Runtime remains verification and evidence authority."
+  ],
+  "constraints": []
+}
