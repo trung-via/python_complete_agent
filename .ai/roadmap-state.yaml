@@ -76,6 +76,16 @@ upstream_recovery:
     Emergency downstream recovery does not advance the Governance Foundation, complete
     a pending commitment, or grant Runtime authority to mutate this Brain-owned bookmark.
 
+upstream_migration:
+  status: ADOPTED_BY_PIN
+  blocking_current_track: false
+  migration_kind: NON_PRODUCT_AIOS_MIGRATION
+  migration_task: TASK-201
+  downstream_pin: f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e
+  roadmap_effect: >-
+    Explicit non-product AIOS migration does not advance the Governance Foundation, complete
+    a pending commitment, or grant Runtime authority to mutate this Brain-owned bookmark.
+
 pending_commitments:
   - id: CHATGPT_PROJECT_CONTRACT_RECONCILIATION
     title: ChatGPT Project Contract reconciliation

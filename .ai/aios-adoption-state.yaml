@@ -13,13 +13,13 @@ authority:
 
 downstream_pin:
   repository: https://github.com/trung-via/AIOS-renew.git
-  commit: a3b723b49cd65677f548c5694a52a6fc006a9e2a
+  commit: f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e
   policy: EXACT_REVIEWED_SOURCE_PUBLISHED_ONLY
   source_published: true
 
 upstream_audit:
-  checkpoint: df65e3f9468d1cc408739ebd89165880ea18afd7
-  through_authored_task: TASK-105
+  checkpoint: e95d12122f35bf4e224dbbb28be1866c8250c069
+  through_authored_task: TASK-113
   checkpoint_role: BRAIN_PLANNING_EVIDENCE
   checkpoint_is_runtime_authority: false
 
@@ -148,6 +148,24 @@ capability_families:
     boundary: >-
       Brain-only transport delegates the caller envelope to the exact pinned canonical
       ingress. Python Agent adds no authoring or lifecycle state machine.
+
+  - id: HUMAN_SURFACE_PRESENTATION_HARDENING
+    upstream_tasks: [TASK-106]
+    classification: ADOPTED_BY_PIN
+    consumption: PINNED_KERNEL_ONLY
+    boundary: NO_DOWNSTREAM_CONTROL_PLANE_IMPLEMENTATION
+
+  - id: REPOSITORY_SPECIFIC_OUTER_AUTOMATION
+    upstream_tasks: [TASK-107, TASK-108, TASK-110, TASK-111, TASK-112]
+    classification: EXPLICITLY_NOT_APPLICABLE_OR_OPTIONAL
+    consumption: NOT_EXPOSED
+    boundary: NO_DOWNSTREAM_ISSUE_OR_WAKEUP_CARRIERS
+
+  - id: TERMINAL_ATTENTION_PACKAGE_COMPATIBILITY
+    upstream_tasks: [TASK-113]
+    classification: ADOPTED_BY_PIN
+    consumption: PINNED_KERNEL_ONLY
+    boundary: NO_DOWNSTREAM_TERMINAL_ATTENTION_ISSUE_CARRIER
 
 incident_lineage:
   run_id: RUN-197-001

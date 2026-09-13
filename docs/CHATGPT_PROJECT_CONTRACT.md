@@ -47,15 +47,17 @@ TASK-179 established the historical downstream authority
 `883974be6ec5922ae57021b50a48c84a0014dbfa`. TASK-183 migrated the prior exact
 authority to `08e4a612377ac82be36061286a34138ea53ab0d1`, TASK-184 migrated it to
 `e72135cd5c5a1dec0d8374d9bb8994da5e458feb`, TASK-192 migrated it to
-`2599202afedb0622e9e9bdc7b5a15f34da01cc27`, and TASK-198 migrates the sole active
+`2599202afedb0622e9e9bdc7b5a15f34da01cc27`, TASK-198 migrated it to
+`a3b723b49cd65677f548c5694a52a6fc006a9e2a`, and TASK-201 migrates the sole active
 authority to the reviewed, source-published commit
-`a3b723b49cd65677f548c5694a52a6fc006a9e2a`. Python Agent consumes established K0 and
+`f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e`. Python Agent consumes established K0 and
 post-K0 Runtime behavior plus TASK-086 Unified State, TASK-087 Unified Human Surface,
 TASK-088 missing-local-TASK pre-resolution, TASK-089 `CONTINUE_IMPLEMENTATION`, TASK-090
 safe-publication compatibility, TASK-091 revision 2, TASK-092 native instructions,
 TASK-093 through TASK-100, TASK-102, published TASK-103 correction-frontier hardening,
-TASK-101 revision 4 Performance Closure, and recovered TASK-104/TASK-105 Brain Authoring
-Ingress only through that exact pin and its public
+TASK-101 revision 4 Performance Closure, recovered TASK-104/TASK-105 Brain Authoring
+Ingress, and TASK-106 package-level Human-surface presentation hardening plus TASK-113
+package compatibility only through that exact pin and its public
 operator surfaces. For a syntactically valid requested TASK whose
 canonical local TASK file is absent, pinned CONTINUE may use the bounded
 TASK-062-governed pre-resolution synchronization before Unified State loads the TASK,
@@ -80,7 +82,8 @@ recursive continuation, semantic review, or Executor-owned canonical verificatio
 EVIDENCE authority. Brain retains semantic classification, and Runtime retains lifecycle,
 completion, canonical verification, and EVIDENCE authority.
 
-The TASK-102-era `2599202afedb0622e9e9bdc7b5a15f34da01cc27` installation and every
+The TASK-198-era `a3b723b49cd65677f548c5694a52a6fc006a9e2a` installation,
+the TASK-102-era `2599202afedb0622e9e9bdc7b5a15f34da01cc27` installation, and every
 older installation are stale after this migration and must be atomically replaced under
 the existing exact source-and-commit provenance boundary.
 
@@ -94,9 +97,11 @@ planning/governance state, not proof of Runtime PASS, source publication, or dow
 certification. TASK-083 roadmap sequencing is ported as repository governance. TASK-103 and
 TASK-101 revision 4 are `ADOPTED_BY_PIN`; TASK-104/TASK-105 are one recovered Brain
 Authoring Ingress capability with post-TASK-105 semantics authoritative for safe new
-operations. Upstream planning checkpoint `df65e3f9468d1cc408739ebd89165880ea18afd7`
+operations. TASK-106 and TASK-113 package compatibility are `ADOPTED_BY_PIN`.
+Upstream planning checkpoint `e95d12122f35bf4e224dbbb28be1866c8250c069`
 is separately recorded audit evidence and is never runtime authority. Mutable AIOS-renew
-main is never downstream pin authority.
+main is never downstream pin authority; future AIOS-renew main changes remain irrelevant
+until another explicit reviewed downstream migration.
 
 Brain authoring for this repository must use the checked-in
 `.agents/skills/aios-worker/scripts/aios_brain_ingress.py` carrier with one caller-authored

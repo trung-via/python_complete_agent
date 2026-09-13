@@ -221,7 +221,7 @@ an executor or become a second status or review authority.
 
 ## Adopted Upstream Capabilities and Boundaries
 
-Under the pinned commit `a3b723b49cd65677f548c5694a52a6fc006a9e2a`, Python Agent adopts:
+Under the pinned commit `f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e`, Python Agent adopts:
 - **TASK-086**: Deterministic, read-only Unified State and Next Action through the
   public `state` operator surface. The workflow neither copies nor caches the reducer.
 - **TASK-087**: One bounded Human continuation front door through the public `continue`
@@ -313,6 +313,11 @@ Under the pinned commit `a3b723b49cd65677f548c5694a52a6fc006a9e2a`, Python Agent
 - **TASK-104 / TASK-105**: Recovered Brain Authoring Ingress is available only through
   the separate repository-owned `aios_brain_ingress.py` carrier under post-TASK-105
   semantics. This Human-facing workflow never exposes authoring ingress operations.
+- **TASK-106**: Package-level Human-surface presentation hardening is consumed
+  through the pinned kernel.
+- **TASK-113**: Package compatibility is consumed through the pinned kernel, while
+  the downstream [AIOS TERMINAL ATTENTION] Issue carrier remains inactive because
+  Python Agent does not contain the reviewed repository-specific workflow or policy surface.
 
 Capabilities present in upstream history but **not** exposed by this downstream worker:
 - **TASK-066 / TASK-068..TASK-074**: Although the exact package contains this intervening
@@ -322,11 +327,15 @@ Capabilities present in upstream history but **not** exposed by this downstream 
   Agent's existing publication/automation authority remains unchanged. The Human-facing
   worker surface exposes normal CONTINUE/STATUS plus explicit RUN/FIX/REPAIR
   compatibility/debug paths only.
+- **TASK-107, TASK-108, TASK-110, TASK-111, TASK-112, TASK-113**: Repository-specific
+  GitHub Issue/wakeup/publication continuation/repair/remediation-intent/terminal-attention
+  carrier surfaces are not automatically active in Python Agent.
 
 ## Immutable Kernel Pin
 
 The only authoritative AIOS-renew kernel is commit
-`a3b723b49cd65677f548c5694a52a6fc006a9e2a`. Installed provenance for the TASK-102-era
+`f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e`. Installed provenance for the TASK-198-era
+`a3b723b49cd65677f548c5694a52a6fc006a9e2a` pin, the TASK-102-era
 `2599202afedb0622e9e9bdc7b5a15f34da01cc27` pin, the immediate-predecessor
 `e72135cd5c5a1dec0d8374d9bb8994da5e458feb` pin, and every older pin including
 `08e4a612377ac82be36061286a34138ea53ab0d1`,
@@ -347,5 +356,8 @@ authorized continuation may act on it.
 
 TASK-192 historically advanced the execution substrate and recorded downstream governance.
 TASK-198 adopts published TASK-103 hardening, TASK-101 revision 4, and the recovered
-TASK-104/TASK-105 Brain Authoring Ingress lineage through the exact pin. Current AIOS-renew
-main, the later planning checkpoint, and unpublished candidates are not runtime authority.
+TASK-104/TASK-105 Brain Authoring Ingress lineage through the exact pin.
+TASK-201 migrates the sole active downstream runtime authority to exact reviewed, source-published
+commit `f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e`. Future AIOS-renew main changes (including
+planning checkpoint `e95d12122f35bf4e224dbbb28be1866c8250c069`) remain irrelevant until another
+explicit reviewed downstream migration.

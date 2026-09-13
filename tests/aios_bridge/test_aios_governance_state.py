@@ -13,8 +13,8 @@ ADOPTION_FILE = REPO_ROOT / ".ai" / "aios-adoption-state.yaml"
 PIN_FILE = (
     REPO_ROOT / ".agents" / "skills" / "aios-worker" / "requirements-aios-renew.txt"
 )
-EXPECTED_PIN = "a3b723b49cd65677f548c5694a52a6fc006a9e2a"
-UPSTREAM_PLANNING_CHECKPOINT = "df65e3f9468d1cc408739ebd89165880ea18afd7"
+EXPECTED_PIN = "f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e"
+UPSTREAM_PLANNING_CHECKPOINT = "e95d12122f35bf4e224dbbb28be1866c8250c069"
 TASK_192_SOURCE_SHA = "dcb7432abc58ed983e6c26d5456ace1423e49981"
 TASK_194_SOURCE_SHA = "e0d8998ee004fda80ca3fbc3de4eb0afb59160a5"
 TASK_196_SOURCE_SHA = "4f6d91858c93192f497342315c4650e30b0a2718"
@@ -160,8 +160,17 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
         and item["blocking_current_track"] is False
         for item in upstream["items"]
     )
-    assert upstream["downstream_pin"] == EXPECTED_PIN
+    assert upstream["downstream_pin"] == "a3b723b49cd65677f548c5694a52a6fc006a9e2a"
     assert "does not advance" in upstream["roadmap_effect"]
+
+    migration = state["upstream_migration"]
+    assert migration["status"] == "ADOPTED_BY_PIN"
+    assert migration["blocking_current_track"] is False
+    assert migration["migration_kind"] == "NON_PRODUCT_AIOS_MIGRATION"
+    assert migration["migration_task"] == "TASK-201"
+    assert migration["downstream_pin"] == EXPECTED_PIN
+    assert "does not advance" in migration["roadmap_effect"]
+
     assert state["pending_commitments"] == [
         {
             "id": "CHATGPT_PROJECT_CONTRACT_RECONCILIATION",
@@ -180,7 +189,7 @@ def test_adoption_registry_pin_audit_authority_and_classes_are_explicit():
     assert state["downstream_pin"]["commit"] == EXPECTED_PIN
     assert state["upstream_audit"] == {
         "checkpoint": UPSTREAM_PLANNING_CHECKPOINT,
-        "through_authored_task": "TASK-105",
+        "through_authored_task": "TASK-113",
         "checkpoint_role": "BRAIN_PLANNING_EVIDENCE",
         "checkpoint_is_runtime_authority": False,
     }
@@ -212,6 +221,7 @@ def test_relevant_upstream_tasks_have_one_fail_closed_classification():
             for task_id in (
                 "TASK-066", "TASK-068", "TASK-069", "TASK-070", "TASK-071",
                 "TASK-072", "TASK-073", "TASK-074", "TASK-084",
+                "TASK-107", "TASK-108", "TASK-110", "TASK-111", "TASK-112",
             )
         },
         "TASK-083": "PORT_GOVERNANCE",
@@ -219,6 +229,8 @@ def test_relevant_upstream_tasks_have_one_fail_closed_classification():
         "TASK-103": "ADOPTED_BY_PIN",
         "TASK-104": "ADOPTED_BY_PIN",
         "TASK-105": "ADOPTED_BY_PIN",
+        "TASK-106": "ADOPTED_BY_PIN",
+        "TASK-113": "ADOPTED_BY_PIN",
     }
     classified_tasks = {
         task_id: classification_for_task(state, task_id)
@@ -246,6 +258,29 @@ def test_relevant_upstream_tasks_have_one_fail_closed_classification():
     assert families[
         "CONTINUE_IMPLEMENTATION_SAFE_PUBLICATION_AND_NATIVE_INSTRUCTIONS"
     ]["safe_publisher"] == "ACTIVE"
+    assert families["HUMAN_SURFACE_PRESENTATION_HARDENING"] == {
+        "id": "HUMAN_SURFACE_PRESENTATION_HARDENING",
+        "upstream_tasks": ["TASK-106"],
+        "classification": "ADOPTED_BY_PIN",
+        "consumption": "PINNED_KERNEL_ONLY",
+        "boundary": "NO_DOWNSTREAM_CONTROL_PLANE_IMPLEMENTATION",
+    }
+    assert families["REPOSITORY_SPECIFIC_OUTER_AUTOMATION"] == {
+        "id": "REPOSITORY_SPECIFIC_OUTER_AUTOMATION",
+        "upstream_tasks": [
+            "TASK-107", "TASK-108", "TASK-110", "TASK-111", "TASK-112",
+        ],
+        "classification": "EXPLICITLY_NOT_APPLICABLE_OR_OPTIONAL",
+        "consumption": "NOT_EXPOSED",
+        "boundary": "NO_DOWNSTREAM_ISSUE_OR_WAKEUP_CARRIERS",
+    }
+    assert families["TERMINAL_ATTENTION_PACKAGE_COMPATIBILITY"] == {
+        "id": "TERMINAL_ATTENTION_PACKAGE_COMPATIBILITY",
+        "upstream_tasks": ["TASK-113"],
+        "classification": "ADOPTED_BY_PIN",
+        "consumption": "PINNED_KERNEL_ONLY",
+        "boundary": "NO_DOWNSTREAM_TERMINAL_ATTENTION_ISSUE_CARRIER",
+    }
 
 
 def test_task_197_malformed_decision_remains_incident_only():

@@ -29,6 +29,7 @@ LEGACY_PREDECESSOR_COMMIT = "08e4a612377ac82be36061286a34138ea53ab0d1"
 OLDER_STALE_AUTHORITATIVE_COMMIT = "883974be6ec5922ae57021b50a48c84a0014dbfa"
 TASK_102_ERA_COMMIT = "2599202afedb0622e9e9bdc7b5a15f34da01cc27"
 TASK_198_AUTHORITATIVE_COMMIT = "a3b723b49cd65677f548c5694a52a6fc006a9e2a"
+TASK_201_AUTHORITATIVE_COMMIT = "f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e"
 TASK_089_SOURCE_CANDIDATE = "bb57147eac92475789d7809ed445d56535d5a009"
 TASK_092_REVIEW_DECISION_COMMIT = "18e7ed49c7393f199589bd241eede3e67d759aa1"
 LATER_ROADMAP_COMMIT = "410f0a87c86f3fef56802d23dc0b8cf22bb2c9f7"
@@ -82,11 +83,12 @@ class TestImmutableRuntimePin:
             if line.strip() and not line.lstrip().startswith("#")
         ]
         assert active == [aw.PIN_LINE]
-        assert aw.AUTHORITATIVE_COMMIT == TASK_198_AUTHORITATIVE_COMMIT
+        assert aw.AUTHORITATIVE_COMMIT == TASK_201_AUTHORITATIVE_COMMIT
         assert active == [
             "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
-            "a3b723b49cd65677f548c5694a52a6fc006a9e2a"
+            "f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e"
         ]
+        assert TASK_198_AUTHORITATIVE_COMMIT not in active[0]
         assert TASK_102_ERA_COMMIT not in active[0]
 
     def test_authoritative_pep610_metadata_is_accepted(self):
@@ -96,6 +98,10 @@ class TestImmutableRuntimePin:
         ("url", "commit"),
         [
             ("https://github.com/other/AIOS-renew.git", aw.AUTHORITATIVE_COMMIT),
+            (
+                aw.AUTHORITATIVE_REPOSITORY,
+                TASK_198_AUTHORITATIVE_COMMIT,
+            ),
             (
                 aw.AUTHORITATIVE_REPOSITORY,
                 IMMEDIATE_PREDECESSOR_COMMIT,
@@ -244,6 +250,7 @@ class TestRuntimeBootstrap:
     @pytest.mark.parametrize(
         ("stale_url", "stale_commit"),
         [
+            (aw.AUTHORITATIVE_REPOSITORY, TASK_198_AUTHORITATIVE_COMMIT),
             (aw.AUTHORITATIVE_REPOSITORY, TASK_102_ERA_COMMIT),
             (aw.AUTHORITATIVE_REPOSITORY, IMMEDIATE_PREDECESSOR_COMMIT),
             (aw.AUTHORITATIVE_REPOSITORY, OLDER_STALE_AUTHORITATIVE_COMMIT),
@@ -1328,6 +1335,10 @@ class TestSurfaceAndDocumentation:
             assert "Executor-owned canonical verification" in normalized
             assert "EVIDENCE" in text
             assert (
+                f"Under the pinned commit `{TASK_198_AUTHORITATIVE_COMMIT}`"
+                not in text
+            )
+            assert (
                 f"Under the pinned commit `{TASK_102_ERA_COMMIT}`"
                 not in text
             )
@@ -1338,9 +1349,11 @@ class TestSurfaceAndDocumentation:
 
         contract_text = CONTRACT_FILE.read_text(encoding="utf-8")
         contract_normalized = " ".join(contract_text.split())
+        assert f"TASK-198-era `{TASK_198_AUTHORITATIVE_COMMIT}`" in contract_text
         assert f"TASK-102-era `{TASK_102_ERA_COMMIT}`" in contract_text
         assert (
-            f"The TASK-102-era `{TASK_102_ERA_COMMIT}` installation and every "
+            f"The TASK-198-era `{TASK_198_AUTHORITATIVE_COMMIT}` installation, "
+            f"the TASK-102-era `{TASK_102_ERA_COMMIT}` installation, and every "
             "older installation are stale"
             in contract_normalized
         )
@@ -1399,6 +1412,7 @@ class TestSurfaceAndDocumentation:
             assert "no automatic retry" in text.lower()
             assert "Git transport" in text
             assert "duplicate-continuation checks" in text
+            assert TASK_198_AUTHORITATIVE_COMMIT in text
             assert TASK_102_ERA_COMMIT in text
             assert IMMEDIATE_PREDECESSOR_COMMIT in text
             assert OLDER_STALE_AUTHORITATIVE_COMMIT in text
@@ -1456,7 +1470,7 @@ class TestSurfaceAndDocumentation:
 
         assert (
             "downstream AIOS-renew pin "
-            "`a3b723b49cd65677f548c5694a52a6fc006a9e2a` already present"
+            "`f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e` already present"
             in normalized
         )
         assert (
