@@ -1,0 +1,44 @@
+review_id: REVIEW-202-001
+reviewed_sha: c33692976d30013bd6a92a7d4c13171129b49104
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: FAIL
+  AC2: PASS
+  AC3: FAIL
+  AC4: PASS
+  AC5: PASS
+  AC6: PASS
+  AC7: PASS
+findings:
+  - id: F1
+    basis: AC1
+    action: CODE_FIX
+    location: docs/CHATGPT_PROJECT_CONTRACT.md; tests/governance/test_chatgpt_project_contract.py
+    issue: >
+      The reconciled contract correctly labels the Manifesto as the highest
+      interpretive philosophy and the Constitution as the highest enforceable
+      governance, but the "Governance Precedence" operating dimension then states
+      that governance conflicts follow a precedence sequence beginning
+      "Manifesto -> Constitution -> Product Contract -> ChatGPT Project Contract".
+      That wording makes the interpretive Manifesto appear to outrank the
+      Constitution for GOVERNANCE_CONFLICT resolution. This contradicts the
+      canonical Constitution, which requires higher enforceable governance to
+      control while the Manifesto remains interpretive rather than executable law,
+      and it conflicts with TASK-202's requirement not to invent a second
+      precedence system. The later Conflict Handling subsection states the correct
+      enforceable ordering, so the candidate currently contains two inconsistent
+      conflict-resolution rules.
+    expected: >
+      Make governance-conflict handling unambiguous throughout the Project Contract:
+      higher enforceable governance must control in the order Constitution over
+      Product Contract over Project Contract over subordinate phase/architecture
+      documentation and TASK contracts, while the Manifesto remains the highest
+      interpretive philosophy and never becomes executable conflict authority.
+      Preserve the Constitution's requirement that any deliberate constitutional
+      departure from the Manifesto requires explicit Human amendment intent and
+      corresponding reconciliation rather than silently treating the Manifesto as
+      an executable precedence layer. Adjust the structural regression only as
+      needed to lock this durable interpretive-versus-enforceable distinction
+      without turning the test into a semantic policy engine. Preserve every other
+      TASK-202 boundary and keep changes within the two-file mutation scope.
