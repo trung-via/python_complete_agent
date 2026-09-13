@@ -46,7 +46,17 @@ def test_project_contract_preserves_governance_layers_and_precedence() -> None:
     positions = [text.index(label) for label in layer_labels]
     assert positions == sorted(positions), (
         "Governance Foundation layers must appear in order: "
-        "Manifesto -> Constitution -> Product Contract -> Project Contract"
+        "Manifesto, Constitution, Product Contract, Project Contract"
+    )
+    assert "Manifesto -> Constitution" not in text
+    assert (
+        "Constitution -> Product Contract -> ChatGPT Project Contract" in text
+    )
+    normalized = " ".join(text.split())
+    assert "never becomes executable conflict authority" in normalized
+    assert (
+        "deliberate constitutional departure from the Manifesto requires explicit Human amendment intent"
+        in normalized
     )
 
 

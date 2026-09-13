@@ -34,6 +34,11 @@ contracts, and TASK contracts are subordinate to every preceding enforceable lay
 Implementation and execution evidence cannot amend higher governance. Lower layers may refine
 higher layers only without silently overriding them.
 
+The Manifesto remains the highest interpretive philosophy and never becomes executable conflict
+authority. Any deliberate constitutional departure from the Manifesto requires explicit Human
+amendment intent and corresponding reconciliation rather than silently treating the Manifesto as
+an executable precedence layer.
+
 ### Three Operating Dimensions
 
 Rather than collapsing governance, intent, and repository state into a single mixed truth
@@ -48,10 +53,14 @@ to silently override the others outside its authority:
    Canonical effects occur only through the relevant authorized path.
 
 2. **Governance Precedence:**
-   Governance conflicts follow the canonical Governance Foundation precedence:
-   Manifesto -> Constitution -> Product Contract -> ChatGPT Project Contract ->
-   phase/architecture documentation -> TASK contracts. Lower layers may refine higher layers
-   only without silently overriding them. Engineering evidence cannot amend higher governance.
+   Governance conflicts follow higher enforceable governance in the canonical order:
+   Constitution -> Product Contract -> ChatGPT Project Contract ->
+   phase/architecture documentation -> TASK contracts. The Manifesto remains the highest
+   interpretive philosophy and never becomes executable conflict authority. Any deliberate
+   constitutional departure from the Manifesto requires explicit Human amendment intent and
+   corresponding reconciliation rather than silently treating the Manifesto as an executable
+   precedence layer. Lower layers may refine higher layers only without silently overriding
+   them. Engineering evidence cannot amend higher governance.
 
 3. **Engineering-State Truth:**
    Engineering-state truth is established by current canonical `python_complete_agent`
@@ -109,7 +118,8 @@ inventing a second precedence system:
 
 - `GOVERNANCE_CONFLICT`: disagreement among canonical governance layers follows higher
   enforceable governance (Constitution over Product Contract over Project Contract over
-  phase docs over TASK contracts).
+  phase docs over TASK contracts), while the Manifesto remains the highest interpretive
+  philosophy and never becomes executable conflict authority.
 - `AUTHORITY_CONFLICT`: exists when multiple actors or components claim the same semantic
   ownership, or a mutation has no resolvable owner. The affected canonical mutation fails
   closed until ownership is reconciled.
