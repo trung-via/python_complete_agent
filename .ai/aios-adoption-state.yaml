@@ -155,11 +155,23 @@ capability_families:
     consumption: PINNED_KERNEL_ONLY
     boundary: NO_DOWNSTREAM_CONTROL_PLANE_IMPLEMENTATION
 
+  - id: GITHUB_ISSUE_BRAIN_AUTHORING_CARRIER
+    upstream_tasks: [TASK-107]
+    classification: ADOPTED_BY_PIN
+    consumption: PINNED_GITHUB_ISSUE_INGRESS_ONLY
+    policy: .ai/brain-ingress-carriers.yaml
+    workflow: .github/workflows/aios-brain-ingress.yml
+    delegates_to: RECOVERED_BRAIN_AUTHORING_INGRESS
+    boundary: >-
+      The checked-in Issue carrier is opaque transport to the exact pinned post-TASK-105
+      canonical ingress. It adds no authoring semantics, lifecycle state machine, wakeup,
+      review, execution, roadmap, publication, or arbitrary destination authority.
+
   - id: REPOSITORY_SPECIFIC_OUTER_AUTOMATION
-    upstream_tasks: [TASK-107, TASK-108, TASK-110, TASK-111, TASK-112]
+    upstream_tasks: [TASK-108, TASK-110, TASK-111, TASK-112]
     classification: EXPLICITLY_NOT_APPLICABLE_OR_OPTIONAL
     consumption: NOT_EXPOSED
-    boundary: NO_DOWNSTREAM_ISSUE_OR_WAKEUP_CARRIERS
+    boundary: NO_DOWNSTREAM_WAKEUP_REMEDIATION_REPAIR_OR_PUBLICATION_CARRIERS
 
   - id: TERMINAL_ATTENTION_PACKAGE_COMPATIBILITY
     upstream_tasks: [TASK-113]

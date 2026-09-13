@@ -213,7 +213,7 @@ def test_relevant_upstream_tasks_have_one_fail_closed_classification():
                 "TASK-085", "TASK-086", "TASK-087", "TASK-088", "TASK-089",
                 "TASK-090", "TASK-091", "TASK-092", "TASK-093", "TASK-094",
                 "TASK-095", "TASK-096", "TASK-097", "TASK-098", "TASK-099",
-                "TASK-100", "TASK-102",
+                "TASK-100", "TASK-102", "TASK-107",
             )
         },
         **{
@@ -221,7 +221,7 @@ def test_relevant_upstream_tasks_have_one_fail_closed_classification():
             for task_id in (
                 "TASK-066", "TASK-068", "TASK-069", "TASK-070", "TASK-071",
                 "TASK-072", "TASK-073", "TASK-074", "TASK-084",
-                "TASK-107", "TASK-108", "TASK-110", "TASK-111", "TASK-112",
+                "TASK-108", "TASK-110", "TASK-111", "TASK-112",
             )
         },
         "TASK-083": "PORT_GOVERNANCE",
@@ -265,14 +265,29 @@ def test_relevant_upstream_tasks_have_one_fail_closed_classification():
         "consumption": "PINNED_KERNEL_ONLY",
         "boundary": "NO_DOWNSTREAM_CONTROL_PLANE_IMPLEMENTATION",
     }
+    assert families["GITHUB_ISSUE_BRAIN_AUTHORING_CARRIER"] == {
+        "id": "GITHUB_ISSUE_BRAIN_AUTHORING_CARRIER",
+        "upstream_tasks": ["TASK-107"],
+        "classification": "ADOPTED_BY_PIN",
+        "consumption": "PINNED_GITHUB_ISSUE_INGRESS_ONLY",
+        "policy": ".ai/brain-ingress-carriers.yaml",
+        "workflow": ".github/workflows/aios-brain-ingress.yml",
+        "delegates_to": "RECOVERED_BRAIN_AUTHORING_INGRESS",
+        "boundary": (
+            "The checked-in Issue carrier is opaque transport to the exact pinned "
+            "post-TASK-105 canonical ingress. It adds no authoring semantics, lifecycle "
+            "state machine, wakeup, review, execution, roadmap, publication, or arbitrary "
+            "destination authority."
+        ),
+    }
     assert families["REPOSITORY_SPECIFIC_OUTER_AUTOMATION"] == {
         "id": "REPOSITORY_SPECIFIC_OUTER_AUTOMATION",
         "upstream_tasks": [
-            "TASK-107", "TASK-108", "TASK-110", "TASK-111", "TASK-112",
+            "TASK-108", "TASK-110", "TASK-111", "TASK-112",
         ],
         "classification": "EXPLICITLY_NOT_APPLICABLE_OR_OPTIONAL",
         "consumption": "NOT_EXPOSED",
-        "boundary": "NO_DOWNSTREAM_ISSUE_OR_WAKEUP_CARRIERS",
+        "boundary": "NO_DOWNSTREAM_WAKEUP_REMEDIATION_REPAIR_OR_PUBLICATION_CARRIERS",
     }
     assert families["TERMINAL_ATTENTION_PACKAGE_COMPATIBILITY"] == {
         "id": "TERMINAL_ATTENTION_PACKAGE_COMPATIBILITY",
