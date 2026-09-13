@@ -244,7 +244,7 @@ an executor or become a second status/review authority.
 
 ## Adopted Upstream Capabilities and Boundaries
 
-Under the pinned commit `2599202afedb0622e9e9bdc7b5a15f34da01cc27`, Python Agent adopts:
+Under the pinned commit `a3b723b49cd65677f548c5694a52a6fc006a9e2a`, Python Agent adopts:
 - **TASK-086**: Deterministic, read-only Unified State and Next Action through the
   public `state` operator surface. The worker neither copies nor caches the reducer.
 - **TASK-087**: One bounded Human continuation front door through the public `continue`
@@ -329,6 +329,12 @@ Under the pinned commit `2599202afedb0622e9e9bdc7b5a15f34da01cc27`, Python Agent
   kernel. In particular, TASK-102 pre-observation synchronization remains Runtime-owned.
   This worker adds no synchronization engine, correction frontier, performance collector,
   lifecycle parser, and no new Human-facing Executor selection.
+- **TASK-103 / TASK-101 revision 4**: Published correction-frontier hardening and
+  Performance Closure are consumed solely through the exact pin. The worker adds no
+  correction frontier or performance collector.
+- **TASK-104 / TASK-105**: Recovered Brain Authoring Ingress is available only through
+  the separate repository-owned `aios_brain_ingress.py` carrier under post-TASK-105
+  semantics. This Human-facing worker never exposes authoring ingress operations.
 
 Capabilities present in upstream history but **not** exposed by this downstream worker:
 - **TASK-066 / TASK-068..TASK-074**: Although the exact package contains this intervening
@@ -342,7 +348,8 @@ Capabilities present in upstream history but **not** exposed by this downstream 
 ## Immutable Kernel Pin
 
 The only authoritative AIOS-renew kernel is commit
-`2599202afedb0622e9e9bdc7b5a15f34da01cc27`. Installed provenance for the immediate-predecessor
+`a3b723b49cd65677f548c5694a52a6fc006a9e2a`. Installed provenance for the TASK-102-era
+`2599202afedb0622e9e9bdc7b5a15f34da01cc27` pin, the immediate-predecessor
 `e72135cd5c5a1dec0d8374d9bb8994da5e458feb` pin, and every older pin including
 `08e4a612377ac82be36061286a34138ea53ab0d1`,
 `883974be6ec5922ae57021b50a48c84a0014dbfa` and
@@ -360,6 +367,7 @@ that TASK-182 has resumed, passed, been reviewed, or been published. RUN-182-003
 the canonical failed lineage under the predecessor adapter; only a later separately
 authorized continuation may act on it.
 
-TASK-192 advances only the exact execution substrate and records downstream governance.
-TASK-101 and TASK-103 remain blocked pending exact reviewed source publication; current
-AIOS-renew main and unpublished candidates are not admissible runtime authority.
+TASK-192 historically advanced the execution substrate and recorded downstream governance.
+TASK-198 adopts published TASK-103 hardening, TASK-101 revision 4, and the recovered
+TASK-104/TASK-105 Brain Authoring Ingress lineage through the exact pin. Current AIOS-renew
+main, the later planning checkpoint, and unpublished candidates are not runtime authority.

@@ -13,7 +13,8 @@ ADOPTION_FILE = REPO_ROOT / ".ai" / "aios-adoption-state.yaml"
 PIN_FILE = (
     REPO_ROOT / ".agents" / "skills" / "aios-worker" / "requirements-aios-renew.txt"
 )
-EXPECTED_PIN = "2599202afedb0622e9e9bdc7b5a15f34da01cc27"
+EXPECTED_PIN = "a3b723b49cd65677f548c5694a52a6fc006a9e2a"
+UPSTREAM_PLANNING_CHECKPOINT = "df65e3f9468d1cc408739ebd89165880ea18afd7"
 TASK_192_SOURCE_SHA = "dcb7432abc58ed983e6c26d5456ace1423e49981"
 TASK_194_SOURCE_SHA = "e0d8998ee004fda80ca3fbc3de4eb0afb59160a5"
 GOVERNANCE_TRACK_ID = "PYTHON_AGENT_GOVERNANCE_FOUNDATION"
@@ -106,7 +107,7 @@ def test_roadmap_has_one_active_track_and_transition_safe_governance_next():
     assert state["next"]["title"] == pending[0]["title"]
 
 
-def test_roadmap_records_exact_completion_provenance_and_non_blocking_upstream_work():
+def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work():
     state = load_yaml(ROADMAP_FILE)
     completed = {
         item["task_id"]: item for item in state["completed_milestones"]
@@ -127,21 +128,25 @@ def test_roadmap_records_exact_completion_provenance_and_non_blocking_upstream_w
         "source_sha": TASK_194_SOURCE_SHA,
     }
 
-    upstream = state["pending_upstream_closure"]
+    upstream = state["upstream_recovery"]
+    assert upstream["status"] == "ADOPTED_BY_PIN"
     assert upstream["blocking_current_track"] is False
     assert [item["task_id"] for item in upstream["items"]] == [
         "TASK-101",
         "TASK-103",
     ]
     assert all(
-        item["status"] == "BLOCKED_PENDING_UPSTREAM"
+        item["status"] == "ADOPTED_BY_PIN"
         and item["blocking_current_track"] is False
         for item in upstream["items"]
     )
-    assert "exact reviewed and source-published upstream candidate" in (
-        upstream["migration_gate"]
-    )
-    assert "never follow mutable AIOS-renew main" in upstream["migration_gate"]
+    assert upstream["recovery_kind"] == "NON_PRODUCT_CONTROL_PLANE"
+    assert "does not advance" in upstream["roadmap_effect"]
+    pending = {item["id"]: item["status"] for item in state["pending_commitments"]}
+    assert pending["PYTHON_AGENT_PRODUCT_CONTRACT"] == "NOT_DONE"
+    assert pending["CHATGPT_PROJECT_CONTRACT_RECONCILIATION"] == "NOT_DONE"
+    assert state["authority"]["owner"] == "BRAIN"
+    assert state["authority"]["auto_advance_from_runtime_or_worker_state"] is False
 
 
 def test_adoption_registry_pin_audit_authority_and_classes_are_explicit():
@@ -150,8 +155,9 @@ def test_adoption_registry_pin_audit_authority_and_classes_are_explicit():
     assert requirement.endswith("@" + EXPECTED_PIN)
     assert state["downstream_pin"]["commit"] == EXPECTED_PIN
     assert state["upstream_audit"] == {
-        "checkpoint": "7d0bbcbce4b1bfeaa47634f9069a8ae9ac44930c",
-        "through_authored_task": "TASK-103",
+        "checkpoint": UPSTREAM_PLANNING_CHECKPOINT,
+        "through_authored_task": "TASK-105",
+        "checkpoint_role": "BRAIN_PLANNING_EVIDENCE",
         "checkpoint_is_runtime_authority": False,
     }
     assert state["authority"]["engineering_truth"] is False
@@ -185,8 +191,10 @@ def test_relevant_upstream_tasks_have_one_fail_closed_classification():
             )
         },
         "TASK-083": "PORT_GOVERNANCE",
-        "TASK-101": "BLOCKED_PENDING_UPSTREAM",
-        "TASK-103": "BLOCKED_PENDING_UPSTREAM",
+        "TASK-101": "ADOPTED_BY_PIN",
+        "TASK-103": "ADOPTED_BY_PIN",
+        "TASK-104": "ADOPTED_BY_PIN",
+        "TASK-105": "ADOPTED_BY_PIN",
     }
     classified_tasks = {
         task_id: classification_for_task(state, task_id)
@@ -201,10 +209,12 @@ def test_relevant_upstream_tasks_have_one_fail_closed_classification():
         "consumption": "PINNED_KERNEL_ONLY",
         "boundary": "NO_DOWNSTREAM_CONTROL_PLANE_IMPLEMENTATION",
     }
-    assert families["PERFORMANCE_CLOSURE"]["source_published"] is False
-    assert families["PERFORMANCE_CLOSURE"]["upstream_roadmap_reconciled"] is False
-    assert families["AUTHORED_POST_CHECKPOINT_CAPABILITY"]["semantic_pass"] is False
-    assert families["AUTHORED_POST_CHECKPOINT_CAPABILITY"]["source_published"] is False
+    assert families["PERFORMANCE_CLOSURE"]["source_published"] is True
+    assert families["PERFORMANCE_CLOSURE"]["upstream_revision"] == 4
+    assert families["CORRECTION_FRONTIER_HARDENING"]["source_published"] is True
+    ingress = families["RECOVERED_BRAIN_AUTHORING_INGRESS"]
+    assert ingress["upstream_tasks"] == ["TASK-104", "TASK-105"]
+    assert ingress["authoritative_semantics"] == "POST_TASK_105_RECOVERY"
     assert families["OPTIONAL_OUTER_AUTOMATION"]["classification"] == (
         "EXPLICITLY_NOT_APPLICABLE_OR_OPTIONAL"
     )
@@ -212,3 +222,17 @@ def test_relevant_upstream_tasks_have_one_fail_closed_classification():
     assert families[
         "CONTINUE_IMPLEMENTATION_SAFE_PUBLICATION_AND_NATIVE_INSTRUCTIONS"
     ]["safe_publisher"] == "ACTIVE"
+
+
+def test_task_197_malformed_decision_remains_incident_only():
+    state = load_yaml(ADOPTION_FILE)
+    assert state["incident_lineage"] == {
+        "run_id": "RUN-197-001",
+        "task_revision": 1,
+        "candidate": "8992e64654b1342a70ad37c9c0aa693ce537a975",
+        "review": "REVIEW-197-001",
+        "semantic_review": "PASS",
+        "malformed_decision": "f334312384543dd4726e83089601e375dd5da17b",
+        "disposition": "IMMUTABLE_NOT_PUBLICATION_AUTHORITY",
+        "resumed": False,
+    }

@@ -1,8 +1,8 @@
 # AIOS Unified Worker Workflow
 
-As of TASK-192 revision 1, the repository-owned Codex and Antigravity worker
+As of TASK-198 revision 1, the repository-owned Codex and Antigravity worker
 surfaces delegate exclusively to the immutable AIOS-renew kernel at commit
-`2599202afedb0622e9e9bdc7b5a15f34da01cc27`. Legacy AIOS Bridge source remains
+`a3b723b49cd65677f548c5694a52a6fc006a9e2a`. Legacy AIOS Bridge source remains
 archived in this repository, but it is inactive and unreachable from these
 CONTINUE/STATUS and explicit RUN/FIX/REPAIR surfaces.
 
@@ -89,6 +89,23 @@ an AIOS operator operation can exist.
 AIOS-renew owns local RUN, handoff, RESULT, and operator-lock state below the
 Git-dir AIOS area. Switching between Codex and Antigravity does not create a
 second semantic state store.
+
+### Brain-only authoring ingress
+
+The repository-owned `aios_brain_ingress.py` carrier is separate from both Human-facing
+worker surfaces. It accepts exactly one caller-supplied ingress-envelope file, resolves the
+repository root from its checked-in location, proves the same requirements pin and PEP 610
+source-plus-commit provenance used by the workers, and delegates exactly once to
+`python -m aios_renew.operator ingress <envelope> --repo <repository-root>` inside that
+proven runtime.
+
+Only the Brain may use this carrier, and only for canonical `AUTHOR_TASK`, `SUBMIT_REVIEW`,
+`AUTHOR_REMEDIATION`, or `AUTHOR_REPAIR` envelopes. The carrier does not parse operation
+semantics, accept a caller-selected repository or Git destination, import an ambient
+`aios_renew`, use a PATH `aios`, or consult a mutable upstream checkout. It does not select a
+lifecycle action or Executor, review semantics, decide remediation, publish, retry, reroute,
+or advance roadmap state. Exact post-TASK-105 ingress validation, canonical destinations,
+structurally valid idempotency, and fail-closed behavior remain inside the pinned distribution.
 
 ---
 
@@ -392,8 +409,9 @@ on; `/aios-worker` is permanently retired and fail-closed. Stale Antigravity
 branches or caches that do not expose `/aios-renew-worker` fail closed instead of
 falling back to legacy `/aios-worker` semantics.
 
-Both active worker surfaces use exactly AIOS-renew commit
-`2599202afedb0622e9e9bdc7b5a15f34da01cc27`. Installed provenance for the immediate-predecessor
+Both active worker surfaces and the Brain-only carrier use exactly AIOS-renew commit
+`a3b723b49cd65677f548c5694a52a6fc006a9e2a`. Installed provenance for the TASK-102-era
+`2599202afedb0622e9e9bdc7b5a15f34da01cc27` pin, the immediate-predecessor
 `e72135cd5c5a1dec0d8374d9bb8994da5e458feb` pin, and every older pin including
 `08e4a612377ac82be36061286a34138ea53ab0d1`,
 `883974be6ec5922ae57021b50a48c84a0014dbfa` and
@@ -401,7 +419,8 @@ Both active worker surfaces use exactly AIOS-renew commit
 
 This is an exact-pin adoption boundary: Python Agent consumes reviewed TASK-086/TASK-087/TASK-088,
 TASK-089, TASK-090, TASK-091 revision 2, TASK-092, TASK-093 through TASK-100, and TASK-102
-only through their public operator surfaces. It copies no AIOS-renew workflow files,
+plus TASK-103 hardening, TASK-101 revision 4, and recovered TASK-104/TASK-105 Brain Authoring
+Ingress only through their public operator surfaces. It copies no AIOS-renew workflow files,
 creates no second lifecycle state machine, and does not automatically expose every
 upstream operator command. ChatGPT semantic review, source-only publication, and the
 existing repository-native publication workflow remain separate repository-owned
@@ -417,14 +436,16 @@ that TASK-182 has resumed, passed, been reviewed, or been published. RUN-182-003
 the canonical failed lineage under the predecessor adapter; only a later separately
 authorized continuation may act on it.
 
-TASK-192 advances only the exact execution substrate and records downstream governance.
-TASK-101 and TASK-103 remain blocked pending exact reviewed source publication; current
-AIOS-renew main and unpublished candidates are not admissible runtime authority.
+TASK-192 historically advanced the execution substrate and recorded downstream governance.
+TASK-198 adopts published TASK-103 hardening, TASK-101 revision 4, and the recovered
+TASK-104/TASK-105 Brain Authoring Ingress lineage through the exact pin. Current AIOS-renew
+main, planning checkpoint `df65e3f9468d1cc408739ebd89165880ea18afd7`, and unpublished
+candidates are not runtime authority.
 
 ## 9. Stale-Checkout CONTINUE Certification Protocol
 
 This certification applies only with the downstream AIOS-renew pin
-`2599202afedb0622e9e9bdc7b5a15f34da01cc27` already present. Before the first
+`a3b723b49cd65677f548c5694a52a6fc006a9e2a` already present. Before the first
 invocation, record that the fresh proof TASK exists on the canonical remote while
 `.ai/tasks/TASK-N.yaml` is absent from the local checkout. The record must bind the
 exact TASK ID, the canonical remote ref/commit containing it, the local HEAD, and

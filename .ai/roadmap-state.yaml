@@ -47,19 +47,22 @@ completed_milestones:
     status: DONE
     source_sha: e0d8998ee004fda80ca3fbc3de4eb0afb59160a5
 
-pending_upstream_closure:
-  status: PENDING
+upstream_recovery:
+  status: ADOPTED_BY_PIN
   blocking_current_track: false
+  recovery_kind: NON_PRODUCT_CONTROL_PLANE
+  recovery_task: TASK-198
   items:
     - task_id: TASK-101
-      status: BLOCKED_PENDING_UPSTREAM
+      status: ADOPTED_BY_PIN
       blocking_current_track: false
     - task_id: TASK-103
-      status: BLOCKED_PENDING_UPSTREAM
+      status: ADOPTED_BY_PIN
       blocking_current_track: false
-  migration_gate: >-
-    Adopt only an exact reviewed and source-published upstream candidate after upstream
-    roadmap state is reconciled; never follow mutable AIOS-renew main.
+  downstream_pin: a3b723b49cd65677f548c5694a52a6fc006a9e2a
+  roadmap_effect: >-
+    Emergency downstream recovery does not advance the Governance Foundation, complete
+    a pending commitment, or grant Runtime authority to mutate this Brain-owned bookmark.
 
 pending_commitments:
   - id: PYTHON_AGENT_CONSTITUTION

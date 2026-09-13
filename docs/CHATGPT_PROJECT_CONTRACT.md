@@ -46,13 +46,16 @@ Python Agent uses only the AIOS-renew version pinned by:
 TASK-179 established the historical downstream authority
 `883974be6ec5922ae57021b50a48c84a0014dbfa`. TASK-183 migrated the prior exact
 authority to `08e4a612377ac82be36061286a34138ea53ab0d1`, TASK-184 migrated it to
-`e72135cd5c5a1dec0d8374d9bb8994da5e458feb`, and TASK-192 migrates the sole active
+`e72135cd5c5a1dec0d8374d9bb8994da5e458feb`, TASK-192 migrated it to
+`2599202afedb0622e9e9bdc7b5a15f34da01cc27`, and TASK-198 migrates the sole active
 authority to the reviewed, source-published commit
-`2599202afedb0622e9e9bdc7b5a15f34da01cc27`. Python Agent consumes established K0 and
+`a3b723b49cd65677f548c5694a52a6fc006a9e2a`. Python Agent consumes established K0 and
 post-K0 Runtime behavior plus TASK-086 Unified State, TASK-087 Unified Human Surface,
 TASK-088 missing-local-TASK pre-resolution, TASK-089 `CONTINUE_IMPLEMENTATION`, TASK-090
 safe-publication compatibility, TASK-091 revision 2, TASK-092 native instructions,
-TASK-093 through TASK-100, and TASK-102 only through that exact pin and its public
+TASK-093 through TASK-100, TASK-102, published TASK-103 correction-frontier hardening,
+TASK-101 revision 4 Performance Closure, and recovered TASK-104/TASK-105 Brain Authoring
+Ingress only through that exact pin and its public
 operator surfaces. For a syntactically valid requested TASK whose
 canonical local TASK file is absent, pinned CONTINUE may use the bounded
 TASK-062-governed pre-resolution synchronization before Unified State loads the TASK,
@@ -77,9 +80,9 @@ recursive continuation, semantic review, or Executor-owned canonical verificatio
 EVIDENCE authority. Brain retains semantic classification, and Runtime retains lifecycle,
 completion, canonical verification, and EVIDENCE authority.
 
-The immediate-predecessor `e72135cd5c5a1dec0d8374d9bb8994da5e458feb` installation is
-stale after this migration and must be atomically replaced under the existing exact
-source-and-commit provenance boundary.
+The TASK-102-era `2599202afedb0622e9e9bdc7b5a15f34da01cc27` installation and every
+older installation are stale after this migration and must be atomically replaced under
+the existing exact source-and-commit provenance boundary.
 
 The active runtime must never be inferred from current AIOS-renew main.
 
@@ -88,15 +91,35 @@ An AIOS-renew improvement does not exist for Python Agent until the Python Agent
 `.ai/aios-adoption-state.yaml` is the canonical Brain-readable adoption registry and
 `.ai/roadmap-state.yaml` is the canonical Python Agent planning bookmark. They are
 planning/governance state, not proof of Runtime PASS, source publication, or downstream
-certification. TASK-083 roadmap sequencing is ported as repository governance. TASK-101
-and TASK-103 remain `BLOCKED_PENDING_UPSTREAM`; neither may be treated as adopted until a
-future migration selects an exact reviewed, source-published candidate after reconciling
-upstream roadmap state. Mutable AIOS-renew main is never downstream pin authority.
+certification. TASK-083 roadmap sequencing is ported as repository governance. TASK-103 and
+TASK-101 revision 4 are `ADOPTED_BY_PIN`; TASK-104/TASK-105 are one recovered Brain
+Authoring Ingress capability with post-TASK-105 semantics authoritative for safe new
+operations. Upstream planning checkpoint `df65e3f9468d1cc408739ebd89165880ea18afd7`
+is separately recorded audit evidence and is never runtime authority. Mutable AIOS-renew
+main is never downstream pin authority.
+
+Brain authoring for this repository must use the checked-in
+`.agents/skills/aios-worker/scripts/aios_brain_ingress.py` carrier with one caller-authored
+canonical ingress-envelope file. The carrier proves the same pinned distribution used by the
+workers and delegates only to `aios_renew.operator ingress` with the repository root resolved
+from the carrier's checked-in location. It accepts no caller-selected repository or raw Git
+destination and may not use an ambient executable, global/site package, mutable upstream
+checkout, or current AIOS-renew main. The carrier is transport and provenance only: the pinned
+post-TASK-105 ingress owns envelope validation, canonical destinations, and valid idempotency.
+The carrier owns no TASK/REVIEW meaning, lifecycle selection, Executor invocation, semantic
+review, remediation decision, publication, roadmap mutation, retry, reroute, or second state
+machine. These authoring operations are not exposed through Human-facing worker surfaces.
 
 Repository-native semantic review and source-only publication remain separate from
 execution. `.github/workflows/aios-auto-publish.yml` continues to consume the same
 checked-in requirements file and gains no review or publication authority from this
 migration.
+
+RUN-197-001, candidate `8992e64654b1342a70ad37c9c0aa693ce537a975`,
+REVIEW-197-001, and malformed decision `f334312384543dd4726e83089601e375dd5da17b`
+remain immutable incident lineage. The semantic PASS does not repair or authorize the
+structurally malformed decision; it must not be rewritten, certified, or published, and
+TASK-197 revision 1 must not resume through it.
 
 TASK-179 does not establish a live stale-checkout CONTINUE proof or complete AIOS-renew
 Downstream Adoption. That proof remains pending a fresh downstream task authored and run

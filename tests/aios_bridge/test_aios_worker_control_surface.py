@@ -27,6 +27,8 @@ FAILED_HEAD_SHA = "3" * 40
 IMMEDIATE_PREDECESSOR_COMMIT = "e72135cd5c5a1dec0d8374d9bb8994da5e458feb"
 LEGACY_PREDECESSOR_COMMIT = "08e4a612377ac82be36061286a34138ea53ab0d1"
 OLDER_STALE_AUTHORITATIVE_COMMIT = "883974be6ec5922ae57021b50a48c84a0014dbfa"
+TASK_102_ERA_COMMIT = "2599202afedb0622e9e9bdc7b5a15f34da01cc27"
+TASK_198_AUTHORITATIVE_COMMIT = "a3b723b49cd65677f548c5694a52a6fc006a9e2a"
 TASK_089_SOURCE_CANDIDATE = "bb57147eac92475789d7809ed445d56535d5a009"
 TASK_092_REVIEW_DECISION_COMMIT = "18e7ed49c7393f199589bd241eede3e67d759aa1"
 LATER_ROADMAP_COMMIT = "410f0a87c86f3fef56802d23dc0b8cf22bb2c9f7"
@@ -80,11 +82,12 @@ class TestImmutableRuntimePin:
             if line.strip() and not line.lstrip().startswith("#")
         ]
         assert active == [aw.PIN_LINE]
-        assert aw.AUTHORITATIVE_COMMIT == "2599202afedb0622e9e9bdc7b5a15f34da01cc27"
+        assert aw.AUTHORITATIVE_COMMIT == TASK_198_AUTHORITATIVE_COMMIT
         assert active == [
             "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
-            "2599202afedb0622e9e9bdc7b5a15f34da01cc27"
+            "a3b723b49cd65677f548c5694a52a6fc006a9e2a"
         ]
+        assert TASK_102_ERA_COMMIT not in active[0]
 
     def test_authoritative_pep610_metadata_is_accepted(self):
         assert aw.provenance_is_authoritative(json.loads(direct_url()))
@@ -105,6 +108,7 @@ class TestImmutableRuntimePin:
                 aw.AUTHORITATIVE_REPOSITORY,
                 OLDER_STALE_AUTHORITATIVE_COMMIT,
             ),
+            (aw.AUTHORITATIVE_REPOSITORY, TASK_102_ERA_COMMIT),
             (aw.AUTHORITATIVE_REPOSITORY, TASK_089_SOURCE_CANDIDATE),
             (aw.AUTHORITATIVE_REPOSITORY, TASK_092_REVIEW_DECISION_COMMIT),
             (aw.AUTHORITATIVE_REPOSITORY, LATER_ROADMAP_COMMIT),
@@ -240,6 +244,7 @@ class TestRuntimeBootstrap:
     @pytest.mark.parametrize(
         ("stale_url", "stale_commit"),
         [
+            (aw.AUTHORITATIVE_REPOSITORY, TASK_102_ERA_COMMIT),
             (aw.AUTHORITATIVE_REPOSITORY, IMMEDIATE_PREDECESSOR_COMMIT),
             (aw.AUTHORITATIVE_REPOSITORY, OLDER_STALE_AUTHORITATIVE_COMMIT),
             ("https://github.com/other/AIOS-renew.git", aw.AUTHORITATIVE_COMMIT),
@@ -1438,7 +1443,7 @@ class TestSurfaceAndDocumentation:
 
         assert (
             "downstream AIOS-renew pin "
-            "`2599202afedb0622e9e9bdc7b5a15f34da01cc27` already present"
+            "`a3b723b49cd65677f548c5694a52a6fc006a9e2a` already present"
             in normalized
         )
         assert (

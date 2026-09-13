@@ -13,13 +13,14 @@ authority:
 
 downstream_pin:
   repository: https://github.com/trung-via/AIOS-renew.git
-  commit: 2599202afedb0622e9e9bdc7b5a15f34da01cc27
+  commit: a3b723b49cd65677f548c5694a52a6fc006a9e2a
   policy: EXACT_REVIEWED_SOURCE_PUBLISHED_ONLY
   source_published: true
 
 upstream_audit:
-  checkpoint: 7d0bbcbce4b1bfeaa47634f9069a8ae9ac44930c
-  through_authored_task: TASK-103
+  checkpoint: df65e3f9468d1cc408739ebd89165880ea18afd7
+  through_authored_task: TASK-105
+  checkpoint_role: BRAIN_PLANNING_EVIDENCE
   checkpoint_is_runtime_authority: false
 
 classification_vocabulary:
@@ -123,25 +124,42 @@ capability_families:
 
   - id: PERFORMANCE_CLOSURE
     upstream_tasks: [TASK-101]
-    classification: BLOCKED_PENDING_UPSTREAM
-    consumption: NOT_ADOPTED
-    reviewed_candidate: 575a3d7f0060b5a74dba1b44059097355a7d8a64
+    upstream_revision: 4
+    classification: ADOPTED_BY_PIN
+    consumption: PINNED_KERNEL_ONLY
+    reviewed_candidate: a3b723b49cd65677f548c5694a52a6fc006a9e2a
     semantic_pass: true
-    source_published: false
-    upstream_roadmap_reconciled: false
-    gate: >-
-      The reviewed source candidate must be source-published and upstream roadmap state
-      reconciled before a future exact-pin migration.
+    source_published: true
+    boundary: NO_DOWNSTREAM_PERFORMANCE_COLLECTOR
 
-  - id: AUTHORED_POST_CHECKPOINT_CAPABILITY
+  - id: CORRECTION_FRONTIER_HARDENING
     upstream_tasks: [TASK-103]
-    classification: BLOCKED_PENDING_UPSTREAM
-    consumption: NOT_ADOPTED
-    authored_on_checkpoint: 7d0bbcbce4b1bfeaa47634f9069a8ae9ac44930c
-    semantic_pass: false
-    source_published: false
-    gate: SEMANTIC_PASS_AND_SOURCE_PUBLICATION_REQUIRED
+    classification: ADOPTED_BY_PIN
+    consumption: PINNED_KERNEL_ONLY
+    source_published: true
+    boundary: NO_DOWNSTREAM_CORRECTION_FRONTIER
+
+  - id: RECOVERED_BRAIN_AUTHORING_INGRESS
+    upstream_tasks: [TASK-104, TASK-105]
+    classification: ADOPTED_BY_PIN
+    consumption: PINNED_OPERATOR_INGRESS_ONLY
+    carrier: .agents/skills/aios-worker/scripts/aios_brain_ingress.py
+    authoritative_semantics: POST_TASK_105_RECOVERY
+    boundary: >-
+      Brain-only transport delegates the caller envelope to the exact pinned canonical
+      ingress. Python Agent adds no authoring or lifecycle state machine.
+
+incident_lineage:
+  run_id: RUN-197-001
+  task_revision: 1
+  candidate: 8992e64654b1342a70ad37c9c0aa693ce537a975
+  review: REVIEW-197-001
+  semantic_review: PASS
+  malformed_decision: f334312384543dd4726e83089601e375dd5da17b
+  disposition: IMMUTABLE_NOT_PUBLICATION_AUTHORITY
+  resumed: false
 
 future_migration_policy: >-
   Require an exact reviewed and source-published upstream candidate. Never infer adoption
-  from this registry, an unpublished candidate, review metadata, or current AIOS-renew main.
+  from this registry, an unpublished candidate, review metadata, a planning checkpoint, or
+  current AIOS-renew main.
