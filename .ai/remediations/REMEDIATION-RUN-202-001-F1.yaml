@@ -1,0 +1,9 @@
+finding_id: F1
+action: CODE_FIX
+reviewed_sha: c33692976d30013bd6a92a7d4c13171129b49104
+modification_scope:
+  - docs/CHATGPT_PROJECT_CONTRACT.md
+  - tests/governance/test_chatgpt_project_contract.py
+affected_verification:
+  - 'python -m pytest tests/governance/test_python_agent_manifesto.py tests/governance/test_python_agent_constitution.py tests/governance/test_python_agent_product_contract.py tests/governance/test_chatgpt_project_contract.py tests/aios_bridge/test_aios_governance_state.py -q'
+constraints: []
