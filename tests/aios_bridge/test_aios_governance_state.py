@@ -17,6 +17,7 @@ EXPECTED_PIN = "a3b723b49cd65677f548c5694a52a6fc006a9e2a"
 UPSTREAM_PLANNING_CHECKPOINT = "df65e3f9468d1cc408739ebd89165880ea18afd7"
 TASK_192_SOURCE_SHA = "dcb7432abc58ed983e6c26d5456ace1423e49981"
 TASK_194_SOURCE_SHA = "e0d8998ee004fda80ca3fbc3de4eb0afb59160a5"
+TASK_196_SOURCE_SHA = "4f6d91858c93192f497342315c4650e30b0a2718"
 GOVERNANCE_TRACK_ID = "PYTHON_AGENT_GOVERNANCE_FOUNDATION"
 GOVERNANCE_SEQUENCE = [
     "PYTHON_AGENT_MANIFESTO",
@@ -126,6 +127,14 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
         "title": "Python Agent Manifesto",
         "status": "DONE",
         "source_sha": TASK_194_SOURCE_SHA,
+    }
+    assert completed["TASK-196"] == {
+        "task_id": "TASK-196",
+        "track_id": GOVERNANCE_TRACK_ID,
+        "milestone_id": "PYTHON_AGENT_CONSTITUTION",
+        "title": "Python Agent Constitution",
+        "status": "DONE",
+        "source_sha": TASK_196_SOURCE_SHA,
     }
 
     upstream = state["upstream_recovery"]
