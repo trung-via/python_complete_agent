@@ -1,4 +1,4 @@
-"""Structural regression for the canonical ChatGPT Project Contract."""
+"""Regressions for the suspended transitional Project Contract HOW slot."""
 
 from pathlib import Path
 import re
@@ -18,113 +18,82 @@ def _load_project_contract() -> str:
     return raw.decode("utf-8")
 
 
-def test_project_contract_has_canonical_shape() -> None:
+def test_project_contract_remains_the_suspended_constitutional_how_slot() -> None:
     text = _load_project_contract()
+    normalized = " ".join(text.split())
 
     assert text.startswith(
         "# ChatGPT Project Contract — Python Agent / Product Intelligence\n"
     )
-    section_headings = re.findall(r"^## (\d+)\. (.+)$", text, flags=re.MULTILINE)
-    assert [number for number, _ in section_headings] == [
-        str(i) for i in range(1, 13)
-    ]
-
-
-def test_project_contract_preserves_governance_layers_and_precedence() -> None:
-    text = _load_project_contract()
-
-    layer_labels = [
-        "Manifesto = WHY",
-        "Constitution = highest enforceable governance",
-        "Product Contract = WHAT",
-        "Project Contract = HOW",
-    ]
-    for label in layer_labels:
-        assert label in text
-
-    assert "subordinate to the Constitution and Product Contract" in text
-    positions = [text.index(label) for label in layer_labels]
-    assert positions == sorted(positions), (
-        "Governance Foundation layers must appear in order: "
-        "Manifesto, Constitution, Product Contract, Project Contract"
-    )
-    assert "Manifesto -> Constitution" not in text
+    assert "Status: SUSPENDED AND SUPERSEDED TRANSITIONAL NOTICE" in text
     assert (
-        "Constitution -> Product Contract -> ChatGPT Project Contract" in text
-    )
-    normalized = " ".join(text.split())
-    assert "never becomes executable conflict authority" in normalized
-    assert (
-        "deliberate constitutional departure from the Manifesto requires explicit Human amendment intent"
+        "Project Contract = HOW slot required by the Python Agent Constitution"
         in normalized
     )
-
-
-def test_project_contract_binds_all_seven_constitutional_roles_without_merger() -> None:
-    text = _load_project_contract()
-
-    role_ids = [
-        "HUMAN_PRINCIPAL",
-        "ARCHITECT",
-        "DOMAIN_AUTHORITY",
-        "EXECUTION_RUNTIME",
-        "EXECUTOR",
-        "SEMANTIC_REVIEWER",
-        "SOURCE_PUBLISHER",
-    ]
-    for role_id in role_ids:
-        assert role_id in text
-
-    assert "co-location" in text
+    assert "explicit Human Principal intent" in normalized
     assert (
-        "co-location does not merge their authorities" in text
-        or "co-location must not merge authority" in text
+        "previous detailed ChatGPT Project Contract is prospectively superseded and suspended"
+        in normalized
     )
+    assert "no longer has active HOW authority" in normalized
 
 
-def test_project_contract_preserves_constitutional_authority_and_conflict_labels() -> None:
+def test_transitional_notice_preserves_subordination_without_detailed_rules() -> None:
     text = _load_project_contract()
+    normalized = " ".join(text.split())
 
-    for label in [
-        "CAPABILITY_IS_NOT_AUTHORITY",
-        "ONE_CAPABILITY_ONE_AUTHORITY",
-        "GOVERNANCE_CONFLICT",
-        "AUTHORITY_CONFLICT",
-        "EVIDENCE_CONFLICT",
-    ]:
-        assert label in text
+    assert "Constitution remains the highest enforceable governance" in normalized
+    assert "Product Contract remains the authoritative WHAT layer" in normalized
+    assert "remain subordinate to both" in normalized
+    assert "contains no durable detailed operating rules" in normalized
+    assert "creates no new precedence system or product semantics" in normalized
+    assert len(re.findall(r"^## ", text, flags=re.MULTILINE)) <= 3
+    assert not re.search(r"^## \d+\.", text, flags=re.MULTILINE)
+    assert len(text.split()) < 300
+
+    # Must not reproduce retired detailed operating contract, historical migration, or command catalogue
+    assert "CONTINUE TASK-N" not in text
+    assert "CODE_FIX" not in text
+    assert "TASK-198" not in text
+    assert "TASK-183" not in text
+    assert "TASK-089" not in text
+    assert "TASK-090" not in text
 
 
-def test_project_contract_brain_sync_requires_full_governance_foundation() -> None:
+def test_exact_pin_continuity_is_separately_adopted_capability_only() -> None:
     text = _load_project_contract()
+    normalized = " ".join(text.split())
 
-    sync_section = text.split("## 12. Brain Sync Protocol\n", 1)[1]
-    for doc in [
-        "docs/PYTHON_AGENT_MANIFESTO.md",
-        "docs/PYTHON_AGENT_CONSTITUTION.md",
-        "docs/PYTHON_AGENT_PRODUCT_CONTRACT.md",
-        "docs/CHATGPT_PROJECT_CONTRACT.md",
-    ]:
-        assert doc in sync_section
+    assert (
+        "Exact pinned AIOS mechanics remain available only through separately adopted"
+        in normalized
+    )
+    assert "Their availability is capability, not authority" in normalized
+    assert (
+        "does not grant or change review, execution, canonical mutation, roadmap, "
+        "publication, or domain authority"
+        in normalized
+    )
+    assert (
+        "no local carrier is designated as the exclusive Brain authoring transport"
+        in normalized
+    )
+    assert "Brain authoring for this repository must use the checked-in" not in text
 
 
-def test_project_contract_enforces_downstream_pin_isolation() -> None:
+def test_full_replacement_requires_downstream_conformance_and_full_text_human_approval() -> None:
     text = _load_project_contract()
+    normalized = " ".join(text.split())
 
-    assert ".agents/skills/aios-worker/requirements-aios-renew.txt" in text
-    assert "active runtime must never be inferred from current AIOS-renew main" in text
-    assert "improvement does not exist for Python Agent until" in text
-
-
-def test_project_contract_enforces_source_only_review_and_publication() -> None:
-    text = _load_project_contract()
-
-    assert "Runtime PASS is not semantic PASS" in text
-    assert "publish the reviewed source candidate only" in text
-    for forbidden in [
-        "review-decision commit",
-        "artifact branch",
-        "failure branch",
-        "remediation metadata branch",
-    ]:
-        assert forbidden in text
+    assert (
+        "drafted only after the full downstream AIOS control-plane conformance gate"
+        in normalized
+    )
+    assert "Before any later durable replacement is canonicalized" in normalized
+    assert (
+        "complete proposed replacement text must be presented in full to the Human Principal"
+        in normalized
+    )
+    assert "receive explicit Human approval" in normalized
+    assert "partial draft" in normalized
+    assert "is not approval of the full replacement" in normalized

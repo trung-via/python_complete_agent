@@ -20,14 +20,14 @@ product_checkpoint:
   status: DONE
 
 active_track:
-  id: PYTHON_AGENT_GOVERNANCE_FOUNDATION
-  title: Python Agent Governance Foundation
+  id: AIOS_FULL_DOWNSTREAM_ADOPTION_AND_GOVERNANCE_REBUILD
+  title: AIOS Full Downstream Adoption and Governance Rebuild
   priority_owner: HUMAN
   status: ACTIVE
 
 next:
-  id: CHATGPT_PROJECT_CONTRACT_RECONCILIATION
-  title: ChatGPT Project Contract reconciliation
+  id: AIOS_DOWNSTREAM_ADOPTION_POLICY_RECONCILIATION
+  title: AIOS downstream-adoption policy reconciliation
   status: NEXT
   completion_gate: >-
     Remains NEXT until canonical evidence marks it DONE or explicit Human intent
@@ -59,6 +59,15 @@ completed_milestones:
     status: DONE
     source_sha: 702e85e9e77a556f3716717ccaa186919b1a9dab
 
+superseded_commitments:
+  - id: CHATGPT_PROJECT_CONTRACT_RECONCILIATION
+    title: ChatGPT Project Contract reconciliation
+    status: SUPERSEDED
+    superseded_by: AIOS_FULL_DOWNSTREAM_ADOPTION_AND_GOVERNANCE_REBUILD
+    reason: >-
+      Superseded by explicit Human Principal intent in favor of full downstream AIOS
+      adoption and governance rebuild before drafting a new Project Contract.
+
 upstream_recovery:
   status: ADOPTED_BY_PIN
   blocking_current_track: false
@@ -87,8 +96,23 @@ upstream_migration:
     a pending commitment, or grant Runtime authority to mutate this Brain-owned bookmark.
 
 pending_commitments:
-  - id: CHATGPT_PROJECT_CONTRACT_RECONCILIATION
-    title: ChatGPT Project Contract reconciliation
+  - id: AIOS_DOWNSTREAM_ADOPTION_POLICY_RECONCILIATION
+    title: AIOS downstream-adoption policy reconciliation
+    status: NOT_DONE
+  - id: FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_1
+    title: Full AIOS control plane adoption phase 1 (authoring, PRIMARY, terminal-attention)
+    status: NOT_DONE
+  - id: FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_2
+    title: Full AIOS control plane adoption phase 2 (review, publication, remediation, repair)
+    status: NOT_DONE
+  - id: FULL_AIOS_DOWNSTREAM_CONFORMANCE
+    title: Full AIOS downstream control plane conformance gate
+    status: NOT_DONE
+  - id: PROJECT_CONTRACT_REBUILD
+    title: Project Contract rebuild from zero with full-text Human approval
+    status: NOT_DONE
+  - id: GOVERNANCE_FOUNDATION_CLOSURE_AND_P7_RETURN
+    title: Governance Foundation closure and return to P7 product roadmap
     status: NOT_DONE
 
 commitment_removal_gate: >-

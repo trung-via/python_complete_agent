@@ -23,16 +23,21 @@ upstream_audit:
   checkpoint_role: BRAIN_PLANNING_EVIDENCE
   checkpoint_is_runtime_authority: false
 
-classification_vocabulary:
-  - ADOPTED_BY_PIN
-  - PORT_GOVERNANCE
-  - EXPLICITLY_NOT_APPLICABLE_OR_OPTIONAL
-  - BLOCKED_PENDING_UPSTREAM
+classification_dimensions:
+  package_capability_availability:
+    - ADOPTED_BY_PIN
+    - PORT_GOVERNANCE
+    - BLOCKED_PENDING_UPSTREAM
+  repository_binding_activation:
+    - ACTIVE
+    - REQUIRED_PENDING
+    - NOT_REQUIRED
 
 capability_families:
   - id: K0_POST_K0_RUNTIME
     upstream_tasks: [TASK-064, TASK-065, TASK-067, TASK-075, TASK-076, TASK-079, TASK-080]
-    classification: ADOPTED_BY_PIN
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
     consumption: PINNED_KERNEL_ONLY
     boundary: >-
       Runtime authority, NO_CHANGE reuse, structural completion, telemetry, and related
@@ -40,35 +45,41 @@ capability_families:
 
   - id: HISTORICAL_REPAIR_AND_REMEDIATION
     upstream_tasks: [TASK-077, TASK-078]
-    classification: ADOPTED_BY_PIN
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
     consumption: PINNED_KERNEL_ONLY
 
   - id: ADMISSION_FAILURE_V2_AND_CORRECTION_PREFLIGHT
     upstream_tasks: [TASK-081, TASK-085]
-    classification: ADOPTED_BY_PIN
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
     consumption: PINNED_KERNEL_ONLY
     boundary: NO_DOWNSTREAM_CONTROL_PLANE_IMPLEMENTATION
 
   - id: ROADMAP_SEQUENCING
     upstream_tasks: [TASK-083]
-    classification: PORT_GOVERNANCE
+    package_capability_availability: PORT_GOVERNANCE
+    repository_binding_activation: ACTIVE
     consumption: PYTHON_AGENT_BRAIN_STATE
     implementation: .ai/roadmap-state.yaml
 
   - id: UNIFIED_STATE_AND_HUMAN_SURFACE
     upstream_tasks: [TASK-086, TASK-087]
-    classification: ADOPTED_BY_PIN
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: ACTIVE
     consumption: PUBLIC_OPERATOR_SURFACES
 
   - id: CONTINUE_SYNCHRONIZATION
     upstream_tasks: [TASK-088, TASK-102]
-    classification: ADOPTED_BY_PIN
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
     consumption: PINNED_KERNEL_ONLY
     boundary: NO_DOWNSTREAM_SYNC_ENGINE
 
   - id: CONTINUE_IMPLEMENTATION_SAFE_PUBLICATION_AND_NATIVE_INSTRUCTIONS
     upstream_tasks: [TASK-089, TASK-090, TASK-092]
-    classification: ADOPTED_BY_PIN
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: ACTIVE
     consumption: PINNED_KERNEL_ONLY
     safe_publisher: ACTIVE
     boundary: NO_DOWNSTREAM_CORRECTION_OR_PUBLICATION_STATE_MACHINE
@@ -76,56 +87,85 @@ capability_families:
   - id: THIRD_EXECUTOR_BACKEND
     upstream_tasks: [TASK-091]
     upstream_revision: 2
-    classification: ADOPTED_BY_PIN
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
     consumption: AVAILABLE_IN_PINNED_KERNEL
     boundary: NO_NEW_PYTHON_AGENT_HUMAN_FACING_EXECUTOR_SURFACE
 
   - id: PUBLISHED_POST_PIN_CONTROL_PLANE_TASK_093
     upstream_tasks: [TASK-093]
-    classification: ADOPTED_BY_PIN
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
     consumption: PINNED_KERNEL_ONLY
   - id: PUBLISHED_POST_PIN_CONTROL_PLANE_TASK_094
     upstream_tasks: [TASK-094]
-    classification: ADOPTED_BY_PIN
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
     consumption: PINNED_KERNEL_ONLY
   - id: PUBLISHED_POST_PIN_CONTROL_PLANE_TASK_095
     upstream_tasks: [TASK-095]
-    classification: ADOPTED_BY_PIN
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
     consumption: PINNED_KERNEL_ONLY
   - id: PUBLISHED_POST_PIN_CONTROL_PLANE_TASK_096
     upstream_tasks: [TASK-096]
-    classification: ADOPTED_BY_PIN
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
     consumption: PINNED_KERNEL_ONLY
   - id: PUBLISHED_POST_PIN_CONTROL_PLANE_TASK_097
     upstream_tasks: [TASK-097]
-    classification: ADOPTED_BY_PIN
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
     consumption: PINNED_KERNEL_ONLY
   - id: PUBLISHED_POST_PIN_CONTROL_PLANE_TASK_098
     upstream_tasks: [TASK-098]
-    classification: ADOPTED_BY_PIN
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
     consumption: PINNED_KERNEL_ONLY
   - id: PUBLISHED_POST_PIN_CONTROL_PLANE_TASK_099
     upstream_tasks: [TASK-099]
-    classification: ADOPTED_BY_PIN
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
     consumption: PINNED_KERNEL_ONLY
   - id: PUBLISHED_POST_PIN_CONTROL_PLANE_TASK_100
     upstream_tasks: [TASK-100]
-    classification: ADOPTED_BY_PIN
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
     consumption: PINNED_KERNEL_ONLY
 
-  - id: OPTIONAL_OUTER_AUTOMATION
-    upstream_tasks: [TASK-066, TASK-068, TASK-069, TASK-070, TASK-071, TASK-072, TASK-073, TASK-074, TASK-084]
-    classification: EXPLICITLY_NOT_APPLICABLE_OR_OPTIONAL
-    consumption: NOT_EXPOSED
+  - id: PACKAGE_RUNTIME_OPERATOR_HARDENING
+    upstream_tasks: [TASK-069, TASK-071]
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
+    consumption: PINNED_KERNEL_ONLY
     boundary: >-
-      No A6 automated REVIEW-to-REMEDIATION wakeup, approval, autonomous lane, upstream
-      workflow, or dispatch automation is introduced; Python Agent keeps its existing
-      repository-owned publication workflow.
+      Runtime and Operator hardening consumed directly from the exact pin with no
+      pending repository binding.
+
+  - id: PACKAGE_PUBLICATION_CONTROL_HARDENING
+    upstream_tasks: [TASK-070, TASK-072]
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
+    consumption: PINNED_KERNEL_ONLY
+    boundary: >-
+      Publication-control hardening consumed directly from the exact pin with no
+      pending repository binding.
+
+  - id: AUDITED_A1_A2_A3_A6_AUTOMATION_CARRIERS
+    upstream_tasks: [TASK-066, TASK-068, TASK-073, TASK-074, TASK-084]
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: REQUIRED_PENDING
+    consumption: PINNED_KERNEL_CAPABILITY
+    boundary: >-
+      Upstream A1/A2/A3/A6 outer control-plane capabilities are available through the
+      exact pin. Downstream repository-specific bindings remain explicit REQUIRED_PENDING
+      and are not active on canonical main.
 
   - id: PERFORMANCE_CLOSURE
     upstream_tasks: [TASK-101]
     upstream_revision: 4
-    classification: ADOPTED_BY_PIN
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
     consumption: PINNED_KERNEL_ONLY
     reviewed_candidate: a3b723b49cd65677f548c5694a52a6fc006a9e2a
     semantic_pass: true
@@ -134,38 +174,52 @@ capability_families:
 
   - id: CORRECTION_FRONTIER_HARDENING
     upstream_tasks: [TASK-103]
-    classification: ADOPTED_BY_PIN
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
     consumption: PINNED_KERNEL_ONLY
     source_published: true
     boundary: NO_DOWNSTREAM_CORRECTION_FRONTIER
 
   - id: RECOVERED_BRAIN_AUTHORING_INGRESS
     upstream_tasks: [TASK-104, TASK-105]
-    classification: ADOPTED_BY_PIN
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: ACTIVE
     consumption: PINNED_OPERATOR_INGRESS_ONLY
     carrier: .agents/skills/aios-worker/scripts/aios_brain_ingress.py
+    carrier_binding: ACTIVE_EMERGENCY_DEBUG_BINDING
     authoritative_semantics: POST_TASK_105_RECOVERY
     boundary: >-
-      Brain-only transport delegates the caller envelope to the exact pinned canonical
-      ingress. Python Agent adds no authoring or lifecycle state machine.
+      Brain-only transport delegates caller envelope to exact pinned canonical ingress.
+      Checked-in local aios_brain_ingress.py carrier is recognized as the current active
+      emergency/debug repository binding.
 
   - id: HUMAN_SURFACE_PRESENTATION_HARDENING
     upstream_tasks: [TASK-106]
-    classification: ADOPTED_BY_PIN
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
     consumption: PINNED_KERNEL_ONLY
     boundary: NO_DOWNSTREAM_CONTROL_PLANE_IMPLEMENTATION
 
   - id: REPOSITORY_SPECIFIC_OUTER_AUTOMATION
     upstream_tasks: [TASK-107, TASK-108, TASK-110, TASK-111, TASK-112]
-    classification: EXPLICITLY_NOT_APPLICABLE_OR_OPTIONAL
-    consumption: NOT_EXPOSED
-    boundary: NO_DOWNSTREAM_ISSUE_OR_WAKEUP_CARRIERS
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: REQUIRED_PENDING
+    consumption: PINNED_KERNEL_CAPABILITY
+    boundary: >-
+      Post-TASK-105 outer control-plane carriers are available through the exact pin.
+      Repository-specific carrier bindings remain explicit REQUIRED_PENDING and are not
+      active on canonical main.
 
   - id: TERMINAL_ATTENTION_PACKAGE_COMPATIBILITY
     upstream_tasks: [TASK-113]
-    classification: ADOPTED_BY_PIN
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: REQUIRED_PENDING
     consumption: PINNED_KERNEL_ONLY
-    boundary: NO_DOWNSTREAM_TERMINAL_ATTENTION_ISSUE_CARRIER
+    package_compatibility: ADOPTED_BY_PIN
+    carrier_binding: REQUIRED_PENDING
+    boundary: >-
+      TASK-113 package compatibility is adopted by the pin. The terminal-attention carrier
+      is available through the exact pin with repository binding REQUIRED_PENDING.
 
 incident_lineage:
   run_id: RUN-197-001
