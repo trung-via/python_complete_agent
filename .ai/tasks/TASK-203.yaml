@@ -1,64 +1,83 @@
 task_id: TASK-203
-revision: 1
+revision: 2
 
 goal: >
-  Perform one atomic Python Agent governance/bootstrap reset after explicit Human
-  supersession and suspension intent: retire the current detailed ChatGPT Project
-  Contract from active HOW authority, replace it with a minimal transitional
-  suspension notice that preserves the Constitution-mandated Project Contract slot,
-  and adopt the already-pinned AIOS-renew TASK-107 GitHub-Issue Brain authoring
-  carrier so future Brain-to-repository authoring can use the same zero-touch
-  transport as AIOS-renew without adding a second ingress, service layer, or state
-  machine.
+  Reset Python Agent governance/adoption planning after explicit Human supersession
+  of TASK-203 revision 1 and the current detailed ChatGPT Project Contract. Retire
+  the current detailed Project Contract from active HOW authority while preserving
+  the Constitution-mandated Project Contract slot as a minimal transitional notice;
+  rebuild AIOS downstream adoption state so package capability availability is not
+  conflated with repository-binding activation; correct the audited A1/A2/A3/A6,
+  TASK-069 through TASK-072, and TASK-107 through TASK-113 classifications; and
+  canonicalize the Human-approved roadmap toward full AIOS downstream control-plane
+  adoption before a new Project Contract is written.
 
 problem: >
-  Python Agent already pins exact AIOS-renew commit
-  f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e, which contains the reviewed
-  post-TASK-105 canonical authoring ingress and TASK-107 GitHub-Issue delivery
-  carrier. However, Python Agent's adoption registry explicitly leaves TASK-107 in
-  a coarse NOT_EXPOSED repository-specific outer-automation family, while the
-  current docs/CHATGPT_PROJECT_CONTRACT.md requires Brain authoring through the
-  checked-in local aios_brain_ingress.py carrier. This downstream restriction
-  conflicts with the zero-touch carrier already present in the exact pinned AIOS
-  authority and creates recurring Human courier work. The Human Principal has now
-  explicitly rejected that local-only operating rule, requested suspension of the
-  current detailed Project Contract pending a fresh audit and Human review, and
-  requested adoption of the existing pinned AIOS Issue ingress rather than another
-  Python-Agent-specific transport layer.
+  Python Agent currently pins the reviewed AIOS-renew source
+  f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e, but its Brain-readable adoption
+  registry uses coarse EXPLICITLY_NOT_APPLICABLE_OR_OPTIONAL / NOT_EXPOSED
+  classifications that conflate package/runtime behavior with repository-specific
+  bindings. The audit found that TASK-069 and TASK-071 are Runtime/Operator
+  hardening and TASK-070 and TASK-072 are publication-control hardening already
+  present in the exact pin, while A1/A2/A3/A6 and TASK-107/TASK-108/TASK-110/
+  TASK-111/TASK-112/TASK-113 require repository bindings rather than semantic
+  withholding. The current detailed Project Contract also preserves the old
+  local-only Brain-authoring and downstream-withholding assumptions. TASK-203
+  revision 1 attempted to suspend that contract while adopting TASK-107 alone, but
+  its RUN-203-001 candidate remains unreviewed/unpublished and its TASK-107-only
+  boundary no longer matches explicit Human intent. A clean governance/adoption
+  reset is required before any carrier/workflow adoption is implemented.
 
 assumptions:
   - >
-    Canonical python_complete_agent main at TASK authoring is
-    277ac830dff1fd6b0026aeb1ea42b101ae1d58aa.
+    Canonical python_complete_agent main at revision-2 authoring is
+    433939ce40e4c82e47b8ed4dc0493a3a8c60bc60 and contains canonical
+    TASK-203 revision 1 but not its implementation candidate.
   - >
-    The sole active downstream AIOS-renew authority remains exact commit
-    f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e from
-    .agents/skills/aios-worker/requirements-aios-renew.txt.
+    RUN-203-001 is immutable revision-1 execution evidence with Runtime RESULT,
+    candidate 18a9a350be82d752e0b5d000b8e7566141498efd, required verification
+    passing, and unresolved empty; no canonical
+    refs/heads/aios/review-decision/RUN-203-001 exists, so that candidate has no
+    semantic review decision and no publication authority.
   - >
-    That exact pin contains aios_renew.github_issue_ingress and the existing
-    canonical authoring ingress. TASK-107 defines GitHub Issue as replaceable
-    transport only; semantic validation, canonical destinations, CAS, idempotency,
-    Git mutation, review semantics, and publication semantics remain owned by the
-    existing pinned AIOS implementation.
+    The sole active downstream AIOS-renew dependency remains exact reviewed,
+    source-published commit
+    f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e under
+    EXACT_REVIEWED_SOURCE_PUBLISHED_ONLY. Mutable upstream main is not downstream
+    Runtime authority.
   - >
-    Python Agent's existing .github/workflows/aios-auto-publish.yml already
-    publishes from canonical review-decision branch pushes and therefore does not
-    require the TASK-110-style explicit publication-dispatch addition merely to
-    adopt TASK-107 Brain Issue ingress.
+    The Python Agent Constitution requires a distinct Project Contract = HOW slot,
+    makes the Constitution the highest enforceable governance, and gives the Human
+    Principal prospective suspension/supersession authority without rewriting
+    historical engineering facts.
   - >
-    The Python Agent Constitution requires a distinct Project Contract = HOW layer
-    and makes the Constitution the highest enforceable governance. Therefore this
-    TASK must not physically remove the Project Contract slot; it may suspend and
-    supersede the current detailed content while preserving a minimal transitional
-    HOW placeholder subordinate to Constitution and Product Contract.
+    The Product Contract remains the sole durable product WHAT authority. This
+    governance/adoption reset changes no Product Intelligence or Commerce
+    Intelligence semantics.
   - >
-    The Human Principal has explicit prospective suspension/supersession intent for
-    the current detailed ChatGPT Project Contract and requires the eventual
-    replacement contract to be audited and presented in full for Human approval
-    before canonicalization.
+    Fresh audit established that upstream A1/A2/A3/A6 semantics are realized by
+    TASK-066, TASK-068 plus TASK-073, TASK-074, and TASK-082 plus TASK-084;
+    TASK-069/TASK-071 are package Runtime/Operator hardening; TASK-070/TASK-072 are
+    package publication-control hardening; and TASK-107/TASK-108/TASK-110/TASK-111/
+    TASK-112/TASK-113 provide post-TASK-105 outer control-plane carriers or
+    compatibility whose repository activation requires explicit binding rather than
+    a claim that the capability is inapplicable downstream.
   - >
-    .ai/roadmap-state.yaml remains Brain-owned planning state and is intentionally
-    not advanced by this transport/governance reset.
+    Current Python Agent main contains no published TASK-107/108/110/111/112/113
+    downstream carrier workflow. This revision is governance/adoption planning only
+    and must not claim such bindings are already active.
+  - >
+    Human intent has explicitly approved the following sequence: governance/adoption
+    reset; upstream AIOS downstream-adoption policy reconciliation; Python Agent
+    authoring/PRIMARY/terminal-attention adoption; review/publication/remediation/
+    repair adoption; full downstream conformance proof; a new Project Contract
+    drafted from zero and shown in full for Human approval; Governance Foundation
+    closure; then return to the P7 product roadmap.
+  - >
+    .ai/roadmap-state.yaml and .ai/aios-adoption-state.yaml are Brain-owned planning
+    and adoption state with engineering_truth false. They may record the approved
+    prospective priority but do not prove execution, review, publication, or binding
+    completion.
 
 scope:
   inspect:
@@ -68,197 +87,215 @@ scope:
     - docs/CHATGPT_PROJECT_CONTRACT.md
     - .ai/roadmap-state.yaml
     - .ai/aios-adoption-state.yaml
-    - .ai/tasks/TASK-196.yaml
-    - .ai/tasks/TASK-199.yaml
     - .ai/tasks/TASK-201.yaml
     - .ai/tasks/TASK-202.yaml
+    - .ai/tasks/TASK-203.yaml
     - .agents/skills/aios-worker/requirements-aios-renew.txt
     - .agents/skills/aios-worker/scripts/aios_brain_ingress.py
     - .github/workflows/aios-auto-publish.yml
-    - tests/aios_bridge/test_aios_governance_state.py
+    - tests/governance/test_python_agent_manifesto.py
+    - tests/governance/test_python_agent_constitution.py
+    - tests/governance/test_python_agent_product_contract.py
     - tests/governance/test_chatgpt_project_contract.py
+    - tests/aios_bridge/test_aios_governance_state.py
+
   modify:
     - docs/CHATGPT_PROJECT_CONTRACT.md
     - .ai/aios-adoption-state.yaml
-    - .ai/brain-ingress-carriers.yaml
-    - .github/workflows/aios-brain-ingress.yml
-    - tests/aios_bridge/test_aios_governance_state.py
-    - tests/aios_bridge/test_aios_brain_issue_ingress.py
+    - .ai/roadmap-state.yaml
     - tests/governance/test_chatgpt_project_contract.py
+    - tests/aios_bridge/test_aios_governance_state.py
 
 non_goals:
   - >
-    Amend the Manifesto, Constitution, or Product Contract, or remove the
-    Constitution-mandated Project Contract = HOW governance slot.
+    Amend, reinterpret, or replace docs/PYTHON_AGENT_MANIFESTO.md,
+    docs/PYTHON_AGENT_CONSTITUTION.md, or docs/PYTHON_AGENT_PRODUCT_CONTRACT.md.
   - >
-    Draft or canonicalize the replacement full Project Contract. A fresh audit and
-    explicit Human approval of the complete proposed replacement are required
-    before a later TASK may restore durable detailed HOW rules.
+    Draft or canonicalize the replacement durable Project Contract. This revision
+    creates only the minimal transitional HOW-slot notice; the full replacement is
+    deferred until full AIOS downstream control-plane conformance and requires
+    presentation of the complete proposed text to the Human Principal plus explicit
+    Human approval before canonicalization.
   - >
-    Add a new Brain gateway, HTTP service, GitHub App backend, webhook server,
-    broker, queue, database, scheduler, poller, daemon, browser automation service,
-    remote-secret service, or second authoring/lifecycle state machine.
+    Add, copy, activate, or modify any GitHub Issue carrier, self-hosted wakeup,
+    remote approval/status, remediation wakeup, repair wakeup, terminal-attention,
+    publication-continuation workflow, carrier policy, runner binding, or other
+    repository automation. Those are later explicit adoption tasks.
   - >
-    Copy, fork, or reimplement AIOS authoring semantics inside Python Agent. The
-    exact pinned AIOS-renew package remains the sole semantic ingress authority.
+    Modify the exact AIOS dependency pin, worker/Brain-ingress code, worker skills,
+    Runtime, Operator, Executor adapters, canonical verification, source publisher,
+    existing .github/workflows/aios-auto-publish.yml, or upstream AIOS-renew source.
   - >
-    Change TASK, REVIEW, REMEDIATION, REPAIR, Runtime, Unified State, Executor,
-    deterministic verification, correction-frontier, semantic-review, or
-    source-publication semantics.
+    Reuse, review, remediate, repair, publish, merge, cherry-pick, or otherwise
+    promote candidate 18a9a350be82d752e0b5d000b8e7566141498efd from RUN-203-001.
+    The revision-1 lineage remains immutable evidence only.
   - >
-    Adopt TASK-108, TASK-110, TASK-111, TASK-112, or TASK-113 repository-specific
-    wakeup/remediation/repair/terminal-attention carriers. This TASK adopts only the
-    TASK-107 Brain authoring Issue carrier needed to remove the manual courier gap.
+    Rewrite or delete historical TASK/RUN/RESULT/FAILURE/REVIEW/REMEDIATION/REPAIR
+    artifacts, including TASK-201, TASK-202, TASK-203 revision 1, RUN-203-001, or
+    RUN-197 incident lineage.
   - >
-    Remove .agents/skills/aios-worker/scripts/aios_brain_ingress.py. It remains an
-    emergency/debug local carrier over the same pinned canonical ingress, but it is
-    no longer the exclusive normal authoring transport.
+    Change Product Intelligence source, evidence/product-truth semantics,
+    scoring/ranking, approval, persistence, retrieval/RAG, marketplace/browser,
+    provider/model behavior, Media Intelligence, Distribution Intelligence,
+    Commerce Operations, or select a P7 collector/enrichment implementation.
   - >
-    Reopen generic direct GitHub source/ref write as normal Brain authoring or let
-    GitHub Issue content select arbitrary paths, refs, Git commands, shell commands,
-    credentials, authority overrides, or publication destinations.
-  - >
-    Modify .ai/roadmap-state.yaml, close Governance Foundation, choose a P7
-    collector/enrichment strategy, or change any Product Intelligence semantics.
+    Implement A4, A5, A7, A9, A10, planner/router/reviewer autonomy, retry/fallback,
+    scheduler, queue, broker, daemon, second lifecycle reducer, or any new
+    canonical authority.
   - >
     Push, publish, merge, or mutate canonical main from Executor implementation.
 
 constraints:
   hard:
     - >
-      Preserve Constitution supremacy, Product Contract WHAT authority,
-      CAPABILITY_IS_NOT_AUTHORITY, ONE_CAPABILITY_ONE_AUTHORITY, and the separation
-      among Human mandate, canonical mutation, semantic review, execution, and
-      publication.
+      Only the five files in scope.modify may change. Any need to alter a worker,
+      workflow, AIOS pin, product source, higher governance document, or historical
+      artifact fails closed for fresh Brain review.
     - >
-      Preserve exact AIOS-renew pin
-      f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e as the sole downstream
-      Runtime/ingress implementation authority. Mutable upstream AIOS-renew main
-      must not be installed, inferred, or substituted.
+      Replace docs/CHATGPT_PROJECT_CONTRACT.md with a minimal transitional notice
+      that preserves the Constitution-mandated Project Contract = HOW slot but
+      declares the prior detailed Project Contract prospectively SUPERSEDED and
+      SUSPENDED by explicit Human Principal intent. The notice must state that the
+      Constitution remains the highest enforceable governance, the Product Contract
+      remains the authoritative WHAT layer, and no durable detailed HOW rules are
+      active in this slot pending the later rebuild.
     - >
-      Replace docs/CHATGPT_PROJECT_CONTRACT.md with a minimal transitional
-      suspension notice, not another detailed operating contract. It must state:
-      the current detailed Project Contract is superseded and suspended by explicit
-      Human Principal intent; Constitution and Product Contract remain authoritative;
-      the Project Contract HOW slot remains intentionally present but contains no
-      durable detailed operating rules pending audit; exact pinned AIOS mechanics
-      remain available only through separately adopted repository surfaces; and a
-      future full replacement requires presentation of the complete proposed text
-      to the Human Principal and explicit approval before canonicalization.
+      The transitional Project Contract must not reproduce the retired detailed
+      operating contract, historical AIOS pin/TASK/RUN migration narrative,
+      local-only Brain-ingress mandate, worker command catalogue, recovery taxonomy,
+      roadmap sequence, carrier withholding policy, or a new permission/precedence
+      system. It must grant no new semantic review, execution, canonical mutation,
+      roadmap, domain, or publication authority.
     - >
-      The suspension notice must not reproduce the retired 12-section operating
-      contract, preserve the local-only Brain ingress mandate, invent a new
-      precedence system, redefine product semantics, or silently grant new review,
-      execution, mutation, roadmap, or publication authority.
+      The transitional notice must require that a future durable Project Contract
+      be drafted only after the full downstream AIOS control-plane conformance gate,
+      be presented to the Human Principal in complete text, and receive explicit
+      Human approval before canonicalization.
     - >
-      Add .ai/brain-ingress-carriers.yaml using
-      AIOS_BRAIN_INGRESS_CARRIERS_POLICY version 1 with github_issue.enabled true,
-      repository trung-via/python_complete_agent, authorized_actors containing
-      exactly trung-via, title_marker [AIOS BRAIN INGRESS], and max_body_bytes
-      131072.
+      Rebuild .ai/aios-adoption-state.yaml so package capability availability and
+      repository-binding activation are represented as distinct dimensions rather
+      than one coarse classification. The state must continue to declare
+      engineering_truth false, preserve the exact f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e
+      pin and immutable incident provenance, and must not claim a repository binding
+      is ACTIVE when the corresponding downstream workflow/policy does not exist on
+      canonical main.
     - >
-      Add .github/workflows/aios-brain-ingress.yml as a downstream TASK-107 carrier
-      adaptation. It must trigger only on issues opened, gate delivery on the exact
-      [AIOS BRAIN INGRESS] title marker, serialize repository deliveries with
-      cancel-in-progress false, check out main with fetch-depth 0, set up Python
-      3.11+, install only
-      .agents/skills/aios-worker/requirements-aios-renew.txt, and invoke
-      python -m aios_renew.github_issue_ingress with GITHUB_EVENT_PATH, the
-      repository policy, and repo root.
+      The rebuilt adoption state must classify TASK-069 and TASK-071 as package
+      Runtime/Operator hardening consumed from the exact pin with no pending
+      repository binding, and TASK-070 and TASK-072 as package publication-control
+      hardening consumed from the exact pin with no pending repository binding.
+      They must not remain in an optional/not-exposed outer-automation bucket.
     - >
-      The Issue workflow must require only contents: write and issues: write for
-      TASK-107 transport/receipt behavior. It must not add actions: write,
-      pull-requests: write, id-token, packages, deployments, secrets access, or a
-      second publication-dispatch path. Existing aios-auto-publish review-decision
-      push behavior remains unchanged.
+      The rebuilt adoption state must represent A1/A2/A3/A6
+      (TASK-066, TASK-068, TASK-073, TASK-074, TASK-084) as capabilities available
+      through the exact pin whose repository-specific bindings are REQUIRED_PENDING,
+      not as inapplicable or semantically unavailable.
     - >
-      The Issue body is opaque ingress-envelope data. Workflow shell must never
-      interpolate, evaluate, template, normalize, rewrite, summarize, or execute
-      Issue body content. Event-file admission and semantic ingress remain inside
-      the pinned aios_renew.github_issue_ingress implementation.
+      The rebuilt adoption state must preserve TASK-104/TASK-105 post-TASK-105
+      canonical ingress semantics as ADOPTED_BY_PIN and recognize the existing
+      checked-in local aios_brain_ingress.py carrier as the current active
+      emergency/debug repository binding. It must represent TASK-107, TASK-108,
+      TASK-110, TASK-111, TASK-112, and the TASK-113 terminal-attention carrier as
+      capabilities available through the exact pin with repository binding
+      REQUIRED_PENDING. TASK-113 package compatibility itself remains adopted by
+      the pin.
     - >
-      The workflow may post the bounded pinned-carrier receipt to the originating
-      Issue and close the Issue only after successful delivery. Receipt text, Issue
-      state, workflow state, title, labels, or comments never become canonical TASK,
-      review, execution, roadmap, or publication authority.
+      Remove the current policy meaning that standard audited AIOS control-plane
+      capabilities are EXPLICITLY_NOT_APPLICABLE_OR_OPTIONAL merely because they
+      need repository-specific configuration. No current adoption entry for the
+      audited A1/A2/A3/A6 or TASK-107 through TASK-113 graph may use NOT_EXPOSED to
+      mean downstream inapplicability. Pending binding is not implementation
+      completion and must remain explicit.
     - >
-      Keep the existing local aios_brain_ingress.py carrier and
-      .github/workflows/aios-auto-publish.yml unchanged.
+      Preserve exact-pin isolation: mutable AIOS-renew main never becomes downstream
+      runtime authority from this reset, and a future pin change still requires a
+      separate explicit reviewed downstream migration.
     - >
-      Split current coarse repository-specific outer-automation adoption state so
-      TASK-107 is explicitly ADOPTED_BY_PIN and exposed only through the checked-in
-      Brain Issue policy/workflow, while TASK-108/TASK-110/TASK-111/TASK-112 remain
-      EXPLICITLY_NOT_APPLICABLE_OR_OPTIONAL and NOT_EXPOSED. TASK-113 terminal
-      attention package compatibility remains unchanged and its Issue carrier
-      remains not exposed.
+      Reconcile .ai/roadmap-state.yaml to the explicit current Human priority. The
+      prior CHATGPT_PROJECT_CONTRACT_RECONCILIATION commitment must be recorded as
+      SUPERSEDED rather than DONE, and the prior detailed Project Contract must not
+      be represented as the final Governance Foundation completion.
     - >
-      RECOVERED_BRAIN_AUTHORING_INGRESS for TASK-104/TASK-105 remains
-      ADOPTED_BY_PIN with POST_TASK_105_RECOVERY semantics. TASK-107 transport must
-      delegate to that same canonical semantic ingress and must not become a second
-      authoring authority.
+      The roadmap must establish exactly one ACTIVE track named
+      AIOS_FULL_DOWNSTREAM_ADOPTION_AND_GOVERNANCE_REBUILD and exactly one NEXT
+      milestone named AIOS_DOWNSTREAM_ADOPTION_POLICY_RECONCILIATION. It must
+      preserve the TASK-191 P7.1 product checkpoint and the already-completed
+      Manifesto, Constitution, and Product Contract provenance.
     - >
-      Keep every unrelated adoption classification, exact pin, incident lineage,
-      future migration policy, product source, roadmap state, worker surfaces, and
-      immutable historical artifacts unchanged.
+      The roadmap must preserve the approved later ordering after the unique NEXT:
+      FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_1,
+      FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_2,
+      FULL_AIOS_DOWNSTREAM_CONFORMANCE,
+      PROJECT_CONTRACT_REBUILD,
+      GOVERNANCE_FOUNDATION_CLOSURE_AND_P7_RETURN.
+      These later items are pending/waiting planning commitments only and must not
+      be marked DONE or engineering truth.
     - >
-      Replace the old Project Contract structural regression with a transitional
-      suspension regression that proves the file remains the Constitution-mandated
-      HOW slot, is explicitly SUSPENDED/SUPERSEDED pending Human-reviewed rewrite,
-      retains Constitution/Product Contract subordination, contains the full-draft
-      Human approval gate, and no longer asserts the local carrier as exclusive.
-    - >
-      Add focused Issue-carrier regression proving exact repository policy,
-      authorized actor, marker, body bound, event family, permissions, serialized
-      concurrency, full-history main checkout, exact-pin installation, one pinned
-      github_issue_ingress invocation, opaque event-file transport, bounded receipt
-      behavior, and absence of direct create-file/create-branch/force-push or
-      alternate publication dispatch.
-    - >
-      Update adoption/governance regression only as needed to prove TASK-107-only
-      carrier exposure and continued non-exposure of TASK-108/TASK-110/TASK-111/
-      TASK-112, without treating planning state as engineering truth.
+      Structural governance regressions must be rewritten only as needed to prove
+      the transitional HOW-slot suspension/full-text Human approval gate, the new
+      package-versus-binding adoption semantics, the corrected audited task
+      classifications, the unique new roadmap track/NEXT ordering, preserved exact
+      pin and incident provenance, and preserved higher Governance Foundation
+      documents. Tests must not become a policy engine or duplicate substantial
+      contract prose.
     - >
       Verification must be deterministic, offline, non-interactive, and independent
       of GitHub/network, marketplace/browser/CDP, provider/LLM, Drive, environment
       secrets, wall-clock, random/UUID, or mutable external state.
+    - >
+      Do not weaken, skip, xfail, or bypass existing relevant governance/adoption
+      regression intent merely to make the reset pass.
     - Do not push from Executor implementation execution.
 
 acceptance:
   - id: AC1
     condition: >
-      The previous detailed ChatGPT Project Contract is no longer active HOW
-      authority. The canonical file is a minimal explicit suspension/supersession
-      notice preserving the Constitution-mandated Project Contract slot and requiring
-      full-text Human approval before any later durable replacement is canonicalized.
+      The canonical Project Contract file is a minimal transitional HOW-slot notice:
+      the detailed TASK-202-era contract is prospectively SUPERSEDED/SUSPENDED,
+      Constitution and Product Contract authority remain intact, no detailed HOW
+      policy is recreated, and full-text Human approval after downstream
+      control-plane conformance is required before a durable replacement.
   - id: AC2
     condition: >
-      Python Agent contains repository-specific TASK-107 policy and Issue workflow
-      that use the exact pinned AIOS github_issue_ingress carrier; no new semantic
-      ingress, service, gateway, daemon, or state machine is introduced.
+      AIOS adoption state separates package capability availability from
+      repository-binding activation, preserves the exact f023 pin and incident
+      provenance, and no audited capability is mislabeled as absent merely because
+      a repo-local binding is still pending.
   - id: AC3
     condition: >
-      An authorized newly opened [AIOS BRAIN INGRESS] Issue is framed as opaque
-      transport to the existing pinned canonical ingress, while unauthorized or
-      malformed carrier events remain fail-closed inside the pinned implementation
-      and Issue content cannot gain path/ref/shell/authority semantics.
+      TASK-069/TASK-071 are represented as adopted package Runtime/Operator
+      hardening and TASK-070/TASK-072 as adopted package publication-control
+      hardening, while A1/A2/A3/A6 and TASK-107/TASK-108/TASK-110/TASK-111/
+      TASK-112/TASK-113 carrier activation remain explicit REQUIRED_PENDING
+      repository bindings rather than NOT_EXPOSED/inapplicable capability.
   - id: AC4
     condition: >
-      Adoption state explicitly exposes TASK-107 by exact pin while preserving
-      TASK-104/TASK-105 canonical semantic ingress and keeping TASK-108/TASK-110/
-      TASK-111/TASK-112 and TASK-113 Issue/wakeup carriers unexposed.
+      Existing TASK-104/TASK-105 canonical ingress and local debug/emergency carrier
+      remain usable, exact AIOS pin isolation remains unchanged, and no workflow,
+      runner, carrier policy, publisher, worker, Runtime, Executor, or product source
+      is modified or falsely declared newly active.
   - id: AC5
     condition: >
-      Existing local emergency/debug ingress carrier, worker surfaces,
-      review-decision auto-publication workflow, exact AIOS pin, roadmap state,
-      Product Intelligence semantics, immutable lineage, and all unrelated adoption
-      classifications remain unchanged.
+      Roadmap planning state records CHATGPT_PROJECT_CONTRACT_RECONCILIATION as
+      SUPERSEDED, establishes AIOS_FULL_DOWNSTREAM_ADOPTION_AND_GOVERNANCE_REBUILD
+      as the sole ACTIVE track, establishes
+      AIOS_DOWNSTREAM_ADOPTION_POLICY_RECONCILIATION as the sole NEXT item, preserves
+      the approved later sequence through Project Contract rebuild and P7 return,
+      and preserves TASK-191 plus existing Governance Foundation completion
+      provenance without claiming current implementation completion.
   - id: AC6
     condition: >
-      Focused deterministic regressions prove the suspended-contract state,
-      Human-approval gate, TASK-107-only carrier adoption, workflow/policy safety,
-      and exact-pin isolation; required verification passes with zero unresolved
-      items.
+      RUN-203-001 and candidate 18a9a350be82d752e0b5d000b8e7566141498efd
+      remain immutable unreviewed/unpublished revision-1 evidence and gain no
+      review, publication, integration, or implementation authority from this
+      revision.
+  - id: AC7
+    condition: >
+      Focused deterministic governance/adoption regressions pass, all implementation
+      changes remain inside the five authorized files, higher governance and product
+      semantics remain unchanged, and RESULT contains zero unresolved items.
 
 verification:
   required:
-    - 'python -m pytest tests/governance/test_chatgpt_project_contract.py tests/aios_bridge/test_aios_brain_issue_ingress.py tests/aios_bridge/test_aios_governance_state.py -q'
+    - python -m pytest tests/governance/test_python_agent_manifesto.py tests/governance/test_python_agent_constitution.py tests/governance/test_python_agent_product_contract.py tests/governance/test_chatgpt_project_contract.py tests/aios_bridge/test_aios_governance_state.py -q
+    - git diff --check
