@@ -21,9 +21,8 @@ TASK_194_SOURCE_SHA = "e0d8998ee004fda80ca3fbc3de4eb0afb59160a5"
 TASK_196_SOURCE_SHA = "4f6d91858c93192f497342315c4650e30b0a2718"
 TASK_199_SOURCE_SHA = "702e85e9e77a556f3716717ccaa186919b1a9dab"
 ACTIVE_TRACK_ID = "AIOS_FULL_DOWNSTREAM_ADOPTION_AND_GOVERNANCE_REBUILD"
-NEXT_MILESTONE_ID = "FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_1"
+NEXT_MILESTONE_ID = "FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_2"
 APPROVED_PENDING_SEQUENCE = [
-    "FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_1",
     "FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_2",
     "FULL_AIOS_DOWNSTREAM_CONFORMANCE",
     "PROJECT_CONTRACT_REBUILD",
@@ -156,6 +155,19 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
         "upstream_source_sha": EXPECTED_PIN,
         "boundary": "NO_PHASE_1_OR_PHASE_2_REPOSITORY_BINDING_ACTIVATED",
     }
+    assert completed["TASK-205"] == {
+        "task_id": "TASK-205",
+        "track_id": ACTIVE_TRACK_ID,
+        "milestone_id": "FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_1",
+        "title": "Full AIOS control plane adoption phase 1 (authoring, PRIMARY, terminal-attention)",
+        "status": "DONE",
+        "upstream_source_sha": EXPECTED_PIN,
+        "phase_1_bindings": {
+            "authoring_ingress": "ACTIVE",
+            "primary_wakeup": "ACTIVE",
+            "terminal_attention": "ACTIVE",
+        },
+    }
 
     upstream = state["upstream_recovery"]
     assert upstream["status"] == "ADOPTED_BY_PIN"
@@ -194,9 +206,22 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
     assert reconciliation["closed_commitment"] == (
         "AIOS_DOWNSTREAM_ADOPTION_POLICY_RECONCILIATION"
     )
-    assert reconciliation["next_commitment"] == NEXT_MILESTONE_ID
+    assert reconciliation["next_commitment"] == (
+        "FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_1"
+    )
     assert reconciliation["repository_binding_activation"] == "NONE"
     assert "does not implement" in reconciliation["roadmap_effect"]
+
+    phase_1 = state["control_plane_adoption_phase_1"]
+    assert phase_1["status"] == "DONE"
+    assert phase_1["migration_task"] == "TASK-205"
+    assert phase_1["downstream_pin"] == EXPECTED_PIN
+    assert phase_1["closed_commitment"] == (
+        "FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_1"
+    )
+    assert phase_1["next_commitment"] == NEXT_MILESTONE_ID
+    assert phase_1["repository_binding_activation"] == "PHASE_1_ACTIVE"
+    assert "Closes Phase 1" in phase_1["roadmap_effect"]
 
     assert state["authority"]["owner"] == "BRAIN"
     assert state["authority"]["auto_advance_from_runtime_or_worker_state"] is False
@@ -276,16 +301,20 @@ def test_relevant_upstream_tasks_have_distinct_package_and_binding_dimensions():
     assert repository_binding_for_task(state, "TASK-070") == "NOT_REQUIRED"
     assert repository_binding_for_task(state, "TASK-072") == "NOT_REQUIRED"
 
-    for task_id in ("TASK-066", "TASK-068", "TASK-073", "TASK-074", "TASK-084"):
+    for task_id in ("TASK-066", "TASK-068", "TASK-073"):
+        assert repository_binding_for_task(state, task_id) == "ACTIVE"
+    for task_id in ("TASK-074", "TASK-084"):
         assert repository_binding_for_task(state, task_id) == "REQUIRED_PENDING"
 
     assert repository_binding_for_task(state, "TASK-104") == "ACTIVE"
     assert repository_binding_for_task(state, "TASK-105") == "ACTIVE"
 
-    for task_id in ("TASK-107", "TASK-108", "TASK-110", "TASK-111", "TASK-112"):
+    for task_id in ("TASK-107", "TASK-108"):
+        assert repository_binding_for_task(state, task_id) == "ACTIVE"
+    for task_id in ("TASK-110", "TASK-111", "TASK-112"):
         assert repository_binding_for_task(state, task_id) == "REQUIRED_PENDING"
 
-    assert repository_binding_for_task(state, "TASK-113") == "REQUIRED_PENDING"
+    assert repository_binding_for_task(state, "TASK-113") == "ACTIVE"
     assert repository_binding_for_task(state, "TASK-114") == "NOT_REQUIRED"
     assert repository_binding_for_task(state, "TASK-115") == "NOT_REQUIRED"
     assert repository_binding_for_task(state, "TASK-116") == "NOT_REQUIRED"
@@ -299,21 +328,32 @@ def test_relevant_upstream_tasks_have_distinct_package_and_binding_dimensions():
         "TASK-070", "TASK-072",
     ]
 
-    assert families["AUDITED_A1_A2_A3_A6_AUTOMATION_CARRIERS"]["upstream_tasks"] == [
-        "TASK-066", "TASK-068", "TASK-073", "TASK-074", "TASK-084",
+    assert families["AUDITED_A1_A2_PRIMARY_WAKEUP_CARRIERS"]["upstream_tasks"] == [
+        "TASK-066", "TASK-068", "TASK-073",
     ]
+    assert families["AUDITED_A1_A2_PRIMARY_WAKEUP_CARRIERS"]["repository_binding_activation"] == "ACTIVE"
+    assert families["AUDITED_A3_A6_CORRECTION_AUTOMATION_CARRIERS"]["upstream_tasks"] == [
+        "TASK-074", "TASK-084",
+    ]
+    assert families["AUDITED_A3_A6_CORRECTION_AUTOMATION_CARRIERS"]["repository_binding_activation"] == "REQUIRED_PENDING"
 
     ingress = families["RECOVERED_BRAIN_AUTHORING_INGRESS"]
     assert ingress["upstream_tasks"] == ["TASK-104", "TASK-105"]
     assert ingress["carrier"] == ".agents/skills/aios-worker/scripts/aios_brain_ingress.py"
     assert ingress["repository_binding_activation"] == "ACTIVE"
 
-    assert families["REPOSITORY_SPECIFIC_OUTER_AUTOMATION"]["upstream_tasks"] == [
-        "TASK-107", "TASK-108", "TASK-110", "TASK-111", "TASK-112",
+    assert families["REPOSITORY_SPECIFIC_PHASE_1_OUTER_AUTOMATION"]["upstream_tasks"] == [
+        "TASK-107", "TASK-108",
     ]
+    assert families["REPOSITORY_SPECIFIC_PHASE_1_OUTER_AUTOMATION"]["repository_binding_activation"] == "ACTIVE"
+    assert families["REPOSITORY_SPECIFIC_PHASE_2_OUTER_AUTOMATION"]["upstream_tasks"] == [
+        "TASK-110", "TASK-111", "TASK-112",
+    ]
+    assert families["REPOSITORY_SPECIFIC_PHASE_2_OUTER_AUTOMATION"]["repository_binding_activation"] == "REQUIRED_PENDING"
     assert families["TERMINAL_ATTENTION_PACKAGE_COMPATIBILITY"]["upstream_tasks"] == [
         "TASK-113",
     ]
+    assert families["TERMINAL_ATTENTION_PACKAGE_COMPATIBILITY"]["repository_binding_activation"] == "ACTIVE"
     safe_publication = families["SAFE_PUBLICATION_ZERO_DELTA_HARDENING"]
     assert safe_publication["upstream_tasks"] == ["TASK-115"]
     assert safe_publication["package_capability_availability"] == "ADOPTED_BY_PIN"

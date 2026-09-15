@@ -165,15 +165,26 @@ capability_families:
       Publication-control hardening consumed directly from the exact pin with no
       pending repository binding.
 
-  - id: AUDITED_A1_A2_A3_A6_AUTOMATION_CARRIERS
-    upstream_tasks: [TASK-066, TASK-068, TASK-073, TASK-074, TASK-084]
+  - id: AUDITED_A1_A2_PRIMARY_WAKEUP_CARRIERS
+    upstream_tasks: [TASK-066, TASK-068, TASK-073]
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: ACTIVE
+    consumption: PINNED_KERNEL_CAPABILITY
+    carrier: .github/workflows/aios-self-hosted-wakeup.yml
+    bootstrap: .agents/skills/aios-worker/scripts/aios_phase1_wakeup.py
+    boundary: >-
+      Upstream A1/A2 PRIMARY wakeup and durable dispatch identity are adopted through the
+      exact pin. The repository-owned self-hosted wakeup workflow and Phase-1 bootstrap script
+      are ACTIVE repository bindings.
+
+  - id: AUDITED_A3_A6_CORRECTION_AUTOMATION_CARRIERS
+    upstream_tasks: [TASK-074, TASK-084]
     package_capability_availability: ADOPTED_BY_PIN
     repository_binding_activation: REQUIRED_PENDING
     consumption: PINNED_KERNEL_CAPABILITY
     boundary: >-
-      Upstream A1/A2/A3/A6 outer control-plane capabilities are available through the
-      exact pin. Downstream repository-specific bindings remain explicit REQUIRED_PENDING
-      and are not active on canonical main.
+      Upstream A3/A6 correction automation capabilities are available through the exact pin.
+      Downstream repository-specific bindings remain explicit REQUIRED_PENDING for Phase 2.
 
   - id: PERFORMANCE_CLOSURE
     upstream_tasks: [TASK-101]
@@ -214,26 +225,39 @@ capability_families:
     consumption: PINNED_KERNEL_ONLY
     boundary: NO_DOWNSTREAM_CONTROL_PLANE_IMPLEMENTATION
 
-  - id: REPOSITORY_SPECIFIC_OUTER_AUTOMATION
-    upstream_tasks: [TASK-107, TASK-108, TASK-110, TASK-111, TASK-112]
+  - id: REPOSITORY_SPECIFIC_PHASE_1_OUTER_AUTOMATION
+    upstream_tasks: [TASK-107, TASK-108]
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: ACTIVE
+    consumption: PINNED_KERNEL_CAPABILITY
+    ingress_carrier: .github/workflows/aios-brain-ingress.yml
+    wakeup_carrier: .github/workflows/aios-brain-wakeup.yml
+    boundary: >-
+      TASK-107 Brain Issue ingress and TASK-108 Brain PRIMARY wakeup are ACTIVE
+      repository bindings for Phase 1.
+
+  - id: REPOSITORY_SPECIFIC_PHASE_2_OUTER_AUTOMATION
+    upstream_tasks: [TASK-110, TASK-111, TASK-112]
     package_capability_availability: ADOPTED_BY_PIN
     repository_binding_activation: REQUIRED_PENDING
     consumption: PINNED_KERNEL_CAPABILITY
     boundary: >-
-      Post-TASK-105 outer control-plane carriers are available through the exact pin.
-      Repository-specific carrier bindings remain explicit REQUIRED_PENDING and are not
-      active on canonical main.
+      TASK-110 review-to-publication continuation, TASK-111 REPAIR wakeup, and
+      TASK-112 remediation intent carriers remain explicit REQUIRED_PENDING for Phase 2.
 
   - id: TERMINAL_ATTENTION_PACKAGE_COMPATIBILITY
     upstream_tasks: [TASK-113]
     package_capability_availability: ADOPTED_BY_PIN
-    repository_binding_activation: REQUIRED_PENDING
+    repository_binding_activation: ACTIVE
     consumption: PINNED_KERNEL_ONLY
     package_compatibility: ADOPTED_BY_PIN
-    carrier_binding: REQUIRED_PENDING
+    carrier: .github/workflows/aios-terminal-attention.yml
+    policy: .ai/brain-terminal-attention-carriers.yaml
+    carrier_binding: ACTIVE
     boundary: >-
-      TASK-113 package compatibility is adopted by the pin. The terminal-attention carrier
-      is available through the exact pin with repository binding REQUIRED_PENDING.
+      TASK-113 terminal-attention package capability is adopted by the pin. The
+      repository-owned terminal-attention workflow and policy are ACTIVE repository bindings
+      for Phase 1.
 
   - id: SAFE_PUBLICATION_ZERO_DELTA_HARDENING
     upstream_tasks: [TASK-115]

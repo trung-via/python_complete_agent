@@ -449,7 +449,25 @@ commit `f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e` as historical migration proven
 TASK-204 prospectively supersedes that active pin with exact reviewed, source-published
 commit `652b00b103dd50e2a550dd0ec0fe4063e69631b7`, consuming TASK-115 publication hardening
 and recording TASK-114/TASK-116 policy provenance without activating repository bindings.
+TASK-205 completes FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_1 by activating repository-owned
+downstream bindings for Brain Issue authoring (`.github/workflows/aios-brain-ingress.yml`),
+PRIMARY wakeup (`.github/workflows/aios-brain-wakeup.yml` and `.github/workflows/aios-self-hosted-wakeup.yml`),
+and terminal attention (`.github/workflows/aios-terminal-attention.yml`). GitHub Issue
+authoring/PRIMARY/attention represent the normal Phase-1 repository bindings after publication,
+while the local `aios_brain_ingress.py` file/stdin carrier and the Human-facing worker surfaces
+(`$aios-worker` and `/aios-renew-worker`) remain bounded emergency/debug/fallback paths. Phase-2
+outer automation carriers (TASK-110, TASK-111, TASK-112, A3/A6) remain explicit REQUIRED_PENDING.
 Future AIOS-renew main changes remain irrelevant until another explicit reviewed downstream migration.
+
+### Live PRIMARY Operational Prerequisites
+
+Live PRIMARY execution requires one-time Human operational setup before live use:
+1. Register a dedicated Windows x64 self-hosted runner for repository `trung-via/python_complete_agent` with custom label `python-complete-agent`.
+2. Run the runner under an account able to use the already-working local Python/Codex/Antigravity/Git environment.
+3. Configure repository variable `AIOS_REPO_ROOT` to the persistent Python Agent checkout.
+4. Keep existing non-interactive Git transport available.
+Source publication of this task does not claim those external prerequisites are live-proven.
+
 
 ## 9. Stale-Checkout CONTINUE Certification Protocol
 
