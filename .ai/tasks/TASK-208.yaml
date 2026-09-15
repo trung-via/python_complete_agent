@@ -1,0 +1,213 @@
+task_id: TASK-208
+revision: 1
+
+goal: >
+  Perform the explicit reviewed downstream AIOS-renew pin migration required before
+  Python Agent can resume FULL_AIOS_DOWNSTREAM_CONFORMANCE. Move the sole active pinned
+  AIOS runtime authority from 652b00b103dd50e2a550dd0ec0fe4063e69631b7 to the exact
+  reviewed and source-published TASK-117 source
+  26097405343150dc1b55015b94720528afad50ed, preserve all already-published Phase-1 and
+  Phase-2 repository bindings and authority boundaries, record bounded migration
+  provenance, and leave FULL_AIOS_DOWNSTREAM_CONFORMANCE / TASK-207 as the roadmap target
+  to be resumed only after a fresh Brain reconciliation and a TASK-207 contract revision
+  bound to the new exact pin.
+
+problem: >
+  Python Agent main ec3374d905ff55609e6ed6d07915b759fdcf287e canonically authored
+  TASK-207 revision 1 and remains pinned to AIOS-renew
+  652b00b103dd50e2a550dd0ec0fe4063e69631b7. A valid live TASK-207 PRIMARY wakeup was
+  rejected before dispatch with `carrier repository identity is invalid`; no canonical
+  RUN or Executor invocation exists. Upstream TASK-117 repaired the causal package
+  portability defect across PRIMARY wakeup, REMEDIATION intent, REPAIR wakeup, and
+  terminal-attention admission. REVIEW-117-001 is PRIMARY PASS with AC1-AC7 PASS and no
+  findings, and reviewed source 26097405343150dc1b55015b94720528afad50ed is now
+  AIOS-renew main. Exact-pin isolation means that upstream publication does not alter
+  Python Agent runtime authority. Python Agent must therefore migrate its exact pin
+  explicitly before live conformance can resume. Because TASK-207 revision 1 names the old
+  pin as an exact assumption and boundary, it must not be executed unchanged after this
+  migration; Brain must fresh-sync and revise TASK-207 separately.
+
+assumptions:
+  - >
+    Canonical Python Agent main at authoring is
+    ec3374d905ff55609e6ed6d07915b759fdcf287e, whose latest commit canonically authors
+    TASK-207 revision 1.
+  - >
+    Python Agent's sole active AIOS-renew dependency and worker provenance authority are
+    exactly 652b00b103dd50e2a550dd0ec0fe4063e69631b7 under
+    EXACT_REVIEWED_SOURCE_PUBLISHED_ONLY.
+  - >
+    The live TASK-207 PRIMARY request in Python Agent Issue #7 was rejected at carrier
+    admission with `carrier repository identity is invalid`. This is an admission/transport
+    blocker: no RUN-207 exists and no Executor state was created.
+  - >
+    AIOS-renew source 26097405343150dc1b55015b94720528afad50ed is the exact
+    REVIEW-117-001 PRIMARY PASS source, is source-published on AIOS-renew main, and descends
+    from 652b00b103dd50e2a550dd0ec0fe4063e69631b7 by two commits with no backward
+    divergence. The intervening lineage is TASK-117 authoring plus its reviewed carrier
+    portability implementation.
+  - >
+    TASK-117 changes package carrier admission only and does not alter frozen Kernel v0.1,
+    Runtime/Executor/Reviewer/Publisher authority, downstream repository policies, or
+    Python Agent product semantics.
+  - >
+    Python Agent Phase-1 and Phase-2 repository bindings from TASK-205 and TASK-206 remain
+    source-published and ACTIVE. This migration consumes the repaired pinned package under
+    those existing repository-owned bindings; it is not a new binding activation phase.
+  - >
+    D1 remains the deferred local Human-facing worker NO_CHANGE supplied-executor defect;
+    D2 remains the deferred Windows pytest-current WinError 5 cleanup defect; D3 is recorded
+    separately as the deferred cross-chat roadmap interruption/resume persistence audit.
+    None is implementation authority for this migration.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - .ai/roadmap-state.yaml
+    - .ai/aios-adoption-state.yaml
+    - .ai/tasks/TASK-204.yaml
+    - .ai/tasks/TASK-205.yaml
+    - .ai/tasks/TASK-206.yaml
+    - .ai/tasks/TASK-207.yaml
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+    - tests/aios_bridge/test_aios_brain_ingress.py
+    - tests/aios_bridge/test_aios_phase1_control_plane.py
+    - tests/aios_bridge/test_aios_phase2_control_plane.py
+    - tests/aios_bridge/test_aios_auto_publish_workflow.py
+    - tests/aios_bridge/test_aios_governance_state.py
+
+  modify:
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - .ai/aios-adoption-state.yaml
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+    - tests/aios_bridge/test_aios_brain_ingress.py
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - >
+    Execute, review, certify, or publish TASK-207, or claim FULL_AIOS_DOWNSTREAM_CONFORMANCE.
+    After this migration is reviewed and published, TASK-207 requires a fresh Brain sync and
+    revision bound to the new exact pin before live execution resumes.
+  - >
+    Modify TASK-207 historical revision 1, synthesize a RUN-207 artifact, reuse the rejected
+    Issue #7 dispatch as successful execution evidence, or classify the admission rejection as
+    a RUN failure or REPAIR lineage.
+  - >
+    Change any Phase-1 or Phase-2 carrier policy, GitHub workflow, runner label/path,
+    repository identity, actor allowlist, bootstrap script, review/publication continuation,
+    remediation intent, repair wakeup, or terminal-attention binding.
+  - >
+    Copy AIOS-renew source into Python Agent, consume mutable upstream main, use a branch/tag
+    pin, create a second Runtime authority, or automatically follow later AIOS-renew movement.
+  - >
+    Fix, redesign, or audit D1, D2, or D3. They remain separately deferred and must not expand
+    this migration scope.
+  - >
+    Rebuild the suspended Project Contract, close Governance Foundation, return to P7, or alter
+    Product Intelligence / Commerce Intelligence semantics.
+  - >
+    Add retry, fallback, reroute, generic lifecycle routing, scheduler, daemon, queue, broker,
+    autonomous executor choice, autonomous correction, or new semantic authority.
+  - Push or publish from Executor implementation execution.
+
+constraints:
+  hard:
+    - >
+      Replace the sole active requirements pin and worker AUTHORITATIVE_COMMIT from
+      652b00b103dd50e2a550dd0ec0fe4063e69631b7 to exactly
+      26097405343150dc1b55015b94720528afad50ed. No other active AIOS runtime pin or floating
+      reference may be introduced.
+    - >
+      Preserve the repository-local pinned runtime and PEP 610 source-plus-commit provenance
+      boundary. A stale worker runtime must continue to fail provenance validation and rebuild
+      from the exact checked-in pin before any kernel invocation.
+    - >
+      Preserve the Human-facing worker protocol and executor separation exactly: CONTINUE,
+      STATUS, RUN, FIX, and REPAIR remain thin delivery surfaces; Codex and Antigravity remain
+      distinct Human-selected Executor identities; no Brain/Runtime/Review/Publisher authority
+      moves into the worker.
+    - >
+      Preserve every TASK-205/TASK-206 repository binding and policy file unchanged. The pin
+      migration must make the already-active downstream PRIMARY/REMEDIATION/REPAIR/ATTENTION
+      bindings consume TASK-117's generic repository-owned admission behavior without changing
+      their repository-specific configuration.
+    - >
+      Reconcile .ai/aios-adoption-state.yaml so downstream_pin.commit and upstream audit
+      checkpoint become exactly 26097405343150dc1b55015b94720528afad50ed; record TASK-117 /
+      REVIEW-117-001 as reviewed source-published downstream carrier-portability hardening;
+      preserve all existing capability ownership and ACTIVE/NOT_REQUIRED binding
+      classifications.
+    - >
+      Reconcile .ai/roadmap-state.yaml only to record bounded provenance for this prerequisite
+      pin migration and its resume target FULL_AIOS_DOWNSTREAM_CONFORMANCE. The active track,
+      base NEXT, pending commitment order, completed TASK-204/TASK-205/TASK-206 milestones,
+      Project Contract rebuild ordering, Governance closure, and P7 return must remain
+      unchanged. Do not implement a generic roadmap interruption stack or D3 protocol here.
+    - >
+      Documentation that names the active AIOS pin must use the new exact commit and may record
+      TASK-117 carrier portability hardening, while preserving exact-pin isolation and the
+      existing Human-facing workflow.
+    - >
+      TASK-207 revision 1 remains immutable historical authored state. This migration must
+      explicitly leave its old-pin assumptions stale for future execution and require a fresh
+      Brain-authored TASK-207 revision before resumption; Executor implementation must not edit
+      the TASK artifact.
+    - >
+      D1, D2, and D3 remain deferred/non-blocking audit items. No source change intended to fix
+      them is permitted in this task.
+    - >
+      Verification must be deterministic, offline, non-interactive, and independent of GitHub,
+      provider/LLM, live runner state, marketplace/browser/CDP, Drive, wall clock, random/UUID,
+      or mutable external state.
+
+acceptance:
+  - id: AC1
+    condition: >
+      The sole active Python Agent AIOS-renew dependency and worker provenance authority are
+      exactly 26097405343150dc1b55015b94720528afad50ed; stale/alternate provenance remains
+      fail closed and rebuilds through the existing exact-pin bootstrap boundary.
+  - id: AC2
+    condition: >
+      Existing Codex and Antigravity Human-facing worker surfaces remain behaviorally compatible,
+      thin, executor-distinct, and free of new lifecycle/review/publication authority.
+  - id: AC3
+    condition: >
+      .ai/aios-adoption-state.yaml records TASK-117 / REVIEW-117-001 and the new exact pin as
+      reviewed source-published carrier portability hardening while preserving all prior package
+      capability and repository-binding classifications.
+  - id: AC4
+    condition: >
+      Phase-1 and Phase-2 repository policies/workflows/bindings remain unchanged and continue
+      to delegate through the exact pinned package; no repository binding is newly activated,
+      removed, or re-authored by this migration.
+  - id: AC5
+    condition: >
+      .ai/roadmap-state.yaml preserves FULL_AIOS_DOWNSTREAM_CONFORMANCE as the sole base NEXT and
+      existing pending ordering, while recording this exact pin migration as the resolved
+      prerequisite provenance whose resume target is TASK-207 / FULL_AIOS_DOWNSTREAM_CONFORMANCE;
+      it does not claim conformance completion or implement D3 generic interruption semantics.
+  - id: AC6
+    condition: >
+      TASK-207 revision 1 and its rejected live admission evidence remain immutable; no RUN-207
+      is synthesized, and repository state makes clear that fresh Brain reconciliation/revision
+      is required before TASK-207 execution under the new pin.
+  - id: AC7
+    condition: >
+      D1, D2, and D3 remain deferred with no implementation delta, all mutation stays inside the
+      ten authorized files, focused deterministic migration/regression verification passes, and
+      RESULT contains zero unresolved items.
+
+verification:
+  required:
+    - python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py tests/aios_bridge/test_aios_brain_ingress.py tests/aios_bridge/test_aios_phase1_control_plane.py tests/aios_bridge/test_aios_phase2_control_plane.py tests/aios_bridge/test_aios_auto_publish_workflow.py tests/aios_bridge/test_aios_governance_state.py -q
