@@ -13,19 +13,19 @@ authority:
 
 downstream_pin:
   repository: https://github.com/trung-via/AIOS-renew.git
-  commit: 652b00b103dd50e2a550dd0ec0fe4063e69631b7
+  commit: 26097405343150dc1b55015b94720528afad50ed
   policy: EXACT_REVIEWED_SOURCE_PUBLISHED_ONLY
   source_published: true
 
 upstream_audit:
-  checkpoint: 652b00b103dd50e2a550dd0ec0fe4063e69631b7
-  through_authored_task: TASK-116
+  checkpoint: 26097405343150dc1b55015b94720528afad50ed
+  through_authored_task: TASK-117
   checkpoint_role: REVIEWED_SOURCE_PUBLISHED_PROVENANCE
   checkpoint_is_runtime_authority: false
-  review: REVIEW-116-001
+  review: REVIEW-117-001
   review_outcome: PRIMARY_PASS
   source_published: true
-  prior_planning_checkpoint: e95d12122f35bf4e224dbbb28be1866c8250c069
+  prior_planning_checkpoint: 652b00b103dd50e2a550dd0ec0fe4063e69631b7
   provenance:
     - task_id: TASK-114
       role: DOWNSTREAM_PORTABILITY_POLICY
@@ -35,6 +35,9 @@ upstream_audit:
       activates_repository_binding: false
     - task_id: TASK-116
       role: GOVERNANCE_POLICY_INTEGRATION
+      activates_repository_binding: false
+    - task_id: TASK-117
+      role: CARRIER_PORTABILITY_HARDENING
       activates_repository_binding: false
 
 classification_dimensions:
@@ -308,6 +311,17 @@ capability_families:
       TASK-114 portability-versus-activation policy and TASK-116 integration provenance
       inform downstream planning only. They activate no runtime, carrier, workflow,
       lifecycle, review, publication, or product authority in Python Agent.
+
+  - id: CARRIER_PORTABILITY_HARDENING
+    upstream_tasks: [TASK-117]
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
+    consumption: PINNED_KERNEL_ONLY
+    source_published: true
+    boundary: >-
+      TASK-117 carrier portability hardening across PRIMARY wakeup, REMEDIATION intent,
+      REPAIR wakeup, and terminal-attention admission is consumed from the exact pin.
+      Existing Phase-1 and Phase-2 repository bindings remain active and unchanged.
 
 incident_lineage:
   run_id: RUN-197-001

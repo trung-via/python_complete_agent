@@ -31,6 +31,7 @@ TASK_102_ERA_COMMIT = "2599202afedb0622e9e9bdc7b5a15f34da01cc27"
 TASK_198_AUTHORITATIVE_COMMIT = "a3b723b49cd65677f548c5694a52a6fc006a9e2a"
 TASK_201_HISTORICAL_COMMIT = "f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e"
 TASK_204_AUTHORITATIVE_COMMIT = "652b00b103dd50e2a550dd0ec0fe4063e69631b7"
+TASK_208_AUTHORITATIVE_COMMIT = "26097405343150dc1b55015b94720528afad50ed"
 TASK_089_SOURCE_CANDIDATE = "bb57147eac92475789d7809ed445d56535d5a009"
 TASK_092_REVIEW_DECISION_COMMIT = "18e7ed49c7393f199589bd241eede3e67d759aa1"
 LATER_ROADMAP_COMMIT = "410f0a87c86f3fef56802d23dc0b8cf22bb2c9f7"
@@ -84,11 +85,12 @@ class TestImmutableRuntimePin:
             if line.strip() and not line.lstrip().startswith("#")
         ]
         assert active == [aw.PIN_LINE]
-        assert aw.AUTHORITATIVE_COMMIT == TASK_204_AUTHORITATIVE_COMMIT
+        assert aw.AUTHORITATIVE_COMMIT == TASK_208_AUTHORITATIVE_COMMIT
         assert active == [
             "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
-            "652b00b103dd50e2a550dd0ec0fe4063e69631b7"
+            "26097405343150dc1b55015b94720528afad50ed"
         ]
+        assert TASK_204_AUTHORITATIVE_COMMIT not in active[0]
         assert TASK_198_AUTHORITATIVE_COMMIT not in active[0]
         assert TASK_201_HISTORICAL_COMMIT not in active[0]
         assert TASK_102_ERA_COMMIT not in active[0]
@@ -1389,6 +1391,7 @@ class TestSurfaceAndDocumentation:
             assert "TASK-114" in text
             assert "TASK-115" in text
             assert "TASK-116" in text
+            assert "TASK-117" in text
             assert "without activating repository bindings" in text
             assert "no synchronization engine" in text
             assert "no new Human-facing Executor selection" in text
@@ -1402,6 +1405,7 @@ class TestSurfaceAndDocumentation:
             assert "no automatic retry" in text.lower()
             assert "Git transport" in text
             assert "duplicate-continuation checks" in text
+            assert TASK_204_AUTHORITATIVE_COMMIT in text
             assert TASK_198_AUTHORITATIVE_COMMIT in text
             assert TASK_102_ERA_COMMIT in text
             assert IMMEDIATE_PREDECESSOR_COMMIT in text
@@ -1443,7 +1447,7 @@ class TestSurfaceAndDocumentation:
 
         assert (
             "downstream AIOS-renew pin "
-            "`652b00b103dd50e2a550dd0ec0fe4063e69631b7` already present"
+            "`26097405343150dc1b55015b94720528afad50ed` already present"
             in normalized
         )
         assert (

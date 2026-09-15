@@ -168,6 +168,30 @@ control_plane_adoption_phase_2:
     to full downstream conformance. It does not claim that conformance, rebuild the
     Project Contract, close Governance Foundation, or return to P7.
 
+prerequisite_pin_migration:
+  status: DONE
+  blocking_current_track: false
+  migration_kind: CARRIER_PORTABILITY_EXACT_PIN_MIGRATION
+  migration_task: TASK-208
+  downstream_pin: 26097405343150dc1b55015b94720528afad50ed
+  upstream_provenance:
+    task_id: TASK-117
+    review: REVIEW-117-001
+    source_sha: 26097405343150dc1b55015b94720528afad50ed
+  prior_pin: 652b00b103dd50e2a550dd0ec0fe4063e69631b7
+  prerequisite_for: FULL_AIOS_DOWNSTREAM_CONFORMANCE
+  resume_target:
+    task_id: TASK-207
+    commitment_id: FULL_AIOS_DOWNSTREAM_CONFORMANCE
+    requires_fresh_brain_revision: true
+  repository_binding_activation: NONE
+  roadmap_effect: >-
+    Resolves carrier portability prerequisite by migrating the sole active AIOS runtime pin
+    to 26097405343150dc1b55015b94720528afad50ed. Resume target is TASK-207 /
+    FULL_AIOS_DOWNSTREAM_CONFORMANCE, requiring fresh Brain revision bound to the new pin.
+    It does not claim conformance completion, modify pending commitment ordering, or
+    implement generic interruption semantics.
+
 pending_commitments:
   - id: FULL_AIOS_DOWNSTREAM_CONFORMANCE
     title: Full AIOS downstream control plane conformance gate

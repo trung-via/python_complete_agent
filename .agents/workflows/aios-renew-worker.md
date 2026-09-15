@@ -224,7 +224,7 @@ an executor or become a second status or review authority.
 
 ## Adopted Upstream Capabilities and Boundaries
 
-Under the pinned commit `652b00b103dd50e2a550dd0ec0fe4063e69631b7`, Python Agent adopts:
+Under the pinned commit `26097405343150dc1b55015b94720528afad50ed`, Python Agent adopts:
 - **TASK-086**: Deterministic, read-only Unified State and Next Action through the
   public `state` operator surface. The workflow neither copies nor caches the reducer.
 - **TASK-087**: One bounded Human continuation front door through the public `continue`
@@ -327,6 +327,10 @@ Under the pinned commit `652b00b103dd50e2a550dd0ec0fe4063e69631b7`, Python Agent
 - **TASK-114 / TASK-116**: Downstream portability-versus-activation reconciliation is
   recorded as upstream governance-policy provenance. It does not activate any Python
   Agent repository binding, workflow, product authority, or lifecycle authority.
+- **TASK-117**: Package carrier portability hardening across PRIMARY wakeup, REMEDIATION
+  intent, REPAIR wakeup, and terminal-attention admission is consumed solely through the
+  pinned distribution. Existing Phase-1 and Phase-2 repository bindings remain active and
+  delegate through the exact pinned package without repository-specific policy changes.
 
 Capabilities present in upstream history but **not** exposed by this downstream worker:
 - **TASK-066 / TASK-068..TASK-074**: Although the exact package contains this intervening
@@ -344,7 +348,8 @@ Capabilities present in upstream history but **not** exposed by this downstream 
 ## Immutable Kernel Pin
 
 The only authoritative AIOS-renew kernel is commit
-`652b00b103dd50e2a550dd0ec0fe4063e69631b7`. Installed provenance for the TASK-201-era
+`26097405343150dc1b55015b94720528afad50ed`. Installed provenance for the TASK-204-era
+`652b00b103dd50e2a550dd0ec0fe4063e69631b7` pin, the TASK-201-era
 `f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e` pin, the TASK-198-era
 `a3b723b49cd65677f548c5694a52a6fc006a9e2a` pin, the TASK-102-era
 `2599202afedb0622e9e9bdc7b5a15f34da01cc27` pin, the immediate-predecessor
@@ -370,7 +375,7 @@ TASK-198 adopts published TASK-103 hardening, TASK-101 revision 4, and the recov
 TASK-104/TASK-105 Brain Authoring Ingress lineage through the exact pin.
 TASK-201 historically migrated the then-sole active downstream runtime authority to exact reviewed, source-published
 commit `f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e` as historical migration provenance.
-TASK-204 prospectively supersedes that active pin with exact reviewed, source-published
+TASK-204 historically superseded that active pin with exact reviewed, source-published
 commit `652b00b103dd50e2a550dd0ec0fe4063e69631b7`, consuming TASK-115 publication hardening
 and recording TASK-114/TASK-116 policy provenance without activating repository bindings.
 TASK-205 completes FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_1 by activating repository-owned
@@ -384,6 +389,10 @@ FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_2 by activating the bounded TASK-110 publ
 continuation, TASK-112 remediation intent over separate A3/A6 authorities, and the dedicated
 TASK-111 REPAIR wakeup. Their thin bootstraps reuse the exact-pin runtime and do not add worker,
 Runtime, Reviewer, or Publisher authority.
+TASK-208 supersedes that active pin with exact reviewed, source-published commit
+`26097405343150dc1b55015b94720528afad50ed`, consuming TASK-117 / REVIEW-117-001 carrier
+portability hardening across PRIMARY wakeup, REMEDIATION intent, REPAIR wakeup, and
+terminal-attention admission while preserving all Phase-1 and Phase-2 repository bindings unchanged.
 Future AIOS-renew main changes remain irrelevant until another explicit reviewed downstream migration.
 
 ## Live Self-Hosted Operational Prerequisites
