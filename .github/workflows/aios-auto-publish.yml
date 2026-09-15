@@ -4,6 +4,12 @@ name: AIOS auto-publish reviewed candidate
   push:
     branches:
       - "aios/review-decision/**"
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Exact canonical reviewed RUN selector"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -19,7 +25,7 @@ jobs:
       - name: Check out event-bound publication gate
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event_name == 'push' && github.sha || 'main' }}
           fetch-depth: 0
 
       - name: Set up Python 3.11+
@@ -33,19 +39,36 @@ jobs:
 
       - name: Publish exact reviewed candidate
         env:
+          AIOS_EVENT_NAME: ${{ github.event_name }}
           AIOS_DECISION_REF: ${{ github.ref }}
           AIOS_DECISION_SHA: ${{ github.sha }}
+          AIOS_DISPATCH_RUN_ID: ${{ inputs.run_id }}
         shell: bash
         run: |
           set -euo pipefail
           prefix="refs/heads/aios/review-decision/"
-          if [[ "$AIOS_DECISION_REF" != "$prefix"* ]]; then
-            echo "Unexpected publication ref: $AIOS_DECISION_REF" >&2
+          if [[ "$AIOS_EVENT_NAME" == "push" ]]; then
+            if [[ "$AIOS_DECISION_REF" != "$prefix"* ]]; then
+              echo "Unexpected publication ref: $AIOS_DECISION_REF" >&2
+              exit 1
+            fi
+            run_id="${AIOS_DECISION_REF#"$prefix"}"
+            decision_sha="$AIOS_DECISION_SHA"
+          elif [[ "$AIOS_EVENT_NAME" == "workflow_dispatch" ]]; then
+            run_id="$AIOS_DISPATCH_RUN_ID"
+            if [[ ! "$run_id" =~ ^RUN-[A-Za-z0-9_-]+-[0-9]{3,}$ ]]; then
+              echo "Invalid publication RUN selector." >&2
+              exit 1
+            fi
+            decision_ref="${prefix}${run_id}"
+            git fetch --no-tags origin "$decision_ref"
+            decision_sha="$(git rev-parse --verify 'FETCH_HEAD^{commit}')"
+          else
+            echo "Unexpected publication event: $AIOS_EVENT_NAME" >&2
             exit 1
           fi
-          run_id="${AIOS_DECISION_REF#"$prefix"}"
           python -m aios_renew.publication \
             --repo . \
             --remote origin \
             --run-id "$run_id" \
-            --decision-sha "$AIOS_DECISION_SHA"
+            --decision-sha "$decision_sha"

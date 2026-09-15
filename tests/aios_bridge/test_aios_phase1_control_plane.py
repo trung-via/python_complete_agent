@@ -104,11 +104,12 @@ class TestBrainIngressWorkflow:
         assert job["if"] == "github.event.issue.title == '[AIOS BRAIN INGRESS]'"
         assert job["runs-on"] == "ubuntu-latest"
 
-    def test_permissions_are_strictly_contents_and_issues_write(self):
+    def test_permissions_add_only_task_110_actions_write(self):
         wf, _ = load_workflow(INGRESS_WORKFLOW_PATH)
         assert wf.get("permissions") == {
             "contents": "write",
             "issues": "write",
+            "actions": "write",
         }
 
     def test_concurrency_group(self):
@@ -143,11 +144,9 @@ class TestBrainIngressWorkflow:
         assert '--output "$GITHUB_OUTPUT"' in carrier_calls[0]
         assert "github.event.issue.body" not in text
 
-    def test_no_publication_or_executor_dispatch(self):
+    def test_phase_1_semantics_preserved_with_only_fixed_publication_continuation(self):
         _, text = load_workflow(INGRESS_WORKFLOW_PATH)
         for forbidden in (
-            "createWorkflowDispatch",
-            "aios-auto-publish",
             "aios run",
             "aios remediate",
             "aios repair",
@@ -156,6 +155,10 @@ class TestBrainIngressWorkflow:
             "antigravity",
         ):
             assert forbidden not in text
+        assert text.count("createWorkflowDispatch") == 1
+        assert "workflow_id: 'aios-auto-publish.yml'" in text
+        assert "AIOS_RUN_ID: ${{ steps.ingress.outputs.publication_run_id }}" in text
+        assert "run_id: process.env.AIOS_RUN_ID" in text
 
 
 class TestBrainWakeupWorkflow:
@@ -393,10 +396,10 @@ class TestPhase1WakeupBootstrapScript:
         invoke.assert_not_called()
 
 
-class TestAbsenceOfPhase2OuterAutomation:
-    """Certifies AC6 and AC8: Phase-2 workflows and correction wakeups are not present."""
+class TestNoGenericOrLegacyPhase2Alternates:
+    """Phase-1 remains composed with only the dedicated Phase-2 bindings."""
 
-    def test_phase2_workflows_do_not_exist(self):
+    def test_generic_or_legacy_workflow_names_do_not_exist(self):
         workflows_dir = REPO_ROOT / ".github" / "workflows"
         for forbidden in (
             "aios-review-publication.yml",
@@ -406,7 +409,7 @@ class TestAbsenceOfPhase2OuterAutomation:
         ):
             assert not (workflows_dir / forbidden).exists()
 
-    def test_no_phase2_carrier_policies(self):
+    def test_generic_or_legacy_policy_names_do_not_exist(self):
         ai_dir = REPO_ROOT / ".ai"
         for forbidden in (
             "brain-repair-carriers.yaml",

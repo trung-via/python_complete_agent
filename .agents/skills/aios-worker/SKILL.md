@@ -76,9 +76,12 @@ When this skill is invoked:
     stop after Runtime PASS. Successful RUN/FIX/REPAIR exposes the candidate for ChatGPT
     semantic review and stops; ChatGPT remains the sole semantic Reviewer.
     Publication is an automatic repository event triggered only after ChatGPT emits a
-    canonical PASS review-decision ref (`refs/heads/aios/review-decision/<RUN_ID>`), which
-    triggers the repository-native publication workflow (`.github/workflows/aios-auto-publish.yml`)
-    and delegates to the pinned AIOS-renew publication gate (`python -m aios_renew.publication`).
+    canonical PASS review-decision ref (`refs/heads/aios/review-decision/<RUN_ID>`). The
+    repository-native publication workflow (`.github/workflows/aios-auto-publish.yml`) accepts
+    either the canonical ref push or the bounded `run_id` replay requested by successful
+    SUBMIT_REVIEW ingress, then delegates to the pinned AIOS-renew publication gate
+    (`python -m aios_renew.publication`). Manual dispatch of that same bounded `run_id`
+    remains an emergency/debug fallback and grants no verdict override.
     The exact flow is: AIOS PASS -> ChatGPT semantic review -> canonical PASS review-decision ref -> repository-native workflow -> pinned AIOS publication gate -> exact source candidate fast-forward to main.
     There is no Human PUBLISH command in the normal path.
     A review verdict of CHANGES_REQUIRED does not publish and continues through narrow FIX lineage.
@@ -337,28 +340,28 @@ Under the pinned commit `652b00b103dd50e2a550dd0ec0fe4063e69631b7`, Python Agent
   semantics. This Human-facing worker never exposes authoring ingress operations.
 - **TASK-106**: Package-level Human-surface presentation hardening is consumed
   through the pinned kernel.
-- **TASK-113**: Package compatibility is consumed through the pinned kernel, while
-  the downstream [AIOS TERMINAL ATTENTION] Issue carrier remains inactive because
-  Python Agent does not contain the reviewed repository-specific workflow or policy surface.
+- **TASK-113**: Package compatibility is consumed through the pinned kernel and the
+  downstream [AIOS TERMINAL ATTENTION] Issue carrier remains the active Phase-1 binding.
 - **TASK-115**: Truthful zero-delta intermediate `CONTINUE_IMPLEMENTATION` publication
   hardening is consumed solely through the pinned distribution. The repository-owned
-  source-only auto-publish workflow remains unchanged and gains no local review or
-  publication semantics.
+  source-only auto-publish workflow gains only bounded `run_id` replay transport and no
+  local review or publication semantics.
 - **TASK-114 / TASK-116**: Downstream portability-versus-activation reconciliation is
   recorded as upstream governance-policy provenance. It does not activate any Python
   Agent repository binding, workflow, product authority, or lifecycle authority.
 
 Capabilities present in upstream history but **not** exposed by this downstream worker:
 - **TASK-066 / TASK-068..TASK-074**: Although the exact package contains this intervening
-  Runtime history, no AIOS-renew workflow files, upstream remote approval/status workflow,
-  wakeup workflow, dispatch-reconciliation or publication implementation are copied. No
-  self-hosted `wakeup`, `recover-primary`, or other worker command is exposed, and Python
-  Agent's existing publication/automation authority remains unchanged. The Human-facing
+  Runtime history, no upstream workflow or Runtime/publication implementation is copied.
+  Repository-owned Phase-1/Phase-2 bindings delegate to pinned public operator boundaries,
+  while no self-hosted `wakeup`, `recover-primary`, or correction command is exposed on this
+  Human-facing worker. Python Agent's publication/automation semantic authority remains unchanged. The Human-facing
   worker surface exposes normal CONTINUE/STATUS plus explicit RUN/FIX/REPAIR
   compatibility/debug paths only.
-- **TASK-107, TASK-108, TASK-110, TASK-111, TASK-112, TASK-113**: Repository-specific
+- **TASK-107, TASK-108, TASK-110, TASK-111, TASK-112, TASK-113**: These repository-specific
   GitHub Issue/wakeup/publication continuation/repair/remediation-intent/terminal-attention
-  carrier surfaces are not automatically active in Python Agent.
+  bindings are active repository workflows, but are deliberately not exposed as commands of
+  this Human-facing worker surface.
 
 ## Immutable Kernel Pin
 
@@ -398,13 +401,16 @@ PRIMARY wakeup (`.github/workflows/aios-brain-wakeup.yml` and `.github/workflows
 and terminal attention (`.github/workflows/aios-terminal-attention.yml`). GitHub Issue
 authoring/PRIMARY/attention represent the normal Phase-1 repository bindings after publication,
 while the local `aios_brain_ingress.py` file/stdin carrier and this Human-facing `$aios-worker`
-surface remain bounded emergency/debug/fallback paths. Phase-2 outer automation carriers (TASK-110,
-TASK-111, TASK-112, A3/A6) remain explicit REQUIRED_PENDING.
+surface remain bounded emergency/debug/fallback paths. TASK-206 completes
+FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_2 by activating the bounded TASK-110 publication
+continuation, TASK-112 remediation intent over separate A3/A6 authorities, and the dedicated
+TASK-111 REPAIR wakeup. Their thin bootstraps reuse the exact-pin runtime and do not add worker,
+Runtime, Reviewer, or Publisher authority.
 Future AIOS-renew main changes remain irrelevant until another explicit reviewed downstream migration.
 
-## Live PRIMARY Operational Prerequisites
+## Live Self-Hosted Operational Prerequisites
 
-Live PRIMARY execution requires one-time Human operational setup before live use:
+Live PRIMARY and Phase-2 REMEDIATION/REPAIR execution require one-time Human operational setup before live use:
 1. Register a dedicated Windows x64 self-hosted runner for repository `trung-via/python_complete_agent` with custom label `python-complete-agent`.
 2. Run the runner under an account able to use the already-working local Python/Codex/Antigravity/Git environment.
 3. Configure repository variable `AIOS_REPO_ROOT` to the persistent Python Agent checkout.

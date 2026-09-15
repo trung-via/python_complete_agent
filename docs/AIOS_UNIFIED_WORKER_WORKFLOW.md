@@ -104,8 +104,29 @@ Only the Brain may use this carrier, and only for canonical `AUTHOR_TASK`, `SUBM
 semantics, accept a caller-selected repository or Git destination, import an ambient
 `aios_renew`, use a PATH `aios`, or consult a mutable upstream checkout. It does not select a
 lifecycle action or Executor, review semantics, decide remediation, publish, retry, reroute,
-or advance roadmap state. Exact post-TASK-105 ingress validation, canonical destinations,
+or advance roadmap state. A successful publication-eligible `SUBMIT_REVIEW` may expose only
+its canonical `run_id` to the fixed `aios-auto-publish.yml` continuation. That workflow
+re-resolves the remote decision and source through the pinned safe Publisher; dispatch
+acceptance is never PASS or publication success. Manual replay of that same bounded `run_id`
+remains an emergency/debug fallback with no verdict or source override. Exact post-TASK-105 ingress validation, canonical destinations,
 structurally valid idempotency, and fail-closed behavior remain inside the pinned distribution.
+
+### Phase-2 correction carriers
+
+The repository-owned `[AIOS REMEDIATION INTENT]` carrier admits only a stable
+`correction_dispatch_id`, canonical `source_run_id`, `finding_id`, and explicit Human-selected
+coding Executor. Its self-hosted workflow uses `AIOS_REPO_ROOT` and the shared exact-pin runtime
+bootstrap to call pinned `approved-remediation-intent` once. A3 exact SHA-bound Human approval
+and A6 durable correction dispatch remain separate pinned authorities and reuse the same immutable
+selectors; the carrier neither infers an Executor nor executes raw Issue text.
+
+The distinct `[AIOS REPAIR WAKEUP]` carrier admits only `repair_dispatch_id`, `failed_run_id`,
+exact current `repair_sha`, and the action-permitted optional Executor. Its dedicated self-hosted
+path calls pinned `repair-wakeup` once. The canonical repair authority requires one explicit coding
+Executor for `CODE_FIX` and `CONTINUE_IMPLEMENTATION`, requires zero for `NO_CHANGE`, and retains
+at-most-once/crash reconciliation. Neither Phase-2 bootstrap calls the local Human `CONTINUE`
+surface, uses a global `aios`, checks out a fresh worktree, receives a GitHub write token, or
+duplicates Runtime verification, semantic review, or publication.
 
 ---
 
@@ -325,11 +346,11 @@ hatches for compatibility and debugging; they are not the normal state-selection
   Downstream surfaces add no synchronization engine, correction frontier, performance
   collector, lifecycle parser, and no new Human-facing Executor selection.
 - **TASK-066 / TASK-068..TASK-074 Upstream Boundary**: Although the exact pinned package
-  contains this intervening Runtime history, Python Agent does not adopt AIOS-renew workflow
-  files, upstream remote approval/status workflow, wakeup workflow, dispatch-reconciliation,
-  or publication implementation. It exposes no self-hosted `wakeup`, `recover-primary`, or
-  internal operator selector. Python Agent's existing publication/automation authority remains
-  unchanged. The Human-facing worker surface exposes normal CONTINUE/STATUS plus explicit
+  contains this intervening Runtime history, Python Agent copies no upstream workflow or
+  Runtime/publication implementation. Repository-owned Phase-1/Phase-2 workflows delegate to
+  pinned public operator boundaries, while the Human-facing worker exposes no self-hosted
+  `wakeup`, `recover-primary`, or correction selector. Python Agent's publication/automation
+  semantic authority remains unchanged. The Human-facing worker surface exposes normal CONTINUE/STATUS plus explicit
   RUN/FIX/REPAIR compatibility/debug paths only.
 
 ---
@@ -455,13 +476,16 @@ PRIMARY wakeup (`.github/workflows/aios-brain-wakeup.yml` and `.github/workflows
 and terminal attention (`.github/workflows/aios-terminal-attention.yml`). GitHub Issue
 authoring/PRIMARY/attention represent the normal Phase-1 repository bindings after publication,
 while the local `aios_brain_ingress.py` file/stdin carrier and the Human-facing worker surfaces
-(`$aios-worker` and `/aios-renew-worker`) remain bounded emergency/debug/fallback paths. Phase-2
-outer automation carriers (TASK-110, TASK-111, TASK-112, A3/A6) remain explicit REQUIRED_PENDING.
+(`$aios-worker` and `/aios-renew-worker`) remain bounded emergency/debug/fallback paths.
+TASK-206 completes FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_2 by activating the bounded
+TASK-110 publication continuation, TASK-112 remediation intent over the separate A3/A6
+authorities, and the dedicated TASK-111 REPAIR wakeup. These transport/bootstrap bindings add
+no Runtime, Reviewer, Publisher, or generic lifecycle-router authority.
 Future AIOS-renew main changes remain irrelevant until another explicit reviewed downstream migration.
 
-### Live PRIMARY Operational Prerequisites
+### Live Self-Hosted Operational Prerequisites
 
-Live PRIMARY execution requires one-time Human operational setup before live use:
+Live PRIMARY and Phase-2 REMEDIATION/REPAIR execution require one-time Human operational setup before live use:
 1. Register a dedicated Windows x64 self-hosted runner for repository `trung-via/python_complete_agent` with custom label `python-complete-agent`.
 2. Run the runner under an account able to use the already-working local Python/Codex/Antigravity/Git environment.
 3. Configure repository variable `AIOS_REPO_ROOT` to the persistent Python Agent checkout.

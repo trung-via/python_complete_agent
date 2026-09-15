@@ -26,8 +26,8 @@ active_track:
   status: ACTIVE
 
 next:
-  id: FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_2
-  title: Full AIOS control plane adoption phase 2 (review, publication, remediation, repair)
+  id: FULL_AIOS_DOWNSTREAM_CONFORMANCE
+  title: Full AIOS downstream control plane conformance gate
   status: NEXT
   completion_gate: >-
     Remains NEXT until canonical evidence marks it DONE or explicit Human intent
@@ -75,6 +75,17 @@ completed_milestones:
       authoring_ingress: ACTIVE
       primary_wakeup: ACTIVE
       terminal_attention: ACTIVE
+  - task_id: TASK-206
+    track_id: AIOS_FULL_DOWNSTREAM_ADOPTION_AND_GOVERNANCE_REBUILD
+    milestone_id: FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_2
+    title: Full AIOS control plane adoption phase 2 (review, publication, remediation, repair)
+    status: DONE
+    upstream_source_sha: 652b00b103dd50e2a550dd0ec0fe4063e69631b7
+    phase_2_bindings:
+      review_to_publication: ACTIVE
+      remediation_intent_a3_a6: ACTIVE
+      repair_wakeup: ACTIVE
+    boundary: DOES_NOT_CLAIM_FULL_AIOS_DOWNSTREAM_CONFORMANCE
 
 superseded_commitments:
   - id: CHATGPT_PROJECT_CONTRACT_RECONCILIATION
@@ -143,10 +154,21 @@ control_plane_adoption_phase_1:
     to Phase 2. It does not implement, activate, conform, review, or publish any
     Phase-2 repository binding or claim full downstream conformance.
 
+control_plane_adoption_phase_2:
+  status: DONE
+  blocking_current_track: false
+  adoption_kind: NON_PRODUCT_CONTROL_PLANE_PHASE_2
+  migration_task: TASK-206
+  downstream_pin: 652b00b103dd50e2a550dd0ec0fe4063e69631b7
+  closed_commitment: FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_2
+  next_commitment: FULL_AIOS_DOWNSTREAM_CONFORMANCE
+  repository_binding_activation: PHASE_2_ACTIVE
+  roadmap_effect: >-
+    Closes only Phase 2 control-plane adoption and advances the planning bookmark
+    to full downstream conformance. It does not claim that conformance, rebuild the
+    Project Contract, close Governance Foundation, or return to P7.
+
 pending_commitments:
-  - id: FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_2
-    title: Full AIOS control plane adoption phase 2 (review, publication, remediation, repair)
-    status: NOT_DONE
   - id: FULL_AIOS_DOWNSTREAM_CONFORMANCE
     title: Full AIOS downstream control plane conformance gate
     status: NOT_DONE

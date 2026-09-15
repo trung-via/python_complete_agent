@@ -39,19 +39,17 @@ def load_workflow() -> dict:
 
 
 class TestWorkflowTriggerAndPermissions:
-    """Certifies AC1: Trigger on review-decision pushes, write permission, event checkout."""
+    """Certifies push plus bounded replay triggers and minimum permission."""
 
     def test_workflow_file_exists_and_parses(self):
         wf = load_workflow()
         assert wf.get("name") == "AIOS auto-publish reviewed candidate"
 
-    def test_trigger_strictly_push_to_review_decision_branches(self):
+    def test_trigger_retains_push_and_adds_only_bounded_workflow_dispatch(self):
         wf = load_workflow()
         triggers = wf.get("on") if wf.get("on") is not None else wf.get(True)
         assert isinstance(triggers, dict), "Workflow 'on' must be a mapping"
-        assert set(triggers.keys()) == {"push"}, (
-            "Workflow must trigger only on 'push', no other triggers allowed"
-        )
+        assert set(triggers.keys()) == {"push", "workflow_dispatch"}
         push_spec = triggers["push"]
         assert isinstance(push_spec, dict)
         assert set(push_spec.keys()) == {"branches"}
@@ -59,6 +57,11 @@ class TestWorkflowTriggerAndPermissions:
         assert branches == ["aios/review-decision/**"], (
             "Workflow must only trigger on 'aios/review-decision/**' branch push"
         )
+        replay = triggers["workflow_dispatch"]
+        assert set(replay) == {"inputs"}
+        assert set(replay["inputs"]) == {"run_id"}
+        assert replay["inputs"]["run_id"]["required"] is True
+        assert replay["inputs"]["run_id"]["type"] == "string"
 
     def test_permissions_strictly_contents_write(self):
         wf = load_workflow()
@@ -75,7 +78,7 @@ class TestWorkflowTriggerAndPermissions:
             "cancel-in-progress": False,
         }
 
-    def test_checkout_is_event_bound_with_full_history(self):
+    def test_checkout_is_push_sha_or_fixed_main_with_full_history(self):
         wf = load_workflow()
         publish_job = wf.get("jobs", {}).get("publish", {})
         assert publish_job.get("runs-on") == "ubuntu-latest"
@@ -86,9 +89,7 @@ class TestWorkflowTriggerAndPermissions:
         assert len(checkout_steps) == 1, "Exactly one checkout step required"
         checkout = checkout_steps[0]
         params = checkout.get("with", {})
-        assert params.get("ref") == "${{ github.sha }}", (
-            "Checkout must bind to ${{ github.sha }}, never mutable latest main"
-        )
+        assert params.get("ref") == "${{ github.event_name == 'push' && github.sha || 'main' }}"
         assert params.get("fetch-depth") == 0, (
             "Checkout must fetch full history (fetch-depth: 0) for ancestry validation"
         )
@@ -163,7 +164,7 @@ class TestPythonProvisioningAndDependencyPin:
 
 
 class TestPublicationDelegation:
-    """Certifies AC3: Derives RUN only from review-decision ref and delegates once to publication module."""
+    """Certifies both transports delegate once to the same pinned Publisher."""
 
     def test_workflow_derives_run_id_from_review_decision_ref(self):
         raw = WORKFLOW_FILE.read_text(encoding="utf-8")
@@ -181,6 +182,22 @@ class TestPublicationDelegation:
         assert "--run-id" in raw
         assert "--decision-sha" in raw
         assert raw.count("aios_renew.publication") == 1
+
+    def test_dispatch_replay_carries_only_run_and_resolves_remote_decision(self):
+        raw = WORKFLOW_FILE.read_text(encoding="utf-8")
+        assert "AIOS_DISPATCH_RUN_ID: ${{ inputs.run_id }}" in raw
+        assert "^RUN-[A-Za-z0-9_-]+-[0-9]{3,}$" in raw
+        assert 'decision_ref="${prefix}${run_id}"' in raw
+        assert 'git fetch --no-tags origin "$decision_ref"' in raw
+        assert "FETCH_HEAD^{commit}" in raw
+        for forbidden in (
+            "candidate_sha",
+            "verdict_override",
+            "target_ref",
+            "main_sha_override",
+            "force_flag",
+        ):
+            assert forbidden not in raw
 
     def test_derivation_logic_extracts_run_id_and_rejects_invalid_ref(self):
         prefix = "refs/heads/aios/review-decision/"

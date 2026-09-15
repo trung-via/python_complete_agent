@@ -1,0 +1,100 @@
+name: AIOS approved remediation intent
+
+"on":
+  workflow_dispatch:
+    inputs:
+      correction_dispatch_id:
+        description: "Stable approved correction delivery identity"
+        required: true
+        type: string
+      source_run_id:
+        description: "Exact canonical source RUN to approve and remediate"
+        required: true
+        type: string
+      finding_id:
+        description: "Exact CHANGES_REQUIRED finding identity"
+        required: true
+        type: string
+      executor:
+        description: "Explicit Human-selected coding Executor"
+        required: true
+        type: choice
+        options:
+          - codex
+          - antigravity
+  workflow_call:
+    inputs:
+      correction_dispatch_id:
+        required: true
+        type: string
+      source_run_id:
+        required: true
+        type: string
+      finding_id:
+        required: true
+        type: string
+      executor:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aios-approved-remediation-intent
+  cancel-in-progress: false
+
+jobs:
+  approve-and-wake:
+    runs-on: [self-hosted, windows, x64, python-complete-agent]
+    env:
+      AIOS_REPO_ROOT: ${{ vars.AIOS_REPO_ROOT }}
+    steps:
+      - name: Preflight persistent environment
+        shell: powershell
+        run: |
+          if ($env:GITHUB_REPOSITORY -ne 'trung-via/python_complete_agent') {
+            Write-Error "Unexpected repository identity."
+            exit 1
+          }
+          if ($env:GITHUB_REF -ne 'refs/heads/main') {
+            Write-Error "Remediation intent must execute from canonical main."
+            exit 1
+          }
+          if ($env:GITHUB_ACTOR -ne 'trung-via') {
+            Write-Error "Unauthorized remediation approver."
+            exit 1
+          }
+          if ([string]::IsNullOrWhiteSpace($env:AIOS_REPO_ROOT)) {
+            Write-Error "AIOS_REPO_ROOT repository variable is not configured."
+            exit 1
+          }
+          if (-not (Test-Path -LiteralPath $env:AIOS_REPO_ROOT -PathType Container)) {
+            Write-Error "The configured persistent repository is unavailable."
+            exit 1
+          }
+          git -C $env:AIOS_REPO_ROOT rev-parse --is-inside-work-tree
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "The configured persistent repository is invalid."
+            exit 1
+          }
+          $bootstrap = Join-Path $env:AIOS_REPO_ROOT ".agents\skills\aios-worker\scripts\aios_phase2_remediation.py"
+          if (-not (Test-Path -LiteralPath $bootstrap -PathType Leaf)) {
+            Write-Error "The pinned remediation bootstrap is unavailable."
+            exit 1
+          }
+
+      - name: Record A3 approval and enter A6 once
+        env:
+          AIOS_CORRECTION_DISPATCH_ID: ${{ inputs.correction_dispatch_id }}
+          AIOS_SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          AIOS_FINDING_ID: ${{ inputs.finding_id }}
+          AIOS_EXECUTOR: ${{ inputs.executor }}
+          AIOS_APPROVER: ${{ github.actor }}
+        shell: powershell
+        run: |
+          $bootstrap = Join-Path $env:AIOS_REPO_ROOT ".agents\skills\aios-worker\scripts\aios_phase2_remediation.py"
+          python $bootstrap $env:AIOS_CORRECTION_DISPATCH_ID $env:AIOS_SOURCE_RUN_ID $env:AIOS_FINDING_ID --executor $env:AIOS_EXECUTOR --approver $env:AIOS_APPROVER --repo $env:AIOS_REPO_ROOT
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }

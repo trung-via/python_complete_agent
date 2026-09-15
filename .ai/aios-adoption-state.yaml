@@ -180,11 +180,20 @@ capability_families:
   - id: AUDITED_A3_A6_CORRECTION_AUTOMATION_CARRIERS
     upstream_tasks: [TASK-074, TASK-084]
     package_capability_availability: ADOPTED_BY_PIN
-    repository_binding_activation: REQUIRED_PENDING
+    repository_binding_activation: ACTIVE
     consumption: PINNED_KERNEL_CAPABILITY
+    carrier: .github/workflows/aios-brain-remediation-intent.yml
+    self_hosted_workflow: .github/workflows/aios-approved-remediation-intent.yml
+    bootstrap: .agents/skills/aios-worker/scripts/aios_phase2_remediation.py
+    remediation_intent_upstream_task: TASK-112
+    authority_boundaries:
+      a3_exact_approval: PINNED_SEPARATE_AUTHORITY
+      a6_durable_dispatch: PINNED_SEPARATE_AUTHORITY
     boundary: >-
       Upstream A3/A6 correction automation capabilities are available through the exact pin.
-      Downstream repository-specific bindings remain explicit REQUIRED_PENDING for Phase 2.
+      The ACTIVE coalesced Human remediation-intent binding transports one immutable selector
+      set while A3 approval and A6 dispatch remain separately validated pinned authorities.
+      Standalone A3 remote-status UX is not activated by this binding.
 
   - id: PERFORMANCE_CLOSURE
     upstream_tasks: [TASK-101]
@@ -239,11 +248,30 @@ capability_families:
   - id: REPOSITORY_SPECIFIC_PHASE_2_OUTER_AUTOMATION
     upstream_tasks: [TASK-110, TASK-111, TASK-112]
     package_capability_availability: ADOPTED_BY_PIN
-    repository_binding_activation: REQUIRED_PENDING
+    repository_binding_activation: ACTIVE
     consumption: PINNED_KERNEL_CAPABILITY
+    review_to_publication:
+      status: ACTIVE
+      ingress: .github/workflows/aios-brain-ingress.yml
+      publisher: .github/workflows/aios-auto-publish.yml
+      selector: run_id
+    remediation_intent:
+      status: ACTIVE
+      policy: .ai/brain-remediation-intent-carriers.yaml
+      carrier: .github/workflows/aios-brain-remediation-intent.yml
+      self_hosted_workflow: .github/workflows/aios-approved-remediation-intent.yml
+      bootstrap: .agents/skills/aios-worker/scripts/aios_phase2_remediation.py
+    repair_wakeup:
+      status: ACTIVE
+      policy: .ai/brain-repair-wakeup-carriers.yaml
+      carrier: .github/workflows/aios-brain-repair-wakeup.yml
+      self_hosted_workflow: .github/workflows/aios-self-hosted-repair-wakeup.yml
+      bootstrap: .agents/skills/aios-worker/scripts/aios_phase2_repair.py
     boundary: >-
-      TASK-110 review-to-publication continuation, TASK-111 REPAIR wakeup, and
-      TASK-112 remediation intent carriers remain explicit REQUIRED_PENDING for Phase 2.
+      TASK-110 review-to-publication continuation, TASK-111 dedicated REPAIR wakeup,
+      and TASK-112 remediation intent are ACTIVE repository bindings. All semantic
+      review, publication, A3/A6, correction, and Runtime authority remains pinned and
+      separate; this activation does not claim full downstream conformance.
 
   - id: TERMINAL_ATTENTION_PACKAGE_COMPATIBILITY
     upstream_tasks: [TASK-113]
@@ -267,8 +295,9 @@ capability_families:
     source_published: true
     boundary: >-
       TASK-115 truthful zero-delta CONTINUE_IMPLEMENTATION publication hardening is
-      consumed from the exact pin. The existing downstream source-only auto-publish
-      workflow is unchanged and gains no local review or publication authority.
+      consumed from the exact pin. The downstream source-only auto-publish workflow
+      adds bounded run_id replay transport while gaining no local review or publication
+      semantics; the pinned Publisher independently re-resolves all canonical authority.
 
   - id: DOWNSTREAM_PORTABILITY_POLICY_PROVENANCE
     upstream_tasks: [TASK-114, TASK-116]
