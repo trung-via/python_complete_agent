@@ -1,0 +1,272 @@
+task_id: TASK-207
+revision: 1
+
+goal: >
+  Close FULL_AIOS_DOWNSTREAM_CONFORMANCE for Python Agent by certifying the already-published
+  Phase-1 and Phase-2 repository bindings against live downstream operation, without creating
+  another lifecycle authority or manufacturing correction work merely for ceremony. The gate
+  must prove normal Brain authoring, PRIMARY execution on the dedicated self-hosted runner,
+  terminal attention, and Review-to-Publication end to end; it must also prove that the
+  REMEDIATION and REPAIR carrier families are live, bounded, and fail closed across their
+  GitHub-hosted admission and self-hosted pinned-bootstrap boundaries without causing an
+  unauthorized coding mutation. After reviewed publication, mark full downstream conformance
+  DONE and make PROJECT_CONTRACT_REBUILD the unique NEXT roadmap commitment.
+
+problem: >
+  TASK-205 and TASK-206 are semantically reviewed and source-published. Python Agent main is
+  9f741508f980a27e4b77c7224a2987b92067db94 and its sole active AIOS-renew authority remains
+  exact reviewed/source-published pin 652b00b103dd50e2a550dd0ec0fe4063e69631b7. Phase 1
+  activated GitHub Issue Brain authoring, PRIMARY wakeup through A1/A2, and terminal attention.
+  Phase 2 activated Review-to-Publication continuation, Human remediation intent over separate
+  A3/A6 authorities, and dedicated REPAIR wakeup. Those tasks intentionally did not claim full
+  live downstream conformance. The current Project Contract HOW slot remains suspended until
+  this gate is closed. The next work is therefore certification of the published bindings in
+  their real repository/runner environment, not another source-adoption phase.
+
+assumptions:
+  - >
+    Canonical Python Agent main at authoring is
+    9f741508f980a27e4b77c7224a2987b92067db94, the exact reviewed and published TASK-206
+    candidate from RUN-206-002 / REVIEW-206-001.
+  - >
+    Python Agent's sole active AIOS-renew dependency remains exactly
+    652b00b103dd50e2a550dd0ec0fe4063e69631b7 under
+    EXACT_REVIEWED_SOURCE_PUBLISHED_ONLY.
+  - >
+    Phase-1 and Phase-2 repository bindings are already source-published and classified ACTIVE.
+    This task certifies those bindings; it does not create replacement ingress, wakeup,
+    correction, review, Runtime, or Publisher semantics.
+  - >
+    docs/CHATGPT_PROJECT_CONTRACT.md is a suspended transitional HOW slot and explicitly
+    requires full downstream AIOS control-plane conformance before a durable replacement may
+    be drafted. The complete future replacement still requires separate full-text Human approval.
+  - >
+    Live PRIMARY and correction-boundary probes require one dedicated Windows x64 self-hosted
+    runner registered for trung-via/python_complete_agent with custom label
+    python-complete-agent and repository variable AIOS_REPO_ROOT pointing to a persistent
+    Python Agent checkout. These are Human-owned operational prerequisites, not source truth.
+  - >
+    Live conformance evidence may include GitHub Issue receipts, GitHub Actions run/job state,
+    canonical AIOS refs/artifacts, and exact candidate/publication refs. Runtime unit tests alone
+    cannot satisfy live-conformance acceptance.
+  - >
+    Two previously observed defects remain deferred and are not source-fix authority for this
+    task: D1, the local Human-facing worker can supply a coding Executor to NO_CHANGE even when
+    executor_required=false; D2, native Windows pytest may raise WinError 5 while cleaning
+    pytest-current after completed tests. If D2 naturally occurs during this conformance run,
+    recovery must preserve the exact candidate and use canonical NO_CHANGE REPAIR semantics.
+  - >
+    Full conformance does not require fabricating a CHANGES_REQUIRED verdict or failed RUN solely
+    to exercise correction. For REMEDIATION/REPAIR, a live bounded fail-closed probe through the
+    published carrier/self-hosted bootstrap plus TASK-206 deterministic positive semantics is
+    sufficient unless a real correction condition naturally occurs.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - .ai/roadmap-state.yaml
+    - .ai/aios-adoption-state.yaml
+    - .ai/tasks/TASK-205.yaml
+    - .ai/tasks/TASK-206.yaml
+    - .ai/brain-ingress-carriers.yaml
+    - .ai/brain-wakeup-carriers.yaml
+    - .ai/brain-terminal-attention-carriers.yaml
+    - .ai/brain-remediation-intent-carriers.yaml
+    - .ai/brain-repair-wakeup-carriers.yaml
+    - .github/workflows/aios-brain-ingress.yml
+    - .github/workflows/aios-brain-wakeup.yml
+    - .github/workflows/aios-self-hosted-wakeup.yml
+    - .github/workflows/aios-terminal-attention.yml
+    - .github/workflows/aios-auto-publish.yml
+    - .github/workflows/aios-brain-remediation-intent.yml
+    - .github/workflows/aios-approved-remediation-intent.yml
+    - .github/workflows/aios-brain-repair-wakeup.yml
+    - .github/workflows/aios-self-hosted-repair-wakeup.yml
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_phase1_wakeup.py
+    - .agents/skills/aios-worker/scripts/aios_phase2_remediation.py
+    - .agents/skills/aios-worker/scripts/aios_phase2_repair.py
+    - tests/aios_bridge/test_aios_phase1_control_plane.py
+    - tests/aios_bridge/test_aios_phase2_control_plane.py
+    - tests/aios_bridge/test_aios_governance_state.py
+
+  modify:
+    - .ai/aios-conformance-state.yaml
+    - .ai/aios-adoption-state.yaml
+    - .ai/roadmap-state.yaml
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - tests/aios_bridge/test_aios_conformance_state.py
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - >
+    Modify any Phase-1/Phase-2 workflow, policy, bootstrap, local Human-facing worker,
+    AIOS-renew pin, Runtime, Reviewer, Publisher, product/domain source, or execution adapter.
+    A live defect in those surfaces blocks certification and requires a separate repair task.
+  - >
+    Fix D1 NO_CHANGE supplied-executor behavior or D2 pytest-current WinError 5 behavior here.
+  - >
+    Manufacture a semantic CHANGES_REQUIRED finding, deliberately break implementation,
+    deliberately fail verification, or create a coding correction merely to produce a
+    REMEDIATION/REPAIR demonstration.
+  - >
+    Claim that a GitHub carrier receipt by itself proves RUN, verification, review, publication,
+    or semantic correctness. Each proof must be typed to the authority it demonstrates.
+  - >
+    Replace exact-pin semantics with local conformance logic, add a generic router, retry loop,
+    fallback loop, poller, daemon, broker, database, background model call, or duplicate journal.
+  - >
+    Draft or rebuild the durable ChatGPT Project Contract in this task. PROJECT_CONTRACT_REBUILD
+    remains the next separate milestone after reviewed publication of conformance.
+  - >
+    Change Manifesto, Constitution, Product Contract, Product Intelligence, Commerce
+    Intelligence, marketplace/browser/provider behavior, scoring/ranking, persistence,
+    retrieval/RAG, product truth, or product-roadmap semantics.
+  - >
+    Rewrite or delete historical TASK/RUN/RESULT/FAILURE/REVIEW/REMEDIATION/REPAIR lineage.
+  - >
+    Push, force-publish, or mutate canonical main from Executor implementation execution.
+
+constraints:
+  hard:
+    - >
+      TASK-207 authoring itself must be delivered through the published
+      [AIOS BRAIN INGRESS] GitHub Issue carrier by authorized actor trung-via. Local file/stdin
+      ingress may be used only as recovery if the live carrier is demonstrably unavailable, in
+      which case AC1 remains unsatisfied and full conformance cannot PASS until separately proven.
+    - >
+      TASK-207 PRIMARY execution must be delivered through the published
+      [AIOS BRAIN WAKEUP] GitHub Issue carrier with one explicit Human-selected Executor and one
+      stable dispatch_id. The job must run on [self-hosted, windows, x64,
+      python-complete-agent], use only vars.AIOS_REPO_ROOT for the persistent repository, and
+      reach the exact pinned A1/A2/Runtime path without local Human-surface substitution.
+    - >
+      Live PRIMARY evidence must bind the carrier request, A2 durable dispatch identity,
+      canonical RUN, exact TASK-207 revision, selected Executor, candidate SHA, canonical
+      verification evidence, and terminal RESULT or FAILURE. Duplicate immutable dispatch
+      delivery must not produce a second execution.
+    - >
+      After the TASK-207 RUN terminalizes, the published TASK-113 terminal-attention binding
+      must create or idempotently reuse one strict [AIOS TERMINAL ATTENTION] Issue tied to the
+      canonical terminal selector. Attention is notification only and must not claim semantic
+      review, correction, or publication success.
+    - >
+      Before semantic PASS, Reviewer must observe a live Review-to-Publication proof through the
+      published GitHub Brain ingress and TASK-110 continuation. The final TASK-207 PASS decision
+      itself should be submitted through [AIOS BRAIN INGRESS]; full conformance is not complete
+      until the exact reviewed TASK-207 source candidate is published through the safe Publisher
+      workflow_dispatch continuation and main equals that candidate.
+    - >
+      REMEDIATION conformance must prove both published boundaries without manufacturing a
+      correction: GitHub-hosted [AIOS REMEDIATION INTENT] admission must be live and bounded,
+      and the fixed self-hosted remediation workflow/bootstrap must be live-probed with selectors
+      that cannot authorize a new coding mutation. Expected stale/missing/conflicting authority
+      must fail closed. The probe must not create a new implementation RUN.
+    - >
+      REPAIR conformance must likewise prove both published boundaries without manufacturing a
+      failure: GitHub-hosted [AIOS REPAIR WAKEUP] admission must be live and bounded, and the
+      fixed self-hosted REPAIR workflow/bootstrap must be live-probed with selectors that cannot
+      authorize a new coding mutation. A NO_CHANGE-shaped probe carries no coding Executor.
+      Expected stale/missing/conflicting authority must fail closed and must not create a new
+      implementation RUN.
+    - >
+      If a real TASK-207 failure naturally occurs and canonical state selects REPAIR, use the
+      dedicated Phase-2 REPAIR carrier as the normal recovery surface. If D2 occurs after tests
+      complete, preserve the exact candidate and use NO_CHANGE after a materially changed temp
+      prerequisite; do not route through the known-defective local Human Surface merely for
+      convenience.
+    - >
+      If semantic review naturally returns CHANGES_REQUIRED, use the Phase-2 Human remediation
+      intent carrier with the exact finding and explicit Human-selected Executor. Do not create a
+      finding merely to exercise the carrier.
+    - >
+      Add .ai/aios-conformance-state.yaml as a small Brain/review certification record, not a
+      second Runtime truth store. It must identify TASK-207, exact downstream pin, Phase-1 and
+      Phase-2 binding families under certification, state that live evidence is required, and
+      state that certification becomes effective only on reviewed source publication. It must not
+      copy GitHub tokens, logs, transient runner paths, or mutable external state.
+    - >
+      Reconcile .ai/aios-adoption-state.yaml only to record that full downstream conformance is
+      certified by reviewed TASK-207 publication; do not alter capability ownership, exact pin,
+      or previously ACTIVE/NOT_REQUIRED binding classifications.
+    - >
+      Reconcile .ai/roadmap-state.yaml so FULL_AIOS_DOWNSTREAM_CONFORMANCE is DONE through
+      TASK-207 and PROJECT_CONTRACT_REBUILD becomes the unique NEXT commitment. Preserve
+      TASK-191 product checkpoint, TASK-204/TASK-205/TASK-206 provenance, the later
+      Governance-closure/P7 ordering, and do not claim Project Contract rebuild or Governance
+      closure completion.
+    - >
+      Documentation may describe the certified normal surfaces and bounded fallback posture only
+      after publication. Local file/stdin ingress, Human-facing worker, and direct operator paths
+      remain emergency/debug fallbacks and do not compete with the normal repository bindings.
+    - >
+      Runtime verification for source changes remains deterministic/offline and must not call
+      GitHub, depend on live runner state, provider/LLM, marketplace/browser/CDP, Drive, wall
+      clock, random/UUID, or mutable external state. Live conformance evidence is evaluated
+      separately by the semantic Reviewer.
+    - >
+      Semantic Reviewer must not PASS TASK-207 solely because deterministic tests pass. Missing
+      or ambiguous live evidence for AC1-AC6 is BLOCKED/CHANGES_REQUIRED as appropriate; source
+      planning state cannot manufacture live certification.
+    - Do not push from Executor implementation execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      TASK-207 is canonically authored through one authorized live [AIOS BRAIN INGRESS] Issue,
+      with a bounded PASS receipt and exact canonical TASK-207 revision/source commit; no local
+      ingress is needed for the successful proof.
+  - id: AC2
+    condition: >
+      One authorized live [AIOS BRAIN WAKEUP] request executes TASK-207 PRIMARY through the
+      dedicated Python Agent self-hosted runner and exact pinned A1/A2/Runtime path, producing
+      one canonical RUN with correct dispatch identity, explicit Executor, candidate and
+      verification lineage; immutable duplicate delivery does not re-execute.
+  - id: AC3
+    condition: >
+      TASK-207 terminalization produces/reuses the correct [AIOS TERMINAL ATTENTION] Issue from
+      canonical terminal truth, while the attention carrier acquires no review/correction/
+      execution/publication authority.
+  - id: AC4
+    condition: >
+      Review-to-Publication is live-proven through [AIOS BRAIN INGRESS] SUBMIT_REVIEW and the
+      fixed TASK-110 workflow_dispatch continuation; the safe Publisher independently resolves
+      canonical PASS/source and publishes exactly the reviewed TASK-207 candidate. Full
+      conformance becomes effective only when main equals that candidate.
+  - id: AC5
+    condition: >
+      REMEDIATION carrier and self-hosted bootstrap are live-proven as reachable, bounded, and
+      fail-closed on a non-authorizing probe, with explicit Executor framing where applicable,
+      no raw-Issue execution, no token crossing into coding execution, and no new implementation
+      RUN caused by the probe.
+  - id: AC6
+    condition: >
+      REPAIR carrier and self-hosted bootstrap are live-proven as reachable, bounded, and
+      fail-closed on a non-authorizing probe; NO_CHANGE framing carries no coding Executor, and
+      no new implementation RUN is caused by the probe unless a real TASK-207 failure
+      independently requires canonical REPAIR.
+  - id: AC7
+    condition: >
+      Exact pin isolation, one-capability-one-authority, separate Brain/Runtime/Executor/
+      Reviewer/Publisher/A3/A6/REPAIR/Attention boundaries, Phase-1/Phase-2 source bindings, and
+      local emergency/debug fallbacks remain intact with no duplicate lifecycle implementation.
+  - id: AC8
+    condition: >
+      Conformance/adoption state truthfully records certification as effective only on reviewed
+      TASK-207 publication, roadmap marks FULL_AIOS_DOWNSTREAM_CONFORMANCE DONE and makes
+      PROJECT_CONTRACT_REBUILD the sole NEXT item, without claiming that the new Project
+      Contract exists or is approved.
+  - id: AC9
+    condition: >
+      All source changes stay inside authorized files, deterministic focused tests and
+      git diff --check pass, RESULT has zero unresolved source items, and Reviewer separately
+      observes sufficient live evidence for AC1-AC6 before PASS.
+
+verification:
+  required:
+    - python -m pytest tests/aios_bridge/test_aios_conformance_state.py tests/aios_bridge/test_aios_phase2_control_plane.py tests/aios_bridge/test_aios_phase1_control_plane.py tests/aios_bridge/test_aios_governance_state.py -q
+    - git diff --check
