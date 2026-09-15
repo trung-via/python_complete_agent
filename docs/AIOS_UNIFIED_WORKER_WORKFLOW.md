@@ -1,8 +1,8 @@
 # AIOS Unified Worker Workflow
 
-As of TASK-201 revision 1, the repository-owned Codex and Antigravity worker
+As of TASK-204 revision 1, the repository-owned Codex and Antigravity worker
 surfaces delegate exclusively to the immutable AIOS-renew kernel at commit
-`f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e`. Legacy AIOS Bridge source remains
+`652b00b103dd50e2a550dd0ec0fe4063e69631b7`. Legacy AIOS Bridge source remains
 archived in this repository, but it is inactive and unreachable from these
 CONTINUE/STATUS and explicit RUN/FIX/REPAIR surfaces.
 
@@ -410,7 +410,8 @@ branches or caches that do not expose `/aios-renew-worker` fail closed instead o
 falling back to legacy `/aios-worker` semantics.
 
 Both active worker surfaces and the Brain-only carrier use exactly AIOS-renew commit
-`f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e`. Installed provenance for the TASK-198-era
+`652b00b103dd50e2a550dd0ec0fe4063e69631b7`. Installed provenance for the TASK-201-era
+`f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e` pin, the TASK-198-era
 `a3b723b49cd65677f548c5694a52a6fc006a9e2a` pin, the TASK-102-era
 `2599202afedb0622e9e9bdc7b5a15f34da01cc27` pin, the immediate-predecessor
 `e72135cd5c5a1dec0d8374d9bb8994da5e458feb` pin, and every older pin including
@@ -421,8 +422,10 @@ Both active worker surfaces and the Brain-only carrier use exactly AIOS-renew co
 This is an exact-pin adoption boundary: Python Agent consumes reviewed TASK-086/TASK-087/TASK-088,
 TASK-089, TASK-090, TASK-091 revision 2, TASK-092, TASK-093 through TASK-100, and TASK-102
 plus TASK-103 hardening, TASK-101 revision 4, recovered TASK-104/TASK-105 Brain Authoring
-Ingress, and TASK-106 package-level Human-surface presentation hardening plus TASK-113
-package compatibility only through their public operator surfaces. It copies no AIOS-renew
+Ingress, TASK-106 package-level Human-surface presentation hardening, TASK-113 package
+compatibility, and TASK-115 safe-publication hardening only through their public operator
+surfaces. TASK-114/TASK-116 are governance-policy provenance and activate no repository
+binding. Python Agent copies no AIOS-renew
 workflow files, creates no second lifecycle state machine, and does not automatically expose
 every upstream operator command. ChatGPT semantic review, source-only publication, and the
 existing repository-native publication workflow remain separate repository-owned
@@ -441,15 +444,17 @@ authorized continuation may act on it.
 TASK-192 historically advanced the execution substrate and recorded downstream governance.
 TASK-198 adopts published TASK-103 hardening, TASK-101 revision 4, and the recovered
 TASK-104/TASK-105 Brain Authoring Ingress lineage through the exact pin.
-TASK-201 migrates the sole active downstream runtime authority to exact reviewed, source-published
-commit `f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e`. Future AIOS-renew main changes (including
-planning checkpoint `e95d12122f35bf4e224dbbb28be1866c8250c069`) remain irrelevant until another
-explicit reviewed downstream migration.
+TASK-201 historically migrated the then-sole active downstream runtime authority to exact reviewed, source-published
+commit `f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e` as historical migration provenance.
+TASK-204 prospectively supersedes that active pin with exact reviewed, source-published
+commit `652b00b103dd50e2a550dd0ec0fe4063e69631b7`, consuming TASK-115 publication hardening
+and recording TASK-114/TASK-116 policy provenance without activating repository bindings.
+Future AIOS-renew main changes remain irrelevant until another explicit reviewed downstream migration.
 
 ## 9. Stale-Checkout CONTINUE Certification Protocol
 
 This certification applies only with the downstream AIOS-renew pin
-`f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e` already present. Before the first
+`652b00b103dd50e2a550dd0ec0fe4063e69631b7` already present. Before the first
 invocation, record that the fresh proof TASK exists on the canonical remote while
 `.ai/tasks/TASK-N.yaml` is absent from the local checkout. The record must bind the
 exact TASK ID, the canonical remote ref/commit containing it, the local HEAD, and

@@ -13,16 +13,16 @@ ADOPTION_FILE = REPO_ROOT / ".ai" / "aios-adoption-state.yaml"
 PIN_FILE = (
     REPO_ROOT / ".agents" / "skills" / "aios-worker" / "requirements-aios-renew.txt"
 )
-EXPECTED_PIN = "f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e"
+EXPECTED_PIN = "652b00b103dd50e2a550dd0ec0fe4063e69631b7"
+TASK_201_HISTORICAL_PIN = "f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e"
 UPSTREAM_PLANNING_CHECKPOINT = "e95d12122f35bf4e224dbbb28be1866c8250c069"
 TASK_192_SOURCE_SHA = "dcb7432abc58ed983e6c26d5456ace1423e49981"
 TASK_194_SOURCE_SHA = "e0d8998ee004fda80ca3fbc3de4eb0afb59160a5"
 TASK_196_SOURCE_SHA = "4f6d91858c93192f497342315c4650e30b0a2718"
 TASK_199_SOURCE_SHA = "702e85e9e77a556f3716717ccaa186919b1a9dab"
 ACTIVE_TRACK_ID = "AIOS_FULL_DOWNSTREAM_ADOPTION_AND_GOVERNANCE_REBUILD"
-NEXT_MILESTONE_ID = "AIOS_DOWNSTREAM_ADOPTION_POLICY_RECONCILIATION"
+NEXT_MILESTONE_ID = "FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_1"
 APPROVED_PENDING_SEQUENCE = [
-    "AIOS_DOWNSTREAM_ADOPTION_POLICY_RECONCILIATION",
     "FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_1",
     "FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_2",
     "FULL_AIOS_DOWNSTREAM_CONFORMANCE",
@@ -147,6 +147,15 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
         "status": "DONE",
         "source_sha": TASK_199_SOURCE_SHA,
     }
+    assert completed["TASK-204"] == {
+        "task_id": "TASK-204",
+        "track_id": ACTIVE_TRACK_ID,
+        "milestone_id": "AIOS_DOWNSTREAM_ADOPTION_POLICY_RECONCILIATION",
+        "title": "AIOS downstream-adoption policy reconciliation",
+        "status": "DONE",
+        "upstream_source_sha": EXPECTED_PIN,
+        "boundary": "NO_PHASE_1_OR_PHASE_2_REPOSITORY_BINDING_ACTIVATED",
+    }
 
     upstream = state["upstream_recovery"]
     assert upstream["status"] == "ADOPTED_BY_PIN"
@@ -165,13 +174,29 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
     assert upstream["downstream_pin"] == "a3b723b49cd65677f548c5694a52a6fc006a9e2a"
     assert "does not advance" in upstream["roadmap_effect"]
 
-    migration = state["upstream_migration"]
-    assert migration["status"] == "ADOPTED_BY_PIN"
+    migration = state["historical_upstream_migration"]
+    assert migration["status"] == "SUPERSEDED_PIN_HISTORY"
     assert migration["blocking_current_track"] is False
     assert migration["migration_kind"] == "NON_PRODUCT_AIOS_MIGRATION"
     assert migration["migration_task"] == "TASK-201"
-    assert migration["downstream_pin"] == EXPECTED_PIN
+    assert migration["historical_downstream_pin"] == TASK_201_HISTORICAL_PIN
+    assert migration["runtime_authority"] is False
+    assert migration["superseded_by"] == "TASK-204"
     assert "does not advance" in migration["roadmap_effect"]
+
+    reconciliation = state["adoption_policy_reconciliation"]
+    assert reconciliation["status"] == "DONE"
+    assert reconciliation["migration_task"] == "TASK-204"
+    assert reconciliation["downstream_pin"] == EXPECTED_PIN
+    assert reconciliation["upstream_provenance"] == [
+        "TASK-114", "TASK-115", "TASK-116",
+    ]
+    assert reconciliation["closed_commitment"] == (
+        "AIOS_DOWNSTREAM_ADOPTION_POLICY_RECONCILIATION"
+    )
+    assert reconciliation["next_commitment"] == NEXT_MILESTONE_ID
+    assert reconciliation["repository_binding_activation"] == "NONE"
+    assert "does not implement" in reconciliation["roadmap_effect"]
 
     assert state["authority"]["owner"] == "BRAIN"
     assert state["authority"]["auto_advance_from_runtime_or_worker_state"] is False
@@ -183,10 +208,31 @@ def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
     assert requirement.endswith("@" + EXPECTED_PIN)
     assert state["downstream_pin"]["commit"] == EXPECTED_PIN
     assert state["upstream_audit"] == {
-        "checkpoint": UPSTREAM_PLANNING_CHECKPOINT,
-        "through_authored_task": "TASK-113",
-        "checkpoint_role": "BRAIN_PLANNING_EVIDENCE",
+        "checkpoint": EXPECTED_PIN,
+        "through_authored_task": "TASK-116",
+        "checkpoint_role": "REVIEWED_SOURCE_PUBLISHED_PROVENANCE",
         "checkpoint_is_runtime_authority": False,
+        "review": "REVIEW-116-001",
+        "review_outcome": "PRIMARY_PASS",
+        "source_published": True,
+        "prior_planning_checkpoint": UPSTREAM_PLANNING_CHECKPOINT,
+        "provenance": [
+            {
+                "task_id": "TASK-114",
+                "role": "DOWNSTREAM_PORTABILITY_POLICY",
+                "activates_repository_binding": False,
+            },
+            {
+                "task_id": "TASK-115",
+                "role": "PINNED_PUBLICATION_HARDENING",
+                "activates_repository_binding": False,
+            },
+            {
+                "task_id": "TASK-116",
+                "role": "GOVERNANCE_POLICY_INTEGRATION",
+                "activates_repository_binding": False,
+            },
+        ],
     }
     assert state["authority"]["engineering_truth"] is False
     dimensions = state["classification_dimensions"]
@@ -214,11 +260,12 @@ def test_relevant_upstream_tasks_have_distinct_package_and_binding_dimensions():
         "TASK-095", "TASK-096", "TASK-097", "TASK-098", "TASK-099", "TASK-100",
         "TASK-101", "TASK-102", "TASK-103", "TASK-104", "TASK-105", "TASK-106",
         "TASK-107", "TASK-108", "TASK-110", "TASK-111", "TASK-112", "TASK-113",
+        "TASK-114", "TASK-115", "TASK-116",
     ]
 
     for task_id in all_audited_tasks:
         pkg_cap = package_capability_for_task(state, task_id)
-        if task_id == "TASK-083":
+        if task_id in ("TASK-083", "TASK-114", "TASK-116"):
             assert pkg_cap == "PORT_GOVERNANCE"
         else:
             assert pkg_cap == "ADOPTED_BY_PIN"
@@ -239,6 +286,9 @@ def test_relevant_upstream_tasks_have_distinct_package_and_binding_dimensions():
         assert repository_binding_for_task(state, task_id) == "REQUIRED_PENDING"
 
     assert repository_binding_for_task(state, "TASK-113") == "REQUIRED_PENDING"
+    assert repository_binding_for_task(state, "TASK-114") == "NOT_REQUIRED"
+    assert repository_binding_for_task(state, "TASK-115") == "NOT_REQUIRED"
+    assert repository_binding_for_task(state, "TASK-116") == "NOT_REQUIRED"
 
     families = indexed_families(state)
 
@@ -264,6 +314,15 @@ def test_relevant_upstream_tasks_have_distinct_package_and_binding_dimensions():
     assert families["TERMINAL_ATTENTION_PACKAGE_COMPATIBILITY"]["upstream_tasks"] == [
         "TASK-113",
     ]
+    safe_publication = families["SAFE_PUBLICATION_ZERO_DELTA_HARDENING"]
+    assert safe_publication["upstream_tasks"] == ["TASK-115"]
+    assert safe_publication["package_capability_availability"] == "ADOPTED_BY_PIN"
+    assert safe_publication["repository_binding_activation"] == "NOT_REQUIRED"
+
+    policy = families["DOWNSTREAM_PORTABILITY_POLICY_PROVENANCE"]
+    assert policy["upstream_tasks"] == ["TASK-114", "TASK-116"]
+    assert policy["package_capability_availability"] == "PORT_GOVERNANCE"
+    assert policy["repository_binding_activation"] == "NOT_REQUIRED"
 
 
 def test_task_197_malformed_decision_remains_incident_only():

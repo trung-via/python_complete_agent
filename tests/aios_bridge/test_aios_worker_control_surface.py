@@ -29,7 +29,8 @@ LEGACY_PREDECESSOR_COMMIT = "08e4a612377ac82be36061286a34138ea53ab0d1"
 OLDER_STALE_AUTHORITATIVE_COMMIT = "883974be6ec5922ae57021b50a48c84a0014dbfa"
 TASK_102_ERA_COMMIT = "2599202afedb0622e9e9bdc7b5a15f34da01cc27"
 TASK_198_AUTHORITATIVE_COMMIT = "a3b723b49cd65677f548c5694a52a6fc006a9e2a"
-TASK_201_AUTHORITATIVE_COMMIT = "f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e"
+TASK_201_HISTORICAL_COMMIT = "f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e"
+TASK_204_AUTHORITATIVE_COMMIT = "652b00b103dd50e2a550dd0ec0fe4063e69631b7"
 TASK_089_SOURCE_CANDIDATE = "bb57147eac92475789d7809ed445d56535d5a009"
 TASK_092_REVIEW_DECISION_COMMIT = "18e7ed49c7393f199589bd241eede3e67d759aa1"
 LATER_ROADMAP_COMMIT = "410f0a87c86f3fef56802d23dc0b8cf22bb2c9f7"
@@ -83,12 +84,13 @@ class TestImmutableRuntimePin:
             if line.strip() and not line.lstrip().startswith("#")
         ]
         assert active == [aw.PIN_LINE]
-        assert aw.AUTHORITATIVE_COMMIT == TASK_201_AUTHORITATIVE_COMMIT
+        assert aw.AUTHORITATIVE_COMMIT == TASK_204_AUTHORITATIVE_COMMIT
         assert active == [
             "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
-            "f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e"
+            "652b00b103dd50e2a550dd0ec0fe4063e69631b7"
         ]
         assert TASK_198_AUTHORITATIVE_COMMIT not in active[0]
+        assert TASK_201_HISTORICAL_COMMIT not in active[0]
         assert TASK_102_ERA_COMMIT not in active[0]
 
     def test_authoritative_pep610_metadata_is_accepted(self):
@@ -101,6 +103,10 @@ class TestImmutableRuntimePin:
             (
                 aw.AUTHORITATIVE_REPOSITORY,
                 TASK_198_AUTHORITATIVE_COMMIT,
+            ),
+            (
+                aw.AUTHORITATIVE_REPOSITORY,
+                TASK_201_HISTORICAL_COMMIT,
             ),
             (
                 aw.AUTHORITATIVE_REPOSITORY,
@@ -1306,23 +1312,17 @@ class TestSurfaceAndDocumentation:
         assert "$aios-worker CONTINUE TASK-N" in text
         assert "/aios-renew-worker CONTINUE TASK-N" in text
 
-    def test_project_contract_makes_continue_normal_and_preserves_authorities(self):
+    def test_suspended_project_contract_grants_no_worker_or_pin_authority(self):
         text = CONTRACT_FILE.read_text(encoding="utf-8")
-        assert "`CONTINUE TASK-N` is the normal Human lifecycle command" in text
-        assert "`STATUS TASK-N`" in text and "Unified State" in text
-        assert "explicit compatibility/debug escape hatches" in text
-        assert aw.AUTHORITATIVE_COMMIT in text
-        assert "raw `aios ...` commands" not in text
-        assert "implementation details" in text
-        assert "source-only publication" in text
-        assert ".github/workflows/aios-auto-publish.yml" in text
-        assert "gains no review or publication authority" in text
         normalized = " ".join(text.split())
-        assert "TASK-089 `CONTINUE_IMPLEMENTATION`" in normalized
-        assert "TASK-090 safe-publication compatibility" in normalized
+        assert "SUSPENDED AND SUPERSEDED TRANSITIONAL NOTICE" in text
+        assert aw.AUTHORITATIVE_COMMIT not in text
+        assert TASK_201_HISTORICAL_COMMIT not in text
+        assert "creates no new precedence system or product semantics" in normalized
+        assert "does not grant or change review, execution" in normalized
 
     def test_active_docs_bind_task_092_native_instruction_boundary(self):
-        for path in (SKILL_FILE, WORKFLOW_FILE, DOCS_FILE, CONTRACT_FILE):
+        for path in (SKILL_FILE, WORKFLOW_FILE, DOCS_FILE):
             text = path.read_text(encoding="utf-8")
             normalized = " ".join(text.split())
 
@@ -1347,22 +1347,8 @@ class TestSurfaceAndDocumentation:
                 not in text
             )
 
-        contract_text = CONTRACT_FILE.read_text(encoding="utf-8")
-        contract_normalized = " ".join(contract_text.split())
-        assert f"TASK-198-era `{TASK_198_AUTHORITATIVE_COMMIT}`" in contract_text
-        assert f"TASK-102-era `{TASK_102_ERA_COMMIT}`" in contract_text
-        assert (
-            f"The TASK-198-era `{TASK_198_AUTHORITATIVE_COMMIT}` installation, "
-            f"the TASK-102-era `{TASK_102_ERA_COMMIT}` installation, and every "
-            "older installation are stale"
-            in contract_normalized
-        )
-        assert IMMEDIATE_PREDECESSOR_COMMIT in contract_text
-        assert OLDER_STALE_AUTHORITATIVE_COMMIT in contract_text
-        assert LEGACY_PREDECESSOR_COMMIT in contract_text
-
     def test_continue_docs_leave_state_and_executor_required_to_pinned_kernel(self):
-        for path in (SKILL_FILE, WORKFLOW_FILE, DOCS_FILE, CONTRACT_FILE):
+        for path in (SKILL_FILE, WORKFLOW_FILE, DOCS_FILE):
             text = path.read_text(encoding="utf-8")
             assert "CONTINUE TASK-N" in text
             assert "STATUS TASK-N" in text
@@ -1400,6 +1386,10 @@ class TestSurfaceAndDocumentation:
             assert "TASK-093" in text
             assert "TASK-100" in text
             assert "TASK-102" in text
+            assert "TASK-114" in text
+            assert "TASK-115" in text
+            assert "TASK-116" in text
+            assert "without activating repository bindings" in text
             assert "no synchronization engine" in text
             assert "no new Human-facing Executor selection" in text
             assert "Result.changed_files" in text
@@ -1421,32 +1411,15 @@ class TestSurfaceAndDocumentation:
             assert "wakeup" in text
             assert "recover-primary" in text
 
-    def test_contract_defines_fail_closed_three_action_repair_semantics(self):
+    def test_suspended_contract_does_not_recreate_retired_repair_semantics(self):
         text = CONTRACT_FILE.read_text(encoding="utf-8")
-        normalized = " ".join(text.split())
-
-        assert "1. **NO_CHANGE**" in text
-        assert "eligible completed, unchanged candidate" in normalized
-        assert "requires zero repository mutation" in normalized
-        assert "2. **CODE_FIX**" in text
-        assert "established a concrete product/code defect" in normalized
-        assert "3. **CONTINUE_IMPLEMENTATION**" in text
-        assert "admitted, repairable, pre-verification failed RUN" in normalized
-        assert "original implementation is unfinished" in normalized
-        assert "no product/code defect is asserted or established" in normalized
-        assert "remaining authorized work requires repository mutation" in normalized
-        assert "external/Human non-defect prerequisite changed" in normalized
-        assert "exact failed RUN, TASK revision, `failed_head_sha`, and root lineage" in normalized
-        assert "non-empty explicit modification scope" in normalized
-        assert "one explicit Executor" in normalized
-        assert "one separately authorized continuation" in normalized
-        assert "never an automatic retry, fresh PRIMARY, fallback, reroute" in normalized
-        assert "Runtime nor a worker may probe the prerequisite" in normalized
-        assert "4. **RUNTIME_OR_LINEAGE_DEFECT**" in text
-        assert "when none of `NO_CHANGE`, `CODE_FIX`, or `CONTINUE_IMPLEMENTATION` is safe" in normalized
+        assert "NO_CHANGE" not in text
+        assert "CODE_FIX" not in text
+        assert "CONTINUE_IMPLEMENTATION" not in text
+        assert "failed_head_sha" not in text
 
     def test_docs_record_task_088_boundary_without_claiming_downstream_adoption(self):
-        for path in (SKILL_FILE, WORKFLOW_FILE, DOCS_FILE, CONTRACT_FILE):
+        for path in (SKILL_FILE, WORKFLOW_FILE, DOCS_FILE):
             text = path.read_text(encoding="utf-8")
             normalized_text = " ".join(text.split())
             assert "TASK-088" in normalized_text
@@ -1470,7 +1443,7 @@ class TestSurfaceAndDocumentation:
 
         assert (
             "downstream AIOS-renew pin "
-            "`f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e` already present"
+            "`652b00b103dd50e2a550dd0ec0fe4063e69631b7` already present"
             in normalized
         )
         assert (

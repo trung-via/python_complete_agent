@@ -26,8 +26,8 @@ active_track:
   status: ACTIVE
 
 next:
-  id: AIOS_DOWNSTREAM_ADOPTION_POLICY_RECONCILIATION
-  title: AIOS downstream-adoption policy reconciliation
+  id: FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_1
+  title: Full AIOS control plane adoption phase 1 (authoring, PRIMARY, terminal-attention)
   status: NEXT
   completion_gate: >-
     Remains NEXT until canonical evidence marks it DONE or explicit Human intent
@@ -58,6 +58,13 @@ completed_milestones:
     title: Python Agent Product Contract
     status: DONE
     source_sha: 702e85e9e77a556f3716717ccaa186919b1a9dab
+  - task_id: TASK-204
+    track_id: AIOS_FULL_DOWNSTREAM_ADOPTION_AND_GOVERNANCE_REBUILD
+    milestone_id: AIOS_DOWNSTREAM_ADOPTION_POLICY_RECONCILIATION
+    title: AIOS downstream-adoption policy reconciliation
+    status: DONE
+    upstream_source_sha: 652b00b103dd50e2a550dd0ec0fe4063e69631b7
+    boundary: NO_PHASE_1_OR_PHASE_2_REPOSITORY_BINDING_ACTIVATED
 
 superseded_commitments:
   - id: CHATGPT_PROJECT_CONTRACT_RECONCILIATION
@@ -85,20 +92,34 @@ upstream_recovery:
     Emergency downstream recovery does not advance the Governance Foundation, complete
     a pending commitment, or grant Runtime authority to mutate this Brain-owned bookmark.
 
-upstream_migration:
-  status: ADOPTED_BY_PIN
+historical_upstream_migration:
+  status: SUPERSEDED_PIN_HISTORY
   blocking_current_track: false
   migration_kind: NON_PRODUCT_AIOS_MIGRATION
   migration_task: TASK-201
-  downstream_pin: f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e
+  historical_downstream_pin: f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e
+  runtime_authority: false
+  superseded_by: TASK-204
   roadmap_effect: >-
     Explicit non-product AIOS migration does not advance the Governance Foundation, complete
     a pending commitment, or grant Runtime authority to mutate this Brain-owned bookmark.
 
+adoption_policy_reconciliation:
+  status: DONE
+  blocking_current_track: false
+  migration_kind: NON_PRODUCT_AIOS_MIGRATION_AND_POLICY_RECONCILIATION
+  migration_task: TASK-204
+  downstream_pin: 652b00b103dd50e2a550dd0ec0fe4063e69631b7
+  upstream_provenance: [TASK-114, TASK-115, TASK-116]
+  closed_commitment: AIOS_DOWNSTREAM_ADOPTION_POLICY_RECONCILIATION
+  next_commitment: FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_1
+  repository_binding_activation: NONE
+  roadmap_effect: >-
+    Closes only the adoption-policy reconciliation and advances the planning bookmark
+    to Phase 1. It does not implement, activate, conform, review, or publish any Phase-1
+    or Phase-2 repository binding.
+
 pending_commitments:
-  - id: AIOS_DOWNSTREAM_ADOPTION_POLICY_RECONCILIATION
-    title: AIOS downstream-adoption policy reconciliation
-    status: NOT_DONE
   - id: FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_1
     title: Full AIOS control plane adoption phase 1 (authoring, PRIMARY, terminal-attention)
     status: NOT_DONE
