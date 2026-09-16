@@ -13,19 +13,19 @@ authority:
 
 downstream_pin:
   repository: https://github.com/trung-via/AIOS-renew.git
-  commit: 26097405343150dc1b55015b94720528afad50ed
+  commit: 91a177d5b96b2197a4d8223dbb727dda6201cb64
   policy: EXACT_REVIEWED_SOURCE_PUBLISHED_ONLY
   source_published: true
 
 upstream_audit:
-  checkpoint: 26097405343150dc1b55015b94720528afad50ed
-  through_authored_task: TASK-117
+  checkpoint: 91a177d5b96b2197a4d8223dbb727dda6201cb64
+  through_authored_task: TASK-118
   checkpoint_role: REVIEWED_SOURCE_PUBLISHED_PROVENANCE
   checkpoint_is_runtime_authority: false
-  review: REVIEW-117-001
+  review: REVIEW-118-001
   review_outcome: PRIMARY_PASS
   source_published: true
-  prior_planning_checkpoint: 652b00b103dd50e2a550dd0ec0fe4063e69631b7
+  prior_planning_checkpoint: 26097405343150dc1b55015b94720528afad50ed
   provenance:
     - task_id: TASK-114
       role: DOWNSTREAM_PORTABILITY_POLICY
@@ -38,6 +38,9 @@ upstream_audit:
       activates_repository_binding: false
     - task_id: TASK-117
       role: CARRIER_PORTABILITY_HARDENING
+      activates_repository_binding: false
+    - task_id: TASK-118
+      role: TERMINAL_ATTENTION_PORTABILITY_HARDENING
       activates_repository_binding: false
 
 classification_dimensions:
@@ -322,6 +325,18 @@ capability_families:
       TASK-117 carrier portability hardening across PRIMARY wakeup, REMEDIATION intent,
       REPAIR wakeup, and terminal-attention admission is consumed from the exact pin.
       Existing Phase-1 and Phase-2 repository bindings remain active and unchanged.
+
+  - id: TERMINAL_ATTENTION_PORTABILITY_HARDENING
+    upstream_tasks: [TASK-118]
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
+    consumption: PINNED_KERNEL_ONLY
+    source_published: true
+    review: REVIEW-118-001
+    boundary: >-
+      TASK-118 terminal-attention portability hardening for source-repository and exact-pin
+      downstream layouts is consumed from the exact pin. Existing terminal truth and all
+      Phase-1 and Phase-2 repository bindings remain active and unchanged.
 
 incident_lineage:
   run_id: RUN-197-001

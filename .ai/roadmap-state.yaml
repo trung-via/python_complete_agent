@@ -168,7 +168,7 @@ control_plane_adoption_phase_2:
     to full downstream conformance. It does not claim that conformance, rebuild the
     Project Contract, close Governance Foundation, or return to P7.
 
-prerequisite_pin_migration:
+historical_prerequisite_pin_migration:
   status: DONE
   blocking_current_track: false
   migration_kind: CARRIER_PORTABILITY_EXACT_PIN_MIGRATION
@@ -191,6 +191,37 @@ prerequisite_pin_migration:
     FULL_AIOS_DOWNSTREAM_CONFORMANCE, requiring fresh Brain revision bound to the new pin.
     It does not claim conformance completion, modify pending commitment ordering, or
     implement generic interruption semantics.
+
+prerequisite_pin_migration:
+  status: DONE
+  blocking_current_track: false
+  migration_kind: TERMINAL_ATTENTION_PORTABILITY_EXACT_PIN_MIGRATION
+  migration_task: TASK-209
+  downstream_pin: 91a177d5b96b2197a4d8223dbb727dda6201cb64
+  upstream_provenance:
+    task_id: TASK-118
+    review: REVIEW-118-001
+    source_sha: 91a177d5b96b2197a4d8223dbb727dda6201cb64
+  prior_pin: 26097405343150dc1b55015b94720528afad50ed
+  prior_migration_task: TASK-208
+  prerequisite_for: FULL_AIOS_DOWNSTREAM_CONFORMANCE
+  resume_target:
+    task_id: TASK-207
+    commitment_id: FULL_AIOS_DOWNSTREAM_CONFORMANCE
+    requires_fresh_brain_revision: true
+    supersedes_task_revision: 2
+  immutable_old_pin_lineage:
+    task_revision: TASK-207-REVISION-2
+    runs: [RUN-207-001, RUN-207-002]
+    repair: REPAIR-207-001
+    certification_authority_for_new_pin: false
+  repository_binding_activation: NONE
+  roadmap_effect: >-
+    Resolves the second bounded prerequisite pin migration by moving the sole active AIOS
+    runtime pin to 91a177d5b96b2197a4d8223dbb727dda6201cb64. Resume target remains TASK-207 /
+    FULL_AIOS_DOWNSTREAM_CONFORMANCE and requires a fresh Brain revision bound to the new pin.
+    It does not claim conformance completion, rewrite old-pin lineage, modify pending commitment
+    ordering, rebuild the Project Contract, close Governance Foundation, or return to P7.
 
 pending_commitments:
   - id: FULL_AIOS_DOWNSTREAM_CONFORMANCE
