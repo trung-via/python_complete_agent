@@ -22,10 +22,12 @@ TASK_192_SOURCE_SHA = "dcb7432abc58ed983e6c26d5456ace1423e49981"
 TASK_194_SOURCE_SHA = "e0d8998ee004fda80ca3fbc3de4eb0afb59160a5"
 TASK_196_SOURCE_SHA = "4f6d91858c93192f497342315c4650e30b0a2718"
 TASK_199_SOURCE_SHA = "702e85e9e77a556f3716717ccaa186919b1a9dab"
+TASK_210_SOURCE_SHA = "399ffe4d38d31f7882d22824ba9c27781b9a0974"
+TASK_211_SOURCE_SHA = "15cc092d0ea86cd9bce7baed0d32bc3575fa4b08"
 ACTIVE_TRACK_ID = "AIOS_FULL_DOWNSTREAM_ADOPTION_AND_GOVERNANCE_REBUILD"
-NEXT_MILESTONE_ID = "PROJECT_CONTRACT_REBUILD"
+NEXT_MILESTONE_ID = "GOVERNANCE_FOUNDATION_CLOSURE_AND_P7_RETURN"
+HISTORICAL_CONFORMANCE_NEXT_COMMITMENT = "PROJECT_CONTRACT_REBUILD"
 APPROVED_PENDING_SEQUENCE = [
-    "PROJECT_CONTRACT_REBUILD",
     "GOVERNANCE_FOUNDATION_CLOSURE_AND_P7_RETURN",
 ]
 
@@ -82,8 +84,12 @@ def test_roadmap_has_one_active_track_and_unique_next():
         "auto_advance_from_runtime_or_worker_state": False,
         "priority_change_owner": "HUMAN",
     }
-    assert state["product_checkpoint"]["task_id"] == "TASK-191"
-    assert state["product_checkpoint"]["status"] == "DONE"
+    assert state["product_checkpoint"] == {
+        "task_id": "TASK-191",
+        "milestone": "P7.1 Real-Evidence Winning Product Coverage Baseline",
+        "source_sha": "40da098b3b0dcf3d1994fc510dd55717b81a2f67",
+        "status": "DONE",
+    }
     assert state["active_track"]["id"] == ACTIVE_TRACK_ID
     assert state["active_track"]["status"] == "ACTIVE"
     assert values_for_key(state, "status").count("ACTIVE") == 1
@@ -203,6 +209,46 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
             "product roadmap to P7."
         ),
     }
+    assert completed["TASK-210"] == {
+        "task_id": "TASK-210",
+        "track_id": ACTIVE_TRACK_ID,
+        "milestone_id": "PROJECT_CONTRACT_REBUILD",
+        "title": "Project Contract v2",
+        "status": "DONE",
+        "run_id": "RUN-210-002",
+        "review": "REVIEW-210-001",
+        "review_outcome": "PRIMARY_PASS",
+        "source_sha": TASK_210_SOURCE_SHA,
+        "completion_basis": "EXACT_REVIEWED_CANDIDATE_PUBLISHED_TO_CANONICAL_MAIN",
+    }
+    assert completed["TASK-211"] == {
+        "task_id": "TASK-211",
+        "track_id": ACTIVE_TRACK_ID,
+        "milestone_id": "PYTHON_AGENT_PRODUCT_CONTRACT_V2",
+        "title": "Product Contract v2 — Intelligent Commerce",
+        "status": "DONE",
+        "run_id": "RUN-211-001",
+        "review": "REVIEW-211-001",
+        "review_outcome": "PRIMARY_PASS",
+        "source_sha": TASK_211_SOURCE_SHA,
+        "authority_status": "CURRENT_PRODUCT_CONTRACT",
+        "historical_predecessor": "TASK-199",
+    }
+    assert state["current_governance_authorities"]["product_contract"] == {
+        "document": "docs/PYTHON_AGENT_PRODUCT_CONTRACT.md",
+        "version": 2,
+        "title": "Product Contract v2 — Intelligent Commerce",
+        "task_id": "TASK-211",
+        "run_id": "RUN-211-001",
+        "review": "REVIEW-211-001",
+        "review_outcome": "PRIMARY_PASS",
+        "source_sha": TASK_211_SOURCE_SHA,
+        "authority_status": "CURRENT",
+        "historical_predecessor": {
+            "task_id": "TASK-199",
+            "status": "PRESERVED_COMPLETED_HISTORY",
+        },
+    }
 
     upstream = state["upstream_recovery"]
     assert upstream["status"] == "ADOPTED_BY_PIN"
@@ -310,7 +356,7 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
             "published_source": "EXACT_REVIEWED_CANDIDATE",
             "canonical_main_equals_reviewed_candidate": True,
         },
-        "next_commitment": NEXT_MILESTONE_ID,
+        "next_commitment": HISTORICAL_CONFORMANCE_NEXT_COMMITMENT,
         "roadmap_effect": (
             "On reviewed source publication, closes FULL_AIOS_DOWNSTREAM_CONFORMANCE "
             "and advances only the planning bookmark to PROJECT_CONTRACT_REBUILD. The "

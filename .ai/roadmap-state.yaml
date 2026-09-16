@@ -26,13 +26,13 @@ active_track:
   status: ACTIVE
 
 next:
-  id: PROJECT_CONTRACT_REBUILD
-  title: Project Contract rebuild from zero with full-text Human approval
+  id: GOVERNANCE_FOUNDATION_CLOSURE_AND_P7_RETURN
+  title: Governance Foundation closure and return to P7 product roadmap
   status: NEXT
   completion_gate: >-
-    Becomes the unique NEXT commitment only when the reviewed TASK-207 revision-3 source
-    candidate is safely published and canonical main equals that candidate. This bookmark
-    does not claim that a replacement Project Contract exists or has Human approval.
+    Remains pending until a separate Brain-authored task closes the Governance Foundation
+    and its exact reviewed source candidate is safely published to canonical main. This
+    bookmark neither closes that commitment nor selects post-P7.1 product work.
 
 completed_milestones:
   - task_id: TASK-192
@@ -102,6 +102,42 @@ completed_milestones:
       DONE is publication-gated and does not become effective from source candidacy,
       Runtime PASS, or Reviewer PASS alone. It does not rebuild or approve a Project
       Contract, close Governance Foundation, or return the product roadmap to P7.
+  - task_id: TASK-210
+    track_id: AIOS_FULL_DOWNSTREAM_ADOPTION_AND_GOVERNANCE_REBUILD
+    milestone_id: PROJECT_CONTRACT_REBUILD
+    title: Project Contract v2
+    status: DONE
+    run_id: RUN-210-002
+    review: REVIEW-210-001
+    review_outcome: PRIMARY_PASS
+    source_sha: 399ffe4d38d31f7882d22824ba9c27781b9a0974
+    completion_basis: EXACT_REVIEWED_CANDIDATE_PUBLISHED_TO_CANONICAL_MAIN
+  - task_id: TASK-211
+    track_id: AIOS_FULL_DOWNSTREAM_ADOPTION_AND_GOVERNANCE_REBUILD
+    milestone_id: PYTHON_AGENT_PRODUCT_CONTRACT_V2
+    title: Product Contract v2 — Intelligent Commerce
+    status: DONE
+    run_id: RUN-211-001
+    review: REVIEW-211-001
+    review_outcome: PRIMARY_PASS
+    source_sha: 15cc092d0ea86cd9bce7baed0d32bc3575fa4b08
+    authority_status: CURRENT_PRODUCT_CONTRACT
+    historical_predecessor: TASK-199
+
+current_governance_authorities:
+  product_contract:
+    document: docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    version: 2
+    title: Product Contract v2 — Intelligent Commerce
+    task_id: TASK-211
+    run_id: RUN-211-001
+    review: REVIEW-211-001
+    review_outcome: PRIMARY_PASS
+    source_sha: 15cc092d0ea86cd9bce7baed0d32bc3575fa4b08
+    authority_status: CURRENT
+    historical_predecessor:
+      task_id: TASK-199
+      status: PRESERVED_COMPLETED_HISTORY
 
 superseded_commitments:
   - id: CHATGPT_PROJECT_CONTRACT_RECONCILIATION
@@ -240,9 +276,6 @@ prerequisite_pin_migration:
     ordering, rebuild the Project Contract, close Governance Foundation, or return to P7.
 
 pending_commitments:
-  - id: PROJECT_CONTRACT_REBUILD
-    title: Project Contract rebuild from zero with full-text Human approval
-    status: NOT_DONE
   - id: GOVERNANCE_FOUNDATION_CLOSURE_AND_P7_RETURN
     title: Governance Foundation closure and return to P7 product roadmap
     status: NOT_DONE
