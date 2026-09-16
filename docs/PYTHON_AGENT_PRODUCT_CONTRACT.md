@@ -1,187 +1,651 @@
 # Python Agent Product Contract
 
-This Product Contract is the durable product WHAT for Python Agent. It translates the
-Manifesto's direction into product and domain invariants without copying its philosophy or
-creating implementation authority. It is subordinate to the Constitution and does not
-reinterpret constitutional roles, delegation validity, precedence, amendment, or enforcement.
+Status: DURABLE PRODUCT CONTRACT
+Scope: Durable product semantics for `trung-via/python_complete_agent`
 
-The four Governance Foundation layers remain distinct:
+This Product Contract defines WHAT Python Agent is as a Commerce Intelligence product.
 
-- **Manifesto = WHY:** enduring intelligence philosophy, values, refusals, and direction.
-- **Constitution = highest enforceable governance:** authority, delegation, mutation,
-  precedence, amendment, compliance, and enforcement law.
-- **Product Contract = WHAT:** the durable product and domain promises and architecture
-  boundaries established here.
-- **ChatGPT Project Contract = HOW:** Brain, repository, roadmap, task, execution, review,
-  publication, and pinned operating mechanics.
+It translates the Python Agent Manifesto into durable product and domain
+semantics while remaining subordinate to the Python Agent Constitution.
 
-This contract establishes durable invariants and promises. It does not become a second
-detailed authority for existing M2, M3, M4, P6, or P7 algorithms, schemas, task-local
-semantics, persistence mechanics, provider behavior, evidence acquisition, runtime or
-lifecycle mechanics, review, or publication. Those mechanics remain with their existing
-lower canonical owners unless an authorized product and ownership change says otherwise.
+It does not define engineering workflow, roadmap sequencing, execution,
+verification, review, publication, repository transport, provider mechanics,
+runtime orchestration, or implementation details.
 
-## PC1 PRODUCT_IDENTITY_SCOPE_AND_NORTH_STAR
+The Governance Foundation remains:
 
-Python Agent is the product. Product Intelligence is its current trustworthy, canonical
-foundation, and composable Commerce Intelligence is its long-term direction. The product's
-durable objective is to reduce decision-relevant uncertainty. It does not optimize for data
-volume, automation, scores, model usage, or autonomy as ends in themselves.
+- Manifesto = WHY.
+- Constitution = enforceable governance and authority.
+- Product Contract = WHAT.
+- Project Contract = HOW the Brain operates engineering work.
 
-Python Agent preserves a legible product chain from observation and evidence through
-knowledge state, hypothesis, intelligence, decision, action, outcome, and learning. Each
-layer has a distinct product purpose and no convenient implementation may collapse the
-chain into an opaque output.
+The purpose of this Contract is not to maximize rules.
 
-AIOS, models, providers, browsers, runtimes, executors, databases, deployment systems, and
-other tooling are subordinate substrates. Their selection or replacement does not grant
-product-architecture authority or alter product meaning by itself.
+Its purpose is to preserve the minimum durable product semantics required for
+Python Agent to become increasingly intelligent without losing evidence,
+uncertainty, decision quality, authority boundaries, causal honesty, or
+learnability.
 
-## PC2 OBSERVATION_EVIDENCE_UNCERTAINTY_AND_TIME
+Python Agent is not defined by any current model, provider, marketplace,
+database, browser, executor, workflow, scoring implementation, or AIOS version.
 
-Observation or Signal is what was detected; Evidence is an attributable observation carrying
-provenance and time. Product claims begin from such evidence, and the two conceptual layers
-remain distinct even when a current implementation stores them together.
+Those are replaceable substrates.
 
-Missing, stale, conflicting, ambiguous, unavailable, and time-sensitive states remain
-explicit at the product boundary. Absence does not silently become zero, false, or certain.
-Historically accurate evidence may become decisionally stale, and `SNAPSHOT_IS_NOT_TREND`:
-one observation at one time does not establish direction or momentum.
+---
 
-Observed, derived, inferred, estimated, modeled, and predicted claims remain distinguishable.
-`PREDICTION_IS_NOT_TRUTH` summarizes that a forward-looking output retains its claim type and
-uncertainty rather than acquiring factual authority through presentation, repetition, or
-model generation. This article establishes no replacement evidence schema.
+## PC1 — PRODUCT IDENTITY AND COMMERCE DECISION NORTH STAR
 
-## PC3 KNOWLEDGE_IDENTITY_PERSISTENCE_AND_TRUTH_BOUNDARIES
+Python Agent is a composable Commerce Intelligence system.
 
-`EVIDENCE_IS_NOT_KNOWLEDGE`: a Knowledge State interprets admitted evidence while remaining
-capable, in principle, of representing what is known, unknown, conflicting, ambiguous,
-unavailable, or stale. It must not erase those states merely to provide a convenient answer.
+Its durable purpose is to help an authorized decision-maker make better commerce
+decisions under uncertainty.
 
-Source evidence, source identity, canonical family or variant identity, catalog integrity,
-representation and rehydration, persistence, evidence profiles, and product truth are
-distinct responsibilities. `SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY`: a source listing,
-repeated observation, retrieval hit, or model agreement cannot silently establish canonical
-family or variant identity. `EVIDENCE_IS_NOT_PRODUCT_TRUTH`: preservation or accumulation of
-evidence cannot silently perform reconciliation into canonical product truth.
+The product therefore optimizes for decision quality and decision-relevant
+uncertainty reduction, not for maximum:
 
-Existing lower canonical authorities continue to own detailed identity, catalog, codec,
-persistence, evidence-profile, and truth-reconciliation mechanics. This contract neither
-redefines their schemas nor creates a parallel identity, persistence, or truth owner.
+- data volume;
+- model usage;
+- automation;
+- number of agents;
+- scores;
+- predictions;
+- recommendations;
+- actions;
+- or apparent confidence.
 
-## PC4 HYPOTHESIS_INTELLIGENCE_AND_DISCONFIRMATION
+More information is useful only when it can reasonably improve a material
+decision.
 
-`HYPOTHESIS_IS_NOT_TRUTH`: an opportunity, winner, trend, audience, creative, future-demand,
-or similar forward-looking interpretation is a falsifiable hypothesis unless separately
-admitted as another semantic type. A hypothesis may be supported, contradicted, remain
-unknown, or become stale.
+More automation is useful only when it performs authorized work with acceptable
+risk and preserves the intelligence and authority boundaries of the product.
 
-Intelligence must preserve material counter-evidence and evidence that could falsify or
-materially change a favored conclusion. It must not structurally reward confirmation-only
-reasoning. This invariant introduces no hypothesis store, intelligence engine, or new
-implementation authority.
+Commerce Intelligence is not a single score, model response, recommendation,
+ranking, dashboard, agent, or autonomous loop.
 
-At the product boundary, Intelligence is decision-relevant meaning developed from admitted
-evidence and knowledge, explicit hypotheses or interpretations where applicable, material
-alternatives, uncertainty, assumptions or policy and context, and the decision question being
-informed. `KNOWLEDGE_IS_NOT_INTELLIGENCE`: possession or organization of facts does not itself
-answer what matters for a decision. A fluent summary, score, prediction, or model output is
-not Intelligence merely because it was generated.
+It is decision-relevant meaning composed from evidence, knowledge, hypotheses,
+alternatives, uncertainty, objectives, constraints, risks, and context.
 
-## PC5 DISCOVERY_SCORING_RANKING_RECOMMENDATION_AND_APPROVAL
+Product Intelligence is an important canonical domain of Python Agent, but it is
+not the whole product.
 
-Discovery, scoring, ranking, prediction, recommendation, decision, approval, and admission
-remain separate product boundaries. Scores, confidence values, decision bands, shortlists,
-predictions, and recommendations are advisory instruments.
+Commerce Opportunity Intelligence, Product Intelligence, Media or Creative
+Intelligence, Distribution Intelligence, Commerce Operations Intelligence, and
+future justified domains may contribute to a broader Commerce Intelligence
+system through explicit semantic boundaries.
 
-`SCORE_IS_NOT_APPROVAL`: a metric or rank cannot acquire canonical approval, admission, or
-Human decision authority by implication. `RECOMMENDATION_IS_NOT_DECISION`: an advisory output
-may inform but cannot commit the authority that owns the decision. `INTELLIGENCE_IS_NOT_DECISION`:
-even well-grounded and auditable meaning remains advisory until the authorized boundary acts.
+No one domain acquires authority over another merely because its output is used
+in a broader decision.
 
-Current Human approval authorities remain intact. Any future delegated approval or action
-requires Constitution-compliant delegation and an explicit later domain authority; improved
-models, confidence, performance, or automation do not supply either requirement.
+`INTELLIGENCE_IS_DECISION_RELATIVE`:
 
-## PC6 RETRIEVAL_CONTEXT_GROUNDED_ANSWERS_AND_TRUTH
+An output cannot be considered strong Commerce Intelligence merely because it is
+accurate, detailed, or sophisticated.
 
-Retrieval relevance, business ranking, identity, grounded context, grounded-answer structure,
-semantic entailment, factual or product truth, and approval are distinct layers.
-`RETRIEVAL_IS_NOT_RANKING`: matching evidence to a query does not select the best business
-alternative. `CONTEXT_IS_NOT_TRUTH`: inclusion in a context window, citation, or structural
-grounding alone does not prove semantic entailment or objective factual correctness.
+Its relevance depends on the decision being informed.
 
-A grounded answer may expose insufficient, stale, ambiguous, or conflicting evidence rather
-than manufacture resolution. Model output remains advisory and must never silently mutate
-canonical evidence, identity, product truth, approval, decision, or action. Existing lower
-owners retain detailed retrieval, context construction, answer-contract, and reconciliation
-mechanics.
+The same evidence may support different conclusions under different objectives,
+constraints, markets, channels, time horizons, economics, or risk tolerances.
 
-## PC7 DECISION_QUALITY_VALUE_OF_INFORMATION_AND_CALIBRATION
+There is therefore no universal commerce winner independent of decision context.
 
-Decision quality is judged ex ante against the evidence, material alternatives, uncertainty,
-assumptions, trade-offs, and reasoning available at decision time. Intelligence preserves
-material alternatives and sensitivity to changed assumptions where they could change the
-decision. Metric or score maximization, confidence, benchmark results, and later outcomes are
-not substitutes for decision quality.
+---
 
-Value-of-Information is a durable product boundary, not a prescribed formula. Missing data or
-technical collectability alone does not authorize enrichment. Deeper or more expensive
-evidence acquisition must be justified by expected decision value relative to cost, latency,
-access risk, fragility, and opportunity cost. `MEASUREMENT_IS_NOT_AUTHORITY`: measurement may
-identify uncertainty or evidence quality, but it does not automatically choose a collector,
-roadmap item, threshold, winner, enrichment, or approval.
+## PC2 — EVIDENCE, KNOWLEDGE, UNCERTAINTY, AND TIME
 
-Important intelligence retains inspectable evidence and provenance, uncertainty, assumptions
-or policy and context, and its reasoning boundaries. Deterministic claims remain reproducible
-from explicit inputs, policy, and time. `CONFIDENCE_IS_NOT_CERTAINTY`: probabilistic confidence
-is a claim whose semantics must be inspectable and which remains eligible for calibration
-against later outcomes. This promise requires no particular confidence or calibration formula.
+Commerce Intelligence begins from attributable observations and evidence.
 
-## PC8 AUTHORIZED_ACTION_OUTCOME_LEARNING_AND_BOUNDED_AUTOMATION
+Observation, Evidence, Knowledge, and Product Truth remain distinct semantic
+layers.
 
-Intelligence and Recommendation remain advisory until an authorized Human or legitimately
-delegated decision boundary commits to a decision. Action executes only an authorized decision
-within its scope. `AUTOMATION_IS_NOT_INTELLIGENCE`: execution speed or mechanization does not
-create meaning, mandate, approval, action authority, or canonical mutation authority, and
-automation cannot invent or widen its own mandate.
+An observation is what was detected.
 
-Outcome is what follows an action and becomes new attributable evidence. `OUTCOME_IS_NOT_RETROACTIVE_PROOF`:
-an outcome does not retrospectively prove or disprove the prior decision process, hypothesis,
-recommendation, score, or methodology.
+Evidence is an attributable observation carrying enough provenance and temporal
+context to understand what was observed, where it came from, and when it was
+observed.
 
-Learning may update hypotheses, policy, calibration, future intelligence, and future decisions
-while preserving the historical evidence, assumptions, decision context, action, and outcome
-that existed at the time. It appends accountable change and must not rewrite history.
+`EVIDENCE_IS_NOT_KNOWLEDGE`.
 
-## PC9 COMPOSABLE_COMMERCE_INTELLIGENCE_AND_SUBSTRATE_NEUTRALITY
+Evidence does not become knowledge merely because it is stored, retrieved,
+repeated, summarized, or agreed with by a model.
 
-Product Intelligence remains the canonical foundation over which future Media Intelligence,
-Distribution Intelligence, and Commerce Operations Intelligence may compose. Each addition
-requires an explicit owner and interface and must preserve the authority and semantics of the
-canonical inputs it consumes.
+Knowledge is an interpreted state capable of representing what is:
 
-Composition may return downstream actions and outcomes as new attributable observations or
-evidence only through admitted feedback paths. Feedback must not directly overwrite prior
-evidence history, canonical identity, product truth, ranking, approval, or decision authority,
-and it cannot create shadow upstream authority.
+- known;
+- unknown;
+- conflicting;
+- ambiguous;
+- unavailable;
+- stale;
+- or dependent on assumptions.
 
-Product semantics are substrate-neutral. Replacing a provider, model, browser, database,
-runtime, executor, transport, or deployment path does not by itself change those semantics,
-transfer ownership, or admit a new capability.
+Knowledge must not erase uncertainty merely to provide a cleaner answer.
 
-## PC10 CAPABILITY_HONESTY_EVOLUTION_AND_NON_CLAIMS
+`EVIDENCE_IS_NOT_PRODUCT_TRUTH`.
 
-Implemented, published, certified, measured, proposed, deferred, blocked, experimental, and
-aspirational states are not interchangeable. `CERTIFICATION_IS_BOUNDED`: evidence about one
-cohort, marketplace, listing, provider, model, or runtime path must not be generalized into a
-universal capability, quality, safety, or performance claim.
+Accumulating evidence does not silently reconcile it into canonical product
+truth.
 
-New product semantics require an explicit owner and an authorized product change. Deferred
-capabilities remain unimplemented until separately admitted. This contract therefore does not
-claim present implementation of Media Intelligence, Distribution Intelligence, Commerce
-Operations Intelligence, broad cross-platform coverage, autonomous or closed-loop
-optimization, semantic or vector retrieval, automated review, background serving, or any
-other proposed or aspirational capability.
+`SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY`.
 
+A source listing, provider identifier, marketplace URL, retrieval hit, repeated
+observation, or model agreement does not by itself establish canonical commerce
+identity.
+
+Detailed evidence, identity, persistence, catalog, reconciliation, and truth
+mechanics remain with their canonical domain authorities.
+
+This Product Contract establishes only the durable semantic boundaries between
+them.
+
+Time is a first-class part of commerce meaning.
+
+A fact may be historically correct and still be decisionally stale.
+
+Freshness must be understood relative to the decision and its time horizon.
+
+`SNAPSHOT_IS_NOT_TREND`.
+
+One observation does not establish momentum, trajectory, seasonality, or durable
+market change.
+
+Trend claims require evidence that can support change over time.
+
+Observed, derived, inferred, estimated, modeled, forecast, and predicted claims
+must remain distinguishable.
+
+`PREDICTION_IS_NOT_TRUTH`.
+
+A prediction remains a forward-looking claim with uncertainty.
+
+Presentation quality, model sophistication, confidence, repetition, or later
+agreement does not transform it into observed fact.
+
+---
+
+## PC3 — HYPOTHESIS, OPPORTUNITY, PREDICTION, AND CAUSALITY
+
+Commerce opportunities are interpretations, not intrinsic facts of the world.
+
+`HYPOTHESIS_IS_NOT_TRUTH`.
+
+Claims such as:
+
+- winning product;
+- promising niche;
+- rising trend;
+- high-potential audience;
+- strong creative;
+- channel opportunity;
+- future demand;
+- likely winner;
+- expected commercial upside;
+
+are hypotheses or decision interpretations unless separately established as
+another semantic type.
+
+A hypothesis may be:
+
+supported,
+contradicted,
+still uncertain,
+made less relevant,
+or become stale.
+
+Strong Intelligence actively preserves evidence capable of changing or
+disconfirming a favored conclusion.
+
+It must not structurally reward confirmation-only reasoning.
+
+`OPPORTUNITY_IS_CONTEXTUAL`.
+
+A commerce opportunity depends on relevant context such as market, audience,
+channel, price, economics, competition, inventory, operational constraints,
+timing, risk, objective, and available evidence.
+
+A product that is attractive for one decision may be unattractive for another.
+
+`RANKING_IS_CONTEXTUAL`.
+
+A ranking is meaningful only relative to an explicit or legitimately implied
+decision context.
+
+No ranking becomes a universal ordering of commercial value by presentation
+alone.
+
+Commerce Intelligence must also preserve causal honesty.
+
+Observation is not causal attribution.
+
+Correlation is not causation.
+
+An event occurring after an action does not establish that the action caused the
+event.
+
+Model explanation is not causal evidence.
+
+`CORRELATION_IS_NOT_CAUSATION`.
+
+A causal claim must remain distinguishable from:
+
+- description;
+- association;
+- prediction;
+- causal hypothesis;
+- causal estimate;
+- experimentally supported effect.
+
+The strength of a causal conclusion must not exceed the evidence available for
+that conclusion.
+
+Counterfactual questions such as "what would have happened otherwise?" remain
+uncertain unless evidence and methodology justify an estimate.
+
+The Product Contract does not prescribe one causal methodology.
+
+It requires only that Python Agent not silently present association,
+post-hoc explanation, or outcome sequence as causal truth.
+
+---
+
+## PC4 — DECISION-READY INTELLIGENCE
+
+`KNOWLEDGE_IS_NOT_INTELLIGENCE`.
+
+Possessing or organizing facts does not itself answer what matters for a commerce
+decision.
+
+Commerce Intelligence is decision-relevant meaning developed from the available
+knowledge state and the decision context.
+
+A decision-ready intelligence process should be capable, where material, of
+reasoning about:
+
+the decision question;
+the objective;
+material constraints;
+time horizon;
+available alternatives;
+relevant evidence;
+important unknowns;
+assumptions;
+counter-evidence;
+trade-offs;
+risks and downside;
+expected outcomes;
+and what additional evidence could materially change the conclusion.
+
+This is a semantic requirement, not a mandatory storage schema or output format.
+
+Different interfaces may express these elements differently.
+
+`SCORE_IS_NOT_INTELLIGENCE`.
+
+A score can summarize signals but cannot by itself represent a complete commerce
+judgment.
+
+`RECOMMENDATION_IS_NOT_DECISION`.
+
+A recommendation informs an owning decision authority but does not commit that
+authority by implication.
+
+`INTELLIGENCE_IS_NOT_DECISION`.
+
+Even high-quality, grounded, well-calibrated Commerce Intelligence remains
+advisory until the legitimate decision boundary acts.
+
+A strong recommendation should remain inspectable enough to answer:
+
+Why does this recommendation currently make sense?
+
+What evidence supports it?
+
+What important evidence argues against it?
+
+Which assumptions materially influence it?
+
+What uncertainty remains?
+
+What change in evidence or context could change the recommendation?
+
+Python Agent should preserve meaningful alternatives when they could change the
+decision.
+
+The product must not manufacture a single apparent answer merely because one
+output is easier to present.
+
+Decision quality is judged against the information, alternatives, uncertainty,
+constraints, and reasoning available at decision time.
+
+Later outcomes do not retroactively redefine whether the prior decision process
+was well-grounded.
+
+---
+
+## PC5 — VALUE OF INFORMATION, MEASUREMENT, AND CALIBRATION
+
+More data is not automatically more Intelligence.
+
+`MORE_DATA_IS_NOT_MORE_INTELLIGENCE`.
+
+Evidence acquisition has value when it can reasonably improve a material
+decision enough to justify its total cost.
+
+Value-of-Information is a durable product principle.
+
+It does not require one universal formula.
+
+When material, deeper evidence acquisition should be considered relative to:
+
+expected decision impact;
+uncertainty reduction;
+cost;
+latency;
+access risk;
+fragility;
+reliability;
+opportunity cost;
+and decision deadline.
+
+The technical ability to collect data is not by itself a reason to collect it.
+
+A missing field is not by itself an authorization to build an enrichment path.
+
+Intelligent evidence acquisition includes the ability to stop.
+
+If additional evidence is unlikely to change a material decision enough to
+justify its cost or delay, continuing acquisition may reduce rather than increase
+decision quality.
+
+`MEASUREMENT_IS_NOT_AUTHORITY`.
+
+Measurement may reveal:
+
+coverage,
+quality,
+uncertainty,
+error,
+performance,
+calibration,
+latency,
+or other properties.
+
+Measurement does not automatically select:
+
+the next feature;
+the next collector;
+the next roadmap item;
+the preferred architecture;
+the winning product;
+or the decision.
+
+Metrics are evidence for judgment, not replacement judgment.
+
+`CONFIDENCE_IS_NOT_CERTAINTY`.
+
+Confidence is itself a claim.
+
+Its meaning must be inspectable enough to understand what the confidence refers
+to and what it does not prove.
+
+Where probabilistic claims are exposed, they should remain eligible for
+calibration against later evidence or outcomes.
+
+`EXPECTED_VALUE_IS_NOT_GUARANTEE`.
+
+Expected value, upside, probability, forecast, or modeled return remains a
+decision instrument under uncertainty.
+
+It does not become a promised outcome.
+
+---
+
+## PC6 — COMPOSABLE DOMAIN INTELLIGENCE AND COMMERCE INTELLIGENCE
+
+Python Agent evolves through composable intelligence domains rather than through
+one opaque general-purpose commerce agent.
+
+A domain intelligence capability owns one coherent semantic responsibility.
+
+Examples may include:
+
+Commerce Opportunity Intelligence;
+Product Intelligence;
+Media or Creative Intelligence;
+Distribution Intelligence;
+Commerce Operations Intelligence;
+and future domains justified by real product need.
+
+These examples describe an architectural direction, not claims that every domain
+is currently implemented.
+
+Each admitted domain must preserve the semantics and authority of the canonical
+inputs it consumes.
+
+Composition does not erase provenance or uncertainty.
+
+Composition does not convert one domain's score into another domain's truth.
+
+Composition does not allow one domain to silently mutate another domain's
+canonical state.
+
+`DOMAIN_SCORE_IS_NOT_COMMERCE_DECISION`.
+
+A Product score, Creative score, Channel score, Opportunity score, Operations
+score, or any future domain metric does not become a global commerce decision by
+simple aggregation.
+
+Cross-domain Commerce Intelligence must preserve the meaning, uncertainty,
+trade-offs, and limitations of its contributing domains.
+
+A composed decision may legitimately prefer different alternatives depending on
+the objective.
+
+For example, the alternative that maximizes expected revenue may differ from the
+alternative that maximizes contribution margin, minimizes working-capital risk,
+protects brand quality, improves learning value, or limits operational exposure.
+
+The product must therefore avoid treating one implicit metric as the universal
+commerce objective.
+
+Composition may produce new derived intelligence.
+
+It must not create shadow evidence, identity, truth, approval, decision, or
+authority merely because information from multiple domains is combined.
+
+Domain boundaries may evolve, but semantic ownership must remain explicit under
+the Constitution.
+
+The long-term goal is not a maximum number of intelligence modules.
+
+The goal is the minimum set of coherent intelligence capabilities that materially
+improves commerce decisions.
+
+---
+
+## PC7 — AUTHORIZED ACTION, OUTCOME, ATTRIBUTION, AND LEARNING
+
+Commerce Intelligence informs decisions.
+
+Decisions authorize actions through the legitimate authority that owns the
+decision.
+
+`AUTOMATION_IS_NOT_INTELLIGENCE`.
+
+The ability to execute quickly or automatically does not create better judgment,
+new mandate, approval, decision authority, or product truth.
+
+Automation remains subordinate to Intelligence and legitimate authority.
+
+An action changes the world being observed.
+
+This matters for learning.
+
+After Python Agent or an authorized operator changes:
+
+traffic,
+price,
+creative,
+channel allocation,
+inventory,
+promotion,
+budget,
+campaign policy,
+or another commerce variable,
+
+later evidence may partly reflect that intervention.
+
+`ACTION_CHANGES_EVIDENCE`.
+
+Post-action observations must therefore remain interpretable in the context of
+the action and policy that helped produce them.
+
+`OUTCOME_IS_NOT_ATTRIBUTION`.
+
+An observed outcome after an action does not by itself establish that the action
+caused the outcome.
+
+`OUTCOME_IS_NOT_RETROACTIVE_PROOF`.
+
+A favorable outcome does not prove the prior hypothesis, recommendation,
+ranking, model, or decision process was correct.
+
+An unfavorable outcome does not automatically prove it was wrong.
+
+Commerce learning should preserve enough historical context to distinguish:
+
+what was known;
+what was assumed;
+what was decided;
+what action occurred;
+what outcome followed;
+and what new evidence became available.
+
+Learning may update future:
+
+knowledge;
+hypotheses;
+calibration;
+policies;
+intelligence;
+and recommendations.
+
+Learning appends accountable change.
+
+It does not rewrite historical evidence or reconstruct prior decisions as if
+later knowledge had been available earlier.
+
+Closed-loop systems must guard against self-confirming feedback.
+
+If the system preferentially exposes, promotes, selects, or invests in one
+alternative, increased observations of that alternative must not automatically
+be interpreted as independent evidence that the original preference was correct.
+
+Exploration, intervention, exposure, and policy effects remain relevant to the
+meaning of subsequent evidence.
+
+`LEARNING_IS_NOT_SELF_AUTHORIZATION`.
+
+Learning something new does not authorize Python Agent to widen its mandate,
+change an owning authority, alter governance, or take actions beyond legitimate
+delegation.
+
+---
+
+## PC8 — CAPABILITY HONESTY, SUBSTRATE NEUTRALITY, AND PRODUCT EVOLUTION
+
+Python Agent must distinguish what exists from what is merely possible.
+
+Implemented,
+published,
+reviewed,
+certified,
+measured,
+observed,
+proposed,
+experimental,
+deferred,
+blocked,
+and aspirational
+
+are different product states.
+
+They must not be presented as interchangeable.
+
+`CERTIFICATION_IS_BOUNDED`.
+
+Evidence from one marketplace, cohort, provider, model, geography, account,
+workflow, listing type, runtime environment, or time period does not silently
+establish universal capability or quality.
+
+Generalization requires evidence appropriate to the claim being generalized.
+
+Current implementation does not define permanent product semantics.
+
+Python Agent remains substrate-neutral.
+
+Replacing an AI model, provider, browser, database, executor, runtime,
+transport, workflow, or AIOS version does not by itself change product meaning.
+
+A new substrate may improve capability, cost, reliability, or performance.
+
+It does not automatically create new product authority or semantics.
+
+Likewise, the existence of a new technical capability does not require Python
+Agent to use it.
+
+Product evolution should be driven by demonstrated decision value, material
+uncertainty, observed constraints, legitimate Human intent, or other canonical
+product need.
+
+Not every possible capability deserves implementation.
+
+New durable product semantics require an explicit semantic owner and an
+authorized product change.
+
+Detailed algorithms, schemas, thresholds, score weights, databases, collectors,
+marketplace adapters, provider behavior, persistence mechanics, retrieval
+implementation, causal methodology, model prompts, and runtime mechanisms remain
+below this Product Contract unless their identity itself becomes a durable
+product requirement.
+
+This Contract must not become a second detailed authority for current or future
+domain implementations.
+
+---
+
+## Canonical Product Principle
+
+Python Agent exists to improve commerce decisions under uncertainty.
+
+Evidence should become knowledge without becoming fabricated certainty.
+
+Knowledge should become Intelligence only when it is relevant to a decision.
+
+Intelligence should preserve alternatives, uncertainty, assumptions,
+counter-evidence, trade-offs, and context when they matter.
+
+Predictions should remain predictions.
+
+Hypotheses should remain falsifiable.
+
+Correlation should not masquerade as causation.
+
+Scores should remain instruments.
+
+Recommendations should remain advisory.
+
+Domain intelligence should compose without collapsing semantic ownership.
+
+Evidence acquisition should stop when additional information is not worth its
+decision value.
+
+Actions should remain authorized.
+
+Outcomes should become evidence without becoming automatic attribution.
+
+Learning should improve future judgment without rewriting history or expanding
+its own authority.
+
+The product should become more intelligent by making better distinctions,
+better judgments, and better decisions possible — not merely by collecting more
+data, producing more scores, calling larger models, or automating more actions.
