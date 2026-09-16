@@ -1,0 +1,161 @@
+task_id: TASK-213
+revision: 1
+
+goal: >
+  Close the Python Agent Governance Foundation track after the exact reviewed and published
+  Manifesto, Constitution, Product Contract v2, durable Project Contract v2, full downstream
+  AIOS conformance, and TASK-212 roadmap reconciliation are all present on canonical main.
+  Record the completed governance/adoption track with exact provenance, remove its final
+  pending commitment, and hand planning authority back to the existing P7 product roadmap
+  without inventing or selecting a post-P7.1 implementation commitment.
+
+problem: >
+  Canonical roadmap state now has one remaining NOT_DONE commitment,
+  GOVERNANCE_FOUNDATION_CLOSURE_AND_P7_RETURN, after TASK-212 correctly reconciled TASK-210
+  Project Contract v2 and TASK-211 Product Contract v2. The Governance Foundation documents
+  and adopted AIOS control-plane/conformance state already exist as reviewed canonical
+  authorities, while TASK-191 remains the completed P7.1 product checkpoint. A bounded
+  publication-gated closure is required so later product planning does not treat governance
+  rebuild work as still active or fabricate the next product improvement before the separate
+  Brain/Human post-P7.1 interpretation required by the product roadmap.
+
+assumptions:
+  - >
+    Canonical python_complete_agent main at authoring is
+    0205688d7bf8725cf096c06de5c26055919b0340, the published TASK-212 roadmap reconciliation
+    candidate.
+  - >
+    TASK-212 / RUN-212-001 has a canonical review-decision ref and its exact implementation
+    candidate is published on main; it records TASK-210 and TASK-211 completion provenance
+    and advances the unique NEXT to GOVERNANCE_FOUNDATION_CLOSURE_AND_P7_RETURN.
+  - >
+    Current Governance Foundation authorities are docs/PYTHON_AGENT_MANIFESTO.md,
+    docs/PYTHON_AGENT_CONSTITUTION.md, docs/PYTHON_AGENT_PRODUCT_CONTRACT.md version 2, and
+    docs/CHATGPT_PROJECT_CONTRACT.md version 2. This task closes their current foundation
+    milestone; it does not amend their semantics.
+  - >
+    Full downstream AIOS conformance is already DONE through TASK-207 revision 3, while the
+    sole active AIOS-renew dependency remains exact pin
+    91a177d5b96b2197a4d8223dbb727dda6201cb64. Mutable upstream AIOS-renew main is not
+    downstream authority and later upstream TASK-119/TASK-120 changes are not silently adopted.
+  - >
+    TASK-191 remains the completed P7.1 Real-Evidence Winning Product Coverage Baseline at
+    source SHA 40da098b3b0dcf3d1994fc510dd55717b81a2f67. Its canonical roadmap contract leaves
+    post-baseline improvement selection to separate Brain/Human interpretation after publication.
+  - >
+    The previously deferred D3 cross-chat interruption/resume audit does not establish a
+    missing roadmap persistence mechanism: current Project Contract and roadmap-state already
+    require reconstruction from canonical state, and TASK-212 demonstrates that durable planning
+    bookmark reconciliation is functioning. Separate transport observability or Brain-procedure
+    hardening, if later justified, is not Governance Foundation closure authority.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - .ai/aios-adoption-state.yaml
+    - .ai/aios-conformance-state.yaml
+    - .ai/tasks/TASK-191.yaml
+    - .ai/tasks/TASK-207.yaml
+    - .ai/tasks/TASK-210.yaml
+    - .ai/tasks/TASK-211.yaml
+    - .ai/tasks/TASK-212.yaml
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - Amend, rewrite, reinterpret, or reformat any Governance Foundation document.
+  - Modify AIOS adoption/conformance state, the exact AIOS dependency pin, workers, workflows,
+    Runtime, Reviewer, Publisher, transport, or upstream AIOS-renew.
+  - Adopt upstream TASK-119 or TASK-120 downstream or claim their behavior is active at the
+    current downstream pin.
+  - Select, design, author, or implement a P7.2 or other post-P7.1 product capability.
+  - Reopen P6.2, P6.4-P6.6, historical blocked certification lineage, TASK-210, TASK-211, or TASK-212.
+  - Turn roadmap state into engineering truth or give Runtime/worker automatic planning authority.
+  - Treat D3 transport/Brain-procedure observations as authority to add a planner, lifecycle router,
+    daemon, memory service, retry mechanism, or duplicate persistence authority.
+  - Push, publish, merge, or mutate canonical main from Executor implementation execution.
+
+constraints:
+  hard:
+    - >
+      Preserve roadmap authority exactly: owner BRAIN, purpose CROSS_CHAT_PLANNING_BOOKMARK,
+      engineering_truth false, auto_advance_from_runtime_or_worker_state false, and
+      priority_change_owner HUMAN.
+    - >
+      Mark AIOS_FULL_DOWNSTREAM_ADOPTION_AND_GOVERNANCE_REBUILD complete only from exact
+      canonical completion evidence already recorded for its milestones; do not reinterpret
+      Runtime PASS, Reviewer PASS, or planning state alone as publication.
+    - >
+      Record GOVERNANCE_FOUNDATION_CLOSURE_AND_P7_RETURN as DONE with TASK-213 completion
+      provenance in the planning structure while removing it from pending_commitments.
+    - >
+      After closure there must be no fabricated global product NEXT. Preserve TASK-191 as the
+      exact completed product checkpoint and represent the handoff to post-P7.1 Brain/Human
+      interpretation without selecting a collector, enrichment, ranking, threshold, retrieval,
+      intelligence domain, provider, or implementation direction.
+    - >
+      Preserve all historical completed milestone provenance, TASK-199 historical Product
+      Contract lineage, TASK-210/TASK-211 current governance provenance, TASK-204 through
+      TASK-209 adoption/conformance history, and historical transition fields unchanged except
+      for the minimum current-track closure state required by this task.
+    - >
+      Preserve the exact downstream AIOS pin 91a177d5b96b2197a4d8223dbb727dda6201cb64
+      and make no claim that mutable upstream main or TASK-119/TASK-120 is downstream-active.
+    - >
+      Extend focused deterministic governance-state regression to prove: no ACTIVE governance
+      rebuild track remains after closure; no NOT_DONE governance commitment remains; no
+      fabricated post-P7.1 NEXT exists; TASK-191 checkpoint is unchanged; roadmap remains
+      Brain/Human-owned planning state; and exact AIOS pin/adoption/conformance provenance is
+      unchanged.
+    - >
+      Only .ai/roadmap-state.yaml and tests/aios_bridge/test_aios_governance_state.py may change.
+      Any need to alter governance documents, product roadmaps, adoption/conformance state,
+      dependency pin, historical artifacts, workflows, workers, or production source fails
+      closed for fresh Brain review.
+    - >
+      Verification is deterministic, offline, non-interactive, and independent of network,
+      GitHub, marketplace/browser/CDP, providers/LLMs, Drive, wall clock, random/UUID, secrets,
+      or mutable external state.
+    - Do not push from Executor implementation execution.
+
+acceptance:
+  - id: AC1
+    condition: >
+      The Governance Foundation/adoption rebuild track is recorded complete from exact canonical
+      provenance while roadmap authority remains Brain-owned planning state and no Runtime/worker
+      auto-advance authority is introduced.
+  - id: AC2
+    condition: >
+      GOVERNANCE_FOUNDATION_CLOSURE_AND_P7_RETURN is recorded DONE with TASK-213 provenance and
+      no NOT_DONE governance pending commitment remains.
+  - id: AC3
+    condition: >
+      TASK-191 P7.1 checkpoint remains exactly unchanged and the resulting roadmap contains no
+      fabricated post-P7.1 implementation NEXT, preserving separate Brain/Human interpretation.
+  - id: AC4
+    condition: >
+      Current Manifesto, Constitution, Product Contract v2, Project Contract v2, TASK-210/TASK-211
+      provenance, historical TASK-199 lineage, and TASK-204 through TASK-209 AIOS adoption/
+      conformance history remain semantically and structurally unchanged.
+  - id: AC5
+    condition: >
+      Exact downstream AIOS pin remains 91a177d5b96b2197a4d8223dbb727dda6201cb64 and the closure
+      makes no claim that later mutable upstream AIOS changes are downstream-active.
+  - id: AC6
+    condition: >
+      Only the two authorized files change and focused deterministic roadmap/governance regression
+      plus git diff --check pass with zero unresolved items.
+
+verification:
+  required:
+    - 'python -m pytest tests/aios_bridge/test_aios_governance_state.py -q'
+    - 'git diff --check'
