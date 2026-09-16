@@ -7,6 +7,7 @@ lifecycle.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -21,9 +22,98 @@ _MAX_IDENTIFIER_LENGTH = 256
 _MAX_REFERENCE_LENGTH = 512
 _MAX_TEXT_LENGTH = 4096
 
+_FORBIDDEN_PUBLIC_STRING_PATTERNS = (
+    (
+        "object representation",
+        re.compile(r"<[^>\r\n]*\bobject\s+at\s+0x[0-9a-f]+>", re.IGNORECASE),
+    ),
+    ("memory address", re.compile(r"\b0x[0-9a-f]{6,}\b", re.IGNORECASE)),
+    (
+        "secret material",
+        re.compile(
+            r"(?:"
+            r"-----BEGIN\s+(?:[A-Z]+\s+)*PRIVATE KEY-----"
+            r"|\bAKIA[0-9A-Z]{16}\b"
+            r"|\bsk-[A-Za-z0-9_-]{12,}\b"
+            r"|\bBearer\s+[A-Za-z0-9._~+/-]+=*"
+            r"|[\"']?(?:api[-_ ]?key|access[-_ ]?token|refresh[-_ ]?token|"
+            r"client[-_ ]?secret|password|passwd|authorization|secret)"
+            r"[\"']?\s*[:=]\s*[\"']?\S+"
+            r")",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "cookie or session data",
+        re.compile(
+            r"(?:"
+            r"\b(?:set-cookie|cookie)\s*:\s*\S+"
+            r"|[\"']?(?:session(?:id|_id|token)?|phpsessid|jsessionid|"
+            r"__Host-[A-Za-z0-9_-]+|__Secure-[A-Za-z0-9_-]+)"
+            r"[\"']?\s*[:=]\s*[\"']?\S+"
+            r")",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "model prompt",
+        re.compile(
+            r"(?:<\|(?:system|user|assistant|developer)(?:_start|_end)?\|>"
+            r"|\[/?INST\]"
+            r"|[\"']?role[\"']?\s*:\s*[\"'](?:system|developer)[\"']"
+            r"|\b(?:system|developer)\s*:\s*\S+"
+            r"|\bignore\s+(?:all\s+)?previous\s+instructions\b"
+            r"|\b(?:system|developer|model)\s+(?:prompt|message|instructions?)"
+            r"\s*[:=])",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "hidden execution metadata",
+        re.compile(
+            r"(?:"
+            r"[\"']?(?:run[_ -]?id|tool[_ -]?call[_ -]?id|trace[_ -]?id|"
+            r"span[_ -]?id|request[_ -]?id|executor|reviewed[_ -]?sha|"
+            r"head[_ -]?sha)[\"']?\s*[:=]\s*[\"']?\S+"
+            r"|\b(?:RUN|REVIEW|REMEDIATION|FINDING|REPAIR)-\d+-\d+\b"
+            r")",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "raw HTML",
+        re.compile(
+            r"(?:<!DOCTYPE\s+html\b|<!--|</?[A-Za-z][^>]*>)",
+            re.IGNORECASE,
+        ),
+    ),
+)
+
 
 class OpportunityIntelligenceValidationError(ValueError):
     """A P7.3 semantic value failed deterministic validation."""
+
+
+def _public_projection_string(value: str, *, name: str) -> str:
+    for forbidden_class, pattern in _FORBIDDEN_PUBLIC_STRING_PATTERNS:
+        if pattern.search(value):
+            raise OpportunityIntelligenceValidationError(
+                f"{name} must not contain {forbidden_class}"
+            )
+    return value
+
+
+def _public_projection_optional(value: str | None, *, name: str) -> str | None:
+    if value is None:
+        return None
+    return _public_projection_string(value, name=name)
+
+
+def _public_projection_ordered(values: tuple[str, ...], *, name: str) -> list[str]:
+    return [
+        _public_projection_string(item, name=f"{name}[{index}]")
+        for index, item in enumerate(values)
+    ]
 
 
 def _bounded_string(value: object, *, name: str, maximum: int) -> str:
@@ -35,7 +125,7 @@ def _bounded_string(value: object, *, name: str, maximum: int) -> str:
         raise OpportunityIntelligenceValidationError(
             f"{name} must contain at most {maximum} characters"
         )
-    return value
+    return _public_projection_string(value, name=name)
 
 
 def _optional_bounded_string(value: object, *, name: str) -> str | None:
@@ -168,23 +258,44 @@ class DecisionContext:
         """Return a deterministic JSON-serializable projection."""
 
         return {
-            "context_id": self.context_id,
-            "decision_question": self.decision_question,
-            "objective": self.objective,
+            "context_id": _public_projection_string(
+                self.context_id,
+                name="context_id",
+            ),
+            "decision_question": _public_projection_string(
+                self.decision_question,
+                name="decision_question",
+            ),
+            "objective": _public_projection_string(self.objective, name="objective"),
             "as_of": self.as_of.isoformat(),
-            "market": self.market,
-            "audience": self.audience,
-            "channel": self.channel,
-            "time_horizon": self.time_horizon,
+            "market": _public_projection_optional(self.market, name="market"),
+            "audience": _public_projection_optional(self.audience, name="audience"),
+            "channel": _public_projection_optional(self.channel, name="channel"),
+            "time_horizon": _public_projection_optional(
+                self.time_horizon,
+                name="time_horizon",
+            ),
             "decision_deadline": (
                 self.decision_deadline.isoformat()
                 if self.decision_deadline is not None
                 else None
             ),
-            "constraints": list(self.constraints),
-            "alternatives": list(self.alternatives),
-            "economic_constraints": list(self.economic_constraints),
-            "risk_constraints": list(self.risk_constraints),
+            "constraints": _public_projection_ordered(
+                self.constraints,
+                name="constraints",
+            ),
+            "alternatives": _public_projection_ordered(
+                self.alternatives,
+                name="alternatives",
+            ),
+            "economic_constraints": _public_projection_ordered(
+                self.economic_constraints,
+                name="economic_constraints",
+            ),
+            "risk_constraints": _public_projection_ordered(
+                self.risk_constraints,
+                name="risk_constraints",
+            ),
         }
 
 
@@ -277,17 +388,47 @@ class OpportunityHypothesis:
         """Return a deterministic JSON-serializable projection."""
 
         return {
-            "hypothesis_id": self.hypothesis_id,
-            "decision_context_id": self.decision_context_id,
-            "subject_ref": self.subject_ref,
-            "falsifiable_claim": self.falsifiable_claim,
+            "hypothesis_id": _public_projection_string(
+                self.hypothesis_id,
+                name="hypothesis_id",
+            ),
+            "decision_context_id": _public_projection_string(
+                self.decision_context_id,
+                name="decision_context_id",
+            ),
+            "subject_ref": _public_projection_string(
+                self.subject_ref,
+                name="subject_ref",
+            ),
+            "falsifiable_claim": _public_projection_string(
+                self.falsifiable_claim,
+                name="falsifiable_claim",
+            ),
             "created_at": self.created_at.isoformat(),
-            "assumptions": list(self.assumptions),
-            "supporting_evidence_refs": list(self.supporting_evidence_refs),
-            "counter_evidence_refs": list(self.counter_evidence_refs),
-            "important_unknowns": list(self.important_unknowns),
-            "disconfirming_conditions": list(self.disconfirming_conditions),
-            "expected_outcomes": list(self.expected_outcomes),
+            "assumptions": _public_projection_ordered(
+                self.assumptions,
+                name="assumptions",
+            ),
+            "supporting_evidence_refs": _public_projection_ordered(
+                self.supporting_evidence_refs,
+                name="supporting_evidence_refs",
+            ),
+            "counter_evidence_refs": _public_projection_ordered(
+                self.counter_evidence_refs,
+                name="counter_evidence_refs",
+            ),
+            "important_unknowns": _public_projection_ordered(
+                self.important_unknowns,
+                name="important_unknowns",
+            ),
+            "disconfirming_conditions": _public_projection_ordered(
+                self.disconfirming_conditions,
+                name="disconfirming_conditions",
+            ),
+            "expected_outcomes": _public_projection_ordered(
+                self.expected_outcomes,
+                name="expected_outcomes",
+            ),
         }
 
 
