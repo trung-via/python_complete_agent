@@ -1,0 +1,9 @@
+finding_id: FINDING-215-001
+action: CODE_FIX
+reviewed_sha: 58cbf9a8a43ede37dac8abd86302031ea4b49439
+modification_scope:
+  - src/commerce_opportunity_intelligence/decision_context.py
+  - tests/commerce_opportunity_intelligence/test_decision_context.py
+affected_verification:
+  - python -m pytest tests/commerce_opportunity_intelligence/test_decision_context.py tests/aios_bridge/test_aios_governance_state.py -q
+  - git diff --check
