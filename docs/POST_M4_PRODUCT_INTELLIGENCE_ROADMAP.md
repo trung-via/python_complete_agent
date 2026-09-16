@@ -388,14 +388,16 @@ evidence; P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
   separate Brain/Human interpretation after publication. Its zero coverage proves only that the
   bounded search-card surface is insufficient for the current scorer; it is not commercial-failure,
   enrichment-priority, or score-change authority.
-- **P7.2 Winning Opportunity Semantic Reconciliation (TASK-214 — publication-gated DONE)**:
+- **P7.2 Winning Opportunity Semantic Reconciliation (TASK-214 — CLOSED / PUBLISHED at `123bbb71d44ad15a25e07b07f21f6cb2dd00d20b`)**:
   establishes the contextual Winning Opportunity interpretation, the five conceptual reasoning stages,
   the Product Candidate Triage V1 boundary, and the pre-test/post-test evidence boundary subordinate to
-  Product Contract v2. It becomes effective only after canonical Runtime PASS, ChatGPT semantic PASS,
-  and source-only publication of the exact reviewed candidate.
-- **P7.3 Decision Context + Opportunity Hypothesis — NEXT**: the single next commitment after P7.2
+  Product Contract v2.
+- **P7.3 Decision Context + Opportunity Hypothesis (TASK-215 — publication-gated DONE)**:
+  establishes the bounded Commerce Opportunity Intelligence semantic owner for immutable decision
+  context and falsifiable opportunity hypothesis values. It becomes effective only after canonical
+  Runtime PASS, ChatGPT semantic PASS, and source-only publication of the exact reviewed candidate.
+- **P7.4 TikTok Affiliate Evidence Profile — NEXT**: the single next commitment after P7.3
   becomes publication-effective.
-- **P7.4 TikTok Affiliate Evidence Profile — NOT_DONE**.
 - **P7.5 Value-of-Information Planning — NOT_DONE**.
 - **P7.6 Market Test / Funnel Evidence — NOT_DONE**.
 - **P7.7 Calibration & Winner Validation — NOT_DONE**.
@@ -403,7 +405,7 @@ evidence; P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
 The P7.2-P7.7 order is Human-approved. P7.4-P7.7 are ordered future commitments rather than
 implemented capabilities or acquisition authority. The roadmap does not auto-advance from Runtime,
 worker, measurement, or score state; priority changes remain Human-owned. See
-`docs/PHASE_7_P7_2_WINNING_OPPORTUNITY_SEMANTICS.md` for the semantic boundary.
+`docs/PHASE_7_P7_3_DECISION_CONTEXT_OPPORTUNITY_HYPOTHESIS.md` for the current semantic boundary.
 
 
 See `docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md` for the audit and boundary.
