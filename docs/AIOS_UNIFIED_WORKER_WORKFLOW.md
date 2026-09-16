@@ -488,6 +488,19 @@ portability hardening across PRIMARY wakeup, REMEDIATION intent, REPAIR wakeup, 
 terminal-attention admission while preserving all Phase-1 and Phase-2 repository bindings unchanged.
 Future AIOS-renew main changes remain irrelevant until another explicit reviewed downstream migration.
 
+TASK-207 revision 2 closes `FULL_AIOS_DOWNSTREAM_CONFORMANCE` by certifying the published
+Phase-1 and Phase-2 repository bindings against live downstream operation under exact AIOS-renew
+pin `26097405343150dc1b55015b94720528afad50ed`. GitHub Issue ingress authoring, PRIMARY wakeup on
+the dedicated self-hosted runner, terminal attention, and Review-to-Publication represent the
+certified normal surfaces after publication. The REMEDIATION and REPAIR carrier families and
+self-hosted bootstraps are certified as reachable, bounded, and failing closed on non-authorizing
+probes without causing unauthorized coding mutations. Local file/stdin ingress
+(`aios_brain_ingress.py`), Human-facing worker surfaces (`$aios-worker` and `/aios-renew-worker`),
+and direct operator paths remain bounded emergency/debug/fallback postures and do not compete
+with normal repository bindings. Certification is recorded in `.ai/aios-conformance-state.yaml` and
+`.ai/aios-adoption-state.yaml` and becomes effective only on reviewed source publication of
+TASK-207 revision 2.
+
 ### Live Self-Hosted Operational Prerequisites
 
 Live PRIMARY and Phase-2 REMEDIATION/REPAIR execution require one-time Human operational setup before live use:

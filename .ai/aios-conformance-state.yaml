@@ -1,0 +1,117 @@
+schema_version: 1
+kind: aios_downstream_conformance_state
+project: Python Agent
+
+authority:
+  owner: BRAIN
+  purpose: DOWNSTREAM_CONFORMANCE_CERTIFICATION_RECORD
+  engineering_truth: false
+  live_evidence_required: true
+  live_evidence_evaluator: INDEPENDENT_SEMANTIC_REVIEWER
+  effective_on: REVIEWED_SOURCE_PUBLICATION
+  second_runtime_truth_store: false
+  classification_does_not_prove:
+    - RUNTIME_PASS
+    - LIVE_EXECUTION_EVIDENCE
+    - SOURCE_PUBLICATION
+
+certification:
+  task_id: TASK-207
+  task_revision: 2
+  status: CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION
+  exact_downstream_pin: 26097405343150dc1b55015b94720528afad50ed
+  predecessor_main: 2209af41dfa99a5ac6db851d35d196471c383481
+  effective_on: REVIEWED_SOURCE_PUBLICATION
+  live_evidence_required: true
+  summary: >-
+    Full AIOS downstream control-plane conformance is certified for published Phase-1
+    and Phase-2 repository bindings under exact AIOS-renew pin
+    26097405343150dc1b55015b94720528afad50ed. Conformance becomes effective only
+    upon reviewed source publication of TASK-207 revision 2.
+
+binding_families_under_certification:
+  phase_1:
+    - id: RECOVERED_BRAIN_AUTHORING_INGRESS
+      carrier: .agents/skills/aios-worker/scripts/aios_brain_ingress.py
+      role: EMERGENCY_DEBUG_INGRESS
+      status: ACTIVE
+    - id: REPOSITORY_SPECIFIC_PHASE_1_OUTER_AUTOMATION
+      ingress_carrier: .github/workflows/aios-brain-ingress.yml
+      wakeup_carrier: .github/workflows/aios-brain-wakeup.yml
+      role: BRAIN_ISSUE_INGRESS_AND_PRIMARY_WAKEUP
+      status: ACTIVE
+    - id: AUDITED_A1_A2_PRIMARY_WAKEUP_CARRIERS
+      workflow: .github/workflows/aios-self-hosted-wakeup.yml
+      bootstrap: .agents/skills/aios-worker/scripts/aios_phase1_wakeup.py
+      role: SELF_HOSTED_PRIMARY_WAKEUP
+      status: ACTIVE
+    - id: TERMINAL_ATTENTION_PACKAGE_COMPATIBILITY
+      workflow: .github/workflows/aios-terminal-attention.yml
+      policy: .ai/brain-terminal-attention-carriers.yaml
+      role: TERMINAL_ATTENTION_NOTIFICATION
+      status: ACTIVE
+  phase_2:
+    - id: REPOSITORY_SPECIFIC_PHASE_2_OUTER_AUTOMATION
+      role: REVIEW_TO_PUBLICATION_CONTINUATION
+      status: ACTIVE
+      review_to_publication:
+        ingress_workflow: .github/workflows/aios-brain-ingress.yml
+        publish_workflow: .github/workflows/aios-auto-publish.yml
+        selector: run_id
+      remediation_intent:
+        policy: .ai/brain-remediation-intent-carriers.yaml
+        carrier_workflow: .github/workflows/aios-brain-remediation-intent.yml
+        self_hosted_workflow: .github/workflows/aios-approved-remediation-intent.yml
+        bootstrap: .agents/skills/aios-worker/scripts/aios_phase2_remediation.py
+      repair_wakeup:
+        policy: .ai/brain-repair-wakeup-carriers.yaml
+        carrier_workflow: .github/workflows/aios-brain-repair-wakeup.yml
+        self_hosted_workflow: .github/workflows/aios-self-hosted-repair-wakeup.yml
+        bootstrap: .agents/skills/aios-worker/scripts/aios_phase2_repair.py
+    - id: AUDITED_A3_A6_CORRECTION_AUTOMATION_CARRIERS
+      role: A3_APPROVAL_AND_A6_DISPATCH_SEPARATION
+      status: ACTIVE
+      carrier_workflow: .github/workflows/aios-brain-remediation-intent.yml
+      self_hosted_workflow: .github/workflows/aios-approved-remediation-intent.yml
+      bootstrap: .agents/skills/aios-worker/scripts/aios_phase2_remediation.py
+      authority_boundaries:
+        a3_exact_approval: PINNED_SEPARATE_AUTHORITY
+        a6_durable_dispatch: PINNED_SEPARATE_AUTHORITY
+
+fallback_and_emergency_posture:
+  local_brain_ingress:
+    script: .agents/skills/aios-worker/scripts/aios_brain_ingress.py
+    role: EMERGENCY_DEBUG_FALLBACK
+  human_facing_workers:
+    antigravity_workflow: .agents/workflows/aios-renew-worker.md
+    codex_skill: .agents/skills/aios-worker/SKILL.md
+    role: EMERGENCY_DEBUG_LOCAL_FALLBACK
+  direct_operator_paths:
+    role: BOUNDED_DEBUG_ESCAPE_HATCHES
+
+live_evidence_requirements:
+  ac1:
+    carrier: LIVE_GITHUB_ISSUE_INGRESS
+    action: AUTHOR_TASK_TASK_207_R2
+    target_predecessor_main: 2209af41dfa99a5ac6db851d35d196471c383481
+    evaluation: REVIEWER_OBSERVATION
+  ac2:
+    carrier: LIVE_GITHUB_ISSUE_WAKEUP
+    action: PRIMARY_WAKEUP_SELF_HOSTED
+    evaluation: REVIEWER_OBSERVATION
+  ac3:
+    carrier: LIVE_TERMINAL_ATTENTION
+    action: TERMINAL_ATTENTION_ISSUE_EMISSION
+    evaluation: REVIEWER_OBSERVATION
+  ac4:
+    carrier: LIVE_REVIEW_TO_PUBLICATION
+    action: SUBMIT_REVIEW_AND_AUTO_PUBLISH
+    evaluation: REVIEWER_OBSERVATION
+  ac5:
+    carrier: LIVE_REMEDIATION_PROBE
+    action: FAIL_CLOSED_NON_AUTHORIZING_PROBE
+    evaluation: REVIEWER_OBSERVATION
+  ac6:
+    carrier: LIVE_REPAIR_PROBE
+    action: FAIL_CLOSED_NON_AUTHORIZING_PROBE
+    evaluation: REVIEWER_OBSERVATION

@@ -333,6 +333,21 @@ incident_lineage:
   disposition: IMMUTABLE_NOT_PUBLICATION_AUTHORITY
   resumed: false
 
+conformance_certification:
+  task_id: TASK-207
+  task_revision: 2
+  downstream_pin: 26097405343150dc1b55015b94720528afad50ed
+  status: CERTIFIED_ON_REVIEWED_PUBLICATION
+  effective_on: REVIEWED_TASK_207_REVISION_2_SOURCE_PUBLICATION
+  conformance_record: .ai/aios-conformance-state.yaml
+  certified_bindings:
+    phase_1: ACTIVE
+    phase_2: ACTIVE
+  summary: >-
+    Full downstream control plane conformance is certified for Phase-1 and Phase-2
+    repository bindings under exact pin 26097405343150dc1b55015b94720528afad50ed,
+    becoming effective only upon reviewed source publication of TASK-207 revision 2.
+
 future_migration_policy: >-
   Require an exact reviewed and source-published upstream candidate. Never infer adoption
   from this registry, an unpublished candidate, review metadata, a planning checkpoint, or

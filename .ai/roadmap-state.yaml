@@ -26,8 +26,8 @@ active_track:
   status: ACTIVE
 
 next:
-  id: FULL_AIOS_DOWNSTREAM_CONFORMANCE
-  title: Full AIOS downstream control plane conformance gate
+  id: PROJECT_CONTRACT_REBUILD
+  title: Project Contract rebuild from zero with full-text Human approval
   status: NEXT
   completion_gate: >-
     Remains NEXT until canonical evidence marks it DONE or explicit Human intent
@@ -86,6 +86,15 @@ completed_milestones:
       remediation_intent_a3_a6: ACTIVE
       repair_wakeup: ACTIVE
     boundary: DOES_NOT_CLAIM_FULL_AIOS_DOWNSTREAM_CONFORMANCE
+  - task_id: TASK-207
+    track_id: AIOS_FULL_DOWNSTREAM_ADOPTION_AND_GOVERNANCE_REBUILD
+    milestone_id: FULL_AIOS_DOWNSTREAM_CONFORMANCE
+    title: Full AIOS downstream control plane conformance gate
+    status: DONE
+    task_revision: 2
+    upstream_source_sha: 26097405343150dc1b55015b94720528afad50ed
+    conformance_certification: EFFECTIVE_ON_REVIEWED_SOURCE_PUBLICATION
+    boundary: DOES_NOT_CLAIM_PROJECT_CONTRACT_REBUILD_OR_GOVERNANCE_CLOSURE
 
 superseded_commitments:
   - id: CHATGPT_PROJECT_CONTRACT_RECONCILIATION
@@ -192,10 +201,24 @@ prerequisite_pin_migration:
     It does not claim conformance completion, modify pending commitment ordering, or
     implement generic interruption semantics.
 
+control_plane_conformance:
+  status: DONE
+  blocking_current_track: false
+  conformance_kind: NON_PRODUCT_CONTROL_PLANE_CONFORMANCE
+  migration_task: TASK-207
+  task_revision: 2
+  downstream_pin: 26097405343150dc1b55015b94720528afad50ed
+  closed_commitment: FULL_AIOS_DOWNSTREAM_CONFORMANCE
+  next_commitment: PROJECT_CONTRACT_REBUILD
+  effective_on: REVIEWED_SOURCE_PUBLICATION
+  roadmap_effect: >-
+    Closes full AIOS downstream control plane conformance through TASK-207 revision 2
+    under exact pin 26097405343150dc1b55015b94720528afad50ed and advances the planning
+    bookmark to PROJECT_CONTRACT_REBUILD as the unique NEXT commitment. It does not
+    claim that the Project Contract rebuild has begun, exists, or is approved, or that
+    Governance Foundation is closed.
+
 pending_commitments:
-  - id: FULL_AIOS_DOWNSTREAM_CONFORMANCE
-    title: Full AIOS downstream control plane conformance gate
-    status: NOT_DONE
   - id: PROJECT_CONTRACT_REBUILD
     title: Project Contract rebuild from zero with full-text Human approval
     status: NOT_DONE

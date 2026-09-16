@@ -22,9 +22,9 @@ TASK_194_SOURCE_SHA = "e0d8998ee004fda80ca3fbc3de4eb0afb59160a5"
 TASK_196_SOURCE_SHA = "4f6d91858c93192f497342315c4650e30b0a2718"
 TASK_199_SOURCE_SHA = "702e85e9e77a556f3716717ccaa186919b1a9dab"
 ACTIVE_TRACK_ID = "AIOS_FULL_DOWNSTREAM_ADOPTION_AND_GOVERNANCE_REBUILD"
-NEXT_MILESTONE_ID = "FULL_AIOS_DOWNSTREAM_CONFORMANCE"
+NEXT_MILESTONE_ID = "PROJECT_CONTRACT_REBUILD"
+CLOSED_CONFORMANCE_ID = "FULL_AIOS_DOWNSTREAM_CONFORMANCE"
 APPROVED_PENDING_SEQUENCE = [
-    "FULL_AIOS_DOWNSTREAM_CONFORMANCE",
     "PROJECT_CONTRACT_REBUILD",
     "GOVERNANCE_FOUNDATION_CLOSURE_AND_P7_RETURN",
 ]
@@ -182,6 +182,17 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
         },
         "boundary": "DOES_NOT_CLAIM_FULL_AIOS_DOWNSTREAM_CONFORMANCE",
     }
+    assert completed["TASK-207"] == {
+        "task_id": "TASK-207",
+        "track_id": ACTIVE_TRACK_ID,
+        "milestone_id": "FULL_AIOS_DOWNSTREAM_CONFORMANCE",
+        "title": "Full AIOS downstream control plane conformance gate",
+        "status": "DONE",
+        "task_revision": 2,
+        "upstream_source_sha": EXPECTED_PIN,
+        "conformance_certification": "EFFECTIVE_ON_REVIEWED_SOURCE_PUBLICATION",
+        "boundary": "DOES_NOT_CLAIM_PROJECT_CONTRACT_REBUILD_OR_GOVERNANCE_CLOSURE",
+    }
 
     upstream = state["upstream_recovery"]
     assert upstream["status"] == "ADOPTED_BY_PIN"
@@ -242,7 +253,7 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
     assert phase_2["migration_task"] == "TASK-206"
     assert phase_2["downstream_pin"] == HISTORICAL_TASK_204_PIN
     assert phase_2["closed_commitment"] == "FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_2"
-    assert phase_2["next_commitment"] == NEXT_MILESTONE_ID
+    assert phase_2["next_commitment"] == CLOSED_CONFORMANCE_ID
     assert phase_2["repository_binding_activation"] == "PHASE_2_ACTIVE"
     assert "does not claim that conformance" in phase_2["roadmap_effect"]
 
@@ -251,11 +262,21 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
     assert prereq["migration_task"] == "TASK-208"
     assert prereq["downstream_pin"] == EXPECTED_PIN
     assert prereq["prior_pin"] == HISTORICAL_TASK_204_PIN
-    assert prereq["prerequisite_for"] == NEXT_MILESTONE_ID
+    assert prereq["prerequisite_for"] == CLOSED_CONFORMANCE_ID
     assert prereq["resume_target"]["task_id"] == "TASK-207"
-    assert prereq["resume_target"]["commitment_id"] == NEXT_MILESTONE_ID
+    assert prereq["resume_target"]["commitment_id"] == CLOSED_CONFORMANCE_ID
     assert prereq["repository_binding_activation"] == "NONE"
     assert "Resolves carrier portability prerequisite" in prereq["roadmap_effect"]
+
+    conformance = state["control_plane_conformance"]
+    assert conformance["status"] == "DONE"
+    assert conformance["migration_task"] == "TASK-207"
+    assert conformance["task_revision"] == 2
+    assert conformance["downstream_pin"] == EXPECTED_PIN
+    assert conformance["closed_commitment"] == CLOSED_CONFORMANCE_ID
+    assert conformance["next_commitment"] == NEXT_MILESTONE_ID
+    assert conformance["effective_on"] == "REVIEWED_SOURCE_PUBLICATION"
+    assert "Closes full AIOS downstream control plane conformance" in conformance["roadmap_effect"]
 
     assert state["authority"]["owner"] == "BRAIN"
     assert state["authority"]["auto_advance_from_runtime_or_worker_state"] is False
@@ -429,4 +450,19 @@ def test_task_197_malformed_decision_remains_incident_only():
         "malformed_decision": "f334312384543dd4726e83089601e375dd5da17b",
         "disposition": "IMMUTABLE_NOT_PUBLICATION_AUTHORITY",
         "resumed": False,
+    }
+
+
+def test_adoption_records_conformance_certification():
+    state = load_yaml(ADOPTION_FILE)
+    cert = state["conformance_certification"]
+    assert cert["task_id"] == "TASK-207"
+    assert cert["task_revision"] == 2
+    assert cert["downstream_pin"] == EXPECTED_PIN
+    assert cert["status"] == "CERTIFIED_ON_REVIEWED_PUBLICATION"
+    assert cert["effective_on"] == "REVIEWED_TASK_207_REVISION_2_SOURCE_PUBLICATION"
+    assert cert["conformance_record"] == ".ai/aios-conformance-state.yaml"
+    assert cert["certified_bindings"] == {
+        "phase_1": "ACTIVE",
+        "phase_2": "ACTIVE",
     }
