@@ -23,9 +23,11 @@ TASK-188/RUN-188-004 is BLOCKED / UNPUBLISHED with no source candidate and its d
 are not baseline truth. TASK-189 is CLOSED / PUBLISHED at candidate `9fa1b2583380e1b6378e5aba3d720c2e78a4b9d4`.
 TASK-190 is CLOSED / PUBLISHED at candidate `22d8837e5955ed78185426f293e874625a34d469`.
 Following completion of the post-publication Human review gate accepting one READY
-`discovery_capture_bundle.json`, TASK-191 is the fresh offline P7.1 baseline successor,
-freezing that accepted bundle into repository fixtures and recording the deterministic
-measured baseline offline. P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
+`discovery_capture_bundle.json`, TASK-191/P7.1 is DONE / PUBLISHED at
+`40da098b3b0dcf3d1994fc510dd55717b81a2f67`, having frozen that accepted bundle into
+repository fixtures and recorded the deterministic measured baseline offline. P7 is now
+the active product track under the approved P7.2-P7.7 sequence; P6.4-P6.6 remain
+DEFERRED / UNIMPLEMENTED.
 
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
@@ -347,7 +349,7 @@ Introduce review triage assistance without removing or bypassing explicit Human 
 Implement performance caches and background serving infrastructure only after an observed operational
 workload requires them.
 
-### P7 — Commerce Opportunity Intelligence — SELECTED / NOT YET CLOSED
+### P7 — Commerce Opportunity Intelligence — ACTIVE
 
 The fresh architecture/value audit found no current retrieval, identity-migration,
 review-automation, or serving bottleneck that outranks the measurable undercoverage of the
@@ -377,13 +379,31 @@ evidence; P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
 - **TASK-190 — operational capture staging for P7.1 discovery cohort (CLOSED / PUBLISHED at `22d8837e5955ed78185426f293e874625a34d469`)**: added the bounded `p7-1-discovery-cohort`
   profile to `live_capture.py` and CLI `capture` outside Git and runtime verification, staging 3 queries (5 items/query,
   total 15 distinct candidates) and establishing the post-publication Human review gate.
-- **P7.1 Real-Evidence Winning Product Coverage Baseline (TASK-191 — baseline candidate)**: freezes exactly the
+- **P7.1 Real-Evidence Winning Product Coverage Baseline (TASK-191 — DONE / PUBLISHED at `40da098b3b0dcf3d1994fc510dd55717b81a2f67`)**: freezes exactly the
   one Human-accepted TASK-190 READY discovery bundle byte-for-byte into immutable repository fixtures (`discovery_capture_bundle.json`,
   SHA-256 `aba1cdbc0a74d591a7da6c6dce11b9ae06bb7c16b0fe151490bb74da3efc465a`, byte count 16047), losslessly reconstructs
   the exact fifteen-candidate cohort, and replays published TASK-181 `evaluate_winning_product_coverage` fully offline to
   record the deterministic measured baseline (`baseline.json`). Predecessors TASK-182, TASK-186, and TASK-188 remain BLOCKED /
   UNPUBLISHED historical evidence and are not continued or repaired. Any post-baseline improvement choice remains for
-  separate Brain/Human interpretation after publication.
+  separate Brain/Human interpretation after publication. Its zero coverage proves only that the
+  bounded search-card surface is insufficient for the current scorer; it is not commercial-failure,
+  enrichment-priority, or score-change authority.
+- **P7.2 Winning Opportunity Semantic Reconciliation (TASK-214 — publication-gated DONE)**:
+  establishes the contextual Winning Opportunity interpretation, the five conceptual reasoning stages,
+  the Product Candidate Triage V1 boundary, and the pre-test/post-test evidence boundary subordinate to
+  Product Contract v2. It becomes effective only after canonical Runtime PASS, ChatGPT semantic PASS,
+  and source-only publication of the exact reviewed candidate.
+- **P7.3 Decision Context + Opportunity Hypothesis — NEXT**: the single next commitment after P7.2
+  becomes publication-effective.
+- **P7.4 TikTok Affiliate Evidence Profile — NOT_DONE**.
+- **P7.5 Value-of-Information Planning — NOT_DONE**.
+- **P7.6 Market Test / Funnel Evidence — NOT_DONE**.
+- **P7.7 Calibration & Winner Validation — NOT_DONE**.
+
+The P7.2-P7.7 order is Human-approved. P7.4-P7.7 are ordered future commitments rather than
+implemented capabilities or acquisition authority. The roadmap does not auto-advance from Runtime,
+worker, measurement, or score state; priority changes remain Human-owned. See
+`docs/PHASE_7_P7_2_WINNING_OPPORTUNITY_SEMANTICS.md` for the semantic boundary.
 
 
 See `docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md` for the audit and boundary.

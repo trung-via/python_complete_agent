@@ -9,6 +9,13 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 ROADMAP_FILE = REPO_ROOT / ".ai" / "roadmap-state.yaml"
+P7_2_SEMANTICS_FILE = (
+    REPO_ROOT / "docs" / "PHASE_7_P7_2_WINNING_OPPORTUNITY_SEMANTICS.md"
+)
+ROADMAP_DOCS = (
+    REPO_ROOT / "docs" / "POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
+    REPO_ROOT / "docs" / "POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
+)
 ADOPTION_FILE = REPO_ROOT / ".ai" / "aios-adoption-state.yaml"
 CONFORMANCE_FILE = REPO_ROOT / ".ai" / "aios-conformance-state.yaml"
 PIN_FILE = (
@@ -73,7 +80,7 @@ def values_for_key(value: object, key: str) -> list[object]:
     return matches
 
 
-def test_roadmap_closes_governance_track_without_fabricating_product_next():
+def test_roadmap_activates_approved_p7_sequence_with_one_next():
     state = load_yaml(ROADMAP_FILE)
     roadmap_text = ROADMAP_FILE.read_text(encoding="utf-8")
     assert state["authority"] == {
@@ -89,7 +96,28 @@ def test_roadmap_closes_governance_track_without_fabricating_product_next():
         "source_sha": "40da098b3b0dcf3d1994fc510dd55717b81a2f67",
         "status": "DONE",
     }
-    assert "active_track" not in state
+    assert state["active_track"] == {
+        "id": "P7_COMMERCE_OPPORTUNITY_INTELLIGENCE",
+        "title": "P7 Commerce Opportunity Intelligence",
+        "priority_owner": "HUMAN",
+        "status": "ACTIVE",
+        "current_milestone": {
+            "id": "P7.2",
+            "task_id": "TASK-214",
+            "title": "Winning Opportunity Semantic Reconciliation",
+            "status": "DONE",
+            "completion_basis": "PUBLICATION_GATED",
+            "effective_only_when": {
+                "semantic_review": "PASS",
+                "published_source": "EXACT_REVIEWED_CANDIDATE",
+                "canonical_main_equals_reviewed_candidate": True,
+            },
+        },
+        "next_milestone": {
+            "id": "P7.3",
+            "title": "Decision Context + Opportunity Hypothesis",
+        },
+    }
     assert state["completed_track"] == {
         "id": ACTIVE_TRACK_ID,
         "title": "AIOS Full Downstream Adoption and Governance Rebuild",
@@ -109,25 +137,52 @@ def test_roadmap_closes_governance_track_without_fabricating_product_next():
             "canonical_main_equals_reviewed_candidate": True,
         },
     }
-    assert values_for_key(state, "status").count("ACTIVE") == 0
+    assert values_for_key(state, "status").count("ACTIVE") == 1
     assert state["roadmap_sources"] == [
         "docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
         "docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
     ]
-    assert "next" not in state
-    assert values_for_key(state, "status").count("NEXT") == 0
-    assert state["pending_commitments"] == []
-    assert values_for_key(state, "status").count("NOT_DONE") == 0
+    assert values_for_key(state, "status").count("NEXT") == 1
+    assert state["pending_commitments"] == [
+        {
+            "id": "P7.3",
+            "title": "Decision Context + Opportunity Hypothesis",
+            "status": "NEXT",
+        },
+        {
+            "id": "P7.4",
+            "title": "TikTok Affiliate Evidence Profile",
+            "status": "NOT_DONE",
+        },
+        {
+            "id": "P7.5",
+            "title": "Value-of-Information Planning",
+            "status": "NOT_DONE",
+        },
+        {
+            "id": "P7.6",
+            "title": "Market Test / Funnel Evidence",
+            "status": "NOT_DONE",
+        },
+        {
+            "id": "P7.7",
+            "title": "Calibration & Winner Validation",
+            "status": "NOT_DONE",
+        },
+    ]
+    assert values_for_key(state, "status").count("NOT_DONE") == 4
     assert state["planning_handoff"] == {
         "destination": "P7_PRODUCT_ROADMAP",
         "checkpoint_task_id": "TASK-191",
-        "status": "AWAITING_BRAIN_HUMAN_INTERPRETATION",
-        "selected_post_p7_1_implementation": None,
+        "status": "INTERPRETED_BY_BRAIN_AND_HUMAN",
+        "selected_post_p7_1_implementation": (
+            "P7.2_WINNING_OPPORTUNITY_SEMANTIC_RECONCILIATION"
+        ),
         "boundary": (
-            "Governance Foundation closure returns planning authority to the existing "
-            "P7 product roadmap at the completed P7.1 checkpoint. A separate Brain/Human "
-            "interpretation must select any later product commitment; this bookmark selects "
-            "no implementation direction."
+            "Governance Foundation closure returned planning authority to the existing P7 "
+            "product roadmap at the completed P7.1 checkpoint. Brain/Human interpretation "
+            "selected P7.2 semantic reconciliation without reinterpreting TASK-191 or "
+            "changing TASK-213 history."
         ),
     }
     assert "TASK-119" not in roadmap_text
@@ -138,6 +193,52 @@ def test_roadmap_closes_governance_track_without_fabricating_product_next():
         superseded["CHATGPT_PROJECT_CONTRACT_RECONCILIATION"]["status"]
         == "SUPERSEDED"
     )
+
+
+def test_p7_2_semantics_preserve_triage_evidence_and_history_boundaries():
+    text = P7_2_SEMANTICS_FILE.read_text(encoding="utf-8")
+    stages = re.findall(
+        r"^\d+\. \*\*([A-Z_]+)\*\*", text, flags=re.MULTILINE
+    )
+    assert stages == [
+        "DISCOVERED_CANDIDATE",
+        "OPPORTUNITY_HYPOTHESIS",
+        "TEST_READY",
+        "VALIDATED_WINNER",
+        "SCALABLE_WINNER",
+    ]
+    for required in (
+        "Product Contract v2",
+        "Product Candidate Triage V1",
+        "not a universal market-winner predictor",
+        "market pull and unmet demand",
+        "momentum and timing",
+        "product quality and trust",
+        "audience and creator fit",
+        "offer and economics",
+        "creative and content leverage",
+        "competition, content gap, and differentiation",
+        "operational feasibility",
+        "Missingness identifies an unknown",
+        "itself authorize collection",
+        "An outcome is not causal attribution",
+        "One favorable result does not establish scalability",
+        "40da098b3b0dcf3d1994fc510dd55717b81a2f67",
+        "bounded search-card surface",
+        "insufficient for",
+        "the current scorer",
+        "exact AIOS-renew pin",
+    ):
+        assert required in text
+
+    for roadmap_path in ROADMAP_DOCS:
+        roadmap = roadmap_path.read_text(encoding="utf-8")
+        assert "P7 Commerce Opportunity Intelligence" in roadmap
+        assert "P7.2 Winning Opportunity Semantic Reconciliation" in roadmap
+        assert roadmap.count("P7.3 Decision Context + Opportunity Hypothesis — NEXT") == 1
+        for milestone in ("P7.4", "P7.5", "P7.6", "P7.7"):
+            assert f"{milestone} " in roadmap
+        assert roadmap.count("— NOT_DONE") >= 4
 
 
 def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work():

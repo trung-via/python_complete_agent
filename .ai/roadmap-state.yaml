@@ -38,12 +38,48 @@ completed_track:
 planning_handoff:
   destination: P7_PRODUCT_ROADMAP
   checkpoint_task_id: TASK-191
-  status: AWAITING_BRAIN_HUMAN_INTERPRETATION
-  selected_post_p7_1_implementation: null
+  status: INTERPRETED_BY_BRAIN_AND_HUMAN
+  selected_post_p7_1_implementation: P7.2_WINNING_OPPORTUNITY_SEMANTIC_RECONCILIATION
   boundary: >-
-    Governance Foundation closure returns planning authority to the existing P7 product
-    roadmap at the completed P7.1 checkpoint. A separate Brain/Human interpretation must
-    select any later product commitment; this bookmark selects no implementation direction.
+    Governance Foundation closure returned planning authority to the existing P7 product
+    roadmap at the completed P7.1 checkpoint. Brain/Human interpretation selected P7.2
+    semantic reconciliation without reinterpreting TASK-191 or changing TASK-213 history.
+
+active_track:
+  id: P7_COMMERCE_OPPORTUNITY_INTELLIGENCE
+  title: P7 Commerce Opportunity Intelligence
+  priority_owner: HUMAN
+  status: ACTIVE
+  current_milestone:
+    id: P7.2
+    task_id: TASK-214
+    title: Winning Opportunity Semantic Reconciliation
+    status: DONE
+    completion_basis: PUBLICATION_GATED
+    effective_only_when:
+      semantic_review: PASS
+      published_source: EXACT_REVIEWED_CANDIDATE
+      canonical_main_equals_reviewed_candidate: true
+  next_milestone:
+    id: P7.3
+    title: Decision Context + Opportunity Hypothesis
+
+pending_commitments:
+  - id: P7.3
+    title: Decision Context + Opportunity Hypothesis
+    status: NEXT
+  - id: P7.4
+    title: TikTok Affiliate Evidence Profile
+    status: NOT_DONE
+  - id: P7.5
+    title: Value-of-Information Planning
+    status: NOT_DONE
+  - id: P7.6
+    title: Market Test / Funnel Evidence
+    status: NOT_DONE
+  - id: P7.7
+    title: Calibration & Winner Validation
+    status: NOT_DONE
 
 completed_milestones:
   - task_id: TASK-192
@@ -294,8 +330,6 @@ prerequisite_pin_migration:
     FULL_AIOS_DOWNSTREAM_CONFORMANCE and requires a fresh Brain revision bound to the new pin.
     It does not claim conformance completion, rewrite old-pin lineage, modify pending commitment
     ordering, rebuild the Project Contract, close Governance Foundation, or return to P7.
-
-pending_commitments: []
 
 full_downstream_conformance:
   status: DONE
