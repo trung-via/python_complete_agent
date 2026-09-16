@@ -10,6 +10,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 ROADMAP_FILE = REPO_ROOT / ".ai" / "roadmap-state.yaml"
 ADOPTION_FILE = REPO_ROOT / ".ai" / "aios-adoption-state.yaml"
+CONFORMANCE_FILE = REPO_ROOT / ".ai" / "aios-conformance-state.yaml"
 PIN_FILE = (
     REPO_ROOT / ".agents" / "skills" / "aios-worker" / "requirements-aios-renew.txt"
 )
@@ -25,11 +26,8 @@ TASK_199_SOURCE_SHA = "702e85e9e77a556f3716717ccaa186919b1a9dab"
 TASK_210_SOURCE_SHA = "399ffe4d38d31f7882d22824ba9c27781b9a0974"
 TASK_211_SOURCE_SHA = "15cc092d0ea86cd9bce7baed0d32bc3575fa4b08"
 ACTIVE_TRACK_ID = "AIOS_FULL_DOWNSTREAM_ADOPTION_AND_GOVERNANCE_REBUILD"
-NEXT_MILESTONE_ID = "GOVERNANCE_FOUNDATION_CLOSURE_AND_P7_RETURN"
+CLOSURE_MILESTONE_ID = "GOVERNANCE_FOUNDATION_CLOSURE_AND_P7_RETURN"
 HISTORICAL_CONFORMANCE_NEXT_COMMITMENT = "PROJECT_CONTRACT_REBUILD"
-APPROVED_PENDING_SEQUENCE = [
-    "GOVERNANCE_FOUNDATION_CLOSURE_AND_P7_RETURN",
-]
 
 
 def load_yaml(path: Path) -> dict:
@@ -75,8 +73,9 @@ def values_for_key(value: object, key: str) -> list[object]:
     return matches
 
 
-def test_roadmap_has_one_active_track_and_unique_next():
+def test_roadmap_closes_governance_track_without_fabricating_product_next():
     state = load_yaml(ROADMAP_FILE)
+    roadmap_text = ROADMAP_FILE.read_text(encoding="utf-8")
     assert state["authority"] == {
         "owner": "BRAIN",
         "purpose": "CROSS_CHAT_PLANNING_BOOKMARK",
@@ -90,24 +89,49 @@ def test_roadmap_has_one_active_track_and_unique_next():
         "source_sha": "40da098b3b0dcf3d1994fc510dd55717b81a2f67",
         "status": "DONE",
     }
-    assert state["active_track"]["id"] == ACTIVE_TRACK_ID
-    assert state["active_track"]["status"] == "ACTIVE"
-    assert values_for_key(state, "status").count("ACTIVE") == 1
+    assert "active_track" not in state
+    assert state["completed_track"] == {
+        "id": ACTIVE_TRACK_ID,
+        "title": "AIOS Full Downstream Adoption and Governance Rebuild",
+        "priority_owner": "HUMAN",
+        "status": "DONE",
+        "completion_task": "TASK-213",
+        "completion_run": "RUN-213-001",
+        "predecessor_reconciliation_task": "TASK-212",
+        "predecessor_reconciliation_run": "RUN-212-001",
+        "predecessor_reconciliation_source_sha": (
+            "0205688d7bf8725cf096c06de5c26055919b0340"
+        ),
+        "completion_basis": "EXACT_REVIEWED_CANDIDATE_PUBLISHED_TO_CANONICAL_MAIN",
+        "effective_only_when": {
+            "semantic_review": "PASS",
+            "published_source": "EXACT_REVIEWED_CANDIDATE",
+            "canonical_main_equals_reviewed_candidate": True,
+        },
+    }
+    assert values_for_key(state, "status").count("ACTIVE") == 0
     assert state["roadmap_sources"] == [
         "docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
         "docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
     ]
-    assert state["next"]["id"] == NEXT_MILESTONE_ID
-    assert state["next"]["status"] == "NEXT"
-    assert values_for_key(state, "status").count("NEXT") == 1
-
-    pending = state["pending_commitments"]
-    pending_ids = [item["id"] for item in pending]
-    assert pending_ids == APPROVED_PENDING_SEQUENCE
-    assert len(pending_ids) == len(set(pending_ids))
-    assert all(item["status"] == "NOT_DONE" for item in pending)
-    assert state["next"]["id"] == pending[0]["id"]
-    assert state["next"]["title"] == pending[0]["title"]
+    assert "next" not in state
+    assert values_for_key(state, "status").count("NEXT") == 0
+    assert state["pending_commitments"] == []
+    assert values_for_key(state, "status").count("NOT_DONE") == 0
+    assert state["planning_handoff"] == {
+        "destination": "P7_PRODUCT_ROADMAP",
+        "checkpoint_task_id": "TASK-191",
+        "status": "AWAITING_BRAIN_HUMAN_INTERPRETATION",
+        "selected_post_p7_1_implementation": None,
+        "boundary": (
+            "Governance Foundation closure returns planning authority to the existing "
+            "P7 product roadmap at the completed P7.1 checkpoint. A separate Brain/Human "
+            "interpretation must select any later product commitment; this bookmark selects "
+            "no implementation direction."
+        ),
+    }
+    assert "TASK-119" not in roadmap_text
+    assert "TASK-120" not in roadmap_text
 
     superseded = {item["id"]: item for item in state.get("superseded_commitments", [])}
     assert (
@@ -233,6 +257,17 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
         "source_sha": TASK_211_SOURCE_SHA,
         "authority_status": "CURRENT_PRODUCT_CONTRACT",
         "historical_predecessor": "TASK-199",
+    }
+    assert completed["TASK-213"] == {
+        "task_id": "TASK-213",
+        "track_id": ACTIVE_TRACK_ID,
+        "milestone_id": CLOSURE_MILESTONE_ID,
+        "title": "Governance Foundation closure and return to P7 product roadmap",
+        "status": "DONE",
+        "run_id": "RUN-213-001",
+        "completion_basis": "EXACT_REVIEWED_CANDIDATE_PUBLISHED_TO_CANONICAL_MAIN",
+        "roadmap_handoff": "BRAIN_HUMAN_INTERPRETATION_AFTER_P7_1",
+        "selected_post_p7_1_implementation": None,
     }
     assert state["current_governance_authorities"]["product_contract"] == {
         "document": "docs/PYTHON_AGENT_PRODUCT_CONTRACT.md",
@@ -368,6 +403,7 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
 
 def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
     state = load_yaml(ADOPTION_FILE)
+    conformance = load_yaml(CONFORMANCE_FILE)
     requirement = PIN_FILE.read_text(encoding="utf-8").strip()
     assert requirement.endswith("@" + EXPECTED_PIN)
     assert state["downstream_pin"]["commit"] == EXPECTED_PIN
@@ -427,6 +463,37 @@ def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
             "not Runtime, review, or publication authority and does not replace the "
             "separate canonical evidence lineage."
         ),
+    }
+    assert conformance["authority"] == {
+        "owner": "BRAIN_REVIEW",
+        "purpose": "PUBLICATION_GATED_DOWNSTREAM_CERTIFICATION",
+        "runtime_truth_store": False,
+        "evidence_store": False,
+        "grants_lifecycle_authority": False,
+    }
+    assert conformance["certification"] == {
+        "task_id": "TASK-207",
+        "task_revision": 3,
+        "downstream_pin": EXPECTED_PIN,
+        "status": "CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION",
+        "effective_only_when": {
+            "semantic_review": "PASS",
+            "review_mode": "PRIMARY",
+            "published_source": "EXACT_REVIEWED_CANDIDATE",
+            "canonical_main_equals_reviewed_candidate": True,
+        },
+        "before_gate": "NOT_EFFECTIVE",
+        "boundary": (
+            "Runtime PASS and Reviewer PASS do not by themselves make this certification "
+            "effective. The safe Publisher must publish exactly the TASK-207 revision-3 "
+            "reviewed source candidate, and canonical main must equal that candidate."
+        ),
+    }
+    assert conformance["historical_exclusions"] == {
+        "old_pin_task_revision": "TASK-207-REVISION-2",
+        "runs": ["RUN-207-001", "RUN-207-002"],
+        "repair": "REPAIR-207-001",
+        "certification_authority_for_current_pin": False,
     }
     dimensions = state["classification_dimensions"]
     assert set(dimensions["package_capability_availability"]) == {

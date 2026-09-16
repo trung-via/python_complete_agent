@@ -19,20 +19,31 @@ product_checkpoint:
   source_sha: 40da098b3b0dcf3d1994fc510dd55717b81a2f67
   status: DONE
 
-active_track:
+completed_track:
   id: AIOS_FULL_DOWNSTREAM_ADOPTION_AND_GOVERNANCE_REBUILD
   title: AIOS Full Downstream Adoption and Governance Rebuild
   priority_owner: HUMAN
-  status: ACTIVE
+  status: DONE
+  completion_task: TASK-213
+  completion_run: RUN-213-001
+  predecessor_reconciliation_task: TASK-212
+  predecessor_reconciliation_run: RUN-212-001
+  predecessor_reconciliation_source_sha: 0205688d7bf8725cf096c06de5c26055919b0340
+  completion_basis: EXACT_REVIEWED_CANDIDATE_PUBLISHED_TO_CANONICAL_MAIN
+  effective_only_when:
+    semantic_review: PASS
+    published_source: EXACT_REVIEWED_CANDIDATE
+    canonical_main_equals_reviewed_candidate: true
 
-next:
-  id: GOVERNANCE_FOUNDATION_CLOSURE_AND_P7_RETURN
-  title: Governance Foundation closure and return to P7 product roadmap
-  status: NEXT
-  completion_gate: >-
-    Remains pending until a separate Brain-authored task closes the Governance Foundation
-    and its exact reviewed source candidate is safely published to canonical main. This
-    bookmark neither closes that commitment nor selects post-P7.1 product work.
+planning_handoff:
+  destination: P7_PRODUCT_ROADMAP
+  checkpoint_task_id: TASK-191
+  status: AWAITING_BRAIN_HUMAN_INTERPRETATION
+  selected_post_p7_1_implementation: null
+  boundary: >-
+    Governance Foundation closure returns planning authority to the existing P7 product
+    roadmap at the completed P7.1 checkpoint. A separate Brain/Human interpretation must
+    select any later product commitment; this bookmark selects no implementation direction.
 
 completed_milestones:
   - task_id: TASK-192
@@ -123,6 +134,15 @@ completed_milestones:
     source_sha: 15cc092d0ea86cd9bce7baed0d32bc3575fa4b08
     authority_status: CURRENT_PRODUCT_CONTRACT
     historical_predecessor: TASK-199
+  - task_id: TASK-213
+    track_id: AIOS_FULL_DOWNSTREAM_ADOPTION_AND_GOVERNANCE_REBUILD
+    milestone_id: GOVERNANCE_FOUNDATION_CLOSURE_AND_P7_RETURN
+    title: Governance Foundation closure and return to P7 product roadmap
+    status: DONE
+    run_id: RUN-213-001
+    completion_basis: EXACT_REVIEWED_CANDIDATE_PUBLISHED_TO_CANONICAL_MAIN
+    roadmap_handoff: BRAIN_HUMAN_INTERPRETATION_AFTER_P7_1
+    selected_post_p7_1_implementation: null
 
 current_governance_authorities:
   product_contract:
@@ -275,10 +295,7 @@ prerequisite_pin_migration:
     It does not claim conformance completion, rewrite old-pin lineage, modify pending commitment
     ordering, rebuild the Project Contract, close Governance Foundation, or return to P7.
 
-pending_commitments:
-  - id: GOVERNANCE_FOUNDATION_CLOSURE_AND_P7_RETURN
-    title: Governance Foundation closure and return to P7 product roadmap
-    status: NOT_DONE
+pending_commitments: []
 
 full_downstream_conformance:
   status: DONE
