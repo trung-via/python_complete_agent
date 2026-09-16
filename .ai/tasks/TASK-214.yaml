@@ -1,0 +1,114 @@
+task_id: TASK-214
+revision: 1
+
+goal: >
+  Execute P7.2 Winning Opportunity Semantic Reconciliation. Canonicalize the Human-approved
+  post-P7.1 interpretation that a winning product is not an intrinsic product fact but a
+  decision-relative, time-bounded commerce opportunity hypothesis. Preserve the existing M2
+  WinningProductScorer/CandidateRanker as Product Candidate Triage V1, define the conceptual
+  opportunity lifecycle and evidence domains, record the approved P7.2-P7.7 sequence, and make
+  P7.3 Decision Context + Opportunity Hypothesis the single NEXT after publication.
+
+problem: >
+  TASK-191 measured 15/15 accepted Shopee search-card candidates as INSUFFICIENT_DATA with zero
+  coverage across every current Winning Product V1 category, while explicitly prohibiting an
+  automatic enrichment choice. TASK-213 is now reviewed and published and has returned planning
+  authority to P7 with no selected post-P7.1 implementation. Product Contract v2 already requires
+  decision-relative intelligence, contextual opportunity/ranking, falsifiable hypotheses,
+  Value-of-Information, and causal honesty. The approved interpretation must become durable before
+  any collector, score change, TikTok evidence path, or market test is built.
+
+assumptions:
+  - Canonical main is 3d0243b747f7ae65096c405a905390222ea73d8b, the published TASK-213 candidate.
+  - TASK-191 remains the P7.1 checkpoint at 40da098b3b0dcf3d1994fc510dd55717b81a2f67.
+  - Product Contract v2 remains current authority; P7.2 is subordinate to it and must not duplicate it.
+  - Existing scorer, policy, ranker, discovery, approval, truth, catalog and retrieval authorities remain unchanged.
+  - >
+    Human-approved sequence: P7.2 Winning Opportunity Semantic Reconciliation; P7.3 Decision
+    Context + Opportunity Hypothesis; P7.4 TikTok Affiliate Evidence Profile; P7.5
+    Value-of-Information Planning; P7.6 Market Test / Funnel Evidence; P7.7 Calibration & Winner
+    Validation. Only P7.3 becomes NEXT after this task is publication-effective.
+  - Exact AIOS-renew pin remains 91a177d5b96b2197a4d8223dbb727dda6201cb64.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_6_M2_PRODUCT_INTELLIGENCE.md
+    - docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md
+    - docs/PHASE_7_P7_1_REAL_EVIDENCE_COVERAGE_BASELINE.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - .ai/tasks/TASK-191.yaml
+    - .ai/tasks/TASK-213.yaml
+    - src/product_intelligence/policy.py
+    - src/product_intelligence/scoring.py
+    - src/product_intelligence/ranking.py
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - docs/PHASE_7_P7_2_WINNING_OPPORTUNITY_SEMANTICS.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - Change any Governance Foundation document or AIOS adoption/conformance state/pin.
+  - Change production Python, APIs, scorer weights, thresholds, ranking, decision bands or names.
+  - Add a second scorer, universal winner predictor, global commerce score or autonomous selector.
+  - Collect/enrich marketplace evidence or implement P7.3-P7.7 capabilities.
+  - Treat the evidence domains as mandatory fields or fixed score weights.
+  - Push, merge or publish from Executor execution.
+
+constraints:
+  hard:
+    - >
+      Define five conceptual stages only: DISCOVERED_CANDIDATE, OPPORTUNITY_HYPOTHESIS,
+      TEST_READY, VALIDATED_WINNER, SCALABLE_WINNER. They are reasoning semantics, not a persisted
+      enum/state machine.
+    - >
+      Define Winning Opportunity as contextual across relevant customer/audience need, product,
+      offer, channel, creative/content, economics, timing, execution/operations, objective,
+      constraints, alternatives, risk and uncertainty. Do not make this a universal formula.
+    - >
+      Bound WinningProductScorer/CandidateRanker as Product Candidate Triage V1: deterministic
+      prioritization for deeper resources under the existing policy, not a universal market-winner
+      predictor. Do not rename or reweight it without outcome evidence.
+    - >
+      Record pre-test evidence domains covering market pull/unmet demand, momentum/timing,
+      product quality/trust, audience/creator fit, offer/economics, creative/content leverage,
+      competition/content gap/differentiation, and operational feasibility. Relevance is
+      contextual; missingness alone does not authorize acquisition.
+    - >
+      Record the pre-test/post-test boundary: pre-test outputs remain hypotheses/test-readiness;
+      validation requires authorized observed funnel/economic/quality outcomes appropriate to the
+      decision. Outcome is not causal attribution and one success does not establish scalability.
+    - >
+      Preserve P7.1 exactly: zero coverage proves the bounded search-card surface is insufficient
+      for the current scorer, not that every missing field must be collected or V1 weights are wrong.
+    - >
+      Canonicalize P7 as the active product track. Record TASK-214/P7.2 as publication-gated DONE;
+      P7.3 is the only NEXT; P7.4-P7.7 are ordered NOT_DONE future commitments. Preserve roadmap
+      authority as BRAIN-owned, engineering_truth false, auto-advance false, priority owner HUMAN.
+    - Only the five authorized files may change; otherwise fail closed for fresh Brain review.
+    - Verification must be deterministic and offline with no network, marketplace, provider or clock dependency.
+
+acceptance:
+  - id: AC1
+    condition: P7.2 document establishes contextual Winning Opportunity and the five-stage lifecycle subordinate to Product Contract v2.
+  - id: AC2
+    condition: Existing WinningProductScorer/CandidateRanker are unchanged and explicitly bounded as Product Candidate Triage V1.
+  - id: AC3
+    condition: Evidence-domain and pre-test/post-test boundaries preserve provenance, uncertainty, VOI and causal honesty.
+  - id: AC4
+    condition: TASK-191 remains immutable measurement history and is not reinterpreted as commercial failure or enrichment authority.
+  - id: AC5
+    condition: Both roadmaps and roadmap-state record the approved P7.2-P7.7 sequence with P7.3 as unique NEXT.
+  - id: AC6
+    condition: Governance history, TASK-191/TASK-213 provenance, exact AIOS pin and production authorities remain unchanged; only authorized files change and verification passes.
+
+verification:
+  required:
+    - 'python -m pytest tests/aios_bridge/test_aios_governance_state.py -q'
+    - 'git diff --check'
