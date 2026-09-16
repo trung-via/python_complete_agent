@@ -1,0 +1,32 @@
+review_id: REVIEW-215-001
+reviewed_sha: 58cbf9a8a43ede37dac8abd86302031ea4b49439
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: PASS
+  AC3: PASS
+  AC4: FAIL
+  AC5: PASS
+  AC6: PASS
+findings:
+  - id: FINDING-215-001
+    basis: AC4
+    action: CODE_FIX
+    location: src/commerce_opportunity_intelligence/decision_context.py; tests/commerce_opportunity_intelligence/test_decision_context.py
+    issue: >
+      The public DecisionContext.to_dict and OpportunityHypothesis.to_dict projections return
+      caller-supplied strings verbatim after only type, blank, length, ordering, and duplicate
+      validation. The TASK-215 hard contract requires those public projections to contain no
+      secret, raw HTML, cookie/session data, model prompt, hidden execution metadata, object repr,
+      or memory address. A caller can currently place such content in context text, subject or
+      evidence references, assumptions, constraints, unknowns, conditions, or expected outcomes
+      and the projection emits it unchanged. The focused tests do not exercise this required
+      fail-closed projection boundary, so the Runtime PASS does not establish that hard semantic
+      constraint.
+    expected: >
+      Make the bounded P7.3 value/projection boundary deterministically guarantee that forbidden
+      sensitive or raw payload classes required by TASK-215 cannot appear in public projections,
+      without creating evidence, persistence, identity, or model authority. Add focused offline
+      tests proving the forbidden projection classes fail closed while preserving the existing
+      caller-order, immutability, opaque-reference, and pure-construction semantics.
