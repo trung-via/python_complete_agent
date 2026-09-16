@@ -495,6 +495,23 @@ TASK-207 revision 2 and RUN-207-001/RUN-207-002/REPAIR-207-001 remain immutable 
 history; conformance resumes only through a fresh Brain revision bound to the new pin.
 Future AIOS-renew main changes remain irrelevant until another explicit reviewed downstream migration.
 
+TASK-207 revision 3 certifies the unchanged Phase-1 and Phase-2 repository bindings under
+the exact `91a177d5b96b2197a4d8223dbb727dda6201cb64` pin. The certification record is
+`.ai/aios-conformance-state.yaml`. Certification is publication-gated: Runtime PASS and a
+semantic Reviewer PASS are necessary but not sufficient; the safe Publisher must publish
+exactly the reviewed TASK-207 revision-3 source candidate and canonical `main` must equal it.
+Only then is `FULL_AIOS_DOWNSTREAM_CONFORMANCE` effective as DONE and
+`PROJECT_CONTRACT_REBUILD` the sole NEXT commitment. This state does not assert that a
+replacement Project Contract exists or has been approved.
+
+The normal certified surfaces remain the repository-owned GitHub Issue carriers for Brain
+authoring, PRIMARY wakeup, terminal attention, remediation intent, and REPAIR wakeup, plus
+the repository-native review-to-publication continuation. Their existing pinned Brain,
+Runtime, Executor, Reviewer, Publisher, A3, A6, REPAIR, and Attention authorities stay
+separate. Local file/stdin ingress, Human-facing worker commands, and direct operator paths
+remain bounded emergency/debug fallbacks; they do not compete with or replace those normal
+repository bindings.
+
 ### Live Self-Hosted Operational Prerequisites
 
 Live PRIMARY and Phase-2 REMEDIATION/REPAIR execution require one-time Human operational setup before live use:

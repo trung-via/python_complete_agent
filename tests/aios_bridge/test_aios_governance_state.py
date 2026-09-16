@@ -23,9 +23,8 @@ TASK_194_SOURCE_SHA = "e0d8998ee004fda80ca3fbc3de4eb0afb59160a5"
 TASK_196_SOURCE_SHA = "4f6d91858c93192f497342315c4650e30b0a2718"
 TASK_199_SOURCE_SHA = "702e85e9e77a556f3716717ccaa186919b1a9dab"
 ACTIVE_TRACK_ID = "AIOS_FULL_DOWNSTREAM_ADOPTION_AND_GOVERNANCE_REBUILD"
-NEXT_MILESTONE_ID = "FULL_AIOS_DOWNSTREAM_CONFORMANCE"
+NEXT_MILESTONE_ID = "PROJECT_CONTRACT_REBUILD"
 APPROVED_PENDING_SEQUENCE = [
-    "FULL_AIOS_DOWNSTREAM_CONFORMANCE",
     "PROJECT_CONTRACT_REBUILD",
     "GOVERNANCE_FOUNDATION_CLOSURE_AND_P7_RETURN",
 ]
@@ -183,6 +182,27 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
         },
         "boundary": "DOES_NOT_CLAIM_FULL_AIOS_DOWNSTREAM_CONFORMANCE",
     }
+    assert completed["TASK-207"] == {
+        "task_id": "TASK-207",
+        "task_revision": 3,
+        "track_id": ACTIVE_TRACK_ID,
+        "milestone_id": "FULL_AIOS_DOWNSTREAM_CONFORMANCE",
+        "title": "Full AIOS downstream control plane conformance gate",
+        "status": "DONE",
+        "downstream_pin": EXPECTED_PIN,
+        "certification_record": ".ai/aios-conformance-state.yaml",
+        "effective_only_when": {
+            "semantic_review": "PASS",
+            "published_source": "EXACT_REVIEWED_CANDIDATE",
+            "canonical_main_equals_reviewed_candidate": True,
+        },
+        "boundary": (
+            "DONE is publication-gated and does not become effective from source "
+            "candidacy, Runtime PASS, or Reviewer PASS alone. It does not rebuild or "
+            "approve a Project Contract, close Governance Foundation, or return the "
+            "product roadmap to P7."
+        ),
+    }
 
     upstream = state["upstream_recovery"]
     assert upstream["status"] == "ADOPTED_BY_PIN"
@@ -243,7 +263,7 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
     assert phase_2["migration_task"] == "TASK-206"
     assert phase_2["downstream_pin"] == HISTORICAL_TASK_204_PIN
     assert phase_2["closed_commitment"] == "FULL_AIOS_CONTROL_PLANE_ADOPTION_PHASE_2"
-    assert phase_2["next_commitment"] == NEXT_MILESTONE_ID
+    assert phase_2["next_commitment"] == "FULL_AIOS_DOWNSTREAM_CONFORMANCE"
     assert phase_2["repository_binding_activation"] == "PHASE_2_ACTIVE"
     assert "does not claim that conformance" in phase_2["roadmap_effect"]
 
@@ -260,9 +280,11 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
     assert prereq["downstream_pin"] == EXPECTED_PIN
     assert prereq["prior_pin"] == HISTORICAL_TASK_208_PIN
     assert prereq["prior_migration_task"] == "TASK-208"
-    assert prereq["prerequisite_for"] == NEXT_MILESTONE_ID
+    assert prereq["prerequisite_for"] == "FULL_AIOS_DOWNSTREAM_CONFORMANCE"
     assert prereq["resume_target"]["task_id"] == "TASK-207"
-    assert prereq["resume_target"]["commitment_id"] == NEXT_MILESTONE_ID
+    assert prereq["resume_target"]["commitment_id"] == (
+        "FULL_AIOS_DOWNSTREAM_CONFORMANCE"
+    )
     assert prereq["resume_target"]["requires_fresh_brain_revision"] is True
     assert prereq["resume_target"]["supersedes_task_revision"] == 2
     assert prereq["immutable_old_pin_lineage"] == {
@@ -276,6 +298,26 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
 
     assert state["authority"]["owner"] == "BRAIN"
     assert state["authority"]["auto_advance_from_runtime_or_worker_state"] is False
+
+    conformance = state["full_downstream_conformance"]
+    assert conformance == {
+        "status": "DONE",
+        "task_id": "TASK-207",
+        "task_revision": 3,
+        "downstream_pin": EXPECTED_PIN,
+        "effective_only_when": {
+            "semantic_review": "PASS",
+            "published_source": "EXACT_REVIEWED_CANDIDATE",
+            "canonical_main_equals_reviewed_candidate": True,
+        },
+        "next_commitment": NEXT_MILESTONE_ID,
+        "roadmap_effect": (
+            "On reviewed source publication, closes FULL_AIOS_DOWNSTREAM_CONFORMANCE "
+            "and advances only the planning bookmark to PROJECT_CONTRACT_REBUILD. The "
+            "replacement Project Contract remains nonexistent and unapproved until "
+            "separately drafted and approved in full by the Human."
+        ),
+    }
 
 
 def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
@@ -321,6 +363,25 @@ def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
         ],
     }
     assert state["authority"]["engineering_truth"] is False
+    assert state["full_downstream_conformance"] == {
+        "status": "CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION",
+        "certification_task": {"id": "TASK-207", "revision": 3},
+        "downstream_pin": EXPECTED_PIN,
+        "certification_record": ".ai/aios-conformance-state.yaml",
+        "effective_only_when": {
+            "semantic_review": "PASS",
+            "published_source": "EXACT_REVIEWED_CANDIDATE",
+            "canonical_main_equals_reviewed_candidate": True,
+        },
+        "before_gate": "NOT_EFFECTIVE",
+        "binding_classifications_changed": False,
+        "boundary": (
+            "This Brain planning record becomes effective only when the safe Publisher "
+            "publishes exactly the reviewed TASK-207 revision-3 source candidate. It is "
+            "not Runtime, review, or publication authority and does not replace the "
+            "separate canonical evidence lineage."
+        ),
+    }
     dimensions = state["classification_dimensions"]
     assert set(dimensions["package_capability_availability"]) == {
         "ADOPTED_BY_PIN",

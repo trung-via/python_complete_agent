@@ -1,0 +1,122 @@
+schema_version: 1
+kind: aios_downstream_conformance_certification
+project: Python Agent
+
+authority:
+  owner: BRAIN_REVIEW
+  purpose: PUBLICATION_GATED_DOWNSTREAM_CERTIFICATION
+  runtime_truth_store: false
+  evidence_store: false
+  grants_lifecycle_authority: false
+
+certification:
+  task_id: TASK-207
+  task_revision: 3
+  downstream_pin: 91a177d5b96b2197a4d8223dbb727dda6201cb64
+  status: CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION
+  effective_only_when:
+    semantic_review: PASS
+    review_mode: PRIMARY
+    published_source: EXACT_REVIEWED_CANDIDATE
+    canonical_main_equals_reviewed_candidate: true
+  before_gate: NOT_EFFECTIVE
+  boundary: >-
+    Runtime PASS and Reviewer PASS do not by themselves make this certification effective.
+    The safe Publisher must publish exactly the TASK-207 revision-3 reviewed source candidate,
+    and canonical main must equal that candidate.
+
+binding_families:
+  phase_1:
+    brain_authoring_ingress:
+      status: ACTIVE
+      policy: .ai/brain-ingress-carriers.yaml
+      carrier: .github/workflows/aios-brain-ingress.yml
+    primary_wakeup:
+      status: ACTIVE
+      policy: .ai/brain-wakeup-carriers.yaml
+      carrier: .github/workflows/aios-brain-wakeup.yml
+      self_hosted_workflow: .github/workflows/aios-self-hosted-wakeup.yml
+      bootstrap: .agents/skills/aios-worker/scripts/aios_phase1_wakeup.py
+    terminal_attention:
+      status: ACTIVE
+      policy: .ai/brain-terminal-attention-carriers.yaml
+      carrier: .github/workflows/aios-terminal-attention.yml
+  phase_2:
+    review_to_publication:
+      status: ACTIVE
+      ingress: .github/workflows/aios-brain-ingress.yml
+      publisher: .github/workflows/aios-auto-publish.yml
+    remediation_intent:
+      status: ACTIVE
+      policy: .ai/brain-remediation-intent-carriers.yaml
+      carrier: .github/workflows/aios-brain-remediation-intent.yml
+      self_hosted_workflow: .github/workflows/aios-approved-remediation-intent.yml
+      bootstrap: .agents/skills/aios-worker/scripts/aios_phase2_remediation.py
+    repair_wakeup:
+      status: ACTIVE
+      policy: .ai/brain-repair-wakeup-carriers.yaml
+      carrier: .github/workflows/aios-brain-repair-wakeup.yml
+      self_hosted_workflow: .github/workflows/aios-self-hosted-repair-wakeup.yml
+      bootstrap: .agents/skills/aios-worker/scripts/aios_phase2_repair.py
+
+live_evidence_selectors:
+  AC1:
+    carrier: AIOS_BRAIN_INGRESS
+    issue_number: 27
+    operation: AUTHOR_TASK
+    workflow_run_id: 35071658032
+    expected_actor: trung-via
+    expected_predecessor_main: ed10b28e068d662e8dd70c8a38af2b0da19fcf65
+    canonical_task_commit: ecb4ae02433331f493a1547735049db4a4ea0f46
+  AC2:
+    carrier: AIOS_BRAIN_WAKEUP
+    issue_number: 28
+    carrier_workflow_run_id: 35072293802
+    self_hosted_workflow_run_id: 35072318348
+    dispatch_id: task-207-r3-live-001
+    run_id: RUN-207-003
+    executor: codex
+  AC3:
+    carrier: AIOS_TERMINAL_ATTENTION
+    run_id: RUN-207-003
+    terminal_ref_prefix: refs/heads/aios/terminal-attention/
+    issue_title: "[AIOS TERMINAL ATTENTION]"
+  AC4:
+    reused_transport_task: TASK-209
+    review_ingress_issue_number: 26
+    run_id: RUN-209-002
+    review_id: REVIEW-209-001
+    auto_publish_workflow_run_id: 35071342455
+    published_candidate: ed10b28e068d662e8dd70c8a38af2b0da19fcf65
+  AC5:
+    carrier: AIOS_BRAIN_REMEDIATION_INTENT
+    correction_dispatch_id: task-207-r3-remediation-non-authorizing-001
+    task_id: TASK-207
+    expected_outcome: FAIL_CLOSED_NO_IMPLEMENTATION_RUN
+    self_hosted_bootstrap: .agents/skills/aios-worker/scripts/aios_phase2_remediation.py
+  AC6:
+    carrier: AIOS_BRAIN_REPAIR_WAKEUP
+    repair_dispatch_id: task-207-r3-repair-non-authorizing-001
+    task_id: TASK-207
+    action_shape: NO_CHANGE
+    executor: null
+    expected_outcome: FAIL_CLOSED_NO_IMPLEMENTATION_RUN
+    self_hosted_bootstrap: .agents/skills/aios-worker/scripts/aios_phase2_repair.py
+
+authority_boundaries:
+  brain: AUTHORING_AND_CORRECTION_INTENT
+  runtime: EXECUTION_AND_CANONICAL_VERIFICATION
+  executor: BOUNDED_IMPLEMENTATION_ONLY
+  reviewer: SEMANTIC_VERDICT_ONLY
+  publisher: EXACT_REVIEWED_SOURCE_PUBLICATION_ONLY
+  a3: EXACT_REMEDIATION_APPROVAL
+  a6: DURABLE_REMEDIATION_DISPATCH
+  repair: FAILED_RUN_CONTINUATION_ONLY
+  attention: NOTIFICATION_ONLY
+  local_fallbacks: EMERGENCY_DEBUG_ONLY
+
+historical_exclusions:
+  old_pin_task_revision: TASK-207-REVISION-2
+  runs: [RUN-207-001, RUN-207-002]
+  repair: REPAIR-207-001
+  certification_authority_for_current_pin: false

@@ -26,13 +26,13 @@ active_track:
   status: ACTIVE
 
 next:
-  id: FULL_AIOS_DOWNSTREAM_CONFORMANCE
-  title: Full AIOS downstream control plane conformance gate
+  id: PROJECT_CONTRACT_REBUILD
+  title: Project Contract rebuild from zero with full-text Human approval
   status: NEXT
   completion_gate: >-
-    Remains NEXT until canonical evidence marks it DONE or explicit Human intent
-    canonically marks it CANCELLED or SUPERSEDED and a fresh Brain reconciliation
-    advances this planning bookmark.
+    Becomes the unique NEXT commitment only when the reviewed TASK-207 revision-3 source
+    candidate is safely published and canonical main equals that candidate. This bookmark
+    does not claim that a replacement Project Contract exists or has Human approval.
 
 completed_milestones:
   - task_id: TASK-192
@@ -86,6 +86,22 @@ completed_milestones:
       remediation_intent_a3_a6: ACTIVE
       repair_wakeup: ACTIVE
     boundary: DOES_NOT_CLAIM_FULL_AIOS_DOWNSTREAM_CONFORMANCE
+  - task_id: TASK-207
+    task_revision: 3
+    track_id: AIOS_FULL_DOWNSTREAM_ADOPTION_AND_GOVERNANCE_REBUILD
+    milestone_id: FULL_AIOS_DOWNSTREAM_CONFORMANCE
+    title: Full AIOS downstream control plane conformance gate
+    status: DONE
+    downstream_pin: 91a177d5b96b2197a4d8223dbb727dda6201cb64
+    certification_record: .ai/aios-conformance-state.yaml
+    effective_only_when:
+      semantic_review: PASS
+      published_source: EXACT_REVIEWED_CANDIDATE
+      canonical_main_equals_reviewed_candidate: true
+    boundary: >-
+      DONE is publication-gated and does not become effective from source candidacy,
+      Runtime PASS, or Reviewer PASS alone. It does not rebuild or approve a Project
+      Contract, close Governance Foundation, or return the product roadmap to P7.
 
 superseded_commitments:
   - id: CHATGPT_PROJECT_CONTRACT_RECONCILIATION
@@ -224,15 +240,27 @@ prerequisite_pin_migration:
     ordering, rebuild the Project Contract, close Governance Foundation, or return to P7.
 
 pending_commitments:
-  - id: FULL_AIOS_DOWNSTREAM_CONFORMANCE
-    title: Full AIOS downstream control plane conformance gate
-    status: NOT_DONE
   - id: PROJECT_CONTRACT_REBUILD
     title: Project Contract rebuild from zero with full-text Human approval
     status: NOT_DONE
   - id: GOVERNANCE_FOUNDATION_CLOSURE_AND_P7_RETURN
     title: Governance Foundation closure and return to P7 product roadmap
     status: NOT_DONE
+
+full_downstream_conformance:
+  status: DONE
+  task_id: TASK-207
+  task_revision: 3
+  downstream_pin: 91a177d5b96b2197a4d8223dbb727dda6201cb64
+  effective_only_when:
+    semantic_review: PASS
+    published_source: EXACT_REVIEWED_CANDIDATE
+    canonical_main_equals_reviewed_candidate: true
+  next_commitment: PROJECT_CONTRACT_REBUILD
+  roadmap_effect: >-
+    On reviewed source publication, closes FULL_AIOS_DOWNSTREAM_CONFORMANCE and advances
+    only the planning bookmark to PROJECT_CONTRACT_REBUILD. The replacement Project Contract
+    remains nonexistent and unapproved until separately drafted and approved in full by the Human.
 
 commitment_removal_gate: >-
   A pending commitment may leave this set only when canonical evidence marks it DONE

@@ -17,6 +17,24 @@ downstream_pin:
   policy: EXACT_REVIEWED_SOURCE_PUBLISHED_ONLY
   source_published: true
 
+full_downstream_conformance:
+  status: CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION
+  certification_task:
+    id: TASK-207
+    revision: 3
+  downstream_pin: 91a177d5b96b2197a4d8223dbb727dda6201cb64
+  certification_record: .ai/aios-conformance-state.yaml
+  effective_only_when:
+    semantic_review: PASS
+    published_source: EXACT_REVIEWED_CANDIDATE
+    canonical_main_equals_reviewed_candidate: true
+  before_gate: NOT_EFFECTIVE
+  binding_classifications_changed: false
+  boundary: >-
+    This Brain planning record becomes effective only when the safe Publisher publishes
+    exactly the reviewed TASK-207 revision-3 source candidate. It is not Runtime, review,
+    or publication authority and does not replace the separate canonical evidence lineage.
+
 upstream_audit:
   checkpoint: 91a177d5b96b2197a4d8223dbb727dda6201cb64
   through_authored_task: TASK-118
