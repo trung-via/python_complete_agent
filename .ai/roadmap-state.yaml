@@ -300,7 +300,7 @@ historical_prerequisite_pin_migration:
     It does not claim conformance completion, modify pending commitment ordering, or
     implement generic interruption semantics.
 
-prerequisite_pin_migration:
+task_209_historical_prerequisite_pin_migration:
   status: DONE
   blocking_current_track: false
   migration_kind: TERMINAL_ATTENTION_PORTABILITY_EXACT_PIN_MIGRATION
@@ -331,20 +331,62 @@ prerequisite_pin_migration:
     It does not claim conformance completion, rewrite old-pin lineage, modify pending commitment
     ordering, rebuild the Project Contract, close Governance Foundation, or return to P7.
 
-full_downstream_conformance:
+prerequisite_pin_migration:
   status: DONE
-  task_id: TASK-207
-  task_revision: 3
-  downstream_pin: 91a177d5b96b2197a4d8223dbb727dda6201cb64
-  effective_only_when:
-    semantic_review: PASS
-    published_source: EXACT_REVIEWED_CANDIDATE
-    canonical_main_equals_reviewed_candidate: true
-  next_commitment: PROJECT_CONTRACT_REBUILD
+  blocking_current_track: false
+  migration_kind: CUMULATIVE_TASK_119_129_EXACT_PIN_MIGRATION
+  migration_task: TASK-216
+  downstream_pin: c96eb8b52acd865b9453409e6598e08a8bd4e48e
+  upstream_provenance:
+    through_authored_task: TASK-129
+    review: REVIEW-129-001
+    source_sha: c96eb8b52acd865b9453409e6598e08a8bd4e48e
+  prior_pin: 91a177d5b96b2197a4d8223dbb727dda6201cb64
+  prior_migration_task: TASK-209
+  prerequisite_for: FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION
+  resume_target:
+    task_id: TASK-215
+    commitment_id: P7.3
+    run_id: RUN-215-002
+    requires_fresh_conformance_prerequisite: true
+  immutable_old_pin_lineage:
+    conformance_task: TASK-207
+    conformance_revision: 3
+    runs: [RUN-207-001, RUN-207-002]
+    repair: REPAIR-207-001
+    downstream_pin: 91a177d5b96b2197a4d8223dbb727dda6201cb64
+    certification_authority_for_new_pin: false
+  preserved_task_215_lineage:
+    task_id: TASK-215
+    run_id: RUN-215-002
+    milestone_id: P7.3
+    candidate_preserved: true
+    product_done: false
+  repository_binding_activation: INGRESS_REPAIR_HANDOFF_ACTIVE
   roadmap_effect: >-
-    On reviewed source publication, closes FULL_AIOS_DOWNSTREAM_CONFORMANCE and advances
-    only the planning bookmark to PROJECT_CONTRACT_REBUILD. The replacement Project Contract
-    remains nonexistent and unapproved until separately drafted and approved in full by the Human.
+    Migrates the sole active AIOS runtime pin to c96eb8b52acd865b9453409e6598e08a8bd4e48e,
+    ports bounded TASK-127 post-canonicalization REPAIR handoff to Brain ingress,
+    preserves P7.3 as the product NEXT and all TASK-215 correction lineage (RUN-215-002),
+    and establishes fresh new-pin downstream-conformance certification as the next
+    control-plane recovery prerequisite before generic P7 continuation.
+
+full_downstream_conformance:
+  status: PENDING_FRESH_CERTIFICATION
+  current_pin: c96eb8b52acd865b9453409e6598e08a8bd4e48e
+  historical_certification:
+    task_id: TASK-207
+    task_revision: 3
+    downstream_pin: 91a177d5b96b2197a4d8223dbb727dda6201cb64
+    effective_only_when:
+      semantic_review: PASS
+      published_source: EXACT_REVIEWED_CANDIDATE
+      canonical_main_equals_reviewed_candidate: true
+    status: HISTORICAL_OLD_PIN_EVIDENCE_ONLY
+  next_commitment: FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION
+  roadmap_effect: >-
+    Historical TASK-207 revision-3 certification is preserved for old pin 91a177d5b96b2197a4d8223dbb727dda6201cb64.
+    Fresh full downstream conformance certification is pending under c96eb8b52acd865b9453409e6598e08a8bd4e48e
+    as a prerequisite before generic roadmap continuation.
 
 commitment_removal_gate: >-
   A pending commitment may leave this set only when canonical evidence marks it DONE

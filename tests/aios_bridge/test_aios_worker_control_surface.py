@@ -32,7 +32,8 @@ TASK_198_AUTHORITATIVE_COMMIT = "a3b723b49cd65677f548c5694a52a6fc006a9e2a"
 TASK_201_HISTORICAL_COMMIT = "f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e"
 TASK_204_AUTHORITATIVE_COMMIT = "652b00b103dd50e2a550dd0ec0fe4063e69631b7"
 TASK_208_HISTORICAL_COMMIT = "26097405343150dc1b55015b94720528afad50ed"
-TASK_209_AUTHORITATIVE_COMMIT = "91a177d5b96b2197a4d8223dbb727dda6201cb64"
+TASK_209_HISTORICAL_COMMIT = "91a177d5b96b2197a4d8223dbb727dda6201cb64"
+TASK_216_AUTHORITATIVE_COMMIT = "c96eb8b52acd865b9453409e6598e08a8bd4e48e"
 TASK_089_SOURCE_CANDIDATE = "bb57147eac92475789d7809ed445d56535d5a009"
 TASK_092_REVIEW_DECISION_COMMIT = "18e7ed49c7393f199589bd241eede3e67d759aa1"
 LATER_ROADMAP_COMMIT = "410f0a87c86f3fef56802d23dc0b8cf22bb2c9f7"
@@ -86,11 +87,12 @@ class TestImmutableRuntimePin:
             if line.strip() and not line.lstrip().startswith("#")
         ]
         assert active == [aw.PIN_LINE]
-        assert aw.AUTHORITATIVE_COMMIT == TASK_209_AUTHORITATIVE_COMMIT
+        assert aw.AUTHORITATIVE_COMMIT == TASK_216_AUTHORITATIVE_COMMIT
         assert active == [
             "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
-            "91a177d5b96b2197a4d8223dbb727dda6201cb64"
+            f"{TASK_216_AUTHORITATIVE_COMMIT}"
         ]
+        assert TASK_209_HISTORICAL_COMMIT not in active[0]
         assert TASK_208_HISTORICAL_COMMIT not in active[0]
         assert TASK_204_AUTHORITATIVE_COMMIT not in active[0]
         assert TASK_198_AUTHORITATIVE_COMMIT not in active[0]
@@ -104,6 +106,10 @@ class TestImmutableRuntimePin:
         ("url", "commit"),
         [
             ("https://github.com/other/AIOS-renew.git", aw.AUTHORITATIVE_COMMIT),
+            (
+                aw.AUTHORITATIVE_REPOSITORY,
+                TASK_209_HISTORICAL_COMMIT,
+            ),
             (
                 aw.AUTHORITATIVE_REPOSITORY,
                 TASK_198_AUTHORITATIVE_COMMIT,
@@ -1323,11 +1329,11 @@ class TestSurfaceAndDocumentation:
     def test_suspended_project_contract_grants_no_worker_or_pin_authority(self):
         text = CONTRACT_FILE.read_text(encoding="utf-8")
         normalized = " ".join(text.split())
-        assert "SUSPENDED AND SUPERSEDED TRANSITIONAL NOTICE" in text
+        assert "DURABLE PROJECT CONTRACT" in text
         assert aw.AUTHORITATIVE_COMMIT not in text
         assert TASK_201_HISTORICAL_COMMIT not in text
-        assert "creates no new precedence system or product semantics" in normalized
-        assert "does not grant or change review, execution" in normalized
+        assert "does not define product meaning, create product semantics" in normalized
+        assert "downstream copy of AIOS lifecycle semantics" in normalized
 
     def test_active_docs_bind_task_092_native_instruction_boundary(self):
         for path in (SKILL_FILE, WORKFLOW_FILE, DOCS_FILE):
@@ -1400,6 +1406,10 @@ class TestSurfaceAndDocumentation:
             assert "TASK-117" in text
             assert "TASK-118" in text
             assert "REVIEW-118-001" in text
+            assert "TASK-119" in text
+            assert "TASK-127" in text
+            assert "TASK-129" in text
+            assert "REVIEW-129-001" in text
             assert "without activating repository bindings" in text
             assert "no synchronization engine" in text
             assert "no new Human-facing Executor selection" in text
@@ -1415,7 +1425,8 @@ class TestSurfaceAndDocumentation:
             assert "duplicate-continuation checks" in text
             assert TASK_204_AUTHORITATIVE_COMMIT in text
             assert TASK_208_HISTORICAL_COMMIT in text
-            assert TASK_209_AUTHORITATIVE_COMMIT in text
+            assert TASK_209_HISTORICAL_COMMIT in text
+            assert TASK_216_AUTHORITATIVE_COMMIT in text
             assert TASK_198_AUTHORITATIVE_COMMIT in text
             assert TASK_102_ERA_COMMIT in text
             assert IMMEDIATE_PREDECESSOR_COMMIT in text
@@ -1457,7 +1468,7 @@ class TestSurfaceAndDocumentation:
 
         assert (
             "downstream AIOS-renew pin "
-            "`91a177d5b96b2197a4d8223dbb727dda6201cb64` already present"
+            f"`{TASK_216_AUTHORITATIVE_COMMIT}` already present"
             in normalized
         )
         assert (
