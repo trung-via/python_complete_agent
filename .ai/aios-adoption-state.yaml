@@ -13,17 +13,23 @@ authority:
 
 downstream_pin:
   repository: https://github.com/trung-via/AIOS-renew.git
-  commit: 91a177d5b96b2197a4d8223dbb727dda6201cb64
+  commit: c96eb8b52acd865b9453409e6598e08a8bd4e48e
   policy: EXACT_REVIEWED_SOURCE_PUBLISHED_ONLY
   source_published: true
 
 full_downstream_conformance:
-  status: CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION
+  status: PENDING_FRESH_CERTIFICATION
   certification_task:
-    id: TASK-207
+    id: null
+    revision: null
+  downstream_pin: c96eb8b52acd865b9453409e6598e08a8bd4e48e
+  historical_old_pin_certification:
+    task_id: TASK-207
     revision: 3
-  downstream_pin: 91a177d5b96b2197a4d8223dbb727dda6201cb64
-  certification_record: .ai/aios-conformance-state.yaml
+    downstream_pin: 91a177d5b96b2197a4d8223dbb727dda6201cb64
+    certification_record: .ai/aios-conformance-state.yaml
+    status: HISTORICAL_OLD_PIN_EVIDENCE_ONLY
+  certification_record: null
   effective_only_when:
     semantic_review: PASS
     published_source: EXACT_REVIEWED_CANDIDATE
@@ -31,19 +37,20 @@ full_downstream_conformance:
   before_gate: NOT_EFFECTIVE
   binding_classifications_changed: false
   boundary: >-
-    This Brain planning record becomes effective only when the safe Publisher publishes
-    exactly the reviewed TASK-207 revision-3 source candidate. It is not Runtime, review,
-    or publication authority and does not replace the separate canonical evidence lineage.
+    Fresh full downstream conformance certification for c96eb8b52acd865b9453409e6598e08a8bd4e48e
+    remains pending and not current. Prior TASK-207 revision-3 conformance remains historical
+    evidence for 91a177d5b96b2197a4d8223dbb727dda6201cb64 only in .ai/aios-conformance-state.yaml
+    and is preserved unchanged.
 
 upstream_audit:
-  checkpoint: 91a177d5b96b2197a4d8223dbb727dda6201cb64
-  through_authored_task: TASK-118
+  checkpoint: c96eb8b52acd865b9453409e6598e08a8bd4e48e
+  through_authored_task: TASK-129
   checkpoint_role: REVIEWED_SOURCE_PUBLISHED_PROVENANCE
   checkpoint_is_runtime_authority: false
-  review: REVIEW-118-001
+  review: REVIEW-129-001
   review_outcome: PRIMARY_PASS
   source_published: true
-  prior_planning_checkpoint: 26097405343150dc1b55015b94720528afad50ed
+  prior_planning_checkpoint: 91a177d5b96b2197a4d8223dbb727dda6201cb64
   provenance:
     - task_id: TASK-114
       role: DOWNSTREAM_PORTABILITY_POLICY
@@ -59,6 +66,39 @@ upstream_audit:
       activates_repository_binding: false
     - task_id: TASK-118
       role: TERMINAL_ATTENTION_PORTABILITY_HARDENING
+      activates_repository_binding: false
+    - task_id: TASK-119
+      role: UNIFIED_HUMAN_SURFACE_NO_EXECUTOR_REPAIR
+      activates_repository_binding: false
+    - task_id: TASK-120
+      role: RUNTIME_WINDOWS_VERIFICATION_ISOLATION
+      activates_repository_binding: false
+    - task_id: TASK-121
+      role: BRAIN_SYNC_REHYDRATION_SNAPSHOT
+      activates_repository_binding: false
+    - task_id: TASK-122
+      role: FINALIZE_CANDIDATE_REPAIR_ACTION
+      activates_repository_binding: false
+    - task_id: TASK-123
+      role: REPAIR_AUTHORIZATION_SUPERSESSION
+      activates_repository_binding: false
+    - task_id: TASK-124
+      role: REPAIR_AUTHORIZATION_PUBLICATION_LINEAGE
+      activates_repository_binding: false
+    - task_id: TASK-125
+      role: MULTI_GENERATION_REPAIR_SUPERSESSION
+      activates_repository_binding: false
+    - task_id: TASK-126
+      role: ANTIGRAVITY_READ_ONLY_COMPLETION_TRANSPORT
+      activates_repository_binding: false
+    - task_id: TASK-127
+      role: POST_CANONICALIZATION_REPAIR_HANDOFF
+      activates_repository_binding: true
+    - task_id: TASK-128
+      role: BRAIN_SYNC_INTEGRATION
+      activates_repository_binding: false
+    - task_id: TASK-129
+      role: REPAIR_AFTER_FAILED_REMEDIATION
       activates_repository_binding: false
 
 classification_dimensions:
@@ -355,6 +395,94 @@ capability_families:
       TASK-118 terminal-attention portability hardening for source-repository and exact-pin
       downstream layouts is consumed from the exact pin. Existing terminal truth and all
       Phase-1 and Phase-2 repository bindings remain active and unchanged.
+
+  - id: UNIFIED_HUMAN_SURFACE_NO_EXECUTOR_REPAIR
+    upstream_tasks: [TASK-119]
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
+    consumption: PINNED_KERNEL_ONLY
+    source_published: true
+    review: REVIEW-119-001
+    boundary: >-
+      TASK-119 preserves no-executor repair semantics on the Unified Human Surface
+      when a downstream carrier supplies an executor to continue.
+
+  - id: RUNTIME_WINDOWS_VERIFICATION_ISOLATION
+    upstream_tasks: [TASK-120]
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
+    consumption: PINNED_KERNEL_ONLY
+    source_published: true
+    review: REVIEW-120-001
+    boundary: >-
+      TASK-120 isolates native Windows verification executions from ambient temporary-root
+      conflicts.
+
+  - id: BRAIN_CONTINUITY_AND_SYNC_SNAPSHOT
+    upstream_tasks: [TASK-121, TASK-128]
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
+    consumption: PINNED_KERNEL_ONLY
+    source_published: true
+    boundary: >-
+      TASK-121 and TASK-128 provide deterministic read-only canonical rehydration snapshot
+      and Brain Sync integration consumed solely from the pinned kernel.
+
+  - id: FINALIZE_CANDIDATE_REPAIR_ACTION
+    upstream_tasks: [TASK-122]
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
+    consumption: PINNED_KERNEL_ONLY
+    source_published: true
+    review: REVIEW-122-002
+    boundary: >-
+      TASK-122 closes native terminal-response loss gaps for unmutated candidates
+      using the bounded FINALIZE_CANDIDATE action.
+
+  - id: REPAIR_AUTHORIZATION_SUPERSESSION_AND_LINEAGE
+    upstream_tasks: [TASK-123, TASK-124, TASK-125]
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
+    consumption: PINNED_KERNEL_ONLY
+    source_published: true
+    boundary: >-
+      TASK-123, TASK-124, and TASK-125 provide bounded, multi-generation immutable
+      REPAIR-authorization supersession and publication lineage validation.
+
+  - id: ANTIGRAVITY_READ_ONLY_COMPLETION_TRANSPORT
+    upstream_tasks: [TASK-126]
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
+    consumption: PINNED_KERNEL_ONLY
+    source_published: true
+    boundary: >-
+      TASK-126 enables native Antigravity zero-mutation execution to return structural
+      ResultPackage for read-only completion.
+
+  - id: POST_CANONICALIZATION_REPAIR_HANDOFF
+    upstream_tasks: [TASK-127]
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: ACTIVE
+    consumption: PINNED_KERNEL_CAPABILITY
+    carrier: .github/workflows/aios-brain-ingress.yml
+    source_published: true
+    review: REVIEW-127-001
+    boundary: >-
+      TASK-127 post-canonicalization REPAIR handoff is an ACTIVE repository binding in
+      .github/workflows/aios-brain-ingress.yml dispatching safe REPAIR wakeup to
+      .github/workflows/aios-self-hosted-repair-wakeup.yml. Non-target Brain ingress events
+      are suppressed from emitting false REPAIR rejection receipts.
+
+  - id: REPAIR_AFTER_FAILED_REMEDIATION
+    upstream_tasks: [TASK-129]
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
+    consumption: PINNED_KERNEL_ONLY
+    source_published: true
+    review: REVIEW-129-001
+    boundary: >-
+      TASK-129 closes the generic REPAIR-after-failed-REMEDIATION authoring gap
+      by resolving the embedded RUN identity.
 
 incident_lineage:
   run_id: RUN-197-001
