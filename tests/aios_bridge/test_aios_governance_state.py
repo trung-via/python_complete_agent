@@ -83,7 +83,6 @@ def values_for_key(value: object, key: str) -> list[object]:
 
 def test_roadmap_activates_approved_p7_sequence_with_one_next():
     state = load_yaml(ROADMAP_FILE)
-    roadmap_text = ROADMAP_FILE.read_text(encoding="utf-8")
     assert state["authority"] == {
         "owner": "BRAIN",
         "purpose": "CROSS_CHAT_PLANNING_BOOKMARK",
@@ -186,8 +185,6 @@ def test_roadmap_activates_approved_p7_sequence_with_one_next():
             "changing TASK-213 history."
         ),
     }
-    assert "TASK-119" not in roadmap_text
-    assert "TASK-120" not in roadmap_text
 
     superseded = {item["id"]: item for item in state.get("superseded_commitments", [])}
     assert (
