@@ -502,8 +502,11 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
     assert state["authority"]["auto_advance_from_runtime_or_worker_state"] is False
 
     conformance = state["full_downstream_conformance"]
-    assert conformance["status"] == "PENDING_FRESH_CERTIFICATION"
-    assert conformance["current_pin"] == EXPECTED_PIN
+    assert conformance["status"] == "DONE"
+    assert conformance["task_id"] == "TASK-207"
+    assert conformance["task_revision"] == 4
+    assert conformance["downstream_pin"] == EXPECTED_PIN
+    assert conformance["certification_record"] == ".ai/aios-conformance-state.yaml"
     assert conformance["historical_certification"] == {
         "task_id": "TASK-207",
         "task_revision": 3,
@@ -515,8 +518,18 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
         },
         "status": "HISTORICAL_OLD_PIN_EVIDENCE_ONLY",
     }
-    assert conformance["next_commitment"] == "FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION"
-    assert "Fresh full downstream conformance certification is pending" in conformance["roadmap_effect"]
+    assert conformance["effective_only_when"] == {
+        "semantic_review": "PASS",
+        "published_source": "EXACT_REVIEWED_CANDIDATE",
+        "canonical_main_equals_reviewed_candidate": True,
+    }
+    assert conformance["next_commitment"] == "P7.3"
+    assert conformance["resume_target"] == {
+        "task_id": "TASK-215",
+        "commitment_id": "P7.3",
+        "run_id": "RUN-215-002",
+    }
+    assert "closes FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION" in conformance["roadmap_effect"]
 
 
 def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
@@ -541,8 +554,8 @@ def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
     ]
     assert state["authority"]["engineering_truth"] is False
     assert state["full_downstream_conformance"] == {
-        "status": "PENDING_FRESH_CERTIFICATION",
-        "certification_task": {"id": None, "revision": None},
+        "status": "CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION",
+        "certification_task": {"id": "TASK-207", "revision": 4},
         "downstream_pin": EXPECTED_PIN,
         "historical_old_pin_certification": {
             "task_id": "TASK-207",
@@ -551,7 +564,7 @@ def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
             "certification_record": ".ai/aios-conformance-state.yaml",
             "status": "HISTORICAL_OLD_PIN_EVIDENCE_ONLY",
         },
-        "certification_record": None,
+        "certification_record": ".ai/aios-conformance-state.yaml",
         "effective_only_when": {
             "semantic_review": "PASS",
             "published_source": "EXACT_REVIEWED_CANDIDATE",
@@ -560,10 +573,10 @@ def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
         "before_gate": "NOT_EFFECTIVE",
         "binding_classifications_changed": False,
         "boundary": (
-            f"Fresh full downstream conformance certification for {EXPECTED_PIN} "
-            f"remains pending and not current. Prior TASK-207 revision-3 conformance remains historical "
-            f"evidence for {HISTORICAL_TASK_209_PIN} only in .ai/aios-conformance-state.yaml "
-            f"and is preserved unchanged."
+            "This Brain planning record becomes effective only when the safe Publisher "
+            "publishes exactly the reviewed TASK-207 revision-4 source candidate. It is "
+            "not Runtime, review, or publication authority and does not replace the "
+            "separate canonical evidence lineage."
         ),
     }
     assert conformance["authority"] == {
@@ -575,8 +588,8 @@ def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
     }
     assert conformance["certification"] == {
         "task_id": "TASK-207",
-        "task_revision": 3,
-        "downstream_pin": HISTORICAL_TASK_209_PIN,
+        "task_revision": 4,
+        "downstream_pin": EXPECTED_PIN,
         "status": "CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION",
         "effective_only_when": {
             "semantic_review": "PASS",
@@ -587,9 +600,16 @@ def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
         "before_gate": "NOT_EFFECTIVE",
         "boundary": (
             "Runtime PASS and Reviewer PASS do not by themselves make this certification "
-            "effective. The safe Publisher must publish exactly the TASK-207 revision-3 "
+            "effective. The safe Publisher must publish exactly the TASK-207 revision-4 "
             "reviewed source candidate, and canonical main must equal that candidate."
         ),
+    }
+    assert conformance["historical_certification"] == {
+        "task_id": "TASK-207",
+        "task_revision": 3,
+        "downstream_pin": HISTORICAL_TASK_209_PIN,
+        "status": "HISTORICAL_OLD_PIN_EVIDENCE_ONLY",
+        "certification_authority_for_current_pin": False,
     }
     assert conformance["historical_exclusions"] == {
         "old_pin_task_revision": "TASK-207-REVISION-2",

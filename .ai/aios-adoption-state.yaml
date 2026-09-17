@@ -18,10 +18,10 @@ downstream_pin:
   source_published: true
 
 full_downstream_conformance:
-  status: PENDING_FRESH_CERTIFICATION
+  status: CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION
   certification_task:
-    id: null
-    revision: null
+    id: TASK-207
+    revision: 4
   downstream_pin: c96eb8b52acd865b9453409e6598e08a8bd4e48e
   historical_old_pin_certification:
     task_id: TASK-207
@@ -29,7 +29,7 @@ full_downstream_conformance:
     downstream_pin: 91a177d5b96b2197a4d8223dbb727dda6201cb64
     certification_record: .ai/aios-conformance-state.yaml
     status: HISTORICAL_OLD_PIN_EVIDENCE_ONLY
-  certification_record: null
+  certification_record: .ai/aios-conformance-state.yaml
   effective_only_when:
     semantic_review: PASS
     published_source: EXACT_REVIEWED_CANDIDATE
@@ -37,10 +37,10 @@ full_downstream_conformance:
   before_gate: NOT_EFFECTIVE
   binding_classifications_changed: false
   boundary: >-
-    Fresh full downstream conformance certification for c96eb8b52acd865b9453409e6598e08a8bd4e48e
-    remains pending and not current. Prior TASK-207 revision-3 conformance remains historical
-    evidence for 91a177d5b96b2197a4d8223dbb727dda6201cb64 only in .ai/aios-conformance-state.yaml
-    and is preserved unchanged.
+    This Brain planning record becomes effective only when the safe Publisher
+    publishes exactly the reviewed TASK-207 revision-4 source candidate. It is
+    not Runtime, review, or publication authority and does not replace the
+    separate canonical evidence lineage.
 
 upstream_audit:
   checkpoint: c96eb8b52acd865b9453409e6598e08a8bd4e48e

@@ -497,18 +497,21 @@ TASK-216 supersedes that active pin with exact reviewed, source-published commit
 `c96eb8b52acd865b9453409e6598e08a8bd4e48e`, consuming cumulative reviewed TASK-119..129 /
 REVIEW-129-001 capabilities and porting bounded TASK-127 post-canonicalization REPAIR handoff
 and non-target repair receipt suppression while preserving authority boundaries.
-Prior TASK-207 revision-3 conformance remains historical evidence tied to
-`91a177d5b96b2197a4d8223dbb727dda6201cb64`; fresh full downstream conformance certification
-under `c96eb8b52acd865b9453409e6598e08a8bd4e48e` remains pending and required.
+TASK-207 revision 4 re-certifies the Phase-1 and Phase-2 repository bindings under
+the exact `c96eb8b52acd865b9453409e6598e08a8bd4e48e` pin, while preserving revision-3
+conformance as historical evidence tied to `91a177d5b96b2197a4d8223dbb727dda6201cb64`.
 TASK-207 revision 2 and RUN-207-001/RUN-207-002/REPAIR-207-001 remain immutable old-pin
 history; conformance resumes only through a fresh Brain revision bound to the new pin.
 Future AIOS-renew main changes remain irrelevant until another explicit reviewed downstream migration.
 
-Historically, TASK-207 revision 3 certified the Phase-1 and Phase-2 repository bindings under
-the exact `91a177d5b96b2197a4d8223dbb727dda6201cb64` pin in `.ai/aios-conformance-state.yaml`.
-That evidence remains preserved unchanged as historical old-pin evidence; fresh full downstream
-conformance certification for the new `c96eb8b52acd865b9453409e6598e08a8bd4e48e` pin is
-separately pending and required.
+TASK-207 revision 4 establishes the publication-gated full downstream conformance certification
+under the exact `c96eb8b52acd865b9453409e6598e08a8bd4e48e` pin in `.ai/aios-conformance-state.yaml`.
+Certification is publication-gated: Runtime PASS and a semantic Reviewer PASS are necessary but not
+sufficient; the safe Publisher must publish exactly the reviewed TASK-207 revision-4 source candidate
+and canonical `main` must equal it. Only then is `FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION`
+effective as DONE, with P7.3 remaining NEXT and preserving TASK-215 / RUN-215-002 resume lineage.
+Prior revision-3 evidence under `91a177d5b96b2197a4d8223dbb727dda6201cb64` remains preserved
+unchanged as historical old-pin evidence.
 
 The normal certified surfaces remain the repository-owned GitHub Issue carriers for Brain
 authoring, PRIMARY wakeup, terminal attention, remediation intent, and REPAIR wakeup, plus
