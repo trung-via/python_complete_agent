@@ -1,44 +1,36 @@
 task_id: TASK-216
-revision: 2
-goal: 'Preserve TASK-216 revision-1 semantics while making the migration executable
-  against the actual current Python Agent repository contents. Migrate the sole active
-  AIOS-renew runtime authority from 91a177d5b96b2197a4d8223dbb727dda6201cb64 to exact
-  reviewed/source-published c96eb8b52acd865b9453409e6598e08a8bd4e48e, port only the
-  bounded TASK-127 repository-binding compatibility for deterministic post-AUTHOR_REPAIR
-  wakeup, preserve product/TASK-215 lineage, and leave fresh new-pin downstream conformance
-  certification as a separate next prerequisite.
+revision: 3
+goal: 'Preserve TASK-216 revision-2 migration semantics and authority boundaries while
+  correcting the verification contract exposed by RUN-216-005. Migrate Python Agent
+  to exact reviewed AIOS-renew pin c96eb8b52acd865b9453409e6598e08a8bd4e48e, preserve
+  the bounded TASK-127 post-AUTHOR_REPAIR handoff, preserve TASK-215/P7.3 lineage,
+  and authorize the one previously inspect-only Phase-1 regression file whose stale
+  assertion now contradicts the intended two bounded workflow-dispatch continuations.
 
   '
-problem: 'TASK-216 revision 1 was correctly authored but RUN-216-001 failed in EXECUTION
-  before any candidate existed. The failure was not semantic: Codex attempted a brittle
-  apply_patch in .agents/workflows/aios-renew-worker.md using historical TASK-118
-  prose that is not present verbatim in the current file, causing apply_patch verification
-  failure. Canonical failure evidence records failed_head_sha equal to base 19cd4df4ee0d8644982f3da513c3aca4467caa70,
-  changed_files=[], repairable=false, transportable=false. Therefore RUN-216-001 is
-  not a REPAIR subject and revision 2 must execute from current canonical main after
-  ordinary checkout reconciliation. The migration semantics, authority boundaries,
-  exact target pin, TASK-215 lineage preservation, and fresh-certification requirement
-  from revision 1 remain unchanged.
+problem: 'RUN-216-004 produced a clean, transportable, repairable TASK-216 r2 candidate
+  and failed only because a stale governance regression forbade TASK-119/TASK-120
+  text. REPAIR-216-002 corrected that authorized test and produced RUN-216-005 at
+  failed_head_sha af9b408336d1c0d9a9dfb600f58facad10dbfd7e. RUN-216-005 verification
+  now reports 220 passed and one failure: tests/aios_bridge/test_aios_phase1_control_plane.py
+  still asserts that the entire Brain ingress workflow contains exactly one createWorkflowDispatch
+  call. TASK-216 r2 intentionally adds a second bounded dispatch for post-canonicalization
+  AUTHOR_REPAIR while preserving the existing publication dispatch. The Phase-2 candidate
+  tests already assert the intended count of two. The Phase-1 test is therefore stale,
+  but revision 2 listed it only for inspection/verification and did not authorize
+  modification. Repairing that file under r2 would exceed task scope, so a fresh revision
+  is required.
 
   '
 assumptions:
-- 'Canonical repository content after recovery is source-equivalent to TASK-216 r1
-  main; the two connector recovery commits between 19cd4df4 and e3a96bb have zero
-  net file delta.
-
-  '
-- 'RUN-216-001 is immutable failed execution evidence only and produced no source
-  candidate; it must not be FIXed or REPAIRed.
-
-  '
-- 'AIOS-renew c96eb8b52acd865b9453409e6598e08a8bd4e48e remains the exact reviewed
-  and source-published cumulative upstream through TASK-129.
-
-  '
-- 'TASK-215 / RUN-215-002 correction lineage remains immutable and must not be altered
-  by this migration.
-
-  '
+- Canonical main remains d001deaa7c85754e06da2c033aa41006b81a6d2d with TASK-216 revision
+  2 only; no TASK-216 implementation has been published.
+- RUN-216-005 failed_head_sha af9b408336d1c0d9a9dfb600f58facad10dbfd7e is clean, transportable,
+  repairable and descends from the r2 base.
+- The r2/r5 candidate semantics remain the intended implementation baseline; revision
+  3 changes verification authority, not product or control-plane intent.
+- AIOS-renew c96eb8b52acd865b9453409e6598e08a8bd4e48e remains the exact reviewed/source-published
+  upstream source through TASK-129.
 scope:
   inspect:
   - docs/PYTHON_AGENT_CONSTITUTION.md
@@ -74,108 +66,64 @@ scope:
   - .github/workflows/aios-brain-repair-wakeup.yml
   - tests/aios_bridge/test_aios_worker_control_surface.py
   - tests/aios_bridge/test_aios_brain_ingress.py
+  - tests/aios_bridge/test_aios_phase1_control_plane.py
   - tests/aios_bridge/test_aios_phase2_control_plane.py
   - tests/aios_bridge/test_aios_governance_state.py
 non_goals:
-- Repair, rerun, review, integrate, publish, or otherwise alter TASK-215 or RUN-215-002.
-- Repair RUN-216-001 or salvage its dirty working tree as a candidate.
+- Repair, rerun, review, integrate, publish, or alter TASK-215 or RUN-215-002.
 - Modify .ai/aios-conformance-state.yaml or claim old TASK-207 certification applies
   to c96eb8b5.
-- Introduce a floating AIOS ref, second runtime authority, vendored AIOS source, retry/reroute,
-  lifecycle router, scheduler, queue, broker, or new semantic authority.
-- Replace repository identity, runner labels/paths, actor allowlists, existing publication
-  or remediation authority, or product semantics.
+- Change the intended TASK-216 r2 control-plane semantics merely to satisfy stale
+  textual assertions.
+- Introduce floating AIOS refs, vendored AIOS source, second runtime authority, retry/reroute,
+  scheduler, queue, broker, or new semantic authority.
+- Change repository identity, runner paths/labels, actor allowlists, product semantics,
+  publication authority, or remediation authority.
 constraints:
   hard:
-  - 'Replace the sole active requirements pin and worker AUTHORITATIVE_COMMIT with
-    exactly c96eb8b52acd865b9453409e6598e08a8bd4e48e; preserve existing PEP-610 provenance
-    and fail-closed runtime bootstrap behavior.
-
-    '
-  - 'Before modifying every authorized file, read its current repository content at
-    the admitted base. Do not construct apply_patch hunks from assumed historical
-    prose or from TASK-118/TASK-119-era exact text. In particular, edits to .agents/workflows/aios-renew-worker.md
-    must locate the current `Adopted Upstream Capabilities and Boundaries` section
-    and current old-pin text semantically/currently, then update that current content.
-    If an expected historical anchor is absent, re-read the file and make a content-aware
-    edit rather than failing or fabricating the anchor.
-
-    '
-  - 'Preserve Human-facing Codex and Antigravity worker protocols and authority neutrality.
-
-    '
-  - 'Port TASK-127 post-canonicalization REPAIR handoff into the existing .github/workflows/aios-brain-ingress.yml
-    only: successful non-replayed AUTHOR_REPAIR with canonical repair_sha dispatches
-    at most once to existing aios-self-hosted-repair-wakeup.yml using exact repair_dispatch_id,
-    failed_run_id and repair_sha. Existing publication dispatch remains unchanged
-    and transport receipts assert transport only.
-
-    '
-  - 'Bound .github/workflows/aios-brain-repair-wakeup.yml receipt/failure behavior
-    to exact `[AIOS REPAIR WAKEUP]` target issues so unrelated Brain ingress fan-out
-    produces no false canonical-looking REPAIR rejection receipt.
-
-    '
-  - 'Reconcile .ai/aios-adoption-state.yaml to c96eb8b5 and cumulative reviewed TASK-119..129
-    provenance, while explicitly marking fresh full downstream conformance certification
-    as pending/not-current. Preserve .ai/aios-conformance-state.yaml unchanged as
-    historical old-pin evidence.
-
-    '
-  - 'Reconcile .ai/roadmap-state.yaml only for this control-plane migration; preserve
-    P7.3 and TASK-215 correction lineage and make fresh new-pin certification the
-    next control-plane prerequisite before generic roadmap continuation.
-
-    '
-  - 'Existing Phase-1/Phase-2 bindings, publication, remediation intent, self-hosted
-    repair target, terminal attention, runner labels/paths, policies and actor allowlists
-    remain unchanged except the two bounded TASK-127 workflow deltas.
-
-    '
-  - 'Mutation must stay inside the thirteen authorized modify files. Executor must
-    leave no dirty working tree on success and must not publish.
-
-    '
+  - Preserve the sole active exact AIOS-renew pin and worker AUTHORITATIVE_COMMIT
+    target as c96eb8b52acd865b9453409e6598e08a8bd4e48e with existing PEP-610 fail-closed
+    provenance behavior.
+  - Preserve the existing publication dispatch unchanged and preserve exactly one
+    additional bounded AUTHOR_REPAIR dispatch to aios-self-hosted-repair-wakeup.yml
+    using exact repair_dispatch_id, failed_run_id and repair_sha.
+  - Update tests/aios_bridge/test_aios_phase1_control_plane.py only to stop asserting
+    that publication is the only workflow dispatch. It must instead preserve Phase-1
+    forbidden raw-worker/executor invariants while truthfully allowing the one bounded
+    REPAIR continuation introduced by TASK-216.
+  - Do not hide the REPAIR continuation by changing API spelling solely to satisfy
+    the old count assertion. Verification must describe actual semantics truthfully.
+  - Preserve P7.3 as NEXT, preserve TASK-215/RUN-215-002 lineage, and keep fresh c96eb8b5
+    downstream conformance certification pending.
+  - Preserve the RUN-216-005 candidate semantics across the original thirteen files
+    unless current-base reconstruction proves a minimal correction is necessary. No
+    unrelated refactor or broadened behavior.
+  - Mutation must stay inside the fourteen authorized modify files. Executor must
+    leave a clean working tree and must not publish.
 acceptance:
 - id: AC1
-  condition: 'Sole active Python Agent AIOS-renew dependency and worker provenance
-    authority are exactly c96eb8b52acd865b9453409e6598e08a8bd4e48e; stale/alternate
-    provenance remains fail-closed.
-
-    '
+  condition: Sole active AIOS-renew dependency/provenance authority is exactly c96eb8b52acd865b9453409e6598e08a8bd4e48e
+    and stale/alternate provenance remains fail-closed.
 - id: AC2
-  condition: 'Codex and Antigravity Human-facing worker surfaces remain compatible
-    and authority-neutral, and current documentation consistently names the new exact
-    pin without relying on stale historical patch anchors.
-
-    '
+  condition: Human-facing Codex and Antigravity worker surfaces remain compatible
+    and authority-neutral.
 - id: AC3
-  condition: 'Brain ingress preserves review-to-publication continuation and adds
-    exactly one bounded post-canonicalization AUTHOR_REPAIR dispatch path using pinned
-    outputs only.
-
-    '
+  condition: Brain ingress preserves the existing publication continuation and exactly
+    one bounded post-canonicalization AUTHOR_REPAIR dispatch using pinned outputs
+    only.
 - id: AC4
-  condition: 'Dedicated REPAIR issue carrier behaves normally for target issues while
-    unrelated issue fan-out emits no false REPAIR rejection receipt.
-
-    '
+  condition: Dedicated REPAIR issue carrier remains bounded to exact target issues
+    and unrelated issue fan-out emits no false canonical-looking REPAIR receipt.
 - id: AC5
-  condition: 'Adoption/roadmap truth records TASK-119..129 cumulative migration, sole
-    c96eb8b5 pin, preserved TASK-215 lineage, and fresh c96eb8b5 certification still
-    required; historical old-pin conformance evidence is not rewritten.
-
-    '
+  condition: Adoption/roadmap truth records TASK-119..129 migration, exact c96eb8b5
+    pin, preserved TASK-215/P7.3 lineage, and fresh new-pin conformance still pending.
 - id: AC6
-  condition: 'No second authority, floating pin, vendored AIOS, retry/reroute, product
-    semantic change, or unauthorized repository-binding change is introduced.
-
-    '
+  condition: Phase-1 regression truthfully allows the added bounded REPAIR continuation
+    without weakening raw-command, executor, repository, publication, or authority
+    invariants.
 - id: AC7
-  condition: 'Mutation stays inside authorized files, required deterministic regressions
-    pass, git diff --check passes, and RESULT contains zero unresolved items.
-
-    '
+  condition: Mutation stays inside the fourteen authorized files, required deterministic
+    regressions pass, git diff --check passes, and RESULT has zero unresolved items.
 verification:
   required:
   - python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py tests/aios_bridge/test_aios_brain_ingress.py
