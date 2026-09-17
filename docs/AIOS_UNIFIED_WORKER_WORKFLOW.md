@@ -1,8 +1,8 @@
 # AIOS Unified Worker Workflow
 
-As of TASK-209 revision 1, the repository-owned Codex and Antigravity worker
+As of TASK-216 revision 2, the repository-owned Codex and Antigravity worker
 surfaces delegate exclusively to the immutable AIOS-renew kernel at commit
-`91a177d5b96b2197a4d8223dbb727dda6201cb64`. Legacy AIOS Bridge source remains
+`c96eb8b52acd865b9453409e6598e08a8bd4e48e`. Legacy AIOS Bridge source remains
 archived in this repository, but it is inactive and unreachable from these
 CONTINUE/STATUS and explicit RUN/FIX/REPAIR surfaces.
 
@@ -431,7 +431,8 @@ branches or caches that do not expose `/aios-renew-worker` fail closed instead o
 falling back to legacy `/aios-worker` semantics.
 
 Both active worker surfaces and the Brain-only carrier use exactly AIOS-renew commit
-`91a177d5b96b2197a4d8223dbb727dda6201cb64`. Installed provenance for the TASK-208-era
+`c96eb8b52acd865b9453409e6598e08a8bd4e48e`. Installed provenance for the TASK-209-era
+`91a177d5b96b2197a4d8223dbb727dda6201cb64` pin, the TASK-208-era
 `26097405343150dc1b55015b94720528afad50ed` pin, the TASK-204-era
 `652b00b103dd50e2a550dd0ec0fe4063e69631b7` pin, the TASK-201-era
 `f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e` pin, the TASK-198-era
@@ -447,7 +448,8 @@ TASK-089, TASK-090, TASK-091 revision 2, TASK-092, TASK-093 through TASK-100, an
 plus TASK-103 hardening, TASK-101 revision 4, recovered TASK-104/TASK-105 Brain Authoring
 Ingress, TASK-106 package-level Human-surface presentation hardening, TASK-113 package
 compatibility, TASK-115 safe-publication hardening, TASK-117 carrier portability hardening,
-and TASK-118 terminal-attention portability hardening
+TASK-118 terminal-attention portability hardening, and cumulative reviewed TASK-119 through
+TASK-129 capabilities
 only through their public operator surfaces. TASK-114/TASK-116 are governance-policy provenance
 and activate no repository binding. Python Agent copies no AIOS-renew
 workflow files, creates no second lifecycle state machine, and does not automatically expose
@@ -491,18 +493,22 @@ terminal-attention admission while preserving all Phase-1 and Phase-2 repository
 TASK-209 supersedes that active pin with exact reviewed, source-published commit
 `91a177d5b96b2197a4d8223dbb727dda6201cb64`, consuming TASK-118 / REVIEW-118-001
 terminal-attention portability hardening while preserving those bindings and authority boundaries.
+TASK-216 supersedes that active pin with exact reviewed, source-published commit
+`c96eb8b52acd865b9453409e6598e08a8bd4e48e`, consuming cumulative reviewed TASK-119..129 /
+REVIEW-129-001 capabilities and porting bounded TASK-127 post-canonicalization REPAIR handoff
+and non-target repair receipt suppression while preserving authority boundaries.
+Prior TASK-207 revision-3 conformance remains historical evidence tied to
+`91a177d5b96b2197a4d8223dbb727dda6201cb64`; fresh full downstream conformance certification
+under `c96eb8b52acd865b9453409e6598e08a8bd4e48e` remains pending and required.
 TASK-207 revision 2 and RUN-207-001/RUN-207-002/REPAIR-207-001 remain immutable old-pin
 history; conformance resumes only through a fresh Brain revision bound to the new pin.
 Future AIOS-renew main changes remain irrelevant until another explicit reviewed downstream migration.
 
-TASK-207 revision 3 certifies the unchanged Phase-1 and Phase-2 repository bindings under
-the exact `91a177d5b96b2197a4d8223dbb727dda6201cb64` pin. The certification record is
-`.ai/aios-conformance-state.yaml`. Certification is publication-gated: Runtime PASS and a
-semantic Reviewer PASS are necessary but not sufficient; the safe Publisher must publish
-exactly the reviewed TASK-207 revision-3 source candidate and canonical `main` must equal it.
-Only then is `FULL_AIOS_DOWNSTREAM_CONFORMANCE` effective as DONE and
-`PROJECT_CONTRACT_REBUILD` the sole NEXT commitment. This state does not assert that a
-replacement Project Contract exists or has been approved.
+Historically, TASK-207 revision 3 certified the Phase-1 and Phase-2 repository bindings under
+the exact `91a177d5b96b2197a4d8223dbb727dda6201cb64` pin in `.ai/aios-conformance-state.yaml`.
+That evidence remains preserved unchanged as historical old-pin evidence; fresh full downstream
+conformance certification for the new `c96eb8b52acd865b9453409e6598e08a8bd4e48e` pin is
+separately pending and required.
 
 The normal certified surfaces remain the repository-owned GitHub Issue carriers for Brain
 authoring, PRIMARY wakeup, terminal attention, remediation intent, and REPAIR wakeup, plus
@@ -525,7 +531,7 @@ Source publication of this task does not claim those external prerequisites are 
 ## 9. Stale-Checkout CONTINUE Certification Protocol
 
 This certification applies only with the downstream AIOS-renew pin
-`91a177d5b96b2197a4d8223dbb727dda6201cb64` already present. Before the first
+`c96eb8b52acd865b9453409e6598e08a8bd4e48e` already present. Before the first
 invocation, record that the fresh proof TASK exists on the canonical remote while
 `.ai/tasks/TASK-N.yaml` is absent from the local checkout. The record must bind the
 exact TASK ID, the canonical remote ref/commit containing it, the local HEAD, and

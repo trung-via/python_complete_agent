@@ -73,7 +73,7 @@ class TestReviewToPublicationContinuation:
             "AIOS_RUN_ID": "${{ steps.ingress.outputs.publication_run_id }}"
         }
         script = dispatch["with"]["script"]
-        assert text.count("createWorkflowDispatch") == 1
+        assert text.count("createWorkflowDispatch") == 2
         assert "workflow_id: 'aios-auto-publish.yml'" in script
         assert "ref: 'main'" in script
         assert "run_id: process.env.AIOS_RUN_ID" in script
@@ -82,6 +82,27 @@ class TestReviewToPublicationContinuation:
             "github.event.issue.body",
         ):
             assert forbidden not in script
+
+        repair_dispatch = next(
+            step for step in workflow["jobs"]["deliver"]["steps"]
+            if step.get("id") == "repair_dispatch"
+        )
+        assert repair_dispatch["if"] == (
+            "steps.ingress.outcome == 'success' && "
+            "steps.ingress.outputs.repair_sha != ''"
+        )
+        assert repair_dispatch["env"] == {
+            "AIOS_REPAIR_DISPATCH_ID": "${{ steps.ingress.outputs.repair_dispatch_id }}",
+            "AIOS_FAILED_RUN_ID": "${{ steps.ingress.outputs.failed_run_id }}",
+            "AIOS_REPAIR_SHA": "${{ steps.ingress.outputs.repair_sha }}",
+        }
+        repair_script = repair_dispatch["with"]["script"]
+        assert "workflow_id: 'aios-self-hosted-repair-wakeup.yml'" in repair_script
+        assert "ref: 'main'" in repair_script
+        assert "repair_dispatch_id: process.env.AIOS_REPAIR_DISPATCH_ID" in repair_script
+        assert "failed_run_id: process.env.AIOS_FAILED_RUN_ID" in repair_script
+        assert "repair_sha: process.env.AIOS_REPAIR_SHA" in repair_script
+        assert "executor: ''" in repair_script
 
     def test_non_publication_ingress_has_no_dispatch_and_receipt_is_truthful(self):
         _, text = load_workflow(INGRESS)
@@ -224,6 +245,8 @@ class TestRepairWakeupBinding:
         assert "github.event.issue.body" not in text
         assert "secrets: inherit" not in text
         assert_pin_install(REPAIR_CARRIER, job="admit")
+        receipt = workflow["jobs"]["receipt"]
+        assert receipt["if"] == "always() && github.event.issue.title == '[AIOS REPAIR WAKEUP]'"
 
     def test_self_hosted_target_is_fixed_dedicated_and_has_optional_executor(self):
         workflow, text = load_workflow(REPAIR_TARGET)
