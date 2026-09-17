@@ -18,7 +18,7 @@ import aios_phase2_remediation as remediation  # noqa: E402
 import aios_phase2_repair as repair  # noqa: E402
 
 
-PIN = "652b00b103dd50e2a550dd0ec0fe4063e69631b7"
+PIN = "c96eb8b52acd865b9453409e6598e08a8bd4e48e"
 REQUIREMENTS = ROOT / ".agents/skills/aios-worker/requirements-aios-renew.txt"
 INGRESS = ROOT / ".github/workflows/aios-brain-ingress.yml"
 PUBLISH = ROOT / ".github/workflows/aios-auto-publish.yml"
@@ -83,11 +83,33 @@ class TestReviewToPublicationContinuation:
         ):
             assert forbidden not in script
 
+        repair_dispatch = next(
+            step for step in workflow["jobs"]["deliver"]["steps"]
+            if step.get("id") == "repair_dispatch"
+        )
+        assert repair_dispatch["if"] == (
+            "steps.ingress.outcome == 'success' && "
+            "steps.ingress.outputs.repair_sha != ''"
+        )
+        assert repair_dispatch["env"] == {
+            "AIOS_REPAIR_DISPATCH_ID": "${{ steps.ingress.outputs.repair_dispatch_id }}",
+            "AIOS_FAILED_RUN_ID": "${{ steps.ingress.outputs.failed_run_id }}",
+            "AIOS_REPAIR_SHA": "${{ steps.ingress.outputs.repair_sha }}",
+        }
+        repair_script = repair_dispatch["with"]["script"]
+        assert "workflow_id: 'aios-self-hosted-repair-wakeup.yml'" in repair_script
+        assert "repair_dispatch_id: process.env.AIOS_REPAIR_DISPATCH_ID" in repair_script
+        assert "failed_run_id: process.env.AIOS_FAILED_RUN_ID" in repair_script
+        assert "repair_sha: process.env.AIOS_REPAIR_SHA" in repair_script
+        assert "executor: ''" in repair_script
+
     def test_non_publication_ingress_has_no_dispatch_and_receipt_is_truthful(self):
         _, text = load_workflow(INGRESS)
         assert "steps.ingress.outputs.publication_run_id != ''" in text
         assert "this is not publication success or verdict" in text
         assert "steps.ingress.outcome != 'success'" in text
+        assert "steps.ingress.outputs.repair_sha != ''" in text
+        assert "this is not repair execution, verification, semantic review, publication, or TASK resolution" in text
         assert text.count("aios_renew.github_issue_ingress") == 1
         assert_pin_install(INGRESS, job="deliver")
 
@@ -214,6 +236,8 @@ class TestRepairWakeupBinding:
         admit = workflow["jobs"]["admit"]
         assert admit["if"] == "github.event.issue.title == '[AIOS REPAIR WAKEUP]'"
         assert admit["runs-on"] == "ubuntu-latest"
+        receipt = workflow["jobs"]["receipt"]
+        assert receipt["if"] == "always() && github.event.issue.title == '[AIOS REPAIR WAKEUP]'"
         assert workflow["permissions"] == {"contents": "read", "issues": "write"}
         dispatch = workflow["jobs"]["dispatch"]
         assert dispatch["uses"] == "./.github/workflows/aios-self-hosted-repair-wakeup.yml"

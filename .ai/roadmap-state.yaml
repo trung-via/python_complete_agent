@@ -331,6 +331,33 @@ prerequisite_pin_migration:
     It does not claim conformance completion, rewrite old-pin lineage, modify pending commitment
     ordering, rebuild the Project Contract, close Governance Foundation, or return to P7.
 
+control_plane_recovery_prerequisite:
+  status: DONE
+  blocking_current_track: false
+  migration_kind: NON_PRODUCT_CONTROL_PLANE_PIN_MIGRATION
+  migration_task: TASK-216
+  downstream_pin: c96eb8b52acd865b9453409e6598e08a8bd4e48e
+  prior_pin: 91a177d5b96b2197a4d8223dbb727dda6201cb64
+  prerequisite_for: FULL_AIOS_DOWNSTREAM_CONFORMANCE_FRESH_CERTIFICATION
+  repository_binding_activation: INGRESS_REPAIR_HANDOFF_PORTED
+  upstream_provenance:
+    checkpoint: c96eb8b52acd865b9453409e6598e08a8bd4e48e
+    through_authored_task: TASK-129
+    review: REVIEW-129-001
+  preserved_task_215_lineage:
+    task_id: TASK-215
+    task_revision: 1
+    runs: [RUN-215-001, RUN-215-002]
+    product_milestone: P7.3
+    disposition: IMMUTABLE_CORRECTION_LINEAGE
+  conformance_status: PENDING_FRESH_CERTIFICATION
+  roadmap_effect: >-
+    Migrates the sole active AIOS runtime pin to c96eb8b52acd865b9453409e6598e08a8bd4e48e,
+    ports bounded TASK-127 post-canonicalization REPAIR handoff to Brain ingress, preserves
+    P7.3 as the unique active product NEXT commitment, preserves TASK-215 / RUN-215-002
+    correction lineage, and makes fresh downstream conformance certification under the new
+    pin the next control-plane prerequisite before generic roadmap continuation.
+
 full_downstream_conformance:
   status: DONE
   task_id: TASK-207
@@ -341,10 +368,12 @@ full_downstream_conformance:
     published_source: EXACT_REVIEWED_CANDIDATE
     canonical_main_equals_reviewed_candidate: true
   next_commitment: PROJECT_CONTRACT_REBUILD
+  fresh_certification_required: true
+  fresh_certification_pin: c96eb8b52acd865b9453409e6598e08a8bd4e48e
   roadmap_effect: >-
-    On reviewed source publication, closes FULL_AIOS_DOWNSTREAM_CONFORMANCE and advances
-    only the planning bookmark to PROJECT_CONTRACT_REBUILD. The replacement Project Contract
-    remains nonexistent and unapproved until separately drafted and approved in full by the Human.
+    Historical TASK-207 revision-3 conformance was certified under 91a177d5b96b2197a4d8223dbb727dda6201cb64.
+    Following TASK-216 migration to c96eb8b52acd865b9453409e6598e08a8bd4e48e, fresh full downstream
+    conformance certification is required before generic roadmap continuation.
 
 commitment_removal_gate: >-
   A pending commitment may leave this set only when canonical evidence marks it DONE

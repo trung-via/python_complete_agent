@@ -224,7 +224,7 @@ an executor or become a second status or review authority.
 
 ## Adopted Upstream Capabilities and Boundaries
 
-Under the pinned commit `91a177d5b96b2197a4d8223dbb727dda6201cb64`, Python Agent adopts:
+Under the pinned commit `c96eb8b52acd865b9453409e6598e08a8bd4e48e`, Python Agent adopts:
 - **TASK-086**: Deterministic, read-only Unified State and Next Action through the
   public `state` operator surface. The workflow neither copies nor caches the reducer.
 - **TASK-087**: One bounded Human continuation front door through the public `continue`
@@ -335,6 +335,13 @@ Under the pinned commit `91a177d5b96b2197a4d8223dbb727dda6201cb64`, Python Agent
   exact-pin downstream layouts is consumed solely through the pinned distribution. Existing
   terminal truth, Phase-1 and Phase-2 bindings, and Runtime/Reviewer/Publisher authority remain
   unchanged; the workflow adds no repository-specific fallback or lifecycle behavior.
+- **TASK-119..TASK-129**: Cumulative upstream hardening across no-Executor repair isolation (TASK-119),
+  Windows verification UTF-8 isolation (TASK-120), canonical Brain Sync snapshotting (TASK-121, TASK-128),
+  native terminal response loss recovery (TASK-122), bounded immutable REPAIR authorization supersession
+  and multi-generation metadata replacement (TASK-123..TASK-125), Antigravity read-only completion
+  transport (TASK-126), post-canonicalization AUTHOR_REPAIR handoff (TASK-127), and REPAIR after
+  failed REMEDIATION (TASK-129) is consumed through the exact pin. The Human-facing worker protocol
+  remains authority-neutral and unchanged.
 
 Capabilities present in upstream history but **not** exposed by this downstream worker:
 - **TASK-066 / TASK-068..TASK-074**: Although the exact package contains this intervening
@@ -352,7 +359,8 @@ Capabilities present in upstream history but **not** exposed by this downstream 
 ## Immutable Kernel Pin
 
 The only authoritative AIOS-renew kernel is commit
-`91a177d5b96b2197a4d8223dbb727dda6201cb64`. Installed provenance for the TASK-208-era
+`c96eb8b52acd865b9453409e6598e08a8bd4e48e`. Installed provenance for the TASK-209-era
+`91a177d5b96b2197a4d8223dbb727dda6201cb64` pin, the TASK-208-era
 `26097405343150dc1b55015b94720528afad50ed` pin, the TASK-204-era
 `652b00b103dd50e2a550dd0ec0fe4063e69631b7` pin, the TASK-201-era
 `f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e` pin, the TASK-198-era
@@ -401,6 +409,12 @@ terminal-attention admission while preserving all Phase-1 and Phase-2 repository
 TASK-209 supersedes that active pin with exact reviewed, source-published commit
 `91a177d5b96b2197a4d8223dbb727dda6201cb64`, consuming TASK-118 / REVIEW-118-001
 terminal-attention portability hardening while preserving those bindings and authority boundaries.
+TASK-216 supersedes that active pin with exact reviewed, source-published commit
+`c96eb8b52acd865b9453409e6598e08a8bd4e48e`, consuming cumulative reviewed upstream
+TASK-119 through TASK-129 capabilities and porting bounded TASK-127 post-canonicalization
+REPAIR handoff into the repository-owned Brain ingress workflow. TASK-207 revision 3
+certification remains historical old-pin evidence; fresh downstream conformance certification
+under the new pin remains a separate subsequent requirement before generic roadmap continuation.
 TASK-207 revision 2 and RUN-207-001/RUN-207-002/REPAIR-207-001 remain immutable old-pin
 history; conformance resumes only through a fresh Brain revision bound to the new pin.
 Future AIOS-renew main changes remain irrelevant until another explicit reviewed downstream migration.
