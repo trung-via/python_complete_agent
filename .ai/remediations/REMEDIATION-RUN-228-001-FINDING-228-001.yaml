@@ -1,0 +1,9 @@
+finding_id: FINDING-228-001
+action: CODE_FIX
+reviewed_sha: abc1065a9d8d9ff6a210498d0f8027d6c96bc9da
+modification_scope:
+  - docs/PHASE_8_P8_2_PRE_ACTION_EVIDENCE_ACQUISITION_PLAN.md
+  - tests/aios_bridge/test_aios_governance_state.py
+affected_verification:
+  - python -m pytest tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task228-primary
+  - git diff --check
