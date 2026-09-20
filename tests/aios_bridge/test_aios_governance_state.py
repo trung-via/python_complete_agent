@@ -32,6 +32,11 @@ P7_6_SEMANTICS_FILE = (
     / "docs"
     / "PHASE_7_P7_6_MARKET_TEST_FUNNEL_EVIDENCE.md"
 )
+P7_7_SEMANTICS_FILE = (
+    REPO_ROOT
+    / "docs"
+    / "PHASE_7_P7_7_CALIBRATION_WINNER_VALIDATION.md"
+)
 ROADMAP_DOCS = (
     REPO_ROOT / "docs" / "POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
     REPO_ROOT / "docs" / "POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
@@ -63,6 +68,7 @@ TASK_214_SOURCE_SHA = "123bbb71d44ad15a25e07b07f21f6cb2dd00d20b"
 TASK_215_SOURCE_SHA = "dc4c4c8e6f3f4d6eb3441ff4873632e5f51655f9"
 TASK_222_SOURCE_SHA = "ca6da00e9e58f66e25f2f6edcb416677bed70b6d"
 TASK_223_SOURCE_SHA = "3c67a828857f74466883463abf35a17ecdcc6775"
+TASK_224_SOURCE_SHA = "d361361958fbcbe791c04aefbeba3d186c5f9608"
 ACTIVE_TRACK_ID = "AIOS_FULL_DOWNSTREAM_ADOPTION_AND_GOVERNANCE_REBUILD"
 CLOSURE_MILESTONE_ID = "GOVERNANCE_FOUNDATION_CLOSURE_AND_P7_RETURN"
 HISTORICAL_CONFORMANCE_NEXT_COMMITMENT = "PROJECT_CONTRACT_REBUILD"
@@ -112,7 +118,7 @@ def values_for_key(value: object, key: str) -> list[object]:
     return matches
 
 
-def test_roadmap_activates_approved_p7_sequence_with_one_next():
+def test_roadmap_closes_approved_p7_sequence_without_automatic_next():
     state = load_yaml(ROADMAP_FILE)
     assert state["authority"] == {
         "owner": "BRAIN",
@@ -131,27 +137,27 @@ def test_roadmap_activates_approved_p7_sequence_with_one_next():
         "id": "P7_COMMERCE_OPPORTUNITY_INTELLIGENCE",
         "title": "P7 Commerce Opportunity Intelligence",
         "priority_owner": "HUMAN",
-        "status": "ACTIVE",
+        "status": "DONE",
+        "completion_basis": "PUBLICATION_GATED",
+        "sequence_status": "COMPLETE_ON_EXACT_TASK_225_SOURCE_PUBLICATION",
         "current_milestone": {
-            "id": "P7.6",
-            "task_id": "TASK-224",
-            "title": "Market Test / Funnel Evidence",
+            "id": "P7.7",
+            "task_id": "TASK-225",
+            "title": "Calibration & Winner Validation",
             "status": "DONE",
             "completion_basis": "PUBLICATION_GATED",
+            "final_milestone_in_approved_sequence": True,
             "semantic_owner": (
-                "src/commerce_opportunity_intelligence/market_test_evidence.py"
+                "src/commerce_opportunity_intelligence/calibration_and_winner_validation.py"
             ),
-            "authority_identifier": "COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_6",
+            "authority_identifier": "COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_7",
             "effective_only_when": {
                 "semantic_review": "PASS",
                 "published_source": "EXACT_REVIEWED_CANDIDATE",
                 "canonical_main_equals_reviewed_candidate": True,
             },
         },
-        "next_milestone": {
-            "id": "P7.7",
-            "title": "Calibration & Winner Validation",
-        },
+        "next_milestone": None,
     }
     assert state["completed_track"] == {
         "id": ACTIVE_TRACK_ID,
@@ -172,19 +178,13 @@ def test_roadmap_activates_approved_p7_sequence_with_one_next():
             "canonical_main_equals_reviewed_candidate": True,
         },
     }
-    assert values_for_key(state, "status").count("ACTIVE") == 1
+    assert values_for_key(state, "status").count("ACTIVE") == 0
     assert state["roadmap_sources"] == [
         "docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
         "docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
     ]
-    assert values_for_key(state, "status").count("NEXT") == 1
-    assert state["pending_commitments"] == [
-        {
-            "id": "P7.7",
-            "title": "Calibration & Winner Validation",
-            "status": "NEXT",
-        },
-    ]
+    assert values_for_key(state, "status").count("NEXT") == 0
+    assert state["pending_commitments"] == []
     assert values_for_key(state, "status").count("NOT_DONE") == 0
     assert state["planning_handoff"] == {
         "destination": "P7_PRODUCT_ROADMAP",
@@ -198,6 +198,19 @@ def test_roadmap_activates_approved_p7_sequence_with_one_next():
             "product roadmap at the completed P7.1 checkpoint. Brain/Human interpretation "
             "selected P7.2 semantic reconciliation without reinterpreting TASK-191 or "
             "changing TASK-213 history."
+        ),
+    }
+    assert state["post_p7_planning_handoff"] == {
+        "destination": "FRESH_BRAIN_HUMAN_INTERPRETATION",
+        "status": "EFFECTIVE_ON_EXACT_TASK_225_SOURCE_PUBLICATION",
+        "pending_p7_commitment": None,
+        "automatic_next": False,
+        "invented_p7_8": False,
+        "boundary": (
+            "The Human-approved P7.2-P7.7 sequence closes only when the safe Publisher publishes "
+            "exactly the reviewed TASK-225 source candidate. No Runtime, worker, evidence, outcome, "
+            "score, or assessment disposition selects a successor. Subsequent product sequencing "
+            "requires fresh Brain/Human interpretation."
         ),
     }
 
@@ -256,7 +269,12 @@ def test_p7_2_semantics_preserve_triage_evidence_and_history_boundaries():
         assert "P7.5 Value-of-Information Planning" in roadmap
         assert TASK_223_SOURCE_SHA in roadmap
         assert "P7.6 Market Test / Funnel Evidence" in roadmap
-        assert roadmap.count("P7.7 Calibration & Winner Validation — NEXT") == 1
+        assert TASK_224_SOURCE_SHA in roadmap
+        assert roadmap.count("P7.7 Calibration & Winner Validation") == 1
+        assert "TASK-225 — publication-gated DONE; current/final milestone" in roadmap
+        assert "There is no P7.8" in roadmap
+        assert "no automatic P7" in roadmap
+        assert "fresh Brain/Human interpretation" in roadmap
         for milestone in ("P7.6", "P7.7"):
             assert f"{milestone} " in roadmap
         assert roadmap.count("— NOT_DONE") == 0
@@ -386,6 +404,56 @@ def test_p7_6_semantics_record_bounded_authority_and_epistemic_boundaries():
         "single NEXT commitment",
     ):
         assert required in text
+
+
+def test_p7_7_semantics_preserve_calibration_validation_and_authority_boundaries():
+    text = P7_7_SEMANTICS_FILE.read_text(encoding="utf-8")
+    for required in (
+        "COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_7",
+        "WinnerValidationAssessment",
+        "HYPOTHESIS_CALIBRATION_DISPOSITIONS",
+        "WINNER_VALIDATION_DISPOSITIONS",
+        "create_winner_validation_assessment",
+        "Calibration judgment != probability calibration",
+        "confidence != probability of winning",
+        "Validation disposition != lifecycle state",
+        "SUPPORTED` != universal winner truth",
+        "outcome != attribution",
+        "outcome != retroactive proof",
+        "Represented != sufficient",
+        "mixed/counter evidence remains visible",
+        "one favorable test != scalable winner",
+        "Repeated support != automatic scalability",
+        "validation != approval/decision",
+        "learning != self-authorization",
+        "P7.7 does not mutate Product Intelligence policy",
+        "TASK-224 / P7.6 is CLOSED / PUBLISHED",
+        TASK_224_SOURCE_SHA,
+        TASK_223_SOURCE_SHA,
+        TASK_222_SOURCE_SHA,
+        TASK_215_SOURCE_SHA,
+        TASK_214_SOURCE_SHA,
+        EXPECTED_PIN,
+        "There is no P7.8",
+        "no pending or automatic P7 NEXT",
+        "fresh Brain/Human interpretation",
+    ):
+        assert required in text
+
+
+def test_p7_7_does_not_change_roadmap_or_aios_authority():
+    state = load_yaml(ROADMAP_FILE)
+    assert state["authority"] == {
+        "owner": "BRAIN",
+        "purpose": "CROSS_CHAT_PLANNING_BOOKMARK",
+        "engineering_truth": False,
+        "auto_advance_from_runtime_or_worker_state": False,
+        "priority_change_owner": "HUMAN",
+    }
+    serialized = P7_7_SEMANTICS_FILE.read_text(encoding="utf-8")
+    assert "P7.8" in serialized and "There is no P7.8" in serialized
+    assert ACTIVE_PIN in serialized
+    assert "TASK-207 revision-8 downstream conformance unchanged" in serialized
 
 
 
@@ -554,6 +622,30 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
         "status": "DONE",
         "source_sha": TASK_223_SOURCE_SHA,
         "completion_basis": "EXACT_REVIEWED_CANDIDATE_PUBLISHED_TO_CANONICAL_MAIN",
+    }
+    assert completed["TASK-224"] == {
+        "task_id": "TASK-224",
+        "track_id": "P7_COMMERCE_OPPORTUNITY_INTELLIGENCE",
+        "milestone_id": "P7.6",
+        "title": "Market Test / Funnel Evidence",
+        "status": "DONE",
+        "source_sha": TASK_224_SOURCE_SHA,
+        "completion_basis": "EXACT_REVIEWED_CANDIDATE_PUBLISHED_TO_CANONICAL_MAIN",
+    }
+    assert completed["TASK-225"] == {
+        "task_id": "TASK-225",
+        "task_revision": 1,
+        "track_id": "P7_COMMERCE_OPPORTUNITY_INTELLIGENCE",
+        "milestone_id": "P7.7",
+        "title": "Calibration & Winner Validation",
+        "status": "DONE",
+        "completion_basis": "PUBLICATION_GATED",
+        "final_milestone_in_approved_sequence": True,
+        "effective_only_when": {
+            "semantic_review": "PASS",
+            "published_source": "EXACT_REVIEWED_CANDIDATE",
+            "canonical_main_equals_reviewed_candidate": True,
+        },
     }
 
 

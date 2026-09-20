@@ -49,27 +49,37 @@ active_track:
   id: P7_COMMERCE_OPPORTUNITY_INTELLIGENCE
   title: P7 Commerce Opportunity Intelligence
   priority_owner: HUMAN
-  status: ACTIVE
+  status: DONE
+  completion_basis: PUBLICATION_GATED
+  sequence_status: COMPLETE_ON_EXACT_TASK_225_SOURCE_PUBLICATION
   current_milestone:
-    id: P7.6
-    task_id: TASK-224
-    title: Market Test / Funnel Evidence
+    id: P7.7
+    task_id: TASK-225
+    title: Calibration & Winner Validation
     status: DONE
     completion_basis: PUBLICATION_GATED
-    semantic_owner: src/commerce_opportunity_intelligence/market_test_evidence.py
-    authority_identifier: COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_6
+    final_milestone_in_approved_sequence: true
+    semantic_owner: src/commerce_opportunity_intelligence/calibration_and_winner_validation.py
+    authority_identifier: COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_7
     effective_only_when:
       semantic_review: PASS
       published_source: EXACT_REVIEWED_CANDIDATE
       canonical_main_equals_reviewed_candidate: true
-  next_milestone:
-    id: P7.7
-    title: Calibration & Winner Validation
+  next_milestone: null
 
-pending_commitments:
-  - id: P7.7
-    title: Calibration & Winner Validation
-    status: NEXT
+pending_commitments: []
+
+post_p7_planning_handoff:
+  destination: FRESH_BRAIN_HUMAN_INTERPRETATION
+  status: EFFECTIVE_ON_EXACT_TASK_225_SOURCE_PUBLICATION
+  pending_p7_commitment: null
+  automatic_next: false
+  invented_p7_8: false
+  boundary: >-
+    The Human-approved P7.2-P7.7 sequence closes only when the safe Publisher publishes
+    exactly the reviewed TASK-225 source candidate. No Runtime, worker, evidence, outcome,
+    score, or assessment disposition selects a successor. Subsequent product sequencing
+    requires fresh Brain/Human interpretation.
 
 completed_milestones:
   - task_id: TASK-192
@@ -197,6 +207,25 @@ completed_milestones:
     status: DONE
     source_sha: 3c67a828857f74466883463abf35a17ecdcc6775
     completion_basis: EXACT_REVIEWED_CANDIDATE_PUBLISHED_TO_CANONICAL_MAIN
+  - task_id: TASK-224
+    track_id: P7_COMMERCE_OPPORTUNITY_INTELLIGENCE
+    milestone_id: P7.6
+    title: Market Test / Funnel Evidence
+    status: DONE
+    source_sha: d361361958fbcbe791c04aefbeba3d186c5f9608
+    completion_basis: EXACT_REVIEWED_CANDIDATE_PUBLISHED_TO_CANONICAL_MAIN
+  - task_id: TASK-225
+    task_revision: 1
+    track_id: P7_COMMERCE_OPPORTUNITY_INTELLIGENCE
+    milestone_id: P7.7
+    title: Calibration & Winner Validation
+    status: DONE
+    completion_basis: PUBLICATION_GATED
+    final_milestone_in_approved_sequence: true
+    effective_only_when:
+      semantic_review: PASS
+      published_source: EXACT_REVIEWED_CANDIDATE
+      canonical_main_equals_reviewed_candidate: true
 
 current_governance_authorities:
   product_contract:

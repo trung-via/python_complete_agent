@@ -1,4 +1,12 @@
-"""Bounded public surface for Commerce Opportunity Intelligence P7.3, P7.4, P7.5, and P7.6."""
+"""Bounded public surface for Commerce Opportunity Intelligence P7.3-P7.7."""
+
+from .calibration_and_winner_validation import (
+    COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_7,
+    HYPOTHESIS_CALIBRATION_DISPOSITIONS,
+    WINNER_VALIDATION_DISPOSITIONS,
+    WinnerValidationAssessment,
+    create_winner_validation_assessment,
+)
 
 from .decision_context import (
     COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_3,
@@ -32,7 +40,9 @@ __all__ = [
     "COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_4",
     "COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_5",
     "COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_6",
+    "COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_7",
     "DecisionContext",
+    "HYPOTHESIS_CALIBRATION_DISPOSITIONS",
     "MARKET_TEST_EVIDENCE_DIMENSIONS",
     "MarketTestEvidenceProfile",
     "OpportunityHypothesis",
@@ -42,9 +52,11 @@ __all__ = [
     "VALUE_OF_INFORMATION_DISPOSITIONS",
     "ValueOfInformationInquiry",
     "ValueOfInformationPlan",
+    "WINNER_VALIDATION_DISPOSITIONS",
+    "WinnerValidationAssessment",
     "create_market_test_evidence_profile",
     "create_opportunity_hypothesis",
     "create_tiktok_affiliate_evidence_profile",
     "create_value_of_information_plan",
+    "create_winner_validation_assessment",
 ]
-

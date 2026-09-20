@@ -402,18 +402,23 @@ evidence; P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
   establishes the bounded Commerce Opportunity Intelligence semantic owner for immutable
   Value-of-Information inquiries and plans composing P7.3 context/hypothesis and P7.4 evidence profiles,
   evaluating information relevance and trade-offs under explicit CONTINUE, DEFER, or STOP dispositions.
-- **P7.6 Market Test / Funnel Evidence (TASK-224 — publication-gated DONE)**:
+- **P7.6 Market Test / Funnel Evidence (TASK-224 — CLOSED / PUBLISHED at `d361361958fbcbe791c04aefbeba3d186c5f9608`)**:
   establishes the bounded Commerce Opportunity Intelligence semantic owner for immutable
   market test and funnel evidence profiles organizing caller-supplied opaque references
   across exposure, funnel, economic, and quality dimensions bound to P7.3 context and hypothesis.
-  It becomes effective only after canonical Runtime PASS, ChatGPT semantic PASS, and source-only
-  publication of the exact reviewed candidate.
-- **P7.7 Calibration & Winner Validation — NEXT**: the single next commitment only after TASK-224 publication.
+  It performs no calibration, winner validation, causal attribution, lifecycle transition, or
+  scalability judgment.
+- **P7.7 Calibration & Winner Validation (TASK-225 — publication-gated DONE; current/final milestone)**:
+  establishes one bounded immutable post-test interpretation authority composing exact P7.3
+  context/hypothesis with ordered exact P7.6 profiles. It preserves supporting, counter, and
+  unresolved evidence without a universal score, probability claim, causal claim, approval,
+  lifecycle state, automatic decision, Product Intelligence policy mutation, or scalability truth.
 
-The P7.2-P7.7 order is Human-approved. P7.7 is an ordered future commitment rather than an
-implemented capability or acquisition authority. The roadmap does not auto-advance from Runtime,
-worker, measurement, or score state; priority changes remain Human-owned. See
-`docs/PHASE_7_P7_6_MARKET_TEST_FUNNEL_EVIDENCE.md` for the current semantic boundary.
+The Human-approved P7.2-P7.7 sequence becomes complete only after source-only publication of the
+exact reviewed TASK-225 candidate. There is no P7.8, no pending P7 commitment, and no automatic P7
+NEXT. Subsequent product sequencing requires fresh Brain/Human interpretation; Runtime, worker,
+measurement, score, or assessment state cannot choose it. See
+`docs/PHASE_7_P7_7_CALIBRATION_WINNER_VALIDATION.md` for the current semantic boundary.
 
 
 See `docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md` for the audit and boundary.
