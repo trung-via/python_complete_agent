@@ -501,7 +501,7 @@ def test_p8_0_is_one_composition_only_authority_and_human_owned_pilot_handoff():
         "Action lineage != action\n  authority",
         "Outcome != attribution",
         "Winner assessment != decision",
-        "Composition completeness != real-world\n+success",
+        "Composition completeness != real-world\nsuccess",
         "synthetic fixture != real pilot",
         "does not select Media/Creative Intelligence",
         "Human/Brain selection",
