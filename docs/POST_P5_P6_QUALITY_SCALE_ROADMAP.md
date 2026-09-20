@@ -282,20 +282,22 @@ remain DEFERRED / UNIMPLEMENTED.
   establishes the contextual Winning Opportunity interpretation, the five conceptual reasoning stages,
   the Product Candidate Triage V1 boundary, and the pre-test/post-test evidence boundary subordinate to
   Product Contract v2.
-- **P7.3 Decision Context + Opportunity Hypothesis (TASK-215 — publication-gated DONE)**:
+- **P7.3 Decision Context + Opportunity Hypothesis (TASK-215 — CLOSED / PUBLISHED at `dc4c4c8e6f3f4d6eb3441ff4873632e5f51655f9`)**:
   establishes the bounded Commerce Opportunity Intelligence semantic owner for immutable decision
-  context and falsifiable opportunity hypothesis values. It becomes effective only after canonical
-  Runtime PASS, ChatGPT semantic PASS, and source-only publication of the exact reviewed candidate.
-- **P7.4 TikTok Affiliate Evidence Profile — NEXT**: the single next commitment after P7.3
-  becomes publication-effective.
-- **P7.5 Value-of-Information Planning — NOT_DONE**.
+  context and falsifiable opportunity hypothesis values.
+- **P7.4 TikTok Affiliate Evidence Profile (TASK-222 — publication-gated DONE)**:
+  establishes the bounded Commerce Opportunity Intelligence semantic owner for immutable TikTok
+  affiliate evidence profiles organizing opaque references across six fixed dimensions. It becomes
+  effective only after canonical Runtime PASS, ChatGPT semantic PASS, and source-only publication of
+  the exact reviewed candidate.
+- **P7.5 Value-of-Information Planning — NEXT**: the single next commitment only after TASK-222 publication.
 - **P7.6 Market Test / Funnel Evidence — NOT_DONE**.
 - **P7.7 Calibration & Winner Validation — NOT_DONE**.
 
-The P7.2-P7.7 order is Human-approved. P7.4-P7.7 are ordered future commitments rather than
+The P7.2-P7.7 order is Human-approved. P7.5-P7.7 are ordered future commitments rather than
 implemented capabilities or acquisition authority. The roadmap does not auto-advance from Runtime,
 worker, measurement, or score state; priority changes remain Human-owned. See
-`docs/PHASE_7_P7_3_DECISION_CONTEXT_OPPORTUNITY_HYPOTHESIS.md` for the current semantic boundary.
+`docs/PHASE_7_P7_4_TIKTOK_AFFILIATE_EVIDENCE_PROFILE.md` for the current semantic boundary.
 
 
 The complete audit and P7.0 boundary are recorded in

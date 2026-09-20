@@ -51,28 +51,25 @@ active_track:
   priority_owner: HUMAN
   status: ACTIVE
   current_milestone:
-    id: P7.3
-    task_id: TASK-215
-    title: Decision Context + Opportunity Hypothesis
+    id: P7.4
+    task_id: TASK-222
+    title: TikTok Affiliate Evidence Profile
     status: DONE
     completion_basis: PUBLICATION_GATED
-    semantic_owner: src/commerce_opportunity_intelligence/decision_context.py
-    authority_identifier: COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_3
+    semantic_owner: src/commerce_opportunity_intelligence/tiktok_affiliate_evidence.py
+    authority_identifier: COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_4
     effective_only_when:
       semantic_review: PASS
       published_source: EXACT_REVIEWED_CANDIDATE
       canonical_main_equals_reviewed_candidate: true
   next_milestone:
-    id: P7.4
-    title: TikTok Affiliate Evidence Profile
+    id: P7.5
+    title: Value-of-Information Planning
 
 pending_commitments:
-  - id: P7.4
-    title: TikTok Affiliate Evidence Profile
-    status: NEXT
   - id: P7.5
     title: Value-of-Information Planning
-    status: NOT_DONE
+    status: NEXT
   - id: P7.6
     title: Market Test / Funnel Evidence
     status: NOT_DONE
@@ -184,6 +181,13 @@ completed_milestones:
     title: Winning Opportunity Semantic Reconciliation
     status: DONE
     source_sha: 123bbb71d44ad15a25e07b07f21f6cb2dd00d20b
+    completion_basis: EXACT_REVIEWED_CANDIDATE_PUBLISHED_TO_CANONICAL_MAIN
+  - task_id: TASK-215
+    track_id: P7_COMMERCE_OPPORTUNITY_INTELLIGENCE
+    milestone_id: P7.3
+    title: Decision Context + Opportunity Hypothesis
+    status: DONE
+    source_sha: dc4c4c8e6f3f4d6eb3441ff4873632e5f51655f9
     completion_basis: EXACT_REVIEWED_CANDIDATE_PUBLISHED_TO_CANONICAL_MAIN
 
 current_governance_authorities:
