@@ -1,0 +1,40 @@
+review_id: REVIEW-228-001
+reviewed_sha: abc1065a9d8d9ff6a210498d0f8027d6c96bc9da
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: PASS
+  AC3: PASS
+  AC4: PASS
+  AC5: FAIL
+  AC6: PASS
+  AC7: PASS
+  AC8: PASS
+findings:
+  - id: FINDING-228-001
+    basis: AC5
+    action: CODE_FIX
+    location: docs/PHASE_8_P8_2_PRE_ACTION_EVIDENCE_ACQUISITION_PLAN.md; tests/aios_bridge/test_aios_governance_state.py
+    issue: >
+      Section 7 currently makes acquisition stop or remain unauthorized whenever "the source
+      requires CAPTCHA solving", grouping CAPTCHA solving with evasion, bypass, proxy/stealth,
+      and unsafe access behavior. That is materially inconsistent with the same candidate's
+      Section 8 and the canonical P6 live-capture boundary, where CAPTCHA/security-challenge
+      handling is explicitly Human/operator-owned and ordinary AIOS automation must not solve,
+      retry, bypass, proxy, or evade it. A legitimate later bounded live operation may therefore
+      pause on a challenge, let the Human resolve it outside AIOS verification, and resume only
+      through a fresh explicit authorized operation. The current STOP wording instead prohibits
+      that Human-owned path outright and collapses "manual Human challenge resolution" into
+      "automated/evasive CAPTCHA handling".
+    expected: >
+      Preserve the fail-closed access boundary without forbidding the canonical Human-owned
+      challenge path. Rewrite the STOP condition so acquisition stops/remains unauthorized when
+      a challenge would require automated solving, automated retry, bypass, evasion, proxy,
+      stealth, or when no legitimate Human-operated resolution path is available. Explicitly
+      preserve that a Human may resolve a CAPTCHA/security challenge outside ordinary AIOS
+      verification and that any resume remains explicit and separately authorized; challenge
+      resolution itself grants no evidence, collector, test, or action authority. Add or tighten
+      focused governance regression so this distinction cannot regress. Do not modify any
+      production Python, roadmap sequencing, AIOS state, P7/P8 semantic owner, or any other
+      TASK-228 boundary.
