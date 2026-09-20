@@ -398,19 +398,22 @@ evidence; P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
 - **P7.4 TikTok Affiliate Evidence Profile (TASK-222 — CLOSED / PUBLISHED at `ca6da00e9e58f66e25f2f6edcb416677bed70b6d`)**:
   establishes the bounded Commerce Opportunity Intelligence semantic owner for immutable TikTok
   affiliate evidence profiles organizing opaque references across six fixed dimensions.
-- **P7.5 Value-of-Information Planning (TASK-223 — publication-gated DONE)**:
+- **P7.5 Value-of-Information Planning (TASK-223 — CLOSED / PUBLISHED at `3c67a828857f74466883463abf35a17ecdcc6775`)**:
   establishes the bounded Commerce Opportunity Intelligence semantic owner for immutable
   Value-of-Information inquiries and plans composing P7.3 context/hypothesis and P7.4 evidence profiles,
   evaluating information relevance and trade-offs under explicit CONTINUE, DEFER, or STOP dispositions.
+- **P7.6 Market Test / Funnel Evidence (TASK-224 — publication-gated DONE)**:
+  establishes the bounded Commerce Opportunity Intelligence semantic owner for immutable
+  market test and funnel evidence profiles organizing caller-supplied opaque references
+  across exposure, funnel, economic, and quality dimensions bound to P7.3 context and hypothesis.
   It becomes effective only after canonical Runtime PASS, ChatGPT semantic PASS, and source-only
   publication of the exact reviewed candidate.
-- **P7.6 Market Test / Funnel Evidence — NEXT**: the single next commitment only after TASK-223 publication.
-- **P7.7 Calibration & Winner Validation — NOT_DONE**.
+- **P7.7 Calibration & Winner Validation — NEXT**: the single next commitment only after TASK-224 publication.
 
-The P7.2-P7.7 order is Human-approved. P7.6-P7.7 are ordered future commitments rather than
-implemented capabilities or acquisition authority. The roadmap does not auto-advance from Runtime,
+The P7.2-P7.7 order is Human-approved. P7.7 is an ordered future commitment rather than an
+implemented capability or acquisition authority. The roadmap does not auto-advance from Runtime,
 worker, measurement, or score state; priority changes remain Human-owned. See
-`docs/PHASE_7_P7_5_VALUE_OF_INFORMATION_PLANNING.md` for the current semantic boundary.
+`docs/PHASE_7_P7_6_MARKET_TEST_FUNNEL_EVIDENCE.md` for the current semantic boundary.
 
 
 See `docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md` for the audit and boundary.
