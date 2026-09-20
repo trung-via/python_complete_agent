@@ -21,9 +21,10 @@ CONFORMANCE_FILE = REPO_ROOT / ".ai" / "aios-conformance-state.yaml"
 PIN_FILE = (
     REPO_ROOT / ".agents" / "skills" / "aios-worker" / "requirements-aios-renew.txt"
 )
-ACTIVE_PIN = "1a68db9acb6989dfa81bf875503db62e54a4bed6"
+ACTIVE_PIN = "edd7d8d92d54900c56442bbfcddb8648ec4d2e09"
 PRIOR_CERTIFIED_PIN = "49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2"
 HISTORICAL_TASK_218_PIN = "49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2"
+HISTORICAL_TASK_219_PIN = "1a68db9acb6989dfa81bf875503db62e54a4bed6"
 EXPECTED_PIN = ACTIVE_PIN
 HISTORICAL_TASK_216_PIN = "c96eb8b52acd865b9453409e6598e08a8bd4e48e"
 HISTORICAL_TASK_209_PIN = "91a177d5b96b2197a4d8223dbb727dda6201cb64"
@@ -527,13 +528,46 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
     assert task_218_prereq["repository_binding_activation"] == "NONE"
     assert "Migrates the sole active AIOS runtime pin" in task_218_prereq["roadmap_effect"]
 
+    task_219_prereq = state["task_219_historical_prerequisite_pin_migration"]
+    assert task_219_prereq["status"] == "DONE"
+    assert task_219_prereq["migration_task"] == "TASK-219"
+    assert task_219_prereq["downstream_pin"] == HISTORICAL_TASK_219_PIN
+    assert task_219_prereq["prior_pin"] == HISTORICAL_TASK_218_PIN
+    assert task_219_prereq["prior_migration_task"] == "TASK-218"
+    assert task_219_prereq["resume_target"]["run_id"] == "RUN-215-004"
+    assert task_219_prereq["resume_target"]["prior_finding_id"] == "FINDING-215-001"
+    assert task_219_prereq["immutable_old_pin_lineage"] == {
+        "conformance_task": "TASK-207",
+        "conformance_revision": 5,
+        "downstream_pin": HISTORICAL_TASK_218_PIN,
+        "certification_authority_for_new_pin": False,
+    }
+
     prereq = state["prerequisite_pin_migration"]
     assert prereq["status"] == "DONE"
-    assert prereq["migration_task"] == "TASK-219"
+    assert prereq["migration_task"] == "TASK-221"
     assert prereq["downstream_pin"] == ACTIVE_PIN
-    assert prereq["prior_pin"] == HISTORICAL_TASK_218_PIN
-    assert prereq["prior_migration_task"] == "TASK-218"
+    assert prereq["prior_pin"] == HISTORICAL_TASK_219_PIN
+    assert prereq["prior_migration_task"] == "TASK-219"
     assert prereq["prerequisite_for"] == "FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION"
+    assert prereq["upstream_provenance"] == {
+        "task_id": "TASK-148",
+        "task_revision": 2,
+        "run_id": "RUN-148-003",
+        "review": "REVIEW-148-003",
+        "review_mode": "PRIMARY",
+        "review_ac_pass": ["AC1", "AC2", "AC3", "AC4", "AC5", "AC6"],
+        "findings": [],
+        "source_sha": ACTIVE_PIN,
+        "source_published": True,
+    }
+    assert prereq["conformance_resume"] == {
+        "task_id": "TASK-207",
+        "expected_revision": 8,
+        "authoring_gate": "AFTER_TASK_221_PUBLICATION",
+        "downstream_pin": ACTIVE_PIN,
+        "status": "PENDING_FRESH_CERTIFICATION",
+    }
     assert prereq["resume_target"]["task_id"] == "TASK-215"
     assert prereq["resume_target"]["task_revision"] == 1
     assert prereq["resume_target"]["commitment_id"] == "P7.3"
@@ -545,8 +579,11 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
     assert prereq["resume_target"]["requires_fresh_conformance_prerequisite"] is True
     assert prereq["immutable_old_pin_lineage"] == {
         "conformance_task": "TASK-207",
-        "conformance_revision": 5,
-        "downstream_pin": HISTORICAL_TASK_218_PIN,
+        "conformance_revision": 7,
+        "terminal_run": "RUN-207-009",
+        "downstream_pin": HISTORICAL_TASK_219_PIN,
+        "status": "FAILED_OLD_PIN_NON_CERTIFYING_EVIDENCE",
+        "repair_after_pin_change": "FORBIDDEN",
         "certification_authority_for_new_pin": False,
     }
     assert prereq["preserved_task_215_lineage"] == {
@@ -582,7 +619,21 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
         },
         "status": "HISTORICAL_OLD_PIN_EVIDENCE_ONLY",
     }
+    assert conformance["historical_failed_attempt"] == {
+        "task_id": "TASK-207",
+        "task_revision": 7,
+        "terminal_run": "RUN-207-009",
+        "downstream_pin": HISTORICAL_TASK_219_PIN,
+        "status": "FAILED_OLD_PIN_NON_CERTIFYING_EVIDENCE",
+        "repair_after_pin_change": "FORBIDDEN",
+        "certification_authority_for_current_pin": False,
+    }
     assert conformance["next_commitment"] == "FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION"
+    assert conformance["certification_target"] == {
+        "task_id": "TASK-207",
+        "expected_revision": 8,
+        "authoring_gate": "AFTER_TASK_221_PUBLICATION",
+    }
     assert conformance["resume_target"] == {
         "task_id": "TASK-215",
         "task_revision": 1,
@@ -603,31 +654,45 @@ def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
     assert requirement.endswith("@" + ACTIVE_PIN)
     assert state["downstream_pin"]["commit"] == ACTIVE_PIN
     assert state["upstream_audit"]["checkpoint"] == ACTIVE_PIN
-    assert state["upstream_audit"]["through_authored_task"] == "TASK-144"
+    assert state["upstream_audit"]["through_authored_task"] == "TASK-148"
     assert state["upstream_audit"]["upstream_revision"] == 2
-    assert state["upstream_audit"]["run_id"] == "RUN-144-006"
+    assert state["upstream_audit"]["run_id"] == "RUN-148-003"
     assert state["upstream_audit"]["checkpoint_role"] == "REVIEWED_SOURCE_PUBLISHED_PROVENANCE"
     assert state["upstream_audit"]["checkpoint_is_runtime_authority"] is False
-    assert state["upstream_audit"]["review"] == "REVIEW-144-006"
+    assert state["upstream_audit"]["review"] == "REVIEW-148-003"
     assert state["upstream_audit"]["review_outcome"] == "PRIMARY_PASS"
     assert state["upstream_audit"]["source_published"] is True
-    assert state["upstream_audit"]["prior_planning_checkpoint"] == PRIOR_CERTIFIED_PIN
-    assert len(state["upstream_audit"]["provenance"]) == 18
+    assert state["upstream_audit"]["prior_planning_checkpoint"] == HISTORICAL_TASK_219_PIN
+    assert len(state["upstream_audit"]["provenance"]) == 21
     assert [entry["task_id"] for entry in state["upstream_audit"]["provenance"]] == [
         "TASK-114", "TASK-115", "TASK-116", "TASK-117", "TASK-118",
         "TASK-119", "TASK-120", "TASK-121", "TASK-122", "TASK-123",
         "TASK-124", "TASK-125", "TASK-126", "TASK-127", "TASK-128", "TASK-129",
-        "TASK-145", "TASK-144",
+        "TASK-145", "TASK-144", "TASK-140", "TASK-147", "TASK-148",
     ]
     assert state["authority"]["engineering_truth"] is False
     assert state["full_downstream_conformance"]["status"] == "PENDING_FRESH_CERTIFICATION"
     assert state["full_downstream_conformance"]["downstream_pin"] == ACTIVE_PIN
+    assert state["full_downstream_conformance"]["certification_task"] == {
+        "id": "TASK-207",
+        "revision": 8,
+        "authoring_gate": "AFTER_TASK_221_PUBLICATION",
+    }
     assert state["full_downstream_conformance"]["historical_old_pin_certification"] == {
         "task_id": "TASK-207",
         "revision": 5,
         "downstream_pin": PRIOR_CERTIFIED_PIN,
         "certification_record": ".ai/aios-conformance-state.yaml",
         "status": "HISTORICAL_OLD_PIN_EVIDENCE_ONLY",
+    }
+    assert state["full_downstream_conformance"]["historical_old_pin_attempts"] == {
+        "task_id": "TASK-207",
+        "revision": 7,
+        "downstream_pin": HISTORICAL_TASK_219_PIN,
+        "terminal_run": "RUN-207-009",
+        "status": "FAILED_OLD_PIN_NON_CERTIFYING_EVIDENCE",
+        "repair_after_pin_change": "FORBIDDEN",
+        "certification_authority_for_current_pin": False,
     }
     assert state["full_downstream_conformance"]["binding_classifications_changed"] is False
     assert (
@@ -700,7 +765,7 @@ def test_relevant_upstream_tasks_have_distinct_package_and_binding_dimensions():
         "TASK-114", "TASK-115", "TASK-116", "TASK-117", "TASK-118",
         "TASK-119", "TASK-120", "TASK-121", "TASK-122", "TASK-123",
         "TASK-124", "TASK-125", "TASK-126", "TASK-127", "TASK-128", "TASK-129",
-        "TASK-144", "TASK-145",
+        "TASK-140", "TASK-144", "TASK-145", "TASK-147", "TASK-148",
     ]
 
     for task_id in all_audited_tasks:
@@ -734,7 +799,7 @@ def test_relevant_upstream_tasks_have_distinct_package_and_binding_dimensions():
         "TASK-114", "TASK-115", "TASK-116", "TASK-117", "TASK-118",
         "TASK-119", "TASK-120", "TASK-121", "TASK-122", "TASK-123",
         "TASK-124", "TASK-125", "TASK-126", "TASK-128", "TASK-129",
-        "TASK-144", "TASK-145",
+        "TASK-140", "TASK-144", "TASK-145", "TASK-147", "TASK-148",
     ):
         assert repository_binding_for_task(state, task_id) == "NOT_REQUIRED"
     assert repository_binding_for_task(state, "TASK-127") == "ACTIVE"
@@ -831,6 +896,24 @@ def test_relevant_upstream_tasks_have_distinct_package_and_binding_dimensions():
     assert repair_review_recon["source_published"] is True
     assert repair_review_recon["review"] == "REVIEW-144-006"
     assert repair_review_recon["run_id"] == "RUN-144-006"
+
+    historical_subject = families["HISTORICAL_SUBJECT_REPOSITORY_SEMANTICS"]
+    assert historical_subject["upstream_tasks"] == ["TASK-140", "TASK-147", "TASK-148"]
+    assert historical_subject["upstream_revisions"] == {
+        "TASK-140": 5,
+        "TASK-147": 2,
+        "TASK-148": 2,
+    }
+    assert historical_subject["package_capability_availability"] == "ADOPTED_BY_PIN"
+    assert historical_subject["repository_binding_activation"] == "NOT_REQUIRED"
+    assert historical_subject["consumption"] == "PINNED_KERNEL_ONLY"
+    assert historical_subject["source_published"] is True
+    assert historical_subject["reviewed_source_sha"] == ACTIVE_PIN
+    assert historical_subject["review"] == "REVIEW-148-003"
+    assert historical_subject["run_id"] == "RUN-148-003"
+    assert "ordinary repository-local .git directory" in historical_subject["boundary"]
+    assert "without moving control HEAD, branch, index, or worktree" in historical_subject["boundary"]
+    assert "activates no upstream repository hook" in historical_subject["boundary"]
 
 
 def test_task_197_malformed_decision_remains_incident_only():

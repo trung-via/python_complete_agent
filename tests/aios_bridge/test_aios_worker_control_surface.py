@@ -35,7 +35,8 @@ TASK_208_HISTORICAL_COMMIT = "26097405343150dc1b55015b94720528afad50ed"
 TASK_209_HISTORICAL_COMMIT = "91a177d5b96b2197a4d8223dbb727dda6201cb64"
 TASK_216_HISTORICAL_COMMIT = "c96eb8b52acd865b9453409e6598e08a8bd4e48e"
 TASK_218_HISTORICAL_COMMIT = "49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2"
-TASK_219_AUTHORITATIVE_COMMIT = "1a68db9acb6989dfa81bf875503db62e54a4bed6"
+TASK_219_HISTORICAL_COMMIT = "1a68db9acb6989dfa81bf875503db62e54a4bed6"
+TASK_221_AUTHORITATIVE_COMMIT = "edd7d8d92d54900c56442bbfcddb8648ec4d2e09"
 TASK_089_SOURCE_CANDIDATE = "bb57147eac92475789d7809ed445d56535d5a009"
 TASK_092_REVIEW_DECISION_COMMIT = "18e7ed49c7393f199589bd241eede3e67d759aa1"
 LATER_ROADMAP_COMMIT = "410f0a87c86f3fef56802d23dc0b8cf22bb2c9f7"
@@ -89,11 +90,12 @@ class TestImmutableRuntimePin:
             if line.strip() and not line.lstrip().startswith("#")
         ]
         assert active == [aw.PIN_LINE]
-        assert aw.AUTHORITATIVE_COMMIT == TASK_219_AUTHORITATIVE_COMMIT
+        assert aw.AUTHORITATIVE_COMMIT == TASK_221_AUTHORITATIVE_COMMIT
         assert active == [
             "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
-            f"{TASK_219_AUTHORITATIVE_COMMIT}"
+            f"{TASK_221_AUTHORITATIVE_COMMIT}"
         ]
+        assert TASK_219_HISTORICAL_COMMIT not in active[0]
         assert TASK_218_HISTORICAL_COMMIT not in active[0]
         assert TASK_216_HISTORICAL_COMMIT not in active[0]
         assert TASK_209_HISTORICAL_COMMIT not in active[0]
@@ -110,6 +112,10 @@ class TestImmutableRuntimePin:
         ("url", "commit"),
         [
             ("https://github.com/other/AIOS-renew.git", aw.AUTHORITATIVE_COMMIT),
+            (
+                aw.AUTHORITATIVE_REPOSITORY,
+                TASK_219_HISTORICAL_COMMIT,
+            ),
             (
                 aw.AUTHORITATIVE_REPOSITORY,
                 TASK_209_HISTORICAL_COMMIT,
@@ -274,6 +280,7 @@ class TestRuntimeBootstrap:
     @pytest.mark.parametrize(
         ("stale_url", "stale_commit"),
         [
+            (aw.AUTHORITATIVE_REPOSITORY, TASK_219_HISTORICAL_COMMIT),
             (aw.AUTHORITATIVE_REPOSITORY, TASK_198_AUTHORITATIVE_COMMIT),
             (aw.AUTHORITATIVE_REPOSITORY, TASK_102_ERA_COMMIT),
             (aw.AUTHORITATIVE_REPOSITORY, IMMEDIATE_PREDECESSOR_COMMIT),
@@ -1387,6 +1394,7 @@ class TestSurfaceAndDocumentation:
     def test_docs_record_adopted_runtime_capabilities_and_upstream_boundary(self):
         for path in (SKILL_FILE, WORKFLOW_FILE, DOCS_FILE):
             text = path.read_text(encoding="utf-8")
+            normalized = " ".join(text.split())
             assert "TASK-064" in text
             assert "NO_CHANGE" in text
             assert "TASK-065" in text
@@ -1414,6 +1422,18 @@ class TestSurfaceAndDocumentation:
             assert "TASK-127" in text
             assert "TASK-129" in text
             assert "REVIEW-129-001" in text
+            assert "TASK-140 revision 5" in text
+            assert "TASK-147 revision 2" in text
+            assert "TASK-148 revision 2" in text
+            assert "RUN-148-003" in text
+            assert "REVIEW-148-003" in text
+            assert "ordinary repository-local" in text
+            assert "control-owned transport" in text
+            assert "without moving control HEAD" in text
+            assert (
+                "activates no upstream repository-owned hook" in normalized
+                or "does not activate upstream TASK-140 project hooks" in normalized
+            )
             assert "without activating repository bindings" in text
             assert "no synchronization engine" in text
             assert "no new Human-facing Executor selection" in text
@@ -1432,7 +1452,8 @@ class TestSurfaceAndDocumentation:
             assert TASK_209_HISTORICAL_COMMIT in text
             assert TASK_216_HISTORICAL_COMMIT in text
             assert TASK_218_HISTORICAL_COMMIT in text
-            assert TASK_219_AUTHORITATIVE_COMMIT in text
+            assert TASK_219_HISTORICAL_COMMIT in text
+            assert TASK_221_AUTHORITATIVE_COMMIT in text
             assert TASK_198_AUTHORITATIVE_COMMIT in text
             assert TASK_102_ERA_COMMIT in text
             assert IMMEDIATE_PREDECESSOR_COMMIT in text
@@ -1474,7 +1495,7 @@ class TestSurfaceAndDocumentation:
 
         assert (
             "downstream AIOS-renew pin "
-            f"`{TASK_219_AUTHORITATIVE_COMMIT}` already present"
+            f"`{TASK_221_AUTHORITATIVE_COMMIT}` already present"
             in normalized
         )
         assert (

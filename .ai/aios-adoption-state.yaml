@@ -13,22 +13,31 @@ authority:
 
 downstream_pin:
   repository: https://github.com/trung-via/AIOS-renew.git
-  commit: 1a68db9acb6989dfa81bf875503db62e54a4bed6
+  commit: edd7d8d92d54900c56442bbfcddb8648ec4d2e09
   policy: EXACT_REVIEWED_SOURCE_PUBLISHED_ONLY
   source_published: true
 
 full_downstream_conformance:
   status: PENDING_FRESH_CERTIFICATION
   certification_task:
-    id: null
-    revision: null
-  downstream_pin: 1a68db9acb6989dfa81bf875503db62e54a4bed6
+    id: TASK-207
+    revision: 8
+    authoring_gate: AFTER_TASK_221_PUBLICATION
+  downstream_pin: edd7d8d92d54900c56442bbfcddb8648ec4d2e09
   historical_old_pin_certification:
     task_id: TASK-207
     revision: 5
     downstream_pin: 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2
     certification_record: .ai/aios-conformance-state.yaml
     status: HISTORICAL_OLD_PIN_EVIDENCE_ONLY
+  historical_old_pin_attempts:
+    task_id: TASK-207
+    revision: 7
+    downstream_pin: 1a68db9acb6989dfa81bf875503db62e54a4bed6
+    terminal_run: RUN-207-009
+    status: FAILED_OLD_PIN_NON_CERTIFYING_EVIDENCE
+    repair_after_pin_change: FORBIDDEN
+    certification_authority_for_current_pin: false
   certification_record: null
   effective_only_when:
     semantic_review: PASS
@@ -37,22 +46,24 @@ full_downstream_conformance:
   before_gate: NOT_EFFECTIVE
   binding_classifications_changed: false
   boundary: >-
-    Fresh full downstream conformance certification for 1a68db9acb6989dfa81bf875503db62e54a4bed6
-    remains pending and not current. Prior TASK-207 revision-5 conformance remains historical
-    evidence for 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2 only in .ai/aios-conformance-state.yaml
-    and is preserved unchanged.
+    Fresh full downstream conformance certification for edd7d8d92d54900c56442bbfcddb8648ec4d2e09
+    remains pending through TASK-207 revision 8 authored after TASK-221 publication. Prior
+    TASK-207 revision-5 conformance remains historical evidence for
+    49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2 only in .ai/aios-conformance-state.yaml and is
+    preserved unchanged. TASK-207 revision 7 and RUN-207-009 are failed, non-certifying evidence
+    for superseded pin 1a68db9acb6989dfa81bf875503db62e54a4bed6 and must not be repaired after migration.
 
 upstream_audit:
-  checkpoint: 1a68db9acb6989dfa81bf875503db62e54a4bed6
-  through_authored_task: TASK-144
+  checkpoint: edd7d8d92d54900c56442bbfcddb8648ec4d2e09
+  through_authored_task: TASK-148
   upstream_revision: 2
-  run_id: RUN-144-006
+  run_id: RUN-148-003
   checkpoint_role: REVIEWED_SOURCE_PUBLISHED_PROVENANCE
   checkpoint_is_runtime_authority: false
-  review: REVIEW-144-006
+  review: REVIEW-148-003
   review_outcome: PRIMARY_PASS
   source_published: true
-  prior_planning_checkpoint: 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2
+  prior_planning_checkpoint: 1a68db9acb6989dfa81bf875503db62e54a4bed6
   provenance:
     - task_id: TASK-114
       role: DOWNSTREAM_PORTABILITY_POLICY
@@ -109,6 +120,18 @@ upstream_audit:
     - task_id: TASK-144
       revision: 2
       role: CANONICAL_SUCCESSFUL_REPAIR_REVIEW_RECONSTRUCTION
+      activates_repository_binding: false
+    - task_id: TASK-140
+      revision: 5
+      role: HISTORICAL_SUBJECT_FOUNDATION
+      activates_repository_binding: false
+    - task_id: TASK-147
+      revision: 2
+      role: HISTORICAL_SUBJECT_RUNTIME_HARDENING
+      activates_repository_binding: false
+    - task_id: TASK-148
+      revision: 2
+      role: HISTORICAL_SUBJECT_GIT_DIRECTORY_AND_OBJECT_GRAPH_FIX
       activates_repository_binding: false
 
 classification_dimensions:
@@ -525,6 +548,25 @@ capability_families:
       Reconstructs successful REPAIR lineage during SUBMIT_REVIEW so DELTA reviews tied to
       remediation findings can materialize and publish safely without treating mutable future
       upstream main as runtime authority.
+
+  - id: HISTORICAL_SUBJECT_REPOSITORY_SEMANTICS
+    upstream_tasks: [TASK-140, TASK-147, TASK-148]
+    upstream_revisions:
+      TASK-140: 5
+      TASK-147: 2
+      TASK-148: 2
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
+    consumption: PINNED_KERNEL_ONLY
+    source_published: true
+    reviewed_source_sha: edd7d8d92d54900c56442bbfcddb8648ec4d2e09
+    review: REVIEW-148-003
+    run_id: RUN-148-003
+    boundary: >-
+      Runtime-owned isolated historical subjects use ordinary repository-local .git directory
+      semantics, and control-owned transport may resolve the exact candidate object graph locally
+      without moving control HEAD, branch, index, or worktree. Python Agent activates no upstream
+      repository hook, copies no Runtime implementation, and adds no lifecycle authority.
 
 incident_lineage:
   run_id: RUN-197-001

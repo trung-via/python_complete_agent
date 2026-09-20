@@ -247,7 +247,7 @@ an executor or become a second status/review authority.
 
 ## Adopted Upstream Capabilities and Boundaries
 
-Under the pinned commit `1a68db9acb6989dfa81bf875503db62e54a4bed6`, Python Agent adopts:
+Under the pinned commit `edd7d8d92d54900c56442bbfcddb8648ec4d2e09`, Python Agent adopts:
 - **TASK-086**: Deterministic, read-only Unified State and Next Action through the
   public `state` operator surface. The worker neither copies nor caches the reducer.
 - **TASK-087**: One bounded Human continuation front door through the public `continue`
@@ -385,6 +385,14 @@ Under the pinned commit `1a68db9acb6989dfa81bf875503db62e54a4bed6`, Python Agent
   and zero findings. Reconstructs successful REPAIR lineage during SUBMIT_REVIEW so DELTA reviews
   tied to remediation findings can materialize and publish safely without treating mutable future
   upstream main as runtime authority.
+- **TASK-140 revision 5 / TASK-147 revision 2 / TASK-148 revision 2**: Historical-subject
+  Runtime and Executor hardening culminating in reviewed/source-published RUN-148-003 source
+  edd7d8d92d54900c56442bbfcddb8648ec4d2e09 and REVIEW-148-003 PRIMARY PASS with AC1-AC6 PASS
+  and no findings. Runtime-owned isolated historical subjects use ordinary repository-local
+  `.git` directory semantics, and control-owned transport may locally resolve the exact candidate
+  object graph without moving control HEAD, branch, index, or worktree. These package capabilities
+  are adopted by pin only: Python Agent copies no Runtime implementation, activates no upstream
+  repository-owned hook, and adds no lifecycle authority.
 
 Capabilities present in upstream history but **not** exposed by this downstream worker:
 - **TASK-066 / TASK-068..TASK-074**: Although the exact package contains this intervening
@@ -402,7 +410,8 @@ Capabilities present in upstream history but **not** exposed by this downstream 
 ## Immutable Kernel Pin
 
 The only authoritative AIOS-renew kernel is commit
-`1a68db9acb6989dfa81bf875503db62e54a4bed6`. Installed provenance for the TASK-218-era
+`edd7d8d92d54900c56442bbfcddb8648ec4d2e09`. Installed provenance for the TASK-219-era
+`1a68db9acb6989dfa81bf875503db62e54a4bed6` pin, the TASK-218-era
 `49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2` pin, the TASK-216/TASK-217-era
 `c96eb8b52acd865b9453409e6598e08a8bd4e48e` pin, the TASK-209-era
 `91a177d5b96b2197a4d8223dbb727dda6201cb64` pin, the TASK-208-era
@@ -467,10 +476,17 @@ TASK-219 supersedes that active pin with exact reviewed, source-published commit
 `1a68db9acb6989dfa81bf875503db62e54a4bed6`, consuming upstream TASK-144 revision 2 /
 RUN-144-006 / REVIEW-144-006 canonical successful-REPAIR review-lineage reconstruction and
 publication validation while preserving all Phase-1/Phase-2 repository bindings and authority boundaries.
+TASK-221 supersedes that active pin with exact reviewed, source-published commit
+`edd7d8d92d54900c56442bbfcddb8648ec4d2e09`, consuming upstream TASK-148 revision 2 /
+RUN-148-003 / REVIEW-148-003 historical-subject repository semantics while preserving all
+Phase-1/Phase-2 repository bindings and authority boundaries. Upstream TASK-140 project hooks
+remain inactive and are not copied into Python Agent.
 Prior TASK-207 revision-5 conformance remains historical evidence tied to
-`49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2`; fresh full downstream conformance certification
-under `1a68db9acb6989dfa81bf875503db62e54a4bed6` remains pending through the existing TASK-207
-semantic authority.
+`49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2`. TASK-207 revision 7 and RUN-207-009 remain
+failed, non-certifying evidence tied only to superseded pin
+`1a68db9acb6989dfa81bf875503db62e54a4bed6`; RUN-207-009 must not be repaired after migration.
+Fresh full downstream conformance under `edd7d8d92d54900c56442bbfcddb8648ec4d2e09` requires
+TASK-207 revision 8 authored after TASK-221 publication before generic product continuation.
 TASK-207 revision 2 and RUN-207-001/RUN-207-002/REPAIR-207-001 remain immutable old-pin
 history; conformance resumes only through a fresh Brain revision bound to the new pin.
 Future AIOS-renew main changes remain irrelevant until another explicit reviewed downstream migration.
