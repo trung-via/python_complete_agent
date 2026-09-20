@@ -22,6 +22,11 @@ P7_4_SEMANTICS_FILE = (
     / "docs"
     / "PHASE_7_P7_4_TIKTOK_AFFILIATE_EVIDENCE_PROFILE.md"
 )
+P7_5_SEMANTICS_FILE = (
+    REPO_ROOT
+    / "docs"
+    / "PHASE_7_P7_5_VALUE_OF_INFORMATION_PLANNING.md"
+)
 ROADMAP_DOCS = (
     REPO_ROOT / "docs" / "POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
     REPO_ROOT / "docs" / "POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
@@ -51,6 +56,7 @@ TASK_210_SOURCE_SHA = "399ffe4d38d31f7882d22824ba9c27781b9a0974"
 TASK_211_SOURCE_SHA = "15cc092d0ea86cd9bce7baed0d32bc3575fa4b08"
 TASK_214_SOURCE_SHA = "123bbb71d44ad15a25e07b07f21f6cb2dd00d20b"
 TASK_215_SOURCE_SHA = "dc4c4c8e6f3f4d6eb3441ff4873632e5f51655f9"
+TASK_222_SOURCE_SHA = "ca6da00e9e58f66e25f2f6edcb416677bed70b6d"
 ACTIVE_TRACK_ID = "AIOS_FULL_DOWNSTREAM_ADOPTION_AND_GOVERNANCE_REBUILD"
 CLOSURE_MILESTONE_ID = "GOVERNANCE_FOUNDATION_CLOSURE_AND_P7_RETURN"
 HISTORICAL_CONFORMANCE_NEXT_COMMITMENT = "PROJECT_CONTRACT_REBUILD"
@@ -120,15 +126,15 @@ def test_roadmap_activates_approved_p7_sequence_with_one_next():
         "priority_owner": "HUMAN",
         "status": "ACTIVE",
         "current_milestone": {
-            "id": "P7.4",
-            "task_id": "TASK-222",
-            "title": "TikTok Affiliate Evidence Profile",
+            "id": "P7.5",
+            "task_id": "TASK-223",
+            "title": "Value-of-Information Planning",
             "status": "DONE",
             "completion_basis": "PUBLICATION_GATED",
             "semantic_owner": (
-                "src/commerce_opportunity_intelligence/tiktok_affiliate_evidence.py"
+                "src/commerce_opportunity_intelligence/value_of_information.py"
             ),
-            "authority_identifier": "COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_4",
+            "authority_identifier": "COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_5",
             "effective_only_when": {
                 "semantic_review": "PASS",
                 "published_source": "EXACT_REVIEWED_CANDIDATE",
@@ -136,8 +142,8 @@ def test_roadmap_activates_approved_p7_sequence_with_one_next():
             },
         },
         "next_milestone": {
-            "id": "P7.5",
-            "title": "Value-of-Information Planning",
+            "id": "P7.6",
+            "title": "Market Test / Funnel Evidence",
         },
     }
     assert state["completed_track"] == {
@@ -167,14 +173,9 @@ def test_roadmap_activates_approved_p7_sequence_with_one_next():
     assert values_for_key(state, "status").count("NEXT") == 1
     assert state["pending_commitments"] == [
         {
-            "id": "P7.5",
-            "title": "Value-of-Information Planning",
-            "status": "NEXT",
-        },
-        {
             "id": "P7.6",
             "title": "Market Test / Funnel Evidence",
-            "status": "NOT_DONE",
+            "status": "NEXT",
         },
         {
             "id": "P7.7",
@@ -182,7 +183,7 @@ def test_roadmap_activates_approved_p7_sequence_with_one_next():
             "status": "NOT_DONE",
         },
     ]
-    assert values_for_key(state, "status").count("NOT_DONE") == 2
+    assert values_for_key(state, "status").count("NOT_DONE") == 1
     assert state["planning_handoff"] == {
         "destination": "P7_PRODUCT_ROADMAP",
         "checkpoint_task_id": "TASK-191",
@@ -249,10 +250,12 @@ def test_p7_2_semantics_preserve_triage_evidence_and_history_boundaries():
         assert "P7.3 Decision Context + Opportunity Hypothesis" in roadmap
         assert TASK_215_SOURCE_SHA in roadmap
         assert "P7.4 TikTok Affiliate Evidence Profile" in roadmap
-        assert roadmap.count("P7.5 Value-of-Information Planning — NEXT") == 1
+        assert TASK_222_SOURCE_SHA in roadmap
+        assert "P7.5 Value-of-Information Planning" in roadmap
+        assert roadmap.count("P7.6 Market Test / Funnel Evidence — NEXT") == 1
         for milestone in ("P7.6", "P7.7"):
             assert f"{milestone} " in roadmap
-        assert roadmap.count("— NOT_DONE") >= 2
+        assert roadmap.count("— NOT_DONE") >= 1
 
 
 def test_p7_3_semantics_record_bounded_authority_and_epistemic_boundaries():
@@ -303,6 +306,44 @@ def test_p7_4_semantics_record_bounded_authority_and_epistemic_boundaries():
         "40da098b3b0dcf3d1994fc510dd55717b81a2f67",
         EXPECTED_PIN,
         "P7.5 Value-of-Information Planning is the",
+        "single NEXT commitment",
+    ):
+        assert required in text
+
+
+def test_p7_5_semantics_record_bounded_authority_and_epistemic_boundaries():
+    text = P7_5_SEMANTICS_FILE.read_text(encoding="utf-8")
+    for required in (
+        "COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_5",
+        "ValueOfInformationInquiry",
+        "ValueOfInformationPlan",
+        "VALUE_OF_INFORMATION_DISPOSITIONS",
+        "create_value_of_information_plan",
+        "missingness != acquisition authorization",
+        "collectability != value",
+        "planning claim != evidence truth",
+        "VOI plan != collector plan",
+        "CONTINUE != authorization",
+        "STOP != proof no evidence exists",
+        "DEFER != permanent rejection",
+        "represented != sufficient",
+        "disposition != decision",
+        "P7.5 != TEST_READY",
+        "expected decision impact",
+        "uncertainty reduction",
+        "cost",
+        "latency",
+        "access risk",
+        "fragility",
+        "reliability",
+        "opportunity cost",
+        "decision deadline",
+        "TASK-222 / P7.4 is CLOSED / PUBLISHED",
+        TASK_222_SOURCE_SHA,
+        TASK_215_SOURCE_SHA,
+        TASK_214_SOURCE_SHA,
+        EXPECTED_PIN,
+        "P7.6 Market Test / Funnel Evidence is the",
         "single NEXT commitment",
     ):
         assert required in text
@@ -454,6 +495,15 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
         "title": "Decision Context + Opportunity Hypothesis",
         "status": "DONE",
         "source_sha": TASK_215_SOURCE_SHA,
+        "completion_basis": "EXACT_REVIEWED_CANDIDATE_PUBLISHED_TO_CANONICAL_MAIN",
+    }
+    assert completed["TASK-222"] == {
+        "task_id": "TASK-222",
+        "track_id": "P7_COMMERCE_OPPORTUNITY_INTELLIGENCE",
+        "milestone_id": "P7.4",
+        "title": "TikTok Affiliate Evidence Profile",
+        "status": "DONE",
+        "source_sha": TASK_222_SOURCE_SHA,
         "completion_basis": "EXACT_REVIEWED_CANDIDATE_PUBLISHED_TO_CANONICAL_MAIN",
     }
 

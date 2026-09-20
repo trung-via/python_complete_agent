@@ -285,19 +285,22 @@ remain DEFERRED / UNIMPLEMENTED.
 - **P7.3 Decision Context + Opportunity Hypothesis (TASK-215 — CLOSED / PUBLISHED at `dc4c4c8e6f3f4d6eb3441ff4873632e5f51655f9`)**:
   establishes the bounded Commerce Opportunity Intelligence semantic owner for immutable decision
   context and falsifiable opportunity hypothesis values.
-- **P7.4 TikTok Affiliate Evidence Profile (TASK-222 — publication-gated DONE)**:
+- **P7.4 TikTok Affiliate Evidence Profile (TASK-222 — CLOSED / PUBLISHED at `ca6da00e9e58f66e25f2f6edcb416677bed70b6d`)**:
   establishes the bounded Commerce Opportunity Intelligence semantic owner for immutable TikTok
-  affiliate evidence profiles organizing opaque references across six fixed dimensions. It becomes
-  effective only after canonical Runtime PASS, ChatGPT semantic PASS, and source-only publication of
-  the exact reviewed candidate.
-- **P7.5 Value-of-Information Planning — NEXT**: the single next commitment only after TASK-222 publication.
-- **P7.6 Market Test / Funnel Evidence — NOT_DONE**.
+  affiliate evidence profiles organizing opaque references across six fixed dimensions.
+- **P7.5 Value-of-Information Planning (TASK-223 — publication-gated DONE)**:
+  establishes the bounded Commerce Opportunity Intelligence semantic owner for immutable
+  Value-of-Information inquiries and plans composing P7.3 context/hypothesis and P7.4 evidence profiles,
+  evaluating information relevance and trade-offs under explicit CONTINUE, DEFER, or STOP dispositions.
+  It becomes effective only after canonical Runtime PASS, ChatGPT semantic PASS, and source-only
+  publication of the exact reviewed candidate.
+- **P7.6 Market Test / Funnel Evidence — NEXT**: the single next commitment only after TASK-223 publication.
 - **P7.7 Calibration & Winner Validation — NOT_DONE**.
 
-The P7.2-P7.7 order is Human-approved. P7.5-P7.7 are ordered future commitments rather than
+The P7.2-P7.7 order is Human-approved. P7.6-P7.7 are ordered future commitments rather than
 implemented capabilities or acquisition authority. The roadmap does not auto-advance from Runtime,
 worker, measurement, or score state; priority changes remain Human-owned. See
-`docs/PHASE_7_P7_4_TIKTOK_AFFILIATE_EVIDENCE_PROFILE.md` for the current semantic boundary.
+`docs/PHASE_7_P7_5_VALUE_OF_INFORMATION_PLANNING.md` for the current semantic boundary.
 
 
 The complete audit and P7.0 boundary are recorded in
