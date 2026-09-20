@@ -153,16 +153,14 @@ class TestBrainIngressWorkflow:
             "aios wakeup",
             "codex",
             "antigravity",
+            "aios-self-hosted-repair-wakeup.yml",
+            "repair_dispatch",
         ):
             assert forbidden not in text
-        assert text.count("createWorkflowDispatch") == 2
+        assert text.count("createWorkflowDispatch") == 1
         assert "workflow_id: 'aios-auto-publish.yml'" in text
         assert "AIOS_RUN_ID: ${{ steps.ingress.outputs.publication_run_id }}" in text
         assert "run_id: process.env.AIOS_RUN_ID" in text
-        assert "workflow_id: 'aios-self-hosted-repair-wakeup.yml'" in text
-        assert "repair_dispatch_id: process.env.AIOS_REPAIR_DISPATCH_ID" in text
-        assert "failed_run_id: process.env.AIOS_FAILED_RUN_ID" in text
-        assert "repair_sha: process.env.AIOS_REPAIR_SHA" in text
 
 
 class TestBrainWakeupWorkflow:

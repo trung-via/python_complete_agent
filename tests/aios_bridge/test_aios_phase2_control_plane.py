@@ -73,7 +73,7 @@ class TestReviewToPublicationContinuation:
             "AIOS_RUN_ID": "${{ steps.ingress.outputs.publication_run_id }}"
         }
         script = dispatch["with"]["script"]
-        assert text.count("createWorkflowDispatch") == 2
+        assert text.count("createWorkflowDispatch") == 1
         assert "workflow_id: 'aios-auto-publish.yml'" in script
         assert "ref: 'main'" in script
         assert "run_id: process.env.AIOS_RUN_ID" in script
@@ -83,32 +83,20 @@ class TestReviewToPublicationContinuation:
         ):
             assert forbidden not in script
 
-        repair_dispatch = next(
-            step for step in workflow["jobs"]["deliver"]["steps"]
-            if step.get("id") == "repair_dispatch"
-        )
-        assert repair_dispatch["if"] == (
-            "steps.ingress.outcome == 'success' && "
-            "steps.ingress.outputs.repair_sha != ''"
-        )
-        assert repair_dispatch["env"] == {
-            "AIOS_REPAIR_DISPATCH_ID": "${{ steps.ingress.outputs.repair_dispatch_id }}",
-            "AIOS_FAILED_RUN_ID": "${{ steps.ingress.outputs.failed_run_id }}",
-            "AIOS_REPAIR_SHA": "${{ steps.ingress.outputs.repair_sha }}",
-        }
-        repair_script = repair_dispatch["with"]["script"]
-        assert "workflow_id: 'aios-self-hosted-repair-wakeup.yml'" in repair_script
-        assert "ref: 'main'" in repair_script
-        assert "repair_dispatch_id: process.env.AIOS_REPAIR_DISPATCH_ID" in repair_script
-        assert "failed_run_id: process.env.AIOS_FAILED_RUN_ID" in repair_script
-        assert "repair_sha: process.env.AIOS_REPAIR_SHA" in repair_script
-        assert "executor: ''" in repair_script
+        for forbidden_in_workflow in (
+            "aios-self-hosted-repair-wakeup.yml",
+            "repair_dispatch",
+            "AIOS_REPAIR_DISPATCH_ID",
+        ):
+            assert forbidden_in_workflow not in text
 
     def test_non_publication_ingress_has_no_dispatch_and_receipt_is_truthful(self):
         _, text = load_workflow(INGRESS)
         assert "steps.ingress.outputs.publication_run_id != ''" in text
         assert "this is not publication success or verdict" in text
         assert "steps.ingress.outcome != 'success'" in text
+        assert "aios-self-hosted-repair-wakeup.yml" not in text
+        assert "repair_dispatch" not in text
         assert text.count("aios_renew.github_issue_ingress") == 1
         assert_pin_install(INGRESS, job="deliver")
 
@@ -248,6 +236,32 @@ class TestRepairWakeupBinding:
         receipt = workflow["jobs"]["receipt"]
         assert receipt["if"] == "always() && github.event.issue.title == '[AIOS REPAIR WAKEUP]'"
 
+    def test_repair_carrier_policy_authorizes_only_human_actor_and_excludes_bots(self):
+        policy = load_yaml(REPAIR_POLICY)
+        assert policy["github_issue"]["authorized_actors"] == ["trung-via"]
+        for bot in ("github-actions[bot]", "github-actions", "bot"):
+            assert bot not in policy["github_issue"]["authorized_actors"]
+
+    def test_dedicated_carrier_is_only_remote_repair_delivery_path_and_target_dispatch_is_human_gated(self):
+        carrier_wf, _ = load_workflow(REPAIR_CARRIER)
+        target_wf, target_text = load_workflow(REPAIR_TARGET)
+        ingress_wf, ingress_text = load_workflow(INGRESS)
+
+        # Dedicated [AIOS REPAIR WAKEUP] carrier is the actor-gated normal remote delivery path
+        carrier_dispatch = carrier_wf["jobs"]["dispatch"]
+        assert carrier_dispatch["uses"] == "./.github/workflows/aios-self-hosted-repair-wakeup.yml"
+        assert set(carrier_dispatch["with"]) == {
+            "repair_dispatch_id", "failed_run_id", "repair_sha", "executor",
+        }
+
+        # Direct workflow_dispatch to target is strictly Human-gated fallback
+        assert "workflow_dispatch" in target_wf["on"]
+        assert "GITHUB_ACTOR -ne 'trung-via'" in target_text
+
+        # Brain Ingress performs no repair dispatch to self-hosted target
+        assert "aios-self-hosted-repair-wakeup.yml" not in ingress_text
+        assert "repair_dispatch" not in [s.get("id") for s in ingress_wf["jobs"]["deliver"]["steps"]]
+
     def test_self_hosted_target_is_fixed_dedicated_and_has_optional_executor(self):
         workflow, text = load_workflow(REPAIR_TARGET)
         assert set(workflow["on"]) == {"workflow_dispatch", "workflow_call"}
@@ -274,12 +288,14 @@ class TestRepairWakeupBinding:
         }
         no_change = repair.repair_command(python, executor=None, **common)
         code_fix = repair.repair_command(python, executor="antigravity", **common)
+        codex_fix = repair.repair_command(python, executor="codex", **common)
         assert no_change == (
             str(python), "-m", "aios_renew.operator", "repair-wakeup",
             "repair-206-001", "RUN-205-002", "a" * 40, "--repo", str(ROOT),
         )
         assert "--executor" not in no_change
         assert code_fix[-4:] == ("--executor", "antigravity", "--repo", str(ROOT))
+        assert codex_fix[-4:] == ("--executor", "codex", "--repo", str(ROOT))
         source = (SCRIPT_DIR / "aios_phase2_repair.py").read_text(encoding="utf-8")
         assert source.count('"repair-wakeup"') == 1
         for forbidden in ('"continue"', '"repair"', "run_repair", "native_runner"):

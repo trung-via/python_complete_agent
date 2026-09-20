@@ -111,6 +111,8 @@ acceptance is never PASS or publication success. Manual replay of that same boun
 remains an emergency/debug fallback with no verdict or source override. Exact post-TASK-105 ingress validation, canonical destinations,
 structurally valid idempotency, and fail-closed behavior remain inside the pinned distribution.
 
+A successful `AUTHOR_REPAIR` canonicalization creates canonical repair authorization and exposes immutable selectors (`repair_dispatch_id`, `failed_run_id`, `repair_sha`) as a bounded handoff, but does not automatically dispatch repair execution or infer an Executor. Brain Ingress contains no repair `createWorkflowDispatch` step. The absence of immediate repair execution is normal handoff and not an ingress failure; actual repair delivery proceeds separately through the dedicated actor-gated `[AIOS REPAIR WAKEUP]` carrier (or direct Human fallback) where explicit Executor selection occurs.
+
 ### Phase-2 correction carriers
 
 The repository-owned `[AIOS REMEDIATION INTENT]` carrier admits only a stable
@@ -120,13 +122,22 @@ bootstrap to call pinned `approved-remediation-intent` once. A3 exact SHA-bound 
 and A6 durable correction dispatch remain separate pinned authorities and reuse the same immutable
 selectors; the carrier neither infers an Executor nor executes raw Issue text.
 
-The distinct `[AIOS REPAIR WAKEUP]` carrier admits only `repair_dispatch_id`, `failed_run_id`,
-exact current `repair_sha`, and the action-permitted optional Executor. Its dedicated self-hosted
-path calls pinned `repair-wakeup` once. The canonical repair authority requires one explicit coding
-Executor for `CODE_FIX` and `CONTINUE_IMPLEMENTATION`, requires zero for `NO_CHANGE`, and retains
-at-most-once/crash reconciliation. Neither Phase-2 bootstrap calls the local Human `CONTINUE`
-surface, uses a global `aios`, checks out a fresh worktree, receives a GitHub write token, or
-duplicates Runtime verification, semantic review, or publication.
+The distinct `[AIOS REPAIR WAKEUP]` Issue carrier is the actor-gated normal remote delivery path for repair continuation. Regulated by `.ai/brain-repair-wakeup-carriers.yaml`, it admits requests only from authorized Human actor `trung-via` bearing the exact `[AIOS REPAIR WAKEUP]` title marker. The request carries only immutable selectors (`repair_dispatch_id`, `failed_run_id`, `repair_sha`) and an optional explicit Executor, and invokes `.github/workflows/aios-self-hosted-repair-wakeup.yml` via `workflow_call`.
+
+Direct execution via `workflow_dispatch` on `.github/workflows/aios-self-hosted-repair-wakeup.yml` remains a Human/debug fallback strictly gated by `GITHUB_ACTOR == trung-via`. Bot identities, including `github-actions[bot]`, gain no semantic or Executor-selection authority and cannot invoke direct workflow dispatch.
+
+Coding REPAIR continuation (`CODE_FIX`, `CONTINUE_IMPLEMENTATION`, and `FINALIZE_CANDIDATE`) requires exactly one explicit supported Executor (`antigravity` or `codex`) supplied in the dedicated authorized request. `NO_CHANGE` carries none. No downstream workflow, script, test, or documentation infers, defaults, or silently substitutes Executor identity from repair prose, failed RUN history, task history, prior Executor, or model preference.
+
+Pinned Runtime remains the sole authority for the current canonical repair SHA, failed RUN, action, `executor_required` validation, duplicate `repair_dispatch_id` binding, reusable verification state, correction preflight, RUN allocation, Executor invocation, and verification. Repository workflows remain selector couriers only.
+
+#### Canonical AUTHOR_REPAIR handoff and immutable redelivery semantics
+
+- **Canonical AUTHOR_REPAIR handoff**: `AUTHOR_REPAIR` canonicalization creates canonical repair authorization plus a bounded handoff. It is not automatic execution. Brain Ingress exposes immutable selectors without directly dispatching the self-hosted target and without treating the absence of immediate execution as failure.
+- **Dedicated REPAIR wakeup delivery**: The dedicated `[AIOS REPAIR WAKEUP]` Issue carrier is the separate Human/Brain delivery step that supplies the explicit Executor when coding is required and none for `NO_CHANGE`.
+- **Direct fallback authorization**: Direct self-hosted target `workflow_dispatch` remains a Human/debug fallback gated fail-closed by `GITHUB_ACTOR == trung-via`.
+- **Immutable exact-intent redelivery**: After an outer delivery failure before Runtime admission (e.g. runner interruption, preflight failure, or transport timeout), the original canonical REPAIR authorization remains valid. The same `repair_dispatch_id`, `failed_run_id`, and `repair_sha` are reused, together with the same explicitly selected Executor when the coding repair dispatch has already been bound. A selector change represents new delivery intent and must fail closed against an existing durable dispatch record.
+
+Neither Phase-2 bootstrap calls the local Human `CONTINUE` surface, uses a global `aios`, checks out a fresh worktree, receives a GitHub write token, or duplicates Runtime verification, semantic review, or publication.
 
 ---
 
@@ -510,6 +521,14 @@ TASK-219 supersedes that active pin with exact reviewed, source-published commit
 `1a68db9acb6989dfa81bf875503db62e54a4bed6`, consuming upstream TASK-144 revision 2 /
 RUN-144-006 / REVIEW-144-006 canonical successful-REPAIR review-lineage reconstruction and
 publication validation while preserving all Phase-1/Phase-2 repository bindings and authority boundaries.
+TASK-220 restores a fail-closed Human/Brain authorization boundary for REPAIR delivery
+and makes Executor transport truthful under exact pin `1a68db9acb6989dfa81bf875503db62e54a4bed6`.
+Brain Ingress canonicalizes `AUTHOR_REPAIR` as a bounded handoff without directly dispatching
+the self-hosted REPAIR target or inventing an Executor. Dedicated `[AIOS REPAIR WAKEUP]` remains
+the actor-gated normal remote delivery path; direct self-hosted target `workflow_dispatch`
+remains Human-gated (`GITHUB_ACTOR == trung-via`); coding REPAIR requires one explicit supported
+Executor from the dedicated request, while `NO_CHANGE` carries none; and immutable exact-intent
+redelivery semantics are preserved.
 TASK-207 revision 5 re-certified the Phase-1 and Phase-2 repository bindings under
 the prior `49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2` pin, which is preserved as historical
 prior-pin evidence in `.ai/aios-conformance-state.yaml`.

@@ -845,3 +845,57 @@ def test_task_197_malformed_decision_remains_incident_only():
         "disposition": "IMMUTABLE_NOT_PUBLICATION_AUTHORITY",
         "resumed": False,
     }
+
+
+def test_task_220_repair_delivery_boundary_and_immutable_redelivery_governance():
+    workflow_doc = (REPO_ROOT / "docs" / "AIOS_UNIFIED_WORKER_WORKFLOW.md").read_text(encoding="utf-8")
+
+    # AC5: Documentation accurately describes canonical AUTHOR_REPAIR handoff
+    assert "Canonical AUTHOR_REPAIR handoff" in workflow_doc
+    assert "canonical repair authorization plus a bounded handoff" in workflow_doc
+    assert "not automatic execution" in workflow_doc
+    assert "Brain Ingress contains no repair `createWorkflowDispatch` step" in workflow_doc
+
+    # AC5: Documentation accurately describes dedicated REPAIR wakeup and direct fallback
+    assert "Dedicated REPAIR wakeup delivery" in workflow_doc
+    assert "dedicated `[AIOS REPAIR WAKEUP]` Issue carrier is the separate Human/Brain delivery step" in workflow_doc
+    assert "Direct fallback authorization" in workflow_doc
+    assert "strictly gated by `GITHUB_ACTOR == trung-via`" in workflow_doc
+    assert "Bot identities, including `github-actions[bot]`, gain no semantic or Executor-selection authority" in workflow_doc
+
+    # AC3 & AC5: Explicit Executor for coding repairs, none for NO_CHANGE, no inference
+    assert "Coding REPAIR continuation" in workflow_doc
+    assert "requires exactly one explicit supported Executor (`antigravity` or `codex`)" in workflow_doc
+    assert "`NO_CHANGE` carries none" in workflow_doc
+    assert "No downstream workflow, script, test, or documentation infers, defaults, or silently substitutes Executor identity" in workflow_doc
+
+    # AC4: Pinned Runtime remains sole lifecycle/repair authority
+    assert "Pinned Runtime remains the sole authority for the current canonical repair SHA" in workflow_doc
+    assert "Repository workflows remain selector couriers only" in workflow_doc
+
+    # AC5: Immutable exact-intent redelivery semantics
+    assert "Immutable exact-intent redelivery" in workflow_doc
+    assert "The same `repair_dispatch_id`, `failed_run_id`, and `repair_sha` are reused" in workflow_doc
+    assert "A selector change represents new delivery intent and must fail closed against an existing durable dispatch record" in workflow_doc
+
+    # AC2: Policies enforce Human gating and exclude bot identities
+    ingress_policy = load_yaml(REPO_ROOT / ".ai" / "brain-ingress-carriers.yaml")
+    repair_policy = load_yaml(REPO_ROOT / ".ai" / "brain-repair-wakeup-carriers.yaml")
+    assert ingress_policy["github_issue"]["authorized_actors"] == ["trung-via"]
+    assert repair_policy["github_issue"]["authorized_actors"] == ["trung-via"]
+    for bot in ("github-actions[bot]", "github-actions", "bot"):
+        assert bot not in ingress_policy["github_issue"]["authorized_actors"]
+        assert bot not in repair_policy["github_issue"]["authorized_actors"]
+
+    # AC2: Self-hosted target directly enforces Human actor preflight
+    target_text = (REPO_ROOT / ".github" / "workflows" / "aios-self-hosted-repair-wakeup.yml").read_text(encoding="utf-8")
+    assert "GITHUB_ACTOR -ne 'trung-via'" in target_text
+
+    # AC1: Brain Ingress does not dispatch repair target
+    ingress_text = (REPO_ROOT / ".github" / "workflows" / "aios-brain-ingress.yml").read_text(encoding="utf-8")
+    assert "aios-self-hosted-repair-wakeup.yml" not in ingress_text
+    assert ingress_text.count("createWorkflowDispatch") == 1
+
+    # AC6: Pin, conformance records, and task history remain unchanged
+    pin_text = PIN_FILE.read_text(encoding="utf-8")
+    assert ACTIVE_PIN in pin_text

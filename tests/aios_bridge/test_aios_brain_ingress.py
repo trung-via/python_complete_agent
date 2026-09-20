@@ -7,6 +7,7 @@ import sys
 from unittest.mock import MagicMock
 
 import pytest
+import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -155,3 +156,39 @@ def test_caller_cannot_select_repository_or_raw_git_destination(tmp_path, monkey
 
     assert ingress.main([str(envelope), "--repo", str(tmp_path)]) == 2
     bootstrap.assert_not_called()
+
+
+def test_brain_ingress_workflow_canonicalizes_author_repair_without_repair_dispatch():
+    ingress_path = REPO_ROOT / ".github" / "workflows" / "aios-brain-ingress.yml"
+    text = ingress_path.read_text(encoding="utf-8")
+    wf = yaml.safe_load(text)
+
+    # Brain Ingress has only one createWorkflowDispatch (aios-auto-publish.yml)
+    assert text.count("createWorkflowDispatch") == 1
+    assert "workflow_id: 'aios-auto-publish.yml'" in text
+    assert "aios-self-hosted-repair-wakeup.yml" not in text
+    step_ids = [s.get("id") for s in wf["jobs"]["deliver"]["steps"]]
+    assert "repair_dispatch" not in step_ids
+    assert "dispatch" in step_ids
+
+    # Absence of immediate repair execution is not treated as ingress failure
+    failure_step = wf["jobs"]["deliver"]["steps"][-1]
+    assert failure_step["name"] == "Preserve failed delivery outcome"
+    assert "repair_sha" not in failure_step["if"]
+    assert "repair_dispatch" not in failure_step["if"]
+
+    # Transport receipt contains no synthetic repair dispatch status
+    assert "repair_dispatch: ACCEPTED" not in text
+    assert "repair_dispatch: REJECTED" not in text
+    assert "AIOS_REPAIR_DISPATCH_OUTCOME" not in text
+    assert "AIOS_REPAIR_DISPATCH_ID" not in text
+    assert "AIOS_FAILED_RUN_ID" not in text
+    assert "AIOS_REPAIR_SHA" not in text
+
+
+def test_brain_ingress_policy_requires_human_actor_and_excludes_bots():
+    policy_path = REPO_ROOT / ".ai" / "brain-ingress-carriers.yaml"
+    policy = yaml.safe_load(policy_path.read_text(encoding="utf-8"))
+    assert policy["github_issue"]["authorized_actors"] == ["trung-via"]
+    for bot in ("github-actions[bot]", "github-actions", "bot"):
+        assert bot not in policy["github_issue"]["authorized_actors"]
