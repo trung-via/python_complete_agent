@@ -42,6 +42,11 @@ P8_0_COMPOSITION_FILE = (
     / "docs"
     / "PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md"
 )
+P8_1_SELECTION_FILE = (
+    REPO_ROOT
+    / "docs"
+    / "PHASE_8_P8_1_REAL_DECISION_PILOT_SELECTION.md"
+)
 ROADMAP_DOCS = (
     REPO_ROOT / "docs" / "POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
     REPO_ROOT / "docs" / "POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
@@ -75,6 +80,12 @@ TASK_222_SOURCE_SHA = "ca6da00e9e58f66e25f2f6edcb416677bed70b6d"
 TASK_223_SOURCE_SHA = "3c67a828857f74466883463abf35a17ecdcc6775"
 TASK_224_SOURCE_SHA = "d361361958fbcbe791c04aefbeba3d186c5f9608"
 TASK_225_SOURCE_SHA = "6302dd7d01be90624d5ed0072cffbc3c23f2e4a2"
+TASK_226_SOURCE_SHA = "a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e"
+SELECTED_SOURCE_ID = "1731381331718341815"
+SELECTED_LISTING_REFERENCE = (
+    "https://shop.tiktok.com/vn/pdp/"
+    "den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815"
+)
 ACTIVE_TRACK_ID = "AIOS_FULL_DOWNSTREAM_ADOPTION_AND_GOVERNANCE_REBUILD"
 CLOSURE_MILESTONE_ID = "GOVERNANCE_FOUNDATION_CLOSURE_AND_P7_RETURN"
 HISTORICAL_CONFORMANCE_NEXT_COMMITMENT = "PROJECT_CONTRACT_REBUILD"
@@ -124,7 +135,7 @@ def values_for_key(value: object, key: str) -> list[object]:
     return matches
 
 
-def test_roadmap_closes_p8_composition_without_automatic_successor():
+def test_roadmap_closes_p8_1_selection_without_automatic_successor():
     state = load_yaml(ROADMAP_FILE)
     assert state["authority"] == {
         "owner": "BRAIN",
@@ -140,22 +151,21 @@ def test_roadmap_closes_p8_composition_without_automatic_successor():
         "status": "DONE",
     }
     assert state["active_track"] == {
-        "id": "P8_REAL_COMMERCE_DECISION_LOOP_COMPOSITION",
-        "title": "P8 Real Commerce Decision Loop Composition",
+        "id": "P8_REAL_COMMERCE_DECISION_PILOT_SELECTION",
+        "title": "P8 Real Commerce Decision Pilot Selection",
         "priority_owner": "HUMAN",
         "status": "DONE",
         "completion_basis": "PUBLICATION_GATED",
-        "sequence_status": "COMPLETE_ON_EXACT_TASK_226_SOURCE_PUBLICATION",
+        "sequence_status": "COMPLETE_ON_EXACT_TASK_227_SOURCE_PUBLICATION",
         "current_milestone": {
-            "id": "P8.0",
-            "task_id": "TASK-226",
-            "title": "Real Commerce Decision Loop Composition",
+            "id": "P8.1",
+            "task_id": "TASK-227",
+            "title": "Real Decision Pilot Selection",
             "status": "DONE",
             "completion_basis": "PUBLICATION_GATED",
-            "composition_contract_only": True,
+            "classification": "PILOT_CASE_SELECTION_ONLY",
+            "selection_owner": "HUMAN",
             "real_pilot_executed": False,
-            "semantic_owner": "src/commerce_decision_loop/real_decision_composition.py",
-            "authority_identifier": "COMMERCE_DECISION_LOOP_P8_0",
             "effective_only_when": {
                 "semantic_review": "PASS",
                 "published_source": "EXACT_REVIEWED_CANDIDATE",
@@ -222,20 +232,34 @@ def test_roadmap_closes_p8_composition_without_automatic_successor():
         ),
     }
     assert state["post_p8_planning_handoff"] == {
-        "destination": "HUMAN_BRAIN_REAL_DECISION_PILOT_SELECTION",
-        "status": "EFFECTIVE_ON_EXACT_TASK_226_SOURCE_PUBLICATION",
-        "completed_commitment": "P8.0_REAL_COMMERCE_DECISION_LOOP_COMPOSITION",
-        "actual_real_decision_case": None,
+        "destination": "HUMAN_BRAIN_PRE_ACTION_EVIDENCE_ACQUISITION_PLANNING",
+        "status": "EFFECTIVE_ON_EXACT_TASK_227_SOURCE_PUBLICATION",
+        "completed_commitment": "P8.1_REAL_DECISION_PILOT_SELECTION",
+        "actual_real_decision_case": {
+            "context_id": "p8-pilot-001-led-motion-tiktok-vn",
+            "record_type": "PILOT_CASE_SELECTION_ONLY",
+            "product_label": (
+                "Đèn LED Cảm Biến Chuyển Động Tự Động Bật Tắt Điều Chỉnh 3 Chế Độ Sáng"
+            ),
+            "marketplace": "TikTok Shop Vietnam",
+            "channel_context": "TikTok Shop Affiliate",
+            "source_id": SELECTED_SOURCE_ID,
+            "stable_listing_reference": SELECTED_LISTING_REFERENCE,
+            "identity_scope": "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY",
+            "selection_owner": "HUMAN",
+            "selection_status": "SELECTED",
+            "real_pilot_executed": False,
+        },
         "next_milestone": None,
         "automatic_next": False,
-        "automatic_p8_1": False,
-        "real_pilot_executed_by_task_226": False,
+        "automatic_p8_2": False,
+        "real_pilot_executed": False,
         "boundary": (
-            "TASK-226 freezes the composition contract and does not execute a real pilot. After "
-            "exact reviewed source publication, one actual commerce decision case and legitimate "
-            "external decision/action lineage require fresh Human/Brain selection. No Runtime, "
-            "worker, gap report, represented component, evidence, outcome, score, or assessment "
-            "disposition may select or authorize a successor or future intelligence domain."
+            "TASK-227 records only the Human-selected pilot case and its P7.3-owned proposed "
+            "framing; it does not assert live marketplace facts, authorize evidence acquisition "
+            "or a market test, or execute a real pilot. A fresh Human/Brain decision must define "
+            "any bounded pre-action evidence-acquisition plan, including access, cost, latency, "
+            "fragility, and provenance constraints. No P8.2 or future domain is automatic."
         ),
     }
 
@@ -304,8 +328,14 @@ def test_p7_2_semantics_preserve_triage_evidence_and_history_boundaries():
         assert "P8.0 Real Commerce Decision Loop Composition" in roadmap
         assert "TASK-226 — publication-gated DONE; composition contract only" in roadmap
         assert "does not execute a real pilot" in roadmap
-        assert "no automatic P8.1 or other NEXT" in roadmap
-        assert "Human/Brain explicitly selects one actual real commerce decision" in roadmap
+        assert TASK_226_SOURCE_SHA in roadmap
+        assert "P8.1 Real Decision Pilot Selection" in roadmap
+        assert "TASK-227 — publication-gated DONE; `PILOT_CASE_SELECTION_ONLY`" in roadmap
+        assert SELECTED_SOURCE_ID in roadmap
+        assert SELECTED_LISTING_REFERENCE in roadmap
+        assert "Source identity is not canonical product identity" in roadmap
+        assert "There is no automatic P8.2" in roadmap
+        assert "pre-action evidence-acquisition plan" in roadmap
         assert "P6.2 remains PARKED" in roadmap
         assert "P6.4-P6.6 remain DEFERRED" in roadmap
         for milestone in ("P7.6", "P7.7"):
@@ -527,12 +557,73 @@ def test_p8_0_is_one_composition_only_authority_and_human_owned_pilot_handoff():
     state = load_yaml(ROADMAP_FILE)
     completed = {item["task_id"]: item for item in state["completed_milestones"]}
     assert completed["TASK-225"]["source_sha"] == TASK_225_SOURCE_SHA
+    assert completed["TASK-226"]["source_sha"] == TASK_226_SOURCE_SHA
     assert completed["TASK-226"]["composition_contract_only"] is True
     assert completed["TASK-226"]["real_pilot_executed"] is False
     assert state["active_track"]["next_milestone"] is None
     assert state["pending_commitments"] == []
-    assert state["post_p8_planning_handoff"]["automatic_p8_1"] is False
-    assert state["post_p8_planning_handoff"]["actual_real_decision_case"] is None
+    assert state["post_p8_planning_handoff"]["automatic_p8_2"] is False
+
+
+def test_p8_1_records_selection_only_and_preserves_pre_action_boundaries():
+    text = P8_1_SELECTION_FILE.read_text(encoding="utf-8")
+    for required in (
+        "PILOT_CASE_SELECTION_ONLY",
+        "Đèn LED Cảm Biến Chuyển Động Tự Động Bật Tắt Điều Chỉnh 3 Chế Độ Sáng",
+        "TikTok Shop Vietnam",
+        "TikTok Shop Affiliate planning context",
+        SELECTED_SOURCE_ID,
+        SELECTED_LISTING_REFERENCE,
+        "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY",
+        "p8-pilot-001-led-motion-tiktok-vn",
+        "p8-pilot-001-positive-contribution-margin",
+        "Should the Human authorize a bounded TikTok Shop affiliate market test for this exact "
+        "selected listing after reviewing decision-relevant evidence?",
+        "Reduce uncertainty enough for the Human to decide whether a bounded affiliate market "
+        "test is justified, while preserving evidence gaps, alternatives, and action authority.",
+        "Under an authorized bounded TikTok Shop affiliate market test, this exact selected "
+        "listing can produce positive contribution margin without violating the Human-defined "
+        "quality, exposure, economic, and risk constraints for that test.",
+        "This is a hypothesis, not truth, approval, recommendation",
+        "Unknown != absent. Unknown != authorization to collect.",
+        "Similar-\nlisting search results, URL slug text, historical benchmark cohorts, and synthetic fixtures",
+        "PRE-ACTION EVIDENCE\nACQUISITION PLAN",
+        "No P8.2 or future domain is automatically selected",
+    ):
+        assert required in text
+
+    for unknown in (
+        "current exact listing price and variant economics",
+        "affiliate commission rate and estimated commission value",
+        "current sold, review, and rating evidence",
+        "creator ecosystem",
+        "content activity and video evidence",
+        "audience-channel fit",
+        "competition saturation",
+        "inventory or availability where decision-relevant",
+        "contribution-margin threshold, budget, duration, and risk constraints",
+    ):
+        assert unknown in text
+
+    assert "P7.3 remains the sole semantic owner and constructor" in text
+    assert "currently affiliate-eligible" in text
+    assert "No current price, shop, sold count, rating" in text
+
+    state = load_yaml(ROADMAP_FILE)
+    selected = state["post_p8_planning_handoff"]["actual_real_decision_case"]
+    assert selected["source_id"] == SELECTED_SOURCE_ID
+    assert selected["stable_listing_reference"] == SELECTED_LISTING_REFERENCE
+    assert selected["identity_scope"] == "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY"
+    assert selected["selection_owner"] == "HUMAN"
+    assert selected["selection_status"] == "SELECTED"
+    assert selected["real_pilot_executed"] is False
+    assert state["post_p8_planning_handoff"]["destination"] == (
+        "HUMAN_BRAIN_PRE_ACTION_EVIDENCE_ACQUISITION_PLANNING"
+    )
+    assert state["post_p8_planning_handoff"]["automatic_next"] is False
+    assert state["post_p8_planning_handoff"]["automatic_p8_2"] is False
+    assert state["active_track"]["next_milestone"] is None
+    assert state["pending_commitments"] == []
 
 
 
@@ -734,11 +825,29 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
         "milestone_id": "P8.0",
         "title": "Real Commerce Decision Loop Composition",
         "status": "DONE",
+        "source_sha": TASK_226_SOURCE_SHA,
         "completion_basis": "PUBLICATION_GATED",
         "composition_contract_only": True,
         "real_pilot_executed": False,
         "semantic_owner": "src/commerce_decision_loop/real_decision_composition.py",
         "authority_identifier": "COMMERCE_DECISION_LOOP_P8_0",
+        "effective_only_when": {
+            "semantic_review": "PASS",
+            "published_source": "EXACT_REVIEWED_CANDIDATE",
+            "canonical_main_equals_reviewed_candidate": True,
+        },
+    }
+    assert completed["TASK-227"] == {
+        "task_id": "TASK-227",
+        "task_revision": 1,
+        "track_id": "P8_REAL_COMMERCE_DECISION_PILOT_SELECTION",
+        "milestone_id": "P8.1",
+        "title": "Real Decision Pilot Selection",
+        "status": "DONE",
+        "completion_basis": "PUBLICATION_GATED",
+        "classification": "PILOT_CASE_SELECTION_ONLY",
+        "selection_owner": "HUMAN",
+        "real_pilot_executed": False,
         "effective_only_when": {
             "semantic_review": "PASS",
             "published_source": "EXACT_REVIEWED_CANDIDATE",

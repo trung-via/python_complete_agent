@@ -46,22 +46,21 @@ planning_handoff:
     semantic reconciliation without reinterpreting TASK-191 or changing TASK-213 history.
 
 active_track:
-  id: P8_REAL_COMMERCE_DECISION_LOOP_COMPOSITION
-  title: P8 Real Commerce Decision Loop Composition
+  id: P8_REAL_COMMERCE_DECISION_PILOT_SELECTION
+  title: P8 Real Commerce Decision Pilot Selection
   priority_owner: HUMAN
   status: DONE
   completion_basis: PUBLICATION_GATED
-  sequence_status: COMPLETE_ON_EXACT_TASK_226_SOURCE_PUBLICATION
+  sequence_status: COMPLETE_ON_EXACT_TASK_227_SOURCE_PUBLICATION
   current_milestone:
-    id: P8.0
-    task_id: TASK-226
-    title: Real Commerce Decision Loop Composition
+    id: P8.1
+    task_id: TASK-227
+    title: Real Decision Pilot Selection
     status: DONE
     completion_basis: PUBLICATION_GATED
-    composition_contract_only: true
+    classification: PILOT_CASE_SELECTION_ONLY
+    selection_owner: HUMAN
     real_pilot_executed: false
-    semantic_owner: src/commerce_decision_loop/real_decision_composition.py
-    authority_identifier: COMMERCE_DECISION_LOOP_P8_0
     effective_only_when:
       semantic_review: PASS
       published_source: EXACT_REVIEWED_CANDIDATE
@@ -86,20 +85,31 @@ post_p7_planning_handoff:
     outcome, roadmap, or future-domain authority into P8.0.
 
 post_p8_planning_handoff:
-  destination: HUMAN_BRAIN_REAL_DECISION_PILOT_SELECTION
-  status: EFFECTIVE_ON_EXACT_TASK_226_SOURCE_PUBLICATION
-  completed_commitment: P8.0_REAL_COMMERCE_DECISION_LOOP_COMPOSITION
-  actual_real_decision_case: null
+  destination: HUMAN_BRAIN_PRE_ACTION_EVIDENCE_ACQUISITION_PLANNING
+  status: EFFECTIVE_ON_EXACT_TASK_227_SOURCE_PUBLICATION
+  completed_commitment: P8.1_REAL_DECISION_PILOT_SELECTION
+  actual_real_decision_case:
+    context_id: p8-pilot-001-led-motion-tiktok-vn
+    record_type: PILOT_CASE_SELECTION_ONLY
+    product_label: Đèn LED Cảm Biến Chuyển Động Tự Động Bật Tắt Điều Chỉnh 3 Chế Độ Sáng
+    marketplace: TikTok Shop Vietnam
+    channel_context: TikTok Shop Affiliate
+    source_id: "1731381331718341815"
+    stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
+    identity_scope: SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY
+    selection_owner: HUMAN
+    selection_status: SELECTED
+    real_pilot_executed: false
   next_milestone: null
   automatic_next: false
-  automatic_p8_1: false
-  real_pilot_executed_by_task_226: false
+  automatic_p8_2: false
+  real_pilot_executed: false
   boundary: >-
-    TASK-226 freezes the composition contract and does not execute a real pilot. After
-    exact reviewed source publication, one actual commerce decision case and legitimate
-    external decision/action lineage require fresh Human/Brain selection. No Runtime,
-    worker, gap report, represented component, evidence, outcome, score, or assessment
-    disposition may select or authorize a successor or future intelligence domain.
+    TASK-227 records only the Human-selected pilot case and its P7.3-owned proposed framing;
+    it does not assert live marketplace facts, authorize evidence acquisition or a market
+    test, or execute a real pilot. A fresh Human/Brain decision must define any bounded
+    pre-action evidence-acquisition plan, including access, cost, latency, fragility, and
+    provenance constraints. No P8.2 or future domain is automatic.
 
 completed_milestones:
   - task_id: TASK-192
@@ -253,11 +263,26 @@ completed_milestones:
     milestone_id: P8.0
     title: Real Commerce Decision Loop Composition
     status: DONE
+    source_sha: a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e
     completion_basis: PUBLICATION_GATED
     composition_contract_only: true
     real_pilot_executed: false
     semantic_owner: src/commerce_decision_loop/real_decision_composition.py
     authority_identifier: COMMERCE_DECISION_LOOP_P8_0
+    effective_only_when:
+      semantic_review: PASS
+      published_source: EXACT_REVIEWED_CANDIDATE
+      canonical_main_equals_reviewed_candidate: true
+  - task_id: TASK-227
+    task_revision: 1
+    track_id: P8_REAL_COMMERCE_DECISION_PILOT_SELECTION
+    milestone_id: P8.1
+    title: Real Decision Pilot Selection
+    status: DONE
+    completion_basis: PUBLICATION_GATED
+    classification: PILOT_CASE_SELECTION_ONLY
+    selection_owner: HUMAN
+    real_pilot_executed: false
     effective_only_when:
       semantic_review: PASS
       published_source: EXACT_REVIEWED_CANDIDATE

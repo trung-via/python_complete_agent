@@ -27,9 +27,12 @@ Following completion of the post-publication Human review gate accepting one REA
 `40da098b3b0dcf3d1994fc510dd55717b81a2f67`, having frozen that accepted bundle into
 repository fixtures and recorded the deterministic measured baseline offline. P7.2-P7.7 is
 DONE through exact published TASK-225 source `6302dd7d01be90624d5ed0072cffbc3c23f2e4a2`.
-Fresh Human/Brain selection established P8.0 Real Commerce Decision Loop Composition as a
-publication-gated DONE contract under TASK-226; it does not execute a real pilot and selects no
-automatic successor. P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
+P8.0 Real Commerce Decision Loop Composition is DONE at exact published TASK-226 source
+`a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e`. The Human then selected one exact TikTok Shop
+Vietnam listing for P8.1. TASK-227 records that selection as a publication-gated DONE
+`PILOT_CASE_SELECTION_ONLY` commitment; it does not execute a real pilot, assert live marketplace
+facts, authorize evidence acquisition or a test, or select an automatic successor. P6.4-P6.6 remain
+DEFERRED / UNIMPLEMENTED.
 
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
@@ -429,11 +432,25 @@ any P7 or Product Intelligence authority.
   real-world success. TASK-226 freezes the contract and does not execute a real pilot, authorize an
   action, perform a market test, attribute an outcome, or select a future intelligence domain.
 
-On exact reviewed TASK-226 source publication, P8.0 is DONE with no automatic P8.1 or other NEXT.
-The next commitment is null until Human/Brain explicitly selects one actual real commerce decision
-case and legitimate external decision/action lineage. Runtime, workers, component gaps, scores,
-outcomes, and assessment dispositions cannot auto-advance that handoff. See
-`docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md` for the composition boundary.
+P8.0 is DONE at exact published source `a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e`.
+
+- **P8.1 Real Decision Pilot Selection (TASK-227 — publication-gated DONE; `PILOT_CASE_SELECTION_ONLY`)**:
+  records the Human-selected product label “Đèn LED Cảm Biến Chuyển Động Tự Động Bật Tắt Điều Chỉnh
+  3 Chế Độ Sáng”, TikTok Shop Vietnam source ID `1731381331718341815`, and stable external listing
+  reference `https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815`.
+  Source identity is not canonical product identity. P8.1 documents one intended P7.3-owned bounded
+  DecisionContext and falsifiable OpportunityHypothesis framing while preserving all live facts,
+  affiliate economics, traction, creator/content evidence, audience fit, competition, and
+  Human-owned test constraints as unknown. It performs no acquisition, approval, scoring, ranking,
+  test authorization, market action, winner/scalability/causal judgment, or future-domain selection.
+
+On exact reviewed TASK-227 source publication, P8.1 is DONE, `real_pilot_executed` remains false,
+the next milestone remains null, and pending commitments remain empty. There is no automatic P8.2.
+The handoff is a fresh Human/Brain decision on a bounded pre-action evidence-acquisition plan,
+including access, cost, latency, fragility, and provenance constraints; unknowns do not authorize
+collection. See `docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md` for the preserved P8.0
+composition boundary and `docs/PHASE_8_P8_1_REAL_DECISION_PILOT_SELECTION.md` for the selection
+record.
 
 
 See `docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md` for the audit and boundary.
