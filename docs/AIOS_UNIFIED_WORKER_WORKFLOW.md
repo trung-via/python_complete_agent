@@ -535,8 +535,8 @@ TASK-221 supersedes that active pin with exact reviewed, source-published commit
 `edd7d8d92d54900c56442bbfcddb8648ec4d2e09`, consuming upstream TASK-148 revision 2 /
 RUN-148-003 / REVIEW-148-003 historical-subject repository semantics while preserving all
 Phase-1 and Phase-2 repository bindings and authority boundaries. Runtime-owned isolated
-historical subjects have ordinary repository-local `.git` directory semantics, and control-owned
-transport may locally resolve the exact candidate object graph without moving control HEAD,
+historical subjects have ordinary repository-local `.git` directory semantics, and
+control-owned transport may locally resolve the exact candidate object graph without moving control HEAD,
 branch, index, or worktree. Python Agent copies no Runtime implementation and does not activate
 upstream TASK-140 project hooks or any second lifecycle authority.
 TASK-207 revision 5 re-certified the Phase-1 and Phase-2 repository bindings under
