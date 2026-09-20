@@ -1,0 +1,35 @@
+review_id: REVIEW-223-001
+reviewed_sha: 0cd8d4649b8ef3d6bef1271a33c188e13e081f85
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: FAIL
+  AC2: PASS
+  AC3: PASS
+  AC4: PASS
+  AC5: PASS
+  AC6: PASS
+  AC7: PASS
+  AC8: PASS
+findings:
+  - id: FINDING-223-001
+    basis: AC1
+    action: CODE_FIX
+    location: src/commerce_opportunity_intelligence/value_of_information.py; tests/commerce_opportunity_intelligence/test_value_of_information.py; docs/PHASE_7_P7_5_VALUE_OF_INFORMATION_PLANNING.md
+    issue: >
+      P7.5 introduces an independently caller-supplied inquiry field named decision_deadline
+      and even accepts a second datetime value, while published P7.3 DecisionContext is already
+      the canonical owner of the decision deadline. The P7.5 factory validates context,
+      hypothesis, and profile identity but never reconciles an inquiry deadline with
+      DecisionContext.decision_deadline, so a single plan can contain two contradictory
+      decision deadlines. This creates duplicate semantic ownership and violates the
+      ONE_CAPABILITY_ONE_AUTHORITY boundary even though the P7.5 value is otherwise advisory.
+    expected: >
+      Preserve PC5's ninth VOI consideration without creating a second deadline authority.
+      P7.5 should reference/use the canonical P7.3 DecisionContext deadline and, if an inquiry
+      needs caller-authored reasoning about deadline effects, represent that only as a clearly
+      named bounded consideration/rationale rather than another deadline value. Remove acceptance
+      of an independent inquiry datetime deadline, update documentation accordingly, and add a
+      focused regression with a DecisionContext carrying a real deadline proving P7.5 cannot
+      introduce a conflicting second deadline. Do not modify P7.3, P7.4, acquisition authority,
+      roadmap ordering, or control-plane state.
