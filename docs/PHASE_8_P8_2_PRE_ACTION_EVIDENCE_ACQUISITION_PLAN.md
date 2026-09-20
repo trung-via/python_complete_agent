@@ -301,8 +301,10 @@ Acquisition stops or remains unauthorized when any of the following applies:
 - the answer is unlikely to change the Human decision;
 - expected benefit does not justify access, cost, latency, risk, or opportunity cost;
 - provenance cannot be tied to source ID `1731381331718341815` and the exact stable listing;
-- the source requires CAPTCHA solving, evasion, bypass, proxy/stealth behavior, automated retry of an
-  access gate, or other unsafe access behavior;
+- a CAPTCHA/security challenge would require automated solving, automated retry, bypass, evasion,
+  proxy/stealth behavior, or other unsafe access behavior;
+- no legitimate Human-operated path is available to resolve a CAPTCHA/security challenge outside
+  ordinary AIOS verification;
 - a Human-owned constraint is missing and further marketplace evidence cannot resolve it;
 - evidence is stale or fragile beyond useful interpretation;
 - a legitimate exact-listing path is unavailable or the `/pdp` compatibility blocker applies;
@@ -313,6 +315,11 @@ Acquisition stops or remains unauthorized when any of the following applies:
 There is no universal numeric VOI score, evidence-priority score, fixed weighting, recommendation,
 ranking, deadline value, or acquisition-order authority in this plan.
 
+A CAPTCHA/security challenge does not by itself forbid a later bounded acquisition. A Human may
+resolve the challenge outside ordinary AIOS verification, but challenge resolution grants no
+evidence, collector, test, or action authority. Any resume requires a separate, fresh explicit
+Human/Brain-authorized operation and remains subject to every boundary in this plan.
+
 ## 8. Boundary for any later live evidence operation
 
 Any later live operation requires a fresh explicit Human/Brain authorization and must preserve all
@@ -320,7 +327,8 @@ of these conditions:
 
 - authenticated marketplace interaction occurs outside ordinary deterministic AIOS engineering
   verification;
-- the Human/operator owns login, authenticated session, and CAPTCHA/security-challenge preparation;
+- the Human/operator owns login, authenticated session, and CAPTCHA/security-challenge preparation
+  and resolution;
 - there is zero automatic CAPTCHA solving, retry, proxy, stealth, evasion, or bypass automation;
 - artifacts remain under an explicit external job root rather than repository planning state;
 - secrets, cookies, access tokens, credentials, raw HTML, and browser-profile paths are not persisted

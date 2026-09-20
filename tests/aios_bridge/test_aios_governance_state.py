@@ -682,6 +682,19 @@ def test_p8_2_is_plan_only_and_preserves_evidence_and_action_boundaries():
     ):
         assert required in text
 
+    stop_section = text.split("## 7. Explicit STOP and DEFER conditions", 1)[1].split(
+        "## 8. Boundary for any later live evidence operation", 1
+    )[0]
+    for required in (
+        "would require automated solving, automated retry, bypass, evasion",
+        "no legitimate Human-operated path is available",
+        "A Human may\nresolve the challenge outside ordinary AIOS verification",
+        "challenge resolution grants no\nevidence, collector, test, or action authority",
+        "Any resume requires a separate, fresh explicit\nHuman/Brain-authorized operation",
+    ):
+        assert required in stop_section
+    assert "the source requires CAPTCHA solving" not in stop_section
+
     dimensions = (
         "affiliate_economics",
         "market_traction",
