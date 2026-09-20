@@ -1,50 +1,54 @@
 task_id: TASK-207
-revision: 6
+revision: 7
 
 goal: >
   Re-certify Python Agent full downstream AIOS control-plane conformance under the
   exact reviewed/source-published AIOS-renew pin
-  1a68db9acb6989dfa81bf875503db62e54a4bed6 after TASK-219 published that migration.
-  Preserve TASK-207 as the sole downstream-conformance semantic authority, preserve
-  revision-5 certification for 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2 as
-  historical prior-pin evidence, freshly prove the current Phase-1/Phase-2 bindings
-  where the pin movement is material, and make revision-6 certification effective
-  only after independent semantic PASS and safe publication of exactly the reviewed
-  source candidate. After effective certification, resume P7.3 by reviewing and, if
-  eligible, publishing the preserved TASK-215 revision-1 RUN-215-004 candidate
+  1a68db9acb6989dfa81bf875503db62e54a4bed6 after TASK-219 published that migration,
+  while preserving the failed TASK-207 revision-6 RUN-207-006 as immutable,
+  non-repairable execution history. Preserve TASK-207 as the sole downstream-
+  conformance semantic authority, preserve revision-5 certification for
+  49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2 as historical prior-pin evidence,
+  freshly prove the current Phase-1/Phase-2 bindings where the pin movement is
+  material, and make revision-7 certification effective only after independent
+  semantic PASS and safe publication of exactly the reviewed source candidate.
+  After effective certification, resume P7.3 by reviewing and, if eligible,
+  publishing the preserved TASK-215 revision-1 RUN-215-004 candidate
   142bd865f69a6636b321d3cc7a0cd4004db3fdc7 against FINDING-215-001; do not rerun
   TASK-215 and do not advance P7.4.
 
 problem: >
-  TASK-219 / RUN-219-001 / REVIEW-219-001 is now source-published on canonical
-  Python Agent main at f7ee8a6d0c0fb7290ebfb2190703caf78baae5b8. The sole active
-  downstream AIOS-renew dependency and worker provenance authority are now exact
-  1a68db9acb6989dfa81bf875503db62e54a4bed6. Canonical adoption and roadmap state
-  intentionally mark full downstream conformance for 1a68db9 as
-  PENDING_FRESH_CERTIFICATION and preserve TASK-207 revision-5 certification only
-  as historical evidence for 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2.
+  TASK-207 revision 6 was canonically authored at
+  bb79c6440a240cded4aac501619399cd9b8aeb56 under exact pin
+  1a68db9acb6989dfa81bf875503db62e54a4bed6. Its admitted Antigravity PRIMARY became
+  canonical RUN-207-006 but failed during EXECUTION before Runtime verification.
+  Canonical failure evidence records base/failed-head
+  bb79c6440a240cded4aac501619399cd9b8aeb56, zero committed changed files, dirty=true,
+  repairable=false, transportable=false, and error type AntigravityExecutionError
+  with message "Antigravity ResultPackage missing: root agent idle; waiting up to 5s
+  for 2 background task(s)". A terminal-attention FAILURE carrier was created for
+  RUN-207-006. Because the failure is non-repairable and non-transportable,
+  RUN-207-006 must not be retried, repaired, rerouted, reviewed, integrated, or
+  published. Its uncommitted local work is not canonical candidate authority.
 
-  TASK-219 was required because the prior 49ad4d7 control plane could not canonicalize
-  the successful TASK-215 REPAIR DELTA review: SUBMIT_REVIEW did not reconstruct
-  successful REPAIR lineage, so prior_finding_id validation failed before review-decision
-  materialization. Upstream TASK-144 revision 2 fixed that generic review/publication
-  gap and exact source 1a68db9 was independently reviewed and source-published.
-  Python Agent must now certify that the existing repository-owned authoring, PRIMARY,
-  attention, remediation, repair, review, and publication bindings remain conformant
-  under that exact pin before using the newly adopted capability to review RUN-215-004.
-  Because TASK-207 already owns downstream-conformance semantics, the correct continuation
-  is revision 6 of TASK-207, not a new conformance task.
+  The conformance requirement itself remains unresolved: adoption and roadmap state
+  still mark exact 1a68db9 full downstream conformance as PENDING_FRESH_CERTIFICATION,
+  and the current certification record remains TASK-207 revision 5 for prior pin
+  49ad4d7 only. The correct continuation is therefore a fresh TASK-207 revision 7,
+  not REPAIR of RUN-207-006 and not a new conformance task.
 
 assumptions:
-  - Canonical Python Agent main at authoring is f7ee8a6d0c0fb7290ebfb2190703caf78baae5b8, the exact TASK-219 reviewed source candidate published to main.
-  - The sole active AIOS-renew dependency and worker provenance authority are exactly 1a68db9acb6989dfa81bf875503db62e54a4bed6 under EXACT_REVIEWED_SOURCE_PUBLISHED_ONLY.
-  - TASK-219 / RUN-219-001 / REVIEW-219-001 are completed migration lineage; RUN-219-001 passed 225 focused downstream tests and git diff --check before source publication.
-  - TASK-207 revision 5 and .ai/aios-conformance-state.yaml remain valid historical certification evidence only for 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2 after TASK-219 publication.
-  - All existing Phase-1/Phase-2 repository binding implementation files remained unchanged by TASK-219; only exact pin, documentation, planning/provenance state, and related governance tests changed.
+  - Canonical Python Agent main at authoring is bb79c6440a240cded4aac501619399cd9b8aeb56 containing TASK-207 revision 6.
+  - The sole active AIOS-renew dependency and worker provenance authority remain exactly 1a68db9acb6989dfa81bf875503db62e54a4bed6 under EXACT_REVIEWED_SOURCE_PUBLISHED_ONLY.
+  - TASK-219 / RUN-219-001 / REVIEW-219-001 remain completed, source-published migration lineage.
+  - TASK-207 revision 5 remains valid historical certification evidence only for 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2.
+  - RUN-207-006 is canonical immutable TASK-207 revision-6 FAILURE history with phase EXECUTION, repairable=false, transportable=false, and no canonical source candidate.
+  - RUN-207-006 local uncommitted edits are not review, publication, or continuation authority and must not be reused as the revision-7 candidate.
+  - Existing Phase-1/Phase-2 repository binding implementation files remain unchanged on canonical main.
   - P7.3 remains the unique product NEXT and TASK-215 revision 1 remains product_done=false.
-  - TASK-215 current successful correction candidate is RUN-215-004 at 142bd865f69a6636b321d3cc7a0cd4004db3fdc7, preserving FINDING-215-001 through predecessor RUN-215-003 / REPAIR-215-002 continuity.
-  - No review-decision ref exists for RUN-215-004 at authoring time.
-  - No RUN-207-006 exists at authoring time; existing TASK-207 canonical RUN history extends through RUN-207-005.
+  - TASK-215 current successful correction candidate remains RUN-215-004 at 142bd865f69a6636b321d3cc7a0cd4004db3fdc7, preserving FINDING-215-001 through predecessor RUN-215-003 / REPAIR-215-002 continuity.
+  - No review-decision ref exists for RUN-215-004.
+  - Existing TASK-207 canonical RUN history extends through failed RUN-207-006; the fresh revision-7 PRIMARY is expected to become RUN-207-007.
   - Mutable future upstream AIOS-renew main is not downstream authority; only the checked-in exact pin is relevant.
 
 scope:
@@ -98,115 +102,118 @@ scope:
 non_goals:
   - Create a new conformance task or second downstream-conformance authority.
   - Modify the AIOS-renew pin, worker provenance, workflow/carrier implementation, policies, bootstraps, Runtime, Reviewer, Publisher, A3/A6, correction actions, REPAIR semantics, or terminal-attention implementation.
+  - REPAIR, retry, reroute, review, integrate, publish, or otherwise revive RUN-207-006.
+  - Reuse, cherry-pick, commit, or otherwise promote RUN-207-006 uncommitted local edits as canonical revision-7 work.
   - Modify, rerun, repair, review, integrate, publish, or otherwise advance TASK-215 or RUN-215-004 inside this conformance task.
   - Modify src/product_intelligence, src/commerce_opportunity_intelligence, marketplace/browser/provider behavior, scoring/ranking, evidence, product truth, retrieval, persistence, or any product semantic.
-  - Rewrite TASK-207 revision-5 history or claim its 49ad4d7 live evidence is current certification for 1a68db9 where the pin is material.
+  - Rewrite TASK-207 revision-5 history or claim its 49ad4d7 live evidence is current certification for 1a68db9.
   - Manufacture CHANGES_REQUIRED, deliberately fail a real implementation RUN, or introduce code mutation solely to exercise correction transport.
-  - Manufacture a TASK-215 DELTA review solely as conformance evidence; the preserved RUN-215-004 review remains a separate Brain action after revision-6 certification is effective.
-  - Reimplement upstream TASK-144 behavior downstream, delete local Runtime state, create a generic router/retry/reroute loop, scheduler, queue, broker, Planner, memory database, generic conversation store, duplicate lifecycle state machine, or floating AIOS reference.
+  - Manufacture a TASK-215 DELTA review solely as conformance evidence.
+  - Reimplement upstream TASK-144 behavior downstream, delete Runtime history, create a generic router/retry/reroute loop, scheduler, queue, broker, Planner, memory database, generic conversation store, duplicate lifecycle state machine, or floating AIOS reference.
   - Push, merge, publish, or mutate canonical main from Executor implementation execution.
 
 constraints:
   hard:
     - >
-      TASK-207 revision 6 remains the sole downstream-conformance semantic authority and
-      supersedes only the current-certification role of revision 5. Revision-5 evidence
-      remains immutable historical prior-pin evidence for 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2.
+      TASK-207 revision 7 remains the sole downstream-conformance semantic authority.
+      RUN-207-006 remains immutable failed revision-6 history and grants no source,
+      correction, review, or publication authority.
     - >
-      This revision must itself be authored through the live [AIOS BRAIN INGRESS] carrier
-      against canonical predecessor main f7ee8a6d0c0fb7290ebfb2190703caf78baae5b8 while
-      exact pin 1a68db9acb6989dfa81bf875503db62e54a4bed6 is already active on main.
+      Before revision-7 PRIMARY dispatch, the self-hosted Python Agent checkout used by
+      the repository binding must be clean and synchronized to the canonical revision-7
+      task commit. Any preserved local RUN-207-006 partial diff may exist only outside
+      the active worktree as non-authoritative diagnostic backup.
+    - >
+      This revision must itself be authored through the live [AIOS BRAIN INGRESS]
+      carrier against canonical predecessor main bb79c6440a240cded4aac501619399cd9b8aeb56
+      while exact pin 1a68db9acb6989dfa81bf875503db62e54a4bed6 is active.
     - >
       PRIMARY execution must use one fresh [AIOS BRAIN WAKEUP] request with executor
-      antigravity and stable dispatch_id task207-r6-antigravity-001 through the dedicated
-      [self-hosted, windows, x64, python-complete-agent] path. It must resolve exact pin
-      1a68db9 from current main and produce exactly one new canonical TASK-207 revision-6
-      RUN, expected to be RUN-207-006 given current canonical history, with deterministic
-      verification evidence and duplicate-dispatch protection.
+      antigravity and stable dispatch_id task207-r7-antigravity-001 through the dedicated
+      [self-hosted, windows, x64, python-complete-agent] path. It must produce exactly one
+      fresh canonical TASK-207 revision-7 RUN, expected RUN-207-007, with deterministic
+      Runtime verification evidence and duplicate-dispatch protection. Do not use local
+      CONTINUE or explicit RUN as the conformance PRIMARY surface.
+    - >
+      The selected Executor must perform only the bounded six-file implementation work.
+      Runtime owns canonical verification; Executor must not run the TASK-level pytest
+      verification suite, long-running builds, watchers, delegated subagents, or background
+      tasks as substitute verification, and must return the required structured terminal
+      ResultPackage only after all bounded repository work and commit completion are finished.
     - >
       Terminalization must create or idempotently reuse the strict [AIOS TERMINAL ATTENTION]
-      carrier tied to the canonical revision-6 terminal truth. Attention remains notification
-      only and gains no lifecycle authority.
+      carrier tied to revision-7 canonical terminal truth. Attention remains notification only.
     - >
       Fresh REMEDIATION conformance must be live-proven under exact 1a68db9 through the
       repository-owned GitHub carrier and self-hosted Phase-2 bootstrap using stable
-      correction_dispatch_id task-207-r6-remediation-non-authorizing-001 and a deliberately
-      non-authorizing selector shape that must fail closed without creating an implementation
-      RUN. This is a transport/admission probe, not fabricated semantic remediation.
+      correction_dispatch_id task-207-r7-remediation-non-authorizing-001 and a deliberately
+      non-authorizing selector shape that fails closed without creating an implementation RUN.
     - >
       Fresh REPAIR conformance must be live-proven under exact 1a68db9 through the
       repository-owned GitHub carrier and self-hosted Phase-2 bootstrap using stable
-      repair_dispatch_id task-207-r6-repair-non-authorizing-001 and a deliberately
-      non-authorizing NO_CHANGE-shaped selector with no coding Executor. It must fail closed
-      without creating an implementation RUN unless a real TASK-207 failure independently
-      requires canonical REPAIR.
+      repair_dispatch_id task-207-r7-repair-non-authorizing-001 and a deliberately
+      non-authorizing NO_CHANGE-shaped selector with no coding Executor, failing closed
+      without creating an implementation RUN unless a real revision-7 failure independently
+      requires canonical correction.
     - >
       Review-to-publication authority remains the existing Brain ingress plus safe Publisher.
-      Revision-6 certification becomes effective only after its own PRIMARY semantic PASS is
-      canonicalized and the safe Publisher publishes exactly the reviewed revision-6 source
-      candidate so canonical main equals it.
+      Revision-7 certification becomes effective only after PRIMARY semantic PASS is canonicalized
+      and the safe Publisher publishes exactly the reviewed revision-7 source candidate.
     - >
-      The newly adopted TASK-144 revision-2 successful-REPAIR review reconstruction and
-      publication semantics are certified as exact-pin package capability by immutable
-      reviewed/source-published upstream provenance plus deterministic current-pin regression
-      coverage. This task must not create a synthetic DELTA finding or consume RUN-215-004
-      merely to exercise that branch. The real RUN-215-004 DELTA review remains the next
-      separate semantic action after certification.
+      Upstream TASK-144 revision-2 successful-REPAIR review reconstruction/publication semantics
+      are certified as exact-pin package capability by immutable reviewed/source-published
+      provenance plus deterministic current-pin regression coverage. Do not consume RUN-215-004
+      as a conformance probe.
     - >
-      .ai/aios-conformance-state.yaml must move current certification to TASK-207 revision 6 /
-      exact 1a68db9 while preserving revision 5 / 49ad4d7 as explicit historical prior-pin
-      certification evidence and retaining older historical exclusions without rewriting them.
-      It remains a certification record, not Runtime truth or raw evidence store.
+      .ai/aios-conformance-state.yaml must move current certification to TASK-207 revision 7 /
+      exact 1a68db9 while preserving revision 5 / 49ad4d7 as historical prior-pin certification
+      and retaining RUN-207-006 as failed non-certifying revision-6 history without making this
+      certification record a Runtime truth or raw evidence store.
     - >
       .ai/aios-adoption-state.yaml must mark exact 1a68db9 full downstream conformance as
-      publication-gated current certification through TASK-207 revision 6 only after the
-      reviewed candidate is published, preserve exact pin and all package/binding classifications,
-      preserve TASK-144 revision-2 provenance, and preserve prior-pin certification history.
+      publication-gated current certification through TASK-207 revision 7 only after publication,
+      preserving pin, package/binding classifications, TASK-144 provenance, and prior-pin history.
     - >
       .ai/roadmap-state.yaml must resolve FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION
-      through TASK-207 revision 6 while preserving P7.3 as the unique product NEXT and exact
+      through TASK-207 revision 7 while preserving P7.3 as the unique product NEXT and exact
       resume target TASK-215 revision 1 / RUN-215-004 / candidate
       142bd865f69a6636b321d3cc7a0cd4004db3fdc7 / FINDING-215-001 with predecessor
       RUN-215-003 / REPAIR-215-002 continuity. It must not mark P7.3 DONE or advance P7.4.
     - >
-      The production blocker motivating TASK-219 must be represented in certification scope:
-      the exact pinned kernel must expose upstream TASK-144 revision-2 successful-REPAIR
-      review-lineage reconstruction and publication validation through package adoption, while
-      Python Agent owns no duplicate implementation of those semantics.
-    - >
       No source mutation outside the six authorized modify files is permitted. A live defect in
-      workflows, policy, bootstrap, pin, Runtime, repair/review reconstruction, or transport blocks
+      workflow, policy, bootstrap, pin, Runtime, repair/review reconstruction, or transport blocks
       certification and requires separate authorized work rather than widening this task.
     - >
       Deterministic verification must be offline, non-interactive and provider/network independent,
       using a dedicated gitdir pytest basetemp. Live carrier evidence is separately observed from
       canonical GitHub workflow/receipt state and must not be faked inside offline tests.
     - >
-      Semantic Reviewer must independently inspect typed live evidence and must not PASS solely
-      because source tests pass. Missing or contradictory material current-pin live evidence is
-      BLOCKED or CHANGES_REQUIRED as appropriate.
+      Semantic Reviewer must independently inspect typed live current-pin evidence and must not
+      PASS solely because source tests pass.
 
 acceptance:
   - id: AC1
     condition: >
-      TASK-207 revision 6 is canonically authored through live Brain ingress from predecessor
-      f7ee8a6d0c0fb7290ebfb2190703caf78baae5b8 while exact 1a68db9 is active.
+      TASK-207 revision 7 is canonically authored through live Brain ingress from predecessor
+      bb79c6440a240cded4aac501619399cd9b8aeb56 while exact 1a68db9 is active, with
+      RUN-207-006 preserved as immutable non-certifying failure history.
   - id: AC2
     condition: >
-      One fresh Antigravity PRIMARY wakeup under exact 1a68db9 produces exactly one canonical
-      TASK-207 revision-6 RUN with deterministic verification lineage and duplicate-dispatch protection.
+      One fresh Antigravity PRIMARY Brain Wakeup under exact 1a68db9 produces exactly one
+      canonical TASK-207 revision-7 RUN with deterministic verification lineage and
+      duplicate-dispatch protection from a clean synchronized self-hosted checkout.
   - id: AC3
     condition: >
-      Revision-6 terminalization produces or idempotently reuses the correct terminal-attention
+      Revision-7 terminalization produces or idempotently reuses the correct terminal-attention
       notification from canonical terminal truth without granting it lifecycle authority.
   - id: AC4
     condition: >
       REMEDIATION carrier/bootstrap are freshly reachable and fail closed on the non-authorizing
-      revision-6 probe under 1a68db9 without creating a coding RUN solely for the probe.
+      revision-7 probe under 1a68db9 without creating a coding RUN solely for the probe.
   - id: AC5
     condition: >
       REPAIR carrier/bootstrap are freshly reachable and fail closed on the non-authorizing
-      NO_CHANGE-shaped revision-6 probe under 1a68db9 with no coding Executor and no coding RUN
+      NO_CHANGE-shaped revision-7 probe under 1a68db9 with no coding Executor and no coding RUN
       solely for the probe.
   - id: AC6
     condition: >
@@ -216,15 +223,15 @@ acceptance:
       remain intact without duplicate lifecycle implementation.
   - id: AC7
     condition: >
-      Conformance/adoption records bind current certification to TASK-207 revision 6 and exact
-      1a68db9 only on reviewed source publication, while preserving TASK-207 revision 5 /
-      49ad4d7 as historical prior-pin evidence.
+      Conformance/adoption records bind current certification to TASK-207 revision 7 and exact
+      1a68db9 only on reviewed source publication, preserving TASK-207 revision 5 / 49ad4d7
+      as historical prior-pin certification and RUN-207-006 as failed non-certifying history.
   - id: AC8
     condition: >
       Roadmap resolves the fresh-conformance prerequisite but preserves P7.3 as NEXT and exact
       TASK-215 revision-1 / RUN-215-004 / candidate 142bd865f69a6636b321d3cc7a0cd4004db3fdc7 /
-      FINDING-215-001 / RUN-215-003 / REPAIR-215-002 resume continuity; it does not rerun
-      TASK-215 or advance P7.4.
+      FINDING-215-001 / RUN-215-003 / REPAIR-215-002 continuity without rerunning TASK-215
+      or advancing P7.4.
   - id: AC9
     condition: >
       Source mutations stay inside the six authorized files; focused deterministic tests and
@@ -233,5 +240,5 @@ acceptance:
 
 verification:
   required:
-    - python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py tests/aios_bridge/test_aios_brain_ingress.py tests/aios_bridge/test_aios_phase1_control_plane.py tests/aios_bridge/test_aios_phase2_control_plane.py tests/aios_bridge/test_aios_auto_publish_workflow.py tests/aios_bridge/test_aios_conformance_state.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task207-r6
+    - python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py tests/aios_bridge/test_aios_brain_ingress.py tests/aios_bridge/test_aios_phase1_control_plane.py tests/aios_bridge/test_aios_phase2_control_plane.py tests/aios_bridge/test_aios_auto_publish_workflow.py tests/aios_bridge/test_aios_conformance_state.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task207-r7
     - git diff --check
