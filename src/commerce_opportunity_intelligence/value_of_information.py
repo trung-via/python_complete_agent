@@ -166,7 +166,7 @@ def _validate_evidence_dimension(value: object, *, name: str) -> str:
     return value
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class ValueOfInformationInquiry:
     """Immutable inquiry representing one caller-authored information question.
 
@@ -189,14 +189,71 @@ class ValueOfInformationInquiry:
     fragility: str
     reliability: str
     opportunity_cost: str
-    decision_deadline: str
+    decision_deadline_consideration: str
 
-    def __post_init__(self) -> None:
+    def __init__(
+        self,
+        inquiry_id: str,
+        evidence_dimension: str,
+        information_question: str,
+        explanation: str,
+        disposition: str,
+        rationale: str,
+        expected_decision_impact: str,
+        uncertainty_reduction: str,
+        cost: str,
+        latency: str,
+        access_risk: str,
+        fragility: str,
+        reliability: str,
+        opportunity_cost: str,
+        decision_deadline_consideration: str | None = None,
+        *,
+        deadline_consideration: str | None = None,
+        decision_deadline: Any = None,
+        **kwargs: Any,
+    ) -> None:
+        if kwargs:
+            unexpected = ", ".join(sorted(kwargs.keys()))
+            raise OpportunityIntelligenceValidationError(
+                f"ValueOfInformationInquiry received unexpected keyword arguments: {unexpected}"
+            )
+        if decision_deadline is not None:
+            raise OpportunityIntelligenceValidationError(
+                "ValueOfInformationInquiry does not accept an independent decision_deadline; "
+                "decision deadline is owned by DecisionContext and inquiry deadline reasoning "
+                "must be supplied as decision_deadline_consideration"
+            )
+        target_deadline_consideration: Any = None
+        if (
+            decision_deadline_consideration is not None
+            and deadline_consideration is not None
+        ):
+            if decision_deadline_consideration != deadline_consideration:
+                raise OpportunityIntelligenceValidationError(
+                    "cannot supply conflicting deadline consideration arguments"
+                )
+            target_deadline_consideration = decision_deadline_consideration
+        elif decision_deadline_consideration is not None:
+            target_deadline_consideration = decision_deadline_consideration
+        elif deadline_consideration is not None:
+            target_deadline_consideration = deadline_consideration
+        else:
+            raise OpportunityIntelligenceValidationError(
+                "decision_deadline_consideration must be a string"
+            )
+
+        if isinstance(target_deadline_consideration, datetime):
+            raise OpportunityIntelligenceValidationError(
+                "decision_deadline_consideration must be a string, not a datetime; "
+                "decision deadline is owned by DecisionContext"
+            )
+
         object.__setattr__(
             self,
             "inquiry_id",
             _bounded_string(
-                self.inquiry_id,
+                inquiry_id,
                 name="inquiry_id",
                 maximum=_MAX_IDENTIFIER_LENGTH,
             ),
@@ -205,7 +262,7 @@ class ValueOfInformationInquiry:
             self,
             "evidence_dimension",
             _validate_evidence_dimension(
-                self.evidence_dimension,
+                evidence_dimension,
                 name="evidence_dimension",
             ),
         )
@@ -213,7 +270,7 @@ class ValueOfInformationInquiry:
             self,
             "information_question",
             _bounded_string(
-                self.information_question,
+                information_question,
                 name="information_question",
                 maximum=_MAX_TEXT_LENGTH,
             ),
@@ -222,7 +279,7 @@ class ValueOfInformationInquiry:
             self,
             "explanation",
             _bounded_string(
-                self.explanation,
+                explanation,
                 name="explanation",
                 maximum=_MAX_TEXT_LENGTH,
             ),
@@ -230,53 +287,42 @@ class ValueOfInformationInquiry:
         object.__setattr__(
             self,
             "disposition",
-            _validate_disposition(self.disposition, name="disposition"),
+            _validate_disposition(disposition, name="disposition"),
         )
         object.__setattr__(
             self,
             "rationale",
             _bounded_string(
-                self.rationale,
+                rationale,
                 name="rationale",
                 maximum=_MAX_TEXT_LENGTH,
             ),
         )
-        for consideration in (
-            "expected_decision_impact",
-            "uncertainty_reduction",
-            "cost",
-            "latency",
-            "access_risk",
-            "fragility",
-            "reliability",
-            "opportunity_cost",
+        for consideration, val in (
+            ("expected_decision_impact", expected_decision_impact),
+            ("uncertainty_reduction", uncertainty_reduction),
+            ("cost", cost),
+            ("latency", latency),
+            ("access_risk", access_risk),
+            ("fragility", fragility),
+            ("reliability", reliability),
+            ("opportunity_cost", opportunity_cost),
+            ("decision_deadline_consideration", target_deadline_consideration),
         ):
             object.__setattr__(
                 self,
                 consideration,
                 _bounded_string(
-                    getattr(self, consideration),
+                    val,
                     name=consideration,
                     maximum=_MAX_TEXT_LENGTH,
                 ),
             )
 
-        if isinstance(self.decision_deadline, datetime):
-            deadline_str = _aware_datetime(
-                self.decision_deadline,
-                name="decision_deadline",
-            ).isoformat()
-            object.__setattr__(self, "decision_deadline", deadline_str)
-        else:
-            object.__setattr__(
-                self,
-                "decision_deadline",
-                _bounded_string(
-                    self.decision_deadline,
-                    name="decision_deadline",
-                    maximum=_MAX_TEXT_LENGTH,
-                ),
-            )
+    @property
+    def deadline_consideration(self) -> str:
+        """Alias for decision_deadline_consideration."""
+        return self.decision_deadline_consideration
 
     @property
     def decision_relevance(self) -> str:
@@ -333,9 +379,9 @@ class ValueOfInformationInquiry:
                 self.opportunity_cost,
                 name="opportunity_cost",
             ),
-            "decision_deadline": _public_projection_string(
-                self.decision_deadline,
-                name="decision_deadline",
+            "decision_deadline_consideration": _public_projection_string(
+                self.decision_deadline_consideration,
+                name="decision_deadline_consideration",
             ),
         }
 
@@ -360,6 +406,7 @@ class ValueOfInformationPlan:
     )
     disposition: str = "STOP"
     rationale: str = ""
+    decision_deadline: datetime | None = None
 
     def __post_init__(self) -> None:
         for name in ("plan_id", "decision_context_id", "hypothesis_id", "profile_id"):
@@ -373,6 +420,17 @@ class ValueOfInformationPlan:
                 ),
             )
         object.__setattr__(self, "as_of", _aware_datetime(self.as_of, name="as_of"))
+
+        if self.decision_deadline is not None:
+            deadline = _aware_datetime(
+                self.decision_deadline,
+                name="decision_deadline",
+            )
+            if deadline < self.as_of:
+                raise OpportunityIntelligenceValidationError(
+                    "decision_deadline must not precede as_of"
+                )
+            object.__setattr__(self, "decision_deadline", deadline)
 
         if isinstance(self.inquiries, (str, bytes)) or not isinstance(
             self.inquiries, Sequence
@@ -474,6 +532,11 @@ class ValueOfInformationPlan:
                 name="profile_id",
             ),
             "as_of": self.as_of.isoformat(),
+            "decision_deadline": (
+                self.decision_deadline.isoformat()
+                if self.decision_deadline is not None
+                else None
+            ),
             "inquiries": [inq.to_dict() for inq in self.inquiries],
             "disposition": self.disposition,
             "rationale": _public_projection_string(
@@ -495,8 +558,20 @@ def create_value_of_information_plan(
     inquiries: Sequence[ValueOfInformationInquiry] = (),
     disposition: str,
     rationale: str,
+    **kwargs: Any,
 ) -> ValueOfInformationPlan:
     """Purely construct a Value-of-Information plan bound to exact context, hypothesis, and profile."""
+    if kwargs:
+        if "decision_deadline" in kwargs:
+            raise OpportunityIntelligenceValidationError(
+                "create_value_of_information_plan does not accept an independent decision_deadline; "
+                "decision deadline is canonically owned by DecisionContext"
+            )
+        unexpected = ", ".join(sorted(kwargs.keys()))
+        raise OpportunityIntelligenceValidationError(
+            f"create_value_of_information_plan received unexpected arguments: {unexpected}"
+        )
+
     if not isinstance(decision_context, DecisionContext):
         raise OpportunityIntelligenceValidationError(
             "decision_context must be a DecisionContext"
@@ -566,4 +641,5 @@ def create_value_of_information_plan(
         inquiries=inquiries,  # type: ignore[arg-type]
         disposition=disposition,
         rationale=rationale,
+        decision_deadline=decision_context.decision_deadline,
     )

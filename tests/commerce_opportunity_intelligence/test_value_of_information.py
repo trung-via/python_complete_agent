@@ -94,7 +94,7 @@ def sample_inquiry(**overrides: object) -> ValueOfInformationInquiry:
         "fragility": "Low: terms rarely fluctuate intra-day.",
         "reliability": "High: verified seller commission schedule.",
         "opportunity_cost": "Negligible: immediate check before creator outreach.",
-        "decision_deadline": "Before outreach campaign launch.",
+        "decision_deadline_consideration": "Before outreach campaign launch.",
     }
     values.update(overrides)
     return ValueOfInformationInquiry(**values)  # type: ignore[arg-type]
@@ -143,7 +143,7 @@ def test_valid_inquiry_preserves_caller_values_and_nine_considerations():
         fragility="Medium: creator churn is frequent.",
         reliability="Medium: estimated from recent 30-day posts.",
         opportunity_cost="Moderate: delays decision by half day.",
-        decision_deadline="2026-09-25T12:00:00+07:00",
+        decision_deadline_consideration="Must resolve before the scheduled decision review.",
     )
 
     assert inquiry.inquiry_id == "inq-custom"
@@ -165,13 +165,27 @@ def test_valid_inquiry_preserves_caller_values_and_nine_considerations():
     assert inquiry.fragility == "Medium: creator churn is frequent."
     assert inquiry.reliability == "Medium: estimated from recent 30-day posts."
     assert inquiry.opportunity_cost == "Moderate: delays decision by half day."
-    assert inquiry.decision_deadline == "2026-09-25T12:00:00+07:00"
+    assert inquiry.decision_deadline_consideration == (
+        "Must resolve before the scheduled decision review."
+    )
+    assert inquiry.deadline_consideration == (
+        "Must resolve before the scheduled decision review."
+    )
 
 
-def test_inquiry_accepts_timezone_aware_datetime_for_deadline():
+def test_inquiry_rejects_datetime_deadline():
     deadline = AS_OF + timedelta(days=3)
-    inquiry = sample_inquiry(decision_deadline=deadline)
-    assert inquiry.decision_deadline == deadline.isoformat()
+    with pytest.raises(
+        OpportunityIntelligenceValidationError,
+        match="must be a string, not a datetime",
+    ):
+        sample_inquiry(decision_deadline_consideration=deadline)
+
+    with pytest.raises(
+        OpportunityIntelligenceValidationError,
+        match="does not accept an independent decision_deadline",
+    ):
+        sample_inquiry(decision_deadline=deadline)
 
 
 def test_valid_plan_preserves_caller_values_and_order():
@@ -653,7 +667,7 @@ def test_plan_identifiers_fail_closed_when_blank_or_invalid(name: str):
         "fragility",
         "reliability",
         "opportunity_cost",
-        "decision_deadline",
+        "decision_deadline_consideration",
     ],
 )
 def test_inquiry_string_fields_fail_closed_when_blank_or_multiline(name: str):
@@ -699,7 +713,7 @@ def test_plan_projection_is_stable_and_json_serializable():
         "fragility": "Low: terms rarely fluctuate intra-day.",
         "reliability": "High: verified seller commission schedule.",
         "opportunity_cost": "Negligible: immediate check before creator outreach.",
-        "decision_deadline": "Before outreach campaign launch.",
+        "decision_deadline_consideration": "Before outreach campaign launch.",
     }
 
     expected_plan = {
@@ -708,6 +722,7 @@ def test_plan_projection_is_stable_and_json_serializable():
         "hypothesis_id": "hypothesis-11",
         "profile_id": "profile-tiktok-101",
         "as_of": "2026-09-16T08:30:00+07:00",
+        "decision_deadline": None,
         "inquiries": [expected_inquiry],
         "disposition": "CONTINUE",
         "rationale": "Key unit economics require resolution before further commitment.",
@@ -850,3 +865,86 @@ def test_module_has_no_external_system_or_generated_identity_dependencies():
         "aios",
     ):
         assert forbidden_call not in source.lower()
+
+
+def test_plan_references_canonical_decision_context_deadline_and_rejects_second_deadline():
+    real_deadline = AS_OF + timedelta(days=5)
+    dc = sample_context(decision_deadline=real_deadline)
+    oh = sample_hypothesis()
+    profile = sample_profile()
+    inquiry = sample_inquiry(
+        decision_deadline_consideration="Must clarify net margin before marketing review."
+    )
+
+    plan = create_value_of_information_plan(
+        decision_context=dc,
+        hypothesis=oh,
+        profile=profile,
+        plan_id="plan-deadline-reg",
+        as_of=AS_OF,
+        inquiries=[inquiry],
+        disposition="CONTINUE",
+        rationale="Evaluating margin prior to deadline.",
+    )
+
+    assert plan.decision_deadline == real_deadline
+    assert plan.decision_deadline == dc.decision_deadline
+    assert plan.to_dict()["decision_deadline"] == real_deadline.isoformat()
+    assert not hasattr(inquiry, "decision_deadline")
+    assert (
+        inquiry.decision_deadline_consideration
+        == "Must clarify net margin before marketing review."
+    )
+    assert (
+        inquiry.deadline_consideration
+        == "Must clarify net margin before marketing review."
+    )
+
+    conflicting_deadline = AS_OF + timedelta(days=10)
+    with pytest.raises(
+        OpportunityIntelligenceValidationError,
+        match="does not accept an independent decision_deadline",
+    ):
+        create_value_of_information_plan(
+            decision_context=dc,
+            hypothesis=oh,
+            profile=profile,
+            plan_id="plan-conflicting",
+            as_of=AS_OF,
+            inquiries=[inquiry],
+            disposition="CONTINUE",
+            rationale="Attempting conflicting deadline.",
+            decision_deadline=conflicting_deadline,
+        )
+
+    with pytest.raises(
+        OpportunityIntelligenceValidationError,
+        match="must be a string, not a datetime",
+    ):
+        sample_inquiry(decision_deadline_consideration=conflicting_deadline)
+
+    with pytest.raises(
+        OpportunityIntelligenceValidationError,
+        match="does not accept an independent decision_deadline",
+    ):
+        sample_inquiry(decision_deadline=conflicting_deadline)
+
+    dc_no_deadline = sample_context(decision_deadline=None)
+    plan_no_deadline = create_value_of_information_plan(
+        decision_context=dc_no_deadline,
+        hypothesis=oh,
+        profile=profile,
+        plan_id="plan-no-deadline",
+        as_of=AS_OF,
+        inquiries=[inquiry],
+        disposition="CONTINUE",
+        rationale="No deadline context.",
+    )
+    assert plan_no_deadline.decision_deadline is None
+    assert plan_no_deadline.to_dict()["decision_deadline"] is None
+
+    with pytest.raises(
+        OpportunityIntelligenceValidationError,
+        match="decision_deadline must not precede as_of",
+    ):
+        sample_plan(decision_deadline=AS_OF - timedelta(minutes=1))
