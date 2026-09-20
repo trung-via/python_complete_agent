@@ -1,0 +1,230 @@
+task_id: TASK-224
+revision: 1
+
+goal: >
+  Execute P7.6 Market Test / Funnel Evidence in the existing Commerce Opportunity
+  Intelligence domain. Establish one bounded immutable post-action evidence profile that
+  binds to the published P7.3 DecisionContext and OpportunityHypothesis, preserves explicit
+  test/action lineage, and organizes caller-supplied opaque evidence references for exposure,
+  funnel, economic, and quality outcomes. The capability must remain evidence semantics only:
+  it must not authorize or execute a market test, infer TEST_READY, score test success, claim
+  causation, classify a winner, or perform P7.7 calibration/validation. On exact reviewed
+  source publication, close P7.6 and advance exactly one roadmap step so P7.7 Calibration &
+  Winner Validation becomes the unique NEXT commitment.
+
+problem: >
+  P7.2 requires authorized observed funnel, economic, and quality outcomes appropriate to
+  the decision before any bounded winner-validation judgment can be made. P7.3 owns decision
+  context and hypothesis semantics; P7.4 owns the pre-test TikTok Affiliate Evidence Profile;
+  P7.5 owns advisory Value-of-Information planning. None owns a canonical semantic envelope
+  for evidence produced after an authorized market intervention. Without a bounded P7.6
+  owner, later outcome evidence risks losing the test design, authorization, action, exposure,
+  time-window, provenance, and uncertainty context required by Product Contract v2 PC7, or
+  being silently upgraded into success, attribution, winner truth, or autonomous learning.
+  P7.6 must therefore preserve post-action evidence and intervention context without becoming
+  the authority that designs, authorizes, executes, judges, or learns from the test.
+
+assumptions:
+  - Canonical python_complete_agent main at authoring is 3c67a828857f74466883463abf35a17ecdcc6775, the exact reviewed TASK-223 / P7.5 source candidate published from RUN-223-003 / REVIEW-223-003.
+  - TASK-223 revision 1 is publication-effective and P7.6 Market Test / Funnel Evidence is the unique canonical NEXT commitment.
+  - P7.7 Calibration & Winner Validation remains NOT_DONE and is not implemented by this task.
+  - src/commerce_opportunity_intelligence/decision_context.py remains the sole P7.3 owner for DecisionContext, OpportunityHypothesis, decision deadline, objective, alternatives, constraints, and risk context.
+  - src/commerce_opportunity_intelligence/tiktok_affiliate_evidence.py remains the sole P7.4 owner for the six pre-test TikTok affiliate evidence dimensions.
+  - src/commerce_opportunity_intelligence/value_of_information.py remains the sole P7.5 owner for advisory VOI inquiry/plan semantics and is not a test authorization gate.
+  - Product Intelligence and other evidence-producing domains retain ownership of their observations, provenance, identity, truth, retrieval, persistence, and source semantics; P7.6 stores only opaque references and bounded intervention metadata.
+  - TEST_READY requires an authorized test design, success/failure criteria, constraints, and exposure controls, but P7.6 does not create, approve, or infer that authorization.
+  - An authorization_ref is an opaque lineage reference supplied by the caller; its presence does not mean P7.6 granted or independently verified authorization.
+  - A test_design_ref is an opaque lineage reference; P7.6 does not own test criteria or methodology.
+  - An action_ref is an opaque lineage reference to the intervention/action that occurred; P7.6 does not execute that action.
+  - An observed post-action outcome is evidence, not causal attribution, retroactive proof, winner validation, or scalability evidence by itself.
+  - P7.5 CONTINUE/DEFER/STOP remains advisory only and is not a mandatory dependency or workflow gate for P7.6 evidence creation.
+  - Current downstream AIOS pin and full downstream conformance remain edd7d8d92d54900c56442bbfcddb8648ec4d2e09 / TASK-207 revision 8.
+  - Human has approved continuation from the P7.6 architecture audit; preserve Antigravity as the current Executor choice and do not silently switch.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_7_P7_2_WINNING_OPPORTUNITY_SEMANTICS.md
+    - docs/PHASE_7_P7_3_DECISION_CONTEXT_OPPORTUNITY_HYPOTHESIS.md
+    - docs/PHASE_7_P7_4_TIKTOK_AFFILIATE_EVIDENCE_PROFILE.md
+    - docs/PHASE_7_P7_5_VALUE_OF_INFORMATION_PLANNING.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - .ai/aios-adoption-state.yaml
+    - .ai/aios-conformance-state.yaml
+    - .ai/tasks/TASK-214.yaml
+    - .ai/tasks/TASK-215.yaml
+    - .ai/tasks/TASK-222.yaml
+    - .ai/tasks/TASK-223.yaml
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - src/commerce_opportunity_intelligence/__init__.py
+    - src/commerce_opportunity_intelligence/decision_context.py
+    - src/commerce_opportunity_intelligence/tiktok_affiliate_evidence.py
+    - src/commerce_opportunity_intelligence/value_of_information.py
+    - tests/commerce_opportunity_intelligence/test_decision_context.py
+    - tests/commerce_opportunity_intelligence/test_tiktok_affiliate_evidence.py
+    - tests/commerce_opportunity_intelligence/test_value_of_information.py
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - src/commerce_opportunity_intelligence/__init__.py
+    - src/commerce_opportunity_intelligence/market_test_evidence.py
+    - tests/commerce_opportunity_intelligence/test_market_test_evidence.py
+    - docs/PHASE_7_P7_6_MARKET_TEST_FUNNEL_EVIDENCE.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - Modify DecisionContext, OpportunityHypothesis, TikTokAffiliateEvidenceProfile, ValueOfInformationInquiry, ValueOfInformationPlan, or their existing validation/public projection semantics.
+  - Modify any Product Intelligence production module, scorer, ranker, discovery, approval, evidence, identity, catalog, retrieval, persistence, truth, or policy authority.
+  - Design, approve, infer, schedule, launch, stop, retry, optimize, or execute a market test, campaign, creative, promotion, price change, budget allocation, traffic allocation, creator outreach, inventory action, or any other commerce intervention.
+  - Create TEST_READY, advance a candidate into TEST_READY, or treat P7.5 CONTINUE as test authorization.
+  - Define success/failure criteria, test methodology, randomization, control allocation, causal estimator, attribution model, experimentation platform, or campaign orchestration.
+  - Compute or expose a success score, funnel score, uplift score, quality score, causal effect, confidence score, winner score, recommendation, pass/fail result, approval, rejection, VALIDATED_WINNER, or SCALABLE_WINNER state.
+  - Interpret one favorable outcome as causal proof, winner validation, scalability, or retroactive proof that the prior hypothesis/decision was correct.
+  - Implement P7.7 calibration, winner validation, causal attribution, policy learning, scorer reweighting, closed-loop optimization, or automatic roadmap selection.
+  - Treat an empty evidence dimension as zero, failure, absence in the world, or evidence that the test failed.
+  - Persist profiles to a database/files/queues/services, add API/server/runtime orchestration, or invoke browser/CDP, network, marketplace, provider/model/LLM, environment-derived identity, wall clock, random/UUID, subprocess, or AIOS lifecycle APIs from the production semantic module.
+  - Modify Product Contract, Project Contract, Constitution, Manifesto, AIOS adoption/conformance state, exact AIOS pin, workers, workflows, transport, Reviewer, Publisher, or control-plane policy.
+  - Create a second Commerce Opportunity Intelligence package or a shadow evidence store/truth authority.
+  - Push, merge, publish, or mutate canonical main from Executor implementation execution.
+
+constraints:
+  hard:
+    - >
+      Extend only the existing src/commerce_opportunity_intelligence package. The canonical
+      P7.6 owner is src/commerce_opportunity_intelligence/market_test_evidence.py with authority
+      identifier COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_6.
+    - >
+      Define exactly four ordered evidence dimensions:
+      exposure_evidence_refs, funnel_evidence_refs, economic_evidence_refs, and
+      quality_evidence_refs. Each is an ordered tuple of opaque caller-supplied references.
+      Empty means unrepresented in this profile, not zero/failure/no evidence in the world.
+      Preserve caller order; reject duplicates within one dimension; allow the same reference
+      across different dimensions when the caller intentionally uses one evidence item for
+      multiple semantic dimensions.
+    - >
+      Provide one immutable MarketTestEvidenceProfile semantic value with caller-supplied
+      stable profile_id and test_id; exact decision_context_id and hypothesis_id binding;
+      mandatory opaque test_design_ref, authorization_ref, and action_ref lineage references;
+      timezone-aware test_started_at, test_ended_at, and as_of; and the four evidence dimensions.
+      The profile must contain at least one supplied evidence reference across the four dimensions.
+    - >
+      Enforce time semantics only for the test evidence envelope: test_started_at must be
+      less than or equal to test_ended_at, and test_ended_at must be less than or equal to
+      as_of. These timestamps describe the intervention/observation window and profile time;
+      they must not duplicate, copy, reinterpret, or own P7.3 DecisionContext.decision_deadline.
+    - >
+      Provide one pure create_market_test_evidence_profile construction surface accepting the
+      exact DecisionContext and OpportunityHypothesis plus caller-supplied profile/test lineage,
+      timestamps, and evidence refs. It must verify hypothesis.decision_context_id equals
+      decision_context.context_id and construct only from explicit caller inputs. It must not
+      require a P7.4 profile or P7.5 VOI plan and must not infer authorization, test readiness,
+      success, quality, winner state, or causation.
+    - >
+      test_design_ref, authorization_ref, and action_ref are lineage references only.
+      test_design_ref != test-design authority; authorization_ref != authorization authority;
+      action_ref != execution authority. Construction validates bounded opaque reference syntax
+      only and does not dereference, authenticate, approve, or execute anything.
+    - >
+      The four evidence dimensions organize opaque references and do not become a second owner
+      of underlying evidence. represented/unrepresented describes caller-supplied profile
+      coverage only. represented != evidence quality/sufficiency; unrepresented != zero/failure;
+      measurement != decision; outcome != attribution.
+    - >
+      Public projections must be deterministic and JSON-serializable, serialize timestamps as
+      ISO-8601 text, preserve evidence order, and fail closed on blank/multiline/unbounded or
+      obvious secret/cookie/session/model-prompt/execution-metadata/raw-HTML payloads. No object
+      repr or memory address may leak.
+    - >
+      Public package exports may add only COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_6,
+      MARKET_TEST_EVIDENCE_DIMENSIONS, MarketTestEvidenceProfile, and
+      create_market_test_evidence_profile in addition to the existing P7.3-P7.5 surface.
+    - >
+      P7.6 documentation must explicitly preserve: evidence profile != test authorization;
+      test_design_ref != test-design authority; authorization_ref != approval; action_ref !=
+      action authority; represented != sufficient; unrepresented != zero/failure; outcome !=
+      attribution; outcome != retroactive proof; measurement != winner; one favorable test !=
+      scalable winner; P7.6 != P7.7; P7.5 disposition != workflow gate.
+    - >
+      Update both canonical product roadmaps consistently. Record TASK-223/P7.5 as
+      CLOSED/PUBLISHED at 3c67a828857f74466883463abf35a17ecdcc6775. Record TASK-224/P7.6
+      as publication-gated DONE and make P7.7 Calibration & Winner Validation the single NEXT
+      commitment only after exact TASK-224 source publication.
+    - >
+      Update .ai/roadmap-state.yaml without changing its authority classification. Preserve
+      Governance Foundation/control-plane history, current TASK-207 revision-8 conformance,
+      exact pin edd7d8d92d54900c56442bbfcddb8648ec4d2e09, TASK-221 migration history, and
+      P7.2-P7.5 published lineage. Set current milestone to P7.6/TASK-224 publication-gated DONE,
+      next milestone P7.7, and retain exactly P7.7 as the sole ordered pending commitment with NEXT.
+    - >
+      Extend governance regression additively so current exact AIOS pin/conformance assertions
+      remain intact and tests prove one and only one NEXT=P7.7 after publication, P7.6 semantic
+      ownership, P7.5 published source 3c67a828857f74466883463abf35a17ecdcc6775,
+      no roadmap authority change, and no extra pending P7 milestone.
+    - >
+      Preserve .ai/aios-adoption-state.yaml, .ai/aios-conformance-state.yaml,
+      requirements-aios-renew.txt, Governance Foundation documents, P7.3/P7.4/P7.5 production
+      modules, and all Product Intelligence production files byte-for-byte.
+    - >
+      Only the eight authorized paths may change. Verification must be deterministic, offline,
+      non-interactive, and independent of network, GitHub, marketplace, browser/CDP,
+      provider/model, credentials, local absolute paths, wall clock, random, UUID, mutable
+      external state, or live campaign availability.
+    - >
+      Executor must perform bounded source work only, commit the candidate, return one structured
+      ResultPackage, and leave Runtime to execute canonical TASK verification. Do not start
+      another AIOS operation or delegated/background agent.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Exactly one P7.6 production owner exists in the existing Commerce Opportunity Intelligence
+      package with immutable MarketTestEvidenceProfile semantics and no duplicate evidence,
+      authorization, execution, decision, validation, or lifecycle authority.
+  - id: AC2
+    condition: >
+      MarketTestEvidenceProfile binds stable profile/test lineage to exact P7.3 context/hypothesis,
+      mandatory opaque test-design/authorization/action refs, explicit timezone-aware
+      intervention/profile times, and exactly four ordered evidence dimensions with deterministic
+      duplicate/order rules and at least one supplied evidence reference.
+  - id: AC3
+    condition: >
+      Pure construction verifies exact DecisionContext/OpportunityHypothesis identity binding and
+      time-window consistency while remaining independent of P7.4/P7.5 and performing zero
+      network/provider/marketplace/persistence/runtime/action behavior.
+  - id: AC4
+    condition: >
+      Evidence dimensions preserve representation semantics only: empty is unrepresented rather
+      than zero/failure, represented is not quality/sufficiency, same evidence may intentionally
+      support multiple dimensions, and underlying evidence ownership remains with its source domain.
+  - id: AC5
+    condition: >
+      P7.6 exposes no success/pass/fail, score/rank/recommendation, causal effect, approval,
+      TEST_READY, VALIDATED_WINNER, SCALABLE_WINNER, calibration, policy-learning, or autonomous
+      test-execution semantics; lineage refs grant no authority.
+  - id: AC6
+    condition: >
+      Public projections are deterministic JSON-safe values with ISO timestamps and ordered refs,
+      fail closed on forbidden sensitive/raw payload classes, and preserve the distinction between
+      intervention outcome evidence and causal attribution/retroactive proof.
+  - id: AC7
+    condition: >
+      P7.6 documentation and both canonical roadmaps preserve prior published P7 lineage and
+      authority boundaries, record P7.6 as publication-gated DONE, and advance exactly P7.7 to
+      unique NEXT only after source publication.
+  - id: AC8
+    condition: >
+      Only the eight authorized paths change; P7.3/P7.4/P7.5 regression, focused P7.6 tests,
+      current governance regression, and git diff --check pass with zero unresolved items,
+      producing a clean candidate eligible for independent PRIMARY review and exact safe publication.
+
+verification:
+  required:
+    - python -m pytest tests/commerce_opportunity_intelligence/test_decision_context.py tests/commerce_opportunity_intelligence/test_tiktok_affiliate_evidence.py tests/commerce_opportunity_intelligence/test_value_of_information.py tests/commerce_opportunity_intelligence/test_market_test_evidence.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task224-primary
+    - git diff --check
