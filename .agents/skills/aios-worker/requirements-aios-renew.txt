@@ -1,1 +1,1 @@
-aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2
+aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@1a68db9acb6989dfa81bf875503db62e54a4bed6
