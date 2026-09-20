@@ -1,0 +1,210 @@
+task_id: TASK-227
+revision: 1
+
+goal: >
+  Canonicalize the Human-selected first real-commerce pilot case after P8.0 without
+  pretending that selection is marketplace evidence, Product Intelligence approval,
+  test authorization, action authority, or a completed real pilot. Freeze only the
+  stable external listing reference, decision framing, falsifiable opportunity
+  hypothesis framing, known unknowns, and the Human/Brain handoff required before
+  any live evidence acquisition or market-test action.
+
+problem: >
+  TASK-226 / P8.0 is exactly published and canonical main is
+  a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e. Its canonical handoff requires fresh
+  Human/Brain selection of one actual commerce decision case before any future
+  pilot work. The Human has now explicitly selected one exact TikTok Shop Vietnam
+  listing for the first pilot: product label "Đèn LED Cảm Biến Chuyển Động Tự Động
+  Bật Tắt Điều Chỉnh 3 Chế Độ Sáng" and TikTok Shop source product/listing ID
+  1731381331718341815. The repository must durably record this selection and its
+  semantic boundary before live acquisition or test authorization is designed.
+
+assumptions:
+  - Canonical main at authoring is a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e, the exact reviewed and published TASK-226 / P8.0 source candidate.
+  - P8.0 is DONE; next_milestone is null; pending_commitments is empty; actual_real_decision_case is null before this Human selection is canonicalized.
+  - Human explicitly selected the product concept and then supplied one exact TikTok Shop Vietnam listing URL whose stable path identity contains source product/listing ID 1731381331718341815.
+  - Human has not yet authorized evidence acquisition, affiliate participation, spend, traffic, content publication, campaign creation, market testing, or any other external action.
+  - Human has not supplied budget, exposure limits, success thresholds, failure thresholds, contribution-margin floor, test duration, audience, creative, or other action constraints. TASK-227 must not invent them.
+  - The stable selected listing reference for planning is https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815. Tracking/query parameters from the Human-supplied URL are intentionally excluded from the durable planning reference because they are navigation/attribution parameters rather than the selected listing path.
+  - The stable external listing reference is source identity only. SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY remains preserved.
+  - The Human-supplied product label is a selection label, not independently verified live marketplace truth.
+  - No current price, shop, sold count, rating, reviews, commission, creator count, video count, velocity, contentability, audience fit, competition state, stock, variant economics, or other live attribute is asserted by this task.
+  - Similar or same-concept listings are not evidence for this exact selected listing.
+  - Existing TikTokDiscoveryAdapter and TikTokScrapeTool are capabilities, not authority to run them for this pilot.
+  - P7.3 remains the sole semantic owner of DecisionContext and OpportunityHypothesis. TASK-227 documents the intended caller-supplied real-case framing; it does not introduce another constructor or owner.
+  - P7.4 remains the sole owner of TikTokAffiliateEvidenceProfile; P7.5 remains the sole owner of VOI planning; P7.6 remains the sole owner of market-test evidence; P7.7 remains the sole owner of winner validation; P8.0 remains the sole composition owner.
+  - Current downstream AIOS pin and full downstream conformance remain edd7d8d92d54900c56442bbfcddb8648ec4d2e09 / TASK-207 revision 8.
+  - Human has explicitly selected Codex as the current/default Executor.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_7_P7_2_WINNING_OPPORTUNITY_SEMANTICS.md
+    - docs/PHASE_7_P7_3_DECISION_CONTEXT_OPPORTUNITY_HYPOTHESIS.md
+    - docs/PHASE_7_P7_4_TIKTOK_AFFILIATE_EVIDENCE_PROFILE.md
+    - docs/PHASE_7_P7_5_VALUE_OF_INFORMATION_PLANNING.md
+    - docs/PHASE_7_P7_6_MARKET_TEST_FUNNEL_EVIDENCE.md
+    - docs/PHASE_7_P7_7_CALIBRATION_WINNER_VALIDATION.md
+    - docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - .ai/aios-adoption-state.yaml
+    - .ai/aios-conformance-state.yaml
+    - .ai/tasks/TASK-226.yaml
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - src/commerce_opportunity_intelligence/decision_context.py
+    - src/commerce_opportunity_intelligence/tiktok_affiliate_evidence.py
+    - src/commerce_opportunity_intelligence/value_of_information.py
+    - src/commerce_opportunity_intelligence/market_test_evidence.py
+    - src/commerce_opportunity_intelligence/calibration_and_winner_validation.py
+    - src/commerce_decision_loop/real_decision_composition.py
+    - src/product_intelligence/adapters/tiktok.py
+    - src/tools/tiktok_scrape_tool.py
+    - src/product_intelligence/approval.py
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - docs/PHASE_8_P8_1_REAL_DECISION_PILOT_SELECTION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - Modify any production Python module.
+  - Create a second DecisionContext, OpportunityHypothesis, evidence-profile, VOI, market-test, winner-validation, or P8 composition authority.
+  - Treat the selected URL, product label, listing ID, URL slug, or Human selection as observed market evidence or canonical product identity.
+  - Fetch, browse, scrape, collect, enrich, store, rank, score, or infer live marketplace data.
+  - Execute TikTokDiscoveryAdapter, TikTokScrapeTool, AgentController, browser/CDP, Google Drive, marketplace APIs, provider/LLM calls, or any external acquisition tool.
+  - Approve the product under Product Intelligence M2.4, enqueue ingestion, or reinterpret Human pilot selection as Product Intelligence APPROVE.
+  - Authorize a market test, affiliate campaign, budget, spend, traffic, content production, posting, creative, price, inventory, channel allocation, or other action.
+  - Invent budget, exposure controls, success/failure thresholds, test duration, target audience, creative, unit economics, contribution-margin threshold, or risk acceptance.
+  - Declare TEST_READY, VALIDATED_WINNER, SCALABLE_WINNER, winner, recommendation, readiness, score, confidence, probability, causal effect, or commercial success.
+  - Select Media/Creative Intelligence, Distribution Intelligence, Commerce Operations Intelligence, evidence acquisition, Product Intelligence rework, or any later domain.
+  - Automatically create or authorize P8.2 or any successor.
+  - Modify AIOS pin, adoption/conformance state, workflows, Runtime, Reviewer, Publisher, or governance foundation.
+
+constraints:
+  hard:
+    - >
+      Create one Human/Brain planning document for P8.1. It must explicitly classify
+      TASK-227 as PILOT_CASE_SELECTION_ONLY and not as a real-pilot execution,
+      evidence-acquisition, test-authorization, or commerce-action task.
+    - >
+      Record the Human-selected product label exactly as:
+      "Đèn LED Cảm Biến Chuyển Động Tự Động Bật Tắt Điều Chỉnh 3 Chế Độ Sáng".
+    - >
+      Record marketplace/channel context as TikTok Shop Vietnam / TikTok Shop Affiliate
+      planning context, but do not claim that this exact listing is currently affiliate-eligible.
+    - >
+      Record the selected external listing/source ID exactly as 1731381331718341815 and
+      the stable listing reference exactly as
+      https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815.
+      State that this is source identity / external listing reference, not canonical product identity.
+    - >
+      Document the intended P7.3 DecisionContext framing without creating a competing
+      implementation authority. Use a stable proposed context identifier
+      p8-pilot-001-led-motion-tiktok-vn and decision question:
+      "Should the Human authorize a bounded TikTok Shop affiliate market test for this exact selected listing after reviewing decision-relevant evidence?"
+      Objective:
+      "Reduce uncertainty enough for the Human to decide whether a bounded affiliate market test is justified, while preserving evidence gaps, alternatives, and action authority."
+      Market: Vietnam. Channel: TikTok Shop Affiliate. Do not invent audience, deadline,
+      budget, duration, or economic/risk thresholds.
+    - >
+      Document the intended P7.3 OpportunityHypothesis framing with stable proposed
+      hypothesis identifier p8-pilot-001-positive-contribution-margin, bound to the above
+      context and selected listing reference. Falsifiable claim:
+      "Under an authorized bounded TikTok Shop affiliate market test, this exact selected listing can produce positive contribution margin without violating the Human-defined quality, exposure, economic, and risk constraints for that test."
+      This is a hypothesis, not truth, approval, recommendation, or test authorization.
+    - >
+      Preserve explicit initial important unknowns at minimum:
+      current exact listing price and variant economics; affiliate commission rate and
+      estimated commission value; current sold/review/rating evidence; creator ecosystem;
+      content activity/video evidence; audience-channel fit; competition saturation;
+      inventory/availability if decision-relevant; and the Human-owned test design,
+      exposure controls, success/failure criteria, contribution-margin threshold, budget,
+      duration, and risk constraints. Unknown != absent and unknown != authorization to collect.
+    - >
+      Explicitly state that similar-listing search results, URL slug text, historical
+      benchmark cohorts, and synthetic fixtures cannot fill these unknowns for the exact listing.
+    - >
+      Record that the current next legitimate step after TASK-227 publication is not a
+      pre-authorized P8.2. It is a fresh Human/Brain decision on a bounded PRE-ACTION EVIDENCE
+      ACQUISITION PLAN for this selected case. That later decision must determine which existing
+      authorities/tools, if any, are authorized to acquire which evidence and under what access,
+      cost, latency, fragility, and provenance constraints.
+    - >
+      Update both canonical roadmaps consistently. Preserve P1-P7 history; preserve
+      P6.2 PARKED and P6.4-P6.6 DEFERRED; preserve exact P8.0 publication source
+      a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e. Add P8.1 as the explicit Human-selected
+      pilot-case selection commitment. On exact TASK-227 publication, P8.1 becomes DONE,
+      real_pilot_executed remains false, next_milestone remains null, and pending_commitments
+      remains empty.
+    - >
+      Update .ai/roadmap-state.yaml as Brain-owned planning state only. Set the post-P8
+      actual_real_decision_case to a bounded planning record for the selected listing, including
+      the exact source ID and stable listing reference, selection_owner HUMAN, selection_status
+      SELECTED, and real_pilot_executed false. Do not encode live evidence claims, authorization,
+      test status, winner state, or action state.
+    - >
+      After exact TASK-227 publication, replace the prior pilot-selection handoff with a
+      handoff to HUMAN_BRAIN_PRE_ACTION_EVIDENCE_ACQUISITION_PLANNING. automatic_next must
+      remain false and no P8.2 may be marked NEXT or pending.
+    - >
+      Extend governance regression additively to prove: P8.0 remains DONE at exact
+      source a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e; the selected source ID and stable
+      listing reference are exact; source identity is explicitly not canonical identity;
+      TASK-227 does not claim real-pilot execution; no live marketplace fact is asserted;
+      no test/action authorization exists; no automatic P8.2 exists; and the next handoff is
+      Human/Brain-owned pre-action evidence-acquisition planning.
+    - >
+      Preserve every production Python module byte-for-byte, preserve AIOS adoption/conformance
+      state and pin byte-for-byte, and modify only the five authorized paths.
+    - >
+      Executor performs bounded source work only, commits one candidate, and returns one
+      structured ResultPackage. Runtime retains canonical verification authority. Executor must
+      not publish, start another AIOS operation, browse the marketplace, or execute the pilot.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Canonical planning records exactly one Human-selected TikTok Shop Vietnam listing,
+      product label, source ID, and stable listing reference without promoting source identity
+      to canonical product identity or claiming current live facts.
+  - id: AC2
+    condition: >
+      P8.1 documents one bounded DecisionContext framing and one falsifiable OpportunityHypothesis
+      framing under existing P7.3 authority, with no duplicate constructor/owner and no invented
+      audience, deadline, budget, duration, threshold, or risk acceptance.
+  - id: AC3
+    condition: >
+      Important unknowns remain explicit, including affiliate economics, current market traction,
+      creator/content evidence, audience fit, competition, and Human-owned test constraints;
+      unknowns do not authorize acquisition.
+  - id: AC4
+    condition: >
+      TASK-227 performs no live acquisition, Product Intelligence approval, test authorization,
+      market action, scoring/ranking, winner/scalability/causal judgment, or future-domain selection.
+  - id: AC5
+    condition: >
+      Roadmaps and .ai/roadmap-state.yaml record P8.1 as the explicit Human-selected pilot-case
+      selection commitment and, after exact publication, leave real_pilot_executed false,
+      next_milestone null, pending_commitments empty, with a Human/Brain-owned pre-action
+      evidence-acquisition planning handoff and no automatic P8.2.
+  - id: AC6
+    condition: >
+      Only the five authorized documentation/planning/governance-test paths change; production
+      Python, P7/P8.0 semantics, Product Intelligence, AIOS pin/adoption/conformance, and all
+      prior publication lineage remain unchanged.
+  - id: AC7
+    condition: >
+      Focused governance regression and git diff --check pass with zero unresolved items,
+      producing one candidate eligible for independent PRIMARY semantic review and exact safe publication.
+
+verification:
+  required:
+    - python -m pytest tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task227-primary
+    - git diff --check
