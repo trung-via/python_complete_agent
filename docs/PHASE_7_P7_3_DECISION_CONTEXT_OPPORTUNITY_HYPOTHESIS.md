@@ -96,8 +96,10 @@ the bounded P7.3 artifact.
 TASK-191 remains immutable P7.1 measurement history at
 `40da098b3b0dcf3d1994fc510dd55717b81a2f67`. TASK-214/P7.2 is CLOSED / PUBLISHED
 at `123bbb71d44ad15a25e07b07f21f6cb2dd00d20b`. Governance Foundation lineage,
-Brain planning authority, Human priority authority, and the exact AIOS-renew pin
-`91a177d5b96b2197a4d8223dbb727dda6201cb64` remain unchanged.
+Brain planning authority, and Human priority authority remain unchanged.
+Python Agent's active AIOS-renew authority remains the exact reviewed/source-published pin
+`edd7d8d92d54900c56442bbfcddb8648ec4d2e09`, and P7.3 introduces no control-plane,
+lifecycle, worker, review, publication, adoption, or conformance authority.
 
 ## 5. Roadmap boundary
 
