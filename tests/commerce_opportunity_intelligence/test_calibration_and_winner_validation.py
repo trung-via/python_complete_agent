@@ -194,14 +194,43 @@ def test_calibration_local_coherence_rules(
 
 
 @pytest.mark.parametrize(
-    ("validation", "supporting", "counter", "uncertainties", "message"),
+    (
+        "calibration",
+        "validation",
+        "supporting",
+        "counter",
+        "uncertainties",
+        "message",
+    ),
     [
-        ("SUPPORTED", (), ("ref://quality/1",), (), "SUPPORTED.*supporting"),
-        ("CONTRADICTED", ("ref://economic/1",), (), (), "CONTRADICTED.*counter"),
-        ("INCONCLUSIVE", ("ref://economic/1",), (), (), "INCONCLUSIVE.*unresolved"),
+        (
+            "MISALIGNED",
+            "SUPPORTED",
+            (),
+            ("ref://quality/1",),
+            (),
+            "SUPPORTED.*supporting",
+        ),
+        (
+            "ALIGNED",
+            "CONTRADICTED",
+            ("ref://economic/1",),
+            (),
+            (),
+            "CONTRADICTED.*counter",
+        ),
+        (
+            "ALIGNED",
+            "INCONCLUSIVE",
+            ("ref://economic/1",),
+            (),
+            (),
+            "INCONCLUSIVE.*unresolved",
+        ),
     ],
 )
 def test_winner_validation_local_coherence_rules(
+    calibration: str,
     validation: str,
     supporting: tuple[str, ...],
     counter: tuple[str, ...],
@@ -210,7 +239,7 @@ def test_winner_validation_local_coherence_rules(
 ):
     with pytest.raises(OpportunityIntelligenceValidationError, match=message):
         create_assessment(
-            hypothesis_calibration="ALIGNED",
+            hypothesis_calibration=calibration,
             winner_validation=validation,
             supporting_evidence_refs=supporting,
             counter_evidence_refs=counter,
