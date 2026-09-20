@@ -1,0 +1,31 @@
+review_id: REVIEW-223-002
+reviewed_sha: 93aa136a77279cd5abcc97c722fce97193b9beee
+mode: DELTA
+verdict: CHANGES_REQUIRED
+prior_finding_id: FINDING-223-001
+acceptance:
+  AC1: FAIL
+findings:
+  - id: FINDING-223-002
+    basis: AC1
+    action: CODE_FIX
+    location: src/commerce_opportunity_intelligence/value_of_information.py; tests/commerce_opportunity_intelligence/test_value_of_information.py; docs/PHASE_7_P7_5_VALUE_OF_INFORMATION_PLANNING.md
+    issue: >
+      The correction removes the independent inquiry datetime but moves the canonical deadline
+      value into public ValueOfInformationPlan.decision_deadline. Because ValueOfInformationPlan
+      remains directly constructible and exported, callers can still create a P7.5 plan with an
+      arbitrary deadline that disagrees with the P7.3 DecisionContext. The factory copies the
+      context deadline correctly, but the semantic type itself still accepts and validates an
+      independent deadline value, so the duplicate-authority path remains open. The regression
+      even constructs ValueOfInformationPlan with caller-supplied decision_deadline, confirming
+      the second deadline authority still exists.
+    expected: >
+      Close the duplicate-authority path completely. P7.5 must not own or accept a decision
+      deadline value on ValueOfInformationInquiry or ValueOfInformationPlan. Keep the canonical
+      deadline only in P7.3 DecisionContext; P7.5 may bind to the exact context_id and carry
+      bounded decision_deadline_consideration text explaining deadline effects. Remove the plan
+      decision_deadline field/projection and any direct-construction acceptance of a second
+      deadline. Add a focused regression with a DecisionContext containing a real deadline that
+      proves the deadline remains solely on DecisionContext, the P7.5 plan binds to that context
+      id, and both inquiry/plan reject any independent deadline value. Preserve all other P7.5
+      semantics, roadmap state, P7.3/P7.4 modules, and control-plane state.
