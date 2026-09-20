@@ -52,6 +52,11 @@ P8_2_EVIDENCE_PLAN_FILE = (
     / "docs"
     / "PHASE_8_P8_2_PRE_ACTION_EVIDENCE_ACQUISITION_PLAN.md"
 )
+P8_3_MANUAL_AUTHORIZATION_FILE = (
+    REPO_ROOT
+    / "docs"
+    / "PHASE_8_P8_3_MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION.md"
+)
 ROADMAP_DOCS = (
     REPO_ROOT / "docs" / "POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
     REPO_ROOT / "docs" / "POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
@@ -87,6 +92,7 @@ TASK_224_SOURCE_SHA = "d361361958fbcbe791c04aefbeba3d186c5f9608"
 TASK_225_SOURCE_SHA = "6302dd7d01be90624d5ed0072cffbc3c23f2e4a2"
 TASK_226_SOURCE_SHA = "a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e"
 TASK_227_SOURCE_SHA = "d2752d69c701dd2483ea30f52be3385b5137e008"
+TASK_228_SOURCE_SHA = "eb5b09a8208771a25493fd5a68232bb2dd48c700"
 SELECTED_SOURCE_ID = "1731381331718341815"
 SELECTED_LISTING_REFERENCE = (
     "https://shop.tiktok.com/vn/pdp/"
@@ -95,6 +101,19 @@ SELECTED_LISTING_REFERENCE = (
 ACTIVE_TRACK_ID = "AIOS_FULL_DOWNSTREAM_ADOPTION_AND_GOVERNANCE_REBUILD"
 CLOSURE_MILESTONE_ID = "GOVERNANCE_FOUNDATION_CLOSURE_AND_P7_RETURN"
 HISTORICAL_CONFORMANCE_NEXT_COMMITMENT = "PROJECT_CONTRACT_REBUILD"
+P8_3_AUTHORIZED_OBSERVATIONS = [
+    "variant_descriptor",
+    "current_price",
+    "original_price",
+    "discount_percent",
+    "affiliate_eligibility",
+    "affiliate_commission_rate",
+    "estimated_commission_value",
+    "sold_count",
+    "rating",
+    "review_count",
+    "inventory_availability",
+]
 
 
 
@@ -141,7 +160,7 @@ def values_for_key(value: object, key: str) -> list[object]:
     return matches
 
 
-def test_roadmap_closes_p8_2_plan_without_automatic_successor():
+def test_roadmap_closes_p8_3_authorization_without_automatic_successor():
     state = load_yaml(ROADMAP_FILE)
     assert state["authority"] == {
         "owner": "BRAIN",
@@ -157,20 +176,20 @@ def test_roadmap_closes_p8_2_plan_without_automatic_successor():
         "status": "DONE",
     }
     assert state["active_track"] == {
-        "id": "P8_PRE_ACTION_EVIDENCE_ACQUISITION_PLANNING",
-        "title": "P8 Pre-Action Evidence Acquisition Planning",
+        "id": "P8_MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION",
+        "title": "P8 Manual Wave-1 Evidence Contribution Authorization",
         "priority_owner": "HUMAN",
         "status": "DONE",
         "completion_basis": "PUBLICATION_GATED",
-        "sequence_status": "COMPLETE_ON_EXACT_TASK_228_SOURCE_PUBLICATION",
+        "sequence_status": "COMPLETE_ON_EXACT_TASK_229_SOURCE_PUBLICATION",
         "current_milestone": {
-            "id": "P8.2",
-            "task_id": "TASK-228",
-            "title": "Pre-Action Evidence Acquisition Plan",
+            "id": "P8.3",
+            "task_id": "TASK-229",
+            "title": "Manual Wave-1 Evidence Contribution Authorization",
             "status": "DONE",
             "completion_basis": "PUBLICATION_GATED",
-            "classification": "PRE_ACTION_EVIDENCE_ACQUISITION_PLAN_ONLY",
-            "planning_owner": "HUMAN_BRAIN",
+            "classification": "MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION_ONLY",
+            "authorization_owner": "HUMAN_BRAIN",
             "real_pilot_executed": False,
             "live_evidence_acquired": False,
             "automatic_progression": False,
@@ -240,9 +259,9 @@ def test_roadmap_closes_p8_2_plan_without_automatic_successor():
         ),
     }
     assert state["post_p8_planning_handoff"] == {
-        "destination": "HUMAN_BRAIN_BOUNDED_EVIDENCE_ACQUISITION_AUTHORIZATION",
-        "status": "EFFECTIVE_ON_EXACT_TASK_228_SOURCE_PUBLICATION",
-        "completed_commitment": "P8.2_PRE_ACTION_EVIDENCE_ACQUISITION_PLAN",
+        "destination": "HUMAN_OPERATOR_MANUAL_WAVE_1_CONTRIBUTION_AND_REVIEW",
+        "status": "EFFECTIVE_ON_EXACT_TASK_229_SOURCE_PUBLICATION",
+        "completed_commitment": "P8.3_MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION",
         "actual_real_decision_case": {
             "context_id": "p8-pilot-001-led-motion-tiktok-vn",
             "record_type": "PILOT_CASE_SELECTION_ONLY",
@@ -260,34 +279,56 @@ def test_roadmap_closes_p8_2_plan_without_automatic_successor():
         },
         "next_milestone": None,
         "automatic_next": False,
-        "automatic_p8_3": False,
+        "automatic_p8_4": False,
         "real_pilot_executed": False,
         "live_evidence_acquired": False,
-        "evidence_plan": {
-            "document": "docs/PHASE_8_P8_2_PRE_ACTION_EVIDENCE_ACQUISITION_PLAN.md",
-            "classification": "PRE_ACTION_EVIDENCE_ACQUISITION_PLAN_ONLY",
-            "evidence_dimensions": [
-                "affiliate_economics",
-                "market_traction",
-                "creator_ecosystem",
-                "content_activity",
-                "audience_channel_fit",
-                "competition_saturation",
-            ],
-            "wave_0_automatic": False,
-            "wave_1_automatic": False,
-            "wave_2_automatic": False,
+        "manual_contribution_authorization": {
+            "document": (
+                "docs/PHASE_8_P8_3_MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION.md"
+            ),
+            "classification": "MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION_ONLY",
+            "operation_owner": "HUMAN_OPERATOR",
+            "source_surfaces": ["TIKTOK_SHOP_PDP", "TIKTOK_AFFILIATE_UI"],
+            "authorized_observation_names": P8_3_AUTHORIZED_OBSERVATIONS,
+            "p7_4_organization": {
+                "affiliate_economics": [
+                    "current_price",
+                    "original_price",
+                    "discount_percent",
+                    "affiliate_eligibility",
+                    "affiliate_commission_rate",
+                    "estimated_commission_value",
+                ],
+                "market_traction": ["sold_count", "rating", "review_count"],
+                "provenance_context_helpers": [
+                    "variant_descriptor",
+                    "inventory_availability",
+                ],
+            },
+            "transport_schema": "manual-wave-1-evidence-contribution/v1",
+            "transport_location": "EXTERNAL_ONLY",
+            "contribution_status": "UNPERFORMED_BY_TASK",
+            "review_status": "UNPERFORMED_BY_TASK",
+            "exact_binding": "FAIL_CLOSED",
+            "artifact_handling": "OPAQUE_SAFE_PROVENANCE_HANDLES_ONLY",
+            "production_mutation_authority": "NONE",
+            "p7_4_construction_authority": "NONE",
+            "p7_5_construction_authority": "NONE",
+            "wave_0_authority": "NONE",
+            "wave_2_authority": "NONE",
+            "market_test_or_action_authority": "NONE",
             "human_owned_inputs_status": "UNSET",
             "collector_authority": "NONE",
-            "live_acquisition_authority": "NONE",
+            "automated_acquisition_authority": "NONE",
         },
         "boundary": (
-            "TASK-228 closes only the plan-only P8.2 commitment for the exact P8.1-selected "
-            "case. It acquires no live evidence, fixes no parser, authorizes no collector or "
-            "market test, and executes no real pilot. Human/Brain must explicitly choose "
-            "whether to authorize bounded Wave 0, a Wave-1 acquisition path, manual evidence "
-            "contribution, DEFER, or STOP. Runtime/worker output cannot make that decision; no "
-            "P8.3 or future domain is automatic."
+            "TASK-229 closes only the Human-selected manual Wave-1 contribution authorization "
+            "for the exact P8.1 case. It contributes and accepts no evidence, fixes no parser, "
+            "authorizes no collector, Wave 0, Wave 2, market test, or action, and executes no "
+            "real pilot. A Human operator may later contribute the bounded external envelope "
+            "and a separate Human review may accept, reject, or leave unknown each observation. "
+            "No accepted item becomes canonical truth without a fresh deterministic freeze task, "
+            "and no P8.4 or future domain is automatic."
         ),
     }
 
@@ -365,8 +406,10 @@ def test_p7_2_semantics_preserve_triage_evidence_and_history_boundaries():
         assert "P8.2 Pre-Action Evidence Acquisition Plan" in roadmap
         assert "PRE_ACTION_EVIDENCE_ACQUISITION_PLAN_ONLY" in roadmap
         assert TASK_227_SOURCE_SHA in roadmap
-        assert "P8.3 is neither automatic nor pending" in roadmap
-        assert "HUMAN_BRAIN_BOUNDED_EVIDENCE_ACQUISITION_AUTHORIZATION" in roadmap
+        assert "P8.3 Manual Wave-1 Evidence Contribution Authorization" in roadmap
+        assert "MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION_ONLY" in roadmap
+        assert TASK_228_SOURCE_SHA in roadmap
+        assert "HUMAN_OPERATOR_MANUAL_WAVE_1_CONTRIBUTION_AND_REVIEW" in roadmap
         assert "P6.2 remains PARKED" in roadmap
         assert "P6.4-P6.6 remain DEFERRED" in roadmap
         for milestone in ("P7.6", "P7.7"):
@@ -593,7 +636,7 @@ def test_p8_0_is_one_composition_only_authority_and_human_owned_pilot_handoff():
     assert completed["TASK-226"]["real_pilot_executed"] is False
     assert state["active_track"]["next_milestone"] is None
     assert state["pending_commitments"] == []
-    assert state["post_p8_planning_handoff"]["automatic_p8_3"] is False
+    assert state["post_p8_planning_handoff"]["automatic_p8_4"] is False
 
 
 def test_p8_1_records_selection_only_and_preserves_pre_action_boundaries():
@@ -649,10 +692,10 @@ def test_p8_1_records_selection_only_and_preserves_pre_action_boundaries():
     assert selected["selection_status"] == "SELECTED"
     assert selected["real_pilot_executed"] is False
     assert state["post_p8_planning_handoff"]["destination"] == (
-        "HUMAN_BRAIN_BOUNDED_EVIDENCE_ACQUISITION_AUTHORIZATION"
+        "HUMAN_OPERATOR_MANUAL_WAVE_1_CONTRIBUTION_AND_REVIEW"
     )
     assert state["post_p8_planning_handoff"]["automatic_next"] is False
-    assert state["post_p8_planning_handoff"]["automatic_p8_3"] is False
+    assert state["post_p8_planning_handoff"]["automatic_p8_4"] is False
     assert state["active_track"]["next_milestone"] is None
     assert state["pending_commitments"] == []
 
@@ -734,18 +777,112 @@ def test_p8_2_is_plan_only_and_preserves_evidence_and_action_boundaries():
         assert forbidden in text
 
     state = load_yaml(ROADMAP_FILE)
+    completed = {item["task_id"]: item for item in state["completed_milestones"]}
+    assert completed["TASK-228"]["source_sha"] == TASK_228_SOURCE_SHA
     handoff = state["post_p8_planning_handoff"]
     assert handoff["destination"] == (
-        "HUMAN_BRAIN_BOUNDED_EVIDENCE_ACQUISITION_AUTHORIZATION"
+        "HUMAN_OPERATOR_MANUAL_WAVE_1_CONTRIBUTION_AND_REVIEW"
     )
     assert handoff["automatic_next"] is False
-    assert handoff["automatic_p8_3"] is False
+    assert handoff["automatic_p8_4"] is False
     assert handoff["real_pilot_executed"] is False
     assert handoff["live_evidence_acquired"] is False
-    assert handoff["evidence_plan"]["evidence_dimensions"] == list(dimensions)
-    assert handoff["evidence_plan"]["human_owned_inputs_status"] == "UNSET"
-    assert handoff["evidence_plan"]["collector_authority"] == "NONE"
-    assert handoff["evidence_plan"]["live_acquisition_authority"] == "NONE"
+    authorization = handoff["manual_contribution_authorization"]
+    assert authorization["human_owned_inputs_status"] == "UNSET"
+    assert authorization["collector_authority"] == "NONE"
+    assert authorization["automated_acquisition_authority"] == "NONE"
+    assert state["active_track"]["next_milestone"] is None
+    assert state["pending_commitments"] == []
+
+
+def test_p8_3_authorizes_only_human_manual_contribution_and_review():
+    text = P8_3_MANUAL_AUTHORIZATION_FILE.read_text(encoding="utf-8")
+
+    for required in (
+        "MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION_ONLY",
+        "p8-pilot-001-led-motion-tiktok-vn",
+        SELECTED_SOURCE_ID,
+        SELECTED_LISTING_REFERENCE,
+        "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY",
+        "manual-wave-1-evidence-contribution/v1",
+        "timezone-aware observation time",
+        "TIKTOK_SHOP_PDP",
+        "TIKTOK_AFFILIATE_UI",
+        "displayed_value",
+        "binding_basis",
+        "artifact_ref",
+        "variant_context",
+        "Title-only, image-only, seller-only, slug-only",
+        "If exact binding cannot be demonstrated",
+        "opaque provenance handles only",
+        "ACCEPT`, `REJECT`, or `UNKNOWN",
+        "usability only as source evidence",
+        "Human/operator outside ordinary\nAIOS verification",
+        "Automated solving, automated retry, proxy use, stealth, evasion, and bypass",
+        "Wave 0 or Wave 2 merely to complete fields",
+        "Nothing progresses automatically, including P8.4 or a market test",
+        "HUMAN_OPERATOR_MANUAL_WAVE_1_CONTRIBUTION_AND_REVIEW",
+    ):
+        assert required in text
+
+    observation_section = text.split("## 2. Exact authorized observation set", 1)[1].split(
+        "## 3. Human-only operating boundary", 1
+    )[0]
+    assert [
+        match.group(1)
+        for match in re.finditer(
+            r"^\d+\. `([a-z_]+)`$", observation_section, flags=re.MULTILINE
+        )
+    ] == P8_3_AUTHORIZED_OBSERVATIONS
+
+    for deferred in (
+        "Product/source facts and seller media",
+        "Wave 2\ncreator, content, audience, competition, and velocity capture is not authorized",
+    ):
+        assert deferred in text
+
+    for prohibited_payload in (
+        "cookies",
+        "tokens",
+        "headers",
+        "credentials",
+        "raw HTML",
+        "browser-profile paths",
+        "QR/login codes",
+        "private messages",
+        "exception traces",
+        "local absolute paths",
+    ):
+        assert prohibited_payload in text
+
+    for unset_input in (
+        "Budget",
+        "duration",
+        "exposure controls",
+        "contribution-margin threshold",
+        "success/failure criteria",
+        "target audience",
+        "quality constraints",
+        "risk constraints",
+        "risk acceptance",
+        "decision deadline",
+    ):
+        assert unset_input in text
+
+    state = load_yaml(ROADMAP_FILE)
+    authorization = state["post_p8_planning_handoff"][
+        "manual_contribution_authorization"
+    ]
+    assert authorization["authorized_observation_names"] == P8_3_AUTHORIZED_OBSERVATIONS
+    assert authorization["transport_location"] == "EXTERNAL_ONLY"
+    assert authorization["exact_binding"] == "FAIL_CLOSED"
+    assert authorization["production_mutation_authority"] == "NONE"
+    assert authorization["p7_4_construction_authority"] == "NONE"
+    assert authorization["p7_5_construction_authority"] == "NONE"
+    assert authorization["wave_0_authority"] == "NONE"
+    assert authorization["wave_2_authority"] == "NONE"
+    assert authorization["market_test_or_action_authority"] == "NONE"
+    assert state["post_p8_planning_handoff"]["automatic_p8_4"] is False
     assert state["active_track"]["next_milestone"] is None
     assert state["pending_commitments"] == []
 

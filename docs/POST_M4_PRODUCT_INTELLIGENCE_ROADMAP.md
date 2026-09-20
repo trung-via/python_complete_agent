@@ -460,17 +460,35 @@ P8.1 is DONE at exact published source `d2752d69c701dd2483ea30f52be3385b5137e008
   performs no acquisition, parser change, collector configuration, test, approval, spend, market
   action, evidence claim, recommendation, or future-domain selection.
 
-On exact reviewed TASK-228 source publication, P8.2 is DONE only as plan-only state;
-`real_pilot_executed` remains false, no live evidence is claimed, the next milestone remains null,
-and pending commitments remain empty. P8.3 is neither automatic nor pending. The handoff is
-`HUMAN_BRAIN_BOUNDED_EVIDENCE_ACQUISITION_AUTHORIZATION`: Human/Brain must explicitly choose Wave
-0, a Wave-1 path, manual evidence contribution, DEFER, or STOP. Runtime/worker output cannot make
-that decision. P6.2 remains PARKED and P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
+P8.2 is DONE only as plan-only state at exact published source
+`eb5b09a8208771a25493fd5a68232bb2dd48c700`; `real_pilot_executed` remains false and it acquired
+no live evidence. Human/Brain then explicitly selected the bounded manual Wave-1 contribution path
+before Wave 0 compatibility engineering or automated acquisition.
+
+- **P8.3 Manual Wave-1 Evidence Contribution Authorization (TASK-229 — publication-gated DONE;
+  `MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION_ONLY`)**: authorizes one Human-only external
+  contribution path for the exact P8.1 case and source listing. Its allowlist is limited to variant
+  context, current price/discount and affiliate economics, current sold/rating/review traction, and
+  inventory availability. It defines a transport-only external envelope, fail-closed exact-listing
+  binding, safe-artifact constraints, Human-only CAPTCHA handling, and a separate per-observation
+  Human `ACCEPT` / `REJECT` / `UNKNOWN` review gate. It creates no evidence or canonical truth,
+  changes no production code or parser, constructs no P7.4/P7.5 value, authorizes neither Wave 0 nor
+  Wave 2 nor a market test/action, and supplies no Human-owned economics, test, or risk input.
+
+On exact reviewed TASK-229 source publication, P8.3 is DONE only as authorization;
+`real_pilot_executed` remains false, no concrete task-acquired live evidence is claimed, the next
+milestone remains null, and pending commitments remain empty. Nothing advances automatically to
+P8.4. The handoff is `HUMAN_OPERATOR_MANUAL_WAVE_1_CONTRIBUTION_AND_REVIEW`; only a later concrete
+Human contribution, separate Human review, and fresh deterministic authorization can freeze accepted
+safe evidence or construct existing P7.4/P7.5 semantics. P6.2 remains PARKED and P6.4-P6.6 remain
+DEFERRED / UNIMPLEMENTED.
 
 See `docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md` for the exact P8.0 source
 `a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e`,
 `docs/PHASE_8_P8_1_REAL_DECISION_PILOT_SELECTION.md` for the exact P8.1 selection record, and
-`docs/PHASE_8_P8_2_PRE_ACTION_EVIDENCE_ACQUISITION_PLAN.md` for the P8.2 plan.
+`docs/PHASE_8_P8_2_PRE_ACTION_EVIDENCE_ACQUISITION_PLAN.md` for the exact P8.2 source
+`eb5b09a8208771a25493fd5a68232bb2dd48c700`, and
+`docs/PHASE_8_P8_3_MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION.md` for the P8.3 authorization.
 
 
 See `docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md` for the audit and boundary.
