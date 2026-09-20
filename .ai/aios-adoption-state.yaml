@@ -18,11 +18,10 @@ downstream_pin:
   source_published: true
 
 full_downstream_conformance:
-  status: PENDING_FRESH_CERTIFICATION
+  status: CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION
   certification_task:
     id: TASK-207
     revision: 8
-    authoring_gate: AFTER_TASK_221_PUBLICATION
   downstream_pin: edd7d8d92d54900c56442bbfcddb8648ec4d2e09
   historical_old_pin_certification:
     task_id: TASK-207
@@ -38,7 +37,7 @@ full_downstream_conformance:
     status: FAILED_OLD_PIN_NON_CERTIFYING_EVIDENCE
     repair_after_pin_change: FORBIDDEN
     certification_authority_for_current_pin: false
-  certification_record: null
+  certification_record: .ai/aios-conformance-state.yaml
   effective_only_when:
     semantic_review: PASS
     published_source: EXACT_REVIEWED_CANDIDATE
@@ -46,12 +45,12 @@ full_downstream_conformance:
   before_gate: NOT_EFFECTIVE
   binding_classifications_changed: false
   boundary: >-
-    Fresh full downstream conformance certification for edd7d8d92d54900c56442bbfcddb8648ec4d2e09
-    remains pending through TASK-207 revision 8 authored after TASK-221 publication. Prior
-    TASK-207 revision-5 conformance remains historical evidence for
-    49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2 only in .ai/aios-conformance-state.yaml and is
-    preserved unchanged. TASK-207 revision 7 and RUN-207-009 are failed, non-certifying evidence
-    for superseded pin 1a68db9acb6989dfa81bf875503db62e54a4bed6 and must not be repaired after migration.
+    This Brain planning record becomes effective only when the safe Publisher publishes exactly
+    the reviewed TASK-207 revision-8 source candidate. It is not Runtime, review, or publication
+    authority and does not replace the separate canonical evidence lineage. Revision-5 certification
+    remains historical evidence for 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2, while revision 7 and
+    RUN-207-009 remain failed, non-certifying old-pin history for
+    1a68db9acb6989dfa81bf875503db62e54a4bed6.
 
 upstream_audit:
   checkpoint: edd7d8d92d54900c56442bbfcddb8648ec4d2e09

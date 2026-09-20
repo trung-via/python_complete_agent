@@ -539,14 +539,17 @@ historical subjects have ordinary repository-local `.git` directory semantics, a
 control-owned transport may locally resolve the exact candidate object graph without moving control HEAD,
 branch, index, or worktree. Python Agent copies no Runtime implementation and does not activate
 upstream TASK-140 project hooks or any second lifecycle authority.
-TASK-207 revision 5 re-certified the Phase-1 and Phase-2 repository bindings under
-the prior `49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2` pin, which is preserved as historical
-prior-pin evidence in `.ai/aios-conformance-state.yaml`.
-TASK-207 revision 7 and RUN-207-009 remain failed, non-certifying old-pin evidence for
-`1a68db9acb6989dfa81bf875503db62e54a4bed6`; RUN-207-009 must not be repaired after migration
-because its revision-7 contract certifies only that superseded pin. Fresh full downstream
-conformance under `edd7d8d92d54900c56442bbfcddb8648ec4d2e09` requires TASK-207 revision 8,
-authored after TASK-221 publication, before generic product continuation may resume.
+TASK-207 revision 8 re-certifies the Phase-1 and Phase-2 repository bindings under exact pin
+`edd7d8d92d54900c56442bbfcddb8648ec4d2e09`. Certification remains publication-gated: Runtime
+PASS and semantic Reviewer PASS are necessary but not sufficient; the safe Publisher must publish
+exactly the reviewed revision-8 source candidate and canonical `main` must equal it. Revision-5
+certification under `49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2` remains historical prior-pin evidence.
+TASK-207 revision 7 and RUN-207-009 remain immutable failed, non-certifying old-pin history for
+`1a68db9acb6989dfa81bf875503db62e54a4bed6`, and RUN-207-009 must not be repaired after migration.
+On publication, `FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION` is resolved while P7.3 remains
+the unique product NEXT with TASK-215 revision 1 / RUN-215-004 / candidate
+`142bd865f69a6636b321d3cc7a0cd4004db3fdc7` / FINDING-215-001 / RUN-215-003 / REPAIR-215-002
+continuity; TASK-215 is not rerun, P7.3 is not marked DONE, and P7.4 is not advanced.
 TASK-207 revision 2 and RUN-207-001/RUN-207-002/REPAIR-207-001 remain immutable old-pin
 history; conformance resumes only through a fresh Brain revision bound to the new pin.
 Future AIOS-renew main changes remain irrelevant until another explicit reviewed downstream migration.
