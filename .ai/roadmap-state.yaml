@@ -471,9 +471,11 @@ prerequisite_pin_migration:
     generic P7 continuation.
 
 full_downstream_conformance:
-  status: PENDING_FRESH_CERTIFICATION
+  status: DONE
+  task_id: TASK-207
+  task_revision: 7
   downstream_pin: 1a68db9acb6989dfa81bf875503db62e54a4bed6
-  current_pin: 1a68db9acb6989dfa81bf875503db62e54a4bed6
+  certification_record: .ai/aios-conformance-state.yaml
   historical_certification:
     task_id: TASK-207
     task_revision: 5
@@ -483,7 +485,11 @@ full_downstream_conformance:
       published_source: EXACT_REVIEWED_CANDIDATE
       canonical_main_equals_reviewed_candidate: true
     status: HISTORICAL_OLD_PIN_EVIDENCE_ONLY
-  next_commitment: FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION
+  effective_only_when:
+    semantic_review: PASS
+    published_source: EXACT_REVIEWED_CANDIDATE
+    canonical_main_equals_reviewed_candidate: true
+  next_commitment: P7.3
   resume_target:
     task_id: TASK-215
     task_revision: 1
@@ -494,9 +500,10 @@ full_downstream_conformance:
     predecessor_run_id: RUN-215-003
     repair_id: REPAIR-215-002
   roadmap_effect: >-
-    Historical TASK-207 revision-5 certification is preserved for prior pin 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2.
-    Fresh full downstream conformance certification is pending under 1a68db9acb6989dfa81bf875503db62e54a4bed6
-    through the existing TASK-207 semantic authority as a prerequisite before generic roadmap continuation.
+    On reviewed source publication, closes FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION
+    through TASK-207 revision 7 under exact pin 1a68db9acb6989dfa81bf875503db62e54a4bed6.
+    Preserves P7.3 as NEXT and exact TASK-215 revision 1 / RUN-215-004 / candidate 142bd865f69a6636b321d3cc7a0cd4004db3fdc7 /
+    FINDING-215-001 / RUN-215-003 / REPAIR-215-002 continuity without marking P7.3 DONE or advancing to P7.4.
 
 commitment_removal_gate: >-
   A pending commitment may leave this set only when canonical evidence marks it DONE

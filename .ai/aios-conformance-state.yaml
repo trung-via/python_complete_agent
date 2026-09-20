@@ -11,8 +11,8 @@ authority:
 
 certification:
   task_id: TASK-207
-  task_revision: 5
-  downstream_pin: 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2
+  task_revision: 7
+  downstream_pin: 1a68db9acb6989dfa81bf875503db62e54a4bed6
   status: CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION
   effective_only_when:
     semantic_review: PASS
@@ -22,7 +22,7 @@ certification:
   before_gate: NOT_EFFECTIVE
   boundary: >-
     Runtime PASS and Reviewer PASS do not by themselves make this certification effective.
-    The safe Publisher must publish exactly the TASK-207 revision-5 reviewed source candidate,
+    The safe Publisher must publish exactly the TASK-207 revision-7 reviewed source candidate,
     and canonical main must equal that candidate.
 
 binding_families:
@@ -64,28 +64,27 @@ live_evidence_selectors:
     carrier: AIOS_BRAIN_INGRESS
     operation: AUTHOR_TASK
     expected_actor: trung-via
-    expected_predecessor_main: ada9a4e5b765a7daa4e081db1d56917410a73873
-    canonical_task_commit: 258f9635be5ac80eaaa35f1e802f292d17eb65c7
+    expected_predecessor_main: bb79c6440a240cded4aac501619399cd9b8aeb56
+    canonical_task_commit: f293d9800c66098786b4ec300af74af6d8a16e52
   AC2:
     carrier: AIOS_BRAIN_WAKEUP
-    dispatch_id: task207-r5-antigravity-001
-    run_id: RUN-207-005
+    dispatch_id: task207-r7-antigravity-001
+    run_id: RUN-207-007
     executor: antigravity
-    self_hosted_workflow_run_id: 35484892275
   AC3:
     carrier: AIOS_TERMINAL_ATTENTION
-    run_id: RUN-207-005
+    run_id: RUN-207-007
     terminal_ref_prefix: refs/heads/aios/terminal-attention/
     issue_title: "[AIOS TERMINAL ATTENTION]"
   AC4:
     carrier: AIOS_BRAIN_REMEDIATION_INTENT
-    correction_dispatch_id: task-207-r5-remediation-non-authorizing-001
+    correction_dispatch_id: task-207-r7-remediation-non-authorizing-001
     task_id: TASK-207
     expected_outcome: FAIL_CLOSED_NO_IMPLEMENTATION_RUN
     self_hosted_bootstrap: .agents/skills/aios-worker/scripts/aios_phase2_remediation.py
   AC5:
     carrier: AIOS_BRAIN_REPAIR_WAKEUP
-    repair_dispatch_id: task-207-r5-repair-non-authorizing-001
+    repair_dispatch_id: task-207-r7-repair-non-authorizing-001
     task_id: TASK-207
     action_shape: NO_CHANGE
     executor: null
@@ -106,9 +105,19 @@ authority_boundaries:
 
 historical_certification:
   task_id: TASK-207
-  task_revision: 4
-  downstream_pin: c96eb8b52acd865b9453409e6598e08a8bd4e48e
+  task_revision: 5
+  downstream_pin: 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2
   status: HISTORICAL_OLD_PIN_EVIDENCE_ONLY
+  certification_authority_for_current_pin: false
+
+failed_history:
+  task_id: TASK-207
+  task_revision: 6
+  run_id: RUN-207-006
+  phase: EXECUTION
+  repairable: false
+  transportable: false
+  status: FAILED_NON_CERTIFYING_HISTORY
   certification_authority_for_current_pin: false
 
 historical_exclusions:

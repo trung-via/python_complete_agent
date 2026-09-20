@@ -510,14 +510,24 @@ TASK-219 supersedes that active pin with exact reviewed, source-published commit
 `1a68db9acb6989dfa81bf875503db62e54a4bed6`, consuming upstream TASK-144 revision 2 /
 RUN-144-006 / REVIEW-144-006 canonical successful-REPAIR review-lineage reconstruction and
 publication validation while preserving all Phase-1/Phase-2 repository bindings and authority boundaries.
-TASK-207 revision 5 re-certified the Phase-1 and Phase-2 repository bindings under
-the prior `49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2` pin, which is preserved as historical
-prior-pin evidence in `.ai/aios-conformance-state.yaml`.
-Fresh full downstream conformance certification under `1a68db9acb6989dfa81bf875503db62e54a4bed6`
-remains pending through the existing TASK-207 semantic authority.
+TASK-207 revision 7 re-certifies the Phase-1 and Phase-2 repository bindings under
+the exact `1a68db9acb6989dfa81bf875503db62e54a4bed6` pin, while preserving revision-5
+conformance as historical evidence tied to `49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2` and
+preserving RUN-207-006 as failed non-certifying revision-6 history.
 TASK-207 revision 2 and RUN-207-001/RUN-207-002/REPAIR-207-001 remain immutable old-pin
 history; conformance resumes only through a fresh Brain revision bound to the new pin.
 Future AIOS-renew main changes remain irrelevant until another explicit reviewed downstream migration.
+
+TASK-207 revision 7 establishes the publication-gated full downstream conformance certification
+under the exact `1a68db9acb6989dfa81bf875503db62e54a4bed6` pin in `.ai/aios-conformance-state.yaml`.
+Certification is publication-gated: Runtime PASS and a semantic Reviewer PASS are necessary but not
+sufficient; the safe Publisher must publish exactly the reviewed TASK-207 revision-7 source candidate
+and canonical `main` must equal it. Only then is `FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION`
+effective as DONE, with P7.3 remaining NEXT and preserving TASK-215 revision 1 / RUN-215-004 / candidate
+`142bd865f69a6636b321d3cc7a0cd4004db3fdc7` / FINDING-215-001 / RUN-215-003 / REPAIR-215-002
+continuity. Prior revision-5 evidence under `49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2` remains
+preserved unchanged as historical prior-pin evidence, and RUN-207-006 is preserved as failed
+non-certifying revision-6 history.
 
 The normal certified surfaces remain the repository-owned GitHub Issue carriers for Brain
 authoring, PRIMARY wakeup, terminal attention, remediation intent, and REPAIR wakeup, plus

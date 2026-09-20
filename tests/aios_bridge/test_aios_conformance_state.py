@@ -5,8 +5,8 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 CONFORMANCE_FILE = REPO_ROOT / ".ai" / "aios-conformance-state.yaml"
-EXPECTED_PIN = "49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2"
-HISTORICAL_PIN = "c96eb8b52acd865b9453409e6598e08a8bd4e48e"
+EXPECTED_PIN = "1a68db9acb6989dfa81bf875503db62e54a4bed6"
+HISTORICAL_PIN = "49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2"
 PUBLICATION_GATE = {
     "semantic_review": "PASS",
     "review_mode": "PRIMARY",
@@ -46,7 +46,7 @@ def test_certification_is_small_publication_gated_brain_review_state():
 
     certification = state["certification"]
     assert certification["task_id"] == "TASK-207"
-    assert certification["task_revision"] == 5
+    assert certification["task_revision"] == 7
     assert certification["downstream_pin"] == EXPECTED_PIN
     assert certification["status"] == "CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION"
     assert certification["effective_only_when"] == PUBLICATION_GATE
@@ -101,25 +101,24 @@ def test_live_evidence_selectors_are_typed_and_current_pin_scoped():
         "carrier": "AIOS_BRAIN_INGRESS",
         "operation": "AUTHOR_TASK",
         "expected_actor": "trung-via",
-        "expected_predecessor_main": "ada9a4e5b765a7daa4e081db1d56917410a73873",
-        "canonical_task_commit": "258f9635be5ac80eaaa35f1e802f292d17eb65c7",
+        "expected_predecessor_main": "bb79c6440a240cded4aac501619399cd9b8aeb56",
+        "canonical_task_commit": "f293d9800c66098786b4ec300af74af6d8a16e52",
     }
     assert selectors["AC2"] == {
         "carrier": "AIOS_BRAIN_WAKEUP",
-        "dispatch_id": "task207-r5-antigravity-001",
-        "run_id": "RUN-207-005",
+        "dispatch_id": "task207-r7-antigravity-001",
+        "run_id": "RUN-207-007",
         "executor": "antigravity",
-        "self_hosted_workflow_run_id": 35484892275,
     }
     assert selectors["AC3"] == {
         "carrier": "AIOS_TERMINAL_ATTENTION",
-        "run_id": "RUN-207-005",
+        "run_id": "RUN-207-007",
         "terminal_ref_prefix": "refs/heads/aios/terminal-attention/",
         "issue_title": "[AIOS TERMINAL ATTENTION]",
     }
     assert selectors["AC4"] == {
         "carrier": "AIOS_BRAIN_REMEDIATION_INTENT",
-        "correction_dispatch_id": "task-207-r5-remediation-non-authorizing-001",
+        "correction_dispatch_id": "task-207-r7-remediation-non-authorizing-001",
         "task_id": "TASK-207",
         "expected_outcome": "FAIL_CLOSED_NO_IMPLEMENTATION_RUN",
         "self_hosted_bootstrap": (
@@ -128,7 +127,7 @@ def test_live_evidence_selectors_are_typed_and_current_pin_scoped():
     }
     assert selectors["AC5"] == {
         "carrier": "AIOS_BRAIN_REPAIR_WAKEUP",
-        "repair_dispatch_id": "task-207-r5-repair-non-authorizing-001",
+        "repair_dispatch_id": "task-207-r7-repair-non-authorizing-001",
         "task_id": "TASK-207",
         "action_shape": "NO_CHANGE",
         "executor": None,
@@ -159,9 +158,20 @@ def test_authority_boundaries_and_old_pin_exclusion_are_explicit():
 
     assert state["historical_certification"] == {
         "task_id": "TASK-207",
-        "task_revision": 4,
+        "task_revision": 5,
         "downstream_pin": HISTORICAL_PIN,
         "status": "HISTORICAL_OLD_PIN_EVIDENCE_ONLY",
+        "certification_authority_for_current_pin": False,
+    }
+
+    assert state["failed_history"] == {
+        "task_id": "TASK-207",
+        "task_revision": 6,
+        "run_id": "RUN-207-006",
+        "phase": "EXECUTION",
+        "repairable": False,
+        "transportable": False,
+        "status": "FAILED_NON_CERTIFYING_HISTORY",
         "certification_authority_for_current_pin": False,
     }
 
