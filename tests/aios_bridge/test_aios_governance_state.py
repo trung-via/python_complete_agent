@@ -12,6 +12,11 @@ ROADMAP_FILE = REPO_ROOT / ".ai" / "roadmap-state.yaml"
 P7_2_SEMANTICS_FILE = (
     REPO_ROOT / "docs" / "PHASE_7_P7_2_WINNING_OPPORTUNITY_SEMANTICS.md"
 )
+P7_3_SEMANTICS_FILE = (
+    REPO_ROOT
+    / "docs"
+    / "PHASE_7_P7_3_DECISION_CONTEXT_OPPORTUNITY_HYPOTHESIS.md"
+)
 ROADMAP_DOCS = (
     REPO_ROOT / "docs" / "POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
     REPO_ROOT / "docs" / "POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
@@ -39,6 +44,7 @@ TASK_196_SOURCE_SHA = "4f6d91858c93192f497342315c4650e30b0a2718"
 TASK_199_SOURCE_SHA = "702e85e9e77a556f3716717ccaa186919b1a9dab"
 TASK_210_SOURCE_SHA = "399ffe4d38d31f7882d22824ba9c27781b9a0974"
 TASK_211_SOURCE_SHA = "15cc092d0ea86cd9bce7baed0d32bc3575fa4b08"
+TASK_214_SOURCE_SHA = "123bbb71d44ad15a25e07b07f21f6cb2dd00d20b"
 ACTIVE_TRACK_ID = "AIOS_FULL_DOWNSTREAM_ADOPTION_AND_GOVERNANCE_REBUILD"
 CLOSURE_MILESTONE_ID = "GOVERNANCE_FOUNDATION_CLOSURE_AND_P7_RETURN"
 HISTORICAL_CONFORMANCE_NEXT_COMMITMENT = "PROJECT_CONTRACT_REBUILD"
@@ -108,11 +114,15 @@ def test_roadmap_activates_approved_p7_sequence_with_one_next():
         "priority_owner": "HUMAN",
         "status": "ACTIVE",
         "current_milestone": {
-            "id": "P7.2",
-            "task_id": "TASK-214",
-            "title": "Winning Opportunity Semantic Reconciliation",
+            "id": "P7.3",
+            "task_id": "TASK-215",
+            "title": "Decision Context + Opportunity Hypothesis",
             "status": "DONE",
             "completion_basis": "PUBLICATION_GATED",
+            "semantic_owner": (
+                "src/commerce_opportunity_intelligence/decision_context.py"
+            ),
+            "authority_identifier": "COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_3",
             "effective_only_when": {
                 "semantic_review": "PASS",
                 "published_source": "EXACT_REVIEWED_CANDIDATE",
@@ -120,8 +130,8 @@ def test_roadmap_activates_approved_p7_sequence_with_one_next():
             },
         },
         "next_milestone": {
-            "id": "P7.3",
-            "title": "Decision Context + Opportunity Hypothesis",
+            "id": "P7.4",
+            "title": "TikTok Affiliate Evidence Profile",
         },
     }
     assert state["completed_track"] == {
@@ -151,14 +161,9 @@ def test_roadmap_activates_approved_p7_sequence_with_one_next():
     assert values_for_key(state, "status").count("NEXT") == 1
     assert state["pending_commitments"] == [
         {
-            "id": "P7.3",
-            "title": "Decision Context + Opportunity Hypothesis",
-            "status": "NEXT",
-        },
-        {
             "id": "P7.4",
             "title": "TikTok Affiliate Evidence Profile",
-            "status": "NOT_DONE",
+            "status": "NEXT",
         },
         {
             "id": "P7.5",
@@ -176,7 +181,7 @@ def test_roadmap_activates_approved_p7_sequence_with_one_next():
             "status": "NOT_DONE",
         },
     ]
-    assert values_for_key(state, "status").count("NOT_DONE") == 4
+    assert values_for_key(state, "status").count("NOT_DONE") == 3
     assert state["planning_handoff"] == {
         "destination": "P7_PRODUCT_ROADMAP",
         "checkpoint_task_id": "TASK-191",
@@ -239,10 +244,35 @@ def test_p7_2_semantics_preserve_triage_evidence_and_history_boundaries():
         roadmap = roadmap_path.read_text(encoding="utf-8")
         assert "P7 Commerce Opportunity Intelligence" in roadmap
         assert "P7.2 Winning Opportunity Semantic Reconciliation" in roadmap
-        assert roadmap.count("P7.3 Decision Context + Opportunity Hypothesis — NEXT") == 1
-        for milestone in ("P7.4", "P7.5", "P7.6", "P7.7"):
+        assert TASK_214_SOURCE_SHA in roadmap
+        assert "P7.3 Decision Context + Opportunity Hypothesis" in roadmap
+        assert roadmap.count("P7.4 TikTok Affiliate Evidence Profile — NEXT") == 1
+        for milestone in ("P7.5", "P7.6", "P7.7"):
             assert f"{milestone} " in roadmap
-        assert roadmap.count("— NOT_DONE") >= 4
+        assert roadmap.count("— NOT_DONE") >= 3
+
+
+def test_p7_3_semantics_record_bounded_authority_and_epistemic_boundaries():
+    text = P7_3_SEMANTICS_FILE.read_text(encoding="utf-8")
+    for required in (
+        "COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_3",
+        "DecisionContext != Decision",
+        "OpportunityHypothesis != Truth",
+        "Evidence reference != evidence ownership",
+        "Hypothesis != recommendation",
+        "Product Candidate Triage score/rank != opportunity judgment",
+        "Opportunity hypothesis != TEST_READY",
+        "Observed later outcome != causal attribution",
+        "One favorable outcome != scalable winner",
+        "does not encode them as an Enum",
+        "TASK-191",
+        "TASK-214/P7.2 is CLOSED / PUBLISHED",
+        TASK_214_SOURCE_SHA,
+        EXPECTED_PIN,
+        "P7.4 TikTok Affiliate Evidence Profile becomes the",
+        "single NEXT commitment",
+    ):
+        assert required in text
 
 
 def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work():
@@ -373,6 +403,15 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
         "completion_basis": "EXACT_REVIEWED_CANDIDATE_PUBLISHED_TO_CANONICAL_MAIN",
         "roadmap_handoff": "BRAIN_HUMAN_INTERPRETATION_AFTER_P7_1",
         "selected_post_p7_1_implementation": None,
+    }
+    assert completed["TASK-214"] == {
+        "task_id": "TASK-214",
+        "track_id": "P7_COMMERCE_OPPORTUNITY_INTELLIGENCE",
+        "milestone_id": "P7.2",
+        "title": "Winning Opportunity Semantic Reconciliation",
+        "status": "DONE",
+        "source_sha": TASK_214_SOURCE_SHA,
+        "completion_basis": "EXACT_REVIEWED_CANDIDATE_PUBLISHED_TO_CANONICAL_MAIN",
     }
     assert state["current_governance_authorities"]["product_contract"] == {
         "document": "docs/PYTHON_AGENT_PRODUCT_CONTRACT.md",
