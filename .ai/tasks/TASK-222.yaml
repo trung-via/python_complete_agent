@@ -1,0 +1,246 @@
+task_id: TASK-222
+revision: 1
+
+goal: >
+  Implement P7.4 TikTok Affiliate Evidence Profile as the next bounded production
+  semantic capability inside the existing Commerce Opportunity Intelligence domain.
+  Establish one immutable, deterministic, inspectable profile that organizes opaque
+  references to already-owned evidence around the decision-relevant TikTok affiliate
+  dimensions needed to evaluate a P7.3 OpportunityHypothesis, without acquiring,
+  normalizing, scoring, ranking, interpreting, reconciling, or asserting truth from
+  that evidence. The profile must compose with the published P7.3 DecisionContext and
+  OpportunityHypothesis authority, expose which profile dimensions are represented or
+  unrepresented by caller-supplied evidence references, and preserve uncertainty so
+  P7.5 Value-of-Information Planning can later reason about evidence gaps without
+  turning missing data into automatic acquisition authority. On exact reviewed source
+  publication, close P7.4 and advance exactly one roadmap step so P7.5
+  Value-of-Information Planning becomes the unique NEXT commitment.
+
+problem: >
+  P7.3 is now publication-effective through TASK-215 revision 2 / RUN-215-006 /
+  REVIEW-215-002 at exact source
+  dc4c4c8e6f3f4d6eb3441ff4873632e5f51655f9. Python Agent therefore has a bounded
+  Commerce Opportunity Intelligence authority for DecisionContext and falsifiable
+  OpportunityHypothesis, but it still has no product semantic representation of what
+  decision-relevant TikTok affiliate evidence has actually been supplied for a
+  hypothesis and what profile dimensions remain unrepresented.
+
+  Existing Product Intelligence already owns ProductCandidateSnapshot and
+  SignalEvidence semantics, including nullable observed fields such as
+  affiliate_commission_rate, estimated_commission_value, creator_count, video_count
+  and other market metrics. Shopee discovery intentionally leaves unavailable
+  affiliate/creator/video values as None rather than fabricating them. Those existing
+  types remain evidence/observation authorities and must not be duplicated or moved
+  into Commerce Opportunity Intelligence.
+
+  The next product need is therefore composition, not collection: P7.4 must group
+  caller-supplied opaque evidence references into a stable TikTok affiliate evidence
+  profile tied to one exact P7.3 DecisionContext and OpportunityHypothesis. The
+  profile may say that a dimension has supplied references or has no supplied
+  references. It must not claim that evidence exists or does not exist in the world,
+  that a source is trustworthy, that a product is a winner, that missing evidence
+  should automatically be fetched, or that any dimension is more important than
+  another. P7.5, not P7.4, will own later Value-of-Information reasoning about what
+  additional evidence may be worth acquiring.
+
+assumptions:
+  - Canonical python_complete_agent main at authoring is dc4c4c8e6f3f4d6eb3441ff4873632e5f51655f9.
+  - TASK-215 revision 2 / RUN-215-006 / REVIEW-215-002 are PRIMARY PASS and exactly source-published at canonical main.
+  - P7.3 is publication-effective and P7.4 TikTok Affiliate Evidence Profile is the unique canonical NEXT commitment.
+  - P7.5 Value-of-Information Planning, P7.6 Market Test / Funnel Evidence, and P7.7 Calibration & Winner Validation remain NOT_DONE.
+  - src/commerce_opportunity_intelligence/decision_context.py remains the sole P7.3 owner for DecisionContext and OpportunityHypothesis semantics.
+  - ProductCandidateSnapshot and SignalEvidence remain Product Intelligence authorities for their existing observed/derived evidence semantics; P7.4 consumes opaque references only and does not re-own those values.
+  - Existing Product Intelligence fields affiliate_commission_rate, estimated_commission_value, creator_count and video_count are evidence-bearing product observations when supplied by their canonical producers; their existence does not authorize P7.4 to collect or reinterpret them.
+  - A profile with no supplied refs in one or more dimensions is valid and means only that the profile does not currently represent evidence for those dimensions.
+  - The same opaque evidence reference may legitimately inform more than one profile dimension; cross-dimension reuse does not multiply evidentiary weight because P7.4 performs no scoring.
+  - Current full downstream AIOS conformance remains DONE through TASK-207 revision 8 under exact pin edd7d8d92d54900c56442bbfcddb8648ec4d2e09.
+  - Human selected Antigravity for the next execution sequence; do not silently switch Executor.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_7_P7_2_WINNING_OPPORTUNITY_SEMANTICS.md
+    - docs/PHASE_7_P7_3_DECISION_CONTEXT_OPPORTUNITY_HYPOTHESIS.md
+    - docs/PHASE_6_M2_PRODUCT_INTELLIGENCE.md
+    - docs/PHASE_6_M2_DISCOVERY.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - .ai/aios-adoption-state.yaml
+    - .ai/aios-conformance-state.yaml
+    - .ai/tasks/TASK-214.yaml
+    - .ai/tasks/TASK-215.yaml
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - src/commerce_opportunity_intelligence/__init__.py
+    - src/commerce_opportunity_intelligence/decision_context.py
+    - src/product_intelligence/models.py
+    - src/product_intelligence/normalizer.py
+    - src/product_intelligence/scoring.py
+    - tests/product_intelligence/test_models.py
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - src/commerce_opportunity_intelligence/__init__.py
+    - src/commerce_opportunity_intelligence/tiktok_affiliate_evidence.py
+    - tests/commerce_opportunity_intelligence/test_tiktok_affiliate_evidence.py
+    - docs/PHASE_7_P7_4_TIKTOK_AFFILIATE_EVIDENCE_PROFILE.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - Modify DecisionContext or OpportunityHypothesis semantics, implementation, validation, or public projection behavior.
+  - Modify any src/product_intelligence production file, ProductCandidateSnapshot, SignalEvidence, NormalizedSignal, scorer, ranker, approval, discovery adapter, orchestration, catalog, identity, truth, retrieval, or persistence authority.
+  - Scrape, browse, fetch, call TikTok/TikTok Shop, query an API, inspect a live account, run CDP, collect affiliate commission, GMV, creator, video, engagement, competition, trend, or other marketplace evidence.
+  - Define new raw evidence, evidence provenance, evidence truth, source reliability, canonical product identity, creator identity, video identity, listing identity, or URL identity semantics.
+  - Compute an affiliate score, opportunity score, evidence score, confidence score, weighted coverage score, recommendation, priority, winner, shortlist, acquisition order, or threshold.
+  - Implement P7.5 Value-of-Information, choose which missing dimension to acquire next, estimate acquisition cost/value, or automatically authorize evidence collection.
+  - Implement P7.6 test design/execution, TEST_READY promotion, traffic/content/campaign actions, funnel measurement, or market experimentation.
+  - Implement P7.7 outcome calibration, causal attribution, validated/scalable winner classification, policy learning, or scorer reweighting.
+  - Persist the profile to database/files/queues/services, add an API/server/background worker, or invoke provider/model/LLM, network, browser, filesystem discovery, environment-derived identity, wall clock, random/UUID, subprocess, or AIOS lifecycle APIs from the production semantic module.
+  - Modify Product Contract, Project Contract, Constitution, AIOS adoption/conformance state, exact AIOS pin, workers, workflows, transport, Reviewer, Publisher, or control-plane policy.
+  - Create a second Commerce Opportunity Intelligence package or another P7.4 semantic owner.
+  - Push, merge, publish, or mutate canonical main from Executor implementation execution.
+
+constraints:
+  hard:
+    - >
+      Extend the existing src/commerce_opportunity_intelligence package. The canonical
+      P7.4 semantic owner is
+      src/commerce_opportunity_intelligence/tiktok_affiliate_evidence.py with authority
+      identifier COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_4. Do not create a second domain
+      package or move P7.3 authority.
+    - >
+      Provide one immutable TikTokAffiliateEvidenceProfile value with caller-supplied
+      stable profile_id, exact decision_context_id, exact hypothesis_id, and timezone-aware
+      as_of. It owns only the organization of opaque evidence references for a TikTok
+      affiliate opportunity profile. It does not own the referenced evidence.
+    - >
+      The profile must expose exactly six ordered semantic dimensions:
+      affiliate_economics, market_traction, creator_ecosystem, content_activity,
+      audience_channel_fit, and competition_saturation. Each dimension is represented
+      only by an ordered tuple of opaque caller-supplied evidence references. Do not
+      attach weights, scores, thresholds, truth values, confidence, recommendations,
+      priorities, or implied acquisition order to those dimensions.
+    - >
+      A dimension with an empty reference collection is unrepresented in this profile,
+      not proven missing in the world. Provide deterministic represented_dimensions()
+      and unrepresented_dimensions() projections in the fixed six-dimension order.
+      These are descriptive coverage-of-supplied-references only and must not become a
+      coverage score, quality judgment, completeness claim, or acquisition recommendation.
+    - >
+      Evidence references are opaque composition handles. They must be non-blank,
+      single-line, bounded strings, preserve caller order, reject duplicates within one
+      dimension, and fail closed on obvious secret/cookie/session/prompt/execution-metadata/
+      raw-HTML payloads so public projections do not leak forbidden material. The same ref
+      may appear in different dimensions because P7.4 does not count or weight evidence.
+    - >
+      Provide one pure create_tiktok_affiliate_evidence_profile construction surface
+      that accepts an exact DecisionContext and OpportunityHypothesis plus caller-supplied
+      profile_id/as_of and dimension refs. It must verify:
+      the hypothesis decision_context_id equals the supplied context id; the profile binds
+      to that exact context id and hypothesis id; and no implicit ID/time/source/platform
+      inference occurs. It may import the bounded P7.3 public values/error surface from
+      the same domain package but must not call Product Intelligence, marketplace, provider,
+      network, persistence, or AIOS authorities.
+    - >
+      Do not duplicate ProductCandidateSnapshot fields into this profile as new numeric
+      evidence values. Existing affiliate_commission_rate, estimated_commission_value,
+      creator_count, video_count and other product observations remain owned by Product
+      Intelligence. P7.4 may only carry opaque refs to evidence that canonical authorities
+      produced about those facts.
+    - >
+      Public projection must be deterministic and JSON-serializable, serialize as_of as
+      ISO-8601 text, preserve reference order, include the six dimension collections, and
+      expose represented/unrepresented dimension names without object repr, memory address,
+      secrets, cookie/session data, model prompt, hidden execution metadata, or raw HTML.
+    - >
+      The public package surface may add only COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_4,
+      TikTokAffiliateEvidenceProfile, TIKTOK_AFFILIATE_EVIDENCE_DIMENSIONS, and
+      create_tiktok_affiliate_evidence_profile in addition to the existing P7.3 public
+      surface. Do not re-export Product Intelligence evidence/scoring APIs.
+    - >
+      P7.4 documentation must explicitly preserve these boundaries:
+      Evidence profile != evidence; Evidence ref != evidence ownership; Unrepresented
+      dimension != evidence absent in the world; Represented dimension != evidence quality;
+      Evidence profile != score/recommendation/decision; TikTok affiliate profile != live
+      TikTok capability; missing evidence != authorization to collect; repeated ref across
+      dimensions != multiplied evidence weight.
+    - >
+      Update the two canonical product roadmaps consistently. Record TASK-215/P7.3 as
+      CLOSED/PUBLISHED at dc4c4c8e6f3f4d6eb3441ff4873632e5f51655f9. Record TASK-222/P7.4
+      as publication-gated DONE and make P7.5 Value-of-Information Planning the single NEXT
+      commitment only after TASK-222 publication. P7.6 and P7.7 remain NOT_DONE.
+    - >
+      Update .ai/roadmap-state.yaml without changing its authority classification. Preserve
+      TASK-207 revision-8 conformance DONE, TASK-221 migration history, exact pin edd7d8d...,
+      TASK-191/TASK-213/TASK-214 history, and all Governance Foundation/control-plane
+      lineage. Record TASK-215/P7.3 as completed published source
+      dc4c4c8e6f3f4d6eb3441ff4873632e5f51655f9, set the current milestone to P7.4/TASK-222
+      publication-gated DONE, set next milestone/P7.5 to NEXT, and retain only P7.5/P7.6/P7.7
+      as ordered pending commitments.
+    - >
+      Extend existing governance regression additively so current exact AIOS pin/conformance
+      assertions remain intact and tests prove one and only one NEXT=P7.5, P7.4 semantic owner,
+      TASK-215 published lineage, no roadmap authority change, and P7.6/P7.7 NOT_DONE.
+    - >
+      Preserve .ai/aios-adoption-state.yaml, .ai/aios-conformance-state.yaml,
+      requirements-aios-renew.txt, Product Contract, Project Contract, and all Product
+      Intelligence production files byte-for-byte.
+    - >
+      Only the eight authorized paths may change. Verification must be deterministic,
+      offline, non-interactive, and independent of network, GitHub, marketplace,
+      browser/CDP, provider/model, credentials, local absolute paths, wall clock, random,
+      UUID, mutable external state, or live TikTok availability.
+    - >
+      Executor must perform bounded source work only, commit the candidate, return one
+      structured ResultPackage, and leave Runtime to execute canonical TASK verification.
+      Do not start another AIOS operation or delegated/background agent.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Exactly one P7.4 production owner exists in the existing Commerce Opportunity
+      Intelligence package with immutable TikTokAffiliateEvidenceProfile semantics tied
+      to caller-supplied profile/context/hypothesis identity and timezone-aware as_of.
+  - id: AC2
+    condition: >
+      The profile contains exactly the six ordered TikTok affiliate evidence dimensions
+      and preserves opaque caller evidence refs without copying Product Intelligence facts,
+      evidence objects, provenance, truth, or scoring authority.
+  - id: AC3
+    condition: >
+      Pure profile construction verifies exact P7.3 DecisionContext/OpportunityHypothesis
+      binding, deterministic validation, bounded safe refs, and caller-supplied time/IDs
+      with zero network/provider/marketplace/persistence/runtime behavior.
+  - id: AC4
+    condition: >
+      represented_dimensions and unrepresented_dimensions truthfully describe only supplied
+      reference coverage in fixed order. Empty dimensions are allowed and do not claim evidence
+      absence, quality, priority, completeness, or authorization to collect more data.
+  - id: AC5
+    condition: >
+      Public profile projections are deterministic JSON-serializable values that preserve
+      reference order and fail closed on forbidden sensitive/raw payload classes; no score,
+      recommendation, decision, confidence, winner, acquisition order, or lifecycle state exists.
+  - id: AC6
+    condition: >
+      P7.4 documentation and both canonical roadmaps preserve P7.3 published lineage and
+      authority boundaries, record P7.4 as publication-gated DONE, advance exactly P7.5 to
+      unique NEXT, and leave P7.6-P7.7 NOT_DONE without granting future implementation authority.
+  - id: AC7
+    condition: >
+      .ai/roadmap-state.yaml preserves current control-plane/governance/AIOS certification
+      lineage, records P7.3 published source and P7.4 publication gate correctly, and the
+      AIOS adoption/conformance files plus exact pin remain unchanged.
+  - id: AC8
+    condition: >
+      Only the eight authorized paths change; focused P7.3/P7.4 and current governance
+      regressions plus git diff --check pass with zero unresolved items, producing a clean
+      source candidate eligible for independent PRIMARY review and exact safe publication.
+
+verification:
+  required:
+    - python -m pytest tests/commerce_opportunity_intelligence/test_decision_context.py tests/commerce_opportunity_intelligence/test_tiktok_affiliate_evidence.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task222-primary
+    - git diff --check
