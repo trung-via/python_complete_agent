@@ -1,0 +1,187 @@
+task_id: TASK-218
+revision: 1
+
+goal: >
+  Migrate Python Agent's sole active AIOS-renew runtime authority from exact
+  c96eb8b52acd865b9453409e6598e08a8bd4e48e to exact reviewed/source-published
+  49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2 so the generic Unified State
+  local/canonical REPAIR semantic-identity reconciliation fix validated by upstream
+  TASK-145 revision 2 becomes available downstream. Preserve every existing Python Agent
+  control-plane binding and product authority unchanged, preserve the exact TASK-215
+  P7.3 correction lineage, and make fresh downstream conformance under the new pin an
+  explicit prerequisite before resuming the pending REPAIR.
+
+problem: >
+  Python Agent canonical main is 68c6770b3fce96b5b33f710f77ccdd73277cfcf1 and
+  currently pins AIOS-renew c96eb8b52acd865b9453409e6598e08a8bd4e48e. TASK-207
+  revision 4 certified the downstream control plane only for that exact c96 pin.
+  P7.3 TASK-215 then reached RUN-215-003, a failed REPAIR continuation whose source
+  candidate remains 75cbd814bf5e687c71015dfdce4e5d8a715009c5 and whose current
+  REPAIR authorization is 69b04072dce87c7815afdfea863cb60fde119cbf. The persistent
+  downstream checkout reports MALFORMED_CANONICAL_STATE because c96's
+  _local_pending_runs REPAIR reconciliation leaves local review_id/finding_id unset while
+  canonical remote decoding derives them from the immutable correction ancestry. A clean
+  scratch checkout without the mirrored local terminal resolves the same canonical lineage,
+  proving an asymmetric reconciliation defect rather than malformed TASK-215 truth.
+
+  Upstream AIOS-renew fixed that generic defect through TASK-145 revision 2. RUN-145-002
+  produced exact source candidate 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2,
+  REVIEW-145-001 is PRIMARY PASS with AC1-AC6 PASS and no findings, Runtime verification
+  passed 14 focused repair reconciliation tests, 42 complete Unified State tests,
+  1207 full-suite tests and git diff --check, and that exact source is published in
+  canonical AIOS-renew history. Its immediate base 89ac1880fed41c7237146422e2e985d98c0eeda8
+  is the reviewed/source-published TASK-146 baseline. Mutable AIOS-renew main has since
+  advanced to later task-authoring state, so Python Agent must adopt the exact reviewed
+  source 49ad4d7 rather than mutable upstream main.
+
+assumptions:
+  - Canonical Python Agent main at authoring is 68c6770b3fce96b5b33f710f77ccdd73277cfcf1.
+  - The sole active downstream AIOS-renew pin is c96eb8b52acd865b9453409e6598e08a8bd4e48e under EXACT_REVIEWED_SOURCE_PUBLISHED_ONLY.
+  - TASK-207 revision 4 is valid publication-gated certification only for c96eb8b52acd865b9453409e6598e08a8bd4e48e and becomes historical prior-pin evidence after TASK-218 publication.
+  - Upstream TASK-145 revision 2 / RUN-145-002 / REVIEW-145-001 are canonical PASS lineage for source 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2.
+  - Upstream TASK-146 / REVIEW-146-001 source 89ac1880fed41c7237146422e2e985d98c0eeda8 is the reviewed published verification baseline from which TASK-145 revision 2 was re-admitted.
+  - TASK-215 revision 1 remains the unique P7.3 semantic authority. Its current correction continuation is RUN-215-003 with failed_head_sha 75cbd814bf5e687c71015dfdce4e5d8a715009c5 and current REPAIR authorization 69b04072dce87c7815afdfea863cb60fde119cbf.
+  - No RUN-215-004 exists and TASK-215 must not be rerun, repaired, reviewed, integrated, or published inside this migration task.
+  - Existing Human/Brain/Runtime/Executor/Reviewer/Publisher/A3/A6/REPAIR/Attention authority boundaries and all active Python Agent repository bindings remain unchanged.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - .ai/roadmap-state.yaml
+    - .ai/aios-adoption-state.yaml
+    - .ai/aios-conformance-state.yaml
+    - .ai/tasks/TASK-207.yaml
+    - .ai/tasks/TASK-215.yaml
+    - .ai/tasks/TASK-216.yaml
+    - .ai/tasks/TASK-217.yaml
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - .github/workflows/aios-brain-ingress.yml
+    - .github/workflows/aios-brain-wakeup.yml
+    - .github/workflows/aios-self-hosted-wakeup.yml
+    - .github/workflows/aios-terminal-attention.yml
+    - .github/workflows/aios-auto-publish.yml
+    - .github/workflows/aios-brain-remediation-intent.yml
+    - .github/workflows/aios-approved-remediation-intent.yml
+    - .github/workflows/aios-brain-repair-wakeup.yml
+    - .github/workflows/aios-self-hosted-repair-wakeup.yml
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+    - tests/aios_bridge/test_aios_brain_ingress.py
+    - tests/aios_bridge/test_aios_phase1_control_plane.py
+    - tests/aios_bridge/test_aios_phase2_control_plane.py
+    - tests/aios_bridge/test_aios_auto_publish_workflow.py
+    - tests/aios_bridge/test_aios_conformance_state.py
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/SKILL.md
+    - .agents/workflows/aios-renew-worker.md
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - .ai/aios-adoption-state.yaml
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_worker_control_surface.py
+    - tests/aios_bridge/test_aios_brain_ingress.py
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - Modify .ai/aios-conformance-state.yaml or claim TASK-207 revision-4 certification applies to 49ad4d7.
+  - Modify, rerun, repair, review, integrate, publish, or otherwise advance TASK-215 or any RUN-215 lineage inside TASK-218.
+  - Modify product semantics, Commerce Opportunity Intelligence source, Product Intelligence source, roadmap milestone meaning, scoring, ranking, evidence, identity, truth, retrieval, persistence, provider, browser, marketplace, or model behavior.
+  - Modify Phase-1/Phase-2 workflow implementations, policies, bootstraps, carrier titles, repository identity, runner labels/paths, actor allowlists, review transport, Publisher, Runtime, correction action semantics, or executor selection semantics.
+  - Adopt mutable AIOS-renew main, TASK-144 revision-2 authoring state, or any later unreviewed/unpublished source as runtime authority.
+  - Reimplement the TASK-145 fix downstream, vendor AIOS source, delete local Runtime state, bypass exact-pin provenance, or create a second lifecycle authority.
+  - Create a new conformance semantic authority; TASK-207 remains the sole downstream-conformance authority and must be revised after migration publication.
+  - Push, merge, publish, or mutate canonical main from Executor implementation execution.
+
+constraints:
+  hard:
+    - >
+      Change the sole active requirements pin and worker AUTHORITATIVE_COMMIT to exactly
+      49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2. Preserve the existing source-plus-commit
+      PEP-610 provenance check and fail closed on stale, alternate, floating or unverifiable runtimes.
+    - >
+      Human-facing Codex and Antigravity worker protocol remains unchanged. No command surface,
+      action mapping, executor list, PASS parsing, bootstrap location, repository identity or
+      authority boundary may change merely because the pin changes.
+    - >
+      Existing Phase-1 and Phase-2 repository bindings remain byte-for-byte unchanged. TASK-218
+      is a package-pin migration only; capability availability does not activate a new repository binding.
+    - >
+      Documentation may update exact-pin provenance and record that the adopted source includes
+      the TASK-145 revision-2 local/canonical REPAIR semantic-identity reconciliation fix and the
+      reviewed TASK-146 verification baseline. It must not claim unfinished TASK-144 revision-2
+      or mutable upstream main as adopted runtime authority.
+    - >
+      .ai/aios-adoption-state.yaml must set downstream_pin to 49ad4d7, record upstream provenance
+      TASK-145 revision 2 / RUN-145-002 / REVIEW-145-001 and source-published status, preserve all
+      existing binding classifications, and mark full downstream conformance for 49ad4d7 as
+      PENDING_FRESH_CERTIFICATION. The prior TASK-207 revision-4 c96 certification must remain
+      explicit historical prior-pin evidence rather than being rewritten.
+    - >
+      .ai/roadmap-state.yaml must preserve P7.3 as the unique product NEXT, preserve TASK-215
+      product_done=false, and update the control-plane prerequisite/resume bookmark to the exact
+      current correction lineage: TASK-215 revision 1, RUN-215-003, failed head
+      75cbd814bf5e687c71015dfdce4e5d8a715009c5, REPAIR-215-002 authorization
+      69b04072dce87c7815afdfea863cb60fde119cbf. It must not advance P7.4.
+    - >
+      Fresh downstream conformance after migration must be expressed as pending revision of the
+      existing TASK-207 authority, not as TASK-218 completion and not as a second conformance task.
+      TASK-218 must leave .ai/aios-conformance-state.yaml unchanged.
+    - >
+      Governance regressions must distinguish ACTIVE_PIN=49ad4d7 from the prior certified
+      pin c96eb8b5 so the unchanged TASK-207 r4 conformance record is treated as historical
+      prior-pin certification until fresh TASK-207 certification is published.
+    - >
+      Preserve the existing TASK-127 post-AUTHOR_REPAIR handoff, exact-title REPAIR carrier
+      hardening, all live carrier files, and all current source/publication boundaries unchanged.
+    - >
+      Mutation is limited to the ten authorized modify files. Executor must leave a clean worktree
+      and must not publish.
+    - >
+      Verification must be deterministic, offline, non-interactive and provider/network independent.
+      Use a dedicated gitdir pytest basetemp so native Windows temporary cleanup does not create
+      false failures.
+
+acceptance:
+  - id: AC1
+    condition: >
+      The sole active AIOS-renew dependency/provenance authority is exactly
+      49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2 and stale/alternate provenance remains fail closed.
+  - id: AC2
+    condition: >
+      Human-facing worker surfaces and all Phase-1/Phase-2 repository bindings remain behaviorally
+      unchanged; the migration activates package capability only and creates no second lifecycle authority.
+  - id: AC3
+    condition: >
+      Adoption state records exact reviewed/source-published TASK-145 revision-2 provenance for
+      49ad4d7 and classifies the local/canonical REPAIR reconciliation fix as adopted-by-pin without
+      treating mutable upstream main or TASK-144 revision-2 authoring state as runtime authority.
+  - id: AC4
+    condition: >
+      The existing TASK-207 revision-4 / c96 certification is preserved unchanged as historical
+      prior-pin evidence, while current 49ad4d7 full downstream conformance is explicitly
+      PENDING_FRESH_CERTIFICATION through the existing TASK-207 semantic authority.
+  - id: AC5
+    condition: >
+      Roadmap preserves P7.3 as NEXT and binds the post-migration resume target to exact
+      TASK-215/RUN-215-003/REPAIR-215-002 lineage without rerunning TASK-215 or advancing P7.4.
+  - id: AC6
+    condition: >
+      No workflow, carrier, product source, conformance record, or unrelated path changes; only the
+      ten authorized migration/planning/provenance/test files mutate.
+  - id: AC7
+    condition: >
+      Focused deterministic worker, ingress, Phase-1, Phase-2, publication, conformance-preservation
+      and governance regressions plus git diff --check pass with zero unresolved items, leaving the
+      reviewed source candidate eligible for independent PRIMARY review and safe publication.
+
+verification:
+  required:
+    - python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py tests/aios_bridge/test_aios_brain_ingress.py tests/aios_bridge/test_aios_phase1_control_plane.py tests/aios_bridge/test_aios_phase2_control_plane.py tests/aios_bridge/test_aios_auto_publish_workflow.py tests/aios_bridge/test_aios_conformance_state.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task218-primary
+    - git diff --check
