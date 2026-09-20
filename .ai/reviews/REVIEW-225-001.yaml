@@ -1,0 +1,37 @@
+review_id: REVIEW-225-001
+reviewed_sha: 53744eed1005384f5a0a0f4d1c66241d6e2704af
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: FAIL
+  AC3: FAIL
+  AC4: PASS
+  AC5: PASS
+  AC6: PASS
+  AC7: PASS
+  AC8: PASS
+findings:
+  - id: FINDING-225-001
+    basis: AC2
+    action: CODE_FIX
+    location: src/commerce_opportunity_intelligence/calibration_and_winner_validation.py; tests/commerce_opportunity_intelligence/test_calibration_and_winner_validation.py; docs/PHASE_7_P7_7_CALIBRATION_WINNER_VALIDATION.md
+    issue: >
+      The exported WinnerValidationAssessment is directly constructible and its public constructor
+      accepts caller-supplied decision_context_id, hypothesis_id, market_test_profile_ids,
+      supporting_evidence_refs, and counter_evidence_refs without access to or verification against
+      the exact bound DecisionContext, OpportunityHypothesis, and MarketTestEvidenceProfile objects.
+      The canonical factory correctly verifies exact P7.3/P7.6 identity, time, evidence anchoring,
+      and collective represented-dimension constraints, but direct construction bypasses those
+      checks. A caller can therefore create a public P7.7 semantic value that claims arbitrary
+      P7.3/P7.6 lineage or invented evidence references. This also defeats AC3's requirement that
+      assessment evidence be anchored to exact bound P7.6 profiles.
+    expected: >
+      Close the direct-construction bypass without weakening the canonical factory or changing
+      P7.7 authority. Keep WinnerValidationAssessment publicly exportable as the immutable result
+      type, but make valid instances constructible only through the canonical
+      create_winner_validation_assessment path, or otherwise ensure direct construction cannot
+      fabricate P7.3/P7.6 binding or unanchored assessment evidence. Add focused regression proving
+      direct public construction fails closed while canonical factory construction still succeeds
+      and preserves all existing identity, time, anchoring, dimension, and coherence rules.
+      Preserve all other P7.7 semantics and roadmap state.
