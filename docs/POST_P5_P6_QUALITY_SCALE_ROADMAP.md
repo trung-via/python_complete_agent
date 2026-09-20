@@ -8,8 +8,10 @@ P8.0 Real Commerce Decision Loop Composition is DONE at exact published TASK-226
 `a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e`. The Human then selected one exact TikTok Shop
 Vietnam listing for P8.1. TASK-227 records that selection as a publication-gated DONE
 `PILOT_CASE_SELECTION_ONLY` commitment; it does not execute a real pilot, assert live marketplace
-facts, authorize evidence acquisition or a test, or select an automatic successor. P6.2 remains
-PARKED and P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
+facts, or authorize evidence acquisition or a test. P8.2 is publication-gated DONE through TASK-228
+only as `PRE_ACTION_EVIDENCE_ACQUISITION_PLAN_ONLY`, with no live evidence, action, or automatic
+P8.3. Control returns to Human/Brain for an explicit bounded evidence-acquisition authorization
+decision. P6.2 remains PARKED and P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
 Scope: Python Agent product architecture post-P5; AIOS-renew remains execution substrate only.
 
 ## 1. Canonical Post-P5 Architecture Audit
@@ -338,13 +340,31 @@ P8.0 is DONE at exact published source `a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e
   Human-owned test constraints as unknown. It performs no acquisition, approval, scoring, ranking,
   test authorization, market action, winner/scalability/causal judgment, or future-domain selection.
 
-On exact reviewed TASK-227 source publication, P8.1 is DONE, `real_pilot_executed` remains false,
-the next milestone remains null, and pending commitments remain empty. There is no automatic P8.2.
-The handoff is a fresh Human/Brain decision on a bounded pre-action evidence-acquisition plan,
-including access, cost, latency, fragility, and provenance constraints; unknowns do not authorize
-collection. P6.2 remains PARKED and P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED. See
-`docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md` for the preserved P8.0 composition
-boundary and `docs/PHASE_8_P8_1_REAL_DECISION_PILOT_SELECTION.md` for the selection record.
+P8.1 is DONE at exact published source `d2752d69c701dd2483ea30f52be3385b5137e008`.
+
+- **P8.2 Pre-Action Evidence Acquisition Plan (TASK-228 — publication-gated DONE;
+  `PRE_ACTION_EVIDENCE_ACQUISITION_PLAN_ONLY`)**: binds only to context
+  `p8-pilot-001-led-motion-tiktok-vn`, TikTok Shop Vietnam source ID `1731381331718341815`, and the
+  exact P8.1 stable listing reference. It preserves `SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY`, the
+  six externally owned P7.4 dimensions, all P7.5 VOI and P7.3-P8.0 authority boundaries, and
+  Product Intelligence ownership. It records the current `/vn/pdp/<slug>/<id>` compatibility gap
+  as a blocker rather than a completed fix, distinguishes current bounded search-card and Source
+  Pack capabilities from unavailable/unproven evidence paths, and defines non-automatic Wave 0,
+  Wave 1, and conditional Wave 2 planning with explicit qualitative VOI and STOP conditions. It
+  performs no acquisition, parser change, collector configuration, test, approval, spend, market
+  action, evidence claim, recommendation, or future-domain selection.
+
+On exact reviewed TASK-228 source publication, P8.2 is DONE only as plan-only state;
+`real_pilot_executed` remains false, no live evidence is claimed, the next milestone remains null,
+and pending commitments remain empty. P8.3 is neither automatic nor pending. The handoff is
+`HUMAN_BRAIN_BOUNDED_EVIDENCE_ACQUISITION_AUTHORIZATION`: Human/Brain must explicitly choose Wave
+0, a Wave-1 path, manual evidence contribution, DEFER, or STOP. Runtime/worker output cannot make
+that decision. P6.2 remains PARKED and P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
+
+See `docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md` for the exact P8.0 source
+`a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e`,
+`docs/PHASE_8_P8_1_REAL_DECISION_PILOT_SELECTION.md` for the exact P8.1 selection record, and
+`docs/PHASE_8_P8_2_PRE_ACTION_EVIDENCE_ACQUISITION_PLAN.md` for the P8.2 plan.
 
 
 The complete audit and P7.0 boundary are recorded in

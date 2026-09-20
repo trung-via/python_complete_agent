@@ -47,6 +47,11 @@ P8_1_SELECTION_FILE = (
     / "docs"
     / "PHASE_8_P8_1_REAL_DECISION_PILOT_SELECTION.md"
 )
+P8_2_EVIDENCE_PLAN_FILE = (
+    REPO_ROOT
+    / "docs"
+    / "PHASE_8_P8_2_PRE_ACTION_EVIDENCE_ACQUISITION_PLAN.md"
+)
 ROADMAP_DOCS = (
     REPO_ROOT / "docs" / "POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
     REPO_ROOT / "docs" / "POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
@@ -81,6 +86,7 @@ TASK_223_SOURCE_SHA = "3c67a828857f74466883463abf35a17ecdcc6775"
 TASK_224_SOURCE_SHA = "d361361958fbcbe791c04aefbeba3d186c5f9608"
 TASK_225_SOURCE_SHA = "6302dd7d01be90624d5ed0072cffbc3c23f2e4a2"
 TASK_226_SOURCE_SHA = "a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e"
+TASK_227_SOURCE_SHA = "d2752d69c701dd2483ea30f52be3385b5137e008"
 SELECTED_SOURCE_ID = "1731381331718341815"
 SELECTED_LISTING_REFERENCE = (
     "https://shop.tiktok.com/vn/pdp/"
@@ -135,7 +141,7 @@ def values_for_key(value: object, key: str) -> list[object]:
     return matches
 
 
-def test_roadmap_closes_p8_1_selection_without_automatic_successor():
+def test_roadmap_closes_p8_2_plan_without_automatic_successor():
     state = load_yaml(ROADMAP_FILE)
     assert state["authority"] == {
         "owner": "BRAIN",
@@ -151,21 +157,23 @@ def test_roadmap_closes_p8_1_selection_without_automatic_successor():
         "status": "DONE",
     }
     assert state["active_track"] == {
-        "id": "P8_REAL_COMMERCE_DECISION_PILOT_SELECTION",
-        "title": "P8 Real Commerce Decision Pilot Selection",
+        "id": "P8_PRE_ACTION_EVIDENCE_ACQUISITION_PLANNING",
+        "title": "P8 Pre-Action Evidence Acquisition Planning",
         "priority_owner": "HUMAN",
         "status": "DONE",
         "completion_basis": "PUBLICATION_GATED",
-        "sequence_status": "COMPLETE_ON_EXACT_TASK_227_SOURCE_PUBLICATION",
+        "sequence_status": "COMPLETE_ON_EXACT_TASK_228_SOURCE_PUBLICATION",
         "current_milestone": {
-            "id": "P8.1",
-            "task_id": "TASK-227",
-            "title": "Real Decision Pilot Selection",
+            "id": "P8.2",
+            "task_id": "TASK-228",
+            "title": "Pre-Action Evidence Acquisition Plan",
             "status": "DONE",
             "completion_basis": "PUBLICATION_GATED",
-            "classification": "PILOT_CASE_SELECTION_ONLY",
-            "selection_owner": "HUMAN",
+            "classification": "PRE_ACTION_EVIDENCE_ACQUISITION_PLAN_ONLY",
+            "planning_owner": "HUMAN_BRAIN",
             "real_pilot_executed": False,
+            "live_evidence_acquired": False,
+            "automatic_progression": False,
             "effective_only_when": {
                 "semantic_review": "PASS",
                 "published_source": "EXACT_REVIEWED_CANDIDATE",
@@ -232,9 +240,9 @@ def test_roadmap_closes_p8_1_selection_without_automatic_successor():
         ),
     }
     assert state["post_p8_planning_handoff"] == {
-        "destination": "HUMAN_BRAIN_PRE_ACTION_EVIDENCE_ACQUISITION_PLANNING",
-        "status": "EFFECTIVE_ON_EXACT_TASK_227_SOURCE_PUBLICATION",
-        "completed_commitment": "P8.1_REAL_DECISION_PILOT_SELECTION",
+        "destination": "HUMAN_BRAIN_BOUNDED_EVIDENCE_ACQUISITION_AUTHORIZATION",
+        "status": "EFFECTIVE_ON_EXACT_TASK_228_SOURCE_PUBLICATION",
+        "completed_commitment": "P8.2_PRE_ACTION_EVIDENCE_ACQUISITION_PLAN",
         "actual_real_decision_case": {
             "context_id": "p8-pilot-001-led-motion-tiktok-vn",
             "record_type": "PILOT_CASE_SELECTION_ONLY",
@@ -252,14 +260,34 @@ def test_roadmap_closes_p8_1_selection_without_automatic_successor():
         },
         "next_milestone": None,
         "automatic_next": False,
-        "automatic_p8_2": False,
+        "automatic_p8_3": False,
         "real_pilot_executed": False,
+        "live_evidence_acquired": False,
+        "evidence_plan": {
+            "document": "docs/PHASE_8_P8_2_PRE_ACTION_EVIDENCE_ACQUISITION_PLAN.md",
+            "classification": "PRE_ACTION_EVIDENCE_ACQUISITION_PLAN_ONLY",
+            "evidence_dimensions": [
+                "affiliate_economics",
+                "market_traction",
+                "creator_ecosystem",
+                "content_activity",
+                "audience_channel_fit",
+                "competition_saturation",
+            ],
+            "wave_0_automatic": False,
+            "wave_1_automatic": False,
+            "wave_2_automatic": False,
+            "human_owned_inputs_status": "UNSET",
+            "collector_authority": "NONE",
+            "live_acquisition_authority": "NONE",
+        },
         "boundary": (
-            "TASK-227 records only the Human-selected pilot case and its P7.3-owned proposed "
-            "framing; it does not assert live marketplace facts, authorize evidence acquisition "
-            "or a market test, or execute a real pilot. A fresh Human/Brain decision must define "
-            "any bounded pre-action evidence-acquisition plan, including access, cost, latency, "
-            "fragility, and provenance constraints. No P8.2 or future domain is automatic."
+            "TASK-228 closes only the plan-only P8.2 commitment for the exact P8.1-selected "
+            "case. It acquires no live evidence, fixes no parser, authorizes no collector or "
+            "market test, and executes no real pilot. Human/Brain must explicitly choose "
+            "whether to authorize bounded Wave 0, a Wave-1 acquisition path, manual evidence "
+            "contribution, DEFER, or STOP. Runtime/worker output cannot make that decision; no "
+            "P8.3 or future domain is automatic."
         ),
     }
 
@@ -334,8 +362,11 @@ def test_p7_2_semantics_preserve_triage_evidence_and_history_boundaries():
         assert SELECTED_SOURCE_ID in roadmap
         assert SELECTED_LISTING_REFERENCE in roadmap
         assert "Source identity is not canonical product identity" in roadmap
-        assert "There is no automatic P8.2" in roadmap
-        assert "pre-action evidence-acquisition plan" in roadmap
+        assert "P8.2 Pre-Action Evidence Acquisition Plan" in roadmap
+        assert "PRE_ACTION_EVIDENCE_ACQUISITION_PLAN_ONLY" in roadmap
+        assert TASK_227_SOURCE_SHA in roadmap
+        assert "P8.3 is neither automatic nor pending" in roadmap
+        assert "HUMAN_BRAIN_BOUNDED_EVIDENCE_ACQUISITION_AUTHORIZATION" in roadmap
         assert "P6.2 remains PARKED" in roadmap
         assert "P6.4-P6.6 remain DEFERRED" in roadmap
         for milestone in ("P7.6", "P7.7"):
@@ -562,7 +593,7 @@ def test_p8_0_is_one_composition_only_authority_and_human_owned_pilot_handoff():
     assert completed["TASK-226"]["real_pilot_executed"] is False
     assert state["active_track"]["next_milestone"] is None
     assert state["pending_commitments"] == []
-    assert state["post_p8_planning_handoff"]["automatic_p8_2"] is False
+    assert state["post_p8_planning_handoff"]["automatic_p8_3"] is False
 
 
 def test_p8_1_records_selection_only_and_preserves_pre_action_boundaries():
@@ -618,10 +649,90 @@ def test_p8_1_records_selection_only_and_preserves_pre_action_boundaries():
     assert selected["selection_status"] == "SELECTED"
     assert selected["real_pilot_executed"] is False
     assert state["post_p8_planning_handoff"]["destination"] == (
-        "HUMAN_BRAIN_PRE_ACTION_EVIDENCE_ACQUISITION_PLANNING"
+        "HUMAN_BRAIN_BOUNDED_EVIDENCE_ACQUISITION_AUTHORIZATION"
     )
     assert state["post_p8_planning_handoff"]["automatic_next"] is False
-    assert state["post_p8_planning_handoff"]["automatic_p8_2"] is False
+    assert state["post_p8_planning_handoff"]["automatic_p8_3"] is False
+    assert state["active_track"]["next_milestone"] is None
+    assert state["pending_commitments"] == []
+
+
+def test_p8_2_is_plan_only_and_preserves_evidence_and_action_boundaries():
+    text = P8_2_EVIDENCE_PLAN_FILE.read_text(encoding="utf-8")
+
+    for required in (
+        "PRE_ACTION_EVIDENCE_ACQUISITION_PLAN_ONLY",
+        "p8-pilot-001-led-motion-tiktok-vn",
+        SELECTED_SOURCE_ID,
+        SELECTED_LISTING_REFERENCE,
+        "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY",
+        "WAVE_0_COMPATIBILITY_PREREQUISITE",
+        "WAVE_1_MINIMUM_DECISION_EVIDENCE",
+        "WAVE_2_CONDITIONAL_EVIDENCE",
+        "/vn/pdp/<slug>/<id>",
+        "not the selected `/vn/pdp/<slug>/<id>` form",
+        "TASK-228 does\nnot fix either parser",
+        "Technical\ncapability does not authorize use",
+        "Human/operator owns login",
+        "zero automatic CAPTCHA solving",
+        "explicit external job root",
+        "Human reviews any `READY` capture",
+        "Runtime or worker output\ncannot make that decision",
+        "P8.3 is neither\nautomatic nor pending",
+    ):
+        assert required in text
+
+    dimensions = (
+        "affiliate_economics",
+        "market_traction",
+        "creator_ecosystem",
+        "content_activity",
+        "audience_channel_fit",
+        "competition_saturation",
+    )
+    dimension_section = text.split(
+        "## 2. Fixed P7.4 evidence-dimension boundary", 1
+    )[1].split("## 3.", 1)[0]
+    assert [
+        match.group(1)
+        for match in re.finditer(r"^\d+\. `([a-z_]+)`$", dimension_section, re.MULTILINE)
+    ] == list(dimensions)
+
+    for inquiry in re.split(r"^### W[12]-[A-Z] — ", text, flags=re.MULTILINE)[1:]:
+        inquiry = inquiry.split("\n## ", 1)[0]
+        for consideration in (
+            "**Expected decision impact:**",
+            "**Uncertainty reduction:**",
+            "**Cost:**",
+            "**Latency:**",
+            "**Access risk:**",
+            "**Fragility:**",
+            "**Reliability:**",
+            "**Opportunity cost:**",
+            "**Decision-deadline consideration:**",
+        ):
+            assert consideration in inquiry
+
+    for forbidden in (
+        "universal numeric VOI score",
+        "evidence-priority score",
+        "acquisition-order authority",
+    ):
+        assert forbidden in text
+
+    state = load_yaml(ROADMAP_FILE)
+    handoff = state["post_p8_planning_handoff"]
+    assert handoff["destination"] == (
+        "HUMAN_BRAIN_BOUNDED_EVIDENCE_ACQUISITION_AUTHORIZATION"
+    )
+    assert handoff["automatic_next"] is False
+    assert handoff["automatic_p8_3"] is False
+    assert handoff["real_pilot_executed"] is False
+    assert handoff["live_evidence_acquired"] is False
+    assert handoff["evidence_plan"]["evidence_dimensions"] == list(dimensions)
+    assert handoff["evidence_plan"]["human_owned_inputs_status"] == "UNSET"
+    assert handoff["evidence_plan"]["collector_authority"] == "NONE"
+    assert handoff["evidence_plan"]["live_acquisition_authority"] == "NONE"
     assert state["active_track"]["next_milestone"] is None
     assert state["pending_commitments"] == []
 
@@ -844,9 +955,29 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
         "milestone_id": "P8.1",
         "title": "Real Decision Pilot Selection",
         "status": "DONE",
+        "source_sha": TASK_227_SOURCE_SHA,
         "completion_basis": "PUBLICATION_GATED",
         "classification": "PILOT_CASE_SELECTION_ONLY",
         "selection_owner": "HUMAN",
+        "real_pilot_executed": False,
+        "effective_only_when": {
+            "semantic_review": "PASS",
+            "published_source": "EXACT_REVIEWED_CANDIDATE",
+            "canonical_main_equals_reviewed_candidate": True,
+        },
+    }
+    assert completed["TASK-228"] == {
+        "task_id": "TASK-228",
+        "task_revision": 1,
+        "track_id": "P8_PRE_ACTION_EVIDENCE_ACQUISITION_PLANNING",
+        "milestone_id": "P8.2",
+        "title": "Pre-Action Evidence Acquisition Plan",
+        "status": "DONE",
+        "completion_basis": "PUBLICATION_GATED",
+        "classification": "PRE_ACTION_EVIDENCE_ACQUISITION_PLAN_ONLY",
+        "planning_owner": "HUMAN_BRAIN",
+        "exact_case_preserved": True,
+        "live_evidence_acquired": False,
         "real_pilot_executed": False,
         "effective_only_when": {
             "semantic_review": "PASS",

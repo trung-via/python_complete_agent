@@ -46,21 +46,23 @@ planning_handoff:
     semantic reconciliation without reinterpreting TASK-191 or changing TASK-213 history.
 
 active_track:
-  id: P8_REAL_COMMERCE_DECISION_PILOT_SELECTION
-  title: P8 Real Commerce Decision Pilot Selection
+  id: P8_PRE_ACTION_EVIDENCE_ACQUISITION_PLANNING
+  title: P8 Pre-Action Evidence Acquisition Planning
   priority_owner: HUMAN
   status: DONE
   completion_basis: PUBLICATION_GATED
-  sequence_status: COMPLETE_ON_EXACT_TASK_227_SOURCE_PUBLICATION
+  sequence_status: COMPLETE_ON_EXACT_TASK_228_SOURCE_PUBLICATION
   current_milestone:
-    id: P8.1
-    task_id: TASK-227
-    title: Real Decision Pilot Selection
+    id: P8.2
+    task_id: TASK-228
+    title: Pre-Action Evidence Acquisition Plan
     status: DONE
     completion_basis: PUBLICATION_GATED
-    classification: PILOT_CASE_SELECTION_ONLY
-    selection_owner: HUMAN
+    classification: PRE_ACTION_EVIDENCE_ACQUISITION_PLAN_ONLY
+    planning_owner: HUMAN_BRAIN
     real_pilot_executed: false
+    live_evidence_acquired: false
+    automatic_progression: false
     effective_only_when:
       semantic_review: PASS
       published_source: EXACT_REVIEWED_CANDIDATE
@@ -85,9 +87,9 @@ post_p7_planning_handoff:
     outcome, roadmap, or future-domain authority into P8.0.
 
 post_p8_planning_handoff:
-  destination: HUMAN_BRAIN_PRE_ACTION_EVIDENCE_ACQUISITION_PLANNING
-  status: EFFECTIVE_ON_EXACT_TASK_227_SOURCE_PUBLICATION
-  completed_commitment: P8.1_REAL_DECISION_PILOT_SELECTION
+  destination: HUMAN_BRAIN_BOUNDED_EVIDENCE_ACQUISITION_AUTHORIZATION
+  status: EFFECTIVE_ON_EXACT_TASK_228_SOURCE_PUBLICATION
+  completed_commitment: P8.2_PRE_ACTION_EVIDENCE_ACQUISITION_PLAN
   actual_real_decision_case:
     context_id: p8-pilot-001-led-motion-tiktok-vn
     record_type: PILOT_CASE_SELECTION_ONLY
@@ -102,14 +104,31 @@ post_p8_planning_handoff:
     real_pilot_executed: false
   next_milestone: null
   automatic_next: false
-  automatic_p8_2: false
+  automatic_p8_3: false
   real_pilot_executed: false
+  live_evidence_acquired: false
+  evidence_plan:
+    document: docs/PHASE_8_P8_2_PRE_ACTION_EVIDENCE_ACQUISITION_PLAN.md
+    classification: PRE_ACTION_EVIDENCE_ACQUISITION_PLAN_ONLY
+    evidence_dimensions:
+      - affiliate_economics
+      - market_traction
+      - creator_ecosystem
+      - content_activity
+      - audience_channel_fit
+      - competition_saturation
+    wave_0_automatic: false
+    wave_1_automatic: false
+    wave_2_automatic: false
+    human_owned_inputs_status: UNSET
+    collector_authority: NONE
+    live_acquisition_authority: NONE
   boundary: >-
-    TASK-227 records only the Human-selected pilot case and its P7.3-owned proposed framing;
-    it does not assert live marketplace facts, authorize evidence acquisition or a market
-    test, or execute a real pilot. A fresh Human/Brain decision must define any bounded
-    pre-action evidence-acquisition plan, including access, cost, latency, fragility, and
-    provenance constraints. No P8.2 or future domain is automatic.
+    TASK-228 closes only the plan-only P8.2 commitment for the exact P8.1-selected case. It
+    acquires no live evidence, fixes no parser, authorizes no collector or market test, and
+    executes no real pilot. Human/Brain must explicitly choose whether to authorize bounded
+    Wave 0, a Wave-1 acquisition path, manual evidence contribution, DEFER, or STOP.
+    Runtime/worker output cannot make that decision; no P8.3 or future domain is automatic.
 
 completed_milestones:
   - task_id: TASK-192
@@ -279,9 +298,26 @@ completed_milestones:
     milestone_id: P8.1
     title: Real Decision Pilot Selection
     status: DONE
+    source_sha: d2752d69c701dd2483ea30f52be3385b5137e008
     completion_basis: PUBLICATION_GATED
     classification: PILOT_CASE_SELECTION_ONLY
     selection_owner: HUMAN
+    real_pilot_executed: false
+    effective_only_when:
+      semantic_review: PASS
+      published_source: EXACT_REVIEWED_CANDIDATE
+      canonical_main_equals_reviewed_candidate: true
+  - task_id: TASK-228
+    task_revision: 1
+    track_id: P8_PRE_ACTION_EVIDENCE_ACQUISITION_PLANNING
+    milestone_id: P8.2
+    title: Pre-Action Evidence Acquisition Plan
+    status: DONE
+    completion_basis: PUBLICATION_GATED
+    classification: PRE_ACTION_EVIDENCE_ACQUISITION_PLAN_ONLY
+    planning_owner: HUMAN_BRAIN
+    exact_case_preserved: true
+    live_evidence_acquired: false
     real_pilot_executed: false
     effective_only_when:
       semantic_review: PASS
