@@ -25,9 +25,11 @@ TASK-190 is CLOSED / PUBLISHED at candidate `22d8837e5955ed78185426f293e874625a3
 Following completion of the post-publication Human review gate accepting one READY
 `discovery_capture_bundle.json`, TASK-191/P7.1 is DONE / PUBLISHED at
 `40da098b3b0dcf3d1994fc510dd55717b81a2f67`, having frozen that accepted bundle into
-repository fixtures and recorded the deterministic measured baseline offline. P7 is now
-the active product track under the approved P7.2-P7.7 sequence; P6.4-P6.6 remain
-DEFERRED / UNIMPLEMENTED.
+repository fixtures and recorded the deterministic measured baseline offline. P7.2-P7.7 is
+DONE through exact published TASK-225 source `6302dd7d01be90624d5ed0072cffbc3c23f2e4a2`.
+Fresh Human/Brain selection established P8.0 Real Commerce Decision Loop Composition as a
+publication-gated DONE contract under TASK-226; it does not execute a real pilot and selects no
+automatic successor. P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
 
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
 
@@ -415,10 +417,23 @@ evidence; P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
   lifecycle state, automatic decision, Product Intelligence policy mutation, or scalability truth.
 
 The Human-approved P7.2-P7.7 sequence becomes complete only after source-only publication of the
-exact reviewed TASK-225 candidate. There is no P7.8, no pending P7 commitment, and no automatic P7
-NEXT. Subsequent product sequencing requires fresh Brain/Human interpretation; Runtime, worker,
-measurement, score, or assessment state cannot choose it. See
-`docs/PHASE_7_P7_7_CALIBRATION_WINNER_VALIDATION.md` for the current semantic boundary.
+exact reviewed TASK-225 candidate `6302dd7d01be90624d5ed0072cffbc3c23f2e4a2`. There is no P7.8
+or automatic P7 successor. Fresh Human/Brain interpretation selected the bounded P8.0 Real Commerce
+Decision Loop Composition contract as the next product commitment without reopening or transferring
+any P7 or Product Intelligence authority.
+
+- **P8.0 Real Commerce Decision Loop Composition (TASK-226 — publication-gated DONE; composition contract only)**:
+  establishes `COMMERCE_DECISION_LOOP_P8_0` as one factory-only, pure lineage-composition and
+  representation-gap authority over exact P7.3-P7.7 inputs and an optional opaque external decision
+  authorization reference. Composition != authority; representation != sufficiency; completeness !=
+  real-world success. TASK-226 freezes the contract and does not execute a real pilot, authorize an
+  action, perform a market test, attribute an outcome, or select a future intelligence domain.
+
+On exact reviewed TASK-226 source publication, P8.0 is DONE with no automatic P8.1 or other NEXT.
+The next commitment is null until Human/Brain explicitly selects one actual real commerce decision
+case and legitimate external decision/action lineage. Runtime, workers, component gaps, scores,
+outcomes, and assessment dispositions cannot auto-advance that handoff. See
+`docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md` for the composition boundary.
 
 
 See `docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md` for the audit and boundary.

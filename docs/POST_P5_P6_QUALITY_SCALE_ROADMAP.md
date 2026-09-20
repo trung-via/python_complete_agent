@@ -1,6 +1,12 @@
 # Post-P5 P6 Quality and Scale Roadmap
 
 Status: **P6.0, P6.1, and P6.3 are CLOSED. TASK-170 / P6.1d is CLOSED / PUBLISHED at candidate `0781e0810d161ad1a4936c0e3ea31aada5704da1`. P6.2 is PARKED / NOT JUSTIFIED BY CURRENT EVIDENCE and remains reopenable from future evidence. P6.3 is CLOSED with TASK-171 / P6.3a CLOSED / PUBLISHED at candidate `3a33748905154b4822cfc164999e5c57780e67f2`, TASK-172 / P6.3b source hardening CLOSED / PUBLISHED at `63525151e4dbb7a1c30454a301e3c0e20ae771e9`, TASK-173 live-DOM hardening CLOSED / PUBLISHED at `f91dfe0f900664c835fef86bdf5d6c75879dbbdc`, TASK-174 structural-depth hardening CLOSED / PUBLISHED at `8c5a0b2a6a935c5bbecff5cde7b1a32956aa8d32`, TASK-175 same-target acquisition-continuity hardening CLOSED / PUBLISHED at candidate `61f78f8ac1cd14e6e110552ba638eb9ca149403f`, and TASK-176 recording the bounded K550 live certification passage. The fresh architecture/value audit selects the separately justified P7 Commerce Opportunity Intelligence branch. TASK-181/P7.0 is CLOSED / PUBLISHED at `9e835ed2c551c2fa3a8b66b82caa238bd41b152c`. TASK-182/RUN-182-006 remains BLOCKED / UNPUBLISHED. TASK-185 is CLOSED / PUBLISHED at `6b03dc14f88ddb98baeb6ae726f0dd913b323ba1`. TASK-186/RUN-186-003 is BLOCKED / UNPUBLISHED with no source candidate. TASK-187 is CLOSED / PUBLISHED at `857e6b5d0009e9327e1a92d5f62b91432e28f150`. TASK-188/RUN-188-004 is BLOCKED / UNPUBLISHED with no source candidate; its diagnostics are not baseline truth. TASK-189 is CLOSED / PUBLISHED at candidate `9fa1b2583380e1b6378e5aba3d720c2e78a4b9d4`. TASK-190 is CLOSED / PUBLISHED at `22d8837e5955ed78185426f293e874625a34d469`. Following completion of the post-publication Human review gate accepting one READY `discovery_capture_bundle.json`, TASK-191 is the fresh offline P7.1 baseline successor, freezing that accepted bundle into repository fixtures and recording the deterministic measured baseline offline. P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.**
+
+P7.2-P7.7 is DONE through exact published TASK-225 source
+`6302dd7d01be90624d5ed0072cffbc3c23f2e4a2`. Fresh Human/Brain selection established
+P8.0 Real Commerce Decision Loop Composition as a publication-gated DONE contract under TASK-226;
+it does not execute a real pilot or select an automatic successor. P6.2 remains PARKED and
+P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
 Scope: Python Agent product architecture post-P5; AIOS-renew remains execution substrate only.
 
 ## 1. Canonical Post-P5 Architecture Audit
@@ -305,10 +311,24 @@ remain DEFERRED / UNIMPLEMENTED.
   lifecycle state, automatic decision, Product Intelligence policy mutation, or scalability truth.
 
 The Human-approved P7.2-P7.7 sequence becomes complete only after source-only publication of the
-exact reviewed TASK-225 candidate. There is no P7.8, no pending P7 commitment, and no automatic P7
-NEXT. Subsequent product sequencing requires fresh Brain/Human interpretation; Runtime, worker,
-measurement, score, or assessment state cannot choose it. See
-`docs/PHASE_7_P7_7_CALIBRATION_WINNER_VALIDATION.md` for the current semantic boundary.
+exact reviewed TASK-225 candidate `6302dd7d01be90624d5ed0072cffbc3c23f2e4a2`. There is no P7.8
+or automatic P7 successor. Fresh Human/Brain interpretation selected the bounded P8.0 Real Commerce
+Decision Loop Composition contract as the next product commitment without reopening P6.2, P6.4-P6.6,
+P7, or Product Intelligence authority.
+
+- **P8.0 Real Commerce Decision Loop Composition (TASK-226 — publication-gated DONE; composition contract only)**:
+  establishes `COMMERCE_DECISION_LOOP_P8_0` as one factory-only, pure lineage-composition and
+  representation-gap authority over exact P7.3-P7.7 inputs and an optional opaque external decision
+  authorization reference. Composition != authority; representation != sufficiency; completeness !=
+  real-world success. TASK-226 freezes the contract and does not execute a real pilot, authorize an
+  action, perform a market test, attribute an outcome, or select a future intelligence domain.
+
+On exact reviewed TASK-226 source publication, P8.0 is DONE with no automatic P8.1 or other NEXT.
+P6.2 remains PARKED and P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED. The next commitment is null until
+Human/Brain explicitly selects one actual real commerce decision case and legitimate external
+decision/action lineage. Runtime, workers, component gaps, scores, outcomes, and assessment
+dispositions cannot auto-advance that handoff. See
+`docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md` for the composition boundary.
 
 
 The complete audit and P7.0 boundary are recorded in

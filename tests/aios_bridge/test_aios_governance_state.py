@@ -37,6 +37,11 @@ P7_7_SEMANTICS_FILE = (
     / "docs"
     / "PHASE_7_P7_7_CALIBRATION_WINNER_VALIDATION.md"
 )
+P8_0_COMPOSITION_FILE = (
+    REPO_ROOT
+    / "docs"
+    / "PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md"
+)
 ROADMAP_DOCS = (
     REPO_ROOT / "docs" / "POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
     REPO_ROOT / "docs" / "POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
@@ -69,6 +74,7 @@ TASK_215_SOURCE_SHA = "dc4c4c8e6f3f4d6eb3441ff4873632e5f51655f9"
 TASK_222_SOURCE_SHA = "ca6da00e9e58f66e25f2f6edcb416677bed70b6d"
 TASK_223_SOURCE_SHA = "3c67a828857f74466883463abf35a17ecdcc6775"
 TASK_224_SOURCE_SHA = "d361361958fbcbe791c04aefbeba3d186c5f9608"
+TASK_225_SOURCE_SHA = "6302dd7d01be90624d5ed0072cffbc3c23f2e4a2"
 ACTIVE_TRACK_ID = "AIOS_FULL_DOWNSTREAM_ADOPTION_AND_GOVERNANCE_REBUILD"
 CLOSURE_MILESTONE_ID = "GOVERNANCE_FOUNDATION_CLOSURE_AND_P7_RETURN"
 HISTORICAL_CONFORMANCE_NEXT_COMMITMENT = "PROJECT_CONTRACT_REBUILD"
@@ -118,7 +124,7 @@ def values_for_key(value: object, key: str) -> list[object]:
     return matches
 
 
-def test_roadmap_closes_approved_p7_sequence_without_automatic_next():
+def test_roadmap_closes_p8_composition_without_automatic_successor():
     state = load_yaml(ROADMAP_FILE)
     assert state["authority"] == {
         "owner": "BRAIN",
@@ -134,23 +140,22 @@ def test_roadmap_closes_approved_p7_sequence_without_automatic_next():
         "status": "DONE",
     }
     assert state["active_track"] == {
-        "id": "P7_COMMERCE_OPPORTUNITY_INTELLIGENCE",
-        "title": "P7 Commerce Opportunity Intelligence",
+        "id": "P8_REAL_COMMERCE_DECISION_LOOP_COMPOSITION",
+        "title": "P8 Real Commerce Decision Loop Composition",
         "priority_owner": "HUMAN",
         "status": "DONE",
         "completion_basis": "PUBLICATION_GATED",
-        "sequence_status": "COMPLETE_ON_EXACT_TASK_225_SOURCE_PUBLICATION",
+        "sequence_status": "COMPLETE_ON_EXACT_TASK_226_SOURCE_PUBLICATION",
         "current_milestone": {
-            "id": "P7.7",
-            "task_id": "TASK-225",
-            "title": "Calibration & Winner Validation",
+            "id": "P8.0",
+            "task_id": "TASK-226",
+            "title": "Real Commerce Decision Loop Composition",
             "status": "DONE",
             "completion_basis": "PUBLICATION_GATED",
-            "final_milestone_in_approved_sequence": True,
-            "semantic_owner": (
-                "src/commerce_opportunity_intelligence/calibration_and_winner_validation.py"
-            ),
-            "authority_identifier": "COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_7",
+            "composition_contract_only": True,
+            "real_pilot_executed": False,
+            "semantic_owner": "src/commerce_decision_loop/real_decision_composition.py",
+            "authority_identifier": "COMMERCE_DECISION_LOOP_P8_0",
             "effective_only_when": {
                 "semantic_review": "PASS",
                 "published_source": "EXACT_REVIEWED_CANDIDATE",
@@ -201,16 +206,36 @@ def test_roadmap_closes_approved_p7_sequence_without_automatic_next():
         ),
     }
     assert state["post_p7_planning_handoff"] == {
-        "destination": "FRESH_BRAIN_HUMAN_INTERPRETATION",
-        "status": "EFFECTIVE_ON_EXACT_TASK_225_SOURCE_PUBLICATION",
+        "destination": "P8_REAL_COMMERCE_DECISION_LOOP_COMPOSITION",
+        "status": "SELECTED_BY_BRAIN_AND_HUMAN",
+        "selected_commitment": "P8.0_REAL_COMMERCE_DECISION_LOOP_COMPOSITION",
+        "selection_basis": "FRESH_POST_P7_BRAIN_HUMAN_INTERPRETATION",
+        "p7_completion_source_sha": TASK_225_SOURCE_SHA,
         "pending_p7_commitment": None,
         "automatic_next": False,
         "invented_p7_8": False,
         "boundary": (
-            "The Human-approved P7.2-P7.7 sequence closes only when the safe Publisher publishes "
-            "exactly the reviewed TASK-225 source candidate. No Runtime, worker, evidence, outcome, "
-            "score, or assessment disposition selects a successor. Subsequent product sequencing "
-            "requires fresh Brain/Human interpretation."
+            "P7.2-P7.7 is complete through the exact published TASK-225 source candidate. Fresh "
+            "Human/Brain interpretation selected only the bounded P8.0 composition contract; this "
+            "selection does not reopen P7 or transmit P7, Product Intelligence, decision, action, "
+            "outcome, roadmap, or future-domain authority into P8.0."
+        ),
+    }
+    assert state["post_p8_planning_handoff"] == {
+        "destination": "HUMAN_BRAIN_REAL_DECISION_PILOT_SELECTION",
+        "status": "EFFECTIVE_ON_EXACT_TASK_226_SOURCE_PUBLICATION",
+        "completed_commitment": "P8.0_REAL_COMMERCE_DECISION_LOOP_COMPOSITION",
+        "actual_real_decision_case": None,
+        "next_milestone": None,
+        "automatic_next": False,
+        "automatic_p8_1": False,
+        "real_pilot_executed_by_task_226": False,
+        "boundary": (
+            "TASK-226 freezes the composition contract and does not execute a real pilot. After "
+            "exact reviewed source publication, one actual commerce decision case and legitimate "
+            "external decision/action lineage require fresh Human/Brain selection. No Runtime, "
+            "worker, gap report, represented component, evidence, outcome, score, or assessment "
+            "disposition may select or authorize a successor or future intelligence domain."
         ),
     }
 
@@ -273,8 +298,16 @@ def test_p7_2_semantics_preserve_triage_evidence_and_history_boundaries():
         assert roadmap.count("P7.7 Calibration & Winner Validation") == 1
         assert "TASK-225 — publication-gated DONE; current/final milestone" in roadmap
         assert "There is no P7.8" in roadmap
-        assert "no automatic P7" in roadmap
-        assert "fresh Brain/Human interpretation" in roadmap
+        assert "automatic P7 successor" in roadmap
+        assert "Fresh Human/Brain interpretation" in roadmap
+        assert TASK_225_SOURCE_SHA in roadmap
+        assert "P8.0 Real Commerce Decision Loop Composition" in roadmap
+        assert "TASK-226 — publication-gated DONE; composition contract only" in roadmap
+        assert "does not execute a real pilot" in roadmap
+        assert "no automatic P8.1 or other NEXT" in roadmap
+        assert "Human/Brain explicitly selects one actual real commerce decision" in roadmap
+        assert "P6.2 remains PARKED" in roadmap
+        assert "P6.4-P6.6 remain DEFERRED" in roadmap
         for milestone in ("P7.6", "P7.7"):
             assert f"{milestone} " in roadmap
         assert roadmap.count("— NOT_DONE") == 0
@@ -454,6 +487,52 @@ def test_p7_7_does_not_change_roadmap_or_aios_authority():
     assert "P7.8" in serialized and "There is no P7.8" in serialized
     assert ACTIVE_PIN in serialized
     assert "TASK-207 revision-8 downstream conformance unchanged" in serialized
+
+
+def test_p8_0_is_one_composition_only_authority_and_human_owned_pilot_handoff():
+    text = P8_0_COMPOSITION_FILE.read_text(encoding="utf-8")
+    for required in (
+        "COMMERCE_DECISION_LOOP_P8_0",
+        "Composition != authority",
+        "Representation != sufficiency",
+        "Missing component != authorization to build it",
+        "VOI `CONTINUE`\n  != authorization",
+        "decision_authorization_ref != decision authority",
+        "Action lineage != action\n  authority",
+        "Outcome != attribution",
+        "Winner assessment != decision",
+        "Composition completeness != real-world\n+success",
+        "synthetic fixture != real pilot",
+        "does not select Media/Creative Intelligence",
+        "Human/Brain selection",
+        TASK_225_SOURCE_SHA,
+        EXPECTED_PIN,
+    ):
+        assert required in text
+
+    production_files = tuple(sorted((REPO_ROOT / "src").rglob("*.py")))
+    owners = [
+        path
+        for path in production_files
+        if "COMMERCE_DECISION_LOOP_P8_0" in path.read_text(encoding="utf-8")
+    ]
+    assert owners == [
+        REPO_ROOT / "src" / "commerce_decision_loop" / "__init__.py",
+        REPO_ROOT
+        / "src"
+        / "commerce_decision_loop"
+        / "real_decision_composition.py",
+    ]
+
+    state = load_yaml(ROADMAP_FILE)
+    completed = {item["task_id"]: item for item in state["completed_milestones"]}
+    assert completed["TASK-225"]["source_sha"] == TASK_225_SOURCE_SHA
+    assert completed["TASK-226"]["composition_contract_only"] is True
+    assert completed["TASK-226"]["real_pilot_executed"] is False
+    assert state["active_track"]["next_milestone"] is None
+    assert state["pending_commitments"] == []
+    assert state["post_p8_planning_handoff"]["automatic_p8_1"] is False
+    assert state["post_p8_planning_handoff"]["actual_real_decision_case"] is None
 
 
 
@@ -639,8 +718,27 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
         "milestone_id": "P7.7",
         "title": "Calibration & Winner Validation",
         "status": "DONE",
+        "source_sha": TASK_225_SOURCE_SHA,
         "completion_basis": "PUBLICATION_GATED",
         "final_milestone_in_approved_sequence": True,
+        "effective_only_when": {
+            "semantic_review": "PASS",
+            "published_source": "EXACT_REVIEWED_CANDIDATE",
+            "canonical_main_equals_reviewed_candidate": True,
+        },
+    }
+    assert completed["TASK-226"] == {
+        "task_id": "TASK-226",
+        "task_revision": 1,
+        "track_id": "P8_REAL_COMMERCE_DECISION_LOOP_COMPOSITION",
+        "milestone_id": "P8.0",
+        "title": "Real Commerce Decision Loop Composition",
+        "status": "DONE",
+        "completion_basis": "PUBLICATION_GATED",
+        "composition_contract_only": True,
+        "real_pilot_executed": False,
+        "semantic_owner": "src/commerce_decision_loop/real_decision_composition.py",
+        "authority_identifier": "COMMERCE_DECISION_LOOP_P8_0",
         "effective_only_when": {
             "semantic_review": "PASS",
             "published_source": "EXACT_REVIEWED_CANDIDATE",

@@ -46,21 +46,22 @@ planning_handoff:
     semantic reconciliation without reinterpreting TASK-191 or changing TASK-213 history.
 
 active_track:
-  id: P7_COMMERCE_OPPORTUNITY_INTELLIGENCE
-  title: P7 Commerce Opportunity Intelligence
+  id: P8_REAL_COMMERCE_DECISION_LOOP_COMPOSITION
+  title: P8 Real Commerce Decision Loop Composition
   priority_owner: HUMAN
   status: DONE
   completion_basis: PUBLICATION_GATED
-  sequence_status: COMPLETE_ON_EXACT_TASK_225_SOURCE_PUBLICATION
+  sequence_status: COMPLETE_ON_EXACT_TASK_226_SOURCE_PUBLICATION
   current_milestone:
-    id: P7.7
-    task_id: TASK-225
-    title: Calibration & Winner Validation
+    id: P8.0
+    task_id: TASK-226
+    title: Real Commerce Decision Loop Composition
     status: DONE
     completion_basis: PUBLICATION_GATED
-    final_milestone_in_approved_sequence: true
-    semantic_owner: src/commerce_opportunity_intelligence/calibration_and_winner_validation.py
-    authority_identifier: COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_7
+    composition_contract_only: true
+    real_pilot_executed: false
+    semantic_owner: src/commerce_decision_loop/real_decision_composition.py
+    authority_identifier: COMMERCE_DECISION_LOOP_P8_0
     effective_only_when:
       semantic_review: PASS
       published_source: EXACT_REVIEWED_CANDIDATE
@@ -70,16 +71,35 @@ active_track:
 pending_commitments: []
 
 post_p7_planning_handoff:
-  destination: FRESH_BRAIN_HUMAN_INTERPRETATION
-  status: EFFECTIVE_ON_EXACT_TASK_225_SOURCE_PUBLICATION
+  destination: P8_REAL_COMMERCE_DECISION_LOOP_COMPOSITION
+  status: SELECTED_BY_BRAIN_AND_HUMAN
+  selected_commitment: P8.0_REAL_COMMERCE_DECISION_LOOP_COMPOSITION
+  selection_basis: FRESH_POST_P7_BRAIN_HUMAN_INTERPRETATION
+  p7_completion_source_sha: 6302dd7d01be90624d5ed0072cffbc3c23f2e4a2
   pending_p7_commitment: null
   automatic_next: false
   invented_p7_8: false
   boundary: >-
-    The Human-approved P7.2-P7.7 sequence closes only when the safe Publisher publishes
-    exactly the reviewed TASK-225 source candidate. No Runtime, worker, evidence, outcome,
-    score, or assessment disposition selects a successor. Subsequent product sequencing
-    requires fresh Brain/Human interpretation.
+    P7.2-P7.7 is complete through the exact published TASK-225 source candidate. Fresh
+    Human/Brain interpretation selected only the bounded P8.0 composition contract; this
+    selection does not reopen P7 or transmit P7, Product Intelligence, decision, action,
+    outcome, roadmap, or future-domain authority into P8.0.
+
+post_p8_planning_handoff:
+  destination: HUMAN_BRAIN_REAL_DECISION_PILOT_SELECTION
+  status: EFFECTIVE_ON_EXACT_TASK_226_SOURCE_PUBLICATION
+  completed_commitment: P8.0_REAL_COMMERCE_DECISION_LOOP_COMPOSITION
+  actual_real_decision_case: null
+  next_milestone: null
+  automatic_next: false
+  automatic_p8_1: false
+  real_pilot_executed_by_task_226: false
+  boundary: >-
+    TASK-226 freezes the composition contract and does not execute a real pilot. After
+    exact reviewed source publication, one actual commerce decision case and legitimate
+    external decision/action lineage require fresh Human/Brain selection. No Runtime,
+    worker, gap report, represented component, evidence, outcome, score, or assessment
+    disposition may select or authorize a successor or future intelligence domain.
 
 completed_milestones:
   - task_id: TASK-192
@@ -220,8 +240,24 @@ completed_milestones:
     milestone_id: P7.7
     title: Calibration & Winner Validation
     status: DONE
+    source_sha: 6302dd7d01be90624d5ed0072cffbc3c23f2e4a2
     completion_basis: PUBLICATION_GATED
     final_milestone_in_approved_sequence: true
+    effective_only_when:
+      semantic_review: PASS
+      published_source: EXACT_REVIEWED_CANDIDATE
+      canonical_main_equals_reviewed_candidate: true
+  - task_id: TASK-226
+    task_revision: 1
+    track_id: P8_REAL_COMMERCE_DECISION_LOOP_COMPOSITION
+    milestone_id: P8.0
+    title: Real Commerce Decision Loop Composition
+    status: DONE
+    completion_basis: PUBLICATION_GATED
+    composition_contract_only: true
+    real_pilot_executed: false
+    semantic_owner: src/commerce_decision_loop/real_decision_composition.py
+    authority_identifier: COMMERCE_DECISION_LOOP_P8_0
     effective_only_when:
       semantic_review: PASS
       published_source: EXACT_REVIEWED_CANDIDATE
