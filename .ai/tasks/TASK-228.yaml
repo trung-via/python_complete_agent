@@ -1,0 +1,288 @@
+task_id: TASK-228
+revision: 1
+
+goal: >
+  Establish P8.2 Pre-Action Evidence Acquisition Plan for the exact Human-selected
+  TikTok Shop Vietnam pilot listing without acquiring evidence, modifying collectors,
+  authorizing browser/session access, authorizing spend or market action, or selecting
+  any future intelligence domain. The plan must separate existing capabilities from
+  capability gaps, define bounded evidence waves and stop conditions using P7.5
+  Value-of-Information principles, preserve exact-listing provenance, and return the
+  next live-acquisition authorization decision to Human/Brain.
+
+problem: >
+  TASK-227 / P8.1 is exactly published and records one selected listing:
+  source ID 1731381331718341815 and stable listing reference
+  https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815.
+  Before any real pilot action, Python Agent needs an explicit plan for what evidence
+  could materially change the Human decision, which existing authority/capability may
+  supply it, which unknowns should remain uncollected until justified, what operational
+  risks apply, and when acquisition must stop. Architecture audit also found that the
+  selected TikTok Shop URL uses /vn/pdp/<slug>/<id>, while both current TikTok
+  product-ID parsers recognize /product/<id>, /item/<id>, or query identifiers but not
+  this /pdp path. Therefore exact-listing deep capture is not yet trustworthy enough to
+  authorize as pilot evidence until a later separately-authorized compatibility fix
+  preserves the selected source ID.
+
+assumptions:
+  - Canonical main at authoring is d2752d69c701dd2483ea30f52be3385b5137e008, the exact reviewed and published TASK-227 source candidate.
+  - TASK-227 / P8.1 is DONE as PILOT_CASE_SELECTION_ONLY; real_pilot_executed is false; next_milestone is null; pending_commitments is empty.
+  - Human has explicitly selected the P8.2 pre-action evidence-acquisition planning direction after architecture audit.
+  - The selected pilot case remains context_id p8-pilot-001-led-motion-tiktok-vn, source ID 1731381331718341815, product selection label "Đèn LED Cảm Biến Chuyển Động Tự Động Bật Tắt Điều Chỉnh 3 Chế Độ Sáng", marketplace TikTok Shop Vietnam, channel context TikTok Shop Affiliate.
+  - The selected stable listing reference is source identity only, not canonical product identity and not current marketplace truth.
+  - Human has not yet authorized live evidence acquisition, authenticated browser use for this pilot, marketplace scraping, affiliate-account inspection, spend, traffic, content publication, campaign creation, or market testing.
+  - Human has not yet supplied budget, exposure limits, test duration, contribution-margin threshold, success/failure criteria, audience, quality constraints, or risk acceptance.
+  - P7.3 remains the sole owner of DecisionContext and OpportunityHypothesis; P7.4 remains the sole owner of TikTokAffiliateEvidenceProfile; P7.5 remains the sole owner of VOI planning; P7.6 remains the sole owner of market-test evidence; P7.7 remains the sole owner of winner validation; P8.0 remains the sole decision-loop composition owner.
+  - Product Intelligence remains the sole owner of ProductCandidateSnapshot, SignalEvidence, Product Source Pack, discovery, scoring/ranking, approval, identity/catalog, persistence and product-truth semantics.
+  - Existing TikTokDiscoveryAdapter can observe bounded search-card fields such as price, sold_count, rating, review_count and discount where visible, but unavailable affiliate/creator/video/competition/velocity fields remain None rather than fabricated.
+  - Existing TikTokSourceExtractor can acquire typed exact-product source-pack facts/media only when product identity can be safely bound; it is not an affiliate-economics or market-test authority.
+  - Current TikTok product-ID parsing in both src/product_intelligence/adapters/tiktok_parsing.py and src/product_source/platforms/tiktok.py does not recognize the selected /vn/pdp/<slug>/<id> path. This is an observed repository compatibility gap, not authorization to fix it in TASK-228.
+  - Historical P6 live-capture architecture establishes that authenticated marketplace interaction, login/session preparation and CAPTCHA handling are Human/operator-owned external operations; ordinary AIOS engineering verification remains deterministic/offline.
+  - Current downstream AIOS pin and conformance remain edd7d8d92d54900c56442bbfcddb8648ec4d2e09 / TASK-207 revision 8.
+  - Codex remains the Human-selected default Executor.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_7_P7_3_DECISION_CONTEXT_OPPORTUNITY_HYPOTHESIS.md
+    - docs/PHASE_7_P7_4_TIKTOK_AFFILIATE_EVIDENCE_PROFILE.md
+    - docs/PHASE_7_P7_5_VALUE_OF_INFORMATION_PLANNING.md
+    - docs/PHASE_7_P7_6_MARKET_TEST_FUNNEL_EVIDENCE.md
+    - docs/PHASE_7_P7_7_CALIBRATION_WINNER_VALIDATION.md
+    - docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md
+    - docs/PHASE_8_P8_1_REAL_DECISION_PILOT_SELECTION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - docs/PHASE_6_M2_TIKTOK_DISCOVERY.md
+    - docs/PHASE_6_PRODUCT_SOURCE_PACK.md
+    - docs/PHASE_6_P6_1_LIVE_CAPTURE_CHECKPOINT.md
+    - .ai/roadmap-state.yaml
+    - .ai/aios-adoption-state.yaml
+    - .ai/aios-conformance-state.yaml
+    - .ai/tasks/TASK-166.yaml
+    - .ai/tasks/TASK-191.yaml
+    - .ai/tasks/TASK-226.yaml
+    - .ai/tasks/TASK-227.yaml
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - src/product_intelligence/models.py
+    - src/product_intelligence/adapters/tiktok.py
+    - src/product_intelligence/adapters/tiktok_parsing.py
+    - src/product_source/platforms/tiktok.py
+    - src/product_source/models.py
+    - src/product_intelligence/source_evidence_intake.py
+    - src/tools/tiktok_scrape_tool.py
+    - src/commerce_opportunity_intelligence/decision_context.py
+    - src/commerce_opportunity_intelligence/tiktok_affiliate_evidence.py
+    - src/commerce_opportunity_intelligence/value_of_information.py
+    - tests/product_intelligence/test_tiktok_parsing.py
+    - tests/product_source/test_tiktok_source_extractor.py
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - docs/PHASE_8_P8_2_PRE_ACTION_EVIDENCE_ACQUISITION_PLAN.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - Modify any production Python module or test any live marketplace endpoint.
+  - Fix TikTok /pdp URL parsing in this task.
+  - Run TikTokDiscoveryAdapter, TikTokSourceExtractor, TikTokScrapeTool, browser/CDP, Drive, marketplace API, affiliate account UI, provider/LLM, AgentController, or any external acquisition tool.
+  - Create a collector, enrichment router, acquisition scheduler, queue, retry loop, browser automation, CAPTCHA solver, stealth/proxy mechanism, or background worker.
+  - Treat technical collectability as authorization or value.
+  - Treat a missing field or unrepresented P7.4 dimension as authorization to collect it.
+  - Treat search results, similar listings, URL slug text, synthetic fixtures, historical cohorts, or other products as evidence for this exact listing.
+  - Create a new evidence owner, duplicate Product Intelligence fields, duplicate P7.4 profile semantics, or store live evidence in roadmap state.
+  - Authorize Product Intelligence APPROVE, ingestion queue mutation, affiliate participation, campaign/test execution, budget, spend, traffic, creative publication, price/inventory mutation, or any other commerce action.
+  - Invent Human-owned budget, duration, exposure limits, success/failure thresholds, contribution-margin threshold, audience, quality constraints, risk constraints, or decision deadline.
+  - Declare TEST_READY, winner, recommendation, readiness, probability, score, confidence, causal effect, VALIDATED_WINNER, SCALABLE_WINNER, or commercial success.
+  - Automatically select Media/Creative Intelligence, Distribution Intelligence, Commerce Operations Intelligence, Product Intelligence changes, or any other future domain.
+  - Automatically create, authorize, mark NEXT, or make pending P8.3 or any successor.
+  - Modify AIOS pin, adoption/conformance state, workflows, Runtime, Reviewer, Publisher, Manifesto, Constitution, Product Contract, or Project Contract.
+
+constraints:
+  hard:
+    - >
+      Create exactly one P8.2 planning document classified
+      PRE_ACTION_EVIDENCE_ACQUISITION_PLAN_ONLY. It is advisory planning state,
+      not collector configuration, acquisition authorization, execution state,
+      evidence truth, test readiness, or decision authority.
+    - >
+      Bind the plan to the exact P8.1 case:
+      context_id p8-pilot-001-led-motion-tiktok-vn,
+      source ID 1731381331718341815, and stable listing reference
+      https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815.
+      Preserve SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY.
+    - >
+      Preserve exactly six P7.4 evidence dimensions as the semantic organization
+      boundary: affiliate_economics, market_traction, creator_ecosystem,
+      content_activity, audience_channel_fit, competition_saturation.
+      P8.2 may plan questions and acquisition candidates for those dimensions but
+      must not own their evidence or redefine their meaning.
+    - >
+      Define one explicit capability/gap matrix. At minimum record:
+      (1) Product Intelligence already models price, discount, sold_count, rating,
+      review_count, affiliate_commission_rate, estimated_commission_value,
+      creator_count, video_count, similar_listing_count and velocity fields;
+      (2) current TikTok search-card discovery can populate only visible bounded
+      search-card observations and intentionally leaves affiliate/creator/video/
+      competition/velocity fields None when unavailable;
+      (3) TikTokSourceExtractor can produce ProductSourcePack identity/facts/media
+      evidence but is not affiliate economics, creator ecosystem, audience fit,
+      competition or market-test authority;
+      (4) no current canonical live collector is established for exact-listing
+      affiliate eligibility/commission, creator ecosystem, content activity,
+      audience-channel fit or competition saturation for this pilot;
+      (5) technical capability does not authorize use.
+    - >
+      Record the current /pdp exact-identity compatibility blocker precisely:
+      both current TikTok ID parsing surfaces recognize /product/<id>,
+      /item/<id> and supported query IDs but not the selected
+      /vn/pdp/<slug>/<id> form. Therefore no exact-listing ProductSourcePack live
+      acquisition for this pilot may be planned as authorized until a later
+      separately-reviewed narrow compatibility correction proves exact ID binding.
+      P8.2 itself must not modify the parser or prescribe implementation HOW.
+    - >
+      Define WAVE_0_COMPATIBILITY_PREREQUISITE as a later separately-authorized
+      engineering correction only if Human/Brain elects to use existing deep PDP
+      capture for this pilot. It may target exact selected-listing ID compatibility
+      and regression preservation only. It is not marketplace evidence and must not
+      auto-trigger Wave 1.
+    - >
+      Define WAVE_1_MINIMUM_DECISION_EVIDENCE as the smallest pre-action evidence set
+      worth considering before deeper acquisition: exact-listing identity/provenance;
+      current listing/variant price economics where observable; current sold/review/
+      rating market-traction observations where observable; current affiliate
+      eligibility and affiliate commission/estimated commission where legitimately
+      available; exact product/source facts and seller media only if useful to the
+      decision; and inventory/availability only if decision-relevant.
+      Missing Wave-1 evidence remains unknown and must not be replaced with similar listings.
+    - >
+      Define WAVE_2_CONDITIONAL_EVIDENCE as conditional, not automatic:
+      creator ecosystem, content/video activity, audience-channel fit, competition
+      saturation, longitudinal velocity, and deeper contentability/competitive
+      evidence. Wave 2 may be considered only after Wave 1 is reviewed and P7.5-style
+      VOI reasoning concludes that the additional information could materially change
+      the Human decision enough to justify cost, latency and risk.
+    - >
+      For every planned evidence question, the document must state the nine P7.5
+      considerations in qualitative inspectable form: expected decision impact,
+      uncertainty reduction, cost, latency, access risk, fragility, reliability,
+      opportunity cost and decision-deadline consideration. Do not invent a numeric
+      universal VOI score, priority score, ranking, or deadline value.
+    - >
+      Define explicit STOP conditions. At minimum acquisition stops or remains
+      un-authorized when: the evidence is unlikely to change the Human decision;
+      expected benefit does not justify access/cost/latency/risk; provenance cannot
+      be tied to the exact listing; the source requires evasion/bypass; a Human-owned
+      constraint is missing and further marketplace evidence cannot resolve it;
+      evidence is stale/fragile beyond useful interpretation; or the Human decides
+      current uncertainty is acceptable for STOP/DEFER/no-test.
+    - >
+      Define evidence acceptance boundaries for any later live operation:
+      authenticated marketplace interaction occurs outside ordinary AIOS deterministic
+      verification; Human/operator owns login/session/CAPTCHA preparation; no automatic
+      CAPTCHA solving/retry/proxy/stealth; live artifacts remain in an explicit external
+      job root; secrets/cookies/raw HTML/browser profile paths are not persisted into
+      planning state; exact source identity, observation time and provenance remain
+      inspectable; Human reviews any READY capture before a separate deterministic
+      freeze/replay task may use it.
+    - >
+      Separate Human-owned decision inputs from marketplace evidence. Budget, duration,
+      exposure controls, contribution-margin threshold, success/failure criteria,
+      target audience, quality constraints and risk acceptance are not evidence to be
+      scraped and remain unset until Human supplies them. The plan may list them as
+      required decision inputs but must not invent or infer values.
+    - >
+      Preserve the P8.1 falsifiable hypothesis as planning context only:
+      positive contribution margin under an authorized bounded TikTok Shop affiliate
+      market test subject to Human-defined quality, exposure, economic and risk
+      constraints. P8.2 must not define a universal contribution-margin formula or
+      threshold and must not authorize a test.
+    - >
+      Update both canonical roadmaps consistently. Preserve all P1-P8.1 history,
+      P6.2 PARKED, P6.4-P6.6 DEFERRED, exact P8.0 source
+      a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e and exact P8.1 source
+      d2752d69c701dd2483ea30f52be3385b5137e008. Record P8.2 as the explicit
+      Human/Brain-selected planning commitment. On exact TASK-228 publication P8.2
+      becomes DONE, real_pilot_executed remains false, no live evidence is claimed,
+      next_milestone remains null and pending_commitments remains empty.
+    - >
+      Update .ai/roadmap-state.yaml as Brain-owned planning state only. Preserve the
+      exact selected case. After exact TASK-228 publication set the handoff destination
+      to HUMAN_BRAIN_BOUNDED_EVIDENCE_ACQUISITION_AUTHORIZATION, with automatic_next
+      false, automatic_p8_3 false and real_pilot_executed false. The handoff must state
+      that Human/Brain must explicitly choose whether to authorize Wave 0, a Wave-1
+      acquisition path, manual evidence contribution, DEFER, or STOP; Runtime/worker
+      output cannot make that decision.
+    - >
+      Extend governance regression additively to prove: exact P8.1 selected case is
+      preserved; P8.2 is plan-only; six P7.4 dimensions remain externally owned;
+      /pdp compatibility is a blocker not a completed fix; Wave 0/1/2 are not automatic;
+      no live acquisition/test/action authorization is present; Human-owned decision
+      inputs remain unset; no P8.3 is NEXT/pending; and the next handoff remains
+      Human/Brain-owned.
+    - >
+      Preserve every production Python module, every P7/P8.0 production semantic
+      module, AIOS adoption/conformance state, AIOS pin and Governance Foundation
+      documents byte-for-byte. Only the five authorized modify paths may change.
+    - >
+      Verification must be deterministic, offline and non-interactive. No TikTok,
+      browser/CDP, Google Drive, provider/model, network, credentials, local absolute
+      paths, wall clock, random, UUID or mutable external state may be used.
+    - >
+      Executor performs bounded source work only, commits one candidate and returns one
+      structured ResultPackage. Runtime retains canonical verification authority.
+      Executor must not publish, start another operation, perform live acquisition or
+      delegate/background-agent the work.
+
+acceptance:
+  - id: AC1
+    condition: >
+      One plan-only P8.2 document binds exactly to the selected TikTok listing and
+      preserves source-identity, evidence-ownership, decision and action boundaries.
+  - id: AC2
+    condition: >
+      The plan accurately distinguishes current Product Intelligence/TikTok capabilities
+      from unavailable or unproven pilot evidence paths, including the current selected
+      /pdp URL identity compatibility blocker, without modifying production code.
+  - id: AC3
+    condition: >
+      The plan defines bounded Wave 0 compatibility prerequisite, Wave 1 minimum
+      decision evidence and Wave 2 conditional evidence with no automatic progression,
+      no collector authority and no live acquisition authorization.
+  - id: AC4
+    condition: >
+      Every planned evidence question remains inspectable through the nine qualitative
+      P7.5 VOI considerations and explicit stop conditions, with no universal numeric
+      VOI score, evidence-priority score, recommendation or acquisition order authority.
+  - id: AC5
+    condition: >
+      Later live evidence acceptance preserves external Human-operated authenticated
+      capture, exact-listing provenance, explicit observation time, safe artifacts,
+      Human review before deterministic freeze/replay, and zero CAPTCHA/evasion automation.
+  - id: AC6
+    condition: >
+      Human-owned test/economic/risk inputs remain separate and unset; TASK-228 neither
+      authorizes nor executes a market test, Product Intelligence approval, campaign,
+      spend, content publication, winner judgment, scalability judgment or future-domain
+      selection.
+  - id: AC7
+    condition: >
+      Roadmaps and Brain-owned roadmap state close P8.2 only on exact publication,
+      preserve real_pilot_executed false, next_milestone null, pending_commitments empty,
+      no automatic P8.3, and hand control to HUMAN_BRAIN_BOUNDED_EVIDENCE_ACQUISITION_AUTHORIZATION.
+  - id: AC8
+    condition: >
+      Only the five authorized documentation/planning/governance-test paths change;
+      focused governance regression and git diff --check pass with zero unresolved
+      items, yielding one candidate eligible for independent PRIMARY semantic review
+      and exact safe publication.
+
+verification:
+  required:
+    - python -m pytest tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task228-primary
+    - git diff --check
