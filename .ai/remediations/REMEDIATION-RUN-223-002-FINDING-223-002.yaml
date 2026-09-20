@@ -1,0 +1,10 @@
+finding_id: FINDING-223-002
+action: CODE_FIX
+reviewed_sha: 93aa136a77279cd5abcc97c722fce97193b9beee
+modification_scope:
+  - src/commerce_opportunity_intelligence/value_of_information.py
+  - tests/commerce_opportunity_intelligence/test_value_of_information.py
+  - docs/PHASE_7_P7_5_VALUE_OF_INFORMATION_PLANNING.md
+affected_verification:
+  - python -m pytest tests/commerce_opportunity_intelligence/test_decision_context.py tests/commerce_opportunity_intelligence/test_tiktok_affiliate_evidence.py tests/commerce_opportunity_intelligence/test_value_of_information.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task223-primary
+  - git diff --check
