@@ -722,7 +722,6 @@ def test_plan_projection_is_stable_and_json_serializable():
         "hypothesis_id": "hypothesis-11",
         "profile_id": "profile-tiktok-101",
         "as_of": "2026-09-16T08:30:00+07:00",
-        "decision_deadline": None,
         "inquiries": [expected_inquiry],
         "disposition": "CONTINUE",
         "rationale": "Key unit economics require resolution before further commitment.",
@@ -867,7 +866,7 @@ def test_module_has_no_external_system_or_generated_identity_dependencies():
         assert forbidden_call not in source.lower()
 
 
-def test_plan_references_canonical_decision_context_deadline_and_rejects_second_deadline():
+def test_canonical_decision_deadline_remains_solely_on_decision_context():
     real_deadline = AS_OF + timedelta(days=5)
     dc = sample_context(decision_deadline=real_deadline)
     oh = sample_hypothesis()
@@ -887,10 +886,19 @@ def test_plan_references_canonical_decision_context_deadline_and_rejects_second_
         rationale="Evaluating margin prior to deadline.",
     )
 
-    assert plan.decision_deadline == real_deadline
-    assert plan.decision_deadline == dc.decision_deadline
-    assert plan.to_dict()["decision_deadline"] == real_deadline.isoformat()
+    # 1. Real deadline remains solely on DecisionContext
+    assert dc.decision_deadline == real_deadline
+    assert not hasattr(plan, "decision_deadline")
     assert not hasattr(inquiry, "decision_deadline")
+    assert "decision_deadline" not in plan.to_dict()
+    assert "decision_deadline" not in inquiry.to_dict()
+
+    # 2. Plan binds to that context id
+    assert plan.decision_context_id == dc.context_id
+    assert plan.hypothesis_id == oh.hypothesis_id
+    assert plan.profile_id == profile.profile_id
+
+    # 3. Inquiry carries bounded decision_deadline_consideration text
     assert (
         inquiry.decision_deadline_consideration
         == "Must clarify net margin before marketing review."
@@ -900,7 +908,75 @@ def test_plan_references_canonical_decision_context_deadline_and_rejects_second_
         == "Must clarify net margin before marketing review."
     )
 
+    # 4. Both inquiry and plan reject any independent deadline value
     conflicting_deadline = AS_OF + timedelta(days=10)
+
+    # Inquiry rejects direct decision_deadline (both with value and None)
+    with pytest.raises(
+        OpportunityIntelligenceValidationError,
+        match="does not accept an independent decision_deadline",
+    ):
+        sample_inquiry(decision_deadline=conflicting_deadline)
+
+    with pytest.raises(
+        OpportunityIntelligenceValidationError,
+        match="does not accept an independent decision_deadline",
+    ):
+        sample_inquiry(decision_deadline=None)
+
+    # Inquiry rejects datetime for decision_deadline_consideration
+    with pytest.raises(
+        OpportunityIntelligenceValidationError,
+        match="must be a string, not a datetime",
+    ):
+        sample_inquiry(decision_deadline_consideration=conflicting_deadline)
+
+    # Plan rejects direct-construction decision_deadline (both with value and None)
+    with pytest.raises(
+        OpportunityIntelligenceValidationError,
+        match="does not accept an independent decision_deadline",
+    ):
+        sample_plan(decision_deadline=conflicting_deadline)
+
+    with pytest.raises(
+        OpportunityIntelligenceValidationError,
+        match="does not accept an independent decision_deadline",
+    ):
+        sample_plan(decision_deadline=None)
+
+    with pytest.raises(
+        OpportunityIntelligenceValidationError,
+        match="does not accept an independent decision_deadline",
+    ):
+        ValueOfInformationPlan(
+            plan_id="plan-direct-reject",
+            decision_context_id=dc.context_id,
+            hypothesis_id=oh.hypothesis_id,
+            profile_id=profile.profile_id,
+            as_of=AS_OF,
+            inquiries=[inquiry],
+            disposition="CONTINUE",
+            rationale="Direct construction attempt.",
+            decision_deadline=conflicting_deadline,
+        )
+
+    with pytest.raises(
+        OpportunityIntelligenceValidationError,
+        match="does not accept an independent decision_deadline",
+    ):
+        ValueOfInformationPlan(
+            plan_id="plan-direct-reject-none",
+            decision_context_id=dc.context_id,
+            hypothesis_id=oh.hypothesis_id,
+            profile_id=profile.profile_id,
+            as_of=AS_OF,
+            inquiries=[inquiry],
+            disposition="CONTINUE",
+            rationale="Direct construction attempt with None.",
+            decision_deadline=None,
+        )
+
+    # Factory also rejects independent decision_deadline
     with pytest.raises(
         OpportunityIntelligenceValidationError,
         match="does not accept an independent decision_deadline",
@@ -916,35 +992,3 @@ def test_plan_references_canonical_decision_context_deadline_and_rejects_second_
             rationale="Attempting conflicting deadline.",
             decision_deadline=conflicting_deadline,
         )
-
-    with pytest.raises(
-        OpportunityIntelligenceValidationError,
-        match="must be a string, not a datetime",
-    ):
-        sample_inquiry(decision_deadline_consideration=conflicting_deadline)
-
-    with pytest.raises(
-        OpportunityIntelligenceValidationError,
-        match="does not accept an independent decision_deadline",
-    ):
-        sample_inquiry(decision_deadline=conflicting_deadline)
-
-    dc_no_deadline = sample_context(decision_deadline=None)
-    plan_no_deadline = create_value_of_information_plan(
-        decision_context=dc_no_deadline,
-        hypothesis=oh,
-        profile=profile,
-        plan_id="plan-no-deadline",
-        as_of=AS_OF,
-        inquiries=[inquiry],
-        disposition="CONTINUE",
-        rationale="No deadline context.",
-    )
-    assert plan_no_deadline.decision_deadline is None
-    assert plan_no_deadline.to_dict()["decision_deadline"] is None
-
-    with pytest.raises(
-        OpportunityIntelligenceValidationError,
-        match="decision_deadline must not precede as_of",
-    ):
-        sample_plan(decision_deadline=AS_OF - timedelta(minutes=1))

@@ -27,9 +27,9 @@ disposition enumeration, and one pure construction surface:
   and accepting no independent datetime deadline.
 - `ValueOfInformationPlan` composes an ordered sequence of inquiries bound to
   stable `plan_id`, exact `decision_context_id`, exact `hypothesis_id`, exact
-  `profile_id`, and timezone-aware `as_of`, referencing canonical P7.3
-  `DecisionContext.decision_deadline` and carrying one overall advisory
-  disposition and rationale.
+  `profile_id`, and timezone-aware `as_of`, binding to canonical P7.3
+  `DecisionContext` without owning or accepting a decision deadline value,
+  and carrying one overall advisory disposition and rationale.
 - `VALUE_OF_INFORMATION_DISPOSITIONS` defines the three ordered planning
   dispositions: `CONTINUE`, `DEFER`, and `STOP`.
 - `create_value_of_information_plan` purely validates exact identity binding across
@@ -70,9 +70,10 @@ The following distinctions are explicit and non-negotiable:
 - **P7.5 != TEST_READY.** Planning that further evidence is worth considering does
   not establish `TEST_READY`, authorize market testing, or allocate budget.
 - **single deadline authority.** Canonical decision deadline authority belongs
-  exclusively to P7.3 `DecisionContext`. P7.5 references this canonical deadline
-  on `ValueOfInformationPlan` and never accepts an independent inquiry datetime
-  deadline; inquiry deadline effects are represented solely as bounded
+  exclusively to P7.3 `DecisionContext`. P7.5 plans bind to the canonical
+  `decision_context_id` and neither `ValueOfInformationInquiry` nor
+  `ValueOfInformationPlan` owns or accepts any decision deadline value;
+  inquiry deadline effects are represented solely as bounded
   `decision_deadline_consideration` text.
 
 No universal numeric VOI score, fixed cross-context weighting formula, automatic
@@ -97,9 +98,10 @@ relative to nine explicit caller-supplied planning claims:
 8. **opportunity cost:** Alternative analyses or actions foregone while pursuing this inquiry.
 9. **decision deadline:** Temporal threshold after which additional information arrives
    too late to improve the decision. Canonical decision deadline authority belongs exclusively
-   to P7.3 `DecisionContext.decision_deadline` and is referenced by `ValueOfInformationPlan`.
-   Inquiries express caller-authored reasoning about deadline effects solely as a bounded
-   `decision_deadline_consideration` rather than another deadline value.
+   to P7.3 `DecisionContext.decision_deadline`. P7.5 does not duplicate, store, or project
+   this deadline on `ValueOfInformationPlan` or `ValueOfInformationInquiry`. Inquiries express
+   caller-authored reasoning about deadline effects solely as bounded
+   `decision_deadline_consideration` text rather than a deadline value.
 
 ## 4. Composition without re-ownership
 
@@ -108,10 +110,10 @@ Commerce Opportunity Intelligence is compositional:
   decision deadline (`DecisionContext.decision_deadline`).
 - P7.4 owns `TikTokAffiliateEvidenceProfile` organizing opaque evidence references.
 - P7.5 composes those authorities into an inspectable `ValueOfInformationPlan`.
-  `ValueOfInformationPlan` references the canonical P7.3 `DecisionContext` deadline
-  and introduces no conflicting second deadline authority. Inquiries capture
-  caller-authored reasoning regarding deadline effects as bounded consideration
-  text (`decision_deadline_consideration`).
+  `ValueOfInformationPlan` binds directly to `DecisionContext.context_id` without
+  duplicating or accepting a second deadline value. Inquiries capture caller-authored
+  reasoning regarding deadline effects as bounded consideration text
+  (`decision_deadline_consideration`).
 
 P7.5 operates as a pure value boundary: it introduces zero network, browser, CDP,
 filesystem discovery, persistence, database, queue, background worker, provider/LLM

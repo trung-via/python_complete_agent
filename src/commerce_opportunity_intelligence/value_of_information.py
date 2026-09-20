@@ -36,6 +36,7 @@ VALUE_OF_INFORMATION_DISPOSITIONS: tuple[str, ...] = (
 
 _MAX_IDENTIFIER_LENGTH = 256
 _MAX_TEXT_LENGTH = 4096
+_UNSET = object()
 
 _FORBIDDEN_PUBLIC_STRING_PATTERNS = (
     (
@@ -210,7 +211,7 @@ class ValueOfInformationInquiry:
         decision_deadline_consideration: str | None = None,
         *,
         deadline_consideration: str | None = None,
-        decision_deadline: Any = None,
+        decision_deadline: Any = _UNSET,
         **kwargs: Any,
     ) -> None:
         if kwargs:
@@ -218,7 +219,7 @@ class ValueOfInformationInquiry:
             raise OpportunityIntelligenceValidationError(
                 f"ValueOfInformationInquiry received unexpected keyword arguments: {unexpected}"
             )
-        if decision_deadline is not None:
+        if decision_deadline is not _UNSET:
             raise OpportunityIntelligenceValidationError(
                 "ValueOfInformationInquiry does not accept an independent decision_deadline; "
                 "decision deadline is owned by DecisionContext and inquiry deadline reasoning "
@@ -386,7 +387,7 @@ class ValueOfInformationInquiry:
         }
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class ValueOfInformationPlan:
     """Immutable plan composing inquiries for one commerce opportunity hypothesis.
 
@@ -406,46 +407,88 @@ class ValueOfInformationPlan:
     )
     disposition: str = "STOP"
     rationale: str = ""
-    decision_deadline: datetime | None = None
 
-    def __post_init__(self) -> None:
-        for name in ("plan_id", "decision_context_id", "hypothesis_id", "profile_id"):
-            object.__setattr__(
-                self,
-                name,
-                _bounded_string(
-                    getattr(self, name),
-                    name=name,
-                    maximum=_MAX_IDENTIFIER_LENGTH,
-                ),
+    def __init__(
+        self,
+        plan_id: str,
+        decision_context_id: str,
+        hypothesis_id: str,
+        profile_id: str,
+        as_of: datetime,
+        inquiries: Sequence[ValueOfInformationInquiry] = (),
+        disposition: str = "STOP",
+        rationale: str = "",
+        *args: Any,
+        decision_deadline: Any = _UNSET,
+        **kwargs: Any,
+    ) -> None:
+        if args:
+            raise OpportunityIntelligenceValidationError(
+                "ValueOfInformationPlan received unexpected positional arguments"
             )
-        object.__setattr__(self, "as_of", _aware_datetime(self.as_of, name="as_of"))
-
-        if self.decision_deadline is not None:
-            deadline = _aware_datetime(
-                self.decision_deadline,
-                name="decision_deadline",
+        if decision_deadline is not _UNSET:
+            raise OpportunityIntelligenceValidationError(
+                "ValueOfInformationPlan does not accept an independent decision_deadline; "
+                "decision deadline is canonically owned by DecisionContext"
             )
-            if deadline < self.as_of:
-                raise OpportunityIntelligenceValidationError(
-                    "decision_deadline must not precede as_of"
-                )
-            object.__setattr__(self, "decision_deadline", deadline)
+        if kwargs:
+            unexpected = ", ".join(sorted(kwargs.keys()))
+            raise OpportunityIntelligenceValidationError(
+                f"ValueOfInformationPlan received unexpected keyword arguments: {unexpected}"
+            )
 
-        if isinstance(self.inquiries, (str, bytes)) or not isinstance(
-            self.inquiries, Sequence
+        object.__setattr__(
+            self,
+            "plan_id",
+            _bounded_string(
+                plan_id,
+                name="plan_id",
+                maximum=_MAX_IDENTIFIER_LENGTH,
+            ),
+        )
+        object.__setattr__(
+            self,
+            "decision_context_id",
+            _bounded_string(
+                decision_context_id,
+                name="decision_context_id",
+                maximum=_MAX_IDENTIFIER_LENGTH,
+            ),
+        )
+        object.__setattr__(
+            self,
+            "hypothesis_id",
+            _bounded_string(
+                hypothesis_id,
+                name="hypothesis_id",
+                maximum=_MAX_IDENTIFIER_LENGTH,
+            ),
+        )
+        object.__setattr__(
+            self,
+            "profile_id",
+            _bounded_string(
+                profile_id,
+                name="profile_id",
+                maximum=_MAX_IDENTIFIER_LENGTH,
+            ),
+        )
+        object.__setattr__(self, "as_of", _aware_datetime(as_of, name="as_of"))
+
+        if isinstance(inquiries, (str, bytes)) or not isinstance(
+            inquiries, Sequence
         ):
             raise OpportunityIntelligenceValidationError(
                 "inquiries must be an ordered collection"
             )
 
-        for index, item in enumerate(self.inquiries):
+        for index, item in enumerate(inquiries):
             if not isinstance(item, ValueOfInformationInquiry):
                 raise OpportunityIntelligenceValidationError(
                     f"inquiries[{index}] must be a ValueOfInformationInquiry"
                 )
 
-        frozen_inquiries = tuple(self.inquiries)
+        frozen_inquiries = tuple(inquiries)
         inquiry_ids = tuple(inq.inquiry_id for inq in frozen_inquiries)
         if len(set(inquiry_ids)) != len(inquiry_ids):
             raise OpportunityIntelligenceValidationError(
@@ -456,13 +499,13 @@ class ValueOfInformationPlan:
         object.__setattr__(
             self,
             "disposition",
-            _validate_disposition(self.disposition, name="disposition"),
+            _validate_disposition(disposition, name="disposition"),
         )
         object.__setattr__(
             self,
             "rationale",
             _bounded_string(
-                self.rationale,
+                rationale,
                 name="rationale",
                 maximum=_MAX_TEXT_LENGTH,
             ),
@@ -473,21 +516,21 @@ class ValueOfInformationPlan:
         has_defer = any(d == "DEFER" for d in inquiry_dispositions)
 
         if len(frozen_inquiries) == 0:
-            if self.disposition != "STOP":
+            if disposition != "STOP":
                 raise OpportunityIntelligenceValidationError(
                     "empty inquiry sets are allowed only with overall STOP"
                 )
-        elif self.disposition == "CONTINUE":
+        elif disposition == "CONTINUE":
             if not has_continue:
                 raise OpportunityIntelligenceValidationError(
                     "overall CONTINUE requires at least one inquiry with CONTINUE"
                 )
-        elif self.disposition == "STOP":
+        elif disposition == "STOP":
             if has_continue:
                 raise OpportunityIntelligenceValidationError(
                     "overall STOP must contain no CONTINUE inquiry"
                 )
-        elif self.disposition == "DEFER":
+        elif disposition == "DEFER":
             if has_continue:
                 raise OpportunityIntelligenceValidationError(
                     "overall DEFER must contain no CONTINUE inquiry"
@@ -532,11 +575,6 @@ class ValueOfInformationPlan:
                 name="profile_id",
             ),
             "as_of": self.as_of.isoformat(),
-            "decision_deadline": (
-                self.decision_deadline.isoformat()
-                if self.decision_deadline is not None
-                else None
-            ),
             "inquiries": [inq.to_dict() for inq in self.inquiries],
             "disposition": self.disposition,
             "rationale": _public_projection_string(
@@ -641,5 +679,4 @@ def create_value_of_information_plan(
         inquiries=inquiries,  # type: ignore[arg-type]
         disposition=disposition,
         rationale=rationale,
-        decision_deadline=decision_context.decision_deadline,
     )
