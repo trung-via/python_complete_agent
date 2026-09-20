@@ -1,0 +1,223 @@
+task_id: TASK-223
+revision: 1
+
+goal: >
+  Execute P7.5 Value-of-Information Planning in the existing Commerce Opportunity
+  Intelligence domain. Establish one bounded immutable planning authority that composes
+  the published P7.3 DecisionContext/OpportunityHypothesis and published P7.4
+  TikTokAffiliateEvidenceProfile, makes the decision relevance and trade-offs of possible
+  additional evidence inspectable, and supports explicit CONTINUE, DEFER, or STOP planning
+  dispositions without creating a universal VOI score, acquisition authority, collector
+  routing, test authorization, or autonomous decision authority. On exact reviewed source
+  publication, close P7.5 and advance exactly one roadmap step so P7.6 Market Test /
+  Funnel Evidence becomes the unique NEXT commitment.
+
+problem: >
+  P7.4 can truthfully describe which six TikTok-affiliate evidence dimensions are represented
+  by caller-supplied evidence references, but it deliberately cannot infer evidence quality,
+  completeness, priority, or whether any missing information should be acquired. Product
+  Contract v2 requires Value-of-Information reasoning: deeper evidence acquisition should be
+  considered relative to expected decision impact, uncertainty reduction, cost, latency,
+  access risk, fragility, reliability, opportunity cost, and decision deadline, and the system
+  must be able to stop when additional evidence is unlikely to improve a material decision
+  enough to justify its cost or delay. A bounded P7.5 semantic owner is therefore required
+  before P7.6 market-test/funnel work, while preserving the rule that missingness and technical
+  collectability do not themselves authorize acquisition.
+
+assumptions:
+  - Canonical python_complete_agent main at authoring is ca6da00e9e58f66e25f2f6edcb416677bed70b6d, the exact reviewed P7.4 correction candidate published from RUN-222-002 / REVIEW-222-002.
+  - TASK-222 revision 1 is publication-effective and P7.5 Value-of-Information Planning is the unique canonical NEXT commitment.
+  - P7.6 Market Test / Funnel Evidence and P7.7 Calibration & Winner Validation remain NOT_DONE.
+  - src/commerce_opportunity_intelligence/decision_context.py remains the sole P7.3 owner for DecisionContext and OpportunityHypothesis semantics.
+  - src/commerce_opportunity_intelligence/tiktok_affiliate_evidence.py remains the sole P7.4 owner for TikTokAffiliateEvidenceProfile and its six evidence dimensions.
+  - Product Intelligence remains sole owner of its observed facts/evidence semantics; P7.5 consumes P7.4 profile identity and caller-authored planning claims only.
+  - An unrepresented P7.4 dimension is not evidence that acquisition is valuable or authorized; a represented dimension is not evidence that no further information could be valuable.
+  - Value-of-Information is context-dependent and Product Contract v2 requires no universal formula.
+  - A P7.5 CONTINUE/DEFER/STOP disposition is advisory planning semantics only and does not establish TEST_READY, authorize collection, choose a provider, or execute an action.
+  - Current full downstream AIOS conformance remains DONE through TASK-207 revision 8 under exact pin edd7d8d92d54900c56442bbfcddb8648ec4d2e09.
+  - Human selected Antigravity for the current execution sequence; do not silently switch Executor.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_7_P7_2_WINNING_OPPORTUNITY_SEMANTICS.md
+    - docs/PHASE_7_P7_3_DECISION_CONTEXT_OPPORTUNITY_HYPOTHESIS.md
+    - docs/PHASE_7_P7_4_TIKTOK_AFFILIATE_EVIDENCE_PROFILE.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - .ai/aios-adoption-state.yaml
+    - .ai/aios-conformance-state.yaml
+    - .ai/tasks/TASK-214.yaml
+    - .ai/tasks/TASK-215.yaml
+    - .ai/tasks/TASK-222.yaml
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - src/commerce_opportunity_intelligence/__init__.py
+    - src/commerce_opportunity_intelligence/decision_context.py
+    - src/commerce_opportunity_intelligence/tiktok_affiliate_evidence.py
+    - tests/commerce_opportunity_intelligence/test_decision_context.py
+    - tests/commerce_opportunity_intelligence/test_tiktok_affiliate_evidence.py
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - src/commerce_opportunity_intelligence/__init__.py
+    - src/commerce_opportunity_intelligence/value_of_information.py
+    - tests/commerce_opportunity_intelligence/test_value_of_information.py
+    - docs/PHASE_7_P7_5_VALUE_OF_INFORMATION_PLANNING.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - Modify DecisionContext, OpportunityHypothesis, TikTokAffiliateEvidenceProfile, or their existing validation/public projection semantics.
+  - Modify any src/product_intelligence production file, ProductCandidateSnapshot, SignalEvidence, scorer, ranker, discovery, approval, evidence, identity, truth, catalog, retrieval, or persistence authority.
+  - Implement a collector, scraper, browser/CDP path, TikTok/TikTok Shop API call, provider selection, source discovery, enrichment router, acquisition scheduler, queue, background worker, or live marketplace operation.
+  - Treat an unrepresented P7.4 dimension, missing field, technically collectable source, or caller curiosity as acquisition authorization.
+  - Define a universal numeric VOI score, fixed cross-context weighting formula, automatic evidence priority ranking, global threshold, winner score, confidence score, or acquisition score.
+  - Turn planning disposition into Human approval, acquisition approval, autonomous action, recommendation authority, or commerce decision authority.
+  - Implement P7.6 test design/execution, TEST_READY promotion, traffic/content/campaign actions, funnel measurement, market experimentation, budget/exposure authorization, or post-test outcome interpretation.
+  - Implement P7.7 calibration, causal attribution, VALIDATED_WINNER/SCALABLE_WINNER classification, policy learning, or scorer reweighting.
+  - Persist plans to a database/files/queues/services, add an API/server, or invoke provider/model/LLM, network, browser, filesystem discovery, environment-derived identity, wall clock, random/UUID, subprocess, or AIOS lifecycle APIs from the production semantic module.
+  - Modify Product Contract, Project Contract, Constitution, AIOS adoption/conformance state, exact AIOS pin, workers, workflows, transport, Reviewer, Publisher, or control-plane policy.
+  - Create a second Commerce Opportunity Intelligence package or duplicate P7.3/P7.4 authority.
+  - Push, merge, publish, or mutate canonical main from Executor implementation execution.
+
+constraints:
+  hard:
+    - >
+      Extend only the existing src/commerce_opportunity_intelligence package. The canonical
+      P7.5 owner is src/commerce_opportunity_intelligence/value_of_information.py with
+      authority identifier COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_5. Do not create a second
+      domain package or move P7.3/P7.4 ownership.
+    - >
+      Provide one immutable ValueOfInformationInquiry semantic value and one immutable
+      ValueOfInformationPlan semantic value. An inquiry must be caller-authored and contain
+      stable inquiry_id, exactly one P7.4 evidence dimension, a bounded information question,
+      an inspectable explanation of why the answer could change the current decision, and
+      explicit caller-supplied considerations for expected decision impact, uncertainty
+      reduction, cost, latency, access risk, fragility, reliability, opportunity cost, and
+      decision deadline. These fields are planning claims, not measured Product Truth.
+    - >
+      Expose exactly three ordered planning dispositions: CONTINUE, DEFER, STOP. Each inquiry
+      carries one disposition plus a bounded rationale. CONTINUE means only that further
+      information remains worth considering; DEFER means not justified now under the stated
+      context; STOP means further acquisition for that inquiry is not currently justified.
+      None of the three authorizes acquisition or establishes TEST_READY.
+    - >
+      ValueOfInformationPlan must bind to caller-supplied stable plan_id, exact
+      DecisionContext.context_id, exact OpportunityHypothesis.hypothesis_id, exact
+      TikTokAffiliateEvidenceProfile.profile_id, and timezone-aware as_of. It must contain an
+      ordered tuple of inquiries and one overall advisory disposition/rationale. The plan must
+      preserve caller order and reject duplicate inquiry_id values.
+    - >
+      Provide one pure create_value_of_information_plan construction surface accepting the
+      exact DecisionContext, OpportunityHypothesis, and TikTokAffiliateEvidenceProfile plus
+      caller-supplied plan identity/time/inquiries/overall disposition. It must verify exact
+      P7.3/P7.4 binding: hypothesis.decision_context_id equals context.context_id; profile
+      decision_context_id equals context.context_id; profile hypothesis_id equals
+      hypothesis.hypothesis_id. It must not infer identity, time, evidence quality, acquisition
+      priority, or disposition from profile missingness.
+    - >
+      Enforce only semantic consistency, not a universal decision formula: overall CONTINUE
+      requires at least one inquiry with CONTINUE; overall STOP must contain no CONTINUE
+      inquiry; overall DEFER must contain no CONTINUE inquiry and at least one DEFER inquiry.
+      Empty inquiry sets are allowed only with overall STOP and an explicit stopping rationale.
+      These coherence rules do not rank inquiries or evaluate commercial truth.
+    - >
+      P7.4 represented/unrepresented dimensions may be inspected by callers, but P7.5 production
+      semantics must never auto-create inquiries, auto-mark CONTINUE, or prioritize an inquiry
+      merely because a dimension is unrepresented. Conversely, represented dimensions remain
+      eligible for caller-authored inquiries because representation is not quality/sufficiency.
+    - >
+      Public projections must be deterministic and JSON-serializable, serialize as_of as ISO-8601
+      text, preserve inquiry order, expose all nine Product-Contract VOI considerations and
+      rationales, and fail closed on blank/multiline/unbounded or obvious secret/cookie/session/
+      prompt/execution-metadata/raw-HTML payloads. No object repr or memory address may leak.
+    - >
+      Public package exports may add only COMMERCE_OPPORTUNITY_INTELLIGENCE_P7_5,
+      VALUE_OF_INFORMATION_DISPOSITIONS, ValueOfInformationInquiry, ValueOfInformationPlan,
+      and create_value_of_information_plan in addition to the existing P7.3/P7.4 surface.
+    - >
+      P7.5 documentation must explicitly preserve: missingness != acquisition authorization;
+      collectability != value; planning claim != evidence truth; VOI plan != collector plan;
+      CONTINUE != authorization; STOP != proof no evidence exists; DEFER != permanent rejection;
+      represented != sufficient; disposition != decision; P7.5 != TEST_READY.
+    - >
+      Update the two canonical product roadmaps consistently. Record TASK-222/P7.4 as
+      CLOSED/PUBLISHED at ca6da00e9e58f66e25f2f6edcb416677bed70b6d. Record TASK-223/P7.5
+      as publication-gated DONE and make P7.6 Market Test / Funnel Evidence the single NEXT
+      commitment only after TASK-223 publication. P7.7 remains NOT_DONE.
+    - >
+      Update .ai/roadmap-state.yaml without changing its authority classification. Preserve
+      current Governance Foundation/control-plane history, TASK-207 revision-8 conformance,
+      TASK-221 migration history, exact pin edd7d8d..., and P7.2/P7.3/P7.4 published lineage.
+      Set current milestone to P7.5/TASK-223 publication-gated DONE, next milestone P7.6, and
+      retain only P7.6/P7.7 as ordered pending commitments.
+    - >
+      Extend governance regression additively so current exact AIOS pin/conformance assertions
+      remain intact and tests prove one and only one NEXT=P7.6 after publication, P7.5 semantic
+      ownership, P7.4 published source ca6da00..., no roadmap authority change, and P7.7 NOT_DONE.
+    - >
+      Preserve .ai/aios-adoption-state.yaml, .ai/aios-conformance-state.yaml,
+      requirements-aios-renew.txt, Product Contract, Project Contract, P7.3/P7.4 production
+      modules, and all Product Intelligence production files byte-for-byte.
+    - >
+      Only the eight authorized paths may change. Verification must be deterministic, offline,
+      non-interactive, and independent of network, GitHub, marketplace, browser/CDP,
+      provider/model, credentials, local absolute paths, wall clock, random, UUID, mutable
+      external state, or live TikTok availability.
+    - >
+      Executor must perform bounded source work only, commit the candidate, return one structured
+      ResultPackage, and leave Runtime to execute canonical TASK verification. Do not start
+      another AIOS operation or delegated/background agent.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Exactly one P7.5 production owner exists in the existing Commerce Opportunity Intelligence
+      package with immutable ValueOfInformationInquiry and ValueOfInformationPlan semantics and
+      no duplicate evidence, decision, acquisition, or lifecycle authority.
+  - id: AC2
+    condition: >
+      Inquiry semantics make all nine Product-Contract VOI considerations inspectable as
+      caller-supplied planning claims, bind each inquiry to exactly one canonical P7.4 evidence
+      dimension, preserve caller order, and expose no universal numeric VOI score or fixed
+      cross-context weighting formula.
+  - id: AC3
+    condition: >
+      Pure plan construction verifies exact DecisionContext/OpportunityHypothesis/
+      TikTokAffiliateEvidenceProfile identity binding and caller-supplied plan/time/inquiries
+      with zero network/provider/marketplace/persistence/runtime behavior.
+  - id: AC4
+    condition: >
+      CONTINUE, DEFER, and STOP semantics plus plan-level coherence are deterministic and
+      inspectable while remaining advisory only: no disposition authorizes evidence collection,
+      establishes TEST_READY, advances lifecycle state, chooses a provider, or makes a commerce
+      decision.
+  - id: AC5
+    condition: >
+      P7.5 never derives acquisition need or priority from represented/unrepresented dimensions
+      alone; empty inquiries are valid only for explicit STOP, and represented dimensions may
+      still receive caller-authored inquiries without implying evidence insufficiency.
+  - id: AC6
+    condition: >
+      Public projections are deterministic JSON-serializable values, preserve inquiry order,
+      include the nine VOI considerations and rationales, and fail closed on forbidden
+      sensitive/raw payload classes with no score, rank, winner, recommendation, acquisition
+      order, decision, or lifecycle state.
+  - id: AC7
+    condition: >
+      P7.5 documentation and both canonical roadmaps preserve prior published P7 lineage and
+      authority boundaries, record P7.5 as publication-gated DONE, advance exactly P7.6 to
+      unique NEXT only after source publication, and leave P7.7 NOT_DONE.
+  - id: AC8
+    condition: >
+      Only the eight authorized paths change; P7.3/P7.4 regression, focused P7.5 tests, current
+      governance regression, and git diff --check pass with zero unresolved items, producing a
+      clean candidate eligible for independent PRIMARY review and exact safe publication.
+
+verification:
+  required:
+    - python -m pytest tests/commerce_opportunity_intelligence/test_decision_context.py tests/commerce_opportunity_intelligence/test_tiktok_affiliate_evidence.py tests/commerce_opportunity_intelligence/test_value_of_information.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task223-primary
+    - git diff --check
