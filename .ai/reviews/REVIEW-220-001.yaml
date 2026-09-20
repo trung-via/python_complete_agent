@@ -1,0 +1,54 @@
+review_id: REVIEW-220-001
+reviewed_sha: 911ca690a0dd4a4d673d790c94d46f7b5f9b2b68
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: FAIL
+  AC3: FAIL
+  AC4: PASS
+  AC5: FAIL
+  AC6: PASS
+  AC7: FAIL
+findings:
+  - id: FINDING-220-001
+    basis: AC2
+    action: CODE_FIX
+    location: .github/workflows/aios-self-hosted-repair-wakeup.yml; tests/aios_bridge/test_aios_phase2_control_plane.py; tests/aios_bridge/test_aios_governance_state.py
+    issue: >
+      The candidate removes the target-level GITHUB_ACTOR check entirely while retaining a
+      directly invokable workflow_dispatch surface whose executor input is caller-selected.
+      The dedicated Issue carriers remain actor-gated, but a direct workflow_dispatch does
+      not traverse either authorized_actors policy. Consequently the self-hosted target can
+      accept a repair delivery and coding Executor selector from a caller outside the
+      canonical Human/Brain carrier authorization boundary. Canonical repair_sha validation
+      constrains action/scope, but it does not bind the Human-selected Executor, so this is a
+      real authority widening rather than merely transport-neutral bot attribution.
+    expected: >
+      Preserve the demonstrated github-actions[bot] post-AUTHOR_REPAIR transport while
+      retaining a fail-closed transport authorization boundary for the direct fallback.
+      Repository-owned bot dispatch must not be mistaken for Human authority, and an
+      arbitrary workflow_dispatch actor must not gain coding-Executor selection authority.
+      Keep the fixed selector courier thin and leave Runtime as the sole repair authority.
+  - id: FINDING-220-002
+    basis: AC3
+    action: CODE_FIX
+    location: .github/workflows/aios-brain-ingress.yml; docs/AIOS_UNIFIED_WORKER_WORKFLOW.md; tests/aios_bridge/test_aios_brain_ingress.py; tests/aios_bridge/test_aios_phase2_control_plane.py
+    issue: >
+      The post-AUTHOR_REPAIR path still hard-codes executor: '' for every canonical REPAIR,
+      while the pinned 1a68db9 repair-dispatch contract requires an explicit Executor for
+      CODE_FIX, CONTINUE_IMPLEMENTATION, and FINALIZE_CANDIDATE. REPAIR-207-002 is
+      FINALIZE_CANDIDATE, so after the actor preflight is removed the exact motivating
+      automatic handoff would simply advance to the pinned bootstrap and fail for missing
+      Executor. The new tests preserve executor: '' and therefore do not prove an
+      action-compatible coding repair path. The documentation also calls the immutable
+      redelivery tuple only repair_dispatch_id/failed_run_id/repair_sha even though pinned
+      durable repair dispatch binds executor as a selector when coding execution is required.
+    expected: >
+      Make the two bounded delivery paths semantically truthful for action/Executor shape.
+      A coding REPAIR must receive an explicit Human/Brain-authorized Executor, while
+      NO_CHANGE must receive none, without inference, fallback, or duplicate lifecycle
+      authority. If the existing TASK-220 modification scope cannot safely carry that
+      structured selector through post-AUTHOR_REPAIR, revise the TASK contract rather than
+      encoding an impossible or misleading compatibility claim. Documentation and regressions
+      must match the pinned repair-dispatch binding exactly.
