@@ -246,6 +246,66 @@ def test_factory_rejects_invalid_context_or_hypothesis_types():
         )
 
 
+@pytest.mark.parametrize("dim", TIKTOK_AFFILIATE_EVIDENCE_DIMENSIONS)
+def test_factory_rejects_unordered_collections(dim: str):
+    dc = sample_context()
+    oh = sample_hypothesis()
+
+    with pytest.raises(
+        OpportunityIntelligenceValidationError,
+        match="ordered collection",
+    ):
+        create_tiktok_affiliate_evidence_profile(
+            decision_context=dc,
+            hypothesis=oh,
+            profile_id="profile-factory-unordered",
+            as_of=AS_OF,
+            **{dim: {"ref://evidence/1", "ref://evidence/2"}},
+        )
+
+
+def test_factory_preserves_ordered_caller_input_across_all_dimensions():
+    dc = sample_context()
+    oh = sample_hypothesis()
+
+    ordered_inputs = {
+        "affiliate_economics": ["ref://econ/2", "ref://econ/1"],
+        "market_traction": ("ref://traction/z", "ref://traction/a"),
+        "creator_ecosystem": ["ref://creators/beta", "ref://creators/alpha"],
+        "content_activity": ("ref://content/second", "ref://content/first"),
+        "audience_channel_fit": ["ref://audience/b", "ref://audience/a"],
+        "competition_saturation": ("ref://comp/2", "ref://comp/1"),
+    }
+
+    profile = create_tiktok_affiliate_evidence_profile(
+        decision_context=dc,
+        hypothesis=oh,
+        profile_id="profile-factory-ordered",
+        as_of=AS_OF,
+        **ordered_inputs,
+    )
+
+    for dim, expected in ordered_inputs.items():
+        assert getattr(profile, dim) == tuple(expected)
+
+
+@pytest.mark.parametrize("dim", TIKTOK_AFFILIATE_EVIDENCE_DIMENSIONS)
+def test_factory_preserves_ordered_caller_input_for_each_dimension(dim: str):
+    dc = sample_context()
+    oh = sample_hypothesis()
+    ordered_items = [f"ref://{dim}/second", f"ref://{dim}/first"]
+
+    profile = create_tiktok_affiliate_evidence_profile(
+        decision_context=dc,
+        hypothesis=oh,
+        profile_id=f"profile-factory-order-{dim}",
+        as_of=AS_OF,
+        **{dim: ordered_items},
+    )
+
+    assert getattr(profile, dim) == (f"ref://{dim}/second", f"ref://{dim}/first")
+
+
 @pytest.mark.parametrize("name", ["profile_id", "decision_context_id", "hypothesis_id"])
 def test_identity_fields_fail_closed_when_blank_or_non_string(name: str):
     with pytest.raises(OpportunityIntelligenceValidationError, match="must not be blank"):

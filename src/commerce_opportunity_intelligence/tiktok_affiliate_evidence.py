@@ -333,10 +333,10 @@ def create_tiktok_affiliate_evidence_profile(
         decision_context_id=decision_context.context_id,
         hypothesis_id=target_hypothesis.hypothesis_id,
         as_of=as_of,
-        affiliate_economics=tuple(affiliate_economics),
-        market_traction=tuple(market_traction),
-        creator_ecosystem=tuple(creator_ecosystem),
-        content_activity=tuple(content_activity),
-        audience_channel_fit=tuple(audience_channel_fit),
-        competition_saturation=tuple(competition_saturation),
+        affiliate_economics=affiliate_economics,  # type: ignore[arg-type]
+        market_traction=market_traction,  # type: ignore[arg-type]
+        creator_ecosystem=creator_ecosystem,  # type: ignore[arg-type]
+        content_activity=content_activity,  # type: ignore[arg-type]
+        audience_channel_fit=audience_channel_fit,  # type: ignore[arg-type]
+        competition_saturation=competition_saturation,  # type: ignore[arg-type]
     )
