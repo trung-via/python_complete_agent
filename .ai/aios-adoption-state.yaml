@@ -13,23 +13,23 @@ authority:
 
 downstream_pin:
   repository: https://github.com/trung-via/AIOS-renew.git
-  commit: c96eb8b52acd865b9453409e6598e08a8bd4e48e
+  commit: 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2
   policy: EXACT_REVIEWED_SOURCE_PUBLISHED_ONLY
   source_published: true
 
 full_downstream_conformance:
-  status: CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION
+  status: PENDING_FRESH_CERTIFICATION
   certification_task:
-    id: TASK-207
-    revision: 4
-  downstream_pin: c96eb8b52acd865b9453409e6598e08a8bd4e48e
+    id: null
+    revision: null
+  downstream_pin: 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2
   historical_old_pin_certification:
     task_id: TASK-207
-    revision: 3
-    downstream_pin: 91a177d5b96b2197a4d8223dbb727dda6201cb64
+    revision: 4
+    downstream_pin: c96eb8b52acd865b9453409e6598e08a8bd4e48e
     certification_record: .ai/aios-conformance-state.yaml
     status: HISTORICAL_OLD_PIN_EVIDENCE_ONLY
-  certification_record: .ai/aios-conformance-state.yaml
+  certification_record: null
   effective_only_when:
     semantic_review: PASS
     published_source: EXACT_REVIEWED_CANDIDATE
@@ -37,20 +37,26 @@ full_downstream_conformance:
   before_gate: NOT_EFFECTIVE
   binding_classifications_changed: false
   boundary: >-
-    This Brain planning record becomes effective only when the safe Publisher
-    publishes exactly the reviewed TASK-207 revision-4 source candidate. It is
-    not Runtime, review, or publication authority and does not replace the
-    separate canonical evidence lineage.
+    Fresh full downstream conformance certification for 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2
+    remains pending and not current. Prior TASK-207 revision-4 conformance remains historical
+    evidence for c96eb8b52acd865b9453409e6598e08a8bd4e48e only in .ai/aios-conformance-state.yaml
+    and is preserved unchanged.
 
 upstream_audit:
-  checkpoint: c96eb8b52acd865b9453409e6598e08a8bd4e48e
-  through_authored_task: TASK-129
+  checkpoint: 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2
+  through_authored_task: TASK-145
+  upstream_revision: 2
+  run_id: RUN-145-002
   checkpoint_role: REVIEWED_SOURCE_PUBLISHED_PROVENANCE
   checkpoint_is_runtime_authority: false
-  review: REVIEW-129-001
+  review: REVIEW-145-001
   review_outcome: PRIMARY_PASS
   source_published: true
-  prior_planning_checkpoint: 91a177d5b96b2197a4d8223dbb727dda6201cb64
+  prior_planning_checkpoint: c96eb8b52acd865b9453409e6598e08a8bd4e48e
+  verification_baseline:
+    task_id: TASK-146
+    review: REVIEW-146-001
+    source_sha: 89ac1880fed41c7237146422e2e985d98c0eeda8
   provenance:
     - task_id: TASK-114
       role: DOWNSTREAM_PORTABILITY_POLICY
@@ -99,6 +105,10 @@ upstream_audit:
       activates_repository_binding: false
     - task_id: TASK-129
       role: REPAIR_AFTER_FAILED_REMEDIATION
+      activates_repository_binding: false
+    - task_id: TASK-145
+      revision: 2
+      role: LOCAL_CANONICAL_REPAIR_RECONCILIATION_FIX
       activates_repository_binding: false
 
 classification_dimensions:
@@ -483,6 +493,22 @@ capability_families:
     boundary: >-
       TASK-129 closes the generic REPAIR-after-failed-REMEDIATION authoring gap
       by resolving the embedded RUN identity.
+
+  - id: LOCAL_CANONICAL_REPAIR_RECONCILIATION_FIX
+    upstream_tasks: [TASK-145]
+    upstream_revision: 2
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
+    consumption: PINNED_KERNEL_ONLY
+    source_published: true
+    review: REVIEW-145-001
+    run_id: RUN-145-002
+    verification_baseline_commit: 89ac1880fed41c7237146422e2e985d98c0eeda8
+    boundary: >-
+      TASK-145 revision 2 generic Unified State local/canonical REPAIR semantic-identity
+      reconciliation fix is adopted by pin and consumed directly from the exact pinned kernel.
+      Preserves local review_id/finding_id derivation during local pending run reconciliation
+      without treating mutable upstream main or TASK-144 revision-2 authoring state as runtime authority.
 
 incident_lineage:
   run_id: RUN-197-001

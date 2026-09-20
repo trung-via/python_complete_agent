@@ -33,7 +33,8 @@ TASK_201_HISTORICAL_COMMIT = "f0237a3b98985ce6ebbaf41af1e06fa3eb4e998e"
 TASK_204_AUTHORITATIVE_COMMIT = "652b00b103dd50e2a550dd0ec0fe4063e69631b7"
 TASK_208_HISTORICAL_COMMIT = "26097405343150dc1b55015b94720528afad50ed"
 TASK_209_HISTORICAL_COMMIT = "91a177d5b96b2197a4d8223dbb727dda6201cb64"
-TASK_216_AUTHORITATIVE_COMMIT = "c96eb8b52acd865b9453409e6598e08a8bd4e48e"
+TASK_216_HISTORICAL_COMMIT = "c96eb8b52acd865b9453409e6598e08a8bd4e48e"
+TASK_218_AUTHORITATIVE_COMMIT = "49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2"
 TASK_089_SOURCE_CANDIDATE = "bb57147eac92475789d7809ed445d56535d5a009"
 TASK_092_REVIEW_DECISION_COMMIT = "18e7ed49c7393f199589bd241eede3e67d759aa1"
 LATER_ROADMAP_COMMIT = "410f0a87c86f3fef56802d23dc0b8cf22bb2c9f7"
@@ -87,11 +88,12 @@ class TestImmutableRuntimePin:
             if line.strip() and not line.lstrip().startswith("#")
         ]
         assert active == [aw.PIN_LINE]
-        assert aw.AUTHORITATIVE_COMMIT == TASK_216_AUTHORITATIVE_COMMIT
+        assert aw.AUTHORITATIVE_COMMIT == TASK_218_AUTHORITATIVE_COMMIT
         assert active == [
             "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
-            f"{TASK_216_AUTHORITATIVE_COMMIT}"
+            f"{TASK_218_AUTHORITATIVE_COMMIT}"
         ]
+        assert TASK_216_HISTORICAL_COMMIT not in active[0]
         assert TASK_209_HISTORICAL_COMMIT not in active[0]
         assert TASK_208_HISTORICAL_COMMIT not in active[0]
         assert TASK_204_AUTHORITATIVE_COMMIT not in active[0]
@@ -1426,7 +1428,8 @@ class TestSurfaceAndDocumentation:
             assert TASK_204_AUTHORITATIVE_COMMIT in text
             assert TASK_208_HISTORICAL_COMMIT in text
             assert TASK_209_HISTORICAL_COMMIT in text
-            assert TASK_216_AUTHORITATIVE_COMMIT in text
+            assert TASK_216_HISTORICAL_COMMIT in text
+            assert TASK_218_AUTHORITATIVE_COMMIT in text
             assert TASK_198_AUTHORITATIVE_COMMIT in text
             assert TASK_102_ERA_COMMIT in text
             assert IMMEDIATE_PREDECESSOR_COMMIT in text
@@ -1468,7 +1471,7 @@ class TestSurfaceAndDocumentation:
 
         assert (
             "downstream AIOS-renew pin "
-            f"`{TASK_216_AUTHORITATIVE_COMMIT}` already present"
+            f"`{TASK_218_AUTHORITATIVE_COMMIT}` already present"
             in normalized
         )
         assert (

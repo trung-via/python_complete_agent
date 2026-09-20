@@ -247,7 +247,7 @@ an executor or become a second status/review authority.
 
 ## Adopted Upstream Capabilities and Boundaries
 
-Under the pinned commit `c96eb8b52acd865b9453409e6598e08a8bd4e48e`, Python Agent adopts:
+Under the pinned commit `49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2`, Python Agent adopts:
 - **TASK-086**: Deterministic, read-only Unified State and Next Action through the
   public `state` operator surface. The worker neither copies nor caches the reducer.
 - **TASK-087**: One bounded Human continuation front door through the public `continue`
@@ -373,6 +373,12 @@ Under the pinned commit `c96eb8b52acd865b9453409e6598e08a8bd4e48e`, Python Agent
   read-only completion work.
 - **TASK-127**: Post-canonicalization AUTHOR_REPAIR handoff and bounded wakeup carrier.
 - **TASK-129**: Generic REPAIR-after-failed-REMEDIATION resolving embedded RUN identity.
+- **TASK-145 revision 2**: Generic Unified State local/canonical REPAIR semantic-identity
+  reconciliation fix, validated against the reviewed TASK-146 verification baseline
+  (commit `89ac1880fed41c7237146422e2e985d98c0eeda8`). Pinned Unified State reconciles local
+  pending runs with canonical remote correction lineage without leaving review_id or finding_id
+  unset. Consumed solely through the pinned kernel; Python Agent adds no downstream workaround
+  or second lifecycle authority.
 
 Capabilities present in upstream history but **not** exposed by this downstream worker:
 - **TASK-066 / TASK-068..TASK-074**: Although the exact package contains this intervening
@@ -390,7 +396,8 @@ Capabilities present in upstream history but **not** exposed by this downstream 
 ## Immutable Kernel Pin
 
 The only authoritative AIOS-renew kernel is commit
-`c96eb8b52acd865b9453409e6598e08a8bd4e48e`. Installed provenance for the TASK-209-era
+`49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2`. Installed provenance for the TASK-216/TASK-217-era
+`c96eb8b52acd865b9453409e6598e08a8bd4e48e` pin, the TASK-209-era
 `91a177d5b96b2197a4d8223dbb727dda6201cb64` pin, the TASK-208-era
 `26097405343150dc1b55015b94720528afad50ed` pin, the TASK-204-era
 `652b00b103dd50e2a550dd0ec0fe4063e69631b7` pin, the TASK-201-era
@@ -444,9 +451,15 @@ TASK-216 supersedes that active pin with exact reviewed, source-published commit
 `c96eb8b52acd865b9453409e6598e08a8bd4e48e`, consuming cumulative reviewed TASK-119..129 /
 REVIEW-129-001 capabilities and porting bounded TASK-127 post-canonicalization REPAIR handoff
 and non-target repair receipt suppression while preserving authority boundaries.
-Prior TASK-207 revision-3 conformance remains historical evidence tied to
-`91a177d5b96b2197a4d8223dbb727dda6201cb64`; fresh full downstream conformance certification
-under `c96eb8b52acd865b9453409e6598e08a8bd4e48e` remains pending and required.
+TASK-218 supersedes that active pin with exact reviewed, source-published commit
+`49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2`, consuming upstream TASK-145 revision 2 /
+RUN-145-002 / REVIEW-145-001 local/canonical REPAIR semantic-identity reconciliation fix
+validated against reviewed baseline 89ac1880fed41c7237146422e2e985d98c0eeda8 (TASK-146 /
+REVIEW-146-001) while preserving all Phase-1/Phase-2 repository bindings and authority boundaries.
+Prior TASK-207 revision-4 conformance remains historical evidence tied to
+`c96eb8b52acd865b9453409e6598e08a8bd4e48e`; fresh full downstream conformance certification
+under `49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2` remains pending through the existing TASK-207
+semantic authority.
 TASK-207 revision 2 and RUN-207-001/RUN-207-002/REPAIR-207-001 remain immutable old-pin
 history; conformance resumes only through a fresh Brain revision bound to the new pin.
 Future AIOS-renew main changes remain irrelevant until another explicit reviewed downstream migration.
