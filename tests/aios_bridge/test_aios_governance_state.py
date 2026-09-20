@@ -845,3 +845,32 @@ def test_task_197_malformed_decision_remains_incident_only():
         "disposition": "IMMUTABLE_NOT_PUBLICATION_AUTHORITY",
         "resumed": False,
     }
+
+
+def test_governance_distinguishes_semantic_actor_from_workflow_dispatcher_identity_and_preserves_immutable_redelivery():
+    workflow_doc = (REPO_ROOT / "docs" / "AIOS_UNIFIED_WORKER_WORKFLOW.md").read_text(encoding="utf-8")
+    # Explains distinction between semantic actor authorization and workflow dispatcher transport identity
+    assert "github-actions[bot]" in workflow_doc
+    assert "dispatcher identity" in workflow_doc
+    assert "transport identity only" in workflow_doc
+    assert "Semantic actor authorization versus workflow dispatcher transport identity" in workflow_doc
+    assert "Authority-neutral canonical-selector courier" in workflow_doc
+    assert "Sole pinned Runtime authority" in workflow_doc
+    # Explains immutable-intent redelivery after outer transport failure
+    assert "Immutable-intent redelivery" in workflow_doc
+    assert "redelivered after outer transport failure" in workflow_doc
+
+    # Enforces that carrier boundaries require Human/Brain authorization and exclude bot identities
+    ingress_policy = load_yaml(REPO_ROOT / ".ai" / "brain-ingress-carriers.yaml")
+    repair_policy = load_yaml(REPO_ROOT / ".ai" / "brain-repair-wakeup-carriers.yaml")
+    assert ingress_policy["github_issue"]["authorized_actors"] == ["trung-via"]
+    assert repair_policy["github_issue"]["authorized_actors"] == ["trung-via"]
+    for bot in ("github-actions[bot]", "github-actions", "bot"):
+        assert bot not in ingress_policy["github_issue"]["authorized_actors"]
+        assert bot not in repair_policy["github_issue"]["authorized_actors"]
+
+    # Target workflow is authority-neutral and does not gate on GITHUB_ACTOR
+    target_text = (REPO_ROOT / ".github" / "workflows" / "aios-self-hosted-repair-wakeup.yml").read_text(encoding="utf-8")
+    assert "GITHUB_ACTOR" not in target_text
+    assert "GITHUB_REPOSITORY -ne 'trung-via/python_complete_agent'" in target_text
+    assert "GITHUB_REF -ne 'refs/heads/main'" in target_text

@@ -120,13 +120,22 @@ bootstrap to call pinned `approved-remediation-intent` once. A3 exact SHA-bound 
 and A6 durable correction dispatch remain separate pinned authorities and reuse the same immutable
 selectors; the carrier neither infers an Executor nor executes raw Issue text.
 
-The distinct `[AIOS REPAIR WAKEUP]` carrier admits only `repair_dispatch_id`, `failed_run_id`,
-exact current `repair_sha`, and the action-permitted optional Executor. Its dedicated self-hosted
-path calls pinned `repair-wakeup` once. The canonical repair authority requires one explicit coding
-Executor for `CODE_FIX` and `CONTINUE_IMPLEMENTATION`, requires zero for `NO_CHANGE`, and retains
-at-most-once/crash reconciliation. Neither Phase-2 bootstrap calls the local Human `CONTINUE`
-surface, uses a global `aios`, checks out a fresh worktree, receives a GitHub write token, or
-duplicates Runtime verification, semantic review, or publication.
+The Phase-2 REPAIR architecture supports two bounded outer delivery paths targeting one fixed self-hosted workflow (`.github/workflows/aios-self-hosted-repair-wakeup.yml`):
+1. **Dedicated `[AIOS REPAIR WAKEUP]` carrier**: An Issue opened by authorized Human actor `trung-via`, admitting only `repair_dispatch_id`, `failed_run_id`, exact current `repair_sha`, and optional action-compatible Executor, then invoking the target via `workflow_call`.
+2. **Bounded post-`AUTHOR_REPAIR` Brain Ingress handoff**: Canonical Brain Ingress (`aios-brain-ingress.yml`) dispatches the same self-hosted target via GitHub Actions `createWorkflowDispatch` upon successful `AUTHOR_REPAIR`.
+
+Neither delivery carrier claims repair execution success, verification, semantic review, or publication merely because outer delivery was accepted.
+
+#### Semantic actor authorization versus workflow dispatcher transport identity
+
+A critical boundary separates semantic actor authorization from GitHub Actions workflow dispatcher identity:
+- **Upstream semantic authorization**: Authorization belongs exclusively to the upstream carrier boundaries. `[AIOS BRAIN INGRESS]` authoring is actor-gated by `.ai/brain-ingress-carriers.yaml` (`authorized_actors: ["trung-via"]`), and `[AIOS REPAIR WAKEUP]` is actor-gated by `.ai/brain-repair-wakeup-carriers.yaml` (`authorized_actors: ["trung-via"]`). No bot identity acquires semantic repair-authoring, approval, review, or Publisher authority.
+- **Authority-neutral canonical-selector courier**: The fixed self-hosted target (`aios-self-hosted-repair-wakeup.yml`) is an authority-neutral courier. It does not choose action, scope, failed head, task revision, verification, or lifecycle outcome. It accepts only `repair_dispatch_id`, `failed_run_id`, exact `repair_sha`, and optional action-compatible `executor`.
+- **Dispatcher transport identity**: When post-`AUTHOR_REPAIR` Brain Ingress creates the `workflow_dispatch`, GitHub records the dispatcher identity as `github-actions[bot]`. This is outer transport identity only and must not be conflated with semantic authorization. The self-hosted target therefore does not require `GITHUB_ACTOR` to match the Human login or falsely reject repository-owned bot dispatch, while its repository (`trung-via/python_complete_agent`), canonical-main ref (`refs/heads/main`), persistent root (`AIOS_REPO_ROOT`), fixed runner (`[self-hosted, windows, x64, python-complete-agent]`), and bootstrap script preflights remain fail-closed.
+- **Sole pinned Runtime authority**: Pinned Runtime remains the sole REPAIR admission, execution, and verification authority. The canonical repair authority requires one explicit coding Executor for `CODE_FIX` and `CONTINUE_IMPLEMENTATION`, requires zero for `NO_CHANGE`, and retains at-most-once/crash reconciliation. The target delegates exactly once through `aios_phase2_repair.py` to the pinned AIOS repair-wakeup authority, where canonical REPAIR SHA, failed RUN, action, Executor requirement, duplicate dispatch, and correction preflight remain fail-closed.
+- **Immutable-intent redelivery**: Because outer delivery acceptance is purely transport-level and does not admit a repair RUN, an outer transport failure (e.g. runner interruption or preflight failure before Runtime admission) leaves the original canonical REPAIR authorization intact. The exact immutable REPAIR intent (`repair_dispatch_id`, `failed_run_id`, `repair_sha`) can be safely redelivered after outer transport failure without requiring new semantic approval or re-authoring.
+
+Neither Phase-2 bootstrap calls the local Human `CONTINUE` surface, uses a global `aios`, checks out a fresh worktree, receives a GitHub write token, or duplicates Runtime verification, semantic review, or publication.
 
 ---
 
@@ -510,6 +519,10 @@ TASK-219 supersedes that active pin with exact reviewed, source-published commit
 `1a68db9acb6989dfa81bf875503db62e54a4bed6`, consuming upstream TASK-144 revision 2 /
 RUN-144-006 / REVIEW-144-006 canonical successful-REPAIR review-lineage reconstruction and
 publication validation while preserving all Phase-1/Phase-2 repository bindings and authority boundaries.
+TASK-220 repairs the Phase-2 REPAIR delivery binding so post-AUTHOR_REPAIR Brain Ingress
+workflow_dispatch (with transport identity github-actions[bot]) reaches the fixed self-hosted
+REPAIR bootstrap without false rejection, preserving upstream semantic authorization at the
+carrier boundaries and creating no new repair authority.
 TASK-207 revision 5 re-certified the Phase-1 and Phase-2 repository bindings under
 the prior `49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2` pin, which is preserved as historical
 prior-pin evidence in `.ai/aios-conformance-state.yaml`.

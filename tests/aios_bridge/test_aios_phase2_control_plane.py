@@ -258,11 +258,69 @@ class TestRepairWakeupBinding:
         assert workflow["on"]["workflow_call"]["inputs"]["executor"]["required"] == "false"
         assert workflow["on"]["workflow_call"]["inputs"]["executor"]["default"] == ""
         assert "actions/checkout" not in text
-        assert "GITHUB_ACTOR -ne 'trung-via'" in text
+        assert "GITHUB_ACTOR" not in text
+        assert "GITHUB_REPOSITORY -ne 'trung-via/python_complete_agent'" in text
+        assert "GITHUB_REF -ne 'refs/heads/main'" in text
         assert text.count("aios_phase2_repair.py") == 2
         assert "aios continue" not in text.lower()
         assert "aios repair-wakeup" not in text.lower()
         assert "secrets." not in text
+
+    def test_repair_target_is_authority_neutral_courier_and_preflights_remain_fail_closed(self):
+        workflow, text = load_workflow(REPAIR_TARGET)
+        # Preflights remain fail-closed
+        assert "GITHUB_REPOSITORY -ne 'trung-via/python_complete_agent'" in text
+        assert "GITHUB_REF -ne 'refs/heads/main'" in text
+        assert "AIOS_REPO_ROOT repository variable is not configured" in text
+        assert "The configured persistent repository is unavailable" in text
+        assert "The configured persistent repository is invalid" in text
+        assert "The pinned REPAIR bootstrap is unavailable" in text
+        # Authority-neutral courier does not assert GITHUB_ACTOR
+        assert "GITHUB_ACTOR" not in text
+        # Fixed dedicated runner and least-privilege permissions
+        assert workflow["jobs"]["execute-repair"]["runs-on"] == [
+            "self-hosted", "windows", "x64", "python-complete-agent",
+        ]
+        assert workflow["permissions"] == {"contents": "read"}
+        # Delivers only the 4 canonical inputs to the pinned bootstrap
+        assert "$env:AIOS_REPAIR_DISPATCH_ID" in text
+        assert "$env:AIOS_FAILED_RUN_ID" in text
+        assert "$env:AIOS_REPAIR_SHA" in text
+        assert "$env:AIOS_EXECUTOR" in text
+
+    def test_both_repair_delivery_paths_are_compatible_with_fixed_target(self):
+        ingress_wf, ingress_text = load_workflow(INGRESS)
+        carrier_wf, carrier_text = load_workflow(REPAIR_CARRIER)
+        target_wf, _ = load_workflow(REPAIR_TARGET)
+
+        # Path 1: Dedicated [AIOS REPAIR WAKEUP] carrier uses workflow_call
+        carrier_dispatch = carrier_wf["jobs"]["dispatch"]
+        assert carrier_dispatch["uses"] == "./.github/workflows/aios-self-hosted-repair-wakeup.yml"
+        assert set(carrier_dispatch["with"]) == {
+            "repair_dispatch_id", "failed_run_id", "repair_sha", "executor",
+        }
+
+        # Path 2: Bounded post-AUTHOR_REPAIR Ingress creates workflow_dispatch
+        ingress_repair = next(
+            s for s in ingress_wf["jobs"]["deliver"]["steps"]
+            if s.get("id") == "repair_dispatch"
+        )
+        assert ingress_repair["with"]["script"]
+        assert "workflow_id: 'aios-self-hosted-repair-wakeup.yml'" in ingress_repair["with"]["script"]
+
+        # Target accepts both triggers with matching input schema
+        assert set(target_wf["on"]) == {"workflow_dispatch", "workflow_call"}
+        call_inputs = target_wf["on"]["workflow_call"]["inputs"]
+        dispatch_inputs = target_wf["on"]["workflow_dispatch"]["inputs"]
+        for expected in ("repair_dispatch_id", "failed_run_id", "repair_sha", "executor"):
+            assert expected in call_inputs
+            assert expected in dispatch_inputs
+
+    def test_repair_carrier_policy_authorizes_only_human_actor_and_excludes_bots(self):
+        policy = load_yaml(REPAIR_POLICY)
+        assert policy["github_issue"]["authorized_actors"] == ["trung-via"]
+        for bot in ("github-actions[bot]", "github-actions", "bot"):
+            assert bot not in policy["github_issue"]["authorized_actors"]
 
     def test_bootstrap_preserves_zero_executor_and_explicit_executor_shapes(self):
         python = Path("runtime/python")

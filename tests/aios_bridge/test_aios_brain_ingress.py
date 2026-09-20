@@ -7,6 +7,7 @@ import sys
 from unittest.mock import MagicMock
 
 import pytest
+import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -155,3 +156,43 @@ def test_caller_cannot_select_repository_or_raw_git_destination(tmp_path, monkey
 
     assert ingress.main([str(envelope), "--repo", str(tmp_path)]) == 2
     bootstrap.assert_not_called()
+
+
+def test_brain_ingress_policy_enforces_actor_authorization_and_excludes_bots():
+    policy_path = REPO_ROOT / ".ai" / "brain-ingress-carriers.yaml"
+    policy = yaml.safe_load(policy_path.read_text(encoding="utf-8"))
+    assert policy["github_issue"]["authorized_actors"] == ["trung-via"]
+    for bot in ("github-actions[bot]", "github-actions", "bot"):
+        assert bot not in policy["github_issue"]["authorized_actors"]
+
+
+def test_brain_ingress_post_author_repair_dispatch_carries_only_canonical_selectors():
+    workflow_path = REPO_ROOT / ".github" / "workflows" / "aios-brain-ingress.yml"
+    text = workflow_path.read_text(encoding="utf-8")
+    workflow = yaml.load(text, Loader=yaml.BaseLoader)
+
+    repair_step = next(
+        step for step in workflow["jobs"]["deliver"]["steps"]
+        if step.get("id") == "repair_dispatch"
+    )
+    assert repair_step["if"] == (
+        "steps.ingress.outcome == 'success' && "
+        "steps.ingress.outputs.repair_sha != ''"
+    )
+    assert repair_step["env"] == {
+        "AIOS_REPAIR_DISPATCH_ID": "${{ steps.ingress.outputs.repair_dispatch_id }}",
+        "AIOS_FAILED_RUN_ID": "${{ steps.ingress.outputs.failed_run_id }}",
+        "AIOS_REPAIR_SHA": "${{ steps.ingress.outputs.repair_sha }}",
+    }
+    script = repair_step["with"]["script"]
+    assert "workflow_id: 'aios-self-hosted-repair-wakeup.yml'" in script
+    assert "ref: 'main'" in script
+    assert "repair_dispatch_id: process.env.AIOS_REPAIR_DISPATCH_ID" in script
+    assert "failed_run_id: process.env.AIOS_FAILED_RUN_ID" in script
+    assert "repair_sha: process.env.AIOS_REPAIR_SHA" in script
+    assert "executor: ''" in script
+
+    # Transport receipt explicitly asserts non-execution semantics
+    assert "detail: GitHub accepted safe REPAIR dispatch; this is not repair execution, verification, semantic review, publication, or TASK resolution." in text
+    # Preserves failed delivery outcome
+    assert "steps.ingress.outputs.repair_sha != '' && steps.repair_dispatch.outcome != 'success'" in text

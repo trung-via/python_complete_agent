@@ -59,10 +59,6 @@ jobs:
             Write-Error "REPAIR wakeup must execute from canonical main."
             exit 1
           }
-          if ($env:GITHUB_ACTOR -ne 'trung-via') {
-            Write-Error "Unauthorized REPAIR delivery actor."
-            exit 1
-          }
           if ([string]::IsNullOrWhiteSpace($env:AIOS_REPO_ROOT)) {
             Write-Error "AIOS_REPO_ROOT repository variable is not configured."
             exit 1
