@@ -11,8 +11,8 @@ authority:
 
 certification:
   task_id: TASK-207
-  task_revision: 4
-  downstream_pin: c96eb8b52acd865b9453409e6598e08a8bd4e48e
+  task_revision: 5
+  downstream_pin: 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2
   status: CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION
   effective_only_when:
     semantic_review: PASS
@@ -22,7 +22,7 @@ certification:
   before_gate: NOT_EFFECTIVE
   boundary: >-
     Runtime PASS and Reviewer PASS do not by themselves make this certification effective.
-    The safe Publisher must publish exactly the TASK-207 revision-4 reviewed source candidate,
+    The safe Publisher must publish exactly the TASK-207 revision-5 reviewed source candidate,
     and canonical main must equal that candidate.
 
 binding_families:
@@ -64,28 +64,28 @@ live_evidence_selectors:
     carrier: AIOS_BRAIN_INGRESS
     operation: AUTHOR_TASK
     expected_actor: trung-via
-    expected_predecessor_main: d12434f2d688a3381e0dd75b4067d7786cabb4a0
-    canonical_task_commit: f0a2aba4a8e9a93948b85e9b7eca2e992dadbd37
+    expected_predecessor_main: ada9a4e5b765a7daa4e081db1d56917410a73873
+    canonical_task_commit: 258f9635be5ac80eaaa35f1e802f292d17eb65c7
   AC2:
     carrier: AIOS_BRAIN_WAKEUP
-    dispatch_id: task207-r4-antigravity-001
-    run_id: RUN-207-004
+    dispatch_id: task207-r5-antigravity-001
+    run_id: RUN-207-005
     executor: antigravity
-    self_hosted_workflow_run_id: 35244255895
+    self_hosted_workflow_run_id: 35484892275
   AC3:
     carrier: AIOS_TERMINAL_ATTENTION
-    run_id: RUN-207-004
+    run_id: RUN-207-005
     terminal_ref_prefix: refs/heads/aios/terminal-attention/
     issue_title: "[AIOS TERMINAL ATTENTION]"
   AC4:
     carrier: AIOS_BRAIN_REMEDIATION_INTENT
-    correction_dispatch_id: task-207-r4-remediation-non-authorizing-001
+    correction_dispatch_id: task-207-r5-remediation-non-authorizing-001
     task_id: TASK-207
     expected_outcome: FAIL_CLOSED_NO_IMPLEMENTATION_RUN
     self_hosted_bootstrap: .agents/skills/aios-worker/scripts/aios_phase2_remediation.py
   AC5:
     carrier: AIOS_BRAIN_REPAIR_WAKEUP
-    repair_dispatch_id: task-207-r4-repair-non-authorizing-001
+    repair_dispatch_id: task-207-r5-repair-non-authorizing-001
     task_id: TASK-207
     action_shape: NO_CHANGE
     executor: null
@@ -106,8 +106,8 @@ authority_boundaries:
 
 historical_certification:
   task_id: TASK-207
-  task_revision: 3
-  downstream_pin: 91a177d5b96b2197a4d8223dbb727dda6201cb64
+  task_revision: 4
+  downstream_pin: c96eb8b52acd865b9453409e6598e08a8bd4e48e
   status: HISTORICAL_OLD_PIN_EVIDENCE_ONLY
   certification_authority_for_current_pin: false
 

@@ -504,14 +504,21 @@ TASK-218 supersedes that active pin with exact reviewed, source-published commit
 RUN-145-002 / REVIEW-145-001 local/canonical REPAIR semantic-identity reconciliation fix
 validated against reviewed baseline 89ac1880fed41c7237146422e2e985d98c0eeda8 (TASK-146 /
 REVIEW-146-001) while preserving all Phase-1/Phase-2 repository bindings and authority boundaries.
-TASK-207 revision 4 re-certified the Phase-1 and Phase-2 repository bindings under
-the prior `c96eb8b52acd865b9453409e6598e08a8bd4e48e` pin, which is preserved as historical
-prior-pin evidence in `.ai/aios-conformance-state.yaml`.
-Fresh full downstream conformance certification under `49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2`
-remains pending through the existing TASK-207 semantic authority.
+TASK-207 revision 5 re-certifies the Phase-1 and Phase-2 repository bindings under
+the exact `49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2` pin, while preserving revision-4
+conformance as historical evidence tied to `c96eb8b52acd865b9453409e6598e08a8bd4e48e`.
 TASK-207 revision 2 and RUN-207-001/RUN-207-002/REPAIR-207-001 remain immutable old-pin
 history; conformance resumes only through a fresh Brain revision bound to the new pin.
 Future AIOS-renew main changes remain irrelevant until another explicit reviewed downstream migration.
+
+TASK-207 revision 5 establishes the publication-gated full downstream conformance certification
+under the exact `49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2` pin in `.ai/aios-conformance-state.yaml`.
+Certification is publication-gated: Runtime PASS and a semantic Reviewer PASS are necessary but not
+sufficient; the safe Publisher must publish exactly the reviewed TASK-207 revision-5 source candidate
+and canonical `main` must equal it. Only then is `FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION`
+effective as DONE, with P7.3 remaining NEXT and preserving TASK-215 revision 1 / RUN-215-003 / REPAIR-215-002
+resume lineage. Prior revision-4 evidence under `c96eb8b52acd865b9453409e6598e08a8bd4e48e` remains
+preserved unchanged as historical prior-pin evidence.
 
 The normal certified surfaces remain the repository-owned GitHub Issue carriers for Brain
 authoring, PRIMARY wakeup, terminal attention, remediation intent, and REPAIR wakeup, plus
