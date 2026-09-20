@@ -1126,6 +1126,7 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
         "completion_basis": "PUBLICATION_GATED",
         "classification": "PRE_ACTION_EVIDENCE_ACQUISITION_PLAN_ONLY",
         "planning_owner": "HUMAN_BRAIN",
+        "source_sha": TASK_228_SOURCE_SHA,
         "exact_case_preserved": True,
         "live_evidence_acquired": False,
         "real_pilot_executed": False,
