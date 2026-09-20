@@ -10,6 +10,8 @@ Canonical owner: `src/commerce_opportunity_intelligence/calibration_and_winner_v
 
 P7.7 supplies one bounded immutable post-test interpretation value, `WinnerValidationAssessment`, and one pure construction surface, `create_winner_validation_assessment`. The construction surface composes the exact P7.3 `DecisionContext` and `OpportunityHypothesis` with a non-empty ordered set of exact P7.6 `MarketTestEvidenceProfile` values. It preserves the caller's profile order, assessment evidence-reference order, and unresolved-uncertainty order.
 
+`WinnerValidationAssessment` remains publicly exportable as the immutable result type, but its public constructor fails closed. Valid instances are constructible only through `create_winner_validation_assessment`, so callers cannot bypass exact P7.3/P7.6 object binding or evidence anchoring by supplying lineage identifiers and evidence references directly.
+
 The assessment records a stable caller-supplied identity, exact context and hypothesis identities, explicit timezone-aware `as_of`, the bound profile identities, caller-authored rationales, supporting evidence references, counter evidence references, and unresolved uncertainties. It does not copy, rewrite, synthesize, persist, or dereference the underlying evidence. Every assessment evidence reference must already occur in one of the four P7.6 evidence dimensions on a bound profile.
 
 ## Bounded judgment vocabularies

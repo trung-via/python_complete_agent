@@ -47,6 +47,8 @@ _MAX_IDENTIFIER_LENGTH = 256
 _MAX_REFERENCE_LENGTH = 512
 _MAX_TEXT_LENGTH = 4096
 
+_FACTORY_CONSTRUCTION_TOKEN = object()
+
 _FORBIDDEN_PUBLIC_STRING_PATTERNS = (
     (
         "object representation",
@@ -220,7 +222,15 @@ class WinnerValidationAssessment:
         supporting_evidence_refs: Sequence[str] = (),
         counter_evidence_refs: Sequence[str] = (),
         unresolved_uncertainties: Sequence[str] = (),
+        *,
+        _factory_construction_token: object | None = None,
     ) -> None:
+        if _factory_construction_token is not _FACTORY_CONSTRUCTION_TOKEN:
+            raise OpportunityIntelligenceValidationError(
+                "WinnerValidationAssessment must be constructed by "
+                "create_winner_validation_assessment"
+            )
+
         for name, value in (
             ("assessment_id", assessment_id),
             ("decision_context_id", decision_context_id),
@@ -459,4 +469,5 @@ def create_winner_validation_assessment(
         supporting_evidence_refs=supporting,
         counter_evidence_refs=counter,
         unresolved_uncertainties=unresolved_uncertainties,
+        _factory_construction_token=_FACTORY_CONSTRUCTION_TOKEN,
     )

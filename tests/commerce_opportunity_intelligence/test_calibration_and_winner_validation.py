@@ -100,6 +100,31 @@ def test_authority_and_disposition_vocabularies_are_exact_and_ordered():
     )
 
 
+def test_direct_public_construction_fails_closed_but_factory_succeeds():
+    with pytest.raises(
+        OpportunityIntelligenceValidationError,
+        match="must be constructed by create_winner_validation_assessment",
+    ):
+        WinnerValidationAssessment(
+            assessment_id="fabricated-assessment",
+            decision_context_id="fabricated-context",
+            hypothesis_id="fabricated-hypothesis",
+            as_of=AS_OF,
+            market_test_profile_ids=("fabricated-profile",),
+            hypothesis_calibration="ALIGNED",
+            winner_validation="SUPPORTED",
+            calibration_rationale="Caller supplied lineage without bound objects.",
+            validation_rationale="Caller supplied unanchored evidence.",
+            supporting_evidence_refs=("ref://invented/not-in-profile",),
+        )
+
+    assessment = create_assessment()
+    assert isinstance(assessment, WinnerValidationAssessment)
+    assert assessment.decision_context_id == sample_context().context_id
+    assert assessment.hypothesis_id == sample_hypothesis().hypothesis_id
+    assert assessment.market_test_profile_ids == (sample_profile().profile_id,)
+
+
 def test_factory_binds_exact_identities_and_preserves_all_caller_order():
     second = sample_profile(
         profile_id="profile-2",
