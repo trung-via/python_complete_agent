@@ -48,7 +48,7 @@ _FORBIDDEN_PUBLIC_STRING_PATTERNS = (
         re.compile(
             r"(?:"
             r"\b(?:set-cookie|cookie)\s*:\s*\S+"
-            r"|[\"']?(?:session(?:id|_id|token)?|phpsessid|jsessionid|"
+            r"|[\"']?(?:session(?:id|_id|token|_token)?|phpsessid|jsessionid|"
             r"__Host-[A-Za-z0-9_-]+|__Secure-[A-Za-z0-9_-]+)"
             r"[\"']?\s*[:=]\s*[\"']?\S+"
             r")",
