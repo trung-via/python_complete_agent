@@ -1,0 +1,35 @@
+review_id: REVIEW-222-001
+reviewed_sha: 63c45bc39ba6ba1f04792fa6b8562db2f8e02349
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: FAIL
+  AC3: FAIL
+  AC4: PASS
+  AC5: FAIL
+  AC6: PASS
+  AC7: PASS
+  AC8: FAIL
+findings:
+  - id: FINDING-222-001
+    basis: AC3
+    action: CODE_FIX
+    location: src/commerce_opportunity_intelligence/tiktok_affiliate_evidence.py; tests/commerce_opportunity_intelligence/test_tiktok_affiliate_evidence.py
+    issue: >
+      The public create_tiktok_affiliate_evidence_profile factory eagerly converts every
+      caller-supplied dimension collection with tuple(...) before TikTokAffiliateEvidenceProfile
+      validation. That bypasses _ordered_refs' Sequence gate: an unordered set supplied through
+      the canonical factory becomes an accepted tuple instead of failing closed. Because set
+      iteration order is not caller-defined and may vary across processes, the factory does not
+      preserve caller order and can produce a non-deterministic public profile/projection from an
+      input shape that the direct value constructor correctly rejects. Existing regression coverage
+      tests unordered-set rejection only through direct TikTokAffiliateEvidenceProfile construction,
+      so it does not exercise the canonical factory path.
+    expected: >
+      Preserve the single P7.4 authority and factory surface, but pass dimension collections into
+      the profile validation without pre-coercing unordered inputs (or otherwise validate the
+      original inputs as ordered Sequences before conversion). Add focused regression coverage
+      proving the public factory rejects unordered collections for the six dimensions while
+      preserving ordered caller input exactly. Do not broaden scope, add collection/acquisition
+      behavior, alter P7.3, or change roadmap/control-plane authority.
