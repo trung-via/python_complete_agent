@@ -1,0 +1,42 @@
+review_id: REVIEW-234-001
+reviewed_sha: ee0ebfc368e2feef39f5c7e290178444e02fed9a
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: PASS
+  AC3: FAIL
+  AC4: FAIL
+  AC5: PASS
+  AC6: FAIL
+  AC7: PASS
+  AC8: PASS
+  AC9: PASS
+findings:
+  - id: FINDING-234-001
+    basis: AC4
+    action: CODE_FIX
+    location: src/product_intelligence/tiktok_pdp_dom_diagnostic.py; tests/product_intelligence/test_tiktok_pdp_dom_diagnostic.py
+    issue: >
+      The attach-only diagnostic's current-page safety gate is not fully fail-closed.
+      DIAGNOSTIC_SCRIPT collects explicit_product_ids from any [data-product-id] anywhere
+      in the document, while _validate_payload accepts any shop.tiktok.com URL that merely
+      avoids a small path blacklist. A generic or unrelated TikTok Shop page can therefore
+      pass exact-target admission if a product card happens to expose the authorized source
+      ID. The same script derives blocked/login state only from document.title plus the first
+      500 characters of the selected root's innerText, so a CAPTCHA/security/login overlay
+      outside that root can be missed while an underlying PDP-like main subtree remains present.
+      This leaves AC3/AC4 incomplete and means AC6 does not yet prove the required exact-page
+      and challenge fail-closed behavior.
+    expected: >
+      Keep the diagnostic attach-only and bounded, but bind explicit identity only to a
+      deterministic current-PDP surface: use the canonical observed-URL identity where
+      available and otherwise only tightly scoped current-product identity attributes/meta
+      associated with the bounded PDP root, never arbitrary product-card IDs elsewhere in the
+      document. Reject generic/home/category/unrelated routes even when they contain a matching
+      product card. Detect CAPTCHA/security/login state through bounded direct challenge/login
+      selectors or equivalent explicit page-state markers independent of the first 500
+      characters of the candidate root. Add deterministic regressions for an unrelated shop
+      page containing the target product card and for a challenge/login overlay while a
+      valid-looking PDP main remains underneath. Do not add navigation, raw-HTML capture,
+      broad body dumping, retry, or a second parser/identity authority.
