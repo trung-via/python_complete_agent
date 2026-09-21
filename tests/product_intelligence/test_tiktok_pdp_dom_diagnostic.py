@@ -205,6 +205,60 @@ async def test_unavailable_challenge_login_unrelated_or_unverifiable_fails_close
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
+    "observed_url",
+    (
+        "https://shop.tiktok.com/vn",
+        "https://shop.tiktok.com/vn/category/home-and-living",
+    ),
+)
+async def test_unrelated_shop_page_with_target_product_card_fails_closed(
+    external_temp_path, observed_url
+):
+    FakeManager.payload = _payload(
+        observed_url=observed_url,
+        explicit_product_ids=[DIAGNOSTIC_SOURCE_ID],
+    )
+    root = external_temp_path / "unrelated-card"
+
+    with pytest.raises(TikTokPdpDomDiagnosticError):
+        await run_tiktok_pdp_dom_diagnostic(
+            job_root=root,
+            cdp_endpoint=ENDPOINT,
+            clock=lambda: OBSERVED_AT,
+            manager_factory=FakeManager,
+        )
+
+    assert not (root / ARTIFACT_FILENAME).exists()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("state_name", ("blocked", "login"))
+async def test_challenge_or_login_overlay_over_valid_pdp_fails_closed(
+    external_temp_path, state_name
+):
+    page_state = {
+        "has_bounded_root": True,
+        "blocked": False,
+        "login": False,
+        "unavailable": False,
+    }
+    page_state[state_name] = True
+    FakeManager.payload = _payload(page_state=page_state)
+    root = external_temp_path / f"{state_name}-overlay"
+
+    with pytest.raises(TikTokPdpDomDiagnosticError):
+        await run_tiktok_pdp_dom_diagnostic(
+            job_root=root,
+            cdp_endpoint=ENDPOINT,
+            clock=lambda: OBSERVED_AT,
+            manager_factory=FakeManager,
+        )
+
+    assert not (root / ARTIFACT_FILENAME).exists()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
     "payload",
     (
         {**_payload(), "raw_html": "<body>forbidden</body>"},
@@ -295,3 +349,12 @@ def test_diagnostic_source_has_no_navigation_or_forbidden_semantic_dependencies(
     assert "manager.close_session(_SESSION_RUN_ID)" in source
     assert "close_all" not in source
     assert "session.close" not in source
+
+
+def test_diagnostic_script_scopes_identity_and_detects_page_level_overlays():
+    assert "root.querySelectorAll(" in DIAGNOSTIC_SCRIPT
+    assert "node.closest(pdpRootSelector) === root" in DIAGNOSTIC_SCRIPT
+    assert "iframe[src*=\"captcha\" i]" in DIAGNOSTIC_SCRIPT
+    assert "form[action*=\"/login\" i]" in DIAGNOSTIC_SCRIPT
+    assert "input[type=\"password\"]" in DIAGNOSTIC_SCRIPT
+    assert "meta[itemprop=\"productID\"], [data-product-id]" not in DIAGNOSTIC_SCRIPT

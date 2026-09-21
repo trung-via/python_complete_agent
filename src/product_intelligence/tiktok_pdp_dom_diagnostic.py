@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import re
 from typing import Callable, Mapping, Protocol
 from urllib.parse import urlsplit
 
@@ -108,7 +109,7 @@ def _resolve_external_job_root(job_root: str | Path) -> Path:
 
 
 # One evaluation only. It never navigates or interacts and scans at most 400 visible
-# elements beneath main (or one bounded PDP-shaped fallback root).
+# elements beneath one bounded PDP-shaped root (or a main fallback).
 DIAGNOSTIC_SCRIPT = r"""
 () => {
   const clip = (value, limit) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, limit);
@@ -122,17 +123,45 @@ DIAGNOSTIC_SCRIPT = r"""
     const style = window.getComputedStyle(element);
     return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
   };
-  const root = document.querySelector('main') ||
-    document.querySelector('[data-e2e*="pdp" i], [data-testid*="pdp" i], [itemtype*="Product"]');
-  const statusText = clip([document.title, root ? root.innerText : ''].join(' '), 500).toLowerCase();
+  const pdpRootSelector = '[data-e2e*="pdp" i], [data-testid*="pdp" i], [itemtype*="Product"]';
+  const root = document.querySelector(pdpRootSelector) || document.querySelector('main');
+  const titleText = clip(document.title, 200).toLowerCase();
+  const rootStatusText = clip(root ? root.innerText : '', 500).toLowerCase();
   const url = String(window.location.href || '');
-  const blocked = /captcha|challenge|verify|security check|robot/.test(statusText);
-  const login = /\/login(?:[/?#]|$)/i.test(url) || /log in|login|sign in|đăng nhập/.test(statusText);
-  const unavailable = /not available|unavailable|sold out|không tồn tại|không khả dụng/.test(statusText);
+  const hasVisibleMarker = (selectors) => selectors.some(selector =>
+    Array.from(document.querySelectorAll(selector)).slice(0, 4).some(visible)
+  );
+  const blocked = /captcha|challenge|verify|security check|robot/.test(titleText) || hasVisibleMarker([
+    'iframe[src*="captcha" i]', 'iframe[src*="challenge" i]',
+    '[data-e2e*="captcha" i]', '[data-testid*="captcha" i]',
+    '[data-e2e*="challenge" i]', '[data-testid*="challenge" i]',
+    '[id*="captcha" i]', '[aria-label*="security check" i]'
+  ]);
+  const login = /\/login(?:[/?#]|$)/i.test(url) || /log in|login|sign in|đăng nhập/.test(titleText) ||
+    hasVisibleMarker([
+      'form[action*="/login" i]', 'input[type="password"]',
+      '[data-e2e*="login" i]', '[data-testid*="login" i]',
+      '[aria-label*="log in" i]', '[aria-label*="sign in" i]'
+    ]);
+  const unavailable = /not available|unavailable|sold out|không tồn tại|không khả dụng/.test(
+    [titleText, rootStatusText].join(' ')
+  );
   const ids = [];
-  for (const meta of Array.from(document.querySelectorAll(
-      'meta[property="product:retailer_item_id"], meta[itemprop="productID"], [data-product-id]')).slice(0, 8)) {
-    const value = clip(meta.getAttribute('content') || meta.getAttribute('data-product-id'), 32);
+  const identityNodes = root ? [root] : [];
+  if (root && root.matches(pdpRootSelector)) {
+    for (const node of Array.from(root.querySelectorAll(
+        'meta[property="product:retailer_item_id"], meta[itemprop="productID"], [itemprop="productID"]')).slice(0, 4)) {
+      if (node.closest(pdpRootSelector) === root) identityNodes.push(node);
+    }
+  }
+  for (const node of identityNodes.slice(0, 4)) {
+    const itempropValue = String(node.getAttribute('itemprop') || '').toLowerCase() === 'productid'
+      ? node.textContent : '';
+    const value = clip(
+      node.getAttribute('content') || node.getAttribute('data-product-id') || node.getAttribute('data-item-id') ||
+      itempropValue,
+      32
+    );
     if (/^\d+$/.test(value) && !ids.includes(value)) ids.push(value);
   }
   const rules = [
@@ -240,7 +269,7 @@ def _validate_payload(payload: object) -> list[dict[str, object]]:
     explicit_ids = payload["explicit_product_ids"]
     if (
         not isinstance(explicit_ids, list)
-        or len(explicit_ids) > 8
+        or len(explicit_ids) > 4
         or any(not isinstance(item, str) or not item.isdigit() or len(item) > 32 for item in explicit_ids)
     ):
         raise TikTokPdpDomDiagnosticError("diagnostic payload schema was invalid")
@@ -251,24 +280,36 @@ def _validate_payload(payload: object) -> list[dict[str, object]]:
         raise TikTokPdpDomDiagnosticError(
             "the current page identity was unverifiable"
         ) from exc
+    pdp_path_match = re.fullmatch(
+        r"/[a-z]{2}/pdp/[^/]+(?:/(?P<product_id>\d+))?/?",
+        parsed_url.path,
+        flags=re.IGNORECASE,
+    )
     if (
         parsed_url.scheme.lower() not in {"http", "https"}
         or (parsed_url.hostname or "").lower() != "shop.tiktok.com"
-        or any(
-            marker in parsed_url.path.lower()
-            for marker in ("/search", "/login", "/challenge", "/captcha")
-        )
+        or pdp_path_match is None
     ):
         raise TikTokPdpDomDiagnosticError(
             "the current page identity did not match the fixed diagnostic target"
         )
-    observed_id = extract_tiktok_product_id(observed_url)
+    path_product_id = pdp_path_match.group("product_id")
+    extracted_url_id = extract_tiktok_product_id(observed_url)
+    observed_id = (
+        extracted_url_id
+        if path_product_id is not None and extracted_url_id == path_product_id
+        else None
+    )
     parsed_explicit_ids = {
         extract_tiktok_product_id(None, item_id_attr=item) for item in explicit_ids
     }
     parsed_explicit_ids.discard(None)
-    identities = ({observed_id} if observed_id else set()) | parsed_explicit_ids
-    if identities != {DIAGNOSTIC_SOURCE_ID}:
+    identity_matches = (
+        observed_id == DIAGNOSTIC_SOURCE_ID
+        if path_product_id is not None
+        else parsed_explicit_ids == {DIAGNOSTIC_SOURCE_ID}
+    )
+    if not identity_matches:
         raise TikTokPdpDomDiagnosticError(
             "the current page identity did not match the fixed diagnostic target"
         )
