@@ -46,20 +46,25 @@ planning_handoff:
     semantic reconciliation without reinterpreting TASK-191 or changing TASK-213 history.
 
 active_track:
-  id: P8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY
-  title: P8 Wave-0 TikTok PDP Identity Compatibility
+  id: P8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT
+  title: P8 Public TikTok PDP Acquisition Contract
   priority_owner: HUMAN
   status: DONE
   completion_basis: PUBLICATION_GATED
-  sequence_status: COMPLETE_ON_EXACT_TASK_230_SOURCE_PUBLICATION
+  sequence_status: COMPLETE_ON_EXACT_TASK_231_SOURCE_PUBLICATION
   current_milestone:
-    id: P8.WAVE_0.COMPATIBILITY
-    task_id: TASK-230
-    title: TikTok PDP Identity Compatibility and Parser Authority Consolidation
+    id: P8.PUBLIC_PDP.ACQUISITION_CONTRACT
+    task_id: TASK-231
+    title: Public TikTok PDP Acquisition Contract
     status: DONE
     completion_basis: PUBLICATION_GATED
-    classification: P8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY_ONLY
+    classification: PUBLIC_PDP_ACQUISITION_CONTRACT_ONLY
     authorization_owner: HUMAN_BRAIN
+    implementation_authorized: true
+    live_public_pdp_acquisition_authority: NONE
+    automatic_live_pilot: false
+    automatic_p8_4: false
+    market_test_or_action_authority: NONE
     real_pilot_executed: false
     live_evidence_acquired: false
     automatic_progression: false
@@ -67,9 +72,20 @@ active_track:
       semantic_review: PASS
       published_source: EXACT_REVIEWED_CANDIDATE
       canonical_main_equals_reviewed_candidate: true
-  next_milestone: null
+  next_milestone: P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION
 
-pending_commitments: []
+pending_commitments:
+  - id: P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION
+    title: Public TikTok PDP Collector Implementation
+    status: NEXT
+    classification: BOUNDED_OFFLINE_FIRST_IMPLEMENTATION_ONLY
+    task_id: null
+    implementation_exists: false
+    live_public_pdp_acquisition_authority: NONE
+    automatic_live_pilot: false
+    automatic_p8_4: false
+    market_test_or_action_authority: NONE
+    post_publication_handoff: HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION
 
 post_p7_planning_handoff:
   destination: P8_REAL_COMMERCE_DECISION_LOOP_COMPOSITION
@@ -87,9 +103,9 @@ post_p7_planning_handoff:
     outcome, roadmap, or future-domain authority into P8.0.
 
 post_p8_planning_handoff:
-  destination: HUMAN_BRAIN_PUBLIC_PDP_ACQUISITION_AUTHORIZATION
-  status: EFFECTIVE_ON_EXACT_TASK_230_SOURCE_PUBLICATION
-  completed_commitment: P8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY
+  destination: P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION
+  status: EFFECTIVE_ON_EXACT_TASK_231_SOURCE_PUBLICATION
+  completed_commitment: P8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT
   actual_real_decision_case:
     context_id: p8-pilot-001-led-motion-tiktok-vn
     record_type: PILOT_CASE_SELECTION_ONLY
@@ -102,9 +118,14 @@ post_p8_planning_handoff:
     selection_owner: HUMAN
     selection_status: SELECTED
     real_pilot_executed: false
-  next_milestone: null
+  next_milestone: P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION
   automatic_next: false
   automatic_p8_4: false
+  implementation_authorized: true
+  live_public_pdp_acquisition_authority: NONE
+  automatic_live_pilot: false
+  market_test_or_action_authority: NONE
+  first_live_capture_handoff: HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION
   automated_public_pdp_acquisition_authority: NONE
   real_pilot_executed: false
   live_evidence_acquired: false
@@ -118,6 +139,43 @@ post_p8_planning_handoff:
     capability_not_evidence: true
     public_pdp_affiliate_dependency: NONE
     source_identity_scope: SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY
+  public_pdp_acquisition_contract:
+    document: docs/PHASE_8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT.md
+    classification: PUBLIC_PDP_ACQUISITION_CONTRACT_ONLY
+    task_id: TASK-231
+    semantic_owner: ProductCandidateSnapshot
+    field_evidence_owner: SignalEvidence
+    product_source_pack_scope: SELLER_FACTS_AND_ORIGINAL_MEDIA_ONLY
+    canonical_tiktok_parser: src/product_intelligence/adapters/tiktok_parsing.py
+    parser_authority_count: 1
+    public_pdp_affiliate_dependency: NONE
+    exact_listing_binding: FAIL_CLOSED
+    blocked_or_challenge_handling: FAIL_CLOSED_ZERO_FABRICATED_OBSERVATIONS
+    ambiguous_price_law: AMBIGUOUS_PRICE_IS_NOT_EXACT_PRICE
+    snapshot_law: SNAPSHOT_IS_NOT_TREND
+    source_identity_scope: SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY
+    v1_observation_allowlist:
+      - source_product_id
+      - requested_and_observed_url_binding_context
+      - observed_at
+      - title
+      - shop_name
+      - price
+      - original_price
+      - discount_percent
+      - sold_count
+      - rating
+      - review_count
+    variant_descriptor_authority: DEFERRED_CONTEXT_ONLY
+    inventory_availability_authority: DEFERRED_CONTEXT_ONLY
+    affiliate_fields_authority: NONE
+    wave_2_authority: NONE
+    velocity_or_trend_authority: NONE
+    implementation_authorized: true
+    live_public_pdp_acquisition_authority: NONE
+    automatic_live_pilot: false
+    automatic_p8_4: false
+    market_test_or_action_authority: NONE
   manual_contribution_authorization:
     document: docs/PHASE_8_P8_3_MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION.md
     classification: MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION_ONLY
@@ -168,13 +226,13 @@ post_p8_planning_handoff:
     collector_authority: NONE
     automated_acquisition_authority: NONE
   boundary: >-
-    TASK-230 closes only the Human-selected Wave-0 PDP identity compatibility and one-parser-authority
-    consolidation for the exact P8.1 case. It acquires, accepts, freezes, and promotes no evidence;
-    creates no Affiliate dependency for public PDP product/source intelligence; authorizes no
-    collector, later acquisition, P7.4/P7.5 construction, Wave 1, Wave 2, market test, P8.4, or
-    commerce action; and executes no real pilot. TASK-229 remains completed authorization history
-    with contribution and review unperformed. Control returns to a fresh Human/Brain authorization
-    decision, and no successor or future domain is automatic.
+    TASK-231 closes only the public-PDP acquisition contract and bounded offline-first implementation
+    authorization. TASK-228, TASK-229, and TASK-230 remain completed history without reinterpretation;
+    no evidence is acquired, accepted, frozen, or promoted; no collector is implemented; and no live
+    capture, P7.4/P7.5 construction, Wave 2, score, recommendation, decision, test, P8.4, or commerce
+    action is authorized. The unique current NEXT is P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION without a
+    task number or implementation claim. After independent implementation review and publication,
+    control returns to HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION before any real capture.
 
 completed_milestones:
   - task_id: TASK-192
@@ -401,6 +459,28 @@ completed_milestones:
     parser_authority_count: 1
     compatibility_capability_only: true
     public_pdp_affiliate_dependency: NONE
+    live_evidence_acquired: false
+    real_pilot_executed: false
+    effective_only_when:
+      semantic_review: PASS
+      published_source: EXACT_REVIEWED_CANDIDATE
+      canonical_main_equals_reviewed_candidate: true
+  - task_id: TASK-231
+    task_revision: 1
+    track_id: P8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT
+    milestone_id: P8.PUBLIC_PDP.ACQUISITION_CONTRACT
+    title: Public TikTok PDP Acquisition Contract
+    status: DONE
+    completion_basis: PUBLICATION_GATED
+    classification: PUBLIC_PDP_ACQUISITION_CONTRACT_ONLY
+    authorization_owner: HUMAN_BRAIN
+    exact_case_preserved: true
+    implementation_authorized: true
+    collector_implemented: false
+    live_public_pdp_acquisition_authority: NONE
+    automatic_live_pilot: false
+    automatic_p8_4: false
+    market_test_or_action_authority: NONE
     live_evidence_acquired: false
     real_pilot_executed: false
     effective_only_when:

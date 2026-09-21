@@ -13,7 +13,11 @@ only as `PRE_ACTION_EVIDENCE_ACQUISITION_PLAN_ONLY`, with no live evidence, acti
 P8.3. Control returns to Human/Brain for an explicit bounded evidence-acquisition authorization
 decision. The Human selected TASK-230 as the bounded Wave-0 TikTok PDP identity-compatibility and
 single-parser-authority commitment. On exact publication, control returns to
-`HUMAN_BRAIN_PUBLIC_PDP_ACQUISITION_AUTHORIZATION` with no automatic acquisition successor.
+`HUMAN_BRAIN_PUBLIC_PDP_ACQUISITION_AUTHORIZATION`. The Human then approved TASK-231 as the
+publication-gated `PUBLIC_PDP_ACQUISITION_CONTRACT_ONLY` architecture and bounded implementation
+authorization. On exact TASK-231 publication, the unique current NEXT commitment is
+`P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION`, an offline-first implementation only; no successor task
+number, implementation, live capture, automatic pilot, P8.4, market test, or action is claimed.
 P6.2 remains PARKED and P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
 Scope: Python Agent product architecture post-P5; AIOS-renew remains execution substrate only.
 
@@ -397,6 +401,27 @@ acquisition design, live capture, evidence acceptance, or commerce action. The h
 `HUMAN_BRAIN_PUBLIC_PDP_ACQUISITION_AUTHORIZATION`, `automatic_next` is false, and
 `automated_public_pdp_acquisition_authority` is `NONE`.
 
+- **P8 Public TikTok PDP Acquisition Contract (TASK-231 — publication-gated DONE only as
+  `PUBLIC_PDP_ACQUISITION_CONTRACT_ONLY`)**: establishes the public-PDP acquisition boundary beneath
+  existing Product Intelligence ownership. `ProductCandidateSnapshot` remains the canonical
+  marketplace observation contract and `SignalEvidence` remains the canonical normalized field-
+  evidence contract. `ProductSourcePack` remains seller facts/media authority and is not a market-
+  metric dependency. The future V1 allowlist is limited to exact identity/binding/time, explicit
+  title/shop, unambiguous scalar price/original price/discount, sold count, rating, and review
+  count. `AMBIGUOUS_PRICE_IS_NOT_EXACT_PRICE`, `SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY`, and
+  `SNAPSHOT_IS_NOT_TREND` apply; blocked/challenge and unverifiable identity outcomes fail closed.
+  Public acquisition remains independent from Affiliate access and grants no evidence truth,
+  scoring, recommendation, approval, decision, test, or action authority.
+
+On exact reviewed TASK-231 source publication, TASK-228, TASK-229, and TASK-230 remain preserved
+completed history and TASK-231 is DONE only as the contract. The unique current NEXT commitment is
+`P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION`, classified as bounded offline-first implementation only,
+with no task number assigned and no implementation claimed. `implementation_authorized` is true;
+`live_public_pdp_acquisition_authority` is `NONE`; `automatic_live_pilot` and `automatic_p8_4` are
+false; and `market_test_or_action_authority` is `NONE`. After a later implementation is independently
+reviewed and published, control returns to `HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION` before
+the first real TikTok PDP capture.
+
 See `docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md` for the exact P8.0 source
 `a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e`,
 `docs/PHASE_8_P8_1_REAL_DECISION_PILOT_SELECTION.md` for the exact P8.1 selection record, and
@@ -404,6 +429,7 @@ See `docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md` for the exact P8.0
 `eb5b09a8208771a25493fd5a68232bb2dd48c700`, and
 `docs/PHASE_8_P8_3_MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION.md` for the P8.3 authorization.
 See `docs/PHASE_8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY.md` for the bounded TASK-230 closure.
+See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT.md` for the canonical TASK-231 contract.
 
 
 The complete audit and P7.0 boundary are recorded in
