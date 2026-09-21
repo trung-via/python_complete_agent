@@ -1,0 +1,284 @@
+task_id: TASK-232
+revision: 1
+
+goal: >
+  Implement the one currently authorized P8 public TikTok Shop PDP collector capability as
+  BOUNDED_OFFLINE_FIRST_IMPLEMENTATION_ONLY. Add a narrow Product Intelligence exact-PDP
+  observation adapter, strict PDP parsing/admission behavior, deterministic offline tests,
+  implementation documentation, and publication-gated roadmap closure. Reuse existing browser
+  session and canonical TikTok identity/parsing authorities. Do not access TikTok live, create
+  evidence outside existing ProductCandidateSnapshot/SignalEvidence semantics, expand Product
+  Source, use Affiliate surfaces, or authorize any live pilot, market test, ranking, approval,
+  recommendation, or commerce action.
+
+problem: >
+  TASK-231 is exactly published at c533ee90201a5e0400b7973e89ab5c58677501ba
+  and authorizes one unique NEXT commitment named P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION,
+  classified BOUNDED_OFFLINE_FIRST_IMPLEMENTATION_ONLY. The repository currently has TikTok
+  search-card discovery and ProductSourcePack extraction, but neither is the correct semantic or
+  technical owner for exact public-PDP market observations. Search-card parsing intentionally
+  accepts price ranges by lower bound, which is forbidden for exact PDP evidence. Product Source
+  extraction is facts/media oriented and depends on trusted media, which TASK-231 explicitly
+  forbids as a dependency for PDP market metrics. The missing capability is therefore a narrow
+  Product Intelligence collector that accepts an already-owned BrowserSession, observes one exact
+  PDP, fails closed on identity/access ambiguity, and constructs the existing
+  ProductCandidateSnapshot without introducing a second observation/evidence owner.
+
+assumptions:
+  - >-
+    Canonical main at authoring is c533ee90201a5e0400b7973e89ab5c58677501ba.
+  - >-
+    TASK-231 is published and DONE only as PUBLIC_PDP_ACQUISITION_CONTRACT_ONLY.
+  - >-
+    Canonical roadmap has exactly one NEXT commitment named P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION.
+  - >-
+    implementation_authorized is true, but live_public_pdp_acquisition_authority is NONE.
+  - >-
+    automatic_live_pilot is false, automatic_p8_4 is false, and market_test_or_action_authority is NONE.
+  - >-
+    ProductCandidateSnapshot remains the sole canonical public marketplace observation contract for the V1 fields it already owns.
+  - >-
+    SignalEvidence remains the existing Product Intelligence field-evidence contract produced downstream by existing normalization.
+  - >-
+    ProductSourcePack remains seller/source facts and original-media authority only.
+  - >-
+    src/product_intelligence/adapters/tiktok_parsing.py remains the one canonical TikTok source-product identity/parsing authority.
+  - >-
+    Existing parse_tiktok_price search-card behavior intentionally takes the lower bound of displayed ranges and must remain unchanged for discovery compatibility.
+  - >-
+    Existing PlaywrightBrowserManager and PlaywrightBrowserSession remain browser/session lifecycle authorities.
+  - >-
+    The implementation must consume an already-provided BrowserSession-like dependency and must not create, connect, restart, close, select, or rebind browser/CDP resources.
+  - >-
+    The selected P8 pilot remains context_id p8-pilot-001-led-motion-tiktok-vn and source ID 1731381331718341815, but those values are planning/live-authorization context, not a universal implementation allowlist.
+  - >-
+    SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY, SNAPSHOT_IS_NOT_TREND, EVIDENCE_IS_NOT_PRODUCT_TRUTH, CAPABILITY_IS_NOT_AUTHORITY, and ONE_CAPABILITY_ONE_AUTHORITY remain mandatory.
+  - >-
+    Current downstream AIOS pin and conformance remain edd7d8d92d54900c56442bbfcddb8648ec4d2e09 / TASK-207 revision 8.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT.md
+    - docs/PHASE_8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - .ai/aios-adoption-state.yaml
+    - .ai/aios-conformance-state.yaml
+    - .ai/tasks/TASK-230.yaml
+    - .ai/tasks/TASK-231.yaml
+    - src/browser/manager.py
+    - src/browser/session.py
+    - src/integrations/playwright/manager.py
+    - src/integrations/playwright/session.py
+    - src/product_intelligence/models.py
+    - src/product_intelligence/normalizer.py
+    - src/product_intelligence/adapters/tiktok.py
+    - src/product_intelligence/adapters/tiktok_parsing.py
+    - src/product_source/platforms/tiktok.py
+    - src/tools/tiktok_scrape_tool.py
+    - tests/product_intelligence/test_tiktok_discovery.py
+    - tests/product_intelligence/test_tiktok_parsing.py
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - src/product_intelligence/adapters/tiktok_pdp.py
+    - src/product_intelligence/adapters/tiktok_parsing.py
+    - tests/product_intelligence/test_tiktok_pdp.py
+    - tests/product_intelligence/test_tiktok_parsing.py
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_COLLECTOR_IMPLEMENTATION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - Access TikTok, TikTok Shop, TikTok Affiliate, or any external network during implementation or verification.
+  - Run a real PDP, the selected pilot URL, a browser/CDP session, marketplace API, scraper, provider/LLM, Drive, or external service.
+  - Modify ProductCandidateSnapshot, SignalEvidence, SnapshotNormalizer, scoring, ranking, recommendation, approval, canonical catalog, persistence, P7.3-P7.7, P8.0, or Product Source models.
+  - Modify BrowserManager, BrowserSession, PlaywrightBrowserManager, PlaywrightBrowserSession, CDP lifecycle, login/session ownership, page-selection behavior, or existing live-capture infrastructure.
+  - Modify TikTokDiscoveryAdapter search-card semantics or make exact-PDP behavior depend on discovery.
+  - Modify TikTokSourceExtractor, ProductSourcePack, TikTokScrapeTool, media download, filesystem persistence, Google Drive, trusted-media requirements, or source-pack semantics.
+  - Create a generic crawler, generic marketplace collector, scheduler, queue, watcher, recurring capture, retry loop, proxy, stealth, evasion, CAPTCHA solver, credential/session capture, or background worker.
+  - Use title, image, seller, slug, SKU/model SKU, product-concept similarity, search rank, or another listing to repair failed exact-product identity.
+  - Add Affiliate eligibility/economics, creator/video/similar-listing metrics, audience/competition fields, variant expansion, inventory expansion, velocity, trend, forecast, or Wave-2 acquisition.
+  - Persist or publish a new evidence envelope, evidence database, Product Truth object, canonical identity, recommendation, winner, TEST_READY state, live evidence, or commerce action.
+  - Automatically authorize or execute a live PDP capture after publication.
+  - Change AIOS adoption/conformance/pin, governance foundation, Runtime, Reviewer, Publisher, or Human-facing AIOS lifecycle.
+
+constraints:
+  hard:
+    - >
+      Classification is exactly BOUNDED_OFFLINE_FIRST_IMPLEMENTATION_ONLY. Implement one narrow
+      Product Intelligence capability for exact public TikTok PDP observation. Capability is not
+      live acquisition authority and publication of this task must not perform a live capture.
+    - >
+      Create src/product_intelligence/adapters/tiktok_pdp.py as the bounded exact-PDP adapter.
+      It may define one collector class and narrowly necessary transport/error types, but it must
+      not create a second semantic observation/evidence model. ProductCandidateSnapshot remains
+      the canonical observation output. Any returned binding metadata is transport/provenance
+      context only and may contain requested URL, observed URL and identity-basis metadata, but
+      must not become another owner of price, traction, evidence, truth, ranking, or approval.
+    - >
+      The collector must receive an already-provided BrowserSession-like dependency. It may use
+      only the existing session-level navigation/evaluation capability needed for one bounded
+      exact PDP observation. It must not construct or own PlaywrightBrowserManager, connect CDP,
+      choose profiles/pages, start/restart/close browsers, manage login, resolve CAPTCHA, perform
+      retries, or alter browser/session lifecycle.
+    - >
+      Exact-listing admission must parse the requested URL using the canonical
+      extract_tiktok_product_id authority and require a valid requested target source ID. After
+      navigation, collect observed identity only from the observed/post-navigation URL and bounded
+      explicit current-product identifiers exposed by the page. At least one observed identity
+      basis must be established, and every established observed source-product ID must agree with
+      the requested target. Any different ID, conflicting ID candidates, malformed/unverifiable
+      identity, search/login/challenge/unrelated redirect, or identity absence that cannot be
+      safely established fails closed without a snapshot. SKU/model SKU, title, image, seller,
+      slug or similarity are never product-ID substitutes.
+    - >
+      Reuse src/product_intelligence/adapters/tiktok_parsing.py as the single TikTok parsing
+      authority. Preserve all existing search-card parser behavior byte-for-byte in semantic
+      effect, including parse_tiktok_price range-lower-bound behavior. Add only strict exact-PDP
+      helper(s) needed by the new adapter. Exact-PDP price parsing must implement
+      AMBIGUOUS_PRICE_IS_NOT_EXACT_PRICE. Displayed ranges, unresolved variant prices, multiple
+      conflicting scalar representations, or any price requiring an unproven variant assumption
+      produce None rather than lower/upper bound, midpoint, first variant, first DOM match, or
+      inferred substitute.
+    - >
+      Strict exact-PDP scalar admission must preserve explicit observed zero where the canonical
+      snapshot permits zero. Missing is not zero, and zero is not missing. In particular,
+      explicit sold_count=0 or review_count=0 must remain observed zero; absent/unparseable values
+      remain None. Existing search-card count parser semantics must not be changed merely to serve
+      PDP behavior.
+    - >
+      The bounded page extraction result may expose only raw candidate values needed for TASK-231
+      V1 admission: observed URL, access/block state, explicit source-product identity candidates,
+      title candidates, shop-name candidates, current-price candidates, original-price
+      candidates, discount candidates, sold-count candidates, rating candidates, and review-count
+      candidates. Extraction must not choose a factual winner when multiple candidates conflict.
+      Python-side admission must reconcile deterministically. One unique compatible scalar/value
+      may be admitted; conflicting observed candidates remain None or fail the required-field
+      gate as appropriate.
+    - >
+      A non-empty explicitly observed title is required because ProductCandidateSnapshot requires
+      title. Missing, conflicting, inferred, slug-derived, or placeholder title must fail snapshot
+      admission. Optional V1 fields that are missing or ambiguous remain None.
+    - >
+      Construct ProductCandidateSnapshot with platform tiktok, the exact requested/observed
+      source_product_id, an explicit caller-supplied timezone-aware observed_at, and collector
+      identity specific to this public-PDP capability. Populate only TASK-231 V1 fields:
+      source_product_id, url, observed_at, title, shop_name, price, original_price,
+      discount_percent, sold_count, rating, and review_count. Keep category, brand, model,
+      shop_id, affiliate fields, creator/video/similar-listing metrics and every velocity field
+      None. Do not call scoring, ranking, recommendation, approval, catalog registration,
+      persistence, P7.4, P7.5, or Product Source.
+    - >
+      The canonical source URL carried by ProductCandidateSnapshot must represent the actual
+      safely admitted observed/post-navigation listing URL. Preserve requested-versus-observed
+      URL provenance separately only as transport/binding metadata; do not expand
+      ProductCandidateSnapshot solely to hold that receipt.
+    - >
+      Access/challenge handling must fail closed. Active CAPTCHA/security challenge, login wall,
+      unavailable/unrelated page, blocked state, browser evaluation failure, and identity
+      mismatch/unverifiability must not emit a partial snapshot. Bounded exception/status classes
+      may distinguish BLOCKED_OR_LOGIN, IDENTITY_MISMATCH_OR_UNVERIFIABLE, and EXTRACTION_FAILURE,
+      but these classes do not authorize retry, challenge resolution, or live operation.
+    - >
+      All tests must be deterministic, offline and fixture/fake-session based. No test may import
+      or invoke Playwright live networking, TikTok, wall clock, provider/LLM, Drive, browser CDP,
+      credentials, random external state, or filesystem evidence staging. Fixtures may simulate
+      DOM extraction outputs and navigation state only.
+    - >
+      Focused tests must prove at least: valid exact listing produces one canonical snapshot;
+      requested/observed ID match; observed URL mismatch fails; embedded explicit ID mismatch or
+      conflict fails; no verifiable observed identity fails; CAPTCHA/login/blocked fails with no
+      snapshot; missing/conflicting title fails; exact scalar price is admitted; range price is
+      None; multiple conflicting prices are None; repeated equivalent price representations are
+      one scalar; explicit zero sold/review remains zero; absent values remain None; Affiliate and
+      velocity fields remain None; no variant click/selection occurs; no ProductSourcePack,
+      TikTokSourceExtractor, TikTokScrapeTool, Drive, scoring/ranking/approval or browser lifecycle
+      dependency is introduced; and existing search-card range-lower-bound tests continue to pass.
+    - >
+      Add one implementation document classified BOUNDED_OFFLINE_FIRST_IMPLEMENTATION_ONLY that
+      records ownership, BrowserSession-only dependency, exact-listing gate, raw-candidate versus
+      admission separation, strict price law, explicit-zero semantics, V1 field allowlist,
+      access-failure behavior, transport-only binding receipt, offline verification boundary and
+      zero live authority.
+    - >
+      Update both canonical roadmaps and .ai/roadmap-state.yaml only on the publication-gated
+      meaning of this implementation. Preserve TASK-228 through TASK-231 history and the exact
+      TASK-231 source c533ee90201a5e0400b7973e89ab5c58677501ba. On exact TASK-232 publication,
+      mark P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION DONE only as bounded offline-first
+      implementation; set implementation_exists true; set next_milestone null and
+      pending_commitments empty; hand off to HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION;
+      keep live_public_pdp_acquisition_authority NONE, automated_public_pdp_acquisition_authority
+      NONE, automatic_live_pilot false, automatic_p8_4 false, market_test_or_action_authority
+      NONE, real_pilot_executed false and live_evidence_acquired false.
+    - >
+      Do not assign or authorize a successor task number, live capture, P8.4, evidence freeze,
+      market test or action. The first real TikTok PDP capture requires a fresh Human/Brain
+      decision after this exact implementation is independently reviewed and published.
+    - >
+      Extend governance regression additively to prove one Product Intelligence observation
+      owner, one canonical TikTok parser authority, browser/session ownership preservation,
+      Product Source and Affiliate separation, offline-only implementation, no live evidence,
+      publication-gated roadmap closure, null NEXT, empty pending commitments, and the exact
+      HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION handoff.
+    - >
+      Modify only the nine authorized paths. Produce one candidate and one ResultPackage.
+      Runtime owns canonical verification; Executor must not publish or start a successor.
+
+acceptance:
+  - id: AC1
+    condition: >
+      A bounded TikTok public-PDP collector exists under Product Intelligence, consumes only an
+      already-provided BrowserSession-like dependency, and introduces no duplicate observation,
+      evidence, browser, Product Source, Affiliate, ranking, approval or persistence authority.
+  - id: AC2
+    condition: >
+      Exact-listing admission is fail-closed and reusable. Requested target identity is parsed by
+      the one canonical TikTok parser, all safely established observed identity bases agree with
+      it, and mismatch/conflict/unverifiability/login/challenge/unrelated-page conditions emit no
+      snapshot.
+  - id: AC3
+    condition: >
+      Exact-PDP strict parsing preserves existing search-card behavior while enforcing
+      AMBIGUOUS_PRICE_IS_NOT_EXACT_PRICE, conflict-to-unknown semantics and observed-zero versus
+      missing distinction.
+  - id: AC4
+    condition: >
+      Successful offline fixture collection constructs only the existing ProductCandidateSnapshot
+      with the exact TASK-231 V1 allowlist populated as observed, all unauthorized Affiliate,
+      Wave-2, Product Source and velocity fields None, and requested/observed binding provenance
+      held only in transport metadata.
+  - id: AC5
+    condition: >
+      Deterministic offline tests cover valid observation, identity mismatch/conflict/no-identity,
+      challenge/login, title requirement, exact/range/conflicting price, equivalent candidates,
+      explicit zero, missing fields, unauthorized-field absence, no variant interaction and no
+      forbidden dependencies; existing TikTok discovery/parsing regressions remain green.
+  - id: AC6
+    condition: >
+      The implementation document and governance regression preserve Product Intelligence,
+      BrowserSession, Product Source, Affiliate, evidence, snapshot/trend and authority
+      boundaries with zero live acquisition or commerce-action claim.
+  - id: AC7
+    condition: >
+      On exact reviewed TASK-232 publication, both roadmaps and roadmap state record the collector
+      implementation as DONE with implementation_exists true, next_milestone null,
+      pending_commitments empty, and handoff exactly
+      HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION while all live/test/action authorities
+      remain NONE/false.
+  - id: AC8
+    condition: >
+      Exactly the nine authorized paths change; required focused pytest and git diff --check pass
+      with zero unresolved items, producing one candidate eligible for independent PRIMARY
+      semantic review and exact safe publication.
+
+verification:
+  required:
+    - python -m pytest tests/product_intelligence/test_tiktok_parsing.py tests/product_intelligence/test_tiktok_discovery.py tests/product_intelligence/test_tiktok_pdp.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task232-primary
+    - git diff --check
