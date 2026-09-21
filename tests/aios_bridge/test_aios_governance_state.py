@@ -1082,6 +1082,9 @@ def test_task_231_contract_preserves_owners_allowlist_and_zero_live_authority():
     parser_source = (
         REPO_ROOT / "src" / "product_intelligence" / "adapters" / "tiktok_parsing.py"
     ).read_text(encoding="utf-8")
+    exact_listing_gate = contract.split(
+        "## 6. Fail-closed exact-listing admission", 1
+    )[1].split("## 7. Public and Affiliate lanes are independent", 1)[0]
 
     for required in (
         "PUBLIC_PDP_ACQUISITION_CONTRACT_ONLY",
@@ -1102,6 +1105,9 @@ def test_task_231_contract_preserves_owners_allowlist_and_zero_live_authority():
         "lower bound, upper bound, midpoint, first variant",
         "search-card lower-bound parsing must never be cited as exact-PDP scalar-price evidence",
         "redirect to search, login, challenge",
+        "valid requested target source ID",
+        "require it to equal the requested\n   target source ID",
+        "malformed or unverifiable requested/observed identity",
         "zero fabricated observations",
         "semantically independent from authenticated TikTok\nAffiliate access",
         "Affiliate eligibility",
@@ -1120,10 +1126,17 @@ def test_task_231_contract_preserves_owners_allowlist_and_zero_live_authority():
         "automatic_p8_4: false",
         "market_test_or_action_authority: NONE",
         "HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION",
+        "not a\nuniversal V1 source-ID allowlist",
+        "reusable capability may validate a requested TikTok PDP target other than the current P8 pilot\nlisting",
+        "technical ability grants no authority to acquire it live",
     ):
         assert required in contract
 
     assert parser_source.count("def extract_tiktok_product_id(") == 1
+    assert "canonical TikTok product-ID parser" in exact_listing_gate
+    assert "same canonical identity authority" in exact_listing_gate
+    assert SELECTED_SOURCE_ID not in exact_listing_gate
+    assert "require the requested ID to equal the authorized exact source ID" not in contract
 
     state = load_yaml(ROADMAP_FILE)
     contract_state = state["post_p8_planning_handoff"][

@@ -59,9 +59,10 @@ This contract preserves the selected planning case without observing it:
 - stable listing reference:
   `https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815`.
 
-These values are planning and binding inputs only. TASK-231 does not claim that the page is
-available or that any title, shop, price, discount, traction, variant, inventory, or Affiliate
-value is currently true.
+These values are planning and binding inputs only for the current P8 pilot case. They are not a
+universal V1 source-ID allowlist and must not be hard-coded into the reusable exact-listing
+admission capability. TASK-231 does not claim that the page is available or that any title, shop,
+price, discount, traction, variant, inventory, or Affiliate value is currently true.
 
 ## 4. Future automated public-PDP V1 allowlist
 
@@ -119,15 +120,19 @@ parsing authority while leaving search-card semantics intact.
 Before emitting an admitted snapshot, the later implementation must:
 
 1. parse the requested URL with the canonical TikTok product-ID parser;
-2. require the requested ID to equal the authorized exact source ID;
+2. require that parse to yield a valid requested target source ID;
 3. retain the requested URL and the observed/post-navigation URL as binding context; and
-4. verify the current observed listing identity where the public page exposes it.
+4. where the public page or post-navigation state exposes an observed/current-product source ID,
+   parse it through the same canonical identity authority and require it to equal the requested
+   target source ID.
 
 A redirect to search, login, challenge, or an unrelated page; an explicit conflicting current-
-product ID; a different product ID; malformed identity; or identity that cannot be safely
-established must not emit an admitted exact-listing snapshot. Title, image, seller, slug, or
-product-concept similarity cannot repair failed identity. Even successful exact source-ID matching
-does not establish canonical commerce identity.
+product ID; a different source ID; malformed or unverifiable requested/observed identity; or
+identity that cannot be safely established must not emit an admitted exact-listing snapshot.
+Absence of an exposed observed/current-product ID is not permission to infer one from title, image,
+seller, slug, or product-concept similarity; those signals cannot repair failed identity. Even
+successful requested-target-to-observed-ID matching does not establish canonical commerce
+identity.
 
 CAPTCHA/security challenge, login wall, unavailable page, or access failure yields an explicit
 blocked/unavailable outcome with zero fabricated observations. There is no authority for automatic
@@ -170,6 +175,11 @@ browser/session infrastructure plus the canonical TikTok identity/parsing author
 appropriate. It must not build a generic crawler framework, duplicate browser lifecycle ownership,
 claim generic marketplace identity ownership, change Product Intelligence models, expand Product
 Source, or make unrelated platform changes. Capability proof is not live evidence.
+
+The reusable capability may validate a requested TikTok PDP target other than the current P8 pilot
+listing; that technical ability grants no authority to acquire it live. The selected source ID and
+stable URL in section 3 remain the current pilot/planning case, while every first real capture still
+requires a fresh listing-specific Human/Brain authorization under the boundary below.
 
 The post-contract authorization boundary is exactly:
 
