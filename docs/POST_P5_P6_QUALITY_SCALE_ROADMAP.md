@@ -535,6 +535,33 @@ and the exact handoff is `HUMAN_BRAIN_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORI
   authorities remain `NONE`, `next_milestone` is null, pending commitments are empty, and the exact
   handoff is `HUMAN_BRAIN_FRESH_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION`.
 
+- **P8 Public TikTok PDP DOM Diagnostic Fresh Authorization (TASK-237 —
+  publication-gated DONE only as
+  `FRESH_ONE_SHOT_ATTACH_ONLY_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION_ONLY`)**: records the
+  Human/Brain decision to authorize exactly one fresh generation-2 invocation of the hardened
+  attach-only diagnostic published by TASK-236 (`a53510ff353cdf926a76f1dc84363b7835c5cb4d`),
+  against the same fixed selected listing (context `p8-pilot-001-led-motion-tiktok-vn`, source ID
+  `1731381331718341815`), without changing production code or performing the live diagnostic during
+  engineering.
+
+  Generation-1 TASK-235/TASK-236 consumed history remains intact: `diagnostic_executed=true`,
+  `diagnostic_outcome=FAIL_CLOSED`, zero artifact, `authorized_diagnostic_attempts_remaining=0`,
+  and `historical_failure_reason=LEGACY_COMBINED_PUBLIC_PDP_AVAILABILITY_GATE`. Execution belongs
+  solely to the Human operator using an explicit external job root and operator-owned CDP endpoint.
+  The hardened carrier retains zero navigation/interaction authority and fails closed with published
+  safe reasons. Diagnostic output remains external structural hints with `evidence_authority=NONE`
+  and cannot mutate Product Intelligence evidence/truth, ranking, approval, trend, test, or action
+  semantics.
+
+  On exact reviewed TASK-237 publication,
+  `live_dom_diagnostic_authority=ONE_SHOT_ATTACH_ONLY_EXACT_LISTING`,
+  `diagnostic_authorization_generation=2`, `fresh_authorized_diagnostic_attempts=1`,
+  `fresh_authorized_diagnostic_attempts_remaining=1`, `fresh_diagnostic_execution_owner=HUMAN_OPERATOR`,
+  `fresh_diagnostic_executed=false`, `diagnostic_hardening_implemented=true`,
+  `selector_repair_complete=false`, acquisition and action authorities remain `NONE`,
+  `automatic_progression=false`, `next_milestone=null`, pending commitments are empty, and the
+  exact handoff is `HUMAN_OPERATOR_FRESH_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION`.
+
 See `docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md` for the exact P8.0 source
 `a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e`,
 `docs/PHASE_8_P8_1_REAL_DECISION_PILOT_SELECTION.md` for the exact P8.1 selection record, and
@@ -553,6 +580,8 @@ See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_AUTHORIZATION.md` for the TAS
 one-attempt Human/Brain authorization and Human-operator execution boundary.
 See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_REVIEW_AND_HARDENING.md` for the TASK-236
 consumed-attempt reconciliation, bounded hardening, and fresh-authorization handoff.
+See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_FRESH_AUTHORIZATION.md` for the TASK-237 fresh
+generation-2 authorization, hardened carrier source lineage, and Human-operator execution boundary.
 
 
 The complete audit and P7.0 boundary are recorded in
