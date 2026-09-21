@@ -1,0 +1,9 @@
+finding_id: FINDING-231-001
+action: CODE_FIX
+reviewed_sha: 0145c6bfafee1582d47e9c665be47e7eb2a167cc
+modification_scope:
+  - docs/PHASE_8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT.md
+  - tests/aios_bridge/test_aios_governance_state.py
+affected_verification:
+  - python -m pytest tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task231-primary
+  - git diff --check
