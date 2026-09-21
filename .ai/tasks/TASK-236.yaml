@@ -1,0 +1,224 @@
+task_id: TASK-236
+revision: 1
+
+goal: >
+  Reconcile the already-consumed TASK-235 one-shot live DOM diagnostic attempt, which failed
+  closed with the bounded message "the current page is not an available public PDP" and produced
+  no diagnostic artifact, while Human-visible screenshot context showed the exact selected PDP
+  rendering normally. Harden only the diagnostic admission/root/page-state observability so a
+  later separately authorized attempt can distinguish safe failure reasons and discover a bounded
+  product-detail surface on the current TikTok Shop DOM without broad page dumping or changing
+  collector extraction semantics. Do not run TikTok/CDP in this engineering task and do not repair
+  product-field selectors yet.
+
+problem: >
+  TASK-235 is published exactly at eedad88f5c676c647d418da62e554529ea29b161 and granted one
+  Human-operated attach-only diagnostic attempt for source ID 1731381331718341815. The Human
+  invoked the authorized command once against an operator-owned CDP endpoint whose TCP port was
+  reachable. The carrier attached far enough to evaluate the current page and then failed closed
+  with TikTokPdpDomDiagnosticError: "the current page is not an available public PDP". No
+  diagnostic artifact was created. Under the TASK-235 contract, success or failure consumes the
+  single attempt, so authorized_diagnostic_attempts_remaining is now 0 and
+  live_dom_diagnostic_authority is no longer usable.
+
+  The current implementation collapses four materially different gates into one message:
+  blocked/challenge, login, unavailable, or no bounded PDP root. It also detects "unavailable"
+  from title plus the first 500 characters of root.innerText, which can conflate incidental
+  descendant/variant text with whole-listing unavailability, and it recognizes only a narrow
+  set of PDP roots before falling back to main. The Human screenshot is useful diagnostic
+  context showing an apparently normal exact PDP, but it is not canonical Product Intelligence
+  evidence and does not prove which internal gate fired. The correct next engineering step is
+  therefore to preserve the failed result exactly as unknown-safe-gate failure, improve bounded
+  root discovery and safe reason observability offline, then return to Human/Brain for a fresh
+  one-shot authorization decision.
+
+assumptions:
+  - Canonical main at authoring is eedad88f5c676c647d418da62e554529ea29b161.
+  - TASK-235 / RUN-235-001 / REVIEW-235-001 are PASS and exact-source published.
+  - The Human invoked the TASK-235 diagnostic exactly once after publication.
+  - The command returned TikTokPdpDomDiagnosticError with the exact message
+    "the current page is not an available public PDP".
+  - No diagnostic artifact was created by that failed attempt.
+  - The Human-visible screenshot showed the exact selected TikTok PDP rendered with ordinary
+    product content and no visually apparent login/CAPTCHA/challenge wall, but that screenshot is
+    diagnostic context only and does not establish the internal failure cause or canonical
+    marketplace evidence.
+  - TASK-235 defines a failed operation as consuming the one authorized attempt.
+  - TASK-137 remains the sole browser/CDP lifecycle authority.
+  - TASK-231 remains the sole public-PDP acquisition contract.
+  - ProductCandidateSnapshot remains the marketplace observation contract; SignalEvidence remains
+    the field-evidence owner; src/product_intelligence/adapters/tiktok_parsing.py remains the sole
+    canonical TikTok identity/parser authority.
+  - CAPABILITY_IS_NOT_AUTHORITY, EVIDENCE_IS_NOT_PRODUCT_TRUTH,
+    SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY, SNAPSHOT_IS_NOT_TREND and
+    ONE_CAPABILITY_ONE_AUTHORITY remain mandatory.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_LIVE_PILOT_REVIEW_AND_DOM_DIAGNOSTIC.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_AUTHORIZATION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - .ai/tasks/TASK-234.yaml
+    - .ai/tasks/TASK-235.yaml
+    - src/product_intelligence/tiktok_pdp_dom_diagnostic.py
+    - src/product_intelligence/adapters/tiktok_parsing.py
+    - src/product_intelligence/cli.py
+    - tests/product_intelligence/test_tiktok_pdp_dom_diagnostic.py
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - src/product_intelligence/tiktok_pdp_dom_diagnostic.py
+    - tests/product_intelligence/test_tiktok_pdp_dom_diagnostic.py
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_REVIEW_AND_HARDENING.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_AUTHORIZATION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - Execute TikTok/CDP, retry the consumed diagnostic, navigate/refresh/click/type/scroll/search,
+    change variants, perform a second public-PDP capture, or authorize a new live attempt in TASK-236.
+  - Modify TikTokPdpCollector extraction selectors, parser semantics, ProductCandidateSnapshot,
+    SignalEvidence, BrowserManager/BrowserSession/Playwright lifecycle implementation, Product Source,
+    Affiliate, scoring, ranking, approval, persistence, market test, recommendation or action semantics.
+  - Infer that NO_BOUNDED_PDP_ROOT, LOGIN, BLOCKED or UNAVAILABLE was the actual consumed-attempt
+    cause from the screenshot or the generic historical error.
+  - Persist screenshot-visible price, seller, discount, sold, rating, review, variant or other
+    marketplace values as canonical evidence or Product Truth.
+  - Dump or persist body.innerText, innerHTML, outerHTML, arbitrary full-page DOM, cookies, storage,
+    headers, network payloads, tokens, credentials, profile data, screenshots or media.
+  - Author or implement extractor repair or a successor authorization task automatically.
+
+constraints:
+  hard:
+    - >
+      Classification is exactly FAILED_LIVE_DOM_DIAGNOSTIC_RECONCILIATION_AND_BOUNDED_ADMISSION_HARDENING_ONLY.
+      This task reconciles one historical Human-operated attempt and hardens the offline diagnostic
+      capability; it grants no live execution authority.
+    - >
+      Reconcile TASK-235 publication-gated planning state so the authorized diagnostic attempt is
+      consumed: diagnostic_executed true; diagnostic_outcome FAIL_CLOSED; diagnostic_artifact_created
+      false; authorized_diagnostic_attempts 1; authorized_diagnostic_attempts_remaining 0;
+      live_dom_diagnostic_authority NONE. Record the historical failure reason only as
+      LEGACY_COMBINED_PUBLIC_PDP_AVAILABILITY_GATE, because the old carrier did not reveal which
+      internal gate fired.
+    - >
+      Preserve TASK-233 capture history unchanged with authorized_capture_attempts_remaining 0 and
+      live_public_pdp_acquisition_authority NONE. The consumed TASK-235 failure must not reopen or
+      imply any capture, acquisition, evidence, ranking, approval, test or action authority.
+    - >
+      Human screenshot context may be documented only as NON_CANONICAL_DIAGNOSTIC_CONTEXT:
+      exact PDP visually appeared normally rendered and no visible login/CAPTCHA/challenge was
+      apparent. It must not be treated as proof of the internal failure reason or marketplace evidence.
+    - >
+      Harden DIAGNOSTIC_SCRIPT root discovery deterministically and boundedly. Continue preferring
+      explicit PDP roots and main. If they are absent or unsuitable, permit a capped in-memory
+      fallback that derives a product-detail candidate surface from multiple independent visible
+      commerce anchors on the exact URL-bound page, such as a title/heading-like anchor, a
+      current-price-like anchor, and a purchase-action/quantity/variant anchor. The fallback must
+      choose a bounded ancestor/common-ancestor surface, cap examined elements/ancestors, and never
+      persist or return full body text/HTML. A body element may be traversed only as a capped
+      discovery boundary after exact current-URL identity binding; it must never itself be admitted
+      as the diagnostic output root merely because it exists.
+    - >
+      Exact current URL identity for source ID 1731381331718341815 remains mandatory through the
+      existing canonical TikTok parser. Generic/home/category/search/unrelated/different-product
+      pages fail closed regardless of matching product cards elsewhere on the page.
+    - >
+      Split page-state admission into stable safe reason codes at the Python error boundary:
+      BLOCKED_OR_CHALLENGE, LOGIN_GATE, LISTING_UNAVAILABLE, NO_BOUNDED_PDP_ROOT,
+      IDENTITY_MISMATCH, and MALFORMED_DIAGNOSTIC_PAYLOAD as applicable. Existing CLI bounded
+      error rendering may expose only the safe exception type/message; no CDP endpoint or raw
+      page material may enter errors.
+    - >
+      Whole-listing unavailability must require an explicit bounded page/listing-level signal.
+      Incidental descendant or variant text such as an individual sold-out option must not by itself
+      classify the entire PDP as LISTING_UNAVAILABLE. Challenge/login detection must remain direct,
+      bounded and page-level and must not rely on dumping arbitrary page text.
+    - >
+      Preserve exactly-one-evaluate, zero navigation/interaction, external create-exclusive artifact,
+      candidate caps, deterministic ordering, bounded excerpts/attributes, secret exclusion and
+      manager.close_session cleanup semantics from TASK-234.
+    - >
+      A successful diagnostic remains structural selector hints only with evidence_authority NONE.
+      No ProductCandidateSnapshot field value may be parsed, admitted, normalized, persisted, scored,
+      ranked, approved, trended or acted upon by this task.
+    - >
+      Add deterministic regressions covering: explicit PDP-root success; main-root success;
+      no-main/no-explicit-root success through the bounded multi-anchor fallback; generic page with
+      a target product card fails identity; visible challenge/login fails with the correct safe reason;
+      incidental variant "sold out" text does not mark the whole listing unavailable; explicit
+      listing-level unavailable state does; no qualifying bounded root returns NO_BOUNDED_PDP_ROOT;
+      malformed payload returns MALFORMED_DIAGNOSTIC_PAYLOAD; no raw page material/secrets are emitted;
+      exactly one evaluate and manager-session release remain enforced.
+    - >
+      Add docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_REVIEW_AND_HARDENING.md recording the
+      consumed TASK-235 failure, zero artifact, non-canonical screenshot context, unknown historical
+      internal gate, hardened root/page-state design, evidence-authority boundary and requirement
+      for a later fresh Human/Brain authorization before any new live attempt.
+    - >
+      Update both roadmap documents and .ai/roadmap-state.yaml only publication-gated. On exact
+      reviewed TASK-236 publication, active state is hardened diagnostic reconciliation DONE;
+      diagnostic_executed true for the consumed TASK-235 attempt; diagnostic_outcome FAIL_CLOSED;
+      authorized_diagnostic_attempts_remaining 0; live_dom_diagnostic_authority NONE;
+      diagnostic_hardening_implemented true; selector_repair_complete false;
+      automated_public_pdp_acquisition_authority NONE; live_public_pdp_acquisition_authority NONE;
+      market_test_or_action_authority NONE; automatic_progression false; next_milestone null;
+      pending_commitments empty; and exact handoff
+      HUMAN_BRAIN_FRESH_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION.
+    - >
+      Extend governance regression additively to prove exact TASK-235 source lineage, consumed
+      diagnostic attempt, zero artifact, legacy combined failure classification, non-canonical
+      screenshot context, no active live diagnostic authority, hardened capability-not-authority,
+      no selector repair, null NEXT, empty pending commitments and exact fresh-authorization handoff.
+    - >
+      Modify exactly the eight authorized paths. Produce one candidate and one ResultPackage.
+      Runtime owns deterministic verification; Executor must not run TikTok/CDP, publish, authorize
+      another live attempt, repair collector selectors or start a successor.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Canonical planning state reconciles the Human TASK-235 attempt as executed and consumed with
+      FAIL_CLOSED outcome, zero artifact, zero diagnostic attempts remaining and no live diagnostic authority.
+  - id: AC2
+    condition: >
+      Historical failure cause is not invented: repository state records only the legacy combined
+      availability-gate classification while Human screenshot remains non-canonical diagnostic context.
+  - id: AC3
+    condition: >
+      Diagnostic admission can derive a deterministic bounded product-detail surface on an exact
+      URL-bound PDP even when explicit PDP-root selectors and main are absent, using capped
+      multi-anchor/common-ancestor discovery without body dumping or broad persisted page material.
+  - id: AC4
+    condition: >
+      Safe page-state failures are separately observable, whole-listing unavailability is not
+      triggered by incidental variant text, and exact identity/challenge/login fail-closed behavior remains intact.
+  - id: AC5
+    condition: >
+      Existing attach-only, exactly-one-evaluate, zero-interaction, bounded artifact, secrecy,
+      evidence_authority NONE and borrowed-CDP cleanup invariants remain preserved.
+  - id: AC6
+    condition: >
+      No collector selector repair, second capture, Product Intelligence evidence/truth mutation,
+      ranking, approval, test or action authority is introduced.
+  - id: AC7
+    condition: >
+      On exact reviewed publication, NEXT is null, commitments are empty and control returns exactly
+      to HUMAN_BRAIN_FRESH_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION with no automatic retry.
+  - id: AC8
+    condition: >
+      Exactly eight authorized paths change; focused offline regressions and git diff --check pass
+      with zero unresolved items, producing one candidate eligible for independent PRIMARY semantic review.
+
+verification:
+  required:
+    - python -m pytest tests/product_intelligence/test_tiktok_pdp_dom_diagnostic.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task236-primary
+    - git diff --check
