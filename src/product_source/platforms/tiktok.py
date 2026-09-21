@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import logging
-import re
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
+from src.product_intelligence.adapters.tiktok_parsing import extract_tiktok_product_id
 from src.product_source.models import (
     MediaProvenance,
     MediaRole,
@@ -72,6 +72,7 @@ _TIKTOK_EXTRACTOR_JS = r"""
             description: null,
             specifications: []
         },
+        json_ld_candidates: [],
         dom_title: null,
         gallery_images: [],
         variants: [],
@@ -126,42 +127,26 @@ _TIKTOK_EXTRACTOR_JS = r"""
                 const productId = (data.productID || data.sku || '').toString();
                 const dataSku = (data.sku || '').toString();
 
-                let urlMatch = false;
-                if (itemUrl && targetProductId) {
-                    const m1 = itemUrl.match(/\/product\/(\d+)/);
-                    const m2 = itemUrl.match(/\/item\/(\d+)/);
-                    const m3 = itemUrl.match(/itemId=(\d+)/);
-                    const parsedId = (m1 && m1[1]) || (m2 && m2[1]) || (m3 && m3[1]);
-                    if (parsedId === targetProductId.toString()) {
-                        urlMatch = true;
+                const images = [];
+                if (data.image) {
+                    const imgArr = Array.isArray(data.image) ? data.image : [data.image];
+                    for (const img of imgArr) {
+                        const u = extractUrl(typeof img === 'string' ? img : (img && img.url ? img.url : null));
+                        if (u && !images.includes(u)) images.push(u);
                     }
                 }
-
-                const matches = targetProductId && (
-                    urlMatch || 
-                    productId === targetProductId.toString() ||
-                    dataSku === targetProductId.toString()
-                );
-
-                if (matches) {
-                    if (dataSku && !result.structured.model_sku) result.structured.model_sku = dataSku;
-                    if (data.name && !result.structured.title) result.structured.title = data.name;
-                    if (data.description && !result.structured.description) result.structured.description = data.description;
-                    if (data.brand) {
-                        const bName = typeof data.brand === 'string' ? data.brand : (data.brand.name || null);
-                        if (bName && !result.structured.brand) result.structured.brand = bName;
-                    }
-                    if (data.image) {
-                        const imgArr = Array.isArray(data.image) ? data.image : [data.image];
-                        for (const img of imgArr) {
-                            const u = extractUrl(typeof img === 'string' ? img : (img && img.url ? img.url : null));
-                            if (u && !result.structured.images.includes(u)) {
-                                result.structured.images.push(u);
-                            }
-                        }
-                    }
-                    result.structured.product_id = targetProductId;
-                }
+                const bName = data.brand
+                    ? (typeof data.brand === 'string' ? data.brand : (data.brand.name || null))
+                    : null;
+                result.json_ld_candidates.push({
+                    identity_url: extractUrl(itemUrl) || itemUrl || null,
+                    product_id: productId || null,
+                    model_sku: dataSku || null,
+                    title: data.name || null,
+                    description: data.description || null,
+                    brand: bName,
+                    images: images
+                });
             }
         } catch (e) {}
     }
@@ -323,20 +308,6 @@ _TIKTOK_EXTRACTOR_JS = r"""
 """
 
 
-def _extract_tiktok_product_id(url: str) -> Optional[str]:
-    """Extracts TikTok Shop product ID from URL patterns."""
-    m = re.search(r"/product/(\d+)", url)
-    if m:
-        return m.group(1)
-    m = re.search(r"/item/(\d+)", url)
-    if m:
-        return m.group(1)
-    m = re.search(r"itemId=(\d+)", url)
-    if m:
-        return m.group(1)
-    return None
-
-
 class TikTokSourceExtractor:
     """Extracts canonical product source pack from TikTok Shop product pages."""
 
@@ -385,7 +356,7 @@ class TikTokSourceExtractor:
         if observed_at is None:
             observed_at = datetime.now(timezone.utc)
 
-        product_id = _extract_tiktok_product_id(product_url)
+        product_id = extract_tiktok_product_id(product_url)
         eff_run_id = run_id or (f"tiktok_source_{product_id}" if product_id else "tiktok_source_run")
 
         try:
@@ -408,6 +379,47 @@ class TikTokSourceExtractor:
             raise SourcePackBlockedError("TikTok platform blocking detected (Captcha)")
 
         structured = result.get("structured") or {}
+        matched_json_ld: Dict[str, Any] = {
+            "title": None,
+            "product_id": None,
+            "brand": None,
+            "shop_name": None,
+            "model_sku": None,
+            "images": [],
+            "description": None,
+            "specifications": [],
+        }
+        for candidate in result.get("json_ld_candidates") or []:
+            if not isinstance(candidate, dict) or product_id is None:
+                continue
+            identity_url = candidate.get("identity_url")
+            url_product_id = extract_tiktok_product_id(
+                identity_url if isinstance(identity_url, str) else None
+            )
+            explicit_id_matches = any(
+                candidate.get(key) == product_id for key in ("product_id", "model_sku")
+            )
+            if not explicit_id_matches and url_product_id != product_id:
+                continue
+
+            matched_json_ld["product_id"] = product_id
+            for key in ("title", "description", "brand", "model_sku"):
+                if candidate.get(key) and not matched_json_ld[key]:
+                    matched_json_ld[key] = candidate[key]
+            for image_url in candidate.get("images") or []:
+                if image_url not in matched_json_ld["images"]:
+                    matched_json_ld["images"].append(image_url)
+
+        if matched_json_ld["product_id"] == product_id:
+            if structured.get("product_id") == product_id:
+                for key in ("title", "description", "brand", "shop_name", "model_sku"):
+                    if not matched_json_ld[key] and structured.get(key):
+                        matched_json_ld[key] = structured[key]
+                for image_url in structured.get("images") or []:
+                    if image_url not in matched_json_ld["images"]:
+                        matched_json_ld["images"].append(image_url)
+                matched_json_ld["specifications"] = structured.get("specifications") or []
+            structured = matched_json_ld
         structured_matches = (structured.get("product_id") == product_id and product_id is not None)
 
         seen_urls: Set[str] = set()

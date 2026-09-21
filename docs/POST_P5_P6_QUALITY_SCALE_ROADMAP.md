@@ -11,7 +11,10 @@ Vietnam listing for P8.1. TASK-227 records that selection as a publication-gated
 facts, or authorize evidence acquisition or a test. P8.2 is publication-gated DONE through TASK-228
 only as `PRE_ACTION_EVIDENCE_ACQUISITION_PLAN_ONLY`, with no live evidence, action, or automatic
 P8.3. Control returns to Human/Brain for an explicit bounded evidence-acquisition authorization
-decision. P6.2 remains PARKED and P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
+decision. The Human selected TASK-230 as the bounded Wave-0 TikTok PDP identity-compatibility and
+single-parser-authority commitment. On exact publication, control returns to
+`HUMAN_BRAIN_PUBLIC_PDP_ACQUISITION_AUTHORIZATION` with no automatic acquisition successor.
+P6.2 remains PARKED and P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
 Scope: Python Agent product architecture post-P5; AIOS-renew remains execution substrate only.
 
 ## 1. Canonical Post-P5 Architecture Audit
@@ -377,12 +380,30 @@ Human contribution, separate Human review, and fresh deterministic authorization
 safe evidence or construct existing P7.4/P7.5 semantics. P6.2 remains PARKED and P6.4-P6.6 remain
 DEFERRED / UNIMPLEMENTED.
 
+- **P8 Wave-0 TikTok PDP Identity Compatibility (TASK-230 — publication-gated DONE only as
+  `P8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY_ONLY`)**: records the Human-selected correction for
+  the exact `/vn/pdp/<slug>/<id>` pilot reference and consolidates Product Intelligence and Product
+  Source on `extract_tiktok_product_id` as the one canonical TikTok source-product ID parser. This is
+  deterministic compatibility capability only. It acquires, accepts, freezes, and promotes no
+  marketplace or Affiliate evidence; public PDP product/source intelligence remains semantically
+  independent from Affiliate account access and eligibility; and
+  `SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY` remains intact.
+
+On exact reviewed TASK-230 source publication, this Wave-0 commitment is DONE only as compatibility
+and parser-authority consolidation. P8.3 remains completed authorization history with contribution
+and review unperformed. `real_pilot_executed` and `live_evidence_acquired` remain false,
+`next_milestone` remains null, and pending commitments remain empty. There is no automatic P8.4,
+acquisition design, live capture, evidence acceptance, or commerce action. The handoff is
+`HUMAN_BRAIN_PUBLIC_PDP_ACQUISITION_AUTHORIZATION`, `automatic_next` is false, and
+`automated_public_pdp_acquisition_authority` is `NONE`.
+
 See `docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md` for the exact P8.0 source
 `a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e`,
 `docs/PHASE_8_P8_1_REAL_DECISION_PILOT_SELECTION.md` for the exact P8.1 selection record, and
 `docs/PHASE_8_P8_2_PRE_ACTION_EVIDENCE_ACQUISITION_PLAN.md` for the exact P8.2 source
 `eb5b09a8208771a25493fd5a68232bb2dd48c700`, and
 `docs/PHASE_8_P8_3_MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION.md` for the P8.3 authorization.
+See `docs/PHASE_8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY.md` for the bounded TASK-230 closure.
 
 
 The complete audit and P7.0 boundary are recorded in

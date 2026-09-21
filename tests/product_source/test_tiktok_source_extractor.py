@@ -82,6 +82,53 @@ async def test_tiktok_extractor_prefers_structured_data_when_identity_matches():
 
 
 @pytest.mark.asyncio
+async def test_tiktok_extractor_uses_canonical_parser_for_selected_pdp_identity():
+    product_id = "1731381331718341815"
+    product_url = (
+        "https://shop.tiktok.com/vn/pdp/"
+        "den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/"
+        f"{product_id}?lang=vi-VN#details"
+    )
+    session = FakeSession(
+        {
+            "structured": {
+                "title": None,
+                "product_id": None,
+                "images": [],
+                "brand": None,
+                "specifications": [],
+            },
+            "json_ld_candidates": [
+                {
+                    "identity_url": product_url,
+                    "product_id": None,
+                    "model_sku": None,
+                    "title": "Selected LED Motion Light",
+                    "description": None,
+                    "brand": "SelectedBrand",
+                    "images": ["https://p16-oec-va.ibyteimg.com/selected.jpg"],
+                }
+            ],
+            "gallery_images": [],
+            "variants": [],
+            "seller_images": [],
+            "fallback_images": [],
+            "blocked": False,
+        }
+    )
+
+    pack = await TikTokSourceExtractor(browser=session).extract(product_url)
+
+    assert session.navigated_url == product_url
+    assert session.evaluated_args == (product_id,)
+    assert pack.source_product_id == product_id
+    assert pack.source_pack_id == f"tiktok_{product_id}"
+    assert pack.title == "Selected LED Motion Light"
+    assert pack.brand == "SelectedBrand"
+    assert pack.media[0].provenance == MediaProvenance.STRUCTURED_PRODUCT_DATA
+
+
+@pytest.mark.asyncio
 async def test_tiktok_extractor_rejects_unrelated_structured_data_on_identity_mismatch():
     """Structured data from unrelated recommendation with mismatched ID is rejected for BOTH media and title/brand/shop."""
     eval_data = {
@@ -319,4 +366,3 @@ async def test_tiktok_extractor_raises_blocked_on_active_challenge():
 
     with pytest.raises(SourcePackBlockedError, match="TikTok platform blocking detected"):
         await extractor.extract("https://www.tiktok.com/view/product/1729981094029264939")
-

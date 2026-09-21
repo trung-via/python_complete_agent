@@ -167,6 +167,38 @@ def test_extract_tiktok_product_id() -> None:
     assert extract_tiktok_product_id("") is None
 
 
+def test_extract_tiktok_product_id_from_stable_shop_pdp_path() -> None:
+    selected = (
+        "https://shop.tiktok.com/vn/pdp/"
+        "den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815"
+    )
+
+    assert extract_tiktok_product_id(selected) == "1731381331718341815"
+    assert extract_tiktok_product_id(f"{selected}?lang=vi-VN") == "1731381331718341815"
+    assert extract_tiktok_product_id(f"{selected}#details") == "1731381331718341815"
+    assert extract_tiktok_product_id(f"{selected}/?lang=vi-VN#details") == "1731381331718341815"
+    assert build_tiktok_candidate_id(None, selected) == "tiktok_1731381331718341815"
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://shop.tiktok.com/vn/pdp/1731381331718341815",
+        "https://shop.tiktok.com/vn/pdp//1731381331718341815",
+        "https://shop.tiktok.com/vn/pdp/den-led-cam-bien/",
+        "https://shop.tiktok.com/vn/pdp/den-led-cam-bien/not-an-id",
+        "https://shop.tiktok.com/vn/pdp/den-led-cam-bien/1731381331718341815/extra",
+        "https://shop.tiktok.com/pdp/den-led-cam-bien/1731381331718341815",
+        "https://shop.tiktok.com/vn/product-detail/den-led/1731381331718341815",
+        "https://shop.tiktok.com/vn/search/1731381331718341815",
+        "https://example.com/vn/pdp/den-led-cam-bien/1731381331718341815",
+        "arbitrary text 1731381331718341815",
+    ],
+)
+def test_extract_tiktok_product_id_rejects_pdp_near_misses(url: str) -> None:
+    assert extract_tiktok_product_id(url) is None
+
+
 def test_build_tiktok_candidate_id_determinism_and_fallback() -> None:
     url_with_id = "https://www.tiktok.com/view/product/1729482910481234567?track=123#section1"
 

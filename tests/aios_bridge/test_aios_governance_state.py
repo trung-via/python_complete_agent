@@ -57,6 +57,9 @@ P8_3_MANUAL_AUTHORIZATION_FILE = (
     / "docs"
     / "PHASE_8_P8_3_MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION.md"
 )
+P8_WAVE_0_COMPATIBILITY_FILE = (
+    REPO_ROOT / "docs" / "PHASE_8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY.md"
+)
 ROADMAP_DOCS = (
     REPO_ROOT / "docs" / "POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
     REPO_ROOT / "docs" / "POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
@@ -176,19 +179,19 @@ def test_roadmap_closes_p8_3_authorization_without_automatic_successor():
         "status": "DONE",
     }
     assert state["active_track"] == {
-        "id": "P8_MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION",
-        "title": "P8 Manual Wave-1 Evidence Contribution Authorization",
+        "id": "P8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY",
+        "title": "P8 Wave-0 TikTok PDP Identity Compatibility",
         "priority_owner": "HUMAN",
         "status": "DONE",
         "completion_basis": "PUBLICATION_GATED",
-        "sequence_status": "COMPLETE_ON_EXACT_TASK_229_SOURCE_PUBLICATION",
+        "sequence_status": "COMPLETE_ON_EXACT_TASK_230_SOURCE_PUBLICATION",
         "current_milestone": {
-            "id": "P8.3",
-            "task_id": "TASK-229",
-            "title": "Manual Wave-1 Evidence Contribution Authorization",
+            "id": "P8.WAVE_0.COMPATIBILITY",
+            "task_id": "TASK-230",
+            "title": "TikTok PDP Identity Compatibility and Parser Authority Consolidation",
             "status": "DONE",
             "completion_basis": "PUBLICATION_GATED",
-            "classification": "MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION_ONLY",
+            "classification": "P8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY_ONLY",
             "authorization_owner": "HUMAN_BRAIN",
             "real_pilot_executed": False,
             "live_evidence_acquired": False,
@@ -259,9 +262,9 @@ def test_roadmap_closes_p8_3_authorization_without_automatic_successor():
         ),
     }
     assert state["post_p8_planning_handoff"] == {
-        "destination": "HUMAN_OPERATOR_MANUAL_WAVE_1_CONTRIBUTION_AND_REVIEW",
-        "status": "EFFECTIVE_ON_EXACT_TASK_229_SOURCE_PUBLICATION",
-        "completed_commitment": "P8.3_MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION",
+        "destination": "HUMAN_BRAIN_PUBLIC_PDP_ACQUISITION_AUTHORIZATION",
+        "status": "EFFECTIVE_ON_EXACT_TASK_230_SOURCE_PUBLICATION",
+        "completed_commitment": "P8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY",
         "actual_real_decision_case": {
             "context_id": "p8-pilot-001-led-motion-tiktok-vn",
             "record_type": "PILOT_CASE_SELECTION_ONLY",
@@ -280,8 +283,23 @@ def test_roadmap_closes_p8_3_authorization_without_automatic_successor():
         "next_milestone": None,
         "automatic_next": False,
         "automatic_p8_4": False,
+        "automated_public_pdp_acquisition_authority": "NONE",
         "real_pilot_executed": False,
         "live_evidence_acquired": False,
+        "compatibility_closure": {
+            "document": "docs/PHASE_8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY.md",
+            "classification": "P8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY_ONLY",
+            "task_id": "TASK-230",
+            "canonical_parser": (
+                "src/product_intelligence/adapters/tiktok_parsing.py::"
+                "extract_tiktok_product_id"
+            ),
+            "exact_source_id": SELECTED_SOURCE_ID,
+            "parser_authority_count": 1,
+            "capability_not_evidence": True,
+            "public_pdp_affiliate_dependency": "NONE",
+            "source_identity_scope": "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY",
+        },
         "manual_contribution_authorization": {
             "document": (
                 "docs/PHASE_8_P8_3_MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION.md"
@@ -322,13 +340,14 @@ def test_roadmap_closes_p8_3_authorization_without_automatic_successor():
             "automated_acquisition_authority": "NONE",
         },
         "boundary": (
-            "TASK-229 closes only the Human-selected manual Wave-1 contribution authorization "
-            "for the exact P8.1 case. It contributes and accepts no evidence, fixes no parser, "
-            "authorizes no collector, Wave 0, Wave 2, market test, or action, and executes no "
-            "real pilot. A Human operator may later contribute the bounded external envelope "
-            "and a separate Human review may accept, reject, or leave unknown each observation. "
-            "No accepted item becomes canonical truth without a fresh deterministic freeze task, "
-            "and no P8.4 or future domain is automatic."
+            "TASK-230 closes only the Human-selected Wave-0 PDP identity compatibility and "
+            "one-parser-authority consolidation for the exact P8.1 case. It acquires, accepts, "
+            "freezes, and promotes no evidence; creates no Affiliate dependency for public PDP "
+            "product/source intelligence; authorizes no collector, later acquisition, P7.4/P7.5 "
+            "construction, Wave 1, Wave 2, market test, P8.4, or commerce action; and executes no "
+            "real pilot. TASK-229 remains completed authorization history with contribution and "
+            "review unperformed. Control returns to a fresh Human/Brain authorization decision, "
+            "and no successor or future domain is automatic."
         ),
     }
 
@@ -410,6 +429,9 @@ def test_p7_2_semantics_preserve_triage_evidence_and_history_boundaries():
         assert "MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION_ONLY" in roadmap
         assert TASK_228_SOURCE_SHA in roadmap
         assert "HUMAN_OPERATOR_MANUAL_WAVE_1_CONTRIBUTION_AND_REVIEW" in roadmap
+        assert "P8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY_ONLY" in roadmap
+        assert "HUMAN_BRAIN_PUBLIC_PDP_ACQUISITION_AUTHORIZATION" in roadmap
+        assert "automated_public_pdp_acquisition_authority` is `NONE" in roadmap
         assert "P6.2 remains PARKED" in roadmap
         assert "P6.4-P6.6 remain DEFERRED" in roadmap
         for milestone in ("P7.6", "P7.7"):
@@ -692,7 +714,7 @@ def test_p8_1_records_selection_only_and_preserves_pre_action_boundaries():
     assert selected["selection_status"] == "SELECTED"
     assert selected["real_pilot_executed"] is False
     assert state["post_p8_planning_handoff"]["destination"] == (
-        "HUMAN_OPERATOR_MANUAL_WAVE_1_CONTRIBUTION_AND_REVIEW"
+        "HUMAN_BRAIN_PUBLIC_PDP_ACQUISITION_AUTHORIZATION"
     )
     assert state["post_p8_planning_handoff"]["automatic_next"] is False
     assert state["post_p8_planning_handoff"]["automatic_p8_4"] is False
@@ -781,7 +803,7 @@ def test_p8_2_is_plan_only_and_preserves_evidence_and_action_boundaries():
     assert completed["TASK-228"]["source_sha"] == TASK_228_SOURCE_SHA
     handoff = state["post_p8_planning_handoff"]
     assert handoff["destination"] == (
-        "HUMAN_OPERATOR_MANUAL_WAVE_1_CONTRIBUTION_AND_REVIEW"
+        "HUMAN_BRAIN_PUBLIC_PDP_ACQUISITION_AUTHORIZATION"
     )
     assert handoff["automatic_next"] is False
     assert handoff["automatic_p8_4"] is False
@@ -883,6 +905,70 @@ def test_p8_3_authorizes_only_human_manual_contribution_and_review():
     assert authorization["wave_2_authority"] == "NONE"
     assert authorization["market_test_or_action_authority"] == "NONE"
     assert state["post_p8_planning_handoff"]["automatic_p8_4"] is False
+    assert state["active_track"]["next_milestone"] is None
+    assert state["pending_commitments"] == []
+
+
+def test_task_230_closes_only_pdp_compatibility_with_one_parser_authority():
+    closure = P8_WAVE_0_COMPATIBILITY_FILE.read_text(encoding="utf-8")
+    parser_source = (
+        REPO_ROOT / "src" / "product_intelligence" / "adapters" / "tiktok_parsing.py"
+    ).read_text(encoding="utf-8")
+    extractor_source = (
+        REPO_ROOT / "src" / "product_source" / "platforms" / "tiktok.py"
+    ).read_text(encoding="utf-8")
+
+    for required in (
+        "P8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY_ONLY",
+        "p8-pilot-001-led-motion-tiktok-vn",
+        SELECTED_SOURCE_ID,
+        SELECTED_LISTING_REFERENCE,
+        "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY",
+        "Parser compatibility is capability, not evidence",
+        "semantically independent from TikTok Affiliate account",
+        "contribution and review remain\nunperformed",
+        "HUMAN_BRAIN_PUBLIC_PDP_ACQUISITION_AUTHORIZATION",
+        "automated_public_pdp_acquisition_authority` is `NONE",
+    ):
+        assert required in closure
+
+    assert parser_source.count("def extract_tiktok_product_id(") == 1
+    assert (
+        "from src.product_intelligence.adapters.tiktok_parsing import "
+        "extract_tiktok_product_id"
+    ) in extractor_source
+    assert "product_id = extract_tiktok_product_id(product_url)" in extractor_source
+    assert "def _extract_tiktok_product_id" not in extractor_source
+    assert "import re" not in extractor_source
+    assert "itemUrl.match(" not in extractor_source
+
+    state = load_yaml(ROADMAP_FILE)
+    completed = {item["task_id"]: item for item in state["completed_milestones"]}
+    assert completed["TASK-229"]["classification"] == (
+        "MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION_ONLY"
+    )
+    assert completed["TASK-229"]["contribution_performed_by_task"] is False
+    assert completed["TASK-229"]["review_performed_by_task"] is False
+    assert completed["TASK-229"]["live_evidence_acquired"] is False
+    assert completed["TASK-230"]["classification"] == (
+        "P8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY_ONLY"
+    )
+    assert completed["TASK-230"]["parser_authority_count"] == 1
+    assert completed["TASK-230"]["public_pdp_affiliate_dependency"] == "NONE"
+
+    handoff = state["post_p8_planning_handoff"]
+    assert handoff["destination"] == "HUMAN_BRAIN_PUBLIC_PDP_ACQUISITION_AUTHORIZATION"
+    assert handoff["automated_public_pdp_acquisition_authority"] == "NONE"
+    assert handoff["automatic_next"] is False
+    assert handoff["automatic_p8_4"] is False
+    assert handoff["real_pilot_executed"] is False
+    assert handoff["live_evidence_acquired"] is False
+    assert handoff["manual_contribution_authorization"]["contribution_status"] == (
+        "UNPERFORMED_BY_TASK"
+    )
+    assert handoff["manual_contribution_authorization"]["review_status"] == (
+        "UNPERFORMED_BY_TASK"
+    )
     assert state["active_track"]["next_milestone"] is None
     assert state["pending_commitments"] == []
 

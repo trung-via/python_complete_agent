@@ -245,6 +245,7 @@ def extract_tiktok_product_id(
     Handles URL patterns:
       - '/product/{id}'
       - '/item/{id}'
+      - TikTok Shop '/{locale}/pdp/{slug}/{id}'
       - 'itemId={id}', 'item_id={id}', 'product_id={id}', 'productId={id}'
     """
     if item_id_attr and item_id_attr.strip().isdigit():
@@ -252,6 +253,19 @@ def extract_tiktok_product_id(
 
     if not url_or_href:
         return None
+
+    # TikTok Shop stable PDP URLs carry identity in an exact path structure.
+    # Keep this host- and path-bound so arbitrary trailing numbers never become IDs.
+    try:
+        parsed = urllib.parse.urlsplit(url_or_href)
+    except ValueError:
+        parsed = None
+    if parsed and parsed.scheme.lower() in {"http", "https"}:
+        hostname = parsed.hostname.lower() if parsed.hostname else ""
+        if hostname == "shop.tiktok.com":
+            pdp_match = re.fullmatch(r"/[a-z]{2}/pdp/[^/]+/(\d+)/?", parsed.path)
+            if pdp_match:
+                return pdp_match.group(1)
 
     # Pattern 1: /product/{id}
     m1 = re.search(r"/product/(\d+)", url_or_href)
