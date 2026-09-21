@@ -1,0 +1,253 @@
+task_id: TASK-231
+revision: 1
+
+goal: >
+  Canonicalize the Human-approved architecture and bounded implementation authorization
+  for automated public TikTok Shop PDP acquisition after TASK-230. Define the exact
+  semantic ownership, evidence boundary, field allowlist, identity gate, ambiguity policy,
+  CAPTCHA/access boundary, and post-publication handoff for a later offline-first collector
+  implementation, without implementing a collector, acquiring live marketplace evidence,
+  changing Product Intelligence models, or authorizing any live pilot, market test, score,
+  ranking, approval, or commerce action.
+
+problem: >
+  TASK-230 closed the selected /vn/pdp/<slug>/<id> compatibility blocker and returned
+  control to HUMAN_BRAIN_PUBLIC_PDP_ACQUISITION_AUTHORIZATION. Canonical Product
+  Intelligence already owns ProductCandidateSnapshot and SignalEvidence marketplace
+  observation semantics; Product Source Pack separately owns seller facts/media; P7.4
+  organizes opaque TikTok Affiliate evidence references; and P7.5 owns VOI planning.
+  The repository has no canonical contract defining how a later automated public-PDP
+  capability may observe exact-listing price/traction without creating duplicate semantic
+  ownership, depending on Affiliate access, coupling to ProductSourcePack/TikTokScrapeTool,
+  or silently treating variant/range prices as exact scalar evidence. The Human has now
+  approved a contract-first design: establish the acquisition contract and bounded
+  implementation authorization first, then implement the collector separately, still
+  without live acquisition authority.
+
+assumptions:
+  - Canonical main at authoring is 2e9df54916522a50939b98f1130e6d74950018a9.
+  - TASK-230 is published and DONE only as P8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY_ONLY.
+  - Current post-P8 handoff is HUMAN_BRAIN_PUBLIC_PDP_ACQUISITION_AUTHORIZATION with automated_public_pdp_acquisition_authority NONE.
+  - The Human explicitly approves the audited contract-first public-PDP acquisition architecture and authorizes canonicalization of a later bounded collector implementation commitment, but does not authorize live TikTok acquisition.
+  - The exact selected pilot remains context_id p8-pilot-001-led-motion-tiktok-vn, source ID 1731381331718341815, stable listing reference https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815.
+  - ProductCandidateSnapshot is the canonical marketplace observation contract and SignalEvidence is the canonical field-evidence contract for existing Product Intelligence scalar observations.
+  - ProductSourcePack remains the source-facts/seller-media evidence contract and must not become a second owner of public market metrics.
+  - Public TikTok Shop PDP product/traction observations are semantically independent from authenticated TikTok Affiliate eligibility/economics.
+  - Existing search-card parsing behavior may intentionally use lower-bound treatment for displayed price ranges; that behavior must not be reinterpreted as exact-PDP scalar-price evidence.
+  - Missing, blocked, ambiguous, or unavailable values remain unknown rather than false, zero, minimum, maximum, inferred, or substituted.
+  - SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY, SNAPSHOT_IS_NOT_TREND, EVIDENCE_IS_NOT_PRODUCT_TRUTH, and CAPABILITY_IS_NOT_AUTHORITY remain in force.
+  - Current downstream AIOS pin and conformance remain edd7d8d92d54900c56442bbfcddb8648ec4d2e09 / TASK-207 revision 8.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_6_M2_PRODUCT_INTELLIGENCE.md
+    - docs/PHASE_6_M2_TIKTOK_DISCOVERY.md
+    - docs/PHASE_6_PRODUCT_SOURCE_PACK.md
+    - docs/PHASE_7_P7_4_TIKTOK_AFFILIATE_EVIDENCE_PROFILE.md
+    - docs/PHASE_7_P7_5_VALUE_OF_INFORMATION_PLANNING.md
+    - docs/PHASE_8_P8_2_PRE_ACTION_EVIDENCE_ACQUISITION_PLAN.md
+    - docs/PHASE_8_P8_3_MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION.md
+    - docs/PHASE_8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - .ai/aios-adoption-state.yaml
+    - .ai/aios-conformance-state.yaml
+    - .ai/tasks/TASK-228.yaml
+    - .ai/tasks/TASK-229.yaml
+    - .ai/tasks/TASK-230.yaml
+    - src/product_intelligence/models.py
+    - src/product_intelligence/adapters/tiktok.py
+    - src/product_intelligence/adapters/tiktok_parsing.py
+    - src/product_intelligence/normalizer.py
+    - src/product_intelligence/scoring.py
+    - src/product_source/models.py
+    - src/product_source/platforms/tiktok.py
+    - src/tools/tiktok_scrape_tool.py
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - Implement or modify any TikTok collector, browser/CDP script, DOM selector, parser, ProductCandidateSnapshot model, SignalEvidence model, ProductSourcePack, TikTokSourceExtractor, TikTokScrapeTool, downloader, persistence, Google Drive, queue, scheduler, watcher, provider, API, or orchestration code.
+  - Browse TikTok, acquire live marketplace evidence, navigate the selected pilot, resolve CAPTCHA, use login/session state, call marketplace or Affiliate APIs, or produce a live ProductCandidateSnapshot.
+  - Authorize automatic CAPTCHA solving, automated challenge retry, proxy rotation, stealth, evasion, bypass, or credential/session capture.
+  - Make public Product Intelligence depend on TikTok Affiliate eligibility, Affiliate account access, authenticated Affiliate UI, commission availability, or creator-program eligibility.
+  - Acquire, infer, normalize, or authorize affiliate_eligibility, affiliate_commission_rate, estimated_commission_value, creator_count, video_count, similar_listing_count, creator/video/sales/review velocity, audience fit, competition saturation, or other Wave-2 evidence.
+  - Treat one public PDP observation as trend, momentum, velocity, demand quality, causal evidence, canonical product identity, product truth, recommendation, approval, winner judgment, TEST_READY, or action authority.
+  - Expand ProductSourcePack into market-metric ownership or route public PDP price/traction through TikTokScrapeTool, source media download, filesystem publication, or Google Drive as a semantic prerequisite.
+  - Create a second public-PDP observation model or evidence owner that duplicates ProductCandidateSnapshot or SignalEvidence semantics.
+  - Automatically author, execute, or publish the later implementation task, perform the first live pilot, construct P7.4/P7.5 values, authorize P8.4, or run a market test.
+  - Modify Governance Foundation, AIOS pin/adoption/conformance, Runtime, Reviewer, Publisher, workflow bindings, or execution lifecycle.
+
+constraints:
+  hard:
+    - >
+      Classify TASK-231 exactly as PUBLIC_PDP_ACQUISITION_CONTRACT_ONLY. It is a
+      design/authorization contract, not a collector, evidence artifact, live acquisition,
+      test, score, recommendation, decision, or commerce action.
+    - >
+      Preserve Product Intelligence as the sole canonical owner of marketplace observation
+      semantics. ProductCandidateSnapshot remains the canonical exact-listing/public-market
+      observation contract for fields it already owns, and SignalEvidence remains the
+      canonical field-evidence contract generated by existing Product Intelligence
+      normalization. Do not introduce a second semantic owner for price, discount, sold count,
+      rating, review count, source identity, or evidence.
+    - >
+      Preserve ProductSourcePack as seller/source facts and original-media evidence only.
+      Public PDP market metrics must not be made dependent on ProductSourcePack extraction,
+      trusted-media availability, TikTokSourceExtractor success, media download, filesystem
+      persistence, Google Drive, or TikTokScrapeTool.
+    - >
+      Define the future automated public-PDP V1 observation allowlist narrowly: exact source
+      product ID, exact URL/binding context, explicit observation time, title, shop name when
+      explicitly observed, current scalar price only when unambiguous, original scalar price
+      only when unambiguous, explicit discount_percent when unambiguous, sold_count, rating,
+      and review_count. Fields outside this allowlist remain unauthorized for that V1
+      implementation.
+    - >
+      Treat variant_descriptor and inventory_availability as contextual/provenance concerns
+      preserved by P8.2/P8.3, not as new V1 ProductCandidateSnapshot fields or new P7.4
+      dimensions. TASK-231 must not enlarge the canonical Product Intelligence schema merely
+      to store them. A later fresh Human/Brain decision may authorize deeper variant or
+      availability semantics if decision-relevant.
+    - >
+      Establish the exact-PDP price law AMBIGUOUS_PRICE_IS_NOT_EXACT_PRICE. A displayed range,
+      multiple unresolved variant prices, price requiring an unproven selected-variant
+      assumption, or conflicting price representations must not be converted to a scalar
+      exact-PDP price by taking a lower bound, upper bound, midpoint, first variant, URL hint,
+      title inference, or model judgment. Such price fields remain unknown unless the later
+      implementation can deterministically prove one unambiguous scalar observation under its
+      authorized boundary.
+    - >
+      Preserve existing search-card parser semantics as historical/current discovery behavior.
+      TASK-231 may require a later strict exact-PDP parsing/admission path within the same
+      canonical TikTok parsing authority, but it must not reinterpret search-card lower-bound
+      price behavior as exact-PDP truth and must not create a second parser authority.
+    - >
+      Require fail-closed exact-listing identity before admitting any future public-PDP V1
+      observation. The later implementation must bind the requested URL through the canonical
+      TikTok product-ID parser and verify the observed/post-navigation listing identity where
+      available. A redirect to search/login/challenge, explicit conflicting current-product ID,
+      different product ID, malformed identity, or identity that cannot be safely established
+      must not emit an admitted exact-listing snapshot merely because title, image, seller,
+      slug, or product concept appears similar.
+    - >
+      Preserve SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY: exact source-ID matching proves only
+      the external listing observation boundary, not canonical commerce identity.
+    - >
+      Public PDP acquisition must remain semantically independent from authenticated TikTok
+      Affiliate access. Affiliate-only eligibility and economics stay in their existing
+      authenticated/manual or future separately-authorized lane and must remain None/unknown
+      in public V1 when unavailable.
+    - >
+      Preserve SNAPSHOT_IS_NOT_TREND. One future PDP observation must leave velocity/trend
+      fields unknown; no sales_velocity, review_velocity, creator_velocity, video_velocity,
+      momentum, trajectory, future demand, or trend claim may be inferred from a single
+      snapshot.
+    - >
+      Define blocked/challenge handling as fail closed. CAPTCHA/security challenge, login wall,
+      unavailable page, or access failure yields an explicit blocked/unavailable outcome and
+      zero fabricated market observations. TASK-231 grants no automated challenge solving,
+      bypass, stealth, proxy rotation, or retry-evasion authority. Human resolution outside
+      ordinary deterministic verification grants no additional semantic authority.
+    - >
+      The contract must permit a later bounded implementation task to build an offline-first
+      public-PDP observation capability using existing browser/session infrastructure and
+      canonical TikTok identity/parsing authorities where appropriate, while prohibiting
+      generic crawler-framework expansion, duplicated browser lifecycle authority, generic
+      marketplace identity ownership, and unrelated platform changes.
+    - >
+      The later implementation task, once separately authored and published, may prove only
+      capability with deterministic offline fixtures/tests. TASK-231 must explicitly set
+      live_public_pdp_acquisition_authority NONE, automatic_live_pilot false,
+      automatic_p8_4 false, and market_test_or_action_authority NONE.
+    - >
+      Canonicalize the Human priority in both roadmap documents and .ai/roadmap-state.yaml
+      without rewriting TASK-228, TASK-229, or TASK-230 history. On exact TASK-231 publication,
+      record TASK-231 DONE only as PUBLIC_PDP_ACQUISITION_CONTRACT_ONLY and make the unique
+      current NEXT commitment P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION, classified as bounded
+      offline-first implementation only. Do not assign a successor TASK number or claim that
+      implementation exists.
+    - >
+      Record the post-TASK-231 boundary so implementation authorization is distinct from live
+      acquisition authorization: implementation_authorized true;
+      live_public_pdp_acquisition_authority NONE; automatic_live_pilot false; automatic_p8_4
+      false; market_test_or_action_authority NONE. After a later collector implementation is
+      independently reviewed and published, control must return to a fresh
+      HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION before the first real TikTok PDP capture.
+    - >
+      Extend governance regression additively to prove the classification, canonical ownership,
+      V1 allowlist, no ProductSourcePack/TikTokScrapeTool semantic dependency, Affiliate
+      separation, ambiguous-price fail-closed law, snapshot-not-trend law, preserved historical
+      P8.2/P8.3/TASK-230 state, unique implementation NEXT, and zero live/test/action authority.
+    - >
+      Modify only the five authorized paths. Executor performs documentation/planning/governance
+      regression changes only, commits one candidate, and returns one ResultPackage. Runtime
+      retains verification authority; Executor must not implement the collector, browse TikTok,
+      publish, or start a successor operation.
+
+acceptance:
+  - id: AC1
+    condition: >
+      One canonical contract document exists with classification
+      PUBLIC_PDP_ACQUISITION_CONTRACT_ONLY and clearly separates public-PDP acquisition
+      capability from evidence truth, Product Source, Affiliate economics, scoring,
+      recommendation, decision, test, and action authority.
+  - id: AC2
+    condition: >
+      The contract preserves ProductCandidateSnapshot/SignalEvidence as the existing Product
+      Intelligence marketplace-observation/evidence authorities and ProductSourcePack as
+      seller facts/media authority, with no duplicate semantic owner or required
+      TikTokScrapeTool/Drive/media dependency for public market metrics.
+  - id: AC3
+    condition: >
+      The future V1 allowlist is limited to exact identity/binding/time plus title/shop when
+      explicit, unambiguous scalar price/original-price/discount, sold_count, rating, and
+      review_count; Affiliate, Wave-2, velocity/trend, variant, and inventory expansion remain
+      unauthorized or deferred.
+  - id: AC4
+    condition: >
+      The contract establishes AMBIGUOUS_PRICE_IS_NOT_EXACT_PRICE, explicitly forbids
+      lower-bound/upper-bound/midpoint/first-variant/inference substitution for ambiguous PDP
+      price, preserves existing search-card behavior without reinterpreting it, and keeps one
+      canonical TikTok parsing authority.
+  - id: AC5
+    condition: >
+      Exact-listing binding and blocked/challenge behavior fail closed; source identity does not
+      become canonical identity; unavailable or ambiguous values remain unknown; and public V1
+      remains independent from Affiliate account access.
+  - id: AC6
+    condition: >
+      SNAPSHOT_IS_NOT_TREND is explicit: one public PDP observation grants no velocity, momentum,
+      trend, forecast, winner, recommendation, approval, or test/action claim.
+  - id: AC7
+    condition: >
+      Roadmaps and Brain-owned state preserve TASK-228/TASK-229/TASK-230 history, mark TASK-231
+      publication-gated DONE only as the contract, and establish exactly one NEXT commitment
+      P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION without claiming a task number or implementation.
+  - id: AC8
+    condition: >
+      The post-contract authorization boundary records implementation_authorized true while
+      live_public_pdp_acquisition_authority remains NONE, automatic_live_pilot false,
+      automatic_p8_4 false, and market_test_or_action_authority NONE; the first future live
+      capture requires HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION after independently
+      reviewed/published implementation.
+  - id: AC9
+    condition: >
+      Only the five authorized paths change; governance regressions and git diff --check pass
+      with zero unresolved items, yielding one candidate eligible for independent PRIMARY
+      semantic review and exact safe publication.
+
+verification:
+  required:
+    - python -m pytest tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task231-primary
+    - git diff --check
