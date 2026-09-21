@@ -1,0 +1,194 @@
+task_id: TASK-230
+revision: 1
+
+goal: >
+  Implement one bounded P8 Wave-0 TikTok Shop PDP identity-compatibility correction for
+  the exact Human-selected pilot path, and consolidate TikTok product-ID parsing so one
+  canonical deterministic parser authority is consumed by both Product Intelligence
+  discovery/candidate identity and Product Source extraction. Add support for the selected
+  /vn/pdp/<slug>/<id> listing form without acquiring live marketplace evidence, changing
+  extraction semantics, depending on TikTok Affiliate access, or authorizing any later
+  acquisition/test/action automatically.
+
+problem: >
+  TASK-228 documented an exact-listing compatibility blocker: the selected TikTok Shop
+  Vietnam stable listing
+  https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
+  cannot currently be bound by the production TikTok ID parsers. TASK-229 later authorized
+  a Human-only manual Wave-1 contribution path but acquired no evidence and left Wave 0
+  unauthorized. The Human has now selected the bounded Wave-0 compatibility path before
+  any automated public-PDP acquisition. Current code also contains two implementations of
+  TikTok product-ID extraction: the established pure helper
+  src/product_intelligence/adapters/tiktok_parsing.py::extract_tiktok_product_id and a
+  private duplicate in src/product_source/platforms/tiktok.py. The correction must close
+  the selected /vn/pdp identity gap and restore ONE_CAPABILITY_ONE_AUTHORITY for TikTok
+  source-product ID parsing without expanding collection or semantic authority.
+
+assumptions:
+  - Canonical main at authoring is fb80022d8c977eb78b5c9e338b42820f1d23c315.
+  - TASK-229 / P8.3 is DONE only as MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION_ONLY; contribution_status and review_status remain unperformed; live_evidence_acquired is false; real_pilot_executed is false.
+  - Human has now explicitly selected bounded Wave-0 PDP identity compatibility and parser-authority consolidation as the next engineering commitment.
+  - The exact pilot remains context_id p8-pilot-001-led-motion-tiktok-vn, source ID 1731381331718341815, stable listing reference https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815.
+  - Source identity remains not canonical product identity.
+  - Public TikTok Shop PDP product/source evidence and authenticated Affiliate economics are distinct evidence surfaces. This task must not make public Product Intelligence depend on Affiliate eligibility or account access.
+  - Product Intelligence remains the canonical owner of ProductCandidateSnapshot, SignalEvidence, product/source identity semantics, discovery, ranking/scoring, approval, catalog/persistence and product truth. Product Source Pack remains source evidence under that domain boundary.
+  - The existing pure extract_tiktok_product_id helper is the canonical TikTok source-product ID parser authority for this task; no second parser authority may remain in Product Source extraction.
+  - Existing /product/<id>, /item/<id>, supported query-key, and direct item-id attribute behavior must remain compatible.
+  - No live TikTok browsing, scraping, API/CDP/browser execution, evidence acquisition, manual evidence freeze, P7.4/P7.5 construction, market test, spend, publication or commerce action is authorized by this task.
+  - Current downstream AIOS pin and conformance remain edd7d8d92d54900c56442bbfcddb8648ec4d2e09 / TASK-207 revision 8.
+  - Codex remains the Human-selected default Executor.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_6_M2_TIKTOK_DISCOVERY.md
+    - docs/PHASE_8_P8_2_PRE_ACTION_EVIDENCE_ACQUISITION_PLAN.md
+    - docs/PHASE_8_P8_3_MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - .ai/aios-adoption-state.yaml
+    - .ai/aios-conformance-state.yaml
+    - .ai/tasks/TASK-228.yaml
+    - .ai/tasks/TASK-229.yaml
+    - src/product_intelligence/adapters/tiktok_parsing.py
+    - src/product_intelligence/adapters/tiktok.py
+    - src/product_source/platforms/tiktok.py
+    - tests/product_intelligence/test_tiktok_parsing.py
+    - tests/product_source/test_tiktok_source_extractor.py
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - src/product_intelligence/adapters/tiktok_parsing.py
+    - src/product_source/platforms/tiktok.py
+    - tests/product_intelligence/test_tiktok_parsing.py
+    - tests/product_source/test_tiktok_source_extractor.py
+    - docs/PHASE_8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - Execute TikTokDiscoveryAdapter, TikTokSourceExtractor, TikTokScrapeTool, browser/CDP, marketplace API, scraper, provider/LLM, Drive, or any live external acquisition.
+  - Change TikTok DOM selectors, gallery/media extraction, source-fact extraction, CAPTCHA/challenge handling, retries, proxy/stealth behavior, session/login behavior, or browser orchestration.
+  - Add a collector, scheduler, watcher, queue, database, evidence store, recurring capture, authenticated Affiliate integration, or public-PDP acquisition workflow.
+  - Infer or collect affiliate_eligibility, affiliate_commission_rate, estimated_commission_value, creator/content/audience/competition/velocity evidence.
+  - Construct or mutate ProductCandidateSnapshot, SignalEvidence, TikTokAffiliateEvidenceProfile, ValueOfInformationPlan, MarketTestEvidenceProfile, CommerceDecisionLoopCase, approval state, canonical product identity, or product truth.
+  - Treat URL parsing success as proof that the listing exists, is available, is affiliate-eligible, or exposes any current fact.
+  - Broaden URL identity parsing to unrelated platforms or create a generic marketplace identity authority.
+  - Create another TikTok product-ID parser or leave the Product Source private duplicate as a second authority.
+  - Authorize manual evidence acceptance/freeze, Wave 1 or Wave 2 acquisition, a market test, spend, traffic, content publication, pricing/inventory mutation, outreach, winner/scalability judgment, or another commerce action.
+  - Automatically create, authorize, mark NEXT, or execute a successor public-PDP acquisition task or P8.4 milestone.
+  - Modify AIOS pin/adoption/conformance, workflows, Runtime, Reviewer, Publisher, or Governance Foundation.
+
+constraints:
+  hard:
+    - >
+      Preserve exactly one canonical TikTok source-product ID parsing authority:
+      src/product_intelligence/adapters/tiktok_parsing.py::extract_tiktok_product_id.
+      src/product_source/platforms/tiktok.py must consume that authority and must not
+      retain independent TikTok product-ID regex/parsing logic.
+    - >
+      Extend the canonical helper narrowly so the exact stable pilot URL
+      https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
+      deterministically yields source ID 1731381331718341815. Support must be path-structural
+      for the TikTok Shop PDP form, not a generic "last number wins" rule. Query strings and
+      fragments after a valid PDP identity must not change the extracted ID.
+    - >
+      Preserve all existing accepted identity forms and direct item-id attribute behavior.
+      Existing /product/<id>, /item/<id>, itemId/item_id/product_id/productId query keys,
+      candidate-ID derivation, missing-value behavior, and pure deterministic/no-side-effect
+      parser constraints must not regress.
+    - >
+      Fail closed for malformed or near-miss PDP paths. Missing slug or ID, non-numeric ID,
+      arbitrary numeric text outside the admitted PDP structure, and unsupported paths must
+      not be promoted into a source product ID merely to make the pilot pass.
+    - >
+      TikTokSourceExtractor must use the canonical helper for target source-product identity.
+      For the selected PDP URL, the ID passed into the existing page-evaluation identity gate,
+      ProductSourcePack.source_product_id, and deterministic source_pack_id must remain exactly
+      1731381331718341815 when the fake/offline extractor response is identity-matched.
+      Do not change media/fact precedence or trust rules.
+    - >
+      Add deterministic offline regression tests proving both consumer surfaces share the
+      compatibility: canonical parser tests for the selected /vn/pdp form plus safe variants
+      and near-miss rejection, and Product Source extractor tests using FakeSession only.
+      Tests must not access TikTok, browser/CDP, credentials, wall clock, network, uploaded
+      screenshots, provider/model state, or mutable external state.
+    - >
+      Create one bounded architecture/closure document classified
+      P8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY_ONLY. It must state that parser
+      compatibility is capability, not evidence or acquisition authority; public PDP
+      product/source intelligence remains semantically separate from Affiliate-only
+      economics; and SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY remains intact.
+    - >
+      Canonicalize the current Human priority change in both roadmap documents and
+      .ai/roadmap-state.yaml without rewriting TASK-229 history. Record TASK-230 as the
+      Human-selected bounded Wave-0 compatibility commitment. On exact TASK-230 publication,
+      mark it DONE only as compatibility/parser-authority consolidation; keep
+      real_pilot_executed false and live_evidence_acquired false; keep next_milestone null
+      and pending_commitments empty; preserve P8.3 manual contribution authorization as
+      historical authorization with no contribution/review claimed.
+    - >
+      After exact TASK-230 publication, hand control to a fresh Human/Brain decision boundary
+      named HUMAN_BRAIN_PUBLIC_PDP_ACQUISITION_AUTHORIZATION. Record automatic_next false and
+      automated_public_pdp_acquisition_authority NONE. This task must not pre-authorize the
+      later acquisition design, live capture, evidence acceptance, or P8.4.
+    - >
+      Extend governance regression additively to prove exact pilot binding, compatibility-only
+      classification, one parser authority, no live acquisition/evidence claims, no Affiliate
+      dependency for public product/source intelligence, preserved P8.3 history, no automatic
+      successor, and the exact Human/Brain handoff.
+    - >
+      Modify only the nine authorized paths. Executor performs the bounded implementation and
+      documentation/planning delta, commits one candidate, and returns one ResultPackage.
+      Runtime retains canonical verification; Executor must not publish or start another
+      operation.
+
+acceptance:
+  - id: AC1
+    condition: >
+      The canonical TikTok ID helper extracts 1731381331718341815 from the exact selected
+      /vn/pdp/<slug>/<id> URL and preserves all pre-existing accepted identity forms.
+  - id: AC2
+    condition: >
+      Malformed/near-miss PDP URLs remain unparseable, and the implementation does not use a
+      generic last-number heuristic or fabricate identity from slug/title/similarity.
+  - id: AC3
+    condition: >
+      Product Source extraction consumes the same canonical parser authority with no private
+      duplicate TikTok ID parser, while existing identity-gating, media/fact trust precedence,
+      source_product_id, and source_pack_id semantics remain intact.
+  - id: AC4
+    condition: >
+      Focused deterministic offline tests prove the selected PDP compatibility through both the
+      parser and FakeSession Product Source extractor paths with zero network/browser/live state.
+  - id: AC5
+    condition: >
+      TASK-230 performs only compatibility/parser-authority consolidation and does not acquire,
+      infer, accept, freeze, or promote marketplace or Affiliate evidence; public PDP product/source
+      capability remains semantically independent from Affiliate account eligibility/access.
+  - id: AC6
+    condition: >
+      P8.3 remains preserved as completed authorization history with contribution/review still
+      unperformed; no Product Intelligence approval, P7.4/P7.5 construction, Wave 1/Wave 2,
+      market test, winner judgment, or commerce action is authorized.
+  - id: AC7
+    condition: >
+      Roadmaps and Brain-owned roadmap state durably record the Human-selected Wave-0 commitment
+      and, after exact publication, leave real_pilot_executed false, live_evidence_acquired false,
+      next_milestone null, pending_commitments empty, automated public-PDP acquisition authority
+      NONE, and handoff HUMAN_BRAIN_PUBLIC_PDP_ACQUISITION_AUTHORIZATION.
+  - id: AC8
+    condition: >
+      Only the nine authorized paths change; focused tests and git diff --check pass with zero
+      unresolved items, yielding one candidate eligible for independent PRIMARY semantic review
+      and exact safe publication.
+
+verification:
+  required:
+    - python -m pytest tests/product_intelligence/test_tiktok_parsing.py tests/product_source/test_tiktok_source_extractor.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task230-primary
+    - git diff --check
