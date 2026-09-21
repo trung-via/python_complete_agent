@@ -75,6 +75,10 @@ from src.product_intelligence.tiktok_pdp_live_pilot import (
     TikTokPdpLivePilotError as _TikTokPdpLivePilotError,
     run_tiktok_pdp_live_pilot as _run_tiktok_pdp_live_pilot,
 )
+from src.product_intelligence.tiktok_pdp_dom_diagnostic import (
+    TikTokPdpDomDiagnosticError as _TikTokPdpDomDiagnosticError,
+    run_tiktok_pdp_dom_diagnostic as _run_tiktok_pdp_dom_diagnostic,
+)
 from src.product_intelligence.orchestration import (
     OrchestrationError as _OrchestrationError,
     OrchestrationResult as _OrchestrationResult,
@@ -118,6 +122,7 @@ _KNOWN_APPLICATION_ERRORS = (
     _CanonicalVariantAdmissionError,
     _LiveCaptureError,
     _TikTokPdpLivePilotError,
+    _TikTokPdpDomDiagnosticError,
     _AgentException,
     OSError,
     ValueError,
@@ -291,6 +296,22 @@ def _parser() -> _argparse.ArgumentParser:
         help="Explicit external live-pilot job root.",
     )
     tiktok_pdp_live_pilot.add_argument(
+        "--cdp-endpoint",
+        action=_UniqueStoreAction,
+        required=True,
+        help="Exact operator-owned Chromium CDP endpoint.",
+    )
+    tiktok_pdp_dom_diagnostic = commands.add_parser(
+        "tiktok-pdp-dom-diagnostic",
+        help="Inspect the already-open authorized TikTok PDP once for structural hints.",
+    )
+    tiktok_pdp_dom_diagnostic.add_argument(
+        "--job-root",
+        action=_UniqueStoreAction,
+        required=True,
+        help="Explicit external DOM-diagnostic job root.",
+    )
+    tiktok_pdp_dom_diagnostic.add_argument(
         "--cdp-endpoint",
         action=_UniqueStoreAction,
         required=True,
@@ -527,6 +548,16 @@ async def _tiktok_pdp_live_pilot_document(
     arguments: _argparse.Namespace,
 ) -> dict[str, object]:
     outcome = await _run_tiktok_pdp_live_pilot(
+        job_root=arguments.job_root,
+        cdp_endpoint=arguments.cdp_endpoint,
+    )
+    return outcome.to_document()
+
+
+async def _tiktok_pdp_dom_diagnostic_document(
+    arguments: _argparse.Namespace,
+) -> dict[str, object]:
+    outcome = await _run_tiktok_pdp_dom_diagnostic(
         job_root=arguments.job_root,
         cdp_endpoint=arguments.cdp_endpoint,
     )
@@ -982,6 +1013,8 @@ def main(argv=None) -> int:
             document = _asyncio.run(_capture_document(arguments))
         elif arguments.command == "tiktok-pdp-live-pilot":
             document = _asyncio.run(_tiktok_pdp_live_pilot_document(arguments))
+        elif arguments.command == "tiktok-pdp-dom-diagnostic":
+            document = _asyncio.run(_tiktok_pdp_dom_diagnostic_document(arguments))
         elif arguments.command == "decide":
             document = _asyncio.run(_decide_document(arguments))
         elif arguments.command == "family-decide":

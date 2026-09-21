@@ -42,7 +42,12 @@ authorization. TASK-232 implements that unique commitment as a publication-gated
 `BOUNDED_OFFLINE_FIRST_IMPLEMENTATION_ONLY` capability. On exact reviewed TASK-232 publication the
 implementation is DONE, NEXT is null, pending commitments are empty, and control returns exactly to
 `HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION`; no live capture, automatic pilot, P8.4, market
-test, or action is claimed.
+test, or action was claimed by TASK-232. TASK-233 was then published exactly at
+`99338787dcfff5e1897b9d58c12b04f7961f6e58`, its single Human-operated attempt was consumed, and
+TASK-234 reconciles the bounded external artifact without canonical ingestion while enabling only
+an offline attach-only DOM diagnostic. The current handoff is
+`HUMAN_BRAIN_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION`; no diagnostic or second capture is
+authorized automatically.
 P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
 
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
@@ -568,6 +573,32 @@ evidence for mandatory Human review only: `SOURCE_IDENTITY_IS_NOT_CANONICAL_IDEN
 grants no TikTok Affiliate, ranking, approval, persistence, market-test, or commerce-action
 authority.
 
+- **P8 Public TikTok PDP Live-Pilot Review and DOM Diagnostic Enablement (TASK-234 â€”
+  publication-gated DONE only as
+  `LIVE_PILOT_RECONCILIATION_AND_OFFLINE_DOM_DIAGNOSTIC_ENABLEMENT_ONLY`)**: reconciles the
+  already-performed TASK-233 Human operation without changing its immutable publication history.
+  Its one authorized attempt is consumed, `authorized_capture_attempts_remaining=0`,
+  `real_pilot_executed=true`, and `live_evidence_acquired=true` means only
+  `EXTERNAL_BOUNDED_SOURCE_ARTIFACT_ONLY`; `canonical_evidence_ingested=false`. Identity binding
+  and title are `OBSERVED`; shop name, price, original price, discount, sold count, rating, and
+  review count remain `UNKNOWN`. Screenshot/chat-visible values are diagnostic context only and
+  are not canonical evidence, Product Truth, P7.4/P7.5, scoring, ranking, approval, testing, or
+  action state.
+
+  TASK-234 adds one fixed-listing, attach-only, exactly-one-evaluate DOM diagnostic that emits only
+  capped structural hints with `evidence_authority=NONE`. It performs no navigation or interaction,
+  fails closed on non-public/unavailable/unverifiable/different pages, and uses the canonical TikTok
+  parser for identity. Product Intelligence releases each acquired borrowed session through
+  `manager.close_session` in `finally`; TASK-137 remains the lifecycle authority and Human-owned
+  Chromium/context/page remain open. `CAPABILITY_IS_NOT_AUTHORITY` and
+  `ONE_CAPABILITY_ONE_AUTHORITY` remain binding.
+
+On exact reviewed TASK-234 publication, diagnostic implementation exists but
+`live_dom_diagnostic_authority=NONE`, `diagnostic_executed=false`,
+`selector_repair_complete=false`, `automated_public_pdp_acquisition_authority=NONE`, and
+`market_test_or_action_authority=NONE`. `next_milestone` is null, pending commitments are empty,
+and the exact handoff is `HUMAN_BRAIN_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION`.
+
 See `docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md` for the exact P8.0 source
 `a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e`,
 `docs/PHASE_8_P8_1_REAL_DECISION_PILOT_SELECTION.md` for the exact P8.1 selection record, and
@@ -580,6 +611,8 @@ See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_COLLECTOR_IMPLEMENTATION.md` for the TASK-23
 boundary.
 See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_LIVE_PILOT_AUTHORIZATION.md` for the TASK-233 one-shot
 authorization and Human-review boundary.
+See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_LIVE_PILOT_REVIEW_AND_DOM_DIAGNOSTIC.md` for the TASK-234
+reconciliation, diagnostic boundary, and cleanup clarification.
 
 
 See `docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md` for the audit and boundary.

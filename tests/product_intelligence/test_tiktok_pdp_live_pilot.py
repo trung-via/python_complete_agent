@@ -71,6 +71,7 @@ class FakeSession:
 
 class FakeManager:
     instances = []
+    close_failure = None
 
     def __init__(self, *, cdp_endpoint):
         self.cdp_endpoint = cdp_endpoint
@@ -86,7 +87,9 @@ class FakeManager:
 
     async def close_session(self, run_id):
         self.close_session_calls += 1
-        raise AssertionError(run_id)
+        assert run_id == f"human-one-shot:{PILOT_CONTEXT_ID}"
+        if type(self).close_failure is not None:
+            raise type(self).close_failure
 
     async def close_all(self):
         self.close_all_calls += 1
@@ -114,6 +117,7 @@ def _reset_fakes():
     FakeManager.instances = []
     FakeCollector.instances = []
     FakeCollector.failure = None
+    FakeManager.close_failure = None
 
 
 @pytest.fixture
@@ -143,7 +147,8 @@ async def test_success_is_fixed_one_attempt_exclusive_safe_and_secret_free(
     assert collector.session is manager.session
     assert collector.calls == [(AUTHORIZED_PDP_URL, OBSERVED_AT)]
     assert OBSERVED_AT.tzinfo is not None and OBSERVED_AT.utcoffset() is not None
-    assert manager.close_session_calls == manager.close_all_calls == 0
+    assert manager.close_session_calls == 1
+    assert manager.close_all_calls == 0
     assert manager.session.close_calls == 0
 
     assert outcome.artifact_path == root.resolve() / ARTIFACT_FILENAME
@@ -252,8 +257,45 @@ async def test_collection_failures_create_no_snapshot_and_never_retry(
     assert FakeCollector.instances[0].calls == [(AUTHORIZED_PDP_URL, OBSERVED_AT)]
     assert not (root / ARTIFACT_FILENAME).exists()
     manager = FakeManager.instances[0]
-    assert manager.close_session_calls == manager.close_all_calls == 0
+    assert manager.close_session_calls == 1
+    assert manager.close_all_calls == 0
     assert manager.session.close_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_primary_collector_failure_is_preserved_when_release_also_fails(
+    external_temp_path,
+):
+    primary = TikTokPdpExtractionError("primary collector failure")
+    FakeCollector.failure = primary
+    FakeManager.close_failure = RuntimeError("cleanup failure")
+    with pytest.raises(TikTokPdpExtractionError) as raised:
+        await run_tiktok_pdp_live_pilot(
+            job_root=external_temp_path / "failed-pilot",
+            cdp_endpoint=ENDPOINT,
+            clock=lambda: OBSERVED_AT,
+            manager_factory=FakeManager,
+            collector_factory=FakeCollector,
+        )
+    assert raised.value is primary
+    manager = FakeManager.instances[0]
+    assert manager.close_session_calls == 1
+    assert manager.close_all_calls == 0
+    assert manager.session.close_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_release_failure_after_success_is_bounded(external_temp_path):
+    FakeManager.close_failure = RuntimeError(f"cleanup leaked {ENDPOINT}")
+    with pytest.raises(Exception, match="borrowed browser session could not be released") as raised:
+        await run_tiktok_pdp_live_pilot(
+            job_root=external_temp_path / "pilot",
+            cdp_endpoint=ENDPOINT,
+            clock=lambda: OBSERVED_AT,
+            manager_factory=FakeManager,
+            collector_factory=FakeCollector,
+        )
+    assert ENDPOINT not in str(raised.value)
 
 
 @pytest.mark.asyncio
@@ -297,7 +339,7 @@ def test_carrier_has_no_forbidden_semantic_or_lifecycle_dependencies():
         )
     )
     assert ".close(" not in source
-    assert "close_session" not in source
+    assert "manager.close_session(_SESSION_RUN_ID)" in source
     assert "close_all" not in source
     assert "retry" not in source.lower()
     assert "while " not in source

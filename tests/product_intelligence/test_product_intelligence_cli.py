@@ -203,6 +203,7 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
         "discover",
         "capture",
         "tiktok-pdp-live-pilot",
+        "tiktok-pdp-dom-diagnostic",
         "decide",
         "family-decide",
         "variant-decide",
@@ -244,6 +245,12 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
             "--rebind-session",
         },
         "tiktok-pdp-live-pilot": {
+            "-h",
+            "--help",
+            "--job-root",
+            "--cdp-endpoint",
+        },
+        "tiktok-pdp-dom-diagnostic": {
             "-h",
             "--help",
             "--job-root",
@@ -293,6 +300,9 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
         ["tiktok-pdp-live-pilot"],
         ["tiktok-pdp-live-pilot", "--job-root", "external"],
         ["tiktok-pdp-live-pilot", "--cdp-endpoint", "http://127.0.0.1:9222"],
+        ["tiktok-pdp-dom-diagnostic"],
+        ["tiktok-pdp-dom-diagnostic", "--job-root", "external"],
+        ["tiktok-pdp-dom-diagnostic", "--cdp-endpoint", "http://127.0.0.1:9222"],
         [
             "discover",
             "--query",
@@ -3995,6 +4005,66 @@ def test_tiktok_pdp_live_pilot_cli_rejects_forbidden_controls(
         cli._parser().parse_args(
             [
                 "tiktok-pdp-live-pilot",
+                "--job-root",
+                str(tmp_path),
+                "--cdp-endpoint",
+                "http://127.0.0.1:9222",
+                forbidden,
+                "value",
+            ]
+        )
+    assert raised.value.code == 2
+
+
+def test_tiktok_pdp_dom_diagnostic_cli_is_exactly_two_input_attach_only(
+    monkeypatch, capsys, tmp_path
+):
+    calls = []
+
+    class FakeOutcome:
+        def to_document(self):
+            return {"diagnostic": {"status": "SUCCESS", "evidence_authority": "NONE"}}
+
+    async def fake_diagnostic(**kwargs):
+        calls.append(kwargs)
+        return FakeOutcome()
+
+    monkeypatch.setattr(cli, "_run_tiktok_pdp_dom_diagnostic", fake_diagnostic)
+    endpoint = "http://operator-secret:9222"
+    assert cli.main(
+        [
+            "tiktok-pdp-dom-diagnostic",
+            "--job-root",
+            str(tmp_path / "diagnostic"),
+            "--cdp-endpoint",
+            endpoint,
+        ]
+    ) == 0
+    captured = capsys.readouterr()
+    assert json.loads(captured.out) == {
+        "diagnostic": {"status": "SUCCESS", "evidence_authority": "NONE"}
+    }
+    assert captured.err == ""
+    assert calls == [
+        {"job_root": str(tmp_path / "diagnostic"), "cdp_endpoint": endpoint}
+    ]
+    assert endpoint not in captured.out
+
+
+@pytest.mark.parametrize(
+    "forbidden",
+    (
+        "--url", "--source-id", "--query", "--navigate", "--retry", "--profile",
+        "--cookie", "--affiliate", "--scheduler",
+    ),
+)
+def test_tiktok_pdp_dom_diagnostic_cli_rejects_all_target_and_scraping_controls(
+    forbidden, tmp_path
+):
+    with pytest.raises(SystemExit) as raised:
+        cli._parser().parse_args(
+            [
+                "tiktok-pdp-dom-diagnostic",
                 "--job-root",
                 str(tmp_path),
                 "--cdp-endpoint",

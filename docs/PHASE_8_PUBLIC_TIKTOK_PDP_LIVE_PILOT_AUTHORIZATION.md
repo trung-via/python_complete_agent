@@ -19,7 +19,13 @@ The endpoint is invocation-only secret transport input and is never persisted.
 
 `src/product_intelligence/tiktok_pdp_live_pilot.py` is orchestration only. It borrows one session
 through `PlaywrightBrowserManager`, invokes the published `TikTokPdpCollector` exactly once with a
-timezone-aware invocation timestamp, and does not close the manager, session, or Human browser.
+timezone-aware invocation timestamp, and releases the acquired session in `finally` through
+`manager.close_session(run_id)`. It does not call `session.close()` directly, `close_all()`, or
+browser/context/page close operations. Under TASK-137, manager-mediated release stops only Python
+Agent-owned Playwright connection/listener resources and does not terminate borrowed Human-owned
+Chromium, context, or page. This TASK-234 clarification supersedes only the earlier
+consumer-level prohibition on `manager.close_session`; browser lifecycle authority remains with
+TASK-137 and does not transfer to Product Intelligence.
 The target cannot be overridden. There is no search, batch, credential, profile, Affiliate,
 scheduler, cadence, retry, resume, proxy, stealth, CAPTCHA-solving, parser, ranking, approval, or
 canonical-persistence control.

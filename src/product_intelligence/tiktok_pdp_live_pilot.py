@@ -44,6 +44,8 @@ class TikTokPdpLivePilotArtifactExistsError(TikTokPdpLivePilotError):
 class _SessionManager(Protocol):
     async def get_or_create_session(self, run_id: str): ...
 
+    async def close_session(self, run_id: str) -> None: ...
+
 
 class _Collector(Protocol):
     async def collect(
@@ -168,38 +170,51 @@ async def run_tiktok_pdp_live_pilot(
             "the operator-owned browser session could not be borrowed"
         ) from exc
 
-    collector = collector_factory(session)
-    result = await collector.collect(AUTHORIZED_PDP_URL, observed_at=observed_at)
-    if (
-        result.snapshot.platform != "tiktok"
-        or result.snapshot.source_product_id != AUTHORIZED_SOURCE_ID
-        or result.snapshot.observed_at != observed_at
-        or result.binding.requested_url != AUTHORIZED_PDP_URL
-        or result.binding.observed_url != result.snapshot.url
-        or not result.binding.identity_bases
-        or any(
-            basis.source_product_id != AUTHORIZED_SOURCE_ID
-            for basis in result.binding.identity_bases
-        )
-    ):
-        raise TikTokPdpLivePilotError(
-            "collector result did not preserve the authorized exact-listing binding"
-        )
-
-    document = _success_document(result, observed_at=observed_at)
+    operation_error: BaseException | None = None
     try:
-        root.mkdir(parents=True, exist_ok=True)
-        with artifact_path.open("x", encoding="utf-8", newline="\n") as stream:
-            json.dump(document, stream, ensure_ascii=False, indent=2)
-            stream.write("\n")
-    except FileExistsError as exc:
-        raise TikTokPdpLivePilotArtifactExistsError(
-            "the one-shot live-pilot artifact already exists"
-        ) from exc
-    except OSError as exc:
-        raise TikTokPdpLivePilotJobRootError(
-            "the live-pilot artifact could not be created"
-        ) from exc
+        collector = collector_factory(session)
+        result = await collector.collect(AUTHORIZED_PDP_URL, observed_at=observed_at)
+        if (
+            result.snapshot.platform != "tiktok"
+            or result.snapshot.source_product_id != AUTHORIZED_SOURCE_ID
+            or result.snapshot.observed_at != observed_at
+            or result.binding.requested_url != AUTHORIZED_PDP_URL
+            or result.binding.observed_url != result.snapshot.url
+            or not result.binding.identity_bases
+            or any(
+                basis.source_product_id != AUTHORIZED_SOURCE_ID
+                for basis in result.binding.identity_bases
+            )
+        ):
+            raise TikTokPdpLivePilotError(
+                "collector result did not preserve the authorized exact-listing binding"
+            )
+
+        document = _success_document(result, observed_at=observed_at)
+        try:
+            root.mkdir(parents=True, exist_ok=True)
+            with artifact_path.open("x", encoding="utf-8", newline="\n") as stream:
+                json.dump(document, stream, ensure_ascii=False, indent=2)
+                stream.write("\n")
+        except FileExistsError as exc:
+            raise TikTokPdpLivePilotArtifactExistsError(
+                "the one-shot live-pilot artifact already exists"
+            ) from exc
+        except OSError as exc:
+            raise TikTokPdpLivePilotJobRootError(
+                "the live-pilot artifact could not be created"
+            ) from exc
+    except BaseException as exc:
+        operation_error = exc
+        raise
+    finally:
+        try:
+            await manager.close_session(_SESSION_RUN_ID)
+        except Exception as exc:
+            if operation_error is None:
+                raise TikTokPdpLivePilotError(
+                    "the borrowed browser session could not be released"
+                ) from exc
 
     return TikTokPdpLivePilotOutcome(artifact_path=artifact_path, document=document)
 

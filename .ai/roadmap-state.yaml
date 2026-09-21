@@ -46,30 +46,36 @@ planning_handoff:
     semantic reconciliation without reinterpreting TASK-191 or changing TASK-213 history.
 
 active_track:
-  id: P8_PUBLIC_PDP_ONE_SHOT_LIVE_PILOT_AUTHORIZATION
-  title: P8 Public TikTok PDP One-Shot Live-Pilot Authorization
+  id: P8_PUBLIC_PDP_LIVE_PILOT_REVIEW_AND_DOM_DIAGNOSTIC
+  title: P8 Public TikTok PDP Live-Pilot Review and DOM Diagnostic Enablement
   priority_owner: HUMAN
   status: DONE
   completion_basis: PUBLICATION_GATED
-  sequence_status: COMPLETE_ON_EXACT_TASK_233_SOURCE_PUBLICATION
+  sequence_status: COMPLETE_ON_EXACT_TASK_234_SOURCE_PUBLICATION
   current_milestone:
-    id: P8.PUBLIC_PDP.ONE_SHOT_LIVE_PILOT_AUTHORIZATION
-    task_id: TASK-233
-    title: Public TikTok PDP One-Shot Live-Pilot Authorization
+    id: P8.PUBLIC_PDP.LIVE_PILOT_REVIEW_AND_DOM_DIAGNOSTIC
+    task_id: TASK-234
+    title: Public TikTok PDP Live-Pilot Review and DOM Diagnostic Enablement
     status: DONE
     completion_basis: PUBLICATION_GATED
-    classification: ONE_SHOT_LIVE_PUBLIC_PDP_PILOT_ENABLEMENT_AND_AUTHORIZATION
-    authorization_owner: HUMAN
-    live_public_pdp_acquisition_authority: ONE_SHOT_EXACT_LISTING_ONLY
+    classification: LIVE_PILOT_RECONCILIATION_AND_OFFLINE_DOM_DIAGNOSTIC_ENABLEMENT_ONLY
+    authorization_owner: HUMAN_BRAIN
+    live_public_pdp_acquisition_authority: NONE
     authorized_source_id: "1731381331718341815"
     authorized_capture_attempts: 1
+    authorized_capture_attempts_remaining: 0
     capture_execution_owner: HUMAN_OPERATOR
     automated_public_pdp_acquisition_authority: NONE
     automatic_live_pilot: false
     automatic_p8_4: false
     market_test_or_action_authority: NONE
-    real_pilot_executed: false
-    live_evidence_acquired: false
+    real_pilot_executed: true
+    live_evidence_acquired: true
+    live_evidence_definition: EXTERNAL_BOUNDED_SOURCE_ARTIFACT_ONLY
+    canonical_evidence_ingested: false
+    diagnostic_implementation_exists: true
+    live_dom_diagnostic_authority: NONE
+    selector_repair_complete: false
     automatic_progression: false
     effective_only_when:
       semantic_review: PASS
@@ -95,9 +101,9 @@ post_p7_planning_handoff:
     outcome, roadmap, or future-domain authority into P8.0.
 
 post_p8_planning_handoff:
-  destination: HUMAN_OPERATOR_ONE_SHOT_PUBLIC_PDP_CAPTURE_EXECUTION
-  status: EFFECTIVE_ON_EXACT_TASK_233_SOURCE_PUBLICATION
-  completed_commitment: P8_PUBLIC_PDP_ONE_SHOT_LIVE_PILOT_AUTHORIZATION
+  destination: HUMAN_BRAIN_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION
+  status: EFFECTIVE_ON_EXACT_TASK_234_SOURCE_PUBLICATION
+  completed_commitment: P8_PUBLIC_PDP_LIVE_PILOT_REVIEW_AND_DOM_DIAGNOSTIC
   actual_real_decision_case:
     context_id: p8-pilot-001-led-motion-tiktok-vn
     record_type: PILOT_CASE_SELECTION_ONLY
@@ -109,22 +115,42 @@ post_p8_planning_handoff:
     identity_scope: SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY
     selection_owner: HUMAN
     selection_status: SELECTED
-    real_pilot_executed: false
+    real_pilot_executed: true
   next_milestone: null
   automatic_next: false
   automatic_p8_4: false
   implementation_authorized: true
   implementation_exists: true
-  live_public_pdp_acquisition_authority: ONE_SHOT_EXACT_LISTING_ONLY
+  live_public_pdp_acquisition_authority: NONE
   authorized_source_id: "1731381331718341815"
   authorized_capture_attempts: 1
+  authorized_capture_attempts_remaining: 0
   capture_execution_owner: HUMAN_OPERATOR
   automatic_live_pilot: false
   market_test_or_action_authority: NONE
-  first_live_capture_handoff: HUMAN_OPERATOR_ONE_SHOT_PUBLIC_PDP_CAPTURE_EXECUTION
+  first_live_capture_handoff: COMPLETE
   automated_public_pdp_acquisition_authority: NONE
-  real_pilot_executed: false
-  live_evidence_acquired: false
+  real_pilot_executed: true
+  live_evidence_acquired: true
+  live_evidence_definition: EXTERNAL_BOUNDED_SOURCE_ARTIFACT_ONLY
+  canonical_evidence_ingested: false
+  diagnostic_implementation_exists: true
+  diagnostic_executed: false
+  live_dom_diagnostic_authority: NONE
+  selector_repair_complete: false
+  observed_field_coverage:
+    identity_binding: OBSERVED
+    title: OBSERVED
+    shop_name: UNKNOWN
+    price: UNKNOWN
+    original_price: UNKNOWN
+    discount_percent: UNKNOWN
+    sold_count: UNKNOWN
+    rating: UNKNOWN
+    review_count: UNKNOWN
+  screenshot_or_chat_values_as_canonical_evidence: false
+  diagnostic_capability_scope: CAPABILITY_IS_NOT_AUTHORITY
+  browser_lifecycle_authority: TASK-137
   compatibility_closure:
     document: docs/PHASE_8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY.md
     classification: P8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY_ONLY
@@ -204,8 +230,10 @@ post_p8_planning_handoff:
     context_id: p8-pilot-001-led-motion-tiktok-vn
     authorized_source_id: "1731381331718341815"
     stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
-    live_public_pdp_acquisition_authority: ONE_SHOT_EXACT_LISTING_ONLY
+    source_sha: 99338787dcfff5e1897b9d58c12b04f7961f6e58
+    live_public_pdp_acquisition_authority: NONE
     authorized_capture_attempts: 1
+    authorized_capture_attempts_remaining: 0
     capture_execution_owner: HUMAN_OPERATOR
     browser_session_owner: HUMAN_OPERATOR
     artifact_boundary: EXPLICIT_EXTERNAL_JOB_ROOT_ONLY
@@ -219,8 +247,36 @@ post_p8_planning_handoff:
     automated_public_pdp_acquisition_authority: NONE
     automatic_live_pilot: false
     market_test_or_action_authority: NONE
-    real_pilot_executed: false
-    live_evidence_acquired: false
+    real_pilot_executed: true
+    live_evidence_acquired: true
+    live_evidence_definition: EXTERNAL_BOUNDED_SOURCE_ARTIFACT_ONLY
+    canonical_evidence_ingested: false
+    observed_field_coverage:
+      identity_binding: OBSERVED
+      title: OBSERVED
+      shop_name: UNKNOWN
+      price: UNKNOWN
+      original_price: UNKNOWN
+      discount_percent: UNKNOWN
+      sold_count: UNKNOWN
+      rating: UNKNOWN
+      review_count: UNKNOWN
+  public_pdp_dom_diagnostic:
+    document: docs/PHASE_8_PUBLIC_TIKTOK_PDP_LIVE_PILOT_REVIEW_AND_DOM_DIAGNOSTIC.md
+    classification: LIVE_PILOT_RECONCILIATION_AND_OFFLINE_DOM_DIAGNOSTIC_ENABLEMENT_ONLY
+    task_id: TASK-234
+    implementation: src/product_intelligence/tiktok_pdp_dom_diagnostic.py
+    target_scope: FIXED_EXACT_LISTING_ONLY
+    attach_only: true
+    navigation_or_interaction_authority: NONE
+    evidence_authority: NONE
+    live_dom_diagnostic_authority: NONE
+    diagnostic_executed: false
+    selector_repair_complete: false
+    browser_lifecycle_authority: TASK-137
+    product_intelligence_authority: NONE
+    automated_public_pdp_acquisition_authority: NONE
+    market_test_or_action_authority: NONE
   manual_contribution_authorization:
     document: docs/PHASE_8_P8_3_MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION.md
     classification: MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION_ONLY
@@ -569,13 +625,39 @@ completed_milestones:
     authorized_source_id: "1731381331718341815"
     live_public_pdp_acquisition_authority: ONE_SHOT_EXACT_LISTING_ONLY
     authorized_capture_attempts: 1
+    authorized_capture_attempts_remaining: 0
     capture_execution_owner: HUMAN_OPERATOR
     automated_public_pdp_acquisition_authority: NONE
     automatic_live_pilot: false
     market_test_or_action_authority: NONE
-    live_evidence_acquired: false
-    real_pilot_executed: false
-    post_publication_handoff: HUMAN_OPERATOR_ONE_SHOT_PUBLIC_PDP_CAPTURE_EXECUTION
+    live_evidence_acquired: true
+    live_evidence_definition: EXTERNAL_BOUNDED_SOURCE_ARTIFACT_ONLY
+    canonical_evidence_ingested: false
+    real_pilot_executed: true
+    source_sha: 99338787dcfff5e1897b9d58c12b04f7961f6e58
+    post_publication_handoff: COMPLETE
+    effective_only_when:
+      semantic_review: PASS
+      published_source: EXACT_REVIEWED_CANDIDATE
+      canonical_main_equals_reviewed_candidate: true
+  - task_id: TASK-234
+    task_revision: 1
+    track_id: P8_PUBLIC_PDP_LIVE_PILOT_REVIEW_AND_DOM_DIAGNOSTIC
+    milestone_id: P8.PUBLIC_PDP.LIVE_PILOT_REVIEW_AND_DOM_DIAGNOSTIC
+    title: Public TikTok PDP Live-Pilot Review and DOM Diagnostic Enablement
+    status: DONE
+    completion_basis: PUBLICATION_GATED
+    classification: LIVE_PILOT_RECONCILIATION_AND_OFFLINE_DOM_DIAGNOSTIC_ENABLEMENT_ONLY
+    real_pilot_executed: true
+    live_evidence_acquired: true
+    live_evidence_definition: EXTERNAL_BOUNDED_SOURCE_ARTIFACT_ONLY
+    canonical_evidence_ingested: false
+    diagnostic_implementation_exists: true
+    diagnostic_executed: false
+    live_dom_diagnostic_authority: NONE
+    automated_public_pdp_acquisition_authority: NONE
+    market_test_or_action_authority: NONE
+    post_publication_handoff: HUMAN_BRAIN_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION
     effective_only_when:
       semantic_review: PASS
       published_source: EXACT_REVIEWED_CANDIDATE
