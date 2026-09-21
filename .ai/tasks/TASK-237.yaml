@@ -1,0 +1,175 @@
+task_id: TASK-237
+revision: 1
+
+goal: >
+  Canonicalize one fresh Human/Brain one-shot authorization for the hardened attach-only TikTok
+  PDP DOM diagnostic published by TASK-236, against the same exact selected listing, without
+  changing production code or performing the live diagnostic during engineering. Preserve the
+  consumed TASK-235 diagnostic attempt and all TASK-236 hardening/history exactly, and hand
+  execution to the Human operator only after exact reviewed TASK-237 publication.
+
+problem: >
+  TASK-236 is published exactly at a53510ff353cdf926a76f1dc84363b7835c5cb4d. It reconciles the
+  prior TASK-235 live diagnostic attempt as executed, FAIL_CLOSED, artifact not created,
+  remaining attempt zero, and live_dom_diagnostic_authority NONE. It also hardens bounded root
+  discovery and safe failure observability while leaving selector repair and acquisition
+  authority absent. The current canonical handoff is
+  HUMAN_BRAIN_FRESH_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION. The Human has explicitly
+  chosen to continue. The unique next commitment is therefore to authorize one new bounded live
+  diagnostic invocation of the already-published hardened carrier; it is not an extractor repair,
+  second PDP capture, or automated retry.
+
+assumptions:
+  - >
+    Canonical main at authoring is a53510ff353cdf926a76f1dc84363b7835c5cb4d.
+  - >
+    TASK-236 / RUN-236-001 / REVIEW-236-001 are PASS and exact-source published.
+  - >
+    TASK-235 remains consumed historical execution with diagnostic_executed true,
+    diagnostic_outcome FAIL_CLOSED, diagnostic_artifact_created false, and attempt remaining 0.
+  - >
+    TASK-236 leaves live_dom_diagnostic_authority NONE and exact handoff
+    HUMAN_BRAIN_FRESH_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION.
+  - >
+    The hardened carrier remains src/product_intelligence/tiktok_pdp_dom_diagnostic.py.
+  - >
+    The fixed target remains context p8-pilot-001-led-motion-tiktok-vn, source ID
+    1731381331718341815, listing
+    https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815.
+  - >
+    TASK-137 remains the sole browser/CDP lifecycle authority.
+  - >
+    TASK-231 remains the sole public-PDP acquisition contract.
+  - >
+    The diagnostic has evidence_authority NONE and cannot itself create canonical Product
+    Intelligence evidence, Product Truth, ProductCandidateSnapshot, SignalEvidence, ranking,
+    recommendation, approval, trend, test readiness or commerce action.
+  - >
+    CAPABILITY_IS_NOT_AUTHORITY, EVIDENCE_IS_NOT_PRODUCT_TRUTH,
+    SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY, SNAPSHOT_IS_NOT_TREND and
+    ONE_CAPABILITY_ONE_AUTHORITY remain mandatory.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_AUTHORIZATION.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_REVIEW_AND_HARDENING.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - .ai/tasks/TASK-235.yaml
+    - .ai/tasks/TASK-236.yaml
+    - src/product_intelligence/tiktok_pdp_dom_diagnostic.py
+    - tests/product_intelligence/test_tiktok_pdp_dom_diagnostic.py
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_FRESH_AUTHORIZATION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - >
+    Execute TikTok/CDP, run the live diagnostic, navigate, refresh, click, type, scroll, search,
+    change variants, or perform a second public-PDP capture during TASK-237.
+  - >
+    Modify production Python, the hardened diagnostic script, TikTokPdpCollector selectors,
+    canonical TikTok parser, ProductCandidateSnapshot, SignalEvidence, browser lifecycle,
+    Product Source, Affiliate, scoring, ranking, approval, persistence, test or action semantics.
+  - >
+    Erase, reset or reinterpret the consumed TASK-235 diagnostic attempt or TASK-236 reconciliation.
+  - >
+    Promote screenshot/chat values or future structural diagnostic hints into canonical evidence or Product Truth.
+  - >
+    Author extractor repair or a successor automatically.
+
+constraints:
+  hard:
+    - >
+      Classification is exactly FRESH_ONE_SHOT_ATTACH_ONLY_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION_ONLY.
+      TASK-237 is a Human/Brain authorization record only; Executor must not invoke TikTok/CDP.
+    - >
+      Preserve historical generation 1 exactly: TASK-235 attempt executed true, outcome FAIL_CLOSED,
+      artifact false, prior authorized attempts 1, prior attempts remaining 0, and TASK-236
+      historical_failure_reason LEGACY_COMBINED_PUBLIC_PDP_AVAILABILITY_GATE.
+    - >
+      Authorize exactly one fresh generation-2 diagnostic attempt for source ID
+      1731381331718341815 using the exact TASK-236 hardened carrier. No arbitrary URL/source/query,
+      second product, batch, recurring scope, automatic retry, refresh, resume or alternate page
+      authority is granted.
+    - >
+      Execution owner is HUMAN_OPERATOR. Chrome/CDP and the exact selected PDP page must already be
+      open under Human control before invocation. The carrier retains zero navigation/interaction
+      authority and must fail closed with its published safe reasons if blocked/challenge, login,
+      listing unavailable, no bounded PDP root, identity mismatch or malformed diagnostic payload occurs.
+    - >
+      The fresh attempt requires a new explicit external job root distinct from prior operation
+      roots and an operator-owned --cdp-endpoint. A failed fresh attempt consumes the new one-shot
+      authorization. Any later invocation after success or failure requires another fresh Human/Brain authorization.
+    - >
+      On exact reviewed TASK-237 publication, record current live_dom_diagnostic_authority
+      ONE_SHOT_ATTACH_ONLY_EXACT_LISTING; diagnostic_authorization_generation 2;
+      fresh_authorized_diagnostic_attempts 1; fresh_authorized_diagnostic_attempts_remaining 1;
+      fresh_diagnostic_execution_owner HUMAN_OPERATOR; fresh_diagnostic_executed false;
+      diagnostic_hardening_implemented true; selector_repair_complete false;
+      live_public_pdp_acquisition_authority NONE; automated_public_pdp_acquisition_authority NONE;
+      market_test_or_action_authority NONE; automatic_progression false; next_milestone null;
+      pending_commitments empty; exact handoff
+      HUMAN_OPERATOR_FRESH_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION.
+    - >
+      Keep historical TASK-235/TASK-236 fields separately visible so current fresh authorization
+      does not rewrite the fact that generation 1 was already executed and consumed.
+    - >
+      Add docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_FRESH_AUTHORIZATION.md documenting the
+      Human approval, generation-2 exact target, hardened TASK-236 source SHA, one-attempt limit,
+      attach-only/no-navigation boundary, safe failure reasons, new external-root requirement,
+      evidence_authority NONE, historical generation-1 preservation, and mandatory Human/Brain
+      review after the live attempt.
+    - >
+      Extend governance regression additively to prove exact TASK-236 source lineage, preserved
+      generation-1 consumed history, one fresh generation-2 attempt remaining, Human execution,
+      diagnostic hardening present, no acquisition/action authority, fresh diagnostic not yet
+      executed, null NEXT, empty pending commitments and exact execution handoff.
+    - >
+      Modify exactly the five authorized paths. Produce one candidate and one ResultPackage.
+      Runtime owns deterministic verification; Executor must not perform the live diagnostic,
+      publish, repair collector selectors or start a successor.
+
+acceptance:
+  - id: AC1
+    condition: >
+      A canonical fresh authorization grants exactly one generation-2 attach-only live DOM
+      diagnostic attempt for the fixed selected listing and no other target, batch, retry or recurring scope.
+  - id: AC2
+    condition: >
+      Generation-1 TASK-235/TASK-236 consumed FAIL_CLOSED history remains intact and separately
+      represented from the new generation-2 authorization.
+  - id: AC3
+    condition: >
+      Human operator owns execution/browser context; hardened exact-page identity, safe failure
+      reasons and zero navigation/interaction boundaries remain unchanged.
+  - id: AC4
+    condition: >
+      Diagnostic output remains external structural hints with evidence_authority NONE and cannot
+      mutate Product Intelligence evidence/truth, ranking, approval, trend, test or action semantics.
+  - id: AC5
+    condition: >
+      Publication-gated state records one fresh attempt remaining, fresh execution false,
+      hardening true, selector repair false, acquisition/action authorities NONE, null NEXT,
+      empty commitments and exact handoff
+      HUMAN_OPERATOR_FRESH_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION.
+  - id: AC6
+    condition: >
+      Exactly five authorized paths change; focused offline governance/diagnostic regressions and
+      git diff --check pass with zero unresolved items, producing one candidate eligible for
+      independent PRIMARY semantic review without any live marketplace operation.
+
+verification:
+  required:
+    - python -m pytest tests/product_intelligence/test_tiktok_pdp_dom_diagnostic.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task237-primary
+    - git diff --check
