@@ -1,0 +1,45 @@
+review_id: REVIEW-231-001
+reviewed_sha: 0145c6bfafee1582d47e9c665be47e7eb2a167cc
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: PASS
+  AC3: PASS
+  AC4: PASS
+  AC5: FAIL
+  AC6: PASS
+  AC7: PASS
+  AC8: PASS
+  AC9: PASS
+findings:
+  - id: FINDING-231-001
+    basis: AC5
+    action: CODE_FIX
+    location: docs/PHASE_8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT.md; tests/aios_bridge/test_aios_governance_state.py
+    issue: >
+      Section 6 changes the approved exact-listing identity gate from a target-versus-observed
+      binding rule into a pilot-specific allowlist by requiring every future V1 requested ID
+      to equal the currently selected source ID 1731381331718341815. That conflates the
+      technical public-PDP capability with the current pilot authorization and makes the
+      separately authorized collector implementation semantically hard-coded to one listing.
+      TASK-231 preserves the selected P8.1 case as planning context, but its AC5/hard boundary
+      requires the later implementation to parse the requested target and verify the observed
+      or post-navigation listing identity fail-closed; it does not authorize source ID
+      1731381331718341815 to become a universal parser/admission constant. Capability is not
+      authority: a bounded collector may be capable of validating another requested TikTok PDP
+      while live use still remains NONE until a fresh Human/Brain live-pilot authorization.
+    expected: >
+      Preserve the selected source ID and stable URL only as the current P8 pilot/planning
+      case. Define the reusable V1 exact-listing gate as requested target source ID versus
+      observed/post-navigation current-product source ID: parse the requested URL with the one
+      canonical TikTok parser, require a valid requested target, and when the page exposes an
+      observed/current-product ID require it to match that requested target; explicit conflict,
+      different ID, malformed/unverifiable identity, search/login/challenge redirect, or
+      unrelated page fails closed. Do not require the implementation capability itself to
+      hard-code source ID 1731381331718341815. Live acquisition authority must remain NONE,
+      and the first real capture must still require
+      HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION. Tighten the governance regression to
+      preserve this capability-versus-authorization distinction. Do not broaden fields, add
+      live acquisition, change Product Intelligence/Product Source ownership, alter Affiliate
+      separation, or change the unique NEXT commitment.
