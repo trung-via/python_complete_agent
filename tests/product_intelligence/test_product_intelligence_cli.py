@@ -201,6 +201,7 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
         "ask",
         "discover",
         "capture",
+        "tiktok-pdp-live-pilot",
         "decide",
         "family-decide",
         "variant-decide",
@@ -240,6 +241,12 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
             "--query",
             "--resume",
             "--rebind-session",
+        },
+        "tiktok-pdp-live-pilot": {
+            "-h",
+            "--help",
+            "--job-root",
+            "--cdp-endpoint",
         },
         "decide": {
             "-h",
@@ -282,6 +289,9 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
         ["discover", "--query", "q", "--platform", "shopee"],
         ["discover", "--query", "q", "--cdp-endpoint", "http://127.0.0.1:9222"],
         ["discover", "--platform", "shopee", "--cdp-endpoint", "http://127.0.0.1:9222"],
+        ["tiktok-pdp-live-pilot"],
+        ["tiktok-pdp-live-pilot", "--job-root", "external"],
+        ["tiktok-pdp-live-pilot", "--cdp-endpoint", "http://127.0.0.1:9222"],
         [
             "discover",
             "--query",
@@ -3937,3 +3947,58 @@ def test_capture_cli_discovery_cohort_error_is_bounded_and_redacts_secrets(
     }
     assert str(job_root) not in rendered.err
     assert endpoint not in rendered.err
+
+
+def test_tiktok_pdp_live_pilot_cli_is_exactly_two_input_one_shot(
+    monkeypatch, capsys, tmp_path
+):
+    calls = []
+
+    class FakeOutcome:
+        def to_document(self):
+            return {"operation": {"status": "SUCCESS"}}
+
+    async def fake_pilot(**kwargs):
+        calls.append(kwargs)
+        return FakeOutcome()
+
+    monkeypatch.setattr(cli, "_run_tiktok_pdp_live_pilot", fake_pilot)
+    endpoint = "http://operator-secret:9222"
+    assert cli.main(
+        [
+            "tiktok-pdp-live-pilot",
+            "--job-root",
+            str(tmp_path / "pilot"),
+            "--cdp-endpoint",
+            endpoint,
+        ]
+    ) == 0
+    captured = capsys.readouterr()
+    assert json.loads(captured.out) == {"operation": {"status": "SUCCESS"}}
+    assert captured.err == ""
+    assert calls == [
+        {"job_root": str(tmp_path / "pilot"), "cdp_endpoint": endpoint}
+    ]
+    assert endpoint not in captured.out
+
+
+@pytest.mark.parametrize(
+    "forbidden",
+    ("--query", "--source-id", "--product-url", "--retry", "--profile", "--cookie"),
+)
+def test_tiktok_pdp_live_pilot_cli_rejects_forbidden_controls(
+    forbidden, tmp_path
+):
+    with pytest.raises(SystemExit) as raised:
+        cli._parser().parse_args(
+            [
+                "tiktok-pdp-live-pilot",
+                "--job-root",
+                str(tmp_path),
+                "--cdp-endpoint",
+                "http://127.0.0.1:9222",
+                forbidden,
+                "value",
+            ]
+        )
+    assert raised.value.code == 2

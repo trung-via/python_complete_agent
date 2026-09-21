@@ -71,6 +71,10 @@ from src.product_intelligence.live_capture import (
     LiveCaptureError as _LiveCaptureError,
     run_live_capture as _run_live_capture,
 )
+from src.product_intelligence.tiktok_pdp_live_pilot import (
+    TikTokPdpLivePilotError as _TikTokPdpLivePilotError,
+    run_tiktok_pdp_live_pilot as _run_tiktok_pdp_live_pilot,
+)
 from src.product_intelligence.orchestration import (
     OrchestrationError as _OrchestrationError,
     OrchestrationResult as _OrchestrationResult,
@@ -113,6 +117,7 @@ _KNOWN_APPLICATION_ERRORS = (
     _SellableVariantWorkflowError,
     _CanonicalVariantAdmissionError,
     _LiveCaptureError,
+    _TikTokPdpLivePilotError,
     _AgentException,
     OSError,
     ValueError,
@@ -274,6 +279,22 @@ def _parser() -> _argparse.ArgumentParser:
         "--rebind-session",
         action=_UniqueStoreTrueAction,
         help="Explicitly bind a replacement session for a SESSION_LOST checkpoint.",
+    )
+    tiktok_pdp_live_pilot = commands.add_parser(
+        "tiktok-pdp-live-pilot",
+        help="Attempt the authorized exact TikTok PDP once for Human review.",
+    )
+    tiktok_pdp_live_pilot.add_argument(
+        "--job-root",
+        action=_UniqueStoreAction,
+        required=True,
+        help="Explicit external live-pilot job root.",
+    )
+    tiktok_pdp_live_pilot.add_argument(
+        "--cdp-endpoint",
+        action=_UniqueStoreAction,
+        required=True,
+        help="Exact operator-owned Chromium CDP endpoint.",
     )
     decide = commands.add_parser(
         "decide",
@@ -498,6 +519,16 @@ async def _capture_document(arguments: _argparse.Namespace) -> dict[str, object]
         profile=arguments.profile,
         resume=arguments.resume,
         rebind_session=arguments.rebind_session,
+    )
+    return outcome.to_document()
+
+
+async def _tiktok_pdp_live_pilot_document(
+    arguments: _argparse.Namespace,
+) -> dict[str, object]:
+    outcome = await _run_tiktok_pdp_live_pilot(
+        job_root=arguments.job_root,
+        cdp_endpoint=arguments.cdp_endpoint,
     )
     return outcome.to_document()
 
@@ -949,6 +980,8 @@ def main(argv=None) -> int:
             document = _asyncio.run(_discover_document(arguments))
         elif arguments.command == "capture":
             document = _asyncio.run(_capture_document(arguments))
+        elif arguments.command == "tiktok-pdp-live-pilot":
+            document = _asyncio.run(_tiktok_pdp_live_pilot_document(arguments))
         elif arguments.command == "decide":
             document = _asyncio.run(_decide_document(arguments))
         elif arguments.command == "family-decide":

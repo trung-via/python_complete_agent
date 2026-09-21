@@ -538,13 +538,35 @@ the first real TikTok PDP capture.
   plus transport-only requested/observed binding provenance. It adds no browser lifecycle, Product
   Source, Affiliate, evidence, trend, persistence, ranking, approval, or action authority.
 
-On exact reviewed TASK-232 source publication, `P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION` is DONE only
+On exact reviewed TASK-232 source publication at
+`cf68d388c740cca66194bc04dafbb12e86cf8049`, `P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION` is DONE only
 as the bounded offline-first implementation, `implementation_exists` is true, `next_milestone` is
 null, and pending commitments are empty. Live and automated public-PDP acquisition authority remain
 `NONE`; `automatic_live_pilot`, `automatic_p8_4`, `real_pilot_executed`, and
 `live_evidence_acquired` remain false; market-test/action authority remains `NONE`. There is no
 successor task or automatic capture. The exact handoff is
 `HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION`.
+
+- **P8 Public TikTok PDP One-Shot Live-Pilot Authorization (TASK-233 — publication-gated DONE only
+  as `ONE_SHOT_LIVE_PUBLIC_PDP_PILOT_ENABLEMENT_AND_AUTHORIZATION`)**: records the Human-approved
+  exact listing and adds only its Human-operated invocation carrier. The fixed target is context
+  `p8-pilot-001-led-motion-tiktok-vn`, source ID `1731381331718341815`, and the exact stable URL
+  `https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815`.
+  The carrier borrows the operator-owned CDP browser/session, invokes `TikTokPdpCollector` at most
+  once, never closes the Human browser, and writes only one exclusive safe artifact under an
+  explicit external root. Challenges and all binding/extraction failures stop without retry.
+
+On exact reviewed TASK-233 source publication, `live_public_pdp_acquisition_authority` is
+`ONE_SHOT_EXACT_LISTING_ONLY`, `authorized_capture_attempts` is `1`, and
+`capture_execution_owner` is `HUMAN_OPERATOR`. `automatic_live_pilot` remains false,
+`automated_public_pdp_acquisition_authority` and `market_test_or_action_authority` remain `NONE`,
+and `real_pilot_executed` and `live_evidence_acquired` remain false. `next_milestone` is null,
+pending commitments are empty, and the exact handoff is
+`HUMAN_OPERATOR_ONE_SHOT_PUBLIC_PDP_CAPTURE_EXECUTION`. A later successful artifact is source
+evidence for mandatory Human review only: `SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY`,
+`EVIDENCE_IS_NOT_PRODUCT_TRUTH`, and `SNAPSHOT_IS_NOT_TREND` remain binding, and public-PDP capture
+grants no TikTok Affiliate, ranking, approval, persistence, market-test, or commerce-action
+authority.
 
 See `docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md` for the exact P8.0 source
 `a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e`,
@@ -556,6 +578,8 @@ See `docs/PHASE_8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY.md` for the bounded T
 See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT.md` for the canonical TASK-231 contract.
 See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_COLLECTOR_IMPLEMENTATION.md` for the TASK-232 implementation
 boundary.
+See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_LIVE_PILOT_AUTHORIZATION.md` for the TASK-233 one-shot
+authorization and Human-review boundary.
 
 
 See `docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md` for the audit and boundary.

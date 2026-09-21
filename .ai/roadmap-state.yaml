@@ -46,23 +46,25 @@ planning_handoff:
     semantic reconciliation without reinterpreting TASK-191 or changing TASK-213 history.
 
 active_track:
-  id: P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION
-  title: P8 Public TikTok PDP Collector Implementation
+  id: P8_PUBLIC_PDP_ONE_SHOT_LIVE_PILOT_AUTHORIZATION
+  title: P8 Public TikTok PDP One-Shot Live-Pilot Authorization
   priority_owner: HUMAN
   status: DONE
   completion_basis: PUBLICATION_GATED
-  sequence_status: COMPLETE_ON_EXACT_TASK_232_SOURCE_PUBLICATION
+  sequence_status: COMPLETE_ON_EXACT_TASK_233_SOURCE_PUBLICATION
   current_milestone:
-    id: P8.PUBLIC_PDP.COLLECTOR_IMPLEMENTATION
-    task_id: TASK-232
-    title: Public TikTok PDP Collector Implementation
+    id: P8.PUBLIC_PDP.ONE_SHOT_LIVE_PILOT_AUTHORIZATION
+    task_id: TASK-233
+    title: Public TikTok PDP One-Shot Live-Pilot Authorization
     status: DONE
     completion_basis: PUBLICATION_GATED
-    classification: BOUNDED_OFFLINE_FIRST_IMPLEMENTATION_ONLY
-    authorization_owner: HUMAN_BRAIN
-    implementation_authorized: true
-    implementation_exists: true
-    live_public_pdp_acquisition_authority: NONE
+    classification: ONE_SHOT_LIVE_PUBLIC_PDP_PILOT_ENABLEMENT_AND_AUTHORIZATION
+    authorization_owner: HUMAN
+    live_public_pdp_acquisition_authority: ONE_SHOT_EXACT_LISTING_ONLY
+    authorized_source_id: "1731381331718341815"
+    authorized_capture_attempts: 1
+    capture_execution_owner: HUMAN_OPERATOR
+    automated_public_pdp_acquisition_authority: NONE
     automatic_live_pilot: false
     automatic_p8_4: false
     market_test_or_action_authority: NONE
@@ -93,9 +95,9 @@ post_p7_planning_handoff:
     outcome, roadmap, or future-domain authority into P8.0.
 
 post_p8_planning_handoff:
-  destination: HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION
-  status: EFFECTIVE_ON_EXACT_TASK_232_SOURCE_PUBLICATION
-  completed_commitment: P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION
+  destination: HUMAN_OPERATOR_ONE_SHOT_PUBLIC_PDP_CAPTURE_EXECUTION
+  status: EFFECTIVE_ON_EXACT_TASK_233_SOURCE_PUBLICATION
+  completed_commitment: P8_PUBLIC_PDP_ONE_SHOT_LIVE_PILOT_AUTHORIZATION
   actual_real_decision_case:
     context_id: p8-pilot-001-led-motion-tiktok-vn
     record_type: PILOT_CASE_SELECTION_ONLY
@@ -113,10 +115,13 @@ post_p8_planning_handoff:
   automatic_p8_4: false
   implementation_authorized: true
   implementation_exists: true
-  live_public_pdp_acquisition_authority: NONE
+  live_public_pdp_acquisition_authority: ONE_SHOT_EXACT_LISTING_ONLY
+  authorized_source_id: "1731381331718341815"
+  authorized_capture_attempts: 1
+  capture_execution_owner: HUMAN_OPERATOR
   automatic_live_pilot: false
   market_test_or_action_authority: NONE
-  first_live_capture_handoff: HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION
+  first_live_capture_handoff: HUMAN_OPERATOR_ONE_SHOT_PUBLIC_PDP_CAPTURE_EXECUTION
   automated_public_pdp_acquisition_authority: NONE
   real_pilot_executed: false
   live_evidence_acquired: false
@@ -192,6 +197,30 @@ post_p8_planning_handoff:
     automatic_live_pilot: false
     automatic_p8_4: false
     market_test_or_action_authority: NONE
+  public_pdp_live_pilot_authorization:
+    document: docs/PHASE_8_PUBLIC_TIKTOK_PDP_LIVE_PILOT_AUTHORIZATION.md
+    classification: ONE_SHOT_LIVE_PUBLIC_PDP_PILOT_ENABLEMENT_AND_AUTHORIZATION
+    task_id: TASK-233
+    context_id: p8-pilot-001-led-motion-tiktok-vn
+    authorized_source_id: "1731381331718341815"
+    stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
+    live_public_pdp_acquisition_authority: ONE_SHOT_EXACT_LISTING_ONLY
+    authorized_capture_attempts: 1
+    capture_execution_owner: HUMAN_OPERATOR
+    browser_session_owner: HUMAN_OPERATOR
+    artifact_boundary: EXPLICIT_EXTERNAL_JOB_ROOT_ONLY
+    automatic_retry_or_resume: false
+    public_pdp_affiliate_dependency: NONE
+    source_evidence_only: true
+    mandatory_post_capture_review: HUMAN
+    source_identity_scope: SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY
+    evidence_scope: EVIDENCE_IS_NOT_PRODUCT_TRUTH
+    snapshot_scope: SNAPSHOT_IS_NOT_TREND
+    automated_public_pdp_acquisition_authority: NONE
+    automatic_live_pilot: false
+    market_test_or_action_authority: NONE
+    real_pilot_executed: false
+    live_evidence_acquired: false
   manual_contribution_authorization:
     document: docs/PHASE_8_P8_3_MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION.md
     classification: MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION_ONLY
@@ -512,6 +541,7 @@ completed_milestones:
     completion_basis: PUBLICATION_GATED
     classification: BOUNDED_OFFLINE_FIRST_IMPLEMENTATION_ONLY
     authorization_owner: HUMAN_BRAIN
+    source_sha: cf68d388c740cca66194bc04dafbb12e86cf8049
     implementation_exists: true
     offline_only: true
     live_public_pdp_acquisition_authority: NONE
@@ -522,6 +552,30 @@ completed_milestones:
     live_evidence_acquired: false
     real_pilot_executed: false
     post_publication_handoff: HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION
+    effective_only_when:
+      semantic_review: PASS
+      published_source: EXACT_REVIEWED_CANDIDATE
+      canonical_main_equals_reviewed_candidate: true
+  - task_id: TASK-233
+    task_revision: 1
+    track_id: P8_PUBLIC_PDP_ONE_SHOT_LIVE_PILOT_AUTHORIZATION
+    milestone_id: P8.PUBLIC_PDP.ONE_SHOT_LIVE_PILOT_AUTHORIZATION
+    title: Public TikTok PDP One-Shot Live-Pilot Authorization
+    status: DONE
+    completion_basis: PUBLICATION_GATED
+    classification: ONE_SHOT_LIVE_PUBLIC_PDP_PILOT_ENABLEMENT_AND_AUTHORIZATION
+    authorization_owner: HUMAN
+    context_id: p8-pilot-001-led-motion-tiktok-vn
+    authorized_source_id: "1731381331718341815"
+    live_public_pdp_acquisition_authority: ONE_SHOT_EXACT_LISTING_ONLY
+    authorized_capture_attempts: 1
+    capture_execution_owner: HUMAN_OPERATOR
+    automated_public_pdp_acquisition_authority: NONE
+    automatic_live_pilot: false
+    market_test_or_action_authority: NONE
+    live_evidence_acquired: false
+    real_pilot_executed: false
+    post_publication_handoff: HUMAN_OPERATOR_ONE_SHOT_PUBLIC_PDP_CAPTURE_EXECUTION
     effective_only_when:
       semantic_review: PASS
       published_source: EXACT_REVIEWED_CANDIDATE
