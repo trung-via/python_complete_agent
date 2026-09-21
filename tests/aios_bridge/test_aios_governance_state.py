@@ -89,6 +89,11 @@ P8_PUBLIC_PDP_DOM_DIAGNOSTIC_FRESH_AUTHORIZATION_FILE = (
     / "docs"
     / "PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_FRESH_AUTHORIZATION.md"
 )
+P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN2_REVIEW_AND_ROOT_OBSERVABILITY_FILE = (
+    REPO_ROOT
+    / "docs"
+    / "PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN2_REVIEW_AND_ROOT_OBSERVABILITY.md"
+)
 ROADMAP_DOCS = (
     REPO_ROOT / "docs" / "POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
     REPO_ROOT / "docs" / "POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
@@ -206,17 +211,17 @@ def values_for_key(value: object, key: str) -> list[object]:
     return matches
 
 
-def test_roadmap_closes_task_237_with_fresh_generation_2_authorization_and_operator_execution_handoff():
+def test_roadmap_closes_task_238_with_gen2_reconciliation_and_root_observability():
     state = load_yaml(ROADMAP_FILE)
     active = state["active_track"]
-    assert active["id"] == "P8_PUBLIC_PDP_DOM_DIAGNOSTIC_FRESH_AUTHORIZATION"
+    assert active["id"] == "P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN2_RECONCILIATION_AND_ROOT_OBSERVABILITY"
     assert active["status"] == "DONE"
     assert active["sequence_status"] == (
-        "COMPLETE_ON_EXACT_TASK_237_SOURCE_PUBLICATION"
+        "COMPLETE_ON_EXACT_TASK_238_SOURCE_PUBLICATION"
     )
-    assert active["current_milestone"]["task_id"] == "TASK-237"
+    assert active["current_milestone"]["task_id"] == "TASK-238"
     assert active["current_milestone"]["classification"] == (
-        "FRESH_ONE_SHOT_ATTACH_ONLY_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION_ONLY"
+        "GENERATION_2_FAIL_CLOSED_RECONCILIATION_AND_BOUNDED_ROOT_OBSERVABILITY_HARDENING_ONLY"
     )
     assert active["current_milestone"]["authorized_capture_attempts"] == 1
     assert active["current_milestone"]["authorized_capture_attempts_remaining"] == 0
@@ -227,13 +232,15 @@ def test_roadmap_closes_task_237_with_fresh_generation_2_authorization_and_opera
     )
     assert active["current_milestone"]["canonical_evidence_ingested"] is False
     assert active["current_milestone"]["diagnostic_authorization_generation"] == 2
-    assert active["current_milestone"]["live_dom_diagnostic_authority"] == (
-        "ONE_SHOT_ATTACH_ONLY_EXACT_LISTING"
-    )
-    assert active["current_milestone"]["fresh_authorized_diagnostic_attempts"] == 1
-    assert active["current_milestone"]["fresh_authorized_diagnostic_attempts_remaining"] == 1
-    assert active["current_milestone"]["fresh_diagnostic_execution_owner"] == "HUMAN_OPERATOR"
-    assert active["current_milestone"]["fresh_diagnostic_executed"] is False
+    assert active["current_milestone"]["live_dom_diagnostic_authority"] == "NONE"
+    assert active["current_milestone"]["authorized_diagnostic_attempts"] == 1
+    assert active["current_milestone"]["authorized_diagnostic_attempts_remaining"] == 0
+    assert active["current_milestone"]["diagnostic_execution_owner"] == "HUMAN_OPERATOR"
+    assert active["current_milestone"]["diagnostic_executed"] is True
+    assert active["current_milestone"]["diagnostic_outcome"] == "FAIL_CLOSED"
+    assert active["current_milestone"]["diagnostic_failure_reason"] == "NO_BOUNDED_PDP_ROOT"
+    assert active["current_milestone"]["diagnostic_artifact_created"] is False
+    assert active["current_milestone"]["root_observability_hardening_implemented"] is True
     assert active["current_milestone"]["diagnostic_hardening_implemented"] is True
     assert active["current_milestone"]["selector_repair_complete"] is False
     assert active["next_milestone"] is None
@@ -243,10 +250,10 @@ def test_roadmap_closes_task_237_with_fresh_generation_2_authorization_and_opera
 
     handoff = state["post_p8_planning_handoff"]
     assert handoff["destination"] == (
-        "HUMAN_OPERATOR_FRESH_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION"
+        "HUMAN_BRAIN_FRESH_ROOT_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION"
     )
-    assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_237_SOURCE_PUBLICATION"
-    assert handoff["completed_commitment"] == "P8_PUBLIC_PDP_DOM_DIAGNOSTIC_FRESH_AUTHORIZATION"
+    assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_238_SOURCE_PUBLICATION"
+    assert handoff["completed_commitment"] == "P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN2_RECONCILIATION_AND_ROOT_OBSERVABILITY"
     assert handoff["implementation_authorized"] is True
     assert handoff["implementation_exists"] is True
     assert handoff["live_public_pdp_acquisition_authority"] == "NONE"
@@ -259,13 +266,19 @@ def test_roadmap_closes_task_237_with_fresh_generation_2_authorization_and_opera
     assert handoff["market_test_or_action_authority"] == "NONE"
     assert handoff["first_live_capture_handoff"] == "COMPLETE"
     assert handoff["diagnostic_authorization_generation"] == 2
-    assert handoff["live_dom_diagnostic_authority"] == (
-        "ONE_SHOT_ATTACH_ONLY_EXACT_LISTING"
-    )
+    assert handoff["live_dom_diagnostic_authority"] == "NONE"
+    assert handoff["authorized_diagnostic_attempts"] == 1
+    assert handoff["authorized_diagnostic_attempts_remaining"] == 0
     assert handoff["fresh_authorized_diagnostic_attempts"] == 1
-    assert handoff["fresh_authorized_diagnostic_attempts_remaining"] == 1
+    assert handoff["fresh_authorized_diagnostic_attempts_remaining"] == 0
+    assert handoff["diagnostic_execution_owner"] == "HUMAN_OPERATOR"
     assert handoff["fresh_diagnostic_execution_owner"] == "HUMAN_OPERATOR"
-    assert handoff["fresh_diagnostic_executed"] is False
+    assert handoff["diagnostic_executed"] is True
+    assert handoff["fresh_diagnostic_executed"] is True
+    assert handoff["diagnostic_outcome"] == "FAIL_CLOSED"
+    assert handoff["diagnostic_failure_reason"] == "NO_BOUNDED_PDP_ROOT"
+    assert handoff["diagnostic_artifact_created"] is False
+    assert handoff["root_observability_hardening_implemented"] is True
     assert handoff["diagnostic_hardening_implemented"] is True
     assert handoff["selector_repair_complete"] is False
 
@@ -279,6 +292,18 @@ def test_roadmap_closes_task_237_with_fresh_generation_2_authorization_and_opera
         "LEGACY_COMBINED_PUBLIC_PDP_AVAILABILITY_GATE"
     )
     assert gen1["screenshot_context"] == "NON_CANONICAL_DIAGNOSTIC_CONTEXT"
+
+    gen2 = handoff["historical_generation_2"]
+    assert gen2["task_id"] == "TASK-237"
+    assert gen2["diagnostic_executed"] is True
+    assert gen2["diagnostic_outcome"] == "FAIL_CLOSED"
+    assert gen2["diagnostic_failure_reason"] == "NO_BOUNDED_PDP_ROOT"
+    assert gen2["diagnostic_artifact_created"] is False
+    assert gen2["authorized_diagnostic_attempts"] == 1
+    assert gen2["authorized_diagnostic_attempts_remaining"] == 0
+    assert gen2["execution_owner"] == "HUMAN_OPERATOR"
+    assert gen2["terminal_context"] == "NON_CANONICAL_DIAGNOSTIC_CONTEXT"
+    assert gen2["screenshot_context"] == "NON_CANONICAL_DIAGNOSTIC_CONTEXT"
 
     completed = {item["task_id"]: item for item in state["completed_milestones"]}
     assert completed["TASK-228"]["classification"] == (
@@ -367,6 +392,24 @@ def test_roadmap_closes_task_237_with_fresh_generation_2_authorization_and_opera
     assert completed["TASK-237"]["selector_repair_complete"] is False
     assert completed["TASK-237"]["post_publication_handoff"] == (
         "HUMAN_OPERATOR_FRESH_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION"
+    )
+    assert completed["TASK-238"]["classification"] == (
+        "GENERATION_2_FAIL_CLOSED_RECONCILIATION_AND_BOUNDED_ROOT_OBSERVABILITY_HARDENING_ONLY"
+    )
+    assert completed["TASK-238"]["diagnostic_authorization_generation"] == 2
+    assert completed["TASK-238"]["live_dom_diagnostic_authority"] == "NONE"
+    assert completed["TASK-238"]["diagnostic_executed"] is True
+    assert completed["TASK-238"]["diagnostic_outcome"] == "FAIL_CLOSED"
+    assert completed["TASK-238"]["diagnostic_failure_reason"] == "NO_BOUNDED_PDP_ROOT"
+    assert completed["TASK-238"]["diagnostic_artifact_created"] is False
+    assert completed["TASK-238"]["authorized_diagnostic_attempts"] == 1
+    assert completed["TASK-238"]["authorized_diagnostic_attempts_remaining"] == 0
+    assert completed["TASK-238"]["diagnostic_execution_owner"] == "HUMAN_OPERATOR"
+    assert completed["TASK-238"]["root_observability_hardening_implemented"] is True
+    assert completed["TASK-238"]["diagnostic_hardening_implemented"] is True
+    assert completed["TASK-238"]["selector_repair_complete"] is False
+    assert completed["TASK-238"]["post_publication_handoff"] == (
+        "HUMAN_BRAIN_FRESH_ROOT_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION"
     )
     assert state["authority"] == {
         "owner": "BRAIN",
@@ -1688,7 +1731,7 @@ def test_task_237_authorizes_fresh_generation_2_attach_only_human_dom_diagnostic
     assert gen1["screenshot_context"] == "NON_CANONICAL_DIAGNOSTIC_CONTEXT"
 
     assert handoff["destination"] == (
-        "HUMAN_OPERATOR_FRESH_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION"
+        "HUMAN_BRAIN_FRESH_ROOT_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION"
     )
     assert handoff["next_milestone"] is None
     assert state["pending_commitments"] == []
@@ -1725,6 +1768,83 @@ def test_task_237_authorizes_fresh_generation_2_attach_only_human_dom_diagnostic
         "FRESH_ONE_SHOT_ATTACH_ONLY_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION_ONLY",
         "HUMAN_OPERATOR_FRESH_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION",
         TASK_236_SOURCE_SHA,
+    ):
+        assert all(
+            roadmap_required in roadmap.read_text(encoding="utf-8")
+            for roadmap in ROADMAP_DOCS
+        )
+
+
+def test_task_238_reconciles_gen2_and_hardens_root_observability():
+    state = load_yaml(ROADMAP_FILE)
+    handoff = state["post_p8_planning_handoff"]
+    reconciliation = handoff[
+        "public_pdp_dom_diagnostic_gen2_reconciliation_and_root_observability"
+    ]
+    document = (
+        P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN2_REVIEW_AND_ROOT_OBSERVABILITY_FILE.read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert reconciliation["task_id"] == "TASK-238"
+    assert reconciliation["historical_attempt_task_id"] == "TASK-237"
+    assert reconciliation["classification"] == (
+        "GENERATION_2_FAIL_CLOSED_RECONCILIATION_AND_BOUNDED_ROOT_OBSERVABILITY_HARDENING_ONLY"
+    )
+    assert reconciliation["diagnostic_executed"] is True
+    assert reconciliation["diagnostic_outcome"] == "FAIL_CLOSED"
+    assert reconciliation["diagnostic_failure_reason"] == "NO_BOUNDED_PDP_ROOT"
+    assert reconciliation["diagnostic_artifact_created"] is False
+    assert reconciliation["authorized_diagnostic_attempts"] == 1
+    assert reconciliation["authorized_diagnostic_attempts_remaining"] == 0
+    assert reconciliation["execution_owner"] == "HUMAN_OPERATOR"
+    assert reconciliation["live_dom_diagnostic_authority"] == "NONE"
+    assert reconciliation["root_observability_hardening_implemented"] is True
+    assert reconciliation["diagnostic_hardening_implemented"] is True
+    assert reconciliation["selector_repair_complete"] is False
+    assert reconciliation["live_public_pdp_acquisition_authority"] == "NONE"
+    assert reconciliation["automated_public_pdp_acquisition_authority"] == "NONE"
+    assert reconciliation["market_test_or_action_authority"] == "NONE"
+    assert reconciliation["automatic_progression"] is False
+    assert reconciliation["post_publication_handoff"] == (
+        "HUMAN_BRAIN_FRESH_ROOT_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION"
+    )
+    assert handoff["destination"] == (
+        "HUMAN_BRAIN_FRESH_ROOT_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION"
+    )
+    assert handoff["next_milestone"] is None
+    assert state["pending_commitments"] == []
+
+    for required in (
+        "GENERATION_2_FAIL_CLOSED_RECONCILIATION_AND_BOUNDED_ROOT_OBSERVABILITY_HARDENING_ONLY",
+        "NO_BOUNDED_PDP_ROOT",
+        "HUMAN_BRAIN_FRESH_ROOT_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION",
+        "title_anchor_count",
+        "price_anchor_count",
+        "action_anchor_count",
+        "visible_explicit_pdp_root_count",
+        "explicit_root_with_commerce_anchors_count",
+        "main_present",
+        "main_visible",
+        "main_has_commerce_anchors",
+        "multi_anchor_common_ancestor_found",
+        "selected_root_kind",
+        "evidence_authority=NONE",
+        "NON_CANONICAL_DIAGNOSTIC_CONTEXT",
+        "LEGACY_COMBINED_PUBLIC_PDP_AVAILABILITY_GATE",
+        "TASK-237",
+        "4991ade68a5743af7e886342684751744bee49ed",
+        "a53510ff353cdf926a76f1dc84363b7835c5cb4d",
+        "1731381331718341815",
+        SELECTED_LISTING_REFERENCE,
+    ):
+        assert required in document
+
+    for roadmap_required in (
+        "GENERATION_2_FAIL_CLOSED_RECONCILIATION_AND_BOUNDED_ROOT_OBSERVABILITY_HARDENING_ONLY",
+        "HUMAN_BRAIN_FRESH_ROOT_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION",
+        "NO_BOUNDED_PDP_ROOT",
     ):
         assert all(
             roadmap_required in roadmap.read_text(encoding="utf-8")

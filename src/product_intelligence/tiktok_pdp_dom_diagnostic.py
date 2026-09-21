@@ -54,6 +54,25 @@ _MAX_SIGNATURE = 120
 _MAX_CLASS_TOKENS = 4
 _MAX_CLASS_TOKEN = 48
 
+_ROOT_PROBE_KEYS = {
+    "title_anchor_count",
+    "price_anchor_count",
+    "action_anchor_count",
+    "visible_explicit_pdp_root_count",
+    "explicit_root_with_commerce_anchors_count",
+    "main_present",
+    "main_visible",
+    "main_has_commerce_anchors",
+    "multi_anchor_common_ancestor_found",
+    "selected_root_kind",
+}
+_ROOT_KINDS = {
+    "NONE",
+    "EXPLICIT_PDP_ROOT",
+    "MAIN",
+    "MULTI_ANCHOR_COMMON_ANCESTOR",
+}
+
 BLOCKED_OR_CHALLENGE = "BLOCKED_OR_CHALLENGE"
 LOGIN_GATE = "LOGIN_GATE"
 LISTING_UNAVAILABLE = "LISTING_UNAVAILABLE"
@@ -113,6 +132,22 @@ def _resolve_external_job_root(job_root: str | Path) -> Path:
             "the diagnostic job root must be outside the Git repository"
         )
     return resolved
+
+
+def _write_artifact(path: Path, document: dict[str, object]) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("x", encoding="utf-8", newline="\n") as stream:
+            json.dump(document, stream, ensure_ascii=False, indent=2)
+            stream.write("\n")
+    except FileExistsError as exc:
+        raise TikTokPdpDomDiagnosticArtifactExistsError(
+            "the fixed diagnostic artifact already exists"
+        ) from exc
+    except OSError as exc:
+        raise TikTokPdpDomDiagnosticJobRootError(
+            "the diagnostic artifact could not be created"
+        ) from exc
 
 
 # One evaluation only. It never navigates or interacts. Root discovery is URL-bound,
@@ -201,25 +236,50 @@ DIAGNOSTIC_SCRIPT = r"""
       title !== price && title !== action && price !== action
     )));
   };
+
+  let titleAnchorCount = 0;
+  let priceAnchorCount = 0;
+  let actionAnchorCount = 0;
+  let visibleExplicitPdpRootCount = 0;
+  let explicitRootWithCommerceAnchorsCount = 0;
+  let mainPresent = false;
+  let mainVisible = false;
+  let mainHasCommerceAnchors = false;
+  let multiAnchorCommonAncestorFound = false;
+
   if (identityBound && !blocked && !login && !unavailable) {
+    const visibleExplicitRoots = [];
     for (const candidate of Array.from(document.querySelectorAll(pdpRootSelector)).slice(0, 8)) {
-      if (candidate !== document.body && candidate !== document.documentElement && visible(candidate) && hasCommerceAnchors(candidate)) {
-        root = candidate;
-        rootKind = 'EXPLICIT_PDP_ROOT';
-        break;
+      if (candidate !== document.body && candidate !== document.documentElement && visible(candidate)) {
+        visibleExplicitRoots.push(candidate);
+        if (hasCommerceAnchors(candidate)) {
+          if (!root) {
+            root = candidate;
+            rootKind = 'EXPLICIT_PDP_ROOT';
+          }
+          explicitRootWithCommerceAnchorsCount += 1;
+        }
       }
     }
-    if (!root) {
-      const main = document.querySelector('main');
-      if (main && visible(main) && hasCommerceAnchors(main)) {
-        root = main;
-        rootKind = 'MAIN';
-      }
+    visibleExplicitPdpRootCount = visibleExplicitRoots.length;
+
+    const main = document.querySelector('main');
+    mainPresent = Boolean(main);
+    mainVisible = Boolean(main && visible(main));
+    mainHasCommerceAnchors = Boolean(mainVisible && hasCommerceAnchors(main));
+    if (!root && mainHasCommerceAnchors) {
+      root = main;
+      rootKind = 'MAIN';
     }
-    if (!root && document.body) {
+
+    if (document.body) {
       const titles = firstVisible(document.body, titleSelectors, 12);
       const prices = firstVisible(document.body, priceSelectors, 12);
       const actions = firstVisible(document.body, actionSelectors, 12);
+      titleAnchorCount = titles.length;
+      priceAnchorCount = prices.length;
+      actionAnchorCount = actions.length;
+
       const ancestorChain = (node) => {
         const chain = [];
         let current = node;
@@ -239,8 +299,11 @@ DIAGNOSTIC_SCRIPT = r"""
             const actionAncestors = new Set(ancestorChain(action));
             const common = titleAncestors.find(node => priceAncestors.has(node) && actionAncestors.has(node));
             if (common && visible(common)) {
-              root = common;
-              rootKind = 'MULTI_ANCHOR_COMMON_ANCESTOR';
+              multiAnchorCommonAncestorFound = true;
+              if (!root) {
+                root = common;
+                rootKind = 'MULTI_ANCHOR_COMMON_ANCESTOR';
+              }
               break outer;
             }
           }
@@ -248,6 +311,7 @@ DIAGNOSTIC_SCRIPT = r"""
       }
     }
   }
+
   const ids = [];
   const identityNodes = root ? [root] : [];
   if (root && root.matches(pdpRootSelector)) {
@@ -321,6 +385,18 @@ DIAGNOSTIC_SCRIPT = r"""
       login,
       unavailable
     },
+    root_probe: {
+      title_anchor_count: titleAnchorCount,
+      price_anchor_count: priceAnchorCount,
+      action_anchor_count: actionAnchorCount,
+      visible_explicit_pdp_root_count: visibleExplicitPdpRootCount,
+      explicit_root_with_commerce_anchors_count: explicitRootWithCommerceAnchorsCount,
+      main_present: mainPresent,
+      main_visible: mainVisible,
+      main_has_commerce_anchors: mainHasCommerceAnchors,
+      multi_anchor_common_ancestor_found: multiAnchorCommonAncestorFound,
+      selected_root_kind: rootKind,
+    },
     candidates,
   };
 }
@@ -359,9 +435,58 @@ def _validate_candidate(value: object) -> dict[str, object]:
     return dict(value)
 
 
-def _validate_payload(payload: object) -> list[dict[str, object]]:
+def _validate_root_probe(probe: object, state: dict[str, object]) -> dict[str, object]:
+    if not isinstance(probe, dict) or set(probe) != _ROOT_PROBE_KEYS:
+        raise TikTokPdpDomDiagnosticError(MALFORMED_DIAGNOSTIC_PAYLOAD)
+    for key in (
+        "title_anchor_count",
+        "price_anchor_count",
+        "action_anchor_count",
+    ):
+        val = probe[key]
+        if not isinstance(val, int) or isinstance(val, bool) or val < 0 or val > 12:
+            raise TikTokPdpDomDiagnosticError(MALFORMED_DIAGNOSTIC_PAYLOAD)
+    for key in (
+        "visible_explicit_pdp_root_count",
+        "explicit_root_with_commerce_anchors_count",
+    ):
+        val = probe[key]
+        if not isinstance(val, int) or isinstance(val, bool) or val < 0 or val > 8:
+            raise TikTokPdpDomDiagnosticError(MALFORMED_DIAGNOSTIC_PAYLOAD)
+    if probe["explicit_root_with_commerce_anchors_count"] > probe["visible_explicit_pdp_root_count"]:
+        raise TikTokPdpDomDiagnosticError(MALFORMED_DIAGNOSTIC_PAYLOAD)
+    for key in (
+        "main_present",
+        "main_visible",
+        "main_has_commerce_anchors",
+        "multi_anchor_common_ancestor_found",
+    ):
+        if not isinstance(probe[key], bool):
+            raise TikTokPdpDomDiagnosticError(MALFORMED_DIAGNOSTIC_PAYLOAD)
+    if probe["main_has_commerce_anchors"] and not probe["main_visible"]:
+        raise TikTokPdpDomDiagnosticError(MALFORMED_DIAGNOSTIC_PAYLOAD)
+    if probe["main_visible"] and not probe["main_present"]:
+        raise TikTokPdpDomDiagnosticError(MALFORMED_DIAGNOSTIC_PAYLOAD)
+    kind = probe["selected_root_kind"]
+    if not isinstance(kind, str) or kind not in _ROOT_KINDS:
+        raise TikTokPdpDomDiagnosticError(MALFORMED_DIAGNOSTIC_PAYLOAD)
+    if kind != state.get("root_kind"):
+        raise TikTokPdpDomDiagnosticError(MALFORMED_DIAGNOSTIC_PAYLOAD)
+    return dict(probe)
+
+
+def _validate_payload(
+    payload: object,
+    *,
+    failure_writer: Callable[[dict[str, object]], None] | None = None,
+) -> tuple[dict[str, object], list[dict[str, object]]]:
     if not isinstance(payload, dict) or set(payload) != {
-        "schema_version", "observed_url", "explicit_product_ids", "page_state", "candidates"
+        "schema_version",
+        "observed_url",
+        "explicit_product_ids",
+        "page_state",
+        "root_probe",
+        "candidates",
     }:
         raise TikTokPdpDomDiagnosticError(MALFORMED_DIAGNOSTIC_PAYLOAD)
     if payload["schema_version"] != 1 or not _bounded_string(payload["observed_url"], 2048):
@@ -370,19 +495,23 @@ def _validate_payload(payload: object) -> list[dict[str, object]]:
     if (
         not isinstance(state, dict)
         or set(state) != {
-            "identity_bound", "has_bounded_root", "root_kind", "blocked", "login", "unavailable"
+            "identity_bound",
+            "has_bounded_root",
+            "root_kind",
+            "blocked",
+            "login",
+            "unavailable",
         }
         or any(
             not isinstance(state[key], bool)
             for key in ("identity_bound", "has_bounded_root", "blocked", "login", "unavailable")
         )
         or not isinstance(state["root_kind"], str)
-        or state["root_kind"] not in {
-            "NONE", "EXPLICIT_PDP_ROOT", "MAIN", "MULTI_ANCHOR_COMMON_ANCESTOR"
-        }
+        or state["root_kind"] not in _ROOT_KINDS
         or state["has_bounded_root"] != (state["root_kind"] != "NONE")
     ):
         raise TikTokPdpDomDiagnosticError(MALFORMED_DIAGNOSTIC_PAYLOAD)
+    root_probe = _validate_root_probe(payload["root_probe"], state)
     if state["blocked"]:
         raise TikTokPdpDomDiagnosticError(BLOCKED_OR_CHALLENGE)
     if state["login"]:
@@ -419,6 +548,8 @@ def _validate_payload(payload: object) -> list[dict[str, object]]:
     if not state["identity_bound"] or observed_id != DIAGNOSTIC_SOURCE_ID:
         raise TikTokPdpDomDiagnosticError(IDENTITY_MISMATCH)
     if not state["has_bounded_root"]:
+        if failure_writer is not None:
+            failure_writer(root_probe)
         raise TikTokPdpDomDiagnosticError(NO_BOUNDED_PDP_ROOT)
     candidates_raw = payload["candidates"]
     if not isinstance(candidates_raw, list) or len(candidates_raw) > _MAX_CANDIDATES:
@@ -432,7 +563,7 @@ def _validate_payload(payload: object) -> list[dict[str, object]]:
         counts[item["field_hint"]] += 1
     if any(count > _MAX_PER_HINT for count in counts.values()):
         raise TikTokPdpDomDiagnosticError(MALFORMED_DIAGNOSTIC_PAYLOAD)
-    return candidates
+    return root_probe, candidates
 
 
 async def run_tiktok_pdp_dom_diagnostic(
@@ -472,7 +603,27 @@ async def run_tiktok_pdp_dom_diagnostic(
             raise TikTokPdpDomDiagnosticError(
                 "the bounded current-page evaluation failed"
             ) from exc
-        candidates = _validate_payload(payload)
+
+        def write_failure_artifact(probe: dict[str, object]) -> None:
+            failure_document: dict[str, object] = {
+                "schema_version": 1,
+                "diagnostic": {
+                    "status": "FAIL_CLOSED",
+                    "classification": "ATTACH_ONLY_BOUNDED_DOM_DIAGNOSTIC",
+                    "context_id": DIAGNOSTIC_CONTEXT_ID,
+                    "source_product_id": DIAGNOSTIC_SOURCE_ID,
+                    "observed_at": observed_at.isoformat(),
+                    "evidence_authority": "NONE",
+                    "failure_reason": NO_BOUNDED_PDP_ROOT,
+                },
+                "root_probe": probe,
+            }
+            _write_artifact(artifact_path, failure_document)
+
+        root_probe, candidates = _validate_payload(
+            payload,
+            failure_writer=write_failure_artifact,
+        )
         document: dict[str, object] = {
             "schema_version": 1,
             "diagnostic": {
@@ -484,21 +635,10 @@ async def run_tiktok_pdp_dom_diagnostic(
                 "evidence_authority": "NONE",
                 "candidate_count": len(candidates),
             },
+            "root_probe": root_probe,
             "candidates": candidates,
         }
-        try:
-            root.mkdir(parents=True, exist_ok=True)
-            with artifact_path.open("x", encoding="utf-8", newline="\n") as stream:
-                json.dump(document, stream, ensure_ascii=False, indent=2)
-                stream.write("\n")
-        except FileExistsError as exc:
-            raise TikTokPdpDomDiagnosticArtifactExistsError(
-                "the fixed diagnostic artifact already exists"
-            ) from exc
-        except OSError as exc:
-            raise TikTokPdpDomDiagnosticJobRootError(
-                "the diagnostic artifact could not be created"
-            ) from exc
+        _write_artifact(artifact_path, document)
     except BaseException as exc:
         operation_error = exc
         raise

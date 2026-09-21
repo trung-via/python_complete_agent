@@ -562,6 +562,34 @@ and the exact handoff is `HUMAN_BRAIN_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORI
   `automatic_progression=false`, `next_milestone=null`, pending commitments are empty, and the
   exact handoff is `HUMAN_OPERATOR_FRESH_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION`.
 
+- **P8 Public TikTok PDP DOM Diagnostic Gen2 Review and Root Observability (TASK-238 —
+  publication-gated DONE only as
+  `GENERATION_2_FAIL_CLOSED_RECONCILIATION_AND_BOUNDED_ROOT_OBSERVABILITY_HARDENING_ONLY`)**: records the
+  actual generation-2 TASK-237 invocation as consumed: `diagnostic_executed=true`,
+  `diagnostic_outcome=FAIL_CLOSED`, `diagnostic_failure_reason=NO_BOUNDED_PDP_ROOT`, zero artifact,
+  `authorized_diagnostic_attempts_remaining=0`, and `live_dom_diagnostic_authority=NONE`. Generation-1
+  TASK-235/TASK-236 history remains separately preserved and unchanged. The Human terminal and screenshot
+  context is non-canonical diagnostic context and proves neither product truth nor marketplace field values.
+
+  Offline hardening preserves the single evaluate, exact URL identity, zero interaction, and TASK-137
+  session cleanup while extending the diagnostic with a validated allowlisted `root_probe` (title, price,
+  and action anchor counts, explicit-root and main visibility/anchors, multi-anchor common ancestor status,
+  and selected root kind). For `NO_BOUNDED_PDP_ROOT`, the diagnostic persists exactly one create-exclusive
+  external FAIL_CLOSED artifact (`tiktok-pdp-dom-diagnostic-v1.json`) containing metadata and validated
+  root_probe before re-raising the nonzero error. Successful artifacts include root_probe additively.
+  Other safe failures create no artifact. Output retains `evidence_authority=NONE` and cannot mutate
+  Product Intelligence evidence, truth, ranking, approval, trend, test, or action semantics.
+
+  On exact reviewed TASK-238 publication, generation 2 is consumed,
+  `live_dom_diagnostic_authority=NONE`, `diagnostic_authorization_generation=2`,
+  `diagnostic_executed=true`, `diagnostic_outcome=FAIL_CLOSED`,
+  `diagnostic_failure_reason=NO_BOUNDED_PDP_ROOT`, `diagnostic_artifact_created=false`,
+  `authorized_diagnostic_attempts=1`, `authorized_diagnostic_attempts_remaining=0`,
+  `root_observability_hardening_implemented=true`, `selector_repair_complete=false`,
+  acquisition and action authorities remain `NONE`, `automatic_progression=false`, `next_milestone=null`,
+  pending commitments are empty, and the exact handoff is
+  `HUMAN_BRAIN_FRESH_ROOT_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION`.
+
 See `docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md` for the exact P8.0 source
 `a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e`,
 `docs/PHASE_8_P8_1_REAL_DECISION_PILOT_SELECTION.md` for the exact P8.1 selection record, and
@@ -582,6 +610,8 @@ See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_REVIEW_AND_HARDENING.md` for 
 consumed-attempt reconciliation, bounded hardening, and fresh-authorization handoff.
 See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_FRESH_AUTHORIZATION.md` for the TASK-237 fresh
 generation-2 authorization, hardened carrier source lineage, and Human-operator execution boundary.
+See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN2_REVIEW_AND_ROOT_OBSERVABILITY.md` for the
+TASK-238 reconciliation, bounded root observability, and Human/Brain fresh-authorization handoff.
 
 
 The complete audit and P7.0 boundary are recorded in
