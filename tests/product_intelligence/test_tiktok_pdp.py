@@ -165,6 +165,7 @@ async def test_title_is_required_explicit_and_unconflicted(titles: list[str]) ->
     ("candidates", "expected"),
     [
         (["₫150.000"], 150_000.0),
+        (["₫0"], 0.0),
         (["₫150.000 - ₫200.000"], None),
         (["₫150.000 - ₫200.000", "₫150.000"], None),
         (["₫150.000", "₫200.000"], None),
@@ -183,7 +184,14 @@ async def test_exact_pdp_price_reconciliation(
 
 @pytest.mark.asyncio
 async def test_explicit_zero_is_distinct_from_missing_optional_fields() -> None:
-    zero = await TikTokPdpCollector(FakeSession(payload())).collect(
+    zero = await TikTokPdpCollector(
+        FakeSession(
+            payload(
+                current_price_candidates=["₫0"],
+                original_price_candidates=["0"],
+            )
+        )
+    ).collect(
         REQUESTED_URL, observed_at=OBSERVED_AT
     )
     missing = await TikTokPdpCollector(
@@ -200,6 +208,8 @@ async def test_explicit_zero_is_distinct_from_missing_optional_fields() -> None:
         )
     ).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
 
+    assert zero.snapshot.price == 0.0
+    assert zero.snapshot.original_price == 0.0
     assert zero.snapshot.sold_count == 0
     assert zero.snapshot.review_count == 0
     assert missing.snapshot.shop_name is None

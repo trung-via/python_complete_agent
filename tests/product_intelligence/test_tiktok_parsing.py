@@ -19,12 +19,18 @@ from src.product_intelligence.adapters.tiktok_parsing import (
 
 def test_exact_pdp_price_is_strict_without_changing_search_card_ranges() -> None:
     assert parse_tiktok_price("150k - 200k") == 150000.0
+    assert parse_tiktok_price("₫0") is None
     assert parse_tiktok_pdp_price("150k") == 150000.0
     assert parse_tiktok_pdp_price("₫150.000") == 150000.0
+    assert parse_tiktok_pdp_price("₫0") == 0.0
+    assert parse_tiktok_pdp_price("0") == 0.0
+    assert parse_tiktok_pdp_price(None) is None
     assert parse_tiktok_pdp_price("150k - 200k") is None
     assert parse_tiktok_pdp_price("₫150.000 – ₫200.000") is None
     assert parse_tiktok_pdp_price("from 150k") is None
     assert parse_tiktok_pdp_price("150k or 200k") is None
+    assert parse_tiktok_pdp_price("-0") is None
+    assert parse_tiktok_pdp_price("not a price") is None
 
 
 def test_exact_pdp_counts_preserve_explicit_zero() -> None:

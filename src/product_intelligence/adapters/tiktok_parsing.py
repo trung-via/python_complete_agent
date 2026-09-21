@@ -6,11 +6,13 @@ import urllib.parse
 from typing import Optional
 
 
-def parse_tiktok_price(text: Optional[str]) -> Optional[float]:
+def _parse_tiktok_price_value(
+    text: Optional[str], *, allow_zero: bool
+) -> Optional[float]:
     """
     Parses a localized TikTok Shop price string into a float.
     Handles ranges (returns lower bound), currency symbols (₫, đ, VND, $, £, etc.), and multiplier suffixes (k, tr, m).
-    Returns None if malformed, negative, zero, or non-positive.
+    Returns None if malformed or negative; zero admission is caller-controlled.
     """
     if not text:
         return None
@@ -35,7 +37,7 @@ def parse_tiktok_price(text: Optional[str]) -> Optional[float]:
         num_str = match_tr.group(1).replace(",", ".")
         try:
             val = float(num_str) * 1_000_000.0
-            return val if val > 0 else None
+            return val if val > 0 or (allow_zero and val == 0) else None
         except ValueError:
             return None
 
@@ -45,7 +47,7 @@ def parse_tiktok_price(text: Optional[str]) -> Optional[float]:
         num_str = match_k.group(1).replace(",", ".")
         try:
             val = float(num_str) * 1_000.0
-            return val if val > 0 else None
+            return val if val > 0 or (allow_zero and val == 0) else None
         except ValueError:
             return None
 
@@ -87,9 +89,18 @@ def parse_tiktok_price(text: Optional[str]) -> Optional[float]:
 
     try:
         val = float(cleaned)
-        return val if val > 0 else None
+        return val if val > 0 or (allow_zero and val == 0) else None
     except ValueError:
         return None
+
+
+def parse_tiktok_price(text: Optional[str]) -> Optional[float]:
+    """
+    Parses a localized TikTok Shop price string into a float.
+    Handles ranges (returns lower bound), currency symbols, and multiplier suffixes.
+    Returns None if malformed, negative, zero, or non-positive.
+    """
+    return _parse_tiktok_price_value(text, allow_zero=False)
 
 
 def parse_tiktok_pdp_price(text: Optional[str]) -> Optional[float]:
@@ -113,7 +124,7 @@ def parse_tiktok_pdp_price(text: Optional[str]) -> Optional[float]:
     numeric_tokens = re.findall(r"\d[\d.,]*", cleaned)
     if len(numeric_tokens) != 1:
         return None
-    return parse_tiktok_price(text)
+    return _parse_tiktok_price_value(text, allow_zero=True)
 
 
 def _parse_tiktok_pdp_count(text: Optional[str]) -> Optional[int]:
