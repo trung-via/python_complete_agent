@@ -38,9 +38,11 @@ decision. The Human selected TASK-230 as the bounded Wave-0 TikTok PDP identity-
 single-parser-authority commitment. On exact publication, control returns to
 `HUMAN_BRAIN_PUBLIC_PDP_ACQUISITION_AUTHORIZATION`. The Human then approved TASK-231 as the
 publication-gated `PUBLIC_PDP_ACQUISITION_CONTRACT_ONLY` architecture and bounded implementation
-authorization. On exact TASK-231 publication, the unique current NEXT commitment is
-`P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION`, an offline-first implementation only; no successor task
-number, implementation, live capture, automatic pilot, P8.4, market test, or action is claimed.
+authorization. TASK-232 implements that unique commitment as a publication-gated
+`BOUNDED_OFFLINE_FIRST_IMPLEMENTATION_ONLY` capability. On exact reviewed TASK-232 publication the
+implementation is DONE, NEXT is null, pending commitments are empty, and control returns exactly to
+`HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION`; no live capture, automatic pilot, P8.4, market
+test, or action is claimed.
 P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
 
 Scope: Python Agent product architecture; AIOS-renew remains execution substrate only.
@@ -528,6 +530,22 @@ false; and `market_test_or_action_authority` is `NONE`. After a later implementa
 reviewed and published, control returns to `HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION` before
 the first real TikTok PDP capture.
 
+- **P8 Public TikTok PDP Collector Implementation (TASK-232 — publication-gated DONE only as
+  `BOUNDED_OFFLINE_FIRST_IMPLEMENTATION_ONLY`)**: implements one exact-listing Product Intelligence
+  collector beneath the TASK-231 contract. It borrows an already-owned `BrowserSession`, reuses the
+  canonical TikTok parser, admits raw PDP candidates in Python, enforces fail-closed identity/access
+  gates and strict exact-PDP price semantics, and emits only the existing `ProductCandidateSnapshot`
+  plus transport-only requested/observed binding provenance. It adds no browser lifecycle, Product
+  Source, Affiliate, evidence, trend, persistence, ranking, approval, or action authority.
+
+On exact reviewed TASK-232 source publication, `P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION` is DONE only
+as the bounded offline-first implementation, `implementation_exists` is true, `next_milestone` is
+null, and pending commitments are empty. Live and automated public-PDP acquisition authority remain
+`NONE`; `automatic_live_pilot`, `automatic_p8_4`, `real_pilot_executed`, and
+`live_evidence_acquired` remain false; market-test/action authority remains `NONE`. There is no
+successor task or automatic capture. The exact handoff is
+`HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION`.
+
 See `docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md` for the exact P8.0 source
 `a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e`,
 `docs/PHASE_8_P8_1_REAL_DECISION_PILOT_SELECTION.md` for the exact P8.1 selection record, and
@@ -536,6 +554,8 @@ See `docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md` for the exact P8.0
 `docs/PHASE_8_P8_3_MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION.md` for the P8.3 authorization.
 See `docs/PHASE_8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY.md` for the bounded TASK-230 closure.
 See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT.md` for the canonical TASK-231 contract.
+See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_COLLECTOR_IMPLEMENTATION.md` for the TASK-232 implementation
+boundary.
 
 
 See `docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md` for the audit and boundary.

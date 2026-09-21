@@ -63,6 +63,9 @@ P8_WAVE_0_COMPATIBILITY_FILE = (
 P8_PUBLIC_PDP_ACQUISITION_CONTRACT_FILE = (
     REPO_ROOT / "docs" / "PHASE_8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT.md"
 )
+P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION_FILE = (
+    REPO_ROOT / "docs" / "PHASE_8_PUBLIC_TIKTOK_PDP_COLLECTOR_IMPLEMENTATION.md"
+)
 ROADMAP_DOCS = (
     REPO_ROOT / "docs" / "POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
     REPO_ROOT / "docs" / "POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
@@ -179,46 +182,30 @@ def values_for_key(value: object, key: str) -> list[object]:
     return matches
 
 
-def test_roadmap_closes_task_231_contract_with_one_bounded_next_commitment():
+def test_roadmap_closes_task_232_implementation_with_human_pilot_handoff():
     state = load_yaml(ROADMAP_FILE)
     active = state["active_track"]
-    assert active["id"] == "P8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT"
+    assert active["id"] == "P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION"
     assert active["status"] == "DONE"
     assert active["sequence_status"] == (
-        "COMPLETE_ON_EXACT_TASK_231_SOURCE_PUBLICATION"
+        "COMPLETE_ON_EXACT_TASK_232_SOURCE_PUBLICATION"
     )
-    assert active["current_milestone"]["task_id"] == "TASK-231"
+    assert active["current_milestone"]["task_id"] == "TASK-232"
     assert active["current_milestone"]["classification"] == (
-        "PUBLIC_PDP_ACQUISITION_CONTRACT_ONLY"
+        "BOUNDED_OFFLINE_FIRST_IMPLEMENTATION_ONLY"
     )
-    assert active["next_milestone"] == "P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION"
+    assert active["current_milestone"]["implementation_exists"] is True
+    assert active["next_milestone"] is None
 
-    assert values_for_key(state, "status").count("NEXT") == 1
-    assert state["pending_commitments"] == [
-        {
-            "id": "P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION",
-            "title": "Public TikTok PDP Collector Implementation",
-            "status": "NEXT",
-            "classification": "BOUNDED_OFFLINE_FIRST_IMPLEMENTATION_ONLY",
-            "task_id": None,
-            "implementation_exists": False,
-            "live_public_pdp_acquisition_authority": "NONE",
-            "automatic_live_pilot": False,
-            "automatic_p8_4": False,
-            "market_test_or_action_authority": "NONE",
-            "post_publication_handoff": (
-                "HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION"
-            ),
-        }
-    ]
+    assert values_for_key(state, "status").count("NEXT") == 0
+    assert state["pending_commitments"] == []
 
     handoff = state["post_p8_planning_handoff"]
-    assert handoff["destination"] == "P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION"
-    assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_231_SOURCE_PUBLICATION"
-    assert handoff["completed_commitment"] == (
-        "P8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT"
-    )
+    assert handoff["destination"] == "HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION"
+    assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_232_SOURCE_PUBLICATION"
+    assert handoff["completed_commitment"] == "P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION"
     assert handoff["implementation_authorized"] is True
+    assert handoff["implementation_exists"] is True
     assert handoff["live_public_pdp_acquisition_authority"] == "NONE"
     assert handoff["automatic_live_pilot"] is False
     assert handoff["automatic_p8_4"] is False
@@ -241,7 +228,17 @@ def test_roadmap_closes_task_231_contract_with_one_bounded_next_commitment():
         "PUBLIC_PDP_ACQUISITION_CONTRACT_ONLY"
     )
     assert completed["TASK-231"]["collector_implemented"] is False
+    assert completed["TASK-231"]["source_sha"] == (
+        "c533ee90201a5e0400b7973e89ab5c58677501ba"
+    )
     assert completed["TASK-231"]["live_public_pdp_acquisition_authority"] == "NONE"
+    assert completed["TASK-232"]["classification"] == (
+        "BOUNDED_OFFLINE_FIRST_IMPLEMENTATION_ONLY"
+    )
+    assert completed["TASK-232"]["implementation_exists"] is True
+    assert completed["TASK-232"]["post_publication_handoff"] == (
+        "HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION"
+    )
     assert state["authority"] == {
         "owner": "BRAIN",
         "purpose": "CROSS_CHAT_PLANNING_BOOKMARK",
@@ -307,10 +304,8 @@ def test_roadmap_closes_task_231_contract_with_one_bounded_next_commitment():
         "docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
         "docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
     ]
-    assert values_for_key(state, "status").count("NEXT") == 1
-    assert [item["id"] for item in state["pending_commitments"]] == [
-        "P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION"
-    ]
+    assert values_for_key(state, "status").count("NEXT") == 0
+    assert state["pending_commitments"] == []
     assert values_for_key(state, "status").count("NOT_DONE") == 0
     assert state["planning_handoff"] == {
         "destination": "P7_PRODUCT_ROADMAP",
@@ -742,12 +737,8 @@ def test_p8_0_is_one_composition_only_authority_and_human_owned_pilot_handoff():
     assert completed["TASK-226"]["source_sha"] == TASK_226_SOURCE_SHA
     assert completed["TASK-226"]["composition_contract_only"] is True
     assert completed["TASK-226"]["real_pilot_executed"] is False
-    assert state["active_track"]["next_milestone"] == (
-        "P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION"
-    )
-    assert [item["id"] for item in state["pending_commitments"]] == [
-        "P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION"
-    ]
+    assert state["active_track"]["next_milestone"] is None
+    assert state["pending_commitments"] == []
     assert state["post_p8_planning_handoff"]["automatic_p8_4"] is False
 
 
@@ -804,16 +795,12 @@ def test_p8_1_records_selection_only_and_preserves_pre_action_boundaries():
     assert selected["selection_status"] == "SELECTED"
     assert selected["real_pilot_executed"] is False
     assert state["post_p8_planning_handoff"]["destination"] == (
-        "P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION"
+        "HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION"
     )
     assert state["post_p8_planning_handoff"]["automatic_next"] is False
     assert state["post_p8_planning_handoff"]["automatic_p8_4"] is False
-    assert state["active_track"]["next_milestone"] == (
-        "P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION"
-    )
-    assert [item["id"] for item in state["pending_commitments"]] == [
-        "P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION"
-    ]
+    assert state["active_track"]["next_milestone"] is None
+    assert state["pending_commitments"] == []
 
 
 def test_p8_2_is_plan_only_and_preserves_evidence_and_action_boundaries():
@@ -896,7 +883,7 @@ def test_p8_2_is_plan_only_and_preserves_evidence_and_action_boundaries():
     completed = {item["task_id"]: item for item in state["completed_milestones"]}
     assert completed["TASK-228"]["source_sha"] == TASK_228_SOURCE_SHA
     handoff = state["post_p8_planning_handoff"]
-    assert handoff["destination"] == "P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION"
+    assert handoff["destination"] == "HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION"
     assert handoff["automatic_next"] is False
     assert handoff["automatic_p8_4"] is False
     assert handoff["real_pilot_executed"] is False
@@ -905,12 +892,8 @@ def test_p8_2_is_plan_only_and_preserves_evidence_and_action_boundaries():
     assert authorization["human_owned_inputs_status"] == "UNSET"
     assert authorization["collector_authority"] == "NONE"
     assert authorization["automated_acquisition_authority"] == "NONE"
-    assert state["active_track"]["next_milestone"] == (
-        "P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION"
-    )
-    assert [item["id"] for item in state["pending_commitments"]] == [
-        "P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION"
-    ]
+    assert state["active_track"]["next_milestone"] is None
+    assert state["pending_commitments"] == []
 
 
 def test_p8_3_authorizes_only_human_manual_contribution_and_review():
@@ -1001,12 +984,8 @@ def test_p8_3_authorizes_only_human_manual_contribution_and_review():
     assert authorization["wave_2_authority"] == "NONE"
     assert authorization["market_test_or_action_authority"] == "NONE"
     assert state["post_p8_planning_handoff"]["automatic_p8_4"] is False
-    assert state["active_track"]["next_milestone"] == (
-        "P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION"
-    )
-    assert [item["id"] for item in state["pending_commitments"]] == [
-        "P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION"
-    ]
+    assert state["active_track"]["next_milestone"] is None
+    assert state["pending_commitments"] == []
 
 
 def test_task_230_closes_only_pdp_compatibility_with_one_parser_authority():
@@ -1057,7 +1036,7 @@ def test_task_230_closes_only_pdp_compatibility_with_one_parser_authority():
     assert completed["TASK-230"]["public_pdp_affiliate_dependency"] == "NONE"
 
     handoff = state["post_p8_planning_handoff"]
-    assert handoff["destination"] == "P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION"
+    assert handoff["destination"] == "HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION"
     assert handoff["automated_public_pdp_acquisition_authority"] == "NONE"
     assert handoff["automatic_next"] is False
     assert handoff["automatic_p8_4"] is False
@@ -1069,12 +1048,8 @@ def test_task_230_closes_only_pdp_compatibility_with_one_parser_authority():
     assert handoff["manual_contribution_authorization"]["review_status"] == (
         "UNPERFORMED_BY_TASK"
     )
-    assert state["active_track"]["next_milestone"] == (
-        "P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION"
-    )
-    assert [item["id"] for item in state["pending_commitments"]] == [
-        "P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION"
-    ]
+    assert state["active_track"]["next_milestone"] is None
+    assert state["pending_commitments"] == []
 
 
 def test_task_231_contract_preserves_owners_allowlist_and_zero_live_authority():
@@ -1168,6 +1143,65 @@ def test_task_231_contract_preserves_owners_allowlist_and_zero_live_authority():
     assert contract_state["automatic_live_pilot"] is False
     assert contract_state["automatic_p8_4"] is False
     assert contract_state["market_test_or_action_authority"] == "NONE"
+
+
+def test_task_232_collector_preserves_product_browser_and_authority_boundaries():
+    document = P8_PUBLIC_PDP_COLLECTOR_IMPLEMENTATION_FILE.read_text(encoding="utf-8")
+    adapter = (
+        REPO_ROOT / "src" / "product_intelligence" / "adapters" / "tiktok_pdp.py"
+    ).read_text(encoding="utf-8")
+    parser = (
+        REPO_ROOT / "src" / "product_intelligence" / "adapters" / "tiktok_parsing.py"
+    ).read_text(encoding="utf-8")
+
+    for required in (
+        "BOUNDED_OFFLINE_FIRST_IMPLEMENTATION_ONLY",
+        "ProductCandidateSnapshot",
+        "SignalEvidence",
+        "already-provided `BrowserSession`-like dependency",
+        "AMBIGUOUS_PRICE_IS_NOT_EXACT_PRICE",
+        "explicit observed zero",
+        "transport-only binding receipt",
+        "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY",
+        "SNAPSHOT_IS_NOT_TREND",
+        "zero live authority",
+        "HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION",
+    ):
+        assert required in document
+
+    assert parser.count("def extract_tiktok_product_id(") == 1
+    assert "from src.browser.session import BrowserSession" in adapter
+    assert "from src.product_intelligence.models import ProductCandidateSnapshot" in adapter
+    assert "PlaywrightBrowserManager" not in adapter
+    assert "ProductSourcePack" not in adapter
+    assert "TikTokSourceExtractor" not in adapter
+    assert "TikTokScrapeTool" not in adapter
+    assert ".start(" not in adapter
+    assert ".close(" not in adapter
+    assert ".click(" not in adapter
+
+    state = load_yaml(ROADMAP_FILE)
+    implementation = state["post_p8_planning_handoff"][
+        "public_pdp_collector_implementation"
+    ]
+    assert implementation["semantic_owner"] == "ProductCandidateSnapshot"
+    assert implementation["field_evidence_owner"] == "SignalEvidence"
+    assert implementation["browser_dependency"] == (
+        "ALREADY_PROVIDED_BROWSER_SESSION_ONLY"
+    )
+    assert implementation["parser_authority_count"] == 1
+    assert implementation["product_source_dependency"] == "NONE"
+    assert implementation["public_pdp_affiliate_dependency"] == "NONE"
+    assert implementation["evidence_authority"] == "NONE"
+    assert implementation["velocity_or_trend_authority"] == "NONE"
+    assert implementation["implementation_exists"] is True
+    assert implementation["offline_only"] is True
+    assert implementation["live_public_pdp_acquisition_authority"] == "NONE"
+    assert implementation["automated_public_pdp_acquisition_authority"] == "NONE"
+    assert state["post_p8_planning_handoff"]["real_pilot_executed"] is False
+    assert state["post_p8_planning_handoff"]["live_evidence_acquired"] is False
+    assert state["active_track"]["next_milestone"] is None
+    assert state["pending_commitments"] == []
 
 
 

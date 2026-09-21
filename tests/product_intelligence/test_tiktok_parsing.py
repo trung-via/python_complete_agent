@@ -7,11 +7,33 @@ from src.product_intelligence.adapters.tiktok_parsing import (
     build_tiktok_search_url,
     extract_tiktok_product_id,
     parse_tiktok_discount_percent,
+    parse_tiktok_pdp_price,
+    parse_tiktok_pdp_review_count,
+    parse_tiktok_pdp_sold_count,
     parse_tiktok_price,
     parse_tiktok_rating,
     parse_tiktok_review_count,
     parse_tiktok_sold_count,
 )
+
+
+def test_exact_pdp_price_is_strict_without_changing_search_card_ranges() -> None:
+    assert parse_tiktok_price("150k - 200k") == 150000.0
+    assert parse_tiktok_pdp_price("150k") == 150000.0
+    assert parse_tiktok_pdp_price("₫150.000") == 150000.0
+    assert parse_tiktok_pdp_price("150k - 200k") is None
+    assert parse_tiktok_pdp_price("₫150.000 – ₫200.000") is None
+    assert parse_tiktok_pdp_price("from 150k") is None
+    assert parse_tiktok_pdp_price("150k or 200k") is None
+
+
+def test_exact_pdp_counts_preserve_explicit_zero() -> None:
+    assert parse_tiktok_pdp_sold_count("Đã bán 0") == 0
+    assert parse_tiktok_pdp_review_count("0 reviews") == 0
+    assert parse_tiktok_pdp_sold_count("1.2k sold") == 1200
+    assert parse_tiktok_pdp_review_count("350 reviews") == 350
+    assert parse_tiktok_pdp_sold_count(None) is None
+    assert parse_tiktok_pdp_review_count("") is None
 
 
 def test_parse_tiktok_price_various_formats() -> None:
@@ -262,6 +284,9 @@ def test_parsing_has_no_side_effects() -> None:
         tiktok_parsing.parse_tiktok_rating,
         tiktok_parsing.parse_tiktok_review_count,
         tiktok_parsing.parse_tiktok_discount_percent,
+        tiktok_parsing.parse_tiktok_pdp_price,
+        tiktok_parsing.parse_tiktok_pdp_sold_count,
+        tiktok_parsing.parse_tiktok_pdp_review_count,
         tiktok_parsing.extract_tiktok_product_id,
         tiktok_parsing.build_tiktok_candidate_id,
         tiktok_parsing.build_tiktok_search_url,
@@ -294,4 +319,3 @@ def test_parsing_has_no_side_effects() -> None:
             assert module_name in allowed_module_prefixes or root_pkg in allowed_module_prefixes, f"Forbidden import from: {module_name}"
             for forbidden in forbidden_terms:
                 assert forbidden not in module_name.lower(), f"Forbidden dependency import from: {module_name}"
-

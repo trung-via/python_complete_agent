@@ -92,6 +92,74 @@ def parse_tiktok_price(text: Optional[str]) -> Optional[float]:
         return None
 
 
+def parse_tiktok_pdp_price(text: Optional[str]) -> Optional[float]:
+    """Parse one exact-PDP scalar price without selecting from ambiguity.
+
+    Search-card parsing deliberately admits the lower bound of a displayed range.
+    Exact PDP observations do not: a range, multiple numeric representations, or
+    variant-dependent wording is unknown rather than an inferred scalar.
+    """
+    if not text or not text.strip():
+        return None
+
+    cleaned = text.strip().lower()
+    if re.search(r"(?:\bfrom\b|\bto\b|từ|đến|~|–|—)", cleaned):
+        return None
+    if re.search(r"\d\s*-\s*(?:[\$₫đ£€¥]\s*)?\d", cleaned):
+        return None
+    if re.search(r"(?:^|\s)-\s*(?:[\$₫đ£€¥]\s*)?\d", cleaned):
+        return None
+
+    numeric_tokens = re.findall(r"\d[\d.,]*", cleaned)
+    if len(numeric_tokens) != 1:
+        return None
+    return parse_tiktok_price(text)
+
+
+def _parse_tiktok_pdp_count(text: Optional[str]) -> Optional[int]:
+    """Parse one non-negative PDP count, preserving an explicitly observed zero."""
+    if not text or not text.strip():
+        return None
+
+    cleaned = text.strip().lower()
+    if re.search(r"-\s*\d", cleaned):
+        return None
+
+    numeric_tokens = re.findall(r"\d[\d.,]*", cleaned)
+    if len(numeric_tokens) != 1:
+        return None
+    number = numeric_tokens[0]
+
+    multiplier = 1
+    suffix = cleaned[cleaned.find(number) + len(number):].lstrip()
+    if re.match(r"k\b", suffix):
+        multiplier = 1_000
+    elif re.match(r"(?:tr|triệu|m|mil)\b", suffix):
+        multiplier = 1_000_000
+
+    if multiplier != 1:
+        normalized = number.replace(",", ".")
+    else:
+        normalized = number.replace(".", "").replace(",", "")
+    try:
+        value = float(normalized) * multiplier
+    except ValueError:
+        return None
+    if value < 0 or not value.is_integer():
+        return None
+    return int(value)
+
+
+def parse_tiktok_pdp_sold_count(text: Optional[str]) -> Optional[int]:
+    """Parse an exact-PDP sold count, distinguishing explicit zero from missing."""
+    return _parse_tiktok_pdp_count(text)
+
+
+def parse_tiktok_pdp_review_count(text: Optional[str]) -> Optional[int]:
+    """Parse an exact-PDP review count, distinguishing explicit zero from missing."""
+    return _parse_tiktok_pdp_count(text)
+
+
 def parse_tiktok_sold_count(text: Optional[str]) -> Optional[int]:
     """
     Parses a localized sold volume string into an integer count.
