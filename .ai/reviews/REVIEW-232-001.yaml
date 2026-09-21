@@ -1,0 +1,38 @@
+review_id: REVIEW-232-001
+reviewed_sha: 58ae3aace5673cadce9e1320250b64b6363a191b
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: PASS
+  AC3: FAIL
+  AC4: FAIL
+  AC5: FAIL
+  AC6: PASS
+  AC7: PASS
+  AC8: PASS
+findings:
+  - id: FINDING-232-001
+    basis: AC3
+    action: CODE_FIX
+    location: src/product_intelligence/adapters/tiktok_parsing.py; tests/product_intelligence/test_tiktok_parsing.py; tests/product_intelligence/test_tiktok_pdp.py
+    issue: >
+      TASK-232 explicitly requires strict exact-PDP scalar admission to preserve an explicitly
+      observed zero wherever ProductCandidateSnapshot permits zero, with sold_count and
+      review_count named as particular examples rather than the only fields. ProductCandidateSnapshot
+      permits price and original_price values of 0.0, but parse_tiktok_pdp_price delegates its
+      final scalar to legacy parse_tiktok_price, whose historical search-card contract rejects
+      zero/non-positive prices. Consequently an exact PDP displaying an unambiguous scalar price
+      of 0 is converted to None/unknown, collapsing OBSERVED_ZERO into MISSING. This directly
+      violates AC3 and also prevents AC4 from being fully satisfied for an observed V1 price, while
+      AC5 lacks regression proof for zero-valued current/original price.
+    expected: >
+      Preserve legacy parse_tiktok_price behavior unchanged for search-card discovery, but make
+      the strict exact-PDP price helper independently preserve an unambiguous explicit zero as
+      0.0 while continuing to reject negative, malformed, ranged, variant-dependent, multi-number,
+      or conflicting price representations. Apply the same rule when the collector reconciles
+      current_price and original_price. Add focused offline regressions showing exact-PDP price
+      zero and original-price zero remain 0.0, missing prices remain None, ambiguous/ranged prices
+      remain None, and existing search-card zero/range behavior remains unchanged. Do not broaden
+      fields, live acquisition, browser ownership, Product Source, Affiliate, roadmap handoff, or
+      any other TASK-232 authority.
