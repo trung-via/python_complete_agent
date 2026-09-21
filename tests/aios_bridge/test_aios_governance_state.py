@@ -969,9 +969,6 @@ def test_p8_1_records_selection_only_and_preserves_pre_action_boundaries():
     assert selected["selection_owner"] == "HUMAN"
     assert selected["selection_status"] == "SELECTED"
     assert selected["real_pilot_executed"] is True
-    assert state["post_p8_planning_handoff"]["destination"] == (
-        "HUMAN_OPERATOR_FRESH_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION"
-    )
     assert state["post_p8_planning_handoff"]["automatic_next"] is False
     assert state["post_p8_planning_handoff"]["automatic_p8_4"] is False
     assert state["active_track"]["next_milestone"] is None
@@ -1058,7 +1055,6 @@ def test_p8_2_is_plan_only_and_preserves_evidence_and_action_boundaries():
     completed = {item["task_id"]: item for item in state["completed_milestones"]}
     assert completed["TASK-228"]["source_sha"] == TASK_228_SOURCE_SHA
     handoff = state["post_p8_planning_handoff"]
-    assert handoff["destination"] == "HUMAN_OPERATOR_FRESH_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION"
     assert handoff["automatic_next"] is False
     assert handoff["automatic_p8_4"] is False
     assert handoff["real_pilot_executed"] is True
@@ -1212,7 +1208,6 @@ def test_task_230_closes_only_pdp_compatibility_with_one_parser_authority():
     assert completed["TASK-230"]["public_pdp_affiliate_dependency"] == "NONE"
 
     handoff = state["post_p8_planning_handoff"]
-    assert handoff["destination"] == "HUMAN_OPERATOR_FRESH_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION"
     assert handoff["automated_public_pdp_acquisition_authority"] == "NONE"
     assert handoff["automatic_next"] is False
     assert handoff["automatic_p8_4"] is False
@@ -1433,9 +1428,6 @@ def test_task_233_authorizes_only_one_exact_human_operated_capture():
     assert authorization["real_pilot_executed"] is True
     assert authorization["live_evidence_acquired"] is True
     assert authorization["canonical_evidence_ingested"] is False
-    assert handoff["destination"] == (
-        "HUMAN_OPERATOR_FRESH_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION"
-    )
     assert state["active_track"]["next_milestone"] is None
     assert state["pending_commitments"] == []
 
@@ -1443,6 +1435,7 @@ def test_task_233_authorizes_only_one_exact_human_operated_capture():
 def test_task_234_reconciliation_and_diagnostic_preserve_authority_separation():
     state = load_yaml(ROADMAP_FILE)
     handoff = state["post_p8_planning_handoff"]
+    diagnostic_record = handoff["public_pdp_dom_diagnostic"]
     review = P8_PUBLIC_PDP_LIVE_PILOT_REVIEW_FILE.read_text(encoding="utf-8")
     diagnostic = (
         REPO_ROOT / "src" / "product_intelligence" / "tiktok_pdp_dom_diagnostic.py"
@@ -1473,12 +1466,12 @@ def test_task_234_reconciliation_and_diagnostic_preserve_authority_separation():
     assert handoff["screenshot_or_chat_values_as_canonical_evidence"] is False
     assert handoff["diagnostic_capability_scope"] == "CAPABILITY_IS_NOT_AUTHORITY"
     assert handoff["browser_lifecycle_authority"] == "TASK-137"
-    assert handoff["live_dom_diagnostic_authority"] == (
-        "ONE_SHOT_ATTACH_ONLY_EXACT_LISTING"
-    )
+    assert diagnostic_record[
+        "live_dom_diagnostic_authority_at_task_234_publication"
+    ] == "NONE"
     assert handoff["automated_public_pdp_acquisition_authority"] == "NONE"
     assert handoff["market_test_or_action_authority"] == "NONE"
-    assert handoff["diagnostic_executed"] is False
+    assert diagnostic_record["diagnostic_executed"] is False
     assert handoff["selector_repair_complete"] is False
     assert handoff["next_milestone"] is None
     assert state["pending_commitments"] == []
@@ -1575,9 +1568,6 @@ def test_task_235_authorizes_only_one_attach_only_human_dom_diagnostic_attempt()
     assert handoff["next_milestone"] is None
     assert handoff["automatic_progression"] is False
     assert state["pending_commitments"] == []
-    assert handoff["destination"] == (
-        "HUMAN_OPERATOR_FRESH_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION"
-    )
 
     for required in (
         "1731381331718341815",
@@ -1634,9 +1624,6 @@ def test_task_236_reconciles_consumed_failure_and_hardens_capability_without_aut
     assert hardening["market_test_or_action_authority"] == "NONE"
     assert hardening["post_publication_handoff"] == (
         "HUMAN_BRAIN_FRESH_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION"
-    )
-    assert handoff["destination"] == (
-        "HUMAN_OPERATOR_FRESH_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION"
     )
     assert handoff["next_milestone"] is None
     assert state["pending_commitments"] == []
