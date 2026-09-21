@@ -74,6 +74,11 @@ P8_PUBLIC_PDP_LIVE_PILOT_REVIEW_FILE = (
     / "docs"
     / "PHASE_8_PUBLIC_TIKTOK_PDP_LIVE_PILOT_REVIEW_AND_DOM_DIAGNOSTIC.md"
 )
+P8_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION_FILE = (
+    REPO_ROOT
+    / "docs"
+    / "PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_AUTHORIZATION.md"
+)
 ROADMAP_DOCS = (
     REPO_ROOT / "docs" / "POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
     REPO_ROOT / "docs" / "POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
@@ -190,17 +195,17 @@ def values_for_key(value: object, key: str) -> list[object]:
     return matches
 
 
-def test_roadmap_reconciles_task_233_and_closes_task_234_with_diagnostic_handoff():
+def test_roadmap_closes_task_235_with_one_shot_operator_diagnostic_handoff():
     state = load_yaml(ROADMAP_FILE)
     active = state["active_track"]
-    assert active["id"] == "P8_PUBLIC_PDP_LIVE_PILOT_REVIEW_AND_DOM_DIAGNOSTIC"
+    assert active["id"] == "P8_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION"
     assert active["status"] == "DONE"
     assert active["sequence_status"] == (
-        "COMPLETE_ON_EXACT_TASK_234_SOURCE_PUBLICATION"
+        "COMPLETE_ON_EXACT_TASK_235_SOURCE_PUBLICATION"
     )
-    assert active["current_milestone"]["task_id"] == "TASK-234"
+    assert active["current_milestone"]["task_id"] == "TASK-235"
     assert active["current_milestone"]["classification"] == (
-        "LIVE_PILOT_RECONCILIATION_AND_OFFLINE_DOM_DIAGNOSTIC_ENABLEMENT_ONLY"
+        "ONE_SHOT_ATTACH_ONLY_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION_ONLY"
     )
     assert active["current_milestone"]["authorized_capture_attempts"] == 1
     assert active["current_milestone"]["authorized_capture_attempts_remaining"] == 0
@@ -210,15 +215,23 @@ def test_roadmap_reconciles_task_233_and_closes_task_234_with_diagnostic_handoff
         "EXTERNAL_BOUNDED_SOURCE_ARTIFACT_ONLY"
     )
     assert active["current_milestone"]["canonical_evidence_ingested"] is False
+    assert active["current_milestone"]["live_dom_diagnostic_authority"] == (
+        "ONE_SHOT_ATTACH_ONLY_EXACT_LISTING"
+    )
+    assert active["current_milestone"]["authorized_diagnostic_attempts"] == 1
+    assert active["current_milestone"]["authorized_diagnostic_attempts_remaining"] == 1
+    assert active["current_milestone"]["diagnostic_execution_owner"] == "HUMAN_OPERATOR"
+    assert active["current_milestone"]["diagnostic_executed"] is False
+    assert active["current_milestone"]["selector_repair_complete"] is False
     assert active["next_milestone"] is None
 
     assert values_for_key(state, "status").count("NEXT") == 0
     assert state["pending_commitments"] == []
 
     handoff = state["post_p8_planning_handoff"]
-    assert handoff["destination"] == "HUMAN_BRAIN_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION"
-    assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_234_SOURCE_PUBLICATION"
-    assert handoff["completed_commitment"] == "P8_PUBLIC_PDP_LIVE_PILOT_REVIEW_AND_DOM_DIAGNOSTIC"
+    assert handoff["destination"] == "HUMAN_OPERATOR_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION"
+    assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_235_SOURCE_PUBLICATION"
+    assert handoff["completed_commitment"] == "P8_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION"
     assert handoff["implementation_authorized"] is True
     assert handoff["implementation_exists"] is True
     assert handoff["live_public_pdp_acquisition_authority"] == "NONE"
@@ -230,7 +243,10 @@ def test_roadmap_reconciles_task_233_and_closes_task_234_with_diagnostic_handoff
     assert handoff["automatic_p8_4"] is False
     assert handoff["market_test_or_action_authority"] == "NONE"
     assert handoff["first_live_capture_handoff"] == "COMPLETE"
-    assert handoff["live_dom_diagnostic_authority"] == "NONE"
+    assert handoff["live_dom_diagnostic_authority"] == "ONE_SHOT_ATTACH_ONLY_EXACT_LISTING"
+    assert handoff["authorized_diagnostic_attempts"] == 1
+    assert handoff["authorized_diagnostic_attempts_remaining"] == 1
+    assert handoff["diagnostic_execution_owner"] == "HUMAN_OPERATOR"
     assert handoff["diagnostic_implementation_exists"] is True
     assert handoff["diagnostic_executed"] is False
     assert handoff["selector_repair_complete"] is False
@@ -275,8 +291,19 @@ def test_roadmap_reconciles_task_233_and_closes_task_234_with_diagnostic_handoff
     assert completed["TASK-234"]["classification"] == (
         "LIVE_PILOT_RECONCILIATION_AND_OFFLINE_DOM_DIAGNOSTIC_ENABLEMENT_ONLY"
     )
+    assert completed["TASK-234"]["source_sha"] == (
+        "2859813fd58e63f5434d44f9e76eba78d8a9c41f"
+    )
     assert completed["TASK-234"]["post_publication_handoff"] == (
         "HUMAN_BRAIN_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION"
+    )
+    assert completed["TASK-235"]["classification"] == (
+        "ONE_SHOT_ATTACH_ONLY_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION_ONLY"
+    )
+    assert completed["TASK-235"]["authorized_diagnostic_attempts"] == 1
+    assert completed["TASK-235"]["authorized_diagnostic_attempts_remaining"] == 1
+    assert completed["TASK-235"]["post_publication_handoff"] == (
+        "HUMAN_OPERATOR_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION"
     )
     assert state["authority"] == {
         "owner": "BRAIN",
@@ -837,7 +864,7 @@ def test_p8_1_records_selection_only_and_preserves_pre_action_boundaries():
     assert selected["selection_status"] == "SELECTED"
     assert selected["real_pilot_executed"] is True
     assert state["post_p8_planning_handoff"]["destination"] == (
-        "HUMAN_BRAIN_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION"
+        "HUMAN_OPERATOR_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION"
     )
     assert state["post_p8_planning_handoff"]["automatic_next"] is False
     assert state["post_p8_planning_handoff"]["automatic_p8_4"] is False
@@ -925,7 +952,7 @@ def test_p8_2_is_plan_only_and_preserves_evidence_and_action_boundaries():
     completed = {item["task_id"]: item for item in state["completed_milestones"]}
     assert completed["TASK-228"]["source_sha"] == TASK_228_SOURCE_SHA
     handoff = state["post_p8_planning_handoff"]
-    assert handoff["destination"] == "HUMAN_BRAIN_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION"
+    assert handoff["destination"] == "HUMAN_OPERATOR_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION"
     assert handoff["automatic_next"] is False
     assert handoff["automatic_p8_4"] is False
     assert handoff["real_pilot_executed"] is True
@@ -1079,7 +1106,7 @@ def test_task_230_closes_only_pdp_compatibility_with_one_parser_authority():
     assert completed["TASK-230"]["public_pdp_affiliate_dependency"] == "NONE"
 
     handoff = state["post_p8_planning_handoff"]
-    assert handoff["destination"] == "HUMAN_BRAIN_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION"
+    assert handoff["destination"] == "HUMAN_OPERATOR_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION"
     assert handoff["automated_public_pdp_acquisition_authority"] == "NONE"
     assert handoff["automatic_next"] is False
     assert handoff["automatic_p8_4"] is False
@@ -1301,7 +1328,7 @@ def test_task_233_authorizes_only_one_exact_human_operated_capture():
     assert authorization["live_evidence_acquired"] is True
     assert authorization["canonical_evidence_ingested"] is False
     assert handoff["destination"] == (
-        "HUMAN_BRAIN_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION"
+        "HUMAN_OPERATOR_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION"
     )
     assert state["active_track"]["next_milestone"] is None
     assert state["pending_commitments"] == []
@@ -1340,7 +1367,7 @@ def test_task_234_reconciliation_and_diagnostic_preserve_authority_separation():
     assert handoff["screenshot_or_chat_values_as_canonical_evidence"] is False
     assert handoff["diagnostic_capability_scope"] == "CAPABILITY_IS_NOT_AUTHORITY"
     assert handoff["browser_lifecycle_authority"] == "TASK-137"
-    assert handoff["live_dom_diagnostic_authority"] == "NONE"
+    assert handoff["live_dom_diagnostic_authority"] == "ONE_SHOT_ATTACH_ONLY_EXACT_LISTING"
     assert handoff["automated_public_pdp_acquisition_authority"] == "NONE"
     assert handoff["market_test_or_action_authority"] == "NONE"
     assert handoff["diagnostic_executed"] is False
@@ -1377,6 +1404,93 @@ def test_task_234_reconciliation_and_diagnostic_preserve_authority_separation():
         "persistence",
     ):
         assert f"from src.product_intelligence.{forbidden}" not in diagnostic.lower()
+
+
+def test_task_235_authorizes_only_one_attach_only_human_dom_diagnostic_attempt():
+    state = load_yaml(ROADMAP_FILE)
+    handoff = state["post_p8_planning_handoff"]
+    authorization = handoff["public_pdp_dom_diagnostic_authorization"]
+    document = P8_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION_FILE.read_text(
+        encoding="utf-8"
+    )
+
+    assert authorization["classification"] == (
+        "ONE_SHOT_ATTACH_ONLY_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION_ONLY"
+    )
+    assert authorization["task_id"] == "TASK-235"
+    assert authorization["diagnostic_implementation_task_id"] == "TASK-234"
+    assert authorization["diagnostic_implementation_source_sha"] == (
+        "2859813fd58e63f5434d44f9e76eba78d8a9c41f"
+    )
+    assert authorization["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
+    assert authorization["authorized_source_id"] == SELECTED_SOURCE_ID
+    assert authorization["stable_listing_reference"] == SELECTED_LISTING_REFERENCE
+    assert authorization["live_dom_diagnostic_authority"] == (
+        "ONE_SHOT_ATTACH_ONLY_EXACT_LISTING"
+    )
+    assert authorization["authorized_diagnostic_attempts"] == 1
+    assert authorization["authorized_diagnostic_attempts_remaining"] == 1
+    assert authorization["diagnostic_execution_owner"] == "HUMAN_OPERATOR"
+    assert authorization["browser_session_owner"] == "HUMAN_OPERATOR"
+    assert authorization["browser_lifecycle_authority"] == "TASK-137"
+    assert authorization["exact_current_page_identity_gate"] == "FAIL_CLOSED"
+    assert authorization["challenge_login_captcha_unavailable_gate"] == (
+        "FAIL_CLOSED_ZERO_NAVIGATION_OR_INTERACTION"
+    )
+    assert authorization["attach_only"] is True
+    assert authorization["navigation_or_interaction_authority"] == "NONE"
+    assert authorization["arbitrary_target_or_batch_authority"] == "NONE"
+    assert authorization["automatic_retry_refresh_resume"] is False
+    assert authorization["artifact_boundary"] == "EXPLICIT_EXTERNAL_JOB_ROOT_ONLY"
+    assert authorization["artifact_kind"] == (
+        "EXTERNAL_STRUCTURAL_DIAGNOSTIC_OUTPUT_ONLY"
+    )
+    assert authorization["evidence_authority"] == "NONE"
+    assert authorization["product_candidate_snapshot_authority"] == "NONE"
+    assert authorization["signal_evidence_authority"] == "NONE"
+    assert authorization["product_truth_or_ranking_authority"] == "NONE"
+    assert authorization["diagnostic_implementation_exists"] is True
+    assert authorization["diagnostic_executed"] is False
+    assert authorization["selector_repair_complete"] is False
+    assert authorization["live_public_pdp_acquisition_authority"] == "NONE"
+    assert authorization["automated_public_pdp_acquisition_authority"] == "NONE"
+    assert authorization["market_test_or_action_authority"] == "NONE"
+    assert authorization["automatic_progression"] is False
+    assert authorization["mandatory_post_diagnostic_review"] == "HUMAN_BRAIN"
+
+    assert handoff["authorized_capture_attempts_remaining"] == 0
+    assert handoff["real_pilot_executed"] is True
+    assert handoff["live_evidence_definition"] == (
+        "EXTERNAL_BOUNDED_SOURCE_ARTIFACT_ONLY"
+    )
+    assert handoff["canonical_evidence_ingested"] is False
+    assert handoff["next_milestone"] is None
+    assert handoff["automatic_progression"] is False
+    assert state["pending_commitments"] == []
+    assert handoff["destination"] == (
+        "HUMAN_OPERATOR_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION"
+    )
+
+    for required in (
+        "1731381331718341815",
+        SELECTED_LISTING_REFERENCE,
+        "--job-root",
+        "--cdp-endpoint",
+        "evidence_authority=NONE",
+        "ProductCandidateSnapshot",
+        "SignalEvidence",
+        "TASK-137",
+        "authorized_capture_attempts_remaining=0",
+        "HUMAN_OPERATOR_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION",
+        "CAPABILITY_IS_NOT_AUTHORITY",
+        "EVIDENCE_IS_NOT_PRODUCT_TRUTH",
+        "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY",
+        "SNAPSHOT_IS_NOT_TREND",
+        "ONE_CAPABILITY_ONE_AUTHORITY",
+    ):
+        assert required in document
+    for gate in ("login", "challenge", "CAPTCHA", "unavailable", "different-product"):
+        assert gate in document
 
 
 

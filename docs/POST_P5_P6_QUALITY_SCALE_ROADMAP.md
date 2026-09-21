@@ -21,10 +21,12 @@ implementation is DONE, NEXT is null, pending commitments are empty, and control
 `HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION`; no live capture, automatic pilot, P8.4, market
 test, or action was claimed by TASK-232. TASK-233 was then published exactly at
 `99338787dcfff5e1897b9d58c12b04f7961f6e58`, its single Human-operated attempt was consumed, and
-TASK-234 reconciles the bounded external artifact without canonical ingestion while enabling only
-an offline attach-only DOM diagnostic. The current handoff is
-`HUMAN_BRAIN_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION`; no diagnostic or second capture is
-authorized automatically.
+TASK-234 was published exactly at `2859813fd58e63f5434d44f9e76eba78d8a9c41f`, reconciling the
+bounded external artifact without canonical ingestion while enabling only an offline attach-only
+DOM diagnostic. TASK-235 now records the Human/Brain authorization for exactly one attach-only
+diagnostic attempt against that same fixed listing. The current handoff is
+`HUMAN_OPERATOR_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION`; no diagnostic, retry, second capture,
+selector repair, automated acquisition, test, or action is authorized automatically.
 P6.2 remains PARKED and P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
 Scope: Python Agent product architecture post-P5; AIOS-renew remains execution substrate only.
 
@@ -493,6 +495,28 @@ On exact reviewed TASK-234 publication, diagnostic implementation exists but
 `market_test_or_action_authority=NONE`. `next_milestone` is null, pending commitments are empty,
 and the exact handoff is `HUMAN_BRAIN_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION`.
 
+- **P8 Public TikTok PDP One-Shot DOM Diagnostic Authorization (TASK-235 — publication-gated DONE
+  only as `ONE_SHOT_ATTACH_ONLY_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION_ONLY`)**: records the
+  Human/Brain decision to authorize exactly one invocation of the TASK-234 diagnostic carrier for
+  context `p8-pilot-001-led-motion-tiktok-vn`, source ID `1731381331718341815`, and the same fixed
+  selected listing. Execution belongs only to the Human operator using an explicit external job
+  root and operator-owned CDP endpoint after the exact page is already open. The carrier has no
+  navigation or interaction authority and fails closed on login, challenge, CAPTCHA, unavailable,
+  unrelated, malformed, unverifiable, or different-product state.
+
+  On exact reviewed TASK-235 publication,
+  `live_dom_diagnostic_authority=ONE_SHOT_ATTACH_ONLY_EXACT_LISTING`,
+  `authorized_diagnostic_attempts=1`, `authorized_diagnostic_attempts_remaining=1`, and
+  `diagnostic_execution_owner=HUMAN_OPERATOR`. The implementation exists, but
+  `diagnostic_executed=false` and `selector_repair_complete=false`. TASK-233 capture authority
+  remains consumed with zero attempts remaining. The diagnostic artifact is external structural
+  output with `evidence_authority=NONE`; it cannot mutate or satisfy `ProductCandidateSnapshot`,
+  `SignalEvidence`, canonical evidence, Product Truth, ranking, approval, trend, test, or action
+  semantics. Automated and live public-PDP acquisition authority and market-test/action authority
+  remain `NONE`. `next_milestone` is null, pending commitments are empty, automatic progression is
+  false, and the exact handoff is
+  `HUMAN_OPERATOR_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION`.
+
 See `docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md` for the exact P8.0 source
 `a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e`,
 `docs/PHASE_8_P8_1_REAL_DECISION_PILOT_SELECTION.md` for the exact P8.1 selection record, and
@@ -507,6 +531,8 @@ See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_LIVE_PILOT_AUTHORIZATION.md` for the TASK-23
 authorization and Human-review boundary.
 See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_LIVE_PILOT_REVIEW_AND_DOM_DIAGNOSTIC.md` for the TASK-234
 reconciliation, diagnostic boundary, and cleanup clarification.
+See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_AUTHORIZATION.md` for the TASK-235 exact
+one-attempt Human/Brain authorization and Human-operator execution boundary.
 
 
 The complete audit and P7.0 boundary are recorded in
