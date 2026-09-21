@@ -1,0 +1,279 @@
+task_id: TASK-234
+revision: 1
+
+goal: >
+  Reconcile the Human-operated TASK-233 one-shot TikTok PDP live pilot that has now actually
+  occurred, preserve its partial live observation without promoting chat/screenshot content into
+  canonical Product Intelligence evidence, implement one bounded attach-only DOM diagnostic
+  capability for the same exact selected listing, and correct TASK-233 consumer cleanup so
+  Python Agent releases only its owned Playwright/CDP connection resources through the existing
+  TASK-137 browser lifecycle authority without closing the Human-owned Chrome/context/page.
+  Do not execute a live diagnostic or second PDP capture in this engineering task.
+
+problem: >
+  TASK-233 is published exactly at 99338787dcfff5e1897b9d58c12b04f7961f6e58 and granted one
+  Human-operated capture attempt for source ID 1731381331718341815. The Human then executed that
+  exact operation outside ordinary AIOS verification. The bounded result reported SUCCESS with
+  requested URL equal to observed URL, identity basis OBSERVED_URL bound to the exact source ID,
+  a non-empty title, and null shop_name, price, original_price, discount_percent, sold_count,
+  rating and review_count. A contemporaneous Human-visible PDP screenshot showed that several
+  of those categories were visibly present in the UI, which is diagnostic context that the
+  existing extraction selectors missed the live DOM; the screenshot and displayed values are
+  not automatically canonical Product Intelligence evidence and must not be transcribed into the
+  snapshot or roadmap as product truth.
+
+  Canonical roadmap state still says real_pilot_executed=false and live_evidence_acquired=false,
+  and still presents the TASK-233 one-attempt authority as unconsumed. That planning state is now
+  stale relative to the Human-operated event and must be reconciled without pretending the
+  external artifact has been canonically ingested. Separately, the live operation ended with
+  Python 3.14 asyncio transport deallocator warnings. TASK-137 already owns borrowed-CDP lifecycle
+  and explicitly requires close/cleanup to release Python Agent-owned Playwright connection and
+  listeners without closing borrowed Chrome/context/page. TASK-233's consumer-level prohibition
+  on manager.close_session was therefore over-conservative and left owned Playwright resources
+  unreleased.
+
+  The exact live DOM selectors remain unknown. Guessing CSS from a screenshot would risk another
+  live miss. The smallest correct next capability is one attach-only, no-navigation DOM diagnostic
+  that inspects the already-open exact PDP and emits only bounded structural selector hints.
+  It is diagnostic capability only, not evidence acquisition, parsing, Product Truth, or a second
+  Product Intelligence observation authority.
+
+assumptions:
+  - Canonical main at authoring is 99338787dcfff5e1897b9d58c12b04f7961f6e58.
+  - TASK-233 / RUN-233-002 / REVIEW-233-001 are PASS and exactly source-published on canonical main.
+  - The Human-operated TASK-233 live command was actually invoked once after publication and returned operation.status SUCCESS.
+  - The reported live result bound requested and observed URL to source ID 1731381331718341815 through OBSERVED_URL and produced a safe external artifact.
+  - The reported snapshot contained an explicit title while shop_name, price, original_price, discount_percent, sold_count, rating and review_count remained null/unknown.
+  - The Human-visible screenshot is diagnostic context only; its displayed values are not repository evidence, ProductCandidateSnapshot truth, P7.4 evidence, recommendation, approval or market-test evidence.
+  - TASK-231 remains the sole public-PDP acquisition contract; ProductCandidateSnapshot remains the sole public marketplace observation contract and SignalEvidence remains the field-evidence owner.
+  - src/product_intelligence/adapters/tiktok_parsing.py remains the sole canonical TikTok parser/identity authority.
+  - TASK-137 and the existing PlaywrightBrowserManager/PlaywrightBrowserSession remain the sole browser/CDP lifecycle authority.
+  - In borrowed CDP mode, PlaywrightBrowserSession.close() is already designed not to close the Human-owned browser/context/page and to stop only Python Agent-owned Playwright resources/listeners.
+  - No exact live DOM selector for the missing V1 fields has yet been canonically established.
+  - Public PDP and TikTok Affiliate lanes remain independent.
+  - EVIDENCE_IS_NOT_PRODUCT_TRUTH, SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY, SNAPSHOT_IS_NOT_TREND, CAPABILITY_IS_NOT_AUTHORITY and ONE_CAPABILITY_ONE_AUTHORITY remain mandatory.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_8_P8_2_PRE_ACTION_EVIDENCE_ACQUISITION_PLAN.md
+    - docs/PHASE_8_P8_3_MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_COLLECTOR_IMPLEMENTATION.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_LIVE_PILOT_AUTHORIZATION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - .ai/aios-adoption-state.yaml
+    - .ai/aios-conformance-state.yaml
+    - .ai/tasks/TASK-137.yaml
+    - .ai/tasks/TASK-231.yaml
+    - .ai/tasks/TASK-232.yaml
+    - .ai/tasks/TASK-233.yaml
+    - src/browser/manager.py
+    - src/browser/session.py
+    - src/integrations/playwright/manager.py
+    - src/integrations/playwright/session.py
+    - src/product_intelligence/adapters/tiktok_pdp.py
+    - src/product_intelligence/adapters/tiktok_parsing.py
+    - src/product_intelligence/tiktok_pdp_live_pilot.py
+    - src/product_intelligence/cli.py
+    - tests/integration/test_browser_cdp.py
+    - tests/product_intelligence/test_tiktok_pdp.py
+    - tests/product_intelligence/test_tiktok_pdp_live_pilot.py
+    - tests/product_intelligence/test_product_intelligence_cli.py
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - src/product_intelligence/tiktok_pdp_dom_diagnostic.py
+    - src/product_intelligence/tiktok_pdp_live_pilot.py
+    - src/product_intelligence/cli.py
+    - tests/product_intelligence/test_tiktok_pdp_dom_diagnostic.py
+    - tests/product_intelligence/test_tiktok_pdp_live_pilot.py
+    - tests/product_intelligence/test_product_intelligence_cli.py
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_LIVE_PILOT_REVIEW_AND_DOM_DIAGNOSTIC.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_LIVE_PILOT_AUTHORIZATION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - Execute TikTok, attach to live Chrome/CDP, run the diagnostic, navigate the selected PDP, or perform a second live capture during TASK-234 engineering or verification.
+  - Modify TIKTOK_PDP_EXTRACTION_SCRIPT, TikTokPdpCollector selectors, ProductCandidateSnapshot, SignalEvidence, SnapshotNormalizer, canonical TikTok parsing, scoring, ranking, approval, identity/catalog, persistence, P7.3-P7.7, or P8.0 semantics.
+  - Transcribe screenshot-visible price, original price, discount, sold, rating, review, seller or variant values into repository state, fixtures claimed as live evidence, ProductCandidateSnapshot, SignalEvidence or any canonical truth/evidence store.
+  - Add a second public-PDP collector, second parser, generic DOM scraper, generic marketplace crawler, search, similar-listing discovery, batch operation, scheduler, watcher, queue, recurring capture, automatic retry, auto-resume, proxy, stealth, evasion, CAPTCHA solver, credential capture or session capture.
+  - Access TikTok Affiliate UI or add Affiliate eligibility, commission, estimated commission, creator/video/similar-listing, Wave-2, audience, competition, velocity, trend or forecast semantics.
+  - Modify BrowserManager, BrowserSession, PlaywrightBrowserManager or PlaywrightBrowserSession lifecycle implementation owned by TASK-137.
+  - Ingest the external live artifact into canonical Product Intelligence evidence, construct P7.4/P7.5, authorize TEST_READY, market testing, spend, traffic, content publication, price/inventory mutation, recommendation, winner judgment or commerce action.
+  - Automatically authorize or execute a live DOM diagnostic after TASK-234 publication.
+  - Author TASK-235 or any extractor repair in this task.
+
+constraints:
+  hard:
+    - >
+      Classification is exactly LIVE_PILOT_RECONCILIATION_AND_OFFLINE_DOM_DIAGNOSTIC_ENABLEMENT_ONLY.
+      TASK-234 records the already-occurred Human operation and implements a diagnostic carrier;
+      it does not itself perform a marketplace operation.
+    - >
+      Reconcile canonical planning state publication-gated: TASK-233 remains immutable published
+      history with source SHA 99338787dcfff5e1897b9d58c12b04f7961f6e58; record that its single
+      Human-operated capture attempt was consumed, real_pilot_executed is true, a bounded external
+      live source artifact was acquired, authorized_capture_attempts_remaining is 0, and
+      canonical_evidence_ingested is false. Define live_evidence_acquired here only as existence
+      of the bounded external source artifact, never as Product Truth, complete evidence, P7.4
+      evidence or repository ingestion.
+    - >
+      Record the observed field coverage only at semantic status level: identity_binding OBSERVED,
+      title OBSERVED, and shop_name/price/original_price/discount_percent/sold_count/rating/
+      review_count UNKNOWN from the TASK-233 artifact. Do not persist screenshot-visible displayed
+      values as evidence or truth.
+    - >
+      Create src/product_intelligence/tiktok_pdp_dom_diagnostic.py as diagnostic orchestration only.
+      It may instantiate the existing PlaywrightBrowserManager using an explicit operator-supplied
+      CDP endpoint, borrow exactly one session, evaluate exactly one bounded diagnostic script on
+      the currently open page, validate current-page identity through the canonical TikTok parser,
+      write one bounded external diagnostic artifact, then release the manager session through
+      existing browser lifecycle authority. It must not navigate, refresh, click, type, scroll,
+      search, change variants, open another page, or invoke TikTokPdpCollector.
+    - >
+      The diagnostic target is fixed to context p8-pilot-001-led-motion-tiktok-vn and source ID
+      1731381331718341815. The current page observed URL must itself canonically parse to that
+      source ID or otherwise expose only agreeing explicit current-product IDs through the same
+      canonical identity authority. Search/login/challenge/captcha/unavailable/unrelated/different
+      product/malformed/unverifiable identity fails closed with no diagnostic artifact.
+    - >
+      The diagnostic JavaScript must inspect only a bounded visible PDP subtree, preferring main.
+      It may detect text shapes relevant to V1 selector discovery but must emit structural hints,
+      not admitted marketplace values. Allowed hint categories are TITLE_LIKE, SHOP_LIKE,
+      CURRENT_PRICE_LIKE, ORIGINAL_PRICE_LIKE, DISCOUNT_LIKE, SOLD_LIKE, RATING_LIKE and
+      REVIEW_LIKE. A hint is not evidence and must never be parsed into ProductCandidateSnapshot.
+    - >
+      Each emitted structural candidate is bounded to an allowlist such as field_hint,
+      text_excerpt, tag_name, bounded class_tokens, data-testid, data-e2e, aria-label, role,
+      itemprop, and bounded parent/grandparent signatures. Cap candidate count per hint and total
+      candidate count, cap every excerpt/attribute length, preserve deterministic ordering, and
+      reject payloads outside the exact diagnostic schema.
+    - >
+      The diagnostic must never return or persist document.body.innerHTML, outerHTML, arbitrary
+      full-page text, cookies, localStorage/sessionStorage, headers, network payloads, request/
+      response bodies, tokens, credentials, QR/login codes, browser profile paths, CDP endpoint,
+      private messages, screenshots, media, account identifiers, or data outside the bounded
+      structural allowlist.
+    - >
+      The diagnostic CLI must require only explicit external --job-root and operator-owned
+      --cdp-endpoint; it must expose no URL/source/query override, navigation, retry, profile,
+      cookie, Affiliate, scheduler or generic scraping controls. The external root must resolve
+      outside the Git repository and the fixed diagnostic artifact must be create-exclusive.
+    - >
+      Correct src/product_intelligence/tiktok_pdp_live_pilot.py consumer cleanup to use existing
+      BrowserManager lifecycle in a finally path after session acquisition. Calling
+      manager.close_session(run_id) is required to release Python Agent-owned Playwright
+      connection/listeners; the carrier must not call session.close() directly, close_all(), or
+      browser/context/page close operations. Preserve the primary operation exception if cleanup
+      also fails.
+    - >
+      The TASK-234 clarification to the TASK-233 authorization document must state that lifecycle
+      release through manager.close_session does not terminate borrowed Human-owned Chromium,
+      context or page under TASK-137. It supersedes only TASK-233's over-conservative consumer
+      prohibition on manager.close_session; it does not transfer browser lifecycle authority into
+      Product Intelligence.
+    - >
+      Deterministic tests must prove the live-pilot carrier releases one acquired manager session
+      on success and on collector failure, never calls close_all, and preserves the primary
+      failure if cleanup fails. Reuse existing TASK-137 browser-CDP regressions as authoritative
+      proof that closing a borrowed session does not close Human-owned Chrome/context/page; do not
+      duplicate browser lifecycle semantics in Product Intelligence tests.
+    - >
+      Deterministic DOM-diagnostic tests must use only fake manager/session/time/filesystem
+      boundaries. They must prove zero navigate/click/type/scroll, exactly one evaluate, exact
+      current-page identity binding, challenge/login/different-product failure, fixed target/no
+      overrides, bounded allowlisted structural schema, candidate caps and ordering, external-root
+      enforcement, create-exclusive artifact behavior, CDP secrecy, no raw HTML/storage/network
+      data, and manager-session release on success and failure.
+    - >
+      Add docs/PHASE_8_PUBLIC_TIKTOK_PDP_LIVE_PILOT_REVIEW_AND_DOM_DIAGNOSTIC.md recording the
+      Human-reviewed execution event, consumed authorization, partial field coverage, non-ingestion
+      of screenshot/chat values, selector-miss diagnosis, bounded diagnostic design, cleanup
+      clarification and the mandatory fresh Human/Brain live-diagnostic authorization gate.
+    - >
+      Update both canonical roadmaps and .ai/roadmap-state.yaml only publication-gated. On exact
+      reviewed TASK-234 publication record active state as reconciled live-pilot review /
+      diagnostic enablement DONE; real_pilot_executed true; live_evidence_acquired true with
+      definition EXTERNAL_BOUNDED_SOURCE_ARTIFACT_ONLY; canonical_evidence_ingested false;
+      TASK-233 authorization consumed; remaining attempts 0; diagnostic implementation exists true;
+      live_dom_diagnostic_authority NONE; automated_public_pdp_acquisition_authority NONE;
+      market_test_or_action_authority NONE; next_milestone null; pending_commitments empty; and
+      handoff exactly HUMAN_BRAIN_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION.
+    - >
+      Do not mark any missing V1 marketplace field observed merely because it was visible in the
+      screenshot. Do not mark diagnostic_executed true or selector_repair_complete true. Those can
+      change only after a later separately authorized live diagnostic and review.
+    - >
+      Extend governance regression additively to prove consumed TASK-233 authority, external
+      live-artifact-not-canonical-evidence semantics, partial field coverage, no screenshot-value
+      promotion, diagnostic capability-not-authority, zero diagnostic live authority, TASK-137
+      lifecycle ownership, null NEXT and exact Human/Brain diagnostic-authorization handoff.
+    - >
+      Modify only the twelve authorized paths. Produce one candidate and one ResultPackage.
+      Runtime owns deterministic verification; Executor must not run TikTok/CDP live, publish,
+      authorize a live diagnostic, repair PDP selectors, or start a successor.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Canonical planning state publication-gated reconciles the already-performed TASK-233 operation:
+      one authorized attempt consumed, remaining attempts zero, real pilot executed, bounded external
+      live source artifact acquired, canonical evidence not ingested, identity/title observed and all
+      other TASK-231 V1 optional fields still unknown.
+  - id: AC2
+    condition: >
+      Screenshot/chat-visible marketplace values are explicitly excluded from canonical evidence and
+      no ProductCandidateSnapshot, SignalEvidence, P7.4/P7.5, scoring, ranking, approval, test or action
+      semantics are created or mutated by the reconciliation.
+  - id: AC3
+    condition: >
+      One bounded attach-only DOM diagnostic capability exists for the fixed exact listing, performs
+      no navigation or interaction, validates the already-open page with the canonical TikTok identity
+      authority, evaluates once, and emits only bounded structural field hints with evidence authority NONE.
+  - id: AC4
+    condition: >
+      Diagnostic artifacts are external, exclusive, secret-free and schema-bounded; challenge/login/
+      unavailable/unrelated/different/malformed/unverifiable identity fails closed and no raw HTML,
+      storage, network, credentials, endpoint or arbitrary page text is persisted.
+  - id: AC5
+    condition: >
+      The TASK-233 live-pilot carrier now releases an acquired borrowed session through
+      manager.close_session in finally without directly owning browser/context/page closure, preserves
+      primary failures, and existing TASK-137 CDP regressions prove Human-owned borrowed resources
+      remain open.
+  - id: AC6
+    condition: >
+      Deterministic offline regressions prove no live network/CDP access, no diagnostic navigation,
+      exactly one evaluate, fixed target, bounded deterministic candidates, external-root and
+      create-exclusive behavior, endpoint secrecy, lifecycle release, and absence of forbidden
+      Product Source/Affiliate/scoring/ranking/approval/persistence dependencies.
+  - id: AC7
+    condition: >
+      Documentation and governance state preserve Product Intelligence/browser authority separation,
+      EVIDENCE_IS_NOT_PRODUCT_TRUTH, SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY, SNAPSHOT_IS_NOT_TREND,
+      CAPABILITY_IS_NOT_AUTHORITY and ONE_CAPABILITY_ONE_AUTHORITY while correcting only the
+      TASK-233 consumer cleanup interpretation.
+  - id: AC8
+    condition: >
+      On exact reviewed publication, diagnostic implementation exists but live diagnostic authority
+      remains NONE, automatic acquisition/action remain NONE, no selector repair is claimed, next
+      milestone is null, pending commitments are empty, and the exact handoff is
+      HUMAN_BRAIN_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION.
+  - id: AC9
+    condition: >
+      Exactly the twelve authorized paths change; focused pytest including existing TASK-137 CDP
+      lifecycle regressions and git diff --check pass with zero unresolved items, producing one
+      candidate eligible for independent PRIMARY semantic review without any live marketplace action.
+
+verification:
+  required:
+    - python -m pytest tests/product_intelligence/test_tiktok_pdp_dom_diagnostic.py tests/product_intelligence/test_tiktok_pdp_live_pilot.py tests/product_intelligence/test_product_intelligence_cli.py tests/product_intelligence/test_tiktok_pdp.py tests/integration/test_browser_cdp.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task234-primary
+    - git diff --check
