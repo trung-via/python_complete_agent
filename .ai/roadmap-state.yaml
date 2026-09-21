@@ -867,6 +867,7 @@ completed_milestones:
     status: DONE
     completion_basis: PUBLICATION_GATED
     classification: FAILED_LIVE_DOM_DIAGNOSTIC_RECONCILIATION_AND_BOUNDED_ADMISSION_HARDENING_ONLY
+    source_sha: a53510ff353cdf926a76f1dc84363b7835c5cb4d
     historical_attempt_task_id: TASK-235
     historical_attempt_source_sha: eedad88f5c676c647d418da62e554529ea29b161
     diagnostic_executed: true
