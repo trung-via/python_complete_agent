@@ -71,3 +71,15 @@ On exact reviewed TASK-235 publication:
 The exact handoff is `HUMAN_OPERATOR_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION`. After the one
 attempt, success or failure, mandatory Human/Brain review is required. No extractor repair,
 successor, acquisition, retry, test, or action follows automatically.
+
+## Historical execution reconciliation
+
+The one attempt was subsequently invoked and failed closed with the legacy combined message
+`the current page is not an available public PDP`; it created no artifact. TASK-236 records the
+attempt as consumed with `diagnostic_executed=true`, `diagnostic_outcome=FAIL_CLOSED`,
+`authorized_diagnostic_attempts_remaining=0`, and `live_dom_diagnostic_authority=NONE`. Because
+this TASK-235 carrier combined multiple admission gates, the historical cause is only
+`LEGACY_COMBINED_PUBLIC_PDP_AVAILABILITY_GATE`. Human screenshot context is
+`NON_CANONICAL_DIAGNOSTIC_CONTEXT` and proves neither the internal gate nor marketplace evidence.
+See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_REVIEW_AND_HARDENING.md`. A later attempt requires
+the exact fresh handoff `HUMAN_BRAIN_FRESH_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION`.

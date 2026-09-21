@@ -23,9 +23,11 @@ test, or action was claimed by TASK-232. TASK-233 was then published exactly at
 `99338787dcfff5e1897b9d58c12b04f7961f6e58`, its single Human-operated attempt was consumed, and
 TASK-234 was published exactly at `2859813fd58e63f5434d44f9e76eba78d8a9c41f`, reconciling the
 bounded external artifact without canonical ingestion while enabling only an offline attach-only
-DOM diagnostic. TASK-235 now records the Human/Brain authorization for exactly one attach-only
-diagnostic attempt against that same fixed listing. The current handoff is
-`HUMAN_OPERATOR_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION`; no diagnostic, retry, second capture,
+DOM diagnostic. TASK-235 published exactly at `eedad88f5c676c647d418da62e554529ea29b161`;
+its one Human-operated diagnostic attempt was invoked, failed closed through the legacy combined
+availability gate, created no artifact, and is consumed. TASK-236 reconciles that history and
+hardens only bounded offline diagnostic admission. The current handoff is
+`HUMAN_BRAIN_FRESH_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION`; no retry, second capture,
 selector repair, automated acquisition, test, or action is authorized automatically.
 P6.2 remains PARKED and P6.4-P6.6 remain DEFERRED / UNIMPLEMENTED.
 Scope: Python Agent product architecture post-P5; AIOS-renew remains execution substrate only.
@@ -517,6 +519,22 @@ and the exact handoff is `HUMAN_BRAIN_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORI
   false, and the exact handoff is
   `HUMAN_OPERATOR_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_EXECUTION`.
 
+- **P8 Public TikTok PDP DOM Diagnostic Reconciliation and Hardening (TASK-236 —
+  publication-gated DONE only as
+  `FAILED_LIVE_DOM_DIAGNOSTIC_RECONCILIATION_AND_BOUNDED_ADMISSION_HARDENING_ONLY`)**: records the
+  TASK-235 attempt as `diagnostic_executed=true`, `diagnostic_outcome=FAIL_CLOSED`, zero artifact,
+  zero attempts remaining, and `live_dom_diagnostic_authority=NONE`. The historical cause remains
+  only `LEGACY_COMBINED_PUBLIC_PDP_AVAILABILITY_GATE`; the Human screenshot is
+  `NON_CANONICAL_DIAGNOSTIC_CONTEXT`, not proof of the gate or marketplace evidence.
+
+  Offline hardening preserves exact URL identity, exactly one evaluation, zero interaction,
+  bounded output, and TASK-137 cleanup. It adds capped title/price/purchase-anchor common-ancestor
+  discovery after explicit-root and `main` preference, explicit listing-level unavailable checks,
+  and stable safe reason codes. On exact reviewed publication,
+  `diagnostic_hardening_implemented=true`, `selector_repair_complete=false`, acquisition/test/action
+  authorities remain `NONE`, `next_milestone` is null, pending commitments are empty, and the exact
+  handoff is `HUMAN_BRAIN_FRESH_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION`.
+
 See `docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md` for the exact P8.0 source
 `a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e`,
 `docs/PHASE_8_P8_1_REAL_DECISION_PILOT_SELECTION.md` for the exact P8.1 selection record, and
@@ -533,6 +551,8 @@ See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_LIVE_PILOT_REVIEW_AND_DOM_DIAGNOSTIC.md` for
 reconciliation, diagnostic boundary, and cleanup clarification.
 See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_AUTHORIZATION.md` for the TASK-235 exact
 one-attempt Human/Brain authorization and Human-operator execution boundary.
+See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_REVIEW_AND_HARDENING.md` for the TASK-236
+consumed-attempt reconciliation, bounded hardening, and fresh-authorization handoff.
 
 
 The complete audit and P7.0 boundary are recorded in

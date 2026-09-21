@@ -11,9 +11,15 @@ import pytest
 
 from src.product_intelligence.tiktok_pdp_dom_diagnostic import (
     ARTIFACT_FILENAME,
+    BLOCKED_OR_CHALLENGE,
     DIAGNOSTIC_CONTEXT_ID,
     DIAGNOSTIC_SCRIPT,
     DIAGNOSTIC_SOURCE_ID,
+    IDENTITY_MISMATCH,
+    LISTING_UNAVAILABLE,
+    LOGIN_GATE,
+    MALFORMED_DIAGNOSTIC_PAYLOAD,
+    NO_BOUNDED_PDP_ROOT,
     TikTokPdpDomDiagnosticArtifactExistsError,
     TikTokPdpDomDiagnosticError,
     TikTokPdpDomDiagnosticJobRootError,
@@ -45,17 +51,25 @@ def _candidate(hint="TITLE_LIKE", excerpt="bounded visible excerpt"):
     }
 
 
+def _state(**overrides):
+    state = {
+        "identity_bound": True,
+        "has_bounded_root": True,
+        "root_kind": "EXPLICIT_PDP_ROOT",
+        "blocked": False,
+        "login": False,
+        "unavailable": False,
+    }
+    state.update(overrides)
+    return state
+
+
 def _payload(**overrides):
     payload = {
         "schema_version": 1,
         "observed_url": OBSERVED_URL,
         "explicit_product_ids": [DIAGNOSTIC_SOURCE_ID],
-        "page_state": {
-            "has_bounded_root": True,
-            "blocked": False,
-            "login": False,
-            "unavailable": False,
-        },
+        "page_state": _state(),
         "candidates": [_candidate()],
     }
     payload.update(overrides)
@@ -173,24 +187,57 @@ async def test_success_evaluates_once_is_fixed_bounded_external_and_secret_free(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "payload",
+    "root_kind", ("EXPLICIT_PDP_ROOT", "MAIN", "MULTI_ANCHOR_COMMON_ANCESTOR")
+)
+async def test_explicit_main_and_bounded_multi_anchor_roots_are_admitted(
+    external_temp_path, root_kind
+):
+    FakeManager.payload = _payload(page_state=_state(root_kind=root_kind))
+    outcome = await run_tiktok_pdp_dom_diagnostic(
+        job_root=external_temp_path / root_kind.lower(),
+        cdp_endpoint=ENDPOINT,
+        clock=lambda: OBSERVED_AT,
+        manager_factory=FakeManager,
+    )
+
+    manager = FakeManager.instances[0]
+    assert manager.session.evaluate_calls == [DIAGNOSTIC_SCRIPT]
+    assert manager.close_session_calls == manager.get_calls
+    assert outcome.document["diagnostic"]["status"] == "SUCCESS"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("payload", "reason"),
     (
-        _payload(page_state={"has_bounded_root": True, "blocked": True, "login": False, "unavailable": False}),
-        _payload(page_state={"has_bounded_root": True, "blocked": False, "login": True, "unavailable": False}),
-        _payload(page_state={"has_bounded_root": True, "blocked": False, "login": False, "unavailable": True}),
-        _payload(observed_url="https://shop.tiktok.com/vn/pdp/other/999", explicit_product_ids=["999"]),
-        _payload(
-            observed_url="https://shop.tiktok.com/vn/search?q=led",
-            explicit_product_ids=[DIAGNOSTIC_SOURCE_ID],
+        (_payload(page_state=_state(blocked=True)), BLOCKED_OR_CHALLENGE),
+        (_payload(page_state=_state(login=True)), LOGIN_GATE),
+        (_payload(page_state=_state(unavailable=True)), LISTING_UNAVAILABLE),
+        (
+            _payload(
+                observed_url="https://shop.tiktok.com/vn/pdp/other/999",
+                explicit_product_ids=["999"],
+                page_state=_state(identity_bound=False),
+            ),
+            IDENTITY_MISMATCH,
         ),
+        (
+            _payload(
+                observed_url="https://shop.tiktok.com/vn/search?q=led",
+                explicit_product_ids=[DIAGNOSTIC_SOURCE_ID],
+                page_state=_state(identity_bound=False),
+            ),
+            IDENTITY_MISMATCH,
+        ),
+        (_payload(page_state=_state(has_bounded_root=False, root_kind="NONE")), NO_BOUNDED_PDP_ROOT),
     ),
 )
-async def test_unavailable_challenge_login_unrelated_or_unverifiable_fails_closed(
-    external_temp_path, payload
+async def test_safe_page_state_identity_and_root_failures_are_separately_observable(
+    external_temp_path, payload, reason
 ):
     FakeManager.payload = payload
     root = external_temp_path / "failed"
-    with pytest.raises(TikTokPdpDomDiagnosticError):
+    with pytest.raises(TikTokPdpDomDiagnosticError, match=f"^{reason}$"):
         await run_tiktok_pdp_dom_diagnostic(
             job_root=root,
             cdp_endpoint=ENDPOINT,
@@ -217,10 +264,11 @@ async def test_unrelated_shop_page_with_target_product_card_fails_closed(
     FakeManager.payload = _payload(
         observed_url=observed_url,
         explicit_product_ids=[DIAGNOSTIC_SOURCE_ID],
+        page_state=_state(identity_bound=False),
     )
     root = external_temp_path / "unrelated-card"
 
-    with pytest.raises(TikTokPdpDomDiagnosticError):
+    with pytest.raises(TikTokPdpDomDiagnosticError, match=f"^{IDENTITY_MISMATCH}$"):
         await run_tiktok_pdp_dom_diagnostic(
             job_root=root,
             cdp_endpoint=ENDPOINT,
@@ -232,21 +280,19 @@ async def test_unrelated_shop_page_with_target_product_card_fails_closed(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("state_name", ("blocked", "login"))
+@pytest.mark.parametrize(
+    ("state_name", "reason"),
+    (("blocked", BLOCKED_OR_CHALLENGE), ("login", LOGIN_GATE)),
+)
 async def test_challenge_or_login_overlay_over_valid_pdp_fails_closed(
-    external_temp_path, state_name
+    external_temp_path, state_name, reason
 ):
-    page_state = {
-        "has_bounded_root": True,
-        "blocked": False,
-        "login": False,
-        "unavailable": False,
-    }
+    page_state = _state()
     page_state[state_name] = True
     FakeManager.payload = _payload(page_state=page_state)
     root = external_temp_path / f"{state_name}-overlay"
 
-    with pytest.raises(TikTokPdpDomDiagnosticError):
+    with pytest.raises(TikTokPdpDomDiagnosticError, match=f"^{reason}$"):
         await run_tiktok_pdp_dom_diagnostic(
             job_root=root,
             cdp_endpoint=ENDPOINT,
@@ -271,7 +317,9 @@ async def test_malformed_unbounded_over_cap_or_unsorted_payload_is_rejected(
     external_temp_path, payload
 ):
     FakeManager.payload = payload
-    with pytest.raises(TikTokPdpDomDiagnosticError):
+    with pytest.raises(
+        TikTokPdpDomDiagnosticError, match=f"^{MALFORMED_DIAGNOSTIC_PAYLOAD}$"
+    ):
         await run_tiktok_pdp_dom_diagnostic(
             job_root=external_temp_path / "malformed",
             cdp_endpoint=ENDPOINT,
@@ -358,3 +406,13 @@ def test_diagnostic_script_scopes_identity_and_detects_page_level_overlays():
     assert "form[action*=\"/login\" i]" in DIAGNOSTIC_SCRIPT
     assert "input[type=\"password\"]" in DIAGNOSTIC_SCRIPT
     assert "meta[itemprop=\"productID\"], [data-product-id]" not in DIAGNOSTIC_SCRIPT
+    assert "identityBound && !blocked && !login && !unavailable" in DIAGNOSTIC_SCRIPT
+    assert "MULTI_ANCHOR_COMMON_ANCESTOR" in DIAGNOSTIC_SCRIPT
+    assert "const titles = firstVisible(document.body, titleSelectors, 12)" in DIAGNOSTIC_SCRIPT
+    assert "chain.length < 8" in DIAGNOSTIC_SCRIPT
+    assert "title !== price && title !== action && price !== action" in DIAGNOSTIC_SCRIPT
+    assert "common && visible(common)" in DIAGNOSTIC_SCRIPT
+    assert "root = document.body" not in DIAGNOSTIC_SCRIPT
+    assert "root.innerText" not in DIAGNOSTIC_SCRIPT
+    assert "sold out" not in DIAGNOSTIC_SCRIPT.lower()
+    assert '[data-e2e="product-unavailable" i]' in DIAGNOSTIC_SCRIPT
