@@ -1,0 +1,10 @@
+finding_id: FINDING-232-001
+action: CODE_FIX
+reviewed_sha: 58ae3aace5673cadce9e1320250b64b6363a191b
+modification_scope:
+  - src/product_intelligence/adapters/tiktok_parsing.py
+  - tests/product_intelligence/test_tiktok_parsing.py
+  - tests/product_intelligence/test_tiktok_pdp.py
+affected_verification:
+  - python -m pytest tests/product_intelligence/test_tiktok_parsing.py tests/product_intelligence/test_tiktok_discovery.py tests/product_intelligence/test_tiktok_pdp.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task232-primary
+  - git diff --check
