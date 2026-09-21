@@ -5,6 +5,7 @@ import ast
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import tempfile
 
 import pytest
 
@@ -115,9 +116,17 @@ def _reset_fakes():
     FakeCollector.failure = None
 
 
+@pytest.fixture
+def external_temp_path():
+    with tempfile.TemporaryDirectory(prefix="task233-tiktok-pilot-") as directory:
+        yield Path(directory)
+
+
 @pytest.mark.asyncio
-async def test_success_is_fixed_one_attempt_exclusive_safe_and_secret_free(tmp_path):
-    root = tmp_path / "external-pilot"
+async def test_success_is_fixed_one_attempt_exclusive_safe_and_secret_free(
+    external_temp_path,
+):
+    root = external_temp_path / "external-pilot"
     outcome = await run_tiktok_pdp_live_pilot(
         job_root=root,
         cdp_endpoint=ENDPOINT,
@@ -200,8 +209,8 @@ async def test_repository_job_root_fails_before_browser_or_collector():
 
 
 @pytest.mark.asyncio
-async def test_existing_artifact_is_not_overwritten_or_attempted(tmp_path):
-    root = tmp_path / "external-pilot"
+async def test_existing_artifact_is_not_overwritten_or_attempted(external_temp_path):
+    root = external_temp_path / "external-pilot"
     root.mkdir()
     artifact = root / ARTIFACT_FILENAME
     artifact.write_text("do-not-overwrite", encoding="utf-8")
@@ -226,9 +235,11 @@ async def test_existing_artifact_is_not_overwritten_or_attempted(tmp_path):
         TikTokPdpExtractionError("required title was unavailable"),
     ),
 )
-async def test_collection_failures_create_no_snapshot_and_never_retry(tmp_path, failure):
+async def test_collection_failures_create_no_snapshot_and_never_retry(
+    external_temp_path, failure
+):
     FakeCollector.failure = failure
-    root = tmp_path / "failed-pilot"
+    root = external_temp_path / "failed-pilot"
     with pytest.raises(type(failure)):
         await run_tiktok_pdp_live_pilot(
             job_root=root,
@@ -246,10 +257,10 @@ async def test_collection_failures_create_no_snapshot_and_never_retry(tmp_path, 
 
 
 @pytest.mark.asyncio
-async def test_naive_clock_fails_before_capture(tmp_path):
+async def test_naive_clock_fails_before_capture(external_temp_path):
     with pytest.raises(Exception, match="timezone-aware"):
         await run_tiktok_pdp_live_pilot(
-            job_root=tmp_path / "pilot",
+            job_root=external_temp_path / "pilot",
             cdp_endpoint=ENDPOINT,
             clock=lambda: datetime(2026, 9, 21, 9, 30),
             manager_factory=FakeManager,

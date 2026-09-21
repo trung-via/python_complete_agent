@@ -9,6 +9,7 @@ from io import StringIO
 import json
 from pathlib import Path
 import re
+import tempfile
 from types import SimpleNamespace
 
 import pytest
@@ -3778,49 +3779,50 @@ def test_capture_cli_fresh_and_resume_contracts(monkeypatch, capsys, tmp_path):
 
 
 def test_capture_cli_filesystem_error_is_bounded_without_capture_secret_leakage(
-    monkeypatch, capsys, tmp_path
+    monkeypatch, capsys
 ):
     import src.product_intelligence.live_capture as live_capture_module
 
-    job_root = tmp_path / "human-job-root-secret"
-    endpoint = "http://127.0.0.1:9222/devtools/browser/cdp-secret"
-    product_url = "https://shopee.test/product-secret?token=private"
-    source_pack = job_root / "cohorts" / "source-pack-secret" / "source_pack.json"
+    with tempfile.TemporaryDirectory(prefix="task233-shopee-capture-") as directory:
+        job_root = Path(directory) / "human-job-root-secret"
+        endpoint = "http://127.0.0.1:9222/devtools/browser/cdp-secret"
+        product_url = "https://shopee.test/product-secret?token=private"
+        source_pack = job_root / "cohorts" / "source-pack-secret" / "source_pack.json"
 
-    def fail_replace(source, destination):
-        del source, destination
-        raise PermissionError(
-            f"denied {job_root.resolve()} {endpoint} {product_url} {source_pack}"
-        )
+        def fail_replace(source, destination):
+            del source, destination
+            raise PermissionError(
+                f"denied {job_root.resolve()} {endpoint} {product_url} {source_pack}"
+            )
 
-    monkeypatch.setattr(live_capture_module.os, "replace", fail_replace)
-    assert cli.main([
-        "capture",
-        "--job-root",
-        str(job_root),
-        "--cdp-endpoint",
-        endpoint,
-        "--query",
-        product_url,
-    ]) == 1
+        monkeypatch.setattr(live_capture_module.os, "replace", fail_replace)
+        assert cli.main([
+            "capture",
+            "--job-root",
+            str(job_root),
+            "--cdp-endpoint",
+            endpoint,
+            "--query",
+            product_url,
+        ]) == 1
 
-    rendered = capsys.readouterr()
-    assert rendered.out == ""
-    assert json.loads(rendered.err) == {
-        "error": {
-            "type": "LiveCaptureError",
-            "message": "Capture checkpoint could not be updated",
+        rendered = capsys.readouterr()
+        assert rendered.out == ""
+        assert json.loads(rendered.err) == {
+            "error": {
+                "type": "LiveCaptureError",
+                "message": "Capture checkpoint could not be updated",
+            }
         }
-    }
-    secrets = (
-        str(job_root),
-        str(job_root.resolve()),
-        endpoint,
-        product_url,
-        str(source_pack),
-    )
-    for secret in secrets:
-        assert secret not in rendered.err
+        secrets = (
+            str(job_root),
+            str(job_root.resolve()),
+            endpoint,
+            product_url,
+            str(source_pack),
+        )
+        for secret in secrets:
+            assert secret not in rendered.err
 
 
 @pytest.mark.parametrize("argv", [
