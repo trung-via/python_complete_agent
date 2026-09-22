@@ -46,24 +46,24 @@ planning_handoff:
     semantic reconciliation without reinterpreting TASK-191 or changing TASK-213 history.
 
 active_track:
-  id: P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN4_AUTHORIZATION
-  title: P8 Public TikTok PDP DOM Diagnostic Generation-4 Authorization
+  id: P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN4_FAILURE_RECONCILIATION
+  title: P8 Public TikTok PDP DOM Diagnostic Generation-4 Failure Reconciliation
   priority_owner: HUMAN
   status: DONE
   completion_basis: PUBLICATION_GATED
-  sequence_status: COMPLETE_ON_EXACT_TASK_241_SOURCE_PUBLICATION
+  sequence_status: COMPLETE_ON_EXACT_TASK_242_SOURCE_PUBLICATION
   current_milestone:
-    id: P8.PUBLIC_PDP.DOM_DIAGNOSTIC_GEN4_AUTHORIZATION
-    task_id: TASK-241
-    title: Public TikTok PDP DOM Diagnostic Generation-4 Authorization
+    id: P8.PUBLIC_PDP.DOM_DIAGNOSTIC_GEN4_FAILURE_RECONCILIATION
+    task_id: TASK-242
+    title: Public TikTok PDP DOM Diagnostic Generation-4 Failure Reconciliation
     status: DONE
     completion_basis: PUBLICATION_GATED
-    classification: FRESH_GENERATION_4_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION_ONLY
-    authorization_owner: HUMAN_BRAIN
-    source_task_id: TASK-240
-    source_run_id: RUN-240-002
-    source_review_id: REVIEW-240-001
-    source_published_sha: 8ef61df3936652fb7aeda8ca31ce1db3621ff4cf
+    classification: GENERATION_4_EVALUATION_FAILURE_RECONCILIATION_AND_V2_DIAGNOSTIC_SCRIPT_HARDENING_ONLY
+    reconciliation_owner: HUMAN_BRAIN
+    source_task_id: TASK-241
+    source_run_id: RUN-241-001
+    source_review_id: REVIEW-241-001
+    source_published_sha: c319c384f370fec1946d7d85b871e05d1e4b82a7
     diagnostic_v2_implementation_source_sha: 8ef61df3936652fb7aeda8ca31ce1db3621ff4cf
     context_id: p8-pilot-001-led-motion-tiktok-vn
     authorized_source_id: "1731381331718341815"
@@ -74,24 +74,31 @@ active_track:
     diagnostic_artifact_create_exclusive: true
     evidence_authority: NONE
     diagnostic_authorization_generation: 4
-    live_dom_diagnostic_authority: ONE_SHOT_ATTACH_ONLY_EXACT_LISTING
+    live_dom_diagnostic_authority: NONE
     generation_4_authorized_diagnostic_attempts: 1
-    generation_4_authorized_diagnostic_attempts_remaining: 1
+    generation_4_authorized_diagnostic_attempts_remaining: 0
     generation_4_diagnostic_execution_owner: HUMAN_OPERATOR
-    generation_4_diagnostic_executed: false
+    generation_4_diagnostic_executed: true
+    diagnostic_outcome: FAIL_CLOSED
+    diagnostic_failure_reason: BOUNDED_CURRENT_PAGE_EVALUATION_FAILED
+    diagnostic_process_exit_code: 1
+    diagnostic_artifact_created: false
+    generation_4_root_probe_observed: false
+    generation_4_commerce_probe_observed: false
+    evaluation_failure_conclusions:
+      selector: NONE
+      dom: NONE
+      render: NONE
+      shadow: NONE
+      iframe: NONE
+      acquisition: NONE
+      marketplace: NONE
     preflight_consumes_attempt: false
-    preflight_authority:
-      cdp_reachability: 127.0.0.1:9222
-      exact_already_open_pdp_read_only_target_listing: true
-      new_external_job_root_requires_v1_absent: true
-      new_external_job_root_requires_v2_absent: true
-      execution_critical_file_equivalence_source_sha: 8ef61df3936652fb7aeda8ca31ce1db3621ff4cf
-      execution_critical_files:
-        - src/product_intelligence/tiktok_pdp_dom_diagnostic.py
-        - src/product_intelligence/cli.py
-        - src/integrations/playwright/manager.py
-      repository_head_equality_required: false
-      diagnostic_carrier_invocation: false
+    future_generation_5_preflight_requirement:
+      effective_only_after_separate_authorization: true
+      existing_task_137_borrowable_normal_page_set_must_unambiguously_resolve_to_exact_selected_pdp: true
+      task_242_performs_preflight: false
+      task_242_grants_live_authority: false
     canonical_cli_command: tiktok-pdp-dom-diagnostic
     borrowed_session_count: 1
     session_evaluate_count: 1
@@ -175,6 +182,8 @@ active_track:
     market_test_or_action_authority: NONE
     automatic_progression: false
     post_run_engineering_successor: null
+    generation_5_authorized: false
+    exact_post_publication_handoff: HUMAN_BRAIN_FRESH_GENERATION_5_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION
     effective_only_when:
       semantic_review: PASS
       published_source: EXACT_REVIEWED_CANDIDATE
@@ -199,9 +208,9 @@ post_p7_planning_handoff:
     outcome, roadmap, or future-domain authority into P8.0.
 
 post_p8_planning_handoff:
-  destination: HUMAN_OPERATOR_GENERATION_4_COMMERCE_OBSERVABILITY_DIAGNOSTIC_EXECUTION
-  status: EFFECTIVE_ON_EXACT_TASK_241_SOURCE_PUBLICATION
-  completed_commitment: P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN4_AUTHORIZATION
+  destination: HUMAN_BRAIN_FRESH_GENERATION_5_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION
+  status: EFFECTIVE_ON_EXACT_TASK_242_SOURCE_PUBLICATION
+  completed_commitment: P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN4_FAILURE_RECONCILIATION
   actual_real_decision_case:
     context_id: p8-pilot-001-led-motion-tiktok-vn
     record_type: PILOT_CASE_SELECTION_ONLY
@@ -234,21 +243,21 @@ post_p8_planning_handoff:
   live_evidence_definition: EXTERNAL_BOUNDED_SOURCE_ARTIFACT_ONLY
   canonical_evidence_ingested: false
   diagnostic_implementation_exists: true
-  source_task_id: TASK-240
-  source_run_id: RUN-240-002
-  source_review_id: REVIEW-240-001
-  source_published_sha: 8ef61df3936652fb7aeda8ca31ce1db3621ff4cf
+  source_task_id: TASK-241
+  source_run_id: RUN-241-001
+  source_review_id: REVIEW-241-001
+  source_published_sha: c319c384f370fec1946d7d85b871e05d1e4b82a7
   diagnostic_v2_implementation_source_sha: 8ef61df3936652fb7aeda8ca31ce1db3621ff4cf
   diagnostic_carrier: src/product_intelligence/tiktok_pdp_dom_diagnostic.py
   diagnostic_schema_version: 2
   diagnostic_artifact_filename: tiktok-pdp-dom-diagnostic-v2.json
   diagnostic_artifact_create_exclusive: true
   diagnostic_authorization_generation: 4
-  live_dom_diagnostic_authority: ONE_SHOT_ATTACH_ONLY_EXACT_LISTING
+  live_dom_diagnostic_authority: NONE
   generation_4_authorized_diagnostic_attempts: 1
-  generation_4_authorized_diagnostic_attempts_remaining: 1
+  generation_4_authorized_diagnostic_attempts_remaining: 0
   generation_4_diagnostic_execution_owner: HUMAN_OPERATOR
-  generation_4_diagnostic_executed: false
+  generation_4_diagnostic_executed: true
   generation_3_authorized_diagnostic_attempts: 1
   generation_3_authorized_diagnostic_attempts_remaining: 0
   generation_3_diagnostic_execution_owner: HUMAN_OPERATOR
@@ -256,8 +265,19 @@ post_p8_planning_handoff:
   generation_3_live_dom_diagnostic_authority: NONE
   diagnostic_executed: true
   diagnostic_outcome: FAIL_CLOSED
-  diagnostic_failure_reason: NO_BOUNDED_PDP_ROOT
-  diagnostic_artifact_created: true
+  diagnostic_failure_reason: BOUNDED_CURRENT_PAGE_EVALUATION_FAILED
+  diagnostic_process_exit_code: 1
+  diagnostic_artifact_created: false
+  generation_4_root_probe_observed: false
+  generation_4_commerce_probe_observed: false
+  evaluation_failure_conclusions:
+    selector: NONE
+    dom: NONE
+    render: NONE
+    shadow: NONE
+    iframe: NONE
+    acquisition: NONE
+    marketplace: NONE
   evidence_authority: NONE
   preflight_consumes_attempt: false
   preflight_authority:
@@ -272,6 +292,11 @@ post_p8_planning_handoff:
       - src/integrations/playwright/manager.py
     repository_head_equality_required: false
     diagnostic_carrier_invocation: false
+  future_generation_5_preflight_requirement:
+    effective_only_after_separate_authorization: true
+    existing_task_137_borrowable_normal_page_set_must_unambiguously_resolve_to_exact_selected_pdp: true
+    task_242_performs_preflight: false
+    task_242_grants_live_authority: false
   canonical_cli_command: tiktok-pdp-dom-diagnostic
   borrowed_session_count: 1
   session_evaluate_count: 1
@@ -300,6 +325,7 @@ post_p8_planning_handoff:
   document_complete_proves_spa_or_network_completion: false
   readiness_or_selector_hint_repair_authority: NONE
   post_run_engineering_successor: null
+  generation_5_authorized: false
   root_observability_hardening_implemented: true
   commerce_observability_hardening_implemented: true
   diagnostic_hardening_implemented: true
@@ -793,6 +819,63 @@ post_p8_planning_handoff:
     automatic_progression: false
     post_run_engineering_successor: null
     post_publication_handoff: HUMAN_OPERATOR_GENERATION_4_COMMERCE_OBSERVABILITY_DIAGNOSTIC_EXECUTION
+  public_pdp_dom_diagnostic_gen4_failure_reconciliation:
+    document: docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN4_FAILURE_RECONCILIATION.md
+    classification: GENERATION_4_EVALUATION_FAILURE_RECONCILIATION_AND_V2_DIAGNOSTIC_SCRIPT_HARDENING_ONLY
+    task_id: TASK-242
+    source_task_id: TASK-241
+    source_run_id: RUN-241-001
+    source_review_id: REVIEW-241-001
+    source_published_sha: c319c384f370fec1946d7d85b871e05d1e4b82a7
+    diagnostic_v2_implementation_source_sha: 8ef61df3936652fb7aeda8ca31ce1db3621ff4cf
+    context_id: p8-pilot-001-led-motion-tiktok-vn
+    authorized_source_id: "1731381331718341815"
+    stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
+    diagnostic_authorization_generation: 4
+    live_dom_diagnostic_authority: NONE
+    generation_4_authorized_diagnostic_attempts: 1
+    generation_4_authorized_diagnostic_attempts_remaining: 0
+    generation_4_diagnostic_execution_owner: HUMAN_OPERATOR
+    generation_4_diagnostic_executed: true
+    diagnostic_outcome: FAIL_CLOSED
+    diagnostic_failure_reason: BOUNDED_CURRENT_PAGE_EVALUATION_FAILED
+    diagnostic_process_exit_code: 1
+    diagnostic_artifact_created: false
+    generation_4_root_probe_observed: false
+    generation_4_commerce_probe_observed: false
+    evaluation_failure_conclusions:
+      selector: NONE
+      dom: NONE
+      render: NONE
+      shadow: NONE
+      iframe: NONE
+      acquisition: NONE
+      marketplace: NONE
+    artifact_contract:
+      schema_version: 2
+      filename: tiktok-pdp-dom-diagnostic-v2.json
+      create_exclusive: true
+      evidence_authority: NONE
+    borrowed_session_count: 1
+    session_evaluate_count: 1
+    navigation_or_interaction_authority: NONE
+    browser_lifecycle_authority: TASK-137
+    task_137_cleanup_preserved: true
+    future_generation_5_preflight_requirement:
+      effective_only_after_separate_authorization: true
+      existing_task_137_borrowable_normal_page_set_must_unambiguously_resolve_to_exact_selected_pdp: true
+      task_242_performs_preflight: false
+      task_242_grants_live_authority: false
+    root_observability_hardening_implemented: true
+    commerce_observability_hardening_implemented: true
+    selector_repair_complete: false
+    live_public_pdp_acquisition_authority: NONE
+    automated_public_pdp_acquisition_authority: NONE
+    market_test_or_action_authority: NONE
+    automatic_progression: false
+    generation_5_authorized: false
+    next_milestone: null
+    post_publication_handoff: HUMAN_BRAIN_FRESH_GENERATION_5_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION
   manual_contribution_authorization:
     document: docs/PHASE_8_P8_3_MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION.md
     classification: MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION_ONLY
@@ -1458,6 +1541,56 @@ completed_milestones:
     automatic_progression: false
     post_run_engineering_successor: null
     post_publication_handoff: HUMAN_OPERATOR_GENERATION_4_COMMERCE_OBSERVABILITY_DIAGNOSTIC_EXECUTION
+    effective_only_when:
+      semantic_review: PASS
+      published_source: EXACT_REVIEWED_CANDIDATE
+      canonical_main_equals_reviewed_candidate: true
+  - task_id: TASK-242
+    task_revision: 1
+    track_id: P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN4_FAILURE_RECONCILIATION
+    milestone_id: P8.PUBLIC_PDP.DOM_DIAGNOSTIC_GEN4_FAILURE_RECONCILIATION
+    title: Public TikTok PDP DOM Diagnostic Generation-4 Failure Reconciliation
+    status: DONE
+    completion_basis: PUBLICATION_GATED
+    classification: GENERATION_4_EVALUATION_FAILURE_RECONCILIATION_AND_V2_DIAGNOSTIC_SCRIPT_HARDENING_ONLY
+    source_task_id: TASK-241
+    source_run_id: RUN-241-001
+    source_review_id: REVIEW-241-001
+    source_published_sha: c319c384f370fec1946d7d85b871e05d1e4b82a7
+    diagnostic_v2_implementation_source_sha: 8ef61df3936652fb7aeda8ca31ce1db3621ff4cf
+    context_id: p8-pilot-001-led-motion-tiktok-vn
+    authorized_source_id: "1731381331718341815"
+    stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
+    diagnostic_schema_version: 2
+    diagnostic_artifact_filename: tiktok-pdp-dom-diagnostic-v2.json
+    diagnostic_artifact_create_exclusive: true
+    evidence_authority: NONE
+    diagnostic_authorization_generation: 4
+    live_dom_diagnostic_authority: NONE
+    generation_4_authorized_diagnostic_attempts: 1
+    generation_4_authorized_diagnostic_attempts_remaining: 0
+    generation_4_diagnostic_execution_owner: HUMAN_OPERATOR
+    generation_4_diagnostic_executed: true
+    diagnostic_outcome: FAIL_CLOSED
+    diagnostic_failure_reason: BOUNDED_CURRENT_PAGE_EVALUATION_FAILED
+    diagnostic_process_exit_code: 1
+    diagnostic_artifact_created: false
+    generation_4_root_probe_observed: false
+    generation_4_commerce_probe_observed: false
+    borrowed_session_count: 1
+    session_evaluate_count: 1
+    navigation_or_interaction_authority: NONE
+    browser_lifecycle_authority: TASK-137
+    root_observability_hardening_implemented: true
+    commerce_observability_hardening_implemented: true
+    selector_repair_complete: false
+    live_public_pdp_acquisition_authority: NONE
+    automated_public_pdp_acquisition_authority: NONE
+    market_test_or_action_authority: NONE
+    automatic_progression: false
+    generation_5_authorized: false
+    next_milestone: null
+    post_publication_handoff: HUMAN_BRAIN_FRESH_GENERATION_5_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION
     effective_only_when:
       semantic_review: PASS
       published_source: EXACT_REVIEWED_CANDIDATE

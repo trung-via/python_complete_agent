@@ -104,6 +104,11 @@ P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN4_AUTHORIZATION_FILE = (
     / "docs"
     / "PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN4_AUTHORIZATION.md"
 )
+P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN4_FAILURE_RECONCILIATION_FILE = (
+    REPO_ROOT
+    / "docs"
+    / "PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN4_FAILURE_RECONCILIATION.md"
+)
 ROADMAP_DOCS = (
     REPO_ROOT / "docs" / "POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
     REPO_ROOT / "docs" / "POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
@@ -141,6 +146,7 @@ TASK_226_SOURCE_SHA = "a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e"
 TASK_227_SOURCE_SHA = "d2752d69c701dd2483ea30f52be3385b5137e008"
 TASK_238_PUBLISHED_SOURCE_SHA = "fbdb8851b9f27d24eff11c509db3009e2c614952"
 TASK_240_PUBLISHED_SOURCE_SHA = "8ef61df3936652fb7aeda8ca31ce1db3621ff4cf"
+TASK_241_PUBLISHED_SOURCE_SHA = "c319c384f370fec1946d7d85b871e05d1e4b82a7"
 TASK_228_SOURCE_SHA = "eb5b09a8208771a25493fd5a68232bb2dd48c700"
 TASK_236_SOURCE_SHA = "a53510ff353cdf926a76f1dc84363b7835c5cb4d"
 SELECTED_SOURCE_ID = "1731381331718341815"
@@ -223,7 +229,7 @@ def values_for_key(value: object, key: str) -> list[object]:
     return matches
 
 
-def test_task_241_authorizes_one_exact_generation_4_v2_diagnostic_attempt():
+def _historical_test_task_241_authorizes_one_exact_generation_4_v2_diagnostic_attempt():
     state = load_yaml(ROADMAP_FILE)
     active = state["active_track"]
     milestone = active["current_milestone"]
@@ -269,7 +275,7 @@ def test_task_241_authorizes_one_exact_generation_4_v2_diagnostic_attempt():
     assert completed["TASK-240"]["diagnostic_implementation_source_sha"] == (
         TASK_238_PUBLISHED_SOURCE_SHA
     )
-    assert handoff["destination"] == (
+    assert completed["TASK-241"]["post_publication_handoff"] == (
         "HUMAN_OPERATOR_GENERATION_4_COMMERCE_OBSERVABILITY_DIAGNOSTIC_EXECUTION"
     )
     assert active["next_milestone"] is None
@@ -379,6 +385,134 @@ def test_task_241_authorizes_one_exact_generation_4_v2_diagnostic_attempt():
         "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY",
         "SNAPSHOT_IS_NOT_TREND",
         "ONE_CAPABILITY_ONE_AUTHORITY",
+    ):
+        assert required in document
+
+
+def test_task_241_history_preserves_its_handoff_without_freezing_current_global_handoff():
+    state = load_yaml(ROADMAP_FILE)
+    handoff = state["post_p8_planning_handoff"]
+    authorization = handoff["public_pdp_dom_diagnostic_gen4_authorization"]
+    completed = {item["task_id"]: item for item in state["completed_milestones"]}
+
+    for record in (authorization, completed["TASK-241"]):
+        assert record["source_task_id"] == "TASK-240"
+        assert record["source_run_id"] == "RUN-240-002"
+        assert record["source_review_id"] == "REVIEW-240-001"
+        assert record["source_published_sha"] == TASK_240_PUBLISHED_SOURCE_SHA
+        assert record["diagnostic_v2_implementation_source_sha"] == (
+            TASK_240_PUBLISHED_SOURCE_SHA
+        )
+        assert record["generation_4_authorized_diagnostic_attempts_remaining"] == 1
+        assert record["generation_4_diagnostic_executed"] is False
+        assert record["post_publication_handoff"] == (
+            "HUMAN_OPERATOR_GENERATION_4_COMMERCE_OBSERVABILITY_DIAGNOSTIC_EXECUTION"
+        )
+    assert handoff["destination"] != authorization["post_publication_handoff"]
+
+
+def test_task_242_reconciles_generation_4_evaluation_failure_and_hardening():
+    state = load_yaml(ROADMAP_FILE)
+    active = state["active_track"]
+    milestone = active["current_milestone"]
+    handoff = state["post_p8_planning_handoff"]
+    reconciliation = handoff[
+        "public_pdp_dom_diagnostic_gen4_failure_reconciliation"
+    ]
+    completed = {item["task_id"]: item for item in state["completed_milestones"]}
+    document = P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN4_FAILURE_RECONCILIATION_FILE.read_text(
+        encoding="utf-8"
+    )
+
+    assert active["id"] == "P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN4_FAILURE_RECONCILIATION"
+    assert active["sequence_status"] == "COMPLETE_ON_EXACT_TASK_242_SOURCE_PUBLICATION"
+    assert milestone["task_id"] == "TASK-242"
+    assert milestone["classification"] == (
+        "GENERATION_4_EVALUATION_FAILURE_RECONCILIATION_AND_V2_DIAGNOSTIC_SCRIPT_HARDENING_ONLY"
+    )
+    for record in (milestone, handoff, reconciliation, completed["TASK-242"]):
+        assert record["source_task_id"] == "TASK-241"
+        assert record["source_run_id"] == "RUN-241-001"
+        assert record["source_review_id"] == "REVIEW-241-001"
+        assert record["source_published_sha"] == TASK_241_PUBLISHED_SOURCE_SHA
+        assert record["diagnostic_v2_implementation_source_sha"] == (
+            TASK_240_PUBLISHED_SOURCE_SHA
+        )
+        assert record["live_dom_diagnostic_authority"] == "NONE"
+        assert record["generation_4_authorized_diagnostic_attempts"] == 1
+        assert record["generation_4_authorized_diagnostic_attempts_remaining"] == 0
+        assert record["generation_4_diagnostic_execution_owner"] == "HUMAN_OPERATOR"
+        assert record["generation_4_diagnostic_executed"] is True
+        assert record["diagnostic_outcome"] == "FAIL_CLOSED"
+        assert record["diagnostic_failure_reason"] == (
+            "BOUNDED_CURRENT_PAGE_EVALUATION_FAILED"
+        )
+        assert record["diagnostic_process_exit_code"] == 1
+        assert record["diagnostic_artifact_created"] is False
+        assert record["generation_4_root_probe_observed"] is False
+        assert record["generation_4_commerce_probe_observed"] is False
+        assert record["root_observability_hardening_implemented"] is True
+        assert record["commerce_observability_hardening_implemented"] is True
+        assert record["selector_repair_complete"] is False
+        assert record["live_public_pdp_acquisition_authority"] == "NONE"
+        assert record["automated_public_pdp_acquisition_authority"] == "NONE"
+        assert record["market_test_or_action_authority"] == "NONE"
+        assert record["automatic_progression"] is False
+
+    assert milestone["evaluation_failure_conclusions"] == {
+        "selector": "NONE",
+        "dom": "NONE",
+        "render": "NONE",
+        "shadow": "NONE",
+        "iframe": "NONE",
+        "acquisition": "NONE",
+        "marketplace": "NONE",
+    }
+    assert milestone["diagnostic_schema_version"] == 2
+    assert milestone["diagnostic_artifact_filename"] == (
+        "tiktok-pdp-dom-diagnostic-v2.json"
+    )
+    assert milestone["diagnostic_artifact_create_exclusive"] is True
+    assert milestone["evidence_authority"] == "NONE"
+    assert milestone["borrowed_session_count"] == 1
+    assert milestone["session_evaluate_count"] == 1
+    assert milestone["navigation_refresh_click_type_scroll_authority"] == "NONE"
+    assert milestone["browser_lifecycle_authority"] == "TASK-137"
+
+    preflight = milestone["future_generation_5_preflight_requirement"]
+    assert preflight["effective_only_after_separate_authorization"] is True
+    assert preflight[
+        "existing_task_137_borrowable_normal_page_set_must_unambiguously_resolve_to_exact_selected_pdp"
+    ] is True
+    assert preflight["task_242_performs_preflight"] is False
+    assert preflight["task_242_grants_live_authority"] is False
+    assert values_for_key(state, "generation_5_authorized_diagnostic_attempts") == []
+    assert milestone["generation_5_authorized"] is False
+    assert active["next_milestone"] is None
+    assert handoff["next_milestone"] is None
+    assert state["pending_commitments"] == []
+    assert handoff["destination"] == (
+        "HUMAN_BRAIN_FRESH_GENERATION_5_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION"
+    )
+
+    generation_3 = milestone["historical_generation_3"]
+    assert generation_3["diagnostic_executed"] is True
+    assert generation_3["diagnostic_failure_reason"] == "NO_BOUNDED_PDP_ROOT"
+    assert generation_3["diagnostic_artifact_created"] is True
+    assert milestone["historical_generation_1"]["authorized_diagnostic_attempts_remaining"] == 0
+    assert milestone["historical_generation_2"]["authorized_diagnostic_attempts_remaining"] == 0
+
+    for required in (
+        "TASK-241",
+        "RUN-241-001",
+        "REVIEW-241-001",
+        TASK_241_PUBLISHED_SOURCE_SHA,
+        TASK_240_PUBLISHED_SOURCE_SHA,
+        "BOUNDED_CURRENT_PAGE_EVALUATION_FAILED",
+        "generation_4_root_probe_observed=false",
+        "generation_4_commerce_probe_observed=false",
+        "does not claim general JavaScript syntax certification",
+        "HUMAN_BRAIN_FRESH_GENERATION_5_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION",
     ):
         assert required in document
 

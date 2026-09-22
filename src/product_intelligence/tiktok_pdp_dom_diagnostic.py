@@ -107,7 +107,7 @@ def _write_artifact(path: Path, document: dict[str, object]) -> None:
 DIAGNOSTIC_SCRIPT = r"""
 () => {
  const MAX=600, clip=(v,n)=>String(v||'').replace(/\s+/g,' ').trim().slice(0,n);
- const atom=(v,n)=>{const s=clip(v,n);return/^[A-Za-z0-9_.:/-]*$/.test(s)&&!\d{4,}/.test(s)?s:''};
+ const atom=(v,n)=>{const s=clip(v,n);return/^[A-Za-z0-9_.:/-]*$/.test(s)&&!/\d{4,}/.test(s)?s:''};
  const tokens=e=>Array.from(e&&e.classList||[]).slice(0,4).map(v=>atom(v,48)).filter(Boolean);
  const compact=e=>e?clip([String(e.tagName||'').toLowerCase(),...tokens(e).slice(0,2)].filter(Boolean).join('.'),120):'';
  const sig=e=>e?{tag_name:atom(e.tagName,24).toLowerCase(),class_tokens:tokens(e),'data-testid':atom(e.getAttribute('data-testid'),80),'data-e2e':atom(e.getAttribute('data-e2e'),80),role:atom(e.getAttribute('role'),80),itemprop:atom(e.getAttribute('itemprop'),80),parent_signature:compact(e.parentElement),grandparent_signature:compact(e.parentElement&&e.parentElement.parentElement)}:null;

@@ -834,6 +834,17 @@ future evidence. P6.3 is CLOSED with TASK-171 / P6.3a CLOSED / PUBLISHED at cand
 TASK-165 remains unpublished blocked evidence from
 REVIEW-165-003 F1 and its failed remediation/repair continuation lineage.
 
+TASK-242 reconciles the generation-4 attempt as an artifact-free
+`BOUNDED_CURRENT_PAGE_EVALUATION_FAILED` outcome and repairs only the malformed four-or-more-digit
+regex-negation guard in the V2 carrier. Exact TASK-241 publication lineage is `TASK-241` /
+`RUN-241-001` / `REVIEW-241-001` at `c319c384f370fec1946d7d85b871e05d1e4b82a7`;
+historical V2 implementation provenance remains `8ef61df3936652fb7aeda8ca31ce1db3621ff4cf`.
+No root or commerce probe was observed, so no selector, DOM, render, shadow, iframe, acquisition,
+or marketplace conclusion is authorized. See
+`docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN4_FAILURE_RECONCILIATION.md` for the preserved
+TASK-137 boundary and exact
+`HUMAN_BRAIN_FRESH_GENERATION_5_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION` handoff.
+
 ## 4. Authority invariants
 
 Across all post-M4 work:

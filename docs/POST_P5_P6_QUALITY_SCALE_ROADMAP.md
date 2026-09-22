@@ -686,6 +686,17 @@ source binding, non-consuming preflight, consuming generation-4 attempt, interpr
 and Human-operator execution handoff.
 
 
+TASK-242 records generation 4 as consumed, Human-operated, `FAIL_CLOSED`, artifact-free, and failed
+at bounded current-page evaluation with exit code 1. Its source lineage is `TASK-241` /
+`RUN-241-001` / `REVIEW-241-001` at `c319c384f370fec1946d7d85b871e05d1e4b82a7`, while
+`diagnostic_v2_implementation_source_sha=8ef61df3936652fb7aeda8ca31ce1db3621ff4cf`
+retains TASK-240 provenance. The narrow carrier correction restores only the malformed
+four-or-more-digit regex-negation guard. No payload, root probe, or commerce probe was observed,
+and no selector or marketplace conclusion is inferred. See
+`docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN4_FAILURE_RECONCILIATION.md`; the exact handoff is
+`HUMAN_BRAIN_FRESH_GENERATION_5_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION`, with no
+generation-5 attempt or automatic progression authorized.
+
 The complete audit and P7.0 boundary are recorded in
 `docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md`.
 

@@ -224,3 +224,9 @@ def test_script_is_hard_bounded_light_dom_structural_only_and_preserves_lifecycl
     assert "bounded_scan_truncated:truncated" in DIAGNOSTIC_SCRIPT
     assert "currency_candidates:currencies" in DIAGNOSTIC_SCRIPT and "action_candidates:actions" in DIAGNOSTIC_SCRIPT
     assert "document.body.innerText" not in DIAGNOSTIC_SCRIPT and "innerHTML" not in DIAGNOSTIC_SCRIPT and "outerHTML" not in DIAGNOSTIC_SCRIPT
+
+
+def test_script_has_valid_four_or_more_digit_atom_rejection_guard():
+    """Regress the exact missing-opening-delimiter defect, not general JS syntax."""
+    assert r"&&!/\d{4,}/.test(s)" in DIAGNOSTIC_SCRIPT
+    assert r"&&!\d{4,}/.test(s)" not in DIAGNOSTIC_SCRIPT
