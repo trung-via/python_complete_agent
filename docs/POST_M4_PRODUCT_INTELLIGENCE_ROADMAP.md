@@ -845,6 +845,33 @@ or marketplace conclusion is authorized. See
 TASK-137 boundary and exact
 `HUMAN_BRAIN_FRESH_GENERATION_5_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION` handoff.
 
+TASK-243 is publication-gated DONE only as
+`FRESH_GENERATION_5_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION_ONLY`. It records exact
+TASK-242 / RUN-242-001 / REVIEW-242-001 publication lineage and binds generation-5 execution to
+`generation_5_execution_source_sha=d113c4a7ce2e2835d532935bc195c922aa3628ca`, while preserving
+historical `diagnostic_v2_implementation_source_sha=8ef61df3936652fb7aeda8ca31ce1db3621ff4cf`.
+Generations 1-4 remain consumed history, including generation 4's Human-operated, artifact-free
+`FAIL_CLOSED` / `BOUNDED_CURRENT_PAGE_EVALUATION_FAILED` exit-code-1 result and absence of root or
+commerce probes.
+
+Exact reviewed TASK-243 publication authorizes generation 5 alone for one Human-operated,
+attach-only attempt on the fixed context, source ID, and listing. Schema v2, the create-exclusive
+V2 artifact, one borrowed session, exactly one evaluate, zero interaction, TASK-137 cleanup, and
+`evidence_authority=NONE` remain unchanged. Non-consuming preflight must prove CDP reachability,
+exactly one normal `type=page` target total with that sole target equal to the selected PDP, a fresh
+external generation-5 job root with V1/V2 absent, and content equivalence of the three execution-
+critical files to the exact TASK-242 publication; repository HEAD equality is not required.
+
+The Human invocation is one physical PowerShell line without continuation. Pre-carrier shell or
+parser transport failure is not a diagnostic invocation; after valid carrier invocation begins,
+every terminal result consumes the only attempt with no retry, refresh, resume, second invocation,
+replacement, search, batch, acquisition, selector repair, or action authority. Interpretation
+remains engineering-diagnostic-only. NEXT is null, pending commitments are empty, automatic
+progression is false, the current global handoff is
+`HUMAN_OPERATOR_GENERATION_5_COMMERCE_OBSERVABILITY_DIAGNOSTIC_EXECUTION`, and post-attempt review
+authority is `HUMAN_BRAIN_GENERATION_5_DIAGNOSTIC_REVIEW`. See
+`docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN5_AUTHORIZATION.md` for the exact contract.
+
 ## 4. Authority invariants
 
 Across all post-M4 work:

@@ -697,6 +697,31 @@ and no selector or marketplace conclusion is inferred. See
 `HUMAN_BRAIN_FRESH_GENERATION_5_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION`, with no
 generation-5 attempt or automatic progression authorized.
 
+TASK-243 is publication-gated DONE only as
+`FRESH_GENERATION_5_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION_ONLY`. It records exact
+TASK-242 / RUN-242-001 / REVIEW-242-001 publication lineage at
+`d113c4a7ce2e2835d532935bc195c922aa3628ca` and uses that exact SHA as the distinct
+`generation_5_execution_source_sha`, without changing historical TASK-240
+`diagnostic_v2_implementation_source_sha=8ef61df3936652fb7aeda8ca31ce1db3621ff4cf`.
+Generations 1-4 remain consumed; generation 4 remains the Human-operated, artifact-free evaluation
+failure with exit code 1 and no root or commerce probe.
+
+Generation 5 alone receives one Human-operated attach-only attempt for the fixed selected listing.
+Its non-consuming preflight requires reachable CDP, exactly one normal `type=page` target total
+which is the exact PDP, a fresh external generation-5 root with both diagnostic artifact names
+absent, and execution-critical file equivalence to the exact TASK-242 publication without requiring
+HEAD equality. The Human-facing command is one physical PowerShell line with no continuation.
+Pre-carrier parser/transport failure does not consume the attempt; every terminal outcome after
+valid carrier invocation begins does. Schema v2, create-exclusive V2 output, one borrowed session,
+one evaluate, zero interaction, TASK-137 cleanup, and `evidence_authority=NONE` remain fixed.
+
+There is no retry, refresh, resume, second invocation, replacement, search, batch, acquisition,
+selector-repair, market-test, action, or automatic progression authority. NEXT remains null and
+pending commitments remain empty. The current global handoff is
+`HUMAN_OPERATOR_GENERATION_5_COMMERCE_OBSERVABILITY_DIAGNOSTIC_EXECUTION`; after termination,
+review authority is `HUMAN_BRAIN_GENERATION_5_DIAGNOSTIC_REVIEW`. See
+`docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN5_AUTHORIZATION.md` for the exact contract.
+
 The complete audit and P7.0 boundary are recorded in
 `docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md`.
 
