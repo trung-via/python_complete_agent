@@ -46,33 +46,36 @@ planning_handoff:
     semantic reconciliation without reinterpreting TASK-191 or changing TASK-213 history.
 
 active_track:
-  id: P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN2_RECONCILIATION_AND_ROOT_OBSERVABILITY
-  title: P8 Public TikTok PDP DOM Diagnostic Gen2 Review and Root Observability
+  id: P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN3_AUTHORIZATION
+  title: P8 Public TikTok PDP DOM Diagnostic Generation-3 Authorization
   priority_owner: HUMAN
   status: DONE
   completion_basis: PUBLICATION_GATED
-  sequence_status: COMPLETE_ON_EXACT_TASK_238_SOURCE_PUBLICATION
+  sequence_status: COMPLETE_ON_EXACT_TASK_239_SOURCE_PUBLICATION
   current_milestone:
-    id: P8.PUBLIC_PDP.DOM_DIAGNOSTIC_GEN2_RECONCILIATION_AND_ROOT_OBSERVABILITY
-    task_id: TASK-238
-    title: Public TikTok PDP DOM Diagnostic Gen2 Review and Root Observability
+    id: P8.PUBLIC_PDP.DOM_DIAGNOSTIC_GEN3_AUTHORIZATION
+    task_id: TASK-239
+    title: Public TikTok PDP DOM Diagnostic Generation-3 Authorization
     status: DONE
     completion_basis: PUBLICATION_GATED
-    classification: GENERATION_2_FAIL_CLOSED_RECONCILIATION_AND_BOUNDED_ROOT_OBSERVABILITY_HARDENING_ONLY
+    classification: FRESH_GENERATION_3_ROOT_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION_ONLY
     authorization_owner: HUMAN_BRAIN
+    source_task_id: TASK-238
+    source_run_id: RUN-238-002
+    source_review_id: REVIEW-238-001
+    diagnostic_implementation_source_sha: fbdb8851b9f27d24eff11c509db3009e2c614952
     context_id: p8-pilot-001-led-motion-tiktok-vn
     authorized_source_id: "1731381331718341815"
     stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
     diagnostic_carrier: src/product_intelligence/tiktok_pdp_dom_diagnostic.py
-    diagnostic_authorization_generation: 2
-    live_dom_diagnostic_authority: NONE
-    diagnostic_executed: true
-    diagnostic_outcome: FAIL_CLOSED
-    diagnostic_failure_reason: NO_BOUNDED_PDP_ROOT
-    diagnostic_artifact_created: false
-    authorized_diagnostic_attempts: 1
-    authorized_diagnostic_attempts_remaining: 0
-    diagnostic_execution_owner: HUMAN_OPERATOR
+    diagnostic_authorization_generation: 3
+    live_dom_diagnostic_authority: ONE_SHOT_ATTACH_ONLY_EXACT_LISTING
+    generation_3_authorized_diagnostic_attempts: 1
+    generation_3_authorized_diagnostic_attempts_remaining: 1
+    generation_3_diagnostic_execution_owner: HUMAN_OPERATOR
+    generation_3_diagnostic_executed: false
+    diagnostic_executed: false
+    evidence_authority: NONE
     root_observability_hardening_implemented: true
     diagnostic_hardening_implemented: true
     diagnostic_implementation_exists: true
@@ -86,7 +89,7 @@ active_track:
       authorized_diagnostic_attempts_remaining: 0
       historical_failure_reason: LEGACY_COMBINED_PUBLIC_PDP_AVAILABILITY_GATE
       screenshot_context: NON_CANONICAL_DIAGNOSTIC_CONTEXT
-    historical_generation_2_attempt:
+    historical_generation_2:
       task_id: TASK-237
       diagnostic_executed: true
       diagnostic_outcome: FAIL_CLOSED
@@ -132,9 +135,9 @@ post_p7_planning_handoff:
     outcome, roadmap, or future-domain authority into P8.0.
 
 post_p8_planning_handoff:
-  destination: HUMAN_BRAIN_FRESH_ROOT_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION
-  status: EFFECTIVE_ON_EXACT_TASK_238_SOURCE_PUBLICATION
-  completed_commitment: P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN2_RECONCILIATION_AND_ROOT_OBSERVABILITY
+  destination: HUMAN_OPERATOR_GENERATION_3_ROOT_OBSERVABILITY_DIAGNOSTIC_EXECUTION
+  status: EFFECTIVE_ON_EXACT_TASK_239_SOURCE_PUBLICATION
+  completed_commitment: P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN3_AUTHORIZATION
   actual_real_decision_case:
     context_id: p8-pilot-001-led-motion-tiktok-vn
     record_type: PILOT_CASE_SELECTION_ONLY
@@ -167,19 +170,22 @@ post_p8_planning_handoff:
   live_evidence_definition: EXTERNAL_BOUNDED_SOURCE_ARTIFACT_ONLY
   canonical_evidence_ingested: false
   diagnostic_implementation_exists: true
-  diagnostic_authorization_generation: 2
-  live_dom_diagnostic_authority: NONE
-  authorized_diagnostic_attempts: 1
-  authorized_diagnostic_attempts_remaining: 0
-  fresh_authorized_diagnostic_attempts: 1
-  fresh_authorized_diagnostic_attempts_remaining: 0
-  diagnostic_execution_owner: HUMAN_OPERATOR
-  fresh_diagnostic_execution_owner: HUMAN_OPERATOR
-  diagnostic_executed: true
-  fresh_diagnostic_executed: true
-  diagnostic_outcome: FAIL_CLOSED
-  diagnostic_failure_reason: NO_BOUNDED_PDP_ROOT
-  diagnostic_artifact_created: false
+  source_task_id: TASK-238
+  source_run_id: RUN-238-002
+  source_review_id: REVIEW-238-001
+  diagnostic_implementation_source_sha: fbdb8851b9f27d24eff11c509db3009e2c614952
+  diagnostic_authorization_generation: 3
+  live_dom_diagnostic_authority: ONE_SHOT_ATTACH_ONLY_EXACT_LISTING
+  generation_3_authorized_diagnostic_attempts: 1
+  generation_3_authorized_diagnostic_attempts_remaining: 1
+  generation_3_diagnostic_execution_owner: HUMAN_OPERATOR
+  generation_3_diagnostic_executed: false
+  diagnostic_executed: false
+  evidence_authority: NONE
+  preflight_consumes_attempt: false
+  diagnostic_invocation_consumes_attempt: true
+  automatic_retry_refresh_resume: false
+  mandatory_post_diagnostic_review: HUMAN_BRAIN
   root_observability_hardening_implemented: true
   diagnostic_hardening_implemented: true
   selector_repair_complete: false
@@ -474,6 +480,9 @@ post_p8_planning_handoff:
     document: docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN2_REVIEW_AND_ROOT_OBSERVABILITY.md
     classification: GENERATION_2_FAIL_CLOSED_RECONCILIATION_AND_BOUNDED_ROOT_OBSERVABILITY_HARDENING_ONLY
     task_id: TASK-238
+    source_run_id: RUN-238-002
+    source_review_id: REVIEW-238-001
+    published_source_sha: fbdb8851b9f27d24eff11c509db3009e2c614952
     historical_attempt_task_id: TASK-237
     diagnostic_executed: true
     diagnostic_outcome: FAIL_CLOSED
@@ -505,6 +514,45 @@ post_p8_planning_handoff:
     market_test_or_action_authority: NONE
     automatic_progression: false
     post_publication_handoff: HUMAN_BRAIN_FRESH_ROOT_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION
+  public_pdp_dom_diagnostic_gen3_authorization:
+    document: docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN3_AUTHORIZATION.md
+    classification: FRESH_GENERATION_3_ROOT_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION_ONLY
+    task_id: TASK-239
+    source_task_id: TASK-238
+    source_run_id: RUN-238-002
+    source_review_id: REVIEW-238-001
+    diagnostic_implementation_source_sha: fbdb8851b9f27d24eff11c509db3009e2c614952
+    diagnostic_carrier: src/product_intelligence/tiktok_pdp_dom_diagnostic.py
+    implementation_modified: false
+    context_id: p8-pilot-001-led-motion-tiktok-vn
+    authorized_source_id: "1731381331718341815"
+    stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
+    diagnostic_authorization_generation: 3
+    live_dom_diagnostic_authority: ONE_SHOT_ATTACH_ONLY_EXACT_LISTING
+    generation_3_authorized_diagnostic_attempts: 1
+    generation_3_authorized_diagnostic_attempts_remaining: 1
+    generation_3_diagnostic_execution_owner: HUMAN_OPERATOR
+    generation_3_diagnostic_executed: false
+    diagnostic_executed: false
+    attach_only: true
+    session_evaluate_count: 1
+    navigation_or_interaction_authority: NONE
+    arbitrary_target_or_batch_authority: NONE
+    automatic_retry_refresh_resume: false
+    preflight_consumes_attempt: false
+    diagnostic_invocation_consumes_attempt: true
+    artifact_boundary: EXPLICIT_EXTERNAL_JOB_ROOT_ONLY
+    evidence_authority: NONE
+    product_candidate_snapshot_authority: NONE
+    signal_evidence_authority: NONE
+    root_observability_hardening_implemented: true
+    selector_repair_complete: false
+    live_public_pdp_acquisition_authority: NONE
+    automated_public_pdp_acquisition_authority: NONE
+    market_test_or_action_authority: NONE
+    automatic_progression: false
+    mandatory_post_diagnostic_review: HUMAN_BRAIN
+    post_publication_handoff: HUMAN_OPERATOR_GENERATION_3_ROOT_OBSERVABILITY_DIAGNOSTIC_EXECUTION
   manual_contribution_authorization:
     document: docs/PHASE_8_P8_3_MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION.md
     classification: MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION_ONLY
@@ -1002,6 +1050,7 @@ completed_milestones:
     title: Public TikTok PDP DOM Diagnostic Gen2 Review and Root Observability
     status: DONE
     completion_basis: PUBLICATION_GATED
+    published_source_sha: fbdb8851b9f27d24eff11c509db3009e2c614952
     classification: GENERATION_2_FAIL_CLOSED_RECONCILIATION_AND_BOUNDED_ROOT_OBSERVABILITY_HARDENING_ONLY
     context_id: p8-pilot-001-led-motion-tiktok-vn
     authorized_source_id: "1731381331718341815"
@@ -1044,6 +1093,41 @@ completed_milestones:
     market_test_or_action_authority: NONE
     automatic_progression: false
     post_publication_handoff: HUMAN_BRAIN_FRESH_ROOT_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION
+    effective_only_when:
+      semantic_review: PASS
+      published_source: EXACT_REVIEWED_CANDIDATE
+      canonical_main_equals_reviewed_candidate: true
+  - task_id: TASK-239
+    task_revision: 1
+    track_id: P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN3_AUTHORIZATION
+    milestone_id: P8.PUBLIC_PDP.DOM_DIAGNOSTIC_GEN3_AUTHORIZATION
+    title: Public TikTok PDP DOM Diagnostic Generation-3 Authorization
+    status: DONE
+    completion_basis: PUBLICATION_GATED
+    classification: FRESH_GENERATION_3_ROOT_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION_ONLY
+    source_task_id: TASK-238
+    source_run_id: RUN-238-002
+    source_review_id: REVIEW-238-001
+    diagnostic_implementation_source_sha: fbdb8851b9f27d24eff11c509db3009e2c614952
+    context_id: p8-pilot-001-led-motion-tiktok-vn
+    authorized_source_id: "1731381331718341815"
+    stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
+    diagnostic_carrier: src/product_intelligence/tiktok_pdp_dom_diagnostic.py
+    diagnostic_authorization_generation: 3
+    live_dom_diagnostic_authority: ONE_SHOT_ATTACH_ONLY_EXACT_LISTING
+    generation_3_authorized_diagnostic_attempts: 1
+    generation_3_authorized_diagnostic_attempts_remaining: 1
+    generation_3_diagnostic_execution_owner: HUMAN_OPERATOR
+    generation_3_diagnostic_executed: false
+    diagnostic_executed: false
+    evidence_authority: NONE
+    root_observability_hardening_implemented: true
+    selector_repair_complete: false
+    live_public_pdp_acquisition_authority: NONE
+    automated_public_pdp_acquisition_authority: NONE
+    market_test_or_action_authority: NONE
+    automatic_progression: false
+    post_publication_handoff: HUMAN_OPERATOR_GENERATION_3_ROOT_OBSERVABILITY_DIAGNOSTIC_EXECUTION
     effective_only_when:
       semantic_review: PASS
       published_source: EXACT_REVIEWED_CANDIDATE

@@ -696,6 +696,30 @@ and the exact handoff is `HUMAN_BRAIN_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORI
   pending commitments are empty, and the exact handoff is
   `HUMAN_BRAIN_FRESH_ROOT_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION`.
 
+- **P8 Public TikTok PDP DOM Diagnostic Generation-3 Authorization (TASK-239 — publication-gated DONE only as
+  `FRESH_GENERATION_3_ROOT_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION_ONLY`)**: records exact TASK-238 publication
+  provenance as `source_task_id=TASK-238`, `source_run_id=RUN-238-002`,
+  `source_review_id=REVIEW-238-001`, and
+  `diagnostic_implementation_source_sha=fbdb8851b9f27d24eff11c509db3009e2c614952`, without reinterpreting
+  older `source_sha` fields or modifying the diagnostic implementation. Generation 1 and generation 2 remain
+  separately consumed; generation 2 remains `FAIL_CLOSED`, `NO_BOUNDED_PDP_ROOT`, with zero attempts remaining.
+
+  Exact reviewed TASK-239 publication grants only one Human-operated generation-3 attach-only invocation for
+  context `p8-pilot-001-led-motion-tiktok-vn`, source ID `1731381331718341815`, and the fixed selected listing.
+  Non-consuming preflight is distinct from the consuming diagnostic invocation. Starting the canonical CLI
+  consumes the attempt on success or failure; no retry, refresh, resume, replacement target, acquisition,
+  selector repair, ranking, test, recommendation, approval, or action is authorized. All output retains
+  `evidence_authority=NONE`, and post-attempt Human/Brain review is mandatory before any repair decision.
+
+  The publication-gated state is `diagnostic_authorization_generation=3`,
+  `live_dom_diagnostic_authority=ONE_SHOT_ATTACH_ONLY_EXACT_LISTING`,
+  `generation_3_authorized_diagnostic_attempts=1`,
+  `generation_3_authorized_diagnostic_attempts_remaining=1`,
+  `generation_3_diagnostic_execution_owner=HUMAN_OPERATOR`, `generation_3_diagnostic_executed=false`,
+  `root_observability_hardening_implemented=true`, `selector_repair_complete=false`, acquisition and action
+  authorities `NONE`, `automatic_progression=false`, `next_milestone=null`, empty pending commitments, and exact
+  handoff `HUMAN_OPERATOR_GENERATION_3_ROOT_OBSERVABILITY_DIAGNOSTIC_EXECUTION`.
+
 See `docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md` for the exact P8.0 source
 `a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e`,
 `docs/PHASE_8_P8_1_REAL_DECISION_PILOT_SELECTION.md` for the exact P8.1 selection record, and
@@ -718,6 +742,8 @@ See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_FRESH_AUTHORIZATION.md` for t
 generation-2 authorization, hardened carrier source lineage, and Human-operator execution boundary.
 See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN2_REVIEW_AND_ROOT_OBSERVABILITY.md` for the
 TASK-238 reconciliation, bounded root observability, and Human/Brain fresh-authorization handoff.
+See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN3_AUTHORIZATION.md` for the TASK-239 exact-source
+generation-3 authorization, non-consuming preflight boundary, and consuming Human-operator handoff.
 
 
 See `docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md` for the audit and boundary.
