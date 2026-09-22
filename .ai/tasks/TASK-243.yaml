@@ -1,0 +1,266 @@
+task_id: TASK-243
+revision: 1
+
+goal: >
+  Canonicalize exactly one fresh Human-operated generation-5 authorization for the
+  already-published schema-version-2 TikTok PDP commerce-observability diagnostic after
+  TASK-242 repaired the confirmed JavaScript evaluation defect. Bind the new attempt only to
+  the fixed selected listing and the exact published TASK-242 execution source, strengthen
+  non-consuming preflight so the existing TASK-137 first-page borrowing policy resolves
+  unambiguously to that PDP, and make the Human-facing PowerShell invocation a single physical
+  command line. Do not modify production diagnostic/browser code and do not execute TikTok/CDP
+  during TASK-243 engineering execution.
+
+problem: >
+  TASK-242 / RUN-242-001 / REVIEW-242-001 are reviewed and the exact candidate
+  d113c4a7ce2e2835d532935bc195c922aa3628ca is now canonical main. TASK-242 reconciled
+  generation 4 as one consumed Human-operated FAIL_CLOSED attempt with
+  BOUNDED_CURRENT_PAGE_EVALUATION_FAILED, exit code 1, no V2 artifact and no root/commerce
+  probe, then repaired only the malformed four-or-more-digit regex-negation guard in
+  DIAGNOSTIC_SCRIPT. Focused verification passed with 56 tests and git diff --check, and no
+  selector, DOM topology, render, shadow, iframe, acquisition or browser-lifecycle repair was
+  authorized. Canonical roadmap now hands control to
+  HUMAN_BRAIN_FRESH_GENERATION_5_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION and grants no
+  current live diagnostic authority. The smallest justified next step is authorization-only:
+  one fresh Human-operated generation-5 attach-only invocation using the exact published
+  TASK-242 carrier state, with stronger target-unambiguity and shell-transport preflight.
+
+assumptions:
+  - >
+    Canonical main at authoring is
+    d113c4a7ce2e2835d532935bc195c922aa3628ca.
+  - >
+    TASK-242 / RUN-242-001 / REVIEW-242-001 are Runtime PASS, semantic PASS and publication
+    SUCCESS, and canonical main equals exact reviewed candidate
+    d113c4a7ce2e2835d532935bc195c922aa3628ca.
+  - >
+    TASK-242 preserves historical diagnostic_v2_implementation_source_sha
+    8ef61df3936652fb7aeda8ca31ce1db3621ff4cf as TASK-240 V2 provenance. Generation-5 execution
+    must not overwrite or reinterpret that historical provenance; it needs a separate exact
+    execution-source binding to TASK-242 publication.
+  - >
+    Generation 4 is consumed history: executed true, FAIL_CLOSED,
+    BOUNDED_CURRENT_PAGE_EVALUATION_FAILED, process exit code 1, artifact_created false,
+    authorized attempts 1, remaining 0, Human operator ownership, live_dom_diagnostic_authority
+    NONE, root_probe_observed false and commerce_probe_observed false.
+  - >
+    Generations 1-3 remain consumed historical records exactly as already canonicalized.
+  - >
+    TASK-137 remains sole browser/CDP lifecycle authority. It currently borrows the first
+    existing non-closed page from the first existing context; TASK-243 must not modify that
+    policy or create another page-selection owner.
+  - >
+    The selected context remains p8-pilot-001-led-motion-tiktok-vn, source ID
+    1731381331718341815, exact listing
+    https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815.
+  - >
+    TASK-231 remains sole public PDP acquisition contract. ProductCandidateSnapshot remains the
+    marketplace observation contract and SignalEvidence remains field-evidence owner.
+  - >
+    CAPABILITY_IS_NOT_AUTHORITY, EVIDENCE_IS_NOT_PRODUCT_TRUTH,
+    SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY, SNAPSHOT_IS_NOT_TREND and
+    ONE_CAPABILITY_ONE_AUTHORITY remain mandatory.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN4_AUTHORIZATION.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN4_FAILURE_RECONCILIATION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - .ai/tasks/TASK-137.yaml
+    - .ai/tasks/TASK-241.yaml
+    - .ai/tasks/TASK-242.yaml
+    - src/product_intelligence/tiktok_pdp_dom_diagnostic.py
+    - src/product_intelligence/cli.py
+    - src/integrations/playwright/manager.py
+    - src/integrations/playwright/session.py
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN5_AUTHORIZATION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - >
+    Modify src/product_intelligence/tiktok_pdp_dom_diagnostic.py,
+    src/product_intelligence/cli.py, src/integrations/playwright/manager.py,
+    src/integrations/playwright/session.py, BrowserSession, PlaywrightBrowserManager,
+    PlaywrightBrowserSession, TASK-137 lifecycle semantics, TikTokPdpCollector,
+    TIKTOK_PDP_EXTRACTION_SCRIPT, canonical TikTok parser, ProductCandidateSnapshot,
+    SignalEvidence, Product Source, Affiliate, scoring, ranking, recommendation, approval,
+    persistence, market-test or commerce-action semantics.
+  - >
+    Execute TikTok/CDP, run generation 5, retry generation 4, navigate, refresh, click, type,
+    scroll, search, switch variants, open another page or perform any live marketplace operation
+    during TASK-243 engineering execution.
+  - >
+    Repair selectors, root discovery, DOM topology, render timing, shadow DOM, iframe traversal,
+    commerce-probe logic, collector behavior, PDP acquisition or browser target-selection policy.
+  - >
+    Grant arbitrary-target, replacement-target, search, batch, recurring diagnostic,
+    acquisition, automatic retry/resume, selector-repair, market-test, action or automatic
+    successor authority.
+  - >
+    Treat diagnostic artifacts, terminal output, preflight target listings, DOM signatures,
+    root_probe, commerce_probe or screenshots as marketplace evidence, Product Truth, ranking
+    evidence, approval evidence, trend evidence, test-readiness evidence or commerce-action
+    evidence.
+
+constraints:
+  hard:
+    - >
+      Classification is exactly
+      FRESH_GENERATION_5_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION_ONLY.
+      TASK-243 is authorization/governance-only and must not modify production diagnostic or
+      browser code.
+    - >
+      Record exact TASK-242 publication provenance using source_task_id TASK-242,
+      source_run_id RUN-242-001, source_review_id REVIEW-242-001 and source_published_sha
+      d113c4a7ce2e2835d532935bc195c922aa3628ca.
+    - >
+      Preserve diagnostic_v2_implementation_source_sha
+      8ef61df3936652fb7aeda8ca31ce1db3621ff4cf as historical TASK-240 V2 implementation
+      provenance. Add a distinct generation_5_execution_source_sha
+      d113c4a7ce2e2835d532935bc195c922aa3628ca and use that exact source for generation-5
+      execution-critical file equivalence. Do not overwrite or reinterpret the historical V2
+      provenance field.
+    - >
+      Preserve generations 1-4 as consumed historical records. Generation 4 must remain
+      executed true, FAIL_CLOSED, BOUNDED_CURRENT_PAGE_EVALUATION_FAILED, process exit code 1,
+      artifact_created false, attempts 1, remaining 0, root_probe_observed false,
+      commerce_probe_observed false, Human operator ownership and live_dom_diagnostic_authority
+      NONE. TASK-243 is not a retry or reinterpretation of generation 4.
+    - >
+      Only exact reviewed TASK-243 publication may set diagnostic_authorization_generation 5,
+      live_dom_diagnostic_authority ONE_SHOT_ATTACH_ONLY_EXACT_LISTING,
+      generation_5_authorized_diagnostic_attempts 1,
+      generation_5_authorized_diagnostic_attempts_remaining 1,
+      generation_5_diagnostic_execution_owner HUMAN_OPERATOR and
+      generation_5_diagnostic_executed false.
+    - >
+      Generation 5 is bound only to context p8-pilot-001-led-motion-tiktok-vn, source ID
+      1731381331718341815 and exact selected listing. It grants no replacement product,
+      arbitrary target, inferred identity, search, batch or variant-switching authority.
+    - >
+      Bind generation 5 to schema_version 2, create-exclusive artifact filename
+      tiktok-pdp-dom-diagnostic-v2.json, carrier
+      src/product_intelligence/tiktok_pdp_dom_diagnostic.py, canonical CLI subcommand
+      tiktok-pdp-dom-diagnostic, one borrowed session, exactly one
+      session.evaluate(DIAGNOSTIC_SCRIPT), zero navigation/refresh/click/type/scroll and
+      TASK-137 manager-mediated cleanup. evidence_authority remains NONE.
+    - >
+      Non-consuming generation-5 preflight is separate from the consuming invocation and may
+      only verify: CDP 127.0.0.1:9222 reachability; browser target enumeration shows exactly one
+      normal type=page target total and that sole target is the exact selected PDP for source ID
+      1731381331718341815; a fresh explicit external generation-5 job root contains neither
+      tiktok-pdp-dom-diagnostic-v1.json nor tiktok-pdp-dom-diagnostic-v2.json; and execution-
+      critical files src/product_intelligence/tiktok_pdp_dom_diagnostic.py,
+      src/product_intelligence/cli.py and src/integrations/playwright/manager.py are content-
+      equivalent to generation_5_execution_source_sha
+      d113c4a7ce2e2835d532935bc195c922aa3628ca. Repository HEAD equality is not required.
+      Preflight must not invoke the diagnostic carrier and does not consume the attempt.
+    - >
+      Human-facing generation-5 invocation transport is exactly one physical PowerShell command
+      line with no backtick or multiline continuation. Shell/parser failures that occur before a
+      valid tiktok-pdp-dom-diagnostic subcommand dispatches into the diagnostic carrier are
+      transport failures and do not by themselves consume the live diagnostic attempt.
+      Once the valid canonical diagnostic carrier invocation begins, the sole generation-5
+      attempt is consumed on every terminal outcome.
+    - >
+      After carrier invocation begins, SUCCESS, NO_BOUNDED_PDP_ROOT, BLOCKED_OR_CHALLENGE,
+      LOGIN_GATE, LISTING_UNAVAILABLE, IDENTITY_MISMATCH, MALFORMED_DIAGNOSTIC_PAYLOAD,
+      evaluation/session failure or any other terminal outcome consumes the sole generation-5
+      attempt. No automatic retry, refresh, resume, second invocation or replacement target is
+      authorized.
+    - >
+      SUCCESS may create the bounded V2 artifact. NO_BOUNDED_PDP_ROOT retains the V2
+      create-exclusive FAIL_CLOSED artifact contract. Other safe failures may remain
+      artifact-free according to the published carrier. Every artifact retains
+      evidence_authority NONE.
+    - >
+      Preserve post-run interpretation boundaries: root_probe and commerce_probe are engineering
+      diagnostic hints only; bounded_scan_truncated true makes negative bounded-scan
+      observations non-exhaustive; shadow/iframe counts are structural hints only and do not
+      authorize traversal; document_ready_state COMPLETE is not proof of SPA hydration or
+      network completion; selector/readiness hints do not self-authorize repair.
+    - >
+      Preserve root_observability_hardening_implemented true,
+      commerce_observability_hardening_implemented true and selector_repair_complete false.
+      Keep live_public_pdp_acquisition_authority NONE,
+      automated_public_pdp_acquisition_authority NONE,
+      market_test_or_action_authority NONE and automatic_progression false.
+    - >
+      Exact post-publication handoff is
+      HUMAN_OPERATOR_GENERATION_5_COMMERCE_OBSERVABILITY_DIAGNOSTIC_EXECUTION.
+      After the single Human-operated attempt terminates, review authority returns to
+      HUMAN_BRAIN_GENERATION_5_DIAGNOSTIC_REVIEW. TASK-243 selects no engineering repair and
+      authorizes no automatic progression.
+    - >
+      Keep active_track.next_milestone null and pending_commitments empty. Historical governance
+      tests may assert their own nested handoffs but must not freeze the current global
+      post_p8_planning_handoff.destination. The TASK-243-specific governance regression owns the
+      new current global destination.
+    - >
+      Modify exactly the five authorized paths. Runtime owns deterministic verification.
+      Executor must produce one candidate and one ResultPackage and must not publish, execute a
+      live diagnostic, repair selectors, modify browser lifecycle authority or author a
+      successor.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Exact TASK-242 / RUN-242-001 / REVIEW-242-001 publication lineage and exact
+      generation_5_execution_source_sha d113c4a7ce2e2835d532935bc195c922aa3628ca are recorded
+      while historical TASK-240 diagnostic_v2_implementation_source_sha remains unchanged.
+  - id: AC2
+    condition: >
+      Generations 1-4 remain consumed immutable history, including exact generation-4
+      artifact-free evaluation failure and no observed root/commerce probe, while generation 5
+      alone receives one fresh publication-gated Human-operated attempt.
+  - id: AC3
+    condition: >
+      Generation-5 authorization is bound to the exact selected listing, schema-v2 carrier and
+      create-exclusive V2 artifact contract, with evidence_authority NONE and no arbitrary,
+      replacement, search, batch, acquisition, selector-repair or commerce-action authority.
+  - id: AC4
+    condition: >
+      Non-consuming preflight proves CDP reachability, exactly one normal type=page target total
+      and that sole target is the exact PDP, a fresh external job root with V1/V2 absent, and
+      execution-critical file equivalence to exact TASK-242 publication without requiring
+      repository HEAD equality.
+  - id: AC5
+    condition: >
+      Human-facing invocation is defined as one physical PowerShell line with no continuation;
+      pre-carrier shell/parser transport failure is distinguished from a real diagnostic
+      invocation, while every terminal outcome after valid carrier invocation begins consumes
+      the only generation-5 attempt with no retry/refresh/resume/second invocation.
+  - id: AC6
+    condition: >
+      One borrowed session, exactly one session.evaluate(DIAGNOSTIC_SCRIPT), zero
+      navigation/refresh/click/type/scroll, TASK-137 cleanup, schema-v2 contract and
+      evidence_authority NONE remain unchanged with no production code modification.
+  - id: AC7
+    condition: >
+      Post-run interpretation remains engineering-diagnostic-only; selector repair remains
+      false; live/automated PDP acquisition and market/action authorities remain NONE;
+      automatic progression remains false; next_milestone is null and pending commitments are
+      empty.
+  - id: AC8
+    condition: >
+      Exactly five authorized paths change; the current global handoff is
+      HUMAN_OPERATOR_GENERATION_5_COMMERCE_OBSERVABILITY_DIAGNOSTIC_EXECUTION, post-attempt
+      review authority is HUMAN_BRAIN_GENERATION_5_DIAGNOSTIC_REVIEW, focused governance
+      verification and git diff --check pass with zero unresolved items.
+
+verification:
+  required:
+    - python -m pytest tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task243-primary
+    - git diff --check
