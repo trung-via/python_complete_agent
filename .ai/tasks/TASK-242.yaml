@@ -1,0 +1,259 @@
+task_id: TASK-242
+revision: 1
+
+goal: >
+  Reconcile the consumed Human-operated generation-4 TikTok PDP commerce-observability
+  diagnostic attempt from TASK-241 as an artifact-free evaluation failure, repair only the
+  confirmed malformed JavaScript guard in the published schema-version-2 diagnostic carrier,
+  and add bounded regression coverage that prevents this exact syntax defect from recurring.
+  Preserve TASK-137 browser/CDP lifecycle authority, Product Intelligence semantics, and all
+  acquisition/action boundaries. Do not execute TikTok/CDP and do not authorize generation 5
+  during TASK-242 engineering execution.
+
+problem: >
+  TASK-241 is reviewed and published exactly at
+  c319c384f370fec1946d7d85b871e05d1e4b82a7 after RUN-241-001 and REVIEW-241-001.
+  Its publication granted exactly one Human-operated generation-4 attach-only diagnostic
+  attempt. The Human completed non-consuming preflight successfully, then started the exact
+  canonical CLI invocation. That invocation reached the diagnostic carrier and returned exit
+  code 1 with sanitized error type TikTokPdpDomDiagnosticError and message
+  "the bounded current-page evaluation failed"; no tiktok-pdp-dom-diagnostic-v2.json artifact
+  was created. Under TASK-241, starting the canonical invocation consumes the sole attempt on
+  every terminal outcome, including evaluation failure, so generation 4 is consumed even though
+  canonical roadmap state still records executed false and one attempt remaining.
+  Repository inspection identifies a concrete malformed JavaScript regex guard inside
+  DIAGNOSTIC_SCRIPT that is sufficient to explain parse-time page.evaluate failure. Existing
+  FakeSession regressions only record the script and return synthetic payloads, so they did not
+  parse the JavaScript and therefore did not detect this defect. No root_probe or commerce_probe
+  payload was produced, so no selector, DOM topology, render, shadow, iframe, collector, or
+  acquisition repair is justified by generation 4.
+
+assumptions:
+  - >
+    Canonical main at authoring is
+    c319c384f370fec1946d7d85b871e05d1e4b82a7.
+  - >
+    TASK-241 / RUN-241-001 / REVIEW-241-001 are Runtime PASS, semantic PASS and publication
+    SUCCESS, and canonical main equals the exact reviewed TASK-241 candidate
+    c319c384f370fec1946d7d85b871e05d1e4b82a7.
+  - >
+    TASK-241 published the generation-4 authorization bound to context
+    p8-pilot-001-led-motion-tiktok-vn, source ID 1731381331718341815 and exact listing
+    https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815.
+  - >
+    The Human-operated preflight immediately before the consuming invocation established:
+    CDP 127.0.0.1:9222 reachable; exactly one matching normal page target for source ID
+    1731381331718341815; execution-critical files equivalent to published V2 source
+    8ef61df3936652fb7aeda8ca31ce1db3621ff4cf; and both V1/V2 diagnostic artifacts absent in
+    the new external generation-4 job root.
+  - >
+    The Human then executed the canonical one-line CLI invocation. It returned
+    TikTokPdpDomDiagnosticError with sanitized message
+    "the bounded current-page evaluation failed", process exit code 1, and no V2 artifact.
+    This operator observation is engineering execution context to be reconciled; it is not
+    marketplace evidence or Product Truth.
+  - >
+    Canonical src/product_intelligence/tiktok_pdp_dom_diagnostic.py currently contains a
+    malformed JavaScript regex-negation guard inside DIAGNOSTIC_SCRIPT equivalent to a missing
+    opening regex delimiter before a four-or-more-digit check. That defect is sufficient to
+    cause JavaScript parse failure before a diagnostic payload can be returned.
+  - >
+    Existing tests/product_intelligence/test_tiktok_pdp_dom_diagnostic.py uses FakeSession
+    evaluation that records DIAGNOSTIC_SCRIPT and returns synthetic Python payloads; it does not
+    parse or execute the JavaScript source, so current green tests do not certify JavaScript
+    syntax.
+  - >
+    TASK-137 remains the sole browser/CDP lifecycle authority. Its current contract deliberately
+    borrows the first existing non-closed page in the first existing context. TASK-242 has no
+    evidence that this browser policy caused the generation-4 failure and therefore must not
+    modify or reinterpret TASK-137.
+  - >
+    TASK-231 remains sole public PDP acquisition contract. ProductCandidateSnapshot remains the
+    marketplace observation contract and SignalEvidence remains field-evidence owner.
+  - >
+    CAPABILITY_IS_NOT_AUTHORITY, EVIDENCE_IS_NOT_PRODUCT_TRUTH,
+    SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY, SNAPSHOT_IS_NOT_TREND and
+    ONE_CAPABILITY_ONE_AUTHORITY remain mandatory.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN4_AUTHORIZATION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - .ai/tasks/TASK-137.yaml
+    - .ai/tasks/TASK-240.yaml
+    - .ai/tasks/TASK-241.yaml
+    - src/product_intelligence/tiktok_pdp_dom_diagnostic.py
+    - src/product_intelligence/cli.py
+    - src/integrations/playwright/manager.py
+    - src/integrations/playwright/session.py
+    - tests/product_intelligence/test_tiktok_pdp_dom_diagnostic.py
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - src/product_intelligence/tiktok_pdp_dom_diagnostic.py
+    - tests/product_intelligence/test_tiktok_pdp_dom_diagnostic.py
+    - tests/aios_bridge/test_aios_governance_state.py
+    - .ai/roadmap-state.yaml
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN4_FAILURE_RECONCILIATION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+
+non_goals:
+  - >
+    Modify src/product_intelligence/cli.py, src/integrations/playwright/manager.py,
+    src/integrations/playwright/session.py, BrowserSession, PlaywrightBrowserManager,
+    PlaywrightBrowserSession, TASK-137 lifecycle semantics, TikTokPdpCollector,
+    TIKTOK_PDP_EXTRACTION_SCRIPT, canonical TikTok parser, ProductCandidateSnapshot,
+    SignalEvidence, Product Source, Affiliate, scoring, ranking, recommendation, approval,
+    persistence, market-test or commerce-action semantics.
+  - >
+    Execute TikTok/CDP, invoke the diagnostic, retry generation 4, navigate, refresh, click,
+    type, scroll, search, switch variant, open another page, or perform any live marketplace
+    operation during TASK-242 engineering execution.
+  - >
+    Repair selectors, root discovery, DOM topology, render timing, shadow DOM, iframe traversal,
+    collector behavior, PDP acquisition or browser target-selection policy.
+  - >
+    Grant generation-5 authority, arbitrary-target authority, recurring diagnostic authority,
+    acquisition authority, automatic retry/resume, selector-repair authority, market-test
+    authority, action authority or automatic successor execution.
+  - >
+    Treat the terminal error, process exit code, absence of artifact, prior screenshots,
+    preflight target listing, DOM signatures, root_probe, commerce_probe or future diagnostic
+    artifacts as marketplace evidence, Product Truth, ranking evidence, approval evidence,
+    trend evidence, test-readiness evidence or commerce-action evidence.
+  - >
+    Claim general JavaScript syntax certification. TASK-242 only needs deterministic regression
+    against the exact confirmed malformed guard unless an already-adopted repository dependency
+    can validate the full script without adding a new runtime or authority.
+
+constraints:
+  hard:
+    - >
+      Classification is exactly
+      GENERATION_4_EVALUATION_FAILURE_RECONCILIATION_AND_V2_DIAGNOSTIC_SCRIPT_HARDENING_ONLY.
+    - >
+      Record exact TASK-241 publication lineage using source_task_id TASK-241,
+      source_run_id RUN-241-001, source_review_id REVIEW-241-001 and
+      source_published_sha c319c384f370fec1946d7d85b871e05d1e4b82a7. Preserve TASK-240's
+      diagnostic_v2_implementation_source_sha
+      8ef61df3936652fb7aeda8ca31ce1db3621ff4cf as historical V2 source provenance and do not
+      reinterpret older provenance fields.
+    - >
+      Reconcile generation 4 as consumed history:
+      generation_4_diagnostic_executed true,
+      generation_4_authorized_diagnostic_attempts 1,
+      generation_4_authorized_diagnostic_attempts_remaining 0,
+      generation_4_diagnostic_execution_owner HUMAN_OPERATOR,
+      live_dom_diagnostic_authority NONE,
+      diagnostic_outcome FAIL_CLOSED,
+      diagnostic_failure_reason BOUNDED_CURRENT_PAGE_EVALUATION_FAILED,
+      diagnostic_process_exit_code 1 and diagnostic_artifact_created false.
+      TASK-242 must not revive, retry or reinterpret generation 4.
+    - >
+      Because page.evaluate failed before a diagnostic payload returned, record explicitly that
+      generation_4_root_probe_observed is false and generation_4_commerce_probe_observed is
+      false. Do not synthesize zero counts, copy generation-3 probes into generation 4, infer
+      selector mismatch, infer DOM absence, infer render state, or infer marketplace state from
+      this failure.
+    - >
+      Repair only the confirmed malformed regex-negation guard inside DIAGNOSTIC_SCRIPT while
+      preserving its intended bounded sanitization behavior: safe structural atoms remain
+      allowlisted and strings containing a four-or-more-digit sequence remain rejected.
+      Do not otherwise change root selectors, title selectors, price selectors, action selectors,
+      identity rules, caps, candidate schemas, root selection, commerce-probe semantics,
+      shadow/iframe traversal policy, readiness semantics, page interaction behavior or artifact
+      schema.
+    - >
+      Preserve schema_version 2, create-exclusive filename
+      tiktok-pdp-dom-diagnostic-v2.json, evidence_authority NONE, exact fixed source identity,
+      one borrowed session, exactly one session.evaluate(DIAGNOSTIC_SCRIPT), zero navigation,
+      refresh, click, type or scroll, and TASK-137 manager-mediated borrowed-session cleanup.
+    - >
+      Add deterministic regression that would fail on the exact malformed guard that escaped
+      TASK-240 verification and pass only when the intended four-or-more-digit rejection guard
+      is represented validly in DIAGNOSTIC_SCRIPT. Existing FakeSession behavior may continue to
+      prove one-evaluate/lifecycle/payload handling, but it must not be described as JavaScript
+      parsing or full syntax certification.
+    - >
+      Do not modify TASK-137 browser lifecycle authority or add a second page-selection owner.
+      Record only a future authorization preflight requirement: before any separately authorized
+      generation-5 invocation, Human/operator preflight must prove that the borrowable normal
+      page set under the existing TASK-137 policy resolves unambiguously to the exact selected
+      PDP. TASK-242 itself grants no such live authority and performs no preflight.
+    - >
+      Preserve generations 1-3 exactly as consumed historical records. Preserve
+      root_observability_hardening_implemented true,
+      commerce_observability_hardening_implemented true and selector_repair_complete false.
+      Keep live_public_pdp_acquisition_authority NONE,
+      automated_public_pdp_acquisition_authority NONE,
+      market_test_or_action_authority NONE and automatic_progression false.
+    - >
+      Only exact reviewed TASK-242 publication may make the reconciliation/hardening planning
+      state effective. The exact post-publication handoff is
+      HUMAN_BRAIN_FRESH_GENERATION_5_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION.
+      Keep next_milestone null and pending_commitments empty. Do not set any
+      generation_5_authorized_diagnostic_attempts field to a positive value and do not select a
+      live execution successor.
+    - >
+      Historical governance tests may assert their own nested historical handoffs but must not
+      freeze the current global post_p8_planning_handoff.destination. The TASK-242-specific
+      governance regression owns the new current global destination.
+    - >
+      Modify exactly the seven authorized paths. Runtime owns deterministic verification.
+      Executor must produce one candidate and one ResultPackage and must not publish, execute a
+      live diagnostic, author generation-5 authorization, repair selectors or modify browser
+      lifecycle authority.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Exact TASK-241 / RUN-241-001 / REVIEW-241-001 publication lineage and published source
+      SHA are recorded without reinterpreting older TASK-240 V2 implementation provenance.
+  - id: AC2
+    condition: >
+      Generation 4 is reconciled as one consumed Human-operated FAIL_CLOSED attempt with
+      BOUNDED_CURRENT_PAGE_EVALUATION_FAILED, process exit code 1, artifact_created false,
+      executed true and zero attempts remaining; generations 1-3 remain unchanged historical
+      records.
+  - id: AC3
+    condition: >
+      The generation-4 record explicitly states no root_probe and no commerce_probe were
+      observed, and no selector, DOM, render, shadow, iframe, acquisition or marketplace
+      conclusion is manufactured from the evaluation failure.
+  - id: AC4
+    condition: >
+      The confirmed malformed JavaScript regex guard is corrected while schema version,
+      artifact contract, identity binding, bounded structural semantics, selectors, caps and
+      zero-interaction behavior remain otherwise unchanged.
+  - id: AC5
+    condition: >
+      Focused regression directly detects the exact malformed guard that escaped the existing
+      FakeSession tests and verifies the intended four-or-more-digit rejection guard without
+      falsely claiming general JavaScript syntax certification.
+  - id: AC6
+    condition: >
+      One borrowed session, exactly one session.evaluate(DIAGNOSTIC_SCRIPT), zero
+      navigation/refresh/click/type/scroll, TASK-137 cleanup and evidence_authority NONE remain
+      intact, with no browser manager/session modification.
+  - id: AC7
+    condition: >
+      Selector repair remains false; live/automated public-PDP acquisition and market/action
+      authorities remain NONE; no generation-5 attempt is authorized; automatic progression is
+      false; next_milestone is null; pending commitments are empty; and exact handoff is
+      HUMAN_BRAIN_FRESH_GENERATION_5_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION.
+  - id: AC8
+    condition: >
+      Exactly seven authorized paths change; focused diagnostic and governance regressions plus
+      git diff --check pass with zero unresolved items.
+
+verification:
+  required:
+    - python -m pytest tests/product_intelligence/test_tiktok_pdp_dom_diagnostic.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task242-primary
+    - git diff --check
