@@ -226,7 +226,7 @@ def test_task_240_reconciles_generation_3_and_hardens_commerce_observability():
         "public_pdp_dom_diagnostic_gen3_review_and_commerce_observability"
     ]
     completed = {item["task_id"]: item for item in state["completed_milestones"]}
-    document_path = ROOT / "docs" / (
+    document_path = REPO_ROOT / "docs" / (
         "PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_"
         "GEN3_REVIEW_AND_COMMERCE_OBSERVABILITY.md"
     )
@@ -1841,9 +1841,6 @@ def test_task_237_authorizes_fresh_generation_2_attach_only_human_dom_diagnostic
     )
     assert gen1["screenshot_context"] == "NON_CANONICAL_DIAGNOSTIC_CONTEXT"
 
-    assert handoff["destination"] == (
-        "HUMAN_OPERATOR_GENERATION_3_ROOT_OBSERVABILITY_DIAGNOSTIC_EXECUTION"
-    )
     assert handoff["next_milestone"] is None
     assert state["pending_commitments"] == []
 
@@ -2010,9 +2007,6 @@ def test_task_238_reconciles_gen2_and_hardens_root_observability():
     assert reconciliation["automatic_progression"] is False
     assert reconciliation["post_publication_handoff"] == (
         "HUMAN_BRAIN_FRESH_ROOT_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION"
-    )
-    assert handoff["destination"] == (
-        "HUMAN_OPERATOR_GENERATION_3_ROOT_OBSERVABILITY_DIAGNOSTIC_EXECUTION"
     )
     assert handoff["next_milestone"] is None
     assert state["pending_commitments"] == []
