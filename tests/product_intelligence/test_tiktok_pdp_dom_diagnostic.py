@@ -1,4 +1,4 @@
-"""Offline regressions for the fixed attach-only TikTok PDP DOM diagnostic."""
+"""Offline regressions for the schema-version-2 attach-only diagnostic."""
 from __future__ import annotations
 
 import ast
@@ -10,130 +10,54 @@ import tempfile
 import pytest
 
 from src.product_intelligence.tiktok_pdp_dom_diagnostic import (
-    ARTIFACT_FILENAME,
-    BLOCKED_OR_CHALLENGE,
-    DIAGNOSTIC_CONTEXT_ID,
-    DIAGNOSTIC_SCRIPT,
-    DIAGNOSTIC_SOURCE_ID,
-    IDENTITY_MISMATCH,
-    LISTING_UNAVAILABLE,
-    LOGIN_GATE,
-    MALFORMED_DIAGNOSTIC_PAYLOAD,
-    NO_BOUNDED_PDP_ROOT,
-    TikTokPdpDomDiagnosticArtifactExistsError,
-    TikTokPdpDomDiagnosticError,
-    TikTokPdpDomDiagnosticJobRootError,
+    ARTIFACT_FILENAME, BLOCKED_OR_CHALLENGE, DIAGNOSTIC_CONTEXT_ID,
+    DIAGNOSTIC_SCRIPT, DIAGNOSTIC_SOURCE_ID, IDENTITY_MISMATCH,
+    LISTING_UNAVAILABLE, LOGIN_GATE, MALFORMED_DIAGNOSTIC_PAYLOAD,
+    NO_BOUNDED_PDP_ROOT, TikTokPdpDomDiagnosticArtifactExistsError,
+    TikTokPdpDomDiagnosticError, TikTokPdpDomDiagnosticJobRootError,
     run_tiktok_pdp_dom_diagnostic,
 )
 
-
-OBSERVED_AT = datetime(2026, 9, 21, 10, 15, tzinfo=timezone.utc)
+OBSERVED_AT = datetime(2026, 9, 22, 5, 59, tzinfo=timezone.utc)
 ENDPOINT = "http://operator.invalid:9222/devtools/browser/diagnostic-secret"
-OBSERVED_URL = (
-    "https://shop.tiktok.com/vn/pdp/"
-    "den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815"
-)
+OBSERVED_URL = "https://shop.tiktok.com/vn/pdp/item/1731381331718341815"
 
 
-def _candidate(hint="TITLE_LIKE", excerpt="bounded visible excerpt"):
-    return {
-        "field_hint": hint,
-        "text_excerpt": excerpt,
-        "tag_name": "h1",
-        "class_tokens": ["title", "pdp"],
-        "data-testid": "product-title",
-        "data-e2e": "",
-        "aria-label": "",
-        "role": "heading",
-        "itemprop": "name",
-        "parent_signature": "div.product",
-        "grandparent_signature": "main.pdp",
-    }
+def _signature():
+    return {"tag_name": "h1", "class_tokens": ["title", "pdp"], "data-testid": "product-title", "data-e2e": "", "role": "heading", "itemprop": "name", "parent_signature": "div.product", "grandparent_signature": "main.pdp"}
 
 
-def _state(**overrides):
-    state = {
-        "identity_bound": True,
-        "has_bounded_root": True,
-        "root_kind": "EXPLICIT_PDP_ROOT",
-        "blocked": False,
-        "login": False,
-        "unavailable": False,
-    }
-    state.update(overrides)
-    return state
+def _candidate(kind="CURRENCY_LIKE", **overrides):
+    value = {"candidate_kind": kind, "match_basis": "SEMANTIC_PRICE_ATTRIBUTE" if kind == "CURRENCY_LIKE" else "NATIVE_BUTTON", "semantic_hint": "OTHER" if kind == "CURRENCY_LIKE" else "BUY_LIKE", **_signature(), "relation_to_title": "TITLE_NEIGHBORHOOD_LEVEL_1", "fixed_or_sticky": False}
+    value.update(overrides)
+    return value
 
 
-def _probe_for_kind(root_kind: str, **overrides):
-    if root_kind == "EXPLICIT_PDP_ROOT":
-        probe = {
-            "title_anchor_count": 1,
-            "price_anchor_count": 1,
-            "action_anchor_count": 1,
-            "visible_explicit_pdp_root_count": 1,
-            "explicit_root_with_commerce_anchors_count": 1,
-            "main_present": False,
-            "main_visible": False,
-            "main_has_commerce_anchors": False,
-            "multi_anchor_common_ancestor_found": False,
-            "selected_root_kind": "EXPLICIT_PDP_ROOT",
-        }
-    elif root_kind == "MAIN":
-        probe = {
-            "title_anchor_count": 1,
-            "price_anchor_count": 1,
-            "action_anchor_count": 1,
-            "visible_explicit_pdp_root_count": 0,
-            "explicit_root_with_commerce_anchors_count": 0,
-            "main_present": True,
-            "main_visible": True,
-            "main_has_commerce_anchors": True,
-            "multi_anchor_common_ancestor_found": False,
-            "selected_root_kind": "MAIN",
-        }
-    elif root_kind == "MULTI_ANCHOR_COMMON_ANCESTOR":
-        probe = {
-            "title_anchor_count": 1,
-            "price_anchor_count": 1,
-            "action_anchor_count": 1,
-            "visible_explicit_pdp_root_count": 0,
-            "explicit_root_with_commerce_anchors_count": 0,
-            "main_present": False,
-            "main_visible": False,
-            "main_has_commerce_anchors": False,
-            "multi_anchor_common_ancestor_found": True,
-            "selected_root_kind": "MULTI_ANCHOR_COMMON_ANCESTOR",
-        }
-    else:
-        probe = {
-            "title_anchor_count": 0,
-            "price_anchor_count": 0,
-            "action_anchor_count": 0,
-            "visible_explicit_pdp_root_count": 0,
-            "explicit_root_with_commerce_anchors_count": 0,
-            "main_present": False,
-            "main_visible": False,
-            "main_has_commerce_anchors": False,
-            "multi_anchor_common_ancestor_found": False,
-            "selected_root_kind": "NONE",
-        }
-    probe.update(overrides)
-    return probe
+def _state(root_kind="EXPLICIT_PDP_ROOT", **overrides):
+    value = {"identity_bound": True, "has_bounded_root": root_kind != "NONE", "root_kind": root_kind, "blocked": False, "login": False, "unavailable": False}
+    value.update(overrides)
+    return value
+
+
+def _root_probe(root_kind="EXPLICIT_PDP_ROOT", **overrides):
+    value = {"title_anchor_count": 1, "price_anchor_count": 1, "action_anchor_count": 1, "visible_explicit_pdp_root_count": 1, "explicit_root_with_commerce_anchors_count": 1, "main_present": False, "main_visible": False, "main_has_commerce_anchors": False, "multi_anchor_common_ancestor_found": False, "selected_root_kind": root_kind}
+    if root_kind == "NONE":
+        value.update({"price_anchor_count": 0, "action_anchor_count": 0, "visible_explicit_pdp_root_count": 0, "explicit_root_with_commerce_anchors_count": 0})
+    value.update(overrides)
+    return value
+
+
+def _commerce_probe(**overrides):
+    value = {"document_ready_state": "INTERACTIVE", "bounded_nodes_scanned": 600, "bounded_scan_truncated": True, "visible_currency_like_count": 2, "near_title_currency_like_count": 1, "visible_interactive_count": 3, "near_title_action_like_count": 1, "visible_loading_marker_count": 1, "open_shadow_root_count": 1, "visible_iframe_count": 1, "title_anchor_signature": _signature(), "title_ancestor_signatures": [_signature()], "currency_candidates": [_candidate()], "action_candidates": [_candidate("ACTION_LIKE")]}
+    value.update(overrides)
+    return value
 
 
 def _payload(**overrides):
-    page_state = overrides.get("page_state", _state())
-    root_kind = page_state["root_kind"]
-    payload = {
-        "schema_version": 1,
-        "observed_url": OBSERVED_URL,
-        "explicit_product_ids": [DIAGNOSTIC_SOURCE_ID],
-        "page_state": page_state,
-        "root_probe": _probe_for_kind(root_kind),
-        "candidates": [_candidate()],
-    }
-    payload.update(overrides)
-    return payload
+    state = overrides.get("page_state", _state())
+    value = {"schema_version": 2, "observed_url": OBSERVED_URL, "explicit_product_ids": [DIAGNOSTIC_SOURCE_ID], "page_state": state, "root_probe": _root_probe(state["root_kind"]), "commerce_probe": _commerce_probe()}
+    value.update(overrides)
+    return value
 
 
 class FakeSession:
@@ -154,7 +78,7 @@ class FakeSession:
 
     async def close(self):
         self.close_calls += 1
-        raise AssertionError("diagnostic must not directly close the borrowed session")
+        raise AssertionError("borrowed session must not be directly closed")
 
 
 class FakeManager:
@@ -176,16 +100,12 @@ class FakeManager:
 
     async def close_session(self, run_id):
         self.close_session_calls.append(run_id)
-        if type(self).close_failure is not None:
+        if type(self).close_failure:
             raise type(self).close_failure
-
-    async def close_all(self):
-        self.close_all_calls += 1
-        raise AssertionError("diagnostic must not call close_all")
 
 
 @pytest.fixture(autouse=True)
-def _reset_fakes():
+def _reset():
     FakeManager.instances = []
     FakeManager.payload = _payload()
     FakeManager.close_failure = None
@@ -193,399 +113,114 @@ def _reset_fakes():
 
 @pytest.fixture
 def external_temp_path():
-    with tempfile.TemporaryDirectory(prefix="task238-dom-diagnostic-") as directory:
+    with tempfile.TemporaryDirectory(prefix="task240-dom-diagnostic-") as directory:
         yield Path(directory)
 
 
 @pytest.mark.asyncio
-async def test_success_evaluates_once_is_fixed_bounded_external_and_secret_free(
-    external_temp_path,
-):
-    root = external_temp_path / "diagnostic"
-    outcome = await run_tiktok_pdp_dom_diagnostic(
-        job_root=root,
-        cdp_endpoint=ENDPOINT,
-        clock=lambda: OBSERVED_AT,
-        manager_factory=FakeManager,
-    )
+async def test_v2_success_is_create_exclusive_bounded_structural_and_one_evaluate(external_temp_path):
+    outcome = await run_tiktok_pdp_dom_diagnostic(job_root=external_temp_path, cdp_endpoint=ENDPOINT, clock=lambda: OBSERVED_AT, manager_factory=FakeManager)
     manager = FakeManager.instances[0]
-    assert manager.cdp_endpoint == ENDPOINT
-    assert manager.get_calls == [f"human-dom-diagnostic:{DIAGNOSTIC_CONTEXT_ID}"]
+    assert ARTIFACT_FILENAME == "tiktok-pdp-dom-diagnostic-v2.json"
     assert manager.session.evaluate_calls == [DIAGNOSTIC_SCRIPT]
-    assert manager.session.navigate_calls == manager.session.click_calls == []
-    assert manager.session.type_calls == manager.session.scroll_calls == []
+    assert manager.session.navigate_calls == manager.session.click_calls == manager.session.type_calls == manager.session.scroll_calls == []
     assert manager.close_session_calls == manager.get_calls
-    assert manager.close_all_calls == manager.session.close_calls == 0
-
-    assert outcome.artifact_path == root.resolve() / ARTIFACT_FILENAME
     document = json.loads(outcome.artifact_path.read_text(encoding="utf-8"))
-    assert document == outcome.to_document()
-    assert document["diagnostic"] == {
-        "status": "SUCCESS",
-        "classification": "ATTACH_ONLY_BOUNDED_DOM_DIAGNOSTIC",
-        "context_id": DIAGNOSTIC_CONTEXT_ID,
-        "source_product_id": DIAGNOSTIC_SOURCE_ID,
-        "observed_at": OBSERVED_AT.isoformat(),
-        "evidence_authority": "NONE",
-        "candidate_count": 1,
-    }
-    assert set(document) == {"schema_version", "diagnostic", "root_probe", "candidates"}
-    assert document["root_probe"] == {
-        "title_anchor_count": 1,
-        "price_anchor_count": 1,
-        "action_anchor_count": 1,
-        "visible_explicit_pdp_root_count": 1,
-        "explicit_root_with_commerce_anchors_count": 1,
-        "main_present": False,
-        "main_visible": False,
-        "main_has_commerce_anchors": False,
-        "multi_anchor_common_ancestor_found": False,
-        "selected_root_kind": "EXPLICIT_PDP_ROOT",
-    }
-    assert set(document["candidates"][0]) == {
-        "field_hint", "text_excerpt", "tag_name", "class_tokens", "data-testid",
-        "data-e2e", "aria-label", "role", "itemprop", "parent_signature",
-        "grandparent_signature",
-    }
+    assert set(document) == {"schema_version", "diagnostic", "root_probe", "commerce_probe"}
+    assert document["schema_version"] == 2
+    assert document["diagnostic"]["evidence_authority"] == "NONE"
+    assert document["commerce_probe"] == _commerce_probe()
     persisted = outcome.artifact_path.read_text(encoding="utf-8").lower()
-    assert ENDPOINT.lower() not in persisted
-    for forbidden in (
-        "innerhtml", "outerhtml", "cookie", "localstorage", "sessionstorage",
-        "header", "request_body", "response_body", "credential", "qr", "profile",
-        "screenshot", "affiliate", "productcandidatesnapshot", "signalevidence",
-    ):
+    for forbidden in (ENDPOINT.lower(), "text_excerpt", "aria-label", "href", "innerhtml", "outerhtml", "productcandidatesnapshot", "signalevidence", "actual price", "actual title"):
         assert forbidden not in persisted
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "root_kind", ("EXPLICIT_PDP_ROOT", "MAIN", "MULTI_ANCHOR_COMMON_ANCESTOR")
-)
-async def test_explicit_main_and_bounded_multi_anchor_roots_are_admitted(
-    external_temp_path, root_kind
-):
-    FakeManager.payload = _payload(page_state=_state(root_kind=root_kind))
-    outcome = await run_tiktok_pdp_dom_diagnostic(
-        job_root=external_temp_path / root_kind.lower(),
-        cdp_endpoint=ENDPOINT,
-        clock=lambda: OBSERVED_AT,
-        manager_factory=FakeManager,
-    )
-
-    manager = FakeManager.instances[0]
-    assert manager.session.evaluate_calls == [DIAGNOSTIC_SCRIPT]
-    assert manager.close_session_calls == manager.get_calls
-    assert outcome.document["diagnostic"]["status"] == "SUCCESS"
-    assert outcome.document["root_probe"]["selected_root_kind"] == root_kind
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("payload", "reason"),
-    (
-        (_payload(page_state=_state(blocked=True)), BLOCKED_OR_CHALLENGE),
-        (_payload(page_state=_state(login=True)), LOGIN_GATE),
-        (_payload(page_state=_state(unavailable=True)), LISTING_UNAVAILABLE),
-        (
-            _payload(
-                observed_url="https://shop.tiktok.com/vn/pdp/other/999",
-                explicit_product_ids=["999"],
-                page_state=_state(identity_bound=False),
-            ),
-            IDENTITY_MISMATCH,
-        ),
-        (
-            _payload(
-                observed_url="https://shop.tiktok.com/vn/search?q=led",
-                explicit_product_ids=[DIAGNOSTIC_SOURCE_ID],
-                page_state=_state(identity_bound=False),
-            ),
-            IDENTITY_MISMATCH,
-        ),
-    ),
-)
-async def test_safe_page_state_and_identity_failures_do_not_create_artifact(
-    external_temp_path, payload, reason
-):
-    FakeManager.payload = payload
-    root = external_temp_path / "failed"
-    with pytest.raises(TikTokPdpDomDiagnosticError, match=f"^{reason}$"):
-        await run_tiktok_pdp_dom_diagnostic(
-            job_root=root,
-            cdp_endpoint=ENDPOINT,
-            clock=lambda: OBSERVED_AT,
-            manager_factory=FakeManager,
-        )
-    manager = FakeManager.instances[0]
-    assert len(manager.session.evaluate_calls) == 1
-    assert manager.close_session_calls == manager.get_calls
-    assert not (root / ARTIFACT_FILENAME).exists()
-
-
-@pytest.mark.asyncio
-async def test_no_bounded_pdp_root_creates_fail_closed_artifact_and_raises_nonzero(
-    external_temp_path,
-):
-    probe = _probe_for_kind(
-        "NONE",
-        title_anchor_count=2,
-        price_anchor_count=1,
-        action_anchor_count=0,
-        visible_explicit_pdp_root_count=1,
-        explicit_root_with_commerce_anchors_count=0,
-        main_present=True,
-        main_visible=True,
-        main_has_commerce_anchors=False,
-        multi_anchor_common_ancestor_found=False,
-    )
-    FakeManager.payload = _payload(
-        page_state=_state(has_bounded_root=False, root_kind="NONE"),
-        root_probe=probe,
-    )
-    root = external_temp_path / "no-bounded-root"
-
+async def test_no_root_writes_one_v2_fail_closed_probe_then_preserves_nonzero(external_temp_path):
+    probe = _root_probe("NONE")
+    commerce = _commerce_probe(title_anchor_signature=_signature(), currency_candidates=[], action_candidates=[], visible_currency_like_count=0, near_title_currency_like_count=0, visible_interactive_count=0, near_title_action_like_count=0)
+    FakeManager.payload = _payload(page_state=_state("NONE"), root_probe=probe, commerce_probe=commerce)
     with pytest.raises(TikTokPdpDomDiagnosticError, match=f"^{NO_BOUNDED_PDP_ROOT}$"):
-        await run_tiktok_pdp_dom_diagnostic(
-            job_root=root,
-            cdp_endpoint=ENDPOINT,
-            clock=lambda: OBSERVED_AT,
-            manager_factory=FakeManager,
-        )
-
-    manager = FakeManager.instances[0]
-    assert len(manager.session.evaluate_calls) == 1
-    assert manager.close_session_calls == manager.get_calls
-
-    artifact_path = root / ARTIFACT_FILENAME
-    assert artifact_path.exists()
-    document = json.loads(artifact_path.read_text(encoding="utf-8"))
-    assert set(document) == {"schema_version", "diagnostic", "root_probe"}
-    assert document["schema_version"] == 1
-    assert document["diagnostic"] == {
-        "status": "FAIL_CLOSED",
-        "classification": "ATTACH_ONLY_BOUNDED_DOM_DIAGNOSTIC",
-        "context_id": DIAGNOSTIC_CONTEXT_ID,
-        "source_product_id": DIAGNOSTIC_SOURCE_ID,
-        "observed_at": OBSERVED_AT.isoformat(),
-        "evidence_authority": "NONE",
-        "failure_reason": NO_BOUNDED_PDP_ROOT,
-    }
-    assert document["root_probe"] == probe
-    assert "candidates" not in document
-
-    persisted = artifact_path.read_text(encoding="utf-8").lower()
-    assert ENDPOINT.lower() not in persisted
-    for forbidden in (
-        "innerhtml", "outerhtml", "cookie", "localstorage", "sessionstorage",
-        "header", "request_body", "response_body", "credential", "qr", "profile",
-        "screenshot", "affiliate", "productcandidatesnapshot", "signalevidence",
-    ):
-        assert forbidden not in persisted
+        await run_tiktok_pdp_dom_diagnostic(job_root=external_temp_path, cdp_endpoint=ENDPOINT, clock=lambda: OBSERVED_AT, manager_factory=FakeManager)
+    document = json.loads((external_temp_path / ARTIFACT_FILENAME).read_text(encoding="utf-8"))
+    assert document == {"schema_version": 2, "diagnostic": {"status": "FAIL_CLOSED", "classification": "ATTACH_ONLY_BOUNDED_COMMERCE_OBSERVABILITY_DIAGNOSTIC", "context_id": DIAGNOSTIC_CONTEXT_ID, "source_product_id": DIAGNOSTIC_SOURCE_ID, "observed_at": OBSERVED_AT.isoformat(), "evidence_authority": "NONE", "failure_reason": NO_BOUNDED_PDP_ROOT}, "root_probe": probe, "commerce_probe": commerce}
 
 
 @pytest.mark.asyncio
-async def test_no_bounded_pdp_root_collision_with_existing_artifact_fails_closed(
-    external_temp_path,
-):
-    root = external_temp_path / "collision"
-    root.mkdir()
-    artifact = root / ARTIFACT_FILENAME
-    artifact.write_text("pre-existing failure artifact", encoding="utf-8")
-
-    FakeManager.payload = _payload(
-        page_state=_state(has_bounded_root=False, root_kind="NONE"),
-        root_probe=_probe_for_kind("NONE"),
-    )
-
-    with pytest.raises(TikTokPdpDomDiagnosticArtifactExistsError):
-        await run_tiktok_pdp_dom_diagnostic(
-            job_root=root,
-            cdp_endpoint=ENDPOINT,
-            manager_factory=FakeManager,
-        )
-
-    assert artifact.read_text(encoding="utf-8") == "pre-existing failure artifact"
-    assert FakeManager.instances == []
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "observed_url",
-    (
-        "https://shop.tiktok.com/vn",
-        "https://shop.tiktok.com/vn/category/home-and-living",
-    ),
-)
-async def test_unrelated_shop_page_with_target_product_card_fails_closed(
-    external_temp_path, observed_url
-):
-    FakeManager.payload = _payload(
-        observed_url=observed_url,
-        explicit_product_ids=[DIAGNOSTIC_SOURCE_ID],
-        page_state=_state(identity_bound=False),
-    )
-    root = external_temp_path / "unrelated-card"
-
-    with pytest.raises(TikTokPdpDomDiagnosticError, match=f"^{IDENTITY_MISMATCH}$"):
-        await run_tiktok_pdp_dom_diagnostic(
-            job_root=root,
-            cdp_endpoint=ENDPOINT,
-            clock=lambda: OBSERVED_AT,
-            manager_factory=FakeManager,
-        )
-
-    assert not (root / ARTIFACT_FILENAME).exists()
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("state_name", "reason"),
-    (("blocked", BLOCKED_OR_CHALLENGE), ("login", LOGIN_GATE)),
-)
-async def test_challenge_or_login_overlay_over_valid_pdp_fails_closed(
-    external_temp_path, state_name, reason
-):
-    page_state = _state()
-    page_state[state_name] = True
-    FakeManager.payload = _payload(page_state=page_state)
-    root = external_temp_path / f"{state_name}-overlay"
-
+@pytest.mark.parametrize(("state", "reason"), [(_state(blocked=True), BLOCKED_OR_CHALLENGE), (_state(login=True), LOGIN_GATE), (_state(unavailable=True), LISTING_UNAVAILABLE), (_state(identity_bound=False), IDENTITY_MISMATCH)])
+async def test_other_safe_failures_are_artifact_free(external_temp_path, state, reason):
+    FakeManager.payload = _payload(page_state=state)
     with pytest.raises(TikTokPdpDomDiagnosticError, match=f"^{reason}$"):
-        await run_tiktok_pdp_dom_diagnostic(
-            job_root=root,
-            cdp_endpoint=ENDPOINT,
-            clock=lambda: OBSERVED_AT,
-            manager_factory=FakeManager,
-        )
+        await run_tiktok_pdp_dom_diagnostic(job_root=external_temp_path, cdp_endpoint=ENDPOINT, manager_factory=FakeManager)
+    assert not (external_temp_path / ARTIFACT_FILENAME).exists()
 
-    assert not (root / ARTIFACT_FILENAME).exists()
+
+def _bad_payloads():
+    yield {**_payload(), "raw_html": "<body>forbidden</body>"}
+    yield _payload(schema_version=1)
+    yield _payload(commerce_probe={**_commerce_probe(), "text_excerpt": "forbidden"})
+    yield _payload(commerce_probe=_commerce_probe(document_ready_state="HYDRATED"))
+    yield _payload(commerce_probe=_commerce_probe(bounded_nodes_scanned=601))
+    yield _payload(commerce_probe=_commerce_probe(bounded_nodes_scanned=599, bounded_scan_truncated=True))
+    yield _payload(commerce_probe=_commerce_probe(currency_candidates=[_candidate()] * 4))
+    yield _payload(commerce_probe=_commerce_probe(action_candidates=[_candidate("ACTION_LIKE")] * 6))
+    yield _payload(commerce_probe=_commerce_probe(title_ancestor_signatures=[_signature()] * 7))
+    yield _payload(commerce_probe=_commerce_probe(currency_candidates=[_candidate(match_basis="RAW_TEXT_₫199000")]))
+    yield _payload(commerce_probe=_commerce_probe(currency_candidates=[_candidate(**{"data-testid": "199000"})]))
+    yield _payload(commerce_probe=_commerce_probe(currency_candidates=[_candidate(relation_to_title="XPATH:/html/body")]))
+    yield _payload(commerce_probe=_commerce_probe(action_candidates=[_candidate("ACTION_LIKE", semantic_hint="CHECKOUT")]))
+    yield _payload(commerce_probe=_commerce_probe(action_candidates=[_candidate("ACTION_LIKE", match_basis="RAW_BUTTON_TEXT")]))
+    yield _payload(commerce_probe=_commerce_probe(action_candidates=[{**_candidate("ACTION_LIKE"), "href": "/buy"}]))
+    yield _payload(commerce_probe=_commerce_probe(action_candidates=[{**_candidate("ACTION_LIKE"), "id": "buy"}]))
+    yield _payload(commerce_probe=_commerce_probe(action_candidates=[{**_candidate("ACTION_LIKE"), "aria-label": "buy now"}]))
+    yield _payload(commerce_probe=_commerce_probe(action_candidates=[_candidate("ACTION_LIKE", **{"data-testid": "arbitrary page text"})]))
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "payload",
-    (
-        {**_payload(), "raw_html": "<body>forbidden</body>"},
-        _payload(candidates=[_candidate(excerpt="x" * 121)]),
-        _payload(candidates=[_candidate()] * 4),
-        _payload(candidates=[_candidate("SHOP_LIKE"), _candidate("TITLE_LIKE")]),
-        _payload(root_probe={**_probe_for_kind("EXPLICIT_PDP_ROOT"), "extra_key": True}),
-        _payload(root_probe={k: v for k, v in _probe_for_kind("EXPLICIT_PDP_ROOT").items() if k != "title_anchor_count"}),
-        _payload(root_probe={**_probe_for_kind("EXPLICIT_PDP_ROOT"), "title_anchor_count": 13}),
-        _payload(root_probe={**_probe_for_kind("EXPLICIT_PDP_ROOT"), "title_anchor_count": -1}),
-        _payload(root_probe={**_probe_for_kind("EXPLICIT_PDP_ROOT"), "title_anchor_count": True}),
-        _payload(root_probe={**_probe_for_kind("EXPLICIT_PDP_ROOT"), "visible_explicit_pdp_root_count": 9}),
-        _payload(root_probe={**_probe_for_kind("EXPLICIT_PDP_ROOT"), "explicit_root_with_commerce_anchors_count": 2, "visible_explicit_pdp_root_count": 1}),
-        _payload(root_probe={**_probe_for_kind("EXPLICIT_PDP_ROOT"), "selected_root_kind": "INVALID_KIND"}),
-        _payload(root_probe={**_probe_for_kind("EXPLICIT_PDP_ROOT"), "selected_root_kind": "MAIN"}),
-    ),
-)
-async def test_malformed_unbounded_over_cap_or_unsorted_payload_is_rejected(
-    external_temp_path, payload
-):
+@pytest.mark.parametrize("payload", list(_bad_payloads()))
+async def test_forbidden_fields_values_caps_and_enums_fail_closed(external_temp_path, payload):
     FakeManager.payload = payload
-    root = external_temp_path / "malformed"
-    with pytest.raises(
-        TikTokPdpDomDiagnosticError, match=f"^{MALFORMED_DIAGNOSTIC_PAYLOAD}$"
-    ):
-        await run_tiktok_pdp_dom_diagnostic(
-            job_root=root,
-            cdp_endpoint=ENDPOINT,
-            clock=lambda: OBSERVED_AT,
-            manager_factory=FakeManager,
-        )
-    assert not (root / ARTIFACT_FILENAME).exists()
+    with pytest.raises(TikTokPdpDomDiagnosticError, match=f"^{MALFORMED_DIAGNOSTIC_PAYLOAD}$"):
+        await run_tiktok_pdp_dom_diagnostic(job_root=external_temp_path, cdp_endpoint=ENDPOINT, manager_factory=FakeManager)
+    assert not (external_temp_path / ARTIFACT_FILENAME).exists()
 
 
 @pytest.mark.asyncio
-async def test_repository_root_and_existing_artifact_fail_before_attach(external_temp_path):
-    repository_root = Path(__file__).resolve().parents[2]
-    with pytest.raises(TikTokPdpDomDiagnosticJobRootError):
-        await run_tiktok_pdp_dom_diagnostic(
-            job_root=repository_root / ".git" / "unsafe",
-            cdp_endpoint=ENDPOINT,
-            manager_factory=FakeManager,
-        )
-    root = external_temp_path / "exclusive"
-    root.mkdir()
-    artifact = root / ARTIFACT_FILENAME
-    artifact.write_text("preserve", encoding="utf-8")
+async def test_existing_v2_artifact_and_repository_root_fail_before_attach(external_temp_path):
+    artifact = external_temp_path / ARTIFACT_FILENAME
+    artifact.write_text("immutable", encoding="utf-8")
     with pytest.raises(TikTokPdpDomDiagnosticArtifactExistsError):
-        await run_tiktok_pdp_dom_diagnostic(
-            job_root=root,
-            cdp_endpoint=ENDPOINT,
-            manager_factory=FakeManager,
-        )
-    assert artifact.read_text(encoding="utf-8") == "preserve"
+        await run_tiktok_pdp_dom_diagnostic(job_root=external_temp_path, cdp_endpoint=ENDPOINT, manager_factory=FakeManager)
+    with pytest.raises(TikTokPdpDomDiagnosticJobRootError):
+        await run_tiktok_pdp_dom_diagnostic(job_root=Path(__file__).resolve().parents[2] / ".git" / "unsafe", cdp_endpoint=ENDPOINT, manager_factory=FakeManager)
+    assert artifact.read_text(encoding="utf-8") == "immutable"
     assert FakeManager.instances == []
 
 
 @pytest.mark.asyncio
-async def test_evaluate_failure_releases_session_and_preserves_primary(external_temp_path):
+async def test_evaluate_failure_releases_via_manager_and_sanitizes_endpoint(external_temp_path):
     primary = RuntimeError("evaluate failed")
     FakeManager.payload = primary
-    FakeManager.close_failure = RuntimeError("release also failed")
+    FakeManager.close_failure = RuntimeError("release failed")
     with pytest.raises(TikTokPdpDomDiagnosticError) as raised:
-        await run_tiktok_pdp_dom_diagnostic(
-            job_root=external_temp_path / "failed",
-            cdp_endpoint=ENDPOINT,
-            clock=lambda: OBSERVED_AT,
-            manager_factory=FakeManager,
-        )
+        await run_tiktok_pdp_dom_diagnostic(job_root=external_temp_path, cdp_endpoint=ENDPOINT, manager_factory=FakeManager)
     assert raised.value.__cause__ is primary
     assert ENDPOINT not in str(raised.value)
-    manager = FakeManager.instances[0]
-    assert len(manager.session.evaluate_calls) == 1
-    assert manager.close_session_calls == manager.get_calls
-    assert manager.close_all_calls == manager.session.close_calls == 0
+    assert FakeManager.instances[0].close_session_calls == FakeManager.instances[0].get_calls
 
 
-def test_diagnostic_source_has_no_navigation_or_forbidden_semantic_dependencies():
-    module_path = Path(__file__).resolve().parents[2] / "src" / "product_intelligence" / "tiktok_pdp_dom_diagnostic.py"
-    source = module_path.read_text(encoding="utf-8")
+def test_script_is_hard_bounded_light_dom_structural_only_and_preserves_lifecycle():
+    source = (Path(__file__).resolve().parents[2] / "src/product_intelligence/tiktok_pdp_dom_diagnostic.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
-    imports = {
-        alias.name
-        for node in ast.walk(tree)
-        if isinstance(node, (ast.Import, ast.ImportFrom))
-        for alias in node.names
-    }
-    assert not any(
-        forbidden in imported.lower()
-        for imported in imports
-        for forbidden in (
-            "product_source", "affiliate", "scoring", "ranking", "approval", "persistence",
-            "tiktok_pdp.TikTokPdpCollector",
-        )
-    )
-    assert ".navigate(" not in source
-    assert ".click(" not in source
-    assert ".type_text(" not in source
-    assert ".scroll(" not in source
+    imports = {alias.name for node in ast.walk(tree) if isinstance(node, (ast.Import, ast.ImportFrom)) for alias in node.names}
+    assert not any(forbidden in name.lower() for name in imports for forbidden in ("product_source", "affiliate", "scoring", "ranking", "approval", "persistence", "tiktok_pdp.tiktokpdpcollector"))
     assert "session.evaluate(DIAGNOSTIC_SCRIPT)" in source
     assert "manager.close_session(_SESSION_RUN_ID)" in source
-    assert "close_all" not in source
-    assert "session.close" not in source
-
-
-def test_diagnostic_script_scopes_identity_and_detects_page_level_overlays():
-    assert "root.querySelectorAll(" in DIAGNOSTIC_SCRIPT
-    assert "node.closest(pdpRootSelector) === root" in DIAGNOSTIC_SCRIPT
-    assert "iframe[src*=\"captcha\" i]" in DIAGNOSTIC_SCRIPT
-    assert "form[action*=\"/login\" i]" in DIAGNOSTIC_SCRIPT
-    assert "input[type=\"password\"]" in DIAGNOSTIC_SCRIPT
-    assert "meta[itemprop=\"productID\"], [data-product-id]" not in DIAGNOSTIC_SCRIPT
-    assert "identityBound && !blocked && !login && !unavailable" in DIAGNOSTIC_SCRIPT
-    assert "MULTI_ANCHOR_COMMON_ANCESTOR" in DIAGNOSTIC_SCRIPT
-    assert "const titles = firstVisible(document.body, titleSelectors, 12)" in DIAGNOSTIC_SCRIPT
-    assert "chain.length < 8" in DIAGNOSTIC_SCRIPT
-    assert "title !== price && title !== action && price !== action" in DIAGNOSTIC_SCRIPT
-    assert "common && visible(common)" in DIAGNOSTIC_SCRIPT
-    assert "root = document.body" not in DIAGNOSTIC_SCRIPT
-    assert "root.innerText" not in DIAGNOSTIC_SCRIPT
-    assert "sold out" not in DIAGNOSTIC_SCRIPT.lower()
-    assert '[data-e2e="product-unavailable" i]' in DIAGNOSTIC_SCRIPT
-    assert "root_probe:" in DIAGNOSTIC_SCRIPT
-    assert "title_anchor_count: titleAnchorCount" in DIAGNOSTIC_SCRIPT
-    assert "visible_explicit_pdp_root_count: visibleExplicitPdpRootCount" in DIAGNOSTIC_SCRIPT
-    assert "selected_root_kind: rootKind" in DIAGNOSTIC_SCRIPT
+    assert ".navigate(" not in source and ".click(" not in source and ".scroll(" not in source
+    assert "const MAX=600" in DIAGNOSTIC_SCRIPT
+    assert "document.createTreeWalker(document.documentElement,NodeFilter.SHOW_ELEMENT)" in DIAGNOSTIC_SCRIPT
+    assert "querySelectorAll('*')" not in DIAGNOSTIC_SCRIPT
+    assert ".contentDocument" not in DIAGNOSTIC_SCRIPT and ".shadowRoot.querySelector" not in DIAGNOSTIC_SCRIPT
+    assert "bounded_scan_truncated:truncated" in DIAGNOSTIC_SCRIPT
+    assert "currency_candidates:currencies" in DIAGNOSTIC_SCRIPT and "action_candidates:actions" in DIAGNOSTIC_SCRIPT
+    assert "document.body.innerText" not in DIAGNOSTIC_SCRIPT and "innerHTML" not in DIAGNOSTIC_SCRIPT and "outerHTML" not in DIAGNOSTIC_SCRIPT

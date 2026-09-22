@@ -217,7 +217,110 @@ def values_for_key(value: object, key: str) -> list[object]:
     return matches
 
 
-def test_roadmap_closes_task_239_with_generation_3_authorization():
+def test_task_240_reconciles_generation_3_and_hardens_commerce_observability():
+    state = load_yaml(ROADMAP_FILE)
+    active = state["active_track"]
+    milestone = active["current_milestone"]
+    handoff = state["post_p8_planning_handoff"]
+    reconciliation = handoff[
+        "public_pdp_dom_diagnostic_gen3_review_and_commerce_observability"
+    ]
+    completed = {item["task_id"]: item for item in state["completed_milestones"]}
+    document_path = ROOT / "docs" / (
+        "PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_"
+        "GEN3_REVIEW_AND_COMMERCE_OBSERVABILITY.md"
+    )
+    document = document_path.read_text(encoding="utf-8")
+
+    assert active["id"] == (
+        "P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN3_REVIEW_AND_COMMERCE_OBSERVABILITY"
+    )
+    assert milestone["task_id"] == "TASK-240"
+    assert milestone["classification"] == (
+        "GENERATION_3_FAIL_CLOSED_RECONCILIATION_AND_"
+        "BOUNDED_COMMERCE_OBSERVABILITY_HARDENING_ONLY"
+    )
+    for record in (milestone, handoff, reconciliation, completed["TASK-240"]):
+        assert record["source_task_id"] == "TASK-239"
+        assert record["source_run_id"] == "RUN-239-001"
+        assert record["source_review_id"] == "REVIEW-239-001"
+        assert record["authorization_published_source_sha"] == (
+            "ca2407396931eb03be7f104a25760db4813ab5a1"
+        )
+        assert record["diagnostic_implementation_source_sha"] == (
+            "fbdb8851b9f27d24eff11c509db3009e2c614952"
+        )
+        assert record["live_dom_diagnostic_authority"] == "NONE"
+        assert record["generation_3_diagnostic_executed"] is True if (
+            "generation_3_diagnostic_executed" in record
+        ) else record["diagnostic_executed"] is True
+        assert record["diagnostic_outcome"] == "FAIL_CLOSED"
+        assert record["diagnostic_failure_reason"] == "NO_BOUNDED_PDP_ROOT"
+        assert record["diagnostic_artifact_created"] is True
+        attempts = record.get(
+            "generation_3_authorized_diagnostic_attempts_remaining",
+            record.get("authorized_diagnostic_attempts_remaining"),
+        )
+        assert attempts == 0
+        assert record["root_observability_hardening_implemented"] is True
+        assert record["commerce_observability_hardening_implemented"] is True
+        assert record["selector_repair_complete"] is False
+        assert record["live_public_pdp_acquisition_authority"] == "NONE"
+        assert record["automated_public_pdp_acquisition_authority"] == "NONE"
+        assert record["market_test_or_action_authority"] == "NONE"
+        assert record["automatic_progression"] is False
+
+    assert completed["TASK-239"]["published_source_sha"] == (
+        "ca2407396931eb03be7f104a25760db4813ab5a1"
+    )
+    assert handoff["destination"] == (
+        "HUMAN_BRAIN_FRESH_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION"
+    )
+    assert active["next_milestone"] is None
+    assert handoff["next_milestone"] is None
+    assert state["pending_commitments"] == []
+
+    artifact = handoff["generation_3_external_artifact"]
+    assert artifact == {
+        "schema_version": 1,
+        "filename": "tiktok-pdp-dom-diagnostic-v1.json",
+        "sha256": "4CE631661F897F16133EFEAA3CC1CA03C5E468CC56F1F7D46B7F2FF53EBDF00E",
+        "size_bytes": 755,
+        "observed_at": "2026-09-22T05:59:34.977481+00:00",
+        "evidence_authority": "NONE",
+    }
+    assert handoff["generation_3_root_probe"] == {
+        "title_anchor_count": 1, "price_anchor_count": 0,
+        "action_anchor_count": 0, "visible_explicit_pdp_root_count": 0,
+        "explicit_root_with_commerce_anchors_count": 0, "main_present": False,
+        "main_visible": False, "main_has_commerce_anchors": False,
+        "multi_anchor_common_ancestor_found": False, "selected_root_kind": "NONE",
+    }
+    assert handoff["active_diagnostic_artifact_contract"] == {
+        "schema_version": 2,
+        "filename": "tiktok-pdp-dom-diagnostic-v2.json",
+        "create_exclusive": True,
+        "evidence_authority": "NONE",
+    }
+    assert handoff["historical_generation_1"]["authorized_diagnostic_attempts_remaining"] == 0
+    assert handoff["historical_generation_2"]["diagnostic_failure_reason"] == "NO_BOUNDED_PDP_ROOT"
+    assert "C:\\" not in document
+    for required in (
+        "tiktok-pdp-dom-diagnostic-v1.json",
+        "tiktok-pdp-dom-diagnostic-v2.json",
+        "bounded_nodes_scanned",
+        "bounded_scan_truncated",
+        "HUMAN_BRAIN_FRESH_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION",
+        "CAPABILITY_IS_NOT_AUTHORITY",
+        "EVIDENCE_IS_NOT_PRODUCT_TRUTH",
+        "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY",
+        "SNAPSHOT_IS_NOT_TREND",
+        "ONE_CAPABILITY_ONE_AUTHORITY",
+    ):
+        assert required in document
+
+
+def _historical_test_roadmap_closes_task_239_with_generation_3_authorization():
     state = load_yaml(ROADMAP_FILE)
     active = state["active_track"]
     assert active["id"] == "P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN3_AUTHORIZATION"
@@ -1783,7 +1886,7 @@ def test_task_237_authorizes_fresh_generation_2_attach_only_human_dom_diagnostic
         )
 
 
-def test_task_239_authorizes_one_exact_generation_3_diagnostic_attempt():
+def _historical_test_task_239_authorizes_one_exact_generation_3_diagnostic_attempt():
     state = load_yaml(ROADMAP_FILE)
     handoff = state["post_p8_planning_handoff"]
     authorization = handoff["public_pdp_dom_diagnostic_gen3_authorization"]

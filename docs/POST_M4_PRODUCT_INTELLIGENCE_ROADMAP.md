@@ -720,6 +720,33 @@ and the exact handoff is `HUMAN_BRAIN_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORI
   authorities `NONE`, `automatic_progression=false`, `next_milestone=null`, empty pending commitments, and exact
   handoff `HUMAN_OPERATOR_GENERATION_3_ROOT_OBSERVABILITY_DIAGNOSTIC_EXECUTION`.
 
+- **P8 Public TikTok PDP DOM Diagnostic Generation-3 Review and Commerce Observability (TASK-240 —
+  publication-gated DONE only as
+  `GENERATION_3_FAIL_CLOSED_RECONCILIATION_AND_BOUNDED_COMMERCE_OBSERVABILITY_HARDENING_ONLY`)**:
+  records TASK-239 publication provenance (`RUN-239-001`, `REVIEW-239-001`,
+  `ca2407396931eb03be7f104a25760db4813ab5a1`) and reconciles generation 3 as one consumed
+  Human-operated `FAIL_CLOSED` attempt with `NO_BOUNDED_PDP_ROOT`, a created immutable external
+  V1 artifact, zero attempts remaining, and `live_dom_diagnostic_authority=NONE`. Generation-1
+  and generation-2 histories remain separate and unchanged. The V1 artifact is recorded only by
+  filename, schema, SHA256, size, timestamp, and `evidence_authority=NONE`; its exact root probe is
+  engineering history and cannot mutate ProductCandidateSnapshot, SignalEvidence, or Product Truth.
+
+  The active future contract becomes create-exclusive `tiktok-pdp-dom-diagnostic-v2.json`, schema
+  version 2. It preserves exact identity, safe gates, one evaluate, zero interaction, TASK-137
+  cleanup, and V1 root-probe semantics while adding one allowlisted commerce probe. Light-DOM
+  traversal is capped at 600 element nodes, reports truncation, does not enter iframe or shadow
+  contents, caps every count and candidate collection, and emits no marketplace value, raw text,
+  HTML, href, id, aria-label, credential, token, or arbitrary page data. Readiness, loading,
+  iframe/shadow, title-relative topology, currency-like, and action-like results are structural
+  hints with `evidence_authority=NONE`, never acquisition or selector-repair authority.
+
+  On exact reviewed TASK-240 publication, `root_observability_hardening_implemented=true`,
+  `commerce_observability_hardening_implemented=true`, `selector_repair_complete=false`, acquisition
+  and action authorities remain `NONE`, `automatic_progression=false`, `next_milestone=null`, pending
+  commitments are empty, and the exact handoff is
+  `HUMAN_BRAIN_FRESH_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION`. No generation-4 invocation is
+  authorized.
+
 See `docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md` for the exact P8.0 source
 `a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e`,
 `docs/PHASE_8_P8_1_REAL_DECISION_PILOT_SELECTION.md` for the exact P8.1 selection record, and
@@ -744,6 +771,9 @@ See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN2_REVIEW_AND_ROOT_OBSERVAB
 TASK-238 reconciliation, bounded root observability, and Human/Brain fresh-authorization handoff.
 See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN3_AUTHORIZATION.md` for the TASK-239 exact-source
 generation-3 authorization, non-consuming preflight boundary, and consuming Human-operator handoff.
+See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN3_REVIEW_AND_COMMERCE_OBSERVABILITY.md` for the
+TASK-240 consumed generation-3 reconciliation, immutable V1 provenance, bounded V2 contract, and
+Human/Brain fresh-authorization handoff.
 
 
 See `docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md` for the audit and boundary.
