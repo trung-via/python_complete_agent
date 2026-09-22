@@ -631,6 +631,30 @@ and the exact handoff is `HUMAN_BRAIN_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORI
   `HUMAN_BRAIN_FRESH_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION`; TASK-240 does not authorize
   generation 4 or any live marketplace operation.
 
+- **P8 Public TikTok PDP DOM Diagnostic Generation-4 Authorization (TASK-241 — publication-gated
+  DONE only as `FRESH_GENERATION_4_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION_ONLY`)**:
+  records exact TASK-240 / RUN-240-002 / REVIEW-240-001 publication lineage and binds generation 4
+  to exact published V2 source `8ef61df3936652fb7aeda8ca31ce1db3621ff4cf`. TASK-240's completed
+  history gains that exact `published_source_sha` without reinterpreting its older implementation
+  provenance. Generations 1-3 stay consumed, including the exact generation-3 `FAIL_CLOSED` /
+  `NO_BOUNDED_PDP_ROOT` V1 artifact and root-probe history.
+
+  Only exact reviewed publication grants one Human-operated generation-4 attach-only attempt for
+  the fixed context, source ID, and listing using schema-version-2 create-exclusive
+  `tiktok-pdp-dom-diagnostic-v2.json`. Non-consuming preflight covers only CDP reachability,
+  read-only exact already-open PDP verification, a clean new external job root, and the three
+  execution-critical files' content equivalence to the published V2 source. The later governance
+  HEAD need not equal the V2 source SHA. Starting the canonical CLI consumes the attempt on every
+  terminal result, with no retry, refresh, resume, second invocation, replacement, search, batch,
+  acquisition, selector-repair, test, or action authority.
+
+  Root/commerce probes remain diagnostic hints only; truncation makes negative scans
+  non-exhaustive, and readiness, selector-family, shadow, or iframe observations cannot authorize
+  repair. Both observability hardenings remain true, selector repair remains false, acquisition
+  and action authorities remain `NONE`, NEXT is null, pending commitments are empty, automatic
+  progression is false, and the only handoff is
+  `HUMAN_OPERATOR_GENERATION_4_COMMERCE_OBSERVABILITY_DIAGNOSTIC_EXECUTION`.
+
 See `docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md` for the exact P8.0 source
 `a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e`,
 `docs/PHASE_8_P8_1_REAL_DECISION_PILOT_SELECTION.md` for the exact P8.1 selection record, and
@@ -657,6 +681,9 @@ See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN3_AUTHORIZATION.md` for th
 generation-3 authorization, non-consuming preflight boundary, and consuming Human-operator handoff.
 See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN3_REVIEW_AND_COMMERCE_OBSERVABILITY.md` for the
 TASK-240 consumed generation-3 reconciliation and bounded V2 commerce-observability contract.
+See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN4_AUTHORIZATION.md` for the TASK-241 exact V2
+source binding, non-consuming preflight, consuming generation-4 attempt, interpretation boundaries,
+and Human-operator execution handoff.
 
 
 The complete audit and P7.0 boundary are recorded in

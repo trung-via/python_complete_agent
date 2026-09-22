@@ -747,6 +747,34 @@ and the exact handoff is `HUMAN_BRAIN_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORI
   `HUMAN_BRAIN_FRESH_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION`. No generation-4 invocation is
   authorized.
 
+- **P8 Public TikTok PDP DOM Diagnostic Generation-4 Authorization (TASK-241 — publication-gated
+  DONE only as `FRESH_GENERATION_4_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION_ONLY`)**:
+  records exact TASK-240 publication lineage (`RUN-240-002`, `REVIEW-240-001`, published V2 source
+  `8ef61df3936652fb7aeda8ca31ce1db3621ff4cf`) and backfills TASK-240's completed historical
+  `published_source_sha` without changing its older
+  `diagnostic_implementation_source_sha=fbdb8851b9f27d24eff11c509db3009e2c614952`. Generations
+  1-3 remain consumed history; generation 3 remains the exact Human-operated `FAIL_CLOSED` /
+  `NO_BOUNDED_PDP_ROOT` V1 result with zero attempts remaining and no live authority.
+
+  Exact reviewed TASK-241 publication grants generation 4 alone one Human-operated attach-only
+  attempt for context `p8-pilot-001-led-motion-tiktok-vn`, source ID `1731381331718341815`, and
+  the fixed selected listing. It is bound to the exact published V2 carrier, schema version 2,
+  create-exclusive `tiktok-pdp-dom-diagnostic-v2.json`, one borrowed session, one evaluate, zero
+  navigation or interaction, TASK-137 cleanup, and `evidence_authority=NONE`. Non-consuming
+  preflight is limited to CDP reachability, read-only exact already-open PDP target verification,
+  a clean new external generation-4 job root, and execution-critical file-content equivalence to
+  the published V2 source; a later governance-only HEAD need not equal that source SHA.
+
+  Starting the canonical CLI consumes the sole attempt on every terminal outcome. There is no
+  retry, refresh, resume, second invocation, replacement target, arbitrary target, batch, search,
+  inferred-identity, variant-switching, acquisition, selector-repair, test, or action authority.
+  Root and commerce probes remain engineering hints only; truncated scans are non-exhaustive, and
+  readiness, selector-family, shadow, or iframe hints cannot self-authorize repair. The
+  publication-gated state keeps both observability hardenings true, selector repair false,
+  acquisition/action authorities `NONE`, automatic progression false, NEXT null, pending
+  commitments empty, and exact handoff
+  `HUMAN_OPERATOR_GENERATION_4_COMMERCE_OBSERVABILITY_DIAGNOSTIC_EXECUTION`.
+
 See `docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md` for the exact P8.0 source
 `a9429a5db859ebc6fe7e5fea19aaf17ee11d0d3e`,
 `docs/PHASE_8_P8_1_REAL_DECISION_PILOT_SELECTION.md` for the exact P8.1 selection record, and
@@ -774,6 +802,9 @@ generation-3 authorization, non-consuming preflight boundary, and consuming Huma
 See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN3_REVIEW_AND_COMMERCE_OBSERVABILITY.md` for the
 TASK-240 consumed generation-3 reconciliation, immutable V1 provenance, bounded V2 contract, and
 Human/Brain fresh-authorization handoff.
+See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN4_AUTHORIZATION.md` for the TASK-241 exact V2
+source binding, non-consuming preflight, one consuming generation-4 attempt, interpretation
+boundaries, and Human-operator execution handoff.
 
 
 See `docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md` for the audit and boundary.
