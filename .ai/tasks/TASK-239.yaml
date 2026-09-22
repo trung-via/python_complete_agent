@@ -1,0 +1,200 @@
+task_id: TASK-239
+revision: 1
+
+goal: >
+  Canonicalize a fresh Human/Brain-authorized generation-3 one-shot attach-only root-observability
+  diagnostic for the exact selected TikTok Shop PDP using the already reviewed and published TASK-238
+  diagnostic implementation, while preserving zero acquisition, selector-repair, ranking, test,
+  recommendation, approval, or commerce-action authority.
+
+problem: >
+  TASK-238 is exact-source published on canonical main at
+  fbdb8851b9f27d24eff11c509db3009e2c614952 after RUN-238-002 and REVIEW-238-001. It reconciled the
+  consumed generation-2 TASK-237 attempt as FAIL_CLOSED with NO_BOUNDED_PDP_ROOT and zero attempts
+  remaining, and hardened the existing attach-only diagnostic so a future separately authorized
+  invocation can emit a bounded structural root_probe. Current canonical handoff is
+  HUMAN_BRAIN_FRESH_ROOT_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION and there is no remaining live
+  diagnostic authority. The smallest justified NEXT is therefore a fresh generation-3 authorization
+  only. TASK-239 must not modify diagnostic implementation or collector selectors. It must also record
+  exact TASK-238 publication provenance without overloading the older ambiguous source_sha convention.
+
+assumptions:
+  - >
+    Canonical main at authoring is fbdb8851b9f27d24eff11c509db3009e2c614952.
+  - >
+    TASK-238 / RUN-238-002 / REVIEW-238-001 are Runtime PASS, semantic PASS, publication SUCCESS,
+    and canonical main equals the exact reviewed candidate
+    fbdb8851b9f27d24eff11c509db3009e2c614952.
+  - >
+    The TASK-238 diagnostic implementation already provides bounded root_probe observability,
+    persists a safe create-exclusive failure artifact only for NO_BOUNDED_PDP_ROOT, preserves
+    nonzero failure semantics, and remains evidence_authority NONE.
+  - >
+    Generation 1 and generation 2 diagnostic histories are consumed and must remain historical:
+    generation 1 TASK-235/TASK-236 FAIL_CLOSED with zero attempts remaining; generation 2 TASK-237
+    FAIL_CLOSED with NO_BOUNDED_PDP_ROOT and zero attempts remaining.
+  - >
+    TASK-137 remains the sole browser/CDP lifecycle authority and TASK-231 remains the sole public
+    PDP acquisition contract. ProductCandidateSnapshot remains public marketplace observation
+    ownership and SignalEvidence remains field-evidence ownership.
+  - >
+    CAPABILITY_IS_NOT_AUTHORITY, EVIDENCE_IS_NOT_PRODUCT_TRUTH,
+    SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY, SNAPSHOT_IS_NOT_TREND and
+    ONE_CAPABILITY_ONE_AUTHORITY remain mandatory.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_FRESH_AUTHORIZATION.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN2_REVIEW_AND_ROOT_OBSERVABILITY.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - .ai/tasks/TASK-237.yaml
+    - .ai/tasks/TASK-238.yaml
+    - src/product_intelligence/tiktok_pdp_dom_diagnostic.py
+    - tests/product_intelligence/test_tiktok_pdp_dom_diagnostic.py
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN3_AUTHORIZATION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - >
+    Modify src/product_intelligence/tiktok_pdp_dom_diagnostic.py, its product-intelligence tests,
+    TikTokPdpCollector, the canonical TikTok parser, ProductCandidateSnapshot, SignalEvidence,
+    Product Source, Affiliate, ranking, scoring, persistence, market-test, recommendation,
+    approval, or commerce-action semantics.
+  - >
+    Execute TikTok/CDP, invoke generation 3, navigate, refresh, click, type, scroll, search,
+    change variants, open another page, or perform any live marketplace operation during TASK-239.
+  - >
+    Treat root_probe, screenshots, terminal output or any future diagnostic artifact as marketplace
+    evidence, Product Truth, trend, ranking evidence, approval evidence, or market-test evidence.
+  - >
+    Grant automatic retry/resume, arbitrary-target, batch, acquisition, selector-repair,
+    market-test, action, or automatic successor authority.
+
+constraints:
+  hard:
+    - >
+      Classification is exactly
+      FRESH_GENERATION_3_ROOT_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION_ONLY.
+      TASK-239 is authorization/governance only.
+    - >
+      Preserve the exact fixed context p8-pilot-001-led-motion-tiktok-vn, source ID
+      1731381331718341815, and stable listing reference
+      https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815.
+      No arbitrary target, search, batch, replacement product, or inferred identity is authorized.
+    - >
+      Record exact TASK-238 publication provenance using unambiguous fields:
+      source_task_id TASK-238, source_run_id RUN-238-002, source_review_id REVIEW-238-001,
+      diagnostic_implementation_source_sha fbdb8851b9f27d24eff11c509db3009e2c614952.
+      Backfill the completed TASK-238 historical record with
+      published_source_sha fbdb8851b9f27d24eff11c509db3009e2c614952 without changing the meaning
+      of older source_sha fields.
+    - >
+      Preserve generation-1 and generation-2 histories separately and unchanged in meaning.
+      Generation 2 remains executed true, outcome FAIL_CLOSED, failure reason NO_BOUNDED_PDP_ROOT,
+      artifact_created false, authorized attempts 1, remaining 0, execution owner HUMAN_OPERATOR.
+    - >
+      On exact reviewed TASK-239 publication, authorize generation 3 only:
+      diagnostic_authorization_generation 3,
+      live_dom_diagnostic_authority ONE_SHOT_ATTACH_ONLY_EXACT_LISTING,
+      generation_3_authorized_diagnostic_attempts 1,
+      generation_3_authorized_diagnostic_attempts_remaining 1,
+      generation_3_diagnostic_execution_owner HUMAN_OPERATOR,
+      generation_3_diagnostic_executed false.
+    - >
+      The generation-3 live invocation must use the exact already-published TASK-238 carrier and
+      semantics: one attach, exactly one session.evaluate(DIAGNOSTIC_SCRIPT), zero navigation or
+      interaction, exact-current-page identity validation, safe challenge/login/unavailable gates,
+      bounded root_probe output, and TASK-137 manager-mediated borrowed-session cleanup.
+    - >
+      Preflight checks are allowed and do not consume the generation-3 attempt when they do not
+      invoke the diagnostic carrier. Preflight may only establish that Chrome/CDP 9222 is reachable,
+      the exact selected PDP is the currently open intended page, and a new explicit external
+      generation-3 job root does not already contain the fixed artifact.
+    - >
+      Once the canonical diagnostic CLI invocation is started, the generation-3 attempt is consumed
+      by either SUCCESS or FAIL. There is no automatic retry, refresh, resume, second invocation, or
+      replacement target under the same authorization.
+    - >
+      SUCCESS may create the existing bounded diagnostic artifact. NO_BOUNDED_PDP_ROOT may create the
+      safe create-exclusive FAIL_CLOSED root_probe artifact and must still return nonzero.
+      BLOCKED_OR_CHALLENGE, LOGIN_GATE, LISTING_UNAVAILABLE, IDENTITY_MISMATCH and
+      MALFORMED_DIAGNOSTIC_PAYLOAD remain fail-closed and do not gain failure artifacts.
+    - >
+      Every diagnostic artifact retains evidence_authority NONE. root_probe may be used only as
+      engineering diagnostic input for later Human/Brain judgment about whether root-discovery or
+      selector repair is justified. It cannot become ProductCandidateSnapshot, SignalEvidence,
+      marketplace evidence, Product Truth, ranking, recommendation, approval, trend, test-readiness
+      evidence, or commerce-action evidence.
+    - >
+      Preserve root_observability_hardening_implemented true and selector_repair_complete false.
+      Preserve live_public_pdp_acquisition_authority NONE,
+      automated_public_pdp_acquisition_authority NONE,
+      market_test_or_action_authority NONE, automatic_progression false, next_milestone null and
+      pending_commitments empty.
+    - >
+      The exact post-publication handoff is
+      HUMAN_OPERATOR_GENERATION_3_ROOT_OBSERVABILITY_DIAGNOSTIC_EXECUTION. Publication of TASK-239
+      authorizes only the single Human-operated generation-3 diagnostic attempt; it does not
+      authorize selector repair, acquisition, market test, action, or automatic progression.
+    - >
+      After the single generation-3 live invocation, regardless of outcome, further engineering
+      action requires Human/Brain review of the actual safe terminal/artifact result and a separate
+      canonical successor decision. No successor is selected by TASK-239.
+    - >
+      Modify exactly the five authorized paths. Executor must not modify production Python or
+      product-intelligence diagnostic tests. Runtime owns deterministic verification; Executor must
+      produce one candidate and one ResultPackage and must not publish or perform live operations.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Exact TASK-238 publication provenance is durably represented with source_task_id,
+      source_run_id, source_review_id, diagnostic_implementation_source_sha and historical
+      published_source_sha without reinterpreting older ambiguous source_sha fields.
+  - id: AC2
+    condition: >
+      Generation-1 and generation-2 consumed histories remain preserved, with generation 2 still
+      FAIL_CLOSED NO_BOUNDED_PDP_ROOT and zero attempts remaining.
+  - id: AC3
+    condition: >
+      Publication-gated state grants exactly one generation-3 Human-operated attach-only diagnostic
+      attempt for the exact fixed listing and no arbitrary-target, retry, acquisition, selector-repair,
+      ranking, test, recommendation, approval, or action authority.
+  - id: AC4
+    condition: >
+      TASK-239 leaves the TASK-238 diagnostic implementation untouched and explicitly binds the
+      generation-3 authorization to the exact published implementation source
+      fbdb8851b9f27d24eff11c509db3009e2c614952.
+  - id: AC5
+    condition: >
+      Governance documents distinguish non-consuming preflight from the consuming diagnostic
+      invocation, preserve evidence_authority NONE, and require post-attempt Human/Brain review
+      before any selector/root-discovery repair decision.
+  - id: AC6
+    condition: >
+      Exact reviewed publication transitions the handoff to
+      HUMAN_OPERATOR_GENERATION_3_ROOT_OBSERVABILITY_DIAGNOSTIC_EXECUTION with generation 3
+      attempts 1/remaining 1, diagnostic_executed false, null NEXT, empty pending commitments and
+      zero automatic progression.
+  - id: AC7
+    condition: >
+      Exactly five authorized paths change; focused product-intelligence/governance regressions and
+      git diff --check pass with zero unresolved items, producing one candidate eligible for
+      independent PRIMARY semantic review without any live marketplace operation.
+
+verification:
+  required:
+    - python -m pytest tests/product_intelligence/test_tiktok_pdp_dom_diagnostic.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task239-primary
+    - git diff --check
