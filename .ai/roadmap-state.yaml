@@ -61,7 +61,7 @@ active_track:
     classification: FRESH_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION_ONLY
     authorization_owner: HUMAN_BRAIN
     source_task_id: TASK-244
-    source_run_id: RUN-244-001
+    source_run_id: RUN-244-002
     source_review_id: REVIEW-244-001
     source_published_sha: bc4c48de89129583f024ab622051ea322f9ff5ea
     diagnostic_v3_implementation_source_sha: bc4c48de89129583f024ab622051ea322f9ff5ea
@@ -123,8 +123,8 @@ active_track:
     variant_switching_authority: NONE
     selector_repair_authority: NONE
     acquisition_authority: NONE
-    mandatory_post_diagnostic_review: HUMAN_BRAIN_GENERATION_6_DIAGNOSTIC_REVIEW
-    post_attempt_review_authority: HUMAN_BRAIN_GENERATION_6_DIAGNOSTIC_REVIEW
+    mandatory_post_diagnostic_review: HUMAN_BRAIN_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_REVIEW
+    post_attempt_review_authority: HUMAN_BRAIN_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_REVIEW
     root_probe_interpretation: ENGINEERING_DIAGNOSTIC_HINT_ONLY
     commerce_probe_interpretation: ENGINEERING_DIAGNOSTIC_HINT_ONLY
     title_local_topology_probe_interpretation: ENGINEERING_DIAGNOSTIC_HINT_ONLY
@@ -305,7 +305,7 @@ post_p8_planning_handoff:
   canonical_evidence_ingested: false
   diagnostic_implementation_exists: true
   source_task_id: TASK-244
-  source_run_id: RUN-244-001
+  source_run_id: RUN-244-002
   source_review_id: REVIEW-244-001
   source_published_sha: bc4c48de89129583f024ab622051ea322f9ff5ea
   diagnostic_v3_implementation_source_sha: bc4c48de89129583f024ab622051ea322f9ff5ea
@@ -384,8 +384,8 @@ post_p8_planning_handoff:
   variant_switching_authority: NONE
   selector_repair_authority: NONE
   acquisition_authority: NONE
-  mandatory_post_diagnostic_review: HUMAN_BRAIN_GENERATION_6_DIAGNOSTIC_REVIEW
-  post_attempt_review_authority: HUMAN_BRAIN_GENERATION_6_DIAGNOSTIC_REVIEW
+  mandatory_post_diagnostic_review: HUMAN_BRAIN_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_REVIEW
+  post_attempt_review_authority: HUMAN_BRAIN_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_REVIEW
   root_probe_interpretation: ENGINEERING_DIAGNOSTIC_HINT_ONLY
   commerce_probe_interpretation: ENGINEERING_DIAGNOSTIC_HINT_ONLY
   title_local_topology_probe_interpretation: ENGINEERING_DIAGNOSTIC_HINT_ONLY
@@ -1103,7 +1103,7 @@ post_p8_planning_handoff:
     classification: FRESH_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION_ONLY
     task_id: TASK-245
     source_task_id: TASK-244
-    source_run_id: RUN-244-001
+    source_run_id: RUN-244-002
     source_review_id: REVIEW-244-001
     source_published_sha: bc4c48de89129583f024ab622051ea322f9ff5ea
     diagnostic_v3_implementation_source_sha: bc4c48de89129583f024ab622051ea322f9ff5ea
@@ -1180,7 +1180,7 @@ post_p8_planning_handoff:
     market_test_or_action_authority: NONE
     automatic_progression: false
     next_milestone: null
-    post_attempt_review_authority: HUMAN_BRAIN_GENERATION_6_DIAGNOSTIC_REVIEW
+    post_attempt_review_authority: HUMAN_BRAIN_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_REVIEW
     post_publication_handoff: HUMAN_OPERATOR_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_EXECUTION
   manual_contribution_authorization:
     document: docs/PHASE_8_P8_3_MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION.md
@@ -1969,7 +1969,6 @@ completed_milestones:
     source_run_id: RUN-243-001
     source_review_id: REVIEW-243-001
     source_published_sha: 1410e993de69a6c3a9f100d256328710976a9c64
-    published_source_sha: bc4c48de89129583f024ab622051ea322f9ff5ea
     diagnostic_v2_implementation_source_sha: 8ef61df3936652fb7aeda8ca31ce1db3621ff4cf
     generation_5_execution_source_sha: d113c4a7ce2e2835d532935bc195c922aa3628ca
     diagnostic_schema_version: 3
@@ -2010,7 +2009,7 @@ completed_milestones:
     completion_basis: PUBLICATION_GATED
     classification: FRESH_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION_ONLY
     source_task_id: TASK-244
-    source_run_id: RUN-244-001
+    source_run_id: RUN-244-002
     source_review_id: REVIEW-244-001
     source_published_sha: bc4c48de89129583f024ab622051ea322f9ff5ea
     diagnostic_v3_implementation_source_sha: bc4c48de89129583f024ab622051ea322f9ff5ea
@@ -2042,7 +2041,8 @@ completed_milestones:
     variant_switching_authority: NONE
     selector_repair_authority: NONE
     acquisition_authority: NONE
-    mandatory_post_diagnostic_review: HUMAN_BRAIN_GENERATION_6_DIAGNOSTIC_REVIEW
+    mandatory_post_diagnostic_review: HUMAN_BRAIN_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_REVIEW
+    post_attempt_review_authority: HUMAN_BRAIN_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_REVIEW
     root_observability_hardening_implemented: true
     commerce_observability_hardening_implemented: true
     diagnostic_hardening_implemented: true

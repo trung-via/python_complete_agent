@@ -605,7 +605,6 @@ def test_task_244_history_preserves_reconciliation_without_freezing_current_glob
         assert record["source_run_id"] == "RUN-243-001"
         assert record["source_review_id"] == "REVIEW-243-001"
         assert record["source_published_sha"] == "1410e993de69a6c3a9f100d256328710976a9c64"
-        assert record["published_source_sha"] == TASK_244_PUBLISHED_SOURCE_SHA
         assert record["diagnostic_v2_implementation_source_sha"] == TASK_240_PUBLISHED_SOURCE_SHA
         assert record["generation_5_execution_source_sha"] == TASK_242_PUBLISHED_SOURCE_SHA
         assert record["generation_5_authorized_diagnostic_attempts"] == 1
@@ -671,7 +670,7 @@ def test_task_245_authorizes_one_exact_generation_6_v3_diagnostic_attempt():
     )
     for record in (milestone, handoff, authorization, completed["TASK-245"]):
         assert record["source_task_id"] == "TASK-244"
-        assert record["source_run_id"] == "RUN-244-001"
+        assert record["source_run_id"] == "RUN-244-002"
         assert record["source_review_id"] == "REVIEW-244-001"
         assert record["source_published_sha"] == TASK_244_PUBLISHED_SOURCE_SHA
         assert record["diagnostic_v3_implementation_source_sha"] == (
@@ -698,8 +697,10 @@ def test_task_245_authorizes_one_exact_generation_6_v3_diagnostic_attempt():
         assert record["automated_public_pdp_acquisition_authority"] == "NONE"
         assert record["market_test_or_action_authority"] == "NONE"
         assert record["automatic_progression"] is False
+        assert record["post_attempt_review_authority"] == (
+            "HUMAN_BRAIN_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_REVIEW"
+        )
 
-    assert completed["TASK-244"]["published_source_sha"] == TASK_244_PUBLISHED_SOURCE_SHA
     assert completed["TASK-245"]["post_publication_handoff"] == (
         "HUMAN_OPERATOR_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_EXECUTION"
     )
@@ -790,12 +791,12 @@ def test_task_245_authorizes_one_exact_generation_6_v3_diagnostic_attempt():
     assert len(powershell_blocks[0].strip().splitlines()) == 1
 
     for required in (
-        "RUN-244-001",
+        "RUN-244-002",
         "REVIEW-244-001",
         TASK_244_PUBLISHED_SOURCE_SHA,
         "tiktok-pdp-dom-diagnostic-v3.json",
         "HUMAN_OPERATOR_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_EXECUTION",
-        "HUMAN_BRAIN_GENERATION_6_DIAGNOSTIC_REVIEW",
+        "HUMAN_BRAIN_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_REVIEW",
         "CAPABILITY_IS_NOT_AUTHORITY",
         "EVIDENCE_IS_NOT_PRODUCT_TRUTH",
         "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY",
