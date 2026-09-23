@@ -14,10 +14,11 @@ from src.product_intelligence.adapters.tiktok_parsing import extract_tiktok_prod
 
 DIAGNOSTIC_CONTEXT_ID = "p8-pilot-001-led-motion-tiktok-vn"
 DIAGNOSTIC_SOURCE_ID = "1731381331718341815"
-ARTIFACT_FILENAME = "tiktok-pdp-dom-diagnostic-v2.json"
+ARTIFACT_FILENAME = "tiktok-pdp-dom-diagnostic-v3.json"
 _SESSION_RUN_ID = f"human-dom-diagnostic:{DIAGNOSTIC_CONTEXT_ID}"
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 _MAX_NODES = 600
+_MAX_TITLE_LOCAL_NODES = 300
 _MAX_ATTRIBUTE = 80
 _MAX_SIGNATURE = 120
 _MAX_CLASS_TOKENS = 4
@@ -27,6 +28,9 @@ _ROOT_KINDS = {"NONE", "EXPLICIT_PDP_ROOT", "MAIN", "MULTI_ANCHOR_COMMON_ANCESTO
 _SIGNATURE_KEYS = {"tag_name", "class_tokens", "data-testid", "data-e2e", "role", "itemprop", "parent_signature", "grandparent_signature"}
 _CANDIDATE_KEYS = {"candidate_kind", "match_basis", "semantic_hint", "tag_name", "class_tokens", "data-testid", "data-e2e", "role", "itemprop", "parent_signature", "grandparent_signature", "relation_to_title", "fixed_or_sticky"}
 _COMMERCE_PROBE_KEYS = {"document_ready_state", "bounded_nodes_scanned", "bounded_scan_truncated", "visible_currency_like_count", "near_title_currency_like_count", "visible_interactive_count", "near_title_action_like_count", "visible_loading_marker_count", "open_shadow_root_count", "visible_iframe_count", "title_anchor_signature", "title_ancestor_signatures", "currency_candidates", "action_candidates"}
+_TITLE_LOCAL_RECORD_KEYS = {"ancestor_level", "ancestor_signature", "bounded_nodes_scanned", "bounded_scan_truncated", "current_price_selector_match_count", "current_action_selector_match_count", "visible_currency_like_count", "commerce_semantic_action_like_count", "native_or_role_control_count", "pointer_only_interaction_count", "visible_loading_marker_count", "open_shadow_root_boundary_count", "visible_iframe_boundary_count", "candidate_samples"}
+_TITLE_LOCAL_CANDIDATE_KEYS = {"candidate_category", "match_basis", "semantic_hint", "tag_name", "class_tokens", "data-testid", "data-e2e", "role", "itemprop", "parent_signature", "grandparent_signature"}
+_TITLE_LOCAL_CATEGORIES = {"CURRENCY_LIKE", "COMMERCE_SEMANTIC_ACTION", "NATIVE_OR_ROLE_CONTROL", "POINTER_ONLY_INTERACTION"}
 _READY_STATES = {"LOADING", "INTERACTIVE", "COMPLETE", "UNKNOWN"}
 _RELATIONS = {"TITLE_NODE", "OUTSIDE_TITLE_NEIGHBORHOOD"} | {f"TITLE_NEIGHBORHOOD_LEVEL_{n}" for n in range(1, 7)}
 _CURRENCY_BASES = {"VND_SYMBOL_TEXT", "VND_CODE_TEXT", "SEMANTIC_PRICE_ATTRIBUTE", "PRICE_STRUCTURAL_ATTRIBUTE"}
@@ -106,7 +110,7 @@ def _write_artifact(path: Path, document: dict[str, object]) -> None:
 # roots are counted at their boundary but never traversed.
 DIAGNOSTIC_SCRIPT = r"""
 () => {
- const MAX=600, clip=(v,n)=>String(v||'').replace(/\s+/g,' ').trim().slice(0,n);
+ const MAX=600,LOCAL_MAX=300,clip=(v,n)=>String(v||'').replace(/\s+/g,' ').trim().slice(0,n);
  const atom=(v,n)=>{const s=clip(v,n);return/^[A-Za-z0-9_.:/-]*$/.test(s)&&!/\d{4,}/.test(s)?s:''};
  const tokens=e=>Array.from(e&&e.classList||[]).slice(0,4).map(v=>atom(v,48)).filter(Boolean);
  const compact=e=>e?clip([String(e.tagName||'').toLowerCase(),...tokens(e).slice(0,2)].filter(Boolean).join('.'),120):'';
@@ -137,6 +141,7 @@ DIAGNOSTIC_SCRIPT = r"""
  const relation=e=>{if(!titleAnchor)return'OUTSIDE_TITLE_NEIGHBORHOOD';if(e===titleAnchor)return'TITLE_NODE';let x=e;for(let n=1;n<=6&&x;n++){x=x.parentElement;if(x&&(x===titleAnchor||x.contains(titleAnchor)))return`TITLE_NEIGHBORHOOD_LEVEL_${n}`}x=titleAnchor;for(let n=1;n<=6&&x;n++){x=x.parentElement;if(x&&x.contains(e))return`TITLE_NEIGHBORHOOD_LEVEL_${n}`}return'OUTSIDE_TITLE_NEIGHBORHOOD'};
  const structural=e=>clip([e.getAttribute('data-testid'),e.getAttribute('data-e2e'),e.getAttribute('role'),e.getAttribute('itemprop'),e.className].join(' '),400).toLowerCase();
  const candidate=(e,kind,basis,hint)=>({candidate_kind:kind,match_basis:basis,semantic_hint:hint,tag_name:atom(e.tagName,24).toLowerCase(),class_tokens:tokens(e),'data-testid':atom(e.getAttribute('data-testid'),80),'data-e2e':atom(e.getAttribute('data-e2e'),80),role:atom(e.getAttribute('role'),80),itemprop:atom(e.getAttribute('itemprop'),80),parent_signature:compact(e.parentElement),grandparent_signature:compact(e.parentElement&&e.parentElement.parentElement),relation_to_title:relation(e),fixed_or_sticky:['fixed','sticky'].includes(getComputedStyle(e).position)});
+ const localCandidate=(e,category,basis,hint)=>({candidate_category:category,match_basis:basis,semantic_hint:hint,tag_name:atom(e.tagName,24).toLowerCase(),class_tokens:tokens(e),'data-testid':atom(e.getAttribute('data-testid'),80),'data-e2e':atom(e.getAttribute('data-e2e'),80),role:atom(e.getAttribute('role'),80),itemprop:atom(e.getAttribute('itemprop'),80),parent_signature:compact(e.parentElement),grandparent_signature:compact(e.parentElement&&e.parentElement.parentElement)});
  const nodes=[];let truncated=false;if(identity&&!blocked&&!login&&!unavailable&&document.documentElement){const w=document.createTreeWalker(document.documentElement,NodeFilter.SHOW_ELEMENT);let e=w.currentNode;while(e&&nodes.length<MAX){nodes.push(e);e=w.nextNode()}truncated=Boolean(e)}
  const currencies=[],actions=[];let vc=0,ntc=0,vi=0,nta=0,vl=0,os=0,vf=0;
  for(const e of nodes){if(e.shadowRoot&&e.shadowRoot.mode==='open')os=Math.min(MAX,os+1);if(!visible(e))continue;if(String(e.tagName).toLowerCase()==='iframe')vf=Math.min(MAX,vf+1);const text=clip(Array.from(e.childNodes||[]).filter(n=>n.nodeType===Node.TEXT_NODE).slice(0,8).map(n=>n.nodeValue||'').join(' '),160),attrs=structural(e);if(/loading|skeleton|spinner|busy|progress/.test(attrs)||/^loading\b|đang tải/i.test(text))vl=Math.min(MAX,vl+1);
@@ -144,9 +149,21 @@ DIAGNOSTIC_SCRIPT = r"""
   const tag=String(e.tagName||'').toLowerCase(),style=getComputedStyle(e);let ab=null;if(tag==='button')ab='NATIVE_BUTTON';else if(String(e.getAttribute('role')||'').toLowerCase()==='button')ab='ROLE_BUTTON';else if(tag==='select')ab='SELECT_CONTROL';else if(tag==='input')ab='INPUT_CONTROL';else if(e.hasAttribute('tabindex'))ab='TABINDEX_ATTRIBUTE';else if(e.hasAttribute('onclick'))ab='ONCLICK_ATTRIBUTE';else if(style.cursor==='pointer')ab='POINTER_CURSOR';else if(/buy|cart|variant|quantity|mua|giỏ|phân loại|số lượng/i.test(text))ab='ACTION_TEXT_HINT';else if(/buy|cart|variant|quantity/.test(attrs))ab='ACTION_STRUCTURAL_ATTRIBUTE';if(ab){vi=Math.min(MAX,vi+1);if(relation(e)!=='OUTSIDE_TITLE_NEIGHBORHOOD')nta=Math.min(MAX,nta+1);if(actions.length<5){const both=`${attrs} ${text}`,hint=/cart|giỏ/i.test(both)?'CART_LIKE':/buy|mua/i.test(both)?'BUY_LIKE':/variant|phân loại/i.test(both)?'VARIANT_LIKE':/quantity|số lượng/i.test(both)?'QUANTITY_LIKE':'OTHER';actions.push(candidate(e,'ACTION_LIKE',ab,hint))}}
  }
  const ancestors=[];let parent=titleAnchor&&titleAnchor.parentElement;while(parent&&ancestors.length<6&&parent!==document.body&&parent!==document.documentElement){ancestors.push(sig(parent));parent=parent.parentElement}
+ const titleLocal=[];parent=titleAnchor&&titleAnchor.parentElement;for(let level=1;parent&&level<=6;level++,parent=parent.parentElement){
+  const localNodes=[];let localTruncated=false;const walker=document.createTreeWalker(parent,NodeFilter.SHOW_ELEMENT);let e=walker.nextNode();while(e&&localNodes.length<LOCAL_MAX){localNodes.push(e);e=walker.nextNode()}localTruncated=Boolean(e);
+  let pm=0,am=0,cc=0,sc=0,nc=0,pi=0,lm=0,sb=0,ib=0;const currencySamples=[],semanticSamples=[],nativeSamples=[],pointerSamples=[];
+  for(const node of localNodes){if(node.shadowRoot&&node.shadowRoot.mode==='open')sb=Math.min(LOCAL_MAX,sb+1);if(!visible(node))continue;const tag=String(node.tagName||'').toLowerCase();if(tag==='iframe')ib=Math.min(LOCAL_MAX,ib+1);if(priceSelectors.some(selector=>node.matches(selector)))pm=Math.min(LOCAL_MAX,pm+1);if(actionSelectors.some(selector=>node.matches(selector)))am=Math.min(LOCAL_MAX,am+1);
+   const text=clip(Array.from(node.childNodes||[]).filter(n=>n.nodeType===Node.TEXT_NODE).slice(0,8).map(n=>n.nodeValue||'').join(' '),160),attrs=structural(node);if(/loading|skeleton|spinner|busy|progress/.test(attrs)||/^loading\b|đang tải/i.test(text))lm=Math.min(LOCAL_MAX,lm+1);
+   let cb=null;if(/₫|\bđ\b/i.test(text))cb='VND_SYMBOL_TEXT';else if(/\bvnd\b/i.test(text))cb='VND_CODE_TEXT';else if(/price/i.test(String(node.getAttribute('itemprop')||'')))cb='SEMANTIC_PRICE_ATTRIBUTE';else if(/price/.test(attrs))cb='PRICE_STRUCTURAL_ATTRIBUTE';if(cb){cc=Math.min(LOCAL_MAX,cc+1);if(currencySamples.length<2)currencySamples.push(localCandidate(node,'CURRENCY_LIKE',cb,'OTHER'))}
+   const both=`${attrs} ${text}`;let hint=null;if(/cart|giỏ/i.test(both))hint='CART_LIKE';else if(/buy|mua/i.test(both))hint='BUY_LIKE';else if(/variant|phân loại/i.test(both))hint='VARIANT_LIKE';else if(/quantity|số lượng/i.test(both))hint='QUANTITY_LIKE';if(hint){sc=Math.min(LOCAL_MAX,sc+1);const basis=/buy|cart|variant|quantity/.test(attrs)?'ACTION_STRUCTURAL_ATTRIBUTE':'ACTION_TEXT_HINT';if(semanticSamples.length<2)semanticSamples.push(localCandidate(node,'COMMERCE_SEMANTIC_ACTION',basis,hint));continue}
+   const role=String(node.getAttribute('role')||'').toLowerCase();let nb=null;if(tag==='button')nb='NATIVE_BUTTON';else if(role==='button')nb='ROLE_BUTTON';else if(tag==='select')nb='SELECT_CONTROL';else if(tag==='input')nb='INPUT_CONTROL';if(nb){nc=Math.min(LOCAL_MAX,nc+1);if(nativeSamples.length<2)nativeSamples.push(localCandidate(node,'NATIVE_OR_ROLE_CONTROL',nb,'OTHER'));continue}
+   let pb=null;if(node.hasAttribute('tabindex'))pb='TABINDEX_ATTRIBUTE';else if(node.hasAttribute('onclick'))pb='ONCLICK_ATTRIBUTE';else if(getComputedStyle(node).cursor==='pointer')pb='POINTER_CURSOR';if(pb){pi=Math.min(LOCAL_MAX,pi+1);if(pointerSamples.length<2)pointerSamples.push(localCandidate(node,'POINTER_ONLY_INTERACTION',pb,'OTHER'))}
+  }
+  titleLocal.push({ancestor_level:level,ancestor_signature:sig(parent),bounded_nodes_scanned:localNodes.length,bounded_scan_truncated:localTruncated,current_price_selector_match_count:pm,current_action_selector_match_count:am,visible_currency_like_count:cc,commerce_semantic_action_like_count:sc,native_or_role_control_count:nc,pointer_only_interaction_count:pi,visible_loading_marker_count:lm,open_shadow_root_boundary_count:sb,visible_iframe_boundary_count:ib,candidate_samples:[...currencySamples,...semanticSamples,...nativeSamples,...pointerSamples]});
+ }
  const ids=[],identityNodes=root?[root]:[];if(root&&root.matches(rootSelector))for(const e of Array.from(root.querySelectorAll('meta[property="product:retailer_item_id"], meta[itemprop="productID"], [itemprop="productID"]')).slice(0,4))if(e.closest(rootSelector)===root)identityNodes.push(e);for(const e of identityNodes.slice(0,4)){const ip=String(e.getAttribute('itemprop')||'').toLowerCase()==='productid'?e.textContent:'',v=clip(e.getAttribute('content')||e.getAttribute('data-product-id')||e.getAttribute('data-item-id')||ip,32);if(/^\d+$/.test(v)&&!ids.includes(v))ids.push(v)}
  const ready=String(document.readyState||'').toUpperCase();
- return{schema_version:2,observed_url:url,explicit_product_ids:ids,page_state:{identity_bound:identity,has_bounded_root:Boolean(root),root_kind:rootKind,blocked,login,unavailable},root_probe:{title_anchor_count:tc,price_anchor_count:pc,action_anchor_count:ac,visible_explicit_pdp_root_count:erc,explicit_root_with_commerce_anchors_count:ercc,main_present:mp,main_visible:mv,main_has_commerce_anchors:mc,multi_anchor_common_ancestor_found:caf,selected_root_kind:rootKind},commerce_probe:{document_ready_state:['LOADING','INTERACTIVE','COMPLETE'].includes(ready)?ready:'UNKNOWN',bounded_nodes_scanned:nodes.length,bounded_scan_truncated:truncated,visible_currency_like_count:vc,near_title_currency_like_count:ntc,visible_interactive_count:vi,near_title_action_like_count:nta,visible_loading_marker_count:vl,open_shadow_root_count:os,visible_iframe_count:vf,title_anchor_signature:sig(titleAnchor),title_ancestor_signatures:ancestors,currency_candidates:currencies,action_candidates:actions}};
+ return{schema_version:3,observed_url:url,explicit_product_ids:ids,page_state:{identity_bound:identity,has_bounded_root:Boolean(root),root_kind:rootKind,blocked,login,unavailable},root_probe:{title_anchor_count:tc,price_anchor_count:pc,action_anchor_count:ac,visible_explicit_pdp_root_count:erc,explicit_root_with_commerce_anchors_count:ercc,main_present:mp,main_visible:mv,main_has_commerce_anchors:mc,multi_anchor_common_ancestor_found:caf,selected_root_kind:rootKind},commerce_probe:{document_ready_state:['LOADING','INTERACTIVE','COMPLETE'].includes(ready)?ready:'UNKNOWN',bounded_nodes_scanned:nodes.length,bounded_scan_truncated:truncated,visible_currency_like_count:vc,near_title_currency_like_count:ntc,visible_interactive_count:vi,near_title_action_like_count:nta,visible_loading_marker_count:vl,open_shadow_root_count:os,visible_iframe_count:vf,title_anchor_signature:sig(titleAnchor),title_ancestor_signatures:ancestors,currency_candidates:currencies,action_candidates:actions},title_local_topology_probe:titleLocal};
 }
 """
 
@@ -228,9 +245,67 @@ def _validate_commerce_probe(probe: object) -> dict[str, object]:
     return result
 
 
-def _validate_payload(payload: object, *, failure_writer: Callable[[dict[str, object], dict[str, object]], None] | None = None) -> tuple[dict[str, object], dict[str, object]]:
-    required = {"schema_version", "observed_url", "explicit_product_ids", "page_state", "root_probe", "commerce_probe"}
-    if not isinstance(payload, dict) or set(payload) != required or payload["schema_version"] != 2 or not isinstance(payload["observed_url"], str) or len(payload["observed_url"]) > 2048:
+def _validate_title_local_candidate(value: object) -> dict[str, object]:
+    if not isinstance(value, dict) or set(value) != _TITLE_LOCAL_CANDIDATE_KEYS:
+        raise _malformed()
+    category = value["candidate_category"]
+    basis = value["match_basis"]
+    hint = value["semantic_hint"]
+    allowed_bases = {
+        "CURRENCY_LIKE": _CURRENCY_BASES,
+        "COMMERCE_SEMANTIC_ACTION": {"ACTION_TEXT_HINT", "ACTION_STRUCTURAL_ATTRIBUTE"},
+        "NATIVE_OR_ROLE_CONTROL": {"NATIVE_BUTTON", "ROLE_BUTTON", "SELECT_CONTROL", "INPUT_CONTROL"},
+        "POINTER_ONLY_INTERACTION": {"TABINDEX_ATTRIBUTE", "ONCLICK_ATTRIBUTE", "POINTER_CURSOR"},
+    }
+    if category not in _TITLE_LOCAL_CATEGORIES or basis not in allowed_bases[category] or hint not in _SEMANTIC_HINTS:
+        raise _malformed()
+    if (category == "COMMERCE_SEMANTIC_ACTION") != (hint != "OTHER"):
+        raise _malformed()
+    _validate_signature({key: value[key] for key in _SIGNATURE_KEYS})
+    return dict(value)
+
+
+def _validate_title_local_topology_probe(probe: object) -> list[dict[str, object]]:
+    if not isinstance(probe, list) or len(probe) > 6:
+        raise _malformed()
+    result: list[dict[str, object]] = []
+    category_rank = {category: rank for rank, category in enumerate(("CURRENCY_LIKE", "COMMERCE_SEMANTIC_ACTION", "NATIVE_OR_ROLE_CONTROL", "POINTER_ONLY_INTERACTION"))}
+    count_keys = (
+        "bounded_nodes_scanned", "current_price_selector_match_count",
+        "current_action_selector_match_count", "visible_currency_like_count",
+        "commerce_semantic_action_like_count", "native_or_role_control_count",
+        "pointer_only_interaction_count", "visible_loading_marker_count",
+        "open_shadow_root_boundary_count", "visible_iframe_boundary_count",
+    )
+    for expected_level, record in enumerate(probe, start=1):
+        if not isinstance(record, dict) or set(record) != _TITLE_LOCAL_RECORD_KEYS or record["ancestor_level"] != expected_level:
+            raise _malformed()
+        if any(not isinstance(record[key], int) or isinstance(record[key], bool) or not 0 <= record[key] <= _MAX_TITLE_LOCAL_NODES for key in count_keys):
+            raise _malformed()
+        if not isinstance(record["bounded_scan_truncated"], bool) or (record["bounded_scan_truncated"] and record["bounded_nodes_scanned"] != _MAX_TITLE_LOCAL_NODES):
+            raise _malformed()
+        if any(record[key] > record["bounded_nodes_scanned"] for key in count_keys[1:]):
+            raise _malformed()
+        samples = record["candidate_samples"]
+        if not isinstance(samples, list) or len(samples) > 8:
+            raise _malformed()
+        validated_samples = [_validate_title_local_candidate(sample) for sample in samples]
+        categories = [sample["candidate_category"] for sample in validated_samples]
+        if categories != sorted(categories, key=category_rank.__getitem__) or any(categories.count(category) > 2 for category in _TITLE_LOCAL_CATEGORIES):
+            raise _malformed()
+        category_counts = {"CURRENCY_LIKE": "visible_currency_like_count", "COMMERCE_SEMANTIC_ACTION": "commerce_semantic_action_like_count", "NATIVE_OR_ROLE_CONTROL": "native_or_role_control_count", "POINTER_ONLY_INTERACTION": "pointer_only_interaction_count"}
+        if any(categories.count(category) > record[count_key] for category, count_key in category_counts.items()):
+            raise _malformed()
+        validated = dict(record)
+        validated["ancestor_signature"] = _validate_signature(record["ancestor_signature"])
+        validated["candidate_samples"] = validated_samples
+        result.append(validated)
+    return result
+
+
+def _validate_payload(payload: object, *, failure_writer: Callable[[dict[str, object], dict[str, object], list[dict[str, object]]], None] | None = None) -> tuple[dict[str, object], dict[str, object], list[dict[str, object]]]:
+    required = {"schema_version", "observed_url", "explicit_product_ids", "page_state", "root_probe", "commerce_probe", "title_local_topology_probe"}
+    if not isinstance(payload, dict) or set(payload) != required or payload["schema_version"] != 3 or not isinstance(payload["observed_url"], str) or len(payload["observed_url"]) > 2048:
         raise _malformed()
     state = payload["page_state"]
     state_keys = {"identity_bound", "has_bounded_root", "root_kind", "blocked", "login", "unavailable"}
@@ -238,6 +313,7 @@ def _validate_payload(payload: object, *, failure_writer: Callable[[dict[str, ob
         raise _malformed()
     root_probe = _validate_root_probe(payload["root_probe"], state)
     commerce_probe = _validate_commerce_probe(payload["commerce_probe"])
+    title_local_topology_probe = _validate_title_local_topology_probe(payload["title_local_topology_probe"])
     if state["blocked"]:
         raise TikTokPdpDomDiagnosticError(BLOCKED_OR_CHALLENGE)
     if state["login"]:
@@ -257,9 +333,9 @@ def _validate_payload(payload: object, *, failure_writer: Callable[[dict[str, ob
         raise TikTokPdpDomDiagnosticError(IDENTITY_MISMATCH)
     if not state["has_bounded_root"]:
         if failure_writer is not None:
-            failure_writer(root_probe, commerce_probe)
+            failure_writer(root_probe, commerce_probe, title_local_topology_probe)
         raise TikTokPdpDomDiagnosticError(NO_BOUNDED_PDP_ROOT)
-    return root_probe, commerce_probe
+    return root_probe, commerce_probe, title_local_topology_probe
 
 
 async def run_tiktok_pdp_dom_diagnostic(*, job_root: str | Path, cdp_endpoint: str, clock: Callable[[], datetime] = _utc_now, manager_factory: Callable[..., _SessionManager] = PlaywrightBrowserManager) -> TikTokPdpDomDiagnosticOutcome:
@@ -284,14 +360,14 @@ async def run_tiktok_pdp_dom_diagnostic(*, job_root: str | Path, cdp_endpoint: s
             payload = await session.evaluate(DIAGNOSTIC_SCRIPT)
         except Exception as exc:
             raise TikTokPdpDomDiagnosticError("the bounded current-page evaluation failed") from exc
-        metadata = {"classification": "ATTACH_ONLY_BOUNDED_COMMERCE_OBSERVABILITY_DIAGNOSTIC", "context_id": DIAGNOSTIC_CONTEXT_ID, "source_product_id": DIAGNOSTIC_SOURCE_ID, "observed_at": observed_at.isoformat(), "evidence_authority": "NONE"}
+        metadata = {"classification": "ATTACH_ONLY_BOUNDED_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC", "context_id": DIAGNOSTIC_CONTEXT_ID, "source_product_id": DIAGNOSTIC_SOURCE_ID, "observed_at": observed_at.isoformat(), "evidence_authority": "NONE"}
 
-        def write_failure_artifact(root_probe: dict[str, object], commerce_probe: dict[str, object]) -> None:
-            document = {"schema_version": 2, "diagnostic": {"status": "FAIL_CLOSED", **metadata, "failure_reason": NO_BOUNDED_PDP_ROOT}, "root_probe": root_probe, "commerce_probe": commerce_probe}
+        def write_failure_artifact(root_probe: dict[str, object], commerce_probe: dict[str, object], title_local_topology_probe: list[dict[str, object]]) -> None:
+            document = {"schema_version": 3, "diagnostic": {"status": "FAIL_CLOSED", **metadata, "failure_reason": NO_BOUNDED_PDP_ROOT}, "root_probe": root_probe, "commerce_probe": commerce_probe, "title_local_topology_probe": title_local_topology_probe}
             _write_artifact(artifact_path, document)
 
-        root_probe, commerce_probe = _validate_payload(payload, failure_writer=write_failure_artifact)
-        document: dict[str, object] = {"schema_version": 2, "diagnostic": {"status": "SUCCESS", **metadata}, "root_probe": root_probe, "commerce_probe": commerce_probe}
+        root_probe, commerce_probe, title_local_topology_probe = _validate_payload(payload, failure_writer=write_failure_artifact)
+        document: dict[str, object] = {"schema_version": 3, "diagnostic": {"status": "SUCCESS", **metadata}, "root_probe": root_probe, "commerce_probe": commerce_probe, "title_local_topology_probe": title_local_topology_probe}
         _write_artifact(artifact_path, document)
     except BaseException as exc:
         operation_error = exc

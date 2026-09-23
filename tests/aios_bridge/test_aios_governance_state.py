@@ -114,6 +114,11 @@ P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN5_AUTHORIZATION_FILE = (
     / "docs"
     / "PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN5_AUTHORIZATION.md"
 )
+P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN5_RESULT_AND_V3_FILE = (
+    REPO_ROOT
+    / "docs"
+    / "PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN5_RESULT_RECONCILIATION_AND_V3_HARDENING.md"
+)
 ROADMAP_DOCS = (
     REPO_ROOT / "docs" / "POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
     REPO_ROOT / "docs" / "POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
@@ -523,16 +528,61 @@ def test_task_242_history_preserves_generation_4_failure_without_freezing_handof
         assert required in document
 
 
-def test_task_243_authorizes_one_exact_generation_5_diagnostic_attempt():
+def test_task_244_reconciles_generation_5_and_hardens_v3_without_authorizing_generation_6():
     state = load_yaml(ROADMAP_FILE)
     active = state["active_track"]
     milestone = active["current_milestone"]
     handoff = state["post_p8_planning_handoff"]
-    authorization = handoff["public_pdp_dom_diagnostic_gen5_authorization"]
+    authorization = handoff["generation_5_result_reconciliation_and_v3_hardening"]
     completed = {item["task_id"]: item for item in state["completed_milestones"]}
-    document = P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN5_AUTHORIZATION_FILE.read_text(
+    document = P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN5_RESULT_AND_V3_FILE.read_text(
         encoding="utf-8"
     )
+
+    assert active["id"] == "P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN5_RESULT_RECONCILIATION_AND_V3_HARDENING"
+    assert active["sequence_status"] == "COMPLETE_ON_EXACT_TASK_244_SOURCE_PUBLICATION"
+    assert milestone["task_id"] == "TASK-244"
+    assert milestone["classification"] == "GENERATION_5_RESULT_RECONCILIATION_AND_TITLE_LOCAL_COMMERCE_OBSERVABILITY_V3_HARDENING_ONLY"
+    for record in (milestone, authorization, completed["TASK-244"]):
+        assert record["source_task_id"] == "TASK-243"
+        assert record["source_run_id"] == "RUN-243-001"
+        assert record["source_review_id"] == "REVIEW-243-001"
+        assert record["source_published_sha"] == "1410e993de69a6c3a9f100d256328710976a9c64"
+        assert record["diagnostic_v2_implementation_source_sha"] == TASK_240_PUBLISHED_SOURCE_SHA
+        assert record["generation_5_execution_source_sha"] == TASK_242_PUBLISHED_SOURCE_SHA
+        assert record["generation_5_authorized_diagnostic_attempts"] == 1
+        assert record["generation_5_authorized_diagnostic_attempts_remaining"] == 0
+        assert record["generation_5_diagnostic_execution_owner"] == "HUMAN_OPERATOR"
+        assert record["generation_5_diagnostic_executed"] is True
+        assert record["diagnostic_outcome"] == "FAIL_CLOSED"
+        assert record["diagnostic_failure_reason"] == "NO_BOUNDED_PDP_ROOT"
+        assert record["diagnostic_process_exit_code"] == 1
+        assert record["diagnostic_artifact_created"] is True
+        assert record["live_dom_diagnostic_authority"] == "NONE"
+
+    artifact = milestone["generation_5_artifact"]
+    assert artifact == {"schema_version": 2, "filename": "tiktok-pdp-dom-diagnostic-v2.json", "sha256": "03CB57F0BA9838985233C919E144416416E1A17DD2DA033F8B5F8A3FE224EA1F", "size_bytes": 6130, "observed_at": "2026-09-22T23:00:39.526520+00:00", "evidence_authority": "NONE"}
+    assert milestone["generation_5_root_probe"] == {"title_anchor_count": 1, "price_anchor_count": 0, "action_anchor_count": 0, "visible_explicit_pdp_root_count": 0, "explicit_root_with_commerce_anchors_count": 0, "main_present": False, "main_visible": False, "main_has_commerce_anchors": False, "multi_anchor_common_ancestor_found": False, "selected_root_kind": "NONE"}
+    assert milestone["generation_5_commerce_probe"] == {"document_ready_state": "COMPLETE", "bounded_nodes_scanned": 600, "bounded_scan_truncated": True, "visible_currency_like_count": 0, "near_title_currency_like_count": 0, "visible_interactive_count": 106, "near_title_action_like_count": 91, "visible_loading_marker_count": 0, "open_shadow_root_count": 0, "visible_iframe_count": 0}
+    assert milestone["selector_family_miss_scope"] == "FULL_DOCUMENT_BODY_CURRENT_SELECTOR_QUERIES_NOT_GLOBAL_SCAN_CAP"
+    assert milestone["global_currency_negative_scope"] == "NON_EXHAUSTIVE_TRUNCATED_600_NODE_SCAN"
+    assert milestone["legacy_near_title_action_count_scope"] == "BROAD_V2_ANCESTOR_CONTAINMENT_HEURISTIC_NOT_COMMERCE_CONTROL_EVIDENCE"
+    assert milestone["diagnostic_schema_version"] == 3
+    assert milestone["diagnostic_artifact_filename"] == "tiktok-pdp-dom-diagnostic-v3.json"
+    assert milestone["generation_6_authorized"] is False
+    assert milestone["selector_repair_complete"] is False
+    assert milestone["live_public_pdp_acquisition_authority"] == "NONE"
+    assert milestone["automated_public_pdp_acquisition_authority"] == "NONE"
+    assert milestone["market_test_or_action_authority"] == "NONE"
+    assert milestone["automatic_progression"] is False
+    assert milestone["post_run_engineering_successor"] is None
+    assert active["next_milestone"] is None
+    assert state["pending_commitments"] == []
+    assert handoff["destination"] == "HUMAN_BRAIN_FRESH_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION"
+    assert authorization["title_local_topology_probe"] == {"max_ancestor_levels": 6, "max_descendant_elements_per_level": 300, "root_or_selector_authority": "NONE", "raw_marketplace_values_or_text_persisted": False, "shadow_root_traversal": False, "iframe_document_traversal": False}
+    for required in ("TASK-243", "RUN-243-001", "REVIEW-243-001", "1410e993de69a6c3a9f100d256328710976a9c64", "tiktok-pdp-dom-diagnostic-v2.json", "tiktok-pdp-dom-diagnostic-v3.json", "near-title action count of 91", "at most six", "at most 300", "HUMAN_BRAIN_FRESH_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION", "CAPABILITY_IS_NOT_AUTHORITY", "EVIDENCE_IS_NOT_PRODUCT_TRUTH", "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY", "SNAPSHOT_IS_NOT_TREND", "ONE_CAPABILITY_ONE_AUTHORITY"):
+        assert required in document
+    return
 
     assert active["id"] == "P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN5_AUTHORIZATION"
     assert active["sequence_status"] == "COMPLETE_ON_EXACT_TASK_243_SOURCE_PUBLICATION"

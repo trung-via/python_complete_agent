@@ -722,6 +722,27 @@ pending commitments remain empty. The current global handoff is
 review authority is `HUMAN_BRAIN_GENERATION_5_DIAGNOSTIC_REVIEW`. See
 `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN5_AUTHORIZATION.md` for the exact contract.
 
+TASK-244 records exact TASK-243 / RUN-243-001 / REVIEW-243-001 publication source
+`1410e993de69a6c3a9f100d256328710976a9c64` and preserves the distinct historical V2 implementation
+and generation-5 execution SHAs. Generation 5 is consumed Human-operated history: exit-code-1
+`FAIL_CLOSED` / `NO_BOUNDED_PDP_ROOT`, one attempt used, zero remaining, and the exact immutable
+schema-V2 artifact recorded with `evidence_authority=NONE`. The exact root/commerce summary is
+diagnostic context only. Price/action selector misses were full-body selector queries and are not
+explained by the truncated 600-node global scan; global currency zero is non-exhaustive, while the
+legacy near-title action count 91 is non-semantic ancestor containment.
+
+V3 writes only create-exclusive `tiktok-pdp-dom-diagnostic-v3.json` and leaves V2 immutable. It
+preserves all selectors and root-selection semantics, the global 600-node cap, one evaluate, zero
+interaction, TASK-137 cleanup, light-DOM-only traversal, and no iframe/shadow traversal. Its new
+independently bounded title-local topology probe observes at most six ancestors and 300 descendant
+elements per ancestor, separating selector matches, currency, BUY/CART/VARIANT/QUANTITY semantic
+hints, generic controls, pointer-only interaction, loading, and iframe/shadow boundaries. It emits
+no root choice or selector repair and persists no raw marketplace content. Generations 1-5 remain
+historical; generation 6 is unauthorized, automatic progression is false, NEXT is null, pending
+commitments are empty, and the only handoff is
+`HUMAN_BRAIN_FRESH_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION`. See
+`docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN5_RESULT_RECONCILIATION_AND_V3_HARDENING.md`.
+
 The complete audit and P7.0 boundary are recorded in
 `docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md`.
 

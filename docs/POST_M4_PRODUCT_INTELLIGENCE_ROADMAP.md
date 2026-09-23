@@ -872,6 +872,33 @@ progression is false, the current global handoff is
 authority is `HUMAN_BRAIN_GENERATION_5_DIAGNOSTIC_REVIEW`. See
 `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN5_AUTHORIZATION.md` for the exact contract.
 
+TASK-244 is publication-gated DONE only as
+`GENERATION_5_RESULT_RECONCILIATION_AND_TITLE_LOCAL_COMMERCE_OBSERVABILITY_V3_HARDENING_ONLY`.
+It records exact TASK-243 / RUN-243-001 / REVIEW-243-001 publication lineage at
+`1410e993de69a6c3a9f100d256328710976a9c64`, preserves historical V2 implementation SHA
+`8ef61df3936652fb7aeda8ca31ce1db3621ff4cf` and generation-5 execution SHA
+`d113c4a7ce2e2835d532935bc195c922aa3628ca`, and reconciles the only generation-5 attempt as
+Human-operated, consumed, exit-code-1 `FAIL_CLOSED` / `NO_BOUNDED_PDP_ROOT` with the exact immutable
+V2 artifact provenance. The exact root and commerce summaries remain bounded engineering context.
+Selector-family zeroes come from full-body current-selector queries, not the truncated global
+600-node scan; the global currency zero is non-exhaustive, and legacy near-title action count 91 is
+a broad ancestor-containment heuristic rather than semantic commerce-control evidence.
+
+The active diagnostic becomes schema version 3 with create-exclusive
+`tiktok-pdp-dom-diagnostic-v3.json`, leaving V2 immutable. Existing selectors, root-selection
+semantics, the 600-node global scan, one evaluate, zero interaction, TASK-137 cleanup, light-DOM
+traversal, and `evidence_authority=NONE` remain fixed. A separate title-local probe inspects at most
+six title ancestors with independent 300-element caps and separates current-selector matches,
+currency hints, BUY/CART/VARIANT/QUANTITY semantic hints, generic native/role controls,
+pointer-only interaction, loading, shadow boundaries, and iframe boundaries. It selects and
+repairs nothing and persists no raw marketplace text or value. Generations 1-5 are historical;
+generation 6 is unauthorized, all acquisition/action and selector-repair authorities remain
+closed, automatic progression is false, NEXT is null, pending commitments are empty, and the sole
+handoff is
+`HUMAN_BRAIN_FRESH_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION`.
+See
+`docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN5_RESULT_RECONCILIATION_AND_V3_HARDENING.md`.
+
 ## 4. Authority invariants
 
 Across all post-M4 work:

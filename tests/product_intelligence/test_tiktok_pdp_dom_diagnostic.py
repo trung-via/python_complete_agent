@@ -1,4 +1,4 @@
-"""Offline regressions for the schema-version-2 attach-only diagnostic."""
+"""Offline regressions for the schema-version-3 attach-only diagnostic."""
 from __future__ import annotations
 
 import ast
@@ -53,9 +53,28 @@ def _commerce_probe(**overrides):
     return value
 
 
+def _local_candidate(category="CURRENCY_LIKE", **overrides):
+    bases = {
+        "CURRENCY_LIKE": ("SEMANTIC_PRICE_ATTRIBUTE", "OTHER"),
+        "COMMERCE_SEMANTIC_ACTION": ("ACTION_STRUCTURAL_ATTRIBUTE", "BUY_LIKE"),
+        "NATIVE_OR_ROLE_CONTROL": ("NATIVE_BUTTON", "OTHER"),
+        "POINTER_ONLY_INTERACTION": ("POINTER_CURSOR", "OTHER"),
+    }
+    basis, hint = bases[category]
+    value = {"candidate_category": category, "match_basis": basis, "semantic_hint": hint, **_signature()}
+    value.update(overrides)
+    return value
+
+
+def _title_local_topology_probe(**overrides):
+    value = {"ancestor_level": 1, "ancestor_signature": _signature(), "bounded_nodes_scanned": 300, "bounded_scan_truncated": True, "current_price_selector_match_count": 1, "current_action_selector_match_count": 1, "visible_currency_like_count": 1, "commerce_semantic_action_like_count": 1, "native_or_role_control_count": 1, "pointer_only_interaction_count": 1, "visible_loading_marker_count": 1, "open_shadow_root_boundary_count": 1, "visible_iframe_boundary_count": 1, "candidate_samples": [_local_candidate(), _local_candidate("COMMERCE_SEMANTIC_ACTION"), _local_candidate("NATIVE_OR_ROLE_CONTROL"), _local_candidate("POINTER_ONLY_INTERACTION")]}
+    value.update(overrides)
+    return [value]
+
+
 def _payload(**overrides):
     state = overrides.get("page_state", _state())
-    value = {"schema_version": 2, "observed_url": OBSERVED_URL, "explicit_product_ids": [DIAGNOSTIC_SOURCE_ID], "page_state": state, "root_probe": _root_probe(state["root_kind"]), "commerce_probe": _commerce_probe()}
+    value = {"schema_version": 3, "observed_url": OBSERVED_URL, "explicit_product_ids": [DIAGNOSTIC_SOURCE_ID], "page_state": state, "root_probe": _root_probe(state["root_kind"]), "commerce_probe": _commerce_probe(), "title_local_topology_probe": _title_local_topology_probe()}
     value.update(overrides)
     return value
 
@@ -118,32 +137,33 @@ def external_temp_path():
 
 
 @pytest.mark.asyncio
-async def test_v2_success_is_create_exclusive_bounded_structural_and_one_evaluate(external_temp_path):
+async def test_v3_success_is_create_exclusive_bounded_structural_and_one_evaluate(external_temp_path):
     outcome = await run_tiktok_pdp_dom_diagnostic(job_root=external_temp_path, cdp_endpoint=ENDPOINT, clock=lambda: OBSERVED_AT, manager_factory=FakeManager)
     manager = FakeManager.instances[0]
-    assert ARTIFACT_FILENAME == "tiktok-pdp-dom-diagnostic-v2.json"
+    assert ARTIFACT_FILENAME == "tiktok-pdp-dom-diagnostic-v3.json"
     assert manager.session.evaluate_calls == [DIAGNOSTIC_SCRIPT]
     assert manager.session.navigate_calls == manager.session.click_calls == manager.session.type_calls == manager.session.scroll_calls == []
     assert manager.close_session_calls == manager.get_calls
     document = json.loads(outcome.artifact_path.read_text(encoding="utf-8"))
-    assert set(document) == {"schema_version", "diagnostic", "root_probe", "commerce_probe"}
-    assert document["schema_version"] == 2
+    assert set(document) == {"schema_version", "diagnostic", "root_probe", "commerce_probe", "title_local_topology_probe"}
+    assert document["schema_version"] == 3
     assert document["diagnostic"]["evidence_authority"] == "NONE"
     assert document["commerce_probe"] == _commerce_probe()
+    assert document["title_local_topology_probe"] == _title_local_topology_probe()
     persisted = outcome.artifact_path.read_text(encoding="utf-8").lower()
     for forbidden in (ENDPOINT.lower(), "text_excerpt", "aria-label", "href", "innerhtml", "outerhtml", "productcandidatesnapshot", "signalevidence", "actual price", "actual title"):
         assert forbidden not in persisted
 
 
 @pytest.mark.asyncio
-async def test_no_root_writes_one_v2_fail_closed_probe_then_preserves_nonzero(external_temp_path):
+async def test_no_root_writes_one_v3_fail_closed_probe_then_preserves_nonzero(external_temp_path):
     probe = _root_probe("NONE")
     commerce = _commerce_probe(title_anchor_signature=_signature(), currency_candidates=[], action_candidates=[], visible_currency_like_count=0, near_title_currency_like_count=0, visible_interactive_count=0, near_title_action_like_count=0)
     FakeManager.payload = _payload(page_state=_state("NONE"), root_probe=probe, commerce_probe=commerce)
     with pytest.raises(TikTokPdpDomDiagnosticError, match=f"^{NO_BOUNDED_PDP_ROOT}$"):
         await run_tiktok_pdp_dom_diagnostic(job_root=external_temp_path, cdp_endpoint=ENDPOINT, clock=lambda: OBSERVED_AT, manager_factory=FakeManager)
     document = json.loads((external_temp_path / ARTIFACT_FILENAME).read_text(encoding="utf-8"))
-    assert document == {"schema_version": 2, "diagnostic": {"status": "FAIL_CLOSED", "classification": "ATTACH_ONLY_BOUNDED_COMMERCE_OBSERVABILITY_DIAGNOSTIC", "context_id": DIAGNOSTIC_CONTEXT_ID, "source_product_id": DIAGNOSTIC_SOURCE_ID, "observed_at": OBSERVED_AT.isoformat(), "evidence_authority": "NONE", "failure_reason": NO_BOUNDED_PDP_ROOT}, "root_probe": probe, "commerce_probe": commerce}
+    assert document == {"schema_version": 3, "diagnostic": {"status": "FAIL_CLOSED", "classification": "ATTACH_ONLY_BOUNDED_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC", "context_id": DIAGNOSTIC_CONTEXT_ID, "source_product_id": DIAGNOSTIC_SOURCE_ID, "observed_at": OBSERVED_AT.isoformat(), "evidence_authority": "NONE", "failure_reason": NO_BOUNDED_PDP_ROOT}, "root_probe": probe, "commerce_probe": commerce, "title_local_topology_probe": _title_local_topology_probe()}
 
 
 @pytest.mark.asyncio
@@ -174,6 +194,15 @@ def _bad_payloads():
     yield _payload(commerce_probe=_commerce_probe(action_candidates=[{**_candidate("ACTION_LIKE"), "id": "buy"}]))
     yield _payload(commerce_probe=_commerce_probe(action_candidates=[{**_candidate("ACTION_LIKE"), "aria-label": "buy now"}]))
     yield _payload(commerce_probe=_commerce_probe(action_candidates=[_candidate("ACTION_LIKE", **{"data-testid": "arbitrary page text"})]))
+    yield _payload(title_local_topology_probe=[_title_local_topology_probe()[0]] * 7)
+    yield _payload(title_local_topology_probe=_title_local_topology_probe(bounded_nodes_scanned=301))
+    yield _payload(title_local_topology_probe=_title_local_topology_probe(bounded_nodes_scanned=299, bounded_scan_truncated=True))
+    yield _payload(title_local_topology_probe=_title_local_topology_probe(ancestor_level=2))
+    yield _payload(title_local_topology_probe=_title_local_topology_probe(candidate_samples=[_local_candidate("POINTER_ONLY_INTERACTION")] * 3))
+    yield _payload(title_local_topology_probe=_title_local_topology_probe(candidate_samples=[_local_candidate("POINTER_ONLY_INTERACTION"), _local_candidate()]))
+    yield _payload(title_local_topology_probe=_title_local_topology_probe(candidate_samples=[{**_local_candidate(), "href": "/raw"}]))
+    yield _payload(title_local_topology_probe=_title_local_topology_probe(candidate_samples=[_local_candidate("POINTER_ONLY_INTERACTION", semantic_hint="BUY_LIKE")]))
+    yield _payload(title_local_topology_probe=[{**_title_local_topology_probe()[0], "selected_root": "div.pdp"}])
 
 
 @pytest.mark.asyncio
@@ -186,7 +215,7 @@ async def test_forbidden_fields_values_caps_and_enums_fail_closed(external_temp_
 
 
 @pytest.mark.asyncio
-async def test_existing_v2_artifact_and_repository_root_fail_before_attach(external_temp_path):
+async def test_existing_v3_artifact_and_repository_root_fail_before_attach(external_temp_path):
     artifact = external_temp_path / ARTIFACT_FILENAME
     artifact.write_text("immutable", encoding="utf-8")
     with pytest.raises(TikTokPdpDomDiagnosticArtifactExistsError):
@@ -218,10 +247,23 @@ def test_script_is_hard_bounded_light_dom_structural_only_and_preserves_lifecycl
     assert "manager.close_session(_SESSION_RUN_ID)" in source
     assert ".navigate(" not in source and ".click(" not in source and ".scroll(" not in source
     assert "const MAX=600" in DIAGNOSTIC_SCRIPT
+    assert "LOCAL_MAX=300" in DIAGNOSTIC_SCRIPT
+    assert "const rootSelector='[data-e2e*=\"pdp\" i], [data-testid*=\"pdp\" i], [itemtype*=\"Product\"]'" in DIAGNOSTIC_SCRIPT
+    assert "const titleSelectors=['h1','[role=\"heading\"][aria-level=\"1\"]','[data-e2e*=\"title\" i]','[data-testid*=\"title\" i]','[itemprop=\"name\"]']" in DIAGNOSTIC_SCRIPT
+    assert "const priceSelectors=['[data-e2e*=\"price\" i]','[data-testid*=\"price\" i]','[itemprop=\"price\"]','[class*=\"price\" i]']" in DIAGNOSTIC_SCRIPT
+    assert "const actionSelectors=['button[data-e2e*=\"buy\" i]','button[data-testid*=\"buy\" i]','button[data-e2e*=\"cart\" i]','button[data-testid*=\"cart\" i]','[data-e2e*=\"quantity\" i]','[data-testid*=\"quantity\" i]','[data-e2e*=\"variant\" i]','[data-testid*=\"variant\" i]','[role=\"radiogroup\"]','select']" in DIAGNOSTIC_SCRIPT
     assert "document.createTreeWalker(document.documentElement,NodeFilter.SHOW_ELEMENT)" in DIAGNOSTIC_SCRIPT
     assert "querySelectorAll('*')" not in DIAGNOSTIC_SCRIPT
     assert ".contentDocument" not in DIAGNOSTIC_SCRIPT and ".shadowRoot.querySelector" not in DIAGNOSTIC_SCRIPT
     assert "bounded_scan_truncated:truncated" in DIAGNOSTIC_SCRIPT
+    assert "title_local_topology_probe:titleLocal" in DIAGNOSTIC_SCRIPT
+    assert "ancestor_level:level" in DIAGNOSTIC_SCRIPT
+    assert "current_price_selector_match_count:pm" in DIAGNOSTIC_SCRIPT
+    assert "current_action_selector_match_count:am" in DIAGNOSTIC_SCRIPT
+    assert "commerce_semantic_action_like_count:sc" in DIAGNOSTIC_SCRIPT
+    assert "native_or_role_control_count:nc" in DIAGNOSTIC_SCRIPT
+    assert "pointer_only_interaction_count:pi" in DIAGNOSTIC_SCRIPT
+    assert "candidate_samples:[...currencySamples,...semanticSamples,...nativeSamples,...pointerSamples]" in DIAGNOSTIC_SCRIPT
     assert "currency_candidates:currencies" in DIAGNOSTIC_SCRIPT and "action_candidates:actions" in DIAGNOSTIC_SCRIPT
     assert "document.body.innerText" not in DIAGNOSTIC_SCRIPT and "innerHTML" not in DIAGNOSTIC_SCRIPT and "outerHTML" not in DIAGNOSTIC_SCRIPT
 
