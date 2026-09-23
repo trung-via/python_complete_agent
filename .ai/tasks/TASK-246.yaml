@@ -1,0 +1,287 @@
+task_id: TASK-246
+revision: 1
+
+goal: >
+  Reconcile the single Human-operated generation-6 TikTok PDP DOM diagnostic attempt as consumed
+  FAIL_CLOSED / NO_BOUNDED_PDP_ROOT using the exact immutable external schema-version-3 artifact,
+  then harden only bounded diagnostic root selection to schema version 4 by adding a fail-closed
+  title-local commerce-quorum fallback after the three existing root-selection mechanisms. Preserve
+  all existing selector families, Product Intelligence evidence/truth boundaries, TASK-137 browser
+  lifecycle authority, acquisition/action closures, and Human/Brain authorization sequencing.
+  TASK-246 performs no live TikTok/CDP execution and does not authorize generation 7.
+
+problem: >
+  Published TASK-245 authorized exactly one Human-operated generation-6 attach-only diagnostic
+  attempt against context p8-pilot-001-led-motion-tiktok-vn, source ID 1731381331718341815, using
+  exact generation-6 execution source bc4c48de89129583f024ab622051ea322f9ff5ea. The Human
+  completed the non-consuming preflight and then invoked the carrier once. The terminal outcome was
+  TikTokPdpDomDiagnosticError / NO_BOUNDED_PDP_ROOT, consuming the only generation-6 attempt. The
+  exact external V3 artifact is schema version 3, size 27549 bytes, SHA256
+  A5CD014DD2A9B10DD969843BA37369815A9595248DFB5DD29355376B51143764, observed_at
+  2026-09-23T13:14:40.397608+00:00, evidence_authority NONE. Its global root probe still reports
+  title_anchor_count=1, price_anchor_count=0, action_anchor_count=0 and selected_root_kind=NONE.
+  However its bounded title-local topology probe shows an untruncated level-1 subtree with 32
+  scanned nodes and 3 currency-like signals, followed by an untruncated level-2 subtree with 84
+  scanned nodes, 3 currency-like signals, 2 commerce-semantic action-like signals, 2 native/role
+  controls and 14 pointer-only interactions; level 3 is also untruncated with materially equivalent
+  commerce topology, while levels 4-6 are truncated at 300 nodes. Candidate samples include
+  QUANTITY_LIKE, BUY_LIKE, input and native button structural hints. These are engineering
+  diagnostic hints only, not Product Truth or canonical marketplace values. The smallest justified
+  engineering change is therefore a bounded root-selection fallback that can select the narrowest
+  complete title-local ancestor only when a stronger commerce quorum is actually paired to a
+  native/role control. It is not justified to broaden current price/action selectors or hard-code
+  observed TikTok classes/test IDs.
+
+assumptions:
+  - >
+    Canonical main at authoring is 12c9a9852a32d8f0e79303803797ebf1e1fa98c2.
+  - >
+    TASK-245 completed through RUN-245-003 / REVIEW-245-001 and exact reviewed candidate
+    12c9a9852a32d8f0e79303803797ebf1e1fa98c2 is published canonical main.
+  - >
+    TASK-245 failed intermediate candidates 622a1d2e94ed5c118ebf9855db80b61f7f1b0177 and
+    2dc1b67ad52e3c2e844d3499550dd56f734ca49c remain historical failed-run lineage only.
+  - >
+    Generation-6 execution source remains exact TASK-244 reviewed publication
+    bc4c48de89129583f024ab622051ea322f9ff5ea and is distinct from TASK-245 governance publication.
+  - >
+    The exact external generation-6 V3 artifact is immutable: schema_version 3, filename
+    tiktok-pdp-dom-diagnostic-v3.json, SHA256
+    A5CD014DD2A9B10DD969843BA37369815A9595248DFB5DD29355376B51143764,
+    size_bytes 27549, observed_at 2026-09-23T13:14:40.397608+00:00, evidence_authority NONE,
+    diagnostic status FAIL_CLOSED and failure_reason NO_BOUNDED_PDP_ROOT.
+  - >
+    No canonical generation-6 process exit code is asserted by TASK-246 because the Human-supplied
+    terminal transcript did not establish an exact exit-code observation.
+  - >
+    Existing rootSelector, titleSelectors, priceSelectors, actionSelectors and the three current
+    root-selection mechanisms are implementation history that TASK-246 must preserve unless the
+    new fallback is reached.
+  - >
+    TASK-137 remains sole browser/CDP lifecycle and page-borrowing authority.
+  - >
+    TASK-231 remains the public PDP acquisition contract; ProductCandidateSnapshot and
+    SignalEvidence remain their existing semantic owners.
+  - >
+    CAPABILITY_IS_NOT_AUTHORITY, EVIDENCE_IS_NOT_PRODUCT_TRUTH,
+    SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY, SNAPSHOT_IS_NOT_TREND and
+    ONE_CAPABILITY_ONE_AUTHORITY remain mandatory.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN5_RESULT_RECONCILIATION_AND_V3_HARDENING.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN6_AUTHORIZATION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - .ai/tasks/TASK-137.yaml
+    - .ai/tasks/TASK-244.yaml
+    - .ai/tasks/TASK-245.yaml
+    - src/product_intelligence/tiktok_pdp_dom_diagnostic.py
+    - src/product_intelligence/cli.py
+    - src/product_intelligence/adapters/tiktok_parsing.py
+    - src/integrations/playwright/manager.py
+    - src/integrations/playwright/session.py
+    - tests/product_intelligence/test_tiktok_pdp_dom_diagnostic.py
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - src/product_intelligence/tiktok_pdp_dom_diagnostic.py
+    - tests/product_intelligence/test_tiktok_pdp_dom_diagnostic.py
+    - tests/aios_bridge/test_aios_governance_state.py
+    - .ai/roadmap-state.yaml
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN6_RESULT_RECONCILIATION_AND_V4_ROOT_HARDENING.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+
+non_goals:
+  - >
+    Execute TikTok/CDP, authorize or perform generation 7, retry generation 6, navigate, refresh,
+    click, type, scroll, search, switch variants, open another page, or perform any live marketplace
+    operation during TASK-246 engineering execution.
+  - >
+    Broaden, replace or reinterpret rootSelector, titleSelectors, priceSelectors or actionSelectors;
+    hard-code ancestor level 2; hard-code tux-* classes, data-testid=tux-web-button, font classes,
+    generic button/span/div selectors, or any observed marketplace presentation class as canonical
+    selector authority.
+  - >
+    Modify src/product_intelligence/cli.py, src/product_intelligence/adapters/tiktok_parsing.py,
+    src/integrations/playwright/manager.py, src/integrations/playwright/session.py, TASK-137
+    lifecycle semantics, TikTokPdpCollector, TIKTOK_PDP_EXTRACTION_SCRIPT, ProductCandidateSnapshot,
+    SignalEvidence, identity, catalog, persistence, scoring, ranking, recommendation, approval,
+    market-test, action or outcome semantics.
+  - >
+    Treat the generation-6 V3 artifact, currency-like hints, semantic-action hints, native controls,
+    structural signatures, topology counts or future V4 root selection as marketplace evidence,
+    canonical Product Truth, canonical price, canonical action capability, ranking evidence,
+    approval evidence, trend evidence or acquisition success.
+  - >
+    Traverse shadow-root contents or iframe documents, increase title-local descendant bounds,
+    create a second browser lifecycle/page selection authority, or grant automatic retry,
+    recurring diagnostics, arbitrary target, replacement target, acquisition, selector-repair,
+    market-test, commerce-action or automatic successor authority.
+
+constraints:
+  hard:
+    - >
+      Classification is exactly
+      GENERATION_6_RESULT_RECONCILIATION_AND_BOUNDED_TITLE_LOCAL_COMMERCE_ROOT_V4_HARDENING_ONLY.
+    - >
+      Record exact TASK-245 source lineage using source_task_id TASK-245,
+      source_run_id RUN-245-003, source_review_id REVIEW-245-001 and source_published_sha
+      12c9a9852a32d8f0e79303803797ebf1e1fa98c2.
+    - >
+      Preserve generation_6_execution_source_sha
+      bc4c48de89129583f024ab622051ea322f9ff5ea as the exact code source used for the Human
+      generation-6 attempt; do not replace it with TASK-245's governance publication SHA.
+    - >
+      Reconcile generation 6 as consumed history: generation_6_diagnostic_executed true,
+      authorized attempts 1, attempts_remaining 0, execution owner HUMAN_OPERATOR,
+      diagnostic_outcome FAIL_CLOSED, diagnostic_failure_reason NO_BOUNDED_PDP_ROOT,
+      diagnostic_artifact_created true and live_dom_diagnostic_authority NONE. Do not assert a
+      process exit code.
+    - >
+      Preserve exact immutable generation-6 V3 artifact provenance: schema_version 3, filename
+      tiktok-pdp-dom-diagnostic-v3.json, SHA256
+      A5CD014DD2A9B10DD969843BA37369815A9595248DFB5DD29355376B51143764,
+      size_bytes 27549, observed_at 2026-09-23T13:14:40.397608+00:00 and
+      evidence_authority NONE.
+    - >
+      Preserve exact observed V3 interpretation boundaries. Global root probe remains
+      title_anchor_count 1, price_anchor_count 0, action_anchor_count 0, no explicit/main/common
+      bounded root and selected_root_kind NONE. Global 600-node commerce scan remains truncated,
+      therefore its negative currency observation is non-exhaustive.
+    - >
+      Preserve generation-6 title-local observations as engineering diagnostic context:
+      level 1 scanned 32, untruncated, currency-like 3, commerce-semantic 0, native/role controls 0;
+      level 2 scanned 84, untruncated, currency-like 3, commerce-semantic 2,
+      native/role controls 2, pointer-only 14; level 3 scanned 85, untruncated with the same
+      commerce-semantic/native-control counts; levels 4-6 are truncated at 300 and their negative
+      observations are non-exhaustive. These observations justify a bounded fallback design only
+      and do not pre-select a root.
+    - >
+      Advance the active diagnostic contract to schema_version 4 with exact create-exclusive
+      filename tiktok-pdp-dom-diagnostic-v4.json. Historical V1/V2/V3 artifacts and their
+      provenance are immutable.
+    - >
+      Preserve existing root-selection precedence exactly:
+      EXPLICIT_PDP_ROOT -> MAIN -> MULTI_ANCHOR_COMMON_ANCESTOR. Add
+      TITLE_LOCAL_COMMERCE_QUORUM only as a fourth fallback when no previous mechanism selected a
+      root.
+    - >
+      Preserve rootSelector, titleSelectors, priceSelectors and actionSelectors byte-for-byte in
+      semantic meaning. TASK-246 is root-selection hardening, not selector repair;
+      selector_repair_complete remains false.
+    - >
+      The title-local fallback starts from the exact unique visible title anchor and considers
+      ancestor levels in strict ascending order from narrowest to wider, bounded to at most six
+      light-DOM ancestors and at most 300 descendant element observations per ancestor.
+    - >
+      A title-local ancestor may be selected only when bounded_scan_truncated is false. If a
+      narrower not-yet-disqualified ancestor is truncated before any valid quorum is selected,
+      fallback root selection fails closed and must not skip that unresolved narrower subtree to
+      select a wider ancestor.
+    - >
+      A title-local ancestor root quorum requires at least one visible currency-like structural
+      signal and at least one STRONG commerce semantic action of BUY_LIKE or CART_LIKE that is
+      paired within the same bounded subtree to a visible native button or role=button control.
+      QUANTITY_LIKE and VARIANT_LIKE are supporting diagnostic hints only and cannot independently
+      satisfy the root quorum. Pointer-only interaction never contributes to quorum.
+    - >
+      Pairing is structural, bounded and deterministic: a BUY_LIKE/CART_LIKE semantic node may
+      pair only with itself when it is a native/role button or with its nearest visible ancestor
+      button/role=button that remains inside the current candidate ancestor subtree. Deduplicate
+      paired controls before counting. Do not pair across candidate-subtree boundaries.
+    - >
+      V4 title-local records add bounded sanitized fields sufficient to expose the algorithm,
+      including strong_commerce_action_like_count, paired_strong_commerce_control_count and
+      title_local_root_quorum_satisfied. The selected result records
+      selected_title_local_ancestor_level as bounded integer or null and permits root kind
+      TITLE_LOCAL_COMMERCE_QUORUM. No raw marketplace scalar, price, button text, arbitrary text,
+      href, aria-label, HTML, endpoint, token, secret or arbitrary DOM/page content may persist.
+    - >
+      When the fallback selects a root, selection means only that the bounded diagnostic root
+      contract is satisfied. It does not prove canonical price, action capability, product truth,
+      acquisition success, ranking evidence, approval, recommendation, trend or market action.
+    - >
+      Preserve exactly one borrowed session, exactly one session.evaluate(DIAGNOSTIC_SCRIPT),
+      zero navigation/refresh/click/type/scroll, TASK-137 manager-mediated cleanup, light-DOM-only
+      traversal, no shadow-root traversal and no iframe-document traversal.
+    - >
+      Preserve safe failure taxonomy and create-exclusive artifact behavior. V4 may return
+      diagnostic success only when an authorized root-selection path succeeds; NO_BOUNDED_PDP_ROOT
+      remains fail-closed and may persist the bounded V4 diagnostic artifact before re-raising.
+      Every V4 artifact retains evidence_authority NONE.
+    - >
+      Exact TASK-246 publication leaves generation_7_authorized false,
+      live_dom_diagnostic_authority NONE, live_public_pdp_acquisition_authority NONE,
+      automated_public_pdp_acquisition_authority NONE, market_test_or_action_authority NONE,
+      selector_repair_complete false, automatic_progression false, active_track.next_milestone
+      null, pending_commitments empty and post_run_engineering_successor null.
+    - >
+      Exact post-publication handoff is
+      HUMAN_BRAIN_FRESH_GENERATION_7_BOUNDED_TITLE_LOCAL_COMMERCE_ROOT_DIAGNOSTIC_AUTHORIZATION.
+      TASK-246 itself grants no generation-7 attempt.
+    - >
+      Modify exactly the seven authorized paths. Runtime owns deterministic verification.
+      Executor must produce one candidate and one ResultPackage and must not publish, execute live
+      TikTok/CDP, authorize generation 7, or begin a successor operation.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Exact TASK-245 / RUN-245-003 / REVIEW-245-001 publication lineage is recorded at
+      12c9a9852a32d8f0e79303803797ebf1e1fa98c2 while the distinct generation-6 execution source
+      remains bc4c48de89129583f024ab622051ea322f9ff5ea and TASK-245 failed candidates remain
+      non-authoritative history.
+  - id: AC2
+    condition: >
+      Generation 6 is reconciled exactly as one consumed Human-operated FAIL_CLOSED /
+      NO_BOUNDED_PDP_ROOT attempt with zero attempts remaining, no live diagnostic authority and
+      exact immutable V3 artifact provenance; no unobserved process exit code is invented.
+  - id: AC3
+    condition: >
+      V4 preserves EXPLICIT_PDP_ROOT, MAIN and MULTI_ANCHOR_COMMON_ANCESTOR semantics and adds
+      TITLE_LOCAL_COMMERCE_QUORUM only as the fourth fallback, without changing existing selector
+      families or hard-coding observed marketplace classes/levels.
+  - id: AC4
+    condition: >
+      The title-local fallback deterministically chooses only the narrowest qualifying untruncated
+      ancestor in ascending order, fails closed rather than skipping an unresolved truncated
+      narrower subtree, and remains bounded to six ancestors and 300 descendant observations per
+      ancestor.
+  - id: AC5
+    condition: >
+      Root quorum requires currency-like signal plus a BUY_LIKE/CART_LIKE semantic signal
+      structurally paired to a visible button/role=button inside the same bounded subtree;
+      QUANTITY_LIKE, VARIANT_LIKE and pointer-only interaction cannot independently satisfy quorum,
+      and paired controls are deduplicated.
+  - id: AC6
+    condition: >
+      Schema-V4 output is create-exclusive and sanitized, records only bounded structural
+      diagnostic metadata, preserves evidence_authority NONE, one evaluate, zero interaction,
+      TASK-137 lifecycle, light-DOM-only traversal and all acquisition/Product-Truth/ranking/
+      approval/action authority closures.
+  - id: AC7
+    condition: >
+      Deterministic tests cover legacy-root precedence, a synthetic topology where the narrowest
+      complete qualifying ancestor is selected, BUY/CART-to-control pairing, false-positive
+      rejection for generic controls/pointer-only/quantity-or-variant-only cases, truncation
+      fail-closed behavior, ambiguous or missing title-anchor behavior, schema-V4 create-exclusive
+      success/failure artifacts, validation bounds and absence of raw marketplace content.
+  - id: AC8
+    condition: >
+      Exactly seven authorized paths change; focused product diagnostic and governance tests plus
+      git diff --check pass with zero unresolved items; generation_7_authorized remains false,
+      live diagnostic/acquisition/action authorities remain NONE, next_milestone is null, pending
+      commitments are empty, automatic progression is false and exact handoff is
+      HUMAN_BRAIN_FRESH_GENERATION_7_BOUNDED_TITLE_LOCAL_COMMERCE_ROOT_DIAGNOSTIC_AUTHORIZATION.
+
+verification:
+  required:
+    - python -m pytest tests/product_intelligence/test_tiktok_pdp_dom_diagnostic.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task246-primary
+    - git diff --check
