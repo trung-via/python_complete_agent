@@ -794,6 +794,39 @@ NEXT is null, pending commitments are empty, automatic progression is false, and
 `HUMAN_BRAIN_FRESH_GENERATION_7_BOUNDED_TITLE_LOCAL_COMMERCE_ROOT_DIAGNOSTIC_AUTHORIZATION`. See
 `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN6_RESULT_RECONCILIATION_AND_V4_ROOT_HARDENING.md`.
 
+TASK-247 is publication-gated DONE only as
+`FRESH_GENERATION_7_BOUNDED_TITLE_LOCAL_COMMERCE_ROOT_DIAGNOSTIC_AUTHORIZATION_ONLY`. It records exact
+TASK-246 / RUN-246-002 / REVIEW-246-001 publication lineage at
+`60da55d5241c7b4c433d9b2d7d5d3725556f443c` and canonicalizes that exact reviewed/published candidate
+as both the V4 implementation source (`diagnostic_v4_implementation_source_sha=60da55d5241c7b4c433d9b2d7d5d3725556f443c`)
+and generation-7 execution source (`generation_7_execution_source_sha=60da55d5241c7b4c433d9b2d7d5d3725556f443c`),
+while failed intermediate candidate `538fc65dd737e5c70e7b7ec93dfb6ab0bee8ba6f` remains non-authoritative history.
+Historical implementation and execution SHAs remain preserved. Generations 1-6 remain consumed history,
+including generation 6's Human-operated `FAIL_CLOSED` / `NO_BOUNDED_PDP_ROOT` result and exact immutable
+schema-V3 artifact provenance with no invented exit code.
+
+Exact reviewed TASK-247 publication authorizes generation 7 alone for one fresh Human-operated, attach-only attempt
+bound to the fixed context, source ID, and selected listing. Schema v4, the create-exclusive V4 artifact,
+one borrowed session, exactly one evaluate, zero navigation/refresh/click/type/scroll, light-DOM traversal,
+TASK-137 cleanup, and `evidence_authority=NONE` remain fixed. Semantics of V4 root-selection precedence and
+`TITLE_LOCAL_COMMERCE_QUORUM` remain frozen with zero production-code modifications. Generation-7 SUCCESS is valid
+for any root kind allowed by published V4. Non-consuming preflight requires reachable CDP, exactly one normal `type=page`
+target total which is the exact PDP, a fresh external generation-7 job root with V1, V2, V3, and V4 artifacts absent,
+and content equivalence of all five execution-critical files (`src/product_intelligence/tiktok_pdp_dom_diagnostic.py`,
+`src/product_intelligence/cli.py`, `src/product_intelligence/adapters/tiktok_parsing.py`,
+`src/integrations/playwright/manager.py`, and `src/integrations/playwright/session.py`) to the exact TASK-246 publication;
+repository HEAD equality is not required.
+
+The Human-facing invocation is exactly one physical PowerShell line with no continuation. Pre-carrier shell
+or parser transport failure does not consume the attempt; after valid carrier invocation begins, every terminal
+outcome consumes the only attempt with no retry, refresh, resume, second invocation, replacement, search, batch,
+acquisition, selector repair, or action authority. All observations remain engineering-diagnostic-only.
+NEXT is null, pending commitments are empty, automatic progression is false, the current global handoff is
+`HUMAN_OPERATOR_GENERATION_7_BOUNDED_TITLE_LOCAL_COMMERCE_ROOT_DIAGNOSTIC_EXECUTION`, and post-attempt review authority is
+`HUMAN_BRAIN_GENERATION_7_BOUNDED_TITLE_LOCAL_COMMERCE_ROOT_DIAGNOSTIC_REVIEW`.
+See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN7_AUTHORIZATION.md` for the exact contract.
+
+
 The complete audit and P7.0 boundary are recorded in
 `docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md`.
 
