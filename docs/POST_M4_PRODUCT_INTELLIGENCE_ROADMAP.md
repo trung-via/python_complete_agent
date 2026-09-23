@@ -930,6 +930,26 @@ the current global handoff is `HUMAN_OPERATOR_GENERATION_6_TITLE_LOCAL_COMMERCE_
 and post-attempt review authority is `HUMAN_BRAIN_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_REVIEW`.
 See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN6_AUTHORIZATION.md` for the exact contract.
 
+TASK-246 is publication-gated DONE only as
+`GENERATION_6_RESULT_RECONCILIATION_AND_BOUNDED_TITLE_LOCAL_COMMERCE_ROOT_V4_HARDENING_ONLY`. It records exact
+TASK-245 / RUN-245-003 / REVIEW-245-001 publication lineage at
+`12c9a9852a32d8f0e79303803797ebf1e1fa98c2` while the distinct generation-6 execution source remains
+`bc4c48de89129583f024ab622051ea322f9ff5ea` and failed intermediate candidates remain non-authoritative history.
+Generation 6 is reconciled as consumed history: one Human-operated `FAIL_CLOSED` / `NO_BOUNDED_PDP_ROOT` attempt with
+zero attempts remaining, no live diagnostic authority, and exact immutable V3 artifact provenance; no unobserved process
+exit code is asserted. The active diagnostic contract advances to schema version 4 and create-exclusive
+`tiktok-pdp-dom-diagnostic-v4.json`. Precedence `EXPLICIT_PDP_ROOT -> MAIN -> MULTI_ANCHOR_COMMON_ANCESTOR` is preserved,
+and `TITLE_LOCAL_COMMERCE_QUORUM` is added only as a fourth fallback. The fallback evaluates ancestors 1 to 6 from the unique
+visible title anchor, choosing the narrowest qualifying untruncated ancestor and failing closed if a narrower unresolved
+subtree is truncated. Quorum strictly requires currency-like signal plus a `BUY_LIKE` or `CART_LIKE` action paired to a
+visible button control within the candidate subtree, deduplicating paired controls; `QUANTITY_LIKE`, `VARIANT_LIKE`, and
+pointer-only interactions cannot satisfy quorum. Exactly one borrowed session, exactly one evaluate, zero interaction,
+TASK-137 lifecycle, light-DOM-only traversal, and `evidence_authority=NONE` remain fixed. Generation 7 is not authorized
+(`generation_7_authorized=false`), all acquisition/action authorities remain `NONE`, `selector_repair_complete=false`,
+NEXT is null, pending commitments are empty, automatic progression is false, and the exact handoff is
+`HUMAN_BRAIN_FRESH_GENERATION_7_BOUNDED_TITLE_LOCAL_COMMERCE_ROOT_DIAGNOSTIC_AUTHORIZATION`. See
+`docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN6_RESULT_RECONCILIATION_AND_V4_ROOT_HARDENING.md`.
+
 ## 4. Authority invariants
 
 Across all post-M4 work:
