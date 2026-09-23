@@ -899,6 +899,37 @@ handoff is
 See
 `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN5_RESULT_RECONCILIATION_AND_V3_HARDENING.md`.
 
+TASK-245 is publication-gated DONE only as
+`FRESH_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION_ONLY`. It records exact
+TASK-244 / RUN-244-002 / REVIEW-244-001 publication lineage at
+`bc4c48de89129583f024ab622051ea322f9ff5ea` and canonicalizes that exact reviewed/published candidate
+as both the V3 implementation source (`diagnostic_v3_implementation_source_sha=bc4c48de89129583f024ab622051ea322f9ff5ea`)
+and generation-6 execution source (`generation_6_execution_source_sha=bc4c48de89129583f024ab622051ea322f9ff5ea`),
+while the failed pre-repair candidate `ce9f50bc8344988181b3520eccc189ef51a38b13` remains non-authoritative history.
+Historical TASK-240 V2 implementation SHA `8ef61df3936652fb7aeda8ca31ce1db3621ff4cf` and generation-5 execution SHA
+`d113c4a7ce2e2835d532935bc195c922aa3628ca` remain preserved. Generations 1-5 remain consumed history,
+including generation 5's Human-operated, exit-code-1 `FAIL_CLOSED` / `NO_BOUNDED_PDP_ROOT` result and exact immutable
+schema-V2 artifact provenance.
+
+Exact reviewed TASK-245 publication authorizes generation 6 alone for one Human-operated, attach-only attempt
+bound to the fixed context, source ID, and selected listing. Schema v3, the create-exclusive V3 artifact,
+one borrowed session, exactly one evaluate, zero navigation/refresh/click/type/scroll, light-DOM traversal,
+TASK-137 cleanup, and `evidence_authority=NONE` remain fixed. Non-consuming preflight requires reachable CDP,
+exactly one normal `type=page` target total which is the exact PDP, a fresh external generation-6 job root
+with V1, V2, and V3 artifacts absent, and content equivalence of all five execution-critical files
+(`src/product_intelligence/tiktok_pdp_dom_diagnostic.py`, `src/product_intelligence/cli.py`,
+`src/product_intelligence/adapters/tiktok_parsing.py`, `src/integrations/playwright/manager.py`, and
+`src/integrations/playwright/session.py`) to the exact TASK-244 publication; repository HEAD equality is not required.
+
+The Human-facing invocation is exactly one physical PowerShell line with no continuation. Pre-carrier shell
+or parser transport failure does not consume the attempt; after valid carrier invocation begins, every terminal
+outcome consumes the only attempt with no retry, refresh, resume, second invocation, replacement, search, batch,
+acquisition, selector repair, or action authority. All V3 topology and candidate observations remain
+engineering-diagnostic-only. NEXT is null, pending commitments are empty, automatic progression is false,
+the current global handoff is `HUMAN_OPERATOR_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_EXECUTION`,
+and post-attempt review authority is `HUMAN_BRAIN_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_REVIEW`.
+See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN6_AUTHORIZATION.md` for the exact contract.
+
 ## 4. Authority invariants
 
 Across all post-M4 work:
