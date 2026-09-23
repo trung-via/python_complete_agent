@@ -807,10 +807,15 @@ def test_task_245_authorizes_one_exact_generation_6_v3_diagnostic_attempt():
 
     for roadmap in ROADMAP_DOCS:
         roadmap_text = roadmap.read_text(encoding="utf-8")
-        assert "Public TikTok PDP DOM Diagnostic Generation-6 Authorization" in roadmap_text
-        assert "TASK-245 — publication-gated DONE" in roadmap_text
-        assert TASK_244_PUBLISHED_SOURCE_SHA in roadmap_text
-        assert "HUMAN_OPERATOR_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_EXECUTION" in roadmap_text
+        for required in (
+            "TASK-245 is publication-gated DONE only as",
+            "FRESH_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION_ONLY",
+            "RUN-244-002",
+            TASK_244_PUBLISHED_SOURCE_SHA,
+            "HUMAN_OPERATOR_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_EXECUTION",
+            "HUMAN_BRAIN_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_REVIEW",
+        ):
+            assert required in roadmap_text
 
 
 def test_task_243_authorization_remains_historical_without_freezing_current_handoff():
