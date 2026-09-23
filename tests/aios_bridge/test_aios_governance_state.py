@@ -951,11 +951,12 @@ def test_task_246_reconciles_generation_6_and_hardens_v4_root_without_authorizin
         assert record["automated_public_pdp_acquisition_authority"] == "NONE"
         assert record["market_test_or_action_authority"] == "NONE"
         assert record["automatic_progression"] is False
-        assert record["next_milestone"] is None
         assert record["post_publication_handoff"] == (
             "HUMAN_BRAIN_FRESH_GENERATION_7_BOUNDED_TITLE_LOCAL_COMMERCE_ROOT_DIAGNOSTIC_AUTHORIZATION"
         )
 
+    assert milestone["next_milestone"] is None
+    assert milestone["post_run_engineering_successor"] is None
     assert active["next_milestone"] is None
     assert handoff["next_milestone"] is None
     assert state["pending_commitments"] == []
