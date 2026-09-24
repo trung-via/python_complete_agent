@@ -1,5 +1,5 @@
 task_id: TASK-249
-revision: 1
+revision: 2
 
 goal: >
   Harden only the existing Human-operated TikTok public-PDP live-pilot carrier so that a later,
@@ -12,31 +12,35 @@ goal: >
   action gates. TASK-249 performs no TikTok/CDP operation and grants no live attempt.
 
 problem: >
-  TASK-248 is exactly published on canonical main at
-  39979020a10b78e1f86c30cf2b704f2f975daec9 after independent semantic review and remediation.
-  The collector now shares the proven bounded PDP DOM-scope resolver, bounds price observation,
-  fails closed on truncated price traversal, and no longer defaults unresolved currency-like DOM
-  observations to current price. Canonical planning therefore correctly returns to
-  HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION with zero live authority. However, the existing
-  operation-specific carrier src/product_intelligence/tiktok_pdp_live_pilot.py still reflects the
-  older TASK-233 execution contract: it writes a bounded artifact only after successful collection,
-  does not durably mark the exact moment at which a later one-shot attempt becomes consumed, does
-  not leave deterministic terminal evidence for ordinary fail-closed outcomes, and does not bind
-  its external operation record to the exact published TASK-248 collector baseline. A later live
-  validation would therefore remain vulnerable to ambiguous interruption or failure lineage and
-  could force Brain to reconstruct whether an attempt started from console/chat evidence. The
-  smallest justified engineering step is to harden that existing carrier in place, without
-  modifying or reinterpreting the collector or granting a new live operation.
+  TASK-248 is exactly published at
+  39979020a10b78e1f86c30cf2b704f2f975daec9 and the current collector baseline is hardened for
+  bounded root-scoped price discovery and unresolved-role fail-closed behavior. Canonical planning
+  correctly returns to HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION with zero new live authority.
+  The existing operation-specific carrier still reflects the older TASK-233 contract: it writes a
+  bounded artifact only after successful collection, has no durable consumption marker, leaves
+  ordinary fail-closed outcomes without deterministic terminal evidence, and does not bind operation
+  evidence to the exact TASK-248 collector baseline. Revision 1 correctly separated carrier
+  hardening from later live authorization, but audit found four contract ambiguities that must be
+  closed before execution: terminal result must be written only after cleanup outcome is known;
+  fail-closed outcomes must remain non-zero at the unchanged CLI instead of being renderable as
+  success; collector failure taxonomy must reuse the collector's own typed failure code rather than
+  inventing unreachable title-specific/message-derived classifications; and TASK-249 publication
+  must become the sole current roadmap milestone while TASK-248 becomes historical. Revision 2
+  resolves those ambiguities without widening implementation scope.
 
 assumptions:
-  - Canonical main at authoring is 39979020a10b78e1f86c30cf2b704f2f975daec9.
-  - TASK-248 is the exact reviewed and published current collector-hardening baseline.
+  - Canonical main before revision-2 authoring is a29628d8abcdf2259db9799075c4b15d95846180.
+  - TASK-248 remains the exact reviewed and published collector-hardening baseline at
+    39979020a10b78e1f86c30cf2b704f2f975daec9.
   - The exact post-TASK248 planning handoff is HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION.
   - live_public_pdp_acquisition_authority, automated_public_pdp_acquisition_authority, and
     market_test_or_action_authority are NONE; automatic progression is false.
+  - No TASK-249 implementation RUN exists before this revision.
   - The selected P8 case remains context p8-pilot-001-led-motion-tiktok-vn, source ID
     "1731381331718341815", and the exact existing selected TikTok Shop Vietnam PDP URL.
   - TikTokPdpCollector remains the sole Product Intelligence exact-PDP observation/admission owner.
+  - TikTokPdpCollectionError.code is the canonical collector failure classification exposed to this
+    carrier; carrier logic must not infer a more specific collector semantic from exception text.
   - src/product_intelligence/adapters/tiktok_parsing.py remains the sole canonical TikTok parsing and
     exact-PDP scalar-price admission authority.
   - src/product_intelligence/tiktok_pdp_dom_scope.py owns bounded structural PDP DOM-scope resolution only.
@@ -67,6 +71,7 @@ scope:
     - .ai/tasks/TASK-234.yaml
     - .ai/tasks/TASK-247.yaml
     - .ai/tasks/TASK-248.yaml
+    - .ai/tasks/TASK-249.yaml
     - src/product_intelligence/tiktok_pdp_live_pilot.py
     - src/product_intelligence/cli.py
     - src/product_intelligence/adapters/tiktok_pdp.py
@@ -103,6 +108,8 @@ non_goals:
   - Add URL/source/query/product overrides, search, similar-listing discovery, batch operation,
     multi-listing capture, variant switching, retry, resume, refresh, scheduler, queue, watcher,
     proxy, stealth, evasion, CAPTCHA solving, credential capture, or profile controls.
+  - Parse exception-message text to infer collector semantics that are not already represented by
+    TikTokPdpCollectionError.code.
   - Access or infer TikTok Affiliate eligibility/economics, construct P7.4/P7.5, normalize the
     external validation artifact into SignalEvidence, score/rank/recommend/approve a product,
     authorize P8.4 or a market test, spend, traffic, publication, price/inventory mutation, winner
@@ -119,7 +126,7 @@ constraints:
       src/product_intelligence/tiktok_pdp_live_pilot.py as the only Human-operated public-PDP carrier.
       Harden it in place. Do not create tiktok_pdp_live_validation.py or any parallel carrier owner.
     - >
-      Bind engineering provenance in the new carrier contract to collector_baseline_task_id TASK-248
+      Bind engineering provenance in the V2 carrier contract to collector_baseline_task_id TASK-248
       and collector_baseline_source_sha 39979020a10b78e1f86c30cf2b704f2f975daec9. This is
       implementation lineage only, not marketplace evidence. Do not encode generation-7 ancestor
       level, topology counts, class tokens, observed price/text, or other live diagnostic values.
@@ -128,20 +135,24 @@ constraints:
       existing required --job-root and --cdp-endpoint inputs. Add no new CLI option and modify no
       CLI code. The target remains the already-fixed selected context/source/listing in the carrier.
     - >
-      Introduce a V2 external validation-artifact contract with exactly two fixed create-exclusive
+      Introduce a V2 external validation-artifact contract with exactly two fixed V2 output
       filenames: tiktok-pdp-live-validation-attempt-v2.json for the durable attempt marker and
-      tiktok-pdp-live-validation-result-v2.json for the terminal result. Both roots must remain
-      explicit, external to the Git repository, and secret-free.
+      tiktok-pdp-live-validation-result-v2.json for the terminal result. Both are create-exclusive,
+      external to the Git repository, and secret-free. A job root containing either V2 artifact or
+      the legacy tiktok-pdp-live-pilot-result-v1.json must fail before marker creation so one root
+      cannot mix old and new attempt lineage.
     - >
       All non-consuming local gates must run before the attempt marker is created: explicit external
-      job-root validation, repository-root exclusion, absence of both fixed V2 artifact files,
-      non-empty operator-owned CDP endpoint input, and a timezone-aware operation start timestamp.
-      Failure before successful marker creation performs no browser/session or collector operation.
+      job-root validation, repository-root exclusion, absence of the legacy V1 artifact and both V2
+      artifact files, non-empty operator-owned CDP endpoint input, and a timezone-aware operation
+      start timestamp. Failure before successful marker creation performs no browser/session or
+      collector operation.
     - >
       Successful create-exclusive persistence of the V2 attempt marker is the carrier's durable
       consumption boundary for any later separately authorized one-shot execution. Marker absence
       means this carrier has not crossed its consuming boundary; marker existence means the attempt
-      crossed that boundary. The carrier must never delete, rewrite, or silently replace the marker.
+      crossed that boundary even if the marker is incomplete because of process/power interruption.
+      The carrier must never delete, rewrite, truncate, or silently replace the marker.
     - >
       The attempt marker contains only a bounded allowlist: schema version, record type,
       POST_TASK248_LIVE_PUBLIC_PDP_COLLECTOR_VALIDATION contract identifier, fixed context/source/
@@ -153,50 +164,86 @@ constraints:
     - >
       After successful marker creation, every terminal carrier outcome is consuming. Browser/session
       acquisition failure, blocked/login/challenge, navigation or evaluation failure, identity
-      failure, required-title/extraction failure, result-binding mismatch, cleanup failure, process/
-      power interruption, terminal-result persistence failure, or success grants no retry, refresh,
+      failure, title/extraction failure, result-binding mismatch, cleanup failure, process/power
+      interruption, terminal-result persistence failure, or success grants no retry, refresh,
       resume, second invocation, replacement target, or automatic follow-up.
     - >
-      When control remains in-process after marker creation, the carrier must make exactly one
-      best-effort create-exclusive write of tiktok-pdp-live-validation-result-v2.json for the
-      terminal outcome. If terminal-result persistence itself fails, preserve the attempt marker,
-      raise only a bounded secret-free carrier error, perform no retry, and define marker-without-
-      result as CONSUMED_INTERRUPTED_OR_UNOBSERVED for later Human/Brain review.
+      Terminal sequencing is mandatory: finish all local non-consuming gates; create-exclusive
+      persist the attempt marker; attempt one manager/session acquisition; invoke the existing
+      collector at most once; if a collector result exists revalidate the existing fixed exact-
+      listing binding; if a session was acquired attempt manager.close_session(_SESSION_RUN_ID);
+      only after the cleanup outcome is known derive the final operation/observation status; then
+      make at most one create-exclusive terminal-result write. A SUCCESS terminal artifact must
+      never be persisted before cleanup has succeeded.
+    - >
+      When control remains in-process after marker creation, the carrier must make at most one
+      create-exclusive write attempt for tiktok-pdp-live-validation-result-v2.json. If terminal-
+      result persistence fails, preserve the attempt marker, raise a bounded secret-free carrier
+      error classified TERMINAL_ARTIFACT_WRITE_FAILED, perform no retry, and define marker with no
+      valid conforming result as CONSUMED_INTERRUPTED_OR_UNOBSERVED for later Human/Brain review.
+      TERMINAL_ARTIFACT_WRITE_FAILED is an outward carrier failure classification; it is not required
+      to appear inside the result artifact whose persistence failed.
+    - >
+      A terminal result is valid review evidence only when it is complete JSON conforming to the V2
+      allowlisted schema. Marker plus missing, malformed, partial, or nonconforming result remains a
+      consumed attempt with terminal state CONSUMED_INTERRUPTED_OR_UNOBSERVED and never authorizes a
+      retry or repair by itself.
     - >
       The V2 terminal document must separate operation status from observation status. Operation
       status is only SUCCESS or FAIL_CLOSED. Observation status is only OBSERVED or NOT_OBSERVED.
-      SUCCESS requires one admitted exact-listing collector observation plus successful required
-      manager-session release. A valid admitted observation followed by manager-session release
-      failure must be FAIL_CLOSED / OBSERVED, not clean success and not silently discarded.
+      It must also expose bounded session_release_status as SUCCESS, FAILED, or NOT_APPLICABLE.
+      SUCCESS requires one admitted exact-listing collector observation, successful carrier binding
+      revalidation, and successful required manager-session release. A valid admitted observation
+      followed by manager-session release failure must be FAIL_CLOSED / OBSERVED with
+      session_release_status FAILED.
     - >
       A snapshot may appear in the V2 terminal document only when the existing TikTokPdpCollector
       actually admitted one valid ProductCandidateSnapshot and the carrier revalidated the existing
-      fixed exact-listing binding contract. Blocked/login/access, identity, title, extraction,
+      fixed exact-listing binding contract. Blocked/login/access, identity, title/extraction,
       manager/session acquisition, or binding failures must produce NOT_OBSERVED with no fabricated
       snapshot fields.
+    - >
+      When observation_status is OBSERVED, preserve only the existing bounded binding receipt
+      allowlist as transport provenance: requested_url, observed_url, and identity_bases containing
+      only basis plus source_product_id. The binding receipt is not Product Truth or canonical
+      identity. When observation_status is NOT_OBSERVED, no fabricated binding receipt is permitted.
     - >
       Preserve the existing bounded success snapshot allowlist only: candidate_id, platform,
       source_product_id, url, observed_at, collector, title, shop_name, price, original_price,
       discount_percent, sold_count, rating, review_count. Missing optional fields remain null/unknown.
       One snapshot is not trend, Product Truth, recommendation, approval, or action authority.
     - >
-      Terminal failure reasons must come from a fixed bounded code allowlist and must not persist raw
-      exception messages. The allowlist must cover at minimum BROWSER_SESSION_UNAVAILABLE,
-      BLOCKED_OR_LOGIN, IDENTITY_MISMATCH, REQUIRED_TITLE_UNAVAILABLE, COLLECTOR_EXTRACTION_FAILED,
-      RESULT_BINDING_MISMATCH, SESSION_RELEASE_FAILED, TERMINAL_ARTIFACT_WRITE_FAILED, and
-      UNCLASSIFIED_OPERATION_FAILURE. Executor may map existing typed collector exceptions to these
-      codes without creating a second marketplace or parser authority.
+      For failures originating from TikTokPdpCollectionError, terminal failure_reason must reuse the
+      exact canonical collector code value and must not inspect or parse exception text. Under the
+      current TASK-248 baseline those values are BLOCKED_OR_LOGIN,
+      IDENTITY_MISMATCH_OR_UNVERIFIABLE, and EXTRACTION_FAILURE. Carrier-local failure codes may add
+      only BROWSER_SESSION_UNAVAILABLE, RESULT_BINDING_MISMATCH, SESSION_RELEASE_FAILED, and
+      UNCLASSIFIED_OPERATION_FAILURE. No title-specific, navigation-specific, selector-specific, or
+      other narrower semantic classification may be inferred from collector exception messages.
+    - >
+      Persisted terminal failure records must never include raw exception messages. A bounded
+      outward TikTokPdpLivePilotError may identify only the fixed carrier failure code after the
+      terminal record has been attempted; it must not echo the operator endpoint or underlying
+      exception text.
+    - >
+      Any terminal operation_status FAIL_CLOSED for which the terminal result was successfully
+      persisted must still raise a bounded TikTokPdpLivePilotError after persistence. Only
+      SUCCESS / OBSERVED / session_release_status SUCCESS may return TikTokPdpLivePilotOutcome.
+      This preserves the unchanged CLI contract: clean success exits through normal output, while a
+      fail-closed live operation remains a non-zero application outcome even though durable terminal
+      evidence exists.
     - >
       Preserve primary semantic failure when cleanup also fails. A collector failure plus cleanup
-      failure must not be relabeled as successful observation; if a bounded secondary cleanup
-      condition is represented, it must not overwrite the primary failure code or leak exception
-      text. A collector success plus cleanup failure retains the bounded admitted observation but
-      operation status remains FAIL_CLOSED.
+      failure retains the exact collector failure_reason and records session_release_status FAILED;
+      cleanup must not overwrite the primary failure. A collector success plus cleanup failure
+      retains the bounded admitted observation and binding receipt, uses failure_reason
+      SESSION_RELEASE_FAILED, and operation_status remains FAIL_CLOSED.
     - >
       Invoke the existing TikTokPdpCollector at most once. Preserve the fixed exact target and
       timezone-aware observed_at. Use existing PlaywrightBrowserManager/session authority only.
-      After an acquired session, release through manager.close_session(_SESSION_RUN_ID) in a finally
-      path; never call session.close(), close_all(), or browser/context/page close operations.
+      After an acquired session, release through manager.close_session(_SESSION_RUN_ID) in a finally-
+      equivalent guaranteed cleanup path; never call session.close(), close_all(), or browser/context/
+      page close operations directly.
     - >
       Do not modify src/product_intelligence/adapters/tiktok_pdp.py,
       src/product_intelligence/tiktok_pdp_dom_scope.py,
@@ -209,38 +256,54 @@ constraints:
       No test may access TikTok, external network, real Playwright/CDP, credentials, browser
       profiles, provider/LLM, Drive, Affiliate UI, or wall clock.
     - >
-      Tests must prove at minimum: clean success creates marker plus SUCCESS/OBSERVED result with
-      bounded snapshot; unsafe/root-invalid/pre-existing-artifact/naive-clock failures are
-      non-consuming and invoke no manager/collector; session acquisition failure after marker is
-      consuming and emits FAIL_CLOSED/NOT_OBSERVED; blocked/login, identity, title/extraction and
-      binding failures consume without snapshot; collector is invoked at most once with no retry;
-      success plus cleanup failure yields FAIL_CLOSED/OBSERVED with snapshot retained; collector
-      failure plus cleanup failure preserves the primary failure; endpoint/secrets never persist;
-      forced terminal-result write failure leaves the marker intact and never retries; dependency/
-      AST checks continue to exclude Affiliate/scoring/ranking/approval/persistence ownership.
+      Tests must prove at minimum: clean success creates marker plus SUCCESS/OBSERVED result and
+      bounded binding/snapshot; unsafe/root-invalid/legacy-V1-present/V2-pre-existing/naive-clock
+      failures are non-consuming and invoke no manager/collector; session acquisition failure after
+      marker is consuming and persists FAIL_CLOSED/NOT_OBSERVED; collector typed failures preserve
+      exact TikTokPdpCollectionError.code without message parsing; binding failure consumes without
+      snapshot; collector is invoked at most once with no retry; success plus cleanup failure yields
+      FAIL_CLOSED/OBSERVED with snapshot and binding retained; collector failure plus cleanup failure
+      preserves primary collector code and records failed release; endpoint/secrets/raw exception
+      text never persist; every persisted FAIL_CLOSED result is followed by bounded carrier error;
+      forced terminal-result write failure leaves the marker intact and never retries; malformed or
+      absent result never implies retry; dependency/AST checks continue to exclude Affiliate/scoring/
+      ranking/approval/persistence ownership.
     - >
       Add docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK248_VALIDATION_CARRIER_HARDENING.md describing the
-      exact TASK-248 baseline, two-phase V2 artifact contract, non-consuming local gates, durable
-      consumption boundary, terminal semantics, interruption interpretation, secret/safety bounds,
-      zero live authority and required later Human/Brain authorization-only step.
+      exact TASK-248 baseline, two-phase V2 artifact contract, local non-consuming gates, durable
+      consumption boundary, terminal sequencing, collector-code reuse, fail-closed CLI behavior,
+      interruption interpretation, secret/safety bounds, zero live authority and required later
+      Human/Brain authorization-only step.
     - >
       Update both canonical roadmap documents and .ai/roadmap-state.yaml only publication-gated.
+      On exact reviewed TASK-249 publication, TASK-249 becomes the sole current active_track/current
+      milestone with classification POST_TASK248_LIVE_PUBLIC_PDP_VALIDATION_CARRIER_HARDENING_ONLY
+      and status DONE; TASK-248 current-state assertions are converted to historical ownership while
+      preserving its exact publication and Gen-7 reconciliation facts.
+    - >
       On exact reviewed TASK-249 publication record post_task248_live_validation_carrier_hardened
       true; collector_validation_baseline task_id TASK-248 and source_sha
-      39979020a10b78e1f86c30cf2b704f2f975daec9; validation carrier schema version 2 and both fixed
-      filenames; preserve selector_repair_complete false; live_public_pdp_acquisition_authority NONE;
-      authorized_validation_attempts 0; automated_public_pdp_acquisition_authority NONE;
+      39979020a10b78e1f86c30cf2b704f2f975daec9; validation carrier schema version 2 and both fixed V2
+      filenames; authorized_validation_attempts 0; authorized_validation_attempts_remaining 0;
+      validation_execution_owner NONE; preserve selector_repair_complete false;
+      live_public_pdp_acquisition_authority NONE; automated_public_pdp_acquisition_authority NONE;
       market_test_or_action_authority NONE; automatic_live_pilot false; automatic_progression false;
       next_milestone null; pending_commitments empty; post_run_engineering_successor null; and exact
       handoff HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION.
+    - >
+      The top-level post_p8_planning_handoff must become effective on exact TASK-249 publication and
+      identify TASK-249 carrier hardening as its completed commitment while preserving the older
+      authorized_capture_attempts 1 / remaining 0 fields only as consumed historical TASK-233 pilot
+      lineage, not as fresh post-TASK248 validation authority. The new validation attempt fields are
+      separately zero until a later authorization-only task is reviewed and published.
     - >
       TASK-249 must not author or imply the later authorization-only successor. That later Human/Brain
       decision must bind one future attempt to the exact reviewed and published TASK-249 source, so
       no self-referential execution-source binding is introduced here.
     - >
-      Modify exactly the seven authorized paths. Produce one candidate and one ResultPackage.
-      Runtime owns deterministic verification; Executor must not publish, execute live TikTok/CDP,
-      review its own candidate, grant a live attempt, or begin a successor.
+      Modify exactly the seven authorized implementation/publication paths. Produce one candidate
+      and one ResultPackage. Runtime owns deterministic verification; Executor must not publish,
+      execute live TikTok/CDP, review its own candidate, grant a live attempt, or begin a successor.
 
 acceptance:
   - id: AC1
@@ -251,51 +314,55 @@ acceptance:
   - id: AC2
     condition: >
       The existing tiktok_pdp_live_pilot carrier is hardened in place as the sole operation-specific
-      carrier, with no second live-validation carrier, collector, parser, evidence model, or browser
-      lifecycle owner and with the Human-facing CLI surface unchanged.
+      carrier, with no second live-validation carrier, collector, parser, evidence model, browser
+      lifecycle owner, exception-message semantic classifier, or Human-facing CLI change.
   - id: AC3
     condition: >
       One create-exclusive external V2 attempt marker provides a deterministic durable consumption
-      boundary after all local non-consuming gates and before first browser/live operation; the
-      marker is bounded, secret-free, immutable, and includes exact TASK-248 baseline provenance.
+      boundary after all local non-consuming gates and before first browser/live operation; legacy
+      V1 or existing V2 artifacts fail before consumption; marker existence remains consumption
+      evidence even when interrupted.
   - id: AC4
     condition: >
-      After marker creation the carrier attempts exactly one create-exclusive V2 terminal record for
-      every in-process terminal outcome, while marker-without-result is explicitly interpretable as
-      consumed/interrupted rather than permission to retry.
+      Terminal sequencing waits for cleanup outcome before final status and terminal persistence;
+      after marker creation the carrier makes at most one create-exclusive terminal-result write,
+      while missing/malformed/nonconforming result remains consumed/interrupted and never permission
+      to retry.
   - id: AC5
     condition: >
-      Terminal semantics distinguish SUCCESS/FAIL_CLOSED from OBSERVED/NOT_OBSERVED, use only bounded
-      failure codes, never persist raw exceptions or secrets, and preserve a valid admitted snapshot
-      through cleanup failure only as FAIL_CLOSED/OBSERVED.
+      Terminal semantics distinguish SUCCESS/FAIL_CLOSED, OBSERVED/NOT_OBSERVED, and bounded
+      session-release status; collector-origin failures reuse exact TikTokPdpCollectionError.code
+      values without message parsing; persisted records contain no raw exception or secret.
   - id: AC6
     condition: >
       Existing TikTokPdpCollector remains the sole observation/admission owner and is invoked at most
-      once; snapshot fields appear only after its valid exact-listing admission, missing optional
-      values remain unknown, and no collector/parser/root/model semantics are modified.
+      once; bounded snapshot and binding appear only after valid exact-listing admission/revalidation;
+      missing optional values remain unknown and no collector/parser/root/model semantics are modified.
   - id: AC7
     condition: >
-      TASK-137 browser lifecycle authority is preserved: one borrowed manager/session path, manager-
-      mediated close_session after acquisition, no direct session/browser/context/page closure, no
-      retry/resume/refresh loop, and primary failure is preserved when cleanup also fails.
+      TASK-137 browser lifecycle authority is preserved and fail-closed process semantics are
+      unambiguous: manager-mediated release is attempted after acquired session, primary semantic
+      failure survives cleanup failure, clean success alone returns an outcome, and every persisted
+      FAIL_CLOSED operation raises a bounded carrier error for non-zero unchanged-CLI behavior.
   - id: AC8
     condition: >
       Offline regressions prove the two-phase artifact contract, consumption boundary, interruption
-      visibility, fixed target, exactly-once collector invocation, secret exclusion, failure
-      taxonomy, cleanup semantics, create-exclusive behavior, and absence of forbidden semantic
-      dependencies without any live TikTok/CDP access.
+      interpretation, exact collector-code reuse, fixed target, exactly-once collector invocation,
+      binding/snapshot allowlists, secret exclusion, cleanup semantics, create-exclusive behavior,
+      fail-closed raising behavior, and absence of forbidden semantic dependencies without live access.
   - id: AC9
     condition: >
-      Exact reviewed TASK-249 publication grants zero live acquisition or action authority:
-      authorized_validation_attempts is 0, live/automated acquisition and market-test/action
-      authorities remain NONE, automatic progression is false, next_milestone is null, pending
-      commitments are empty, and the exact handoff remains
+      Exact reviewed TASK-249 publication makes TASK-249 the sole current roadmap milestone while
+      preserving TASK-248 as historical baseline, grants zero validation/live/action authority,
+      keeps authorized_validation_attempts and remaining at 0, automatic progression false,
+      next_milestone null and pending commitments empty, and returns the exact handoff to
       HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION.
   - id: AC10
     condition: >
-      Exactly the seven authorized paths change; focused pytest and git diff --check pass with zero
-      unresolved items, producing one candidate eligible for independent PRIMARY semantic review
-      and exact safe publication without any live marketplace operation or automatic successor.
+      Exactly the seven authorized implementation/publication paths change; focused pytest and
+      git diff --check pass with zero unresolved items, producing one candidate eligible for
+      independent PRIMARY semantic review and exact safe publication without any live marketplace
+      operation or automatic successor.
 
 verification:
   required:
