@@ -26,6 +26,10 @@ from src.product_intelligence.models import ProductCandidateSnapshot
 from src.product_intelligence.tiktok_pdp_dom_scope import TIKTOK_PDP_DOM_SCOPE_JS
 
 
+MAX_PRICE_OBSERVATION_NODES: int = 300
+MAX_PRICE_CANDIDATES: int = 300
+
+
 TIKTOK_PDP_EXTRACTION_SCRIPT = (
     r"""() => {
 """
@@ -88,11 +92,15 @@ TIKTOK_PDP_EXTRACTION_SCRIPT = (
                 }
                 return false;
             };
+            const MAX_PRICE_NODES = LOCAL_MAX;
+            const MAX_PRICE_CANDIDATES = LOCAL_MAX;
             const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
             const candidates = [];
-            let node = walker.currentNode;
-            while (node) {
-                if (node !== root && visible(node) && !isInsideButton(node)) {
+            let scannedNodes = 0;
+            let node = walker.nextNode();
+            while (node && scannedNodes < MAX_PRICE_NODES && candidates.length < MAX_PRICE_CANDIDATES) {
+                scannedNodes++;
+                if (visible(node) && !isInsideButton(node)) {
                     if (!scope.titleAnchor || (node !== scope.titleAnchor && !scope.titleAnchor.contains(node))) {
                         const t = clip((node.innerText || node.textContent || ''), 160).trim();
                         if (t && /\d/.test(t)) {
@@ -107,18 +115,21 @@ TIKTOK_PDP_EXTRACTION_SCRIPT = (
                 }
                 node = walker.nextNode();
             }
-            const leafCandidates = candidates.filter((c, idx) => {
-                return !candidates.some((other, oidx) => oidx !== idx && c.node.contains(other.node) && other.text === c.text);
-            });
-            for (const c of leafCandidates) {
-                const isExplicitOriginal = /original|regular|was|high[-_]?price/i.test(c.attrStr);
-                const isExplicitCurrent = /current|product[-_]?price|special[-_]?price/i.test(c.attrStr) || String(c.node.getAttribute('itemprop') || '').toLowerCase() === 'price';
-                if (c.isStrike || isExplicitOriginal) {
-                    if (!isExplicitCurrent) {
-                        originalPrices.push(c.text);
+            const truncated = Boolean(node);
+            if (!truncated) {
+                const leafCandidates = candidates.filter((c, idx) => {
+                    return !candidates.some((other, oidx) => oidx !== idx && c.node.contains(other.node) && other.text === c.text);
+                });
+                for (const c of leafCandidates) {
+                    const isExplicitOriginal = /original|regular|was|high[-_]?price/i.test(c.attrStr);
+                    const isExplicitCurrent = /current|product[-_]?price|special[-_]?price/i.test(c.attrStr) || String(c.node.getAttribute('itemprop') || '').toLowerCase() === 'price';
+                    if (c.isStrike || isExplicitOriginal) {
+                        if (!isExplicitCurrent) {
+                            originalPrices.push(c.text);
+                        }
+                    } else {
+                        currentPrices.push(c.text);
                     }
-                } else {
-                    currentPrices.push(c.text);
                 }
             }
         }
@@ -421,6 +432,8 @@ class TikTokPdpCollector:
 
 
 __all__ = [
+    "MAX_PRICE_CANDIDATES",
+    "MAX_PRICE_OBSERVATION_NODES",
     "TIKTOK_PDP_EXTRACTION_SCRIPT",
     "TikTokPdpBindingReceipt",
     "TikTokPdpBlockedOrLoginError",

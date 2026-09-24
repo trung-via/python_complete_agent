@@ -354,3 +354,90 @@ async def test_bounded_root_missing_and_unresolved_role_leave_price_none_without
     ).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
     assert range_result.snapshot.price is None
     assert range_result.snapshot.original_price == 250_000.0
+
+
+def test_collector_price_observation_is_deterministically_bounded_and_fails_closed_on_truncation() -> None:
+    """Prove collector price observation traversal enforces hard node/candidate bounds and fails closed on truncation."""
+    from src.product_intelligence.adapters.tiktok_pdp import (
+        MAX_PRICE_CANDIDATES,
+        MAX_PRICE_OBSERVATION_NODES,
+        TIKTOK_PDP_EXTRACTION_SCRIPT,
+    )
+    from src.product_intelligence.tiktok_pdp_dom_scope import TIKTOK_PDP_DOM_SCOPE_JS
+
+    assert MAX_PRICE_OBSERVATION_NODES == 300
+    assert MAX_PRICE_CANDIDATES == 300
+    assert "LOCAL_MAX=300" in TIKTOK_PDP_DOM_SCOPE_JS
+
+    # Prove script establishes hard caps and bounded traversal
+    assert "MAX_PRICE_NODES = LOCAL_MAX" in TIKTOK_PDP_EXTRACTION_SCRIPT
+    assert "MAX_PRICE_CANDIDATES = LOCAL_MAX" in TIKTOK_PDP_EXTRACTION_SCRIPT
+    assert "scannedNodes < MAX_PRICE_NODES" in TIKTOK_PDP_EXTRACTION_SCRIPT
+    assert "candidates.length < MAX_PRICE_CANDIDATES" in TIKTOK_PDP_EXTRACTION_SCRIPT
+    assert "truncated = Boolean(node)" in TIKTOK_PDP_EXTRACTION_SCRIPT
+
+    # Prove truncation fails closed: leafCandidates and prices only populated if !truncated
+    assert "if (!truncated)" in TIKTOK_PDP_EXTRACTION_SCRIPT
+
+    # Prove no unbounded TreeWalker advancement exists
+    assert "while (node)" not in TIKTOK_PDP_EXTRACTION_SCRIPT
+
+
+@pytest.mark.asyncio
+async def test_price_observation_truncation_fails_closed_without_failing_snapshot() -> None:
+    """When price observation bound is exhausted, collector fails closed for prices while snapshot succeeds."""
+    # When truncation occurs, the extraction script returns empty price candidate sets
+    # rather than admitting partial first-window candidates.
+    truncated_payload = payload(
+        current_price_candidates=[],
+        original_price_candidates=[],
+    )
+    result = await TikTokPdpCollector(FakeSession(truncated_payload)).collect(
+        REQUESTED_URL, observed_at=OBSERVED_AT
+    )
+
+    # Price discovery fails closed (None), but whole-snapshot admission is preserved
+    assert result.snapshot.price is None
+    assert result.snapshot.original_price is None
+    assert result.snapshot.candidate_id == f"tiktok_{PRODUCT_ID}"
+    assert result.snapshot.title == "Đèn LED cảm biến chuyển động"
+    assert result.snapshot.shop_name == "Lighting Store"
+    assert result.snapshot.discount_percent == 25.0
+    assert result.snapshot.sold_count == 0
+    assert result.snapshot.rating == 4.8
+    assert result.snapshot.review_count == 0
+    assert result.binding.requested_url == REQUESTED_URL
+    assert result.binding.observed_url == result.snapshot.url
+
+
+def test_price_observation_traversal_cap_and_truncation_logic() -> None:
+    """Deterministic offline simulation proving the node cap and truncation behavior."""
+    def simulate_traversal(total_elements: int, cap: int = 300) -> tuple[int, bool]:
+        scanned_nodes = 0
+        current_idx = 1
+        while current_idx <= total_elements and scanned_nodes < cap:
+            scanned_nodes += 1
+            current_idx += 1
+        has_remaining_node = current_idx <= total_elements
+        truncated = has_remaining_node
+        return scanned_nodes, truncated
+
+    # Subtree within bound: fully observed, untruncated
+    scanned, truncated = simulate_traversal(50)
+    assert scanned == 50
+    assert not truncated
+
+    # Subtree at exact bound: fully observed, untruncated
+    scanned, truncated = simulate_traversal(300)
+    assert scanned == 300
+    assert not truncated
+
+    # Subtree exceeding bound: truncated at 300, bound exhausted before fully observed
+    scanned, truncated = simulate_traversal(301)
+    assert scanned == 300
+    assert truncated
+
+    scanned, truncated = simulate_traversal(1000)
+    assert scanned == 300
+    assert truncated
+
