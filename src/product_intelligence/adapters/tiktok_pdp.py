@@ -121,13 +121,29 @@ TIKTOK_PDP_EXTRACTION_SCRIPT = (
                     return !candidates.some((other, oidx) => oidx !== idx && c.node.contains(other.node) && other.text === c.text);
                 });
                 for (const c of leafCandidates) {
-                    const isExplicitOriginal = /original|regular|was|high[-_]?price/i.test(c.attrStr);
-                    const isExplicitCurrent = /current|product[-_]?price|special[-_]?price/i.test(c.attrStr) || String(c.node.getAttribute('itemprop') || '').toLowerCase() === 'price';
-                    if (c.isStrike || isExplicitOriginal) {
-                        if (!isExplicitCurrent) {
-                            originalPrices.push(c.text);
+                    let cur = c.node;
+                    const parts = [];
+                    while (cur && cur !== root) {
+                        const curText = clip((cur.innerText || cur.textContent || ''), 160).trim();
+                        if (curText === c.text) {
+                            parts.push(structural(cur));
+                            const itemprop = String(cur.getAttribute('itemprop') || '').trim().toLowerCase();
+                            if (itemprop) parts.push('itemprop-' + itemprop);
+                            const ariaLabel = String(cur.getAttribute('aria-label') || '').trim().toLowerCase();
+                            if (ariaLabel) parts.push('aria-' + ariaLabel);
+                        } else {
+                            break;
                         }
-                    } else {
+                        cur = cur.parentElement;
+                    }
+                    const roleAttrs = parts.join(' ');
+                    const isExplicitOriginal = /original|regular|was|high[-_]?price|strikethrough/i.test(roleAttrs) || /itemprop-highprice/i.test(roleAttrs);
+                    const isExplicitCurrent = /current|product[-_]?price|special[-_]?price|sale[-_]?price|offer[-_]?price|final[-_]?price|low[-_]?price/i.test(roleAttrs) || /itemprop-price\b|itemprop-lowprice\b/i.test(roleAttrs);
+                    const isOriginal = (c.isStrike || isExplicitOriginal);
+                    const isCurrent = isExplicitCurrent;
+                    if (isOriginal && !isCurrent) {
+                        originalPrices.push(c.text);
+                    } else if (isCurrent && !isOriginal) {
                         currentPrices.push(c.text);
                     }
                 }

@@ -441,3 +441,225 @@ def test_price_observation_traversal_cap_and_truncation_logic() -> None:
     assert scanned == 300
     assert truncated
 
+
+def _make_pdp_html(price_html: str, *, include_root: bool = True, title: str = "Đèn LED cảm biến chuyển động") -> str:
+    if not include_root:
+        return f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>{title} - TikTok Shop</title>
+    <meta name="product_id" content="{PRODUCT_ID}" />
+</head>
+<body>
+    <header>
+        <h1 data-testid="product-title">{title}</h1>
+    </header>
+    <div class="generic-sidebar">
+        {price_html}
+    </div>
+</body>
+</html>"""
+
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>{title} - TikTok Shop</title>
+    <meta name="product_id" content="{PRODUCT_ID}" />
+</head>
+<body>
+    <div data-testid="pdp-container" data-product-id="{PRODUCT_ID}">
+        <h1 data-testid="product-title">{title}</h1>
+        <div class="seller-info" data-testid="shop-name">Lighting Store</div>
+        <div class="pdp-price-section">
+            {price_html}
+        </div>
+        <div class="actions">
+            <button data-e2e="buy-now">Mua ngay</button>
+        </div>
+    </div>
+</body>
+</html>"""
+
+
+class PlaywrightDomSession:
+    def __init__(self, page: Any, html: str, observed_url: str = REQUESTED_URL) -> None:
+        self.page = page
+        self.html = html
+        self.observed_url = observed_url
+        self.navigations: list[str] = []
+
+    async def navigate(self, url: str) -> None:
+        self.navigations.append(url)
+        await self.page.set_content(self.html)
+
+    async def evaluate(self, script: str) -> Any:
+        raw = await self.page.evaluate(script)
+        if isinstance(raw, dict) and raw.get("observed_url") in ("about:blank", ""):
+            raw["observed_url"] = self.observed_url
+        return raw
+
+
+def test_collector_price_role_admission_requires_deterministic_evidence() -> None:
+    """Prove TIKTOK_PDP_EXTRACTION_SCRIPT enforces deterministic role classification without default fallthrough."""
+    from src.product_intelligence.adapters.tiktok_pdp import TIKTOK_PDP_EXTRACTION_SCRIPT
+
+    # Prove script inspects candidate and wrapper role attributes up to root
+    assert "while (cur && cur !== root)" in TIKTOK_PDP_EXTRACTION_SCRIPT
+    assert "curText === c.text" in TIKTOK_PDP_EXTRACTION_SCRIPT
+
+    # Prove generic role classification attributes and patterns exist
+    assert "isExplicitOriginal" in TIKTOK_PDP_EXTRACTION_SCRIPT
+    assert "isExplicitCurrent" in TIKTOK_PDP_EXTRACTION_SCRIPT
+    assert "isOriginal = (c.isStrike || isExplicitOriginal)" in TIKTOK_PDP_EXTRACTION_SCRIPT
+    assert "isCurrent = isExplicitCurrent" in TIKTOK_PDP_EXTRACTION_SCRIPT
+
+    # Prove admission is strictly mutual and exclusive without default current fallthrough
+    assert "if (isOriginal && !isCurrent)" in TIKTOK_PDP_EXTRACTION_SCRIPT
+    assert "} else if (isCurrent && !isOriginal)" in TIKTOK_PDP_EXTRACTION_SCRIPT
+
+    # Prove no unconditioned fallthrough to currentPrices exists
+    assert "} else {\n                        currentPrices.push(c.text);" not in TIKTOK_PDP_EXTRACTION_SCRIPT
+    assert "} else { currentPrices.push(c.text);" not in TIKTOK_PDP_EXTRACTION_SCRIPT
+
+
+@pytest.mark.asyncio
+async def test_dom_price_role_classification_unresolved_rejection_and_reconciliation() -> None:
+    """Prove unresolved-role DOM observations do not yield candidates while generic presentation reconciles."""
+    from playwright.async_api import async_playwright
+    from src.product_intelligence.adapters.tiktok_pdp import TIKTOK_PDP_EXTRACTION_SCRIPT
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        try:
+            page = await browser.new_page()
+
+            # 1. Unresolved-role DOM observations (shipping, coupon, installment, plain currency)
+            # must remain unclassified and NOT become current or original candidates
+            unresolved_html = _make_pdp_html(
+                """
+                <div class="shipping-info">
+                    <span class="shipping-label">Phí vận chuyển:</span>
+                    <span class="shipping-amount">₫25.000</span>
+                </div>
+                <div class="coupon-section">
+                    <span class="coupon-discount">Giảm ₫50.000</span>
+                </div>
+                <div class="installment-box">
+                    <span class="installment-rate">₫100.000 / tháng</span>
+                </div>
+                <div class="other-val">
+                    <span>₫75.000</span>
+                </div>
+                """
+            )
+            session = PlaywrightDomSession(page, unresolved_html)
+            res = await TikTokPdpCollector(session).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+            raw = await page.evaluate(TIKTOK_PDP_EXTRACTION_SCRIPT)
+            assert raw["current_price_candidates"] == []
+            assert raw["original_price_candidates"] == []
+            assert res.snapshot.price is None
+            assert res.snapshot.original_price is None
+            assert res.snapshot.title == "Đèn LED cảm biến chuyển động"
+
+            # 2. Unambiguous generic current/original presentation alongside unresolved shipping fee
+            valid_html = _make_pdp_html(
+                """
+                <div data-testid="current-price">
+                    <span>₫150.000</span>
+                </div>
+                <div class="original-price">
+                    <del>₫200.000</del>
+                </div>
+                <div class="shipping-fee">
+                    <span>₫25.000</span>
+                </div>
+                """
+            )
+            session = PlaywrightDomSession(page, valid_html)
+            res = await TikTokPdpCollector(session).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+            raw = await page.evaluate(TIKTOK_PDP_EXTRACTION_SCRIPT)
+            assert raw["current_price_candidates"] == ["₫150.000"]
+            assert raw["original_price_candidates"] == ["₫200.000"]
+            assert res.snapshot.price == 150_000.0
+            assert res.snapshot.original_price == 200_000.0
+
+            # 3. Equivalent duplicates in DOM reconcile into unique scalar price
+            dup_html = _make_pdp_html(
+                """
+                <div class="product-price">₫150.000</div>
+                <div data-testid="current-price">₫150.000</div>
+                <del class="was-price">₫200.000</del>
+                <s data-testid="original-price">₫200.000</s>
+                """
+            )
+            session = PlaywrightDomSession(page, dup_html)
+            res = await TikTokPdpCollector(session).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+            raw = await page.evaluate(TIKTOK_PDP_EXTRACTION_SCRIPT)
+            assert raw["current_price_candidates"] == ["₫150.000", "₫150.000"]
+            assert raw["original_price_candidates"] == ["₫200.000", "₫200.000"]
+            assert res.snapshot.price == 150_000.0
+            assert res.snapshot.original_price == 200_000.0
+
+            # 4. Ranges in DOM yield candidate with role, but scalar admission reconciler leaves price None
+            range_html = _make_pdp_html(
+                """
+                <div data-testid="current-price">₫150.000 - ₫200.000</div>
+                <del data-testid="original-price">₫250.000</del>
+                """
+            )
+            session = PlaywrightDomSession(page, range_html)
+            res = await TikTokPdpCollector(session).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+            raw = await page.evaluate(TIKTOK_PDP_EXTRACTION_SCRIPT)
+            assert raw["current_price_candidates"] == ["₫150.000 - ₫200.000"]
+            assert raw["original_price_candidates"] == ["₫250.000"]
+            assert res.snapshot.price is None
+            assert res.snapshot.original_price == 250_000.0
+
+            # 5a. Role conflict on single element (both current and struck-through original)
+            conflict_role_html = _make_pdp_html(
+                """
+                <del data-testid="current-price">₫150.000</del>
+                """
+            )
+            session = PlaywrightDomSession(page, conflict_role_html)
+            res = await TikTokPdpCollector(session).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+            raw = await page.evaluate(TIKTOK_PDP_EXTRACTION_SCRIPT)
+            assert raw["current_price_candidates"] == []
+            assert raw["original_price_candidates"] == []
+            assert res.snapshot.price is None
+            assert res.snapshot.original_price is None
+
+            # 5b. Scalar conflict in DOM (different current prices)
+            conflict_price_html = _make_pdp_html(
+                """
+                <div data-testid="current-price">₫150.000</div>
+                <div data-testid="current-price">₫180.000</div>
+                """
+            )
+            session = PlaywrightDomSession(page, conflict_price_html)
+            res = await TikTokPdpCollector(session).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+            raw = await page.evaluate(TIKTOK_PDP_EXTRACTION_SCRIPT)
+            assert raw["current_price_candidates"] == ["₫150.000", "₫180.000"]
+            assert res.snapshot.price is None
+
+            # 6. Root-missing behavior in DOM (no bounded commerce root) leaves price candidates empty
+            root_missing_html = _make_pdp_html(
+                """
+                <div class="generic-sidebar">
+                    <span class="unrelated-price">₫150.000</span>
+                </div>
+                """,
+                include_root=False,
+            )
+            session_missing = PlaywrightDomSession(page, root_missing_html)
+            res_missing = await TikTokPdpCollector(session_missing).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+            raw = await page.evaluate(TIKTOK_PDP_EXTRACTION_SCRIPT)
+            assert raw["current_price_candidates"] == []
+            assert raw["original_price_candidates"] == []
+            assert res_missing.snapshot.price is None
+            assert res_missing.snapshot.original_price is None
+            assert res_missing.snapshot.title == "Đèn LED cảm biến chuyển động"
+        finally:
+            await browser.close()
+
+
