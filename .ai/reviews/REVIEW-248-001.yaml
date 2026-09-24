@@ -1,0 +1,63 @@
+review_id: REVIEW-248-001
+reviewed_sha: 2a0747f065a6b1ed01f37248e7c0ee4f496c4194
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: PASS
+  AC3: PASS
+  AC4: PASS
+  AC5: PASS
+  AC6: FAIL
+  AC7: FAIL
+  AC8: PASS
+  AC9: PASS
+  AC10: PASS
+findings:
+  - id: FINDING-248-001
+    basis: AC6
+    action: CODE_FIX
+    location: src/product_intelligence/adapters/tiktok_pdp.py; tests/product_intelligence/test_tiktok_pdp.py
+    issue: >
+      The new bounded-root price discovery is root-scoped but its price observation traversal is
+      not itself bounded. After resolveBoundedPdpDomScope() returns a root, the collector creates
+      a TreeWalker over that root and advances until node is null, accumulating every qualifying
+      visible currency/price-like element into candidates with no hard node/candidate cap and no
+      truncation fail-closed rule. TASK-248 explicitly requires bounded visible element-local
+      currency-like observations and prohibits unbounded DOM material from entering collector
+      behavior. A legacy EXPLICIT_PDP_ROOT, MAIN, or common-ancestor root can contain a large
+      subtree, so root scoping alone does not provide the required bounded observation guarantee.
+    expected: >
+      Keep the shared resolver and existing root precedence unchanged, but make collector price
+      observation deterministically bounded. If the authorized observation bound is exhausted
+      before the resolved root is fully observed, fail closed for price discovery by returning
+      empty/unknown current and original price candidates rather than admitting a partial
+      first-window candidate set. Add deterministic offline regression proving the cap and
+      truncation behavior. Do not turn bounded-root resolution into a whole-snapshot gate or
+      widen any non-price field, browser, evidence, ranking, or action authority.
+  - id: FINDING-248-002
+    basis: AC7
+    action: CODE_FIX
+    location: src/product_intelligence/adapters/tiktok_pdp.py; tests/product_intelligence/test_tiktok_pdp.py
+    issue: >
+      Current-versus-original role admission does not fail closed for unresolved currency-like
+      observations. Every qualifying non-struck candidate falls through to
+      currentPrices.push(c.text), even when it has only a currency token and no generic structural
+      or rendered evidence that it is the product's current price. A lone shipping, coupon,
+      installment, or other currency-like value inside an otherwise valid commerce root can
+      therefore become the sole current_price_candidate and be promoted by the existing exact-PDP
+      parser to a scalar price. This contradicts TASK-248's rule that unresolved current/original
+      role remains empty or ambiguous rather than guessed. The current regression named
+      root_missing_and_unresolved_role does not exercise DOM-role classification at all; it only
+      supplies already-classified candidate arrays to FakeSession.
+    expected: >
+      Preserve parse_tiktok_pdp_price and existing Python reconciliation as the sole scalar
+      admission authority, but require generic deterministic role evidence before a DOM
+      currency-like observation is emitted as current or original price. Pure currency-like
+      observations with no safely established role must remain unclassified and must not become a
+      current candidate by default. Add deterministic offline regression that directly proves
+      unresolved-role DOM observations do not yield current/original candidates while
+      unambiguous generic current/original presentation still does, including equivalent
+      duplicates, ranges, conflicts, and root-missing behavior. Do not introduce
+      marketplace-specific class tokens, first-match inference, variant assumptions, or a second
+      price parser.
