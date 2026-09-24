@@ -315,8 +315,8 @@ async def run_tiktok_pdp_live_pilot(
 
     try:
         _write_json_exclusive(result_path, terminal_doc)
-    except Exception as exc:
-        raise TikTokPdpLivePilotError("TERMINAL_ARTIFACT_WRITE_FAILED") from exc
+    except Exception:
+        raise TikTokPdpLivePilotError("TERMINAL_ARTIFACT_WRITE_FAILED") from None
 
     if operation_status == "FAIL_CLOSED":
         assert failure_reason is not None

@@ -539,13 +539,15 @@ def test_task_242_history_preserves_generation_4_failure_without_freezing_handof
     )
     assert handoff["destination"] != reconciliation["post_publication_handoff"]
 
-    current = active["current_milestone"]
-    generation_3 = current["historical_generation_3"]
+    generation_3 = handoff["public_pdp_dom_diagnostic_gen3_review_and_commerce_observability"]
     assert generation_3["diagnostic_executed"] is True
     assert generation_3["diagnostic_failure_reason"] == "NO_BOUNDED_PDP_ROOT"
     assert generation_3["diagnostic_artifact_created"] is True
-    assert current["historical_generation_1"]["authorized_diagnostic_attempts_remaining"] == 0
-    assert current["historical_generation_2"]["authorized_diagnostic_attempts_remaining"] == 0
+    assert completed["TASK-240"]["diagnostic_executed"] is True
+    assert completed["TASK-240"]["diagnostic_failure_reason"] == "NO_BOUNDED_PDP_ROOT"
+    assert completed["TASK-240"]["diagnostic_artifact_created"] is True
+    assert handoff["historical_generation_1"]["authorized_diagnostic_attempts_remaining"] == 0
+    assert handoff["historical_generation_2"]["authorized_diagnostic_attempts_remaining"] == 0
 
     for required in (
         "TASK-241",
@@ -1427,6 +1429,16 @@ def test_task_249_hardens_post_task248_validation_carrier_with_zero_live_authori
     assert active["next_milestone"] is None
     assert handoff["next_milestone"] is None
     assert state["pending_commitments"] == []
+    assert completed_task["task_revision"] == 2
+    assert handoff["authorized_capture_attempts"] == 1
+    assert handoff["authorized_capture_attempts_remaining"] == 0
+    assert handoff["capture_execution_owner"] == "HUMAN_OPERATOR"
+    task_233_history = handoff["public_pdp_live_pilot_authorization"]
+    assert task_233_history["task_id"] == "TASK-233"
+    assert task_233_history["authorized_capture_attempts"] == 1
+    assert task_233_history["authorized_capture_attempts_remaining"] == 0
+    assert handoff["authorized_validation_attempts"] == 0
+    assert handoff["authorized_validation_attempts_remaining"] == 0
 
     for required in (
         "POST_TASK248_LIVE_PUBLIC_PDP_VALIDATION_CARRIER_HARDENING_ONLY",
@@ -1434,7 +1446,6 @@ def test_task_249_hardens_post_task248_validation_carrier_with_zero_live_authori
         TASK_248_PUBLISHED_SOURCE_SHA,
         "tiktok-pdp-live-validation-attempt-v2.json",
         "tiktok-pdp-live-validation-result-v2.json",
-        "authorized_validation_attempts=0",
         "HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION",
         "CAPABILITY_IS_NOT_AUTHORITY",
         "EVIDENCE_IS_NOT_PRODUCT_TRUTH",
@@ -1443,6 +1454,10 @@ def test_task_249_hardens_post_task248_validation_carrier_with_zero_live_authori
         "ONE_CAPABILITY_ONE_AUTHORITY",
     ):
         assert required in document
+    assert (
+        "authorized_validation_attempts: 0" in document
+        or "authorized_validation_attempts=0" in document
+    )
 
     for roadmap in ROADMAP_DOCS:
         roadmap_text = roadmap.read_text(encoding="utf-8")

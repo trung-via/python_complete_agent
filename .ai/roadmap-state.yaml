@@ -2403,7 +2403,7 @@ completed_milestones:
       canonical_main_equals_reviewed_candidate: true
 
   - task_id: TASK-249
-    task_revision: 1
+    task_revision: 2
     track_id: P8_PUBLIC_PDP_POST_TASK248_VALIDATION_CARRIER_HARDENING
     milestone_id: P8.PUBLIC_PDP.POST_TASK248_VALIDATION_CARRIER_HARDENING
     title: Public TikTok PDP Post-TASK248 Validation Carrier Hardening

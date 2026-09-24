@@ -2,6 +2,8 @@
 
 ## 1. Executive Summary & Purpose
 
+- **Classification**: `POST_TASK248_LIVE_PUBLIC_PDP_VALIDATION_CARRIER_HARDENING_ONLY`
+
 TASK-249 revision 2 hardens only the existing Human-operated carrier (`src/product_intelligence/tiktok_pdp_live_pilot.py`) so that a later, separately authorized post-TASK248 one-shot collector validation has:
 - Durable attempt-consumption lineage via a two-phase V2 artifact contract,
 - Exact engineering provenance bound to the reviewed and published TASK-248 collector baseline,
@@ -9,6 +11,14 @@ TASK-249 revision 2 hardens only the existing Human-operated carrier (`src/produ
 - Unambiguous process and power interruption visibility,
 - Guaranteed secret-safe and credential-free external artifacts, and
 - Unchanged CLI non-zero exit behavior for all fail-closed operations.
+
+TASK-249 explicitly preserves core architectural and governance principles:
+- `CAPABILITY_IS_NOT_AUTHORITY`
+- `EVIDENCE_IS_NOT_PRODUCT_TRUTH`
+- `SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY`
+- `SNAPSHOT_IS_NOT_TREND`
+- `AMBIGUOUS_PRICE_IS_NOT_EXACT_PRICE`
+- `ONE_CAPABILITY_ONE_AUTHORITY`
 
 TASK-249 performs zero live network or CDP operations and grants zero live validation attempts (`authorized_validation_attempts: 0`, `authorized_validation_attempts_remaining: 0`). Control returns to `HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION` for a separate later decision.
 
@@ -151,12 +161,15 @@ Carrier exceptions identify only sanitized fixed reason codes and never echo ope
 ## 11. Zero Live Authority & Governance Handoff
 
 TASK-249 is strictly an engineering hardening milestone:
+- `classification: POST_TASK248_LIVE_PUBLIC_PDP_VALIDATION_CARRIER_HARDENING_ONLY`
 - `live_public_pdp_acquisition_authority: NONE`
 - `automated_public_pdp_acquisition_authority: NONE`
 - `market_test_or_action_authority: NONE`
-- `authorized_validation_attempts: 0`
+- `authorized_validation_attempts: 0` (`authorized_validation_attempts=0`)
 - `authorized_validation_attempts_remaining: 0`
 - `automatic_live_pilot: false`
 - `automatic_progression: false`
+
+TASK-233 capture authority (`authorized_capture_attempts: 1`, `authorized_capture_attempts_remaining: 0`) is consumed historical lineage only while TASK-249 validation attempts remain zero (`authorized_validation_attempts: 0`, `authorized_validation_attempts_remaining: 0`).
 
 On reviewed publication, TASK-249 becomes the sole active track milestone while TASK-248 becomes historical. Control returns to `HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION`.

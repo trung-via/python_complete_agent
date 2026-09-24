@@ -551,7 +551,7 @@ async def test_forced_terminal_result_write_failure_preserves_marker_without_ret
         return original_open(self, *args, **kwargs)
 
     with patch.object(Path, "open", failing_open):
-        with pytest.raises(TikTokPdpLivePilotError, match="^TERMINAL_ARTIFACT_WRITE_FAILED$"):
+        with pytest.raises(TikTokPdpLivePilotError, match="^TERMINAL_ARTIFACT_WRITE_FAILED$") as exc_info:
             await run_tiktok_pdp_live_pilot(
                 job_root=root,
                 cdp_endpoint=ENDPOINT,
@@ -559,6 +559,11 @@ async def test_forced_terminal_result_write_failure_preserves_marker_without_ret
                 manager_factory=FakeManager,
                 collector_factory=FakeCollector,
             )
+
+    assert exc_info.value.__cause__ is None
+    assert str(exc_info.value) == "TERMINAL_ARTIFACT_WRITE_FAILED"
+    assert ENDPOINT not in str(exc_info.value)
+    assert "disk full simulation" not in str(exc_info.value)
 
     # Marker remains intact!
     marker_path = root / ATTEMPT_MARKER_FILENAME
@@ -592,6 +597,85 @@ def test_interrupted_marker_represents_consumed_interrupted_or_unobserved(
     # Definition check: marker exists, result absent -> CONSUMED_INTERRUPTED_OR_UNOBSERVED
     assert marker_path.exists()
     assert not result_path.exists()
+
+
+@pytest.mark.asyncio
+async def test_marker_only_state_fails_before_manager_or_collector_without_retry(
+    external_temp_path,
+):
+    root = external_temp_path / "marker-only-pilot"
+    root.mkdir()
+    marker_path = root / ATTEMPT_MARKER_FILENAME
+    marker_content = json.dumps(
+        {
+            "schema_version": 2,
+            "record_type": "VALIDATION_ATTEMPT_MARKER",
+            "contract_identifier": CONTRACT_IDENTIFIER,
+        }
+    )
+    marker_path.write_text(marker_content, encoding="utf-8")
+    result_path = root / RESULT_FILENAME
+
+    assert marker_path.exists()
+    assert not result_path.exists()
+
+    manager_instances_before = len(FakeManager.instances)
+    collector_instances_before = len(FakeCollector.instances)
+
+    with pytest.raises(TikTokPdpLivePilotArtifactExistsError, match="already exists"):
+        await run_tiktok_pdp_live_pilot(
+            job_root=root,
+            cdp_endpoint=ENDPOINT,
+            clock=lambda: OBSERVED_AT,
+            manager_factory=FakeManager,
+            collector_factory=FakeCollector,
+        )
+
+    # Proves fail-before-manager/collector with no retry or second invocation
+    assert len(FakeManager.instances) == manager_instances_before
+    assert len(FakeCollector.instances) == collector_instances_before
+    # Pre-existing marker remains intact and untouched
+    assert marker_path.read_text(encoding="utf-8") == marker_content
+    assert not result_path.exists()
+
+
+@pytest.mark.asyncio
+async def test_marker_plus_malformed_nonconforming_result_fails_before_manager_or_collector(
+    external_temp_path,
+):
+    root = external_temp_path / "marker-malformed-pilot"
+    root.mkdir()
+    marker_path = root / ATTEMPT_MARKER_FILENAME
+    marker_content = json.dumps(
+        {
+            "schema_version": 2,
+            "record_type": "VALIDATION_ATTEMPT_MARKER",
+            "contract_identifier": CONTRACT_IDENTIFIER,
+        }
+    )
+    marker_path.write_text(marker_content, encoding="utf-8")
+    result_path = root / RESULT_FILENAME
+    malformed_content = "{ malformed json: nonconforming"
+    result_path.write_text(malformed_content, encoding="utf-8")
+
+    manager_instances_before = len(FakeManager.instances)
+    collector_instances_before = len(FakeCollector.instances)
+
+    with pytest.raises(TikTokPdpLivePilotArtifactExistsError, match="already exists"):
+        await run_tiktok_pdp_live_pilot(
+            job_root=root,
+            cdp_endpoint=ENDPOINT,
+            clock=lambda: OBSERVED_AT,
+            manager_factory=FakeManager,
+            collector_factory=FakeCollector,
+        )
+
+    # Proves fail-before-manager/collector with no retry or second invocation
+    assert len(FakeManager.instances) == manager_instances_before
+    assert len(FakeCollector.instances) == collector_instances_before
+    # Pre-existing marker and malformed result are preserved untouched
+    assert marker_path.read_text(encoding="utf-8") == marker_content
+    assert result_path.read_text(encoding="utf-8") == malformed_content
 
 
 def test_carrier_has_no_forbidden_semantic_or_lifecycle_dependencies():
