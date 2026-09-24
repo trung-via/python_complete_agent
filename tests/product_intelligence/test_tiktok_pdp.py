@@ -260,3 +260,97 @@ def test_adapter_has_only_bounded_session_and_product_intelligence_dependencies(
     assert ".click(" not in source
     assert ".new_page(" not in source
     assert "get_or_create_session" not in source
+
+
+def test_collector_consumes_canonical_shared_bounded_dom_scope_resolver() -> None:
+    """Prove collector consumes the canonical shared BOUNDED_TIKTOK_PDP_DOM_SCOPE_RESOLUTION resolver."""
+    from src.product_intelligence.adapters.tiktok_pdp import TIKTOK_PDP_EXTRACTION_SCRIPT
+    from src.product_intelligence.tiktok_pdp_dom_scope import (
+        BOUNDED_TIKTOK_PDP_DOM_SCOPE_RESOLUTION,
+        TIKTOK_PDP_DOM_SCOPE_JS,
+    )
+
+    source_path = Path(inspect.getfile(tiktok_pdp))
+    source = source_path.read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    imports = {
+        node.module: [alias.name for alias in node.names]
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module
+    }
+    assert "src.product_intelligence.tiktok_pdp_dom_scope" in imports
+    assert "TIKTOK_PDP_DOM_SCOPE_JS" in imports["src.product_intelligence.tiktok_pdp_dom_scope"]
+    assert TIKTOK_PDP_DOM_SCOPE_JS in TIKTOK_PDP_EXTRACTION_SCRIPT
+    assert "resolveBoundedPdpDomScope()" in TIKTOK_PDP_EXTRACTION_SCRIPT
+    assert BOUNDED_TIKTOK_PDP_DOM_SCOPE_RESOLUTION == "BOUNDED_TIKTOK_PDP_DOM_SCOPE_RESOLUTION"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("candidates", "expected"),
+    [
+        (["₫200.000"], 200_000.0),
+        (["₫0"], 0.0),
+        (["₫200.000 - ₫250.000"], None),
+        (["₫200.000 - ₫250.000", "₫200.000"], None),
+        (["₫200.000", "₫250.000"], None),
+        (["₫200.000", "200,000 VND", "200k"], 200_000.0),
+        ([], None),
+    ],
+)
+async def test_exact_pdp_original_price_reconciliation(
+    candidates: list[str], expected: float | None
+) -> None:
+    result = await TikTokPdpCollector(
+        FakeSession(payload(original_price_candidates=candidates))
+    ).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+    assert result.snapshot.original_price == expected
+
+
+@pytest.mark.asyncio
+async def test_bounded_root_missing_and_unresolved_role_leave_price_none_without_failing_snapshot() -> None:
+    """Safe root absence and unresolved role yield None price fields without whole-snapshot failure."""
+    # Root missing: current and original price candidates empty, snapshot succeeds
+    root_missing_result = await TikTokPdpCollector(
+        FakeSession(payload(current_price_candidates=[], original_price_candidates=[]))
+    ).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+    assert root_missing_result.snapshot.price is None
+    assert root_missing_result.snapshot.original_price is None
+    assert root_missing_result.snapshot.title == "Đèn LED cảm biến chuyển động"
+    assert root_missing_result.snapshot.source_product_id == PRODUCT_ID
+
+    # Unambiguous current and original price
+    both_result = await TikTokPdpCollector(
+        FakeSession(
+            payload(
+                current_price_candidates=["₫150.000"],
+                original_price_candidates=["₫200.000"],
+            )
+        )
+    ).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+    assert both_result.snapshot.price == 150_000.0
+    assert both_result.snapshot.original_price == 200_000.0
+
+    # Conflicting current prices
+    conflict_result = await TikTokPdpCollector(
+        FakeSession(
+            payload(
+                current_price_candidates=["₫150.000", "₫180.000"],
+                original_price_candidates=["₫200.000"],
+            )
+        )
+    ).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+    assert conflict_result.snapshot.price is None
+    assert conflict_result.snapshot.original_price == 200_000.0
+
+    # Range current price
+    range_result = await TikTokPdpCollector(
+        FakeSession(
+            payload(
+                current_price_candidates=["₫150.000 - ₫200.000"],
+                original_price_candidates=["₫250.000"],
+            )
+        )
+    ).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+    assert range_result.snapshot.price is None
+    assert range_result.snapshot.original_price == 250_000.0

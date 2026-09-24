@@ -23,9 +23,14 @@ from src.product_intelligence.adapters.tiktok_parsing import (
     parse_tiktok_rating,
 )
 from src.product_intelligence.models import ProductCandidateSnapshot
+from src.product_intelligence.tiktok_pdp_dom_scope import TIKTOK_PDP_DOM_SCOPE_JS
 
 
-TIKTOK_PDP_EXTRACTION_SCRIPT = r"""() => {
+TIKTOK_PDP_EXTRACTION_SCRIPT = (
+    r"""() => {
+"""
+    + TIKTOK_PDP_DOM_SCOPE_JS
+    + r"""
     const text = (selector) => Array.from(document.querySelectorAll(selector))
         .map((node) => (node.innerText || node.textContent || '').trim())
         .filter(Boolean);
@@ -50,6 +55,75 @@ TIKTOK_PDP_EXTRACTION_SCRIPT = r"""() => {
         bodyText.includes('product is unavailable') || bodyText.includes('page not found')
     ) accessState = 'UNAVAILABLE';
 
+    let currentPrices = [], originalPrices = [];
+    if (accessState === 'PUBLIC') {
+        const scope = resolveBoundedPdpDomScope();
+        const root = scope.root;
+        if (root) {
+            const isButton = (el) => {
+                if (!el) return false;
+                const tag = String(el.tagName || '').toLowerCase();
+                const role = String(el.getAttribute('role') || '').toLowerCase();
+                return tag === 'button' || role === 'button' || tag === 'a' || tag === 'select' || tag === 'input';
+            };
+            const isInsideButton = (el) => {
+                let cur = el;
+                while (cur && cur !== root) {
+                    if (isButton(cur)) return true;
+                    cur = cur.parentElement;
+                }
+                return false;
+            };
+            const isStrikeThrough = (el) => {
+                let cur = el;
+                while (cur && cur !== root) {
+                    const tag = String(cur.tagName || '').toLowerCase();
+                    if (tag === 'del' || tag === 's' || tag === 'strike') return true;
+                    try {
+                        const style = getComputedStyle(cur);
+                        const dec = (style.textDecorationLine || style.textDecoration || '').toLowerCase();
+                        if (dec.includes('line-through')) return true;
+                    } catch (_) {}
+                    cur = cur.parentElement;
+                }
+                return false;
+            };
+            const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+            const candidates = [];
+            let node = walker.currentNode;
+            while (node) {
+                if (node !== root && visible(node) && !isInsideButton(node)) {
+                    if (!scope.titleAnchor || (node !== scope.titleAnchor && !scope.titleAnchor.contains(node))) {
+                        const t = clip((node.innerText || node.textContent || ''), 160).trim();
+                        if (t && /\d/.test(t)) {
+                            const attrStr = structural(node);
+                            const hasCurrency = /₫|\bđ\b|\bvnd\b|[\$£€¥]/i.test(t);
+                            const hasPriceAttr = /price/.test(attrStr) || /price/i.test(String(node.getAttribute('itemprop') || ''));
+                            if (hasCurrency || hasPriceAttr) {
+                                candidates.push({ node, text: t, isStrike: isStrikeThrough(node), attrStr });
+                            }
+                        }
+                    }
+                }
+                node = walker.nextNode();
+            }
+            const leafCandidates = candidates.filter((c, idx) => {
+                return !candidates.some((other, oidx) => oidx !== idx && c.node.contains(other.node) && other.text === c.text);
+            });
+            for (const c of leafCandidates) {
+                const isExplicitOriginal = /original|regular|was|high[-_]?price/i.test(c.attrStr);
+                const isExplicitCurrent = /current|product[-_]?price|special[-_]?price/i.test(c.attrStr) || String(c.node.getAttribute('itemprop') || '').toLowerCase() === 'price';
+                if (c.isStrike || isExplicitOriginal) {
+                    if (!isExplicitCurrent) {
+                        originalPrices.push(c.text);
+                    }
+                } else {
+                    currentPrices.push(c.text);
+                }
+            }
+        }
+    }
+
     return {
         observed_url: window.location.href,
         access_state: accessState,
@@ -59,14 +133,15 @@ TIKTOK_PDP_EXTRACTION_SCRIPT = r"""() => {
         ],
         title_candidates: text('h1, [data-testid="product-title"], [data-e2e="product-title"]'),
         shop_name_candidates: text('[data-testid="shop-name"], [data-e2e="shop-name"], main .seller-name'),
-        current_price_candidates: text('[data-testid="product-price"], [data-e2e="product-price"], main .current-price'),
-        original_price_candidates: text('[data-testid="original-price"], main .original-price, main .line-through'),
+        current_price_candidates: currentPrices,
+        original_price_candidates: originalPrices,
         discount_candidates: text('[data-testid="discount"], main .discount-badge, main .discount'),
         sold_count_candidates: text('[data-testid="sold-count"], [data-e2e="sold-count"], main .sold-count'),
         rating_candidates: text('[data-testid="rating-score"], [data-e2e="rating-score"], main .rating-score'),
         review_count_candidates: text('[data-testid="review-count"], [data-e2e="review-count"], main .review-count')
     };
 }"""
+)
 
 
 class TikTokPdpFailureCode(str, Enum):

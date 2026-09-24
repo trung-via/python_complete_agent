@@ -825,6 +825,30 @@ NEXT is null, pending commitments are empty, automatic progression is false, the
 `HUMAN_OPERATOR_GENERATION_7_BOUNDED_TITLE_LOCAL_COMMERCE_ROOT_DIAGNOSTIC_EXECUTION`, and post-attempt review authority is
 `HUMAN_BRAIN_GENERATION_7_BOUNDED_TITLE_LOCAL_COMMERCE_ROOT_DIAGNOSTIC_REVIEW`.
 See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN7_AUTHORIZATION.md` for the exact contract.
+TASK-248 is publication-gated DONE only as
+`GENERATION_7_SUCCESS_RECONCILIATION_AND_BOUNDED_ROOT_SCOPED_PRICE_EXTRACTION_HARDENING_ONLY`.
+It records exact TASK-247 / RUN-247-002 / REVIEW-247-001 publication lineage at
+`5c4b54b02c844636b70fc64f9378fc680810a386` and reconciles the consumed Human-operated generation-7 diagnostic
+execution as one SUCCESS event with exact immutable schema-V4 artifact provenance (SHA256
+`E635BDF3C211F736EB0630EA44DE0563AD141114D28BF5BBD84650478E095817`, size 29423 bytes, observed at
+`2026-09-23T18:42:34.938791+00:00`, `evidence_authority=NONE`) and no invented exit code or AIOS RUN.
+Exact reviewed structural observations (`selected_root_kind=TITLE_LOCAL_COMMERCE_QUORUM`, selected ancestor level 2
+with 90 nodes scanned, untruncated, 3 currency-like signals, 2 commerce-semantic actions, 1 strong commerce action,
+1 paired strong commerce control, and quorum satisfied) are preserved as immutable historical diagnostic context only.
+
+TASK-248 consolidates `BOUNDED_TIKTOK_PDP_DOM_SCOPE_RESOLUTION` into exactly one canonical reusable Product Intelligence
+structural capability in `src/product_intelligence/tiktok_pdp_dom_scope.py`, consumed by both the V4 diagnostic and
+the collector. The helper owns only deterministic DOM scoping mechanics with light-DOM traversal only and zero
+shadow-root/iframe traversal. In `src/product_intelligence/adapters/tiktok_pdp.py`, `TikTokPdpCollector` hardens only
+current and original price discovery to the resolved bounded root when available, using visible element-local currency-like
+observations and generic rendered presentation semantics (strike-through) without canonicalizing case-specific classes.
+Safe root absence yields unknown price fields (`None`) without whole-snapshot failure. Existing scalar price admission
+authority remains in `parse_tiktok_pdp_price` and Python reconciliation, preserving `AMBIGUOUS_PRICE_IS_NOT_EXACT_PRICE`.
+Non-price collector behavior remains unchanged and no action observation is admitted into the collector.
+NEXT is null, pending commitments are empty, automatic progression is false, `selector_repair_complete` remains false,
+all live/acquisition/action authorities remain `NONE`, and control returns to
+`HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION` without granting a live attempt.
+See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_GEN7_RESULT_AND_ROOT_SCOPED_PRICE_HARDENING.md`.
 
 
 The complete audit and P7.0 boundary are recorded in

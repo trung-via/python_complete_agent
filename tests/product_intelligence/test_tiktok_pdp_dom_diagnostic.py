@@ -517,3 +517,23 @@ def test_script_has_valid_four_or_more_digit_atom_rejection_guard():
     """Regress the exact missing-opening-delimiter defect, not general JS syntax."""
     assert r"&&!/\d{4,}/.test(s)" in DIAGNOSTIC_SCRIPT
     assert r"&&!\d{4,}/.test(s)" not in DIAGNOSTIC_SCRIPT
+
+
+def test_diagnostic_consumes_canonical_shared_bounded_dom_scope_resolver():
+    """Prove diagnostic consumes the canonical shared BOUNDED_TIKTOK_PDP_DOM_SCOPE_RESOLUTION resolver."""
+    from src.product_intelligence.tiktok_pdp_dom_scope import (
+        BOUNDED_TIKTOK_PDP_DOM_SCOPE_RESOLUTION,
+        TIKTOK_PDP_DOM_SCOPE_JS,
+    )
+    source = (Path(__file__).resolve().parents[2] / "src/product_intelligence/tiktok_pdp_dom_diagnostic.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    imports = {
+        node.module: [alias.name for alias in node.names]
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module
+    }
+    assert "src.product_intelligence.tiktok_pdp_dom_scope" in imports
+    assert "TIKTOK_PDP_DOM_SCOPE_JS" in imports["src.product_intelligence.tiktok_pdp_dom_scope"]
+    assert TIKTOK_PDP_DOM_SCOPE_JS in DIAGNOSTIC_SCRIPT
+    assert "resolveBoundedPdpDomScope()" in DIAGNOSTIC_SCRIPT
+    assert BOUNDED_TIKTOK_PDP_DOM_SCOPE_RESOLUTION == "BOUNDED_TIKTOK_PDP_DOM_SCOPE_RESOLUTION"
