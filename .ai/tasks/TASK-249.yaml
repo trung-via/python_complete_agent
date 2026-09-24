@@ -1,0 +1,303 @@
+task_id: TASK-249
+revision: 1
+
+goal: >
+  Harden only the existing Human-operated TikTok public-PDP live-pilot carrier so that a later,
+  separately authorized post-TASK248 one-shot collector validation has durable attempt-consumption
+  lineage, exact TASK-248 implementation provenance, bounded terminal evidence for both success and
+  fail-closed outcomes, interruption visibility, and secret-safe external artifacts. Preserve the
+  published TikTokPdpCollector, canonical TikTok parser, shared bounded DOM-scope resolver, TASK-137
+  browser lifecycle authority, Product Intelligence observation/evidence ownership, and all live
+  acquisition, automated acquisition, ranking, recommendation, approval, market-test, and commerce-
+  action gates. TASK-249 performs no TikTok/CDP operation and grants no live attempt.
+
+problem: >
+  TASK-248 is exactly published on canonical main at
+  39979020a10b78e1f86c30cf2b704f2f975daec9 after independent semantic review and remediation.
+  The collector now shares the proven bounded PDP DOM-scope resolver, bounds price observation,
+  fails closed on truncated price traversal, and no longer defaults unresolved currency-like DOM
+  observations to current price. Canonical planning therefore correctly returns to
+  HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION with zero live authority. However, the existing
+  operation-specific carrier src/product_intelligence/tiktok_pdp_live_pilot.py still reflects the
+  older TASK-233 execution contract: it writes a bounded artifact only after successful collection,
+  does not durably mark the exact moment at which a later one-shot attempt becomes consumed, does
+  not leave deterministic terminal evidence for ordinary fail-closed outcomes, and does not bind
+  its external operation record to the exact published TASK-248 collector baseline. A later live
+  validation would therefore remain vulnerable to ambiguous interruption or failure lineage and
+  could force Brain to reconstruct whether an attempt started from console/chat evidence. The
+  smallest justified engineering step is to harden that existing carrier in place, without
+  modifying or reinterpreting the collector or granting a new live operation.
+
+assumptions:
+  - Canonical main at authoring is 39979020a10b78e1f86c30cf2b704f2f975daec9.
+  - TASK-248 is the exact reviewed and published current collector-hardening baseline.
+  - The exact post-TASK248 planning handoff is HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION.
+  - live_public_pdp_acquisition_authority, automated_public_pdp_acquisition_authority, and
+    market_test_or_action_authority are NONE; automatic progression is false.
+  - The selected P8 case remains context p8-pilot-001-led-motion-tiktok-vn, source ID
+    "1731381331718341815", and the exact existing selected TikTok Shop Vietnam PDP URL.
+  - TikTokPdpCollector remains the sole Product Intelligence exact-PDP observation/admission owner.
+  - src/product_intelligence/adapters/tiktok_parsing.py remains the sole canonical TikTok parsing and
+    exact-PDP scalar-price admission authority.
+  - src/product_intelligence/tiktok_pdp_dom_scope.py owns bounded structural PDP DOM-scope resolution only.
+  - TASK-137 and the existing Playwright manager/session implementation remain the sole browser/CDP
+    lifecycle and borrowed-session authority.
+  - CAPABILITY_IS_NOT_AUTHORITY, EVIDENCE_IS_NOT_PRODUCT_TRUTH,
+    SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY, SNAPSHOT_IS_NOT_TREND,
+    AMBIGUOUS_PRICE_IS_NOT_EXACT_PRICE, and ONE_CAPABILITY_ONE_AUTHORITY remain mandatory.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_COLLECTOR_IMPLEMENTATION.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_LIVE_PILOT_AUTHORIZATION.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_LIVE_PILOT_REVIEW_AND_DOM_DIAGNOSTIC.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_GEN7_RESULT_AND_ROOT_SCOPED_PRICE_HARDENING.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN7_AUTHORIZATION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - .ai/aios-adoption-state.yaml
+    - .ai/tasks/TASK-137.yaml
+    - .ai/tasks/TASK-233.yaml
+    - .ai/tasks/TASK-234.yaml
+    - .ai/tasks/TASK-247.yaml
+    - .ai/tasks/TASK-248.yaml
+    - src/product_intelligence/tiktok_pdp_live_pilot.py
+    - src/product_intelligence/cli.py
+    - src/product_intelligence/adapters/tiktok_pdp.py
+    - src/product_intelligence/adapters/tiktok_parsing.py
+    - src/product_intelligence/tiktok_pdp_dom_scope.py
+    - src/product_intelligence/models.py
+    - src/integrations/playwright/manager.py
+    - src/integrations/playwright/session.py
+    - tests/product_intelligence/test_tiktok_pdp_live_pilot.py
+    - tests/product_intelligence/test_product_intelligence_cli.py
+    - tests/product_intelligence/test_tiktok_pdp.py
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - src/product_intelligence/tiktok_pdp_live_pilot.py
+    - tests/product_intelligence/test_tiktok_pdp_live_pilot.py
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK248_VALIDATION_CARRIER_HARDENING.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - Execute TikTok, connect to real CDP, borrow a real browser session, navigate a live PDP, or acquire
+    marketplace evidence during TASK-249 engineering or deterministic verification.
+  - Grant, consume, or imply a fresh live validation attempt; TASK-249 is capability hardening only.
+  - Modify TikTokPdpCollector, TIKTOK_PDP_EXTRACTION_SCRIPT, the shared DOM-scope resolver, canonical
+    TikTok parser, ProductCandidateSnapshot, SignalEvidence, or Product Source semantics.
+  - Repair or add selectors for shop_name, price, original_price, discount_percent, sold_count,
+    rating, review_count, actions, variants, inventory, Affiliate fields, or Wave-2 observations.
+  - Add a generation-8 DOM diagnostic or reinterpret generation-7 structural observations as current
+    marketplace facts, selectors, expected outcomes, or Product Truth.
+  - Add a second live-validation carrier, second collector, second parser, second evidence model, or
+    second browser/session lifecycle owner.
+  - Add URL/source/query/product overrides, search, similar-listing discovery, batch operation,
+    multi-listing capture, variant switching, retry, resume, refresh, scheduler, queue, watcher,
+    proxy, stealth, evasion, CAPTCHA solving, credential capture, or profile controls.
+  - Access or infer TikTok Affiliate eligibility/economics, construct P7.4/P7.5, normalize the
+    external validation artifact into SignalEvidence, score/rank/recommend/approve a product,
+    authorize P8.4 or a market test, spend, traffic, publication, price/inventory mutation, winner
+    judgment, or any commerce action.
+  - Modify src/product_intelligence/cli.py or the existing Human-facing command/argument surface.
+
+constraints:
+  hard:
+    - >
+      Classification is exactly POST_TASK248_LIVE_PUBLIC_PDP_VALIDATION_CARRIER_HARDENING_ONLY.
+      TASK-249 hardens capability and operation lineage only; publication grants zero live authority.
+    - >
+      Preserve the existing single operation-specific carrier
+      src/product_intelligence/tiktok_pdp_live_pilot.py as the only Human-operated public-PDP carrier.
+      Harden it in place. Do not create tiktok_pdp_live_validation.py or any parallel carrier owner.
+    - >
+      Bind engineering provenance in the new carrier contract to collector_baseline_task_id TASK-248
+      and collector_baseline_source_sha 39979020a10b78e1f86c30cf2b704f2f975daec9. This is
+      implementation lineage only, not marketplace evidence. Do not encode generation-7 ancestor
+      level, topology counts, class tokens, observed price/text, or other live diagnostic values.
+    - >
+      Preserve the existing Human-facing CLI subcommand tiktok-pdp-live-pilot and exactly its
+      existing required --job-root and --cdp-endpoint inputs. Add no new CLI option and modify no
+      CLI code. The target remains the already-fixed selected context/source/listing in the carrier.
+    - >
+      Introduce a V2 external validation-artifact contract with exactly two fixed create-exclusive
+      filenames: tiktok-pdp-live-validation-attempt-v2.json for the durable attempt marker and
+      tiktok-pdp-live-validation-result-v2.json for the terminal result. Both roots must remain
+      explicit, external to the Git repository, and secret-free.
+    - >
+      All non-consuming local gates must run before the attempt marker is created: explicit external
+      job-root validation, repository-root exclusion, absence of both fixed V2 artifact files,
+      non-empty operator-owned CDP endpoint input, and a timezone-aware operation start timestamp.
+      Failure before successful marker creation performs no browser/session or collector operation.
+    - >
+      Successful create-exclusive persistence of the V2 attempt marker is the carrier's durable
+      consumption boundary for any later separately authorized one-shot execution. Marker absence
+      means this carrier has not crossed its consuming boundary; marker existence means the attempt
+      crossed that boundary. The carrier must never delete, rewrite, or silently replace the marker.
+    - >
+      The attempt marker contains only a bounded allowlist: schema version, record type,
+      POST_TASK248_LIVE_PUBLIC_PDP_COLLECTOR_VALIDATION contract identifier, fixed context/source/
+      requested listing binding, started_at, Human execution ownership, review-required status,
+      collector_baseline_task_id TASK-248, and exact collector_baseline_source_sha. It must never
+      contain the CDP endpoint, cookies, headers, tokens, credentials, browser/profile paths, raw
+      HTML/DOM, storage, screenshots, media, arbitrary page text, account/private data, or marketplace
+      observation values.
+    - >
+      After successful marker creation, every terminal carrier outcome is consuming. Browser/session
+      acquisition failure, blocked/login/challenge, navigation or evaluation failure, identity
+      failure, required-title/extraction failure, result-binding mismatch, cleanup failure, process/
+      power interruption, terminal-result persistence failure, or success grants no retry, refresh,
+      resume, second invocation, replacement target, or automatic follow-up.
+    - >
+      When control remains in-process after marker creation, the carrier must make exactly one
+      best-effort create-exclusive write of tiktok-pdp-live-validation-result-v2.json for the
+      terminal outcome. If terminal-result persistence itself fails, preserve the attempt marker,
+      raise only a bounded secret-free carrier error, perform no retry, and define marker-without-
+      result as CONSUMED_INTERRUPTED_OR_UNOBSERVED for later Human/Brain review.
+    - >
+      The V2 terminal document must separate operation status from observation status. Operation
+      status is only SUCCESS or FAIL_CLOSED. Observation status is only OBSERVED or NOT_OBSERVED.
+      SUCCESS requires one admitted exact-listing collector observation plus successful required
+      manager-session release. A valid admitted observation followed by manager-session release
+      failure must be FAIL_CLOSED / OBSERVED, not clean success and not silently discarded.
+    - >
+      A snapshot may appear in the V2 terminal document only when the existing TikTokPdpCollector
+      actually admitted one valid ProductCandidateSnapshot and the carrier revalidated the existing
+      fixed exact-listing binding contract. Blocked/login/access, identity, title, extraction,
+      manager/session acquisition, or binding failures must produce NOT_OBSERVED with no fabricated
+      snapshot fields.
+    - >
+      Preserve the existing bounded success snapshot allowlist only: candidate_id, platform,
+      source_product_id, url, observed_at, collector, title, shop_name, price, original_price,
+      discount_percent, sold_count, rating, review_count. Missing optional fields remain null/unknown.
+      One snapshot is not trend, Product Truth, recommendation, approval, or action authority.
+    - >
+      Terminal failure reasons must come from a fixed bounded code allowlist and must not persist raw
+      exception messages. The allowlist must cover at minimum BROWSER_SESSION_UNAVAILABLE,
+      BLOCKED_OR_LOGIN, IDENTITY_MISMATCH, REQUIRED_TITLE_UNAVAILABLE, COLLECTOR_EXTRACTION_FAILED,
+      RESULT_BINDING_MISMATCH, SESSION_RELEASE_FAILED, TERMINAL_ARTIFACT_WRITE_FAILED, and
+      UNCLASSIFIED_OPERATION_FAILURE. Executor may map existing typed collector exceptions to these
+      codes without creating a second marketplace or parser authority.
+    - >
+      Preserve primary semantic failure when cleanup also fails. A collector failure plus cleanup
+      failure must not be relabeled as successful observation; if a bounded secondary cleanup
+      condition is represented, it must not overwrite the primary failure code or leak exception
+      text. A collector success plus cleanup failure retains the bounded admitted observation but
+      operation status remains FAIL_CLOSED.
+    - >
+      Invoke the existing TikTokPdpCollector at most once. Preserve the fixed exact target and
+      timezone-aware observed_at. Use existing PlaywrightBrowserManager/session authority only.
+      After an acquired session, release through manager.close_session(_SESSION_RUN_ID) in a finally
+      path; never call session.close(), close_all(), or browser/context/page close operations.
+    - >
+      Do not modify src/product_intelligence/adapters/tiktok_pdp.py,
+      src/product_intelligence/tiktok_pdp_dom_scope.py,
+      src/product_intelligence/adapters/tiktok_parsing.py, src/product_intelligence/models.py,
+      src/product_intelligence/cli.py, src/integrations/playwright/manager.py, or
+      src/integrations/playwright/session.py. TASK-249 must validate the exact published TASK-248
+      collector baseline rather than moving that baseline.
+    - >
+      Deterministic tests must use fake manager/session/collector/time/filesystem boundaries only.
+      No test may access TikTok, external network, real Playwright/CDP, credentials, browser
+      profiles, provider/LLM, Drive, Affiliate UI, or wall clock.
+    - >
+      Tests must prove at minimum: clean success creates marker plus SUCCESS/OBSERVED result with
+      bounded snapshot; unsafe/root-invalid/pre-existing-artifact/naive-clock failures are
+      non-consuming and invoke no manager/collector; session acquisition failure after marker is
+      consuming and emits FAIL_CLOSED/NOT_OBSERVED; blocked/login, identity, title/extraction and
+      binding failures consume without snapshot; collector is invoked at most once with no retry;
+      success plus cleanup failure yields FAIL_CLOSED/OBSERVED with snapshot retained; collector
+      failure plus cleanup failure preserves the primary failure; endpoint/secrets never persist;
+      forced terminal-result write failure leaves the marker intact and never retries; dependency/
+      AST checks continue to exclude Affiliate/scoring/ranking/approval/persistence ownership.
+    - >
+      Add docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK248_VALIDATION_CARRIER_HARDENING.md describing the
+      exact TASK-248 baseline, two-phase V2 artifact contract, non-consuming local gates, durable
+      consumption boundary, terminal semantics, interruption interpretation, secret/safety bounds,
+      zero live authority and required later Human/Brain authorization-only step.
+    - >
+      Update both canonical roadmap documents and .ai/roadmap-state.yaml only publication-gated.
+      On exact reviewed TASK-249 publication record post_task248_live_validation_carrier_hardened
+      true; collector_validation_baseline task_id TASK-248 and source_sha
+      39979020a10b78e1f86c30cf2b704f2f975daec9; validation carrier schema version 2 and both fixed
+      filenames; preserve selector_repair_complete false; live_public_pdp_acquisition_authority NONE;
+      authorized_validation_attempts 0; automated_public_pdp_acquisition_authority NONE;
+      market_test_or_action_authority NONE; automatic_live_pilot false; automatic_progression false;
+      next_milestone null; pending_commitments empty; post_run_engineering_successor null; and exact
+      handoff HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION.
+    - >
+      TASK-249 must not author or imply the later authorization-only successor. That later Human/Brain
+      decision must bind one future attempt to the exact reviewed and published TASK-249 source, so
+      no self-referential execution-source binding is introduced here.
+    - >
+      Modify exactly the seven authorized paths. Produce one candidate and one ResultPackage.
+      Runtime owns deterministic verification; Executor must not publish, execute live TikTok/CDP,
+      review its own candidate, grant a live attempt, or begin a successor.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Exact TASK-248 publication lineage remains the collector validation baseline and is recorded as
+      engineering provenance only; no generation-7 diagnostic observation becomes a runtime
+      selector, expected live result, or marketplace truth.
+  - id: AC2
+    condition: >
+      The existing tiktok_pdp_live_pilot carrier is hardened in place as the sole operation-specific
+      carrier, with no second live-validation carrier, collector, parser, evidence model, or browser
+      lifecycle owner and with the Human-facing CLI surface unchanged.
+  - id: AC3
+    condition: >
+      One create-exclusive external V2 attempt marker provides a deterministic durable consumption
+      boundary after all local non-consuming gates and before first browser/live operation; the
+      marker is bounded, secret-free, immutable, and includes exact TASK-248 baseline provenance.
+  - id: AC4
+    condition: >
+      After marker creation the carrier attempts exactly one create-exclusive V2 terminal record for
+      every in-process terminal outcome, while marker-without-result is explicitly interpretable as
+      consumed/interrupted rather than permission to retry.
+  - id: AC5
+    condition: >
+      Terminal semantics distinguish SUCCESS/FAIL_CLOSED from OBSERVED/NOT_OBSERVED, use only bounded
+      failure codes, never persist raw exceptions or secrets, and preserve a valid admitted snapshot
+      through cleanup failure only as FAIL_CLOSED/OBSERVED.
+  - id: AC6
+    condition: >
+      Existing TikTokPdpCollector remains the sole observation/admission owner and is invoked at most
+      once; snapshot fields appear only after its valid exact-listing admission, missing optional
+      values remain unknown, and no collector/parser/root/model semantics are modified.
+  - id: AC7
+    condition: >
+      TASK-137 browser lifecycle authority is preserved: one borrowed manager/session path, manager-
+      mediated close_session after acquisition, no direct session/browser/context/page closure, no
+      retry/resume/refresh loop, and primary failure is preserved when cleanup also fails.
+  - id: AC8
+    condition: >
+      Offline regressions prove the two-phase artifact contract, consumption boundary, interruption
+      visibility, fixed target, exactly-once collector invocation, secret exclusion, failure
+      taxonomy, cleanup semantics, create-exclusive behavior, and absence of forbidden semantic
+      dependencies without any live TikTok/CDP access.
+  - id: AC9
+    condition: >
+      Exact reviewed TASK-249 publication grants zero live acquisition or action authority:
+      authorized_validation_attempts is 0, live/automated acquisition and market-test/action
+      authorities remain NONE, automatic progression is false, next_milestone is null, pending
+      commitments are empty, and the exact handoff remains
+      HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION.
+  - id: AC10
+    condition: >
+      Exactly the seven authorized paths change; focused pytest and git diff --check pass with zero
+      unresolved items, producing one candidate eligible for independent PRIMARY semantic review
+      and exact safe publication without any live marketplace operation or automatic successor.
+
+verification:
+  required:
+    - python -m pytest tests/product_intelligence/test_tiktok_pdp_live_pilot.py tests/product_intelligence/test_product_intelligence_cli.py tests/product_intelligence/test_tiktok_pdp.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task249-primary
+    - git diff --check
