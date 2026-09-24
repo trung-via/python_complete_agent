@@ -1,0 +1,8 @@
+review_id: REVIEW-248-003
+reviewed_sha: 39979020a10b78e1f86c30cf2b704f2f975daec9
+mode: DELTA
+verdict: PASS
+prior_finding_id: FINDING-248-002
+acceptance:
+  AC7: PASS
+findings: []
