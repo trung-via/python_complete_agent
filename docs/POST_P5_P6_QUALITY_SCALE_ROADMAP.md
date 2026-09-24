@@ -850,6 +850,40 @@ all live/acquisition/action authorities remain `NONE`, and control returns to
 `HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION` without granting a live attempt.
 See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_GEN7_RESULT_AND_ROOT_SCOPED_PRICE_HARDENING.md`.
 
+TASK-249 is publication-gated DONE only as
+`POST_TASK248_LIVE_PUBLIC_PDP_VALIDATION_CARRIER_HARDENING_ONLY`.
+It records exact TASK-248 / RUN-248-001 / REVIEW-248-001 publication lineage at
+`39979020a10b78e1f86c30cf2b704f2f975daec9` as the collector validation baseline.
+TASK-249 hardens only the existing Human-operated carrier in
+`src/product_intelligence/tiktok_pdp_live_pilot.py` for durable two-phase artifact
+consumption, exact TASK-248 implementation provenance, bounded terminal evidence for
+both success and fail-closed outcomes, interruption visibility, and secret-safe external
+artifacts without moving the collector baseline or modifying `src/product_intelligence/cli.py`.
+The V2 validation artifact contract introduces exactly two fixed filenames:
+`tiktok-pdp-live-validation-attempt-v2.json` for the durable attempt marker and
+`tiktok-pdp-live-validation-result-v2.json` for the terminal result. Both are create-exclusive,
+external to the Git repository, and secret-free. A job root containing either V2 artifact or
+the legacy `tiktok-pdp-live-pilot-result-v1.json` fails before marker creation.
+Non-consuming local gates run before marker creation: explicit external job root, Git repo
+exclusion, absence of legacy V1 and both V2 artifacts, non-empty operator CDP endpoint, and
+timezone-aware timestamp. Create-exclusive persistence of the attempt marker is the durable
+consumption boundary; marker presence without a valid conforming result represents
+`CONSUMED_INTERRUPTED_OR_UNOBSERVED`.
+Terminal sequencing requires waiting for cleanup outcome before deriving final status:
+operation status (`SUCCESS` or `FAIL_CLOSED`), observation status (`OBSERVED` or `NOT_OBSERVED`),
+and bounded `session_release_status` (`SUCCESS`, `FAILED`, or `NOT_APPLICABLE`).
+`TikTokPdpCollectionError` failures reuse canonical collector code values (`BLOCKED_OR_LOGIN`,
+`IDENTITY_MISMATCH_OR_UNVERIFIABLE`, `EXTRACTION_FAILURE`) without message parsing; carrier-local
+codes add only `BROWSER_SESSION_UNAVAILABLE`, `RESULT_BINDING_MISMATCH`, `SESSION_RELEASE_FAILED`,
+and `UNCLASSIFIED_OPERATION_FAILURE`. Every persisted `FAIL_CLOSED` operation raises a bounded
+carrier error preserving unchanged CLI non-zero exit behavior.
+TASK-249 becomes the sole current active track milestone while TASK-248 becomes historical.
+NEXT is null, pending commitments are empty, automatic progression is false,
+`authorized_validation_attempts` is 0, `authorized_validation_attempts_remaining` is 0,
+all live/acquisition/action authorities remain `NONE`, and control returns to
+`HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION` granting zero live attempts.
+See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK248_VALIDATION_CARRIER_HARDENING.md`.
+
 
 The complete audit and P7.0 boundary are recorded in
 `docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md`.

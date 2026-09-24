@@ -1,6 +1,6 @@
 """Human-operated one-shot carrier for the authorized TikTok PDP pilot.
 
-This module owns only operation-specific orchestration.  Browser/session lifecycle,
+This module owns only operation-specific orchestration. Browser/session lifecycle,
 PDP semantics, parsing, and snapshot meaning remain with their existing owners.
 """
 from __future__ import annotations
@@ -13,6 +13,7 @@ from typing import Callable, Mapping, Protocol
 
 from src.integrations.playwright.manager import PlaywrightBrowserManager
 from src.product_intelligence.adapters.tiktok_pdp import (
+    TikTokPdpCollectionError,
     TikTokPdpCollectionResult,
     TikTokPdpCollector,
 )
@@ -24,7 +25,15 @@ AUTHORIZED_PDP_URL = (
     "https://shop.tiktok.com/vn/pdp/"
     "den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815"
 )
-ARTIFACT_FILENAME = "tiktok-pdp-live-pilot-result-v1.json"
+CONTRACT_IDENTIFIER = "POST_TASK248_LIVE_PUBLIC_PDP_COLLECTOR_VALIDATION"
+COLLECTOR_BASELINE_TASK_ID = "TASK-248"
+COLLECTOR_BASELINE_SOURCE_SHA = "39979020a10b78e1f86c30cf2b704f2f975daec9"
+
+ATTEMPT_MARKER_FILENAME = "tiktok-pdp-live-validation-attempt-v2.json"
+RESULT_FILENAME = "tiktok-pdp-live-validation-result-v2.json"
+LEGACY_ARTIFACT_FILENAME = "tiktok-pdp-live-pilot-result-v1.json"
+ARTIFACT_FILENAME = RESULT_FILENAME
+
 _SESSION_RUN_ID = f"human-one-shot:{PILOT_CONTEXT_ID}"
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
@@ -82,7 +91,29 @@ def _resolve_external_job_root(job_root: str | Path) -> Path:
     return resolved
 
 
-def _snapshot_v1_document(result: TikTokPdpCollectionResult) -> dict[str, object]:
+def _write_json_exclusive(path: Path, document: Mapping[str, object]) -> None:
+    with path.open("x", encoding="utf-8", newline="\n") as stream:
+        json.dump(document, stream, ensure_ascii=False, indent=2)
+        stream.write("\n")
+
+
+def _attempt_marker_document(started_at: datetime) -> dict[str, object]:
+    return {
+        "schema_version": 2,
+        "record_type": "VALIDATION_ATTEMPT_MARKER",
+        "contract_identifier": CONTRACT_IDENTIFIER,
+        "context_id": PILOT_CONTEXT_ID,
+        "source_product_id": AUTHORIZED_SOURCE_ID,
+        "requested_url": AUTHORIZED_PDP_URL,
+        "started_at": started_at.isoformat(),
+        "execution_owner": "HUMAN_OPERATOR",
+        "review_status": "HUMAN_REVIEW_REQUIRED",
+        "collector_baseline_task_id": COLLECTOR_BASELINE_TASK_ID,
+        "collector_baseline_source_sha": COLLECTOR_BASELINE_SOURCE_SHA,
+    }
+
+
+def _snapshot_document(result: TikTokPdpCollectionResult) -> dict[str, object]:
     snapshot = result.snapshot
     return {
         "candidate_id": snapshot.candidate_id,
@@ -102,25 +133,43 @@ def _snapshot_v1_document(result: TikTokPdpCollectionResult) -> dict[str, object
     }
 
 
-def _success_document(
-    result: TikTokPdpCollectionResult, *, observed_at: datetime
+def _terminal_result_document(
+    *,
+    operation_status: str,
+    observation_status: str,
+    session_release_status: str,
+    failure_reason: str | None,
+    started_at: datetime,
+    observed_at: datetime,
+    result: TikTokPdpCollectionResult | None = None,
 ) -> dict[str, object]:
-    return {
-        "schema_version": 1,
-        "operation": {
-            "status": "SUCCESS",
-            "classification": (
-                "ONE_SHOT_LIVE_PUBLIC_PDP_PILOT_ENABLEMENT_AND_AUTHORIZATION"
-            ),
+    operation: dict[str, object] = {
+        "operation_status": operation_status,
+        "observation_status": observation_status,
+        "session_release_status": session_release_status,
+    }
+    if failure_reason is not None:
+        operation["failure_reason"] = failure_reason
+    operation.update(
+        {
+            "contract_identifier": CONTRACT_IDENTIFIER,
             "context_id": PILOT_CONTEXT_ID,
             "source_product_id": AUTHORIZED_SOURCE_ID,
             "requested_url": AUTHORIZED_PDP_URL,
+            "started_at": started_at.isoformat(),
             "observed_at": observed_at.isoformat(),
-            "authorized_capture_attempts": 1,
-            "capture_execution_owner": "HUMAN_OPERATOR",
+            "execution_owner": "HUMAN_OPERATOR",
             "review_status": "HUMAN_REVIEW_REQUIRED",
-        },
-        "binding": {
+            "collector_baseline_task_id": COLLECTOR_BASELINE_TASK_ID,
+            "collector_baseline_source_sha": COLLECTOR_BASELINE_SOURCE_SHA,
+        }
+    )
+    doc: dict[str, object] = {
+        "schema_version": 2,
+        "operation": operation,
+    }
+    if observation_status == "OBSERVED" and result is not None:
+        doc["binding"] = {
             "requested_url": result.binding.requested_url,
             "observed_url": result.binding.observed_url,
             "identity_bases": [
@@ -130,9 +179,9 @@ def _success_document(
                 }
                 for basis in result.binding.identity_bases
             ],
-        },
-        "snapshot": _snapshot_v1_document(result),
-    }
+        }
+        doc["snapshot"] = _snapshot_document(result)
+    return doc
 
 
 async def run_tiktok_pdp_live_pilot(
@@ -145,85 +194,148 @@ async def run_tiktok_pdp_live_pilot(
 ) -> TikTokPdpLivePilotOutcome:
     """Attempt the authorized exact listing once and never own browser shutdown."""
 
+    # 1. Non-consuming local gates
     root = _resolve_external_job_root(job_root)
-    artifact_path = root / ARTIFACT_FILENAME
-    if artifact_path.exists():
+    legacy_path = root / LEGACY_ARTIFACT_FILENAME
+    marker_path = root / ATTEMPT_MARKER_FILENAME
+    result_path = root / RESULT_FILENAME
+
+    if legacy_path.exists() or marker_path.exists() or result_path.exists():
         raise TikTokPdpLivePilotArtifactExistsError(
             "the one-shot live-pilot artifact already exists"
         )
     if not isinstance(cdp_endpoint, str) or not cdp_endpoint.strip():
         raise TikTokPdpLivePilotError("an explicit operator-owned CDP endpoint is required")
 
-    observed_at = clock()
+    started_at = clock()
     if (
-        not isinstance(observed_at, datetime)
-        or observed_at.tzinfo is None
-        or observed_at.utcoffset() is None
+        not isinstance(started_at, datetime)
+        or started_at.tzinfo is None
+        or started_at.utcoffset() is None
     ):
         raise TikTokPdpLivePilotError("the operation timestamp must be timezone-aware")
+    observed_at = started_at
 
+    # 2. Durable Attempt Marker creation
+    marker_doc = _attempt_marker_document(started_at)
     try:
-        manager = manager_factory(cdp_endpoint=cdp_endpoint)
-        session = await manager.get_or_create_session(_SESSION_RUN_ID)
-    except Exception as exc:
-        raise TikTokPdpLivePilotError(
-            "the operator-owned browser session could not be borrowed"
+        root.mkdir(parents=True, exist_ok=True)
+        _write_json_exclusive(marker_path, marker_doc)
+    except FileExistsError as exc:
+        raise TikTokPdpLivePilotArtifactExistsError(
+            "the live-pilot attempt marker already exists"
+        ) from exc
+    except OSError as exc:
+        raise TikTokPdpLivePilotJobRootError(
+            "the live-pilot attempt marker could not be created"
         ) from exc
 
-    operation_error: BaseException | None = None
+    # 3. Post-marker consuming execution
+    session_acquired = False
+    manager = None
+    collector_result: TikTokPdpCollectionResult | None = None
+    failure_reason: str | None = None
+
     try:
-        collector = collector_factory(session)
-        result = await collector.collect(AUTHORIZED_PDP_URL, observed_at=observed_at)
-        if (
-            result.snapshot.platform != "tiktok"
-            or result.snapshot.source_product_id != AUTHORIZED_SOURCE_ID
-            or result.snapshot.observed_at != observed_at
-            or result.binding.requested_url != AUTHORIZED_PDP_URL
-            or result.binding.observed_url != result.snapshot.url
-            or not result.binding.identity_bases
-            or any(
-                basis.source_product_id != AUTHORIZED_SOURCE_ID
-                for basis in result.binding.identity_bases
-            )
-        ):
-            raise TikTokPdpLivePilotError(
-                "collector result did not preserve the authorized exact-listing binding"
-            )
-
-        document = _success_document(result, observed_at=observed_at)
         try:
-            root.mkdir(parents=True, exist_ok=True)
-            with artifact_path.open("x", encoding="utf-8", newline="\n") as stream:
-                json.dump(document, stream, ensure_ascii=False, indent=2)
-                stream.write("\n")
-        except FileExistsError as exc:
-            raise TikTokPdpLivePilotArtifactExistsError(
-                "the one-shot live-pilot artifact already exists"
-            ) from exc
-        except OSError as exc:
-            raise TikTokPdpLivePilotJobRootError(
-                "the live-pilot artifact could not be created"
-            ) from exc
-    except BaseException as exc:
-        operation_error = exc
-        raise
+            manager = manager_factory(cdp_endpoint=cdp_endpoint)
+            session = await manager.get_or_create_session(_SESSION_RUN_ID)
+            session_acquired = True
+        except Exception:
+            failure_reason = "BROWSER_SESSION_UNAVAILABLE"
+
+        if session_acquired:
+            try:
+                collector = collector_factory(session)
+                collector_result = await collector.collect(
+                    AUTHORIZED_PDP_URL, observed_at=observed_at
+                )
+            except TikTokPdpCollectionError as exc:
+                failure_reason = exc.code.value
+            except Exception:
+                failure_reason = "UNCLASSIFIED_OPERATION_FAILURE"
+
+            if collector_result is not None and failure_reason is None:
+                if (
+                    collector_result.snapshot.platform != "tiktok"
+                    or collector_result.snapshot.source_product_id != AUTHORIZED_SOURCE_ID
+                    or collector_result.snapshot.observed_at != observed_at
+                    or collector_result.binding.requested_url != AUTHORIZED_PDP_URL
+                    or collector_result.binding.observed_url != collector_result.snapshot.url
+                    or not collector_result.binding.identity_bases
+                    or any(
+                        basis.source_product_id != AUTHORIZED_SOURCE_ID
+                        for basis in collector_result.binding.identity_bases
+                    )
+                ):
+                    failure_reason = "RESULT_BINDING_MISMATCH"
+                    collector_result = None
     finally:
-        try:
-            await manager.close_session(_SESSION_RUN_ID)
-        except Exception as exc:
-            if operation_error is None:
-                raise TikTokPdpLivePilotError(
-                    "the borrowed browser session could not be released"
-                ) from exc
+        cleanup_failed = False
+        if session_acquired and manager is not None:
+            try:
+                await manager.close_session(_SESSION_RUN_ID)
+            except Exception:
+                cleanup_failed = True
 
-    return TikTokPdpLivePilotOutcome(artifact_path=artifact_path, document=document)
+    # 4. Derive statuses
+    if session_acquired:
+        if cleanup_failed:
+            session_release_status = "FAILED"
+        else:
+            session_release_status = "SUCCESS"
+    else:
+        session_release_status = "NOT_APPLICABLE"
+
+    if cleanup_failed:
+        if failure_reason is None:
+            failure_reason = "SESSION_RELEASE_FAILED"
+            operation_status = "FAIL_CLOSED"
+            observation_status = "OBSERVED"
+        else:
+            operation_status = "FAIL_CLOSED"
+            observation_status = "NOT_OBSERVED"
+    elif failure_reason is not None:
+        operation_status = "FAIL_CLOSED"
+        observation_status = "NOT_OBSERVED"
+    else:
+        operation_status = "SUCCESS"
+        observation_status = "OBSERVED"
+
+    # 5. Build and persist terminal document
+    terminal_doc = _terminal_result_document(
+        operation_status=operation_status,
+        observation_status=observation_status,
+        session_release_status=session_release_status,
+        failure_reason=failure_reason,
+        started_at=started_at,
+        observed_at=observed_at,
+        result=collector_result if observation_status == "OBSERVED" else None,
+    )
+
+    try:
+        _write_json_exclusive(result_path, terminal_doc)
+    except Exception as exc:
+        raise TikTokPdpLivePilotError("TERMINAL_ARTIFACT_WRITE_FAILED") from exc
+
+    if operation_status == "FAIL_CLOSED":
+        assert failure_reason is not None
+        raise TikTokPdpLivePilotError(failure_reason)
+
+    return TikTokPdpLivePilotOutcome(artifact_path=result_path, document=terminal_doc)
 
 
 __all__ = [
     "ARTIFACT_FILENAME",
+    "ATTEMPT_MARKER_FILENAME",
     "AUTHORIZED_PDP_URL",
     "AUTHORIZED_SOURCE_ID",
+    "COLLECTOR_BASELINE_SOURCE_SHA",
+    "COLLECTOR_BASELINE_TASK_ID",
+    "CONTRACT_IDENTIFIER",
+    "LEGACY_ARTIFACT_FILENAME",
     "PILOT_CONTEXT_ID",
+    "RESULT_FILENAME",
     "TikTokPdpLivePilotArtifactExistsError",
     "TikTokPdpLivePilotError",
     "TikTokPdpLivePilotJobRootError",

@@ -139,6 +139,11 @@ P8_PUBLIC_PDP_GEN7_RESULT_AND_PRICE_HARDENING_FILE = (
     / "docs"
     / "PHASE_8_PUBLIC_TIKTOK_PDP_GEN7_RESULT_AND_ROOT_SCOPED_PRICE_HARDENING.md"
 )
+P8_PUBLIC_TIKTOK_PDP_POST_TASK248_VALIDATION_CARRIER_HARDENING_FILE = (
+    REPO_ROOT
+    / "docs"
+    / "PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK248_VALIDATION_CARRIER_HARDENING.md"
+)
 ROADMAP_DOCS = (
     REPO_ROOT / "docs" / "POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
     REPO_ROOT / "docs" / "POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
@@ -182,6 +187,7 @@ TASK_244_PUBLISHED_SOURCE_SHA = "bc4c48de89129583f024ab622051ea322f9ff5ea"
 TASK_245_PUBLISHED_SOURCE_SHA = "12c9a9852a32d8f0e79303803797ebf1e1fa98c2"
 TASK_246_PUBLISHED_SOURCE_SHA = "60da55d5241c7b4c433d9b2d7d5d3725556f443c"
 TASK_247_PUBLISHED_SOURCE_SHA = "5c4b54b02c844636b70fc64f9378fc680810a386"
+TASK_248_PUBLISHED_SOURCE_SHA = "39979020a10b78e1f86c30cf2b704f2f975daec9"
 GEN7_ARTIFACT_SHA256 = (
     "E635BDF3C211F736EB0630EA44DE0563AD141114D28BF5BBD84650478E095817"
 )
@@ -1230,8 +1236,6 @@ def test_task_247_history_preserves_authorization_without_freezing_current_globa
 
 def test_task_248_reconciles_gen7_success_and_hardens_bounded_root_price_extraction():
     state = load_yaml(ROADMAP_FILE)
-    active = state["active_track"]
-    milestone = active["current_milestone"]
     handoff = state["post_p8_planning_handoff"]
     reconciliation = handoff["generation_7_result_reconciliation_and_root_scoped_price_hardening"]
     doc_entry = handoff["public_pdp_gen7_result_and_root_scoped_price_hardening"]
@@ -1241,14 +1245,13 @@ def test_task_248_reconciles_gen7_success_and_hardens_bounded_root_price_extract
         encoding="utf-8"
     )
 
-    assert active["id"] == "P8_PUBLIC_PDP_GEN7_RESULT_AND_ROOT_SCOPED_PRICE_HARDENING"
-    assert active["sequence_status"] == "COMPLETE_ON_EXACT_TASK_248_SOURCE_PUBLICATION"
-    assert milestone["task_id"] == "TASK-248"
-    assert milestone["classification"] == (
+    assert completed_task["track_id"] == "P8_PUBLIC_PDP_GEN7_RESULT_AND_ROOT_SCOPED_PRICE_HARDENING"
+    assert completed_task["task_id"] == "TASK-248"
+    assert completed_task["classification"] == (
         "GENERATION_7_SUCCESS_RECONCILIATION_AND_BOUNDED_ROOT_SCOPED_PRICE_EXTRACTION_HARDENING_ONLY"
     )
 
-    for record in (milestone, reconciliation, doc_entry, completed_task):
+    for record in (reconciliation, doc_entry, completed_task):
         assert record["source_task_id"] == "TASK-247"
         assert record["source_run_id"] == "RUN-247-002"
         assert record["source_review_id"] == "REVIEW-247-001"
@@ -1274,7 +1277,7 @@ def test_task_248_reconciles_gen7_success_and_hardens_bounded_root_price_extract
             "HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION"
         )
 
-    for record in (milestone, doc_entry, completed_task):
+    for record in (doc_entry, completed_task):
         assert record["diagnostic_authorization_generation"] == 7
         assert record["diagnostic_executed"] is True
         assert record["root_observability_hardening_implemented"] is True
@@ -1291,7 +1294,6 @@ def test_task_248_reconciles_gen7_success_and_hardens_bounded_root_price_extract
     assert handoff["diagnostic_hardening_implemented"] is True
     assert handoff["selector_repair_complete"] is False
 
-    assert active["next_milestone"] is None
     assert handoff["next_milestone"] is None
     assert state["pending_commitments"] == []
     assert handoff["destination"] == "HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION"
@@ -1356,6 +1358,97 @@ def test_task_248_reconciles_gen7_success_and_hardens_bounded_root_price_extract
             "GENERATION_7_SUCCESS_RECONCILIATION_AND_BOUNDED_ROOT_SCOPED_PRICE_EXTRACTION_HARDENING_ONLY",
             "RUN-247-002",
             TASK_247_PUBLISHED_SOURCE_SHA,
+            "HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION",
+        ):
+            assert required in roadmap_text
+
+
+def test_task_249_hardens_post_task248_validation_carrier_with_zero_live_authority():
+    state = load_yaml(ROADMAP_FILE)
+    active = state["active_track"]
+    milestone = active["current_milestone"]
+    handoff = state["post_p8_planning_handoff"]
+    carrier_entry = handoff["public_pdp_post_task248_validation_carrier_hardening"]
+    completed = {item["task_id"]: item for item in state["completed_milestones"]}
+    completed_task = completed["TASK-249"]
+    document = P8_PUBLIC_TIKTOK_PDP_POST_TASK248_VALIDATION_CARRIER_HARDENING_FILE.read_text(
+        encoding="utf-8"
+    )
+
+    assert active["id"] == "P8_PUBLIC_PDP_POST_TASK248_VALIDATION_CARRIER_HARDENING"
+    assert active["sequence_status"] == "COMPLETE_ON_EXACT_TASK_249_SOURCE_PUBLICATION"
+    assert milestone["task_id"] == "TASK-249"
+    assert milestone["classification"] == (
+        "POST_TASK248_LIVE_PUBLIC_PDP_VALIDATION_CARRIER_HARDENING_ONLY"
+    )
+
+    for record in (milestone, carrier_entry, completed_task):
+        assert record["source_task_id"] == "TASK-248"
+        assert record["source_published_sha"] == TASK_248_PUBLISHED_SOURCE_SHA
+        assert record["collector_validation_baseline"] == {
+            "task_id": "TASK-248",
+            "source_sha": TASK_248_PUBLISHED_SOURCE_SHA,
+        }
+        assert record["post_task248_live_validation_carrier_hardened"] is True
+        assert record["validation_carrier_schema_version"] == 2
+        assert record["validation_attempt_marker_filename"] == "tiktok-pdp-live-validation-attempt-v2.json"
+        assert record["validation_result_filename"] == "tiktok-pdp-live-validation-result-v2.json"
+        assert record["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
+        assert record["authorized_source_id"] == SELECTED_SOURCE_ID
+        assert record["stable_listing_reference"] == SELECTED_LISTING_REFERENCE
+        assert record["carrier_module"] == "src/product_intelligence/tiktok_pdp_live_pilot.py"
+        assert record["authorized_validation_attempts"] == 0
+        assert record["authorized_validation_attempts_remaining"] == 0
+        assert record["validation_execution_owner"] == "NONE"
+        assert record["selector_repair_complete"] is False
+        assert record["live_public_pdp_acquisition_authority"] == "NONE"
+        assert record["automated_public_pdp_acquisition_authority"] == "NONE"
+        assert record["market_test_or_action_authority"] == "NONE"
+        assert record["automatic_live_pilot"] is False
+        assert record["automatic_progression"] is False
+        assert record["next_milestone"] is None
+        assert record["post_publication_handoff"] == (
+            "HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION"
+        )
+
+    assert handoff["post_task248_live_validation_carrier_hardened"] is True
+    assert handoff["collector_validation_baseline"]["task_id"] == "TASK-248"
+    assert handoff["collector_validation_baseline"]["source_sha"] == TASK_248_PUBLISHED_SOURCE_SHA
+    assert handoff["validation_carrier_schema_version"] == 2
+    assert handoff["validation_attempt_marker_filename"] == "tiktok-pdp-live-validation-attempt-v2.json"
+    assert handoff["validation_result_filename"] == "tiktok-pdp-live-validation-result-v2.json"
+    assert handoff["carrier_module"] == "src/product_intelligence/tiktok_pdp_live_pilot.py"
+    assert handoff["authorized_validation_attempts"] == 0
+    assert handoff["authorized_validation_attempts_remaining"] == 0
+    assert handoff["validation_execution_owner"] == "NONE"
+    assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_249_SOURCE_PUBLICATION"
+    assert handoff["completed_commitment"] == "P8_PUBLIC_PDP_POST_TASK248_VALIDATION_CARRIER_HARDENING"
+    assert handoff["destination"] == "HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION"
+    assert active["next_milestone"] is None
+    assert handoff["next_milestone"] is None
+    assert state["pending_commitments"] == []
+
+    for required in (
+        "POST_TASK248_LIVE_PUBLIC_PDP_VALIDATION_CARRIER_HARDENING_ONLY",
+        "TASK-248",
+        TASK_248_PUBLISHED_SOURCE_SHA,
+        "tiktok-pdp-live-validation-attempt-v2.json",
+        "tiktok-pdp-live-validation-result-v2.json",
+        "authorized_validation_attempts=0",
+        "HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION",
+        "CAPABILITY_IS_NOT_AUTHORITY",
+        "EVIDENCE_IS_NOT_PRODUCT_TRUTH",
+        "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY",
+        "SNAPSHOT_IS_NOT_TREND",
+        "ONE_CAPABILITY_ONE_AUTHORITY",
+    ):
+        assert required in document
+
+    for roadmap in ROADMAP_DOCS:
+        roadmap_text = roadmap.read_text(encoding="utf-8")
+        for required in (
+            "TASK-249 is publication-gated DONE only as",
+            "POST_TASK248_LIVE_PUBLIC_PDP_VALIDATION_CARRIER_HARDENING_ONLY",
             "HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION",
         ):
             assert required in roadmap_text

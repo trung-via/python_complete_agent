@@ -46,241 +46,41 @@ planning_handoff:
     semantic reconciliation without reinterpreting TASK-191 or changing TASK-213 history.
 
 active_track:
-  id: P8_PUBLIC_PDP_GEN7_RESULT_AND_ROOT_SCOPED_PRICE_HARDENING
-  title: P8 Public TikTok PDP Generation-7 Result Reconciliation and Root-Scoped Price Hardening
+  id: P8_PUBLIC_PDP_POST_TASK248_VALIDATION_CARRIER_HARDENING
+  title: P8 Public TikTok PDP Post-TASK248 Validation Carrier Hardening
   priority_owner: HUMAN
   status: DONE
   completion_basis: PUBLICATION_GATED
-  sequence_status: COMPLETE_ON_EXACT_TASK_248_SOURCE_PUBLICATION
+  sequence_status: COMPLETE_ON_EXACT_TASK_249_SOURCE_PUBLICATION
   current_milestone:
-    id: P8.PUBLIC_PDP.GEN7_RESULT_AND_ROOT_SCOPED_PRICE_HARDENING
-    task_id: TASK-248
-    title: Public TikTok PDP Generation-7 Result Reconciliation and Root-Scoped Price Hardening
+    id: P8.PUBLIC_PDP.POST_TASK248_VALIDATION_CARRIER_HARDENING
+    task_id: TASK-249
+    title: Public TikTok PDP Post-TASK248 Validation Carrier Hardening
     status: DONE
     completion_basis: PUBLICATION_GATED
-    classification: GENERATION_7_SUCCESS_RECONCILIATION_AND_BOUNDED_ROOT_SCOPED_PRICE_EXTRACTION_HARDENING_ONLY
+    classification: POST_TASK248_LIVE_PUBLIC_PDP_VALIDATION_CARRIER_HARDENING_ONLY
     authorization_owner: HUMAN_BRAIN
-    source_task_id: TASK-247
-    source_run_id: RUN-247-002
-    source_review_id: REVIEW-247-001
-    source_published_sha: 5c4b54b02c844636b70fc64f9378fc680810a386
-    diagnostic_v4_implementation_source_sha: 60da55d5241c7b4c433d9b2d7d5d3725556f443c
-    generation_7_execution_source_sha: 60da55d5241c7b4c433d9b2d7d5d3725556f443c
+    source_task_id: TASK-248
+    source_published_sha: 39979020a10b78e1f86c30cf2b704f2f975daec9
+    collector_validation_baseline:
+      task_id: TASK-248
+      source_sha: 39979020a10b78e1f86c30cf2b704f2f975daec9
+    post_task248_live_validation_carrier_hardened: true
+    validation_carrier_schema_version: 2
+    validation_attempt_marker_filename: tiktok-pdp-live-validation-attempt-v2.json
+    validation_result_filename: tiktok-pdp-live-validation-result-v2.json
     context_id: p8-pilot-001-led-motion-tiktok-vn
     authorized_source_id: "1731381331718341815"
     stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
-    diagnostic_carrier: src/product_intelligence/tiktok_pdp_dom_diagnostic.py
-    diagnostic_schema_version: 4
-    diagnostic_artifact_filename: tiktok-pdp-dom-diagnostic-v4.json
-    diagnostic_artifact_create_exclusive: true
-    evidence_authority: NONE
-    diagnostic_authorization_generation: 7
-    live_dom_diagnostic_authority: NONE
-    generation_7_authorized_diagnostic_attempts: 1
-    generation_7_authorized_diagnostic_attempts_remaining: 0
-    generation_7_diagnostic_execution_owner: HUMAN_OPERATOR
-    generation_7_diagnostic_executed: true
-    diagnostic_executed: true
-    diagnostic_outcome: SUCCESS
-    diagnostic_artifact_created: true
-    generation_7_authorized: false
-    bounded_pdp_dom_scope_resolution_shared: true
-    bounded_root_scoped_price_extraction_hardening_implemented: true
-    root_observability_hardening_implemented: true
-    commerce_observability_hardening_implemented: true
-    diagnostic_hardening_implemented: true
+    carrier_module: src/product_intelligence/tiktok_pdp_live_pilot.py
+    authorized_validation_attempts: 0
+    authorized_validation_attempts_remaining: 0
+    validation_execution_owner: NONE
     selector_repair_complete: false
     live_public_pdp_acquisition_authority: NONE
     automated_public_pdp_acquisition_authority: NONE
     market_test_or_action_authority: NONE
     automatic_live_pilot: false
-    automatic_progression: false
-    post_run_engineering_successor: null
-    next_milestone: null
-    exact_post_publication_handoff: HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION
-    post_publication_handoff: HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION
-    effective_only_when:
-      semantic_review: PASS
-      published_source: EXACT_REVIEWED_CANDIDATE
-      canonical_main_equals_reviewed_candidate: true
-    historical_generation_7:
-      task_id: TASK-247
-      diagnostic_executed: true
-      diagnostic_outcome: SUCCESS
-      diagnostic_artifact_created: true
-      authorized_diagnostic_attempts: 1
-      authorized_diagnostic_attempts_remaining: 0
-      execution_owner: HUMAN_OPERATOR
-      live_dom_diagnostic_authority: NONE
-      artifact:
-        schema_version: 4
-        filename: tiktok-pdp-dom-diagnostic-v4.json
-        sha256: E635BDF3C211F736EB0630EA44DE0563AD141114D28BF5BBD84650478E095817
-        size_bytes: 29423
-        observed_at: "2026-09-23T18:42:34.938791+00:00"
-        evidence_authority: NONE
-      root_probe:
-        title_anchor_count: 1
-        price_anchor_count: 0
-        action_anchor_count: 0
-        visible_explicit_pdp_root_count: 0
-        explicit_root_with_commerce_anchors_count: 0
-        main_present: false
-        main_visible: false
-        main_has_commerce_anchors: false
-        multi_anchor_common_ancestor_found: false
-        selected_root_kind: TITLE_LOCAL_COMMERCE_QUORUM
-        selected_title_local_ancestor_level: 2
-      selected_level_2_probe:
-        bounded_nodes_scanned: 90
-        bounded_scan_truncated: false
-        current_price_selector_match_count: 0
-        current_action_selector_match_count: 0
-        visible_currency_like_count: 3
-        commerce_semantic_action_like_count: 2
-        strong_commerce_action_like_count: 1
-        paired_strong_commerce_control_count: 1
-        title_local_root_quorum_satisfied: true
-    historical_generation_6:
-      task_id: TASK-246
-      diagnostic_executed: true
-      diagnostic_outcome: FAIL_CLOSED
-      diagnostic_failure_reason: NO_BOUNDED_PDP_ROOT
-      diagnostic_artifact_created: true
-      authorized_diagnostic_attempts: 1
-      authorized_diagnostic_attempts_remaining: 0
-      execution_owner: HUMAN_OPERATOR
-      live_dom_diagnostic_authority: NONE
-      artifact:
-        schema_version: 3
-        filename: tiktok-pdp-dom-diagnostic-v3.json
-        sha256: A5CD014DD2A9B10DD969843BA37369815A9595248DFB5DD29355376B51143764
-        size_bytes: 27549
-        observed_at: "2026-09-23T13:14:40.397608+00:00"
-        evidence_authority: NONE
-      root_probe:
-        title_anchor_count: 1
-        price_anchor_count: 0
-        action_anchor_count: 0
-        visible_explicit_pdp_root_count: 0
-        explicit_root_with_commerce_anchors_count: 0
-        main_present: false
-        main_visible: false
-        main_has_commerce_anchors: false
-        multi_anchor_common_ancestor_found: false
-        selected_root_kind: NONE
-    historical_generation_1:
-      task_id: TASK-235
-      diagnostic_executed: true
-      diagnostic_outcome: FAIL_CLOSED
-      diagnostic_artifact_created: false
-      authorized_diagnostic_attempts: 1
-      authorized_diagnostic_attempts_remaining: 0
-      historical_failure_reason: LEGACY_COMBINED_PUBLIC_PDP_AVAILABILITY_GATE
-    historical_generation_2:
-      task_id: TASK-237
-      diagnostic_executed: true
-      diagnostic_outcome: FAIL_CLOSED
-      diagnostic_failure_reason: NO_BOUNDED_PDP_ROOT
-      diagnostic_artifact_created: false
-      authorized_diagnostic_attempts: 1
-      authorized_diagnostic_attempts_remaining: 0
-      execution_owner: HUMAN_OPERATOR
-    historical_generation_3:
-      task_id: TASK-240
-      diagnostic_executed: true
-      diagnostic_outcome: FAIL_CLOSED
-      diagnostic_failure_reason: NO_BOUNDED_PDP_ROOT
-      diagnostic_artifact_created: true
-      authorized_diagnostic_attempts: 1
-      authorized_diagnostic_attempts_remaining: 0
-      generation_3_authorized_diagnostic_attempts: 1
-      generation_3_authorized_diagnostic_attempts_remaining: 0
-      execution_owner: HUMAN_OPERATOR
-      generation_3_diagnostic_execution_owner: HUMAN_OPERATOR
-      live_dom_diagnostic_authority: NONE
-      artifact:
-        schema_version: 1
-        filename: tiktok-pdp-dom-diagnostic-v1.json
-        sha256: 4CE631661F897F16133EFEAA3CC1CA03C5E468CC56F1F7D46B7F2FF53EBDF00E
-        size_bytes: 755
-        observed_at: "2026-09-22T05:59:34.977481+00:00"
-        evidence_authority: NONE
-      root_probe:
-        title_anchor_count: 1
-        price_anchor_count: 0
-        action_anchor_count: 0
-        visible_explicit_pdp_root_count: 0
-        explicit_root_with_commerce_anchors_count: 0
-        main_present: false
-        main_visible: false
-        main_has_commerce_anchors: false
-        multi_anchor_common_ancestor_found: false
-        selected_root_kind: NONE
-    historical_generation_4:
-      task_id: TASK-242
-      diagnostic_executed: true
-      diagnostic_outcome: FAIL_CLOSED
-      diagnostic_failure_reason: BOUNDED_CURRENT_PAGE_EVALUATION_FAILED
-      diagnostic_process_exit_code: 1
-      diagnostic_artifact_created: false
-      authorized_diagnostic_attempts: 1
-      authorized_diagnostic_attempts_remaining: 0
-      execution_owner: HUMAN_OPERATOR
-      live_dom_diagnostic_authority: NONE
-      root_probe_observed: false
-      commerce_probe_observed: false
-    historical_generation_5:
-      task_id: TASK-244
-      diagnostic_executed: true
-      diagnostic_outcome: FAIL_CLOSED
-      diagnostic_failure_reason: NO_BOUNDED_PDP_ROOT
-      diagnostic_process_exit_code: 1
-      diagnostic_artifact_created: true
-      authorized_diagnostic_attempts: 1
-      authorized_diagnostic_attempts_remaining: 0
-      execution_owner: HUMAN_OPERATOR
-      live_dom_diagnostic_authority: NONE
-      artifact:
-        schema_version: 2
-        filename: tiktok-pdp-dom-diagnostic-v2.json
-        sha256: 03CB57F0BA9838985233C919E144416416E1A17DD2DA033F8B5F8A3FE224EA1F
-        size_bytes: 6130
-        observed_at: "2026-09-22T23:00:39.526520+00:00"
-        evidence_authority: NONE
-      root_probe:
-        title_anchor_count: 1
-        price_anchor_count: 0
-        action_anchor_count: 0
-        visible_explicit_pdp_root_count: 0
-        explicit_root_with_commerce_anchors_count: 0
-        main_present: false
-        main_visible: false
-        main_has_commerce_anchors: false
-        multi_anchor_common_ancestor_found: false
-        selected_root_kind: NONE
-      commerce_probe:
-        document_ready_state: COMPLETE
-        bounded_nodes_scanned: 600
-        bounded_scan_truncated: true
-        visible_currency_like_count: 0
-        near_title_currency_like_count: 0
-        visible_interactive_count: 106
-        near_title_action_like_count: 91
-        visible_loading_marker_count: 0
-        open_shadow_root_count: 0
-        visible_iframe_count: 0
-    bounded_pdp_dom_scope_resolution_shared: true
-    bounded_root_scoped_price_extraction_hardening_implemented: true
-    root_observability_hardening_implemented: true
-    commerce_observability_hardening_implemented: true
-    diagnostic_hardening_implemented: true
-    selector_repair_complete: false
-    live_public_pdp_acquisition_authority: NONE
-    automated_public_pdp_acquisition_authority: NONE
-    market_test_or_action_authority: NONE
-    generation_6_authorized: false
-    generation_7_authorized: false
     automatic_progression: false
     post_run_engineering_successor: null
     next_milestone: null
@@ -311,8 +111,19 @@ post_p7_planning_handoff:
 
 post_p8_planning_handoff:
   destination: HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION
-  status: EFFECTIVE_ON_EXACT_TASK_248_SOURCE_PUBLICATION
-  completed_commitment: P8_PUBLIC_PDP_GEN7_RESULT_AND_ROOT_SCOPED_PRICE_HARDENING
+  status: EFFECTIVE_ON_EXACT_TASK_249_SOURCE_PUBLICATION
+  completed_commitment: P8_PUBLIC_PDP_POST_TASK248_VALIDATION_CARRIER_HARDENING
+  post_task248_live_validation_carrier_hardened: true
+  collector_validation_baseline:
+    task_id: TASK-248
+    source_sha: 39979020a10b78e1f86c30cf2b704f2f975daec9
+  validation_carrier_schema_version: 2
+  validation_attempt_marker_filename: tiktok-pdp-live-validation-attempt-v2.json
+  validation_result_filename: tiktok-pdp-live-validation-result-v2.json
+  carrier_module: src/product_intelligence/tiktok_pdp_live_pilot.py
+  authorized_validation_attempts: 0
+  authorized_validation_attempts_remaining: 0
+  validation_execution_owner: NONE
   actual_real_decision_case:
     context_id: p8-pilot-001-led-motion-tiktok-vn
     record_type: PILOT_CASE_SELECTION_ONLY
@@ -1418,6 +1229,35 @@ post_p8_planning_handoff:
     automatic_progression: false
     next_milestone: null
     post_publication_handoff: HUMAN_OPERATOR_GENERATION_7_BOUNDED_TITLE_LOCAL_COMMERCE_ROOT_DIAGNOSTIC_EXECUTION
+  public_pdp_post_task248_validation_carrier_hardening:
+    document: docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK248_VALIDATION_CARRIER_HARDENING.md
+    classification: POST_TASK248_LIVE_PUBLIC_PDP_VALIDATION_CARRIER_HARDENING_ONLY
+    task_id: TASK-249
+    source_task_id: TASK-248
+    source_published_sha: 39979020a10b78e1f86c30cf2b704f2f975daec9
+    collector_validation_baseline:
+      task_id: TASK-248
+      source_sha: 39979020a10b78e1f86c30cf2b704f2f975daec9
+    post_task248_live_validation_carrier_hardened: true
+    validation_carrier_schema_version: 2
+    validation_attempt_marker_filename: tiktok-pdp-live-validation-attempt-v2.json
+    validation_result_filename: tiktok-pdp-live-validation-result-v2.json
+    context_id: p8-pilot-001-led-motion-tiktok-vn
+    authorized_source_id: "1731381331718341815"
+    stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
+    carrier_module: src/product_intelligence/tiktok_pdp_live_pilot.py
+    authorized_validation_attempts: 0
+    authorized_validation_attempts_remaining: 0
+    validation_execution_owner: NONE
+    selector_repair_complete: false
+    live_public_pdp_acquisition_authority: NONE
+    automated_public_pdp_acquisition_authority: NONE
+    market_test_or_action_authority: NONE
+    automatic_live_pilot: false
+    automatic_progression: false
+    post_run_engineering_successor: null
+    next_milestone: null
+    post_publication_handoff: HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION
   public_pdp_gen7_result_and_root_scoped_price_hardening:
     document: docs/PHASE_8_PUBLIC_TIKTOK_PDP_GEN7_RESULT_AND_ROOT_SCOPED_PRICE_HARDENING.md
     classification: GENERATION_7_SUCCESS_RECONCILIATION_AND_BOUNDED_ROOT_SCOPED_PRICE_EXTRACTION_HARDENING_ONLY
@@ -2553,6 +2393,45 @@ completed_milestones:
     live_public_pdp_acquisition_authority: NONE
     automated_public_pdp_acquisition_authority: NONE
     market_test_or_action_authority: NONE
+    automatic_progression: false
+    post_run_engineering_successor: null
+    next_milestone: null
+    post_publication_handoff: HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION
+    effective_only_when:
+      semantic_review: PASS
+      published_source: EXACT_REVIEWED_CANDIDATE
+      canonical_main_equals_reviewed_candidate: true
+
+  - task_id: TASK-249
+    task_revision: 1
+    track_id: P8_PUBLIC_PDP_POST_TASK248_VALIDATION_CARRIER_HARDENING
+    milestone_id: P8.PUBLIC_PDP.POST_TASK248_VALIDATION_CARRIER_HARDENING
+    title: Public TikTok PDP Post-TASK248 Validation Carrier Hardening
+    status: DONE
+    completion_basis: PUBLICATION_GATED
+    classification: POST_TASK248_LIVE_PUBLIC_PDP_VALIDATION_CARRIER_HARDENING_ONLY
+    authorization_owner: HUMAN_BRAIN
+    source_task_id: TASK-248
+    source_published_sha: 39979020a10b78e1f86c30cf2b704f2f975daec9
+    collector_validation_baseline:
+      task_id: TASK-248
+      source_sha: 39979020a10b78e1f86c30cf2b704f2f975daec9
+    post_task248_live_validation_carrier_hardened: true
+    validation_carrier_schema_version: 2
+    validation_attempt_marker_filename: tiktok-pdp-live-validation-attempt-v2.json
+    validation_result_filename: tiktok-pdp-live-validation-result-v2.json
+    context_id: p8-pilot-001-led-motion-tiktok-vn
+    authorized_source_id: "1731381331718341815"
+    stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
+    carrier_module: src/product_intelligence/tiktok_pdp_live_pilot.py
+    authorized_validation_attempts: 0
+    authorized_validation_attempts_remaining: 0
+    validation_execution_owner: NONE
+    selector_repair_complete: false
+    live_public_pdp_acquisition_authority: NONE
+    automated_public_pdp_acquisition_authority: NONE
+    market_test_or_action_authority: NONE
+    automatic_live_pilot: false
     automatic_progression: false
     post_run_engineering_successor: null
     next_milestone: null
