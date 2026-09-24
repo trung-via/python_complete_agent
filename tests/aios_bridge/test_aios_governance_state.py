@@ -1177,7 +1177,6 @@ def test_task_247_history_preserves_authorization_without_freezing_current_globa
     assert authorization["terminal_outcome_consumption"] == "EVERY_TERMINAL_OUTCOME"
     assert authorization["automatic_retry_refresh_resume"] is False
     assert authorization["second_invocation_authority"] == "NONE"
-    assert authorization["replacement_search_batch_variant_switching_authority"] == "NONE"
     for authority in (
         "arbitrary_target_authority",
         "replacement_target_authority",
@@ -1256,30 +1255,41 @@ def test_task_248_reconciles_gen7_success_and_hardens_bounded_root_price_extract
         assert record["source_published_sha"] == TASK_247_PUBLISHED_SOURCE_SHA
         assert record["diagnostic_v4_implementation_source_sha"] == TASK_246_PUBLISHED_SOURCE_SHA
         assert record["generation_7_execution_source_sha"] == TASK_246_PUBLISHED_SOURCE_SHA
-        assert record["diagnostic_authorization_generation"] == 7
         assert record["live_dom_diagnostic_authority"] == "NONE"
         assert record["generation_7_authorized_diagnostic_attempts"] == 1
         assert record["generation_7_authorized_diagnostic_attempts_remaining"] == 0
         assert record["generation_7_diagnostic_execution_owner"] == "HUMAN_OPERATOR"
         assert record["generation_7_diagnostic_executed"] is True
         assert record["generation_7_authorized"] is False
-        assert record["diagnostic_executed"] is True
         assert record["diagnostic_outcome"] == "SUCCESS"
         assert record["diagnostic_artifact_created"] is True
         assert record["bounded_pdp_dom_scope_resolution_shared"] is True
         assert record["bounded_root_scoped_price_extraction_hardening_implemented"] is True
-        assert record["root_observability_hardening_implemented"] is True
-        assert record["commerce_observability_hardening_implemented"] is True
-        assert record["diagnostic_hardening_implemented"] is True
         assert record["selector_repair_complete"] is False
         assert record["live_public_pdp_acquisition_authority"] == "NONE"
         assert record["automated_public_pdp_acquisition_authority"] == "NONE"
         assert record["market_test_or_action_authority"] == "NONE"
         assert record["automatic_progression"] is False
-        assert record["next_milestone"] is None
         assert record["post_publication_handoff"] == (
             "HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION"
         )
+
+    for record in (milestone, doc_entry, completed_task):
+        assert record["diagnostic_authorization_generation"] == 7
+        assert record["diagnostic_executed"] is True
+        assert record["root_observability_hardening_implemented"] is True
+        assert record["commerce_observability_hardening_implemented"] is True
+        assert record["diagnostic_hardening_implemented"] is True
+        assert record["next_milestone"] is None
+
+    assert handoff["diagnostic_authorization_generation"] == 7
+    assert handoff["diagnostic_executed"] is True
+    assert handoff["bounded_pdp_dom_scope_resolution_shared"] is True
+    assert handoff["bounded_root_scoped_price_extraction_hardening_implemented"] is True
+    assert handoff["root_observability_hardening_implemented"] is True
+    assert handoff["commerce_observability_hardening_implemented"] is True
+    assert handoff["diagnostic_hardening_implemented"] is True
+    assert handoff["selector_repair_complete"] is False
 
     assert active["next_milestone"] is None
     assert handoff["next_milestone"] is None

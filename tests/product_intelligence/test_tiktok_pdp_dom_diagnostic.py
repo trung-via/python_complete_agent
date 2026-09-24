@@ -17,6 +17,7 @@ from src.product_intelligence.tiktok_pdp_dom_diagnostic import (
     TikTokPdpDomDiagnosticError, TikTokPdpDomDiagnosticJobRootError,
     run_tiktok_pdp_dom_diagnostic,
 )
+from src.product_intelligence.tiktok_pdp_dom_scope import TIKTOK_PDP_DOM_SCOPE_JS
 
 OBSERVED_AT = datetime(2026, 9, 22, 5, 59, tzinfo=timezone.utc)
 ENDPOINT = "http://operator.invalid:9222/devtools/browser/diagnostic-secret"
@@ -505,7 +506,8 @@ def test_script_is_hard_bounded_light_dom_structural_only_and_preserves_lifecycl
     assert "title_local_root_quorum_satisfied:quorum" in DIAGNOSTIC_SCRIPT
     assert "native_or_role_control_count:nc" in DIAGNOSTIC_SCRIPT
     assert "pointer_only_interaction_count:pi" in DIAGNOSTIC_SCRIPT
-    assert "selected_title_local_ancestor_level:selectedLevel" in DIAGNOSTIC_SCRIPT
+    assert "selected_title_local_ancestor_level: selectedLevel" in TIKTOK_PDP_DOM_SCOPE_JS
+    assert "selected_title_local_ancestor_level: selectedLevel" in DIAGNOSTIC_SCRIPT
     assert "candidate_samples:[...currencySamples,...semanticSamples,...nativeSamples,...pointerSamples]" in DIAGNOSTIC_SCRIPT
     assert "currency_candidates:currencies" in DIAGNOSTIC_SCRIPT and "action_candidates:actions" in DIAGNOSTIC_SCRIPT
     assert "document.body.innerText" not in DIAGNOSTIC_SCRIPT and "innerHTML" not in DIAGNOSTIC_SCRIPT and "outerHTML" not in DIAGNOSTIC_SCRIPT
