@@ -1081,12 +1081,51 @@ operation/observation/release statuses, failure reason, and bounded snapshot fie
 fields were observed, unknown fields remain unknown, and V2 output remains bounded source evidence granting no Product Truth,
 canonical identity, trend, ranking, approval, or commerce-action authority.
 
-TASK-250 becomes the sole current active track milestone while TASK-249 becomes historical.
+TASK-250 was the active track milestone at publication while TASK-249 became historical.
 NEXT is null, pending commitments are empty, automatic progression is false, automated acquisition and market-test
 authorities remain `NONE`, historical TASK-233 capture lineage remains consumed, the exact execution handoff is
 `HUMAN_OPERATOR_ONE_SHOT_POST_TASK249_PUBLIC_PDP_VALIDATION_EXECUTION`, and post-attempt review authority is
 `HUMAN_BRAIN_POST_TASK249_PUBLIC_PDP_VALIDATION_REVIEW`.
 See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK249_VALIDATION_AUTHORIZATION.md`.
+
+TASK-251 is publication-gated DONE only as
+`POST_TASK250_OPERATION_SUCCESS_RECONCILIATION_AND_BOUNDED_PRICE_ROLE_OBSERVABILITY_HARDENING_ONLY`.
+It reconciles exact TASK-250 / RUN-250-003 / REVIEW-250-001 publication lineage at
+`3b4195b9f81e591697e94b7570450be069861552` as source, while preserving the validation carrier
+source at `84739c2a13d9d89ef5379ecba7a9d4b83ed64771` (TASK-249) and collector validation
+baseline at `39979020a10b78e1f86c30cf2b704f2f975daec9` (TASK-248) as separately identified and
+semantically distinct. It reconciles the consumed Human marketplace validation attempt
+(`authorized_validation_attempts: 1`, `authorized_validation_attempts_remaining: 0`,
+`validation_execution_owner: HUMAN_OPERATOR`, `validation_executed: true`, `operation_status: SUCCESS`,
+`observation_status: OBSERVED`, `session_release_status: SUCCESS`, `process_exit_code: UNKNOWN`,
+`canonical_evidence_ingested: false`) without fabricating an AIOS RUN or retry authority.
+
+Exact external V2 marker and result artifact provenance is recorded as bounded external evidence:
+marker `tiktok-pdp-live-validation-attempt-v2.json` (schema 2, size 633 bytes, SHA256
+`3588F3E2416B0E1BA8B3DEF49B73544B8C4D04BF3FEF01D17616393783F7C94E`) and result
+`tiktok-pdp-live-validation-result-v2.json` (schema 2, size 1947 bytes, SHA256
+`808971B737F9C2647A7618827722E072A34BDEB07E8CD55325765B48D78CFAF2`) bound to context
+`p8-pilot-001-led-motion-tiktok-vn` and source ID `1731381331718341815`.
+Field uncertainty is explicit: current price is `UNKNOWN`/`null`, original price `68220.0` is
+`OBSERVED_ONLY`, and optional fields (`shop_name`, `discount_percent`, `sold_count`, `rating`,
+`review_count`) remain `UNKNOWN`/`null`. `OPERATION_SUCCESS_IS_NOT_FIELD_VALIDATION_SUCCESS` is
+enforced: operation success does not establish price extraction. Bounded hypotheses for price
+ambiguity are declared non-exhaustive and selector repair is incomplete (`selector_repair_complete: false`).
+
+TASK-251 hardens the single TikTok PDP DOM diagnostic owner (`src/product_intelligence/tiktok_pdp_dom_diagnostic.py`)
+from schema V4 to schema V5 (`tiktok-pdp-dom-diagnostic-v5.json`) with bounded, sanitized `price_role_probe`
+(12 bounded counts and up to 8 sanitized candidate samples). Zero raw candidate text, numbers, or selectors are
+persisted, 0 candidates and unresolved roles observe uncertainty cleanly as valid SUCCESS observations, and
+bounded root resolution (`src/product_intelligence/tiktok_pdp_dom_scope.py`) and price parser
+(`src/product_intelligence/adapters/tiktok_parsing.py`) remain unmodified. Production collector, carrier, CLI,
+and browser lifecycle code remain byte-unchanged.
+
+TASK-251 becomes the sole current active track milestone while TASK-250 becomes historical.
+Generation 8 remains unauthorized (`generation_8_authorized: false`, 0 attempts, execution owner `NONE`),
+all live diagnostic/acquisition/action authorities remain `NONE`, NEXT is null, pending commitments are empty,
+automatic progression is false, and post-publication planning hands off exclusively to
+`HUMAN_BRAIN_FRESH_GENERATION_8_BOUNDED_PRICE_ROLE_DIAGNOSTIC_AUTHORIZATION`.
+See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK250_VALIDATION_SUCCESS_RECONCILIATION_AND_PRICE_ROLE_OBSERVABILITY.md`.
 
 
 ## 4. Authority invariants

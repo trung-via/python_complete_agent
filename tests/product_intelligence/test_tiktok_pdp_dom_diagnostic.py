@@ -1,4 +1,4 @@
-"""Offline regressions for the schema-version-3 attach-only diagnostic."""
+"""Offline regressions for the schema-version-5 attach-only diagnostic."""
 from __future__ import annotations
 
 import ast
@@ -108,9 +108,96 @@ def _title_local_topology_probe(**overrides):
     return [value]
 
 
+def _price_role_sample(ordinal=1, **overrides):
+    value = {
+        "ordinal": ordinal,
+        "match_basis": "VND_SYMBOL_TEXT",
+        "relation_to_title": "TITLE_NEIGHBORHOOD_LEVEL_1",
+        "tag_name": "span",
+        "class_tokens": ["price", "current"],
+        "data-testid": "product-price",
+        "data-e2e": "",
+        "role": "",
+        "itemprop": "price",
+        "parent_signature": "div.price-wrapper",
+        "grandparent_signature": "main.pdp",
+        "inside_interactive_control": False,
+        "inside_title_subtree": False,
+        "leaf_currency_candidate": True,
+        "strike_through": False,
+        "numeric_token_count": 1,
+        "range_like": False,
+        "text_equivalence_group": "TEXT_GROUP_1",
+        "same_parent_currency_peer_count": 0,
+        "nearby_variant_control": False,
+        "font_weight_bucket": "BOLD",
+        "font_size_peer_relation": "LARGER",
+    }
+    value.update(overrides)
+    return value
+
+
+def _price_role_probe(**overrides):
+    value = {
+        "bounded_nodes_scanned": 90,
+        "bounded_scan_truncated": False,
+        "currency_candidate_count": 2,
+        "collector_eligible_candidate_count": 2,
+        "leaf_candidate_count": 2,
+        "strike_through_signal_count": 1,
+        "explicit_current_structural_signal_count": 0,
+        "explicit_original_structural_signal_count": 0,
+        "unresolved_role_candidate_count": 1,
+        "range_like_candidate_count": 0,
+        "multi_numeric_candidate_count": 0,
+        "distinct_text_equivalence_group_count": 2,
+        "candidate_samples": [
+            _price_role_sample(1),
+            _price_role_sample(
+                2,
+                strike_through=True,
+                text_equivalence_group="TEXT_GROUP_2",
+                font_weight_bucket="NORMAL",
+                font_size_peer_relation="SMALLER",
+            ),
+        ],
+    }
+    value.update(overrides)
+    return value
+
+
+def _empty_price_role_probe(**overrides):
+    value = {
+        "bounded_nodes_scanned": 0,
+        "bounded_scan_truncated": False,
+        "currency_candidate_count": 0,
+        "collector_eligible_candidate_count": 0,
+        "leaf_candidate_count": 0,
+        "strike_through_signal_count": 0,
+        "explicit_current_structural_signal_count": 0,
+        "explicit_original_structural_signal_count": 0,
+        "unresolved_role_candidate_count": 0,
+        "range_like_candidate_count": 0,
+        "multi_numeric_candidate_count": 0,
+        "distinct_text_equivalence_group_count": 0,
+        "candidate_samples": [],
+    }
+    value.update(overrides)
+    return value
+
+
 def _payload(**overrides):
     state = overrides.get("page_state", _state())
-    value = {"schema_version": 4, "observed_url": OBSERVED_URL, "explicit_product_ids": [DIAGNOSTIC_SOURCE_ID], "page_state": state, "root_probe": _root_probe(state["root_kind"]), "commerce_probe": _commerce_probe(), "title_local_topology_probe": _title_local_topology_probe()}
+    value = {
+        "schema_version": 5,
+        "observed_url": OBSERVED_URL,
+        "explicit_product_ids": [DIAGNOSTIC_SOURCE_ID],
+        "page_state": state,
+        "root_probe": _root_probe(state["root_kind"]),
+        "commerce_probe": _commerce_probe(),
+        "title_local_topology_probe": _title_local_topology_probe(),
+        "price_role_probe": _price_role_probe() if state["root_kind"] != "NONE" else _empty_price_role_probe(),
+    }
     value.update(overrides)
     return value
 
@@ -173,33 +260,69 @@ def external_temp_path():
 
 
 @pytest.mark.asyncio
-async def test_v4_success_is_create_exclusive_bounded_structural_and_one_evaluate(external_temp_path):
+async def test_v5_success_is_create_exclusive_bounded_structural_and_one_evaluate(external_temp_path):
     outcome = await run_tiktok_pdp_dom_diagnostic(job_root=external_temp_path, cdp_endpoint=ENDPOINT, clock=lambda: OBSERVED_AT, manager_factory=FakeManager)
     manager = FakeManager.instances[0]
-    assert ARTIFACT_FILENAME == "tiktok-pdp-dom-diagnostic-v4.json"
+    assert ARTIFACT_FILENAME == "tiktok-pdp-dom-diagnostic-v5.json"
     assert manager.session.evaluate_calls == [DIAGNOSTIC_SCRIPT]
     assert manager.session.navigate_calls == manager.session.click_calls == manager.session.type_calls == manager.session.scroll_calls == []
     assert manager.close_session_calls == manager.get_calls
     document = json.loads(outcome.artifact_path.read_text(encoding="utf-8"))
-    assert set(document) == {"schema_version", "diagnostic", "root_probe", "commerce_probe", "title_local_topology_probe"}
-    assert document["schema_version"] == 4
+    assert set(document) == {"schema_version", "diagnostic", "root_probe", "commerce_probe", "title_local_topology_probe", "price_role_probe"}
+    assert document["schema_version"] == 5
     assert document["diagnostic"]["evidence_authority"] == "NONE"
     assert document["commerce_probe"] == _commerce_probe()
     assert document["title_local_topology_probe"] == _title_local_topology_probe()
+    assert document["price_role_probe"] == _price_role_probe()
     persisted = outcome.artifact_path.read_text(encoding="utf-8").lower()
     for forbidden in (ENDPOINT.lower(), "text_excerpt", "aria-label", "href", "innerhtml", "outerhtml", "productcandidatesnapshot", "signalevidence", "actual price", "actual title"):
         assert forbidden not in persisted
 
 
 @pytest.mark.asyncio
-async def test_no_root_writes_one_v4_fail_closed_probe_then_preserves_nonzero(external_temp_path):
+async def test_v5_zero_candidates_and_unresolved_role_are_valid_success_observations(external_temp_path):
+    # Zero currency candidates is a valid SUCCESS observation
+    probe_zero = _price_role_probe(
+        currency_candidate_count=0,
+        collector_eligible_candidate_count=0,
+        leaf_candidate_count=0,
+        strike_through_signal_count=0,
+        explicit_current_structural_signal_count=0,
+        explicit_original_structural_signal_count=0,
+        unresolved_role_candidate_count=0,
+        range_like_candidate_count=0,
+        multi_numeric_candidate_count=0,
+        distinct_text_equivalence_group_count=0,
+        candidate_samples=[],
+    )
+    FakeManager.payload = _payload(price_role_probe=probe_zero)
+    outcome_zero = await run_tiktok_pdp_dom_diagnostic(job_root=external_temp_path / "zero", cdp_endpoint=ENDPOINT, clock=lambda: OBSERVED_AT, manager_factory=FakeManager)
+    doc_zero = outcome_zero.to_document()
+    assert doc_zero["diagnostic"]["status"] == "SUCCESS"
+    assert doc_zero["price_role_probe"]["currency_candidate_count"] == 0
+
+    # Unresolved role is a valid SUCCESS observation
+    probe_unresolved = _price_role_probe(
+        unresolved_role_candidate_count=2,
+        explicit_current_structural_signal_count=0,
+        explicit_original_structural_signal_count=0,
+    )
+    FakeManager.payload = _payload(price_role_probe=probe_unresolved)
+    outcome_unresolved = await run_tiktok_pdp_dom_diagnostic(job_root=external_temp_path / "unresolved", cdp_endpoint=ENDPOINT, clock=lambda: OBSERVED_AT, manager_factory=FakeManager)
+    doc_unresolved = outcome_unresolved.to_document()
+    assert doc_unresolved["diagnostic"]["status"] == "SUCCESS"
+    assert doc_unresolved["price_role_probe"]["unresolved_role_candidate_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_no_root_writes_one_v5_fail_closed_probe_then_preserves_nonzero(external_temp_path):
     probe = _root_probe("NONE")
     commerce = _commerce_probe(title_anchor_signature=_signature(), currency_candidates=[], action_candidates=[], visible_currency_like_count=0, near_title_currency_like_count=0, visible_interactive_count=0, near_title_action_like_count=0)
     FakeManager.payload = _payload(page_state=_state("NONE"), root_probe=probe, commerce_probe=commerce)
     with pytest.raises(TikTokPdpDomDiagnosticError, match=f"^{NO_BOUNDED_PDP_ROOT}$"):
         await run_tiktok_pdp_dom_diagnostic(job_root=external_temp_path, cdp_endpoint=ENDPOINT, clock=lambda: OBSERVED_AT, manager_factory=FakeManager)
     document = json.loads((external_temp_path / ARTIFACT_FILENAME).read_text(encoding="utf-8"))
-    assert document == {"schema_version": 4, "diagnostic": {"status": "FAIL_CLOSED", "classification": "ATTACH_ONLY_BOUNDED_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC", "context_id": DIAGNOSTIC_CONTEXT_ID, "source_product_id": DIAGNOSTIC_SOURCE_ID, "observed_at": OBSERVED_AT.isoformat(), "evidence_authority": "NONE", "failure_reason": NO_BOUNDED_PDP_ROOT}, "root_probe": probe, "commerce_probe": commerce, "title_local_topology_probe": _title_local_topology_probe()}
+    assert document == {"schema_version": 5, "diagnostic": {"status": "FAIL_CLOSED", "classification": "ATTACH_ONLY_BOUNDED_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC", "context_id": DIAGNOSTIC_CONTEXT_ID, "source_product_id": DIAGNOSTIC_SOURCE_ID, "observed_at": OBSERVED_AT.isoformat(), "evidence_authority": "NONE", "failure_reason": NO_BOUNDED_PDP_ROOT}, "root_probe": probe, "commerce_probe": commerce, "title_local_topology_probe": _title_local_topology_probe(), "price_role_probe": _empty_price_role_probe()}
 
 
 @pytest.mark.asyncio
@@ -407,6 +530,7 @@ async def test_missing_or_ambiguous_title_anchor_fails_closed(external_temp_path
 
 def _bad_payloads():
     yield {**_payload(), "raw_html": "<body>forbidden</body>"}
+    yield _payload(schema_version=4)
     yield _payload(schema_version=3)
     yield _payload(schema_version=1)
     yield _payload(commerce_probe={**_commerce_probe(), "text_excerpt": "forbidden"})
@@ -438,6 +562,17 @@ def _bad_payloads():
     yield _payload(title_local_topology_probe=_title_local_topology_probe(paired_strong_commerce_control_count=2, strong_commerce_action_like_count=1))
     yield _payload(title_local_topology_probe=_title_local_topology_probe(title_local_root_quorum_satisfied=False))
     yield _payload(title_local_topology_probe=_title_local_topology_probe(visible_currency_like_count=0, title_local_root_quorum_satisfied=True))
+    yield _payload(price_role_probe={**_price_role_probe(), "raw_price_text": "₫68.220"})
+    yield _payload(price_role_probe=_price_role_probe(bounded_nodes_scanned=301))
+    yield _payload(price_role_probe=_price_role_probe(bounded_nodes_scanned=299, bounded_scan_truncated=True))
+    yield _payload(price_role_probe=_price_role_probe(currency_candidate_count=91))
+    yield _payload(price_role_probe=_price_role_probe(collector_eligible_candidate_count=3))
+    yield _payload(price_role_probe=_price_role_probe(candidate_samples=[_price_role_sample(1)] * 9))
+    yield _payload(price_role_probe=_price_role_probe(candidate_samples=[_price_role_sample(1, match_basis="RAW_VND_₫68220")]))
+    yield _payload(price_role_probe=_price_role_probe(candidate_samples=[_price_role_sample(1, font_weight_bucket="HEAVY")]))
+    yield _payload(price_role_probe=_price_role_probe(candidate_samples=[_price_role_sample(1, font_size_peer_relation="HUGE")]))
+    yield _payload(price_role_probe=_price_role_probe(candidate_samples=[_price_role_sample(1, text_equivalence_group="SECRET_HASH_123")]))
+    yield _payload(price_role_probe=_price_role_probe(candidate_samples=[_price_role_sample(2)]))
     yield _payload(root_probe=_root_probe("TITLE_LOCAL_COMMERCE_QUORUM", selected_title_local_ancestor_level=None))
     yield _payload(root_probe=_root_probe("TITLE_LOCAL_COMMERCE_QUORUM", selected_title_local_ancestor_level=7))
     yield _payload(root_probe=_root_probe("TITLE_LOCAL_COMMERCE_QUORUM", title_anchor_count=2))
@@ -455,7 +590,7 @@ async def test_forbidden_fields_values_caps_and_enums_fail_closed(external_temp_
 
 
 @pytest.mark.asyncio
-async def test_existing_v4_artifact_and_repository_root_fail_before_attach(external_temp_path):
+async def test_existing_v5_artifact_and_repository_root_fail_before_attach(external_temp_path):
     artifact = external_temp_path / ARTIFACT_FILENAME
     artifact.write_text("immutable", encoding="utf-8")
     with pytest.raises(TikTokPdpDomDiagnosticArtifactExistsError):
@@ -512,7 +647,8 @@ def test_script_is_hard_bounded_light_dom_structural_only_and_preserves_lifecycl
     assert "currency_candidates:currencies" in DIAGNOSTIC_SCRIPT and "action_candidates:actions" in DIAGNOSTIC_SCRIPT
     assert "document.body.innerText" not in DIAGNOSTIC_SCRIPT and "innerHTML" not in DIAGNOSTIC_SCRIPT and "outerHTML" not in DIAGNOSTIC_SCRIPT
     assert "TITLE_LOCAL_COMMERCE_QUORUM" in DIAGNOSTIC_SCRIPT
-    assert "schema_version:4" in DIAGNOSTIC_SCRIPT
+    assert "price_role_probe:priceRoleProbe" in DIAGNOSTIC_SCRIPT
+    assert "schema_version:5" in DIAGNOSTIC_SCRIPT
 
 
 def test_script_has_valid_four_or_more_digit_atom_rejection_guard():
