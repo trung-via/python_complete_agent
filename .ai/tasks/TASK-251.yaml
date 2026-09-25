@@ -1,0 +1,344 @@
+task_id: TASK-251
+revision: 1
+
+goal: >
+  Reconcile the already-completed Human-operated post-TASK250 live TikTok public-PDP validation
+  attempt as one consumed OPERATION_SUCCESS / OBSERVED / SESSION_RELEASE_SUCCESS event with exact
+  external V2 marker/result provenance and field-level uncertainty, then harden only the existing
+  TikTok PDP DOM diagnostic owner from schema V4 to schema V5 with bounded price-role observability.
+  Preserve the shared V4 bounded-root semantics, TikTokPdpCollector observation/admission ownership,
+  canonical TikTok scalar-price parsing authority, TASK-137 browser lifecycle authority, evidence
+  and Product Truth boundaries, and all live acquisition/action closures. TASK-251 performs no live
+  TikTok/CDP operation and grants no generation-8 diagnostic attempt.
+
+problem: >
+  TASK-250 r2 / RUN-250-003 / REVIEW-250-001 is exactly reviewed and published at
+  3b4195b9f81e591697e94b7570450be069861552. It authorized exactly one Human-operated validation
+  attempt against the fixed context p8-pilot-001-led-motion-tiktok-vn and source ID
+  1731381331718341815, using the exact TASK-249 V2 carrier source
+  84739c2a13d9d89ef5379ecba7a9d4b83ed64771 and the distinct TASK-248 collector baseline
+  39979020a10b78e1f86c30cf2b704f2f975daec9. The Human completed the non-consuming preflight and
+  invoked the carrier exactly once. The external V2 marker and result now show the attempt crossed
+  the durable consumption boundary and terminated operation_status SUCCESS, observation_status
+  OBSERVED and session_release_status SUCCESS. The snapshot is correctly bound to the exact source
+  listing, but current price remains null while original_price is the observed scalar 68220.0; shop,
+  discount, sold-count, rating and review-count remain null. This is operation success, not current
+  price validation success. The existing collector intentionally admits current-price candidates
+  only when deterministic current-role signals exist and admits original-price candidates through
+  strike-through or explicit original-role signals; the current live evidence does not justify
+  guessing which missing signal, ambiguity, range/variant state, duplicate representation or DOM
+  presentation caused current price to remain unknown. The smallest justified work is therefore to
+  reconcile the consumed attempt and extend the one existing diagnostic owner with bounded,
+  sanitized, non-authoritative price-role signal observability before any collector repair.
+
+assumptions:
+  - Canonical main at authoring is 3b4195b9f81e591697e94b7570450be069861552.
+  - TASK-250 r2 / RUN-250-003 / REVIEW-250-001 is exact-source published at
+    3b4195b9f81e591697e94b7570450be069861552.
+  - TASK-249 V2 carrier source remains exactly
+    84739c2a13d9d89ef5379ecba7a9d4b83ed64771.
+  - TASK-248 collector baseline remains exactly
+    39979020a10b78e1f86c30cf2b704f2f975daec9.
+  - The consumed Human attempt is not an AIOS RUN. No engineering RUN ID, executor identity or
+    process exit code exists for the Human marketplace operation unless separately observed.
+  - Exact selected context remains p8-pilot-001-led-motion-tiktok-vn, source ID
+    "1731381331718341815", and stable listing
+    https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815.
+  - Exact external V2 marker provenance is filename
+    tiktok-pdp-live-validation-attempt-v2.json, size_bytes 633, SHA256
+    3588F3E2416B0E1BA8B3DEF49B73544B8C4D04BF3FEF01D17616393783F7C94E.
+  - Exact external V2 result provenance is filename
+    tiktok-pdp-live-validation-result-v2.json, size_bytes 1947, SHA256
+    808971B737F9C2647A7618827722E072A34BDEB07E8CD55325765B48D78CFAF2.
+  - The conforming V2 result records operation_status SUCCESS, observation_status OBSERVED,
+    session_release_status SUCCESS, source binding to 1731381331718341815, price null,
+    original_price 68220.0, and shop_name/discount_percent/sold_count/rating/review_count null.
+  - The externally observed process/CLI exit code is UNKNOWN and must remain UNKNOWN.
+  - TikTokPdpCollector remains the sole exact-PDP observation/admission owner.
+  - src/product_intelligence/adapters/tiktok_parsing.py remains the sole exact-PDP scalar price
+    admission authority, including AMBIGUOUS_PRICE_IS_NOT_EXACT_PRICE behavior.
+  - src/product_intelligence/tiktok_pdp_dom_scope.py remains the sole shared bounded PDP DOM-scope
+    resolution owner. TASK-251 must not modify it or change V4 root precedence/quorum.
+  - src/product_intelligence/tiktok_pdp_dom_diagnostic.py remains the sole bounded TikTok PDP DOM
+    diagnostic owner.
+  - TASK-137 remains sole browser/CDP lifecycle and borrowed-session authority.
+  - CAPABILITY_IS_NOT_AUTHORITY, EVIDENCE_IS_NOT_PRODUCT_TRUTH,
+    SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY, SNAPSHOT_IS_NOT_TREND,
+    AMBIGUOUS_PRICE_IS_NOT_EXACT_PRICE, MEASUREMENT_IS_NOT_AUTHORITY,
+    OPERATION_SUCCESS_IS_NOT_FIELD_VALIDATION_SUCCESS and ONE_CAPABILITY_ONE_AUTHORITY remain
+    mandatory.
+  - TASK-251 engineering and deterministic verification require no TikTok/CDP access.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK249_VALIDATION_AUTHORIZATION.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_GEN7_RESULT_AND_ROOT_SCOPED_PRICE_HARDENING.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN6_RESULT_RECONCILIATION_AND_V4_ROOT_HARDENING.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - .ai/aios-adoption-state.yaml
+    - .ai/tasks/TASK-137.yaml
+    - .ai/tasks/TASK-246.yaml
+    - .ai/tasks/TASK-247.yaml
+    - .ai/tasks/TASK-248.yaml
+    - .ai/tasks/TASK-249.yaml
+    - .ai/tasks/TASK-250.yaml
+    - src/product_intelligence/tiktok_pdp_dom_scope.py
+    - src/product_intelligence/tiktok_pdp_dom_diagnostic.py
+    - src/product_intelligence/adapters/tiktok_pdp.py
+    - src/product_intelligence/adapters/tiktok_parsing.py
+    - src/product_intelligence/tiktok_pdp_live_pilot.py
+    - src/product_intelligence/models.py
+    - src/integrations/playwright/manager.py
+    - src/integrations/playwright/session.py
+    - tests/product_intelligence/test_tiktok_pdp_dom_diagnostic.py
+    - tests/product_intelligence/test_tiktok_pdp.py
+    - tests/product_intelligence/test_tiktok_pdp_live_pilot.py
+    - tests/product_intelligence/test_product_intelligence_cli.py
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - src/product_intelligence/tiktok_pdp_dom_diagnostic.py
+    - tests/product_intelligence/test_tiktok_pdp_dom_diagnostic.py
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK250_VALIDATION_SUCCESS_RECONCILIATION_AND_PRICE_ROLE_OBSERVABILITY.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - Execute TikTok/CDP, rerun the consumed TASK-250 carrier, navigate/refresh/click/type/scroll/search,
+    switch variants, create a live diagnostic artifact, authorize or execute generation 8, or
+    perform any marketplace operation during TASK-251 engineering.
+  - Modify TikTokPdpCollector, exact-PDP parsing/reconciliation, ProductCandidateSnapshot,
+    SignalEvidence, the shared DOM-scope resolver, live-pilot carrier, CLI, Playwright
+    manager/session lifecycle or any production price admission behavior.
+  - Treat operation SUCCESS as current-price validation success, Product Truth, canonical evidence,
+    recommendation, ranking, approval, TEST_READY, market-test readiness or commerce-action evidence.
+  - Promote original_price 68220.0, null current price, a live class token, data-testid, style,
+    font size, font weight, DOM depth, relation, candidate count or diagnostic sample into a runtime
+    selector, parser rule, product scalar, price-role authority or hard-coded expected future value.
+  - Persist raw price text, full DOM, HTML, arbitrary innerText, cookies, credentials, auth tokens,
+    network response bodies or unbounded marketplace content in repository state or V5 artifacts.
+  - Copy the external TASK-250 marker/result wholesale into the repository.
+  - Create a second diagnostic owner, second price parser, second product observation owner,
+    generic crawler framework, duplicate browser lifecycle owner or alternate evidence authority.
+  - Repair shop_name, discount_percent, sold_count, rating, review_count, action extraction,
+    variants, inventory, Affiliate economics, ranking, recommendation or any field outside bounded
+    diagnostic price-role observability.
+  - Authorize a new live pilot, automatic retry, automatic validation, generation-8 diagnostic,
+    automated public-PDP acquisition, market test, commerce action or successor engineering run.
+
+constraints:
+  hard:
+    - >
+      Classification is exactly
+      POST_TASK250_OPERATION_SUCCESS_RECONCILIATION_AND_BOUNDED_PRICE_ROLE_OBSERVABILITY_HARDENING_ONLY.
+    - >
+      Reconcile exact TASK-250 engineering lineage using source_task_id TASK-250,
+      source_run_id RUN-250-003, source_review_id REVIEW-250-001 and source_published_sha
+      3b4195b9f81e591697e94b7570450be069861552. Preserve validation_carrier_source_sha separately as
+      exact TASK-249 source 84739c2a13d9d89ef5379ecba7a9d4b83ed64771 and
+      collector_validation_baseline separately as TASK-248 /
+      39979020a10b78e1f86c30cf2b704f2f975daec9.
+    - >
+      Reconcile the Human marketplace operation only as external consumed history. Current
+      TASK-251 reconciliation state must record authorized_validation_attempts 1,
+      authorized_validation_attempts_remaining 0, validation_execution_owner HUMAN_OPERATOR,
+      validation_executed true, validation_operation_status SUCCESS,
+      validation_observation_status OBSERVED, validation_session_release_status SUCCESS and
+      process_exit_code UNKNOWN. Do not invent an AIOS RUN, executor, task revision, retry or
+      observed exit code for the Human operation.
+    - >
+      Preserve TASK-250 completed-milestone publication truth exactly as historical authorization:
+      authorized_validation_attempts 1, authorized_validation_attempts_remaining 1,
+      validation_execution_owner HUMAN_OPERATOR and validation_executed false at exact TASK-250
+      publication. TASK-251 owns the new consumed 1/0 current reconciliation; it must not rewrite
+      TASK-250 historical publication state.
+    - >
+      Canonicalize exact V2 external artifact provenance without copying artifacts: marker filename
+      tiktok-pdp-live-validation-attempt-v2.json, schema_version 2, size_bytes 633, SHA256
+      3588F3E2416B0E1BA8B3DEF49B73544B8C4D04BF3FEF01D17616393783F7C94E; result filename
+      tiktok-pdp-live-validation-result-v2.json, schema_version 2, size_bytes 1947, SHA256
+      808971B737F9C2647A7618827722E072A34BDEB07E8CD55325765B48D78CFAF2. Preserve exact fixed
+      context/source/listing binding. Artifact provenance is external bounded source-operation
+      evidence, not repository Product Truth.
+    - >
+      Preserve field-level uncertainty exactly: current price validation status UNKNOWN with
+      observed value null; original price validation status OBSERVED_ONLY with observed scalar
+      68220.0; shop_name, discount_percent, sold_count, rating and review_count UNKNOWN/null.
+      Title was observed but raw title text is not required for TASK-251 canonical state.
+      OPERATION_SUCCESS_IS_NOT_FIELD_VALIDATION_SUCCESS must be explicit beside this matrix.
+    - >
+      The current exact snapshot and external artifact remain bounded observation evidence only.
+      canonical_evidence_ingested remains false. 68220.0 must never be interpreted by TASK-251 as
+      canonical Product Truth, canonical current price, trend, recommendation, ranking, approval,
+      test readiness, market-test authority or commerce-action authority.
+    - >
+      Harden only src/product_intelligence/tiktok_pdp_dom_diagnostic.py from schema V4 to schema V5.
+      Preserve the same sole diagnostic owner, attach-only behavior, fixed source/listing binding,
+      exactly-one-evaluate contract, create-exclusive external artifact behavior, fail-closed
+      challenge/login/unavailable/identity/root handling, TASK-137 session borrowing/cleanup,
+      evidence_authority NONE and zero interaction/navigation behavior. V5 artifact filename is
+      tiktok-pdp-dom-diagnostic-v5.json.
+    - >
+      Reuse src/product_intelligence/tiktok_pdp_dom_scope.py unchanged and preserve exact V4 root
+      semantics: EXPLICIT_PDP_ROOT -> MAIN -> MULTI_ANCHOR_COMMON_ANCESTOR ->
+      TITLE_LOCAL_COMMERCE_QUORUM; unique visible title fallback, narrowest-first title-local
+      ancestor search, at most six light-DOM ancestors, at most 300 title-local descendant
+      observations, fail-closed narrower-candidate truncation, strong currency-plus-paired-buy/cart
+      quorum, and no shadow-root or iframe traversal. V5 price-role observability must operate only
+      inside an already safely resolved bounded root.
+    - >
+      Add exactly one bounded V5 price_role_probe. It is diagnostic observation only and owns no
+      current/original price classification or scalar admission semantics. It must expose bounded
+      counts sufficient to distinguish unresolved hypotheses, including at minimum:
+      bounded_nodes_scanned, bounded_scan_truncated, currency_candidate_count,
+      collector_eligible_candidate_count, leaf_candidate_count,
+      strike_through_signal_count, explicit_current_structural_signal_count,
+      explicit_original_structural_signal_count, unresolved_role_candidate_count,
+      range_like_candidate_count, multi_numeric_candidate_count and
+      distinct_text_equivalence_group_count.
+    - >
+      V5 price_role_probe may include a bounded candidate_samples list. Each sample may contain only
+      sanitized structural/presentation evidence such as bounded ordinal, match_basis,
+      relation_to_title, tag_name, bounded class_tokens, data-testid, data-e2e, role, itemprop,
+      parent_signature, grandparent_signature, inside_interactive_control, inside_title_subtree,
+      leaf_currency_candidate, strike_through, numeric_token_count, range_like,
+      text_equivalence_group, same_parent_currency_peer_count, nearby_variant_control and bounded
+      relative presentation buckets such as font_weight_bucket or font_size_peer_relation.
+      Do not persist raw candidate text, raw numeric price, currency scalar, HTML, style strings,
+      pixel values, arbitrary attributes or case-specific selector authority.
+    - >
+      text_equivalence_group, if implemented, may compare normalized candidate text in memory only
+      to assign bounded opaque groups such as TEXT_GROUP_1/TEXT_GROUP_2. Neither the normalized text
+      nor a reversible hash of raw price text may be persisted. Group identity is diagnostic
+      equivalence context only.
+    - >
+      Range-like and numeric-token observations are descriptive only. V5 must not call
+      parse_tiktok_pdp_price, choose a scalar, infer a variant price, declare current/original role,
+      or mirror a second Python price parser. Exact-PDP scalar admission stays solely in
+      src/product_intelligence/adapters/tiktok_parsing.py.
+    - >
+      Diagnostic zero-price-candidate or unresolved-role states are valid SUCCESS observations when
+      exact listing identity/access/root admission otherwise succeeds. Do not add
+      NO_PRICE_ROLE_CANDIDATE, CURRENT_PRICE_MISSING or similar failure taxonomies. The diagnostic
+      observes uncertainty; it does not convert uncertainty into failure.
+    - >
+      Preserve bounded sanitization. V5 output must reject malformed/unbounded candidate samples,
+      raw marketplace values, raw currency text, long numeric sequences and unknown schema fields.
+      Existing V4 historical artifacts and TASK-246/TASK-247/TASK-248 assertions remain immutable
+      history; schema V5 is current implementation only after exact TASK-251 publication.
+    - >
+      TASK-251 must not modify src/product_intelligence/adapters/tiktok_pdp.py,
+      src/product_intelligence/adapters/tiktok_parsing.py,
+      src/product_intelligence/tiktok_pdp_dom_scope.py,
+      src/product_intelligence/tiktok_pdp_live_pilot.py,
+      src/product_intelligence/cli.py, src/product_intelligence/models.py or browser lifecycle code.
+      No production price extraction/admission rule changes in this task.
+    - >
+      On exact reviewed TASK-251 publication, TASK-251 becomes the sole current active milestone.
+      Current reconciliation state has the TASK-250 validation attempt consumed with zero remaining,
+      price_role_observability_schema_version 5,
+      price_role_observability_hardening_implemented true,
+      current_price_validation_status UNKNOWN,
+      original_price_validation_status OBSERVED_ONLY and price_role_resolution_complete false.
+    - >
+      Exact TASK-251 publication grants zero generation-8 attempts:
+      generation_8_authorized false, generation_8_authorized_diagnostic_attempts 0,
+      generation_8_authorized_diagnostic_attempts_remaining 0,
+      generation_8_diagnostic_execution_owner NONE, live_dom_diagnostic_authority NONE,
+      live_public_pdp_acquisition_authority NONE,
+      automated_public_pdp_acquisition_authority NONE,
+      market_test_or_action_authority NONE, automatic_live_pilot false,
+      automatic_progression false, selector_repair_complete false and
+      canonical_evidence_ingested false.
+    - >
+      Keep active_track.next_milestone null, post_p8_planning_handoff.next_milestone null,
+      pending_commitments empty and post_run_engineering_successor null. Exact post-publication
+      planning handoff is
+      HUMAN_BRAIN_FRESH_GENERATION_8_BOUNDED_PRICE_ROLE_DIAGNOSTIC_AUTHORIZATION. TASK-251 itself
+      grants no generation-8 execution authority and starts no automatic successor.
+    - >
+      Add docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK250_VALIDATION_SUCCESS_RECONCILIATION_AND_PRICE_ROLE_OBSERVABILITY.md
+      documenting exact engineering lineage, distinct carrier/collector baselines, exact external
+      artifact provenance, consumed Human attempt, field uncertainty matrix, why operation success
+      is not price validation success, bounded hypotheses, V5 probe schema/sanitation, zero
+      production repair, zero live authority and Human/Brain generation-8 authorization handoff.
+    - >
+      Update both canonical roadmap documents and .ai/roadmap-state.yaml publication-gated.
+      Governance regression must historicalize TASK-250 authorization state rather than overwrite
+      it and prove TASK-251 alone owns current consumed state and V5 observability readiness.
+    - >
+      Modify exactly the seven authorized paths. Produce one candidate and one ResultPackage.
+      Runtime owns deterministic verification. Executor must not publish, review its own candidate,
+      access TikTok/CDP, create external live artifacts, authorize generation 8, rerun TASK-250 or
+      begin any successor.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Exact TASK-250 / RUN-250-003 / REVIEW-250-001 publication lineage at
+      3b4195b9f81e591697e94b7570450be069861552 is reconciled while TASK-249 carrier source and
+      TASK-248 collector baseline remain separately identified and semantically distinct.
+  - id: AC2
+    condition: >
+      The Human marketplace operation is recorded exactly as one consumed
+      SUCCESS / OBSERVED / SESSION_RELEASE_SUCCESS event with attempts 1/remaining 0,
+      HUMAN_OPERATOR, validation_executed true and process_exit_code UNKNOWN, without inventing an
+      AIOS RUN or retry authority.
+  - id: AC3
+    condition: >
+      Exact external V2 marker/result filenames, schema version, SHA256, size and fixed source
+      binding are preserved as bounded provenance without copying raw artifacts; TASK-250 historical
+      publication remains 1/1 and unexecuted while TASK-251 owns current 1/0 consumed state.
+  - id: AC4
+    condition: >
+      Field uncertainty is explicit: price remains UNKNOWN/null, original_price 68220.0 is
+      OBSERVED_ONLY, other null optional fields remain UNKNOWN, canonical_evidence_ingested remains
+      false and OPERATION_SUCCESS_IS_NOT_FIELD_VALIDATION_SUCCESS is enforced.
+  - id: AC5
+    condition: >
+      The sole existing TikTok PDP DOM diagnostic is upgraded to schema V5 and fixed V5 artifact
+      filename while preserving attach-only, exact-listing binding, exactly-one-evaluate,
+      create-exclusive artifact, TASK-137 cleanup, V4 root-resolution semantics and
+      evidence_authority NONE.
+  - id: AC6
+    condition: >
+      V5 adds one bounded sanitized price_role_probe with counts and candidate samples sufficient to
+      observe explicit-current/original signals, strike-through, unresolved role, range/multi-number
+      ambiguity, leaf/peer structure, opaque text-equivalence grouping, nearby variant control and
+      bounded relative presentation signals without persisting raw price text/scalars or creating a
+      second price-role authority.
+  - id: AC7
+    condition: >
+      Zero candidates and unresolved role remain valid diagnostic observations rather than new
+      failure taxonomies; diagnostic never calls scalar parser, guesses price, selects current/
+      original role or changes Product Intelligence observation/admission semantics.
+  - id: AC8
+    condition: >
+      Collector, parser, shared DOM-scope resolver, live-pilot carrier, CLI, models and browser
+      lifecycle code remain byte-unchanged; no observed marketplace class/value becomes runtime
+      selector or price authority.
+  - id: AC9
+    condition: >
+      Exact reviewed TASK-251 publication leaves generation 8 unauthorized, all live diagnostic/
+      acquisition/action authorities NONE, selector repair incomplete, NEXT null and pending
+      commitments empty, and hands planning only to
+      HUMAN_BRAIN_FRESH_GENERATION_8_BOUNDED_PRICE_ROLE_DIAGNOSTIC_AUTHORIZATION.
+  - id: AC10
+    condition: >
+      Exactly seven authorized paths change; focused offline diagnostic/collector/live-pilot/CLI/
+      governance pytest plus git diff --check pass with zero unresolved items, producing one
+      candidate eligible for independent PRIMARY semantic review without TikTok/CDP access or live
+      attempt consumption.
+
+verification:
+  required:
+    - python -m pytest tests/product_intelligence/test_tiktok_pdp_dom_diagnostic.py tests/product_intelligence/test_tiktok_pdp.py tests/product_intelligence/test_tiktok_pdp_live_pilot.py tests/product_intelligence/test_product_intelligence_cli.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task251-primary
+    - git diff --check
