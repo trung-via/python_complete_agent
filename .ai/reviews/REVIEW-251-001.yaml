@@ -1,0 +1,56 @@
+review_id: REVIEW-251-001
+reviewed_sha: f3d1d932952066611c7e7982dafd07e7e55b13a8
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: PASS
+  AC3: PASS
+  AC4: PASS
+  AC5: FAIL
+  AC6: FAIL
+  AC7: PASS
+  AC8: PASS
+  AC9: PASS
+  AC10: PASS
+findings:
+  - id: FINDING-251-001
+    basis: AC5
+    action: CODE_FIX
+    location: src/product_intelligence/tiktok_pdp_dom_diagnostic.py; tests/product_intelligence/test_tiktok_pdp_dom_diagnostic.py
+    issue: >
+      The V5 price-role script is not executable as authored on the live path. Inside
+      DIAGNOSTIC_SCRIPT, isInsideBtn() calls isCtrl(cur), but isCtrl is declared only inside
+      resolveBoundedPdpDomScope() in the shared TIKTOK_PDP_DOM_SCOPE_JS function body and is not
+      visible in the outer V5 price-role probe scope. On a bounded root containing a currency or
+      price-like candidate, evaluating isInsideBtn(node) can therefore raise ReferenceError:
+      isCtrl is not defined, so the attach-only diagnostic may fail before producing the required
+      schema-V5 price_role_probe. The 292-pass offline suite validates synthetic payloads but does
+      not execute this JavaScript path and therefore does not prove the exactly-one-evaluate live
+      diagnostic semantics required by AC5.
+    expected: >
+      Keep the shared DOM-scope resolver and production collector byte-unchanged. Define any V5
+      interactive-control helper locally inside tiktok_pdp_dom_diagnostic.py so the generated
+      script has no dependency on resolver-private symbols. Add deterministic regression that
+      executes or otherwise validates the generated V5 script path sufficiently to prove there is
+      no unresolved isCtrl reference while preserving attach-only, exactly-one-evaluate, V5
+      schema, root semantics, sanitation and zero live authority.
+  - id: FINDING-251-002
+    basis: AC6
+    action: CODE_FIX
+    location: src/product_intelligence/tiktok_pdp_dom_diagnostic.py; tests/product_intelligence/test_tiktok_pdp_dom_diagnostic.py
+    issue: >
+      The V5 field collector_eligible_candidate_count is observationally inconsistent with the
+      frozen collector predicate it is intended to explain. The production collector excludes
+      ancestry under tag button, role=button, tag a, tag select or tag input. The new diagnostic
+      predicate instead includes onclick and, apart from the unresolved isCtrl call, does not
+      explicitly mirror link/select/input ancestry. This can classify a candidate as
+      collector-eligible or ineligible differently from the byte-unchanged collector and weaken
+      the diagnostic's ability to explain why current-price admission remained unknown.
+    expected: >
+      Mirror the frozen collector interactive-ancestry semantics exactly for the
+      collector_eligible_candidate_count observation: button, role=button, a, select and input.
+      Do not treat onclick-only ancestry as collector-equivalent unless exposed under a separately
+      named non-authoritative diagnostic observation. Add deterministic regression covering
+      button, role-button, link, select, input, ordinary div and onclick-only ancestry. Preserve
+      zero raw price persistence, no scalar admission and all TASK-251 authority closures.
