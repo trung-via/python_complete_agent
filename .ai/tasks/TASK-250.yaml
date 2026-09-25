@@ -1,45 +1,56 @@
 task_id: TASK-250
-revision: 1
+revision: 2
 
 goal: >
-  Canonicalize the Human/Brain authorization for exactly one Human-operated post-TASK249 live
-  TikTok public-PDP collector validation against the already-selected exact listing, using only the
-  reviewed and published TASK-249 V2 live-pilot carrier and the TASK-248 collector baseline it binds.
-  Grant one bounded live validation attempt without changing implementation, executing TikTok/CDP,
-  normalizing external output into canonical Product Intelligence evidence, authorizing automation,
-  recommendation, ranking, approval, market test, or any commerce action.
+  Canonicalize exactly one Human-operated post-TASK249 live TikTok public-PDP collector-validation
+  authorization for the already-selected exact listing, using only the reviewed and published
+  TASK-249 V2 carrier and the distinct TASK-248 collector baseline it binds. Before the later live
+  invocation, require a non-consuming execution preflight that proves source equivalence, a fresh
+  external job root, CDP/browser-target unambiguity and bounded environment provenance. Preserve
+  durable V2 attempt-consumption lineage and mandatory post-attempt Human/Brain review. TASK-250
+  remains authorization-only: it changes no production implementation and performs no TikTok/CDP
+  operation during engineering.
 
 problem: >
-  TASK-249 is exactly reviewed and published at
-  84739c2a13d9d89ef5379ecba7a9d4b83ed64771 through RUN-249-002 / REVIEW-249-001. It hardened the
-  existing Human-operated live-pilot carrier with a durable V2 attempt marker, bounded terminal
-  result, exact TASK-248 collector-baseline provenance, interruption semantics, secret-safe failure
-  handling, and no automatic retry. Canonical planning now returns exactly to
-  HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION with authorized_validation_attempts=0 and no live
-  acquisition authority. The Human has explicitly chosen to continue the roadmap. The unique next
-  commitment is therefore an authorization-only record for one future Human-operated validation
-  attempt bound to the exact published TASK-249 carrier source; TASK-250 must not perform that live
-  attempt during engineering.
+  TASK-249 / RUN-249-002 / REVIEW-249-001 is exactly published at
+  84739c2a13d9d89ef5379ecba7a9d4b83ed64771 and returns canonical planning to
+  HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION with zero fresh validation attempts. TASK-250 r1
+  correctly separated authorization from execution and bound one future Human-operated validation to
+  the exact TASK-249 carrier source, but pre-execution audit found unresolved live-boundary risks.
+  The V2 carrier writes its durable attempt marker before Playwright session acquisition, so an
+  unreachable CDP endpoint or ambiguous borrowed-page state would consume the sole attempt after
+  carrier entry. r1 also did not bind the preflight job root/browser state to the invocation, did not
+  freeze all direct execution-critical ProductCandidateSnapshot/BrowserConfig/session-protocol files,
+  did not require preservation and hashing of the external marker/result through post-attempt review,
+  and did not explicitly distinguish operation SUCCESS from per-field validation success. Revision 2
+  closes those gaps without changing production code or widening live authority.
 
 assumptions:
-  - Canonical main at authoring is 84739c2a13d9d89ef5379ecba7a9d4b83ed64771.
-  - TASK-249 / RUN-249-002 / REVIEW-249-001 are PASS and exact-source published at
+  - Canonical main before revision-2 authoring is
+    34398011e66b2561445cc8b027d58072eb0caf21.
+  - TASK-249 / RUN-249-002 / REVIEW-249-001 is exact-source published at
     84739c2a13d9d89ef5379ecba7a9d4b83ed64771.
   - TASK-248 remains the exact collector validation baseline at
-    39979020a10b78e1f86c30cf2b704f2f975daec9; TASK-250 does not move that collector baseline.
-  - The selected context remains p8-pilot-001-led-motion-tiktok-vn, source ID
-    "1731381331718341815", and stable listing
+    39979020a10b78e1f86c30cf2b704f2f975daec9; TASK-250 does not move it.
+  - The selected case remains context p8-pilot-001-led-motion-tiktok-vn, source ID
+    "1731381331718341815", stable listing
     https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815.
-  - src/product_intelligence/tiktok_pdp_live_pilot.py is the sole operation-specific carrier and
-    its fixed V2 artifacts are tiktok-pdp-live-validation-attempt-v2.json and
-    tiktok-pdp-live-validation-result-v2.json.
-  - TikTokPdpCollector remains the sole exact-PDP observation/admission owner; the canonical TikTok
-    parser remains sole scalar-price admission owner; the shared DOM-scope resolver owns structural
-    scoping only; TASK-137 remains sole browser/CDP lifecycle authority.
+  - The later operator CDP endpoint for this authorization is
+    http://127.0.0.1:9222.
+  - src/product_intelligence/tiktok_pdp_live_pilot.py remains the sole operation-specific carrier.
+  - Its fixed V2 artifacts remain tiktok-pdp-live-validation-attempt-v2.json and
+    tiktok-pdp-live-validation-result-v2.json; legacy V1 remains
+    tiktok-pdp-live-pilot-result-v1.json.
+  - TikTokPdpCollector remains the sole exact-PDP observation/admission owner, canonical TikTok
+    parsing remains sole scalar-price admission authority, the shared DOM-scope resolver owns
+    bounded structural scoping only, and TASK-137 remains sole browser/CDP lifecycle authority.
+  - The current CDP session implementation borrows contexts[0] and the first non-closed page, so
+    exactly-one-normal-page preflight is required to make later page borrowing unambiguous.
   - CAPABILITY_IS_NOT_AUTHORITY, EVIDENCE_IS_NOT_PRODUCT_TRUTH,
     SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY, SNAPSHOT_IS_NOT_TREND,
-    AMBIGUOUS_PRICE_IS_NOT_EXACT_PRICE, MEASUREMENT_IS_NOT_AUTHORITY, and
-    ONE_CAPABILITY_ONE_AUTHORITY remain mandatory.
+    AMBIGUOUS_PRICE_IS_NOT_EXACT_PRICE, MEASUREMENT_IS_NOT_AUTHORITY,
+    OPERATION_SUCCESS_IS_NOT_FIELD_VALIDATION_SUCCESS, and ONE_CAPABILITY_ONE_AUTHORITY remain
+    mandatory.
   - TASK-250 authoring and deterministic verification require no live TikTok/CDP access.
 
 scope:
@@ -50,22 +61,31 @@ scope:
     - docs/CHATGPT_PROJECT_CONTRACT.md
     - docs/PHASE_8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT.md
     - docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK248_VALIDATION_CARRIER_HARDENING.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN7_AUTHORIZATION.md
     - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
     - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
     - .ai/roadmap-state.yaml
     - .ai/aios-adoption-state.yaml
     - .ai/tasks/TASK-137.yaml
     - .ai/tasks/TASK-233.yaml
+    - .ai/tasks/TASK-245.yaml
+    - .ai/tasks/TASK-247.yaml
     - .ai/tasks/TASK-248.yaml
     - .ai/tasks/TASK-249.yaml
+    - .ai/tasks/TASK-250.yaml
     - src/product_intelligence/tiktok_pdp_live_pilot.py
     - src/product_intelligence/cli.py
     - src/product_intelligence/adapters/tiktok_pdp.py
     - src/product_intelligence/adapters/tiktok_parsing.py
     - src/product_intelligence/tiktok_pdp_dom_scope.py
+    - src/product_intelligence/models.py
     - src/integrations/playwright/manager.py
     - src/integrations/playwright/session.py
+    - src/browser/session.py
+    - src/browser/models.py
     - tests/product_intelligence/test_tiktok_pdp_live_pilot.py
+    - tests/product_intelligence/test_product_intelligence_cli.py
+    - tests/product_intelligence/test_tiktok_pdp.py
     - tests/aios_bridge/test_aios_governance_state.py
   modify:
     - docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK249_VALIDATION_AUTHORIZATION.md
@@ -75,167 +95,237 @@ scope:
     - tests/aios_bridge/test_aios_governance_state.py
 
 non_goals:
-  - Execute TikTok, connect to CDP, create the V2 attempt marker/result, navigate a live page, borrow
-    a browser session, invoke TikTokPdpCollector, or acquire marketplace observations during TASK-250.
-  - Modify src/product_intelligence/tiktok_pdp_live_pilot.py, TikTokPdpCollector, the TikTok parser,
-    shared DOM-scope resolver, CLI, ProductCandidateSnapshot, SignalEvidence, browser manager/session,
-    or any selector/extraction behavior.
-  - Grant more than one post-TASK249 validation attempt, any arbitrary target/search/batch/variant
-    scope, automatic retry/resume/refresh, scheduler, queue, watcher, proxy, stealth/evasion,
-    CAPTCHA solving, credential capture, or autonomous execution.
+  - Execute TikTok, connect to live CDP, create V2 attempt/result artifacts, navigate a live page,
+    borrow a browser session, invoke TikTokPdpCollector, or acquire marketplace observations during
+    TASK-250 engineering or deterministic verification.
+  - Modify tiktok_pdp_live_pilot.py, TikTokPdpCollector, ProductCandidateSnapshot, TikTok parser,
+    shared DOM-scope resolver, CLI, BrowserConfig, BrowserSession protocol, Playwright
+    manager/session, or any selector/extraction/browser behavior.
+  - Grant more than one post-TASK249 validation attempt, an arbitrary target/query/search/batch/
+    multi-listing/variant scope, automatic retry/resume/refresh, scheduler, queue, watcher, proxy,
+    stealth/evasion, CAPTCHA solving, credential capture or autonomous execution.
   - Reopen or reinterpret consumed TASK-233 capture authority or Gen-1 through Gen-7 diagnostic history.
-  - Treat future V2 marker/result output as canonical Product Truth, canonical identity, trend,
-    recommendation, ranking, approval, TEST_READY, market-test authority, or commerce-action authority.
-  - Access or infer TikTok Affiliate eligibility/economics, build P7.4/P7.5, normalize future external
-    output into SignalEvidence, or begin any post-attempt reconciliation/successor task.
-  - Change the TASK-248 collector baseline or bind execution to mutable repository latest state.
+  - Treat future preflight observations or V2 output as canonical Product Truth, canonical identity,
+    trend, recommendation, ranking, approval, TEST_READY, market-test authority or commerce-action
+    authority.
+  - Normalize future V2 output into SignalEvidence, set canonical_evidence_ingested true, access or
+    infer TikTok Affiliate economics/eligibility, construct P7.4/P7.5, or begin any post-attempt
+    reconciliation/repair/successor.
+  - Hard-code a successful live price, expected root kind, expected page content or expected terminal
+    outcome into authorization or tests.
+  - Pin or change Python, Playwright or browser package versions in TASK-250.
 
 constraints:
   hard:
     - >
       Classification is exactly ONE_SHOT_POST_TASK249_PUBLIC_PDP_VALIDATION_AUTHORIZATION_ONLY.
-      TASK-250 is an authorization record only and performs no live operation.
+      TASK-250 is authorization-only and performs zero live operation.
     - >
-      Bind authorization source lineage exactly to TASK-249 / RUN-249-002 / REVIEW-249-001 /
-      published source 84739c2a13d9d89ef5379ecba7a9d4b83ed64771. Record
-      validation_carrier_source_sha as that exact TASK-249 source. Separately preserve
-      collector_validation_baseline task_id TASK-248 and source_sha
-      39979020a10b78e1f86c30cf2b704f2f975daec9. Carrier-source authority and collector-baseline
-      provenance must not be conflated.
+      Record exact machine-readable authorization lineage on the owning current milestone,
+      post_p8_planning_handoff authorization record and completed TASK-250 record:
+      source_task_id TASK-249, source_run_id RUN-249-002, source_review_id REVIEW-249-001,
+      source_published_sha 84739c2a13d9d89ef5379ecba7a9d4b83ed64771 and
+      validation_carrier_source_sha 84739c2a13d9d89ef5379ecba7a9d4b83ed64771.
+      Separately preserve collector_validation_baseline task_id TASK-248 and source_sha
+      39979020a10b78e1f86c30cf2b704f2f975daec9. Carrier execution source and collector baseline
+      provenance are distinct semantic fields.
     - >
-      Authorize exactly one Human-operated validation attempt for context
-      p8-pilot-001-led-motion-tiktok-vn, source ID 1731381331718341815 and the exact selected stable
-      TikTok Shop Vietnam PDP URL. No replacement product, arbitrary URL/query, search, batch,
-      multi-listing, or variant-switching authority is granted.
-    - >
-      On exact reviewed TASK-250 publication set authorized_validation_attempts 1,
+      Only exact reviewed TASK-250 publication may set authorized_validation_attempts 1,
       authorized_validation_attempts_remaining 1, validation_execution_owner HUMAN_OPERATOR,
-      validation_executed false, and live_public_pdp_acquisition_authority
-      ONE_SHOT_EXACT_LISTING_ONLY. Preserve automated_public_pdp_acquisition_authority NONE,
-      market_test_or_action_authority NONE, automatic_live_pilot false and automatic_progression false.
+      validation_executed false and live_public_pdp_acquisition_authority
+      ONE_SHOT_EXACT_LISTING_ONLY. Before exact publication the fresh attempt remains unauthorized.
+      Preserve automated_public_pdp_acquisition_authority NONE, market_test_or_action_authority NONE,
+      automatic_live_pilot false and automatic_progression false.
     - >
-      The authorized execution uses only the existing Human-facing tiktok-pdp-live-pilot command,
-      explicit external --job-root and operator-owned --cdp-endpoint. TASK-250 adds no CLI surface.
-      The existing collector may navigate only its fixed authorized PDP URL through the borrowed
-      TASK-137 session path.
+      The one attempt is bound only to context p8-pilot-001-led-motion-tiktok-vn, source ID
+      1731381331718341815 and exact selected stable listing
+      https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815.
+      It grants no replacement product, arbitrary target, inferred identity, search, batch,
+      multi-listing or variant-switch authority.
     - >
-      Freeze the execution-critical implementation to the exact reviewed/published TASK-249 source.
-      A future Human execution preflight must prove byte-equivalence to source
-      84739c2a13d9d89ef5379ecba7a9d4b83ed64771 for at least:
+      Future execution uses only the existing Human-facing CLI command
+      tiktok-pdp-live-pilot with one explicit external --job-root and
+      --cdp-endpoint http://127.0.0.1:9222. TASK-250 adds no CLI surface. Human-facing invocation
+      must be exactly one physical PowerShell command line with no backtick or multiline
+      continuation.
+    - >
+      Non-consuming execution preflight is mandatory and separate from carrier invocation. It must
+      not call tiktok-pdp-live-pilot, create the V2 marker/result, navigate, evaluate, click, type,
+      refresh or otherwise mutate the browser/page. Preflight must prove all of the following:
+      CDP http://127.0.0.1:9222 is reachable; read-only target enumeration reports exactly one normal
+      type=page target total; that sole target is the exact selected PDP for source ID
+      1731381331718341815; and the later explicit job root is outside the Git repository and contains
+      none of legacy V1, V2 marker or V2 result files.
+    - >
+      Preflight must prove content equivalence of these ten execution-critical files to exact
+      TASK-249 published source 84739c2a13d9d89ef5379ecba7a9d4b83ed64771:
       src/product_intelligence/tiktok_pdp_live_pilot.py,
       src/product_intelligence/cli.py,
       src/product_intelligence/adapters/tiktok_pdp.py,
       src/product_intelligence/adapters/tiktok_parsing.py,
       src/product_intelligence/tiktok_pdp_dom_scope.py,
-      src/integrations/playwright/manager.py, and
-      src/integrations/playwright/session.py.
-      Repository HEAD equality is not required, but execution-critical file equivalence is.
+      src/product_intelligence/models.py,
+      src/integrations/playwright/manager.py,
+      src/integrations/playwright/session.py,
+      src/browser/session.py and
+      src/browser/models.py.
+      Repository HEAD equality is not required.
     - >
-      The job root for the later execution must be explicit, outside the Git repository and fresh:
-      legacy tiktok-pdp-live-pilot-result-v1.json,
-      tiktok-pdp-live-validation-attempt-v2.json and
-      tiktok-pdp-live-validation-result-v2.json must all be absent before carrier invocation.
-      No TASK-250 engineering step may create these external artifacts.
+      The exact job root and browser target state that pass preflight are bound to the subsequent
+      consuming invocation. If the job-root contents, normal-page target count, selected target URL
+      or execution-critical file contents change before invocation, preflight must be rerun.
+      Repeating only non-consuming preflight while the V2 marker remains absent does not consume the
+      attempt.
     - >
-      Preserve TASK-249 consumption semantics exactly. Successful create-exclusive persistence of
-      tiktok-pdp-live-validation-attempt-v2.json is the attempt-consumption boundary. Pre-marker
-      shell/transport/local-gate failure is non-consuming; there is no automatic retry. After marker
-      creation every terminal outcome, including missing/malformed/nonconforming result or process/
-      power interruption, consumes the one authorized attempt and grants no retry, resume, refresh,
-      replacement target or second invocation.
+      Preflight should record bounded environment provenance when deterministically observable:
+      Python version, installed Playwright package version and borrowed Chromium/Chrome version.
+      These values are context and uncertainty evidence only, not authority and not Product Truth.
+      TASK-250 does not prescribe an expected version and absence of such optional provenance never
+      creates retry authority.
     - >
-      A pre-marker non-consuming failure may be corrected and manually re-invoked only for the same
-      exact authorization while the V2 marker remains absent; this is not a second live attempt and
-      must never be automated. Once the marker exists, any later attempt requires fresh Human/Brain
-      authorization after review.
+      Preserve TASK-249 V2 consumption semantics exactly. Successful create-exclusive persistence of
+      tiktok-pdp-live-validation-attempt-v2.json is the durable attempt-consumption boundary.
+      Shell/parser/transport/preflight/local-gate failure before marker creation is non-consuming and
+      may be manually corrected for the same exact authorization only while the marker remains absent.
+      No correction or retry is automatic.
     - >
-      The V2 marker/result remain external bounded source-operation evidence only. Marker existence
-      proves consumption state, not Product Truth. A valid OBSERVED snapshot remains one observation,
-      not canonical truth, trend, recommendation, approval, test readiness or action authority.
-      No TASK-250 publication may set canonical_evidence_ingested true.
+      After marker creation every terminal outcome consumes the one authorized attempt. SUCCESS,
+      FAIL_CLOSED, result-persistence failure, missing/malformed/nonconforming result, process loss,
+      network loss or power interruption grants no retry, resume, refresh, replacement target,
+      second invocation or automatic follow-up. Any later live attempt requires fresh Human/Brain
+      authorization after mandatory review.
     - >
-      Human operator owns execution and any challenge/login/CAPTCHA handling decision. The carrier
-      must fail closed through its existing bounded taxonomy; TASK-250 authorizes no CAPTCHA solving,
-      credential capture, stealth/evasion, alternate-account behavior or automatic continuation.
+      Once the marker exists, the exact external marker and any result file that exists must be
+      preserved byte-for-byte through mandatory post-attempt review. Human/operator/automation must
+      not delete, edit, truncate, rewrite or replace either artifact to obtain a cleaner result or
+      regain authorization.
     - >
-      Exact post-publication handoff is
-      HUMAN_OPERATOR_ONE_SHOT_POST_TASK249_PUBLIC_PDP_VALIDATION_EXECUTION. Mandatory post-attempt
-      review authority is HUMAN_BRAIN_POST_TASK249_PUBLIC_PDP_VALIDATION_REVIEW. The execution handoff
-      is not an engineering NEXT milestone and does not authorize an automatic successor.
+      Mandatory post-attempt review must derive attempt state from the external V2 artifacts, not
+      from chat recollection. It must record at minimum: exact job-root binding; marker present/
+      absent; marker SHA256 and size when present; result present/absent; result SHA256 and size when
+      present; result schema/conformance state; bounded operation_status, observation_status,
+      session_release_status and failure_reason only when present in a conforming result; and the
+      bounded snapshot fields only when OBSERVED. Process/CLI exit code may be recorded only when
+      directly observed and must remain UNKNOWN when not established.
+    - >
+      Post-attempt interpretation is exact: marker absent means the V2 consumption boundary was not
+      crossed; marker present plus conforming SUCCESS result means CONSUMED with operation success;
+      marker present plus conforming FAIL_CLOSED result means CONSUMED fail-closed; marker present
+      plus absent/malformed/nonconforming result means CONSUMED_INTERRUPTED_OR_UNOBSERVED. None of
+      these marker-present states authorizes retry.
+    - >
+      OPERATION_SUCCESS_IS_NOT_FIELD_VALIDATION_SUCCESS. SUCCESS / OBSERVED establishes only one
+      admitted bounded listing observation. It does not prove that price, original_price,
+      discount_percent, sold_count, rating, review_count or any optional field was observed.
+      Null/unknown optional fields remain unknown and must be reviewed field-by-field without
+      fabricating an expected value. A successful observation remains evidence, not Product Truth,
+      canonical identity, trend, recommendation, approval or action authority.
+    - >
+      Human operator owns live execution and challenge/login/CAPTCHA decisions. Existing carrier and
+      collector fail-closed taxonomy remains the only execution behavior. TASK-250 authorizes no
+      CAPTCHA solving, credential capture, stealth/evasion, alternate account, automatic challenge
+      continuation or exception-message semantic reinterpretation.
+    - >
+      Preserve consumed TASK-233 authorized_capture_attempts 1 /
+      authorized_capture_attempts_remaining 0 only as historical TASK-233 pilot lineage.
+      Those fields must not be interpreted as TASK-250 validation authority. Current TASK-250
+      authority exists only through the separate authorized_validation_attempts fields.
+    - >
+      On exact reviewed TASK-250 publication, TASK-250 becomes the sole current active-track
+      milestone with status DONE and publication-gated authorization semantics; TASK-249 current
+      assertions become historical ownership without weakening exact TASK-249 publication, carrier
+      or zero-at-publication attempt facts. completed_milestones TASK-250 must record task_revision 2.
+    - >
+      Exact post-publication execution handoff is
+      HUMAN_OPERATOR_ONE_SHOT_POST_TASK249_PUBLIC_PDP_VALIDATION_EXECUTION.
+      post_attempt_review_authority and mandatory_post_validation_review are
+      HUMAN_BRAIN_POST_TASK249_PUBLIC_PDP_VALIDATION_REVIEW. The execution handoff is not an
+      engineering NEXT milestone and does not authorize an automatic successor.
     - >
       Keep active_track.next_milestone null, post_p8_planning_handoff.next_milestone null,
       pending_commitments empty and post_run_engineering_successor null. TASK-250 publication changes
-      only authorization state; execution and review remain separate Human/Brain phases.
+      only bounded authorization state. Execution, review and any later reconciliation/repair remain
+      separate Human/Brain decisions.
     - >
-      Preserve historical TASK-233 authorized_capture_attempts 1 / remaining 0 as consumed history.
-      Do not reinterpret those fields as TASK-250 authority. Current authority is owned only by the
-      separate authorized_validation_attempts fields.
+      Add docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK249_VALIDATION_AUTHORIZATION.md documenting exact
+      TASK-249 carrier source, separate TASK-248 collector baseline, fixed listing, one-attempt
+      authority, exact one-line invocation surface, ten-file source equivalence, read-only CDP/page
+      preflight, fresh/bound external root, V2 consumption boundary, artifact preservation,
+      interruption semantics, OPERATION_SUCCESS_IS_NOT_FIELD_VALIDATION_SUCCESS, zero automated/
+      action authority and mandatory artifact-grounded post-attempt review.
     - >
-      Add docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK249_VALIDATION_AUTHORIZATION.md documenting Human
-      approval, exact TASK-249 carrier source, separate TASK-248 collector baseline, exact fixed
-      listing, one-attempt limit, execution-critical source equivalence, fresh external job-root
-      preflight, V2 marker consumption boundary, non-consuming pre-marker correction semantics,
-      no automatic retry, Human operator ownership, bounded external evidence meaning, zero
-      automated/action authority and mandatory post-attempt Human/Brain review.
-    - >
-      Update both canonical roadmaps and .ai/roadmap-state.yaml only publication-gated. TASK-250 must
-      become the sole current active-track milestone only on exact reviewed publication while
-      preserving TASK-249 as exact historical source. Governance regression must prove source
-      lineage, one remaining Human attempt, fixed target, distinct historical TASK-233 capture
-      lineage, no automated/action authority, null NEXT, empty pending commitments and exact execution
-      and post-attempt-review handoffs.
+      Update both canonical roadmap documents and .ai/roadmap-state.yaml only publication-gated.
+      Governance regression must historicalize TASK-249 global-current assertions and prove TASK-250
+      alone owns current authorization; exact source/run/review/published lineage; distinct TASK-248
+      collector baseline; fixed listing; ten-file preflight requirement; one remaining Human attempt;
+      historical TASK-233 separation; artifact-preservation/review gates; no automated/action
+      authority; null NEXT; empty pending commitments; exact execution handoff; and exact
+      post-attempt review authority.
     - >
       Modify exactly the five authorized paths. Produce one candidate and one ResultPackage.
-      Runtime owns deterministic verification; Executor must not execute TikTok/CDP, create external
-      attempt/result artifacts, publish, review its own candidate, consume the authorized attempt or
-      begin a successor operation.
+      Runtime owns deterministic verification. Executor must not execute TikTok/CDP, create external
+      validation artifacts, publish, review its own candidate, consume the authorized attempt or
+      begin any successor.
 
 acceptance:
   - id: AC1
     condition: >
       Exact TASK-249 / RUN-249-002 / REVIEW-249-001 publication lineage at
-      84739c2a13d9d89ef5379ecba7a9d4b83ed64771 is the sole live-validation carrier execution source,
+      84739c2a13d9d89ef5379ecba7a9d4b83ed64771 is recorded as the sole V2 carrier execution source,
       while exact TASK-248 source 39979020a10b78e1f86c30cf2b704f2f975daec9 remains separately
-      recorded as collector baseline provenance.
+      recorded as collector-baseline provenance.
   - id: AC2
     condition: >
-      Exactly one Human-operated validation attempt is authorized for the fixed selected listing:
-      authorized_validation_attempts=1, remaining=1, validation_execution_owner=HUMAN_OPERATOR,
-      validation_executed=false and live_public_pdp_acquisition_authority=ONE_SHOT_EXACT_LISTING_ONLY,
-      with no arbitrary target/search/batch/variant scope.
+      Exactly one Human-operated validation attempt is publication-gated for the fixed selected
+      listing: authorized_validation_attempts 1, remaining 1, validation_execution_owner
+      HUMAN_OPERATOR, validation_executed false and live_public_pdp_acquisition_authority
+      ONE_SHOT_EXACT_LISTING_ONLY, with no arbitrary/replacement/search/batch/variant scope.
   - id: AC3
     condition: >
-      Future execution is pinned by execution-critical file equivalence to exact TASK-249 source,
-      uses only the existing carrier/CLI and TASK-137 lifecycle owners, and introduces no new carrier,
-      collector, parser, evidence model or browser authority.
+      Mandatory non-consuming preflight proves CDP reachability, exactly one normal page target and
+      that sole page is the exact selected PDP, a fresh exact external job root, and content
+      equivalence of all ten execution-critical files to exact TASK-249 publication without
+      requiring repository HEAD equality.
   - id: AC4
     condition: >
-      Fresh external job-root and V2 consumption semantics are explicit: pre-marker failures are
-      non-consuming and manually correctable only while no marker exists; marker creation consumes
-      the attempt; marker-without-valid-result is consumed/interrupted; no automatic retry or second
-      post-marker invocation is authorized.
+      The exact preflight-passed root/browser state is bound to a single physical one-line
+      PowerShell invocation; changed root/page/source state requires rerunning preflight; pre-marker
+      failure remains non-consuming only while the marker is absent.
   - id: AC5
     condition: >
-      Future V2 output remains bounded external source-operation evidence only and cannot by itself
-      become canonical evidence, Product Truth, canonical identity, trend, recommendation, ranking,
-      approval, TEST_READY, market-test authority or commerce-action authority.
+      Marker creation is the durable consumption boundary; every marker-present terminal state is
+      consumed, including missing/malformed/nonconforming result or interruption, with no retry,
+      resume, refresh, replacement target or second invocation.
   - id: AC6
     condition: >
-      Automated acquisition and market-test/action authorities remain NONE; automatic_live_pilot and
-      automatic_progression remain false; consumed TASK-233 capture history is preserved and not
-      reused as TASK-250 authority.
+      Marker/result artifacts are preserved byte-for-byte until mandatory review, and post-attempt
+      review is grounded in their presence, SHA256, size and conforming bounded fields without
+      inventing an unobserved exit code or reconstructing consumption from chat.
   - id: AC7
     condition: >
-      Exact reviewed publication leaves next_milestone null and pending commitments empty and hands
-      control only to HUMAN_OPERATOR_ONE_SHOT_POST_TASK249_PUBLIC_PDP_VALIDATION_EXECUTION, with
-      mandatory post-attempt authority HUMAN_BRAIN_POST_TASK249_PUBLIC_PDP_VALIDATION_REVIEW.
+      OPERATION_SUCCESS_IS_NOT_FIELD_VALIDATION_SUCCESS is explicit: SUCCESS/OBSERVED does not prove
+      optional marketplace fields were observed; unknown remains unknown; V2 output remains bounded
+      source-operation evidence and grants no truth, identity, trend, ranking, approval, test or
+      commerce-action authority.
   - id: AC8
     condition: >
-      Exactly five authorized paths change; focused offline governance verification and
-      git diff --check pass with zero unresolved items, producing one candidate eligible for
-      independent PRIMARY semantic review without live TikTok/CDP access or attempt consumption.
+      Automated acquisition and market-test/action authorities remain NONE, automatic_live_pilot and
+      automatic_progression remain false, TASK-233 capture history remains consumed historical
+      lineage, and Human operator retains execution/challenge ownership.
+  - id: AC9
+    condition: >
+      Exact reviewed publication makes TASK-250 revision 2 the sole current authorization milestone,
+      historicalizes TASK-249 current-state assertions without weakening its lineage, leaves NEXT
+      null and pending commitments empty, and hands control only to
+      HUMAN_OPERATOR_ONE_SHOT_POST_TASK249_PUBLIC_PDP_VALIDATION_EXECUTION with mandatory review
+      authority HUMAN_BRAIN_POST_TASK249_PUBLIC_PDP_VALIDATION_REVIEW.
+  - id: AC10
+    condition: >
+      Exactly the five authorized paths change; focused offline carrier/CLI/collector/governance
+      pytest and git diff --check pass with zero unresolved items, producing one candidate eligible
+      for independent PRIMARY semantic review without live TikTok/CDP access or attempt consumption.
 
 verification:
   required:
-    - python -m pytest tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task250-primary
+    - python -m pytest tests/product_intelligence/test_tiktok_pdp_live_pilot.py tests/product_intelligence/test_product_intelligence_cli.py tests/product_intelligence/test_tiktok_pdp.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task250-primary
     - git diff --check
