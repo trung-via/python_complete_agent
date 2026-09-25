@@ -119,10 +119,6 @@ post_p8_planning_handoff:
   destination: HUMAN_OPERATOR_ONE_SHOT_POST_TASK249_PUBLIC_PDP_VALIDATION_EXECUTION
   status: EFFECTIVE_ON_EXACT_TASK_250_SOURCE_PUBLICATION
   completed_commitment: P8_PUBLIC_PDP_POST_TASK249_VALIDATION_AUTHORIZATION
-  source_task_id: TASK-249
-  source_run_id: RUN-249-002
-  source_review_id: REVIEW-249-001
-  source_published_sha: 84739c2a13d9d89ef5379ecba7a9d4b83ed64771
   validation_carrier_source_sha: 84739c2a13d9d89ef5379ecba7a9d4b83ed64771
   collector_validation_baseline:
     task_id: TASK-248
@@ -157,7 +153,6 @@ post_p8_planning_handoff:
   automatic_p8_4: false
   implementation_authorized: true
   implementation_exists: true
-  live_public_pdp_acquisition_authority: NONE
   authorized_source_id: "1731381331718341815"
   authorized_capture_attempts: 1
   authorized_capture_attempts_remaining: 0
@@ -257,7 +252,6 @@ post_p8_planning_handoff:
   selector_repair_authority: NONE
   acquisition_authority: NONE
   mandatory_post_diagnostic_review: HUMAN_BRAIN_GENERATION_7_BOUNDED_TITLE_LOCAL_COMMERCE_ROOT_DIAGNOSTIC_REVIEW
-  post_attempt_review_authority: HUMAN_BRAIN_GENERATION_7_BOUNDED_TITLE_LOCAL_COMMERCE_ROOT_DIAGNOSTIC_REVIEW
   root_probe_interpretation: ENGINEERING_DIAGNOSTIC_HINT_ONLY
   commerce_probe_interpretation: ENGINEERING_DIAGNOSTIC_HINT_ONLY
   title_local_topology_probe_interpretation: ENGINEERING_DIAGNOSTIC_HINT_ONLY

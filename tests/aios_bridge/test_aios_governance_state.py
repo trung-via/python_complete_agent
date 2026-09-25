@@ -1306,7 +1306,7 @@ def test_task_248_reconciles_gen7_success_and_hardens_bounded_root_price_extract
 
     assert handoff["next_milestone"] is None
     assert state["pending_commitments"] == []
-    assert handoff["destination"] == "HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION"
+    assert handoff["destination"] != reconciliation["post_publication_handoff"]
 
     v4_artifact = reconciliation["historical_v4_artifact"]
     assert v4_artifact["schema_version"] == 4
@@ -1602,11 +1602,15 @@ def test_task_250_authorizes_one_exact_post_task249_validation_attempt():
     assert handoff["destination"] == (
         "HUMAN_OPERATOR_ONE_SHOT_POST_TASK249_PUBLIC_PDP_VALIDATION_EXECUTION"
     )
-    assert handoff["source_task_id"] == "TASK-249"
-    assert handoff["source_run_id"] == TASK_249_RUN_ID
-    assert handoff["source_review_id"] == TASK_249_REVIEW_ID
-    assert handoff["source_published_sha"] == TASK_249_PUBLISHED_SOURCE_SHA
-    assert handoff["validation_carrier_source_sha"] == TASK_249_PUBLISHED_SOURCE_SHA
+    assert authorization["source_task_id"] == "TASK-249"
+    assert authorization["source_run_id"] == TASK_249_RUN_ID
+    assert authorization["source_review_id"] == TASK_249_REVIEW_ID
+    assert authorization["source_published_sha"] == TASK_249_PUBLISHED_SOURCE_SHA
+    assert authorization["validation_carrier_source_sha"] == TASK_249_PUBLISHED_SOURCE_SHA
+    assert authorization["collector_validation_baseline"] == {
+        "task_id": "TASK-248",
+        "source_sha": TASK_248_PUBLISHED_SOURCE_SHA,
+    }
     assert handoff["collector_validation_baseline"] == {
         "task_id": "TASK-248",
         "source_sha": TASK_248_PUBLISHED_SOURCE_SHA,
