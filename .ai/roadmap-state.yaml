@@ -46,22 +46,25 @@ planning_handoff:
     semantic reconciliation without reinterpreting TASK-191 or changing TASK-213 history.
 
 active_track:
-  id: P8_PUBLIC_PDP_POST_TASK248_VALIDATION_CARRIER_HARDENING
-  title: P8 Public TikTok PDP Post-TASK248 Validation Carrier Hardening
+  id: P8_PUBLIC_PDP_POST_TASK249_VALIDATION_AUTHORIZATION
+  title: P8 Public TikTok PDP Post-TASK249 Validation Authorization
   priority_owner: HUMAN
   status: DONE
   completion_basis: PUBLICATION_GATED
-  sequence_status: COMPLETE_ON_EXACT_TASK_249_SOURCE_PUBLICATION
+  sequence_status: COMPLETE_ON_EXACT_TASK_250_SOURCE_PUBLICATION
   current_milestone:
-    id: P8.PUBLIC_PDP.POST_TASK248_VALIDATION_CARRIER_HARDENING
-    task_id: TASK-249
-    title: Public TikTok PDP Post-TASK248 Validation Carrier Hardening
+    id: P8.PUBLIC_PDP.POST_TASK249_VALIDATION_AUTHORIZATION
+    task_id: TASK-250
+    title: Public TikTok PDP Post-TASK249 Validation Authorization
     status: DONE
     completion_basis: PUBLICATION_GATED
-    classification: POST_TASK248_LIVE_PUBLIC_PDP_VALIDATION_CARRIER_HARDENING_ONLY
+    classification: ONE_SHOT_POST_TASK249_PUBLIC_PDP_VALIDATION_AUTHORIZATION_ONLY
     authorization_owner: HUMAN_BRAIN
-    source_task_id: TASK-248
-    source_published_sha: 39979020a10b78e1f86c30cf2b704f2f975daec9
+    source_task_id: TASK-249
+    source_run_id: RUN-249-002
+    source_review_id: REVIEW-249-001
+    source_published_sha: 84739c2a13d9d89ef5379ecba7a9d4b83ed64771
+    validation_carrier_source_sha: 84739c2a13d9d89ef5379ecba7a9d4b83ed64771
     collector_validation_baseline:
       task_id: TASK-248
       source_sha: 39979020a10b78e1f86c30cf2b704f2f975daec9
@@ -73,19 +76,22 @@ active_track:
     authorized_source_id: "1731381331718341815"
     stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
     carrier_module: src/product_intelligence/tiktok_pdp_live_pilot.py
-    authorized_validation_attempts: 0
-    authorized_validation_attempts_remaining: 0
-    validation_execution_owner: NONE
+    authorized_validation_attempts: 1
+    authorized_validation_attempts_remaining: 1
+    validation_execution_owner: HUMAN_OPERATOR
+    validation_executed: false
     selector_repair_complete: false
-    live_public_pdp_acquisition_authority: NONE
+    live_public_pdp_acquisition_authority: ONE_SHOT_EXACT_LISTING_ONLY
     automated_public_pdp_acquisition_authority: NONE
     market_test_or_action_authority: NONE
     automatic_live_pilot: false
     automatic_progression: false
     post_run_engineering_successor: null
     next_milestone: null
-    exact_post_publication_handoff: HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION
-    post_publication_handoff: HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION
+    post_attempt_review_authority: HUMAN_BRAIN_POST_TASK249_PUBLIC_PDP_VALIDATION_REVIEW
+    mandatory_post_validation_review: HUMAN_BRAIN_POST_TASK249_PUBLIC_PDP_VALIDATION_REVIEW
+    exact_post_publication_handoff: HUMAN_OPERATOR_ONE_SHOT_POST_TASK249_PUBLIC_PDP_VALIDATION_EXECUTION
+    post_publication_handoff: HUMAN_OPERATOR_ONE_SHOT_POST_TASK249_PUBLIC_PDP_VALIDATION_EXECUTION
     effective_only_when:
       semantic_review: PASS
       published_source: EXACT_REVIEWED_CANDIDATE
@@ -110,20 +116,29 @@ post_p7_planning_handoff:
     outcome, roadmap, or future-domain authority into P8.0.
 
 post_p8_planning_handoff:
-  destination: HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION
-  status: EFFECTIVE_ON_EXACT_TASK_249_SOURCE_PUBLICATION
-  completed_commitment: P8_PUBLIC_PDP_POST_TASK248_VALIDATION_CARRIER_HARDENING
-  post_task248_live_validation_carrier_hardened: true
+  destination: HUMAN_OPERATOR_ONE_SHOT_POST_TASK249_PUBLIC_PDP_VALIDATION_EXECUTION
+  status: EFFECTIVE_ON_EXACT_TASK_250_SOURCE_PUBLICATION
+  completed_commitment: P8_PUBLIC_PDP_POST_TASK249_VALIDATION_AUTHORIZATION
+  source_task_id: TASK-249
+  source_run_id: RUN-249-002
+  source_review_id: REVIEW-249-001
+  source_published_sha: 84739c2a13d9d89ef5379ecba7a9d4b83ed64771
+  validation_carrier_source_sha: 84739c2a13d9d89ef5379ecba7a9d4b83ed64771
   collector_validation_baseline:
     task_id: TASK-248
     source_sha: 39979020a10b78e1f86c30cf2b704f2f975daec9
+  post_task248_live_validation_carrier_hardened: true
   validation_carrier_schema_version: 2
   validation_attempt_marker_filename: tiktok-pdp-live-validation-attempt-v2.json
   validation_result_filename: tiktok-pdp-live-validation-result-v2.json
   carrier_module: src/product_intelligence/tiktok_pdp_live_pilot.py
-  authorized_validation_attempts: 0
-  authorized_validation_attempts_remaining: 0
-  validation_execution_owner: NONE
+  authorized_validation_attempts: 1
+  authorized_validation_attempts_remaining: 1
+  validation_execution_owner: HUMAN_OPERATOR
+  validation_executed: false
+  live_public_pdp_acquisition_authority: ONE_SHOT_EXACT_LISTING_ONLY
+  post_attempt_review_authority: HUMAN_BRAIN_POST_TASK249_PUBLIC_PDP_VALIDATION_REVIEW
+  mandatory_post_validation_review: HUMAN_BRAIN_POST_TASK249_PUBLIC_PDP_VALIDATION_REVIEW
   actual_real_decision_case:
     context_id: p8-pilot-001-led-motion-tiktok-vn
     record_type: PILOT_CASE_SELECTION_ONLY
@@ -1229,6 +1244,78 @@ post_p8_planning_handoff:
     automatic_progression: false
     next_milestone: null
     post_publication_handoff: HUMAN_OPERATOR_GENERATION_7_BOUNDED_TITLE_LOCAL_COMMERCE_ROOT_DIAGNOSTIC_EXECUTION
+  public_pdp_post_task249_validation_authorization:
+    document: docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK249_VALIDATION_AUTHORIZATION.md
+    classification: ONE_SHOT_POST_TASK249_PUBLIC_PDP_VALIDATION_AUTHORIZATION_ONLY
+    task_id: TASK-250
+    source_task_id: TASK-249
+    source_run_id: RUN-249-002
+    source_review_id: REVIEW-249-001
+    source_published_sha: 84739c2a13d9d89ef5379ecba7a9d4b83ed64771
+    validation_carrier_source_sha: 84739c2a13d9d89ef5379ecba7a9d4b83ed64771
+    collector_validation_baseline:
+      task_id: TASK-248
+      source_sha: 39979020a10b78e1f86c30cf2b704f2f975daec9
+    post_task248_live_validation_carrier_hardened: true
+    validation_carrier_schema_version: 2
+    validation_attempt_marker_filename: tiktok-pdp-live-validation-attempt-v2.json
+    validation_result_filename: tiktok-pdp-live-validation-result-v2.json
+    context_id: p8-pilot-001-led-motion-tiktok-vn
+    authorized_source_id: "1731381331718341815"
+    stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
+    carrier_module: src/product_intelligence/tiktok_pdp_live_pilot.py
+    authorized_validation_attempts: 1
+    authorized_validation_attempts_remaining: 1
+    validation_execution_owner: HUMAN_OPERATOR
+    validation_executed: false
+    live_public_pdp_acquisition_authority: ONE_SHOT_EXACT_LISTING_ONLY
+    automated_public_pdp_acquisition_authority: NONE
+    market_test_or_action_authority: NONE
+    automatic_live_pilot: false
+    automatic_progression: false
+    post_run_engineering_successor: null
+    next_milestone: null
+    post_attempt_review_authority: HUMAN_BRAIN_POST_TASK249_PUBLIC_PDP_VALIDATION_REVIEW
+    mandatory_post_validation_review: HUMAN_BRAIN_POST_TASK249_PUBLIC_PDP_VALIDATION_REVIEW
+    preflight_consumes_attempt: false
+    preflight_authority:
+      cdp_reachability: 127.0.0.1:9222
+      normal_type_page_target_total: 1
+      sole_normal_page_is_exact_selected_pdp: true
+      selected_pdp_source_id: "1731381331718341815"
+      external_job_root_requires_legacy_v1_absent: true
+      external_job_root_requires_v2_marker_absent: true
+      external_job_root_requires_v2_result_absent: true
+      execution_critical_file_equivalence_source_sha: 84739c2a13d9d89ef5379ecba7a9d4b83ed64771
+      execution_critical_files:
+        - src/product_intelligence/tiktok_pdp_live_pilot.py
+        - src/product_intelligence/cli.py
+        - src/product_intelligence/adapters/tiktok_pdp.py
+        - src/product_intelligence/adapters/tiktok_parsing.py
+        - src/product_intelligence/tiktok_pdp_dom_scope.py
+        - src/product_intelligence/models.py
+        - src/integrations/playwright/manager.py
+        - src/integrations/playwright/session.py
+        - src/browser/session.py
+        - src/browser/models.py
+      repository_head_equality_required: false
+      carrier_invocation: false
+    canonical_cli_command: tiktok-pdp-live-pilot
+    human_invocation_transport: ONE_PHYSICAL_POWERSHELL_LINE_NO_CONTINUATION
+    pre_carrier_shell_parser_transport_failure_consumes_attempt: false
+    terminal_outcome_consumption: EVERY_TERMINAL_OUTCOME
+    automatic_retry_refresh_resume: false
+    second_invocation_authority: NONE
+    arbitrary_target_authority: NONE
+    replacement_target_authority: NONE
+    search_authority: NONE
+    batch_authority: NONE
+    inferred_identity_authority: NONE
+    variant_switching_authority: NONE
+    selector_repair_authority: NONE
+    acquisition_authority: NONE
+    selector_repair_complete: false
+    post_publication_handoff: HUMAN_OPERATOR_ONE_SHOT_POST_TASK249_PUBLIC_PDP_VALIDATION_EXECUTION
   public_pdp_post_task248_validation_carrier_hardening:
     document: docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK248_VALIDATION_CARRIER_HARDENING.md
     classification: POST_TASK248_LIVE_PUBLIC_PDP_VALIDATION_CARRIER_HARDENING_ONLY
@@ -2436,6 +2523,49 @@ completed_milestones:
     post_run_engineering_successor: null
     next_milestone: null
     post_publication_handoff: HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION
+    effective_only_when:
+      semantic_review: PASS
+      published_source: EXACT_REVIEWED_CANDIDATE
+      canonical_main_equals_reviewed_candidate: true
+
+  - task_id: TASK-250
+    task_revision: 2
+    track_id: P8_PUBLIC_PDP_POST_TASK249_VALIDATION_AUTHORIZATION
+    milestone_id: P8.PUBLIC_PDP.POST_TASK249_VALIDATION_AUTHORIZATION
+    title: Public TikTok PDP Post-TASK249 Validation Authorization
+    status: DONE
+    completion_basis: PUBLICATION_GATED
+    classification: ONE_SHOT_POST_TASK249_PUBLIC_PDP_VALIDATION_AUTHORIZATION_ONLY
+    source_task_id: TASK-249
+    source_run_id: RUN-249-002
+    source_review_id: REVIEW-249-001
+    source_published_sha: 84739c2a13d9d89ef5379ecba7a9d4b83ed64771
+    validation_carrier_source_sha: 84739c2a13d9d89ef5379ecba7a9d4b83ed64771
+    collector_validation_baseline:
+      task_id: TASK-248
+      source_sha: 39979020a10b78e1f86c30cf2b704f2f975daec9
+    post_task248_live_validation_carrier_hardened: true
+    validation_carrier_schema_version: 2
+    validation_attempt_marker_filename: tiktok-pdp-live-validation-attempt-v2.json
+    validation_result_filename: tiktok-pdp-live-validation-result-v2.json
+    context_id: p8-pilot-001-led-motion-tiktok-vn
+    authorized_source_id: "1731381331718341815"
+    stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
+    carrier_module: src/product_intelligence/tiktok_pdp_live_pilot.py
+    authorized_validation_attempts: 1
+    authorized_validation_attempts_remaining: 1
+    validation_execution_owner: HUMAN_OPERATOR
+    validation_executed: false
+    live_public_pdp_acquisition_authority: ONE_SHOT_EXACT_LISTING_ONLY
+    automated_public_pdp_acquisition_authority: NONE
+    market_test_or_action_authority: NONE
+    automatic_live_pilot: false
+    automatic_progression: false
+    post_run_engineering_successor: null
+    next_milestone: null
+    post_attempt_review_authority: HUMAN_BRAIN_POST_TASK249_PUBLIC_PDP_VALIDATION_REVIEW
+    mandatory_post_validation_review: HUMAN_BRAIN_POST_TASK249_PUBLIC_PDP_VALIDATION_REVIEW
+    post_publication_handoff: HUMAN_OPERATOR_ONE_SHOT_POST_TASK249_PUBLIC_PDP_VALIDATION_EXECUTION
     effective_only_when:
       semantic_review: PASS
       published_source: EXACT_REVIEWED_CANDIDATE

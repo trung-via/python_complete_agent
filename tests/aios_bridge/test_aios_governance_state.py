@@ -144,6 +144,11 @@ P8_PUBLIC_TIKTOK_PDP_POST_TASK248_VALIDATION_CARRIER_HARDENING_FILE = (
     / "docs"
     / "PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK248_VALIDATION_CARRIER_HARDENING.md"
 )
+P8_PUBLIC_TIKTOK_PDP_POST_TASK249_VALIDATION_AUTHORIZATION_FILE = (
+    REPO_ROOT
+    / "docs"
+    / "PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK249_VALIDATION_AUTHORIZATION.md"
+)
 ROADMAP_DOCS = (
     REPO_ROOT / "docs" / "POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
     REPO_ROOT / "docs" / "POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
@@ -188,6 +193,9 @@ TASK_245_PUBLISHED_SOURCE_SHA = "12c9a9852a32d8f0e79303803797ebf1e1fa98c2"
 TASK_246_PUBLISHED_SOURCE_SHA = "60da55d5241c7b4c433d9b2d7d5d3725556f443c"
 TASK_247_PUBLISHED_SOURCE_SHA = "5c4b54b02c844636b70fc64f9378fc680810a386"
 TASK_248_PUBLISHED_SOURCE_SHA = "39979020a10b78e1f86c30cf2b704f2f975daec9"
+TASK_249_PUBLISHED_SOURCE_SHA = "84739c2a13d9d89ef5379ecba7a9d4b83ed64771"
+TASK_249_RUN_ID = "RUN-249-002"
+TASK_249_REVIEW_ID = "REVIEW-249-001"
 GEN7_ARTIFACT_SHA256 = (
     "E635BDF3C211F736EB0630EA44DE0563AD141114D28BF5BBD84650478E095817"
 )
@@ -1366,6 +1374,98 @@ def test_task_248_reconciles_gen7_success_and_hardens_bounded_root_price_extract
 
 
 def test_task_249_hardens_post_task248_validation_carrier_with_zero_live_authority():
+    test_task_249_history_preserves_carrier_hardening_without_freezing_current_global_handoff()
+
+
+def test_task_249_history_preserves_carrier_hardening_without_freezing_current_global_handoff():
+    state = load_yaml(ROADMAP_FILE)
+    handoff = state["post_p8_planning_handoff"]
+    carrier_entry = handoff["public_pdp_post_task248_validation_carrier_hardening"]
+    completed = {item["task_id"]: item for item in state["completed_milestones"]}
+    completed_task = completed["TASK-249"]
+    document = P8_PUBLIC_TIKTOK_PDP_POST_TASK248_VALIDATION_CARRIER_HARDENING_FILE.read_text(
+        encoding="utf-8"
+    )
+
+    for record in (carrier_entry, completed_task):
+        assert record["source_task_id"] == "TASK-248"
+        assert record["source_published_sha"] == TASK_248_PUBLISHED_SOURCE_SHA
+        assert record["collector_validation_baseline"] == {
+            "task_id": "TASK-248",
+            "source_sha": TASK_248_PUBLISHED_SOURCE_SHA,
+        }
+        assert record["post_task248_live_validation_carrier_hardened"] is True
+        assert record["validation_carrier_schema_version"] == 2
+        assert record["validation_attempt_marker_filename"] == "tiktok-pdp-live-validation-attempt-v2.json"
+        assert record["validation_result_filename"] == "tiktok-pdp-live-validation-result-v2.json"
+        assert record["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
+        assert record["authorized_source_id"] == SELECTED_SOURCE_ID
+        assert record["stable_listing_reference"] == SELECTED_LISTING_REFERENCE
+        assert record["carrier_module"] == "src/product_intelligence/tiktok_pdp_live_pilot.py"
+        assert record["authorized_validation_attempts"] == 0
+        assert record["authorized_validation_attempts_remaining"] == 0
+        assert record["validation_execution_owner"] == "NONE"
+        assert record["selector_repair_complete"] is False
+        assert record["live_public_pdp_acquisition_authority"] == "NONE"
+        assert record["automated_public_pdp_acquisition_authority"] == "NONE"
+        assert record["market_test_or_action_authority"] == "NONE"
+        assert record["automatic_live_pilot"] is False
+        assert record["automatic_progression"] is False
+        assert record["next_milestone"] is None
+        assert record["post_publication_handoff"] == (
+            "HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION"
+        )
+
+    assert handoff["destination"] != carrier_entry["post_publication_handoff"]
+    assert carrier_entry["post_task248_live_validation_carrier_hardened"] is True
+    assert carrier_entry["collector_validation_baseline"]["task_id"] == "TASK-248"
+    assert carrier_entry["collector_validation_baseline"]["source_sha"] == TASK_248_PUBLISHED_SOURCE_SHA
+    assert carrier_entry["validation_carrier_schema_version"] == 2
+    assert carrier_entry["validation_attempt_marker_filename"] == "tiktok-pdp-live-validation-attempt-v2.json"
+    assert carrier_entry["validation_result_filename"] == "tiktok-pdp-live-validation-result-v2.json"
+    assert carrier_entry["carrier_module"] == "src/product_intelligence/tiktok_pdp_live_pilot.py"
+    assert carrier_entry["authorized_validation_attempts"] == 0
+    assert carrier_entry["authorized_validation_attempts_remaining"] == 0
+    assert carrier_entry["validation_execution_owner"] == "NONE"
+    assert completed_task["task_revision"] == 2
+    assert handoff["authorized_capture_attempts"] == 1
+    assert handoff["authorized_capture_attempts_remaining"] == 0
+    assert handoff["capture_execution_owner"] == "HUMAN_OPERATOR"
+    task_233_history = handoff["public_pdp_live_pilot_authorization"]
+    assert task_233_history["task_id"] == "TASK-233"
+    assert task_233_history["authorized_capture_attempts"] == 1
+    assert task_233_history["authorized_capture_attempts_remaining"] == 0
+
+    for required in (
+        "POST_TASK248_LIVE_PUBLIC_PDP_VALIDATION_CARRIER_HARDENING_ONLY",
+        "TASK-248",
+        TASK_248_PUBLISHED_SOURCE_SHA,
+        "tiktok-pdp-live-validation-attempt-v2.json",
+        "tiktok-pdp-live-validation-result-v2.json",
+        "HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION",
+        "CAPABILITY_IS_NOT_AUTHORITY",
+        "EVIDENCE_IS_NOT_PRODUCT_TRUTH",
+        "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY",
+        "SNAPSHOT_IS_NOT_TREND",
+        "ONE_CAPABILITY_ONE_AUTHORITY",
+    ):
+        assert required in document
+    assert (
+        "authorized_validation_attempts: 0" in document
+        or "authorized_validation_attempts=0" in document
+    )
+
+    for roadmap in ROADMAP_DOCS:
+        roadmap_text = roadmap.read_text(encoding="utf-8")
+        for required in (
+            "TASK-249 is publication-gated DONE only as",
+            "POST_TASK248_LIVE_PUBLIC_PDP_VALIDATION_CARRIER_HARDENING_ONLY",
+            "HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION",
+        ):
+            assert required in roadmap_text
+
+
+def _historical_test_task_249_hardens_post_task248_validation_carrier_with_zero_live_authority():
     state = load_yaml(ROADMAP_FILE)
     active = state["active_track"]
     milestone = active["current_milestone"]
@@ -1413,23 +1513,117 @@ def test_task_249_hardens_post_task248_validation_carrier_with_zero_live_authori
             "HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION"
         )
 
-    assert handoff["post_task248_live_validation_carrier_hardened"] is True
-    assert handoff["collector_validation_baseline"]["task_id"] == "TASK-248"
-    assert handoff["collector_validation_baseline"]["source_sha"] == TASK_248_PUBLISHED_SOURCE_SHA
-    assert handoff["validation_carrier_schema_version"] == 2
-    assert handoff["validation_attempt_marker_filename"] == "tiktok-pdp-live-validation-attempt-v2.json"
-    assert handoff["validation_result_filename"] == "tiktok-pdp-live-validation-result-v2.json"
-    assert handoff["carrier_module"] == "src/product_intelligence/tiktok_pdp_live_pilot.py"
-    assert handoff["authorized_validation_attempts"] == 0
-    assert handoff["authorized_validation_attempts_remaining"] == 0
-    assert handoff["validation_execution_owner"] == "NONE"
-    assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_249_SOURCE_PUBLICATION"
-    assert handoff["completed_commitment"] == "P8_PUBLIC_PDP_POST_TASK248_VALIDATION_CARRIER_HARDENING"
-    assert handoff["destination"] == "HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION"
+
+def test_task_250_authorizes_one_exact_post_task249_validation_attempt():
+    state = load_yaml(ROADMAP_FILE)
+    active = state["active_track"]
+    milestone = active["current_milestone"]
+    handoff = state["post_p8_planning_handoff"]
+    authorization = handoff["public_pdp_post_task249_validation_authorization"]
+    completed = {item["task_id"]: item for item in state["completed_milestones"]}
+    completed_task = completed["TASK-250"]
+    document = (
+        P8_PUBLIC_TIKTOK_PDP_POST_TASK249_VALIDATION_AUTHORIZATION_FILE.read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert active["id"] == "P8_PUBLIC_PDP_POST_TASK249_VALIDATION_AUTHORIZATION"
+    assert active["title"] == "P8 Public TikTok PDP Post-TASK249 Validation Authorization"
+    assert active["status"] == "DONE"
+    assert active["completion_basis"] == "PUBLICATION_GATED"
+    assert active["sequence_status"] == "COMPLETE_ON_EXACT_TASK_250_SOURCE_PUBLICATION"
     assert active["next_milestone"] is None
     assert handoff["next_milestone"] is None
     assert state["pending_commitments"] == []
-    assert completed_task["task_revision"] == 2
+
+    # AC1: Exact TASK-249 / RUN-249-002 / REVIEW-249-001 publication lineage at
+    # 84739c2a13d9d89ef5379ecba7a9d4b83ed64771 is recorded as sole V2 carrier execution source,
+    # while exact TASK-248 source 39979020a10b78e1f86c30cf2b704f2f975daec9 remains separately
+    # recorded as collector-baseline provenance.
+    for record in (milestone, authorization, completed_task):
+        assert record["task_id"] == "TASK-250"
+        assert record["classification"] == (
+            "ONE_SHOT_POST_TASK249_PUBLIC_PDP_VALIDATION_AUTHORIZATION_ONLY"
+        )
+        assert record["source_task_id"] == "TASK-249"
+        assert record["source_run_id"] == TASK_249_RUN_ID
+        assert record["source_review_id"] == TASK_249_REVIEW_ID
+        assert record["source_published_sha"] == TASK_249_PUBLISHED_SOURCE_SHA
+        assert record["validation_carrier_source_sha"] == TASK_249_PUBLISHED_SOURCE_SHA
+        assert record["collector_validation_baseline"] == {
+            "task_id": "TASK-248",
+            "source_sha": TASK_248_PUBLISHED_SOURCE_SHA,
+        }
+        assert record["post_task248_live_validation_carrier_hardened"] is True
+        assert record["validation_carrier_schema_version"] == 2
+        assert (
+            record["validation_attempt_marker_filename"]
+            == "tiktok-pdp-live-validation-attempt-v2.json"
+        )
+        assert (
+            record["validation_result_filename"]
+            == "tiktok-pdp-live-validation-result-v2.json"
+        )
+        assert record["carrier_module"] == "src/product_intelligence/tiktok_pdp_live_pilot.py"
+        assert record["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
+        assert record["authorized_source_id"] == SELECTED_SOURCE_ID
+        assert record["stable_listing_reference"] == SELECTED_LISTING_REFERENCE
+
+        # AC2: Exactly one Human-operated validation attempt publication-gated
+        assert record["authorized_validation_attempts"] == 1
+        assert record["authorized_validation_attempts_remaining"] == 1
+        assert record["validation_execution_owner"] == "HUMAN_OPERATOR"
+        assert record["validation_executed"] is False
+        assert record["live_public_pdp_acquisition_authority"] == "ONE_SHOT_EXACT_LISTING_ONLY"
+
+        # AC8: Automated acquisition and market-test/action authorities remain NONE
+        assert record["automated_public_pdp_acquisition_authority"] == "NONE"
+        assert record["market_test_or_action_authority"] == "NONE"
+        assert record["automatic_live_pilot"] is False
+        assert record["automatic_progression"] is False
+        assert record["next_milestone"] is None
+        assert record["post_run_engineering_successor"] is None
+
+        # AC9: Exact handoffs and review authorities
+        assert record["post_publication_handoff"] == (
+            "HUMAN_OPERATOR_ONE_SHOT_POST_TASK249_PUBLIC_PDP_VALIDATION_EXECUTION"
+        )
+        assert record["post_attempt_review_authority"] == (
+            "HUMAN_BRAIN_POST_TASK249_PUBLIC_PDP_VALIDATION_REVIEW"
+        )
+        assert record["mandatory_post_validation_review"] == (
+            "HUMAN_BRAIN_POST_TASK249_PUBLIC_PDP_VALIDATION_REVIEW"
+        )
+
+    # AC2 & handoff-level checks
+    assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_250_SOURCE_PUBLICATION"
+    assert handoff["completed_commitment"] == "P8_PUBLIC_PDP_POST_TASK249_VALIDATION_AUTHORIZATION"
+    assert handoff["destination"] == (
+        "HUMAN_OPERATOR_ONE_SHOT_POST_TASK249_PUBLIC_PDP_VALIDATION_EXECUTION"
+    )
+    assert handoff["source_task_id"] == "TASK-249"
+    assert handoff["source_run_id"] == TASK_249_RUN_ID
+    assert handoff["source_review_id"] == TASK_249_REVIEW_ID
+    assert handoff["source_published_sha"] == TASK_249_PUBLISHED_SOURCE_SHA
+    assert handoff["validation_carrier_source_sha"] == TASK_249_PUBLISHED_SOURCE_SHA
+    assert handoff["collector_validation_baseline"] == {
+        "task_id": "TASK-248",
+        "source_sha": TASK_248_PUBLISHED_SOURCE_SHA,
+    }
+    assert handoff["authorized_validation_attempts"] == 1
+    assert handoff["authorized_validation_attempts_remaining"] == 1
+    assert handoff["validation_execution_owner"] == "HUMAN_OPERATOR"
+    assert handoff["validation_executed"] is False
+    assert handoff["live_public_pdp_acquisition_authority"] == "ONE_SHOT_EXACT_LISTING_ONLY"
+    assert handoff["post_attempt_review_authority"] == (
+        "HUMAN_BRAIN_POST_TASK249_PUBLIC_PDP_VALIDATION_REVIEW"
+    )
+    assert handoff["mandatory_post_validation_review"] == (
+        "HUMAN_BRAIN_POST_TASK249_PUBLIC_PDP_VALIDATION_REVIEW"
+    )
+
+    # AC8: Historical TASK-233 separation
     assert handoff["authorized_capture_attempts"] == 1
     assert handoff["authorized_capture_attempts_remaining"] == 0
     assert handoff["capture_execution_owner"] == "HUMAN_OPERATOR"
@@ -1437,34 +1631,108 @@ def test_task_249_hardens_post_task248_validation_carrier_with_zero_live_authori
     assert task_233_history["task_id"] == "TASK-233"
     assert task_233_history["authorized_capture_attempts"] == 1
     assert task_233_history["authorized_capture_attempts_remaining"] == 0
-    assert handoff["authorized_validation_attempts"] == 0
-    assert handoff["authorized_validation_attempts_remaining"] == 0
+
+    # AC3 & AC4: Preflight authority checks on authorization record
+    preflight = authorization["preflight_authority"]
+    assert authorization["preflight_consumes_attempt"] is False
+    assert preflight["cdp_reachability"] == "127.0.0.1:9222"
+    assert preflight["normal_type_page_target_total"] == 1
+    assert preflight["sole_normal_page_is_exact_selected_pdp"] is True
+    assert preflight["selected_pdp_source_id"] == SELECTED_SOURCE_ID
+    assert preflight["external_job_root_requires_legacy_v1_absent"] is True
+    assert preflight["external_job_root_requires_v2_marker_absent"] is True
+    assert preflight["external_job_root_requires_v2_result_absent"] is True
+    assert preflight["execution_critical_file_equivalence_source_sha"] == TASK_249_PUBLISHED_SOURCE_SHA
+    assert preflight["execution_critical_files"] == [
+        "src/product_intelligence/tiktok_pdp_live_pilot.py",
+        "src/product_intelligence/cli.py",
+        "src/product_intelligence/adapters/tiktok_pdp.py",
+        "src/product_intelligence/adapters/tiktok_parsing.py",
+        "src/product_intelligence/tiktok_pdp_dom_scope.py",
+        "src/product_intelligence/models.py",
+        "src/integrations/playwright/manager.py",
+        "src/integrations/playwright/session.py",
+        "src/browser/session.py",
+        "src/browser/models.py",
+    ]
+    assert preflight["repository_head_equality_required"] is False
+    assert preflight["carrier_invocation"] is False
+
+    # AC4 & AC5: Transport and terminal consumption
+    assert authorization["canonical_cli_command"] == "tiktok-pdp-live-pilot"
+    assert authorization["human_invocation_transport"] == "ONE_PHYSICAL_POWERSHELL_LINE_NO_CONTINUATION"
+    assert authorization["pre_carrier_shell_parser_transport_failure_consumes_attempt"] is False
+    assert authorization["terminal_outcome_consumption"] == "EVERY_TERMINAL_OUTCOME"
+    assert authorization["automatic_retry_refresh_resume"] is False
+    assert authorization["second_invocation_authority"] == "NONE"
+    for authority in (
+        "arbitrary_target_authority",
+        "replacement_target_authority",
+        "search_authority",
+        "batch_authority",
+        "inferred_identity_authority",
+        "variant_switching_authority",
+        "selector_repair_authority",
+        "acquisition_authority",
+    ):
+        assert authorization[authority] == "NONE"
+
+    # AC9: Completed TASK-250 revision 2
+    assert completed_task["task_revision"] == 2
+    assert completed_task["effective_only_when"] == {
+        "semantic_review": "PASS",
+        "published_source": "EXACT_REVIEWED_CANDIDATE",
+        "canonical_main_equals_reviewed_candidate": True,
+    }
+
+    # Document contents validation
+    assert "C:\\" not in document
+    powershell_blocks = re.findall(r"```powershell\n([^`]*)```", document)
+    assert len(powershell_blocks) == 1
+    assert len(powershell_blocks[0].strip().splitlines()) == 1
+    assert "tiktok-pdp-live-pilot" in powershell_blocks[0]
+    assert "--job-root" in powershell_blocks[0]
+    assert "--cdp-endpoint http://127.0.0.1:9222" in powershell_blocks[0]
 
     for required in (
-        "POST_TASK248_LIVE_PUBLIC_PDP_VALIDATION_CARRIER_HARDENING_ONLY",
+        "ONE_SHOT_POST_TASK249_PUBLIC_PDP_VALIDATION_AUTHORIZATION_ONLY",
+        "TASK-249",
+        "RUN-249-002",
+        "REVIEW-249-001",
+        TASK_249_PUBLISHED_SOURCE_SHA,
         "TASK-248",
         TASK_248_PUBLISHED_SOURCE_SHA,
         "tiktok-pdp-live-validation-attempt-v2.json",
         "tiktok-pdp-live-validation-result-v2.json",
-        "HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION",
+        "tiktok-pdp-live-pilot-result-v1.json",
+        SELECTED_SOURCE_ID,
+        SELECTED_LISTING_REFERENCE,
+        "HUMAN_OPERATOR_ONE_SHOT_POST_TASK249_PUBLIC_PDP_VALIDATION_EXECUTION",
+        "HUMAN_BRAIN_POST_TASK249_PUBLIC_PDP_VALIDATION_REVIEW",
+        "OPERATION_SUCCESS_IS_NOT_FIELD_VALIDATION_SUCCESS",
         "CAPABILITY_IS_NOT_AUTHORITY",
         "EVIDENCE_IS_NOT_PRODUCT_TRUTH",
         "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY",
         "SNAPSHOT_IS_NOT_TREND",
+        "AMBIGUOUS_PRICE_IS_NOT_EXACT_PRICE",
+        "MEASUREMENT_IS_NOT_AUTHORITY",
         "ONE_CAPABILITY_ONE_AUTHORITY",
     ):
         assert required in document
-    assert (
-        "authorized_validation_attempts: 0" in document
-        or "authorized_validation_attempts=0" in document
-    )
+
+    for critical_file in preflight["execution_critical_files"]:
+        assert critical_file in document
 
     for roadmap in ROADMAP_DOCS:
         roadmap_text = roadmap.read_text(encoding="utf-8")
         for required in (
-            "TASK-249 is publication-gated DONE only as",
-            "POST_TASK248_LIVE_PUBLIC_PDP_VALIDATION_CARRIER_HARDENING_ONLY",
-            "HUMAN_BRAIN_LIVE_PUBLIC_PDP_PILOT_AUTHORIZATION",
+            "TASK-250 is publication-gated DONE only as",
+            "ONE_SHOT_POST_TASK249_PUBLIC_PDP_VALIDATION_AUTHORIZATION_ONLY",
+            TASK_249_PUBLISHED_SOURCE_SHA,
+            TASK_248_PUBLISHED_SOURCE_SHA,
+            "HUMAN_OPERATOR_ONE_SHOT_POST_TASK249_PUBLIC_PDP_VALIDATION_EXECUTION",
+            "HUMAN_BRAIN_POST_TASK249_PUBLIC_PDP_VALIDATION_REVIEW",
+            "OPERATION_SUCCESS_IS_NOT_FIELD_VALIDATION_SUCCESS",
         ):
             assert required in roadmap_text
 
