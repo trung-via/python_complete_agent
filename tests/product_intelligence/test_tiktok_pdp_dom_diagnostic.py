@@ -675,3 +675,91 @@ def test_diagnostic_consumes_canonical_shared_bounded_dom_scope_resolver():
     assert TIKTOK_PDP_DOM_SCOPE_JS in DIAGNOSTIC_SCRIPT
     assert "resolveBoundedPdpDomScope()" in DIAGNOSTIC_SCRIPT
     assert BOUNDED_TIKTOK_PDP_DOM_SCOPE_RESOLUTION == "BOUNDED_TIKTOK_PDP_DOM_SCOPE_RESOLUTION"
+
+
+def test_v5_diagnostic_script_defines_local_is_ctrl_without_resolver_dependency():
+    """Prove V5 price-role probe defines its own interactive control helper independently of resolver."""
+    prefix, _, suffix = DIAGNOSTIC_SCRIPT.partition(TIKTOK_PDP_DOM_SCOPE_JS)
+    assert "isInsideBtn" in suffix
+    assert "const isCtrl=" in suffix
+    assert suffix.index("const isCtrl=") < suffix.index("const isInsideBtn=")
+    assert "el=>el&&visible(el)&&(String(el.tagName||'').toLowerCase()==='button'||String(el.getAttribute('role')||'').toLowerCase()==='button')" in suffix
+
+
+@pytest.mark.asyncio
+async def test_v5_diagnostic_script_execution_resolves_is_ctrl_and_produces_price_role_probe(external_temp_path):
+    """Prove DIAGNOSTIC_SCRIPT executes cleanly on live DOM path with no unresolved isCtrl reference."""
+    from playwright.async_api import async_playwright
+
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>Đèn LED cảm biến chuyển động - TikTok Shop</title>
+    <meta name="product_id" content="{DIAGNOSTIC_SOURCE_ID}" />
+</head>
+<body>
+    <div data-e2e="pdp-container" data-product-id="{DIAGNOSTIC_SOURCE_ID}">
+        <h1>Đèn LED cảm biến chuyển động</h1>
+        <div class="seller-info" data-testid="shop-name">Lighting Store</div>
+        <div class="price-section">
+            <button class="variant-btn">
+                <span class="btn-price">₫120.000</span>
+            </button>
+            <div class="current-price">
+                <span itemprop="price">₫150.000</span>
+            </div>
+            <div class="original-price">
+                <del>₫200.000</del>
+            </div>
+        </div>
+        <div class="actions">
+            <button data-e2e="buy-now">Mua ngay</button>
+        </div>
+    </div>
+</body>
+</html>"""
+    target_url = f"https://shop.tiktok.com/vn/pdp/item/{DIAGNOSTIC_SOURCE_ID}"
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        try:
+            page = await browser.new_page()
+            await page.route(
+                "https://shop.tiktok.com/**",
+                lambda route: route.fulfill(status=200, content_type="text/html", body=html),
+            )
+            await page.goto(target_url)
+
+            class _LiveSessionManager:
+                def __init__(self, *, cdp_endpoint: str):
+                    self.cdp_endpoint = cdp_endpoint
+                    self.closed = False
+
+                async def get_or_create_session(self, run_id: str):
+                    return page
+
+                async def close_session(self, run_id: str):
+                    self.closed = True
+
+            outcome = await run_tiktok_pdp_dom_diagnostic(
+                job_root=external_temp_path,
+                cdp_endpoint=ENDPOINT,
+                clock=lambda: OBSERVED_AT,
+                manager_factory=_LiveSessionManager,
+            )
+            doc = outcome.to_document()
+            assert doc["schema_version"] == 5
+            assert doc["diagnostic"]["status"] == "SUCCESS"
+            probe = doc["price_role_probe"]
+            assert probe["currency_candidate_count"] >= 2
+            assert probe["collector_eligible_candidate_count"] >= 1
+            samples = probe["candidate_samples"]
+            # Candidate inside button control has inside_interactive_control=True
+            assert any(s["inside_interactive_control"] is True for s in samples)
+            # Candidate outside button control has inside_interactive_control=False
+            assert any(s["inside_interactive_control"] is False for s in samples)
+            # Standalone candidate is collector eligible
+            assert any(s["inside_interactive_control"] is False and s["inside_title_subtree"] is False for s in samples)
+            assert outcome.artifact_path.exists()
+        finally:
+            await browser.close()
+
