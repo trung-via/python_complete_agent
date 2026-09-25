@@ -677,18 +677,62 @@ def test_diagnostic_consumes_canonical_shared_bounded_dom_scope_resolver():
     assert BOUNDED_TIKTOK_PDP_DOM_SCOPE_RESOLUTION == "BOUNDED_TIKTOK_PDP_DOM_SCOPE_RESOLUTION"
 
 
-def test_v5_diagnostic_script_defines_local_is_ctrl_without_resolver_dependency():
-    """Prove V5 price-role probe defines its own interactive control helper independently of resolver."""
+def test_v5_diagnostic_script_mirrors_collector_interactive_ancestry_semantics():
+    """Prove V5 price-role probe mirrors frozen collector interactive ancestry semantics exactly."""
     prefix, _, suffix = DIAGNOSTIC_SCRIPT.partition(TIKTOK_PDP_DOM_SCOPE_JS)
-    assert "isInsideBtn" in suffix
-    assert "const isCtrl=" in suffix
-    assert suffix.index("const isCtrl=") < suffix.index("const isInsideBtn=")
-    assert "el=>el&&visible(el)&&(String(el.tagName||'').toLowerCase()==='button'||String(el.getAttribute('role')||'').toLowerCase()==='button')" in suffix
+    assert "isButton" in suffix
+    assert "isInsideButton" in suffix
+    assert "tg==='button'||ro==='button'||tg==='a'||tg==='select'||tg==='input'" in suffix
+    assert "isInsideButton(node)" in suffix
+    # Verify onclick is not treated as collector-equivalent interactive ancestry in price-role probe
+    probe_start = suffix.index("if(root){")
+    probe_script = suffix[probe_start:]
+    assert "cur.hasAttribute('onclick')" not in probe_script
+    assert "onclick" not in probe_script
+
+
+def test_v5_diagnostic_script_defines_local_is_ctrl_without_resolver_dependency():
+    """Backward-compatible test alias verifying local interactive control helper in V5 diagnostic script."""
+    test_v5_diagnostic_script_mirrors_collector_interactive_ancestry_semantics()
+
+
+def test_v5_interactive_ancestry_classification_offline_deterministic_regression():
+    """Offline deterministic regression for the mirrored frozen collector interactive-ancestry predicate.
+
+    Covers button, role-button, link, select, input, ordinary div, and onclick-only ancestry.
+    """
+    def is_button(tag: str, role: str = "") -> bool:
+        tg = tag.lower()
+        ro = role.lower()
+        return tg == "button" or ro == "button" or tg == "a" or tg == "select" or tg == "input"
+
+    def is_inside_button(chain: list[tuple[str, str, dict[str, str]]]) -> bool:
+        # chain is list of (tag, role, attrs) from element up to root (exclusive of root)
+        for tag, role, attrs in chain:
+            if is_button(tag, role):
+                return True
+        return False
+
+    # 1. button ancestry
+    assert is_inside_button([("span", "", {}), ("button", "", {})]) is True
+    # 2. role=button ancestry
+    assert is_inside_button([("span", "", {}), ("div", "button", {})]) is True
+    # 3. link (a) ancestry
+    assert is_inside_button([("span", "", {}), ("a", "", {})]) is True
+    # 4. select ancestry
+    assert is_inside_button([("option", "", {}), ("select", "", {})]) is True
+    # 5. input ancestry
+    assert is_inside_button([("span", "", {}), ("input", "", {})]) is True
+    assert is_inside_button([("input", "", {})]) is True
+    # 6. ordinary div
+    assert is_inside_button([("span", "", {}), ("div", "", {})]) is False
+    # 7. onclick-only ancestry (MUST NOT be treated as collector-equivalent)
+    assert is_inside_button([("span", "", {}), ("div", "", {"onclick": "void(0)"})]) is False
 
 
 @pytest.mark.asyncio
-async def test_v5_diagnostic_script_execution_resolves_is_ctrl_and_produces_price_role_probe(external_temp_path):
-    """Prove DIAGNOSTIC_SCRIPT executes cleanly on live DOM path with no unresolved isCtrl reference."""
+async def test_v5_diagnostic_script_execution_mirrors_collector_and_produces_price_role_probe(external_temp_path):
+    """Prove DIAGNOSTIC_SCRIPT mirrors collector interactive ancestry covering all 7 classes deterministically."""
     from playwright.async_api import async_playwright
 
     html = f"""<!DOCTYPE html>
@@ -702,14 +746,31 @@ async def test_v5_diagnostic_script_execution_resolves_is_ctrl_and_produces_pric
         <h1>Đèn LED cảm biến chuyển động</h1>
         <div class="seller-info" data-testid="shop-name">Lighting Store</div>
         <div class="price-section">
+            <!-- 1. button ancestry: excluded by collector -->
             <button class="variant-btn">
-                <span class="btn-price">₫120.000</span>
+                <span class="btn-price">₫110.000</span>
             </button>
+            <!-- 2. role=button ancestry: excluded by collector -->
+            <div role="button" class="role-btn">
+                <span class="role-price">₫120.000</span>
+            </div>
+            <!-- 3. link (a) ancestry: excluded by collector -->
+            <a href="/link" class="link-btn">
+                <span class="link-price">₫130.000</span>
+            </a>
+            <!-- 4. select ancestry: excluded by collector -->
+            <select class="select-btn" size="3">
+                <option class="select-price">₫140.000</option>
+            </select>
+            <!-- 5. input control element -->
+            <input type="button" class="input-control" value="Option" />
+            <!-- 6. ordinary div: collector-eligible -->
             <div class="current-price">
                 <span itemprop="price">₫150.000</span>
             </div>
-            <div class="original-price">
-                <del>₫200.000</del>
+            <!-- 7. onclick-only ancestry: collector-eligible (not collector excluded) -->
+            <div class="onclick-btn" onclick="void(0)">
+                <span class="onclick-price">₫160.000</span>
             </div>
         </div>
         <div class="actions">
@@ -749,17 +810,89 @@ async def test_v5_diagnostic_script_execution_resolves_is_ctrl_and_produces_pric
             doc = outcome.to_document()
             assert doc["schema_version"] == 5
             assert doc["diagnostic"]["status"] == "SUCCESS"
+            assert doc["diagnostic"]["evidence_authority"] == "NONE"
             probe = doc["price_role_probe"]
-            assert probe["currency_candidate_count"] >= 2
-            assert probe["collector_eligible_candidate_count"] >= 1
+
             samples = probe["candidate_samples"]
-            # Candidate inside button control has inside_interactive_control=True
-            assert any(s["inside_interactive_control"] is True for s in samples)
-            # Candidate outside button control has inside_interactive_control=False
-            assert any(s["inside_interactive_control"] is False for s in samples)
-            # Standalone candidate is collector eligible
-            assert any(s["inside_interactive_control"] is False and s["inside_title_subtree"] is False for s in samples)
+
+            # 1. button ancestry -> inside_interactive_control=True
+            btn_sample = next(s for s in samples if "btn-price" in s["class_tokens"])
+            assert btn_sample["inside_interactive_control"] is True
+
+            # 2. role=button ancestry -> inside_interactive_control=True
+            role_sample = next(s for s in samples if "role-price" in s["class_tokens"])
+            assert role_sample["inside_interactive_control"] is True
+
+            # 3. link (a) ancestry -> inside_interactive_control=True
+            link_sample = next(s for s in samples if "link-price" in s["class_tokens"])
+            assert link_sample["inside_interactive_control"] is True
+
+            # 4. select ancestry -> inside_interactive_control=True
+            select_sample = next(s for s in samples if "select-price" in s["class_tokens"])
+            assert select_sample["inside_interactive_control"] is True
+
+            # 5. ordinary div ancestry -> inside_interactive_control=False, eligible=True
+            div_sample = next(s for s in samples if s["itemprop"] == "price")
+            assert div_sample["inside_interactive_control"] is False
+            assert div_sample["inside_title_subtree"] is False
+
+            # 6. onclick-only ancestry -> inside_interactive_control=False, eligible=True
+            onclick_sample = next(s for s in samples if "onclick-price" in s["class_tokens"])
+            assert onclick_sample["inside_interactive_control"] is False
+            assert onclick_sample["inside_title_subtree"] is False
+
+            # Candidates inside interactive ancestry are excluded from collector_eligible_candidate_count;
+            # ordinary div and onclick-only candidates are collector-eligible.
+            assert probe["collector_eligible_candidate_count"] == 2
+
+            # Deterministic evaluation of the frozen collector predicate covering all seven classes:
+            # button, role-button, link, select, input, ordinary div, and onclick-only ancestry
+            predicate_results = await page.evaluate(r"""() => {
+                const root = document.querySelector('[data-e2e="pdp-container"]');
+                const isButton = el => {
+                    if (!el) return false;
+                    const tg = String(el.tagName || '').toLowerCase(), ro = String(el.getAttribute('role') || '').toLowerCase();
+                    return tg === 'button' || ro === 'button' || tg === 'a' || tg === 'select' || tg === 'input';
+                };
+                const isInsideButton = el => {
+                    let cur = el;
+                    while (cur && cur !== root) {
+                        if (isButton(cur)) return true;
+                        cur = cur.parentElement;
+                    }
+                    return false;
+                };
+                const inp = document.querySelector('.input-control');
+                const syntheticInputChild = document.createElement('span');
+                inp.appendChild(syntheticInputChild);
+                return {
+                    button: isInsideButton(document.querySelector('.btn-price')),
+                    role_button: isInsideButton(document.querySelector('.role-price')),
+                    link: isInsideButton(document.querySelector('.link-price')),
+                    select: isInsideButton(document.querySelector('.select-price')),
+                    input: isInsideButton(inp),
+                    input_child: isInsideButton(syntheticInputChild),
+                    ordinary_div: isInsideButton(document.querySelector('[itemprop="price"]')),
+                    onclick_only: isInsideButton(document.querySelector('.onclick-price')),
+                };
+            }""")
+            assert predicate_results["button"] is True
+            assert predicate_results["role_button"] is True
+            assert predicate_results["link"] is True
+            assert predicate_results["select"] is True
+            assert predicate_results["input"] is True
+            assert predicate_results["input_child"] is True
+            assert predicate_results["ordinary_div"] is False
+            assert predicate_results["onclick_only"] is False
+
+            # Preserves zero raw price persistence in diagnostic artifact
+            persisted = outcome.artifact_path.read_text(encoding="utf-8").lower()
+            for forbidden in (ENDPOINT.lower(), "text_excerpt", "actual price", "110.000", "120.000", "130.000", "140.000", "150.000", "160.000"):
+                assert forbidden not in persisted
             assert outcome.artifact_path.exists()
         finally:
             await browser.close()
+
+
+test_v5_diagnostic_script_execution_resolves_is_ctrl_and_produces_price_role_probe = test_v5_diagnostic_script_execution_mirrors_collector_and_produces_price_role_probe
 

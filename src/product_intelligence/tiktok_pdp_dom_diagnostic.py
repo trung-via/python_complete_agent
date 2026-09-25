@@ -142,8 +142,9 @@ DIAGNOSTIC_SCRIPT = (
  const ids=[],identityNodes=root?[root]:[];if(root&&root.matches(rootSelector))for(const e of Array.from(root.querySelectorAll('meta[property="product:retailer_item_id"], meta[itemprop="productID"], [itemprop="productID"]')).slice(0,4))if(e.closest(rootSelector)===root)identityNodes.push(e);for(const e of identityNodes.slice(0,4)){const ip=String(e.getAttribute('itemprop')||'').toLowerCase()==='productid'?e.textContent:'',v=clip(e.getAttribute('content')||e.getAttribute('data-product-id')||e.getAttribute('data-item-id')||ip,32);if(/^\d+$/.test(v)&&!ids.includes(v))ids.push(v)}
  let priceRoleProbe={bounded_nodes_scanned:0,bounded_scan_truncated:false,currency_candidate_count:0,collector_eligible_candidate_count:0,leaf_candidate_count:0,strike_through_signal_count:0,explicit_current_structural_signal_count:0,explicit_original_structural_signal_count:0,unresolved_role_candidate_count:0,range_like_candidate_count:0,multi_numeric_candidate_count:0,distinct_text_equivalence_group_count:0,candidate_samples:[]};
  if(root){
-  const isCtrl=el=>el&&visible(el)&&(String(el.tagName||'').toLowerCase()==='button'||String(el.getAttribute('role')||'').toLowerCase()==='button');
-  const isInsideBtn=el=>{let cur=el;while(cur&&cur!==root){const tg=String(cur.tagName||'').toLowerCase(),ro=String(cur.getAttribute('role')||'').toLowerCase();if(tg==='button'||ro==='button'||cur.hasAttribute('onclick')||isCtrl(cur))return true;cur=cur.parentElement}return false};
+  const isButton=el=>{if(!el)return false;const tg=String(el.tagName||'').toLowerCase(),ro=String(el.getAttribute('role')||'').toLowerCase();return tg==='button'||ro==='button'||tg==='a'||tg==='select'||tg==='input'};
+  const isInsideButton=el=>{let cur=el;while(cur&&cur!==root){if(isButton(cur))return true;cur=cur.parentElement}return false};
+  const isInsideBtn=isInsideButton;
   const isStrikeThrough=el=>{let cur=el;while(cur&&cur!==root){const tag=String(cur.tagName||'').toLowerCase();if(tag==='del'||tag==='s'||tag==='strike')return true;try{const st=getComputedStyle(cur),dec=(st.textDecorationLine||st.textDecoration||'').toLowerCase();if(dec.includes('line-through'))return true}catch(_){}cur=cur.parentElement}return false};
   const rw=document.createTreeWalker(root,NodeFilter.SHOW_ELEMENT);
   const rnodes=[];let rn=rw.nextNode();while(rn&&rnodes.length<LOCAL_MAX){rnodes.push(rn);rn=rw.nextNode()}
@@ -160,7 +161,7 @@ DIAGNOSTIC_SCRIPT = (
    else if(/price/i.test(String(node.getAttribute('itemprop')||'')))cb='SEMANTIC_PRICE_ATTRIBUTE';
    else if(/price/.test(attrs))cb='PRICE_STRUCTURAL_ATTRIBUTE';
    if(cb){
-    const inBtn=isInsideBtn(node);
+    const inBtn=isInsideButton(node);
     const inTitle=Boolean(titleAnchor&&(node===titleAnchor||titleAnchor.contains(node)));
     const strike=isStrikeThrough(node);
     let cur=node,parts=[];
