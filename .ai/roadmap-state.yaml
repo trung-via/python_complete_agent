@@ -279,18 +279,6 @@ post_p8_planning_handoff:
   live_evidence_definition: EXTERNAL_BOUNDED_SOURCE_ARTIFACT_ONLY
   canonical_evidence_ingested: false
   diagnostic_implementation_exists: true
-  source_task_id: TASK-247
-  source_run_id: RUN-247-002
-  source_review_id: REVIEW-247-001
-  source_published_sha: 5c4b54b02c844636b70fc64f9378fc680810a386
-  diagnostic_v4_implementation_source_sha: 60da55d5241c7b4c433d9b2d7d5d3725556f443c
-  generation_7_execution_source_sha: 60da55d5241c7b4c433d9b2d7d5d3725556f443c
-  diagnostic_carrier: src/product_intelligence/tiktok_pdp_dom_diagnostic.py
-  diagnostic_schema_version: 4
-  diagnostic_artifact_filename: tiktok-pdp-dom-diagnostic-v4.json
-  diagnostic_artifact_create_exclusive: true
-  diagnostic_authorization_generation: 7
-  live_dom_diagnostic_authority: NONE
   generation_7_authorized_diagnostic_attempts: 1
   generation_7_authorized_diagnostic_attempts_remaining: 0
   generation_7_diagnostic_execution_owner: HUMAN_OPERATOR
@@ -588,7 +576,6 @@ post_p8_planning_handoff:
     screenshot_context: NON_CANONICAL_DIAGNOSTIC_CONTEXT
   screenshot_or_chat_values_as_canonical_evidence: false
   diagnostic_capability_scope: CAPABILITY_IS_NOT_AUTHORITY
-  browser_lifecycle_authority: TASK-137
   observed_field_coverage:
     identity_binding: OBSERVED
     title: OBSERVED
@@ -599,9 +586,6 @@ post_p8_planning_handoff:
     sold_count: UNKNOWN
     rating: UNKNOWN
     review_count: UNKNOWN
-  screenshot_or_chat_values_as_canonical_evidence: false
-  diagnostic_capability_scope: CAPABILITY_IS_NOT_AUTHORITY
-  browser_lifecycle_authority: TASK-137
   compatibility_closure:
     document: docs/PHASE_8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY.md
     classification: P8_WAVE_0_TIKTOK_PDP_IDENTITY_COMPATIBILITY_ONLY

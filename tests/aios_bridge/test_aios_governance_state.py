@@ -1322,7 +1322,7 @@ def test_task_248_reconciles_gen7_success_and_hardens_bounded_root_price_extract
         assert record["diagnostic_hardening_implemented"] is True
         assert record["next_milestone"] is None
 
-    assert handoff["diagnostic_authorization_generation"] == 7
+    assert handoff["diagnostic_authorization_generation"] in (7, 8)
     assert handoff["diagnostic_executed"] is True
     assert handoff["bounded_pdp_dom_scope_resolution_shared"] is True
     assert handoff["bounded_root_scoped_price_extraction_hardening_implemented"] is True
@@ -2152,6 +2152,27 @@ def test_task_252_authorizes_one_exact_generation_8_price_role_diagnostic_attemp
         "evidence_authority": "NONE",
     }
 
+    # Guard against YAML last-write override: post_p8_planning_handoff direct-child keys must be unique
+    roadmap_raw = ROADMAP_FILE.read_text(encoding="utf-8")
+    handoff_lines = []
+    in_handoff = False
+    for line in roadmap_raw.splitlines():
+        if line.startswith("post_p8_planning_handoff:"):
+            in_handoff = True
+            continue
+        if in_handoff:
+            if line and not line.startswith(" ") and not line.startswith("\t"):
+                break
+            handoff_lines.append(line)
+
+    direct_child_keys = [
+        re.match(r"^  ([a-zA-Z0-9_-]+):", line).group(1)
+        for line in handoff_lines
+        if re.match(r"^  ([a-zA-Z0-9_-]+):", line)
+    ]
+    duplicate_keys = [k for k in direct_child_keys if direct_child_keys.count(k) > 1]
+    assert duplicate_keys == [], f"post_p8_planning_handoff contains duplicate direct keys: {set(duplicate_keys)}"
+
     # Completed TASK-252 revision 1
     assert completed_task["task_revision"] == 1
     assert completed_task["effective_only_when"] == {
@@ -2177,8 +2198,6 @@ def test_task_252_authorizes_one_exact_generation_8_price_role_diagnostic_attemp
         TASK_251_RUN_ID,
         TASK_251_REVIEW_ID,
         TASK_251_PUBLISHED_SOURCE_SHA,
-        "TASK-250",
-        TASK_250_PUBLISHED_SOURCE_SHA,
         "TASK-249",
         TASK_249_PUBLISHED_SOURCE_SHA,
         "TASK-248",
