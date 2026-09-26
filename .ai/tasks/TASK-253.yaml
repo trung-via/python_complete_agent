@@ -1,86 +1,65 @@
 task_id: TASK-253
-revision: 1
+revision: 2
 
 goal: >
   Reconcile the single Human-operated Generation-8 bounded price-role diagnostic attempt as
-  consumed SUCCESS with exact external V5 artifact provenance, preserve its evidence_authority
-  NONE and all unresolved Product Truth uncertainty, and harden only TikTokPdpCollector's bounded
-  DOM current/original role admission with a generic fail-closed paired-price structural rule.
-  The rule may admit one unresolved non-struck leaf-equivalence group as a current-price candidate
-  only when it is uniquely and locally paired with exactly one deterministically original
-  strike-through/explicit-original leaf-equivalence group inside the already-resolved bounded PDP
-  root. Preserve src/product_intelligence/adapters/tiktok_parsing.py as the sole scalar-price
-  admission authority. TASK-253 performs no TikTok/CDP operation and grants no live validation,
-  acquisition, selector, market-action, retry, or Generation-9 authority.
+  consumed SUCCESS with exact external V5 artifact provenance, preserve evidence_authority NONE and
+  unresolved Product Truth uncertainty, and harden only TikTokPdpCollector's bounded current/original
+  role admission with one generic fail-closed paired-price rule. Treat Gen-8 as bounded engineering
+  evidence supporting a paired-price topology hypothesis, not proof of exact sanitized-sample pair
+  membership or of a canonical current-price scalar. Preserve
+  src/product_intelligence/adapters/tiktok_parsing.py as the sole scalar-price admission authority.
+  TASK-253 performs no TikTok/CDP operation and grants no live validation, acquisition, selector,
+  market-action, retry, or Generation-9 authority.
 
 problem: >
   TASK-252 / RUN-252-002 / REVIEW-252-001 is exactly reviewed and published at
   e4bd532699d91d915ddfba54e94ce614a98dad35 and authorized one Human-operated Generation-8
-  attach-only V5 diagnostic attempt for the exact selected TikTok PDP. The Human preflight passed:
-  CDP 127.0.0.1:9222 was reachable, exactly one normal page target was present and it was the exact
-  selected PDP/source ID 1731381331718341815, the seven execution/interpretation-critical files
-  were content-equivalent to TASK-251 source 0c23b4f0530f17f8bb77e23f8199fc167a6e68b1, and the
-  explicit Generation-8 job root was fresh with V1-V5 diagnostic artifacts absent. The one-shot
-  carrier was then invoked exactly once and returned schema-V5 diagnostic status SUCCESS for
-  context p8-pilot-001-led-motion-tiktok-vn and source ID 1731381331718341815 at
-  2026-09-26T07:43:19.570359+00:00. The create-exclusive external artifact
+  attach-only V5 diagnostic attempt for exact source ID 1731381331718341815. Human preflight passed:
+  CDP 127.0.0.1:9222 reachable; exactly one normal page target and it was the exact selected PDP;
+  all seven execution/interpretation-critical files content-equivalent to TASK-251 source
+  0c23b4f0530f17f8bb77e23f8199fc167a6e68b1; fresh external Gen-8 root with V1-V5 absent. The
+  one-shot carrier was invoked once and returned schema-V5 SUCCESS for
+  p8-pilot-001-led-motion-tiktok-vn at 2026-09-26T07:43:19.570359+00:00. External artifact
   tiktok-pdp-dom-diagnostic-v5.json has SHA256
-  A61B58FC41B4CBDDB0F83A65625325F3685147C6948F74CA8D041C8658B40DD7 and size 34929 bytes with
-  evidence_authority NONE. The selected bounded root remained TITLE_LOCAL_COMMERCE_QUORUM at
-  ancestor level 2. The price-role probe scanned 90 nodes without truncation and observed
-  currency_candidate_count 6, collector_eligible_candidate_count 6, leaf_candidate_count 4,
-  strike_through_signal_count 1, explicit_current_structural_signal_count 0,
-  explicit_original_structural_signal_count 1, unresolved_role_candidate_count 5,
-  range_like_candidate_count 0, multi_numeric_candidate_count 3 and
-  distinct_text_equivalence_group_count 4. Because six candidates are below the eight-sample cap
-  and the price-role scan was not truncated, the bounded price-role candidate population is
-  completely represented by the sanitized candidate_samples for this observation. Those samples
-  include a non-struck unresolved leaf text-equivalence group plus its same-text wrapper branch and
-  a distinct strike-through original-role leaf group in the same bounded local price presentation
-  neighborhood. The artifact intentionally contains no raw price values and therefore does not
-  establish a canonical current-price scalar. The current collector only admits current price when
-  explicit current-role structural evidence exists, while it admits strike-through/explicit-original
-  observations as original price. The Gen-8 result therefore sufficiently supports a narrow
-  engineering conclusion: the current unresolved case is consistent with a bounded paired-price
-  current-role admission gap before scalar parsing. It does not prove a marketplace-global selector,
-  a canonical current price, parser defect, Product Truth, acquisition readiness, or causation beyond
-  this bounded engineering mechanism. The one-shot attempt is consumed regardless of SUCCESS, so
-  canonical planning state must move Generation-8 attempts_remaining from 1 to 0 and close live DOM
-  diagnostic authority before any implementation handoff.
+  A61B58FC41B4CBDDB0F83A65625325F3685147C6948F74CA8D041C8658B40DD7, size 34929 bytes,
+  evidence_authority NONE. Selected root was TITLE_LOCAL_COMMERCE_QUORUM level 2. price_role_probe
+  scanned 90 nodes without truncation and observed 6 currency candidates, 6 collector-eligible,
+  4 leaf, 1 strike-through, 0 explicit-current, 1 explicit-original, 5 unresolved-role,
+  0 range-like, 3 multi-numeric, 4 text-equivalence groups and 6 candidate samples. Because
+  candidate count 6 is below sample cap 8 and scan was not truncated, the sanitized sample set is
+  exhaustive for that bounded observation. However the sanitized probe does not carry opaque DOM
+  node identity and therefore does not prove exact pair membership between any specific current-like
+  and original-like samples. It supports only a bounded paired-price topology hypothesis sufficient
+  to justify a conservative generic role-admission hardening. Current collector admits current price
+  only from explicit-current structural evidence and original price from strike-through or
+  explicit-original evidence. The engineering gap is therefore a candidate-role admission gap before
+  scalar parsing, not evidence of parser defect, Product Truth, selector truth or marketplace-global
+  causation. The one-shot attempt is consumed regardless of SUCCESS and must be reconciled to
+  attempts_remaining 0 with live DOM diagnostic authority closed.
 
 assumptions:
-  - Canonical main at authoring is e4bd532699d91d915ddfba54e94ce614a98dad35.
+  - Canonical main at r2 authoring is a2a9e68c20ed2241bf2a86af2bc0d4daabf3295f.
+  - TASK-253 r1 has no admitted RUN; r2 supersedes r1 before Executor implementation begins.
   - TASK-252 / RUN-252-002 / REVIEW-252-001 is exact-source published at
     e4bd532699d91d915ddfba54e94ce614a98dad35.
-  - TASK-251 remains the frozen schema-V5 diagnostic implementation/execution source at
+  - TASK-251 remains the frozen V5 diagnostic implementation/execution source at
     0c23b4f0530f17f8bb77e23f8199fc167a6e68b1.
-  - The Human-operated Gen-8 carrier invocation is not an AIOS engineering RUN.
-  - Gen-8 terminal diagnostic status is SUCCESS. Process/CLI exit code is UNKNOWN unless separately
-    evidenced and must not be inferred from terminal JSON alone.
-  - Exact external artifact provenance is filename tiktok-pdp-dom-diagnostic-v5.json,
-    schema_version 5, SHA256 A61B58FC41B4CBDDB0F83A65625325F3685147C6948F74CA8D041C8658B40DD7,
-    size_bytes 34929, observed_at 2026-09-26T07:43:19.570359+00:00 and evidence_authority NONE.
-  - Exact selected context remains p8-pilot-001-led-motion-tiktok-vn, source ID
-    "1731381331718341815", and stable listing
-    https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815.
-  - Gen-8 price-role scan selected TITLE_LOCAL_COMMERCE_QUORUM level 2, scanned 90 nodes without
-    truncation, observed 6 total/6 collector-eligible/4 leaf currency candidates, 1 strike-through,
-    0 explicit-current, 1 explicit-original, 5 unresolved-role, 0 range-like, 3 multi-numeric and
-    4 text-equivalence groups.
-  - candidate_samples count is 6 and therefore covers the complete bounded price-role candidate
-    population for this one observation because currency_candidate_count is 6 and the sample cap is
-    8; this does not generalize beyond this snapshot or authorize persistence of raw price values.
+  - The Human Gen-8 carrier invocation is not an AIOS engineering RUN.
+  - Process/CLI exit code and session-release status are UNKNOWN unless separately evidenced and
+    must not be inferred.
+  - Exact V5 artifact provenance is filename tiktok-pdp-dom-diagnostic-v5.json, schema 5,
+    SHA256 A61B58FC41B4CBDDB0F83A65625325F3685147C6948F74CA8D041C8658B40DD7,
+    size 34929, observed_at 2026-09-26T07:43:19.570359+00:00, evidence_authority NONE.
   - TikTokPdpCollector in src/product_intelligence/adapters/tiktok_pdp.py remains the sole exact-PDP
-    DOM observation/role-admission owner.
+    observation/role-admission owner.
   - src/product_intelligence/adapters/tiktok_parsing.py remains byte-unchanged and the sole scalar
-    price admission authority under AMBIGUOUS_PRICE_IS_NOT_EXACT_PRICE.
-  - src/product_intelligence/tiktok_pdp_dom_scope.py remains byte-unchanged and the sole shared
-    bounded PDP DOM-scope resolution owner.
-  - src/product_intelligence/tiktok_pdp_dom_diagnostic.py remains byte-unchanged and the sole
-    diagnostic owner.
-  - TASK-137 remains the sole browser/CDP lifecycle authority.
-  - Current product-field state remains current_price UNKNOWN/null, original_price OBSERVED_ONLY
-    68220.0, canonical_evidence_ingested false, price_role_resolution_complete false and
+    admission authority under AMBIGUOUS_PRICE_IS_NOT_EXACT_PRICE.
+  - src/product_intelligence/tiktok_pdp_dom_scope.py and
+    src/product_intelligence/tiktok_pdp_dom_diagnostic.py remain byte-unchanged.
+  - TASK-137 remains sole browser/CDP lifecycle authority.
+  - Current field state remains current_price UNKNOWN/null, original_price OBSERVED_ONLY 68220.0,
+    canonical_evidence_ingested false, price_role_resolution_complete false and
     selector_repair_complete false.
   - CAPABILITY_IS_NOT_AUTHORITY, EVIDENCE_IS_NOT_PRODUCT_TRUTH,
     SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY, SNAPSHOT_IS_NOT_TREND,
@@ -126,25 +105,23 @@ scope:
     - tests/aios_bridge/test_aios_governance_state.py
 
 non_goals:
-  - Execute TikTok/CDP, invoke the V5 diagnostic again, invoke the live collector, navigate, refresh,
-    click, type, scroll, search, switch variants or perform any marketplace operation during
-    TASK-253 engineering or verification.
+  - Execute TikTok/CDP, rerun V5, invoke live collector, navigate, refresh, click, type, scroll,
+    search, switch variants or perform any live marketplace operation.
   - Modify tiktok_pdp_dom_diagnostic.py, tiktok_pdp_dom_scope.py, tiktok_parsing.py, CLI,
     tiktok_pdp_live_pilot.py, Playwright manager/session, ProductCandidateSnapshot models or any
-    non-authorized production path.
-  - Persist or reconstruct raw Gen-8 candidate price text/value from sanitized diagnostic evidence.
-  - Declare any Gen-8 sanitized candidate to be the canonical current price, Product Truth,
-    recommendation, ranking, approval, trend, acquisition readiness or commerce-action evidence.
-  - Introduce TikTok-specific current-price CSS classes, hashed class names, ancestor level,
-    first-match selector, fixed sibling index, current-vs-original numeric comparison, variant
-    assumption, visual-size-only rule or marketplace-specific text token as canonical role authority.
-  - Change scalar parsing, bypass parse_tiktok_pdp_price, add a second price parser, admit ranges or
-    conflicting scalars, or weaken AMBIGUOUS_PRICE_IS_NOT_EXACT_PRICE.
-  - Infer current role merely because a price is not struck through or merely because one original
-    candidate exists somewhere in the bounded root.
+    other production path.
+  - Persist/reconstruct raw Gen-8 candidate price values from sanitized diagnostic evidence.
+  - Declare any sanitized candidate to be canonical current price, Product Truth, recommendation,
+    ranking, approval, trend, acquisition readiness or action evidence.
+  - Introduce TikTok-specific CSS classes, hashed classes, fixed ancestor level, fixed child index,
+    first-match logic, price-magnitude comparison, discount arithmetic, variant assumptions,
+    visual-size-only rules or marketplace-specific labels as role authority.
+  - Change scalar parsing, add a second parser, normalize scalar semantics in the role layer,
+    admit ranges/conflicting scalars directly, or weaken AMBIGUOUS_PRICE_IS_NOT_EXACT_PRICE.
+  - Infer current role merely because a candidate is non-struck or because an original candidate
+    exists somewhere in the bounded root.
   - Authorize a second Gen-8 invocation, Generation-9 diagnostic, live collector validation,
-    arbitrary/replacement target, selector repair, acquisition, automated acquisition, market test,
-    commerce action, automatic retry or automatic progression.
+    selector repair, acquisition, automated acquisition, market test/action, retry or progression.
 
 constraints:
   hard:
@@ -152,197 +129,185 @@ constraints:
       Classification is exactly
       GENERATION_8_SUCCESS_RECONCILIATION_AND_BOUNDED_PAIRED_PRICE_CURRENT_ROLE_ADMISSION_HARDENING_ONLY.
     - >
-      Reconcile exact authorization lineage as source_task_id TASK-252, source_run_id RUN-252-002,
-      source_review_id REVIEW-252-001 and source_published_sha
-      e4bd532699d91d915ddfba54e94ce614a98dad35. Preserve diagnostic_v5_implementation_source_sha and
-      generation_8_execution_source_sha as
-      0c23b4f0530f17f8bb77e23f8199fc167a6e68b1 from TASK-251.
+      Reconcile exact lineage source_task_id TASK-252, source_run_id RUN-252-002,
+      source_review_id REVIEW-252-001, source_published_sha
+      e4bd532699d91d915ddfba54e94ce614a98dad35. Preserve V5 implementation/execution source as
+      0c23b4f0530f17f8bb77e23f8199fc167a6e68b1.
     - >
-      Canonicalize the consumed external Gen-8 operation as Human-operated, not an AIOS RUN:
-      generation_8_authorized true, generation_8_authorized_diagnostic_attempts 1,
-      generation_8_authorized_diagnostic_attempts_remaining 0,
-      generation_8_diagnostic_execution_owner HUMAN_OPERATOR, generation_8_diagnostic_executed true,
-      diagnostic_outcome SUCCESS, diagnostic_artifact_created true and live_dom_diagnostic_authority
-      NONE. Do not infer a process exit code or session-release status not present in supplied
-      evidence.
+      Canonicalize Gen-8 as Human-operated consumed SUCCESS, not an AIOS RUN:
+      generation_8_authorized true, attempts 1, attempts_remaining 0, owner HUMAN_OPERATOR,
+      executed true, diagnostic_outcome SUCCESS, diagnostic_artifact_created true and
+      live_dom_diagnostic_authority NONE. Do not invent exit/session-release evidence.
     - >
-      Record exact V5 artifact provenance: filename tiktok-pdp-dom-diagnostic-v5.json,
-      schema_version 5, SHA256 A61B58FC41B4CBDDB0F83A65625325F3685147C6948F74CA8D041C8658B40DD7,
-      size_bytes 34929, observed_at 2026-09-26T07:43:19.570359+00:00 and evidence_authority NONE.
-      Never persist the Human local filesystem path.
+      Record exact artifact provenance: tiktok-pdp-dom-diagnostic-v5.json, schema 5,
+      SHA256 A61B58FC41B4CBDDB0F83A65625325F3685147C6948F74CA8D041C8658B40DD7,
+      size_bytes 34929, observed_at 2026-09-26T07:43:19.570359+00:00,
+      evidence_authority NONE. Never persist the Human local path.
     - >
-      Record exact bounded Gen-8 observations without promoting them: selected_root_kind
-      TITLE_LOCAL_COMMERCE_QUORUM, selected_title_local_ancestor_level 2; price_role_probe
-      bounded_nodes_scanned 90, bounded_scan_truncated false, currency_candidate_count 6,
-      collector_eligible_candidate_count 6, leaf_candidate_count 4,
-      strike_through_signal_count 1, explicit_current_structural_signal_count 0,
-      explicit_original_structural_signal_count 1, unresolved_role_candidate_count 5,
-      range_like_candidate_count 0, multi_numeric_candidate_count 3,
-      distinct_text_equivalence_group_count 4 and candidate_sample_count 6. Preserve
-      evidence_authority NONE and SNAPSHOT_IS_NOT_TREND.
+      Record exact bounded observations: TITLE_LOCAL_COMMERCE_QUORUM level 2;
+      bounded_nodes_scanned 90; bounded_scan_truncated false; currency 6; eligible 6; leaf 4;
+      strike-through 1; explicit-current 0; explicit-original 1; unresolved 5; range-like 0;
+      multi-numeric 3; text-equivalence groups 4; candidate samples 6. State explicitly that the
+      sample set is exhaustive only for this bounded observation and does not carry node identity
+      proving exact pair membership.
     - >
-      Record mandatory Brain review disposition as
-      BOUNDED_PAIRED_PRICE_CURRENT_ROLE_ADMISSION_HARDENING_JUSTIFIED with review scope
-      ENGINEERING_DIAGNOSTIC_ONLY and insufficient_diagnostic_resolution false. This means only that
-      a narrow collector role-admission hardening is justified. It does not declare canonical
-      current price, parser defect, selector defect, Product Truth, acquisition readiness,
-      marketplace-global causation or future validation success.
+      Brain review disposition is
+      BOUNDED_PAIRED_PRICE_CURRENT_ROLE_ADMISSION_HARDENING_JUSTIFIED with scope
+      ENGINEERING_DIAGNOSTIC_ONLY, insufficient_diagnostic_resolution false and
+      exact_pair_membership_proven false. This authorizes only a conservative generic hardening.
     - >
-      Keep current_price_validation_status UNKNOWN and current_price_observed null. Keep
-      original_price_validation_status OBSERVED_ONLY and original_price_observed 68220.0 from the
-      prior validation lineage. Keep canonical_evidence_ingested false,
-      price_role_resolution_complete false and selector_repair_complete false. Gen-8 diagnostic
-      evidence must not change product-field truth.
+      Keep current_price_validation_status UNKNOWN/current_price_observed null,
+      original_price_validation_status OBSERVED_ONLY/original_price_observed 68220.0,
+      canonical_evidence_ingested false, price_role_resolution_complete false and
+      selector_repair_complete false.
     - >
-      Modify only TikTokPdpCollector's existing bounded root-scoped DOM price-role admission in
-      src/product_intelligence/adapters/tiktok_pdp.py. Preserve the shared bounded root resolver,
-      maximum 300-node/candidate observation budget, fail-closed truncation, interactive/title
-      subtree exclusions, existing explicit-current admission and existing
-      strike-through/explicit-original admission.
+      Preserve existing bounded-root resolver, 300-node/candidate budget, fail-closed truncation,
+      interactive/title exclusions, explicit-current admission and strike-through/explicit-original
+      admission. The new rule is additive only for otherwise unresolved paired-role admission.
     - >
-      Add one generic bounded paired-price inference rule. The rule may emit an otherwise unresolved
-      non-struck leaf-equivalence group into current_price_candidates only when all of the following
-      are structurally established inside the already-resolved bounded root: exactly one plausible
-      unresolved non-struck leaf-equivalence group participates in one local price cluster; exactly
-      one distinct leaf-equivalence group in that same bounded local cluster is deterministically
-      original by strike-through or existing explicit-original evidence; wrapper/leaf observations
-      carrying equivalent candidate text are collapsed for role reasoning so wrappers do not create
-      extra semantic candidates; the inferred current group is neither interactive nor inside the
-      title subtree; and no candidate in the pair has conflicting current/original structural role
-      evidence. Executor owns HOW but must prove these semantics deterministically.
+      For paired-role reasoning, begin only from eligible leaf currency candidates after existing
+      interactive/title filtering. Collapse wrapper/leaf semantic duplicates only by a
+      non-semantic text key defined exactly as trim plus collapse Unicode/ASCII whitespace runs to a
+      single space. Do not case-fold, parse numbers, normalize punctuation/currency, convert k/M,
+      compare magnitudes or otherwise create scalar equivalence in this layer.
     - >
-      The paired local cluster must be established by generic bounded DOM containment/proximity
-      semantics, not TikTok-specific classes, hashed class names, fixed ancestor levels, fixed child
-      indices, price magnitude ordering, first-match behavior or marketplace-specific labels. A
-      non-struck price elsewhere in the bounded root is not sufficient.
+      Paired inference runs only when the entire eligible bounded leaf set contains ZERO
+      non-conflicted explicit-current groups. If any valid explicit-current leaf group exists, use
+      the existing explicit-current path and do not infer an additional paired current group. Any
+      group carrying both current and original evidence is role-conflicted and cannot participate
+      in inference.
     - >
-      Fail closed and infer no paired current candidate when there are multiple plausible unresolved
-      non-struck equivalence groups in the local cluster, multiple possible deterministic-original
-      groups, conflicting explicit roles, unrelated local currency observations, range-like role
-      ambiguity that cannot remain safely delegated to the scalar parser, traversal truncation, or
-      otherwise non-unique pairing. Existing explicit-current candidates may continue through their
-      existing path but must not be silently merged with a contradictory paired inference.
+      Define a candidate local pair structurally. For one unresolved non-struck leaf-equivalence
+      group U and one deterministic-original leaf-equivalence group O, compute their nearest common
+      ancestor NCA within the already-resolved bounded PDP root. NCA must be a strict descendant of
+      the bounded root. After eligibility, leaf filtering and whitespace-only equivalence collapse,
+      the NCA subtree must contain exactly two distinct eligible currency groups: U and O. U must
+      have no explicit current/original evidence and no strike-through. O must be original by
+      strike-through or existing explicit-original evidence and must not have explicit-current
+      conflict. The pair is valid only when this condition is structurally satisfied without
+      marketplace-specific selectors, fixed depth/index or numeric reasoning.
     - >
-      Paired-role inference is candidate-role admission only. It must emit raw bounded candidate text
-      into the existing current_price_candidates channel and must not parse, normalize to a scalar,
-      compare numeric price magnitude, rank candidates or decide Product Truth. Existing
-      parse_tiktok_pdp_price remains the sole scalar admission authority and must stay byte-unchanged;
-      equivalent duplicates may reconcile there, while ranges, conflicting scalars or ambiguous
-      values remain None under existing rules.
+      Global paired inference requires uniqueness: across the bounded eligible leaf-group set there
+      must be exactly one valid U/O candidate pair. Zero or more than one valid pair means infer
+      nothing. This prevents cross-pairing between multiple price presentations or unrelated
+      currency clusters. A pair whose only common ancestor is the bounded root is invalid.
     - >
-      Add deterministic regression directly against the generated collector extraction script or an
-      equivalent deterministic executable harness proving at minimum: one generic unresolved
-      non-struck leaf group uniquely paired with one struck/explicit-original leaf group admits the
-      non-struck group as current and the original group as original; wrapper/leaf duplicates of the
-      same current text do not create multiple semantic current candidates; two plausible non-struck
-      groups infer none; two possible original groups infer none; unrelated shipping/coupon-style
-      currency observations do not pair across unrelated local structure; interactive and
-      title-subtree currency candidates remain excluded; conflicting current/original role evidence
-      fails closed; existing explicit-current behavior remains intact; and truncated bounded price
-      observation still returns empty current/original candidate sets.
+      The role layer must not inspect numeric_token_count, range syntax, price magnitude,
+      current<original ordering, discount arithmetic or scalar parse results to decide pair
+      membership. If a structurally valid inferred current candidate contains a range or otherwise
+      ambiguous scalar text, it may enter current_price_candidates and the existing sole parser
+      must return None according to AMBIGUOUS_PRICE_IS_NOT_EXACT_PRICE.
     - >
-      Preserve scalar reconciliation regressions proving one exact current scalar is admitted,
-      equivalent duplicates reconcile, zero remains distinct from missing, ranges return None,
-      conflicting current scalars return None and original-price scalar reconciliation remains
-      unchanged. Do not weaken tests to encode the Gen-8 live raw value, which is intentionally not
-      present in the sanitized artifact.
+      Paired inference emits only the raw bounded candidate text for the unique U group into the
+      existing current_price_candidates channel. It does not parse, normalize to scalar, rank or
+      decide Product Truth. Existing parse_tiktok_pdp_price remains sole scalar authority and
+      src/product_intelligence/adapters/tiktok_parsing.py must stay byte-unchanged.
     - >
-      Do not modify the V5 diagnostic to make it mirror the new paired-role admission. TASK-253 uses
-      the completed Gen-8 diagnostic only as historical bounded engineering evidence; diagnostic
-      semantics remain frozen at TASK-251. Any future observability change requires separate
-      authority.
+      Semantic verification must exercise the paired-role decision implementation, not merely assert
+      source substrings. Source-string assertions alone are insufficient for AC4/AC6. If Executor
+      keeps paired-role decision logic in generated JavaScript, tests must execute that exact
+      generated decision path against a deterministic offline synthetic DOM/runtime with zero
+      network/CDP. If no reliable JS runtime is available, Executor may factor only the paired-role
+      decision into a pure deterministic helper inside src/product_intelligence/adapters/tiktok_pdp.py
+      and make the JS emit bounded structural facts consumed by that helper; in that design the pure
+      helper must be the sole paired-role decision implementation and JS must not contain a duplicate
+      paired-role predicate. Existing explicit-current/original observation behavior may remain in
+      JS. No second semantic owner or test-only mirror is allowed.
     - >
-      Exact reviewed TASK-253 publication closes Gen-8 diagnostic execution and records
-      paired_price_current_role_hardening_implemented true while keeping
-      price_role_resolution_complete false until a separately authorized future collector
-      validation. It grants zero fresh live attempts.
+      Deterministic regressions must prove at minimum: one valid unique U/O structural pair admits U
+      as current and O as original; same-text wrapper/leaf differing only whitespace collapses;
+      same numeric value expressed by textually different strings does NOT collapse in role layer;
+      two plausible U groups infer none; two possible O groups infer none; a third eligible currency
+      group inside NCA invalidates the pair; two independent valid-looking clusters produce no
+      global inference; a U/O whose NCA is only the bounded root produces no inference; unrelated
+      shipping/coupon currency does not cross-pair; interactive/title candidates remain excluded;
+      role-conflicted group fails closed; explicit-current plus original uses existing explicit path
+      and no paired inference; explicit-current plus unresolved plus original does not add unresolved;
+      structurally valid paired current containing range text reaches scalar parser but final price
+      remains None; and truncated observation still yields empty current/original candidate sets.
+    - >
+      Preserve existing scalar regressions for one exact scalar, equivalent scalar duplicates,
+      zero vs missing, ranges None, conflicting scalars None and original-price reconciliation.
+      Do not encode or reconstruct an unavailable Gen-8 raw scalar.
+    - >
+      Do not modify V5 diagnostic to mirror the new rule. Diagnostic semantics stay frozen at
+      TASK-251; any future observability change requires separate authority.
+    - >
+      Exact reviewed TASK-253 publication records
+      paired_price_current_role_hardening_implemented true, closes Gen-8 live authority, but keeps
+      price_role_resolution_complete false until separately authorized future collector validation.
+      It grants zero fresh live attempts.
     - >
       Exact TASK-253 publication hands off only to
       HUMAN_BRAIN_FRESH_POST_GEN8_PAIRED_PRICE_COLLECTOR_VALIDATION_AUTHORIZATION.
       Keep active_track.next_milestone null, post_p8_planning_handoff.next_milestone null,
-      pending_commitments empty, post_run_engineering_successor null, automatic_live_pilot false and
-      automatic_progression false. generation_9_authorized must be false and
-      generation_9_authorized_diagnostic_attempts must be 0 if represented.
+      pending_commitments empty, post_run_engineering_successor null, automatic_live_pilot false,
+      automatic_progression false; generation_9_authorized false and
+      generation_9_authorized_diagnostic_attempts 0 if represented.
     - >
       Keep live_public_pdp_acquisition_authority NONE,
       automated_public_pdp_acquisition_authority NONE, market_test_or_action_authority NONE,
-      selector_repair_authority NONE, arbitrary_target_authority NONE, replacement_target_authority
-      NONE, search_authority NONE, batch_authority NONE, inferred_identity_authority NONE and
-      variant_switching_authority NONE.
+      selector_repair_authority NONE, arbitrary_target_authority NONE,
+      replacement_target_authority NONE, search_authority NONE, batch_authority NONE,
+      inferred_identity_authority NONE and variant_switching_authority NONE.
     - >
       Add docs/PHASE_8_PUBLIC_TIKTOK_PDP_GEN8_RESULT_AND_PAIRED_PRICE_ROLE_HARDENING.md documenting
-      exact TASK-252 lineage, Human preflight as operational evidence, consumed Gen-8 SUCCESS,
-      exact artifact provenance, bounded V5 observations, Brain review disposition and its limits,
-      paired-price admission contract, parser ownership, closed authorities and future
-      Human/Brain-only validation authorization handoff.
+      exact lineage/provenance, bounded-hypothesis limitations, formal paired-role invariants,
+      parser ownership, closed authorities and Human/Brain-only future validation handoff.
     - >
-      Update both canonical roadmap documents and .ai/roadmap-state.yaml publication-gated.
-      Historicalize TASK-252 current-state authorization assertions without weakening exact
-      TASK-252 lineage, one-shot semantics or Gen-8 artifact/uncertainty provenance. TASK-253 alone
-      becomes the owner of current Gen-8 consumed-state and paired-role-hardening assertions after
-      exact publication. Do not reintroduce duplicate direct-child keys in
-      post_p8_planning_handoff.
+      Update both roadmap docs and .ai/roadmap-state.yaml publication-gated. Historicalize TASK-252
+      authorization assertions without weakening one-shot history. TASK-253 becomes owner of current
+      Gen-8 consumed-state and paired-role-hardening assertions after publication. Do not introduce
+      duplicate direct-child keys in post_p8_planning_handoff.
     - >
-      Modify exactly the seven authorized paths. Runtime owns deterministic verification. Executor
-      must produce one candidate and one ResultPackage and must not publish, review, access
-      TikTok/CDP, invoke a live diagnostic/collector, authorize validation, create Generation-9
-      authority or begin successor work.
+      Modify exactly seven authorized paths. Runtime owns verification. Executor must produce one
+      candidate and one ResultPackage and must not publish, review, access TikTok/CDP, invoke live
+      diagnostic/collector, authorize validation, create Gen-9 authority or start successor work.
 
 acceptance:
   - id: AC1
     condition: >
-      Exact TASK-252 / RUN-252-002 / REVIEW-252-001 publication lineage at
-      e4bd532699d91d915ddfba54e94ce614a98dad35 is recorded, while TASK-251 remains the exact
-      frozen V5 implementation/execution source at
-      0c23b4f0530f17f8bb77e23f8199fc167a6e68b1.
+      Exact TASK-252/RUN-252-002/REVIEW-252-001 lineage and frozen TASK-251 V5 source are recorded.
   - id: AC2
     condition: >
-      The Human-operated Gen-8 attempt is reconciled as consumed SUCCESS with attempts 1/remaining 0,
-      executed true, live_dom_diagnostic_authority NONE, exact V5 artifact SHA256/size/observed_at
-      provenance and evidence_authority NONE, without inventing process exit code/session-release
-      evidence or treating the operation as an AIOS RUN.
+      Gen-8 is reconciled as Human-operated consumed SUCCESS with attempts 1/remaining 0,
+      executed true, live authority NONE, exact artifact provenance and no invented exit/session
+      evidence.
   - id: AC3
     condition: >
-      Exact bounded V5 observations and Brain review disposition
-      BOUNDED_PAIRED_PRICE_CURRENT_ROLE_ADMISSION_HARDENING_JUSTIFIED are recorded with explicit
-      ENGINEERING_DIAGNOSTIC_ONLY scope, while current_price remains UNKNOWN/null,
-      original_price remains OBSERVED_ONLY 68220.0, canonical_evidence_ingested false,
-      price_role_resolution_complete false and no Product Truth or causation overclaim is made.
+      Bounded observations are recorded with explicit hypothesis-only interpretation,
+      exact_pair_membership_proven false, current_price UNKNOWN/null, original_price OBSERVED_ONLY
+      68220.0, evidence_authority NONE and no Product Truth/causation overclaim.
   - id: AC4
     condition: >
-      TikTokPdpCollector alone gains a generic bounded paired-price current-role admission rule that
-      requires one unique unresolved non-struck leaf-equivalence group and one unique deterministic
-      original leaf-equivalence group in the same bounded local price cluster, collapses same-text
-      wrapper/leaf duplicates for role reasoning, preserves explicit-role behavior and fails closed
-      on non-unique/conflicting/unrelated/truncated cases without TikTok-specific selectors or
-      numeric-price inference.
+      TikTokPdpCollector alone gains the formal fail-closed paired-role semantics: whitespace-only
+      equivalence collapse, zero explicit-current precondition, strict-descendant NCA containing
+      exactly two eligible groups, one unresolved non-struck U plus one deterministic-original O,
+      and exactly one valid pair globally; no numeric/range/marketplace-specific inference.
   - id: AC5
     condition: >
-      src/product_intelligence/adapters/tiktok_parsing.py, shared DOM-scope resolver, V5 diagnostic,
-      CLI and browser/session implementation remain byte-unchanged; parse_tiktok_pdp_price remains
-      sole scalar authority and existing range/conflict/equivalent-duplicate/zero/missing semantics
-      remain intact.
+      tiktok_parsing.py, shared DOM-scope resolver, V5 diagnostic, CLI and browser/session
+      implementation stay byte-unchanged; parser remains sole scalar authority and range/conflict/
+      equivalent-scalar/zero/missing semantics remain intact.
   - id: AC6
     condition: >
-      Deterministic collector regressions prove unique paired admission, wrapper/leaf de-duplication,
-      multiple-current fail-closed, multiple-original fail-closed, unrelated-currency isolation,
-      interactive/title exclusion, conflicting-role fail-closed, existing explicit-current
-      preservation and truncation fail-closed behavior; scalar reconciliation regressions remain
-      green without embedding an unavailable Gen-8 raw scalar.
+      Tests execute the actual paired-role decision implementation, not a source-string or test-only
+      semantic mirror, and cover unique pair, whitespace wrapper collapse, textual-non-equivalence,
+      multiple-U, multiple-O, third-group NCA, two-cluster global ambiguity, root-only NCA,
+      unrelated currency, interaction/title exclusions, role conflict, explicit-current precedence,
+      range delegated to parser and truncation fail-closed.
   - id: AC7
     condition: >
-      Exactly seven authorized paths change; governance state contains no duplicate direct-child
-      post_p8_planning_handoff keys, records paired_price_current_role_hardening_implemented true,
-      closes Gen-8 live authority, grants zero Gen-9/live validation/acquisition/action authority,
-      leaves next_milestone null and pending commitments empty, and hands off only to
-      HUMAN_BRAIN_FRESH_POST_GEN8_PAIRED_PRICE_COLLECTOR_VALIDATION_AUTHORIZATION.
+      Exactly seven paths change; governance state has no duplicate direct-child handoff keys,
+      records hardening implemented true, closes Gen-8 authority, grants zero Gen-9/live validation/
+      acquisition/action authority, leaves next_milestone null/pending commitments empty and hands
+      off only to HUMAN_BRAIN_FRESH_POST_GEN8_PAIRED_PRICE_COLLECTOR_VALIDATION_AUTHORIZATION.
   - id: AC8
     condition: >
-      Focused product-intelligence and governance verification plus git diff --check pass with zero
-      unresolved items; TASK-253 performs no live marketplace/CDP operation and no future validation
-      is executed or authorized by implementation completion itself.
+      Focused product-intelligence/governance verification and git diff --check pass with zero
+      unresolved items; no live marketplace/CDP operation or future validation occurs.
 
 verification:
   required:
-    - python -m pytest tests/product_intelligence/test_tiktok_pdp.py tests/product_intelligence/test_tiktok_pdp_live_pilot.py tests/product_intelligence/test_tiktok_pdp_dom_diagnostic.py tests/product_intelligence/test_product_intelligence_cli.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task253-primary
+    - python -m pytest tests/product_intelligence/test_tiktok_pdp.py tests/product_intelligence/test_tiktok_pdp_live_pilot.py tests/product_intelligence/test_tiktok_pdp_dom_diagnostic.py tests/product_intelligence/test_product_intelligence_cli.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task253-r2
     - git diff --check
