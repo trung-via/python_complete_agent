@@ -1,0 +1,39 @@
+review_id: REVIEW-253-001
+reviewed_sha: e57b972cb4b0f912b1e92d9786539c336c8622f3
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: PASS
+  AC3: PASS
+  AC4: PASS
+  AC5: PASS
+  AC6: FAIL
+  AC7: PASS
+  AC8: PASS
+findings:
+  - id: FINDING-253-001
+    basis: AC6
+    action: CODE_FIX
+    location: tests/product_intelligence/test_tiktok_pdp.py
+    issue: >
+      TASK-253 r2 requires deterministic regressions to execute the actual paired-role
+      decision implementation, not a source-string assertion or test-only semantic mirror,
+      including the truncation fail-closed case. The new case 14 does not exercise the
+      generated TIKTOK_PDP_EXTRACTION_SCRIPT truncation path: it supplies a FakeSession
+      payload whose current_price_candidates and original_price_candidates are already
+      empty. The pre-existing truncation tests likewise either assert source substrings,
+      feed pre-empty FakeSession payloads, or simulate the traversal cap in Python. Therefore
+      the 302-pass Runtime result does not prove that a real >300-node bounded DOM causes the
+      actual generated collector script to discard a partial first-window U/O pair and emit
+      empty current/original candidate sets as required by AC6.
+    expected: >
+      Add a deterministic zero-network Playwright regression that executes the actual
+      TIKTOK_PDP_EXTRACTION_SCRIPT (preferably through TikTokPdpCollector plus direct raw
+      evaluate) against a synthetic bounded PDP DOM that genuinely exceeds the 300-node
+      observation bound and contains otherwise valid-looking price candidates within the
+      partial first window. Prove the real script detects truncation and returns empty
+      current_price_candidates and original_price_candidates, with final scalar prices
+      remaining None. Keep the paired-role implementation and all production paths unchanged
+      unless this executable regression exposes an actual implementation defect; do not add
+      a test-only semantic mirror, live/CDP/network behavior, or any authority expansion.
