@@ -154,6 +154,11 @@ P8_PUBLIC_TIKTOK_PDP_POST_TASK250_VALIDATION_SUCCESS_RECONCILIATION_AND_PRICE_RO
     / "docs"
     / "PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK250_VALIDATION_SUCCESS_RECONCILIATION_AND_PRICE_ROLE_OBSERVABILITY.md"
 )
+P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN8_AUTHORIZATION_FILE = (
+    REPO_ROOT
+    / "docs"
+    / "PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN8_AUTHORIZATION.md"
+)
 ROADMAP_DOCS = (
     REPO_ROOT / "docs" / "POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
     REPO_ROOT / "docs" / "POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
@@ -204,6 +209,9 @@ TASK_249_REVIEW_ID = "REVIEW-249-001"
 TASK_250_PUBLISHED_SOURCE_SHA = "3b4195b9f81e591697e94b7570450be069861552"
 TASK_250_RUN_ID = "RUN-250-003"
 TASK_250_REVIEW_ID = "REVIEW-250-001"
+TASK_251_PUBLISHED_SOURCE_SHA = "0c23b4f0530f17f8bb77e23f8199fc167a6e68b1"
+TASK_251_RUN_ID = "RUN-251-004"
+TASK_251_REVIEW_ID = "REVIEW-251-003"
 V2_ATTEMPT_MARKER_FILENAME = "tiktok-pdp-live-validation-attempt-v2.json"
 V2_ATTEMPT_MARKER_SIZE_BYTES = 633
 V2_ATTEMPT_MARKER_SHA256 = (
@@ -1746,9 +1754,11 @@ def test_task_250_history_preserves_authorization_without_freezing_current_globa
 
 
 def test_task_251_reconciles_post_task250_validation_success_and_hardens_v5_price_role_observability():
+    test_task_251_history_preserves_reconciliation_without_freezing_current_global_handoff()
+
+
+def test_task_251_history_preserves_reconciliation_without_freezing_current_global_handoff():
     state = load_yaml(ROADMAP_FILE)
-    active = state["active_track"]
-    milestone = active["current_milestone"]
     handoff = state["post_p8_planning_handoff"]
     reconciliation = handoff[
         "public_pdp_post_task250_validation_success_reconciliation_and_price_role_observability"
@@ -1761,28 +1771,10 @@ def test_task_251_reconciles_post_task250_validation_success_and_hardens_v5_pric
         )
     )
 
-    assert (
-        active["id"]
-        == "P8_PUBLIC_PDP_POST_TASK250_VALIDATION_SUCCESS_RECONCILIATION_AND_PRICE_ROLE_OBSERVABILITY"
-    )
-    assert (
-        active["title"]
-        == "P8 Public TikTok PDP Post-TASK250 Validation Success Reconciliation and Price-Role Observability"
-    )
-    assert active["status"] == "DONE"
-    assert active["completion_basis"] == "PUBLICATION_GATED"
-    assert (
-        active["sequence_status"]
-        == "COMPLETE_ON_EXACT_TASK_251_SOURCE_PUBLICATION"
-    )
-    assert active["next_milestone"] is None
-    assert handoff["next_milestone"] is None
-    assert state["pending_commitments"] == []
-
     # AC1: Exact TASK-250 / RUN-250-003 / REVIEW-250-001 publication lineage at
     # 3b4195b9f81e591697e94b7570450be069861552 is reconciled while TASK-249 carrier source and
     # TASK-248 collector baseline remain separately identified and semantically distinct.
-    for record in (milestone, reconciliation, completed_task):
+    for record in (reconciliation, completed_task):
         assert record["task_id"] == "TASK-251"
         assert record["classification"] == (
             "POST_TASK250_OPERATION_SUCCESS_RECONCILIATION_AND_BOUNDED_PRICE_ROLE_OBSERVABILITY_HARDENING_ONLY"
@@ -1880,38 +1872,8 @@ def test_task_251_reconciles_post_task250_validation_success_and_hardens_v5_pric
             "HUMAN_BRAIN_FRESH_GENERATION_8_BOUNDED_PRICE_ROLE_DIAGNOSTIC_AUTHORIZATION"
         )
 
-    # Handoff-level checks
-    assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_251_SOURCE_PUBLICATION"
-    assert (
-        handoff["completed_commitment"]
-        == "P8_PUBLIC_PDP_POST_TASK250_VALIDATION_SUCCESS_RECONCILIATION_AND_PRICE_ROLE_OBSERVABILITY"
-    )
-    assert (
-        handoff["destination"]
-        == "HUMAN_BRAIN_FRESH_GENERATION_8_BOUNDED_PRICE_ROLE_DIAGNOSTIC_AUTHORIZATION"
-    )
-    assert handoff["authorized_validation_attempts"] == 1
-    assert handoff["authorized_validation_attempts_remaining"] == 0
-    assert handoff["validation_execution_owner"] == "HUMAN_OPERATOR"
-    assert handoff["validation_executed"] is True
-    assert handoff["validation_operation_status"] == "SUCCESS"
-    assert handoff["validation_observation_status"] == "OBSERVED"
-    assert handoff["validation_session_release_status"] == "SUCCESS"
-    assert handoff["process_exit_code"] == "UNKNOWN"
-    assert handoff["current_price_validation_status"] == "UNKNOWN"
-    assert handoff["current_price_observed"] is None
-    assert handoff["original_price_validation_status"] == "OBSERVED_ONLY"
-    assert handoff["original_price_observed"] == 68220.0
-    assert handoff["operation_success_is_not_field_validation_success"] is True
-    assert handoff["active_diagnostic_artifact_contract"] == {
-        "schema_version": 5,
-        "filename": V5_DIAGNOSTIC_FILENAME,
-        "create_exclusive": True,
-        "evidence_authority": "NONE",
-    }
-    assert handoff["generation_8_authorized"] is False
-    assert handoff["generation_8_authorized_diagnostic_attempts"] == 0
-    assert handoff["generation_8_authorized_diagnostic_attempts_remaining"] == 0
+    # Historical handoff destination differs from current global handoff
+    assert handoff["destination"] != reconciliation["post_publication_handoff"]
 
     # AC9: Completed TASK-251 revision 1
     assert completed_task["task_revision"] == 1
@@ -1966,6 +1928,288 @@ def test_task_251_reconciles_post_task250_validation_success_and_hardens_v5_pric
             V5_DIAGNOSTIC_FILENAME,
             "HUMAN_BRAIN_FRESH_GENERATION_8_BOUNDED_PRICE_ROLE_DIAGNOSTIC_AUTHORIZATION",
             "OPERATION_SUCCESS_IS_NOT_FIELD_VALIDATION_SUCCESS",
+        ):
+            assert required in roadmap_text
+
+
+def test_task_252_authorizes_one_exact_generation_8_price_role_diagnostic_attempt():
+    state = load_yaml(ROADMAP_FILE)
+    active = state["active_track"]
+    milestone = active["current_milestone"]
+    handoff = state["post_p8_planning_handoff"]
+    authorization = handoff["public_pdp_dom_diagnostic_gen8_authorization"]
+    completed = {item["task_id"]: item for item in state["completed_milestones"]}
+    completed_task = completed["TASK-252"]
+    document = (
+        P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN8_AUTHORIZATION_FILE.read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert (
+        active["id"]
+        == "P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN8_AUTHORIZATION"
+    )
+    assert (
+        active["title"]
+        == "P8 Public TikTok PDP DOM Diagnostic Generation-8 Authorization"
+    )
+    assert active["status"] == "DONE"
+    assert active["completion_basis"] == "PUBLICATION_GATED"
+    assert (
+        active["sequence_status"]
+        == "COMPLETE_ON_EXACT_TASK_252_SOURCE_PUBLICATION"
+    )
+    assert active["next_milestone"] is None
+    assert handoff["next_milestone"] is None
+    assert state["pending_commitments"] == []
+
+    # AC1: Exact TASK-251 / RUN-251-004 / REVIEW-251-003 publication lineage at
+    # 0c23b4f0530f17f8bb77e23f8199fc167a6e68b1 is recorded as both the schema-V5 implementation source
+    # and generation-8 execution source, while TASK-251 remains immutable completed history.
+    for record in (milestone, authorization, completed_task):
+        assert record["task_id"] == "TASK-252"
+        assert record["classification"] == (
+            "FRESH_GENERATION_8_BOUNDED_PRICE_ROLE_DIAGNOSTIC_AUTHORIZATION_ONLY"
+        )
+        assert record["source_task_id"] == "TASK-251"
+        assert record["source_run_id"] == TASK_251_RUN_ID
+        assert record["source_review_id"] == TASK_251_REVIEW_ID
+        assert record["source_published_sha"] == TASK_251_PUBLISHED_SOURCE_SHA
+        assert (
+            record["diagnostic_v5_implementation_source_sha"]
+            == TASK_251_PUBLISHED_SOURCE_SHA
+        )
+        assert (
+            record["generation_8_execution_source_sha"]
+            == TASK_251_PUBLISHED_SOURCE_SHA
+        )
+        assert record["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
+        assert record["authorized_source_id"] == SELECTED_SOURCE_ID
+        assert record["stable_listing_reference"] == SELECTED_LISTING_REFERENCE
+
+        # AC2: Current uncertainty remains unchanged during authorization engineering
+        assert record["current_price_validation_status"] == "UNKNOWN"
+        assert record["current_price_observed"] is None
+        assert record["original_price_validation_status"] == "OBSERVED_ONLY"
+        assert record["original_price_observed"] == 68220.0
+        assert record["canonical_evidence_ingested"] is False
+        assert record["price_role_resolution_complete"] is False
+
+        # AC3: Exact reviewed TASK-252 publication alone grants one fresh Human-owned Gen-8 attempt
+        assert record["diagnostic_authorization_generation"] == 8
+        assert record["live_dom_diagnostic_authority"] == "ONE_SHOT_ATTACH_ONLY_EXACT_LISTING"
+        assert record["generation_8_authorized"] is True
+        assert record["generation_8_authorized_diagnostic_attempts"] == 1
+        assert record["generation_8_authorized_diagnostic_attempts_remaining"] == 1
+        assert record["generation_8_diagnostic_execution_owner"] == "HUMAN_OPERATOR"
+        assert record["generation_8_diagnostic_executed"] is False
+
+        # AC4: Published V5 diagnostic/root/sanitization semantics remain frozen with zero production-code modification
+        assert record["diagnostic_carrier"] == "src/product_intelligence/tiktok_pdp_dom_diagnostic.py"
+        assert record["diagnostic_schema_version"] == 5
+        assert record["diagnostic_artifact_filename"] == V5_DIAGNOSTIC_FILENAME
+        assert record["diagnostic_artifact_create_exclusive"] is True
+        assert record["canonical_cli_command"] == "tiktok-pdp-dom-diagnostic"
+        assert record["borrowed_session_count"] == 1
+        assert record["session_evaluate_count"] == 1
+        assert record["navigation_refresh_click_type_scroll_authority"] == "NONE"
+        assert record["browser_lifecycle_authority"] == "TASK-137"
+        assert record["task_137_cleanup_preserved"] is True
+        assert record["evidence_authority"] == "NONE"
+        assert record["price_role_observability_schema_version"] == 5
+        assert record["price_role_observability_hardening_implemented"] is True
+        assert record["selector_repair_complete"] is False
+        assert record["live_public_pdp_acquisition_authority"] == "NONE"
+        assert record["automated_public_pdp_acquisition_authority"] == "NONE"
+        assert record["market_test_or_action_authority"] == "NONE"
+        assert record["automatic_live_pilot"] is False
+        assert record["automatic_progression"] is False
+        assert record["post_run_engineering_successor"] is None
+        assert record["next_milestone"] is None
+
+        # AC5: Non-consuming preflight proves CDP reachability, 1 normal page, exact PDP, fresh V1-V5-free root, 7-file equivalence
+        assert record["preflight_consumes_attempt"] is False
+        preflight = record["preflight_authority"]
+        assert preflight["cdp_reachability"] == "127.0.0.1:9222"
+        assert preflight["normal_type_page_target_total"] == 1
+        assert preflight["sole_normal_page_is_exact_selected_pdp"] is True
+        assert preflight["selected_pdp_source_id"] == SELECTED_SOURCE_ID
+        assert preflight["external_job_root_generation"] == 8
+        assert preflight["fresh_external_job_root_requires_v1_absent"] is True
+        assert preflight["fresh_external_job_root_requires_v2_absent"] is True
+        assert preflight["fresh_external_job_root_requires_v3_absent"] is True
+        assert preflight["fresh_external_job_root_requires_v4_absent"] is True
+        assert preflight["fresh_external_job_root_requires_v5_absent"] is True
+        assert (
+            preflight["execution_critical_file_equivalence_source_sha"]
+            == TASK_251_PUBLISHED_SOURCE_SHA
+        )
+        assert preflight["execution_critical_files"] == [
+            "src/product_intelligence/tiktok_pdp_dom_diagnostic.py",
+            "src/product_intelligence/tiktok_pdp_dom_scope.py",
+            "src/product_intelligence/adapters/tiktok_pdp.py",
+            "src/product_intelligence/adapters/tiktok_parsing.py",
+            "src/product_intelligence/cli.py",
+            "src/integrations/playwright/manager.py",
+            "src/integrations/playwright/session.py",
+        ]
+        assert preflight["repository_head_equality_required"] is False
+        assert preflight["diagnostic_carrier_invocation"] is False
+
+        # AC6: Human invocation is one physical PowerShell line; terminal outcome consumes attempt
+        assert (
+            record["human_invocation_transport"]
+            == "ONE_PHYSICAL_POWERSHELL_LINE_NO_CONTINUATION"
+        )
+        assert (
+            record["pre_carrier_shell_parser_transport_failure_consumes_attempt"]
+            is False
+        )
+        assert record["diagnostic_invocation_consumes_attempt"] is True
+        assert (
+            record["valid_carrier_invocation_terminal_outcome_consumes_attempt"]
+            is True
+        )
+        assert record["terminal_outcome_consumption"] == "EVERY_TERMINAL_OUTCOME"
+        assert record["automatic_retry_refresh_resume"] is False
+        assert record["second_invocation_authority"] == "NONE"
+        assert record["arbitrary_target_authority"] == "NONE"
+        assert record["replacement_target_authority"] == "NONE"
+        assert record["search_authority"] == "NONE"
+        assert record["batch_authority"] == "NONE"
+        assert record["inferred_identity_authority"] == "NONE"
+        assert record["variant_switching_authority"] == "NONE"
+        assert record["selector_repair_authority"] == "NONE"
+        assert record["acquisition_authority"] == "NONE"
+
+        # AC7: Post-attempt Brain review limits, marginal-count semantics, 8 samples, INSUFFICIENT_DIAGNOSTIC_RESOLUTION
+        assert record["root_probe_interpretation"] == "ENGINEERING_DIAGNOSTIC_HINT_ONLY"
+        assert record["commerce_probe_interpretation"] == "ENGINEERING_DIAGNOSTIC_HINT_ONLY"
+        assert record["title_local_topology_probe_interpretation"] == "ENGINEERING_DIAGNOSTIC_HINT_ONLY"
+        assert record["price_role_probe_interpretation"] == "ENGINEERING_DIAGNOSTIC_HINT_ONLY"
+        assert record["marginal_counts_are_not_intersection_proofs"] is True
+        assert record["candidate_samples_capped_at_eight"] is True
+        assert record["candidate_samples_not_exhaustive_when_count_exceeds_cap"] is True
+        assert record["negative_sample_observations_are_non_exhaustive_when_count_exceeds_cap"] is True
+        assert record["truncated_scan_negative_observations"] == "NON_EXHAUSTIVE"
+        assert record["range_and_multi_numeric_hints_are_descriptive_only"] is True
+        assert record["insufficient_diagnostic_resolution_disposition_allowed"] is True
+        assert record["shadow_or_iframe_traversal_authority"] == "NONE"
+        assert record["readiness_or_selector_hint_repair_authority"] == "NONE"
+        assert (
+            record["post_attempt_review_authority"]
+            == "HUMAN_BRAIN_GENERATION_8_BOUNDED_PRICE_ROLE_DIAGNOSTIC_REVIEW"
+        )
+        assert (
+            record["mandatory_post_diagnostic_review"]
+            == "HUMAN_BRAIN_GENERATION_8_BOUNDED_PRICE_ROLE_DIAGNOSTIC_REVIEW"
+        )
+        assert (
+            record["post_publication_handoff"]
+            == "HUMAN_OPERATOR_GENERATION_8_BOUNDED_PRICE_ROLE_DIAGNOSTIC_EXECUTION"
+        )
+
+    # AC8: Handoff-level checks
+    assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_252_SOURCE_PUBLICATION"
+    assert (
+        handoff["completed_commitment"]
+        == "P8_PUBLIC_PDP_DOM_DIAGNOSTIC_GEN8_AUTHORIZATION"
+    )
+    assert (
+        handoff["destination"]
+        == "HUMAN_OPERATOR_GENERATION_8_BOUNDED_PRICE_ROLE_DIAGNOSTIC_EXECUTION"
+    )
+    assert handoff["source_task_id"] == "TASK-251"
+    assert handoff["source_run_id"] == TASK_251_RUN_ID
+    assert handoff["source_review_id"] == TASK_251_REVIEW_ID
+    assert handoff["source_published_sha"] == TASK_251_PUBLISHED_SOURCE_SHA
+    assert (
+        handoff["diagnostic_v5_implementation_source_sha"]
+        == TASK_251_PUBLISHED_SOURCE_SHA
+    )
+    assert (
+        handoff["generation_8_execution_source_sha"]
+        == TASK_251_PUBLISHED_SOURCE_SHA
+    )
+    assert handoff["diagnostic_authorization_generation"] == 8
+    assert handoff["generation_8_authorized"] is True
+    assert handoff["generation_8_authorized_diagnostic_attempts"] == 1
+    assert handoff["generation_8_authorized_diagnostic_attempts_remaining"] == 1
+    assert handoff["generation_8_diagnostic_execution_owner"] == "HUMAN_OPERATOR"
+    assert handoff["generation_8_diagnostic_executed"] is False
+    assert handoff["live_dom_diagnostic_authority"] == "ONE_SHOT_ATTACH_ONLY_EXACT_LISTING"
+    assert handoff["current_price_validation_status"] == "UNKNOWN"
+    assert handoff["current_price_observed"] is None
+    assert handoff["original_price_validation_status"] == "OBSERVED_ONLY"
+    assert handoff["original_price_observed"] == 68220.0
+    assert handoff["canonical_evidence_ingested"] is False
+    assert handoff["price_role_resolution_complete"] is False
+    assert handoff["active_diagnostic_artifact_contract"] == {
+        "schema_version": 5,
+        "filename": V5_DIAGNOSTIC_FILENAME,
+        "create_exclusive": True,
+        "evidence_authority": "NONE",
+    }
+
+    # Completed TASK-252 revision 1
+    assert completed_task["task_revision"] == 1
+    assert completed_task["effective_only_when"] == {
+        "semantic_review": "PASS",
+        "published_source": "EXACT_REVIEWED_CANDIDATE",
+        "canonical_main_equals_reviewed_candidate": True,
+    }
+
+    # Document contents validation
+    assert "C:\\" not in document
+    assert document.count("```powershell") == 1
+    assert (
+        "```powershell\n"
+        "python -m src.product_intelligence.cli tiktok-pdp-dom-diagnostic "
+        "--job-root <fresh-external-generation-8-job-root> "
+        "--cdp-endpoint http://127.0.0.1:9222\n"
+        "```"
+    ) in document
+
+    for required in (
+        "FRESH_GENERATION_8_BOUNDED_PRICE_ROLE_DIAGNOSTIC_AUTHORIZATION_ONLY",
+        "TASK-251",
+        TASK_251_RUN_ID,
+        TASK_251_REVIEW_ID,
+        TASK_251_PUBLISHED_SOURCE_SHA,
+        "TASK-250",
+        TASK_250_PUBLISHED_SOURCE_SHA,
+        "TASK-249",
+        TASK_249_PUBLISHED_SOURCE_SHA,
+        "TASK-248",
+        TASK_248_PUBLISHED_SOURCE_SHA,
+        V5_DIAGNOSTIC_FILENAME,
+        SELECTED_SOURCE_ID,
+        SELECTED_LISTING_REFERENCE,
+        "HUMAN_OPERATOR_GENERATION_8_BOUNDED_PRICE_ROLE_DIAGNOSTIC_EXECUTION",
+        "HUMAN_BRAIN_GENERATION_8_BOUNDED_PRICE_ROLE_DIAGNOSTIC_REVIEW",
+        "INSUFFICIENT_DIAGNOSTIC_RESOLUTION",
+        "CAPABILITY_IS_NOT_AUTHORITY",
+        "EVIDENCE_IS_NOT_PRODUCT_TRUTH",
+        "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY",
+        "SNAPSHOT_IS_NOT_TREND",
+        "AMBIGUOUS_PRICE_IS_NOT_EXACT_PRICE",
+        "MEASUREMENT_IS_NOT_AUTHORITY",
+        "OPERATION_SUCCESS_IS_NOT_FIELD_VALIDATION_SUCCESS",
+        "ONE_CAPABILITY_ONE_AUTHORITY",
+    ):
+        assert required in document
+
+    for roadmap in ROADMAP_DOCS:
+        roadmap_text = roadmap.read_text(encoding="utf-8")
+        for required in (
+            "TASK-252 is publication-gated DONE only as",
+            "FRESH_GENERATION_8_BOUNDED_PRICE_ROLE_DIAGNOSTIC_AUTHORIZATION_ONLY",
+            TASK_251_PUBLISHED_SOURCE_SHA,
+            V5_DIAGNOSTIC_FILENAME,
+            "HUMAN_OPERATOR_GENERATION_8_BOUNDED_PRICE_ROLE_DIAGNOSTIC_EXECUTION",
+            "HUMAN_BRAIN_GENERATION_8_BOUNDED_PRICE_ROLE_DIAGNOSTIC_REVIEW",
+            "INSUFFICIENT_DIAGNOSTIC_RESOLUTION",
         ):
             assert required in roadmap_text
 

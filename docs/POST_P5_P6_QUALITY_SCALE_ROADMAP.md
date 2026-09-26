@@ -963,12 +963,63 @@ bounded root resolution (`src/product_intelligence/tiktok_pdp_dom_scope.py`) and
 (`src/product_intelligence/adapters/tiktok_parsing.py`) remain unmodified. Production collector, carrier, CLI,
 and browser lifecycle code remain byte-unchanged.
 
-TASK-251 becomes the sole current active track milestone while TASK-250 becomes historical.
-Generation 8 remains unauthorized (`generation_8_authorized: false`, 0 attempts, execution owner `NONE`),
+TASK-251 was the active track milestone at publication while TASK-250 became historical.
+Generation 8 remained unauthorized at TASK-251 publication (`generation_8_authorized: false`, 0 attempts, execution owner `NONE`),
 all live diagnostic/acquisition/action authorities remain `NONE`, NEXT is null, pending commitments are empty,
 automatic progression is false, and post-publication planning hands off exclusively to
 `HUMAN_BRAIN_FRESH_GENERATION_8_BOUNDED_PRICE_ROLE_DIAGNOSTIC_AUTHORIZATION`.
 See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK250_VALIDATION_SUCCESS_RECONCILIATION_AND_PRICE_ROLE_OBSERVABILITY.md`.
+
+TASK-252 is publication-gated DONE only as
+`FRESH_GENERATION_8_BOUNDED_PRICE_ROLE_DIAGNOSTIC_AUTHORIZATION_ONLY`. It records exact
+TASK-251 / RUN-251-004 / REVIEW-251-003 publication lineage at
+`0c23b4f0530f17f8bb77e23f8199fc167a6e68b1` as both the schema-V5 implementation source
+(`diagnostic_v5_implementation_source_sha=0c23b4f0530f17f8bb77e23f8199fc167a6e68b1`)
+and the generation-8 execution source (`generation_8_execution_source_sha=0c23b4f0530f17f8bb77e23f8199fc167a6e68b1`),
+while TASK-251 remains immutable completed history. Current uncertainty remains unchanged
+during authorization engineering: current price is `UNKNOWN`/`null`, original price `68220.0`
+is `OBSERVED_ONLY`, `canonical_evidence_ingested` is false, `price_role_resolution_complete` is
+false, and no prior live evidence is promoted into Product Truth or repair authority.
+
+Exact reviewed TASK-252 publication alone authorizes generation 8 for one fresh Human-operated,
+attach-only diagnostic attempt (`generation_8_authorized: true`, `generation_8_authorized_diagnostic_attempts: 1`,
+`generation_8_authorized_diagnostic_attempts_remaining: 1`, `generation_8_diagnostic_execution_owner: HUMAN_OPERATOR`,
+`generation_8_diagnostic_executed: false`, `live_dom_diagnostic_authority: ONE_SHOT_ATTACH_ONLY_EXACT_LISTING`)
+bound strictly to context `p8-pilot-001-led-motion-tiktok-vn`, source ID `1731381331718341815`, and the
+exact selected listing `https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815`.
+Schema V5, the create-exclusive `tiktok-pdp-dom-diagnostic-v5.json` artifact, one borrowed session, exactly one evaluate,
+zero navigation/refresh/click/type/scroll, light-DOM traversal, TASK-137 cleanup, and `evidence_authority=NONE`
+remain frozen with zero production-code modification. Bounded root resolution (`src/product_intelligence/tiktok_pdp_dom_scope.py`)
+and scalar price parsing (`src/product_intelligence/adapters/tiktok_parsing.py`) remain frozen.
+
+Non-consuming preflight is required before carrier invocation and must establish: CDP reachability at `127.0.0.1:9222`,
+read-only target enumeration reporting exactly one normal `type=page` target total which is the exact selected PDP,
+a fresh external generation-8 job root with legacy V1, V2, V3, V4, and V5 artifacts absent, and content equivalence
+of all seven execution-critical files (`src/product_intelligence/tiktok_pdp_dom_diagnostic.py`,
+`src/product_intelligence/tiktok_pdp_dom_scope.py`, `src/product_intelligence/adapters/tiktok_pdp.py`,
+`src/product_intelligence/adapters/tiktok_parsing.py`, `src/product_intelligence/cli.py`,
+`src/integrations/playwright/manager.py`, and `src/integrations/playwright/session.py`) to exact TASK-251 publication;
+repository HEAD equality is not required. Preflight does not invoke the carrier and does not consume the attempt.
+
+The Human-facing invocation is exactly one physical PowerShell command line with no continuation:
+`python -m src.product_intelligence.cli tiktok-pdp-dom-diagnostic --job-root <fresh-external-generation-8-job-root> --cdp-endpoint http://127.0.0.1:9222`.
+Pre-carrier shell or parser transport failure is non-consuming; once valid carrier invocation begins, every terminal
+outcome consumes the sole authorized attempt with zero retry, refresh, resume, second invocation, or replacement target.
+SUCCESS may create the bounded V5 artifact; NO_BOUNDED_PDP_ROOT emits the create-exclusive V5 FAIL_CLOSED artifact.
+Every artifact retains `evidence_authority=NONE`.
+
+Mandatory post-attempt review authority is `HUMAN_BRAIN_GENERATION_8_BOUNDED_PRICE_ROLE_DIAGNOSTIC_REVIEW`,
+which must use actual terminal output and the exact V5 artifact if created. Diagnostic SUCCESS proves only
+that bounded observation succeeded; it does not prove canonical price or defect root cause. Marginal-count limits
+and candidate sample non-exhaustiveness (capped at 8 samples) are explicitly preserved: global counts are not candidate
+intersections, and negative sample observations do not prove global absence when candidate counts exceed the sample cap.
+The review disposition `INSUFFICIENT_DIAGNOSTIC_RESOLUTION` is explicitly authorized as a valid non-mutating review
+disposition when a valid V5 SUCCESS cannot distinguish a sufficiently bounded engineering cause.
+TASK-252 becomes the current active track milestone while TASK-251 becomes historical.
+NEXT is null, pending commitments are empty, automatic progression is false, all live acquisition and market-test
+authorities remain `NONE`, the exact execution handoff is `HUMAN_OPERATOR_GENERATION_8_BOUNDED_PRICE_ROLE_DIAGNOSTIC_EXECUTION`,
+and post-attempt review authority is `HUMAN_BRAIN_GENERATION_8_BOUNDED_PRICE_ROLE_DIAGNOSTIC_REVIEW`.
+See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN8_AUTHORIZATION.md`.
 
 
 The complete audit and P7.0 boundary are recorded in
