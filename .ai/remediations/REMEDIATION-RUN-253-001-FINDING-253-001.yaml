@@ -1,0 +1,8 @@
+finding_id: FINDING-253-001
+action: CODE_FIX
+reviewed_sha: e57b972cb4b0f912b1e92d9786539c336c8622f3
+modification_scope:
+  - tests/product_intelligence/test_tiktok_pdp.py
+affected_verification:
+  - python -m pytest tests/product_intelligence/test_tiktok_pdp.py tests/product_intelligence/test_tiktok_pdp_live_pilot.py tests/product_intelligence/test_tiktok_pdp_dom_diagnostic.py tests/product_intelligence/test_product_intelligence_cli.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task253-r2
+  - git diff --check
