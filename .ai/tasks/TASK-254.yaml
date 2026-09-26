@@ -1,0 +1,248 @@
+task_id: TASK-254
+revision: 1
+
+goal: >
+  Rebind the existing sole Human-operated TikTok public-PDP validation carrier's engineering
+  provenance from the historical TASK-248 collector baseline to the exact reviewed and published
+  TASK-253 paired-price collector source, without changing collector semantics, browser/session
+  behavior, CLI surface, artifact structure, or granting any live validation attempt. Preserve the
+  existing V2 two-phase consumption and terminal-evidence contract while making any future
+  post-Gen8 paired-price collector validation artifact truthfully identify TASK-253 as the collector
+  baseline. Return control only to the existing fresh Human/Brain validation-authorization gate.
+
+problem: >
+  TASK-253 revision 2 is now exactly reviewed and published at
+  33776f11b20977f46d45d394fa1c56040029b65d after RUN-253-001 /
+  REVIEW-253-001 CHANGES_REQUIRED and remediation RUN-253-002 /
+  REVIEW-253-002 PASS. The collector now contains the bounded paired-price current-role admission
+  hardening that a future live validation is intended to test. However the sole operation-specific
+  carrier src/product_intelligence/tiktok_pdp_live_pilot.py is still the TASK-249 V2 carrier and
+  persists CONTRACT_IDENTIFIER POST_TASK248_LIVE_PUBLIC_PDP_COLLECTOR_VALIDATION together with
+  collector_baseline_task_id TASK-248 and collector_baseline_source_sha
+  39979020a10b78e1f86c30cf2b704f2f975daec9. A new authorization could preflight current files, but
+  the durable external marker/result would still attribute the observation to the stale collector
+  baseline. Because post-attempt review is artifact-grounded and provenance must remain explicit,
+  granting a fresh live attempt before rebinding this carrier would create ambiguous execution
+  provenance. TASK-254 closes only that provenance gap; it performs no TikTok/CDP operation and
+  grants no validation, acquisition, retry, selector, market-action, or automated authority.
+
+assumptions:
+  - >
+    Canonical main at authoring is 33776f11b20977f46d45d394fa1c56040029b65d.
+  - >
+    TASK-253 final source is exactly 33776f11b20977f46d45d394fa1c56040029b65d.
+  - >
+    TASK-253 lineage is primary RUN-253-001 / REVIEW-253-001 CHANGES_REQUIRED followed by
+    remediation RUN-253-002 / REVIEW-253-002 PASS; publication contains both the paired-role
+    implementation and the executable truncation regression.
+  - >
+    src/product_intelligence/adapters/tiktok_pdp.py at TASK-253 is the sole exact-PDP
+    observation/role-admission owner.
+  - >
+    src/product_intelligence/adapters/tiktok_parsing.py remains the sole scalar-price admission
+    authority.
+  - >
+    src/product_intelligence/tiktok_pdp_live_pilot.py remains the sole Human-operated
+    operation-specific validation carrier.
+  - >
+    TASK-137 remains the sole browser/CDP lifecycle authority.
+  - >
+    Current validation authority is closed: authorized_validation_attempts_remaining is 0 and
+    live_public_pdp_acquisition_authority is NONE.
+  - >
+    Existing historical TASK-250 V2 external artifacts remain immutable historical evidence and
+    must not be rewritten or reinterpreted as TASK-253 execution evidence.
+  - >
+    CAPABILITY_IS_NOT_AUTHORITY, EVIDENCE_IS_NOT_PRODUCT_TRUTH,
+    SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY, SNAPSHOT_IS_NOT_TREND,
+    AMBIGUOUS_PRICE_IS_NOT_EXACT_PRICE, OPERATION_SUCCESS_IS_NOT_FIELD_VALIDATION_SUCCESS,
+    MEASUREMENT_IS_NOT_AUTHORITY and ONE_CAPABILITY_ONE_AUTHORITY remain mandatory.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK248_VALIDATION_CARRIER_HARDENING.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK249_VALIDATION_AUTHORIZATION.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_GEN8_RESULT_AND_PAIRED_PRICE_ROLE_HARDENING.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - .ai/aios-adoption-state.yaml
+    - .ai/tasks/TASK-137.yaml
+    - .ai/tasks/TASK-249.yaml
+    - .ai/tasks/TASK-250.yaml
+    - .ai/tasks/TASK-253.yaml
+    - src/product_intelligence/tiktok_pdp_live_pilot.py
+    - src/product_intelligence/adapters/tiktok_pdp.py
+    - src/product_intelligence/adapters/tiktok_parsing.py
+    - src/product_intelligence/tiktok_pdp_dom_scope.py
+    - src/product_intelligence/cli.py
+    - src/integrations/playwright/manager.py
+    - src/integrations/playwright/session.py
+    - tests/product_intelligence/test_tiktok_pdp_live_pilot.py
+    - tests/product_intelligence/test_tiktok_pdp.py
+    - tests/product_intelligence/test_product_intelligence_cli.py
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - src/product_intelligence/tiktok_pdp_live_pilot.py
+    - tests/product_intelligence/test_tiktok_pdp_live_pilot.py
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK253_VALIDATION_CARRIER_PROVENANCE_REBINDING.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - >
+    Execute TikTok/CDP, invoke tiktok-pdp-live-pilot, create any external live marker/result,
+    navigate, refresh, click, type, scroll, search, switch variants or acquire marketplace evidence.
+  - >
+    Grant or consume a fresh validation attempt, set live_public_pdp_acquisition_authority to any
+    non-NONE value, or authorize a Human live invocation.
+  - >
+    Modify TikTokPdpCollector, TIKTOK_PDP_EXTRACTION_SCRIPT, scalar parsing, shared DOM-scope
+    resolution, ProductCandidateSnapshot, CLI behavior, Playwright manager/session or browser
+    lifecycle semantics.
+  - >
+    Create a second validation carrier, second parser, second collector, second evidence model or
+    shadow provenance owner.
+  - >
+    Change V2 artifact JSON shape, filenames, create-exclusive semantics, attempt-consumption
+    boundary, terminal sequencing, failure taxonomy, secret allowlist, fixed target, or cleanup
+    semantics.
+  - >
+    Rewrite historical TASK-249/TASK-250 artifacts or claim their TASK-248 baseline fields were
+    TASK-253 provenance.
+  - >
+    Authorize retry/resume/refresh, replacement target, inferred identity, arbitrary target,
+    search, batch, multi-listing, variant switching, automated acquisition, selector repair,
+    market test, recommendation, approval or commerce action.
+
+constraints:
+  hard:
+    - >
+      Classification is exactly
+      POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION_CARRIER_PROVENANCE_REBINDING_ONLY.
+    - >
+      Record exact TASK-253 final lineage as source_task_id TASK-253, source_primary_run_id
+      RUN-253-001, source_primary_review_id REVIEW-253-001, source_remediation_run_id RUN-253-002,
+      source_review_id REVIEW-253-002 and source_published_sha
+      33776f11b20977f46d45d394fa1c56040029b65d.
+    - >
+      Preserve the existing sole carrier in place. Do not add another live validation module.
+      Update only its provenance identity values needed for future paired-price collector
+      validation: CONTRACT_IDENTIFIER becomes POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION,
+      COLLECTOR_BASELINE_TASK_ID becomes TASK-253 and COLLECTOR_BASELINE_SOURCE_SHA becomes
+      33776f11b20977f46d45d394fa1c56040029b65d.
+    - >
+      Keep V2 artifact structure and filenames unchanged because their JSON schema is structurally
+      unchanged: tiktok-pdp-live-validation-attempt-v2.json and
+      tiktok-pdp-live-validation-result-v2.json remain schema_version 2. The new contract identifier
+      and baseline values distinguish future artifacts. Historical V2 artifacts remain immutable
+      and retain their original POST_TASK248/TASK-248 values.
+    - >
+      Both the attempt marker and every conforming terminal result must persist the new exact
+      contract identifier, collector_baseline_task_id TASK-253 and collector_baseline_source_sha
+      33776f11b20977f46d45d394fa1c56040029b65d. Do not add mutable HEAD, branch, local path, executor,
+      chat, model or inferred marketplace provenance fields.
+    - >
+      Preserve all TASK-249 carrier mechanics byte-for-byte except the minimum provenance identity
+      constants and any directly necessary documentation comments: external-root gate,
+      create-exclusive marker/result, marker consumption boundary, at-most-once collector call,
+      fixed listing, exact binding revalidation, bounded status/failure taxonomy, secret-free
+      allowlists, manager.close_session cleanup, no browser ownership and fail-closed raising.
+    - >
+      Preserve Human-facing CLI subcommand and arguments unchanged. No new CLI option, target
+      override, source override or baseline override is permitted.
+    - >
+      TikTokPdpCollector and every semantic owner outside the carrier remain byte-unchanged.
+      TASK-254 must not duplicate or reinterpret paired-role logic, scalar parsing, DOM scoping,
+      identity admission or browser lifecycle.
+    - >
+      Deterministic tests must prove the actual carrier-generated marker and SUCCESS/FAIL_CLOSED
+      result documents contain the TASK-253 provenance values, while existing two-phase
+      consumption, interruption, secret exclusion, fixed-target, exactly-once collector,
+      cleanup and failure-code regressions remain green. Do not satisfy this only with
+      source-string assertions.
+    - >
+      Governance must preserve current field uncertainty: current_price UNKNOWN/null,
+      original_price OBSERVED_ONLY 68220.0, canonical_evidence_ingested false,
+      price_role_resolution_complete false and selector_repair_complete false.
+    - >
+      Exact TASK-254 publication grants zero live attempts:
+      authorized_validation_attempts 0, authorized_validation_attempts_remaining 0,
+      validation_execution_owner NONE, validation_executed false for the fresh post-TASK253
+      authorization lineage, live_public_pdp_acquisition_authority NONE,
+      automated_public_pdp_acquisition_authority NONE, market_test_or_action_authority NONE,
+      automatic_live_pilot false and automatic_progression false.
+    - >
+      Preserve consumed historical TASK-250 validation attempt and external artifact provenance as
+      history. Do not overwrite historical authorized_validation_attempts/executed facts inside
+      completed TASK-250 records; only current post-TASK253 authorization state is zero.
+    - >
+      On exact reviewed publication, TASK-254 becomes the current completed capability-hardening
+      milestone and hands control only back to
+      HUMAN_BRAIN_FRESH_POST_GEN8_PAIRED_PRICE_COLLECTOR_VALIDATION_AUTHORIZATION. Keep
+      active_track.next_milestone null, post_p8_planning_handoff.next_milestone null,
+      pending_commitments empty and post_run_engineering_successor null.
+    - >
+      Add docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK253_VALIDATION_CARRIER_PROVENANCE_REBINDING.md
+      documenting exact TASK-253 lineage, why direct live authorization was not yet safe, the
+      in-place carrier provenance rebind, unchanged V2 structural contract, immutable historical
+      artifacts, zero live authority and the exact Human/Brain authorization handoff.
+    - >
+      Update both roadmap documents and .ai/roadmap-state.yaml publication-gated. Historicalize
+      TASK-253 current-state assertions without weakening its exact final publication lineage or
+      paired-role semantics. Do not introduce duplicate direct-child keys.
+    - >
+      Modify exactly the seven authorized paths. Runtime owns verification. Executor must produce
+      one candidate and one ResultPackage and must not publish, review, access TikTok/CDP, create
+      live artifacts, authorize validation, consume an attempt or begin the authorization successor.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Exact final TASK-253 lineage through RUN-253-002 / REVIEW-253-002 and published source
+      33776f11b20977f46d45d394fa1c56040029b65d is recorded as the new collector baseline.
+  - id: AC2
+    condition: >
+      The sole existing tiktok_pdp_live_pilot carrier is rebound in place to
+      POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION, TASK-253 and exact source
+      33776f11b20977f46d45d394fa1c56040029b65d, with no second carrier or semantic owner.
+  - id: AC3
+    condition: >
+      V2 artifact filenames, schema shape, create-exclusive consumption boundary, terminal
+      sequencing, fixed exact listing, exactly-once collector invocation, failure taxonomy,
+      secret exclusion and TASK-137 cleanup behavior remain unchanged.
+  - id: AC4
+    condition: >
+      Executable offline carrier regressions prove marker and conforming terminal result artifacts
+      actually persist the new TASK-253 provenance values for success and fail-closed paths; tests
+      do not merely inspect source strings.
+  - id: AC5
+    condition: >
+      TikTokPdpCollector, parser, shared DOM-scope resolver, CLI, models and browser/session
+      implementation remain byte-unchanged; no paired-role or scalar semantics are duplicated.
+  - id: AC6
+    condition: >
+      Current Product/field uncertainty remains unchanged and historical TASK-249/TASK-250
+      carrier/authorization/external-artifact lineage remains immutable rather than retroactively
+      rebound.
+  - id: AC7
+    condition: >
+      Exact publication grants zero fresh validation/live/acquisition/action authority, leaves NEXT
+      null and pending commitments empty, and hands off only to
+      HUMAN_BRAIN_FRESH_POST_GEN8_PAIRED_PRICE_COLLECTOR_VALIDATION_AUTHORIZATION.
+  - id: AC8
+    condition: >
+      Exactly seven authorized paths change; focused carrier/CLI/collector/governance verification
+      and git diff --check pass with zero unresolved items and no live marketplace/CDP operation.
+
+verification:
+  required:
+    - python -m pytest tests/product_intelligence/test_tiktok_pdp_live_pilot.py tests/product_intelligence/test_product_intelligence_cli.py tests/product_intelligence/test_tiktok_pdp.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task254-primary
+    - git diff --check
