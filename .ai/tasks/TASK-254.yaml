@@ -1,72 +1,57 @@
 task_id: TASK-254
-revision: 3
+revision: 4
 
 goal: >
-  Rebind the existing sole Human-operated TikTok public-PDP validation carrier's engineering
-  provenance from the historical TASK-248 collector baseline to the exact reviewed and published
-  TASK-253 paired-price collector source, without changing collector semantics, browser/session
-  behavior, CLI surface, artifact structure, or granting any live validation attempt. Preserve the
-  existing V2 two-phase consumption and terminal-evidence contract, preserve exact TASK-249,
-  TASK-250 and TASK-251 history, and make any future post-Gen8 paired-price collector validation
-  artifact truthfully identify TASK-253 as the collector baseline. Return control only to the
-  existing fresh Human/Brain validation-authorization gate. The successor authorization must reuse
-  the canonical validation_carrier_source_sha field for the exact reviewed/published TASK-254
-  carrier source, separately from the TASK-253 collector_validation_baseline.
+  Rebind the existing sole Human-operated TikTok public-PDP validation carrier in place from the
+  historical TASK-248 collector baseline to the exact reviewed/published TASK-253 paired-price
+  collector source, without changing carrier mechanics, collector semantics, browser/session
+  behavior, CLI surface, artifact structure, or granting any live validation attempt. Preserve
+  exact TASK-249/TASK-250/TASK-251 history. Canonicalize a clean fresh post-TASK253 current state
+  whose collector_validation_baseline is TASK-253, whose carrier-source SHA is intentionally
+  unresolved until a later authorization can bind the exact reviewed/published TASK-254 source,
+  and whose top-level state contains no terminal-operation residue from the consumed TASK-251
+  validation.
 
 problem: >
-  TASK-253 revision 2 is exactly reviewed and published at
-  33776f11b20977f46d45d394fa1c56040029b65d after RUN-253-001 /
-  REVIEW-253-001 CHANGES_REQUIRED and remediation RUN-253-002 /
-  REVIEW-253-002 PASS. The sole operation-specific carrier
-  src/product_intelligence/tiktok_pdp_live_pilot.py still persists
-  POST_TASK248_LIVE_PUBLIC_PDP_COLLECTOR_VALIDATION, collector_baseline_task_id TASK-248 and
-  collector_baseline_source_sha 39979020a10b78e1f86c30cf2b704f2f975daec9. Direct fresh
-  authorization would therefore execute the newer TASK-253 collector while durable marker/result
-  provenance names the stale TASK-248 collector baseline. TASK-251 is the canonical
-  reconciliation owner of the already-consumed historical validation operation and its exact V2
-  marker/result provenance; TASK-250 remains historical authorization-at-publication state and
-  TASK-249 remains historical carrier-hardening state. Current top-level post-P8 handoff state
-  still carries historical validation_carrier_source_sha TASK-249 and collector baseline TASK-248,
-  so TASK-254 must prevent those historical values from being mistaken for future authorization
-  provenance. TASK-254 closes only this carrier provenance gap. It performs no TikTok/CDP
-  operation, grants no validation/acquisition/action authority, creates no new provenance field or
-  semantic owner, and does not reinterpret historical artifacts.
+  TASK-253 revision 2 was ultimately reviewed PASS through remediation RUN-253-002 /
+  REVIEW-253-002 and published at 33776f11b20977f46d45d394fa1c56040029b65d. The sole carrier
+  src/product_intelligence/tiktok_pdp_live_pilot.py still emits POST_TASK248/TASK-248 collector
+  baseline provenance. TASK-251 remains the canonical owner of the already-consumed historical
+  validation operation, including exact V2 artifact hashes/sizes and SUCCESS/OBSERVED terminal
+  state. The current top-level post-P8 handoff still mixes those historical TASK-251 terminal
+  facts with the planning state for future validation. TASK-254 must both rebind only the carrier's
+  three provenance literals and normalize current roadmap state so future authorization is fresh,
+  zero-authority, provenance-clean and distinguishable from immutable historical execution. It
+  must reuse canonical source_run_id/source_review_id and validation_carrier_source_sha vocabulary,
+  append a durable publication-gated completed TASK-254 record, and introduce no second semantic
+  owner or live authority.
 
 assumptions:
   - >
-    Canonical main before this revision is a0a2f5e3114148a9347598b8f7eb9e27f59adc38,
-    containing TASK-254 revision 2 only and no engineering RUN-254.
+    Canonical main before this revision is d812ef1a0771e9b6afe20757b646f655eb404daf,
+    containing TASK-254 revision 3 only and no engineering RUN-254.
   - >
-    TASK-253 final collector source is exactly
+    TASK-253 final successful predecessor selector is source_task_id TASK-253,
+    source_run_id RUN-253-002, source_review_id REVIEW-253-002 and source_published_sha
     33776f11b20977f46d45d394fa1c56040029b65d.
   - >
-    TASK-253 final lineage is RUN-253-001 / REVIEW-253-001 CHANGES_REQUIRED followed by
-    remediation RUN-253-002 / REVIEW-253-002 PASS.
+    TASK-253 also has historical primary RUN-253-001 / REVIEW-253-001 CHANGES_REQUIRED. That
+    history remains documented/historical and must not replace the canonical final predecessor
+    selector in TASK-254 current roadmap records.
   - >
-    src/product_intelligence/adapters/tiktok_pdp.py at TASK-253 is the sole exact-PDP
-    observation/role-admission owner; src/product_intelligence/adapters/tiktok_parsing.py remains
-    the sole scalar-price admission authority.
+    TASK-251 is the sole canonical consumed-operation reconciliation owner for the prior Human
+    validation: attempts 1/0, HUMAN_OPERATOR, validation_executed true, SUCCESS / OBSERVED /
+    session-release SUCCESS, process_exit_code UNKNOWN, exact V2 artifact sizes/hashes and field
+    uncertainty.
   - >
-    src/product_intelligence/tiktok_pdp_live_pilot.py remains the sole Human-operated
-    operation-specific validation carrier and TASK-137 remains the sole browser/CDP lifecycle
+    src/product_intelligence/tiktok_pdp_live_pilot.py remains the sole Human-operated validation
+    carrier; TikTokPdpCollector remains the sole exact-PDP role-admission owner;
+    tiktok_parsing.py remains sole scalar-price authority; TASK-137 remains browser/CDP lifecycle
     authority.
   - >
-    TASK-251 owns canonical consumed-operation reconciliation with attempts 1/0,
-    HUMAN_OPERATOR, validation_executed true, SUCCESS / OBSERVED / session-release SUCCESS and
-    exact external V2 marker/result provenance. TASK-250 publication state remains 1/1 and
-    unexecuted. TASK-249 publication remains the historical carrier-hardening baseline.
-  - >
-    Current fresh post-TASK253 validation authority is closed: zero fresh attempts,
-    validation_execution_owner NONE and live_public_pdp_acquisition_authority NONE.
-  - >
-    The canonical existing carrier execution-source field is validation_carrier_source_sha.
-    No validation_carrier_execution_source field exists and TASK-254 must not introduce one.
-  - >
-    A source candidate cannot truthfully embed its own eventual commit SHA without
-    self-reference. TASK-254 therefore must not populate a new current
-    validation_carrier_source_sha with a guessed or stale value. The successor authorization,
-    authored after TASK-254 publication, must resolve the exact reviewed/published TASK-254 source
-    and bind it to the existing validation_carrier_source_sha field.
+    validation_carrier_source_sha is the sole canonical carrier execution-source field. TASK-254
+    cannot truthfully self-embed its future publication SHA; only the successor authorization,
+    authored after publication, may resolve and bind that field.
   - >
     CAPABILITY_IS_NOT_AUTHORITY, EVIDENCE_IS_NOT_PRODUCT_TRUTH,
     SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY, SNAPSHOT_IS_NOT_TREND,
@@ -118,33 +103,28 @@ scope:
 
 non_goals:
   - >
-    Execute TikTok/CDP, invoke tiktok-pdp-live-pilot, create external live marker/result, navigate,
+    Execute TikTok/CDP, invoke tiktok-pdp-live-pilot, create live marker/result artifacts, navigate,
     refresh, click, type, scroll, search, switch variants or acquire marketplace evidence.
   - >
-    Grant or consume a fresh validation attempt, authorize a Human live invocation, or set any
-    live/automated acquisition or market-action authority to a non-NONE value.
+    Grant or consume a validation attempt, authorize Human live invocation, set any live/automated
+    acquisition or market-action authority to non-NONE, or begin the authorization successor.
   - >
-    Modify TikTokPdpCollector, TIKTOK_PDP_EXTRACTION_SCRIPT, scalar parsing, shared DOM-scope
-    resolution, ProductCandidateSnapshot, CLI behavior, Playwright/browser lifecycle semantics.
+    Modify TikTokPdpCollector, extraction script, parser, DOM scope, models, CLI, Playwright or
+    browser/session lifecycle semantics.
   - >
-    Create a second validation carrier, parser, collector, evidence model, lifecycle owner,
-    provenance owner or alternate carrier-source field.
+    Create a second carrier, parser, collector, evidence model, provenance owner, lifecycle owner,
+    alternate carrier-source field or duplicate roadmap semantic owner.
   - >
-    Introduce validation_carrier_execution_source or any synonym that duplicates the canonical
-    validation_carrier_source_sha semantic field.
+    Change V2 artifact shape, filenames, schema version, consumption boundary, terminal sequencing,
+    fixed target, failure taxonomy, secret allowlist or cleanup behavior.
   - >
-    Change V2 artifact JSON shape, filenames, schema_version, create-exclusive semantics,
-    consumption boundary, terminal sequencing, fixed target, failure taxonomy, secret allowlist or
-    cleanup semantics.
+    Rewrite TASK-249/TASK-250/TASK-251 historical records or reinterpret their TASK-248 carrier/
+    collector provenance as TASK-253 evidence.
   - >
-    Rewrite or reinterpret historical TASK-249, TASK-250 or TASK-251 publication/reconciliation
-    facts, external artifact hashes, sizes or TASK-248 baseline fields as TASK-253 evidence.
+    Precompute or invent TASK-254's future published SHA.
   - >
-    Precompute, invent or embed a supposed TASK-254 published SHA inside the TASK-254 candidate.
-  - >
-    Authorize retry/resume/refresh, replacement target, inferred identity, arbitrary target,
-    search, batch, multi-listing, variant switching, selector repair, recommendation, approval or
-    commerce action.
+    Authorize retry/resume/refresh, replacement target, search, batch, inferred identity, variant
+    switching, selector repair, recommendation, approval or commerce action.
 
 constraints:
   hard:
@@ -152,219 +132,190 @@ constraints:
       Classification is exactly
       POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION_CARRIER_PROVENANCE_REBINDING_ONLY.
     - >
-      Record exact TASK-253 final lineage as source_task_id TASK-253, source_primary_run_id
-      RUN-253-001, source_primary_review_id REVIEW-253-001, source_remediation_run_id RUN-253-002,
-      source_review_id REVIEW-253-002 and source_published_sha
+      Canonical TASK-254 predecessor selector uses exactly source_task_id TASK-253,
+      source_run_id RUN-253-002, source_review_id REVIEW-253-002 and source_published_sha
+      33776f11b20977f46d45d394fa1c56040029b65d. Do not invent source_primary_run_id,
+      source_primary_review_id or source_remediation_run_id roadmap fields. Preserve
+      RUN-253-001 / REVIEW-253-001 CHANGES_REQUIRED only as historical lineage in documentation
+      and/or already-existing historical TASK/review records.
+    - >
+      In src/product_intelligence/tiktok_pdp_live_pilot.py the only permitted production-code
+      changes are the values of exactly three existing top-level assignments:
+      CONTRACT_IDENTIFIER -> POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION;
+      COLLECTOR_BASELINE_TASK_ID -> TASK-253;
+      COLLECTOR_BASELINE_SOURCE_SHA ->
       33776f11b20977f46d45d394fa1c56040029b65d.
+      No other production token in that file may change.
     - >
-      Preserve the existing sole carrier in place. In
-      src/product_intelligence/tiktok_pdp_live_pilot.py the only permitted production-code edits
-      are the values of exactly these three existing top-level assignments:
-      CONTRACT_IDENTIFIER becomes POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION;
-      COLLECTOR_BASELINE_TASK_ID becomes TASK-253; COLLECTOR_BASELINE_SOURCE_SHA becomes
-      33776f11b20977f46d45d394fa1c56040029b65d. Do not change imports, declarations, dataclasses,
-      functions, control flow, error handling, artifact builders, fixed target, cleanup or any
-      other production token in that file.
-    - >
-      Keep V2 artifact structure and filenames unchanged:
+      Preserve V2 filenames and schema_version 2 exactly:
       tiktok-pdp-live-validation-attempt-v2.json and
-      tiktok-pdp-live-validation-result-v2.json remain schema_version 2. The new contract
-      identifier and collector baseline values distinguish future artifacts. Historical V2
-      artifacts remain immutable and retain their original POST_TASK248/TASK-248 values.
+      tiktok-pdp-live-validation-result-v2.json. Both future generated marker and conforming
+      terminal results persist the new literal contract identifier and TASK-253 collector baseline.
     - >
-      Both the actual carrier-generated attempt marker and every conforming terminal result must
-      persist POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION, collector_baseline_task_id TASK-253
-      and collector_baseline_source_sha
-      33776f11b20977f46d45d394fa1c56040029b65d. Do not add mutable HEAD, branch, local path,
-      executor, chat, model or inferred marketplace provenance fields.
+      Preserve all TASK-249 carrier mechanics and Human-facing CLI surface exactly: external-root
+      gate, create-exclusive files, durable marker consumption, fixed exact listing, at-most-once
+      collector call, binding revalidation, bounded failure taxonomy, secret allowlists,
+      manager.close_session cleanup, no browser ownership and fail-closed raising.
     - >
-      Preserve TASK-249 carrier mechanics exactly: external-root gate, create-exclusive
-      marker/result, marker consumption boundary, at-most-once collector call, fixed listing,
-      exact binding revalidation, bounded status/failure taxonomy, secret-free allowlists,
-      manager.close_session cleanup, no browser ownership and fail-closed raising. Preserve the
-      Human-facing CLI subcommand and arguments unchanged.
+      Deterministic offline tests must invoke the actual carrier and read generated JSON. Marker,
+      SUCCESS result and at least one post-consumption FAIL_CLOSED result must independently assert
+      literal POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION, TASK-253 and
+      33776f11b20977f46d45d394fa1c56040029b65d rather than relying only on imported production
+      constants.
     - >
-      TikTokPdpCollector and every semantic owner outside the carrier remain byte-unchanged.
-      TASK-254 must not duplicate or reinterpret paired-role logic, scalar parsing, DOM scoping,
-      identity admission or browser lifecycle.
+      Preserve TASK-251 historical consumed-operation state exactly: authorized_validation_attempts
+      1, remaining 0, owner HUMAN_OPERATOR, validation_executed true, operation SUCCESS,
+      observation OBSERVED, session release SUCCESS, process_exit_code UNKNOWN. Preserve historical
+      marker filename/schema/size/SHA256
+      tiktok-pdp-live-validation-attempt-v2.json / 2 / 633 /
+      3588F3E2416B0E1BA8B3DEF49B73544B8C4D04BF3FEF01D17616393783F7C94E and result
+      tiktok-pdp-live-validation-result-v2.json / 2 / 1947 /
+      808971B737F9C2647A7618827722E072A34BDEB07E8CD55325765B48D78CFAF2 in TASK-251
+      historical/completed state.
     - >
-      Deterministic executable tests must invoke the actual carrier with offline fakes and read the
-      generated marker/result JSON. Provenance acceptance assertions must compare artifact values
-      independently against literal POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION, TASK-253 and
-      33776f11b20977f46d45d394fa1c56040029b65d, rather than proving correctness only by importing
-      the same production constants under test. Existing production-constant assertions may
-      remain as supplementary checks.
-    - >
-      Provenance regression must cover the attempt marker, a SUCCESS terminal result and at least
-      one conforming FAIL_CLOSED terminal result created after the marker consumption boundary.
-      Existing two-phase consumption, interruption, secret exclusion, fixed-target, exactly-once
-      collector, cleanup and failure-code regressions remain green.
-    - >
-      Preserve historical TASK-249 carrier publication semantics and TASK-250 authorization
-      publication semantics. Preserve TASK-251 as the canonical consumed-operation reconciliation:
-      authorized_validation_attempts 1, authorized_validation_attempts_remaining 0,
-      validation_execution_owner HUMAN_OPERATOR, validation_executed true,
-      validation_operation_status SUCCESS, validation_observation_status OBSERVED,
-      validation_session_release_status SUCCESS and process_exit_code UNKNOWN.
-    - >
-      Preserve TASK-251 exact external artifact provenance without copying or rewriting artifacts:
-      marker tiktok-pdp-live-validation-attempt-v2.json, schema_version 2, size_bytes 633, SHA256
-      3588F3E2416B0E1BA8B3DEF49B73544B8C4D04BF3FEF01D17616393783F7C94E; result
-      tiktok-pdp-live-validation-result-v2.json, schema_version 2, size_bytes 1947, SHA256
-      808971B737F9C2647A7618827722E072A34BDEB07E8CD55325765B48D78CFAF2.
-    - >
-      Governance must preserve current field uncertainty from TASK-251 through TASK-253:
-      current_price UNKNOWN/null, original_price OBSERVED_ONLY 68220.0,
-      canonical_evidence_ingested false, price_role_resolution_complete false and
-      selector_repair_complete false. Historical evidence remains evidence, not Product Truth.
-    - >
-      TASK-254 must represent fresh post-TASK253 validation authority separately from historical
-      TASK-251 consumed state. Exact TASK-254 publication grants zero fresh attempts:
-      authorized_validation_attempts 0, authorized_validation_attempts_remaining 0,
-      validation_execution_owner NONE, validation_executed false for the fresh post-TASK253
-      validation-authority state, live_public_pdp_acquisition_authority NONE,
+      TASK-254 current milestone and top-level post_p8_planning_handoff represent only fresh
+      post-TASK253 validation planning state. They must set authorized_validation_attempts 0,
+      authorized_validation_attempts_remaining 0, validation_execution_owner NONE,
+      validation_executed false, live_public_pdp_acquisition_authority NONE,
       automated_public_pdp_acquisition_authority NONE, market_test_or_action_authority NONE,
-      automatic_live_pilot false and automatic_progression false. These fresh zero-state fields
-      must not overwrite TASK-251 historical 1/0 consumed facts.
+      automatic_live_pilot false and automatic_progression false.
     - >
-      Preserve the existing canonical provenance vocabulary. collector_validation_baseline is
-      fixed for the fresh future validation as TASK-253 /
-      33776f11b20977f46d45d394fa1c56040029b65d. validation_carrier_source_sha remains the sole
-      canonical carrier execution-source field. Historical TASK-249/TASK-250/TASK-251 records keep
-      validation_carrier_source_sha 84739c2a13d9d89ef5379ecba7a9d4b83ed64771 where historically
-      applicable. The new TASK-254 current milestone/handoff state must not present that historical
-      TASK-249 SHA as the future current carrier source and must not invent a TASK-254 self-SHA.
-      Any current top-level stale validation_carrier_source_sha inherited from the old handoff must
-      be removed or historicalized below its existing historical record rather than relabeled as
-      current TASK-254 provenance.
+      TASK-254 current milestone and top-level post_p8_planning_handoff must not contain historical
+      TASK-251 terminal-operation residue. Specifically remove/historicalize out of current
+      top-level/current milestone state any validation_attempt_marker_size_bytes,
+      validation_attempt_marker_sha256, validation_result_size_bytes, validation_result_sha256,
+      validation_operation_status, validation_observation_status,
+      validation_session_release_status, process_exit_code,
+      post_attempt_review_authority HUMAN_BRAIN_POST_TASK249_PUBLIC_PDP_VALIDATION_REVIEW and
+      mandatory_post_validation_review HUMAN_BRAIN_POST_TASK249_PUBLIC_PDP_VALIDATION_REVIEW.
+      Those facts remain immutable only in TASK-251 historical/completed records. Keeping carrier
+      contract filenames and schema versions in current state is permitted because they describe
+      structure, not a consumed operation.
     - >
-      The successor authorization, authored only after exact TASK-254 publication, must resolve
-      the exact reviewed/published TASK-254 candidate and bind that SHA to the existing
-      validation_carrier_source_sha field while separately preserving
-      collector_validation_baseline as TASK-253 /
-      33776f11b20977f46d45d394fa1c56040029b65d. TASK-254 itself grants no successor authority and
-      contains no guessed carrier-source SHA.
+      Preserve current uncertainty: current_price UNKNOWN/null, original_price OBSERVED_ONLY
+      68220.0, canonical_evidence_ingested false, price_role_resolution_complete false and
+      selector_repair_complete false. Historical evidence is not Product Truth.
     - >
-      On exact reviewed publication, roadmap identity is exactly:
+      collector_validation_baseline in TASK-254 current state is exactly
+      {task_id: TASK-253, source_sha: 33776f11b20977f46d45d394fa1c56040029b65d}.
+      validation_carrier_source_sha remains the sole carrier execution-source field, but TASK-254
+      current milestone/top-level handoff must carry no concrete validation_carrier_source_sha.
+      Historical TASK-249/TASK-250/TASK-251 values remain only in historical records. The successor
+      authorization, authored only after publication, must resolve exact reviewed/published
+      TASK-254 source and bind that SHA to validation_carrier_source_sha separately from the
+      TASK-253 collector baseline.
+    - >
+      Exact publication roadmap identity is:
       active_track.id P8_PUBLIC_PDP_POST_TASK253_VALIDATION_CARRIER_PROVENANCE_REBINDING;
-      active_track.title "P8 Public TikTok PDP Post-TASK253 Validation Carrier Provenance
-      Rebinding"; active_track.status DONE; active_track.completion_basis PUBLICATION_GATED;
+      active_track.title "P8 Public TikTok PDP Post-TASK253 Validation Carrier Provenance Rebinding";
+      active_track.status DONE; active_track.completion_basis PUBLICATION_GATED;
       active_track.sequence_status COMPLETE_ON_EXACT_TASK_254_SOURCE_PUBLICATION;
-      active_track.current_milestone.id
-      P8.PUBLIC_PDP.POST_TASK253_VALIDATION_CARRIER_PROVENANCE_REBINDING;
-      active_track.current_milestone.task_id TASK-254;
-      active_track.current_milestone.title
-      "Public TikTok PDP Post-TASK253 Validation Carrier Provenance Rebinding";
-      active_track.current_milestone.status DONE; and
-      active_track.current_milestone.completion_basis PUBLICATION_GATED.
+      current_milestone.id P8.PUBLIC_PDP.POST_TASK253_VALIDATION_CARRIER_PROVENANCE_REBINDING;
+      current_milestone.task_id TASK-254;
+      current_milestone.title "Public TikTok PDP Post-TASK253 Validation Carrier Provenance Rebinding";
+      current_milestone.status DONE; current_milestone.completion_basis PUBLICATION_GATED.
     - >
-      The TASK-254 current milestone and current post-P8 handoff must identify TASK-253 as the
-      source semantic dependency using the exact final TASK-253 lineage and
+      TASK-254 current milestone must include effective_only_when with semantic_review PASS,
+      published_source EXACT_REVIEWED_CANDIDATE and canonical_main_equals_reviewed_candidate true.
+    - >
+      Append exactly one durable TASK-254 entry to completed_milestones with task_revision 4,
+      track_id P8_PUBLIC_PDP_POST_TASK253_VALIDATION_CARRIER_PROVENANCE_REBINDING,
+      milestone_id P8.PUBLIC_PDP.POST_TASK253_VALIDATION_CARRIER_PROVENANCE_REBINDING,
+      the exact title/classification, status DONE, completion_basis PUBLICATION_GATED,
+      source_task_id TASK-253, source_run_id RUN-253-002, source_review_id REVIEW-253-002,
+      source_published_sha 33776f11b20977f46d45d394fa1c56040029b65d,
       collector_validation_baseline TASK-253 /
-      33776f11b20977f46d45d394fa1c56040029b65d. They must carry zero fresh validation authority,
-      must not carry a concrete current validation_carrier_source_sha, and must state that this
-      field is resolved only by the successor authorization after TASK-254 publication.
+      33776f11b20977f46d45d394fa1c56040029b65d, fresh authority 0/0/NONE/false,
+      no concrete validation_carrier_source_sha, next_milestone null,
+      post_run_engineering_successor null, exact Human/Brain handoff, and effective_only_when
+      semantic_review PASS / published_source EXACT_REVIEWED_CANDIDATE /
+      canonical_main_equals_reviewed_candidate true. Do not duplicate TASK-254 completed entries.
     - >
-      On exact reviewed publication, TASK-254 becomes the current completed capability-hardening
-      milestone and hands control only to
-      HUMAN_BRAIN_FRESH_POST_GEN8_PAIRED_PRICE_COLLECTOR_VALIDATION_AUTHORIZATION. Keep
-      active_track.next_milestone null, post_p8_planning_handoff.next_milestone null,
-      pending_commitments empty and post_run_engineering_successor null.
+      On publication post_p8_planning_handoff.destination is exactly
+      HUMAN_BRAIN_FRESH_POST_GEN8_PAIRED_PRICE_COLLECTOR_VALIDATION_AUTHORIZATION,
+      status EFFECTIVE_ON_EXACT_TASK_254_SOURCE_PUBLICATION,
+      completed_commitment
+      P8_PUBLIC_PDP_POST_TASK253_VALIDATION_CARRIER_PROVENANCE_REBINDING,
+      next_milestone null, post_run_engineering_successor null and no concrete current
+      validation_carrier_source_sha. active_track.next_milestone remains null and
+      pending_commitments remains empty.
     - >
       Add docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK253_VALIDATION_CARRIER_PROVENANCE_REBINDING.md
-      documenting exact TASK-253 lineage, TASK-251 immutable consumed-operation provenance, why
-      direct live authorization was unsafe, the three-literal in-place carrier rebind, unchanged
-      V2 structural contract, zero live authority, reuse of canonical
-      validation_carrier_source_sha vocabulary, removal/historicalization of stale top-level
-      TASK-249 carrier provenance, and successor binding of exact published TASK-254 carrier
-      source separately from TASK-253 collector baseline.
+      documenting final TASK-253 predecessor selector, historical primary CHANGES_REQUIRED then
+      remediation PASS lineage, immutable TASK-251 consumed artifacts/status, three-literal carrier
+      rebind, unchanged V2 structural contract, clean fresh zero-authority current state, removal
+      of historical operation residue from current handoff, unresolved carrier source until
+      successor authorization, and exact publication-gated roadmap/handoff.
     - >
       Update both roadmap documents and .ai/roadmap-state.yaml publication-gated. Historicalize
-      TASK-253 current-state assertions without weakening its exact final publication lineage or
-      paired-role semantics. Preserve TASK-249/TASK-250/TASK-251 historical records semantically
-      unchanged; do not delete, normalize away or rewrite their historical authority/provenance
-      facts. Do not introduce duplicate direct-child keys or duplicate provenance vocabulary.
+      TASK-253 as predecessor without weakening its paired-price semantics. Preserve all existing
+      TASK-249/TASK-250/TASK-251 historical assertions and completed records. Do not delete,
+      weaken or bypass older governance tests to make TASK-254 pass. Do not introduce duplicate
+      direct-child keys, duplicate completed TASK-254 entries or duplicate provenance vocabulary.
     - >
-      Governance regressions for TASK-254 must prove exact roadmap identity, the new current
-      collector baseline, absence of stale/current or invented validation_carrier_source_sha in
-      TASK-254 current state, zero fresh authority, exact handoff, and preservation of existing
-      historical TASK-249/TASK-250/TASK-251 assertions. Do not weaken, delete or bypass older
-      governance tests merely to make the new state pass.
-    - >
-      Modify exactly the seven authorized paths. Runtime owns verification. Executor must produce
-      one candidate and one ResultPackage and must not publish, review, access TikTok/CDP, create
-      live artifacts, authorize validation, consume an attempt or begin the authorization
-      successor.
+      Modify exactly the seven authorized paths. Runtime owns verification. Executor produces one
+      candidate and one ResultPackage and must not publish, review, access TikTok/CDP, create live
+      artifacts, authorize validation, consume an attempt or start the successor.
 
 acceptance:
   - id: AC1
     condition: >
-      Exact final TASK-253 lineage through RUN-253-002 / REVIEW-253-002 and published source
-      33776f11b20977f46d45d394fa1c56040029b65d is recorded as the current collector validation
-      baseline.
+      Current TASK-254 predecessor selector uses TASK-253 / RUN-253-002 / REVIEW-253-002 /
+      33776f11b20977f46d45d394fa1c56040029b65d with no invented primary/remediation selector fields;
+      prior RUN-253-001 / REVIEW-253-001 CHANGES_REQUIRED remains historical only.
   - id: AC2
     condition: >
-      The sole existing tiktok_pdp_live_pilot carrier is rebound in place using exactly three
-      production assignment-value edits to POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION,
-      TASK-253 and 33776f11b20977f46d45d394fa1c56040029b65d; no other production token in that
-      file changes and no second carrier or semantic owner is created.
+      The sole carrier is rebound with exactly three production assignment-value edits and no
+      other production token changes.
   - id: AC3
     condition: >
-      V2 artifact filenames/schema and all TASK-249 carrier mechanics remain unchanged, including
-      create-exclusive consumption, terminal sequencing, fixed exact listing, exactly-once
-      collector invocation, failure taxonomy, secret exclusion and TASK-137 cleanup behavior.
+      V2 filenames/schema and all TASK-249 carrier mechanics remain unchanged.
   - id: AC4
     condition: >
-      Executable offline carrier regressions read actual generated marker, SUCCESS result and at
-      least one conforming FAIL_CLOSED result and independently compare their provenance fields
-      against literal TASK-253 expected values, not only against imported production constants.
+      Offline executable regressions read actual marker, SUCCESS result and at least one
+      FAIL_CLOSED result and independently assert literal TASK-253 provenance.
   - id: AC5
     condition: >
-      TikTokPdpCollector, parser, shared DOM-scope resolver, CLI, models and browser/session
-      implementations remain byte-unchanged; no paired-role, scalar, identity or lifecycle
-      semantics are duplicated.
+      Collector, parser, DOM scope, models, CLI and browser/session implementations remain
+      byte-unchanged and no semantic owner is duplicated.
   - id: AC6
     condition: >
-      TASK-249 carrier history, TASK-250 authorization-at-publication history and TASK-251
-      consumed-operation reconciliation remain semantically immutable, including exact V2 artifact
-      filenames, schema versions, sizes and SHA256 values.
+      TASK-249/TASK-250/TASK-251 history remains immutable; TASK-251 retains exact consumed
+      operation statuses and V2 artifact hashes/sizes.
   - id: AC7
     condition: >
-      Current Product/field uncertainty remains unchanged: current_price UNKNOWN/null,
-      original_price OBSERVED_ONLY 68220.0, canonical_evidence_ingested false,
-      price_role_resolution_complete false and selector_repair_complete false.
+      TASK-254 current milestone and top-level post-P8 handoff contain fresh 0/0/NONE/false
+      validation state and contain none of the enumerated TASK-251 terminal-operation residue,
+      while carrier filenames/schema may remain as structural contract metadata.
   - id: AC8
     condition: >
-      Exact TASK-254 publication grants zero fresh validation/live/acquisition/action authority
-      without overwriting historical TASK-251 1/0 consumed state; NEXT remains null, pending
-      commitments empty, and handoff is only
-      HUMAN_BRAIN_FRESH_POST_GEN8_PAIRED_PRICE_COLLECTOR_VALIDATION_AUTHORIZATION.
+      Product/field uncertainty remains current_price UNKNOWN/null, original_price OBSERVED_ONLY
+      68220.0, canonical_evidence_ingested false, price_role_resolution_complete false and
+      selector_repair_complete false.
   - id: AC9
     condition: >
-      TASK-254 reuses validation_carrier_source_sha as the only carrier execution-source field,
-      creates no alternate provenance vocabulary, preserves historical TASK-249 source values only
-      in historical records, and leaves no stale or invented concrete validation_carrier_source_sha
-      in TASK-254 current milestone/handoff state.
+      Current collector_validation_baseline is exact TASK-253 source; no concrete current
+      validation_carrier_source_sha exists; successor authorization alone must later bind exact
+      published TASK-254 SHA to the existing canonical field.
   - id: AC10
     condition: >
-      Documentation and canonical handoff require the successor authorization to resolve exact
-      reviewed/published TASK-254 source after publication and bind it to
-      validation_carrier_source_sha while separately preserving collector_validation_baseline as
-      TASK-253 / 33776f11b20977f46d45d394fa1c56040029b65d.
+      Exact active-track/current-milestone identity and publication gate match the mandated
+      TASK-254 values, NEXT is null and pending commitments are empty.
   - id: AC11
     condition: >
-      Exact publication produces active track
-      P8_PUBLIC_PDP_POST_TASK253_VALIDATION_CARRIER_PROVENANCE_REBINDING with current milestone
-      P8.PUBLIC_PDP.POST_TASK253_VALIDATION_CARRIER_PROVENANCE_REBINDING, status DONE,
-      PUBLICATION_GATED completion, sequence
-      COMPLETE_ON_EXACT_TASK_254_SOURCE_PUBLICATION, next_milestone null and no pending
-      commitments.
+      Exactly one completed_milestones TASK-254 revision-4 record exists with canonical final
+      predecessor lineage, zero fresh authority, no concrete carrier-source SHA, exact handoff and
+      effective_only_when publication gate.
   - id: AC12
+    condition: >
+      post_p8_planning_handoff status is EFFECTIVE_ON_EXACT_TASK_254_SOURCE_PUBLICATION and
+      destination is only HUMAN_BRAIN_FRESH_POST_GEN8_PAIRED_PRICE_COLLECTOR_VALIDATION_AUTHORIZATION.
+  - id: AC13
     condition: >
       Exactly seven authorized paths change; focused carrier/CLI/collector/governance verification
       and git diff --check pass with zero unresolved items and no live marketplace/CDP operation.
 
 verification:
   required:
-    - python -m pytest tests/product_intelligence/test_tiktok_pdp_live_pilot.py tests/product_intelligence/test_product_intelligence_cli.py tests/product_intelligence/test_tiktok_pdp.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task254-r3
+    - python -m pytest tests/product_intelligence/test_tiktok_pdp_live_pilot.py tests/product_intelligence/test_product_intelligence_cli.py tests/product_intelligence/test_tiktok_pdp.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task254-r4
     - git diff --check
