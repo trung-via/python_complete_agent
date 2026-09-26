@@ -842,8 +842,8 @@ async def test_v5_diagnostic_script_execution_mirrors_collector_and_produces_pri
             assert onclick_sample["inside_title_subtree"] is False
 
             # Candidates inside interactive ancestry are excluded from collector_eligible_candidate_count;
-            # ordinary div and onclick-only candidates are collector-eligible.
-            assert probe["collector_eligible_candidate_count"] == 2
+            # ordinary div and onclick-only candidates are collector-eligible pre-leaf de-duplication (wrapper + leaf each).
+            assert probe["collector_eligible_candidate_count"] == 4
 
             # Deterministic evaluation of the frozen collector predicate covering all seven classes:
             # button, role-button, link, select, input, ordinary div, and onclick-only ancestry
