@@ -908,9 +908,25 @@ async def test_paired_price_current_role_structural_inference_and_regressions() 
             assert res.snapshot.price is None
             assert res.snapshot.original_price == 200_000.0
 
-            # 14. Truncation fail-closed: truncated observation still yields empty current/original candidate sets
-            truncated_session = FakeSession(payload(current_price_candidates=[], original_price_candidates=[]))
-            res_trunc = await TikTokPdpCollector(truncated_session).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+            # 14. Truncation fail-closed: synthetic bounded PDP DOM genuinely exceeding 300 nodes
+            # with valid-looking candidates in the partial first window detects truncation and yields empty sets
+            filler_elements = "".join(f"<div class='node-pad'>{i}</div>" for i in range(350))
+            html_truncated = _make_pdp_html(
+                f"""
+                <div class="price-box">
+                    <span class="unresolved-current">₫150.000</span>
+                    <del class="deterministic-original">₫200.000</del>
+                </div>
+                <div class="padding-container">
+                    {filler_elements}
+                </div>
+                """
+            )
+            session_trunc = PlaywrightDomSession(page, html_truncated)
+            res_trunc = await TikTokPdpCollector(session_trunc).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+            raw_trunc = await page.evaluate(TIKTOK_PDP_EXTRACTION_SCRIPT)
+            assert raw_trunc["current_price_candidates"] == []
+            assert raw_trunc["original_price_candidates"] == []
             assert res_trunc.snapshot.price is None
             assert res_trunc.snapshot.original_price is None
         finally:
