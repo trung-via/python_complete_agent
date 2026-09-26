@@ -1172,11 +1172,51 @@ and candidate sample non-exhaustiveness (capped at 8 samples) are explicitly pre
 intersections, and negative sample observations do not prove global absence when candidate counts exceed the sample cap.
 The review disposition `INSUFFICIENT_DIAGNOSTIC_RESOLUTION` is explicitly authorized as a valid non-mutating review
 disposition when a valid V5 SUCCESS cannot distinguish a sufficiently bounded engineering cause.
-TASK-252 becomes the current active track milestone while TASK-251 becomes historical.
+TASK-252 was the active track milestone at publication while TASK-251 became historical.
 NEXT is null, pending commitments are empty, automatic progression is false, all live acquisition and market-test
 authorities remain `NONE`, the exact execution handoff is `HUMAN_OPERATOR_GENERATION_8_BOUNDED_PRICE_ROLE_DIAGNOSTIC_EXECUTION`,
 and post-attempt review authority is `HUMAN_BRAIN_GENERATION_8_BOUNDED_PRICE_ROLE_DIAGNOSTIC_REVIEW`.
 See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_DOM_DIAGNOSTIC_GEN8_AUTHORIZATION.md`.
+
+TASK-253 is publication-gated DONE only as
+`GENERATION_8_SUCCESS_RECONCILIATION_AND_BOUNDED_PAIRED_PRICE_CURRENT_ROLE_ADMISSION_HARDENING_ONLY`.
+It reconciles exact TASK-252 / RUN-252-002 / REVIEW-252-001 publication lineage at
+`e4bd532699d91d915ddfba54e94ce614a98dad35` as source, while preserving the V5 diagnostic
+implementation source and generation-8 execution source at `0c23b4f0530f17f8bb77e23f8199fc167a6e68b1`
+(TASK-251) as separately identified and semantically distinct. It reconciles the consumed Human
+Generation-8 diagnostic attempt (`generation_8_authorized: true`, `attempts: 1`, `attempts_remaining: 0`,
+`generation_8_diagnostic_execution_owner: HUMAN_OPERATOR`, `generation_8_diagnostic_executed: true`,
+`diagnostic_outcome: SUCCESS`, `diagnostic_artifact_created: true`, `live_dom_diagnostic_authority: NONE`,
+`diagnostic_process_exit_code: UNKNOWN`, `session_release_status: UNKNOWN`) without fabricating an
+AIOS RUN or retry authority.
+
+Exact external V5 artifact provenance is recorded: `tiktok-pdp-dom-diagnostic-v5.json` (schema 5,
+size 34929 bytes, SHA256 `A61B58FC41B4CBDDB0F83A65625325F3685147C6948F74CA8D041C8658B40DD7`,
+`observed_at: 2026-09-26T07:43:19.570359+00:00`, `evidence_authority: NONE`) bound to context
+`p8-pilot-001-led-motion-tiktok-vn` and source ID `1731381331718341815`. Bounded observations are
+recorded under `TITLE_LOCAL_COMMERCE_QUORUM` level 2: 90 nodes scanned without truncation, 6 currency
+candidates, 6 eligible, 4 leaf, 1 strike-through, 0 explicit-current, 1 explicit-original, 5 unresolved,
+0 range-like, 3 multi-numeric, 4 text-equivalence groups, and 6 candidate samples. Sample set exhaustiveness
+is bounded and does not carry node identity proving exact pair membership (`exact_pair_membership_proven: false`).
+Review disposition is `BOUNDED_PAIRED_PRICE_CURRENT_ROLE_ADMISSION_HARDENING_JUSTIFIED` with scope
+`ENGINEERING_DIAGNOSTIC_ONLY`. Field uncertainty is preserved: current price is `UNKNOWN`/`null`,
+original price `68220.0` is `OBSERVED_ONLY`, and `selector_repair_complete` remains false.
+
+TASK-253 hardens only `TikTokPdpCollector` in `src/product_intelligence/adapters/tiktok_pdp.py` with one
+formal generic fail-closed paired-price role admission rule: whitespace-only equivalence collapse,
+zero explicit-current precondition, strict-descendant NCA containing exactly two eligible currency groups
+(one unresolved non-struck U and one deterministic-original O), and global pair uniqueness.
+Scalar parser `parse_tiktok_pdp_price` in `src/product_intelligence/adapters/tiktok_parsing.py` remains
+the sole scalar-price admission authority and stays byte-unchanged under `AMBIGUOUS_PRICE_IS_NOT_EXACT_PRICE`.
+DOM scope resolver and V5 diagnostic stay byte-unchanged.
+
+TASK-253 becomes the current active track milestone while TASK-252 becomes historical.
+`paired_price_current_role_hardening_implemented` is true, Gen-8 live authority is closed (`NONE`),
+zero fresh live attempts are granted, and `price_role_resolution_complete` remains false.
+NEXT is null, pending commitments are empty, automatic progression is false, all live acquisition and
+market-test authorities remain `NONE`, and post-publication planning hands off exclusively to
+`HUMAN_BRAIN_FRESH_POST_GEN8_PAIRED_PRICE_COLLECTOR_VALIDATION_AUTHORIZATION`.
+See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_GEN8_RESULT_AND_PAIRED_PRICE_ROLE_HARDENING.md`.
 
 
 ## 4. Authority invariants

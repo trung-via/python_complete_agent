@@ -663,3 +663,257 @@ async def test_dom_price_role_classification_unresolved_rejection_and_reconcilia
             await browser.close()
 
 
+@pytest.mark.asyncio
+async def test_paired_price_current_role_structural_inference_and_regressions() -> None:
+    """Exercise the actual paired-role decision implementation across all required structural invariants."""
+    from playwright.async_api import async_playwright
+    from src.product_intelligence.adapters.tiktok_pdp import TIKTOK_PDP_EXTRACTION_SCRIPT
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        try:
+            page = await browser.new_page()
+
+            # 1. Unique pair: one valid unique U/O structural pair admits U as current and O as original
+            html_unique = _make_pdp_html(
+                """
+                <div class="price-box">
+                    <span class="unresolved-current">₫150.000</span>
+                    <del class="deterministic-original">₫200.000</del>
+                </div>
+                """
+            )
+            session = PlaywrightDomSession(page, html_unique)
+            res = await TikTokPdpCollector(session).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+            raw = await page.evaluate(TIKTOK_PDP_EXTRACTION_SCRIPT)
+            assert raw["current_price_candidates"] == ["₫150.000"]
+            assert raw["original_price_candidates"] == ["₫200.000"]
+            assert res.snapshot.price == 150_000.0
+            assert res.snapshot.original_price == 200_000.0
+
+            # 2. Whitespace wrapper collapse: same-text wrapper/leaf differing only whitespace collapses
+            html_ws_collapse = _make_pdp_html(
+                """
+                <div class="price-box">
+                    <div class="curr-wrapper">
+                        <span>  ₫150.000  \n</span>
+                    </div>
+                    <del> ₫200.000 </del>
+                </div>
+                """
+            )
+            session = PlaywrightDomSession(page, html_ws_collapse)
+            res = await TikTokPdpCollector(session).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+            raw = await page.evaluate(TIKTOK_PDP_EXTRACTION_SCRIPT)
+            assert raw["current_price_candidates"] == ["₫150.000"]
+            assert raw["original_price_candidates"] == ["₫200.000"]
+            assert res.snapshot.price == 150_000.0
+            assert res.snapshot.original_price == 200_000.0
+
+            # 3. Textual non-equivalence: same numeric value expressed by textually different strings does NOT collapse in role layer
+            html_text_non_eq = _make_pdp_html(
+                """
+                <div class="price-box">
+                    <span>₫150.000</span>
+                    <span>150,000 VND</span>
+                    <del>₫200.000</del>
+                </div>
+                """
+            )
+            session = PlaywrightDomSession(page, html_text_non_eq)
+            res = await TikTokPdpCollector(session).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+            raw = await page.evaluate(TIKTOK_PDP_EXTRACTION_SCRIPT)
+            assert raw["current_price_candidates"] == []
+            assert raw["original_price_candidates"] == ["₫200.000"]
+            assert res.snapshot.price is None
+            assert res.snapshot.original_price == 200_000.0
+
+            # 4. Multiple U: two plausible U groups infer none
+            html_multi_u = _make_pdp_html(
+                """
+                <div class="price-box">
+                    <span>₫150.000</span>
+                    <span>₫160.000</span>
+                    <del>₫200.000</del>
+                </div>
+                """
+            )
+            session = PlaywrightDomSession(page, html_multi_u)
+            res = await TikTokPdpCollector(session).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+            raw = await page.evaluate(TIKTOK_PDP_EXTRACTION_SCRIPT)
+            assert raw["current_price_candidates"] == []
+            assert res.snapshot.price is None
+
+            # 5. Multiple O: two possible O groups infer none
+            html_multi_o = _make_pdp_html(
+                """
+                <div class="price-box">
+                    <span>₫150.000</span>
+                    <del>₫200.000</del>
+                    <del>₫250.000</del>
+                </div>
+                """
+            )
+            session = PlaywrightDomSession(page, html_multi_o)
+            res = await TikTokPdpCollector(session).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+            raw = await page.evaluate(TIKTOK_PDP_EXTRACTION_SCRIPT)
+            assert raw["current_price_candidates"] == []
+            assert res.snapshot.price is None
+
+            # 6. Third-group NCA: a third eligible currency group inside NCA invalidates the pair
+            html_third_group = _make_pdp_html(
+                """
+                <div class="price-box">
+                    <span>₫150.000</span>
+                    <del>₫200.000</del>
+                    <span class="shipping-fee">₫25.000</span>
+                </div>
+                """
+            )
+            session = PlaywrightDomSession(page, html_third_group)
+            res = await TikTokPdpCollector(session).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+            raw = await page.evaluate(TIKTOK_PDP_EXTRACTION_SCRIPT)
+            assert raw["current_price_candidates"] == []
+            assert res.snapshot.price is None
+
+            # 7. Two-cluster global ambiguity: two independent valid-looking clusters produce no global inference
+            html_two_clusters = _make_pdp_html(
+                """
+                <div class="price-cluster-1">
+                    <span>₫150.000</span>
+                    <del>₫200.000</del>
+                </div>
+                <div class="price-cluster-2">
+                    <span>₫160.000</span>
+                    <del>₫220.000</del>
+                </div>
+                """
+            )
+            session = PlaywrightDomSession(page, html_two_clusters)
+            res = await TikTokPdpCollector(session).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+            raw = await page.evaluate(TIKTOK_PDP_EXTRACTION_SCRIPT)
+            assert raw["current_price_candidates"] == []
+            assert res.snapshot.price is None
+
+            # 8. Root-only NCA: a U/O whose NCA is only the bounded root produces no inference
+            html_root_only = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>Đèn LED cảm biến chuyển động - TikTok Shop</title>
+    <meta name="product_id" content="{PRODUCT_ID}" />
+</head>
+<body>
+    <div data-testid="pdp-container" data-product-id="{PRODUCT_ID}">
+        <h1 data-testid="product-title">Đèn LED cảm biến chuyển động</h1>
+        <div class="seller-info" data-testid="shop-name">Lighting Store</div>
+        <div class="left-col">
+            <span>₫150.000</span>
+        </div>
+        <div class="right-col">
+            <del>₫200.000</del>
+        </div>
+        <button data-e2e="buy-now">Mua ngay</button>
+    </div>
+</body>
+</html>"""
+            session = PlaywrightDomSession(page, html_root_only)
+            res = await TikTokPdpCollector(session).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+            raw = await page.evaluate(TIKTOK_PDP_EXTRACTION_SCRIPT)
+            assert raw["current_price_candidates"] == []
+            assert res.snapshot.price is None
+
+            # 9. Unrelated currency: unrelated shipping/coupon currency outside NCA does not cross-pair
+            html_unrelated_currency = _make_pdp_html(
+                """
+                <div class="main-price-card">
+                    <span class="p-curr">₫150.000</span>
+                    <del class="p-orig">₫200.000</del>
+                </div>
+                <div class="shipping-section">
+                    <span class="ship-fee">₫25.000</span>
+                </div>
+                """
+            )
+            session = PlaywrightDomSession(page, html_unrelated_currency)
+            res = await TikTokPdpCollector(session).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+            raw = await page.evaluate(TIKTOK_PDP_EXTRACTION_SCRIPT)
+            assert raw["current_price_candidates"] == ["₫150.000"]
+            assert raw["original_price_candidates"] == ["₫200.000"]
+            assert res.snapshot.price == 150_000.0
+            assert res.snapshot.original_price == 200_000.0
+
+            # 10. Interaction/title exclusions: interactive/title candidates remain excluded
+            html_excluded = _make_pdp_html(
+                """
+                <div class="price-box">
+                    <button class="cart-btn"><span>₫150.000</span></button>
+                    <del>₫200.000</del>
+                </div>
+                """
+            )
+            session = PlaywrightDomSession(page, html_excluded)
+            res = await TikTokPdpCollector(session).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+            raw = await page.evaluate(TIKTOK_PDP_EXTRACTION_SCRIPT)
+            assert raw["current_price_candidates"] == []
+            assert res.snapshot.price is None
+
+            # 11. Role conflict: role-conflicted group fails closed
+            html_role_conflict = _make_pdp_html(
+                """
+                <div class="price-box">
+                    <del data-testid="current-price">₫150.000</del>
+                    <del>₫200.000</del>
+                </div>
+                """
+            )
+            session = PlaywrightDomSession(page, html_role_conflict)
+            res = await TikTokPdpCollector(session).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+            raw = await page.evaluate(TIKTOK_PDP_EXTRACTION_SCRIPT)
+            assert raw["current_price_candidates"] == []
+            assert res.snapshot.price is None
+
+            # 12. Explicit-current precedence: explicit-current plus original uses existing explicit path and no paired inference;
+            # explicit-current plus unresolved plus original does not add unresolved
+            html_explicit_precedence = _make_pdp_html(
+                """
+                <div class="price-box">
+                    <span data-testid="current-price">₫150.000</span>
+                    <del>₫200.000</del>
+                    <span class="unresolved-extra">₫30.000</span>
+                </div>
+                """
+            )
+            session = PlaywrightDomSession(page, html_explicit_precedence)
+            res = await TikTokPdpCollector(session).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+            raw = await page.evaluate(TIKTOK_PDP_EXTRACTION_SCRIPT)
+            assert raw["current_price_candidates"] == ["₫150.000"]
+            assert raw["original_price_candidates"] == ["₫200.000"]
+            assert res.snapshot.price == 150_000.0
+            assert res.snapshot.original_price == 200_000.0
+
+            # 13. Range delegated to parser: structurally valid paired current containing range text reaches scalar parser but final price remains None
+            html_range_paired = _make_pdp_html(
+                """
+                <div class="price-box">
+                    <span class="range-curr">₫150.000 - ₫180.000</span>
+                    <del class="orig">₫200.000</del>
+                </div>
+                """
+            )
+            session = PlaywrightDomSession(page, html_range_paired)
+            res = await TikTokPdpCollector(session).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+            raw = await page.evaluate(TIKTOK_PDP_EXTRACTION_SCRIPT)
+            assert raw["current_price_candidates"] == ["₫150.000 - ₫180.000"]
+            assert raw["original_price_candidates"] == ["₫200.000"]
+            assert res.snapshot.price is None
+            assert res.snapshot.original_price == 200_000.0
+
+            # 14. Truncation fail-closed: truncated observation still yields empty current/original candidate sets
+            truncated_session = FakeSession(payload(current_price_candidates=[], original_price_candidates=[]))
+            res_trunc = await TikTokPdpCollector(truncated_session).collect(REQUESTED_URL, observed_at=OBSERVED_AT)
+            assert res_trunc.snapshot.price is None
+            assert res_trunc.snapshot.original_price is None
+        finally:
+            await browser.close()
+
+

@@ -117,15 +117,16 @@ TIKTOK_PDP_EXTRACTION_SCRIPT = (
             }
             const truncated = Boolean(node);
             if (!truncated) {
+                const wsKey = (s) => (s || '').trim().replace(/\s+/gu, ' ');
                 const leafCandidates = candidates.filter((c, idx) => {
-                    return !candidates.some((other, oidx) => oidx !== idx && c.node.contains(other.node) && other.text === c.text);
+                    return !candidates.some((other, oidx) => oidx !== idx && c.node.contains(other.node) && (other.text === c.text || wsKey(other.text) === wsKey(c.text)));
                 });
                 for (const c of leafCandidates) {
                     let cur = c.node;
                     const parts = [];
                     while (cur && cur !== root) {
                         const curText = clip((cur.innerText || cur.textContent || ''), 160).trim();
-                        if (curText === c.text) {
+                        if (curText === c.text || wsKey(curText) === wsKey(c.text)) {
                             parts.push(structural(cur));
                             const itemprop = String(cur.getAttribute('itemprop') || '').trim().toLowerCase();
                             if (itemprop) parts.push('itemprop-' + itemprop);
@@ -141,10 +142,96 @@ TIKTOK_PDP_EXTRACTION_SCRIPT = (
                     const isExplicitCurrent = /current|product[-_]?price|special[-_]?price|sale[-_]?price|offer[-_]?price|final[-_]?price|low[-_]?price/i.test(roleAttrs) || /itemprop-price\b|itemprop-lowprice\b/i.test(roleAttrs);
                     const isOriginal = (c.isStrike || isExplicitOriginal);
                     const isCurrent = isExplicitCurrent;
+                    c.isOriginal = isOriginal;
+                    c.isCurrent = isCurrent;
                     if (isOriginal && !isCurrent) {
                         originalPrices.push(c.text);
                     } else if (isCurrent && !isOriginal) {
                         currentPrices.push(c.text);
+                    }
+                }
+
+                const eligibleCurrencyLeaves = leafCandidates.filter((c) => {
+                    return /₫|\bđ\b|\bvnd\b|[\$£€¥]/i.test(c.text) && !leafCandidates.some((o) => o !== c && c.node.contains(o.node));
+                });
+                const groups = new Map();
+                for (const c of eligibleCurrencyLeaves) {
+                    const key = wsKey(c.text);
+                    if (!groups.has(key)) {
+                        groups.set(key, { key, candidates: [], hasCurrent: false, hasOriginal: false, isConflicted: false });
+                    }
+                    const g = groups.get(key);
+                    g.candidates.push(c);
+                    if (c.isCurrent) g.hasCurrent = true;
+                    if (c.isOriginal) g.hasOriginal = true;
+                }
+                for (const g of groups.values()) {
+                    if (g.hasCurrent && g.hasOriginal) {
+                        g.isConflicted = true;
+                    }
+                }
+
+                const hasExplicitCurrentGroup = Array.from(groups.values()).some((g) => g.hasCurrent && !g.hasOriginal);
+                if (!hasExplicitCurrentGroup) {
+                    const uGroups = [];
+                    const oGroups = [];
+                    for (const g of groups.values()) {
+                        if (g.isConflicted) continue;
+                        if (!g.hasCurrent && !g.hasOriginal) {
+                            uGroups.push(g);
+                        } else if (g.hasOriginal && !g.hasCurrent) {
+                            oGroups.push(g);
+                        }
+                    }
+
+                    const findNca = (nodeA, nodeB) => {
+                        if (!nodeA || !nodeB) return null;
+                        if (nodeA === nodeB) return nodeA;
+                        const ancestors = new Set();
+                        let p = nodeA;
+                        while (p) {
+                            ancestors.add(p);
+                            if (p === root) break;
+                            p = p.parentElement;
+                        }
+                        if (!ancestors.has(root)) return null;
+                        let q = nodeB;
+                        while (q) {
+                            if (ancestors.has(q)) return q;
+                            if (q === root) break;
+                            q = q.parentElement;
+                        }
+                        return null;
+                    };
+
+                    const validPairs = [];
+                    for (const uGroup of uGroups) {
+                        for (const oGroup of oGroups) {
+                            const pairNodes = [...uGroup.candidates.map((c) => c.node), ...oGroup.candidates.map((c) => c.node)];
+                            let nca = pairNodes[0];
+                            for (let i = 1; i < pairNodes.length; i++) {
+                                nca = findNca(nca, pairNodes[i]);
+                                if (!nca || nca === root) break;
+                            }
+                            if (!nca || nca === root || !root.contains(nca)) continue;
+
+                            const groupsInNca = new Set();
+                            for (const c of eligibleCurrencyLeaves) {
+                                if (nca.contains(c.node)) {
+                                    groupsInNca.add(wsKey(c.text));
+                                }
+                            }
+                            if (groupsInNca.size === 2 && groupsInNca.has(uGroup.key) && groupsInNca.has(oGroup.key)) {
+                                validPairs.push({ uGroup, oGroup, nca });
+                            }
+                        }
+                    }
+
+                    if (validPairs.length === 1) {
+                        const uniquePair = validPairs[0];
+                        for (const c of uniquePair.uGroup.candidates) {
+                            currentPrices.push(c.text);
+                        }
                     }
                 }
             }
