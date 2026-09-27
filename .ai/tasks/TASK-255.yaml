@@ -1,11 +1,11 @@
 task_id: TASK-255
-revision: 2
+revision: 3
 
 goal: >
   Execute BP9-P1A as one exact-pin downstream migration from Python Agent's current
   AIOS-renew authority edd7d8d92d54900c56442bbfcddb8648ec4d2e09 to the latest
-  reviewed/source-published authority 636cde7c55f8a843338ea407d2888ea1043875b5,
-  thereby consuming all package capability published through TASK-195 while porting
+  reviewed/source-published authority 615a13ab519d5d285801cc79e40cb5e25bb16617,
+  thereby consuming all package capability published through TASK-196 while porting
   every repository-owned Phase-1/Phase-2 compatibility binding that the final pin
   requires. Activate the new Codex gpt-6-sol/high default with exact supported efforts
   none/low/medium/high/xhigh/max. Preserve TASK-254 r4 untouched and leave Brain/
@@ -16,8 +16,7 @@ problem: >
   before any RUN so AIOS-renew could first align current GPT-6 Sol effort capability.
   Upstream TASK-195 then completed through RUN-195-001 verification failure,
   REPAIR-195-001, RUN-195-002 Runtime PASS, REVIEW-195-001 PRIMARY PASS and exact
-  publication of 636cde7c55f8a843338ea407d2888ea1043875b5. A fresh comparison from
-  downstream pin edd7d8d... to 636cde7... spans 259 upstream commits and 180 files.
+  publication of 636cde7c55f8a843338ea407d2888ea1043875b5. Downstream TASK-255 r2 then produced RUN-255-001 FAILURE, REPAIR-255-001 and RUN-255-002 FAILURE at the durable execution-profile completion gate. Upstream TASK-196 corrected that installed-dependency/external-governed-repository portability defect through RUN-196-003 Runtime PASS, REVIEW-196-001 PASS and exact publication of 615a13ab519d5d285801cc79e40cb5e25bb16617. The migration target is therefore the exact final TASK-196 source.
   Package code must be adopted once through the final immutable pin, not through 259
   sequential pin migrations. However, repository-owned compatibility surfaces cannot
   be inherited by package pin alone. Fresh audit identifies required P1A bindings:
@@ -30,10 +29,7 @@ problem: >
 
 assumptions:
   - >
-    Canonical Python Agent main at authoring is
-    484b6d48496bcd3afdde5d23a374cea18039a41f. The Brain-owned roadmap marks
-    BP9-P1A / TASK-255 r2 as unique NEXT against exact target pin
-    636cde7c55f8a843338ea407d2888ea1043875b5.
+    Canonical Python Agent main at r3 authoring is cc93006aa66ad96a215f401c6730efa98a4e97d7. The Brain-owned roadmap still carries a stale BP9-P1A r2/TASK-195 target bookmark; that planning residue is not engineering truth and is reconciled separately by Brain/Human planning authority. r3 prospectively targets exact reviewed source 615a13ab519d5d285801cc79e40cb5e25bb16617.
   - >
     TASK-255 r1 at authoring SHA 30ec5f39460903b44c1bb19cd3690f00fd07903f
     has no RUN, RESULT, FAILURE, REVIEW, REMEDIATION or REPAIR lineage. It is immutable
@@ -45,11 +41,11 @@ assumptions:
     Python Agent currently has exactly one active dependency pin and worker
     AUTHORITATIVE_COMMIT, both edd7d8d92d54900c56442bbfcddb8648ec4d2e09.
   - >
-    Exact upstream 636cde7c55f8a843338ea407d2888ea1043875b5 is eligible under
+    Exact upstream 615a13ab519d5d285801cc79e40cb5e25bb16617 is eligible under
     EXACT_REVIEWED_SOURCE_PUBLISHED_ONLY. Later upstream planning commit
     6300267cbabe642c7e3b61f65d792b3cc060f0b5 is not downstream Runtime authority.
   - >
-    The final upstream execution-profile policy is Codex gpt-6-sol/high with
+    The final upstream authority additionally includes TASK-196 / RUN-196-003 / REVIEW-196-001, which repaired installed-package/external-governed-repository durable REMEDIATION/REPAIR profile validation after downstream RUN-255-002 exposed that portability defect. The final upstream execution-profile policy is Codex gpt-6-sol/high with
     supported efforts [none, low, medium, high, xhigh, max] and Antigravity
     gemini-3.8-flash/medium with [low, medium, high].
   - >
@@ -180,7 +176,7 @@ constraints:
   hard:
     - >
       The sole active requirements pin and worker AUTHORITATIVE_COMMIT must become
-      exactly 636cde7c55f8a843338ea407d2888ea1043875b5. Existing PEP-610
+      exactly 615a13ab519d5d285801cc79e40cb5e25bb16617. Existing PEP-610
       repository-plus-commit provenance validation remains fail-closed against stale,
       alternate, floating or unverifiable package sources.
     - >
@@ -240,9 +236,7 @@ constraints:
       Carrier policy YAMLs and aios-terminal-attention.yml remain byte-unchanged.
       The three standalone upstream remote/approval workflows remain absent.
     - >
-      .ai/aios-adoption-state.yaml records exact active pin 636cde7..., reviewed
-      provenance through TASK-195 r1 / RUN-195-002 / REVIEW-195-001, and package
-      capability coverage through TASK-195. It preserves TASK-207 r8 / edd7d8d...
+      .ai/aios-adoption-state.yaml records exact active pin 615a13ab..., TASK-195 r1 / RUN-195-002 / REVIEW-195-001 as execution-profile provenance, TASK-196 / RUN-196-003 / REVIEW-196-001 as installed-dependency portability provenance, and package capability coverage through TASK-196. It preserves TASK-207 r8 / edd7d8d...
       as prior-pin certified history and marks current full downstream conformance
       PENDING_FRESH_CERTIFICATION through TASK-207 r9.
     - >
@@ -255,7 +249,7 @@ constraints:
       NOT_REQUIRED; no package presence silently activates a repository binding.
     - >
       .ai/aios-conformance-state.yaml remains byte-identical old-pin certification.
-      Governance tests must distinguish ACTIVE_PIN=636cde7... from
+      Governance tests must distinguish ACTIVE_PIN=615a13ab... from
       CERTIFIED_PRIOR_PIN=edd7d8d... until TASK-207 r9 publication.
     - >
       TASK-254 r4, Brain-owned roadmap state and all product code remain byte-identical.
@@ -267,7 +261,7 @@ constraints:
       control SHA, old-pin certification preservation, REQUIRED_PENDING P1B registries
       and explicit exclusion of upstream-only profiles/workflows.
     - >
-      Modify exactly the twenty-two authorized files. Executor returns one clean
+      Modify exactly the twenty-two authorized files. Treat TASK-255 r2, RUN-255-001, REPAIR-255-001 and RUN-255-002 as immutable historical old-pin lineage; do not continue or rewrite that repair lineage. Prove the exact RUN-255-002 failure class is closed by validating durable REMEDIATION and REPAIR v2 profile bindings against the governed Python Agent repository policy while AIOS is consumed as the exact immutable installed dependency.  Executor returns one clean
       candidate with zero unresolved implementation items and does not review, publish,
       advance roadmap planning or execute TASK-254.
 
@@ -275,7 +269,7 @@ acceptance:
   - id: AC1
     condition: >
       Candidate has exactly one active AIOS-renew dependency/provenance authority at
-      636cde7c55f8a843338ea407d2888ea1043875b5 and one exact downstream execution-profile
+      615a13ab519d5d285801cc79e40cb5e25bb16617 and one exact downstream execution-profile
       policy with Codex gpt-6-sol/high supporting none/low/medium/high/xhigh/max and
       unchanged Antigravity medium policy.
   - id: AC2
@@ -297,7 +291,7 @@ acceptance:
       publication while preserving actor gating and exact reviewed-source publication.
   - id: AC5
     condition: >
-      Adoption state identifies the final TASK-195 pin as active package authority,
+      Adoption state identifies 615a13ab... as active package authority through TASK-196, preserves TASK-195 as execution-profile provenance and TASK-196 as installed-dependency portability provenance,
       preserves edd7d8d/TASK-207 r8 as prior-pin certification, marks TASK-207 r9
       conformance pending, and explicitly classifies P1B semantic registries as
       REQUIRED_PENDING rather than silently active.
@@ -317,5 +311,5 @@ acceptance:
 
 verification:
   required:
-    - python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py tests/aios_bridge/test_aios_brain_ingress.py tests/aios_bridge/test_aios_phase1_control_plane.py tests/aios_bridge/test_aios_phase2_control_plane.py tests/aios_bridge/test_aios_auto_publish_workflow.py tests/aios_bridge/test_aios_conformance_state.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task255-r2
+    - python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py tests/aios_bridge/test_aios_brain_ingress.py tests/aios_bridge/test_aios_phase1_control_plane.py tests/aios_bridge/test_aios_phase2_control_plane.py tests/aios_bridge/test_aios_auto_publish_workflow.py tests/aios_bridge/test_aios_conformance_state.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task255-r3
     - git diff --check
