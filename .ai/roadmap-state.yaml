@@ -47,8 +47,8 @@ planning_handoff:
 
 human_priority_side_track:
   id: AIOS_BP9_BRAIN_PORTABILITY_DOWNSTREAM_ADOPTION
-  status: BLOCKED_ON_UPSTREAM
-  phase: PRE_BP9_CODEX_EFFORT_POLICY_ALIGNMENT
+  status: NEXT
+  phase: BP9-P1A
   authority: HUMAN_BRAIN_PLANNING
   selected_on: "2026-09-27"
   source_project: trung-via/AIOS-renew
@@ -57,8 +57,11 @@ human_priority_side_track:
     task_id: TASK-195
     task_revision: 1
     requirement: EXACT_REVIEWED_SOURCE_PUBLISHED
-    current_status: PENDING
-  target_aios_pin: PENDING_EXACT_TASK_195_PUBLISHED_SOURCE
+    current_status: DONE
+    reviewed_run_id: RUN-195-002
+    review_id: REVIEW-195-001
+    published_sha: "636cde7c55f8a843338ea407d2888ea1043875b5"
+  target_aios_pin: "636cde7c55f8a843338ea407d2888ea1043875b5"
   prior_aios_pin: "edd7d8d92d54900c56442bbfcddb8648ec4d2e09"
   authored_obsolete_plan:
     task_id: TASK-255
@@ -73,10 +76,10 @@ human_priority_side_track:
       immediately stale after TASK-195 publication.
   phases:
     - id: BP9-P1A
-      status: WAIT_UPSTREAM_TASK_195_PUBLICATION
+      status: NEXT
       task_id: TASK-255
-      expected_revision: 2
-      authoring_gate: AFTER_TASK_195_PUBLICATION_AND_FRESH_DOWNSTREAM_SYNC
+      task_revision: 2
+      authoring_gate: SATISFIED_BY_TASK_195_PUBLICATION_AND_FRESH_DOWNSTREAM_SYNC
       objective: >-
         Migrate the sole exact AIOS-renew pin to the final reviewed TASK-195 source
         and port every repository-owned Phase-1/Phase-2 carrier/profile compatibility
