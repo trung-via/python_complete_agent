@@ -45,6 +45,39 @@ planning_handoff:
     roadmap at the completed P7.1 checkpoint. Brain/Human interpretation selected P7.2
     semantic reconciliation without reinterpreting TASK-191 or changing TASK-213 history.
 
+human_priority_side_track:
+  id: AIOS_BP9_BRAIN_PORTABILITY_DOWNSTREAM_ADOPTION
+  status: NEXT
+  authority: HUMAN_BRAIN_PLANNING
+  selected_on: "2026-09-27"
+  source_project: trung-via/AIOS-renew
+  source_roadmap_item: bp-9-downstream-adoption
+  migration_task:
+    task_id: TASK-255
+    task_revision: 1
+    status: UNAUTHORED
+  target_aios_pin: "2cf7ba01222891bb5470b231fee01b7122e39cab"
+  prior_aios_pin: "edd7d8d92d54900c56442bbfcddb8648ec4d2e09"
+  conformance_resume:
+    task_id: TASK-207
+    expected_revision: 9
+    authoring_gate: AFTER_TASK_255_PUBLICATION
+    status: PENDING_MIGRATION
+  preserved_product_commitment:
+    task_id: TASK-254
+    task_revision: 4
+    status: AUTHORED_UNEXECUTED
+    resume_after: BP9_DOWNSTREAM_CONFORMANCE_PUBLICATION
+  boundary: >-
+    Human explicitly prioritizes the AIOS-renew BP9 downstream-adoption side-track
+    before executing the already-authored TASK-254 r4. This planning bookmark does
+    not cancel, revise, execute, or reinterpret TASK-254. BP9 must adopt only an exact
+    reviewed/source-published AIOS-renew pin plus explicit repository-owned portability
+    profiles/bindings, then obtain fresh TASK-207 conformance for that exact pin before
+    generic product continuation resumes. Mutable upstream main is never downstream
+    authority and Runtime/Reviewer/Publisher may not auto-advance this planning state.
+
+
 active_track:
   id: P8_PUBLIC_PDP_GEN8_RESULT_AND_PAIRED_PRICE_ROLE_HARDENING
   title: P8 Public TikTok PDP Generation-8 Result Reconciliation and Paired-Price Role Hardening
