@@ -26,7 +26,7 @@ def completed(command=(), *, returncode=0, stdout="", stderr=""):
 def test_ingress_uses_the_same_exact_provenance_authority_as_worker():
     source = (SCRIPT_DIR / "aios_brain_ingress.py").read_text(encoding="utf-8")
     assert worker.AUTHORITATIVE_COMMIT == (
-        "edd7d8d92d54900c56442bbfcddb8648ec4d2e09"
+        "636cde7c55f8a843338ea407d2888ea1043875b5"
     )
     assert "aios_renew.operator" in source
     assert "import aios_renew" not in source
@@ -158,32 +158,25 @@ def test_caller_cannot_select_repository_or_raw_git_destination(tmp_path, monkey
     bootstrap.assert_not_called()
 
 
-def test_brain_ingress_workflow_canonicalizes_author_repair_without_repair_dispatch():
+def test_brain_ingress_dispatches_only_canonical_publication_or_repair_handoffs():
     ingress_path = REPO_ROOT / ".github" / "workflows" / "aios-brain-ingress.yml"
     text = ingress_path.read_text(encoding="utf-8")
     wf = yaml.safe_load(text)
 
-    # Brain Ingress has only one createWorkflowDispatch (aios-auto-publish.yml)
-    assert text.count("createWorkflowDispatch") == 1
+    assert text.count("createWorkflowDispatch") == 2
     assert "workflow_id: 'aios-auto-publish.yml'" in text
-    assert "aios-self-hosted-repair-wakeup.yml" not in text
+    assert "workflow_id: 'aios-self-hosted-repair-wakeup.yml'" in text
     step_ids = [s.get("id") for s in wf["jobs"]["deliver"]["steps"]]
-    assert "repair_dispatch" not in step_ids
+    assert "repair_dispatch" in step_ids
     assert "dispatch" in step_ids
 
-    # Absence of immediate repair execution is not treated as ingress failure
     failure_step = wf["jobs"]["deliver"]["steps"][-1]
     assert failure_step["name"] == "Preserve failed delivery outcome"
-    assert "repair_sha" not in failure_step["if"]
-    assert "repair_dispatch" not in failure_step["if"]
-
-    # Transport receipt contains no synthetic repair dispatch status
-    assert "repair_dispatch: ACCEPTED" not in text
-    assert "repair_dispatch: REJECTED" not in text
-    assert "AIOS_REPAIR_DISPATCH_OUTCOME" not in text
-    assert "AIOS_REPAIR_DISPATCH_ID" not in text
-    assert "AIOS_FAILED_RUN_ID" not in text
-    assert "AIOS_REPAIR_SHA" not in text
+    assert "steps.ingress.outputs.repair_sha != ''" in failure_step["if"]
+    assert "steps.repair_dispatch.outcome != 'success'" in failure_step["if"]
+    assert "repair_sha: process.env.AIOS_REPAIR_SHA" in text
+    assert "executor: ''" in text
+    assert "this is not repair execution, verification, semantic review" in text
 
 
 def test_brain_ingress_policy_requires_human_actor_and_excludes_bots():

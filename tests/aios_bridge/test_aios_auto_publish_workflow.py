@@ -78,7 +78,7 @@ class TestWorkflowTriggerAndPermissions:
             "cancel-in-progress": False,
         }
 
-    def test_checkout_is_push_sha_or_fixed_main_with_full_history(self):
+    def test_checkout_starts_from_canonical_main_with_full_history(self):
         wf = load_workflow()
         publish_job = wf.get("jobs", {}).get("publish", {})
         assert publish_job.get("runs-on") == "ubuntu-latest"
@@ -89,7 +89,7 @@ class TestWorkflowTriggerAndPermissions:
         assert len(checkout_steps) == 1, "Exactly one checkout step required"
         checkout = checkout_steps[0]
         params = checkout.get("with", {})
-        assert params.get("ref") == "${{ github.event_name == 'push' && github.sha || 'main' }}"
+        assert params.get("ref") == "main"
         assert params.get("fetch-depth") == 0, (
             "Checkout must fetch full history (fetch-depth: 0) for ancestry validation"
         )
@@ -181,15 +181,18 @@ class TestPublicationDelegation:
         assert "--remote origin" in raw
         assert "--run-id" in raw
         assert "--decision-sha" in raw
+        assert "--control-sha" in raw
         assert raw.count("aios_renew.publication") == 1
 
     def test_dispatch_replay_carries_only_run_and_resolves_remote_decision(self):
         raw = WORKFLOW_FILE.read_text(encoding="utf-8")
-        assert "AIOS_DISPATCH_RUN_ID: ${{ inputs.run_id }}" in raw
-        assert "^RUN-[A-Za-z0-9_-]+-[0-9]{3,}$" in raw
+        assert "AIOS_REPLAY_RUN_ID: ${{ inputs.run_id }}" in raw
+        assert "^RUN-[A-Za-z0-9][A-Za-z0-9._-]*$" in raw
         assert 'decision_ref="${prefix}${run_id}"' in raw
-        assert 'git fetch --no-tags origin "$decision_ref"' in raw
-        assert "FETCH_HEAD^{commit}" in raw
+        assert 'git ls-remote --refs origin "$decision_ref"' in raw
+        assert 'git fetch --no-tags origin refs/heads/main' in raw
+        assert 'control_sha="$(git rev-parse FETCH_HEAD)"' in raw
+        assert 'git checkout --detach "$control_sha"' in raw
         for forbidden in (
             "candidate_sha",
             "verdict_override",
@@ -222,7 +225,7 @@ class TestNoDuplicatedPublicationSemantics:
     def test_workflow_has_no_direct_main_push_or_lease(self):
         raw = WORKFLOW_FILE.read_text(encoding="utf-8")
         assert "git push" not in raw
-        assert "refs/heads/main" not in raw
+        assert "git push" not in raw
         assert "--force" not in raw
         assert "--force-with-lease" not in raw
 

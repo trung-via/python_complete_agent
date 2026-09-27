@@ -13,16 +13,23 @@ authority:
 
 downstream_pin:
   repository: https://github.com/trung-via/AIOS-renew.git
-  commit: edd7d8d92d54900c56442bbfcddb8648ec4d2e09
+  commit: 636cde7c55f8a843338ea407d2888ea1043875b5
   policy: EXACT_REVIEWED_SOURCE_PUBLISHED_ONLY
   source_published: true
 
 full_downstream_conformance:
-  status: CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION
+  status: PENDING_FRESH_CERTIFICATION
   certification_task:
     id: TASK-207
+    revision: 9
+  downstream_pin: 636cde7c55f8a843338ea407d2888ea1043875b5
+  certified_prior_pin:
+    task_id: TASK-207
     revision: 8
-  downstream_pin: edd7d8d92d54900c56442bbfcddb8648ec4d2e09
+    downstream_pin: edd7d8d92d54900c56442bbfcddb8648ec4d2e09
+    certification_record: .ai/aios-conformance-state.yaml
+    status: CERTIFIED_PRIOR_PIN
+    certification_authority_for_current_pin: false
   historical_old_pin_certification:
     task_id: TASK-207
     revision: 5
@@ -38,100 +45,31 @@ full_downstream_conformance:
     repair_after_pin_change: FORBIDDEN
     certification_authority_for_current_pin: false
   certification_record: .ai/aios-conformance-state.yaml
-  effective_only_when:
-    semantic_review: PASS
-    published_source: EXACT_REVIEWED_CANDIDATE
-    canonical_main_equals_reviewed_candidate: true
-  before_gate: NOT_EFFECTIVE
-  binding_classifications_changed: false
   boundary: >-
-    This Brain planning record becomes effective only when the safe Publisher publishes exactly
-    the reviewed TASK-207 revision-8 source candidate. It is not Runtime, review, or publication
-    authority and does not replace the separate canonical evidence lineage. Revision-5 certification
-    remains historical evidence for 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2, while revision 7 and
-    RUN-207-009 remain failed, non-certifying old-pin history for
-    1a68db9acb6989dfa81bf875503db62e54a4bed6.
+    TASK-207 revision 8 and the unchanged conformance record certify only the prior
+    edd7d8d pin. The active pin has no full downstream certification until a fresh
+    TASK-207 revision 9 candidate passes Runtime verification, semantic review, and
+    exact source publication after P1B. This planning record is not certification,
+    review, Runtime, or publication authority.
 
 upstream_audit:
-  checkpoint: edd7d8d92d54900c56442bbfcddb8648ec4d2e09
-  through_authored_task: TASK-148
-  upstream_revision: 2
-  run_id: RUN-148-003
+  checkpoint: 636cde7c55f8a843338ea407d2888ea1043875b5
+  through_authored_task: TASK-195
+  upstream_revision: 1
+  run_id: RUN-195-002
   checkpoint_role: REVIEWED_SOURCE_PUBLISHED_PROVENANCE
   checkpoint_is_runtime_authority: false
-  review: REVIEW-148-003
+  review: REVIEW-195-001
   review_outcome: PRIMARY_PASS
   source_published: true
-  prior_planning_checkpoint: 1a68db9acb6989dfa81bf875503db62e54a4bed6
+  prior_active_pin: edd7d8d92d54900c56442bbfcddb8648ec4d2e09
   provenance:
-    - task_id: TASK-114
-      role: DOWNSTREAM_PORTABILITY_POLICY
-      activates_repository_binding: false
-    - task_id: TASK-115
-      role: PINNED_PUBLICATION_HARDENING
-      activates_repository_binding: false
-    - task_id: TASK-116
-      role: GOVERNANCE_POLICY_INTEGRATION
-      activates_repository_binding: false
-    - task_id: TASK-117
-      role: CARRIER_PORTABILITY_HARDENING
-      activates_repository_binding: false
-    - task_id: TASK-118
-      role: TERMINAL_ATTENTION_PORTABILITY_HARDENING
-      activates_repository_binding: false
-    - task_id: TASK-119
-      role: UNIFIED_HUMAN_SURFACE_NO_EXECUTOR_REPAIR
-      activates_repository_binding: false
-    - task_id: TASK-120
-      role: RUNTIME_WINDOWS_VERIFICATION_ISOLATION
-      activates_repository_binding: false
-    - task_id: TASK-121
-      role: BRAIN_SYNC_REHYDRATION_SNAPSHOT
-      activates_repository_binding: false
-    - task_id: TASK-122
-      role: FINALIZE_CANDIDATE_REPAIR_ACTION
-      activates_repository_binding: false
-    - task_id: TASK-123
-      role: REPAIR_AUTHORIZATION_SUPERSESSION
-      activates_repository_binding: false
-    - task_id: TASK-124
-      role: REPAIR_AUTHORIZATION_PUBLICATION_LINEAGE
-      activates_repository_binding: false
-    - task_id: TASK-125
-      role: MULTI_GENERATION_REPAIR_SUPERSESSION
-      activates_repository_binding: false
-    - task_id: TASK-126
-      role: ANTIGRAVITY_READ_ONLY_COMPLETION_TRANSPORT
-      activates_repository_binding: false
-    - task_id: TASK-127
-      role: POST_CANONICALIZATION_REPAIR_HANDOFF
-      activates_repository_binding: true
-    - task_id: TASK-128
-      role: BRAIN_SYNC_INTEGRATION
-      activates_repository_binding: false
-    - task_id: TASK-129
-      role: REPAIR_AFTER_FAILED_REMEDIATION
-      activates_repository_binding: false
-    - task_id: TASK-145
-      revision: 2
-      role: LOCAL_CANONICAL_REPAIR_RECONCILIATION_FIX
-      activates_repository_binding: false
-    - task_id: TASK-144
-      revision: 2
-      role: CANONICAL_SUCCESSFUL_REPAIR_REVIEW_RECONSTRUCTION
-      activates_repository_binding: false
-    - task_id: TASK-140
-      revision: 5
-      role: HISTORICAL_SUBJECT_FOUNDATION
-      activates_repository_binding: false
-    - task_id: TASK-147
-      revision: 2
-      role: HISTORICAL_SUBJECT_RUNTIME_HARDENING
-      activates_repository_binding: false
-    - task_id: TASK-148
-      revision: 2
-      role: HISTORICAL_SUBJECT_GIT_DIRECTORY_AND_OBJECT_GRAPH_FIX
-      activates_repository_binding: false
+    task_id: TASK-195
+    revision: 1
+    run_id: RUN-195-002
+    review_id: REVIEW-195-001
+    role: FINAL_EXECUTION_PROFILE_POLICY_AND_PACKAGE_AUTHORITY
+    activates_repository_binding: true
 
 classification_dimensions:
   package_capability_availability:
@@ -566,6 +504,91 @@ capability_families:
       semantics, and control-owned transport may resolve the exact candidate object graph locally
       without moving control HEAD, branch, index, or worktree. Python Agent activates no upstream
       repository hook, copies no Runtime implementation, and adds no lifecycle authority.
+
+  - id: EXECUTION_PROFILE_POLICY_AND_PROVENANCE
+    upstream_tasks: [TASK-162, TASK-163, TASK-195]
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: ACTIVE
+    consumption: REPOSITORY_POLICY_AND_PINNED_KERNEL
+    policy: .ai/executor-profiles.yaml
+    codex_default: {model: gpt-6-sol, reasoning_effort: high}
+    codex_supported_reasoning_efforts: [none, low, medium, high, xhigh, max]
+    antigravity_default: {model: gemini-3.8-flash, reasoning_effort: medium}
+    antigravity_supported_reasoning_efforts: [low, medium, high]
+    explicit_human_selection_precedence: true
+
+  - id: TRUSTED_PROFILE_AWARE_CARRIER_COMPATIBILITY
+    upstream_tasks: [TASK-149, TASK-151, TASK-158, TASK-160, TASK-164, TASK-165]
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: ACTIVE
+    consumption: DOWNSTREAM_PHASE_1_AND_PHASE_2_CARRIERS
+    trusted_transient_control_source: scripts/aios_control_entry.py
+    operational_receipt: AIOS_OPERATIONAL_RECEIPT_V2
+    boundary: >-
+      PRIMARY, REMEDIATION, and REPAIR bind immutable selectors and one resolved
+      execution profile before dispatch. Self-host control comes only from the exact
+      transient invocation commit; transport does not claim lifecycle success.
+
+  - id: UPSTREAM_VERIFICATION_PERFORMANCE_MEASUREMENT
+    upstream_tasks: [TASK-150, TASK-152, TASK-153, TASK-154, TASK-156, TASK-157, TASK-159, TASK-161, TASK-166, TASK-167, TASK-168, TASK-169, TASK-170, TASK-171, TASK-172, TASK-173, TASK-174, TASK-175, TASK-176]
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
+    consumption: NONE_DOWNSTREAM
+    excluded_repository_files:
+      - .ai/verification-profiles.yaml
+      - scripts/aios_parallel_full_suite.py
+    boundary: UPSTREAM_MEASUREMENT_IS_NOT_PYTHON_AGENT_VERIFICATION_TRUTH
+
+  - id: PRE_VERIFICATION_REPAIR_PUBLICATION_HARDENING
+    upstream_tasks: [TASK-155]
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
+    consumption: PINNED_KERNEL_ONLY
+    boundary: NO_DOWNSTREAM_PUBLICATION_STATE_MACHINE
+
+  - id: BRAIN_SEMANTIC_PACKAGE_CAPABILITIES
+    upstream_tasks: [TASK-177, TASK-178, TASK-179, TASK-180, TASK-181, TASK-182, TASK-183]
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: REQUIRED_PENDING
+    consumption: PINNED_PACKAGE_AVAILABLE_REPOSITORY_BINDING_PENDING_P1B
+    capabilities:
+      - BRAIN_CONTEXT
+      - DECISION_PACKET
+      - BRAIN_AUDIT
+      - BRAIN_PROVIDER
+    required_pending_registries:
+      - .ai/flow-cards.yaml
+      - .ai/brain-audit-profiles.yaml
+      - .ai/brain-return-contracts.yaml
+
+  - id: REVIEWER_SEMANTIC_PACKAGE_CAPABILITIES
+    upstream_tasks: [TASK-184, TASK-185, TASK-186, TASK-187, TASK-188, TASK-189]
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: REQUIRED_PENDING
+    consumption: PINNED_PACKAGE_AVAILABLE_REPOSITORY_BINDING_PENDING_P1B
+    capabilities:
+      - REVIEWER_PROVIDER
+    required_pending_registries:
+      - .ai/reviewer-procedure-profiles.yaml
+      - .ai/reviewer-return-contracts.yaml
+
+  - id: BP7_BP8_SEMANTIC_CONFORMANCE_AND_PROVIDER_PROOF
+    upstream_tasks: [TASK-190, TASK-191, TASK-192, TASK-193, TASK-194]
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
+    consumption: PINNED_PACKAGE_CAPABILITY
+    boundary: PACKAGE_PROOF_HISTORY_DOES_NOT_ACTIVATE_P1B_REGISTRIES
+
+  - id: STANDALONE_REMOTE_UX
+    upstream_tasks: []
+    package_capability_availability: ADOPTED_BY_PIN
+    repository_binding_activation: NOT_REQUIRED
+    consumption: NONE_DOWNSTREAM
+    excluded_workflows:
+      - .github/workflows/aios-remote-status.yml
+      - .github/workflows/aios-remote-approval.yml
+      - .github/workflows/aios-approved-remediation-wakeup.yml
+    boundary: COALESCED_A3_A6_REMEDIATION_INTENT_REMAINS_AUTHORITATIVE
 
 incident_lineage:
   run_id: RUN-197-001

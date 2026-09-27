@@ -22,18 +22,22 @@ jobs:
       source_run_id: ${{ steps.admission.outputs.source_run_id }}
       finding_id: ${{ steps.admission.outputs.finding_id }}
       executor: ${{ steps.admission.outputs.executor }}
+      model: ${{ steps.admission.outputs.model }}
+      reasoning_effort: ${{ steps.admission.outputs.reasoning_effort }}
+      model_source: ${{ steps.admission.outputs.model_source }}
+      effort_source: ${{ steps.admission.outputs.effort_source }}
     steps:
-      - name: Check out fixed canonical main
+      - name: Check out exact carrier invocation commit
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.sha }}
           fetch-depth: 1
           persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.11'
 
       - name: Install pinned AIOS-renew
         run: |
@@ -42,11 +46,13 @@ jobs:
       - name: Admit and sanitize one remediation intent
         id: admission
         env:
+          AIOS_PROFILE_POLICY: ${{ github.workspace }}/.ai/executor-profiles.yaml
           AIOS_RECEIPT_PATH: ${{ runner.temp }}/aios-remediation-intent-receipt.txt
         run: >-
           python -m aios_renew.github_issue_remediation_intent
           --event "$GITHUB_EVENT_PATH"
           --policy .ai/brain-remediation-intent-carriers.yaml
+          --profile-policy "$AIOS_PROFILE_POLICY"
           --output "$GITHUB_OUTPUT"
           --receipt "$AIOS_RECEIPT_PATH"
 
@@ -58,6 +64,10 @@ jobs:
       source_run_id: ${{ needs.admit.outputs.source_run_id }}
       finding_id: ${{ needs.admit.outputs.finding_id }}
       executor: ${{ needs.admit.outputs.executor }}
+      model: ${{ needs.admit.outputs.model }}
+      reasoning_effort: ${{ needs.admit.outputs.reasoning_effort }}
+      model_source: ${{ needs.admit.outputs.model_source }}
+      effort_source: ${{ needs.admit.outputs.effort_source }}
 
   receipt:
     if: always()
@@ -74,25 +84,42 @@ jobs:
           AIOS_SOURCE_RUN_ID: ${{ needs.admit.outputs.source_run_id }}
           AIOS_FINDING_ID: ${{ needs.admit.outputs.finding_id }}
           AIOS_EXECUTOR: ${{ needs.admit.outputs.executor }}
+          AIOS_MODEL: ${{ needs.admit.outputs.model }}
+          AIOS_REASONING_EFFORT: ${{ needs.admit.outputs.reasoning_effort }}
+          AIOS_MODEL_SOURCE: ${{ needs.admit.outputs.model_source }}
+          AIOS_EFFORT_SOURCE: ${{ needs.admit.outputs.effort_source }}
         with:
           script: |
             const admitted = process.env.AIOS_ADMISSION_RESULT === 'success';
             const dispatched = process.env.AIOS_DISPATCH_RESULT === 'success';
-            const accepted = admitted && dispatched;
             const lines = [
               'AIOS REMEDIATION INTENT CARRIER RECEIPT',
-              `status: ${accepted ? 'DISPATCH_ACCEPTED' : 'REJECTED'}`,
-              `dispatch_accepted: ${accepted}`,
+              `status: ${admitted && dispatched ? 'SELF_HOST_COMPLETED' : 'REJECTED'}`,
+              `self_host_completed: ${admitted && dispatched}`,
               'a3_approval: not_asserted_by_carrier',
               'remediation_run_outcome: not_asserted_by_carrier',
             ];
             if (admitted) {
+              const operationalReceipt = {
+                format: 'AIOS_OPERATIONAL_RECEIPT', version: 2, kind: 'OPERATIONAL_RECEIPT',
+                family: 'REMEDIATION',
+                delivery: {kind: 'correction_dispatch_id', id: process.env.AIOS_CORRECTION_DISPATCH_ID},
+                boundary: dispatched ? 'SELF_HOST_COMPLETED' : 'OPERATIONAL_FAILED',
+                run_created: false, executor_invoked: false,
+                selectors: {source_run_id: process.env.AIOS_SOURCE_RUN_ID, finding_id: process.env.AIOS_FINDING_ID, executor: process.env.AIOS_EXECUTOR, model: process.env.AIOS_MODEL, reasoning_effort: process.env.AIOS_REASONING_EFFORT, model_source: process.env.AIOS_MODEL_SOURCE, effort_source: process.env.AIOS_EFFORT_SOURCE},
+              };
+              if (!dispatched) operationalReceipt.cause = {authority: 'CARRIER', phase: 'DOWNSTREAM_WORKFLOW', reason_code: 'DOWNSTREAM_WORKFLOW_FAILED'};
               lines.push(
                 `correction_dispatch_id: ${process.env.AIOS_CORRECTION_DISPATCH_ID}`,
                 `source_run_id: ${process.env.AIOS_SOURCE_RUN_ID}`,
                 `finding_id: ${process.env.AIOS_FINDING_ID}`,
                 `executor: ${process.env.AIOS_EXECUTOR}`,
-                'detail: Carrier delivery is not A3 approval, RUN, verification, DELTA review, or publication success.',
+                `model: ${process.env.AIOS_MODEL}`,
+                `reasoning_effort: ${process.env.AIOS_REASONING_EFFORT}`,
+                `model_source: ${process.env.AIOS_MODEL_SOURCE}`,
+                `effort_source: ${process.env.AIOS_EFFORT_SOURCE}`,
+                `detail: ${dispatched ? 'The reusable self-host workflow completed; this does not itself assert A3 approval, RUN, verification, DELTA review, or publication success.' : 'Carrier admission succeeded but the reusable self-host workflow failed; delivery is not successful.'}`,
+                `AIOS_OPERATIONAL_RECEIPT_V2=${JSON.stringify(operationalReceipt)}`,
               );
             } else {
               lines.push('reason: GitHub rejected the repository-owned carrier admission.');
@@ -104,7 +131,7 @@ jobs:
               issue_number: context.issue.number,
               body: receipt,
             });
-            if (accepted) {
+            if (admitted && dispatched) {
               await github.rest.issues.update({
                 owner: 'trung-via',
                 repo: 'python_complete_agent',

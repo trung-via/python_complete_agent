@@ -22,18 +22,22 @@ jobs:
       failed_run_id: ${{ steps.admission.outputs.failed_run_id }}
       repair_sha: ${{ steps.admission.outputs.repair_sha }}
       executor: ${{ steps.admission.outputs.executor }}
+      model: ${{ steps.admission.outputs.model }}
+      reasoning_effort: ${{ steps.admission.outputs.reasoning_effort }}
+      model_source: ${{ steps.admission.outputs.model_source }}
+      effort_source: ${{ steps.admission.outputs.effort_source }}
     steps:
-      - name: Check out fixed canonical main
+      - name: Check out exact carrier invocation commit
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.sha }}
           fetch-depth: 1
           persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.11'
 
       - name: Install pinned AIOS-renew
         run: |
@@ -42,11 +46,13 @@ jobs:
       - name: Admit and sanitize one REPAIR wakeup
         id: admission
         env:
+          AIOS_PROFILE_POLICY: ${{ github.workspace }}/.ai/executor-profiles.yaml
           AIOS_RECEIPT_PATH: ${{ runner.temp }}/aios-repair-wakeup-receipt.txt
         run: >-
           python -m aios_renew.github_issue_repair_wakeup
           --event "$GITHUB_EVENT_PATH"
           --policy .ai/brain-repair-wakeup-carriers.yaml
+          --profile-policy "$AIOS_PROFILE_POLICY"
           --output "$GITHUB_OUTPUT"
           --receipt "$AIOS_RECEIPT_PATH"
 
@@ -58,6 +64,10 @@ jobs:
       failed_run_id: ${{ needs.admit.outputs.failed_run_id }}
       repair_sha: ${{ needs.admit.outputs.repair_sha }}
       executor: ${{ needs.admit.outputs.executor }}
+      model: ${{ needs.admit.outputs.model }}
+      reasoning_effort: ${{ needs.admit.outputs.reasoning_effort }}
+      model_source: ${{ needs.admit.outputs.model_source }}
+      effort_source: ${{ needs.admit.outputs.effort_source }}
 
   receipt:
     if: always() && github.event.issue.title == '[AIOS REPAIR WAKEUP]'
@@ -74,6 +84,10 @@ jobs:
           AIOS_FAILED_RUN_ID: ${{ needs.admit.outputs.failed_run_id }}
           AIOS_REPAIR_SHA: ${{ needs.admit.outputs.repair_sha }}
           AIOS_EXECUTOR: ${{ needs.admit.outputs.executor }}
+          AIOS_MODEL: ${{ needs.admit.outputs.model }}
+          AIOS_REASONING_EFFORT: ${{ needs.admit.outputs.reasoning_effort }}
+          AIOS_MODEL_SOURCE: ${{ needs.admit.outputs.model_source }}
+          AIOS_EFFORT_SOURCE: ${{ needs.admit.outputs.effort_source }}
         with:
           script: |
             const admitted = process.env.AIOS_ADMISSION_RESULT === 'success';
@@ -81,20 +95,34 @@ jobs:
             const accepted = admitted && dispatched;
             const lines = [
               'AIOS REPAIR WAKEUP CARRIER RECEIPT',
-              `status: ${accepted ? 'DISPATCH_ACCEPTED' : 'REJECTED'}`,
-              `dispatch_accepted: ${accepted}`,
+              `status: ${accepted ? 'SELF_HOST_COMPLETED' : 'REJECTED'}`,
+              `self_host_completed: ${accepted}`,
               'repair_run_outcome: not_asserted_by_carrier',
               'verification: not_asserted_by_carrier',
               'semantic_review: not_asserted_by_carrier',
               'publication: not_asserted_by_carrier',
             ];
             if (admitted) {
+              const operationalReceipt = {
+                format: 'AIOS_OPERATIONAL_RECEIPT', version: 2, kind: 'OPERATIONAL_RECEIPT',
+                family: 'REPAIR',
+                delivery: {kind: 'repair_dispatch_id', id: process.env.AIOS_REPAIR_DISPATCH_ID},
+                boundary: dispatched ? 'SELF_HOST_COMPLETED' : 'OPERATIONAL_FAILED',
+                run_created: false, executor_invoked: false,
+                selectors: {failed_run_id: process.env.AIOS_FAILED_RUN_ID, repair_sha: process.env.AIOS_REPAIR_SHA, executor: process.env.AIOS_EXECUTOR || undefined, model: process.env.AIOS_MODEL || undefined, reasoning_effort: process.env.AIOS_REASONING_EFFORT || undefined, model_source: process.env.AIOS_MODEL_SOURCE || undefined, effort_source: process.env.AIOS_EFFORT_SOURCE || undefined},
+              };
+              if (!dispatched) operationalReceipt.cause = {authority: 'CARRIER', phase: 'DOWNSTREAM_WORKFLOW', reason_code: 'DOWNSTREAM_WORKFLOW_FAILED'};
               lines.push(
                 `repair_dispatch_id: ${process.env.AIOS_REPAIR_DISPATCH_ID}`,
                 `failed_run_id: ${process.env.AIOS_FAILED_RUN_ID}`,
                 `repair_sha: ${process.env.AIOS_REPAIR_SHA}`,
                 `executor: ${process.env.AIOS_EXECUTOR || 'none'}`,
-                'detail: Carrier acceptance asserts only successful admission and delivery to the fixed REPAIR workflow.',
+                `model: ${process.env.AIOS_MODEL || 'none'}`,
+                `reasoning_effort: ${process.env.AIOS_REASONING_EFFORT || 'none'}`,
+                `model_source: ${process.env.AIOS_MODEL_SOURCE || 'none'}`,
+                `effort_source: ${process.env.AIOS_EFFORT_SOURCE || 'none'}`,
+                `detail: ${dispatched ? 'The reusable self-host workflow completed; this does not itself assert REPAIR RUN, verification, review, or publication success.' : 'Carrier admission succeeded but the reusable self-host workflow failed; delivery is not successful.'}`,
+                `AIOS_OPERATIONAL_RECEIPT_V2=${JSON.stringify(operationalReceipt)}`,
               );
             } else {
               lines.push('reason: GitHub rejected the repository-owned carrier admission.');

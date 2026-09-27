@@ -10,6 +10,7 @@ import threading
 from unittest.mock import MagicMock
 
 import pytest
+import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -37,6 +38,9 @@ TASK_216_HISTORICAL_COMMIT = "c96eb8b52acd865b9453409e6598e08a8bd4e48e"
 TASK_218_HISTORICAL_COMMIT = "49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2"
 TASK_219_HISTORICAL_COMMIT = "1a68db9acb6989dfa81bf875503db62e54a4bed6"
 TASK_221_AUTHORITATIVE_COMMIT = "edd7d8d92d54900c56442bbfcddb8648ec4d2e09"
+TASK_255_AUTHORITATIVE_COMMIT = "636cde7c55f8a843338ea407d2888ea1043875b5"
+PROFILE_POLICY_FILE = REPO_ROOT / ".ai" / "executor-profiles.yaml"
+CONTROL_ENTRY_FILE = REPO_ROOT / "scripts" / "aios_control_entry.py"
 TASK_089_SOURCE_CANDIDATE = "bb57147eac92475789d7809ed445d56535d5a009"
 TASK_092_REVIEW_DECISION_COMMIT = "18e7ed49c7393f199589bd241eede3e67d759aa1"
 LATER_ROADMAP_COMMIT = "410f0a87c86f3fef56802d23dc0b8cf22bb2c9f7"
@@ -90,11 +94,12 @@ class TestImmutableRuntimePin:
             if line.strip() and not line.lstrip().startswith("#")
         ]
         assert active == [aw.PIN_LINE]
-        assert aw.AUTHORITATIVE_COMMIT == TASK_221_AUTHORITATIVE_COMMIT
+        assert aw.AUTHORITATIVE_COMMIT == TASK_255_AUTHORITATIVE_COMMIT
         assert active == [
             "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
-            f"{TASK_221_AUTHORITATIVE_COMMIT}"
+            f"{TASK_255_AUTHORITATIVE_COMMIT}"
         ]
+        assert TASK_221_AUTHORITATIVE_COMMIT not in active[0]
         assert TASK_219_HISTORICAL_COMMIT not in active[0]
         assert TASK_218_HISTORICAL_COMMIT not in active[0]
         assert TASK_216_HISTORICAL_COMMIT not in active[0]
@@ -104,6 +109,40 @@ class TestImmutableRuntimePin:
         assert TASK_198_AUTHORITATIVE_COMMIT not in active[0]
         assert TASK_201_HISTORICAL_COMMIT not in active[0]
         assert TASK_102_ERA_COMMIT not in active[0]
+
+    def test_repository_execution_profile_policy_is_exact(self):
+        policy = yaml.safe_load(PROFILE_POLICY_FILE.read_text(encoding="utf-8"))
+        assert policy == {
+            "format": "AIOS_EXECUTOR_PROFILES_POLICY",
+            "version": 1,
+            "executors": {
+                "codex": {
+                    "default_model": "gpt-6-sol",
+                    "default_reasoning_effort": "high",
+                    "supported_reasoning_efforts": [
+                        "none", "low", "medium", "high", "xhigh", "max"
+                    ],
+                },
+                "antigravity": {
+                    "default_model": "gemini-3.8-flash",
+                    "default_reasoning_effort": "medium",
+                    "supported_reasoning_efforts": ["low", "medium", "high"],
+                },
+            },
+        }
+
+    def test_control_entry_is_authority_neutral_and_uses_transient_bootstrap(self):
+        source = CONTROL_ENTRY_FILE.read_text(encoding="utf-8")
+        assert "CONTROL_SOURCE" in source
+        assert "requirements-aios-renew.txt" in source
+        assert "bootstrap.ensure_runtime(layout)" in source
+        assert source.count("bootstrap.invoke_kernel(") == 1
+        assert '"-m", "aios_renew.operator", *operator_arguments' in source
+        for forbidden in (
+            "CONTINUE", "STATUS", "PRIMARY", "REMEDIATION", "REPAIR",
+            "codex", "antigravity", "gpt-6-sol", "gemini-3.8-flash",
+        ):
+            assert forbidden not in source
 
     def test_authoritative_pep610_metadata_is_accepted(self):
         assert aw.provenance_is_authoritative(json.loads(direct_url()))

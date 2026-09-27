@@ -1,8 +1,8 @@
 # AIOS Unified Worker Workflow
 
-As of TASK-221, the repository-owned Codex and Antigravity worker
+As of TASK-255, the repository-owned Codex and Antigravity worker
 surfaces delegate exclusively to the immutable AIOS-renew kernel at commit
-`edd7d8d92d54900c56442bbfcddb8648ec4d2e09`. Legacy AIOS Bridge source remains
+`636cde7c55f8a843338ea407d2888ea1043875b5`. Legacy AIOS Bridge source remains
 archived in this repository, but it is inactive and unreachable from these
 CONTINUE/STATUS and explicit RUN/FIX/REPAIR surfaces.
 
@@ -442,7 +442,8 @@ branches or caches that do not expose `/aios-renew-worker` fail closed instead o
 falling back to legacy `/aios-worker` semantics.
 
 Both active worker surfaces and the Brain-only carrier use exactly AIOS-renew commit
-`edd7d8d92d54900c56442bbfcddb8648ec4d2e09`. Installed provenance for the TASK-219-era
+`636cde7c55f8a843338ea407d2888ea1043875b5`. Installed provenance for the TASK-221-era
+`edd7d8d92d54900c56442bbfcddb8648ec4d2e09`, the TASK-219-era
 `1a68db9acb6989dfa81bf875503db62e54a4bed6` pin, the TASK-218-era
 `49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2` pin, the TASK-216/TASK-217-era
 `c96eb8b52acd865b9453409e6598e08a8bd4e48e` pin, the TASK-209-era
@@ -539,6 +540,15 @@ historical subjects have ordinary repository-local `.git` directory semantics, a
 control-owned transport may locally resolve the exact candidate object graph without moving control HEAD,
 branch, index, or worktree. Python Agent copies no Runtime implementation and does not activate
 upstream TASK-140 project hooks or any second lifecycle authority.
+TASK-255 supersedes TASK-221 with exact reviewed, source-published commit
+`636cde7c55f8a843338ea407d2888ea1043875b5` and consumes package capability through
+TASK-195. The single downstream execution-profile policy defaults Codex to
+`gpt-6-sol`/`high` with supported efforts `none`, `low`, `medium`, `high`, `xhigh`,
+and `max`; Antigravity remains `gemini-3.8-flash`/`medium` with `low`, `medium`, and
+`high`. Hosted carriers bind the exact TASK or correction selectors and one resolved
+profile before dispatch. Self-hosted execution loads bootstrap code from one clean,
+exact transient Python Agent control checkout outside the persistent product checkout,
+then invokes the pinned Operator once. Transport receipts never claim Runtime success.
 TASK-207 revision 8 re-certifies the Phase-1 and Phase-2 repository bindings under exact pin
 `edd7d8d92d54900c56442bbfcddb8648ec4d2e09`. Certification remains publication-gated: Runtime
 PASS and semantic Reviewer PASS are necessary but not sufficient; the safe Publisher must publish
@@ -551,7 +561,9 @@ the unique product NEXT with TASK-215 revision 1 / RUN-215-004 / candidate
 `142bd865f69a6636b321d3cc7a0cd4004db3fdc7` / FINDING-215-001 / RUN-215-003 / REPAIR-215-002
 continuity; TASK-215 is not rerun, P7.3 is not marked DONE, and P7.4 is not advanced.
 TASK-207 revision 2 and RUN-207-001/RUN-207-002/REPAIR-207-001 remain immutable old-pin
-history; conformance resumes only through a fresh Brain revision bound to the new pin.
+history. Under TASK-255 this revision-8 record is prior-pin certification only; active-pin
+conformance remains `PENDING_FRESH_CERTIFICATION` until TASK-207 revision 9 is reviewed and
+published after P1B.
 Future AIOS-renew main changes remain irrelevant until another explicit reviewed downstream migration.
 
 The normal certified surfaces remain the repository-owned GitHub Issue carriers for Brain
@@ -574,7 +586,7 @@ Source publication of this task does not claim those external prerequisites are 
 
 ## 9. Stale-Checkout CONTINUE Certification Protocol
 
-This certification applies only with the downstream AIOS-renew pin
+This archived prior-pin certification procedure applies only with the downstream AIOS-renew pin
 `edd7d8d92d54900c56442bbfcddb8648ec4d2e09` already present. Before the first
 invocation, record that the fresh proof TASK exists on the canonical remote while
 `.ai/tasks/TASK-N.yaml` is absent from the local checkout. The record must bind the

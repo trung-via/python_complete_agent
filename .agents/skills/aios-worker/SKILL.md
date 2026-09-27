@@ -247,7 +247,7 @@ an executor or become a second status/review authority.
 
 ## Adopted Upstream Capabilities and Boundaries
 
-Under the pinned commit `edd7d8d92d54900c56442bbfcddb8648ec4d2e09`, Python Agent adopts:
+Under the pinned commit `636cde7c55f8a843338ea407d2888ea1043875b5`, Python Agent adopts:
 - **TASK-086**: Deterministic, read-only Unified State and Next Action through the
   public `state` operator surface. The worker neither copies nor caches the reducer.
 - **TASK-087**: One bounded Human continuation front door through the public `continue`
@@ -410,7 +410,8 @@ Capabilities present in upstream history but **not** exposed by this downstream 
 ## Immutable Kernel Pin
 
 The only authoritative AIOS-renew kernel is commit
-`edd7d8d92d54900c56442bbfcddb8648ec4d2e09`. Installed provenance for the TASK-219-era
+`636cde7c55f8a843338ea407d2888ea1043875b5`. Installed provenance for the TASK-221-era
+`edd7d8d92d54900c56442bbfcddb8648ec4d2e09`, the TASK-219-era
 `1a68db9acb6989dfa81bf875503db62e54a4bed6` pin, the TASK-218-era
 `49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2` pin, the TASK-216/TASK-217-era
 `c96eb8b52acd865b9453409e6598e08a8bd4e48e` pin, the TASK-209-era
@@ -485,8 +486,15 @@ Prior TASK-207 revision-5 conformance remains historical evidence tied to
 `49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2`. TASK-207 revision 7 and RUN-207-009 remain
 failed, non-certifying evidence tied only to superseded pin
 `1a68db9acb6989dfa81bf875503db62e54a4bed6`; RUN-207-009 must not be repaired after migration.
-Fresh full downstream conformance under `edd7d8d92d54900c56442bbfcddb8648ec4d2e09` requires
-TASK-207 revision 8 authored after TASK-221 publication before generic product continuation.
+TASK-255 supersedes the active TASK-221 pin with exact reviewed, source-published commit
+`636cde7c55f8a843338ea407d2888ea1043875b5`, consuming package capability through
+TASK-195 and activating the repository execution-profile policy with Codex
+`gpt-6-sol`/`high` plus supported efforts `none`, `low`, `medium`, `high`, `xhigh`,
+and `max`. Antigravity remains `gemini-3.8-flash`/`medium`. Execution profiles are
+bound once by hosted admission and transported unchanged; Human explicit selection
+continues to outrank defaults. TASK-207 revision 8 remains certified history only for
+the prior pin. Fresh full downstream conformance under the active pin requires
+TASK-207 revision 9 after the separately governed P1B bindings.
 TASK-207 revision 2 and RUN-207-001/RUN-207-002/REPAIR-207-001 remain immutable old-pin
 history; conformance resumes only through a fresh Brain revision bound to the new pin.
 Future AIOS-renew main changes remain irrelevant until another explicit reviewed downstream migration.

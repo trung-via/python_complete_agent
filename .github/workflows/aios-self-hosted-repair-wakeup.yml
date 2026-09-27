@@ -19,6 +19,18 @@ name: AIOS self-hosted REPAIR wakeup
         description: "Human-selected coding Executor; leave empty for NO_CHANGE"
         required: false
         type: string
+      model:
+        required: false
+        type: string
+      reasoning_effort:
+        required: false
+        type: string
+      model_source:
+        required: false
+        type: string
+      effort_source:
+        required: false
+        type: string
   workflow_call:
     inputs:
       repair_dispatch_id:
@@ -31,6 +43,22 @@ name: AIOS self-hosted REPAIR wakeup
         required: true
         type: string
       executor:
+        required: false
+        type: string
+        default: ""
+      model:
+        required: false
+        type: string
+        default: ""
+      reasoning_effort:
+        required: false
+        type: string
+        default: ""
+      model_source:
+        required: false
+        type: string
+        default: ""
+      effort_source:
         required: false
         type: string
         default: ""
@@ -47,55 +75,239 @@ jobs:
     runs-on: [self-hosted, windows, x64, python-complete-agent]
     env:
       AIOS_REPO_ROOT: ${{ vars.AIOS_REPO_ROOT }}
+      AIOS_CONTROL_SHA: ${{ github.sha }}
+      AIOS_CONTROL_REF: ${{ github.ref }}
+      AIOS_DELIVERY_ACTOR: ${{ github.actor }}
+      AIOS_DELIVERY_EVENT: ${{ github.event_name }}
+      AIOS_REPAIR_DISPATCH_ID: ${{ inputs.repair_dispatch_id }}
+      AIOS_FAILED_RUN_ID: ${{ inputs.failed_run_id }}
+      AIOS_REPAIR_SHA: ${{ inputs.repair_sha }}
+      AIOS_EXECUTOR: ${{ inputs.executor }}
+      AIOS_MODEL: ${{ inputs.model }}
+      AIOS_REASONING_EFFORT: ${{ inputs.reasoning_effort }}
+      AIOS_MODEL_SOURCE: ${{ inputs.model_source }}
+      AIOS_EFFORT_SOURCE: ${{ inputs.effort_source }}
     steps:
-      - name: Preflight persistent environment
+      - name: Prepare exact transient control source
+        env:
+          AIOS_CONTROL_ROOT: ${{ runner.temp }}/aios-control-${{ github.run_id }}-${{ github.run_attempt }}
+          AIOS_OPERATIONAL_RECEIPT_PATH: ${{ runner.temp }}/aios-repair-operational-receipt-v2.json
+          AIOS_CONTROL_TOKEN: ${{ github.token }}
         shell: powershell
         run: |
+          function Write-OperationalFailure([string]$Reason) {
+            if ([string]::IsNullOrWhiteSpace($env:AIOS_OPERATIONAL_RECEIPT_PATH)) { return }
+            if ($env:AIOS_REPAIR_DISPATCH_ID -notmatch '^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$') { return }
+            $selectors = @{}
+            if ($env:AIOS_FAILED_RUN_ID -match '^RUN-[A-Za-z0-9_-]+-[0-9]{3,}$') { $selectors.failed_run_id = $env:AIOS_FAILED_RUN_ID }
+            if ($env:AIOS_REPAIR_SHA -match '^[0-9a-f]{40}$') { $selectors.repair_sha = $env:AIOS_REPAIR_SHA }
+            if ($env:AIOS_EXECUTOR -in @('codex', 'antigravity')) { $selectors.executor = $env:AIOS_EXECUTOR }
+            if ($env:AIOS_MODEL -match '^[A-Za-z0-9_.:/-]{1,128}$') { $selectors.model = $env:AIOS_MODEL }
+            if ($env:AIOS_REASONING_EFFORT -match '^[a-z]+$') { $selectors.reasoning_effort = $env:AIOS_REASONING_EFFORT }
+            if ($env:AIOS_MODEL_SOURCE -match '^[A-Z_]+$') { $selectors.model_source = $env:AIOS_MODEL_SOURCE }
+            if ($env:AIOS_EFFORT_SOURCE -match '^[A-Z_]+$') { $selectors.effort_source = $env:AIOS_EFFORT_SOURCE }
+            $receipt = [ordered]@{format='AIOS_OPERATIONAL_RECEIPT';version=2;kind='OPERATIONAL_RECEIPT';family='REPAIR';delivery=@{kind='repair_dispatch_id';id=$env:AIOS_REPAIR_DISPATCH_ID};boundary='OPERATIONAL_FAILED';selectors=$selectors;run_created=$false;executor_invoked=$false;cause=@{authority='WORKFLOW';phase='PRE_AIOS';reason_code=$Reason}}
+            if ($env:AIOS_CONTROL_SHA -match '^[0-9a-f]{40}$') { $receipt.control_sha = $env:AIOS_CONTROL_SHA }
+            Set-Content -LiteralPath $env:AIOS_OPERATIONAL_RECEIPT_PATH -Value ($receipt | ConvertTo-Json -Compress -Depth 5) -Encoding utf8
+          }
           if ($env:GITHUB_REPOSITORY -ne 'trung-via/python_complete_agent') {
+            Write-OperationalFailure 'UNEXPECTED_REPOSITORY_IDENTITY'
             Write-Error "Unexpected repository identity."
             exit 1
           }
-          if ($env:GITHUB_REF -ne 'refs/heads/main') {
+          if ($env:AIOS_CONTROL_REF -ne 'refs/heads/main' -or $env:AIOS_CONTROL_SHA -notmatch '^[0-9a-f]{40}$') {
+            Write-OperationalFailure 'NONCANONICAL_WORKFLOW_REF'
             Write-Error "REPAIR wakeup must execute from canonical main."
             exit 1
           }
-          if ($env:GITHUB_ACTOR -ne 'trung-via') {
+          if ($env:AIOS_REPAIR_DISPATCH_ID -notmatch '^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$') {
+            Write-OperationalFailure 'INVALID_BOUNDED_INPUT'
+            Write-Error "Invalid REPAIR dispatch identity."
+            exit 1
+          }
+          if ($env:AIOS_FAILED_RUN_ID -notmatch '^RUN-[A-Za-z0-9_-]+-[0-9]{3,}$') {
+            Write-OperationalFailure 'INVALID_BOUNDED_INPUT'
+            Write-Error "Invalid failed RUN identity."
+            exit 1
+          }
+          if ($env:AIOS_REPAIR_SHA -notmatch '^[0-9a-f]{40}$') {
+            Write-OperationalFailure 'INVALID_BOUNDED_INPUT'
+            Write-Error "Invalid REPAIR authorization SHA."
+            exit 1
+          }
+          if (-not [string]::IsNullOrEmpty($env:AIOS_EXECUTOR) -and $env:AIOS_EXECUTOR -notin @('codex', 'antigravity')) {
+            Write-OperationalFailure 'INVALID_BOUNDED_INPUT'
+            Write-Error "Unsupported coding Executor."
+            exit 1
+          }
+          if ($env:AIOS_DELIVERY_ACTOR -ceq 'trung-via') {
+            # Preserve the dedicated Human delivery path and its existing Runtime semantics.
+          } elseif ($env:AIOS_DELIVERY_ACTOR -ceq 'github-actions[bot]') {
+            if ($env:AIOS_DELIVERY_EVENT -cne 'workflow_dispatch') {
+              Write-OperationalFailure 'UNAUTHORIZED_DELIVERY_ACTOR'
+              Write-Error "Automation REPAIR delivery requires workflow_dispatch provenance."
+              exit 1
+            }
+            if (-not [string]::IsNullOrEmpty($env:AIOS_EXECUTOR)) {
+              Write-OperationalFailure 'INVALID_BOUNDED_INPUT'
+              Write-Error "Automation REPAIR delivery cannot select a coding Executor."
+              exit 1
+            }
+            $expectedRepairDispatchId = "repair-$($env:AIOS_FAILED_RUN_ID)-$($env:AIOS_REPAIR_SHA)"
+            if ($env:AIOS_REPAIR_DISPATCH_ID -cne $expectedRepairDispatchId) {
+              Write-OperationalFailure 'INVALID_BOUNDED_INPUT'
+              Write-Error "Automation REPAIR delivery identity does not match its selectors."
+              exit 1
+            }
+          } else {
+            Write-OperationalFailure 'UNAUTHORIZED_DELIVERY_ACTOR'
             Write-Error "Unauthorized REPAIR delivery actor."
             exit 1
           }
           if ([string]::IsNullOrWhiteSpace($env:AIOS_REPO_ROOT)) {
+            Write-OperationalFailure 'AIOS_REPO_ROOT_NOT_CONFIGURED'
             Write-Error "AIOS_REPO_ROOT repository variable is not configured."
             exit 1
           }
           if (-not (Test-Path -LiteralPath $env:AIOS_REPO_ROOT -PathType Container)) {
+            Write-OperationalFailure 'CONFIGURED_REPOSITORY_UNAVAILABLE'
             Write-Error "The configured persistent repository is unavailable."
             exit 1
           }
           git -C $env:AIOS_REPO_ROOT rev-parse --is-inside-work-tree
           if ($LASTEXITCODE -ne 0) {
+            Write-OperationalFailure 'CONFIGURED_REPOSITORY_INVALID'
             Write-Error "The configured persistent repository is invalid."
             exit 1
           }
-          $bootstrap = Join-Path $env:AIOS_REPO_ROOT ".agents\skills\aios-worker\scripts\aios_phase2_repair.py"
-          if (-not (Test-Path -LiteralPath $bootstrap -PathType Leaf)) {
-            Write-Error "The pinned REPAIR bootstrap is unavailable."
+          if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
+            Write-OperationalFailure 'AIOS_COMMAND_UNAVAILABLE'
+            Write-Error "Python is unavailable for the bounded AIOS control entry."
             exit 1
           }
+          if (Test-Path -LiteralPath $env:AIOS_CONTROL_ROOT) { Write-OperationalFailure 'CONTROL_SOURCE_PATH_OCCUPIED'; exit 1 }
+          $persistentRoot = (Resolve-Path -LiteralPath $env:AIOS_REPO_ROOT).Path
+          $controlCandidate = [IO.Path]::GetFullPath($env:AIOS_CONTROL_ROOT)
+          $persistentPrefix = $persistentRoot.TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
+          if ($controlCandidate -eq $persistentRoot -or $controlCandidate.StartsWith($persistentPrefix, [StringComparison]::OrdinalIgnoreCase)) { Write-OperationalFailure 'CONTROL_SOURCE_NOT_DISTINCT'; exit 1 }
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "AIOS_CONTROL_ROOT=$env:AIOS_CONTROL_ROOT" -Encoding utf8
+          New-Item -ItemType Directory -Path $env:AIOS_CONTROL_ROOT | Out-Null
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value 'AIOS_CONTROL_PREPARED=1' -Encoding utf8
+          $controlRoot = (Resolve-Path -LiteralPath $env:AIOS_CONTROL_ROOT).Path
+          git -C $controlRoot init --quiet
+          if ($LASTEXITCODE -ne 0) { Write-OperationalFailure 'CONTROL_SOURCE_MATERIALIZATION_FAILED'; exit 1 }
+          $basic = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("x-access-token:$env:AIOS_CONTROL_TOKEN"))
+          $env:GIT_CONFIG_COUNT = '1'; $env:GIT_CONFIG_KEY_0 = 'http.extraHeader'; $env:GIT_CONFIG_VALUE_0 = "AUTHORIZATION: basic $basic"
+          try { git -C $controlRoot fetch --quiet --no-tags --depth=1 "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY.git" $env:AIOS_CONTROL_SHA }
+          finally { Remove-Item Env:GIT_CONFIG_COUNT, Env:GIT_CONFIG_KEY_0, Env:GIT_CONFIG_VALUE_0 -ErrorAction SilentlyContinue; $basic = $null }
+          if ($LASTEXITCODE -ne 0) { Write-OperationalFailure 'CONTROL_SOURCE_MATERIALIZATION_FAILED'; exit 1 }
+          git -C $controlRoot checkout --quiet --detach FETCH_HEAD
+          if ($LASTEXITCODE -ne 0) { Write-OperationalFailure 'CONTROL_SOURCE_MATERIALIZATION_FAILED'; exit 1 }
+          $actualSha = git -C $controlRoot rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $actualSha -ne $env:AIOS_CONTROL_SHA) { Write-OperationalFailure 'CONTROL_SOURCE_SHA_MISMATCH'; exit 1 }
+          $controlStatus = @(git -C $controlRoot status --porcelain)
+          if ($LASTEXITCODE -ne 0 -or $controlStatus.Count -ne 0) { Write-OperationalFailure 'CONTROL_SOURCE_DIRTY'; exit 1 }
+          if (-not (Test-Path -LiteralPath (Join-Path $controlRoot 'scripts/aios_control_entry.py') -PathType Leaf)) { Write-OperationalFailure 'CONTROL_ENTRY_UNAVAILABLE'; exit 1 }
 
       - name: Deliver one immutable REPAIR intent
         env:
+          AIOS_OPERATIONAL_RECEIPT_PATH: ${{ runner.temp }}/aios-repair-operational-receipt-v2.json
           AIOS_REPAIR_DISPATCH_ID: ${{ inputs.repair_dispatch_id }}
           AIOS_FAILED_RUN_ID: ${{ inputs.failed_run_id }}
           AIOS_REPAIR_SHA: ${{ inputs.repair_sha }}
           AIOS_EXECUTOR: ${{ inputs.executor }}
         shell: powershell
         run: |
-          $bootstrap = Join-Path $env:AIOS_REPO_ROOT ".agents\skills\aios-worker\scripts\aios_phase2_repair.py"
+          function Write-OperationalState([string]$Boundary, [string]$Reason) {
+            if ([string]::IsNullOrWhiteSpace($env:AIOS_OPERATIONAL_RECEIPT_PATH)) { return }
+            if ($env:AIOS_REPAIR_DISPATCH_ID -notmatch '^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$') { return }
+            $selectors = @{}
+            if ($env:AIOS_FAILED_RUN_ID -match '^RUN-[A-Za-z0-9_-]+-[0-9]{3,}$') { $selectors.failed_run_id = $env:AIOS_FAILED_RUN_ID }
+            if ($env:AIOS_REPAIR_SHA -match '^[0-9a-f]{40}$') { $selectors.repair_sha = $env:AIOS_REPAIR_SHA }
+            if ($env:AIOS_EXECUTOR -in @('codex', 'antigravity')) { $selectors.executor = $env:AIOS_EXECUTOR }
+            if ($env:AIOS_MODEL -match '^[A-Za-z0-9_.:/-]{1,128}$') { $selectors.model = $env:AIOS_MODEL }
+            if ($env:AIOS_REASONING_EFFORT -match '^[a-z]+$') { $selectors.reasoning_effort = $env:AIOS_REASONING_EFFORT }
+            if ($env:AIOS_MODEL_SOURCE -match '^[A-Z_]+$') { $selectors.model_source = $env:AIOS_MODEL_SOURCE }
+            if ($env:AIOS_EFFORT_SOURCE -match '^[A-Z_]+$') { $selectors.effort_source = $env:AIOS_EFFORT_SOURCE }
+            $receipt = [ordered]@{format='AIOS_OPERATIONAL_RECEIPT';version=2;kind='OPERATIONAL_RECEIPT';family='REPAIR';delivery=@{kind='repair_dispatch_id';id=$env:AIOS_REPAIR_DISPATCH_ID};boundary=$Boundary;selectors=$selectors;run_created=$false;executor_invoked=$false}
+            if ($env:AIOS_CONTROL_SHA -match '^[0-9a-f]{40}$') { $receipt.control_sha = $env:AIOS_CONTROL_SHA }
+            if ($Reason) { $receipt.cause = @{authority='WORKFLOW';phase='PRE_AIOS';reason_code=$Reason} }
+            Set-Content -LiteralPath $env:AIOS_OPERATIONAL_RECEIPT_PATH -Value ($receipt | ConvertTo-Json -Compress -Depth 5) -Encoding utf8
+          }
+          if ($env:AIOS_REPAIR_DISPATCH_ID -notmatch '^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$') {
+            Write-OperationalState 'OPERATIONAL_FAILED' 'INVALID_BOUNDED_INPUT'
+            Write-Error "Invalid REPAIR dispatch identity."
+            exit 1
+          }
+          if ($env:AIOS_FAILED_RUN_ID -notmatch '^RUN-[A-Za-z0-9_-]+-[0-9]{3,}$') {
+            Write-OperationalState 'OPERATIONAL_FAILED' 'INVALID_BOUNDED_INPUT'
+            Write-Error "Invalid failed RUN identity."
+            exit 1
+          }
+          if ($env:AIOS_REPAIR_SHA -notmatch '^[0-9a-f]{40}$') {
+            Write-OperationalState 'OPERATIONAL_FAILED' 'INVALID_BOUNDED_INPUT'
+            Write-Error "Invalid REPAIR authorization SHA."
+            exit 1
+          }
+          if (-not [string]::IsNullOrEmpty($env:AIOS_EXECUTOR) -and $env:AIOS_EXECUTOR -notin @('codex', 'antigravity')) {
+            Write-OperationalState 'OPERATIONAL_FAILED' 'INVALID_BOUNDED_INPUT'
+            Write-Error "Unsupported coding Executor."
+            exit 1
+          }
           $executorArgs = @()
           if (-not [string]::IsNullOrEmpty($env:AIOS_EXECUTOR)) {
-            $executorArgs = @('--executor', $env:AIOS_EXECUTOR)
+            $executorArgs = @(
+              '--executor', $env:AIOS_EXECUTOR,
+              '--model', $env:AIOS_MODEL,
+              '--reasoning-effort', $env:AIOS_REASONING_EFFORT,
+              '--model-source', $env:AIOS_MODEL_SOURCE,
+              '--effort-source', $env:AIOS_EFFORT_SOURCE
+            )
           }
-          python $bootstrap $env:AIOS_REPAIR_DISPATCH_ID $env:AIOS_FAILED_RUN_ID $env:AIOS_REPAIR_SHA @executorArgs --repo $env:AIOS_REPO_ROOT
-          if ($LASTEXITCODE -ne 0) {
-            exit $LASTEXITCODE
+          Write-OperationalState 'AIOS_INVOKED' ''
+          $controlSource = $env:AIOS_CONTROL_ROOT
+          $entry = Join-Path $controlSource 'scripts/aios_control_entry.py'
+          Remove-Item Env:AIOS_CONTROL_ROOT, Env:AIOS_CONTROL_REF, Env:AIOS_CONTROL_PREPARED -ErrorAction SilentlyContinue
+          python $entry $controlSource repair-wakeup $env:AIOS_REPAIR_DISPATCH_ID $env:AIOS_FAILED_RUN_ID $env:AIOS_REPAIR_SHA @executorArgs --repo $env:AIOS_REPO_ROOT
+          $aiosExitCode = $LASTEXITCODE
+          if ($aiosExitCode -ne 0) {
+            exit $aiosExitCode
+          }
+
+      - name: Expose bounded Operational Receipt v2
+        if: always()
+        env:
+          AIOS_OPERATIONAL_RECEIPT_PATH: ${{ runner.temp }}/aios-repair-operational-receipt-v2.json
+        shell: powershell
+        run: |
+          if (Test-Path -LiteralPath $env:AIOS_OPERATIONAL_RECEIPT_PATH -PathType Leaf) {
+            $receipt = Get-Content -LiteralPath $env:AIOS_OPERATIONAL_RECEIPT_PATH -Raw
+            Write-Output "AIOS_OPERATIONAL_RECEIPT_V2=$receipt"
+            if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY)) {
+              Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value $receipt -Encoding utf8
+            }
+          }
+
+      - name: Persist bounded Operational Receipt v2
+        if: always()
+        uses: actions/upload-artifact@v4
+        env:
+          AIOS_OPERATIONAL_RECEIPT_PATH: ${{ runner.temp }}/aios-repair-operational-receipt-v2.json
+        with:
+          name: aios-operational-receipt-v2
+          path: ${{ env.AIOS_OPERATIONAL_RECEIPT_PATH }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove transient control source
+        if: always()
+        continue-on-error: true
+        env:
+          AIOS_OPERATIONAL_RECEIPT_PATH: ${{ runner.temp }}/aios-repair-operational-receipt-v2.json
+        shell: powershell
+        run: |
+          $runnerTemp = (Resolve-Path -LiteralPath $env:RUNNER_TEMP).Path
+          if ($env:AIOS_CONTROL_PREPARED -eq '1' -and (Test-Path -LiteralPath $env:AIOS_CONTROL_ROOT)) {
+            $controlRoot = (Resolve-Path -LiteralPath $env:AIOS_CONTROL_ROOT).Path
+            if ((Split-Path -Parent $controlRoot) -eq $runnerTemp -and (Split-Path -Leaf $controlRoot) -match '^aios-control-[0-9]+-[0-9]+$') { Remove-Item -LiteralPath $controlRoot -Recurse -Force }
           }

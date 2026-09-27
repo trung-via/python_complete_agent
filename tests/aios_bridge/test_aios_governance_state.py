@@ -174,6 +174,7 @@ PIN_FILE = (
     REPO_ROOT / ".agents" / "skills" / "aios-worker" / "requirements-aios-renew.txt"
 )
 ACTIVE_PIN = "edd7d8d92d54900c56442bbfcddb8648ec4d2e09"
+TASK_255_ACTIVE_PIN = "636cde7c55f8a843338ea407d2888ea1043875b5"
 PRIOR_CERTIFIED_PIN = "49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2"
 HISTORICAL_TASK_218_PIN = "49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2"
 HISTORICAL_TASK_219_PIN = "1a68db9acb6989dfa81bf875503db62e54a4bed6"
@@ -4838,7 +4839,7 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
     assert "closes FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION" in conformance["roadmap_effect"]
 
 
-def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
+def _historical_test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
     state = load_yaml(ADOPTION_FILE)
     conformance = load_yaml(CONFORMANCE_FILE)
     requirement = PIN_FILE.read_text(encoding="utf-8").strip()
@@ -4958,6 +4959,92 @@ def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
         "REQUIRED_PENDING",
         "NOT_REQUIRED",
     }
+
+
+def test_task_255_adoption_registry_separates_active_pin_from_prior_certification():
+    state = load_yaml(ADOPTION_FILE)
+    conformance = load_yaml(CONFORMANCE_FILE)
+    requirement = PIN_FILE.read_text(encoding="utf-8").strip()
+    assert requirement.endswith("@" + TASK_255_ACTIVE_PIN)
+    assert state["downstream_pin"]["commit"] == TASK_255_ACTIVE_PIN
+    assert state["upstream_audit"] == {
+        "checkpoint": TASK_255_ACTIVE_PIN,
+        "through_authored_task": "TASK-195",
+        "upstream_revision": 1,
+        "run_id": "RUN-195-002",
+        "checkpoint_role": "REVIEWED_SOURCE_PUBLISHED_PROVENANCE",
+        "checkpoint_is_runtime_authority": False,
+        "review": "REVIEW-195-001",
+        "review_outcome": "PRIMARY_PASS",
+        "source_published": True,
+        "prior_active_pin": ACTIVE_PIN,
+        "provenance": {
+            "task_id": "TASK-195",
+            "revision": 1,
+            "run_id": "RUN-195-002",
+            "review_id": "REVIEW-195-001",
+            "role": "FINAL_EXECUTION_PROFILE_POLICY_AND_PACKAGE_AUTHORITY",
+            "activates_repository_binding": True,
+        },
+    }
+    pending = state["full_downstream_conformance"]
+    assert pending["status"] == "PENDING_FRESH_CERTIFICATION"
+    assert pending["certification_task"] == {"id": "TASK-207", "revision": 9}
+    assert pending["certified_prior_pin"] == {
+        "task_id": "TASK-207",
+        "revision": 8,
+        "downstream_pin": ACTIVE_PIN,
+        "certification_record": ".ai/aios-conformance-state.yaml",
+        "status": "CERTIFIED_PRIOR_PIN",
+        "certification_authority_for_current_pin": False,
+    }
+    assert conformance["certification"]["downstream_pin"] == ACTIVE_PIN
+    assert conformance["certification"]["task_revision"] == 8
+
+    families = indexed_families(state)
+    covered_post_prior_pin = [
+        task_id
+        for family in state["capability_families"]
+        for task_id in family.get("upstream_tasks", [])
+        if 149 <= int(task_id.removeprefix("TASK-")) <= 195
+    ]
+    assert sorted(covered_post_prior_pin) == [
+        f"TASK-{number:03d}" for number in range(149, 196)
+    ]
+    assert families["EXECUTION_PROFILE_POLICY_AND_PROVENANCE"][
+        "repository_binding_activation"
+    ] == "ACTIVE"
+    assert families["TRUSTED_PROFILE_AWARE_CARRIER_COMPATIBILITY"][
+        "repository_binding_activation"
+    ] == "ACTIVE"
+    for family_id in (
+        "BRAIN_SEMANTIC_PACKAGE_CAPABILITIES",
+        "REVIEWER_SEMANTIC_PACKAGE_CAPABILITIES",
+    ):
+        assert families[family_id]["package_capability_availability"] == "ADOPTED_BY_PIN"
+        assert families[family_id]["repository_binding_activation"] == "REQUIRED_PENDING"
+    pending_registries = {
+        path
+        for family_id in (
+            "BRAIN_SEMANTIC_PACKAGE_CAPABILITIES",
+            "REVIEWER_SEMANTIC_PACKAGE_CAPABILITIES",
+        )
+        for path in families[family_id]["required_pending_registries"]
+    }
+    assert pending_registries == {
+        ".ai/flow-cards.yaml",
+        ".ai/brain-audit-profiles.yaml",
+        ".ai/brain-return-contracts.yaml",
+        ".ai/reviewer-procedure-profiles.yaml",
+        ".ai/reviewer-return-contracts.yaml",
+    }
+    assert all(not (REPO_ROOT / path).exists() for path in pending_registries)
+    assert families["UPSTREAM_VERIFICATION_PERFORMANCE_MEASUREMENT"][
+        "repository_binding_activation"
+    ] == "NOT_REQUIRED"
+    assert families["STANDALONE_REMOTE_UX"]["repository_binding_activation"] == "NOT_REQUIRED"
+    for path in families["STANDALONE_REMOTE_UX"]["excluded_workflows"]:
+        assert not (REPO_ROOT / path).exists()
 
 
 def test_relevant_upstream_tasks_have_distinct_package_and_binding_dimensions():

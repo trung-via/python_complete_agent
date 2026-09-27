@@ -19,17 +19,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Check out fixed canonical main
+      - name: Check out exact carrier invocation commit
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.sha }}
           fetch-depth: 1
           persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.11'
 
       - name: Install pinned AIOS-renew
         run: |
@@ -39,11 +39,13 @@ jobs:
         id: admission
         continue-on-error: true
         env:
+          AIOS_PROFILE_POLICY: ${{ github.workspace }}/.ai/executor-profiles.yaml
           AIOS_RECEIPT_PATH: ${{ runner.temp }}/aios-brain-wakeup-receipt.txt
         run: >-
           python -m aios_renew.github_issue_wakeup
           --event "$GITHUB_EVENT_PATH"
           --policy .ai/brain-wakeup-carriers.yaml
+          --profile-policy "$AIOS_PROFILE_POLICY"
           --output "$GITHUB_OUTPUT"
           --receipt "$AIOS_RECEIPT_PATH"
 
@@ -55,7 +57,14 @@ jobs:
         env:
           AIOS_DISPATCH_ID: ${{ steps.admission.outputs.dispatch_id }}
           AIOS_TASK_ID: ${{ steps.admission.outputs.task_id }}
+          AIOS_TASK_REVISION: ${{ steps.admission.outputs.task_revision }}
+          AIOS_TASK_BLOB_SHA: ${{ steps.admission.outputs.task_blob_sha }}
+          AIOS_TASK_COMMIT_SHA: ${{ steps.admission.outputs.task_commit_sha }}
           AIOS_EXECUTOR: ${{ steps.admission.outputs.executor }}
+          AIOS_MODEL: ${{ steps.admission.outputs.model }}
+          AIOS_REASONING_EFFORT: ${{ steps.admission.outputs.reasoning_effort }}
+          AIOS_MODEL_SOURCE: ${{ steps.admission.outputs.model_source }}
+          AIOS_EFFORT_SOURCE: ${{ steps.admission.outputs.effort_source }}
         with:
           script: |
             await github.rest.actions.createWorkflowDispatch({
@@ -66,7 +75,14 @@ jobs:
               inputs: {
                 dispatch_id: process.env.AIOS_DISPATCH_ID,
                 task_id: process.env.AIOS_TASK_ID,
+                task_revision: process.env.AIOS_TASK_REVISION,
+                task_blob_sha: process.env.AIOS_TASK_BLOB_SHA,
+                task_commit_sha: process.env.AIOS_TASK_COMMIT_SHA,
                 executor: process.env.AIOS_EXECUTOR,
+                model: process.env.AIOS_MODEL,
+                reasoning_effort: process.env.AIOS_REASONING_EFFORT,
+                model_source: process.env.AIOS_MODEL_SOURCE,
+                effort_source: process.env.AIOS_EFFORT_SOURCE,
               },
             });
 
@@ -79,7 +95,14 @@ jobs:
           AIOS_DISPATCH_OUTCOME: ${{ steps.dispatch.outcome }}
           AIOS_DISPATCH_ID: ${{ steps.admission.outputs.dispatch_id }}
           AIOS_TASK_ID: ${{ steps.admission.outputs.task_id }}
+          AIOS_TASK_REVISION: ${{ steps.admission.outputs.task_revision }}
+          AIOS_TASK_BLOB_SHA: ${{ steps.admission.outputs.task_blob_sha }}
+          AIOS_TASK_COMMIT_SHA: ${{ steps.admission.outputs.task_commit_sha }}
           AIOS_EXECUTOR: ${{ steps.admission.outputs.executor }}
+          AIOS_MODEL: ${{ steps.admission.outputs.model }}
+          AIOS_REASONING_EFFORT: ${{ steps.admission.outputs.reasoning_effort }}
+          AIOS_MODEL_SOURCE: ${{ steps.admission.outputs.model_source }}
+          AIOS_EFFORT_SOURCE: ${{ steps.admission.outputs.effort_source }}
         with:
           script: |
             const fs = require('fs');
@@ -87,6 +110,14 @@ jobs:
               && process.env.AIOS_DISPATCH_OUTCOME === 'success';
             let receipt;
             if (accepted) {
+              const operationalReceipt = JSON.stringify({
+                format: 'AIOS_OPERATIONAL_RECEIPT', version: 2, kind: 'OPERATIONAL_RECEIPT',
+                family: 'PRIMARY',
+                delivery: {kind: 'dispatch_id', id: process.env.AIOS_DISPATCH_ID},
+                boundary: 'DISPATCH_REQUEST_ACCEPTED',
+                run_created: false, executor_invoked: false,
+                selectors: {task_id: process.env.AIOS_TASK_ID, task_revision: Number(process.env.AIOS_TASK_REVISION), task_blob_sha: process.env.AIOS_TASK_BLOB_SHA, task_commit_sha: process.env.AIOS_TASK_COMMIT_SHA, executor: process.env.AIOS_EXECUTOR, model: process.env.AIOS_MODEL, reasoning_effort: process.env.AIOS_REASONING_EFFORT, model_source: process.env.AIOS_MODEL_SOURCE, effort_source: process.env.AIOS_EFFORT_SOURCE},
+              });
               receipt = [
                 'AIOS BRAIN WAKEUP RECEIPT',
                 'status: DISPATCH_ACCEPTED',
@@ -94,16 +125,33 @@ jobs:
                 'execution_outcome: not_observed',
                 `dispatch_id: ${process.env.AIOS_DISPATCH_ID}`,
                 `task_id: ${process.env.AIOS_TASK_ID}`,
+                `task_revision: ${process.env.AIOS_TASK_REVISION}`,
+                `task_blob_sha: ${process.env.AIOS_TASK_BLOB_SHA}`,
+                `task_commit_sha: ${process.env.AIOS_TASK_COMMIT_SHA}`,
                 `executor: ${process.env.AIOS_EXECUTOR}`,
+                `model: ${process.env.AIOS_MODEL}`,
+                `reasoning_effort: ${process.env.AIOS_REASONING_EFFORT}`,
+                `model_source: ${process.env.AIOS_MODEL_SOURCE}`,
+                `effort_source: ${process.env.AIOS_EFFORT_SOURCE}`,
                 'detail: GitHub accepted one fixed A1 workflow dispatch; this is not RUN, verification, review, or publication success.',
+                `AIOS_OPERATIONAL_RECEIPT_V2=${operationalReceipt}`,
               ].join('\n');
             } else if (process.env.AIOS_ADMISSION_OUTCOME === 'success') {
+              const operationalReceipt = JSON.stringify({
+                format: 'AIOS_OPERATIONAL_RECEIPT', version: 2, kind: 'OPERATIONAL_RECEIPT',
+                family: 'PRIMARY',
+                delivery: {kind: 'dispatch_id', id: process.env.AIOS_DISPATCH_ID},
+                boundary: 'CARRIER_ADMITTED',
+                run_created: false, executor_invoked: false,
+                selectors: {task_id: process.env.AIOS_TASK_ID, task_revision: Number(process.env.AIOS_TASK_REVISION), task_blob_sha: process.env.AIOS_TASK_BLOB_SHA, task_commit_sha: process.env.AIOS_TASK_COMMIT_SHA, executor: process.env.AIOS_EXECUTOR, model: process.env.AIOS_MODEL, reasoning_effort: process.env.AIOS_REASONING_EFFORT, model_source: process.env.AIOS_MODEL_SOURCE, effort_source: process.env.AIOS_EFFORT_SOURCE},
+              });
               receipt = [
                 'AIOS BRAIN WAKEUP RECEIPT',
                 'status: REJECTED',
                 'dispatch_accepted: false',
                 'execution_outcome: not_observed',
                 'reason: GitHub did not accept the fixed A1 workflow dispatch.',
+                `AIOS_OPERATIONAL_RECEIPT_V2=${operationalReceipt}`,
               ].join('\n');
             } else {
               receipt = 'AIOS BRAIN WAKEUP RECEIPT\nstatus: REJECTED\ndispatch_accepted: false\nexecution_outcome: not_observed\nreason: carrier produced no receipt';

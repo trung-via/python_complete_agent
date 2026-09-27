@@ -7,7 +7,7 @@ name: AIOS auto-publish reviewed candidate
   workflow_dispatch:
     inputs:
       run_id:
-        description: "Exact canonical reviewed RUN selector"
+        description: Canonical RUN identity whose existing review decision is published or replayed
         required: true
         type: string
 
@@ -22,10 +22,10 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out event-bound publication gate
+      - name: Check out current canonical publication control plane
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'push' && github.sha || 'main' }}
+          ref: main
           fetch-depth: 0
 
       - name: Set up Python 3.11+
@@ -37,12 +37,12 @@ jobs:
         run: |
           python -m pip install --no-input -r .agents/skills/aios-worker/requirements-aios-renew.txt
 
-      - name: Publish exact reviewed candidate
+      - name: Publish or replay exact canonical review decision
         env:
           AIOS_EVENT_NAME: ${{ github.event_name }}
           AIOS_DECISION_REF: ${{ github.ref }}
           AIOS_DECISION_SHA: ${{ github.sha }}
-          AIOS_DISPATCH_RUN_ID: ${{ inputs.run_id }}
+          AIOS_REPLAY_RUN_ID: ${{ inputs.run_id }}
         shell: bash
         run: |
           set -euo pipefail
@@ -54,21 +54,31 @@ jobs:
             fi
             run_id="${AIOS_DECISION_REF#"$prefix"}"
             decision_sha="$AIOS_DECISION_SHA"
-          elif [[ "$AIOS_EVENT_NAME" == "workflow_dispatch" ]]; then
-            run_id="$AIOS_DISPATCH_RUN_ID"
-            if [[ ! "$run_id" =~ ^RUN-[A-Za-z0-9_-]+-[0-9]{3,}$ ]]; then
-              echo "Invalid publication RUN selector." >&2
+          else
+            run_id="$AIOS_REPLAY_RUN_ID"
+            if [[ ! "$run_id" =~ ^RUN-[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+              echo "Invalid replay RUN identity" >&2
               exit 1
             fi
             decision_ref="${prefix}${run_id}"
-            git fetch --no-tags origin "$decision_ref"
-            decision_sha="$(git rev-parse --verify 'FETCH_HEAD^{commit}')"
-          else
-            echo "Unexpected publication event: $AIOS_EVENT_NAME" >&2
-            exit 1
+            mapfile -t decisions < <(git ls-remote --refs origin "$decision_ref")
+            if [[ ${#decisions[@]} -ne 1 ]]; then
+              echo "Canonical replay decision is missing or ambiguous" >&2
+              exit 1
+            fi
+            read -r decision_sha resolved_ref <<<"${decisions[0]}"
+            if [[ "$resolved_ref" != "$decision_ref" || ! "$decision_sha" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "Canonical replay decision identity is malformed" >&2
+              exit 1
+            fi
           fi
+
+          git fetch --no-tags origin refs/heads/main
+          control_sha="$(git rev-parse FETCH_HEAD)"
+          git checkout --detach "$control_sha"
           python -m aios_renew.publication \
             --repo . \
             --remote origin \
             --run-id "$run_id" \
-            --decision-sha "$decision_sha"
+            --decision-sha "$decision_sha" \
+            --control-sha "$control_sha"
