@@ -1,71 +1,81 @@
 task_id: TASK-255
-revision: 1
+revision: 2
 
 goal: >
-  Execute BP9-P1A by migrating Python Agent's sole active AIOS-renew runtime authority
-  from exact pin edd7d8d92d54900c56442bbfcddb8648ec4d2e09 to exact reviewed and
-  source-published BP8 pin 2cf7ba01222891bb5470b231fee01b7122e39cab, while atomically
-  porting only the repository-owned Phase-1/Phase-2 carrier compatibility required by
-  that pin: execution-profile resolution, exact TASK semantic identity, trusted
-  transient control-source isolation, bounded Operational Receipt v2, and current safe
-  publication control. Preserve the already-authored TASK-254 r4 product commitment
-  untouched and leave fresh downstream conformance pending for later TASK-207 r9.
+  Execute BP9-P1A as one exact-pin downstream migration from Python Agent's current
+  AIOS-renew authority edd7d8d92d54900c56442bbfcddb8648ec4d2e09 to the latest
+  reviewed/source-published authority 636cde7c55f8a843338ea407d2888ea1043875b5,
+  thereby consuming all package capability published through TASK-195 while porting
+  every repository-owned Phase-1/Phase-2 compatibility binding that the final pin
+  requires. Activate the new Codex gpt-6-sol/high default with exact supported efforts
+  none/low/medium/high/xhigh/max. Preserve TASK-254 r4 untouched and leave Brain/
+  Reviewer semantic registries for separately audited BP9-P1B / TASK-256.
 
 problem: >
-  Python Agent currently pins AIOS-renew edd7d8d92d54900c56442bbfcddb8648ec4d2e09
-  and is certified through TASK-207 r8 for that old pin. Upstream AIOS-renew BP8 is now
-  complete through TASK-194 r1 / RUN-194-001 / REVIEW-194-001 with exact reviewed and
-  safely published source 2cf7ba01222891bb5470b231fee01b7122e39cab. A fresh downstream
-  audit shows that a pin-only update is unsafe: current Python Agent PRIMARY,
-  REMEDIATION and REPAIR carrier workflows predate exact task revision/blob/commit
-  binding, repository execution-profile policy, model/effort source attribution,
-  trusted transient control-source isolation and Operational Receipt v2. The current
-  publisher also predates current-control-SHA publication binding. TASK-255 must move
-  the pin and these compatibility bindings together in one reviewed candidate without
-  copying upstream lifecycle authority or adopting Brain/Reviewer semantic registries;
-  those registries are reserved for BP9-P1B / TASK-256.
+  TASK-255 r1 targeted reviewed BP8 source 2cf7ba... but the Human changed priority
+  before any RUN so AIOS-renew could first align current GPT-6 Sol effort capability.
+  Upstream TASK-195 then completed through RUN-195-001 verification failure,
+  REPAIR-195-001, RUN-195-002 Runtime PASS, REVIEW-195-001 PRIMARY PASS and exact
+  publication of 636cde7c55f8a843338ea407d2888ea1043875b5. A fresh comparison from
+  downstream pin edd7d8d... to 636cde7... spans 259 upstream commits and 180 files.
+  Package code must be adopted once through the final immutable pin, not through 259
+  sequential pin migrations. However, repository-owned compatibility surfaces cannot
+  be inherited by package pin alone. Fresh audit identifies required P1A bindings:
+  execution-profile policy; exact TASK revision/blob/commit and model/effort provenance
+  on PRIMARY/REMEDIATION/REPAIR hosted carriers; trusted transient downstream control
+  source for self-host invocation; bounded Operational Receipt v2; bounded ingress
+  repair handoff; and current-control-SHA safe publication. P1B separately owns the
+  semantic Brain/Reviewer registries. Upstream performance measurement profiles,
+  standalone remote UX and repository-specific probes must not be copied.
 
 assumptions:
   - >
     Canonical Python Agent main at authoring is
-    27ac741dd4fe6630b5638b85684c3ecaff69bc21. Its Brain-owned roadmap records
-    AIOS_BP9_BRAIN_PORTABILITY_DOWNSTREAM_ADOPTION as a Human-prioritized side-track,
-    BP9-P1A / TASK-255 r1 as NEXT, BP9-P1B / TASK-256 as PLANNED, fresh TASK-207 r9
-    conformance after TASK-256 publication, and TASK-254 r4 as AUTHORED_UNEXECUTED
-    resume target.
+    484b6d48496bcd3afdde5d23a374cea18039a41f. The Brain-owned roadmap marks
+    BP9-P1A / TASK-255 r2 as unique NEXT against exact target pin
+    636cde7c55f8a843338ea407d2888ea1043875b5.
   - >
-    Current sole downstream AIOS-renew dependency pin and worker AUTHORITATIVE_COMMIT
-    are exactly edd7d8d92d54900c56442bbfcddb8648ec4d2e09.
+    TASK-255 r1 at authoring SHA 30ec5f39460903b44c1bb19cd3690f00fd07903f
+    has no RUN, RESULT, FAILURE, REVIEW, REMEDIATION or REPAIR lineage. It is immutable
+    authored history superseded prospectively only because its target pin became stale.
   - >
-    Exact target 2cf7ba01222891bb5470b231fee01b7122e39cab is eligible under
-    EXACT_REVIEWED_SOURCE_PUBLISHED_ONLY policy because TASK-194 r1 produced
-    zero-delta RUN-194-001, REVIEW-194-001 is PRIMARY PASS, and the safe Publisher
-    completed exact publication/replay of that reviewed source. Later AIOS-renew
-    roadmap-only commit 7eca2f912500297882bcaa5362b455d114729b63 is not runtime
-    authority and must not be adopted.
+    TASK-254 r4 remains canonically authored, has no engineering RUN, and is the
+    preserved product-roadmap resume commitment after BP9 downstream conformance.
   - >
-    RUN-194-001 Runtime evidence records one controlled real Reviewer call with
-    outcome VALIDATED_DECISION, provider antigravity, model gemini-3.8-flash,
-    explicit effort high, invocation_count 1, exact request identity, validated
-    decision fingerprint and native usage witness. That proof is upstream provenance;
-    its proof-specific high effort is not a Python Agent Reviewer or Executor default.
+    Python Agent currently has exactly one active dependency pin and worker
+    AUTHORITATIVE_COMMIT, both edd7d8d92d54900c56442bbfcddb8648ec4d2e09.
   - >
-    Python Agent carrier policy YAML files already match the target carrier-policy
-    contracts except repository identity and therefore require no mutation in P1A.
+    Exact upstream 636cde7c55f8a843338ea407d2888ea1043875b5 is eligible under
+    EXACT_REVIEWED_SOURCE_PUBLISHED_ONLY. Later upstream planning commit
+    6300267cbabe642c7e3b61f65d792b3cc060f0b5 is not downstream Runtime authority.
   - >
-    Python Agent has no repository-owned scripts/aios_control_entry.py today. The
-    target-pin self-host carrier semantics require an equivalent downstream-specific
-    trusted entry that bootstraps/invokes only the exact pinned AIOS-renew runtime
-    from a transient checkout of the exact downstream control commit; blindly copying
-    the upstream AIOS-renew source-tree entry would be invalid because Python Agent
-    does not contain src/aios_renew.
+    The final upstream execution-profile policy is Codex gpt-6-sol/high with
+    supported efforts [none, low, medium, high, xhigh, max] and Antigravity
+    gemini-3.8-flash/medium with [low, medium, high].
   - >
-    .ai/aios-conformance-state.yaml remains the immutable publication-effective
-    certification record for TASK-207 r8 under edd7d8d... until a fresh TASK-207 r9
-    is authored and published after P1B. TASK-255 is migration, not conformance.
+    Existing downstream carrier-policy YAML files already match the corresponding
+    final-pin policy semantics except repository identity and remain valid.
   - >
-    TASK-254 r4 has no RUN, FAILURE or REVIEW lineage and must remain byte-identical
-    and unexecuted throughout this migration.
+    Existing downstream terminal-attention binding remains compatible and needs no
+    semantic mutation for P1A.
+  - >
+    Standalone upstream remote-status, remote-approval and
+    aios-approved-remediation-wakeup workflows are intentionally NOT active Python
+    Agent bindings. Existing downstream adoption governance explicitly uses the
+    coalesced A3/A6 remediation-intent path and states standalone A3 remote-status UX
+    is not activated.
+  - >
+    Upstream .ai/verification-profiles.yaml and scripts/aios_parallel_full_suite.py
+    encode AIOS-renew-specific 1825-test collection/performance measurements and are
+    not valid Python Agent verification truth. They must not be copied downstream.
+  - >
+    P1B / TASK-256 will separately add and prove the repository-owned Flow Cards,
+    Brain audit/return and Reviewer procedure/return registries. P1A may record these
+    package capabilities as available but repository binding remains REQUIRED_PENDING.
+  - >
+    .ai/aios-conformance-state.yaml remains the publication-effective TASK-207 r8
+    certification for old exact pin edd7d8d... until fresh TASK-207 r9 certification
+    is reviewed and published after P1B.
 
 scope:
   inspect:
@@ -80,6 +90,7 @@ scope:
     - .ai/tasks/TASK-207.yaml
     - .ai/tasks/TASK-221.yaml
     - .ai/tasks/TASK-254.yaml
+    - .ai/tasks/TASK-255.yaml
     - .ai/brain-ingress-carriers.yaml
     - .ai/brain-wakeup-carriers.yaml
     - .ai/brain-remediation-intent-carriers.yaml
@@ -134,201 +145,177 @@ scope:
 
 non_goals:
   - >
-    Modify, execute, supersede, revise, review, publish, or reinterpret TASK-254 r4
-    or any Product Intelligence/TikTok/product source, evidence, browser/session,
-    collector, parser, scoring, ranking or market-action semantic.
-  - >
-    Modify .ai/roadmap-state.yaml from Executor implementation. BP9 planning phase
-    advancement remains Human/Brain-owned and occurs only after publication.
-  - >
-    Modify .ai/aios-conformance-state.yaml or claim TASK-207 r8 certifies the new pin.
+    Modify .ai/roadmap-state.yaml, .ai/aios-conformance-state.yaml, TASK-254 r4,
+    Product Intelligence, TikTok/browser/session/evidence code, commerce semantics,
+    or any product-roadmap commitment.
   - >
     Add .ai/flow-cards.yaml, .ai/brain-audit-profiles.yaml,
     .ai/brain-return-contracts.yaml, .ai/reviewer-procedure-profiles.yaml or
-    .ai/reviewer-return-contracts.yaml. Those repository-owned semantic registries are
-    BP9-P1B / TASK-256 scope.
+    .ai/reviewer-return-contracts.yaml. These are BP9-P1B / TASK-256 scope.
   - >
-    Perform a real Brain or Reviewer provider invocation, call Gemini, access external
-    provider APIs, or use provider/network availability as verification.
+    Copy upstream .ai/verification-profiles.yaml, scripts/aios_parallel_full_suite.py,
+    bp_v4 diagnostic/probe scripts, smoke scripts, BP8 real-provider probe, upstream
+    .ai/tasks, upstream .ai/roadmap-state.yaml or upstream test-suite measurement state.
   - >
-    Make antigravity, gemini-3.8-flash or reasoning effort high a downstream default.
-    BP8's real-provider proof choice is provenance only.
+    Add or activate .github/workflows/aios-remote-status.yml,
+    .github/workflows/aios-remote-approval.yml or
+    .github/workflows/aios-approved-remediation-wakeup.yml. Existing downstream
+    coalesced remediation-intent governance remains authoritative.
   - >
-    Copy upstream AIOS-renew workflows byte-for-byte without preserving Python Agent
-    repository identity, install-from-exact-pin behavior, actor policy, runner labels,
-    existing Human worker surfaces and downstream bootstrap boundaries.
+    Perform any real provider invocation, Gemini/Codex network smoke, real GitHub
+    carrier dispatch, self-host execution, marketplace operation or external evidence
+    acquisition as deterministic TASK verification.
   - >
-    Activate an upstream .agents hook, vendor AIOS-renew source, add a floating ref,
-    second runtime authority, lifecycle router, Planner, generic provider router,
-    retry/fallback/failover, automatic correction selector, scheduler, queue, broker
-    or persistent model memory.
+    Freshly certify downstream conformance or claim TASK-207 r8 applies to the new
+    pin. TASK-207 r9 is a later publication-gated P2 step.
   - >
-    Freshly certify downstream conformance. That is reserved for TASK-207 r9 after
-    TASK-256 publication.
+    Introduce a second Runtime, Planner, lifecycle router, model router/scoring,
+    automatic retry/fallback/failover, correction selector, publisher, reviewer,
+    scheduler, queue, broker, memory database or floating AIOS reference.
+  - >
+    Sequentially migrate through intermediate upstream SHAs. The final exact reviewed
+    pin subsumes package history; intermediate commit movement is provenance only.
 
 constraints:
   hard:
     - >
-      The sole active dependency line and aios_worker.AUTHORITATIVE_COMMIT must become
-      exactly 2cf7ba01222891bb5470b231fee01b7122e39cab. Existing PEP-610
-      source-plus-commit provenance validation must remain fail-closed for stale,
-      alternate, floating or unverifiable runtimes.
+      The sole active requirements pin and worker AUTHORITATIVE_COMMIT must become
+      exactly 636cde7c55f8a843338ea407d2888ea1043875b5. Existing PEP-610
+      repository-plus-commit provenance validation remains fail-closed against stale,
+      alternate, floating or unverifiable package sources.
     - >
-      Add exactly one repository-owned execution-profile policy at
-      .ai/executor-profiles.yaml compatible with the target pin: codex default model
-      gpt-6-sol / default effort medium and antigravity default model
-      gemini-3.8-flash / default effort medium; each supports only low, medium and
-      high. This policy does not select an Executor and must not encode the BP8
-      proof-specific high effort as a default.
+      Add exactly one downstream repository execution-profile policy with Codex
+      default_model gpt-6-sol, default_reasoning_effort high and supported efforts
+      [none, low, medium, high, xhigh, max] in that order; Antigravity remains
+      gemini-3.8-flash/medium with [low, medium, high]. Human explicit selection
+      continues to outrank defaults.
     - >
-      Hosted PRIMARY admission must bind one exact TASK revision, TASK blob SHA and
-      TASK authoring/control commit plus exactly one resolved executor/model/effort
-      profile with explicit REPOSITORY_DEFAULT or EXPLICIT source attribution before
-      dispatch. The downstream issue carrier remains actor/title/repository bound and
-      must install/use only the exact pinned AIOS package.
+      PRIMARY hosted admission must bind the exact TASK id/revision/blob SHA/authoring
+      commit plus exactly one resolved executor/model/effort profile and source
+      attribution before dispatch. No carrier may infer task meaning or re-resolve a
+      bound profile after admission.
     - >
-      Hosted REMEDIATION and REPAIR admission must likewise resolve and propagate the
-      exact execution profile permitted by the target pin. REPAIR preserves the
-      no-Executor shape when Runtime semantics require it; no carrier may infer or
-      force a coding Executor.
+      REMEDIATION and REPAIR hosted admission must preserve their existing immutable
+      correction selectors while resolving/propagating exact execution-profile
+      provenance. Coding REPAIR requires exactly one explicit Executor; valid
+      no-Executor repair shapes remain possible only when pinned Runtime semantics
+      authorize them.
     - >
-      PRIMARY, approved-REMEDIATION and REPAIR self-host workflows must consume a
-      trusted transient checkout of the exact downstream invocation/control commit
-      outside the persistent AIOS_REPO_ROOT, fail closed before AIOS on missing,
-      dirty, mismatched or ambiguous control source, and remove that transient source
-      after use. They must not use mutable persistent workspace files as control code.
+      PRIMARY, approved-REMEDIATION and REPAIR self-host paths must use one trusted
+      transient checkout of the exact downstream control/invocation commit outside
+      persistent AIOS_REPO_ROOT, validate clean SHA identity before AIOS, and delete it
+      after use. Mutable persistent workspace control code is forbidden.
     - >
-      Add a downstream-specific scripts/aios_control_entry.py that contains no lifecycle,
-      review, publication, routing or semantic authority. It may only resolve the
-      exact repository-owned worker bootstrap from the supplied transient Python Agent
-      control source, establish the exact pinned runtime through the existing immutable
-      pin/provenance mechanism, and invoke the selected aios_renew.operator operation
-      once with the already-resolved bounded selectors. It must not depend on a local
-      src/aios_renew tree and must not choose an operation, Executor, model or effort.
+      Add one downstream-specific scripts/aios_control_entry.py that owns only trusted
+      bootstrap/delegation. It must resolve bootstrap code from the supplied transient
+      Python Agent control source, establish/use the exact pinned AIOS runtime through
+      the existing repository-local immutable-pin mechanism, and invoke the
+      already-selected aios_renew.operator operation once. It must not select operation,
+      Executor, model, effort, lifecycle action, review or publication outcome.
     - >
-      The self-host PRIMARY invocation must transmit dispatch_id, task_id,
-      task_revision, task_blob_sha, task_commit_sha, executor, model,
-      reasoning_effort, model_source and effort_source exactly once. Approved
-      REMEDIATION and REPAIR must transmit their existing immutable selector identities
-      plus the exact resolved profile fields. No automatic retry, fallback, reroute or
-      second AIOS invocation is permitted.
+      Existing aios_phase1_wakeup.py, aios_phase2_remediation.py and
+      aios_phase2_repair.py remain byte-unchanged. If target-pin compatibility cannot
+      be achieved through the new control entry and authorized workflows without
+      changing them, stop unresolved instead of widening scope.
     - >
-      Pre-AIOS/self-host operational failures must produce bounded
-      AIOS_OPERATIONAL_RECEIPT v2 with family, immutable delivery identity, selectors,
-      PRE_AIOS typed cause, run_created=false and executor_invoked=false. Successful
-      dispatch receipts may report dispatch acceptance or canonical terminal pointer
-      but must never claim RUN success, verification, review or publication solely from
-      transport status.
+      Pre-AIOS operational failure surfaces must emit bounded AIOS_OPERATIONAL_RECEIPT
+      v2 carrying family, immutable delivery identity, available selectors, typed
+      PRE_AIOS/downstream-workflow cause, run_created=false and executor_invoked=false.
+      Transport success never claims RUN, verification, semantic review or publication.
     - >
-      Brain ingress must remain the sole actor-gated authoring/review ingress and must
-      port only target-pin-compatible bounded post-canonicalization handoffs, including
-      repair authorization delivery when canonical ingress output supplies a repair SHA.
-      It must not itself select correction semantics or execute a repair.
+      Brain ingress remains actor/title/repository gated and may dispatch only bounded
+      canonical continuation outputs, including publication replay and canonical
+      AUTHOR_REPAIR handoff when exact ingress output supplies its repair SHA. It must
+      not choose correction strategy or fabricate lifecycle state.
     - >
-      Safe publication must resolve the exact canonical review-decision ref and current
-      canonical publication control SHA, invoke only the pinned publication gate, and
-      publish only the exact eligible reviewed source candidate. Review-decision,
-      artifact, remediation or planning commits must never become source publication.
+      Safe Publisher binding must resolve the exact canonical PASS review-decision ref
+      and exact current canonical control SHA, invoke only the pinned publication gate,
+      and publish only the eligible reviewed source candidate. Metadata/ref commits
+      never become source publication.
     - >
-      Preserve Python Agent repository identity, authorized Human actor, all existing
-      issue title bounds, Codex-versus-Antigravity Human surface separation, and
-      self-host labels [self-hosted, windows, x64, python-complete-agent]. Carrier
-      policy YAML files and aios-terminal-attention.yml remain byte-unchanged because
-      fresh audit found no semantic delta beyond repository/install identity.
+      Preserve Python Agent repository identity, authorized Human actor, existing issue
+      title policies, self-host labels [self-hosted, windows, x64,
+      python-complete-agent], and Codex-versus-Antigravity Human surface separation.
     - >
-      Existing compatibility bootstrap scripts aios_phase1_wakeup.py,
-      aios_phase2_remediation.py and aios_phase2_repair.py remain byte-unchanged unless
-      the new control entry can be proven impossible without changing them. If such a
-      conflict exists, stop unresolved rather than silently widening scope.
+      Carrier policy YAMLs and aios-terminal-attention.yml remain byte-unchanged.
+      The three standalone upstream remote/approval workflows remain absent.
     - >
-      .ai/aios-adoption-state.yaml must move downstream_pin to exact 2cf7ba... and
-      record upstream reviewed/source-published provenance through TASK-194 r1 /
-      RUN-194-001 / REVIEW-194-001. It must classify the newly available BP1-BP8
-      package capabilities separately from repository binding activation, mark fresh
-      full downstream conformance for TASK-207 r9 as PENDING_FRESH_CERTIFICATION, and
-      preserve TASK-207 r8 / edd7d8d... as immutable prior-pin certification history.
-      Older historical certification/failure records remain intact.
+      .ai/aios-adoption-state.yaml records exact active pin 636cde7..., reviewed
+      provenance through TASK-195 r1 / RUN-195-002 / REVIEW-195-001, and package
+      capability coverage through TASK-195. It preserves TASK-207 r8 / edd7d8d...
+      as prior-pin certified history and marks current full downstream conformance
+      PENDING_FRESH_CERTIFICATION through TASK-207 r9.
     - >
-      New Brain/Reviewer semantic capability families made available by the target pin
-      must be marked repository-binding REQUIRED_PENDING until TASK-256 adds their
-      repository-owned registries. Package availability alone must not imply that
-      Python Agent has activated those semantic surfaces.
+      Adoption classifications must explicitly distinguish package availability from
+      repository binding. At minimum: execution-profile and Phase-1/Phase-2 carrier
+      compatibility are ACTIVE after publication; Brain Context/Decision Packet/Brain
+      Audit/Brain Provider/Reviewer Provider/BP7/BP8 semantic package capability is
+      ADOPTED_BY_PIN while the five P1B semantic registries remain REQUIRED_PENDING;
+      verification-performance profile/probes and standalone remote UX are
+      NOT_REQUIRED; no package presence silently activates a repository binding.
     - >
-      .ai/aios-conformance-state.yaml remains byte-identical and continues to describe
-      only publication-effective TASK-207 r8 certification under edd7d8d.... Tests
-      must distinguish ACTIVE_PIN=2cf7ba... from CERTIFIED_PRIOR_PIN=edd7d8d... instead
-      of rewriting old certification truth.
+      .ai/aios-conformance-state.yaml remains byte-identical old-pin certification.
+      Governance tests must distinguish ACTIVE_PIN=636cde7... from
+      CERTIFIED_PRIOR_PIN=edd7d8d... until TASK-207 r9 publication.
     - >
-      The Brain-owned roadmap side-track and TASK-254 r4 file remain byte-identical
-      during Executor implementation. TASK-255 must not mark P1A DONE, advance P1B,
-      revise TASK-254 or resume product work.
+      TASK-254 r4, Brain-owned roadmap state and all product code remain byte-identical.
+      This candidate does not mark P1A DONE or automatically advance P1B.
     - >
-      Documentation updates may describe the exact new pin, execution-profile provenance,
-      transient control-source and Operational Receipt v2 boundaries, but must not copy
-      Runtime implementation semantics or make mutable upstream main authoritative.
+      Offline regressions must cover exact pin/provenance, new six-effort/high policy,
+      PRIMARY/REMEDIATION/REPAIR exact identity and profile propagation, transient
+      control source, bounded Operational Receipt v2, repair handoff, safe publication
+      control SHA, old-pin certification preservation, REQUIRED_PENDING P1B registries
+      and explicit exclusion of upstream-only profiles/workflows.
     - >
-      Verification is deterministic, offline, non-interactive and provider/network
-      independent. Workflow tests inspect/configure static carrier semantics only and
-      must not dispatch GitHub Actions, invoke real self-host runners or call external
-      providers.
-    - >
-      Mutation is confined exactly to the authorized modify list. Executor must leave
-      zero unresolved implementation items and must not review, publish or advance the
-      roadmap.
+      Modify exactly the twenty-two authorized files. Executor returns one clean
+      candidate with zero unresolved implementation items and does not review, publish,
+      advance roadmap planning or execute TASK-254.
 
 acceptance:
   - id: AC1
     condition: >
-      The implementation has exactly one active AIOS-renew runtime authority at
-      2cf7ba01222891bb5470b231fee01b7122e39cab in both the immutable dependency pin
-      and worker AUTHORITATIVE_COMMIT, with stale/alternate provenance still fail-closed,
-      and one repository execution-profile policy with only the prescribed two
-      executor defaults and low/medium/high effort sets.
+      Candidate has exactly one active AIOS-renew dependency/provenance authority at
+      636cde7c55f8a843338ea407d2888ea1043875b5 and one exact downstream execution-profile
+      policy with Codex gpt-6-sol/high supporting none/low/medium/high/xhigh/max and
+      unchanged Antigravity medium policy.
   - id: AC2
     condition: >
-      PRIMARY carrier implementation binds exact task revision/blob/commit and one
-      resolved execution profile before dispatch, and its self-host path uses one
-      exact transient control source plus bounded Operational Receipt v2 rather than
-      mutable workspace control code.
+      PRIMARY, REMEDIATION and REPAIR carrier implementations bind and propagate their
+      exact semantic selectors plus one immutable execution profile, use trusted
+      transient control source on self-host, and expose bounded Operational Receipt v2
+      without retry, fallback, reroute or fabricated lifecycle success.
   - id: AC3
     condition: >
-      REMEDIATION and REPAIR carrier implementations preserve their existing immutable
-      semantic selectors while adding exact profile provenance, transient control-source
-      isolation and Operational Receipt v2, with REPAIR no-Executor semantics preserved
-      and no retry/fallback/reroute path.
+      The downstream control entry is authority-neutral and can bootstrap exactly the
+      pinned runtime from an exact transient Python Agent control source for one
+      already-selected operator invocation while legacy phase bootstrap scripts remain
+      unchanged.
   - id: AC4
     condition: >
-      A downstream-specific authority-neutral control entry exists and only bootstraps
-      the exact pinned runtime from the supplied transient Python Agent control source
-      before one already-selected operator invocation; it contains no lifecycle,
-      semantic, provider-selection, review or publication decision logic.
+      Brain ingress and auto-publish implementations are target-pin compatible for
+      bounded canonical repair/publication handoffs and exact current-control-SHA
+      publication while preserving actor gating and exact reviewed-source publication.
   - id: AC5
     condition: >
-      Brain ingress and safe publication are compatible with the target pin's bounded
-      repair handoff and current-control-SHA publication contract while preserving
-      actor gating, exact reviewed-source publication and Python Agent repository
-      identity.
+      Adoption state identifies the final TASK-195 pin as active package authority,
+      preserves edd7d8d/TASK-207 r8 as prior-pin certification, marks TASK-207 r9
+      conformance pending, and explicitly classifies P1B semantic registries as
+      REQUIRED_PENDING rather than silently active.
   - id: AC6
     condition: >
-      Carrier policy YAMLs, terminal-attention workflow, legacy phase bootstrap scripts,
-      product source, TASK-254 r4, Brain-owned roadmap planning and conformance
-      certification record remain unchanged, and no upstream hook or second lifecycle
-      authority is activated.
+      Upstream-only verification-performance profiles/probes and standalone remote UX
+      remain absent/NOT_REQUIRED; carrier policy YAMLs, terminal-attention workflow,
+      old conformance record, TASK-254 r4, roadmap state, product code and legacy phase
+      bootstrap scripts remain unchanged.
   - id: AC7
     condition: >
-      Adoption state identifies 2cf7ba... as the active exact reviewed/source-published
-      package pin, preserves edd7d8d... TASK-207 r8 certification as prior-pin history,
-      marks TASK-207 r9 fresh conformance pending, and leaves Brain/Reviewer repository
-      binding activation pending for BP9-P1B rather than claiming capability activation.
-  - id: AC8
-    condition: >
-      Focused offline regression coverage represents the new exact task/profile
-      selectors, pre-AIOS operational receipts, transient control-source isolation,
-      downstream control entry, repair/remediation no-reroute boundaries, safe
-      publication control SHA, old-pin conformance preservation and exact new-pin
-      provenance without performing any real provider or GitHub dispatch operation.
+      Focused deterministic test code represents the exact new pin/default/profile
+      provenance, carrier identity propagation, transient control isolation, bounded
+      operational receipts, safe publication control, historical certification split
+      and P1B-pending classifications without any real provider, GitHub dispatch or
+      self-host operation.
 
 verification:
   required:
-    - python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py tests/aios_bridge/test_aios_brain_ingress.py tests/aios_bridge/test_aios_phase1_control_plane.py tests/aios_bridge/test_aios_phase2_control_plane.py tests/aios_bridge/test_aios_auto_publish_workflow.py tests/aios_bridge/test_aios_conformance_state.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task255-r1
+    - python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py tests/aios_bridge/test_aios_brain_ingress.py tests/aios_bridge/test_aios_phase1_control_plane.py tests/aios_bridge/test_aios_phase2_control_plane.py tests/aios_bridge/test_aios_auto_publish_workflow.py tests/aios_bridge/test_aios_conformance_state.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task255-r2
     - git diff --check
