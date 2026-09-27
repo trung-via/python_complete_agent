@@ -48,34 +48,54 @@ planning_handoff:
 human_priority_side_track:
   id: AIOS_BP9_BRAIN_PORTABILITY_DOWNSTREAM_ADOPTION
   status: NEXT
+  phase: BP9-P1A
   authority: HUMAN_BRAIN_PLANNING
   selected_on: "2026-09-27"
   source_project: trung-via/AIOS-renew
   source_roadmap_item: bp-9-downstream-adoption
-  migration_task:
-    task_id: TASK-255
-    task_revision: 1
-    status: UNAUTHORED
   target_aios_pin: "2cf7ba01222891bb5470b231fee01b7122e39cab"
   prior_aios_pin: "edd7d8d92d54900c56442bbfcddb8648ec4d2e09"
-  conformance_resume:
-    task_id: TASK-207
-    expected_revision: 9
-    authoring_gate: AFTER_TASK_255_PUBLICATION
-    status: PENDING_MIGRATION
+  phases:
+    - id: BP9-P1A
+      status: NEXT
+      task_id: TASK-255
+      task_revision: 1
+      objective: >-
+        Migrate the sole exact AIOS-renew pin and repository-owned Phase-1/Phase-2
+        carrier compatibility to the reviewed BP8 source, including execution-profile
+        binding, exact TASK semantic identity, trusted transient control-source handling,
+        Operational Receipt v2 and safe publication control, without adopting Brain or
+        Reviewer semantic registries yet.
+    - id: BP9-P1B
+      status: PLANNED
+      task_id: TASK-256
+      task_revision: 1
+      authoring_gate: AFTER_TASK_255_PUBLICATION
+      objective: >-
+        Add the repository-owned Flow Card, Brain audit/return, and Reviewer
+        procedure/return registries required by the pinned provider-neutral Brain and
+        Reviewer protocols and prove them offline against Python Agent canonical state.
+    - id: BP9-P2
+      status: PLANNED
+      task_id: TASK-207
+      expected_revision: 9
+      authoring_gate: AFTER_TASK_256_PUBLICATION
+      objective: >-
+        Freshly certify the complete downstream control plane and portability profile
+        set under the exact new pin before product-roadmap continuation resumes.
   preserved_product_commitment:
     task_id: TASK-254
     task_revision: 4
     status: AUTHORED_UNEXECUTED
-    resume_after: BP9_DOWNSTREAM_CONFORMANCE_PUBLICATION
+    resume_after: BP9-P2_PUBLICATION
   boundary: >-
     Human explicitly prioritizes the AIOS-renew BP9 downstream-adoption side-track
     before executing the already-authored TASK-254 r4. This planning bookmark does
-    not cancel, revise, execute, or reinterpret TASK-254. BP9 must adopt only an exact
-    reviewed/source-published AIOS-renew pin plus explicit repository-owned portability
-    profiles/bindings, then obtain fresh TASK-207 conformance for that exact pin before
-    generic product continuation resumes. Mutable upstream main is never downstream
-    authority and Runtime/Reviewer/Publisher may not auto-advance this planning state.
+    not cancel, revise, execute, or reinterpret TASK-254. BP9 must adopt only exact
+    reviewed/source-published AIOS-renew authority and explicit repository-owned
+    bindings/profiles. P1A, P1B and fresh TASK-207 conformance remain separate
+    publication-gated steps; mutable upstream main is never downstream authority and
+    Runtime/Reviewer/Publisher may not auto-advance this planning state.
 
 
 active_track:
