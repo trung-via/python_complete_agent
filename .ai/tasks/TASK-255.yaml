@@ -1,55 +1,66 @@
 task_id: TASK-255
-revision: 4
+revision: 5
 
 goal: >
-  Execute BP9-P1A as one exact legacy-bootstrap downstream migration from Python Agent's
-  current installed AIOS-renew generation edd7d8d92d54900c56442bbfcddb8648ec4d2e09
-  to the first exact reviewed migration-capable generation
-  83115b26df85a7ad6643f317833e18b18586bdbe, then adopt the exact current reviewed/
-  published AIOS-renew source 45c46397914aadf20cb4cb6b874f274da43e2b9c as the sole
-  downstream dependency authority using only the TASK-197/TASK-198 migration architecture
-  and repository-owned compatibility changes required by BP9-P1A. Preserve TASK-254 r4,
-  old-pin conformance history, and leave P1B semantic registries to TASK-256.
+  Execute BP9-P1A as one exact source-control legacy-bootstrap downstream adoption from
+  Python Agent's currently installed AIOS-renew generation
+  edd7d8d92d54900c56442bbfcddb8648ec4d2e09 through the reviewed TASK-199/TASK-201
+  bootstrap authority, admitting exactly one TASK-255 r5 implementation RUN under the
+  exact TASK-199 consumer source ff29666d50eaf9276ab62d944018f2bbeb91f073, and produce
+  one downstream candidate whose sole final AIOS-renew dependency/provenance authority is
+  the exact reviewed/published activation source
+  bbc8f09f38ac4d150060c6fcc851b6da2140e5a0. Port only the repository-owned BP9-P1A
+  compatibility/profile/carrier deltas required by that final pin, preserve historical
+  lineage and TASK-254 r4, and leave P1B semantic registries to TASK-256.
 
 problem: >
-  TASK-255 r3 targeted 615a13ab519d5d285801cc79e40cb5e25bb16617 but its legacy
-  downstream generation predates migrate-primary. Carrier attempts reached the old bootstrap
-  boundary and failed before a canonical TASK-255 RUN/Executor. TASK-257 diagnosed that
-  boundary read-only. Upstream TASK-197 then published reusable N-to-N+1 migrate-primary and
-  TASK-198 published a bounded one-time bootstrap-primary compatibility edge for legacy
-  installed generations. Exact upstream main is now
-  45c46397914aadf20cb4cb6b874f274da43e2b9c. The downstream must consume those published
-  semantics rather than retrying r3 or allowing synchronized target source to self-authorize.
-  Because TASK-198 intentionally restricts bootstrap-primary to first reviewed migration-capable
-  generation 83115b26df85a7ad6643f317833e18b18586bdbe, r4 must respect that exact authority edge
-  and must not pretend the legacy generation can directly authorize arbitrary later source.
+  TASK-255 r4 was authored against the older TASK-197/TASK-198 two-hop architecture:
+  legacy edd7d8d... -> first capable 83115b26... -> then later 45c463.... That contract
+  correctly failed closed if one TASK lifecycle could not truthfully own the second
+  generation movement, but it is now stale before execution. Upstream TASK-199 published
+  a version-2 source-control legacy-bootstrap that requires no prospective downstream
+  control/pin commit and can transfer one exact unchanged downstream TASK directly to an
+  exact consumer source. TASK-201 separately activated that capability by allowing only
+  exact consumer SHA ff29666d50eaf9276ab62d944018f2bbeb91f073, and its reviewed candidate
+  bbc8f09f38ac4d150060c6fcc851b6da2140e5a0 is now canonical AIOS-renew main. TASK-200
+  also removed non-target remediation-carrier false-red fan-out. Python Agent remains
+  pinned to legacy edd7d8d... and its current remediation carrier still has the old
+  unconditional receipt path. Running r4 or retrying old PRIMARY would therefore ignore
+  the newly reviewed migration invariant and can recreate the generation-switch hazard.
 
 assumptions:
   - >
     Canonical Python Agent main at authoring is
-    49b88606b0047b88086bd848e7530646355cdfbd.
+    a69a9ec8511926a6377f778622716f0bde019c21.
   - >
-    The sole active downstream AIOS dependency and worker provenance remain exactly
-    edd7d8d92d54900c56442bbfcddb8648ec4d2e09; TASK-207 r8 remains prior-pin certification.
+    The sole active Python Agent AIOS dependency/provenance remains exact
+    edd7d8d92d54900c56442bbfcddb8648ec4d2e09 and TASK-207 r8 remains certification
+    for that old pin only.
   - >
-    TASK-255 r1-r3 and their failed/pre-AIOS attempts are immutable history. No r3 retry,
-    REPAIR, RUN resurrection, or fabricated failure is authorized.
+    TASK-255 r1-r4 are immutable history. RUN-255-001 and RUN-255-002 belong to
+    revision 2 and remain failed historical lineage; r3 operational attempts did not
+    establish a new canonical implementation RUN; r4 was authored but never admitted
+    to a canonical RUN. No old revision is retried, repaired, resurrected, or
+    reinterpreted.
   - >
-    TASK-257 r1 is diagnostic-only and grants no migration authority.
+    Upstream TASK-199 / RUN-199-001 / REVIEW-199-001 is reviewed/published at exact
+    ff29666d50eaf9276ab62d944018f2bbeb91f073 and provides the source-control
+    legacy-bootstrap consumer capability.
   - >
-    Upstream TASK-197 is exact-source published through
-    83115b26df85a7ad6643f317833e18b18586bdbe and provides reusable migrate-primary.
+    Upstream TASK-200 / RUN-200-001 / REVIEW-200-001 is reviewed/published at exact
+    f248416cf4ac8f41203898f530bc21d0500a5479 and fixes non-target remediation carrier
+    receipt/failure fan-out.
   - >
-    Upstream TASK-198 / RUN-198-002 / REVIEW-198-001 are exact-source published at
-    45c46397914aadf20cb4cb6b874f274da43e2b9c and provide only the bounded legacy
-    bootstrap into the TASK-197 handoff. TASK-198 does not approve this downstream adoption.
+    Upstream TASK-201 / RUN-201-001 / REVIEW-201-001 is reviewed/published at exact
+    bbc8f09f38ac4d150060c6fcc851b6da2140e5a0 and activates the single source-bootstrap
+    allowlist slot for exact target ff29666d50eaf9276ab62d944018f2bbeb91f073.
   - >
-    Current upstream execution-profile policy remains Codex gpt-6-sol/high with efforts
-    [none, low, medium, high, xhigh, max], and Antigravity gemini-3.8-flash/medium with
-    [low, medium, high].
+    Current upstream execution-profile policy at the final pin is Codex
+    gpt-6-sol/high with efforts [none, low, medium, high, xhigh, max] and Antigravity
+    gemini-3.8-flash/medium with efforts [low, medium, high].
   - >
-    TASK-254 r4 is canonically authored/unexecuted and must remain byte-identical.
-    P1B/TASK-256 and fresh TASK-207 r9 remain later publication-gated steps.
+    TASK-254 r4 is canonically authored/unexecuted and remains preserved. P1B/TASK-256
+    and fresh TASK-207 r9 certification remain later publication-gated work.
 
 scope:
   inspect:
@@ -65,6 +76,7 @@ scope:
     - .ai/tasks/TASK-254.yaml
     - .ai/tasks/TASK-255.yaml
     - .ai/tasks/TASK-257.yaml
+    - .ai/executor-profiles.yaml
     - .ai/brain-ingress-carriers.yaml
     - .ai/brain-wakeup-carriers.yaml
     - .ai/brain-remediation-intent-carriers.yaml
@@ -77,7 +89,6 @@ scope:
     - .agents/skills/aios-worker/scripts/aios_phase2_repair.py
     - .agents/skills/aios-worker/SKILL.md
     - .agents/workflows/aios-renew-worker.md
-    - scripts/aios_control_entry.py
     - .github/workflows/aios-brain-ingress.yml
     - .github/workflows/aios-brain-wakeup.yml
     - .github/workflows/aios-self-hosted-wakeup.yml
@@ -102,7 +113,6 @@ scope:
     - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
     - .ai/executor-profiles.yaml
     - .ai/aios-adoption-state.yaml
-    - scripts/aios_control_entry.py
     - .github/workflows/aios-brain-ingress.yml
     - .github/workflows/aios-brain-wakeup.yml
     - .github/workflows/aios-self-hosted-wakeup.yml
@@ -121,128 +131,140 @@ scope:
 non_goals:
   - >
     Modify .ai/roadmap-state.yaml, .ai/aios-conformance-state.yaml, TASK-254 r4,
-    product code, Product Intelligence semantics, marketplace/browser/session/evidence state,
-    or automatically advance BP9 planning.
+    product code, Product Intelligence semantics, marketplace/browser/session/evidence
+    state, or automatically advance BP9 planning.
   - >
-    Add the five P1B Brain/Reviewer semantic registries. They remain TASK-256 scope.
+    Add P1B Brain/Reviewer semantic registries; they remain TASK-256 scope.
   - >
-    Retry TASK-255 r3, revive its pre-AIOS attempts, sequentially execute ordinary PRIMARY
-    against intermediate historical tasks, or fabricate canonical lifecycle artifacts.
+    Retry/repair TASK-255 r1-r4, reuse RUN-255-001/002, ordinary-PRIMARY retry under
+    legacy edd7d8d..., use TASK-198 bootstrap-primary as the r5 authority edge, or
+    sequentially execute intermediate migration TASKs.
   - >
-    Let target/current synchronized AIOS source attest or authorize the legacy generation.
-    The exact installed legacy distribution witness and immutable migration intent are mandatory.
+    Change upstream AIOS source, bootstrap allowlists, Kernel/frozen semantics, Runtime,
+    Reviewer, Publisher, or source-bootstrap protocol.
   - >
-    Create a second Runtime, migration daemon, lifecycle router, Planner, Reviewer, Publisher,
-    retry/fallback/failover authority, provider selector, scheduler, queue, broker, or floating pin.
+    Create a second Runtime, lifecycle router, migration daemon, Planner, Reviewer,
+    Publisher, retry/fallback/failover authority, provider selector, scheduler, queue,
+    broker, or floating dependency.
   - >
-    Copy upstream verification-performance profiles/probes, standalone remote UX, roadmap,
-    TASK artifacts, or provider proof state downstream.
+    Copy upstream Brain/Reviewer proof state, verification-performance harnesses,
+    roadmap state, or TASK artifacts downstream.
   - >
-    Review, publish, fresh-certify conformance, execute TASK-254, or begin P1B inside Executor work.
+    Review, publish, certify TASK-207 r9, execute TASK-254, or begin P1B inside
+    Executor work.
 
 constraints:
   hard:
     - >
-      The migration must use the published TASK-198 bounded legacy bootstrap semantics. Before
-      target authority, independently attest the actually imported installed legacy distribution
-      as exact edd7d8d92d54900c56442bbfcddb8648ec4d2e09; synchronized downstream or target
-      source cannot serve as that witness.
+      The pre-Executor authority edge for r5 must be the reviewed version-2
+      AIOS_SOURCE_CONTROL_BOOTSTRAP_INTENT path. Admission must execute from exact
+      reviewed/published activation source
+      bbc8f09f38ac4d150060c6fcc851b6da2140e5a0, never mutable main/latest, while an
+      isolated interpreter independently attests the actually imported installed legacy
+      generation as exact edd7d8d92d54900c56442bbfcddb8648ec4d2e09.
     - >
-      The one-time bootstrap authority edge targets exactly
-      83115b26df85a7ad6643f317833e18b18586bdbe. Do not change the upstream bootstrap target,
-      use mutable main/latest, or claim a direct legacy-to-45c463 migration authorization.
+      That bootstrap intent must target exactly the activated TASK-199 consumer source
+      ff29666d50eaf9276ab62d944018f2bbeb91f073 and bind the exact governed Python Agent
+      repository, exact unchanged source-control commit containing canonical TASK-255 r5,
+      exact source pin blob, TASK-255 r5 revision/blob/authoring commit, selected Executor,
+      and exact target source URL. Missing, stale, dirty, detached, ambiguous, floating,
+      mismatched, or replayed identity fails closed before target authority.
     - >
-      The migration intent must bind exact source/target generation, governed downstream
-      repository, source and target downstream control commits, source/target pin blobs,
-      TASK-255 r4 id/revision/blob/authoring commit and the selected Executor. Missing, stale,
-      floating, dirty, detached-unsafe, ambiguous or mismatched identity fails closed before
-      target authority.
+      Do not target bbc8f09... directly in the source-bootstrap intent. bbc8f09... is the
+      separately reviewed activation/admission source and desired final downstream pin;
+      the only activated consumer target is ff29666d.... The exact ff29666d target must
+      consume the durable handoff and admit the one TASK-255 r5 Runtime execution at the
+      unchanged downstream source-control commit with synchronization disabled.
     - >
-      After the bounded bootstrap edge, only the exact admitted 83115b26 target consumes the
-      TASK-197 handoff. Any further generation movement must be owned by installed
-      migration-capable migrate-primary semantics, never by bootstrap-primary reuse.
+      Exactly one canonical TASK-255 r5 implementation RUN and at most one Executor
+      invocation may exist. The candidate's change of the repository dependency pin to
+      bbc8f09... is ordinary bounded TASK implementation state, not a second migration
+      authority edge or second execution. If the architecture cannot truthfully preserve
+      one RUN/one Executor, stop unresolved rather than fall back to TASK-198 multi-hop.
     - >
-      The final reviewed candidate must leave exactly one active downstream dependency/provenance
-      authority at 45c46397914aadf20cb4cb6b874f274da43e2b9c and repository-owned compatibility
-      bindings matching that exact published source. If reaching 45c463 from 83115b requires a
-      separate migration authority or cannot be represented without violating the one-RUN/one-
-      Executor lifecycle for TASK-255 r4, stop unresolved and report the minimum required
-      successor rather than inventing a second authority edge.
+      The final candidate must leave exactly one active AIOS dependency/provenance at
+      bbc8f09f38ac4d150060c6fcc851b6da2140e5a0. requirements-aios-renew.txt,
+      aios_worker AUTHORITATIVE_COMMIT/PIN_LINE, documentation, adoption state and all
+      repository-owned pin assertions must agree exactly; no intermediate pin remains
+      active or floating.
     - >
-      Preserve the execution-profile policy: Codex default gpt-6-sol/high with
-      [none, low, medium, high, xhigh, max] in that order; Antigravity
-      gemini-3.8-flash/medium with [low, medium, high]. Human explicit selection outranks defaults.
+      Port the final-pin execution-profile policy exactly: Codex default
+      gpt-6-sol/high with supported efforts [none, low, medium, high, xhigh, max] in that
+      order; Antigravity gemini-3.8-flash/medium with [low, medium, high]. Preserve exact
+      Human override precedence and immutable model/effort provenance through applicable
+      PRIMARY/REMEDIATION/REPAIR carriers.
     - >
-      PRIMARY/REMEDIATION/REPAIR hosted carriers must preserve exact semantic selectors and
-      immutable execution-profile provenance; self-host execution must use trusted exact transient
-      downstream control source and bounded Operational Receipt semantics. Carrier success is not
+      Port repository-owned carrier compatibility required through TASK-201, including
+      TASK-200 remediation fan-out hygiene: non-[AIOS REMEDIATION INTENT] issues must skip
+      the remediation receipt/failure path cleanly, while genuine target-family admission
+      or dispatch failure remains fail-closed. Do not blindly copy upstream repository
+      identity; preserve Python Agent actor/repository/runner policy and authority boundaries.
+    - >
+      PRIMARY/REMEDIATION/REPAIR bindings must preserve exact semantic selectors,
+      trusted transient control isolation where required by the final pin, bounded
+      Operational Receipt semantics, and separation between carrier delivery and
       RUN/verification/review/publication truth.
     - >
-      scripts/aios_control_entry.py remains authority-neutral bootstrap/delegation only. It must
-      not select migration target, operation, Executor, model, effort, lifecycle action, review,
-      publication or correction strategy, and must not become a second migration protocol.
+      Existing aios_phase1_wakeup.py, aios_phase2_remediation.py and
+      aios_phase2_repair.py remain byte-identical. If satisfying the final pin requires
+      changing these historical bootstrap scripts, stop unresolved rather than widen
+      scope.
     - >
-      Existing aios_phase1_wakeup.py, aios_phase2_remediation.py and aios_phase2_repair.py remain
-      byte-identical. If compatibility requires changing them, stop unresolved rather than widen scope.
+      .ai/aios-adoption-state.yaml must preserve edd7d8d... / TASK-207 r8 as historical
+      old-pin certification only, record TASK-199/TASK-200/TASK-201 migration/adoption
+      provenance and final pin bbc8f09..., mark fresh TASK-207 r9 certification pending,
+      and keep P1B semantic registries REQUIRED_PENDING. Planning state does not itself
+      prove migration completion.
     - >
-      Brain ingress and safe publication remain exact canonical continuation/publisher bindings;
-      no repository-owned workflow may fabricate review/publication or treat metadata/ref commits
-      as source publication.
+      .ai/aios-conformance-state.yaml, .ai/roadmap-state.yaml, TASK-254 r4, carrier policy
+      YAMLs, terminal-attention workflow, product code and the three legacy phase bootstrap
+      scripts remain byte-identical.
     - >
-      Adoption state must preserve old edd7d8d/TASK-207 r8 certification as prior-pin history,
-      record TASK-197/TASK-198 migration provenance and final exact active pin only after the
-      implementation candidate itself represents that state, mark TASK-207 r9 pending, and keep
-      P1B semantic registries REQUIRED_PENDING.
-    - >
-      .ai/aios-conformance-state.yaml, .ai/roadmap-state.yaml, TASK-254 r4, carrier policy YAMLs,
-      terminal-attention workflow, product code and legacy phase bootstrap scripts remain
-      byte-identical.
-    - >
-      Production and focused test changes remain within the twenty-two P1A paths listed in modify.
-      Runtime owns verification. Executor returns one clean candidate with zero unresolved items;
-      if the exact migration architecture cannot truthfully satisfy this in one TASK-255 r4
-      implementation lifecycle, return unresolved rather than bypassing TASK-197/TASK-198.
-    - >
-      No real marketplace/provider operation is part of deterministic verification.
+      Runtime owns verification. Executor returns one clean candidate with zero unresolved
+      implementation items and does not review, publish, advance roadmap state, execute
+      TASK-254, begin P1B, or certify the new pin.
 
 acceptance:
   - id: AC1
     condition: >
-      Exact evidence shows the legacy installed generation is independently attested as edd7d8d...
-      and the only bootstrap authority edge is bound to exact 83115b26... under TASK-198 semantics,
-      with no target self-authorization and no pre-edge Executor/RUN fabrication.
+      Canonical migration evidence proves exact activation source bbc8f09..., exact legacy
+      installed witness edd7d8d..., exact source-control bootstrap target ff29666d..., exact
+      Python Agent source-control/pin/TASK/Executor binding, and no pre-edge RUN/Executor
+      fabrication or target self-authorization.
   - id: AC2
     condition: >
-      The downstream candidate has one final exact AIOS dependency/provenance authority at
-      45c46397914aadf20cb4cb6b874f274da43e2b9c, Codex gpt-6-sol/high six-effort policy,
-      unchanged Antigravity policy, and no floating/intermediate active pin.
+      Exactly one TASK-255 r5 implementation RUN executes under the bound ff29666d target
+      with synchronization disabled and at most one Executor invocation; stale/replay/
+      mismatched state reconciles or fails closed without a second RUN.
   - id: AC3
     condition: >
-      PRIMARY/REMEDIATION/REPAIR compatibility bindings preserve exact semantic/profile identity,
-      trusted transient control isolation, bounded operational receipts and authority-neutral
-      delegation without retry/fallback/reroute or duplicate lifecycle authority.
+      The resulting downstream candidate has one exact final AIOS dependency/provenance
+      authority bbc8f09..., no active intermediate pin, and exact Codex/Antigravity
+      execution-profile policy and provenance matching the final upstream pin.
   - id: AC4
     condition: >
-      Bootstrap completion composes into TASK-197 migration ownership and any subsequent
-      generation movement is exact and migration-capable; at most one TASK-255 implementation
-      RUN and one Executor invocation occur. If this cannot be proven, execution stops unresolved.
+      Repository-owned Phase-1/Phase-2 carriers remain Python-Agent-specific but compatible
+      with the final pin, including exact selector/profile propagation, trusted control
+      isolation, bounded operational receipts, safe publication bindings and clean non-target
+      remediation fan-out behavior.
   - id: AC5
     condition: >
-      Adoption state records TASK-197/TASK-198 provenance, final active pin, old-pin TASK-207 r8
-      certification as historical only, fresh TASK-207 r9 pending, and P1B registries
-      REQUIRED_PENDING; no package capability silently activates repository semantic bindings.
+      Adoption state preserves all old-pin certification/failure history, records exact
+      TASK-199/TASK-200/TASK-201 provenance and final pin, keeps fresh TASK-207 r9 pending
+      and P1B registries REQUIRED_PENDING; no package capability silently activates P1B.
   - id: AC6
     condition: >
-      Roadmap, conformance state, TASK-254 r4, product code, carrier policies, terminal-attention
-      workflow and legacy phase bootstrap scripts are unchanged; no P1B or product work begins.
+      Roadmap, conformance state, TASK-254 r4, product code, carrier policy YAMLs,
+      terminal-attention workflow and legacy phase bootstrap scripts are unchanged; no P1B
+      or product work begins.
   - id: AC7
     condition: >
-      Focused deterministic regressions prove exact migration/bootstrap identities, final pin and
-      execution-profile policy, carrier/profile propagation, transient control isolation,
-      operational receipts, safe publication, historical certification split and P1B pending
-      classifications; git diff --check passes with zero unresolved items.
+      Focused deterministic regressions prove exact final pin/provenance, execution-profile
+      policy, carrier/profile propagation, non-target remediation skip hygiene, safe
+      publication, historical certification split and P1B pending classifications, and
+      git diff --check passes with zero unresolved items.
 
 verification:
   required:
-    - python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py tests/aios_bridge/test_aios_brain_ingress.py tests/aios_bridge/test_aios_phase1_control_plane.py tests/aios_bridge/test_aios_phase2_control_plane.py tests/aios_bridge/test_aios_auto_publish_workflow.py tests/aios_bridge/test_aios_conformance_state.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task255-r4
+    - python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py tests/aios_bridge/test_aios_brain_ingress.py tests/aios_bridge/test_aios_phase1_control_plane.py tests/aios_bridge/test_aios_phase2_control_plane.py tests/aios_bridge/test_aios_auto_publish_workflow.py tests/aios_bridge/test_aios_conformance_state.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task255-r5
     - git diff --check
