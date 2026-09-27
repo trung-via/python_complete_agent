@@ -47,34 +47,51 @@ planning_handoff:
 
 human_priority_side_track:
   id: AIOS_BP9_BRAIN_PORTABILITY_DOWNSTREAM_ADOPTION
-  status: NEXT
-  phase: BP9-P1A
+  status: BLOCKED_ON_UPSTREAM
+  phase: PRE_BP9_CODEX_EFFORT_POLICY_ALIGNMENT
   authority: HUMAN_BRAIN_PLANNING
   selected_on: "2026-09-27"
   source_project: trung-via/AIOS-renew
   source_roadmap_item: bp-9-downstream-adoption
-  target_aios_pin: "2cf7ba01222891bb5470b231fee01b7122e39cab"
+  upstream_prerequisite:
+    task_id: TASK-195
+    task_revision: 1
+    requirement: EXACT_REVIEWED_SOURCE_PUBLISHED
+    current_status: PENDING
+  target_aios_pin: PENDING_EXACT_TASK_195_PUBLISHED_SOURCE
   prior_aios_pin: "edd7d8d92d54900c56442bbfcddb8648ec4d2e09"
+  authored_obsolete_plan:
+    task_id: TASK-255
+    task_revision: 1
+    authored_sha: "30ec5f39460903b44c1bb19cd3690f00fd07903f"
+    run_created: false
+    status: SUPERSEDED_FOR_CURRENT_PLANNING_ONLY
+    reason: >-
+      Human changed priority before execution to align Codex GPT-6 Sol effort
+      capability/default upstream first. TASK-255 r1 remains immutable authored
+      history but must not be executed because its target pin 2cf7ba... would be
+      immediately stale after TASK-195 publication.
   phases:
     - id: BP9-P1A
-      status: NEXT
+      status: WAIT_UPSTREAM_TASK_195_PUBLICATION
       task_id: TASK-255
-      task_revision: 1
+      expected_revision: 2
+      authoring_gate: AFTER_TASK_195_PUBLICATION_AND_FRESH_DOWNSTREAM_SYNC
       objective: >-
-        Migrate the sole exact AIOS-renew pin and repository-owned Phase-1/Phase-2
-        carrier compatibility to the reviewed BP8 source, including execution-profile
-        binding, exact TASK semantic identity, trusted transient control-source handling,
-        Operational Receipt v2 and safe publication control, without adopting Brain or
-        Reviewer semantic registries yet.
+        Migrate the sole exact AIOS-renew pin to the final reviewed TASK-195 source
+        and port every repository-owned Phase-1/Phase-2 carrier/profile compatibility
+        delta required between edd7d8d... and that exact final pin. The fresh r2
+        audit must subsume the now-obsolete r1 target and include the new Codex
+        none/low/medium/high/xhigh/max policy with gpt-6-sol/high default.
     - id: BP9-P1B
       status: PLANNED
       task_id: TASK-256
       task_revision: 1
-      authoring_gate: AFTER_TASK_255_PUBLICATION
+      authoring_gate: AFTER_TASK_255_R2_PUBLICATION
       objective: >-
-        Add the repository-owned Flow Card, Brain audit/return, and Reviewer
-        procedure/return registries required by the pinned provider-neutral Brain and
-        Reviewer protocols and prove them offline against Python Agent canonical state.
+        Add every repository-owned Brain/Reviewer portability registry and bounded
+        downstream binding required by the final exact pin that is not package-only,
+        proving no missing capability family remains silently unbound.
     - id: BP9-P2
       status: PLANNED
       task_id: TASK-207
@@ -82,20 +99,19 @@ human_priority_side_track:
       authoring_gate: AFTER_TASK_256_PUBLICATION
       objective: >-
         Freshly certify the complete downstream control plane and portability profile
-        set under the exact new pin before product-roadmap continuation resumes.
+        set under the exact final pin before product-roadmap continuation resumes.
   preserved_product_commitment:
     task_id: TASK-254
     task_revision: 4
     status: AUTHORED_UNEXECUTED
     resume_after: BP9-P2_PUBLICATION
   boundary: >-
-    Human explicitly prioritizes the AIOS-renew BP9 downstream-adoption side-track
-    before executing the already-authored TASK-254 r4. This planning bookmark does
-    not cancel, revise, execute, or reinterpret TASK-254. BP9 must adopt only exact
-    reviewed/source-published AIOS-renew authority and explicit repository-owned
-    bindings/profiles. P1A, P1B and fresh TASK-207 conformance remain separate
-    publication-gated steps; mutable upstream main is never downstream authority and
-    Runtime/Reviewer/Publisher may not auto-advance this planning state.
+    Human explicitly prioritizes upstream Codex effort-policy alignment before BP9.
+    No downstream migration may execute against an immediately stale pin. After the
+    exact TASK-195 reviewed source is published, Brain must fresh-sync both
+    repositories, audit the full edd7d8d... -> final-pin capability/binding delta,
+    author TASK-255 r2, and only then proceed through P1B and fresh TASK-207 r9
+    conformance. TASK-254 r4 remains preserved and unexecuted throughout.
 
 
 active_track:
