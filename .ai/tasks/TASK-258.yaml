@@ -1,0 +1,200 @@
+task_id: TASK-258
+revision: 1
+
+goal: >
+  Add one bounded repository-owned operational carrier that can initiate the already
+  reviewed AIOS_SOURCE_CONTROL_BOOTSTRAP_INTENT v2 path for canonical TASK-255 r5 from
+  the Python Agent self-hosted runner, without using legacy normal PRIMARY as migration
+  authority, changing the downstream AIOS pin, executing TASK-255, or creating any new
+  lifecycle authority.
+
+problem: >
+  TASK-255 r5 is canonically authored at commit
+  98eec66ee06c791a24dd2bbb860a54a9410da5c9 with blob
+  73b999ef147189a001e62da617bd172df48f5aa1 and correctly requires its pre-Executor
+  cross-generation authority edge to use the TASK-199/TASK-201 source-control
+  legacy-bootstrap protocol. The exact upstream activation source
+  bbc8f09f38ac4d150060c6fcc851b6da2140e5a0 exposes bootstrap-source-primary and
+  authorizes only target ff29666d50eaf9276ab62d944018f2bbeb91f073. However the current
+  downstream remote carrier surface only invokes legacy operator wakeup through
+  aios_phase1_wakeup.py; no reviewed repository-owned carrier currently invokes
+  bootstrap-source-primary. Reusing that old wakeup for r5 would bypass the migration
+  authority boundary that TASK-199 was created to establish. A narrow transport
+  prerequisite is therefore required before r5 execution.
+
+assumptions:
+  - >
+    Canonical Python Agent main at authoring is
+    98eec66ee06c791a24dd2bbb860a54a9410da5c9.
+  - >
+    Canonical TASK-255 r5 blob is
+    73b999ef147189a001e62da617bd172df48f5aa1 and its authoring commit is
+    98eec66ee06c791a24dd2bbb860a54a9410da5c9.
+  - >
+    The active installed downstream generation remains exactly
+    edd7d8d92d54900c56442bbfcddb8648ec4d2e09 and its dedicated worker runtime is the
+    only acceptable Python executable for the legacy attestation subprocess.
+  - >
+    Upstream activation source bbc8f09f38ac4d150060c6fcc851b6da2140e5a0 is reviewed/
+    published TASK-201 source and its sole activated source-bootstrap target is
+    ff29666d50eaf9276ab62d944018f2bbeb91f073.
+  - >
+    Exact target ff29666d50eaf9276ab62d944018f2bbeb91f073 carries repository-default
+    Codex gpt-6-sol/high and Antigravity gemini-3.8-flash/medium execution-profile policy;
+    the source-bootstrap protocol itself remains Runtime/Operator owned.
+  - >
+    This TASK is an operational transport prerequisite only and returns to TASK-255 r5.
+    It is not BP9-P1A implementation completion and grants no P1B or product authority.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - .ai/roadmap-state.yaml
+    - .ai/tasks/TASK-255.yaml
+    - .ai/tasks/TASK-257.yaml
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/scripts/aios_phase1_wakeup.py
+    - .github/workflows/aios-brain-wakeup.yml
+    - .github/workflows/aios-self-hosted-wakeup.yml
+    - tests/aios_bridge/test_aios_phase1_control_plane.py
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - .github/workflows/aios-source-bootstrap-wakeup.yml
+    - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
+    - tests/aios_bridge/test_aios_phase1_control_plane.py
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - >
+    Execute bootstrap-source-primary, TASK-255 r5, any Executor for TASK-255, or any real
+    migration during implementation or verification of TASK-258.
+  - >
+    Change requirements-aios-renew.txt, aios_worker.py, any legacy phase bootstrap script,
+    AIOS adoption/conformance/roadmap state, TASK-255, TASK-254, product code, or any
+    existing carrier/workflow.
+  - >
+    Implement a second migration protocol, Runtime, RUN allocator, verification engine,
+    lifecycle reducer, Planner, Reviewer, Publisher, retry/fallback/failover mechanism,
+    provider selector, generic task router, scheduler, queue, broker, or migration daemon.
+  - >
+    Accept arbitrary target generation, mutable AIOS main/latest, arbitrary TASK,
+    arbitrary downstream repository, arbitrary Executor, arbitrary actor, or caller-selected
+    model/effort through the new carrier.
+  - >
+    Treat carrier success as RUN, RESULT, verification, review, publication, migration
+    completion, or downstream certification.
+  - >
+    Port TASK-200 remediation fan-out hygiene or other final-pin compatibility deltas here;
+    those remain TASK-255 r5 implementation scope.
+
+constraints:
+  hard:
+    - >
+      Add exactly one new Issue-triggered workflow with one exact title marker
+      [AIOS SOURCE BOOTSTRAP]. Non-target issue events must skip every bootstrap-capable job
+      cleanly. An exact-title request from any actor other than trung-via must fail closed
+      before any self-hosted bootstrap work.
+    - >
+      The carrier is repository-specific to trung-via/python_complete_agent and may initiate
+      only TASK-255 revision 5 with task blob
+      73b999ef147189a001e62da617bd172df48f5aa1, task authoring commit
+      98eec66ee06c791a24dd2bbb860a54a9410da5c9, executor codex, legacy generation
+      edd7d8d92d54900c56442bbfcddb8648ec4d2e09, activation source
+      bbc8f09f38ac4d150060c6fcc851b6da2140e5a0 and target generation
+      ff29666d50eaf9276ab62d944018f2bbeb91f073. No body field may override these selectors.
+    - >
+      Before invoking AIOS, bind source_control_sha to the exact default-branch commit of
+      the Issue event and prove the persistent Python Agent checkout is the configured
+      repository, clean, attached to main, has an unambiguous origin/main, and can reach
+      that exact commit by fast-forward only. A bounded fast-forward to that exact event
+      commit is permitted; merge, rebase, reset, force update, detached execution, dirty
+      cleanup, stash, or branch switching is forbidden.
+    - >
+      At that exact source_control_sha, prove the pin path
+      .agents/skills/aios-worker/requirements-aios-renew.txt still names only legacy
+      edd7d8d92d54900c56442bbfcddb8648ec4d2e09, prove .ai/tasks/TASK-255.yaml has exact
+      blob 73b999ef147189a001e62da617bd172df48f5aa1, and prove authoring commit
+      98eec66ee06c791a24dd2bbb860a54a9410da5c9 is an ancestor containing that same blob.
+      Compute and bind the exact source pin blob SHA; do not infer or float any identity.
+    - >
+      Resolve the existing dedicated worker-runtime Python from the downstream Git state and
+      prove through immutable package provenance that its installed aios-renew distribution is
+      exact edd7d8d92d54900c56442bbfcddb8648ec4d2e09 before using it. Do not install or
+      replace the worker runtime in this carrier.
+    - >
+      Materialize the activation source from
+      https://github.com/trung-via/AIOS-renew.git at exact detached SHA
+      bbc8f09f38ac4d150060c6fcc851b6da2140e5a0 into a unique runner-temp path, verify exact
+      HEAD/clean state and trusted scripts/aios_control_entry.py, and never execute mutable
+      upstream main.
+    - >
+      Construct exactly one AIOS_SOURCE_CONTROL_BOOTSTRAP_INTENT version 2 in runner-temp
+      state. It must bind source_generation_sha edd7d8d..., target_generation_sha
+      ff29666d..., exact target URL, exact persistent repository path, exact event-bound
+      source_control_sha, exact source pin blob, TASK-255/r5/blob/authoring commit and
+      executor codex. It must not add target-control/target-pin fields from v1 migration.
+    - >
+      Invoke the exact activation-source control entry with the already-proven legacy worker
+      Python so bootstrap-source-primary itself owns legacy attestation and the authority edge.
+      The workflow must not reproduce, reinterpret, or bypass Operator migration checks and must
+      not directly invoke Codex, create a RUN, allocate lifecycle state, or call run_task.
+    - >
+      Bootstrap transport state is temporary and isolated from the persistent repository except
+      for the permitted exact fast-forward. Cleanup may remove only workflow-owned runner-temp
+      paths. Never delete or rewrite Runtime migration handoff state, RUN/RESULT/FAILURE,
+      verification evidence, or the worker runtime.
+    - >
+      Any carrier receipt/comment must be bounded and explicitly operational only:
+      admission/self-host completion may be reported, but RUN creation, Executor invocation,
+      RESULT/FAILURE, verification, review, publication and migration completion must remain
+      not asserted by the carrier. Canonical terminal artifacts remain engineering truth.
+    - >
+      Deterministic verification must be offline and may inspect/parse the workflow and
+      documentation, but must not dispatch GitHub Actions, access network/upstream, mutate a
+      real worker runtime, invoke bootstrap-source-primary, create migration handoffs, or run
+      TASK-255.
+    - >
+      Exactly the four authorized paths may change. Runtime owns verification. Executor returns
+      one clean candidate with zero unresolved items and does not review, publish, run the new
+      carrier, migrate, mutate roadmap state, or execute TASK-255.
+
+acceptance:
+  - id: AC1
+    condition: >
+      The new carrier has an exact non-target skip boundary and Human actor gate, is fixed to
+      Python Agent/TASK-255 r5/codex and the exact legacy/activation/target SHAs, and exposes no
+      caller-controlled migration or model/effort selector surface.
+  - id: AC2
+    condition: >
+      Source-control admission deterministically binds one clean attached main commit, exact
+      legacy pin blob and unchanged TASK-255 r5 blob/authoring lineage, permitting only a
+      fast-forward to the exact event-bound commit before AIOS invocation.
+  - id: AC3
+    condition: >
+      The workflow proves and reuses the existing legacy worker Python, exact-materializes
+      activation source bbc8f09..., and delegates exactly once through its control entry to
+      bootstrap-source-primary with one exact v2 intent targeting ff29666d....
+  - id: AC4
+    condition: >
+      The carrier implements no Runtime/lifecycle/Executor semantics and any emitted receipt is
+      operational-only; pre-AIOS failures create no fabricated RUN/FAILURE and canonical
+      migration/terminal state remains owned by AIOS Runtime.
+  - id: AC5
+    condition: >
+      Existing pin, phase scripts, existing workflows, adoption/conformance/roadmap state,
+      TASK-255/TASK-254 and product code remain unchanged; deterministic tests prove the
+      carrier cannot broaden into a generic router or migration authority.
+  - id: AC6
+    condition: >
+      Focused offline tests and git diff --check pass with zero unresolved items and no real
+      migration/provider/network operation.
+
+verification:
+  required:
+    - python -m pytest tests/aios_bridge/test_aios_phase1_control_plane.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task258
+    - git diff --check
