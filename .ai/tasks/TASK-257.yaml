@@ -1,0 +1,97 @@
+task_id: TASK-257
+revision: 1
+
+goal: >
+  Diagnose the exact pre-Executor bootstrap/admission boundary currently blocking
+  TASK-255 r3, using bounded read-only evidence only, so Brain can choose the
+  minimum authoritative correction without another blind retry.
+
+problem: >
+  TASK-255 r3 is canonical, but PRIMARY carrier #426 was admitted by the legacy
+  GitHub wakeup surface and the self-hosted runner reached aios_phase1_wakeup.py
+  before terminating with "complete valid version-2 TASK authorization is required".
+  No new TASK-255 RUN or Executor invocation has been established. The source of
+  that authorization requirement and the exact runtime/control provenance observed
+  at the failing boundary must be identified before changing TASK-255 or bootstrap
+  architecture.
+
+assumptions:
+  - >
+    Canonical downstream main at authoring is 2cc640b2f256a1ba1125348368c7b20235b4ff79; TASK-255 r3 remains the
+    blocked BP9-P1A migration and must not be modified by this diagnostic.
+  - >
+    The active downstream AIOS dependency and worker AUTHORITATIVE_COMMIT are
+    expected to remain edd7d8d92d54900c56442bbfcddb8648ec4d2e09 until TASK-255
+    migration is successfully reviewed and published.
+  - >
+    Issue #426 carrier admission and runner startup are operational evidence only;
+    they do not prove RUN creation, Executor invocation, verification, review, or publication.
+
+scope:
+  inspect:
+    - .ai/tasks/TASK-255.yaml
+    - .ai/aios-adoption-state.yaml
+    - .ai/aios-conformance-state.yaml
+    - .agents/skills/aios-worker/requirements-aios-renew.txt
+    - .agents/skills/aios-worker/scripts/aios_worker.py
+    - .agents/skills/aios-worker/scripts/aios_phase1_wakeup.py
+    - .github/workflows/aios-brain-wakeup.yml
+    - .github/workflows/aios-self-hosted-wakeup.yml
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+  modify: []
+
+non_goals:
+  - >
+    Modify any repository file, TASK-255, roadmap state, adoption/conformance state,
+    dependency pin, workflow, worker, product code, or canonical engineering lineage.
+  - >
+    Retry TASK-255, create a workaround/bypass, invoke another AIOS execution,
+    repair authorization state, change the active pin, or select a correction strategy.
+  - >
+    Perform semantic review, publication, provider failover, marketplace/browser work,
+    or any network mutation.
+
+constraints:
+  hard:
+    - >
+      This is a read-only diagnostic. Repository HEAD and working-tree content must
+      remain unchanged by the Executor.
+    - >
+      Determine, from the bounded canonical inputs available to the admitted Executor,
+      the active AIOS pin expected by the downstream worker, the TASK-255 r3 identity,
+      and the exact control path that hands PRIMARY wakeup to aios_renew.operator.
+    - >
+      Locate the source or validation boundary responsible for the observed
+      "complete valid version-2 TASK authorization is required" condition when that
+      condition is derivable from the admitted environment; if it cannot be proven,
+      report the missing evidence explicitly rather than infer it.
+    - >
+      Distinguish carrier admission, self-host operational startup, Runtime RUN
+      allocation, and Executor invocation. Do not promote pre-AIOS evidence into
+      canonical RUN/FAILURE truth.
+    - >
+      Return only diagnostic findings and unresolved evidence needs. Do not mutate,
+      fix, retry, dispatch, publish, or advance roadmap semantics.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Diagnostic reports the exact expected downstream AIOS pin, TASK-255 r3 identity,
+      and PRIMARY bootstrap/operator path from bounded canonical source.
+  - id: AC2
+    condition: >
+      Diagnostic either identifies the exact authorization validator/boundary producing
+      the observed version-2 requirement with supporting bounded evidence, or explicitly
+      records that the source cannot be proven from the admitted environment and names
+      the minimum missing evidence.
+  - id: AC3
+    condition: >
+      Diagnostic clearly states whether RUN creation and Executor invocation for the
+      blocked TASK-255 attempt are proven, without fabricating lifecycle state.
+  - id: AC4
+    condition: >
+      No repository file or canonical lifecycle/planning state is changed.
+
+verification:
+  required:
+    - git diff --check
