@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -30,6 +31,14 @@ def git_blob_id(raw: bytes) -> str:
     return hashlib.sha1(b"blob " + str(len(raw)).encode("ascii") + b"\0" + raw).hexdigest()
 
 
+def committed_blob_id(path: str) -> str:
+    return subprocess.check_output(
+        ["git", "rev-parse", "--verify", f"HEAD:{path}"],
+        cwd=ROOT,
+        text=True,
+    ).strip()
+
+
 def test_exact_registry_blobs_and_active_adoption_binding():
     state = yaml.safe_load((ROOT / ".ai/aios-adoption-state.yaml").read_bytes())
     binding = state["p1b_semantic_registries"]
@@ -41,7 +50,7 @@ def test_exact_registry_blobs_and_active_adoption_binding():
     assert declared == REGISTRIES
     assert len(declared) == 5
     for path, expected in REGISTRIES.items():
-        assert git_blob_id((ROOT / path).read_bytes()) == expected
+        assert committed_blob_id(path) == expected
     assert state["authority"]["engineering_truth"] is False
     assert state["downstream_pin"]["commit"] == PIN
     assert state["full_downstream_conformance"]["status"] == "REQUIRED_PENDING"
