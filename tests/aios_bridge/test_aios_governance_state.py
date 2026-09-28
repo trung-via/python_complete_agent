@@ -4861,7 +4861,22 @@ def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
     ]
     assert audit["downstream_adoption_task"]["runtime_migration_completion_claimed"] is False
     assert state["p1b_semantic_registries"] == {
-        "brain": "REQUIRED_PENDING", "reviewer": "REQUIRED_PENDING", "task_scope": "TASK-256",
+        "brain": {
+            "status": "ACTIVE",
+            "registries": {
+                ".ai/brain-audit-profiles.yaml": "e931c1c7fa4b1b9dfbf7e7c649d5a19e0035d6ba",
+                ".ai/brain-return-contracts.yaml": "9d220ece8dd20028e590efd083b1a04b00ffadfe",
+                ".ai/flow-cards.yaml": "574edd0407de7f4cca14b8b854a5d00d271be014",
+            },
+        },
+        "reviewer": {
+            "status": "ACTIVE",
+            "registries": {
+                ".ai/reviewer-procedure-profiles.yaml": "ad510261ff220f9b9165dd7cdc8646fd6915b0a7",
+                ".ai/reviewer-return-contracts.yaml": "c805c49fcbe170677ff3bb9dde3fb4c9d308c474",
+            },
+        },
+        "task_scope": "TASK-256",
     }
     assert state["authority"]["engineering_truth"] is False
     downstream_conformance = state["full_downstream_conformance"]

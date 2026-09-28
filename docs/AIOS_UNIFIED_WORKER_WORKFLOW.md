@@ -620,5 +620,28 @@ policy defaults Codex to gpt-6-sol/high and Antigravity to
 gemini-3.8-flash/medium; explicit Human overrides take precedence and the
 carriers preserve exact model/effort provenance. TASK-207 revision 8 under
 `edd7d8d92d54900c56442bbfcddb8648ec4d2e09` remains historical certification only. Fresh post-pin
-certification and P1B semantic registries remain REQUIRED_PENDING. This
+certification remains REQUIRED_PENDING. P1B repository semantic registries are
+bound as described below. This
 planning and documentation state does not prove Runtime migration completion.
+
+## BP9-P1B Brain and Reviewer semantic registries
+
+The repository owns five exact semantic registry files consumed as external
+material by the pinned package: `.ai/flow-cards.yaml`,
+`.ai/brain-audit-profiles.yaml`, `.ai/brain-return-contracts.yaml`,
+`.ai/reviewer-procedure-profiles.yaml`, and
+`.ai/reviewer-return-contracts.yaml`. Their exact source blob identities are
+recorded in `.ai/aios-adoption-state.yaml` under TASK-256. The six Flow Cards
+bind Brain planning and authoring flows separately from Reviewer semantic review.
+Brain audit and return contracts bound candidate composition and require external
+canonical identity bindings. Reviewer procedure and return contracts bound the
+single PRIMARY or DELTA semantic call and its strict verdict body.
+
+These registries grant no Brain, Reviewer, Runtime, Executor, or Publisher
+authority. They store no chat memory, select no provider or model default, and
+add no lifecycle routing or publication control. Human/Brain planning authority,
+Reviewer verdict ownership, Runtime verification, and safe publication remain
+separate. Fresh full downstream conformance for exact pin
+`31fd2482cd87d97fd818e05eb5b4dcec69ffeee6` remains REQUIRED_PENDING;
+TASK-207 revision 8 is historical old-pin evidence, and TASK-207 revision 9
+is a separate future certification task.

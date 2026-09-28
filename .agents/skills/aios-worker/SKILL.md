@@ -509,4 +509,13 @@ historical migration lineage. The source-bootstrap recovery and migration
 completion are Runtime-owned; this worker asserts neither. Codex defaults to
 gpt-6-sol/high and Antigravity to gemini-3.8-flash/medium under
 `.ai/executor-profiles.yaml`, with explicit Human overrides taking precedence.
-Fresh TASK-207 certification and P1B semantic registries remain pending.
+Fresh TASK-207 certification remains pending. TASK-256 binds the five exact
+repository-owned P1B semantic registry blobs recorded in `.ai/aios-adoption-state.yaml`:
+`.ai/flow-cards.yaml`, `.ai/brain-audit-profiles.yaml`,
+`.ai/brain-return-contracts.yaml`, `.ai/reviewer-procedure-profiles.yaml`, and
+`.ai/reviewer-return-contracts.yaml`. The pinned package consumes them as bounded
+external Brain/Reviewer semantic material. They grant no Brain, Reviewer,
+Runtime, Executor, or Publisher authority, store no chat memory, and make no
+provider or model default. Human/Brain planning, Reviewer verdicts, Runtime
+verification, and publication remain separate; full downstream conformance for
+the exact pin remains REQUIRED_PENDING.
