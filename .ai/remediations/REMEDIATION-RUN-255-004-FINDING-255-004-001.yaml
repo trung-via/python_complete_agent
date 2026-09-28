@@ -1,0 +1,8 @@
+finding_id: FINDING-255-004-001
+action: CODE_FIX
+reviewed_sha: 07f8fbad3d87a2b6d4eb6ab62ddc5d2ef478fee8
+modification_scope:
+  - .ai/aios-adoption-state.yaml
+affected_verification:
+  - python -m pytest tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task255-r6-remediation
+  - git diff --check
