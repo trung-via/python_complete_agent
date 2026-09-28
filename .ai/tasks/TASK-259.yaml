@@ -48,10 +48,13 @@ problem: >
 
 assumptions:
   - >
-    Canonical Python Agent main at TASK-259 revision-2 authoring is exactly
-    95f47b9a5832835b9a4265c892b813e492270cf8. That commit canonically authors
-    TASK-259 revision 1 on top of the exact published TASK-256 source without changing
-    the active AIOS-renew dependency pin or product implementation.
+    TASK-259 revision-2 semantic authoring began against exact downstream main
+    95f47b9a5832835b9a4265c892b813e492270cf8. Before any revision-2 RUN existed,
+    Brain detected and corrected a task-authority transcription error in the first r2
+    artifact commit a971f646f27b2ad80818bd9da479860be8708364: the portability-binding
+    test was duplicated in inspect and omitted from modify. This pre-execution correction
+    changes only TASK/roadmap planning artifacts; no r2 engineering RUN, candidate,
+    verification, REVIEW or publication existed before the correction.
   - >
     Canonical TASK-259 revision 1 executed as RUN-259-001 and terminalized
     VERIFICATION FAILURE at exact failed candidate
@@ -135,7 +138,6 @@ scope:
     - tests/aios_bridge/test_aios_conformance_state.py
     - tests/aios_bridge/test_aios_governance_state.py
     - tests/aios_bridge/test_aios_brain_reviewer_portability_bindings.py
-    - tests/aios_bridge/test_aios_brain_reviewer_portability_bindings.py
   modify:
     - .agents/skills/aios-worker/requirements-aios-renew.txt
     - .agents/skills/aios-worker/scripts/aios_worker.py
@@ -147,6 +149,7 @@ scope:
     - tests/aios_bridge/test_aios_worker_control_surface.py
     - tests/aios_bridge/test_aios_brain_ingress.py
     - tests/aios_bridge/test_aios_governance_state.py
+    - tests/aios_bridge/test_aios_brain_reviewer_portability_bindings.py
 
 non_goals:
   - >

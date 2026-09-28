@@ -81,7 +81,7 @@ human_priority_side_track:
   current_prerequisite:
     task_id: TASK-259
     task_revision: 2
-    approved_against_main_sha: "95f47b9a5832835b9a4265c892b813e492270cf8"
+    approved_against_main_sha: "a971f646f27b2ad80818bd9da479860be8708364"
     authority: HUMAN_BRAIN_PLANNING
     reason: >-
       TASK-259 r1 reached RUN-259-001 but terminalized VERIFICATION FAILURE because
@@ -90,7 +90,9 @@ human_priority_side_track:
       required "delegate exclusively" documentation wording. Revision 2 preserves the
       exact 31fd2482... -> 44eee353... migration semantics, adds only the missing
       verification-owned test mutation authority, and explicitly restores the compatibility
-      wording. RUN-259-001 and its FAILURE remain immutable history.
+      wording. A pre-execution Brain correction also fixed the initial r2 task artifact so
+      that this portability-binding test is actually inside scope.modify before any r2 RUN.
+      RUN-259-001 and its FAILURE remain immutable history.
     execution_transport: POST_TERMINAL_SOURCE_BOOTSTRAP_SUCCESSOR_PRIMARY
     failed_predecessor_run: RUN-259-001
     prior_revision: 1
