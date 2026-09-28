@@ -45,7 +45,6 @@ full_downstream_conformance:
     certification_authority_for_current_pin: false
   certification_record: .ai/aios-conformance-state.yaml
   fresh_post_pin_certification: REQUIRED_PENDING
-  certification_record: .ai/aios-conformance-state.yaml
   binding_classifications_changed: false
   boundary: >-
     TASK-207 revision 8 certifies only historical edd7d8d generation. A fresh
@@ -100,7 +99,7 @@ upstream_audit:
   downstream_adoption_task:
     task_id: TASK-255
     revision: 6
-    run_id: RUN-255-003
+    run_id: RUN-255-004
     role: FIRST_GENERATION_EXACT_POST_BOOTSTRAP_CANDIDATE
     runtime_migration_completion_claimed: false
   provenance:
