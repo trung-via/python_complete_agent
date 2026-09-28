@@ -73,7 +73,7 @@ class TestReviewToPublicationContinuation:
             "AIOS_RUN_ID": "${{ steps.ingress.outputs.publication_run_id }}"
         }
         script = dispatch["with"]["script"]
-        assert text.count("createWorkflowDispatch") == 2
+        assert text.count("createWorkflowDispatch") == 1
         assert "workflow_id: 'aios-auto-publish.yml'" in script
         assert "ref: 'main'" in script
         assert "run_id: process.env.AIOS_RUN_ID" in script
@@ -83,16 +83,16 @@ class TestReviewToPublicationContinuation:
         ):
             assert forbidden not in script
 
-        assert "steps.ingress.outputs.repair_sha != ''" in text
-        assert "workflow_id: 'aios-self-hosted-repair-wakeup.yml'" in text
+        assert "steps.ingress.outputs.repair_sha != ''" not in text
+        assert "workflow_id: 'aios-self-hosted-repair-wakeup.yml'" not in text
 
     def test_non_publication_ingress_has_no_dispatch_and_receipt_is_truthful(self):
         _, text = load_workflow(INGRESS)
         assert "steps.ingress.outputs.publication_run_id != ''" in text
         assert "this is not publication success or verdict" in text
         assert "steps.ingress.outcome != 'success'" in text
-        assert "steps.ingress.outputs.repair_sha != ''" in text
-        assert "steps.repair_dispatch.outcome != 'success'" in text
+        assert "steps.ingress.outputs.repair_sha != ''" not in text
+        assert "steps.repair_dispatch.outcome != 'success'" not in text
         assert text.count("aios_renew.github_issue_ingress") == 1
         assert_pin_install(INGRESS, job="deliver")
 
@@ -158,6 +158,10 @@ class TestRemediationIntentBinding:
         assert "trung-via/python_complete_agent" in text
         assert "AIOS_DELIVERY_ACTOR" in text
         assert "AIOS_APPROVER: ${{ github.actor }}" in text
+        assert "AIOS_DELIVERY_ACTOR: ${{ github.actor }}" in text
+        assert "if ($env:AIOS_DELIVERY_ACTOR -cne 'trung-via')" in text
+        assert "Write-OperationalFailure 'UNAUTHORIZED_DELIVERY_ACTOR'" in text
+        assert text.index("if ($env:AIOS_DELIVERY_ACTOR -cne 'trung-via')") < text.index("module.ensure_runtime")
         assert "AIOS_CONTROL_PYTHON -m aios_renew.operator approved-remediation-intent" in text
         assert "aios approved-remediation-intent" not in text
         assert "secrets." not in text
@@ -257,9 +261,9 @@ class TestRepairWakeupBinding:
         assert "workflow_dispatch" in target_wf["on"]
         assert "AIOS_DELIVERY_ACTOR" in target_text
 
-        # Brain Ingress dispatches only an admitted exact repair handoff.
-        assert "aios-self-hosted-repair-wakeup.yml" in ingress_text
-        assert "repair_dispatch" in [s.get("id") for s in ingress_wf["jobs"]["deliver"]["steps"]]
+        # Brain Ingress authors the handoff without acquiring REPAIR delivery authority.
+        assert "aios-self-hosted-repair-wakeup.yml" not in ingress_text
+        assert "repair_dispatch" not in [s.get("id") for s in ingress_wf["jobs"]["deliver"]["steps"]]
 
     def test_self_hosted_target_is_fixed_dedicated_and_has_optional_executor(self):
         workflow, text = load_workflow(REPAIR_TARGET)
@@ -272,6 +276,10 @@ class TestRepairWakeupBinding:
         assert workflow["on"]["workflow_call"]["inputs"]["executor"]["default"] == ""
         assert "actions/checkout" not in text
         assert "AIOS_DELIVERY_ACTOR" in text
+        assert "if ($env:AIOS_DELIVERY_ACTOR -cne 'trung-via')" in text
+        assert "elseif ($env:AIOS_DELIVERY_ACTOR" not in text
+        assert "AIOS_DELIVERY_EVENT" not in text
+        assert text.index("if ($env:AIOS_DELIVERY_ACTOR -cne 'trung-via')") < text.index("module.ensure_runtime")
         assert "AIOS_CONTROL_PYTHON -m aios_renew.operator repair-wakeup" in text
         assert "aios continue" not in text.lower()
         assert "aios repair-wakeup" not in text.lower()

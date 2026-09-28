@@ -83,6 +83,7 @@ jobs:
       AIOS_REASONING_EFFORT: ${{ inputs.reasoning_effort }}
       AIOS_MODEL_SOURCE: ${{ inputs.model_source }}
       AIOS_EFFORT_SOURCE: ${{ inputs.effort_source }}
+      AIOS_DELIVERY_ACTOR: ${{ github.actor }}
       AIOS_APPROVER: ${{ github.actor }}
     steps:
       - name: Prepare exact transient control source
@@ -102,6 +103,11 @@ jobs:
             $receipt = [ordered]@{format='AIOS_OPERATIONAL_RECEIPT';version=2;kind='OPERATIONAL_RECEIPT';family='REMEDIATION';delivery=@{kind='correction_dispatch_id';id=$env:AIOS_CORRECTION_DISPATCH_ID};boundary='OPERATIONAL_FAILED';selectors=$selectors;run_created=$false;executor_invoked=$false;cause=@{authority='WORKFLOW';phase='PRE_AIOS';reason_code=$Reason}}
             if ($env:AIOS_CONTROL_SHA -match '^[0-9a-f]{40}$') { $receipt.control_sha = $env:AIOS_CONTROL_SHA }
             Set-Content -LiteralPath $env:AIOS_OPERATIONAL_RECEIPT_PATH -Value ($receipt | ConvertTo-Json -Compress -Depth 5) -Encoding utf8
+          }
+          if ($env:AIOS_DELIVERY_ACTOR -cne 'trung-via') {
+            Write-OperationalFailure 'UNAUTHORIZED_DELIVERY_ACTOR'
+            Write-Error "Unauthorized REMEDIATION delivery actor."
+            exit 1
           }
           if ([string]::IsNullOrWhiteSpace($env:AIOS_REPO_ROOT)) {
             Write-OperationalFailure 'AIOS_REPO_ROOT_NOT_CONFIGURED'
@@ -208,9 +214,9 @@ jobs:
             Write-Error "Unsupported coding Executor."
             exit 1
           }
-          if ($env:AIOS_APPROVER -notmatch '^[A-Za-z0-9][A-Za-z0-9_\-\[\]]{0,99}$') {
-            Write-OperationalState 'OPERATIONAL_FAILED' 'INVALID_BOUNDED_INPUT'
-            Write-Error "Invalid trusted approver attribution."
+          if ($env:AIOS_APPROVER -cne 'trung-via') {
+            Write-OperationalState 'OPERATIONAL_FAILED' 'UNAUTHORIZED_DELIVERY_ACTOR'
+            Write-Error "Unauthorized REMEDIATION delivery actor."
             exit 1
           }
           Write-OperationalState 'AIOS_INVOKED' ''

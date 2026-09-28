@@ -78,7 +78,6 @@ jobs:
       AIOS_CONTROL_SHA: ${{ github.sha }}
       AIOS_CONTROL_REF: ${{ github.ref }}
       AIOS_DELIVERY_ACTOR: ${{ github.actor }}
-      AIOS_DELIVERY_EVENT: ${{ github.event_name }}
       AIOS_REPAIR_DISPATCH_ID: ${{ inputs.repair_dispatch_id }}
       AIOS_FAILED_RUN_ID: ${{ inputs.failed_run_id }}
       AIOS_REPAIR_SHA: ${{ inputs.repair_sha }}
@@ -136,26 +135,7 @@ jobs:
             Write-Error "Unsupported coding Executor."
             exit 1
           }
-          if ($env:AIOS_DELIVERY_ACTOR -ceq 'trung-via') {
-            # Preserve the dedicated Human delivery path and its existing Runtime semantics.
-          } elseif ($env:AIOS_DELIVERY_ACTOR -ceq 'github-actions[bot]') {
-            if ($env:AIOS_DELIVERY_EVENT -cne 'workflow_dispatch') {
-              Write-OperationalFailure 'UNAUTHORIZED_DELIVERY_ACTOR'
-              Write-Error "Automation REPAIR delivery requires workflow_dispatch provenance."
-              exit 1
-            }
-            if (-not [string]::IsNullOrEmpty($env:AIOS_EXECUTOR)) {
-              Write-OperationalFailure 'INVALID_BOUNDED_INPUT'
-              Write-Error "Automation REPAIR delivery cannot select a coding Executor."
-              exit 1
-            }
-            $expectedRepairDispatchId = "repair-$($env:AIOS_FAILED_RUN_ID)-$($env:AIOS_REPAIR_SHA)"
-            if ($env:AIOS_REPAIR_DISPATCH_ID -cne $expectedRepairDispatchId) {
-              Write-OperationalFailure 'INVALID_BOUNDED_INPUT'
-              Write-Error "Automation REPAIR delivery identity does not match its selectors."
-              exit 1
-            }
-          } else {
+          if ($env:AIOS_DELIVERY_ACTOR -cne 'trung-via') {
             Write-OperationalFailure 'UNAUTHORIZED_DELIVERY_ACTOR'
             Write-Error "Unauthorized REPAIR delivery actor."
             exit 1

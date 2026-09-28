@@ -144,14 +144,13 @@ class TestBrainIngressWorkflow:
         assert '--output "$GITHUB_OUTPUT"' in carrier_calls[0]
         assert "github.event.issue.body" not in text
 
-    def test_ingress_fans_out_only_bounded_publication_and_repair_requests(self):
+    def test_ingress_dispatches_only_bounded_publication_requests(self):
         _, text = load_workflow(INGRESS_WORKFLOW_PATH)
-        assert text.count("createWorkflowDispatch") == 2
+        assert text.count("createWorkflowDispatch") == 1
         assert "workflow_id: 'aios-auto-publish.yml'" in text
-        assert "workflow_id: 'aios-self-hosted-repair-wakeup.yml'" in text
-        assert "steps.ingress.outputs.repair_sha != ''" in text
-        assert "AIOS_REPAIR_DISPATCH_OUTCOME" in text
-        assert "steps.repair_dispatch.outcome != 'success'" in text
+        assert "workflow_id: 'aios-self-hosted-repair-wakeup.yml'" not in text
+        assert "steps.ingress.outputs.repair_sha != ''" not in text
+        assert "AIOS_REPAIR_DISPATCH_OUTCOME" not in text
         assert "github.event.issue.body" not in text
 
 

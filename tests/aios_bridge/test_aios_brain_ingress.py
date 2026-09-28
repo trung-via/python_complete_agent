@@ -158,21 +158,19 @@ def test_caller_cannot_select_repository_or_raw_git_destination(tmp_path, monkey
     bootstrap.assert_not_called()
 
 
-def test_brain_ingress_workflow_dispatches_only_exact_author_repair_handoff():
+def test_brain_ingress_authors_repair_without_delivering_it():
     ingress_path = REPO_ROOT / ".github" / "workflows" / "aios-brain-ingress.yml"
     text = ingress_path.read_text(encoding="utf-8")
     wf = yaml.safe_load(text)
 
-    assert text.count("createWorkflowDispatch") == 2
+    assert text.count("createWorkflowDispatch") == 1
     assert "workflow_id: 'aios-auto-publish.yml'" in text
-    assert "workflow_id: 'aios-self-hosted-repair-wakeup.yml'" in text
+    assert "workflow_id: 'aios-self-hosted-repair-wakeup.yml'" not in text
     step_ids = [step.get("id") for step in wf["jobs"]["deliver"]["steps"]]
-    assert "repair_dispatch" in step_ids
-    assert "steps.ingress.outputs.repair_sha != ''" in text
-    assert "AIOS_REPAIR_DISPATCH_OUTCOME" in text
-    assert "steps.repair_dispatch.outcome != 'success'" in text
-    assert "repair_dispatch: ACCEPTED" in text
-    assert "repair_dispatch: REJECTED" in text
+    assert "repair_dispatch" not in step_ids
+    assert "steps.ingress.outputs.repair_sha != ''" not in text
+    assert "AIOS_REPAIR_DISPATCH_OUTCOME" not in text
+    assert "repair_dispatch: ACCEPTED" not in text
     assert ".slice(0, 3500)" in text
 
 def test_brain_ingress_policy_requires_human_actor_and_excludes_bots():

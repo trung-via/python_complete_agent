@@ -5155,13 +5155,14 @@ def test_task_220_repair_delivery_boundary_and_immutable_redelivery_governance()
 
     # AC2: Self-hosted target directly enforces Human actor preflight
     target_text = (REPO_ROOT / ".github" / "workflows" / "aios-self-hosted-repair-wakeup.yml").read_text(encoding="utf-8")
-    assert "AIOS_DELIVERY_ACTOR -ceq 'trung-via'" in target_text
+    assert "AIOS_DELIVERY_ACTOR -cne 'trung-via'" in target_text
+    assert "elseif ($env:AIOS_DELIVERY_ACTOR" not in target_text
 
-    # Brain Ingress dispatches the exact canonical repair handoff only when present.
+    # Brain Ingress authors the handoff; delivery requires a separate Human carrier.
     ingress_text = (REPO_ROOT / ".github" / "workflows" / "aios-brain-ingress.yml").read_text(encoding="utf-8")
-    assert "aios-self-hosted-repair-wakeup.yml" in ingress_text
-    assert "steps.ingress.outputs.repair_sha != ''" in ingress_text
-    assert ingress_text.count("createWorkflowDispatch") == 2
+    assert "aios-self-hosted-repair-wakeup.yml" not in ingress_text
+    assert "steps.ingress.outputs.repair_sha != ''" not in ingress_text
+    assert ingress_text.count("createWorkflowDispatch") == 1
 
     # AC6: Pin, conformance records, and task history remain unchanged
     pin_text = PIN_FILE.read_text(encoding="utf-8")
