@@ -26,7 +26,7 @@ def completed(command=(), *, returncode=0, stdout="", stderr=""):
 def test_ingress_uses_the_same_exact_provenance_authority_as_worker():
     source = (SCRIPT_DIR / "aios_brain_ingress.py").read_text(encoding="utf-8")
     assert worker.AUTHORITATIVE_COMMIT == (
-        "31fd2482cd87d97fd818e05eb5b4dcec69ffeee6"
+        "44eee353eda376c9db8cd88d97184d3122651bf5"
     )
     assert "aios_renew.operator" in source
     assert "import aios_renew" not in source

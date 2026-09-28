@@ -37,7 +37,8 @@ TASK_216_HISTORICAL_COMMIT = "c96eb8b52acd865b9453409e6598e08a8bd4e48e"
 TASK_218_HISTORICAL_COMMIT = "49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2"
 TASK_219_HISTORICAL_COMMIT = "1a68db9acb6989dfa81bf875503db62e54a4bed6"
 TASK_221_HISTORICAL_COMMIT = "edd7d8d92d54900c56442bbfcddb8648ec4d2e09"
-TASK_255_AUTHORITATIVE_COMMIT = "31fd2482cd87d97fd818e05eb5b4dcec69ffeee6"
+TASK_255_HISTORICAL_COMMIT = "31fd2482cd87d97fd818e05eb5b4dcec69ffeee6"
+ACTIVE_PIN = "44eee353eda376c9db8cd88d97184d3122651bf5"
 TASK_089_SOURCE_CANDIDATE = "bb57147eac92475789d7809ed445d56535d5a009"
 TASK_092_REVIEW_DECISION_COMMIT = "18e7ed49c7393f199589bd241eede3e67d759aa1"
 LATER_ROADMAP_COMMIT = "410f0a87c86f3fef56802d23dc0b8cf22bb2c9f7"
@@ -91,12 +92,13 @@ class TestImmutableRuntimePin:
             if line.strip() and not line.lstrip().startswith("#")
         ]
         assert active == [aw.PIN_LINE]
-        assert aw.AUTHORITATIVE_COMMIT == TASK_255_AUTHORITATIVE_COMMIT
+        assert aw.AUTHORITATIVE_COMMIT == ACTIVE_PIN
         assert active == [
             "aios-renew @ git+https://github.com/trung-via/AIOS-renew.git@"
-            f"{TASK_255_AUTHORITATIVE_COMMIT}"
+            f"{ACTIVE_PIN}"
         ]
         assert TASK_221_HISTORICAL_COMMIT not in active[0]
+        assert TASK_255_HISTORICAL_COMMIT not in active[0]
         assert TASK_219_HISTORICAL_COMMIT not in active[0]
         assert TASK_218_HISTORICAL_COMMIT not in active[0]
         assert TASK_216_HISTORICAL_COMMIT not in active[0]
@@ -114,6 +116,8 @@ class TestImmutableRuntimePin:
         ("url", "commit"),
         [
             ("https://github.com/other/AIOS-renew.git", aw.AUTHORITATIVE_COMMIT),
+            (aw.AUTHORITATIVE_REPOSITORY, TASK_255_HISTORICAL_COMMIT),
+            (aw.AUTHORITATIVE_REPOSITORY, TASK_221_HISTORICAL_COMMIT),
             (
                 aw.AUTHORITATIVE_REPOSITORY,
                 TASK_219_HISTORICAL_COMMIT,
@@ -1455,7 +1459,8 @@ class TestSurfaceAndDocumentation:
             assert TASK_216_HISTORICAL_COMMIT in text
             assert TASK_218_HISTORICAL_COMMIT in text
             assert TASK_219_HISTORICAL_COMMIT in text
-            assert TASK_255_AUTHORITATIVE_COMMIT in text
+            assert ACTIVE_PIN in text
+            assert TASK_255_HISTORICAL_COMMIT in text
             assert TASK_221_HISTORICAL_COMMIT in text
             assert TASK_198_AUTHORITATIVE_COMMIT in text
             assert TASK_102_ERA_COMMIT in text

@@ -173,7 +173,8 @@ CONFORMANCE_FILE = REPO_ROOT / ".ai" / "aios-conformance-state.yaml"
 PIN_FILE = (
     REPO_ROOT / ".agents" / "skills" / "aios-worker" / "requirements-aios-renew.txt"
 )
-ACTIVE_PIN = "31fd2482cd87d97fd818e05eb5b4dcec69ffeee6"
+ACTIVE_PIN = "44eee353eda376c9db8cd88d97184d3122651bf5"
+HISTORICAL_TASK_255_PIN = "31fd2482cd87d97fd818e05eb5b4dcec69ffeee6"
 HISTORICAL_TASK_221_PIN = "edd7d8d92d54900c56442bbfcddb8648ec4d2e09"
 PRIOR_CERTIFIED_PIN = "49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2"
 HISTORICAL_TASK_218_PIN = "49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2"
@@ -4796,6 +4797,8 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
 
     conformance = state["full_downstream_conformance"]
     assert conformance["status"] == "DONE"
+    assert conformance["scope"] == "HISTORICAL_OLD_PIN_CERTIFICATION"
+    assert conformance["current_pin_certification"] is False
     assert conformance["task_id"] == "TASK-207"
     assert conformance["task_revision"] == 8
     assert conformance["downstream_pin"] == HISTORICAL_TASK_221_PIN
@@ -4847,19 +4850,50 @@ def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
     assert state["downstream_pin"]["commit"] == ACTIVE_PIN
     audit = state["upstream_audit"]
     assert audit["checkpoint"] == ACTIVE_PIN
-    assert audit["through_authored_task"] == "TASK-202"
-    assert audit["upstream_revision"] == 4
-    assert audit["run_id"] == "RUN-202-003"
-    assert audit["review"] == "REVIEW-202-002"
+    assert audit["through_authored_task"] == "TASK-212"
+    assert audit["upstream_revision"] == 1
+    assert audit["run_id"] == "RUN-212-002"
+    assert audit["review"] == "REVIEW-212-002"
+    assert audit["checkpoint_role"] == "REVIEWED_SOURCE_PUBLISHED_PROVENANCE"
+    assert audit["source_published"] is True
     assert audit["checkpoint_is_runtime_authority"] is False
-    assert audit["prior_planning_checkpoint"] == HISTORICAL_TASK_221_PIN
+    assert audit["prior_planning_checkpoint"] == HISTORICAL_TASK_255_PIN
+    assert audit["prior_reviewed_source_published_checkpoint"] == {
+        "task_id": "TASK-202",
+        "revision": 4,
+        "run_id": "RUN-202-003",
+        "review": "REVIEW-202-002",
+        "source_sha": HISTORICAL_TASK_255_PIN,
+        "role": "HISTORICAL_TASK_255_CONSUMER_PIN",
+        "source_published": True,
+        "current_dependency_authority": False,
+    }
+    assert audit["adopted_primary_portability"] == {
+        "task_id": "TASK-212",
+        "revision": 1,
+        "run_id": "RUN-212-002",
+        "review": "REVIEW-212-002",
+        "source_sha": ACTIVE_PIN,
+        "role": "GOVERNED_REPOSITORY_PRIMARY_V3_PROFILE_JOURNAL_FIX",
+        "source_published": True,
+        "repository_binding_activation": "NONE",
+    }
     assert audit["activation_source"] == "275067b56cfd1dc9f7faf99fa2a3192e7cf48eec"
-    assert audit["activation_target_consumer_pin"] == ACTIVE_PIN
+    assert audit["activation_target_consumer_pin"] == HISTORICAL_TASK_255_PIN
     assert audit["activation_is_downstream_dependency"] is False
     assert [entry["task_id"] for entry in audit["migration_provenance"]] == [
         "TASK-199", "TASK-200", "TASK-201", "TASK-202", "TASK-203",
     ]
     assert audit["downstream_adoption_task"]["runtime_migration_completion_claimed"] is False
+    assert audit["p1b_publication"] == {
+        "task_id": "TASK-256",
+        "revision": 1,
+        "run_id": "RUN-256-003",
+        "review": "REVIEW-256-003",
+        "source_sha": "8115b6b6c8c65a59a7aad5850c37810a31c8c5f3",
+        "source_published": True,
+        "registry_bindings": "ACTIVE",
+    }
     assert state["p1b_semantic_registries"] == {
         "brain": {
             "status": "ACTIVE",
@@ -4881,6 +4915,9 @@ def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
     assert state["authority"]["engineering_truth"] is False
     downstream_conformance = state["full_downstream_conformance"]
     assert downstream_conformance["status"] == "REQUIRED_PENDING"
+    assert downstream_conformance["certification_task"] == {
+        "id": "TASK-207", "revision": 9, "status": "REQUIRED_PENDING",
+    }
     assert downstream_conformance["downstream_pin"] == ACTIVE_PIN
     assert downstream_conformance["fresh_post_pin_certification"] == "REQUIRED_PENDING"
     assert downstream_conformance["immediate_old_pin_certification"]["downstream_pin"] == HISTORICAL_TASK_221_PIN
@@ -4945,6 +4982,35 @@ def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
         "ACTIVE",
         "REQUIRED_PENDING",
         "NOT_REQUIRED",
+    }
+
+
+def test_bp9_bookmark_gates_fresh_conformance_on_exact_task_259_publication():
+    state = load_yaml(ROADMAP_FILE)
+    track = state["human_priority_side_track"]
+    assert state["authority"]["engineering_truth"] is False
+    assert track["target_aios_pin"] == ACTIVE_PIN
+    assert track["prior_aios_pin"] == HISTORICAL_TASK_255_PIN
+    assert track["upstream_prerequisite"]["reviewed_run_id"] == "RUN-212-002"
+    assert track["upstream_prerequisite"]["review_id"] == "REVIEW-212-002"
+    assert track["upstream_prerequisite"]["published_sha"] == ACTIVE_PIN
+    phases = {phase["id"]: phase for phase in track["phases"]}
+    assert phases["BP9-P1A"]["status"] == "DONE"
+    assert phases["BP9-P1A"]["historical_pin"] == HISTORICAL_TASK_255_PIN
+    assert phases["BP9-P1B"]["status"] == "DONE"
+    assert phases["BP9-P1B"]["published_sha"] == "8115b6b6c8c65a59a7aad5850c37810a31c8c5f3"
+    assert phases["BP9-P1C"]["status"] == "NEXT"
+    assert phases["BP9-P1C"]["task_id"] == "TASK-259"
+    assert phases["BP9-P1C"]["completion_gate"] == "EXACT_TASK_259_REVIEWED_SOURCE_PUBLICATION"
+    assert phases["BP9-P2"]["status"] == "PLANNED"
+    assert phases["BP9-P2"]["task_id"] == "TASK-207"
+    assert phases["BP9-P2"]["expected_revision"] == 9
+    assert phases["BP9-P2"]["authoring_gate"] == "AFTER_TASK_259_EXACT_REVIEWED_SOURCE_PUBLICATION"
+    assert track["preserved_product_commitment"] == {
+        "task_id": "TASK-254",
+        "task_revision": 4,
+        "status": "AUTHORED_UNEXECUTED",
+        "resume_after": "BP9-P2_PUBLICATION",
     }
 
 

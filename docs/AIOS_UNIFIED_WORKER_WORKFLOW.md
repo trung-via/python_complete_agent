@@ -1,8 +1,8 @@
 # AIOS Unified Worker Workflow
 
-For TASK-255 revision 6, the repository-owned Codex and Antigravity worker
-surfaces delegate exclusively to the immutable AIOS-renew kernel at commit
-`31fd2482cd87d97fd818e05eb5b4dcec69ffeee6`. Legacy AIOS Bridge source remains
+After TASK-255 revision 6 and TASK-256 publication, the repository-owned Codex
+and Antigravity worker surfaces select the immutable AIOS-renew kernel at commit
+`44eee353eda376c9db8cd88d97184d3122651bf5`. The prior TASK-255 consumer pin `31fd2482cd87d97fd818e05eb5b4dcec69ffeee6` is historical. Legacy AIOS Bridge source remains
 archived in this repository, but it is inactive and unreachable from these
 CONTINUE/STATUS and explicit RUN/FIX/REPAIR surfaces.
 
@@ -442,7 +442,7 @@ branches or caches that do not expose `/aios-renew-worker` fail closed instead o
 falling back to legacy `/aios-worker` semantics.
 
 Both active worker surfaces and the Brain-only carrier use exactly AIOS-renew commit
-`31fd2482cd87d97fd818e05eb5b4dcec69ffeee6`. The previous `edd7d8d92d54900c56442bbfcddb8648ec4d2e09` pin and installed provenance for the TASK-219-era
+`44eee353eda376c9db8cd88d97184d3122651bf5`. The historical TASK-255 pin `31fd2482cd87d97fd818e05eb5b4dcec69ffeee6`, the previous `edd7d8d92d54900c56442bbfcddb8648ec4d2e09` pin and installed provenance for the TASK-219-era
 `1a68db9acb6989dfa81bf875503db62e54a4bed6` pin, the TASK-218-era
 `49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2` pin, the TASK-216/TASK-217-era
 `c96eb8b52acd865b9453409e6598e08a8bd4e48e` pin, the TASK-209-era
@@ -642,6 +642,19 @@ authority. They store no chat memory, select no provider or model default, and
 add no lifecycle routing or publication control. Human/Brain planning authority,
 Reviewer verdict ownership, Runtime verification, and safe publication remain
 separate. Fresh full downstream conformance for exact pin
-`31fd2482cd87d97fd818e05eb5b4dcec69ffeee6` remains REQUIRED_PENDING;
+`44eee353eda376c9db8cd88d97184d3122651bf5` remains REQUIRED_PENDING;
 TASK-207 revision 8 is historical old-pin evidence, and TASK-207 revision 9
-is a separate future certification task.
+is a separate publication-gated certification task after TASK-259 publication.
+
+## BP9 post-P1B PRIMARY portability pin
+
+TASK-259 selects exact reviewed and source-published TASK-212 revision 1 /
+RUN-212-002 / REVIEW-212-002 source `44eee353eda376c9db8cd88d97184d3122651bf5` as the sole
+current downstream dependency. The pinned Runtime contains the governed-repository
+PRIMARY v3 profile-journal fix. Prior TASK-255 consumer `31fd2482cd87d97fd818e05eb5b4dcec69ffeee6`
+remains historical provenance. The five TASK-256 P1B semantic registry identities
+and all repository bindings remain unchanged. This adoption does not activate
+TASK-213 source-REPAIR behavior or any upstream hook. TASK-207 revision 8 and
+`.ai/aios-conformance-state.yaml` certify only the historical edd7d8d pin.
+Fresh TASK-207 revision 9 conformance is REQUIRED_PENDING and may follow only
+after exact reviewed TASK-259 source publication.
