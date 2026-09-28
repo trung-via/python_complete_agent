@@ -173,11 +173,12 @@ CONFORMANCE_FILE = REPO_ROOT / ".ai" / "aios-conformance-state.yaml"
 PIN_FILE = (
     REPO_ROOT / ".agents" / "skills" / "aios-worker" / "requirements-aios-renew.txt"
 )
-ACTIVE_PIN = "edd7d8d92d54900c56442bbfcddb8648ec4d2e09"
+ACTIVE_PIN = "31fd2482cd87d97fd818e05eb5b4dcec69ffeee6"
+HISTORICAL_TASK_221_PIN = "edd7d8d92d54900c56442bbfcddb8648ec4d2e09"
 PRIOR_CERTIFIED_PIN = "49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2"
 HISTORICAL_TASK_218_PIN = "49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2"
 HISTORICAL_TASK_219_PIN = "1a68db9acb6989dfa81bf875503db62e54a4bed6"
-EXPECTED_PIN = ACTIVE_PIN
+EXPECTED_PIN = HISTORICAL_TASK_221_PIN
 HISTORICAL_TASK_216_PIN = "c96eb8b52acd865b9453409e6598e08a8bd4e48e"
 HISTORICAL_TASK_209_PIN = "91a177d5b96b2197a4d8223dbb727dda6201cb64"
 HISTORICAL_TASK_208_PIN = "26097405343150dc1b55015b94720528afad50ed"
@@ -3256,7 +3257,7 @@ def test_p7_7_does_not_change_roadmap_or_aios_authority():
     }
     serialized = P7_7_SEMANTICS_FILE.read_text(encoding="utf-8")
     assert "P7.8" in serialized and "There is no P7.8" in serialized
-    assert ACTIVE_PIN in serialized
+    assert HISTORICAL_TASK_221_PIN in serialized
     assert "TASK-207 revision-8 downstream conformance unchanged" in serialized
 
 
@@ -4735,7 +4736,7 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
     prereq = state["prerequisite_pin_migration"]
     assert prereq["status"] == "DONE"
     assert prereq["migration_task"] == "TASK-221"
-    assert prereq["downstream_pin"] == ACTIVE_PIN
+    assert prereq["downstream_pin"] == HISTORICAL_TASK_221_PIN
     assert prereq["prior_pin"] == HISTORICAL_TASK_219_PIN
     assert prereq["prior_migration_task"] == "TASK-219"
     assert prereq["prerequisite_for"] == "FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION"
@@ -4747,14 +4748,14 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
         "review_mode": "PRIMARY",
         "review_ac_pass": ["AC1", "AC2", "AC3", "AC4", "AC5", "AC6"],
         "findings": [],
-        "source_sha": ACTIVE_PIN,
+        "source_sha": HISTORICAL_TASK_221_PIN,
         "source_published": True,
     }
     assert prereq["conformance_resume"] == {
         "task_id": "TASK-207",
         "expected_revision": 8,
         "authoring_gate": "AFTER_TASK_221_PUBLICATION",
-        "downstream_pin": ACTIVE_PIN,
+        "downstream_pin": HISTORICAL_TASK_221_PIN,
         "status": "PENDING_FRESH_CERTIFICATION",
     }
     assert prereq["resume_target"]["task_id"] == "TASK-215"
@@ -4797,7 +4798,7 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
     assert conformance["status"] == "DONE"
     assert conformance["task_id"] == "TASK-207"
     assert conformance["task_revision"] == 8
-    assert conformance["downstream_pin"] == ACTIVE_PIN
+    assert conformance["downstream_pin"] == HISTORICAL_TASK_221_PIN
     assert conformance["certification_record"] == ".ai/aios-conformance-state.yaml"
     assert conformance["historical_certification"] == {
         "task_id": "TASK-207",
@@ -4844,61 +4845,33 @@ def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
     requirement = PIN_FILE.read_text(encoding="utf-8").strip()
     assert requirement.endswith("@" + ACTIVE_PIN)
     assert state["downstream_pin"]["commit"] == ACTIVE_PIN
-    assert state["upstream_audit"]["checkpoint"] == ACTIVE_PIN
-    assert state["upstream_audit"]["through_authored_task"] == "TASK-148"
-    assert state["upstream_audit"]["upstream_revision"] == 2
-    assert state["upstream_audit"]["run_id"] == "RUN-148-003"
-    assert state["upstream_audit"]["checkpoint_role"] == "REVIEWED_SOURCE_PUBLISHED_PROVENANCE"
-    assert state["upstream_audit"]["checkpoint_is_runtime_authority"] is False
-    assert state["upstream_audit"]["review"] == "REVIEW-148-003"
-    assert state["upstream_audit"]["review_outcome"] == "PRIMARY_PASS"
-    assert state["upstream_audit"]["source_published"] is True
-    assert state["upstream_audit"]["prior_planning_checkpoint"] == HISTORICAL_TASK_219_PIN
-    assert len(state["upstream_audit"]["provenance"]) == 21
-    assert [entry["task_id"] for entry in state["upstream_audit"]["provenance"]] == [
-        "TASK-114", "TASK-115", "TASK-116", "TASK-117", "TASK-118",
-        "TASK-119", "TASK-120", "TASK-121", "TASK-122", "TASK-123",
-        "TASK-124", "TASK-125", "TASK-126", "TASK-127", "TASK-128", "TASK-129",
-        "TASK-145", "TASK-144", "TASK-140", "TASK-147", "TASK-148",
+    audit = state["upstream_audit"]
+    assert audit["checkpoint"] == ACTIVE_PIN
+    assert audit["through_authored_task"] == "TASK-202"
+    assert audit["upstream_revision"] == 4
+    assert audit["run_id"] == "RUN-202-003"
+    assert audit["review"] == "REVIEW-202-002"
+    assert audit["checkpoint_is_runtime_authority"] is False
+    assert audit["prior_planning_checkpoint"] == HISTORICAL_TASK_221_PIN
+    assert audit["activation_source"] == "275067b56cfd1dc9f7faf99fa2a3192e7cf48eec"
+    assert audit["activation_target_consumer_pin"] == ACTIVE_PIN
+    assert audit["activation_is_downstream_dependency"] is False
+    assert [entry["task_id"] for entry in audit["migration_provenance"]] == [
+        "TASK-199", "TASK-200", "TASK-201", "TASK-202", "TASK-203",
     ]
-    assert state["authority"]["engineering_truth"] is False
-    assert state["full_downstream_conformance"] == {
-        "status": "CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION",
-        "certification_task": {"id": "TASK-207", "revision": 8},
-        "downstream_pin": ACTIVE_PIN,
-        "historical_old_pin_certification": {
-            "task_id": "TASK-207",
-            "revision": 5,
-            "downstream_pin": PRIOR_CERTIFIED_PIN,
-            "certification_record": ".ai/aios-conformance-state.yaml",
-            "status": "HISTORICAL_OLD_PIN_EVIDENCE_ONLY",
-        },
-        "historical_old_pin_attempts": {
-            "task_id": "TASK-207",
-            "revision": 7,
-            "downstream_pin": HISTORICAL_TASK_219_PIN,
-            "terminal_run": "RUN-207-009",
-            "status": "FAILED_OLD_PIN_NON_CERTIFYING_EVIDENCE",
-            "repair_after_pin_change": "FORBIDDEN",
-            "certification_authority_for_current_pin": False,
-        },
-        "certification_record": ".ai/aios-conformance-state.yaml",
-        "effective_only_when": {
-            "semantic_review": "PASS",
-            "published_source": "EXACT_REVIEWED_CANDIDATE",
-            "canonical_main_equals_reviewed_candidate": True,
-        },
-        "before_gate": "NOT_EFFECTIVE",
-        "binding_classifications_changed": False,
-        "boundary": (
-            "This Brain planning record becomes effective only when the safe Publisher "
-            "publishes exactly the reviewed TASK-207 revision-8 source candidate. It is "
-            "not Runtime, review, or publication authority and does not replace the separate "
-            "canonical evidence lineage. Revision-5 certification remains historical evidence "
-            f"for {PRIOR_CERTIFIED_PIN}, while revision 7 and RUN-207-009 remain failed, "
-            f"non-certifying old-pin history for {HISTORICAL_TASK_219_PIN}."
-        ),
+    assert audit["downstream_adoption_task"]["runtime_migration_completion_claimed"] is False
+    assert state["p1b_semantic_registries"] == {
+        "brain": "REQUIRED_PENDING", "reviewer": "REQUIRED_PENDING", "task_scope": "TASK-256",
     }
+    assert state["authority"]["engineering_truth"] is False
+    downstream_conformance = state["full_downstream_conformance"]
+    assert downstream_conformance["status"] == "REQUIRED_PENDING"
+    assert downstream_conformance["downstream_pin"] == ACTIVE_PIN
+    assert downstream_conformance["fresh_post_pin_certification"] == "REQUIRED_PENDING"
+    assert downstream_conformance["immediate_old_pin_certification"]["downstream_pin"] == HISTORICAL_TASK_221_PIN
+    assert downstream_conformance["immediate_old_pin_certification"]["revision"] == 8
+    assert downstream_conformance["historical_old_pin_certification"]["downstream_pin"] == PRIOR_CERTIFIED_PIN
+    assert downstream_conformance["historical_old_pin_attempts"]["terminal_run"] == "RUN-207-009"
     assert conformance["authority"] == {
         "owner": "BRAIN_REVIEW",
         "purpose": "PUBLICATION_GATED_DOWNSTREAM_CERTIFICATION",
@@ -4909,7 +4882,7 @@ def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
     assert conformance["certification"] == {
         "task_id": "TASK-207",
         "task_revision": 8,
-        "downstream_pin": ACTIVE_PIN,
+        "downstream_pin": HISTORICAL_TASK_221_PIN,
         "status": "CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION",
         "effective_only_when": {
             "semantic_review": "PASS",
@@ -5118,7 +5091,7 @@ def test_relevant_upstream_tasks_have_distinct_package_and_binding_dimensions():
     assert historical_subject["repository_binding_activation"] == "NOT_REQUIRED"
     assert historical_subject["consumption"] == "PINNED_KERNEL_ONLY"
     assert historical_subject["source_published"] is True
-    assert historical_subject["reviewed_source_sha"] == ACTIVE_PIN
+    assert historical_subject["reviewed_source_sha"] == HISTORICAL_TASK_221_PIN
     assert historical_subject["review"] == "REVIEW-148-003"
     assert historical_subject["run_id"] == "RUN-148-003"
     assert "ordinary repository-local .git directory" in historical_subject["boundary"]
@@ -5182,12 +5155,13 @@ def test_task_220_repair_delivery_boundary_and_immutable_redelivery_governance()
 
     # AC2: Self-hosted target directly enforces Human actor preflight
     target_text = (REPO_ROOT / ".github" / "workflows" / "aios-self-hosted-repair-wakeup.yml").read_text(encoding="utf-8")
-    assert "GITHUB_ACTOR -ne 'trung-via'" in target_text
+    assert "AIOS_DELIVERY_ACTOR -ceq 'trung-via'" in target_text
 
-    # AC1: Brain Ingress does not dispatch repair target
+    # Brain Ingress dispatches the exact canonical repair handoff only when present.
     ingress_text = (REPO_ROOT / ".github" / "workflows" / "aios-brain-ingress.yml").read_text(encoding="utf-8")
-    assert "aios-self-hosted-repair-wakeup.yml" not in ingress_text
-    assert ingress_text.count("createWorkflowDispatch") == 1
+    assert "aios-self-hosted-repair-wakeup.yml" in ingress_text
+    assert "steps.ingress.outputs.repair_sha != ''" in ingress_text
+    assert ingress_text.count("createWorkflowDispatch") == 2
 
     # AC6: Pin, conformance records, and task history remain unchanged
     pin_text = PIN_FILE.read_text(encoding="utf-8")

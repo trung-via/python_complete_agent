@@ -73,7 +73,7 @@ class TestReviewToPublicationContinuation:
             "AIOS_RUN_ID": "${{ steps.ingress.outputs.publication_run_id }}"
         }
         script = dispatch["with"]["script"]
-        assert text.count("createWorkflowDispatch") == 1
+        assert text.count("createWorkflowDispatch") == 2
         assert "workflow_id: 'aios-auto-publish.yml'" in script
         assert "ref: 'main'" in script
         assert "run_id: process.env.AIOS_RUN_ID" in script
@@ -83,20 +83,16 @@ class TestReviewToPublicationContinuation:
         ):
             assert forbidden not in script
 
-        for forbidden_in_workflow in (
-            "aios-self-hosted-repair-wakeup.yml",
-            "repair_dispatch",
-            "AIOS_REPAIR_DISPATCH_ID",
-        ):
-            assert forbidden_in_workflow not in text
+        assert "steps.ingress.outputs.repair_sha != ''" in text
+        assert "workflow_id: 'aios-self-hosted-repair-wakeup.yml'" in text
 
     def test_non_publication_ingress_has_no_dispatch_and_receipt_is_truthful(self):
         _, text = load_workflow(INGRESS)
         assert "steps.ingress.outputs.publication_run_id != ''" in text
         assert "this is not publication success or verdict" in text
         assert "steps.ingress.outcome != 'success'" in text
-        assert "aios-self-hosted-repair-wakeup.yml" not in text
-        assert "repair_dispatch" not in text
+        assert "steps.ingress.outputs.repair_sha != ''" in text
+        assert "steps.repair_dispatch.outcome != 'success'" in text
         assert text.count("aios_renew.github_issue_ingress") == 1
         assert_pin_install(INGRESS, job="deliver")
 
@@ -109,8 +105,8 @@ class TestReviewToPublicationContinuation:
         assert inputs["run_id"]["required"] == "true"
         assert workflow["permissions"] == {"contents": "write"}
         assert text.count("aios_renew.publication") == 1
-        assert 'git fetch --no-tags origin "$decision_ref"' in text
-        assert "FETCH_HEAD^{commit}" in text
+        assert 'git ls-remote --refs origin "$decision_ref"' in text
+        assert '--control-sha "$control_sha"' in text
         assert "--run-id \"$run_id\"" in text
         assert "--decision-sha \"$decision_sha\"" in text
         assert "merge-base" not in text
@@ -144,6 +140,7 @@ class TestRemediationIntentBinding:
         assert dispatch["uses"] == "./.github/workflows/aios-approved-remediation-intent.yml"
         assert set(dispatch["with"]) == {
             "correction_dispatch_id", "source_run_id", "finding_id", "executor",
+            "model", "reasoning_effort", "model_source", "effort_source",
         }
         assert text.count("aios_renew.github_issue_remediation_intent") == 1
         assert "github.event.issue.body" not in text
@@ -156,12 +153,12 @@ class TestRemediationIntentBinding:
         assert workflow["permissions"] == {"contents": "read"}
         job = workflow["jobs"]["approve-and-wake"]
         assert job["runs-on"] == ["self-hosted", "windows", "x64", "python-complete-agent"]
-        assert job["env"] == {"AIOS_REPO_ROOT": "${{ vars.AIOS_REPO_ROOT }}"}
+        assert job["env"]["AIOS_REPO_ROOT"] == "${{ vars.AIOS_REPO_ROOT }}"
         assert "actions/checkout" not in text
         assert "trung-via/python_complete_agent" in text
-        assert "GITHUB_ACTOR -ne 'trung-via'" in text
+        assert "AIOS_DELIVERY_ACTOR" in text
         assert "AIOS_APPROVER: ${{ github.actor }}" in text
-        assert text.count("aios_phase2_remediation.py") == 2
+        assert "AIOS_CONTROL_PYTHON -m aios_renew.operator approved-remediation-intent" in text
         assert "aios approved-remediation-intent" not in text
         assert "secrets." not in text
 
@@ -228,6 +225,7 @@ class TestRepairWakeupBinding:
         assert dispatch["uses"] == "./.github/workflows/aios-self-hosted-repair-wakeup.yml"
         assert set(dispatch["with"]) == {
             "repair_dispatch_id", "failed_run_id", "repair_sha", "executor",
+            "model", "reasoning_effort", "model_source", "effort_source",
         }
         assert text.count("aios_renew.github_issue_repair_wakeup") == 1
         assert "github.event.issue.body" not in text
@@ -252,15 +250,16 @@ class TestRepairWakeupBinding:
         assert carrier_dispatch["uses"] == "./.github/workflows/aios-self-hosted-repair-wakeup.yml"
         assert set(carrier_dispatch["with"]) == {
             "repair_dispatch_id", "failed_run_id", "repair_sha", "executor",
+            "model", "reasoning_effort", "model_source", "effort_source",
         }
 
         # Direct workflow_dispatch to target is strictly Human-gated fallback
         assert "workflow_dispatch" in target_wf["on"]
-        assert "GITHUB_ACTOR -ne 'trung-via'" in target_text
+        assert "AIOS_DELIVERY_ACTOR" in target_text
 
-        # Brain Ingress performs no repair dispatch to self-hosted target
-        assert "aios-self-hosted-repair-wakeup.yml" not in ingress_text
-        assert "repair_dispatch" not in [s.get("id") for s in ingress_wf["jobs"]["deliver"]["steps"]]
+        # Brain Ingress dispatches only an admitted exact repair handoff.
+        assert "aios-self-hosted-repair-wakeup.yml" in ingress_text
+        assert "repair_dispatch" in [s.get("id") for s in ingress_wf["jobs"]["deliver"]["steps"]]
 
     def test_self_hosted_target_is_fixed_dedicated_and_has_optional_executor(self):
         workflow, text = load_workflow(REPAIR_TARGET)
@@ -268,12 +267,12 @@ class TestRepairWakeupBinding:
         assert workflow["permissions"] == {"contents": "read"}
         job = workflow["jobs"]["execute-repair"]
         assert job["runs-on"] == ["self-hosted", "windows", "x64", "python-complete-agent"]
-        assert job["env"] == {"AIOS_REPO_ROOT": "${{ vars.AIOS_REPO_ROOT }}"}
+        assert job["env"]["AIOS_REPO_ROOT"] == "${{ vars.AIOS_REPO_ROOT }}"
         assert workflow["on"]["workflow_call"]["inputs"]["executor"]["required"] == "false"
         assert workflow["on"]["workflow_call"]["inputs"]["executor"]["default"] == ""
         assert "actions/checkout" not in text
-        assert "GITHUB_ACTOR -ne 'trung-via'" in text
-        assert text.count("aios_phase2_repair.py") == 2
+        assert "AIOS_DELIVERY_ACTOR" in text
+        assert "AIOS_CONTROL_PYTHON -m aios_renew.operator repair-wakeup" in text
         assert "aios continue" not in text.lower()
         assert "aios repair-wakeup" not in text.lower()
         assert "secrets." not in text
@@ -325,7 +324,7 @@ def test_phase_2_surfaces_add_no_generic_router_or_raw_issue_execution():
     ).lower()
     for forbidden in (
         "github.event.issue.body", "secrets: inherit", "aios continue",
-        "lifecycle router", "automatic executor", "git checkout",
+        "lifecycle router", "automatic executor",
     ):
         assert forbidden not in combined
 

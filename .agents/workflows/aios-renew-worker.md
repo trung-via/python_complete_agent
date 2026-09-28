@@ -7,10 +7,10 @@ description: >
   AIOS-renew kernel with executor identity antigravity.
 ---
 
-# AIOS-renew Worker — Antigravity Workflow
+# AIOS-renew Worker â€” Antigravity Workflow
 
 **Surface:** Antigravity `/aios-renew-worker` slash command only.
-**Executor identity:** `antigravity` — passed as `--executor antigravity` to the shared launcher.
+**Executor identity:** `antigravity` â€” passed as `--executor antigravity` to the shared launcher.
 
 This is the only active Antigravity execution surface. It must never serve the
 Codex worker surface or infer, reroute, or substitute another executor.
@@ -103,7 +103,7 @@ provides runtime authority; AIOS-renew runs only from the launcher's separate
 
 ## Command Details
 
-### CONTINUE TASK-N — normal lifecycle command
+### CONTINUE TASK-N â€” normal lifecycle command
 
 Delegates exactly once to the pinned Unified Human Surface with the exact repository
 root and Human-selected Antigravity identity. AIOS-renew TASK-086/TASK-087 exclusively
@@ -224,7 +224,7 @@ an executor or become a second status or review authority.
 
 ## Adopted Upstream Capabilities and Boundaries
 
-Under the pinned commit `edd7d8d92d54900c56442bbfcddb8648ec4d2e09`, Python Agent adopts:
+Under the pinned commit `31fd2482cd87d97fd818e05eb5b4dcec69ffeee6`, Python Agent adopts:
 - **TASK-086**: Deterministic, read-only Unified State and Next Action through the
   public `state` operator surface. The workflow neither copies nor caches the reducer.
 - **TASK-087**: One bounded Human continuation front door through the public `continue`
@@ -388,7 +388,7 @@ Capabilities present in upstream history but **not** exposed by this downstream 
 ## Immutable Kernel Pin
 
 The only authoritative AIOS-renew kernel is commit
-`edd7d8d92d54900c56442bbfcddb8648ec4d2e09`. Installed provenance for the TASK-219-era
+`31fd2482cd87d97fd818e05eb5b4dcec69ffeee6`. Installed provenance for the immediate predecessor `edd7d8d92d54900c56442bbfcddb8648ec4d2e09` and for the TASK-219-era
 `1a68db9acb6989dfa81bf875503db62e54a4bed6` pin, the TASK-218-era
 `49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2` pin, the TASK-216/TASK-217-era
 `c96eb8b52acd865b9453409e6598e08a8bd4e48e` pin, the TASK-209-era
@@ -463,8 +463,9 @@ Prior TASK-207 revision-5 conformance remains historical evidence tied to
 `49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2`. TASK-207 revision 7 and RUN-207-009 remain
 failed, non-certifying evidence tied only to superseded pin
 `1a68db9acb6989dfa81bf875503db62e54a4bed6`; RUN-207-009 must not be repaired after migration.
-Fresh full downstream conformance under `edd7d8d92d54900c56442bbfcddb8648ec4d2e09` requires
-TASK-207 revision 8 authored after TASK-221 publication before generic product continuation.
+TASK-207 revision 8 certification under `edd7d8d92d54900c56442bbfcddb8648ec4d2e09` is historical old-pin evidence.
+Fresh full downstream conformance under `31fd2482cd87d97fd818e05eb5b4dcec69ffeee6` remains REQUIRED_PENDING
+and requires a separately authored TASK-207 successor after publication.
 TASK-207 revision 2 and RUN-207-001/RUN-207-002/REPAIR-207-001 remain immutable old-pin
 history; conformance resumes only through a fresh Brain revision bound to the new pin.
 Future AIOS-renew main changes remain irrelevant until another explicit reviewed downstream migration.
@@ -477,3 +478,13 @@ Live PRIMARY and Phase-2 REMEDIATION/REPAIR execution require one-time Human ope
 3. Configure repository variable `AIOS_REPO_ROOT` to the persistent Python Agent checkout.
 4. Keep existing non-interactive Git transport available.
 Source publication of this task does not claim those external prerequisites are live-proven.
+
+TASK-255 revision 6 adopts TASK-202 / RUN-202-003 / REVIEW-202-002 consumer
+`31fd2482cd87d97fd818e05eb5b4dcec69ffeee6` as the first post-bootstrap downstream dependency. TASK-203 /
+RUN-203-001 / REVIEW-203-001 published `275067b56cfd1dc9f7faf99fa2a3192e7cf48eec` only as the
+activation source targeting that consumer. TASK-199 through TASK-201 remain
+historical migration lineage. The source-bootstrap recovery and migration
+completion are Runtime-owned; this worker asserts neither. Codex defaults to
+gpt-6-sol/high and Antigravity to gemini-3.8-flash/medium under
+`.ai/executor-profiles.yaml`, with explicit Human overrides taking precedence.
+Fresh TASK-207 certification and P1B semantic registries remain pending.

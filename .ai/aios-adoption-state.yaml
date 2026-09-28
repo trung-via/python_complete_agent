@@ -13,16 +13,22 @@ authority:
 
 downstream_pin:
   repository: https://github.com/trung-via/AIOS-renew.git
-  commit: edd7d8d92d54900c56442bbfcddb8648ec4d2e09
+  commit: 31fd2482cd87d97fd818e05eb5b4dcec69ffeee6
   policy: EXACT_REVIEWED_SOURCE_PUBLISHED_ONLY
   source_published: true
 
 full_downstream_conformance:
-  status: CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION
+  status: REQUIRED_PENDING
   certification_task:
     id: TASK-207
+    revision: REQUIRED_PENDING
+  downstream_pin: 31fd2482cd87d97fd818e05eb5b4dcec69ffeee6
+  immediate_old_pin_certification:
+    task_id: TASK-207
     revision: 8
-  downstream_pin: edd7d8d92d54900c56442bbfcddb8648ec4d2e09
+    downstream_pin: edd7d8d92d54900c56442bbfcddb8648ec4d2e09
+    certification_record: .ai/aios-conformance-state.yaml
+    status: HISTORICAL_OLD_PIN_EVIDENCE_ONLY
   historical_old_pin_certification:
     task_id: TASK-207
     revision: 5
@@ -38,31 +44,65 @@ full_downstream_conformance:
     repair_after_pin_change: FORBIDDEN
     certification_authority_for_current_pin: false
   certification_record: .ai/aios-conformance-state.yaml
-  effective_only_when:
-    semantic_review: PASS
-    published_source: EXACT_REVIEWED_CANDIDATE
-    canonical_main_equals_reviewed_candidate: true
-  before_gate: NOT_EFFECTIVE
+  fresh_post_pin_certification: REQUIRED_PENDING
+  certification_record: .ai/aios-conformance-state.yaml
   binding_classifications_changed: false
   boundary: >-
-    This Brain planning record becomes effective only when the safe Publisher publishes exactly
-    the reviewed TASK-207 revision-8 source candidate. It is not Runtime, review, or publication
-    authority and does not replace the separate canonical evidence lineage. Revision-5 certification
-    remains historical evidence for 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2, while revision 7 and
-    RUN-207-009 remain failed, non-certifying old-pin history for
-    1a68db9acb6989dfa81bf875503db62e54a4bed6.
+    TASK-207 revision 8 certifies only historical edd7d8d generation. A fresh
+    post-pin TASK-207 successor requires separate Brain authoring, Runtime execution,
+    semantic review and exact source publication. This planning record asserts none
+    of those lifecycle outcomes.
 
 upstream_audit:
-  checkpoint: edd7d8d92d54900c56442bbfcddb8648ec4d2e09
-  through_authored_task: TASK-148
-  upstream_revision: 2
-  run_id: RUN-148-003
+  checkpoint: 31fd2482cd87d97fd818e05eb5b4dcec69ffeee6
+  through_authored_task: TASK-202
+  upstream_revision: 4
+  run_id: RUN-202-003
   checkpoint_role: REVIEWED_SOURCE_PUBLISHED_PROVENANCE
   checkpoint_is_runtime_authority: false
-  review: REVIEW-148-003
+  review: REVIEW-202-002
   review_outcome: PRIMARY_PASS
   source_published: true
-  prior_planning_checkpoint: 1a68db9acb6989dfa81bf875503db62e54a4bed6
+  prior_planning_checkpoint: edd7d8d92d54900c56442bbfcddb8648ec4d2e09
+  activation_source: 275067b56cfd1dc9f7faf99fa2a3192e7cf48eec
+  activation_source_role: REVIEWED_PUBLISHED_SOURCE_BOOTSTRAP_ACTIVATOR
+  activation_target_consumer_pin: 31fd2482cd87d97fd818e05eb5b4dcec69ffeee6
+  activation_is_downstream_dependency: false
+  migration_provenance:
+    - task_id: TASK-199
+      revision: 2
+      authored_sha: 155d391f554e52da33cdfb283b0d19fd80d4591a
+      role: HISTORICAL_SOURCE_BOOTSTRAP_CONSUMER
+      consumer_sha: ff29666d50eaf9276ab62d944018f2bbeb91f073
+    - task_id: TASK-200
+      revision: 1
+      authored_sha: 166ea0d32801e60f45c266d01213cea9ccd82d8a
+      role: HISTORICAL_BOOTSTRAP_LINEAGE
+      current_dependency_authority: false
+    - task_id: TASK-201
+      revision: 1
+      authored_sha: 6253fdedfe66501ced495f2d071520b4ac4b447a
+      activation_sha: bbc8f09f38ac4d150060c6fcc851b6da2140e5a0
+      role: HISTORICAL_SOURCE_BOOTSTRAP_AND_ADOPTION_LINEAGE
+      current_dependency_authority: false
+    - task_id: TASK-202
+      revision: 4
+      run_id: RUN-202-003
+      review: REVIEW-202-002
+      role: FIRST_ADOPTED_CONSUMER
+      consumer_sha: 31fd2482cd87d97fd818e05eb5b4dcec69ffeee6
+    - task_id: TASK-203
+      run_id: RUN-203-001
+      review: REVIEW-203-001
+      role: ACTIVATION_SOURCE_ONLY
+      activation_source_sha: 275067b56cfd1dc9f7faf99fa2a3192e7cf48eec
+      sole_target_sha: 31fd2482cd87d97fd818e05eb5b4dcec69ffeee6
+  downstream_adoption_task:
+    task_id: TASK-255
+    revision: 6
+    run_id: RUN-255-003
+    role: FIRST_GENERATION_EXACT_POST_BOOTSTRAP_CANDIDATE
+    runtime_migration_completion_claimed: false
   provenance:
     - task_id: TASK-114
       role: DOWNSTREAM_PORTABILITY_POLICY
@@ -566,6 +606,11 @@ capability_families:
       semantics, and control-owned transport may resolve the exact candidate object graph locally
       without moving control HEAD, branch, index, or worktree. Python Agent activates no upstream
       repository hook, copies no Runtime implementation, and adds no lifecycle authority.
+
+p1b_semantic_registries:
+  brain: REQUIRED_PENDING
+  reviewer: REQUIRED_PENDING
+  task_scope: TASK-256
 
 incident_lineage:
   run_id: RUN-197-001

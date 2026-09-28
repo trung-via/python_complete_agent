@@ -1,8 +1,8 @@
 # AIOS Unified Worker Workflow
 
-As of TASK-221, the repository-owned Codex and Antigravity worker
+For TASK-255 revision 6, the repository-owned Codex and Antigravity worker
 surfaces delegate exclusively to the immutable AIOS-renew kernel at commit
-`edd7d8d92d54900c56442bbfcddb8648ec4d2e09`. Legacy AIOS Bridge source remains
+`31fd2482cd87d97fd818e05eb5b4dcec69ffeee6`. Legacy AIOS Bridge source remains
 archived in this repository, but it is inactive and unreachable from these
 CONTINUE/STATUS and explicit RUN/FIX/REPAIR surfaces.
 
@@ -143,7 +143,7 @@ Neither Phase-2 bootstrap calls the local Human `CONTINUE` surface, uses a globa
 
 ## 4. Worker Operations
 
-### CONTINUE TASK-N — normal Human lifecycle path
+### CONTINUE TASK-N â€” normal Human lifecycle path
 
 - **Codex**: Calls AIOS-renew `continue` once with the exact TASK ID, exact Python
   Agent repository root, and executor `codex`.
@@ -442,7 +442,7 @@ branches or caches that do not expose `/aios-renew-worker` fail closed instead o
 falling back to legacy `/aios-worker` semantics.
 
 Both active worker surfaces and the Brain-only carrier use exactly AIOS-renew commit
-`edd7d8d92d54900c56442bbfcddb8648ec4d2e09`. Installed provenance for the TASK-219-era
+`31fd2482cd87d97fd818e05eb5b4dcec69ffeee6`. The previous `edd7d8d92d54900c56442bbfcddb8648ec4d2e09` pin and installed provenance for the TASK-219-era
 `1a68db9acb6989dfa81bf875503db62e54a4bed6` pin, the TASK-218-era
 `49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2` pin, the TASK-216/TASK-217-era
 `c96eb8b52acd865b9453409e6598e08a8bd4e48e` pin, the TASK-209-era
@@ -539,7 +539,7 @@ historical subjects have ordinary repository-local `.git` directory semantics, a
 control-owned transport may locally resolve the exact candidate object graph without moving control HEAD,
 branch, index, or worktree. Python Agent copies no Runtime implementation and does not activate
 upstream TASK-140 project hooks or any second lifecycle authority.
-TASK-207 revision 8 re-certifies the Phase-1 and Phase-2 repository bindings under exact pin
+TASK-207 revision 8 historically certified the Phase-1 and Phase-2 repository bindings under exact pin
 `edd7d8d92d54900c56442bbfcddb8648ec4d2e09`. Certification remains publication-gated: Runtime
 PASS and semantic Reviewer PASS are necessary but not sufficient; the safe Publisher must publish
 exactly the reviewed revision-8 source candidate and canonical `main` must equal it. Revision-5
@@ -608,3 +608,17 @@ one CONTINUE invocation delegates at most one canonical lifecycle operation. Thi
 protocol defines the certification procedure and evidence types; it does not declare
 TASK-180 PASS or AIOS-renew Downstream Adoption complete. Canonical Runtime and
 review artifacts remain the authority for those outcomes.
+
+## BP9-P1A consumer pin
+
+TASK-255 revision 6 adopts the reviewed TASK-202 / RUN-202-003 / REVIEW-202-002
+consumer `31fd2482cd87d97fd818e05eb5b4dcec69ffeee6`. TASK-203 / RUN-203-001 / REVIEW-203-001
+published activation source `275067b56cfd1dc9f7faf99fa2a3192e7cf48eec`, whose sole target is that
+consumer. TASK-199 through TASK-201 remain historical migration lineage. The
+activation source is not an active downstream dependency. The repository profile
+policy defaults Codex to gpt-6-sol/high and Antigravity to
+gemini-3.8-flash/medium; explicit Human overrides take precedence and the
+carriers preserve exact model/effort provenance. TASK-207 revision 8 under
+`edd7d8d92d54900c56442bbfcddb8648ec4d2e09` remains historical certification only. Fresh post-pin
+certification and P1B semantic registries remain REQUIRED_PENDING. This
+planning and documentation state does not prove Runtime migration completion.

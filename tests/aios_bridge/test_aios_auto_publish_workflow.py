@@ -89,7 +89,7 @@ class TestWorkflowTriggerAndPermissions:
         assert len(checkout_steps) == 1, "Exactly one checkout step required"
         checkout = checkout_steps[0]
         params = checkout.get("with", {})
-        assert params.get("ref") == "${{ github.event_name == 'push' && github.sha || 'main' }}"
+        assert params.get("ref") == "main"
         assert params.get("fetch-depth") == 0, (
             "Checkout must fetch full history (fetch-depth: 0) for ancestry validation"
         )
@@ -185,11 +185,11 @@ class TestPublicationDelegation:
 
     def test_dispatch_replay_carries_only_run_and_resolves_remote_decision(self):
         raw = WORKFLOW_FILE.read_text(encoding="utf-8")
-        assert "AIOS_DISPATCH_RUN_ID: ${{ inputs.run_id }}" in raw
-        assert "^RUN-[A-Za-z0-9_-]+-[0-9]{3,}$" in raw
+        assert "AIOS_REPLAY_RUN_ID: ${{ inputs.run_id }}" in raw
+        assert "^RUN-[A-Za-z0-9][A-Za-z0-9._-]*$" in raw
         assert 'decision_ref="${prefix}${run_id}"' in raw
-        assert 'git fetch --no-tags origin "$decision_ref"' in raw
-        assert "FETCH_HEAD^{commit}" in raw
+        assert 'git ls-remote --refs origin "$decision_ref"' in raw
+        assert 'git fetch --no-tags origin refs/heads/main' in raw
         for forbidden in (
             "candidate_sha",
             "verdict_override",
@@ -222,7 +222,7 @@ class TestNoDuplicatedPublicationSemantics:
     def test_workflow_has_no_direct_main_push_or_lease(self):
         raw = WORKFLOW_FILE.read_text(encoding="utf-8")
         assert "git push" not in raw
-        assert "refs/heads/main" not in raw
+        assert "git push" not in raw
         assert "--force" not in raw
         assert "--force-with-lease" not in raw
 

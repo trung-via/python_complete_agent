@@ -144,23 +144,15 @@ class TestBrainIngressWorkflow:
         assert '--output "$GITHUB_OUTPUT"' in carrier_calls[0]
         assert "github.event.issue.body" not in text
 
-    def test_phase_1_semantics_preserved_with_only_fixed_publication_continuation(self):
+    def test_ingress_fans_out_only_bounded_publication_and_repair_requests(self):
         _, text = load_workflow(INGRESS_WORKFLOW_PATH)
-        for forbidden in (
-            "aios run",
-            "aios remediate",
-            "aios repair",
-            "aios wakeup",
-            "codex",
-            "antigravity",
-            "aios-self-hosted-repair-wakeup.yml",
-            "repair_dispatch",
-        ):
-            assert forbidden not in text
-        assert text.count("createWorkflowDispatch") == 1
+        assert text.count("createWorkflowDispatch") == 2
         assert "workflow_id: 'aios-auto-publish.yml'" in text
-        assert "AIOS_RUN_ID: ${{ steps.ingress.outputs.publication_run_id }}" in text
-        assert "run_id: process.env.AIOS_RUN_ID" in text
+        assert "workflow_id: 'aios-self-hosted-repair-wakeup.yml'" in text
+        assert "steps.ingress.outputs.repair_sha != ''" in text
+        assert "AIOS_REPAIR_DISPATCH_OUTCOME" in text
+        assert "steps.repair_dispatch.outcome != 'success'" in text
+        assert "github.event.issue.body" not in text
 
 
 class TestBrainWakeupWorkflow:
@@ -199,9 +191,9 @@ class TestBrainWakeupWorkflow:
         assert "workflow_id: 'aios-self-hosted-wakeup.yml'" in script
         assert "ref: 'main'" in script
         assert set(dispatch["env"]) == {
-            "AIOS_DISPATCH_ID",
-            "AIOS_TASK_ID",
-            "AIOS_EXECUTOR",
+            "AIOS_DISPATCH_ID", "AIOS_TASK_ID", "AIOS_TASK_REVISION",
+            "AIOS_TASK_BLOB_SHA", "AIOS_TASK_COMMIT_SHA", "AIOS_EXECUTOR",
+            "AIOS_MODEL", "AIOS_REASONING_EFFORT", "AIOS_MODEL_SOURCE", "AIOS_EFFORT_SOURCE",
         }
         assert "github.event.issue.body" not in text
 
@@ -221,7 +213,7 @@ class TestSelfHostedWakeupWorkflow:
         wf, _ = load_workflow(SELF_HOSTED_WORKFLOW_PATH)
         assert list(wf.get("on")) == ["workflow_dispatch"]
         inputs = wf["on"]["workflow_dispatch"]["inputs"]
-        assert set(inputs) == {"dispatch_id", "task_id", "executor"}
+        assert set(inputs) == {"dispatch_id", "task_id", "task_revision", "task_blob_sha", "task_commit_sha", "executor", "model", "reasoning_effort", "model_source", "effort_source"}
         assert inputs["executor"]["type"] == "choice"
         assert set(inputs["executor"]["options"]) == {"codex", "antigravity"}
 
@@ -244,10 +236,15 @@ class TestSelfHostedWakeupWorkflow:
         steps = wf["jobs"]["wakeup"]["steps"]
         assert not any("actions/checkout" in str(s.get("uses", "")) for s in steps)
         assert "AIOS_REPO_ROOT: ${{ vars.AIOS_REPO_ROOT }}" in text
+        assert "AIOS_CONTROL_ROOT" in text
+        assert "AIOS_OPERATIONAL_RECEIPT_V2" in text
 
     def test_uses_phase1_wakeup_bootstrap_script_not_ambient_aios(self):
         _, text = load_workflow(SELF_HOSTED_WORKFLOW_PATH)
-        assert "aios_phase1_wakeup.py" in text
+        assert "aios_worker.py" in text
+        assert "AIOS_CONTROL_PYTHON -m aios_renew.operator wakeup" in text
+        assert "--task-blob-sha" in text
+        assert "--model-source" in text
         assert "Get-Command aios" not in text
         assert re.search(r"\baios\s+wakeup\b", text) is None
         assert re.search(r"\baios\s+run\b", text) is None
