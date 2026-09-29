@@ -1,103 +1,86 @@
 task_id: TASK-260
-revision: 1
+revision: 2
 
 goal: >
-  Reconcile the Python Agent roadmap after exact publication of TASK-254 and restore the
-  original P8 real-commerce-decision objective as the planning center. Freeze a bounded
-  Human/Brain decision-sufficiency view over the exact selected TikTok Shop pilot using only
-  already-canonical evidence/unknowns and P7.5 Value-of-Information semantics; close stale
-  BP9-to-TASK254 continuation pointers; make Human-owned missing decision inputs explicit; and
-  return one bounded Human/Brain choice gate without authorizing acquisition, market action,
-  a successor task, or a future intelligence domain.
+  Reconcile the roadmap after exact TASK-254 publication and restore the original P8
+  real-commerce-decision objective as the planning center. Preserve a time-aware bounded
+  knowledge-state view over the selected pilot, close stale BP9-to-TASK254 continuation
+  pointers, expose Human-owned missing decision inputs, reuse P7.5 laws without fabricating a
+  P7.5 plan or disposition, and return exactly one unranked Human/Brain choice gate. Grant no
+  acquisition, test, action, successor-task or future-domain authority.
 
 problem: >
-  TASK-254 revision 6 is now exactly reviewed and published at
+  TASK-254 r6 is exactly published at
   36627c80e76f156fcb774b10fbd35d14df6d9ea4 after RUN-254-003 /
-  REVIEW-254-001 PASS. The carrier provenance defect is closed, current live/acquisition/action
-  authority remains NONE, current price remains UNKNOWN/null, original price remains
-  OBSERVED_ONLY 68220.0, manual Wave-1 contribution remains unperformed, and Human-owned
-  economic/test/risk inputs remain unset. P8 began as Real Commerce Decision Loop Composition,
-  but the post-P8.1 implementation sequence has spent substantial work on one PDP acquisition
-  path without yet establishing that another live validation is the highest-value remaining
-  uncertainty reduction. P8.2 explicitly requires P7.5-style VOI reasoning and STOP/DEFER when
-  evidence is unlikely to change the Human decision or when the material blocker is a Human-owned
-  constraint rather than marketplace evidence. In addition, roadmap-state still contains live
-  BP9 planning pointers that describe TASK-254 as AUTHORED_UNEXECUTED even though TASK-254 is
-  now published. Those stale pointers can mislead generic continuation automation. A narrow
-  planning-only reconciliation is required before any further acquisition authority.
+  REVIEW-254-001 PASS. The carrier provenance defect is closed, but the real-commerce decision
+  remains under uncertainty: no current-price value is admitted; the 68220 original-price
+  observation belongs to the dated Generation-8 diagnostic and is not current truth; affiliate
+  economics remain unestablished; manual Wave-1 contribution remains unperformed; and Human
+  economics/test/risk inputs remain unset. The prior revision incorrectly risked describing
+  historical observations as current, applying P7.5 dispositions to Human-owned inputs even
+  though no canonical current P7.4 real-pilot profile exists, and leaving current roadmap shapes
+  open enough to retain TASK-254 acquisition residue. Existing governance tests also still freeze
+  TASK-254 and BP9 resume pointers as current state. Revision 2 closes those ambiguities while
+  preserving the planning-only objective.
 
 assumptions:
   - >
     Canonical main at authoring is exactly
-    36627c80e76f156fcb774b10fbd35d14df6d9ea4, the exact reviewed and published
-    TASK-254 r6 candidate from RUN-254-003 / REVIEW-254-001 PASS.
+    be663b74f52244a5bc8f0b772768c4f28b0e26d0. TASK-260 r1 is authored but unexecuted.
+    No engineering RUN-260 exists.
   - >
-    TASK-254 is DONE/PUBLISHED. active_track.next_milestone is null,
-    pending_commitments is empty, and the current handoff is
-    HUMAN_BRAIN_FRESH_POST_GEN8_PAIRED_PRICE_COLLECTOR_VALIDATION_AUTHORIZATION.
-    That handoff is a Human/Brain decision gate, not a preselected engineering NEXT.
+    Exact predecessor is TASK-254 r6 / RUN-254-003 / REVIEW-254-001 / published source
+    36627c80e76f156fcb774b10fbd35d14df6d9ea4. RUN-254-001 and RUN-254-002 remain immutable
+    failed verification history; REPAIR-254-001 and REPAIR-254-002 remain correction lineage.
   - >
-    The selected real-decision case remains context_id
-    p8-pilot-001-led-motion-tiktok-vn, TikTok Shop Vietnam source ID
-    1731381331718341815, with the exact stable listing reference already canonicalized.
-    SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY remains mandatory.
+    Current roadmap after TASK-254 has active_track DONE, next_milestone null,
+    pending_commitments empty, and handoff
+    HUMAN_BRAIN_FRESH_POST_GEN8_PAIRED_PRICE_COLLECTOR_VALIDATION_AUTHORIZATION. This is a
+    decision gate, not a selected NEXT.
   - >
-    P8.0 remains the sole real-decision-loop composition owner. P7.3 remains the sole owner
-    of DecisionContext and OpportunityHypothesis; P7.4 remains the sole owner of
-    TikTokAffiliateEvidenceProfile; P7.5 remains the sole Value-of-Information planning owner;
-    P7.6 remains the sole market-test evidence owner; P7.7 remains the sole bounded calibration
-    and winner-validation owner. Product Intelligence retains its existing evidence, product,
-    identity, ranking, approval, persistence and truth authorities.
+    P8.0 remains the sole decision-loop composition owner; P7.3/P7.4/P7.5/P7.6/P7.7 and Product
+    Intelligence keep their canonical ownership. TASK-260 is Brain planning state only.
   - >
-    P7.5 VALUE_OF_INFORMATION_DISPOSITIONS remain exactly CONTINUE, DEFER and STOP.
-    CONTINUE is not acquisition authorization, DEFER is not permanent rejection, and STOP does
-    not prove that no evidence exists. TASK-260 must not create a second VOI model, ranking,
-    score, optimizer or acquisition-order authority.
+    P7.5 canonical dispositions are CONTINUE, DEFER and STOP, but constructing a canonical
+    ValueOfInformationPlan requires a valid DecisionContext, OpportunityHypothesis and
+    TikTokAffiliateEvidenceProfile. TASK-260 has no authority to fabricate a current real-pilot
+    P7.4 profile merely to obtain a P7.5 disposition.
   - >
-    P8.2 already defines the relevant nine qualitative VOI considerations:
-    expected decision impact, uncertainty reduction, cost, latency, access risk, fragility,
-    reliability, opportunity cost and decision-deadline consideration.
+    P7.5 laws still guide qualitative reasoning: missingness != acquisition authorization,
+    collectability != value, CONTINUE != authorization, DEFER != permanent rejection,
+    STOP != proof no evidence exists, represented != sufficient and disposition != decision.
   - >
-    P8.3 / TASK-229 manual Wave-1 contribution authorization exists historically but remains
-    contribution_status UNPERFORMED_BY_TASK, review_status UNPERFORMED_BY_TASK and
-    human_owned_inputs_status UNSET. Its existence does not by itself make it the current
-    authorized operation after later roadmap progression.
+    Historical TASK-233 external evidence established exact-listing binding and title at the
+    TASK-233 operation time, but canonical roadmap state does not restate a trustworthy exact
+    observation timestamp for those two fields. TASK-260 therefore must preserve them as
+    historical observations with freshness NOT_ASSERTED, not as current marketplace truth.
   - >
-    TASK-254 current validation state is zero-authority: authorized_validation_attempts 0,
-    remaining 0, validation_execution_owner NONE, validation_executed false,
-    live_public_pdp_acquisition_authority NONE,
-    automated_public_pdp_acquisition_authority NONE,
-    market_test_or_action_authority NONE, automatic_live_pilot false and
-    automatic_progression false.
+    Generation-8 V5 diagnostic evidence has exact observed_at
+    2026-09-26T07:43:19.570359+00:00. It supports original_price OBSERVED_ONLY 68220.0 and
+    current_price UNKNOWN/null at that observation time; SNAPSHOT_IS_NOT_TREND and time remains
+    first-class.
   - >
-    Current exact-listing field state relevant to this reconciliation is:
-    identity binding OBSERVED; title OBSERVED; current_price UNKNOWN/null;
-    original_price OBSERVED_ONLY 68220.0; shop_name/discount_percent/sold_count/rating/
-    review_count UNKNOWN in current exact-listing validation; canonical_evidence_ingested
-    false; price_role_resolution_complete false; selector_repair_complete false.
-    Affiliate eligibility, commission rate and estimated commission are not established by
-    current canonical exact-listing evidence.
+    Current knowledge for shop_name, discount_percent, sold_count, rating and review_count
+    remains UNKNOWN. Affiliate eligibility, affiliate commission rate and estimated commission
+    remain NOT_ESTABLISHED by canonical exact-listing evidence.
+  - >
+    TASK-229 manual Wave-1 authorization is historical; contribution_status and review_status
+    remain UNPERFORMED_BY_TASK and human_owned_inputs_status remains UNSET. It is not assumed
+    automatically executable after subsequent roadmap progression.
   - >
     Human-owned budget, duration, exposure controls, contribution-margin threshold,
     success/failure criteria, target audience, quality constraints, risk constraints,
-    risk acceptance and decision deadline/decision timing remain unset unless separately
-    supplied by the Human. Marketplace acquisition cannot manufacture those inputs.
+    risk acceptance and decision timing remain unset and cannot be produced by marketplace
+    acquisition.
   - >
-    Current active AIOS-renew pin remains
-    44eee353eda376c9db8cd88d97184d3122651bf5 and full downstream conformance remains
-    TASK-207 revision 14 / RUN-207-014 / REVIEW-207-005. BP9 history and P1B registries
-    remain unchanged.
-  - >
-    Roadmap state is Brain/Human planning state, not engineering truth. Historical TASK-207,
-    TASK-255, TASK-259 task text that truthfully describes TASK-254 as a then-future revision-4
-    or revision-6 continuation remains immutable historical text; only current live planning
-    pointers may be reconciled.
+    Active AIOS pin remains 44eee353eda376c9db8cd88d97184d3122651bf5 and full downstream
+    conformance remains TASK-207 r14 / RUN-207-014 / REVIEW-207-005. BP9/P1B history remains
+    unchanged except its live TASK-254 continuation pointers are now stale planning state.
   - >
     CAPABILITY_IS_NOT_AUTHORITY, EVIDENCE_IS_NOT_KNOWLEDGE,
     EVIDENCE_IS_NOT_PRODUCT_TRUTH, INTELLIGENCE_IS_DECISION_RELATIVE,
-    VALUE_OF_INFORMATION_BEFORE_ENRICHMENT, MISSINGNESS_IS_NOT_AUTHORIZATION,
-    COLLECTABILITY_IS_NOT_VALUE, SNAPSHOT_IS_NOT_TREND,
-    RECOMMENDATION_IS_NOT_DECISION, AUTOMATION_IS_NOT_INTELLIGENCE and
+    VALUE_OF_INFORMATION_BEFORE_ENRICHMENT, SNAPSHOT_IS_NOT_TREND,
+    AUTOMATION_IS_NOT_INTELLIGENCE, RECOMMENDATION_IS_NOT_DECISION and
     ONE_CAPABILITY_ONE_AUTHORITY remain mandatory.
 
 scope:
@@ -117,21 +100,21 @@ scope:
     - .ai/tasks/TASK-227.yaml
     - .ai/tasks/TASK-228.yaml
     - .ai/tasks/TASK-229.yaml
+    - .ai/tasks/TASK-233.yaml
+    - .ai/tasks/TASK-234.yaml
     - .ai/tasks/TASK-249.yaml
     - .ai/tasks/TASK-251.yaml
     - .ai/tasks/TASK-253.yaml
     - .ai/tasks/TASK-254.yaml
     - .ai/tasks/TASK-255.yaml
     - .ai/tasks/TASK-259.yaml
-    - docs/PHASE_7_P7_3_DECISION_CONTEXT_OPPORTUNITY_HYPOTHESIS.md
-    - docs/PHASE_7_P7_4_TIKTOK_AFFILIATE_EVIDENCE_PROFILE.md
     - docs/PHASE_7_P7_5_VALUE_OF_INFORMATION_PLANNING.md
-    - docs/PHASE_7_P7_6_MARKET_TEST_FUNNEL_EVIDENCE.md
-    - docs/PHASE_7_P7_7_CALIBRATION_WINNER_VALIDATION.md
     - docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md
     - docs/PHASE_8_P8_1_REAL_DECISION_PILOT_SELECTION.md
     - docs/PHASE_8_P8_2_PRE_ACTION_EVIDENCE_ACQUISITION_PLAN.md
     - docs/PHASE_8_P8_3_MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_LIVE_PILOT_REVIEW_AND_DOM_DIAGNOSTIC.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_GEN8_RESULT_AND_PAIRED_PRICE_ROLE_HARDENING.md
     - docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK253_VALIDATION_CARRIER_PROVENANCE_REBINDING.md
     - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
     - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
@@ -146,228 +129,266 @@ scope:
 
 non_goals:
   - >
-    Modify any production Python module, Product Intelligence collector/parser/browser/session
-    behavior, P7.3-P7.7 semantic module, P8.0 composition implementation, AIOS configuration,
-    AIOS adoption/conformance state, registry, workflow, Runtime, Reviewer or Publisher.
+    Modify production Python, P7/P8 semantic implementations, Product Intelligence,
+    AIOS adoption/conformance, registries, workflows, Runtime, Reviewer or Publisher.
   - >
-    Execute TikTok/CDP, invoke the live carrier, create a marker/result, acquire marketplace
-    evidence, perform manual Wave-1 contribution, access TikTok Affiliate UI, inspect an account,
-    resolve CAPTCHA, navigate, search, click, type, refresh, switch variants or perform any live
-    external operation.
+    Execute TikTok/CDP or any live/manual external evidence operation; invoke the carrier;
+    create validation artifacts; use Affiliate UI; navigate, search, click, type, refresh,
+    resolve CAPTCHA or acquire evidence.
   - >
-    Authorize or consume a live validation attempt, manual contribution operation, Wave 0/1/2
-    acquisition, market test, spend, traffic, content publication, campaign mutation, pricing,
-    inventory mutation, Product Intelligence approval or any commerce action.
+    Authorize validation, manual contribution, Wave 0/1/2, market test, spend, traffic,
+    creative publication, campaign mutation, Product Intelligence approval or commerce action.
   - >
-    Construct a P7.4 TikTokAffiliateEvidenceProfile or P7.5 ValueOfInformationPlan from
-    unavailable/unreviewed real-pilot evidence. Do not fabricate a profile merely to run the
-    existing factory.
+    Construct or simulate a TikTokAffiliateEvidenceProfile or ValueOfInformationPlan for the
+    current real pilot. Do not invent a profile_id, plan_id, disposition or P7.5 result.
   - >
-    Create a new VOI score, readiness score, evidence-priority ranking, universal sufficiency
-    threshold, recommendation engine, acquisition router, roadmap selector or autonomous loop.
+    Create a VOI/readiness/evidence-priority score, ranking, recommendation engine,
+    acquisition router, roadmap selector or autonomous continuation.
   - >
-    Treat current-price UNKNOWN, missing affiliate economics, unperformed manual contribution
-    or unset Human inputs as proof that more collection is automatically required.
+    Treat historical observed evidence as current, fresh, trend evidence or Product Truth.
   - >
-    Automatically choose Media/Creative Intelligence, Distribution Intelligence, Commerce
-    Operations Intelligence, Product Intelligence rework or another future domain.
+    Select a preferred continuation, mark a candidate NEXT, author a successor, execute a
+    successor or select a future intelligence domain.
   - >
-    Select, author, mark NEXT, dispatch or execute a successor task from TASK-260.
-  - >
-    Rewrite immutable TASK-207/TASK-255/TASK-259 historical task language or prior published
-    P8 evidence/diagnostic history.
+    Rewrite immutable TASK-207/TASK-255/TASK-259 historical task text or prior published
+    evidence/diagnostic facts.
 
 constraints:
   hard:
     - >
       Classification is exactly
       POST_TASK254_REAL_DECISION_SUFFICIENCY_AND_ROADMAP_RECONCILIATION_ONLY.
-      TASK-260 is Brain-owned planning reconciliation only; it owns no evidence, product truth,
-      decision, action, acquisition, market-test, VOI or future-domain semantics.
+      TASK-260 owns only Human/Brain planning reconciliation.
     - >
-      Exact predecessor selector is TASK-254 revision 6 / RUN-254-003 /
-      REVIEW-254-001 / published source
-      36627c80e76f156fcb774b10fbd35d14df6d9ea4. RUN-254-001 and RUN-254-002 remain immutable
-      failed verification history and REPAIR-254-001 / REPAIR-254-002 remain correction lineage.
+      Exact predecessor selector is TASK-254 r6 / RUN-254-003 / REVIEW-254-001 /
+      36627c80e76f156fcb774b10fbd35d14df6d9ea4.
     - >
       Create exactly one planning document
       docs/PHASE_8_POST_TASK254_REAL_DECISION_SUFFICIENCY_AND_ROADMAP_RECONCILIATION.md.
-      It must explain that the original P8 objective is a real-commerce decision loop and that
-      acquisition is subordinate to decision-relevant uncertainty reduction rather than an
-      objective in itself.
+      It must state that P8 is a real-commerce decision loop and acquisition is subordinate to
+      decision-relevant uncertainty reduction rather than an objective in itself.
     - >
-      The document and roadmap must freeze the current decision-sufficiency snapshot without
-      promoting it to evidence truth. At minimum represent:
-      exact selected listing identity/provenance OBSERVED; title OBSERVED;
-      current_price UNKNOWN/null; original_price OBSERVED_ONLY 68220.0;
-      current exact-listing shop_name, discount_percent, sold_count, rating and review_count
-      UNKNOWN; affiliate eligibility/commission/estimated commission NOT_ESTABLISHED;
-      manual Wave-1 contribution UNPERFORMED; manual review UNPERFORMED;
-      Human-owned test/economic/risk inputs UNSET; canonical_evidence_ingested false;
-      price_role_resolution_complete false; selector_repair_complete false.
+      Use a time-aware KNOWLEDGE-STATE projection, not a claim of current marketplace truth.
+      It must distinguish:
+      selected source/listing binding = CANONICALLY_SELECTED and HISTORICALLY_OBSERVED at
+      TASK-233 operation time with freshness NOT_ASSERTED;
+      title = HISTORICALLY_OBSERVED_TASK233 with freshness NOT_ASSERTED;
+      current_price = UNKNOWN/null;
+      original_price = OBSERVED_ONLY 68220.0 at
+      2026-09-26T07:43:19.570359+00:00 with freshness NOT_ASSERTED;
+      shop_name/discount_percent/sold_count/rating/review_count = UNKNOWN;
+      affiliate eligibility/commission/estimated commission = NOT_ESTABLISHED;
+      manual Wave-1 contribution = UNPERFORMED;
+      manual review = UNPERFORMED;
+      Human-owned inputs = UNSET;
+      canonical_evidence_ingested false; price_role_resolution_complete false;
+      selector_repair_complete false. Do not invent a TASK-233 observed_at value.
     - >
-      Do not collapse absence semantics. UNKNOWN, NOT_ESTABLISHED, UNPERFORMED and UNSET are
-      distinct. An unavailable or unperformed observation is not zero, false, rejected or proof
-      that the information lacks decision value.
+      Preserve UNKNOWN, NOT_ESTABLISHED, UNPERFORMED, UNSET and historical OBSERVED_ONLY as
+      distinct states. Snapshot evidence is not freshness, trend, truth or present-value proof.
     - >
-      Reuse P7.5 semantics exactly. For each remaining information question that TASK-260
-      discusses, expose the same nine qualitative considerations from P7.5 and one advisory
-      disposition drawn only from CONTINUE, DEFER or STOP. The disposition is planning advice,
-      not an acquisition order, recommendation, decision, lifecycle gate or NEXT selector.
+      Reuse P7.5 only as semantic law and qualitative lens. The planning document must apply the
+      nine P7.5 considerations to the three evidence inquiry families:
+      (1) affiliate_economics: exact-listing current price/variant economics;
+      (2) affiliate_economics: affiliate eligibility/commission/estimated commission;
+      (3) market_traction: sold_count/rating/review_count.
+      Do not emit CONTINUE/DEFER/STOP for these inquiries because no canonical current real-pilot
+      TikTokAffiliateEvidenceProfile exists and TASK-260 must not fabricate a P7.5 plan.
     - >
-      At minimum evaluate, without ranking them, these bounded inquiry families:
-      (1) exact-listing current price/variant economics;
-      (2) affiliate eligibility/commission/estimated commission;
-      (3) current market-traction observations such as sold_count/rating/review_count;
-      (4) currently unset Human-owned economics/test/risk inputs.
-      The Human-input inquiry must explicitly state that marketplace acquisition cannot supply
-      those values.
+      Human-owned economics/test/risk inputs are not a P7.4 evidence dimension and must not be
+      represented as a ValueOfInformationInquiry. Represent them separately as
+      NON_ACQUIRABLE_HUMAN_INPUTS_UNSET and state explicitly that marketplace collection cannot
+      resolve them.
     - >
-      Deeper Wave-2 dimensions (creator ecosystem, content activity, audience-channel fit,
-      competition saturation, longitudinal velocity) remain NOT_AUTOMATIC and may remain DEFER
-      unless current canonical reasoning can show they could materially change the Human decision
-      despite higher cost/access/fragility. Do not collect them for completeness.
+      Record P7.5 reuse status as SEMANTIC_LENS_ONLY_NO_PLAN_CONSTRUCTED with
+      canonical_dispositions [CONTINUE, DEFER, STOP], factory_invoked false and
+      disposition_status NOT_COMPUTED_NO_CANONICAL_CURRENT_P7_4_PROFILE. NOT_COMPUTED is a
+      TASK-260 planning-status field, never a fourth P7.5 disposition.
     - >
-      Represent the current decision state as MARKET_TEST_READINESS_NOT_ESTABLISHED rather than
-      TEST_READY/NOT_READY, because no canonical task has authority to make a market-test
-      approval decision here. The basis must include unresolved affiliate economics and
-      Human-owned constraints without pretending that resolving either guarantees authorization.
+      Deeper Wave-2 dimensions remain NOT_AUTOMATIC / DEFERRED_FROM_CURRENT_RECONCILIATION.
+      This is not a P7.5 DEFER disposition. It means TASK-260 does not justify collecting them
+      merely for completeness.
     - >
-      Define exactly five unranked Human/Brain candidate continuations, all with
-      selection_status HUMAN_SELECTION_REQUIRED and automatic_progression false:
+      Represent decision state exactly as MARKET_TEST_READINESS_NOT_ESTABLISHED.
+      It is a planning knowledge-state description, not TEST_READY, NOT_READY, approval,
+      rejection, recommendation or test authorization.
+    - >
+      Define exactly five candidate continuations, preserving this exact order only for
+      deterministic serialization and not ranking:
       AUTHORIZE_ONE_SHOT_POST_TASK254_CARRIER_VALIDATION;
       RECONFIRM_MANUAL_WAVE1_CONTRIBUTION;
       REQUEST_HUMAN_DECISION_INPUTS;
       DEFER_CURRENT_PILOT;
       STOP_CURRENT_PILOT.
-      Their presence is a choice set, not a recommendation. No candidate is NEXT or preferred.
+      Each has selection_status HUMAN_SELECTION_REQUIRED, preferred false,
+      recommended false and automatic_progression false. No candidate is NEXT.
     - >
-      The one-shot validation candidate, if later selected, must be described accurately:
-      a future authorization would bind the exact TASK-254 published carrier source
-      36627c80e76f156fcb774b10fbd35d14df6d9ea4 while retaining collector_validation_baseline
-      TASK-253 / 33776f11b20977f46d45d394fa1c56040029b65d. TASK-260 itself must not add
-      validation_carrier_source_sha to current state or grant an attempt.
+      Future one-shot validation, if separately selected later, would bind carrier execution
+      source to exact TASK-254 publication
+      36627c80e76f156fcb774b10fbd35d14df6d9ea4 and retain collector baseline TASK-253 /
+      33776f11b20977f46d45d394fa1c56040029b65d. TASK-260 must not create
+      validation_carrier_source_sha or an attempt.
     - >
-      The manual Wave-1 candidate must not claim TASK-229 remains automatically executable.
-      It may only identify the already-published historical authorization and require fresh
-      Human confirmation/reconciliation before any external manual operation.
+      Manual Wave-1 candidate identifies TASK-229 only as historical authorization and requires
+      fresh Human confirmation/reconciliation before any operation; it is not automatically live.
     - >
-      The Human-input candidate must preserve Human sovereignty: budget, duration, exposure,
+      Human input candidate lists but never fills Human-owned budget, duration, exposure,
       contribution-margin threshold, success/failure criteria, audience, quality constraints,
-      risk constraints, risk acceptance and decision timing are Human-owned. TASK-260 may list
-      them as missing decision inputs but must not propose values.
+      risk constraints, risk acceptance and decision timing.
     - >
-      Close current stale BP9-to-TASK254 planning pointers without rewriting their history.
-      In human_priority_side_track, keep BP9 status/history unchanged but reconcile
-      next_after_publication and preserved_product_commitment so they state TASK-254 r6 completed
-      on exact reviewed-source publication, with run_id RUN-254-003, review_id REVIEW-254-001 and
-      published_sha 36627c80e76f156fcb774b10fbd35d14df6d9ea4. They must no longer say
-      AUTHORED_UNEXECUTED or UNIQUE_AUTHORED_UNEXECUTED_CONTINUATION.
+      Close stale BP9 pointers in place. human_priority_side_track keeps BP9 completion history
+      unchanged, but next_after_publication and preserved_product_commitment become
+      COMPLETED_ON_EXACT_TASK_254_REVIEWED_SOURCE_PUBLICATION and include TASK-254 r6,
+      RUN-254-003, REVIEW-254-001 and exact published SHA. They no longer describe TASK-254 as
+      unexecuted.
     - >
-      In full_downstream_conformance preserve certification state, exact pin, TASK-207 r14 and
-      all conformance semantics. Set next_commitment to null. Reconcile resume_target in place
-      from AUTHORED_UNEXECUTED to COMPLETED_ON_EXACT_TASK_254_REVIEWED_SOURCE_PUBLICATION with
-      run_id RUN-254-003, review_id REVIEW-254-001 and exact published SHA. Do not add a new
-      duplicate conformance or history owner.
+      full_downstream_conformance certification/pin/history remains unchanged. next_commitment is
+      null. resume_target remains one in-place record for TASK-254 r6 but status becomes
+      COMPLETED_ON_EXACT_TASK_254_REVIEWED_SOURCE_PUBLICATION and includes RUN-254-003,
+      REVIEW-254-001 and exact published SHA.
     - >
-      On exact TASK-260 publication, active_track is
-      P8_POST_TASK254_REAL_DECISION_SUFFICIENCY_AND_ROADMAP_RECONCILIATION with title
-      "P8 Post-TASK254 Real-Decision Sufficiency & Roadmap Reconciliation",
-      priority_owner HUMAN, status DONE, completion_basis PUBLICATION_GATED,
-      sequence_status COMPLETE_ON_EXACT_TASK_260_SOURCE_PUBLICATION and next_milestone null.
+      On TASK-260 publication active_track direct keys are exactly:
+      id, title, priority_owner, status, completion_basis, sequence_status,
+      current_milestone, next_milestone.
+      Values: id P8_POST_TASK254_REAL_DECISION_SUFFICIENCY_AND_ROADMAP_RECONCILIATION;
+      title "P8 Post-TASK254 Real-Decision Sufficiency & Roadmap Reconciliation";
+      priority_owner HUMAN; status DONE; completion_basis PUBLICATION_GATED;
+      sequence_status COMPLETE_ON_EXACT_TASK_260_SOURCE_PUBLICATION; next_milestone null.
     - >
-      On publication active_track.current_milestone is TASK-260 with classification
-      POST_TASK254_REAL_DECISION_SUFFICIENCY_AND_ROADMAP_RECONCILIATION_ONLY,
-      authorization_owner HUMAN_BRAIN, exact TASK-254 predecessor selector,
-      status DONE, completion_basis PUBLICATION_GATED, next_milestone null,
-      automatic_progression false, live_public_pdp_acquisition_authority NONE,
-      automated_public_pdp_acquisition_authority NONE and market_test_or_action_authority NONE.
+      On publication active_track.current_milestone direct keys are exactly:
+      id, task_id, title, status, completion_basis, classification, authorization_owner,
+      source_task_id, source_run_id, source_review_id, source_published_sha,
+      context_id, selected_source_id, stable_listing_reference,
+      decision_sufficiency_state, evidence_knowledge_snapshot, human_owned_inputs_status,
+      p7_5_semantic_reuse, candidate_continuations,
+      live_public_pdp_acquisition_authority, automated_public_pdp_acquisition_authority,
+      market_test_or_action_authority, automatic_progression,
+      post_run_engineering_successor, next_milestone,
+      exact_post_publication_handoff, post_publication_handoff, effective_only_when.
+      No TASK-254 carrier/validation schema/direct execution fields are allowed in current
+      TASK-260 milestone.
     - >
-      On publication pending_commitments is exactly []. post_p8_planning_handoff destination is
-      HUMAN_BRAIN_REAL_DECISION_SUFFICIENCY_SELECTION, status
-      EFFECTIVE_ON_EXACT_TASK_260_SOURCE_PUBLICATION, next_milestone null,
-      post_run_engineering_successor null, automatic_progression false, and all live/acquisition/
-      action authorities NONE. It must carry the five unranked choice records and the bounded
-      decision-sufficiency snapshot while retaining prior P8 historical mappings as history.
+      Exact current_milestone identity:
+      id P8.POST_TASK254.REAL_DECISION_SUFFICIENCY_AND_ROADMAP_RECONCILIATION;
+      task_id TASK-260;
+      title "Post-TASK254 Real-Decision Sufficiency & Roadmap Reconciliation";
+      status DONE; completion_basis PUBLICATION_GATED;
+      classification POST_TASK254_REAL_DECISION_SUFFICIENCY_AND_ROADMAP_RECONCILIATION_ONLY;
+      authorization_owner HUMAN_BRAIN;
+      exact TASK-254 predecessor selector;
+      decision_sufficiency_state MARKET_TEST_READINESS_NOT_ESTABLISHED;
+      human_owned_inputs_status UNSET;
+      all live/acquisition/action authorities NONE;
+      automatic_progression false; next_milestone null;
+      post_run_engineering_successor null;
+      exact/post publication handoff HUMAN_BRAIN_REAL_DECISION_SUFFICIENCY_SELECTION.
     - >
-      Append exactly one completed_milestones TASK-260 record with task_revision 1,
-      exact track/milestone identity, exact TASK-254 predecessor selector,
-      planning-only classification, MARKET_TEST_READINESS_NOT_ESTABLISHED,
-      five unranked HUMAN_SELECTION_REQUIRED candidate continuations, zero live/action authority,
-      next_milestone null, post_run_engineering_successor null and effective_only_when:
-      semantic_review PASS / published_source EXACT_REVIEWED_CANDIDATE /
+      post_p8_planning_handoff direct current keys on publication are exactly:
+      destination, status, completed_commitment,
+      source_task_id, source_run_id, source_review_id, source_published_sha,
+      context_id, selected_source_id, stable_listing_reference,
+      decision_sufficiency_state, evidence_knowledge_snapshot, human_owned_inputs_status,
+      p7_5_semantic_reuse, candidate_continuations,
+      live_public_pdp_acquisition_authority, automated_public_pdp_acquisition_authority,
+      market_test_or_action_authority, automatic_progression,
+      next_milestone, post_run_engineering_successor, boundary,
+      plus only pre-existing nested historical mapping containers from canonical base
+      be663b74f52244a5bc8f0b772768c4f28b0e26d0. No old TASK-254 direct carrier/validation scalar
+      or mapping field may remain as current projection.
+    - >
+      Exact handoff values: destination HUMAN_BRAIN_REAL_DECISION_SUFFICIENCY_SELECTION;
+      status EFFECTIVE_ON_EXACT_TASK_260_SOURCE_PUBLICATION;
+      completed_commitment P8_POST_TASK254_REAL_DECISION_SUFFICIENCY_AND_ROADMAP_RECONCILIATION;
+      exact TASK-254 predecessor selector; exact selected case; decision state
+      MARKET_TEST_READINESS_NOT_ESTABLISHED; Human inputs UNSET; P7.5 reuse
+      SEMANTIC_LENS_ONLY_NO_PLAN_CONSTRUCTED; five unranked Human-selected choices;
+      all live/acquisition/action authorities NONE; automatic_progression false;
+      next_milestone null; post_run_engineering_successor null.
+    - >
+      Existing nested historical mappings under post_p8_planning_handoff remain immutable
+      history. Negative/current-shape rules apply only to direct current projection and must not
+      recursively erase TASK-229/TASK-233/TASK-249/TASK-251/TASK-253 history.
+    - >
+      Historicalize TASK-254 governance assertions rather than weakening them. The existing
+      test_task_254_rebinds_validation_carrier_provenance_to_task_253_collector_baseline must
+      stop requiring active_track/current_milestone/direct handoff to remain TASK-254 after
+      TASK-260 publication. Preserve exact TASK-254 production three-literal delta, docs,
+      completed TASK-254 record, source lineage, collector baseline, zero authority, uncertainty,
+      absent validation_carrier_source_sha and publication gate assertions through completed
+      history and immutable files. Add an assertion that global current_milestone is no longer
+      TASK-254.
+    - >
+      Migrate BP9/full-conformance governance assertions only for the stale current planning
+      pointers: next_commitment null; resume_target/next_after_publication/
+      preserved_product_commitment show exact TASK-254 completion. Preserve every certification,
+      active-pin, TASK-207 r14 and P1B assertion at identical strength.
+    - >
+      Append exactly one completed_milestones TASK-260 r2 record with exact identity and
+      predecessor, decision_sufficiency_state MARKET_TEST_READINESS_NOT_ESTABLISHED,
+      time-aware knowledge-state summary, human_owned_inputs_status UNSET,
+      p7_5_semantic_reuse SEMANTIC_LENS_ONLY_NO_PLAN_CONSTRUCTED,
+      exactly five unranked candidate continuations, zero authority, next null and
+      effective_only_when semantic_review PASS / published_source EXACT_REVIEWED_CANDIDATE /
       canonical_main_equals_reviewed_candidate true.
     - >
-      Preserve every prior completed milestone and existing P8 historical mapping. TASK-260 may
-      replace the direct current projection of post_p8_planning_handoff but must not recursively
-      delete TASK-229/TASK-233/TASK-249/TASK-251/TASK-253/TASK-254 history.
+      pending_commitments is exactly [] after publication. Both roadmap docs must state that
+      after TASK-254 the system returns to Human/Brain decision sufficiency; further acquisition
+      is neither implied nor automatically preferred.
     - >
-      Update both canonical roadmap documents consistently. They must stop describing additional
-      PDP acquisition as the implied continuation and instead state that after TASK-254 the
-      product returns to a Human/Brain real-decision sufficiency gate governed by P7.5 VOI and
-      Human-owned constraints.
-    - >
-      Extend governance regression to prove stale BP9 pointers are closed, TASK-254 is historical
-      completed state, current TASK-260 planning state creates no acquisition/action authority,
-      five choices are unranked/Human-owned, no NEXT exists, Human inputs remain unset, and P7.5
-      remains the sole VOI semantic authority.
-    - >
-      Changes are confined to the five authorized scope.modify paths. Runtime verification is
-      deterministic/offline. Executor must not review, publish, run live operations, authorize a
-      continuation or dispatch a successor.
+      Changes are confined to the five scope.modify paths. Runtime verification is offline and
+      deterministic. Executor must not review, publish, authorize or dispatch any successor.
 
 acceptance:
   - id: AC1
     condition: >
       Exact TASK-254 r6 / RUN-254-003 / REVIEW-254-001 /
       36627c80e76f156fcb774b10fbd35d14df6d9ea4 is the sole predecessor and TASK-254 remains
-      immutable completed history.
+      fully asserted as immutable completed history.
   - id: AC2
     condition: >
-      The planning document restores the P8 real-decision objective, accurately freezes current
-      evidence/unknown/unperformed/unset state, and creates no new evidence, truth, VOI,
-      recommendation, decision or action authority.
+      TASK-260 uses a time-aware knowledge-state snapshot: historical observations remain
+      historical/freshness-not-asserted, exact Gen-8 time is preserved where known, and
+      UNKNOWN/NOT_ESTABLISHED/UNPERFORMED/UNSET are not collapsed.
   - id: AC3
     condition: >
-      Remaining inquiries reuse only P7.5 CONTINUE/DEFER/STOP and the nine qualitative
-      considerations, with no score/ranking/acquisition order and no fabricated P7.4 profile.
+      P7.5 remains the sole VOI authority. TASK-260 reuses its nine considerations and laws but
+      constructs no P7.4 profile, no ValueOfInformationPlan and no CONTINUE/DEFER/STOP
+      disposition; Human-owned inputs are separately represented as non-acquirable.
   - id: AC4
     condition: >
-      MARKET_TEST_READINESS_NOT_ESTABLISHED is represented as bounded planning state with Human
-      inputs and unresolved affiliate economics visible, without asserting TEST_READY/NOT_READY,
-      recommendation, approval or future outcome.
+      MARKET_TEST_READINESS_NOT_ESTABLISHED is planning state only and exactly five unranked
+      HUMAN_SELECTION_REQUIRED candidates exist with preferred/recommended/automatic false and
+      no NEXT.
   - id: AC5
     condition: >
-      Exactly five unranked candidate continuations exist, each HUMAN_SELECTION_REQUIRED with
-      automatic progression false; none is NEXT, preferred, recommended or automatically
-      executable.
+      Future validation and manual-Wave1 candidates are described with correct lineage and
+      authority boundaries but TASK-260 grants no operation, carrier source binding or evidence
+      acquisition.
   - id: AC6
     condition: >
-      The future one-shot validation candidate references exact TASK-254 carrier publication and
-      TASK-253 collector baseline but TASK-260 grants no validation attempt and does not populate
-      validation_carrier_source_sha.
+      BP9/full-conformance live pointers record TASK-254 completion instead of unexecuted status
+      while exact pin, conformance certification and P1B history remain unchanged.
   - id: AC7
     condition: >
-      BP9/full-conformance live continuation pointers no longer describe TASK-254 as unexecuted;
-      certification history and exact pin 44eee353eda376c9db8cd88d97184d3122651bf5 remain unchanged.
+      active_track/current_milestone and post_p8 direct current projection satisfy their closed
+      positive schemas with no direct TASK-254 carrier/validation residue and zero live/action
+      authority.
   - id: AC8
     condition: >
-      Roadmap current state is TASK-260 publication-gated DONE with next_milestone null,
-      pending_commitments [], destination HUMAN_BRAIN_REAL_DECISION_SUFFICIENCY_SELECTION and
-      zero live/acquisition/action authority while all prior P8 history remains intact.
+      TASK-254 and BP9 governance tests are historicalized/reconciled without semantic weakening,
+      and new TASK-260 regression proves no current milestone/NEXT/automatic continuation is
+      selected.
   - id: AC9
     condition: >
-      Both roadmap documents consistently state that acquisition is subordinate to
-      decision-relevant uncertainty reduction and that Human-owned constraints cannot be replaced
-      by marketplace evidence or automation.
+      Exactly one TASK-260 r2 completed record exists; pending_commitments is []; handoff is
+      HUMAN_BRAIN_REAL_DECISION_SUFFICIENCY_SELECTION; all prior P8 nested history is retained.
   - id: AC10
     condition: >
-      Only the five authorized planning/docs/governance-test paths change; deterministic
-      governance verification and git diff --check pass with no live network/browser/provider
-      operation and no successor execution.
+      Only the five authorized planning/docs/governance-test paths change; focused governance
+      verification and git diff --check pass with no external operation.
 
 verification:
   policy: minimum-sufficient-v1
   required:
-    - python -m pytest tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task260-r1
+    - python -m pytest tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task260-r2
     - git diff --check
