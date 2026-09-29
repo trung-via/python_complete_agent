@@ -1,0 +1,28 @@
+review_id: REVIEW-263-003
+reviewed_sha: ce0bbf60fe457fa0c2d7e77ea2ac9e3d8c11f8c0
+mode: DELTA
+verdict: CHANGES_REQUIRED
+prior_finding_id: FINDING-263-002
+acceptance:
+  AC8: FAIL
+findings:
+  - id: FINDING-263-003
+    basis: AC8
+    action: CODE_FIX
+    location: tests/product_intelligence/test_tiktok_pdp_case_bundle.py
+    issue: >
+      The new regression does execute the actual CASE_BUNDLE_SCRIPT and validates the persisted
+      projection, but it does so by importing playwright.async_api, launching Chromium, routing
+      a TikTok URL, and calling page.goto(). TASK-263 explicitly requires Runtime verification
+      to be fully offline with fake BrowserSession/manager behavior and zero TikTok/CDP/network/
+      browser operations. Therefore the proof method itself violates the governing verification
+      boundary even though external network traffic is intercepted and the test passes.
+    expected: >
+      Preserve the executable sanitation proof, but replace the real Playwright/Chromium path
+      with a deterministic offline non-browser harness that exercises the actual generated
+      projection logic against a synthetic DOM-equivalent fixture. Prove the same persisted
+      outcome: account/profile/navigation-like text is absent while representative title, price,
+      attributes/specification, seller/product-service, and intended product-page observations
+      remain capturable. Use fake BrowserSession/manager behavior, perform zero TikTok/CDP/network/
+      browser operations, and keep production code unchanged unless the offline executable proof
+      exposes a genuine defect.
