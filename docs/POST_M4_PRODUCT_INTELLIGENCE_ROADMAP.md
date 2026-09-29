@@ -1298,6 +1298,38 @@ are empty, automatic progression is false, and no engineering successor or marke
 selected.
 See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK254_ONE_SHOT_VALIDATION_AUTHORIZATION.md`.
 
+TASK-262 is publication-gated DONE only as
+`POST_TASK261_ONE_SHOT_VALIDATION_SUCCESS_RECONCILIATION_ONLY`.
+It reconciles exact TASK-261 / RUN-261-005 / REVIEW-261-001 publication lineage at
+`78269d13c6cec126edc8e1cdf893cbcd6ea22132` as source, while preserving the validation carrier
+source at `36627c80e76f156fcb774b10fbd35d14df6d9ea4` (TASK-254) and collector validation
+baseline at `33776f11b20977f46d45d394fa1c56040029b65d` (TASK-253) as separately identified and
+semantically distinct. It reconciles the consumed Human marketplace validation attempt
+(`authorized_validation_attempts: 1`, `authorized_validation_attempts_remaining: 0`,
+`validation_execution_owner: HUMAN_OPERATOR`, `validation_executed: true`, `operation_status: SUCCESS`,
+`observation_status: OBSERVED`, `session_release_status: SUCCESS`, `process_exit_code: 0`,
+`canonical_evidence_ingested: false`) without fabricating an AIOS RUN or retry authority.
+
+Exact external V2 marker and result artifact provenance is recorded as bounded external evidence without
+copying or mutating artifacts: marker `tiktok-pdp-live-validation-attempt-v2.json` (schema 2, size 630 bytes, SHA256
+`10EF42C00112807BE6324CAE5102CA1EDE44403BE1697FB38C9CE70248CB7E5B`) and result
+`tiktok-pdp-live-validation-result-v2.json` (schema 2, size 1947 bytes, SHA256
+`45A68FDAF22D0D4F06ADB28DC90FBE6FCFD79A3295E065D4220B95BC1ECA8A76`, observed at
+`2026-09-29T11:50:28.968397+00:00`) bound to context `p8-pilot-001-led-motion-tiktok-vn`, source ID
+`1731381331718341815`, and external job root `C:\TOOL\AIOS-Runtime\python-agent-jobs\p8-task261-one-shot-001`.
+Field uncertainty is explicit: current price `33600.0` and original price `68220.0` are recorded only as
+`OBSERVED_ONLY` at the exact observation time; optional fields (`shop_name`, `discount_percent`, `sold_count`,
+`rating`, `review_count`) remain `UNKNOWN`/`null`, and no discount percent or missing value is derived.
+`price_role_resolution_complete` becomes `true` only for the bounded fixed-listing collector-validation objective
+required by TASK-253; `selector_repair_complete` remains `false` and `canonical_evidence_ingested` remains `false`.
+`OPERATION_SUCCESS_IS_NOT_FIELD_VALIDATION_SUCCESS` is enforced: operation success does not establish Product Truth,
+trend, ranking, recommendation, approval, market-test readiness, or affiliate economics. All live/retry/automated/action
+authorities are `NONE`, `automatic_live_pilot` and `automatic_progression` are `false`. TASK-260 completed history
+and TASK-261 publication authorization truth remain immutable. Current planning hands off exclusively to
+`HUMAN_BRAIN_REAL_DECISION_SUFFICIENCY_SELECTION` with null NEXT/successor, empty pending commitments, and no
+preselected action.
+See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK261_VALIDATION_SUCCESS_RECONCILIATION.md`.
+
 
 
 ## 4. Authority invariants

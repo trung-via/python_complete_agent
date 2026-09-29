@@ -179,6 +179,11 @@ P8_POST_TASK254_REAL_DECISION_SUFFICIENCY_AND_ROADMAP_RECONCILIATION_FILE = (
     / "docs"
     / "PHASE_8_POST_TASK254_REAL_DECISION_SUFFICIENCY_AND_ROADMAP_RECONCILIATION.md"
 )
+P8_POST_TASK261_ONE_SHOT_VALIDATION_SUCCESS_RECONCILIATION_FILE = (
+    REPO_ROOT
+    / "docs"
+    / "PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK261_VALIDATION_SUCCESS_RECONCILIATION.md"
+)
 ROADMAP_DOCS = (
     REPO_ROOT / "docs" / "POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
     REPO_ROOT / "docs" / "POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
@@ -243,6 +248,23 @@ TASK_253_REVIEW_ID = "REVIEW-253-002"
 TASK_254_PUBLISHED_SOURCE_SHA = "36627c80e76f156fcb774b10fbd35d14df6d9ea4"
 TASK_254_RUN_ID = "RUN-254-003"
 TASK_254_REVIEW_ID = "REVIEW-254-001"
+TASK_261_PUBLISHED_SOURCE_SHA = "78269d13c6cec126edc8e1cdf893cbcd6ea22132"
+TASK_261_RUN_ID = "RUN-261-005"
+TASK_261_REVIEW_ID = "REVIEW-261-001"
+TASK_262_MARKER_FILENAME = "tiktok-pdp-live-validation-attempt-v2.json"
+TASK_262_MARKER_SIZE_BYTES = 630
+TASK_262_MARKER_SHA256 = (
+    "10EF42C00112807BE6324CAE5102CA1EDE44403BE1697FB38C9CE70248CB7E5B"
+)
+TASK_262_RESULT_FILENAME = "tiktok-pdp-live-validation-result-v2.json"
+TASK_262_RESULT_SIZE_BYTES = 1947
+TASK_262_RESULT_SHA256 = (
+    "45A68FDAF22D0D4F06ADB28DC90FBE6FCFD79A3295E065D4220B95BC1ECA8A76"
+)
+TASK_262_OBSERVED_AT = "2026-09-29T11:50:28.968397+00:00"
+TASK_262_JOB_ROOT_BINDING = (
+    r"C:\TOOL\AIOS-Runtime\python-agent-jobs\p8-task261-one-shot-001"
+)
 
 V2_ATTEMPT_MARKER_FILENAME = "tiktok-pdp-live-validation-attempt-v2.json"
 V2_ATTEMPT_MARKER_SIZE_BYTES = 633
@@ -5473,9 +5495,6 @@ def test_task_260_history_and_task_261_selected_one_shot_authorization_are_separ
     completed = {item["task_id"]: item for item in state["completed_milestones"]}
     task_260 = completed["TASK-260"]
     task_261 = completed["TASK-261"]
-    active = state["active_track"]
-    authorization = active["current_milestone"]
-    handoff = state["post_p8_planning_handoff"]
 
     # TASK-260 stays immutable history with all five originally unranked candidates.
     assert task_260["task_revision"] == 2
@@ -5507,13 +5526,13 @@ def test_task_260_history_and_task_261_selected_one_shot_authorization_are_separ
         "36627c80e76f156fcb774b10fbd35d14df6d9ea4"
     )
 
-    # Current roadmap binds the explicit Human choice to exact TASK-254 carrier source.
-    assert active["id"] == "P8_POST_TASK254_ONE_SHOT_VALIDATION_AUTHORIZATION"
-    assert authorization["task_id"] == "TASK-261"
-    assert authorization["classification"] == (
+    # TASK-261 stays immutable publication-time authorization history.
+    carrier_sha = TASK_254_PUBLISHED_SOURCE_SHA
+    assert task_261["task_revision"] == 1
+    assert task_261["classification"] == (
         "ONE_SHOT_POST_TASK254_PUBLIC_PDP_VALIDATION_AUTHORIZATION_ONLY"
     )
-    assert authorization["human_selection"] == {
+    assert task_261["human_selection"] == {
         "source_task_id": "TASK-260",
         "source_task_revision": 2,
         "source_published_sha": "6787c746396f333cb7e02d0736ed8beb2417a63c",
@@ -5523,110 +5542,51 @@ def test_task_260_history_and_task_261_selected_one_shot_authorization_are_separ
         "prior_candidate_set_mutated": False,
         "prior_candidate_order_reinterpreted_as_ranking": False,
     }
-    assert authorization["source_task_id"] == "TASK-254"
-    assert authorization["source_run_id"] == "RUN-254-003"
-    assert authorization["source_review_id"] == "REVIEW-254-001"
-    carrier_sha = "36627c80e76f156fcb774b10fbd35d14df6d9ea4"
-    assert authorization["source_published_sha"] == carrier_sha
-    assert authorization["validation_carrier_source_sha"] == carrier_sha
-    assert authorization["collector_validation_baseline"] == {
+    assert task_261["source_task_id"] == "TASK-254"
+    assert task_261["source_run_id"] == "RUN-254-003"
+    assert task_261["source_review_id"] == "REVIEW-254-001"
+    assert task_261["source_published_sha"] == carrier_sha
+    assert task_261["validation_carrier_source_sha"] == carrier_sha
+    assert task_261["collector_validation_baseline"] == {
         "task_id": "TASK-253",
         "source_sha": "33776f11b20977f46d45d394fa1c56040029b65d",
     }
-    assert authorization["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
-    assert authorization["authorized_source_id"] == "1731381331718341815"
-    assert authorization["stable_listing_reference"] == (
+    assert task_261["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
+    assert task_261["selected_source_id"] == "1731381331718341815"
+    assert task_261["stable_listing_reference"] == (
         "https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-"
         "che-do-sang-sac-usb-c/1731381331718341815"
     )
-    assert authorization["authorized_validation_attempts"] == 1
-    assert authorization["authorized_validation_attempts_remaining"] == 1
-    assert authorization["validation_execution_owner"] == "HUMAN_OPERATOR"
-    assert authorization["validation_executed"] is False
-    assert authorization["live_public_pdp_acquisition_authority"] == (
+    assert task_261["authorized_validation_attempts"] == 1
+    assert task_261["authorized_validation_attempts_remaining"] == 1
+    assert task_261["validation_execution_owner"] == "HUMAN_OPERATOR"
+    assert task_261["validation_executed"] is False
+    assert task_261["live_public_pdp_acquisition_authority"] == (
         "ONE_SHOT_EXACT_LISTING_ONLY"
     )
-    assert authorization["automated_public_pdp_acquisition_authority"] == "NONE"
-    assert authorization["market_test_or_action_authority"] == "NONE"
-    assert authorization["automatic_live_pilot"] is False
-    assert authorization["automatic_progression"] is False
-    for key in (
-        "arbitrary_target_authority", "replacement_target_authority", "search_authority",
-        "batch_authority", "inferred_identity_authority", "variant_switching_authority",
-    ):
-        assert authorization[key] == "NONE"
-
-    # Preflight is non-consuming and pins all ten files to exact TASK-254 publication.
-    preflight = authorization["preflight"]
-    assert preflight["required"] is True
-    assert preflight["consuming"] is False
-    assert preflight["cdp_endpoint"] == "http://127.0.0.1:9222"
-    assert preflight["cdp_reachable_required"] is True
-    assert preflight["normal_page_target_count"] == 1
-    assert preflight["sole_target_must_equal_selected_pdp"] is True
-    assert preflight["job_root_outside_git_repository"] is True
-    assert preflight["v1_v2_artifacts_absent"] is True
-    assert preflight["execution_critical_files_source_sha"] == carrier_sha
-    assert len(preflight["execution_critical_files"]) == 10
-    assert preflight["source_mismatch_action"] == (
-        "FAIL_CLOSED_AND_REQUIRE_FRESH_HUMAN_BRAIN_DECISION"
-    )
-    assert preflight["page_mutation_authority"] == "NONE"
-    assert preflight["v2_artifact_creation_authority"] == "NONE"
-
-    consumption = authorization["consumption"]
-    assert consumption["durable_boundary"] == (
-        "SUCCESSFUL_CREATE_EXCLUSIVE_V2_ATTEMPT_MARKER_PERSISTENCE"
-    )
-    assert consumption["every_marker_present_terminal_or_interrupted_state_consumes_attempt"]
-    assert consumption["automatic_retry_resume_refresh"] is False
-    assert consumption["second_invocation_authority"] == "NONE"
-    assert authorization["mandatory_post_attempt_review"]["artifact_grounded"] is True
-    assert authorization["mandatory_post_attempt_review"]["preserve_existing_artifacts_byte_for_byte"]
-    assert authorization["mandatory_post_attempt_review"]["unobserved_process_or_cli_exit_code"] == "UNKNOWN"
-    assert authorization["epistemic_boundary"]["operation_success_is_not_field_validation_success"]
-    assert authorization["epistemic_boundary"]["market_test_readiness"] == (
-        "MARKET_TEST_READINESS_NOT_ESTABLISHED"
-    )
-    assert authorization["epistemic_boundary"]["affiliate_eligibility"] == "NOT_ESTABLISHED"
-    assert authorization["epistemic_boundary"]["affiliate_commission_rate"] == "NOT_ESTABLISHED"
-    assert authorization["epistemic_boundary"]["estimated_commission"] == "NOT_ESTABLISHED"
-    assert authorization["next_milestone"] is None
-    assert authorization["post_run_engineering_successor"] is None
-    assert authorization["exact_post_publication_handoff"] == (
+    assert task_261["automated_public_pdp_acquisition_authority"] == "NONE"
+    assert task_261["market_test_or_action_authority"] == "NONE"
+    assert task_261["automatic_live_pilot"] is False
+    assert task_261["automatic_progression"] is False
+    assert task_261["preflight_required"] is True
+    assert task_261["preflight_consumes_attempt"] is False
+    assert task_261["preflight_source_sha"] == carrier_sha
+    assert task_261["mandatory_post_attempt_review"] == "HUMAN_BRAIN_POST_TASK254_PUBLIC_PDP_VALIDATION_REVIEW"
+    assert task_261["operation_success_is_not_field_validation_success"] is True
+    assert task_261["market_test_readiness"] == "MARKET_TEST_READINESS_NOT_ESTABLISHED"
+    assert task_261["next_milestone"] is None
+    assert task_261["post_run_engineering_successor"] is None
+    assert task_261["exact_post_publication_handoff"] == (
         "HUMAN_OPERATOR_ONE_SHOT_POST_TASK254_PUBLIC_PDP_VALIDATION_EXECUTION"
     )
-    assert authorization["mandatory_post_attempt_handoff"] == (
-        "HUMAN_BRAIN_POST_TASK254_PUBLIC_PDP_VALIDATION_REVIEW"
-    )
-    assert state["pending_commitments"] == []
-
-    # Only the selected execution and mandatory review handoffs become current.
-    assert handoff["destination"] == (
+    assert task_261["post_publication_handoff"] == (
         "HUMAN_OPERATOR_ONE_SHOT_POST_TASK254_PUBLIC_PDP_VALIDATION_EXECUTION"
     )
-    assert handoff["mandatory_post_attempt_review"] == (
+    assert task_261["mandatory_post_attempt_handoff"] == (
         "HUMAN_BRAIN_POST_TASK254_PUBLIC_PDP_VALIDATION_REVIEW"
-    )
-    assert handoff["next_milestone"] is None
-    assert handoff["post_run_engineering_successor"] is None
-    assert handoff["automatic_progression"] is False
-    assert handoff["automated_public_pdp_acquisition_authority"] == "NONE"
-    assert handoff["market_test_or_action_authority"] == "NONE"
-    # Historical nested mapping remains available after the prospective handoff update.
-    assert "actual_real_decision_case" in handoff
-    assert "public_pdp_gen8_result_and_paired_price_role_hardening" in handoff
-
-    # The completed TASK-261 record and human-facing authorization document agree.
-    assert task_261["task_revision"] == 1
-    assert task_261["human_selection"]["candidate_id"] == (
-        "AUTHORIZE_ONE_SHOT_POST_TASK254_CARRIER_VALIDATION"
-    )
-    assert task_261["validation_carrier_source_sha"] == carrier_sha
-    assert task_261["collector_validation_baseline"]["source_sha"] == (
-        "33776f11b20977f46d45d394fa1c56040029b65d"
     )
     assert task_261["effective_only_when"]["semantic_review"] == "PASS"
+
     document = P8_POST_TASK254_ONE_SHOT_VALIDATION_AUTHORIZATION_FILE.read_text(
         encoding="utf-8"
     )
@@ -5648,3 +5608,213 @@ def test_task_260_history_and_task_261_selected_one_shot_authorization_are_separ
         assert "TASK-260 remains immutable completed history" in text
         assert "AUTHORIZE_ONE_SHOT_POST_TASK254_CARRIER_VALIDATION" in text
         assert "HUMAN_OPERATOR_ONE_SHOT_POST_TASK254_PUBLIC_PDP_VALIDATION_EXECUTION" in text
+
+
+def test_task_262_reconciles_post_task261_validation_success():
+    state = load_yaml(ROADMAP_FILE)
+    active = state["active_track"]
+    milestone = active["current_milestone"]
+    handoff = state["post_p8_planning_handoff"]
+    completed = {item["task_id"]: item for item in state["completed_milestones"]}
+    task_262 = completed["TASK-262"]
+    document = (
+        P8_POST_TASK261_ONE_SHOT_VALIDATION_SUCCESS_RECONCILIATION_FILE.read_text(
+            encoding="utf-8"
+        )
+    )
+
+    # AC1: Exact TASK-261 / RUN-261-005 / REVIEW-261-001 publication lineage is reconciled
+    # while TASK-254 carrier source and TASK-253 collector baseline remain separately identified.
+    assert active["id"] == "P8_POST_TASK261_ONE_SHOT_VALIDATION_SUCCESS_RECONCILIATION"
+    assert active["sequence_status"] == "COMPLETE_ON_EXACT_TASK_262_SOURCE_PUBLICATION"
+    assert milestone["task_id"] == "TASK-262"
+    assert milestone["task_revision"] == 1
+    assert milestone["status"] == "DONE"
+    assert milestone["completion_basis"] == "PUBLICATION_GATED"
+    assert milestone["classification"] == (
+        "POST_TASK261_ONE_SHOT_VALIDATION_SUCCESS_RECONCILIATION_ONLY"
+    )
+    assert milestone["source_task_id"] == "TASK-261"
+    assert milestone["source_run_id"] == TASK_261_RUN_ID
+    assert milestone["source_review_id"] == TASK_261_REVIEW_ID
+    assert milestone["source_published_sha"] == TASK_261_PUBLISHED_SOURCE_SHA
+    assert milestone["validation_carrier_source_sha"] == TASK_254_PUBLISHED_SOURCE_SHA
+    assert milestone["carrier_execution_source"] == {
+        "task_id": "TASK-254",
+        "run_id": TASK_254_RUN_ID,
+        "review_id": TASK_254_REVIEW_ID,
+        "published_sha": TASK_254_PUBLISHED_SOURCE_SHA,
+    }
+    assert milestone["collector_validation_baseline"] == {
+        "task_id": "TASK-253",
+        "source_sha": TASK_253_PUBLISHED_SOURCE_SHA,
+    }
+    assert (
+        milestone["validation_carrier_source_sha"]
+        != milestone["collector_validation_baseline"]["source_sha"]
+    )
+
+    # AC2: Human operation is recorded as exactly one consumed SUCCESS / OBSERVED /
+    # SESSION_RELEASE_SUCCESS event with attempts 1/remaining 0, HUMAN_OPERATOR,
+    # validation_executed true and directly observed process_exit_code 0.
+    for record in (milestone, task_262):
+        assert record["authorized_validation_attempts"] == 1
+        assert record["authorized_validation_attempts_remaining"] == 0
+        assert record["validation_execution_owner"] == "HUMAN_OPERATOR"
+        assert record["validation_executed"] is True
+        assert record["validation_operation_status"] == "SUCCESS"
+        assert record["validation_observation_status"] == "OBSERVED"
+        assert record["validation_session_release_status"] == "SUCCESS"
+        assert record["process_exit_code"] == 0
+
+    # AC3: Exact external V2 marker/result filenames, schema versions, SHA256, byte sizes,
+    # observed timestamp, exact source/listing binding and external job-root binding.
+    assert milestone["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
+    assert milestone["authorized_source_id"] == "1731381331718341815"
+    assert milestone["stable_listing_reference"] == (
+        "https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-"
+        "che-do-sang-sac-usb-c/1731381331718341815"
+    )
+    assert milestone["external_job_root_binding"] == TASK_262_JOB_ROOT_BINDING
+    marker = milestone["validation_attempt_marker"]
+    assert marker["filename"] == TASK_262_MARKER_FILENAME
+    assert marker["schema_version"] == 2
+    assert marker["size_bytes"] == TASK_262_MARKER_SIZE_BYTES
+    assert marker["sha256"] == TASK_262_MARKER_SHA256
+    result = milestone["validation_result"]
+    assert result["filename"] == TASK_262_RESULT_FILENAME
+    assert result["schema_version"] == 2
+    assert result["size_bytes"] == TASK_262_RESULT_SIZE_BYTES
+    assert result["sha256"] == TASK_262_RESULT_SHA256
+    assert result["observed_at"] == TASK_262_OBSERVED_AT
+
+    # AC4: Current price 33600.0 and original price 68220.0 are recorded only as OBSERVED_ONLY
+    # at the exact observation time; null optional fields remain UNKNOWN and no discount derived.
+    assert milestone["current_price_validation_status"] == "OBSERVED_ONLY"
+    assert milestone["current_price_observed"] == 33600.0
+    assert milestone["current_price_observed_at"] == TASK_262_OBSERVED_AT
+    assert milestone["original_price_validation_status"] == "OBSERVED_ONLY"
+    assert milestone["original_price_observed"] == 68220.0
+    assert milestone["original_price_observed_at"] == TASK_262_OBSERVED_AT
+    assert milestone["shop_name"] is None
+    assert milestone["discount_percent"] is None
+    assert milestone["sold_count"] is None
+    assert milestone["rating"] is None
+    assert milestone["review_count"] is None
+    field_unc = milestone["field_validation_uncertainty"]
+    assert field_unc["current_price_validation_status"] == "OBSERVED_ONLY"
+    assert field_unc["current_price_observed"] == 33600.0
+    assert field_unc["original_price_validation_status"] == "OBSERVED_ONLY"
+    assert field_unc["original_price_observed"] == 68220.0
+    assert field_unc["shop_name_validation_status"] == "UNKNOWN"
+    assert field_unc["discount_percent_validation_status"] == "UNKNOWN"
+    assert field_unc["sold_count_validation_status"] == "UNKNOWN"
+    assert field_unc["rating_validation_status"] == "UNKNOWN"
+    assert field_unc["review_count_validation_status"] == "UNKNOWN"
+    assert field_unc["operation_success_is_not_field_validation_success"] is True
+
+    # AC5: price_role_resolution_complete is true only for the bounded fixed-listing
+    # collector-validation objective; selector_repair_complete and canonical_evidence_ingested are false.
+    assert milestone["price_role_resolution_complete"] is True
+    assert milestone["price_role_resolution_scope"] == (
+        "BOUNDED_FIXED_LISTING_COLLECTOR_VALIDATION_OBJECTIVE_ONLY"
+    )
+    assert milestone["selector_repair_complete"] is False
+    assert milestone["canonical_evidence_ingested"] is False
+
+    # AC6: No Product Truth, trend, ranking, recommendation, approval, market-test readiness
+    # or affiliate economics is inferred; all authorities are NONE or false.
+    for auth_key in (
+        "live_public_pdp_acquisition_authority",
+        "automated_public_pdp_acquisition_authority",
+        "market_test_or_action_authority",
+        "second_invocation_authority",
+        "arbitrary_target_authority",
+        "replacement_target_authority",
+        "search_authority",
+        "batch_authority",
+        "inferred_identity_authority",
+        "variant_switching_authority",
+    ):
+        assert milestone[auth_key] == "NONE"
+    assert milestone["automatic_live_pilot"] is False
+    assert milestone["automatic_progression"] is False
+    ep = milestone["epistemic_boundary"]
+    assert ep["operation_success_is_not_field_validation_success"] is True
+    assert ep["optional_fields_may_remain_unknown"] is True
+    assert ep["affiliate_eligibility"] == "NOT_ESTABLISHED"
+    assert ep["affiliate_commission_rate"] == "NOT_ESTABLISHED"
+    assert ep["estimated_commission"] == "NOT_ESTABLISHED"
+    assert ep["product_truth_inferred"] is False
+    assert ep["canonical_evidence_ingested"] is False
+    assert ep["trend_inferred"] is False
+    assert ep["ranking_inferred"] is False
+    assert ep["approval_inferred"] is False
+    assert ep["market_test_readiness"] == "MARKET_TEST_READINESS_NOT_ESTABLISHED"
+
+    # AC7: TASK-260 and TASK-261 historical semantics remain immutable; planning hands off only
+    # to HUMAN_BRAIN_REAL_DECISION_SUFFICIENCY_SELECTION.
+    assert active["next_milestone"] is None
+    assert milestone["next_milestone"] is None
+    assert milestone["post_run_engineering_successor"] is None
+    assert milestone["exact_post_publication_handoff"] == (
+        "HUMAN_BRAIN_REAL_DECISION_SUFFICIENCY_SELECTION"
+    )
+    assert milestone["post_publication_handoff"] == (
+        "HUMAN_BRAIN_REAL_DECISION_SUFFICIENCY_SELECTION"
+    )
+    assert handoff["destination"] == "HUMAN_BRAIN_REAL_DECISION_SUFFICIENCY_SELECTION"
+    assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_262_SOURCE_PUBLICATION"
+    assert handoff["completed_commitment"] == (
+        "P8_POST_TASK261_ONE_SHOT_VALIDATION_SUCCESS_RECONCILIATION"
+    )
+    assert handoff["next_milestone"] is None
+    assert handoff["post_run_engineering_successor"] is None
+    assert handoff["automatic_progression"] is False
+    assert handoff["automated_public_pdp_acquisition_authority"] == "NONE"
+    assert handoff["market_test_or_action_authority"] == "NONE"
+    assert handoff["second_invocation_authority"] == "NONE"
+    assert state["pending_commitments"] == []
+
+    # Completed TASK-262 record in completed_milestones
+    assert task_262["task_id"] == "TASK-262"
+    assert task_262["task_revision"] == 1
+    assert task_262["status"] == "DONE"
+    assert task_262["source_task_id"] == "TASK-261"
+    assert task_262["source_published_sha"] == TASK_261_PUBLISHED_SOURCE_SHA
+    assert task_262["validation_carrier_source_sha"] == TASK_254_PUBLISHED_SOURCE_SHA
+    assert task_262["collector_validation_baseline"]["source_sha"] == (
+        TASK_253_PUBLISHED_SOURCE_SHA
+    )
+    assert task_262["effective_only_when"] == {
+        "semantic_review": "PASS",
+        "published_source": "EXACT_REVIEWED_CANDIDATE",
+        "canonical_main_equals_reviewed_candidate": True,
+    }
+
+    # Document contents and governance invariants
+    for required in (
+        "POST_TASK261_ONE_SHOT_VALIDATION_SUCCESS_RECONCILIATION_ONLY",
+        TASK_261_PUBLISHED_SOURCE_SHA,
+        TASK_254_PUBLISHED_SOURCE_SHA,
+        TASK_253_PUBLISHED_SOURCE_SHA,
+        TASK_262_MARKER_SHA256,
+        TASK_262_RESULT_SHA256,
+        TASK_262_OBSERVED_AT,
+        "33600.0",
+        "68220.0",
+        "HUMAN_BRAIN_REAL_DECISION_SUFFICIENCY_SELECTION",
+        "CAPABILITY_IS_NOT_AUTHORITY",
+        "EVIDENCE_IS_NOT_PRODUCT_TRUTH",
+        "OPERATION_SUCCESS_IS_NOT_FIELD_VALIDATION_SUCCESS",
+    ):
+        assert required in document
+
+    for roadmap in ROADMAP_DOCS:
+        text = roadmap.read_text(encoding="utf-8")
+        assert "TASK-262 is publication-gated DONE only as" in text
+        assert "POST_TASK261_ONE_SHOT_VALIDATION_SUCCESS_RECONCILIATION_ONLY" in text
+        assert "33600.0" in text
+        assert "68220.0" in text
+        assert TASK_262_MARKER_SHA256 in text
+        assert TASK_262_RESULT_SHA256 in text
