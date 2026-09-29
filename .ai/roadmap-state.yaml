@@ -106,34 +106,41 @@ human_priority_side_track:
     completion_gate: EXACT_TASK_259_R2_REVIEWED_SOURCE_PUBLICATION
   current_prerequisite:
     task_id: TASK-207
-    task_revision: 13
-    approved_against_main_sha: "b0380d94f6957cb1e57fa92ccb40bc624b47d773"
-    task_blob_sha: "eed83df42eb3694e10cc38a894724c51cb9ba547"
+    task_revision: 14
+    approved_against_main_sha: "a8d3d4d7b03202040d24d26a79e9edf385012c76"
+    task_blob_sha: "006e6dc6417d726ee4f0aef13030d0208d1e0e3e"
     authority: HUMAN_BRAIN_PLANNING
     reason: >-
-      TASK-207 revision 11 remains immutable RUN-207-011 COMPLETION_GATE failure with
-      failed candidate f1580073867f095704bc1c34f2858c160e0cf4d3. Revision 12 created
-      no RUN: its PRIMARY dispatch was rejected at synchronization because persistent
-      local main still pointed at the preserved failed candidate, and its authored task
-      artifact also accidentally duplicated the P1B portability-binding test in scope.inspect
-      while still omitting it from scope.modify. Human verified the failed candidate was
-      preserved at the canonical failure ref and reconciled local main exactly to canonical
-      origin/main with zero divergence. Revision 13 is the bounded correction that preserves
-      all r12 conformance semantics, places the P1B portability-binding test exactly once in
-      scope.modify, and uses a fresh dispatch identity.
+      TASK-207 revision 11 remains immutable RUN-207-011 COMPLETION_GATE failure.
+      Revision 12 created no RUN and its PRIMARY dispatch remains pre-RUN synchronization
+      rejection history. Revision 13 executed as RUN-207-012 with Codex gpt-6-sol/high;
+      its clean seven-file candidate 52e2237d6bf918c1552bb4393da17c63737297fb
+      terminalized immutable COMPLETION_GATE FAILURE before Runtime verification because
+      AC1-AC5 incorrectly required live carrier outcomes that occur at or after PRIMARY
+      terminalization. Revision 14 is the bounded semantic correction: same seven-file
+      scope and certification goal, but completion acceptance is source-selector/binding
+      based while actual live ingress/PRIMARY/attention/REMEDIATION/REPAIR evidence is a
+      separate mandatory Reviewer gate before semantic PASS.
     execution_transport: BRAIN_WAKEUP_PRIMARY
-    dispatch_id: task207-r13-codex-high-001
+    dispatch_id: task207-r14-codex-high-001
     executor: codex
     model: gpt-6-sol
     reasoning_effort: high
     execution_profile_source: EXPLICIT_HUMAN_OVERRIDE
     active_pin: "44eee353eda376c9db8cd88d97184d3122651bf5"
     failed_predecessor:
+      run_id: RUN-207-012
+      task_revision: 13
+      phase: COMPLETION_GATE
+      failed_head_sha: "52e2237d6bf918c1552bb4393da17c63737297fb"
+      verification_started: false
+      disposition: IMMUTABLE_NOT_REPAIR_OR_SOURCE_AUTHORITY
+    earlier_failed_predecessor:
       run_id: RUN-207-011
       task_revision: 11
       phase: COMPLETION_GATE
       failed_head_sha: "f1580073867f095704bc1c34f2858c160e0cf4d3"
-      disposition: IMMUTABLE_NOT_REPAIR_AUTHORITY
+      disposition: IMMUTABLE_NOT_REPAIR_OR_SOURCE_AUTHORITY
     prior_operational_rejection:
       task_revision: 12
       dispatch_id: task207-r12-codex-high-001
@@ -153,22 +160,23 @@ human_priority_side_track:
     task_id: TASK-254
     expected_revision: 4
     status: AUTHORED_BLOCKED
-    gate: AFTER_EXACT_TASK_207_R13_REVIEW_AND_PUBLICATION
+    gate: AFTER_EXACT_TASK_207_R14_REVIEW_AND_PUBLICATION
     objective: >-
       Resume the already-authored post-TASK253 validation-carrier provenance rebinding
-      product task only after exact TASK-207 revision-13 downstream conformance publication.
+      product task only after exact TASK-207 revision-14 downstream conformance publication.
 
   preserved_product_commitment:
     task_id: TASK-254
     task_revision: 4
     status: AUTHORED_UNEXECUTED
-    resume_after: TASK_207_R13_PUBLICATION
+    resume_after: TASK_207_R14_PUBLICATION
   boundary: >-
-    Current Human/Brain priority is fresh TASK-207 revision-13 downstream conformance under
-    exact pin 44eee353eda376c9db8cd88d97184d3122651bf5. RUN-207-011 remains immutable
-    failed history and the revision-12 dispatch rejection remains non-canonical operational
-    history. Do not REPAIR RUN-207-011, reuse the r12 dispatch identity, resume TASK-254,
-    product work, or another roadmap item before exact TASK-207 r13 semantic review and publication.
+    Current Human/Brain priority is fresh TASK-207 revision-14 downstream conformance under
+    exact pin 44eee353eda376c9db8cd88d97184d3122651bf5. RUN-207-011 and RUN-207-012
+    remain immutable failed history and the revision-12 dispatch rejection remains
+    non-canonical operational history. Do not REPAIR either failed RUN, reuse old dispatch
+    identities, resume TASK-254, product work, or another roadmap item before exact
+    TASK-207 r14 semantic review and publication.
 
 active_track:
   id: P8_PUBLIC_PDP_GEN8_RESULT_AND_PAIRED_PRICE_ROLE_HARDENING
