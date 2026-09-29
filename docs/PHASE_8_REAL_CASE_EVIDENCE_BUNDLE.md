@@ -11,6 +11,8 @@
 - **Carrier Production Module**: `src/product_intelligence/tiktok_pdp_case_bundle.py`
 - **Canonical CLI Subcommand**: `tiktok-pdp-case-bundle`
 - **Preceding Milestone**: `TASK-262` (`POST_TASK261_ONE_SHOT_VALIDATION_SUCCESS_RECONCILIATION_ONLY`)
+- **Predecessor Published Source SHA**: `935c46069e7770bc2a56b29abac58311ff7730e6`
+- **Source Published SHA**: `935c46069e7770bc2a56b29abac58311ff7730e6`
 
 TASK-263 creates one bounded attach-only carrier and one-shot Human authorization for the exact selected TikTok Shop Vietnam PDP listing. It does not perform the live capture itself, construct canonical evidence, mutate P7 semantics, infer Product Truth, use MCP, call marketplace APIs, or generalize acquisition beyond the single P8 case.
 

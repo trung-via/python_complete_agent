@@ -40,6 +40,17 @@ OBSERVED_URL = f"https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-c
 PNG_PAYLOAD = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
 
 
+@pytest.fixture
+def external_job_root():
+    with tempfile.TemporaryDirectory(prefix="task263-bundle-case-", ignore_cleanup_errors=True) as directory:
+        yield Path(directory).resolve()
+
+
+@pytest.fixture
+def tmp_path(external_job_root):
+    return external_job_root
+
+
 def _sample_record(ordinal: int = 1, tag: str = "h1", text: str = "Test Title", **overrides):
     rec = {
         "ordinal": ordinal,

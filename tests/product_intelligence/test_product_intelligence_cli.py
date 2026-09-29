@@ -204,6 +204,7 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
         "capture",
         "tiktok-pdp-live-pilot",
         "tiktok-pdp-dom-diagnostic",
+        "tiktok-pdp-case-bundle",
         "decide",
         "family-decide",
         "variant-decide",
@@ -256,6 +257,12 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
             "--job-root",
             "--cdp-endpoint",
         },
+        "tiktok-pdp-case-bundle": {
+            "-h",
+            "--help",
+            "--job-root",
+            "--cdp-endpoint",
+        },
         "decide": {
             "-h",
             "--help",
@@ -303,6 +310,9 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
         ["tiktok-pdp-dom-diagnostic"],
         ["tiktok-pdp-dom-diagnostic", "--job-root", "external"],
         ["tiktok-pdp-dom-diagnostic", "--cdp-endpoint", "http://127.0.0.1:9222"],
+        ["tiktok-pdp-case-bundle"],
+        ["tiktok-pdp-case-bundle", "--job-root", "external"],
+        ["tiktok-pdp-case-bundle", "--cdp-endpoint", "http://127.0.0.1:9222"],
         [
             "discover",
             "--query",
