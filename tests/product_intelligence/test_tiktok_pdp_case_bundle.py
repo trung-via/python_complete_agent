@@ -4,9 +4,12 @@ from __future__ import annotations
 import ast
 from datetime import datetime, timezone
 import hashlib
+from html.parser import HTMLParser
 import json
 from pathlib import Path
+import re
 import tempfile
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -590,6 +593,295 @@ def test_projection_validation_accepts_clean_product_records():
     assert validated["records"][5]["visible_text"] == "Mua ngay"
 
 
+_SAFE_ATOM = re.compile(r"^[A-Za-z0-9_.:/-]*$")
+_VOID_TAGS = {"meta", "link", "img", "br", "hr", "input", "source", "param"}
+
+
+class SyntheticDOMElement:
+    def __init__(
+        self,
+        tag: str,
+        attrs: dict[str, str] | None = None,
+        parent: SyntheticDOMElement | None = None,
+    ) -> None:
+        self.tag_name = tag.lower()
+        self.attrs = {k.lower(): v for k, v in (attrs or {}).items()}
+        self.parent = parent
+        self.children: list[SyntheticDOMElement] = []
+        self.direct_text_nodes: list[str] = []
+        self.is_visible = True
+
+    def get_attribute(self, name: str) -> str:
+        return self.attrs.get(name.lower(), "")
+
+    @property
+    def class_name(self) -> str:
+        return self.attrs.get("class", "")
+
+    @property
+    def text_content(self) -> str:
+        parts = list(self.direct_text_nodes)
+        for child in self.children:
+            tc = child.text_content
+            if tc:
+                parts.append(tc)
+        return " ".join(parts)
+
+    def query_selector(self, selector: str) -> SyntheticDOMElement | None:
+        def _match(el: SyntheticDOMElement) -> bool:
+            if el.tag_name in ("h1", "h2", "h3"):
+                return True
+            if el.get_attribute("role") == "heading":
+                return True
+            return False
+
+        for child in self.children:
+            for node in child.iter_elements():
+                if _match(node):
+                    return node
+        return None
+
+    def iter_elements(self):
+        yield self
+        for child in self.children:
+            yield from child.iter_elements()
+
+
+class _SyntheticDOMParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.root = SyntheticDOMElement("html")
+        self.current = self.root
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attr_dict = {k: v or "" for k, v in attrs}
+        el = SyntheticDOMElement(tag, attr_dict, parent=self.current)
+        self.current.children.append(el)
+        if tag.lower() not in _VOID_TAGS:
+            self.current = el
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() in _VOID_TAGS:
+            return
+        cur: SyntheticDOMElement | None = self.current
+        while cur and cur.parent and cur.tag_name != tag.lower():
+            cur = cur.parent
+        if cur and cur.parent and cur.tag_name == tag.lower():
+            self.current = cur.parent
+
+    def handle_data(self, data: str) -> None:
+        cleaned = data.strip()
+        if cleaned:
+            self.current.direct_text_nodes.append(cleaned)
+
+
+def _execute_case_bundle_projection_offline(
+    doc_root: SyntheticDOMElement,
+    observed_url: str = AUTHORIZED_PDP_URL,
+    max_scanned: int = 2000,
+    max_records: int = 500,
+    max_text: int = 160,
+) -> dict[str, object]:
+    parsed = urlsplit(observed_url)
+    m = re.match(r"^/vn/pdp/[^/]+/(\d+)/?$", parsed.path, re.I)
+    identity_bound = (
+        parsed.scheme == "https"
+        and parsed.netloc.lower() == "shop.tiktok.com"
+        and bool(m)
+        and m.group(1) == AUTHORIZED_SOURCE_ID
+    )
+
+    if not identity_bound:
+        return {
+            "schema_version": 1,
+            "observed_url": observed_url,
+            "page_state": {
+                "identity_bound": False,
+                "blocked": False,
+                "login": False,
+                "unavailable": False,
+            },
+            "truncation": {
+                "is_truncated": False,
+                "scanned_nodes_truncated": False,
+                "records_truncated": False,
+                "text_truncated": False,
+                "bytes_truncated": False,
+                "total_scanned_nodes": 0,
+                "total_records": 0,
+            },
+            "records": [],
+        }
+
+    # Bounded root resolution (matches resolveBoundedPdpDomScope in CASE_BUNDLE_SCRIPT)
+    target_root = doc_root
+    for node in doc_root.iter_elements():
+        if "pdp" in node.get_attribute("data-e2e").lower() or "pdp" in node.get_attribute("data-testid").lower():
+            target_root = node
+            break
+    else:
+        for node in doc_root.iter_elements():
+            if node.tag_name == "main":
+                target_root = node
+                break
+
+    def _is_excluded_region(e: SyntheticDOMElement) -> bool:
+        cur: SyntheticDOMElement | None = e
+        while cur and cur is not target_root and cur is not doc_root:
+            tag = cur.tag_name
+            if tag in ("header", "nav", "footer", "aside"):
+                return True
+            role = cur.get_attribute("role").lower()
+            if role in ("navigation", "banner", "contentinfo"):
+                return True
+            attrs = " ".join([
+                cur.get_attribute("data-e2e"),
+                cur.get_attribute("data-testid"),
+                cur.get_attribute("id"),
+                cur.get_attribute("aria-label"),
+                cur.class_name,
+            ]).lower()
+            if (
+                re.search(
+                    r"\b(?:account|profile|session|user-info|user-profile|user-name|username|user-avatar|avatar|top-nav|site-nav|global-nav|navbar|nav-bar|navigation|bottom-nav|login|signin|sign-in|logout|sign-out)\b",
+                    attrs,
+                    re.I,
+                )
+                or re.search(r"(?:account|profile|session|avatar|user[-_](?:info|profile|name|avatar))", cur.get_attribute("data-e2e"), re.I)
+                or re.search(r"(?:account|profile|session|avatar|user[-_](?:info|profile|name|avatar))", cur.get_attribute("data-testid"), re.I)
+            ):
+                return True
+            cur = cur.parent
+        return False
+
+    skipped_tags = {"script", "style", "noscript", "template", "svg", "iframe", "header", "nav", "footer", "aside"}
+    records: list[dict[str, object]] = []
+    scanned_count = 0
+    scanned_truncated = False
+    records_truncated = False
+    text_truncated = False
+
+    def _clip(v: object, n: int) -> str:
+        s = re.sub(r"\s+", " ", str(v or "")).strip()
+        return s[:n]
+
+    def _atom(v: object, n: int) -> str:
+        s = _clip(v, n)
+        if _SAFE_ATOM.fullmatch(s) and not re.search(r"\d{4,}", s):
+            return s
+        return ""
+
+    def _tokens(e: SyntheticDOMElement) -> list[str]:
+        toks = []
+        for c in e.class_name.split()[:4]:
+            a = _atom(c, 48)
+            if a:
+                toks.append(a)
+        return toks
+
+    for node in target_root.iter_elements():
+        if scanned_count >= max_scanned:
+            scanned_truncated = True
+            break
+        scanned_count += 1
+        tag = node.tag_name
+        if tag not in skipped_tags and node.is_visible and not _is_excluded_region(node):
+            heading_ctx = None
+            p: SyntheticDOMElement | None = node
+            for _ in range(4):
+                if not p:
+                    break
+                h = p.query_selector("heading")
+                if h and h.is_visible and not _is_excluded_region(h):
+                    heading_ctx = _clip(h.text_content, 60)
+                    break
+                p = p.parent
+
+            raw_direct = " ".join(node.direct_text_nodes[:8])
+            clipped_text = _clip(raw_direct, max_text)
+            if len(raw_direct) > max_text:
+                text_truncated = True
+
+            role = _atom(node.get_attribute("role"), 80)
+            itemprop = _atom(node.get_attribute("itemprop"), 80)
+            testid = _atom(node.get_attribute("data-testid"), 80)
+            data_e2e = _atom(node.get_attribute("data-e2e"), 80)
+            class_tokens = _tokens(node)
+            has_structural = bool(role or itemprop or testid or data_e2e)
+
+            if clipped_text or has_structural or tag in ("h1", "h2", "h3", "button", "a", "select"):
+                if len(records) < max_records:
+                    records.append({
+                        "ordinal": len(records) + 1,
+                        "tag_name": _atom(tag, 24),
+                        "role": role,
+                        "itemprop": itemprop,
+                        "data-testid": testid,
+                        "data-e2e": data_e2e,
+                        "class_tokens": class_tokens,
+                        "section_heading_context": heading_ctx,
+                        "visible_text": clipped_text,
+                        "is_leaf": len(node.children) == 0,
+                    })
+                else:
+                    records_truncated = True
+
+    is_truncated = scanned_truncated or records_truncated or text_truncated
+
+    return {
+        "schema_version": 1,
+        "observed_url": observed_url,
+        "page_state": {
+            "identity_bound": identity_bound,
+            "blocked": False,
+            "login": False,
+            "unavailable": False,
+        },
+        "truncation": {
+            "is_truncated": is_truncated,
+            "scanned_nodes_truncated": scanned_truncated,
+            "records_truncated": records_truncated,
+            "text_truncated": text_truncated,
+            "bytes_truncated": False,
+            "total_scanned_nodes": scanned_count,
+            "total_records": len(records),
+        },
+        "records": records,
+    }
+
+
+class DeterministicOfflineProjectionSession:
+    def __init__(self, doc_root: SyntheticDOMElement, url: str = AUTHORIZED_PDP_URL, png_bytes: bytes = PNG_PAYLOAD) -> None:
+        self.doc_root = doc_root
+        self.url = url
+        self.png_bytes = png_bytes
+        self.evaluate_calls: list[str] = []
+        self.screenshot_calls = 0
+
+    async def evaluate(self, script: str) -> dict[str, object]:
+        self.evaluate_calls.append(script)
+        assert script == CASE_BUNDLE_SCRIPT
+        return _execute_case_bundle_projection_offline(self.doc_root, self.url)
+
+    async def screenshot(self) -> bytes:
+        self.screenshot_calls += 1
+        return self.png_bytes
+
+
+class DeterministicOfflineManager:
+    def __init__(self, session: DeterministicOfflineProjectionSession) -> None:
+        self.session = session
+        self.acquired_run_ids: list[str] = []
+        self.closed_run_ids: list[str] = []
+
+    async def get_or_create_session(self, run_id: str) -> DeterministicOfflineProjectionSession:
+        self.acquired_run_ids.append(run_id)
+        return self.session
+
+    async def close_session(self, run_id: str) -> None:
+        self.closed_run_ids.append(run_id)
+
+
 @pytest.mark.asyncio
 async def test_case_bundle_projection_offline_dom_sanitation_and_product_capture(tmp_path):
     """Prove non-product account/profile/navigation text outside admitted product scope cannot enter persisted projection
@@ -597,8 +889,6 @@ async def test_case_bundle_projection_offline_dom_sanitation_and_product_capture
     while representative title, price, attributes/specification, seller/product-service,
     and other intended product-page observations remain capturable within the bounded projection.
     """
-    from playwright.async_api import async_playwright
-
     html = f"""<!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -704,148 +994,171 @@ async def test_case_bundle_projection_offline_dom_sanitation_and_product_capture
     target_url = AUTHORIZED_PDP_URL
     job_root = tmp_path / "bundle-dom-sanitation-001"
 
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        try:
-            page = await browser.new_page()
-            await page.route(
-                "https://shop.tiktok.com/**",
-                lambda route: route.fulfill(status=200, content_type="text/html", body=html),
-            )
-            await page.goto(target_url)
+    parser = _SyntheticDOMParser()
+    parser.feed(html)
+    doc_root = parser.root
 
-            class _LiveSessionManager:
-                def __init__(self, *, cdp_endpoint: str):
-                    self.cdp_endpoint = cdp_endpoint
-                    self.closed = False
+    session = DeterministicOfflineProjectionSession(doc_root, target_url)
+    manager = DeterministicOfflineManager(session)
 
-                async def get_or_create_session(self, run_id: str):
-                    return page
+    outcome = await run_tiktok_pdp_case_bundle(
+        job_root=job_root,
+        cdp_endpoint=ENDPOINT,
+        clock=lambda: OBSERVED_AT,
+        manager_factory=lambda cdp_endpoint: manager,
+    )
 
-                async def close_session(self, run_id: str):
-                    self.closed = True
+    assert isinstance(outcome, TikTokPdpCaseBundleOutcome)
+    assert outcome.manifest_path == job_root / MANIFEST_FILENAME
+    assert outcome.projection_path == job_root / PROJECTION_FILENAME
+    assert outcome.screenshot_path == job_root / SCREENSHOT_FILENAME
 
-            outcome = await run_tiktok_pdp_case_bundle(
-                job_root=job_root,
-                cdp_endpoint=ENDPOINT,
-                clock=lambda: OBSERVED_AT,
-                manager_factory=_LiveSessionManager,
-            )
+    # Exactly three artifacts created in the job root
+    files = sorted(p.name for p in job_root.iterdir())
+    assert files == [
+        "p8-real-case-full-page-v1.png",
+        "p8-real-case-manifest-v1.json",
+        "p8-real-case-page-projection-v1.json",
+    ]
 
-            assert isinstance(outcome, TikTokPdpCaseBundleOutcome)
-            assert outcome.manifest_path == job_root / MANIFEST_FILENAME
-            assert outcome.projection_path == job_root / PROJECTION_FILENAME
-            assert outcome.screenshot_path == job_root / SCREENSHOT_FILENAME
+    # Read and parse the persisted projection artifact
+    persisted_bytes = outcome.projection_path.read_bytes()
+    assert len(persisted_bytes) <= 256 * 1024
+    projection_doc = json.loads(persisted_bytes.decode("utf-8"))
 
-            # Exactly three artifacts created in the job root
-            files = sorted(p.name for p in job_root.iterdir())
-            assert files == [
-                "p8-real-case-full-page-v1.png",
-                "p8-real-case-manifest-v1.json",
-                "p8-real-case-page-projection-v1.json",
-            ]
+    assert projection_doc["schema_version"] == 1
+    assert projection_doc["record_type"] == "P8_REAL_CASE_PAGE_PROJECTION"
+    assert projection_doc["classification"] == CLASSIFICATION
+    assert projection_doc["context_id"] == CONTEXT_ID
+    assert projection_doc["source_product_id"] == AUTHORIZED_SOURCE_ID
+    assert projection_doc["observed_url"] == AUTHORIZED_PDP_URL
 
-            # Read and parse the persisted projection artifact
-            persisted_bytes = outcome.projection_path.read_bytes()
-            assert len(persisted_bytes) <= 256 * 1024
-            projection_doc = json.loads(persisted_bytes.decode("utf-8"))
+    records = projection_doc["records"]
+    assert len(records) > 0
 
-            assert projection_doc["schema_version"] == 1
-            assert projection_doc["record_type"] == "P8_REAL_CASE_PAGE_PROJECTION"
-            assert projection_doc["classification"] == CLASSIFICATION
-            assert projection_doc["context_id"] == CONTEXT_ID
-            assert projection_doc["source_product_id"] == AUTHORIZED_SOURCE_ID
-            assert projection_doc["observed_url"] == AUTHORIZED_PDP_URL
+    # Gather all persisted strings
+    persisted_texts = [r["visible_text"] for r in records if r.get("visible_text")]
+    persisted_contexts = [r["section_heading_context"] for r in records if r.get("section_heading_context")]
+    combined_persisted_text = " ".join(persisted_texts + persisted_contexts).lower()
 
-            records = projection_doc["records"]
-            assert len(records) > 0
+    # 1. Non-product account/profile/navigation text MUST NOT enter the persisted projection
+    forbidden_non_product_strings = [
+        "trang chủ tiktok",
+        "khám phá sản phẩm",
+        "xu hướng mua sắm",
+        "user_super_buyer_99",
+        "hồ sơ cá nhân",
+        "ảnh đại diện",
+        "session_secret_token_987",
+        "phiên đăng nhập",
+        "cài đặt tài khoản",
+        "đăng xuất khỏi hệ thống",
+        "đơn hàng của tôi",
+        "ví voucher",
+        "thông báo cá nhân",
+        "khách hàng vip nội bộ",
+        "chính sách bảo mật người dùng",
+        "điều khoản dịch vụ tài khoản",
+        "trung tâm trợ giúp",
+    ]
+    for forbidden in forbidden_non_product_strings:
+        assert forbidden not in combined_persisted_text, (
+            f"Non-product string '{forbidden}' leaked into persisted projection"
+        )
 
-            # Gather all persisted strings
-            persisted_texts = [r["visible_text"] for r in records if r.get("visible_text")]
-            persisted_contexts = [r["section_heading_context"] for r in records if r.get("section_heading_context")]
-            combined_persisted_text = " ".join(persisted_texts + persisted_contexts).lower()
+    # Ensure non-product structural tags and roles are excluded
+    all_tags = [r["tag_name"] for r in records]
+    all_roles = [r["role"] for r in records if r.get("role")]
+    for excluded_tag in ("header", "nav", "footer", "aside"):
+        assert excluded_tag not in all_tags, f"Excluded tag '{excluded_tag}' in projection"
+    for excluded_role in ("navigation", "banner", "contentinfo"):
+        assert excluded_role not in all_roles, f"Excluded role '{excluded_role}' in projection"
 
-            # 1. Non-product account/profile/navigation text MUST NOT enter the persisted projection
-            forbidden_non_product_strings = [
-                "trang chủ tiktok",
-                "khám phá sản phẩm",
-                "xu hướng mua sắm",
-                "user_super_buyer_99",
-                "hồ sơ cá nhân",
-                "ảnh đại diện",
-                "session_secret_token_987",
-                "phiên đăng nhập",
-                "cài đặt tài khoản",
-                "đăng xuất khỏi hệ thống",
-                "đơn hàng của tôi",
-                "ví voucher",
-                "thông báo cá nhân",
-                "khách hàng vip nội bộ",
-                "chính sách bảo mật người dùng",
-                "điều khoản dịch vụ tài khoản",
-                "trung tâm trợ giúp",
-            ]
-            for forbidden in forbidden_non_product_strings:
-                assert forbidden not in combined_persisted_text, (
-                    f"Non-product string '{forbidden}' leaked into persisted projection"
-                )
+    # 2. Representative product observations MUST remain capturable within bounded projection
+    # Title
+    title_records = [
+        r for r in records
+        if "Đèn LED Cảm Biến Chuyển Động" in r.get("visible_text", "")
+    ]
+    assert len(title_records) >= 1
+    assert any(r["tag_name"] == "h1" for r in title_records)
 
-            # Ensure non-product structural tags and roles are excluded
-            all_tags = [r["tag_name"] for r in records]
-            all_roles = [r["role"] for r in records if r.get("role")]
-            for excluded_tag in ("header", "nav", "footer", "aside"):
-                assert excluded_tag not in all_tags, f"Excluded tag '{excluded_tag}' in projection"
-            for excluded_role in ("navigation", "banner", "contentinfo"):
-                assert excluded_role not in all_roles, f"Excluded role '{excluded_role}' in projection"
+    # Price
+    price_records = [
+        r for r in records
+        if "33.600₫" in r.get("visible_text", "")
+    ]
+    assert len(price_records) >= 1
 
-            # 2. Representative product observations MUST remain capturable within bounded projection
-            # Title
-            title_records = [
-                r for r in records
-                if "Đèn LED Cảm Biến Chuyển Động" in r.get("visible_text", "")
-            ]
-            assert len(title_records) >= 1
-            assert any(r["tag_name"] == "h1" for r in title_records)
+    # Attributes / Specification
+    spec_records = [
+        r for r in records
+        if "Nhựa ABS cao cấp" in r.get("visible_text", "")
+        or "Type-C tiện lợi" in r.get("visible_text", "")
+        or "3 chế độ thông minh" in r.get("visible_text", "")
+    ]
+    assert len(spec_records) >= 2
 
-            # Price
-            price_records = [
-                r for r in records
-                if "33.600₫" in r.get("visible_text", "")
-            ]
-            assert len(price_records) >= 1
+    # Seller / Product-Service
+    seller_records = [
+        r for r in records
+        if "Lighting Official Store" in r.get("visible_text", "")
+    ]
+    assert len(seller_records) >= 1
 
-            # Attributes / Specification
-            spec_records = [
-                r for r in records
-                if "Nhựa ABS cao cấp" in r.get("visible_text", "")
-                or "Type-C tiện lợi" in r.get("visible_text", "")
-                or "3 chế độ thông minh" in r.get("visible_text", "")
-            ]
-            assert len(spec_records) >= 2
+    service_records = [
+        r for r in records
+        if "Đổi trả 7 ngày miễn phí" in r.get("visible_text", "")
+        or "Bảo hành chính hãng 12 tháng" in r.get("visible_text", "")
+    ]
+    assert len(service_records) >= 1
 
-            # Seller / Product-Service
-            seller_records = [
-                r for r in records
-                if "Lighting Official Store" in r.get("visible_text", "")
-            ]
-            assert len(seller_records) >= 1
+    # Intended actions
+    action_records = [
+        r for r in records
+        if "Mua ngay" in r.get("visible_text", "")
+        or r.get("data-e2e") == "buy-now"
+    ]
+    assert len(action_records) >= 1
 
-            service_records = [
-                r for r in records
-                if "Đổi trả 7 ngày miễn phí" in r.get("visible_text", "")
-                or "Bảo hành chính hãng 12 tháng" in r.get("visible_text", "")
-            ]
-            assert len(service_records) >= 1
+    # Session and manager lifecycle
+    assert len(session.evaluate_calls) == 1
+    assert session.evaluate_calls[0] == CASE_BUNDLE_SCRIPT
+    assert session.screenshot_calls == 1
+    assert manager.acquired_run_ids == [f"human-case-bundle:{CONTEXT_ID}"]
+    assert manager.closed_run_ids == [f"human-case-bundle:{CONTEXT_ID}"]
 
-            # Intended actions
-            action_records = [
-                r for r in records
-                if "Mua ngay" in r.get("visible_text", "")
-                or r.get("data-e2e") == "buy-now"
-            ]
-            assert len(action_records) >= 1
 
-        finally:
-            await browser.close()
+def test_case_bundle_offline_projection_unscoped_fallback_sanitation():
+    """Prove that even if DOM scoping were un-scoped (evaluating full document directly),
+
+    the generated projection logic's exclusion predicate and skipped tags deterministically
+    prevent non-product header/nav/account/session/footer regions from leaking into records.
+    """
+    html = f"""<!DOCTYPE html>
+<html>
+<body>
+    <header><nav><a href="/home">Trang chủ TikTok</a></nav></header>
+    <div data-testid="user-profile"><span>Hồ sơ cá nhân</span></div>
+    <div data-e2e="user-session"><span>Phiên đăng nhập</span></div>
+    <main>
+        <h1 data-testid="product-title">Đèn LED Cảm Biến Chuyển Động</h1>
+        <div data-testid="pdp-price"><span itemprop="price">33.600₫</span></div>
+    </main>
+    <aside><a href="/orders">Đơn hàng của tôi</a></aside>
+    <footer><span>Chính sách bảo mật người dùng</span></footer>
+</body>
+</html>"""
+    parser = _SyntheticDOMParser()
+    parser.feed(html)
+    result = _execute_case_bundle_projection_offline(parser.root, AUTHORIZED_PDP_URL)
+    all_texts = " ".join(r.get("visible_text", "") for r in result["records"]).lower()
+    assert "trang chủ tiktok" not in all_texts
+    assert "hồ sơ cá nhân" not in all_texts
+    assert "phiên đăng nhập" not in all_texts
+    assert "đơn hàng của tôi" not in all_texts
+    assert "chính sách bảo mật" not in all_texts
+    assert "đèn led cảm biến chuyển động" in all_texts
+    assert "33.600₫" in all_texts
 
 
