@@ -1,0 +1,33 @@
+review_id: REVIEW-263-004
+reviewed_sha: cb153651cf8df071efcc76bc4820f1d1cc967d71
+mode: DELTA
+verdict: CHANGES_REQUIRED
+prior_finding_id: FINDING-263-003
+acceptance:
+  AC8: FAIL
+findings:
+  - id: FINDING-263-004
+    basis: AC8
+    action: CODE_FIX
+    location: tests/product_intelligence/test_tiktok_pdp_case_bundle.py
+    issue: >
+      The repair makes the synthetic root resolver materially closer to production and all
+      authorized Runtime tests pass, but the offline session still does not execute
+      CASE_BUNDLE_SCRIPT. DeterministicOfflineProjectionSession.evaluate() only asserts that
+      the received script string equals CASE_BUNDLE_SCRIPT and then returns the output of
+      _execute_case_bundle_projection_offline(), a separately reimplemented Python model of
+      the JavaScript projection/root-scope logic. That duplicate model is not proof of the
+      actual generated projection logic and can drift independently; RUN-263-007 already
+      demonstrated such drift. Therefore the requested executable sanitation proof is not
+      established by Runtime verification.
+    expected: >
+      Replace the duplicate Python projection implementation as the proof authority with a
+      deterministic fully-offline non-browser harness that actually evaluates the exact
+      CASE_BUNDLE_SCRIPT against a synthetic DOM-equivalent fixture. A local JavaScript runtime
+      or equivalent deterministic JS execution harness is acceptable only if it performs zero
+      TikTok/CDP/network/browser operations and is available within the governed verification
+      environment. Keep fake BrowserSession/manager lifecycle, execute exactly the production
+      script supplied to evaluate(), and assert the persisted result excludes account/profile/
+      navigation-like text while retaining representative title, price, specifications, seller/
+      product-service and intended product observations. Do not create a second projection or
+      DOM-scope semantic owner and do not weaken existing safety or one-shot assertions.
