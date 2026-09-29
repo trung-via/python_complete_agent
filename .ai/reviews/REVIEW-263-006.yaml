@@ -1,0 +1,32 @@
+review_id: REVIEW-263-006
+reviewed_sha: f74f7a381aad59a90f645ac568d9cf9927c9df32
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: FAIL
+  AC3: PASS
+  AC4: PASS
+  AC5: PASS
+  AC6: PASS
+  AC7: PASS
+findings:
+  - id: FINDING-263-005
+    basis: AC2
+    action: CODE_FIX
+    location: src/product_intelligence/tiktok_pdp_case_bundle.py
+    issue: >
+      Revision 3 correctly passes BrowserConfig(timeout_seconds=120) to the existing
+      manager call, but the implementation defines three exported carrier timeout names:
+      CASE_BUNDLE_BROWSER_TIMEOUT_SECONDS, CASE_BUNDLE_TIMEOUT_SECONDS, and
+      BROWSER_SESSION_TIMEOUT_SECONDS. The TASK-263 r3 hard constraint authorizes one
+      bounded carrier-owned timeout constant of exactly 120 seconds. The two aliases add
+      unnecessary public contract surface and create avoidable duplicate naming for the
+      same carrier policy.
+    expected: >
+      Keep exactly one carrier-owned timeout constant,
+      CASE_BUNDLE_BROWSER_TIMEOUT_SECONDS = 120, use only that constant for
+      BrowserConfig(timeout_seconds=...), and remove the two alias constants and their
+      exports. Preserve all other r3 implementation, tests, documentation, roadmap,
+      screenshot semantics, one-evaluate/one-screenshot behavior, and non-consuming
+      pre-manifest failure behavior unchanged.
