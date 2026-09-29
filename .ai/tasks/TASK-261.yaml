@@ -1,0 +1,300 @@
+task_id: TASK-261
+revision: 1
+
+goal: >
+  Canonicalize the Human-selected AUTHORIZE_ONE_SHOT_POST_TASK254_CARRIER_VALIDATION
+  continuation after TASK-260 publication. Authorize exactly one Human-operated validation
+  attempt for the already-selected TikTok Shop PDP using the existing sole V2 carrier, bind the
+  carrier execution source to exact reviewed/published TASK-254 source
+  36627c80e76f156fcb774b10fbd35d14df6d9ea4, preserve the distinct TASK-253 collector baseline
+  33776f11b20977f46d45d394fa1c56040029b65d, require non-consuming preflight and
+  artifact-grounded post-attempt review, and grant no automated acquisition, retry, market-test,
+  commerce-action, Product Truth or affiliate-economics authority.
+
+problem: >
+  TASK-260 revision 2 is publication-effective on canonical main
+  6787c746396f333cb7e02d0736ed8beb2417a63c and intentionally ended at the Human/Brain
+  REAL_DECISION_SUFFICIENCY_SELECTION gate with five unranked candidates and no automatic NEXT.
+  The Human has now explicitly selected only
+  AUTHORIZE_ONE_SHOT_POST_TASK254_CARRIER_VALIDATION. The existing carrier is already rebound by
+  TASK-254 to POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION / TASK-253 /
+  33776f11b20977f46d45d394fa1c56040029b65d and its one-shot mechanics remain suitable, but
+  TASK-260 deliberately grants zero attempts and omits validation_carrier_source_sha. A narrow
+  authorization task is therefore required before any live carrier invocation. This task must
+  convert the Human selection into durable publication-gated planning authority without
+  re-opening collector semantics, treating operation success as field-validation success, or
+  allowing the authorization step itself to touch TikTok/CDP.
+
+assumptions:
+  - >
+    Canonical main at authoring is exactly
+    6787c746396f333cb7e02d0736ed8beb2417a63c. TASK-260 r2 / RUN-260-002 /
+    REVIEW-260-001 is publication-effective there; RUN-260-001 remains immutable failed history.
+  - >
+    The Human explicitly selected the TASK-260 candidate
+    AUTHORIZE_ONE_SHOT_POST_TASK254_CARRIER_VALIDATION on 2026-09-29. This selection authorizes
+    only the bounded authorization task described here; it is not itself a live carrier
+    invocation, market-test approval, retry grant or Product Truth claim.
+  - >
+    Exact carrier source lineage is TASK-254 r6 / RUN-254-003 / REVIEW-254-001 /
+    published source 36627c80e76f156fcb774b10fbd35d14df6d9ea4.
+    Exact collector validation baseline remains TASK-253 / source
+    33776f11b20977f46d45d394fa1c56040029b65d. Carrier execution source and collector baseline are
+    distinct provenance fields and must not be collapsed.
+  - >
+    The selected pilot remains context p8-pilot-001-led-motion-tiktok-vn, source product ID
+    1731381331718341815, stable listing
+    https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815.
+  - >
+    Current carrier src/product_intelligence/tiktok_pdp_live_pilot.py emits
+    POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION with collector baseline TASK-253 /
+    33776f11b20977f46d45d394fa1c56040029b65d and preserves the TASK-249 one-shot V2 marker/result
+    mechanics. TASK-261 has no authority to change carrier, collector, parser, browser/session,
+    CLI or artifact semantics.
+  - >
+    TASK-260 knowledge state remains decision-relative: current_price UNKNOWN; original_price is
+    only a dated OBSERVED_ONLY value with freshness NOT_ASSERTED; affiliate eligibility,
+    commission and estimated commission remain NOT_ESTABLISHED; canonical_evidence_ingested,
+    price_role_resolution_complete and selector_repair_complete remain false unless a later
+    separately authorized reconciliation establishes otherwise.
+  - >
+    CAPABILITY_IS_NOT_AUTHORITY, EVIDENCE_IS_NOT_KNOWLEDGE,
+    EVIDENCE_IS_NOT_PRODUCT_TRUTH, SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY,
+    SNAPSHOT_IS_NOT_TREND, AMBIGUOUS_PRICE_IS_NOT_EXACT_PRICE,
+    OPERATION_SUCCESS_IS_NOT_FIELD_VALIDATION_SUCCESS, AUTOMATION_IS_NOT_INTELLIGENCE,
+    RECOMMENDATION_IS_NOT_DECISION and ONE_CAPABILITY_ONE_AUTHORITY remain mandatory.
+  - >
+    Active AIOS-renew pin remains 44eee353eda376c9db8cd88d97184d3122651bf5 and downstream
+    conformance/adoption state is not part of this product authorization delta.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - .ai/roadmap-state.yaml
+    - .ai/aios-adoption-state.yaml
+    - .ai/aios-conformance-state.yaml
+    - .ai/tasks/TASK-137.yaml
+    - .ai/tasks/TASK-249.yaml
+    - .ai/tasks/TASK-250.yaml
+    - .ai/tasks/TASK-251.yaml
+    - .ai/tasks/TASK-253.yaml
+    - .ai/tasks/TASK-254.yaml
+    - .ai/tasks/TASK-260.yaml
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_ACQUISITION_CONTRACT.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK248_VALIDATION_CARRIER_HARDENING.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK249_VALIDATION_AUTHORIZATION.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK250_VALIDATION_SUCCESS_RECONCILIATION_AND_PRICE_ROLE_OBSERVABILITY.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_GEN8_RESULT_AND_PAIRED_PRICE_ROLE_HARDENING.md
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK253_VALIDATION_CARRIER_PROVENANCE_REBINDING.md
+    - docs/PHASE_8_POST_TASK254_REAL_DECISION_SUFFICIENCY_AND_ROADMAP_RECONCILIATION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - src/product_intelligence/tiktok_pdp_live_pilot.py
+    - src/product_intelligence/cli.py
+    - src/product_intelligence/adapters/tiktok_pdp.py
+    - src/product_intelligence/adapters/tiktok_parsing.py
+    - src/product_intelligence/tiktok_pdp_dom_scope.py
+    - src/product_intelligence/models.py
+    - src/integrations/playwright/manager.py
+    - src/integrations/playwright/session.py
+    - src/browser/session.py
+    - src/browser/models.py
+    - tests/product_intelligence/test_tiktok_pdp_live_pilot.py
+    - tests/product_intelligence/test_product_intelligence_cli.py
+    - tests/product_intelligence/test_tiktok_pdp.py
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK254_ONE_SHOT_VALIDATION_AUTHORIZATION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - >
+    Execute TikTok/CDP, invoke tiktok-pdp-live-pilot, create or mutate external V2 marker/result
+    artifacts, navigate/evaluate/click/type/scroll/refresh a live page, borrow a browser session or
+    acquire marketplace evidence during TASK-261 implementation or deterministic verification.
+  - >
+    Modify tiktok_pdp_live_pilot.py, TikTokPdpCollector, parser, DOM scope, CLI,
+    ProductCandidateSnapshot, Playwright/browser lifecycle, V2 filenames/schema, consumption
+    boundary, terminal sequencing or failure taxonomy.
+  - >
+    Grant more than one attempt, automatic retry/resume/refresh, scheduler, queue, watcher,
+    replacement product, arbitrary target, inferred identity, search, batch, multi-listing,
+    variant switching, proxy/stealth/evasion, CAPTCHA solving or credential capture.
+  - >
+    Treat preflight observations or future V2 output as Product Truth, canonical identity, trend,
+    recommendation, ranking, approval, TEST_READY, market-test authority, commerce-action
+    authority or proof of affiliate eligibility/commission.
+  - >
+    Normalize future V2 output into canonical SignalEvidence, construct or mutate P7.4/P7.5
+    ownership, set canonical_evidence_ingested true, resolve price-role state, infer affiliate
+    economics, select a later continuation or perform post-attempt reconciliation inside this
+    task.
+  - >
+    Modify AIOS pin/adoption/conformance state, executor profiles, Brain/Reviewer registries,
+    BP9 lifecycle bindings or historical TASK/RUN/REVIEW/REPAIR lineage.
+  - >
+    Hard-code an expected successful live price, expected root kind, expected page content,
+    expected terminal outcome or Human commercial decision.
+
+constraints:
+  hard:
+    - >
+      Classification is exactly ONE_SHOT_POST_TASK254_PUBLIC_PDP_VALIDATION_AUTHORIZATION_ONLY.
+      TASK-261 is authorization-only and performs zero live marketplace/CDP operation.
+    - >
+      Record exact authorization lineage: source_task_id TASK-254, source_run_id RUN-254-003,
+      source_review_id REVIEW-254-001, source_published_sha
+      36627c80e76f156fcb774b10fbd35d14df6d9ea4 and validation_carrier_source_sha
+      36627c80e76f156fcb774b10fbd35d14df6d9ea4. Separately preserve collector_validation_baseline
+      task_id TASK-253 and source_sha 33776f11b20977f46d45d394fa1c56040029b65d.
+    - >
+      Only exact reviewed TASK-261 publication may set authorized_validation_attempts 1,
+      authorized_validation_attempts_remaining 1, validation_execution_owner HUMAN_OPERATOR,
+      validation_executed false and live_public_pdp_acquisition_authority
+      ONE_SHOT_EXACT_LISTING_ONLY. Before exact publication the fresh attempt remains
+      unauthorized. automated_public_pdp_acquisition_authority and market_test_or_action_authority
+      remain NONE; automatic_live_pilot and automatic_progression remain false.
+    - >
+      Bind the one attempt only to context p8-pilot-001-led-motion-tiktok-vn, source ID
+      1731381331718341815 and exact stable listing
+      https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815.
+      Grant no replacement/arbitrary/search/batch/multi-listing/inferred-identity/variant scope.
+    - >
+      Future execution uses only the existing Human-facing CLI tiktok-pdp-live-pilot with one
+      explicit external --job-root and --cdp-endpoint http://127.0.0.1:9222. TASK-261 adds no CLI
+      or production surface. Human-facing invocation must be one physical PowerShell command line.
+    - >
+      Mandatory non-consuming preflight is separate from carrier invocation and must not create
+      V2 artifacts or mutate the page. It must prove CDP 127.0.0.1:9222 reachable; read-only
+      target enumeration has exactly one normal type=page target total; that sole target is the
+      exact selected PDP; the later exact external job root is outside the Git repository and has
+      none of legacy V1, V2 attempt marker or V2 result artifacts.
+    - >
+      Preflight must prove content equivalence of all ten execution-critical files to exact
+      TASK-254 publication 36627c80e76f156fcb774b10fbd35d14df6d9ea4:
+      src/product_intelligence/tiktok_pdp_live_pilot.py,
+      src/product_intelligence/cli.py,
+      src/product_intelligence/adapters/tiktok_pdp.py,
+      src/product_intelligence/adapters/tiktok_parsing.py,
+      src/product_intelligence/tiktok_pdp_dom_scope.py,
+      src/product_intelligence/models.py,
+      src/integrations/playwright/manager.py,
+      src/integrations/playwright/session.py,
+      src/browser/session.py and src/browser/models.py.
+      Repository HEAD equality is not required. Any mismatch fails closed and requires a fresh
+      Human/Brain decision rather than silent source substitution.
+    - >
+      The exact preflight-passed job root, browser target state and execution-critical source
+      contents are bound to the subsequent consuming invocation. If any changes before invocation,
+      preflight must be rerun. Repeating only non-consuming preflight while the V2 marker remains
+      absent does not consume the attempt and creates no automatic retry loop.
+    - >
+      Preserve TASK-249 V2 consumption semantics exactly. Successful create-exclusive persistence
+      of tiktok-pdp-live-validation-attempt-v2.json is the durable consumption boundary.
+      Pre-marker shell/transport/preflight/local-gate failure may be manually corrected under the
+      same authorization only while the marker remains absent; no correction is automatic.
+    - >
+      After marker creation every terminal or interrupted state consumes the sole attempt.
+      SUCCESS, FAIL_CLOSED, result-persistence failure, missing/malformed/nonconforming result,
+      process/network/power interruption grants no retry, resume, refresh, replacement target or
+      second invocation. Any later live attempt requires fresh Human/Brain authorization.
+    - >
+      Marker/result files that exist after consumption must be preserved byte-for-byte through
+      mandatory post-attempt review. Review derives state from exact external artifacts, recording
+      job-root binding, artifact presence, SHA256 and size, conformance, bounded operation_status,
+      observation_status, session_release_status/failure_reason when available, and snapshot
+      fields only when OBSERVED. Do not reconstruct state from chat memory; unobserved process/CLI
+      exit code remains UNKNOWN.
+    - >
+      OPERATION_SUCCESS_IS_NOT_FIELD_VALIDATION_SUCCESS. SUCCESS/OBSERVED proves only one bounded
+      listing observation. It does not require current_price, original_price, discount_percent,
+      sold_count, rating or review_count to be non-null and cannot establish Product Truth, trend,
+      canonical evidence ingestion or market-test readiness.
+    - >
+      Public-PDP validation cannot establish authenticated affiliate eligibility, commission rate
+      or estimated commission. Those TASK-260 fields remain NOT_ESTABLISHED unless later evidence
+      from their proper semantic owner exists.
+    - >
+      Preserve TASK-260 as immutable completed planning history, including
+      MARKET_TEST_READINESS_NOT_ESTABLISHED and its four non-selected alternatives. Prospectively
+      canonicalize only the Human-selected #1 continuation as the current authorization track; do
+      not rewrite the prior five-candidate record as though it had originally ranked or preferred
+      this option.
+    - >
+      Exact reviewed publication hands control only to
+      HUMAN_OPERATOR_ONE_SHOT_POST_TASK254_PUBLIC_PDP_VALIDATION_EXECUTION, with mandatory
+      post-attempt handoff HUMAN_BRAIN_POST_TASK254_PUBLIC_PDP_VALIDATION_REVIEW. No engineering
+      successor, retry or market action is preselected; next_milestone remains null and pending
+      commitments remain empty.
+    - >
+      Modify exactly the five authorized paths. Runtime verification is offline and must not touch
+      TikTok/CDP or external artifacts. Executor produces one implementation candidate only and
+      must not review, publish, execute the live attempt or start successor work.
+
+acceptance:
+  - id: AC1
+    condition: >
+      Exact TASK-260 publication and explicit Human selection of only
+      AUTHORIZE_ONE_SHOT_POST_TASK254_CARRIER_VALIDATION are preserved as the sole planning basis,
+      without retroactively ranking TASK-260's candidate set.
+  - id: AC2
+    condition: >
+      TASK-254 / RUN-254-003 / REVIEW-254-001 /
+      36627c80e76f156fcb774b10fbd35d14df6d9ea4 is recorded as the sole carrier execution source
+      and validation_carrier_source_sha, while TASK-253 /
+      33776f11b20977f46d45d394fa1c56040029b65d remains separately recorded as collector baseline.
+  - id: AC3
+    condition: >
+      Exactly one Human-operated fixed-listing validation attempt is publication-gated with
+      attempts 1/remaining 1, validation_executed false and live authority
+      ONE_SHOT_EXACT_LISTING_ONLY; automated acquisition and market-test/action authorities remain
+      NONE and no broader target/retry scope exists.
+  - id: AC4
+    condition: >
+      Mandatory non-consuming preflight proves CDP reachability, exactly one normal page target
+      equal to the selected PDP, a fresh external job root, and exact content equivalence of all
+      ten execution-critical files to TASK-254 publication; any source/target/root change requires
+      fresh preflight and source mismatch fails closed.
+  - id: AC5
+    condition: >
+      Existing V2 marker/result carrier mechanics remain unchanged: marker creation is the durable
+      consumption boundary; marker-present success, fail-closed, interruption or
+      malformed/missing result consumes the sole attempt with no retry or second invocation.
+  - id: AC6
+    condition: >
+      Mandatory post-attempt review is artifact-grounded using presence, SHA256, size and
+      conforming bounded fields; existing artifacts are preserved byte-for-byte and no unobserved
+      process/CLI fact is invented.
+  - id: AC7
+    condition: >
+      OPERATION_SUCCESS_IS_NOT_FIELD_VALIDATION_SUCCESS and public-PDP scope limitations are
+      explicit: optional fields may remain unknown, affiliate economics remain NOT_ESTABLISHED,
+      and no Product Truth, canonical evidence, trend, ranking, approval or market-test readiness
+      is inferred from authorization or a future SUCCESS.
+  - id: AC8
+    condition: >
+      TASK-260 remains immutable completed history with MARKET_TEST_READINESS_NOT_ESTABLISHED and
+      its original five unranked candidates; the current roadmap prospectively reflects only the
+      Human-selected authorization without rewriting prior intent.
+  - id: AC9
+    condition: >
+      Exact reviewed TASK-261 publication hands off only to Human-operated one-shot execution and
+      mandatory Human/Brain post-attempt review, with next_milestone null, pending commitments
+      empty, automatic progression false and no engineering successor/retry/action preselected.
+  - id: AC10
+    condition: >
+      Exactly five authorized paths change; focused offline product/governance tests and
+      git diff --check pass with zero live TikTok/CDP operation and one candidate eligible for
+      independent PRIMARY semantic review.
+
+verification:
+  policy: minimum-sufficient-v1
+  required:
+    - python -m pytest tests/product_intelligence/test_tiktok_pdp_live_pilot.py tests/product_intelligence/test_product_intelligence_cli.py tests/product_intelligence/test_tiktok_pdp.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task261-primary
+    - git diff --check
