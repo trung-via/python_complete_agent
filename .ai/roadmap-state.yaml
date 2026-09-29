@@ -47,8 +47,17 @@ planning_handoff:
 
 human_priority_side_track:
   id: AIOS_BP9_BRAIN_PORTABILITY_DOWNSTREAM_ADOPTION
-  status: NEXT
+  status: DONE_ON_EXACT_REVIEWED_SOURCE_PUBLICATION
   phase: BP9-P2-FRESH-DOWNSTREAM-CONFORMANCE
+  completion_task: TASK-207
+  completion_revision: 14
+  completion_pin: "44eee353eda376c9db8cd88d97184d3122651bf5"
+  effective_only_when:
+    semantic_review: PASS
+    review_mode: PRIMARY
+    published_source: EXACT_REVIEWED_CANDIDATE
+    canonical_main_equals_reviewed_candidate: true
+  before_gate: NOT_EFFECTIVE
   authority: HUMAN_BRAIN_PLANNING
   selected_on: "2026-09-27"
   source_project: trung-via/AIOS-renew
@@ -104,7 +113,7 @@ human_priority_side_track:
     capability: GOVERNED_REPOSITORY_PRIMARY_V3_PROFILE_JOURNAL_PORTABILITY
     repository_binding_activation: NONE
     completion_gate: EXACT_TASK_259_R2_REVIEWED_SOURCE_PUBLICATION
-  current_prerequisite:
+  certification_source:
     task_id: TASK-207
     task_revision: 14
     approved_against_main_sha: "a8d3d4d7b03202040d24d26a79e9edf385012c76"
@@ -159,7 +168,7 @@ human_priority_side_track:
   next_after_publication:
     task_id: TASK-254
     expected_revision: 4
-    status: AUTHORED_BLOCKED
+    status: UNIQUE_AUTHORED_UNEXECUTED_CONTINUATION
     gate: AFTER_EXACT_TASK_207_R14_REVIEW_AND_PUBLICATION
     objective: >-
       Resume the already-authored post-TASK253 validation-carrier provenance rebinding
@@ -171,12 +180,12 @@ human_priority_side_track:
     status: AUTHORED_UNEXECUTED
     resume_after: TASK_207_R14_PUBLICATION
   boundary: >-
-    Current Human/Brain priority is fresh TASK-207 revision-14 downstream conformance under
-    exact pin 44eee353eda376c9db8cd88d97184d3122651bf5. RUN-207-011 and RUN-207-012
-    remain immutable failed history and the revision-12 dispatch rejection remains
-    non-canonical operational history. Do not REPAIR either failed RUN, reuse old dispatch
-    identities, resume TASK-254, product work, or another roadmap item before exact
-    TASK-207 r14 semantic review and publication.
+    BP9 closes only when exact TASK-207 revision-14 reviewed source is published after
+    independent semantic PASS under pin 44eee353eda376c9db8cd88d97184d3122651bf5.
+    RUN-207-011 and RUN-207-012 remain immutable failed history and revision-12 dispatch
+    rejection remains non-canonical operational history. The unique preserved continuation
+    is already-authored TASK-254 revision 4; this record grants no product execution or
+    live-validation authority.
 
 active_track:
   id: P8_PUBLIC_PDP_GEN8_RESULT_AND_PAIRED_PRICE_ROLE_HARDENING
@@ -3664,7 +3673,7 @@ prerequisite_pin_migration:
     REPAIR-215-002 continuity without advancing P7.4, and blocks generic product continuation
     only on fresh TASK-207 revision 8 certification for the new pin after TASK-221 publication.
 
-full_downstream_conformance:
+historical_full_downstream_conformance:
   status: DONE
   task_id: TASK-207
   task_revision: 8
@@ -3708,6 +3717,35 @@ full_downstream_conformance:
     RUN-207-009 failed old-pin history for 1a68db9acb6989dfa81bf875503db62e54a4bed6. P7.3 remains NEXT
     with exact TASK-215 revision 1 / RUN-215-004 / candidate 142bd865f69a6636b321d3cc7a0cd4004db3fdc7 /
     FINDING-215-001 / RUN-215-003 / REPAIR-215-002 continuity; P7.3 is not marked DONE and P7.4 is not advanced.
+
+full_downstream_conformance:
+  status: CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION
+  task_id: TASK-207
+  task_revision: 14
+  downstream_pin: 44eee353eda376c9db8cd88d97184d3122651bf5
+  certification_record: .ai/aios-conformance-state.yaml
+  effective_only_when:
+    semantic_review: PASS
+    review_mode: PRIMARY
+    published_source: EXACT_REVIEWED_CANDIDATE
+    canonical_main_equals_reviewed_candidate: true
+  before_gate: NOT_EFFECTIVE
+  historical_certification: historical_full_downstream_conformance
+  historical_failed_attempt: RUN-207-009
+  failed_current_pin_runs: [RUN-207-011, RUN-207-012]
+  noncanonical_operational_rejection: TASK-207-REVISION-12-PRIMARY_SYNCHRONIZATION
+  next_commitment: TASK-254
+  resume_target:
+    task_id: TASK-254
+    task_revision: 4
+    status: AUTHORED_UNEXECUTED
+    gate: AFTER_EXACT_TASK_207_R14_REVIEW_AND_PUBLICATION
+  roadmap_effect: >-
+    Exact TASK-207 revision-14 reviewed source publication closes the BP9 downstream-adoption
+    side track for exact pin 44eee353eda376c9db8cd88d97184d3122651bf5 and restores the
+    unique already-authored TASK-254 revision-4 product continuation without executing it
+    or granting live-validation authority. Earlier TASK-207 certifications remain old-pin
+    historical evidence and failed RUNs remain non-certifying immutable history.
 
 commitment_removal_gate: >-
   A pending commitment may leave this set only when canonical evidence marks it DONE

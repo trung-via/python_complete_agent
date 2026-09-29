@@ -548,8 +548,8 @@ exactly the reviewed revision-8 source candidate and canonical `main` must equal
 certification under `49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2` remains historical prior-pin evidence.
 TASK-207 revision 7 and RUN-207-009 remain immutable failed, non-certifying old-pin history for
 `1a68db9acb6989dfa81bf875503db62e54a4bed6`, and RUN-207-009 must not be repaired after migration.
-On publication, `FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION` is resolved while P7.3 remains
-the unique product NEXT with TASK-215 revision 1 / RUN-215-004 / candidate
+For that historical revision-8 publication, `FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION` was resolved
+and the then-current P7.3 product continuation retained TASK-215 revision 1 / RUN-215-004 / candidate
 `142bd865f69a6636b321d3cc7a0cd4004db3fdc7` / FINDING-215-001 / RUN-215-003 / REPAIR-215-002
 continuity; TASK-215 is not rerun, P7.3 is not marked DONE, and P7.4 is not advanced.
 TASK-207 revision 2 and RUN-207-001/RUN-207-002/REPAIR-207-001 remain immutable old-pin
@@ -622,7 +622,7 @@ policy defaults Codex to gpt-6-sol/high and Antigravity to
 gemini-3.8-flash/medium; explicit Human overrides take precedence and the
 carriers preserve exact model/effort provenance. TASK-207 revision 8 under
 `edd7d8d92d54900c56442bbfcddb8648ec4d2e09` remains historical certification only. Fresh post-pin
-certification remains REQUIRED_PENDING. P1B repository semantic registries are
+revision-14 current-pin certification is publication-gated. P1B repository semantic registries are
 bound as described below. This
 planning and documentation state does not prove Runtime migration completion.
 
@@ -644,9 +644,10 @@ authority. They store no chat memory, select no provider or model default, and
 add no lifecycle routing or publication control. Human/Brain planning authority,
 Reviewer verdict ownership, Runtime verification, and safe publication remain
 separate. Fresh full downstream conformance for exact pin
-`44eee353eda376c9db8cd88d97184d3122651bf5` remains REQUIRED_PENDING;
-TASK-207 revision 8 is historical old-pin evidence, and TASK-207 revision 9
-is a separate future certification task.
+`44eee353eda376c9db8cd88d97184d3122651bf5` is bound to TASK-207 revision 14
+and takes effect only on independent semantic PASS and exact reviewed-source publication.
+TASK-207 revisions 8 and 5 remain historical old-pin certifications; revision 7 / RUN-207-009
+remains failed non-certifying history.
 
 TASK-259 revision 2 migrates the sole active dependency to reviewed and
 source-published TASK-212 / RUN-212-002 / REVIEW-212-002 source
@@ -654,5 +655,21 @@ source-published TASK-212 / RUN-212-002 / REVIEW-212-002 source
 the governed-repository PRIMARY v3 durable-dispatch profile-journal portability
 fix. The TASK-255 consumer pin above remains historical. No repository binding
 or source-REPAIR activation is added; TASK-256 registry identities remain ACTIVE.
-Fresh TASK-207 revision 9 conformance requires separate authoring, Runtime
-execution, semantic review, and exact source publication.
+Revision-14 candidate source records the Brain ingress selector against predecessor
+`e67b4c2646f7803210db15ce4ea10b3dcccbb6e7`, one PRIMARY dispatch
+`task207-r14-codex-high-001` selecting Codex gpt-6-sol/high by explicit Human override,
+typed terminal attention bound to the revision-14 canonical terminal, and non-authorizing
+REMEDIATION and NO_CHANGE-shaped REPAIR probes. These selectors are not live carrier receipts.
+The semantic Reviewer requires independent typed ingress, PRIMARY, terminal-attention,
+REMEDIATION, and REPAIR evidence before PASS. The latter two probes must fail closed without
+creating a coding RUN. RUN-207-011 and RUN-207-012 remain immutable failed history; the
+revision-12 pre-RUN dispatch rejection is non-canonical operational history.
+
+Current certification covers Phase-1, Phase-2, all five ACTIVE TASK-256 P1B registry blobs,
+and the byte-identical `.ai/executor-profiles.yaml` blob
+`6f0507f2bd15597fba4a2340f1508061bc7bee06`. That policy retains Codex
+gpt-6-sol/high and Antigravity gemini-3.8-flash/medium defaults with explicit Human
+override precedence. The P1B registries remain cognitive/procedure material only and
+grant no lifecycle authority. Exact revision-14 publication closes the BP9 downstream
+adoption side track and hands the unique already-authored, unexecuted product continuation
+to TASK-254 revision 4 without granting product or live-validation authority.

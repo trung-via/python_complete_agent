@@ -4795,7 +4795,7 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
     assert state["authority"]["owner"] == "BRAIN"
     assert state["authority"]["auto_advance_from_runtime_or_worker_state"] is False
 
-    conformance = state["full_downstream_conformance"]
+    conformance = state["historical_full_downstream_conformance"]
     assert conformance["status"] == "DONE"
     assert conformance["task_id"] == "TASK-207"
     assert conformance["task_revision"] == 8
@@ -4838,6 +4838,32 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
         "repair_id": "REPAIR-215-002",
     }
     assert "closes FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION" in conformance["roadmap_effect"]
+
+    current = state["full_downstream_conformance"]
+    assert current["status"] == "CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION"
+    assert current["task_id"] == "TASK-207"
+    assert current["task_revision"] == 14
+    assert current["downstream_pin"] == ACTIVE_PIN
+    assert current["before_gate"] == "NOT_EFFECTIVE"
+    assert current["effective_only_when"] == {
+        "semantic_review": "PASS", "review_mode": "PRIMARY",
+        "published_source": "EXACT_REVIEWED_CANDIDATE",
+        "canonical_main_equals_reviewed_candidate": True,
+    }
+    assert current["historical_certification"] == "historical_full_downstream_conformance"
+    assert current["failed_current_pin_runs"] == ["RUN-207-011", "RUN-207-012"]
+    assert current["next_commitment"] == "TASK-254"
+    assert current["resume_target"] == {
+        "task_id": "TASK-254", "task_revision": 4,
+        "status": "AUTHORED_UNEXECUTED",
+        "gate": "AFTER_EXACT_TASK_207_R14_REVIEW_AND_PUBLICATION",
+    }
+    side_track = state["human_priority_side_track"]
+    assert side_track["status"] == "DONE_ON_EXACT_REVIEWED_SOURCE_PUBLICATION"
+    assert side_track["before_gate"] == "NOT_EFFECTIVE"
+    assert side_track["completion_revision"] == 14
+    assert side_track["next_after_publication"]["task_id"] == "TASK-254"
+    assert side_track["preserved_product_commitment"]["task_revision"] == 4
 
 
 def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
@@ -4902,10 +4928,16 @@ def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
     }
     assert state["authority"]["engineering_truth"] is False
     downstream_conformance = state["full_downstream_conformance"]
-    assert downstream_conformance["status"] == "REQUIRED_PENDING"
+    assert downstream_conformance["status"] == "CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION"
     assert downstream_conformance["downstream_pin"] == ACTIVE_PIN
-    assert downstream_conformance["certification_task"] == {"id": "TASK-207", "revision": 9}
-    assert downstream_conformance["fresh_post_pin_certification"] == "REQUIRED_PENDING"
+    assert downstream_conformance["certification_task"] == {"id": "TASK-207", "revision": 14}
+    assert downstream_conformance["fresh_post_pin_certification"] == "CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION"
+    assert downstream_conformance["before_gate"] == "NOT_EFFECTIVE"
+    assert downstream_conformance["effective_only_when"] == {
+        "semantic_review": "PASS", "review_mode": "PRIMARY",
+        "published_source": "EXACT_REVIEWED_CANDIDATE",
+        "canonical_main_equals_reviewed_candidate": True,
+    }
     assert downstream_conformance["immediate_old_pin_certification"]["downstream_pin"] == HISTORICAL_TASK_221_PIN
     assert downstream_conformance["immediate_old_pin_certification"]["revision"] == 8
     assert downstream_conformance["historical_old_pin_certification"]["downstream_pin"] == PRIOR_CERTIFIED_PIN
@@ -4919,8 +4951,8 @@ def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
     }
     assert conformance["certification"] == {
         "task_id": "TASK-207",
-        "task_revision": 8,
-        "downstream_pin": HISTORICAL_TASK_221_PIN,
+        "task_revision": 14,
+        "downstream_pin": ACTIVE_PIN,
         "status": "CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION",
         "effective_only_when": {
             "semantic_review": "PASS",
@@ -4931,7 +4963,7 @@ def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
         "before_gate": "NOT_EFFECTIVE",
         "boundary": (
             "Runtime PASS and Reviewer PASS do not by themselves make this certification "
-            "effective. The safe Publisher must publish exactly the TASK-207 revision-8 "
+            "effective. The safe Publisher must publish exactly the TASK-207 revision-14 "
             "reviewed source candidate, and canonical main must equal that candidate."
         ),
     }
