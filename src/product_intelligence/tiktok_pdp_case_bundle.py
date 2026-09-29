@@ -18,6 +18,7 @@ import re
 from typing import Callable, Mapping, Protocol
 from urllib.parse import urlsplit
 
+from src.browser.models import BrowserConfig
 from src.integrations.playwright.manager import PlaywrightBrowserManager
 from src.product_intelligence.tiktok_pdp_dom_scope import TIKTOK_PDP_DOM_SCOPE_JS
 
@@ -31,6 +32,10 @@ AUTHORIZED_PDP_URL = (
 CLASSIFICATION = "P8_REAL_CASE_SOURCE_OBSERVATION_BUNDLE_ONE_SHOT_ONLY"
 EPISTEMIC_BOUNDARY = "BUNDLE_IS_NOT_CANONICAL_EVIDENCE"
 SANITATION_POLICY = "P8_BOUNDED_RENDERED_STRUCTURAL_ALLOWLIST_V1"
+
+CASE_BUNDLE_BROWSER_TIMEOUT_SECONDS = 120
+CASE_BUNDLE_TIMEOUT_SECONDS = CASE_BUNDLE_BROWSER_TIMEOUT_SECONDS
+BROWSER_SESSION_TIMEOUT_SECONDS = CASE_BUNDLE_BROWSER_TIMEOUT_SECONDS
 
 MANIFEST_FILENAME = "p8-real-case-manifest-v1.json"
 PROJECTION_FILENAME = "p8-real-case-page-projection-v1.json"
@@ -92,7 +97,11 @@ class _Session(Protocol):
 
 
 class _SessionManager(Protocol):
-    async def get_or_create_session(self, run_id: str) -> _Session: ...
+    async def get_or_create_session(
+        self,
+        run_id: str,
+        config: BrowserConfig | None = None,
+    ) -> _Session: ...
     async def close_session(self, run_id: str) -> None: ...
 
 
@@ -595,7 +604,10 @@ async def run_tiktok_pdp_case_bundle(
     try:
         try:
             manager = manager_factory(cdp_endpoint=cdp_endpoint)
-            session = await manager.get_or_create_session(_SESSION_RUN_ID)
+            session = await manager.get_or_create_session(
+                _SESSION_RUN_ID,
+                config=BrowserConfig(timeout_seconds=CASE_BUNDLE_BROWSER_TIMEOUT_SECONDS),
+            )
             session_acquired = True
         except Exception as exc:
             raise TikTokPdpCaseBundleError(
@@ -695,7 +707,10 @@ __all__ = [
     "AUTHORIZED_PDP_URL",
     "AUTHORIZED_SOURCE_ID",
     "BLOCKED_OR_CHALLENGE",
+    "BROWSER_SESSION_TIMEOUT_SECONDS",
+    "CASE_BUNDLE_BROWSER_TIMEOUT_SECONDS",
     "CASE_BUNDLE_SCRIPT",
+    "CASE_BUNDLE_TIMEOUT_SECONDS",
     "CLASSIFICATION",
     "CONTEXT_ID",
     "EPISTEMIC_BOUNDARY",

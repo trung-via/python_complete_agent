@@ -5825,7 +5825,7 @@ def test_task_263_real_case_evidence_bundle():
 
     for record in (milestone, task_263):
         assert record["task_id"] == "TASK-263"
-        assert record["task_revision"] == 2
+        assert record["task_revision"] == 3
         assert record["status"] == "DONE"
         assert record["completion_basis"] == "PUBLICATION_GATED"
         assert record["classification"] == "P8_REAL_CASE_SOURCE_OBSERVATION_BUNDLE_ONE_SHOT_ONLY"
@@ -5852,6 +5852,9 @@ def test_task_263_real_case_evidence_bundle():
         assert record["bundle_execution_owner"] == "HUMAN_OPERATOR"
         assert record["bundle_executed"] is False
         assert record["live_bundle_capture_authority"] == "ONE_SHOT_ATTACH_ONLY_EXACT_LISTING"
+        assert record["observed_revision_2_capture_outcome"] == (
+            "PRE_MANIFEST_SCREENSHOT_FAILURE_NON_CONSUMING"
+        )
 
         # AC5 & AC6: Authorities remain NONE; epistemic boundaries intact
         for auth_key in (
@@ -5898,7 +5901,7 @@ def test_task_263_real_case_evidence_bundle():
     assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_263_SOURCE_PUBLICATION"
     assert handoff["completed_commitment"] == "P8_REAL_CASE_SOURCE_OBSERVATION_BUNDLE"
     assert handoff["task_id"] == "TASK-263"
-    assert handoff["task_revision"] == 2
+    assert handoff["task_revision"] == 3
     assert handoff["source_task_id"] == "TASK-262"
     assert handoff["source_published_sha"] == TASK_262_PUBLISHED_SOURCE_SHA
     assert handoff["selected_source_id"] == "1731381331718341815"
@@ -5912,6 +5915,9 @@ def test_task_263_real_case_evidence_bundle():
     assert handoff["bundle_execution_owner"] == "HUMAN_OPERATOR"
     assert handoff["bundle_executed"] is False
     assert handoff["live_bundle_capture_authority"] == "ONE_SHOT_ATTACH_ONLY_EXACT_LISTING"
+    assert handoff["observed_revision_2_capture_outcome"] == (
+        "PRE_MANIFEST_SCREENSHOT_FAILURE_NON_CONSUMING"
+    )
     assert handoff["automated_public_pdp_acquisition_authority"] == "NONE"
     assert handoff["market_test_or_action_authority"] == "NONE"
     assert handoff["second_invocation_authority"] == "NONE"
@@ -5938,6 +5944,7 @@ def test_task_263_real_case_evidence_bundle():
         "p8-real-case-manifest-v1.json",
         "p8-real-case-page-projection-v1.json",
         "p8-real-case-full-page-v1.png",
+        "PRE_MANIFEST_SCREENSHOT_FAILURE_NON_CONSUMING",
         "BUNDLE_IS_NOT_CANONICAL_EVIDENCE",
         "HUMAN_REVIEW_REQUIRED",
         "HUMAN_OPERATOR_P8_REAL_CASE_BUNDLE_CAPTURE",

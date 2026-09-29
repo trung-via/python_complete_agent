@@ -199,7 +199,7 @@ active_track:
   current_milestone:
     id: P8.REAL_CASE_SOURCE_OBSERVATION_BUNDLE
     task_id: TASK-263
-    task_revision: 2
+    task_revision: 3
     title: "Real Case Source Observation Bundle Carrier and Authorization"
     status: DONE
     completion_basis: PUBLICATION_GATED
@@ -220,6 +220,7 @@ active_track:
     bundle_execution_owner: HUMAN_OPERATOR
     bundle_executed: false
     live_bundle_capture_authority: ONE_SHOT_ATTACH_ONLY_EXACT_LISTING
+    observed_revision_2_capture_outcome: PRE_MANIFEST_SCREENSHOT_FAILURE_NON_CONSUMING
     automated_public_pdp_acquisition_authority: NONE
     market_test_or_action_authority: NONE
     second_invocation_authority: NONE
@@ -270,7 +271,7 @@ post_p8_planning_handoff:
   status: EFFECTIVE_ON_EXACT_TASK_263_SOURCE_PUBLICATION
   completed_commitment: P8_REAL_CASE_SOURCE_OBSERVATION_BUNDLE
   task_id: TASK-263
-  task_revision: 2
+  task_revision: 3
   source_task_id: TASK-262
   source_published_sha: 935c46069e7770bc2a56b29abac58311ff7730e6
   context_id: p8-pilot-001-led-motion-tiktok-vn
@@ -286,6 +287,7 @@ post_p8_planning_handoff:
   bundle_execution_owner: HUMAN_OPERATOR
   bundle_executed: false
   live_bundle_capture_authority: ONE_SHOT_ATTACH_ONLY_EXACT_LISTING
+  observed_revision_2_capture_outcome: PRE_MANIFEST_SCREENSHOT_FAILURE_NON_CONSUMING
   automated_public_pdp_acquisition_authority: NONE
   market_test_or_action_authority: NONE
   second_invocation_authority: NONE
@@ -3522,7 +3524,7 @@ completed_milestones:
       canonical_main_equals_reviewed_candidate: true
 
   - task_id: TASK-263
-    task_revision: 2
+    task_revision: 3
     track_id: P8_REAL_CASE_SOURCE_OBSERVATION_BUNDLE
     milestone_id: P8.REAL_CASE_SOURCE_OBSERVATION_BUNDLE
     title: "Real Case Source Observation Bundle Carrier and Authorization"
@@ -3545,6 +3547,7 @@ completed_milestones:
     bundle_execution_owner: HUMAN_OPERATOR
     bundle_executed: false
     live_bundle_capture_authority: ONE_SHOT_ATTACH_ONLY_EXACT_LISTING
+    observed_revision_2_capture_outcome: PRE_MANIFEST_SCREENSHOT_FAILURE_NON_CONSUMING
     automated_public_pdp_acquisition_authority: NONE
     market_test_or_action_authority: NONE
     second_invocation_authority: NONE
