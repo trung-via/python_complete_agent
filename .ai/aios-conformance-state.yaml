@@ -11,8 +11,8 @@ authority:
 
 certification:
   task_id: TASK-207
-  task_revision: 8
-  downstream_pin: edd7d8d92d54900c56442bbfcddb8648ec4d2e09
+  task_revision: 11
+  downstream_pin: 44eee353eda376c9db8cd88d97184d3122651bf5
   status: CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION
   effective_only_when:
     semantic_review: PASS
@@ -22,7 +22,7 @@ certification:
   before_gate: NOT_EFFECTIVE
   boundary: >-
     Runtime PASS and Reviewer PASS do not by themselves make this certification effective.
-    The safe Publisher must publish exactly the TASK-207 revision-8 reviewed source candidate,
+    The safe Publisher must publish exactly the TASK-207 revision-11 reviewed source candidate,
     and canonical main must equal that candidate.
 
 binding_families:
@@ -59,32 +59,62 @@ binding_families:
       self_hosted_workflow: .github/workflows/aios-self-hosted-repair-wakeup.yml
       bootstrap: .agents/skills/aios-worker/scripts/aios_phase2_repair.py
 
+portability_profile:
+  source_task: TASK-256
+  status: ACTIVE
+  semantic_registries:
+    .ai/brain-audit-profiles.yaml: e931c1c7fa4b1b9dfbf7e7c649d5a19e0035d6ba
+    .ai/brain-return-contracts.yaml: 9d220ece8dd20028e590efd083b1a04b00ffadfe
+    .ai/flow-cards.yaml: 574edd0407de7f4cca14b8b854a5d00d271be014
+    .ai/reviewer-procedure-profiles.yaml: ad510261ff220f9b9165dd7cdc8646fd6915b0a7
+    .ai/reviewer-return-contracts.yaml: c805c49fcbe170677ff3bb9dde3fb4c9d308c474
+  registry_boundary: >-
+    External Brain and Reviewer cognitive and procedure material only; no chat memory,
+    provider or model default, or Runtime, Executor, Reviewer, or Publisher mutation authority.
+  executor_profile:
+    path: .ai/executor-profiles.yaml
+    blob: 6f0507f2bd15597fba4a2340f1508061bc7bee06
+    codex:
+      default_model: gpt-6-sol
+      default_reasoning_effort: high
+      supported_reasoning_efforts: [none, low, medium, high, xhigh, max]
+    antigravity:
+      default_model: gemini-3.8-flash
+      default_reasoning_effort: medium
+      supported_reasoning_efforts: [low, medium, high]
+    override_precedence: EXPLICIT_HUMAN_OVERRIDE
+    policy_mutated: false
+
 live_evidence_selectors:
   AC1:
     carrier: AIOS_BRAIN_INGRESS
     operation: AUTHOR_TASK
     expected_actor: trung-via
-    expected_predecessor_main: df1d71974979bed37bd20d67d9f0700fdb1e75b0
-    canonical_task_commit: 572a217e4abf9ccd2a086223530eeb1ead4ec7f1
+    expected_predecessor_main: 689b30cbe3b7e522114e9c99e0b61364ee848975
+    task_revision: 11
   AC2:
     carrier: AIOS_BRAIN_WAKEUP
-    dispatch_id: task207-r8-codex-001
-    run_id: RUN-207-010
+    dispatch_id: task207-r11-codex-high-001
+    run_id: RUN-207-011
     executor: codex
+    model: gpt-6-sol
+    reasoning_effort: high
+    execution_profile_source: EXPLICIT_HUMAN_OVERRIDE
+    duplicate_dispatch: IDEMPOTENT_SINGLE_CANONICAL_RUN
   AC3:
     carrier: AIOS_TERMINAL_ATTENTION
-    run_id: RUN-207-010
+    run_id: RUN-207-011
     terminal_ref_prefix: refs/heads/aios/terminal-attention/
     issue_title: "[AIOS TERMINAL ATTENTION]"
   AC4:
     carrier: AIOS_BRAIN_REMEDIATION_INTENT
-    correction_dispatch_id: task-207-r8-remediation-non-authorizing-001
+    correction_dispatch_id: task-207-r11-remediation-non-authorizing-001
     task_id: TASK-207
     expected_outcome: FAIL_CLOSED_NO_IMPLEMENTATION_RUN
     self_hosted_bootstrap: .agents/skills/aios-worker/scripts/aios_phase2_remediation.py
   AC5:
     carrier: AIOS_BRAIN_REPAIR_WAKEUP
-    repair_dispatch_id: task-207-r8-repair-non-authorizing-001
+    repair_dispatch_id: task-207-r11-repair-non-authorizing-001
     task_id: TASK-207
     action_shape: NO_CHANGE
     executor: null
@@ -102,6 +132,15 @@ authority_boundaries:
   repair: FAILED_RUN_CONTINUATION_ONLY
   attention: NOTIFICATION_ONLY
   local_fallbacks: EMERGENCY_DEBUG_ONLY
+
+immediate_old_pin_certification:
+  task_id: TASK-207
+  task_revision: 8
+  run_id: RUN-207-010
+  review: REVIEW-207-004
+  downstream_pin: edd7d8d92d54900c56442bbfcddb8648ec4d2e09
+  status: HISTORICAL_OLD_PIN_EVIDENCE_ONLY
+  certification_authority_for_current_pin: false
 
 historical_certification:
   task_id: TASK-207

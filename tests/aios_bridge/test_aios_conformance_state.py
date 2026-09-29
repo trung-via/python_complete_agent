@@ -1,11 +1,13 @@
 from pathlib import Path
+import subprocess
 
 import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 CONFORMANCE_FILE = REPO_ROOT / ".ai" / "aios-conformance-state.yaml"
-EXPECTED_PIN = "edd7d8d92d54900c56442bbfcddb8648ec4d2e09"
+EXPECTED_PIN = "44eee353eda376c9db8cd88d97184d3122651bf5"
+IMMEDIATE_OLD_PIN = "edd7d8d92d54900c56442bbfcddb8648ec4d2e09"
 HISTORICAL_PIN = "49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2"
 FAILED_OLD_PIN = "1a68db9acb6989dfa81bf875503db62e54a4bed6"
 PUBLICATION_GATE = {
@@ -47,7 +49,7 @@ def test_certification_is_small_publication_gated_brain_review_state():
 
     certification = state["certification"]
     assert certification["task_id"] == "TASK-207"
-    assert certification["task_revision"] == 8
+    assert certification["task_revision"] == 11
     assert certification["downstream_pin"] == EXPECTED_PIN
     assert certification["status"] == "CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION"
     assert certification["effective_only_when"] == PUBLICATION_GATE
@@ -102,24 +104,28 @@ def test_live_evidence_selectors_are_typed_and_current_pin_scoped():
         "carrier": "AIOS_BRAIN_INGRESS",
         "operation": "AUTHOR_TASK",
         "expected_actor": "trung-via",
-        "expected_predecessor_main": "df1d71974979bed37bd20d67d9f0700fdb1e75b0",
-        "canonical_task_commit": "572a217e4abf9ccd2a086223530eeb1ead4ec7f1",
+        "expected_predecessor_main": "689b30cbe3b7e522114e9c99e0b61364ee848975",
+        "task_revision": 11,
     }
     assert selectors["AC2"] == {
         "carrier": "AIOS_BRAIN_WAKEUP",
-        "dispatch_id": "task207-r8-codex-001",
-        "run_id": "RUN-207-010",
+        "dispatch_id": "task207-r11-codex-high-001",
+        "run_id": "RUN-207-011",
         "executor": "codex",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high",
+        "execution_profile_source": "EXPLICIT_HUMAN_OVERRIDE",
+        "duplicate_dispatch": "IDEMPOTENT_SINGLE_CANONICAL_RUN",
     }
     assert selectors["AC3"] == {
         "carrier": "AIOS_TERMINAL_ATTENTION",
-        "run_id": "RUN-207-010",
+        "run_id": "RUN-207-011",
         "terminal_ref_prefix": "refs/heads/aios/terminal-attention/",
         "issue_title": "[AIOS TERMINAL ATTENTION]",
     }
     assert selectors["AC4"] == {
         "carrier": "AIOS_BRAIN_REMEDIATION_INTENT",
-        "correction_dispatch_id": "task-207-r8-remediation-non-authorizing-001",
+        "correction_dispatch_id": "task-207-r11-remediation-non-authorizing-001",
         "task_id": "TASK-207",
         "expected_outcome": "FAIL_CLOSED_NO_IMPLEMENTATION_RUN",
         "self_hosted_bootstrap": (
@@ -128,7 +134,7 @@ def test_live_evidence_selectors_are_typed_and_current_pin_scoped():
     }
     assert selectors["AC5"] == {
         "carrier": "AIOS_BRAIN_REPAIR_WAKEUP",
-        "repair_dispatch_id": "task-207-r8-repair-non-authorizing-001",
+        "repair_dispatch_id": "task-207-r11-repair-non-authorizing-001",
         "task_id": "TASK-207",
         "action_shape": "NO_CHANGE",
         "executor": None,
@@ -157,6 +163,16 @@ def test_authority_boundaries_and_old_pin_exclusion_are_explicit():
     assert boundaries["attention"] == "NOTIFICATION_ONLY"
     assert boundaries["local_fallbacks"] == "EMERGENCY_DEBUG_ONLY"
 
+    assert state["immediate_old_pin_certification"] == {
+        "task_id": "TASK-207",
+        "task_revision": 8,
+        "run_id": "RUN-207-010",
+        "review": "REVIEW-207-004",
+        "downstream_pin": IMMEDIATE_OLD_PIN,
+        "status": "HISTORICAL_OLD_PIN_EVIDENCE_ONLY",
+        "certification_authority_for_current_pin": False,
+    }
+
     assert state["historical_certification"] == {
         "task_id": "TASK-207",
         "task_revision": 5,
@@ -182,3 +198,37 @@ def test_authority_boundaries_and_old_pin_exclusion_are_explicit():
         "repair": "REPAIR-207-001",
         "certification_authority_for_current_pin": False,
     }
+
+
+def test_exact_p1b_and_executor_profile_blobs_preserve_portability_boundaries():
+    profile = load_state()["portability_profile"]
+    assert profile["source_task"] == "TASK-256"
+    assert profile["status"] == "ACTIVE"
+    assert profile["semantic_registries"] == {
+        ".ai/brain-audit-profiles.yaml": "e931c1c7fa4b1b9dfbf7e7c649d5a19e0035d6ba",
+        ".ai/brain-return-contracts.yaml": "9d220ece8dd20028e590efd083b1a04b00ffadfe",
+        ".ai/flow-cards.yaml": "574edd0407de7f4cca14b8b854a5d00d271be014",
+        ".ai/reviewer-procedure-profiles.yaml": "ad510261ff220f9b9165dd7cdc8646fd6915b0a7",
+        ".ai/reviewer-return-contracts.yaml": "c805c49fcbe170677ff3bb9dde3fb4c9d308c474",
+    }
+    assert "no chat memory" in profile["registry_boundary"]
+    assert "mutation authority" in profile["registry_boundary"]
+    for path, blob in profile["semantic_registries"].items():
+        assert subprocess.check_output(["git", "hash-object", path], cwd=REPO_ROOT, text=True).strip() == blob
+
+    policy = profile["executor_profile"]
+    assert policy["path"] == ".ai/executor-profiles.yaml"
+    assert policy["blob"] == "6f0507f2bd15597fba4a2340f1508061bc7bee06"
+    assert subprocess.check_output(["git", "hash-object", policy["path"]], cwd=REPO_ROOT, text=True).strip() == policy["blob"]
+    assert policy["codex"] == {
+        "default_model": "gpt-6-sol",
+        "default_reasoning_effort": "high",
+        "supported_reasoning_efforts": ["none", "low", "medium", "high", "xhigh", "max"],
+    }
+    assert policy["antigravity"] == {
+        "default_model": "gemini-3.8-flash",
+        "default_reasoning_effort": "medium",
+        "supported_reasoning_efforts": ["low", "medium", "high"],
+    }
+    assert policy["override_precedence"] == "EXPLICIT_HUMAN_OVERRIDE"
+    assert policy["policy_mutated"] is False
