@@ -224,7 +224,7 @@ an executor or become a second status or review authority.
 
 ## Adopted Upstream Capabilities and Boundaries
 
-Under the pinned commit `31fd2482cd87d97fd818e05eb5b4dcec69ffeee6`, Python Agent adopts:
+Under the pinned commit `44eee353eda376c9db8cd88d97184d3122651bf5`, Python Agent adopts:
 - **TASK-086**: Deterministic, read-only Unified State and Next Action through the
   public `state` operator surface. The workflow neither copies nor caches the reducer.
 - **TASK-087**: One bounded Human continuation front door through the public `continue`
@@ -388,7 +388,9 @@ Capabilities present in upstream history but **not** exposed by this downstream 
 ## Immutable Kernel Pin
 
 The only authoritative AIOS-renew kernel is commit
-`31fd2482cd87d97fd818e05eb5b4dcec69ffeee6`. Installed provenance for the immediate predecessor `edd7d8d92d54900c56442bbfcddb8648ec4d2e09` and for the TASK-219-era
+`44eee353eda376c9db8cd88d97184d3122651bf5`. The TASK-255-era pin
+`31fd2482cd87d97fd818e05eb5b4dcec69ffeee6`, the prior certified pin
+`edd7d8d92d54900c56442bbfcddb8648ec4d2e09`, and installed provenance for the TASK-219-era
 `1a68db9acb6989dfa81bf875503db62e54a4bed6` pin, the TASK-218-era
 `49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2` pin, the TASK-216/TASK-217-era
 `c96eb8b52acd865b9453409e6598e08a8bd4e48e` pin, the TASK-209-era
@@ -464,8 +466,8 @@ Prior TASK-207 revision-5 conformance remains historical evidence tied to
 failed, non-certifying evidence tied only to superseded pin
 `1a68db9acb6989dfa81bf875503db62e54a4bed6`; RUN-207-009 must not be repaired after migration.
 TASK-207 revision 8 certification under `edd7d8d92d54900c56442bbfcddb8648ec4d2e09` is historical old-pin evidence.
-Fresh full downstream conformance under `31fd2482cd87d97fd818e05eb5b4dcec69ffeee6` remains REQUIRED_PENDING
-and requires a separately authored TASK-207 successor after publication.
+Fresh full downstream conformance under `44eee353eda376c9db8cd88d97184d3122651bf5` remains REQUIRED_PENDING
+and requires separately authored TASK-207 revision 9 after publication.
 TASK-207 revision 2 and RUN-207-001/RUN-207-002/REPAIR-207-001 remain immutable old-pin
 history; conformance resumes only through a fresh Brain revision bound to the new pin.
 Future AIOS-renew main changes remain irrelevant until another explicit reviewed downstream migration.
@@ -487,4 +489,11 @@ historical migration lineage. The source-bootstrap recovery and migration
 completion are Runtime-owned; this worker asserts neither. Codex defaults to
 gpt-6-sol/high and Antigravity to gemini-3.8-flash/medium under
 `.ai/executor-profiles.yaml`, with explicit Human overrides taking precedence.
-Fresh TASK-207 certification and P1B semantic registries remain pending.
+TASK-256's five exact P1B semantic registries remain ACTIVE. TASK-259 revision 2
+migrates the sole active dependency to reviewed, source-published TASK-212 /
+RUN-212-002 / REVIEW-212-002 source
+`44eee353eda376c9db8cd88d97184d3122651bf5`, containing the governed-repository
+PRIMARY v3 durable-dispatch profile-journal portability fix. The TASK-255 consumer
+pin above remains historical. Fresh TASK-207 revision 9 conformance remains
+REQUIRED_PENDING after migration publication. No source-REPAIR activation or
+repository binding changes are introduced.

@@ -13,7 +13,7 @@ authority:
 
 downstream_pin:
   repository: https://github.com/trung-via/AIOS-renew.git
-  commit: 31fd2482cd87d97fd818e05eb5b4dcec69ffeee6
+  commit: 44eee353eda376c9db8cd88d97184d3122651bf5
   policy: EXACT_REVIEWED_SOURCE_PUBLISHED_ONLY
   source_published: true
 
@@ -21,8 +21,8 @@ full_downstream_conformance:
   status: REQUIRED_PENDING
   certification_task:
     id: TASK-207
-    revision: REQUIRED_PENDING
-  downstream_pin: 31fd2482cd87d97fd818e05eb5b4dcec69ffeee6
+    revision: 9
+  downstream_pin: 44eee353eda376c9db8cd88d97184d3122651bf5
   immediate_old_pin_certification:
     task_id: TASK-207
     revision: 8
@@ -48,21 +48,40 @@ full_downstream_conformance:
   binding_classifications_changed: false
   boundary: >-
     TASK-207 revision 8 certifies only historical edd7d8d generation. A fresh
-    post-pin TASK-207 successor requires separate Brain authoring, Runtime execution,
+    post-pin TASK-207 revision 9 requires separate Brain authoring, Runtime execution,
     semantic review and exact source publication. This planning record asserts none
     of those lifecycle outcomes.
 
 upstream_audit:
-  checkpoint: 31fd2482cd87d97fd818e05eb5b4dcec69ffeee6
-  through_authored_task: TASK-202
-  upstream_revision: 4
-  run_id: RUN-202-003
+  checkpoint: 44eee353eda376c9db8cd88d97184d3122651bf5
+  through_authored_task: TASK-212
+  upstream_revision: 1
+  run_id: RUN-212-002
   checkpoint_role: REVIEWED_SOURCE_PUBLISHED_PROVENANCE
   checkpoint_is_runtime_authority: false
-  review: REVIEW-202-002
+  review: REVIEW-212-002
   review_outcome: PRIMARY_PASS
   source_published: true
-  prior_planning_checkpoint: edd7d8d92d54900c56442bbfcddb8648ec4d2e09
+  prior_planning_checkpoint: 31fd2482cd87d97fd818e05eb5b4dcec69ffeee6
+  prior_certified_checkpoint: edd7d8d92d54900c56442bbfcddb8648ec4d2e09
+  prior_active_pin:
+    commit: 31fd2482cd87d97fd818e05eb5b4dcec69ffeee6
+    task_id: TASK-202
+    revision: 4
+    run_id: RUN-202-003
+    review: REVIEW-202-002
+    role: HISTORICAL_TASK_255_CONSUMER
+    current_dependency_authority: false
+  adopted_capability:
+    task_id: TASK-212
+    revision: 1
+    run_id: RUN-212-002
+    review: REVIEW-212-002
+    reviewed_source_sha: 44eee353eda376c9db8cd88d97184d3122651bf5
+    source_published: true
+    role: GOVERNED_REPOSITORY_PRIMARY_V3_PROFILE_JOURNAL_PORTABILITY
+    consumption: PINNED_KERNEL_ONLY
+    repository_binding_activation: NOT_REQUIRED
   activation_source: 275067b56cfd1dc9f7faf99fa2a3192e7cf48eec
   activation_source_role: REVIEWED_PUBLISHED_SOURCE_BOOTSTRAP_ACTIVATOR
   activation_target_consumer_pin: 31fd2482cd87d97fd818e05eb5b4dcec69ffeee6

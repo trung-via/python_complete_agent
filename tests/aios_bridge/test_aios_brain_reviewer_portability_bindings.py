@@ -24,7 +24,7 @@ REGISTRIES = {
     ".ai/reviewer-procedure-profiles.yaml": "ad510261ff220f9b9165dd7cdc8646fd6915b0a7",
     ".ai/reviewer-return-contracts.yaml": "c805c49fcbe170677ff3bb9dde3fb4c9d308c474",
 }
-PIN = "31fd2482cd87d97fd818e05eb5b4dcec69ffeee6"
+PIN = "44eee353eda376c9db8cd88d97184d3122651bf5"
 
 
 def git_blob_id(raw: bytes) -> str:

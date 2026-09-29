@@ -2,7 +2,7 @@
 
 For TASK-255 revision 6, the repository-owned Codex and Antigravity worker
 surfaces delegate exclusively to the immutable AIOS-renew kernel at commit
-`31fd2482cd87d97fd818e05eb5b4dcec69ffeee6`. Legacy AIOS Bridge source remains
+`44eee353eda376c9db8cd88d97184d3122651bf5`. Legacy AIOS Bridge source remains
 archived in this repository, but it is inactive and unreachable from these
 CONTINUE/STATUS and explicit RUN/FIX/REPAIR surfaces.
 
@@ -442,7 +442,9 @@ branches or caches that do not expose `/aios-renew-worker` fail closed instead o
 falling back to legacy `/aios-worker` semantics.
 
 Both active worker surfaces and the Brain-only carrier use exactly AIOS-renew commit
-`31fd2482cd87d97fd818e05eb5b4dcec69ffeee6`. The previous `edd7d8d92d54900c56442bbfcddb8648ec4d2e09` pin and installed provenance for the TASK-219-era
+`44eee353eda376c9db8cd88d97184d3122651bf5`. The historical TASK-255 pin
+`31fd2482cd87d97fd818e05eb5b4dcec69ffeee6`, prior certified pin
+`edd7d8d92d54900c56442bbfcddb8648ec4d2e09`, and installed provenance for the TASK-219-era
 `1a68db9acb6989dfa81bf875503db62e54a4bed6` pin, the TASK-218-era
 `49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2` pin, the TASK-216/TASK-217-era
 `c96eb8b52acd865b9453409e6598e08a8bd4e48e` pin, the TASK-209-era
@@ -642,6 +644,15 @@ authority. They store no chat memory, select no provider or model default, and
 add no lifecycle routing or publication control. Human/Brain planning authority,
 Reviewer verdict ownership, Runtime verification, and safe publication remain
 separate. Fresh full downstream conformance for exact pin
-`31fd2482cd87d97fd818e05eb5b4dcec69ffeee6` remains REQUIRED_PENDING;
+`44eee353eda376c9db8cd88d97184d3122651bf5` remains REQUIRED_PENDING;
 TASK-207 revision 8 is historical old-pin evidence, and TASK-207 revision 9
 is a separate future certification task.
+
+TASK-259 revision 2 migrates the sole active dependency to reviewed and
+source-published TASK-212 / RUN-212-002 / REVIEW-212-002 source
+`44eee353eda376c9db8cd88d97184d3122651bf5`. That exact package includes
+the governed-repository PRIMARY v3 durable-dispatch profile-journal portability
+fix. The TASK-255 consumer pin above remains historical. No repository binding
+or source-REPAIR activation is added; TASK-256 registry identities remain ACTIVE.
+Fresh TASK-207 revision 9 conformance requires separate authoring, Runtime
+execution, semantic review, and exact source publication.

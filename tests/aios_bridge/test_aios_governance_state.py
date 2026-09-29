@@ -173,7 +173,8 @@ CONFORMANCE_FILE = REPO_ROOT / ".ai" / "aios-conformance-state.yaml"
 PIN_FILE = (
     REPO_ROOT / ".agents" / "skills" / "aios-worker" / "requirements-aios-renew.txt"
 )
-ACTIVE_PIN = "31fd2482cd87d97fd818e05eb5b4dcec69ffeee6"
+ACTIVE_PIN = "44eee353eda376c9db8cd88d97184d3122651bf5"
+HISTORICAL_TASK_255_PIN = "31fd2482cd87d97fd818e05eb5b4dcec69ffeee6"
 HISTORICAL_TASK_221_PIN = "edd7d8d92d54900c56442bbfcddb8648ec4d2e09"
 PRIOR_CERTIFIED_PIN = "49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2"
 HISTORICAL_TASK_218_PIN = "49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2"
@@ -4847,14 +4848,35 @@ def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
     assert state["downstream_pin"]["commit"] == ACTIVE_PIN
     audit = state["upstream_audit"]
     assert audit["checkpoint"] == ACTIVE_PIN
-    assert audit["through_authored_task"] == "TASK-202"
-    assert audit["upstream_revision"] == 4
-    assert audit["run_id"] == "RUN-202-003"
-    assert audit["review"] == "REVIEW-202-002"
+    assert audit["through_authored_task"] == "TASK-212"
+    assert audit["upstream_revision"] == 1
+    assert audit["run_id"] == "RUN-212-002"
+    assert audit["review"] == "REVIEW-212-002"
     assert audit["checkpoint_is_runtime_authority"] is False
-    assert audit["prior_planning_checkpoint"] == HISTORICAL_TASK_221_PIN
+    assert audit["prior_planning_checkpoint"] == HISTORICAL_TASK_255_PIN
+    assert audit["prior_certified_checkpoint"] == HISTORICAL_TASK_221_PIN
+    assert audit["prior_active_pin"] == {
+        "commit": HISTORICAL_TASK_255_PIN,
+        "task_id": "TASK-202",
+        "revision": 4,
+        "run_id": "RUN-202-003",
+        "review": "REVIEW-202-002",
+        "role": "HISTORICAL_TASK_255_CONSUMER",
+        "current_dependency_authority": False,
+    }
+    assert audit["adopted_capability"] == {
+        "task_id": "TASK-212",
+        "revision": 1,
+        "run_id": "RUN-212-002",
+        "review": "REVIEW-212-002",
+        "reviewed_source_sha": ACTIVE_PIN,
+        "source_published": True,
+        "role": "GOVERNED_REPOSITORY_PRIMARY_V3_PROFILE_JOURNAL_PORTABILITY",
+        "consumption": "PINNED_KERNEL_ONLY",
+        "repository_binding_activation": "NOT_REQUIRED",
+    }
     assert audit["activation_source"] == "275067b56cfd1dc9f7faf99fa2a3192e7cf48eec"
-    assert audit["activation_target_consumer_pin"] == ACTIVE_PIN
+    assert audit["activation_target_consumer_pin"] == HISTORICAL_TASK_255_PIN
     assert audit["activation_is_downstream_dependency"] is False
     assert [entry["task_id"] for entry in audit["migration_provenance"]] == [
         "TASK-199", "TASK-200", "TASK-201", "TASK-202", "TASK-203",
@@ -4882,6 +4904,7 @@ def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
     downstream_conformance = state["full_downstream_conformance"]
     assert downstream_conformance["status"] == "REQUIRED_PENDING"
     assert downstream_conformance["downstream_pin"] == ACTIVE_PIN
+    assert downstream_conformance["certification_task"] == {"id": "TASK-207", "revision": 9}
     assert downstream_conformance["fresh_post_pin_certification"] == "REQUIRED_PENDING"
     assert downstream_conformance["immediate_old_pin_certification"]["downstream_pin"] == HISTORICAL_TASK_221_PIN
     assert downstream_conformance["immediate_old_pin_certification"]["revision"] == 8
