@@ -1,5 +1,5 @@
 task_id: TASK-207
-revision: 12
+revision: 13
 
 goal: >
   Freshly certify Python Agent's complete downstream AIOS control-plane and portability
@@ -11,7 +11,7 @@ goal: >
   evidence, preserve revision-7 / RUN-207-009 as failed non-certifying old-pin history,
   freshly certify the active Phase-1/Phase-2 carrier bindings, the TASK-256 P1B
   Brain/Reviewer semantic registries, and the current execution-profile policy, and make
-  revision-12 certification effective only after independent semantic PASS and safe
+  revision-13 certification effective only after independent semantic PASS and safe
   publication of exactly the reviewed source candidate. After effective certification,
   close the BP9 downstream-adoption side track and return the preserved product
   continuation to already-authored TASK-254 revision 4 without executing product work
@@ -32,12 +32,28 @@ problem: >
   therefore must certify not only the existing Phase-1/Phase-2 carrier families but also
   the exact P1B registry identities and current execution-profile policy under the new
   active pin. It must not reuse revision-8 certification as current-pin truth and must not
-  resume TASK-254 before exact revision-12 reviewed-source publication.
+  resume TASK-254 before exact revision-13 reviewed-source publication.
 
 assumptions:
-  - Canonical Python Agent main at authoring is exactly e6a9066eb78f81d70c026b1093969fc6c4ef565f.
+  - Canonical Python Agent main at authoring is exactly 46b379bd3fcf47dd376c0a6d7b44885d38a897e1.
   - >
-    TASK-259 revision 2 / RUN-259-002 / REVIEW-259-001 remain publication-effective engineering history. TASK-207 revisions 9 and 10 were authored but never executed. Revision 11 executed as RUN-207-011 under Codex gpt-6-sol/high and terminalized immutable FAILURE at COMPLETION_GATE with failed candidate f1580073867f095704bc1c34f2858c160e0cf4d3 because tests/aios_bridge/test_aios_brain_reviewer_portability_bindings.py still asserted REQUIRED_PENDING state while the task required publication-gated current certification but omitted that test from scope.modify. Revision 12 is the bounded contract correction; do not REPAIR RUN-207-011.
+    TASK-259 revision 2 / RUN-259-002 / REVIEW-259-001 remain publication-effective engineering
+    history. TASK-207 revisions 9 and 10 were authored but never executed. Revision 11 executed
+    as RUN-207-011 under Codex gpt-6-sol/high and terminalized immutable FAILURE at
+    COMPLETION_GATE with failed candidate f1580073867f095704bc1c34f2858c160e0cf4d3 because
+    the P1B portability-binding test required state changes but was not authorized for mutation.
+    Revision 12 attempted the bounded contract correction, but its task artifact accidentally
+    duplicated tests/aios_bridge/test_aios_brain_reviewer_portability_bindings.py in scope.inspect
+    while still omitting it from scope.modify. Its dispatch task207-r12-codex-high-001 was
+    independently rejected before RUN creation and before Executor invocation at
+    PRIMARY_SYNCHRONIZATION because persistent local main still pointed at the preserved
+    RUN-207-011 failed candidate while canonical origin/main had advanced. Human verified that
+    failed candidate was preserved at refs/heads/aios/failure/RUN-207-011 and reconciled the clean
+    local main exactly to 46b379bd3fcf47dd376c0a6d7b44885d38a897e1 with zero divergence.
+    Revision 13 is the bounded authoring correction: preserve all revision-12 semantics, authorize
+    the P1B portability-binding test exactly once in scope.modify, and replace only the terminal
+    pre-RUN dispatch identity. Do not REPAIR RUN-207-011 and do not fabricate RUN-207-012 history
+    for the revision-12 dispatch rejection.
   - The sole active AIOS-renew dependency and worker provenance authority are exactly 44eee353eda376c9db8cd88d97184d3122651bf5 under EXACT_REVIEWED_SOURCE_PUBLISHED_ONLY.
   - TASK-207 revision 8 / RUN-207-010 / REVIEW-207-004 remains publication-effective historical certification only for edd7d8d92d54900c56442bbfcddb8648ec4d2e09.
   - TASK-207 revision 5 remains historical certification only for 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2.
@@ -54,12 +70,12 @@ assumptions:
     Codex defaults to gpt-6-sol/high with supported efforts [none, low, medium, high, xhigh, max],
     and Antigravity defaults to gemini-3.8-flash/medium with [low, medium, high].
   - Existing Phase-1/Phase-2 workflows, carrier policies, and bootstrap scripts were not changed by TASK-259.
-  - TASK-254 revision 4 remains authored/unexecuted and is the unique product continuation after exact TASK-207 revision-12 publication.
+  - TASK-254 revision 4 remains authored/unexecuted and is the unique product continuation after exact TASK-207 revision-13 publication.
   - Mutable future AIOS-renew main is not downstream authority; only the checked-in exact pin is relevant.
   - >
-    Existing TASK-207 canonical RUN history extends through immutable RUN-207-011 FAILURE; if no competing
-    reservation appears, the fresh revision-12 PRIMARY is expected to become RUN-207-012,
-    but Runtime owns canonical RUN allocation.
+    Existing TASK-207 canonical RUN history extends through immutable RUN-207-011 FAILURE.
+    Revision 12 created no RUN. If no competing reservation appears, the fresh revision-13
+    PRIMARY is expected to become RUN-207-012, but Runtime owns canonical RUN allocation.
 
 scope:
   inspect:
@@ -112,7 +128,6 @@ scope:
     - tests/aios_bridge/test_aios_conformance_state.py
     - tests/aios_bridge/test_aios_governance_state.py
     - tests/aios_bridge/test_aios_brain_reviewer_portability_bindings.py
-    - tests/aios_bridge/test_aios_brain_reviewer_portability_bindings.py
   modify:
     - .ai/aios-conformance-state.yaml
     - .ai/aios-adoption-state.yaml
@@ -120,6 +135,7 @@ scope:
     - docs/AIOS_UNIFIED_WORKER_WORKFLOW.md
     - tests/aios_bridge/test_aios_conformance_state.py
     - tests/aios_bridge/test_aios_governance_state.py
+    - tests/aios_bridge/test_aios_brain_reviewer_portability_bindings.py
 
 non_goals:
   - Create a new conformance task or second downstream-conformance authority.
@@ -133,43 +149,44 @@ non_goals:
 constraints:
   hard:
     - >
-      TASK-207 revision 12 remains the sole downstream-conformance semantic authority for
+      TASK-207 revision 13 remains the sole downstream-conformance semantic authority for
       the current pin. Prior TASK-207 certifications and failures remain immutable,
       explicitly historical, and non-authorizing for 44eee353.
     - >
       This revision must itself be authored through the live [AIOS BRAIN INGRESS] carrier
-      against canonical predecessor main e6a9066eb78f81d70c026b1093969fc6c4ef565f.
+      against canonical predecessor main 46b379bd3fcf47dd376c0a6d7b44885d38a897e1.
     - >
       PRIMARY execution must use one fresh [AIOS BRAIN WAKEUP] request with executor codex,
       model gpt-6-sol, reasoning_effort high and stable dispatch_id
-      task207-r12-codex-high-001 through the dedicated self-hosted Python Agent runner.
+      task207-r13-codex-high-001 through the dedicated self-hosted Python Agent runner.
       This explicit Human override is bounded to this execution only. The exact
       .ai/executor-profiles.yaml policy must remain byte-identical and independently prove
       that high is a supported Codex effort and remains the repository default. It must
-      create exactly one fresh canonical TASK-207 revision-12 RUN from current canonical
+      create exactly one fresh canonical TASK-207 revision-13 RUN from current canonical
       main; RUN-207-011 and failed candidate f1580073867f095704bc1c34f2858c160e0cf4d3
-      remain immutable history and are not REPAIR/source authority.
+      remain immutable history and are not REPAIR/source authority. The terminal pre-RUN
+      dispatch task207-r12-codex-high-001 is operational history only and must not be reused.
     - >
       The selected Executor performs only bounded seven-file implementation work. Runtime
       owns canonical verification; Executor must not review, publish, run another AIOS
       lifecycle operation, or widen scope.
     - >
       Terminalization must create or idempotently reuse the strict [AIOS TERMINAL ATTENTION]
-      carrier tied to the revision-12 canonical terminal truth. Attention remains notification only.
+      carrier tied to the revision-13 canonical terminal truth. Attention remains notification only.
     - >
       Fresh REMEDIATION compatibility must be live-proven under exact pin 44eee353 through
       the repository-owned GitHub carrier and self-hosted Phase-2 bootstrap using stable
-      correction_dispatch_id task-207-r12-remediation-non-authorizing-001 and a deliberately
+      correction_dispatch_id task-207-r13-remediation-non-authorizing-001 and a deliberately
       non-authorizing selector that fails closed without creating an implementation RUN.
     - >
       Fresh REPAIR compatibility must be live-proven under exact pin 44eee353 through the
       repository-owned GitHub carrier and self-hosted Phase-2 bootstrap using stable
-      repair_dispatch_id task-207-r12-repair-non-authorizing-001 and a deliberately
+      repair_dispatch_id task-207-r13-repair-non-authorizing-001 and a deliberately
       non-authorizing NO_CHANGE-shaped selector with no coding Executor, failing closed
-      without creating an implementation RUN unless a real revision-11 failure independently
+      without creating an implementation RUN unless a real revision-13 failure independently
       requires canonical correction.
     - >
-      .ai/aios-conformance-state.yaml must make TASK-207 revision 12 / exact 44eee353 the
+      .ai/aios-conformance-state.yaml must make TASK-207 revision 13 / exact 44eee353 the
       publication-gated current certification and preserve revision 8 / edd7d8d and
       revision 5 / 49ad4d7 as historical certification plus revision 7 / RUN-207-009 as
       failed old-pin non-certifying evidence.
@@ -190,12 +207,12 @@ constraints:
       Antigravity gemini-3.8-flash/medium, its effort set, or explicit Human override precedence.
     - >
       .ai/aios-adoption-state.yaml must move full_downstream_conformance from
-      REQUIRED_PENDING to publication-gated TASK-207 revision-12 certification for exact
+      REQUIRED_PENDING to publication-gated TASK-207 revision-13 certification for exact
       44eee353 only after publication while preserving TASK-259/TASK-256 provenance and
       exact registry identities.
     - >
       .ai/roadmap-state.yaml must close the BP9 downstream-adoption side track only on
-      exact TASK-207 revision-11 reviewed-source publication and make already-authored
+      exact TASK-207 revision-13 reviewed-source publication and make already-authored
       TASK-254 revision 4 the preserved unique product continuation. Do not execute
       TASK-254, grant live validation authority, or invent a successor beyond TASK-254.
     - >
@@ -207,9 +224,9 @@ constraints:
       lineage where context requires it. It must preserve "delegate exclusively",
       single-kernel authority, and lifecycle-role separation.
     - >
-      The sole scope correction from revision 11 is authorization to modify
+      The bounded scope correction relative to revision 11 is authorization to modify
       tests/aios_bridge/test_aios_brain_reviewer_portability_bindings.py so its adoption
-      assertions can move from REQUIRED_PENDING to the same publication-gated revision-12
+      assertions can move from REQUIRED_PENDING to the same publication-gated revision-13
       current-certification semantics required by adoption state. Preserve all exact TASK-256
       registry blob assertions and portability authority boundaries; do not weaken the test.
     - >
@@ -228,13 +245,14 @@ constraints:
 acceptance:
   - id: AC1
     condition: >
-      TASK-207 revision 12 is canonically authored through live Brain ingress from exact
-      predecessor e6a9066eb78f81d70c026b1093969fc6c4ef565f, with RUN-207-011 immutable
-      COMPLETION_GATE failure and all earlier TASK-207 certification/failure lineage preserved.
+      TASK-207 revision 13 is canonically authored through live Brain ingress from exact
+      predecessor 46b379bd3fcf47dd376c0a6d7b44885d38a897e1, with RUN-207-011 immutable
+      COMPLETION_GATE failure, the revision-12 pre-RUN synchronization rejection preserved as
+      non-canonical operational history, and all earlier TASK-207 certification/failure lineage preserved.
   - id: AC2
     condition: >
       One fresh Codex PRIMARY Brain Wakeup under exact active pin 44eee353 uses explicit Human
-      override gpt-6-sol/high and produces exactly one canonical TASK-207 revision-12 RUN
+      override gpt-6-sol/high and produces exactly one canonical TASK-207 revision-13 RUN
       with deterministic Runtime verification and duplicate-dispatch protection. The exact
       executor-profile policy remains unchanged, high remains the repository default, and
       the explicit override does not alter policy.
@@ -245,11 +263,11 @@ acceptance:
   - id: AC4
     condition: >
       REMEDIATION carrier/bootstrap are freshly reachable under 44eee353 and fail closed
-      on the non-authorizing revision-12 probe without creating a coding RUN solely for the probe.
+      on the non-authorizing revision-13 probe without creating a coding RUN solely for the probe.
   - id: AC5
     condition: >
       REPAIR carrier/bootstrap are freshly reachable under 44eee353 and fail closed on the
-      non-authorizing NO_CHANGE-shaped revision-12 probe with no coding Executor and no
+      non-authorizing NO_CHANGE-shaped revision-13 probe with no coding Executor and no
       coding RUN solely for the probe.
   - id: AC6
     condition: >
@@ -259,25 +277,26 @@ acceptance:
       Reviewer/Publisher/A3/A6/REPAIR/Attention boundaries.
   - id: AC7
     condition: >
-      Conformance/adoption records bind current certification to TASK-207 revision 12 and
+      Conformance/adoption records bind current certification to TASK-207 revision 13 and
       exact 44eee353 only on reviewed source publication, preserving revision-8 and
       revision-5 certifications as historical old-pin evidence and revision-7 failure as
       non-certifying history.
   - id: AC8
     condition: >
-      On exact revision-12 publication the BP9 downstream-adoption side track is closed and
+      On exact revision-13 publication the BP9 downstream-adoption side track is closed and
       the unique preserved continuation becomes already-authored TASK-254 revision 4,
       without executing it or changing product/live-validation authority.
   - id: AC9
     condition: >
-      Source mutations stay inside the seven authorized files; the P1B portability test is
-      updated only to replace stale REQUIRED_PENDING assertions with publication-gated
-      revision-12 current-certification assertions while preserving exact registry identity
-      checks; focused deterministic tests and git diff --check pass with zero unresolved
-      source items; Reviewer observes sufficient typed live current-pin evidence before PASS.
+      Source mutations stay inside the seven authorized files; the P1B portability-binding
+      test is authorized exactly once in scope.modify and is updated only to replace stale
+      REQUIRED_PENDING assertions with publication-gated revision-13 current-certification
+      assertions while preserving exact registry identity checks; focused deterministic tests
+      and git diff --check pass with zero unresolved source items; Reviewer observes sufficient
+      typed live current-pin evidence before PASS.
 
 verification:
   policy: minimum-sufficient-v1
   required:
-    - python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py tests/aios_bridge/test_aios_brain_ingress.py tests/aios_bridge/test_aios_phase1_control_plane.py tests/aios_bridge/test_aios_phase2_control_plane.py tests/aios_bridge/test_aios_auto_publish_workflow.py tests/aios_bridge/test_aios_conformance_state.py tests/aios_bridge/test_aios_governance_state.py tests/aios_bridge/test_aios_brain_reviewer_portability_bindings.py -q --basetemp=.git/aios/pytest-task207-r12
+    - python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py tests/aios_bridge/test_aios_brain_ingress.py tests/aios_bridge/test_aios_phase1_control_plane.py tests/aios_bridge/test_aios_phase2_control_plane.py tests/aios_bridge/test_aios_auto_publish_workflow.py tests/aios_bridge/test_aios_conformance_state.py tests/aios_bridge/test_aios_governance_state.py tests/aios_bridge/test_aios_brain_reviewer_portability_bindings.py -q --basetemp=.git/aios/pytest-task207-r13
     - git diff --check
