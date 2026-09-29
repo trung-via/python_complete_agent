@@ -1275,6 +1275,28 @@ NEXT is null, pending commitments are empty (`[]`), automatic progression is fal
 `HUMAN_BRAIN_REAL_DECISION_SUFFICIENCY_SELECTION`.
 See `docs/PHASE_8_POST_TASK254_REAL_DECISION_SUFFICIENCY_AND_ROADMAP_RECONCILIATION.md`.
 
+TASK-261 prospectively canonicalizes the Human's explicit selection of only
+`AUTHORIZE_ONE_SHOT_POST_TASK254_CARRIER_VALIDATION`. TASK-260 remains immutable completed history:
+its five candidates remain in their original unranked order and its completion snapshot remains
+`MARKET_TEST_READINESS_NOT_ESTABLISHED`. The sole carrier execution source and
+`validation_carrier_source_sha` are exact TASK-254 / RUN-254-003 / REVIEW-254-001 publication
+`36627c80e76f156fcb774b10fbd35d14df6d9ea4`; the distinct collector baseline remains TASK-253 /
+`33776f11b20977f46d45d394fa1c56040029b65d`.
+Only exact reviewed TASK-261 publication makes one Human-operated attempt effective. Mandatory
+non-consuming preflight binds a reachable CDP endpoint, exactly one normal page target equal to the
+selected PDP, a fresh external artifact-free job root, and content equivalence of all ten
+execution-critical files to the exact TASK-254 publication. Any source mismatch fails closed.
+Existing V2 marker creation remains the consumption boundary; every marker-present outcome
+consumes the one attempt without retry. Mandatory post-attempt review is grounded in preserved
+external artifacts. Automated acquisition and market-test/action authority remain NONE;
+`OPERATION_SUCCESS_IS_NOT_FIELD_VALIDATION_SUCCESS`, public-PDP limits, unknown optional fields,
+and `NOT_ESTABLISHED` affiliate economics remain explicit. No Product Truth, canonical evidence,
+trend, ranking, approval, or market-test readiness is inferred. Publication hands off only to the
+Human operator for that one-shot execution and then Human/Brain review; NEXT is null, pending
+commitments are empty, automatic progression is false, and no engineering successor or market
+action is selected.
+See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK254_ONE_SHOT_VALIDATION_AUTHORIZATION.md`.
+
 
 
 ## 4. Authority invariants

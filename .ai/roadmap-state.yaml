@@ -190,138 +190,127 @@ human_priority_side_track:
     live-validation authority.
 
 active_track:
-  id: P8_POST_TASK254_REAL_DECISION_SUFFICIENCY_AND_ROADMAP_RECONCILIATION
-  title: "P8 Post-TASK254 Real-Decision Sufficiency & Roadmap Reconciliation"
+  id: P8_POST_TASK254_ONE_SHOT_VALIDATION_AUTHORIZATION
+  title: "P8 Post-TASK254 One-Shot Validation Authorization"
   priority_owner: HUMAN
-  status: DONE
+  status: AUTHORIZED_ON_EXACT_TASK_261_SOURCE_PUBLICATION
   completion_basis: PUBLICATION_GATED
-  sequence_status: COMPLETE_ON_EXACT_TASK_260_SOURCE_PUBLICATION
+  sequence_status: ONE_HUMAN_OPERATED_ATTEMPT_PENDING
   current_milestone:
-    id: P8.POST_TASK254.REAL_DECISION_SUFFICIENCY_AND_ROADMAP_RECONCILIATION
-    task_id: TASK-260
-    title: "Post-TASK254 Real-Decision Sufficiency & Roadmap Reconciliation"
-    status: DONE
+    id: P8.POST_TASK254.ONE_SHOT_VALIDATION_AUTHORIZATION
+    task_id: TASK-261
+    task_revision: 1
+    title: "Post-TASK254 One-Shot Validation Authorization"
+    status: AUTHORIZED_ON_EXACT_TASK_261_SOURCE_PUBLICATION
     completion_basis: PUBLICATION_GATED
-    classification: POST_TASK254_REAL_DECISION_SUFFICIENCY_AND_ROADMAP_RECONCILIATION_ONLY
+    classification: ONE_SHOT_POST_TASK254_PUBLIC_PDP_VALIDATION_AUTHORIZATION_ONLY
     authorization_owner: HUMAN_BRAIN
+    human_selection:
+      source_task_id: TASK-260
+      source_task_revision: 2
+      source_published_sha: 6787c746396f333cb7e02d0736ed8beb2417a63c
+      candidate_id: AUTHORIZE_ONE_SHOT_POST_TASK254_CARRIER_VALIDATION
+      selection_status: EXPLICITLY_SELECTED
+      selection_date: "2026-09-29"
+      prior_candidate_set_mutated: false
+      prior_candidate_order_reinterpreted_as_ranking: false
     source_task_id: TASK-254
     source_run_id: RUN-254-003
     source_review_id: REVIEW-254-001
     source_published_sha: 36627c80e76f156fcb774b10fbd35d14df6d9ea4
+    validation_carrier_source_sha: 36627c80e76f156fcb774b10fbd35d14df6d9ea4
+    collector_validation_baseline:
+      task_id: TASK-253
+      source_sha: 33776f11b20977f46d45d394fa1c56040029b65d
     context_id: p8-pilot-001-led-motion-tiktok-vn
-    selected_source_id: "1731381331718341815"
+    authorized_source_id: "1731381331718341815"
     stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
-    decision_sufficiency_state: MARKET_TEST_READINESS_NOT_ESTABLISHED
-    evidence_knowledge_snapshot:
-      selected_source_binding:
-        status: CANONICALLY_SELECTED
-        observation: HISTORICALLY_OBSERVED_TASK233
-        freshness: NOT_ASSERTED
-      title:
-        status: HISTORICALLY_OBSERVED_TASK233
-        freshness: NOT_ASSERTED
-      current_price:
-        status: UNKNOWN
-        observed_value: null
-      original_price:
-        status: OBSERVED_ONLY
-        observed_value: 68220.0
-        observed_at: "2026-09-26T07:43:19.570359+00:00"
-        freshness: NOT_ASSERTED
-      shop_name: UNKNOWN
-      discount_percent: UNKNOWN
-      sold_count: UNKNOWN
-      rating: UNKNOWN
-      review_count: UNKNOWN
+    carrier_module: src/product_intelligence/tiktok_pdp_live_pilot.py
+    validation_carrier_schema_version: 2
+    validation_attempt_marker_filename: tiktok-pdp-live-validation-attempt-v2.json
+    validation_attempt_marker_schema_version: 2
+    validation_result_filename: tiktok-pdp-live-validation-result-v2.json
+    validation_result_schema_version: 2
+    authorized_validation_attempts: 1
+    authorized_validation_attempts_remaining: 1
+    validation_execution_owner: HUMAN_OPERATOR
+    validation_executed: false
+    live_public_pdp_acquisition_authority: ONE_SHOT_EXACT_LISTING_ONLY
+    automated_public_pdp_acquisition_authority: NONE
+    market_test_or_action_authority: NONE
+    automatic_live_pilot: false
+    automatic_progression: false
+    arbitrary_target_authority: NONE
+    replacement_target_authority: NONE
+    search_authority: NONE
+    batch_authority: NONE
+    inferred_identity_authority: NONE
+    variant_switching_authority: NONE
+    preflight:
+      required: true
+      consuming: false
+      cdp_endpoint: http://127.0.0.1:9222
+      cdp_reachable_required: true
+      normal_page_target_count: 1
+      sole_target_must_equal_selected_pdp: true
+      job_root: EXPLICIT_FRESH_EXTERNAL_ROOT_BOUND_TO_INVOCATION
+      job_root_outside_git_repository: true
+      v1_v2_artifacts_absent: true
+      execution_critical_files_source_sha: 36627c80e76f156fcb774b10fbd35d14df6d9ea4
+      execution_critical_files:
+        - src/product_intelligence/tiktok_pdp_live_pilot.py
+        - src/product_intelligence/cli.py
+        - src/product_intelligence/adapters/tiktok_pdp.py
+        - src/product_intelligence/adapters/tiktok_parsing.py
+        - src/product_intelligence/tiktok_pdp_dom_scope.py
+        - src/product_intelligence/models.py
+        - src/integrations/playwright/manager.py
+        - src/integrations/playwright/session.py
+        - src/browser/session.py
+        - src/browser/models.py
+      source_or_target_or_root_change_requires_fresh_preflight: true
+      source_mismatch_action: FAIL_CLOSED_AND_REQUIRE_FRESH_HUMAN_BRAIN_DECISION
+      page_mutation_authority: NONE
+      v2_artifact_creation_authority: NONE
+    consumption:
+      durable_boundary: SUCCESSFUL_CREATE_EXCLUSIVE_V2_ATTEMPT_MARKER_PERSISTENCE
+      marker_filename: tiktok-pdp-live-validation-attempt-v2.json
+      every_marker_present_terminal_or_interrupted_state_consumes_attempt: true
+      automatic_retry_resume_refresh: false
+      second_invocation_authority: NONE
+      pre_marker_manual_correction_allowed_only_while_marker_absent: true
+    mandatory_post_attempt_review:
+      authority: HUMAN_BRAIN_POST_TASK254_PUBLIC_PDP_VALIDATION_REVIEW
+      artifact_grounded: true
+      preserve_existing_artifacts_byte_for_byte: true
+      record_external_job_root_binding: true
+      record_artifact_presence_sha256_and_size: true
+      require_result_v2_conformance: true
+      record_bounded_fields_only_when_present: true
+      record_snapshot_fields_only_when_observed: true
+      unobserved_process_or_cli_exit_code: UNKNOWN
+    epistemic_boundary:
+      operation_success_is_not_field_validation_success: true
+      optional_fields_may_remain_unknown: true
       affiliate_eligibility: NOT_ESTABLISHED
       affiliate_commission_rate: NOT_ESTABLISHED
       estimated_commission: NOT_ESTABLISHED
-      manual_wave1_contribution: UNPERFORMED
-      manual_review: UNPERFORMED
-      human_owned_inputs: UNSET
+      product_truth_inferred: false
       canonical_evidence_ingested: false
-      price_role_resolution_complete: false
-      selector_repair_complete: false
-    human_owned_inputs_status: UNSET
-    p7_5_semantic_reuse:
-      status: SEMANTIC_LENS_ONLY_NO_PLAN_CONSTRUCTED
-      canonical_dispositions:
-        - CONTINUE
-        - DEFER
-        - STOP
-      factory_invoked: false
-      disposition_status: NOT_COMPUTED_NO_CANONICAL_CURRENT_P7_4_PROFILE
-    candidate_continuations:
-      - id: AUTHORIZE_ONE_SHOT_POST_TASK254_CARRIER_VALIDATION
-        title: "Authorize One-Shot Post-TASK254 Carrier Validation"
-        selection_status: HUMAN_SELECTION_REQUIRED
-        preferred: false
-        recommended: false
-        automatic_progression: false
-        lineage:
-          collector_baseline_task_id: TASK-253
-          collector_baseline_source_sha: 33776f11b20977f46d45d394fa1c56040029b65d
-          carrier_execution_source_target_sha: 36627c80e76f156fcb774b10fbd35d14df6d9ea4
-          carrier_task_id: TASK-254
-        authority_boundary: "Zero carrier source binding or attempt created by TASK-260; requires separate future Human authorization."
-      - id: RECONFIRM_MANUAL_WAVE1_CONTRIBUTION
-        title: "Reconfirm Manual Wave-1 Contribution"
-        selection_status: HUMAN_SELECTION_REQUIRED
-        preferred: false
-        recommended: false
-        automatic_progression: false
-        lineage:
-          historical_task_id: TASK-229
-          contribution_status: UNPERFORMED
-          review_status: UNPERFORMED
-        authority_boundary: "Requires fresh Human confirmation/reconciliation before any operation; not automatically live."
-      - id: REQUEST_HUMAN_DECISION_INPUTS
-        title: "Request Human Decision Inputs"
-        selection_status: HUMAN_SELECTION_REQUIRED
-        preferred: false
-        recommended: false
-        automatic_progression: false
-        unfilled_human_owned_inputs:
-          - budget
-          - duration
-          - exposure_controls
-          - contribution_margin_threshold
-          - success_failure_criteria
-          - target_audience
-          - quality_constraints
-          - risk_constraints
-          - risk_acceptance
-          - decision_timing
-        authority_boundary: "Non-acquirable from marketplace; Human-owned only."
-      - id: DEFER_CURRENT_PILOT
-        title: "Defer Current Pilot"
-        selection_status: HUMAN_SELECTION_REQUIRED
-        preferred: false
-        recommended: false
-        automatic_progression: false
-        authority_boundary: "Preserves pilot under uncertainty without execution or cancellation."
-      - id: STOP_CURRENT_PILOT
-        title: "Stop Current Pilot"
-        selection_status: HUMAN_SELECTION_REQUIRED
-        preferred: false
-        recommended: false
-        automatic_progression: false
-        authority_boundary: "Closes current pilot without proceeding to market test."
-    live_public_pdp_acquisition_authority: NONE
-    automated_public_pdp_acquisition_authority: NONE
-    market_test_or_action_authority: NONE
-    automatic_progression: false
-    post_run_engineering_successor: null
+      trend_inferred: false
+      ranking_inferred: false
+      approval_inferred: false
+      market_test_readiness: MARKET_TEST_READINESS_NOT_ESTABLISHED
     next_milestone: null
-    exact_post_publication_handoff: HUMAN_BRAIN_REAL_DECISION_SUFFICIENCY_SELECTION
-    post_publication_handoff: HUMAN_BRAIN_REAL_DECISION_SUFFICIENCY_SELECTION
+    post_run_engineering_successor: null
+    exact_post_publication_handoff: HUMAN_OPERATOR_ONE_SHOT_POST_TASK254_PUBLIC_PDP_VALIDATION_EXECUTION
+    post_publication_handoff: HUMAN_OPERATOR_ONE_SHOT_POST_TASK254_PUBLIC_PDP_VALIDATION_EXECUTION
+    mandatory_post_attempt_handoff: HUMAN_BRAIN_POST_TASK254_PUBLIC_PDP_VALIDATION_REVIEW
     effective_only_when:
       semantic_review: PASS
       published_source: EXACT_REVIEWED_CANDIDATE
       canonical_main_equals_reviewed_candidate: true
   next_milestone: null
-
-pending_commitments: []
 
 post_p7_planning_handoff:
   destination: P8_REAL_COMMERCE_DECISION_LOOP_COMPOSITION
@@ -339,118 +328,49 @@ post_p7_planning_handoff:
     outcome, roadmap, or future-domain authority into P8.0.
 
 post_p8_planning_handoff:
-  destination: HUMAN_BRAIN_REAL_DECISION_SUFFICIENCY_SELECTION
-  status: EFFECTIVE_ON_EXACT_TASK_260_SOURCE_PUBLICATION
-  completed_commitment: P8_POST_TASK254_REAL_DECISION_SUFFICIENCY_AND_ROADMAP_RECONCILIATION
+  destination: HUMAN_OPERATOR_ONE_SHOT_POST_TASK254_PUBLIC_PDP_VALIDATION_EXECUTION
+  status: EFFECTIVE_ON_EXACT_TASK_261_SOURCE_PUBLICATION
+  completed_commitment: P8_POST_TASK254_ONE_SHOT_VALIDATION_AUTHORIZATION
+  task_id: TASK-261
+  task_revision: 1
   source_task_id: TASK-254
   source_run_id: RUN-254-003
   source_review_id: REVIEW-254-001
   source_published_sha: 36627c80e76f156fcb774b10fbd35d14df6d9ea4
+  validation_carrier_source_sha: 36627c80e76f156fcb774b10fbd35d14df6d9ea4
+  collector_validation_baseline:
+    task_id: TASK-253
+    source_sha: 33776f11b20977f46d45d394fa1c56040029b65d
   context_id: p8-pilot-001-led-motion-tiktok-vn
   selected_source_id: "1731381331718341815"
   stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
-  decision_sufficiency_state: MARKET_TEST_READINESS_NOT_ESTABLISHED
-  evidence_knowledge_snapshot:
-    selected_source_binding:
-      status: CANONICALLY_SELECTED
-      observation: HISTORICALLY_OBSERVED_TASK233
-      freshness: NOT_ASSERTED
-    title:
-      status: HISTORICALLY_OBSERVED_TASK233
-      freshness: NOT_ASSERTED
-    current_price:
-      status: UNKNOWN
-      observed_value: null
-    original_price:
-      status: OBSERVED_ONLY
-      observed_value: 68220.0
-      observed_at: "2026-09-26T07:43:19.570359+00:00"
-      freshness: NOT_ASSERTED
-    shop_name: UNKNOWN
-    discount_percent: UNKNOWN
-    sold_count: UNKNOWN
-    rating: UNKNOWN
-    review_count: UNKNOWN
-    affiliate_eligibility: NOT_ESTABLISHED
-    affiliate_commission_rate: NOT_ESTABLISHED
-    estimated_commission: NOT_ESTABLISHED
-    manual_wave1_contribution: UNPERFORMED
-    manual_review: UNPERFORMED
-    human_owned_inputs: UNSET
-    canonical_evidence_ingested: false
-    price_role_resolution_complete: false
-    selector_repair_complete: false
-  human_owned_inputs_status: UNSET
-  p7_5_semantic_reuse:
-    status: SEMANTIC_LENS_ONLY_NO_PLAN_CONSTRUCTED
-    canonical_dispositions:
-      - CONTINUE
-      - DEFER
-      - STOP
-    factory_invoked: false
-    disposition_status: NOT_COMPUTED_NO_CANONICAL_CURRENT_P7_4_PROFILE
-  candidate_continuations:
-    - id: AUTHORIZE_ONE_SHOT_POST_TASK254_CARRIER_VALIDATION
-      title: "Authorize One-Shot Post-TASK254 Carrier Validation"
-      selection_status: HUMAN_SELECTION_REQUIRED
-      preferred: false
-      recommended: false
-      automatic_progression: false
-      lineage:
-        collector_baseline_task_id: TASK-253
-        collector_baseline_source_sha: 33776f11b20977f46d45d394fa1c56040029b65d
-        carrier_execution_source_target_sha: 36627c80e76f156fcb774b10fbd35d14df6d9ea4
-        carrier_task_id: TASK-254
-      authority_boundary: "Zero carrier source binding or attempt created by TASK-260; requires separate future Human authorization."
-    - id: RECONFIRM_MANUAL_WAVE1_CONTRIBUTION
-      title: "Reconfirm Manual Wave-1 Contribution"
-      selection_status: HUMAN_SELECTION_REQUIRED
-      preferred: false
-      recommended: false
-      automatic_progression: false
-      lineage:
-        historical_task_id: TASK-229
-        contribution_status: UNPERFORMED
-        review_status: UNPERFORMED
-      authority_boundary: "Requires fresh Human confirmation/reconciliation before any operation; not automatically live."
-    - id: REQUEST_HUMAN_DECISION_INPUTS
-      title: "Request Human Decision Inputs"
-      selection_status: HUMAN_SELECTION_REQUIRED
-      preferred: false
-      recommended: false
-      automatic_progression: false
-      unfilled_human_owned_inputs:
-        - budget
-        - duration
-        - exposure_controls
-        - contribution_margin_threshold
-        - success_failure_criteria
-        - target_audience
-        - quality_constraints
-        - risk_constraints
-        - risk_acceptance
-        - decision_timing
-      authority_boundary: "Non-acquirable from marketplace; Human-owned only."
-    - id: DEFER_CURRENT_PILOT
-      title: "Defer Current Pilot"
-      selection_status: HUMAN_SELECTION_REQUIRED
-      preferred: false
-      recommended: false
-      automatic_progression: false
-      authority_boundary: "Preserves pilot under uncertainty without execution or cancellation."
-    - id: STOP_CURRENT_PILOT
-      title: "Stop Current Pilot"
-      selection_status: HUMAN_SELECTION_REQUIRED
-      preferred: false
-      recommended: false
-      automatic_progression: false
-      authority_boundary: "Closes current pilot without proceeding to market test."
-  live_public_pdp_acquisition_authority: NONE
+  authorized_validation_attempts: 1
+  authorized_validation_attempts_remaining: 1
+  validation_execution_owner: HUMAN_OPERATOR
+  validation_executed: false
+  live_public_pdp_acquisition_authority: ONE_SHOT_EXACT_LISTING_ONLY
   automated_public_pdp_acquisition_authority: NONE
   market_test_or_action_authority: NONE
+  automatic_live_pilot: false
   automatic_progression: false
+  preflight_required: true
+  preflight_consumes_attempt: false
+  preflight_source_sha: 36627c80e76f156fcb774b10fbd35d14df6d9ea4
+  v2_consumption_boundary: SUCCESSFUL_CREATE_EXCLUSIVE_ATTEMPT_MARKER_PERSISTENCE
+  every_marker_present_terminal_or_interrupted_state_consumes_attempt: true
+  automatic_retry_resume_refresh: false
+  mandatory_post_attempt_review: HUMAN_BRAIN_POST_TASK254_PUBLIC_PDP_VALIDATION_REVIEW
+  operation_success_is_not_field_validation_success: true
+  affiliate_economics: NOT_ESTABLISHED
   next_milestone: null
   post_run_engineering_successor: null
+  boundary: >-
+    Exact reviewed TASK-261 publication authorizes one Human-operated validation only after
+    mandatory non-consuming preflight. Marker-present outcomes consume the attempt without
+    retry; artifact-grounded Human/Brain review is mandatory. Authorization or future operation
+    SUCCESS establishes no Product Truth, canonical evidence, trend, ranking, approval, affiliate
+    economics, market-test readiness, or commerce-action authority. TASK-260 remains immutable
+    unranked planning history.
   actual_real_decision_case:
     context_id: p8-pilot-001-led-motion-tiktok-vn
     record_type: PILOT_CASE_SELECTION_ONLY
@@ -3494,6 +3414,60 @@ completed_milestones:
     next_milestone: null
     exact_post_publication_handoff: HUMAN_BRAIN_REAL_DECISION_SUFFICIENCY_SELECTION
     post_publication_handoff: HUMAN_BRAIN_REAL_DECISION_SUFFICIENCY_SELECTION
+    effective_only_when:
+      semantic_review: PASS
+      published_source: EXACT_REVIEWED_CANDIDATE
+      canonical_main_equals_reviewed_candidate: true
+
+  - task_id: TASK-261
+    task_revision: 1
+    track_id: P8_POST_TASK254_ONE_SHOT_VALIDATION_AUTHORIZATION
+    milestone_id: P8.POST_TASK254.ONE_SHOT_VALIDATION_AUTHORIZATION
+    title: "Post-TASK254 One-Shot Validation Authorization"
+    status: AUTHORIZED_ON_EXACT_TASK_261_SOURCE_PUBLICATION
+    completion_basis: PUBLICATION_GATED
+    classification: ONE_SHOT_POST_TASK254_PUBLIC_PDP_VALIDATION_AUTHORIZATION_ONLY
+    authorization_owner: HUMAN_BRAIN
+    human_selection:
+      source_task_id: TASK-260
+      source_task_revision: 2
+      source_published_sha: 6787c746396f333cb7e02d0736ed8beb2417a63c
+      candidate_id: AUTHORIZE_ONE_SHOT_POST_TASK254_CARRIER_VALIDATION
+      selection_status: EXPLICITLY_SELECTED
+      selection_date: "2026-09-29"
+      prior_candidate_set_mutated: false
+      prior_candidate_order_reinterpreted_as_ranking: false
+    source_task_id: TASK-254
+    source_run_id: RUN-254-003
+    source_review_id: REVIEW-254-001
+    source_published_sha: 36627c80e76f156fcb774b10fbd35d14df6d9ea4
+    validation_carrier_source_sha: 36627c80e76f156fcb774b10fbd35d14df6d9ea4
+    collector_validation_baseline:
+      task_id: TASK-253
+      source_sha: 33776f11b20977f46d45d394fa1c56040029b65d
+    context_id: p8-pilot-001-led-motion-tiktok-vn
+    selected_source_id: "1731381331718341815"
+    stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
+    authorized_validation_attempts: 1
+    authorized_validation_attempts_remaining: 1
+    validation_execution_owner: HUMAN_OPERATOR
+    validation_executed: false
+    live_public_pdp_acquisition_authority: ONE_SHOT_EXACT_LISTING_ONLY
+    automated_public_pdp_acquisition_authority: NONE
+    market_test_or_action_authority: NONE
+    automatic_live_pilot: false
+    automatic_progression: false
+    preflight_required: true
+    preflight_consumes_attempt: false
+    preflight_source_sha: 36627c80e76f156fcb774b10fbd35d14df6d9ea4
+    mandatory_post_attempt_review: HUMAN_BRAIN_POST_TASK254_PUBLIC_PDP_VALIDATION_REVIEW
+    operation_success_is_not_field_validation_success: true
+    market_test_readiness: MARKET_TEST_READINESS_NOT_ESTABLISHED
+    next_milestone: null
+    post_run_engineering_successor: null
+    exact_post_publication_handoff: HUMAN_OPERATOR_ONE_SHOT_POST_TASK254_PUBLIC_PDP_VALIDATION_EXECUTION
+    post_publication_handoff: HUMAN_OPERATOR_ONE_SHOT_POST_TASK254_PUBLIC_PDP_VALIDATION_EXECUTION
+    mandatory_post_attempt_handoff: HUMAN_BRAIN_POST_TASK254_PUBLIC_PDP_VALIDATION_REVIEW
     effective_only_when:
       semantic_review: PASS
       published_source: EXACT_REVIEWED_CANDIDATE
