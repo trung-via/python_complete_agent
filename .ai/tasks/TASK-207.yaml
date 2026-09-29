@@ -1,60 +1,68 @@
 task_id: TASK-207
-revision: 8
+revision: 9
 
 goal: >
-  Re-certify Python Agent full downstream AIOS control-plane conformance under the exact
-  reviewed/source-published AIOS-renew pin
-  edd7d8d92d54900c56442bbfcddb8648ec4d2e09 after TASK-221 published that migration.
+  Freshly certify Python Agent's complete downstream AIOS control-plane and portability
+  profile surface under the exact reviewed/source-published AIOS-renew pin
+  44eee353eda376c9db8cd88d97184d3122651bf5 after TASK-259 revision 2 publication.
   Preserve TASK-207 as the sole downstream-conformance semantic authority, preserve
-  revision-5 certification for 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2 as historical
-  prior-pin evidence, preserve revision-7 / RUN-207-009 as failed non-certifying old-pin
-  history for 1a68db9acb6989dfa81bf875503db62e54a4bed6, freshly prove the active
-  Phase-1/Phase-2 bindings where the new pin is material, and make revision-8
-  certification effective only after independent semantic PASS and safe publication of
-  exactly the reviewed source candidate. After effective certification, resume P7.3 by
-  reviewing and, if eligible, publishing the preserved TASK-215 revision-1 RUN-215-004
-  candidate 142bd865f69a6636b321d3cc7a0cd4004db3fdc7 against FINDING-215-001;
-  do not rerun TASK-215 and do not advance P7.4.
+  revision-8 certification for edd7d8d92d54900c56442bbfcddb8648ec4d2e09 and revision-5
+  certification for 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2 as historical old-pin
+  evidence, preserve revision-7 / RUN-207-009 as failed non-certifying old-pin history,
+  freshly certify the active Phase-1/Phase-2 carrier bindings, the TASK-256 P1B
+  Brain/Reviewer semantic registries, and the current execution-profile policy, and make
+  revision-9 certification effective only after independent semantic PASS and safe
+  publication of exactly the reviewed source candidate. After effective certification,
+  close the BP9 downstream-adoption side track and return the preserved product
+  continuation to already-authored TASK-254 revision 4 without executing product work
+  inside this task.
 
 problem: >
-  TASK-221 / RUN-221-002 / REVIEW-221-001 are now publication-effective on canonical
-  Python Agent main df1d71974979bed37bd20d67d9f0700fdb1e75b0 and migrated the sole
-  active AIOS-renew runtime authority from exact
-  1a68db9acb6989dfa81bf875503db62e54a4bed6 to exact reviewed/source-published
-  edd7d8d92d54900c56442bbfcddb8648ec4d2e09. Adoption and roadmap state therefore mark
-  full downstream conformance for edd7d8d... as PENDING_FRESH_CERTIFICATION through
-  TASK-207 revision 8.
+  TASK-259 revision 2 completed through failed predecessor RUN-259-001, successor
+  PRIMARY RUN-259-002 RESULT, REVIEW-259-001 PRIMARY PASS, and exact publication of
+  candidate 6c9cfcd258c492a5f2301936324379c5e862a2ce. Canonical main now uses exact
+  AIOS-renew pin 44eee353eda376c9db8cd88d97184d3122651bf5. The existing
+  .ai/aios-conformance-state.yaml still certifies TASK-207 revision 8 only for historical
+  pin edd7d8d92d54900c56442bbfcddb8648ec4d2e09, while adoption state correctly marks
+  fresh revision-9 certification REQUIRED_PENDING.
 
-  The prior revision-7 attempt cannot be continued after the pin change. Its lineage
-  progressed through RUN-207-007, RUN-207-008 and RUN-207-009 under exact 1a68db9.
-  RUN-207-009 failed during Runtime verification because the old pinned historical
-  subject used linked-worktree .git-file semantics. That generic Runtime defect was
-  fixed upstream by TASK-148 revision 2 and is now available only through the newly
-  published exact edd7d8d pin. Revision 7 therefore remains immutable failed old-pin
-  evidence and grants no certification authority for the new pin.
-
-  Current .ai/aios-conformance-state.yaml still certifies TASK-207 revision 5 only for
-  49ad4d7. Fresh current-pin certification is therefore unresolved. The correct
-  continuation is revision 8 of the existing TASK-207 semantic authority, not REPAIR
-  of RUN-207-009 and not a new conformance task.
+  Revision 8 predates BP9-P1B. TASK-256 later added five exact repository-owned semantic
+  registries for Brain/Reviewer portability, and TASK-259 preserved those registry blobs
+  and .ai/executor-profiles.yaml byte-for-byte while moving the active pin. Revision 9
+  therefore must certify not only the existing Phase-1/Phase-2 carrier families but also
+  the exact P1B registry identities and current execution-profile policy under the new
+  active pin. It must not reuse revision-8 certification as current-pin truth and must not
+  resume TASK-254 before exact revision-9 reviewed-source publication.
 
 assumptions:
-  - Canonical Python Agent main at authoring is df1d71974979bed37bd20d67d9f0700fdb1e75b0.
-  - TASK-221 / RUN-221-002 / REVIEW-221-001 are completed and exactly source-published on that main.
-  - The sole active AIOS-renew dependency and worker provenance authority are exactly edd7d8d92d54900c56442bbfcddb8648ec4d2e09 under EXACT_REVIEWED_SOURCE_PUBLISHED_ONLY.
-  - Upstream TASK-148 revision 2 / RUN-148-003 / REVIEW-148-003 are reviewed/source-published provenance for the historical-subject .git-directory and local object-graph transfer fix.
-  - TASK-207 revision 5 remains publication-effective historical certification only for 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2.
-  - TASK-207 revision 7 and RUN-207-007 through RUN-207-009 remain immutable failed/non-certifying history for exact pin 1a68db9acb6989dfa81bf875503db62e54a4bed6 and must not be repaired after the pin change.
-  - Existing Phase-1/Phase-2 repository binding implementation files remain unchanged by TASK-221.
-  - P7.3 remains the unique product NEXT and TASK-215 revision 1 remains product_done=false.
-  - TASK-215 current successful correction candidate remains RUN-215-004 at 142bd865f69a6636b321d3cc7a0cd4004db3fdc7, preserving FINDING-215-001 through predecessor RUN-215-003 / REPAIR-215-002 continuity.
-  - No review-decision ref exists for RUN-215-004.
-  - Existing TASK-207 canonical RUN history extends through RUN-207-009; the fresh revision-8 PRIMARY is expected to become RUN-207-010.
-  - Mutable future upstream AIOS-renew main is not downstream authority; only the checked-in exact pin is relevant.
-  - Human has selected Codex for the current self-hosted execution sequence; do not silently switch Executor.
+  - Canonical Python Agent main at authoring is exactly 6c9cfcd258c492a5f2301936324379c5e862a2ce.
+  - TASK-259 revision 2 / RUN-259-002 / REVIEW-259-001 are publication-effective at that exact main.
+  - The sole active AIOS-renew dependency and worker provenance authority are exactly 44eee353eda376c9db8cd88d97184d3122651bf5 under EXACT_REVIEWED_SOURCE_PUBLISHED_ONLY.
+  - TASK-207 revision 8 / RUN-207-010 / REVIEW-207-004 remains publication-effective historical certification only for edd7d8d92d54900c56442bbfcddb8648ec4d2e09.
+  - TASK-207 revision 5 remains historical certification only for 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2.
+  - TASK-207 revision 7 and RUN-207-007 through RUN-207-009 remain immutable failed/non-certifying old-pin history for 1a68db9acb6989dfa81bf875503db62e54a4bed6 and must not be repaired after later pin migrations.
+  - >
+    TASK-256 publication established ACTIVE P1B semantic registry bindings with exact blobs:
+    brain-audit=e931c1c7fa4b1b9dfbf7e7c649d5a19e0035d6ba;
+    brain-return=9d220ece8dd20028e590efd083b1a04b00ffadfe;
+    flow-cards=574edd0407de7f4cca14b8b854a5d00d271be014;
+    reviewer-procedure=ad510261ff220f9b9165dd7cdc8646fd6915b0a7;
+    reviewer-return=c805c49fcbe170677ff3bb9dde3fb4c9d308c474.
+  - >
+    .ai/executor-profiles.yaml blob is 6f0507f2bd15597fba4a2340f1508061bc7bee06;
+    Codex defaults to gpt-6-sol/high with supported efforts [none, low, medium, high, xhigh, max],
+    and Antigravity defaults to gemini-3.8-flash/medium with [low, medium, high].
+  - Existing Phase-1/Phase-2 workflows, carrier policies, and bootstrap scripts were not changed by TASK-259.
+  - TASK-254 revision 4 remains authored/unexecuted and is the unique product continuation after exact TASK-207 revision-9 publication.
+  - Mutable future AIOS-renew main is not downstream authority; only the checked-in exact pin is relevant.
+  - >
+    Existing TASK-207 canonical RUN history extends through RUN-207-010; if no competing
+    reservation appears, the fresh revision-9 PRIMARY is expected to become RUN-207-011,
+    but Runtime owns canonical RUN allocation.
 
 scope:
   inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
     - docs/PYTHON_AGENT_CONSTITUTION.md
     - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
     - docs/CHATGPT_PROJECT_CONTRACT.md
@@ -62,11 +70,16 @@ scope:
     - .ai/roadmap-state.yaml
     - .ai/aios-adoption-state.yaml
     - .ai/aios-conformance-state.yaml
-    - .ai/tasks/TASK-205.yaml
-    - .ai/tasks/TASK-206.yaml
+    - .ai/executor-profiles.yaml
+    - .ai/brain-audit-profiles.yaml
+    - .ai/brain-return-contracts.yaml
+    - .ai/flow-cards.yaml
+    - .ai/reviewer-procedure-profiles.yaml
+    - .ai/reviewer-return-contracts.yaml
     - .ai/tasks/TASK-207.yaml
-    - .ai/tasks/TASK-215.yaml
-    - .ai/tasks/TASK-221.yaml
+    - .ai/tasks/TASK-254.yaml
+    - .ai/tasks/TASK-256.yaml
+    - .ai/tasks/TASK-259.yaml
     - .ai/brain-ingress-carriers.yaml
     - .ai/brain-wakeup-carriers.yaml
     - .ai/brain-terminal-attention-carriers.yaml
@@ -86,9 +99,10 @@ scope:
     - .github/workflows/aios-approved-remediation-intent.yml
     - .github/workflows/aios-brain-repair-wakeup.yml
     - .github/workflows/aios-self-hosted-repair-wakeup.yml
-    - refs/heads/aios/failure-artifacts/RUN-207-009
-    - refs/heads/aios/artifacts/RUN-221-002
-    - refs/heads/aios/review-decision/RUN-221-002
+    - refs/heads/aios/artifacts/RUN-207-010
+    - refs/heads/aios/review-decision/RUN-207-010
+    - refs/heads/aios/artifacts/RUN-259-002
+    - refs/heads/aios/review-decision/RUN-259-002
     - tests/aios_bridge/test_aios_worker_control_surface.py
     - tests/aios_bridge/test_aios_brain_ingress.py
     - tests/aios_bridge/test_aios_phase1_control_plane.py
@@ -96,6 +110,7 @@ scope:
     - tests/aios_bridge/test_aios_auto_publish_workflow.py
     - tests/aios_bridge/test_aios_conformance_state.py
     - tests/aios_bridge/test_aios_governance_state.py
+    - tests/aios_bridge/test_aios_brain_reviewer_portability_bindings.py
   modify:
     - .ai/aios-conformance-state.yaml
     - .ai/aios-adoption-state.yaml
@@ -106,140 +121,146 @@ scope:
 
 non_goals:
   - Create a new conformance task or second downstream-conformance authority.
-  - Modify the AIOS-renew pin, worker provenance, workflow/carrier implementation, policies, bootstraps, Runtime, Reviewer, Publisher, A3/A6, correction actions, REPAIR semantics, or terminal-attention implementation.
-  - REPAIR, retry, recover, review, publish, or otherwise revive RUN-207-009.
-  - Reuse any revision-7 candidate as revision-8 source authority instead of implementing revision 8 from current canonical main.
-  - Modify, rerun, repair, review, publish, or otherwise advance TASK-215 / RUN-215-004 inside this conformance task.
-  - Modify src/product_intelligence, src/commerce_opportunity_intelligence, marketplace/browser/provider behavior, scoring/ranking, evidence, product truth, retrieval, persistence, or any product semantic.
-  - Rewrite revision-5 historical certification or claim revision-7 live evidence is current certification for edd7d8d where the pin is material.
-  - Manufacture CHANGES_REQUIRED, deliberately fail a real implementation RUN, or introduce code mutation solely to exercise correction transport.
-  - Manufacture a TASK-215 DELTA review solely as conformance evidence.
-  - Reimplement upstream TASK-148 behavior downstream, copy upstream project hooks, delete Runtime history, create a generic router/retry/reroute loop, scheduler, queue, broker, Planner, memory database, generic conversation store, duplicate lifecycle state machine, or floating AIOS reference.
+  - Modify the AIOS-renew pin, worker provenance, executor profiles, the five P1B registry blobs, workflow/carrier implementation, carrier policies, bootstrap scripts, Runtime, Reviewer, Publisher, correction/repair semantics, terminal-attention implementation, or frozen Kernel semantics.
+  - REPAIR, retry, recover, review, publish, or otherwise revive RUN-207-009 or reinterpret revision-8 certification as current-pin truth.
+  - Modify TASK-254 or execute/resume any product implementation inside this conformance task.
+  - Modify product source, marketplace/browser/provider behavior, scoring/ranking, evidence, product truth, retrieval, persistence, or any product semantic.
+  - Add provider routing, retry/fallback/failover, a second lifecycle authority, Planner, Reviewer, Publisher, scheduler, queue, broker, persistent model/chat memory, or mutable upstream reference.
   - Push, merge, publish, or mutate canonical main from Executor implementation execution.
 
 constraints:
   hard:
     - >
-      TASK-207 revision 8 remains the sole downstream-conformance semantic authority for the
-      current pin. Revision 7 / RUN-207-009 remains immutable failed old-pin history and grants
-      no source, correction, review, publication, or certification authority for edd7d8d.
+      TASK-207 revision 9 remains the sole downstream-conformance semantic authority for
+      the current pin. Prior TASK-207 certifications and failures remain immutable,
+      explicitly historical, and non-authorizing for 44eee353.
     - >
       This revision must itself be authored through the live [AIOS BRAIN INGRESS] carrier
-      against canonical predecessor main df1d71974979bed37bd20d67d9f0700fdb1e75b0 while
-      exact pin edd7d8d92d54900c56442bbfcddb8648ec4d2e09 is active.
+      against canonical predecessor main 6c9cfcd258c492a5f2301936324379c5e862a2ce.
     - >
       PRIMARY execution must use one fresh [AIOS BRAIN WAKEUP] request with executor codex
-      and stable dispatch_id task207-r8-codex-001 through the dedicated
-      [self-hosted, windows, x64, python-complete-agent] path. It must produce exactly one
-      fresh canonical TASK-207 revision-8 RUN, expected RUN-207-010, with deterministic
-      Runtime verification evidence and duplicate-dispatch protection. Do not use local
-      compatibility/debug execution as the conformance PRIMARY surface.
+      and stable dispatch_id task207-r9-codex-001 through the dedicated self-hosted Python
+      Agent runner. Do not provide a model or effort override: the run must resolve the
+      repository-default execution profile, thereby exercising the current exact
+      .ai/executor-profiles.yaml policy. It must create exactly one fresh canonical
+      TASK-207 revision-9 RUN; do not use local compatibility/debug execution as the
+      conformance PRIMARY surface.
     - >
-      The selected Executor performs only bounded six-file implementation work. Runtime owns
-      canonical verification; Executor must not run the TASK-level verification suite,
-      long-running builds, watchers, delegated/background agents, or another AIOS operation
-      as substitute verification, and must return one structured terminal ResultPackage only
-      after bounded repository work and commit completion are finished.
+      The selected Executor performs only bounded six-file implementation work. Runtime
+      owns canonical verification; Executor must not review, publish, run another AIOS
+      lifecycle operation, or widen scope.
     - >
       Terminalization must create or idempotently reuse the strict [AIOS TERMINAL ATTENTION]
-      carrier tied to revision-8 canonical terminal truth. Attention remains notification only.
+      carrier tied to the revision-9 canonical terminal truth. Attention remains notification only.
     - >
-      Fresh REMEDIATION conformance must be live-proven under exact edd7d8d through the
-      repository-owned GitHub carrier and self-hosted Phase-2 bootstrap using stable
-      correction_dispatch_id task-207-r8-remediation-non-authorizing-001 and a deliberately
-      non-authorizing selector shape that fails closed without creating an implementation RUN.
+      Fresh REMEDIATION compatibility must be live-proven under exact pin 44eee353 through
+      the repository-owned GitHub carrier and self-hosted Phase-2 bootstrap using stable
+      correction_dispatch_id task-207-r9-remediation-non-authorizing-001 and a deliberately
+      non-authorizing selector that fails closed without creating an implementation RUN.
     - >
-      Fresh REPAIR conformance must be live-proven under exact edd7d8d through the
+      Fresh REPAIR compatibility must be live-proven under exact pin 44eee353 through the
       repository-owned GitHub carrier and self-hosted Phase-2 bootstrap using stable
-      repair_dispatch_id task-207-r8-repair-non-authorizing-001 and a deliberately
+      repair_dispatch_id task-207-r9-repair-non-authorizing-001 and a deliberately
       non-authorizing NO_CHANGE-shaped selector with no coding Executor, failing closed
-      without creating an implementation RUN unless a real revision-8 failure independently
+      without creating an implementation RUN unless a real revision-9 failure independently
       requires canonical correction.
     - >
-      Review-to-publication authority remains the existing Brain ingress plus safe Publisher.
-      Revision-8 certification becomes effective only after PRIMARY semantic PASS is canonicalized
-      and the safe Publisher publishes exactly the reviewed revision-8 source candidate.
+      .ai/aios-conformance-state.yaml must make TASK-207 revision 9 / exact 44eee353 the
+      publication-gated current certification and preserve revision 8 / edd7d8d and
+      revision 5 / 49ad4d7 as historical certification plus revision 7 / RUN-207-009 as
+      failed old-pin non-certifying evidence.
     - >
-      Upstream TASK-148 revision-2 historical-subject semantics are certified as exact-pin package
-      capability by immutable REVIEW-148-003/source-publication provenance plus deterministic
-      current-pin regression coverage. Do not copy its Runtime implementation downstream and do
-      not consume RUN-215-004 as a conformance probe.
+      The conformance record must certify the current repository binding surface, not just
+      the r8 subset: Phase-1, Phase-2, exact TASK-256 P1B semantic registries, and exact
+      execution-profile policy. Record the five P1B paths/blob identities and exact
+      executor-profile blob 6f0507f2bd15597fba4a2340f1508061bc7bee06 without copying
+      package-owned semantics or turning registry/profile material into lifecycle authority.
     - >
-      .ai/aios-conformance-state.yaml must move current certification to TASK-207 revision 8 /
-      exact edd7d8d while preserving revision 5 / 49ad4d7 as historical prior-pin certification
-      and revision 7 / RUN-207-009 as failed old-pin non-certifying history. It remains a
-      certification record, not Runtime truth or raw evidence storage.
+      P1B registry semantics remain exactly bounded by TASK-256: Brain and Reviewer
+      registries are cognitive/procedure material only, store no chat memory, select no
+      provider/model default, and grant no Runtime/Executor/Reviewer/Publisher mutation
+      authority. Their exact committed blobs must remain unchanged.
     - >
-      .ai/aios-adoption-state.yaml must mark exact edd7d8d full downstream conformance as
-      publication-gated current certification through TASK-207 revision 8 only after publication,
-      preserving exact pin, package/binding classifications, TASK-148 provenance, and prior-pin history.
+      Execution-profile policy remains byte-identical. Certification may record current
+      defaults/capabilities, but may not change Codex gpt-6-sol/high, its effort set,
+      Antigravity gemini-3.8-flash/medium, its effort set, or explicit Human override precedence.
     - >
-      .ai/roadmap-state.yaml must resolve FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION through
-      TASK-207 revision 8 while preserving P7.3 as the unique product NEXT and exact resume target
-      TASK-215 revision 1 / RUN-215-004 / candidate
-      142bd865f69a6636b321d3cc7a0cd4004db3fdc7 / FINDING-215-001 with predecessor
-      RUN-215-003 / REPAIR-215-002 continuity. It must not mark P7.3 DONE or advance P7.4.
+      .ai/aios-adoption-state.yaml must move full_downstream_conformance from
+      REQUIRED_PENDING to publication-gated TASK-207 revision-9 certification for exact
+      44eee353 only after publication while preserving TASK-259/TASK-256 provenance and
+      exact registry identities.
     - >
-      No source mutation outside the six authorized modify files is permitted. A live defect in
-      workflow, policy, bootstrap, pin, Runtime, historical-subject semantics, review transport,
-      or correction transport blocks certification and requires separate authorized work rather
-      than widening this task.
+      .ai/roadmap-state.yaml must close the BP9 downstream-adoption side track only on
+      exact TASK-207 revision-9 reviewed-source publication and make already-authored
+      TASK-254 revision 4 the preserved unique product continuation. Do not execute
+      TASK-254, grant live validation authority, or invent a successor beyond TASK-254.
     - >
-      Deterministic verification must be offline, non-interactive and provider/network independent,
-      using a dedicated gitdir pytest basetemp. Live carrier evidence is separately observed from
-      canonical GitHub workflow/receipt state and must not be faked inside offline tests.
+      Documentation may update only current-pin certification, exact portability-profile
+      coverage, historical certification labels, and the publication-gated handoff back to
+      TASK-254. It must preserve "delegate exclusively", single-kernel authority, and
+      lifecycle-role separation.
     - >
-      Semantic Reviewer must independently inspect typed live current-pin evidence and must not
-      PASS solely because source tests pass.
+      No source mutation outside the six authorized modify files is permitted. A live
+      defect in workflow, policy, bootstrap, pin, Runtime, P1B registry, profile policy,
+      review transport, remediation transport, or repair transport blocks certification
+      and requires separate authorized work rather than widening this task.
+    - >
+      Deterministic verification must be offline, non-interactive and provider/network
+      independent. Live carrier evidence is separately observed from canonical GitHub
+      workflow/receipt state and must not be faked inside offline tests.
+    - >
+      Semantic Reviewer must independently inspect typed live current-pin evidence and the
+      exact registry/profile identities and must not PASS solely because source tests pass.
 
 acceptance:
   - id: AC1
     condition: >
-      TASK-207 revision 8 is canonically authored through live Brain ingress from predecessor
-      df1d71974979bed37bd20d67d9f0700fdb1e75b0 while exact edd7d8d is active, with
-      revision-7 / RUN-207-009 preserved as immutable non-certifying old-pin history.
+      TASK-207 revision 9 is canonically authored through live Brain ingress from exact
+      predecessor 6c9cfcd258c492a5f2301936324379c5e862a2ce, with all prior TASK-207
+      certification/failure lineage preserved as historical evidence.
   - id: AC2
     condition: >
-      One fresh Codex PRIMARY Brain Wakeup under exact edd7d8d produces exactly one canonical
-      TASK-207 revision-8 RUN with deterministic verification lineage and duplicate-dispatch
-      protection from the dedicated self-hosted Python Agent runner.
+      One fresh Codex PRIMARY Brain Wakeup under exact active pin 44eee353 resolves the
+      repository-default gpt-6-sol/high profile and produces exactly one canonical
+      TASK-207 revision-9 RUN with deterministic Runtime verification and duplicate-dispatch protection.
   - id: AC3
     condition: >
-      Revision-8 terminalization produces or idempotently reuses the correct terminal-attention
-      notification from canonical terminal truth without granting it lifecycle authority.
+      Revision-9 terminalization produces or idempotently reuses the correct
+      terminal-attention notification from canonical terminal truth without granting it lifecycle authority.
   - id: AC4
     condition: >
-      REMEDIATION carrier/bootstrap are freshly reachable and fail closed on the non-authorizing
-      revision-8 probe under edd7d8d without creating a coding RUN solely for the probe.
+      REMEDIATION carrier/bootstrap are freshly reachable under 44eee353 and fail closed
+      on the non-authorizing revision-9 probe without creating a coding RUN solely for the probe.
   - id: AC5
     condition: >
-      REPAIR carrier/bootstrap are freshly reachable and fail closed on the non-authorizing
-      NO_CHANGE-shaped revision-8 probe under edd7d8d with no coding Executor and no coding RUN
-      solely for the probe.
+      REPAIR carrier/bootstrap are freshly reachable under 44eee353 and fail closed on the
+      non-authorizing NO_CHANGE-shaped revision-9 probe with no coding Executor and no
+      coding RUN solely for the probe.
   - id: AC6
     condition: >
-      Exact-pin isolation, upstream TASK-148 revision-2 historical-subject capability,
-      one-capability-one-authority, all existing Phase-1/Phase-2 binding families, and
-      Human/Brain/Runtime/Executor/Reviewer/Publisher/A3/A6/REPAIR/Attention boundaries remain
-      intact without duplicate lifecycle implementation or upstream-hook activation.
+      Current certification covers Phase-1, Phase-2, the five exact ACTIVE TASK-256 P1B
+      registry blobs, and exact executor-profile blob 6f0507f2bd15597fba4a2340f1508061bc7bee06
+      while preserving one-capability-one-authority and all Human/Brain/Runtime/Executor/
+      Reviewer/Publisher/A3/A6/REPAIR/Attention boundaries.
   - id: AC7
     condition: >
-      Conformance/adoption records bind current certification to TASK-207 revision 8 and exact
-      edd7d8d only on reviewed source publication, preserving TASK-207 revision 5 / 49ad4d7
-      historical certification and revision 7 / RUN-207-009 failed old-pin history.
+      Conformance/adoption records bind current certification to TASK-207 revision 9 and
+      exact 44eee353 only on reviewed source publication, preserving revision-8 and
+      revision-5 certifications as historical old-pin evidence and revision-7 failure as
+      non-certifying history.
   - id: AC8
     condition: >
-      Roadmap resolves the fresh-conformance prerequisite but preserves P7.3 as NEXT and exact
-      TASK-215 revision-1 / RUN-215-004 / candidate
-      142bd865f69a6636b321d3cc7a0cd4004db3fdc7 / FINDING-215-001 / RUN-215-003 /
-      REPAIR-215-002 continuity without rerunning TASK-215 or advancing P7.4.
+      On exact revision-9 publication the BP9 downstream-adoption side track is closed and
+      the unique preserved continuation becomes already-authored TASK-254 revision 4,
+      without executing it or changing product/live-validation authority.
   - id: AC9
     condition: >
-      Source mutations stay inside the six authorized files; focused deterministic tests and
-      git diff --check pass with zero unresolved source items; Reviewer observes sufficient
-      typed live current-pin evidence before PASS.
+      Source mutations stay inside the six authorized files; focused deterministic tests
+      including P1B portability assertions and git diff --check pass with zero unresolved
+      source items; Reviewer observes sufficient typed live current-pin evidence before PASS.
 
 verification:
+  policy: minimum-sufficient-v1
   required:
-    - python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py tests/aios_bridge/test_aios_brain_ingress.py tests/aios_bridge/test_aios_phase1_control_plane.py tests/aios_bridge/test_aios_phase2_control_plane.py tests/aios_bridge/test_aios_auto_publish_workflow.py tests/aios_bridge/test_aios_conformance_state.py tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task207-r8
+    - python -m pytest tests/aios_bridge/test_aios_worker_control_surface.py tests/aios_bridge/test_aios_brain_ingress.py tests/aios_bridge/test_aios_phase1_control_plane.py tests/aios_bridge/test_aios_phase2_control_plane.py tests/aios_bridge/test_aios_auto_publish_workflow.py tests/aios_bridge/test_aios_conformance_state.py tests/aios_bridge/test_aios_governance_state.py tests/aios_bridge/test_aios_brain_reviewer_portability_bindings.py -q --basetemp=.git/aios/pytest-task207-r9
     - git diff --check
