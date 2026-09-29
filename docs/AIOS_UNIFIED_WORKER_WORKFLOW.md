@@ -551,9 +551,9 @@ TASK-207 revision 7 and RUN-207-009 remain immutable failed, non-certifying old-
 For that historical revision-8 publication, `FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION` was resolved
 and the then-current P7.3 product continuation retained TASK-215 revision 1 / RUN-215-004 / candidate
 `142bd865f69a6636b321d3cc7a0cd4004db3fdc7` / FINDING-215-001 / RUN-215-003 / REPAIR-215-002
-continuity; TASK-215 is not rerun, P7.3 is not marked DONE, and P7.4 is not advanced.
+continuity; TASK-215 was not rerun, P7.3 was not marked DONE, and P7.4 was not advanced at that time.
 TASK-207 revision 2 and RUN-207-001/RUN-207-002/REPAIR-207-001 remain immutable old-pin
-history; conformance resumes only through a fresh Brain revision bound to the new pin.
+history; current-pin conformance is bound to the fresh Brain-authored revision 14.
 Future AIOS-renew main changes remain irrelevant until another explicit reviewed downstream migration.
 
 The normal certified surfaces remain the repository-owned GitHub Issue carriers for Brain
@@ -623,8 +623,7 @@ gemini-3.8-flash/medium; explicit Human overrides take precedence and the
 carriers preserve exact model/effort provenance. TASK-207 revision 8 under
 `edd7d8d92d54900c56442bbfcddb8648ec4d2e09` remains historical certification only. Fresh post-pin
 revision-14 current-pin certification is publication-gated. P1B repository semantic registries are
-bound as described below. This
-planning and documentation state does not prove Runtime migration completion.
+bound as described below. This planning and documentation state does not prove Runtime migration completion.
 
 ## BP9-P1B Brain and Reviewer semantic registries
 

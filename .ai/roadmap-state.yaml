@@ -3711,12 +3711,13 @@ historical_full_downstream_conformance:
     predecessor_run_id: RUN-215-003
     repair_id: REPAIR-215-002
   roadmap_effect: >-
-    On reviewed source publication, closes FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION
-    through TASK-207 revision 8 under exact pin edd7d8d92d54900c56442bbfcddb8648ec4d2e09.
-    Preserves revision-5 certification for 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2 and revision-7 /
-    RUN-207-009 failed old-pin history for 1a68db9acb6989dfa81bf875503db62e54a4bed6. P7.3 remains NEXT
-    with exact TASK-215 revision 1 / RUN-215-004 / candidate 142bd865f69a6636b321d3cc7a0cd4004db3fdc7 /
-    FINDING-215-001 / RUN-215-003 / REPAIR-215-002 continuity; P7.3 is not marked DONE and P7.4 is not advanced.
+    At the historical revision-8 reviewed-source publication, FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION
+    closed for exact pin edd7d8d92d54900c56442bbfcddb8648ec4d2e09.
+    Revision-5 certification for 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2 and revision-7 /
+    RUN-207-009 failed old-pin history for 1a68db9acb6989dfa81bf875503db62e54a4bed6 remained historical.
+    P7.3 was then NEXT with exact TASK-215 revision 1 / RUN-215-004 / candidate
+    142bd865f69a6636b321d3cc7a0cd4004db3fdc7 / FINDING-215-001 / RUN-215-003 /
+    REPAIR-215-002 continuity; P7.3 was not marked DONE and P7.4 was not advanced at that time.
 
 full_downstream_conformance:
   status: CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION

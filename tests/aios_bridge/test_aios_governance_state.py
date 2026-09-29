@@ -4837,7 +4837,8 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
         "predecessor_run_id": "RUN-215-003",
         "repair_id": "REPAIR-215-002",
     }
-    assert "closes FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION" in conformance["roadmap_effect"]
+    assert "At the historical revision-8 reviewed-source publication" in conformance["roadmap_effect"]
+    assert "P7.3 was then NEXT" in conformance["roadmap_effect"]
 
     current = state["full_downstream_conformance"]
     assert current["status"] == "CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION"
