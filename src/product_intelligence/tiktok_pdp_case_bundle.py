@@ -19,6 +19,7 @@ from typing import Callable, Mapping, Protocol
 from urllib.parse import urlsplit
 
 from src.integrations.playwright.manager import PlaywrightBrowserManager
+from src.product_intelligence.tiktok_pdp_dom_scope import TIKTOK_PDP_DOM_SCOPE_JS
 
 
 CONTEXT_ID = "p8-pilot-001-led-motion-tiktok-vn"
@@ -131,21 +132,14 @@ def _resolve_external_job_root(job_root: str | Path) -> Path:
     return resolved
 
 
-CASE_BUNDLE_SCRIPT = r"""() => {
+CASE_BUNDLE_SCRIPT = (
+    r"""() => {
  const MAX_SCANNED = 2000;
  const MAX_RECORDS = 500;
  const MAX_TEXT = 160;
- const clip = (v, n) => String(v || '').replace(/\s+/g, ' ').trim().slice(0, n);
- const atom = (v, n) => {
-   const s = clip(v, n);
-   return /^[A-Za-z0-9_.:/-]*$/.test(s) && !/\d{4,}/.test(s) ? s : '';
- };
- const tokens = e => Array.from((e && e.classList) || []).slice(0, 4).map(v => atom(v, 48)).filter(Boolean);
- const visible = e => {
-   if (!e || typeof e.getBoundingClientRect !== 'function') return false;
-   const r = e.getBoundingClientRect(), s = getComputedStyle(e);
-   return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none';
- };
+"""
+    + TIKTOK_PDP_DOM_SCOPE_JS
+    + r"""
  const pageTitle = clip(document.title, 200).toLowerCase(), url = String(location.href || '');
  const marker = ss => ss.some(s => Array.from(document.querySelectorAll(s)).slice(0, 4).some(visible));
  const blocked = /captcha|challenge|verify|security check|robot/.test(pageTitle) || marker([
@@ -197,7 +191,37 @@ CASE_BUNDLE_SCRIPT = r"""() => {
    };
  }
 
- const skippedTags = new Set(['script', 'style', 'noscript', 'template', 'svg', 'iframe']);
+ const scope = resolveBoundedPdpDomScope();
+ const root = scope.root;
+ const targetRoot = root || document.body || document.documentElement;
+
+ const isExcludedRegion = e => {
+   let cur = e;
+   while (cur && cur !== targetRoot && cur !== document.body && cur !== document.documentElement) {
+     const tag = String(cur.tagName || '').toLowerCase();
+     if (['header', 'nav', 'footer', 'aside'].includes(tag)) return true;
+     const role = String(cur.getAttribute('role') || '').toLowerCase();
+     if (['navigation', 'banner', 'contentinfo'].includes(role)) return true;
+     const attrs = [
+       cur.getAttribute('data-e2e'),
+       cur.getAttribute('data-testid'),
+       cur.getAttribute('id'),
+       cur.getAttribute('aria-label'),
+       typeof cur.className === 'string' ? cur.className : ''
+     ].filter(Boolean).join(' ').toLowerCase();
+     if (
+       /\b(?:account|profile|session|user-info|user-profile|user-name|username|user-avatar|avatar|top-nav|site-nav|global-nav|navbar|nav-bar|navigation|bottom-nav|login|signin|sign-in|logout|sign-out)\b/i.test(attrs) ||
+       /(?:account|profile|session|avatar|user[-_](?:info|profile|name|avatar))/i.test(cur.getAttribute('data-e2e') || '') ||
+       /(?:account|profile|session|avatar|user[-_](?:info|profile|name|avatar))/i.test(cur.getAttribute('data-testid') || '')
+     ) {
+       return true;
+     }
+     cur = cur.parentElement;
+   }
+   return false;
+ };
+
+ const skippedTags = new Set(['script', 'style', 'noscript', 'template', 'svg', 'iframe', 'header', 'nav', 'footer', 'aside']);
  const records = [];
  let scannedCount = 0;
  let scannedTruncated = false;
@@ -205,7 +229,7 @@ CASE_BUNDLE_SCRIPT = r"""() => {
  let textTruncated = false;
 
  const walker = document.createTreeWalker(
-   document.body || document.documentElement,
+   targetRoot,
    NodeFilter.SHOW_ELEMENT
  );
 
@@ -213,12 +237,12 @@ CASE_BUNDLE_SCRIPT = r"""() => {
  while (current && scannedCount < MAX_SCANNED) {
    scannedCount++;
    const tag = String(current.tagName || '').toLowerCase();
-   if (!skippedTags.has(tag) && visible(current)) {
+   if (!skippedTags.has(tag) && visible(current) && !isExcludedRegion(current)) {
      let headingCtx = null;
      let p = current;
      for (let i = 0; i < 4 && p; i++) {
        const h = p.querySelector ? p.querySelector('h1, h2, h3, [role="heading"]') : null;
-       if (h && visible(h)) {
+       if (h && visible(h) && !isExcludedRegion(h)) {
          headingCtx = clip(h.textContent, 60);
          break;
        }
@@ -289,6 +313,7 @@ CASE_BUNDLE_SCRIPT = r"""() => {
    records: records
  };
 }"""
+)
 
 
 def _validate_record(record: object, expected_ordinal: int) -> dict[str, object]:
@@ -302,7 +327,19 @@ def _validate_record(record: object, expected_ordinal: int) -> dict[str, object]
         or not tag_name
         or len(tag_name) > _MAX_TAG_NAME
         or not _SAFE_ATOM.fullmatch(tag_name)
-        or tag_name in ("script", "style", "noscript", "template", "svg", "iframe")
+        or tag_name
+        in (
+            "script",
+            "style",
+            "noscript",
+            "template",
+            "svg",
+            "iframe",
+            "header",
+            "nav",
+            "footer",
+            "aside",
+        )
     ):
         raise TikTokPdpCaseBundleError(MALFORMED_PROJECTION)
     for key in ("role", "itemprop", "data-testid", "data-e2e"):

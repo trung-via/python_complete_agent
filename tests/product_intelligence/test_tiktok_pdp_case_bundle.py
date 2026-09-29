@@ -514,3 +514,70 @@ def test_ast_no_forbidden_intelligence_or_decision_imports():
 
     intersection = imported_names.intersection(forbidden_symbols)
     assert not intersection, f"Forbidden symbols imported: {intersection}"
+
+
+def test_case_bundle_consumes_canonical_shared_bounded_dom_scope_resolver():
+    """Prove case bundle consumes the canonical shared BOUNDED_TIKTOK_PDP_DOM_SCOPE_RESOLUTION resolver."""
+    from src.product_intelligence.tiktok_pdp_dom_scope import (
+        BOUNDED_TIKTOK_PDP_DOM_SCOPE_RESOLUTION,
+        TIKTOK_PDP_DOM_SCOPE_JS,
+    )
+
+    source = (
+        Path(__file__).resolve().parents[2]
+        / "src"
+        / "product_intelligence"
+        / "tiktok_pdp_case_bundle.py"
+    ).read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    imports = {
+        node.module: [alias.name for alias in node.names]
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module
+    }
+    assert "src.product_intelligence.tiktok_pdp_dom_scope" in imports
+    assert "TIKTOK_PDP_DOM_SCOPE_JS" in imports["src.product_intelligence.tiktok_pdp_dom_scope"]
+    assert TIKTOK_PDP_DOM_SCOPE_JS in CASE_BUNDLE_SCRIPT
+    assert "resolveBoundedPdpDomScope()" in CASE_BUNDLE_SCRIPT
+    assert "scope.root" in CASE_BUNDLE_SCRIPT
+    assert BOUNDED_TIKTOK_PDP_DOM_SCOPE_RESOLUTION == "BOUNDED_TIKTOK_PDP_DOM_SCOPE_RESOLUTION"
+
+
+def test_case_bundle_script_excludes_account_session_profile_navigation_regions():
+    """Prove case bundle projection script deterministically excludes account/session/profile/navigation regions."""
+    assert "isExcludedRegion" in CASE_BUNDLE_SCRIPT
+    assert "skippedTags" in CASE_BUNDLE_SCRIPT
+    for excluded_tag in ("header", "nav", "footer", "aside"):
+        assert f"'{excluded_tag}'" in CASE_BUNDLE_SCRIPT or f'"{excluded_tag}"' in CASE_BUNDLE_SCRIPT
+    for excluded_role in ("navigation", "banner", "contentinfo"):
+        assert f"'{excluded_role}'" in CASE_BUNDLE_SCRIPT or f'"{excluded_role}"' in CASE_BUNDLE_SCRIPT
+    for term in ("account", "profile", "session", "user", "avatar", "login"):
+        assert term in CASE_BUNDLE_SCRIPT
+
+
+@pytest.mark.parametrize("tag", ["header", "nav", "footer", "aside", "script", "style"])
+def test_validate_record_rejects_navigation_and_header_tags(tag: str):
+    """Prove projection record validation rejects non-product navigation/header/script tags."""
+    from src.product_intelligence.tiktok_pdp_case_bundle import _validate_record
+
+    rec = _sample_record(1, tag=tag)
+    with pytest.raises(TikTokPdpCaseBundleError) as exc_info:
+        _validate_record(rec, 1)
+    assert str(exc_info.value) == MALFORMED_PROJECTION
+
+
+def test_projection_validation_accepts_clean_product_records():
+    """Prove representative product facts validate cleanly in projection payload."""
+    from src.product_intelligence.tiktok_pdp_case_bundle import _validate_projection_payload
+
+    payload = _valid_projection_payload(
+        records=[
+            _sample_record(1, "h1", "Đèn LED Cảm Biến Chuyển Động"),
+            _sample_record(2, "span", "33.600₫", role="", itemprop="price"),
+            _sample_record(3, "button", "Mua ngay", role="button", **{"data-e2e": "buy-now"}),
+        ]
+    )
+    validated = _validate_projection_payload(payload)
+    assert len(validated["records"]) == 3
+    assert validated["records"][0]["visible_text"] == "Đèn LED Cảm Biến Chuyển Động"
+
