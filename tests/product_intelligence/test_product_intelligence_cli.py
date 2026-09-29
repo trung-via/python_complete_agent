@@ -204,6 +204,7 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
         "capture",
         "tiktok-pdp-live-pilot",
         "tiktok-pdp-dom-diagnostic",
+        "tiktok-pdp-case-bundle",
         "decide",
         "family-decide",
         "variant-decide",
@@ -256,6 +257,12 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
             "--job-root",
             "--cdp-endpoint",
         },
+        "tiktok-pdp-case-bundle": {
+            "-h",
+            "--help",
+            "--job-root",
+            "--cdp-endpoint",
+        },
         "decide": {
             "-h",
             "--help",
@@ -303,6 +310,9 @@ def test_parser_exposes_exact_commands_and_requires_arguments():
         ["tiktok-pdp-dom-diagnostic"],
         ["tiktok-pdp-dom-diagnostic", "--job-root", "external"],
         ["tiktok-pdp-dom-diagnostic", "--cdp-endpoint", "http://127.0.0.1:9222"],
+        ["tiktok-pdp-case-bundle"],
+        ["tiktok-pdp-case-bundle", "--job-root", "external"],
+        ["tiktok-pdp-case-bundle", "--cdp-endpoint", "http://127.0.0.1:9222"],
         [
             "discover",
             "--query",
@@ -4074,3 +4084,109 @@ def test_tiktok_pdp_dom_diagnostic_cli_rejects_all_target_and_scraping_controls(
             ]
         )
     assert raised.value.code == 2
+
+
+def test_tiktok_pdp_case_bundle_cli_is_exactly_two_input_attach_only(
+    monkeypatch, capsys, tmp_path
+):
+    calls = []
+
+    class FakeOutcome:
+        def to_document(self):
+            return {
+                "bundle": {
+                    "status": "SUCCESS",
+                    "classification": "P8_REAL_CASE_SOURCE_OBSERVATION_BUNDLE_ONE_SHOT_ONLY",
+                    "epistemic_boundary": "BUNDLE_IS_NOT_CANONICAL_EVIDENCE",
+                }
+            }
+
+    async def fake_bundle(**kwargs):
+        calls.append(kwargs)
+        return FakeOutcome()
+
+    monkeypatch.setattr(cli, "_run_tiktok_pdp_case_bundle", fake_bundle)
+    endpoint = "http://operator-secret:9222"
+    assert cli.main(
+        [
+            "tiktok-pdp-case-bundle",
+            "--job-root",
+            str(tmp_path / "bundle"),
+            "--cdp-endpoint",
+            endpoint,
+        ]
+    ) == 0
+    captured = capsys.readouterr()
+    assert json.loads(captured.out) == {
+        "bundle": {
+            "status": "SUCCESS",
+            "classification": "P8_REAL_CASE_SOURCE_OBSERVATION_BUNDLE_ONE_SHOT_ONLY",
+            "epistemic_boundary": "BUNDLE_IS_NOT_CANONICAL_EVIDENCE",
+        }
+    }
+    assert captured.err == ""
+    assert calls == [
+        {"job_root": str(tmp_path / "bundle"), "cdp_endpoint": endpoint}
+    ]
+    assert endpoint not in captured.out
+
+
+@pytest.mark.parametrize(
+    "forbidden",
+    (
+        "--url", "--source-id", "--query", "--navigate", "--retry", "--profile",
+        "--cookie", "--affiliate", "--scheduler", "--interactive",
+    ),
+)
+def test_tiktok_pdp_case_bundle_cli_rejects_all_target_and_scraping_controls(
+    forbidden, tmp_path
+):
+    with pytest.raises(SystemExit) as raised:
+        cli._parser().parse_args(
+            [
+                "tiktok-pdp-case-bundle",
+                "--job-root",
+                str(tmp_path),
+                "--cdp-endpoint",
+                "http://127.0.0.1:9222",
+                forbidden,
+                "value",
+            ]
+        )
+    assert raised.value.code == 2
+
+
+def test_tiktok_pdp_case_bundle_cli_error_is_bounded_and_redacts_secrets(
+    monkeypatch, capsys, tmp_path
+):
+    from src.product_intelligence.tiktok_pdp_case_bundle import (
+        TikTokPdpCaseBundleError,
+    )
+
+    job_root = tmp_path / "bundle-secret-root"
+    endpoint = "http://127.0.0.1:9222/devtools/browser/cdp-secret"
+
+    async def fail_bundle(**kwargs):
+        del kwargs
+        raise TikTokPdpCaseBundleError("IDENTITY_MISMATCH")
+
+    monkeypatch.setattr(cli, "_run_tiktok_pdp_case_bundle", fail_bundle)
+    assert cli.main(
+        [
+            "tiktok-pdp-case-bundle",
+            "--job-root",
+            str(job_root),
+            "--cdp-endpoint",
+            endpoint,
+        ]
+    ) == 1
+    rendered = capsys.readouterr()
+    assert rendered.out == ""
+    assert json.loads(rendered.err) == {
+        "error": {
+            "type": "TikTokPdpCaseBundleError",
+            "message": "IDENTITY_MISMATCH",
+        }
+    }
+    assert str(job_root) not in rendered.err
+    assert endpoint not in rendered.err
