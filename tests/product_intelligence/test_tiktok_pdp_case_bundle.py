@@ -264,9 +264,11 @@ async def test_session_acquisition_failure_does_not_consume(tmp_path):
         await run_tiktok_pdp_case_bundle(
             job_root=job_root,
             cdp_endpoint=ENDPOINT,
-            manager_factory=lambda cdp: fake_manager,
+            manager_factory=lambda cdp_endpoint: fake_manager,
         )
     assert "could not be borrowed" in str(exc_info.value)
+    assert isinstance(exc_info.value.__cause__, RuntimeError)
+    assert "CDP connection refused" in str(exc_info.value.__cause__)
     assert not job_root.exists() or list(job_root.iterdir()) == []
 
 
@@ -280,7 +282,7 @@ async def test_evaluate_failure_does_not_consume(tmp_path):
         await run_tiktok_pdp_case_bundle(
             job_root=job_root,
             cdp_endpoint=ENDPOINT,
-            manager_factory=lambda cdp: fake_manager,
+            manager_factory=lambda cdp_endpoint: fake_manager,
         )
     assert "bounded page projection evaluation failed" in str(exc_info.value)
     assert not (job_root / MANIFEST_FILENAME).exists()
@@ -297,7 +299,7 @@ async def test_screenshot_failure_does_not_consume(tmp_path):
         await run_tiktok_pdp_case_bundle(
             job_root=job_root,
             cdp_endpoint=ENDPOINT,
-            manager_factory=lambda cdp: fake_manager,
+            manager_factory=lambda cdp_endpoint: fake_manager,
         )
     assert "full-page screenshot capture failed" in str(exc_info.value)
     assert not (job_root / MANIFEST_FILENAME).exists()
@@ -313,7 +315,7 @@ async def test_invalid_screenshot_bytes_fail_without_consuming(tmp_path):
         await run_tiktok_pdp_case_bundle(
             job_root=job_root,
             cdp_endpoint=ENDPOINT,
-            manager_factory=lambda cdp: fake_manager,
+            manager_factory=lambda cdp_endpoint: fake_manager,
         )
     assert "not a valid PNG image" in str(exc_info.value)
     assert not (job_root / MANIFEST_FILENAME).exists()
@@ -340,7 +342,7 @@ async def test_page_state_failures_fail_closed_without_consuming(tmp_path, flag,
         await run_tiktok_pdp_case_bundle(
             job_root=job_root,
             cdp_endpoint=ENDPOINT,
-            manager_factory=lambda cdp: fake_manager,
+            manager_factory=lambda cdp_endpoint: fake_manager,
         )
     assert str(exc_info.value) == error_code
     assert not (job_root / MANIFEST_FILENAME).exists()
@@ -365,7 +367,7 @@ async def test_identity_mismatch_fails_closed_without_consuming(tmp_path, bad_ur
         await run_tiktok_pdp_case_bundle(
             job_root=job_root,
             cdp_endpoint=ENDPOINT,
-            manager_factory=lambda cdp: fake_manager,
+            manager_factory=lambda cdp_endpoint: fake_manager,
         )
     assert str(exc_info.value) == IDENTITY_MISMATCH
     assert not (job_root / MANIFEST_FILENAME).exists()
@@ -390,7 +392,7 @@ async def test_manifest_first_consumption_and_post_manifest_failure(tmp_path, mo
         await run_tiktok_pdp_case_bundle(
             job_root=job_root,
             cdp_endpoint=ENDPOINT,
-            manager_factory=lambda cdp: fake_manager,
+            manager_factory=lambda cdp_endpoint: fake_manager,
         )
     assert str(exc_info.value) == POST_MANIFEST_WRITE_FAILURE
 
@@ -403,7 +405,7 @@ async def test_manifest_first_consumption_and_post_manifest_failure(tmp_path, mo
         await run_tiktok_pdp_case_bundle(
             job_root=job_root,
             cdp_endpoint=ENDPOINT,
-            manager_factory=lambda cdp: fake_manager,
+            manager_factory=lambda cdp_endpoint: fake_manager,
         )
 
 
@@ -422,7 +424,7 @@ async def test_byte_truncation_enforces_limit(tmp_path):
     outcome = await run_tiktok_pdp_case_bundle(
         job_root=job_root,
         cdp_endpoint=ENDPOINT,
-        manager_factory=lambda cdp: fake_manager,
+        manager_factory=lambda cdp_endpoint: fake_manager,
     )
 
     proj_bytes = outcome.projection_path.read_bytes()
