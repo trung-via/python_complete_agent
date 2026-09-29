@@ -106,20 +106,22 @@ human_priority_side_track:
     completion_gate: EXACT_TASK_259_R2_REVIEWED_SOURCE_PUBLICATION
   current_prerequisite:
     task_id: TASK-207
-    task_revision: 9
-    approved_against_main_sha: "85f0fe92bb1223279bf7029cdc8a2b60c75ba16f"
-    task_blob_sha: "ba379dfc41c8f3985795ed3c3be5307eac44f42a"
+    task_revision: 11
+    approved_against_main_sha: "004eb5f169d4e7baa4359275764e117605a9c23b"
+    task_blob_sha: "6b6e50cae5b0bd38c1122d5be1c42cc33fe469d6"
     authority: HUMAN_BRAIN_PLANNING
     reason: >-
-      TASK-259 revision 2 completed through RUN-259-002, REVIEW-259-001 PASS and
-      exact publication of 6c9cfcd258c492a5f2301936324379c5e862a2ce. TASK-207
-      revision 9 is now canonically authored through live Brain ingress and is the
-      unique BP9 P2 current-pin conformance prerequisite under exact pin
+      TASK-259 revision 2 is publication-complete. TASK-207 revisions 9 and 10 were
+      authored but never executed; current Human intent prospectively superseded their
+      execution-profile choices. TASK-207 revision 11 is now the unique BP9 P2
+      current-pin conformance prerequisite under exact pin
       44eee353eda376c9db8cd88d97184d3122651bf5.
     execution_transport: BRAIN_WAKEUP_PRIMARY
-    dispatch_id: task207-r9-codex-001
+    dispatch_id: task207-r11-codex-high-001
     executor: codex
-    execution_profile_source: REPOSITORY_DEFAULT
+    model: gpt-6-sol
+    reasoning_effort: high
+    execution_profile_source: EXPLICIT_HUMAN_OVERRIDE
     active_pin: "44eee353eda376c9db8cd88d97184d3122651bf5"
     prior_current_certification:
       task_id: TASK-207
@@ -132,21 +134,21 @@ human_priority_side_track:
     task_id: TASK-254
     expected_revision: 4
     status: AUTHORED_BLOCKED
-    gate: AFTER_EXACT_TASK_207_R9_REVIEW_AND_PUBLICATION
+    gate: AFTER_EXACT_TASK_207_R11_REVIEW_AND_PUBLICATION
     objective: >-
       Resume the already-authored post-TASK253 validation-carrier provenance rebinding
-      product task only after exact TASK-207 revision-9 downstream conformance publication.
+      product task only after exact TASK-207 revision-11 downstream conformance publication.
 
   preserved_product_commitment:
     task_id: TASK-254
     task_revision: 4
     status: AUTHORED_UNEXECUTED
-    resume_after: TASK_207_R9_PUBLICATION
+    resume_after: TASK_207_R11_PUBLICATION
   boundary: >-
-    Current Human/Brain priority is fresh TASK-207 revision-9 downstream conformance under
+    Current Human/Brain priority is fresh TASK-207 revision-11 downstream conformance under
     exact pin 44eee353eda376c9db8cd88d97184d3122651bf5. TASK-259 publication is complete
     historical migration evidence. Do not resume TASK-254, product work, or another roadmap
-    item before exact TASK-207 r9 semantic review and publication.
+    item before exact TASK-207 r11 semantic review and publication.
 
 active_track:
   id: P8_PUBLIC_PDP_GEN8_RESULT_AND_PAIRED_PRICE_ROLE_HARDENING
