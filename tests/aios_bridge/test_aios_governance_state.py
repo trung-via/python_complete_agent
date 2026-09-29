@@ -3872,7 +3872,7 @@ def test_task_234_reconciliation_and_diagnostic_preserve_authority_separation():
     assert handoff["automated_public_pdp_acquisition_authority"] == "NONE"
     assert handoff["market_test_or_action_authority"] == "NONE"
     assert diagnostic_record["diagnostic_executed"] is False
-    assert handoff["selector_repair_complete"] is False
+    assert diagnostic_record["selector_repair_complete"] is False
     assert handoff["next_milestone"] is None
     assert state["pending_commitments"] == []
 
