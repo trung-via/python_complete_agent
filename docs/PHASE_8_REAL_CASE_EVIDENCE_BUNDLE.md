@@ -3,7 +3,7 @@
 ## 1. Classification, Exact Case, and Authority Lineage
 
 - **Classification**: `P8_REAL_CASE_SOURCE_OBSERVATION_BUNDLE_ONE_SHOT_ONLY`
-- **Task ID**: `TASK-263`, revision 2
+- **Task ID**: `TASK-263`, revision 4
 - **Authorization Owner**: `HUMAN_BRAIN`
 - **Context ID**: `p8-pilot-001-led-motion-tiktok-vn`
 - **Authorized Source ID**: `1731381331718341815`
@@ -13,6 +13,7 @@
 - **Preceding Milestone**: `TASK-262` (`POST_TASK261_ONE_SHOT_VALIDATION_SUCCESS_RECONCILIATION_ONLY`)
 - **Predecessor Published Source SHA**: `935c46069e7770bc2a56b29abac58311ff7730e6`
 - **Source Published SHA**: `935c46069e7770bc2a56b29abac58311ff7730e6`
+- **Observed Revision-2 Live Outcome**: `PRE_MANIFEST_SCREENSHOT_FAILURE_NON_CONSUMING`
 
 TASK-263 creates one bounded attach-only carrier and one-shot Human authorization for the exact selected TikTok Shop Vietnam PDP listing. It does not perform the live capture itself, construct canonical evidence, mutate P7 semantics, infer Product Truth, use MCP, call marketplace APIs, or generalize acquisition beyond the single P8 case.
 
@@ -27,6 +28,7 @@ The bundle carrier is an attach-only orchestration tool that borrows the existin
 - **Single Evaluation & Screenshot**: Evaluates JavaScript in the page exactly once to capture the sanitized structural projection, and invokes `screenshot()` exactly once for full-page visual cross-check.
 - **Session Release Ownership**: Releases/closes only the borrowed session via `close_session()` without terminating or disturbing the Human-owned browser process.
 - **No Browser API Changes**: Requires no changes to `BrowserSession`, `BrowserManager`, or Playwright session protocols.
+- **Carrier-Specific Timeout Hardening (Revision 3)**: Supplies `BrowserConfig(timeout_seconds=120)` to `PlaywrightBrowserManager.get_or_create_session()` for the case-bundle session, replacing the implicit 30-second default while preserving global defaults and manager/session semantics.
 
 ---
 
@@ -121,6 +123,9 @@ Before invoking the carrier, the Human operator must confirm:
 2. Exactly one normal `type=page` target is open and navigated to the exact PDP (`1731381331718341815`).
 3. External job root is outside the Git repository.
 4. Job root contains none of the three final artifact files (`p8-real-case-manifest-v1.json`, `p8-real-case-page-projection-v1.json`, `p8-real-case-full-page-v1.png`).
+
+### Revision-2 Observed Capture Outcome & Non-Consuming Status
+The first Human-operated live capture under revision 2 completed clean non-consuming repo/CDP/job-root preflight, successfully evaluated the bounded page projection, but returned `TikTokPdpCaseBundleError: the full-page screenshot capture failed` (`CAPTURE_EXIT=1`). Because this failure occurred before manifest creation, all three final artifact paths remained absent (`p8-real-case-manifest-v1.json`, `p8-real-case-page-projection-v1.json`, `p8-real-case-full-page-v1.png`). Under the manifest-first consumption contract, this outcome is classified as `PRE_MANIFEST_SCREENSHOT_FAILURE_NON_CONSUMING`. The one-shot attempt remains unconsumed (`authorized_bundle_attempts: 1`, `authorized_bundle_attempts_remaining: 1`, `bundle_executed: false`). Revision 3 hardens the carrier against default timeout without adding retries, fallbacks, or page mutations.
 
 ### Canonical Command Line
 ```powershell

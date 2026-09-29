@@ -17,10 +17,12 @@ from urllib.parse import urlsplit
 
 import pytest
 
+from src.browser.models import BrowserConfig
 from src.product_intelligence.tiktok_pdp_case_bundle import (
     AUTHORIZED_PDP_URL,
     AUTHORIZED_SOURCE_ID,
     BLOCKED_OR_CHALLENGE,
+    CASE_BUNDLE_BROWSER_TIMEOUT_SECONDS,
     CASE_BUNDLE_SCRIPT,
     CLASSIFICATION,
     CONTEXT_ID,
@@ -131,12 +133,14 @@ class FakeManager:
         self.session_exc = session_exc
         self.close_exc = close_exc
         self.acquired_run_ids = []
+        self.acquired_configs = []
         self.closed_run_ids = []
 
-    async def get_or_create_session(self, run_id: str):
+    async def get_or_create_session(self, run_id: str, config: BrowserConfig | None = None):
         if self.session_exc is not None:
             raise self.session_exc
         self.acquired_run_ids.append(run_id)
+        self.acquired_configs.append(config)
         return self.session
 
     async def close_session(self, run_id: str):
@@ -206,6 +210,10 @@ async def test_case_bundle_success_flow(tmp_path):
     assert fake_session.screenshot_calls == 1
     assert fake_manager.acquired_run_ids == [f"human-case-bundle:{CONTEXT_ID}"]
     assert fake_manager.closed_run_ids == [f"human-case-bundle:{CONTEXT_ID}"]
+    assert len(fake_manager.acquired_configs) == 1
+    assert isinstance(fake_manager.acquired_configs[0], BrowserConfig)
+    assert fake_manager.acquired_configs[0].timeout_seconds == 120
+    assert fake_manager.acquired_configs[0].timeout_seconds == CASE_BUNDLE_BROWSER_TIMEOUT_SECONDS
 
     # Verify document presentation
     doc = outcome.to_document()
@@ -311,6 +319,16 @@ async def test_screenshot_failure_does_not_consume(tmp_path):
         )
     assert "full-page screenshot capture failed" in str(exc_info.value)
     assert not (job_root / MANIFEST_FILENAME).exists()
+    assert not (job_root / PROJECTION_FILENAME).exists()
+    assert not (job_root / SCREENSHOT_FILENAME).exists()
+    assert not job_root.exists() or list(job_root.iterdir()) == []
+    assert fake_session.screenshot_calls == 1  # exactly one attempt, no retry/fallback
+    assert len(fake_session.evaluate_calls) == 1
+    assert fake_manager.acquired_run_ids == [f"human-case-bundle:{CONTEXT_ID}"]
+    assert fake_manager.closed_run_ids == [f"human-case-bundle:{CONTEXT_ID}"]
+    assert len(fake_manager.acquired_configs) == 1
+    assert isinstance(fake_manager.acquired_configs[0], BrowserConfig)
+    assert fake_manager.acquired_configs[0].timeout_seconds == 120
 
 
 @pytest.mark.asyncio
@@ -1128,10 +1146,16 @@ class DeterministicOfflineManager:
     def __init__(self, session: DeterministicOfflineProjectionSession) -> None:
         self.session = session
         self.acquired_run_ids: list[str] = []
+        self.acquired_configs: list[BrowserConfig | None] = []
         self.closed_run_ids: list[str] = []
 
-    async def get_or_create_session(self, run_id: str) -> DeterministicOfflineProjectionSession:
+    async def get_or_create_session(
+        self,
+        run_id: str,
+        config: BrowserConfig | None = None,
+    ) -> DeterministicOfflineProjectionSession:
         self.acquired_run_ids.append(run_id)
+        self.acquired_configs.append(config)
         return self.session
 
     async def close_session(self, run_id: str) -> None:
@@ -1383,6 +1407,10 @@ async def test_case_bundle_projection_offline_dom_sanitation_and_product_capture
     assert session.screenshot_calls == 1
     assert manager.acquired_run_ids == [f"human-case-bundle:{CONTEXT_ID}"]
     assert manager.closed_run_ids == [f"human-case-bundle:{CONTEXT_ID}"]
+    assert len(manager.acquired_configs) == 1
+    assert isinstance(manager.acquired_configs[0], BrowserConfig)
+    assert manager.acquired_configs[0].timeout_seconds == 120
+    assert manager.acquired_configs[0].timeout_seconds == CASE_BUNDLE_BROWSER_TIMEOUT_SECONDS
 
 
 def test_case_bundle_offline_projection_unscoped_fallback_sanitation():
@@ -1416,3 +1444,89 @@ def test_case_bundle_offline_projection_unscoped_fallback_sanitation():
     assert "chính sách bảo mật" not in all_texts
     assert "đèn led cảm biến chuyển động" in all_texts
     assert "33.600₫" in all_texts
+
+
+@pytest.mark.asyncio
+async def test_fake_manager_receives_exact_120s_browser_config(tmp_path):
+    """AC2 & AC3: Prove fake manager receives exact BrowserConfig(timeout_seconds=120)
+
+    without modifying global BrowserConfig defaults, manager/session implementation,
+    CDP ownership, or full-page screenshot semantics, performing exactly one evaluate,
+    one screenshot, one acquire/release, and producing exactly three final artifacts.
+    """
+    fake_session = FakeSession()
+    fake_manager = FakeManager(session=fake_session)
+    job_root = tmp_path / "timeout-config-test-root"
+
+    # Global BrowserConfig defaults remain 30 seconds
+    assert BrowserConfig().timeout_seconds == 30
+    assert CASE_BUNDLE_BROWSER_TIMEOUT_SECONDS == 120
+
+    outcome = await run_tiktok_pdp_case_bundle(
+        job_root=job_root,
+        cdp_endpoint=ENDPOINT,
+        clock=lambda: OBSERVED_AT,
+        manager_factory=lambda cdp_endpoint: fake_manager,
+    )
+
+    assert isinstance(outcome, TikTokPdpCaseBundleOutcome)
+    assert len(fake_manager.acquired_configs) == 1
+    config = fake_manager.acquired_configs[0]
+    assert isinstance(config, BrowserConfig)
+    assert config.timeout_seconds == 120
+    assert config.timeout_seconds == CASE_BUNDLE_BROWSER_TIMEOUT_SECONDS
+
+    # Global default unchanged
+    assert BrowserConfig().timeout_seconds == 30
+
+    # Exactly one evaluation, exactly one screenshot, one session acquire/release
+    assert len(fake_session.evaluate_calls) == 1
+    assert fake_session.evaluate_calls[0] == CASE_BUNDLE_SCRIPT
+    assert fake_session.screenshot_calls == 1
+    assert fake_manager.acquired_run_ids == [f"human-case-bundle:{CONTEXT_ID}"]
+    assert fake_manager.closed_run_ids == [f"human-case-bundle:{CONTEXT_ID}"]
+
+    # Exactly three final artifacts
+    created_files = sorted(p.name for p in job_root.iterdir())
+    assert created_files == [
+        "p8-real-case-full-page-v1.png",
+        "p8-real-case-manifest-v1.json",
+        "p8-real-case-page-projection-v1.json",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_screenshot_failure_remains_pre_manifest_non_consuming_with_all_artifacts_absent(tmp_path):
+    """AC4: Prove a screenshot exception remains pre-manifest and non-consuming:
+
+    all three final artifact paths remain absent and the borrowed session is released,
+    with no retry or fallback screenshot.
+    """
+    job_root = tmp_path / "screenshot-fail-non-consuming-root"
+    fake_session = FakeSession(screenshot_exc=RuntimeError("Simulated screenshot timeout / failure"))
+    fake_manager = FakeManager(session=fake_session)
+
+    with pytest.raises(TikTokPdpCaseBundleError) as exc_info:
+        await run_tiktok_pdp_case_bundle(
+            job_root=job_root,
+            cdp_endpoint=ENDPOINT,
+            manager_factory=lambda cdp_endpoint: fake_manager,
+        )
+    assert "full-page screenshot capture failed" in str(exc_info.value)
+
+    # All three final artifact paths remain absent
+    assert not (job_root / MANIFEST_FILENAME).exists()
+    assert not (job_root / PROJECTION_FILENAME).exists()
+    assert not (job_root / SCREENSHOT_FILENAME).exists()
+    assert not job_root.exists() or list(job_root.iterdir()) == []
+
+    # Exactly one evaluation, exactly one screenshot attempt (no retry, no fallback)
+    assert len(fake_session.evaluate_calls) == 1
+    assert fake_session.screenshot_calls == 1
+
+    # Borrowed session was acquired and cleanly released
+    assert fake_manager.acquired_run_ids == [f"human-case-bundle:{CONTEXT_ID}"]
+    assert fake_manager.closed_run_ids == [f"human-case-bundle:{CONTEXT_ID}"]
+    assert len(fake_manager.acquired_configs) == 1
+    assert isinstance(fake_manager.acquired_configs[0], BrowserConfig)
+    assert fake_manager.acquired_configs[0].timeout_seconds == 120

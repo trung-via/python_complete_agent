@@ -5825,7 +5825,7 @@ def test_task_263_real_case_evidence_bundle():
 
     for record in (milestone, task_263):
         assert record["task_id"] == "TASK-263"
-        assert record["task_revision"] == 2
+        assert record["task_revision"] == 4
         assert record["status"] == "DONE"
         assert record["completion_basis"] == "PUBLICATION_GATED"
         assert record["classification"] == "P8_REAL_CASE_SOURCE_OBSERVATION_BUNDLE_ONE_SHOT_ONLY"
@@ -5852,6 +5852,9 @@ def test_task_263_real_case_evidence_bundle():
         assert record["bundle_execution_owner"] == "HUMAN_OPERATOR"
         assert record["bundle_executed"] is False
         assert record["live_bundle_capture_authority"] == "ONE_SHOT_ATTACH_ONLY_EXACT_LISTING"
+        assert record["observed_revision_2_capture_outcome"] == (
+            "PRE_MANIFEST_SCREENSHOT_FAILURE_NON_CONSUMING"
+        )
 
         # AC5 & AC6: Authorities remain NONE; epistemic boundaries intact
         for auth_key in (
@@ -5898,7 +5901,7 @@ def test_task_263_real_case_evidence_bundle():
     assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_263_SOURCE_PUBLICATION"
     assert handoff["completed_commitment"] == "P8_REAL_CASE_SOURCE_OBSERVATION_BUNDLE"
     assert handoff["task_id"] == "TASK-263"
-    assert handoff["task_revision"] == 2
+    assert handoff["task_revision"] == 4
     assert handoff["source_task_id"] == "TASK-262"
     assert handoff["source_published_sha"] == TASK_262_PUBLISHED_SOURCE_SHA
     assert handoff["selected_source_id"] == "1731381331718341815"
@@ -5912,6 +5915,9 @@ def test_task_263_real_case_evidence_bundle():
     assert handoff["bundle_execution_owner"] == "HUMAN_OPERATOR"
     assert handoff["bundle_executed"] is False
     assert handoff["live_bundle_capture_authority"] == "ONE_SHOT_ATTACH_ONLY_EXACT_LISTING"
+    assert handoff["observed_revision_2_capture_outcome"] == (
+        "PRE_MANIFEST_SCREENSHOT_FAILURE_NON_CONSUMING"
+    )
     assert handoff["automated_public_pdp_acquisition_authority"] == "NONE"
     assert handoff["market_test_or_action_authority"] == "NONE"
     assert handoff["second_invocation_authority"] == "NONE"
@@ -5938,6 +5944,7 @@ def test_task_263_real_case_evidence_bundle():
         "p8-real-case-manifest-v1.json",
         "p8-real-case-page-projection-v1.json",
         "p8-real-case-full-page-v1.png",
+        "PRE_MANIFEST_SCREENSHOT_FAILURE_NON_CONSUMING",
         "BUNDLE_IS_NOT_CANONICAL_EVIDENCE",
         "HUMAN_REVIEW_REQUIRED",
         "HUMAN_OPERATOR_P8_REAL_CASE_BUNDLE_CAPTURE",
@@ -5970,3 +5977,16 @@ def test_task_263_real_case_evidence_bundle():
     assert gap["downstream_pin"] == ACTIVE_PIN
     assert "Audit of exact downstream AIOS pin" in gap["reason"]
     assert "Any future fix must occur in upstream AIOS-renew" in gap["resolution_policy"]
+
+    # AC8: AIOS FINALIZE_CANDIDATE pre-verification acceptance deadlock recorded as deferred maintenance
+    assert "AIOS_FINALIZE_CANDIDATE_PREVERIFICATION_ACCEPTANCE_DEADLOCK" in deferred
+    deadlock = deferred["AIOS_FINALIZE_CANDIDATE_PREVERIFICATION_ACCEPTANCE_DEADLOCK"]
+    assert deadlock["status"] == "DEFERRED"
+    assert deadlock["authority"] == "HUMAN_BRAIN_PLANNING"
+    assert deadlock["blocking_current_track"] is False
+    assert deadlock["discovered_in_task"] == "TASK-263"
+    assert deadlock["task_revision"] == 4
+    assert deadlock["downstream_pin"] == ACTIVE_PIN
+    assert deadlock["observed_upstream_main"] == "3687fa06e12e22933e7184eba95fd0a6be4fae03"
+    assert "Audit of downstream AIOS pin" in deadlock["reason"]
+    assert "Any future fix must occur upstream in AIOS-renew" in deadlock["resolution_policy"]
