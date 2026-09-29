@@ -312,6 +312,8 @@ active_track:
       canonical_main_equals_reviewed_candidate: true
   next_milestone: null
 
+pending_commitments: []
+
 post_p7_planning_handoff:
   destination: P8_REAL_COMMERCE_DECISION_LOOP_COMPOSITION
   status: SELECTED_BY_BRAIN_AND_HUMAN
@@ -364,13 +366,6 @@ post_p8_planning_handoff:
   affiliate_economics: NOT_ESTABLISHED
   next_milestone: null
   post_run_engineering_successor: null
-  boundary: >-
-    Exact reviewed TASK-261 publication authorizes one Human-operated validation only after
-    mandatory non-consuming preflight. Marker-present outcomes consume the attempt without
-    retry; artifact-grounded Human/Brain review is mandatory. Authorization or future operation
-    SUCCESS establishes no Product Truth, canonical evidence, trend, ranking, approval, affiliate
-    economics, market-test readiness, or commerce-action authority. TASK-260 remains immutable
-    unranked planning history.
   actual_real_decision_case:
     context_id: p8-pilot-001-led-motion-tiktok-vn
     record_type: PILOT_CASE_SELECTION_ONLY
@@ -1840,8 +1835,12 @@ post_p8_planning_handoff:
     next_milestone: null
     post_publication_handoff: HUMAN_BRAIN_FRESH_POST_GEN8_PAIRED_PRICE_COLLECTOR_VALIDATION_AUTHORIZATION
   boundary: >-
-    Publication changes planning and decision-sufficiency state only and grants no live acquisition,
-    validation, market-test, or downstream action authority.
+    Exact reviewed TASK-261 publication authorizes one Human-operated exact-listing validation
+    only after mandatory non-consuming preflight. Marker-present terminal or interrupted states
+    consume the sole attempt without retry. Artifact-grounded Human/Brain review is mandatory.
+    Authorization or future operation SUCCESS establishes no Product Truth, canonical evidence,
+    trend, ranking, approval, affiliate economics, market-test readiness, or commerce-action
+    authority. Automated acquisition and automatic progression remain disabled.
 
 
 completed_milestones:
