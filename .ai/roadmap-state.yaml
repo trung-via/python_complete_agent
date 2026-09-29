@@ -62,7 +62,15 @@ human_priority_side_track:
     activation_run: RUN-219-002
     activation_review: REVIEW-219-001
     activation_published_sha: "6a82c3f6eeddb32b4b5f7ad18d674536a82887b1"
-    successor_runtime_target_sha: "8a8e4331bf3dd3b70c6900b016a2200e9d3ffc29"
+    provenance_correction_task: TASK-220
+    provenance_correction_run: RUN-220-002
+    provenance_correction_review: REVIEW-220-001
+    provenance_correction_published_sha: "5d8ac589cbb4f611816d2926cff1989eda4eb74d"
+    final_activation_task: TASK-221
+    final_activation_run: RUN-221-002
+    final_activation_review: REVIEW-221-001
+    final_activation_published_sha: "6fbb19db9eb5af3adc55cca570f775d223841ae6"
+    successor_runtime_target_sha: "5d8ac589cbb4f611816d2926cff1989eda4eb74d"
     status: SATISFIED
   completed_phases:
     - id: BP9-P1A
@@ -96,11 +104,12 @@ human_priority_side_track:
     execution_transport: POST_TERMINAL_SOURCE_BOOTSTRAP_SUCCESSOR_PRIMARY
     failed_predecessor_run: RUN-259-001
     prior_revision: 1
-    successor_runtime_target_sha: "8a8e4331bf3dd3b70c6900b016a2200e9d3ffc29"
+    successor_runtime_target_sha: "5d8ac589cbb4f611816d2926cff1989eda4eb74d"
     note: >-
-      The successor_runtime_target_sha field above is planning metadata only and must be
-      revalidated against the exact authored TASK and canonical upstream activation before
-      any carrier invocation.
+      The successor_runtime_target_sha field above is Brain-owned planning metadata only.
+      It is revalidated against exact upstream TASK-221 / RUN-221-002 / REVIEW-221-001
+      publication at 6fbb19db9eb5af3adc55cca570f775d223841ae6, whose production activation
+      binds exact successor consumer 5d8ac589cbb4f611816d2926cff1989eda4eb74d.
   next_after_publication:
     task_id: TASK-207
     expected_revision: 9
