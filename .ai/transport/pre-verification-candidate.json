@@ -1,0 +1,1 @@
+{"kind":"PRE_VERIFICATION_CANDIDATE","package":{"evidence":[],"result":{"changed_files":["tests/product_intelligence/test_tiktok_pdp_case_bundle.py"],"claims":[],"head_sha":"17bdda213c2065cd1c66230b974afd538acea954","unresolved":[]}},"run_id":"RUN-263-007","subject_sha":"17bdda213c2065cd1c66230b974afd538acea954","task":{"id":"TASK-263","revision":1}}
