@@ -1087,6 +1087,38 @@ NEXT is null, pending commitments are empty, automatic progression is false, and
 `HUMAN_BRAIN_FRESH_POST_GEN8_PAIRED_PRICE_COLLECTOR_VALIDATION_AUTHORIZATION`.
 See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK253_VALIDATION_CARRIER_PROVENANCE_REBINDING.md`.
 
+TASK-260 is publication-gated DONE only as
+`POST_TASK254_REAL_DECISION_SUFFICIENCY_AND_ROADMAP_RECONCILIATION_ONLY`.
+Predecessor is exact published TASK-254 source (`36627c80e76f156fcb774b10fbd35d14df6d9ea4`).
+After TASK-254, the system returns to Human/Brain decision sufficiency; further acquisition is neither implied
+nor automatically preferred. Phase 8 is a real-commerce decision loop and acquisition is subordinate to
+decision-relevant uncertainty reduction rather than an objective in itself.
+A time-aware knowledge-state projection over selected pilot (`1731381331718341815`) preserves distinct epistemic states
+without asserting current marketplace truth: selected source binding and title remain historical observations at
+TASK-233 operation time (freshness not asserted); current price is UNKNOWN (null); original price is OBSERVED_ONLY
+68220.0 at 2026-09-26T07:43:19.570359+00:00 (freshness not asserted); shop name, discount percent, sold count,
+rating, and review count are UNKNOWN; affiliate eligibility, commission rate, and estimated commission remain
+NOT_ESTABLISHED; manual Wave-1 contribution and manual review remain UNPERFORMED; and Human-owned decision inputs
+remain UNSET (`NON_ACQUIRABLE_HUMAN_INPUTS_UNSET`, non-acquirable via marketplace collection).
+Decision state is strictly `MARKET_TEST_READINESS_NOT_ESTABLISHED`.
+P7.5 laws and considerations are reused solely as a qualitative semantic lens
+(`SEMANTIC_LENS_ONLY_NO_PLAN_CONSTRUCTED`, `disposition_status: NOT_COMPUTED_NO_CANONICAL_CURRENT_P7_4_PROFILE`);
+no P7.4 profile, ValueOfInformationPlan, or P7.5 disposition is constructed or simulated.
+Exactly five unranked candidate continuations exist with `selection_status: HUMAN_SELECTION_REQUIRED`, `preferred: false`,
+`recommended: false`, and `automatic_progression: false`:
+1. `AUTHORIZE_ONE_SHOT_POST_TASK254_CARRIER_VALIDATION` (retaining TASK-253 collector baseline and binding carrier execution source to exact published TASK-254 SHA, with zero attempts granted and no carrier source SHA created);
+2. `RECONFIRM_MANUAL_WAVE1_CONTRIBUTION` (requiring fresh Human confirmation of historical TASK-229 authorization);
+3. `REQUEST_HUMAN_DECISION_INPUTS` (listing unfilled budget, duration, exposure, margin threshold, criteria, audience, quality/risk constraints, risk acceptance, decision timing);
+4. `DEFER_CURRENT_PILOT`;
+5. `STOP_CURRENT_PILOT`.
+No candidate is NEXT. Stale BP9 / full-conformance continuation pointers close in place, recording exact TASK-254 completion.
+`active_track` (8 direct keys), `current_milestone` (28 direct keys), and `post_p8_planning_handoff` (22 direct current keys) satisfy
+closed positive schemas with zero TASK-254 carrier/validation residue and zero live/automated/action authority.
+NEXT is null, pending commitments are empty (`[]`), automatic progression is false, and post-publication planning hands off exclusively to
+`HUMAN_BRAIN_REAL_DECISION_SUFFICIENCY_SELECTION`.
+See `docs/PHASE_8_POST_TASK254_REAL_DECISION_SUFFICIENCY_AND_ROADMAP_RECONCILIATION.md`.
+
+
 
 The complete audit and P7.0 boundary are recorded in
 `docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md`.
