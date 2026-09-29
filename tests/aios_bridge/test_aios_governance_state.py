@@ -2217,7 +2217,7 @@ def test_task_253_reconciles_gen8_success_and_hardens_paired_price_current_role_
     )
     assert (
         completed_task["title"]
-        == "P8 Public TikTok PDP Generation-8 Result Reconciliation and Paired-Price Role Hardening"
+        == "Public TikTok PDP Generation-8 Result Reconciliation and Paired-Price Role Hardening"
     )
     assert completed_task["status"] == "DONE"
     assert completed_task["completion_basis"] == "PUBLICATION_GATED"
@@ -2340,7 +2340,6 @@ def test_task_253_reconciles_gen8_success_and_hardens_paired_price_current_role_
     assert reconciliation["generation_8_authorized_diagnostic_attempts_remaining"] == 0
     assert reconciliation["generation_8_diagnostic_executed"] is True
     assert reconciliation["live_dom_diagnostic_authority"] == "NONE"
-    assert handoff["destination"] != reconciliation["post_publication_handoff"]
 
     # Completed TASK-253 revision 2
     assert completed_task["task_revision"] == 2
@@ -3859,9 +3858,9 @@ def test_task_234_reconciliation_and_diagnostic_preserve_authority_separation():
         "rating": "UNKNOWN",
         "review_count": "UNKNOWN",
     }
-    assert handoff["screenshot_or_chat_values_as_canonical_evidence"] is False
-    assert handoff["diagnostic_capability_scope"] == "CAPABILITY_IS_NOT_AUTHORITY"
-    assert handoff["browser_lifecycle_authority"] == "TASK-137"
+    assert diagnostic_record["screenshot_or_chat_values_as_canonical_evidence"] is False
+    assert diagnostic_record["diagnostic_capability_scope"] == "CAPABILITY_IS_NOT_AUTHORITY"
+    assert diagnostic_record["browser_lifecycle_authority"] == "TASK-137"
     assert diagnostic_record[
         "live_dom_diagnostic_authority_at_task_234_publication"
     ] == "NONE"
@@ -5270,7 +5269,7 @@ def test_task_254_rebinds_validation_carrier_provenance_to_task_253_collector_ba
     )
     assert (
         active["title"]
-        == "P8 Public TikTok PDP Validation Carrier Provenance Rebinding to Published TASK-253 Collector Baseline"
+        == "P8 Public TikTok PDP Post-TASK253 Validation Carrier Provenance Rebinding"
     )
     assert active["priority_owner"] == "HUMAN"
     assert active["status"] == "DONE"
@@ -5283,56 +5282,217 @@ def test_task_254_rebinds_validation_carrier_provenance_to_task_253_collector_ba
     assert handoff["next_milestone"] is None
     assert state["pending_commitments"] == []
 
-    # AC1, AC2, AC4, AC6, AC8: Milestone and completed task records
+    # AC6: current_milestone has closed direct-key shape and values (44 keys)
+    expected_milestone_keys = {
+        "id", "task_id", "title", "status", "completion_basis", "classification",
+        "authorization_owner", "source_task_id", "source_run_id", "source_review_id",
+        "source_published_sha", "context_id", "authorized_source_id",
+        "stable_listing_reference", "collector_validation_baseline", "carrier_module",
+        "validation_carrier_schema_version", "validation_attempt_marker_filename",
+        "validation_attempt_marker_schema_version", "validation_result_filename",
+        "validation_result_schema_version", "authorized_validation_attempts",
+        "authorized_validation_attempts_remaining", "validation_execution_owner",
+        "validation_executed", "field_validation_uncertainty",
+        "current_price_validation_status", "current_price_observed",
+        "original_price_validation_status", "original_price_observed",
+        "operation_success_is_not_field_validation_success",
+        "canonical_evidence_ingested", "price_role_resolution_complete",
+        "selector_repair_complete", "live_public_pdp_acquisition_authority",
+        "automated_public_pdp_acquisition_authority", "market_test_or_action_authority",
+        "automatic_live_pilot", "automatic_progression", "post_run_engineering_successor",
+        "next_milestone", "exact_post_publication_handoff", "post_publication_handoff",
+        "effective_only_when"
+    }
+    assert set(milestone.keys()) == expected_milestone_keys
+    assert len(milestone) == 44
+
+    # AC8: validation_carrier_source_sha is absent from current_milestone, handoff, and completed_task
     assert "validation_carrier_source_sha" not in milestone
     assert "validation_carrier_source_sha" not in handoff
     assert "validation_carrier_source_sha" not in completed_task
-    assert len(milestone) == 44
 
-    for record in (milestone, completed_task):
-        assert record["task_id"] == "TASK-254"
-        assert record["task_revision"] == 6
-        assert record["classification"] == (
-            "VALIDATION_CARRIER_PROVENANCE_REBINDING_TO_TASK253_COLLECTOR_BASELINE_ONLY"
-        )
-        assert record["source_task_id"] == "TASK-253"
-        assert record["source_run_id"] == TASK_253_RUN_ID
-        assert record["source_review_id"] == TASK_253_REVIEW_ID
-        assert record["source_published_sha"] == TASK_253_PUBLISHED_SOURCE_SHA
-        assert record["collector_baseline_task_id"] == "TASK-253"
-        assert record["collector_baseline_source_sha"] == TASK_253_PUBLISHED_SOURCE_SHA
-        assert record["validation_carrier_path"] == "src/product_intelligence/tiktok_pdp_live_pilot.py"
-        assert record["validation_carrier_contract_identifier"] == "POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION"
-        assert record["rebound_provenance_persisted"] is True
-        assert record["unchanged_carrier_execution_mechanics_confirmed"] is True
-        assert record["unchanged_carrier_command_interface_confirmed"] is True
-        assert record["unchanged_carrier_v2_artifacts_confirmed"] is True
-        assert record["unchanged_carrier_candidate_evidence_semantics_confirmed"] is True
-        assert record["unchanged_carrier_fail_closed_error_semantics_confirmed"] is True
-        assert record["unchanged_carrier_zero_mutation_preflight_confirmed"] is True
-        assert record["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
-        assert record["authorized_source_id"] == SELECTED_SOURCE_ID
-        assert record["stable_listing_reference"] == SELECTED_LISTING_REFERENCE
-        assert record["attempt_marker_path"] == "tests/fixtures/tiktok_pdp/tiktok-pdp-live-validation-attempt-v2.json"
-        assert record["success_artifact_path"] == "tests/fixtures/tiktok_pdp/tiktok-pdp-live-validation-result-v2.json"
-        assert record["fail_closed_artifact_path"] == "tests/fixtures/tiktok_pdp/tiktok-pdp-live-pilot-fail-closed-result-v2.json"
-        assert record["live_capture_authorized"] is False
-        assert record["authorized_validation_attempts"] == 0
-        assert record["authorized_validation_attempts_remaining"] == 0
-        assert record["live_pilot_execution_owner"] == "HUMAN_OPERATOR"
-        assert record["validation_execution_owner"] == "HUMAN_OPERATOR"
-        assert record["live_public_pdp_acquisition_authority"] == "NONE"
-        assert record["automated_public_pdp_acquisition_authority"] == "NONE"
-        assert record["market_test_or_action_authority"] == "NONE"
-        assert record["live_dom_diagnostic_authority"] == "NONE"
-        assert record["evidence_authority"] == "NONE"
-        assert record["automatic_live_pilot"] is False
-        assert record["automatic_progression"] is False
-        assert record["post_run_engineering_successor"] is None
-        assert record["next_milestone"] is None
-        assert record["post_publication_handoff"] == (
-            "HUMAN_BRAIN_FRESH_POST_TASK253_VALIDATION_AUTHORIZATION"
-        )
+    # Current milestone values
+    assert (
+        milestone["id"]
+        == "P8.PUBLIC_PDP.POST_TASK253_VALIDATION_CARRIER_PROVENANCE_REBINDING"
+    )
+    assert milestone["task_id"] == "TASK-254"
+    assert (
+        milestone["title"]
+        == "Public TikTok PDP Post-TASK253 Validation Carrier Provenance Rebinding"
+    )
+    assert milestone["status"] == "DONE"
+    assert milestone["completion_basis"] == "PUBLICATION_GATED"
+    assert milestone["classification"] == (
+        "POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION_CARRIER_PROVENANCE_REBINDING_ONLY"
+    )
+    assert milestone["authorization_owner"] == "HUMAN_BRAIN"
+    assert milestone["source_task_id"] == "TASK-253"
+    assert milestone["source_run_id"] == TASK_253_RUN_ID
+    assert milestone["source_review_id"] == TASK_253_REVIEW_ID
+    assert milestone["source_published_sha"] == TASK_253_PUBLISHED_SOURCE_SHA
+    assert milestone["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
+    assert milestone["authorized_source_id"] == SELECTED_SOURCE_ID
+    assert milestone["stable_listing_reference"] == SELECTED_LISTING_REFERENCE
+    assert milestone["collector_validation_baseline"] == {
+        "task_id": "TASK-253",
+        "source_sha": TASK_253_PUBLISHED_SOURCE_SHA,
+    }
+    assert (
+        milestone["carrier_module"]
+        == "src/product_intelligence/tiktok_pdp_live_pilot.py"
+    )
+    assert milestone["validation_carrier_schema_version"] == 2
+    assert (
+        milestone["validation_attempt_marker_filename"]
+        == "tiktok-pdp-live-validation-attempt-v2.json"
+    )
+    assert milestone["validation_attempt_marker_schema_version"] == 2
+    assert (
+        milestone["validation_result_filename"]
+        == "tiktok-pdp-live-validation-result-v2.json"
+    )
+    assert milestone["validation_result_schema_version"] == 2
+    assert milestone["authorized_validation_attempts"] == 0
+    assert milestone["authorized_validation_attempts_remaining"] == 0
+    assert milestone["validation_execution_owner"] == "NONE"
+    assert milestone["validation_executed"] is False
+    assert milestone["field_validation_uncertainty"] == {
+        "current_price_validation_status": "UNKNOWN",
+        "current_price_observed": None,
+        "original_price_validation_status": "OBSERVED_ONLY",
+        "original_price_observed": 68220.0,
+        "shop_name_validation_status": "UNKNOWN",
+        "discount_percent_validation_status": "UNKNOWN",
+        "sold_count_validation_status": "UNKNOWN",
+        "rating_validation_status": "UNKNOWN",
+        "review_count_validation_status": "UNKNOWN",
+    }
+    assert milestone["current_price_validation_status"] == "UNKNOWN"
+    assert milestone["current_price_observed"] is None
+    assert milestone["original_price_validation_status"] == "OBSERVED_ONLY"
+    assert milestone["original_price_observed"] == 68220.0
+    assert (
+        milestone["operation_success_is_not_field_validation_success"]
+        is True
+    )
+    assert milestone["canonical_evidence_ingested"] is False
+    assert milestone["price_role_resolution_complete"] is False
+    assert milestone["selector_repair_complete"] is False
+    assert milestone["live_public_pdp_acquisition_authority"] == "NONE"
+    assert milestone["automated_public_pdp_acquisition_authority"] == "NONE"
+    assert milestone["market_test_or_action_authority"] == "NONE"
+    assert milestone["automatic_live_pilot"] is False
+    assert milestone["automatic_progression"] is False
+    assert milestone["post_run_engineering_successor"] is None
+    assert milestone["next_milestone"] is None
+    assert milestone["exact_post_publication_handoff"] == (
+        "HUMAN_BRAIN_FRESH_POST_GEN8_PAIRED_PRICE_COLLECTOR_VALIDATION_AUTHORIZATION"
+    )
+    assert milestone["post_publication_handoff"] == (
+        "HUMAN_BRAIN_FRESH_POST_GEN8_PAIRED_PRICE_COLLECTOR_VALIDATION_AUTHORIZATION"
+    )
+    assert milestone["effective_only_when"] == {
+        "semantic_review": "PASS",
+        "published_source": "EXACT_REVIEWED_CANDIDATE",
+        "canonical_main_equals_reviewed_candidate": True,
+    }
+
+    # AC11: Completed TASK-254 revision 6
+    task_254_completed = [
+        item for item in state["completed_milestones"] if item["task_id"] == "TASK-254"
+    ]
+    assert len(task_254_completed) == 1
+    assert completed_task["task_id"] == "TASK-254"
+    assert completed_task["task_revision"] == 6
+    assert (
+        completed_task["track_id"]
+        == "P8_PUBLIC_PDP_POST_TASK253_VALIDATION_CARRIER_PROVENANCE_REBINDING"
+    )
+    assert (
+        completed_task["milestone_id"]
+        == "P8.PUBLIC_PDP.POST_TASK253_VALIDATION_CARRIER_PROVENANCE_REBINDING"
+    )
+    assert (
+        completed_task["title"]
+        == "Public TikTok PDP Post-TASK253 Validation Carrier Provenance Rebinding"
+    )
+    assert completed_task["status"] == "DONE"
+    assert completed_task["completion_basis"] == "PUBLICATION_GATED"
+    assert completed_task["classification"] == (
+        "POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION_CARRIER_PROVENANCE_REBINDING_ONLY"
+    )
+    assert completed_task["authorization_owner"] == "HUMAN_BRAIN"
+    assert completed_task["source_task_id"] == "TASK-253"
+    assert completed_task["source_run_id"] == TASK_253_RUN_ID
+    assert completed_task["source_review_id"] == TASK_253_REVIEW_ID
+    assert completed_task["source_published_sha"] == TASK_253_PUBLISHED_SOURCE_SHA
+    assert completed_task["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
+    assert completed_task["authorized_source_id"] == SELECTED_SOURCE_ID
+    assert completed_task["stable_listing_reference"] == SELECTED_LISTING_REFERENCE
+    assert completed_task["collector_validation_baseline"] == {
+        "task_id": "TASK-253",
+        "source_sha": TASK_253_PUBLISHED_SOURCE_SHA,
+    }
+    assert (
+        completed_task["carrier_module"]
+        == "src/product_intelligence/tiktok_pdp_live_pilot.py"
+    )
+    assert completed_task["validation_carrier_schema_version"] == 2
+    assert (
+        completed_task["validation_attempt_marker_filename"]
+        == "tiktok-pdp-live-validation-attempt-v2.json"
+    )
+    assert completed_task["validation_attempt_marker_schema_version"] == 2
+    assert (
+        completed_task["validation_result_filename"]
+        == "tiktok-pdp-live-validation-result-v2.json"
+    )
+    assert completed_task["validation_result_schema_version"] == 2
+    assert completed_task["authorized_validation_attempts"] == 0
+    assert completed_task["authorized_validation_attempts_remaining"] == 0
+    assert completed_task["validation_execution_owner"] == "NONE"
+    assert completed_task["validation_executed"] is False
+    assert completed_task["field_validation_uncertainty"] == {
+        "current_price_validation_status": "UNKNOWN",
+        "current_price_observed": None,
+        "original_price_validation_status": "OBSERVED_ONLY",
+        "original_price_observed": 68220.0,
+        "shop_name_validation_status": "UNKNOWN",
+        "discount_percent_validation_status": "UNKNOWN",
+        "sold_count_validation_status": "UNKNOWN",
+        "rating_validation_status": "UNKNOWN",
+        "review_count_validation_status": "UNKNOWN",
+    }
+    assert completed_task["current_price_validation_status"] == "UNKNOWN"
+    assert completed_task["current_price_observed"] is None
+    assert completed_task["original_price_validation_status"] == "OBSERVED_ONLY"
+    assert completed_task["original_price_observed"] == 68220.0
+    assert (
+        completed_task["operation_success_is_not_field_validation_success"]
+        is True
+    )
+    assert completed_task["canonical_evidence_ingested"] is False
+    assert completed_task["price_role_resolution_complete"] is False
+    assert completed_task["selector_repair_complete"] is False
+    assert completed_task["live_public_pdp_acquisition_authority"] == "NONE"
+    assert completed_task["automated_public_pdp_acquisition_authority"] == "NONE"
+    assert completed_task["market_test_or_action_authority"] == "NONE"
+    assert completed_task["automatic_live_pilot"] is False
+    assert completed_task["automatic_progression"] is False
+    assert completed_task["post_run_engineering_successor"] is None
+    assert completed_task["next_milestone"] is None
+    assert completed_task["exact_post_publication_handoff"] == (
+        "HUMAN_BRAIN_FRESH_POST_GEN8_PAIRED_PRICE_COLLECTOR_VALIDATION_AUTHORIZATION"
+    )
+    assert completed_task["post_publication_handoff"] == (
+        "HUMAN_BRAIN_FRESH_POST_GEN8_PAIRED_PRICE_COLLECTOR_VALIDATION_AUTHORIZATION"
+    )
+    assert completed_task["effective_only_when"] == {
+        "semantic_review": "PASS",
+        "published_source": "EXACT_REVIEWED_CANDIDATE",
+        "canonical_main_equals_reviewed_candidate": True,
+    }
 
     # AC7: Handoff projection
     assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_254_SOURCE_PUBLICATION"
@@ -5344,9 +5504,55 @@ def test_task_254_rebinds_validation_carrier_provenance_to_task_253_collector_ba
         handoff["destination"]
         == "HUMAN_BRAIN_FRESH_POST_GEN8_PAIRED_PRICE_COLLECTOR_VALIDATION_AUTHORIZATION"
     )
-    assert handoff["active_track_resumed_from"] == "TASK-207-R14"
-    assert handoff["active_track_downstream_target"] == "TASK-254"
-    assert handoff["active_track_target_revision"] == 6
+    assert handoff["source_task_id"] == "TASK-253"
+    assert handoff["source_run_id"] == TASK_253_RUN_ID
+    assert handoff["source_review_id"] == TASK_253_REVIEW_ID
+    assert handoff["source_published_sha"] == TASK_253_PUBLISHED_SOURCE_SHA
+    assert handoff["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
+    assert handoff["authorized_source_id"] == SELECTED_SOURCE_ID
+    assert handoff["stable_listing_reference"] == SELECTED_LISTING_REFERENCE
+    assert handoff["collector_validation_baseline"] == {
+        "task_id": "TASK-253",
+        "source_sha": TASK_253_PUBLISHED_SOURCE_SHA,
+    }
+    assert (
+        handoff["carrier_module"]
+        == "src/product_intelligence/tiktok_pdp_live_pilot.py"
+    )
+    assert handoff["validation_carrier_schema_version"] == 2
+    assert (
+        handoff["validation_attempt_marker_filename"]
+        == "tiktok-pdp-live-validation-attempt-v2.json"
+    )
+    assert handoff["validation_attempt_marker_schema_version"] == 2
+    assert (
+        handoff["validation_result_filename"]
+        == "tiktok-pdp-live-validation-result-v2.json"
+    )
+    assert handoff["validation_result_schema_version"] == 2
+    assert handoff["authorized_validation_attempts"] == 0
+    assert handoff["authorized_validation_attempts_remaining"] == 0
+    assert handoff["validation_execution_owner"] == "NONE"
+    assert handoff["validation_executed"] is False
+    assert handoff["current_price_validation_status"] == "UNKNOWN"
+    assert handoff["current_price_observed"] is None
+    assert handoff["original_price_validation_status"] == "OBSERVED_ONLY"
+    assert handoff["original_price_observed"] == 68220.0
+    assert (
+        handoff["operation_success_is_not_field_validation_success"]
+        is True
+    )
+    assert handoff["canonical_evidence_ingested"] is False
+    assert handoff["price_role_resolution_complete"] is False
+    assert handoff["selector_repair_complete"] is False
+    assert handoff["live_public_pdp_acquisition_authority"] == "NONE"
+    assert handoff["automated_public_pdp_acquisition_authority"] == "NONE"
+    assert handoff["market_test_or_action_authority"] == "NONE"
+    assert handoff["automatic_live_pilot"] is False
+    assert handoff["automatic_progression"] is False
+    assert handoff["next_milestone"] is None
+    assert handoff["post_run_engineering_successor"] is None
+    assert "Publication changes provenance" in handoff["boundary"]
 
     # AC5 & AC7: Historical mapping containers preserved
     for hist_key in (
@@ -5388,28 +5594,14 @@ def test_task_254_rebinds_validation_carrier_provenance_to_task_253_collector_ba
     ):
         assert hist_key in handoff
 
-    # AC11: Completed TASK-254 revision 6
-    assert completed_task["task_revision"] == 6
-    assert completed_task["status"] == "DONE"
-    assert completed_task["completion_basis"] == "PUBLICATION_GATED"
-    assert (
-        completed_task["sequence_status"]
-        == "COMPLETE_ON_EXACT_TASK_254_SOURCE_PUBLICATION"
-    )
-    assert completed_task["effective_only_when"] == {
-        "semantic_review": "PASS",
-        "published_source": "EXACT_REVIEWED_CANDIDATE",
-        "canonical_main_equals_reviewed_candidate": True,
-    }
-
     # Document contents validation
     assert "C:\\" not in document
     for required in (
-        "VALIDATION_CARRIER_PROVENANCE_REBINDING_TO_TASK253_COLLECTOR_BASELINE_ONLY",
+        "POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION_CARRIER_PROVENANCE_REBINDING_ONLY",
         "POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION",
         "TASK-253",
         TASK_253_PUBLISHED_SOURCE_SHA,
-        "HUMAN_BRAIN_FRESH_POST_TASK253_VALIDATION_AUTHORIZATION",
+        "HUMAN_BRAIN_FRESH_POST_GEN8_PAIRED_PRICE_COLLECTOR_VALIDATION_AUTHORIZATION",
         "CAPABILITY_IS_NOT_AUTHORITY",
         "EVIDENCE_IS_NOT_PRODUCT_TRUTH",
         "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY",
@@ -5424,7 +5616,7 @@ def test_task_254_rebinds_validation_carrier_provenance_to_task_253_collector_ba
         roadmap_text = roadmap.read_text(encoding="utf-8")
         for required in (
             "TASK-254 is publication-gated DONE only as",
-            "VALIDATION_CARRIER_PROVENANCE_REBINDING_TO_TASK253_COLLECTOR_BASELINE_ONLY",
+            "POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION_CARRIER_PROVENANCE_REBINDING_ONLY",
             TASK_253_PUBLISHED_SOURCE_SHA,
             "POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION",
         ):

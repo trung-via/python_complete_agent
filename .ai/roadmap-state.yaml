@@ -184,7 +184,7 @@ human_priority_side_track:
     independent semantic PASS under pin 44eee353eda376c9db8cd88d97184d3122651bf5.
     RUN-207-011 and RUN-207-012 remain immutable failed history and revision-12 dispatch
     rejection remains non-canonical operational history. The unique preserved continuation
-    is already-authored TASK-254 revision 4; this record grants no product execution or
+    is already-authored TASK-254 revision 6; this record grants no product execution or
     live-validation authority.
 
 active_track:
@@ -698,6 +698,8 @@ post_p8_planning_handoff:
     live_dom_diagnostic_authority_at_task_234_publication: NONE
     diagnostic_executed: false
     selector_repair_complete: false
+    screenshot_or_chat_values_as_canonical_evidence: false
+    diagnostic_capability_scope: CAPABILITY_IS_NOT_AUTHORITY
     browser_lifecycle_authority: TASK-137
     product_intelligence_authority: NONE
     automated_public_pdp_acquisition_authority: NONE
@@ -3665,7 +3667,7 @@ full_downstream_conformance:
   roadmap_effect: >-
     Exact TASK-207 revision-14 reviewed source publication closes the BP9 downstream-adoption
     side track for exact pin 44eee353eda376c9db8cd88d97184d3122651bf5 and restores the
-    unique already-authored TASK-254 revision-4 product continuation without executing it
+    unique already-authored TASK-254 revision-6 product continuation without executing it
     or granting live-validation authority. Earlier TASK-207 certifications remain old-pin
     historical evidence and failed RUNs remain non-certifying immutable history.
 
