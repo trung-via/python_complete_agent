@@ -1,0 +1,47 @@
+review_id: REVIEW-263-001
+reviewed_sha: f5fe7f565d9a4628e9c1fc097a93e66e14f92c00
+mode: PRIMARY
+verdict: CHANGES_REQUIRED
+acceptance:
+  AC1: PASS
+  AC2: PASS
+  AC3: FAIL
+  AC4: PASS
+  AC5: PASS
+  AC6: PASS
+  AC7: PASS
+  AC8: FAIL
+findings:
+  - id: FINDING-263-001
+    basis: AC3
+    action: CODE_FIX
+    location: src/product_intelligence/tiktok_pdp_case_bundle.py; tests/product_intelligence/test_tiktok_pdp_case_bundle.py
+    issue: >
+      The rendered projection is bounded by node/record/text/byte counts, but it traverses
+      document.body and persists clipped visible_text from every visible qualifying element
+      across the page. There is no product-scope boundary or deterministic exclusion of
+      account/navigation/profile UI, so an authenticated exact TikTok PDP can persist
+      account-identifying or other non-product UI text into the JSON projection. This violates
+      the TASK-263 sanitation boundary requiring account/session metadata to be absent.
+    expected: >
+      Make the JSON projection deterministically product-scoped or otherwise exclude account/
+      session/profile/navigation regions before visible text is admitted. Reuse the existing
+      canonical bounded TikTok PDP DOM-scope capability if a PDP root is used; do not create
+      a second competing DOM-scope semantic owner. Preserve exactly one evaluate, exactly one
+      screenshot on validated success, zero navigation/interaction/network capture, current
+      bounds, exact VN identity binding, manifest-first one-shot semantics, and screenshot
+      HUMAN_REVIEW_REQUIRED. Keep representative product facts capturable.
+  - id: FINDING-263-002
+    basis: AC8
+    action: CODE_FIX
+    location: tests/product_intelligence/test_tiktok_pdp_case_bundle.py
+    issue: >
+      The 203-pass offline suite contains no regression proving that account/profile/navigation
+      text outside the admitted product scope is excluded from the persisted projection, so the
+      required sanitation property is not established by Runtime verification.
+    expected: >
+      Add deterministic offline regression proving non-product account/profile/navigation-like
+      text cannot enter the persisted JSON projection while representative title, price,
+      attributes/specification, seller/product-service, and other intended product-page
+      observations remain capturable within the bounded projection. Do not weaken existing
+      safety, identity, one-shot, or byte-bound regressions.
