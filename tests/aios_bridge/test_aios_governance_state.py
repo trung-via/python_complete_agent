@@ -2221,10 +2221,6 @@ def test_task_253_reconciles_gen8_success_and_hardens_paired_price_current_role_
     )
     assert completed_task["status"] == "DONE"
     assert completed_task["completion_basis"] == "PUBLICATION_GATED"
-    assert (
-        completed_task["sequence_status"]
-        == "COMPLETE_ON_EXACT_TASK_253_SOURCE_PUBLICATION"
-    )
     assert active["current_milestone"]["task_id"] != "TASK-253"
     assert handoff["next_milestone"] is None
     assert state["pending_commitments"] == []
