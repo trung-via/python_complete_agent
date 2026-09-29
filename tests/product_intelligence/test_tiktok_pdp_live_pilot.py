@@ -192,6 +192,9 @@ async def test_success_is_fixed_one_attempt_exclusive_safe_and_secret_free(
         "collector_baseline_task_id": COLLECTOR_BASELINE_TASK_ID,
         "collector_baseline_source_sha": COLLECTOR_BASELINE_SOURCE_SHA,
     }
+    assert marker_document["contract_identifier"] == "POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION"
+    assert marker_document["collector_baseline_task_id"] == "TASK-253"
+    assert marker_document["collector_baseline_source_sha"] == "33776f11b20977f46d45d394fa1c56040029b65d"
 
     # 2. Terminal result verification
     result_path = root.resolve() / RESULT_FILENAME
@@ -214,6 +217,9 @@ async def test_success_is_fixed_one_attempt_exclusive_safe_and_secret_free(
         "collector_baseline_task_id": COLLECTOR_BASELINE_TASK_ID,
         "collector_baseline_source_sha": COLLECTOR_BASELINE_SOURCE_SHA,
     }
+    assert document["operation"]["contract_identifier"] == "POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION"
+    assert document["operation"]["collector_baseline_task_id"] == "TASK-253"
+    assert document["operation"]["collector_baseline_source_sha"] == "33776f11b20977f46d45d394fa1c56040029b65d"
     assert "failure_reason" not in document["operation"]
     assert set(document) == {"schema_version", "operation", "binding", "snapshot"}
     assert set(document["snapshot"]) == {
@@ -369,6 +375,13 @@ async def test_session_acquisition_failure_consumes_attempt_and_persists_fail_cl
     assert doc["operation"]["observation_status"] == "NOT_OBSERVED"
     assert doc["operation"]["session_release_status"] == "NOT_APPLICABLE"
     assert doc["operation"]["failure_reason"] == "BROWSER_SESSION_UNAVAILABLE"
+    assert doc["operation"]["contract_identifier"] == "POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION"
+    assert doc["operation"]["collector_baseline_task_id"] == "TASK-253"
+    assert doc["operation"]["collector_baseline_source_sha"] == "33776f11b20977f46d45d394fa1c56040029b65d"
+    marker_doc = json.loads(marker_path.read_text(encoding="utf-8"))
+    assert marker_doc["contract_identifier"] == "POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION"
+    assert marker_doc["collector_baseline_task_id"] == "TASK-253"
+    assert marker_doc["collector_baseline_source_sha"] == "33776f11b20977f46d45d394fa1c56040029b65d"
     assert "binding" not in doc
     assert "snapshot" not in doc
     assert "CDP connection refused" not in result_path.read_text(encoding="utf-8")
@@ -711,3 +724,47 @@ def test_carrier_has_no_forbidden_semantic_or_lifecycle_dependencies():
     assert "retry" not in source.lower()
     assert "while " not in source
     assert "for requested_url" not in source
+
+
+@pytest.mark.asyncio
+async def test_rebound_provenance_persists_literal_task253_values_in_marker_and_terminal_artifacts(
+    external_temp_path,
+):
+    """Attempt marker, SUCCESS result and post-consumption FAIL_CLOSED result prove literal TASK-253 provenance."""
+    # 1. Success execution
+    success_root = external_temp_path / "literal-success"
+    await run_tiktok_pdp_live_pilot(
+        job_root=success_root,
+        cdp_endpoint=ENDPOINT,
+        clock=lambda: OBSERVED_AT,
+        manager_factory=FakeManager,
+        collector_factory=FakeCollector,
+    )
+    marker = json.loads((success_root / ATTEMPT_MARKER_FILENAME).read_text(encoding="utf-8"))
+    success_doc = json.loads((success_root / RESULT_FILENAME).read_text(encoding="utf-8"))
+    assert marker["contract_identifier"] == "POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION"
+    assert marker["collector_baseline_task_id"] == "TASK-253"
+    assert marker["collector_baseline_source_sha"] == "33776f11b20977f46d45d394fa1c56040029b65d"
+    assert success_doc["operation"]["contract_identifier"] == "POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION"
+    assert success_doc["operation"]["collector_baseline_task_id"] == "TASK-253"
+    assert success_doc["operation"]["collector_baseline_source_sha"] == "33776f11b20977f46d45d394fa1c56040029b65d"
+
+    # 2. FAIL_CLOSED execution
+    fail_root = external_temp_path / "literal-fail-closed"
+    FakeCollector.failure = TikTokPdpExtractionError("extraction error")
+    with pytest.raises(TikTokPdpLivePilotError):
+        await run_tiktok_pdp_live_pilot(
+            job_root=fail_root,
+            cdp_endpoint=ENDPOINT,
+            clock=lambda: OBSERVED_AT,
+            manager_factory=FakeManager,
+            collector_factory=FakeCollector,
+        )
+    fail_marker = json.loads((fail_root / ATTEMPT_MARKER_FILENAME).read_text(encoding="utf-8"))
+    fail_doc = json.loads((fail_root / RESULT_FILENAME).read_text(encoding="utf-8"))
+    assert fail_marker["contract_identifier"] == "POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION"
+    assert fail_marker["collector_baseline_task_id"] == "TASK-253"
+    assert fail_marker["collector_baseline_source_sha"] == "33776f11b20977f46d45d394fa1c56040029b65d"
+    assert fail_doc["operation"]["contract_identifier"] == "POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION"
+    assert fail_doc["operation"]["collector_baseline_task_id"] == "TASK-253"
+    assert fail_doc["operation"]["collector_baseline_source_sha"] == "33776f11b20977f46d45d394fa1c56040029b65d"

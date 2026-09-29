@@ -1053,13 +1053,39 @@ Scalar parser `parse_tiktok_pdp_price` in `src/product_intelligence/adapters/tik
 the sole scalar-price admission authority and stays byte-unchanged under `AMBIGUOUS_PRICE_IS_NOT_EXACT_PRICE`.
 DOM scope resolver and V5 diagnostic stay byte-unchanged.
 
-TASK-253 becomes the current active track milestone while TASK-252 becomes historical.
+TASK-253 was the active track milestone at publication while TASK-252 became historical.
 `paired_price_current_role_hardening_implemented` is true, Gen-8 live authority is closed (`NONE`),
 zero fresh live attempts are granted, and `price_role_resolution_complete` remains false.
 NEXT is null, pending commitments are empty, automatic progression is false, all live acquisition and
 market-test authorities remain `NONE`, and post-publication planning hands off exclusively to
 `HUMAN_BRAIN_FRESH_POST_GEN8_PAIRED_PRICE_COLLECTOR_VALIDATION_AUTHORIZATION`.
 See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_GEN8_RESULT_AND_PAIRED_PRICE_ROLE_HARDENING.md`.
+
+TASK-254 is publication-gated DONE only as
+`POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION_CARRIER_PROVENANCE_REBINDING_ONLY`.
+It rebinds the existing sole Human-operated TikTok public-PDP validation carrier in place from the
+historical TASK-248 collector baseline to the exact reviewed/published TASK-253 collector source
+(`33776f11b20977f46d45d394fa1c56040029b65d`), changing exactly three existing top-level assignment
+values in `src/product_intelligence/tiktok_pdp_live_pilot.py`:
+`CONTRACT_IDENTIFIER = "POST_TASK253_PAIRED_PRICE_COLLECTOR_VALIDATION"`,
+`COLLECTOR_BASELINE_TASK_ID = "TASK-253"`, and
+`COLLECTOR_BASELINE_SOURCE_SHA = "33776f11b20977f46d45d394fa1c56040029b65d"`.
+No other production token in that file changes. Carrier mechanics, collector semantics, parser, DOM scope,
+models, CLI behavior, browser/session lifecycle, and V2 artifact structure remain byte-unchanged and un-duplicated.
+Historical validation/diagnostic facts from TASK-249/TASK-250/TASK-251/TASK-253 remain immutable through their
+existing nested/completed historical owners.
+TASK-254 canonicalizes an exact closed positive current-state projection for `active_track` (8 direct keys),
+`current_milestone` (44 direct keys), and `post_p8_planning_handoff` (38 allowed direct current keys with
+pre-existing historical containers retained and legacy direct scalar residue removed).
+`validation_carrier_source_sha` is strictly absent from current and completed representations until a future
+authorization binds exact published source.
+Fresh validation authority is zero (`authorized_validation_attempts: 0`, `remaining: 0`, `validation_execution_owner: NONE`,
+`validation_executed: false`), `live_public_pdp_acquisition_authority: NONE`, `automated_public_pdp_acquisition_authority: NONE`,
+`market_test_or_action_authority: NONE`, and `automatic_live_pilot: false`.
+Post-r4 BP9 downstream state remains intact with live pointers reconciled to revision 6.
+NEXT is null, pending commitments are empty, automatic progression is false, and post-publication planning hands off exclusively to
+`HUMAN_BRAIN_FRESH_POST_GEN8_PAIRED_PRICE_COLLECTOR_VALIDATION_AUTHORIZATION`.
+See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK253_VALIDATION_CARRIER_PROVENANCE_REBINDING.md`.
 
 
 The complete audit and P7.0 boundary are recorded in
