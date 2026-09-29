@@ -714,14 +714,77 @@ def _execute_case_bundle_projection_offline(
         }
 
     # Bounded root resolution (matches resolveBoundedPdpDomScope in CASE_BUNDLE_SCRIPT)
+    def _matches_title(e: SyntheticDOMElement) -> bool:
+        if e.tag_name == "h1":
+            return True
+        if e.get_attribute("role").lower() == "heading" and e.get_attribute("aria-level") == "1":
+            return True
+        if "title" in e.get_attribute("data-e2e").lower():
+            return True
+        if "title" in e.get_attribute("data-testid").lower():
+            return True
+        if "name" in e.get_attribute("itemprop").lower():
+            return True
+        return False
+
+    def _matches_price(e: SyntheticDOMElement) -> bool:
+        if "price" in e.get_attribute("data-e2e").lower():
+            return True
+        if "price" in e.get_attribute("data-testid").lower():
+            return True
+        if "price" in e.get_attribute("itemprop").lower():
+            return True
+        if "price" in e.class_name.lower():
+            return True
+        return False
+
+    def _matches_action(e: SyntheticDOMElement) -> bool:
+        tag = e.tag_name
+        e2e = e.get_attribute("data-e2e").lower()
+        testid = e.get_attribute("data-testid").lower()
+        if tag == "button" and ("buy" in e2e or "buy" in testid or "cart" in e2e or "cart" in testid):
+            return True
+        if "quantity" in e2e or "quantity" in testid:
+            return True
+        if "variant" in e2e or "variant" in testid:
+            return True
+        if e.get_attribute("role").lower() == "radiogroup":
+            return True
+        if tag == "select":
+            return True
+        return False
+
+    def _matches_root_candidate(e: SyntheticDOMElement) -> bool:
+        if "pdp" in e.get_attribute("data-e2e").lower():
+            return True
+        if "pdp" in e.get_attribute("data-testid").lower():
+            return True
+        if "product" in e.get_attribute("itemtype").lower():
+            return True
+        return False
+
+    def _has_commerce_quorum(scope: SyntheticDOMElement) -> bool:
+        descendants = [e for child in scope.children for e in child.iter_elements() if e.is_visible]
+        ts = [e for e in descendants if _matches_title(e)][:4]
+        ps = [e for e in descendants if _matches_price(e)][:4]
+        as_ = [e for e in descendants if _matches_action(e)][:4]
+        return any(
+            t is not p and t is not a and p is not a
+            for t in ts
+            for p in ps
+            for a in as_
+        )
+
     target_root = doc_root
     for node in doc_root.iter_elements():
-        if "pdp" in node.get_attribute("data-e2e").lower() or "pdp" in node.get_attribute("data-testid").lower():
+        if node is doc_root or node.tag_name in ("html", "body") or not node.is_visible:
+            continue
+        if _matches_root_candidate(node) and _has_commerce_quorum(node):
             target_root = node
             break
     else:
         for node in doc_root.iter_elements():
-            if node.tag_name == "main":
+            if node.tag_name == "main" and node.is_visible and _has_commerce_quorum(node):
                 target_root = node
                 break
 
