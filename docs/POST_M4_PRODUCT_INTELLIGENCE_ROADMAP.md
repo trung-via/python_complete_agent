@@ -1291,10 +1291,11 @@ consumes the one attempt without retry. Mandatory post-attempt review is grounde
 external artifacts. Automated acquisition and market-test/action authority remain NONE;
 `OPERATION_SUCCESS_IS_NOT_FIELD_VALIDATION_SUCCESS`, public-PDP limits, unknown optional fields,
 and `NOT_ESTABLISHED` affiliate economics remain explicit. No Product Truth, canonical evidence,
-trend, ranking, approval, or market-test readiness is inferred. Publication hands off only to the
-Human operator for that one-shot execution and then Human/Brain review; NEXT is null, pending
-commitments are empty, automatic progression is false, and no engineering successor or market
-action is selected.
+trend, ranking, approval, or market-test readiness is inferred. Publication hands off only to
+`HUMAN_OPERATOR_ONE_SHOT_POST_TASK254_PUBLIC_PDP_VALIDATION_EXECUTION`, followed by mandatory
+`HUMAN_BRAIN_POST_TASK254_PUBLIC_PDP_VALIDATION_REVIEW`; NEXT remains null, pending commitments
+are empty, automatic progression is false, and no engineering successor or market action is
+selected.
 See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK254_ONE_SHOT_VALIDATION_AUTHORIZATION.md`.
 
 
