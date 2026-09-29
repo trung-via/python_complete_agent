@@ -190,119 +190,58 @@ human_priority_side_track:
     live-validation authority.
 
 active_track:
-  id: P8_POST_TASK261_ONE_SHOT_VALIDATION_SUCCESS_RECONCILIATION
-  title: "P8 Post-TASK261 One-Shot Validation Success Reconciliation"
+  id: P8_REAL_CASE_SOURCE_OBSERVATION_BUNDLE
+  title: "P8 Real Case Source Observation Bundle Carrier and Authorization"
   priority_owner: HUMAN
   status: DONE
   completion_basis: PUBLICATION_GATED
-  sequence_status: COMPLETE_ON_EXACT_TASK_262_SOURCE_PUBLICATION
+  sequence_status: COMPLETE_ON_EXACT_TASK_263_SOURCE_PUBLICATION
   current_milestone:
-    id: P8.POST_TASK261.ONE_SHOT_VALIDATION_SUCCESS_RECONCILIATION
-    task_id: TASK-262
+    id: P8.REAL_CASE_SOURCE_OBSERVATION_BUNDLE
+    task_id: TASK-263
     task_revision: 1
-    title: "Post-TASK261 One-Shot Validation Success Reconciliation"
+    title: "Real Case Source Observation Bundle Carrier and Authorization"
     status: DONE
     completion_basis: PUBLICATION_GATED
-    classification: POST_TASK261_ONE_SHOT_VALIDATION_SUCCESS_RECONCILIATION_ONLY
+    classification: P8_REAL_CASE_SOURCE_OBSERVATION_BUNDLE_ONE_SHOT_ONLY
     authorization_owner: HUMAN_BRAIN
-    source_task_id: TASK-261
-    source_run_id: RUN-261-005
-    source_review_id: REVIEW-261-001
-    source_published_sha: 78269d13c6cec126edc8e1cdf893cbcd6ea22132
-    validation_carrier_source_sha: 36627c80e76f156fcb774b10fbd35d14df6d9ea4
-    collector_validation_baseline:
-      task_id: TASK-253
-      source_sha: 33776f11b20977f46d45d394fa1c56040029b65d
-    carrier_execution_source:
-      task_id: TASK-254
-      run_id: RUN-254-003
-      review_id: REVIEW-254-001
-      published_sha: 36627c80e76f156fcb774b10fbd35d14df6d9ea4
+    source_task_id: TASK-262
+    source_published_sha: 935c46069e7770bc2a56b29abac58311ff7730e6
     context_id: p8-pilot-001-led-motion-tiktok-vn
     authorized_source_id: "1731381331718341815"
     stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
-    external_job_root_binding: "C:\\TOOL\\AIOS-Runtime\\python-agent-jobs\\p8-task261-one-shot-001"
-    carrier_module: src/product_intelligence/tiktok_pdp_live_pilot.py
-    validation_carrier_schema_version: 2
-    validation_attempt_marker_filename: tiktok-pdp-live-validation-attempt-v2.json
-    validation_attempt_marker_schema_version: 2
-    validation_result_filename: tiktok-pdp-live-validation-result-v2.json
-    validation_result_schema_version: 2
-    authorized_validation_attempts: 1
-    authorized_validation_attempts_remaining: 0
-    validation_execution_owner: HUMAN_OPERATOR
-    validation_executed: true
-    validation_operation_status: SUCCESS
-    validation_observation_status: OBSERVED
-    validation_session_release_status: SUCCESS
-    process_exit_code: 0
-    validation_attempt_marker:
-      filename: tiktok-pdp-live-validation-attempt-v2.json
-      schema_version: 2
-      size_bytes: 630
-      sha256: 10EF42C00112807BE6324CAE5102CA1EDE44403BE1697FB38C9CE70248CB7E5B
-    validation_result:
-      filename: tiktok-pdp-live-validation-result-v2.json
-      schema_version: 2
-      size_bytes: 1947
-      sha256: 45A68FDAF22D0D4F06ADB28DC90FBE6FCFD79A3295E065D4220B95BC1ECA8A76
-      observed_at: "2026-09-29T11:50:28.968397+00:00"
-    field_validation_uncertainty:
-      current_price_validation_status: OBSERVED_ONLY
-      current_price_observed: 33600.0
-      current_price_observed_at: "2026-09-29T11:50:28.968397+00:00"
-      original_price_validation_status: OBSERVED_ONLY
-      original_price_observed: 68220.0
-      original_price_observed_at: "2026-09-29T11:50:28.968397+00:00"
-      shop_name_validation_status: UNKNOWN
-      discount_percent_validation_status: UNKNOWN
-      sold_count_validation_status: UNKNOWN
-      rating_validation_status: UNKNOWN
-      review_count_validation_status: UNKNOWN
-      operation_success_is_not_field_validation_success: true
-    current_price_validation_status: OBSERVED_ONLY
-    current_price_observed: 33600.0
-    current_price_observed_at: "2026-09-29T11:50:28.968397+00:00"
-    original_price_validation_status: OBSERVED_ONLY
-    original_price_observed: 68220.0
-    original_price_observed_at: "2026-09-29T11:50:28.968397+00:00"
-    shop_name: null
-    discount_percent: null
-    sold_count: null
-    rating: null
-    review_count: null
-    price_role_resolution_complete: true
-    price_role_resolution_scope: BOUNDED_FIXED_LISTING_COLLECTOR_VALIDATION_OBJECTIVE_ONLY
-    selector_repair_complete: false
-    canonical_evidence_ingested: false
-    live_public_pdp_acquisition_authority: NONE
+    carrier_module: src/product_intelligence/tiktok_pdp_case_bundle.py
+    canonical_cli_command: tiktok-pdp-case-bundle
+    manifest_filename: p8-real-case-manifest-v1.json
+    projection_filename: p8-real-case-page-projection-v1.json
+    screenshot_filename: p8-real-case-full-page-v1.png
+    authorized_bundle_attempts: 1
+    authorized_bundle_attempts_remaining: 1
+    bundle_execution_owner: HUMAN_OPERATOR
+    bundle_executed: false
+    live_bundle_capture_authority: ONE_SHOT_ATTACH_ONLY_EXACT_LISTING
     automated_public_pdp_acquisition_authority: NONE
     market_test_or_action_authority: NONE
     second_invocation_authority: NONE
-    automatic_live_pilot: false
-    automatic_progression: false
     arbitrary_target_authority: NONE
     replacement_target_authority: NONE
     search_authority: NONE
     batch_authority: NONE
     inferred_identity_authority: NONE
     variant_switching_authority: NONE
-    epistemic_boundary:
-      operation_success_is_not_field_validation_success: true
-      optional_fields_may_remain_unknown: true
-      affiliate_eligibility: NOT_ESTABLISHED
-      affiliate_commission_rate: NOT_ESTABLISHED
-      estimated_commission: NOT_ESTABLISHED
-      product_truth_inferred: false
-      canonical_evidence_ingested: false
-      trend_inferred: false
-      ranking_inferred: false
-      approval_inferred: false
-      market_test_readiness: MARKET_TEST_READINESS_NOT_ESTABLISHED
+    automatic_live_pilot: false
+    automatic_progression: false
+    price_role_resolution_complete: true
+    selector_repair_complete: false
+    canonical_evidence_ingested: false
+    epistemic_boundary: BUNDLE_IS_NOT_CANONICAL_EVIDENCE
+    market_test_readiness: MARKET_TEST_READINESS_NOT_ESTABLISHED
+    affiliate_economics: NOT_ESTABLISHED
     next_milestone: null
     post_run_engineering_successor: null
-    exact_post_publication_handoff: HUMAN_BRAIN_REAL_DECISION_SUFFICIENCY_SELECTION
-    post_publication_handoff: HUMAN_BRAIN_REAL_DECISION_SUFFICIENCY_SELECTION
+    exact_post_publication_handoff: HUMAN_OPERATOR_P8_REAL_CASE_BUNDLE_CAPTURE
+    post_publication_handoff: HUMAN_OPERATOR_P8_REAL_CASE_BUNDLE_CAPTURE
+    mandatory_post_capture_review: HUMAN_BRAIN_P8_REAL_CASE_BUNDLE_REVIEW
     effective_only_when:
       semantic_review: PASS
       published_source: EXACT_REVIEWED_CANDIDATE
@@ -327,72 +266,40 @@ post_p7_planning_handoff:
     outcome, roadmap, or future-domain authority into P8.0.
 
 post_p8_planning_handoff:
-  destination: HUMAN_BRAIN_REAL_DECISION_SUFFICIENCY_SELECTION
-  status: EFFECTIVE_ON_EXACT_TASK_262_SOURCE_PUBLICATION
-  completed_commitment: P8_POST_TASK261_ONE_SHOT_VALIDATION_SUCCESS_RECONCILIATION
-  task_id: TASK-262
+  destination: HUMAN_OPERATOR_P8_REAL_CASE_BUNDLE_CAPTURE
+  status: EFFECTIVE_ON_EXACT_TASK_263_SOURCE_PUBLICATION
+  completed_commitment: P8_REAL_CASE_SOURCE_OBSERVATION_BUNDLE
+  task_id: TASK-263
   task_revision: 1
-  source_task_id: TASK-261
-  source_run_id: RUN-261-005
-  source_review_id: REVIEW-261-001
-  source_published_sha: 78269d13c6cec126edc8e1cdf893cbcd6ea22132
-  validation_carrier_source_sha: 36627c80e76f156fcb774b10fbd35d14df6d9ea4
-  collector_validation_baseline:
-    task_id: TASK-253
-    source_sha: 33776f11b20977f46d45d394fa1c56040029b65d
-  carrier_execution_source:
-    task_id: TASK-254
-    run_id: RUN-254-003
-    review_id: REVIEW-254-001
-    published_sha: 36627c80e76f156fcb774b10fbd35d14df6d9ea4
+  source_task_id: TASK-262
+  source_published_sha: 935c46069e7770bc2a56b29abac58311ff7730e6
   context_id: p8-pilot-001-led-motion-tiktok-vn
   selected_source_id: "1731381331718341815"
   stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
-  external_job_root_binding: "C:\\TOOL\\AIOS-Runtime\\python-agent-jobs\\p8-task261-one-shot-001"
-  authorized_validation_attempts: 1
-  authorized_validation_attempts_remaining: 0
-  validation_execution_owner: HUMAN_OPERATOR
-  validation_executed: true
-  validation_operation_status: SUCCESS
-  validation_observation_status: OBSERVED
-  validation_session_release_status: SUCCESS
-  process_exit_code: 0
-  validation_attempt_marker:
-    filename: tiktok-pdp-live-validation-attempt-v2.json
-    schema_version: 2
-    size_bytes: 630
-    sha256: 10EF42C00112807BE6324CAE5102CA1EDE44403BE1697FB38C9CE70248CB7E5B
-  validation_result:
-    filename: tiktok-pdp-live-validation-result-v2.json
-    schema_version: 2
-    size_bytes: 1947
-    sha256: 45A68FDAF22D0D4F06ADB28DC90FBE6FCFD79A3295E065D4220B95BC1ECA8A76
-    observed_at: "2026-09-29T11:50:28.968397+00:00"
-  current_price_validation_status: OBSERVED_ONLY
-  current_price_observed: 33600.0
-  current_price_observed_at: "2026-09-29T11:50:28.968397+00:00"
-  original_price_validation_status: OBSERVED_ONLY
-  original_price_observed: 68220.0
-  original_price_observed_at: "2026-09-29T11:50:28.968397+00:00"
-  shop_name: null
-  discount_percent: null
-  sold_count: null
-  rating: null
-  review_count: null
-  price_role_resolution_complete: true
-  selector_repair_complete: false
-  canonical_evidence_ingested: false
-  live_public_pdp_acquisition_authority: NONE
+  carrier_module: src/product_intelligence/tiktok_pdp_case_bundle.py
+  canonical_cli_command: tiktok-pdp-case-bundle
+  manifest_filename: p8-real-case-manifest-v1.json
+  projection_filename: p8-real-case-page-projection-v1.json
+  screenshot_filename: p8-real-case-full-page-v1.png
+  authorized_bundle_attempts: 1
+  authorized_bundle_attempts_remaining: 1
+  bundle_execution_owner: HUMAN_OPERATOR
+  bundle_executed: false
+  live_bundle_capture_authority: ONE_SHOT_ATTACH_ONLY_EXACT_LISTING
   automated_public_pdp_acquisition_authority: NONE
   market_test_or_action_authority: NONE
   second_invocation_authority: NONE
   automatic_live_pilot: false
   automatic_progression: false
-  operation_success_is_not_field_validation_success: true
-  affiliate_economics: NOT_ESTABLISHED
+  price_role_resolution_complete: true
+  selector_repair_complete: false
+  canonical_evidence_ingested: false
+  epistemic_boundary: BUNDLE_IS_NOT_CANONICAL_EVIDENCE
   market_test_readiness: MARKET_TEST_READINESS_NOT_ESTABLISHED
+  affiliate_economics: NOT_ESTABLISHED
   next_milestone: null
   post_run_engineering_successor: null
+  mandatory_post_capture_handoff: HUMAN_BRAIN_P8_REAL_CASE_BUNDLE_REVIEW
   actual_real_decision_case:
     context_id: p8-pilot-001-led-motion-tiktok-vn
     record_type: PILOT_CASE_SELECTION_ONLY
@@ -1862,14 +1769,15 @@ post_p8_planning_handoff:
     next_milestone: null
     post_publication_handoff: HUMAN_BRAIN_FRESH_POST_GEN8_PAIRED_PRICE_COLLECTOR_VALIDATION_AUTHORIZATION
   boundary: >-
-    Exact reviewed TASK-262 publication reconciles the consumed Human-operated post-TASK261 one-shot
-    TikTok public-PDP validation as one SUCCESS / OBSERVED / SESSION_RELEASE_SUCCESS event with exact
-    external V2 provenance, directly observed CLI exit code 0, current price 33600.0 and original price
-    68220.0 as OBSERVED_ONLY at 2026-09-29T11:50:28.968397+00:00, and bounded fixed-listing collector
-    validation resolved. Selector repair remains false, canonical evidence remains uningested, and no
-    Product Truth, trend, ranking, approval, market-test readiness, or affiliate economics is inferred.
-    All live/retry/automated/action authorities are NONE and planning hands off only to
-    HUMAN_BRAIN_REAL_DECISION_SUFFICIENCY_SELECTION.
+    Exact reviewed TASK-263 publication publishes one bounded Human-operated attach-only P8 Real Case
+    Evidence Bundle carrier for exact listing 1731381331718341815 producing three fixed external artifacts
+    (manifest, page projection, screenshot) under manifest-first durable consumption semantics. The carrier
+    operates under BUNDLE_IS_NOT_CANONICAL_EVIDENCE and HUMAN_REVIEW_REQUIRED, creating no ProductCandidateSnapshot,
+    SignalEvidence, or canonical evidence. Selector repair remains false, canonical evidence remains uningested,
+    and no Product Truth, trend, ranking, approval, market-test readiness, or affiliate economics is inferred.
+    All automated/action/retry/search authorities remain NONE, pending commitments are empty, next milestone is
+    null, and planning hands off strictly to HUMAN_OPERATOR_P8_REAL_CASE_BUNDLE_CAPTURE followed by mandatory
+    HUMAN_BRAIN_P8_REAL_CASE_BUNDLE_REVIEW.
 
 
 completed_milestones:
@@ -3608,6 +3516,57 @@ completed_milestones:
     post_run_engineering_successor: null
     exact_post_publication_handoff: HUMAN_BRAIN_REAL_DECISION_SUFFICIENCY_SELECTION
     post_publication_handoff: HUMAN_BRAIN_REAL_DECISION_SUFFICIENCY_SELECTION
+    effective_only_when:
+      semantic_review: PASS
+      published_source: EXACT_REVIEWED_CANDIDATE
+      canonical_main_equals_reviewed_candidate: true
+
+  - task_id: TASK-263
+    task_revision: 1
+    track_id: P8_REAL_CASE_SOURCE_OBSERVATION_BUNDLE
+    milestone_id: P8.REAL_CASE_SOURCE_OBSERVATION_BUNDLE
+    title: "Real Case Source Observation Bundle Carrier and Authorization"
+    status: DONE
+    completion_basis: PUBLICATION_GATED
+    classification: P8_REAL_CASE_SOURCE_OBSERVATION_BUNDLE_ONE_SHOT_ONLY
+    authorization_owner: HUMAN_BRAIN
+    source_task_id: TASK-262
+    source_published_sha: 935c46069e7770bc2a56b29abac58311ff7730e6
+    context_id: p8-pilot-001-led-motion-tiktok-vn
+    authorized_source_id: "1731381331718341815"
+    stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
+    carrier_module: src/product_intelligence/tiktok_pdp_case_bundle.py
+    canonical_cli_command: tiktok-pdp-case-bundle
+    manifest_filename: p8-real-case-manifest-v1.json
+    projection_filename: p8-real-case-page-projection-v1.json
+    screenshot_filename: p8-real-case-full-page-v1.png
+    authorized_bundle_attempts: 1
+    authorized_bundle_attempts_remaining: 1
+    bundle_execution_owner: HUMAN_OPERATOR
+    bundle_executed: false
+    live_bundle_capture_authority: ONE_SHOT_ATTACH_ONLY_EXACT_LISTING
+    automated_public_pdp_acquisition_authority: NONE
+    market_test_or_action_authority: NONE
+    second_invocation_authority: NONE
+    arbitrary_target_authority: NONE
+    replacement_target_authority: NONE
+    search_authority: NONE
+    batch_authority: NONE
+    inferred_identity_authority: NONE
+    variant_switching_authority: NONE
+    automatic_live_pilot: false
+    automatic_progression: false
+    price_role_resolution_complete: true
+    selector_repair_complete: false
+    canonical_evidence_ingested: false
+    epistemic_boundary: BUNDLE_IS_NOT_CANONICAL_EVIDENCE
+    market_test_readiness: MARKET_TEST_READINESS_NOT_ESTABLISHED
+    affiliate_economics: NOT_ESTABLISHED
+    next_milestone: null
+    post_run_engineering_successor: null
+    exact_post_publication_handoff: HUMAN_OPERATOR_P8_REAL_CASE_BUNDLE_CAPTURE
+    post_publication_handoff: HUMAN_OPERATOR_P8_REAL_CASE_BUNDLE_CAPTURE
+    mandatory_post_capture_review: HUMAN_BRAIN_P8_REAL_CASE_BUNDLE_REVIEW
     effective_only_when:
       semantic_review: PASS
       published_source: EXACT_REVIEWED_CANDIDATE

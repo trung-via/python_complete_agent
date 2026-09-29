@@ -1330,6 +1330,47 @@ and TASK-261 publication authorization truth remain immutable. Current planning 
 preselected action.
 See `docs/PHASE_8_PUBLIC_TIKTOK_PDP_POST_TASK261_VALIDATION_SUCCESS_RECONCILIATION.md`.
 
+TASK-263 is publication-gated DONE only as
+`P8_REAL_CASE_SOURCE_OBSERVATION_BUNDLE_ONE_SHOT_ONLY`.
+It implements one bounded Human-operated attach-only P8 Real Case Evidence Bundle carrier in
+`src/product_intelligence/tiktok_pdp_case_bundle.py` and canonical CLI command `tiktok-pdp-case-bundle`
+bound strictly to the exact selected TikTok Shop Vietnam listing (context `p8-pilot-001-led-motion-tiktok-vn`,
+source ID `1731381331718341815`, stable listing reference
+`https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815`).
+TASK-263 creates one bounded attach-only carrier and one-shot Human authorization for the exact listing;
+it performs zero live capture during engineering or verification, constructs no canonical evidence,
+mutates no P7 semantics, infers no Product Truth, uses no MCP, calls no marketplace APIs, and does not generalize
+acquisition beyond the single P8 case.
+
+The carrier borrows the existing already-open session from the operator's Chromium browser via CDP and performs
+zero navigation and zero interaction. It invokes existing BrowserSession `evaluate()` exactly once to capture
+a sanitized rendered structural projection and `screenshot()` exactly once for a full-page visual cross-check,
+releasing only the borrowed session via TASK-137 lifecycle ownership without terminating the Human-owned browser.
+The carrier produces exactly three final artifacts in an explicit external job root:
+`p8-real-case-manifest-v1.json`, `p8-real-case-page-projection-v1.json`, and `p8-real-case-full-page-v1.png`.
+Both projection and PNG bytes and hashes are fully prepared in memory before any artifact path is created.
+The manifest is written create-exclusively first; successful creation of the manifest is the durable one-shot
+consumption boundary. Interruption or failure after manifest creation consumes the sole authorized attempt with
+no retry, resume, or second invocation authority. Post-manifest projection and screenshot writes are create-exclusive
+and required to match manifest hashes; failures fail closed without mutating the manifest.
+
+The projection is a bounded rendered-source observation, not raw DOM serialization. Traversal is restricted to visible
+elements and sanitized to an allowlist (tag_name, role, itemprop, data-testid, data-e2e, class_tokens, section_heading_context,
+clipped visible text, is_leaf) with hard bounds (max 2000 scanned nodes, max 500 records, max 160 chars text, max 256 KB
+serialized bytes) and explicit truncation tracking. Input values, raw HTML, scripts, styles, hrefs, query strings,
+event handlers, hidden text, and account/browser metadata are strictly excluded. The projection independently verifies URL and source ID,
+failing closed on mismatch, login, challenge, or unavailable states.
+The full-page screenshot is an external visual cross-check marked `screenshot_review_status: HUMAN_REVIEW_REQUIRED`
+and is not canonical evidence (`BUNDLE_IS_NOT_CANONICAL_EVIDENCE`).
+TASK-262 remains immutable completed history: observed prices `33600.0` and `68220.0` remain `OBSERVED_ONLY` at
+`2026-09-29T11:50:28.968397+00:00`. Decision state remains strictly `MARKET_TEST_READINESS_NOT_ESTABLISHED`,
+`price_role_resolution_complete` is true only for the bounded fixed-listing collector validation objective,
+`selector_repair_complete` remains false, and `canonical_evidence_ingested` remains false.
+On exact reviewed TASK-263 publication, planning hands off strictly to `HUMAN_OPERATOR_P8_REAL_CASE_BUNDLE_CAPTURE`
+followed by mandatory `HUMAN_BRAIN_P8_REAL_CASE_BUNDLE_REVIEW`. `next_milestone` is null, `pending_commitments` is empty,
+`automatic_progression` is false, and `post_run_engineering_successor` is null.
+See `docs/PHASE_8_REAL_CASE_EVIDENCE_BUNDLE.md`.
+
 
 
 ## 4. Authority invariants
