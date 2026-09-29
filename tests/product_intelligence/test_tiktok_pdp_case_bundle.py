@@ -286,6 +286,7 @@ async def test_evaluate_failure_does_not_consume(tmp_path):
         )
     assert "bounded page projection evaluation failed" in str(exc_info.value)
     assert not (job_root / MANIFEST_FILENAME).exists()
+    assert fake_session.screenshot_calls == 0
     assert fake_manager.closed_run_ids == [f"human-case-bundle:{CONTEXT_ID}"]
 
 
@@ -346,6 +347,8 @@ async def test_page_state_failures_fail_closed_without_consuming(tmp_path, flag,
         )
     assert str(exc_info.value) == error_code
     assert not (job_root / MANIFEST_FILENAME).exists()
+    assert fake_session.screenshot_calls == 0
+    assert fake_manager.closed_run_ids == [f"human-case-bundle:{CONTEXT_ID}"]
 
 
 @pytest.mark.asyncio
@@ -371,6 +374,26 @@ async def test_identity_mismatch_fails_closed_without_consuming(tmp_path, bad_ur
         )
     assert str(exc_info.value) == IDENTITY_MISMATCH
     assert not (job_root / MANIFEST_FILENAME).exists()
+    assert fake_session.screenshot_calls == 0
+    assert fake_manager.closed_run_ids == [f"human-case-bundle:{CONTEXT_ID}"]
+
+
+@pytest.mark.asyncio
+async def test_malformed_projection_fails_closed_without_consuming(tmp_path):
+    job_root = tmp_path / "malformed_root"
+    fake_session = FakeSession(payload={"invalid": "payload"})
+    fake_manager = FakeManager(session=fake_session)
+
+    with pytest.raises(TikTokPdpCaseBundleError) as exc_info:
+        await run_tiktok_pdp_case_bundle(
+            job_root=job_root,
+            cdp_endpoint=ENDPOINT,
+            manager_factory=lambda cdp_endpoint: fake_manager,
+        )
+    assert str(exc_info.value) == MALFORMED_PROJECTION
+    assert not (job_root / MANIFEST_FILENAME).exists()
+    assert fake_session.screenshot_calls == 0
+    assert fake_manager.closed_run_ids == [f"human-case-bundle:{CONTEXT_ID}"]
 
 
 @pytest.mark.asyncio
@@ -412,12 +435,38 @@ async def test_manifest_first_consumption_and_post_manifest_failure(tmp_path, mo
 @pytest.mark.asyncio
 async def test_byte_truncation_enforces_limit(tmp_path):
     job_root = tmp_path / "truncation_root"
-    # Create large number of records
+    # Create large number of records near legal limits to exceed 256 KiB
     large_records = [
-        _sample_record(i + 1, "div", f"Item text number {i} " + "X" * 100)
+        _sample_record(
+            ordinal=i + 1,
+            tag="div",
+            text=f"Item visible description {i:03d} " + "T" * 125,
+            role="region_" + "r" * 70,
+            itemprop="itemprop_" + "p" * 68,
+            class_tokens=["tok1_" + "a" * 38, "tok2_" + "b" * 38, "tok3_" + "c" * 38, "tok4_" + "d" * 38],
+            section_heading_context="Section Heading " + "H" * 60,
+            **{
+                "data-testid": "testid_" + "t" * 70,
+                "data-e2e": "e2e_" + "e" * 70,
+            },
+        )
         for i in range(500)
     ]
-    payload = _valid_projection_payload(records=large_records)
+    payload = _valid_projection_payload(
+        records=large_records,
+        truncation={
+            "is_truncated": False,
+            "scanned_nodes_truncated": False,
+            "records_truncated": False,
+            "text_truncated": False,
+            "bytes_truncated": False,
+            "total_scanned_nodes": 500,
+            "total_records": 500,
+        },
+    )
+    premise_bytes = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8") + b"\n"
+    assert len(premise_bytes) > 256 * 1024
+
     fake_session = FakeSession(payload=payload)
     fake_manager = FakeManager(session=fake_session)
 

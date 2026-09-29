@@ -162,8 +162,8 @@ CASE_BUNDLE_SCRIPT = r"""() => {
  let identity = false;
  try {
    const u = new URL(url);
-   const m = u.pathname.match(/^\/[a-z]{2}\/pdp\/[^/]+\/(\d+)\/?$/i);
-   identity = /^https?:$/.test(u.protocol) && u.hostname.toLowerCase() === 'shop.tiktok.com' && Boolean(m) && m[1] === '1731381331718341815';
+   const m = u.pathname.match(/^\/vn\/pdp\/[^/]+\/(\d+)\/?$/i);
+   identity = u.protocol === 'https:' && u.hostname.toLowerCase() === 'shop.tiktok.com' && Boolean(m) && m[1] === '1731381331718341815';
  } catch(_) {
    identity = false;
  }
@@ -371,9 +371,9 @@ def _validate_projection_payload(payload: object) -> dict[str, object]:
         parsed = urlsplit(url)
     except ValueError as exc:
         raise TikTokPdpCaseBundleError(IDENTITY_MISMATCH) from exc
-    match = re.fullmatch(r"/[a-z]{2}/pdp/[^/]+/(?P<product_id>\d+)/?", parsed.path, flags=re.I)
+    match = re.fullmatch(r"/vn/pdp/[^/]+/(?P<product_id>\d+)/?", parsed.path, flags=re.I)
     if (
-        parsed.scheme.lower() not in {"http", "https"}
+        parsed.scheme.lower() != "https"
         or (parsed.hostname or "").lower() != "shop.tiktok.com"
         or match is None
         or match.group("product_id") != AUTHORIZED_SOURCE_ID
@@ -572,6 +572,11 @@ async def run_tiktok_pdp_case_bundle(
                 "the bounded page projection evaluation failed"
             ) from exc
 
+        # Validate and prepare projection before screenshot
+        projection_doc = _validate_projection_payload(raw_payload)
+        projection_doc["observed_at"] = observed_at.isoformat()
+        projection_bytes = _prepare_projection_bytes(projection_doc)
+
         try:
             png_bytes = await session.screenshot()
         except Exception as exc:
@@ -598,12 +603,7 @@ async def run_tiktok_pdp_case_bundle(
                         "the borrowed browser session could not be released"
                     ) from exc
 
-    # 3. Validate and serialize projection in memory
-    projection_doc = _validate_projection_payload(raw_payload)
-    projection_doc["observed_at"] = observed_at.isoformat()
-    projection_bytes = _prepare_projection_bytes(projection_doc)
-
-    # 4. Construct manifest in memory with hashes and byte counts
+    # 3. Construct manifest in memory with hashes and byte counts
     manifest_doc = _build_manifest_doc(
         started_at=started_at,
         observed_at=observed_at,
@@ -615,7 +615,7 @@ async def run_tiktok_pdp_case_bundle(
         json.dumps(manifest_doc, ensure_ascii=False, indent=2).encode("utf-8") + b"\n"
     )
 
-    # 5. Durable Consumption Boundary: Write manifest create-exclusively first
+    # 4. Durable Consumption Boundary: Write manifest create-exclusively first
     try:
         root.mkdir(parents=True, exist_ok=True)
         with manifest_path.open("xb") as stream:
@@ -629,7 +629,7 @@ async def run_tiktok_pdp_case_bundle(
             "the bundle manifest could not be created"
         ) from exc
 
-    # 6. Post-manifest writing: any failure here is consumed fail-closed
+    # 5. Post-manifest writing: any failure here is consumed fail-closed
     try:
         with projection_path.open("xb") as stream:
             stream.write(projection_bytes)
