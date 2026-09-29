@@ -572,12 +572,280 @@ def test_projection_validation_accepts_clean_product_records():
 
     payload = _valid_projection_payload(
         records=[
-            _sample_record(1, "h1", "Đèn LED Cảm Biến Chuyển Động"),
+            _sample_record(1, "h1", "Đèn LED Cảm Biến Chuyển Động", **{"data-testid": "product-title", "itemprop": "name"}),
             _sample_record(2, "span", "33.600₫", role="", itemprop="price"),
-            _sample_record(3, "button", "Mua ngay", role="button", **{"data-e2e": "buy-now"}),
+            _sample_record(3, "span", "Nhựa ABS cao cấp", section_heading_context="Thông số sản phẩm"),
+            _sample_record(4, "span", "Lighting Official Store", section_heading_context="Thông tin người bán", **{"data-testid": "shop-name"}),
+            _sample_record(5, "span", "Đổi trả 7 ngày miễn phí", section_heading_context="Dịch vụ người bán"),
+            _sample_record(6, "button", "Mua ngay", role="button", **{"data-e2e": "buy-now"}),
         ]
     )
     validated = _validate_projection_payload(payload)
-    assert len(validated["records"]) == 3
+    assert len(validated["records"]) == 6
     assert validated["records"][0]["visible_text"] == "Đèn LED Cảm Biến Chuyển Động"
+    assert validated["records"][1]["visible_text"] == "33.600₫"
+    assert validated["records"][2]["visible_text"] == "Nhựa ABS cao cấp"
+    assert validated["records"][3]["visible_text"] == "Lighting Official Store"
+    assert validated["records"][4]["visible_text"] == "Đổi trả 7 ngày miễn phí"
+    assert validated["records"][5]["visible_text"] == "Mua ngay"
+
+
+@pytest.mark.asyncio
+async def test_case_bundle_projection_offline_dom_sanitation_and_product_capture(tmp_path):
+    """Prove non-product account/profile/navigation text outside admitted product scope cannot enter persisted projection
+
+    while representative title, price, attributes/specification, seller/product-service,
+    and other intended product-page observations remain capturable within the bounded projection.
+    """
+    from playwright.async_api import async_playwright
+
+    html = f"""<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <title>Đèn LED Cảm Biến Chuyển Động - TikTok Shop</title>
+</head>
+<body>
+    <!-- Non-product global header and navigation outside admitted product scope -->
+    <header class="site-header">
+        <nav class="top-nav" role="navigation">
+            <a href="/home" class="nav-link">Trang chủ TikTok</a>
+            <a href="/explore" class="nav-link">Khám phá sản phẩm</a>
+            <a href="/trending" class="nav-link">Xu hướng mua sắm</a>
+        </nav>
+        <div role="banner" class="user-banner">
+            <div class="user-profile" data-testid="user-profile">
+                <span class="username">user_super_buyer_99</span>
+                <span class="user-info">Hồ sơ cá nhân và tài khoản</span>
+                <span class="user-avatar">Ảnh đại diện</span>
+            </div>
+            <div class="account-session-panel" data-e2e="user-session">
+                <span>Phiên đăng nhập: SESSION_SECRET_TOKEN_987</span>
+                <a href="/account/settings">Cài đặt tài khoản người dùng</a>
+                <a href="/logout">Đăng xuất khỏi hệ thống</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Non-product sidebar navigation outside admitted product scope -->
+    <aside role="navigation" class="account-sidebar">
+        <a href="/user/orders">Đơn hàng của tôi</a>
+        <a href="/user/coupons">Ví voucher của tôi</a>
+        <a href="/user/notifications">Thông báo cá nhân</a>
+    </aside>
+
+    <!-- Admitted product scope container -->
+    <main id="main-product-area">
+        <div data-e2e="pdp-container" data-product-id="{AUTHORIZED_SOURCE_ID}" class="pdp-main-container">
+            <!-- Non-product account-like widget nested inside product container to prove isExcludedRegion rejection -->
+            <div class="user-account-widget" data-e2e="user-avatar">
+                <span>Tài khoản khách hàng VIP nội bộ</span>
+            </div>
+
+            <!-- Representative Product Title -->
+            <h1 data-testid="product-title" itemprop="name" class="product-title">
+                Đèn LED Cảm Biến Chuyển Động 3 Chế Độ Sáng Sạc USB-C
+            </h1>
+
+            <!-- Representative Product Price -->
+            <div class="product-pricing" data-testid="pdp-price">
+                <span itemprop="price" class="current-price">33.600₫</span>
+                <del class="original-price">50.000₫</del>
+            </div>
+
+            <!-- Representative Product Attributes / Specification -->
+            <div class="specs-section">
+                <h2 class="specs-heading">Thông số sản phẩm</h2>
+                <div class="spec-row" data-testid="spec-material">
+                    <span class="spec-name">Chất liệu thân đèn:</span>
+                    <span class="spec-value">Nhựa ABS cao cấp</span>
+                </div>
+                <div class="spec-row" data-testid="spec-port">
+                    <span class="spec-name">Cổng sạc nguồn:</span>
+                    <span class="spec-value">Type-C tiện lợi</span>
+                </div>
+                <div class="spec-row" data-testid="spec-modes">
+                    <span class="spec-name">Chế độ chiếu sáng:</span>
+                    <span class="spec-value">3 chế độ thông minh</span>
+                </div>
+            </div>
+
+            <!-- Representative Seller / Product-Service -->
+            <div class="seller-service-section">
+                <h2 class="seller-heading">Thông tin người bán và dịch vụ</h2>
+                <div class="shop-badge" data-testid="shop-name">
+                    <span class="shop-title">Lighting Official Store</span>
+                </div>
+                <div class="service-guarantees" data-testid="service-policy">
+                    <span class="guarantee-item">Đổi trả 7 ngày miễn phí</span>
+                    <span class="warranty-item">Bảo hành chính hãng 12 tháng</span>
+                </div>
+            </div>
+
+            <!-- Other intended product-page observations (Actions) -->
+            <div class="action-buttons">
+                <button data-e2e="buy-now" role="button" class="btn-buy">Mua ngay</button>
+                <button data-e2e="add-to-cart" role="button" class="btn-cart">Thêm vào giỏ hàng</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Non-product footer outside admitted product scope -->
+    <footer role="contentinfo" class="site-footer">
+        <div class="footer-links">
+            <span>Chính sách bảo mật người dùng</span>
+            <span>Điều khoản dịch vụ tài khoản</span>
+            <span>Trung tâm trợ giúp và hỗ trợ</span>
+        </div>
+    </footer>
+</body>
+</html>"""
+
+    target_url = AUTHORIZED_PDP_URL
+    job_root = tmp_path / "bundle-dom-sanitation-001"
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        try:
+            page = await browser.new_page()
+            await page.route(
+                "https://shop.tiktok.com/**",
+                lambda route: route.fulfill(status=200, content_type="text/html", body=html),
+            )
+            await page.goto(target_url)
+
+            class _LiveSessionManager:
+                def __init__(self, *, cdp_endpoint: str):
+                    self.cdp_endpoint = cdp_endpoint
+                    self.closed = False
+
+                async def get_or_create_session(self, run_id: str):
+                    return page
+
+                async def close_session(self, run_id: str):
+                    self.closed = True
+
+            outcome = await run_tiktok_pdp_case_bundle(
+                job_root=job_root,
+                cdp_endpoint=ENDPOINT,
+                clock=lambda: OBSERVED_AT,
+                manager_factory=_LiveSessionManager,
+            )
+
+            assert isinstance(outcome, TikTokPdpCaseBundleOutcome)
+            assert outcome.manifest_path == job_root / MANIFEST_FILENAME
+            assert outcome.projection_path == job_root / PROJECTION_FILENAME
+            assert outcome.screenshot_path == job_root / SCREENSHOT_FILENAME
+
+            # Exactly three artifacts created in the job root
+            files = sorted(p.name for p in job_root.iterdir())
+            assert files == [
+                "p8-real-case-full-page-v1.png",
+                "p8-real-case-manifest-v1.json",
+                "p8-real-case-page-projection-v1.json",
+            ]
+
+            # Read and parse the persisted projection artifact
+            persisted_bytes = outcome.projection_path.read_bytes()
+            assert len(persisted_bytes) <= 256 * 1024
+            projection_doc = json.loads(persisted_bytes.decode("utf-8"))
+
+            assert projection_doc["schema_version"] == 1
+            assert projection_doc["record_type"] == "P8_REAL_CASE_PAGE_PROJECTION"
+            assert projection_doc["classification"] == CLASSIFICATION
+            assert projection_doc["context_id"] == CONTEXT_ID
+            assert projection_doc["source_product_id"] == AUTHORIZED_SOURCE_ID
+            assert projection_doc["observed_url"] == AUTHORIZED_PDP_URL
+
+            records = projection_doc["records"]
+            assert len(records) > 0
+
+            # Gather all persisted strings
+            persisted_texts = [r["visible_text"] for r in records if r.get("visible_text")]
+            persisted_contexts = [r["section_heading_context"] for r in records if r.get("section_heading_context")]
+            combined_persisted_text = " ".join(persisted_texts + persisted_contexts).lower()
+
+            # 1. Non-product account/profile/navigation text MUST NOT enter the persisted projection
+            forbidden_non_product_strings = [
+                "trang chủ tiktok",
+                "khám phá sản phẩm",
+                "xu hướng mua sắm",
+                "user_super_buyer_99",
+                "hồ sơ cá nhân",
+                "ảnh đại diện",
+                "session_secret_token_987",
+                "phiên đăng nhập",
+                "cài đặt tài khoản",
+                "đăng xuất khỏi hệ thống",
+                "đơn hàng của tôi",
+                "ví voucher",
+                "thông báo cá nhân",
+                "khách hàng vip nội bộ",
+                "chính sách bảo mật người dùng",
+                "điều khoản dịch vụ tài khoản",
+                "trung tâm trợ giúp",
+            ]
+            for forbidden in forbidden_non_product_strings:
+                assert forbidden not in combined_persisted_text, (
+                    f"Non-product string '{forbidden}' leaked into persisted projection"
+                )
+
+            # Ensure non-product structural tags and roles are excluded
+            all_tags = [r["tag_name"] for r in records]
+            all_roles = [r["role"] for r in records if r.get("role")]
+            for excluded_tag in ("header", "nav", "footer", "aside"):
+                assert excluded_tag not in all_tags, f"Excluded tag '{excluded_tag}' in projection"
+            for excluded_role in ("navigation", "banner", "contentinfo"):
+                assert excluded_role not in all_roles, f"Excluded role '{excluded_role}' in projection"
+
+            # 2. Representative product observations MUST remain capturable within bounded projection
+            # Title
+            title_records = [
+                r for r in records
+                if "Đèn LED Cảm Biến Chuyển Động" in r.get("visible_text", "")
+            ]
+            assert len(title_records) >= 1
+            assert any(r["tag_name"] == "h1" for r in title_records)
+
+            # Price
+            price_records = [
+                r for r in records
+                if "33.600₫" in r.get("visible_text", "")
+            ]
+            assert len(price_records) >= 1
+
+            # Attributes / Specification
+            spec_records = [
+                r for r in records
+                if "Nhựa ABS cao cấp" in r.get("visible_text", "")
+                or "Type-C tiện lợi" in r.get("visible_text", "")
+                or "3 chế độ thông minh" in r.get("visible_text", "")
+            ]
+            assert len(spec_records) >= 2
+
+            # Seller / Product-Service
+            seller_records = [
+                r for r in records
+                if "Lighting Official Store" in r.get("visible_text", "")
+            ]
+            assert len(seller_records) >= 1
+
+            service_records = [
+                r for r in records
+                if "Đổi trả 7 ngày miễn phí" in r.get("visible_text", "")
+                or "Bảo hành chính hãng 12 tháng" in r.get("visible_text", "")
+            ]
+            assert len(service_records) >= 1
+
+            # Intended actions
+            action_records = [
+                r for r in records
+                if "Mua ngay" in r.get("visible_text", "")
+                or r.get("data-e2e") == "buy-now"
+            ]
+            assert len(action_records) >= 1
+
+        finally:
+            await browser.close()
+
 
