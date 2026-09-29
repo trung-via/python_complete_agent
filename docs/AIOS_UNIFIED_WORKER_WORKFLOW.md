@@ -548,10 +548,11 @@ exactly the reviewed revision-8 source candidate and canonical `main` must equal
 certification under `49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2` remains historical prior-pin evidence.
 TASK-207 revision 7 and RUN-207-009 remain immutable failed, non-certifying old-pin history for
 `1a68db9acb6989dfa81bf875503db62e54a4bed6`, and RUN-207-009 must not be repaired after migration.
-On publication, `FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION` is resolved while P7.3 remains
-the unique product NEXT with TASK-215 revision 1 / RUN-215-004 / candidate
-`142bd865f69a6636b321d3cc7a0cd4004db3fdc7` / FINDING-215-001 / RUN-215-003 / REPAIR-215-002
-continuity; TASK-215 is not rerun, P7.3 is not marked DONE, and P7.4 is not advanced.
+At revision-8 publication, `FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION` was resolved
+for that historical pin. The then-preserved P7.3/TASK-215 revision 1 lineage included
+RUN-215-004 / candidate `142bd865f69a6636b321d3cc7a0cd4004db3fdc7` /
+FINDING-215-001 / RUN-215-003 / REPAIR-215-002. This is historical context,
+not the current product continuation.
 TASK-207 revision 2 and RUN-207-001/RUN-207-002/REPAIR-207-001 remain immutable old-pin
 history; conformance resumes only through a fresh Brain revision bound to the new pin.
 Future AIOS-renew main changes remain irrelevant until another explicit reviewed downstream migration.
@@ -621,10 +622,10 @@ activation source is not an active downstream dependency. The repository profile
 policy defaults Codex to gpt-6-sol/high and Antigravity to
 gemini-3.8-flash/medium; explicit Human overrides take precedence and the
 carriers preserve exact model/effort provenance. TASK-207 revision 8 under
-`edd7d8d92d54900c56442bbfcddb8648ec4d2e09` remains historical certification only. Fresh post-pin
-certification remains REQUIRED_PENDING. P1B repository semantic registries are
-bound as described below. This
-planning and documentation state does not prove Runtime migration completion.
+`edd7d8d92d54900c56442bbfcddb8648ec4d2e09` remains historical certification only.
+TASK-207 revision 13 records current-pin certification subject to independent semantic
+PASS and exact reviewed-source publication. P1B repository semantic registries are
+bound as described below. This planning record grants no Runtime authority.
 
 ## BP9-P1B Brain and Reviewer semantic registries
 
@@ -643,10 +644,23 @@ These registries grant no Brain, Reviewer, Runtime, Executor, or Publisher
 authority. They store no chat memory, select no provider or model default, and
 add no lifecycle routing or publication control. Human/Brain planning authority,
 Reviewer verdict ownership, Runtime verification, and safe publication remain
-separate. Fresh full downstream conformance for exact pin
-`44eee353eda376c9db8cd88d97184d3122651bf5` remains REQUIRED_PENDING;
-TASK-207 revision 8 is historical old-pin evidence, and TASK-207 revision 9
-is a separate future certification task.
+separate. TASK-207 revision 13 records full downstream conformance for exact pin
+`44eee353eda376c9db8cd88d97184d3122651bf5`, effective only after independent
+semantic PASS and safe publication of exactly the reviewed source candidate.
+TASK-207 revisions 8 and 5 remain historical old-pin certifications; revision 7
+and RUN-207-009 remain failed non-certifying old-pin history.
+
+The revision-13 certification binds all five unchanged TASK-256 registry blobs:
+brain audit `e931c1c7fa4b1b9dfbf7e7c649d5a19e0035d6ba`, brain return
+`9d220ece8dd20028e590efd083b1a04b00ffadfe`, Flow Cards
+`574edd0407de7f4cca14b8b854a5d00d271be014`, Reviewer procedure
+`ad510261ff220f9b9165dd7cdc8646fd6915b0a7`, and Reviewer return
+`c805c49fcbe170677ff3bb9dde3fb4c9d308c474`. It also binds unchanged
+`.ai/executor-profiles.yaml` blob `6f0507f2bd15597fba4a2340f1508061bc7bee06`.
+Codex defaults to gpt-6-sol/high and supports none, low, medium, high, xhigh,
+and max; Antigravity defaults to gemini-3.8-flash/medium and supports low,
+medium, and high. The explicit Human gpt-6-sol/high override for the revision-13
+PRIMARY applies to that execution only and does not change profile policy.
 
 TASK-259 revision 2 migrates the sole active dependency to reviewed and
 source-published TASK-212 / RUN-212-002 / REVIEW-212-002 source
@@ -654,5 +668,13 @@ source-published TASK-212 / RUN-212-002 / REVIEW-212-002 source
 the governed-repository PRIMARY v3 durable-dispatch profile-journal portability
 fix. The TASK-255 consumer pin above remains historical. No repository binding
 or source-REPAIR activation is added; TASK-256 registry identities remain ACTIVE.
-Fresh TASK-207 revision 9 conformance requires separate authoring, Runtime
-execution, semantic review, and exact source publication.
+TASK-207 revision 11 / RUN-207-011 remains immutable COMPLETION_GATE failure;
+revision 12's pre-RUN PRIMARY_SYNCHRONIZATION rejection is operational history
+only. Revision 13 uses fresh dispatch `task207-r13-codex-high-001` from canonical
+predecessor `46b379bd3fcf47dd376c0a6d7b44885d38a897e1`.
+Terminal attention remains notification only. Fresh non-authorizing REMEDIATION
+and NO_CHANGE-shaped REPAIR probes use their distinct revision-13 dispatch IDs
+and are required to fail closed without coding RUNs. On exact revision-13 reviewed-source
+publication, the BP9 downstream-adoption side track closes and already-authored,
+unexecuted TASK-254 revision 4 becomes the unique product continuation. This
+handoff grants no product or live-validation authority.

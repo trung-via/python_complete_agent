@@ -47,9 +47,17 @@ planning_handoff:
 
 human_priority_side_track:
   id: AIOS_BP9_BRAIN_PORTABILITY_DOWNSTREAM_ADOPTION
-  status: NEXT
+  status: DONE_ON_EXACT_TASK_207_R13_REVIEWED_SOURCE_PUBLICATION
   phase: BP9-P2-FRESH-DOWNSTREAM-CONFORMANCE
   authority: HUMAN_BRAIN_PLANNING
+  effective_only_when:
+    task_id: TASK-207
+    task_revision: 13
+    downstream_pin: "44eee353eda376c9db8cd88d97184d3122651bf5"
+    semantic_review: PASS
+    published_source: EXACT_REVIEWED_CANDIDATE
+    canonical_main_equals_reviewed_candidate: true
+  before_gate: NOT_EFFECTIVE
   selected_on: "2026-09-27"
   source_project: trung-via/AIOS-renew
   source_roadmap_item: bp-9-downstream-adoption
@@ -152,7 +160,7 @@ human_priority_side_track:
   next_after_publication:
     task_id: TASK-254
     expected_revision: 4
-    status: AUTHORED_BLOCKED
+    status: UNIQUE_AUTHORED_UNEXECUTED_PRODUCT_CONTINUATION
     gate: AFTER_EXACT_TASK_207_R13_REVIEW_AND_PUBLICATION
     objective: >-
       Resume the already-authored post-TASK253 validation-carrier provenance rebinding
@@ -3657,11 +3665,19 @@ prerequisite_pin_migration:
     only on fresh TASK-207 revision 8 certification for the new pin after TASK-221 publication.
 
 full_downstream_conformance:
-  status: DONE
+  status: DONE_ON_EXACT_REVIEWED_SOURCE_PUBLICATION
   task_id: TASK-207
-  task_revision: 8
-  downstream_pin: edd7d8d92d54900c56442bbfcddb8648ec4d2e09
+  task_revision: 13
+  downstream_pin: 44eee353eda376c9db8cd88d97184d3122651bf5
   certification_record: .ai/aios-conformance-state.yaml
+  before_gate: NOT_EFFECTIVE
+  immediate_historical_certification:
+    task_id: TASK-207
+    task_revision: 8
+    run_id: RUN-207-010
+    review_id: REVIEW-207-004
+    downstream_pin: edd7d8d92d54900c56442bbfcddb8648ec4d2e09
+    status: HISTORICAL_OLD_PIN_EVIDENCE_ONLY
   historical_certification:
     task_id: TASK-207
     task_revision: 5
@@ -3683,23 +3699,18 @@ full_downstream_conformance:
     semantic_review: PASS
     published_source: EXACT_REVIEWED_CANDIDATE
     canonical_main_equals_reviewed_candidate: true
-  next_commitment: P7.3
+  next_commitment: TASK-254-REVISION-4
   resume_target:
-    task_id: TASK-215
-    task_revision: 1
-    commitment_id: P7.3
-    run_id: RUN-215-004
-    candidate_sha: 142bd865f69a6636b321d3cc7a0cd4004db3fdc7
-    prior_finding_id: FINDING-215-001
-    predecessor_run_id: RUN-215-003
-    repair_id: REPAIR-215-002
+    task_id: TASK-254
+    task_revision: 4
+    status: AUTHORED_UNEXECUTED
+    gate: AFTER_EXACT_TASK_207_R13_REVIEW_AND_PUBLICATION
   roadmap_effect: >-
-    On reviewed source publication, closes FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION
-    through TASK-207 revision 8 under exact pin edd7d8d92d54900c56442bbfcddb8648ec4d2e09.
-    Preserves revision-5 certification for 49ad4d7a1e57a4c25ba44e60589d8320cb0f57b2 and revision-7 /
-    RUN-207-009 failed old-pin history for 1a68db9acb6989dfa81bf875503db62e54a4bed6. P7.3 remains NEXT
-    with exact TASK-215 revision 1 / RUN-215-004 / candidate 142bd865f69a6636b321d3cc7a0cd4004db3fdc7 /
-    FINDING-215-001 / RUN-215-003 / REPAIR-215-002 continuity; P7.3 is not marked DONE and P7.4 is not advanced.
+    On exact TASK-207 revision-13 reviewed source publication, closes the BP9
+    downstream-adoption side track under pin 44eee353eda376c9db8cd88d97184d3122651bf5.
+    Preserves revision-8 and revision-5 old-pin certifications and revision-7 failed
+    non-certifying history. The unique next product continuation is already-authored
+    TASK-254 revision 4; this record does not execute it or grant live validation authority.
 
 commitment_removal_gate: >-
   A pending commitment may leave this set only when canonical evidence marks it DONE

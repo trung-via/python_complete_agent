@@ -18,11 +18,17 @@ downstream_pin:
   source_published: true
 
 full_downstream_conformance:
-  status: REQUIRED_PENDING
+  status: CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION
   certification_task:
     id: TASK-207
-    revision: 9
+    revision: 13
   downstream_pin: 44eee353eda376c9db8cd88d97184d3122651bf5
+  effective_only_when:
+    semantic_review: PASS
+    review_mode: PRIMARY
+    published_source: EXACT_REVIEWED_CANDIDATE
+    canonical_main_equals_reviewed_candidate: true
+  before_gate: NOT_EFFECTIVE
   immediate_old_pin_certification:
     task_id: TASK-207
     revision: 8
@@ -44,13 +50,21 @@ full_downstream_conformance:
     repair_after_pin_change: FORBIDDEN
     certification_authority_for_current_pin: false
   certification_record: .ai/aios-conformance-state.yaml
-  fresh_post_pin_certification: REQUIRED_PENDING
+  fresh_post_pin_certification: PUBLICATION_GATED_TASK_207_REVISION_13
+  certified_binding_surface:
+    phase_1: ACTIVE
+    phase_2: ACTIVE
+    p1b_semantic_registries: ACTIVE_EXACT_TASK_256_BLOBS
+    executor_profile_policy:
+      path: .ai/executor-profiles.yaml
+      blob: 6f0507f2bd15597fba4a2340f1508061bc7bee06
+      explicit_human_override_precedence: true
   binding_classifications_changed: false
   boundary: >-
-    TASK-207 revision 8 certifies only historical edd7d8d generation. A fresh
-    post-pin TASK-207 revision 9 requires separate Brain authoring, Runtime execution,
-    semantic review and exact source publication. This planning record asserts none
-    of those lifecycle outcomes.
+    TASK-207 revision 8 certifies only historical edd7d8d generation. Current-pin
+    TASK-207 revision 13 certification becomes effective only after independent
+    semantic PASS and publication of exactly the reviewed source candidate to
+    canonical main. This planning record grants no lifecycle authority.
 
 upstream_audit:
   checkpoint: 44eee353eda376c9db8cd88d97184d3122651bf5

@@ -4795,12 +4795,36 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
     assert state["authority"]["owner"] == "BRAIN"
     assert state["authority"]["auto_advance_from_runtime_or_worker_state"] is False
 
+    side_track = state["human_priority_side_track"]
+    assert side_track["status"] == "DONE_ON_EXACT_TASK_207_R13_REVIEWED_SOURCE_PUBLICATION"
+    assert side_track["before_gate"] == "NOT_EFFECTIVE"
+    assert side_track["effective_only_when"] == {
+        "task_id": "TASK-207",
+        "task_revision": 13,
+        "downstream_pin": ACTIVE_PIN,
+        "semantic_review": "PASS",
+        "published_source": "EXACT_REVIEWED_CANDIDATE",
+        "canonical_main_equals_reviewed_candidate": True,
+    }
+    assert side_track["next_after_publication"]["task_id"] == "TASK-254"
+    assert side_track["next_after_publication"]["expected_revision"] == 4
+    assert side_track["preserved_product_commitment"]["status"] == "AUTHORED_UNEXECUTED"
+
     conformance = state["full_downstream_conformance"]
-    assert conformance["status"] == "DONE"
+    assert conformance["status"] == "DONE_ON_EXACT_REVIEWED_SOURCE_PUBLICATION"
     assert conformance["task_id"] == "TASK-207"
-    assert conformance["task_revision"] == 8
-    assert conformance["downstream_pin"] == HISTORICAL_TASK_221_PIN
+    assert conformance["task_revision"] == 13
+    assert conformance["downstream_pin"] == ACTIVE_PIN
     assert conformance["certification_record"] == ".ai/aios-conformance-state.yaml"
+    assert conformance["before_gate"] == "NOT_EFFECTIVE"
+    assert conformance["immediate_historical_certification"] == {
+        "task_id": "TASK-207",
+        "task_revision": 8,
+        "run_id": "RUN-207-010",
+        "review_id": "REVIEW-207-004",
+        "downstream_pin": HISTORICAL_TASK_221_PIN,
+        "status": "HISTORICAL_OLD_PIN_EVIDENCE_ONLY",
+    }
     assert conformance["historical_certification"] == {
         "task_id": "TASK-207",
         "task_revision": 5,
@@ -4826,18 +4850,14 @@ def test_roadmap_records_exact_completion_provenance_and_recovered_upstream_work
         "published_source": "EXACT_REVIEWED_CANDIDATE",
         "canonical_main_equals_reviewed_candidate": True,
     }
-    assert conformance["next_commitment"] == "P7.3"
+    assert conformance["next_commitment"] == "TASK-254-REVISION-4"
     assert conformance["resume_target"] == {
-        "task_id": "TASK-215",
-        "task_revision": 1,
-        "commitment_id": "P7.3",
-        "run_id": "RUN-215-004",
-        "candidate_sha": "142bd865f69a6636b321d3cc7a0cd4004db3fdc7",
-        "prior_finding_id": "FINDING-215-001",
-        "predecessor_run_id": "RUN-215-003",
-        "repair_id": "REPAIR-215-002",
+        "task_id": "TASK-254",
+        "task_revision": 4,
+        "status": "AUTHORED_UNEXECUTED",
+        "gate": "AFTER_EXACT_TASK_207_R13_REVIEW_AND_PUBLICATION",
     }
-    assert "closes FRESH_AIOS_DOWNSTREAM_CONFORMANCE_CERTIFICATION" in conformance["roadmap_effect"]
+    assert "closes the BP9" in conformance["roadmap_effect"]
 
 
 def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
@@ -4902,10 +4922,27 @@ def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
     }
     assert state["authority"]["engineering_truth"] is False
     downstream_conformance = state["full_downstream_conformance"]
-    assert downstream_conformance["status"] == "REQUIRED_PENDING"
+    assert downstream_conformance["status"] == "CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION"
     assert downstream_conformance["downstream_pin"] == ACTIVE_PIN
-    assert downstream_conformance["certification_task"] == {"id": "TASK-207", "revision": 9}
-    assert downstream_conformance["fresh_post_pin_certification"] == "REQUIRED_PENDING"
+    assert downstream_conformance["certification_task"] == {"id": "TASK-207", "revision": 13}
+    assert downstream_conformance["fresh_post_pin_certification"] == "PUBLICATION_GATED_TASK_207_REVISION_13"
+    assert downstream_conformance["before_gate"] == "NOT_EFFECTIVE"
+    assert downstream_conformance["effective_only_when"] == {
+        "semantic_review": "PASS",
+        "review_mode": "PRIMARY",
+        "published_source": "EXACT_REVIEWED_CANDIDATE",
+        "canonical_main_equals_reviewed_candidate": True,
+    }
+    assert downstream_conformance["certified_binding_surface"] == {
+        "phase_1": "ACTIVE",
+        "phase_2": "ACTIVE",
+        "p1b_semantic_registries": "ACTIVE_EXACT_TASK_256_BLOBS",
+        "executor_profile_policy": {
+            "path": ".ai/executor-profiles.yaml",
+            "blob": "6f0507f2bd15597fba4a2340f1508061bc7bee06",
+            "explicit_human_override_precedence": True,
+        },
+    }
     assert downstream_conformance["immediate_old_pin_certification"]["downstream_pin"] == HISTORICAL_TASK_221_PIN
     assert downstream_conformance["immediate_old_pin_certification"]["revision"] == 8
     assert downstream_conformance["historical_old_pin_certification"]["downstream_pin"] == PRIOR_CERTIFIED_PIN
@@ -4919,8 +4956,8 @@ def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
     }
     assert conformance["certification"] == {
         "task_id": "TASK-207",
-        "task_revision": 8,
-        "downstream_pin": HISTORICAL_TASK_221_PIN,
+        "task_revision": 13,
+        "downstream_pin": ACTIVE_PIN,
         "status": "CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION",
         "effective_only_when": {
             "semantic_review": "PASS",
@@ -4931,7 +4968,7 @@ def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
         "before_gate": "NOT_EFFECTIVE",
         "boundary": (
             "Runtime PASS and Reviewer PASS do not by themselves make this certification "
-            "effective. The safe Publisher must publish exactly the TASK-207 revision-8 "
+            "effective. The safe Publisher must publish exactly the TASK-207 revision-13 "
             "reviewed source candidate, and canonical main must equal that candidate."
         ),
     }
@@ -4942,6 +4979,7 @@ def test_adoption_registry_pin_audit_authority_and_dimensions_are_explicit():
         "status": "HISTORICAL_OLD_PIN_EVIDENCE_ONLY",
         "certification_authority_for_current_pin": False,
     }
+    assert conformance["immediate_historical_certification"]["downstream_pin"] == HISTORICAL_TASK_221_PIN
     assert conformance["failed_old_pin_history"] == {
         "task_id": "TASK-207",
         "task_revision": 7,

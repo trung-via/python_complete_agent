@@ -53,8 +53,18 @@ def test_exact_registry_blobs_and_active_adoption_binding():
         assert committed_blob_id(path) == expected
     assert state["authority"]["engineering_truth"] is False
     assert state["downstream_pin"]["commit"] == PIN
-    assert state["full_downstream_conformance"]["status"] == "REQUIRED_PENDING"
-    assert state["full_downstream_conformance"]["fresh_post_pin_certification"] == "REQUIRED_PENDING"
+    certification = state["full_downstream_conformance"]
+    assert certification["status"] == "CERTIFIED_ON_REVIEWED_SOURCE_PUBLICATION"
+    assert certification["certification_task"] == {"id": "TASK-207", "revision": 13}
+    assert certification["downstream_pin"] == PIN
+    assert certification["fresh_post_pin_certification"] == "PUBLICATION_GATED_TASK_207_REVISION_13"
+    assert certification["before_gate"] == "NOT_EFFECTIVE"
+    assert certification["effective_only_when"] == {
+        "semantic_review": "PASS",
+        "review_mode": "PRIMARY",
+        "published_source": "EXACT_REVIEWED_CANDIDATE",
+        "canonical_main_equals_reviewed_candidate": True,
+    }
 
 
 def test_substituted_or_duplicate_registry_material_is_rejected():
