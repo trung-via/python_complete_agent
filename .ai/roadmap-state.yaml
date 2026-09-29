@@ -106,23 +106,32 @@ human_priority_side_track:
     completion_gate: EXACT_TASK_259_R2_REVIEWED_SOURCE_PUBLICATION
   current_prerequisite:
     task_id: TASK-207
-    task_revision: 11
-    approved_against_main_sha: "004eb5f169d4e7baa4359275764e117605a9c23b"
-    task_blob_sha: "6b6e50cae5b0bd38c1122d5be1c42cc33fe469d6"
+    task_revision: 12
+    approved_against_main_sha: "ab2927048725b760d6bf23eaf46798b13990c5b0"
+    task_blob_sha: "969e6ed787ea29453a5e9b2b8c506e62f101acf1"
     authority: HUMAN_BRAIN_PLANNING
     reason: >-
-      TASK-259 revision 2 is publication-complete. TASK-207 revisions 9 and 10 were
-      authored but never executed; current Human intent prospectively superseded their
-      execution-profile choices. TASK-207 revision 11 is now the unique BP9 P2
-      current-pin conformance prerequisite under exact pin
-      44eee353eda376c9db8cd88d97184d3122651bf5.
+      TASK-207 revision 11 executed as RUN-207-011 with Codex gpt-6-sol/high and
+      terminalized immutable COMPLETION_GATE FAILURE because the task required the
+      P1B adoption assertions to move from REQUIRED_PENDING to publication-gated
+      current certification while tests/aios_bridge/test_aios_brain_reviewer_portability_bindings.py
+      was verification-relevant but omitted from scope.modify. Revision 12 is the bounded
+      contract correction: it preserves all conformance semantics and opens only that
+      exact test as the seventh authorized modify path, while also requiring stale
+      P7.3/TASK-215 current-state wording to be historicalized. RUN-207-011 is not repaired.
     execution_transport: BRAIN_WAKEUP_PRIMARY
-    dispatch_id: task207-r11-codex-high-001
+    dispatch_id: task207-r12-codex-high-001
     executor: codex
     model: gpt-6-sol
     reasoning_effort: high
     execution_profile_source: EXPLICIT_HUMAN_OVERRIDE
     active_pin: "44eee353eda376c9db8cd88d97184d3122651bf5"
+    failed_predecessor:
+      run_id: RUN-207-011
+      task_revision: 11
+      phase: COMPLETION_GATE
+      failed_head_sha: "f1580073867f095704bc1c34f2858c160e0cf4d3"
+      disposition: IMMUTABLE_NOT_REPAIR_AUTHORITY
     prior_current_certification:
       task_id: TASK-207
       task_revision: 8
@@ -134,21 +143,21 @@ human_priority_side_track:
     task_id: TASK-254
     expected_revision: 4
     status: AUTHORED_BLOCKED
-    gate: AFTER_EXACT_TASK_207_R11_REVIEW_AND_PUBLICATION
+    gate: AFTER_EXACT_TASK_207_R12_REVIEW_AND_PUBLICATION
     objective: >-
       Resume the already-authored post-TASK253 validation-carrier provenance rebinding
-      product task only after exact TASK-207 revision-11 downstream conformance publication.
+      product task only after exact TASK-207 revision-12 downstream conformance publication.
 
   preserved_product_commitment:
     task_id: TASK-254
     task_revision: 4
     status: AUTHORED_UNEXECUTED
-    resume_after: TASK_207_R11_PUBLICATION
+    resume_after: TASK_207_R12_PUBLICATION
   boundary: >-
-    Current Human/Brain priority is fresh TASK-207 revision-11 downstream conformance under
-    exact pin 44eee353eda376c9db8cd88d97184d3122651bf5. TASK-259 publication is complete
-    historical migration evidence. Do not resume TASK-254, product work, or another roadmap
-    item before exact TASK-207 r11 semantic review and publication.
+    Current Human/Brain priority is fresh TASK-207 revision-12 downstream conformance under
+    exact pin 44eee353eda376c9db8cd88d97184d3122651bf5. RUN-207-011 remains immutable
+    failed history. Do not REPAIR it, resume TASK-254, product work, or another roadmap item
+    before exact TASK-207 r12 semantic review and publication.
 
 active_track:
   id: P8_PUBLIC_PDP_GEN8_RESULT_AND_PAIRED_PRICE_ROLE_HARDENING
