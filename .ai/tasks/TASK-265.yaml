@@ -1,5 +1,5 @@
 task_id: TASK-265
-revision: 1
+revision: 2
 
 goal: >
   Canonicalize the Human-approved post-TASK264 selection of REQUEST_HUMAN_DECISION_INPUTS
@@ -11,7 +11,7 @@ goal: >
   or preselect any later engineering or commerce-action successor.
 
 problem: >
-  Canonical main at authoring is 7a8a1ed67146e4af53e3700d35080fd482cc0635.
+  Canonical main at revision-2 authoring is 2f635ef72f342b4cf0ac3ecd92187a66361b4a5a.
   TASK-264 has reconciled the consumed one-shot Real Case Evidence Bundle and the canonical
   roadmap now hands planning exclusively to
   HUMAN_BRAIN_POST_REAL_CASE_BUNDLE_DECISION_SUFFICIENCY_SELECTION with next_milestone null,
@@ -19,16 +19,28 @@ problem: >
   MARKET_TEST_READINESS_NOT_ESTABLISHED, affiliate_economics NOT_ESTABLISHED, public-PDP
   market traction represented only by point-in-time observations, creator_ecosystem /
   content_activity / audience_channel_fit / competition_saturation unrepresented by the bundle,
-  and all Human-owned decision inputs still UNSET. The Human has now explicitly approved the
-  Brain's prospective selection of REQUEST_HUMAN_DECISION_INPUTS. This new selection must be
-  made durable without retroactively ranking TASK-260's historical five-candidate set, without
-  treating the Real Case Bundle as canonical evidence, and without allowing missing marketplace
-  dimensions to trigger more acquisition merely for completeness.
+  and all Human-owned decision inputs still UNSET. The Human has explicitly approved the
+  Brain's prospective selection of REQUEST_HUMAN_DECISION_INPUTS. Revision 1 executed as
+  RUN-265-001 under Antigravity and terminalized immutable COMPLETION_GATE FAILURE at candidate
+  6f1344e591259e3462d2dc3575f56ea07988ad0f because AC8 incorrectly required Runtime
+  verification and downstream review/publication eligibility to be established before Runtime
+  verification could run. The failed candidate was clean, in-scope, repairable and transportable,
+  but verification_seconds was null and the exact failure was
+  "RESULT does not satisfy acceptance criteria: AC8". Revision 2 corrects only this lifecycle-order
+  defect. RUN-265-001 remains immutable failed history and its candidate is not source authority.
+  The Human-selected planning meaning, scope, and authority boundaries remain unchanged.
 
 assumptions:
   - >
-    Canonical main at authoring is exactly
-    7a8a1ed67146e4af53e3700d35080fd482cc0635.
+    Canonical main at revision-2 authoring is exactly
+    2f635ef72f342b4cf0ac3ecd92187a66361b4a5a.
+  - >
+    TASK-265 revision 1 / RUN-265-001 is immutable failed history. RUN-265-001 terminalized
+    at COMPLETION_GATE before Runtime verification, with failed candidate
+    6f1344e591259e3462d2dc3575f56ea07988ad0f, failure artifact
+    44920c8671ea1fa946d038cf5c52fe06bc0cde17, verification_seconds null, no outside-scope
+    files, and exact error "RESULT does not satisfy acceptance criteria: AC8". That candidate
+    is not source authority and must not be treated as reviewed, verified, or publication-eligible.
   - >
     Current canonical roadmap state records TASK-264 revision 1 as DONE on the active track
     P8_POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_REVIEW_RECONCILIATION and hands planning only to
@@ -115,6 +127,7 @@ non_goals:
   - Create a second decision-deadline authority. A supplied Human timing/deadline value may only be reconciled later through P7.3 if separately justified and authorized.
   - Redact or publish the TASK-264 source screenshot. Its existing REVIEWED_REDACTION_REQUIRED_BEFORE_FUTURE_FREEZE_OR_PUBLICATION handling constraint remains unchanged.
   - Modify production Python code, AIOS adoption/conformance state, downstream pin, Governance Foundation documents, or historical TASK/RUN/REVIEW lineage.
+  - REPAIR, revive, rewrite, or use RUN-265-001 / candidate 6f1344e591259e3462d2dc3575f56ea07988ad0f as implementation source authority.
   - Create, select, authorize, mark NEXT, or make pending TASK-266 or any other successor automatically.
 
 constraints:
@@ -186,6 +199,17 @@ constraints:
       Modify exactly the five authorized paths. Runtime verification is offline, deterministic,
       and performs zero TikTok/CDP/network/provider operations. Executor must not collect Human
       values, review its own candidate, publish, or start successor work.
+    - >
+      Completion-gate acceptance is limited to facts available from the Executor candidate and
+      task contract before Runtime verification. Executor completion must not claim that canonical
+      Runtime verification passed, that semantic review passed, or that publication eligibility
+      exists. Those are later authorities in the lifecycle.
+    - >
+      RUN-265-001 and failed candidate 6f1344e591259e3462d2dc3575f56ea07988ad0f remain
+      immutable failed history. Revision 2 starts from canonical main
+      2f635ef72f342b4cf0ac3ecd92187a66361b4a5a and must not use the failed candidate as source
+      authority. Runtime may reuse factual failure evidence only to understand the corrected
+      contract; implementation authority comes from TASK-265 revision 2 plus canonical main.
 
 acceptance:
   - id: AC1
@@ -225,13 +249,16 @@ acceptance:
       empty pending commitments, automatic progression false, and no TASK-266 preselected.
   - id: AC8
     condition: >
-      Exactly five authorized planning/documentation/governance-test paths change; focused offline
-      governance regression and git diff --check pass with zero production-code delta and zero
-      live/external operation, producing one candidate eligible for independent semantic review
-      and exact publication.
+      The Executor candidate changes exactly the five authorized planning/documentation/governance-test
+      paths, changes zero production-code files, performs zero live/external operation, is clean,
+      descends from the canonical revision-2 base, and contains no outside-scope mutation, thereby
+      making it eligible for canonical Runtime verification. Focused offline governance regression
+      and git diff --check remain Runtime-owned verification requirements below; independent
+      semantic-review eligibility begins only after Runtime PASS, and publication eligibility
+      begins only after the independent Reviewer PASS required by the adopted lifecycle.
 
 verification:
   policy: minimum-sufficient-v1
   required:
-    - python -m pytest tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task265-primary
+    - python -m pytest tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task265-r2-primary
     - git diff --check
