@@ -457,7 +457,7 @@ def _historical_test_task_241_authorizes_one_exact_generation_4_v2_diagnostic_at
     )
     assert active["next_milestone"] is None
     assert handoff["next_milestone"] is None
-    assert state["pending_commitments"] == []
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
 
     assert milestone["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
     assert milestone["authorized_source_id"] == SELECTED_SOURCE_ID
@@ -663,9 +663,9 @@ def test_task_242_history_preserves_generation_4_failure_without_freezing_handof
     assert preflight["task_242_performs_preflight"] is False
     assert preflight["task_242_grants_live_authority"] is False
     assert milestone["generation_5_authorized"] is False
-    assert active["next_milestone"] is None
+    assert active["next_milestone"] == "MCI.0_DOMAIN_SEMANTIC_FOUNDATION"
     assert handoff["next_milestone"] is None
-    assert state["pending_commitments"] == []
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
     assert reconciliation["post_publication_handoff"] == (
         "HUMAN_BRAIN_FRESH_GENERATION_5_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION"
     )
@@ -745,7 +745,7 @@ def _historical_test_task_244_reconciles_generation_5_and_hardens_v3_without_aut
     assert milestone["automatic_progression"] is False
     assert milestone["post_run_engineering_successor"] is None
     assert active["next_milestone"] is None
-    assert state["pending_commitments"] == []
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
     assert handoff["destination"] == "HUMAN_BRAIN_FRESH_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION"
     assert authorization["title_local_topology_probe"] == {"max_ancestor_levels": 6, "max_descendant_elements_per_level": 300, "root_or_selector_authority": "NONE", "raw_marketplace_values_or_text_persisted": False, "shadow_root_traversal": False, "iframe_document_traversal": False}
     normalized_document = " ".join(document.split())
@@ -868,7 +868,7 @@ def _historical_test_task_245_authorizes_one_exact_generation_6_v3_diagnostic_at
     )
     assert active["next_milestone"] is None
     assert handoff["next_milestone"] is None
-    assert state["pending_commitments"] == []
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
     assert handoff["destination"] == (
         "HUMAN_OPERATOR_GENERATION_6_TITLE_LOCAL_COMMERCE_OBSERVABILITY_DIAGNOSTIC_EXECUTION"
     )
@@ -1430,7 +1430,7 @@ def test_task_248_reconciles_gen7_success_and_hardens_bounded_root_price_extract
     assert doc_entry["selector_repair_complete"] is False
 
     assert handoff["next_milestone"] is None
-    assert state["pending_commitments"] == []
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
     assert handoff["destination"] != reconciliation["post_publication_handoff"]
 
     v4_artifact = reconciliation["historical_v4_artifact"]
@@ -2296,9 +2296,9 @@ def test_task_253_reconciles_gen8_success_and_hardens_paired_price_current_role_
     )
     assert completed_task["status"] == "DONE"
     assert completed_task["completion_basis"] == "PUBLICATION_GATED"
-    assert active["current_milestone"]["task_id"] != "TASK-253"
+    assert active["current_milestone"].get("task_id") != "TASK-253"
     assert handoff["next_milestone"] is None
-    assert state["pending_commitments"] == []
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
 
     # AC1: Exact TASK-252 / RUN-252-002 / REVIEW-252-001 publication lineage at
     # e4bd532699d91d915ddfba54e94ce614a98dad35 is recorded with frozen TASK-251 V5 source
@@ -2687,8 +2687,8 @@ def _historical_test_roadmap_closes_task_239_with_generation_3_authorization():
     assert active["current_milestone"]["selector_repair_complete"] is False
     assert active["next_milestone"] is None
 
-    assert values_for_key(state, "status").count("NEXT") == 0
-    assert state["pending_commitments"] == []
+    assert values_for_key(state, "status").count("NEXT") == 1
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
 
     handoff = state["post_p8_planning_handoff"]
     historical_authorization = handoff["public_pdp_dom_diagnostic_gen3_authorization"]
@@ -2938,8 +2938,8 @@ def _historical_test_roadmap_closes_task_239_with_generation_3_authorization():
         "docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
         "docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
     ]
-    assert values_for_key(state, "status").count("NEXT") == 0
-    assert state["pending_commitments"] == []
+    assert values_for_key(state, "status").count("NEXT") == 1
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
     assert values_for_key(state, "status").count("NOT_DONE") == 0
     assert state["planning_handoff"] == {
         "destination": "P7_PRODUCT_ROADMAP",
@@ -3374,8 +3374,8 @@ def test_p8_0_is_one_composition_only_authority_and_human_owned_pilot_handoff():
     assert completed["TASK-226"]["source_sha"] == TASK_226_SOURCE_SHA
     assert completed["TASK-226"]["composition_contract_only"] is True
     assert completed["TASK-226"]["real_pilot_executed"] is False
-    assert state["active_track"]["next_milestone"] is None
-    assert state["pending_commitments"] == []
+    assert state["active_track"]["next_milestone"] == "MCI.0_DOMAIN_SEMANTIC_FOUNDATION"
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
     assert state["post_p8_planning_handoff"]["public_pdp_acquisition_contract"]["automatic_p8_4"] is False
 
 
@@ -3433,8 +3433,8 @@ def test_p8_1_records_selection_only_and_preserves_pre_action_boundaries():
     assert selected["real_pilot_executed"] is True
     assert state["post_p7_planning_handoff"]["automatic_next"] is False
     assert state["post_p8_planning_handoff"]["public_pdp_acquisition_contract"]["automatic_p8_4"] is False
-    assert state["active_track"]["next_milestone"] is None
-    assert state["pending_commitments"] == []
+    assert state["active_track"]["next_milestone"] == "MCI.0_DOMAIN_SEMANTIC_FOUNDATION"
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
 
 
 def test_p8_2_is_plan_only_and_preserves_evidence_and_action_boundaries():
@@ -3527,8 +3527,8 @@ def test_p8_2_is_plan_only_and_preserves_evidence_and_action_boundaries():
     assert authorization["human_owned_inputs_status"] == "UNSET"
     assert authorization["collector_authority"] == "NONE"
     assert authorization["automated_acquisition_authority"] == "NONE"
-    assert state["active_track"]["next_milestone"] is None
-    assert state["pending_commitments"] == []
+    assert state["active_track"]["next_milestone"] == "MCI.0_DOMAIN_SEMANTIC_FOUNDATION"
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
 
 
 def test_p8_3_authorizes_only_human_manual_contribution_and_review():
@@ -3619,8 +3619,8 @@ def test_p8_3_authorizes_only_human_manual_contribution_and_review():
     assert authorization["wave_2_authority"] == "NONE"
     assert authorization["market_test_or_action_authority"] == "NONE"
     assert state["post_p8_planning_handoff"]["public_pdp_acquisition_contract"]["automatic_p8_4"] is False
-    assert state["active_track"]["next_milestone"] is None
-    assert state["pending_commitments"] == []
+    assert state["active_track"]["next_milestone"] == "MCI.0_DOMAIN_SEMANTIC_FOUNDATION"
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
 
 
 def test_task_230_closes_only_pdp_compatibility_with_one_parser_authority():
@@ -3684,8 +3684,8 @@ def test_task_230_closes_only_pdp_compatibility_with_one_parser_authority():
     assert handoff["manual_contribution_authorization"]["review_status"] == (
         "UNPERFORMED_BY_TASK"
     )
-    assert state["active_track"]["next_milestone"] is None
-    assert state["pending_commitments"] == []
+    assert state["active_track"]["next_milestone"] == "MCI.0_DOMAIN_SEMANTIC_FOUNDATION"
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
 
 
 def test_task_231_contract_preserves_owners_allowlist_and_zero_live_authority():
@@ -3838,8 +3838,8 @@ def test_task_232_collector_preserves_product_browser_and_authority_boundaries()
     assert pilot_auth["real_pilot_executed"] is True
     assert pilot_auth["live_evidence_acquired"] is True
     assert pilot_auth["canonical_evidence_ingested"] is False
-    assert state["active_track"]["next_milestone"] is None
-    assert state["pending_commitments"] == []
+    assert state["active_track"]["next_milestone"] == "MCI.0_DOMAIN_SEMANTIC_FOUNDATION"
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
 
 
 def test_task_233_authorizes_only_one_exact_human_operated_capture():
@@ -3893,8 +3893,8 @@ def test_task_233_authorizes_only_one_exact_human_operated_capture():
     assert authorization["real_pilot_executed"] is True
     assert authorization["live_evidence_acquired"] is True
     assert authorization["canonical_evidence_ingested"] is False
-    assert state["active_track"]["next_milestone"] is None
-    assert state["pending_commitments"] == []
+    assert state["active_track"]["next_milestone"] == "MCI.0_DOMAIN_SEMANTIC_FOUNDATION"
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
 
 
 def test_task_234_reconciliation_and_diagnostic_preserve_authority_separation():
@@ -3940,7 +3940,7 @@ def test_task_234_reconciliation_and_diagnostic_preserve_authority_separation():
     assert diagnostic_record["diagnostic_executed"] is False
     assert diagnostic_record["selector_repair_complete"] is False
     assert handoff["next_milestone"] is None
-    assert state["pending_commitments"] == []
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
 
     for invariant in (
         "EVIDENCE_IS_NOT_PRODUCT_TRUTH",
@@ -4033,7 +4033,7 @@ def test_task_235_authorizes_only_one_attach_only_human_dom_diagnostic_attempt()
     )
     assert pilot_auth["canonical_evidence_ingested"] is False
     assert handoff["next_milestone"] is None
-    assert state["pending_commitments"] == []
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
 
     for required in (
         "1731381331718341815",
@@ -4092,7 +4092,7 @@ def test_task_236_reconciles_consumed_failure_and_hardens_capability_without_aut
         "HUMAN_BRAIN_FRESH_ONE_SHOT_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION"
     )
     assert handoff["next_milestone"] is None
-    assert state["pending_commitments"] == []
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
 
     for required in (
         "LEGACY_COMBINED_PUBLIC_PDP_AVAILABILITY_GATE",
@@ -4184,7 +4184,7 @@ def test_task_237_authorizes_fresh_generation_2_attach_only_human_dom_diagnostic
     assert gen1["screenshot_context"] == "NON_CANONICAL_DIAGNOSTIC_CONTEXT"
 
     assert handoff["next_milestone"] is None
-    assert state["pending_commitments"] == []
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
 
     for required in (
         "FRESH_ONE_SHOT_ATTACH_ONLY_PUBLIC_PDP_DOM_DIAGNOSTIC_AUTHORIZATION_ONLY",
@@ -4274,7 +4274,7 @@ def _historical_test_task_239_authorizes_one_exact_generation_3_diagnostic_attem
         "HUMAN_OPERATOR_GENERATION_3_ROOT_OBSERVABILITY_DIAGNOSTIC_EXECUTION"
     )
     assert handoff["next_milestone"] is None
-    assert state["pending_commitments"] == []
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
 
     gen1 = handoff["historical_generation_1"]
     gen2 = handoff["historical_generation_2"]
@@ -4351,7 +4351,7 @@ def test_task_238_reconciles_gen2_and_hardens_root_observability():
         "HUMAN_BRAIN_FRESH_ROOT_OBSERVABILITY_DIAGNOSTIC_AUTHORIZATION"
     )
     assert handoff["next_milestone"] is None
-    assert state["pending_commitments"] == []
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
 
     for required in (
         "GENERATION_2_FAIL_CLOSED_RECONCILIATION_AND_BOUNDED_ROOT_OBSERVABILITY_HARDENING_ONLY",
@@ -5345,7 +5345,7 @@ def test_task_254_rebinds_validation_carrier_provenance_to_task_253_collector_ba
     )
 
     # Prove global current_milestone is no longer TASK-254
-    assert state["active_track"]["current_milestone"]["task_id"] != "TASK-254"
+    assert state["active_track"]["current_milestone"].get("task_id") != "TASK-254"
 
     # Production three-literal delta in tiktok_pdp_live_pilot.py
     carrier_source = (
@@ -5988,7 +5988,7 @@ def test_task_264_reconciles_real_case_bundle_capture_and_review():
 
     # AC1: Reconciles completed one-shot Human-operated TASK-263 Real Case Evidence Bundle capture
     # and mandatory Human/Brain review into canonical Python Agent planning state
-    assert active["next_milestone"] is None
+    assert active["next_milestone"] == "MCI.0_DOMAIN_SEMANTIC_FOUNDATION"
 
     for record in (task_264,):
         assert record["task_id"] == "TASK-264"
@@ -6164,7 +6164,7 @@ def test_task_264_reconciles_real_case_bundle_capture_and_review():
             "canonical_main_equals_reviewed_candidate": True,
         }
 
-    assert state["pending_commitments"] == []
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
 
     # Document contents and governance invariants
     for required in (
@@ -6253,7 +6253,7 @@ def test_task_265_selects_only_human_decision_inputs_supply():
         "REVIEWED_REDACTION_REQUIRED_BEFORE_FUTURE_FREEZE_OR_PUBLICATION"
     )
 
-    assert state["pending_commitments"] == []
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
 
     template = document.split("```yaml\n", 1)[1].split("\n```", 1)[0]
     assert tuple(yaml.safe_load(template)) == allowed
@@ -6301,7 +6301,7 @@ def test_task_266_human_inputs_sufficiency_and_authorization_handoff():
     assert active["id"] == "P8_POST_HUMAN_INPUTS_DECISION_SUFFICIENCY_REVIEW"
     assert active["sequence_status"] == "COMPLETE_ON_EXACT_TASK_266_SOURCE_PUBLICATION"
     assert active["next_milestone"] is None
-    assert state["pending_commitments"] == []
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
     assert tuple(envelope) == allowed
     assert envelope == milestone["human_decision_inputs"] == handoff["human_decision_inputs"] == task_266["human_decision_inputs"]
     assert {k for k, v in envelope.items() if v == "UNSET"} == {"quality_constraints", "risk_constraints"}
@@ -6415,7 +6415,7 @@ def test_task_267_one_shot_authenticated_affiliate_economics_authorization():
     assert active["id"] == "P8_ONE_SHOT_AUTHENTICATED_AFFILIATE_ECONOMICS_AUTHORIZATION"
     assert active["sequence_status"] == "COMPLETE_ON_EXACT_TASK_267_SOURCE_PUBLICATION"
     assert active["next_milestone"] is None
-    assert state["pending_commitments"] == []
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
     assert record["milestone_id"] == milestone["id"]
     for item in (milestone, record):
         assert item["task_id"] == "TASK-267"
@@ -6518,7 +6518,7 @@ def test_task_268_post_task267_blocked_access_operation_reconciliation():
     assert active["id"] == "P8_POST_TASK267_BLOCKED_ACCESS_OPERATION_RECONCILIATION"
     assert active["sequence_status"] == "COMPLETE_ON_EXACT_TASK_268_SOURCE_PUBLICATION"
     assert active["next_milestone"] is None
-    assert state["pending_commitments"] == []
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
     assert record["milestone_id"] == milestone["id"]
     for item in (milestone, record):
         assert item["task_id"] == "TASK-268"
@@ -6637,7 +6637,7 @@ def test_task_268_post_task267_blocked_access_operation_reconciliation():
 
 def test_task_269_current_pilot_no_test_now_case_closure():
     state = load_yaml(ROADMAP_FILE)
-    active = state["active_track"]
+    active = state["historical_task_269_active_track"]
     milestone = active["current_milestone"]
     handoff = state["post_p8_planning_handoff"]
     records = {item["task_id"]: item for item in state["completed_milestones"]}
@@ -6654,7 +6654,7 @@ def test_task_269_current_pilot_no_test_now_case_closure():
     assert active["id"] == "P8_CURRENT_PILOT_NO_TEST_NOW_DISPOSITION_AND_CASE_CLOSURE"
     assert active["sequence_status"] == "COMPLETE_ON_EXACT_TASK_269_SOURCE_PUBLICATION"
     assert active["next_milestone"] is None
-    assert state["pending_commitments"] == []
+    assert state["pending_commitments"] == ["MCI.0_DOMAIN_SEMANTIC_FOUNDATION"]
     assert record["milestone_id"] == milestone["id"]
     for item in (milestone, record, handoff):
         assert item["task_id"] == "TASK-269"
@@ -6741,3 +6741,150 @@ def test_task_269_current_pilot_no_test_now_case_closure():
         text = roadmap.read_text(encoding="utf-8")
         assert "TASK-269" in text
         assert "HUMAN_BRAIN_POST_P8_ROADMAP_SELECTION" in text
+
+
+def test_task_270_selects_one_semantic_foundation_and_defers_aios_gap():
+    state = load_yaml(ROADMAP_FILE)
+    historical = state["historical_task_269_active_track"]
+    active = state["active_track"]
+    milestone = active["current_milestone"]
+    selection = state["post_p8_domain_selection"]
+    deferred = state["deferred_maintenance"]
+    document = (REPO_ROOT / "docs" / "POST_P8_COMMERCE_INTELLIGENCE_ROADMAP_SELECTION.md").read_text(encoding="utf-8")
+
+    assert historical["id"] == "P8_CURRENT_PILOT_NO_TEST_NOW_DISPOSITION_AND_CASE_CLOSURE"
+    assert historical["next_milestone"] is None
+    assert historical["current_milestone"]["task_270_preselected"] is False
+    assert state["post_p8_planning_handoff"]["destination"] == "HUMAN_BRAIN_POST_P8_ROADMAP_SELECTION"
+    assert state["post_p8_planning_handoff"]["decision_label"] == "NO_TEST_AUTHORIZED_NOW"
+
+    # AC2: Selected under explicit Human authority
+    assert active["id"] == "MEDIA_CREATIVE_INTELLIGENCE"
+    assert active["title"] == "Media/Creative Intelligence"
+    assert active["priority_owner"] == "HUMAN"
+    assert active["status"] == "SELECTED"
+    assert active["selection_classification"] == (
+        "POST_P8_HUMAN_APPROVED_MEDIA_CREATIVE_INTELLIGENCE_SELECTION_AND_DEFERRED_AIOS_DEBT_RECORD_ONLY"
+    )
+    assert active["source_task_id"] == "TASK-269"
+    assert active["source_task_revision"] == 1
+    assert active["source_run_id"] == "RUN-269-001"
+    assert active["source_review_id"] == "REVIEW-269-001"
+    assert active["source_published_sha"] == "3074b3df912506c681cc5e30d5aaa256bbeb0ae6"
+    assert active["selection_basis"] == "HUMAN_APPROVED_AFTER_TASK270_R1_STAGE2_AUTHORITY_BLOCKER"
+
+    # AC5: MCI.0 is sole NEXT commitment and defines semantic boundaries
+    assert milestone["id"] == "MCI.0_DOMAIN_SEMANTIC_FOUNDATION"
+    assert milestone["title"] == "Media/Creative Intelligence Domain Semantic Foundation"
+    assert milestone["status"] == "NEXT"
+    assert milestone["scope"] == "ARCHITECTURE_AND_SEMANTIC_FOUNDATION_ONLY"
+    assert milestone["implementation_authorized"] is False
+    assert milestone["semantic_invariants"] == [
+        "SOURCE_EVIDENCE_IS_NOT_DERIVED_ASSET", "DERIVED_ASSET_IS_NOT_SOURCE_EVIDENCE",
+        "SCORE_IS_NOT_INTELLIGENCE", "RECOMMENDATION_IS_NOT_DECISION",
+        "INTELLIGENCE_IS_NOT_DECISION",
+    ]
+    assert milestone["technical_substrate_only"] == [
+        "src/images", "ProductSourcePack_media", "Derived_AI_Assets_note",
+    ]
+    assert "Product Intelligence retains" in milestone["preserves_product_intelligence"]
+    assert milestone["task_271_preselected"] is False
+    assert milestone["post_run_engineering_successor"] is None
+    assert milestone["automatic_progression"] is False
+    assert milestone["exact_post_publication_handoff"] == "HUMAN_BRAIN_MCI_0_TASK_AUTHORING"
+
+    # AC7: pending_commitments, next_milestone, handoff
+    assert active["next_milestone"] == milestone["id"]
+    assert state["pending_commitments"] == [milestone["id"]]
+
+    assert selection["task_id"] == "TASK-270"
+    assert selection["task_revision"] == 2
+    assert selection["status"] == "EFFECTIVE_ONLY_ON_EXACT_REVIEWED_TASK_270_SOURCE_PUBLICATION"
+    assert selection["classification"] == (
+        "POST_P8_HUMAN_APPROVED_MEDIA_CREATIVE_INTELLIGENCE_SELECTION_AND_DEFERRED_AIOS_DEBT_RECORD_ONLY"
+    )
+    assert selection["priority_owner"] == "HUMAN"
+    assert selection["source_task_id"] == "TASK-269"
+    assert selection["source_task_revision"] == 1
+    assert selection["source_run_id"] == "RUN-269-001"
+    assert selection["source_review_id"] == "REVIEW-269-001"
+    assert selection["source_published_sha"] == "3074b3df912506c681cc5e30d5aaa256bbeb0ae6"
+    assert selection["selected_track"] == active["id"]
+    assert selection["selected_commitment"] == milestone["id"]
+    assert selection["selection_basis"] == "HUMAN_APPROVED_AFTER_TASK270_R1_STAGE2_AUTHORITY_BLOCKER"
+    assert selection["next_milestone"] == milestone["id"]
+    assert selection["task_271_preselected"] is False
+    assert selection["post_run_engineering_successor"] is None
+    assert selection["automatic_progression"] is False
+    assert selection["exact_post_publication_handoff"] == "HUMAN_BRAIN_MCI_0_TASK_AUTHORING"
+
+    # AC1: Records revision-1 Stage-2 authority blocker and unpublished candidate accurately
+    correction = selection["authority_correction"]
+    assert correction["prior_revision"] == 1
+    assert correction["prior_run_id"] == "RUN-270-001"
+    assert correction["prior_candidate_sha"] == "ec2db0e05b405cc52bf2ab3df6ecd8d01c29d044"
+    assert correction["prior_candidate_status"] == "UNPUBLISHED_BLOCKED_BY_BRAIN_STAGE2_AUTHORITY_AUDIT"
+    assert correction["prior_semantic_review_submitted"] is False
+    assert correction["prior_publication_occurred"] is False
+    assert correction["correction_basis"] == "NEW_EXPLICIT_HUMAN_DIRECTION"
+    assert correction["human_approval_date"] == "2026-09-30"
+
+    # Active track authority correction matches
+    assert active["authority_correction"] == correction
+
+    # AC4: AIOS Brain two-stage audit gap recorded exactly once as non-blocking DEFERRED maintenance
+    assert len(deferred) == 3
+    assert [item["id"] for item in deferred] == [
+        "AIOS_REPAIR_TO_REMEDIATION_LINEAGE_GAP",
+        "AIOS_FINALIZE_CANDIDATE_PREVERIFICATION_ACCEPTANCE_DEADLOCK",
+        "AIOS_BRAIN_TWO_STAGE_AUDIT_AUTHORING_ENFORCEMENT_GAP",
+    ]
+    gap = deferred[2]
+    assert gap["status"] == "DEFERRED"
+    assert gap["authority"] == "HUMAN_BRAIN_PLANNING"
+    assert gap["blocking_current_track"] is False
+    assert gap["discovered_in_task"] == "TASK-269"
+    assert gap["task_revision"] == 1
+    assert gap["downstream_pin"] == ACTIVE_PIN
+    for phrase in ("brain-high-value-v2", "AUTHOR_TASK", "AUDIT_RECONCILE/CANDIDATE", "not absence", "or invalidity"):
+        assert phrase in gap["reason"]
+    for phrase in ("upstream in AIOS-renew", "canonical mutation boundary", "reviewed/source-published", "repository bindings", "No Python Agent local workaround"):
+        assert phrase in gap["resolution_policy"]
+
+    # AC3: Six-way qualitative comparison
+    for direction in (
+        "Product Intelligence extension", "Commerce Opportunity evidence enrichment",
+        "Media/Creative Intelligence", "Distribution Intelligence",
+        "Commerce Operations Intelligence", "cross-domain composition",
+    ):
+        assert direction in document
+    for phrase in (
+        "src/images", "ProductSourcePack", "Derived AI Assets",
+        "SOURCE_EVIDENCE_IS_NOT_DERIVED_ASSET", "DERIVED_ASSET_IS_NOT_SOURCE_EVIDENCE",
+        "SCORE_IS_NOT_INTELLIGENCE", "RECOMMENDATION_IS_NOT_DECISION",
+        "INTELLIGENCE_IS_NOT_DECISION", "MCI.1", "nonbinding",
+        "HUMAN_BRAIN_MCI_0_TASK_AUTHORING",
+        "POST_P8_HUMAN_APPROVED_MEDIA_CREATIVE_INTELLIGENCE_SELECTION_AND_DEFERRED_AIOS_DEBT_RECORD_ONLY",
+        "UNPUBLISHED_BLOCKED_BY_BRAIN_STAGE2_AUTHORITY_AUDIT",
+        "ec2db0e05b405cc52bf2ab3df6ecd8d01c29d044",
+        "RUN-270-001",
+        "NEW_EXPLICIT_HUMAN_DIRECTION",
+        "HUMAN_APPROVED_AFTER_TASK270_R1_STAGE2_AUTHORITY_BLOCKER",
+    ):
+        assert phrase in document
+    for roadmap in ROADMAP_DOCS:
+        text = roadmap.read_text(encoding="utf-8")
+        assert "TASK-270" in text
+        assert "MCI.0_DOMAIN_SEMANTIC_FOUNDATION" in text
+        assert "POST_P8_HUMAN_APPROVED_MEDIA_CREATIVE_INTELLIGENCE_SELECTION_AND_DEFERRED_AIOS_DEBT_RECORD_ONLY" in text
+
+    # AC8: Preserves unique direct-child YAML keys
+    root = yaml.compose(ROADMAP_FILE.read_text(encoding="utf-8"))
+    assert isinstance(root, yaml.MappingNode)
+    top_keys = [child_key.value for child_key, _ in root.value]
+    assert len(top_keys) == len(set(top_keys))
+    for key_node, value_node in root.value:
+        if key_node.value in {"historical_task_269_active_track", "active_track", "post_p8_domain_selection"}:
+            assert isinstance(value_node, yaml.MappingNode)
+            keys = [child_key.value for child_key, _ in value_node.value]
+            assert len(keys) == len(set(keys))
