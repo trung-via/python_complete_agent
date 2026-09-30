@@ -1,0 +1,237 @@
+task_id: TASK-265
+revision: 1
+
+goal: >
+  Canonicalize the Human-approved post-TASK264 selection of REQUEST_HUMAN_DECISION_INPUTS
+  for the exact P8 real-commerce pilot. Establish only a bounded Human-input supply envelope
+  for the decision constraints that marketplace observation cannot provide, preserve all
+  TASK-264 bundle findings and unresolved evidence dimensions without promoting them into
+  canonical evidence or Product Truth, and return control to the Human to supply those inputs.
+  Do not acquire more marketplace evidence, construct P7.4/P7.5 values, authorize a market test,
+  or preselect any later engineering or commerce-action successor.
+
+problem: >
+  Canonical main at authoring is 7a8a1ed67146e4af53e3700d35080fd482cc0635.
+  TASK-264 has reconciled the consumed one-shot Real Case Evidence Bundle and the canonical
+  roadmap now hands planning exclusively to
+  HUMAN_BRAIN_POST_REAL_CASE_BUNDLE_DECISION_SUFFICIENCY_SELECTION with next_milestone null,
+  pending_commitments empty, post_run_engineering_successor null, automatic progression false,
+  MARKET_TEST_READINESS_NOT_ESTABLISHED, affiliate_economics NOT_ESTABLISHED, public-PDP
+  market traction represented only by point-in-time observations, creator_ecosystem /
+  content_activity / audience_channel_fit / competition_saturation unrepresented by the bundle,
+  and all Human-owned decision inputs still UNSET. The Human has now explicitly approved the
+  Brain's prospective selection of REQUEST_HUMAN_DECISION_INPUTS. This new selection must be
+  made durable without retroactively ranking TASK-260's historical five-candidate set, without
+  treating the Real Case Bundle as canonical evidence, and without allowing missing marketplace
+  dimensions to trigger more acquisition merely for completeness.
+
+assumptions:
+  - >
+    Canonical main at authoring is exactly
+    7a8a1ed67146e4af53e3700d35080fd482cc0635.
+  - >
+    Current canonical roadmap state records TASK-264 revision 1 as DONE on the active track
+    P8_POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_REVIEW_RECONCILIATION and hands planning only to
+    HUMAN_BRAIN_POST_REAL_CASE_BUNDLE_DECISION_SUFFICIENCY_SELECTION.
+  - >
+    The Human explicitly approved on 2026-09-30 the prospective continuation
+    REQUEST_HUMAN_DECISION_INPUTS after reviewing the post-real-case decision-sufficiency state.
+    This approval authorizes only TASK-265 authoring and the bounded offline planning/governance
+    implementation described here. It is not a market-test decision, spend approval, evidence
+    acquisition authorization, Product Intelligence approval, or commerce-action authorization.
+  - >
+    The exact case remains context_id p8-pilot-001-led-motion-tiktok-vn, TikTok Shop Vietnam
+    source ID 1731381331718341815, stable listing reference
+    https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815.
+    SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY remains mandatory.
+  - >
+    TASK-264 current bounded point-in-time observations remain immutable history: product title,
+    current price 33600.0, original price 68220.0, displayed discount "-51%", "Free shipping",
+    seller display DaydreamHouse, rating display 3.8, review display 108, sold display
+    "1.3K sold", selected variant "10cm*màu ấm áp", eight visible variant labels, quantity
+    control present, and Buy Now present. These observations remain BUNDLE_IS_NOT_CANONICAL_EVIDENCE
+    and SNAPSHOT_IS_NOT_TREND.
+  - >
+    Affiliate eligibility, affiliate commission rate and estimated commission remain
+    NOT_ESTABLISHED. Creator ecosystem, content activity, audience-channel fit and competition
+    saturation remain UNREPRESENTED_BY_THIS_BUNDLE. The absence of representation grants no
+    acquisition authority.
+  - >
+    Human-owned decision inputs remain outside P7.4 evidence dimensions and are not marketplace
+    evidence. Marketplace collection cannot determine Human budget, duration, exposure controls,
+    contribution-margin threshold, success/failure criteria, target audience, quality constraints,
+    risk constraints, risk acceptance, or decision timing.
+  - >
+    P7.3 remains the sole owner of DecisionContext and OpportunityHypothesis, including any
+    canonical decision deadline. P7.4 remains the sole owner of TikTokAffiliateEvidenceProfile.
+    P7.5 remains the sole owner of Value-of-Information planning. P7.6 remains the sole owner of
+    market-test evidence. P7.7 remains the sole owner of winner validation. P8.0 remains the sole
+    decision-loop composition owner. Product Intelligence keeps its existing evidence, identity,
+    truth, ranking, approval and persistence ownership.
+  - >
+    Reusing the label REQUEST_HUMAN_DECISION_INPUTS prospectively does not rewrite TASK-260's
+    historical five unranked candidate continuations or imply that TASK-260 originally preferred
+    this candidate.
+  - >
+    Existing deferred AIOS maintenance entries and downstream AIOS pin/adoption/conformance state
+    are unrelated to this product-planning selection and remain unchanged.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - .ai/tasks/TASK-260.yaml
+    - .ai/tasks/TASK-264.yaml
+    - .ai/roadmap-state.yaml
+    - .ai/aios-adoption-state.yaml
+    - .ai/aios-conformance-state.yaml
+    - docs/PHASE_7_P7_3_DECISION_CONTEXT_OPPORTUNITY_HYPOTHESIS.md
+    - docs/PHASE_7_P7_4_TIKTOK_AFFILIATE_EVIDENCE_PROFILE.md
+    - docs/PHASE_7_P7_5_VALUE_OF_INFORMATION_PLANNING.md
+    - docs/PHASE_8_P8_0_REAL_COMMERCE_DECISION_COMPOSITION.md
+    - docs/PHASE_8_P8_2_PRE_ACTION_EVIDENCE_ACQUISITION_PLAN.md
+    - docs/PHASE_8_POST_TASK254_REAL_DECISION_SUFFICIENCY_AND_ROADMAP_RECONCILIATION.md
+    - docs/PHASE_8_POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_REVIEW_RECONCILIATION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - docs/PHASE_8_POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - Run TikTok, CDP, browser, scraper, API, search, collector, provider/model, Drive, or any other live/external acquisition operation.
+  - Reinvoke the TASK-263 Real Case Evidence Bundle carrier, create another screenshot/projection/manifest, or authorize retry/second capture.
+  - Convert the Real Case Bundle into canonical evidence, Product Truth, knowledge, trend, score, ranking, recommendation, approval, test readiness, or decision.
+  - Create, mutate, persist or infer ProductCandidateSnapshot, SignalEvidence, TikTokAffiliateEvidenceProfile, ValueOfInformationPlan, MarketTestEvidenceProfile, WinnerValidationAssessment, CommerceDecisionLoopCase, or any new semantic owner.
+  - Fill, estimate, default, infer or recommend values for Human-owned inputs.
+  - Establish affiliate eligibility, affiliate commission rate, estimated commission, audience-channel fit, creator ecosystem, content activity, competition saturation, market-test readiness, selector repair, or canonical evidence ingestion.
+  - Authorize Wave 0, Wave 1, Wave 2, recurring acquisition, authenticated affiliate inspection, market test, spend, traffic, content publication, outreach, pricing/inventory mutation, or any commerce action.
+  - Create a second decision-deadline authority. A supplied Human timing/deadline value may only be reconciled later through P7.3 if separately justified and authorized.
+  - Redact or publish the TASK-264 source screenshot. Its existing REVIEWED_REDACTION_REQUIRED_BEFORE_FUTURE_FREEZE_OR_PUBLICATION handling constraint remains unchanged.
+  - Modify production Python code, AIOS adoption/conformance state, downstream pin, Governance Foundation documents, or historical TASK/RUN/REVIEW lineage.
+  - Create, select, authorize, mark NEXT, or make pending TASK-266 or any other successor automatically.
+
+constraints:
+  hard:
+    - >
+      Classification is exactly POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION_ONLY.
+      TASK-265 canonicalizes one Human/Brain planning selection and a bounded Human-input
+      supply envelope; it performs zero live acquisition and zero commerce action.
+    - >
+      Preserve TASK-264 and TASK-260 as immutable completed history. Record prospectively that
+      the Human selected REQUEST_HUMAN_DECISION_INPUTS after TASK-264. Do not rewrite TASK-260's
+      original five candidates as ranked, preferred, recommended, or selected at that earlier time.
+    - >
+      Bind the selection exactly to context_id p8-pilot-001-led-motion-tiktok-vn, source ID
+      1731381331718341815 and the existing stable listing reference. Preserve
+      SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY.
+    - >
+      The Human-input envelope contains exactly these ten allowed input names and no marketplace
+      evidence fields: budget, duration, exposure_controls, contribution_margin_threshold,
+      success_failure_criteria, target_audience, quality_constraints, risk_constraints,
+      risk_acceptance, decision_timing.
+    - >
+      Every allowed input remains UNSET until the Human supplies it. TASK-265 must not invent
+      defaults, infer values from the product/listing, derive them from marketplace observations,
+      or convert absence into zero/false/approval.
+    - >
+      The envelope is planning/transport structure only, not a new production schema, database,
+      semantic authority, decision object, evidence profile, or Product Truth owner. Do not modify
+      production code to implement it.
+    - >
+      Preserve the distinction between Human-owned inputs and marketplace evidence dimensions.
+      These Human inputs must not be inserted into P7.4 as evidence dimensions or modeled as
+      ValueOfInformationInquiry objects. Marketplace evidence cannot resolve them.
+    - >
+      decision_timing is Human-owned planning input only. It must not silently create or mutate
+      P7.3 DecisionContext.decision_deadline. If a later Human-supplied timing value needs canonical
+      deadline semantics, a separate authorized reconciliation through the P7.3 owner is required.
+    - >
+      Preserve current decision-sufficiency state exactly until later Human input changes it:
+      MARKET_TEST_READINESS_NOT_ESTABLISHED; affiliate_economics NOT_ESTABLISHED;
+      market_traction POINT_IN_TIME_PDP_DISPLAY_OBSERVATIONS_ONLY; creator_ecosystem,
+      content_activity, audience_channel_fit and competition_saturation
+      UNREPRESENTED_BY_THIS_BUNDLE; canonical_evidence_ingested false; selector_repair_complete
+      false; no action authority.
+    - >
+      Do not select additional marketplace acquisition merely because dimensions remain
+      unrepresented. VALUE_OF_INFORMATION_BEFORE_ENRICHMENT and MORE_DATA_IS_NOT_MORE_INTELLIGENCE
+      remain governing laws. A later decision about affiliate economics or other evidence must be
+      made only after the Human inputs are supplied/reviewed or after a fresh Human/Brain decision.
+    - >
+      The implementation document must provide an inspectable Human fill-in template for the ten
+      allowed inputs while clearly marking every value UNSET. The template is not itself a Human
+      response and must not fabricate values.
+    - >
+      On exact reviewed TASK-265 publication, current planning hands control only to
+      HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY. active_track.next_milestone remains null,
+      post_p8_planning_handoff.next_milestone remains null, pending_commitments remains empty,
+      post_run_engineering_successor remains null, automatic progression remains false, and no
+      TASK-266 or evidence-acquisition/action successor is preselected.
+    - >
+      Human supply after publication is not an engineering RUN and is not ordinary deterministic
+      Runtime verification. After concrete Human values are supplied, planning must return to a
+      fresh Human/Brain sufficiency review before any canonical P7.3 reconciliation, evidence
+      acquisition, market-test authorization, or commerce action may be selected.
+    - >
+      Preserve existing TASK-264 screenshot safety handling, all exact external artifact
+      provenance, one-shot consumption closure, and all closed live/automated/action authorities.
+    - >
+      Modify exactly the five authorized paths. Runtime verification is offline, deterministic,
+      and performs zero TikTok/CDP/network/provider operations. Executor must not collect Human
+      values, review its own candidate, publish, or start successor work.
+
+acceptance:
+  - id: AC1
+    condition: >
+      The exact post-TASK264 Human selection REQUEST_HUMAN_DECISION_INPUTS is canonicalized
+      prospectively without altering TASK-260/TASK-264 history, and exact case/source binding plus
+      SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY are preserved.
+  - id: AC2
+    condition: >
+      The Human-input supply envelope is bounded to exactly ten allowed names: budget, duration,
+      exposure_controls, contribution_margin_threshold, success_failure_criteria, target_audience,
+      quality_constraints, risk_constraints, risk_acceptance, and decision_timing; all remain
+      UNSET and no defaults or inferred values are introduced.
+  - id: AC3
+    condition: >
+      Human-owned inputs remain semantically separate from P7.4 marketplace evidence and P7.5 VOI;
+      TASK-265 constructs no evidence profile, VOI plan, decision object, score, recommendation,
+      readiness judgment, or new semantic authority.
+  - id: AC4
+    condition: >
+      TASK-264 bounded source observations, affiliate-economics unknowns, unrepresented dimensions,
+      screenshot handling constraint, one-shot consumption closure, canonical_evidence_ingested
+      false and selector_repair_complete false remain unchanged.
+  - id: AC5
+    condition: >
+      decision_timing creates no duplicate P7.3 deadline authority, and any later canonical
+      deadline reconciliation requires a fresh separately authorized P7.3-owned change.
+  - id: AC6
+    condition: >
+      No marketplace acquisition, live operation, Wave 0/1/2, authenticated affiliate lookup,
+      market test, spend or commerce action is authorized; missing evidence dimensions do not
+      automatically become NEXT.
+  - id: AC7
+    condition: >
+      Exact reviewed TASK-265 publication hands planning only to
+      HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY with null next_milestone and engineering successor,
+      empty pending commitments, automatic progression false, and no TASK-266 preselected.
+  - id: AC8
+    condition: >
+      Exactly five authorized planning/documentation/governance-test paths change; focused offline
+      governance regression and git diff --check pass with zero production-code delta and zero
+      live/external operation, producing one candidate eligible for independent semantic review
+      and exact publication.
+
+verification:
+  policy: minimum-sufficient-v1
+  required:
+    - python -m pytest tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task265-primary
+    - git diff --check
