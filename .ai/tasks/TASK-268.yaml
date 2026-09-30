@@ -1,0 +1,245 @@
+task_id: TASK-268
+revision: 1
+
+goal: >
+  Reconcile the Human-reported blocked outcome of the exact one-shot authenticated Affiliate
+  lookup authorized by published TASK-267, consume that one-shot authority without fabricating
+  marketplace evidence, preserve public TikTok PDP independence from Affiliate account access,
+  and perform a fresh bounded Human/Brain decision-sufficiency review. Return control only to a
+  Human/Brain current-pilot disposition decision. TASK-268 performs no live lookup, retry,
+  evidence acquisition, market test, recommendation, or commerce action.
+
+problem: >
+  Exact reviewed TASK-267 revision 1 is published on canonical main at
+  3f5149a4c1501fcf964a196c690c6f407492fbb3 after repair RUN-267-002 and REVIEW-267-001.
+  It authorized exactly one Human-operated authenticated TIKTOK_AFFILIATE_UI lookup attempt for
+  source ID 1731381331718341815 and only affiliate_eligibility, affiliate_commission_rate, and
+  estimated_commission_value. The Human has now reported that the authenticated Affiliate Center
+  could not be entered; the Human cannot distinguish whether the cause is account ineligibility
+  or an access/error condition. No reviewable authenticated observation or external transport
+  envelope was supplied. Under TASK-267, blocked access consumes the one-shot attempt and grants
+  no automatic retry. Canonical planning must reconcile this operation outcome without turning
+  access failure into evidence that the listing is ineligible, without making public PDP
+  intelligence depend on Affiliate account access, and without pre-authorizing another task,
+  market test, or alternate acquisition path.
+
+assumptions:
+  - >
+    Canonical main at TASK-268 authoring is exactly
+    3f5149a4c1501fcf964a196c690c6f407492fbb3.
+  - >
+    TASK-267 revision 1 / RUN-267-002 / REVIEW-267-001 is the exact reviewed and published
+    source authority for the one-shot authenticated lookup authorization.
+  - >
+    The Human reports one attempted entry into the authorized authenticated Affiliate surface
+    and inability to proceed. The cause is unresolved between account/program ineligibility and
+    access/error conditions. No authenticated observation values were supplied.
+  - >
+    The Human report is an operation-status input for planning reconciliation, not marketplace
+    evidence, not proof of account ineligibility, not proof of listing ineligibility, and not
+    proof that the three affiliate-economics fields are absent.
+  - >
+    TASK-230, TASK-231, and TASK-233 established that public TikTok Shop PDP product/source
+    intelligence remains independent from Affiliate account eligibility/access. That architecture
+    remains valid and must not be reopened or weakened.
+  - >
+    Existing reviewed public-PDP real-case observations from TASK-264 remain point-in-time
+    display observations only: current price 33600 VND, original price 68220 VND, displayed
+    discount -51%, free shipping, seller DaydreamHouse, rating 3.8, reviews 108, displayed
+    sold text 1.3K sold, selected variant 10cm*màu ấm áp, and eight visible variants.
+    No TASK-268 claim upgrades them into canonical product truth or trend.
+  - >
+    Human-approved TASK-266 planning inputs remain unchanged. quality_constraints and
+    risk_constraints remain UNSET. Budget, duration, exposure controls, contribution-margin
+    threshold, success/failure criteria, target audience, risk acceptance, and decision timing
+    remain exactly as published.
+  - >
+    P7.3 remains sole owner of DecisionContext and OpportunityHypothesis; P7.4 remains sole owner
+    of TikTokAffiliateEvidenceProfile; P7.5 remains sole owner of VOI planning; P7.6 remains sole
+    owner of market-test evidence; P7.7 remains sole owner of winner validation; P8.0 remains sole
+    owner of decision-loop composition; Product Intelligence retains its existing product/source
+    evidence, identity, truth, ranking, approval, and persistence ownership.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - .ai/tasks/TASK-230.yaml
+    - .ai/tasks/TASK-231.yaml
+    - .ai/tasks/TASK-233.yaml
+    - .ai/tasks/TASK-260.yaml
+    - .ai/tasks/TASK-266.yaml
+    - .ai/tasks/TASK-267.yaml
+    - .ai/roadmap-state.yaml
+    - docs/PHASE_7_P7_3_DECISION_CONTEXT_OPPORTUNITY_HYPOTHESIS.md
+    - docs/PHASE_7_P7_4_TIKTOK_AFFILIATE_EVIDENCE_PROFILE.md
+    - docs/PHASE_7_P7_5_VALUE_OF_INFORMATION_PLANNING.md
+    - docs/PHASE_7_P7_6_MARKET_TEST_FUNNEL_EVIDENCE.md
+    - docs/PHASE_8_P8_1_REAL_DECISION_PILOT_SELECTION.md
+    - docs/PHASE_8_P8_2_PRE_ACTION_EVIDENCE_ACQUISITION_PLAN.md
+    - docs/PHASE_8_P8_3_MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION.md
+    - docs/PHASE_8_POST_HUMAN_INPUTS_DECISION_SUFFICIENCY_REVIEW.md
+    - docs/PHASE_8_ONE_SHOT_AUTHENTICATED_AFFILIATE_ECONOMICS_AUTHORIZATION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - docs/PHASE_8_POST_TASK267_BLOCKED_ACCESS_OPERATION_RECONCILIATION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - Perform or retry TikTok/TikTok Affiliate login, authenticated lookup, Creator/Affiliate Center
+    navigation, browser/CDP operation, marketplace API call, scraper operation, network request,
+    CAPTCHA/security-challenge handling, or any other live/external acquisition.
+  - Build or authorize an authenticated Affiliate collector, public/private API integration,
+    browser automation, login workaround, eligibility bypass, account-upgrade workaround, proxy,
+    stealth, evasion, scheduler, watcher, queue, background worker, evidence store, or retry loop.
+  - Infer account eligibility, listing affiliate eligibility, commission rate, estimated commission,
+    or absence of any affiliate property from the blocked-access outcome.
+  - Convert the Human operation report into Product Intelligence evidence, SignalEvidence,
+    ProductCandidateSnapshot, P7.4 evidence profile, P7.5 VOI plan, P7.6 market-test evidence,
+    Product Truth, canonical identity, recommendation, approval, winner judgment, or action authority.
+  - Reopen or mutate the reviewed public-PDP real-case evidence bundle or rerun public-PDP capture.
+  - Fill quality_constraints or risk_constraints implicitly.
+  - Authorize or execute market test, spend, traffic, campaign, affiliate participation, content
+    publication, outreach, pricing/inventory mutation, or any commerce action.
+  - Select DEFER, STOP, no-test, alternative pilot/channel, retry, or any other final Human-owned
+    pilot disposition inside TASK-268.
+  - Preselect TASK-269 or any implementation/acquisition/reconciliation successor after TASK-268.
+  - Modify production Python, Governance Foundation, AIOS adoption/conformance/pin, Runtime,
+    Reviewer, Publisher, workflow bindings, or executor policy.
+
+constraints:
+  hard:
+    - >
+      Classify TASK-268 exactly as POST_TASK267_BLOCKED_ACCESS_OPERATION_RECONCILIATION_AND_FRESH_DECISION_SUFFICIENCY_REVIEW_ONLY.
+      This is Brain planning/reconciliation only; it performs zero live/external operation and
+      acquires zero marketplace evidence.
+    - >
+      Bind exactly to context_id p8-pilot-001-led-motion-tiktok-vn, source_id
+      1731381331718341815, and stable listing reference
+      https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815.
+      Preserve SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY.
+    - >
+      Reconcile the Human-reported TASK-267 operation as:
+      lookup_executed true;
+      authorized_authenticated_lookup_attempts 1;
+      authorized_authenticated_lookup_attempts_remaining 0;
+      operation_status FAIL_CLOSED;
+      reviewable_authenticated_observations 0;
+      external_transport_envelope_status NOT_SUPPLIED;
+      authenticated_affiliate_lookup_authority NONE;
+      retry_authority NONE.
+      The TASK-267 one-shot is consumed and closed.
+    - >
+      Record access_failure_cause exactly as UNRESOLVED_ACCOUNT_ELIGIBILITY_OR_ACCESS_ERROR.
+      Do not assert ACCOUNT_INELIGIBLE, LISTING_INELIGIBLE, PLATFORM_ERROR, or any more specific cause.
+    - >
+      Preserve the three affiliate-economics facts as NOT_ESTABLISHED:
+      affiliate_eligibility, affiliate_commission_rate, and estimated_commission_value.
+      Blocked access is not evidence of false/zero/absence and must not create a negative marketplace fact.
+    - >
+      The Human report is operation lineage only. Record source class HUMAN_REPORTED_OPERATION_OUTCOME,
+      evidence_status NO_MARKETPLACE_EVIDENCE_CONTRIBUTED, and canonical_evidence_ingested false.
+      No artifact_ref, screenshot, observed_at, or authenticated display value may be fabricated.
+    - >
+      Preserve public TikTok Shop PDP independence from Affiliate account access. Explicitly retain
+      the TASK-230/TASK-231/TASK-233 law that public product/source intelligence and public-PDP
+      marketplace observations remain semantically usable under their own provenance and uncertainty
+      boundaries even when authenticated Affiliate economics is unavailable.
+    - >
+      Preserve reviewed TASK-264 public-PDP observations and their epistemic limits exactly.
+      Point-in-time observations do not become trend, canonical product truth, recommendation, or
+      affiliate economics. Do not derive numeric sold count from "1.3K sold" and do not recompute
+      discount or other fields.
+    - >
+      Preserve TASK-266 Human inputs exactly. quality_constraints remains UNSET and risk_constraints
+      remains UNSET. Their missingness continues to block market-test authorization, but TASK-268
+      must not automatically request or fill them because the fresh review may lead the Human to
+      defer, stop, close no-test-now, select another pilot/channel, or otherwise choose a disposition.
+    - >
+      Fresh decision-sufficiency review must conclude only:
+      affiliate_economics NOT_ESTABLISHED;
+      market_traction POINT_IN_TIME_PDP_DISPLAY_OBSERVATIONS_ONLY;
+      creator_ecosystem UNREPRESENTED_BY_THIS_BUNDLE;
+      content_activity UNREPRESENTED_BY_THIS_BUNDLE;
+      audience_channel_fit UNREPRESENTED_BY_THIS_BUNDLE;
+      competition_saturation UNREPRESENTED_BY_THIS_BUNDLE;
+      authenticated_affiliate_inquiry CLOSED_FAIL_CLOSED_NO_RETRY_AUTHORITY;
+      MARKET_TEST_READINESS_NOT_ESTABLISHED;
+      market_test_or_action_authority NONE.
+      Do not convert this review into TEST_READY, NOT_READY, recommendation, ranking, or final pilot disposition.
+    - >
+      Explicitly record that P8's real decision objective does not require a market test to occur.
+      A later Human disposition of DEFER, STOP, no-test-now, or alternative-pilot/channel may be a
+      valid decision outcome, but TASK-268 itself selects none of them.
+    - >
+      P7.5 CONTINUE/DEFER/STOP semantics remain advisory planning semantics and are not silently
+      constructed here as a ValueOfInformationPlan. No canonical P7.5 disposition is emitted.
+    - >
+      On exact reviewed TASK-268 publication, hand control only to
+      HUMAN_BRAIN_CURRENT_PILOT_DISPOSITION_SELECTION. next_milestone remains null,
+      pending_commitments remains empty, post_run_engineering_successor remains null,
+      automatic_progression remains false, and task_269_preselected remains false.
+    - >
+      Preserve immutable TASK-267 authorization/repaired RUN history. Do not rewrite TASK-267 as
+      failed engineering work; TASK-267 completed successfully as authorization, and TASK-268
+      records the later Human operation outcome.
+    - >
+      Modify exactly the five authorized planning/documentation/governance-test paths. Runtime
+      verification remains deterministic, offline, and non-interactive. Executor must not perform
+      live lookup, invent Human decisions, self-review, publish, or start successor work.
+    - >
+      Completion-gate acceptance is limited to candidate facts available before Runtime verification.
+      Runtime owns verification evidence; Semantic Reviewer owns independent judgment; Publisher
+      owns publication of the exact reviewed candidate.
+
+acceptance:
+  - id: AC1
+    condition: >
+      TASK-268 records the exact TASK-267 one-shot as consumed after one Human-reported blocked
+      operation with lookup_executed true, attempts_remaining 0, FAIL_CLOSED, zero reviewable
+      authenticated observations, NOT_SUPPLIED envelope, lookup authority NONE, and retry authority NONE.
+  - id: AC2
+    condition: >
+      Access cause remains exactly UNRESOLVED_ACCOUNT_ELIGIBILITY_OR_ACCESS_ERROR and no account/listing
+      ineligibility, platform error, commission value, or other marketplace fact is inferred.
+  - id: AC3
+    condition: >
+      affiliate_eligibility, affiliate_commission_rate, and estimated_commission_value remain
+      NOT_ESTABLISHED; the Human operation report is lineage only, contributes no marketplace evidence,
+      fabricates no timestamp/artifact/display value, and canonical_evidence_ingested remains false.
+  - id: AC4
+    condition: >
+      Public PDP independence from Affiliate access and all reviewed TASK-264 point-in-time observation
+      boundaries are preserved without reopening or recapturing the public PDP.
+  - id: AC5
+    condition: >
+      TASK-266 Human inputs are unchanged, including quality_constraints UNSET and risk_constraints
+      UNSET; no market-test/action authority or automatic request/fill is created.
+  - id: AC6
+    condition: >
+      Fresh decision-sufficiency state preserves MARKET_TEST_READINESS_NOT_ESTABLISHED and explicitly
+      closes only the authenticated Affiliate inquiry as CLOSED_FAIL_CLOSED_NO_RETRY_AUTHORITY without
+      producing TEST_READY/NOT_READY, a P7.5 plan/disposition, recommendation, ranking, or final pilot decision.
+  - id: AC7
+    condition: >
+      Exact reviewed TASK-268 publication hands only to HUMAN_BRAIN_CURRENT_PILOT_DISPOSITION_SELECTION
+      with null next milestone/engineering successor, empty pending commitments, false automatic
+      progression, and no TASK-269 preselection.
+  - id: AC8
+    condition: >
+      Candidate changes exactly the five authorized documentation/planning/governance-test paths,
+      changes zero production code, performs zero live/external operation, remains clean, descends
+      from the canonical TASK-268 base, and contains no outside-scope mutation.
+
+verification:
+  policy: minimum-sufficient-v1
+  required:
+    - python -m pytest tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task268-primary
+    - git diff --check
