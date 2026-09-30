@@ -424,7 +424,7 @@ historical_task_268_active_track:
       canonical_main_equals_reviewed_candidate: true
   next_milestone: null
 
-active_track:
+historical_task_269_active_track:
   id: P8_CURRENT_PILOT_NO_TEST_NOW_DISPOSITION_AND_CASE_CLOSURE
   title: "P8 Current Pilot No-Test-Now Disposition and Case Closure"
   priority_owner: HUMAN
@@ -489,7 +489,66 @@ active_track:
       canonical_main_equals_reviewed_candidate: true
   next_milestone: null
 
-pending_commitments: []
+active_track:
+  id: MEDIA_CREATIVE_INTELLIGENCE
+  title: Media/Creative Intelligence
+  priority_owner: HUMAN
+  status: SELECTED
+  selection_classification: POST_P8_COMMERCE_INTELLIGENCE_DOMAIN_SELECTION_AND_DEFERRED_AIOS_DEBT_RECORD_ONLY
+  source_task_id: TASK-269
+  source_task_revision: 1
+  source_run_id: RUN-269-001
+  source_review_id: REVIEW-269-001
+  source_published_sha: 3074b3df912506c681cc5e30d5aaa256bbeb0ae6
+  selection_basis: FRESH_POST_P8_HUMAN_BRAIN_ARCHITECTURE_VALUE_AUDIT
+  current_milestone:
+    id: MCI.0_DOMAIN_SEMANTIC_FOUNDATION
+    title: Media/Creative Intelligence Domain Semantic Foundation
+    status: NEXT
+    scope: ARCHITECTURE_AND_SEMANTIC_FOUNDATION_ONLY
+    ownership_boundary: >-
+      Define ownership and relationships among immutable source media/evidence,
+      derived or inferred creative assets, creative hypotheses, creative decision
+      context, evaluation/measurement, and future generation/transformation.
+    preserves_product_intelligence: >-
+      Product Intelligence retains source media provenance, source identity,
+      canonical product identity/truth/catalog, and ProductSourcePack semantics.
+      Media/Creative Intelligence may later consume these inputs without becoming
+      shadow evidence, identity, product-truth, approval, persistence, ranking,
+      or commerce-decision authority.
+    semantic_invariants: [SOURCE_EVIDENCE_IS_NOT_DERIVED_ASSET, DERIVED_ASSET_IS_NOT_SOURCE_EVIDENCE, SCORE_IS_NOT_INTELLIGENCE, RECOMMENDATION_IS_NOT_DECISION, INTELLIGENCE_IS_NOT_DECISION]
+    technical_substrate_only: [src/images, ProductSourcePack_media, Derived_AI_Assets_note]
+    implementation_authorized: false
+    task_271_preselected: false
+    post_run_engineering_successor: null
+    automatic_progression: false
+    exact_post_publication_handoff: HUMAN_BRAIN_MCI_0_TASK_AUTHORING
+  next_milestone: MCI.0_DOMAIN_SEMANTIC_FOUNDATION
+
+pending_commitments: [MCI.0_DOMAIN_SEMANTIC_FOUNDATION]
+
+post_p8_domain_selection:
+  task_id: TASK-270
+  task_revision: 1
+  status: EFFECTIVE_ONLY_ON_EXACT_REVIEWED_TASK_270_SOURCE_PUBLICATION
+  classification: POST_P8_COMMERCE_INTELLIGENCE_DOMAIN_SELECTION_AND_DEFERRED_AIOS_DEBT_RECORD_ONLY
+  source_task_id: TASK-269
+  source_task_revision: 1
+  source_run_id: RUN-269-001
+  source_review_id: REVIEW-269-001
+  source_published_sha: 3074b3df912506c681cc5e30d5aaa256bbeb0ae6
+  selected_track: MEDIA_CREATIVE_INTELLIGENCE
+  selected_commitment: MCI.0_DOMAIN_SEMANTIC_FOUNDATION
+  next_milestone: MCI.0_DOMAIN_SEMANTIC_FOUNDATION
+  task_271_preselected: false
+  post_run_engineering_successor: null
+  automatic_progression: false
+  exact_post_publication_handoff: HUMAN_BRAIN_MCI_0_TASK_AUTHORING
+  boundary: >-
+    This is a current-context Human/Brain planning choice after closed P8.
+    It does not claim MCI.0 implementation, Runtime PASS, semantic review PASS,
+    publication, market-test outcome, or any new product authority. MCI.1 and
+    later directions are nonbinding candidates only.
 
 post_p7_planning_handoff:
   destination: P8_REAL_COMMERCE_DECISION_LOOP_COMPOSITION
@@ -4759,3 +4818,29 @@ deferred_maintenance:
       Any future fix must occur upstream in AIOS-renew followed by normal
       reviewed/source-published downstream adoption. No Python Agent local control-plane
       workaround or patch is permitted.
+
+  - id: AIOS_BRAIN_TWO_STAGE_AUDIT_AUTHORING_ENFORCEMENT_GAP
+    title: AIOS Brain two-stage-audit authoring-enforcement gap
+    status: DEFERRED
+    authority: HUMAN_BRAIN_PLANNING
+    blocking_current_track: false
+    discovered_in_task: TASK-269
+    task_revision: 1
+    downstream_pin: "44eee353eda376c9db8cd88d97184d3122651bf5"
+    reason: >-
+      brain-high-value-v2 version 2 two-stage audit material is active and
+      prescribes CONSTRUCT then ADVERSARIAL_AUDIT_AND_RECONCILE for applicable
+      Brain flows, but the current canonical AUTHOR_TASK boundary can still
+      canonicalize a directly supplied TASK body without requiring validated
+      AUDIT_RECONCILE/CANDIDATE handoff proof. This is a non-blocking authoring
+      enforcement gap, not absence of the audit profile or invalidity of
+      TASK-269 publication.
+    resolution_policy: >-
+      Fix upstream in AIOS-renew while preserving Brain, Runtime, Reviewer,
+      and Publisher authorities: require validated audited Brain handoff proof
+      at the canonical mutation boundary for applicable audited Brain authoring
+      flows. Then adopt the exact reviewed/source-published upstream pin through
+      normal downstream migration and activate repository bindings as required.
+      No Python Agent local workaround, duplicate semantic authority, prompt-only
+      fix, memory dependency, workflow-carrier semantic fork, or silent pin
+      retarget is permitted.
