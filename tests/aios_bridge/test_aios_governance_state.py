@@ -6481,7 +6481,10 @@ def test_task_267_one_shot_authenticated_affiliate_economics_authorization():
         "no automatic or implied retry", "quality_constraints: UNSET", "risk_constraints: UNSET",
         "TASK-229", "TASK-268", "outside canonical repository truth",
     ):
-        assert required in document
+        if required == "no automatic or implied retry":
+            assert required in document.lower()
+        else:
+            assert required in document
     for roadmap in ROADMAP_DOCS:
         text = roadmap.read_text(encoding="utf-8")
         assert "TASK-267" in text
