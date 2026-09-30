@@ -1371,6 +1371,46 @@ followed by mandatory `HUMAN_BRAIN_P8_REAL_CASE_BUNDLE_REVIEW`. `next_milestone`
 `automatic_progression` is false, and `post_run_engineering_successor` is null.
 See `docs/PHASE_8_REAL_CASE_EVIDENCE_BUNDLE.md`.
 
+TASK-264 is publication-gated DONE only as
+`POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_BRAIN_REVIEW_RECONCILIATION_ONLY`.
+It reconciles the completed one-shot TASK-263 Real Case Evidence Bundle capture and mandatory Human/Brain review
+into canonical Python Agent planning state without converting the bundle into canonical evidence or changing any
+product/market truth authority. Source lineage is exact TASK-263 / RUN-263-015 / REVIEW-263-007 publication at
+`9bcfed394b52594791f84e0f2a5c94b89c2ac38b`.
+The three external final artifacts are recorded as bounded external provenance without copying or mutating artifacts:
+manifest `p8-real-case-manifest-v1.json` (2216 bytes, SHA256 `90CB3900CCBE88E7066CF2209C7BC11C9982B05DD941A629B8F7FA01A99737B7`),
+page projection `p8-real-case-page-projection-v1.json` (11089 bytes, SHA256 `D2A40A0406A78C933C2038F40ADF22AF05FB182FD7A806029CD84746896239E2`),
+and full-page screenshot `p8-real-case-full-page-v1.png` (615260 bytes, SHA256 `DC45AAFD5E299991510E7869FE4C726A88C1DB115AA063A8954894E8CE87EBEE`),
+observed at `2026-09-30T00:23:39.536602+00:00` and bound to context `p8-pilot-001-led-motion-tiktok-vn`, source ID
+`1731381331718341815`, and listing `https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815`.
+
+Canonical current state records the one-shot capture as consumed and completed: `authorized_bundle_attempts: 1`,
+`authorized_bundle_attempts_remaining: 0`, `bundle_execution_owner: HUMAN_OPERATOR`, `bundle_executed: true`,
+`bundle_operation_status: SUCCESS`, and Human/Brain bundle review completed. All retry, second invocation, and live
+capture authorities are closed (`live_bundle_capture_authority: NONE`).
+Manifest and projection integrity is verified: identity bound is true; blocked, login, and unavailable are false;
+all truncation bounds are respected without truncation (91 scanned nodes, 26 records, `is_truncated: false`).
+Source-visible fields are recorded strictly as point-in-time PDP observations: current price `33600.0`, original price
+`68220.0`, displayed discount `-51%`, shipping `Free shipping`, seller display `DaydreamHouse` (`Sold by DaydreamHouse`),
+rating display `3.8`, review count display `108` (`( 108 )`), sold count display `1.3K sold`, selected variant
+`10cm*màu ấm áp`, exact visible variant labels (`10cm*màu ấm áp`, `10cm*trắng`, `20cm*màu ấm áp`, `20cm*trắng`,
+`30cm*màu ấm áp`, `30cm*trắng`, `50cm*màu ấm áp`, `50cm*trắng`), quantity control present, and Buy now present.
+No numeric sold_count or discount percentage is derived; no timeless Product Truth is asserted.
+The Human/Brain visual safety review of the screenshot identified a visible profile/avatar in the upper-right; no person
+identity is inferred or recorded, the source screenshot remains immutable, and its review status becomes
+`REVIEWED_REDACTION_REQUIRED_BEFORE_FUTURE_FREEZE_OR_PUBLICATION` as a handling constraint.
+Decision-sufficiency mapping preserves P7.4/P7.5 boundaries: affiliate economics remains `NOT_ESTABLISHED`; market traction
+is represented only by point-in-time PDP display observations; creator ecosystem, content activity, audience-channel fit,
+and competition saturation are `UNREPRESENTED_BY_THIS_BUNDLE`; and Human-owned decision inputs remain `UNSET`.
+Decision state remains strictly `MARKET_TEST_READINESS_NOT_ESTABLISHED`, `selector_repair_complete` remains `false`,
+`canonical_evidence_ingested` remains `false`, `price_role_resolution_complete` remains `true` only for its bounded
+collector-validation meaning, and `BUNDLE_IS_NOT_CANONICAL_EVIDENCE` remains explicit.
+All live/automated/action authorities are `NONE`, `automatic_live_pilot` and `automatic_progression` are `false`.
+On exact reviewed publication, planning hands off strictly to
+`HUMAN_BRAIN_POST_REAL_CASE_BUNDLE_DECISION_SUFFICIENCY_SELECTION` with null NEXT/successor, empty pending commitments,
+and no TASK-265 selected.
+See `docs/PHASE_8_POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_REVIEW_RECONCILIATION.md`.
+
 
 
 ## 4. Authority invariants
