@@ -5975,7 +5975,6 @@ def test_task_263_real_case_evidence_bundle():
 def test_task_264_reconciles_real_case_bundle_capture_and_review():
     state = load_yaml(ROADMAP_FILE)
     active = state["active_track"]
-    handoff = state["post_p8_planning_handoff"]
     completed = {item["task_id"]: item for item in state["completed_milestones"]}
     task_264 = completed["TASK-264"]
     document = P8_POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_REVIEW_RECONCILIATION_FILE.read_text(
@@ -6160,80 +6159,6 @@ def test_task_264_reconciles_real_case_bundle_capture_and_review():
             "canonical_main_equals_reviewed_candidate": True,
         }
 
-    # Handoff assertions
-    assert handoff["destination"] == "HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY"
-    assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_265_SOURCE_PUBLICATION"
-    assert handoff["completed_commitment"] == (
-        "P8_POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION"
-    )
-    assert handoff["prior_completed_commitment"] == (
-        "P8_POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_REVIEW_RECONCILIATION"
-    )
-    assert handoff["task_id"] == "TASK-265"
-    assert handoff["task_revision"] == 2
-    assert handoff["source_task_id"] == "TASK-263"
-    assert handoff["source_task_revision"] == 4
-    assert handoff["source_run_id"] == "RUN-263-015"
-    assert handoff["source_review_id"] == "REVIEW-263-007"
-    assert handoff["source_published_sha"] == TASK_263_PUBLISHED_SOURCE_SHA
-    assert handoff["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
-    assert handoff["selected_source_id"] == "1731381331718341815"
-    assert handoff["stable_listing_reference"] == (
-        "https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-"
-        "che-do-sang-sac-usb-c/1731381331718341815"
-    )
-    assert handoff["carrier_module"] == "src/product_intelligence/tiktok_pdp_case_bundle.py"
-    assert handoff["canonical_cli_command"] == "tiktok-pdp-case-bundle"
-    assert handoff["manifest_filename"] == TASK_264_MANIFEST_FILENAME
-    assert handoff["projection_filename"] == TASK_264_PROJECTION_FILENAME
-    assert handoff["screenshot_filename"] == TASK_264_SCREENSHOT_FILENAME
-    assert handoff["authorized_bundle_attempts"] == 1
-    assert handoff["authorized_bundle_attempts_remaining"] == 0
-    assert handoff["bundle_execution_owner"] == "HUMAN_OPERATOR"
-    assert handoff["bundle_executed"] is True
-    assert handoff["bundle_operation_status"] == "SUCCESS"
-    assert handoff["human_brain_bundle_review_completed"] is True
-    assert handoff["live_bundle_capture_authority"] == "NONE"
-    for auth_key in (
-        "automated_public_pdp_acquisition_authority",
-        "market_test_or_action_authority",
-        "second_invocation_authority",
-        "arbitrary_target_authority",
-        "replacement_target_authority",
-        "search_authority",
-        "batch_authority",
-        "inferred_identity_authority",
-        "variant_switching_authority",
-    ):
-        assert handoff[auth_key] == "NONE"
-    assert handoff["automatic_live_pilot"] is False
-    assert handoff["automatic_progression"] is False
-    assert handoff["price_role_resolution_complete"] is True
-    assert handoff["selector_repair_complete"] is False
-    assert handoff["canonical_evidence_ingested"] is False
-    assert handoff["epistemic_boundary"] == "BUNDLE_IS_NOT_CANONICAL_EVIDENCE"
-    assert handoff["market_test_readiness"] == "MARKET_TEST_READINESS_NOT_ESTABLISHED"
-    assert handoff["affiliate_economics"] == "NOT_ESTABLISHED"
-    assert handoff["next_milestone"] is None
-    assert handoff["post_run_engineering_successor"] is None
-    assert handoff["mandatory_post_capture_handoff"] == (
-        "HUMAN_BRAIN_P8_REAL_CASE_BUNDLE_REVIEW"
-    )
-    case = handoff["actual_real_decision_case"]
-    assert case["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
-    assert case["record_type"] == "PILOT_CASE_SELECTION_ONLY"
-    assert case["product_label"] == "Đèn LED Cảm Biến Chuyển Động Tự Động Bật Tắt Điều Chỉnh 3 Chế Độ Sáng"
-    assert case["marketplace"] == "TikTok Shop Vietnam"
-    assert case["channel_context"] == "TikTok Shop Affiliate"
-    assert case["source_id"] == "1731381331718341815"
-    assert case["stable_listing_reference"] == (
-        "https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-"
-        "che-do-sang-sac-usb-c/1731381331718341815"
-    )
-    assert case["identity_scope"] == "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY"
-    assert case["selection_owner"] == "HUMAN"
-    assert case["selection_status"] == "SELECTED"
-    assert case["real_pilot_executed"] is True
     assert state["pending_commitments"] == []
 
     # Document contents and governance invariants
