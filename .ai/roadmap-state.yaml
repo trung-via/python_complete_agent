@@ -190,56 +190,69 @@ human_priority_side_track:
     live-validation authority.
 
 active_track:
-  id: P8_POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION
-  title: "P8 Post-Real-Case Human Decision Inputs Selection"
+  id: P8_POST_HUMAN_INPUTS_DECISION_SUFFICIENCY_REVIEW
+  title: "P8 Post-Human-Inputs Decision Sufficiency Review"
   priority_owner: HUMAN
   status: DONE
   completion_basis: PUBLICATION_GATED
-  sequence_status: COMPLETE_ON_EXACT_TASK_265_SOURCE_PUBLICATION
+  sequence_status: COMPLETE_ON_EXACT_TASK_266_SOURCE_PUBLICATION
   current_milestone:
-    id: P8.POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION
-    task_id: TASK-265
-    task_revision: 2
-    title: "Post-Real-Case Human Decision Inputs Selection"
+    id: P8.POST_HUMAN_INPUTS_DECISION_SUFFICIENCY_REVIEW
+    task_id: TASK-266
+    task_revision: 1
+    title: "Post-Human-Inputs Decision Sufficiency Review"
     status: DONE
     completion_basis: PUBLICATION_GATED
-    classification: POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION_ONLY
+    classification: POST_HUMAN_INPUTS_DECISION_SUFFICIENCY_REVIEW_ONLY
     authorization_owner: HUMAN_BRAIN
-    source_task_id: TASK-264
-    source_task_revision: 1
+    source_task_id: TASK-265
+    source_task_revision: 2
+    source_run_id: RUN-265-002
+    source_review_id: REVIEW-265-001
     context_id: p8-pilot-001-led-motion-tiktok-vn
     selected_source_id: "1731381331718341815"
     stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
     identity_scope: SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY
-    selected_continuation: REQUEST_HUMAN_DECISION_INPUTS
-    selection_timing: PROSPECTIVE_AFTER_TASK_264
+    review_trigger: HUMAN_INPUTS_SUPPLIED_AFTER_EXACT_TASK_265_PUBLICATION
     human_approval_date: "2026-09-30"
     historical_task_260_candidates_unchanged: true
-    human_decision_inputs:
-      budget: UNSET
-      duration: UNSET
-      exposure_controls: UNSET
-      contribution_margin_threshold: UNSET
-      success_failure_criteria: UNSET
-      target_audience: UNSET
+    human_decision_inputs: &task_266_human_decision_inputs
+      budget: {amount_vnd: 5000000, role: HARD_CEILING_NOT_SPENDING_TARGET}
+      duration: {days: 14}
+      exposure_controls: {initial_at_risk_tranche_vnd: 750000, mandatory_review_before_additional_exposure: true, total_budget_hard_cap_vnd: 5000000, automatic_second_tranche: false, automatic_scaling: false}
+      contribution_margin_threshold: {perspective: CREATOR_AFFILIATE, decision_formula: SETTLED_AFFILIATE_COMMISSION_MINUS_DIRECTLY_ATTRIBUTABLE_INCREMENTAL_VARIABLE_PILOT_COSTS, threshold: GT_0_VND}
+      success_failure_criteria:
+        success_candidate_requires: [EXACT_LISTING_AFFILIATE_ELIGIBILITY_ESTABLISHED, ECONOMICS_BASED_ON_OBSERVED_COMMISSION, CUMULATIVE_SETTLED_CONTRIBUTION_MARGIN_GT_0_VND, NO_APPROVED_RISK_ENVELOPE_BREACH, NO_LATER_SUPPLIED_QUALITY_OR_RISK_CONSTRAINT_BREACH, EVIDENCE_SUFFICIENT_FOR_LATER_HUMAN_BRAIN_REPEATABILITY_ASSESSMENT]
+        stop_failure_if: [ESTABLISHED_INELIGIBILITY, NO_PLAUSIBLE_PATH_TO_POSITIVE_CONTRIBUTION_MARGIN_WITHIN_APPROVED_EXPOSURE, CUMULATIVE_ECONOMIC_LOSS_REACHES_750000_VND, SERIOUS_BREACH_OF_LATER_SUPPLIED_QUALITY_OR_RISK_CONSTRAINTS]
+        inconclusive_if: [SETTLEMENT_OR_REFUND_EVIDENCE_INCOMPLETE, EXPOSURE_INSUFFICIENT]
+      target_audience: "người trẻ có thời lượng sử dụng mạng xã hội cao"
       quality_constraints: UNSET
       risk_constraints: UNSET
-      risk_acceptance: UNSET
-      decision_timing: UNSET
+      risk_acceptance: {percent_of_budget: 15, max_accepted_economic_loss_vnd: 750000, consequence: STOP_AND_REVIEW}
+      decision_timing: {checkpoint_day: 7, final_review_day: 14, role: HUMAN_PLANNING_ONLY}
     human_inputs_are_marketplace_evidence: false
     p7_4_profile_constructed: false
     p7_5_voi_plan_constructed: false
     decision_object_constructed: false
     p7_3_deadline_mutated: false
     deadline_reconciliation_requires_separate_p7_3_authorization: true
-    decision_sufficiency_mapping:
+    decision_sufficiency_mapping: &task_266_decision_sufficiency_mapping
       affiliate_economics: NOT_ESTABLISHED
       market_traction: POINT_IN_TIME_PDP_DISPLAY_OBSERVATIONS_ONLY
       creator_ecosystem: UNREPRESENTED_BY_THIS_BUNDLE
       content_activity: UNREPRESENTED_BY_THIS_BUNDLE
       audience_channel_fit: UNREPRESENTED_BY_THIS_BUNDLE
       competition_saturation: UNREPRESENTED_BY_THIS_BUNDLE
-      human_owned_inputs: UNSET
+      human_owned_inputs: EIGHT_SUPPLIED_TWO_UNSET
+    target_audience_establishes_audience_channel_fit: false
+    actual_affiliate_commission_and_costs_known: false
+    seller_side_economics_substituted: false
+    quality_and_risk_constraints_block_market_test_authorization: true
+    highest_decision_impact_unresolved_marketplace_information_gap:
+      question: EXACT_LISTING_AUTHENTICATED_AFFILIATE_ELIGIBILITY_COMMISSION_RATE_AND_ESTIMATED_COMMISSION
+      source_requirement: LEGITIMATE_EXACT_LISTING_AUTHENTICATED_SOURCE
+      selection_scope: QUALITATIVE_HUMAN_BRAIN_REVIEW_ONLY
+      acquisition_authorized: false
     market_test_readiness: MARKET_TEST_READINESS_NOT_ESTABLISHED
     affiliate_economics: NOT_ESTABLISHED
     price_role_resolution_complete: true
@@ -266,9 +279,8 @@ active_track:
     automatic_progression: false
     next_milestone: null
     post_run_engineering_successor: null
-    exact_post_publication_handoff: HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY
-    post_publication_handoff: HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY
-    after_human_supply: FRESH_HUMAN_BRAIN_DECISION_SUFFICIENCY_REVIEW
+    exact_post_publication_handoff: HUMAN_BRAIN_AUTHENTICATED_AFFILIATE_ECONOMICS_ACQUISITION_AUTHORIZATION
+    post_publication_handoff: HUMAN_BRAIN_AUTHENTICATED_AFFILIATE_ECONOMICS_ACQUISITION_AUTHORIZATION
     effective_only_when:
       semantic_review: PASS
       published_source: EXACT_REVIEWED_CANDIDATE
@@ -293,36 +305,46 @@ post_p7_planning_handoff:
     outcome, roadmap, or future-domain authority into P8.0.
 
 post_p8_planning_handoff:
-  destination: HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY
-  status: EFFECTIVE_ON_EXACT_TASK_265_SOURCE_PUBLICATION
-  completed_commitment: P8_POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION
-  prior_completed_commitment: P8_POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_REVIEW_RECONCILIATION
-  task_id: TASK-265
-  task_revision: 2
-  selection_classification: POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION_ONLY
-  selection_source_task_id: TASK-264
-  selected_continuation: REQUEST_HUMAN_DECISION_INPUTS
-  selection_timing: PROSPECTIVE_AFTER_TASK_264
+  destination: HUMAN_BRAIN_AUTHENTICATED_AFFILIATE_ECONOMICS_ACQUISITION_AUTHORIZATION
+  status: EFFECTIVE_ON_EXACT_TASK_266_SOURCE_PUBLICATION
+  completed_commitment: P8_POST_HUMAN_INPUTS_DECISION_SUFFICIENCY_REVIEW
+  prior_completed_commitment: P8_POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION
+  task_id: TASK-266
+  task_revision: 1
+  selection_classification: POST_HUMAN_INPUTS_DECISION_SUFFICIENCY_REVIEW_ONLY
+  selection_source_task_id: TASK-265
+  review_trigger: HUMAN_INPUTS_SUPPLIED_AFTER_EXACT_TASK_265_PUBLICATION
   human_approval_date: "2026-09-30"
   identity_scope: SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY
   human_decision_inputs:
-    budget: UNSET
-    duration: UNSET
-    exposure_controls: UNSET
-    contribution_margin_threshold: UNSET
-    success_failure_criteria: UNSET
-    target_audience: UNSET
+    budget: {amount_vnd: 5000000, role: HARD_CEILING_NOT_SPENDING_TARGET}
+    duration: {days: 14}
+    exposure_controls: {initial_at_risk_tranche_vnd: 750000, mandatory_review_before_additional_exposure: true, total_budget_hard_cap_vnd: 5000000, automatic_second_tranche: false, automatic_scaling: false}
+    contribution_margin_threshold: {perspective: CREATOR_AFFILIATE, decision_formula: SETTLED_AFFILIATE_COMMISSION_MINUS_DIRECTLY_ATTRIBUTABLE_INCREMENTAL_VARIABLE_PILOT_COSTS, threshold: GT_0_VND}
+    success_failure_criteria:
+      success_candidate_requires: [EXACT_LISTING_AFFILIATE_ELIGIBILITY_ESTABLISHED, ECONOMICS_BASED_ON_OBSERVED_COMMISSION, CUMULATIVE_SETTLED_CONTRIBUTION_MARGIN_GT_0_VND, NO_APPROVED_RISK_ENVELOPE_BREACH, NO_LATER_SUPPLIED_QUALITY_OR_RISK_CONSTRAINT_BREACH, EVIDENCE_SUFFICIENT_FOR_LATER_HUMAN_BRAIN_REPEATABILITY_ASSESSMENT]
+      stop_failure_if: [ESTABLISHED_INELIGIBILITY, NO_PLAUSIBLE_PATH_TO_POSITIVE_CONTRIBUTION_MARGIN_WITHIN_APPROVED_EXPOSURE, CUMULATIVE_ECONOMIC_LOSS_REACHES_750000_VND, SERIOUS_BREACH_OF_LATER_SUPPLIED_QUALITY_OR_RISK_CONSTRAINTS]
+      inconclusive_if: [SETTLEMENT_OR_REFUND_EVIDENCE_INCOMPLETE, EXPOSURE_INSUFFICIENT]
+    target_audience: "người trẻ có thời lượng sử dụng mạng xã hội cao"
     quality_constraints: UNSET
     risk_constraints: UNSET
-    risk_acceptance: UNSET
-    decision_timing: UNSET
+    risk_acceptance: {percent_of_budget: 15, max_accepted_economic_loss_vnd: 750000, consequence: STOP_AND_REVIEW}
+    decision_timing: {checkpoint_day: 7, final_review_day: 14, role: HUMAN_PLANNING_ONLY}
   human_inputs_are_marketplace_evidence: false
   p7_4_profile_constructed: false
   p7_5_voi_plan_constructed: false
   p7_3_deadline_mutated: false
   deadline_reconciliation_requires_separate_p7_3_authorization: true
   additional_marketplace_acquisition_selected: false
-  after_human_supply: FRESH_HUMAN_BRAIN_DECISION_SUFFICIENCY_REVIEW
+  target_audience_establishes_audience_channel_fit: false
+  quality_and_risk_constraints_block_market_test_authorization: true
+  highest_decision_impact_unresolved_marketplace_information_gap:
+    question: EXACT_LISTING_AUTHENTICATED_AFFILIATE_ELIGIBILITY_COMMISSION_RATE_AND_ESTIMATED_COMMISSION
+    source_requirement: LEGITIMATE_EXACT_LISTING_AUTHENTICATED_SOURCE
+    selection_scope: QUALITATIVE_HUMAN_BRAIN_REVIEW_ONLY
+    acquisition_authorized: false
+  authenticated_affiliate_lookup_authority: NONE
+  task_267_preselected: false
   source_task_id: TASK-263
   source_task_revision: 4
   source_run_id: RUN-263-015
@@ -1832,23 +1854,15 @@ post_p8_planning_handoff:
     next_milestone: null
     post_publication_handoff: HUMAN_BRAIN_FRESH_POST_GEN8_PAIRED_PRICE_COLLECTOR_VALIDATION_AUTHORIZATION
   boundary: >-
-    Exact reviewed TASK-264 publication reconciles the completed one-shot Human-operated
-    P8 Real Case Evidence Bundle capture and mandatory Human/Brain review for exact listing
-    1731381331718341815. Exact external artifact provenance (manifest 2216 bytes / 90CB3900CCBE88E7066CF2209C7BC11C9982B05DD941A629B8F7FA01A99737B7,
-    projection 11089 bytes / D2A40A0406A78C933C2038F40ADF22AF05FB182FD7A806029CD84746896239E2,
-    screenshot 615260 bytes / DC45AAFD5E299991510E7869FE4C726A88C1DB115AA063A8954894E8CE87EBEE,
-    observed_at 2026-09-30T00:23:39.536602+00:00) is recorded without copying or mutating artifacts.
-    One-shot attempt is consumed (attempts 1, remaining 0, bundle_executed true, operation SUCCESS).
-    Screenshot review records visible profile/avatar in upper-right with status
-    REVIEWED_REDACTION_REQUIRED_BEFORE_FUTURE_FREEZE_OR_PUBLICATION; source screenshot remains immutable.
-    Source-visible fields are recorded strictly as point-in-time observations without timeless truth promotion.
-    Affiliate economics remains NOT_ESTABLISHED; market traction is represented only by point-in-time PDP display
-    observations; creator ecosystem, content activity, audience-channel fit, and competition saturation are
-    UNREPRESENTED_BY_THIS_BUNDLE; Human-owned inputs remain UNSET. Decision state remains strictly
-    MARKET_TEST_READINESS_NOT_ESTABLISHED, selector_repair_complete is false, canonical_evidence_ingested is false,
-    and BUNDLE_IS_NOT_CANONICAL_EVIDENCE remains explicit. All live/retry/automated/action authorities are NONE,
-    pending commitments are empty, next milestone is null, and planning hands off strictly and exclusively to
-    HUMAN_BRAIN_POST_REAL_CASE_BUNDLE_DECISION_SUFFICIENCY_SELECTION.
+    TASK-266 records eight Human-supplied or approved planning values after exact reviewed
+    TASK-265 publication and preserves quality_constraints and risk_constraints as UNSET.
+    The fresh Human/Brain sufficiency review identifies exact-listing authenticated affiliate
+    eligibility, commission rate, and estimated commission as the highest-decision-impact
+    unresolved marketplace information gap only. Affiliate economics and market-test readiness
+    remain NOT_ESTABLISHED; no acquisition, lookup, market test, spend, or commerce action is
+    authorized. TASK-264/TASK-265 observations and provenance remain historical and unchanged.
+    Planning hands only to HUMAN_BRAIN_AUTHENTICATED_AFFILIATE_ECONOMICS_ACQUISITION_AUTHORIZATION
+    on exact reviewed TASK-266 publication, with no next milestone or engineering successor.
 
 
 completed_milestones:
@@ -3829,6 +3843,44 @@ completed_milestones:
     exact_post_publication_handoff: HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY
     post_publication_handoff: HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY
     after_human_supply: FRESH_HUMAN_BRAIN_DECISION_SUFFICIENCY_REVIEW
+    effective_only_when:
+      semantic_review: PASS
+      published_source: EXACT_REVIEWED_CANDIDATE
+      canonical_main_equals_reviewed_candidate: true
+
+  - task_id: TASK-266
+    task_revision: 1
+    track_id: P8_POST_HUMAN_INPUTS_DECISION_SUFFICIENCY_REVIEW
+    milestone_id: P8.POST_HUMAN_INPUTS_DECISION_SUFFICIENCY_REVIEW
+    title: "Post-Human-Inputs Decision Sufficiency Review"
+    status: DONE
+    completion_basis: PUBLICATION_GATED
+    classification: POST_HUMAN_INPUTS_DECISION_SUFFICIENCY_REVIEW_ONLY
+    authorization_owner: HUMAN_BRAIN
+    source_task_id: TASK-265
+    source_task_revision: 2
+    source_run_id: RUN-265-002
+    source_review_id: REVIEW-265-001
+    context_id: p8-pilot-001-led-motion-tiktok-vn
+    selected_source_id: "1731381331718341815"
+    stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
+    identity_scope: SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY
+    human_decision_inputs: *task_266_human_decision_inputs
+    human_inputs_are_marketplace_evidence: false
+    p7_4_profile_constructed: false
+    p7_5_voi_plan_constructed: false
+    p7_3_deadline_mutated: false
+    decision_sufficiency_mapping: *task_266_decision_sufficiency_mapping
+    market_test_readiness: MARKET_TEST_READINESS_NOT_ESTABLISHED
+    affiliate_economics: NOT_ESTABLISHED
+    selector_repair_complete: false
+    canonical_evidence_ingested: false
+    authenticated_affiliate_lookup_authority: NONE
+    market_test_or_action_authority: NONE
+    automatic_progression: false
+    next_milestone: null
+    post_run_engineering_successor: null
+    exact_post_publication_handoff: HUMAN_BRAIN_AUTHENTICATED_AFFILIATE_ECONOMICS_ACQUISITION_AUTHORIZATION
     effective_only_when:
       semantic_review: PASS
       published_source: EXACT_REVIEWED_CANDIDATE

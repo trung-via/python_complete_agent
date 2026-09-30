@@ -1440,6 +1440,12 @@ See `docs/PHASE_8_POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION.md`.
 
 
 
+## Post-Human-inputs decision sufficiency (TASK-266)
+
+After exact reviewed TASK-265 revision 2 publication, the Human supplied or approved eight of the ten planning inputs for `p8-pilot-001-led-motion-tiktok-vn`: 5,000,000 VND hard budget ceiling, 14 days, a 750,000 VND initial at-risk tranche with mandatory Human/Brain review before additional exposure and no automatic second tranche or scaling, creator/affiliate settled contribution margin above 0 VND, bounded success/failure/inconclusive criteria, target audience `người trẻ có thời lượng sử dụng mạng xã hội cao`, 15 percent risk acceptance as a maximum 750,000 VND economic loss before stop/review, and day-7/day-14 planning reviews. `quality_constraints` and `risk_constraints` remain `UNSET`. These are Human planning inputs, not P7.4 evidence or P7.5 VOI. The contribution-margin threshold does not establish actual affiliate commission or costs; seller economics are not substituted. Decision timing does not mutate the P7.3 deadline.
+
+The fresh Human/Brain review keeps affiliate economics `NOT_ESTABLISHED`, `MARKET_TEST_READINESS_NOT_ESTABLISHED`, `canonical_evidence_ingested: false`, and `selector_repair_complete: false`. Target audience does not establish audience-channel fit. The highest-decision-impact unresolved marketplace question is exact-listing authenticated affiliate eligibility, commission rate, and estimated commission from a legitimate exact-listing source; its selection grants no lookup or acquisition authority. TASK-264/TASK-265 observations, provenance, screenshot handling, one-shot closure, and closed action authorities remain intact. On exact reviewed TASK-266 publication, planning hands only to `HUMAN_BRAIN_AUTHENTICATED_AFFILIATE_ECONOMICS_ACQUISITION_AUTHORIZATION`, with null next milestone and engineering successor, empty pending commitments, false automatic progression, authenticated lookup authority `NONE`, and no TASK-267 preselection. See `docs/PHASE_8_POST_HUMAN_INPUTS_DECISION_SUFFICIENCY_REVIEW.md`.
+
 ## 4. Authority invariants
 
 Across all post-M4 work:
