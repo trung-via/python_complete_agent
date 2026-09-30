@@ -1,0 +1,266 @@
+task_id: TASK-267
+revision: 1
+
+goal: >
+  Canonicalize the Human-approved one-shot authorization to inspect authenticated TikTok
+  Affiliate economics for exactly one selected TikTok Shop Vietnam listing. Authorize one
+  Human-operated external lookup attempt for only affiliate eligibility, affiliate commission
+  rate, and estimated commission value, followed by mandatory Human review. Preserve all
+  evidence, truth, decision, market-test, spend, and automation boundaries. TASK-267 itself
+  performs no live lookup and acquires no evidence.
+
+problem: >
+  Exact reviewed TASK-266 revision 1 is published at
+  96016e7601ae5d8b45d42376b4a16686abf0e15b after RUN-266-002 and REVIEW-266-001.
+  It records eight Human-approved planning inputs, keeps quality_constraints and risk_constraints
+  UNSET, preserves affiliate_economics NOT_ESTABLISHED and MARKET_TEST_READINESS_NOT_ESTABLISHED,
+  and hands planning only to HUMAN_BRAIN_AUTHENTICATED_AFFILIATE_ECONOMICS_ACQUISITION_AUTHORIZATION.
+  Human has now explicitly approved a bounded one-shot authenticated lookup for the exact listing.
+  The highest-decision-impact unresolved marketplace information gap is exact-listing affiliate
+  eligibility, commission rate, and estimated commission through a legitimate authenticated
+  Affiliate source. The repository needs a durable authorization boundary without creating a
+  general authenticated collector, reopening broad Wave-1, or converting a Human observation
+  directly into canonical evidence or market-test authority.
+
+assumptions:
+  - >
+    Canonical main at TASK-267 authoring is exactly
+    96016e7601ae5d8b45d42376b4a16686abf0e15b.
+  - >
+    TASK-266 revision 1 / RUN-266-002 / REVIEW-266-001 is the exact reviewed and published
+    source authority for this authorization decision.
+  - >
+    The exact case remains context_id p8-pilot-001-led-motion-tiktok-vn, TikTok Shop Vietnam
+    source ID 1731381331718341815, stable listing reference
+    https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815,
+    with SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY preserved.
+  - >
+    Human-approved planning inputs from TASK-266 remain unchanged: budget 5000000 VND hard
+    ceiling; duration 14 days; initial at-risk tranche 750000 VND with mandatory Human/Brain
+    review before additional exposure; creator/affiliate cumulative settled contribution margin
+    threshold GT_0_VND; target audience "người trẻ có thời lượng sử dụng mạng xã hội cao";
+    risk acceptance 15 percent of budget / maximum accepted economic loss 750000 VND; day-7
+    checkpoint and day-14 final review. quality_constraints and risk_constraints remain UNSET.
+  - >
+    Affiliate eligibility, affiliate commission rate, estimated commission, actual settled
+    commission, refunds, and attributable pilot costs are not established by TASK-266.
+  - >
+    Historical P6/P8 planning establishes that authenticated marketplace interaction is a
+    Human/operator-owned external operation. AIOS engineering RUNs and Runtime verification remain
+    deterministic and offline. Login/session/CAPTCHA preparation remains Human-owned.
+  - >
+    Historical TASK-229/P8.3 is not reopened wholesale. TASK-267 is a narrower current
+    authorization for exactly three affiliate-economics observations and exactly one selected
+    listing. It does not authorize the historical broader 11-field Wave-1 set.
+  - >
+    P7.3 remains sole owner of DecisionContext and OpportunityHypothesis; P7.4 remains sole owner
+    of TikTokAffiliateEvidenceProfile; P7.5 remains sole owner of Value-of-Information planning;
+    P7.6 remains sole owner of market-test evidence; P7.7 remains sole owner of winner validation;
+    P8.0 remains sole owner of decision-loop composition. Product Intelligence ownership remains
+    unchanged.
+
+scope:
+  inspect:
+    - docs/PYTHON_AGENT_MANIFESTO.md
+    - docs/PYTHON_AGENT_CONSTITUTION.md
+    - docs/PYTHON_AGENT_PRODUCT_CONTRACT.md
+    - docs/CHATGPT_PROJECT_CONTRACT.md
+    - .ai/tasks/TASK-266.yaml
+    - .ai/tasks/TASK-229.yaml
+    - .ai/roadmap-state.yaml
+    - docs/PHASE_6_P6_1_LIVE_CAPTURE_CHECKPOINT.md
+    - docs/PHASE_7_P7_3_DECISION_CONTEXT_OPPORTUNITY_HYPOTHESIS.md
+    - docs/PHASE_7_P7_4_TIKTOK_AFFILIATE_EVIDENCE_PROFILE.md
+    - docs/PHASE_7_P7_5_VALUE_OF_INFORMATION_PLANNING.md
+    - docs/PHASE_7_P7_6_MARKET_TEST_FUNNEL_EVIDENCE.md
+    - docs/PHASE_8_P8_2_PRE_ACTION_EVIDENCE_ACQUISITION_PLAN.md
+    - docs/PHASE_8_P8_3_MANUAL_WAVE_1_EVIDENCE_CONTRIBUTION_AUTHORIZATION.md
+    - docs/PHASE_8_POST_HUMAN_INPUTS_DECISION_SUFFICIENCY_REVIEW.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - tests/aios_bridge/test_aios_governance_state.py
+  modify:
+    - docs/PHASE_8_ONE_SHOT_AUTHENTICATED_AFFILIATE_ECONOMICS_AUTHORIZATION.md
+    - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
+    - docs/POST_P5_P6_QUALITY_SCALE_ROADMAP.md
+    - .ai/roadmap-state.yaml
+    - tests/aios_bridge/test_aios_governance_state.py
+
+non_goals:
+  - Perform TikTok or TikTok Affiliate login, authenticated lookup, browser/CDP interaction,
+    marketplace navigation, API call, scraper operation, network request, or live evidence
+    acquisition during TASK-267 engineering or Runtime verification.
+  - Build, generalize, modify, or authorize a canonical authenticated TikTok Affiliate collector,
+    parser, API integration, browser automation, CDP script, scheduler, watcher, queue, retry loop,
+    background agent, database, evidence store, or credential/session manager.
+  - Reopen or reactivate the full historical TASK-229 11-field Wave-1 contribution scope.
+  - Search, inspect, harvest, compare, or capture other products/listings.
+  - Collect creator ecosystem, content activity, audience-channel fit, competition saturation,
+    velocity, inventory, price, sold count, rating, review count, seller media, or other fields.
+  - Store credentials, cookies, tokens, headers, raw HTML, browser profile paths, login/QR codes,
+    private messages, account identifiers unrelated to exact case binding, or local absolute paths.
+  - Construct or mutate ProductCandidateSnapshot, SignalEvidence, TikTokAffiliateEvidenceProfile,
+    ValueOfInformationPlan, MarketTestEvidenceProfile, WinnerValidationAssessment,
+    CommerceDecisionLoopCase, canonical identity/catalog, Product Intelligence approval, or product truth.
+  - Establish affiliate eligibility/commission by inference, public PDP, similar listing, title,
+    image, seller, slug, historical observation, or Human memory.
+  - Authorize market test, spend, traffic, campaign creation, affiliate participation, content
+    publication, outreach, inventory/price mutation, recommendation, winner judgment, scaling, or
+    another commerce action.
+  - Fabricate quality_constraints or risk_constraints or treat them as satisfied.
+  - Preselect TASK-268 or any deterministic freeze/ingestion/test successor.
+  - Modify production Python, AIOS adoption/conformance/pin, workflow, Runtime, Reviewer, Publisher,
+    or Governance Foundation documents.
+
+constraints:
+  hard:
+    - >
+      Classification is exactly ONE_SHOT_AUTHENTICATED_AFFILIATE_ECONOMICS_AUTHORIZATION_ONLY.
+      TASK-267 is authorization/planning only and performs zero live/external operation.
+    - >
+      Bind the authorization exactly to context_id p8-pilot-001-led-motion-tiktok-vn,
+      source_id 1731381331718341815, and stable listing reference
+      https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815.
+      Preserve SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY.
+    - >
+      Authorize exactly one Human-operated authenticated lookup attempt. Record
+      authorized_authenticated_lookup_attempts 1,
+      authorized_authenticated_lookup_attempts_remaining 1,
+      lookup_execution_owner HUMAN_OPERATOR, lookup_executed false, and
+      authenticated_affiliate_lookup_authority ONE_SHOT_EXACT_LISTING_THREE_FIELD_ONLY
+      effective only after exact reviewed TASK-267 publication.
+    - >
+      The exact observation allowlist is only:
+      affiliate_eligibility, affiliate_commission_rate, estimated_commission_value.
+      Omission or non-display remains UNKNOWN/NOT_ESTABLISHED. No other marketplace observation
+      name is authorized by TASK-267.
+    - >
+      The authoritative evidence source surface for the three fields is Human-visible
+      TIKTOK_AFFILIATE_UI / authenticated creator-affiliate surface. Public PDP may be used only
+      as a non-authoritative auxiliary identity reference; it cannot establish these three fields.
+    - >
+      Human/operator may manually navigate only as necessary to locate the exact source ID or exact
+      stable listing reference in the authenticated Affiliate surface. This grants no general search,
+      discovery, batch, related-product, recommendation-feed, or other-listing inspection authority.
+      If the exact listing cannot be located or exactly bound, fail closed and do not substitute another listing.
+    - >
+      Exact-listing binding must be demonstrated by at least one inspectable basis tied to the
+      authenticated observation: exact source ID visibly present, exact stable listing reference
+      visibly present, or a direct product-link destination visibly containing exact source ID
+      1731381331718341815. Title/image/seller/slug/product-concept similarity or Human memory is insufficient.
+    - >
+      Define one external transport-only envelope schema
+      authenticated-affiliate-economics-one-shot/v1. It is not a production model, evidence owner,
+      canonical truth object, repository schema authority, or automatic ingestion surface.
+      Top-level fields are exactly: schema, context_id, source_id, stable_listing_reference,
+      observed_at, attempt_number, operation_status, observations.
+    - >
+      attempt_number must be 1. operation_status is one of SUCCESS, FAIL_CLOSED, or INCONCLUSIVE.
+      SUCCESS means only the one-shot Human operation produced at least one reviewable displayed
+      observation under exact binding. It does not mean affiliate eligibility, positive economics,
+      evidence acceptance, test readiness, or business success.
+    - >
+      observations is an ordered list containing only the three allowlisted names. Each observation
+      carries exactly: name, displayed_value, source_surface, binding_basis, artifact_ref, and optional
+      variant_context. displayed_value must be copied from the visible authenticated source without
+      interpretation, normalization, arithmetic, or inference. Multiple observations may cite one artifact.
+    - >
+      observed_at must be one Human/operator-supplied timezone-aware RFC 3339 timestamp with explicit
+      UTC offset. displayed_value, binding_basis, artifact_ref, and optional variant_context are
+      bounded single-line text. Omitted observations stay unknown.
+    - >
+      Safe artifact provenance is mandatory for any contributed observation. Screenshots should be
+      cropped/redacted to the minimum exact-listing affiliate-economics content necessary while
+      retaining binding and displayed value context. Do not persist credentials, cookies, tokens,
+      headers, raw HTML, QR/login codes, browser profile paths, unrelated account identity, private
+      messages, exception traces, or local absolute paths.
+    - >
+      Manual login/session/CAPTCHA/security-challenge handling remains Human/operator-owned outside
+      ordinary AIOS verification. No automatic login, CAPTCHA solving, retry, proxy, stealth, evasion,
+      bypass, credential capture, session export, or background waiting is authorized.
+    - >
+      The single attempt is consumed by the Human operation. If access is blocked, exact binding fails,
+      the exact listing is unavailable, or required UI values are not exposed, record FAIL_CLOSED or
+      INCONCLUSIVE as appropriate. No automatic or implied retry exists; another attempt requires a
+      fresh Human/Brain authorization.
+    - >
+      After the operation, mandatory Human review evaluates each contributed observation independently
+      for exact listing binding, observation time, displayed-value transcription fidelity, artifact
+      safety, and usability as source evidence. Review dispositions are ACCEPT, REJECT, or UNKNOWN.
+      ACCEPT means only usable source evidence; it is not canonical product truth, P7.4 profile truth,
+      Product Intelligence approval, P7.5 disposition, TEST_READY, recommendation, winner judgment,
+      or market-test/action authority.
+    - >
+      TASK-267 publication does not ingest evidence. External envelope/screenshots remain outside
+      canonical repository truth. Only after a concrete Human operation and explicit Human review may
+      Human/Brain consider a separately authorized deterministic freeze/replay/semantic-construction
+      task. No such successor is selected here.
+    - >
+      Preserve TASK-266 planning inputs exactly, including quality_constraints UNSET and
+      risk_constraints UNSET. Their absence continues to block any later market-test authorization.
+      The one-shot economics lookup does not infer or fill them.
+    - >
+      Preserve affiliate_economics NOT_ESTABLISHED and MARKET_TEST_READINESS_NOT_ESTABLISHED at
+      TASK-267 publication time because no live lookup has yet occurred. canonical_evidence_ingested
+      remains false and market_test_or_action_authority remains NONE.
+    - >
+      On exact reviewed TASK-267 publication, hand planning/operation only to
+      HUMAN_OPERATOR_ONE_SHOT_AUTHENTICATED_AFFILIATE_ECONOMICS_LOOKUP_AND_REVIEW.
+      next_milestone remains null, pending_commitments remains empty,
+      post_run_engineering_successor remains null, automatic_progression remains false, and no TASK-268
+      is preselected.
+    - >
+      Preserve all TASK-264 through TASK-266 historical observations, provenance, screenshot constraints,
+      one-shot closures, immutable failed/repaired RUN lineage, and closed authorities.
+    - >
+      Modify exactly the five authorized documentation/planning/governance-test paths. Verification
+      must be deterministic, offline, and non-interactive. Executor must not perform the Human
+      authenticated operation, create live values, self-review, publish, or start successor work.
+    - >
+      Completion-gate acceptance is limited to candidate facts available before Runtime verification.
+      Runtime owns verification evidence; Reviewer owns semantic judgment; Publisher owns publication.
+
+acceptance:
+  - id: AC1
+    condition: >
+      One exact-listing, one-attempt authorization is canonicalized with Human operation ownership,
+      one remaining authorized attempt, and no live operation performed by TASK-267.
+  - id: AC2
+    condition: >
+      The observation allowlist is exactly affiliate_eligibility, affiliate_commission_rate, and
+      estimated_commission_value from authenticated TikTok Affiliate UI; no broader Wave-1/search/
+      batch/other-listing authority is granted.
+  - id: AC3
+    condition: >
+      Exact-listing fail-closed binding, timezone-aware observation time, transport-only external
+      envelope, safe artifact provenance, and single-attempt consumption/retry boundaries are explicit.
+  - id: AC4
+    condition: >
+      Human login/session/CAPTCHA remains external and manual with zero automatic credential,
+      CAPTCHA, retry, proxy, stealth, evasion, bypass, or background-operation authority.
+  - id: AC5
+    condition: >
+      Mandatory Human review can ACCEPT/REJECT/UNKNOWN individual observations while preserving
+      source evidence != canonical truth and without constructing P7.4/P7.5/test/winner/action semantics.
+  - id: AC6
+    condition: >
+      TASK-266 Human inputs are preserved exactly; quality_constraints and risk_constraints remain
+      UNSET; affiliate economics and market-test readiness remain NOT_ESTABLISHED at authorization publication.
+  - id: AC7
+    condition: >
+      Exact reviewed TASK-267 publication hands only to
+      HUMAN_OPERATOR_ONE_SHOT_AUTHENTICATED_AFFILIATE_ECONOMICS_LOOKUP_AND_REVIEW with null next
+      milestone/engineering successor, empty pending commitments, false automatic progression,
+      market-test/action authority NONE, and no TASK-268 preselection.
+  - id: AC8
+    condition: >
+      Candidate changes exactly the five authorized planning/documentation/governance-test paths,
+      changes zero production-code files, performs zero live/external operation, is clean, descends
+      from the canonical TASK-267 base, and has no outside-scope mutation, making it eligible for
+      Runtime verification.
+
+verification:
+  policy: minimum-sufficient-v1
+  required:
+    - python -m pytest tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task267-primary
+    - git diff --check
