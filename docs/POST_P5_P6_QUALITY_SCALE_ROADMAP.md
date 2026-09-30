@@ -1300,6 +1300,10 @@ Following exact reviewed TASK-267 revision 1 / RUN-267-002 / REVIEW-267-001 publ
 The complete audit and P7.0 boundary are recorded in
 `docs/PHASE_7_P7_0_WINNING_PRODUCT_EVIDENCE_QUALITY.md`.
 
+## Current-pilot no-test-now disposition and case closure (TASK-269)
+
+On exact reviewed TASK-268 revision 1 / RUN-268-002 / REVIEW-268-001 publication at `fd65ea3073e6ea01818cb4961f2ae2db29b36b33`, the Human approved `CLOSE_CURRENT_REAL_DECISION_CASE_AS_NO_TEST_AUTHORIZED_NOW` / `NO_TEST_AUTHORIZED_NOW` for current context `p8-pilot-001-led-motion-tiktok-vn`, source ID `1731381331718341815`, and the same stable listing reference. This `HUMAN` decision dated 2026-09-30 has `CURRENT_CONTEXT_ONLY` scope. The real decision case closes without authorizing or executing a market test, commerce action, spend, outcome-evidence generation, P7.6 real market-test path, or P7.7 real winner path. Historical `real_pilot_executed` is preserved. TASK-268's one consumed fail-closed authenticated inquiry retains zero reviewable observations, no envelope, and no retry authority. Affiliate economics and its three fields remain `NOT_ESTABLISHED`; public PDP point-in-time observations remain independent and bounded; readiness remains `MARKET_TEST_READINESS_NOT_ESTABLISHED`; `quality_constraints: UNSET` and `risk_constraints: UNSET` are not requested or filled; market-test/action authority remains `NONE`. The disposition is not product/listing rejection, affiliate ineligibility, negative economics, a P7.5 VOI object, or permanent stop. No replacement pilot or channel is selected. Exact reviewed TASK-269 publication hands only to `HUMAN_BRAIN_POST_P8_ROADMAP_SELECTION`, with null next milestone and engineering successor, empty pending commitments, false automatic progression, and no TASK-270 preselection. See `docs/PHASE_8_CURRENT_PILOT_NO_TEST_NOW_DISPOSITION_AND_CASE_CLOSURE.md`.
+
 ## 3. Invariants and Authority Preservation
 
 1. **Prior Authority Invariance**: P1 through P5 authorities remain unchanged and respected:

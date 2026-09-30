@@ -6499,7 +6499,7 @@ def test_task_267_one_shot_authenticated_affiliate_economics_authorization():
 
 def test_task_268_post_task267_blocked_access_operation_reconciliation():
     state = load_yaml(ROADMAP_FILE)
-    active = state["active_track"]
+    active = state["historical_task_268_active_track"]
     milestone = active["current_milestone"]
     handoff = state["post_p8_planning_handoff"]
     completed = {item["task_id"]: item for item in state["completed_milestones"]}
@@ -6520,7 +6520,7 @@ def test_task_268_post_task267_blocked_access_operation_reconciliation():
     assert active["next_milestone"] is None
     assert state["pending_commitments"] == []
     assert record["milestone_id"] == milestone["id"]
-    for item in (milestone, record, handoff):
+    for item in (milestone, record):
         assert item["task_id"] == "TASK-268"
         assert item["task_revision"] == 1
         assert item["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
@@ -6581,9 +6581,7 @@ def test_task_268_post_task267_blocked_access_operation_reconciliation():
         "competition_saturation": "UNREPRESENTED_BY_THIS_BUNDLE",
         "authenticated_affiliate_inquiry": "CLOSED_FAIL_CLOSED_NO_RETRY_AUTHORITY",
     }
-    assert handoff["destination"] == destination
-    assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_268_SOURCE_PUBLICATION"
-    assert handoff["task_269_preselected"] is False
+    assert handoff["prior_completed_commitment"] == active["id"]
 
     assert envelope["context_id"] == milestone["context_id"]
     assert envelope["source_id"] == milestone["selected_source_id"]
@@ -6635,3 +6633,111 @@ def test_task_268_post_task267_blocked_access_operation_reconciliation():
         assert "TASK-268" in text
         assert destination in text
         assert "no TASK-269 preselection" in text
+
+
+def test_task_269_current_pilot_no_test_now_case_closure():
+    state = load_yaml(ROADMAP_FILE)
+    active = state["active_track"]
+    milestone = active["current_milestone"]
+    handoff = state["post_p8_planning_handoff"]
+    records = {item["task_id"]: item for item in state["completed_milestones"]}
+    record = records["TASK-269"]
+    prior = records["TASK-268"]
+    document = (
+        REPO_ROOT / "docs" / "PHASE_8_CURRENT_PILOT_NO_TEST_NOW_DISPOSITION_AND_CASE_CLOSURE.md"
+    ).read_text(encoding="utf-8")
+    envelope = yaml.safe_load(document.split("```yaml\n", 1)[1].split("\n```", 1)[0])
+    listing = (
+        "https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-"
+        "che-do-sang-sac-usb-c/1731381331718341815"
+    )
+    assert active["id"] == "P8_CURRENT_PILOT_NO_TEST_NOW_DISPOSITION_AND_CASE_CLOSURE"
+    assert active["sequence_status"] == "COMPLETE_ON_EXACT_TASK_269_SOURCE_PUBLICATION"
+    assert active["next_milestone"] is None
+    assert state["pending_commitments"] == []
+    assert record["milestone_id"] == milestone["id"]
+    for item in (milestone, record, handoff):
+        assert item["task_id"] == "TASK-269"
+        assert item["task_revision"] == 1
+        assert item["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
+        assert item["selected_source_id"] == "1731381331718341815"
+        assert item["stable_listing_reference"] == listing
+        assert item["identity_scope"] == "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY"
+        assert item["decision_owner"] == "HUMAN"
+        assert item["approval_date"] == "2026-09-30"
+        assert item["decision_scope"] == "CURRENT_CONTEXT_ONLY"
+        assert item["selected_disposition"] == "CLOSE_CURRENT_REAL_DECISION_CASE_AS_NO_TEST_AUTHORIZED_NOW"
+        assert item["decision_label"] == "NO_TEST_AUTHORIZED_NOW"
+        assert item["current_case_status"] == "CLOSED_NO_TEST_AUTHORIZED_NOW"
+        assert item["real_decision_case_closed"] is True
+        for flag in (
+            "market_test_authorized", "market_test_executed", "commerce_action_executed",
+            "spend_executed", "outcome_evidence_generated",
+            "p7_6_real_market_test_path_exercised", "p7_7_real_winner_validation_path_exercised",
+            "task_270_preselected", "replacement_pilot_selected", "replacement_channel_selected",
+            "automatic_progression", "p7_4_profile_constructed", "p7_5_voi_plan_constructed",
+        ):
+            assert item[flag] is False
+        assert item["human_decision_inputs"]["quality_constraints"] == "UNSET"
+        assert item["human_decision_inputs"]["risk_constraints"] == "UNSET"
+        assert item["operation_reconciliation"] == prior["operation_reconciliation"]
+        for field in (
+            "affiliate_economics", "affiliate_eligibility", "affiliate_commission_rate",
+            "estimated_commission_value",
+        ):
+            assert item[field] == "NOT_ESTABLISHED"
+        assert item["authenticated_affiliate_inquiry"] == "CLOSED_FAIL_CLOSED_NO_RETRY_AUTHORITY"
+        assert item["market_test_readiness"] == "MARKET_TEST_READINESS_NOT_ESTABLISHED"
+        assert item["market_test_or_action_authority"] == "NONE"
+        assert item["public_pdp_independence_preserved"] is True
+        assert item["bundle_epistemic_boundary"] == "BUNDLE_IS_NOT_CANONICAL_EVIDENCE"
+        assert item["snapshot_epistemic_boundary"] == "SNAPSHOT_IS_NOT_TREND"
+        assert item["next_milestone"] is None
+        assert item["post_run_engineering_successor"] is None
+        assert item["exact_post_publication_handoff"] == "HUMAN_BRAIN_POST_P8_ROADMAP_SELECTION"
+        assert item["effective_only_when"] == {
+            "semantic_review": "PASS",
+            "published_source": "EXACT_REVIEWED_CANDIDATE",
+            "canonical_main_equals_reviewed_candidate": True,
+        }
+    assert milestone["classification"] == "CURRENT_PILOT_NO_TEST_NOW_DISPOSITION_AND_P8_REAL_DECISION_CASE_CLOSURE_ONLY"
+    assert milestone["source_task_id"] == "TASK-268"
+    assert milestone["source_run_id"] == "RUN-268-002"
+    assert milestone["source_review_id"] == "REVIEW-268-001"
+    assert milestone["source_published_sha"] == "fd65ea3073e6ea01818cb4961f2ae2db29b36b33"
+    assert handoff["destination"] == "HUMAN_BRAIN_POST_P8_ROADMAP_SELECTION"
+    assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_269_SOURCE_PUBLICATION"
+    assert handoff["source_task_268_published_sha"] == milestone["source_published_sha"]
+    assert state["post_p8_planning_handoff"]["actual_real_decision_case"]["real_pilot_executed"] is True
+
+    assert envelope["context_id"] == milestone["context_id"]
+    assert envelope["source_id"] == milestone["selected_source_id"]
+    assert envelope["stable_listing_reference"] == listing
+    assert envelope["operation_reconciliation"] == prior["operation_reconciliation"]
+    for field in (
+        "real_decision_case_closed", "market_test_authorized", "market_test_executed",
+        "commerce_action_executed", "spend_executed", "outcome_evidence_generated",
+        "p7_6_real_market_test_path_exercised", "p7_7_real_winner_validation_path_exercised",
+    ):
+        assert envelope[field] == milestone[field]
+    assert envelope["quality_constraints"] == "UNSET"
+    assert envelope["risk_constraints"] == "UNSET"
+    assert envelope["post_publication_handoff"] == {
+        "destination": "HUMAN_BRAIN_POST_P8_ROADMAP_SELECTION",
+        "next_milestone": None,
+        "pending_commitments": [],
+        "post_run_engineering_successor": None,
+        "automatic_progression": False,
+        "task_270_preselected": False,
+        "replacement_pilot_selected": False,
+        "replacement_channel_selected": False,
+    }
+    for required in (
+        "completed decision process", "not a market test", "not a canonical P7.5",
+        "no such commitment", "historical `real_pilot_executed`", "TASK-264",
+    ):
+        assert required in document
+    for roadmap in ROADMAP_DOCS:
+        text = roadmap.read_text(encoding="utf-8")
+        assert "TASK-269" in text
+        assert "HUMAN_BRAIN_POST_P8_ROADMAP_SELECTION" in text
