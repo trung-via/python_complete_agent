@@ -5979,9 +5979,9 @@ def test_task_264_reconciles_real_case_bundle_capture_and_review():
 
     # AC1: Reconciles completed one-shot Human-operated TASK-263 Real Case Evidence Bundle capture
     # and mandatory Human/Brain review into canonical Python Agent planning state
-    assert active["id"] == "POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_BRAIN_REVIEW_RECONCILIATION"
+    assert active["id"] == "P8_POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_REVIEW_RECONCILIATION"
     assert active["title"] == (
-        "Post-TASK-263 Real Case Evidence Bundle Capture and Brain Review Reconciliation"
+        "P8 Post-TASK263 Real Case Bundle Capture and Review Reconciliation"
     )
     assert active["status"] == "DONE"
     assert active["completion_basis"] == "PUBLICATION_GATED"
@@ -5998,6 +5998,9 @@ def test_task_264_reconciles_real_case_bundle_capture_and_review():
         )
         assert record["authorization_owner"] == "HUMAN_BRAIN"
         assert record["source_task_id"] == "TASK-263"
+        assert record["source_task_revision"] == 4
+        assert record["source_run_id"] == "RUN-263-015"
+        assert record["source_review_id"] == "REVIEW-263-007"
         assert record["source_published_sha"] == TASK_263_PUBLISHED_SOURCE_SHA
         assert record["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
         assert record["authorized_source_id"] == "1731381331718341815"
@@ -6005,18 +6008,25 @@ def test_task_264_reconciles_real_case_bundle_capture_and_review():
             "https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-"
             "che-do-sang-sac-usb-c/1731381331718341815"
         )
+        assert record["carrier_module"] == "src/product_intelligence/tiktok_pdp_case_bundle.py"
+        assert record["canonical_cli_command"] == "tiktok-pdp-case-bundle"
 
         # AC2: External bundle provenance matches exactly
         assert record["manifest_filename"] == TASK_264_MANIFEST_FILENAME
-        assert record["manifest_size_bytes"] == TASK_264_MANIFEST_SIZE_BYTES
-        assert record["manifest_sha256"] == TASK_264_MANIFEST_SHA256
         assert record["projection_filename"] == TASK_264_PROJECTION_FILENAME
-        assert record["projection_size_bytes"] == TASK_264_PROJECTION_SIZE_BYTES
-        assert record["projection_sha256"] == TASK_264_PROJECTION_SHA256
         assert record["screenshot_filename"] == TASK_264_SCREENSHOT_FILENAME
-        assert record["screenshot_size_bytes"] == TASK_264_SCREENSHOT_SIZE_BYTES
-        assert record["screenshot_sha256"] == TASK_264_SCREENSHOT_SHA256
-        assert record["observed_at"] == TASK_264_OBSERVED_AT
+
+        prov = record["external_artifact_provenance"]
+        assert prov["manifest"]["filename"] == TASK_264_MANIFEST_FILENAME
+        assert prov["manifest"]["size_bytes"] == TASK_264_MANIFEST_SIZE_BYTES
+        assert prov["manifest"]["sha256"] == TASK_264_MANIFEST_SHA256
+        assert prov["projection"]["filename"] == TASK_264_PROJECTION_FILENAME
+        assert prov["projection"]["size_bytes"] == TASK_264_PROJECTION_SIZE_BYTES
+        assert prov["projection"]["sha256"] == TASK_264_PROJECTION_SHA256
+        assert prov["screenshot"]["filename"] == TASK_264_SCREENSHOT_FILENAME
+        assert prov["screenshot"]["size_bytes"] == TASK_264_SCREENSHOT_SIZE_BYTES
+        assert prov["screenshot"]["sha256"] == TASK_264_SCREENSHOT_SHA256
+        assert prov["observed_at"] == TASK_264_OBSERVED_AT
 
         # AC3: Human operation recorded as consumed one-shot event
         assert record["authorized_bundle_attempts"] == 1
@@ -6024,45 +6034,85 @@ def test_task_264_reconciles_real_case_bundle_capture_and_review():
         assert record["bundle_execution_owner"] == "HUMAN_OPERATOR"
         assert record["bundle_executed"] is True
         assert record["bundle_operation_status"] == "SUCCESS"
-        assert record["bundle_observation_status"] == "OBSERVED"
-        assert record["bundle_session_release_status"] == "SUCCESS"
-        assert record["process_exit_code"] == 0
-        assert record["live_bundle_capture_authority"] == (
-            "ONE_SHOT_ATTACH_ONLY_EXACT_LISTING_CONSUMED"
-        )
-        assert record["bundle_consumed"] is True
-        assert record["retained_live_execution_authority"] is False
-        assert record["retained_live_capture_authority"] is False
+        assert record["human_brain_bundle_review_completed"] is True
+        assert record["live_bundle_capture_authority"] == "NONE"
 
-        # AC4: Rendered projection v1 integrity confirmed
-        assert record["rendered_projection_v1_integrity"] == {
-            "total_nodes": 91,
-            "raw_records": 26,
-            "extraction_truncation_detected": False,
-        }
+        # AC4: Manifest and projection integrity confirmed
+        integrity = record["manifest_and_projection_integrity"]
+        assert integrity["identity_bound"] is True
+        assert integrity["blocked"] is False
+        assert integrity["login"] is False
+        assert integrity["unavailable"] is False
+        assert integrity["is_truncated"] is False
+        assert integrity["scanned_nodes_truncated"] is False
+        assert integrity["records_truncated"] is False
+        assert integrity["text_truncated"] is False
+        assert integrity["bytes_truncated"] is False
+        assert integrity["total_scanned_nodes"] == 91
+        assert integrity["total_records"] == 26
 
         # AC5: Point-in-time observations recorded accurately
         obs = record["point_in_time_observations"]
-        assert obs["current_price"] == 33600.0
-        assert obs["original_price"] == 68220.0
-        assert obs["discount_percent"] == -51
-        assert obs["shipping_text"] == "Free shipping"
-        assert obs["shop_name"] == "DaydreamHouse"
-        assert obs["rating"] == 3.8
-        assert obs["review_count"] == 108
-        assert obs["sold_count_text"] == "1.3K sold"
-        assert obs["selected_variant_name"] == "10cm*màu ấm áp"
-        assert obs["variant_count"] == 8
-        assert obs["quantity_stepper_present"] is True
-        assert obs["buy_now_button_present"] is True
+        assert obs["product_title_observed"] == (
+            "Đèn LED Cảm Biến Chuyển Động Tự Động Bật Tắt Điều Chỉnh 3 Chế "
+            "Độ Sáng Gắn Tủ Quần Áo Hành Lang Cầu Thang Kèm Sạc USB-C Hoạt "
+            "Động Liên Tục 48H"
+        )
+        assert obs["current_price_observed"] == 33600.0
+        assert obs["original_price_observed"] == 68220.0
+        assert obs["displayed_discount_label"] == "-51%"
+        assert obs["shipping_label"] == "Free shipping"
+        assert obs["seller_display"] == "DaydreamHouse"
+        assert obs["rating_display"] == 3.8
+        assert obs["review_count_display"] == 108
+        assert obs["sold_count_display"] == "1.3K sold"
+        assert obs["selected_variant_display"] == "10cm*màu ấm áp"
+        assert obs["exact_visible_variant_labels"] == [
+            "10cm*màu ấm áp",
+            "10cm*trắng",
+            "20cm*màu ấm áp",
+            "20cm*trắng",
+            "30cm*màu ấm áp",
+            "30cm*trắng",
+            "50cm*màu ấm áp",
+            "50cm*trắng",
+        ]
+        assert obs["quantity_control_present"] is True
+        assert obs["buy_now_present"] is True
 
-        # AC6: Upper-right profile avatar privacy finding recorded
-        assert record["upper_right_profile_avatar_redaction_status"] == (
+        # AC6: Screenshot safety review finding and handling constraints recorded
+        safety = record["screenshot_safety_review"]
+        assert safety["finding"] == (
+            "Visible profile/avatar in upper-right; no person identity inferred or recorded."
+        )
+        assert safety["source_screenshot_immutable"] is True
+        assert safety["screenshot_review_status"] == (
             "REVIEWED_REDACTION_REQUIRED_BEFORE_FUTURE_FREEZE_OR_PUBLICATION"
         )
-        assert record["upper_right_profile_avatar_leakage_status"] == (
-            "NO_LEAKAGE_INTO_ROADMAP_OR_TRACK_STATE"
-        )
+        assert safety["handling_constraint_only"] is True
+
+        # Decision sufficiency mapping and unfilled Human-owned inputs
+        dsm = record["decision_sufficiency_mapping"]
+        assert dsm["affiliate_economics"] == "NOT_ESTABLISHED"
+        assert dsm["market_traction"] == "POINT_IN_TIME_PDP_DISPLAY_OBSERVATIONS_ONLY"
+        assert dsm["creator_ecosystem"] == "UNREPRESENTED_BY_THIS_BUNDLE"
+        assert dsm["content_activity"] == "UNREPRESENTED_BY_THIS_BUNDLE"
+        assert dsm["audience_channel_fit"] == "UNREPRESENTED_BY_THIS_BUNDLE"
+        assert dsm["competition_saturation"] == "UNREPRESENTED_BY_THIS_BUNDLE"
+        assert dsm["human_owned_inputs"] == "UNSET"
+
+        assert record["unfilled_human_owned_inputs"] == [
+            "budget",
+            "duration",
+            "exposure_controls",
+            "contribution_margin_threshold",
+            "success_failure_criteria",
+            "target_audience",
+            "quality_constraints",
+            "risk_constraints",
+            "risk_acceptance",
+            "decision_timing",
+        ]
 
         # Epistemic boundaries and authority restrictions intact
         for auth_key in (
@@ -6080,9 +6130,20 @@ def test_task_264_reconciles_real_case_bundle_capture_and_review():
         assert record["automatic_live_pilot"] is False
         assert record["automatic_progression"] is False
         assert record["price_role_resolution_complete"] is True
+        assert record["price_role_resolution_scope"] == (
+            "BOUNDED_FIXED_LISTING_COLLECTOR_VALIDATION_OBJECTIVE_ONLY"
+        )
         assert record["selector_repair_complete"] is False
         assert record["canonical_evidence_ingested"] is False
-        assert record["epistemic_boundary"] == "BUNDLE_IS_NOT_CANONICAL_EVIDENCE"
+
+        ep = record["epistemic_boundary"]
+        assert ep["bundle_is_not_canonical_evidence"] is True
+        assert ep["evidence_is_not_product_truth"] is True
+        assert ep["snapshot_is_not_trend"] is True
+        assert ep["operation_success_is_not_field_validation_success"] is True
+        assert ep["market_test_readiness"] == "MARKET_TEST_READINESS_NOT_ESTABLISHED"
+        assert ep["affiliate_economics"] == "NOT_ESTABLISHED"
+
         assert record["market_test_readiness"] == "MARKET_TEST_READINESS_NOT_ESTABLISHED"
         assert record["affiliate_economics"] == "NOT_ESTABLISHED"
         assert record["next_milestone"] is None
@@ -6107,41 +6168,45 @@ def test_task_264_reconciles_real_case_bundle_capture_and_review():
     )
     assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_264_SOURCE_PUBLICATION"
     assert handoff["completed_commitment"] == (
-        "POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_BRAIN_REVIEW_RECONCILIATION"
+        "P8_POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_REVIEW_RECONCILIATION"
     )
     assert handoff["task_id"] == "TASK-264"
     assert handoff["task_revision"] == 1
     assert handoff["source_task_id"] == "TASK-263"
+    assert handoff["source_task_revision"] == 4
+    assert handoff["source_run_id"] == "RUN-263-015"
+    assert handoff["source_review_id"] == "REVIEW-263-007"
     assert handoff["source_published_sha"] == TASK_263_PUBLISHED_SOURCE_SHA
+    assert handoff["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
     assert handoff["selected_source_id"] == "1731381331718341815"
+    assert handoff["stable_listing_reference"] == (
+        "https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-"
+        "che-do-sang-sac-usb-c/1731381331718341815"
+    )
+    assert handoff["carrier_module"] == "src/product_intelligence/tiktok_pdp_case_bundle.py"
+    assert handoff["canonical_cli_command"] == "tiktok-pdp-case-bundle"
     assert handoff["manifest_filename"] == TASK_264_MANIFEST_FILENAME
-    assert handoff["manifest_size_bytes"] == TASK_264_MANIFEST_SIZE_BYTES
-    assert handoff["manifest_sha256"] == TASK_264_MANIFEST_SHA256
     assert handoff["projection_filename"] == TASK_264_PROJECTION_FILENAME
-    assert handoff["projection_size_bytes"] == TASK_264_PROJECTION_SIZE_BYTES
-    assert handoff["projection_sha256"] == TASK_264_PROJECTION_SHA256
     assert handoff["screenshot_filename"] == TASK_264_SCREENSHOT_FILENAME
-    assert handoff["screenshot_size_bytes"] == TASK_264_SCREENSHOT_SIZE_BYTES
-    assert handoff["screenshot_sha256"] == TASK_264_SCREENSHOT_SHA256
-    assert handoff["observed_at"] == TASK_264_OBSERVED_AT
     assert handoff["authorized_bundle_attempts"] == 1
     assert handoff["authorized_bundle_attempts_remaining"] == 0
     assert handoff["bundle_execution_owner"] == "HUMAN_OPERATOR"
     assert handoff["bundle_executed"] is True
-    assert handoff["live_bundle_capture_authority"] == (
-        "ONE_SHOT_ATTACH_ONLY_EXACT_LISTING_CONSUMED"
-    )
-    assert handoff["upper_right_profile_avatar_redaction_status"] == (
-        "REVIEWED_REDACTION_REQUIRED_BEFORE_FUTURE_FREEZE_OR_PUBLICATION"
-    )
-    assert handoff["upper_right_profile_avatar_leakage_status"] == (
-        "NO_LEAKAGE_INTO_ROADMAP_OR_TRACK_STATE"
-    )
-    assert handoff["automated_public_pdp_acquisition_authority"] == "NONE"
-    assert handoff["market_test_or_action_authority"] == "NONE"
-    assert handoff["second_invocation_authority"] == "NONE"
-    assert handoff["retained_live_execution_authority"] is False
-    assert handoff["retained_live_capture_authority"] is False
+    assert handoff["bundle_operation_status"] == "SUCCESS"
+    assert handoff["human_brain_bundle_review_completed"] is True
+    assert handoff["live_bundle_capture_authority"] == "NONE"
+    for auth_key in (
+        "automated_public_pdp_acquisition_authority",
+        "market_test_or_action_authority",
+        "second_invocation_authority",
+        "arbitrary_target_authority",
+        "replacement_target_authority",
+        "search_authority",
+        "batch_authority",
+        "inferred_identity_authority",
+        "variant_switching_authority",
+    ):
+        assert handoff[auth_key] == "NONE"
     assert handoff["automatic_live_pilot"] is False
     assert handoff["automatic_progression"] is False
     assert handoff["price_role_resolution_complete"] is True
@@ -6152,6 +6217,24 @@ def test_task_264_reconciles_real_case_bundle_capture_and_review():
     assert handoff["affiliate_economics"] == "NOT_ESTABLISHED"
     assert handoff["next_milestone"] is None
     assert handoff["post_run_engineering_successor"] is None
+    assert handoff["mandatory_post_capture_handoff"] == (
+        "HUMAN_BRAIN_P8_REAL_CASE_BUNDLE_REVIEW"
+    )
+    case = handoff["actual_real_decision_case"]
+    assert case["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
+    assert case["record_type"] == "PILOT_CASE_SELECTION_ONLY"
+    assert case["product_label"] == "Đèn LED Cảm Biến Chuyển Động Tự Động Bật Tắt Điều Chỉnh 3 Chế Độ Sáng"
+    assert case["marketplace"] == "TikTok Shop Vietnam"
+    assert case["channel_context"] == "TikTok Shop Affiliate"
+    assert case["source_id"] == "1731381331718341815"
+    assert case["stable_listing_reference"] == (
+        "https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-"
+        "che-do-sang-sac-usb-c/1731381331718341815"
+    )
+    assert case["identity_scope"] == "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY"
+    assert case["selection_owner"] == "HUMAN"
+    assert case["selection_status"] == "SELECTED"
+    assert case["real_pilot_executed"] is True
     assert state["pending_commitments"] == []
 
     # Document contents and governance invariants
