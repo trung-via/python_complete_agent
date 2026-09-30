@@ -190,118 +190,69 @@ human_priority_side_track:
     live-validation authority.
 
 active_track:
-  id: P8_POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_REVIEW_RECONCILIATION
-  title: "P8 Post-TASK263 Real Case Bundle Capture and Review Reconciliation"
+  id: P8_POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION
+  title: "P8 Post-Real-Case Human Decision Inputs Selection"
   priority_owner: HUMAN
   status: DONE
   completion_basis: PUBLICATION_GATED
-  sequence_status: COMPLETE_ON_EXACT_TASK_264_SOURCE_PUBLICATION
+  sequence_status: COMPLETE_ON_EXACT_TASK_265_SOURCE_PUBLICATION
   current_milestone:
-    id: P8.POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_REVIEW_RECONCILIATION
-    task_id: TASK-264
-    task_revision: 1
-    title: "Post-TASK263 Real Case Bundle Capture and Review Reconciliation"
+    id: P8.POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION
+    task_id: TASK-265
+    task_revision: 2
+    title: "Post-Real-Case Human Decision Inputs Selection"
     status: DONE
     completion_basis: PUBLICATION_GATED
-    classification: POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_BRAIN_REVIEW_RECONCILIATION_ONLY
+    classification: POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION_ONLY
     authorization_owner: HUMAN_BRAIN
-    source_task_id: TASK-263
-    source_task_revision: 4
-    source_run_id: RUN-263-015
-    source_review_id: REVIEW-263-007
-    source_published_sha: 9bcfed394b52594791f84e0f2a5c94b89c2ac38b
+    source_task_id: TASK-264
+    source_task_revision: 1
     context_id: p8-pilot-001-led-motion-tiktok-vn
-    authorized_source_id: "1731381331718341815"
+    selected_source_id: "1731381331718341815"
     stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
-    carrier_module: src/product_intelligence/tiktok_pdp_case_bundle.py
-    canonical_cli_command: tiktok-pdp-case-bundle
-    manifest_filename: p8-real-case-manifest-v1.json
-    projection_filename: p8-real-case-page-projection-v1.json
-    screenshot_filename: p8-real-case-full-page-v1.png
-    external_artifact_provenance:
-      manifest:
-        filename: p8-real-case-manifest-v1.json
-        size_bytes: 2216
-        sha256: 90CB3900CCBE88E7066CF2209C7BC11C9982B05DD941A629B8F7FA01A99737B7
-      projection:
-        filename: p8-real-case-page-projection-v1.json
-        size_bytes: 11089
-        sha256: D2A40A0406A78C933C2038F40ADF22AF05FB182FD7A806029CD84746896239E2
-      screenshot:
-        filename: p8-real-case-full-page-v1.png
-        size_bytes: 615260
-        sha256: DC45AAFD5E299991510E7869FE4C726A88C1DB115AA063A8954894E8CE87EBEE
-      observed_at: "2026-09-30T00:23:39.536602+00:00"
-    authorized_bundle_attempts: 1
-    authorized_bundle_attempts_remaining: 0
-    bundle_execution_owner: HUMAN_OPERATOR
-    bundle_executed: true
-    bundle_operation_status: SUCCESS
-    human_brain_bundle_review_completed: true
-    manifest_and_projection_integrity:
-      identity_bound: true
-      blocked: false
-      login: false
-      unavailable: false
-      is_truncated: false
-      scanned_nodes_truncated: false
-      records_truncated: false
-      text_truncated: false
-      bytes_truncated: false
-      total_scanned_nodes: 91
-      total_records: 26
-    point_in_time_observations:
-      product_title_observed: "Đèn LED Cảm Biến Chuyển Động Tự Động Bật Tắt Điều Chỉnh 3 Chế Độ Sáng Gắn Tủ Quần Áo Hành Lang Cầu Thang Kèm Sạc USB-C Hoạt Động Liên Tục 48H"
-      current_price_observed: 33600.0
-      original_price_observed: 68220.0
-      displayed_discount_label: "-51%"
-      shipping_label: "Free shipping"
-      seller_display: "DaydreamHouse"
-      rating_display: 3.8
-      review_count_display: 108
-      sold_count_display: "1.3K sold"
-      selected_variant_display: "10cm*màu ấm áp"
-      exact_visible_variant_labels:
-        - "10cm*màu ấm áp"
-        - "10cm*trắng"
-        - "20cm*màu ấm áp"
-        - "20cm*trắng"
-        - "30cm*màu ấm áp"
-        - "30cm*trắng"
-        - "50cm*màu ấm áp"
-        - "50cm*trắng"
-      quantity_control_present: true
-      buy_now_present: true
-    screenshot_safety_review:
-      finding: "Visible profile/avatar in upper-right; no person identity inferred or recorded."
-      source_screenshot_immutable: true
-      screenshot_review_status: REVIEWED_REDACTION_REQUIRED_BEFORE_FUTURE_FREEZE_OR_PUBLICATION
-      handling_constraint_only: true
+    identity_scope: SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY
+    selected_continuation: REQUEST_HUMAN_DECISION_INPUTS
+    selection_timing: PROSPECTIVE_AFTER_TASK_264
+    human_approval_date: "2026-09-30"
+    historical_task_260_candidates_unchanged: true
+    human_decision_inputs:
+      budget: UNSET
+      duration: UNSET
+      exposure_controls: UNSET
+      contribution_margin_threshold: UNSET
+      success_failure_criteria: UNSET
+      target_audience: UNSET
+      quality_constraints: UNSET
+      risk_constraints: UNSET
+      risk_acceptance: UNSET
+      decision_timing: UNSET
+    human_inputs_are_marketplace_evidence: false
+    p7_4_profile_constructed: false
+    p7_5_voi_plan_constructed: false
+    decision_object_constructed: false
+    p7_3_deadline_mutated: false
+    deadline_reconciliation_requires_separate_p7_3_authorization: true
     decision_sufficiency_mapping:
       affiliate_economics: NOT_ESTABLISHED
-      market_traction: "POINT_IN_TIME_PDP_DISPLAY_OBSERVATIONS_ONLY"
+      market_traction: POINT_IN_TIME_PDP_DISPLAY_OBSERVATIONS_ONLY
       creator_ecosystem: UNREPRESENTED_BY_THIS_BUNDLE
       content_activity: UNREPRESENTED_BY_THIS_BUNDLE
       audience_channel_fit: UNREPRESENTED_BY_THIS_BUNDLE
       competition_saturation: UNREPRESENTED_BY_THIS_BUNDLE
       human_owned_inputs: UNSET
-    unfilled_human_owned_inputs:
-      - budget
-      - duration
-      - exposure_controls
-      - contribution_margin_threshold
-      - success_failure_criteria
-      - target_audience
-      - quality_constraints
-      - risk_constraints
-      - risk_acceptance
-      - decision_timing
+    market_test_readiness: MARKET_TEST_READINESS_NOT_ESTABLISHED
+    affiliate_economics: NOT_ESTABLISHED
     price_role_resolution_complete: true
     price_role_resolution_scope: BOUNDED_FIXED_LISTING_COLLECTOR_VALIDATION_OBJECTIVE_ONLY
     selector_repair_complete: false
     canonical_evidence_ingested: false
+    bundle_epistemic_boundary: BUNDLE_IS_NOT_CANONICAL_EVIDENCE
+    snapshot_epistemic_boundary: SNAPSHOT_IS_NOT_TREND
+    screenshot_review_status: REVIEWED_REDACTION_REQUIRED_BEFORE_FUTURE_FREEZE_OR_PUBLICATION
+    authorized_bundle_attempts_remaining: 0
     live_bundle_capture_authority: NONE
     automated_public_pdp_acquisition_authority: NONE
+    authenticated_affiliate_lookup_authority: NONE
     market_test_or_action_authority: NONE
     second_invocation_authority: NONE
     arbitrary_target_authority: NONE
@@ -310,21 +261,14 @@ active_track:
     batch_authority: NONE
     inferred_identity_authority: NONE
     variant_switching_authority: NONE
+    additional_marketplace_acquisition_selected: false
     automatic_live_pilot: false
     automatic_progression: false
-    epistemic_boundary:
-      bundle_is_not_canonical_evidence: true
-      evidence_is_not_product_truth: true
-      snapshot_is_not_trend: true
-      operation_success_is_not_field_validation_success: true
-      market_test_readiness: MARKET_TEST_READINESS_NOT_ESTABLISHED
-      affiliate_economics: NOT_ESTABLISHED
-    market_test_readiness: MARKET_TEST_READINESS_NOT_ESTABLISHED
-    affiliate_economics: NOT_ESTABLISHED
     next_milestone: null
     post_run_engineering_successor: null
-    exact_post_publication_handoff: HUMAN_BRAIN_POST_REAL_CASE_BUNDLE_DECISION_SUFFICIENCY_SELECTION
-    post_publication_handoff: HUMAN_BRAIN_POST_REAL_CASE_BUNDLE_DECISION_SUFFICIENCY_SELECTION
+    exact_post_publication_handoff: HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY
+    post_publication_handoff: HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY
+    after_human_supply: FRESH_HUMAN_BRAIN_DECISION_SUFFICIENCY_REVIEW
     effective_only_when:
       semantic_review: PASS
       published_source: EXACT_REVIEWED_CANDIDATE
@@ -349,11 +293,36 @@ post_p7_planning_handoff:
     outcome, roadmap, or future-domain authority into P8.0.
 
 post_p8_planning_handoff:
-  destination: HUMAN_BRAIN_POST_REAL_CASE_BUNDLE_DECISION_SUFFICIENCY_SELECTION
-  status: EFFECTIVE_ON_EXACT_TASK_264_SOURCE_PUBLICATION
-  completed_commitment: P8_POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_REVIEW_RECONCILIATION
-  task_id: TASK-264
-  task_revision: 1
+  destination: HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY
+  status: EFFECTIVE_ON_EXACT_TASK_265_SOURCE_PUBLICATION
+  completed_commitment: P8_POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION
+  prior_completed_commitment: P8_POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_REVIEW_RECONCILIATION
+  task_id: TASK-265
+  task_revision: 2
+  selection_classification: POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION_ONLY
+  selection_source_task_id: TASK-264
+  selected_continuation: REQUEST_HUMAN_DECISION_INPUTS
+  selection_timing: PROSPECTIVE_AFTER_TASK_264
+  human_approval_date: "2026-09-30"
+  identity_scope: SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY
+  human_decision_inputs:
+    budget: UNSET
+    duration: UNSET
+    exposure_controls: UNSET
+    contribution_margin_threshold: UNSET
+    success_failure_criteria: UNSET
+    target_audience: UNSET
+    quality_constraints: UNSET
+    risk_constraints: UNSET
+    risk_acceptance: UNSET
+    decision_timing: UNSET
+  human_inputs_are_marketplace_evidence: false
+  p7_4_profile_constructed: false
+  p7_5_voi_plan_constructed: false
+  p7_3_deadline_mutated: false
+  deadline_reconciliation_requires_separate_p7_3_authorization: true
+  additional_marketplace_acquisition_selected: false
+  after_human_supply: FRESH_HUMAN_BRAIN_DECISION_SUFFICIENCY_REVIEW
   source_task_id: TASK-263
   source_task_revision: 4
   source_run_id: RUN-263-015
@@ -3804,6 +3773,62 @@ completed_milestones:
     post_run_engineering_successor: null
     exact_post_publication_handoff: HUMAN_BRAIN_POST_REAL_CASE_BUNDLE_DECISION_SUFFICIENCY_SELECTION
     post_publication_handoff: HUMAN_BRAIN_POST_REAL_CASE_BUNDLE_DECISION_SUFFICIENCY_SELECTION
+    effective_only_when:
+      semantic_review: PASS
+      published_source: EXACT_REVIEWED_CANDIDATE
+      canonical_main_equals_reviewed_candidate: true
+
+  - task_id: TASK-265
+    task_revision: 2
+    track_id: P8_POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION
+    milestone_id: P8.POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION
+    title: "Post-Real-Case Human Decision Inputs Selection"
+    status: DONE
+    completion_basis: PUBLICATION_GATED
+    classification: POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION_ONLY
+    authorization_owner: HUMAN_BRAIN
+    source_task_id: TASK-264
+    source_task_revision: 1
+    context_id: p8-pilot-001-led-motion-tiktok-vn
+    selected_source_id: "1731381331718341815"
+    stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
+    identity_scope: SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY
+    selected_continuation: REQUEST_HUMAN_DECISION_INPUTS
+    selection_timing: PROSPECTIVE_AFTER_TASK_264
+    human_approval_date: "2026-09-30"
+    human_decision_inputs:
+      budget: UNSET
+      duration: UNSET
+      exposure_controls: UNSET
+      contribution_margin_threshold: UNSET
+      success_failure_criteria: UNSET
+      target_audience: UNSET
+      quality_constraints: UNSET
+      risk_constraints: UNSET
+      risk_acceptance: UNSET
+      decision_timing: UNSET
+    human_inputs_are_marketplace_evidence: false
+    p7_4_profile_constructed: false
+    p7_5_voi_plan_constructed: false
+    p7_3_deadline_mutated: false
+    decision_sufficiency_mapping:
+      affiliate_economics: NOT_ESTABLISHED
+      market_traction: POINT_IN_TIME_PDP_DISPLAY_OBSERVATIONS_ONLY
+      creator_ecosystem: UNREPRESENTED_BY_THIS_BUNDLE
+      content_activity: UNREPRESENTED_BY_THIS_BUNDLE
+      audience_channel_fit: UNREPRESENTED_BY_THIS_BUNDLE
+      competition_saturation: UNREPRESENTED_BY_THIS_BUNDLE
+      human_owned_inputs: UNSET
+    market_test_readiness: MARKET_TEST_READINESS_NOT_ESTABLISHED
+    selector_repair_complete: false
+    canonical_evidence_ingested: false
+    additional_marketplace_acquisition_selected: false
+    automatic_progression: false
+    next_milestone: null
+    post_run_engineering_successor: null
+    exact_post_publication_handoff: HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY
+    post_publication_handoff: HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY
+    after_human_supply: FRESH_HUMAN_BRAIN_DECISION_SUFFICIENCY_REVIEW
     effective_only_when:
       semantic_review: PASS
       published_source: EXACT_REVIEWED_CANDIDATE

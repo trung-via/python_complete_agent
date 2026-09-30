@@ -192,6 +192,9 @@ P8_POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_REVIEW_RECONCILIATION_FILE = (
     / "docs"
     / "PHASE_8_POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_REVIEW_RECONCILIATION.md"
 )
+P8_POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION_FILE = (
+    REPO_ROOT / "docs" / "PHASE_8_POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION.md"
+)
 ROADMAP_DOCS = (
     REPO_ROOT / "docs" / "POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
     REPO_ROOT / "docs" / "POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
@@ -5969,7 +5972,6 @@ def test_task_263_real_case_evidence_bundle():
 def test_task_264_reconciles_real_case_bundle_capture_and_review():
     state = load_yaml(ROADMAP_FILE)
     active = state["active_track"]
-    milestone = active["current_milestone"]
     handoff = state["post_p8_planning_handoff"]
     completed = {item["task_id"]: item for item in state["completed_milestones"]}
     task_264 = completed["TASK-264"]
@@ -5979,16 +5981,9 @@ def test_task_264_reconciles_real_case_bundle_capture_and_review():
 
     # AC1: Reconciles completed one-shot Human-operated TASK-263 Real Case Evidence Bundle capture
     # and mandatory Human/Brain review into canonical Python Agent planning state
-    assert active["id"] == "P8_POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_REVIEW_RECONCILIATION"
-    assert active["title"] == (
-        "P8 Post-TASK263 Real Case Bundle Capture and Review Reconciliation"
-    )
-    assert active["status"] == "DONE"
-    assert active["completion_basis"] == "PUBLICATION_GATED"
-    assert active["sequence_status"] == "COMPLETE_ON_EXACT_TASK_264_SOURCE_PUBLICATION"
     assert active["next_milestone"] is None
 
-    for record in (milestone, task_264):
+    for record in (task_264,):
         assert record["task_id"] == "TASK-264"
         assert record["task_revision"] == 1
         assert record["status"] == "DONE"
@@ -6163,15 +6158,16 @@ def test_task_264_reconciles_real_case_bundle_capture_and_review():
         }
 
     # Handoff assertions
-    assert handoff["destination"] == (
-        "HUMAN_BRAIN_POST_REAL_CASE_BUNDLE_DECISION_SUFFICIENCY_SELECTION"
-    )
-    assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_264_SOURCE_PUBLICATION"
+    assert handoff["destination"] == "HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY"
+    assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_265_SOURCE_PUBLICATION"
     assert handoff["completed_commitment"] == (
+        "P8_POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION"
+    )
+    assert handoff["prior_completed_commitment"] == (
         "P8_POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_REVIEW_RECONCILIATION"
     )
-    assert handoff["task_id"] == "TASK-264"
-    assert handoff["task_revision"] == 1
+    assert handoff["task_id"] == "TASK-265"
+    assert handoff["task_revision"] == 2
     assert handoff["source_task_id"] == "TASK-263"
     assert handoff["source_task_revision"] == 4
     assert handoff["source_run_id"] == "RUN-263-015"
@@ -6261,3 +6257,104 @@ def test_task_264_reconciles_real_case_bundle_capture_and_review():
         assert "p8-real-case-manifest-v1.json" in text
         assert "p8-real-case-page-projection-v1.json" in text
         assert "p8-real-case-full-page-v1.png" in text
+
+
+def test_task_265_selects_only_human_decision_inputs_supply():
+    state = load_yaml(ROADMAP_FILE)
+    active = state["active_track"]
+    milestone = active["current_milestone"]
+    handoff = state["post_p8_planning_handoff"]
+    completed = {item["task_id"]: item for item in state["completed_milestones"]}
+    task_260 = completed["TASK-260"]
+    task_264 = completed["TASK-264"]
+    task_265 = completed["TASK-265"]
+    document = P8_POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION_FILE.read_text(
+        encoding="utf-8"
+    )
+    allowed = (
+        "budget", "duration", "exposure_controls", "contribution_margin_threshold",
+        "success_failure_criteria", "target_audience", "quality_constraints",
+        "risk_constraints", "risk_acceptance", "decision_timing",
+    )
+    listing = (
+        "https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-"
+        "che-do-sang-sac-usb-c/1731381331718341815"
+    )
+
+    assert active["id"] == "P8_POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION"
+    assert active["sequence_status"] == "COMPLETE_ON_EXACT_TASK_265_SOURCE_PUBLICATION"
+    assert active["next_milestone"] is None
+    for record in (milestone, task_265):
+        assert record["task_id"] == "TASK-265"
+        assert record["task_revision"] == 2
+        assert record["classification"] == "POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION_ONLY"
+        assert record["source_task_id"] == "TASK-264"
+        assert record["selection_timing"] == "PROSPECTIVE_AFTER_TASK_264"
+        assert record["selected_continuation"] == "REQUEST_HUMAN_DECISION_INPUTS"
+        assert record["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
+        assert record["selected_source_id"] == "1731381331718341815"
+        assert record["stable_listing_reference"] == listing
+        assert record["identity_scope"] == "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY"
+        assert tuple(record["human_decision_inputs"]) == allowed
+        assert set(record["human_decision_inputs"].values()) == {"UNSET"}
+        assert record["human_inputs_are_marketplace_evidence"] is False
+        assert record["p7_4_profile_constructed"] is False
+        assert record["p7_5_voi_plan_constructed"] is False
+        assert record["p7_3_deadline_mutated"] is False
+        assert record["market_test_readiness"] == "MARKET_TEST_READINESS_NOT_ESTABLISHED"
+        assert record["selector_repair_complete"] is False
+        assert record["canonical_evidence_ingested"] is False
+        assert record["additional_marketplace_acquisition_selected"] is False
+        assert record["automatic_progression"] is False
+        assert record["next_milestone"] is None
+        assert record["post_run_engineering_successor"] is None
+        assert record["exact_post_publication_handoff"] == "HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY"
+
+    assert [c["id"] for c in task_260["candidate_continuations"]] == [
+        "AUTHORIZE_ONE_SHOT_POST_TASK254_CARRIER_VALIDATION",
+        "RECONFIRM_MANUAL_WAVE1_CONTRIBUTION",
+        "REQUEST_HUMAN_DECISION_INPUTS",
+        "DEFER_CURRENT_PILOT",
+        "STOP_CURRENT_PILOT",
+    ]
+    assert all(c["selection_status"] == "HUMAN_SELECTION_REQUIRED" for c in task_260["candidate_continuations"])
+    assert all(c["preferred"] is False and c["recommended"] is False for c in task_260["candidate_continuations"])
+    assert task_264["authorized_bundle_attempts_remaining"] == 0
+    assert task_264["canonical_evidence_ingested"] is False
+    assert task_264["selector_repair_complete"] is False
+    assert task_264["screenshot_safety_review"]["screenshot_review_status"] == (
+        "REVIEWED_REDACTION_REQUIRED_BEFORE_FUTURE_FREEZE_OR_PUBLICATION"
+    )
+
+    assert handoff["destination"] == "HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY"
+    assert handoff["selection_source_task_id"] == "TASK-264"
+    assert handoff["selected_continuation"] == "REQUEST_HUMAN_DECISION_INPUTS"
+    assert tuple(handoff["human_decision_inputs"]) == allowed
+    assert set(handoff["human_decision_inputs"].values()) == {"UNSET"}
+    assert handoff["after_human_supply"] == "FRESH_HUMAN_BRAIN_DECISION_SUFFICIENCY_REVIEW"
+    assert handoff["p7_3_deadline_mutated"] is False
+    assert handoff["deadline_reconciliation_requires_separate_p7_3_authorization"] is True
+    assert handoff["next_milestone"] is None
+    assert handoff["post_run_engineering_successor"] is None
+    assert handoff["automatic_progression"] is False
+    assert state["pending_commitments"] == []
+
+    template = document.split("```yaml\n", 1)[1].split("\n```", 1)[0]
+    assert tuple(yaml.safe_load(template)) == allowed
+    assert set(yaml.safe_load(template).values()) == {"UNSET"}
+    for required in (
+        "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY",
+        "VALUE_OF_INFORMATION_BEFORE_ENRICHMENT",
+        "MORE_DATA_IS_NOT_MORE_INTELLIGENCE",
+        "P7.3 DecisionContext.decision_deadline",
+        "BUNDLE_IS_NOT_CANONICAL_EVIDENCE",
+        "SNAPSHOT_IS_NOT_TREND",
+        "REVIEWED_REDACTION_REQUIRED_BEFORE_FUTURE_FREEZE_OR_PUBLICATION",
+        "HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY",
+    ):
+        assert required in document
+    for roadmap in ROADMAP_DOCS:
+        text = roadmap.read_text(encoding="utf-8")
+        assert "TASK-265 revision 2" in text
+        assert "REQUEST_HUMAN_DECISION_INPUTS" in text
+        assert "HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY" in text

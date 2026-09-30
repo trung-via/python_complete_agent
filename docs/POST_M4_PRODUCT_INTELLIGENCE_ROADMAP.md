@@ -1411,6 +1411,33 @@ On exact reviewed publication, planning hands off strictly to
 and no TASK-265 selected.
 See `docs/PHASE_8_POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_REVIEW_RECONCILIATION.md`.
 
+TASK-265 revision 2 prospectively records the Human-approved post-TASK264 selection
+`REQUEST_HUMAN_DECISION_INPUTS` as
+`POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION_ONLY`. TASK-260's original five
+unranked candidates and TASK-264's completed one-shot bundle history are unchanged.
+The selected case remains `p8-pilot-001-led-motion-tiktok-vn`, TikTok Shop Vietnam
+source ID `1731381331718341815`, at
+`https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815`;
+`SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY` applies. The bounded Human supply
+envelope contains exactly budget, duration, exposure_controls,
+contribution_margin_threshold, success_failure_criteria, target_audience,
+quality_constraints, risk_constraints, risk_acceptance, and decision_timing,
+all `UNSET`. These are Human planning inputs, not P7.4 marketplace evidence
+or P7.5 VOI inquiries. `decision_timing` does not create a P7.3 deadline;
+canonical reconciliation would require a fresh P7.3-owned authorization.
+`MARKET_TEST_READINESS_NOT_ESTABLISHED`, affiliate economics
+`NOT_ESTABLISHED`, point-in-time PDP display observations only, and the four
+unrepresented bundle dimensions remain unchanged. `canonical_evidence_ingested`
+and `selector_repair_complete` remain false. Missing dimensions do not select
+acquisition: `VALUE_OF_INFORMATION_BEFORE_ENRICHMENT` and
+`MORE_DATA_IS_NOT_MORE_INTELLIGENCE` still apply. No live, test, spend,
+or commerce action is authorized. On exact reviewed TASK-265 publication,
+planning hands only to `HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY`, with null
+next milestone and engineering successor, empty pending commitments, false
+automatic progression, and no TASK-266 preselection. Concrete Human supply
+returns to fresh Human/Brain sufficiency review.
+See `docs/PHASE_8_POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION.md`.
+
 
 
 ## 4. Authority invariants
