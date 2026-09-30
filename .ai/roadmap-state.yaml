@@ -526,7 +526,6 @@ post_p8_planning_handoff:
   human_brain_bundle_review_completed: true
   live_bundle_capture_authority: NONE
   automated_public_pdp_acquisition_authority: NONE
-  market_test_or_action_authority: NONE
   second_invocation_authority: NONE
   arbitrary_target_authority: NONE
   replacement_target_authority: NONE
@@ -535,15 +534,9 @@ post_p8_planning_handoff:
   inferred_identity_authority: NONE
   variant_switching_authority: NONE
   automatic_live_pilot: false
-  automatic_progression: false
   price_role_resolution_complete: true
   selector_repair_complete: false
-  canonical_evidence_ingested: false
   epistemic_boundary: BUNDLE_IS_NOT_CANONICAL_EVIDENCE
-  market_test_readiness: MARKET_TEST_READINESS_NOT_ESTABLISHED
-  affiliate_economics: NOT_ESTABLISHED
-  next_milestone: null
-  post_run_engineering_successor: null
   mandatory_post_capture_handoff: HUMAN_BRAIN_P8_REAL_CASE_BUNDLE_REVIEW
   actual_real_decision_case:
     context_id: p8-pilot-001-led-motion-tiktok-vn
