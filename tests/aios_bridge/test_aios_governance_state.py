@@ -192,6 +192,11 @@ P8_POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_REVIEW_RECONCILIATION_FILE = (
     / "docs"
     / "PHASE_8_POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_REVIEW_RECONCILIATION.md"
 )
+P8_POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION_FILE = (
+    REPO_ROOT
+    / "docs"
+    / "PHASE_8_POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION.md"
+)
 ROADMAP_DOCS = (
     REPO_ROOT / "docs" / "POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
     REPO_ROOT / "docs" / "POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
@@ -293,6 +298,7 @@ TASK_264_SCREENSHOT_SHA256 = (
     "DC45AAFD5E299991510E7869FE4C726A88C1DB115AA063A8954894E8CE87EBEE"
 )
 TASK_264_OBSERVED_AT = "2026-09-30T00:23:39.536602+00:00"
+TASK_264_PUBLISHED_SOURCE_SHA = "7a8a1ed67146e4af53e3700d35080fd482cc0635"
 
 V2_ATTEMPT_MARKER_FILENAME = "tiktok-pdp-live-validation-attempt-v2.json"
 V2_ATTEMPT_MARKER_SIZE_BYTES = 633
@@ -5968,9 +5974,6 @@ def test_task_263_real_case_evidence_bundle():
 
 def test_task_264_reconciles_real_case_bundle_capture_and_review():
     state = load_yaml(ROADMAP_FILE)
-    active = state["active_track"]
-    milestone = active["current_milestone"]
-    handoff = state["post_p8_planning_handoff"]
     completed = {item["task_id"]: item for item in state["completed_milestones"]}
     task_264 = completed["TASK-264"]
     document = P8_POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_REVIEW_RECONCILIATION_FILE.read_text(
@@ -5979,16 +5982,7 @@ def test_task_264_reconciles_real_case_bundle_capture_and_review():
 
     # AC1: Reconciles completed one-shot Human-operated TASK-263 Real Case Evidence Bundle capture
     # and mandatory Human/Brain review into canonical Python Agent planning state
-    assert active["id"] == "P8_POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_REVIEW_RECONCILIATION"
-    assert active["title"] == (
-        "P8 Post-TASK263 Real Case Bundle Capture and Review Reconciliation"
-    )
-    assert active["status"] == "DONE"
-    assert active["completion_basis"] == "PUBLICATION_GATED"
-    assert active["sequence_status"] == "COMPLETE_ON_EXACT_TASK_264_SOURCE_PUBLICATION"
-    assert active["next_milestone"] is None
-
-    for record in (milestone, task_264):
+    for record in (task_264,):
         assert record["task_id"] == "TASK-264"
         assert record["task_revision"] == 1
         assert record["status"] == "DONE"
@@ -6162,21 +6156,234 @@ def test_task_264_reconciles_real_case_bundle_capture_and_review():
             "canonical_main_equals_reviewed_candidate": True,
         }
 
+    # Document contents and governance invariants
+    for required in (
+        "POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_BRAIN_REVIEW_RECONCILIATION_ONLY",
+        TASK_263_PUBLISHED_SOURCE_SHA,
+        "1731381331718341815",
+        "p8-real-case-manifest-v1.json",
+        "p8-real-case-page-projection-v1.json",
+        "p8-real-case-full-page-v1.png",
+        "REVIEWED_REDACTION_REQUIRED_BEFORE_FUTURE_FREEZE_OR_PUBLICATION",
+        "HUMAN_BRAIN_POST_REAL_CASE_BUNDLE_DECISION_SUFFICIENCY_SELECTION",
+        "BUNDLE_IS_NOT_CANONICAL_EVIDENCE",
+        "MARKET_TEST_READINESS_NOT_ESTABLISHED",
+        "NOT_ESTABLISHED",
+    ):
+        assert required in document
+
+    for roadmap in ROADMAP_DOCS:
+        text = roadmap.read_text(encoding="utf-8")
+        assert "TASK-264 is publication-gated DONE only as" in text
+        assert "POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_BRAIN_REVIEW_RECONCILIATION_ONLY" in text
+        assert "HUMAN_BRAIN_POST_REAL_CASE_BUNDLE_DECISION_SUFFICIENCY_SELECTION" in text
+        assert "p8-real-case-manifest-v1.json" in text
+        assert "p8-real-case-page-projection-v1.json" in text
+        assert "p8-real-case-full-page-v1.png" in text
+
+
+def test_task_265_post_real_case_human_decision_inputs_selection():
+    state = load_yaml(ROADMAP_FILE)
+    active = state["active_track"]
+    milestone = active["current_milestone"]
+    handoff = state["post_p8_planning_handoff"]
+    completed = {item["task_id"]: item for item in state["completed_milestones"]}
+    task_265 = completed["TASK-265"]
+    document = P8_POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION_FILE.read_text(
+        encoding="utf-8"
+    )
+
+    # AC1: Exact post-TASK264 Human selection REQUEST_HUMAN_DECISION_INPUTS canonicalized prospectively
+    assert active["id"] == "P8_POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION"
+    assert active["title"] == "P8 Post-Real-Case Human Decision Inputs Selection"
+    assert active["status"] == "DONE"
+    assert active["completion_basis"] == "PUBLICATION_GATED"
+    assert active["sequence_status"] == "COMPLETE_ON_EXACT_TASK_265_SOURCE_PUBLICATION"
+    assert active["next_milestone"] is None
+
+    for record in (milestone, task_265):
+        assert record["task_id"] == "TASK-265"
+        assert record["task_revision"] == 1
+        assert record["track_id"] == "P8_POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION"
+        assert record["milestone_id"] == "P8.POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION"
+        assert record["title"] == "Post-Real-Case Human Decision Inputs Selection"
+        assert record["status"] == "DONE"
+        assert record["completion_basis"] == "PUBLICATION_GATED"
+        assert record["classification"] == (
+            "POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION_ONLY"
+        )
+        assert record["authorization_owner"] == "HUMAN_BRAIN"
+        assert record["source_task_id"] == "TASK-264"
+        assert record["source_task_revision"] == 1
+        assert record["source_published_sha"] == TASK_264_PUBLISHED_SOURCE_SHA
+        assert record["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
+        assert record["authorized_source_id"] == "1731381331718341815"
+        assert record["stable_listing_reference"] == (
+            "https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-"
+            "che-do-sang-sac-usb-c/1731381331718341815"
+        )
+        assert record["carrier_module"] == "src/product_intelligence/tiktok_pdp_case_bundle.py"
+        assert record["canonical_cli_command"] == "tiktok-pdp-case-bundle"
+
+        # AC1: Human selection metadata preserved
+        hsel = record["human_selection"]
+        assert hsel["candidate_id"] == "REQUEST_HUMAN_DECISION_INPUTS"
+        assert hsel["selection_status"] == "EXPLICITLY_SELECTED"
+        assert hsel["selection_date"] == "2026-09-30"
+        assert hsel["source_task_id"] == "TASK-264"
+        assert hsel["source_task_revision"] == 1
+        assert hsel["source_published_sha"] == TASK_264_PUBLISHED_SOURCE_SHA
+        assert hsel["prior_candidate_set_mutated"] is False
+        assert hsel["prior_candidate_order_reinterpreted_as_ranking"] is False
+        assert hsel["historical_task_260_mutated"] is False
+
+        # AC2: Human-input supply envelope bounded to exactly ten allowed names; all UNSET
+        allowed = [
+            "budget",
+            "duration",
+            "exposure_controls",
+            "contribution_margin_threshold",
+            "success_failure_criteria",
+            "target_audience",
+            "quality_constraints",
+            "risk_constraints",
+            "risk_acceptance",
+            "decision_timing",
+        ]
+        assert record["allowed_human_input_names"] == allowed
+        assert record["unfilled_human_owned_inputs"] == allowed
+        assert record["human_input_supply_envelope"] == {k: "UNSET" for k in allowed}
+
+        # AC3: Decision-sufficiency mapping and epistemic boundaries separate from P7.4 / P7.5
+        dsm = record["decision_sufficiency_mapping"]
+        assert dsm["affiliate_economics"] == "NOT_ESTABLISHED"
+        assert dsm["market_traction"] == "POINT_IN_TIME_PDP_DISPLAY_OBSERVATIONS_ONLY"
+        assert dsm["creator_ecosystem"] == "UNREPRESENTED_BY_THIS_BUNDLE"
+        assert dsm["content_activity"] == "UNREPRESENTED_BY_THIS_BUNDLE"
+        assert dsm["audience_channel_fit"] == "UNREPRESENTED_BY_THIS_BUNDLE"
+        assert dsm["competition_saturation"] == "UNREPRESENTED_BY_THIS_BUNDLE"
+        assert dsm["human_owned_inputs"] == "UNSET"
+
+        ep = record["epistemic_boundary"]
+        assert ep["bundle_is_not_canonical_evidence"] is True
+        assert ep["evidence_is_not_product_truth"] is True
+        assert ep["snapshot_is_not_trend"] is True
+        assert ep["operation_success_is_not_field_validation_success"] is True
+        assert ep["market_test_readiness"] == "MARKET_TEST_READINESS_NOT_ESTABLISHED"
+        assert ep["affiliate_economics"] == "NOT_ESTABLISHED"
+        assert ep["source_identity_is_not_canonical_identity"] is True
+
+        assert record["market_test_readiness"] == "MARKET_TEST_READINESS_NOT_ESTABLISHED"
+        assert record["affiliate_economics"] == "NOT_ESTABLISHED"
+
+        # AC4: TASK-264 bounded observations and safety handling constraint preserved
+        assert record["authorized_bundle_attempts"] == 1
+        assert record["authorized_bundle_attempts_remaining"] == 0
+        assert record["bundle_execution_owner"] == "HUMAN_OPERATOR"
+        assert record["bundle_executed"] is True
+        assert record["bundle_operation_status"] == "SUCCESS"
+        assert record["human_brain_bundle_review_completed"] is True
+
+        prov = record["external_artifact_provenance"]
+        assert prov["manifest"]["filename"] == TASK_264_MANIFEST_FILENAME
+        assert prov["manifest"]["size_bytes"] == TASK_264_MANIFEST_SIZE_BYTES
+        assert prov["manifest"]["sha256"] == TASK_264_MANIFEST_SHA256
+        assert prov["projection"]["filename"] == TASK_264_PROJECTION_FILENAME
+        assert prov["projection"]["size_bytes"] == TASK_264_PROJECTION_SIZE_BYTES
+        assert prov["projection"]["sha256"] == TASK_264_PROJECTION_SHA256
+        assert prov["screenshot"]["filename"] == TASK_264_SCREENSHOT_FILENAME
+        assert prov["screenshot"]["size_bytes"] == TASK_264_SCREENSHOT_SIZE_BYTES
+        assert prov["screenshot"]["sha256"] == TASK_264_SCREENSHOT_SHA256
+        assert prov["observed_at"] == TASK_264_OBSERVED_AT
+
+        obs = record["point_in_time_observations"]
+        assert obs["product_title_observed"] == (
+            "Đèn LED Cảm Biến Chuyển Động Tự Động Bật Tắt Điều Chỉnh 3 Chế "
+            "Độ Sáng Gắn Tủ Quần Áo Hành Lang Cầu Thang Kèm Sạc USB-C Hoạt "
+            "Động Liên Tục 48H"
+        )
+        assert obs["current_price_observed"] == 33600.0
+        assert obs["original_price_observed"] == 68220.0
+        assert obs["displayed_discount_label"] == "-51%"
+        assert obs["shipping_label"] == "Free shipping"
+        assert obs["seller_display"] == "DaydreamHouse"
+        assert obs["rating_display"] == 3.8
+        assert obs["review_count_display"] == 108
+        assert obs["sold_count_display"] == "1.3K sold"
+        assert obs["selected_variant_display"] == "10cm*màu ấm áp"
+        assert obs["exact_visible_variant_labels"] == [
+            "10cm*màu ấm áp",
+            "10cm*trắng",
+            "20cm*màu ấm áp",
+            "20cm*trắng",
+            "30cm*màu ấm áp",
+            "30cm*trắng",
+            "50cm*màu ấm áp",
+            "50cm*trắng",
+        ]
+        assert obs["quantity_control_present"] is True
+        assert obs["buy_now_present"] is True
+
+        safety = record["screenshot_safety_review"]
+        assert safety["finding"] == (
+            "Visible profile/avatar in upper-right; no person identity inferred or recorded."
+        )
+        assert safety["source_screenshot_immutable"] is True
+        assert safety["screenshot_review_status"] == (
+            "REVIEWED_REDACTION_REQUIRED_BEFORE_FUTURE_FREEZE_OR_PUBLICATION"
+        )
+        assert safety["handling_constraint_only"] is True
+
+        assert record["price_role_resolution_complete"] is True
+        assert record["price_role_resolution_scope"] == (
+            "BOUNDED_FIXED_LISTING_COLLECTOR_VALIDATION_OBJECTIVE_ONLY"
+        )
+        assert record["selector_repair_complete"] is False
+        assert record["canonical_evidence_ingested"] is False
+
+        # AC6: Zero marketplace acquisition, live, or action authority
+        for auth_key in (
+            "live_bundle_capture_authority",
+            "automated_public_pdp_acquisition_authority",
+            "market_test_or_action_authority",
+            "second_invocation_authority",
+            "arbitrary_target_authority",
+            "replacement_target_authority",
+            "search_authority",
+            "batch_authority",
+            "inferred_identity_authority",
+            "variant_switching_authority",
+        ):
+            assert record[auth_key] == "NONE"
+        assert record["automatic_live_pilot"] is False
+        assert record["automatic_progression"] is False
+
+        # AC7: Exact post-publication handoff to HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY
+        assert record["next_milestone"] is None
+        assert record["post_run_engineering_successor"] is None
+        assert record["exact_post_publication_handoff"] == (
+            "HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY"
+        )
+        assert record["post_publication_handoff"] == (
+            "HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY"
+        )
+        assert record["effective_only_when"] == {
+            "semantic_review": "PASS",
+            "published_source": "EXACT_REVIEWED_CANDIDATE",
+            "canonical_main_equals_reviewed_candidate": True,
+        }
+
     # Handoff assertions
-    assert handoff["destination"] == (
-        "HUMAN_BRAIN_POST_REAL_CASE_BUNDLE_DECISION_SUFFICIENCY_SELECTION"
-    )
-    assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_264_SOURCE_PUBLICATION"
+    assert handoff["destination"] == "HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY"
+    assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_265_SOURCE_PUBLICATION"
     assert handoff["completed_commitment"] == (
-        "P8_POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_REVIEW_RECONCILIATION"
+        "P8_POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION"
     )
-    assert handoff["task_id"] == "TASK-264"
+    assert handoff["task_id"] == "TASK-265"
     assert handoff["task_revision"] == 1
-    assert handoff["source_task_id"] == "TASK-263"
-    assert handoff["source_task_revision"] == 4
-    assert handoff["source_run_id"] == "RUN-263-015"
-    assert handoff["source_review_id"] == "REVIEW-263-007"
-    assert handoff["source_published_sha"] == TASK_263_PUBLISHED_SOURCE_SHA
+    assert handoff["source_task_id"] == "TASK-264"
+    assert handoff["source_task_revision"] == 1
+    assert handoff["source_published_sha"] == TASK_264_PUBLISHED_SOURCE_SHA
     assert handoff["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
     assert handoff["selected_source_id"] == "1731381331718341815"
     assert handoff["stable_listing_reference"] == (
@@ -6217,9 +6424,13 @@ def test_task_264_reconciles_real_case_bundle_capture_and_review():
     assert handoff["affiliate_economics"] == "NOT_ESTABLISHED"
     assert handoff["next_milestone"] is None
     assert handoff["post_run_engineering_successor"] is None
-    assert handoff["mandatory_post_capture_handoff"] == (
-        "HUMAN_BRAIN_P8_REAL_CASE_BUNDLE_REVIEW"
+    assert handoff["mandatory_post_supply_handoff"] == (
+        "HUMAN_BRAIN_POST_DECISION_INPUTS_SUFFICIENCY_REVIEW"
     )
+    assert handoff["allowed_human_input_names"] == allowed
+    assert handoff["unfilled_human_owned_inputs"] == allowed
+    assert handoff["human_input_supply_envelope"] == {k: "UNSET" for k in allowed}
+
     case = handoff["actual_real_decision_case"]
     assert case["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
     assert case["record_type"] == "PILOT_CASE_SELECTION_ONLY"
@@ -6237,27 +6448,42 @@ def test_task_264_reconciles_real_case_bundle_capture_and_review():
     assert case["real_pilot_executed"] is True
     assert state["pending_commitments"] == []
 
-    # Document contents and governance invariants
+    # AC5 & AC8: Document contents and governance invariants
     for required in (
-        "POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_BRAIN_REVIEW_RECONCILIATION_ONLY",
-        TASK_263_PUBLISHED_SOURCE_SHA,
+        "POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION_ONLY",
+        TASK_264_PUBLISHED_SOURCE_SHA,
         "1731381331718341815",
+        "REQUEST_HUMAN_DECISION_INPUTS",
+        "HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY",
+        "HUMAN_BRAIN_POST_DECISION_INPUTS_SUFFICIENCY_REVIEW",
         "p8-real-case-manifest-v1.json",
         "p8-real-case-page-projection-v1.json",
         "p8-real-case-full-page-v1.png",
         "REVIEWED_REDACTION_REQUIRED_BEFORE_FUTURE_FREEZE_OR_PUBLICATION",
-        "HUMAN_BRAIN_POST_REAL_CASE_BUNDLE_DECISION_SUFFICIENCY_SELECTION",
         "BUNDLE_IS_NOT_CANONICAL_EVIDENCE",
+        "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY",
+        "HUMAN_INPUTS_ARE_NOT_MARKETPLACE_EVIDENCE",
+        "DECISION_TIMING_IS_NOT_CANONICAL_DEADLINE",
+        "VALUE_OF_INFORMATION_BEFORE_ENRICHMENT",
+        "MORE_DATA_IS_NOT_MORE_INTELLIGENCE",
         "MARKET_TEST_READINESS_NOT_ESTABLISHED",
         "NOT_ESTABLISHED",
+        "budget",
+        "duration",
+        "exposure_controls",
+        "contribution_margin_threshold",
+        "success_failure_criteria",
+        "target_audience",
+        "quality_constraints",
+        "risk_constraints",
+        "risk_acceptance",
+        "decision_timing",
     ):
         assert required in document
 
     for roadmap in ROADMAP_DOCS:
         text = roadmap.read_text(encoding="utf-8")
-        assert "TASK-264 is publication-gated DONE only as" in text
-        assert "POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_BRAIN_REVIEW_RECONCILIATION_ONLY" in text
-        assert "HUMAN_BRAIN_POST_REAL_CASE_BUNDLE_DECISION_SUFFICIENCY_SELECTION" in text
-        assert "p8-real-case-manifest-v1.json" in text
-        assert "p8-real-case-page-projection-v1.json" in text
-        assert "p8-real-case-full-page-v1.png" in text
+        assert "TASK-265 is publication-gated DONE only as" in text
+        assert "POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION_ONLY" in text
+        assert "REQUEST_HUMAN_DECISION_INPUTS" in text
+        assert "HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY" in text

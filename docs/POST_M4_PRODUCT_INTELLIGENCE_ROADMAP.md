@@ -1411,6 +1411,42 @@ On exact reviewed publication, planning hands off strictly to
 and no TASK-265 selected.
 See `docs/PHASE_8_POST_TASK263_REAL_CASE_BUNDLE_CAPTURE_AND_REVIEW_RECONCILIATION.md`.
 
+TASK-265 is publication-gated DONE only as
+`POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION_ONLY`.
+It canonicalizes the Human-approved post-TASK264 prospective selection of `REQUEST_HUMAN_DECISION_INPUTS`
+for the exact P8 real-commerce pilot (`p8-pilot-001-led-motion-tiktok-vn`, TikTok Shop Vietnam source ID
+`1731381331718341815`, listing `https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815`).
+Source lineage is exact TASK-264 publication at `7a8a1ed67146e4af53e3700d35080fd482cc0635`.
+The selection is recorded prospectively without mutating TASK-260 or TASK-264 history, and preserves
+`SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY`.
+
+The Human-input supply envelope is bounded to exactly ten allowed input names: `budget`, `duration`,
+`exposure_controls`, `contribution_margin_threshold`, `success_failure_criteria`, `target_audience`,
+`quality_constraints`, `risk_constraints`, `risk_acceptance`, and `decision_timing`.
+All ten inputs remain strictly `UNSET`; zero defaults, inferred values, or derivations from listing/marketplace
+observations are introduced. The envelope serves as planning/transport structure only and is not a new production
+schema, database, decision object, evidence profile, or Product Truth owner.
+Human-owned decision inputs remain strictly separate from P7.4 marketplace evidence and P7.5 Value of Information (VOI);
+marketplace evidence cannot determine them, and they are not modeled as evidence dimensions or VOI inquiries.
+`decision_timing` is Human-owned planning input only and creates no duplicate P7.3 deadline authority; any canonical
+decision deadline reconciliation requires a fresh separately authorized P7.3-owned change.
+
+All TASK-264 bounded observations, affiliate-economics unknowns (`affiliate_economics: NOT_ESTABLISHED`),
+unrepresented dimensions (`creator_ecosystem`, `content_activity`, `audience_channel_fit`, `competition_saturation`
+remain `UNREPRESENTED_BY_THIS_BUNDLE`), screenshot safety review finding and handling constraint
+(`REVIEWED_REDACTION_REQUIRED_BEFORE_FUTURE_FREEZE_OR_PUBLICATION`), consumed one-shot capture closure,
+`canonical_evidence_ingested: false`, and `selector_repair_complete: false` remain unchanged.
+Zero marketplace acquisition, live operation, Wave 0/1/2, authenticated affiliate lookup, market test, spend,
+or commerce action is authorized. Missing evidence dimensions do not become NEXT under `VALUE_OF_INFORMATION_BEFORE_ENRICHMENT`
+and `MORE_DATA_IS_NOT_MORE_INTELLIGENCE`.
+
+On exact reviewed publication, planning hands off strictly and exclusively to
+`HUMAN_OPERATOR_P8_DECISION_INPUTS_SUPPLY` with `next_milestone: null`, `pending_commitments: []`,
+`post_run_engineering_successor: null`, `automatic_progression: false`, and no TASK-266 preselected.
+Human supply after publication is not an engineering RUN and is not ordinary deterministic Runtime verification;
+supplied inputs require a fresh Human/Brain decision-sufficiency review before any later action may be considered.
+See `docs/PHASE_8_POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION.md`.
+
 
 
 ## 4. Authority invariants
