@@ -287,7 +287,7 @@ historical_task_266_active_track:
       canonical_main_equals_reviewed_candidate: true
   next_milestone: null
 
-active_track:
+historical_task_267_active_track:
   id: P8_ONE_SHOT_AUTHENTICATED_AFFILIATE_ECONOMICS_AUTHORIZATION
   title: "P8 One-Shot Authenticated Affiliate Economics Authorization"
   priority_owner: HUMAN
@@ -349,6 +349,81 @@ active_track:
       canonical_main_equals_reviewed_candidate: true
   next_milestone: null
 
+active_track:
+  id: P8_POST_TASK267_BLOCKED_ACCESS_OPERATION_RECONCILIATION
+  title: "P8 Post-TASK-267 Blocked Access Operation Reconciliation"
+  priority_owner: HUMAN
+  status: DONE
+  completion_basis: PUBLICATION_GATED
+  sequence_status: COMPLETE_ON_EXACT_TASK_268_SOURCE_PUBLICATION
+  current_milestone:
+    id: P8.POST_TASK267_BLOCKED_ACCESS_OPERATION_RECONCILIATION
+    task_id: TASK-268
+    task_revision: 1
+    title: "Post-TASK-267 Blocked Access Operation Reconciliation"
+    status: DONE
+    completion_basis: PUBLICATION_GATED
+    classification: POST_TASK267_BLOCKED_ACCESS_OPERATION_RECONCILIATION_AND_FRESH_DECISION_SUFFICIENCY_REVIEW_ONLY
+    authorization_owner: HUMAN_BRAIN
+    source_task_id: TASK-267
+    source_task_revision: 1
+    source_run_id: RUN-267-002
+    source_review_id: REVIEW-267-001
+    source_published_sha: 3f5149a4c1501fcf964a196c690c6f407492fbb3
+    context_id: p8-pilot-001-led-motion-tiktok-vn
+    selected_source_id: "1731381331718341815"
+    stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
+    identity_scope: SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY
+    human_decision_inputs: *task_266_human_decision_inputs
+    operation_reconciliation:
+      lookup_executed: true
+      authorized_authenticated_lookup_attempts: 1
+      authorized_authenticated_lookup_attempts_remaining: 0
+      operation_status: FAIL_CLOSED
+      access_failure_cause: UNRESOLVED_ACCOUNT_ELIGIBILITY_OR_ACCESS_ERROR
+      reviewable_authenticated_observations: 0
+      external_transport_envelope_status: NOT_SUPPLIED
+      authenticated_affiliate_lookup_authority: NONE
+      retry_authority: NONE
+      source_class: HUMAN_REPORTED_OPERATION_OUTCOME
+      evidence_status: NO_MARKETPLACE_EVIDENCE_CONTRIBUTED
+      canonical_evidence_ingested: false
+    affiliate_economics: NOT_ESTABLISHED
+    affiliate_eligibility: NOT_ESTABLISHED
+    affiliate_commission_rate: NOT_ESTABLISHED
+    estimated_commission_value: NOT_ESTABLISHED
+    decision_sufficiency_mapping:
+      affiliate_economics: NOT_ESTABLISHED
+      market_traction: POINT_IN_TIME_PDP_DISPLAY_OBSERVATIONS_ONLY
+      creator_ecosystem: UNREPRESENTED_BY_THIS_BUNDLE
+      content_activity: UNREPRESENTED_BY_THIS_BUNDLE
+      audience_channel_fit: UNREPRESENTED_BY_THIS_BUNDLE
+      competition_saturation: UNREPRESENTED_BY_THIS_BUNDLE
+      authenticated_affiliate_inquiry: CLOSED_FAIL_CLOSED_NO_RETRY_AUTHORITY
+    authenticated_affiliate_inquiry: CLOSED_FAIL_CLOSED_NO_RETRY_AUTHORITY
+    market_test_readiness: MARKET_TEST_READINESS_NOT_ESTABLISHED
+    market_test_or_action_authority: NONE
+    authenticated_affiliate_lookup_authority: NONE
+    retry_authority: NONE
+    public_pdp_independence_preserved: true
+    quality_and_risk_constraints_block_market_test_authorization: true
+    human_inputs_are_marketplace_evidence: false
+    p7_4_profile_constructed: false
+    p7_5_voi_plan_constructed: false
+    canonical_evidence_ingested: false
+    p7_3_deadline_mutated: false
+    deadline_reconciliation_requires_separate_p7_3_authorization: true
+    automatic_progression: false
+    next_milestone: null
+    post_run_engineering_successor: null
+    task_269_preselected: false
+    exact_post_publication_handoff: HUMAN_BRAIN_CURRENT_PILOT_DISPOSITION_SELECTION
+    effective_only_when:
+      semantic_review: PASS
+      published_source: EXACT_REVIEWED_CANDIDATE
+      canonical_main_equals_reviewed_candidate: true
+  next_milestone: null
+
 pending_commitments: []
 
 post_p7_planning_handoff:
@@ -367,65 +442,65 @@ post_p7_planning_handoff:
     outcome, roadmap, or future-domain authority into P8.0.
 
 post_p8_planning_handoff:
-  destination: HUMAN_OPERATOR_ONE_SHOT_AUTHENTICATED_AFFILIATE_ECONOMICS_LOOKUP_AND_REVIEW
-  status: EFFECTIVE_ON_EXACT_TASK_267_SOURCE_PUBLICATION
-  completed_commitment: P8_ONE_SHOT_AUTHENTICATED_AFFILIATE_ECONOMICS_AUTHORIZATION
-  prior_completed_commitment: P8_POST_HUMAN_INPUTS_DECISION_SUFFICIENCY_REVIEW
-  earlier_completed_commitment: P8_POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION
-  task_id: TASK-267
+  destination: HUMAN_BRAIN_CURRENT_PILOT_DISPOSITION_SELECTION
+  status: EFFECTIVE_ON_EXACT_TASK_268_SOURCE_PUBLICATION
+  completed_commitment: P8_POST_TASK267_BLOCKED_ACCESS_OPERATION_RECONCILIATION
+  prior_completed_commitment: P8_ONE_SHOT_AUTHENTICATED_AFFILIATE_ECONOMICS_AUTHORIZATION
+  earlier_completed_commitment: P8_POST_HUMAN_INPUTS_DECISION_SUFFICIENCY_REVIEW
+  task_id: TASK-268
   task_revision: 1
-  selection_classification: ONE_SHOT_AUTHENTICATED_AFFILIATE_ECONOMICS_AUTHORIZATION_ONLY
-  selection_source_task_id: TASK-266
-  authorization_source_run_id: RUN-266-002
-  authorization_source_review_id: REVIEW-266-001
-  authorization_source_published_sha: 96016e7601ae5d8b45d42376b4a16686abf0e15b
-  review_trigger: HUMAN_APPROVED_ONE_SHOT_AUTHENTICATED_AFFILIATE_ECONOMICS_LOOKUP
-  human_approval_date: "2026-09-30"
+  selection_classification: POST_TASK267_BLOCKED_ACCESS_OPERATION_RECONCILIATION_AND_FRESH_DECISION_SUFFICIENCY_REVIEW_ONLY
+  selection_source_task_id: TASK-267
+  reconciliation_source_run_id: RUN-267-002
+  reconciliation_source_review_id: REVIEW-267-001
+  reconciliation_source_published_sha: 3f5149a4c1501fcf964a196c690c6f407492fbb3
+  operation_outcome_trigger: HUMAN_REPORTED_BLOCKED_AUTHENTICATED_AFFILIATE_ACCESS
+  reconciliation_date: "2026-09-30"
   identity_scope: SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY
-  human_decision_inputs:
-    budget: {amount_vnd: 5000000, role: HARD_CEILING_NOT_SPENDING_TARGET}
-    duration: {days: 14}
-    exposure_controls: {initial_at_risk_tranche_vnd: 750000, mandatory_review_before_additional_exposure: true, total_budget_hard_cap_vnd: 5000000, automatic_second_tranche: false, automatic_scaling: false}
-    contribution_margin_threshold: {perspective: CREATOR_AFFILIATE, decision_formula: SETTLED_AFFILIATE_COMMISSION_MINUS_DIRECTLY_ATTRIBUTABLE_INCREMENTAL_VARIABLE_PILOT_COSTS, threshold: GT_0_VND}
-    success_failure_criteria:
-      success_candidate_requires: [EXACT_LISTING_AFFILIATE_ELIGIBILITY_ESTABLISHED, ECONOMICS_BASED_ON_OBSERVED_COMMISSION, CUMULATIVE_SETTLED_CONTRIBUTION_MARGIN_GT_0_VND, NO_APPROVED_RISK_ENVELOPE_BREACH, NO_LATER_SUPPLIED_QUALITY_OR_RISK_CONSTRAINT_BREACH, EVIDENCE_SUFFICIENT_FOR_LATER_HUMAN_BRAIN_REPEATABILITY_ASSESSMENT]
-      stop_failure_if: [ESTABLISHED_INELIGIBILITY, NO_PLAUSIBLE_PATH_TO_POSITIVE_CONTRIBUTION_MARGIN_WITHIN_APPROVED_EXPOSURE, CUMULATIVE_ECONOMIC_LOSS_REACHES_750000_VND, SERIOUS_BREACH_OF_LATER_SUPPLIED_QUALITY_OR_RISK_CONSTRAINTS]
-      inconclusive_if: [SETTLEMENT_OR_REFUND_EVIDENCE_INCOMPLETE, EXPOSURE_INSUFFICIENT]
-    target_audience: "người trẻ có thời lượng sử dụng mạng xã hội cao"
-    quality_constraints: UNSET
-    risk_constraints: UNSET
-    risk_acceptance: {percent_of_budget: 15, max_accepted_economic_loss_vnd: 750000, consequence: STOP_AND_REVIEW}
-    decision_timing: {checkpoint_day: 7, final_review_day: 14, role: HUMAN_PLANNING_ONLY}
+  human_decision_inputs: *task_266_human_decision_inputs
+  operation_reconciliation:
+    lookup_executed: true
+    authorized_authenticated_lookup_attempts: 1
+    authorized_authenticated_lookup_attempts_remaining: 0
+    operation_status: FAIL_CLOSED
+    access_failure_cause: UNRESOLVED_ACCOUNT_ELIGIBILITY_OR_ACCESS_ERROR
+    reviewable_authenticated_observations: 0
+    external_transport_envelope_status: NOT_SUPPLIED
+    authenticated_affiliate_lookup_authority: NONE
+    retry_authority: NONE
+    source_class: HUMAN_REPORTED_OPERATION_OUTCOME
+    evidence_status: NO_MARKETPLACE_EVIDENCE_CONTRIBUTED
+    canonical_evidence_ingested: false
+  affiliate_economics: NOT_ESTABLISHED
+  affiliate_eligibility: NOT_ESTABLISHED
+  affiliate_commission_rate: NOT_ESTABLISHED
+  estimated_commission_value: NOT_ESTABLISHED
+  decision_sufficiency_mapping:
+    affiliate_economics: NOT_ESTABLISHED
+    market_traction: POINT_IN_TIME_PDP_DISPLAY_OBSERVATIONS_ONLY
+    creator_ecosystem: UNREPRESENTED_BY_THIS_BUNDLE
+    content_activity: UNREPRESENTED_BY_THIS_BUNDLE
+    audience_channel_fit: UNREPRESENTED_BY_THIS_BUNDLE
+    competition_saturation: UNREPRESENTED_BY_THIS_BUNDLE
+    authenticated_affiliate_inquiry: CLOSED_FAIL_CLOSED_NO_RETRY_AUTHORITY
+  authenticated_affiliate_inquiry: CLOSED_FAIL_CLOSED_NO_RETRY_AUTHORITY
+  market_test_readiness: MARKET_TEST_READINESS_NOT_ESTABLISHED
+  market_test_or_action_authority: NONE
+  authenticated_affiliate_lookup_authority: NONE
+  retry_authority: NONE
+  public_pdp_independence_preserved: true
+  quality_and_risk_constraints_block_market_test_authorization: true
   human_inputs_are_marketplace_evidence: false
   p7_4_profile_constructed: false
   p7_5_voi_plan_constructed: false
+  canonical_evidence_ingested: false
   p7_3_deadline_mutated: false
   deadline_reconciliation_requires_separate_p7_3_authorization: true
-  additional_marketplace_acquisition_selected: true
-  target_audience_establishes_audience_channel_fit: false
-  quality_and_risk_constraints_block_market_test_authorization: true
-  highest_decision_impact_unresolved_marketplace_information_gap:
-    question: EXACT_LISTING_AUTHENTICATED_AFFILIATE_ELIGIBILITY_COMMISSION_RATE_AND_ESTIMATED_COMMISSION
-    source_requirement: LEGITIMATE_EXACT_LISTING_AUTHENTICATED_SOURCE
-    selection_scope: ONE_SHOT_EXACT_LISTING_THREE_FIELD_ONLY
-    acquisition_authorized: true
-  observation_allowlist: [affiliate_eligibility, affiliate_commission_rate, estimated_commission_value]
-  authoritative_source_surface: TIKTOK_AFFILIATE_UI
-  public_pdp_role: NON_AUTHORITATIVE_AUXILIARY_IDENTITY_REFERENCE_ONLY
-  external_transport_schema: authenticated-affiliate-economics-one-shot/v1
-  authorized_authenticated_lookup_attempts: 1
-  authorized_authenticated_lookup_attempts_remaining: 1
-  lookup_execution_owner: HUMAN_OPERATOR
-  lookup_executed: false
-  manual_login_session_captcha_owner: HUMAN_OPERATOR
-  automatic_credential_captcha_retry_proxy_stealth_evasion_bypass_authority: NONE
-  human_review_required: true
-  human_review_dispositions: [ACCEPT, REJECT, UNKNOWN]
-  source_evidence_is_canonical_truth: false
-  authenticated_affiliate_lookup_authority: ONE_SHOT_EXACT_LISTING_THREE_FIELD_ONLY
-  task_268_preselected: false
-  exact_post_publication_handoff: HUMAN_OPERATOR_ONE_SHOT_AUTHENTICATED_AFFILIATE_ECONOMICS_LOOKUP_AND_REVIEW
-  mandatory_post_lookup_handoff: HUMAN_REVIEW_OF_EACH_CONTRIBUTED_OBSERVATION
+  automatic_progression: false
+  next_milestone: null
+  post_run_engineering_successor: null
+  task_269_preselected: false
+  exact_post_publication_handoff: HUMAN_BRAIN_CURRENT_PILOT_DISPOSITION_SELECTION
   effective_only_when:
     semantic_review: PASS
     published_source: EXACT_REVIEWED_CANDIDATE
@@ -4020,6 +4095,70 @@ completed_milestones:
     post_run_engineering_successor: null
     task_268_preselected: false
     exact_post_publication_handoff: HUMAN_OPERATOR_ONE_SHOT_AUTHENTICATED_AFFILIATE_ECONOMICS_LOOKUP_AND_REVIEW
+    effective_only_when:
+      semantic_review: PASS
+      published_source: EXACT_REVIEWED_CANDIDATE
+      canonical_main_equals_reviewed_candidate: true
+
+  - task_id: TASK-268
+    task_revision: 1
+    track_id: P8_POST_TASK267_BLOCKED_ACCESS_OPERATION_RECONCILIATION
+    milestone_id: P8.POST_TASK267_BLOCKED_ACCESS_OPERATION_RECONCILIATION
+    title: "Post-TASK-267 Blocked Access Operation Reconciliation"
+    status: DONE
+    completion_basis: PUBLICATION_GATED
+    classification: POST_TASK267_BLOCKED_ACCESS_OPERATION_RECONCILIATION_AND_FRESH_DECISION_SUFFICIENCY_REVIEW_ONLY
+    authorization_owner: HUMAN_BRAIN
+    source_task_id: TASK-267
+    source_task_revision: 1
+    source_run_id: RUN-267-002
+    source_review_id: REVIEW-267-001
+    source_published_sha: 3f5149a4c1501fcf964a196c690c6f407492fbb3
+    context_id: p8-pilot-001-led-motion-tiktok-vn
+    selected_source_id: "1731381331718341815"
+    stable_listing_reference: https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-che-do-sang-sac-usb-c/1731381331718341815
+    identity_scope: SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY
+    human_decision_inputs: *task_266_human_decision_inputs
+    operation_reconciliation:
+      lookup_executed: true
+      authorized_authenticated_lookup_attempts: 1
+      authorized_authenticated_lookup_attempts_remaining: 0
+      operation_status: FAIL_CLOSED
+      access_failure_cause: UNRESOLVED_ACCOUNT_ELIGIBILITY_OR_ACCESS_ERROR
+      reviewable_authenticated_observations: 0
+      external_transport_envelope_status: NOT_SUPPLIED
+      authenticated_affiliate_lookup_authority: NONE
+      retry_authority: NONE
+      source_class: HUMAN_REPORTED_OPERATION_OUTCOME
+      evidence_status: NO_MARKETPLACE_EVIDENCE_CONTRIBUTED
+      canonical_evidence_ingested: false
+    affiliate_economics: NOT_ESTABLISHED
+    affiliate_eligibility: NOT_ESTABLISHED
+    affiliate_commission_rate: NOT_ESTABLISHED
+    estimated_commission_value: NOT_ESTABLISHED
+    decision_sufficiency_mapping:
+      affiliate_economics: NOT_ESTABLISHED
+      market_traction: POINT_IN_TIME_PDP_DISPLAY_OBSERVATIONS_ONLY
+      creator_ecosystem: UNREPRESENTED_BY_THIS_BUNDLE
+      content_activity: UNREPRESENTED_BY_THIS_BUNDLE
+      audience_channel_fit: UNREPRESENTED_BY_THIS_BUNDLE
+      competition_saturation: UNREPRESENTED_BY_THIS_BUNDLE
+      authenticated_affiliate_inquiry: CLOSED_FAIL_CLOSED_NO_RETRY_AUTHORITY
+    authenticated_affiliate_inquiry: CLOSED_FAIL_CLOSED_NO_RETRY_AUTHORITY
+    market_test_readiness: MARKET_TEST_READINESS_NOT_ESTABLISHED
+    market_test_or_action_authority: NONE
+    authenticated_affiliate_lookup_authority: NONE
+    retry_authority: NONE
+    public_pdp_independence_preserved: true
+    quality_and_risk_constraints_block_market_test_authorization: true
+    p7_4_profile_constructed: false
+    p7_5_voi_plan_constructed: false
+    canonical_evidence_ingested: false
+    automatic_progression: false
+    next_milestone: null
+    post_run_engineering_successor: null
+    task_269_preselected: false
+    exact_post_publication_handoff: HUMAN_BRAIN_CURRENT_PILOT_DISPOSITION_SELECTION
     effective_only_when:
       semantic_review: PASS
       published_source: EXACT_REVIEWED_CANDIDATE

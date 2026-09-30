@@ -198,6 +198,11 @@ P8_POST_REAL_CASE_HUMAN_DECISION_INPUTS_SELECTION_FILE = (
 P8_POST_HUMAN_INPUTS_DECISION_SUFFICIENCY_REVIEW_FILE = (
     REPO_ROOT / "docs" / "PHASE_8_POST_HUMAN_INPUTS_DECISION_SUFFICIENCY_REVIEW.md"
 )
+P8_POST_TASK267_BLOCKED_ACCESS_OPERATION_RECONCILIATION_FILE = (
+    REPO_ROOT
+    / "docs"
+    / "PHASE_8_POST_TASK267_BLOCKED_ACCESS_OPERATION_RECONCILIATION.md"
+)
 ROADMAP_DOCS = (
     REPO_ROOT / "docs" / "POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md",
     REPO_ROOT / "docs" / "POST_P5_P6_QUALITY_SCALE_ROADMAP.md",
@@ -6388,7 +6393,7 @@ def test_task_266_human_inputs_sufficiency_and_authorization_handoff():
 
 def test_task_267_one_shot_authenticated_affiliate_economics_authorization():
     state = load_yaml(ROADMAP_FILE)
-    active = state["active_track"]
+    active = state["historical_task_267_active_track"]
     milestone = active["current_milestone"]
     handoff = state["post_p8_planning_handoff"]
     completed = {item["task_id"]: item for item in state["completed_milestones"]}
@@ -6412,7 +6417,7 @@ def test_task_267_one_shot_authenticated_affiliate_economics_authorization():
     assert active["next_milestone"] is None
     assert state["pending_commitments"] == []
     assert record["milestone_id"] == milestone["id"]
-    for item in (milestone, record, handoff):
+    for item in (milestone, record):
         assert item["task_id"] == "TASK-267"
         assert item["task_revision"] == 1
         assert item["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
@@ -6456,9 +6461,10 @@ def test_task_267_one_shot_authenticated_affiliate_economics_authorization():
     for key in ("search_authority", "batch_authority", "other_listing_authority",
                 "automatic_acquisition_authority", "automatic_credential_captcha_retry_proxy_stealth_evasion_bypass_authority"):
         assert milestone[key] == "NONE"
-    assert handoff["destination"] == destination
-    assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_267_SOURCE_PUBLICATION"
-    assert handoff["task_268_preselected"] is False
+    assert milestone["exact_post_publication_handoff"] == destination
+    assert handoff["next_milestone"] is None
+    assert handoff["post_run_engineering_successor"] is None
+    assert handoff["automatic_progression"] is False
 
     assert list(envelope) == [
         "schema", "context_id", "source_id", "stable_listing_reference",
@@ -6489,3 +6495,143 @@ def test_task_267_one_shot_authenticated_affiliate_economics_authorization():
         text = roadmap.read_text(encoding="utf-8")
         assert "TASK-267" in text
         assert destination in text
+
+
+def test_task_268_post_task267_blocked_access_operation_reconciliation():
+    state = load_yaml(ROADMAP_FILE)
+    active = state["active_track"]
+    milestone = active["current_milestone"]
+    handoff = state["post_p8_planning_handoff"]
+    completed = {item["task_id"]: item for item in state["completed_milestones"]}
+    record = completed["TASK-268"]
+    prior = completed["TASK-267"]
+    document = P8_POST_TASK267_BLOCKED_ACCESS_OPERATION_RECONCILIATION_FILE.read_text(
+        encoding="utf-8"
+    )
+    envelope = yaml.safe_load(document.split("```yaml\n", 1)[1].split("\n```", 1)[0])
+    listing = (
+        "https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-"
+        "che-do-sang-sac-usb-c/1731381331718341815"
+    )
+    destination = "HUMAN_BRAIN_CURRENT_PILOT_DISPOSITION_SELECTION"
+
+    assert active["id"] == "P8_POST_TASK267_BLOCKED_ACCESS_OPERATION_RECONCILIATION"
+    assert active["sequence_status"] == "COMPLETE_ON_EXACT_TASK_268_SOURCE_PUBLICATION"
+    assert active["next_milestone"] is None
+    assert state["pending_commitments"] == []
+    assert record["milestone_id"] == milestone["id"]
+    for item in (milestone, record, handoff):
+        assert item["task_id"] == "TASK-268"
+        assert item["task_revision"] == 1
+        assert item["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
+        assert item["selected_source_id"] == "1731381331718341815"
+        assert item["stable_listing_reference"] == listing
+        assert item["identity_scope"] == "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY"
+        assert item["human_decision_inputs"] == prior["human_decision_inputs"]
+        assert item["human_decision_inputs"]["quality_constraints"] == "UNSET"
+        assert item["human_decision_inputs"]["risk_constraints"] == "UNSET"
+        reconciliation = item["operation_reconciliation"]
+        assert reconciliation["lookup_executed"] is True
+        assert reconciliation["authorized_authenticated_lookup_attempts"] == 1
+        assert reconciliation["authorized_authenticated_lookup_attempts_remaining"] == 0
+        assert reconciliation["operation_status"] == "FAIL_CLOSED"
+        assert reconciliation["access_failure_cause"] == "UNRESOLVED_ACCOUNT_ELIGIBILITY_OR_ACCESS_ERROR"
+        assert reconciliation["reviewable_authenticated_observations"] == 0
+        assert reconciliation["external_transport_envelope_status"] == "NOT_SUPPLIED"
+        assert reconciliation["authenticated_affiliate_lookup_authority"] == "NONE"
+        assert reconciliation["retry_authority"] == "NONE"
+        assert reconciliation["source_class"] == "HUMAN_REPORTED_OPERATION_OUTCOME"
+        assert reconciliation["evidence_status"] == "NO_MARKETPLACE_EVIDENCE_CONTRIBUTED"
+        assert reconciliation["canonical_evidence_ingested"] is False
+        assert item["affiliate_economics"] == "NOT_ESTABLISHED"
+        assert item["affiliate_eligibility"] == "NOT_ESTABLISHED"
+        assert item["affiliate_commission_rate"] == "NOT_ESTABLISHED"
+        assert item["estimated_commission_value"] == "NOT_ESTABLISHED"
+        assert item["market_test_readiness"] == "MARKET_TEST_READINESS_NOT_ESTABLISHED"
+        assert item["market_test_or_action_authority"] == "NONE"
+        assert item["authenticated_affiliate_lookup_authority"] == "NONE"
+        assert item["retry_authority"] == "NONE"
+        assert item["public_pdp_independence_preserved"] is True
+        assert item["quality_and_risk_constraints_block_market_test_authorization"] is True
+        assert item["p7_4_profile_constructed"] is False
+        assert item["p7_5_voi_plan_constructed"] is False
+        assert item["canonical_evidence_ingested"] is False
+        assert item["automatic_progression"] is False
+        assert item["next_milestone"] is None
+        assert item["post_run_engineering_successor"] is None
+        assert item["task_269_preselected"] is False
+        assert item["exact_post_publication_handoff"] == destination
+        assert item["effective_only_when"] == {
+            "semantic_review": "PASS",
+            "published_source": "EXACT_REVIEWED_CANDIDATE",
+            "canonical_main_equals_reviewed_candidate": True,
+        }
+    assert milestone["classification"] == "POST_TASK267_BLOCKED_ACCESS_OPERATION_RECONCILIATION_AND_FRESH_DECISION_SUFFICIENCY_REVIEW_ONLY"
+    assert milestone["source_task_id"] == "TASK-267"
+    assert milestone["source_task_revision"] == 1
+    assert milestone["source_run_id"] == "RUN-267-002"
+    assert milestone["source_review_id"] == "REVIEW-267-001"
+    assert milestone["source_published_sha"] == "3f5149a4c1501fcf964a196c690c6f407492fbb3"
+    assert milestone["decision_sufficiency_mapping"] == {
+        "affiliate_economics": "NOT_ESTABLISHED",
+        "market_traction": "POINT_IN_TIME_PDP_DISPLAY_OBSERVATIONS_ONLY",
+        "creator_ecosystem": "UNREPRESENTED_BY_THIS_BUNDLE",
+        "content_activity": "UNREPRESENTED_BY_THIS_BUNDLE",
+        "audience_channel_fit": "UNREPRESENTED_BY_THIS_BUNDLE",
+        "competition_saturation": "UNREPRESENTED_BY_THIS_BUNDLE",
+        "authenticated_affiliate_inquiry": "CLOSED_FAIL_CLOSED_NO_RETRY_AUTHORITY",
+    }
+    assert handoff["destination"] == destination
+    assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_268_SOURCE_PUBLICATION"
+    assert handoff["task_269_preselected"] is False
+
+    assert envelope["context_id"] == milestone["context_id"]
+    assert envelope["source_id"] == milestone["selected_source_id"]
+    assert envelope["stable_listing_reference"] == listing
+    assert envelope["operation_reconciliation"]["operation_status"] == "FAIL_CLOSED"
+    assert envelope["operation_reconciliation"]["access_failure_cause"] == "UNRESOLVED_ACCOUNT_ELIGIBILITY_OR_ACCESS_ERROR"
+    assert envelope["operation_reconciliation"]["lookup_executed"] is True
+    assert envelope["operation_reconciliation"]["authorized_authenticated_lookup_attempts_remaining"] == 0
+    assert envelope["affiliate_economics"]["affiliate_eligibility"] == "NOT_ESTABLISHED"
+    assert envelope["affiliate_economics"]["affiliate_commission_rate"] == "NOT_ESTABLISHED"
+    assert envelope["affiliate_economics"]["estimated_commission_value"] == "NOT_ESTABLISHED"
+    assert envelope["decision_sufficiency"]["authenticated_affiliate_inquiry"] == "CLOSED_FAIL_CLOSED_NO_RETRY_AUTHORITY"
+    assert envelope["decision_sufficiency"]["market_test_readiness"] == "MARKET_TEST_READINESS_NOT_ESTABLISHED"
+    assert envelope["post_publication_handoff"]["destination"] == destination
+
+    for required in (
+        "POST_TASK267_BLOCKED_ACCESS_OPERATION_RECONCILIATION_AND_FRESH_DECISION_SUFFICIENCY_REVIEW_ONLY",
+        "UNRESOLVED_ACCOUNT_ELIGIBILITY_OR_ACCESS_ERROR",
+        "CLOSED_FAIL_CLOSED_NO_RETRY_AUTHORITY",
+        "MARKET_TEST_READINESS_NOT_ESTABLISHED",
+        "HUMAN_BRAIN_CURRENT_PILOT_DISPOSITION_SELECTION",
+        "HUMAN_REPORTED_OPERATION_OUTCOME",
+        "NO_MARKETPLACE_EVIDENCE_CONTRIBUTED",
+        "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY",
+        "POINT_IN_TIME_PDP_DISPLAY_OBSERVATIONS_ONLY",
+        "quality_constraints: UNSET",
+        "risk_constraints: UNSET",
+        "33600 VND",
+        "68220 VND",
+        "-51%",
+        "free shipping",
+        "DaydreamHouse",
+        "3.8",
+        "108",
+        "1.3K sold",
+        "10cm*màu ấm áp",
+        "TASK-230",
+        "TASK-231",
+        "TASK-233",
+        "TASK-264",
+        "TASK-266",
+        "TASK-267",
+        "3f5149a4c1501fcf964a196c690c6f407492fbb3",
+    ):
+        assert required in document
+
+    for roadmap in ROADMAP_DOCS:
+        text = roadmap.read_text(encoding="utf-8")
+        assert "TASK-268" in text
+        assert destination in text
+        assert "no TASK-269 preselection" in text
