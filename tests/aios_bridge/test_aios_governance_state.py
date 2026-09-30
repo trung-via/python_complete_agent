@@ -6273,7 +6273,7 @@ def test_task_265_selects_only_human_decision_inputs_supply():
 
 def test_task_266_human_inputs_sufficiency_and_authorization_handoff():
     state = load_yaml(ROADMAP_FILE)
-    active = state["active_track"]
+    active = state["historical_task_266_active_track"]
     milestone = active["current_milestone"]
     handoff = state["post_p8_planning_handoff"]
     completed = {item["task_id"]: item for item in state["completed_milestones"]}
@@ -6368,10 +6368,7 @@ def test_task_266_human_inputs_sufficiency_and_authorization_handoff():
     }
     assert milestone["screenshot_review_status"] == "REVIEWED_REDACTION_REQUIRED_BEFORE_FUTURE_FREEZE_OR_PUBLICATION"
     assert milestone["authorized_bundle_attempts_remaining"] == 0
-    assert handoff["destination"] == destination
-    assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_266_SOURCE_PUBLICATION"
-    assert handoff["authenticated_affiliate_lookup_authority"] == "NONE"
-    assert handoff["task_267_preselected"] is False
+    assert milestone["exact_post_publication_handoff"] == destination
     assert handoff["next_milestone"] is None
     assert handoff["post_run_engineering_successor"] is None
     assert handoff["automatic_progression"] is False
@@ -6387,3 +6384,105 @@ def test_task_266_human_inputs_sufficiency_and_authorization_handoff():
         assert "TASK-266" in text
         assert destination in text
         assert "no TASK-267 preselection" in text
+
+
+def test_task_267_one_shot_authenticated_affiliate_economics_authorization():
+    state = load_yaml(ROADMAP_FILE)
+    active = state["active_track"]
+    milestone = active["current_milestone"]
+    handoff = state["post_p8_planning_handoff"]
+    completed = {item["task_id"]: item for item in state["completed_milestones"]}
+    record = completed["TASK-267"]
+    prior = completed["TASK-266"]
+    document = (
+        REPO_ROOT / "docs" / "PHASE_8_ONE_SHOT_AUTHENTICATED_AFFILIATE_ECONOMICS_AUTHORIZATION.md"
+    ).read_text(encoding="utf-8")
+    envelope = yaml.safe_load(document.split("```yaml\n", 1)[1].split("\n```", 1)[0])
+    listing = (
+        "https://shop.tiktok.com/vn/pdp/den-led-cam-bien-chuyen-dong-3-"
+        "che-do-sang-sac-usb-c/1731381331718341815"
+    )
+    destination = "HUMAN_OPERATOR_ONE_SHOT_AUTHENTICATED_AFFILIATE_ECONOMICS_LOOKUP_AND_REVIEW"
+    allowlist = [
+        "affiliate_eligibility", "affiliate_commission_rate", "estimated_commission_value",
+    ]
+
+    assert active["id"] == "P8_ONE_SHOT_AUTHENTICATED_AFFILIATE_ECONOMICS_AUTHORIZATION"
+    assert active["sequence_status"] == "COMPLETE_ON_EXACT_TASK_267_SOURCE_PUBLICATION"
+    assert active["next_milestone"] is None
+    assert state["pending_commitments"] == []
+    assert record["milestone_id"] == milestone["id"]
+    for item in (milestone, record, handoff):
+        assert item["task_id"] == "TASK-267"
+        assert item["task_revision"] == 1
+        assert item["context_id"] == "p8-pilot-001-led-motion-tiktok-vn"
+        assert item["selected_source_id"] == "1731381331718341815"
+        assert item["stable_listing_reference"] == listing
+        assert item["identity_scope"] == "SOURCE_IDENTITY_IS_NOT_CANONICAL_IDENTITY"
+        assert item["human_decision_inputs"] == prior["human_decision_inputs"]
+        assert item["human_decision_inputs"]["quality_constraints"] == "UNSET"
+        assert item["human_decision_inputs"]["risk_constraints"] == "UNSET"
+        assert item["observation_allowlist"] == allowlist
+        assert item["authoritative_source_surface"] == "TIKTOK_AFFILIATE_UI"
+        assert item["external_transport_schema"] == "authenticated-affiliate-economics-one-shot/v1"
+        assert item["authorized_authenticated_lookup_attempts"] == 1
+        assert item["authorized_authenticated_lookup_attempts_remaining"] == 1
+        assert item["lookup_execution_owner"] == "HUMAN_OPERATOR"
+        assert item["lookup_executed"] is False
+        assert item["authenticated_affiliate_lookup_authority"] == "ONE_SHOT_EXACT_LISTING_THREE_FIELD_ONLY"
+        assert item["human_review_required"] is True
+        assert item["canonical_evidence_ingested"] is False
+        assert item["affiliate_economics"] == "NOT_ESTABLISHED"
+        assert item["market_test_readiness"] == "MARKET_TEST_READINESS_NOT_ESTABLISHED"
+        assert item["market_test_or_action_authority"] == "NONE"
+        assert item["automatic_progression"] is False
+        assert item["next_milestone"] is None
+        assert item["post_run_engineering_successor"] is None
+        assert item["task_268_preselected"] is False
+        assert item["exact_post_publication_handoff"] == destination
+        assert item["effective_only_when"] == {
+            "semantic_review": "PASS",
+            "published_source": "EXACT_REVIEWED_CANDIDATE",
+            "canonical_main_equals_reviewed_candidate": True,
+        }
+    assert milestone["classification"] == "ONE_SHOT_AUTHENTICATED_AFFILIATE_ECONOMICS_AUTHORIZATION_ONLY"
+    assert milestone["source_task_id"] == "TASK-266"
+    assert milestone["source_run_id"] == "RUN-266-002"
+    assert milestone["source_review_id"] == "REVIEW-266-001"
+    assert milestone["source_published_sha"] == "96016e7601ae5d8b45d42376b4a16686abf0e15b"
+    assert milestone["human_review_dispositions"] == ["ACCEPT", "REJECT", "UNKNOWN"]
+    assert milestone["source_evidence_is_canonical_truth"] is False
+    assert milestone["manual_login_session_captcha_owner"] == "HUMAN_OPERATOR"
+    for key in ("search_authority", "batch_authority", "other_listing_authority",
+                "automatic_acquisition_authority", "automatic_credential_captcha_retry_proxy_stealth_evasion_bypass_authority"):
+        assert milestone[key] == "NONE"
+    assert handoff["destination"] == destination
+    assert handoff["status"] == "EFFECTIVE_ON_EXACT_TASK_267_SOURCE_PUBLICATION"
+    assert handoff["task_268_preselected"] is False
+
+    assert list(envelope) == [
+        "schema", "context_id", "source_id", "stable_listing_reference",
+        "observed_at", "attempt_number", "operation_status", "observations",
+    ]
+    assert envelope["schema"] == milestone["external_transport_schema"]
+    assert envelope["context_id"] == milestone["context_id"]
+    assert envelope["source_id"] == milestone["selected_source_id"]
+    assert envelope["stable_listing_reference"] == listing
+    assert envelope["attempt_number"] == 1
+    assert list(envelope["observations"][0]) == [
+        "name", "displayed_value", "source_surface", "binding_basis", "artifact_ref",
+        "variant_context",
+    ]
+    assert envelope["observations"][0]["name"] in allowlist
+    assert envelope["observations"][0]["source_surface"] == "TIKTOK_AFFILIATE_UI"
+    for required in (
+        "FAIL_CLOSED", "INCONCLUSIVE", "RFC 3339", "exact source ID visibly present",
+        "direct product-link destination", "SOURCE_EVIDENCE_IS_NOT_CANONICAL_TRUTH",
+        "no automatic or implied retry", "quality_constraints: UNSET", "risk_constraints: UNSET",
+        "TASK-229", "TASK-268", "outside canonical repository truth",
+    ):
+        assert required in document
+    for roadmap in ROADMAP_DOCS:
+        text = roadmap.read_text(encoding="utf-8")
+        assert "TASK-267" in text
+        assert destination in text
