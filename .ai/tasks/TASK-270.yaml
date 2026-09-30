@@ -1,60 +1,73 @@
 task_id: TASK-270
-revision: 1
+revision: 2
 
 goal: >
-  Perform the fresh post-P8 Human/Brain roadmap selection after exact reviewed TASK-269
-  publication, record the newly observed AIOS Brain two-stage-audit authoring-enforcement gap
-  as non-blocking deferred maintenance for later upstream repair/adoption, select
-  Media/Creative Intelligence as the next Python Agent intelligence-domain track on a bounded
-  architecture/value basis, and establish only MCI.0 Domain Semantic Foundation as the unique
-  next planning commitment. TASK-270 is planning/governance only and implements no new product
-  capability, asset generation, acquisition, distribution, campaign, or commerce action.
+  Canonicalize the Human-approved post-P8 roadmap direction selecting
+  Media/Creative Intelligence as the next Python Agent intelligence-domain track,
+  establish only MCI.0_DOMAIN_SEMANTIC_FOUNDATION as the unique next commitment,
+  and record the AIOS Brain two-stage-audit authoring-enforcement gap as non-blocking
+  deferred maintenance for later upstream repair/adoption. TASK-270 revision 2 is
+  planning/governance only and implements no media/creative production capability,
+  acquisition, distribution, campaign, or commerce action.
 
 problem: >
-  Canonical main is 3074b3df912506c681cc5e30d5aaa256bbeb0ae6, the exact reviewed and
-  published TASK-269 candidate after RUN-269-001 / REVIEW-269-001. P8 is closed for the current
-  real-decision case as NO_TEST_AUTHORIZED_NOW and hands control to
-  HUMAN_BRAIN_POST_P8_ROADMAP_SELECTION with no next milestone, no pending commitment, and no
-  TASK-270 preselection. The Product Contract defines Python Agent as composable Commerce
-  Intelligence and names Media/Creative Intelligence, Distribution Intelligence, Commerce
-  Operations Intelligence, and future justified domains only as architectural directions.
-  Canonical source shows mature Product Intelligence, completed P7 Commerce Opportunity
-  Intelligence, P8 decision-loop composition, immutable Product Source Pack media provenance,
-  and an existing technical src/images substrate, but no canonical Media/Creative,
-  Distribution, or Commerce Operations intelligence domain. A fresh roadmap decision is therefore
-  required rather than inventing a phase by sequence number. Separately, during TASK-269 authoring
-  the Brain observed that active brain-high-value-v2 two-stage audit material exists but the
-  current canonical AUTHOR_TASK path can still accept a directly authored TASK body without a
-  validated AUDIT_RECONCILE handoff proof. The Human explicitly directed that this AIOS gap be
-  recorded for later AIOS repair while Python Agent product work continues.
+  TASK-270 revision 1 was authored and executed as RUN-270-001 with exact candidate
+  ec2db0e05b405cc52bf2ab3df6ecd8d01c29d044 and Runtime verification PASS, but the
+  Brain's mandatory second-pass audit found an AUTHORITY_BOUNDARY blocker before
+  Semantic Review: revision 1 attempted to canonicalize MEDIA_CREATIVE_INTELLIGENCE
+  and MCI.0 as Human-priority roadmap state even though the Human had only issued
+  generic continuation intent and canonical post-TASK-269 state had no unique NEXT.
+  No REVIEW-270 decision or publication occurred and canonical main therefore remains
+  d2f705b2e7750a44c2d27573ffcc2d4cf573a570, containing only TASK-270 r1 authoring.
+  The Human has now explicitly approved the proposed Media/Creative Intelligence
+  direction and MCI.0, and explicitly requested execution with Antigravity high.
+  Under PJC7 this new Human intent is new semantic work and must be represented by
+  TASK-270 revision 2 rather than retroactively legitimizing or reviewing the r1
+  candidate. Revision 2 must preserve the architectural/value reasoning of r1,
+  bind the new Human approval explicitly, preserve r1 candidate as unpublished
+  history, and produce the same bounded planning outcome only under correct authority.
 
 assumptions:
   - >
-    Exact post-P8 planning source is TASK-269 revision 1 / RUN-269-001 / REVIEW-269-001 /
-    published SHA 3074b3df912506c681cc5e30d5aaa256bbeb0ae6.
+    Canonical main at TASK-270 r2 authoring is exactly
+    d2f705b2e7750a44c2d27573ffcc2d4cf573a570.
   - >
-    Human intent is to continue the Python Agent product roadmap now and to record, but not
-    prioritize, the Brain two-stage-audit authoring-enforcement gap for a later AIOS-renew fix.
+    Exact post-P8 planning source remains TASK-269 revision 1 / RUN-269-001 /
+    REVIEW-269-001 / published SHA
+    3074b3df912506c681cc5e30d5aaa256bbeb0ae6.
+  - >
+    TASK-270 revision 1 / RUN-270-001 candidate
+    ec2db0e05b405cc52bf2ab3df6ecd8d01c29d044 was never semantically approved
+    or published. It is not canonical roadmap state and must remain unpublished history.
+  - >
+    The Human has now explicitly approved MEDIA_CREATIVE_INTELLIGENCE as the next
+    domain track and MCI.0_DOMAIN_SEMANTIC_FOUNDATION as the next commitment on
+    2026-09-30. This approval is prospective authority for revision 2 only.
+  - >
+    The Human also explicitly selected Antigravity with reasoning effort high for
+    TASK-270 r2 execution. Executor selection does not change semantic authority.
+  - >
+    The Human separately directed that the AIOS Brain two-stage-audit authoring-
+    enforcement gap be recorded for later AIOS repair while Python Agent proceeds.
   - >
     The sole active downstream AIOS-renew pin remains
-    44eee353eda376c9db8cd88d97184d3122651bf5 and current downstream conformance remains
-    publication-certified for that exact pin.
+    44eee353eda376c9db8cd88d97184d3122651bf5.
   - >
-    .ai/brain-audit-profiles.yaml profile brain-high-value-v2/version 2 is ACTIVE semantic
-    material and prescribes CONSTRUCT -> ADVERSARIAL_AUDIT_AND_RECONCILE for applicable Brain
-    flows. Its presence is cognitive/protocol capability, not proof that every current
-    AUTHOR_TASK canonicalization was audit-gated.
+    brain-high-value-v2/version 2 remains active semantic audit material. TASK-270
+    r2 itself has undergone CONSTRUCT then ADVERSARIAL_AUDIT_AND_RECONCILE before
+    authoring, but current canonical authoring ingress still does not hard-require
+    proof of that audit; that enforcement deficiency remains deferred AIOS debt.
   - >
-    Existing src/images code is a technical image processing/storage substrate and the Product
-    Source Pack's future Derived AI Assets note is architectural precedent only. Neither is
-    canonical Media/Creative Intelligence semantic ownership or implementation authorization.
+    Existing src/images code is technical substrate only; ProductSourcePack media
+    and its Derived AI Assets note are evidence/source architecture and precedent,
+    not Media/Creative Intelligence domain ownership.
   - >
-    Product Intelligence remains sole owner of its existing source evidence, product/source
-    identity, canonical catalog/truth, and product media provenance semantics. Commerce
-    Opportunity Intelligence and the P8 decision loop retain their existing authorities.
+    Product Intelligence retains its existing source evidence, source media provenance,
+    source identity, canonical product identity/truth/catalog, and ProductSourcePack
+    ownership. Commerce Opportunity Intelligence and P8 decision-loop authorities remain unchanged.
   - >
-    No canonical Research Assurance track is present on current main and TASK-270 must not
-    reconstruct or import one from chat history.
+    No canonical Research Assurance track exists on current main and none is imported
+    from chat history or model memory.
 
 scope:
   inspect:
@@ -65,8 +78,8 @@ scope:
     - .ai/roadmap-state.yaml
     - .ai/aios-adoption-state.yaml
     - .ai/brain-audit-profiles.yaml
-    - .ai/tasks/TASK-211.yaml
     - .ai/tasks/TASK-269.yaml
+    - .ai/tasks/TASK-270.yaml
     - docs/PHASE_8_CURRENT_PILOT_NO_TEST_NOW_DISPOSITION_AND_CASE_CLOSURE.md
     - docs/PHASE_6_PRODUCT_SOURCE_PACK.md
     - docs/POST_M4_PRODUCT_INTELLIGENCE_ROADMAP.md
@@ -86,165 +99,162 @@ scope:
 
 non_goals:
   - >
-    Implement Media/Creative Intelligence production code, create src/media_creative_intelligence,
-    generate or transform images/video, remove backgrounds, render studio assets, synthesize camera
-    views, construct creative briefs, score creatives, call an LLM/image/video provider, or mutate
-    any source/derived media.
+    Treat RUN-270-001 or its candidate as reviewed, published, canonical, or retrospectively
+    authorized by the Human's later approval.
   - >
-    Implement Distribution Intelligence, Commerce Operations Intelligence, a generic cross-domain
-    agent, universal commerce score, or cross-domain decision aggregator.
+    Submit REVIEW-270 against the revision-1 candidate, repair RUN-270-001, or hide the
+    r1 authority defect inside review/correction.
   - >
-    Reopen P8, retry Affiliate Center access, acquire additional marketplace evidence, execute a
-    market test, spend money, publish content, run traffic, or perform any commerce action.
+    Implement Media/Creative Intelligence production code, create a new domain package,
+    generate/transform media, construct creative briefs, select provider/model/storage,
+    score creatives, or call LLM/image/video providers.
   - >
-    Reopen Product Intelligence P6.4-P6.6 or Commerce Opportunity enrichment merely because work is
-    technically possible or P8 retained unknown fields.
+    Implement Distribution Intelligence, Commerce Operations Intelligence, a generic
+    cross-domain agent, universal commerce score, or cross-domain decision authority.
   - >
-    Treat src/images, ProductSourcePack media, the future Derived AI Assets note, or any legacy
-    pipeline as existing Media/Creative Intelligence authority.
+    Reopen P8, retry Affiliate access, acquire marketplace evidence, execute market tests,
+    spend, publish content, run traffic, or perform commerce action.
   - >
-    Modify current AIOS pin, adoption/conformance state, Brain audit registries, ingress workflows,
-    Runtime, Reviewer, Publisher, executor policy, or locally patch/fork AIOS to solve the deferred
-    two-stage audit enforcement gap.
+    Reopen Product Intelligence or Commerce Opportunity enrichment merely for completeness.
   - >
-    Author TASK-271, preselect an implementation executor/provider/model, or commit future MCI.1+
-    milestones as mandatory work.
+    Treat src/images, ProductSourcePack media, or Derived AI Assets precedent as already
+    satisfying Media/Creative Intelligence semantics.
   - >
-    Recover roadmap or Research Assurance commitments from chat history, model memory, screenshots,
-    or noncanonical context.
+    Modify AIOS pin/adoption/conformance, Brain audit registries, ingress, Runtime, Reviewer,
+    Publisher, workflows, or locally patch the deferred audit-enforcement gap.
+  - >
+    Author TASK-271, implement MCI.0, or commit any MCI.1+ candidate as mandatory work.
+  - >
+    Import Research Assurance or any other roadmap from noncanonical memory/history.
 
 constraints:
   hard:
     - >
-      Classify TASK-270 exactly as POST_P8_COMMERCE_INTELLIGENCE_DOMAIN_SELECTION_AND_DEFERRED_AIOS_DEBT_RECORD_ONLY.
-      It is Human/Brain planning/governance only.
+      Classify TASK-270 revision 2 exactly as
+      POST_P8_HUMAN_APPROVED_MEDIA_CREATIVE_INTELLIGENCE_SELECTION_AND_DEFERRED_AIOS_DEBT_RECORD_ONLY.
     - >
-      Bind the transition to exact TASK-269 publication
-      3074b3df912506c681cc5e30d5aaa256bbeb0ae6 and preserve the closed P8 state without
-      reinterpretation: NO_TEST_AUTHORIZED_NOW remains current-context-only and is not product
-      rejection, negative economics, affiliate ineligibility, or a market-test outcome.
+      Explicitly record the authority correction:
+      prior_revision 1;
+      prior_run_id RUN-270-001;
+      prior_candidate_sha ec2db0e05b405cc52bf2ab3df6ecd8d01c29d044;
+      prior_candidate_status UNPUBLISHED_BLOCKED_BY_BRAIN_STAGE2_AUTHORITY_AUDIT;
+      prior_semantic_review_submitted false;
+      prior_publication_occurred false;
+      correction_basis NEW_EXPLICIT_HUMAN_DIRECTION;
+      human_approval_date 2026-09-30.
+      Do not rewrite r1 as Runtime failure.
     - >
-      Add exactly one new deferred_maintenance record with id
+      Bind the roadmap transition to exact TASK-269 publication
+      3074b3df912506c681cc5e30d5aaa256bbeb0ae6 and preserve P8 closure:
+      NO_TEST_AUTHORIZED_NOW remains current-context-only and is not product rejection,
+      affiliate ineligibility, negative economics, or market-test outcome.
+    - >
+      Record the Human-selected next domain exactly as MEDIA_CREATIVE_INTELLIGENCE and
+      selected next commitment exactly as MCI.0_DOMAIN_SEMANTIC_FOUNDATION. The roadmap
+      priority owner is HUMAN and the explicit approval basis is
+      HUMAN_APPROVED_AFTER_TASK270_R1_STAGE2_AUTHORITY_BLOCKER.
+    - >
+      Preserve the qualitative architecture/value comparison across Product Intelligence
+      extension, Commerce Opportunity evidence enrichment, Media/Creative Intelligence,
+      Distribution Intelligence, Commerce Operations Intelligence, and additional
+      cross-domain composition. Non-selected alternatives are current-context deferred,
+      not rejected.
+    - >
+      Add exactly one deferred_maintenance record with id
       AIOS_BRAIN_TWO_STAGE_AUDIT_AUTHORING_ENFORCEMENT_GAP, status DEFERRED,
-      authority HUMAN_BRAIN_PLANNING, blocking_current_track false, discovered_in_task TASK-269,
-      task_revision 1, and downstream_pin 44eee353eda376c9db8cd88d97184d3122651bf5.
-      Its reason must state that brain-high-value-v2 two-stage audit material is active but the
-      current canonical AUTHOR_TASK boundary can still canonicalize a directly supplied TASK body
-      without requiring a validated AUDIT_RECONCILE/CANDIDATE handoff proof. It must not claim that
-      the audit profile itself is absent or that TASK-269 publication is invalid.
+      authority HUMAN_BRAIN_PLANNING, blocking_current_track false,
+      discovered_in_task TASK-269, task_revision 1, and downstream_pin
+      44eee353eda376c9db8cd88d97184d3122651bf5.
+      Preserve the two existing deferred records unchanged.
     - >
-      The deferred maintenance resolution policy must require an upstream AIOS-renew
-      authority-preserving fix that makes validated audited Brain handoff proof mandatory at the
-      canonical mutation boundary for applicable audited Brain authoring flows, followed by normal
-      exact reviewed/source-published downstream pin adoption and repository-binding activation as
-      required. No Python Agent local workaround, duplicate semantic authority, prompt-only fix,
-      memory dependency, workflow-carrier semantic fork, or silent pin retarget is allowed.
+      The deferred gap reason must state that brain-high-value-v2 two-stage audit material
+      is active but canonical AUTHOR_TASK mutation can still accept a directly supplied
+      TASK body without validated AUDIT_RECONCILE/CANDIDATE proof. It must not invalidate
+      TASK-269 or claim the audit profile is absent.
     - >
-      Perform a qualitative post-P8 domain architecture/value audit across at least:
-      continued Product Intelligence extension, further Commerce Opportunity evidence enrichment,
-      Media/Creative Intelligence, Distribution Intelligence, Commerce Operations Intelligence,
-      and additional cross-domain composition. Preserve uncertainty and do not use a universal
-      numeric score or pretend the comparison is timeless.
+      Its resolution policy must require an upstream AIOS-renew authority-preserving hard
+      gate at the canonical mutation boundary followed by normal exact reviewed/source-
+      published downstream adoption and repository binding. No Python Agent local workaround,
+      prompt-only fix, memory dependency, carrier semantic fork, duplicate authority, or
+      silent pin retarget is allowed.
     - >
-      Select MEDIA_CREATIVE_INTELLIGENCE as the sole next domain track on the current canonical
-      context because it can reuse existing bounded product/source media and technical image
-      substrate while establishing a missing product-semantic owner, can progress initially without
-      the authenticated Affiliate access that closed the P8 inquiry, and creates a useful third
-      composable intelligence domain before deeper cross-domain composition. This selection is a
-      roadmap decision, not evidence that media/creative work has been implemented or validated.
+      Establish MCI.0 only as architecture/semantic-foundation work defining ownership and
+      boundaries among immutable source media/evidence, derived/inferred creative assets,
+      creative hypotheses, creative decision context, evaluation/measurement, and future
+      generation/transformation. Preserve SOURCE_EVIDENCE_IS_NOT_DERIVED_ASSET,
+      DERIVED_ASSET_IS_NOT_SOURCE_EVIDENCE, SCORE_IS_NOT_INTELLIGENCE,
+      RECOMMENDATION_IS_NOT_DECISION, and INTELLIGENCE_IS_NOT_DECISION.
     - >
-      Explicitly defer Distribution Intelligence and Commerce Operations Intelligence because no
-      current canonical dedicated domain substrate or sufficiently exercised action/outcome loop
-      justifies making either NEXT. Defer further Product Intelligence/Commerce Opportunity
-      enrichment because the closed P8 case demonstrated the stop/VOI boundary and no new current
-      decision need authorizes enrichment for its own sake. These are current-context deferrals,
-      not permanent rejections.
+      Product Intelligence remains sole owner of source media provenance, source identity,
+      canonical product identity/truth/catalog, and ProductSourcePack semantics. MCI may
+      later consume those inputs but cannot become shadow evidence, identity, product-truth,
+      approval, persistence, ranking, or commerce-decision authority.
     - >
-      Establish exactly one unique next commitment:
-      MCI.0_DOMAIN_SEMANTIC_FOUNDATION under active track MEDIA_CREATIVE_INTELLIGENCE.
-      MCI.0 is architecture/semantic-foundation work only: define ownership and boundaries among
-      immutable source media/evidence, derived/inferred creative assets, creative hypotheses,
-      creative decision context, evaluation/measurement, and future generation/transformation.
-      It must preserve SOURCE_EVIDENCE_IS_NOT_DERIVED_ASSET, DERIVED_ASSET_IS_NOT_SOURCE_EVIDENCE,
-      SCORE_IS_NOT_INTELLIGENCE, RECOMMENDATION_IS_NOT_DECISION, and
-      INTELLIGENCE_IS_NOT_DECISION semantics.
+      Existing src/images remains technical substrate only. Do not modify or relabel it as
+      MCI authority and do not claim it satisfies MCI.0.
     - >
-      MCI.0 must explicitly preserve Product Intelligence ownership of source media provenance,
-      source identity, canonical product identity/truth/catalog, and existing ProductSourcePack
-      semantics. Media/Creative Intelligence may consume those inputs later but must not become a
-      shadow evidence, identity, product-truth, approval, persistence, ranking, or commerce-decision
-      authority.
+      Record MCI.1+ only as nonbinding candidate directions if mentioned. No generation,
+      transformation, provider/model, storage, metric, score, distribution, campaign, or
+      action mechanism becomes authorized.
     - >
-      Existing src/images modules remain technical substrate only. TASK-270 may reference them as
-      reuse candidates but may not rename them into domain authority, modify them, or assert that
-      they satisfy MCI.0.
+      On exact reviewed TASK-270 r2 publication, active_track becomes
+      MEDIA_CREATIVE_INTELLIGENCE with priority_owner HUMAN; current_milestone and
+      next_milestone are MCI.0_DOMAIN_SEMANTIC_FOUNDATION with status NEXT;
+      pending_commitments contains exactly [MCI.0_DOMAIN_SEMANTIC_FOUNDATION];
+      task_271_preselected false; post_run_engineering_successor null;
+      automatic_progression false; handoff HUMAN_BRAIN_MCI_0_TASK_AUTHORING.
     - >
-      Record MCI.1+ only, if useful, as nonbinding future candidate directions rather than pending
-      commitments. No generation, provider, model, storage, evaluation metric, creative score,
-      distribution, campaign, or action mechanism becomes authorized from TASK-270.
+      Preserve immutable TASK-269 history and TASK-270 r1/RUN-270-001 unpublished history.
+      Planning must not claim MCI.0 implementation, Runtime PASS, review PASS, or publication
+      before those future events occur.
     - >
-      On exact reviewed TASK-270 publication, active_track becomes MEDIA_CREATIVE_INTELLIGENCE,
-      current_milestone is MCI.0_DOMAIN_SEMANTIC_FOUNDATION with status NEXT, next_milestone equals
-      MCI.0_DOMAIN_SEMANTIC_FOUNDATION, and pending_commitments contains exactly that one commitment.
-      task_271_preselected remains false, post_run_engineering_successor remains null, and automatic
-      progression remains false. The handoff is HUMAN_BRAIN_MCI_0_TASK_AUTHORING.
-    - >
-      Preserve TASK-269 and all prior TASK/RUN/REVIEW/publication history as immutable historical
-      truth. Roadmap planning does not claim MCI.0 implementation, Runtime PASS, review PASS, or
-      publication before those future events occur.
-    - >
-      Modify exactly the five authorized planning/documentation/governance-test paths and zero
-      production Python. Preserve unique direct-child YAML keys and the existing two deferred
-      maintenance records unchanged while adding the new third record.
+      Modify exactly the five authorized documentation/planning/governance-test paths and
+      zero production Python. Preserve unique direct-child YAML keys.
     - >
       Runtime owns deterministic verification; Semantic Reviewer owns independent judgment;
-      Publisher owns publication. Executor must not implement MCI.0, self-review, publish, or start
-      TASK-271.
+      Publisher owns publication. Executor must not self-review, publish, implement MCI.0,
+      or start TASK-271.
 
 acceptance:
   - id: AC1
     condition: >
-      Exact post-P8 state is reconciled from published TASK-269 and the Human directive to continue
-      Python Agent, without reopening P8 or fabricating an existing post-P8 NEXT.
+      TASK-270 r2 records the revision-1 Stage-2 authority blocker and unpublished candidate
+      accurately, then binds the new explicit Human approval prospectively without retroactive review.
   - id: AC2
     condition: >
-      The AIOS Brain two-stage-audit authoring-enforcement gap is recorded exactly once as
-      non-blocking DEFERRED maintenance with exact downstream pin, bounded reason, and upstream-only
-      fix/adoption policy; the two prior deferred records remain unchanged.
+      MEDIA_CREATIVE_INTELLIGENCE and MCI.0_DOMAIN_SEMANTIC_FOUNDATION are selected under
+      explicit Human authority, while P8 closure and all non-selected roadmap alternatives retain
+      their correct bounded semantics.
   - id: AC3
     condition: >
-      The architecture/value audit compares the six required current-context alternatives
-      qualitatively and preserves the reason each non-selected alternative is deferred rather than
-      rejected.
+      The required six-way qualitative architecture/value comparison remains present and does
+      not use a universal numeric score or imply permanent rejection of deferred domains.
   - id: AC4
     condition: >
-      MEDIA_CREATIVE_INTELLIGENCE is selected as the sole next domain track without claiming that
-      src/images, ProductSourcePack media, Derived AI Assets notes, or any other substrate already
-      implements that domain.
+      The AIOS Brain two-stage audit authoring-enforcement gap is recorded exactly once as
+      non-blocking DEFERRED maintenance with exact downstream pin and upstream-only resolution policy.
   - id: AC5
     condition: >
-      MCI.0_DOMAIN_SEMANTIC_FOUNDATION is the only NEXT commitment and defines semantic ownership
-      and source-vs-derived/creative-intelligence boundaries while preserving Product Intelligence
-      and other existing domain authorities.
+      MCI.0 is the sole NEXT commitment and defines semantic ownership boundaries without
+      treating src/images/ProductSourcePack/Derived AI Assets precedent as existing MCI authority.
   - id: AC6
     condition: >
-      No MCI production implementation, generation/transformation, provider/model selection,
-      scoring, Distribution/Operations implementation, enrichment collector, market test, or
-      commerce action is authorized or performed.
+      No MCI production code, generation/transformation, provider/model selection, scoring,
+      Distribution/Operations implementation, enrichment, market test, or commerce action occurs.
   - id: AC7
     condition: >
-      Exact reviewed TASK-270 publication leaves pending_commitments exactly
+      Exact reviewed TASK-270 r2 publication leaves pending_commitments exactly
       [MCI.0_DOMAIN_SEMANTIC_FOUNDATION], next_milestone MCI.0_DOMAIN_SEMANTIC_FOUNDATION,
       task_271_preselected false, post_run_engineering_successor null, automatic_progression false,
-      and handoff HUMAN_BRAIN_MCI_0_TASK_AUTHORING.
+      priority_owner HUMAN, and handoff HUMAN_BRAIN_MCI_0_TASK_AUTHORING.
   - id: AC8
     condition: >
-      Candidate changes exactly the five authorized planning/documentation/governance-test paths,
-      zero production code, preserves unique direct-child YAML keys and immutable prior lineage,
-      is clean, descends from canonical TASK-270 base, and contains no outside-scope mutation.
+      Candidate changes exactly the five authorized paths, zero production code, preserves unique
+      direct-child YAML keys and immutable prior lineage, is clean, descends from the canonical
+      TASK-270 r2 base, and contains no outside-scope mutation.
 
 verification:
   policy: minimum-sufficient-v1
   required:
-    - python -m pytest tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task270-primary
+    - python -m pytest tests/aios_bridge/test_aios_governance_state.py -q --basetemp=.git/aios/pytest-task270-r2-primary
     - git diff --check
