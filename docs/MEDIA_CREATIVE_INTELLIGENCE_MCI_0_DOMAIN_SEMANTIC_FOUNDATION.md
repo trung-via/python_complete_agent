@@ -184,10 +184,10 @@ MCI.0 strictly separates semantic domain concepts from underlying technical subs
   - Their presence does **not** establish Media/Creative Intelligence domain semantics. An `ImageArtifact` storage key is a technical pointer, not an MCI semantic concept.
   - Technical components must not be retroactively rebranded as domain models without canonical architectural design.
 - **Provider & Model Neutrality**:
-  - MCI.0 selects **no LLM, multimodal model, diffusion model, generative model, or vision provider** (e.g. OpenAI, Anthropic, Google Gemini, Midjourney, Stability AI).
+  - MCI.0 selects **no LLM, multimodal model, diffusion model, generative model, generator, or vision provider** (e.g. OpenAI, Anthropic, Google Gemini, Midjourney, Stability AI).
   - MCI.0 selects **no prompt strategy, pipeline framework, orchestrator, or agent architecture**.
 - **System Neutrality**:
-  - MCI.0 selects **no asset storage backend, database, vector index, or caching layer**.
+  - MCI.0 selects **no asset storage backend, database, vector store, vector index, or caching layer**.
   - MCI.0 selects **no scoring engine, evaluation harness, or automated testing suite**.
   - MCI.0 selects **no ad network API, distribution pipeline, or campaign manager**.
 
