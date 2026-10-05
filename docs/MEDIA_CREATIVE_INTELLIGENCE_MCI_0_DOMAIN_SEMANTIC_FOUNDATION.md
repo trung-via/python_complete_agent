@@ -18,6 +18,8 @@ MCI operates as an advisory interpretation layer over canonical upstream artifac
 - **Does NOT absorb Distribution Intelligence**: Channel selection, campaign setup, traffic routing, budget allocation, bidding strategies, ad publishing, and distribution operations remain distinct future or external authorities.
 - **Does NOT possess Decision or Action Authority**: MCI provides advisory hypotheses, lineage tracking, and contextual assessment. It never decides whether to launch a creative, authorizes spend, approves a product, or executes commerce actions.
 
+MCI composition uses explicit references and lineage only and must not create a shadow authority for Product Intelligence, Commerce Opportunity Intelligence, raw evidence, distribution, approval, decision, persistence, ranking, or action.
+
 ---
 
 ## 2. Conceptual Semantic Concepts
