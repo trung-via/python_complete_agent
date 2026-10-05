@@ -512,8 +512,12 @@ active_track:
     human_approval_date: "2026-09-30"
   current_milestone:
     id: MCI.0_DOMAIN_SEMANTIC_FOUNDATION
+    task_id: TASK-271
+    task_revision: 1
     title: Media/Creative Intelligence Domain Semantic Foundation
-    status: NEXT
+    status: DONE
+    completion_basis: PUBLICATION_GATED
+    classification: MCI_0_DOMAIN_SEMANTIC_FOUNDATION_ONLY
     scope: ARCHITECTURE_AND_SEMANTIC_FOUNDATION_ONLY
     ownership_boundary: >-
       Define ownership and relationships among immutable source media/evidence,
@@ -525,16 +529,20 @@ active_track:
       Media/Creative Intelligence may later consume these inputs without becoming
       shadow evidence, identity, product-truth, approval, persistence, ranking,
       or commerce-decision authority.
-    semantic_invariants: [SOURCE_EVIDENCE_IS_NOT_DERIVED_ASSET, DERIVED_ASSET_IS_NOT_SOURCE_EVIDENCE, SCORE_IS_NOT_INTELLIGENCE, RECOMMENDATION_IS_NOT_DECISION, INTELLIGENCE_IS_NOT_DECISION]
+    semantic_invariants: [SOURCE_EVIDENCE_IS_NOT_DERIVED_ASSET, DERIVED_ASSET_IS_NOT_SOURCE_EVIDENCE, SCORE_IS_NOT_INTELLIGENCE, RECOMMENDATION_IS_NOT_DECISION, INTELLIGENCE_IS_NOT_DECISION, DERIVED_ASSET_LINEAGE_IS_NOT_PRODUCT_TRUTH, CREATIVE_FIDELITY_IS_NOT_PRODUCT_TRUTH, ASSET_EXISTENCE_IS_NOT_EFFECTIVENESS, CREATIVE_MEASUREMENT_IS_NOT_CAUSAL_ATTRIBUTION, CREATIVE_WINNER_IS_CONTEXTUAL, PLACEMENT_REFERENCE_IS_NOT_DISTRIBUTION_AUTHORITY]
     technical_substrate_only: [src/images, ProductSourcePack_media, Derived_AI_Assets_note]
     implementation_authorized: false
-    task_271_preselected: false
+    task_272_preselected: false
     post_run_engineering_successor: null
     automatic_progression: false
-    exact_post_publication_handoff: HUMAN_BRAIN_MCI_0_TASK_AUTHORING
-  next_milestone: MCI.0_DOMAIN_SEMANTIC_FOUNDATION
+    exact_post_publication_handoff: HUMAN_BRAIN_POST_MCI_0_ROADMAP_SELECTION
+    effective_only_when:
+      semantic_review: PASS
+      published_source: EXACT_REVIEWED_CANDIDATE
+      canonical_main_equals_reviewed_candidate: true
+  next_milestone: null
 
-pending_commitments: [MCI.0_DOMAIN_SEMANTIC_FOUNDATION]
+pending_commitments: []
 
 post_p8_domain_selection:
   task_id: TASK-270
@@ -569,6 +577,28 @@ post_p8_domain_selection:
     It does not claim MCI.0 implementation, Runtime PASS, semantic review PASS,
     publication, market-test outcome, or any new product authority. MCI.1 and
     later directions are nonbinding candidates only.
+
+post_mci_0_planning_handoff:
+  destination: HUMAN_BRAIN_POST_MCI_0_ROADMAP_SELECTION
+  status: EFFECTIVE_ON_EXACT_TASK_271_SOURCE_PUBLICATION
+  completed_commitment: MCI.0_DOMAIN_SEMANTIC_FOUNDATION
+  task_id: TASK-271
+  task_revision: 1
+  classification: MCI_0_DOMAIN_SEMANTIC_FOUNDATION_ONLY
+  source_task_id: TASK-270
+  source_task_revision: 2
+  source_published_sha: fd2a07fcf5e4634ac0dcf6b1aa1d9f9c8dae9b11
+  pending_commitments: []
+  next_milestone: null
+  task_272_preselected: false
+  post_run_engineering_successor: null
+  automatic_progression: false
+  boundary: >-
+    MCI.0 domain semantic foundation is completed as architecture and semantic
+    contracts only. No production MCI capability, code, generation, transformation,
+    scoring, distribution, market-test, or commerce action was authorized or implemented.
+    MCI.1 and later directions are nonbinding candidate directions requiring a fresh
+    Human/Brain roadmap selection.
 
 post_p7_planning_handoff:
   destination: P8_REAL_COMMERCE_DECISION_LOOP_COMPOSITION
@@ -4357,6 +4387,51 @@ completed_milestones:
     replacement_pilot_selected: false
     replacement_channel_selected: false
     exact_post_publication_handoff: HUMAN_BRAIN_POST_P8_ROADMAP_SELECTION
+    effective_only_when:
+      semantic_review: PASS
+      published_source: EXACT_REVIEWED_CANDIDATE
+      canonical_main_equals_reviewed_candidate: true
+
+  - task_id: TASK-271
+    task_revision: 1
+    track_id: MEDIA_CREATIVE_INTELLIGENCE
+    milestone_id: MCI.0_DOMAIN_SEMANTIC_FOUNDATION
+    title: Media/Creative Intelligence Domain Semantic Foundation
+    status: DONE
+    completion_basis: PUBLICATION_GATED
+    classification: MCI_0_DOMAIN_SEMANTIC_FOUNDATION_ONLY
+    scope: ARCHITECTURE_AND_SEMANTIC_FOUNDATION_ONLY
+    source_task_id: TASK-270
+    source_task_revision: 2
+    source_published_sha: fd2a07fcf5e4634ac0dcf6b1aa1d9f9c8dae9b11
+    ownership_boundary: >-
+      Define ownership and relationships among immutable source media/evidence,
+      derived or inferred creative assets, creative hypotheses, creative decision
+      context, evaluation/measurement, and future generation/transformation.
+    preserves_product_intelligence: >-
+      Product Intelligence retains source media provenance, source identity,
+      canonical product identity/truth/catalog, and ProductSourcePack semantics.
+      Media/Creative Intelligence may later consume these inputs without becoming
+      shadow evidence, identity, product-truth, approval, persistence, ranking,
+      or commerce-decision authority.
+    semantic_invariants:
+      - SOURCE_EVIDENCE_IS_NOT_DERIVED_ASSET
+      - DERIVED_ASSET_IS_NOT_SOURCE_EVIDENCE
+      - SCORE_IS_NOT_INTELLIGENCE
+      - RECOMMENDATION_IS_NOT_DECISION
+      - INTELLIGENCE_IS_NOT_DECISION
+      - DERIVED_ASSET_LINEAGE_IS_NOT_PRODUCT_TRUTH
+      - CREATIVE_FIDELITY_IS_NOT_PRODUCT_TRUTH
+      - ASSET_EXISTENCE_IS_NOT_EFFECTIVENESS
+      - CREATIVE_MEASUREMENT_IS_NOT_CAUSAL_ATTRIBUTION
+      - CREATIVE_WINNER_IS_CONTEXTUAL
+      - PLACEMENT_REFERENCE_IS_NOT_DISTRIBUTION_AUTHORITY
+    technical_substrate_only: [src/images, ProductSourcePack_media, Derived_AI_Assets_note]
+    implementation_authorized: false
+    task_272_preselected: false
+    post_run_engineering_successor: null
+    automatic_progression: false
+    exact_post_publication_handoff: HUMAN_BRAIN_POST_MCI_0_ROADMAP_SELECTION
     effective_only_when:
       semantic_review: PASS
       published_source: EXACT_REVIEWED_CANDIDATE
