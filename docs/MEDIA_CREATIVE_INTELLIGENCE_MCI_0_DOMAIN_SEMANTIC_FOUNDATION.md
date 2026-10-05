@@ -80,7 +80,7 @@ MCI.0 establishes **exactly four conceptual semantic concepts**. In MCI.0, these
 - **Derivation Classification**: Records the transformation category (e.g., background removal, studio render, re-framing, visual crop, resolution adjustment, overlay composition).
 - **Temporal and Step Lineage**: Preserves the derivation path, input hashes, transformation timestamp, and processing steps.
 - **Strict Epistemic Isolation (Lineage != Fidelity != Effectiveness)**:
-  - Provenance and lineage prove **origin and transformation history only**; they do **not** prove factual fidelity to the physical product.
+  - Lineage proves origin and transformation history only: provenance/lineage proves origin and transformation history only and does not prove factual fidelity to the physical product (Lineage != Product Truth).
   - High aesthetic or visual fidelity does **not** prove canonical Product Truth. A photorealistic render can depict false product features.
   - Valid derivation and asset existence do **not** imply creative or commercial effectiveness. Storing or generating an asset is not performance.
   - A `DerivedCreativeAsset` is never promoted to source evidence, canonical product truth, or a catalog asset.
