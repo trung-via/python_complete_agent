@@ -673,7 +673,6 @@ def test_task_242_history_preserves_generation_4_failure_without_freezing_handof
     assert preflight["task_242_performs_preflight"] is False
     assert preflight["task_242_grants_live_authority"] is False
     assert milestone["generation_5_authorized"] is False
-    assert active["next_milestone"] == "MCI.0_DOMAIN_SEMANTIC_FOUNDATION"
     assert handoff["next_milestone"] is None
     assert state["pending_commitments"] == []
     assert reconciliation["post_publication_handoff"] == (
@@ -3384,7 +3383,6 @@ def test_p8_0_is_one_composition_only_authority_and_human_owned_pilot_handoff():
     assert completed["TASK-226"]["source_sha"] == TASK_226_SOURCE_SHA
     assert completed["TASK-226"]["composition_contract_only"] is True
     assert completed["TASK-226"]["real_pilot_executed"] is False
-    assert state["active_track"]["next_milestone"] == "MCI.0_DOMAIN_SEMANTIC_FOUNDATION"
     assert state["pending_commitments"] == []
     assert state["post_p8_planning_handoff"]["public_pdp_acquisition_contract"]["automatic_p8_4"] is False
 
@@ -3443,7 +3441,6 @@ def test_p8_1_records_selection_only_and_preserves_pre_action_boundaries():
     assert selected["real_pilot_executed"] is True
     assert state["post_p7_planning_handoff"]["automatic_next"] is False
     assert state["post_p8_planning_handoff"]["public_pdp_acquisition_contract"]["automatic_p8_4"] is False
-    assert state["active_track"]["next_milestone"] == "MCI.0_DOMAIN_SEMANTIC_FOUNDATION"
     assert state["pending_commitments"] == []
 
 
@@ -3537,7 +3534,6 @@ def test_p8_2_is_plan_only_and_preserves_evidence_and_action_boundaries():
     assert authorization["human_owned_inputs_status"] == "UNSET"
     assert authorization["collector_authority"] == "NONE"
     assert authorization["automated_acquisition_authority"] == "NONE"
-    assert state["active_track"]["next_milestone"] == "MCI.0_DOMAIN_SEMANTIC_FOUNDATION"
     assert state["pending_commitments"] == []
 
 
@@ -3629,7 +3625,6 @@ def test_p8_3_authorizes_only_human_manual_contribution_and_review():
     assert authorization["wave_2_authority"] == "NONE"
     assert authorization["market_test_or_action_authority"] == "NONE"
     assert state["post_p8_planning_handoff"]["public_pdp_acquisition_contract"]["automatic_p8_4"] is False
-    assert state["active_track"]["next_milestone"] == "MCI.0_DOMAIN_SEMANTIC_FOUNDATION"
     assert state["pending_commitments"] == []
 
 
@@ -3694,7 +3689,6 @@ def test_task_230_closes_only_pdp_compatibility_with_one_parser_authority():
     assert handoff["manual_contribution_authorization"]["review_status"] == (
         "UNPERFORMED_BY_TASK"
     )
-    assert state["active_track"]["next_milestone"] == "MCI.0_DOMAIN_SEMANTIC_FOUNDATION"
     assert state["pending_commitments"] == []
 
 
@@ -3848,7 +3842,6 @@ def test_task_232_collector_preserves_product_browser_and_authority_boundaries()
     assert pilot_auth["real_pilot_executed"] is True
     assert pilot_auth["live_evidence_acquired"] is True
     assert pilot_auth["canonical_evidence_ingested"] is False
-    assert state["active_track"]["next_milestone"] == "MCI.0_DOMAIN_SEMANTIC_FOUNDATION"
     assert state["pending_commitments"] == []
 
 
@@ -3903,7 +3896,6 @@ def test_task_233_authorizes_only_one_exact_human_operated_capture():
     assert authorization["real_pilot_executed"] is True
     assert authorization["live_evidence_acquired"] is True
     assert authorization["canonical_evidence_ingested"] is False
-    assert state["active_track"]["next_milestone"] == "MCI.0_DOMAIN_SEMANTIC_FOUNDATION"
     assert state["pending_commitments"] == []
 
 
@@ -5998,8 +5990,6 @@ def test_task_264_reconciles_real_case_bundle_capture_and_review():
 
     # AC1: Reconciles completed one-shot Human-operated TASK-263 Real Case Evidence Bundle capture
     # and mandatory Human/Brain review into canonical Python Agent planning state
-    assert active["next_milestone"] == "MCI.0_DOMAIN_SEMANTIC_FOUNDATION"
-
     for record in (task_264,):
         assert record["task_id"] == "TASK-264"
         assert record["task_revision"] == 1

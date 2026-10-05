@@ -2,7 +2,7 @@
 
 TASK-271 revision 1 canonicalizes `MCI.0_DOMAIN_SEMANTIC_FOUNDATION` as the bounded semantic foundation of the Human-selected `MEDIA_CREATIVE_INTELLIGENCE` domain following exact reviewed TASK-270 publication (`fd2a07fcf5e4634ac0dcf6b1aa1d9f9c8dae9b11`).
 
-This task is classified strictly as `MCI_0_DOMAIN_SEMANTIC_FOUNDATION_ONLY`. It defines semantic architecture, conceptual boundaries, and governance constraints only. It authorizes and implements **zero production Python code under `src/`**, creates no `media_creative_intelligence` executable package, selects no providers or models, generates no media assets, and performs no distribution, scoring, campaign, market-test, or commerce actions.
+This task is classified strictly as `MCI_0_DOMAIN_SEMANTIC_FOUNDATION_ONLY`. It defines semantic architecture, conceptual boundaries, and governance constraints only. It makes no production implementation claim. It authorizes and implements **zero production Python code under `src/`**, creates no `media_creative_intelligence` executable package, selects no providers or models, generates no media assets, and performs no distribution, scoring, campaign, market-test, or commerce actions.
 
 ---
 
